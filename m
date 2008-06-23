@@ -1,7 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next 09/15]bnx2x: Add support for BCM57711 HW
-Date: Mon, 23 Jun 2008 19:02:18 +0300
-Message-ID: <1214236938.3690.52.camel@lb-tlvb-eliezer>
+Subject: [PATCH net-next 07/15]bnx2x: New microcode part 2/3
+Date: Mon, 23 Jun 2008 19:02:07 +0300
+Message-ID: <1214236928.3690.50.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,9369 +9,3423 @@ Cc: "Michael Chan" <mchan@broadcom.com>
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2457 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1221 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754855AbYFWQCd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 12:02:33 -0400
+	id S1754942AbYFWQCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2008 12:02:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Supporting the 57711 and 57711E - refers to in the code as E1H. The
-57710 is referred to as E1.
-
-To support the new members in the family, the bnx2x structure was
-divided to 3 parts: common, port and function. These changes caused some
-rearrangement in the bnx2x.h file.
-
-A set of accessories macros were added to make access to the bnx2x
-structure more readable
+The new Microcode BLOB - broken into a separate patch to make it small
+enough for the mailing list
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/Kconfig         |    1 +
- drivers/net/bnx2x.h         |  739 +++++----
- drivers/net/bnx2x_fw_defs.h |  483 ++++--
- drivers/net/bnx2x_hsi.h     |  708 ++++++---
- drivers/net/bnx2x_init.h    |   20 +-
- drivers/net/bnx2x_link.c    |   11 +-
- drivers/net/bnx2x_main.c    | 3875 +++++++++++++++++++++++++++----------------
- drivers/net/bnx2x_reg.h     |   66 +-
- include/linux/pci_ids.h     |    2 +
- 9 files changed, 3752 insertions(+), 2153 deletions(-)
+ drivers/net/bnx2x_init_values.h | 3382 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 3382 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0e0f669..287d087 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2600,6 +2600,7 @@ config BNX2X
- 	tristate "Broadcom NetXtremeII 10Gb support"
- 	depends on PCI
- 	select ZLIB_INFLATE
-+	select LIBCRC32C
- 	help
- 	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
- 	  To compile this driver as a module, choose M here: the module
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 0979ca0..e08b943 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -14,39 +14,46 @@
- #ifndef BNX2X_H
- #define BNX2X_H
- 
-+/* compilation time flags */
-+
-+/* define this to make the driver freeze on error to allow getting debug info
-+ * (you will need to reboot afterwards) */
-+/* #define BNX2X_STOP_ON_ERROR */
-+
- /* error/debug prints */
- 
--#define DRV_MODULE_NAME 	"bnx2x"
--#define PFX DRV_MODULE_NAME     ": "
-+#define DRV_MODULE_NAME		"bnx2x"
-+#define PFX DRV_MODULE_NAME	": "
- 
- /* for messages that are currently off */
--#define BNX2X_MSG_OFF   		0
--#define BNX2X_MSG_MCP   		0x10000 /* was: NETIF_MSG_HW */
--#define BNX2X_MSG_STATS 		0x20000 /* was: NETIF_MSG_TIMER */
--#define NETIF_MSG_NVM   		0x40000 /* was: NETIF_MSG_HW */
--#define NETIF_MSG_DMAE  		0x80000 /* was: NETIF_MSG_HW */
-+#define BNX2X_MSG_OFF			0
-+#define BNX2X_MSG_MCP			0x010000 /* was: NETIF_MSG_HW */
-+#define BNX2X_MSG_STATS			0x020000 /* was: NETIF_MSG_TIMER */
-+#define BNX2X_MSG_NVM			0x040000 /* was: NETIF_MSG_HW */
-+#define BNX2X_MSG_DMAE			0x080000 /* was: NETIF_MSG_HW */
- #define BNX2X_MSG_SP			0x100000 /* was: NETIF_MSG_INTR */
- #define BNX2X_MSG_FP			0x200000 /* was: NETIF_MSG_INTR */
- 
--#define DP_LEVEL			KERN_NOTICE     /* was: KERN_DEBUG */
-+#define DP_LEVEL			KERN_NOTICE	/* was: KERN_DEBUG */
- 
- /* regular debug print */
- #define DP(__mask, __fmt, __args...) do { \
- 	if (bp->msglevel & (__mask)) \
--		printk(DP_LEVEL "[%s:%d(%s)]" __fmt, __FUNCTION__, \
--		__LINE__, bp->dev?(bp->dev->name):"?", ##__args); \
-+		printk(DP_LEVEL "[%s:%d(%s)]" __fmt, __func__, __LINE__, \
-+			bp->dev?(bp->dev->name):"?", ##__args); \
- 	} while (0)
- 
--/* for errors (never masked) */
--#define BNX2X_ERR(__fmt, __args...) do { \
--	printk(KERN_ERR "[%s:%d(%s)]" __fmt, __FUNCTION__, \
--		__LINE__, bp->dev?(bp->dev->name):"?", ##__args); \
-+/* errors debug print */
-+#define BNX2X_DBG_ERR(__fmt, __args...) do { \
-+	if (bp->msglevel & NETIF_MSG_PROBE) \
-+		printk(KERN_ERR "[%s:%d(%s)]" __fmt, __func__, __LINE__, \
-+			bp->dev?(bp->dev->name):"?", ##__args); \
- 	} while (0)
- 
--/* for logging (never masked) */
--#define BNX2X_LOG(__fmt, __args...) do { \
--	printk(KERN_NOTICE "[%s:%d(%s)]" __fmt, __FUNCTION__, \
--		__LINE__, bp->dev?(bp->dev->name):"?", ##__args); \
-+/* for errors (never masked) */
-+#define BNX2X_ERR(__fmt, __args...) do { \
-+	printk(KERN_ERR "[%s:%d(%s)]" __fmt, __func__, __LINE__, \
-+		bp->dev?(bp->dev->name):"?", ##__args); \
- 	} while (0)
- 
- /* before we have a dev->name use dev_info() */
-@@ -60,7 +67,7 @@
- #define bnx2x_panic() do { \
- 		bp->panic = 1; \
- 		BNX2X_ERR("driver assert\n"); \
--		bnx2x_disable_int(bp); \
-+		bnx2x_int_disable(bp); \
- 		bnx2x_panic_dump(bp); \
- 	} while (0)
- #else
-@@ -71,24 +78,29 @@
- #endif
- 
- 
--#define U64_LO(x)       		(((u64)x) & 0xffffffff)
--#define U64_HI(x)       		(((u64)x) >> 32)
--#define HILO_U64(hi, lo)		(((u64)hi << 32) + lo)
-+#ifdef NETIF_F_HW_VLAN_TX
-+#define BCM_VLAN			1
-+#endif
-+
- 
-+#define U64_LO(x)			(u32)(((u64)(x)) & 0xffffffff)
-+#define U64_HI(x)			(u32)(((u64)(x)) >> 32)
-+#define HILO_U64(hi, lo)		((((u64)(hi)) << 32) + (lo))
- 
--#define REG_ADDR(bp, offset)    	(bp->regview + offset)
- 
--#define REG_RD(bp, offset)      	readl(REG_ADDR(bp, offset))
--#define REG_RD8(bp, offset)     	readb(REG_ADDR(bp, offset))
--#define REG_RD64(bp, offset)    	readq(REG_ADDR(bp, offset))
-+#define REG_ADDR(bp, offset)		(bp->regview + offset)
- 
--#define REG_WR(bp, offset, val) 	writel((u32)val, REG_ADDR(bp, offset))
-+#define REG_RD(bp, offset)		readl(REG_ADDR(bp, offset))
-+#define REG_RD8(bp, offset)		readb(REG_ADDR(bp, offset))
-+#define REG_RD64(bp, offset)		readq(REG_ADDR(bp, offset))
-+
-+#define REG_WR(bp, offset, val)		writel((u32)val, REG_ADDR(bp, offset))
- #define REG_WR8(bp, offset, val)	writeb((u8)val, REG_ADDR(bp, offset))
--#define REG_WR16(bp, offset, val)       writew((u16)val, REG_ADDR(bp, offset))
--#define REG_WR32(bp, offset, val)       REG_WR(bp, offset, val)
-+#define REG_WR16(bp, offset, val)	writew((u16)val, REG_ADDR(bp, offset))
-+#define REG_WR32(bp, offset, val)	REG_WR(bp, offset, val)
- 
--#define REG_RD_IND(bp, offset)  	bnx2x_reg_rd_ind(bp, offset)
--#define REG_WR_IND(bp, offset, val)     bnx2x_reg_wr_ind(bp, offset, val)
-+#define REG_RD_IND(bp, offset)		bnx2x_reg_rd_ind(bp, offset)
-+#define REG_WR_IND(bp, offset, val)	bnx2x_reg_wr_ind(bp, offset, val)
- 
- #define REG_RD_DMAE(bp, offset, valp, len32) \
- 	do { \
-@@ -96,28 +108,28 @@
- 		memcpy(valp, bnx2x_sp(bp, wb_data[0]), len32 * 4); \
- 	} while (0)
- 
--#define REG_WR_DMAE(bp, offset, val, len32) \
-+#define REG_WR_DMAE(bp, offset, valp, len32) \
- 	do { \
--		memcpy(bnx2x_sp(bp, wb_data[0]), val, len32 * 4); \
-+		memcpy(bnx2x_sp(bp, wb_data[0]), valp, len32 * 4); \
- 		bnx2x_write_dmae(bp, bnx2x_sp_mapping(bp, wb_data), \
- 				 offset, len32); \
- 	} while (0)
- 
--#define SHMEM_RD(bp, type) \
--	REG_RD(bp, bp->shmem_base + offsetof(struct shmem_region, type))
--#define SHMEM_WR(bp, type, val) \
--	REG_WR(bp, bp->shmem_base + offsetof(struct shmem_region, type), val)
-+#define SHMEM_ADDR(bp, field)		(bp->common.shmem_base + \
-+					 offsetof(struct shmem_region, field))
-+#define SHMEM_RD(bp, field)		REG_RD(bp, SHMEM_ADDR(bp, field))
-+#define SHMEM_WR(bp, field, val)	REG_WR(bp, SHMEM_ADDR(bp, field), val)
- 
- #define NIG_WR(reg, val)	REG_WR(bp, reg, val)
--#define EMAC_WR(reg, val)       REG_WR(bp, emac_base + reg, val)
--#define BMAC_WR(reg, val)       REG_WR(bp, GRCBASE_NIG + bmac_addr + reg, val)
-+#define EMAC_WR(reg, val)	REG_WR(bp, emac_base + reg, val)
-+#define BMAC_WR(reg, val)	REG_WR(bp, GRCBASE_NIG + bmac_addr + reg, val)
- 
- 
--#define for_each_queue(bp, var) for (var = 0; var < bp->num_queues; var++)
-+#define for_each_queue(bp, var)	for (var = 0; var < bp->num_queues; var++)
- 
- #define for_each_nondefault_queue(bp, var) \
- 				for (var = 1; var < bp->num_queues; var++)
--#define is_multi(bp)    	(bp->num_queues > 1)
-+#define is_multi(bp)		(bp->num_queues > 1)
- 
- 
- struct regp {
-@@ -358,210 +370,122 @@ struct bnx2x_eth_stats {
- 	u32 number_of_bugs_found_in_stats_spec; /* just kidding */
+diff --git a/drivers/net/bnx2x_init_values.h b/drivers/net/bnx2x_init_values.h
+index 590b076..3c59d92 100644
+--- a/drivers/net/bnx2x_init_values.h
++++ b/drivers/net/bnx2x_init_values.h
+@@ -6658,15 +6658,3397 @@ static const u32 csem_pram_data_e1[] = {
  };
  
--#define MAC_STX_NA      		0xffffffff
--
--#ifdef BNX2X_MULTI
--#define MAX_CONTEXT     		16
--#else
--#define MAX_CONTEXT     		1
--#endif
--
--union cdu_context {
--	struct eth_context eth;
--	char pad[1024];
--};
--
--#define MAX_DMAE_C      		5
--
--/* DMA memory not used in fastpath */
--struct bnx2x_slowpath {
--	union cdu_context       	context[MAX_CONTEXT];
--	struct eth_stats_query  	fw_stats;
--	struct mac_configuration_cmd    mac_config;
--	struct mac_configuration_cmd    mcast_config;
--
--	/* used by dmae command executer */
--	struct dmae_command     	dmae[MAX_DMAE_C];
--
--	union mac_stats 		mac_stats;
--	struct nig_stats		nig;
--	struct bnx2x_eth_stats  	eth_stats;
--
--	u32     			wb_comp;
--#define BNX2X_WB_COMP_VAL       	0xe0d0d0ae
--	u32     			wb_data[4];
--};
--
--#define bnx2x_sp(bp, var)       	(&bp->slowpath->var)
- #define bnx2x_sp_check(bp, var) ((bp->slowpath) ? (&bp->slowpath->var) : NULL)
--#define bnx2x_sp_mapping(bp, var) \
--		(bp->slowpath_mapping + offsetof(struct bnx2x_slowpath, var))
--
--
- struct sw_rx_bd {
--	struct sk_buff  *skb;
-+	struct sk_buff	*skb;
- 	DECLARE_PCI_UNMAP_ADDR(mapping)
+ static const u32 xsem_int_table_data_e1[] = {
++	0x00088b1f, 0x00000000, 0x94f3ff00, 0x51f86066, 0x257bc08f, 0x799c1819,
++	0x8968c550, 0x1819390b, 0x0bf1030e, 0xda005620, 0xc0c5caeb, 0xfdc406e0,
++	0x88013c40, 0x3eb100bf, 0x01830337, 0xd902a710, 0x736e6852, 0x17ba0264,
++	0xd8815d88, 0x32bf881d, 0x637c3030, 0x767ede20, 0x623da021, 0x2039fe08,
++	0xfd04b2fb, 0xf0d83ffc, 0xdafa655d, 0xc0c2a817, 0x2a83a310, 0x8fc68b16,
++	0x466fc1d3, 0x027c9a3c, 0x8f113f1a, 0x5473717e, 0x2a019d7e, 0x8188c93f,
++	0x9a920f61, 0x6efc037a, 0x81afc741, 0x3100df7a, 0x74769a00, 0x0003685d,
++	0x00000000
  };
  
- struct sw_tx_bd {
--	struct sk_buff  *skb;
--	u16     	first_bd;
-+	struct sk_buff	*skb;
-+	u16		first_bd;
+ static const u32 xsem_pram_data_e1[] = {
++	0x00088b1f, 0x00000000, 0x7de5ff00, 0x45547809, 0xbedd70b6, 0x4e9def4b,
++	0x62585908, 0x81511007, 0x05e42ce9, 0x62d9b1c4, 0x970621f4, 0x66854611,
++	0x44749ecb, 0xf9d1c1c6, 0x153610d3, 0xc713309d, 0x60ec44e0, 0x81a0d050,
++	0x60241009, 0x3cc0ea03, 0x64ffe31d, 0xb83066dc, 0xc5a4c6b0, 0xfcb8df0d,
++	0x4dd54e75, 0x11d37bdf, 0x7fef999c, 0xca3fbff3, 0xfb5ba957, 0x539cead9,
++	0x2c922aa7, 0x4222e910, 0xab9f83be, 0x409bf908, 0x4d171908, 0x69e5a909,
++	0x24e05295, 0xbfa2e024, 0xe1521366, 0xd3cb4254, 0x43b29909, 0x48955f0e,
++	0xc8428df3, 0x7da6f34c, 0x6eef2c56, 0x53b0f960, 0xfe5a11f1, 0xd3cd1371,
++	0x8ee6033e, 0xe5a0ae87, 0xd9221d91, 0xb28edd08, 0x21124899, 0xfd842dc7,
++	0x0e7cd364, 0x96568521, 0x3fdc68ad, 0xb717da07, 0xf6958999, 0x68bbb157,
++	0x5f3415c6, 0x50264874, 0x32d362a5, 0x97cd1065, 0xc8168484, 0xf3664cf7,
++	0x4314ee0b, 0x1efd689b, 0xcdd24757, 0x574e420e, 0x2147885b, 0x91d9c6a4,
++	0x4268d374, 0xf2db434a, 0xb3695da0, 0x581135e0, 0x5397a6c7, 0x045b5d61,
++	0x4843d9af, 0xf13b66d9, 0xf873628c, 0xde3bfe8e, 0xa2af862a, 0x3ae98be5,
++	0x88b7ed09, 0x1111e6d4, 0x78a75fc6, 0x9df8519c, 0x38e376ae, 0x0b62be6a,
++	0xabb6871d, 0xc2f0567c, 0xc44d2b12, 0xefc742df, 0xf59d6dde, 0xb7d60384,
++	0x84e9194c, 0xa056ad75, 0xde68515e, 0xe607ab4e, 0xd1e4a8d7, 0x4686d2f2,
++	0xb47470a5, 0x03cdb2bf, 0x1faaf3f4, 0x94d7ec9e, 0xd5d3d31b, 0x46467884,
++	0xf884a5f3, 0x44bf685a, 0xc733290a, 0x407fbf44, 0x081909e2, 0x63c48bfd,
++	0x214ff689, 0x4783df89, 0x5e14afe8, 0x844ebdc1, 0xc5b78aab, 0x27bbfa6e,
++	0x6eb3b78a, 0x9229478e, 0x4d5feda3, 0xd03c021f, 0x9c02d4f9, 0xcf96ba68,
++	0x4c9135cf, 0x2eff6892, 0xe903711f, 0x351eb7f5, 0x3cc995ad, 0x185ac742,
++	0xc693e31c, 0xee42bcd3, 0x7e425e20, 0x37c722bd, 0x241fe695, 0x6f3039fe,
++	0x062fe4d1, 0x92d2113c, 0x4abbf402, 0xfd60b320, 0xd349813f, 0x94a955f2,
++	0x6bdc293e, 0x213ce5a7, 0x89ee7c0a, 0xf27c2f90, 0xa7ec74fe, 0x6851fb08,
++	0xdfcfc33f, 0x572f3b8f, 0xaf3b8fd7, 0x0aa7ed58, 0x585db1fb, 0x1379b53f,
++	0x2bc9f3f4, 0x1bb9fb55, 0xd85d71fb, 0x4f57dcba, 0xeae7cfd4, 0x7e27ec72,
++	0x69f897aa, 0x07a5517d, 0x6913e1d2, 0x3e39a3b9, 0xa5a27ef3, 0x812bc98b,
++	0x4b949dff, 0x971174b4, 0x61d1d36b, 0x97412fbc, 0x8fb93da7, 0x30f3ce5f,
++	0x7c82cb88, 0x50520ca9, 0x641a4c2e, 0x35dcf9c1, 0xe17281c8, 0x4bfe09ae,
++	0x301e74dc, 0x79a54936, 0x7723ffc5, 0xf3a6ba0c, 0xa40a4814, 0xc6a4131e,
++	0x8332d5f2, 0x5fc1e4c3, 0xdb463c8f, 0x91914c07, 0x4ebf34f1, 0xac38f498,
++	0x21311363, 0xa9226c7c, 0x33367a82, 0x3ab4f941, 0xa089e73d, 0x866b4e06,
++	0xd10bfc52, 0xfec8d77e, 0x2dafa014, 0xd020e6e4, 0x94a1aadb, 0xf21107c9,
++	0x70a6f074, 0x87eda250, 0x3c00a616, 0x6fe50acd, 0x1d0af8ed, 0xff8e347f,
++	0x03bf8c1c, 0x77d71fc6, 0x5cb0f37c, 0xb496f8dd, 0x16f8dd62, 0xe94f8e85,
++	0x9db9377d, 0x37e14f8f, 0x83e79081, 0xe6f8e1b7, 0x7f1c62b4, 0x758a42b5,
++	0xc77adbe3, 0xfdd6017f, 0x1feb7f52, 0xfebf4136, 0xfafd52b4, 0xc3feb615,
++	0xdf1f1164, 0x63ffeb86, 0x7f5b2170, 0xbf5b295a, 0x3bdbf599, 0xfe17abbe,
++	0x8fbac1af, 0xe1feb7f4, 0xbfebf513, 0x7ebf5ca8, 0x6dff1b33, 0x77c7c152,
++	0x04eff8e0, 0x2ffad9cb, 0x15f1c72a, 0x740bdfb3, 0x55b60ca4, 0x64f8e885,
++	0x64886508, 0x4c3e5194, 0x42102547, 0x6191d7db, 0x6cbb8708, 0xb0beee8c,
++	0x44737a51, 0x51091de5, 0xacf2a28e, 0x597cd392, 0xe40524f3, 0xb953962c,
++	0x754f88b7, 0x74889b61, 0xa1ccea4d, 0xbb7ce98b, 0xe420c4db, 0x195dd617,
++	0x23bf7112, 0x9da00b73, 0xfdf0c244, 0x6cc787a3, 0x98cbaed4, 0x8f95aa2e,
++	0x88f8ea77, 0x993827cd, 0xf3a2aa8c, 0x3044069b, 0x4e3f9a2e, 0xf2a128e5,
++	0x472a7df3, 0xd3213d21, 0x0ff7e8f1, 0x8a259ca9, 0xb1966f96, 0xde483c7d,
++	0x72049518, 0x971cfd82, 0x2f8fbc18, 0xff004211, 0xa1ddd62f, 0x545a7c80,
++	0x8f40a76b, 0xf1c023ce, 0x0e6dd914, 0x9e10146d, 0x2dcf801e, 0xfc848ac8,
++	0x9535a295, 0x7ea8b682, 0x6dddae80, 0x8532b424, 0x76b05fd6, 0x5d3750de,
++	0xccb3adff, 0x1fec2299, 0x84d837c4, 0x9b064c7c, 0xd5990972, 0x4c1e4eba,
++	0x92ccb733, 0xb4d4efdf, 0xe7d7ed9f, 0xe7d62d6f, 0x6c90e5bb, 0x44a37d02,
++	0xdfb48d20, 0xe5f4abdb, 0x42f138ea, 0x1f2bc302, 0x6c4927ef, 0x9a43b7be,
++	0x88dd9f09, 0xd66e39d7, 0xe04f9d56, 0x7184991e, 0x481cecbf, 0xb103ff10,
++	0xd6cddf9e, 0x1cef9c6d, 0xa02be2d9, 0xb77399f3, 0xce34f088, 0xdd9f73bf,
++	0xd34b1a67, 0x20654ffa, 0x8c7ae341, 0xd4bb9ff3, 0xea371eb8, 0xc682f361,
++	0x8c4e8cef, 0x9b6814f4, 0x4d43e034, 0x6b968abd, 0xa1a87c06, 0x33cdb2af,
++	0xd092f975, 0xa2fd5d6c, 0xf2ba79fa, 0xba25b545, 0xee6b05f2, 0x05e7e5d0,
++	0x9fd5d6ef, 0xae9974bb, 0xfbaaf6fc, 0x16b7e574, 0x67e5d3af, 0xeaebd7fb,
++	0x51ab32df, 0x2bec2e57, 0xe513a8b9, 0x54a2ffaa, 0x36df2bd0, 0x9547a013,
++	0x387e55de, 0xe9829d59, 0xa60f6ae9, 0x294f80cb, 0xb3769bff, 0xde71b034,
++	0x2aefc045, 0x55c84e9c, 0x464fc069, 0xd3c237ba, 0x67f4df48, 0x487dac70,
++	0x5205cb4d, 0x87ae7200, 0xf7eacfef, 0x120e5c73, 0x72d31cb2, 0xf96df185,
++	0xc4c9d4f6, 0xc8f0f905, 0xfdff472a, 0xd7011692, 0x1e8b4041, 0xd4a37808,
++	0x70ebc3aa, 0xf6bb3cdd, 0x257e388b, 0x0078eef0, 0x0132c155, 0x307c21f8,
++	0x3031c6ed, 0xcc72df1f, 0xfdc40db7, 0x7f3aabb7, 0xc01287c0, 0x93d300af,
++	0x3d30b3d5, 0xf4c7ed5e, 0x4c62eac3, 0xc2aeafdf, 0x297ab3b4, 0x83ab47a6,
++	0x7aa5fe98, 0x54efa60d, 0x56fa62d7, 0x7fa63d75, 0xda610eae, 0x54c3ed5d,
++	0x395edba5, 0x4af5c899, 0x1dd3ffae, 0xf967f302, 0x7bfa445a, 0x37a3f207,
++	0xacf1f805, 0xa0918be3, 0xcb7d9f37, 0xef2f404c, 0x7a465e0f, 0xc4ae17e8,
++	0x61457a87, 0xac870a88, 0x1b56e5be, 0x44d593c3, 0x1b9509f2, 0xa4fc5df7,
++	0xcc68fe77, 0xda01244b, 0x9d33bc87, 0x411dfa31, 0xc3e75f10, 0xc645f113,
++	0x71f140de, 0xe5bfd1fc, 0xf8e7bf40, 0x283b653e, 0xc2497ee2, 0x5f01784f,
++	0xfee1b81a, 0xe5c1d913, 0xf7e079f2, 0x7e1540f1, 0xa684691d, 0xd2370413,
++	0x3356d9df, 0xed8e0091, 0xfda110f6, 0x84f43d9c, 0xc5bbf60b, 0x87f72629,
++	0xa6a0e031, 0x6ee92d15, 0x689f7687, 0xd6cfe7d3, 0x282df90a, 0x37713d37,
++	0x72ba018d, 0x011c3fbb, 0x54c14ff8, 0x8a7167ed, 0x0070fee2, 0x45f18fc2,
++	0x29d23c73, 0xdeb0dbb5, 0xfd1e7b3f, 0x479d13f5, 0xb680f92b, 0xf8645b47,
++	0x3e91edf9, 0x533e96f8, 0xed4f000a, 0x9fb017f2, 0xefbfe8db, 0x12bf4186,
++	0x037ed5e6, 0xfcd0622d, 0xacdef823, 0xf3b68f1b, 0xb43136a8, 0x255e9feb,
++	0x27a55c72, 0x0bfeda2a, 0xce3b403a, 0xfdcbd6ea, 0xd03e5d78, 0xedd6ea96,
++	0xe50bf003, 0x482c527b, 0x9ce52f40, 0xc7247a7a, 0xefce811a, 0xf461e088,
++	0x157ab026, 0xefc54e96, 0x00ec3241, 0xae7e603d, 0x5b9e6f4a, 0xf972a5de,
++	0xe4c87fd4, 0x9aff287e, 0xda272ace, 0xc4c0951f, 0x780bf344, 0xd96b7e6e,
++	0xa7779074, 0x5e1f6c4c, 0x605c0a48, 0xda931494, 0x3e43d01c, 0xa07ca626,
++	0xffc98ffb, 0xec696576, 0x05261181, 0x8d60b3e7, 0xfaa41f7e, 0x545f2e93,
++	0x9217cfaf, 0xce80921b, 0x1264eb0b, 0xf51f8012, 0xc62689e5, 0x6aa4450f,
++	0x2b0fec15, 0xdf313db8, 0x74c1a44d, 0x1ebb157e, 0xe74799cb, 0xc989b971,
++	0x2ebed56f, 0x2ff36049, 0x7c54696d, 0xd683fcb4, 0x415c9fac, 0x15687da0,
++	0x3b8219f8, 0x4f26ef04, 0xd0fdfc5f, 0xabe71bf9, 0xec7d1fee, 0x8a8f3e7c,
++	0x142f82cd, 0x6f191f63, 0x13fef812, 0x035e3844, 0x99e8d6eb, 0xa8387337,
++	0xf28679f9, 0xeffe430a, 0xa244b7a6, 0x8223b7a3, 0x40d366ff, 0x5fa05f46,
++	0xf1445209, 0xa7fd23ff, 0x9e7fe9f4, 0xb13fdc69, 0xffb421ff, 0x15ff5d1c,
++	0x47fed4ff, 0xddff99f4, 0xd8affab1, 0x906775b5, 0xe7d29bca, 0xba11761e,
++	0x6a929cff, 0xff14bc93, 0xba569be5, 0x4a4e0e80, 0xf3d01741, 0x1f9890a9,
++	0x3f57618a, 0x3e0f4bd7, 0x0f760087, 0x3ffb4afc, 0x3303f4fd, 0x62f97f60,
++	0x7b46ec93, 0x6c39b366, 0xd95afca6, 0x8c9d325a, 0x9631fcc5, 0x0889fd5f,
++	0x7d3d36f9, 0x70f53e96, 0x28c7f812, 0x3f7d70a5, 0x6552fa8c, 0xb07947d3,
++	0x044804ff, 0x0ed8ccf9, 0x80973fc6, 0x129e71f2, 0xce9cb7d7, 0x00f0f513,
++	0xf5a04b87, 0xf0444f81, 0xe64e924d, 0x2fd434a7, 0xc84f7ae6, 0x4e3c4ce4,
++	0x6ff23c55, 0x5e40dfe4, 0x2120f0aa, 0xbb88f7a6, 0x760b1b1e, 0x7fd3576b,
++	0x9c0d04b8, 0xdb3b3e54, 0xe7f1e0b2, 0xe3cbfd3d, 0x45876e6e, 0x9db085db,
++	0x6beb8da7, 0x972d2ced, 0x63f02ec3, 0xdeca3796, 0xbe5cfd20, 0x1f2789f5,
++	0x6df23b05, 0xda62f7b3, 0x97d6d97f, 0xe6813cfe, 0x89c9b6cb, 0x1c32d9d3,
++	0x2f145242, 0x696ffa01, 0xa50f1466, 0xf1497fbf, 0xefdf618c, 0xa3e2884d,
++	0x857edb6c, 0x8f0be98c, 0x95fb2d29, 0xbc0c474e, 0x03cb1cb4, 0xf5dc4abd,
++	0x3f78028d, 0xc9204fb5, 0xd9e031e9, 0x07ea12f8, 0x23c42700, 0xde2f53c7,
++	0x1403f50c, 0x55cf202f, 0x97cb193c, 0xfd037973, 0x3d234679, 0xf83cfb3f,
++	0x7b31df7d, 0xcfc5fd61, 0x7582e9de, 0x18aa909c, 0x32b63f5d, 0x2dc747c9,
++	0x6e498396, 0xe2f7d94c, 0x7a433f0d, 0x67fd7a2b, 0xf35ecc49, 0x6f709aa5,
++	0xfac2a60a, 0x8cdc3516, 0x7e242beb, 0xc7e2bba4, 0x8f9002c4, 0x7f244b9f,
++	0xb8be0c5b, 0x717c6458, 0xb4552362, 0xd04efae8, 0xa0fd076d, 0x6d0c5bff,
++	0x1dc57f42, 0x67fff804, 0x2c9affaa, 0x16e7fcc6, 0x4dafa786, 0xb54f9eaa,
++	0x36bd2d3c, 0xfc00eead, 0x4bea1e9c, 0x80573f06, 0x0f0e4148, 0xafda3be1,
++	0x64b4faf8, 0x91e21f86, 0xaa3b7872, 0xef814c07, 0xf643bf50, 0xdaeac759,
++	0xa3d2ef91, 0xe3e12fe3, 0x60db79d3, 0x44913eff, 0xac625b8a, 0xf2a8a66f,
++	0x35c7dd3d, 0x6fe1a5f4, 0xf74defc6, 0xf956fe31, 0x1f33343d, 0x837b3fca,
++	0x83b40ff1, 0x2bce91fd, 0xfbe58c9c, 0x1e50126f, 0x16384998, 0x9cc9375f,
++	0x2ae5f5af, 0x4b79d09d, 0x5e869c42, 0x8404ffa0, 0x0ab7fa3f, 0x8d3b68eb,
++	0x78c00cbc, 0xa9fdbeae, 0xf9c45b7c, 0xf9ea23df, 0xbe30349f, 0x0abf5fef,
++	0x2e573ee2, 0x147c9e87, 0x67f295f8, 0x2afc03d0, 0xcfbac017, 0xf3fc1f34,
++	0x9c9f294f, 0x54f95169, 0x7c8d3f2f, 0x5c7dbc5a, 0xb33d3e4c, 0x9f362336,
++	0xf931efd2, 0xd3e32d74, 0x53f25bff, 0xc03e5f85, 0xfc28f2ef, 0x1fd87954,
++	0xf0f28d1c, 0xe1079323, 0xf4879469, 0xd3920de7, 0xba54fe97, 0xf4ade953,
++	0x408b8a99, 0xa5d2f4ee, 0x74bd774a, 0x1f5dd2a9, 0x7e0e88ff, 0xa004f2c6,
++	0x05274a05, 0x0de48fbb, 0x6f2cf8a6, 0xb440e767, 0xa790cbdd, 0x36e1f270,
++	0x1e5f6a46, 0x87cda89c, 0x4316f90c, 0x5f219f7d, 0x37efa860, 0xf50cabe4,
++	0xd03fcc43, 0x48215076, 0x7d5d6107, 0x3a093979, 0x57b72fc1, 0x87affb44,
++	0x6d1579ce, 0x1e9cd3df, 0xb079520a, 0xeaeccad2, 0x156540c8, 0x771eafc8,
++	0x790095c4, 0x7b6bd32b, 0x78ae220a, 0xac787e8d, 0xdbf9445d, 0x5af92219,
++	0x1f94457f, 0x9d7f106a, 0xe672bfa4, 0x3a269c67, 0x3d8296d2, 0xc17a2b59,
++	0xecb85d44, 0x3cb81716, 0x5f87da7a, 0x5f7e8b3f, 0xe3c45874, 0x6b9b1e8b,
++	0x048bcc2c, 0xc6aa527d, 0x8249382e, 0x7e089dbf, 0x1f6676c3, 0xd06b5c2c,
++	0xa45ac82b, 0x12c7428b, 0xd522e405, 0xfbd7dfe7, 0x977d194d, 0x1b8afef2,
++	0x7b6ae5f4, 0x3b023938, 0x5f49b4ad, 0xce76e7ee, 0x67bd2a93, 0x17940c90,
++	0x7d80c060, 0x34ebe5cd, 0xb3f5f471, 0x0e7bfc28, 0xe5e80489, 0xf088bb6c,
++	0xceccdb3f, 0x20704909, 0x89254df2, 0xe1535ca0, 0xa17c05d4, 0xba772ff4,
++	0xe735fc76, 0x7ca55a1e, 0x7f63bbe7, 0x9daed347, 0x03dc8f6f, 0xa66f5df9,
++	0xd6fa4bbd, 0x8acfb29f, 0x7d9ed9fe, 0xe94f3c4e, 0xda6afbd9, 0x6ddf903d,
++	0x7b3cc2f6, 0x16397df6, 0xb967a7e8, 0x56e418b9, 0x7f8a50cf, 0xfdecd69a,
++	0xee276c72, 0x6f102b93, 0xd30a8baf, 0x76ffda73, 0x94844854, 0xfff60aae,
++	0x33f4767d, 0xa2b79e04, 0xef67a07f, 0xc77e3997, 0x953d6f3f, 0xc7a4dcfc,
++	0x876d6649, 0x7f33c5f9, 0xf8cf6073, 0xb9c19627, 0x657eeb6f, 0xf29f2d01,
++	0x416337c2, 0x676cf61e, 0xdcb74d7a, 0x05ce01b9, 0xeef352fe, 0xb9c29932,
++	0x1062981b, 0x862bb995, 0x623a0e4c, 0xf41be5c1, 0x3c285c7b, 0x067ffd3e,
++	0xf79e021e, 0x433bb795, 0xfdd60116, 0x4177d1d5, 0x2333ec0e, 0x3debaa5d,
++	0xf50cb2d3, 0x3badf38e, 0xf5f66241, 0x0b759cff, 0x77590be1, 0x8daff486,
++	0x07a25def, 0x83e462f1, 0xf7be74be, 0x756fcc2e, 0x17be717a, 0xff33ef48,
++	0x83ffd7c5, 0xe29dbef1, 0x75fe75dd, 0xaf8bfd57, 0x1fbc7fbb, 0xeef1c39e,
++	0xc0f57386, 0xfce0df0b, 0xab9ca87e, 0xf7e717fd, 0xeaafd6fe, 0x79307fe7,
++	0xf5a0c8de, 0x03ad49f3, 0x2a6b8b14, 0xa0ce1c0e, 0x72187fa5, 0x3be61e30,
++	0x18c39f99, 0x125fb7e7, 0xc164fdb0, 0x891d7684, 0xc75db817, 0x5cc1a1ec,
++	0xa4bc187f, 0xc190f510, 0x7a641e43, 0x83a9e483, 0xa43fbe73, 0xcc62f02d,
++	0xcb7cc902, 0x95f7790f, 0x0bb7af3c, 0x1f10277f, 0x4e0e411c, 0xa043f7fb,
++	0x22190e9f, 0x534afea2, 0x745f5bd4, 0xe5efb3e5, 0xb97ece8a, 0x67b7a3c6,
++	0x76f512f2, 0xdfde54cf, 0x3fe6c234, 0x428421cd, 0x87930e14, 0xfc1126fe,
++	0x962f939c, 0x79f34089, 0xec02bfc4, 0x7d0ea984, 0x19c18f7f, 0x580fc68c,
++	0x16bb6964, 0xaf16dffc, 0xd25dfd80, 0x62794265, 0x0e9016c9, 0x984bd546,
++	0x1ee4dd7f, 0x719e7007, 0x7733aec5, 0xfa97f013, 0x528f1614, 0x5fdefcc0,
++	0x44ddf77f, 0xf0e2e388, 0xaeffa22b, 0x036eff03, 0x7ae8db09, 0x18244917,
++	0x4efe0097, 0xf3afbc81, 0xf0f3ea77, 0x68a4e3f3, 0xdfabe73f, 0xb3fe1d1f,
++	0xee945dd3, 0xdbb0a7df, 0x1c08e90d, 0x53dad25e, 0xe0ced6ff, 0x84857815,
++	0x6ef3b186, 0x2e7340b1, 0xeccca974, 0xd97f5dee, 0xccf6059e, 0x71d19ea4,
++	0xa0471f8c, 0xfae0197e, 0x89e259e5, 0x1f803af3, 0x79e1c787, 0x19d121d7,
++	0x0b6bde2b, 0x819eb3b7, 0xf69a5073, 0x115a9134, 0x41127df4, 0xc9b05dff,
++	0x88c53642, 0x4d94483b, 0xe39c5cfc, 0x3988fe8d, 0xe36787e0, 0xe34da22f,
++	0x9aeb78b4, 0xdb1a4a7e, 0xf3f00f17, 0xe21ce6be, 0xd82f851f, 0x2ddf0075,
++	0x82bcced6, 0x923b7c18, 0x81c66fc3, 0xbe9ed0af, 0x04d1bdac, 0x93597e7c,
++	0x969e7749, 0x3dfd7326, 0xbcc26493, 0x3ab01c66, 0x872f01b3, 0xd9c42f44,
++	0x513fda05, 0x83ce31fc, 0xfe84f08c, 0x9b7a8fc1, 0xed7846ec, 0x00165b91,
++	0x6c7cf75c, 0xed676021, 0x62cb6a56, 0x0a4ff3cd, 0xd222e79b, 0xf4d8e772,
++	0x4ef83d7f, 0x278471ea, 0x44d2bd83, 0xd2fbaf90, 0x3e3a411f, 0x408499bb,
++	0x037d831e, 0x336ce172, 0x8280fdc1, 0xd3b041e4, 0xa55fbf28, 0x692fdfb5,
++	0xec0cf6db, 0x82ed9523, 0x95cb5c1b, 0xfe02a752, 0xbc5b40b9, 0xc33b7208,
++	0xba21c6a3, 0xe1a4dcc7, 0x0964db8b, 0xc2707be1, 0xdc615b9e, 0x0214bb4f,
++	0xc5ef9afb, 0xfee40b88, 0xc859eda7, 0xebadfd07, 0xdae4d5f7, 0xc3f412a9,
++	0x1e919ae4, 0x74db3746, 0xff442bf9, 0x19afe020, 0xde25cee6, 0x96fbf818,
++	0xcb05d9d3, 0x67ffd0b7, 0x550dedf2, 0x02c5f9be, 0x2cbd1f0d, 0x23557db3,
++	0xc96392df, 0x2782c5b7, 0x78bee019, 0xc064f0ef, 0xf2c3e2eb, 0x6df258c0,
++	0xdf3b356b, 0x8fc78e7a, 0xf952b4f6, 0x7c8d23f6, 0x2df2a56b, 0x8b7ff9c6,
++	0xcf5ffaac, 0xff42df23, 0x15b7fc3d, 0xf58c5be4, 0x53f0e41e, 0xf6d8dbe5,
++	0xc6df2863, 0x71749ab6, 0xdccbcf96, 0x7cafd99f, 0x04de0613, 0xd921d4fa,
++	0x3f418f6b, 0xf6feb95b, 0x819f8f1c, 0x7dce4071, 0xdce503f5, 0xe72a173b,
++	0xace09bfe, 0x3bc5b9ca, 0xf69fc608, 0xe72643a5, 0x72a6ef16, 0x647a004e,
++	0x5ef16e72, 0x0638fcc2, 0x8faa36f9, 0xbf58237c, 0x07dacc32, 0xb91fd2da,
++	0xe997f68d, 0x5a16bd93, 0xef2a333f, 0xdde569c6, 0xbbc9fd57, 0xef261743,
++	0x47797076, 0x9030d8e5, 0xf0fa46af, 0x74e3ebb6, 0xd13f8cf7, 0x97e07bfc,
++	0x673c4557, 0xcec4dd7a, 0xfe34fe05, 0x57d03644, 0x33e6c281, 0xd7f46142,
++	0xfec41d5d, 0xd6c8bca7, 0xf160e157, 0x4cad95bb, 0x166cac3f, 0x6bfa1e42,
++	0xf0af84de, 0xaf64a8bc, 0x7e699240, 0x27d599a6, 0x24e7a94f, 0x86867a64,
++	0x96e6161e, 0xa1777fa1, 0xbfe02c44, 0x9de4732d, 0x2cb63d02, 0xcb7bf997,
++	0xc392f7f8, 0xdfc0ab9d, 0xc05eb259, 0xee353273, 0xecbf8d50, 0xbede5e73,
++	0xc681fd0c, 0x3c19f373, 0x33c6664e, 0xc631a842, 0x66d97fb9, 0xa71a7e7d,
++	0x276299e7, 0x26bc8bc2, 0xe0c5377a, 0x2f5eb51f, 0x38710e9c, 0x9fb88935,
++	0xc289c2f6, 0x17de93cd, 0xd3d3144e, 0x70a29233, 0xae957929, 0xf5ffbb37,
++	0xae3370aa, 0x9677f55b, 0x83fa7ef1, 0x3ee70a83, 0x2770e7eb, 0xd2728424,
++	0x95ab8f08, 0x16683f5e, 0xba50a7c4, 0xfc133941, 0x0d7188a3, 0xd62e9305,
++	0x8eb843dd, 0xed564fd3, 0x8c7029a4, 0x7de2133d, 0xfeaddce1, 0x6e21978e,
++	0x9e5bdc6f, 0xaf4ed84c, 0xc3f66098, 0x6b16dbf9, 0x4aa0e504, 0x87408d87,
++	0xf0f7ae14, 0xaa0cf67e, 0x61768c9a, 0x3d06e09b, 0x22b61024, 0xae14035c,
++	0x20242f70, 0x2806fc31, 0x1dff023d, 0x8305ff5c, 0x03c15ee3, 0x753c80fe,
++	0xd0bc02bf, 0x0ced59fa, 0x8090812f, 0x1126c978, 0xd657bbf4, 0xc030de0b,
++	0xe111adaf, 0xfa67caa7, 0x49e2d0e3, 0x2c52bf43, 0x9a4ac5fa, 0xd78cb2fd,
++	0xfdae619b, 0x8cf3d033, 0x88d264a7, 0x7dffa6e0, 0x279f3d1f, 0xa788c3fe,
++	0xb6bc39c7, 0x001d3c02, 0xbbd308b7, 0x3de15fc2, 0x203cb515, 0x9cf07505,
++	0xefb9e8f2, 0x1538d785, 0x20c7405e, 0x89e7dadf, 0x136c2f90, 0xbef480c8,
++	0x307385eb, 0xec97bf2d, 0x7ffac63d, 0x1892f04c, 0xba60beeb, 0x8b9e87ee,
++	0x7f82dd29, 0x36ba3fbd, 0xe151a9c2, 0xe7a726fb, 0xaf23593f, 0xef3d0164,
++	0x49cf9015, 0x3ceebc7b, 0xf4c2bf6b, 0x4a562d88, 0x91dd74f7, 0xa377b2c3,
++	0xd83cafa7, 0xf60be1ce, 0xd01ef683, 0x8810b0a5, 0xc16cdc0f, 0xc79c2f38,
++	0x6a9fa630, 0x2b56f3e5, 0x76537819, 0x7987fdff, 0x47e9fdff, 0x8c0c7e6a,
++	0x6dcd7107, 0xd151bc74, 0x83fb8cf1, 0x6f9ff76a, 0x3972af5d, 0x4baef7f7,
++	0xc687e71d, 0x074804c1, 0x878d55e2, 0xc7f82239, 0xe5cfa0c8, 0xae3e920b,
++	0xd6e5c22c, 0x1fffdc3f, 0x927fafbf, 0x4e7bc6e2, 0xefd5ba77, 0x02cfa46e,
++	0x41e7e137, 0x7d84df13, 0x3b1f53ff, 0x9136caf7, 0xff611323, 0xa0132c98,
++	0x915f4fab, 0xe9f96fd1, 0x79671654, 0x2507abfd, 0xcf5cdd70, 0xf5c8a162,
++	0xb3b404e3, 0xc7ae875e, 0x216e1e83, 0xbf0891be, 0x954fb82c, 0xc53b54d1,
++	0x733af943, 0x5206a873, 0xe24894ef, 0x936f009f, 0xeb780244, 0xe2980df0,
++	0x3f3bf9a0, 0x32e01922, 0xb601faa3, 0x06443ccf, 0xbe09bd42, 0x8cc66881,
++	0x8decfd6f, 0xc63ce91b, 0x3d7a22bf, 0x83ccdeb4, 0xfaa1070e, 0x1306a8f4,
++	0x35e06bf1, 0xc06a8481, 0x43fe346f, 0xef308ddf, 0x40efaa62, 0x7b717efc,
++	0xf20b8d63, 0x0fb6020d, 0x2e79fd04, 0xf5ad9eba, 0x0e5de49f, 0x83d68172,
++	0xac0d026e, 0xf049a05e, 0x616a4842, 0xe5053afb, 0x17809346, 0x0486b6bd,
++	0x86fd6162, 0xaddfb42c, 0x367db40d, 0x3db45fec, 0xc9f4dbf4, 0xdc82371b,
++	0xf6c4f3a1, 0xb63ceccd, 0x00f3b690, 0x81dd34bf, 0x083495fd, 0x1419ee04,
++	0xa97db337, 0x0bd915f8, 0xd7fbade5, 0x9d3b7ee3, 0x0e9a978e, 0x2a7850fb,
++	0x12c8d7de, 0x6d8f78dc, 0x5fc450fa, 0x23f8610f, 0x1c984389, 0xdb9e7813,
++	0xf7deaa3d, 0xe430f32b, 0x32ef4283, 0xe7ed0065, 0xd303b94f, 0x9f57484d,
++	0x7da7a028, 0xa7ede148, 0xc79d7ef0, 0xfdcc1c29, 0xecd4e940, 0xe1e6cd8b,
++	0xdb617ed8, 0x5a7f8c24, 0xfcf00a44, 0xa678c67e, 0xa576be6f, 0xbafe0435,
++	0x10c8e4d7, 0x4af07ef8, 0xdeef7e33, 0xf770e4ca, 0xcff44ed0, 0x0990689e,
++	0x69a82fdc, 0x9c5e5110, 0xbcf19668, 0x464c7c5a, 0x95b45db9, 0x1b071fe9,
++	0x4027bf58, 0x393f036f, 0xd17cd394, 0xfbdb8116, 0xf6ab4e4c, 0x9d9ba167,
++	0xb772abbb, 0xcfbbaf82, 0x4cb7543e, 0xca359201, 0x8f2e0adb, 0x02a4a94b,
++	0xddca3342, 0x7577380a, 0xe31a5f01, 0x3b511c83, 0xfc20e806, 0xe575d215,
++	0x3b01322b, 0x2ba0f846, 0x6a7de60f, 0xee7e80af, 0x0f82edf1, 0xdf8bbdce,
++	0xff508732, 0xfb9bcd0e, 0xde5fd80b, 0x55081336, 0xa0780e3d, 0x1cd72a72,
++	0xe86fcbf9, 0x5baf53f7, 0xd2841220, 0xbb843ccd, 0xbd99df1a, 0x6471c589,
++	0x04975ebf, 0xd4c92cf7, 0x8a072801, 0xd7e245ea, 0x825389c8, 0xb29fc6ef,
++	0x8dadc1fd, 0x6a56cce3, 0x3d7f610b, 0xd1f2666a, 0xd88649b3, 0xccd2b208,
++	0x0fb534e4, 0x64b2fe30, 0x4524baf7, 0x7b250743, 0xf48925d7, 0x071e2afb,
++	0x2bfb0351, 0xb0a2576d, 0x09f64a71, 0x38cd46ee, 0xbf6a3f6a, 0x6ed66eca,
++	0xf6965ef8, 0xcc097fd7, 0xb9f9d70f, 0xd8c2f202, 0xfbf19f4f, 0x3ff727e9,
++	0x7409d5cf, 0x89afb95e, 0xfb9ca418, 0xdae1f4c1, 0x55350073, 0xde7215e3,
++	0x069f1130, 0xb17fb97e, 0xdf069f11, 0xdf28e3ad, 0xd75dfc53, 0x02ac8426,
++	0x15298fe4, 0x037798d9, 0xff72579f, 0x7654e573, 0xf19ad3be, 0xfbe00afa,
++	0xd202d9e9, 0x95fa0903, 0xafa88901, 0xb8ce2079, 0x2fb59b28, 0x1f81eda2,
++	0xfe33d75b, 0x03c272a4, 0x61b2a472, 0x6fd61e5d, 0x7fd03c12, 0xd43ce36b,
++	0x45738a47, 0xc74de582, 0x6e2a3f50, 0x7c08963b, 0x0eb6f94c, 0x89ca81f4,
++	0x71c83766, 0xfe551f95, 0x05c78d7e, 0x0c7b8b13, 0x0067e3c4, 0xcbec0df3,
++	0x4c2be2d7, 0x199a07ae, 0x1972063f, 0x55b6bebf, 0x085e1586, 0x9f3f237f,
++	0x55f8ccd8, 0x3ce6ec7c, 0xb45ca7b8, 0x1ca7c589, 0x80a2986c, 0x24227d3e,
++	0x97d37ee0, 0x6ade99bf, 0x811aefe4, 0x543f7bed, 0x5bf954bf, 0x73fa63e5,
++	0x4e578c1d, 0xb5ee14f9, 0x867af919, 0x3be7f2dc, 0x7faf7ce9, 0xce87ae96,
++	0xef8fca77, 0xe46a7576, 0x4127cd24, 0x716250be, 0xa95caa3c, 0xd7bc5890,
++	0x619f9e0f, 0x7acd1bfc, 0x734ac8ff, 0x6e6b8b3c, 0xcfee9192, 0xf87d9fc7,
++	0xf3f902ec, 0x7ceaf942, 0x2f8ea9fc, 0xb3f7d5ee, 0xb19bd392, 0xd70a6ebf,
++	0x1feb8530, 0xb8c09f9a, 0x3e9f8fb1, 0x53f00336, 0x39d287b6, 0x93b357d0,
++	0x49ce4184, 0x4aafdc21, 0xc61f455b, 0x9ce14abf, 0x3e5a9d1b, 0x653e7166,
++	0x9e9139cf, 0x439bb74a, 0xd2fb69d3, 0xc58c1f9d, 0x11e58bb8, 0x3e0a438c,
++	0x60e5f5cd, 0x83e058e7, 0x1bc58952, 0x00c2e519, 0xe8673b0b, 0x059f6dda,
++	0xb33613eb, 0x2da5fd7b, 0xcd66c8b7, 0x22cd84b9, 0x1cf0f5ab, 0x18e94830,
++	0xfcc255ee, 0xd5c9f7b4, 0x2daea338, 0xb6944e4c, 0x960768c9, 0x0dd6de6e,
++	0x6fa5a371, 0x15dfd199, 0xc609fcd8, 0x6e794fc1, 0x0253fa2b, 0xfceea26d,
++	0xdebc4fac, 0x866c3166, 0x0ad6b378, 0xf9a3ef3c, 0x896f9863, 0xbe7ab71d,
++	0xe7b2b2b8, 0x520ceef6, 0xfefd9610, 0x97c81729, 0x5c9b1dd3, 0xf9b7b718,
++	0xfb65e3fb, 0xdcb5e7c4, 0x79f1bdf7, 0xca17e1a7, 0x862d1338, 0x03cdc6f8,
++	0xf3a48f50, 0x718829cb, 0x97abd1ce, 0x037cfd6f, 0x6d778fc4, 0xe601b33f,
++	0xa7edfe5b, 0x887e201b, 0x7ee2b3ec, 0x08fa7817, 0xedaadfc6, 0x7ee1627e,
++	0x614f2d8f, 0xdbf772dc, 0xd6f42f66, 0x1a44f7bd, 0x6f758fc4, 0xfc092afb,
++	0x4ef64b96, 0x92eebf43, 0x4992531d, 0x4d42fd8c, 0x17436e81, 0xc46d3710,
++	0x83d6c1d7, 0x31f4e718, 0xbfc837c5, 0x96cb78de, 0xeabf160a, 0xcd9671e1,
++	0xfbd3e3b1, 0xdeb655c4, 0x2095fd78, 0xfe995bf7, 0xcaf8de78, 0x7f1e2837,
++	0x6bf80174, 0xb102fd56, 0xfc31f7f1, 0x76e21e32, 0xbcfbf8f5, 0x8fe3d175,
++	0x80eb5942, 0xc32be37e, 0x35370017, 0xc5927dfe, 0xbe016d57, 0xc60cfed9,
++	0xa6de02b3, 0xf9ff607b, 0x0dee0d3c, 0x7323949c, 0x5ed93ef0, 0x09e21bb3,
++	0x89bef74b, 0xe3bdd3fc, 0x1343f475, 0x4dde871e, 0xdc587f7a, 0xd9d7c0b0,
++	0x997164e4, 0xb710fe1c, 0x77e171e9, 0xe8c99f1e, 0xecdb8d58, 0xa7735e2f,
++	0x6ad9e985, 0xd3457e5c, 0x31fe3cbb, 0x17212f8a, 0x7bec74f0, 0x70a811ef,
++	0x1c397370, 0x1d8e3f8d, 0xa71bdb17, 0xf805f1ce, 0x37a87d83, 0x87e698be,
++	0xe8dfa264, 0x1e43124d, 0xb8b23774, 0x7f596ee5, 0x1f8a33df, 0xcdbc8f16,
++	0x0ba1a7c8, 0xdf3e438b, 0x7c287ffc, 0x33f28236, 0xba9c2fb0, 0xc72d8ebe,
++	0xff7ce0df, 0x5967df77, 0xb3ef1828, 0x63d027fc, 0x0531eb45, 0x3b5ee0ec,
++	0x8bb7af9b, 0x9ebbd5fb, 0x759e3116, 0x9441cb55, 0x517946e3, 0xc458ef09,
++	0x0b71ef98, 0xd8dbc3d7, 0xddb5d13e, 0x7ed07219, 0x46ec0eba, 0x3e6cae7a,
++	0xe09c40a6, 0xaf7f9bcb, 0xc629f3b0, 0x844fb03f, 0x7aeff334, 0x1658ff76,
++	0xf8fccd6f, 0xe33e71c6, 0x63da04e3, 0xfe68138f, 0x594e3744, 0x3b7145b0,
++	0x69de3fce, 0xf40b77c9, 0xe983ba77, 0xc45ba783, 0xb9f758fc, 0x66fbe4de,
++	0x743d7bef, 0x4177c4bf, 0x101dec9c, 0xfd4365d1, 0xf7338972, 0x4844b8ad,
++	0xa9ef8c15, 0x81e3c659, 0x014de97e, 0xaf38d77c, 0x95df3025, 0x9f8d5f00,
++	0x09fb7647, 0x4a72a5e8, 0x15f83641, 0x4946f28c, 0x06909134, 0xf99c4bff,
++	0xef3c1ec9, 0x7c010f08, 0x2138cd1e, 0x19efbf43, 0x49ef54fc, 0x9d325564,
++	0xc1417bdf, 0x4bf68cbb, 0x6860febe, 0xff6fb381, 0xaf7fde6a, 0x552bf3a8,
++	0xc147239a, 0x582f212e, 0xdc41be31, 0x17f7c567, 0xb8ac1b02, 0xbe3b83de,
++	0xebf5127c, 0x9d84cdc7, 0x85eb50fb, 0x9b915fd2, 0xc76271f5, 0x06fe1b97,
++	0xa63433fa, 0xa06d17e3, 0x686ec1f5, 0xd39da3b6, 0x2c6e3db3, 0x5e8a45f8,
++	0xc80667b8, 0xa33b22b3, 0x92e7a2c7, 0xbfb43543, 0xfe5903e3, 0x78a1d6f8,
++	0xbb6cbfdf, 0x0f0ce313, 0x0955d8ee, 0x73f752fb, 0x52fb0276, 0xcf5c0bf7,
++	0x1fbf867f, 0xb47b2f54, 0x4425c6f1, 0x71ef68f2, 0x959e4194, 0xfc107de3,
++	0x047ce1c9, 0x38b6aafe, 0xf541ffbc, 0x1f3f5d5f, 0xbcbb91cb, 0x41c1c748,
++	0x784bdeec, 0x6303c810, 0x4afcb53d, 0x8f7e30eb, 0x4473b698, 0x489407eb,
++	0x0ed7cb21, 0x03a4f262, 0x656b5feb, 0xf796affc, 0xcfd597ed, 0xd5d30eb7,
++	0xf257db53, 0xf48c41f7, 0xe055b37b, 0x2e6fc1fe, 0x45fef589, 0xf7e3f98c,
++	0x6824099f, 0x9b653d02, 0x8225df15, 0xdf10f37b, 0xe76153be, 0x30aee55a,
++	0x87b23fbe, 0x5b72e3cb, 0x1943df18, 0xf501e7c4, 0x9d2c4f21, 0x56bbe2cf,
++	0xde04acbb, 0xc178a9c7, 0x577c03e9, 0xf8f2fcec, 0x8e21b2ef, 0xd4718ecd,
++	0x1cfc2f15, 0x1cc2a0e9, 0x10fc039e, 0x1b2666d9, 0x1db7cf81, 0xed7e034e,
++	0x0969c392, 0x575e73df, 0xbc3662d1, 0x71d6c01f, 0x0afebaba, 0xdeace7b8,
++	0x47ed2ca7, 0x656b3cce, 0x585fe87e, 0x78ad4b7d, 0x677fadae, 0xacf574e7,
++	0xaf57b82c, 0xc4b52fd6, 0xad6b8b96, 0x4f763ff2, 0x5ee7d1d8, 0x40eb5ae2,
++	0x923a63d0, 0x4953efc0, 0xe7906ef5, 0x87d39ba5, 0x80e09f80, 0xee77bd55,
++	0xe8fd8389, 0x7b41ec80, 0x3eed521a, 0x9bdab273, 0xff008d25, 0x892ca8cd,
++	0xf1a7a3ae, 0x0441c293, 0xb3ad0ee2, 0x0dbdc962, 0xa3c23b56, 0xc5f662d4,
++	0x0cf8d7ba, 0xc107d7a7, 0xc6c71fe8, 0xc750fe03, 0x5087203d, 0x79b70f0e,
++	0x2ed43f58, 0x9b65ef82, 0xdee96767, 0xb16a90c5, 0x8453e51e, 0x53a90967,
++	0x5bf235b2, 0x6964af1d, 0x05949676, 0xeaffa5df, 0x8a3157a5, 0x444c1267,
++	0x30e250bd, 0xbaa97526, 0x5c9204fb, 0x29f80160, 0x892dc0a4, 0xc8b52a40,
++	0x82d236ef, 0x5baa83a9, 0x2aa8fdec, 0x64f27202, 0x0417bbef, 0xeebc28d3,
++	0x1c1fb946, 0xe9c5c84a, 0x13dfff70, 0xafc0d6e7, 0xf9c2eacd, 0xc22aa598,
++	0x3774c5e4, 0xd04223e8, 0xf4a3be4f, 0x9f9d5354, 0x7f48f405, 0x0cff707c,
++	0x3f3a0f4d, 0xafe5fb97, 0x74a20f40, 0xfb59deca, 0x50d50931, 0x28f84310,
++	0x132755fa, 0x9ad83ef6, 0xded688b7, 0x6fe72bf8, 0x728fdc12, 0x3fa241cc,
++	0xb1079a11, 0x26b6f20a, 0x385cdbee, 0x49b87447, 0xbb42f418, 0x34ed8483,
++	0x4e968c75, 0x95dff96b, 0x3a1af34d, 0x97d44f75, 0xca82f91b, 0x2db8c335,
++	0xefda3f08, 0x3f7e8667, 0xd9fbf433, 0xc2abf5f7, 0xe8d96029, 0x5609f785,
++	0xb8701756, 0x1c2cf1b1, 0xa33e146e, 0x62337de0, 0x79f979b2, 0xc6d5c238,
++	0xfa866367, 0x6c83af14, 0x07a708e9, 0x2045f6e2, 0xd624966e, 0x577bb013,
++	0xa69f6c08, 0x4d0e053f, 0x20b6e23b, 0xc7c7de1f, 0xf4636419, 0xef5bdeae,
++	0xe78adf5b, 0x5bea7d1a, 0x8b6fabfb, 0xdfd9df5d, 0xe731ec7c, 0x4ce543f3,
++	0xfe6f0be5, 0x7b61ce09, 0x829b8de5, 0x6f274732, 0x9c28d906, 0x7f8fe22a,
++	0x985f89db, 0xa21968de, 0xe80d9fc7, 0x6d8fd295, 0x11bbfe84, 0xcbd1fdef,
++	0x9a0ebe3c, 0x75d2a477, 0x3f8f94fd, 0x639d89b5, 0xf984b6df, 0xe7b9a8dd,
++	0xf2b7fa83, 0x14b53ffa, 0x18e0ffa1, 0xb6e9177f, 0xde17a67a, 0xe788af76,
++	0xfdde7dcd, 0xff285f81, 0x0854bedc, 0xbd63d385, 0xe09a4463, 0x3e5cd47e,
++	0x205df1be, 0xade4f13f, 0x0bbd6311, 0xbd4ce8c4, 0x6f7c6557, 0xe0292160,
++	0xbfe93def, 0x91bab26f, 0xd61e410e, 0x4bee8e8e, 0x8e9475c1, 0x74a49f41,
++	0x70ece70c, 0x3ce3063d, 0xf38b0a5c, 0xe78a18e8, 0x3b3caa63, 0xe1c4f1eb,
++	0xd34deafe, 0x78b817bd, 0x5e3927bc, 0x73a5af23, 0x2b7bdd36, 0x0537b235,
++	0xee7c95e4, 0xa6a1e232, 0x1e8d42af, 0xea9ca68f, 0x10ccc8a1, 0x277284a6,
++	0x9c810a45, 0xa405dc93, 0x9958f408, 0x5f5aa7d1, 0x57acbc49, 0xfe8d7c6f,
++	0x878801bb, 0x3be2e5d2, 0xd728c93c, 0xe00b05ed, 0xf5cae893, 0xe97d1dfa,
++	0xad95b821, 0x9dd606bb, 0x353d77de, 0xfa8bd78a, 0xf7de84f3, 0x3f302c69,
++	0xd379ecd1, 0x0ffbf303, 0xa51f8099, 0x27bc7c2f, 0x677e1443, 0xde318343,
++	0x3e9b8c43, 0xdf57c612, 0x9d535c45, 0x2bade782, 0x2b897bf8, 0xfe6147aa,
++	0xe59efe7e, 0xa60f6aaa, 0xde2cfc2a, 0xcfc77c5a, 0x6ff58232, 0x24fc7371,
++	0xfc7c389a, 0x52592fa8, 0xd01cf0aa, 0xc30aaeea, 0x086459fb, 0xda6027dd,
++	0x9f845aee, 0x87e826e2, 0x6f31f5a4, 0xe54d3c86, 0x0f88d1fa, 0x8a455dc9,
++	0xddbe7968, 0xcdc020ff, 0x7ba419ea, 0x329cd01f, 0x03df7bec, 0xf5a7a5ec,
++	0x72262e4c, 0x27c2327a, 0x65ef6151, 0x9fd474aa, 0xe3c3555e, 0xf6ae1f74,
++	0xdfc35a62, 0x7781aa81, 0x3d48147f, 0xedc81f98, 0x470a1ac4, 0xdf08fef8,
++	0x73aa6b37, 0x972cfcb1, 0xaaa68957, 0x25c032fd, 0x66ff3081, 0xc90c9062,
++	0x14042c21, 0xc482527e, 0x9cf57903, 0xe6c69dd0, 0x7441e9cd, 0xdc77864b,
++	0x5e008f3c, 0x26cb0eea, 0x4b8b93f0, 0x681f25af, 0xe59c59e8, 0x99bf078b,
++	0xb00bf0e8, 0x78003dff, 0x4759f3a5, 0x96ef85e7, 0xc9587a72, 0xd39abef1,
++	0x1f407dc3, 0xd3907d34, 0xfae8afc5, 0x65e35f21, 0xe6d601f7, 0xc4b778b3,
++	0xc77f130c, 0xf1b44c2c, 0x16def164, 0x2275d0a2, 0xc5307a8f, 0x5bc8ea77,
++	0xfb17a466, 0xa113e268, 0x43bbadfc, 0x82c91dec, 0xe337d854, 0x272377d5,
++	0xe367e27a, 0xc4b0d545, 0x991373df, 0xf311d1dd, 0xef1ac67d, 0xefd80b01,
++	0xeec7cdfd, 0xa4afa5f5, 0xd9ebd9e3, 0xfe01c5bd, 0x688bd982, 0xf54f51de,
++	0x8ce5026f, 0xde741d2e, 0xc67d1a45, 0xbffd8fde, 0x51cd7ed4, 0x7be7c51b,
++	0xe45141b0, 0xb87ebaff, 0x614be015, 0xc73f01ed, 0x2a4172c3, 0xf1c3fff0,
++	0x8735fdb1, 0x83d2326d, 0x1d32fb2b, 0x3ec9d73d, 0x989ee76c, 0x3afba3a9,
++	0xa612772e, 0x577dd04e, 0x6defcce5, 0xb12eef4c, 0xbcc2cffb, 0xc5d1ce92,
++	0xbc4a7e51, 0xa9dcb621, 0xdc209591, 0xc319afdf, 0xa6705ce4, 0x3eabf4c2,
++	0xa7c98472, 0x6f32e4b3, 0x645f4350, 0xf03d4114, 0xee8a998b, 0xc035c1dd,
++	0x7e5e941f, 0x057ee9cd, 0xc54d01f0, 0x4dd20a11, 0xda1374c2, 0x5f38aba9,
++	0x68f9cfdd, 0x87a3e72d, 0xc2467f80, 0xdf8cae3b, 0x051de224, 0x8b8d48fb,
++	0xc0258fbd, 0x8d49b4ff, 0xe85cfe6d, 0xb32de6af, 0x350fe700, 0x11752f92,
++	0x977e29e4, 0xef8f307b, 0xedeb06ea, 0xbbf1589e, 0x9293ed4b, 0xc95e14ec,
++	0xdfbf8676, 0xfe2167d4, 0x316f6e2c, 0xd8724bac, 0x19afaed0, 0x658e2969,
++	0xbdecd81f, 0x53b74ef0, 0x9fc80f78, 0x817f6bd0, 0x666ea17b, 0x37fdc20e,
++	0x06399f70, 0x33b18cfd, 0x04864079, 0xff0d08c9, 0xdcf7f1d7, 0x46482788,
++	0xf2c0e469, 0xf808f38b, 0x7ff2fa77, 0x136ff23f, 0x02357f93, 0x780c57df,
++	0x5531f755, 0xd78049fe, 0xb9e77d01, 0xdd5ca2f2, 0xcb997b3d, 0x3cbd636f,
++	0x4f9d9dbb, 0x2fc46f11, 0x70a72df4, 0xce6bb3ca, 0x09c49495, 0x5d95efbd,
++	0x461d6315, 0xf61277b9, 0x9225903f, 0x5905df1f, 0x191e78a8, 0x8fe4f20f,
++	0x3fa5fe2c, 0xaf1d40fd, 0xee315ce8, 0x72e785f3, 0xae299f71, 0x20fe45cf,
++	0xd8d78de0, 0x7e1a2749, 0x9dbc02e6, 0xa3e7e7a8, 0xe208720d, 0xbc6ff652,
++	0x14d9a1e7, 0x88370b9e, 0xd7fefeec, 0x6a277ddf, 0xb6481be2, 0xf53af507,
++	0xa113b43d, 0x73da5d3b, 0x58dfc2ec, 0xf62fa07d, 0x3614cfb7, 0x6bdfb6c4,
++	0x53d057e0, 0x1e801f29, 0x4881f54a, 0x5f85f418, 0x08bdf15b, 0x68dc1f35,
++	0x540ef98f, 0x195a7dbe, 0xddbe67d0, 0xc4a42777, 0xfafe8091, 0x8ea1e6fe,
++	0xa67c1c7b, 0x28f64e70, 0x70a5b38f, 0x9ff3a99f, 0xe3b273b1, 0x2c421fdc,
++	0x78db94fd, 0x729fa7b9, 0x21678b17, 0xeae5d8ee, 0x3b714e7c, 0x7b46e170,
++	0xfd8c7968, 0xefbf217c, 0x479f90b7, 0xd53ff8a8, 0xba3137ab, 0x3f2ffb51,
++	0xdfe18a37, 0x53c26740, 0x3eae9063, 0x7fa3243d, 0x4aea784d, 0xf2a52f7c,
++	0x97eb059c, 0x415fde8b, 0x4d79161c, 0xf3bbba44, 0x873c38f0, 0xc3bc32ea,
++	0xb7f387b8, 0x2b9e169a, 0x8599e9d5, 0xec0a05a1, 0x2ae785cb, 0xde211e91,
++	0x1397ee11, 0x934bf6f2, 0x13574e24, 0x6991fda0, 0xa2bd69cb, 0x64bf464e,
++	0xfd12b062, 0xef768d84, 0xdae431fd, 0xe747bb1e, 0x2cea2837, 0x2389fec7,
++	0xe7351248, 0x7bf90bf5, 0xd8e745e1, 0x1dc4847b, 0xcf402924, 0xe944de5c,
++	0x6c6eff52, 0xcbe18997, 0xf857deb8, 0x5de95f3a, 0xd67e84ef, 0x5eb663fb,
++	0x7517cfbe, 0xf5d61ae6, 0xd6b1f1bb, 0x44cf5d15, 0xdfce5f6c, 0x31372df9,
++	0x9fe5abbc, 0xf4d5f1f3, 0xb82cf578, 0xf84a4361, 0xa185903b, 0xff78153b,
++	0x3e21b0a8, 0xb3acd041, 0x5d56fea8, 0xfd61495c, 0xaaff7c3c, 0x329e61a8,
++	0x7a47235f, 0xecfc14f1, 0xa22349a5, 0x81fcfa78, 0x1dcb699e, 0x1c14afb0,
++	0xfe3b3e03, 0xe79cc564, 0xf0cbf409, 0x8e095276, 0x72b942ad, 0x3dd62ba7,
++	0x788dcf94, 0x1b78e7ab, 0x35a32411, 0x97c54672, 0x4df1fdb1, 0xf9c17765,
++	0xecf5f1f4, 0xe5fe8f75, 0x1a7c6c4c, 0x3076e8e1, 0x71e9a9f8, 0x2ffb2fba,
++	0xeb978e08, 0x85fa9be2, 0x0abfc723, 0xd53bf527, 0x1c0eacab, 0xa37bb097,
++	0x0417b9f5, 0x8cf8e8bf, 0xbe2a4e3e, 0x7e41eb91, 0x7c093951, 0x07c9ea7a,
++	0xe5db6ac6, 0x840d27db, 0x85ed4871, 0x6fdd8f9d, 0xfd41a7f7, 0x21ef64e0,
++	0xd15bca0f, 0x5dd7435b, 0x7768f712, 0xdfab5718, 0x935656bf, 0x4a5fc12b,
++	0xc12b87ed, 0x05b5436f, 0xe6a8a3d4, 0x847d05e0, 0x7ac5f156, 0x83926a17,
++	0x5656b3f9, 0x95bfa157, 0x0dc48258, 0xf8c23d7e, 0x42cc9c92, 0xd0e497ff,
++	0xec8a01eb, 0x4dbf8377, 0x6591f7e1, 0x3d26bfc9, 0xc4d9ec1b, 0xbe06a08c,
++	0xbc583957, 0xc594dac4, 0xb7438841, 0x38719f80, 0xeace37fa, 0xa517fbec,
++	0xdd280385, 0xda7dcfa9, 0xe5cbe846, 0xfe8216c4, 0xbbf4d1b4, 0x74891e76,
++	0x4c7dbade, 0xe2c9170f, 0x890f73c2, 0x8715bf70, 0x7282fd07, 0xc3973578,
++	0xdc2eedcb, 0x645d567f, 0x8ea0fb42, 0x0b7ec3fb, 0x8b84307e, 0x84327684,
++	0x257d40dd, 0xb0eb882e, 0xd0447ac2, 0x7798c3db, 0x22328bc2, 0x4025b13e,
++	0x04789e3e, 0xe1200fc8, 0xf687a055, 0x0bbcea4c, 0xfd58a7be, 0x5fbf01b3,
++	0x151c76a4, 0xe05a0fc0, 0x5ce004bf, 0x3c33062f, 0x62e3feb4, 0xa5ea0324,
++	0x12b7a2d1, 0xc4117a58, 0xe735fb41, 0xce1dec2b, 0x9bec5e68, 0x64a968bf,
++	0xfaf86f38, 0x2ff96d12, 0x0762beac, 0xf656fbec, 0x07e24d7e, 0x9ab9ca02,
++	0x01773f5e, 0x71a9dbde, 0xd23d7f30, 0x21d5d005, 0x959f4fb6, 0xe809713c,
++	0xf5951b3f, 0x5e1e6ea2, 0x76e25e5d, 0x53a5134d, 0xf4ab8bf0, 0x99f24231,
++	0xae2e8e80, 0x78b5dfa5, 0xc15fa18c, 0x39fa2338, 0x47e7504f, 0x157a45c7,
++	0xfdb0e5cf, 0x7b0f40d6, 0xa0ff3604, 0x0fecced5, 0xaf011412, 0x93c255b3,
++	0x3c7cb056, 0xddf07f51, 0x3f55b7cf, 0xf2c15937, 0xcc0b966e, 0xc66ae767,
++	0x5f6eccf9, 0xe5fe01dd, 0x0ba9edd9, 0xb6659ce0, 0x208ff2e5, 0x0e4723dd,
++	0xfc4e41d8, 0xf9a3bd8c, 0xca2f23d3, 0xbc778a20, 0x43ef11b1, 0x71f9ce3f,
++	0x80c8890e, 0x2b713f7f, 0xc21e4fcc, 0x5e27cdf5, 0xc1916f9e, 0x1c2dbd7e,
++	0x9a3af9ba, 0xd0c5fdbb, 0xcd5a6075, 0x09791439, 0x716fe6d0, 0x5a2fa1e7,
++	0x7de6d76d, 0xbb59e599, 0xdff81c28, 0xb82c90c1, 0x2dbae8ae, 0x9d750708,
++	0xa3e226b4, 0xfdfc4e17, 0xbd2e1520, 0x7adfb6eb, 0xfb0bf82d, 0x2db36f93,
++	0x71623e63, 0x465e6cb9, 0x45067d38, 0xc3915ef0, 0xf2e807b7, 0x1daf8761,
++	0x12dca4f8, 0x21869349, 0x5f2184df, 0x4a2ffa29, 0x78f870a2, 0x8192ffa8,
++	0x018e8f00, 0xbe67a417, 0xd5fce9ca, 0x83f7def4, 0xbe99d113, 0x66c1f986,
++	0xb55b7a70, 0x9b8c4de3, 0x7b30f8fc, 0xf442a90f, 0xfa0f7f5c, 0x4b1244bf,
++	0x57d355ef, 0x2de61fb9, 0x9d1f7a87, 0xc48673ad, 0xd5a33de0, 0x667af78e,
++	0xfd3a8b64, 0xc0b6467b, 0xc63ad7e3, 0x4bd3a4de, 0xeeba7057, 0x11c40fdb,
++	0xb059fb18, 0x55da3274, 0x24f7153b, 0x0dc1ff90, 0x4c16ce8c, 0x671089f5,
++	0x808d613c, 0x1ff188fe, 0x87901276, 0x09e2ea0b, 0xb82f839c, 0xbc16717b,
++	0xe1d95097, 0x3904eb69, 0xe0bc1219, 0xef164b47, 0x9d25f8c8, 0xd807c3d7,
++	0x3bf90c3e, 0x9f0e9e60, 0x2bf1a1c7, 0x1955c977, 0xdbeba06e, 0x0b903e1d,
++	0xbdf26ef3, 0x922d780d, 0x76b5fbc2, 0x3cdbbcc8, 0xf31f40b9, 0x4c3eac5a,
++	0x51b2442d, 0x224f36b9, 0x15934816, 0xdf215922, 0xece7d4fe, 0x3bad86b0,
++	0xec2c46d9, 0x80afe1fb, 0xacdf2e4e, 0xa63dd6e8, 0x51ff9f45, 0x119f3e9b,
++	0x0eb3e7d6, 0x80b7f3e9, 0x87d1a31a, 0xe765ec0e, 0xd86765dc, 0x05e7c13d,
++	0x7fc083d8, 0x37b9466a, 0x073daca5, 0x3ccf4dce, 0xf94134eb, 0xfd986f9e,
++	0xc562d916, 0xbff6cbf7, 0x44b62363, 0xbad4c778, 0xd8cfca11, 0xffc0725a,
++	0xfc63eb44, 0x4735dd03, 0xf3b1fd82, 0x0cced532, 0xcec49c61, 0x7b9c596f,
++	0x04398b64, 0x7667b1e7, 0xd02cf53f, 0x832d99dd, 0x5e79ef51, 0xdfa09a08,
++	0xaf0c7de0, 0x9d2e6c13, 0xacdb29fc, 0x3846ebb7, 0x73d53e99, 0xf10b994a,
++	0xebd4974f, 0x48697dd7, 0x64ed1f9f, 0xd13e67f2, 0x73874f7c, 0x14aacf66,
++	0x48278ba0, 0x5983fbcc, 0x9f7f264e, 0xed515a7e, 0x33bf916c, 0xd1493c46,
++	0xa27b4f7b, 0x064b3fe7, 0xc0001c43, 0x7bf45862, 0xb55c6199, 0x7cb96fff,
++	0xfa7ee44f, 0xc222abc8, 0xb17574e7, 0x57b89cee, 0xa6f6ad3f, 0x33ecd54c,
++	0x93fbf585, 0xb85ea1e6, 0xd6be693f, 0x3072db2e, 0x738856e9, 0xdfe12cd9,
++	0xfd9f2a4f, 0x121343e4, 0x02d8bbe1, 0x1f7285f3, 0x2f2d1fd8, 0xd51ea0b9,
++	0x71b5333f, 0xe3f54523, 0xf66aa652, 0x974a1fd7, 0xbb4aefbd, 0xe5767c19,
++	0x1d78dc16, 0x835977c5, 0x656a85e8, 0xfbff372d, 0x837b8018, 0xcb5cf78c,
++	0xbef8c9b7, 0x0af1a079, 0x359413f4, 0xef879ebf, 0xe79fade8, 0x48e57985,
++	0x44cc40a4, 0x904dc0d7, 0x81df6c9e, 0xfd95d5ef, 0x3c914eb5, 0x7d3d5f30,
++	0x3f437a50, 0x7280d517, 0xf01e006e, 0x54f8c32d, 0xae11bbf5, 0x7b7d2125,
++	0x17febe23, 0x33fa37a7, 0x63778b4a, 0x83d301bd, 0xca4877f8, 0xa3b95297,
++	0x3fca2fb1, 0x38f8c5ac, 0x542838e3, 0xb0d0e735, 0x1f90797f, 0x271f7cad,
++	0xc7872582, 0x79670e8f, 0xe80f377c, 0x197fd60b, 0xfb81ea99, 0x7c90378d,
++	0xc2179f48, 0xe322890f, 0x6c3bf46b, 0x775f23b5, 0xfc9f3bb9, 0xf343d01d,
++	0x18c73c18, 0x767befc4, 0xdef8c279, 0x0ff7faa0, 0x5f2cdcba, 0xf8c56eda,
++	0x2b1f338a, 0x4196cf28, 0x7fd4175c, 0xd1326ad6, 0xb6cce67d, 0x4e219301,
++	0xbd85abb0, 0x65ba7b2f, 0x7be564c0, 0xff2347f6, 0x31d6fbaa, 0x6fee95f8,
++	0x1b7d384f, 0x15df009c, 0x79328e2c, 0x55465540, 0xeda93c0c, 0x0caa9512,
++	0xb7221fb0, 0x991bbc3b, 0x720e93be, 0x053facff, 0xdc79f9ed, 0xae37b17f,
++	0xd7e819e0, 0xe8faeb49, 0xe24384bf, 0x0fafa046, 0xee5def44, 0xb5f3d1e1,
++	0xbc7ed985, 0x30564a4f, 0x4481663b, 0x4fd512c2, 0x1fbc8017, 0x8394798b,
++	0x8c041a0b, 0x56b85a2b, 0xef781ebf, 0x0377fb54, 0x5e2fe18a, 0x9138870d,
++	0x1b8b4c16, 0xb025e5f4, 0xfe30b87f, 0x4bcfcf03, 0x70e5f49b, 0xbdf41093,
++	0xccefe6f2, 0x39f6e0b1, 0x7be7d751, 0x1f93a9c9, 0x8f8fca32, 0x5f5c02c4,
++	0x909b5819, 0x702afdf2, 0x42ca6e77, 0xa59ee20a, 0x66165213, 0x04183be1,
++	0x1645a7f6, 0xb2657412, 0x8003bc3c, 0xc9fc83ac, 0xf5825bde, 0x9487ef69,
++	0xa1e1254d, 0x613ae8ae, 0xf272da7d, 0x5963c306, 0xe31e10bb, 0x8237de8a,
++	0x95eb6a75, 0x3797f5f3, 0x837e759b, 0x84f3880a, 0xefd69538, 0x797ebacc,
++	0x37dd1cfc, 0xe7e29589, 0x1bb95ee1, 0xfc5634ba, 0xa70e51f9, 0x4c2e6f87,
++	0x15fcbe05, 0x388381e8, 0x3da97320, 0x0271c20a, 0x8e85b803, 0xcdeacb63,
++	0x72ce7963, 0xf9d4ff96, 0x10fd5e55, 0x7ec9376a, 0x2058573c, 0xf70cbc16,
++	0xfdba669a, 0x17fc025f, 0x12697c98, 0x246fa7f2, 0x652e47c6, 0xb3247feb,
++	0x18aad2ea, 0xc78aa9f6, 0x782d0adf, 0xcddc17be, 0x76673df6, 0x3bfad644,
++	0xee4c5de3, 0xc4e81dc4, 0x0ec8fe78, 0xae11ef01, 0x3de18e17, 0x78d7f5bb,
++	0x29cfd808, 0x17206f14, 0x05640bd7, 0xdd9563bc, 0x978ef33a, 0x36d97f00,
++	0x5a2a77d4, 0x0e158927, 0x77d33f5c, 0x708d55ec, 0x773c98ce, 0x33d02654,
++	0x1bdcf75d, 0x83cbbbe0, 0x183aa5e3, 0x0f2ca41d, 0x0d1e2fa6, 0xf1dc17e3,
++	0x18dbf012, 0x4d3fde1b, 0x2672b0a6, 0xf406ba60, 0xb1921497, 0xca77e41f,
++	0xf8264f74, 0xb1761f5a, 0xc49a0671, 0xcf4133b9, 0x84f964ca, 0x46df057b,
++	0xb875ae24, 0xc93364fe, 0x77c2f987, 0x602d13d0, 0x887963cf, 0x554a79e1,
++	0x3c9f8c06, 0x4a89a59c, 0x5e82e318, 0xcedef151, 0xb89673e2, 0x25e3ca09,
++	0x4e4a4d5f, 0xe95feda0, 0x952d86a2, 0x510caf53, 0x03b0e1f5, 0x623210f4,
++	0xf5cfab14, 0x2c1925e1, 0x4d313dee, 0xbd5857d5, 0x9717d91e, 0x75f3f205,
++	0xe67f17a6, 0x9c41c5f0, 0xec4a15da, 0x1c49dbb8, 0x3673814f, 0xfff8d212,
++	0xc0beb303, 0x73811c7b, 0xecd2122e, 0x9b2ef007, 0xbcb37e36, 0x17be00f8,
++	0x303a415c, 0x45a2b80e, 0x857a6f1f, 0x2ab8f62d, 0x99ce079d, 0x42ed1048,
++	0xc0271f0a, 0xce0ab227, 0x057b8271, 0xce06aff4, 0x19a82429, 0x412e703f,
++	0x679def9f, 0xad13f612, 0xdaf5f447, 0x247ac4be, 0xe305d3b7, 0x713bbb74,
++	0x939c08bf, 0xafba9db0, 0x414c84f4, 0xdd6fea99, 0xc3de561e, 0xeb55a3df,
++	0xcf75fdab, 0x977df852, 0x55dbf608, 0x8511054d, 0x9feda3cb, 0xbcb39fa0,
++	0x45c23f7d, 0x7c2887a5, 0x81a824ec, 0x474d524f, 0xfb7944d8, 0x584d0fe7,
++	0x4a52fa3d, 0x1f38075a, 0xf6ae2707, 0xa2e5a44d, 0xf6d7c749, 0x473e5eec,
++	0x49b0f2f1, 0x2bc8fee4, 0xa89d4f57, 0xbdfaf3c9, 0xbe3f83ed, 0x47b3ca1a,
++	0x1ecbf6b3, 0xcb0feaba, 0xa25ca8a5, 0x702b48eb, 0x4316f26a, 0x63f341de,
++	0xa1b77934, 0x9e50d13c, 0x610fc862, 0xe19cbbf5, 0xc84bd134, 0x5ca687da,
++	0x03dfc12d, 0x81cf0d4a, 0xc56bfb9b, 0xefe1abbc, 0xb364562b, 0xd95817bf,
++	0x3859782e, 0x655f8313, 0xa76cf9ef, 0xc03460b2, 0x9065e3a1, 0x826de503,
++	0x4770f41b, 0xe630b6cb, 0xd3479da1, 0x7bdd85ae, 0x86396f2a, 0x7fedfaed,
++	0xf8f90994, 0x63ef51fe, 0x15c5f3bd, 0x78fae991, 0x19e2fef3, 0x26fe088f,
++	0x3be8b8d7, 0xdedb5dbd, 0x37bdfe8c, 0x53ba472a, 0x8e51077d, 0x067fee1a,
++	0x288e3e60, 0xbc70a89f, 0x7c59d47f, 0x31ddf0b7, 0xdb6047ed, 0x64f92fb7,
++	0x7f91e819, 0x0e3138ad, 0xfb782af4, 0xdf8df610, 0x614ba10a, 0xf8947a1f,
++	0x6f71852f, 0x3f78b8af, 0x547d913c, 0xde0c7cee, 0x87cffdb5, 0x7f0d5ee6,
++	0xb3a8eeef, 0xa9fc2873, 0x52ae239e, 0x81d1c7c4, 0x4292f89d, 0xcb195c66,
++	0x6a1ced0f, 0x5db7f9a2, 0xe2fe59eb, 0x2f20c7ce, 0xed632dc4, 0x150e74c7,
++	0x2c3260dd, 0x726dfc47, 0x3ff7e6c7, 0xcea33972, 0xbee1eeef, 0xa42e0097,
++	0x7037ed9c, 0xe542d0bd, 0xd3d29ce9, 0x7851375b, 0x1d85f9cc, 0xaea6dce5,
++	0xfa65af1b, 0xe200b070, 0xbc39928d, 0xb9443f71, 0x90dea12e, 0x42607b0a,
++	0xb4ce9f14, 0x17ee0f0e, 0x036d5597, 0xce79207d, 0x1a2fdc68, 0xb8acbe9c,
++	0x4374d171, 0xe2b34b22, 0x8bae4cdc, 0x961fbc26, 0xf5138f7c, 0x77f15fa5,
++	0x21df29ae, 0x5e38387d, 0xbb3173de, 0xf3173dec, 0x4e741c2b, 0x11de7ec3,
++	0x222deb7c, 0x056824a4, 0x50d896bc, 0x91b5b90f, 0xd72a15ca, 0xebbcf8eb,
++	0xfe8a5dd6, 0x5fc15b82, 0xfbbe1a3b, 0x47461352, 0x0cbafcf5, 0xed44779a,
++	0xbe99bab0, 0xda7bed54, 0x5cac8d75, 0xe9755b95, 0x5fbabdac, 0x71b0d725,
++	0xe9757f92, 0x5d875846, 0x8bf5e762, 0xb8dc8d66, 0x1bfff70c, 0x1fc0e2b2,
++	0x82a5f3e2, 0xc961fcdd, 0x9fe81330, 0x861a7e2a, 0xd172befb, 0x73f29ff2,
++	0xbd4f1516, 0x5b1c65f6, 0xea9102f7, 0x3fbd740f, 0xfd71fb72, 0xcb189f54,
++	0x3e99b30e, 0x4cd74591, 0x5225f034, 0xfef838e7, 0x694e083f, 0x147feeb0,
++	0xbc777f4e, 0xf73ef4f4, 0xbe61325e, 0xe84f4b15, 0xb870bdef, 0xcb0856ff,
++	0xf79ad9c9, 0xb077e848, 0xfa76bf33, 0xce69c7c7, 0x53dce7e7, 0xbaa77a81,
++	0x77cffb1e, 0x64dfc3e5, 0x51a7f234, 0x8efa3c2f, 0x3ff82d65, 0x282d2a8e,
++	0x4b5e8f8f, 0x51c5fef0, 0xaa941efe, 0xa2fce6d7, 0xd3b015ec, 0x4889c536,
++	0xbe09f71f, 0x7dc78054, 0xfee01e94, 0xa28f1ab6, 0xf175c7ee, 0x4085f5a1,
++	0xc68f370f, 0x881eef73, 0x4b7a848c, 0x2eb8df99, 0xf0ed13be, 0x371ef1ba,
++	0x07d0099d, 0x5b3231e2, 0x5d4fff41, 0xbab3a306, 0x3ef0cb92, 0x2097a505,
++	0xe8cd9fb6, 0x41266eae, 0x766ea1bb, 0x959bd20a, 0x9f30ac84, 0xa927e8fe,
++	0x10a3c586, 0x7b5637c9, 0x638c1d6e, 0x767b117e, 0x41378ee7, 0x456b5d8f,
++	0x8950163d, 0xc9b51de7, 0x074a5f38, 0xaa5748c5, 0xd49bf67d, 0x0f68fdd0,
++	0x5feed17a, 0xc3cdf4ed, 0xeed2fff9, 0x5837f981, 0x264b1ac9, 0x05643598,
++	0x1f3e49ca, 0xc608fb52, 0x7ae5cc2f, 0x67c57be1, 0xfc7fa09d, 0xff504e3c,
++	0xec0fa52e, 0x9584f9f0, 0x7ed7bfcf, 0xf9a9ec0c, 0x6277b2f7, 0x3e699ac9,
++	0x9d05f9fd, 0xb9f8126b, 0xc47d4ff9, 0x87e37409, 0xffe82e76, 0xff709cbf,
++	0xbb2f7fc6, 0xb4824acf, 0xfb68a8fd, 0xc1df81fb, 0xf9b22e5f, 0x27bb6a93,
++	0xf7a0fbd6, 0x44bf71c7, 0xed3e23ed, 0xc638ea78, 0xf8bda97e, 0xc28bc000,
++	0x8cf70c3d, 0x7f64bf22, 0xdf38c097, 0xa0f22544, 0xa9cf9695, 0xefe1e316,
++	0x3a97fb88, 0x7ceabd71, 0xae4726e7, 0xa1847f44, 0xcaf6e3ff, 0xab67f01c,
++	0x57b90ff6, 0x5c21ef63, 0x845e6894, 0xb411f87b, 0xe77cfaa3, 0xeed1b1f6,
++	0xb35be424, 0xdc6f5eb6, 0xcc3047be, 0x4795d39f, 0x7e6f0090, 0x28af1e7e,
++	0x5ef83991, 0x2ade6194, 0xba73773c, 0x08c2e953, 0xc0fdddef, 0x1ce9513b,
++	0x97fafd0a, 0xc64e119a, 0xf4fdd5fe, 0x1fe52b11, 0x82f5774a, 0x7f5af480,
++	0xc7f71db7, 0x49e46b1e, 0xefb8d7bc, 0x7777c46a, 0x4103cd89, 0xb5528f5a,
++	0xf633cf1d, 0x9e8cf3b1, 0x81239d91, 0x9ae9ba9f, 0xdd3f147d, 0x418d8aaf,
++	0xd5049d41, 0x37155e8f, 0xef77fd02, 0xb3f586be, 0x89dececc, 0xbdc30806,
++	0xaadfe0c4, 0x81f39fc1, 0x002fbd89, 0x6b458f7f, 0xd1bdc377, 0xbca8cce2,
++	0x180281e8, 0x573d4dbf, 0x38e097f2, 0x3df0dab7, 0xe0934a81, 0xb2abbd03,
++	0x67bc32f4, 0xd1dff840, 0xa568e551, 0x99a3da89, 0x34afbe51, 0x31723fbd,
++	0x491293f3, 0xf5a347e3, 0xb03b045e, 0x03b6b2dc, 0x49bb51ef, 0x6843eff4,
++	0x6b95a5fc, 0xf3037ccf, 0xf8356caf, 0x83fe0c11, 0xa53d2d52, 0xf504e947,
++	0x531f907e, 0x775bde09, 0xbf3dbcf2, 0x018efd03, 0xf030ce7e, 0xd6d77b00,
++	0xc042dd99, 0xc9381aaf, 0xed0996f4, 0x0ec1078d, 0x18efcf8f, 0x700dcb0a,
++	0x9ef19f3f, 0x75f6f8c9, 0xaa95d822, 0x6bb1a3be, 0x8c61bd2f, 0x4df76536,
++	0xf1864ec1, 0xf013e13a, 0xc9f6c48d, 0xf74803ff, 0x800023ad, 0x00008000,
++	0x00088b1f, 0x00000000, 0x7dc5ff00, 0xd554780b, 0x733ef0b5, 0x9992bcce,
++	0x9264cce4, 0x0927de4c, 0x27010084, 0xd4500421, 0xe6a2bc21, 0xa2d101da,
++	0x3c2438b5, 0xa0992112, 0xf7ad8b95, 0x24844032, 0x111a0804, 0xa284e028,
++	0x17edaf62, 0x04c0622c, 0x16c45407, 0x6b5ec5fb, 0x46f7f6d5, 0x485ca008,
++	0x6c5cb046, 0xad7bfcb5, 0x67324fbd, 0xde952892, 0x1e9f7cde, 0xecfbd9f6,
++	0xaf6b5ac7, 0xa5b3def7, 0x90d74b32, 0x44b44849, 0xc8485488, 0xbb11a6c2,
++	0xfe840957, 0x5b6673b9, 0x862a7909, 0x83c9e03c, 0x33c8abb2, 0x72599086,
++	0x9e3c8c71, 0xb1722390, 0xf7878e59, 0xda1e9181, 0x08e3f88e, 0x55c84499,
++	0xe075bbf8, 0x24203693, 0x625dbfbe, 0x8d7e4d76, 0x0e76e865, 0x83a7fd03,
++	0xd8b6d090, 0x8f986ec0, 0xd1796024, 0x0d2df46f, 0x613a3f38, 0x7687df3a,
++	0xfe600666, 0x40c9a415, 0x4a5909b2, 0xd2220602, 0x8fe22676, 0xda4fa029,
++	0x173e962c, 0x2512356f, 0x55dfe097, 0x40655ffa, 0x6ccd265b, 0xe0a54b5e,
++	0x90862111, 0xfb13a425, 0xdb57b259, 0x1234e96e, 0x2afad2b4, 0xc3460913,
++	0x5f5b55b3, 0x0f38424d, 0xa355db5f, 0x44d27fa6, 0x36db8508, 0x3b662133,
++	0xf99dc9cc, 0xe87f9d38, 0xb76bbd6d, 0x6869c842, 0x870fd492, 0x38e2d88e,
++	0xa8947380, 0x568675c3, 0xd3760745, 0x48eb7675, 0xb70a3ec5, 0xc0f2364d,
++	0x59ecfa6c, 0x0d8738a9, 0x9d8c7043, 0x3c20663d, 0x2b990e1b, 0x6e7f1402,
++	0x55708759, 0xd5895fdf, 0x40cbb963, 0x7d695a2a, 0x5fda6ad1, 0xf57d7f5e,
++	0x7c2f163d, 0x70165337, 0xbbe780de, 0x0d64cf00, 0x3ded077e, 0x71a8fc74,
++	0x777ea9ec, 0xcdfb5f67, 0xfe14df0c, 0x952dff30, 0x27802d51, 0x0493b922,
++	0x04759407, 0x63cf2ee9, 0x0fefd2f0, 0xfd7e7405, 0x5849f40d, 0x31ad7f7b,
++	0x97b62cf0, 0xe5a0ade7, 0xb9e69f43, 0x489c281a, 0xd03e7bae, 0x5173d2c1,
++	0xf1c1d00a, 0xff5f3f73, 0xf17f5a5b, 0xa4628353, 0x36800bf5, 0x090f1e28,
++	0xe7684ade, 0x3c8a37bf, 0x352ddf4b, 0xbb8c3710, 0x8088c0f4, 0x807bf69f,
++	0xb0feb196, 0x1a59c715, 0x90b6dde3, 0xa5f4b3f6, 0x40a51778, 0xf03eaaf2,
++	0xdf5073c2, 0x4b3d7661, 0xc51a5dfb, 0xa1e971e8, 0xbe7efc14, 0xf014bbd9,
++	0xfc0c6c93, 0x7be92fc7, 0xf5d19af2, 0x245c7d2c, 0xff3045c1, 0x0166ad8b,
++	0x75849dda, 0xad27d2c5, 0xed5d6013, 0xbfb63c74, 0xefd21692, 0xb227d54e,
++	0x9d387175, 0xe91a30da, 0x8d9e8b79, 0x60283fe7, 0xcf7a93fb, 0x3e5a248c,
++	0x6bbe72f9, 0xf5eaad15, 0x4a068218, 0x4b4dbe7f, 0x84b1904e, 0x5d94eb94,
++	0x38722700, 0xe2abe71a, 0x7171b7c3, 0x1efbd429, 0x124eec7c, 0xf4fef433,
++	0x310919b5, 0x0f6bd3f5, 0xfd03a509, 0x6ac8af6f, 0x7b71d20d, 0x44ba47da,
++	0xe45275ac, 0x5990fa53, 0x833d6edb, 0x8f43a86b, 0xfb5af4fb, 0xb44af587,
++	0x5bfc1f1f, 0xf0dd2784, 0xbc017eea, 0xc1c59787, 0x747f14ca, 0x8943bebd,
++	0x7ac8af08, 0x0bbbd5b3, 0x13f553f8, 0x0af1f3ff, 0xf9086f84, 0xc78a6919,
++	0x1de7467d, 0xbbefd134, 0x5f7159b7, 0xb4a63c65, 0xf77e0175, 0xb69d70db,
++	0x0ad16e69, 0x58991de5, 0x314571be, 0x86c71539, 0xaf940925, 0xa4ffa44c,
++	0x49122efd, 0xdf00a9ad, 0xeda36ce7, 0x869cbccf, 0x24645cf8, 0xcfba2675,
++	0xebc32349, 0xa7ca1699, 0x8dca7c28, 0xc967c85d, 0xe804087f, 0x85abb685,
++	0x20e94b76, 0xe1030549, 0x034b7c06, 0x395840b7, 0xb5abce8b, 0xff742445,
++	0xfaa7ca10, 0xcfd59fd6, 0x693f80c7, 0x337f27be, 0x57e8e16a, 0x63ee2df9,
++	0x59c4a8ba, 0x51f9fa63, 0x18e7ac47, 0x12c3f3e3, 0x44677e01, 0xf29972ef,
++	0x8fc4c5b7, 0x0492b1fc, 0x478ea9f1, 0xbbe32df9, 0xe177c626, 0xfc0d7519,
++	0x8ad241f7, 0x380ab37c, 0xf77c60d2, 0xc777ca31, 0x0977cd0e, 0xb807c9a9,
++	0xb8b7eefa, 0xf803ce00, 0x2aefe72f, 0x8c0d131e, 0x58f8df0f, 0xfd792440,
++	0xeadd7870, 0xcfa0e73e, 0x06e242e8, 0xc0fbe7fe, 0x806e5264, 0x516487b2,
++	0x4eb0ecf8, 0xad027ef9, 0x0dc449f7, 0x93ba337c, 0xfbe85bb8, 0x87e2669d,
++	0x2826a6fe, 0xc0d38fd8, 0x792f42e8, 0x2fad3e48, 0xea0cee2a, 0x13c49f60,
++	0xb5bdf819, 0xd3bff593, 0x802bbf4a, 0xaefc04ef, 0xa9137bef, 0xbefb0a8d,
++	0xe91990f8, 0x6b41f2e8, 0xd0f288c0, 0xfda3619b, 0x48d1fc25, 0x873dbd60,
++	0x7be7c8ac, 0x2b6e64f4, 0x4910ef6d, 0x73e22b4d, 0xd827f62d, 0x27e9f132,
++	0x680429c5, 0x053db857, 0xab2132b6, 0x65575f91, 0xf283de76, 0x81519f76,
++	0xd6d97c7d, 0x74ca1cb5, 0xe5a7e23c, 0xdb05652f, 0xcd4ff6f9, 0xef7d09ff,
++	0x0c5c58f3, 0xa07cdeba, 0xa3f8a317, 0x6f144c7b, 0x42c7c433, 0x5679d28f,
++	0xe06459a5, 0xfe32d3c7, 0xb4bdfef4, 0x3d7ed9fc, 0x9fde0231, 0x64973a9d,
++	0x2a27cd0d, 0x5d93fa03, 0x64baf461, 0xd55cb6af, 0xdafb2daa, 0x9b54e5b4,
++	0x1a2671d5, 0x2aeba6f7, 0xb1a327a5, 0x3a16d3e6, 0x46abe35f, 0x967f9be4,
++	0xe03699bd, 0x31d0ba0b, 0xe331a380, 0xe02f58fc, 0x0173fdb9, 0x1b4a469e,
++	0xbe0c799d, 0x9b2eafb0, 0x79c867e7, 0xfe97cf43, 0x47087499, 0x93c189b7,
++	0x9b1f07f1, 0xee57dd12, 0xf5d08ecf, 0x251d9a2f, 0xee37c6af, 0xa045f1d2,
++	0x891ce0af, 0x9f6deb6f, 0x5db16309, 0x5989f225, 0x579d1db4, 0xb7c656c5,
++	0x18ce9297, 0x54d50fd8, 0x145131af, 0x78636c3e, 0x2a1b5258, 0x367fd20a,
++	0xc2464bdb, 0x25afa53c, 0x1d7fe00f, 0x87a61bf4, 0xb1d366dd, 0x72cd7bf6,
++	0x368e06b7, 0x96d7d94d, 0xed877724, 0xff7c2597, 0x60904513, 0x7af94b3d,
++	0x6f782f7e, 0x9955f803, 0xe8530cba, 0xfd7eb7f8, 0xc5efca05, 0x75c6ca2b,
++	0xdbd70b8f, 0x1757c88c, 0xf7c5ea3f, 0x399b6faf, 0xcdb7d71f, 0xcfdc00ac,
++	0x9e9014ec, 0x025aa717, 0x5bcffa26, 0x5b9f4c6d, 0x8413bf4c, 0x848c7081,
++	0x331dd9db, 0x6747409d, 0xdfcf1b09, 0x59e4e4ca, 0x9b2bc299, 0xcefe81b5,
++	0xebbe31b6, 0x33f33adb, 0x778b4fe0, 0x67902e8a, 0x1aeac3a4, 0x7d3ca04e,
++	0xf40b42e4, 0x0a6e2977, 0x6bbcdf6d, 0x7be22cba, 0xfd8013d1, 0x6f3bb923,
++	0x5da5efa5, 0x78df5013, 0xcd91a763, 0x0e7a66d3, 0xd7eb71d6, 0x92c7ea22,
++	0x2f41788e, 0x47b8366b, 0x76557ec2, 0xf0033b3c, 0xb2567672, 0x42ffdb0e,
++	0xc3c03220, 0xde0122b6, 0x0f24162f, 0xad8acfec, 0x72e1a595, 0x11136cd9,
++	0x1e32535f, 0xe0b2e84b, 0xe407ba7e, 0xba4ed554, 0xd9fc607f, 0xaf7fbd1f,
++	0x3d3f7c23, 0x6174445c, 0xbfc77672, 0x5fc13d20, 0x34f808b0, 0xeef5c583,
++	0xbab4632b, 0x80726a2f, 0x5d5e2e5f, 0xa20f2393, 0x8bedf7bf, 0x8e1f741d,
++	0x4d836426, 0xb0755720, 0xfd1aed31, 0xdfbd2876, 0x0373ab92, 0xe22e4ddc,
++	0x133e967e, 0xa0bf548d, 0xa025f07c, 0x1a78788f, 0x97d23e10, 0x877ded0f,
++	0xcd926bae, 0xc7a053fb, 0x07cee20c, 0xb9212bbc, 0x005baa98, 0xc80fd462,
++	0xb7d3230e, 0x6defa624, 0x81cf2789, 0xfb8ea0be, 0x1e2fe84b, 0x1b1ec2f9,
++	0xc3e7b7ed, 0x5c018eaf, 0x8fcfd3ab, 0xbbecf905, 0xa14185f2, 0x0bb4b5eb,
++	0x2e2dafc8, 0xf17a010f, 0x0b22cfb5, 0xacf9faf2, 0x40e4c5cf, 0x6afebae4,
++	0xcfb67a63, 0x4e7ec211, 0x6dfed9db, 0xdcfa31b6, 0x002a22be, 0x23bb75fc,
++	0xff498660, 0x7c94fbbd, 0xc538a545, 0xe189a573, 0x57e7b4d9, 0x3be8116e,
++	0xa1c3c820, 0xd1fdb0ac, 0x202f315b, 0xdb3e71d2, 0xf2c7ed93, 0x912e29fe,
++	0xfcf659d6, 0xe00b2eac, 0x4177a6d4, 0x2bab8b7b, 0xd9f7d606, 0xb031539e,
++	0x223d8abe, 0xf022bbae, 0xbcc2c279, 0xbaf0be7e, 0xc00dfde0, 0x4b04388b,
++	0x6cf87f38, 0x0584a5cf, 0x98395416, 0x1c1c2c7c, 0x29e4472e, 0x5bb7809d,
++	0x3978616f, 0x00630bf7, 0x3339def8, 0xfc615f95, 0xc9959cf6, 0x263693b3,
++	0x4d69091f, 0x57d37907, 0x07573fbe, 0x6648ffe3, 0x5a1877eb, 0xfe3f61d3,
++	0xe7eda0b7, 0x091d3ac1, 0x595ede50, 0xf9434147, 0x5e17b9d1, 0xff7e0749,
++	0xa4afb3d9, 0x2fcd8597, 0x79f53bf2, 0x9aedc6de, 0x26dda7a6, 0x51195e3a,
++	0xc2a60bc7, 0xe32e6578, 0x485fc027, 0xdf7774dd, 0xcf62c9be, 0xab64f6f0,
++	0xaf60f91b, 0x1d00a8cb, 0x56f5dfaa, 0x804db944, 0xfe426217, 0x062ed657,
++	0xdb9fd08d, 0xfa01cc3d, 0x447dfab6, 0x4638aeff, 0x809b424f, 0x5e746976,
++	0x77f1f908, 0x2d4ef7e6, 0x7f9e293e, 0x32ae7801, 0x10a58e85, 0xc0030fa4,
++	0x916d50cd, 0xac253e40, 0x7a15f461, 0xbffa8744, 0x0169d921, 0x4e6b767e,
++	0x6e8ead54, 0xcc544744, 0xa7f54258, 0x6c5ce4b4, 0x74662fef, 0x81204fef,
++	0x590c0235, 0x96bf2023, 0x3a9c5e99, 0xb40dc891, 0xd33b3df8, 0xb5c49c57,
++	0xbc46cc55, 0x507fe00b, 0x05caa1e1, 0x8fe01fa0, 0xd21304e7, 0xa02ed08f,
++	0x5aea289e, 0x43bf41e7, 0x5d9e53d1, 0x3d1953b5, 0x49ff95f5, 0xe76454f4,
++	0x9e803bf4, 0x93d20abc, 0x3d3834d3, 0xbbf90229, 0x07bf13da, 0x0e44acec,
++	0xef9c4daf, 0x31311e84, 0x19050abf, 0xf794b7ac, 0x04b26a57, 0x2e1f9045,
++	0x30aef9fd, 0xd507627b, 0x494ec16f, 0x3e9e7d02, 0x57ccd653, 0xb3a46f10,
++	0xe8daec0b, 0x8f942609, 0x999d75eb, 0x8e24afa0, 0x7407d9aa, 0xaf2f3891,
++	0x67da0d60, 0x079036a9, 0xbfd15b20, 0xd3d8a2b0, 0x2fa6171d, 0x2fa80874,
++	0xc6ea3f54, 0x99db53f7, 0x661be07e, 0xd7d77d40, 0xcf01f826, 0x00431ed5,
++	0x817aa0f4, 0x1bfc01f9, 0xefd80acc, 0x156536cd, 0xbff34fd0, 0x5d3f2e29,
++	0xf9806f47, 0xd7497a13, 0xbd009fae, 0x3ed05855, 0xb605b66f, 0x7776822d,
++	0x03bb61e7, 0xf8d9137f, 0xdf8e09c3, 0x7a8adf9c, 0x0a6df37a, 0xfc7003f3,
++	0x2772cf35, 0xa81f40d9, 0xe6e7eed3, 0x9d927716, 0x52b5efbe, 0xcaf1d0c0,
++	0x8788cd1a, 0x99c19164, 0xfc989ac4, 0x4c17c819, 0x8984f700, 0x4f4d311c,
++	0xb7d3bea3, 0x80a729cf, 0x6faf3272, 0xd0e3a4ce, 0x3cf35879, 0x9f79a099,
++	0x3c7e5a6a, 0x024fd28a, 0xc46e87f8, 0xebd07e26, 0x564c61a3, 0x4f70c376,
++	0x9244e8e9, 0x86cef6a1, 0xcac39369, 0xf7ff7dbc, 0x69f6efff, 0xfb7728a9,
++	0x54da61ea, 0xb765ab1e, 0x9d6bce99, 0xa25ebfb5, 0x4da9aefa, 0xd7fbdf60,
++	0x8a9d3edf, 0x1d415ee8, 0x377aceff, 0x44cca9f8, 0xfcf85e33, 0xf5fe88a4,
++	0xa28b7fb4, 0x02565fb6, 0xa0553dfd, 0x73aedf96, 0xd26df9d3, 0x9043fb6b,
++	0xa0a1eff2, 0x4f8be78e, 0xdc9c686a, 0x3d5017af, 0xdf1f6021, 0xfbac1faf,
++	0x06e9b4a8, 0x7cb4563a, 0x577200c9, 0x873ef395, 0xe447fa80, 0xef897d7e,
++	0x57ccefd7, 0xba3d5187, 0xbf47a348, 0xdabe4764, 0x24b60335, 0x6f903fb5,
++	0x10f31efb, 0x3ea8e7d0, 0xfa8ec072, 0x4733f9c8, 0xeccf7d68, 0x514b1cbf,
++	0x79b2dda0, 0xaefaf7a0, 0xbeb74848, 0xa04062bd, 0xfbe26b74, 0xc0f1ca85,
++	0x9e9fa170, 0x9d39941e, 0x0744fcda, 0x8c21df74, 0xd57d23f7, 0x714ddfa4,
++	0x3ee71299, 0xb7ef8f62, 0xfdd7231b, 0x0fd99d91, 0x6de2dcbe, 0x1effd039,
++	0xd09e8081, 0x61327b90, 0x9f4dda01, 0xfb0c2c24, 0x29edb2ae, 0x5ee56784,
++	0xfc70a0fd, 0x1c222ec8, 0xecbe0fab, 0x2e71be06, 0xa84f2020, 0x37f50290,
++	0x854572d2, 0x5241340e, 0x2f7f9818, 0x35cc8fac, 0x7d74e190, 0x409bd041,
++	0x977bda8f, 0x375846ff, 0xafa04ffd, 0xa1167bb6, 0xd73edd3c, 0x30992164,
++	0x0865b2cf, 0x0dca3907, 0x2dc86870, 0xaa71824e, 0x4590cd67, 0x1c7aa7a8,
++	0x7a3f57d4, 0xd30c405f, 0xf4da1b03, 0x14e7a025, 0x57ee7d51, 0xf669de74,
++	0x745c4bdb, 0xfb88a71f, 0xe5a61ff2, 0xf1f0432d, 0x6e4c1c47, 0xff1e0ad4,
++	0x5fd10af7, 0x6ffdc247, 0x6f4c6d19, 0x683768bc, 0xed17affc, 0xd9377e12,
++	0xc81539df, 0x15d4b0e7, 0x8fb4fa0d, 0xfb073fb8, 0xca2c7899, 0xc62788b3,
++	0x152b1c8f, 0x1c992bf4, 0x806feb5d, 0xda12c9fa, 0x7aea442f, 0xa9edc612,
++	0x081ab877, 0x7e5007df, 0x9eed0f34, 0xabde71f9, 0x5c454740, 0x3839ed4f,
++	0xaf2cbf33, 0x7faaef5f, 0x0d581ad6, 0x3caad4fc, 0xf4fc0251, 0x24f9094b,
++	0xa73a8531, 0xff2a7ed2, 0x1b7ec76a, 0x7151bda2, 0xe6f5fe74, 0x81d03d40,
++	0x76c445bf, 0x20a6d98e, 0x73d9f3f4, 0x2fd016d6, 0x02268ef5, 0x15cd4c74,
++	0x1c9887f4, 0xf2d0a21e, 0x497cff54, 0xa1117900, 0xbf054ccf, 0x0e2bda11,
++	0xf3162bf4, 0x529c31fd, 0x6e1319c1, 0x71abda85, 0xf1cdfafd, 0xf048e6af,
++	0x747bd552, 0x9de7e626, 0xc08a3736, 0xe86d64f8, 0xcafc0e98, 0x7a024e8e,
++	0x80ab5570, 0xbee554e3, 0x65bb0064, 0xdfdb2b49, 0x50676e3e, 0x5e83a5f8,
++	0xcd171d91, 0x465acbf5, 0x58f3a4ef, 0x45f9c00a, 0x68424f86, 0xbdb86b3b,
++	0xd5d98ab2, 0xf7033fbc, 0xbf715787, 0x58849511, 0xd54e363f, 0x67f35633,
++	0x71f27b13, 0x6e9d08b7, 0x2f99e011, 0xeab6fc68, 0xe31c7a73, 0x4347b13b,
++	0x86ff6033, 0xff817d28, 0x6b309b68, 0x7d749bd9, 0x728fc6db, 0xa4e60a81,
++	0xc01624e4, 0x148a4a7b, 0x9f6d85ee, 0x21ba00cf, 0x6bf70425, 0xb114db75,
++	0x400dc78a, 0xae8c485f, 0xc4fa8169, 0x3e517207, 0xfc1f1f83, 0xb87077ff,
++	0xff985926, 0x9fdab9ce, 0x8c1e50f9, 0x26f659ef, 0x0a263f8c, 0x148915e3,
++	0x3e3b5637, 0xe57fc0eb, 0x4047f924, 0x954b3afe, 0x1a8f9802, 0x89d78a37,
++	0x43cacc0f, 0xbb658e3e, 0xa6ef704b, 0x6ce3bbcf, 0xdf6a2eb8, 0xe17cc095,
++	0x0ddb807d, 0x4e274760, 0x7187c9ad, 0xcf044e21, 0x84a0a49e, 0xcf2a68fe,
++	0x6d3a059f, 0xaf00ca33, 0x3eb7b6d2, 0x6a5b7900, 0xe822ad22, 0x4b7a113f,
++	0xf35dcc56, 0x2f7b6e80, 0x38f5d99c, 0x03eeebcc, 0x47e22f2e, 0x7adc8fab,
++	0xcfcbd30b, 0x80ad1b3d, 0xf39bb91e, 0xb23faa6d, 0x982fc138, 0x47a9191d,
++	0xb5a7123e, 0xffcafa4b, 0xcd923d70, 0xf7e74fcf, 0xf77f186c, 0xb7afbb71,
++	0xc80c62e2, 0xf47d55af, 0x517fe546, 0xb6529ebf, 0xd813fa27, 0x45767d67,
++	0xb5223e84, 0x840538b0, 0xdaef90d9, 0xe2fe3c0c, 0xff07ce76, 0xf9072d87,
++	0xa2e7f1cf, 0x173740fd, 0x97a8cd5b, 0x10433649, 0xb2fb55e6, 0x8013a031,
++	0x7578720f, 0x818ab8f0, 0x39ec6bc7, 0x0714280a, 0xfbe41e0c, 0x2cf497fe,
++	0x781312ae, 0x5e5a39e1, 0xc789387a, 0xeff6085d, 0xf08d183f, 0xc4a51a5e,
++	0x7f4bff42, 0x9e20471d, 0x03c74bd2, 0x7b37cf3c, 0x4d780a7f, 0xc9feb236,
++	0xc585466b, 0x36398279, 0x0096870a, 0xe54effd3, 0xba0682ea, 0x17d016ee,
++	0x3546dfa0, 0xd9d6c2fe, 0xc58521bb, 0x0119400f, 0xfb9eacbb, 0xcab8d5e9,
++	0x2b87e661, 0x5393f1e7, 0x033d17b3, 0xa15ab4a1, 0xb4ec04a6, 0xd0530dcb,
++	0x89fcbd6f, 0xaf2cf859, 0x17dbfad3, 0xaf7c1a91, 0x3f5527c6, 0x19711977,
++	0xefdcfe98, 0x7d51d43f, 0x8a93a946, 0x12667e41, 0x03c83579, 0x37b14fc5,
++	0xe96b3e81, 0x81789413, 0x93b69942, 0x80511dea, 0x3ab575ef, 0x5afe5b94,
++	0xa9da1b9d, 0x1c56f2f4, 0x57fd23f3, 0x5097f31c, 0x1c600750, 0xe7ab59f5,
++	0xdfde7efe, 0xc20ba22a, 0xe7b02753, 0x192a593a, 0xfdab7e4c, 0x4c6bead5,
++	0x4e6f4053, 0xfb3fa1d3, 0x173dc1b2, 0x1cf6c5fd, 0xb5ad53c4, 0xd584aea6,
++	0x6cba5ee3, 0xfeb0790e, 0x96298966, 0x3f03b144, 0xfa6388ed, 0x16dc2445,
++	0x91cb6936, 0x80ca9071, 0xbc4e5cb6, 0x59b29223, 0x7dfc20dc, 0x9767e707,
++	0xbc39321b, 0xbbe0065d, 0xa557faea, 0xd2e9b832, 0xad2b33d8, 0x41d02e78,
++	0x3285f816, 0xaafcc9e1, 0xff382574, 0x021d9bac, 0x7cc447d2, 0x9e8c6d6b,
++	0x0fccf5fc, 0x3fcef7f9, 0xe367de72, 0x763ef812, 0x56be213b, 0x5e301b2e,
++	0x12fead7a, 0xdf6b4393, 0xf1ff95f6, 0xe7b32df6, 0x2fc645eb, 0xa97c8c88,
++	0x396b664c, 0x0b9eb825, 0xd50b7bc2, 0xf51d601b, 0x91f00162, 0x705977a9,
++	0x2987d51d, 0x55f5a11f, 0x83a5758f, 0xee2eaf5c, 0x80bc81ca, 0x6cc2f848,
++	0xd19f9525, 0x6a0e6576, 0x50de808f, 0x0d878da7, 0xd3ba038c, 0xeec1e31c,
++	0x2defb539, 0xccfb5f90, 0xbfe8bf28, 0xff61188e, 0xbe44cc1f, 0x3bc589f6,
++	0xbe3ee21c, 0xe7aee0a8, 0x618f4133, 0xbb55547a, 0xc4f405b1, 0xf8b0dab2,
++	0x51affc1a, 0x75236f1b, 0x93bbf476, 0x8afbed66, 0x0ddf111d, 0x2135bf88,
++	0xbc18b65e, 0x53bf6123, 0xf1f18439, 0x023a950b, 0x5d172df8, 0x5d48408b,
++	0xf3f56b30, 0xaf86560b, 0xfe550e69, 0xcf0072b8, 0x7801e57d, 0x9e00e576,
++	0x1bc475cb, 0xe0154fde, 0x2977e299, 0x9785f3c7, 0x9e00e427, 0x909befcf,
++	0xa2de7803, 0xbec3726f, 0x4b7b2599, 0xd3dd8e00, 0x415fa83d, 0xd1f613bc,
++	0x7de3d2b5, 0xf464f37d, 0xf390df78, 0x5bf8c7fc, 0x8b8f9286, 0x95a1e6fa,
++	0x92830e8f, 0xcca0fc0a, 0x3946fc64, 0xfa837f09, 0xf4464cf3, 0xeafe1c7f,
++	0x1bcc46d2, 0x3f511768, 0x2c3bfb51, 0x3f41b379, 0xd381fc3a, 0xee8617e5,
++	0x8afc0adf, 0xe0fcffc5, 0x02ed5167, 0xe48cbf55, 0xfbe63fc7, 0xfdc3b37a,
++	0xd83bfd99, 0xb8ffaaa7, 0x0531b782, 0x77bd312e, 0xfe62e08f, 0x27f456e3,
++	0x97cc7757, 0x69fc5fc1, 0xab8ff980, 0xff47ce5f, 0xf5e06571, 0xdfc80a60,
++	0x7b064176, 0x27cf72a4, 0xfd2c8b31, 0x73b52f76, 0x886e809b, 0xfa471b49,
++	0xa62a7034, 0x3ef382dc, 0x768ef30d, 0xf7400c84, 0x23fed4d5, 0x52d54974,
++	0x5bf418e8, 0x17a820ed, 0xed69b614, 0xb8054a41, 0x031eedee, 0xededddf2,
++	0x75f80042, 0x999bc182, 0xa48d720a, 0xe40718ca, 0xc3976cfb, 0xe8f301dd,
++	0x03bb6b8f, 0xa33cb08e, 0x48b16dae, 0xe27a5dbf, 0x6d9f8196, 0x267e72b3,
++	0xf3fb7f21, 0x21a05b0e, 0x73f86f4c, 0x9509e980, 0x4491be6a, 0xd7c51282,
++	0x0fee39a2, 0xefc0df01, 0x3efc1183, 0xa3c6acbc, 0x3cfc4097, 0xde1dee22,
++	0x1f8e2fae, 0xf4d6f716, 0x95f26a43, 0x5bdc6d42, 0x7667ef5b, 0x2b0fdd33,
++	0x57e9fa0a, 0xbf4a83c5, 0xed1fdcd5, 0x16b938ab, 0x26d7d7e8, 0x2f5f60c8,
++	0x5dfa3175, 0xe32fed4a, 0x9dfb81d8, 0x0dfa52b4, 0xed4377e3, 0xe4228fff,
++	0x7bff47d1, 0x3b5068f2, 0xf8df74fd, 0xebabdf6c, 0x7df7fd57, 0xd8176ceb,
++	0x57588cbe, 0xe91adda4, 0xceed5777, 0x5f87e56b, 0xafc3f045, 0xa1f88ffe,
++	0x7e287e29, 0xfc6b8da8, 0x7ff0fcdd, 0x4cf1be39, 0x3a31d3c7, 0x332a2aca,
++	0xd7a64efd, 0xe2f135b9, 0xcdc5a219, 0xcb22a6e2, 0xbb8c8897, 0xdc78332b,
++	0xd7e7ed9d, 0x5f11165f, 0x5c3e3c55, 0x417561d5, 0x62cb0ad3, 0xc646cf8c,
++	0xfb241f4f, 0x228a0066, 0x614ba8e3, 0x7b7f671f, 0x9e3f353c, 0x5ce947c5,
++	0xa14f2132, 0xdfcb58a8, 0x8a5cb75f, 0xbbe186f3, 0x021a8f38, 0x49b5d083,
++	0xd87b13f2, 0x99e35bfb, 0xcf3afd3e, 0x481a71e7, 0x6ca1e41d, 0xc1bb46b2,
++	0x58ea718e, 0x9c4a51be, 0x78fc4a67, 0x9e1cefe0, 0x744fbf07, 0xe8cf2e14,
++	0xf89f915b, 0xe02e2cab, 0x471faa7f, 0xf7077fed, 0x9d2b5e83, 0xddaf1bdf,
++	0x7fe57df7, 0x572fbed2, 0xe37bfbc7, 0x6c295b76, 0x2081fb34, 0x38809efd,
++	0xba40e653, 0xa19faa1d, 0xbc7977e8, 0xee3c5967, 0xcc58f73b, 0xfe46bd9f,
++	0x3a185d12, 0xb222fe05, 0x7f80a8df, 0x2825fc13, 0xb8931b17, 0x022aeebd,
++	0x2ebe4338, 0x0c7d6be4, 0xb4349cff, 0xb7d8d8fe, 0xd8fe99ff, 0xe907fe57,
++	0x9ec8378f, 0xeeceb08d, 0x901cee29, 0x74aceb6f, 0xbe1760fe, 0x768cf2c0,
++	0xee7d1998, 0x925d1810, 0xe4d77115, 0xaf13d977, 0x867b9fe5, 0x2efff79c,
++	0xa7fd6cff, 0xc4bfcff1, 0xe8751f80, 0x2f2cfc7e, 0xcdd3b8b7, 0x776469e3,
++	0x07db7f98, 0xfbf466f9, 0xeabe7c23, 0x2e5c9dfb, 0x47dc125a, 0xff9c1f81,
++	0xb12264d0, 0x6429e554, 0x63dab17c, 0x7542f8c1, 0xa97bcb2b, 0xff208c7e,
++	0x69ff06ae, 0x6715f81e, 0x26f7d011, 0x0027bcd9, 0xb23eebcf, 0xf058c5f8,
++	0xa026cfbb, 0xc87cf5df, 0xbd967fca, 0x7bef509d, 0x19e30bac, 0x61cfb3cd,
++	0xd5d155de, 0x0a4b6b4b, 0x47e8be71, 0x4d491870, 0x1afe9e38, 0xd596f2cf,
++	0x783e95e7, 0x7fafd1bb, 0x11e582be, 0x196e1cfb, 0x5faa11fc, 0x44e95a3c,
++	0x7ef5533f, 0x8915b4a6, 0x27e43d6c, 0xd54f48a9, 0x83e4a7fb, 0x9ab494ff,
++	0x2dcf41f3, 0xed05a3fa, 0x268ff3bd, 0xfcc49e63, 0x9859ef38, 0x7030b5af,
++	0x19a5e81b, 0x77d01c74, 0x2dbbefcf, 0xf2ade61f, 0x3fe02dbf, 0x58b7eda7,
++	0x62717eb5, 0x95ddf962, 0xfea8a7cf, 0xb7f410f3, 0x6243ef85, 0x359a2a69,
++	0xf757bec8, 0xc3a8a27b, 0x607f13fe, 0xcab938c2, 0x89e8b60f, 0xcfdd94d7,
++	0xcf10fe47, 0x3c1cfbde, 0x167db15f, 0x65e14fcb, 0xf0aa7f0b, 0xfe98ecdc,
++	0x1fc79807, 0xcbeba5e2, 0x4b05930b, 0x75eb3c78, 0x7887fbc1, 0x8032cf16,
++	0x8a314e7d, 0x2be8967e, 0x92ce7f4c, 0x5647480d, 0x3e30dfba, 0xf408e943,
++	0xcea1c9f8, 0x9d74b1a9, 0x93839ac3, 0xaf87be01, 0xd24f10e8, 0x9f1813ac,
++	0x78d81589, 0xf55d8dd9, 0x22ffc023, 0xa03377bf, 0x8b926952, 0xc937d421,
++	0x404e49e6, 0x2e4d7a7f, 0x7bfc578c, 0xec93cb3d, 0x42bf4688, 0xcc52fa73,
++	0xc8f9ec93, 0x489cfe88, 0xfd3ea0f9, 0x45e63564, 0x27fdb566, 0xfbac09c6,
++	0xd4dc0d05, 0x0b04f8e7, 0x3bf95f8b, 0xcd6e6067, 0x57f20764, 0x188fe3a9,
++	0x25ea969f, 0x56a43ce0, 0x8199d6ef, 0xe822ad7f, 0x2cde1ce7, 0x195f00eb,
++	0xf7a62f3c, 0x7ac75ff0, 0xe3514ed1, 0xd7960102, 0x0b5aefa4, 0xaab497f6,
++	0xe03f16eb, 0x574dbf63, 0x85fd079d, 0xd2cfd1aa, 0xcf804d11, 0xaf65b467,
++	0x339689be, 0x838c64ea, 0x925a1ef5, 0xba557e81, 0xac83e1ce, 0xe5813d33,
++	0x18133921, 0xd11d48bd, 0xd267903a, 0xd182e266, 0x32dd6b33, 0xcb8779f8,
++	0x25b9d212, 0x70025bc1, 0x807ce68d, 0xb8c288ac, 0x7e6255a2, 0x8f8aeb11,
++	0x44e7017e, 0x03f3f176, 0x9e8f0f47, 0x7abdfe8d, 0x5fb80049, 0xc9bcb1b6,
++	0x73da0939, 0x3ef0fd07, 0x59a7f98a, 0xe4c9ff1d, 0xfa0b1d17, 0x3e8cf497,
++	0x0b477aa4, 0x587711f8, 0x7b6f98bd, 0xc4506d73, 0xfddc9938, 0x66128964,
++	0xf2656ccf, 0xb32f7aa4, 0x97ed23bf, 0x5523936f, 0xd2395a09, 0xe927fe57,
++	0xae122b27, 0x5a212ed3, 0x4f522e7b, 0x06dfb489, 0xfd11dbe8, 0xa8afa50d,
++	0xfdc52779, 0xd9bd30e3, 0x7e43eaaa, 0xb14e5e4d, 0x4c4b8d85, 0xdb27feda,
++	0xcc8f9665, 0xd61274f3, 0x9024ab28, 0xd046ff57, 0x0be6a72f, 0x5e598bf9,
++	0xf9475f8f, 0x97c4265f, 0x284f309a, 0x01050485, 0x045d66fd, 0x7c844bbe,
++	0xe3ddfa21, 0xef385909, 0x2755c49d, 0x04547f22, 0xf219b798, 0x352f304c,
++	0x8c116db0, 0xc705b773, 0xc99e4331, 0x70154838, 0x3a7e036f, 0x11c582b5,
++	0x05dca992, 0xc61e4dfa, 0x973cd0e8, 0xf9a89be5, 0x87fe6a24, 0x0e62870a,
++	0x8b11e4df, 0xd5ef8132, 0x4017de0b, 0x1817a9cf, 0x981bfc7c, 0x46d9a11f,
++	0x6e5a68f5, 0xf9851cae, 0xf584bd7e, 0x21d0afef, 0x80f9aa5d, 0x7615c3cd,
++	0x226fe53e, 0xf9cdefea, 0x4064bf2c, 0x5c044a1e, 0x6e943cd5, 0xf603b7ab,
++	0xe4c8b26d, 0xa2379aa8, 0xfe1849d2, 0xde3a66fc, 0xbfa60ef6, 0x70185717,
++	0xb795bd1d, 0xb7b1ffa3, 0xce404752, 0x191bb717, 0xb78c45dd, 0x0481ae7d,
++	0x60295fa1, 0x8e79fcc6, 0x5fd36fff, 0xc1735e29, 0x65747bbf, 0x0a6eb8c9,
++	0x7a5637e3, 0x166bd9f0, 0xd7c8455a, 0x01e68731, 0xf89cda47, 0x49a43ba3,
++	0x4a135790, 0xecc92817, 0x54a0fe70, 0x37a072a2, 0x9431f43e, 0x9c7c4c5f,
++	0x76878795, 0xd1fdb409, 0xd8a51da7, 0x9931681e, 0x98253f90, 0xeb96fd4b,
++	0x40646f90, 0xc0a7c6be, 0xd748aa87, 0x0bf44eda, 0xc856f971, 0x669921f8,
++	0x94bf300c, 0x77b1fe82, 0xee513293, 0xf6b3725b, 0xaa7d4277, 0xb469fd11,
++	0xddfde91e, 0xbd5853e1, 0x524ef0c2, 0x836f2cad, 0x9f81f974, 0x05399bbd,
++	0xb055d2fd, 0xf4fea81f, 0x057bc5a6, 0xe8417af0, 0xe0fb0e5c, 0x9affe9dd,
++	0xe17df407, 0x01864fc0, 0xa06999bf, 0xfc20f97a, 0xe32771e5, 0x4b7abd2f,
++	0x79fb409d, 0x1215e2dc, 0xe883f969, 0x95203379, 0x14dc6e7c, 0x200d1c03,
++	0xe04417fe, 0x7f1cf177, 0x5f4c39b6, 0x08f34db4, 0xc6b9f790, 0xef11e6cc,
++	0xbfa8dc95, 0x7708e778, 0x11aff5d3, 0x94433eb8, 0x143bb458, 0x8eec1625,
++	0xc21e2ba5, 0xef916fbc, 0x9bad49e7, 0x7f97d045, 0x4df8f2b7, 0xe5a1b0d2,
++	0xf6115df0, 0x1254fa85, 0x8b663ad9, 0x8fa018ca, 0x6fe342b5, 0x3de0934a,
++	0x31e9b3a3, 0x5f210a2b, 0x4d74667a, 0x22cdc621, 0xf7d2c7df, 0x23656179,
++	0x14d4b76b, 0x3d28974a, 0x61decd3b, 0xf3cb9700, 0xfb0e593f, 0xbbf27977,
++	0xc2be431f, 0xd6e27abb, 0xe24d3ec3, 0x1f2a4371, 0x32c7bf01, 0x286e2c6c,
++	0x031a9d6f, 0xef866ce5, 0xe30048db, 0xd873a5d4, 0x483bc139, 0x6d176d67,
++	0x57a9d337, 0xece8c2ba, 0xbe5b4536, 0x2e5b5723, 0xff1179e5, 0xbfbed2e2,
++	0xc0248493, 0x7e26f7ff, 0xfdfc223d, 0x1beecd8f, 0x0aaffe61, 0x3fd28f2c,
++	0x87a8c889, 0xe83f043a, 0x495fa305, 0x5926e7e6, 0xb9cfdfbe, 0x44caf31d,
++	0x7b09f582, 0x0f21bb4d, 0x8b07f55f, 0x93b47ebc, 0xc8ec3298, 0x84ae508f,
++	0xe8379e04, 0x390918c0, 0x7e664cb0, 0x40d6da51, 0x5f3039fb, 0x5824b841,
++	0xa016e474, 0xd21342eb, 0x298a5175, 0x28e0e80a, 0x3f1f23a7, 0x55d2a387,
++	0x903c4491, 0x9e8740bf, 0xf577cf03, 0xfff011f2, 0x78233ffa, 0x29908a4e,
++	0xf231e612, 0x855908b1, 0xbd39a7e5, 0xedf9551e, 0x6fc849bf, 0x701ab4df,
++	0x16bf895f, 0x439f805b, 0x5fd6991b, 0xf3851c6c, 0xdd03f753, 0x091cc3bd,
++	0xfde672e8, 0x44983a4a, 0x2acaccae, 0x38f862bd, 0x410fe401, 0x738d523d,
++	0xbefa99a5, 0x4977c373, 0x74bb9fbc, 0x8a4cde2c, 0xdc9d1c78, 0x3f7cc465,
++	0xbfb42f5e, 0xf7e025f5, 0xdc4cc4f1, 0xb7887b74, 0x3446e80b, 0x4ba014b8,
++	0xdae5ce95, 0x9d29bf43, 0x79c9eb04, 0xbb73d704, 0xe4f58655, 0x6b9c3252,
++	0xae3ba7c7, 0xf461fa00, 0xefb1462e, 0xfb792aef, 0x3e8c2926, 0xec55f7e8,
++	0xf7ed68fb, 0x3dbdfa4e, 0xfa18fbec, 0xefc0de7d, 0x72220909, 0xbff3e76e,
++	0xee89e79d, 0xba829ab1, 0x917fd0b1, 0x13bf45d2, 0xc3f7d813, 0xe07be862,
++	0x7cdab9fb, 0x65d1320c, 0x88de3cc2, 0xc2998bfc, 0xd7404963, 0xdaaa99b7,
++	0x6fff68bb, 0xd4ccfc71, 0xf380bf79, 0xcbcd6f66, 0x57fc0379, 0xbfba2625,
++	0x055f60b2, 0x7ad202d7, 0xb19f78a7, 0xddfee365, 0x2d5ff401, 0x69d8477a,
++	0x69be82f9, 0xdc4cb2d8, 0xe3133b17, 0xc55fce07, 0xa00ebabf, 0x3ea7a003,
++	0xb798883a, 0x67722f8a, 0xedac262b, 0x3c087aa4, 0x9084bd55, 0xac9f961a,
++	0x8baff5a4, 0x530ccb12, 0x0bd030cd, 0xe3f4aade, 0x7b699dbe, 0x9e97f312,
++	0x04bef24f, 0xc37b9df3, 0x3412e9e7, 0x011fce76, 0xdf3a207e, 0xce5ffd5f,
++	0x06bfd557, 0x667ee7e4, 0x0ee7e4d0, 0x71d47fb5, 0x8957a07d, 0x82dbc790,
++	0x39beb6f9, 0xab9c1716, 0x68be41f0, 0x5079c621, 0x30243aaf, 0x982fd57d,
++	0xad741eb8, 0xe984bc79, 0xfa7d554b, 0xbd0f2692, 0xbbcd9f39, 0xfa829979,
++	0x6b02abd6, 0x984f9fef, 0xd78b363e, 0x5eb1942f, 0x6e6f57cd, 0xe6b5fe61,
++	0xd0284797, 0x50a3d52f, 0xae58931e, 0xfe3265a7, 0x91493cda, 0x44dc0cfd,
++	0xafcfe848, 0xfa67a2de, 0xab9d76df, 0x0c41f308, 0xf1623f54, 0x869fc65b,
++	0xfd23f1b3, 0xaa275f70, 0xc3f30076, 0x41ff95f5, 0xb259b87e, 0x7f693897,
++	0xe9dcf30b, 0x17982cfa, 0xfa51c7f3, 0x2049d1dc, 0x1866ac4d, 0x91b7cde8,
++	0xd974f79a, 0x68069f48, 0xa534773f, 0x7d0d6ccf, 0x8cf19d1a, 0x22bcc21f,
++	0x1d2441f9, 0x6578c566, 0xd6d9a7e8, 0xd06ac7fa, 0x2e8ddb37, 0xf2ca7f96,
++	0x40f922e9, 0x48167cd8, 0x510e3e6c, 0x0738f9c4, 0xecb5cf9b, 0x4cfa7093,
++	0x0c3f6c24, 0x25125fb5, 0xf416b7e2, 0x9b1f97ef, 0xbd6023bd, 0x2d66fb7d,
++	0xcc062fb3, 0x7d20b45b, 0x8b2f73dd, 0x99a2f837, 0x43b8835c, 0x167f1d12,
++	0x7a9eff1f, 0xfcf78746, 0x4b7480d0, 0xf9841fa7, 0xb3f5e6cf, 0xdf30abda,
++	0xfd34f668, 0xff0d2ec9, 0xe7bc2375, 0x1c7376f2, 0x02d87af9, 0x71b54a73,
++	0xb3f7b985, 0xa4ddc6b8, 0xbdf30f46, 0x9fb68e67, 0x73f1a4b9, 0x7b9a9fc8,
++	0x54fdf6bf, 0xc9b9df67, 0x788f1011, 0xbde1db83, 0x7ec0bf74, 0xf17e337a,
++	0x7e94658e, 0xaf34fc47, 0xd303fc00, 0x6cf72a13, 0xb7e7e5a6, 0x9bf2c28f,
++	0xd1f83f09, 0x2bbf50bb, 0x20d3cb07, 0x08ec0c19, 0x6f208fd8, 0x3dbdee8a,
++	0x86fb8e93, 0x8cbbf799, 0xa33bdbe5, 0x68b3cdbc, 0x2cd8e73b, 0xc69c1bcc,
++	0x42ef4df9, 0x0dc77f56, 0xfa1a9656, 0xb97e8280, 0x79a15169, 0xf227ff40,
++	0x790050ff, 0x78b2d3ac, 0x51d5e0b9, 0xf8437e50, 0x4dd81e7c, 0x0916553d,
++	0xcc9d5fe0, 0x73a399fc, 0x0a48e085, 0xde766997, 0x575b157f, 0xc90bc169,
++	0x15a63fb0, 0xbb467eb3, 0x4367d4a6, 0x2c45dd3b, 0x629b24f7, 0xfbaa1f80,
++	0xfb93996c, 0xe49eb807, 0x15fefbe1, 0x71b527f7, 0x498f5fb4, 0x3d12c170,
++	0xfb413f13, 0x39d85894, 0x533b8f2c, 0x54e87f02, 0xdc73cb37, 0x02ac8aba,
++	0xcdeb647d, 0xad0d696e, 0x7a226a9f, 0xce946b90, 0x9b7a011f, 0xf4f3e13b,
++	0x8b2e2018, 0x3a55ce96, 0xf7d2a59a, 0xd31d2d34, 0xe713f9fd, 0xcfe76ff8,
++	0xf7363a1a, 0x7a50f1d3, 0x1d579d39, 0xb49bbfee, 0x9c6faaf2, 0x39187d88,
++	0x01fc50ee, 0x67f9c2fe, 0x715afcff, 0xb642a5bf, 0xc7ec3658, 0x6e3f7526,
++	0x7418f803, 0x24fe789d, 0xc28d7043, 0xe8439b03, 0xd2fcea15, 0x305927c0,
++	0x27f05e70, 0xfb1d7aa9, 0x9b1d8073, 0x77e9ebca, 0x9fef626e, 0x05ff1d17,
++	0xd96b7fe4, 0x350a767c, 0xbd709f8c, 0xab7fb55a, 0x69b6f5d5, 0xc5145bd7,
++	0xc13b7bce, 0xe93e814f, 0xf37d51fc, 0xa83c06be, 0x3971f1eb, 0xb1e4c73d,
++	0xeedae81a, 0xfd2395b6, 0x5ff89f7c, 0xa0e87d06, 0xe6187bc5, 0xefe75479,
++	0x2163fb00, 0x925c6371, 0xce6bc7d2, 0x9d42fd30, 0xaa9c246f, 0x919fe087,
++	0x4f8489eb, 0x513ade3f, 0x77cf539f, 0x1af7adf5, 0x21eaa9d7, 0x3fd6830e,
++	0x1cfee764, 0x00dff73b, 0x2e3c8145, 0xd02e5125, 0x04baa7eb, 0x894a27d4,
++	0x6970f909, 0x76df9309, 0x5437d30b, 0xfed43f39, 0x8216f5b8, 0x2974a9fc,
++	0xd8c9e7e1, 0x30e922ba, 0x823d7491, 0xd9499e76, 0x39f600b6, 0xff4a25e8,
++	0xcc2d4bfc, 0xa9c57bcf, 0xf1aef5ca, 0xcafbd720, 0xd77ae403, 0xf337e078,
++	0xa3fc6d44, 0x2ff30af4, 0x7c10afda, 0x193eba96, 0x5edd720f, 0xf81e35d2,
++	0xeeb1add6, 0x1f9f012f, 0x361f98eb, 0x24fa8e12, 0xbc5fea9d, 0xdc8cfa26,
++	0xe95c6a3f, 0x94d78b4d, 0x1fdfbe34, 0x2ce84171, 0x38ae4682, 0xcdeff799,
++	0xf4a63a04, 0xf2897288, 0xc157abc7, 0x837f8398, 0x532c721c, 0x092d9bf9,
++	0x2e08dbf8, 0x8f8c3dc7, 0xdb758b9c, 0x0d1c5893, 0x8710f2e1, 0x572e74cb,
++	0xd110ee2f, 0x9dcd3f9f, 0xdcb834fb, 0x24f5c77d, 0x8dd7fb80, 0x5f097172,
++	0xa53a45d7, 0xd17fb420, 0xe2c67a8a, 0x1e31cbb7, 0x8eab6231, 0x72726128,
++	0x734a2064, 0xbde8c47f, 0x4c794d76, 0xfda6b26b, 0x9a596d0d, 0x28e0fcfa,
++	0xe3b8fd4d, 0xf8f29a05, 0xed351bce, 0xac507c27, 0xbaea4f29, 0xa6fed35d,
++	0xca6b674f, 0xac123014, 0x0283b9fb, 0x7dd74ed9, 0xcd3ee873, 0x7dbdfff7,
++	0x0b8871c6, 0x33f6e29e, 0x733bbbf1, 0xa8161c29, 0x4ca57c74, 0x08505fdb,
++	0x07c0450a, 0x4682dfd8, 0x853cd796, 0xdfbc2e42, 0x7d5a4d85, 0x6d56f162,
++	0xf37da2b9, 0x0395e05a, 0x8a6a21f3, 0x646c88e1, 0x7934c43e, 0x75e80ebe,
++	0x2fd51276, 0x91c63040, 0x1ac7c838, 0x1b7fdf6a, 0xb0c873fe, 0x6b3fc36f,
++	0x7a80d5bf, 0x7fb7e2fd, 0xafa41455, 0xfe2d4e8c, 0xff168acd, 0xfc5ab9d1,
++	0xfc5a5d5b, 0xe2d44ec7, 0xe2d6e6df, 0x8b44ae3f, 0x168f78ff, 0xb57389ff,
++	0x6af24ff8, 0xa1529ff1, 0x8d5a7fc5, 0x2b19df16, 0xf4ccf8b4, 0xffbda83f,
++	0x2aff0224, 0x7baeccff, 0x149ee228, 0xd185d11d, 0x0b474a81, 0xe798153c,
++	0xc7e9bc32, 0xe922719a, 0x3a8dda81, 0xda8b87bc, 0x6b85db71, 0xbdca0fa7,
++	0x491a5fd0, 0xf1244f1f, 0xb13b183c, 0xeef9455f, 0x40f8127e, 0xf2a15ea4,
++	0x1e3970ad, 0xc50eff6e, 0x27c806cf, 0x290f0f6e, 0x361ec09f, 0x43c3dbf7,
++	0x9087e9d1, 0x53fa838d, 0xee8bfa23, 0x2e3cd995, 0xe049abc1, 0xf225fd5f,
++	0x04e90fbb, 0x7ef9d227, 0xe3a1eb08, 0x1a35187f, 0x203f18fd, 0x7fcfd441,
++	0x74871908, 0x712007b0, 0x13e73e99, 0x5ce59f05, 0x7ee42f5e, 0xdbd9a70e,
++	0x16a97006, 0x300919bd, 0x9e276a6e, 0xe227221f, 0x855ee9ae, 0x976fe093,
++	0x7f06e908, 0x98f67d3b, 0x519c7d19, 0x289b87f9, 0x9678308e, 0x5172154d,
++	0x30a3157f, 0xfbeca80f, 0xb2a5ca02, 0xcecf61ff, 0x4707a624, 0x50acd73e,
++	0xf5c4d9e1, 0xfc0fa600, 0xe3c29277, 0x416bc433, 0xe064b9b8, 0xe63fb4fb,
++	0xf319feff, 0x4925d193, 0xec78ec57, 0xf80cf10a, 0xa241f386, 0x8c73cd89,
++	0xe8574c44, 0x8bc4d1fb, 0x49c7dffa, 0x7aee3859, 0xd632b289, 0xb7e828ef,
++	0xefa3c60b, 0x045c5ba7, 0xd3a2bdfc, 0xabffd045, 0xc32b0996, 0xf55bac1f,
++	0x7a72a5eb, 0xcc2563d8, 0xe7e1157f, 0x2729114b, 0x3d157c85, 0x94ed0f3b,
++	0xf0bb32b6, 0x18ceab98, 0x792a2eb6, 0xed7e706d, 0xc81cf4db, 0x96133d2f,
++	0x5ee14e0f, 0x3f1c9833, 0xa8e2cc9e, 0x6e9a566b, 0x0f497886, 0xbe3d078f,
++	0xf80cdc92, 0xe6172514, 0x417dc181, 0x0defb0b6, 0xb61f5a0e, 0x498b24df,
++	0x3c5bd653, 0xdac65978, 0x17483595, 0xd1af7e7a, 0x6487d4ba, 0x217f986f,
++	0x4c4f8f9a, 0x1027227e, 0xbfd2f2ae, 0x5812a74f, 0x674b28af, 0x9feaf634,
++	0xdc0146ae, 0xa93d38aa, 0xe93a35f3, 0xdeed6138, 0x2557f4e1, 0xfe601a77,
++	0x741c50ef, 0xea413c42, 0x56bde074, 0xffb8e975, 0x37f0e4ef, 0x908217ee,
++	0xe0946ff7, 0xd2f4268c, 0xd28e3cd9, 0xf477dae9, 0x6b25e204, 0x7e44cfc7,
++	0xb8d7b066, 0x1e4f05a8, 0xeca1677e, 0xea9e041d, 0x2e94e8d3, 0x61a3f387,
++	0x9e0edcc9, 0x3e002640, 0xca0f9906, 0xf66587a7, 0x59e3c3cd, 0x3fc3c1be,
++	0x4c7f9824, 0xa2bfd056, 0x13c4f87e, 0x1b1bf217, 0xc6cbe109, 0x50037495,
++	0xa561b71b, 0xa8737889, 0xa835221c, 0x3710251f, 0xfe6351d2, 0xfd395709,
++	0xebf052ce, 0x3787b05c, 0x0d53ff8c, 0x1f45ad94, 0x61b94055, 0x90ad8be4,
++	0xb981642b, 0x23bf3038, 0xa2b66700, 0xef7cfd46, 0xef07686a, 0x425f3e21,
++	0xacf9d3df, 0x821ed31f, 0x0f63d1f6, 0x51f50a7d, 0x9b29a096, 0x3f75177e,
++	0x45b04971, 0xb253855c, 0x4856d3e9, 0x8e28a17b, 0x4f47dfe6, 0xc646fd64,
++	0xbb2d1203, 0x93217dd9, 0xb1678f09, 0x1faaec73, 0xbbb2de3e, 0xc6f818a9,
++	0x53fd6d30, 0x96711e1c, 0x41678e97, 0xe7612a7d, 0x93fd7957, 0x7966debc,
++	0xe598b3a9, 0xdfbe681c, 0xb58ffbcc, 0x50bf18e8, 0xb1b78f08, 0xdebc4dfa,
++	0x093bd6ac, 0xfab1a78f, 0xb46f5e7a, 0xba12fcb0, 0xafdf35ad, 0xdc27e3e3,
++	0x30de23af, 0x89cc74fa, 0xfa30de22, 0x35da97b0, 0x9d85bd65, 0x25a79523,
++	0xfb53be6b, 0x1b8f9c7d, 0xf34b3933, 0x28d8699d, 0x34cefb6d, 0x710f2394,
++	0x0b521b38, 0xf9eaf534, 0xb3a7226c, 0x276b3276, 0xf4d46e39, 0x6251517b,
++	0x999fff61, 0xcbadd2a4, 0x90fb7404, 0xe2112b35, 0xb99581b4, 0x1f0144a0,
++	0x3f994fe1, 0x6674789d, 0xcb054acd, 0xb8bfdc99, 0x2c44e566, 0x0b74a6ef,
++	0x74accff5, 0x2d277961, 0x53f9f42b, 0x58950fda, 0x07ed1b64, 0x7ed34fca,
++	0xed14f9e0, 0xd24f9e07, 0x337ea0f1, 0x9bca0efd, 0xde507f68, 0xe58dd2b0,
++	0xb04b2bf5, 0x83d2bf5c, 0xe72b75e5, 0x95f1f3e2, 0x59ae7c5e, 0xbbf58159,
++	0x3beb8593, 0x22485f7f, 0x93bbb9e3, 0xdde7f7c7, 0x16dcf1ab, 0xd476e0c3,
++	0x32ffce01, 0x8988e788, 0xa5c63fd1, 0x8f5b1ad2, 0xe719bd80, 0x6a48f861,
++	0x5b7ac1ac, 0xfd471b09, 0x24fc388e, 0x331d88b5, 0x5950fc64, 0x230df98d,
++	0x7317cb09, 0xc45289fa, 0x9fc25fcf, 0xbcff4214, 0xabe5ab94, 0x71f91199,
++	0x9923b3ea, 0xb0e279d9, 0xc72c371a, 0x8413d134, 0xcb8b5e7c, 0x33b1e78b,
++	0xa9ced0ae, 0xe57b1cbd, 0x5f80a216, 0xbfab54bf, 0x6815a7da, 0x4af144f4,
++	0xa533b635, 0x6769a7de, 0xda699470, 0x5cc92d95, 0xa47804eb, 0x1b1875b0,
++	0xbd101157, 0xe3379b0b, 0x999367b8, 0xebd74bbd, 0x3efbff47, 0xeb97ad81,
++	0x7ccbcf4d, 0xe446a6bd, 0xac6c23ab, 0xd7eb1398, 0xff3c3f01, 0xafdc58ab,
++	0x43a33dcf, 0x1248dfff, 0x46be01d0, 0xf50cf153, 0x96174863, 0x4aee006f,
++	0x1144f9cb, 0x848e3ca1, 0x7aa4bed0, 0xb3257fd3, 0x6633d0b8, 0x79a50b88,
++	0x23f9679f, 0x392b9441, 0xaa391f1c, 0x8a55b8fe, 0x4e9da7f4, 0x7b56fb46,
++	0x5b8d449e, 0x2516b2ae, 0x33d13e82, 0xb44f7e44, 0x169bbef3, 0x27463850,
++	0xfaa7c5cd, 0x1ba2bd7e, 0x55e57cf4, 0x4cefaf0e, 0x77c601e7, 0x6afce8c2,
++	0x0bbfa532, 0x0c83bf79, 0x2c3d5219, 0x1af0f684, 0x941fcabd, 0xfd0fe058,
++	0xe62c5765, 0x2127b473, 0xc199447c, 0xde95b9e7, 0x7fa9249b, 0xf997e29d,
++	0xe49be432, 0xbdb67cf0, 0x34dd972b, 0xc75fea4d, 0x5fb614e8, 0xf22b4973,
++	0xce875cfb, 0xa735ecc5, 0x0f33bec6, 0x79c3726b, 0x7114715f, 0x48c42e41,
++	0x5ee784d2, 0xc889bfc5, 0xb7a3c47f, 0x17ea8511, 0x40807251, 0x2fda873e,
++	0x8fe276e1, 0xc2fcbf38, 0x2de70d32, 0x94f7aba6, 0xf9af51b9, 0x90c97642,
++	0xb345f2cf, 0x4f123f1e, 0x6573eb6a, 0x4a5e07d7, 0x47f68b97, 0x517a60bb,
++	0x5f784db9, 0x204bb89b, 0x83ce02a9, 0x99d9a7e5, 0x5adfaa7e, 0xe0e3fc44,
++	0x2e37aed0, 0xa5dae005, 0xc2a9d01c, 0x8aabb69e, 0x3f06ec33, 0x0b8008d4,
++	0x2e5873c0, 0x5f2171c2, 0xab95deef, 0x14ee4e10, 0x6935e786, 0x7cf9dc2a,
++	0xf70ddb88, 0x566a2dbb, 0x3aed5bed, 0x7f15e7d7, 0x3b6bea0f, 0x8bd3cc45,
++	0x9885e784, 0x286263f7, 0x3346cba2, 0xa79d0cff, 0xc129e61b, 0xbe00e3bc,
++	0x58b3d704, 0x5ce00436, 0x5ad08f66, 0x31a97182, 0x971e123a, 0x53339f52,
++	0x277aff18, 0xb467c659, 0x0b4dde73, 0xef9785c6, 0xc31eba47, 0x122c4fd7,
++	0xbb7093cb, 0x5abf7095, 0xf0676a83, 0x3e28ea3c, 0xa0fbbedf, 0x2f3cb146,
++	0x0adce90b, 0xd9431779, 0x614c3f11, 0x3b7ef2f1, 0xe806a282, 0xf309bc67,
++	0x7cd41a1b, 0x055de514, 0x13e96bf3, 0x9c4c51f2, 0xd959d74e, 0xfaea043d,
++	0xbe30a656, 0xa3e392b9, 0x22ecc4d7, 0x27e4db88, 0x6f9f9d84, 0x58fb472f,
++	0xb6f4f38d, 0xd552fcb3, 0x49c950ff, 0x060df7a0, 0x221dde87, 0xdb2a77c6,
++	0x0ef760ef, 0xf7893c76, 0x14bed235, 0xde7287a0, 0x6b4ebcbe, 0xe3d82f0f,
++	0x0ca51b59, 0xc117bbb4, 0x03d9ab7d, 0x3b48eded, 0xae14b1fb, 0x3e48babf,
++	0x354e71c4, 0xa28b1f66, 0x126435f3, 0x2297bf3c, 0x6ef784be, 0x09b3ed53,
++	0x79243bee, 0x488fbeec, 0x6a92bfbc, 0x15ef3840, 0x5a5b8f08, 0x8ef7fe90,
++	0xef7ffb67, 0x0e778b91, 0x93dcfda7, 0x7ea6e0c1, 0xcb064f77, 0x0607dd33,
++	0x4adf7d15, 0xf960c948, 0xdc38bb3c, 0x9b9f33bf, 0x5573e5ac, 0xa2c75d6d,
++	0x3b77e415, 0x8f7bde81, 0x0f2625fd, 0xef0847f7, 0x833f7f2d, 0x0de607cd,
++	0x74fbf479, 0xa70bcf9f, 0x12297d83, 0xfaeeb79f, 0xda698cf4, 0x7bc85d79,
++	0x3676e12f, 0x579856af, 0x4264f04f, 0x3ab47e78, 0x83c57daf, 0xfd7cef9f,
++	0x9133e77a, 0x5068a7ce, 0x26fd1d38, 0x0c33ed38, 0xf80f9f3e, 0x0de3fe7c,
++	0xc0c0ef76, 0xd3d4ebfa, 0xefc04476, 0x807bcec5, 0x7ef9d35d, 0x847a0290,
++	0x63013bb3, 0xad7e1c4c, 0x0b3e9c85, 0xa171df39, 0x1f7c444d, 0xa4bcc04d,
++	0xfbd58956, 0xab028bec, 0x8ebafd28, 0x7900c82c, 0x88d0fd60, 0x86f8c5f7,
++	0x4b8b37c8, 0x97d8eb65, 0x870a0c2c, 0xe47f5e18, 0xb7f61944, 0x012303fe,
++	0xf5cb507e, 0xab72f5f4, 0x5501ee09, 0x02e508e1, 0x4219f4fa, 0x2e505c8b,
++	0x58a4c2fc, 0xc74f1906, 0xb114dbc6, 0xd4f1d46f, 0x973529a7, 0x3785ddf9,
++	0xdea3c844, 0xbc3df934, 0xa15367af, 0x3bf73c84, 0x4b59bfc3, 0xef82172f,
++	0xe8c9dc25, 0x7a0a94c5, 0xe63a7094, 0x13ecb47b, 0x03cdbf42, 0xb8bc19f8,
++	0x4647df7e, 0x840c22d2, 0x2f4e25d3, 0xf5d4faea, 0xdeb6f3ab, 0xd6f300bc,
++	0xf1301f01, 0x7a9d5498, 0xd5f21e2f, 0x60f72e58, 0x2627285d, 0x7d0f2c4b,
++	0xdd7884bc, 0x3c46f134, 0xc78fb027, 0x0c93439b, 0x7e43de83, 0xfd7f1f0b,
++	0x04ecff95, 0xaedfd5fb, 0x44d9f3c7, 0x45de72ea, 0x8ef7c8e9, 0x52bdf784,
++	0xfb812a7a, 0xb89c8e67, 0xdd7a0318, 0x847aa94d, 0x0fc04df3, 0x115c3e41,
++	0xff7f304b, 0x18b217c4, 0x5393ff46, 0x7497ae45, 0xfe5e4276, 0x979602c6,
++	0x807ae16c, 0x057744e5, 0xf132dfcc, 0x4c2146c7, 0x1aa5e6ce, 0x868dbbf1,
++	0xf68b8250, 0x4910ebe7, 0x2e81f510, 0xefab47bc, 0xe0cc91dc, 0x05485d50,
++	0x47dc1e4c, 0x9ad7eeca, 0x3e30aa9c, 0x807de74b, 0xf91a8fbe, 0xf50e5c85,
++	0xacbc7485, 0x32adeffe, 0x78d467c3, 0xa6c59f76, 0xe193bfc9, 0x8158aefe,
++	0xafb43de0, 0x7935eaa4, 0xe8649ffa, 0x9d9dbf78, 0x65f9bfa0, 0x5b09f309,
++	0x40990f83, 0xc5f757af, 0x86dd54d3, 0xfdf8eb76, 0xe626ebaa, 0x805ce006,
++	0x4a7fc74a, 0x61527af5, 0xbc5f747d, 0xa7577a84, 0x47c22a67, 0xc97c87ce,
++	0xef13a431, 0x0685210d, 0xae4be419, 0x6fd9a74e, 0xea6f1c2d, 0xa8a5ea93,
++	0x69c23cef, 0x62f79559, 0x39e0898b, 0x62b32ba3, 0xd3152f41, 0x25cf3d54,
++	0x6cff1c03, 0xe1fa8399, 0x8d2d37d9, 0xf57cf1e1, 0xb3da9a79, 0x797f4341,
++	0x0333cba1, 0xde222fda, 0x2e8fa0b5, 0xe735166a, 0x7df2cfae, 0x144af0be,
++	0xf5e98609, 0x87de270b, 0x5e1647e7, 0xaa412189, 0xe7e59d27, 0x3cf2ce7d,
++	0x654f7f9f, 0xaf81b2f2, 0x75ea4b67, 0x08aefbea, 0x0ff3b97e, 0x7e3195cf,
++	0xf700eff9, 0x00cba12a, 0x8de36e7c, 0xfe3cc17f, 0x0f4ed4d3, 0x3ad37ce6,
++	0x6c3048e3, 0x5776be9c, 0x7e9eb84c, 0xff3828bc, 0x105af5fe, 0xfda9a70e,
++	0x4c70cdff, 0xbfb1c0d1, 0x1c0d2cff, 0x839ff607, 0x995e9fe3, 0x8ffd2dfb,
++	0x457fa21e, 0x7efeff33, 0x3db8e187, 0x8f9ecb47, 0x68e5fba6, 0x57f6f570,
++	0xb0ed5f21, 0x272fef11, 0x78c5ad6d, 0x0417e89e, 0x3f2d99cf, 0x90c7e5fc,
++	0xb77cb687, 0xf46305c1, 0x5cf343ea, 0x6187c883, 0x7dc3f644, 0x6f73ea3e,
++	0x27ae366a, 0x0a49bdf2, 0x666f90c8, 0x55e495ca, 0x9d65e80a, 0x1fb8d581,
++	0x549fc84c, 0x6fdab83f, 0x9ea88a6d, 0xad7dc567, 0x10d0dbde, 0x7c00eded,
++	0xe6a5167f, 0x8237f91d, 0x67f2ad1f, 0x85eecca2, 0xa21da1b3, 0xe225b1fa,
++	0x91a3bf45, 0xe5e40878, 0xdf7865e7, 0x53fefe00, 0xafc006ca, 0xe3d98e2d,
++	0xb723ff45, 0x3b9836f7, 0x7e30ae9d, 0xe954fbf7, 0xd6fce4fa, 0xfe333908,
++	0x4c82e7fd, 0xe61efcce, 0xfe762551, 0xf2132cb2, 0xbdf8bb08, 0xe3018a3d,
++	0xf0c78505, 0xd532afbe, 0x8c8baf5e, 0x40d9a75f, 0xeefd55ff, 0x044f9031,
++	0x9646c23a, 0xcd1e5dbf, 0x89bfe5ca, 0x907573c3, 0xf0079fc2, 0xec5d156e,
++	0xe119379e, 0xa1af917a, 0x1d31b4d7, 0xe1cbd9e0, 0x75fdb17a, 0x62ee57bc,
++	0x7fc470dd, 0xc13f6bf9, 0x25f6a17b, 0x0ea77cf3, 0x729fca2b, 0xee08aba3,
++	0xcc97db2d, 0x2956ccf4, 0xa6105318, 0x2d4bae77, 0xbe7abe46, 0xf40eb86e,
++	0x7fae1572, 0xa360fce6, 0x4293efea, 0x2ebbf045, 0xbf830be7, 0xdfb7f945,
++	0xa267bf8c, 0x1165f03b, 0xd1b76fde, 0x1782f788, 0x65b9181f, 0xcaafad2e,
++	0xa59e61d1, 0xe71980ee, 0xdd81a173, 0x82df03af, 0x903aae9c, 0x52c3bf82,
++	0x3cc21d1e, 0x5728aaa9, 0xca41c40e, 0xf784dc0f, 0x30da9f7a, 0xe5f81d32,
++	0x1d2578c9, 0x40dd35ef, 0x7dd74e81, 0x7b0463b2, 0xcf013f5f, 0x463759ad,
++	0x5ff3077b, 0xf22472a8, 0xc97d9efe, 0x006d3df9, 0xd726919f, 0x2d3e5a6e,
++	0xeb9c58b8, 0x82b66878, 0x9e171671, 0x9cb72bdf, 0xdbef1afb, 0x7ee4fe6a,
++	0x481def82, 0x161daab7, 0x97395e39, 0xa10cfb33, 0x387bf079, 0xdc386be5,
++	0xab9f2c0d, 0x839f975c, 0x8df70e65, 0xe65cf711, 0xab7831a5, 0x242753cf,
++	0xca8c2fbc, 0x67c874ff, 0x88d8753e, 0xe36a7674, 0xaaaf3c68, 0x614e578e,
++	0x797dd322, 0x058caed2, 0x634b8ebc, 0x0d7caafc, 0xf7d52fb3, 0x25cdbae5,
++	0x8750e780, 0xbd2bf988, 0xe2062872, 0xb53b6a1c, 0x769eb7dc, 0x65d77f11,
++	0xc411f25f, 0x0227a537, 0xcd7ba4f4, 0xf7d5f28a, 0xe037719a, 0xf1217cf3,
++	0xfe5c8347, 0xce4efd80, 0xea230ed1, 0x321fbdbd, 0xfdc074bb, 0x3a509649,
++	0x7be81fdc, 0x58f9052d, 0x17685a6f, 0xeccd93d3, 0xbd77b55e, 0x2c3c7813,
++	0x9647df89, 0xe5d9fa04, 0xf410730e, 0xf8c4fa33, 0x71ec9f86, 0xd1c3fbe2,
++	0xf436fc04, 0x53854019, 0xdfc4efd8, 0xfc4d2095, 0x7efc4efb, 0x0477ba79,
++	0xd9e5e5f0, 0x7c0b7fb4, 0x2eed8ddf, 0x806f7967, 0xe64bfd32, 0xbf6325e3,
++	0x7c0cde69, 0x64e17c2f, 0xc4d0a7bf, 0xdeb13beb, 0xc04ef467, 0x4ad1fc75,
++	0xe759065a, 0x55bbdef5, 0x7887169c, 0xe14de754, 0x245efa8c, 0x98d26a5c,
++	0x23c2a47e, 0xf0fb2e92, 0x03f32df9, 0x97c009bf, 0x363c33b4, 0x3e30348c,
++	0xf51a3f52, 0xa51b525a, 0xd55a13c9, 0xf761cec1, 0x9e22b06c, 0xa7eef57b,
++	0xde851e41, 0xaf7613d5, 0xc008d515, 0xf07130bf, 0xe78e72fd, 0xb3d65709,
++	0x2f73a27c, 0x6f9f4d9c, 0x678af381, 0x5515e735, 0x24ed1f3f, 0x1628fc06,
++	0x96531297, 0x116cf4c7, 0x377ec7e7, 0xc15ea367, 0x6ff207df, 0x847e8918,
++	0x00e50653, 0xc3518efe, 0x55d01d18, 0x1ef18bbd, 0x9f5b137f, 0x7a8e5f7a,
++	0x7c244def, 0xd9b2d35a, 0xef1091ef, 0xf2877003, 0xf024a249, 0xffde1a60,
++	0xa2ff0155, 0xa618afa0, 0x3f919b73, 0x185ca0d4, 0xe196cf78, 0xe83f7e5b,
++	0x3fbcb6ff, 0xeb3ae09d, 0x9018fe5d, 0xccca9fab, 0x53d8a3de, 0x6c8bae50,
++	0x69a7789d, 0x4f6bc812, 0xd63c5a5b, 0x54fc3f23, 0x9f2af560, 0xa07eb01b,
++	0xda07e817, 0xa78ebed1, 0x3219bf31, 0x8ca7b809, 0x8f900df8, 0x9f27caa6,
++	0x3ce0e920, 0x894db76d, 0xaeec7a01, 0xbd83b6cf, 0x1253665c, 0xc2e8c20a,
++	0x73c106f7, 0x37dc0aa4, 0x5f7e013c, 0xfc163dc2, 0x5aecfb75, 0x7ce4417f,
++	0x35d29a5e, 0x77febc2f, 0xedff4c69, 0x8a28fbe2, 0xdf9063c3, 0x2fbc4279,
++	0x77af78e6, 0xfb416f79, 0xe2dda231, 0x1e9cb1ad, 0xbd37de22, 0xf798affa,
++	0x4f7b43b1, 0x78f8cfdc, 0xf8371e9f, 0x19e01b85, 0x15baf985, 0xab9f199b,
++	0xe734bb78, 0xf3c65651, 0x1e5a53d5, 0x58e3dfc7, 0x0e7a7bb0, 0xf10b7c61,
++	0x82e3d2a0, 0xe80e7774, 0xa26da171, 0x62a2fb0c, 0xa9f388ab, 0xdb4c9a97,
++	0x5b33fbe8, 0x55dfa8f5, 0x499cf9f0, 0xde20c6f5, 0x28192224, 0xde48cfdc,
++	0xb75fd418, 0x891ddff1, 0xf76d0758, 0x0830549e, 0xcf0c4c7c, 0x41ec9f08,
++	0x1d5de0e8, 0xfc0169e2, 0xa3cc197e, 0xe4bf4045, 0x03ef3499, 0x76a6ee50,
++	0xdbffde3b, 0x59f78954, 0x8cfbc244, 0xb9f48bc9, 0x8547af98, 0x2a38e467,
++	0x9e017b3c, 0xdf1d2fa0, 0xf7cf728e, 0x4b140894, 0x425fb48e, 0xc74a7a7b,
++	0x826f8ff4, 0xdea99bf7, 0xcd9c80a2, 0x400fedfa, 0xf889d5ce, 0x1d65267b,
++	0x422409d9, 0x58dd835e, 0x189ccef6, 0xac9c985d, 0x7e31166f, 0x766c3f52,
++	0x7f6c42cc, 0xafa04ef1, 0xa12b8a93, 0xe8ddac20, 0x8178bef4, 0x9be55f06,
++	0xe3031aff, 0x71ea3454, 0x7a5e2a5d, 0xff909ce9, 0xbfa34536, 0x843537a8,
++	0xea78aafd, 0x83c06fa3, 0xddb44f4a, 0x1f32e95d, 0xa8fc8fc7, 0xe45bd33b,
++	0x164e841a, 0x85c7493d, 0xf15ab6fe, 0x1d6bc2fe, 0x1f478557, 0xc6bef9be,
++	0x5771e032, 0x75bffa26, 0x4c984aef, 0x6669b27d, 0x72e3ec3a, 0xdfc02f2a,
++	0x3e842e50, 0x3b247bc6, 0x6b0f788c, 0x0f25e6f9, 0x1fe578c0, 0xdf50751a,
++	0x58e6787d, 0x5e04579c, 0x07d29c29, 0xccdef7a3, 0x0c2bba50, 0xc09f547e,
++	0x27aeadfd, 0x0f38de6c, 0x7de14f6a, 0x1499bd24, 0x607c619f, 0xbbd33a76,
++	0x80d97b68, 0xc3eecdf4, 0x1caf5be9, 0x62395eb1, 0xa411efbd, 0xe2f2e26f,
++	0x647c167a, 0x05fbc1d4, 0x0391dc4f, 0x86eeb5fe, 0x6eaeb8a9, 0xec2c7bbb,
++	0xda74eeaf, 0x72fc20ff, 0x9d7413c1, 0xceb0df79, 0x6be23326, 0x43da75c8,
++	0xac37c8bb, 0x50e9c7d3, 0x4969e75d, 0x2bdfc189, 0xf012283b, 0x3cd2f897,
++	0x65626f1b, 0x9f289dfc, 0x6f83d19e, 0x31e63473, 0xfbb3b4f6, 0x403e55c9,
++	0x7a46bbc7, 0x743d21d0, 0x265b2b17, 0x106d7d02, 0xed8bc865, 0x5bf7186e,
++	0xeeaf1df8, 0x7a0ca28d, 0x83317742, 0x2807e51f, 0x3dd3bbb7, 0xb0f96277,
++	0xea8f7f1e, 0xdf5fd354, 0x1de173c7, 0xfae0857a, 0x42e71b3c, 0xf817ce99,
++	0x3dcb851a, 0xe3d55f4c, 0x9eebebfa, 0xff7a83aa, 0xfcf01bd6, 0xacf940c3,
++	0xa3457385, 0x4487d9a8, 0xdf3c7052, 0xaf782913, 0xca670a83, 0x1ec07361,
++	0xe501e152, 0xe1fa6339, 0xa0e7e3e2, 0xf7602f41, 0x067e7120, 0x7262c9f0,
++	0x0081ce02, 0x28f3831f, 0x48abc943, 0x47a913fe, 0xaf8fbcfd, 0x6571f968,
++	0x3e18efc4, 0x125e5118, 0x469637c1, 0xd44557d4, 0xe77cf953, 0xe4e7fe60,
++	0x2b5f2d0c, 0xfd5470e3, 0x041bbda0, 0x24cb43b4, 0xcff600c5, 0x7c98534b,
++	0xe988972e, 0xec97dc16, 0x44994b7c, 0xf0058d6a, 0xb70865de, 0xb57f6893,
++	0x472d3b46, 0xdb443e31, 0xcac21895, 0xe755bf2a, 0x878701f3, 0x7ecefcfa,
++	0xe321d281, 0x8fa41f15, 0x28af181f, 0x757eb310, 0x83abec02, 0xbe95da22,
++	0x21fc99b7, 0xf2da5d5f, 0x97ee03a2, 0x30bcc6cd, 0x7091fd75, 0x14bb6dec,
++	0xd7ebbf03, 0xe780dc73, 0xe3dacb93, 0xb2fed18a, 0x7b850687, 0xda9f5f0f,
++	0x15d48f5f, 0x6f5c2b33, 0xe1315d26, 0xd65aa3bf, 0xd8256976, 0x7e7e14b3,
++	0x9f8f8c31, 0x062f88ea, 0xd7fcb2bb, 0x7e70c5c9, 0xdaa196d6, 0x1acfcafd,
++	0x341cdf61, 0xe7a23fa2, 0xf83ab9ed, 0x0aede7be, 0xf78e5cfe, 0x3e9cf5b8,
++	0xc7e30e95, 0xfee7b4e8, 0x5b6fdc0d, 0xd764fbae, 0x0fffc0cd, 0x09ae6625,
++	0xeb9737f3, 0x7e1ed00a, 0x079a1f51, 0x7e7aa6f3, 0xaa57e41d, 0x1432d8fd,
++	0xf071af96, 0x0fe02eec, 0x15a636a7, 0x39e95b00, 0xdfed0238, 0xe5c70f9e,
++	0x247f68c8, 0xbc2f80b9, 0x339657a8, 0xdaeac57b, 0x1fdfd99d, 0xc671038c,
++	0x8a13839e, 0xf3d05fc0, 0x2d2f9b21, 0xb680ffa3, 0xa51e43f3, 0x4e8c6fda,
++	0xdd7904d9, 0xb47ad7e4, 0x3afa1e23, 0xb9ee113b, 0x1e0c3188, 0x41bb019f,
++	0x1abcd79b, 0xabdeade7, 0x2c57691d, 0x4f961e20, 0xa97f611b, 0xda4773f7,
++	0x69a41589, 0xd030976d, 0xb88aa45e, 0xfb009fc9, 0x456bfd5a, 0xef64bf79,
++	0xbef6a355, 0x9fdf3f62, 0x65c7e426, 0xa0363f74, 0xfcc029bf, 0xa0e2757b,
++	0x65efd771, 0x9e3ae264, 0xbcdbfe8e, 0x9ebc30ae, 0x49c911d4, 0x40d27ae1,
++	0xc182ce4c, 0xe9cbc6ec, 0xb40d9f60, 0x1fa2cf17, 0xbefc3ca3, 0x6ed03230,
++	0xc01c593c, 0x0d93bdbc, 0xc09efe22, 0x918ddaf5, 0x97bfabdf, 0x2c20c9e0,
++	0x6772191f, 0x3764dfed, 0xc2abe76b, 0xc77fccd3, 0xe2fdb222, 0xca37160c,
++	0x6e245afd, 0x7a1df7d8, 0xdd13bf3c, 0x1f96c5f2, 0xebb67d00, 0xe3054ce5,
++	0x0b7bf82b, 0xf988a0e4, 0xa7edbd7f, 0x39041e62, 0x1e1c7073, 0xd793eb23,
++	0x938c4507, 0x4a5db4f4, 0xed0a7880, 0xbec6e307, 0x405ca78e, 0xe3cd43bf,
++	0xfaf10cd1, 0x08eef9fc, 0x1f8f28bf, 0xc99cb4f7, 0xf94efe01, 0xb019a3e0,
++	0xe2be733f, 0x15756cf7, 0xf9d1fd01, 0x1bdefea1, 0xa5fa8cb8, 0xf41c5da9,
++	0x19f5aafe, 0xcfe3eb86, 0x8bf20325, 0xf7c467d6, 0x095ab3cf, 0x7ece4019,
++	0xb4c51e5b, 0xc3570b83, 0x4dbd33fd, 0xb77f0b82, 0xb9445db9, 0x3a3da0b5,
++	0x4cbc50a0, 0x72c1611b, 0xee764ef9, 0xf9388663, 0x2e6ff07d, 0x7fa220de,
++	0xf2cb48f3, 0x6798f5f7, 0xe58327a1, 0x5de7f461, 0xc6147c3c, 0xdc14fc59,
++	0xc4ff4312, 0x6fd00dfb, 0x8102d3e5, 0xcc884a9f, 0x779818bf, 0x144f35d1,
++	0xc05de607, 0x6907e5f9, 0x466d15bf, 0x3c0faff4, 0x1bc840ef, 0x21f7fd09,
++	0xbc6f0ee5, 0x9f6d28ef, 0xf96062db, 0x3e35667f, 0x0ef685d5, 0xd0f3b209,
++	0xa74f073d, 0x877d1e03, 0xb1fd07fe, 0xd20fed43, 0x0e3cf2ce, 0x57dfb066,
++	0xd2fafdcc, 0xda419e9d, 0x8b3cf237, 0x327f7abd, 0x5b47b1e8, 0xe83f232e,
++	0x6cfcc83d, 0xfc4ff643, 0x0aefe666, 0x570fd19a, 0x0edf2ad8, 0x83ea84fb,
++	0xeedf5eb0, 0xd377b3b5, 0xbd55f9b2, 0x6f95aa02, 0x0bf705b8, 0xdff08fec,
++	0xc9f75203, 0x53a71e5e, 0x791a47f3, 0x3f9a8dbe, 0x4493e6a2, 0x27cd43ce,
++	0x7c614c69, 0xf3c32f23, 0x945bd001, 0xe77ecfce, 0x68cf2233, 0xc8a1bca8,
++	0x71910773, 0x8ae24182, 0x46c0af2c, 0xc6a06e30, 0xbe540d17, 0x31d647c3,
++	0xd06537b3, 0x227bfd7a, 0xc5434fda, 0x1c75d51b, 0x79865139, 0x8b2f5556,
++	0xb0bfafe8, 0xbce3cf5f, 0xe9438c21, 0xc8617c4f, 0x7ece7e44, 0xcb47c95f,
++	0x5937def0, 0xd28efcd2, 0xe71e1c57, 0xd9f07233, 0x978fb923, 0xe47b7ed2,
++	0xf5e80332, 0x4a0b13fa, 0x9de8de40, 0xd7980665, 0xa6c51391, 0x4d9bc04c,
++	0xb6b37dc2, 0x53b71d5d, 0x3ffffe86, 0x1f012a80, 0x00008000, 0x00088b1f,
++	0x00000000, 0x7db5ff00, 0x55945c0b, 0xe779f8da, 0x380c2b9d, 0xa5117280,
++	0x380a0ee1, 0xdb95902a, 0x9784268e, 0x4d32d45a, 0xe5450757, 0xdb698032,
++	0xcbbaeee7, 0x5acd4d78, 0xb5aca8dd, 0xbcc0c1be, 0x1a163b60, 0x25a3b614,
++	0xb68b9599, 0x3f9b5b99, 0x0286f328, 0xffb9f562, 0xcffebf6d, 0x3af39cf3,
++	0x7e988ef3, 0xbf67dfbb, 0xde73877e, 0x73ce7d73, 0x9339cf3f, 0x196e39a6,
++	0x9eb19fd3, 0xcadb2d1c, 0xc87b3b18, 0x630d81bc, 0xf7fc07ec, 0xacf2c653,
++	0x18036312, 0x319abafb, 0x3e57deaf, 0x7c81fb3f, 0x02d8c196, 0x316358e6,
++	0x33235a43, 0xbfd191af, 0x1d1fb01f, 0xf281ee9b, 0x988357f9, 0x5dafc237,
++	0xb63d14f4, 0x94357f9b, 0x3d424779, 0x3677af13, 0x4f285204, 0x1872f1c0,
++	0x9de912cb, 0x6edf2d22, 0xebf69cb2, 0xa613c2bf, 0xc53557ca, 0xf9a74e58,
++	0x47f8e5f2, 0x636ffc0c, 0x98c91646, 0x97627f93, 0xdb74fc5e, 0x913f485c,
++	0x5856091c, 0x9ed48557, 0xb10c0f7f, 0xef57ba26, 0x2d3ae330, 0x63f29bcc,
++	0x5e608ceb, 0xd5ae71bf, 0xf5a46abb, 0x2566e0f8, 0x6bd6f9b8, 0x5d7c3826,
++	0x38137d1d, 0xe8e0aac6, 0x05413feb, 0x4ffbebc7, 0xaebff1a1, 0xff49bb4e,
++	0xbfd06f43, 0x5f7f3555, 0xee3449bf, 0x0b0d0caa, 0xa4f486cd, 0x5e00cdc1,
++	0xcb235500, 0x1d80cc65, 0x795654c1, 0x66ad19c7, 0x75257b5f, 0x6cb171b1,
++	0x946f7c14, 0xfdf0dc0b, 0x25ae6592, 0x985d5219, 0xa1dbb186, 0x705ecebd,
++	0x086bf417, 0x41708f0b, 0x89ac133f, 0xc2efaeb4, 0x28301516, 0x08f06eff,
++	0x838f15d9, 0xfcc42a2c, 0xf2c541aa, 0xe37f1c7a, 0xb5f70c73, 0x0fc7c8ca,
++	0xfc332fd9, 0xba30eece, 0x777ea193, 0x7996c7cb, 0x06dfce30, 0x3ee0e639,
++	0xc909f32b, 0x3ee19779, 0x6dc726b3, 0x3d8c2185, 0x0dac616e, 0x50f6daf3,
++	0x725eaf5c, 0x405de7fc, 0x06afec0f, 0x77c90f56, 0x25aa4726, 0xcabed7c3,
++	0x01f9a7aa, 0x68b2c435, 0xa50d5f5c, 0x08574d55, 0x8916d6ce, 0xaf7ca5d6,
++	0x77043d62, 0x8851e586, 0x7d2b5a93, 0x16a4726f, 0x71e6fa66, 0xccf7ffad,
++	0x9fd00d2e, 0x433fff61, 0xdadd9e11, 0x906dfb9e, 0x60e45a7a, 0x11aef87f,
++	0xf0763974, 0x50ed5937, 0xfaed895e, 0xdbd8f631, 0xf30ca9e5, 0x9c2c9e86,
++	0xffb7c1f7, 0xe90ed591, 0x6fcbfb77, 0x50edf2c3, 0x6ef90adf, 0xcda54f7d,
++	0x6624bfaf, 0xf9466971, 0x0fb16ad2, 0xf7dbe581, 0xf3881caf, 0xdcc1d068,
++	0xa59c61c3, 0x474f2365, 0x9fd83a20, 0xb5b8478e, 0xec3d58e8, 0x54d35747,
++	0xe54af919, 0x43058c27, 0xf619bb3e, 0x83d9f207, 0xfb035b99, 0x93ffb953,
++	0x955fb8e9, 0x068b7a39, 0xbc341296, 0xbe02bdcd, 0x2d18e507, 0x2c53e212,
++	0xeccf5f1f, 0xfb62258c, 0xb7dc08bc, 0x2a310637, 0x41f997ff, 0x6bdbc71d,
++	0xbc7bc0fc, 0xabc601b2, 0x47efdb90, 0xa17c003e, 0xf2a5f11e, 0x668e6fa3,
++	0x4f46b158, 0x78cfee24, 0xd0f8171c, 0x369fa2c7, 0xac0ee16b, 0xfbe0fdd7,
++	0x2de8b06b, 0xf5c0e1c9, 0xb68c62b8, 0x68cfc47a, 0xbf14c277, 0xaacd7d7d,
++	0x4ff0f6a1, 0x221dbc42, 0xa07bbae6, 0x22587167, 0x470ee5fe, 0x30d2a87c,
++	0x3643f207, 0x077a8009, 0xe66165e2, 0xe9ebcc94, 0xd415b18a, 0x7b56dbdf,
++	0x57c735b3, 0x336993ff, 0xd07d1d33, 0xc12a6221, 0x0479ef53, 0x6153d9e7,
++	0x7d856db6, 0x827e0bf8, 0x334f2f76, 0x5850e578, 0x56bcce8f, 0x193a3c02,
++	0x0075bb3c, 0xd9b57fac, 0x73ae1ef1, 0xd7e343fa, 0x183a5e60, 0x788c5d61,
++	0x8b9ed459, 0x726d12fb, 0x3be3807c, 0x22db8e8d, 0x06978961, 0xc1fb523b,
++	0x08c2b356, 0x98566f0e, 0xfce7d859, 0x797c7cf9, 0x54b841a6, 0x36f4b808,
++	0x7c43f626, 0x5fad7aed, 0x74f98316, 0xca095869, 0xdf312e87, 0x988f2073,
++	0x712e9f1f, 0x4117d31f, 0x63bad2fd, 0xeb7eb9fa, 0xeecc60af, 0xfc7eb8c9,
++	0x301fb88b, 0xffd785fe, 0xa1afddf8, 0xf76fceab, 0xc004b0a5, 0xad22e913,
++	0xc71dbbeb, 0x9df58b66, 0xd63ff5c5, 0x87a713db, 0x073d3975, 0x887f9cf4,
++	0x527b69f5, 0x5d7d6c7e, 0xc27cb69a, 0xa5927d8b, 0xaed7de3e, 0x7e58f1a2,
++	0x497be02c, 0x9908d85d, 0xe20a59e3, 0x061ba959, 0xa55bc3f1, 0x8b3e051f,
++	0x5debbf05, 0x1413e02a, 0x5af2859a, 0xfe328f81, 0xccf800a9, 0xe1e4f6d6,
++	0x0b2f663c, 0xea7e70d3, 0xbe51fc26, 0x1eaa59cf, 0x30e22577, 0x1bf5cfcc,
++	0x66f34dc9, 0x2b86ff3c, 0xf21ebdcc, 0xbf95cd06, 0x21bd454c, 0xbd436353,
++	0xf0104b61, 0xfd8c1180, 0x8bcfec59, 0xe18c1fc0, 0xcb16be54, 0xfb7883a3,
++	0xee3567e8, 0x70bed095, 0xe1e1336c, 0x9b6695cb, 0x3115630c, 0x8530ac60,
++	0x47aecc79, 0xe63d7fb8, 0x61dbfb1f, 0x1de2839d, 0xfeb0f151, 0xb89a1139,
++	0x1c3cd0bf, 0x9c032743, 0xc70e68d8, 0xc207b840, 0xe8b30a7f, 0x36c65fb0,
++	0xa7ee9068, 0xe652f858, 0xa78e9c4b, 0xc70ebb32, 0xa839907b, 0xbd2ef1de,
++	0x1c1d019d, 0x3060f407, 0x8b9887ef, 0x373067ca, 0x979933a5, 0xb59cffea,
++	0x03a15e53, 0xfd39ffc0, 0x8d9ffe39, 0xb26f0992, 0xc7be01e2, 0x2f06b382,
++	0x7e4c7585, 0x6199352e, 0x0803359f, 0xf79b373e, 0xb1c38964, 0x1db8eacd,
++	0xf05bdfd7, 0xd0354bed, 0x25e8c68f, 0x27c6bbfc, 0x78100dc6, 0xa27ce3f8,
++	0x09e397ad, 0x06398390, 0xd8af70e0, 0xe5ed7bd2, 0x8cbd7093, 0xfe9e4859,
++	0x9e5fd04c, 0xb3fd666c, 0x6dd97c71, 0xa5d8b9c0, 0xbe42468f, 0xd6cc8c60,
++	0x5bde3cc3, 0xbede48ce, 0x13765c37, 0x869f20ae, 0x7e8bf7f6, 0xba998d27,
++	0xcbd41faa, 0xdb3dbeff, 0x20c1690b, 0x7eed97dd, 0x7fbe35f8, 0x4830aaed,
++	0xcba92427, 0x2d36b227, 0x065275c2, 0xf3f1fb94, 0xf5d5b3fb, 0xe198e00e,
++	0x2328db98, 0x0f8ccdfd, 0x18267fe9, 0x90d843b2, 0xbd1f641f, 0x9de9eb28,
++	0x0ddf4574, 0xef10d8f3, 0xb2fb8b98, 0x67afbef8, 0x2d33bd23, 0xca2468fb,
++	0x5d7ca3a9, 0x00dd025f, 0xd5d3b206, 0x7e80d120, 0x883e80ce, 0xb7a073f9,
++	0xdaa17a61, 0xd045e94a, 0x577bf0b3, 0x9ef28db5, 0xec72c2f8, 0xcbdaee77,
++	0x4e06475a, 0x6df0852b, 0x36b7c089, 0x8c13578d, 0xb255b4f4, 0x625c7ca1,
++	0x0c1b1b6a, 0x1f525bf0, 0x671d836f, 0x569e4d65, 0xb7b17e9c, 0x75b71f30,
++	0xad45e1c1, 0x055c5698, 0x6cbd078c, 0x1ff85cae, 0x7f5d0788, 0x7dda72f9,
++	0x7ab67e50, 0xbe7f8d14, 0x77e34eda, 0xfa501756, 0x37e3bc7e, 0x4b7b0f38,
++	0x15846b47, 0xe132e577, 0x1d0d7dcb, 0xe7c858da, 0xd23b25d9, 0xe676dde1,
++	0x6d3d0376, 0xb5b971d6, 0xd216e419, 0x29cc98e5, 0x50ca3e2f, 0xc71e38ae,
++	0x509c1ef1, 0xdcfd879a, 0x8b48aa3f, 0x9efa1ef5, 0x1f7888b1, 0x8f0cddde,
++	0xbf5f0059, 0x7844b6f4, 0xfd634978, 0xae59ea19, 0x0be93223, 0x2a985abd,
++	0x727bdff4, 0x7b05db88, 0x626f78bb, 0xc5b7f214, 0xb8546b3a, 0x0ceb5f1f,
++	0xbb9d6be0, 0x97f68f6f, 0x9ee19d77, 0xbe433eef, 0x4be705f4, 0x5e6733b0,
++	0x8e65be40, 0x76fee1b6, 0xf404bb09, 0xcf9460c9, 0x47417a95, 0xdf3057c0,
++	0x14e6c419, 0xd5f73e42, 0x1748b1d8, 0x7caa1e38, 0x7949df0a, 0x5f84b9f5,
++	0x6de37d5b, 0xecffccf7, 0x725fc805, 0x903a5c6b, 0xa7989753, 0x575c4deb,
++	0xfa86d99d, 0x0da49a63, 0xea784a5a, 0x934c3a26, 0xc0a5daac, 0xfabc7657,
++	0x303fc0e2, 0x1b181bd4, 0xdadfdf05, 0xe77c4c14, 0xd4ed9d2d, 0x22ff6c52,
++	0x53caff6f, 0x09b2fcbf, 0x462b27d3, 0x3ef112fc, 0x5ae09c3e, 0x21d2fbfc,
++	0x63436788, 0xbfa01b61, 0x5e486f5d, 0x99631653, 0xc4560735, 0x6d867cc0,
++	0x840cd0e9, 0xb49d7874, 0x21a1d312, 0xf8658705, 0x95bc5efe, 0x21b231e6,
++	0x72458e5e, 0xecfee819, 0xa87fa4a7, 0x9a8c92f5, 0x320763cb, 0x44327e9f,
++	0x7dc05cf2, 0x62721959, 0xb63fc904, 0xdbd9fa91, 0x99e3f532, 0x7cd00eb4,
++	0x7a45de70, 0xb70bc91b, 0xecf116ab, 0x46cd2392, 0xeba17afa, 0x4bdfdc79,
++	0xca1b488e, 0x571a7d8f, 0xff589de8, 0xf9d69694, 0x50b1dd46, 0x35fbe41d,
++	0xbe0998ea, 0x21ef0c57, 0xd83159b9, 0xc1dc70ca, 0x805bdd2f, 0xdc6ca9f0,
++	0x38fd4b5b, 0xea09368d, 0xd2bdec95, 0x8d94728a, 0xc464b667, 0x7f9e46af,
++	0x86dd9c62, 0xf6a4b572, 0x2b6f9e5b, 0x58217ca4, 0x3fac5a13, 0xcf69eb8f,
++	0xdac53909, 0x117f88b3, 0xfb7d5aca, 0xc67c04f5, 0x5de39bef, 0x3ecc8b31,
++	0xe97206f9, 0x8c59d202, 0x1b6fb79e, 0xe08e333b, 0x49728b72, 0x3d39e7e9,
++	0x4e509973, 0xacfcb9ea, 0xf8817e07, 0x17fffd01, 0xd1c8aff6, 0x6cca5958,
++	0x3ec77584, 0xb4adb067, 0xd338fade, 0x3921adfb, 0x5575e8aa, 0x89585f42,
++	0x36fda055, 0x804e43b3, 0xb90be671, 0x0cd6b4cb, 0x319e43d4, 0xa409b5db,
++	0xa3de81d7, 0x4c667921, 0x0658bd40, 0x4fd12f3d, 0xdf8733cf, 0x366b3c92,
++	0xfdb143db, 0x2fefd6ad, 0x3157f9e6, 0x444b424f, 0x31c85748, 0xf23de03b,
++	0xa127764e, 0xeb0357aa, 0xe790701b, 0x6dfa1213, 0x7aba055a, 0xfa958252,
++	0x7c11f801, 0xca19e761, 0x243ca509, 0xb841e39b, 0x47fa48c3, 0xe1a2c454,
++	0x9af0fc8b, 0x1123bd69, 0x5bffeb0e, 0xbfa84af6, 0x1bb33ffd, 0xbe7025f1,
++	0x3fdc0945, 0xb9890bf1, 0x97578834, 0x45af54f5, 0x8febbed7, 0x34a5aed0,
++	0xed7686c3, 0xd821e43e, 0xf49ea84f, 0xe61096a9, 0x99697a42, 0x7d46e91c,
++	0xa7b42dec, 0x88661e90, 0x7c4626f6, 0x40c665ba, 0x0d0387e2, 0xf35c1800,
++	0xaf6f034a, 0x2641f45b, 0x963cbff6, 0xc94ac7e4, 0xf48136bd, 0xcbe49935,
++	0x6a8fc149, 0x6533bcc2, 0x9cb9af28, 0x939c70c2, 0x61569760, 0xa22092bd,
++	0x7b309abb, 0x7dd7f20c, 0xdf132dff, 0x790e19ab, 0xf225f133, 0xb64cd4c7,
++	0xfe4184c7, 0x351fb161, 0x67faeeb5, 0x69c9bfb1, 0x3281aeb4, 0xe2f5445b,
++	0xe99f3f79, 0xfdc73b78, 0xdbd45ac1, 0x20c50241, 0x4e285efc, 0x2a07c866,
++	0x44cec613, 0xf7ec52bc, 0x28df82e9, 0x630363fd, 0xfc63ea2e, 0xf5f98cdf,
++	0x07aba426, 0x201d4c4b, 0x92c9d839, 0xbf682115, 0xbd90e83e, 0x1e5bd406,
++	0xd35fb3c8, 0x7fb0120b, 0xb3c24cfb, 0xf27ec562, 0xbdb843ce, 0xeb6463dd,
++	0x7d847f49, 0xdf1ebccd, 0x22633c2a, 0x52c7edfc, 0xf397a703, 0xd7482f38,
++	0x714a3b07, 0xe34d55de, 0xcaedfc23, 0x8757f319, 0xf18bdd12, 0x23db562e,
++	0x5ea1274e, 0x32a94050, 0xc14e329e, 0xea5da314, 0x818df68f, 0x4239aaf4,
++	0x7832ad0f, 0x4dfd21a7, 0xa31e3937, 0x642eca71, 0x7fd8bea1, 0x9c3f5a4a,
++	0x32fbf77f, 0x253d3c43, 0x3214f5f6, 0x45a7c46c, 0x4c2f8421, 0x8ebf1de4,
++	0xf41cfd20, 0xc737c21a, 0xde5286ef, 0xccc7b7a1, 0x1c5cfc47, 0xca71f84c,
++	0x729fbfc2, 0xcd7e1186, 0x87f95dfa, 0xaa7be00c, 0x78784f50, 0x3f2645aa,
++	0xca96dfcf, 0xb9c03d5e, 0x67d5ca6b, 0xd75da053, 0x3772afb2, 0xe2beda43,
++	0x3f9438f3, 0x4c5456b3, 0xcab376c2, 0xfc8fdd96, 0x3d7446f9, 0x441069cb,
++	0x35b6e1cc, 0xd711bec1, 0xd5ca7fd9, 0x03cbe47c, 0xcfcf9dcb, 0x0983f287,
++	0xcf88678e, 0x112bdbe8, 0x7d6f951e, 0x73fa8711, 0x7b2bf377, 0x6dfd215a,
++	0xfa79e388, 0xf8dee2be, 0xb099d8d5, 0xb0b52abf, 0xb73f805f, 0xc45e3a27,
++	0xbce355ef, 0xa2eed829, 0xe11f2dae, 0x9add96c6, 0xa5a17dde, 0x76849f7e,
++	0x254b5060, 0x0b3bb2a5, 0x7929d1e7, 0x8444a543, 0xb00be823, 0x6f168bee,
++	0xb9e21868, 0xb7cbc3d0, 0x5347d7ab, 0x077e148b, 0x91ee5768, 0xb3d226ed,
++	0x6f9c7add, 0x2872fd60, 0x58b77aa7, 0xbc3cc65e, 0xa9e9ac3c, 0x7b7ef8bb,
++	0x179fb0bd, 0xc56f2476, 0xf7b4befd, 0x3b7f1495, 0x7ebd3038, 0x17fd7cbe,
++	0x8e00bf11, 0x8744a117, 0x5060d5f8, 0x3b5d7fd9, 0xd5f85462, 0xbdd523b5,
++	0x762f8fde, 0x6cc1be09, 0x88c9dc9e, 0x2e4f76f7, 0x9f0a55ea, 0x164f4660,
++	0x9e696fd9, 0x1457b42c, 0x3d0ac33e, 0xf6ee5429, 0x7dfd60a4, 0x7d9acf68,
++	0x8aed96e3, 0xfdcf5dad, 0x364d2e8e, 0xc56e87e6, 0xcdefd2bc, 0x59ba97d6,
++	0xbba7caaf, 0x09d3f9d5, 0x73b69fdc, 0x83b15ea7, 0x30476165, 0x568fb2ab,
++	0x5c11afae, 0xe057aafe, 0x2e6c68f2, 0xafe00dfa, 0xe7379a04, 0xddb93be3,
++	0x23b86fbc, 0x62a9f916, 0x830bef9f, 0x51ca067c, 0xaf256f3e, 0xde7021c0,
++	0x20bafe2b, 0x967bfd16, 0x4e508d44, 0x3f88516c, 0x2f9c4d2b, 0xbe81d4ad,
++	0x4976819a, 0x5ad3c8c9, 0xd16c57b4, 0x1c1f5ac5, 0x6e1e6c16, 0xb85d3a44,
++	0x1fd1b865, 0x1f6e561f, 0xf30ad879, 0x6b5db8bc, 0xd4af29c3, 0x7d429fba,
++	0xd976e56c, 0xddf462e3, 0x17fa8768, 0x628f07cd, 0xb85b05bd, 0xbf69429f,
++	0x744e7370, 0x873cdfb1, 0x33c3576e, 0x0fcea3d3, 0x07e7526b, 0xf391aea2,
++	0xdc376f3f, 0x3c8fceab, 0xfd9fceac, 0x10d3a3cb, 0xd7644aed, 0x87ea3253,
++	0x461fe79f, 0xdf6e71b9, 0xdfe4a11b, 0x15b8a2f9, 0x9b85def5, 0x7d8670d5,
++	0x701f5093, 0x2e48936d, 0xe903ba96, 0x65ba6fa3, 0xd7e2b96c, 0x93c7f34b,
++	0xd56ae632, 0xbf5f5fc6, 0xd9a67993, 0x74b48fd1, 0x23d3c8f1, 0xe1defd7d,
++	0x7b47a4d9, 0x1bdc7027, 0xdb3329d1, 0x165f68ad, 0xeedfe28d, 0x7d963a5c,
++	0x6d882205, 0xf88f9638, 0x4484f457, 0xf5e8b6f2, 0x2f9177d4, 0x3199ec77,
++	0x0569d281, 0xcfc50f04, 0xf245b0b2, 0x32de4086, 0xfcede38a, 0xc19b92cd,
++	0x32aee7bc, 0xc541fca8, 0x58f3d41b, 0xbefea350, 0xdfc0e9b0, 0xc4bfe825,
++	0xe51e92f8, 0x4316c956, 0xfdcb1f80, 0x65e1ea0e, 0xd9d918e7, 0x183f7565,
++	0xcd73f2fa, 0xbae1d657, 0xb8fae19b, 0x07d3e78a, 0xf806634f, 0x857efef8,
++	0xfea11233, 0x32b5359d, 0x3982adc2, 0x9224b31e, 0x860de99d, 0x7d002c79,
++	0x9069f509, 0x2baeb4b7, 0x0db9fb9b, 0x4cce54f1, 0xb5857e50, 0xbe1ca2e5,
++	0xe36218d2, 0x5cb6b0fe, 0x4217e40b, 0xc256e11e, 0x9c7c1236, 0x8e657fc8,
++	0xf9bf762f, 0xe7f93ee2, 0x8fae46d9, 0x03deb53b, 0xd6728708, 0xff70ed4e,
++	0x6139ebfc, 0x51c3275d, 0xcf6808df, 0xaf0fe46c, 0xdf69eb32, 0x307e9aaa,
++	0xec577ff8, 0x512ec500, 0x59ff6dfc, 0xe21070f6, 0xfec96af5, 0xd4c651bc,
++	0xf115a7bd, 0x724cd4b8, 0xce5ae1fe, 0xd9d06bcf, 0x6cd7fd02, 0xf37d274a,
++	0x829ec961, 0x4c9b65eb, 0x1e810764, 0xdb3abf18, 0x3e81d7a7, 0x9fa132e8,
++	0xbdc834b8, 0xe70fbf15, 0x8ccd79f6, 0xde17d214, 0xe45e3c92, 0x3867aec3,
++	0xe64cd4bd, 0x64f353f8, 0x0cff7d0c, 0xfa831aa7, 0x6a4bd722, 0x3d72a536,
++	0x60f3e656, 0xfe210bbf, 0xe62f1358, 0xf34ac035, 0xc9f5f452, 0x8973c716,
++	0x5e2ceb7e, 0xf4247a01, 0x995bfc5f, 0x95829fa1, 0x3c92dc44, 0xaa7217af,
++	0x8dc99367, 0x52d3eefe, 0x3f9e2b61, 0x13dfb35c, 0x1dcfdf39, 0xea26df6b,
++	0x58bc5f91, 0x4ffd7933, 0x3567bc71, 0x7ef195d6, 0x53dbb7f0, 0xbd3fcf50,
++	0xf70234c9, 0xce70d4e9, 0x72c773b7, 0x25d801bf, 0xee90adf6, 0xfca8d449,
++	0xb9127bab, 0xd13fb09d, 0x3ce9e94a, 0xc90c47ee, 0x0cff242e, 0xf1f115ec,
++	0x17ec75c0, 0x85f58aed, 0xc7d27e47, 0xb0f8147c, 0x4e7f7c71, 0x5c91223f,
++	0x58a4f584, 0x7bfb9f20, 0x4e75f913, 0xeca2f90b, 0x0e51e00b, 0xbfc15bc9,
++	0x49fc459e, 0x27f014c4, 0x51fc2fbb, 0x60c3c7e3, 0x7f1098ef, 0x1f683f00,
++	0x327afc15, 0xf011f693, 0xe7a1f087, 0xf00dd349, 0x285f6d47, 0xe5a9adeb,
++	0x5da047f6, 0x3270f801, 0xa0bcefd1, 0x0427ac26, 0x3c14b7cf, 0x8e775a60,
++	0x205a39ff, 0xe6c9e41e, 0x4befe434, 0xea1b20a4, 0x7f844bdd, 0x467cc97b,
++	0x8b658df3, 0x68d7a424, 0x0ec895e6, 0xec266d66, 0x003d27ef, 0xfc3a3f73,
++	0xf32355e9, 0x58637b97, 0x8f7f2a98, 0x3f554631, 0xfaaf12cf, 0xba746f7e,
++	0xeb78fbea, 0x627e5570, 0xfaaa1dda, 0xa8c6d9f7, 0x351b3ff2, 0xb27f555e,
++	0x6f2ab27d, 0xce2d1667, 0x60baa5bf, 0x6f1fda24, 0x5e921757, 0xd1970810,
++	0x5baf8386, 0xea46206d, 0x00b453b4, 0x0efdd1bf, 0x7c87892e, 0x14d33aff,
++	0xe8c7e02d, 0xe25783d8, 0xd5a2602d, 0x43eff105, 0x80495e0f, 0x305d747c,
++	0xc8c5dfcf, 0x67581f1e, 0x9332e29e, 0x093630bf, 0xeaed3ce0, 0xf66843a2,
++	0xca7cb27d, 0x75a478fc, 0x3ff33267, 0x7566d8b7, 0xe53d6184, 0x547f52bb,
++	0xefb52152, 0xfcf9ccbe, 0x393fb827, 0x760a7aff, 0xb18fc917, 0xac6c341c,
++	0x5be74cd1, 0x78bba8cc, 0x7c0cafcd, 0x8633b253, 0x6a96b9fe, 0xc22d67d8,
++	0xb7a948cb, 0xc1e942da, 0xdf4a68ea, 0x62b2b6ad, 0x756b6780, 0xab87a51a,
++	0xa47e546d, 0x1fa5147a, 0x3d29db56, 0x69405d5a, 0xa521755b, 0xb34f2812,
++	0xb36c6f90, 0x3c21d5ad, 0x33b0da5c, 0xd9fe3e30, 0xe1f2df17, 0x519d96ad,
++	0xff2a15f6, 0x4dcf64ca, 0xb20d75a2, 0x945b9f90, 0xa9ffda1f, 0xe8d1f915,
++	0xf5e1236c, 0xd59b7368, 0x48f3cd98, 0x99977567, 0xebca1357, 0xf5ebfd69,
++	0xfe470cf7, 0xa669da30, 0x50bd497a, 0xbdeb0b2f, 0xf2c5a317, 0xca1b7a45,
++	0x3f04e7cb, 0x901cd10e, 0x5e909c71, 0xc834367e, 0x144ef9c0, 0x5df85fa8,
++	0xf5d5a3f1, 0x8706f1f2, 0x9df3a22f, 0xc4cdb3c1, 0x15b9147f, 0xc18de11b,
++	0xd12ec5f9, 0xe6887953, 0x2efd15b8, 0x09ded55d, 0x84e3af88, 0x67a71f9c,
++	0xa60f3869, 0x94f92209, 0x1adf7f27, 0xcdc5f90b, 0x398c70d2, 0xdc286718,
++	0x96a1f642, 0x6feb31d3, 0xb6b8fae2, 0xa815f4ad, 0xd6323c77, 0x15a11eb6,
++	0x81258fbd, 0x5557959e, 0xf2728190, 0xf448db38, 0x31d43f3d, 0x6a6df10f,
++	0x46bdd006, 0x13f40920, 0xfc4c105d, 0x6a7f7bb3, 0x53cdea0e, 0x0cbdd60c,
++	0x292ca2e8, 0x4a7ef087, 0x648e6b3f, 0x445dfcc1, 0xaca25327, 0x9e1b257b,
++	0x194ce49e, 0x71bfc777, 0xd2493d2e, 0x7ca9c7fa, 0xc31e3922, 0x5c1455f9,
++	0xf5f9f3d2, 0xebf89e90, 0xb3f12b24, 0xc9190701, 0x21f19edf, 0x7fd15fc4,
++	0x61f918b5, 0xeb073586, 0x427ae9c5, 0xfba0ee31, 0x5dc52d7b, 0x07d0cd40,
++	0x2f1efcfc, 0x8c78f0b5, 0x9a1bbc40, 0x554de5cc, 0xaa038f12, 0x291a368c,
++	0xcf9cb96d, 0x30a24e28, 0xd036ed09, 0x5794fb1e, 0xdcb99383, 0xe7a35f8b,
++	0x49643afe, 0x107b6530, 0x8c2ef253, 0x2c7da907, 0xecee5148, 0xc7a64e00,
++	0xe87f9476, 0x5492e3f7, 0xdf58edf5, 0x11d99df7, 0x9dfb4a9c, 0xbf7e9375,
++	0x43c62b4a, 0xdcc0597c, 0x7e4084b8, 0xb87245fe, 0xfb411e72, 0x137f62fc,
++	0x324993d9, 0x71e037e0, 0xfc87b06c, 0x8e26757f, 0x9e1a49ef, 0x77f869d6,
++	0x93e8107d, 0x790c1f90, 0x3efa773c, 0x1e49e1d9, 0x0599ed40, 0xa87bcbdb,
++	0xd0f30c7d, 0x28f7ca78, 0x9d435ef4, 0x304f2041, 0xfa6b2d1d, 0xe498db84,
++	0x7d211f31, 0xf91f0177, 0x775f8fda, 0xf52e8705, 0x6c4aa7df, 0x376ff66f,
++	0xed29da96, 0xd86a962b, 0xffc411d7, 0x922a5f08, 0xb7377634, 0x5095df37,
++	0x7a6d604f, 0xbb4a6b94, 0xbeefc013, 0x05ff7806, 0x27a61ff8, 0xf8e1ef81,
++	0xc3df019f, 0xf7c06ff4, 0xf014fcb0, 0x81db4c3d, 0x97f961ef, 0x9d30f7c0,
++	0x1b243336, 0x69aaa4e9, 0x855afb0c, 0xff873af7, 0x3189ddf9, 0xd9cbe37d,
++	0x9ed76e24, 0xfbfbef88, 0x7c71277f, 0xdf37713a, 0xd7906eb7, 0xfe019fa8,
++	0xdf84b2ad, 0x87776e58, 0xef9e73f0, 0xd77eb8d2, 0x5ff3c31d, 0x3fa8e926,
++	0xc66d86bb, 0xe9a5dff6, 0xe649ef29, 0xf85ba372, 0xa8ff012f, 0xc31e657f,
++	0x7aaa4a86, 0x814d24ee, 0xdef98fbb, 0x23c7cc9d, 0x1c3d44fc, 0x0fde31f1,
++	0x84ad2b3f, 0xf178819f, 0x249ba085, 0x58bbc703, 0x27c8f1e4, 0xbe744ca3,
++	0xe3b5f30a, 0xc49d7479, 0xfc3af1f1, 0xe77b70d4, 0x7e84fc3a, 0xe7804e08,
++	0x093fa412, 0x35251fc0, 0x45b77988, 0xe082fc86, 0xa0b3a2dc, 0x3227efff,
++	0x6bdb1600, 0x84ce8f7a, 0x10c8d8f2, 0xe41d9e2b, 0xd45e6e3d, 0xebb8ff17,
++	0x35ff5ddf, 0xffaf547a, 0x738b75ba, 0x375d5b93, 0x97e413f1, 0xf07d3f88,
++	0x1fc82187, 0x33f87c72, 0x849ed926, 0x264b74fd, 0xbb81fa2d, 0x022f1c4d,
++	0x1a5dfbd7, 0x3f055fc7, 0x18fc40be, 0xbac3fd80, 0xb9eb7d12, 0x80a0ff36,
++	0x14642df5, 0x8fb8110f, 0x5bf15f0a, 0x39c91dd7, 0x2601b83e, 0x041efc92,
++	0x71fd1bf2, 0xc70b649e, 0x676701f3, 0x81f9426f, 0xffea0272, 0xfafdc341,
++	0x56bedf0a, 0x2673c92e, 0x39f8a867, 0x67b07b43, 0xcbe881bf, 0xaf2561ab,
++	0x43825da1, 0x8f59d9f9, 0xf6f5f325, 0xa0d64f4e, 0x9df5d4de, 0x27f145d9,
++	0xa14e7b03, 0x59b5d67d, 0x6d3db8c7, 0x3c81249f, 0x057e8f9b, 0x8dc5fa2b,
++	0xa17b6e74, 0xd43d991a, 0x853e5cf3, 0xf3d56176, 0xe8023332, 0x9dbfe7e4,
++	0x60b2f886, 0x7a82cebf, 0x4fcdcac7, 0x3b7c461f, 0x515928d3, 0xc23577de,
++	0x457ea1b2, 0x04db884d, 0x8f21f3f5, 0xf59a17f5, 0x8f1f2b6e, 0x18a74cf4,
++	0x65536bef, 0xefa5fa02, 0x70475e79, 0xc783b05e, 0x79b3bc31, 0x9f639d09,
++	0x0a2c4b71, 0xcbcbe5da, 0x9fd0635a, 0x3364a2f8, 0x39a73b40, 0xefda3cff,
++	0xcd983b65, 0x3d8afe8b, 0xb2be7421, 0x7f1d46a0, 0xa4dee250, 0x64a27d47,
++	0xacbcba8b, 0x9d879d4e, 0x6ceb7e21, 0x3c33c750, 0x15e22c92, 0xf270d9d2,
++	0x9384d633, 0xd3f0a01e, 0xf631d91b, 0x324f9cc5, 0xfa244df6, 0xdffde549,
++	0xe6697dc6, 0xdf22c9f9, 0xdf4bf901, 0xe0517df2, 0xbf9ca952, 0x4f6cb0c7,
++	0x99dfc636, 0x55c7682c, 0xca157f36, 0xa82cee30, 0xcfa27efd, 0x538a6537,
++	0xbb24d75a, 0x2d15be10, 0x3e3197a6, 0x31ef72af, 0xe10435bd, 0x01e908fe,
++	0x1ad732f7, 0x1abcbfb4, 0x3c236b0d, 0x15ff236a, 0x202cf7b3, 0xc9b370bf,
++	0x6f3de742, 0x133ada7e, 0x66257bf3, 0xdc1c7dc2, 0xe0b2784e, 0x75ce9979,
++	0xb93e6a19, 0x71913c3e, 0x3d9f715f, 0x16bf68fd, 0x3ee3bee2, 0x3ee3bec3,
++	0xd89fb8cb, 0xe6ef443e, 0xccedc278, 0xfef9db33, 0x2f9efb2a, 0xdf93d06f,
++	0xf3ef96b8, 0x3fd7cf3d, 0xa078441b, 0x680f0263, 0xe16ccfdf, 0xbfdfaefb,
++	0xf1103f5a, 0x0f0036b7, 0xf0d70d9a, 0x1d77e700, 0x7fec041e, 0x07cbf0a9,
++	0xfee041e2, 0x44f82bdf, 0x10fa3c9e, 0xfe2cd9c6, 0xf1571f05, 0xef0ecd73,
++	0xaa0478ac, 0x11ff1a9c, 0x392cdd9a, 0x049635fa, 0xb421bd72, 0xc0f909b0,
++	0x86bb09f1, 0xfc099c53, 0x9c524633, 0xddefc11b, 0x053dfd5f, 0x7e3bbfe9,
++	0xe23796f2, 0x703aff69, 0xc161dd1d, 0x96ee7e5c, 0x1b9512dc, 0x538006bc,
++	0xa451f01e, 0x81b6f643, 0x07ba91ce, 0x31e8f43c, 0x693f77c8, 0x48f6e1b6,
++	0x951f6e76, 0x1277bcb7, 0x31ac86fd, 0x9fb2aecf, 0x8e537d84, 0x6f7e15f6,
++	0xefcafb00, 0x7cb24e3c, 0x4f3eed44, 0xcaf5a04e, 0xb266db1a, 0x9598ea83,
++	0xe3af63ce, 0xbdf88cf7, 0xa1ba07e2, 0xf7c0163e, 0xeb9efc7d, 0x2835cc61,
++	0xb14be90c, 0xb47e14b3, 0x0f4bf850, 0x1b44763d, 0x03aceb81, 0xb5bee3b8,
++	0x8fea1f00, 0xdb9d3d7e, 0x8dd1f92a, 0xf1167fa8, 0xce78e00a, 0x469f68b5,
++	0xd332fc46, 0x0f029d7c, 0x605f112b, 0x07d9659d, 0x775f5142, 0x6ce1fe0a,
++	0x497f210e, 0x8f98db19, 0xe30655f8, 0x9bc0fb79, 0x487bedb2, 0xde19bfcf,
++	0x655bfa28, 0x3fdebaa3, 0x250c9f90, 0x03f9927e, 0xfc69dfe0, 0x37c7c73b,
++	0x7e8ce4f2, 0xcbdc0718, 0x6e90fdac, 0x52d7246f, 0xfb290337, 0x36ee9bf5,
++	0xcfcaad32, 0x33e5516f, 0xfaaad13d, 0xaaac9ac3, 0x69bdc3ef, 0x0f23efaa,
++	0x9cf954db, 0xfaaa51b6, 0xabb49fb7, 0x17b477f2, 0x75dfeaa8, 0xef9550ae,
++	0xfcf580cd, 0xbdd739c8, 0xfeaa92d1, 0xd549ab78, 0x042a683f, 0x6169899f,
++	0x335ef2aa, 0xfa8dd387, 0xeea6cfbd, 0x7f6fb157, 0xffdd4a36, 0xdfbabb64,
++	0x6d87dd5b, 0xa0b52720, 0xb9076f6f, 0xd04ee989, 0x6fa0b5cb, 0x8e5e8037,
++	0x2f4157f9, 0x7a03d4c7, 0x06bf9639, 0x1be6397a, 0xfcc72f41, 0x3023b03e,
++	0x405d54df, 0x85d59be9, 0x78337e54, 0x0f718ab5, 0x888f718b, 0xc4db1971,
++	0xe04dfee5, 0x7f68a1f2, 0xc36fb454, 0x3c3e49f6, 0xd64828ac, 0x1d3a055c,
++	0x8f5e7e13, 0xc5f65ae7, 0xd768f9ed, 0xb32fbcf7, 0xcc2740ad, 0xdd5c3ee1,
++	0x0452e51f, 0xec2faf3f, 0x0efd00f9, 0x2d137b95, 0xaeb06e78, 0xf8a3e3e9,
++	0xb651abbd, 0x6c1ddd22, 0xfb142afa, 0x141578b9, 0x9e4291bc, 0x77f9de41,
++	0xf0f5f946, 0xc7d5e31d, 0x964501ef, 0xe48794e4, 0x2524c5d4, 0x0e7ba6ef,
++	0xf47b0d85, 0xb6fe74ed, 0xefbfbe87, 0x6fbfa9d1, 0xb77d55af, 0xf73c7d60,
++	0xcec9bad5, 0xf4a4d0be, 0xcefaa5e7, 0xfa8ec924, 0xefed85f1, 0xb738c1ac,
++	0x11453d8a, 0xde567e78, 0xde722c70, 0xd2ffc08f, 0xc8195dbe, 0xa19a2bd7,
++	0xbfafb33f, 0xc89d668a, 0x933bf9f3, 0x2387e4f6, 0x18906edf, 0x6c8b928a,
++	0x950dc523, 0x913bd537, 0xcda7952f, 0x4e39e1d4, 0xf61647b7, 0x73c38f3f,
++	0xc7d7185a, 0xe742573c, 0xf27fbf41, 0xe31fba1c, 0xde5bba69, 0xbb71c509,
++	0xdf869ef1, 0xc2913efe, 0x5227daf5, 0x8b87bdf8, 0x6284ef8d, 0xcf3ac5fc,
++	0x5aee1c3b, 0xa0ffad2f, 0x4a4377c8, 0x69926ef0, 0x3557a5fd, 0x7f4a0fb4,
++	0xd4c8a6cf, 0xe4a6f8cf, 0x71d75c10, 0x8dcf1f0f, 0xce3005c1, 0x62a2a4f8,
++	0xe891ff9c, 0xe9323919, 0xdc6fdc75, 0x3d62643d, 0x8e7813ea, 0xf5dd97de,
++	0x55b7e89a, 0x9fbdf7c4, 0xf22b7af4, 0x110523db, 0x880649c3, 0xb8533b7a,
++	0x77af919d, 0x389ca124, 0x1f92b66e, 0x62414579, 0x41efee08, 0xe0bcb14c,
++	0x97cbf265, 0x8ef1f235, 0x1142da5b, 0x8e378eef, 0x516f5194, 0x71c3abfa,
++	0x6facf8fd, 0x4fb45cdf, 0x335aee25, 0x3fdbe3f6, 0xb14eee5e, 0xee23bb50,
++	0x3f50d363, 0x4c169e3a, 0x9eab45fa, 0x37977b9f, 0x78f6fd70, 0xecad6c4b,
++	0x16e15e77, 0xa69dd1fb, 0x6aed7da1, 0x337a89d2, 0x9eaa99eb, 0x9d57ef8e,
++	0x77163e7a, 0x57a853c7, 0xe9945f3b, 0xb7538eee, 0x7fd71228, 0x7e7a8b76,
++	0x4ece0225, 0xd232379d, 0xcd9d5f0f, 0x4cc6e8d7, 0xd0acde78, 0x53f69589,
++	0x69e3c7d9, 0x1e3b2f5c, 0x390befcd, 0x5e13d4f7, 0x5b7de4fb, 0xb11dea3c,
++	0x4ee3c1ff, 0x2ad7666f, 0x5d9f80fa, 0xd3aed0c4, 0x68e62415, 0x3f727c12,
++	0x79fec52b, 0x97b400ca, 0x040ec90a, 0x3f210f64, 0xfdc3ea08, 0xedfeff90,
++	0xb7b71c59, 0xd440f411, 0x134d8c83, 0xaf4afef0, 0xe604080d, 0xe745bbdb,
++	0x198bf616, 0x4205d2f5, 0x756b3d2f, 0xbe78cae4, 0xeb435cb8, 0x81dd8272,
++	0x825d8a71, 0x13da5ddf, 0x07d233ff, 0xb416cb0e, 0x70f1ee67, 0xc0d9d63d,
++	0x4f4ad2f5, 0xa346effc, 0xb3a0ddde, 0x535a0559, 0x2fd0ac5c, 0xf5bd08ce,
++	0x3d1ef2cc, 0x25fb27d9, 0x5ff434f6, 0xce89b4d2, 0x7e842bab, 0x90372151,
++	0xb370b09e, 0xbd002f5a, 0xdf2f9545, 0x0837a81e, 0x5d47907f, 0x7277d8ae,
++	0x21fd35ea, 0xd011ed1d, 0x0e90a34b, 0xdcad53a2, 0x93ec266f, 0x28b69925,
++	0x5a75f7a4, 0x4fc504eb, 0xdaaaf080, 0xce297aff, 0xb20ceddb, 0xf4b0bd91,
++	0xf76b824d, 0xe90edc37, 0x8f04668e, 0xdbe1c66e, 0xbbf1c4dd, 0x8db9274a,
++	0x95d01ed8, 0xee4a33fa, 0xba87a8e5, 0x2f89437a, 0xf4805631, 0xb70678b0,
++	0x0be8ed37, 0x850bf485, 0x29f9140e, 0x5bbfba71, 0xf9872edb, 0x54e487f1,
++	0x138e77ae, 0x424b3b71, 0x06bf246c, 0x9d9eb91a, 0x8e19e257, 0xec1030f8,
++	0x9f9f8368, 0x2dd9a07a, 0x52babd61, 0xe45717ee, 0x45ad64f3, 0x7e2bfd87,
++	0x4cfce522, 0xb7895fe9, 0x16ff69bf, 0xebecdfe8, 0x0fdde01f, 0xdb257de1,
++	0x6e39f246, 0x6d2f72b2, 0xb2a3d111, 0x6f808b9e, 0x1f451fe8, 0x739bee0a,
++	0x7e7c81cb, 0xf746ddfe, 0xf943f2cc, 0x5c45f23c, 0x4f107e73, 0xbf72a4c7,
++	0x0e54cacc, 0x2a9166b7, 0x549beb7c, 0xc854d8fb, 0xf23aa7b7, 0x42dca953,
++	0xdae4b9f8, 0xa88c807d, 0xeef83ef6, 0xbdf88fe2, 0x0f402bbb, 0xbe7e7fc8,
++	0xa926b248, 0xe78e22f4, 0xe308bc55, 0x468c4e1f, 0x6decb838, 0xce789169,
++	0xce6be9ce, 0xc9359352, 0xec2e4fdf, 0xc4db0c2f, 0xd1529c73, 0x4a52c4be,
++	0x4b1c15f7, 0xd7e8ad23, 0x487a42af, 0x07fe39b8, 0xdbfc3de2, 0xc956f882,
++	0xde7e360c, 0xa6ddf81e, 0x417b3d45, 0x09c45d00, 0x4875ad3c, 0xfb598e74,
++	0xb9fb96bd, 0xd7e44966, 0x790a107a, 0x57a8b7bc, 0xa3e28632, 0x9d2c841e,
++	0x17f4d503, 0xe9fdafe7, 0xb101ea7c, 0xdc4507fe, 0x279d21c0, 0x8730fd1e,
++	0xcdf9f82a, 0x73a1e60c, 0x8dac59e2, 0x95c113d2, 0xb9d4bd7b, 0xd1da306b,
++	0xe40c3a9f, 0xb55da9ff, 0x6bf90435, 0xc1655b16, 0x93202373, 0xbc8c3fed,
++	0x78119eb1, 0xbdc4a4be, 0x9edcfb2a, 0xf11ab85a, 0x51ec1ce0, 0xdbeb88f4,
++	0x97b27f97, 0x1f3a69e2, 0x43da7d7d, 0x1e9bed0c, 0x5b28778a, 0xee9a3c34,
++	0x5b58b855, 0x7f6fae5a, 0xf654fd95, 0xaaacca0f, 0x0cb5857d, 0x674cf802,
++	0xe95eb93d, 0xc0a9fbe6, 0x33d74e39, 0xf2094115, 0xe050f88b, 0xaf702b3e,
++	0x3dc48b64, 0x674745a0, 0x5787fd40, 0x4fa8ac69, 0x37efb75e, 0x89af1fd9,
++	0x4886f27f, 0x68dea764, 0xfa7d94bf, 0x742fb8b9, 0x3bb78c32, 0xfc9973f9,
++	0xfbdbff7d, 0x63aa4df5, 0x3bc92a7f, 0x1b749f4b, 0xa237a748, 0x034b39cb,
++	0x4e8037e8, 0x0da5d1af, 0x3fdbf3fe, 0xa250d2c7, 0x9d7f6547, 0x517fb056,
++	0xd884b5fe, 0xfdfaecdc, 0xe7163b44, 0xb128d653, 0xa15ba417, 0x7bb276d7,
++	0x700bf703, 0xe0f28ec5, 0x553a00f3, 0x7c46f1f6, 0x277be14b, 0xbb9e5cf4,
++	0xfce9931e, 0x7bc90bf0, 0x2c7c82c8, 0xd7dd38fd, 0xb17fea52, 0x23f06dbc,
++	0x6317cfd0, 0xcf427a78, 0xbc94f9e3, 0xe5fb883d, 0xb83188be, 0x485ffd70,
++	0x9e5163e9, 0xc7fd217f, 0xa51f3cfd, 0x467e62b7, 0xe40b58d4, 0x3f14e84f,
++	0x87c10ade, 0x3c7fdcdd, 0x5471f6e3, 0x32ef624f, 0x2ff5bf7f, 0xcf5bf225,
++	0xf38e9601, 0x5cfb1f8b, 0x9f940241, 0x70e255fa, 0xac5b5f3a, 0x62e50fee,
++	0xb8fff93c, 0xd5f776dd, 0x86515d1e, 0xf26b9c6f, 0x5e65dc6c, 0xf64c9c5e,
++	0xad808941, 0xdb9d3c3d, 0xcf7e6ea9, 0xbd379150, 0xfb375f87, 0x0bcf27fb,
++	0x7cb5ee7f, 0xfe7193fa, 0xb6c0eaf2, 0x9fb05227, 0x0b2bbd12, 0xab9f1bef,
++	0xca1c43fd, 0x8f6d92f5, 0xb99e90a7, 0xda0a5d6d, 0x9f5b250b, 0x3e53b148,
++	0x8af641d8, 0x73bbaf96, 0xaf2f1df7, 0xeb6bd3f7, 0x3f9eb9d3, 0x0f2078cb,
++	0x4309cdf5, 0x3f46ad2f, 0x24aff278, 0xd6f44c8b, 0xe0e51ab6, 0xef8e34ec,
++	0x7c48c6ac, 0xa2fde199, 0xbefed8fe, 0x47c7e43a, 0x15d2bed2, 0x34ecbd43,
++	0x3663c12d, 0x82886f73, 0x64ad6cef, 0xf5fe67a9, 0x6139d307, 0x1f492ad1,
++	0x5be51fdd, 0xe3b470d8, 0x68c2d3b2, 0x0ed7731e, 0xd9f2c56f, 0x04f978cb,
++	0x38f1bb83, 0x9e9cf3f6, 0x804067e2, 0x9bc7f825, 0x3b71a767, 0x8906ce6a,
++	0x9c656bf4, 0x6b2367e4, 0x9d99d7fd, 0x39f3e426, 0xe521f137, 0x65a4db1e,
++	0x868ddec7, 0x1d6a0f7e, 0xf7c1a677, 0x499ccfa3, 0x2e333e42, 0xda067cfc,
++	0xc77ac919, 0xeeb8a50b, 0xcb8a06ad, 0x958aceca, 0x88fea0a3, 0x8d3cc747,
++	0x45659ce9, 0x3fa2942f, 0x3871b375, 0xf3e56f0f, 0x35592c5b, 0x53be3f68,
++	0x845cd0fb, 0x8c67b9db, 0xae2f1fa4, 0x3f628d4d, 0x02bfef62, 0x614d6ffb,
++	0xfbd8076c, 0x7b02ee98, 0xed4bef1f, 0xfca68eae, 0x94adab1f, 0xbf1ce9b2,
++	0x1f385b16, 0x237f51b9, 0x02b78ec1, 0x0b5ec91f, 0x78fe81fd, 0x107f6f46,
++	0xa43c99d7, 0xb13aeb62, 0x3f6864ae, 0x0f7f15dc, 0xdd7b21c2, 0x5aa8ad23,
++	0xe7e3498e, 0x5f1c1f7a, 0xf1fa471b, 0x4a978eb2, 0xb486fbe1, 0xded8d9c2,
++	0xd932e5b8, 0x3f34efef, 0x5de11b3e, 0xd7c0d5b2, 0xee7dd627, 0x17a89499,
++	0xfbd77fa0, 0xaba7b23a, 0xb4bc74b6, 0x1b79d20e, 0xe3fbd11e, 0x77aeadfb,
++	0xcdcf9896, 0x7046eae8, 0xd5d39ff8, 0x3f447113, 0x32ae815b, 0xaaba75fe,
++	0xe09cb65a, 0xe15a5af7, 0x9fc834ea, 0x90e2b9d3, 0xffa5ce9e, 0xb5dcf084,
++	0x2bf8225f, 0xbf6955fc, 0x9bdb8d32, 0x06cf1ae5, 0x7f04efd2, 0x3a2c16fd,
++	0xe681ef84, 0xdfa829b3, 0xe334db7e, 0xafbdd747, 0xd233bf9a, 0x7ff5f004,
++	0x734942c7, 0x1b448ef5, 0xc4572fac, 0xdf7e07dd, 0xce51a69d, 0xe05e48f1,
++	0xae2fc93f, 0xd62602a2, 0x92e51c2f, 0x7b420de4, 0xf3dee9aa, 0x379450da,
++	0xad52fb12, 0xfd2fb21f, 0xe68dede4, 0x12b4b37b, 0xf8fad1fb, 0x3527edee,
++	0xee43f7aa, 0xbd520f68, 0x8ecd71c7, 0x9d3d3280, 0x2ad4c4a3, 0xbf18f6f1,
++	0x4e9cd5d3, 0xc5e7fdf1, 0x7daea27d, 0x3f712f60, 0xdefd9309, 0xdcdf3835,
++	0x367c8599, 0x6f95bd70, 0x387e1276, 0x4cbf1e9b, 0xf8d364f6, 0x9bacdaf3,
++	0xb6c0ffaf, 0xe2677a4e, 0x173daebc, 0x7d2ea2ed, 0x43ee167b, 0x9f9c5be5,
++	0xa0e14fff, 0xd5ae9794, 0x649dbf73, 0x4f2efb21, 0x79f648be, 0x9f6e61d7,
++	0x4cbf3657, 0x85b7b4fc, 0x34aa47fb, 0xe851f96d, 0xd1d4584f, 0x37acfc8a,
++	0x954bdb9a, 0xe8ff9ee2, 0xb5072144, 0xff78713d, 0x9f3892e0, 0x7c34ec55,
++	0xb5e90037, 0x5271e34a, 0x305650dc, 0x0b8f73c3, 0x3e50cf48, 0x1afc697b,
++	0xee73f3c4, 0x3f902301, 0x8ff5907e, 0xfda7f24a, 0x9322d829, 0xe2ab297e,
++	0xc3adaf9a, 0x14c0f32d, 0xc1abe8a6, 0x2adef8aa, 0x6467f5bd, 0xe7e11eef,
++	0x3843555e, 0x3937b13d, 0x3aac553d, 0xebf68fa0, 0x9e82afef, 0xc26f3d14,
++	0x7441fe9f, 0xfb64cff9, 0xa33f217f, 0x5fd86ffb, 0x24b73f74, 0xbeb97a89,
++	0x8b733e73, 0x640bafb0, 0x24d55efa, 0x62ef3c33, 0x1e7421d1, 0x5236c05f,
++	0xe604e09c, 0xb17a4d19, 0x7c29fdb6, 0x9fe26587, 0x371891e4, 0x9d2e7a05,
++	0x3907e71b, 0xe8ae3092, 0x70124684, 0xf64f64f5, 0xe9396793, 0x968d4e5c,
++	0x3d639225, 0xa7a4c131, 0x315e9f8c, 0xfa7f5fcb, 0x4fedc487, 0x26f487e8,
++	0xf7e1eee6, 0x593dbc40, 0x4c64effe, 0x22f053fb, 0x93cc8b92, 0x9c6fcd3d,
++	0xa71e74fc, 0x9dcf0571, 0x89549f81, 0xf93ccdf3, 0x0ed167fb, 0x9f9fbc5a,
++	0xc4d09deb, 0xc9714a7f, 0xc258af78, 0x1efcbbfb, 0xbb307337, 0x7327e91d,
++	0xa95fdd00, 0x8c312dda, 0x366cab2f, 0x4d7f456c, 0x123daea5, 0xd35d79f1,
++	0xe7c47a27, 0xccef3c2a, 0xb97ff7e4, 0xf742daff, 0x8c2cabb9, 0x534557e4,
++	0x47e8a7ea, 0xa5cc38ab, 0x18f68568, 0xb7c8e9d9, 0xc6f2bc71, 0x3b97643d,
++	0x72ec9799, 0x6f1a8367, 0xf6fba37a, 0x5ba7e7a3, 0x8c62ef55, 0x63e9ccdf,
++	0x9ac3c61a, 0x43f939a9, 0xd54747c7, 0xc9bbdffa, 0xb5f0e74f, 0x51ab9dcb,
++	0x904ee98f, 0x4a8ef86c, 0x156b9077, 0x14ae47ea, 0xbf74d7ae, 0x017b2bbd,
++	0xf67717f1, 0x077c4cd4, 0xe3b1eb86, 0xcad26ed7, 0xdf19f37e, 0xdd7ffdc2,
++	0x1f64ac41, 0x1063bbed, 0x29fdc7ee, 0x39e90585, 0xd1cc7ef4, 0x234fd0bb,
++	0xae04e9ee, 0x9f0a68e3, 0xdff411cf, 0x3de6f864, 0xf3963631, 0x3c26e633,
++	0x62f7156a, 0xa516f894, 0x578116fd, 0x8917ecd7, 0xc46e9dfb, 0x04bcf05f,
++	0xbcf132e3, 0x229dd304, 0x4bcf137e, 0x88aaff30, 0x12f3c4df, 0x12f3c72c,
++	0xf88a37cc, 0xc12f3c4d, 0x60979e3c, 0xdf88a6fa, 0xa553823c, 0x1ae6b3b8,
++	0xa4568bc4, 0xfcbe81b5, 0xfc80f089, 0x13fd7540, 0x3f3a92e1, 0x8bfaa250,
++	0x5c6b9bd2, 0xb4a7e819, 0xfdc57908, 0x1d83eb94, 0x2af840bf, 0x15cf0ef7,
++	0xe90fbd3c, 0x8cf85c68, 0xbd5f4859, 0xf90c0dfd, 0xc774aed0, 0xf877ac32,
++	0x9b493df0, 0xe89a3f88, 0xc3c4f8fc, 0x05f75543, 0x5c8da4c7, 0x31f90d95,
++	0x6bdc4966, 0x50ac38de, 0x5cf0fbb1, 0x5b28a5bc, 0x0582f9cb, 0xd93ce4f5,
++	0x2ce38c59, 0x448d318e, 0xd53c3bfe, 0x1fba78f1, 0xb81fcebf, 0xa1f50930,
++	0x53f59d56, 0x3eba97f4, 0x9bb431d2, 0x529abf14, 0xe63a90cf, 0x3e376c19,
++	0x08d5712d, 0x0c881fec, 0xcf5d9cf9, 0x767e701a, 0xdfc4b04d, 0x916ab08d,
++	0xf6233c0f, 0xeb95ac7b, 0x55bd5ec5, 0x76768e1b, 0x78fe98d0, 0xf62ada7e,
++	0xdfd8b0f7, 0xf17f6223, 0x969c69bc, 0x8a61379f, 0x2a984de7, 0xd2c75a71,
++	0x274a5f0a, 0x21c4f6f8, 0xddbf157c, 0x1a3ee504, 0x9ea1c4f3, 0xd7c099f0,
++	0x919f0407, 0x79eb0ad2, 0x2fdd0f3b, 0xb4fe172c, 0xa0be714e, 0xe76953ac,
++	0x9dc7cf6b, 0x67f38c32, 0x13dc4fd6, 0x185cc41b, 0x8de53af7, 0x7507f218,
++	0xce3df9b9, 0xc8db4029, 0xfc1bd8bf, 0x73459dfc, 0x7af2993a, 0x295bd514,
++	0xe1159afc, 0x0718296d, 0x49e825df, 0x76f72bc9, 0xde40462b, 0xafab8bec,
++	0x8296d298, 0x925df571, 0x54788349, 0x3f7f95b1, 0x22ade82e, 0xbca7f441,
++	0xc4f46087, 0xef743ee1, 0xef0e237f, 0x7b37ad89, 0xef7e7017, 0x98f2f7e5,
++	0x84e30537, 0x29cf253a, 0xdfad878c, 0x8c41f939, 0x79d4ed87, 0x8efcc25e,
++	0xc41f539d, 0x694ed878, 0xff8b29cf, 0x389e01f7, 0xdfad978c, 0xf7e44539,
++	0xf36614bc, 0x3b5eebcb, 0x2bf5df85, 0xf1883ea6, 0xee0d13b3, 0x2f88d5c3,
++	0x6578e47f, 0x0cf7bdda, 0x99bca7c2, 0x7763ebeb, 0x1af8bdef, 0x21bde3ca,
++	0x55ff6e74, 0x7bc13c7a, 0x1b2bf365, 0xf6bacf10, 0xd60e88e8, 0xd2f27c37,
++	0x819ea9af, 0x689b2b9e, 0x6ba364f0, 0x979dd5e4, 0x2771c01f, 0xc1be7b06,
++	0xcc869ffc, 0x8c4c79a6, 0xeefc74e0, 0x3107a290, 0xef6bbd9e, 0xee90c7ee,
++	0xfc63f626, 0x132ef5de, 0xebd94fed, 0xaed0e3e9, 0x9b690aef, 0xee57fd8d,
++	0xfdf3f034, 0xbde8a3d7, 0xee749e88, 0xb21d2e6f, 0xabe50e31, 0xdb1dcde6,
++	0xc67e8d7e, 0x6f3a269d, 0xfae70aa9, 0x9b5c995d, 0xdfed08fb, 0x80fedbcb,
++	0xa261def3, 0xf452cff3, 0x74be40ad, 0x17bf325b, 0x66afcffe, 0xc9e43ee3,
++	0xca7ee85b, 0x0d267537, 0xdeb8e1c2, 0x83ef0fde, 0xc8eb8eb8, 0xf9152cce,
++	0x7c1113d2, 0xf9edc13e, 0x37fd7fb4, 0x2d7ca1c6, 0xfde5f88b, 0xf289ef38,
++	0xced097c6, 0xf7f0af61, 0x00efcecd, 0xf3bb41b8, 0x0e8a3af5, 0x4211daed,
++	0xa53bb6f7, 0xddf1b38d, 0xaf3d570c, 0x48da69d7, 0xa7d574f0, 0x76bdf7f2,
++	0xb0c3a740, 0xf95526de, 0xb257faf9, 0xb0bd0ed0, 0xa3d92273, 0xf42b9e0a,
++	0x78175652, 0xafdf8c2f, 0x337f132c, 0xfd998b8b, 0xf6174afc, 0x02f5df3d,
++	0xd0bfb5f3, 0xc8fba3a0, 0x0ab606a5, 0x7a1571e3, 0xb7bd8b28, 0xa657d700,
++	0x7d414da9, 0xfb6474a5, 0xf38ba46c, 0x868c6626, 0x39081f7a, 0x7cb8d655,
++	0x37bdea32, 0x431dcf9a, 0x56fa1f38, 0x4db7e1d0, 0x79ffb726, 0xb7fa605f,
++	0x50fd666a, 0x7cffcbeb, 0xdc9efa91, 0x138f7a07, 0x70cab3ed, 0x414e3fce,
++	0x5fe006fd, 0xfce10fb7, 0x7552ce62, 0x3c218cfd, 0xdf52b10e, 0x4ef2829e,
++	0x887d3fe9, 0xda83eb85, 0x2a277a76, 0x5944ddb0, 0xfc5d9bf0, 0xa35969de,
++	0x1df741d4, 0x3e91a410, 0x5d199678, 0xe9d38c6e, 0x73a21f6b, 0xbde03ec5,
++	0x34f12182, 0x8983595e, 0x07972dee, 0x7ea287b5, 0x0f690ce4, 0xeba7bd45,
++	0x8bde994d, 0xafebedc4, 0x1be09ff4, 0x9617f14f, 0x5376747a, 0x72c1e35f,
++	0x885e2ed0, 0x3e28037f, 0xeb40921b, 0xe60a692e, 0xed2da4f7, 0xf0386f74,
++	0xd3ae211e, 0x5d8f47e2, 0xfa472f4d, 0x87b3e7db, 0x57ff0bc4, 0xf74dd107,
++	0x438cbf3f, 0xb0d3283c, 0x785e7855, 0x15f7e241, 0x15f74f20, 0xc773882e,
++	0x41ccefb2, 0xbe173f88, 0x771d1275, 0xe7c4ed49, 0x88aabbcc, 0xdae9743f,
++	0x4349cf89, 0xae7c417f, 0x367dac2b, 0xd0f32df2, 0x4c7bfc35, 0x4fbc6cfb,
++	0xc8886173, 0xf724660f, 0x40daee07, 0xcca264fc, 0xcbd818e3, 0x0bf70b3a,
++	0x142f7871, 0xed6c6270, 0x3bb26a89, 0x8fd45674, 0x424a8762, 0xd6fbd7ff,
++	0xa9e8fb2f, 0x3777598b, 0xf0967d22, 0x9f406277, 0xf50d786a, 0xf49119be,
++	0xdc204dce, 0xfebe7394, 0x805f7fe1, 0x710a64fb, 0xe7821cac, 0x64ed19d5,
++	0x93b60057, 0xb6f95efe, 0x6ecbec81, 0xe436cf5d, 0xc7661d5f, 0xa9cf58e3,
++	0x2d935b6f, 0xf6fa7de1, 0x9bdf3c56, 0x7be3dca0, 0x575be385, 0x9efccbc6,
++	0x7c273882, 0xbe03ec4e, 0xf88b5881, 0x7e7df121, 0x0ff5e9a7, 0xb574df91,
++	0x0e9f1225, 0x4df3a7a4, 0x0a7bd34f, 0xbbae4127, 0x93ffecfc, 0x79d0af45,
++	0xc38c74fc, 0x3f7f5f30, 0xa9fbf7b5, 0x0db20764, 0x8f88e57e, 0x207cea35,
++	0xbd2f105c, 0x11703a2a, 0x5ba78fdc, 0x63a3bbf8, 0x821de8db, 0x9029f96b,
++	0x07f2fd97, 0xf501f203, 0xea3b5ef1, 0x2f51c70f, 0xf60e3840, 0x7dbb209e,
++	0x5d938f37, 0xf28d7209, 0x9ce9837b, 0xe41bb358, 0xb72e7f56, 0x87945e50,
++	0xaabf91b6, 0xce81af6b, 0x9f345637, 0x03f5c38d, 0xa65f923e, 0x488df9bc,
++	0x12bfe7b4, 0xc7c80376, 0xd94b8a48, 0xf6891cdb, 0xd4ee5287, 0x7c445278,
++	0x0ff2167c, 0xf642bca5, 0x553dd0a6, 0x39de8da9, 0x4de70af8, 0x632f21f5,
++	0x9c3ad19e, 0xd67ba712, 0x0a6bdfcc, 0x8213b7dc, 0xa07f019f, 0xbc572777,
++	0x0a05fdc9, 0x7c15283f, 0x679620e5, 0x28b7fa70, 0xde7843e7, 0x07df7483,
++	0xe140789f, 0xf9116c7b, 0xb10f8e73, 0xf68ab872, 0x37f72fd4, 0xb7b8b8f1,
++	0x3212b33a, 0xdaf59db0, 0xfc6b8f7d, 0x5fc7d128, 0x13440f90, 0x8ba1581f,
++	0xbd957584, 0x3abbd124, 0xe796b3a5, 0x50b67543, 0xe7bd08fb, 0xae718259,
++	0x15e7ebe6, 0x43154788, 0x34ca9c38, 0xdb2eeedc, 0xcf39d126, 0x3f3f1d05,
++	0x71437e03, 0x2dc70bf4, 0x9bfa47cf, 0xef42bfdf, 0xacdf1f6f, 0x5beeebff,
++	0x1f9e5a2f, 0x979d07d5, 0x3ad4dd2d, 0x5fdf5d80, 0x3f36a3a9, 0xb97d7ad2,
++	0x260bef32, 0x75639e65, 0x31e1fc03, 0xbe3e797d, 0xf8d0b8fb, 0xaf83c2af,
++	0xc1b342fb, 0xe017728b, 0x77b5e74b, 0xf2a45d5f, 0xbfacdeab, 0x73a6e652,
++	0x3fcd1b8f, 0xde4a7530, 0x0ad71413, 0x744f55f4, 0x37e37406, 0x024363de,
++	0x452511fc, 0x157bd1b7, 0xfcdba28e, 0x298111fd, 0x1a81ca30, 0x5170d98a,
++	0xdb38740a, 0x943c07d6, 0xb94389fa, 0x8131f55f, 0x962703c7, 0x231aff3f,
++	0xe86d8e3f, 0xc7df1b80, 0xfff043b8, 0x718fbe5b, 0xb7af304f, 0x574164df,
++	0xbffef74b, 0x7bb83f93, 0x3f3a79b5, 0x18b33067, 0x9d1adef8, 0xefdfd5b9,
++	0xb7b889fb, 0xe996f780, 0xee9a79fe, 0x1949fdc7, 0x49fcd721, 0x04646fa4,
++	0x574af9d3, 0x6f9215d3, 0x16392ddd, 0x6ae9073c, 0xde919b73, 0x5ff9feaa,
++	0xbb872891, 0xb8a6be5a, 0xcfefaeb0, 0x3ad8bc52, 0xb077b711, 0xb55bc449,
++	0xbcb04359, 0x7cabe0bb, 0xa45eb7ac, 0xf7027f3e, 0xe2a92ba7, 0x9f7bf02f,
++	0x1cd0d667, 0xdd6b3f7c, 0x3e30d953, 0x45cc6e33, 0x7376007e, 0x9f0dca38,
++	0xf51ac11f, 0xe88bf163, 0x72d24847, 0xe8a6023f, 0xe24a4847, 0xa3cc047e,
++	0xf453011f, 0xfa396023, 0x7e8f3011, 0x1fa3cc04, 0x47e8f301, 0x08fd14c0,
++	0xb88dfe58, 0x8c0dd12f, 0xcd39fb8b, 0x6097f7c4, 0x6fc030fc, 0x78bf7889,
++	0x777f3d49, 0xa04bef07, 0x7e2ebbfc, 0xcfc451a6, 0xf9d13678, 0xd95ed55f,
++	0xf7845b86, 0x18295c2a, 0x0873d347, 0x7b553ffd, 0x2b72db24, 0x79a74f96,
++	0xf9c96bac, 0xd7961674, 0x5ef86ceb, 0xdf13e016, 0xe2895acf, 0xea5aca98,
++	0x2e355fc9, 0xcdc53f6a, 0x0c483557, 0x0cd3acfd, 0x90ae4edc, 0x9d0474a1,
++	0x5d1e9297, 0xfb236861, 0x64bb7ca5, 0x5c9fbff5, 0xf132ea35, 0x78dce509,
++	0x2ac4ff01, 0xb16b263c, 0x79dace4a, 0x69fe13fc, 0x9137c5f5, 0x17a7e21e,
++	0x64f3c02d, 0xa7bf972c, 0x60151b7b, 0x374846e0, 0x6b2a7f8f, 0xe306b3d9,
++	0x0e356ea6, 0xe2a1e5ea, 0xbf3878fc, 0x4cf0518f, 0x30bdeef1, 0x0346ef5e,
++	0xd2bb29e9, 0xbf113b1d, 0xe4ece90e, 0xdfb4396f, 0xe9d67644, 0x7f2aa94d,
++	0x883c9e4b, 0x758b1dfc, 0xe1efc912, 0xb60f0ea9, 0x1e60a7bb, 0x89ee59f9,
++	0x563a210e, 0x5a90d0f0, 0x81f21af8, 0xf25699c5, 0xd819e56f, 0x113fa82f,
++	0x53eca557, 0xde894ade, 0x36622e4d, 0xc7305fba, 0x5389dfce, 0xc39b75de,
++	0x82839c78, 0x49378b57, 0x364eddfc, 0x5b3ce088, 0xcb4e73c0, 0xc74ef47b,
++	0x5778833c, 0xbfcfc34e, 0x78f3d763, 0xc2f8f986, 0x8177be11, 0x7c9327d8,
++	0xca1dbb7d, 0xe283c11d, 0x8d6f7eb8, 0x8e8bfec2, 0x373e28e8, 0x14beea2f,
++	0x71f9c907, 0x7920c714, 0x0c3fca67, 0xa9fe31fd, 0xa438638e, 0xeb841c2b,
++	0x253c456e, 0xd2838eff, 0x9425d523, 0x251c7e2a, 0xff7bb06e, 0xfc707b1b,
++	0x6efe2abc, 0xc5ef0dec, 0x3f7df505, 0xf027b94c, 0x0e29c619, 0x1f1ff5c0,
++	0xc4dbef89, 0xe1b6677e, 0xf6a2f3fa, 0x44aabdd3, 0x933fffd1, 0xfee0cf0b,
++	0x0b9943d8, 0xcc39e1db, 0x3e678046, 0x3f42402e, 0xf78ec7b9, 0x4bf67a53,
++	0xbe5f8a16, 0x5a6e6f8e, 0x5521f18d, 0x6bbd1249, 0x31b41f9d, 0xcffa122f,
++	0x21b7884f, 0xe26aaedf, 0x482ed67e, 0xe5dfbef9, 0x18aaf7a6, 0x826a3f7f,
++	0x53fbb7d8, 0x3a1f7f1c, 0x513e57c0, 0xcb7755d0, 0x7bb71e15, 0x1d6c3f73,
++	0xf8c73fbd, 0x0ff41f7b, 0xe87135e6, 0x2ac7f260, 0x10dbd378, 0x26f115b5,
++	0x9bb78324, 0x0e98eb35, 0xcd2906f5, 0xfc80cc61, 0xabcbe2ec, 0x7d9d6923,
++	0xf894c5fb, 0x98bf40f6, 0xbffd7f3f, 0xb0ff6b88, 0x47a5117a, 0xda5297ab,
++	0xefa2ed56, 0xcb6e1720, 0x6a7f35b8, 0xfe1f464a, 0xf6b46654, 0xf40ab923,
++	0x01d6fdcd, 0x6ba053fe, 0xdf5d1f8d, 0x773612d3, 0x351dea2d, 0x128f7a7a,
++	0x98978ce3, 0x32d80f89, 0x2aa3f4fa, 0xdf933370, 0x469997b5, 0xa6c7fc20,
++	0xf0356a25, 0x490ccefd, 0x74865e75, 0x3a43eb82, 0x44e914c1, 0x7cefe7eb,
++	0x9c240f51, 0x1700f5cd, 0xda2601e9, 0x81cb35d7, 0xeef8487f, 0x3fc5458f,
++	0x0ff0062e, 0xa61e5830, 0x062d55fb, 0x8946877a, 0xc90b1cb7, 0xf07d11d5,
++	0x27e70f13, 0x3b3c8383, 0x657fbee8, 0x1ef3c510, 0x3afc71d2, 0xc9c78eb4,
++	0xfe42b315, 0x7cf5d0de, 0xcccbee85, 0xf539e88b, 0xef3fa807, 0x33e93309,
++	0xe416626b, 0x257c3bfe, 0xe0106507, 0x4b2c6b9d, 0x9be0b8c3, 0x03bbcaa5,
++	0xd021ded7, 0x271cf78b, 0xaa6a77f0, 0x5953fe84, 0x54fa216c, 0x6a5661ee,
++	0xb06b1d3d, 0x1e10ff5e, 0xf465a1ef, 0xcd71c8ce, 0xa9eefe40, 0x13e3b3a0,
++	0x1b9fc912, 0xc5e3d2b9, 0x93ee7b7e, 0x71da7de8, 0x831dfcc1, 0xf3a14d3c,
++	0xaefef815, 0x7d47df86, 0x9029df11, 0x5fb95f71, 0x93ef77c4, 0x05b169eb,
++	0x7fb95b21, 0xb3fbbf98, 0x00fe1252, 0xb74b6ef1, 0x1fdde03b, 0x374aeef1,
++	0x08f59c2b, 0xcae981f2, 0x27d68ffb, 0xa6a07cf1, 0xf7788874, 0xcf7fe387,
++	0xf90da364, 0x3e70cd59, 0x04d29aff, 0xac948fee, 0xb98e51cb, 0x1c68c37e,
++	0x833fbbdf, 0x1fb2bbe9, 0xa72e3bca, 0x43bf1c43, 0x9ef811be, 0xe152b3cb,
++	0x4fd8f98c, 0x27af9f26, 0x43e3f399, 0xb93c8633, 0xc838e10d, 0xf87a839a,
++	0xb96151dc, 0xac47e012, 0x800cb996, 0xa69be87f, 0x69d66e77, 0xbc602bdd,
++	0x2f715a41, 0x3df82b5f, 0x82341974, 0x90f5dbea, 0x217a7a2f, 0x8abca3b3,
++	0x6c5ef465, 0x879f9192, 0x29863b43, 0x946469ba, 0x85fb8c83, 0xfef1fa8a,
++	0x7b98a28b, 0xd9fd4485, 0x673c4a35, 0x020efe2e, 0xb6173f23, 0xed411d0f,
++	0xdede1a5d, 0xb6f485ae, 0x51defe44, 0x9d036acf, 0x3e3d1683, 0xa4e3e498,
++	0xedfbeab1, 0x38f067df, 0x985d2505, 0xf9d15569, 0x74e955dc, 0xd577389e,
++	0x43d40a8c, 0x74c10d1c, 0x81f3af1f, 0x9df0bb97, 0xbdd972f1, 0x6bb413e0,
++	0x216f1d32, 0x5920b95f, 0x0a85ef67, 0x477c1f73, 0x0e31718f, 0x6f4be4cf,
++	0xed70dca2, 0xbaef8a39, 0x4c80ffdd, 0xfc67efed, 0x8ab6647d, 0x9f7903bf,
++	0x1a36b2eb, 0xb46fbffa, 0x0ef27e44, 0xf50e2593, 0x5fb122ba, 0x14ff82ad,
++	0x829c19ad, 0x787df576, 0x9c87dece, 0x3d793291, 0xf76dfbe5, 0x635d9530,
++	0x990ddf10, 0x25b7bd7c, 0x6bc5eff2, 0xa1891d0d, 0xa9bcea98, 0x8d86da90,
++	0x65f118fd, 0xdfcb0252, 0x25fc708c, 0x987633f7, 0x97ce9798, 0xae0933eb,
++	0xf1d3d60e, 0x6ea3ae38, 0x63a3ad28, 0xde8e258c, 0x8aef10bf, 0xfe70b7ce,
++	0x8f8631d4, 0x1ed2ca73, 0xe9c19e12, 0x9d17df07, 0xebf4b627, 0xba9f2ba5,
++	0x5bcdea1d, 0x927ba466, 0x4a999ff3, 0x1abcca76, 0xb247ee99, 0x45f7ea0d,
++	0xe2749e41, 0x0bdf02fc, 0x14177c0d, 0xa0f11cf7, 0x78448378, 0x9b4adb74,
++	0x7bdfcf1e, 0x009e8136, 0xdecd8bdf, 0x8a0bd424, 0x0adb266d, 0x43778fa9,
++	0xe5b807bf, 0x8ccbbbe2, 0x592126fc, 0x6e38ab8e, 0x7a22c6d1, 0xc33833a7,
++	0xdbb0fe41, 0xfd441ec0, 0x4e4c8ee7, 0xbc00933f, 0xb683cef4, 0x9fed063d,
++	0xaf1c193d, 0x525b8526, 0x269784cc, 0x3bbbf786, 0x9c149674, 0x936ac75f,
++	0x499ef506, 0x027e382b, 0x23b518dd, 0x059fbe30, 0x111efd21, 0xd72d67ed,
++	0x7e42d616, 0x90ed8810, 0xe19bc470, 0x0e8f9f84, 0xf119fc73, 0xd86fdcef,
++	0xf39fe428, 0xf3e26c36, 0xb4cffb12, 0x9ef0e36d, 0xf8fab9e5, 0xa0571811,
++	0xc3a3c3e0, 0xfd325ac6, 0x8901e0f1, 0x73d61ff6, 0x6d8de518, 0xccc8dcd8,
++	0x007e5401, 0x58d263f1, 0xe421c52f, 0xe7864ec9, 0x8cd1bdf8, 0x197be9e2,
++	0xb5ded7a7, 0x0a6fe25a, 0x01f8509f, 0xef1d83e0, 0xadfb2ac7, 0x2bff85f0,
++	0x43e0043d, 0x1be1457c, 0xf0517f0a, 0x8133e14b, 0xc01b3578, 0x6a08f77c,
++	0xe14cfc4f, 0xcd0eb863, 0x517f1f08, 0x76b759f6, 0xadfc868c, 0xe4f39f62,
++	0x40dfbb8b, 0x49989438, 0x1706b96f, 0x12e091b3, 0xf84d67a7, 0x47caea3e,
++	0x402cf70a, 0x416dfc7c, 0x331fea3c, 0x18f7d44b, 0x7d48be7f, 0x52ce717f,
++	0x59c5fdf5, 0x843e3f4b, 0x5086a77e, 0xbfdc04c7, 0xf33dbf53, 0xfe50a7e2,
++	0x90bdbf9f, 0x8becedcc, 0xb8e1cff5, 0x3cc482cb, 0x96bcf9da, 0xdcbe49e9,
++	0xfc30f426, 0x9732fb87, 0x8a2d3a71, 0xf28a3b0f, 0x29c22e6f, 0x611fdf0b,
++	0x89bfcf04, 0xf62539fd, 0xf73568a7, 0x24b8743b, 0x5dcc43f2, 0xad74e825,
++	0x97f25efa, 0x383dac31, 0xf97f77d1, 0xc4a4dfcb, 0xf72b5d21, 0xf96b1d95,
++	0xe969667d, 0x1c5fd261, 0xae50fbca, 0x96a1f780, 0xcf7bf2b6, 0xc4fbeaed,
++	0x3d76d9c1, 0xb71829f9, 0x1da6e6a3, 0x1b35f1e4, 0xb28a0b25, 0xbc5e5162,
++	0x57dd5256, 0xdf93247b, 0xd0cc6b17, 0xfa0bbf72, 0x1f38949c, 0x7c04be3f,
++	0x15cfee83, 0x5fae1c6f, 0xe747c7e0, 0x6979f28a, 0xf2954a1a, 0x571e0cc6,
++	0x03448c1a, 0x4b4faefd, 0x7e27cfd0, 0xa8bf2567, 0xda6e7f52, 0x37e83588,
++	0x7f01bb98, 0xfed7c79d, 0x6a5a9937, 0x26f428df, 0xfcf80de7, 0xfc2a38b5,
++	0x379a0ef3, 0xaf65d3d9, 0xdf157aee, 0xdcfb2fbd, 0x6ca67240, 0xcf5f3898,
++	0xa54ee770, 0x9f7e63f3, 0xf7ec52aa, 0x845f5db8, 0xd5509da2, 0x8671dfc8,
++	0xcad303b4, 0xef642565, 0x1e80da57, 0xf78fafc2, 0xcfd5f77e, 0xd95fb943,
++	0x9f41ab15, 0xa59df888, 0xc8afc6ca, 0xdefca0ef, 0x2abb6052, 0x6e50fbe9,
++	0xff985abf, 0xede411ef, 0x549d11d7, 0xb97b7335, 0xf215ef6a, 0x5fed579b,
++	0x63e8e91d, 0x13dfd7fd, 0xe8e2abb1, 0xcb86d8ab, 0x06fe0f74, 0x4c9eeaf1,
++	0xedc3eef1, 0x538a76ec, 0x2b8a32d7, 0x2ebbf6ba, 0x8d1fe4ee, 0xacdaac8f,
++	0x5ea078a1, 0x9e1fb5ad, 0xfb8b75c7, 0xbef58151, 0xd776e4cd, 0x7c23a025,
++	0x41bba377, 0xee9df3a6, 0xabbfee06, 0x15ba786c, 0x8256a5ef, 0x5ec30ce1,
++	0xd9543fbb, 0x7fa33328, 0x1fc61adc, 0x9e78dc45, 0xe842bbe5, 0x8f52981d,
++	0xf987af64, 0x34bd82f4, 0xc73e6fc0, 0x1b955e05, 0x2fb4b93c, 0x0387fe62,
++	0x96d29df4, 0x2b9ee9a7, 0xfd22ebd4, 0x8cc18fe4, 0x1cf5939f, 0x6e7679c5,
++	0x5ae74919, 0x953d9ea5, 0x086c77e4, 0x0b9578a6, 0xe9bdf53a, 0x53bc6253,
++	0xafee3c99, 0xb124e313, 0xe932abfd, 0xa44f38a7, 0x3a920bc7, 0x68b4e38e,
++	0x6dc05a77, 0xa54ba09d, 0x23a7a97e, 0x9fea0934, 0xd298fa6d, 0xd4bf512e,
++	0x728596dc, 0x30636cf3, 0xdb3d63dd, 0xb7fc87f8, 0x9e4bbc60, 0x3f25fd31,
++	0x74b292fa, 0x88b63f7c, 0x08eeb8fb, 0x43c4cf71, 0x886ce9eb, 0xacbed095,
++	0x9d5ef110, 0x6a87af8d, 0xff5d7e88, 0x4d5defde, 0xb15deebf, 0xfea046ef,
++	0xbd576c62, 0xd5bff62b, 0xff28a57f, 0xe3142a44, 0xb9c5e8f4, 0x101dff30,
++	0xe13ba08b, 0xcc3d9d8f, 0x7fde10fa, 0xdff01f65, 0xffbd030d, 0x668fb439,
++	0xec8239ff, 0x0ffdfc4f, 0x21f37fcc, 0x3d9b2f3f, 0xe895f052, 0xd7f41cf6,
++	0xfd73c477, 0x2816b9c1, 0x0e5a4011, 0xf802e5f8, 0xe61add39, 0x2cd0fc80,
++	0x02753f6e, 0xe187ebfe, 0xe58e3cc8, 0xf877d814, 0x35eb8c9e, 0x4cec8e7e,
++	0xbde0a6f0, 0x4f114ebe, 0xa6f70ce0, 0x17bf4044, 0xa7389e05, 0xdffc5378,
++	0xf56e74a9, 0x45cd3c52, 0xdf873f11, 0x1ce79fd1, 0xc475ebc1, 0xdee8ba5b,
++	0x8610dec6, 0x8de6aafa, 0x8ac3c210, 0x0d5b4c57, 0xa8d2767e, 0x5f0fae2c,
++	0xad77f3d4, 0x7cf8db5d, 0x5237434a, 0x7e05173f, 0xa46d0697, 0xf7129df9,
++	0x3cf54b83, 0xf463a1df, 0x0ecf7c9e, 0x85cf6efe, 0x387db698, 0xe91d85ce,
++	0x11da6714, 0x44d05eef, 0x497c79df, 0x17834ed9, 0x477e75e7, 0x2a03dd08,
++	0x3a66edf8, 0x33adec5f, 0xceffc848, 0xcf74600f, 0x00fd7ce1, 0x25e7d792,
++	0xcf37f92b, 0xfd411fbf, 0xa52f5595, 0xc0652cfb, 0x84ef5026, 0xb5f500b4,
++	0xc7cff5f3, 0x7e42fd21, 0x6c1de62d, 0x215fece3, 0x260f6e9d, 0xcec2f33b,
++	0x9ffba47f, 0xe06928f7, 0x9fb289b9, 0x59e9f7ca, 0x2e986edc, 0xcb2b34e0,
++	0x832dcfc2, 0xd026cf3d, 0x037d38fa, 0x002ec99c, 0x7177a27a, 0x239a794e,
++	0xeca7e825, 0xca3b108d, 0x379d0ef7, 0x87040fe5, 0x30bbf160, 0xf3c2ec8c,
++	0x2ec822db, 0xfa9a2d07, 0x932dbf39, 0x389543e2, 0xaba84993, 0x12663ed1,
++	0x2de4f37c, 0x706ef459, 0xe1c5305d, 0xbb7e3d94, 0x644ee286, 0xbd9777ae,
++	0xc8926f3a, 0xa69cf1db, 0x56bf57ec, 0x49fe45e0, 0x29d48e25, 0xe3c568f8,
++	0xb8c3f577, 0x9967f65b, 0x68aee3e2, 0x20639c79, 0x0964765c, 0x45efba3e,
++	0xe0275ba2, 0x502efe39, 0x2f0388b9, 0x2cfdc9df, 0x7aee6be5, 0x51e3f88e,
++	0xdf38c31d, 0x43a79e8b, 0xb4fee1fd, 0xded7c7e8, 0xa1cbf546, 0x41ff6f3e,
++	0x9b67cd28, 0x0392e28e, 0xdb96ebf7, 0xa5ff94ef, 0xd01e65f6, 0x0738fa03,
++	0x1edac2be, 0x40f91cfb, 0xa2e6c983, 0xd7b71e52, 0xe02cf3a9, 0xc44c19f7,
++	0xc4c33a1f, 0xf35689ef, 0x35f281f8, 0x71477f13, 0xd2a7c70a, 0xee85a61d,
++	0x36e9cfbe, 0x115cfe0b, 0x7487eb61, 0x41fb0158, 0xbf1f09f7, 0xb375ee8b,
++	0x7da8eb3f, 0x131e7ae0, 0xe1d1aeed, 0xdcff1e6e, 0x4bef9039, 0x24a9abe7,
++	0x38c23a77, 0xc97cc35e, 0xe30ced4e, 0x60480529, 0xe3858ddc, 0x0f18e743,
++	0xd29ddfd9, 0x743b4a1e, 0x52d95dbc, 0x5e177bf1, 0x44e2371e, 0x77c44d9c,
++	0xa1b43677, 0x38fc81be, 0x5ea50477, 0xeff5f843, 0x931e0386, 0xc593d77d,
++	0x7f129be5, 0x93d6ef43, 0x47a3d35f, 0x7a10ea7e, 0xfae1b39f, 0x7ba033df,
++	0xc5120def, 0xe959ff1d, 0x94ffc447, 0xcacf0e73, 0xe39d125d, 0xa47aaf97,
++	0x7cbef114, 0x4899a6d1, 0xca3aca0f, 0xed00acb5, 0xa6490eaf, 0x3f5d80f9,
++	0xf5c64a67, 0xfdf029e3, 0x513fd04c, 0x8067228e, 0x59654ed6, 0x6d953d15,
++	0xab9cfe84, 0x4e340da4, 0xf27762bc, 0xc27029f5, 0x638c1f73, 0x3701fc54,
++	0xcf32bf5a, 0x57a7cd1b, 0x788ea1f0, 0xe346efeb, 0x13247f7e, 0xfdf2b93f,
++	0x3fe17ec8, 0x2fd1b7a2, 0xe1fd2a59, 0x11d4127d, 0xc8839fa1, 0x046e30cf,
++	0x3cc0bb6f, 0x8087e853, 0xd5a6e37c, 0x1a43f3a9, 0x468cf9d4, 0x45ab3e75,
++	0xabbdb79d, 0xe3159fce, 0x3b42702a, 0x6c3def18, 0xd01ff717, 0x4bfbc60e,
++	0x1e630768, 0xd14c60ed, 0xb472c60e, 0x768f3183, 0x0ed1e630, 0x1db9eab6,
++	0xc1da298c, 0x8c359e58, 0xcb59c9c3, 0x0fb090fd, 0x9f8f3a76, 0x026efca1,
++	0x8fa885d8, 0xbd220e96, 0xa8be7d0e, 0xedfff437, 0x478805d5, 0xd44710a6,
++	0xc38c1cb0, 0x83135b6a, 0x93e203f5, 0x664c239c, 0xafb437f4, 0xd506bb3e,
++	0x63b30e90, 0xe257d610, 0xbe962a96, 0xd6efbf43, 0xe7fadcbe, 0x227df29f,
++	0xfbf287bf, 0xbef86543, 0x2e7e4cbb, 0x391dff23, 0xf7afb19b, 0x8ce303a3,
++	0x22f895fe, 0x368e8abb, 0x53fe5c12, 0x7c8313d7, 0x461dabfe, 0x2bf5677a,
++	0x4d931f71, 0xe77ea8b7, 0xde79daf1, 0xcb9d1293, 0x9c2c3ddc, 0x061ef7da,
++	0x790fbbfd, 0xd0f3a4aa, 0x9f77ef59, 0x4906de78, 0xa6dce383, 0x276470e7,
++	0x1c6f1164, 0x4ea77fca, 0xf51531cc, 0xa7f9bf73, 0xf85483bb, 0x787b7433,
++	0x0c35efc0, 0xd61fd554, 0x7bf01094, 0xbfd4430d, 0xf2c0f023, 0x4f676803,
++	0x555230dd, 0x6bd20aef, 0x28d5ca36, 0x85c597e2, 0x27c40577, 0x4f7eaa86,
++	0xa7ae896f, 0xbfa871e3, 0xc90c6f64, 0xb7986283, 0xf388a47d, 0x49c7a581,
++	0xb7c435ae, 0x3dfa256b, 0xde4279b2, 0xf96aa5b0, 0xe7e5a25b, 0x3646f87a,
++	0xbdce83ea, 0x84fef451, 0x16258f82, 0x811b0f66, 0x596dbcf1, 0xde1fb45e,
++	0xf117397f, 0x8dae42aa, 0x781bdfc3, 0xc36f7254, 0xc217a78b, 0x01de44f7,
++	0x38d63fdf, 0x2f0f112a, 0x3a39ce1e, 0xb17ce00a, 0x4b7ba641, 0xe46f3a71,
++	0xff0fb308, 0x209674e2, 0x8ddaffdc, 0xf41bfdfc, 0x3ee1c95b, 0x18dda8fc,
++	0xf6649411, 0x87c15bad, 0x41def4db, 0xaf5d704b, 0x02af4899, 0xd3e49a3d,
++	0xe932c395, 0x2463256f, 0x62b9e917, 0x4b7dca9d, 0x85a73d65, 0x78d2c83d,
++	0xef8a8fbf, 0x640fd317, 0xce1d6159, 0x1938a6ea, 0x61a6b8f9, 0x63a40c5b,
++	0xc3758e8c, 0xa8efe006, 0xef8a7f25, 0x227d9497, 0xf8ef8c33, 0xd09ee6ba,
++	0xdccf503b, 0x824db3ad, 0x5f1be3fc, 0x6595fba6, 0xed1eb75a, 0xb51d92d2,
++	0x5ee68f74, 0x82d26ef1, 0x9f6445ed, 0xc88b642f, 0xc4a73cce, 0x94780b9d,
++	0x58b6958c, 0x823dde60, 0x7788946f, 0xf1f7942b, 0xefe76cae, 0xb8503f3e,
++	0xf5e77e87, 0x902f5165, 0x9c3f7a5e, 0xfd00379a, 0xf6c91e4d, 0x1f4cf763,
++	0xc03fa0c4, 0xad57a987, 0x75703e94, 0x9fb9d908, 0xa184afe0, 0xb008c8bc,
++	0xf1e43f77, 0xbbf8bd19, 0xef78f148, 0x2a7fdbd2, 0x3adbc3ee, 0xc00a87da,
++	0x7823519f, 0x909dc33c, 0xdf568e16, 0x171aa9f7, 0xe9f7c2ac, 0xa08e8fcc,
++	0x7c1869bf, 0x607f97ee, 0xfeaaa252, 0x0d0c0f43, 0xbe1187a0, 0x742e74ef,
++	0xb44e2aa7, 0x4acb9962, 0xe4f1f4f7, 0xd21cbfce, 0x13678465, 0xd82bed54,
++	0x78bd5f14, 0x45ba3bfe, 0x7a6d7f84, 0x344a97b4, 0xba7d6e3c, 0xb79443a3,
++	0x442c3953, 0x25b79745, 0x72e53eda, 0x83e3c751, 0x3a7b1f85, 0x97d89dfe,
++	0x168d845c, 0xc9efe2e3, 0xa1c1ffa1, 0x54da3bd6, 0x3fc22271, 0xfdc69154,
++	0x36ae1543, 0x01df9e3d, 0x00b1b5fc, 0xfc8dca92, 0x6fa8085d, 0xf9e70d8c,
++	0x7fae2365, 0xc3fb0f2f, 0x0f2ac877, 0x2f4845cb, 0xf12bdf81, 0x0f9c027d,
++	0xe94273fa, 0xbfde719d, 0xcfc157e8, 0xc09438c0, 0xb5f1b27e, 0xdf7a1c9f,
++	0x9aa3de8f, 0x89efc85a, 0xf9933d3b, 0x3c00fbbd, 0x15fdf853, 0xfd12cf7c,
++	0x43be1fdb, 0x5dbbd678, 0x00b76367, 0xf73b4a8f, 0xdfe20677, 0xbe0f5802,
++	0x51a0b86f, 0x5e25b9b2, 0xfff2e10f, 0xf482dc01, 0x00800036, 0x00000000,
++	0x00088b1f, 0x00000000, 0x5bcdff00, 0x6595580d, 0xf3be7e9a, 0x700e01c7,
++	0x0427e540, 0x094a880f, 0x44101df6, 0x18293b53, 0x54da1595, 0x021f44a2,
++	0x9a2824fe, 0x2edb52ed, 0x4c7350c7, 0x4a976867, 0x57a3ab1b, 0xb5accd39,
++	0x8cce9a98, 0x7e927bbb, 0xa772b268, 0xa9aeae69, 0x66b663b5, 0x3b448dae,
++	0xb5b4d45d, 0xdfbefdcf, 0x23bef9c7, 0xb5cced4c, 0xd7175c3f, 0xfff79e73,
++	0xe7defe7d, 0xbbf79e7d, 0xc89132a3, 0x1befe24d, 0xffe56ffe, 0xd5a212ec,
++	0x441f9d07, 0xabe5a30a, 0xae0decfb, 0x60fd65cb, 0xcbf5c5da, 0xc32a63f1,
++	0x9c284a23, 0xd70770c7, 0x4d5dc69b, 0x27b53edb, 0x97f1ca03, 0x3463fc69,
++	0x284a83c3, 0x1e3c5ca4, 0xca8d9055, 0x0c61d689, 0xf1c0d11f, 0x3f685d3b,
++	0xaf214bb0, 0xa09d9a22, 0xd41eb974, 0x62bbdeb7, 0xc8614d3e, 0xf5e6cc63,
++	0x11741c2d, 0x1b8d1295, 0xe6e5c27f, 0x1487fd7e, 0xbbf70f75, 0xca21d065,
++	0x10e41d5b, 0x6a21acfb, 0xf9bdf867, 0x9dc1d117, 0xefeb269d, 0x60f37865,
++	0xbb17e8ba, 0xe87a21ce, 0x6e88b9f4, 0x7645c274, 0x798dfed3, 0xa22ff1f5,
++	0x71ff4c53, 0x1af6e9e3, 0x0a27510f, 0x7f0cb8b2, 0x8fb90257, 0x86688ca8,
++	0xccfa349a, 0xb2efc264, 0xf21e786f, 0xa3d3a0f0, 0x512162ed, 0x8f0c6890,
++	0xc7ad22eb, 0xd2593c03, 0xb8e92bd9, 0x48cbe9ce, 0x99dfe22d, 0x3bfa56c9,
++	0x3728297c, 0x61d869c6, 0xa3d31f23, 0x3d363eca, 0x8c68e3c2, 0xc8b43e83,
++	0x345f036b, 0x1bcdbc7d, 0x4c46e7c7, 0xce4db4fd, 0xb9f6e274, 0xd809461b,
++	0x574def10, 0x8361beb9, 0xf0c426bd, 0xa467ef83, 0x7d1cb057, 0x7a39c9b0,
++	0xc1f10f3e, 0xa97353dd, 0x80957818, 0x5b8c1fa7, 0xbc5cf214, 0x26d506af,
++	0x37fad1e8, 0xf9dae4ef, 0xe3b627e7, 0xfe788bc9, 0x92874d96, 0x559c782b,
++	0xf72ade9b, 0x6ddd13e6, 0xde54dad3, 0xf76539ff, 0xe5e82f5e, 0x86a53ddd,
++	0x52015dc7, 0xd8ee5f30, 0xdc419554, 0xdeebe5ae, 0x79e3bdc7, 0xe99c1bbd,
++	0x8f9f9636, 0x3b276d7f, 0x2759cfcb, 0xe24cbd05, 0x7e52f1b3, 0x18953ecf,
++	0x3f7964ea, 0x9e2050ab, 0x5fda57cb, 0x5b718298, 0x75888e3a, 0xbd1db2ac,
++	0xb5fff305, 0xc32de79b, 0x99bda1bc, 0x4e0d5798, 0x86dabcc4, 0xd15a2909,
++	0xb35afcc8, 0x75d044a3, 0x99f7076f, 0xa8817448, 0xba7b7c1a, 0x9ff02dc3,
++	0x59a13076, 0x6475f7d4, 0x0ed9fc0a, 0x1d3d809f, 0xbbbca285, 0xddf92bc8,
++	0xc75fefd9, 0x50e704f3, 0x7c079b61, 0x783a14f3, 0x092a77fd, 0xa8029c6a,
++	0xf7c17866, 0xff04b327, 0x5d88790c, 0xa27eaccf, 0x5e7c9326, 0x26a6e839,
++	0x455efc93, 0xae7c16a9, 0xbed2cb3b, 0xa9679bca, 0x52f33abf, 0x3e35fd4b,
++	0xaebf05bf, 0xfda5ba70, 0x1655eaf5, 0x6b8ac6fc, 0x0417ed2c, 0x9bf05816,
++	0xed2d6baa, 0xb069ae6f, 0x68badfd4, 0x56bea5a5, 0x97c16b5b, 0xd2dbb8ac,
++	0x0db6b6fe, 0x7900fa96, 0x7272c41d, 0x63e3f994, 0xf313ffba, 0xd7cef005,
++	0x7ccc7827, 0xd6d7399d, 0xdc8c33d6, 0x32dc861e, 0x07f5de7f, 0xe47c839e,
++	0x321ca4d8, 0x53cb100c, 0xf513eaaf, 0x305614d9, 0x2cbd9b0f, 0xbb6c4dc8,
++	0x8999fad8, 0x31f33ec7, 0x7ffd730f, 0xf6c1c8b1, 0x63b4e660, 0xbf19e3a5,
++	0x916fbfc9, 0xccc8ed83, 0x067d8e2b, 0x19ff0dfc, 0x5dc4df89, 0xf6fef067,
++	0xf20a2c37, 0x995e673a, 0x3d654dbf, 0xea9d37a4, 0x7cb23453, 0x0e4ddf62,
++	0x30c06fb9, 0x31e023cb, 0x17c04796, 0x0a9b1e59, 0x79665e88, 0x50ebec04,
++	0x3b2ff945, 0xde3c042a, 0x8df01011, 0x4f016a8e, 0xf808d474, 0x02458eab,
++	0x1343bafe, 0xb1d37efd, 0x3a77c042, 0x6ff944da, 0x7c05da3b, 0xca2823af,
++	0xa11557df, 0x8202bcff, 0x0339c2dd, 0xf6ed5df9, 0x2e7ced84, 0xf9e711d0,
++	0xfacabb21, 0xeed804ad, 0xdf14dd33, 0xd863aa68, 0x449146d9, 0x91c465e8,
++	0x8bf9867a, 0x37edc39f, 0x741d476a, 0x1b8f18c6, 0x381f13df, 0x3442bb07,
++	0x31267bd6, 0x1fc07e5a, 0x03e504f8, 0x2539f505, 0x3ebd9fcc, 0xf9f053ed,
++	0x4dc692e6, 0xae376c29, 0x09cdaafc, 0x46db7939, 0x8f93862b, 0xb23e5d5e,
++	0x638c141d, 0x29b8177e, 0xf0269298, 0x0e618b80, 0x88eec397, 0x0177de3f,
++	0x81e43e60, 0xb963e508, 0xb670cdde, 0xf10a793b, 0xe5c394f9, 0x142f2176,
++	0xc27ac870, 0xb41e5c78, 0xa9e745a5, 0xdf61241a, 0x84716d66, 0x1c921f60,
++	0xc895b614, 0x7225c9f6, 0xdcb3e05e, 0xe5857e3d, 0x478b5664, 0x327ef20d,
++	0x2255deb8, 0x0cec07da, 0xf73dfc9f, 0x514c229b, 0xd444a130, 0xbd72f58b,
++	0xa0d54758, 0xcff40146, 0xef4e3524, 0x41f596ef, 0x6bc59ff4, 0x30c15f80,
++	0x9c79f184, 0x7689d600, 0x185db289, 0xce7c14e3, 0xf49b24f3, 0x9642fec5,
++	0xdf65fb83, 0x9f6152e9, 0xe44ed273, 0x3f31eec1, 0xfeb9f9c6, 0xdbd9d4a6,
++	0x9a9fcc23, 0x26bfef38, 0xf34a5f32, 0xff9402b4, 0xc13f194a, 0x4c17e60f,
++	0xc4935319, 0xe7c6c4f6, 0x39f630e4, 0x3f062f96, 0xf41bba0c, 0x48dbe58d,
++	0x4f891afc, 0x1aa9fcb1, 0xf41bd28c, 0x512f991a, 0xff9505fe, 0x754cbe7b,
++	0x7ac6ecf4, 0x2adc5ae2, 0x7c6df3d6, 0xe69fbdba, 0x869370a5, 0x80cbdf41,
++	0x5eb4f267, 0x5d2351e8, 0x9a0bcf35, 0xe0c5ed79, 0x0bbb6c4f, 0x03e3b423,
++	0x779c56f7, 0x6d273e7d, 0x8b5ff9e5, 0xa0a73a67, 0x33f1e03c, 0xf6eae61f,
++	0x84da8fa2, 0x2937673d, 0xea54fe08, 0xb45b9aac, 0x9597f85c, 0x36bfab1e,
++	0x8d9aabef, 0xe8de7798, 0xcd95ff18, 0x6bd1ce32, 0xa6af71f5, 0xf56e312e,
++	0x6bbb6b58, 0xdaf0bf75, 0x5df96b02, 0xcbafdd7e, 0x91d83ca3, 0xbae5524a,
++	0xcbf09b68, 0xdc72bd2a, 0xe3af9d6c, 0x099a767d, 0x80e691be, 0x77f17af1,
++	0x7bd600ae, 0x7e050535, 0xbc04850d, 0x9c62c28e, 0x01d0d9eb, 0x09c891bf,
++	0x9fddc5bc, 0x5e9162eb, 0x87ded76d, 0x8e49f3df, 0xeb852936, 0xfbb5e333,
++	0x89bd17a1, 0xe1add437, 0xce96e6f9, 0x63bf402d, 0x2fe13e95, 0x178f731c,
++	0xdfe40bfe, 0x8fd51699, 0x17fed957, 0xf97adaf0, 0x897c007c, 0x160287cf,
++	0x7cf857f6, 0xe16d7e00, 0x79bf4206, 0xa61c853e, 0xaffd1b7d, 0x4721cef3,
++	0xf7f6c8e9, 0x1b3f29ba, 0xbc9cb1ab, 0x92a93a96, 0x55a70192, 0xa5afbf62,
++	0x8c24d866, 0x7c580973, 0xff3860b8, 0xe8bf90ca, 0x31c8f37c, 0x1b3a646a,
++	0xa7a58d74, 0x813fe741, 0x470dcfae, 0xc4955ed7, 0x3ee03639, 0x313d9ab0,
++	0xf6944d6a, 0x89387020, 0xd77e5932, 0xa087b21d, 0x89631f8f, 0xd25f1859,
++	0xbfa50a89, 0xef5f5ebe, 0x16341d47, 0x53a7a6f4, 0xba5df944, 0xcfb736cc,
++	0xd65cfb10, 0x7dfa215e, 0x88bda719, 0x092f9c75, 0x820f644f, 0x99d5da3e,
++	0xf9e7833c, 0x0abb59e4, 0xeec5bbff, 0xd742a6db, 0x4fabb35f, 0x55f4b8f1,
++	0xe842ee6f, 0x86a393d3, 0xb8b467bd, 0x7b8d1d25, 0x357957c6, 0xc8ef38bd,
++	0xf5299a5b, 0x85e81490, 0x8d8f3e71, 0xf2c2bb63, 0xe125cbbb, 0x7975e748,
++	0x12a7db02, 0x49d85ed1, 0x4fdc7f83, 0x4e3cd9e0, 0x0fc8ec39, 0x7e3f8413,
++	0x9ef0252e, 0x9256f31f, 0xbf659fc5, 0x81add857, 0xb38e92d1, 0x3323e269,
++	0x73ecaf19, 0x07eb8852, 0x1b5da52a, 0xdd85b8f0, 0xd1b57aac, 0xa9dcfb01,
++	0x4cb88bdb, 0xf498f7be, 0x4097de3f, 0x26fc933e, 0xf059a616, 0x4b12f524,
++	0x7c8a94fb, 0xe06a7d4b, 0xa8fd4b32, 0x3e0b12ea, 0xa58666a6, 0x39a2c67d,
++	0xbb4b3c16, 0x7b3ed2d6, 0x6e0b42c5, 0x596ca1d8, 0x8b6d3944, 0xb5c7fd2d,
++	0xcfb4b52f, 0xa961de0b, 0x44e060a7, 0xd6aff721, 0xb2df8ffb, 0xe4cf5ace,
++	0x2f4395b5, 0x928fdfe4, 0xe614fbab, 0xd967b55f, 0x84e5e87c, 0xebac7bae,
++	0xc7657fb1, 0xa29d9039, 0xffa628d0, 0xddab3ed5, 0xe2b4caab, 0x8bff5e95,
++	0xaf5cdd60, 0x9fb2eed5, 0xb29e40a7, 0xf2961cdb, 0xddba25b1, 0xc453429c,
++	0xf8dbf87d, 0xe1665daf, 0x2ebd2c7f, 0xfe038796, 0xb49bb730, 0x97072ac3,
++	0x3072ac86, 0x1cab69f9, 0xe558f714, 0x5623f2e0, 0xad87f039, 0x67da5072,
++	0x13b28395, 0xf6983956, 0x0c0e558e, 0xd7e58cf9, 0x3e5588f4, 0xe5345348,
++	0x8aebf08f, 0x89f956b3, 0xbf510fe5, 0x8f3cdfe0, 0xfde68f42, 0x185afcf9,
++	0xfe21afc3, 0x77e1bd30, 0x4e4f0ece, 0x67d55e01, 0xf7cf10a7, 0xabcfbe98,
++	0xf279b727, 0x74ee9ed9, 0xd0257568, 0x3aae5d73, 0x0d5ca4b3, 0x87881df4,
++	0x198fafdd, 0x5a59c7ff, 0x1a2fda03, 0x0bae59f5, 0x4dafd1f2, 0x39e97dc2,
++	0x1ddd8495, 0xe7c72097, 0x4758b27b, 0xa87b1ef0, 0xd271d793, 0x3ec0a5d6,
++	0x2b6b2737, 0xa2f6ffd1, 0x07708536, 0xfe82a0a3, 0x971cfff5, 0x1c7ebc0b,
++	0x151e7b89, 0x2416ca45, 0x7d62ed45, 0x7af39736, 0xf7e896d6, 0xb9eb9514,
++	0x1912fadf, 0xbd5248b7, 0x290f112e, 0x20e200a2, 0xadc8bd7c, 0x8e3d062f,
++	0x3d024fc7, 0x9b2a6dba, 0x7d388a38, 0xf067d829, 0xa53d3b55, 0xfe113f48,
++	0x7fee8e5e, 0x4eff5365, 0x0ed273ac, 0x97ab9cb2, 0x30e4dc86, 0xd3f27dd1,
++	0xdc5e0b5e, 0x7f696993, 0xa59f11f9, 0xb42e1fde, 0xa9f697d4, 0x44ecbc16,
++	0xb4fda585, 0x7c160277, 0xd2daa47a, 0x35b38afe, 0x229c7c16, 0x5f7fafef,
++	0xe3e92f92, 0x7de44563, 0xba9fdfd6, 0xf788ab7b, 0xe1ad7bc9, 0x23d7534f,
++	0x4ce23701, 0xdec71cba, 0x404c5c87, 0xfec5cff0, 0xb183ce2f, 0x6b47e96e,
++	0x294fbaf7, 0xdd3f51c9, 0xff0db3f0, 0x01558295, 0xfdc3b9f3, 0xfba2f9e4,
++	0x6d7f86f3, 0x8bd3cdf8, 0x721ce27d, 0x26cabc6e, 0xc911c1e4, 0xc7d79c82,
++	0xfdf7b0d1, 0xbde44be7, 0xc6fd7621, 0x9fe762ba, 0xed95ec5e, 0x729f71f5,
++	0xc335edd3, 0x5cba33f9, 0x735f1c2d, 0xb8f9f214, 0x79677d53, 0x9e7f7fde,
++	0xb3cfa4ce, 0x2e5cde84, 0xb3675fd7, 0x31a3f889, 0x52a991cf, 0x7f380d5e,
++	0x7e3bfb0e, 0xe37deea2, 0x1fd87876, 0x21ddbc79, 0x9fc708e2, 0x2c1b515b,
++	0x01443f80, 0xef8e338c, 0x7c0fe003, 0xae1fdc0a, 0xfd176a99, 0xbd4897cf,
++	0x1265da8b, 0x24807976, 0x5dda07ff, 0x0c317ee2, 0x181c85bf, 0xcc7c41fb,
++	0x62e32051, 0x398b8880, 0x062e321c, 0x4031711c, 0xfe50c5c4, 0xf02a875c,
++	0x02151d83, 0x2023be7f, 0xd51d23f0, 0xa3bcfe02, 0x721b9446, 0xe32f4b13,
++	0x1ff0663e, 0xa373886a, 0xe71e4620, 0xe5f927df, 0xd9aceb5b, 0x6f9c5bc3,
++	0x24a56aa3, 0xa6dbcf4a, 0x2dc8794a, 0x3b407495, 0xed48ffe8, 0x2945ecaa,
++	0x900ea788, 0x47fbc52f, 0x53ff86e2, 0x6ee830f4, 0xfaa357dc, 0x2461f526,
++	0xbfee34bd, 0xd0acfba6, 0x8c7d58bb, 0xba58dbd5, 0xbdeb3f8b, 0x8d7bde59,
++	0xa7ae85f8, 0xbd0c5f06, 0x16a45276, 0x605425f6, 0xef7d06ab, 0xd1eab24f,
++	0xbe92a5f5, 0x8623d003, 0x74de7ca7, 0x7687ce1b, 0x5607f0af, 0x90ccb6e8,
++	0xec87e6d3, 0xf3e27ce2, 0xed37e3d6, 0x7db779b7, 0x6eef9ea8, 0xe215bfbc,
++	0x201d9d5c, 0xda5f1f71, 0x737684a5, 0xf5a086bf, 0x2521147c, 0xfae46fae,
++	0xe35fb817, 0x33f3d896, 0xf221d620, 0xe6b5bc2c, 0x72fd6b2e, 0x33c91efd,
++	0x632760ba, 0x96570af3, 0x4aa0e7ea, 0x5f7237ea, 0xdd105ee2, 0xa1572e97,
++	0x873829f1, 0xcbb4af70, 0xce3846b8, 0x21f3af74, 0x8a2a3fce, 0x0a133d33,
++	0x746e4e71, 0x177c13a8, 0xcf41a1cb, 0x9e833ca1, 0xeae7184f, 0xe23f753f,
++	0x8bc7cf8b, 0x7fcf057b, 0xbe76e823, 0xff40aecf, 0x7a08f287, 0x3b41f3fb,
++	0xe73e99d9, 0xba09c60f, 0x7e3b627e, 0x94cfbe4b, 0x5f28b877, 0xb015c941,
++	0xa8c6fb1f, 0x65d661c1, 0xfb222d40, 0xe1bf588f, 0x99ee3250, 0xfcc8cf2d,
++	0xbd33cb44, 0x7b2605e9, 0x10ea5cd8, 0xa6dbbbfb, 0xff2294b5, 0x8b9ddf60,
++	0x5f1dde7b, 0xce00a686, 0xb12de3d7, 0x77b219fb, 0x47211533, 0x613fbc03,
++	0xb115aaef, 0x0497b63f, 0x989b7b3d, 0x02ce3c9b, 0x34068f0a, 0x96da00f2,
++	0x2307c10a, 0xae10d00f, 0xb9b8fb10, 0x8133b973, 0xde76449b, 0x8be0955b,
++	0x392207e6, 0xc7fe08b4, 0x9b827948, 0xde315506, 0x886706f7, 0xcd281e71,
++	0xc6d0fe93, 0x1fe16bed, 0x3934f65e, 0x53888741, 0xa74b138e, 0xf3ca943f,
++	0x1d3c1320, 0xbadfdd13, 0xe7b08a0d, 0xc02ba0eb, 0x9ec22bb7, 0x5d67f81b,
++	0xf1255e3a, 0x3c49373b, 0x516cf4e2, 0x117ee452, 0x013ec02f, 0x6bdc1fb1,
++	0x05f1e9f7, 0xfb1003ec, 0x18ec3940, 0xe031d870, 0x61c063b0, 0xc76100c7,
++	0x6a94be50, 0x43e71172, 0xacd2a33e, 0xaa6e8327, 0xc825f934, 0xe4719867,
++	0x91edcc33, 0x23d730cf, 0x47ae619f, 0x238cc33e, 0x8f6e619f, 0x4719867c,
++	0x1edcc33e, 0x8e330cf9, 0x3db9867c, 0x7ae619f2, 0xf5cc33e4, 0x719867c8,
++	0xedcc33e4, 0xd730cf91, 0x58aededf, 0xb3b71df2, 0x35dc86f9, 0xf21348ee,
++	0xa6af3631, 0x7efe720f, 0x3977d7e2, 0xa3e7c1f3, 0xebb7212b, 0xc954135a,
++	0xc96aaee7, 0x3e491b77, 0x3e0ad7f7, 0x7892ebdf, 0x1de19a95, 0x1e422fc6,
++	0xe640b2a1, 0x47910011, 0x011e4400, 0x4a847910, 0x0023cc87, 0x72808f22,
++	0x910011e4, 0x1e440047, 0x04791001, 0x0011e440, 0x3f404791, 0x910011e4,
++	0xf2394047, 0x23c88008, 0xaf24fca0, 0x6304f903, 0x0ba3f05d, 0x963cf72c,
++	0xcf3dcb43, 0x47e1c16b, 0x8fc3db9b, 0x8fc3d736, 0x8fc3d736, 0xa3f0e336,
++	0x47e1edcd, 0xa957719b, 0xfc17e84f, 0xf83f7369, 0xb8bc66d3, 0x6212f82b,
++	0xfaefd744, 0x91808bdd, 0xc571e524, 0x41ec67cb, 0x4f7c8c5a, 0x4dc95e24,
++	0x545cf955, 0x192b8b5c, 0x844b06d7, 0x7ea14fde, 0xf22df81b, 0x2d37ccb7,
++	0xcde4214c, 0x14c8bf8b, 0x513e46f5, 0xfddf31fc, 0xe7f84907, 0x5d7245dd,
++	0xbc957f46, 0x7da34076, 0x5dbe1f14, 0x3b46fcec, 0xeb4d2f61, 0x1f9b0be0,
++	0xbdff7cf9, 0x2cad929e, 0x8a6d7b4f, 0xb2f74ff0, 0x1870b59f, 0xf74b34bb,
++	0xf6daf69b, 0x7ee04b1f, 0xba8a0dfd, 0xe89e8787, 0x09673ea0, 0x0256d4e8,
++	0xd4c2623f, 0xd47f3d54, 0x71616336, 0x3c46dd74, 0x0044ed8f, 0xfd99e779,
++	0x79e26ae4, 0xb907fd66, 0xb9cfe19a, 0x7e811fa4, 0x0e4dcfb8, 0x263d812a,
++	0xaa7cbef9, 0xe0b4ff3c, 0x5c4d19da, 0xdb5f793e, 0x77f8668c, 0x8fdfb209,
++	0x7416489f, 0xb2a361bc, 0x99fbcec7, 0xbb028fb9, 0xbe855db9, 0xbcfbc9ee,
++	0xaf3126ae, 0xce6cd5d7, 0x75caefbf, 0xa45f70f9, 0x88a66548, 0x3c842bc5,
++	0xde37419d, 0x1fd88bdf, 0xc43ef89b, 0x1d3d5765, 0x24d0fdef, 0xa93dad1f,
++	0x91cd7c16, 0x2687ef2c, 0x1f855b39, 0xeec4172c, 0x16adce21, 0xf5abe59d,
++	0x9a95b7f2, 0x9e784bcf, 0x0bbf7756, 0x35359bf4, 0x6c346ab5, 0x275251ff,
++	0x36a6ee40, 0xebc31a6c, 0xd50142d2, 0xdabd03ee, 0x93f8125e, 0xe2170235,
++	0x27d62e53, 0x4149c3ce, 0xa4c89c25, 0xdbb821b8, 0xebf19a36, 0xe99c1b83,
++	0x548fbf68, 0xf89303b8, 0x7449767f, 0xc274455f, 0x5e40af16, 0x499477a8,
++	0x7c72d8fe, 0x57e2f20f, 0x58f9049d, 0x613af0e0, 0x8dfd626f, 0xec0f77d8,
++	0xec2adc7f, 0x21d39f54, 0x3fdd3afc, 0xb5caf06a, 0x29d1b67e, 0x43868ffc,
++	0x3ea07fec, 0xde30dfc6, 0xa1dfb043, 0x1f8e7186, 0x720d4ebc, 0xb7dacb55,
++	0x7383bbc5, 0xa9bda179, 0xf2e7d72c, 0x0152dff7, 0x0aed90bf, 0x0dfb29ec,
++	0xb9654e77, 0x52f4d86b, 0x915dee32, 0x6fe101e0, 0xa1f1b67c, 0x905f1964,
++	0x9d2689f9, 0xa6fc464e, 0x9347e759, 0x03e5eefe, 0xa96c5bb6, 0xf186ee71,
++	0x2bd7815e, 0x3f588afc, 0x9bfbc891, 0x82bf5c99, 0xb195b3f7, 0x361adbe5,
++	0xfec5d267, 0xae6fe1a2, 0xb95de7d2, 0xb7de29d1, 0x3890a0ac, 0xac86560f,
++	0xfee957ed, 0xada7aae7, 0xca983fe5, 0xa1f2277e, 0xdfa9df86, 0xdbd4ee93,
++	0x7bdebc34, 0xda7bf0b3, 0x5075c89c, 0x07e906dd, 0x4d0a7ed1, 0xb5cf8050,
++	0x775e33c5, 0xc32aa028, 0xba9bcdc8, 0x931f343f, 0x0c173d32, 0xb23b0826,
++	0x8112f070, 0x299832df, 0x8583ade0, 0x19b11cb2, 0x4aa473e6, 0xe3c7dd09,
++	0x41fba5bf, 0x265e0f37, 0x198207ea, 0x58078e42, 0x14c5318e, 0x165d3edd,
++	0xd6117a50, 0x36d4ef9e, 0xf9fae18d, 0x95f849bb, 0xe25fc3d7, 0x9ff0458a,
++	0x7907a14a, 0x6f9f1855, 0x0f21346f, 0x9756b07a, 0x1203d67b, 0xec202376,
++	0x1082e559, 0xd22c93de, 0x6fc0dbf6, 0xe0b5fe43, 0xebf00729, 0x57cb8a83,
++	0xe215ee24, 0x77c86cfe, 0x27d41eac, 0x8f26f1ea, 0xc50d278c, 0x5e58b09b,
++	0xc5b5051a, 0x47afae01, 0x9d12f06c, 0xa4aa4cb1, 0x77df5922, 0x91bc5b50,
++	0x353fbdcf, 0xb367511e, 0xb3f57e09, 0x8a07b79f, 0x32aa274a, 0x94db27a0,
++	0xe8bead92, 0x9f289e7a, 0xba665033, 0xf5d52f27, 0x032ef58a, 0xdf758ef7,
++	0xc341909f, 0x6c0605f8, 0xbf433a64, 0x772253ea, 0xfeea4c29, 0x64a814a9,
++	0xbe92d6d6, 0x79fe244f, 0x3c758b9d, 0xdff6d0f7, 0xfa08f16e, 0xd4fcfc08,
++	0x45838b35, 0xac1d867f, 0x77d01c53, 0xadbe0ec3, 0xb7a0e768, 0x3cc8eead,
++	0xa8b135f0, 0xc5be05df, 0x6db6e7d2, 0x3127db3d, 0x24cb721d, 0x5d5ceaff,
++	0x80b8f14e, 0xd3dc4e42, 0xb9e48b1a, 0xee5f0e42, 0xf11f9112, 0xb19fb889,
++	0x6fe00fef, 0xf497430f, 0xc36fe932, 0xa4b9f63f, 0xff080c7f, 0xe04fef18,
++	0x7f87031f, 0x18ff080c, 0x818ff0e5, 0x0e063fc3, 0xfc3818ff, 0xc7f84063,
++	0x16d87f28, 0xf33f7538, 0x685b51f3, 0xd39661ff, 0xee6b47c7, 0x51ef9e32,
++	0x238f92ea, 0x63fb1348, 0x627611b9, 0x7cb13ec8, 0x72a3cbb9, 0xf4fdb4b4,
++	0x547e5b21, 0x7cb69a9e, 0xdc29f3ba, 0x841fd983, 0x945b6b3e, 0x9194dc70,
++	0x3b89ece5, 0x3cbe8412, 0xd84b8f71, 0x89d73add, 0x5179dc97, 0xfedbbe7a,
++	0x27694eb7, 0x3c7c13c3, 0x78b6e2ee, 0x89ff7615, 0xac1c9af2, 0x1548b137,
++	0xd9c0197c, 0xb256f88e, 0xa5f28796, 0x4ce5e274, 0x57ff576e, 0x7ea2e7af,
++	0x173cd1cd, 0x11c36fec, 0x1f4ce6ff, 0x21136bfa, 0xaf1e0daf, 0xeac5fe0b,
++	0xbce2a98d, 0x7190cfad, 0x9140965c, 0x31f83307, 0xdfc64cbb, 0x80ef79fa,
++	0x127bf417, 0xc0b9c813, 0x2df24ed2, 0xb88cdf56, 0x2b5c6c62, 0x72795f1a,
++	0x22e23e4b, 0xf4ed49a3, 0xc42f4c5d, 0xd1255c3d, 0xfc6c4ab8, 0x5d5f4863,
++	0x19e78964, 0x7e994d70, 0xa9efd74f, 0xd4f743cd, 0xf01979a2, 0xbc541fe7,
++	0x79373f88, 0x674eb77c, 0x89cfa9bc, 0x3f348817, 0x62cae7cd, 0x8afbffbc,
++	0xbdf80f77, 0x56ec2fde, 0xebc2781d, 0x2151da69, 0xc429b6f4, 0xfac8d470,
++	0xdec1e4bd, 0x5f619f9c, 0xeb0b80e1, 0x5c06f26c, 0xa77f2669, 0x98094bb1,
++	0xf819fddf, 0x8e3265ed, 0x07d7c758, 0xf5b6efd0, 0x88a5ae79, 0x83dbb25b,
++	0x746b6ef7, 0x71fa3139, 0x625ef13b, 0x0cbd3e7e, 0x7de7eab9, 0xbe616ec1,
++	0x4bf8d312, 0x7e69be31, 0xb5fc2f6e, 0x62496595, 0xef2f06bc, 0x2bd00f3b,
++	0x1074c9d6, 0xcedfea74, 0x3cc4f9e3, 0xe18dee82, 0x7ac55390, 0xf1834ef0,
++	0x1390dec5, 0xe8dd2cf3, 0x6d7ef117, 0xdb479c9b, 0x862aea92, 0xbaf0e73f,
++	0x1e7ecc72, 0xb2e41dcb, 0xd1fa970e, 0x0fc2bd62, 0xa53a626e, 0x634cffc1,
++	0x3173d7bf, 0xf5f41abd, 0x5aa57537, 0x07aec6fd, 0xad4fe09d, 0xf2c4ae7e,
++	0x8e5d31e1, 0xcabc6e97, 0x08efe845, 0x533ef0b8, 0x6ffde9d3, 0x22b7e36b,
++	0xfddb523f, 0xf18f3388, 0x4fd265ed, 0x46740c7d, 0x3c3f383c, 0xfa53ef01,
++	0xf78bc6d7, 0x2edeb5b6, 0x7a21dfb1, 0x81f4c43f, 0x11ade25f, 0x093966f4,
++	0x535afde2, 0xd1bf95b7, 0x718924f5, 0x841bba9b, 0x68732dfe, 0x1d79af2e,
++	0xa0985e3b, 0x596a5d30, 0x3f9c15ef, 0xf2172d5e, 0x5ba1e673, 0x793ec573,
++	0x9273a09d, 0xd8879bea, 0x908dcb04, 0xea7e436b, 0x1b3ea54b, 0x932c1df3,
++	0x65839cf1, 0xbfe9c7c3, 0xb69b4f4d, 0x71005035, 0x15524cbc, 0xd4f5dbe5,
++	0x5f434fd0, 0x6538f56b, 0xa405b6e3, 0x9f0dec99, 0x0dcf6ddf, 0xdd019f43,
++	0xf9d62c9e, 0x917cf4c9, 0xf7baf14c, 0xe5d67e74, 0xe31ef55b, 0x7557dc61,
++	0x139bafbd, 0x28b6b09e, 0xb798deda, 0x83f64d2e, 0x5ece43fc, 0xf682e9d5,
++	0xdd7b44eb, 0xa376e99e, 0xec6ec871, 0xbb0e94db, 0x79115fb1, 0xa5db75ab,
++	0x99eeb75f, 0xfadf1124, 0xdf8775f7, 0x9ddb85b8, 0x3d77787b, 0xabac6bf6,
++	0x44ed2c29, 0xb053fb33, 0x73f4cb1b, 0x7b58b3bf, 0xc7a4cca7, 0xccf77f4d,
++	0xe2c5e844, 0xdf99ff1e, 0x1877d892, 0x67bde6f6, 0x0cf6f17e, 0x357cf45f,
++	0xcb74b1f6, 0x3c1b38bf, 0x7dc9ba66, 0x2a5c2d6e, 0x5f8139de, 0x6e357fb8,
++	0x81de4454, 0xffc25dda, 0x2b1df834, 0xbfac0d07, 0x1ca89e8d, 0xc91ffc18,
++	0xe50d726f, 0x0dff24e7, 0x60721b7e, 0x13e0dbf0, 0xf9359ce1, 0xffbac6fd,
++	0xb17bafa0, 0xeb5fbf2e, 0x4578b77a, 0xd0996b9e, 0x23573cf7, 0xafaf5ee4,
++	0x0f96b26d, 0x643bc9f1, 0x2f4337df, 0x9f247a06, 0x6539b606, 0x45df721c,
++	0xb9c5ca7c, 0xb963ac6f, 0xd66c6f1e, 0x74cb86e3, 0x94f9983f, 0x6a665e54,
++	0x53e484f7, 0xffafb3e3, 0x627dcfeb, 0x6d8ed27f, 0xe2fe138f, 0x82fd9ed2,
++	0x1e5bb55f, 0xbb71e674, 0x7719729c, 0x6df3b21c, 0xe7e22f7e, 0x76ecb78b,
++	0xca73ff42, 0xe562dd25, 0x077f4ebd, 0xe715d06b, 0xf73a628f, 0x7bb0f68c,
++	0xf59e79fb, 0xf193e36b, 0x6798c6ae, 0xe394b95e, 0x34d4b6c6, 0xd6d8d7cc,
++	0xabdc03f0, 0xab1fbb0c, 0xa5e3a777, 0xf1e52c3e, 0xafa797a0, 0x15d77352,
++	0x332f9c5d, 0xc972ace0, 0x79311fb7, 0x3b258ef1, 0xe227e7b1, 0x049ac41d,
++	0x82e5f915, 0xf3084882, 0x6eb18e42, 0xbc45db17, 0x89682987, 0x14758a7c,
++	0x02ff7c90, 0xf3269498, 0xef8ce91f, 0x305765e1, 0xd84bb7cc, 0x2107d3a8,
++	0xe8d3d434, 0x1ff61948, 0xf246b76b, 0x34f90c2b, 0x53b589c6, 0xc96fed23,
++	0xe9dfdc77, 0x525e3d3c, 0x79bae6a8, 0x4e1ffade, 0xfa3f1152, 0x12ba7db6,
++	0x6869be64, 0x15ac2cbf, 0xb7ecc369, 0x4683de40, 0x55776fde, 0xbdfb30fa,
++	0xebac0f28, 0x7bd6f189, 0x25d23f28, 0x15a723f3, 0xdfb8b73e, 0xe2f1b5e9,
++	0x2fb199bd, 0x5dff3e23, 0x9477e7df, 0x8b71e9a7, 0xc9fc1248, 0xff5d04ba,
++	0xf94712c3, 0x71b95302, 0x46f49fde, 0xf64cd292, 0xfd36c3f9, 0x76c8a43c,
++	0x1f6f8311, 0x9c73884f, 0x649d3aec, 0xca7c822b, 0xd6fd19f5, 0xed93d53b,
++	0xe29b73b0, 0xf66efbc4, 0x8e23369b, 0x154c1cd4, 0xdadb99f1, 0xe0eccf4b,
++	0x98db6e71, 0x5ebf0aad, 0xe997f3f7, 0x7d712ff6, 0x6869e6c3, 0x0bcf23bf,
++	0x53d9be3f, 0x2dfc42e3, 0x2b817bb1, 0xf2bdf85f, 0xabe4601e, 0x03542bd6,
++	0xfb0e5bfd, 0xbdb2bd08, 0x66f38050, 0xffe90ef9, 0x16d1b7cf, 0x75c73be4,
++	0x82cbccd6, 0xa8a9d87d, 0x176927f0, 0x7ee351db, 0x6923b6c6, 0x72cecd4a,
++	0x962bebd0, 0x32ff1e3b, 0xec76b19c, 0x7b8027a7, 0x817fb127, 0xa03d60fd,
++	0xb4b9564b, 0x4fbb278f, 0xa28af925, 0xbf53fcf4, 0xc2e4317f, 0x23359bc8,
++	0xf20a33ee, 0xf90e9751, 0x63f3d268, 0x0ae7bb9b, 0x4df779bc, 0x4e973be2,
++	0x647be634, 0x0f5583d3, 0x733e5907, 0xb5347a75, 0x7e01bdce, 0x713d8ad1,
++	0xe35ee2a9, 0xfd9ae60c, 0xf7dda6d0, 0xce5eef8b, 0xdf178eee, 0x177a54bd,
++	0x3ef2a654, 0xf54aed97, 0xc2e74ddb, 0xddfeba2b, 0xf2d73ad1, 0x8f334afd,
++	0x7ff1e5e9, 0xde2893df, 0xa5df192f, 0x8ed6e55c, 0xfbe34ec1, 0xf93ee994,
++	0x68964a5d, 0x3e361bef, 0x1d33c06f, 0xd3073bf2, 0xd4373677, 0xd696ff72,
++	0x6718c903, 0x956f43d5, 0xd7108533, 0x1a7c037a, 0x8766cefa, 0xf9a6cefc,
++	0x77bfe1a1, 0x3e435c81, 0x4b211c57, 0x50b6f17e, 0xb543f08a, 0xef90b930,
++	0xfc24bcd6, 0x6a76b3dc, 0xf86eb9c7, 0x44794625, 0x94d9c3a7, 0x7ff05cae,
++	0x7247dee5, 0x9c7c6e71, 0xbdbaf124, 0x7612feb7, 0x4e327b48, 0x120edffa,
++	0x50636dfe, 0xf7c6cbfa, 0x1baa4453, 0xe573f0f7, 0x95bc6289, 0xc63877fa,
++	0x10bfd8ba, 0xa83b1fe5, 0xf7c0eb1a, 0x77e79035, 0xf066e11d, 0x47f65df3,
++	0x4578ef91, 0xbb77bf97, 0x7bc4f3ec, 0xf8045622, 0x1d76ef15, 0xd11e4248,
++	0xecaac3f0, 0xf0ec05ef, 0x7e290e97, 0x4589c39c, 0x863dc427, 0x6ac978f4,
++	0x75b794af, 0xcbce733f, 0x2afc2d1e, 0x08e2d251, 0xd7e386bb, 0x34dfba1d,
++	0x2fdc1f84, 0xfb2d65ee, 0xd2d05fa4, 0x05f84a73, 0x7c619f86, 0xdf6ab747,
++	0x1827e129, 0x941f56fd, 0x283d6974, 0x6d0a1bcb, 0xa025bc46, 0xacbee014,
++	0xd9727c08, 0x38364bfd, 0x25e6f8cc, 0xbd000a1b, 0x5fa43c7a, 0x0b5be5f8,
++	0x33ee257f, 0x71f51bad, 0xe69a7719, 0x4636994b, 0xe5c5c77e, 0xefe83de3,
++	0x5adfdcb3, 0x50fbca0f, 0x8b6135b8, 0xdabb1778, 0x6cec00e3, 0x7cf388f5,
++	0x10ad9b57, 0x4a03c9ef, 0x8ee7f082, 0xc6b9efea, 0x3c4dfaac, 0xd45904e2,
++	0x13cb6bdf, 0xa7f2b8ef, 0x14193cf1, 0x8cbaef14, 0xfc2e67ef, 0x18a547e3,
++	0xe45c767f, 0x97802200, 0x096c7b4e, 0x53b325f2, 0xf8a0a522, 0x951f87a5,
++	0x00e44678, 0x60de50e2, 0xe9ca92f7, 0x695c467f, 0xaf8962be, 0x6568adbf,
++	0xe0eb4120, 0x6b8c9779, 0xfe7c8bf4, 0x8e52698c, 0x7be31cc6, 0x5f51ee24,
++	0x303dc478, 0xf89b5463, 0x228a8bae, 0x147768a5, 0x823e587d, 0xf084265f,
++	0xc93c8c3e, 0x983ccf32, 0xa8ef121f, 0x30df32dc, 0xf02e9fd0, 0xb431ce30,
++	0xda2dd4ff, 0x5dd1cac7, 0xa0fde4d3, 0x63e64e26, 0x399c546f, 0x9b9300ff,
++	0xfa0b5da7, 0x8bdbe4d5, 0xdef1e3fd, 0xbf03be4e, 0x0d6de7a0, 0xbe8e797f,
++	0x9efd1caf, 0xd324bae7, 0x0253fd03, 0xe5ddf101, 0x1ac7457d, 0xfd03ff31,
++	0xd0fe426e, 0xa738c778, 0xabde413f, 0xe716a92e, 0x5073e2ab, 0x563fb71d,
++	0x1de30b64, 0x16e403ff, 0xc7726579, 0x78b6d9f8, 0x395b1ef1, 0x3817cafa,
++	0x9fedb267, 0xfef0a6f6, 0x5152ffb3, 0x07eb8361, 0x26f63cce, 0x3dc1bac3,
++	0x7d8fb1fb, 0xf6235ac9, 0xfaa07271, 0x7e24c694, 0x56e3dbc0, 0xe645f9e5,
++	0xfbbd1ff5, 0x5b34e48b, 0xfa175d74, 0x78733ccf, 0xc45ba02a, 0xb51ce7a5,
++	0xcc5638cb, 0xfa642e7a, 0x6e70bbc4, 0xc17ee827, 0x5ee10b63, 0xef68e738,
++	0x1cdf583b, 0x7dc677bc, 0x6f3cedc1, 0x97c8e73e, 0x1af78a93, 0x64df9d30,
++	0x1ac0ed47, 0xef4a3cfd, 0x0579bdf4, 0xed57c9ce, 0x73037884, 0x963ff052,
++	0x1fc16f7f, 0x699ce3c1, 0x2a36def2, 0x4d3826bf, 0x072863e8, 0x3ed338fa,
++	0xd0b53bfc, 0x638f4534, 0xfc1a7e49, 0xf063f832, 0xdd33a0c3, 0x14a5e270,
++	0xf8b7d045, 0x3fae9287, 0xe2fd7410, 0x4b5626f8, 0xd70fe4ba, 0x7ffefa0a,
++	0xfbc8eba3, 0x0d85df93, 0xde1eefed, 0x7f659e5f, 0xda5ffd3f, 0xeff7d09f,
++	0xd613bfbc, 0x8677a5fd, 0x4e4127e3, 0x7f09b21e, 0x28bdf62a, 0x97b09215,
++	0x1104f6f5, 0xe412d537, 0x276c06f7, 0x349d825f, 0xeab8e3ec, 0x8afc3148,
++	0x638f4493, 0x8f5b115d, 0x5a78ff28, 0xb19390be, 0x7c4b2274, 0x9488e137,
++	0x54ed6fc1, 0x76dd3b02, 0x8733c8c0, 0x7a565f61, 0x42edde44, 0xf27416c8,
++	0xa1a9ddf8, 0xde78cb9d, 0x448b9bee, 0xd102e51e, 0x1f382394, 0x7f082457,
++	0x84953bb4, 0x9daeeadd, 0xe796fc28, 0xc2e7b6bf, 0x4dafed5f, 0x6edbf910,
++	0xfc3b647f, 0x3e09eecf, 0x7f4dc835, 0xf844d0a1, 0x6e05c1ab, 0x02f74f31,
++	0xb7bb0769, 0x83f7c8e7, 0xf209fa14, 0x48ae8f48, 0xeec17910, 0xc42c81dd,
++	0xd24c3ecf, 0x2e1f434e, 0xb873cbb1, 0x19cb8f3b, 0xd4d4ac3e, 0x62bc6336,
++	0x6d48eeb9, 0x797bb3c2, 0x3602f894, 0xb27e5c99, 0x6be4493d, 0xe2317d0d,
++	0xa782e3d5, 0xc64e8276, 0xebefb677, 0x5dd065f2, 0x0eefc809, 0x721bfa0d,
++	0xbba75a36, 0xb794af72, 0xabc7f7a1, 0x1e3fbc49, 0x77c04bcb, 0xaa71f56a,
++	0x32be740f, 0xeb12fb45, 0x7ccb5cee, 0x92fd63b1, 0x1df127fe, 0x95fe30e1,
++	0xd38f42b3, 0xd45fdfe8, 0xf523b493, 0xed16f7c6, 0x282defd6, 0x79153632,
++	0xdc47213b, 0x9abef7ff, 0x8dd80ab8, 0xc125df82, 0x4fff1c6e, 0x80efb0fb,
++	0xbcf215bc, 0x296bc4f0, 0xfdfebda2, 0x1f5fe189, 0x83947ff7, 0xdde4e273,
++	0xfc058caf, 0xad26a92a, 0x70f5d782, 0x70f3e7ed, 0x159fbd74, 0xbccddf11,
++	0x8e65fb5f, 0xfbdfb788, 0xeff7908a, 0x02ffceba, 0xb38b7a5f, 0x000040d0
  };
  
- struct bnx2x_fastpath {
- 
--	struct napi_struct      napi;
-+	struct napi_struct	napi;
- 
- 	struct host_status_block *status_blk;
--	dma_addr_t      	status_blk_mapping;
-+	dma_addr_t		status_blk_mapping;
- 
--	struct eth_tx_db_data   *hw_tx_prods;
--	dma_addr_t      	tx_prods_mapping;
-+	struct eth_tx_db_data	*hw_tx_prods;
-+	dma_addr_t		tx_prods_mapping;
- 
--	struct sw_tx_bd 	*tx_buf_ring;
-+	struct sw_tx_bd		*tx_buf_ring;
- 
- 	struct eth_tx_bd	*tx_desc_ring;
--	dma_addr_t      	tx_desc_mapping;
-+	dma_addr_t		tx_desc_mapping;
- 
- 	struct sw_rx_bd 	*rx_buf_ring;
- 
- 	struct eth_rx_bd	*rx_desc_ring;
--	dma_addr_t      	rx_desc_mapping;
-+	dma_addr_t		rx_desc_mapping;
- 
- 	union eth_rx_cqe	*rx_comp_ring;
--	dma_addr_t      	rx_comp_mapping;
--
--	int     		state;
--#define BNX2X_FP_STATE_CLOSED   	0
--#define BNX2X_FP_STATE_IRQ      	0x80000
--#define BNX2X_FP_STATE_OPENING  	0x90000
--#define BNX2X_FP_STATE_OPEN     	0xa0000
--#define BNX2X_FP_STATE_HALTING  	0xb0000
--#define BNX2X_FP_STATE_HALTED   	0xc0000
--
--	int     		index;
--
--	u16     		tx_pkt_prod;
--	u16     		tx_pkt_cons;
--	u16     		tx_bd_prod;
--	u16     		tx_bd_cons;
--	u16     		*tx_cons_sb;
--
--	u16     		fp_c_idx;
--	u16     		fp_u_idx;
--
--	u16     		rx_bd_prod;
--	u16     		rx_bd_cons;
--	u16     		rx_comp_prod;
--	u16     		rx_comp_cons;
--	u16     		*rx_cons_sb;
--
--	unsigned long   	tx_pkt,
-+	dma_addr_t		rx_comp_mapping;
-+
-+	int			state;
-+#define BNX2X_FP_STATE_CLOSED		0
-+#define BNX2X_FP_STATE_IRQ		0x80000
-+#define BNX2X_FP_STATE_OPENING		0x90000
-+#define BNX2X_FP_STATE_OPEN		0xa0000
-+#define BNX2X_FP_STATE_HALTING		0xb0000
-+#define BNX2X_FP_STATE_HALTED		0xc0000
-+
-+	u8			index;	/* number in fp array */
-+	u8			cl_id;	/* eth client id */
-+	u8			sb_id;	/* status block number in HW */
-+#define FP_IDX(fp)			(fp->index)
-+#define FP_CL_ID(fp)			(fp->cl_id)
-+#define BP_CL_ID(bp)			(bp->fp[0].cl_id)
-+#define FP_SB_ID(fp)			(fp->sb_id)
-+#define CNIC_SB_ID			0
-+
-+	u16			tx_pkt_prod;
-+	u16			tx_pkt_cons;
-+	u16			tx_bd_prod;
-+	u16			tx_bd_cons;
-+	u16			*tx_cons_sb;
-+
-+	u16			fp_c_idx;
-+	u16			fp_u_idx;
-+
-+	u16			rx_bd_prod;
-+	u16			rx_bd_cons;
-+	u16			rx_comp_prod;
-+	u16			rx_comp_cons;
-+	u16			*rx_cons_sb;
-+
-+	unsigned long		tx_pkt,
- 				rx_pkt,
- 				rx_calls;
- 
--	struct bnx2x    	*bp; /* parent */
--};
--
--#define bnx2x_fp(bp, nr, var)   	(bp->fp[nr].var)
--
--
--/* attn group wiring */
--#define MAX_DYNAMIC_ATTN_GRPS   	8
--
--struct attn_route {
--	u32     sig[4];
-+	struct bnx2x		*bp; /* parent */
+ static const u32 tsem_int_table_data_e1h[] = {
++	0x00088b1f, 0x00000000, 0x51fbff00, 0x03f0c0cf, 0x33b3af8a, 0x21716830,
++	0x9f0143f8, 0x38606664, 0x8167c40d, 0x81859798, 0x818997c1, 0x78898fc1,
++	0x10c533fd, 0x0611416c, 0x5e203b06, 0xf0c0c42e, 0xce21044e, 0x10c0ce28,
++	0x20c0ca2d, 0xafe10a2b, 0x6266d204, 0x40ff71d4, 0x4c194663, 0x089207b1,
++	0x79161336, 0x268ccc64, 0xca8520ef, 0x7fa02167, 0x2517f1a0, 0x22acbe54,
++	0x8a846e84, 0x9793457f, 0x432bca83, 0x094df5fd, 0x502ab9bb, 0x1aa00079,
++	0x03605f82, 0x00000360
  };
  
--struct bnx2x {
--	/* Fields used in the tx and intr/napi performance paths
--	 * are grouped together in the beginning of the structure
--	 */
--	struct bnx2x_fastpath   *fp;
--	void __iomem    	*regview;
--	void __iomem    	*doorbells;
--
--	struct net_device       *dev;
--	struct pci_dev  	*pdev;
--
--	atomic_t		intr_sem;
--	struct msix_entry       msix_table[MAX_CONTEXT+1];
--
--	int     		tx_ring_size;
-+#define bnx2x_fp(bp, nr, var)		(bp->fp[nr].var)
-+/* This is needed for determening of last_max */
-+#define SUB_S16(a, b)			(s16)((s16)(a) - (s16)(b))
- 
--#ifdef BCM_VLAN
--	struct vlan_group       *vlgrp;
--#endif
--
--	u32     		rx_csum;
--	u32     		rx_offset;
--	u32     		rx_buf_use_size;	/* useable size */
--	u32     		rx_buf_size;    	/* with alignment */
--#define ETH_OVREHEAD    		(ETH_HLEN + 8)  /* 8 for CRC + VLAN */
--#define ETH_MIN_PACKET_SIZE     	60
--#define ETH_MAX_PACKET_SIZE     	1500
--#define ETH_MAX_JUMBO_PACKET_SIZE       9600
-+/* stuff added to make the code fit 80Col */
- 
--	struct host_def_status_block *def_status_blk;
--#define DEF_SB_ID       	16
--	u16     		def_c_idx;
--	u16     		def_u_idx;
--	u16     		def_t_idx;
--	u16     		def_x_idx;
--	u16     		def_att_idx;
--	u32     		attn_state;
--	struct attn_route       attn_group[MAX_DYNAMIC_ATTN_GRPS];
--	u32     		aeu_mask;
--	u32     		nig_mask;
-+#define CQE_TYPE(cqe_fp_flags)	((cqe_fp_flags) & ETH_FAST_PATH_RX_CQE_TYPE)
- 
--	/* slow path ring */
--	struct eth_spe  	*spq;
--	dma_addr_t      	spq_mapping;
--	u16     		spq_prod_idx;
--	struct eth_spe  	*spq_prod_bd;
--	struct eth_spe  	*spq_last_bd;
--	u16     		*dsb_sp_prod;
--	u16     		spq_left; /* serialize spq */
--	spinlock_t      	spq_lock;
--
--	/* Flag for marking that there is either
--	 * STAT_QUERY or CFC DELETE ramrod pending
--	 */
--	u8      		stat_pending;
-+#define ETH_RX_ERROR_FALGS	(ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG | \
-+				 ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG | \
-+				 ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG)
- 
--	/* End of fields used in the performance code paths */
- 
--	int     		panic;
--	int     		msglevel;
-+#define U_SB_ETH_RX_CQ_INDEX		HC_INDEX_U_ETH_RX_CQ_CONS
-+#define U_SB_ETH_RX_BD_INDEX		HC_INDEX_U_ETH_RX_BD_CONS
-+#define C_SB_ETH_TX_CQ_INDEX		HC_INDEX_C_ETH_TX_CQ_CONS
- 
--	u32     		flags;
--#define PCIX_FLAG       		1
--#define PCI_32BIT_FLAG  		2
--#define ONE_TDMA_FLAG   		4       /* no longer used */
--#define NO_WOL_FLAG     		8
--#define USING_DAC_FLAG  		0x10
--#define USING_MSIX_FLAG 		0x20
--#define ASF_ENABLE_FLAG 		0x40
-+#define BNX2X_RX_SB_INDEX \
-+	(&fp->status_blk->u_status_block.index_values[U_SB_ETH_RX_CQ_INDEX])
- 
--	int     		port;
-+#define BNX2X_RX_SB_BD_INDEX \
-+	(&fp->status_blk->u_status_block.index_values[U_SB_ETH_RX_BD_INDEX])
- 
--	int     		pm_cap;
--	int     		pcie_cap;
-+#define BNX2X_RX_SB_INDEX_NUM \
-+		(((U_SB_ETH_RX_CQ_INDEX << \
-+		   USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER_SHIFT) & \
-+		  USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER) | \
-+		 ((U_SB_ETH_RX_BD_INDEX << \
-+		   USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER_SHIFT) & \
-+		  USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER))
- 
--	struct work_struct	sp_task;
--	struct work_struct	reset_task;
-+#define BNX2X_TX_SB_INDEX \
-+	(&fp->status_blk->c_status_block.index_values[C_SB_ETH_TX_CQ_INDEX])
- 
--	struct timer_list       timer;
--	int     		timer_interval;
--	int     		current_interval;
-+/* common */
- 
--	u32     		shmem_base;
-+struct bnx2x_common {
- 
- 	u32			chip_id;
- /* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
--#define CHIP_ID(bp)			(bp->chip_id & 0xfffffff0)
-+#define CHIP_ID(bp)			(bp->common.chip_id & 0xfffffff0)
- 
--#define CHIP_NUM(bp)			(bp->chip_id >> 16)
-+#define CHIP_NUM(bp)			(bp->common.chip_id >> 16)
- #define CHIP_NUM_57710			0x164e
- #define CHIP_NUM_57711			0x164f
- #define CHIP_NUM_57711E			0x1650
-@@ -572,7 +496,7 @@ struct bnx2x {
- 					 CHIP_IS_57711E(bp))
- #define IS_E1H_OFFSET			CHIP_IS_E1H(bp)
- 
--#define CHIP_REV(bp)			(bp->chip_id & 0x0000f000)
-+#define CHIP_REV(bp)			(bp->common.chip_id & 0x0000f000)
- #define CHIP_REV_Ax			0x00000000
- /* assume maximum 5 revisions */
- #define CHIP_REV_IS_SLOW(bp)		(CHIP_REV(bp) > 0x00005000)
-@@ -586,86 +510,250 @@ struct bnx2x {
- #define CHIP_TIME(bp)			((CHIP_REV_IS_EMUL(bp)) ? 2000 : \
- 					((CHIP_REV_IS_FPGA(bp)) ? 200 : 1))
- 
--#define CHIP_METAL(bp)			(bp->chip_id & 0x00000ff0)
--#define CHIP_BOND_ID(bp)		(bp->chip_id & 0x0000000f)
-+#define CHIP_METAL(bp)			(bp->common.chip_id & 0x00000ff0)
-+#define CHIP_BOND_ID(bp)		(bp->common.chip_id & 0x0000000f)
- 
--	u16     		fw_seq;
--	u16     		fw_drv_pulse_wr_seq;
--	u32     		fw_mb;
-+	int			flash_size;
-+#define NVRAM_1MB_SIZE			0x20000	/* 1M bit in bytes */
-+#define NVRAM_TIMEOUT_COUNT		30000
-+#define NVRAM_PAGE_SIZE			256
- 
--	u32     		hw_config;
-+	u32			shmem_base;
-+
-+	u32			hw_config;
- 	u32			board;
- 
--	struct link_params	link_params;
-+	u32			bc_ver;
-+
-+	char			*name;
-+};
- 
--	struct link_vars	link_vars;
-+
-+/* end of common */
-+
-+/* port */
-+
-+struct bnx2x_port {
-+	u32			pmf;
- 
- 	u32			link_config;
- 
--	u32     		supported;
-+	u32			supported;
-+/* link settings - missing defines */
-+#define SUPPORTED_2500baseX_Full	(1 << 15)
-+
-+	u32			advertising;
- /* link settings - missing defines */
--#define SUPPORTED_2500baseT_Full	(1 << 15)
-+#define ADVERTISED_2500baseX_Full	(1 << 15)
- 
--	u32     		phy_addr;
-+	u32			phy_addr;
- 
- 	/* used to synchronize phy accesses */
- 	struct mutex		phy_mutex;
- 
--	u32     		phy_id;
-+	u32			port_stx;
- 
-+	struct nig_stats	old_nig_stats;
-+};
- 
--	u32     		advertising;
--/* link settings - missing defines */
--#define ADVERTISED_2500baseT_Full       (1 << 15)
-+/* end of port */
-+
-+#define MAC_STX_NA      		0xffffffff
-+
-+#ifdef BNX2X_MULTI
-+#define MAX_CONTEXT			16
-+#else
-+#define MAX_CONTEXT			1
-+#endif
-+
-+union cdu_context {
-+	struct eth_context eth;
-+	char pad[1024];
-+};
-+
-+#define MAX_DMAE_C			6
-+
-+/* DMA memory not used in fastpath */
-+struct bnx2x_slowpath {
-+	union cdu_context		context[MAX_CONTEXT];
-+	struct eth_stats_query		fw_stats;
-+	struct mac_configuration_cmd	mac_config;
-+	struct mac_configuration_cmd	mcast_config;
-+
-+	/* used by dmae command executer */
-+	struct dmae_command		dmae[MAX_DMAE_C];
-+
-+	union mac_stats 		mac_stats;
-+	struct nig_stats		nig;
-+	struct bnx2x_eth_stats  	eth_stats;
-+
-+	u32				wb_comp;
-+#define BNX2X_WB_COMP_VAL       	0xe0d0d0ae
-+	u32				wb_data[4];
-+};
-+
-+#define bnx2x_sp(bp, var)		(&bp->slowpath->var)
-+#define bnx2x_sp_mapping(bp, var) \
-+		(bp->slowpath_mapping + offsetof(struct bnx2x_slowpath, var))
-+
-+
-+/* attn group wiring */
-+#define MAX_DYNAMIC_ATTN_GRPS		8
-+
-+struct attn_route {
-+	u32	sig[4];
-+};
-+
-+struct bnx2x {
-+	/* Fields used in the tx and intr/napi performance paths
-+	 * are grouped together in the beginning of the structure
-+	 */
-+	struct bnx2x_fastpath	fp[MAX_CONTEXT];
-+	void __iomem		*regview;
-+	void __iomem		*doorbells;
-+#define BNX2X_DB_SIZE		(16*2048)
-+
-+	struct net_device	*dev;
-+	struct pci_dev		*pdev;
-+
-+	atomic_t		intr_sem;
-+	struct msix_entry       msix_table[MAX_CONTEXT+1];
-+
-+	int			tx_ring_size;
-+
-+#ifdef BCM_VLAN
-+	struct vlan_group	*vlgrp;
-+#endif
- 
-+	u32			rx_csum;
-+	u32			rx_offset;
-+	u32			rx_buf_use_size;	/* useable size */
-+	u32			rx_buf_size;		/* with alignment */
-+#define ETH_OVREHEAD			(ETH_HLEN + 8)	/* 8 for CRC + VLAN */
-+#define ETH_MIN_PACKET_SIZE		60
-+#define ETH_MAX_PACKET_SIZE		1500
-+#define ETH_MAX_JUMBO_PACKET_SIZE	9600
- 
--	u32     		bc_ver;
-+	struct host_def_status_block *def_status_blk;
-+#define DEF_SB_ID			16
-+	u16			def_c_idx;
-+	u16			def_u_idx;
-+	u16			def_x_idx;
-+	u16			def_t_idx;
-+	u16			def_att_idx;
-+	u32			attn_state;
-+	struct attn_route	attn_group[MAX_DYNAMIC_ATTN_GRPS];
-+	u32			aeu_mask;
-+	u32			nig_mask;
-+
-+	/* slow path ring */
-+	struct eth_spe		*spq;
-+	dma_addr_t		spq_mapping;
-+	u16			spq_prod_idx;
-+	struct eth_spe		*spq_prod_bd;
-+	struct eth_spe		*spq_last_bd;
-+	u16			*dsb_sp_prod;
-+	u16			spq_left; /* serialize spq */
-+	/* used to synchronize spq accesses */
-+	spinlock_t		spq_lock;
-+
-+	/* Flag for marking that there is either
-+	 * STAT_QUERY or CFC DELETE ramrod pending
-+	 */
-+	u8      		stat_pending;
-+
-+	/* End of fileds used in the performance code paths */
-+
-+	int			panic;
-+	int			msglevel;
-+
-+	u32			flags;
-+#define PCIX_FLAG			1
-+#define PCI_32BIT_FLAG			2
-+#define ONE_TDMA_FLAG			4	/* no longer used */
-+#define NO_WOL_FLAG			8
-+#define USING_DAC_FLAG			0x10
-+#define USING_MSIX_FLAG			0x20
-+#define ASF_ENABLE_FLAG			0x40
-+#define NO_MCP_FLAG			0x100
-+#define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
-+
-+	int			func;
-+#define BP_PORT(bp)			(bp->func % PORT_MAX)
-+#define BP_FUNC(bp)			(bp->func)
-+#define BP_E1HVN(bp)			(bp->func >> 1)
-+#define BP_L_ID(bp)			(BP_E1HVN(bp) << 2)
-+/* assorted E1HVN */
-+#define IS_E1HMF(bp)			(bp->e1hmf != 0)
-+#define BP_MAX_QUEUES(bp)		(IS_E1HMF(bp) ? 4 : 16)
-+
-+	int			pm_cap;
-+	int			pcie_cap;
-+
-+	struct work_struct	sp_task;
-+	struct work_struct	reset_task;
-+
-+	struct timer_list	timer;
-+	int			timer_interval;
-+	int			current_interval;
-+
-+	u16			fw_seq;
-+	u16			fw_drv_pulse_wr_seq;
-+	u32			func_stx;
-+
-+	struct link_params	link_params;
-+	struct link_vars	link_vars;
- 
--	int     		flash_size;
--#define NVRAM_1MB_SIZE  		0x20000 /* 1M bit in bytes */
--#define NVRAM_TIMEOUT_COUNT     	30000
--#define NVRAM_PAGE_SIZE 		256
-+	struct bnx2x_common	common;
-+	struct bnx2x_port	port;
-+
-+	u32			mf_config;
-+	u16			e1hov;
-+	u8			e1hmf;
- 
- 	u8			wol;
- 
--	int     		rx_ring_size;
-+	int			rx_ring_size;
- 
--	u16     		tx_quick_cons_trip_int;
--	u16     		tx_quick_cons_trip;
--	u16     		tx_ticks_int;
--	u16     		tx_ticks;
-+	u16			tx_quick_cons_trip_int;
-+	u16			tx_quick_cons_trip;
-+	u16			tx_ticks_int;
-+	u16			tx_ticks;
- 
--	u16     		rx_quick_cons_trip_int;
--	u16     		rx_quick_cons_trip;
--	u16     		rx_ticks_int;
--	u16     		rx_ticks;
-+	u16			rx_quick_cons_trip_int;
-+	u16			rx_quick_cons_trip;
-+	u16			rx_ticks_int;
-+	u16			rx_ticks;
- 
--	u32     		stats_ticks;
-+	u32			stats_ticks;
-+	u32			lin_cnt;
- 
--	int     		state;
--#define BNX2X_STATE_CLOSED      	0x0
--#define BNX2X_STATE_OPENING_WAIT4_LOAD  0x1000
--#define BNX2X_STATE_OPENING_WAIT4_PORT  0x2000
-+	int			state;
-+#define BNX2X_STATE_CLOSED		0x0
-+#define BNX2X_STATE_OPENING_WAIT4_LOAD	0x1000
-+#define BNX2X_STATE_OPENING_WAIT4_PORT	0x2000
- #define BNX2X_STATE_OPEN		0x3000
--#define BNX2X_STATE_CLOSING_WAIT4_HALT  0x4000
-+#define BNX2X_STATE_CLOSING_WAIT4_HALT	0x4000
- #define BNX2X_STATE_CLOSING_WAIT4_DELETE 0x5000
- #define BNX2X_STATE_CLOSING_WAIT4_UNLOAD 0x6000
--#define BNX2X_STATE_ERROR       	0xF000
-+#define BNX2X_STATE_DISABLED		0xd000
-+#define BNX2X_STATE_DIAG		0xe000
-+#define BNX2X_STATE_ERROR		0xf000
- 
--	int     		num_queues;
-+	int			num_queues;
- 
--	u32     		rx_mode;
--#define BNX2X_RX_MODE_NONE      	0
--#define BNX2X_RX_MODE_NORMAL    	1
--#define BNX2X_RX_MODE_ALLMULTI  	2
--#define BNX2X_RX_MODE_PROMISC   	3
--#define BNX2X_MAX_MULTICAST     	64
--#define BNX2X_MAX_EMUL_MULTI    	16
-+	u32			rx_mode;
-+#define BNX2X_RX_MODE_NONE		0
-+#define BNX2X_RX_MODE_NORMAL		1
-+#define BNX2X_RX_MODE_ALLMULTI		2
-+#define BNX2X_RX_MODE_PROMISC		3
-+#define BNX2X_MAX_MULTICAST		64
-+#define BNX2X_MAX_EMUL_MULTI		16
- 
--	dma_addr_t      	def_status_blk_mapping;
-+	dma_addr_t		def_status_blk_mapping;
- 
--	struct bnx2x_slowpath   *slowpath;
--	dma_addr_t      	slowpath_mapping;
-+	struct bnx2x_slowpath	*slowpath;
-+	dma_addr_t		slowpath_mapping;
- 
- #ifdef BCM_ISCSI
- 	void    		*t1;
-@@ -742,8 +830,10 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 
- /* MC hsi */
- #define RX_COPY_THRESH  		92
--#define BCM_PAGE_BITS   		12
--#define BCM_PAGE_SIZE   		(1 << BCM_PAGE_BITS)
-+#define BCM_PAGE_SHIFT			12
-+#define BCM_PAGE_SIZE			(1 << BCM_PAGE_SHIFT)
-+#define BCM_PAGE_MASK			(~(BCM_PAGE_SIZE - 1))
-+#define BCM_PAGE_ALIGN(addr)	(((addr) + BCM_PAGE_SIZE - 1) & BCM_PAGE_MASK)
- 
- #define NUM_TX_RINGS    		16
- #define TX_DESC_CNT     	(BCM_PAGE_SIZE / sizeof(struct eth_tx_bd))
-@@ -795,26 +885,11 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 
- 
- /* must be used on a CID before placing it on a HW ring */
--#define HW_CID(bp, x)   		(x | (bp->port << 23))
-+#define HW_CID(bp, x)		((BP_PORT(bp) << 23) | (BP_E1HVN(bp) << 17) | x)
- 
- #define SP_DESC_CNT     	(BCM_PAGE_SIZE / sizeof(struct eth_spe))
- #define MAX_SP_DESC_CNT 		(SP_DESC_CNT - 1)
- 
--#define ATTN_NIG_FOR_FUNC       	(1L << 8)
--#define ATTN_SW_TIMER_4_FUNC    	(1L << 9)
--#define GPIO_2_FUNC     		(1L << 10)
--#define GPIO_3_FUNC     		(1L << 11)
--#define GPIO_4_FUNC     		(1L << 12)
--#define ATTN_GENERAL_ATTN_1     	(1L << 13)
--#define ATTN_GENERAL_ATTN_2     	(1L << 14)
--#define ATTN_GENERAL_ATTN_3     	(1L << 15)
--#define ATTN_GENERAL_ATTN_4     	(1L << 13)
--#define ATTN_GENERAL_ATTN_5     	(1L << 14)
--#define ATTN_GENERAL_ATTN_6     	(1L << 15)
--
--#define ATTN_HARD_WIRED_MASK    	0xff00
--#define ATTENTION_ID    		4
--
- 
- #define BNX2X_BTR       		3
- #define MAX_SPQ_PENDING 		8
-@@ -831,6 +906,31 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 		       DPM_TRIGER_TYPE); \
- 	} while (0)
- 
-+static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
-+			   int wait)
-+{
-+	u32 val;
-+
-+	do {
-+		val = REG_RD(bp, reg);
-+		if (val == expected)
-+			break;
-+		ms -= wait;
-+		msleep(wait);
-+
-+	} while (ms > 0);
-+
-+	return val;
-+}
-+
-+
-+/* load/unload mode */
-+#define LOAD_NORMAL			0
-+#define LOAD_OPEN			1
-+#define LOAD_DIAG			2
-+#define UNLOAD_NORMAL			0
-+#define UNLOAD_CLOSE			1
-+
- /* DMAE command defines */
- #define DMAE_CMD_SRC_PCI		0
- #define DMAE_CMD_SRC_GRC		DMAE_COMMAND_SRC
-@@ -877,23 +977,48 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 
- #define pbd_tcp_flags(skb)  	(ntohl(tcp_flag_word(tcp_hdr(skb)))>>16 & 0xff)
- 
--/* stuff added to make the code fit 80Col */
-+/* must be used on a CID before placing it on a HW ring */
- 
--#define TPA_TYPE_START  		ETH_FAST_PATH_RX_CQE_START_FLG
--#define TPA_TYPE_END    		ETH_FAST_PATH_RX_CQE_END_FLG
--#define TPA_TYPE(cqe)   	(cqe->fast_path_cqe.error_type_flags & \
--				 (TPA_TYPE_START | TPA_TYPE_END))
- #define BNX2X_RX_SUM_OK(cqe) \
- 			(!(cqe->fast_path_cqe.status_flags & \
- 			 (ETH_FAST_PATH_RX_CQE_IP_XSUM_NO_VALIDATION_FLG | \
- 			  ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG)))
- 
--#define BNX2X_RX_SUM_FIX(cqe) \
--			((le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) & \
--			  PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) == \
--			 (1 << PARSING_FLAGS_OVER_ETHERNET_PROTOCOL_SHIFT))
-+/* CMNG constants
-+   derived from lab experiments, and not from system spec calculations !!! */
-+#define DEF_MIN_RATE			100
-+/* resolution of the rate shaping timer - 100 usec */
-+#define RS_PERIODIC_TIMEOUT_USEC	100
-+/* resolution of fairness algorithm in usecs -
-+   coefficient for clauclating the actuall t fair */
-+#define T_FAIR_COEF			10000000
-+/* number of bytes in single QM arbitration cycle -
-+   coeffiecnt for calculating the fairness timer */
-+#define QM_ARB_BYTES			40000
-+#define FAIR_MEM			2
-+
-+
-+#define ATTN_NIG_FOR_FUNC		(1L << 8)
-+#define ATTN_SW_TIMER_4_FUNC		(1L << 9)
-+#define GPIO_2_FUNC			(1L << 10)
-+#define GPIO_3_FUNC			(1L << 11)
-+#define GPIO_4_FUNC			(1L << 12)
-+#define ATTN_GENERAL_ATTN_1		(1L << 13)
-+#define ATTN_GENERAL_ATTN_2		(1L << 14)
-+#define ATTN_GENERAL_ATTN_3		(1L << 15)
-+#define ATTN_GENERAL_ATTN_4		(1L << 13)
-+#define ATTN_GENERAL_ATTN_5		(1L << 14)
-+#define ATTN_GENERAL_ATTN_6		(1L << 15)
-+
-+#define ATTN_HARD_WIRED_MASK		0xff00
-+#define ATTENTION_ID			4
- 
- 
-+/* stuff added to make the code fit 80Col */
-+
-+#define BNX2X_PMF_LINK_ASSERT \
-+	GENERAL_ATTEN_OFFSET(LINK_SYNC_ATTENTION_BIT_FUNC_0 + BP_FUNC(bp))
-+
- #define BNX2X_MC_ASSERT_BITS \
- 	(GENERAL_ATTEN_OFFSET(TSTORM_FATAL_ASSERT_ATTENTION_BIT) | \
- 	 GENERAL_ATTEN_OFFSET(USTORM_FATAL_ASSERT_ATTENTION_BIT) | \
-@@ -906,12 +1031,20 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- #define BNX2X_DOORQ_ASSERT \
- 	AEU_INPUTS_ATTN_BITS_DOORBELLQ_HW_INTERRUPT
- 
-+#define BNX2X_GRC_TIMEOUT	GENERAL_ATTEN_OFFSET(LATCHED_ATTN_TIMEOUT_GRC)
-+#define BNX2X_GRC_RSV		(GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RBCR) | \
-+				 GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RBCT) | \
-+				 GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RBCN) | \
-+				 GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RBCU) | \
-+				 GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RBCP) | \
-+				 GENERAL_ATTEN_OFFSET(LATCHED_ATTN_RSVD_GRC))
-+
- #define HW_INTERRUT_ASSERT_SET_0 \
- 				(AEU_INPUTS_ATTN_BITS_TSDM_HW_INTERRUPT | \
- 				 AEU_INPUTS_ATTN_BITS_TCM_HW_INTERRUPT | \
- 				 AEU_INPUTS_ATTN_BITS_TSEMI_HW_INTERRUPT | \
- 				 AEU_INPUTS_ATTN_BITS_PBF_HW_INTERRUPT)
--#define HW_PRTY_ASSERT_SET_0    (AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR | \
-+#define HW_PRTY_ASSERT_SET_0	(AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_PARSER_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_TSDM_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_SEARCHER_PARITY_ERROR |\
-@@ -928,7 +1061,7 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 				 AEU_INPUTS_ATTN_BITS_UPB_HW_INTERRUPT | \
- 				 AEU_INPUTS_ATTN_BITS_CSDM_HW_INTERRUPT | \
- 				 AEU_INPUTS_ATTN_BITS_CCM_HW_INTERRUPT)
--#define HW_PRTY_ASSERT_SET_1    (AEU_INPUTS_ATTN_BITS_PBCLIENT_PARITY_ERROR |\
-+#define HW_PRTY_ASSERT_SET_1	(AEU_INPUTS_ATTN_BITS_PBCLIENT_PARITY_ERROR |\
- 				 AEU_INPUTS_ATTN_BITS_QM_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_XSDM_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_XSEMI_PARITY_ERROR | \
-@@ -945,7 +1078,7 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 				 AEU_INPUTS_ATTN_BITS_DMAE_HW_INTERRUPT | \
- 			AEU_INPUTS_ATTN_BITS_PXPPCICLOCKCLIENT_HW_INTERRUPT |\
- 				 AEU_INPUTS_ATTN_BITS_MISC_HW_INTERRUPT)
--#define HW_PRTY_ASSERT_SET_2    (AEU_INPUTS_ATTN_BITS_CSEMI_PARITY_ERROR | \
-+#define HW_PRTY_ASSERT_SET_2	(AEU_INPUTS_ATTN_BITS_CSEMI_PARITY_ERROR | \
- 				 AEU_INPUTS_ATTN_BITS_PXP_PARITY_ERROR | \
- 			AEU_INPUTS_ATTN_BITS_PXPPCICLOCKCLIENT_PARITY_ERROR |\
- 				 AEU_INPUTS_ATTN_BITS_CFC_PARITY_ERROR | \
-@@ -954,42 +1087,44 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode);
- 				 AEU_INPUTS_ATTN_BITS_MISC_PARITY_ERROR)
- 
- 
--#define ETH_RX_ERROR_FALGS      (ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG | \
--				 ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG | \
--				 ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG)
--
--
- #define MULTI_FLAGS \
--	(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY     | \
--	 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
--	 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY     | \
--	 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY | \
--	 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_ENABLE)
-+		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
-+		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
-+		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY | \
-+		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY | \
-+		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_ENABLE)
- 
--#define MULTI_MASK      0x7f
-+#define MULTI_MASK			0x7f
- 
- 
--#define U_SB_ETH_RX_CQ_INDEX    	HC_INDEX_U_ETH_RX_CQ_CONS
--#define C_SB_ETH_TX_CQ_INDEX    	HC_INDEX_C_ETH_TX_CQ_CONS
--#define C_DEF_SB_SP_INDEX       	HC_INDEX_DEF_C_ETH_SLOW_PATH
--
--#define BNX2X_RX_SB_INDEX \
--	&fp->status_blk->u_status_block.index_values[U_SB_ETH_RX_CQ_INDEX]
-+#define DEF_USB_FUNC_OFF		(2 + 2*HC_USTORM_DEF_SB_NUM_INDICES)
-+#define DEF_CSB_FUNC_OFF		(2 + 2*HC_CSTORM_DEF_SB_NUM_INDICES)
-+#define DEF_XSB_FUNC_OFF		(2 + 2*HC_XSTORM_DEF_SB_NUM_INDICES)
-+#define DEF_TSB_FUNC_OFF		(2 + 2*HC_TSTORM_DEF_SB_NUM_INDICES)
- 
--#define BNX2X_TX_SB_INDEX \
--	&fp->status_blk->c_status_block.index_values[C_SB_ETH_TX_CQ_INDEX]
-+#define C_DEF_SB_SP_INDEX		HC_INDEX_DEF_C_ETH_SLOW_PATH
- 
- #define BNX2X_SP_DSB_INDEX \
--&bp->def_status_blk->c_def_status_block.index_values[C_DEF_SB_SP_INDEX]
-+(&bp->def_status_blk->c_def_status_block.index_values[C_DEF_SB_SP_INDEX])
- 
- 
- #define CAM_IS_INVALID(x) \
- (x.target_table_entry.flags == TSTORM_CAM_TARGET_TABLE_ENTRY_ACTION_TYPE)
- 
- #define CAM_INVALIDATE(x) \
--x.target_table_entry.flags = TSTORM_CAM_TARGET_TABLE_ENTRY_ACTION_TYPE
-+	(x.target_table_entry.flags = TSTORM_CAM_TARGET_TABLE_ENTRY_ACTION_TYPE)
-+
-+
-+/* Number of u32 elements in MC hash array */
-+#define MC_HASH_SIZE			8
-+#define MC_HASH_OFFSET(bp, i)		(BAR_TSTRORM_INTMEM + \
-+	TSTORM_APPROXIMATE_MATCH_MULTICAST_FILTERING_OFFSET(BP_FUNC(bp)) + i*4)
- 
- 
-+#ifndef PXP2_REG_PXP2_INT_STS
-+#define PXP2_REG_PXP2_INT_STS		PXP2_REG_PXP2_INT_STS_0
-+#endif
-+
- /* MISC_REG_RESET_REG - this is here for the hsi to work don't touch */
- 
- #endif /* bnx2x.h */
-diff --git a/drivers/net/bnx2x_fw_defs.h b/drivers/net/bnx2x_fw_defs.h
-index 3b96890..e3da7f6 100644
---- a/drivers/net/bnx2x_fw_defs.h
-+++ b/drivers/net/bnx2x_fw_defs.h
-@@ -8,191 +8,390 @@
-  */
- 
- 
--#define CSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index)\
--	(0x1922 + (port * 0x40) + (index * 0x4))
--#define CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)\
--	(0x1900 + (port * 0x40))
--#define CSTORM_HC_BTR_OFFSET(port)\
--	(0x1984 + (port * 0xc0))
--#define CSTORM_SB_HC_DISABLE_OFFSET(port, cpu_id, index)\
--	(0x141a + (port * 0x280) + (cpu_id * 0x28) + (index * 0x4))
--#define CSTORM_SB_HC_TIMEOUT_OFFSET(port, cpu_id, index)\
--	(0x1418 + (port * 0x280) + (cpu_id * 0x28) + (index * 0x4))
--#define CSTORM_SB_HOST_SB_ADDR_OFFSET(port, cpu_id)\
--	(0x1400 + (port * 0x280) + (cpu_id * 0x28))
--#define CSTORM_STATS_FLAGS_OFFSET(port) 		(0x5108 + (port * 0x8))
--#define TSTORM_CLIENT_CONFIG_OFFSET(port, client_id)\
--	(0x1510 + (port * 0x240) + (client_id * 0x20))
--#define TSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index)\
--	(0x138a + (port * 0x28) + (index * 0x4))
--#define TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)\
--	(0x1370 + (port * 0x28))
--#define TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port)\
--	(0x4b70 + (port * 0x8))
--#define TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(function)\
--	(0x1418 + (function * 0x30))
--#define TSTORM_HC_BTR_OFFSET(port)\
--	(0x13c4 + (port * 0x18))
--#define TSTORM_INDIRECTION_TABLE_OFFSET(port)\
--	(0x22c8 + (port * 0x80))
--#define TSTORM_INDIRECTION_TABLE_SIZE			0x80
--#define TSTORM_MAC_FILTER_CONFIG_OFFSET(port)\
--	(0x1420 + (port * 0x30))
--#define TSTORM_RCQ_PROD_OFFSET(port, client_id)\
--	(0x1508 + (port * 0x240) + (client_id * 0x20))
--#define TSTORM_STATS_FLAGS_OFFSET(port) 		(0x4b90 + (port * 0x8))
--#define USTORM_DEF_SB_HC_DISABLE_OFFSET(port, index)\
--	(0x191a + (port * 0x28) + (index * 0x4))
--#define USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)\
--	(0x1900 + (port * 0x28))
--#define USTORM_HC_BTR_OFFSET(port)\
--	(0x1954 + (port * 0xb8))
--#define USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(port)\
--	(0x5408 + (port * 0x8))
--#define USTORM_SB_HC_DISABLE_OFFSET(port, cpu_id, index)\
--	(0x141a + (port * 0x280) + (cpu_id * 0x28) + (index * 0x4))
--#define USTORM_SB_HC_TIMEOUT_OFFSET(port, cpu_id, index)\
--	(0x1418 + (port * 0x280) + (cpu_id * 0x28) + (index * 0x4))
--#define USTORM_SB_HOST_SB_ADDR_OFFSET(port, cpu_id)\
--	(0x1400 + (port * 0x280) + (cpu_id * 0x28))
--#define XSTORM_ASSERT_LIST_INDEX_OFFSET 		0x1000
--#define XSTORM_ASSERT_LIST_OFFSET(idx)			(0x1020 + (idx * 0x10))
--#define XSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index)\
--	(0x141a + (port * 0x28) + (index * 0x4))
--#define XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)\
--	(0x1400 + (port * 0x28))
--#define XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(port)\
--	(0x5408 + (port * 0x8))
--#define XSTORM_HC_BTR_OFFSET(port)\
--	(0x1454 + (port * 0x18))
--#define XSTORM_SPQ_PAGE_BASE_OFFSET(port)\
--	(0x5328 + (port * 0x18))
--#define XSTORM_SPQ_PROD_OFFSET(port)\
--	(0x5330 + (port * 0x18))
--#define XSTORM_STATS_FLAGS_OFFSET(port) 		(0x53f8 + (port * 0x8))
-+#define CSTORM_ASSERT_LIST_INDEX_OFFSET \
-+	(IS_E1H_OFFSET? 0x7000 : 0x1000)
-+#define CSTORM_ASSERT_LIST_OFFSET(idx) \
-+	(IS_E1H_OFFSET? (0x7020 + (idx * 0x10)) : (0x1020 + (idx * 0x10)))
-+#define CSTORM_DEF_SB_HC_DISABLE_OFFSET(function, index) \
-+	(IS_E1H_OFFSET? (0x8522 + ((function>>1) * 0x40) + ((function&1) \
-+	* 0x100) + (index * 0x4)) : (0x1922 + (function * 0x40) + (index \
-+	* 0x4)))
-+#define CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x8500 + ((function>>1) * 0x40) + ((function&1) \
-+	* 0x100)) : (0x1900 + (function * 0x40)))
-+#define CSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x8508 + ((function>>1) * 0x40) + ((function&1) \
-+	* 0x100)) : (0x1908 + (function * 0x40)))
-+#define CSTORM_FUNCTION_MODE_OFFSET \
-+	(IS_E1H_OFFSET? 0x11e8 : 0xffffffff)
-+#define CSTORM_HC_BTR_OFFSET(port) \
-+	(IS_E1H_OFFSET? (0x8704 + (port * 0xf0)) : (0x1984 + (port * 0xc0)))
-+#define CSTORM_SB_HC_DISABLE_OFFSET(port, cpu_id, index) \
-+	(IS_E1H_OFFSET? (0x801a + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)) : (0x141a + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)))
-+#define CSTORM_SB_HC_TIMEOUT_OFFSET(port, cpu_id, index) \
-+	(IS_E1H_OFFSET? (0x8018 + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)) : (0x1418 + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)))
-+#define CSTORM_SB_HOST_SB_ADDR_OFFSET(port, cpu_id) \
-+	(IS_E1H_OFFSET? (0x8000 + (port * 0x280) + (cpu_id * 0x28)) : \
-+	(0x1400 + (port * 0x280) + (cpu_id * 0x28)))
-+#define CSTORM_SB_HOST_STATUS_BLOCK_OFFSET(port, cpu_id) \
-+	(IS_E1H_OFFSET? (0x8008 + (port * 0x280) + (cpu_id * 0x28)) : \
-+	(0x1408 + (port * 0x280) + (cpu_id * 0x28)))
-+#define CSTORM_STATS_FLAGS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x1108 + (function * 0x8)) : (0x5108 + \
-+	(function * 0x8)))
-+#define TSTORM_APPROXIMATE_MATCH_MULTICAST_FILTERING_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x31c0 + (function * 0x20)) : 0xffffffff)
-+#define TSTORM_ASSERT_LIST_INDEX_OFFSET \
-+	(IS_E1H_OFFSET? 0xa000 : 0x1000)
-+#define TSTORM_ASSERT_LIST_OFFSET(idx) \
-+	(IS_E1H_OFFSET? (0xa020 + (idx * 0x10)) : (0x1020 + (idx * 0x10)))
-+#define TSTORM_CLIENT_CONFIG_OFFSET(port, client_id) \
-+	(IS_E1H_OFFSET? (0x3358 + (port * 0x3e8) + (client_id * 0x28)) : \
-+	(0x9c8 + (port * 0x2f8) + (client_id * 0x28)))
-+#define TSTORM_DEF_SB_HC_DISABLE_OFFSET(function, index) \
-+	(IS_E1H_OFFSET? (0xb01a + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0) + (index * 0x4)) : (0x141a + (function * 0x28) + (index * \
-+	0x4)))
-+#define TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0xb000 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1400 + (function * 0x28)))
-+#define TSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0xb008 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1408 + (function * 0x28)))
-+#define TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2b80 + (function * 0x8)) : (0x4b68 + \
-+	(function * 0x8)))
-+#define TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x3000 + (function * 0x38)) : (0x1500 + \
-+	(function * 0x38)))
-+#define TSTORM_FUNCTION_MODE_OFFSET \
-+	(IS_E1H_OFFSET? 0x1ad0 : 0xffffffff)
-+#define TSTORM_HC_BTR_OFFSET(port) \
-+	(IS_E1H_OFFSET? (0xb144 + (port * 0x30)) : (0x1454 + (port * 0x18)))
-+#define TSTORM_INDIRECTION_TABLE_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x12c8 + (function * 0x80)) : (0x22c8 + \
-+	(function * 0x80)))
-+#define TSTORM_INDIRECTION_TABLE_SIZE 0x80
-+#define TSTORM_MAC_FILTER_CONFIG_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x3008 + (function * 0x38)) : (0x1508 + \
-+	(function * 0x38)))
-+#define TSTORM_RX_PRODS_OFFSET(port, client_id) \
-+	(IS_E1H_OFFSET? (0x3350 + (port * 0x3e8) + (client_id * 0x28)) : \
-+	(0x9c0 + (port * 0x2f8) + (client_id * 0x28)))
-+#define TSTORM_STATS_FLAGS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2c00 + (function * 0x8)) : (0x4b88 + \
-+	(function * 0x8)))
-+#define TSTORM_TPA_EXIST_OFFSET (IS_E1H_OFFSET? 0x3b30 : 0x1c20)
-+#define USTORM_AGG_DATA_OFFSET (IS_E1H_OFFSET? 0xa040 : 0x2c10)
-+#define USTORM_AGG_DATA_SIZE (IS_E1H_OFFSET? 0x2440 : 0x1200)
-+#define USTORM_ASSERT_LIST_INDEX_OFFSET \
-+	(IS_E1H_OFFSET? 0x8000 : 0x1000)
-+#define USTORM_ASSERT_LIST_OFFSET(idx) \
-+	(IS_E1H_OFFSET? (0x8020 + (idx * 0x10)) : (0x1020 + (idx * 0x10)))
-+#define USTORM_CQE_PAGE_BASE_OFFSET(port, clientId) \
-+	(IS_E1H_OFFSET? (0x3298 + (port * 0x258) + (clientId * 0x18)) : \
-+	(0x5450 + (port * 0x1c8) + (clientId * 0x18)))
-+#define USTORM_DEF_SB_HC_DISABLE_OFFSET(function, index) \
-+	(IS_E1H_OFFSET? (0x951a + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0) + (index * 0x4)) : (0x191a + (function * 0x28) + (index * \
-+	0x4)))
-+#define USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x9500 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1900 + (function * 0x28)))
-+#define USTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x9508 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1908 + (function * 0x28)))
-+#define USTORM_FUNCTION_MODE_OFFSET \
-+	(IS_E1H_OFFSET? 0x2448 : 0xffffffff)
-+#define USTORM_HC_BTR_OFFSET(port) \
-+	(IS_E1H_OFFSET? (0x9644 + (port * 0xd0)) : (0x1954 + (port * 0xb8)))
-+#define USTORM_MAX_AGG_SIZE_OFFSET(port, clientId) \
-+	(IS_E1H_OFFSET? (0x3290 + (port * 0x258) + (clientId * 0x18)) : \
-+	(0x5448 + (port * 0x1c8) + (clientId * 0x18)))
-+#define USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2408 + (function * 0x8)) : (0x5408 + \
-+	(function * 0x8)))
-+#define USTORM_SB_HC_DISABLE_OFFSET(port, cpu_id, index) \
-+	(IS_E1H_OFFSET? (0x901a + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)) : (0x141a + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)))
-+#define USTORM_SB_HC_TIMEOUT_OFFSET(port, cpu_id, index) \
-+	(IS_E1H_OFFSET? (0x9018 + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)) : (0x1418 + (port * 0x280) + (cpu_id * 0x28) + \
-+	(index * 0x4)))
-+#define USTORM_SB_HOST_SB_ADDR_OFFSET(port, cpu_id) \
-+	(IS_E1H_OFFSET? (0x9000 + (port * 0x280) + (cpu_id * 0x28)) : \
-+	(0x1400 + (port * 0x280) + (cpu_id * 0x28)))
-+#define USTORM_SB_HOST_STATUS_BLOCK_OFFSET(port, cpu_id) \
-+	(IS_E1H_OFFSET? (0x9008 + (port * 0x280) + (cpu_id * 0x28)) : \
-+	(0x1408 + (port * 0x280) + (cpu_id * 0x28)))
-+#define XSTORM_ASSERT_LIST_INDEX_OFFSET \
-+	(IS_E1H_OFFSET? 0x9000 : 0x1000)
-+#define XSTORM_ASSERT_LIST_OFFSET(idx) \
-+	(IS_E1H_OFFSET? (0x9020 + (idx * 0x10)) : (0x1020 + (idx * 0x10)))
-+#define XSTORM_CMNG_PER_PORT_VARS_OFFSET(port) \
-+	(IS_E1H_OFFSET? (0x24a8 + (port * 0x40)) : (0x3ba0 + (port * 0x40)))
-+#define XSTORM_DEF_SB_HC_DISABLE_OFFSET(function, index) \
-+	(IS_E1H_OFFSET? (0xa01a + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0) + (index * 0x4)) : (0x141a + (function * 0x28) + (index * \
-+	0x4)))
-+#define XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0xa000 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1400 + (function * 0x28)))
-+#define XSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0xa008 + ((function>>1) * 0x28) + ((function&1) \
-+	* 0xa0)) : (0x1408 + (function * 0x28)))
-+#define XSTORM_E1HOV_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2ab8 + (function * 0x2)) : 0xffffffff)
-+#define XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2418 + (function * 0x8)) : (0x3b70 + \
-+	(function * 0x8)))
-+#define XSTORM_FAIRNESS_PER_VN_VARS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2568 + (function * 0x70)) : (0x3c60 + \
-+	(function * 0x70)))
-+#define XSTORM_FUNCTION_MODE_OFFSET \
-+	(IS_E1H_OFFSET? 0x2ac8 : 0xffffffff)
-+#define XSTORM_HC_BTR_OFFSET(port) \
-+	(IS_E1H_OFFSET? (0xa144 + (port * 0x30)) : (0x1454 + (port * 0x18)))
-+#define XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2528 + (function * 0x70)) : (0x3c20 + \
-+	(function * 0x70)))
-+#define XSTORM_SPQ_PAGE_BASE_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2000 + (function * 0x10)) : (0x3328 + \
-+	(function * 0x10)))
-+#define XSTORM_SPQ_PROD_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x2008 + (function * 0x10)) : (0x3330 + \
-+	(function * 0x10)))
-+#define XSTORM_STATS_FLAGS_OFFSET(function) \
-+	(IS_E1H_OFFSET? (0x23d8 + (function * 0x8)) : (0x3b60 + \
-+	(function * 0x8)))
- #define COMMON_ASM_INVALID_ASSERT_OPCODE 0x0
- 
- /**
- * This file defines HSI constatnts for the ETH flow
- */
--
--/* hash types */
--#define DEFAULT_HASH_TYPE			0
--#define IPV4_HASH_TYPE				1
--#define TCP_IPV4_HASH_TYPE			2
--#define IPV6_HASH_TYPE				3
--#define TCP_IPV6_HASH_TYPE			4
-+#ifdef _EVEREST_MICROCODE
-+#include "microcode_constants.h"
-+#include "eth_rx_bd.h"
-+#include "eth_tx_bd.h"
-+#include "eth_rx_cqe.h"
-+#include "eth_rx_sge.h"
-+#include "eth_rx_cqe_next_page.h"
-+#endif
-+
-+/* RSS hash types */
-+#define DEFAULT_HASH_TYPE 0
-+#define IPV4_HASH_TYPE 1
-+#define TCP_IPV4_HASH_TYPE 2
-+#define IPV6_HASH_TYPE 3
-+#define TCP_IPV6_HASH_TYPE 4
-+
-+/* Ethernet Ring parmaters */
-+#define X_ETH_LOCAL_RING_SIZE 13
-+#define FIRST_BD_IN_PKT 0
-+#define PARSE_BD_INDEX 1
-+#define NUM_OF_ETH_BDS_IN_PAGE \
-+	((PAGE_SIZE) / (STRUCT_SIZE(eth_tx_bd)/8))
-+
-+
-+/* Rx ring params */
-+#define U_ETH_LOCAL_BD_RING_SIZE (16)
-+#define U_ETH_LOCAL_SGE_RING_SIZE (12)
-+#define U_ETH_SGL_SIZE (8)
-+
-+
-+#define U_ETH_BDS_PER_PAGE_MASK \
-+	((PAGE_SIZE/(STRUCT_SIZE(eth_rx_bd)/8))-1)
-+#define U_ETH_CQE_PER_PAGE_MASK \
-+	((PAGE_SIZE/(STRUCT_SIZE(eth_rx_cqe)/8))-1)
-+#define U_ETH_SGES_PER_PAGE_MASK \
-+	((PAGE_SIZE/(STRUCT_SIZE(eth_rx_sge)/8))-1)
-+
-+#define U_ETH_SGES_PER_PAGE_INVERSE_MASK \
-+	(0xFFFF - ((PAGE_SIZE/((STRUCT_SIZE(eth_rx_sge))/8))-1))
-+
-+
-+#define TU_ETH_CQES_PER_PAGE \
-+	(PAGE_SIZE/(STRUCT_SIZE(eth_rx_cqe_next_page)/8))
-+#define U_ETH_BDS_PER_PAGE (PAGE_SIZE/(STRUCT_SIZE(eth_rx_bd)/8))
-+#define U_ETH_SGES_PER_PAGE (PAGE_SIZE/(STRUCT_SIZE(eth_rx_sge)/8))
-+
-+#define U_ETH_UNDEFINED_Q 0xFF
- 
- /* values of command IDs in the ramrod message */
--#define RAMROD_CMD_ID_ETH_PORT_SETUP			(80)
--#define RAMROD_CMD_ID_ETH_CLIENT_SETUP			(85)
--#define RAMROD_CMD_ID_ETH_STAT_QUERY			(90)
--#define RAMROD_CMD_ID_ETH_UPDATE			(100)
--#define RAMROD_CMD_ID_ETH_HALT				(105)
--#define RAMROD_CMD_ID_ETH_SET_MAC			(110)
--#define RAMROD_CMD_ID_ETH_CFC_DEL			(115)
--#define RAMROD_CMD_ID_ETH_PORT_DEL			(120)
--#define RAMROD_CMD_ID_ETH_FORWARD_SETUP 		(125)
-+#define RAMROD_CMD_ID_ETH_PORT_SETUP (80)
-+#define RAMROD_CMD_ID_ETH_CLIENT_SETUP (85)
-+#define RAMROD_CMD_ID_ETH_STAT_QUERY (90)
-+#define RAMROD_CMD_ID_ETH_UPDATE (100)
-+#define RAMROD_CMD_ID_ETH_HALT (105)
-+#define RAMROD_CMD_ID_ETH_SET_MAC (110)
-+#define RAMROD_CMD_ID_ETH_CFC_DEL (115)
-+#define RAMROD_CMD_ID_ETH_PORT_DEL (120)
-+#define RAMROD_CMD_ID_ETH_FORWARD_SETUP (125)
- 
- 
- /* command values for set mac command */
--#define T_ETH_MAC_COMMAND_SET				0
--#define T_ETH_MAC_COMMAND_INVALIDATE			1
-+#define T_ETH_MAC_COMMAND_SET 0
-+#define T_ETH_MAC_COMMAND_INVALIDATE 1
-+
-+#define T_ETH_INDIRECTION_TABLE_SIZE 128
- 
--#define T_ETH_INDIRECTION_TABLE_SIZE			128
-+/*The CRC32 seed, that is used for the hash(reduction) multicast address */
-+#define T_ETH_CRC32_HASH_SEED 0x00000000
- 
- /* Maximal L2 clients supported */
--#define ETH_MAX_RX_CLIENTS				(18)
-+#define ETH_MAX_RX_CLIENTS_E1 19
-+#define ETH_MAX_RX_CLIENTS_E1H 25
-+
-+/* Maximal aggregation queues supported */
-+#define ETH_MAX_AGGREGATION_QUEUES_E1 (32)
-+#define ETH_MAX_AGGREGATION_QUEUES_E1H (64)
-+
- 
- /**
- * This file defines HSI constatnts common to all microcode flows
- */
- 
- /* Connection types */
--#define ETH_CONNECTION_TYPE			0
-+#define ETH_CONNECTION_TYPE 0
-+#define TOE_CONNECTION_TYPE 1
-+#define RDMA_CONNECTION_TYPE 2
-+#define ISCSI_CONNECTION_TYPE 3
-+#define FCOE_CONNECTION_TYPE 4
-+#define RESERVED_CONNECTION_TYPE_0 5
-+#define RESERVED_CONNECTION_TYPE_1 6
-+#define RESERVED_CONNECTION_TYPE_2 7
-+
- 
--#define PROTOCOL_STATE_BIT_OFFSET		6
-+#define PROTOCOL_STATE_BIT_OFFSET 6
- 
--#define ETH_STATE	(ETH_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
-+#define ETH_STATE (ETH_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
-+#define TOE_STATE (TOE_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
-+#define RDMA_STATE (RDMA_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
-+#define ISCSI_STATE \
-+	(ISCSI_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
-+#define FCOE_STATE (FCOE_CONNECTION_TYPE << PROTOCOL_STATE_BIT_OFFSET)
- 
- /* microcode fixed page page size 4K (chains and ring segments) */
--#define MC_PAGE_SIZE						(4096)
-+#define MC_PAGE_SIZE (4096)
- 
--/* Host coalescing constants */
- 
--/* IGU constants */
--#define IGU_PORT_BASE				0x0400
--
--#define IGU_ADDR_MSIX				0x0000
--#define IGU_ADDR_INT_ACK			0x0200
--#define IGU_ADDR_PROD_UPD			0x0201
--#define IGU_ADDR_ATTN_BITS_UPD			0x0202
--#define IGU_ADDR_ATTN_BITS_SET			0x0203
--#define IGU_ADDR_ATTN_BITS_CLR			0x0204
--#define IGU_ADDR_COALESCE_NOW			0x0205
--#define IGU_ADDR_SIMD_MASK			0x0206
--#define IGU_ADDR_SIMD_NOMASK			0x0207
--#define IGU_ADDR_MSI_CTL			0x0210
--#define IGU_ADDR_MSI_ADDR_LO			0x0211
--#define IGU_ADDR_MSI_ADDR_HI			0x0212
--#define IGU_ADDR_MSI_DATA			0x0213
--
--#define IGU_INT_ENABLE				0
--#define IGU_INT_DISABLE 			1
--#define IGU_INT_NOP				2
--#define IGU_INT_NOP2				3
-+/* Host coalescing constants */
- 
- /* index numbers */
--#define HC_USTORM_DEF_SB_NUM_INDICES		4
--#define HC_CSTORM_DEF_SB_NUM_INDICES		8
--#define HC_XSTORM_DEF_SB_NUM_INDICES		4
--#define HC_TSTORM_DEF_SB_NUM_INDICES		4
--#define HC_USTORM_SB_NUM_INDICES		4
--#define HC_CSTORM_SB_NUM_INDICES		4
-+#define HC_USTORM_DEF_SB_NUM_INDICES 4
-+#define HC_CSTORM_DEF_SB_NUM_INDICES 8
-+#define HC_XSTORM_DEF_SB_NUM_INDICES 4
-+#define HC_TSTORM_DEF_SB_NUM_INDICES 4
-+#define HC_USTORM_SB_NUM_INDICES 4
-+#define HC_CSTORM_SB_NUM_INDICES 4
- 
- /* index values - which counterto update */
- 
--#define HC_INDEX_U_ETH_RX_CQ_CONS		1
-+#define HC_INDEX_U_TOE_RX_CQ_CONS 0
-+#define HC_INDEX_U_ETH_RX_CQ_CONS 1
-+#define HC_INDEX_U_ETH_RX_BD_CONS 2
-+#define HC_INDEX_U_FCOE_EQ_CONS 3
-+
-+#define HC_INDEX_C_TOE_TX_CQ_CONS 0
-+#define HC_INDEX_C_ETH_TX_CQ_CONS 1
-+#define HC_INDEX_C_ISCSI_EQ_CONS 2
-+
-+#define HC_INDEX_DEF_X_SPQ_CONS 0
- 
--#define HC_INDEX_C_ETH_TX_CQ_CONS		1
-+#define HC_INDEX_DEF_C_RDMA_EQ_CONS 0
-+#define HC_INDEX_DEF_C_RDMA_NAL_PROD 1
-+#define HC_INDEX_DEF_C_ETH_FW_TX_CQ_CONS 2
-+#define HC_INDEX_DEF_C_ETH_SLOW_PATH 3
-+#define HC_INDEX_DEF_C_ETH_RDMA_CQ_CONS 4
-+#define HC_INDEX_DEF_C_ETH_ISCSI_CQ_CONS 5
- 
--#define HC_INDEX_DEF_X_SPQ_CONS 		0
-+#define HC_INDEX_DEF_U_ETH_RDMA_RX_CQ_CONS 0
-+#define HC_INDEX_DEF_U_ETH_ISCSI_RX_CQ_CONS 1
-+#define HC_INDEX_DEF_U_ETH_RDMA_RX_BD_CONS 2
-+#define HC_INDEX_DEF_U_ETH_ISCSI_RX_BD_CONS 3
- 
--#define HC_INDEX_DEF_C_ETH_FW_TX_CQ_CONS	2
--#define HC_INDEX_DEF_C_ETH_SLOW_PATH		3
- 
- /* used by the driver to get the SB offset */
--#define USTORM_ID			0
--#define CSTORM_ID			1
--#define XSTORM_ID			2
--#define TSTORM_ID			3
--#define ATTENTION_ID			4
-+#define USTORM_ID 0
-+#define CSTORM_ID 1
-+#define XSTORM_ID 2
-+#define TSTORM_ID 3
-+#define ATTENTION_ID 4
- 
- /* max number of slow path commands per port */
--#define MAX_RAMRODS_PER_PORT		(8)
-+#define MAX_RAMRODS_PER_PORT (8)
- 
- /* values for RX ETH CQE type field */
--#define RX_ETH_CQE_TYPE_ETH_FASTPATH	(0)
--#define RX_ETH_CQE_TYPE_ETH_RAMROD		(1)
--
--/* MAC address list size */
--#define T_MAC_ADDRESS_LIST_SIZE 	(96)
--
-+#define RX_ETH_CQE_TYPE_ETH_FASTPATH (0)
-+#define RX_ETH_CQE_TYPE_ETH_RAMROD (1)
-+
-+
-+/**** DEFINES FOR TIMERS/CLOCKS RESOLUTIONS ****/
-+#define EMULATION_FREQUENCY_FACTOR (1600)
-+#define FPGA_FREQUENCY_FACTOR (100)
-+
-+#define TIMERS_TICK_SIZE_CHIP (1e-3)
-+#define TIMERS_TICK_SIZE_EMUL \
-+ ((TIMERS_TICK_SIZE_CHIP)/((EMULATION_FREQUENCY_FACTOR)))
-+#define TIMERS_TICK_SIZE_FPGA \
-+ ((TIMERS_TICK_SIZE_CHIP)/((FPGA_FREQUENCY_FACTOR)))
-+
-+#define TSEMI_CLK1_RESUL_CHIP (1e-3)
-+#define TSEMI_CLK1_RESUL_EMUL \
-+ ((TSEMI_CLK1_RESUL_CHIP)/(EMULATION_FREQUENCY_FACTOR))
-+#define TSEMI_CLK1_RESUL_FPGA \
-+ ((TSEMI_CLK1_RESUL_CHIP)/(FPGA_FREQUENCY_FACTOR))
-+
-+#define USEMI_CLK1_RESUL_CHIP \
-+ (TIMERS_TICK_SIZE_CHIP)
-+#define USEMI_CLK1_RESUL_EMUL \
-+ (TIMERS_TICK_SIZE_EMUL)
-+#define USEMI_CLK1_RESUL_FPGA \
-+ (TIMERS_TICK_SIZE_FPGA)
-+
-+#define XSEMI_CLK1_RESUL_CHIP (1e-3)
-+#define XSEMI_CLK1_RESUL_EMUL \
-+ ((XSEMI_CLK1_RESUL_CHIP)/(EMULATION_FREQUENCY_FACTOR))
-+#define XSEMI_CLK1_RESUL_FPGA \
-+ ((XSEMI_CLK1_RESUL_CHIP)/(FPGA_FREQUENCY_FACTOR))
-+
-+#define XSEMI_CLK2_RESUL_CHIP (1e-6)
-+#define XSEMI_CLK2_RESUL_EMUL \
-+ ((XSEMI_CLK2_RESUL_CHIP)/(EMULATION_FREQUENCY_FACTOR))
-+#define XSEMI_CLK2_RESUL_FPGA \
-+ ((XSEMI_CLK2_RESUL_CHIP)/(FPGA_FREQUENCY_FACTOR))
-+
-+#define SDM_TIMER_TICK_RESUL_CHIP (4*(1e-6))
-+#define SDM_TIMER_TICK_RESUL_EMUL \
-+ ((SDM_TIMER_TICK_RESUL_CHIP)/(EMULATION_FREQUENCY_FACTOR))
-+#define SDM_TIMER_TICK_RESUL_FPGA \
-+ ((SDM_TIMER_TICK_RESUL_CHIP)/(FPGA_FREQUENCY_FACTOR))
-+
-+
-+/**** END DEFINES FOR TIMERS/CLOCKS RESOLUTIONS ****/
- #define XSTORM_IP_ID_ROLL_HALF 0x8000
- #define XSTORM_IP_ID_ROLL_ALL 0
- 
--#define FW_LOG_LIST_SIZE	(50)
-+#define FW_LOG_LIST_SIZE (50)
-+
-+#define NUM_OF_PROTOCOLS 4
-+#define MAX_COS_NUMBER 16
-+#define MAX_T_STAT_COUNTER_ID 18
-+#define MAX_X_STAT_COUNTER_ID 18
- 
--#define NUM_OF_PROTOCOLS		4
--#define MAX_COS_NUMBER			16
--#define MAX_T_STAT_COUNTER_ID	18
-+#define UNKNOWN_ADDRESS 0
-+#define UNICAST_ADDRESS 1
-+#define MULTICAST_ADDRESS 2
-+#define BROADCAST_ADDRESS 3
- 
--#define T_FAIR							1
--#define FAIR_MEM						2
--#define RS_PERIODIC_TIMEOUT_IN_SDM_TICS 25
-+#define SINGLE_FUNCTION 0
-+#define MULTI_FUNCTION 1
- 
--#define UNKNOWN_ADDRESS 	0
--#define UNICAST_ADDRESS 	1
--#define MULTICAST_ADDRESS	2
--#define BROADCAST_ADDRESS	3
-+#define IP_V4 0
-+#define IP_V6 1
- 
-diff --git a/drivers/net/bnx2x_hsi.h b/drivers/net/bnx2x_hsi.h
-index 96208ac..e515d68 100644
---- a/drivers/net/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x_hsi.h
-@@ -132,6 +132,12 @@ struct shared_hw_cfg {					 /* NVRAM Offset */
- #define SHARED_HW_CFG_BOARD_TYPE_BCM957710T1003G    0x00000008
- #define SHARED_HW_CFG_BOARD_TYPE_BCM957710A1022G    0x00000009
- #define SHARED_HW_CFG_BOARD_TYPE_BCM957710A1021G    0x0000000a
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957710A1023G    0x0000000b
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957710A1033G    0x0000000c
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957711T1101     0x0000000d
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957711ET1201    0x0000000e
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957711A1133G    0x0000000f
-+#define SHARED_HW_CFG_BOARD_TYPE_BCM957711EA1233G   0x00000010
- 
- #define SHARED_HW_CFG_BOARD_VER_MASK		    0xffff0000
- #define SHARED_HW_CFG_BOARD_VER_SHIFT		    16
-@@ -313,6 +319,7 @@ struct shared_feat_cfg {				 /* NVRAM Offset */
- 
- 	u32 config;						/* 0x450 */
- #define SHARED_FEATURE_BMC_ECHO_MODE_EN 	    0x00000001
-+#define SHARED_FEATURE_MF_MODE_DISABLED 	    0x00000100
- 
+ static const u32 tsem_pram_data_e1h[] = {
++	0x00088b1f, 0x00000000, 0x7dedff00, 0xd554780d, 0x733ee8b5, 0x49999cce,
++	0x21264cce, 0x61021309, 0x40a02092, 0x200c7e18, 0xf7f09d78, 0x803aa568,
++	0x07515a56, 0x43f21081, 0xbd1f5202, 0x24266bed, 0x1bd568c1, 0xab45a8fa,
++	0x68a90076, 0x62348ed1, 0xa80740a8, 0x0db6a85c, 0xc7f42ad6, 0xc405ad1b,
++	0x96aa4490, 0x6bb94abe, 0xe64fbdad, 0x4019939c, 0x6f5fb7bd, 0x6fd697bf,
++	0x67d9cfb3, 0xdfd7b5ef, 0xb5ed6b5e, 0x897628f7, 0xec650ee5, 0xc75dfe02,
++	0x319902d8, 0xf4a27576, 0x0d0ebbc1, 0x07f8adfe, 0xccdd2832, 0x2862b12f,
++	0x2f6e2cfd, 0xfc707281, 0xd65e9618, 0xf37e18c9, 0x959905f1, 0x3271e632,
++	0xb09417f1, 0xdaf2f5ee, 0x6d87b2b7, 0xd5b28428, 0x6cc653f7, 0x67aaed8c,
++	0x44f66181, 0xff57873b, 0x91c17e2e, 0xfa4870cb, 0x877560cb, 0xbb87c187,
++	0xb6e2e7a4, 0x8ef58c89, 0x7e2d8161, 0x5dde0718, 0xcffd059b, 0x316dec61,
++	0x704605e6, 0x8a50b85c, 0x4b8231df, 0xe73af8fb, 0x0ee76842, 0x00c55fad,
++	0x7334cf5e, 0xb9a26d7b, 0xf50d18ee, 0xa5fa8991, 0x6ca603da, 0x881de00c,
++	0xed5c03f0, 0xd79a4ef5, 0x81bdeb8f, 0xb6305761, 0xf547dea7, 0x2a7ef57d,
++	0xe923f5e3, 0x00fa81f9, 0xb05873d5, 0xeac7f090, 0x66ca2c36, 0x8536f1ac,
++	0x7412c7dd, 0x8c3d66f9, 0xfea24577, 0x222cd1a7, 0xa4fee4c3, 0x00423bb0,
++	0x132bc36b, 0xbca13a32, 0x7f41db1f, 0x28018d0f, 0x3fda26c6, 0xdce5f6bc,
++	0xcb181399, 0xdc91eafb, 0xbde00399, 0x46c616c4, 0xd2ad78e3, 0x9df031bc,
++	0xdbd1fbca, 0xeb6325eb, 0xed9a0f88, 0x65afdfc9, 0xf2cf0212, 0x7e60ac0e,
++	0x0f6bf437, 0x07013be7, 0x04c644b7, 0xb8c3065b, 0x186bec48, 0x111b32fb,
++	0x370e0089, 0x8c799761, 0xf342d0ed, 0x5f1cbbf0, 0x91230a48, 0x299c40c3,
++	0x2cab658c, 0x470a4b1c, 0x2b71c103, 0x4b0733fe, 0x0f4bd53f, 0x7ef571f2,
++	0xe711b2f4, 0xcee4e507, 0xde2c5b30, 0x77fbe197, 0xe862d242, 0xe7c5d9bf,
++	0x736302f3, 0x1249bc70, 0x12b9610b, 0x2dfa1299, 0x312732c7, 0xe5c60aee,
++	0x6173bae1, 0x547e8416, 0xc785985f, 0xfc837ef0, 0x6c8ca6fb, 0x1b7f9b9a,
++	0xda9443f1, 0x474ddb1b, 0x88b6fcb8, 0xedc7033d, 0x23ed883d, 0xf6c3163e,
++	0x39b6682f, 0x3b44b45b, 0x6e499e1d, 0x968b685b, 0x16c82fe8, 0xe5d3fa9b,
++	0xbe72764d, 0x81def9d3, 0xda9c809f, 0xc228fbe1, 0x3705983b, 0xbdebc127,
++	0x07a5be62, 0x3c06415d, 0xa3542ead, 0xafa9242e, 0x39eb0cb5, 0x0640594b,
++	0xe5eb4e1a, 0x0703b8f3, 0x3bcc49c9, 0x37c003e7, 0xfec01d94, 0x08e3e60c,
++	0xda03a8b0, 0x826b79ab, 0x1f4f5065, 0x1b02d5cc, 0x3672631c, 0xcdc473c9,
++	0x97a1c3fa, 0xfc13c7da, 0x00df1748, 0x0604ef5d, 0x41dba832, 0x78020ca1,
++	0xa83b8f1a, 0xe5dc8fff, 0xfd33b143, 0xf1f553bb, 0x3e414b71, 0xa61fd74e,
++	0x83beabb2, 0x63faeeca, 0x0f1aa654, 0x26c6d124, 0x60df8c03, 0x5dca2741,
++	0x075d12a1, 0xffee37fd, 0x218ff32a, 0x878823f8, 0x2d16cd74, 0x4e665e42,
++	0xf815cd59, 0xe12b7c45, 0x8e6ef9bc, 0xbdb3c45f, 0x866d0950, 0x2ad9cf32,
++	0x786d1aad, 0xfc40740e, 0xb87c1e97, 0x2ea4f101, 0x855ce365, 0x4f9c2f28,
++	0x97c89f11, 0x5f381abb, 0x284efd62, 0x029539af, 0xef1c5def, 0x53a9dada,
++	0xc06099df, 0x5c82c29f, 0x28bf39ae, 0x78c77ff0, 0x7b343a80, 0xbde82645,
++	0xbc077fbc, 0x9e7d268e, 0x906b95c1, 0x9e2adea1, 0x30ddebac, 0xabd27e23,
++	0x5079edc0, 0x97cfac1f, 0xf8897ff9, 0xfa04dcd8, 0xd57eeb09, 0x21fbc2af,
++	0x70e0f5a2, 0xca545cc5, 0x1ee7cb5b, 0x62bc6092, 0xa8fde3f9, 0x29d487de,
++	0xf41a776f, 0x6042c165, 0x86c622bc, 0x2f3f35ae, 0x30eb988c, 0xf3042d80,
++	0x3f316e2f, 0xd9dcce3f, 0x2e19d227, 0x80906e48, 0xbd5af37e, 0x849a45ec,
++	0xf58dde95, 0x0dd9ae2c, 0xf427a175, 0xdc99e4ba, 0xadf98119, 0x900592be,
++	0x449269c6, 0xefc56c78, 0x141e8f80, 0x7e96fde5, 0xac9952f4, 0x02ef50d9,
++	0xf4c983de, 0xd654be58, 0x56bc748b, 0xfd8bde9a, 0xe6312ba6, 0x54bf90d5,
++	0xfb6b13e2, 0xf1a14934, 0xa08e94d3, 0x14deeb8c, 0xb6adeebe, 0x9e51c6f7,
++	0x03f99756, 0x028f5c11, 0x4cdf9251, 0x5e50b358, 0x363c013f, 0x9363c389,
++	0xf5189c68, 0xdb2beb03, 0xbc38e122, 0xfa57d5df, 0x0d4a4459, 0x2d191fe7,
++	0x1698ec62, 0x3cfec4ce, 0x709ca492, 0x58d3e826, 0xb36ff451, 0xc372eaa1,
++	0x7513abfb, 0x7c739ddf, 0x4379c7c8, 0x772bf4cd, 0x7f2015d6, 0xb3628654,
++	0x7a4e7f91, 0x0edeba7e, 0xf602def3, 0x9ff80282, 0x61e50ce4, 0xea8b353f,
++	0xf30aa386, 0xe303a2e3, 0x1eb7b26e, 0x39824b07, 0x5ff48859, 0x0175cccb,
++	0x67dbde05, 0xf03b712a, 0x01f27da5, 0xac5c57b2, 0xc9c7eb8e, 0x07b43291,
++	0xef83239c, 0x455ef0ca, 0xdee78079, 0x75c32b60, 0xbccc39c4, 0x9b3c83ce,
++	0xb9b64aea, 0x5ccf4a9e, 0xf8ca5caa, 0x84069efa, 0xb267fc22, 0x995fe228,
++	0xf841281c, 0xf3e6bc1e, 0xaa67847e, 0x84a5d7c4, 0xde72e2fe, 0xbfb5ef47,
++	0x00361dc8, 0xf972b79f, 0xee4afb5f, 0x8f8809b0, 0x73979a56, 0x0b926ac6,
++	0x7323f115, 0x13b90ff9, 0xf878ebdf, 0x961bcf7b, 0xf4979a05, 0x5027f393,
++	0x6f3e363f, 0x9f9ea3f7, 0x7e3dbcf1, 0x366bd41d, 0x6df7a44b, 0x9f845cfb,
++	0x3d7947ee, 0xd88356ee, 0x5013ccfe, 0x3ad57c07, 0x8a9c1e3a, 0x665e7bf8,
++	0x0b3d085b, 0x4ecfa86d, 0x3b68f6e8, 0x78bb97af, 0xfef366b5, 0x8afbf1db,
++	0x7d430776, 0xf97bb35c, 0xbea1530d, 0x619db0fc, 0x0d6d9a93, 0xafa820ea,
++	0xac314a88, 0xf4e74cf7, 0xa392ec89, 0x8f7da0db, 0x66f723a7, 0x271dd70d,
++	0xb8008ff3, 0x37b91ddd, 0x46571f01, 0xdf8d9b9f, 0x0290ee55, 0xc7983140,
++	0xf07943b6, 0x5253cd5d, 0x5c7c01c0, 0xf99d3db5, 0x89e5f60d, 0x1d7e3936,
++	0x93cc19ca, 0x59cbbf41, 0x4fa46ceb, 0xaa0db6cd, 0xd39f40df, 0xdf9923f5,
++	0x3cd7a891, 0x77c0e305, 0x02959f2b, 0x3695c538, 0xef753f6e, 0xaadc2d76,
++	0xd41afce1, 0xd79c6ee1, 0x5bb62a3d, 0xcbbc5d1e, 0x36f847e5, 0x7de1b3ab,
++	0xd59ba3e5, 0xa85e8372, 0x640a3eda, 0xa6d700c9, 0x24e181e2, 0x0f01237a,
++	0x8953c133, 0xedd6867a, 0xa5768aa8, 0x2daa7cfe, 0x6ab1f893, 0x5fea6cbb,
++	0xd7e47ba7, 0xc887ec8c, 0x55e1375e, 0x2f6adba7, 0xa08eebe3, 0xa0af59db,
++	0x6a5bd2a3, 0x1f2f5fec, 0x50383a44, 0xfca97b5f, 0xca8fbd56, 0xa27ef58d,
++	0xbf8843cf, 0xc64edc11, 0x97d760e7, 0x827b2f21, 0xc3ec0bcc, 0xcb06e6b2,
++	0x0acf50ec, 0xa2ee7af1, 0xc8bfe4b0, 0xec12f5fc, 0x04e0c5de, 0x7afdfac1,
++	0xf63b0150, 0x8abc3521, 0xa6fc6005, 0x04ce08ff, 0x528ff77b, 0x4afa8638,
++	0xb82b85b6, 0x287cc5dc, 0xfac5eb77, 0x13f25db3, 0xa9e7d61e, 0xba1f6fa4,
++	0x2cab74ad, 0x6366b989, 0xf7fbfcbd, 0xbb3f5215, 0xfa151fa9, 0x3f74be29,
++	0x364fb7b9, 0x7b7b93f5, 0x01cfde85, 0xf2ed27ea, 0xf6e879fa, 0xdcf0cc6b,
++	0xf3f7a95e, 0xb9e3f532, 0xdee579bc, 0xcf0ccd31, 0xcfd4d51d, 0xd20145c0,
++	0x3fceb2b7, 0xb43bd60c, 0x8e647717, 0x5341fa37, 0xc0dfd36d, 0x520dc5f5,
++	0x8ca3e465, 0x792669c9, 0x99660cca, 0x0ce603ea, 0x09cfb532, 0x0fde9915,
++	0x8595785c, 0x89ef352f, 0x408ea251, 0xf68b43a1, 0xf49520f1, 0x2720d94e,
++	0x20f77fc1, 0xddcef48d, 0xe04784d7, 0xa2b08e3a, 0x1ab7737f, 0xea4deb1e,
++	0xcc4874c7, 0x86dfa587, 0x3dfdf5a5, 0x9e9c1ec2, 0xb7f0f1ff, 0x5b5afbe0,
++	0xa84cf0ef, 0xfb2b6bbf, 0xbcf9e233, 0x3269ffd0, 0x6976c3ab, 0xeffa460e,
++	0xadd2c29e, 0x5b5e0311, 0x48bf0086, 0xec5b7e89, 0xa3f21f61, 0x901a9364,
++	0x510fd73f, 0xfa041b19, 0x1fdb1d74, 0x9ee73581, 0xc43ee521, 0x2ffd03bf,
++	0x8c2af8e3, 0x77c69a3f, 0xb77c60d8, 0x8ef8f92d, 0xf1a6c9a2, 0xa615059d,
++	0x8c2a9df1, 0x6991f20f, 0x9df18973, 0xad6617e4, 0x8ef8d273, 0xff1a0a82,
++	0x9855951e, 0x1beb4fc6, 0xc60da07f, 0xfee3621d, 0x17f9bf4a, 0x7f9e635d,
++	0xfe79a541, 0xa17f9f2a, 0x9f8c532d, 0x5a2ff346, 0x2ff3e5e7, 0x77f3e4a8,
++	0xc6fb7ef0, 0x7fe1f4f7, 0x263f8e04, 0xe28ef8c5, 0x0ff9e669, 0xdfcf36ad,
++	0x671fc7c1, 0x6be313cb, 0x75f8fe34, 0xa1ff3e3e, 0xeabe34d5, 0x8f900708,
++	0xbab4fcd4, 0x8343da28, 0x240dfb41, 0x72a4181d, 0xbb93f724, 0xe38222a4,
++	0x77ce34ee, 0xbf01a51f, 0xca7d0969, 0x9e29eba2, 0x74f052b2, 0x35328ed5,
++	0x07bc5a3c, 0x00997f7b, 0x4cbb6975, 0x3a36cd7c, 0xbc0057a2, 0xf932eddd,
++	0x5e374b3b, 0x3d69951b, 0x1808fee5, 0xfe7c7190, 0xd98f6fc7, 0xb5979c62,
++	0x3f6ad65c, 0xab9069d1, 0x9d3efd3e, 0xf803ac8d, 0x535e4836, 0x69e804fd,
++	0x06dea674, 0x49e58c7d, 0xf3c0338c, 0xb38f4077, 0x7ffdfd11, 0xd1b5eee8,
++	0x0a2faf30, 0x1c284ff8, 0x48d627df, 0x47ffc451, 0xa8a9561b, 0xa6b596cf,
++	0x07d3d1a3, 0x53a0ad47, 0xd9076eef, 0x3f4f8055, 0x1216e7e2, 0xbf7ec645,
++	0x24870bef, 0x6f967bb0, 0x6efa601a, 0xfb368b11, 0xfb92fda0, 0xc2f10f17,
++	0xe85d6ffc, 0x1f932f18, 0x91b7cc18, 0x1b7cb31c, 0xdb0b4ef8, 0xa1f3d836,
++	0xbb42cb72, 0x52f94fc9, 0xb5bf5cd8, 0xb6ef5cc2, 0xcf18ed47, 0xb1215eea,
++	0x6defd0cd, 0xff8b7675, 0x6159c7c3, 0x08f112cb, 0x8117de3e, 0xe8f07986,
++	0xe3c72c36, 0xf5d12f63, 0x56ff2f76, 0x6bf6a787, 0x90547076, 0xe8399d7e,
++	0x0e48b347, 0x2f6177f9, 0xde15b79f, 0x60ceeddb, 0xfdb9e008, 0xd3e132ab,
++	0xbee77f0a, 0xec0da0f4, 0x7f4dced1, 0x6e7da3b2, 0xfe158f9d, 0xe75ad63b,
++	0x7d7155e3, 0x3eb11c58, 0x5aec988f, 0x2f6dacbd, 0x818efadb, 0x9f626a9f,
++	0xe18efadb, 0xf3edaabb, 0xd115f54c, 0x2fda992f, 0xf4d8b4df, 0x0aeb597e,
++	0x2d25fbd3, 0xc5f54cab, 0xda9aaf91, 0xc1b6b1df, 0xbab6fef4, 0x6fef4d7b,
++	0xaa60d8ad, 0xb0fc297f, 0x0b2dfda9, 0x4bde9b37, 0xed0c56fb, 0x1e1abd24,
++	0xeb76879a, 0x59f90771, 0xf2ebbf3a, 0x16ec0a70, 0xdd834f2c, 0xca036582,
++	0x6dbfc829, 0xb76b2f37, 0x35ea1e2c, 0xed2761f8, 0x4f280575, 0xe2b7be56,
++	0xf0dfcad3, 0x1d6c9f97, 0x8c6acbd2, 0x3dbf4143, 0x24393f16, 0x1f1ea0f4,
++	0xdcb956ac, 0x9bccef56, 0xb57ffe8e, 0x975e1f1a, 0x93ec4fc4, 0xf34498e7,
++	0xe7a56860, 0x5b80dd20, 0xdaab780d, 0xb3826c5e, 0xe34cbf6b, 0x05d944af,
++	0x0a5f37fd, 0x88f5c71d, 0x2c160fc5, 0x04f08318, 0xf6f5437f, 0xbb7f5a1c,
++	0x7d6ce7ea, 0x0bf88ec7, 0x7eaa7951, 0xea279521, 0x53be54c3, 0xdbe5415f,
++	0x765475f5, 0xf2a5afd6, 0x9508facd, 0xa16fabbf, 0xadf537f2, 0xdfab1e54,
++	0xf5ebe544, 0xebbb2a51, 0x7cea5483, 0x4327a7db, 0xfe156ec2, 0xb7224805,
++	0xe45cc55b, 0x96b8bedc, 0xacf1e50f, 0xb470d1f6, 0x031ecfcb, 0xc6a61722,
++	0x521f9597, 0xc90595e2, 0x028f28ae, 0x7ff4079d, 0x74e34aef, 0x1cd8d972,
++	0xdee37a06, 0xc01fbe2b, 0x15d41338, 0x47df8596, 0x49dcf303, 0x107f05fa,
++	0x3a2975e9, 0xc96f60b1, 0x89c7a07c, 0x8a5afe47, 0x456c86fd, 0x28385edc,
++	0xe2c97ad3, 0xaf48035b, 0xe9378a4f, 0x402fbf27, 0xa39339b9, 0x00a3afe3,
++	0xb2df04e3, 0xb39fa979, 0x20a60e6d, 0x47a4f71e, 0xf67d2431, 0xae0f56f0,
++	0x727dab77, 0xb31f18d4, 0xc2b13596, 0x4f9866a8, 0x7eb9bb6d, 0xc39a55b6,
++	0x8cfe69e3, 0x5f20c69b, 0x50efa379, 0xa547d15c, 0x9f6acfde, 0xfee8e34a,
++	0x4991db38, 0x217e0a7c, 0x86affbb5, 0x093f5523, 0x1fd8da38, 0x2e287700,
++	0xb93f8a17, 0x0f94ce5f, 0xb1bb8c54, 0x708ff63d, 0x7fc0773d, 0x6591d017,
++	0x7ef5d50a, 0xc472636b, 0xef9f1631, 0xdf078d30, 0xfb9f75f9, 0xf8c5d142,
++	0xf4276155, 0x9b6a8279, 0x0e443e8f, 0x6a2b95f2, 0xa699fbd6, 0x5e7b6d7a,
++	0xe00eb4d4, 0x59ee403f, 0x3ae0a485, 0xa8b82d58, 0x245ad147, 0xec8c6f80,
++	0xf126fce7, 0x4ece3576, 0xbe47ec35, 0x54e2fc69, 0xa56cb63f, 0x3be15af9,
++	0xabd87f5d, 0x5c7e245c, 0x3bbd9f25, 0xffc8bed9, 0x48bef996, 0xd3db8db5,
++	0xa0f119cc, 0x117ccabf, 0xe18bc60f, 0x0fc3eb4f, 0x8e304df9, 0xb3f7aea1,
++	0x4def6a22, 0xd9764eb6, 0x1d6c9db8, 0x7b8c45b7, 0xdcadfc29, 0xce367471,
++	0x95c78adb, 0xb4abefed, 0xffc0a31f, 0xd478134a, 0x0e463bf1, 0xdfc0c8b5,
++	0x22dfdb95, 0x3d94f27b, 0x176bfc32, 0xe1fd5bd1, 0xb7147cd7, 0x611de7d5,
++	0x9dce381d, 0xff67f17d, 0x7585bf2d, 0xed97ddf1, 0xf62cbe3c, 0x70387437,
++	0xf506d0d3, 0x6776a225, 0x9bc5155b, 0x3d75dddf, 0x594b6fd9, 0x644e83c8,
++	0x452d6b05, 0xb30cf03b, 0x9d3c41cd, 0x267aaf61, 0x43b4e818, 0x974e4956,
++	0x10ed98b4, 0xf54d5fb0, 0xf5cc9be5, 0x173f3672, 0x46f94cf5, 0x344a8b3b,
++	0x47fbd33f, 0x7fe12f65, 0x8f5bab39, 0x9da373eb, 0xe9ddb3ef, 0xe83e4a65,
++	0x1e179adb, 0xff38c52b, 0x7ebe648f, 0x1593f1ea, 0xab8edc59, 0x31566d8c,
++	0xb687ffbe, 0xca9c5f09, 0x7ae8fbf0, 0xcf221f5c, 0xfe6d814b, 0xa4fdf8fe,
++	0xd5e15bf0, 0x717eefd7, 0xcd47011c, 0xbc692976, 0x892cbf77, 0x63f39ff5,
++	0xbaa5e286, 0x5be7d76e, 0x22c9afea, 0x19332c1e, 0xebc67ee9, 0xe832d88c,
++	0xf38e207d, 0x3408e9db, 0x72c2fcc2, 0xf64c98e8, 0x1984bc44, 0x30e585da,
++	0x5e92ef3d, 0x93bb4729, 0xb412f129, 0x21ed6123, 0x3f05553e, 0x129e69c8,
++	0x31bb778c, 0x67718bbe, 0xd60b6797, 0xe62bbbd7, 0x16b51c62, 0xf7f401f5,
++	0x61f66780, 0xb2709fdc, 0xf81078d6, 0xef33e1d7, 0xe6fcb82f, 0x75ea3a7a,
++	0x00f877d4, 0x8c02f9f7, 0x23e954e2, 0x01dcedcd, 0x1f6cfd73, 0x5f7ce29e,
++	0xf71c589c, 0x0cb8b5c7, 0x4ac9b3e3, 0x54bf9f57, 0x871afe84, 0x5a64ec1f,
++	0x7978d6ff, 0x7e2295fb, 0xf4f8e6bf, 0x89175981, 0x939ed547, 0xceb0d458,
++	0x2abd2ad4, 0x39ed61f2, 0x6a7f9e85, 0xd587eabd, 0xf357a0d6, 0x929a70e5,
++	0xc228f5c3, 0x6138c127, 0xe3809f03, 0xf9ca35ea, 0x7c3f0b08, 0x99b2386a,
++	0x918fbf49, 0xe0c9f9c3, 0xfbfdd4f8, 0xe23ff5fa, 0x61ffb4bf, 0x909ffafd,
++	0x179affac, 0x8115d99e, 0x87f2a2f5, 0x3300f6df, 0xd69577b3, 0xbdd000dc,
++	0x07b35b7a, 0x1294f2e5, 0xdf5d20f1, 0xa273ca8d, 0x52a1f849, 0xa82ef9d1,
++	0x3fc4a549, 0x9fa747c4, 0xe80de6fe, 0xcdb47fc7, 0x7eff25ee, 0x00ee23bb,
++	0xb6d95ca6, 0x76c7cb82, 0x7ebc5bc7, 0x9fc8fbcf, 0x7d66edb5, 0xb7e4f951,
++	0x7eb4fd73, 0x1bff8445, 0xe561ff27, 0x8d9c7f13, 0xeb2d58f6, 0xfd67bd25,
++	0x973fc70e, 0x62c2f645, 0x7bffa335, 0x56b21f7d, 0xedb6a5e0, 0x3ee3ef9b,
++	0xe7db6d44, 0xe9a1724e, 0xfad1bf24, 0x07f0855d, 0xd9dc556e, 0xc49baf14,
++	0xe9bf2126, 0xee516178, 0x3c2fc80f, 0x9cf18256, 0xf65e27ae, 0x7c8da348,
++	0xd9dff5ca, 0xfdef92d8, 0xae5a9fd8, 0x1a3f41ba, 0xcedd6eed, 0x3f0bb7f3,
++	0xab2f0f66, 0xee0f71ed, 0xb66f541f, 0xf55cbed3, 0xffbf5b33, 0x8e57c608,
++	0x4057023b, 0xbccf55ff, 0x5035faf4, 0x9ece7aaf, 0x434f973d, 0xf4137293,
++	0xd6ff85a9, 0xa3d04f8e, 0xa92f47f2, 0xcf8d0fb8, 0xa0959ebf, 0xfb73d54b,
++	0x3fa63655, 0xf6c4663e, 0x125a9dab, 0x9adec4fa, 0xfc86fe8d, 0xe91579c2,
++	0x893eeeff, 0x824c2c0d, 0x912fcdcf, 0x22788cdd, 0xf57a0a7a, 0xbed2cfd1,
++	0x7a42e816, 0x6b2f42d1, 0xfe4269bb, 0xa78c5fb1, 0xfb3f7f03, 0xf977dc63,
++	0x7880238d, 0x2ef678a8, 0xa4e7ce0f, 0xfcf9c752, 0xcc5ce6b1, 0x47b0a8b3,
++	0xf254bd72, 0x7f8f15e7, 0xf96ff885, 0x52e4afd1, 0xf305833c, 0x443b646c,
++	0xcb9e70f2, 0xe699bd1e, 0xc4c2ce59, 0xc98f1587, 0xa1f0ff94, 0x973ce6c2,
++	0x16de4e44, 0x8b727272, 0x4e859283, 0xfb8242e2, 0xd1caaf10, 0x5bcf146d,
++	0xaf92f145, 0x6c47fbe8, 0x743fd535, 0x2bb57a72, 0x4b0c1fba, 0x9f7f9189,
++	0xe903a7b8, 0x70487a74, 0x6b81c620, 0xf8111299, 0xbf402e90, 0x0359d1f2,
++	0x5f989d39, 0x81df1529, 0xcf819ffe, 0x3d877db1, 0x7d312ae8, 0x26142ec7,
++	0xc6235fc6, 0xd0d3b807, 0x0b993dbe, 0xf99260f6, 0x3d25d865, 0x0cc1d46e,
++	0x7790667c, 0xdc4fff2e, 0x975de5cb, 0x39bce8ff, 0xd783fef8, 0x77e11cb8,
++	0x5c00bf68, 0x7ef481f1, 0xe9124dff, 0x278b0707, 0xec27f393, 0xefcdce42,
++	0xf002fcad, 0xf71eb82b, 0x938e0df1, 0xfb207445, 0x7c237cb6, 0x38abd46f,
++	0xbf7fa7ae, 0x172f1cba, 0x8af7e0fa, 0xfa100fc8, 0xf5ca3d80, 0x243f6a40,
++	0x7b75edc2, 0xa08ffbf4, 0x46bc82fc, 0xf6bf28fc, 0xbdffce10, 0xff5f071d,
++	0x7bcdc832, 0xcd6e5d31, 0xb72ad57a, 0x66af3b15, 0x3df6e4c9, 0xca92c02d,
++	0x2a4f3c2d, 0xf1275ab7, 0xaf5bdff3, 0xed5478ea, 0xebaabd66, 0xb4f854c9,
++	0x8acdc9ea, 0xd56af09f, 0x1af7f093, 0x8fcfed2b, 0xfcea1f3a, 0x9a83f957,
++	0xfa8fa8a1, 0xc3e754f8, 0xf9d53e3e, 0xd13c5fb0, 0xfbeb4784, 0x18dc605f,
++	0xfbb425f8, 0x81f3b3d7, 0xf87bd5ae, 0x777c2cbe, 0xaf80eb08, 0x5ad37720,
++	0x1b67e50f, 0x3d4b51eb, 0xb41f6966, 0xf69643d4, 0xcebd4b61, 0xe3ca3ed2,
++	0x5507ed69, 0x37139f9e, 0x63afb7b5, 0xb1c63711, 0xc714caf7, 0xd79801ee,
++	0x3b3df7c3, 0xc291a30a, 0x6f5b5e44, 0xf51eba8e, 0xd7b78f59, 0xaf62f683,
++	0x7aefc78b, 0x4c9ebd42, 0xd6f69d83, 0x71f4991e, 0x49cd9467, 0x05824fe6,
++	0x64ebf44d, 0xb8f3dea9, 0xddda0f7c, 0x592cde30, 0x718b582b, 0xf2995698,
++	0xdc369667, 0x8cfcc1e2, 0x37c53d9e, 0xcbe7842e, 0x9b7cc88e, 0xf2541230,
++	0x29dc7e0c, 0x9a687916, 0xf7c7fb84, 0xec97fd13, 0xd2dd7ee1, 0x73f393fb,
++	0x5caef8a5, 0xdea2a35b, 0x6dec7f04, 0xde83bee3, 0x96a3c54f, 0x17ae7be7,
++	0xfdfdcf7c, 0xefcc27ca, 0xb03e22c3, 0x71fbe74c, 0xcff71c6c, 0xae77e519,
++	0x96777a16, 0x85c6fa3c, 0xc39e8740, 0x39be4332, 0x3a2647bb, 0xf7c1dd9c,
++	0x3ece29ef, 0x97b5f905, 0xaf8e9df4, 0x118f942e, 0xd750f5a9, 0xfd2fbff3,
++	0xdea9341a, 0xef92dbf5, 0xebb5d942, 0xb117f0f8, 0x051bc2fe, 0xdbfd65bf,
++	0xa2e7d8cf, 0x7d9e8d7d, 0xec87da6e, 0x82f3fbd9, 0xb77d61af, 0xf6708023,
++	0x0973fbec, 0x3acf51f2, 0xb1ea0547, 0x1fdc219e, 0xe7fbdc6d, 0x3f5a4e92,
++	0x937e789b, 0x67c3fb9d, 0x4df5fcf7, 0x984b1b29, 0xfb07da15, 0xa87f69d2,
++	0x8a2ec7f6, 0xfdecf5ab, 0xced1a973, 0x59f3acff, 0x7b1bf629, 0x4ee16cdc,
++	0xef932f84, 0x38bed4d3, 0xe6036b65, 0x57edb463, 0x19fbc097, 0x825f393f,
++	0x2767b1fa, 0xedba7bb7, 0x7ee38f9d, 0x2fed77da, 0xbd03b3ae, 0x063851ba,
++	0x3f529a81, 0x92d11e9e, 0xc53ce5e1, 0x1f172f0b, 0xe0c7ff3b, 0xf57da243,
++	0xa8ee3dea, 0xff79c253, 0xa2dfcde5, 0x20e7d83e, 0xfbe7d4be, 0xec81ac5e,
++	0xfbcd4b91, 0xbcdd3fe8, 0xcce5f8a5, 0x7c1ff7bb, 0xf26377de, 0xe5fdd5db,
++	0xef9f3fa0, 0xcfea9bbd, 0xef0403b8, 0x57bbf265, 0xfd1c7955, 0x9ffe741f,
++	0x813bee98, 0xcf4b9eee, 0xf83fec7b, 0xfdd353bc, 0xee82edc8, 0xa947cc5e,
++	0x8279c9fd, 0xb9ea93ef, 0xce87ff1b, 0xefd7b75f, 0x315a05b3, 0xbd1d3b2f,
++	0xe1e73c01, 0xe182df9e, 0xce46fbc1, 0x28dda2f7, 0x2b4bfd8b, 0xfb95117c,
++	0xf3c4b27d, 0x1e10d9d6, 0x4fc263cf, 0xd710f342, 0x272b454f, 0xd6d154bb,
++	0x94ccdd93, 0xf0104740, 0x7755df72, 0x87d72806, 0xc6163f8d, 0x0169e0fa,
++	0xfc5b578a, 0x058926c5, 0x9557b025, 0x187f3eab, 0x48fb16fd, 0x4251dc5b,
++	0xde585be5, 0x7690e223, 0x67f26aaf, 0xbae6d1b4, 0x3bae6fcb, 0xc64e7f44,
++	0x58fa77e1, 0xf2d1e314, 0x98bc0795, 0x538f26cf, 0xbb2ea618, 0xfd046b58,
++	0xfccf8706, 0x73f422fd, 0xb45bf10d, 0xb060e3db, 0xad8efbfd, 0xf3383f14,
++	0x60375bf4, 0xca2f55bf, 0xe97809cc, 0x7166e1de, 0xaa251be4, 0xd9523fa2,
++	0xbe290726, 0x174bc4a2, 0x750bf618, 0x87eab17b, 0x72ab826e, 0x173a23a7,
++	0xf5dcafbe, 0xb75a1287, 0x3d92f5d7, 0x0a5a791b, 0x3be1a36c, 0xb03f704b,
++	0xbe7e4952, 0xe79511e4, 0x4eed751b, 0xbc7e885f, 0x6be79db4, 0xb16ec656,
++	0x28790c3b, 0xdebb541b, 0xf228f88e, 0x2cf94494, 0x4f319f08, 0xbb57b750,
++	0x7c38929e, 0xe628f6ed, 0x7f6e567d, 0x11e31bae, 0x011cc795, 0xb76b1b74,
++	0xeff14fbf, 0xc67c3f19, 0x977e49d3, 0xfb43f26c, 0x65db7ff9, 0xb6caeba2,
++	0xa15bb21a, 0x195df44e, 0x27d6fe13, 0x7eaa4ff4, 0x1e1777b8, 0xd1faa894,
++	0x778c1e93, 0xe6d8ee9c, 0xfb703f21, 0xfd31e3c5, 0xbdd8bdfc, 0xc2fbdfc2,
++	0x54e3e449, 0xfc69defe, 0x3f51d807, 0xf37e2d55, 0xc76401f6, 0xc9a59c02,
++	0xfe74c7f6, 0xc3e67aa9, 0xd95e31c7, 0xc7bdf3b5, 0xbfeaee11, 0xb471e9fd,
++	0x973ed943, 0x6a2df717, 0xc535fe9f, 0xdeeff477, 0xa25c7954, 0x2927a9fb,
++	0xfe0dd63e, 0xbdd6f636, 0xfa0164f7, 0xfdcfdd23, 0xe7fd1725, 0xd1677b35,
++	0xcf358ff9, 0x92c818cf, 0x225eb1c8, 0x232f46ff, 0xdba5673e, 0x6483b6c1,
++	0xba019f2f, 0xe7d2bfa3, 0x786ac7c7, 0xfc2fc47c, 0xe3c91df7, 0xf5fcfda1,
++	0x5e3705b6, 0x6db8f98b, 0x83aa00f6, 0xafedfa4b, 0x5ec73d01, 0x88771d06,
++	0x0bec4cf8, 0xcfdbf517, 0x5e803fe0, 0xfc742de7, 0xf7d96db0, 0x6d77c11e,
++	0xedfa5203, 0x9fc0cbf1, 0xa23d6f1e, 0x940e9d06, 0xa03f9db7, 0x6fd20978,
++	0xfbb84c2e, 0x300b0f99, 0xdeca7d5e, 0xb1e53b7b, 0xd17875ef, 0xfbdcad4f,
++	0xf753c906, 0x9e2947f3, 0xb3dc44c9, 0xf1fdf59b, 0xa1c894f8, 0xcdc27dab,
++	0x07417dfd, 0x3df8078c, 0xfdf85cf4, 0x78f5af9c, 0x4038aa40, 0xe4f3c1d0,
++	0xcd7038f4, 0x7e15bf13, 0xd26e8275, 0x5bd7a464, 0xeb5f8d17, 0x1e22f078,
++	0x5ce31926, 0x7d2ee3c9, 0xdd0b2e71, 0x5f56f8f4, 0x83ea0b1c, 0x95119e31,
++	0x371648de, 0xe3ccdeed, 0x7376dd63, 0x4e824dfe, 0xd535ee3c, 0xe8d38e61,
++	0x2f254df3, 0x6a5edcba, 0x4f149f1e, 0xbb08d0a3, 0xbabe3fba, 0xdfae4e3e,
++	0xde5c776f, 0xfdca757e, 0x7592a594, 0xc736e53f, 0xbc3f68d5, 0x57ca32a5,
++	0x0c79e5e8, 0xc8b9befa, 0x5a7aec17, 0xfac978a6, 0xefd241d8, 0xefa1fd56,
++	0xade159b7, 0x6caef013, 0xd747ebe7, 0x8354774e, 0xec0eba7e, 0xb95ebe26,
++	0xfd152de3, 0x7fdb43cf, 0x8b3b72a4, 0x1fae11cb, 0xba7cc351, 0xc25fdd9e,
++	0xdf3c7ae3, 0x37ce3ad9, 0xa93edc1c, 0x9c7c93dd, 0x9bef1dda, 0xc48aa9c6,
++	0x79ff9e54, 0x2b4ef1f1, 0xbfb05bc1, 0x3a761dd3, 0x263a73cf, 0xbfb649cf,
++	0x1761d8bb, 0x2f2b41f6, 0xbca51d61, 0xbcfca3ee, 0xd357c4c5, 0xcd7a0f28,
++	0xc5bf39d1, 0x406b8c73, 0x6c4ed1ac, 0xda7ce06b, 0xf9827ff6, 0xa3b6ef48,
++	0xfd71965f, 0x35f885da, 0xafa58bd8, 0x8370cdd5, 0x5dfd287e, 0xabb22268,
++	0x3a4cef55, 0x0fc13366, 0x75c40ce3, 0xc1fa09a1, 0x9fcc7dfc, 0xcf647842,
++	0x8f0839ec, 0x5d79b5ec, 0xed52f249, 0xcaf2885a, 0x5eed7ef5, 0xc338de73,
++	0x4fd086f3, 0x5e7a95f7, 0xf1032851, 0xcdc761f4, 0x328674bc, 0x775917bc,
++	0xd9bd094e, 0xf1601f55, 0x081cfc11, 0x7e456bd6, 0x839ec570, 0x560f51b3,
++	0x2fe624c4, 0xada473c4, 0x763f3724, 0xa573f264, 0x515db351, 0xd457e7b9,
++	0xb78db2be, 0x6a3162af, 0x8c45e78f, 0x6c4d5bf6, 0xe11ec582, 0xf223ddfc,
++	0x95cfaa42, 0xff21b8b2, 0x9f8267eb, 0x26bdeaba, 0xf08d5f3d, 0xd61afb41,
++	0xc4d4e341, 0xd1c69806, 0x9b9cd5db, 0x46afea6a, 0xab7e20e9, 0xf42ff739,
++	0xeabe4fbc, 0xd487847d, 0xe09be7fd, 0x853ff44e, 0xeb2427c5, 0xb73d1a7f,
++	0xe6fa87e6, 0xde6378f3, 0x882cbd02, 0xe88cfea2, 0xd3ca73e7, 0xbf808da2,
++	0x3ff85a23, 0xdcf81f50, 0x625f0b1b, 0x326cde78, 0x709f59e5, 0x0f047c88,
++	0x047cf0f3, 0x7583622d, 0xcb6d11f8, 0xf28c6986, 0x8c3b4e0d, 0x5e2c06f9,
++	0x6f447a82, 0x25bdefd7, 0x7e30611f, 0x1650aa02, 0xde631670, 0x8d07ac3f,
++	0xb05b3cf3, 0x9f9ba8fe, 0xbd602c93, 0x60ff31fb, 0x0a03f0ab, 0xdc58ce31,
++	0xa7e4bcff, 0x3d99273d, 0xd0d56ca3, 0x9cb36300, 0xa02a6723, 0x296fb32f,
++	0x0bdf2e7b, 0x3d9b1966, 0xb3d0f313, 0x971b2c9f, 0x4b58f507, 0xcbff7f27,
++	0x500571b2, 0xe2eae63f, 0xca24abef, 0xbe5b57d3, 0x7da2333b, 0x137d3d06,
++	0xa4d4a660, 0x409cb3a7, 0xdfa133cf, 0x1f99717d, 0x557a1ef3, 0xc216678e,
++	0x73264376, 0x7ed60dfc, 0x75fa1cf7, 0x0d9d6d43, 0xb7be5fa8, 0x7499cff7,
++	0x23f30fde, 0x6b1e9cf0, 0xe11d22f2, 0x170be4d1, 0xe6b3afc9, 0x74fce999,
++	0xec5c3b95, 0xdf363a04, 0x23ce9239, 0xde31523e, 0x26e37e89, 0x70f3b791,
++	0x3f21be5f, 0x93b57897, 0x44f9f7ef, 0x0fd9d75e, 0x2eb2330a, 0x7d6a1fa2,
++	0x0628278b, 0x5e947ab8, 0xf9efb7da, 0x31dbadf8, 0x99eb130f, 0xc499d649,
++	0x7be94bf7, 0xf3053e6b, 0x2d9f1366, 0x78867c15, 0xfaf21a73, 0x9511cb97,
++	0xc55bda07, 0x8bd337fa, 0xd52297f3, 0x9f5185f2, 0xb4c74f1c, 0xd3c45cf0,
++	0xcf299ce7, 0x7a45ce75, 0x6675cf5a, 0xe0374339, 0xe7e57977, 0xfaee500a,
++	0xad4a69ce, 0xeb3f4879, 0xf4a64fb9, 0x19f992da, 0xcfb9c45b, 0x710f7054,
++	0x71c36f85, 0xdfe27e8a, 0x7fe41879, 0x803552ec, 0xd763a4a9, 0xa4280c4e,
++	0x45de789f, 0x3c2be0ad, 0x1ee74eae, 0xcfb466ee, 0x8290e3db, 0xdcf7d7e8,
++	0x60bb25e5, 0xe4b9d2f0, 0x17a4f75f, 0xa93f30c6, 0xda7e6be7, 0x427b040f,
++	0xb21f3942, 0xf2ee2327, 0x647e9c90, 0xcc8fd391, 0xb71e6972, 0xbdbf82e7,
++	0x8af3fa93, 0xcfd0c0fe, 0xee9f9c4d, 0xdf7af991, 0x3827ef53, 0x7ec8b086,
++	0x772f1fb4, 0x853bafbc, 0x03e8281d, 0x1186fff8, 0x66c740ff, 0x3a43afac,
++	0xc74a4c8e, 0xb47464e6, 0xe49dc79e, 0xfd87df0c, 0x443f2c9c, 0xe7ad72e7,
++	0xc9129970, 0xe9593c43, 0x3eb4ab5b, 0xb9d25b8c, 0x3b27de7b, 0xd8dfa746,
++	0x4e88e3b5, 0x843e7a06, 0xf3dd8c70, 0xd6e10dbe, 0x291df8e9, 0xc14c1db9,
++	0x8ffbabc0, 0xd3b0bb97, 0xbed24e16, 0xf5296d64, 0x82d9f807, 0xf3f018e3,
++	0x9fbfd614, 0xe14f3f1a, 0x3f032fbc, 0x7e0e5ecf, 0x4aaf3f74, 0xee1571c8,
++	0xff9d015b, 0x5b9f9fe8, 0x96cee304, 0x15d3e235, 0xef8a64db, 0x79b9fb42,
++	0x5fb909b9, 0x3f6ea531, 0xf15c579e, 0xb4fc4498, 0x7fbf9c54, 0xb7bf9c4f,
++	0x2f9603e6, 0xbd9e908c, 0x94605e74, 0x76d546f4, 0x09c3f3f3, 0x3ca02afe,
++	0x89ef715f, 0x15805f7e, 0x213567ff, 0x365d4bd7, 0xfd02bde3, 0x66ceb7e4,
++	0x9bcf2bca, 0xf90fd7d1, 0xff9b3efd, 0xfdd38a0d, 0x6e30cecc, 0x27b25414,
++	0x131f11c6, 0x6fd899a5, 0xbd2f9099, 0xcd6ba1bf, 0xc4615e76, 0xb8b03e7c,
++	0xf03e7cc5, 0xf9f3568a, 0xcc9b11c0, 0x8caf03e7, 0x8e07cf9a, 0x54de3eda,
++	0xc6bb131f, 0xfb6c7ed4, 0x5c7d5374, 0xf6a6f3fc, 0x37cf0e13, 0xf8eeafd5,
++	0xa4fda9b2, 0xde9a7763, 0x34ace94f, 0x6a7a9fbd, 0x6d7ea9b5, 0xda9abfef,
++	0xfd7197c7, 0xe47ea075, 0xfa9e6354, 0xcdaa5581, 0x0d57cf8b, 0x8c4b79b7,
++	0xfe8373cf, 0x834b2c12, 0xd2a767e8, 0x579c33b3, 0xf7ae354e, 0xd26ecc65,
++	0xe69c333f, 0xe225c7ba, 0x2fc00510, 0x2e01fc40, 0xbc815cb3, 0x1e40bae5,
++	0xb5a6ebf2, 0x83c7870c, 0x40cb0c56, 0xcb390279, 0x9c9e5d75, 0x93bb63e5,
++	0xb1ebe32b, 0x003eec9e, 0x2ef910b5, 0xb29bf942, 0xe32ff738, 0xfe32173d,
++	0xc2a5443f, 0x5e4a1122, 0x7c860167, 0xf5f75d6f, 0x8f8adef5, 0x27c78b80,
++	0x04f0fe1d, 0xdc3f2cc5, 0x4c55f0df, 0x92f80c50, 0x76a675bd, 0x499cff0e,
++	0xef89f7c6, 0xdfcc9342, 0xa5d5342d, 0x7f2973e5, 0x765c1528, 0x4f5192df,
++	0xe7b37e80, 0x7f52a62d, 0x96d0bcde, 0x06f05f34, 0xc3f467d7, 0xc9ff3ca3,
++	0x80dddf60, 0xfd933974, 0xf79843ea, 0x2f5172b6, 0x0e79e3f9, 0xd4487eb3,
++	0x3a2f3df9, 0xb3d68f3c, 0xebdeb8d1, 0x4196dae7, 0x9a6dd621, 0xf3e3b2ef,
++	0x61af3173, 0xfd3f0a70, 0xc79f3101, 0x96a323eb, 0xa7306322, 0x41793ce9,
++	0xda3676bc, 0x9e454361, 0xe4b643f6, 0x2e5553f9, 0x440caebe, 0x82f68d45,
++	0xc13ed2a6, 0x79dff299, 0x55abf530, 0xff21570e, 0xa3b639de, 0x0ea39f94,
++	0x3f7e78f8, 0x77d75b87, 0x21e85a05, 0x60055fd4, 0xfb0bf9b6, 0x517033c3,
++	0xbc214e68, 0x05b2ca6f, 0x4af7aa34, 0xebf8de74, 0xbed03320, 0xc1326fe9,
++	0x0a6074d7, 0x5aa915e5, 0x27464598, 0x7e44c9e6, 0xf0efbe82, 0xe44df661,
++	0xd55d36bf, 0x9188de77, 0x3a85ab3f, 0x370fdfb0, 0xa6dc69da, 0x7de992e9,
++	0xeabad681, 0xde51c010, 0x4bf14e96, 0xe40dd365, 0x0e3ea97f, 0x12e3d34f,
++	0x3c112c1b, 0xe1eece3c, 0x7c3c00f8, 0x2670f105, 0x4d91f858, 0xafbc349f,
++	0xbce950c9, 0x711490e8, 0xfc3a6d8e, 0x3a2691c1, 0xc3308de7, 0xf6fc6f2d,
++	0x3f9843aa, 0x807a7cf2, 0x2e3ea4a4, 0x779e6ae8, 0x1bfcf673, 0x1aed04bf,
++	0x1e19935f, 0xc277f0f9, 0x91f34f1a, 0x7824d1a3, 0xf006e9d7, 0x957e436f,
++	0xf9a6cd37, 0x2f7a0a16, 0x3ae37a07, 0xe685b3e3, 0x6d73fd10, 0x9d6be70c,
++	0x07a10ec7, 0x8579719e, 0xf97396fc, 0xf51d2df3, 0x73d204c4, 0x73ffd86d,
++	0x73f694ae, 0xdd892b9b, 0x517ba975, 0x1c7617aa, 0xca0e52c2, 0xd427ee01,
++	0xcfda370d, 0xe27f1fa0, 0x72cdf832, 0xb04bd7c6, 0xe1d94bdf, 0x65a04ab5,
++	0xeda5e178, 0x90cfb434, 0x0cfb750f, 0xe71479e6, 0x9e8b0bf9, 0xa3f5e837,
++	0x4499e6c9, 0xed8ebfaf, 0x9e397e4e, 0xbd027ed4, 0x8e64764e, 0x65ff5c9a,
++	0xd47a71a4, 0xf946557a, 0x97f62985, 0xedc9696c, 0xdfeb54c6, 0xa290fca5,
++	0xc07ee681, 0x847f216e, 0xdfb4ab95, 0xcd83f675, 0x3cc70ef7, 0xf288ad21,
++	0x93f55383, 0x04c976bf, 0x22bfcf81, 0x9dfc741e, 0xf015e0b3, 0xeba4d7f9,
++	0xd3e03564, 0x4b27c266, 0xf47b0cbb, 0x32bb9fd3, 0x16ea179f, 0xe0758778,
++	0x16075a2d, 0xf18a59bc, 0x7f379597, 0xa7c0eb44, 0x39a1671e, 0x0fc7a08e,
++	0x21df9c60, 0xfc17ba9e, 0x3b7dc44d, 0xf8d95e29, 0x17ba08fc, 0xaeba66af,
++	0x749cea4f, 0x117072ee, 0x2ecce7d1, 0x3ce11047, 0x66e3c593, 0x3a4d7667,
++	0xf799f184, 0x19670fea, 0xd9e67ce9, 0xe876a5a3, 0xa3ceccef, 0xf7e90aa5,
++	0x9ddee9a8, 0x2abf0b9a, 0x3f5e7f45, 0x77c7d0df, 0xd3ebe4ce, 0x3f3f8275,
++	0x5e301e29, 0x0a51fb4f, 0xbbed187b, 0x9b54bc3e, 0x499c15cf, 0xf114b37f,
++	0x0eb97800, 0x43d3aee9, 0x332b878f, 0xdc60663a, 0xfc0bf7b6, 0x2e8da93e,
++	0xe352a71e, 0xcd769875, 0xe35b879c, 0xc475a658, 0x3b50ef28, 0xd2c711d6,
++	0xc41bd9d3, 0x7676a7ed, 0x5fb1e7e7, 0x7eef29ef, 0x06f567ac, 0xd0c7873e,
++	0x06afe765, 0xbb7c03bd, 0x71fade71, 0xf7e94fe8, 0xd98af96b, 0xe0b1c2c8,
++	0xe25e61bf, 0x2dcb8a58, 0xe607efc0, 0x71c41eda, 0xf37325a5, 0x6c5c8196,
++	0x8794a8f2, 0x1c08cca9, 0xf37c23f6, 0xecef8214, 0x17df9961, 0x85b9cf32,
++	0xfc67bf9f, 0xfd9b921e, 0xa7d4beb4, 0xc3e3e7e9, 0x2afeb885, 0x1a516cac,
++	0x85a707d4, 0xd732c0ef, 0x10fc31d6, 0xf63ae77c, 0x609c029b, 0xd0bfc1e9,
++	0xcabb3abd, 0x3f71fb42, 0xe4b777ba, 0xc7fac2df, 0x7e85ebfd, 0x48efcbd0,
++	0xef31c775, 0xebbefeac, 0xec7c6166, 0xba3aae3b, 0x82fe05f7, 0xe7f41f4e,
++	0x32cadf0a, 0x6a691c61, 0xa16b9cf3, 0xe3f7876e, 0xcd69fbf0, 0x577ed04d,
++	0xaf1f3866, 0x534b71c2, 0xc10f0f9a, 0xb5bca33a, 0xcd29b4fa, 0xfe663011,
++	0xe3cbcd35, 0x10b85aed, 0xf757d4e9, 0xa86ddd42, 0x85752d3b, 0xd579f5d7,
++	0xe50bfc1c, 0xc3dcae95, 0xd9ca2def, 0x1bdf8f33, 0xee8f3ed7, 0x134e6b8d,
++	0x9a63447a, 0x58563cf1, 0xf88bdf0e, 0x195e92ea, 0x8f48e5ce, 0x2f78a67b,
++	0x59c39ee2, 0x06e3c51d, 0x62eec1e1, 0xbc78cbb4, 0x52f580b3, 0x8aebc7a9,
++	0x61ca8058, 0x48e5442c, 0x55e54ad6, 0x68e5462c, 0x096541d6, 0xc032a5eb,
++	0xe39632bc, 0x6cca8059, 0x59d1dd5b, 0x667f4fa8, 0x7c3a7d27, 0x8303aafb,
++	0x44de9118, 0xc78d66b7, 0x656bd6e9, 0xdcbc1ad9, 0x3f50f828, 0x348d5557,
++	0xdb62be03, 0xe87ec8f3, 0xdef63212, 0xf7045b26, 0xf9a3d963, 0x9c5abcf4,
++	0x7e3eae47, 0xf7cdec80, 0x60f3c982, 0xbb8bc05f, 0x963ed33e, 0x3ed67f59,
++	0x41be11aa, 0x39405f7e, 0x41708959, 0xa0ece6dd, 0x75f69773, 0x3ee907b1,
++	0xb4ec67b8, 0x18555abf, 0xbd43b32a, 0xa061776a, 0x7a8720c1, 0x6655703e,
++	0x96bc772c, 0xf5888f38, 0xdf825a71, 0x286fb657, 0x77fb7dc0, 0xf5a71ff7,
++	0x85e987fe, 0xb69a9f34, 0x4dd86aa3, 0xca2a7efb, 0x7d39bbcd, 0x97d93af6,
++	0x0640aecd, 0xfde9779e, 0x4b6fbf39, 0x94f7dfc7, 0xdf71975e, 0x283d70e4,
++	0x5ee9b042, 0xf951f7a9, 0x953f7a8b, 0xb2f7ab3f, 0x4700f820, 0x04da9dec,
++	0x30ce4f9c, 0x7bfbca2f, 0x432bd8de, 0x7cbe6227, 0xe601bf91, 0xcefd98d7,
++	0xded013fd, 0x7401c80c, 0x75eeec0b, 0xf3b42513, 0xcf29f37c, 0xbc6d1ee5,
++	0x4f008ff3, 0xe67012a3, 0x6b2fb8c0, 0xa02bb53b, 0x24fcfebc, 0xe5ffce27,
++	0x0fcd36ec, 0xddc61bf5, 0x247dc5ec, 0x02e36fe8, 0xfa2ecfea, 0xf6c4ef1b,
++	0x5a3f62f7, 0xa2fd9fa2, 0x677bbd7e, 0x543fbe36, 0xebee08cf, 0xb1b2da73,
++	0xbd1f7fbf, 0x13f195ec, 0xba477ee9, 0x17caca2f, 0x66cb9fd7, 0xe6cbb041,
++	0x41602b9e, 0xd393c7a0, 0xf942aeeb, 0xd1bfd357, 0xa0fd04ec, 0xa255d614,
++	0xb7a6f0be, 0x1f413b34, 0x9d01b06c, 0xa59f54bc, 0xcc70095d, 0xb181fae4,
++	0xa432e696, 0xc62bb03b, 0xae8fe1e3, 0xfa82399b, 0x7efe1ae3, 0xd79160e6,
++	0xf7e3ed00, 0xed0b31bd, 0x918a6ab2, 0x66e6b630, 0xa479f746, 0xce2a37b2,
++	0xc1a8b3a5, 0xba61fbae, 0x42a7e49f, 0x4c3ed089, 0xbd0f39c5, 0x5cfefcbf,
++	0xfd8873a6, 0xfde8d3fb, 0x7e74abe1, 0x679c520a, 0xdf2273cd, 0x881c15c3,
++	0xd763beed, 0xb8f60fe7, 0x57d5f113, 0xcc3e288f, 0xffe7d043, 0x49ffcd28,
++	0xef1ef135, 0xf7d81cf5, 0x7fd1059e, 0xea26923e, 0xb7922791, 0x2fb4b34f,
++	0x34cfebd2, 0x1fd69ccf, 0x12b8ef9e, 0x57b42775, 0xeafa3bce, 0x9b06df08,
++	0x7d2cbfa5, 0xfc69e7fc, 0xb45942aa, 0x5052f7df, 0x723bd031, 0xabef19a8,
++	0x78ef454d, 0x9b9b2fda, 0xae23fbe0, 0x5fad1950, 0xbf5a3337, 0x0602ee50,
++	0xe34f183d, 0xb9c555fe, 0x247a2651, 0x7a6250e8, 0xd2e4127e, 0x7cbb4fb8,
++	0xfe745dc7, 0xe7e69e24, 0x3f08b0fd, 0xb168f557, 0xfff67f69, 0xe169f1c3,
++	0xc7014b28, 0x1c33bfcc, 0x3fe49a57, 0xd368c701, 0x387efff3, 0x6380a466,
++	0x1c153ff6, 0x2f457b56, 0x2bda2fff, 0xcabda357, 0x9d6c41e3, 0xf7fdce8d,
++	0xe52a2a64, 0xc99369ef, 0xe195204e, 0xdf68eea7, 0xcd779f2f, 0x8b1c7bfc,
++	0x615f9db1, 0xd478ca2d, 0x11671157, 0x857f87ee, 0x0fcf03f7, 0x8683a02b,
++	0x1f693a64, 0x5434bfdb, 0xfe05fb85, 0x5435e585, 0x546eeb7a, 0x587a5f70,
++	0xefb438ef, 0x4fd96b36, 0xde933337, 0x2fbad08b, 0xb6bb22ad, 0x9b279be3,
++	0x6078df71, 0x68c3dd5a, 0x93914b07, 0x24a787cd, 0xd6f5cf7b, 0xd14fd32f,
++	0xce9d14ba, 0x293f42ae, 0x0ec68aea, 0xb59a3d20, 0xf0a3d200, 0x2296d19b,
++	0xdaf72ba8, 0xaf000d02, 0xbedd1992, 0x1e57e005, 0x4d764e18, 0xb61ff514,
++	0x6e89407f, 0xfa9dfcc1, 0x1bb7c500, 0xa5b47d85, 0xf317ae69, 0x3099ed98,
++	0x7ae5204b, 0xd097dd7b, 0x7534d75e, 0xae0a73bd, 0x01968107, 0x01f75e5e,
++	0xb1164f5c, 0x78a66722, 0xb46feb0f, 0x1af20d81, 0x6fe97eea, 0xbab79f32,
++	0xd70d383e, 0x8c95d5f9, 0xf7087f7f, 0xd2cc9e89, 0xfbdfc2f1, 0x4f5c750d,
++	0x7d448694, 0xeb7bcc26, 0xf7df5c63, 0xd1ebaba6, 0x44f987de, 0xc31b8ec8,
++	0x630e93e7, 0xf4fe007b, 0xbeb44571, 0xf17d6146, 0x0a71fbe0, 0xf7d2f79d,
++	0x6c639c83, 0xed841fb4, 0xc2ea7ee9, 0x742fda22, 0x388163ce, 0x69e703e6,
++	0x09517f7c, 0x3b3cc4ce, 0x04bf1f77, 0x8aa6ce29, 0xa26d12fd, 0xad205f39,
++	0x99b45be9, 0xfcda369e, 0x5ccc39dc, 0x9dc0b077, 0x60ec8f74, 0x2681be4b,
++	0xb00687f6, 0x1457e841, 0x6c3622db, 0xca85da07, 0x76df7851, 0xec811e31,
++	0x0c58faa4, 0x31e31691, 0x0c1d3f2b, 0x3282c09b, 0x6486a38f, 0x698e3bf4,
++	0x07947ce1, 0x66e2269f, 0x8dbf7883, 0x36ff61a1, 0x8ff14fcb, 0xf5efb47c,
++	0xb379c6fa, 0x4a91fe29, 0x889a22be, 0xec36dee7, 0xce9af7a2, 0x19100738,
++	0xc68e6ff4, 0x6f6b81f3, 0xd779f7e2, 0x947ee1ee, 0xe8b27efe, 0x9c4536b7,
++	0x327ae413, 0xd63df9c2, 0x485edb39, 0x0e7cacf7, 0x75f356e9, 0x6b4fc31b,
++	0xdfb9c7e2, 0x53b7b166, 0x158da1e5, 0x5f9f4dfe, 0xf218fc23, 0xc2ce902d,
++	0xd2ea597f, 0x4fbe6ee9, 0xa247bf42, 0x4f4dc847, 0xa8c44ab9, 0xea098345,
++	0xe9853739, 0x3172821e, 0x654df29f, 0x2c1fe8b9, 0x8225ffdd, 0x79c6d973,
++	0x5e4bde2a, 0xe13171be, 0x52ebc745, 0xa7f07f8b, 0x8d1709d6, 0xb4f6e9a7,
++	0xfee81fee, 0x484fd580, 0x47e7fdf5, 0xcc3a27ee, 0x3ed195f6, 0x3c1affef,
++	0xe07586cf, 0x67de20b6, 0x473ffba5, 0xf98eecec, 0x73655cf8, 0x2ec3f9f0,
++	0x54560f7e, 0xd87583dc, 0xdf859c5f, 0x7f3e29cd, 0x3b2f9625, 0xedea1a63,
++	0x7a3e3f97, 0x4a0ff903, 0x8d3cc34c, 0xfff70a33, 0xe7633af4, 0x0bf38a64,
++	0x7eef5fbc, 0xb867ee95, 0x74f7f0be, 0xfdc6bd3e, 0x3f639d2a, 0x3ca766d3,
++	0xb15debbb, 0x1dfde36c, 0xcdee17d7, 0x747e18be, 0x8088e1ff, 0x7bd170f7,
++	0x571a6105, 0xb70473e4, 0x53d2174a, 0xe7cd6f7f, 0x3e98ecd8, 0xa669e513,
++	0x2ff9e926, 0xcd97c88d, 0xfc9387f3, 0xe89bcf64, 0xf39bfde4, 0xc791b24d,
++	0x47cfeeae, 0xef59ff3a, 0xf1235925, 0xe0a9ef73, 0x19b405aa, 0x3dc4d1d7,
++	0xef3d2a25, 0x0e86f116, 0x54f6fb1f, 0xac799790, 0x75fb4ece, 0xfd177ee2,
++	0x4179975e, 0x2242fdcb, 0xd6242aff, 0x5e4437c3, 0xa7e63cd5, 0x376817ef,
++	0x75bf51d9, 0x6e60fb88, 0xf1bb6162, 0x425ea67c, 0xb6bd26bf, 0x7eb98e60,
++	0xb75cc873, 0xe7a8a3de, 0xdeb4fccd, 0x89ef153f, 0x999dfbd3, 0xd3ec3f42,
++	0xb03c5d3e, 0x67507e2f, 0x71e81f8e, 0x43cc1abf, 0x1e18fda6, 0xe4e59bf7,
++	0xbb8f4fe3, 0x56a37f68, 0x16e33753, 0xc5b3ea0c, 0xc6967cf0, 0x8bc60df5,
++	0x59a29ef0, 0x6f1f7e8a, 0x80e7bf54, 0xf909cbbe, 0x0ddc6336, 0x5ee930f3,
++	0xdf1e70ab, 0xa0721157, 0x0ece19c7, 0x5e6467f3, 0x4db5bf84, 0xba9ee9b2,
++	0x13b895fb, 0x00fee0f9, 0xf04ac3cf, 0x6f14d471, 0x49a936d5, 0xebebb7ef,
++	0x9e0af407, 0x3ee0724f, 0x01f7d02f, 0xc635e825, 0x887b3423, 0xf4f776ea,
++	0xf2f23f0e, 0xe3661b03, 0x988d1055, 0xca760c1f, 0x6957da3b, 0x03db767d,
++	0x621ef187, 0xc7e6dbb7, 0xb341b8f5, 0xa357bed1, 0xefeb49cf, 0x8bdaa97a,
++	0xebf7a4fc, 0xae0854ee, 0x06515ab3, 0xabff08bb, 0xda334fe0, 0x87df31af,
++	0x9e37dff5, 0xddfaed46, 0x0a7075bf, 0x131d59c5, 0x17bc016d, 0xb1ac1d5c,
++	0xcfc9243f, 0x936f1bec, 0x549fb492, 0x77494ff8, 0xf507a77b, 0x7c96b743,
++	0x2dc8ba3f, 0x3fc2fb89, 0xb22c3ca5, 0x5f33c3c4, 0xefc71e1f, 0x8a1bcea5,
++	0x8a3e490b, 0x2b6f20dc, 0xccf59dc7, 0xe47c93f0, 0x2e1c7cf2, 0xabda8db7,
++	0x6c379e4e, 0x152da7be, 0x4978ea3f, 0xc8e50785, 0x37e78c5d, 0x7f719986,
++	0x43c52dce, 0x4e32d794, 0xb8afba49, 0x51a1e056, 0xcabf1009, 0xb89c86d7,
++	0x4f64340e, 0x7ffee277, 0x28cfe2b3, 0x88f0fb44, 0xd66e30cc, 0x8dcb35e4,
++	0xfb88b65e, 0x6dbae745, 0x7559ef49, 0xeeff92da, 0xbe6e5dce, 0x9fecb44e,
++	0x52dee742, 0xd46809f1, 0xa5a5d910, 0xf3ef178a, 0x5e1ced96, 0x04fc8a57,
++	0xfc54dfbd, 0x177eef71, 0x61993dff, 0x659f3a4e, 0x9c49af1d, 0x78026bc3,
++	0x1a6dced0, 0x6c7841dc, 0xd178a89a, 0xd3f9768e, 0x5ed0d398, 0xef489cc9,
++	0x78d96acf, 0xa5359026, 0x4f1d3be0, 0x9f6db9d7, 0x16c2ff8d, 0x0df9cbfe,
++	0xfc0dcbc5, 0xff193ab7, 0x983c875d, 0xde37e1c3, 0xf264a9ab, 0xbc2b3ffd,
++	0xde3e7e7a, 0x9fcc6e87, 0x845f052a, 0x1c8e8dc7, 0xec0c3e9a, 0x303abedd,
++	0x86d78c38, 0x73fb8e7a, 0xd133a771, 0x647dd1be, 0x75429376, 0xdf07df3a,
++	0x6cf7f105, 0x39fdc4da, 0xc1f3a835, 0x45beaa8f, 0x9f585e63, 0xbb2ccaef,
++	0xda51e717, 0xab9f8071, 0xf9a1cb69, 0xadef8b57, 0x9c3dc6f0, 0x2f1ee39f,
++	0x82c71995, 0x77dfc03f, 0xf348eb68, 0x2db71c63, 0xd639db8b, 0xf5bbceef,
++	0xb156873c, 0xfb49d1df, 0xf8333912, 0x3bbbd47a, 0xfea3fc9d, 0xf7e069f8,
++	0x8dec5869, 0x94367bbe, 0xd51dd938, 0xc7d0eec2, 0x82c45d2f, 0x2f4bbbf8,
++	0x2716b1a5, 0x843b87d8, 0x2df6321c, 0x780a5fb1, 0x7c6fb804, 0x3fed1471,
++	0x04bdfde9, 0xcfb612cb, 0x912cedcd, 0x3fc0cfe4, 0x6fba6631, 0x39d9c6ad,
++	0xbe47f51c, 0x46edde1c, 0x6758e33f, 0x5edbd62e, 0xe0f64d3d, 0x73f0f0a5,
++	0x51c2bf81, 0x571e7dba, 0x35d6718d, 0xf45d95cf, 0xc6355d7c, 0x50fe0c43,
++	0xe9b36f02, 0xa17ebf79, 0x1fe8bf3f, 0x8d392be3, 0xa09ae9c9, 0x4c8b3e4f,
++	0x0a7d18b8, 0x25d23de8, 0x1fd39a3a, 0xde60f9f7, 0x607fd764, 0x09ef27d1,
++	0x9f4ffd7a, 0xae26366f, 0x40e53f01, 0xf188e789, 0x9fbc5bde, 0x6fc794f7,
++	0x15b27f5a, 0xcb3553f6, 0x2c6987c0, 0x8dfa84e2, 0xd167ce8e, 0xfaebd3fe,
++	0xc7c11bfb, 0x39fd8c9a, 0xf2e91cb9, 0xb928bd5b, 0xedcb7edc, 0x3c0efc21,
++	0xbee0f716, 0xfc628bc7, 0xe81fd8b6, 0x76b6b3be, 0x3d4fe199, 0x96145c0c,
++	0x4e825ac3, 0xebe1fbfd, 0x60ff2e8f, 0x0b728e4e, 0x4a3947f9, 0x6bfdcb5f,
++	0xdfe8cf5d, 0xcfb47915, 0xee8f1f66, 0xc8ac4e77, 0x75724393, 0x05f44308,
++	0x7bbdf96b, 0xa2ff0b6f, 0xd39fdc5a, 0x18c7dfa5, 0xde33691c, 0x5a76f5bb,
++	0x87fd1441, 0xe5f787b7, 0xed1ae609, 0xf0576aaf, 0x1bbef0df, 0x7ca65476,
++	0xc1bc0fd5, 0x9a2fee0c, 0x712ea7fd, 0x3fee8eaf, 0xffdf8b35, 0x7f398362,
++	0x1dd24b37, 0x91ffb0f3, 0x72af749d, 0xa75f2e6e, 0xcc7f73f5, 0xf64259d7,
++	0x54abe0b7, 0x0f39f77c, 0x83d40f97, 0xad7ca491, 0x0dbf9e9a, 0x70c460eb,
++	0x53cee84e, 0xcf1ce8c3, 0x78a01612, 0x749692e6, 0xbde03116, 0xf9e4f1ed,
++	0xbe848b35, 0x4ef7136f, 0x5e7cd1b3, 0xf3e7be09, 0x1c975b68, 0xbe0c9eee,
++	0xfb89b70e, 0x6094dbc5, 0xd529e23a, 0x078fa13a, 0x3ca74b04, 0x6f07f387,
++	0xe6fd71a0, 0xfa257f71, 0xb26ff17d, 0xc0037df8, 0xd827d0a3, 0x9b1e1bfe,
++	0xe2bebe49, 0xb3faacf9, 0x24feb4cc, 0x9e933ef0, 0x927d767f, 0x927d0979,
++	0xf251ef4d, 0x3a78ced0, 0x7b75efc6, 0xce6db0fa, 0xdb742496, 0xaaf4e424,
++	0x3fee851c, 0x76e7151b, 0xb976aa40, 0x639ee259, 0x7c2b4781, 0xf9c9c5d9,
++	0xfe0ca5e3, 0x7e74f57d, 0x1bde334f, 0xb285f38f, 0x75fd0020, 0xf422d74d,
++	0x6fe25ffc, 0x7ab49c62, 0xbf8fc3a7, 0xd3b5d7cf, 0xa27a8155, 0x62a3a76b,
++	0x7e9fd68b, 0x3b663cbb, 0x4ccf99f7, 0xf58c7fbf, 0x705174a0, 0x5fd1cfc2,
++	0x3ee99768, 0x927f6b49, 0xecf34dc7, 0xec29e7d3, 0xb9b9afb0, 0xe74ecd3e,
++	0xf117b174, 0x572ad475, 0x1d3c8547, 0x2d90f215, 0x75876bee, 0x92eb89c9,
++	0x0217eede, 0x2cc393df, 0xe7c17de9, 0xb12e02dd, 0x76bc3c2e, 0x04c3fb06,
++	0x08ce7dfc, 0x7eda19c5, 0x7ec02f13, 0xdc78cabb, 0x16fdfac0, 0x998c67c1,
++	0x3349eaed, 0xb9e612fd, 0xc5e498b0, 0xfdbd7c7d, 0xb7bf18a4, 0xd3b9fff8,
++	0xdbc5ecfb, 0x807bbfc8, 0xf49a2eff, 0x81eb8a53, 0x61b4170d, 0xc18fd15e,
++	0x5ff8338e, 0x1de8b2bf, 0x0baf3c2b, 0xefc4da78, 0xeb8d3287, 0xf55d2b61,
++	0x779f4c75, 0x1cb300f6, 0xd7ff82c8, 0x9647328a, 0xb9743c68, 0x7d7c591c,
++	0x5cc4f9e6, 0x49d2e24f, 0x1e5859cf, 0xbcaf7003, 0x90e6fc43, 0x95dcef88,
++	0x31ef3e19, 0xe9da3df0, 0xbb097eb4, 0x6fdc4dbc, 0xa889dba9, 0x466bc74f,
++	0x0e0223b8, 0x4ad7d71b, 0xf30d7d72, 0xe2a7bf10, 0xf6127ea6, 0x262bb706,
++	0x166dfc0a, 0xb25f51e7, 0x3fb226b1, 0x39749e04, 0x9661951d, 0x7f8ca2d3,
++	0xacdd390e, 0xa4727cf2, 0x787d325f, 0x9427ed1e, 0x71c16387, 0x4572c798,
++	0x5fa00b48, 0xff31da5a, 0x0cf1e600, 0x943f83df, 0xe1e39093, 0xbfb19f82,
++	0x2dfc0645, 0xf09b70c8, 0x7f8cf9f7, 0xf877bb0e, 0xdf37d631, 0x7d7a0cdb,
++	0xe5c68655, 0x942ffc00, 0x9a7f8a83, 0xe00e86f9, 0xa06aae39, 0x9d0caa3b,
++	0x8b62da3f, 0x3ed0b9d7, 0x6802c63e, 0x16c7775f, 0x7f00c6db, 0xf6e26f74,
++	0xdf9e9f63, 0x7a05f1c8, 0xf97a8639, 0xf4c1638a, 0x275f50d1, 0x458ae3f8,
++	0x14e7df8c, 0xcfd14773, 0xce44f5d6, 0x7033bd4d, 0x7a6577df, 0xf0cb835d,
++	0x3b7dafbc, 0xe84c2fb4, 0x37d46a9b, 0x7df6d4fe, 0x8d3a466b, 0xe209eb87,
++	0x733a5665, 0x979e00ba, 0xee32230a, 0x4574be6b, 0xe7bc78e1, 0x785a50fd,
++	0x7ef86af4, 0x0e3e1cd2, 0xaf44776b, 0xd2ff1248, 0x88ae75f5, 0x7c8ae54f,
++	0x5e34dcef, 0x45f42c7e, 0xc1f39783, 0x9ebcbdaf, 0xcf1e49eb, 0x17ef11ea,
++	0xdcef5cc8, 0x2edc9657, 0xc67c6589, 0xb24063f8, 0x1963e3c6, 0x6f9ee239,
++	0xeb5f425b, 0x7c4273fc, 0x2edf8fa7, 0x9cfcb5e6, 0xe59fe264, 0xcdf11d4a,
++	0x3d0a73f2, 0x1522e5d7, 0x79fbe9ff, 0x78e11d9b, 0xbe7bd406, 0xc60961fe,
++	0xe9ef0a0d, 0xf848fbe2, 0x5253407b, 0x1ebe87cb, 0x3d06f4e8, 0x0df186df,
++	0x2713f3d0, 0x18f43ad3, 0x9c85975f, 0x1ff4ec1a, 0xb659efe0, 0xd4555c75,
++	0xdf6ba060, 0xfee0197a, 0xd95d758c, 0x57c4c980, 0x89d79ea7, 0xa3ef2ccf,
++	0x25e1d852, 0xbc3b577f, 0xc93c63b4, 0x578112ed, 0xc7a6de3d, 0x507b18b5,
++	0x13f731f8, 0xe4cd277e, 0xdff80df2, 0x9a3ff021, 0x7dbbffe3, 0xec95bff8,
++	0x2f2e5684, 0xa52b9db9, 0xfa2f9262, 0xa4ddff4e, 0x52afd3c2, 0x2f78e77e,
++	0x13ffe7f7, 0xc9555084, 0x00008000, 0x00088b1f, 0x00000000, 0x7dd5ff00,
++	0xd5d47c79, 0xcefdf8b5, 0x3324b677, 0x5f64ccc9, 0x25849308, 0x2126126a,
++	0x26504109, 0xc5116109, 0xfb094049, 0x515983b0, 0x2fb5696c, 0x4a444103,
++	0x505d8bdf, 0xd101da94, 0x101ac55a, 0x83b06034, 0x6795622c, 0x05b054a4,
++	0x2108ee3b, 0xf16b43c9, 0x3dde5a57, 0x999bdee7, 0x006677ef, 0x7e7ebe7d,
++	0xdeb8ff0f, 0xdef7cbb9, 0xfb3dce73, 0x3ab3c9bd, 0x21094b25, 0x0b62a21b,
++	0x99941c48, 0xc84b125e, 0xbd3e0988, 0xe90844dd, 0x95242448, 0xa423aefe,
++	0x475aea0b, 0x2423c932, 0xbd389ead, 0xbed19eb4, 0xfad2d25f, 0x8637f865,
++	0xc94ad310, 0xfe9e30b9, 0xd3b694be, 0x3a166ddf, 0x9ed03130, 0x1609ebcc,
++	0xd025213b, 0x820d27cf, 0x936f36f9, 0xb4be74b4, 0x62908976, 0x2f13365a,
++	0x4b8c0ac9, 0x99efb073, 0x01695e1c, 0xbb48dfed, 0xac849191, 0x59e754d3,
++	0x14996812, 0xbfa568e3, 0x07bab06d, 0x4fea7ec0, 0xda667cf9, 0x2ea9c465,
++	0x7b8e9bad, 0xb4cceac2, 0x63f60624, 0x24692d97, 0x53989087, 0x366d9d6c,
++	0xfb05d732, 0x174cfe23, 0xc63f240c, 0x15b211f5, 0x93289bd7, 0xab46c423,
++	0x2f7e87d0, 0xd6ee7569, 0x7d6052f5, 0x6ee23649, 0x49496da7, 0x84d3bdc4,
++	0x2291d7fd, 0x7048d7da, 0x87ab493f, 0x059f5d6c, 0xde7179f3, 0x36d71caa,
++	0xf92abdf8, 0xfa56a2ba, 0x9f06ce7b, 0xb71d3e76, 0x0266b377, 0x2bcc53ec,
++	0x0916d1ca, 0x8c7dd1c7, 0x7d89fd80, 0x9289fba8, 0x5bae0f10, 0xb345d3f4,
++	0x5bf685fd, 0x4cc6f385, 0x6d0df060, 0x2f6c77ff, 0x0cc265ff, 0x1afd6f58,
++	0x0148313d, 0x75613ff8, 0x4d7002dd, 0x0122df6b, 0xa68c3e6c, 0xf02c3474,
++	0x29a30fdd, 0x76b0153d, 0x87f3853b, 0x79474a7a, 0xb48a3a01, 0xb295fafe,
++	0xa0f0e173, 0xe23d1afa, 0x2c9e8b69, 0x5e0bcf6d, 0xdf5c6adf, 0xcb068b22,
++	0x2cd756a3, 0xc7634f80, 0xfbc07ac3, 0xe81f6db2, 0xcef857dd, 0xee91c2b5,
++	0xe296957f, 0xb25daebd, 0x4ae92818, 0xe81392ed, 0xe8d6bea0, 0x6fd47805,
++	0xd64b7467, 0xa183bde8, 0xa7c3bede, 0xf7e9eda1, 0xfd321d3b, 0x0efb6eb9,
++	0x7c105169, 0x12bdebd3, 0x59a86bac, 0x1e9f2b9c, 0xfe8a95cf, 0x4578510f,
++	0x1c3bba51, 0x5a463c45, 0x3c9b9776, 0xb76f8512, 0xfd0f5dce, 0x1c6353ba,
++	0xf5efda1e, 0x488fe31d, 0x779adcf4, 0xae507c1a, 0x314d6cd3, 0xd775f6d2,
++	0x41ad1deb, 0xbad36774, 0x6b38c176, 0x8ab1d982, 0x206eca7e, 0x9c131645,
++	0x47fe2577, 0xc5cecfdc, 0xa32c4b6e, 0xe08a4223, 0x316e3c5c, 0x82893d63,
++	0xf7d28cbb, 0xd75b1d61, 0xe1e8c24e, 0x836b9c52, 0x23e3bf05, 0x3ade3a0e,
++	0x3a979d81, 0x7e891fba, 0x2ef36eaf, 0x623927dc, 0x6fa7b843, 0x75bbf097,
++	0xb9e0b7db, 0x73bb3ace, 0x2ffa1ebf, 0x2451a525, 0x1b9cce98, 0xd5efcf83,
++	0x426235f0, 0xade81ebb, 0xf2a1f38e, 0x3e936e5f, 0xafdfda0a, 0xa3c2322d,
++	0xfdb6f36e, 0x647bf469, 0xb60cb129, 0x13fdbf63, 0x06b5f7d9, 0x607fc412,
++	0x9d6c799d, 0x8ff8828b, 0x3e187fd8, 0xaf585bf4, 0x41d754e9, 0x487c87c6,
++	0x6afd628f, 0x7e7076bc, 0x3c4f4e38, 0x93debbf8, 0x1df3a76b, 0xf9c68ece,
++	0x73805f04, 0xa5f9c35c, 0x6213d686, 0x5a0eb9e8, 0x9e6f588f, 0x82d3a2b5,
++	0x3842e870, 0xe2d66c34, 0xaef4abfa, 0xce83cb41, 0xb9f9efc3, 0xfbda6d79,
++	0xfdfd3f7a, 0x83bf2fe7, 0x936869f8, 0x48cfc09c, 0x3bfa3bdb, 0xbfac01f2,
++	0x21124991, 0xb7fb0893, 0x7a3bf771, 0xd27dfd3b, 0x86bf862e, 0x0bb43b5d,
++	0xccfa014c, 0x1cdafb3a, 0x7686b3a0, 0x00928903, 0x582eee7f, 0x054e9a8f,
++	0x8ddf043c, 0x0998cf84, 0x0f128f8c, 0xcf485f3d, 0x731aacee, 0x8a5f6f80,
++	0x353a30d3, 0x2dbbdfb1, 0x1fa01eac, 0x974007f7, 0xd78ed155, 0x15545ce0,
++	0x02568e49, 0xfb863ceb, 0x7064a848, 0x754f5e0c, 0x997e647e, 0x85e5cf18,
++	0x63599fd6, 0x7eaf9c0e, 0xf7c7cfbe, 0xfc995e02, 0x49dfb1f0, 0xb03f2bb6,
++	0xd2de356e, 0x0ff612ad, 0x01174f43, 0x26b96a7e, 0xe3e82fd6, 0x0ab59bd7,
++	0xeab061f9, 0x55833e71, 0x08dbeb8b, 0x7e72a1f8, 0xcb9d8ea3, 0x5e8cab8d,
++	0xc7d31fe4, 0x9f28911d, 0xfbd0cf36, 0x99a43ca0, 0x87ed0f5f, 0xd7f7d8d2,
++	0x43773469, 0x136add7d, 0x3a7c4569, 0xa044d68d, 0x4bc4589b, 0x6bdead7d,
++	0xfcfcf3a0, 0xeabfc645, 0x012f263d, 0xba9ee83e, 0x8491c610, 0x8053c728,
++	0xfd41f737, 0x7a50e61d, 0x6f63d3b2, 0x6a4fbfa7, 0xe04ce767, 0xa451f281,
++	0x04bf212b, 0xf4f0035c, 0xc08dce2a, 0x0b38a5c7, 0x2cee5be7, 0x33dd7780,
++	0x738fde51, 0x132eb7d9, 0xa2ab4ba0, 0xea91d4de, 0xa818d8fd, 0x00ffc1d7,
++	0x52a76c1d, 0x83ae94ad, 0x765d33af, 0x6efb075f, 0xeb0ffa30, 0x4f4b6a28,
++	0x8eb9e1f6, 0x2b75b744, 0x98fb4cdf, 0xa57743ea, 0x38a581bc, 0xa56cbaaf,
++	0x78e52e3c, 0x9bcbc01f, 0xd41f8cac, 0x79e3b715, 0x19b8fbac, 0x0269b1cf,
++	0x53a667e3, 0xc84d7e4a, 0xb2beb84f, 0xc557c701, 0x29938fb4, 0x257eabdc,
++	0x64495a59, 0x2244b97e, 0x9fa7902e, 0x3b103e6d, 0xe97be00f, 0x8dfb8cb2,
++	0x6c9dfb62, 0xfba8e765, 0xa4700a19, 0x093d66f7, 0x9d6bdfb3, 0x4b8ef88f,
++	0x0e3af780, 0x95edeeeb, 0xf4a13f23, 0xce2679e2, 0xdcf7fc01, 0xf83f29f6,
++	0x7bbbae84, 0x9b9418db, 0xa42ead09, 0x28c4be9f, 0x3f4a56c7, 0x20993209,
++	0x6aafbc51, 0x8a3b103f, 0xb9fcfb8e, 0x8f204561, 0x9e75f117, 0x095e517d,
++	0xebfd5970, 0xf6866e17, 0x0f14af3a, 0x99fbbc7c, 0xf813fd5f, 0x4d6dd2fc,
++	0xd69149a0, 0xf7a77ee7, 0xef1a7ed3, 0x33fbf616, 0xf7e81671, 0xdf0f93f9,
++	0x6d6ef00c, 0xb3f6c56f, 0xfac16e4f, 0xe17ebf6b, 0xf207ffd5, 0x80eb15de,
++	0xdc5f677e, 0x77a9788f, 0xdfb09d6b, 0x71bd7448, 0x27c67ec7, 0x39c3ae41,
++	0x4bfc65a8, 0xdfa0b5d0, 0x773d7fcf, 0xa87cb064, 0x12195d97, 0x38364ff4,
++	0x5e50929e, 0x14389ca0, 0x7451b445, 0xd2d3afff, 0x792acb48, 0xe01d7ef9,
++	0x33f18739, 0x790921aa, 0x7f431bed, 0xcc4c7dbf, 0x2f3bd416, 0xcf0833dd,
++	0x3ba30c4d, 0xcf918f3a, 0x88798463, 0xf33ea096, 0xa875e676, 0xcd2952d7,
++	0xce1249fa, 0x1ba6e873, 0x17b9c2b6, 0x6af985eb, 0x3abda1f2, 0xf889e403,
++	0xe75f1d7d, 0xdf2668ba, 0x537e71ce, 0x075a6157, 0xa3e7b9e5, 0x8d3f016a,
++	0x2b10ff7a, 0xd18f2fc0, 0x265643f1, 0x97dbea87, 0x384d1aeb, 0x9779e71e,
++	0xf32829f2, 0x94fa79e9, 0x6bda579e, 0xf0e1e5db, 0x3e32dfbd, 0x60ca4d19,
++	0x7d66d31f, 0x62fc0120, 0x75759af2, 0x58e7d708, 0x7052c53b, 0x760ae97b,
++	0xfb74d47e, 0xcfc4d5a4, 0x69b73b0f, 0xec33aabb, 0x8e0cb7c8, 0x53fa41c1,
++	0xab7752da, 0xcb7efe99, 0xa643b70a, 0xccf7b774, 0xb4e971b1, 0x695cebfe,
++	0x2cabd238, 0x31ec7931, 0x561a77e1, 0xe88f9256, 0xcfc9dfb9, 0x68859275,
++	0xe00a2c6f, 0xb44b4aa9, 0x1f7f8426, 0x7586b5f2, 0x636f5e5c, 0xbec624eb,
++	0x1c6629cc, 0x16d1ba67, 0x671d0758, 0x2fbd6132, 0x907ccef3, 0x945a9e8f,
++	0xae3d768f, 0x5fe0acf7, 0x3b3053c4, 0xa81fc03f, 0x7a06e6de, 0x7b33d24d,
++	0xb563f805, 0xf2e6f419, 0x4092d623, 0xdacd1499, 0x6d9270d5, 0x3bae9db4,
++	0x7ec4e6df, 0x857899e4, 0x07c48afc, 0x37fe391b, 0x40c5fe4a, 0x513d9e67,
++	0xc6eba016, 0x1443fd9b, 0x53870976, 0x9e9ba70f, 0x0e5e8c3d, 0xd81e3469,
++	0x37ada1df, 0x4295696c, 0xae50f1e5, 0x4875a79f, 0xda4bc016, 0xfe051ae6,
++	0x0ab75ea8, 0x5c86caf4, 0xf7f514a9, 0xbfbfe58e, 0x291bd68e, 0xb8dea0de,
++	0xaa4f9f8b, 0xc6ff42a7, 0xf085ea8e, 0x8984f4bd, 0xfd42590e, 0xad3a5c68,
++	0x1293d637, 0x071bff38, 0xe3a4f738, 0x94f2243e, 0xd529e41d, 0x269e41ab,
++	0xde3ea3e6, 0xfa86dee8, 0x73d5c937, 0xf510b7b9, 0x9994c6f5, 0x215f380e,
++	0x2acf627c, 0xed1af7d4, 0xda288ed1, 0x7487527f, 0x4c77d337, 0x7247ad84,
++	0x77927d42, 0x73d61794, 0x9447c05e, 0xf039aeba, 0x06dd9efd, 0xafeda1e2,
++	0xf28f19ef, 0xf98bd05c, 0x75ca0325, 0x8122d69b, 0xc5ae7e5e, 0x4c1a3e49,
++	0x9cb81fc8, 0xdbacf011, 0x7381a59e, 0xc3b79e72, 0x97127b3f, 0xc36bb487,
++	0x67d21f42, 0x13dbd73d, 0x7bc2ce0c, 0xf427f082, 0x641d3528, 0xd35e18db,
++	0xe0941f36, 0x73f1ab10, 0x6be252cb, 0x65bbeba2, 0xa637c6b3, 0x19abf500,
++	0xe957f7c8, 0x742956c9, 0xc63621be, 0x5de2aa2f, 0xab27c085, 0xc11c99a6,
++	0xda2aa9fc, 0xd20a89a9, 0x157108f3, 0x26763d83, 0xcff08cc9, 0xeac3d9b7,
++	0x79f6a165, 0xb74fda14, 0x480a79b6, 0x155d6d36, 0x92e70b5d, 0xf21363f2,
++	0x0f1d0b4d, 0x51d6fdf6, 0xbefb324f, 0xb14de715, 0x8ef9d859, 0x83371577,
++	0xb5c7203f, 0xb331c982, 0x8e7edc23, 0x3e1e855a, 0x740350a7, 0x00e4d532,
++	0xafe7f2bb, 0x6e91f348, 0xc260543c, 0x38af7179, 0x2bd99136, 0xe23ba00e,
++	0xd5bea2d6, 0x86f2ecd8, 0xc7462ba7, 0x02ff548d, 0x15d29c3d, 0x83b1ade2,
++	0xf7611fc9, 0xd6089f03, 0x12b9c577, 0x35f816e7, 0x37a08dd0, 0xf5af6e71,
++	0xf3f0f67c, 0x1ff743d1, 0xbde69f4c, 0xafd72e8c, 0xfb4397b2, 0x09622afa,
++	0x76d557b6, 0x1f0e1d90, 0x8c9fdbad, 0x823cc2f1, 0xbab06dcf, 0xbd60da66,
++	0xab58df5b, 0xd4be0125, 0x21a1f7b8, 0x8ccfd257, 0xd19f365a, 0xa60de31b,
++	0xb705231f, 0x0f4b08b9, 0x9598e7f0, 0xf723fde1, 0xcf4c4cda, 0x65fab6fb,
++	0x7c05a49e, 0x5f32fd09, 0xe36bdf76, 0x08a525fa, 0xe992b992, 0xebc04997,
++	0x8d6c1f81, 0x113f02f1, 0x7af5267e, 0x099cfcdc, 0x233b0abc, 0x7ff59629,
++	0x359b9f98, 0xbc63dfbc, 0xf05fb20c, 0xee35d83c, 0x591c880f, 0xdf71880e,
++	0x7c4bdf95, 0x3523c847, 0x41fac0fd, 0xaa7ec16e, 0x6bf722f3, 0x38edcfdb,
++	0xe1ef3d15, 0xe016abe7, 0xbc627a08, 0xe700effb, 0x19c47159, 0xeb3ff14f,
++	0x27a40677, 0x0437db92, 0x2d3ad0ec, 0x806c18f1, 0x1fd79d57, 0x78a6b784,
++	0x6cd7be36, 0x1cf4c8f4, 0x6f778a5c, 0x153c7987, 0x3d03e1c4, 0x5f9487f6,
++	0xbe24b9c0, 0x4d27e012, 0x700b1fc4, 0xdbbac5b4, 0xaee53e91, 0x3b53a84c,
++	0xf3be00a6, 0x9fb30c48, 0xbd90defa, 0x2e3c2943, 0x3efffd18, 0xc2e7ae8a,
++	0x87871c8a, 0xef7a73ce, 0x99ff779f, 0xfbbf3ef6, 0x7ec101b3, 0xeca346ac,
++	0xea07c6d2, 0x6da9123d, 0xbb77c30f, 0x986fcc6c, 0xbbf08375, 0xbadea1f5,
++	0x0c99ca22, 0xfb159f7e, 0xa4af93ca, 0xac5d37cf, 0x3f20de24, 0x0f1d135c,
++	0x8e2e9ae3, 0xe643dfc3, 0x7c81f3a5, 0x4e98ba68, 0x77d9c33c, 0x30fc6f80,
++	0xc0dbf19e, 0x3f6c4cf8, 0xf3fa51ad, 0x3c45e5fa, 0x422ed7c3, 0x1f6b8426,
++	0xb5f6cf1a, 0xdf9d9b2b, 0x17924dbe, 0x2bc583ec, 0x82993ecc, 0x19fd3174,
++	0x16c5a5f4, 0x0b134f8f, 0xb1f287fc, 0xa9c68861, 0xcc8f6a46, 0xf68cf2e3,
++	0x7a068ed3, 0x1cf058f5, 0x9c39f9ba, 0xd7faf1d7, 0xac589fe0, 0x74d1c625,
++	0xc746f99e, 0xfbfa74e1, 0xb1b1a627, 0xde162620, 0xe409253b, 0x66acf258,
++	0x32122ff4, 0xa9fa02d6, 0x97cb4644, 0x0fa4ae63, 0x458f5169, 0xf074a27a,
++	0x2faef16f, 0x1d021d04, 0xf187bacc, 0x49ffd135, 0x17f3869b, 0x1fbe1d25,
++	0xc6efdf01, 0xe80afc57, 0xd738c1ec, 0x7bde703f, 0x5ff82bce, 0xfa7fe48f,
++	0xe5d3a071, 0x2453c766, 0xc389bc74, 0x4bb0b7bd, 0xdef1fe0f, 0x44c8ffe5,
++	0xf5f3b47d, 0x1ba7c093, 0x0c9f268c, 0x5d2ec57a, 0x03ec5fb7, 0x339c62e4,
++	0xf38e9e3a, 0xfada383c, 0x9209a529, 0xfdc77f4c, 0xde144ed2, 0xbc191b77,
++	0x5b778ddf, 0xee9113e3, 0x757d82e7, 0xb38f68c1, 0xfbe8bd01, 0x2632e3f1,
++	0x3243f005, 0x74bc4acc, 0x997881be, 0x01ea746f, 0x2e9c0bfe, 0x38ace75c,
++	0x8145895f, 0xf2f93c87, 0x078ed70d, 0xd3eb9f99, 0x730e5fe0, 0xb872861e,
++	0xd1fa10fc, 0xa31a74f2, 0x6499d3db, 0xaf284ee9, 0x771d25a7, 0x8bd79b3a,
++	0xef087d78, 0x37eac497, 0x5d3dba72, 0xbfa9fac0, 0xceff2773, 0x62cef1bb,
++	0xe71d1380, 0x5ebe03d3, 0xbe82f28d, 0x8dd6f94c, 0x7c5e8cf1, 0x55be60d6,
++	0xf80437dc, 0xc5096f61, 0xfacfdd1b, 0x13ccbef2, 0x19f657c0, 0x57ed5b2c,
++	0xbe64dfc7, 0xc72d6fae, 0x958e541c, 0xe4d8e42a, 0x10c72678, 0x7a25744f,
++	0x420d5fa6, 0xc87d20fc, 0x1b9f8ed7, 0xe9dc19a2, 0x478da979, 0x77cbe579,
++	0x86f7f105, 0x044e7678, 0xad1d393f, 0x38dfe3c4, 0xfbc79c1f, 0x6616f1c9,
++	0x32fa39ef, 0xb6d39e61, 0xbbff78f0, 0x8b1f1fad, 0x1967be81, 0x53c4e6fa,
++	0xea93bb7a, 0xc422fa0d, 0x09eb0c87, 0x7cf34fb1, 0xdcf3857f, 0x8099b774,
++	0xef866bfc, 0x589e2225, 0x7d97297c, 0x3d4f7297, 0x1f86afd4, 0x52a7d5f0,
++	0xf4c9243e, 0x563c3643, 0x1aa71676, 0x16f3c16d, 0xee4fcfd5, 0xfa8f860f,
++	0xbe38a7bb, 0xda4bc6d6, 0x0e8f014f, 0x737180e2, 0x3cc2f9de, 0x79c9d29b,
++	0xa1a3d18b, 0xbb2dcd72, 0xbb7ec3d7, 0xea06f07f, 0xbef4a7bd, 0x30a66d21,
++	0x13df7aed, 0xf681488f, 0x3d91bfb9, 0x778e7a7a, 0x62ff7575, 0xbbbfdd1a,
++	0x39c0764b, 0xd7ffdf76, 0x7f4023a3, 0xc039d2e9, 0x75f2a0ac, 0xd1f61683,
++	0x53b4f4cc, 0xcffc251a, 0x47694f7d, 0x46f1c33c, 0x33a40af5, 0xf14e0fc1,
++	0x6212e5b8, 0x159fba41, 0xea15bb1d, 0x6e4be5fe, 0x7ce63885, 0xa4ec38e2,
++	0xeeecfff0, 0x5e77e889, 0x2fc89c44, 0x1f7479e6, 0x05d3f306, 0x45f594eb,
++	0xfd3aca6d, 0x92efd222, 0x73bfd547, 0xf865707f, 0x78d1daf8, 0xd39d27a6,
++	0xcfdf6f87, 0x7cbdbfdb, 0x837881be, 0x7c8080f4, 0xd5dfc02d, 0x39021ef3,
++	0xd390125c, 0x5d373e42, 0x8f308a8c, 0xb73f7f09, 0xdffafc38, 0xe9a37ce6,
++	0x79e515a2, 0xfc04f8e8, 0xd8666a9d, 0xe9b5e04f, 0xc4f12a62, 0x3f42ea07,
++	0xc0cb8c0c, 0x2c002a76, 0xf804c69f, 0x0b03f080, 0x2240fe3a, 0xdfb454c6,
++	0xac7ae61e, 0x52fc00a5, 0xa7bc801f, 0x278f76f8, 0x12e9faaf, 0x3a97dde7,
++	0xa01d9b44, 0x283ef573, 0x07f59c3d, 0xe24fb9f1, 0xae7809cd, 0xf0619186,
++	0x73a7415d, 0x0715507e, 0xf72ffef2, 0xeb072657, 0x0e7efd63, 0xa897b33d,
++	0x2dc85524, 0xf36b92a2, 0x2b1ca83a, 0x0862bd40, 0xf68f8d30, 0xb93e474d,
++	0x80923890, 0x19f77b8e, 0xf81fd132, 0x5899e52d, 0x3ccf14cf, 0x1337d31d,
++	0xf0d70e50, 0x64e94fef, 0xe8c68dfa, 0xe2fea1d4, 0x124b7624, 0xee4c989a,
++	0xa5a2a152, 0x1d449bf5, 0x47d68788, 0x3048cdf3, 0x26ffae9e, 0xeef9925e,
++	0x06573814, 0xec0caef8, 0x65029bc8, 0x1d8748eb, 0x4b9231ca, 0xf0c1d6cb,
++	0x67348e3c, 0xd18d7f40, 0x89fd332f, 0xc60920ae, 0xbab1ef8b, 0x4cd7d799,
++	0x116730bd, 0xe3326efc, 0x75f3d7f9, 0x7ca0490c, 0x246df60c, 0xc1b7d846,
++	0xe31cfbe4, 0x54f4bc4b, 0xf52ed1d8, 0x03f41364, 0x02769344, 0xce9935df,
++	0x16b3607b, 0x1ea09162, 0xbbe0b965, 0x337f008f, 0x90c33479, 0x009f5dbf,
++	0xade96f7e, 0x28ffc0c5, 0xf3802d3f, 0xeb5db11f, 0xf05e7d43, 0x5f5f1b27,
++	0xa94fe72b, 0xfec24054, 0x7e9fce65, 0xfc8c5e6a, 0xf6b88129, 0x14da7f03,
++	0x53f9013b, 0x7ae37132, 0x156827e2, 0xa5d1267c, 0x6ad727ac, 0x23c87c55,
++	0xdd52fac1, 0xe48ddfca, 0xc907ca14, 0x1cb94ae7, 0x2e4a768f, 0x157423f8,
++	0x44f51cec, 0xb4fd78b1, 0x9aceb668, 0xbff31b04, 0xfdb8b145, 0x2101f4d5,
++	0x017ad5ff, 0xb5da5629, 0x413d368d, 0xb512553f, 0x7ea187a8, 0xf4c09350,
++	0xd03df783, 0x5f21f72e, 0x0bfdc13e, 0xaab82753, 0x77df14b4, 0x4ea391e6,
++	0x724b2e5a, 0xba5026d7, 0xb9a47e99, 0x6bd69ea1, 0x3ef922df, 0xb18e165a,
++	0xf8a76dd4, 0xecdb3b5d, 0x6beb4d58, 0x3dd48ccd, 0x97d40689, 0xda69c808,
++	0x829345be, 0xf02691fe, 0xb47e52c7, 0x4011e216, 0xda098317, 0x593f54d3,
++	0xb6e3a46b, 0xd658b7ac, 0xd58fc1db, 0x85fc0e37, 0x65888b7d, 0x3e73092b,
++	0x4773d12e, 0xd424fcf1, 0x4e255e29, 0x6df7e26f, 0xab0e7bf0, 0x3b05298f,
++	0xe9cbfd90, 0xfc0b0ca4, 0x4f2cb937, 0x5cb3a9a0, 0x39eb4897, 0x4fe81d63,
++	0x8c4f9c26, 0xe7e1df10, 0x5ce05470, 0xaf217b60, 0xb87cea0f, 0xcbe6092a,
++	0xaeee0e23, 0x58239c0b, 0x50fe85ac, 0xe0f1ccca, 0x09237c73, 0x2af983fc,
++	0xde23f303, 0x43b6f2c6, 0x76bc59b3, 0x1fb7d684, 0x5e28f9ce, 0xd332f216,
++	0x43be5525, 0xe8c8bfe9, 0x0edbb038, 0xb0c97520, 0x43cb52ef, 0x91fdf0ad,
++	0x81e277ae, 0x52368daf, 0xd6cb40fe, 0x92c38732, 0x80d6fb83, 0x2747a9ff,
++	0x0e3393e4, 0x11606b73, 0x9cd5fbf4, 0x96d6a696, 0xfb0c5edf, 0xec0992eb,
++	0x5c1ca22f, 0xc1359329, 0x8be787f2, 0x09fbfa88, 0x207fbfcc, 0x21379c61,
++	0x74f82e28, 0x7283d702, 0x8ff02e49, 0x2cfdf3a0, 0xf9775bd0, 0xbfce919b,
++	0xff9f9db2, 0x75c39c3b, 0x3e72efa8, 0x8badf820, 0x274cc5e7, 0xa7c01d4e,
++	0x01f28a2b, 0xbe563f5a, 0x34c0f90c, 0xdfdfc6e2, 0xa6f060ab, 0x7cc1d788,
++	0xf5282653, 0xca5c3b8d, 0xb55ab4fa, 0x9ebf423e, 0x74eef814, 0x46bdb2b7,
++	0x941397e8, 0xeface5fa, 0x9ca2b25f, 0xe1ba7e4d, 0x97f040f2, 0x8225d54f,
++	0xe793b0df, 0x184a74bb, 0xf9e26a1f, 0x921d4d2e, 0xa9a5df22, 0x8903de73,
++	0x8d2ef941, 0x77cb571d, 0x09c8fa61, 0xf83f779d, 0xa32c4fd5, 0x39dfa63b,
++	0x0e22f3c0, 0x51445e42, 0x73ccfe80, 0x52909f98, 0x33d1fa33, 0xd00e312c,
++	0x8a69d7ab, 0x2eb8afd0, 0xfff0acd6, 0xace55fae, 0x9fc27e82, 0xa65cf228,
++	0x3b734819, 0x641d53f3, 0x8fcc5cf9, 0xb4f6e5e4, 0x7e124137, 0xc7e835e1,
++	0xc4df9d52, 0x24f28278, 0xfa2e6671, 0x0b3b6b0b, 0x4b5fc18b, 0xb1fa12e5,
++	0x1c7609bd, 0x442eeb5f, 0xa62dd73f, 0x683f18e9, 0x5da2dcea, 0xcfd00a68,
++	0xc5dd055f, 0xbba01890, 0x4ed1ff7e, 0xdc8ffa03, 0xa06bebb2, 0xafbd7aaf,
++	0x12e92880, 0x77248f7f, 0xebbc7096, 0x17d35c2a, 0x1ef4b851, 0xfec03bd5,
++	0xe2058aa3, 0x563dc5eb, 0x1ada83e4, 0x4d7efc82, 0xd97e4139, 0x4ff985bb,
++	0xbd2eb33e, 0x9afef815, 0xaa72826a, 0xe10e36c7, 0x0f788cbf, 0xa5b8e93b,
++	0x053d299b, 0xb6bbfff1, 0xa4f5eb29, 0xfd78f91d, 0x44ba10f6, 0x56f824be,
++	0x3acbb103, 0x52ec6b88, 0x9883278e, 0x7870777c, 0x3abe7217, 0xadb18efc,
++	0xae1f6f10, 0x2c85fc61, 0xa0d7a474, 0xf2cb34fd, 0xbab01469, 0xe92ba5a7,
++	0x33e6bd47, 0x8cc73b32, 0xf9f0967f, 0x84bd7cd5, 0x6b3745eb, 0x1450a1a9,
++	0x7f6873d0, 0x74d41fac, 0xc09a29ca, 0x38f98b3a, 0xbe095fa1, 0x5e55f02a,
++	0xa5194846, 0x39139bb3, 0x3649b3be, 0x8fce9be0, 0x46412e74, 0xf7e70d8b,
++	0x8a343d80, 0x83d28f7f, 0xa3cae807, 0x7e817a31, 0x28cd4ad7, 0x47a08c4f,
++	0xe4bd72d3, 0xf2fafe46, 0xf40c8f52, 0x4f349231, 0xf80b35b9, 0xf00c576c,
++	0x15274a1f, 0xfa018989, 0xccbe2569, 0x8e82921d, 0xfadbbdb0, 0x123a5866,
++	0x1ef7dffc, 0x11260bd3, 0xefd1bfaa, 0xf4c4ff3a, 0x12d28397, 0xc7aa13a4,
++	0xe5fd041d, 0xafb30d4d, 0x406dd226, 0x128b2abf, 0x9453e3ff, 0x10f689f5,
++	0x013cc0fa, 0xbd3c3f67, 0xa4cf585a, 0xa73f655c, 0xc9445fe0, 0x25c8b2bf,
++	0x743f0766, 0xbfb05ef8, 0x5c925663, 0x8d520788, 0x4c3831cf, 0xf13ea5bc,
++	0xd7dbf73b, 0xdbf18627, 0x3db8eaf7, 0xc6b3a2a0, 0x6ce767c3, 0x147a0120,
++	0xd246e2e7, 0xf850a72c, 0xf163bf49, 0x0e811b91, 0x19945d29, 0x3be81e49,
++	0xc3f998a4, 0x7410f9c4, 0x1b6bca57, 0x240d9d04, 0x6ece8103, 0x7f4288ea,
++	0x6f408de8, 0xf90b7e94, 0x0b9e42bc, 0x2cb5bdbd, 0xa4b2be84, 0x39eb941c,
++	0xae424f40, 0x8f1c970f, 0x7a0597df, 0xf6f507bb, 0x436a7a20, 0x3d28927a,
++	0x4427bfa1, 0x55db2a5e, 0x7ef026f4, 0xe5a3eb9c, 0x85ed19a4, 0x4e4cd1a9,
++	0x3d99aafa, 0xd224d94f, 0x8c35ebdb, 0x1388aade, 0x289cade9, 0xa8d2a4e9,
++	0x91e9abac, 0xa4a3517e, 0x9bd23737, 0xd1234e9a, 0x37a040db, 0xafe32f21,
++	0x137b6f4e, 0xff33ff4d, 0xedbd285a, 0x76b92c4d, 0x6c7c137a, 0xd2a59447,
++	0xa97c7204, 0xf8617284, 0x50ad41d1, 0x8590da1f, 0xab0ee7fa, 0x37b600e3,
++	0x2ee2f6b3, 0x0ef90ca7, 0x7b782b39, 0xea12ab96, 0x3b692b4d, 0x38e4ba9d,
++	0x741887cb, 0x5c2f6b3f, 0x0cc07cdd, 0x1b0f2f7e, 0xb5f3f7bf, 0xf76d2c72,
++	0xcbe3e5ae, 0xdea12adb, 0xff8d8eb4, 0xc328e20c, 0xdbca8f20, 0xb75fbf0a,
++	0xccc1cb21, 0x8ef7a657, 0x21ddfbe1, 0xe3803ced, 0x25b8d8da, 0x04d18d87,
++	0xcfa66ced, 0x39f7ccde, 0x67db3366, 0x4cb747c2, 0xa7bf83b0, 0xd8fa83cf,
++	0x52fa9aa7, 0xec1173e4, 0x2da972d4, 0xc0f1ca03, 0xbbc064bf, 0xcd9c9d63,
++	0xe95b68e2, 0x644abe27, 0x7f110e7e, 0x75773882, 0x55f37e90, 0x8a13f322,
++	0x8236497e, 0xcc7912fa, 0x8888768c, 0x211ef98f, 0xd84f9c12, 0x148b8c23,
++	0xd39f1b2f, 0xf8c3fa8c, 0xe64e2281, 0xdfa7ced7, 0xc5fcbc2d, 0x987e70b8,
++	0xbd32247f, 0xdb8f0ce5, 0x7a97df8b, 0x077f3c59, 0xc01a4910, 0xd626f755,
++	0x2b0844ad, 0xbc03290f, 0x46cc7ab2, 0xa8ebc7e9, 0xd344bf91, 0x7080f5ac,
++	0xff3094cb, 0xf1177268, 0xae86c5c5, 0xf896bc7f, 0x087f2cf4, 0x55b8bfd7,
++	0x8443f98f, 0x383bb5f3, 0xc1e8c8fe, 0x72a7ce78, 0x7124a53c, 0x19387dbb,
++	0x0eea7c0e, 0x8d3bb78e, 0xa7263acd, 0xfe2a74db, 0x7a049191, 0xfa88a6cf,
++	0xc55db2b8, 0xeff2965f, 0xf87ae62e, 0xfe87d232, 0x1eb94fc2, 0xd313667e,
++	0xed22efc3, 0x7dec2fe8, 0x0d9de98c, 0x2f407b74, 0xbe4abccb, 0xb28cf750,
++	0xacaed0de, 0x0eb15237, 0xa87537f3, 0xf31e4ef8, 0x6a6ef6c3, 0xdbff0528,
++	0xa28f47d2, 0xe0a977df, 0x9f255e33, 0xc67ee421, 0x1eb91e67, 0x7b6a3ffd,
++	0xd4e9d85d, 0x0929be3e, 0x999690e3, 0xcc37a0f5, 0x0f796189, 0xf91f29b2,
++	0xf688d982, 0xa0be2472, 0x5e8483b6, 0x7f0fae42, 0x3204a85e, 0xe0823ec2,
++	0x5fef82ef, 0xb6525ec1, 0xec23f0ab, 0x3f1c1995, 0xe1fe2853, 0x76127f3b,
++	0x9f8632d2, 0x0875c4a9, 0x5ddef3f0, 0x6ec23f0c, 0x9276e6fa, 0x93b60e53,
++	0xad75bd84, 0xefda92f6, 0xcf5bce2e, 0xdacf6100, 0x026d9ed1, 0xddfe5340,
++	0x13c4f7b0, 0xefd02455, 0x68710b58, 0x72f54175, 0x66b57fa5, 0xc852e9d2,
++	0xae88cc9f, 0x46e017b8, 0xffd1133a, 0xec2c90d8, 0x34ff3627, 0xe175cf9e,
++	0xdb38accb, 0x29c4fc95, 0x836b86f3, 0x6d5ee3ec, 0x43d82c5f, 0xfc2497bd,
++	0x61add42e, 0xf18151e2, 0xe87c710b, 0xf7bebbf7, 0x4f73e067, 0xf13c60c4,
++	0x2ecc97c2, 0x2879b0bc, 0xe39f15e6, 0x87015771, 0x799f8725, 0x70e70fd5,
++	0x10e182e5, 0xbc93aebf, 0x6da6ed5f, 0x9fee8c23, 0xd3adf9c3, 0xbe8cf4f8,
++	0xec445c58, 0xd3dfb23b, 0xff4f7c83, 0x7dbf931a, 0x89e63452, 0x0487dfd2,
++	0x273687c7, 0xf081f8b3, 0xf93909c7, 0xe56f5e47, 0xa35a9ef7, 0x3f98fec4,
++	0xf3bc52e2, 0x1fff8029, 0x57e0fd61, 0xfc87477a, 0x10e6fc1c, 0x9952a4b7,
++	0xd742dba4, 0x6df9f105, 0xdf9f10d7, 0xc5e4c499, 0xb08b4a39, 0xe73645be,
++	0x33bdf08b, 0x86790e3c, 0xc4ceb1c7, 0xbed6b8b2, 0x7cacfefe, 0x2267979b,
++	0xbf45d1c4, 0xae8c5b8f, 0x3ede9435, 0x35ae216c, 0x1fd83e54, 0xde633431,
++	0xafb62ccf, 0xcc563dde, 0xfee31513, 0x0e7e5494, 0xd5acf1d6, 0x85ca1875,
++	0x347bca6d, 0xd41fb0bd, 0x7abed837, 0xbe2958a3, 0xeaa4a7f7, 0xdecf8073,
++	0x67c47ee9, 0xa8a47d7f, 0xdefe70bb, 0x5fc8fc9b, 0x345bf709, 0x2918f3f0,
++	0xf8b5760e, 0x3c8e3a97, 0x1e6f9c5b, 0xa6c59e47, 0x1c79b322, 0xac918e79,
++	0x73eda74d, 0xffd1933b, 0x33d634be, 0xf6471144, 0x78a37cc4, 0xdec7a0be,
++	0xec388101, 0x0e20df63, 0x3be9397b, 0x4e5ec38f, 0x5587130a, 0x025fe9c7,
++	0xc01741bd, 0x0616ddc3, 0xbeb92ab7, 0x17a0fc12, 0x8fcc1216, 0x8fd9242e,
++	0xec3d068c, 0x91788e88, 0xfa3d326f, 0x744b786a, 0xe15d8869, 0xf6268ebf,
++	0xbaa4fda0, 0x6a3a8a6d, 0x877941e6, 0x14d34be9, 0x673407e3, 0x5c0ffa2b,
++	0x3da2bd79, 0xa8a453cb, 0x51bbace7, 0x5b707fd1, 0xf43ea285, 0xfd145bd1,
++	0x28d6f3af, 0x7fe017ea, 0xc8c9af90, 0x66786ed7, 0x92fc6286, 0xf52c5e37,
++	0x7cb9b6c1, 0x8b72e56e, 0x795d9c78, 0x02fdcca5, 0x9f6fc8fb, 0xf89798af,
++	0x0a549f24, 0xeff64971, 0x87bb2c5c, 0xc58bb0b1, 0xdc758607, 0x684ef8a5,
++	0xa32ed25c, 0x9121d5de, 0xf8d0a4c7, 0x87ced2e4, 0x8ade42d7, 0xffa17f5a,
++	0xa0c5b572, 0x3e6344ef, 0xa99f5aa4, 0xa027364a, 0xd24691de, 0xe9ab5d18,
++	0x0f0fd4c2, 0x4851f7b8, 0xba323c86, 0x0a174158, 0xa1f851fc, 0x76c2eb7f,
++	0x2d35e633, 0xd2016379, 0x494521a3, 0x25765117, 0x2ae4c45d, 0x50ecc2e9,
++	0x995c41d2, 0xf0d40e92, 0x74953ab6, 0xbff4fc41, 0x7e3bc02b, 0xd46e9282,
++	0x7d222ef0, 0xd80f3187, 0xdf00392b, 0xeb2f786a, 0xbafb82d8, 0x3cb8be9a,
++	0x3917c799, 0x741f877c, 0x6e109ab6, 0xf8493f2c, 0xeedc0c03, 0xbf4a0926,
++	0x56abd098, 0x8dbd7325, 0xf2fc23cf, 0xda0f256b, 0xb871fdf1, 0x2fa65f32,
++	0x66f9ec0b, 0xae43fcc2, 0xc3139207, 0xf7f117fa, 0x0145fe48, 0xff5ca9d7,
++	0xff2c23ac, 0xf31478e6, 0xbd5c7d0b, 0x8b42fd0c, 0xd1ea3349, 0x73c66ae7,
++	0xfb07a1ff, 0x0219e1a9, 0x529d353f, 0xf904957d, 0x1aa2ef5f, 0x142726b2,
++	0xe4a7529e, 0x533dc333, 0x81e429d2, 0x5013dd9b, 0x84e857fa, 0x12bf3052,
++	0x5f98b0fa, 0x31f04fc0, 0xfc01af31, 0x540e7032, 0x2ae48d7c, 0xc7f6a2f1,
++	0x963031c0, 0xec5bc706, 0xa33e3824, 0xfc04c3f6, 0x84fed42f, 0xacc0e178,
++	0x3a07b856, 0x3f44e2dc, 0x9ae9095f, 0xff0bbf09, 0xae21fa0b, 0x887efd23,
++	0x2aea7288, 0x1e29ddf1, 0x5678ffc9, 0xc4575c68, 0x3e182989, 0x3c1d33fa,
++	0x800fb25a, 0x1decd475, 0x1474089a, 0x9c7497ea, 0x23ce857c, 0xa1e2fa6b,
++	0x2824155f, 0x5f7dc507, 0x9fb8fc97, 0x81f3893b, 0x8dddfbe0, 0x4cdc7da4,
++	0xf95307f4, 0xf3250b18, 0xb50e915b, 0x7f45adde, 0x04ee86b1, 0x048ebde8,
++	0x02b33bc5, 0x439758ed, 0x479ad7eb, 0xc2c53933, 0x3e5809f3, 0x4ffce128,
++	0xed9191d8, 0x16fae535, 0x49661698, 0xc105f7f4, 0x7586b8eb, 0xb8097c8a,
++	0x90710a27, 0xd7042981, 0xc76c95d3, 0x4fa21bdf, 0x6e84ebbd, 0xc1995dc5,
++	0x9e936e7a, 0xb760361a, 0x716064bf, 0xfea576cd, 0xf4c29d1c, 0xe070c8e0,
++	0xbb2a59f9, 0x8f7a6ae6, 0x4aeacfc8, 0xf7d628b6, 0x362b9c60, 0xc06f7e85,
++	0x92a7ff49, 0x4abe3026, 0xc43cc6ee, 0xde321d0b, 0x89bc6aa7, 0x3dc687f1,
++	0x9ea11e32, 0x17de034e, 0x0071da5e, 0x16eea5f5, 0x7ea880ca, 0x7e85b672,
++	0xe015f079, 0x246fdaaf, 0x31e4417b, 0x7ee1490d, 0x10520288, 0xf105079c,
++	0xf1b094fd, 0x27fcfeff, 0x93e73b65, 0x1c5e7255, 0xcfeda3dc, 0x65f6d16b,
++	0x47e104d6, 0xb8af8fbd, 0x73aa525d, 0x70a14f0d, 0x632ba0fb, 0x2557cc23,
++	0x034e1e77, 0x1c90acf8, 0x631b7f10, 0x0d1bf760, 0x734772f2, 0xf4379d90,
++	0x7105d95e, 0xee2bd3ce, 0x69fdc1b1, 0x4950ef31, 0xa8f0f783, 0x0ffef185,
++	0x36ee218b, 0xd69eb1cb, 0x9d981b66, 0x18bdf599, 0x5f3d0e5f, 0xfbb3d3bf,
++	0x66ecba5f, 0x67d057bc, 0x976fd195, 0x40b19320, 0xe2bd6217, 0x1df8a2de,
++	0xfe4353ee, 0x4c7df8a6, 0xbbf0df6b, 0xb14a6969, 0x187bde2b, 0xbc37d953,
++	0xbb8014d9, 0x4c6ad7c8, 0xfd05afd4, 0xeac8c7a8, 0x7a8b99c4, 0x3b230ae4,
++	0x3db8a75f, 0xb0b06a76, 0xe0e67da7, 0x28c6a83c, 0x93e61c67, 0xb01323bd,
++	0x38b4bf3b, 0x5fb8ace3, 0xc2c79b0b, 0xf9e1e9e6, 0xabde2bc3, 0xb12d7b40,
++	0x531e7c35, 0xbbd30a43, 0x8aca2feb, 0xad7aa63c, 0xea91f30f, 0xbf15ea2f,
++	0xe2e1487f, 0xf3ea0431, 0x071a0ccf, 0x1c405beb, 0x82ffa16b, 0x13c43175,
++	0x3c8897a4, 0x7c3d3566, 0x68dff1cd, 0x30ed12d5, 0xbaec0fbc, 0xfe57bf52,
++	0x5fbd8729, 0x468a48f3, 0x1e61a1e4, 0x3037b531, 0xf7eea79e, 0x7cea29ef,
++	0xe7de3f33, 0xdb37cfec, 0x77c57e53, 0x962f1a19, 0x1bc1f22b, 0xd71878e9,
++	0x2aac7178, 0x4bcf9c1f, 0x029bb3e7, 0xe0916679, 0x5b3275ff, 0x91e42357,
++	0xceff07c5, 0x9df029e8, 0xe6179e04, 0xf8f3858f, 0xf78c876c, 0xa23d9f9d,
++	0xcc35b099, 0x5c393bba, 0xe2d44fae, 0x47c1b939, 0x7cc25b9c, 0xf713f45f,
++	0x3c7dc419, 0x5576faf5, 0xfac0e7f8, 0x7e658c47, 0x2f3cf561, 0x758af870,
++	0x7c31b2ef, 0xf14abe34, 0x2c28f981, 0xcd97774f, 0x83f918bf, 0x4fe78945,
++	0x763ad992, 0xc4cfe2dd, 0xcc899cfc, 0x0f448eae, 0x7fdd58f7, 0x9a6e3d45,
++	0x48d57209, 0xb259b6a9, 0xabb79d04, 0xee0043d1, 0xa1af02b2, 0xbb63d770,
++	0x63f3f798, 0x7e7edcec, 0x61539d8c, 0xa8fe7c0f, 0xf401f98c, 0xa0a49b40,
++	0x09cffb3c, 0xde7c0b8b, 0x3ffea126, 0x4ac84ddf, 0x6de677ca, 0xe2fa63ab,
++	0x7531c353, 0x9fbf7e07, 0x547997f2, 0xcb4cddde, 0xf1546bf9, 0x08576e61,
++	0x8370bc39, 0x1b21deca, 0x3cc64bfe, 0x279466cf, 0x1cae7f8b, 0xa4db74bf,
++	0xea7be0cf, 0x4afa3638, 0x71fcfda9, 0x4bcbd70a, 0x83c82949, 0x42fa9fbb,
++	0x7c8f6b1f, 0x7e50ce1e, 0xf030683b, 0xdd96235d, 0x2f2c162d, 0x41bb38a6,
++	0xdd53e83e, 0x7bd7c0bd, 0xbaf061df, 0xc9817f50, 0x39bcb80b, 0x84b9f812,
++	0x9330cef2, 0x841f79c5, 0x2e14ec7b, 0xfb930306, 0x35fddc72, 0x5e957193,
++	0x7e118ba4, 0xca2b1ccb, 0xd00a4723, 0xe373c27f, 0x13fc0027, 0xc2718b9f,
++	0x7b97d6be, 0xc37f069f, 0xe8d155fa, 0x581a35ff, 0x7b67399c, 0xc0ec06b9,
++	0xfb4976eb, 0xd4d1dfc1, 0xde172ab9, 0xa3d93017, 0xae213f31, 0x93165e73,
++	0x093bec73, 0x801daead, 0x57b804cf, 0x3eb5d747, 0xf8c29bcb, 0x1a83d338,
++	0x257bcc39, 0x3dc07ffb, 0x321bcf6b, 0xa0bc83de, 0xd7fcf965, 0x915f8613,
++	0x0edf050f, 0x29baf7d6, 0x40d0c8dc, 0xc976fafd, 0x77c58ba7, 0x515e3024,
++	0x3497dabf, 0x6fd1e413, 0xe9ef18b4, 0x52efd75f, 0x23ae202b, 0xc94cd0e4,
++	0x5c47fcc2, 0xc44e9d9f, 0xaa17163f, 0x9d3274e5, 0x6333b1eb, 0x13e77c18,
++	0x9b8c2647, 0x1ab12461, 0x5666947a, 0xfee097b6, 0xd05674ea, 0x237c4407,
++	0xde111eb2, 0xb4f8d3ef, 0x94c7dd99, 0x24c086fa, 0x72a7c167, 0x3a37f385,
++	0xc69dc995, 0x4b8fcc21, 0xc4271106, 0x1d5f1ad3, 0x72ec05ba, 0xdb8b3443,
++	0x8464be52, 0x810e56f7, 0x5efba6bc, 0x7b144af6, 0xc7dc433f, 0xe10b38b6,
++	0x4d53637e, 0xb7de1146, 0xef87d93a, 0xfce8f420, 0x297e7899, 0x4ca891bf,
++	0xb6d373bc, 0xce94b55b, 0x3ea8d31b, 0x366beb46, 0x0b55bced, 0xfdb2e4f7,
++	0xfeb4358b, 0x58b7a6fc, 0x4ffef5fb, 0xa6f2fea1, 0xc8bdac13, 0xf5a658bf,
++	0x613e9b63, 0xa4d060ed, 0x4d97f211, 0xe87ab7dd, 0x5cad67fc, 0xf1f871df,
++	0xdee36a1e, 0x7f609aa1, 0x8ca99be2, 0x628d9d5f, 0x9166cefd, 0xef0035b9,
++	0x5ffdf0dc, 0x24f0d548, 0xc52c368d, 0x9278c57e, 0x22dc7e12, 0xbf196e3e,
++	0x86263a87, 0xf1628bac, 0xc52c4f29, 0xa1cec1c3, 0x989b5f18, 0xf370e36a,
++	0x62253be3, 0x314f011e, 0x5deef89f, 0xbe599720, 0x9e706d5a, 0x7f1cddfa,
++	0xf06b3bf4, 0xec9c833b, 0x464d66fe, 0xe28fe021, 0xa6f1cb4d, 0x7b89bc05,
++	0xb5af30df, 0x70fff900, 0xbc1f5bf0, 0x0567fb44, 0x93a6add6, 0xa7c65496,
++	0xb8b2b597, 0x07359f62, 0x0c4c69e9, 0x58a2f77f, 0x1c638fb9, 0x5aa66f0e,
++	0x01073df9, 0xbf0964af, 0x98e1cad3, 0x93521fe1, 0xfdf7cdff, 0x77cf5f30,
++	0x7c20efbd, 0x8afde139, 0x6dd71d83, 0xb1b1fb65, 0xcf4a54bc, 0x1ef3d436,
++	0x7677cc56, 0x197c6a95, 0x5fb0903d, 0x7f8e0e5b, 0x2077bf90, 0x7182f3de,
++	0x3f4c0559, 0xdc55bd05, 0x9b9e27d3, 0xb4ffb049, 0x3b7e3eff, 0xd81b37bb,
++	0x7cc5ade7, 0x4fbe169f, 0x57a7db0b, 0x78e4af41, 0x7354e65f, 0xc3f71d28,
++	0xbcbe7fbf, 0xe29f3e22, 0x0f9b879c, 0xbc2475ce, 0xf1aefc1c, 0x82a9d622,
++	0x559c3f67, 0x84f013eb, 0xf2e38df3, 0xd6297494, 0xf3a472f9, 0xbf2df59d,
++	0x35c6ce57, 0xf7e580fc, 0xae92bb12, 0x6965761b, 0xc62e7e20, 0x2ecf03e5,
++	0x3ebdf809, 0x6076e54b, 0x9088c906, 0x352e778f, 0x7f0cbfbc, 0xbd81db57,
++	0xacef9656, 0x26f407f6, 0x109cba3a, 0xeecf3a47, 0xf9528f6f, 0xb29e202f,
++	0x171814d3, 0xfaca2f90, 0xbf0634c8, 0x1f4bff50, 0x362d2fde, 0x7768bc54,
++	0x31eebb50, 0xbfc06dcd, 0xee2ae38b, 0x98f5a2c9, 0xc06ddd34, 0x2bd38bbf,
++	0xfca2c8be, 0x67a69cdc, 0xbe2a1bf5, 0x63fa86c8, 0x8c7fd67a, 0xf7e045f3,
++	0x6dbfa3c4, 0x8f406a6c, 0xb3b34d88, 0x1a9553fb, 0x5fabff7c, 0x019df97f,
++	0xd70117f5, 0x41b16548, 0x4e2e1cd3, 0xe8269c95, 0xca13c581, 0x90ed7fe0,
++	0x7cedc4f7, 0xe76156bf, 0xfbb2c6f7, 0xfefbbdb7, 0xb227f786, 0x6919dcd3,
++	0x314d5d74, 0x68b273dd, 0xfbcc757d, 0x9c92af18, 0x3f010f54, 0x6642dd87,
++	0xdd4af5d1, 0x2fa05deb, 0x461cbb91, 0xfb95c22d, 0x314de07d, 0x5e57bf0a,
++	0xe97dcdfd, 0x582e33ec, 0x07ce48c7, 0xfafd5e9a, 0x3673882b, 0xc039359d,
++	0x73b23e2d, 0x6fa03dd3, 0xf37cec8d, 0xd987266b, 0xeeb10f7d, 0xa3d7e091,
++	0x187597bf, 0x3b23fd70, 0xfd045baf, 0x33a1fd47, 0xa6e4e807, 0x6056be53,
++	0x5efbbd0b, 0x1fde574e, 0x798aecfd, 0x4de3118c, 0xe89f1e02, 0x1499e809,
++	0x7833371e, 0xab7cc25c, 0x6b63c49e, 0x2b97a8fd, 0xbd50d3ef, 0x17a6e31d,
++	0xfc03b448, 0xb35ee2f8, 0xb2785fda, 0xfe8fee9a, 0x5d1f537e, 0x3cde9041,
++	0x3291a2e6, 0x9cbd4092, 0x4af51558, 0x7fa2aa63, 0xd14b2595, 0x3ae53e3e,
++	0x7b44fb45, 0x293ea2a1, 0xffa2a477, 0x45728e6d, 0x89b2f6fd, 0xced5fe8a,
++	0xd0bd456a, 0x3fe8aed7, 0xb28748fc, 0x019138fd, 0x1d27450f, 0xf92ca007,
++	0xc76e89d8, 0x07cd33d2, 0x25f91ca0, 0x5fda8703, 0xf6c5e37a, 0xf0bbf003,
++	0xc7efaa97, 0x34e9ff08, 0x87d5e4d9, 0x68a693f7, 0xf25e7969, 0x35913f23,
++	0x2d8c7eec, 0xe02f7dd6, 0x198fdc4d, 0x8a52fe03, 0xe7b9aa84, 0x59f0bdd9,
++	0x12765fcc, 0x69fc0310, 0x7cfd19ba, 0xcfcd7527, 0xbdc599ff, 0xbbdf0007,
++	0xb156afa9, 0xdd1731ef, 0x93977d8a, 0x2d3c2a65, 0x2cabd457, 0x1ff4503f,
++	0xd14ab29f, 0x90fed13e, 0x2b0f4f0a, 0x3639b7ea, 0x45b4f0a9, 0x28dfa785,
++	0x70edfbda, 0x157abfee, 0x1cb44efc, 0x04aaefed, 0xa67cdc3c, 0xd651f10f,
++	0x780956d5, 0x3b64f1ba, 0xe7d8abe2, 0x597604aa, 0x00f9a47a, 0x7f6a3e94,
++	0x5ad7b8c1, 0xd83cb052, 0xd5ff4762, 0x2c5c96e1, 0xf038b48f, 0x94b7dff7,
++	0x8b56f961, 0x6cffcb13, 0x57658099, 0xf6cb0b8b, 0xbfec7696, 0xf983a5b3,
++	0xdffbe2bf, 0x7e001815, 0xbf8d1e81, 0x3c56ee11, 0xe434d8f7, 0xfed13d9f,
++	0x26afa81e, 0x9636de77, 0x81e78d32, 0xcc9d8089, 0xcee9a3cb, 0xbf94e9d1,
++	0xac1c85ed, 0x41fe4092, 0x0859c6bb, 0xb4e1f87a, 0x0ed13f05, 0x5581e420,
++	0x958b14ae, 0x8eb48dd5, 0x643186c8, 0x199c4fc1, 0x25105e74, 0x70584c18,
++	0xa37bd41b, 0xb4defb58, 0xf279b705, 0x637107fe, 0xe17e4867, 0x7130b4e1,
++	0xd8cfe7e3, 0x39cfe0cd, 0x19a86976, 0xfb8c71e0, 0x50a49cb5, 0xe5968f37,
++	0xc81d42da, 0xbd2a93d9, 0xe4539444, 0xde61b7f2, 0x0ee38d76, 0x45be6fcc,
++	0x6b7e8047, 0x8aef6624, 0x99d3db7e, 0x9b7bd0bd, 0xe3a9ed01, 0xbc22e71a,
++	0x3df52717, 0x49ee7001, 0xa9ca3efb, 0x265f735e, 0xed3bafc0, 0xd89eac7b,
++	0x08e484f7, 0x7c18ebaa, 0xf7bb4fde, 0xd9cf86bb, 0xf85092b4, 0x5859a6f4,
++	0x1ce7c0dc, 0xaf007a80, 0x3676af1f, 0xdcac9c60, 0x71f61839, 0xe76065cc,
++	0xfbc665d7, 0x2ceb4413, 0xbfc823b9, 0xc3ae9753, 0xa2e15371, 0x6739f81b,
++	0xd5ce78c8, 0x9d287cf0, 0x27481fd9, 0x8f4e6760, 0xb8e0bb41, 0x5737dd86,
++	0x9d267ff7, 0x1173d9c9, 0x0dfd83de, 0x94c57b87, 0xd377e786, 0x44577af9,
++	0xaebdd4e1, 0xf58fa8a1, 0x9f784b36, 0xf34cf7b7, 0x706ed679, 0xdc609070,
++	0x1ffc2672, 0xf3be7f6d, 0x91febf9e, 0x457f7ff6, 0x8865038c, 0xdf847ae5,
++	0x7679de0c, 0xa7f511bc, 0x2a0335d9, 0xe4ce2e40, 0x6639b071, 0xc386126d,
++	0x3c3d56b4, 0x54d0b89d, 0x904296b8, 0xd6a84e2c, 0x4b4553c3, 0x85af9633,
++	0x0f41aef2, 0x9f09e1eb, 0x6b1dbcfa, 0xa06d8d41, 0xf904b847, 0x0b68ff9f,
++	0x95dcd75d, 0x73d99db2, 0xeb3aae5c, 0x871e51be, 0x3ce3dfa0, 0x010286af,
++	0xd367d5ed, 0xfb7f8525, 0x61af0e59, 0xcc7f5ce9, 0x1eecf927, 0x609c7f51,
++	0xeefb9c38, 0x448747d9, 0xdb282388, 0x2ef8feb9, 0xfd56e77f, 0xeef883ee,
++	0xc7ef1c73, 0x413294f5, 0xe4c19c9f, 0x17ed4140, 0xfee84bab, 0x1a2d3a0b,
++	0x6dcfd38c, 0xb8780dd8, 0xa8f1c1d0, 0x9e701d23, 0xbde678a6, 0xaa4d398f,
++	0x9357a17b, 0x4b2e8e97, 0x2cbcb065, 0x832abbf6, 0x5f5965e5, 0x45c8255b,
++	0x2d7d1f21, 0x6e3f394b, 0xb07a3e46, 0x0fd62565, 0x3cb078b7, 0xf38eb2d2,
++	0x7f6c36e3, 0xce51e5ab, 0x1f9cbd8f, 0x77bf833f, 0xf962d4b6, 0xcb1b8b6a,
++	0x33dce307, 0x3e226e00, 0xc6e8d539, 0x9b43d1bc, 0x5fe2040c, 0x980d3a17,
++	0xc44f4097, 0x40278f13, 0xef018dde, 0x6ff3a9f5, 0x9fbe7cd4, 0xb7df421e,
++	0x189e9c58, 0xfa033794, 0xf4c8c0e2, 0xcdd88c74, 0xedfe97c0, 0x0f9057f1,
++	0xcddbb31d, 0xa4b74fa0, 0x38bca277, 0x759bb4e6, 0xbc79eeb4, 0xedbbb593,
++	0xafad0366, 0xdac7df4a, 0x1473763d, 0x7c7eafad, 0x12f76b1f, 0xf83f220c,
++	0xc7c86bf8, 0x107489ca, 0x31a547ce, 0x17152c6b, 0x1f975e54, 0x3e317384,
++	0x3858de65, 0x3d725f17, 0xd57da27d, 0xca4fa841, 0xab85a2dd, 0xe1534edf,
++	0x9157181a, 0x7185ad50, 0xaf963363, 0x06e37181, 0x1e0dac3d, 0xc76f2137,
++	0xeadfa81a, 0xfd05a2d8, 0xc7ce4bf4, 0x2ea23cc4, 0x169f05da, 0x3ac360f9,
++	0x0a0f285d, 0x0f285c3a, 0xa62a5c04, 0x7e003f56, 0xc90ea6c7, 0xa63ac122,
++	0x71c1fd4a, 0x846ba5c8, 0xbf2922f7, 0x8efe98de, 0xd71d1579, 0xb11bf504,
++	0xa65593fe, 0x6f7f94ef, 0xdf230f4d, 0x0ef3f04e, 0xbbf21ef2, 0x3bd9e84f,
++	0x5c035f1d, 0x9b9ef04a, 0x24b5df19, 0xe3fa336e, 0x3d833641, 0xb69e7204,
++	0x1965e70f, 0x6453fb97, 0xcef876e7, 0xc3f9918b, 0xabfcfccb, 0x68444dee,
++	0x4f61fce7, 0x4bd985ba, 0x06875dfc, 0xd07e86d2, 0xa997e5ab, 0xf9d5a1f3,
++	0x59ff2216, 0x4f515f9d, 0xa1307bd8, 0xdeecce79, 0xb39e486e, 0x19a2abb0,
++	0x5e05ad3f, 0x78f8e943, 0x0957cf3a, 0xabc9c385, 0x3864e1c0, 0x87ec8438,
++	0x2eef3178, 0x74c6ff24, 0xdeacf11c, 0xb2277117, 0x3f8936f7, 0x5d04feec,
++	0x8dafee84, 0xe0cb5fc1, 0xb3bbf54f, 0xb9aae780, 0xab7e0266, 0xc7f3fe60,
++	0x351ff02b, 0xf8aefb5f, 0x0db9b4e5, 0x5080fdec, 0x1c39763e, 0xc2f7131f,
++	0x53d0a5d5, 0xe41a3ee1, 0x343bc201, 0x4befe760, 0x80674776, 0xf7d1567e,
++	0xd0ec0695, 0xf37ef604, 0x9cdb9b22, 0xe922e141, 0xc8817e59, 0xf1a33dc3,
++	0xb6f416fc, 0xc9e6cdb4, 0xb0832fa8, 0x4ac767a0, 0x7e3fe0eb, 0x878aead6,
++	0xafd72471, 0x3a077e0f, 0x7a699e52, 0xa17f9306, 0x5fe45125, 0xfaf96ef6,
++	0x8a2fde9a, 0x792a8f04, 0x41ee1fb4, 0x418b285c, 0x112dd9f9, 0xdb3fbc1f,
++	0x7a849e5d, 0xbd00f74b, 0xdaefca16, 0x301eee2e, 0xdb57e704, 0x65a9ddc7,
++	0x71ddf646, 0xd0eca013, 0x079d1fbb, 0x0691e0fe, 0xcdbc938c, 0xc7270ff3,
++	0xb7c3fcb0, 0xc980fdf9, 0x004a5e1f, 0xf65938f9, 0xa1481525, 0x1bf77676,
++	0x05ec2ab3, 0xdd36f6a1, 0xefd858ef, 0x976eecd5, 0x6006cbb1, 0xf5dfdb55,
++	0x9022bf2b, 0xe56a3de7, 0xe3f90225, 0xbc7b73ff, 0xa4f5132b, 0x9533e4ab,
++	0x415b79f5, 0x897318ff, 0x228e39e5, 0x9525ce2c, 0x9bf2c9bd, 0xdbb6a978,
++	0xbda868e7, 0xa76a1d9e, 0xa5fd92cf, 0xd421ef50, 0xd809cf5e, 0x374ec2eb,
++	0x45bf9610, 0x3806f7ed, 0xddb9e717, 0x8f13314e, 0x7c3f2179, 0xc87dce6f,
++	0x9f30a217, 0x8f8ef9e3, 0x7fad6112, 0xc5fc4ae9, 0xbd00f62b, 0x22be5937,
++	0xf5fa79c1, 0xc120bf2b, 0x7375bcef, 0x8e9b773f, 0xffaa43dd, 0x8a728ca7,
++	0x8075b5ca, 0x9af27aa7, 0x7920eefe, 0xabffda4b, 0x28c3de1f, 0x3586abff,
++	0xb4f5bc81, 0x7ed2764c, 0x223edcd5, 0xac76f91e, 0x32927b73, 0x289ed646,
++	0xeacbbffa, 0x13ff4403, 0xbbf49d93, 0x9da2a9d5, 0xd78ebf8f, 0x6c76ee89,
++	0x0df312cf, 0x6b337565, 0x72f8cb6f, 0x8231e832, 0xe0cc6fbf, 0x47bf91f2,
++	0x63fdf944, 0xcc578919, 0x73b651bf, 0x1fde2079, 0xc4e1faaa, 0x6e70a398,
++	0xb5cc25db, 0x875fbfab, 0xb673fbfe, 0xf7e082f6, 0x8e9e454a, 0x798cd2ab,
++	0x0d2f0d53, 0x22740add, 0x81278f9b, 0xe3c5d2de, 0x09b255f1, 0x36172ee3,
++	0x491ebe30, 0xf2bc5bef, 0x42be0515, 0xc0fbf9da, 0xdfa49818, 0x6493ff3b,
++	0xa0f33ef6, 0xe80bcc2e, 0xde0c7ce0, 0xc37b847b, 0x212bff22, 0x5ec13887,
++	0x8a39784e, 0x71f953bd, 0xc5dbf217, 0x767f332f, 0x2803a6c3, 0x76cbe6df,
++	0xc89d27f4, 0xf00abf76, 0x0d7731e9, 0xcaf838c1, 0x3f5d7157, 0xdc785bb2,
++	0x182f2fab, 0xe143879e, 0xc0abfbff, 0x4afff7ff, 0xfc82eff8, 0xbb73e032,
++	0x4dbed0a3, 0x0ef5fad6, 0x649e6b88, 0xe79e5cef, 0xfaed2b70, 0xf815df10,
++	0xd3b30667, 0xdc583ae2, 0x8965e446, 0xc333feef, 0x1e74eccc, 0x79a8691f,
++	0x47c4346b, 0xc4c6fe04, 0x77f07690, 0x38383c53, 0x07801c1e, 0x9c40ef01,
++	0x0acb8e84, 0xb0aed79e, 0x23dc050f, 0x7d35639d, 0xe3ab7588, 0x0e997706,
++	0xef7e0096, 0x847986fa, 0xb0b4cfdf, 0xcc7eb4f9, 0xf011fc13, 0x1e00c4ca,
++	0xef940375, 0x46bc5180, 0x22b9280d, 0xffed95de, 0xc35778cb, 0xf3d65d4d,
++	0xf7fa9838, 0xff3403a1, 0xbffc70ab, 0xdd9d5fe6, 0x3ed15fbc, 0xd71be577,
++	0x7e157fe4, 0x1f957fd1, 0xf5ff9236, 0x16ee992f, 0x2fc9bba0, 0xfc40d12e,
++	0xffbdf6e6, 0x8b013bc8, 0x5e303bf7, 0xcbdf0f74, 0xf6ffa317, 0x9e947dfe,
++	0x7e6668be, 0x3ffb53a9, 0x43f3d9d7, 0x45f663e9, 0xe8833899, 0x77caf66a,
++	0x669f2074, 0x5c22cd53, 0xa70d6a7c, 0xa127cc27, 0x48d6a07c, 0xfcf40974,
++	0xf7b2d6d7, 0x10216ba5, 0xe7d2c363, 0xb593eda6, 0xc7ef07c4, 0x3eb49b56,
++	0x9487c603, 0xfc0d61f7, 0x686a597d, 0xcac5ee2a, 0x9ef3194e, 0x716328ee,
++	0x76a619a5, 0xfd38dfbc, 0xf7f3eac8, 0xe35dd9c1, 0xba796129, 0x9fd27ee2,
++	0x5e24df34, 0x37e406b4, 0x1e259ff8, 0xc3ae5c87, 0x5c7aa438, 0xfe7600ed,
++	0xcb12cb26, 0xf2c3d837, 0xa479c4d7, 0x28623bfb, 0xf0f37962, 0xb3756ace,
++	0x00b437ce, 0xa8fd8ff4, 0xad95347f, 0x353c002a, 0x303e958d, 0xc0f40414,
++	0xa25f95a6, 0xc7e6a37e, 0xfd5af2ea, 0x1cb7ef50, 0xfa117a41, 0x1f16a9e2,
++	0xa97ed5d6, 0x8c7e6359, 0x5f919c71, 0xd470bd32, 0x1189e725, 0x6f6f6ff6,
++	0xd84b3b09, 0x4e3b6a5d, 0x5ef10bf0, 0x0b00fb5c, 0x77c6bb93, 0x5a8ffbd8,
++	0x4034be56, 0x5f057729, 0xef767ca5, 0x4a5fe400, 0x87c41bfe, 0xc55ffdb1,
++	0xdf740387, 0x4dff00ec, 0x6f7b066d, 0xf5f74d5d, 0xaa7e4c29, 0x94ae5de9,
++	0xd3519f51, 0x3bf3a0bb, 0x7fd05b9d, 0xd2c60b37, 0x926acc75, 0xc9d59ef0,
++	0xd7bc1e97, 0xddd09748, 0xe29d33fe, 0x486fbc3d, 0xe072a1f7, 0xbe23b463,
++	0x5d201cb5, 0x33feecd1, 0xa84f47c3, 0xc0a0bd1c, 0xbd1ca84f, 0x5fc4aff0,
++	0xf9cffd98, 0xf0907276, 0xc8bb7f3c, 0x6b239ff3, 0x26dcf7d8, 0x790a0796,
++	0x765ebd68, 0x56696c2f, 0x4d7fbe1b, 0xe058b20d, 0xc9f6cb23, 0x778b3d64,
++	0xde835368, 0xbe26ea2b, 0xe0494777, 0x9bf9624f, 0xf7b3464b, 0x9a79d43e,
++	0x91b3ff22, 0xb4cbbb8f, 0x54788f4b, 0xe62443bd, 0xd443bf51, 0x67fc7a38,
++	0xf7e7ff18, 0x0fefd58b, 0xf9e4ca0d, 0x88a4459f, 0xccafc7c5, 0x5e407aa7,
++	0x7b8df906, 0xbda0b52e, 0xf4399793, 0x01193c3f, 0x8665177c, 0x99a5d7e8,
++	0x94b3d657, 0xfa62ffed, 0xf0dbcd90, 0x4a6f913d, 0xe72c861f, 0x38b75824,
++	0xf9e7fd27, 0x679e0315, 0xef713ef1, 0xbdf1e7f2, 0x09afde8f, 0xe6ae87c6,
++	0xcdd3199f, 0xf4dd03ae, 0x4cd5b7b1, 0x94ea3ef1, 0x2304fd07, 0xdef1bb8f,
++	0x9cb788dc, 0x0a4c8190, 0x5864ba0f, 0x841bd0b7, 0x0be0111e, 0xcf0b7efc,
++	0xfe56b8f7, 0xdc4bfff1, 0xe9b3dc43, 0x4e4af9d1, 0x13defc80, 0xef1df615,
++	0x2b9a99d5, 0x60f9ffbe, 0xe0357b9c, 0xbfe70a69, 0x2ad01de2, 0x7bdbbd99,
++	0x3f464ba1, 0xfd1f8ac5, 0xdb8fb7e1, 0xeb57e743, 0x2f964d67, 0xd247ae50,
++	0x2c349bd7, 0xd2a8beaf, 0x605af98e, 0x42df80ff, 0xfdd431f8, 0x7e2bd90f,
++	0xf776899e, 0xac272ee8, 0x9eb651e7, 0x5a6af848, 0xbf0a5ff9, 0x37efa449,
++	0xccb12bed, 0x7f1f3a0f, 0xfd0494cc, 0x06353e5b, 0x74ad7df0, 0x0ecd7ff1,
++	0x8f132c98, 0xbe70e544, 0x257a65e4, 0x2ce5fa61, 0x1ce585d2, 0x9ba587d2,
++	0xf9eabcb0, 0x42e581c4, 0x65d3cf7e, 0x0991bf77, 0x1f5d55fe, 0xfe7b53be,
++	0xe1e7bfa5, 0x8f37503b, 0xa95c836a, 0xad9fcaef, 0x0b7aafd6, 0x0d38fefb,
++	0xbfeec7f8, 0x0f51da67, 0xb377b6b8, 0xd3ce71bd, 0xddfc6199, 0xb32e59ff,
++	0xee97157b, 0x5a4def65, 0x363218d8, 0x2574fb11, 0x09f9e167, 0x2de4cdf0,
++	0x5c426f82, 0x0d03ff2b, 0x932fcb8b, 0x7505eff0, 0xc47835f8, 0x796517f2,
++	0x62efa865, 0x560df9ed, 0x717904af, 0xfb58a323, 0x5dfe2b72, 0x8fc4d9cf,
++	0x3c2e72e7, 0x3dc32b65, 0x0b963b09, 0x54d4fbf8, 0xe896cee3, 0x469d45f8,
++	0xfc4dcf96, 0x05bf6083, 0xb1849f60, 0xf206cb77, 0xe3367438, 0x542ac3f7,
++	0x0fce05fe, 0x3315ec1a, 0xe172d206, 0x48192740, 0xad987ee9, 0x20cffd6b,
++	0x86b7606f, 0xcfafbdc0, 0xe300fe46, 0x2fdc622b, 0xe83a15ec, 0xf2c482f7,
++	0x0cfb3d8e, 0xa4d4bde2, 0xcbbd3f60, 0xfd03195e, 0xa8b6146c, 0x2b80451f,
++	0x572abdfc, 0xe44c7b18, 0x1d030db1, 0x0485fd11, 0x417a25df, 0x819cf562,
++	0x4d7dbe3f, 0x3d30fa1e, 0xc2fe87a0, 0x7d80ceee, 0x6213d30c, 0x92fff582,
++	0xcd21afdf, 0x5f0f1099, 0x034184f2, 0x547bc67a, 0x833dc31c, 0x167b533f,
++	0x2ed4d3ca, 0xd42ff285, 0x03f2852e, 0xf942976a, 0xa14bb511, 0x10b1745c,
++	0xbe2224de, 0xd862ce81, 0xa83b888f, 0x903f9bd7, 0xbb06cdc9, 0x1d62867b,
++	0x8eb8f4fb, 0x3f5dac17, 0xc75d19fd, 0x6907bb0b, 0x244bbee0, 0xfbeef478,
++	0xfe95e65b, 0x7f888d3e, 0xf107dba8, 0xd2ec17ef, 0xe82fdca2, 0x0e2ec7f0,
++	0x503157ea, 0x77f3e38f, 0xf30b1c7f, 0xe1fa58f7, 0x56e894ea, 0xbd586b27,
++	0x845e57e2, 0x39dd836b, 0xcf4bf603, 0x4fd838f7, 0x7e1fc741, 0xe83af70a,
++	0xeda718fc, 0x8236fa95, 0x87dea67e, 0x5f62df7a, 0x61ebff74, 0xb3bb0bfc,
++	0xdf942761, 0xf65e7610, 0x437977b1, 0xf70abbf7, 0xafa1bb73, 0xdc2bee18,
++	0x9b0e597e, 0x2f60da27, 0xc57f7847, 0x38fed0f5, 0x812ba71c, 0xae7b6faf,
++	0xf111f3d5, 0x50f001ee, 0x4ba3c83b, 0x560fa0b1, 0xc76678f3, 0xe36f41ae,
++	0x322397fd, 0x385fbf81, 0x773ca6cc, 0x1278e13f, 0xbd3efe65, 0xc2f5f00b,
++	0xc1074fbe, 0x3f14a07b, 0xc9efe083, 0x60e068fe, 0xfe7dfe45, 0x031fafc8,
++	0xf1fda1fa, 0x274e15ef, 0x6e20aa5b, 0xffb8d33f, 0xb6696c10, 0x882a83e5,
++	0x914dcfdb, 0xcf39430e, 0xe20e359e, 0x79df22f5, 0x61f96e41, 0x3ab74a38,
++	0x2b8f51aa, 0x2412e607, 0x318d2a17, 0x216051fc, 0xf515e287, 0x8ae929f1,
++	0x39ed13fe, 0xb949f68a, 0xfbda2837, 0x8638a1ef, 0x06cf7e07, 0x4365f478,
++	0x83ee8d1c, 0xa7b57dfd, 0xca77cc64, 0x96fc7ddf, 0xf27d681b, 0x7be077d3,
++	0xf6f02f6f, 0xf12b3bc9, 0x52f59bef, 0x22a9ea78, 0xa1eca675, 0xc9833f8d,
++	0xfd42f654, 0xc30f27be, 0xd8dfd0bb, 0x2760885e, 0x97a611d4, 0xd417b246,
++	0x9be50276, 0x39be053f, 0x16a9a5ec, 0x617f0fc8, 0x2069d7e4, 0xe40fb697,
++	0xfb7066ef, 0xf4fd1221, 0xfec9139f, 0x29fdf076, 0xbf88fd35, 0xc9ca2d6f,
++	0xa13dd8c7, 0x3ed7ca6f, 0x7686be01, 0xafdb87b9, 0xcff954bc, 0x6f1de986,
++	0x9efe03df, 0x94dc32a3, 0xb5bfbfe8, 0x0e5ffe18, 0xb8593dd0, 0x04d481e5,
++	0xfa03ddfc, 0xa7f72370, 0xeb90367d, 0x1ffbf553, 0xb40e2d48, 0x281f1593,
++	0xa5fb93fa, 0x9afa8ab5, 0x437d652c, 0xf1e0daf9, 0xc5b1f491, 0xbbd3ce8f,
++	0x9f9ee1f3, 0x3aeff614, 0x8127aff6, 0x4b7d87f3, 0xba7edf90, 0xbdfe197f,
++	0x46ff7559, 0x01f81f3a, 0xb3904717, 0x974d4f82, 0xeac23bd9, 0xef8abff6,
++	0xefdbbe39, 0x8f6147bd, 0x332f5e79, 0x9c5efbf9, 0x13a0af5b, 0xf9eefb3b,
++	0xe8ff0f4d, 0xed2b882b, 0x79d57661, 0x051f932b, 0xc0d33ebb, 0x161e8bdf,
++	0xc0abe8cd, 0x3dc0d7e2, 0x7e06ff9a, 0x00334c2b, 0x0000334c, 0x00088b1f,
++	0x00000000, 0x18adff00, 0xf514707b, 0x7bdbdbf9, 0x79724b92, 0x71211240,
++	0xc220572f, 0x4849ac91, 0x92ea4903, 0xf03ea410, 0xa2a21900, 0x799e0fae,
++	0x2a93a84a, 0x028d361d, 0xd6d36d52, 0x4f4e2a2a, 0xd1954a2c, 0x2562bc34,
++	0x40569478, 0x2f2a7b1d, 0x419cca69, 0xee421923, 0x8cc38a8c, 0xbf7dfa1d,
++	0x5eddcddd, 0xc9a75502, 0xf6fbbf1f, 0xcfdef8f7, 0x05048af0, 0x571a0192,
++	0x02a62a26, 0xc8dc8280, 0x00b5fb71, 0xbb4c6176, 0x94e00b3d, 0x157004c9,
++	0xa5029fd0, 0x30276100, 0xf0efdd38, 0xbdbf423d, 0x225f1c91, 0x9e5eef7e,
++	0x77dc2323, 0x4055a560, 0x5dfd12f8, 0x361b5d17, 0x709563df, 0xd480197f,
++	0x0fb91ce1, 0x1d300ad0, 0xe7f015df, 0x32a3a458, 0xe784db92, 0xf716faee,
++	0x2412fc55, 0x828f9d20, 0x76048f4e, 0x15798f80, 0x0624279e, 0x8df3c49f,
++	0x22b07847, 0x3810033f, 0x8ec7077e, 0x004ab339, 0x814fd396, 0x815877be,
++	0xc005bf67, 0xefb42bef, 0xdf97cbcb, 0x6f084904, 0xf286f4b1, 0x4970fbd8,
++	0x90e30343, 0xaadced7e, 0x9d5bb7bf, 0x78c9feb4, 0xff1e01ae, 0xb5fbc782,
++	0xd7ef6410, 0x7b7dc0ed, 0xf5f97ecc, 0x0dfbd39f, 0x0af78cbb, 0xbef4c485,
++	0x0a03f4a9, 0xb3ecf12f, 0xb6adf089, 0xf9aaf8ab, 0xb1bc3f6f, 0x837af918,
++	0x69f86d17, 0x64c4df68, 0xd98fe2f0, 0x91aca428, 0x8cdc6c72, 0xe145a48f,
++	0x5cfc7dc1, 0x47379d3f, 0x1b4fe672, 0x44906f29, 0xb561c913, 0xbab7c54b,
++	0x80059be2, 0x9b7756f8, 0xe02bb801, 0x1083c8d9, 0xdba0a783, 0xa33bf3e6,
++	0x2a5d87f4, 0x5fdd058f, 0xaaf2cea7, 0x01d12b6b, 0x405e2aed, 0xa67a41bb,
++	0x47496071, 0x139f307c, 0xac72e1b7, 0xe492a33b, 0x80838c74, 0xb89ec850,
++	0x2df48ed5, 0xefa39f54, 0x1fc5484e, 0xc2667999, 0xcbd340b3, 0x2f77d2c2,
++	0x516f7872, 0x4889a2f7, 0x75df1c01, 0x1cd431ef, 0x0c3c152c, 0x2c5062df,
++	0x296397a4, 0xa466ecbe, 0xddcf1e73, 0x1c12f3ed, 0xff10e019, 0xae048ab1,
++	0x3fef638d, 0x7cebef42, 0xb2f8b31d, 0xb35f189b, 0x37a87d5d, 0x5fc29a4e,
++	0x8f29184a, 0xd0cd5ca8, 0x5797eba7, 0x59ec86dd, 0xd7e6afdf, 0x1d31bace,
++	0x5c04b8f5, 0x16fba436, 0x610c0d1e, 0xdfe6cb78, 0xe03126e6, 0x5f2819ef,
++	0xf44a982e, 0x2d0584fa, 0x68cfde02, 0xd39835f9, 0x5667e462, 0x8fd74efd,
++	0xf491cf2e, 0xf9abf8a8, 0x7c84a0f2, 0x98e76d0e, 0xaa88351d, 0x9f94369d,
++	0xc462c3fb, 0x45e410df, 0xefa9e90e, 0xe492703a, 0x03aeb1d8, 0xce8016cc,
++	0xad6c5d75, 0x7c033bb7, 0xd98fe33e, 0x838d09af, 0xc1a55bf8, 0x74775f8c,
++	0x1c7fca3f, 0x3032cbbc, 0xf802e70c, 0x13bf7d93, 0xbf359f90, 0x62d8f2f8,
++	0x794376a2, 0xb207f30a, 0xf4a3abb9, 0x9c015817, 0x5b647f48, 0xc32b7f82,
++	0xa27eaa23, 0xfeff6dd9, 0x719a2749, 0x0b1dffbf, 0x1583db33, 0x1cfe0f4f,
++	0x12db35e1, 0x53fb9c98, 0xfda2c941, 0x0afd93ad, 0x8a6e581e, 0xdc9334f4,
++	0x6dc5133b, 0xf3f9ffb8, 0x81dd5f93, 0x2757caf0, 0xf926448a, 0xdf845091,
++	0xefa011b3, 0x3dd8b33b, 0xcbbc5590, 0x5fe4ff34, 0x729bf69e, 0x4d397fda,
++	0xfeba3c24, 0x90ef3ece, 0x35f5e500, 0x685df204, 0xa538e782, 0xd70f84cf,
++	0xe69c769a, 0x36ad3ed0, 0x75e92779, 0x397fb3d5, 0x54fc865e, 0xd3f37cbd,
++	0x95be9033, 0x7a058d1f, 0x11d7aa27, 0xe42920f1, 0x51e038a5, 0x9f2680e3,
++	0xff0eedda, 0xa57131a7, 0x00c523be, 0xf9657637, 0x47898d3f, 0x18caa0b5,
++	0x1f98e7ee, 0x35fe69d5, 0x20df978d, 0x4843d47d, 0xb110938d, 0xf2155d92,
++	0x2171449c, 0xc98d84f2, 0x3ecede3f, 0x2ecc4c10, 0x53204ceb, 0x034c2f7c,
++	0xaff9267b, 0xfc2fcaac, 0x9bade4c4, 0x42fd3650, 0x93ffeeaa, 0xb58b4c16,
++	0x37869ecf, 0xdb373ec9, 0x380e7d98, 0x3c67f980, 0x290b7f9e, 0xfb32fcec,
++	0x861fcc57, 0x45cb4bf3, 0xc0c51730, 0xee28905e, 0x4509b615, 0xacdae00f,
++	0x964a65e9, 0xadfc442f, 0x9eedf8ea, 0xb73c98f7, 0xf08a783c, 0xfd32761e,
++	0xdcaa7bc1, 0xc4d41cc3, 0xf665a9e6, 0x7bff342f, 0x7dcfe0c1, 0x97c89ccf,
++	0xddbefdf1, 0xed01f353, 0xd83e5ef9, 0x67ca1cf7, 0xfa783130, 0x0f3b5c61,
++	0xf28e387f, 0x75bd3c62, 0xe01a5f2d, 0x478d4e01, 0x7e07c475, 0xbbeb913f,
++	0xe181f640, 0xde87c584, 0xfc98d34d, 0x326f79aa, 0x6fdc3fe9, 0x4e9e2fa4,
++	0x3e9d7dfd, 0x9cfd7dfd, 0xebeaadd9, 0x9f9835bc, 0xcc9fdf8a, 0xefac1811,
++	0xe60a4f9f, 0xbbe938a7, 0x8a973d4b, 0xd5bd8c70, 0x6fd44fd0, 0x37e31d8d,
++	0xc35357d2, 0xbec06d89, 0x713f142b, 0x5fb8c80d, 0x26a6f997, 0xd1d9f037,
++	0x766916ce, 0x6669e906, 0x82b73bca, 0xb48bd76a, 0x743b7df8, 0xe5fd0058,
++	0x67f5a9a4, 0x3a075c76, 0x63916f7e, 0xca72afe3, 0xf7ea6974, 0x254abf8f,
++	0x3f1c51e4, 0x3ab272ef, 0x339ba267, 0x90d973b3, 0x5f70e74d, 0x281da00c,
++	0x0db1369d, 0xdf7991e9, 0x57bc6e35, 0x93e40d67, 0x64f7e81f, 0x07df665e,
++	0x9196f7b8, 0xc81cc1be, 0x8a4ff567, 0x3bac3815, 0xa0c563c2, 0xbe50f284,
++	0xe2571606, 0x02d865e3, 0x47489d35, 0xfdd77d05, 0xb8a4ed11, 0xe9d4d4ca,
++	0xc65e251c, 0xbd3407c1, 0x9a99a715, 0x8ff1463a, 0xe91f68db, 0x5e0e836b,
++	0x7f355ff5, 0xc6726996, 0xd6c7cf84, 0x5c5a0d33, 0x15d9270f, 0xdb2fe91e,
++	0xb8407a87, 0x40381ccc, 0xb43d7a2b, 0x42673ea0, 0xcbaf7d40, 0x6729bf18,
++	0x78f9612c, 0x33238b2a, 0xe7aef535, 0x68f4809a, 0xeb857ca7, 0xd3c82e26,
++	0xb08813fa, 0x99970255, 0x5b3b1456, 0xad8f8367, 0xad89a073, 0xad9da173,
++	0x5b074037, 0x5b20826f, 0x0da04a61, 0xeb5ffc58, 0x0c3cc3ea, 0xa26e5d3f,
++	0x18bc5c7c, 0x87f3469a, 0x2ebc9ab5, 0xea8c0f2f, 0x1e5c3f25, 0x64ce4073,
++	0x2e4e5d74, 0x9d98f213, 0x91b172eb, 0x073de23d, 0xad6933f8, 0x877b1080,
++	0x99de925c, 0xe0998205, 0x5c18902a, 0x51e51dfd, 0xb2cd921a, 0x54b91477,
++	0x8f276e8d, 0x9171726a, 0xea8d8f0d, 0x605baf6b, 0xcc37aeb0, 0xff1499d0,
++	0x7213ea47, 0x84e2ce88, 0x0c052fca, 0x21f77e11, 0x6be3199f, 0xb3655171,
++	0xf74ee107, 0xe3199f49, 0x65597168, 0x6ac44591, 0xdf63f5b3, 0x4765846c,
++	0x1fa03e52, 0x3bc831d9, 0x87bc3e50, 0xfa54d287, 0x7ca7e39e, 0x101fe369,
++	0x07654fc9, 0xadd59040, 0x17e45568, 0xaeef357e, 0xba7aa971, 0x4b3f26d9,
++	0x0f6f587e, 0xc3c80924, 0x0cead69a, 0xac1b87ca, 0x8c9fbbea, 0x89bea615,
++	0x1e21b172, 0x2f94617b, 0x081c57dc, 0xb9a13887, 0x47a51dc5, 0xf01dffc7,
++	0x784af9fe, 0xafca650f, 0x09bf29b9, 0xc61beb22, 0xb3bb796b, 0x97c44cb3,
++	0xa3170e90, 0xa9389423, 0x26dc85b9, 0xde97b7cb, 0xf6aa270b, 0x7b6c97b6,
++	0x75ed747a, 0xd3ddbb4b, 0xb70f7e47, 0x8027b37e, 0x433f86ef, 0x5def78c4,
++	0xce8fbcb7, 0x39429a35, 0x5f97a845, 0x92b69c26, 0xcaf6e83d, 0x209692a1,
++	0xf8126ddf, 0xca0fccad, 0x9675c35d, 0xe1ef6a27, 0xca1ef8a5, 0xabe7d8a3,
++	0x4a0fb2c2, 0xd20e9a6a, 0x57b72a5a, 0x39e10ee1, 0xf236f442, 0xffa46591,
++	0xac8f94c1, 0x9c7f319f, 0x169ddaa0, 0x1ff7baa7, 0x0abc7879, 0xdfc620fa,
++	0xbc5ff71a, 0x8f8c2ff0, 0x914e438d, 0x7bed978e, 0x7dea99a6, 0xcab0cfdd,
++	0xdd11c433, 0xd97666ef, 0x773b3c02, 0x5f3a52cd, 0x878f51f1, 0x3d75efe2,
++	0x832a36a1, 0xc627ddc3, 0xd7aff6ab, 0x3f70dfe9, 0x6e7c4f24, 0xa6487b47,
++	0xa7ca8b3c, 0xef37683e, 0xab7f21b7, 0x60d07ea9, 0xf6abf185, 0x58ff7a95,
++	0x561fe47f, 0x19f03bea, 0xa95df885, 0xcb62bfd1, 0x5d91377d, 0xfb1bf4ad,
++	0x6cafbd41, 0xf6d5ced4, 0x1f13d7f8, 0xe78ddbb5, 0xccafa91a, 0xeb0cfaa7,
++	0x75d50f31, 0xaa5bfb71, 0xd8d95f58, 0x1ffefc65, 0x2495f637, 0x81bf2d60,
++	0xd72e4756, 0x4e7f10ce, 0xfd59e7d6, 0xf56de436, 0x8ba2cdf3, 0xc8a76ce0,
++	0xf5d1ebe2, 0xb61e7b10, 0xd15b31a4, 0x46e575fd, 0xc3c7d58e, 0x364bdffd,
++	0x7828e889, 0xbdd58329, 0x7ab3af58, 0xd9881d03, 0x86ca016b, 0x3d7bfb43,
++	0x426b9225, 0xe777af3c, 0xff4f5489, 0x67049d75, 0xf4fa512c, 0xdf9abe7a,
++	0x3ea56551, 0x93ec7ee9, 0xef210ec8, 0x37bc72e9, 0xfc05b0fd, 0xaa043fb8,
++	0x9ace863e, 0xf33e5d58, 0xe49e4ec8, 0xfd518fcf, 0x026996d9, 0x0e1e4621,
++	0xa3080c61, 0x4d36f5f4, 0xa979097f, 0xf144fd86, 0xe4fdc32a, 0x7ec35cd2,
++	0x2b69239b, 0x0a4501e1, 0x8e284b7a, 0x48a4efab, 0x20f70c53, 0x5fb8ff84,
++	0x437189ae, 0x64c39cd2, 0x15ce15cf, 0x3690de6c, 0x9e78d0b7, 0x5f13cb5f,
++	0x87b833b6, 0x657f957c, 0xe675e836, 0x7e9e1180, 0x10921db4, 0x39a8e3af,
++	0x00a16e6e, 0xc13625d5, 0xd5ca5df8, 0x4c0262ec, 0x861bcc30, 0x961ceee5,
++	0x0945d92b, 0xf720c8fc, 0x1ea1b978, 0x3434dd58, 0x422a29c1, 0x7d630f54,
++	0xd467f946, 0x259fe518, 0x7e3de51b, 0xd9de5185, 0x5f79464d, 0xab9462dd,
++	0xcdca315b, 0xe1a671b3, 0x4af6c4fc, 0xf3793c03, 0xd7f3860d, 0xe01817f8,
++	0x376fdba9, 0x71d69f9c, 0xa0bf61af, 0x5f61956b, 0xd9cbb3b7, 0xd581b5c1,
++	0x0266f671, 0xa0ec15d3, 0x0643f0e8, 0xff7af17c, 0x12aaf831, 0x47a5ce51,
++	0x48c2de51, 0x1484703b, 0x6f1878a0, 0x57faf107, 0xaadff4e2, 0x93f793e5,
++	0xee4e3ece, 0x8f412f3a, 0xa0bcda7f, 0xb1fac2dc, 0x55690a7f, 0xcb567489,
++	0xaf2d3e6b, 0x644df6c1, 0xa973e024, 0x0f1418b0, 0x3c2b1c52, 0xbb22abe9,
++	0x1d350e2c, 0xe4a0f644, 0x32557b6c, 0x7040979d, 0x4b47538d, 0x5296fe74,
++	0x72b1cc0e, 0x8f366742, 0xa171ca8b, 0xe327cad2, 0xfd6fb2e1, 0x54ecc96d,
++	0xcfa7c33a, 0x3552b87d, 0x1c97cc6f, 0x47918e60, 0x4f9ea945, 0x5d5e8cbc,
++	0x089cfaee, 0x52b07deb, 0xfbb26fbd, 0xd5a3dcdb, 0x9e66e237, 0xab325fd5,
++	0x32710ec7, 0x6add1f9b, 0x7d90e60f, 0x5f90c99f, 0x317cc5c9, 0x56051268,
++	0x36a171bf, 0x8c4c2a62, 0x6e52f251, 0x9f512f9b, 0xcd2aed86, 0x8bf21727,
++	0x465e2be7, 0xa2542bbe, 0xb7f4c5b6, 0x99de5727, 0x739e794b, 0xbbc22fad,
++	0x973ccfef, 0x9fcc7943, 0xf7a2ed2c, 0x1921e787, 0xd9c617c8, 0x48504990,
++	0x1c43ca04, 0xd1ce2feb, 0xfc623323, 0xe585a376, 0xadfad02b, 0xe939353b,
++	0x0d12d6fd, 0xb13e2f6f, 0x9df8e302, 0x3c98875d, 0xb407336a, 0x7449ad3e,
++	0x4df7fbe1, 0xbf521670, 0xa8915209, 0xff7ae9f6, 0x3eff9e35, 0x57ef5579,
++	0x36be772f, 0x07d0dfb3, 0x51b48ec3, 0xf3f18de7, 0xeadf28ac, 0x258fbdfb,
++	0xfbd3fcb0, 0x1f9b3658, 0x641fdf46, 0x9b3b8173, 0xc7d8303e, 0x1b1f2ddd,
++	0xe51eeeec, 0x287ec313, 0x8f19623d, 0x64f687fc, 0xe503b9cd, 0xadb77e77,
++	0xd450fa84, 0x4c6e7f57, 0x627a1c9f, 0xf7c26cf2, 0xc73cf9bf, 0x1759e8e8,
++	0x9d34f364, 0x4eebd3cf, 0x2eb43832, 0x3e78d6c4, 0x5f55bef5, 0x3c837fad,
++	0xc227ea33, 0x9b47118d, 0xd479d4c3, 0xd667beba, 0xc3ca4ab8, 0xb356d93d,
++	0xe1524eba, 0x0abb52ac, 0x6b4b99cf, 0x48dce2d8, 0x070f6b7d, 0xd0f68712,
++	0x9785d57b, 0x7744f8ac, 0x50f56c86, 0xb9195a5d, 0x482b7340, 0xe379b10f,
++	0x41d954d2, 0x062c39df, 0x9d1952b3, 0x383fa893, 0x035e526b, 0x2f25018c,
++	0xf53e71fe, 0xaa498301, 0xf8be27dd, 0xe9057cdc, 0x97c5257e, 0x0a40f74c,
++	0x94e76359, 0xfa859cfa, 0xc253ea62, 0xf0cd750e, 0xcc8f8c70, 0x478a75b8,
++	0xd3d7578d, 0x9af5ef8a, 0xe47126da, 0x80dacf0f, 0x07e8a7e6, 0x4317d512,
++	0x1faa6cfb, 0x70920198, 0xdb6eccff, 0xe3cf640b, 0x5faa6690, 0x7d635ab0,
++	0xb65be141, 0x7d09c500, 0x11ee933e, 0xfbc5e57e, 0x6c2d7be9, 0x2898300e,
++	0xd77f9094, 0xf5601d27, 0x595c89d7, 0x15f9b0f2, 0x7a3f1448, 0x6eb6d8f7,
++	0x3991e752, 0xafff120b, 0x0f12b873, 0x6a4233eb, 0xe1cda95d, 0xf9abbe74,
++	0x43df19c7, 0x7c406d9b, 0x7c1a5f9e, 0x4ee6cbca, 0xd9d10e62, 0xd6e9526b,
++	0xd3f9d5e9, 0x73be88f9, 0xe7d5bb65, 0xd779d149, 0x07e44986, 0xce754728,
++	0x2f7773c7, 0x7dfee518, 0x7cb2beba, 0x558f88f3, 0x2dbcea4d, 0x07f6f7aa,
++	0x8ede914f, 0xbb1c5938, 0x3e78fddc, 0x611ff7eb, 0xef3e40f2, 0xf862fe22,
++	0x9989e25c, 0x3eef9e0b, 0xf85794f1, 0xb385fce1, 0xf878f9d5, 0x02398b85,
++	0x77dfafde, 0xc9d924e8, 0x6e3c1cf0, 0x831b6d8e, 0x68ea657d, 0x0acc6bf3,
++	0x4d92f531, 0x6cc13fbf, 0x9f218fbc, 0xfc8bacfc, 0x5d89eb11, 0xf9421f5a,
++	0x9eb6e292, 0xb1d9772f, 0xe2df454f, 0xb8b36f42, 0x8ec9784d, 0xcb0a73d7,
++	0xa15cfa5b, 0x44bcc38d, 0x599b963a, 0x76afe73c, 0xbba7648a, 0xd482f6d0,
++	0x04a59ad7, 0xeb8e3f36, 0xe4dbd76f, 0xd65ec947, 0x4199507c, 0x3be76ffd,
++	0x957d6837, 0x6ba64f9a, 0xf09d39f6, 0x64de1f13, 0x358a5796, 0x4dec4afa,
++	0x3321d53c, 0xf9d5e140, 0x788f3681, 0x8fd66dec, 0x775717fd, 0x1c70ea99,
++	0x00001c70
  };
  
-@@ -502,20 +509,20 @@ struct port_feat_cfg {			    /* port 0: 0x454  port 1: 0x4c8 */
- };
- 
- 
--/*****************************************************************************
-- * Device Information							     *
-- *****************************************************************************/
--struct dev_info {						     /* size */
-+/****************************************************************************
-+ * Device Information							    *
-+ ****************************************************************************/
-+struct dev_info {						    /* size */
- 
--	u32    bc_rev; /* 8 bits each: major, minor, build */	        /* 4 */
-+	u32    bc_rev; /* 8 bits each: major, minor, build */	       /* 4 */
- 
--	struct shared_hw_cfg	 shared_hw_config;		       /* 40 */
-+	struct shared_hw_cfg	 shared_hw_config;		      /* 40 */
- 
--	struct port_hw_cfg	 port_hw_config[PORT_MAX];      /* 400*2=800 */
-+	struct port_hw_cfg	 port_hw_config[PORT_MAX];     /* 400*2=800 */
- 
--	struct shared_feat_cfg	 shared_feature_config; 	        /* 4 */
-+	struct shared_feat_cfg	 shared_feature_config; 	       /* 4 */
- 
--	struct port_feat_cfg	 port_feature_config[PORT_MAX]; /* 116*2=232 */
-+	struct port_feat_cfg	 port_feature_config[PORT_MAX];/* 116*2=232 */
- 
- };
- 
-@@ -632,7 +639,9 @@ struct drv_port_mb {
- #define LINK_STATUS_LINK_PARTNER_15GXFD_CAPABLE 	0x08000000
- #define LINK_STATUS_LINK_PARTNER_16GXFD_CAPABLE 	0x10000000
- 
--	u32 reserved[3];
-+	u32 port_stx;
-+
-+	u32 reserved[2];
- 
- };
- 
-@@ -655,6 +664,11 @@ struct drv_func_mb {
- #define DRV_MSG_CODE_GET_MANUF_KEY			0x82000000
- #define DRV_MSG_CODE_LOAD_L2B_PRAM			0x90000000
- 
-+#define BIOS_MSG_CODE_LIC_CHALLENGE			0xff010000
-+#define BIOS_MSG_CODE_LIC_RESPONSE			0xff020000
-+#define BIOS_MSG_CODE_VIRT_MAC_PRIM			0xff030000
-+#define BIOS_MSG_CODE_VIRT_MAC_ISCSI			0xff040000
-+
- #define DRV_MSG_SEQ_NUMBER_MASK 			0x0000ffff
- 
- 	u32 drv_mb_param;
-@@ -684,6 +698,11 @@ struct drv_func_mb {
- #define FW_MSG_CODE_L2B_PRAM_X_LOAD_FAILURE		0x90230000
- #define FW_MSG_CODE_L2B_PRAM_U_LOAD_FAILURE		0x90240000
- 
-+#define FW_MSG_CODE_LIC_CHALLENGE			0xff010000
-+#define FW_MSG_CODE_LIC_RESPONSE			0xff020000
-+#define FW_MSG_CODE_VIRT_MAC_PRIM			0xff030000
-+#define FW_MSG_CODE_VIRT_MAC_ISCSI			0xff040000
-+
- #define FW_MSG_SEQ_NUMBER_MASK				0x0000ffff
- 
- 	u32 fw_mb_param;
-@@ -709,7 +728,13 @@ struct drv_func_mb {
- 	u32 iscsi_boot_signature;
- 	u32 iscsi_boot_block_offset;
- 
--	u32 reserved[3];
-+	u32 drv_status;
-+#define DRV_STATUS_PMF					0x00000001
-+
-+	u32 virt_mac_upper;
-+#define VIRT_MAC_SIGN_MASK				0xffff0000
-+#define VIRT_MAC_SIGNATURE				0x564d0000
-+	u32 virt_mac_lower;
- 
- };
- 
-@@ -726,6 +751,92 @@ struct mgmtfw_state {
- 
- 
- /****************************************************************************
-+ * Multi-Function configuration 					    *
-+ ****************************************************************************/
-+struct shared_mf_cfg {
-+
-+	u32 clp_mb;
-+#define SHARED_MF_CLP_SET_DEFAULT		    0x00000000
-+	/* set by CLP */
-+#define SHARED_MF_CLP_EXIT			    0x00000001
-+	/* set by MCP */
-+#define SHARED_MF_CLP_EXIT_DONE 		    0x00010000
-+
-+};
-+
-+struct port_mf_cfg {
-+
-+	u32 dynamic_cfg;	/* device control channel */
-+#define PORT_MF_CFG_OUTER_VLAN_TAG_MASK 	    0x0000ffff
-+#define PORT_MF_CFG_OUTER_VLAN_TAG_SHIFT	    0
-+#define PORT_MF_CFG_DYNAMIC_CFG_ENABLED 	    0x00010000
-+#define PORT_MF_CFG_DYNAMIC_CFG_DEFAULT 	    0x00000000
-+
-+	u32 reserved[3];
-+
-+};
-+
-+struct func_mf_cfg {
-+
-+	u32 config;
-+	/* E/R/I/D */
-+	/* function 0 of each port cannot be hidden */
-+#define FUNC_MF_CFG_FUNC_HIDE			    0x00000001
-+
-+#define FUNC_MF_CFG_PROTOCOL_MASK		    0x00000007
-+#define FUNC_MF_CFG_PROTOCOL_ETHERNET		    0x00000002
-+#define FUNC_MF_CFG_PROTOCOL_ETHERNET_WITH_RDMA     0x00000004
-+#define FUNC_MF_CFG_PROTOCOL_ISCSI		    0x00000006
-+#define FUNC_MF_CFG_PROTOCOL_DEFAULT\
-+	FUNC_MF_CFG_PROTOCOL_ETHERNET_WITH_RDMA
-+
-+#define FUNC_MF_CFG_FUNC_DISABLED		    0x00000008
-+
-+	/* PRI */
-+	/* 0 - low priority, 3 - high priority */
-+#define FUNC_MF_CFG_TRANSMIT_PRIORITY_MASK	    0x00000300
-+#define FUNC_MF_CFG_TRANSMIT_PRIORITY_SHIFT	    8
-+#define FUNC_MF_CFG_TRANSMIT_PRIORITY_DEFAULT	    0x00000000
-+
-+	/* MINBW, MAXBW */
-+	/* value range - 0..100, increments in 100Mbps */
-+#define FUNC_MF_CFG_MIN_BW_MASK 		    0x00ff0000
-+#define FUNC_MF_CFG_MIN_BW_SHIFT		    16
-+#define FUNC_MF_CFG_MIN_BW_DEFAULT		    0x00000000
-+#define FUNC_MF_CFG_MAX_BW_MASK 		    0xff000000
-+#define FUNC_MF_CFG_MAX_BW_SHIFT		    24
-+#define FUNC_MF_CFG_MAX_BW_DEFAULT		    0x64000000
-+
-+	u32 mac_upper;		/* MAC */
-+#define FUNC_MF_CFG_UPPERMAC_MASK		    0x0000ffff
-+#define FUNC_MF_CFG_UPPERMAC_SHIFT		    0
-+#define FUNC_MF_CFG_UPPERMAC_DEFAULT		    FUNC_MF_CFG_UPPERMAC_MASK
-+	u32 mac_lower;
-+#define FUNC_MF_CFG_LOWERMAC_DEFAULT		    0xffffffff
-+
-+	u32 e1hov_tag;	/* VNI */
-+#define FUNC_MF_CFG_E1HOV_TAG_MASK		    0x0000ffff
-+#define FUNC_MF_CFG_E1HOV_TAG_SHIFT		    0
-+#define FUNC_MF_CFG_E1HOV_TAG_DEFAULT		    FUNC_MF_CFG_E1HOV_TAG_MASK
-+
-+	u32 reserved[2];
-+
-+};
-+
-+struct mf_cfg {
-+
-+	struct shared_mf_cfg	shared_mf_config;
-+	struct port_mf_cfg	port_mf_config[PORT_MAX];
-+#if defined(b710)
-+	struct func_mf_cfg	func_mf_config[E1_FUNC_MAX];
-+#else
-+	struct func_mf_cfg	func_mf_config[E1H_FUNC_MAX];
-+#endif
-+
-+};
-+
-+
-+/****************************************************************************
-  * Shared Memory Region 						    *
-  ****************************************************************************/
- struct shmem_region {			       /*   SharedMem Offset (size) */
-@@ -760,18 +871,18 @@ struct shmem_region {			       /*   SharedMem Offset (size) */
- 	struct mgmtfw_state	mgmtfw_state;	       /* 0x4ac     (0x1b8) */
- 
- 	struct drv_port_mb	port_mb[PORT_MAX];     /* 0x664 (16*2=0x20) */
--#if defined(b710)
--	struct drv_func_mb	func_mb[E1_FUNC_MAX];  /* 0x684 (44*2=0x58) */
--#else
- 	struct drv_func_mb	func_mb[E1H_FUNC_MAX];
--#endif
-+
-+	struct mf_cfg		mf_cfg;
- 
- };						       /* 0x6dc */
- 
- 
-+
-+
- #define BCM_5710_FW_MAJOR_VERSION			4
--#define BCM_5710_FW_MINOR_VERSION			0
--#define BCM_5710_FW_REVISION_VERSION			14
-+#define BCM_5710_FW_MINOR_VERSION			5
-+#define BCM_5710_FW_REVISION_VERSION			1
- #define BCM_5710_FW_COMPILE_FLAGS			1
- 
- 
-@@ -810,7 +921,7 @@ struct doorbell_hdr {
- };
- 
- /*
-- * doorbell message send to the chip
-+ * doorbell message sent to the chip
-  */
- struct doorbell {
- #if defined(__BIG_ENDIAN)
-@@ -866,8 +977,10 @@ struct parsing_flags {
- 	u16 flags;
- #define PARSING_FLAGS_ETHERNET_ADDRESS_TYPE (0x1<<0)
- #define PARSING_FLAGS_ETHERNET_ADDRESS_TYPE_SHIFT 0
--#define PARSING_FLAGS_NUMBER_OF_NESTED_VLANS (0x3<<1)
--#define PARSING_FLAGS_NUMBER_OF_NESTED_VLANS_SHIFT 1
-+#define PARSING_FLAGS_VLAN (0x1<<1)
-+#define PARSING_FLAGS_VLAN_SHIFT 1
-+#define PARSING_FLAGS_EXTRA_VLAN (0x1<<2)
-+#define PARSING_FLAGS_EXTRA_VLAN_SHIFT 2
- #define PARSING_FLAGS_OVER_ETHERNET_PROTOCOL (0x3<<3)
- #define PARSING_FLAGS_OVER_ETHERNET_PROTOCOL_SHIFT 3
- #define PARSING_FLAGS_IP_OPTIONS (0x1<<5)
-@@ -891,6 +1004,12 @@ struct parsing_flags {
- };
- 
- 
-+struct regpair {
-+	u32 lo;
-+	u32 hi;
-+};
-+
-+
- /*
-  * dmae command structure
-  */
-@@ -971,72 +1090,107 @@ struct double_regpair {
- 
- 
- /*
-- * The eth Rx Buffer Descriptor
-+ * The eth storm context of Ustorm (configuration part)
-  */
--struct eth_rx_bd {
--	u32 addr_lo;
--	u32 addr_hi;
--};
--
--/*
-- * The eth storm context of Ustorm
-- */
--struct ustorm_eth_st_context {
-+struct ustorm_eth_st_context_config {
- #if defined(__BIG_ENDIAN)
--	u8 sb_index_number;
-+	u8 flags;
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT (0x1<<0)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT_SHIFT 0
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_DYNAMIC_HC (0x1<<1)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_DYNAMIC_HC_SHIFT 1
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_TPA (0x1<<2)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_TPA_SHIFT 2
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_SGE_RING (0x1<<3)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_SGE_RING_SHIFT 3
-+#define __USTORM_ETH_ST_CONTEXT_CONFIG_RESERVED0 (0xF<<4)
-+#define __USTORM_ETH_ST_CONTEXT_CONFIG_RESERVED0_SHIFT 4
- 	u8 status_block_id;
--	u8 __local_rx_bd_cons;
--	u8 __local_rx_bd_prod;
-+	u8 clientId;
-+	u8 sb_index_numbers;
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER (0xF<<0)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER_SHIFT 0
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER (0xF<<4)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER_SHIFT 4
- #elif defined(__LITTLE_ENDIAN)
--	u8 __local_rx_bd_prod;
--	u8 __local_rx_bd_cons;
-+	u8 sb_index_numbers;
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER (0xF<<0)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_CQE_SB_INDEX_NUMBER_SHIFT 0
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER (0xF<<4)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_BD_SB_INDEX_NUMBER_SHIFT 4
-+	u8 clientId;
- 	u8 status_block_id;
--	u8 sb_index_number;
-+	u8 flags;
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT (0x1<<0)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT_SHIFT 0
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_DYNAMIC_HC (0x1<<1)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_DYNAMIC_HC_SHIFT 1
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_TPA (0x1<<2)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_TPA_SHIFT 2
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_SGE_RING (0x1<<3)
-+#define USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_SGE_RING_SHIFT 3
-+#define __USTORM_ETH_ST_CONTEXT_CONFIG_RESERVED0 (0xF<<4)
-+#define __USTORM_ETH_ST_CONTEXT_CONFIG_RESERVED0_SHIFT 4
- #endif
- #if defined(__BIG_ENDIAN)
--	u16 rcq_cons;
--	u16 rx_bd_cons;
-+	u16 bd_buff_size;
-+	u16 mc_alignment_size;
- #elif defined(__LITTLE_ENDIAN)
--	u16 rx_bd_cons;
--	u16 rcq_cons;
-+	u16 mc_alignment_size;
-+	u16 bd_buff_size;
- #endif
--	u32 rx_bd_page_base_lo;
--	u32 rx_bd_page_base_hi;
--	u32 rcq_base_address_lo;
--	u32 rcq_base_address_hi;
- #if defined(__BIG_ENDIAN)
--	u16 __num_of_returned_cqes;
--	u8 num_rss;
--	u8 flags;
--#define USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT (0x1<<0)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT_SHIFT 0
--#define USTORM_ETH_ST_CONTEXT_ENABLE_DYNAMIC_HC (0x1<<1)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_DYNAMIC_HC_SHIFT 1
--#define USTORM_ETH_ST_CONTEXT_ENABLE_TPA (0x1<<2)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_TPA_SHIFT 2
--#define __USTORM_ETH_ST_CONTEXT_RESERVED0 (0x1F<<3)
--#define __USTORM_ETH_ST_CONTEXT_RESERVED0_SHIFT 3
-+	u8 __local_sge_prod;
-+	u8 __local_bd_prod;
-+	u16 sge_buff_size;
- #elif defined(__LITTLE_ENDIAN)
--	u8 flags;
--#define USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT (0x1<<0)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT_SHIFT 0
--#define USTORM_ETH_ST_CONTEXT_ENABLE_DYNAMIC_HC (0x1<<1)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_DYNAMIC_HC_SHIFT 1
--#define USTORM_ETH_ST_CONTEXT_ENABLE_TPA (0x1<<2)
--#define USTORM_ETH_ST_CONTEXT_ENABLE_TPA_SHIFT 2
--#define __USTORM_ETH_ST_CONTEXT_RESERVED0 (0x1F<<3)
--#define __USTORM_ETH_ST_CONTEXT_RESERVED0_SHIFT 3
--	u8 num_rss;
--	u16 __num_of_returned_cqes;
-+	u16 sge_buff_size;
-+	u8 __local_bd_prod;
-+	u8 __local_sge_prod;
- #endif
- #if defined(__BIG_ENDIAN)
--	u16 mc_alignment_size;
--	u16 agg_threshold;
-+	u16 __bd_cons;
-+	u16 __sge_cons;
- #elif defined(__LITTLE_ENDIAN)
--	u16 agg_threshold;
--	u16 mc_alignment_size;
-+	u16 __sge_cons;
-+	u16 __bd_cons;
- #endif
-+	u32 bd_page_base_lo;
-+	u32 bd_page_base_hi;
-+	u32 sge_page_base_lo;
-+	u32 sge_page_base_hi;
-+};
-+
-+/*
-+ * The eth Rx Buffer Descriptor
-+ */
-+struct eth_rx_bd {
-+	u32 addr_lo;
-+	u32 addr_hi;
-+};
-+
-+/*
-+ * The eth Rx SGE Descriptor
-+ */
-+struct eth_rx_sge {
-+	u32 addr_lo;
-+	u32 addr_hi;
-+};
-+
-+/*
-+ * Local BDs and SGEs rings (in ETH)
-+ */
-+struct eth_local_rx_rings {
- 	struct eth_rx_bd __local_bd_ring[16];
-+	struct eth_rx_sge __local_sge_ring[12];
-+};
-+
-+/*
-+ * The eth storm context of Ustorm
-+ */
-+struct ustorm_eth_st_context {
-+	struct ustorm_eth_st_context_config common;
-+	struct eth_local_rx_rings __rings;
- };
- 
- /*
-@@ -1107,9 +1261,9 @@ struct xstorm_eth_extra_ag_context_section {
- #if defined(__BIG_ENDIAN)
- 	u16 __reserved3;
- 	u8 __reserved2;
--	u8 __agg_misc7;
-+	u8 __da_only_cnt;
- #elif defined(__LITTLE_ENDIAN)
--	u8 __agg_misc7;
-+	u8 __da_only_cnt;
- 	u8 __reserved2;
- 	u16 __reserved3;
- #endif
-@@ -1387,7 +1541,13 @@ struct timers_block_context {
- 	u32 __reserved_0;
- 	u32 __reserved_1;
- 	u32 __reserved_2;
--	u32 __reserved_flags;
-+	u32 flags;
-+#define __TIMERS_BLOCK_CONTEXT_NUM_OF_ACTIVE_TIMERS (0x3<<0)
-+#define __TIMERS_BLOCK_CONTEXT_NUM_OF_ACTIVE_TIMERS_SHIFT 0
-+#define TIMERS_BLOCK_CONTEXT_CONN_VALID_FLG (0x1<<2)
-+#define TIMERS_BLOCK_CONTEXT_CONN_VALID_FLG_SHIFT 2
-+#define __TIMERS_BLOCK_CONTEXT_RESERVED0 (0x1FFFFFFF<<3)
-+#define __TIMERS_BLOCK_CONTEXT_RESERVED0_SHIFT 3
- };
- 
- /*
-@@ -1497,11 +1657,19 @@ struct xstorm_eth_st_context {
- 	u32 tx_bd_page_base_hi;
- #if defined(__BIG_ENDIAN)
- 	u16 tx_bd_cons;
--	u8 __reserved0;
-+	u8 statistics_data;
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_COUNTER_ID (0x7F<<0)
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_COUNTER_ID_SHIFT 0
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_ENABLE (0x1<<7)
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_ENABLE_SHIFT 7
- 	u8 __local_tx_bd_prod;
- #elif defined(__LITTLE_ENDIAN)
- 	u8 __local_tx_bd_prod;
--	u8 __reserved0;
-+	u8 statistics_data;
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_COUNTER_ID (0x7F<<0)
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_COUNTER_ID_SHIFT 0
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_ENABLE (0x1<<7)
-+#define XSTORM_ETH_ST_CONTEXT_STATISTICS_ENABLE_SHIFT 7
- 	u16 tx_bd_cons;
- #endif
- 	u32 db_data_addr_lo;
-@@ -1578,7 +1746,7 @@ struct eth_tx_doorbell {
- struct ustorm_def_status_block {
- 	u16 index_values[HC_USTORM_DEF_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1589,7 +1757,7 @@ struct ustorm_def_status_block {
- struct cstorm_def_status_block {
- 	u16 index_values[HC_CSTORM_DEF_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1600,7 +1768,7 @@ struct cstorm_def_status_block {
- struct xstorm_def_status_block {
- 	u16 index_values[HC_XSTORM_DEF_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1611,7 +1779,7 @@ struct xstorm_def_status_block {
- struct tstorm_def_status_block {
- 	u16 index_values[HC_TSTORM_DEF_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1634,7 +1802,7 @@ struct host_def_status_block {
- struct ustorm_status_block {
- 	u16 index_values[HC_USTORM_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1645,7 +1813,7 @@ struct ustorm_status_block {
- struct cstorm_status_block {
- 	u16 index_values[HC_CSTORM_SB_NUM_INDICES];
- 	u16 status_block_index;
--	u8 reserved0;
-+	u8 func;
- 	u8 status_block_id;
- 	u32 __flags;
- };
-@@ -1683,20 +1851,21 @@ struct eth_dynamic_hc_config {
-  * regular eth FP CQE parameters struct
-  */
- struct eth_fast_path_rx_cqe {
--	u8 type;
--	u8 error_type_flags;
--#define ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG (0x1<<0)
--#define ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG_SHIFT 0
--#define ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG (0x1<<1)
--#define ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG_SHIFT 1
--#define ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG (0x1<<2)
--#define ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG_SHIFT 2
--#define ETH_FAST_PATH_RX_CQE_START_FLG (0x1<<3)
--#define ETH_FAST_PATH_RX_CQE_START_FLG_SHIFT 3
--#define ETH_FAST_PATH_RX_CQE_END_FLG (0x1<<4)
--#define ETH_FAST_PATH_RX_CQE_END_FLG_SHIFT 4
--#define ETH_FAST_PATH_RX_CQE_RESERVED0 (0x7<<5)
--#define ETH_FAST_PATH_RX_CQE_RESERVED0_SHIFT 5
-+	u8 type_error_flags;
-+#define ETH_FAST_PATH_RX_CQE_TYPE (0x1<<0)
-+#define ETH_FAST_PATH_RX_CQE_TYPE_SHIFT 0
-+#define ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG (0x1<<1)
-+#define ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG_SHIFT 1
-+#define ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG (0x1<<2)
-+#define ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG_SHIFT 2
-+#define ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG (0x1<<3)
-+#define ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG_SHIFT 3
-+#define ETH_FAST_PATH_RX_CQE_START_FLG (0x1<<4)
-+#define ETH_FAST_PATH_RX_CQE_START_FLG_SHIFT 4
-+#define ETH_FAST_PATH_RX_CQE_END_FLG (0x1<<5)
-+#define ETH_FAST_PATH_RX_CQE_END_FLG_SHIFT 5
-+#define ETH_FAST_PATH_RX_CQE_RESERVED0 (0x3<<6)
-+#define ETH_FAST_PATH_RX_CQE_RESERVED0_SHIFT 6
- 	u8 status_flags;
- #define ETH_FAST_PATH_RX_CQE_RSS_HASH_TYPE (0x7<<0)
- #define ETH_FAST_PATH_RX_CQE_RSS_HASH_TYPE_SHIFT 0
-@@ -1711,11 +1880,13 @@ struct eth_fast_path_rx_cqe {
- #define ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG (0x1<<7)
- #define ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG_SHIFT 7
- 	u8 placement_offset;
-+	u8 queue_index;
- 	u32 rss_hash_result;
- 	u16 vlan_tag;
- 	u16 pkt_len;
--	u16 queue_index;
-+	u16 len_on_bd;
- 	struct parsing_flags pars_flags;
-+	u16 sgl[8];
- };
- 
- 
-@@ -1729,6 +1900,23 @@ struct eth_halt_ramrod_data {
- 
- 
- /*
-+ * The data for statistics query ramrod
-+ */
-+struct eth_query_ramrod_data {
-+#if defined(__BIG_ENDIAN)
-+	u8 reserved0;
-+	u8 collect_port_1b;
-+	u16 drv_counter;
-+#elif defined(__LITTLE_ENDIAN)
-+	u16 drv_counter;
-+	u8 collect_port_1b;
-+	u8 reserved0;
-+#endif
-+	u32 ctr_id_vector;
-+};
-+
-+
-+/*
-  * Place holder for ramrods protocol specific data
-  */
- struct ramrod_data {
-@@ -1758,15 +1946,20 @@ struct eth_rx_bd_next_page {
-  * Eth Rx Cqe structure- general structure for ramrods
-  */
- struct common_ramrod_eth_rx_cqe {
--	u8 type;
-+	u8 ramrod_type;
-+#define COMMON_RAMROD_ETH_RX_CQE_TYPE (0x1<<0)
-+#define COMMON_RAMROD_ETH_RX_CQE_TYPE_SHIFT 0
-+#define COMMON_RAMROD_ETH_RX_CQE_RESERVED0 (0x7F<<1)
-+#define COMMON_RAMROD_ETH_RX_CQE_RESERVED0_SHIFT 1
- 	u8 conn_type_3b;
--	u16 reserved;
-+	u16 reserved1;
- 	u32 conn_and_cmd_data;
- #define COMMON_RAMROD_ETH_RX_CQE_CID (0xFFFFFF<<0)
- #define COMMON_RAMROD_ETH_RX_CQE_CID_SHIFT 0
- #define COMMON_RAMROD_ETH_RX_CQE_CMD_ID (0xFF<<24)
- #define COMMON_RAMROD_ETH_RX_CQE_CMD_ID_SHIFT 24
- 	struct ramrod_data protocol_data;
-+	u32 reserved2[4];
- };
- 
- /*
-@@ -1775,8 +1968,7 @@ struct common_ramrod_eth_rx_cqe {
- struct eth_rx_cqe_next_page {
- 	u32 addr_lo;
- 	u32 addr_hi;
--	u32 reserved0;
--	u32 reserved1;
-+	u32 reserved[6];
- };
- 
- /*
-@@ -1806,11 +1998,6 @@ struct spe_hdr {
- 	u16 reserved;
- };
- 
--struct regpair {
--	u32 lo;
--	u32 hi;
--};
--
- /*
-  * ethernet slow path element
-  */
-@@ -1821,6 +2008,7 @@ union eth_specific_data {
- 	struct eth_halt_ramrod_data halt_ramrod_data;
- 	struct regpair leading_cqe_addr;
- 	struct regpair update_data_addr;
-+	struct eth_query_ramrod_data query_ramrod_data;
- };
- 
- /*
-@@ -1843,10 +2031,13 @@ struct eth_tx_db_data {
- 
- 
- /*
-- * Common configuration parameters per port in Tstorm
-+ * Common configuration parameters per function in Tstorm
-  */
- struct tstorm_eth_function_common_config {
--	u32 config_flags;
-+#if defined(__BIG_ENDIAN)
-+	u8 leading_client_id;
-+	u8 rss_result_mask;
-+	u16 config_flags;
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY (0x1<<0)
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY_SHIFT 0
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY (0x1<<1)
-@@ -1859,17 +2050,32 @@ struct tstorm_eth_function_common_config {
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_ENABLE_SHIFT 4
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_DEFAULT_ENABLE (0x1<<5)
- #define TSTORM_ETH_FUNCTION_COMMON_CONFIG_DEFAULT_ENABLE_SHIFT 5
--#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0 (0x3FFFFFF<<6)
--#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0_SHIFT 6
--#if defined(__BIG_ENDIAN)
--	u16 __secondary_vlan_id;
--	u8 leading_client_id;
--	u8 rss_result_mask;
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_VLAN_IN_CAM (0x1<<6)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_VLAN_IN_CAM_SHIFT 6
-+#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0 (0x1FF<<7)
-+#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0_SHIFT 7
- #elif defined(__LITTLE_ENDIAN)
-+	u16 config_flags;
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY (0x1<<0)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY_SHIFT 0
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY (0x1<<1)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY_SHIFT 1
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY (0x1<<2)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY_SHIFT 2
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY (0x1<<3)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY_SHIFT 3
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_ENABLE (0x1<<4)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_ENABLE_SHIFT 4
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_DEFAULT_ENABLE (0x1<<5)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_DEFAULT_ENABLE_SHIFT 5
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_VLAN_IN_CAM (0x1<<6)
-+#define TSTORM_ETH_FUNCTION_COMMON_CONFIG_VLAN_IN_CAM_SHIFT 6
-+#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0 (0x1FF<<7)
-+#define __TSTORM_ETH_FUNCTION_COMMON_CONFIG_RESERVED0_SHIFT 7
- 	u8 rss_result_mask;
- 	u8 leading_client_id;
--	u16 __secondary_vlan_id;
- #endif
-+	u16 vlan_id[2];
- };
- 
- /*
-@@ -1887,7 +2093,7 @@ struct eth_update_ramrod_data {
- struct mac_configuration_hdr {
- 	u8 length_6b;
- 	u8 offset;
--	u16 reserved0;
-+	u16 client_id;
- 	u32 reserved1;
- };
- 
-@@ -1944,15 +2150,55 @@ struct mac_configuration_cmd {
- 
- 
- /*
-+ * MAC address in list for ramrod
-+ */
-+struct mac_configuration_entry_e1h {
-+	u16 lsb_mac_addr;
-+	u16 middle_mac_addr;
-+	u16 msb_mac_addr;
-+	u16 vlan_id;
-+	u16 e1hov_id;
-+	u8 client_id;
-+	u8 flags;
-+#define MAC_CONFIGURATION_ENTRY_E1H_PORT (0x1<<0)
-+#define MAC_CONFIGURATION_ENTRY_E1H_PORT_SHIFT 0
-+#define MAC_CONFIGURATION_ENTRY_E1H_ACTION_TYPE (0x1<<1)
-+#define MAC_CONFIGURATION_ENTRY_E1H_ACTION_TYPE_SHIFT 1
-+#define MAC_CONFIGURATION_ENTRY_E1H_RDMA_MAC (0x1<<2)
-+#define MAC_CONFIGURATION_ENTRY_E1H_RDMA_MAC_SHIFT 2
-+#define MAC_CONFIGURATION_ENTRY_E1H_RESERVED0 (0x1F<<3)
-+#define MAC_CONFIGURATION_ENTRY_E1H_RESERVED0_SHIFT 3
-+};
-+
-+/*
-+ * MAC filtering configuration command
-+ */
-+struct mac_configuration_cmd_e1h {
-+	struct mac_configuration_hdr hdr;
-+	struct mac_configuration_entry_e1h config_table[32];
-+};
-+
-+
-+/*
-+ * approximate-match multicast filtering for E1H per function in Tstorm
-+ */
-+struct tstorm_eth_approximate_match_multicast_filtering {
-+	u32 mcast_add_hash_bit_array[8];
-+};
-+
-+
-+/*
-  * Configuration parameters per client in Tstorm
-  */
- struct tstorm_eth_client_config {
- #if defined(__BIG_ENDIAN)
--	u16 statistics_counter_id;
-+	u8 max_sges_for_packet;
-+	u8 statistics_counter_id;
- 	u16 mtu;
- #elif defined(__LITTLE_ENDIAN)
- 	u16 mtu;
--	u16 statistics_counter_id;
-+	u8 statistics_counter_id;
-+	u8 max_sges_for_packet;
- #endif
- #if defined(__BIG_ENDIAN)
- 	u16 drop_flags;
-@@ -1960,42 +2206,42 @@ struct tstorm_eth_client_config {
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_IP_CS_ERR_SHIFT 0
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_TCP_CS_ERR (0x1<<1)
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_TCP_CS_ERR_SHIFT 1
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR (0x1<<2)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR_SHIFT 2
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0 (0x1<<3)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0_SHIFT 3
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR (0x1<<4)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR_SHIFT 4
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1 (0x7FF<<5)
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1_SHIFT 5
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0 (0x1<<2)
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0_SHIFT 2
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR (0x1<<3)
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR_SHIFT 3
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1 (0xFFF<<4)
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1_SHIFT 4
- 	u16 config_flags;
- #define TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE (0x1<<0)
- #define TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE_SHIFT 0
- #define TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE (0x1<<1)
- #define TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE_SHIFT 1
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0 (0x3FFF<<2)
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0_SHIFT 2
-+#define TSTORM_ETH_CLIENT_CONFIG_ENABLE_SGE_RING (0x1<<2)
-+#define TSTORM_ETH_CLIENT_CONFIG_ENABLE_SGE_RING_SHIFT 2
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0 (0x1FFF<<3)
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0_SHIFT 3
- #elif defined(__LITTLE_ENDIAN)
- 	u16 config_flags;
- #define TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE (0x1<<0)
- #define TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE_SHIFT 0
- #define TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE (0x1<<1)
- #define TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE_SHIFT 1
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0 (0x3FFF<<2)
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0_SHIFT 2
-+#define TSTORM_ETH_CLIENT_CONFIG_ENABLE_SGE_RING (0x1<<2)
-+#define TSTORM_ETH_CLIENT_CONFIG_ENABLE_SGE_RING_SHIFT 2
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0 (0x1FFF<<3)
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED0_SHIFT 3
- 	u16 drop_flags;
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_IP_CS_ERR (0x1<<0)
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_IP_CS_ERR_SHIFT 0
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_TCP_CS_ERR (0x1<<1)
- #define TSTORM_ETH_CLIENT_CONFIG_DROP_TCP_CS_ERR_SHIFT 1
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR (0x1<<2)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR_SHIFT 2
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0 (0x1<<3)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0_SHIFT 3
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR (0x1<<4)
--#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR_SHIFT 4
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1 (0x7FF<<5)
--#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1_SHIFT 5
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0 (0x1<<2)
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_TTL0_SHIFT 2
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR (0x1<<3)
-+#define TSTORM_ETH_CLIENT_CONFIG_DROP_UDP_CS_ERR_SHIFT 3
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1 (0xFFF<<4)
-+#define __TSTORM_ETH_CLIENT_CONFIG_RESERVED1_SHIFT 4
- #endif
- };
- 
-@@ -2011,96 +2257,112 @@ struct tstorm_eth_mac_filter_config {
- 	u32 bcast_drop_all;
- 	u32 bcast_accept_all;
- 	u32 strict_vlan;
--	u32 __secondary_vlan_clients;
-+	u32 vlan_filter[2];
-+	u32 reserved;
- };
- 
- 
--struct rate_shaping_per_protocol {
-+/*
-+ * Three RX producers for ETH
-+ */
-+struct tstorm_eth_rx_producers {
- #if defined(__BIG_ENDIAN)
--	u16 reserved0;
--	u16 protocol_rate;
-+	u16 bd_prod;
-+	u16 cqe_prod;
- #elif defined(__LITTLE_ENDIAN)
--	u16 protocol_rate;
--	u16 reserved0;
-+	u16 cqe_prod;
-+	u16 bd_prod;
- #endif
--	u32 protocol_quota;
--	s32 current_credit;
--	u32 reserved;
--};
--
--struct rate_shaping_vars {
--	struct rate_shaping_per_protocol protocol_vars[NUM_OF_PROTOCOLS];
--	u32 pause_mask;
--	u32 periodic_stop;
--	u32 rs_periodic_timeout;
--	u32 rs_threshold;
--	u32 last_periodic_time;
--	u32 reserved;
--};
--
--struct fairness_per_protocol {
--	u32 credit_delta;
--	s32 fair_credit;
- #if defined(__BIG_ENDIAN)
--	u16 reserved0;
--	u8 state;
--	u8 weight;
-+	u16 reserved;
-+	u16 sge_prod;
- #elif defined(__LITTLE_ENDIAN)
--	u8 weight;
--	u8 state;
--	u16 reserved0;
-+	u16 sge_prod;
-+	u16 reserved;
- #endif
--	u32 reserved1;
- };
- 
--struct fairness_vars {
--	struct fairness_per_protocol protocol_vars[NUM_OF_PROTOCOLS];
--	u32 upper_bound;
--	u32 port_rate;
--	u32 pause_mask;
--	u32 fair_threshold;
--};
- 
--struct safc_struct {
--	u32 cur_pause_mask;
--	u32 expire_time;
-+/*
-+ * common flag to indicate existance of TPA.
-+ */
-+struct tstorm_eth_tpa_exist {
- #if defined(__BIG_ENDIAN)
--	u16 reserved0;
--	u8 cur_cos_types;
--	u8 safc_timeout_usec;
-+	u16 reserved1;
-+	u8 reserved0;
-+	u8 tpa_exist;
- #elif defined(__LITTLE_ENDIAN)
--	u8 safc_timeout_usec;
--	u8 cur_cos_types;
--	u16 reserved0;
-+	u8 tpa_exist;
-+	u8 reserved0;
-+	u16 reserved1;
- #endif
--	u32 reserved1;
-+	u32 reserved2;
- };
- 
--struct demo_struct {
-+
-+/*
-+ * per-port SAFC demo variables
-+ */
-+struct cmng_flags_per_port {
- 	u8 con_number[NUM_OF_PROTOCOLS];
- #if defined(__BIG_ENDIAN)
--	u8 reserved1;
- 	u8 fairness_enable;
- 	u8 rate_shaping_enable;
--	u8 cmng_enable;
-+	u8 cmng_protocol_enable;
-+	u8 cmng_vn_enable;
- #elif defined(__LITTLE_ENDIAN)
--	u8 cmng_enable;
-+	u8 cmng_vn_enable;
-+	u8 cmng_protocol_enable;
- 	u8 rate_shaping_enable;
- 	u8 fairness_enable;
--	u8 reserved1;
- #endif
- };
- 
--struct cmng_struct {
--	struct rate_shaping_vars rs_vars;
--	struct fairness_vars fair_vars;
--	struct safc_struct safc_vars;
--	struct demo_struct demo_vars;
-+
-+/*
-+ * per-port rate shaping variables
-+ */
-+struct rate_shaping_vars_per_port {
-+	u32 rs_periodic_timeout;
-+	u32 rs_threshold;
-+};
-+
-+
-+/*
-+ * per-port fairness variables
-+ */
-+struct fairness_vars_per_port {
-+	u32 upper_bound;
-+	u32 fair_threshold;
-+	u32 fairness_timeout;
-+};
-+
-+
-+/*
-+ * per-port SAFC variables
-+ */
-+struct safc_struct_per_port {
-+#if defined(__BIG_ENDIAN)
-+	u16 __reserved0;
-+	u8 cur_cos_types;
-+	u8 safc_timeout_usec;
-+#elif defined(__LITTLE_ENDIAN)
-+	u8 safc_timeout_usec;
-+	u8 cur_cos_types;
-+	u16 __reserved0;
-+#endif
-+	u8 cos_to_protocol[MAX_COS_NUMBER];
- };
- 
- 
--struct cos_to_protocol {
--	u8 mask[MAX_COS_NUMBER];
-+/*
-+ * Per-port congestion management variables
-+ */
-+struct cmng_struct_per_port {
-+	struct rate_shaping_vars_per_port rs_vars;
-+	struct fairness_vars_per_port fair_vars;
-+	struct safc_struct_per_port safc_vars;
-+	struct cmng_flags_per_port flags;
- };
- 
- 
-@@ -2162,6 +2424,16 @@ struct eth_stats_query {
- 
- 
- /*
-+ * per-vnic fairness variables
-+ */
-+struct fairness_vars_per_vn {
-+	u32 protocol_credit_delta[NUM_OF_PROTOCOLS];
-+	u32 vn_credit_delta;
-+	u32 __reserved0;
-+};
-+
-+
-+/*
-  * FW version stored in the Xstorm RAM
-  */
- struct fw_version {
-@@ -2179,8 +2451,10 @@ struct fw_version {
- #define FW_VERSION_OPTIMIZED_SHIFT 0
- #define FW_VERSION_BIG_ENDIEN (0x1<<1)
- #define FW_VERSION_BIG_ENDIEN_SHIFT 1
--#define __FW_VERSION_RESERVED (0x3FFFFFFF<<2)
--#define __FW_VERSION_RESERVED_SHIFT 2
-+#define FW_VERSION_CHIP_VERSION (0x3<<2)
-+#define FW_VERSION_CHIP_VERSION_SHIFT 2
-+#define __FW_VERSION_RESERVED (0xFFFFFFF<<4)
-+#define __FW_VERSION_RESERVED_SHIFT 4
- };
- 
- 
-@@ -2188,15 +2462,9 @@ struct fw_version {
-  * FW version stored in first line of pram
-  */
- struct pram_fw_version {
--#if defined(__BIG_ENDIAN)
--	u16 patch;
--	u8 primary;
--	u8 client;
--#elif defined(__LITTLE_ENDIAN)
- 	u8 client;
- 	u8 primary;
- 	u16 patch;
--#endif
- 	u8 flags;
- #define PRAM_FW_VERSION_OPTIMIZED (0x1<<0)
- #define PRAM_FW_VERSION_OPTIMIZED_SHIFT 0
-@@ -2204,8 +2472,34 @@ struct pram_fw_version {
- #define PRAM_FW_VERSION_STORM_ID_SHIFT 1
- #define PRAM_FW_VERSION_BIG_ENDIEN (0x1<<3)
- #define PRAM_FW_VERSION_BIG_ENDIEN_SHIFT 3
--#define __PRAM_FW_VERSION_RESERVED0 (0xF<<4)
--#define __PRAM_FW_VERSION_RESERVED0_SHIFT 4
-+#define PRAM_FW_VERSION_CHIP_VERSION (0x3<<4)
-+#define PRAM_FW_VERSION_CHIP_VERSION_SHIFT 4
-+#define __PRAM_FW_VERSION_RESERVED0 (0x3<<6)
-+#define __PRAM_FW_VERSION_RESERVED0_SHIFT 6
-+};
-+
-+
-+/*
-+ * a single rate shaping counter. can be used as protocol or vnic counter
-+ */
-+struct rate_shaping_counter {
-+	u32 quota;
-+#if defined(__BIG_ENDIAN)
-+	u16 __reserved0;
-+	u16 rate;
-+#elif defined(__LITTLE_ENDIAN)
-+	u16 rate;
-+	u16 __reserved0;
-+#endif
-+};
-+
-+
-+/*
-+ * per-vnic rate shaping variables
-+ */
-+struct rate_shaping_vars_per_vn {
-+	struct rate_shaping_counter protocol_counters[NUM_OF_PROTOCOLS];
-+	struct rate_shaping_counter vn_counter;
- };
- 
- 
-diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
-index 5a4e82b..4c77507 100644
---- a/drivers/net/bnx2x_init.h
-+++ b/drivers/net/bnx2x_init.h
-@@ -226,28 +226,28 @@ static const u32 *bnx2x_sel_blob(u32 addr, const u32 *data, int is_e1)
- 			       tsem_int_table_data_e1h;
- 	else
- 		IF_IS_INT_TABLE_ADDR(CSEM_REG_INT_TABLE, addr)
--		data = is_e1 ? csem_int_table_data_e1 :
--			       csem_int_table_data_e1h;
-+			data = is_e1 ? csem_int_table_data_e1 :
-+				       csem_int_table_data_e1h;
- 	else
- 		IF_IS_INT_TABLE_ADDR(USEM_REG_INT_TABLE, addr)
--		data = is_e1 ? usem_int_table_data_e1 :
--			       usem_int_table_data_e1h;
-+			data = is_e1 ? usem_int_table_data_e1 :
-+				       usem_int_table_data_e1h;
- 	else
- 		IF_IS_INT_TABLE_ADDR(XSEM_REG_INT_TABLE, addr)
--		data = is_e1 ? xsem_int_table_data_e1 :
--			       xsem_int_table_data_e1h;
-+			data = is_e1 ? xsem_int_table_data_e1 :
-+				       xsem_int_table_data_e1h;
- 	else
- 		IF_IS_PRAM_ADDR(TSEM_REG_PRAM, addr)
--		data = is_e1 ? tsem_pram_data_e1 : tsem_pram_data_e1h;
-+			data = is_e1 ? tsem_pram_data_e1 : tsem_pram_data_e1h;
- 	else
- 		IF_IS_PRAM_ADDR(CSEM_REG_PRAM, addr)
--		data = is_e1 ? csem_pram_data_e1 : csem_pram_data_e1h;
-+			data = is_e1 ? csem_pram_data_e1 : csem_pram_data_e1h;
- 	else
- 		IF_IS_PRAM_ADDR(USEM_REG_PRAM, addr)
--		data = is_e1 ? usem_pram_data_e1 : usem_pram_data_e1h;
-+			data = is_e1 ? usem_pram_data_e1 : usem_pram_data_e1h;
- 	else
- 		IF_IS_PRAM_ADDR(XSEM_REG_PRAM, addr)
--		data = is_e1 ? xsem_pram_data_e1 : xsem_pram_data_e1h;
-+			data = is_e1 ? xsem_pram_data_e1 : xsem_pram_data_e1h;
- 
- 	return data;
- }
-diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 22586eb..ff2743d 100644
---- a/drivers/net/bnx2x_link.c
-+++ b/drivers/net/bnx2x_link.c
-@@ -3572,7 +3572,8 @@ u8 bnx2x_set_led(struct bnx2x *bp, u8 port, u8 mode, u32 speed,
- 			   LED_BLINK_RATE_VAL);
- 		REG_WR(bp, NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 +
- 			   port*4, 1);
--		if (((speed == SPEED_2500) ||
-+		if (!CHIP_IS_E1H(bp) &&
-+		    ((speed == SPEED_2500) ||
- 		     (speed == SPEED_1000) ||
- 		     (speed == SPEED_100) ||
- 		     (speed == SPEED_10))) {
-@@ -3753,6 +3754,14 @@ u8 bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- 		vars->duplex = DUPLEX_FULL;
- 		vars->flow_ctrl = FLOW_CTRL_NONE;
- 		vars->link_status = (LINK_STATUS_LINK_UP | LINK_10GTFD);
-+		/* enable on E1.5 FPGA */
-+		if (CHIP_IS_E1H(bp)) {
-+			vars->flow_ctrl |=
-+				(FLOW_CTRL_TX | FLOW_CTRL_RX);
-+			vars->link_status |=
-+					(LINK_STATUS_TX_FLOW_CONTROL_ENABLED |
-+					 LINK_STATUS_RX_FLOW_CONTROL_ENABLED);
-+		}
- 
- 		bnx2x_emac_enable(params, vars, 0);
- 		bnx2x_pbf_update(params, vars->flow_ctrl, vars->line_speed);
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index efa9426..90b54e4 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -1,4 +1,4 @@
--/* bnx2x.c: Broadcom Everest network driver.
-+/* bnx2x_main.c: Broadcom Everest network driver.
-  *
-  * Copyright (c) 2007-2008 Broadcom Corporation
-  *
-@@ -15,12 +15,6 @@
-  *
-  */
- 
--/* define this to make the driver freeze on error
-- * to allow getting debug info
-- * (you will need to reboot afterwards)
-- */
--/*#define BNX2X_STOP_ON_ERROR*/
--
- #include <linux/module.h>
- #include <linux/moduleparam.h>
- #include <linux/kernel.h>
-@@ -46,16 +40,17 @@
- #include <linux/mii.h>
- #ifdef NETIF_F_HW_VLAN_TX
- 	#include <linux/if_vlan.h>
--	#define BCM_VLAN 1
- #endif
- #include <net/ip.h>
- #include <net/tcp.h>
- #include <net/checksum.h>
-+#include <linux/version.h>
-+#include <net/ip6_checksum.h>
- #include <linux/workqueue.h>
- #include <linux/crc32.h>
-+#include <linux/crc32c.h>
- #include <linux/prefetch.h>
- #include <linux/zlib.h>
--#include <linux/version.h>
- #include <linux/io.h>
- 
- #include "bnx2x_reg.h"
-@@ -67,13 +62,13 @@
- 
- #define DRV_MODULE_VERSION      "1.42.4"
- #define DRV_MODULE_RELDATE      "2008/4/9"
--#define BNX2X_BC_VER    	0x040200
-+#define BNX2X_BC_VER		0x040200
- 
--/* Time in jiffies before concluding the transmitter is hung. */
--#define TX_TIMEOUT      	(5*HZ)
-+/* Time in jiffies before concluding the transmitter is hung */
-+#define TX_TIMEOUT		(5*HZ)
- 
- static char version[] __devinitdata =
--	"Broadcom NetXtreme II 5771X 10Gigabit Ethernet Driver "
-+	"Broadcom NetXtreme II 5771x 10Gigabit Ethernet Driver "
- 	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
- 
- MODULE_AUTHOR("Eliezer Tamir");
-@@ -83,20 +78,19 @@ MODULE_VERSION(DRV_MODULE_VERSION);
- 
- static int use_inta;
- static int poll;
--static int onefunc;
--static int nomcp;
- static int debug;
-+static int nomcp;
-+static int load_count[3]; /* 0-common, 1-port0, 2-port1 */
- static int use_multi;
- 
- module_param(use_inta, int, 0);
- module_param(poll, int, 0);
--module_param(onefunc, int, 0);
- module_param(debug, int, 0);
-+module_param(nomcp, int, 0);
- MODULE_PARM_DESC(use_inta, "use INT#A instead of MSI-X");
- MODULE_PARM_DESC(poll, "use polling (for debug)");
--MODULE_PARM_DESC(onefunc, "enable only first function");
--MODULE_PARM_DESC(nomcp, "ignore management CPU (Implies onefunc)");
- MODULE_PARM_DESC(debug, "default debug msglevel");
-+MODULE_PARM_DESC(nomcp, "ignore management CPU");
- 
- #ifdef BNX2X_MULTI
- module_param(use_multi, int, 0);
-@@ -105,18 +99,27 @@ MODULE_PARM_DESC(use_multi, "use per-CPU queues");
- 
- enum bnx2x_board_type {
- 	BCM57710 = 0,
-+	BCM57711 = 1,
-+	BCM57711E = 2,
- };
- 
--/* indexed by board_t, above */
-+/* indexed by board_type, above */
- static struct {
- 	char *name;
- } board_info[] __devinitdata = {
--	{ "Broadcom NetXtreme II BCM57710 XGb" }
-+	{ "Broadcom NetXtreme II BCM57710 XGb" },
-+	{ "Broadcom NetXtreme II BCM57711 XGb" },
-+	{ "Broadcom NetXtreme II BCM57711E XGb" }
- };
- 
-+
- static const struct pci_device_id bnx2x_pci_tbl[] = {
- 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57710,
- 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM57710 },
-+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57711,
-+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM57711 },
-+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_NX2_57711E,
-+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM57711E },
- 	{ 0 }
- };
- 
-@@ -201,7 +204,8 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
- #else
- 			DMAE_CMD_ENDIANITY_DW_SWAP |
- #endif
--			(bp->port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
-+			(BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
-+			(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
- 	dmae->src_addr_lo = U64_LO(dma_addr);
- 	dmae->src_addr_hi = U64_HI(dma_addr);
- 	dmae->dst_addr_lo = dst_addr >> 2;
-@@ -224,7 +228,7 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
- 
- 	*wb_comp = 0;
- 
--	bnx2x_post_dmae(bp, dmae, (bp->port)*MAX_DMAE_C_PER_PORT);
-+	bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
- 
- 	udelay(5);
- 
-@@ -277,7 +281,8 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- #else
- 			DMAE_CMD_ENDIANITY_DW_SWAP |
- #endif
--			(bp->port ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0));
-+			(BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
-+			(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
- 	dmae->src_addr_lo = src_addr >> 2;
- 	dmae->src_addr_hi = 0;
- 	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, wb_data));
-@@ -297,7 +302,7 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- 
- 	*wb_comp = 0;
- 
--	bnx2x_post_dmae(bp, dmae, (bp->port)*MAX_DMAE_C_PER_PORT);
-+	bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
- 
- 	udelay(5);
- 
-@@ -345,47 +350,122 @@ static u64 bnx2x_wb_rd(struct bnx2x *bp, int reg)
- 
- static int bnx2x_mc_assert(struct bnx2x *bp)
- {
--	int i, j, rc = 0;
- 	char last_idx;
--	const char storm[] = {"XTCU"};
--	const u32 intmem_base[] = {
--		BAR_XSTRORM_INTMEM,
--		BAR_TSTRORM_INTMEM,
--		BAR_CSTRORM_INTMEM,
--		BAR_USTRORM_INTMEM
--	};
--
--	/* Go through all instances of all SEMIs */
--	for (i = 0; i < 4; i++) {
--		last_idx = REG_RD8(bp, XSTORM_ASSERT_LIST_INDEX_OFFSET +
--				   intmem_base[i]);
--		if (last_idx)
--			BNX2X_LOG("DATA %cSTORM_ASSERT_LIST_INDEX 0x%x\n",
--				  storm[i], last_idx);
--
--		/* print the asserts */
--		for (j = 0; j < STROM_ASSERT_ARRAY_SIZE; j++) {
--			u32 row0, row1, row2, row3;
--
--			row0 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) +
--				      intmem_base[i]);
--			row1 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 4 +
--				      intmem_base[i]);
--			row2 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 8 +
--				      intmem_base[i]);
--			row3 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 12 +
--				      intmem_base[i]);
--
--			if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
--				BNX2X_LOG("DATA %cSTORM_ASSERT_INDEX 0x%x ="
--					  " 0x%08x 0x%08x 0x%08x 0x%08x\n",
--					  storm[i], j, row3, row2, row1, row0);
--				rc++;
--			} else {
--				break;
--			}
-+	int i, rc = 0;
-+	u32 row0, row1, row2, row3;
-+
-+	/* XSTORM */
-+	last_idx = REG_RD8(bp, BAR_XSTRORM_INTMEM +
-+			   XSTORM_ASSERT_LIST_INDEX_OFFSET);
-+	if (last_idx)
-+		BNX2X_ERR("XSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
-+
-+	/* print the asserts */
-+	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
-+
-+		row0 = REG_RD(bp, BAR_XSTRORM_INTMEM +
-+			      XSTORM_ASSERT_LIST_OFFSET(i));
-+		row1 = REG_RD(bp, BAR_XSTRORM_INTMEM +
-+			      XSTORM_ASSERT_LIST_OFFSET(i) + 4);
-+		row2 = REG_RD(bp, BAR_XSTRORM_INTMEM +
-+			      XSTORM_ASSERT_LIST_OFFSET(i) + 8);
-+		row3 = REG_RD(bp, BAR_XSTRORM_INTMEM +
-+			      XSTORM_ASSERT_LIST_OFFSET(i) + 12);
-+
-+		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
-+			BNX2X_ERR("XSTORM_ASSERT_INDEX 0x%x = 0x%08x"
-+				  " 0x%08x 0x%08x 0x%08x\n",
-+				  i, row3, row2, row1, row0);
-+			rc++;
-+		} else {
-+			break;
-+		}
-+	}
-+
-+	/* TSTORM */
-+	last_idx = REG_RD8(bp, BAR_TSTRORM_INTMEM +
-+			   TSTORM_ASSERT_LIST_INDEX_OFFSET);
-+	if (last_idx)
-+		BNX2X_ERR("TSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
-+
-+	/* print the asserts */
-+	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
-+
-+		row0 = REG_RD(bp, BAR_TSTRORM_INTMEM +
-+			      TSTORM_ASSERT_LIST_OFFSET(i));
-+		row1 = REG_RD(bp, BAR_TSTRORM_INTMEM +
-+			      TSTORM_ASSERT_LIST_OFFSET(i) + 4);
-+		row2 = REG_RD(bp, BAR_TSTRORM_INTMEM +
-+			      TSTORM_ASSERT_LIST_OFFSET(i) + 8);
-+		row3 = REG_RD(bp, BAR_TSTRORM_INTMEM +
-+			      TSTORM_ASSERT_LIST_OFFSET(i) + 12);
-+
-+		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
-+			BNX2X_ERR("TSTORM_ASSERT_INDEX 0x%x = 0x%08x"
-+				  " 0x%08x 0x%08x 0x%08x\n",
-+				  i, row3, row2, row1, row0);
-+			rc++;
-+		} else {
-+			break;
-+		}
-+	}
-+
-+	/* CSTORM */
-+	last_idx = REG_RD8(bp, BAR_CSTRORM_INTMEM +
-+			   CSTORM_ASSERT_LIST_INDEX_OFFSET);
-+	if (last_idx)
-+		BNX2X_ERR("CSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
-+
-+	/* print the asserts */
-+	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
-+
-+		row0 = REG_RD(bp, BAR_CSTRORM_INTMEM +
-+			      CSTORM_ASSERT_LIST_OFFSET(i));
-+		row1 = REG_RD(bp, BAR_CSTRORM_INTMEM +
-+			      CSTORM_ASSERT_LIST_OFFSET(i) + 4);
-+		row2 = REG_RD(bp, BAR_CSTRORM_INTMEM +
-+			      CSTORM_ASSERT_LIST_OFFSET(i) + 8);
-+		row3 = REG_RD(bp, BAR_CSTRORM_INTMEM +
-+			      CSTORM_ASSERT_LIST_OFFSET(i) + 12);
-+
-+		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
-+			BNX2X_ERR("CSTORM_ASSERT_INDEX 0x%x = 0x%08x"
-+				  " 0x%08x 0x%08x 0x%08x\n",
-+				  i, row3, row2, row1, row0);
-+			rc++;
-+		} else {
-+			break;
- 		}
- 	}
-+
-+	/* USTORM */
-+	last_idx = REG_RD8(bp, BAR_USTRORM_INTMEM +
-+			   USTORM_ASSERT_LIST_INDEX_OFFSET);
-+	if (last_idx)
-+		BNX2X_ERR("USTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
-+
-+	/* print the asserts */
-+	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
-+
-+		row0 = REG_RD(bp, BAR_USTRORM_INTMEM +
-+			      USTORM_ASSERT_LIST_OFFSET(i));
-+		row1 = REG_RD(bp, BAR_USTRORM_INTMEM +
-+			      USTORM_ASSERT_LIST_OFFSET(i) + 4);
-+		row2 = REG_RD(bp, BAR_USTRORM_INTMEM +
-+			      USTORM_ASSERT_LIST_OFFSET(i) + 8);
-+		row3 = REG_RD(bp, BAR_USTRORM_INTMEM +
-+			      USTORM_ASSERT_LIST_OFFSET(i) + 12);
-+
-+		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
-+			BNX2X_ERR("USTORM_ASSERT_INDEX 0x%x = 0x%08x"
-+				  " 0x%08x 0x%08x 0x%08x\n",
-+				  i, row3, row2, row1, row0);
-+			rc++;
-+		} else {
-+			break;
-+		}
-+	}
-+
- 	return rc;
- }
- 
-@@ -428,14 +508,16 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
- 
- 		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
--			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)"
--			  "  *rx_cons_sb(%x)  rx_comp_prod(%x)"
--			  "  rx_comp_cons(%x)  fp_c_idx(%x)  fp_u_idx(%x)"
--			  "  bd data(%x,%x)\n",
-+			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
- 			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
--			  fp->tx_bd_cons, *fp->tx_cons_sb, *fp->rx_cons_sb,
--			  fp->rx_comp_prod, fp->rx_comp_cons, fp->fp_c_idx,
--			  fp->fp_u_idx, hw_prods->packets_prod,
-+			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
-+		BNX2X_ERR("          rx_comp_prod(%x)  rx_comp_cons(%x)"
-+			  "  *rx_cons_sb(%x)\n",
-+			  fp->rx_comp_prod, fp->rx_comp_cons,
-+			  le16_to_cpu(*fp->rx_cons_sb));
-+		BNX2X_ERR("          fp_c_idx(%x)  fp_u_idx(%x)"
-+			  "  bd data(%x,%x)\n",
-+			  fp->fp_c_idx, fp->fp_u_idx, hw_prods->packets_prod,
- 			  hw_prods->bds_prod);
- 
- 		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
-@@ -463,7 +545,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 			struct sw_rx_bd *sw_bd = &fp->rx_buf_ring[j];
- 
- 			BNX2X_ERR("rx_bd[%x]=[%x:%x]  sw_bd=[%p]\n",
--				  j, rx_bd[0], rx_bd[1], sw_bd->skb);
-+				  j, rx_bd[1], rx_bd[0], sw_bd->skb);
- 		}
- 
- 		start = RCQ_BD(fp->rx_comp_cons - 10);
-@@ -482,7 +564,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 		  bp->def_c_idx, bp->def_u_idx, bp->def_x_idx, bp->def_t_idx,
- 		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
- 
--
-+	bnx2x_fw_dump(bp);
- 	bnx2x_mc_assert(bp);
- 	BNX2X_ERR("end crash dump -----------------\n");
- 
-@@ -492,7 +574,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 
- static void bnx2x_int_enable(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
- 	u32 val = REG_RD(bp, addr);
- 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
-@@ -507,7 +589,6 @@ static void bnx2x_int_enable(struct bnx2x *bp)
- 			HC_CONFIG_0_REG_INT_LINE_EN_0 |
- 			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
- 
--		/* Errata A0.158 workaround */
- 		DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)  MSI-X %d\n",
- 		   val, port, addr, msix);
- 
-@@ -520,11 +601,25 @@ static void bnx2x_int_enable(struct bnx2x *bp)
- 	   val, port, addr, msix);
- 
- 	REG_WR(bp, addr, val);
-+
-+	if (CHIP_IS_E1H(bp)) {
-+		/* init leading/trailing edge */
-+		if (IS_E1HMF(bp)) {
-+			val = (0xfe0f | (1 << (BP_E1HVN(bp) + 4)));
-+			if (bp->port.pmf)
-+				/* enable nig attention */
-+				val |= 0x0100;
-+		} else
-+			val = 0xffff;
-+
-+		REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, val);
-+		REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, val);
-+	}
- }
- 
- static void bnx2x_int_disable(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
- 	u32 val = REG_RD(bp, addr);
- 
-@@ -543,10 +638,10 @@ static void bnx2x_int_disable(struct bnx2x *bp)
- 
- static void bnx2x_int_disable_sync(struct bnx2x *bp)
- {
--
- 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
- 	int i;
- 
-+	/* disable interrupt handling */
- 	atomic_inc(&bp->intr_sem);
- 	/* prevent the HW from sending interrupts */
- 	bnx2x_int_disable(bp);
-@@ -563,30 +658,29 @@ static void bnx2x_int_disable_sync(struct bnx2x *bp)
- 
- 	/* make sure sp_task is not running */
- 	cancel_work_sync(&bp->sp_task);
--
- }
- 
--/* fast path code */
-+/* fast path */
- 
- /*
-- * general service functions
-+ * General service functions
-  */
- 
--static inline void bnx2x_ack_sb(struct bnx2x *bp, u8 id,
-+static inline void bnx2x_ack_sb(struct bnx2x *bp, u8 sb_id,
- 				u8 storm, u16 index, u8 op, u8 update)
- {
--	u32 igu_addr = (IGU_ADDR_INT_ACK + IGU_PORT_BASE * bp->port) * 8;
-+	u32 igu_addr = (IGU_ADDR_INT_ACK + IGU_FUNC_BASE * BP_FUNC(bp)) * 8;
- 	struct igu_ack_register igu_ack;
- 
- 	igu_ack.status_block_index = index;
- 	igu_ack.sb_id_and_flags =
--			((id << IGU_ACK_REGISTER_STATUS_BLOCK_ID_SHIFT) |
-+			((sb_id << IGU_ACK_REGISTER_STATUS_BLOCK_ID_SHIFT) |
- 			 (storm << IGU_ACK_REGISTER_STORM_ID_SHIFT) |
- 			 (update << IGU_ACK_REGISTER_UPDATE_INDEX_SHIFT) |
- 			 (op << IGU_ACK_REGISTER_INTERRUPT_MODE_SHIFT));
- 
--/*      DP(NETIF_MSG_INTR, "write 0x%08x to IGU addr 0x%x\n",
--	   (*(u32 *)&igu_ack), BAR_IGU_INTMEM + igu_addr); */
-+	DP(BNX2X_MSG_OFF, "write 0x%08x to IGU addr 0x%x\n",
-+	   (*(u32 *)&igu_ack), BAR_IGU_INTMEM + igu_addr);
- 	REG_WR(bp, BAR_IGU_INTMEM + igu_addr, (*(u32 *)&igu_ack));
- }
- 
-@@ -614,8 +708,9 @@ static inline int bnx2x_has_work(struct bnx2x_fastpath *fp)
- 	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
- 		rx_cons_sb++;
- 
--	if ((rx_cons_sb != fp->rx_comp_cons) ||
--	    (le16_to_cpu(*fp->tx_cons_sb) != fp->tx_pkt_cons))
-+	if ((fp->rx_comp_cons != rx_cons_sb) ||
-+	    (fp->tx_pkt_prod != le16_to_cpu(*fp->tx_cons_sb)) ||
-+	    (fp->tx_pkt_prod != fp->tx_pkt_cons))
- 		return 1;
- 
- 	return 0;
-@@ -623,11 +718,11 @@ static inline int bnx2x_has_work(struct bnx2x_fastpath *fp)
- 
- static u16 bnx2x_ack_int(struct bnx2x *bp)
- {
--	u32 igu_addr = (IGU_ADDR_SIMD_MASK + IGU_PORT_BASE * bp->port) * 8;
-+	u32 igu_addr = (IGU_ADDR_SIMD_MASK + IGU_FUNC_BASE * BP_FUNC(bp)) * 8;
- 	u32 result = REG_RD(bp, BAR_IGU_INTMEM + igu_addr);
- 
--/*      DP(NETIF_MSG_INTR, "read 0x%08x from IGU addr 0x%x\n",
--	   result, BAR_IGU_INTMEM + igu_addr); */
-+	DP(BNX2X_MSG_OFF, "read 0x%08x from IGU addr 0x%x\n",
-+	   result, BAR_IGU_INTMEM + igu_addr);
- 
- #ifdef IGU_DEBUG
- #warning IGU_DEBUG active
-@@ -653,7 +748,7 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	struct sw_tx_bd *tx_buf = &fp->tx_buf_ring[idx];
- 	struct eth_tx_bd *tx_bd;
- 	struct sk_buff *skb = tx_buf->skb;
--	u16 bd_idx = tx_buf->first_bd;
-+	u16 bd_idx = TX_BD(tx_buf->first_bd), new_cons;
- 	int nbd;
- 
- 	DP(BNX2X_MSG_OFF, "pkt_idx %d  buff @(%p)->skb %p\n",
-@@ -666,9 +761,10 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 			 BD_UNMAP_LEN(tx_bd), PCI_DMA_TODEVICE);
- 
- 	nbd = le16_to_cpu(tx_bd->nbd) - 1;
-+	new_cons = nbd + tx_buf->first_bd;
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (nbd > (MAX_SKB_FRAGS + 2)) {
--		BNX2X_ERR("bad nbd!\n");
-+		BNX2X_ERR("BAD nbd!\n");
- 		bnx2x_panic();
- 	}
- #endif
-@@ -708,32 +804,30 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	tx_buf->first_bd = 0;
- 	tx_buf->skb = NULL;
- 
--	return bd_idx;
-+	return new_cons;
- }
- 
--static inline u32 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
-+static inline u16 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
- {
--	u16 used;
--	u32 prod;
--	u32 cons;
-+	s16 used;
-+	u16 prod;
-+	u16 cons;
- 
--	/* Tell compiler that prod and cons can change */
--	barrier();
-+	barrier(); /* Tell compiler that prod and cons can change */
- 	prod = fp->tx_bd_prod;
- 	cons = fp->tx_bd_cons;
- 
--	used = (NUM_TX_BD - NUM_TX_RINGS + prod - cons +
--		(cons / TX_DESC_CNT) - (prod / TX_DESC_CNT));
--
--	if (prod >= cons) {
--		/* used = prod - cons - prod/size + cons/size */
--		used -= NUM_TX_BD - NUM_TX_RINGS;
--	}
-+	/* NUM_TX_RINGS = number of "next-page" entries
-+	   It will be used as a threshold */
-+	used = SUB_S16(prod, cons) + (s16)NUM_TX_RINGS;
- 
-+#ifdef BNX2X_STOP_ON_ERROR
-+	BUG_TRAP(used >= 0);
- 	BUG_TRAP(used <= fp->bp->tx_ring_size);
- 	BUG_TRAP((fp->bp->tx_ring_size - used) <= MAX_TX_AVAIL);
-+#endif
- 
--	return (fp->bp->tx_ring_size - used);
-+	return (s16)(fp->bp->tx_ring_size) - used;
- }
- 
- static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
-@@ -757,10 +851,10 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
- 
- 		/* prefetch(bp->tx_buf_ring[pkt_cons].skb); */
- 
--		DP(NETIF_MSG_TX_DONE, "hw_cons %u  sw_cons %u  pkt_cons %d\n",
-+		DP(NETIF_MSG_TX_DONE, "hw_cons %u  sw_cons %u  pkt_cons %u\n",
- 		   hw_cons, sw_cons, pkt_cons);
- 
--/*      	if (NEXT_TX_IDX(sw_cons) != hw_cons) {
-+/*		if (NEXT_TX_IDX(sw_cons) != hw_cons) {
- 			rmb();
- 			prefetch(fp->tx_buf_ring[NEXT_TX_IDX(sw_cons)].skb);
- 		}
-@@ -793,7 +887,6 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
- 			netif_wake_queue(bp->dev);
- 
- 		netif_tx_unlock(bp->dev);
--
- 	}
- }
- 
-@@ -804,13 +897,14 @@ static void bnx2x_sp_event(struct bnx2x_fastpath *fp,
- 	int cid = SW_CID(rr_cqe->ramrod_cqe.conn_and_cmd_data);
- 	int command = CQE_CMD(rr_cqe->ramrod_cqe.conn_and_cmd_data);
- 
--	DP(NETIF_MSG_RX_STATUS,
-+	DP(BNX2X_MSG_SP,
- 	   "fp %d  cid %d  got ramrod #%d  state is %x  type is %d\n",
--	   fp->index, cid, command, bp->state, rr_cqe->ramrod_cqe.type);
-+	   FP_IDX(fp), cid, command, bp->state,
-+	   rr_cqe->ramrod_cqe.ramrod_type);
- 
- 	bp->spq_left++;
- 
--	if (fp->index) {
-+	if (FP_IDX(fp)) {
- 		switch (command | fp->state) {
- 		case (RAMROD_CMD_ID_ETH_CLIENT_SETUP |
- 						BNX2X_FP_STATE_OPENING):
-@@ -826,10 +920,11 @@ static void bnx2x_sp_event(struct bnx2x_fastpath *fp,
- 			break;
- 
- 		default:
--			BNX2X_ERR("unexpected MC reply(%d)  state is %x\n",
--				  command, fp->state);
-+			BNX2X_ERR("unexpected MC reply (%d)  "
-+				  "fp->state is %x\n", command, fp->state);
-+			break;
- 		}
--		mb(); /* force bnx2x_wait_ramrod to see the change */
-+		mb(); /* force bnx2x_wait_ramrod() to see the change */
- 		return;
- 	}
- 
-@@ -846,25 +941,25 @@ static void bnx2x_sp_event(struct bnx2x_fastpath *fp,
- 		break;
- 
- 	case (RAMROD_CMD_ID_ETH_CFC_DEL | BNX2X_STATE_CLOSING_WAIT4_HALT):
--		DP(NETIF_MSG_IFDOWN, "got delete ramrod for MULTI[%d]\n",
--		   cid);
-+		DP(NETIF_MSG_IFDOWN, "got delete ramrod for MULTI[%d]\n", cid);
- 		bnx2x_fp(bp, cid, state) = BNX2X_FP_STATE_CLOSED;
- 		break;
- 
- 	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_OPEN):
-+	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_DIAG):
- 		DP(NETIF_MSG_IFUP, "got set mac ramrod\n");
- 		break;
- 
- 	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_CLOSING_WAIT4_HALT):
--		DP(NETIF_MSG_IFUP, "got (un)set mac ramrod\n");
-+		DP(NETIF_MSG_IFDOWN, "got (un)set mac ramrod\n");
- 		break;
- 
- 	default:
--		BNX2X_ERR("unexpected ramrod (%d)  state is %x\n",
-+		BNX2X_ERR("unexpected MC reply (%d)  bp->state is %x\n",
- 			  command, bp->state);
-+		break;
- 	}
--
--	mb(); /* force bnx2x_wait_ramrod to see the change */
-+	mb(); /* force bnx2x_wait_ramrod() to see the change */
- }
- 
- static inline int bnx2x_alloc_rx_skb(struct bnx2x *bp,
-@@ -882,7 +977,6 @@ static inline int bnx2x_alloc_rx_skb(struct bnx2x *bp,
- 	mapping = pci_map_single(bp->pdev, skb->data, bp->rx_buf_use_size,
- 				 PCI_DMA_FROMDEVICE);
- 	if (unlikely(dma_mapping_error(mapping))) {
--
- 		dev_kfree_skb(skb);
- 		return -ENOMEM;
- 	}
-@@ -924,7 +1018,7 @@ static void bnx2x_reuse_rx_skb(struct bnx2x_fastpath *fp,
- static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- {
- 	struct bnx2x *bp = fp->bp;
--	u16 bd_cons, bd_prod, comp_ring_cons;
-+	u16 bd_cons, bd_prod, bd_prod_fw, comp_ring_cons;
- 	u16 hw_comp_cons, sw_comp_cons, sw_comp_prod;
- 	int rx_pkt = 0;
- 
-@@ -933,12 +1027,15 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		return 0;
- #endif
- 
-+	/* CQ "next element" is of the size of the regular element,
-+	   that's why it's ok here */
- 	hw_comp_cons = le16_to_cpu(*fp->rx_cons_sb);
- 	if ((hw_comp_cons & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
- 		hw_comp_cons++;
- 
- 	bd_cons = fp->rx_bd_cons;
- 	bd_prod = fp->rx_bd_prod;
-+	bd_prod_fw = bd_prod;
- 	sw_comp_cons = fp->rx_comp_cons;
- 	sw_comp_prod = fp->rx_comp_prod;
- 
-@@ -949,34 +1046,31 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 
- 	DP(NETIF_MSG_RX_STATUS,
- 	   "queue[%d]:  hw_comp_cons %u  sw_comp_cons %u\n",
--	   fp->index, hw_comp_cons, sw_comp_cons);
-+	   FP_IDX(fp), hw_comp_cons, sw_comp_cons);
- 
- 	while (sw_comp_cons != hw_comp_cons) {
--		unsigned int len, pad;
--		struct sw_rx_bd *rx_buf;
-+		struct sw_rx_bd *rx_buf = NULL;
- 		struct sk_buff *skb;
- 		union eth_rx_cqe *cqe;
-+		u8 cqe_fp_flags;
-+		u16 len, pad;
- 
- 		comp_ring_cons = RCQ_BD(sw_comp_cons);
- 		bd_prod = RX_BD(bd_prod);
- 		bd_cons = RX_BD(bd_cons);
- 
- 		cqe = &fp->rx_comp_ring[comp_ring_cons];
-+		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
- 
--		DP(NETIF_MSG_RX_STATUS, "hw_comp_cons %u  sw_comp_cons %u"
--		   "  comp_ring (%u)  bd_ring (%u,%u)\n",
--		   hw_comp_cons, sw_comp_cons,
--		   comp_ring_cons, bd_prod, bd_cons);
- 		DP(NETIF_MSG_RX_STATUS, "CQE type %x  err %x  status %x"
--		   "  queue %x  vlan %x  len %x\n",
--		   cqe->fast_path_cqe.type,
--		   cqe->fast_path_cqe.error_type_flags,
--		   cqe->fast_path_cqe.status_flags,
-+		   "  queue %x  vlan %x  len %u\n", CQE_TYPE(cqe_fp_flags),
-+		   cqe_fp_flags, cqe->fast_path_cqe.status_flags,
- 		   cqe->fast_path_cqe.rss_hash_result,
--		   cqe->fast_path_cqe.vlan_tag, cqe->fast_path_cqe.pkt_len);
-+		   le16_to_cpu(cqe->fast_path_cqe.vlan_tag),
-+		   le16_to_cpu(cqe->fast_path_cqe.pkt_len));
- 
- 		/* is this a slowpath msg? */
--		if (unlikely(cqe->fast_path_cqe.type)) {
-+		if (unlikely(CQE_TYPE(cqe_fp_flags))) {
- 			bnx2x_sp_event(fp, cqe);
- 			goto next_cqe;
- 
-@@ -984,7 +1078,6 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		} else {
- 			rx_buf = &fp->rx_buf_ring[bd_cons];
- 			skb = rx_buf->skb;
--
- 			len = le16_to_cpu(cqe->fast_path_cqe.pkt_len);
- 			pad = cqe->fast_path_cqe.placement_offset;
- 
-@@ -996,13 +1089,11 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 			prefetch(((char *)(skb)) + 128);
- 
- 			/* is this an error packet? */
--			if (unlikely(cqe->fast_path_cqe.error_type_flags &
--							ETH_RX_ERROR_FALGS)) {
-+			if (unlikely(cqe_fp_flags & ETH_RX_ERROR_FALGS)) {
- 			/* do we sometimes forward error packets anyway? */
- 				DP(NETIF_MSG_RX_ERR,
--				   "ERROR flags(%u) Rx packet(%u)\n",
--				   cqe->fast_path_cqe.error_type_flags,
--				   sw_comp_cons);
-+				   "ERROR  flags %x  rx packet %u\n",
-+				   cqe_fp_flags, sw_comp_cons);
- 				/* TBD make sure MC counts this as a drop */
- 				goto reuse_rx;
- 			}
-@@ -1018,7 +1109,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 							   len + pad);
- 				if (new_skb == NULL) {
- 					DP(NETIF_MSG_RX_ERR,
--					   "ERROR packet dropped "
-+					   "ERROR  packet dropped "
- 					   "because of alloc failure\n");
- 					/* TBD count this as a drop? */
- 					goto reuse_rx;
-@@ -1044,7 +1135,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 
- 			} else {
- 				DP(NETIF_MSG_RX_ERR,
--				   "ERROR packet dropped because "
-+				   "ERROR  packet dropped because "
- 				   "of alloc failure\n");
- reuse_rx:
- 				bnx2x_reuse_rx_skb(fp, skb, bd_cons, bd_prod);
-@@ -1061,14 +1152,14 @@ reuse_rx:
- 		}
- 
- #ifdef BCM_VLAN
--		if ((le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags)
--				& PARSING_FLAGS_NUMBER_OF_NESTED_VLANS)
--		    && (bp->vlgrp != NULL))
-+		if ((bp->vlgrp != NULL) &&
-+		    (le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
-+		     PARSING_FLAGS_VLAN))
- 			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
- 				le16_to_cpu(cqe->fast_path_cqe.vlan_tag));
- 		else
- #endif
--		netif_receive_skb(skb);
-+			netif_receive_skb(skb);
- 
- 		bp->dev->last_rx = jiffies;
- 
-@@ -1077,22 +1168,25 @@ next_rx:
- 
- 		bd_cons = NEXT_RX_IDX(bd_cons);
- 		bd_prod = NEXT_RX_IDX(bd_prod);
-+		bd_prod_fw = NEXT_RX_IDX(bd_prod_fw);
-+		rx_pkt++;
- next_cqe:
- 		sw_comp_prod = NEXT_RCQ_IDX(sw_comp_prod);
- 		sw_comp_cons = NEXT_RCQ_IDX(sw_comp_cons);
--		rx_pkt++;
- 
--		if ((rx_pkt == budget))
-+		if (rx_pkt == budget)
- 			break;
- 	} /* while */
- 
- 	fp->rx_bd_cons = bd_cons;
--	fp->rx_bd_prod = bd_prod;
-+	fp->rx_bd_prod = bd_prod_fw;
- 	fp->rx_comp_cons = sw_comp_cons;
- 	fp->rx_comp_prod = sw_comp_prod;
- 
- 	REG_WR(bp, BAR_TSTRORM_INTMEM +
--	       TSTORM_RCQ_PROD_OFFSET(bp->port, fp->index), sw_comp_prod);
-+		TSTORM_RX_PRODS_OFFSET(BP_PORT(bp), FP_CL_ID(fp)),
-+		sw_comp_prod);
-+
- 
- 	mmiowb(); /* keep prod updates ordered */
- 
-@@ -1107,10 +1201,11 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- 	struct bnx2x_fastpath *fp = fp_cookie;
- 	struct bnx2x *bp = fp->bp;
- 	struct net_device *dev = bp->dev;
--	int index = fp->index;
-+	int index = FP_IDX(fp);
- 
--	DP(NETIF_MSG_INTR, "got an msix interrupt on [%d]\n", index);
--	bnx2x_ack_sb(bp, index, USTORM_ID, 0, IGU_INT_DISABLE, 0);
-+	DP(BNX2X_MSG_FP, "got an MSI-X interrupt on IDX:SB [%d:%d]\n",
-+	   index, FP_SB_ID(fp));
-+	bnx2x_ack_sb(bp, FP_SB_ID(fp), USTORM_ID, 0, IGU_INT_DISABLE, 0);
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
-@@ -1123,6 +1218,7 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- 	prefetch(&fp->status_blk->u_status_block.status_block_index);
- 
- 	netif_rx_schedule(dev, &bnx2x_fp(bp, index, napi));
-+
- 	return IRQ_HANDLED;
- }
- 
-@@ -1131,26 +1227,28 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 	struct net_device *dev = dev_instance;
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u16 status = bnx2x_ack_int(bp);
-+	u16 mask;
- 
-+	/* Return here if interrupt is shared and it's not for us */
- 	if (unlikely(status == 0)) {
- 		DP(NETIF_MSG_INTR, "not our interrupt!\n");
- 		return IRQ_NONE;
- 	}
--
--	DP(NETIF_MSG_INTR, "got an interrupt status is %u\n", status);
-+	DP(NETIF_MSG_INTR, "got an interrupt  status %u\n", status);
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
- 		return IRQ_HANDLED;
- #endif
- 
--	/* Return here if interrupt is shared and is disabled */
-+	/* Return here if interrupt is disabled */
- 	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
- 		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
- 		return IRQ_HANDLED;
- 	}
- 
--	if (status & 0x2) {
-+	mask = 0x2 << bp->fp[0].sb_id;
-+	if (status & mask) {
- 		struct bnx2x_fastpath *fp = &bp->fp[0];
- 
- 		prefetch(fp->rx_cons_sb);
-@@ -1160,13 +1258,11 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 
- 		netif_rx_schedule(dev, &bnx2x_fp(bp, 0, napi));
- 
--		status &= ~0x2;
--		if (!status)
--			return IRQ_HANDLED;
-+		status &= ~mask;
- 	}
- 
--	if (unlikely(status & 0x1)) {
- 
-+	if (unlikely(status & 0x1)) {
- 		schedule_work(&bp->sp_task);
- 
- 		status &= ~0x1;
-@@ -1174,8 +1270,9 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 			return IRQ_HANDLED;
- 	}
- 
--	DP(NETIF_MSG_INTR, "got an unknown interrupt! (status is %u)\n",
--	   status);
-+	if (status)
-+		DP(NETIF_MSG_INTR, "got an unknown interrupt! (status %u)\n",
-+		   status);
- 
- 	return IRQ_HANDLED;
- }
-@@ -1193,7 +1290,7 @@ static int bnx2x_hw_lock(struct bnx2x *bp, u32 resource)
- {
- 	u32 lock_status;
- 	u32 resource_bit = (1 << resource);
--	u8 port = bp->port;
-+	u8 port = BP_PORT(bp);
- 	int cnt;
- 
- 	/* Validating that the resource is within range */
-@@ -1231,7 +1328,7 @@ static int bnx2x_hw_unlock(struct bnx2x *bp, u32 resource)
- {
- 	u32 lock_status;
- 	u32 resource_bit = (1 << resource);
--	u8 port = bp->port;
-+	u8 port = BP_PORT(bp);
- 
- 	/* Validating that the resource is within range */
- 	if (resource > HW_LOCK_MAX_RESOURCE_VALUE) {
-@@ -1258,7 +1355,7 @@ static void bnx2x_phy_hw_lock(struct bnx2x *bp)
- {
- 	u32 ext_phy_type = XGXS_EXT_PHY_TYPE(bp->link_params.ext_phy_config);
- 
--	mutex_lock(&bp->phy_mutex);
-+	mutex_lock(&bp->port.phy_mutex);
- 
- 	if ((ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072) ||
- 	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073))
-@@ -1273,14 +1370,14 @@ static void bnx2x_phy_hw_unlock(struct bnx2x *bp)
- 	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073))
- 		bnx2x_hw_unlock(bp, HW_LOCK_RESOURCE_8072_MDIO);
- 
--	mutex_unlock(&bp->phy_mutex);
-+	mutex_unlock(&bp->port.phy_mutex);
- }
- 
- int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode)
- {
- 	/* The GPIO should be swapped if swap register is set and active */
- 	int gpio_port = (REG_RD(bp, NIG_REG_PORT_SWAP) &&
--			 REG_RD(bp, NIG_REG_STRAP_OVERRIDE)) ^ bp->port;
-+			 REG_RD(bp, NIG_REG_STRAP_OVERRIDE)) ^ BP_PORT(bp);
- 	int gpio_shift = gpio_num +
- 			(gpio_port ? MISC_REGISTERS_GPIO_PORT_SHIFT : 0);
- 	u32 gpio_mask = (1 << gpio_shift);
-@@ -1379,18 +1476,18 @@ static void bnx2x_calc_fc_adv(struct bnx2x *bp)
- {
- 	switch (bp->link_vars.ieee_fc) {
- 	case MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE:
--		bp->advertising &= ~(ADVERTISED_Asym_Pause |
-+		bp->port.advertising &= ~(ADVERTISED_Asym_Pause |
- 					  ADVERTISED_Pause);
- 		break;
- 	case MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH:
--		bp->advertising |= (ADVERTISED_Asym_Pause |
-+		bp->port.advertising |= (ADVERTISED_Asym_Pause |
- 					 ADVERTISED_Pause);
- 		break;
- 	case MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC:
--		bp->advertising |= ADVERTISED_Asym_Pause;
-+		bp->port.advertising |= ADVERTISED_Asym_Pause;
- 		break;
- 	default:
--		bp->advertising &= ~(ADVERTISED_Asym_Pause |
-+		bp->port.advertising &= ~(ADVERTISED_Asym_Pause |
- 					  ADVERTISED_Pause);
- 		break;
- 	}
-@@ -1443,6 +1540,7 @@ static u8 bnx2x_initial_phy_init(struct bnx2x *bp)
- 		bnx2x_link_report(bp);
- 
- 	bnx2x_calc_fc_adv(bp);
-+
- 	return rc;
- }
- 
-@@ -1473,15 +1571,261 @@ static u8 bnx2x_link_test(struct bnx2x *bp)
- 	return rc;
- }
- 
-+/* Calculates the sum of vn_min_rates.
-+   It's needed for further normalizing of the min_rates.
-+
-+   Returns:
-+     sum of vn_min_rates
-+       or
-+     0 - if all the min_rates are 0.
-+     In the later case fainess algorithm should be deactivated.
-+     If not all min_rates are zero then those that are zeroes will
-+     be set to 1.
-+ */
-+static u32 bnx2x_calc_vn_wsum(struct bnx2x *bp)
-+{
-+	int i, port = BP_PORT(bp);
-+	u32 wsum = 0;
-+	int all_zero = 1;
-+
-+	for (i = 0; i < E1HVN_MAX; i++) {
-+		u32 vn_cfg =
-+			SHMEM_RD(bp, mf_cfg.func_mf_config[2*i + port].config);
-+		u32 vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
-+				     FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
-+		if (!(vn_cfg & FUNC_MF_CFG_FUNC_HIDE)) {
-+			/* If min rate is zero - set it to 1 */
-+			if (!vn_min_rate)
-+				vn_min_rate = DEF_MIN_RATE;
-+			else
-+				all_zero = 0;
-+
-+			wsum += vn_min_rate;
-+		}
-+	}
-+
-+	/* ... only if all min rates are zeros - disable FAIRNESS */
-+	if (all_zero)
-+		return 0;
-+
-+	return wsum;
-+}
-+
-+static void bnx2x_init_port_minmax(struct bnx2x *bp,
-+				   int en_fness,
-+				   u16 port_rate,
-+				   struct cmng_struct_per_port *m_cmng_port)
-+{
-+	u32 r_param = port_rate / 8;
-+	int port = BP_PORT(bp);
-+	int i;
-+
-+	memset(m_cmng_port, 0, sizeof(struct cmng_struct_per_port));
-+
-+	/* Enable minmax only if we are in e1hmf mode */
-+	if (IS_E1HMF(bp)) {
-+		u32 fair_periodic_timeout_usec;
-+		u32 t_fair;
-+
-+		/* Enable rate shaping and fairness */
-+		m_cmng_port->flags.cmng_vn_enable = 1;
-+		m_cmng_port->flags.fairness_enable = en_fness ? 1 : 0;
-+		m_cmng_port->flags.rate_shaping_enable = 1;
-+
-+		if (!en_fness)
-+			DP(NETIF_MSG_IFUP, "All MIN values are zeroes"
-+			   "  fairness will be disabled\n");
-+
-+		/* 100 usec in SDM ticks = 25 since each tick is 4 usec */
-+		m_cmng_port->rs_vars.rs_periodic_timeout =
-+						RS_PERIODIC_TIMEOUT_USEC / 4;
-+
-+		/* this is the threshold below which no timer arming will occur
-+		   1.25 coefficient is for the threshold to be a little bigger
-+		   than the real time, to compensate for timer in-accuracy */
-+		m_cmng_port->rs_vars.rs_threshold =
-+				(RS_PERIODIC_TIMEOUT_USEC * r_param * 5) / 4;
-+
-+		/* resolution of fairness timer */
-+		fair_periodic_timeout_usec = QM_ARB_BYTES / r_param;
-+		/* for 10G it is 1000usec. for 1G it is 10000usec. */
-+		t_fair = T_FAIR_COEF / port_rate;
-+
-+		/* this is the threshold below which we won't arm
-+		   the timer anymore */
-+		m_cmng_port->fair_vars.fair_threshold = QM_ARB_BYTES;
-+
-+		/* we multiply by 1e3/8 to get bytes/msec.
-+		   We don't want the credits to pass a credit
-+		   of the T_FAIR*FAIR_MEM (algorithm resolution) */
-+		m_cmng_port->fair_vars.upper_bound =
-+						r_param * t_fair * FAIR_MEM;
-+		/* since each tick is 4 usec */
-+		m_cmng_port->fair_vars.fairness_timeout =
-+						fair_periodic_timeout_usec / 4;
-+
-+	} else {
-+		/* Disable rate shaping and fairness */
-+		m_cmng_port->flags.cmng_vn_enable = 0;
-+		m_cmng_port->flags.fairness_enable = 0;
-+		m_cmng_port->flags.rate_shaping_enable = 0;
-+
-+		DP(NETIF_MSG_IFUP,
-+		   "Single function mode  minmax will be disabled\n");
-+	}
-+
-+	/* Store it to internal memory */
-+	for (i = 0; i < sizeof(struct cmng_struct_per_port) / 4; i++)
-+		REG_WR(bp, BAR_XSTRORM_INTMEM +
-+		       XSTORM_CMNG_PER_PORT_VARS_OFFSET(port) + i * 4,
-+		       ((u32 *)(m_cmng_port))[i]);
-+}
-+
-+static void bnx2x_init_vn_minmax(struct bnx2x *bp, int func,
-+				   u32 wsum, u16 port_rate,
-+				 struct cmng_struct_per_port *m_cmng_port)
-+{
-+	struct rate_shaping_vars_per_vn m_rs_vn;
-+	struct fairness_vars_per_vn m_fair_vn;
-+	u32 vn_cfg = SHMEM_RD(bp, mf_cfg.func_mf_config[func].config);
-+	u16 vn_min_rate, vn_max_rate;
-+	int i;
-+
-+	/* If function is hidden - set min and max to zeroes */
-+	if (vn_cfg & FUNC_MF_CFG_FUNC_HIDE) {
-+		vn_min_rate = 0;
-+		vn_max_rate = 0;
-+
-+	} else {
-+		vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
-+				FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
-+		/* If FAIRNESS is enabled (not all min rates are zeroes) and
-+		   if current min rate is zero - set it to 1.
-+		   This is a requirment of the algorithm. */
-+		if ((vn_min_rate == 0) && wsum)
-+			vn_min_rate = DEF_MIN_RATE;
-+		vn_max_rate = ((vn_cfg & FUNC_MF_CFG_MAX_BW_MASK) >>
-+				FUNC_MF_CFG_MAX_BW_SHIFT) * 100;
-+	}
-+
-+	DP(NETIF_MSG_IFUP, "func %d: vn_min_rate=%d  vn_max_rate=%d  "
-+	   "wsum=%d\n", func, vn_min_rate, vn_max_rate, wsum);
-+
-+	memset(&m_rs_vn, 0, sizeof(struct rate_shaping_vars_per_vn));
-+	memset(&m_fair_vn, 0, sizeof(struct fairness_vars_per_vn));
-+
-+	/* global vn counter - maximal Mbps for this vn */
-+	m_rs_vn.vn_counter.rate = vn_max_rate;
-+
-+	/* quota - number of bytes transmitted in this period */
-+	m_rs_vn.vn_counter.quota =
-+				(vn_max_rate * RS_PERIODIC_TIMEOUT_USEC) / 8;
-+
-+#ifdef BNX2X_PER_PROT_QOS
-+	/* per protocol counter */
-+	for (protocol = 0; protocol < NUM_OF_PROTOCOLS; protocol++) {
-+		/* maximal Mbps for this protocol */
-+		m_rs_vn.protocol_counters[protocol].rate =
-+						protocol_max_rate[protocol];
-+		/* the quota in each timer period -
-+		   number of bytes transmitted in this period */
-+		m_rs_vn.protocol_counters[protocol].quota =
-+			(u32)(rs_periodic_timeout_usec *
-+			  ((double)m_rs_vn.
-+				   protocol_counters[protocol].rate/8));
-+	}
-+#endif
-+
-+	if (wsum) {
-+		/* credit for each period of the fairness algorithm:
-+		   number of bytes in T_FAIR (the vn share the port rate).
-+		   wsum should not be larger than 10000, thus
-+		   T_FAIR_COEF / (8 * wsum) will always be grater than zero */
-+		m_fair_vn.vn_credit_delta =
-+			max((u64)(vn_min_rate * (T_FAIR_COEF / (8 * wsum))),
-+			    (u64)(m_cmng_port->fair_vars.fair_threshold * 2));
-+		DP(NETIF_MSG_IFUP, "m_fair_vn.vn_credit_delta=%d\n",
-+		   m_fair_vn.vn_credit_delta);
-+	}
-+
-+#ifdef BNX2X_PER_PROT_QOS
-+	do {
-+		u32 protocolWeightSum = 0;
-+
-+		for (protocol = 0; protocol < NUM_OF_PROTOCOLS; protocol++)
-+			protocolWeightSum +=
-+					drvInit.protocol_min_rate[protocol];
-+		/* per protocol counter -
-+		   NOT NEEDED IF NO PER-PROTOCOL CONGESTION MANAGEMENT */
-+		if (protocolWeightSum > 0) {
-+			for (protocol = 0;
-+			     protocol < NUM_OF_PROTOCOLS; protocol++)
-+				/* credit for each period of the
-+				   fairness algorithm - number of bytes in
-+				   T_FAIR (the protocol share the vn rate) */
-+				m_fair_vn.protocol_credit_delta[protocol] =
-+					(u32)((vn_min_rate / 8) * t_fair *
-+					protocol_min_rate / protocolWeightSum);
-+		}
-+	} while (0);
-+#endif
-+
-+	/* Store it to internal memory */
-+	for (i = 0; i < sizeof(struct rate_shaping_vars_per_vn)/4; i++)
-+		REG_WR(bp, BAR_XSTRORM_INTMEM +
-+		       XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(func) + i * 4,
-+		       ((u32 *)(&m_rs_vn))[i]);
-+
-+	for (i = 0; i < sizeof(struct fairness_vars_per_vn)/4; i++)
-+		REG_WR(bp, BAR_XSTRORM_INTMEM +
-+		       XSTORM_FAIRNESS_PER_VN_VARS_OFFSET(func) + i * 4,
-+		       ((u32 *)(&m_fair_vn))[i]);
-+}
-+
- /* This function is called upon link interrupt */
- static void bnx2x_link_attn(struct bnx2x *bp)
- {
-+	int vn;
-+
- 	bnx2x_phy_hw_lock(bp);
- 	bnx2x_link_update(&bp->link_params, &bp->link_vars);
- 	bnx2x_phy_hw_unlock(bp);
- 
- 	/* indicate link status */
- 	bnx2x_link_report(bp);
-+
-+	if (IS_E1HMF(bp)) {
-+		int func;
-+
-+		for (vn = VN_0; vn < E1HVN_MAX; vn++) {
-+			if (vn == BP_E1HVN(bp))
-+				continue;
-+
-+			func = ((vn << 1) | BP_PORT(bp));
-+
-+			/* Set the attention towards other drivers
-+			   on the same port */
-+			REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_0 +
-+			       (LINK_SYNC_ATTENTION_BIT_FUNC_0 + func)*4, 1);
-+		}
-+	}
-+
-+	if (CHIP_IS_E1H(bp) && (bp->link_vars.line_speed > 0)) {
-+		struct cmng_struct_per_port m_cmng_port;
-+		u32 wsum;
-+		int port = BP_PORT(bp);
-+
-+		/* Init RATE SHAPING and FAIRNESS contexts */
-+		wsum = bnx2x_calc_vn_wsum(bp);
-+		bnx2x_init_port_minmax(bp, (int)wsum,
-+					bp->link_vars.line_speed,
-+					&m_cmng_port);
-+		if (IS_E1HMF(bp))
-+			for (vn = VN_0; vn < E1HVN_MAX; vn++)
-+				bnx2x_init_vn_minmax(bp, 2*vn + port,
-+					wsum, bp->link_vars.line_speed,
-+						     &m_cmng_port);
-+	}
- }
- 
- static void bnx2x__link_status_update(struct bnx2x *bp)
-@@ -1495,6 +1839,20 @@ static void bnx2x__link_status_update(struct bnx2x *bp)
- 	bnx2x_link_report(bp);
- }
- 
-+static void bnx2x_pmf_update(struct bnx2x *bp)
-+{
-+	int port = BP_PORT(bp);
-+	u32 val;
-+
-+	bp->port.pmf = 1;
-+	DP(NETIF_MSG_LINK, "pmf %d\n", bp->port.pmf);
-+
-+	/* enable nig attention */
-+	val = (0xff0f | (1 << (BP_E1HVN(bp) + 4)));
-+	REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, val);
-+	REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, val);
-+}
-+
- /* end of Link */
- 
- /* slow path */
-@@ -1507,10 +1865,10 @@ static void bnx2x__link_status_update(struct bnx2x *bp)
- static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
- 			 u32 data_hi, u32 data_lo, int common)
- {
--	int port = bp->port;
-+	int func = BP_FUNC(bp);
- 
--	DP(NETIF_MSG_TIMER,
--	   "spe (%x:%x)  command %d  hw_cid %x  data (%x:%x)  left %x\n",
-+	DP(BNX2X_MSG_SP/*NETIF_MSG_TIMER*/,
-+	   "SPQE (%x:%x)  command %d  hw_cid %x  data (%x:%x)  left %x\n",
- 	   (u32)U64_HI(bp->spq_mapping), (u32)(U64_LO(bp->spq_mapping) +
- 	   (void *)bp->spq_prod_bd - (void *)bp->spq), command,
- 	   HW_CID(bp, cid), data_hi, data_lo, bp->spq_left);
-@@ -1520,11 +1878,11 @@ static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
- 		return -EIO;
- #endif
- 
--	spin_lock(&bp->spq_lock);
-+	spin_lock_bh(&bp->spq_lock);
- 
- 	if (!bp->spq_left) {
- 		BNX2X_ERR("BUG! SPQ ring full!\n");
--		spin_unlock(&bp->spq_lock);
-+		spin_unlock_bh(&bp->spq_lock);
- 		bnx2x_panic();
- 		return -EBUSY;
- 	}
-@@ -1553,18 +1911,18 @@ static int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
- 		bp->spq_prod_idx++;
- 	}
- 
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(port),
-+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(func),
- 	       bp->spq_prod_idx);
- 
--	spin_unlock(&bp->spq_lock);
-+	spin_unlock_bh(&bp->spq_lock);
- 	return 0;
- }
- 
- /* acquire split MCP access lock register */
- static int bnx2x_lock_alr(struct bnx2x *bp)
- {
--	int rc = 0;
- 	u32 i, j, val;
-+	int rc = 0;
- 
- 	might_sleep();
- 	i = 100;
-@@ -1577,10 +1935,8 @@ static int bnx2x_lock_alr(struct bnx2x *bp)
- 
- 		msleep(5);
- 	}
--
- 	if (!(val & (1L << 31))) {
- 		BNX2X_ERR("Cannot acquire nvram interface\n");
--
- 		rc = -EBUSY;
- 	}
- 
-@@ -1631,8 +1987,9 @@ static inline u16 bnx2x_update_dsb_idx(struct bnx2x *bp)
- 
- static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
- {
--	int port = bp->port;
--	u32 igu_addr = (IGU_ADDR_ATTN_BITS_SET + IGU_PORT_BASE * port) * 8;
-+	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
-+	u32 igu_addr = (IGU_ADDR_ATTN_BITS_SET + IGU_FUNC_BASE * func) * 8;
- 	u32 aeu_addr = port ? MISC_REG_AEU_MASK_ATTN_FUNC_1 :
- 			      MISC_REG_AEU_MASK_ATTN_FUNC_0;
- 	u32 nig_int_mask_addr = port ? NIG_REG_MASK_INTERRUPT_PORT1 :
-@@ -1716,14 +2073,14 @@ static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
- 
- static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int reg_offset;
- 	u32 val;
- 
--	if (attn & AEU_INPUTS_ATTN_BITS_SPIO5) {
-+	reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
-+			     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0);
- 
--		reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
--				     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0);
-+	if (attn & AEU_INPUTS_ATTN_BITS_SPIO5) {
- 
- 		val = REG_RD(bp, reg_offset);
- 		val &= ~AEU_INPUTS_ATTN_BITS_SPIO5;
-@@ -1731,7 +2088,7 @@ static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
- 
- 		BNX2X_ERR("SPIO5 hw attention\n");
- 
--		switch (bp->board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
-+		switch (bp->common.board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
- 		case SHARED_HW_CFG_BOARD_TYPE_BCM957710A1022G:
- 			/* Fan failure attention */
- 
-@@ -1762,6 +2119,17 @@ static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
- 			break;
- 		}
- 	}
-+
-+	if (attn & HW_INTERRUT_ASSERT_SET_0) {
-+
-+		val = REG_RD(bp, reg_offset);
-+		val &= ~(attn & HW_INTERRUT_ASSERT_SET_0);
-+		REG_WR(bp, reg_offset, val);
-+
-+		BNX2X_ERR("FATAL HW block attention set0 0x%x\n",
-+			  (attn & HW_INTERRUT_ASSERT_SET_0));
-+		bnx2x_panic();
-+	}
- }
- 
- static inline void bnx2x_attn_int_deasserted1(struct bnx2x *bp, u32 attn)
-@@ -1776,6 +2144,23 @@ static inline void bnx2x_attn_int_deasserted1(struct bnx2x *bp, u32 attn)
- 		if (val & 0x2)
- 			BNX2X_ERR("FATAL error from DORQ\n");
- 	}
-+
-+	if (attn & HW_INTERRUT_ASSERT_SET_1) {
-+
-+		int port = BP_PORT(bp);
-+		int reg_offset;
-+
-+		reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_1 :
-+				     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_1);
-+
-+		val = REG_RD(bp, reg_offset);
-+		val &= ~(attn & HW_INTERRUT_ASSERT_SET_1);
-+		REG_WR(bp, reg_offset, val);
-+
-+		BNX2X_ERR("FATAL HW block attention set1 0x%x\n",
-+			  (attn & HW_INTERRUT_ASSERT_SET_1));
-+		bnx2x_panic();
-+	}
- }
- 
- static inline void bnx2x_attn_int_deasserted2(struct bnx2x *bp, u32 attn)
-@@ -1799,13 +2184,41 @@ static inline void bnx2x_attn_int_deasserted2(struct bnx2x *bp, u32 attn)
- 		if (val & 0x18000)
- 			BNX2X_ERR("FATAL error from PXP\n");
- 	}
-+
-+	if (attn & HW_INTERRUT_ASSERT_SET_2) {
-+
-+		int port = BP_PORT(bp);
-+		int reg_offset;
-+
-+		reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_2 :
-+				     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_2);
-+
-+		val = REG_RD(bp, reg_offset);
-+		val &= ~(attn & HW_INTERRUT_ASSERT_SET_2);
-+		REG_WR(bp, reg_offset, val);
-+
-+		BNX2X_ERR("FATAL HW block attention set2 0x%x\n",
-+			  (attn & HW_INTERRUT_ASSERT_SET_2));
-+		bnx2x_panic();
-+	}
- }
- 
- static inline void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
- {
-+	u32 val;
-+
- 	if (attn & EVEREST_GEN_ATTN_IN_USE_MASK) {
- 
--		if (attn & BNX2X_MC_ASSERT_BITS) {
-+		if (attn & BNX2X_PMF_LINK_ASSERT) {
-+			int func = BP_FUNC(bp);
-+
-+			REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_12 + func*4, 0);
-+			bnx2x__link_status_update(bp);
-+			if (SHMEM_RD(bp, func_mb[func].drv_status) &
-+							DRV_STATUS_PMF)
-+				bnx2x_pmf_update(bp);
-+
-+		} else if (attn & BNX2X_MC_ASSERT_BITS) {
- 
- 			BNX2X_ERR("MC assert!\n");
- 			REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_10, 0);
-@@ -1818,16 +2231,25 @@ static inline void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
- 
- 			BNX2X_ERR("MCP assert!\n");
- 			REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_11, 0);
--			bnx2x_mc_assert(bp);
-+			bnx2x_fw_dump(bp);
- 
- 		} else
- 			BNX2X_ERR("Unknown HW assert! (attn 0x%x)\n", attn);
- 	}
- 
- 	if (attn & EVEREST_LATCHED_ATTN_IN_USE_MASK) {
--
-+		BNX2X_ERR("LATCHED attention 0x%08x (masked)\n", attn);
-+		if (attn & BNX2X_GRC_TIMEOUT) {
-+			val = CHIP_IS_E1H(bp) ?
-+				REG_RD(bp, MISC_REG_GRC_TIMEOUT_ATTN) : 0;
-+			BNX2X_ERR("GRC time-out 0x%08x\n", val);
-+		}
-+		if (attn & BNX2X_GRC_RSV) {
-+			val = CHIP_IS_E1H(bp) ?
-+				REG_RD(bp, MISC_REG_GRC_RSV_ATTN) : 0;
-+			BNX2X_ERR("GRC reserved 0x%08x\n", val);
-+		}
- 		REG_WR(bp, MISC_REG_AEU_CLR_LATCH_SIGNAL, 0x7ff);
--		BNX2X_ERR("LATCHED attention 0x%x (masked)\n", attn);
- 	}
- }
- 
-@@ -1835,7 +2257,7 @@ static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
- {
- 	struct attn_route attn;
- 	struct attn_route group_mask;
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int index;
- 	u32 reg_addr;
- 	u32 val;
-@@ -1848,14 +2270,16 @@ static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
- 	attn.sig[1] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_2_FUNC_0 + port*4);
- 	attn.sig[2] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_3_FUNC_0 + port*4);
- 	attn.sig[3] = REG_RD(bp, MISC_REG_AEU_AFTER_INVERT_4_FUNC_0 + port*4);
--	DP(NETIF_MSG_HW, "attn %llx\n", (unsigned long long)attn.sig[0]);
-+	DP(NETIF_MSG_HW, "attn: %08x %08x %08x %08x\n",
-+	   attn.sig[0], attn.sig[1], attn.sig[2], attn.sig[3]);
- 
- 	for (index = 0; index < MAX_DYNAMIC_ATTN_GRPS; index++) {
- 		if (deasserted & (1 << index)) {
- 			group_mask = bp->attn_group[index];
- 
--			DP(NETIF_MSG_HW, "group[%d]: %llx\n", index,
--			   (unsigned long long)group_mask.sig[0]);
-+			DP(NETIF_MSG_HW, "group[%d]: %08x %08x %08x %08x\n",
-+			   index, group_mask.sig[0], group_mask.sig[1],
-+			   group_mask.sig[2], group_mask.sig[3]);
- 
- 			bnx2x_attn_int_deasserted3(bp,
- 					attn.sig[3] & group_mask.sig[3]);
-@@ -1867,22 +2291,6 @@ static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
- 					attn.sig[0] & group_mask.sig[0]);
- 
- 			if ((attn.sig[0] & group_mask.sig[0] &
--						HW_INTERRUT_ASSERT_SET_0) ||
--			    (attn.sig[1] & group_mask.sig[1] &
--						HW_INTERRUT_ASSERT_SET_1) ||
--			    (attn.sig[2] & group_mask.sig[2] &
--						HW_INTERRUT_ASSERT_SET_2))
--				BNX2X_ERR("FATAL HW block attention"
--					  "  set0 0x%x  set1 0x%x"
--					  "  set2 0x%x\n",
--					  (attn.sig[0] & group_mask.sig[0] &
--					   HW_INTERRUT_ASSERT_SET_0),
--					  (attn.sig[1] & group_mask.sig[1] &
--					   HW_INTERRUT_ASSERT_SET_1),
--					  (attn.sig[2] & group_mask.sig[2] &
--					   HW_INTERRUT_ASSERT_SET_2));
--
--			if ((attn.sig[0] & group_mask.sig[0] &
- 						HW_PRTY_ASSERT_SET_0) ||
- 			    (attn.sig[1] & group_mask.sig[1] &
- 						HW_PRTY_ASSERT_SET_1) ||
-@@ -1894,17 +2302,17 @@ static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
- 
- 	bnx2x_unlock_alr(bp);
- 
--	reg_addr = (IGU_ADDR_ATTN_BITS_CLR + IGU_PORT_BASE * port) * 8;
-+	reg_addr = (IGU_ADDR_ATTN_BITS_CLR + IGU_FUNC_BASE * BP_FUNC(bp)) * 8;
- 
- 	val = ~deasserted;
--/*      DP(NETIF_MSG_INTR, "write 0x%08x to IGU addr 0x%x\n",
-+/*	DP(NETIF_MSG_INTR, "write 0x%08x to IGU addr 0x%x\n",
- 	   val, BAR_IGU_INTMEM + reg_addr); */
- 	REG_WR(bp, BAR_IGU_INTMEM + reg_addr, val);
- 
- 	if (bp->aeu_mask & (deasserted & 0xff))
--		BNX2X_ERR("IGU BUG\n");
-+		BNX2X_ERR("IGU BUG!\n");
- 	if (~bp->attn_state & deasserted)
--		BNX2X_ERR("IGU BUG\n");
-+		BNX2X_ERR("IGU BUG!\n");
- 
- 	reg_addr = port ? MISC_REG_AEU_MASK_ATTN_FUNC_1 :
- 			  MISC_REG_AEU_MASK_ATTN_FUNC_0;
-@@ -1936,7 +2344,7 @@ static void bnx2x_attn_int(struct bnx2x *bp)
- 	   attn_bits, attn_ack, asserted, deasserted);
- 
- 	if (~(attn_bits ^ attn_ack) & (attn_bits ^ attn_state))
--		BNX2X_ERR("bad attention state\n");
-+		BNX2X_ERR("BAD attention state\n");
- 
- 	/* handle bits that were raised */
- 	if (asserted)
-@@ -1951,6 +2359,7 @@ static void bnx2x_sp_task(struct work_struct *work)
- 	struct bnx2x *bp = container_of(work, struct bnx2x, sp_task);
- 	u16 status;
- 
-+
- 	/* Return here if interrupt is disabled */
- 	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
- 		DP(BNX2X_MSG_SP, "called but intr_sem not 0, returning\n");
-@@ -1958,19 +2367,15 @@ static void bnx2x_sp_task(struct work_struct *work)
- 	}
- 
- 	status = bnx2x_update_dsb_idx(bp);
--	if (status == 0)
--		BNX2X_ERR("spurious slowpath interrupt!\n");
-+/*	if (status == 0)				     */
-+/*		BNX2X_ERR("spurious slowpath interrupt!\n"); */
- 
--	DP(NETIF_MSG_INTR, "got a slowpath interrupt (updated %x)\n", status);
-+	DP(BNX2X_MSG_SP, "got a slowpath interrupt (updated %x)\n", status);
- 
- 	/* HW attentions */
- 	if (status & 0x1)
- 		bnx2x_attn_int(bp);
- 
--	/* CStorm events: query_stats, port delete ramrod */
--	if (status & 0x2)
--		bp->stat_pending = 0;
--
- 	bnx2x_ack_sb(bp, DEF_SB_ID, ATTENTION_ID, bp->def_att_idx,
- 		     IGU_INT_NOP, 1);
- 	bnx2x_ack_sb(bp, DEF_SB_ID, USTORM_ID, le16_to_cpu(bp->def_u_idx),
-@@ -2109,13 +2514,13 @@ static inline long bnx2x_hilo(u32 *hiref)
- static void bnx2x_init_mac_stats(struct bnx2x *bp)
- {
- 	struct dmae_command *dmae;
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int loader_idx = port * 8;
- 	u32 opcode;
- 	u32 mac_addr;
- 
- 	bp->executer_idx = 0;
--	if (bp->fw_mb) {
-+	if (bp->func_stx) {
- 		/* MCP */
- 		opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
- 			  DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
-@@ -2135,7 +2540,7 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
- 					   sizeof(u32));
- 		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, eth_stats) +
- 					   sizeof(u32));
--		dmae->dst_addr_lo = bp->fw_mb >> 2;
-+		dmae->dst_addr_lo = bp->func_stx >> 2;
- 		dmae->dst_addr_hi = 0;
- 		dmae->len = (offsetof(struct bnx2x_eth_stats, mac_stx_end) -
- 			     sizeof(u32)) >> 2;
-@@ -2280,7 +2685,7 @@ static void bnx2x_init_mac_stats(struct bnx2x *bp)
- 
- static void bnx2x_init_stats(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 
- 	bp->stats_state = STATS_STATE_DISABLE;
- 	bp->executer_idx = 0;
-@@ -2641,8 +3046,6 @@ static void bnx2x_update_net_stats(struct bnx2x *bp)
- 
- static void bnx2x_update_stats(struct bnx2x *bp)
- {
--	int i;
--
- 	if (!bnx2x_update_storm_stats(bp)) {
- 
- 		if (bp->link_vars.mac_type == MAC_TYPE_BMAC) {
-@@ -2662,6 +3065,7 @@ static void bnx2x_update_stats(struct bnx2x *bp)
- 	if (bp->msglevel & NETIF_MSG_TIMER) {
- 		struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
- 		struct net_device_stats *nstats = &bp->dev->stats;
-+		int i;
- 
- 		printk(KERN_DEBUG "%s:\n", bp->dev->name);
- 		printk(KERN_DEBUG "  tx avail (%4x)  tx hc idx (%x)"
-@@ -2707,7 +3111,7 @@ static void bnx2x_update_stats(struct bnx2x *bp)
- 	/* loader */
- 	if (bp->executer_idx) {
- 		struct dmae_command *dmae = &bp->dmae;
--		int port = bp->port;
-+		int port = BP_PORT(bp);
- 		int loader_idx = port * 8;
- 
- 		memset(dmae, 0, sizeof(struct dmae_command));
-@@ -2766,8 +3170,8 @@ static void bnx2x_timer(unsigned long data)
- 		rc = bnx2x_rx_int(fp, 1000);
- 	}
- 
--	if (!nomcp) {
--		int port = bp->port;
-+	if (!BP_NOMCP(bp)) {
-+		int func = BP_FUNC(bp);
- 		u32 drv_pulse;
- 		u32 mcp_pulse;
- 
-@@ -2775,9 +3179,9 @@ static void bnx2x_timer(unsigned long data)
- 		bp->fw_drv_pulse_wr_seq &= DRV_PULSE_SEQ_MASK;
- 		/* TBD - add SYSTEM_TIME */
- 		drv_pulse = bp->fw_drv_pulse_wr_seq;
--		SHMEM_WR(bp, func_mb[port].drv_pulse_mb, drv_pulse);
-+		SHMEM_WR(bp, func_mb[func].drv_pulse_mb, drv_pulse);
- 
--		mcp_pulse = (SHMEM_RD(bp, func_mb[port].mcp_pulse_mb) &
-+		mcp_pulse = (SHMEM_RD(bp, func_mb[func].mcp_pulse_mb) &
- 			     MCP_PULSE_SEQ_MASK);
- 		/* The delta between driver pulse and mcp response
- 		 * should be 1 (before mcp response) or 0 (after mcp response)
-@@ -2807,58 +3211,89 @@ timer_restart:
-  * nic init service functions
-  */
- 
--static void bnx2x_init_sb(struct bnx2x *bp, struct host_status_block *sb,
--			  dma_addr_t mapping, int id)
-+static void bnx2x_zero_sb(struct bnx2x *bp, int sb_id)
- {
--	int port = bp->port;
--	u64 section;
-+	int port = BP_PORT(bp);
-+
-+	bnx2x_init_fill(bp, BAR_USTRORM_INTMEM +
-+			USTORM_SB_HOST_STATUS_BLOCK_OFFSET(port, sb_id), 0,
-+			sizeof(struct ustorm_def_status_block)/4);
-+	bnx2x_init_fill(bp, BAR_CSTRORM_INTMEM +
-+			CSTORM_SB_HOST_STATUS_BLOCK_OFFSET(port, sb_id), 0,
-+			sizeof(struct cstorm_def_status_block)/4);
-+}
-+
-+static void bnx2x_init_sb(struct bnx2x *bp, int sb_id,
-+			  struct host_status_block *sb,	dma_addr_t mapping)
-+{
-+	int port = BP_PORT(bp);
- 	int index;
-+	u64 section;
- 
- 	/* USTORM */
- 	section = ((u64)mapping) + offsetof(struct host_status_block,
- 					    u_status_block);
--	sb->u_status_block.status_block_id = id;
-+	sb->u_status_block.status_block_id = sb_id;
- 
- 	REG_WR(bp, BAR_USTRORM_INTMEM +
--	       USTORM_SB_HOST_SB_ADDR_OFFSET(port, id), U64_LO(section));
-+	       USTORM_SB_HOST_SB_ADDR_OFFSET(port, sb_id), U64_LO(section));
- 	REG_WR(bp, BAR_USTRORM_INTMEM +
--	       ((USTORM_SB_HOST_SB_ADDR_OFFSET(port, id)) + 4),
-+	       ((USTORM_SB_HOST_SB_ADDR_OFFSET(port, sb_id)) + 4),
- 	       U64_HI(section));
- 
- 	for (index = 0; index < HC_USTORM_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_USTRORM_INTMEM +
--			 USTORM_SB_HC_DISABLE_OFFSET(port, id, index), 0x1);
-+			 USTORM_SB_HC_DISABLE_OFFSET(port, sb_id, index), 1);
- 
- 	/* CSTORM */
- 	section = ((u64)mapping) + offsetof(struct host_status_block,
- 					    c_status_block);
--	sb->c_status_block.status_block_id = id;
-+	sb->c_status_block.status_block_id = sb_id;
- 
- 	REG_WR(bp, BAR_CSTRORM_INTMEM +
--	       CSTORM_SB_HOST_SB_ADDR_OFFSET(port, id), U64_LO(section));
-+	       CSTORM_SB_HOST_SB_ADDR_OFFSET(port, sb_id), U64_LO(section));
- 	REG_WR(bp, BAR_CSTRORM_INTMEM +
--	       ((CSTORM_SB_HOST_SB_ADDR_OFFSET(port, id)) + 4),
-+	       ((CSTORM_SB_HOST_SB_ADDR_OFFSET(port, sb_id)) + 4),
- 	       U64_HI(section));
- 
- 	for (index = 0; index < HC_CSTORM_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_CSTRORM_INTMEM +
--			 CSTORM_SB_HC_DISABLE_OFFSET(port, id, index), 0x1);
-+			 CSTORM_SB_HC_DISABLE_OFFSET(port, sb_id, index), 1);
- 
--	bnx2x_ack_sb(bp, id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
-+	bnx2x_ack_sb(bp, sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
-+}
-+
-+static void bnx2x_zero_def_sb(struct bnx2x *bp)
-+{
-+	int func = BP_FUNC(bp);
-+
-+	bnx2x_init_fill(bp, BAR_USTRORM_INTMEM +
-+			USTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), 0,
-+			sizeof(struct ustorm_def_status_block)/4);
-+	bnx2x_init_fill(bp, BAR_CSTRORM_INTMEM +
-+			CSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), 0,
-+			sizeof(struct cstorm_def_status_block)/4);
-+	bnx2x_init_fill(bp, BAR_XSTRORM_INTMEM +
-+			XSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), 0,
-+			sizeof(struct xstorm_def_status_block)/4);
-+	bnx2x_init_fill(bp, BAR_TSTRORM_INTMEM +
-+			TSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), 0,
-+			sizeof(struct tstorm_def_status_block)/4);
- }
- 
- static void bnx2x_init_def_sb(struct bnx2x *bp,
- 			      struct host_def_status_block *def_sb,
--			      dma_addr_t mapping, int id)
-+			      dma_addr_t mapping, int sb_id)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
- 	int index, val, reg_offset;
- 	u64 section;
- 
- 	/* ATTN */
- 	section = ((u64)mapping) + offsetof(struct host_def_status_block,
- 					    atten_status_block);
--	def_sb->atten_status_block.status_block_id = id;
-+	def_sb->atten_status_block.status_block_id = sb_id;
- 
- 	bp->def_att_idx = 0;
- 	bp->attn_state = 0;
-@@ -2866,7 +3301,7 @@ static void bnx2x_init_def_sb(struct bnx2x *bp,
- 	reg_offset = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
- 			     MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0);
- 
--	for (index = 0; index < 3; index++) {
-+	for (index = 0; index < MAX_DYNAMIC_ATTN_GRPS; index++) {
- 		bp->attn_group[index].sig[0] = REG_RD(bp,
- 						     reg_offset + 0x10*index);
- 		bp->attn_group[index].sig[1] = REG_RD(bp,
-@@ -2889,116 +3324,123 @@ static void bnx2x_init_def_sb(struct bnx2x *bp,
- 	reg_offset = (port ? HC_REG_ATTN_NUM_P1 : HC_REG_ATTN_NUM_P0);
- 
- 	val = REG_RD(bp, reg_offset);
--	val |= id;
-+	val |= sb_id;
- 	REG_WR(bp, reg_offset, val);
- 
- 	/* USTORM */
- 	section = ((u64)mapping) + offsetof(struct host_def_status_block,
- 					    u_def_status_block);
--	def_sb->u_def_status_block.status_block_id = id;
-+	def_sb->u_def_status_block.status_block_id = sb_id;
- 
- 	bp->def_u_idx = 0;
- 
- 	REG_WR(bp, BAR_USTRORM_INTMEM +
--	       USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
-+	       USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func), U64_LO(section));
- 	REG_WR(bp, BAR_USTRORM_INTMEM +
--	       ((USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
-+	       ((USTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func)) + 4),
- 	       U64_HI(section));
--	REG_WR(bp, BAR_USTRORM_INTMEM + USTORM_HC_BTR_OFFSET(port),
-+	REG_WR8(bp, BAR_USTRORM_INTMEM +  DEF_USB_FUNC_OFF +
-+		USTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), func);
-+	REG_WR(bp, BAR_USTRORM_INTMEM + USTORM_HC_BTR_OFFSET(func),
- 	       BNX2X_BTR);
- 
- 	for (index = 0; index < HC_USTORM_DEF_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_USTRORM_INTMEM +
--			 USTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
-+			 USTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
- 
- 	/* CSTORM */
- 	section = ((u64)mapping) + offsetof(struct host_def_status_block,
- 					    c_def_status_block);
--	def_sb->c_def_status_block.status_block_id = id;
-+	def_sb->c_def_status_block.status_block_id = sb_id;
- 
- 	bp->def_c_idx = 0;
- 
- 	REG_WR(bp, BAR_CSTRORM_INTMEM +
--	       CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
-+	       CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func), U64_LO(section));
- 	REG_WR(bp, BAR_CSTRORM_INTMEM +
--	       ((CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
-+	       ((CSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func)) + 4),
- 	       U64_HI(section));
--	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_HC_BTR_OFFSET(port),
-+	REG_WR8(bp, BAR_CSTRORM_INTMEM +  DEF_CSB_FUNC_OFF +
-+		CSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), func);
-+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_HC_BTR_OFFSET(func),
- 	       BNX2X_BTR);
- 
- 	for (index = 0; index < HC_CSTORM_DEF_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_CSTRORM_INTMEM +
--			 CSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
-+			 CSTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
- 
- 	/* TSTORM */
- 	section = ((u64)mapping) + offsetof(struct host_def_status_block,
- 					    t_def_status_block);
--	def_sb->t_def_status_block.status_block_id = id;
-+	def_sb->t_def_status_block.status_block_id = sb_id;
- 
- 	bp->def_t_idx = 0;
- 
- 	REG_WR(bp, BAR_TSTRORM_INTMEM +
--	       TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
-+	       TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func), U64_LO(section));
- 	REG_WR(bp, BAR_TSTRORM_INTMEM +
--	       ((TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
-+	       ((TSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func)) + 4),
- 	       U64_HI(section));
--	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_HC_BTR_OFFSET(port),
-+	REG_WR8(bp, BAR_TSTRORM_INTMEM +  DEF_TSB_FUNC_OFF +
-+		TSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), func);
-+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_HC_BTR_OFFSET(func),
- 	       BNX2X_BTR);
- 
- 	for (index = 0; index < HC_TSTORM_DEF_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_TSTRORM_INTMEM +
--			 TSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
-+			 TSTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
- 
- 	/* XSTORM */
- 	section = ((u64)mapping) + offsetof(struct host_def_status_block,
- 					    x_def_status_block);
--	def_sb->x_def_status_block.status_block_id = id;
-+	def_sb->x_def_status_block.status_block_id = sb_id;
- 
- 	bp->def_x_idx = 0;
- 
- 	REG_WR(bp, BAR_XSTRORM_INTMEM +
--	       XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port), U64_LO(section));
-+	       XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func), U64_LO(section));
- 	REG_WR(bp, BAR_XSTRORM_INTMEM +
--	       ((XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(port)) + 4),
-+	       ((XSTORM_DEF_SB_HOST_SB_ADDR_OFFSET(func)) + 4),
- 	       U64_HI(section));
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_HC_BTR_OFFSET(port),
-+	REG_WR8(bp, BAR_XSTRORM_INTMEM +  DEF_XSB_FUNC_OFF +
-+		XSTORM_DEF_SB_HOST_STATUS_BLOCK_OFFSET(func), func);
-+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_HC_BTR_OFFSET(func),
- 	       BNX2X_BTR);
- 
- 	for (index = 0; index < HC_XSTORM_DEF_SB_NUM_INDICES; index++)
- 		REG_WR16(bp, BAR_XSTRORM_INTMEM +
--			 XSTORM_DEF_SB_HC_DISABLE_OFFSET(port, index), 0x1);
-+			 XSTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
- 
--	bp->stat_pending = 0;
--
--	bnx2x_ack_sb(bp, id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
-+	bnx2x_ack_sb(bp, sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
- }
- 
- static void bnx2x_update_coalesce(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int i;
- 
- 	for_each_queue(bp, i) {
-+		int sb_id = bp->fp[i].sb_id;
- 
- 		/* HC_INDEX_U_ETH_RX_CQ_CONS */
- 		REG_WR8(bp, BAR_USTRORM_INTMEM +
--			USTORM_SB_HC_TIMEOUT_OFFSET(port, i,
-+			USTORM_SB_HC_TIMEOUT_OFFSET(port, sb_id,
- 						   HC_INDEX_U_ETH_RX_CQ_CONS),
--			bp->rx_ticks_int/12);
-+			bp->rx_ticks/12);
- 		REG_WR16(bp, BAR_USTRORM_INTMEM +
--			 USTORM_SB_HC_DISABLE_OFFSET(port, i,
-+			 USTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
- 						   HC_INDEX_U_ETH_RX_CQ_CONS),
--			 bp->rx_ticks_int ? 0 : 1);
-+			 bp->rx_ticks ? 0 : 1);
- 
- 		/* HC_INDEX_C_ETH_TX_CQ_CONS */
- 		REG_WR8(bp, BAR_CSTRORM_INTMEM +
--			CSTORM_SB_HC_TIMEOUT_OFFSET(port, i,
-+			CSTORM_SB_HC_TIMEOUT_OFFSET(port, sb_id,
- 						   HC_INDEX_C_ETH_TX_CQ_CONS),
--			bp->tx_ticks_int/12);
-+			bp->tx_ticks/12);
- 		REG_WR16(bp, BAR_CSTRORM_INTMEM +
--			 CSTORM_SB_HC_DISABLE_OFFSET(port, i,
-+			 CSTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
- 						   HC_INDEX_C_ETH_TX_CQ_CONS),
--			 bp->tx_ticks_int ? 0 : 1);
-+			 bp->tx_ticks ? 0 : 1);
- 	}
- }
- 
-@@ -3006,7 +3448,6 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- {
- 	u16 ring_prod;
- 	int i, j;
--	int port = bp->port;
- 
- 	bp->rx_buf_use_size = bp->dev->mtu;
- 
-@@ -3025,13 +3466,13 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 			rx_bd = &fp->rx_desc_ring[RX_DESC_CNT * i - 2];
- 			rx_bd->addr_hi =
- 				cpu_to_le32(U64_HI(fp->rx_desc_mapping +
--					   BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
-+					    BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
- 			rx_bd->addr_lo =
- 				cpu_to_le32(U64_LO(fp->rx_desc_mapping +
--					   BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
--
-+					    BCM_PAGE_SIZE*(i % NUM_RX_RINGS)));
- 		}
- 
-+		/* CQ ring */
- 		for (i = 1; i <= NUM_RCQ_RINGS; i++) {
- 			struct eth_rx_cqe_next_page *nextpg;
- 
-@@ -3039,10 +3480,10 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 				&fp->rx_comp_ring[RCQ_DESC_CNT * i - 1];
- 			nextpg->addr_hi =
- 				cpu_to_le32(U64_HI(fp->rx_comp_mapping +
--					  BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
-+					   BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
- 			nextpg->addr_lo =
- 				cpu_to_le32(U64_LO(fp->rx_comp_mapping +
--					  BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
-+					   BCM_PAGE_SIZE*(i % NUM_RCQ_RINGS)));
- 		}
- 
- 		/* rx completion queue */
-@@ -3064,15 +3505,16 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 		/* Warning! this will generate an interrupt (to the TSTORM) */
- 		/* must only be done when chip is initialized */
- 		REG_WR(bp, BAR_TSTRORM_INTMEM +
--		       TSTORM_RCQ_PROD_OFFSET(port, j), ring_prod);
-+		       TSTORM_RX_PRODS_OFFSET(BP_PORT(bp), FP_CL_ID(fp)),
-+			ring_prod);
- 		if (j != 0)
- 			continue;
- 
- 		REG_WR(bp, BAR_USTRORM_INTMEM +
--		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(port),
-+		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(BP_PORT(bp)),
- 		       U64_LO(fp->rx_comp_mapping));
- 		REG_WR(bp, BAR_USTRORM_INTMEM +
--		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(port) + 4,
-+		       USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(BP_PORT(bp)) + 4,
- 		       U64_HI(fp->rx_comp_mapping));
- 	}
- }
-@@ -3090,10 +3532,10 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
- 
- 			tx_bd->addr_hi =
- 				cpu_to_le32(U64_HI(fp->tx_desc_mapping +
--					   BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
-+					    BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
- 			tx_bd->addr_lo =
- 				cpu_to_le32(U64_LO(fp->tx_desc_mapping +
--					   BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
-+					    BCM_PAGE_SIZE*(i % NUM_TX_RINGS)));
- 		}
- 
- 		fp->tx_pkt_prod = 0;
-@@ -3107,7 +3549,7 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
- 
- static void bnx2x_init_sp_ring(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int func = BP_FUNC(bp);
- 
- 	spin_lock_init(&bp->spq_lock);
- 
-@@ -3117,12 +3559,13 @@ static void bnx2x_init_sp_ring(struct bnx2x *bp)
- 	bp->spq_prod_bd = bp->spq;
- 	bp->spq_last_bd = bp->spq_prod_bd + MAX_SP_DESC_CNT;
- 
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PAGE_BASE_OFFSET(port),
-+	REG_WR(bp, XSEM_REG_FAST_MEMORY + XSTORM_SPQ_PAGE_BASE_OFFSET(func),
- 	       U64_LO(bp->spq_mapping));
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PAGE_BASE_OFFSET(port) + 4,
-+	REG_WR(bp,
-+	       XSEM_REG_FAST_MEMORY + XSTORM_SPQ_PAGE_BASE_OFFSET(func) + 4,
- 	       U64_HI(bp->spq_mapping));
- 
--	REG_WR(bp, XSEM_REG_FAST_MEMORY + XSTORM_SPQ_PROD_OFFSET(port),
-+	REG_WR(bp, XSEM_REG_FAST_MEMORY + XSTORM_SPQ_PROD_OFFSET(func),
- 	       bp->spq_prod_idx);
- }
- 
-@@ -3133,6 +3576,7 @@ static void bnx2x_init_context(struct bnx2x *bp)
- 	for_each_queue(bp, i) {
- 		struct eth_context *context = bnx2x_sp(bp, context[i].eth);
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
-+		u8 sb_id = FP_SB_ID(fp);
- 
- 		context->xstorm_st_context.tx_bd_page_base_hi =
- 						U64_HI(fp->tx_desc_mapping);
-@@ -3142,26 +3586,25 @@ static void bnx2x_init_context(struct bnx2x *bp)
- 						U64_HI(fp->tx_prods_mapping);
- 		context->xstorm_st_context.db_data_addr_lo =
- 						U64_LO(fp->tx_prods_mapping);
--
--		context->ustorm_st_context.rx_bd_page_base_hi =
-+		context->xstorm_st_context.statistics_data = (BP_CL_ID(bp) |
-+				XSTORM_ETH_ST_CONTEXT_STATISTICS_ENABLE);
-+
-+		context->ustorm_st_context.common.sb_index_numbers =
-+						BNX2X_RX_SB_INDEX_NUM;
-+		context->ustorm_st_context.common.clientId = FP_CL_ID(fp);
-+		context->ustorm_st_context.common.status_block_id = sb_id;
-+		context->ustorm_st_context.common.flags =
-+			USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT;
-+		context->ustorm_st_context.common.mc_alignment_size = 64;
-+		context->ustorm_st_context.common.bd_buff_size =
-+						bp->rx_buf_use_size;
-+		context->ustorm_st_context.common.bd_page_base_hi =
- 						U64_HI(fp->rx_desc_mapping);
--		context->ustorm_st_context.rx_bd_page_base_lo =
-+		context->ustorm_st_context.common.bd_page_base_lo =
- 						U64_LO(fp->rx_desc_mapping);
--		context->ustorm_st_context.status_block_id = i;
--		context->ustorm_st_context.sb_index_number =
--						HC_INDEX_U_ETH_RX_CQ_CONS;
--		context->ustorm_st_context.rcq_base_address_hi =
--						U64_HI(fp->rx_comp_mapping);
--		context->ustorm_st_context.rcq_base_address_lo =
--						U64_LO(fp->rx_comp_mapping);
--		context->ustorm_st_context.flags =
--				USTORM_ETH_ST_CONTEXT_ENABLE_MC_ALIGNMENT;
--		context->ustorm_st_context.mc_alignment_size = 64;
--		context->ustorm_st_context.num_rss = bp->num_queues;
--
- 		context->cstorm_st_context.sb_index_number =
- 						HC_INDEX_C_ETH_TX_CQ_CONS;
--		context->cstorm_st_context.status_block_id = i;
-+		context->cstorm_st_context.status_block_id = sb_id;
- 
- 		context->xstorm_ag_context.cdu_reserved =
- 			CDU_RSRVD_VALUE_TYPE_A(HW_CID(bp, i),
-@@ -3176,14 +3619,16 @@ static void bnx2x_init_context(struct bnx2x *bp)
- 
- static void bnx2x_init_ind_table(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int i;
- 
- 	if (!is_multi(bp))
- 		return;
- 
-+	DP(NETIF_MSG_IFUP, "Initializing indirection table\n");
- 	for (i = 0; i < TSTORM_INDIRECTION_TABLE_SIZE; i++)
--		REG_WR8(bp, TSTORM_INDIRECTION_TABLE_OFFSET(port) + i,
-+		REG_WR8(bp, BAR_TSTRORM_INTMEM +
-+			TSTORM_INDIRECTION_TABLE_OFFSET(port) + i,
- 			i % bp->num_queues);
- 
- 	REG_WR(bp, PRS_REG_A_PRSU_20, 0xf);
-@@ -3191,77 +3636,74 @@ static void bnx2x_init_ind_table(struct bnx2x *bp)
- 
- static void bnx2x_set_client_config(struct bnx2x *bp)
- {
--#ifdef BCM_VLAN
--	int mode = bp->rx_mode;
--#endif
--	int i, port = bp->port;
- 	struct tstorm_eth_client_config tstorm_client = {0};
-+	int port = BP_PORT(bp);
-+	int i;
- 
--	tstorm_client.mtu = bp->dev->mtu;
-+	tstorm_client.mtu = bp->dev->mtu + ETH_OVREHEAD;
- 	tstorm_client.statistics_counter_id = 0;
- 	tstorm_client.config_flags =
- 				TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE;
- #ifdef BCM_VLAN
--	if (mode && bp->vlgrp) {
-+	if (bp->rx_mode && bp->vlgrp) {
- 		tstorm_client.config_flags |=
- 				TSTORM_ETH_CLIENT_CONFIG_VLAN_REMOVAL_ENABLE;
- 		DP(NETIF_MSG_IFUP, "vlan removal enabled\n");
- 	}
- #endif
--	if (mode != BNX2X_RX_MODE_PROMISC)
--		tstorm_client.drop_flags =
--				TSTORM_ETH_CLIENT_CONFIG_DROP_MAC_ERR;
- 
- 	for_each_queue(bp, i) {
- 		REG_WR(bp, BAR_TSTRORM_INTMEM +
--		       TSTORM_CLIENT_CONFIG_OFFSET(port, i),
-+		       TSTORM_CLIENT_CONFIG_OFFSET(port, bp->fp[i].cl_id),
- 		       ((u32 *)&tstorm_client)[0]);
- 		REG_WR(bp, BAR_TSTRORM_INTMEM +
--		       TSTORM_CLIENT_CONFIG_OFFSET(port, i) + 4,
-+		       TSTORM_CLIENT_CONFIG_OFFSET(port, bp->fp[i].cl_id) + 4,
- 		       ((u32 *)&tstorm_client)[1]);
- 	}
- 
--/*	DP(NETIF_MSG_IFUP, "tstorm_client: 0x%08x 0x%08x\n",
--	   ((u32 *)&tstorm_client)[0], ((u32 *)&tstorm_client)[1]); */
-+	DP(BNX2X_MSG_OFF, "tstorm_client: 0x%08x 0x%08x\n",
-+	   ((u32 *)&tstorm_client)[0], ((u32 *)&tstorm_client)[1]);
- }
- 
- static void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
- {
--	int mode = bp->rx_mode;
--	int port = bp->port;
- 	struct tstorm_eth_mac_filter_config tstorm_mac_filter = {0};
-+	int mode = bp->rx_mode;
-+	int mask = (1 << BP_L_ID(bp));
-+	int func = BP_FUNC(bp);
- 	int i;
- 
- 	DP(NETIF_MSG_RX_STATUS, "rx mode is %d\n", mode);
- 
- 	switch (mode) {
- 	case BNX2X_RX_MODE_NONE: /* no Rx */
--		tstorm_mac_filter.ucast_drop_all = 1;
--		tstorm_mac_filter.mcast_drop_all = 1;
--		tstorm_mac_filter.bcast_drop_all = 1;
-+		tstorm_mac_filter.ucast_drop_all = mask;
-+		tstorm_mac_filter.mcast_drop_all = mask;
-+		tstorm_mac_filter.bcast_drop_all = mask;
- 		break;
- 	case BNX2X_RX_MODE_NORMAL:
--		tstorm_mac_filter.bcast_accept_all = 1;
-+		tstorm_mac_filter.bcast_accept_all = mask;
- 		break;
- 	case BNX2X_RX_MODE_ALLMULTI:
--		tstorm_mac_filter.mcast_accept_all = 1;
--		tstorm_mac_filter.bcast_accept_all = 1;
-+		tstorm_mac_filter.mcast_accept_all = mask;
-+		tstorm_mac_filter.bcast_accept_all = mask;
- 		break;
- 	case BNX2X_RX_MODE_PROMISC:
--		tstorm_mac_filter.ucast_accept_all = 1;
--		tstorm_mac_filter.mcast_accept_all = 1;
--		tstorm_mac_filter.bcast_accept_all = 1;
-+		tstorm_mac_filter.ucast_accept_all = mask;
-+		tstorm_mac_filter.mcast_accept_all = mask;
-+		tstorm_mac_filter.bcast_accept_all = mask;
- 		break;
- 	default:
--		BNX2X_ERR("bad rx mode (%d)\n", mode);
-+		BNX2X_ERR("BAD rx mode (%d)\n", mode);
-+		break;
- 	}
- 
- 	for (i = 0; i < sizeof(struct tstorm_eth_mac_filter_config)/4; i++) {
- 		REG_WR(bp, BAR_TSTRORM_INTMEM +
--		       TSTORM_MAC_FILTER_CONFIG_OFFSET(port) + i * 4,
-+		       TSTORM_MAC_FILTER_CONFIG_OFFSET(func) + i * 4,
- 		       ((u32 *)&tstorm_mac_filter)[i]);
- 
--/*      	DP(NETIF_MSG_IFUP, "tstorm_mac_filter[%d]: 0x%08x\n", i,
-+/*		DP(NETIF_MSG_IFUP, "tstorm_mac_filter[%d]: 0x%08x\n", i,
- 		   ((u32 *)&tstorm_mac_filter)[i]); */
- 	}
- 
-@@ -3271,26 +3713,30 @@ static void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
- 
- static void bnx2x_init_internal(struct bnx2x *bp)
- {
--	int port = bp->port;
- 	struct tstorm_eth_function_common_config tstorm_config = {0};
- 	struct stats_indication_flags stats_flags = {0};
-+	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
-+	int i;
- 
- 	if (is_multi(bp)) {
- 		tstorm_config.config_flags = MULTI_FLAGS;
- 		tstorm_config.rss_result_mask = MULTI_MASK;
- 	}
- 
-+	tstorm_config.leading_client_id = BP_L_ID(bp);
-+
- 	REG_WR(bp, BAR_TSTRORM_INTMEM +
--	       TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(port),
-+	       TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(func),
- 	       (*(u32 *)&tstorm_config));
- 
--/*      DP(NETIF_MSG_IFUP, "tstorm_config: 0x%08x\n",
-+/*	DP(NETIF_MSG_IFUP, "tstorm_config: 0x%08x\n",
- 	   (*(u32 *)&tstorm_config)); */
- 
- 	bp->rx_mode = BNX2X_RX_MODE_NONE; /* no rx until link is up */
- 	bnx2x_set_storm_rx_mode(bp);
- 
--	stats_flags.collect_eth = cpu_to_le32(1);
-+	stats_flags.collect_eth = 1;
- 
- 	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port),
- 	       ((u32 *)&stats_flags)[0]);
-@@ -3307,8 +3753,28 @@ static void bnx2x_init_internal(struct bnx2x *bp)
- 	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port) + 4,
- 	       ((u32 *)&stats_flags)[1]);
- 
--/*      DP(NETIF_MSG_IFUP, "stats_flags: 0x%08x 0x%08x\n",
-+/*	DP(NETIF_MSG_IFUP, "stats_flags: 0x%08x 0x%08x\n",
- 	   ((u32 *)&stats_flags)[0], ((u32 *)&stats_flags)[1]); */
-+
-+	if (CHIP_IS_E1H(bp)) {
-+		REG_WR8(bp, BAR_XSTRORM_INTMEM + XSTORM_FUNCTION_MODE_OFFSET,
-+			IS_E1HMF(bp));
-+		REG_WR8(bp, BAR_TSTRORM_INTMEM + TSTORM_FUNCTION_MODE_OFFSET,
-+			IS_E1HMF(bp));
-+		REG_WR8(bp, BAR_CSTRORM_INTMEM + CSTORM_FUNCTION_MODE_OFFSET,
-+			IS_E1HMF(bp));
-+		REG_WR8(bp, BAR_USTRORM_INTMEM + USTORM_FUNCTION_MODE_OFFSET,
-+			IS_E1HMF(bp));
-+
-+		REG_WR16(bp, BAR_XSTRORM_INTMEM +
-+			 XSTORM_E1HOV_OFFSET(func), bp->e1hov);
-+	}
-+
-+	/* Zero this manualy as its initialization is
-+	   currently missing in the initTool */
-+	for (i = 0; i < USTORM_AGG_DATA_SIZE >> 2; i++)
-+		REG_WR(bp, BAR_USTRORM_INTMEM +
-+		       USTORM_AGG_DATA_OFFSET + 4*i, 0);
- }
- 
- static void bnx2x_nic_init(struct bnx2x *bp)
-@@ -3318,15 +3784,20 @@ static void bnx2x_nic_init(struct bnx2x *bp)
- 	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
-+		fp->bp = bp;
- 		fp->state = BNX2X_FP_STATE_CLOSED;
--		DP(NETIF_MSG_IFUP, "bnx2x_init_sb(%p,%p,%d);\n",
--		   bp, fp->status_blk, i);
- 		fp->index = i;
--		bnx2x_init_sb(bp, fp->status_blk, fp->status_blk_mapping, i);
-+		fp->cl_id = BP_L_ID(bp) + i;
-+		fp->sb_id = fp->cl_id;
-+		DP(NETIF_MSG_IFUP,
-+		   "bnx2x_init_sb(%p,%p) index %d  cl_id %d  sb %d\n",
-+		   bp, fp->status_blk, i, FP_CL_ID(fp), FP_SB_ID(fp));
-+		bnx2x_init_sb(bp, FP_SB_ID(fp), fp->status_blk,
-+			      fp->status_blk_mapping);
- 	}
- 
- 	bnx2x_init_def_sb(bp, bp->def_status_blk,
--			  bp->def_status_blk_mapping, 0x10);
-+			  bp->def_status_blk_mapping, DEF_SB_ID);
- 	bnx2x_update_coalesce(bp);
- 	bnx2x_init_rx_rings(bp);
- 	bnx2x_init_tx_ring(bp);
-@@ -3336,7 +3807,6 @@ static void bnx2x_nic_init(struct bnx2x *bp)
- 	bnx2x_init_stats(bp);
- 	bnx2x_init_ind_table(bp);
- 	bnx2x_int_enable(bp);
--
- }
- 
- /* end of nic init */
-@@ -3374,7 +3844,7 @@ gunzip_nomem2:
- 
- gunzip_nomem1:
- 	printk(KERN_ERR PFX "%s: Cannot allocate firmware buffer for"
--	       " uncompression\n", bp->dev->name);
-+	       " un-compression\n", bp->dev->name);
- 	return -ENOMEM;
- }
- 
-@@ -3402,7 +3872,7 @@ static int bnx2x_gunzip(struct bnx2x *bp, u8 *zbuf, int len)
- 
- 	n = 10;
- 
--#define FNAME   			0x8
-+#define FNAME				0x8
- 
- 	if (zbuf[3] & FNAME)
- 		while ((zbuf[n++] != 0) && (n < len));
-@@ -3439,41 +3909,25 @@ static int bnx2x_gunzip(struct bnx2x *bp, u8 *zbuf, int len)
- /* nic load/unload */
- 
- /*
-- * general service functions
-+ * General service functions
-  */
- 
- /* send a NIG loopback debug packet */
- static void bnx2x_lb_pckt(struct bnx2x *bp)
- {
--#ifdef USE_DMAE
- 	u32 wb_write[3];
--#endif
- 
- 	/* Ethernet source and destination addresses */
--#ifdef USE_DMAE
- 	wb_write[0] = 0x55555555;
- 	wb_write[1] = 0x55555555;
--	wb_write[2] = 0x20;     	/* SOP */
-+	wb_write[2] = 0x20;		/* SOP */
- 	REG_WR_DMAE(bp, NIG_REG_DEBUG_PACKET_LB, wb_write, 3);
--#else
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB, 0x55555555);
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 4, 0x55555555);
--	/* SOP */
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 8, 0x20);
--#endif
- 
- 	/* NON-IP protocol */
--#ifdef USE_DMAE
- 	wb_write[0] = 0x09000000;
- 	wb_write[1] = 0x55555555;
--	wb_write[2] = 0x10;     	/* EOP, eop_bvalid = 0 */
-+	wb_write[2] = 0x10;		/* EOP, eop_bvalid = 0 */
- 	REG_WR_DMAE(bp, NIG_REG_DEBUG_PACKET_LB, wb_write, 3);
--#else
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB, 0x09000000);
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 4, 0x55555555);
--	/* EOP, eop_bvalid = 0 */
--	REG_WR_IND(bp, NIG_REG_DEBUG_PACKET_LB + 8, 0x10);
--#endif
- }
- 
- /* some of the internal memories
-@@ -3511,13 +3965,9 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
- 	/* Wait until NIG register shows 1 packet of size 0x10 */
- 	count = 1000 * factor;
- 	while (count) {
--#ifdef BNX2X_DMAE_RD
-+
- 		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
- 		val = *bnx2x_sp(bp, wb_data[0]);
--#else
--		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
--		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
--#endif
- 		if (val == 0x10)
- 			break;
- 
-@@ -3533,7 +3983,6 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
- 	count = 1000 * factor;
- 	while (count) {
- 		val = REG_RD(bp, PRS_REG_NUM_OF_PACKETS);
--
- 		if (val == 1)
- 			break;
- 
-@@ -3546,9 +3995,9 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
- 	}
- 
- 	/* Reset and init BRB, PRS */
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR, 0x3);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR, 0x03);
- 	msleep(50);
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0x3);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0x03);
- 	msleep(50);
- 	bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
- 	bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
-@@ -3572,13 +4021,9 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
- 	   packets of size 11*0x10 = 0xb0 */
- 	count = 1000 * factor;
- 	while (count) {
--#ifdef BNX2X_DMAE_RD
-+
- 		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
- 		val = *bnx2x_sp(bp, wb_data[0]);
--#else
--		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
--		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
--#endif
- 		if (val == 0xb0)
- 			break;
- 
-@@ -3648,85 +4093,75 @@ static void enable_blocks_attention(struct bnx2x *bp)
- 	REG_WR(bp, XSDM_REG_XSDM_INT_MASK_0, 0);
- 	REG_WR(bp, XSDM_REG_XSDM_INT_MASK_1, 0);
- 	REG_WR(bp, XCM_REG_XCM_INT_MASK, 0);
--/*      REG_WR(bp, XSEM_REG_XSEM_INT_MASK_0, 0); */
--/*      REG_WR(bp, XSEM_REG_XSEM_INT_MASK_1, 0); */
-+/*	REG_WR(bp, XSEM_REG_XSEM_INT_MASK_0, 0); */
-+/*	REG_WR(bp, XSEM_REG_XSEM_INT_MASK_1, 0); */
- 	REG_WR(bp, USDM_REG_USDM_INT_MASK_0, 0);
- 	REG_WR(bp, USDM_REG_USDM_INT_MASK_1, 0);
- 	REG_WR(bp, UCM_REG_UCM_INT_MASK, 0);
--/*      REG_WR(bp, USEM_REG_USEM_INT_MASK_0, 0); */
--/*      REG_WR(bp, USEM_REG_USEM_INT_MASK_1, 0); */
-+/*	REG_WR(bp, USEM_REG_USEM_INT_MASK_0, 0); */
-+/*	REG_WR(bp, USEM_REG_USEM_INT_MASK_1, 0); */
- 	REG_WR(bp, GRCBASE_UPB + PB_REG_PB_INT_MASK, 0);
- 	REG_WR(bp, CSDM_REG_CSDM_INT_MASK_0, 0);
- 	REG_WR(bp, CSDM_REG_CSDM_INT_MASK_1, 0);
- 	REG_WR(bp, CCM_REG_CCM_INT_MASK, 0);
--/*      REG_WR(bp, CSEM_REG_CSEM_INT_MASK_0, 0); */
--/*      REG_WR(bp, CSEM_REG_CSEM_INT_MASK_1, 0); */
--	REG_WR(bp, PXP2_REG_PXP2_INT_MASK, 0x480000);
-+/*	REG_WR(bp, CSEM_REG_CSEM_INT_MASK_0, 0); */
-+/*	REG_WR(bp, CSEM_REG_CSEM_INT_MASK_1, 0); */
-+	if (CHIP_REV_IS_FPGA(bp))
-+		REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0, 0x580000);
-+	else
-+		REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0, 0x480000);
- 	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_0, 0);
- 	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_1, 0);
- 	REG_WR(bp, TCM_REG_TCM_INT_MASK, 0);
--/*      REG_WR(bp, TSEM_REG_TSEM_INT_MASK_0, 0); */
--/*      REG_WR(bp, TSEM_REG_TSEM_INT_MASK_1, 0); */
-+/*	REG_WR(bp, TSEM_REG_TSEM_INT_MASK_0, 0); */
-+/*	REG_WR(bp, TSEM_REG_TSEM_INT_MASK_1, 0); */
- 	REG_WR(bp, CDU_REG_CDU_INT_MASK, 0);
- 	REG_WR(bp, DMAE_REG_DMAE_INT_MASK, 0);
--/*      REG_WR(bp, MISC_REG_MISC_INT_MASK, 0); */
--	REG_WR(bp, PBF_REG_PBF_INT_MASK, 0X18); 	/* bit 3,4 masked */
-+/*	REG_WR(bp, MISC_REG_MISC_INT_MASK, 0); */
-+	REG_WR(bp, PBF_REG_PBF_INT_MASK, 0X18);		/* bit 3,4 masked */
- }
- 
--static int bnx2x_function_init(struct bnx2x *bp, int mode)
-+
-+static int bnx2x_init_common(struct bnx2x *bp)
- {
--	int func = bp->port;
--	int port = func ? PORT1 : PORT0;
- 	u32 val, i;
--#ifdef USE_DMAE
--	u32 wb_write[2];
--#endif
--
--	DP(BNX2X_MSG_MCP, "function is %d  mode is %x\n", func, mode);
--	if ((func != 0) && (func != 1)) {
--		BNX2X_ERR("BAD function number (%d)\n", func);
--		return -ENODEV;
--	}
- 
--	bnx2x_gunzip_init(bp);
-+	DP(BNX2X_MSG_MCP, "starting common init  func %d\n", BP_FUNC(bp));
- 
--	if (mode & 0x1) {       /* init common */
--		DP(BNX2X_MSG_MCP, "starting common init  func %d  mode %x\n",
--		   func, mode);
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
--		       0xffffffff);
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
--		       0xfffc);
--		bnx2x_init_block(bp, MISC_COMMON_START, MISC_COMMON_END);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0xffffffff);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET, 0xfffc);
- 
--		REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x100);
--		msleep(30);
--		REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x0);
-+	bnx2x_init_block(bp, MISC_COMMON_START, MISC_COMMON_END);
-+	if (CHIP_IS_E1H(bp))
-+		REG_WR(bp, MISC_REG_E1HMF_MODE, IS_E1HMF(bp));
- 
--		bnx2x_init_block(bp, PXP_COMMON_START, PXP_COMMON_END);
--		bnx2x_init_block(bp, PXP2_COMMON_START, PXP2_COMMON_END);
-+	REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x100);
-+	msleep(30);
-+	REG_WR(bp, MISC_REG_LCPLL_CTRL_REG_2, 0x0);
- 
--		bnx2x_init_pxp(bp);
-+	bnx2x_init_block(bp, PXP_COMMON_START, PXP_COMMON_END);
-+	if (CHIP_IS_E1(bp)) {
-+		/* enable HW interrupt from PXP on USDM overflow
-+		   bit 16 on INT_MASK_0 */
-+		REG_WR(bp, PXP_REG_PXP_INT_MASK_0, 0);
-+	}
- 
--		if (CHIP_REV(bp) == CHIP_REV_Ax) {
--			/* enable HW interrupt from PXP on USDM
--			   overflow bit 16 on INT_MASK_0 */
--			REG_WR(bp, PXP_REG_PXP_INT_MASK_0, 0);
--		}
-+	bnx2x_init_block(bp, PXP2_COMMON_START, PXP2_COMMON_END);
-+	bnx2x_init_pxp(bp);
- 
- #ifdef __BIG_ENDIAN
--		REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, 1);
--		REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, 1);
--		REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
--		REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
--		REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
--		REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 1);
--
--/*      	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
--		REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
--		REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, 1);
--		REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, 1);
--		REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, 1);
-+	REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, 1);
-+	REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, 1);
-+	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
-+	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
-+	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
-+	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 1);
-+
-+/*	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
-+	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
-+	REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, 1);
-+	REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, 1);
-+	REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, 1);
- #endif
- 
- #ifndef BCM_ISCSI
-@@ -3734,92 +4169,105 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 		REG_WR(bp, PRS_REG_NIC_MODE, 1);
- #endif
- 
--		REG_WR(bp, PXP2_REG_RQ_CDU_P_SIZE, 5);
-+	REG_WR(bp, PXP2_REG_RQ_CDU_P_SIZE, 2);
- #ifdef BCM_ISCSI
--		REG_WR(bp, PXP2_REG_RQ_TM_P_SIZE, 5);
--		REG_WR(bp, PXP2_REG_RQ_QM_P_SIZE, 5);
--		REG_WR(bp, PXP2_REG_RQ_SRC_P_SIZE, 5);
-+	REG_WR(bp, PXP2_REG_RQ_TM_P_SIZE, 5);
-+	REG_WR(bp, PXP2_REG_RQ_QM_P_SIZE, 5);
-+	REG_WR(bp, PXP2_REG_RQ_SRC_P_SIZE, 5);
- #endif
- 
--		bnx2x_init_block(bp, DMAE_COMMON_START, DMAE_COMMON_END);
-+	if (CHIP_REV_IS_FPGA(bp) && CHIP_IS_E1H(bp))
-+		REG_WR(bp, PXP2_REG_PGL_TAGS_LIMIT, 0x1);
- 
--		/* let the HW do it's magic ... */
--		msleep(100);
--		/* finish PXP init
--		   (can be moved up if we want to use the DMAE) */
--		val = REG_RD(bp, PXP2_REG_RQ_CFG_DONE);
--		if (val != 1) {
--			BNX2X_ERR("PXP2 CFG failed\n");
--			return -EBUSY;
--		}
-+	/* let the HW do it's magic ... */
-+	msleep(100);
-+	/* finish PXP init */
-+	val = REG_RD(bp, PXP2_REG_RQ_CFG_DONE);
-+	if (val != 1) {
-+		BNX2X_ERR("PXP2 CFG failed\n");
-+		return -EBUSY;
-+	}
-+	val = REG_RD(bp, PXP2_REG_RD_INIT_DONE);
-+	if (val != 1) {
-+		BNX2X_ERR("PXP2 RD_INIT failed\n");
-+		return -EBUSY;
-+	}
- 
--		val = REG_RD(bp, PXP2_REG_RD_INIT_DONE);
--		if (val != 1) {
--			BNX2X_ERR("PXP2 RD_INIT failed\n");
--			return -EBUSY;
--		}
-+	REG_WR(bp, PXP2_REG_RQ_DISABLE_INPUTS, 0);
-+	REG_WR(bp, PXP2_REG_RD_DISABLE_INPUTS, 0);
- 
--		REG_WR(bp, PXP2_REG_RQ_DISABLE_INPUTS, 0);
--		REG_WR(bp, PXP2_REG_RD_DISABLE_INPUTS, 0);
-+	bnx2x_init_block(bp, DMAE_COMMON_START, DMAE_COMMON_END);
- 
--		bnx2x_init_fill(bp, TSEM_REG_PRAM, 0, 8);
-+	/* clean the DMAE memory */
-+	bp->dmae_ready = 1;
-+	bnx2x_init_fill(bp, TSEM_REG_PRAM, 0, 8);
- 
--		bnx2x_init_block(bp, TCM_COMMON_START, TCM_COMMON_END);
--		bnx2x_init_block(bp, UCM_COMMON_START, UCM_COMMON_END);
--		bnx2x_init_block(bp, CCM_COMMON_START, CCM_COMMON_END);
--		bnx2x_init_block(bp, XCM_COMMON_START, XCM_COMMON_END);
-+	bnx2x_init_block(bp, TCM_COMMON_START, TCM_COMMON_END);
-+	bnx2x_init_block(bp, UCM_COMMON_START, UCM_COMMON_END);
-+	bnx2x_init_block(bp, CCM_COMMON_START, CCM_COMMON_END);
-+	bnx2x_init_block(bp, XCM_COMMON_START, XCM_COMMON_END);
- 
--#ifdef BNX2X_DMAE_RD
--		bnx2x_read_dmae(bp, XSEM_REG_PASSIVE_BUFFER, 3);
--		bnx2x_read_dmae(bp, CSEM_REG_PASSIVE_BUFFER, 3);
--		bnx2x_read_dmae(bp, TSEM_REG_PASSIVE_BUFFER, 3);
--		bnx2x_read_dmae(bp, USEM_REG_PASSIVE_BUFFER, 3);
--#else
--		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER);
--		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER + 4);
--		REG_RD(bp, XSEM_REG_PASSIVE_BUFFER + 8);
--		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER);
--		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER + 4);
--		REG_RD(bp, CSEM_REG_PASSIVE_BUFFER + 8);
--		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER);
--		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER + 4);
--		REG_RD(bp, TSEM_REG_PASSIVE_BUFFER + 8);
--		REG_RD(bp, USEM_REG_PASSIVE_BUFFER);
--		REG_RD(bp, USEM_REG_PASSIVE_BUFFER + 4);
--		REG_RD(bp, USEM_REG_PASSIVE_BUFFER + 8);
--#endif
--		bnx2x_init_block(bp, QM_COMMON_START, QM_COMMON_END);
--		/* soft reset pulse */
--		REG_WR(bp, QM_REG_SOFT_RESET, 1);
--		REG_WR(bp, QM_REG_SOFT_RESET, 0);
-+	bnx2x_read_dmae(bp, XSEM_REG_PASSIVE_BUFFER, 3);
-+	bnx2x_read_dmae(bp, CSEM_REG_PASSIVE_BUFFER, 3);
-+	bnx2x_read_dmae(bp, TSEM_REG_PASSIVE_BUFFER, 3);
-+	bnx2x_read_dmae(bp, USEM_REG_PASSIVE_BUFFER, 3);
-+
-+	bnx2x_init_block(bp, QM_COMMON_START, QM_COMMON_END);
-+	/* soft reset pulse */
-+	REG_WR(bp, QM_REG_SOFT_RESET, 1);
-+	REG_WR(bp, QM_REG_SOFT_RESET, 0);
- 
- #ifdef BCM_ISCSI
--		bnx2x_init_block(bp, TIMERS_COMMON_START, TIMERS_COMMON_END);
-+	bnx2x_init_block(bp, TIMERS_COMMON_START, TIMERS_COMMON_END);
- #endif
--		bnx2x_init_block(bp, DQ_COMMON_START, DQ_COMMON_END);
--		REG_WR(bp, DORQ_REG_DPM_CID_OFST, BCM_PAGE_BITS);
--		if (CHIP_REV(bp) == CHIP_REV_Ax) {
--			/* enable hw interrupt from doorbell Q */
--			REG_WR(bp, DORQ_REG_DORQ_INT_MASK, 0);
--		}
- 
--		bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
-+	bnx2x_init_block(bp, DQ_COMMON_START, DQ_COMMON_END);
-+	REG_WR(bp, DORQ_REG_DPM_CID_OFST, BCM_PAGE_SHIFT);
-+	if (!CHIP_REV_IS_SLOW(bp)) {
-+		/* enable hw interrupt from doorbell Q */
-+		REG_WR(bp, DORQ_REG_DORQ_INT_MASK, 0);
-+	}
- 
--		if (CHIP_REV_IS_SLOW(bp)) {
--			/* fix for emulation and FPGA for no pause */
--			REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_0, 513);
--			REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_1, 513);
--			REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_0, 0);
--			REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_1, 0);
--		}
-+	bnx2x_init_block(bp, BRB1_COMMON_START, BRB1_COMMON_END);
-+	if (CHIP_REV_IS_SLOW(bp)) {
-+		/* fix for emulation and FPGA for no pause */
-+		REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_0, 513);
-+		REG_WR(bp, BRB1_REG_PAUSE_HIGH_THRESHOLD_1, 513);
-+		REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_0, 0);
-+		REG_WR(bp, BRB1_REG_PAUSE_LOW_THRESHOLD_1, 0);
-+	}
- 
--		bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
-+	bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
-+	if (CHIP_IS_E1H(bp))
-+		REG_WR(bp, PRS_REG_E1HOV_MODE, IS_E1HMF(bp));
- 
--		bnx2x_init_block(bp, TSDM_COMMON_START, TSDM_COMMON_END);
--		bnx2x_init_block(bp, CSDM_COMMON_START, CSDM_COMMON_END);
--		bnx2x_init_block(bp, USDM_COMMON_START, USDM_COMMON_END);
--		bnx2x_init_block(bp, XSDM_COMMON_START, XSDM_COMMON_END);
-+	bnx2x_init_block(bp, TSDM_COMMON_START, TSDM_COMMON_END);
-+	bnx2x_init_block(bp, CSDM_COMMON_START, CSDM_COMMON_END);
-+	bnx2x_init_block(bp, USDM_COMMON_START, USDM_COMMON_END);
-+	bnx2x_init_block(bp, XSDM_COMMON_START, XSDM_COMMON_END);
- 
-+	if (CHIP_IS_E1H(bp)) {
-+		bnx2x_init_fill(bp, TSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp,
-+				TSTORM_INTMEM_ADDR + STORM_INTMEM_SIZE_E1H/2,
-+				0, STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp, CSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp,
-+				CSTORM_INTMEM_ADDR + STORM_INTMEM_SIZE_E1H/2,
-+				0, STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp, XSTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp,
-+				XSTORM_INTMEM_ADDR + STORM_INTMEM_SIZE_E1H/2,
-+				0, STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp, USTORM_INTMEM_ADDR, 0,
-+				STORM_INTMEM_SIZE_E1H/2);
-+		bnx2x_init_fill(bp,
-+				USTORM_INTMEM_ADDR + STORM_INTMEM_SIZE_E1H/2,
-+				0, STORM_INTMEM_SIZE_E1H/2);
-+	} else { /* E1 */
- 		bnx2x_init_fill(bp, TSTORM_INTMEM_ADDR, 0,
- 				STORM_INTMEM_SIZE_E1);
- 		bnx2x_init_fill(bp, CSTORM_INTMEM_ADDR, 0,
-@@ -3828,157 +4276,141 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 				STORM_INTMEM_SIZE_E1);
- 		bnx2x_init_fill(bp, USTORM_INTMEM_ADDR, 0,
- 				STORM_INTMEM_SIZE_E1);
-+	}
- 
--		bnx2x_init_block(bp, TSEM_COMMON_START, TSEM_COMMON_END);
--		bnx2x_init_block(bp, USEM_COMMON_START, USEM_COMMON_END);
--		bnx2x_init_block(bp, CSEM_COMMON_START, CSEM_COMMON_END);
--		bnx2x_init_block(bp, XSEM_COMMON_START, XSEM_COMMON_END);
--
--		/* sync semi rtc */
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
--		       0x80000000);
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
--		       0x80000000);
--
--		bnx2x_init_block(bp, UPB_COMMON_START, UPB_COMMON_END);
--		bnx2x_init_block(bp, XPB_COMMON_START, XPB_COMMON_END);
--		bnx2x_init_block(bp, PBF_COMMON_START, PBF_COMMON_END);
--
--		REG_WR(bp, SRC_REG_SOFT_RST, 1);
--		for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
--			REG_WR(bp, i, 0xc0cac01a);
--			/* TODO: replace with something meaningful */
--		}
--		/* SRCH COMMON comes here */
--		REG_WR(bp, SRC_REG_SOFT_RST, 0);
--
--		if (sizeof(union cdu_context) != 1024) {
--			/* we currently assume that a context is 1024 bytes */
--			printk(KERN_ALERT PFX "please adjust the size of"
--			       " cdu_context(%ld)\n",
--			       (long)sizeof(union cdu_context));
--		}
--		val = (4 << 24) + (0 << 12) + 1024;
--		REG_WR(bp, CDU_REG_CDU_GLOBAL_PARAMS, val);
--		bnx2x_init_block(bp, CDU_COMMON_START, CDU_COMMON_END);
--
--		bnx2x_init_block(bp, CFC_COMMON_START, CFC_COMMON_END);
--		REG_WR(bp, CFC_REG_INIT_REG, 0x7FF);
--
--		bnx2x_init_block(bp, HC_COMMON_START, HC_COMMON_END);
--		bnx2x_init_block(bp, MISC_AEU_COMMON_START,
--				 MISC_AEU_COMMON_END);
--		/* RXPCS COMMON comes here */
--		/* EMAC0 COMMON comes here */
--		/* EMAC1 COMMON comes here */
--		/* DBU COMMON comes here */
--		/* DBG COMMON comes here */
--		bnx2x_init_block(bp, NIG_COMMON_START, NIG_COMMON_END);
-+	bnx2x_init_block(bp, TSEM_COMMON_START, TSEM_COMMON_END);
-+	bnx2x_init_block(bp, USEM_COMMON_START, USEM_COMMON_END);
-+	bnx2x_init_block(bp, CSEM_COMMON_START, CSEM_COMMON_END);
-+	bnx2x_init_block(bp, XSEM_COMMON_START, XSEM_COMMON_END);
- 
--		if (CHIP_REV_IS_SLOW(bp))
--			msleep(200);
-+	/* sync semi rtc */
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
-+	       0x80000000);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET,
-+	       0x80000000);
- 
--		/* finish CFC init */
--		val = REG_RD(bp, CFC_REG_LL_INIT_DONE);
--		if (val != 1) {
--			BNX2X_ERR("CFC LL_INIT failed\n");
--			return -EBUSY;
--		}
-+	bnx2x_init_block(bp, UPB_COMMON_START, UPB_COMMON_END);
-+	bnx2x_init_block(bp, XPB_COMMON_START, XPB_COMMON_END);
-+	bnx2x_init_block(bp, PBF_COMMON_START, PBF_COMMON_END);
- 
--		val = REG_RD(bp, CFC_REG_AC_INIT_DONE);
--		if (val != 1) {
--			BNX2X_ERR("CFC AC_INIT failed\n");
--			return -EBUSY;
--		}
-+	REG_WR(bp, SRC_REG_SOFT_RST, 1);
-+	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
-+		REG_WR(bp, i, 0xc0cac01a);
-+		/* TODO: replace with something meaningful */
-+	}
-+	if (CHIP_IS_E1H(bp))
-+		bnx2x_init_block(bp, SRCH_COMMON_START, SRCH_COMMON_END);
-+	REG_WR(bp, SRC_REG_SOFT_RST, 0);
- 
--		val = REG_RD(bp, CFC_REG_CAM_INIT_DONE);
--		if (val != 1) {
--			BNX2X_ERR("CFC CAM_INIT failed\n");
--			return -EBUSY;
--		}
-+	if (sizeof(union cdu_context) != 1024)
-+		/* we currently assume that a context is 1024 bytes */
-+		printk(KERN_ALERT PFX "please adjust the size of"
-+		       " cdu_context(%ld)\n", (long)sizeof(union cdu_context));
- 
--		REG_WR(bp, CFC_REG_DEBUG0, 0);
-+	bnx2x_init_block(bp, CDU_COMMON_START, CDU_COMMON_END);
-+	val = (4 << 24) + (0 << 12) + 1024;
-+	REG_WR(bp, CDU_REG_CDU_GLOBAL_PARAMS, val);
-+	if (CHIP_IS_E1(bp)) {
-+		/* !!! fix pxp client crdit until excel update */
-+		REG_WR(bp, CDU_REG_CDU_DEBUG, 0x264);
-+		REG_WR(bp, CDU_REG_CDU_DEBUG, 0);
-+	}
- 
--		/* read NIG statistic
--		   to see if this is our first up since powerup */
--#ifdef BNX2X_DMAE_RD
--		bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
--		val = *bnx2x_sp(bp, wb_data[0]);
--#else
--		val = REG_RD(bp, NIG_REG_STAT2_BRB_OCTET);
--		REG_RD(bp, NIG_REG_STAT2_BRB_OCTET + 4);
--#endif
--		/* do internal memory self test */
--		if ((val == 0) && bnx2x_int_mem_test(bp)) {
--			BNX2X_ERR("internal mem selftest failed\n");
--			return -EBUSY;
--		}
-+	bnx2x_init_block(bp, CFC_COMMON_START, CFC_COMMON_END);
-+	REG_WR(bp, CFC_REG_INIT_REG, 0x7FF);
- 
--		/* clear PXP2 attentions */
--		REG_RD(bp, PXP2_REG_PXP2_INT_STS_CLR);
-+	bnx2x_init_block(bp, HC_COMMON_START, HC_COMMON_END);
-+	bnx2x_init_block(bp, MISC_AEU_COMMON_START, MISC_AEU_COMMON_END);
- 
--		enable_blocks_attention(bp);
--		/* enable_blocks_parity(bp); */
-+	/* PXPCS COMMON comes here */
-+	/* Reset PCIE errors for debug */
-+	REG_WR(bp, 0x2814, 0xffffffff);
-+	REG_WR(bp, 0x3820, 0xffffffff);
- 
--		switch (bp->board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
--		case SHARED_HW_CFG_BOARD_TYPE_BCM957710A1022G:
--			/* Fan failure is indicated by SPIO 5 */
--			bnx2x_set_spio(bp, MISC_REGISTERS_SPIO_5,
--				       MISC_REGISTERS_SPIO_INPUT_HI_Z);
-+	/* EMAC0 COMMON comes here */
-+	/* EMAC1 COMMON comes here */
-+	/* DBU COMMON comes here */
-+	/* DBG COMMON comes here */
- 
--			/* set to active low mode */
--			val = REG_RD(bp, MISC_REG_SPIO_INT);
--			val |= ((1 << MISC_REGISTERS_SPIO_5) <<
-+	bnx2x_init_block(bp, NIG_COMMON_START, NIG_COMMON_END);
-+	if (CHIP_IS_E1H(bp)) {
-+		REG_WR(bp, NIG_REG_LLH_MF_MODE, IS_E1HMF(bp));
-+		REG_WR(bp, NIG_REG_LLH_E1HOV_MODE, IS_E1HMF(bp));
-+	}
-+
-+	if (CHIP_REV_IS_SLOW(bp))
-+		msleep(200);
-+
-+	/* finish CFC init */
-+	val = reg_poll(bp, CFC_REG_LL_INIT_DONE, 1, 100, 10);
-+	if (val != 1) {
-+		BNX2X_ERR("CFC LL_INIT failed\n");
-+		return -EBUSY;
-+	}
-+	val = reg_poll(bp, CFC_REG_AC_INIT_DONE, 1, 100, 10);
-+	if (val != 1) {
-+		BNX2X_ERR("CFC AC_INIT failed\n");
-+		return -EBUSY;
-+	}
-+	val = reg_poll(bp, CFC_REG_CAM_INIT_DONE, 1, 100, 10);
-+	if (val != 1) {
-+		BNX2X_ERR("CFC CAM_INIT failed\n");
-+		return -EBUSY;
-+	}
-+	REG_WR(bp, CFC_REG_DEBUG0, 0);
-+
-+	/* read NIG statistic
-+	   to see if this is our first up since powerup */
-+	bnx2x_read_dmae(bp, NIG_REG_STAT2_BRB_OCTET, 2);
-+	val = *bnx2x_sp(bp, wb_data[0]);
-+
-+	/* do internal memory self test */
-+	if ((CHIP_IS_E1(bp)) && (val == 0) && bnx2x_int_mem_test(bp)) {
-+		BNX2X_ERR("internal mem self test failed\n");
-+		return -EBUSY;
-+	}
-+
-+	switch (bp->common.board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
-+	case SHARED_HW_CFG_BOARD_TYPE_BCM957710A1022G:
-+		/* Fan failure is indicated by SPIO 5 */
-+		bnx2x_set_spio(bp, MISC_REGISTERS_SPIO_5,
-+			       MISC_REGISTERS_SPIO_INPUT_HI_Z);
-+
-+		/* set to active low mode */
-+		val = REG_RD(bp, MISC_REG_SPIO_INT);
-+		val |= ((1 << MISC_REGISTERS_SPIO_5) <<
- 					MISC_REGISTERS_SPIO_INT_OLD_SET_POS);
--			REG_WR(bp, MISC_REG_SPIO_INT, val);
-+		REG_WR(bp, MISC_REG_SPIO_INT, val);
- 
--			/* enable interrupt to signal the IGU */
--			val = REG_RD(bp, MISC_REG_SPIO_EVENT_EN);
--			val |= (1 << MISC_REGISTERS_SPIO_5);
--			REG_WR(bp, MISC_REG_SPIO_EVENT_EN, val);
--			break;
-+		/* enable interrupt to signal the IGU */
-+		val = REG_RD(bp, MISC_REG_SPIO_EVENT_EN);
-+		val |= (1 << MISC_REGISTERS_SPIO_5);
-+		REG_WR(bp, MISC_REG_SPIO_EVENT_EN, val);
-+		break;
- 
--		default:
--			break;
--		}
-+	default:
-+		break;
-+	}
- 
--	} /* end of common init */
-+	/* clear PXP2 attentions */
-+	REG_RD(bp, PXP2_REG_PXP2_INT_STS_CLR_0);
- 
--	/* per port init */
-+	enable_blocks_attention(bp);
- 
--	/* the phys address is shifted right 12 bits and has an added
--	   1=valid bit added to the 53rd bit
--	   then since this is a wide register(TM)
--	   we split it into two 32 bit writes
--	 */
--#define RQ_ONCHIP_AT_PORT_SIZE  384
--#define ONCHIP_ADDR1(x)   ((u32)(((u64)x >> 12) & 0xFFFFFFFF))
--#define ONCHIP_ADDR2(x)   ((u32)((1 << 20) | ((u64)x >> 44)))
--#define PXP_ONE_ILT(x)    ((x << 10) | x)
-+	return 0;
-+}
- 
--	DP(BNX2X_MSG_MCP, "starting per-function init port is %x\n", func);
-+static int bnx2x_init_port(struct bnx2x *bp)
-+{
-+	int port = BP_PORT(bp);
-+	u32 val;
- 
--	REG_WR(bp, NIG_REG_MASK_INTERRUPT_PORT0 + func*4, 0);
-+	DP(BNX2X_MSG_MCP, "starting port init  port %x\n", port);
-+
-+	REG_WR(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4, 0);
- 
- 	/* Port PXP comes here */
- 	/* Port PXP2 comes here */
--
--	/* Offset is
--	 * Port0  0
--	 * Port1  384 */
--	i = func * RQ_ONCHIP_AT_PORT_SIZE;
--#ifdef USE_DMAE
--	wb_write[0] = ONCHIP_ADDR1(bnx2x_sp_mapping(bp, context));
--	wb_write[1] = ONCHIP_ADDR2(bnx2x_sp_mapping(bp, context));
--	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
--#else
--	REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + i*8,
--		   ONCHIP_ADDR1(bnx2x_sp_mapping(bp, context)));
--	REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + i*8 + 4,
--		   ONCHIP_ADDR2(bnx2x_sp_mapping(bp, context)));
--#endif
--	REG_WR(bp, PXP2_REG_PSWRQ_CDU0_L2P + func*4, PXP_ONE_ILT(i));
--
- #ifdef BCM_ISCSI
- 	/* Port0  1
- 	 * Port1  385 */
-@@ -4004,30 +4436,9 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 	REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
- 	REG_WR(bp, PXP2_REG_PSWRQ_SRC0_L2P + func*4, PXP_ONE_ILT(i));
- #endif
--
--	/* Port TCM comes here */
--	/* Port UCM comes here */
--	/* Port CCM comes here */
--	bnx2x_init_block(bp, func ? XCM_PORT1_START : XCM_PORT0_START,
--			     func ? XCM_PORT1_END : XCM_PORT0_END);
--
--#ifdef USE_DMAE
--	wb_write[0] = 0;
--	wb_write[1] = 0;
--#endif
--	for (i = 0; i < 32; i++) {
--		REG_WR(bp, QM_REG_BASEADDR + (func*32 + i)*4, 1024 * 4 * i);
--#ifdef USE_DMAE
--		REG_WR_DMAE(bp, QM_REG_PTRTBL + (func*32 + i)*8, wb_write, 2);
--#else
--		REG_WR_IND(bp, QM_REG_PTRTBL + (func*32 + i)*8, 0);
--		REG_WR_IND(bp, QM_REG_PTRTBL + (func*32 + i)*8 + 4, 0);
--#endif
--	}
--	REG_WR(bp, QM_REG_CONNNUM_0 + func*4, 1024/16 - 1);
-+	/* Port CMs come here */
- 
- 	/* Port QM comes here */
--
- #ifdef BCM_ISCSI
- 	REG_WR(bp, TM_REG_LIN0_SCAN_TIME + func*4, 1024/64*20);
- 	REG_WR(bp, TM_REG_LIN0_MAX_ACTIVE_CID + func*4, 31);
-@@ -4042,31 +4453,32 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 	/* Port CSDM comes here */
- 	/* Port USDM comes here */
- 	/* Port XSDM comes here */
--	bnx2x_init_block(bp, func ? TSEM_PORT1_START : TSEM_PORT0_START,
--			     func ? TSEM_PORT1_END : TSEM_PORT0_END);
--	bnx2x_init_block(bp, func ? USEM_PORT1_START : USEM_PORT0_START,
--			     func ? USEM_PORT1_END : USEM_PORT0_END);
--	bnx2x_init_block(bp, func ? CSEM_PORT1_START : CSEM_PORT0_START,
--			     func ? CSEM_PORT1_END : CSEM_PORT0_END);
--	bnx2x_init_block(bp, func ? XSEM_PORT1_START : XSEM_PORT0_START,
--			     func ? XSEM_PORT1_END : XSEM_PORT0_END);
-+	bnx2x_init_block(bp, port ? TSEM_PORT1_START : TSEM_PORT0_START,
-+			     port ? TSEM_PORT1_END : TSEM_PORT0_END);
-+	bnx2x_init_block(bp, port ? USEM_PORT1_START : USEM_PORT0_START,
-+			     port ? USEM_PORT1_END : USEM_PORT0_END);
-+	bnx2x_init_block(bp, port ? CSEM_PORT1_START : CSEM_PORT0_START,
-+			     port ? CSEM_PORT1_END : CSEM_PORT0_END);
-+	bnx2x_init_block(bp, port ? XSEM_PORT1_START : XSEM_PORT0_START,
-+			     port ? XSEM_PORT1_END : XSEM_PORT0_END);
- 	/* Port UPB comes here */
--	/* Port XSDM comes here */
--	bnx2x_init_block(bp, func ? PBF_PORT1_START : PBF_PORT0_START,
--			     func ? PBF_PORT1_END : PBF_PORT0_END);
-+	/* Port XPB comes here */
-+
-+	bnx2x_init_block(bp, port ? PBF_PORT1_START : PBF_PORT0_START,
-+			     port ? PBF_PORT1_END : PBF_PORT0_END);
- 
- 	/* configure PBF to work without PAUSE mtu 9000 */
--	REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + func*4, 0);
-+	REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + port*4, 0);
- 
- 	/* update threshold */
--	REG_WR(bp, PBF_REG_P0_ARB_THRSH + func*4, (9040/16));
-+	REG_WR(bp, PBF_REG_P0_ARB_THRSH + port*4, (9040/16));
- 	/* update init credit */
--	REG_WR(bp, PBF_REG_P0_INIT_CRD + func*4, (9040/16) + 553 - 22);
-+	REG_WR(bp, PBF_REG_P0_INIT_CRD + port*4, (9040/16) + 553 - 22);
- 
- 	/* probe changes */
--	REG_WR(bp, PBF_REG_INIT_P0 + func*4, 1);
-+	REG_WR(bp, PBF_REG_INIT_P0 + port*4, 1);
- 	msleep(5);
--	REG_WR(bp, PBF_REG_INIT_P0 + func*4, 0);
-+	REG_WR(bp, PBF_REG_INIT_P0 + port*4, 0);
- 
- #ifdef BCM_ISCSI
- 	/* tell the searcher where the T2 table is */
-@@ -4084,23 +4496,57 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- #endif
- 	/* Port CDU comes here */
- 	/* Port CFC comes here */
--	bnx2x_init_block(bp, func ? HC_PORT1_START : HC_PORT0_START,
--			     func ? HC_PORT1_END : HC_PORT0_END);
--	bnx2x_init_block(bp, func ? MISC_AEU_PORT1_START :
-+
-+	if (CHIP_IS_E1(bp)) {
-+		REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, 0);
-+		REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, 0);
-+	}
-+	bnx2x_init_block(bp, port ? HC_PORT1_START : HC_PORT0_START,
-+			     port ? HC_PORT1_END : HC_PORT0_END);
-+
-+	bnx2x_init_block(bp, port ? MISC_AEU_PORT1_START :
- 				    MISC_AEU_PORT0_START,
--			     func ? MISC_AEU_PORT1_END : MISC_AEU_PORT0_END);
-+			     port ? MISC_AEU_PORT1_END : MISC_AEU_PORT0_END);
-+	/* init aeu_mask_attn_func_0/1:
-+	 *  - SF mode: bits 3-7 are masked. only bits 0-2 are in use
-+	 *  - MF mode: bit 3 is masked. bits 0-2 are in use as in SF
-+	 *             bits 4-7 are used for "per vn group attention" */
-+	REG_WR(bp, MISC_REG_AEU_MASK_ATTN_FUNC_0 + port*4,
-+	       (IS_E1HMF(bp) ? 0xF7 : 0x7));
-+
- 	/* Port PXPCS comes here */
- 	/* Port EMAC0 comes here */
- 	/* Port EMAC1 comes here */
- 	/* Port DBU comes here */
- 	/* Port DBG comes here */
--	bnx2x_init_block(bp, func ? NIG_PORT1_START : NIG_PORT0_START,
--			     func ? NIG_PORT1_END : NIG_PORT0_END);
--	REG_WR(bp, NIG_REG_XGXS_SERDES0_MODE_SEL + func*4, 1);
-+	bnx2x_init_block(bp, port ? NIG_PORT1_START : NIG_PORT0_START,
-+			     port ? NIG_PORT1_END : NIG_PORT0_END);
-+
-+	REG_WR(bp, NIG_REG_XGXS_SERDES0_MODE_SEL + port*4, 1);
-+
-+	if (CHIP_IS_E1H(bp)) {
-+		u32 wsum;
-+		struct cmng_struct_per_port m_cmng_port;
-+		int vn;
-+
-+		/* 0x2 disable e1hov, 0x1 enable */
-+		REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK_MF + port*4,
-+		       (IS_E1HMF(bp) ? 0x1 : 0x2));
-+
-+		/* Init RATE SHAPING and FAIRNESS contexts.
-+		   Initialize as if there is 10G link. */
-+		wsum = bnx2x_calc_vn_wsum(bp);
-+		bnx2x_init_port_minmax(bp, (int)wsum, 10000, &m_cmng_port);
-+		if (IS_E1HMF(bp))
-+			for (vn = VN_0; vn < E1HVN_MAX; vn++)
-+				bnx2x_init_vn_minmax(bp, 2*vn + port,
-+					wsum, 10000, &m_cmng_port);
-+	}
-+
- 	/* Port MCP comes here */
- 	/* Port DMAE comes here */
- 
--	switch (bp->board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
-+	switch (bp->common.board & SHARED_HW_CFG_BOARD_TYPE_MASK) {
- 	case SHARED_HW_CFG_BOARD_TYPE_BCM957710A1022G:
- 		/* add SPIO 5 to group 0 */
- 		val = REG_RD(bp, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0);
-@@ -4114,48 +4560,150 @@ static int bnx2x_function_init(struct bnx2x *bp, int mode)
- 
- 	bnx2x__link_reset(bp);
- 
-+	return 0;
-+}
-+
-+#define ILT_PER_FUNC		(768/2)
-+#define FUNC_ILT_BASE(func)	(func * ILT_PER_FUNC)
-+/* the phys address is shifted right 12 bits and has an added
-+   1=valid bit added to the 53rd bit
-+   then since this is a wide register(TM)
-+   we split it into two 32 bit writes
-+ */
-+#define ONCHIP_ADDR1(x)		((u32)(((u64)x >> 12) & 0xFFFFFFFF))
-+#define ONCHIP_ADDR2(x)		((u32)((1 << 20) | ((u64)x >> 44)))
-+#define PXP_ONE_ILT(x)		(((x) << 10) | x)
-+#define PXP_ILT_RANGE(f, l)	(((l) << 10) | f)
-+
-+#define CNIC_ILT_LINES		0
-+
-+static void bnx2x_ilt_wr(struct bnx2x *bp, u32 index, dma_addr_t addr)
-+{
-+	int reg;
-+
-+	if (CHIP_IS_E1H(bp))
-+		reg = PXP2_REG_RQ_ONCHIP_AT_B0 + index*8;
-+	else /* E1 */
-+		reg = PXP2_REG_RQ_ONCHIP_AT + index*8;
-+
-+	bnx2x_wb_wr(bp, reg, ONCHIP_ADDR1(addr), ONCHIP_ADDR2(addr));
-+}
-+
-+static int bnx2x_init_func(struct bnx2x *bp)
-+{
-+	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
-+	int i;
-+
-+	DP(BNX2X_MSG_MCP, "starting func init  func %x\n", func);
-+
-+	i = FUNC_ILT_BASE(func);
-+
-+	bnx2x_ilt_wr(bp, i, bnx2x_sp_mapping(bp, context));
-+	if (CHIP_IS_E1H(bp)) {
-+		REG_WR(bp, PXP2_REG_RQ_CDU_FIRST_ILT, i);
-+		REG_WR(bp, PXP2_REG_RQ_CDU_LAST_ILT, i + CNIC_ILT_LINES);
-+	} else /* E1 */
-+		REG_WR(bp, PXP2_REG_PSWRQ_CDU0_L2P + func*4,
-+		       PXP_ILT_RANGE(i, i + CNIC_ILT_LINES));
-+
-+
-+	if (CHIP_IS_E1H(bp)) {
-+		for (i = 0; i < 9; i++)
-+			bnx2x_init_block(bp,
-+					 cm_start[func][i], cm_end[func][i]);
-+
-+		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 1);
-+		REG_WR(bp, NIG_REG_LLH0_FUNC_VLAN_ID + port*8, bp->e1hov);
-+	}
-+
-+	/* HC init per function */
-+	if (CHIP_IS_E1H(bp)) {
-+		REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_12 + func*4, 0);
-+
-+		REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, 0);
-+		REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, 0);
-+	}
-+	bnx2x_init_block(bp, hc_limits[func][0], hc_limits[func][1]);
-+
-+	if (CHIP_IS_E1H(bp))
-+		REG_WR(bp, HC_REG_FUNC_NUM_P0 + port*4, func);
-+
- 	/* Reset PCIE errors for debug */
- 	REG_WR(bp, 0x2114, 0xffffffff);
- 	REG_WR(bp, 0x2120, 0xffffffff);
--	REG_WR(bp, 0x2814, 0xffffffff);
- 
--	/* !!! move to init_values.h */
--	REG_WR(bp, XSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
--	REG_WR(bp, USDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
--	REG_WR(bp, CSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
--	REG_WR(bp, TSDM_REG_INIT_CREDIT_PXP_CTRL, 0x1);
-+	return 0;
-+}
-+
-+static int bnx2x_init_hw(struct bnx2x *bp, u32 load_code)
-+{
-+	int i, rc = 0;
- 
--	REG_WR(bp, DBG_REG_PCI_REQ_CREDIT, 0x1);
--	REG_WR(bp, TM_REG_PCIARB_CRDCNT_VAL, 0x1);
--	REG_WR(bp, CDU_REG_CDU_DEBUG, 0x264);
--	REG_WR(bp, CDU_REG_CDU_DEBUG, 0x0);
-+	DP(BNX2X_MSG_MCP, "function %d  load_code %x\n",
-+	   BP_FUNC(bp), load_code);
- 
--	bnx2x_gunzip_end(bp);
-+	bp->dmae_ready = 0;
-+	mutex_init(&bp->dmae_mutex);
-+	bnx2x_gunzip_init(bp);
- 
--	if (!nomcp) {
--		port = bp->port;
-+	switch (load_code) {
-+	case FW_MSG_CODE_DRV_LOAD_COMMON:
-+		rc = bnx2x_init_common(bp);
-+		if (rc)
-+			goto init_hw_err;
-+		/* no break */
-+
-+	case FW_MSG_CODE_DRV_LOAD_PORT:
-+		bp->dmae_ready = 1;
-+		rc = bnx2x_init_port(bp);
-+		if (rc)
-+			goto init_hw_err;
-+		/* no break */
-+
-+	case FW_MSG_CODE_DRV_LOAD_FUNCTION:
-+		bp->dmae_ready = 1;
-+		rc = bnx2x_init_func(bp);
-+		if (rc)
-+			goto init_hw_err;
-+		break;
-+
-+	default:
-+		BNX2X_ERR("Unknown load_code (0x%x) from MCP\n", load_code);
-+		break;
-+	}
-+
-+	if (!BP_NOMCP(bp)) {
-+		int func = BP_FUNC(bp);
- 
- 		bp->fw_drv_pulse_wr_seq =
--				(SHMEM_RD(bp, func_mb[port].drv_pulse_mb) &
-+				(SHMEM_RD(bp, func_mb[func].drv_pulse_mb) &
- 				 DRV_PULSE_SEQ_MASK);
--		bp->fw_mb = SHMEM_RD(bp, func_mb[port].fw_mb_param);
--		DP(BNX2X_MSG_MCP, "drv_pulse 0x%x  fw_mb 0x%x\n",
--		   bp->fw_drv_pulse_wr_seq, bp->fw_mb);
--	} else {
--		bp->fw_mb = 0;
--	}
-+		bp->func_stx = SHMEM_RD(bp, func_mb[func].fw_mb_param);
-+		DP(BNX2X_MSG_MCP, "drv_pulse 0x%x  func_stx 0x%x\n",
-+		   bp->fw_drv_pulse_wr_seq, bp->func_stx);
-+	} else
-+		bp->func_stx = 0;
- 
--	return 0;
-+	/* this needs to be done before gunzip end */
-+	bnx2x_zero_def_sb(bp);
-+	for_each_queue(bp, i)
-+		bnx2x_zero_sb(bp, BP_L_ID(bp) + i);
-+
-+init_hw_err:
-+	bnx2x_gunzip_end(bp);
-+
-+	return rc;
- }
- 
- /* send the MCP a request, block until there is a reply */
- static u32 bnx2x_fw_command(struct bnx2x *bp, u32 command)
- {
--	int port = bp->port;
-+	int func = BP_FUNC(bp);
- 	u32 seq = ++bp->fw_seq;
- 	u32 rc = 0;
- 
--	SHMEM_WR(bp, func_mb[port].drv_mb_header, (command | seq));
-+	SHMEM_WR(bp, func_mb[func].drv_mb_header, (command | seq));
- 	DP(BNX2X_MSG_MCP, "wrote command (%x) to FW MB\n", (command | seq));
- 
- 	/* let the FW do it's magic ... */
-@@ -4164,7 +4712,7 @@ static u32 bnx2x_fw_command(struct bnx2x *bp, u32 command)
- 	if (CHIP_REV_IS_SLOW(bp))
- 		msleep(900);
- 
--	rc = SHMEM_RD(bp, func_mb[port].fw_mb_header);
-+	rc = SHMEM_RD(bp, func_mb[func].fw_mb_header);
- 	DP(BNX2X_MSG_MCP, "read (%x) seq is (%x) from FW MB\n", rc, seq);
- 
- 	/* is this a reply to our command? */
-@@ -4229,15 +4777,13 @@ static void bnx2x_free_mem(struct bnx2x *bp)
- 			       NUM_RCQ_BD);
- 	}
- 
--	BNX2X_FREE(bp->fp);
--
- 	/* end of fastpath */
- 
- 	BNX2X_PCI_FREE(bp->def_status_blk, bp->def_status_blk_mapping,
--		       (sizeof(struct host_def_status_block)));
-+		       sizeof(struct host_def_status_block));
- 
- 	BNX2X_PCI_FREE(bp->slowpath, bp->slowpath_mapping,
--		       (sizeof(struct bnx2x_slowpath)));
-+		       sizeof(struct bnx2x_slowpath));
- 
- #ifdef BCM_ISCSI
- 	BNX2X_PCI_FREE(bp->t1, bp->t1_mapping, 64*1024);
-@@ -4273,8 +4819,6 @@ static int bnx2x_alloc_mem(struct bnx2x *bp)
- 	int i;
- 
- 	/* fastpath */
--	BNX2X_ALLOC(bp->fp, sizeof(struct bnx2x_fastpath) * bp->num_queues);
--
- 	for_each_queue(bp, i) {
- 		bnx2x_fp(bp, i, bp) = bp;
- 
-@@ -4370,8 +4914,6 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
- 		u16 sw_prod = fp->tx_pkt_prod;
- 		u16 sw_cons = fp->tx_pkt_cons;
- 
--		BUG_TRAP(fp->tx_buf_ring != NULL);
--
- 		while (sw_cons != sw_prod) {
- 			bd_cons = bnx2x_free_tx_pkt(bp, fp, TX_BD(sw_cons));
- 			sw_cons++;
-@@ -4386,8 +4928,6 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
- 	for_each_queue(bp, j) {
- 		struct bnx2x_fastpath *fp = &bp->fp[j];
- 
--		BUG_TRAP(fp->rx_buf_ring != NULL);
--
- 		for (i = 0; i < NUM_RX_BD; i++) {
- 			struct sw_rx_bd *rx_buf = &fp->rx_buf_ring[i];
- 			struct sk_buff *skb = rx_buf->skb;
-@@ -4414,7 +4954,7 @@ static void bnx2x_free_skbs(struct bnx2x *bp)
- 
- static void bnx2x_free_msix_irqs(struct bnx2x *bp)
- {
--	int i;
-+	int i, offset = 1;
- 
- 	free_irq(bp->msix_table[0].vector, bp->dev);
- 	DP(NETIF_MSG_IFDOWN, "released sp irq (%d)\n",
-@@ -4422,26 +4962,22 @@ static void bnx2x_free_msix_irqs(struct bnx2x *bp)
- 
- 	for_each_queue(bp, i) {
- 		DP(NETIF_MSG_IFDOWN, "about to release fp #%d->%d irq  "
--		   "state(%x)\n", i, bp->msix_table[i + 1].vector,
-+		   "state %x\n", i, bp->msix_table[i + offset].vector,
- 		   bnx2x_fp(bp, i, state));
- 
- 		if (bnx2x_fp(bp, i, state) != BNX2X_FP_STATE_CLOSED)
- 			BNX2X_ERR("IRQ of fp #%d being freed while "
- 				  "state != closed\n", i);
- 
--		free_irq(bp->msix_table[i + 1].vector, &bp->fp[i]);
-+		free_irq(bp->msix_table[i + offset].vector, &bp->fp[i]);
- 	}
--
- }
- 
- static void bnx2x_free_irq(struct bnx2x *bp)
- {
--
- 	if (bp->flags & USING_MSIX_FLAG) {
--
- 		bnx2x_free_msix_irqs(bp);
- 		pci_disable_msix(bp->pdev);
--
- 		bp->flags &= ~USING_MSIX_FLAG;
- 
- 	} else
-@@ -4450,87 +4986,87 @@ static void bnx2x_free_irq(struct bnx2x *bp)
- 
- static int bnx2x_enable_msix(struct bnx2x *bp)
- {
--
--	int i;
-+	int i, rc, offset;
- 
- 	bp->msix_table[0].entry = 0;
--	for_each_queue(bp, i)
--		bp->msix_table[i + 1].entry = i + 1;
-+	offset = 1;
-+	DP(NETIF_MSG_IFUP, "msix_table[0].entry = 0 (slowpath)\n");
- 
--	if (pci_enable_msix(bp->pdev, &bp->msix_table[0],
--				     bp->num_queues + 1)){
--		BNX2X_LOG("failed to enable MSI-X\n");
--		return -1;
-+	for_each_queue(bp, i) {
-+		int igu_vec = offset + i + BP_L_ID(bp);
- 
-+		bp->msix_table[i + offset].entry = igu_vec;
-+		DP(NETIF_MSG_IFUP, "msix_table[%d].entry = %d "
-+		   "(fastpath #%u)\n", i + offset, igu_vec, i);
- 	}
- 
-+	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
-+			     bp->num_queues + offset);
-+	if (rc) {
-+		DP(NETIF_MSG_IFUP, "MSI-X is not attainable\n");
-+		return -1;
-+	}
- 	bp->flags |= USING_MSIX_FLAG;
- 
- 	return 0;
--
- }
- 
--
- static int bnx2x_req_msix_irqs(struct bnx2x *bp)
- {
--
--	int i, rc;
-+	int i, rc, offset = 1;
- 
- 	rc = request_irq(bp->msix_table[0].vector, bnx2x_msix_sp_int, 0,
- 			 bp->dev->name, bp->dev);
--
- 	if (rc) {
- 		BNX2X_ERR("request sp irq failed\n");
- 		return -EBUSY;
- 	}
- 
- 	for_each_queue(bp, i) {
--		rc = request_irq(bp->msix_table[i + 1].vector,
-+		rc = request_irq(bp->msix_table[i + offset].vector,
- 				 bnx2x_msix_fp_int, 0,
- 				 bp->dev->name, &bp->fp[i]);
--
- 		if (rc) {
--			BNX2X_ERR("request fp #%d irq failed  "
--				  "rc %d\n", i, rc);
-+			BNX2X_ERR("request fp #%d irq failed  rc %d\n",
-+				  i + offset, rc);
- 			bnx2x_free_msix_irqs(bp);
- 			return -EBUSY;
- 		}
- 
- 		bnx2x_fp(bp, i, state) = BNX2X_FP_STATE_IRQ;
--
- 	}
- 
- 	return 0;
--
- }
- 
- static int bnx2x_req_irq(struct bnx2x *bp)
- {
-+	int rc;
- 
--	int rc = request_irq(bp->pdev->irq, bnx2x_interrupt,
--			     IRQF_SHARED, bp->dev->name, bp->dev);
-+	rc = request_irq(bp->pdev->irq, bnx2x_interrupt, IRQF_SHARED,
-+			 bp->dev->name, bp->dev);
- 	if (!rc)
- 		bnx2x_fp(bp, 0, state) = BNX2X_FP_STATE_IRQ;
- 
- 	return rc;
--
- }
- 
- /*
-  * Init service functions
-  */
- 
--static void bnx2x_set_mac_addr(struct bnx2x *bp)
-+static void bnx2x_set_mac_addr_e1(struct bnx2x *bp)
- {
- 	struct mac_configuration_cmd *config = bnx2x_sp(bp, mac_config);
-+	int port = BP_PORT(bp);
- 
- 	/* CAM allocation
- 	 * unicasts 0-31:port0 32-63:port1
- 	 * multicast 64-127:port0 128-191:port1
- 	 */
- 	config->hdr.length_6b = 2;
--	config->hdr.offset = bp->port ? 31 : 0;
--	config->hdr.reserved0 = 0;
-+	config->hdr.offset = port ? 31 : 0;
-+	config->hdr.client_id = BP_CL_ID(bp);
- 	config->hdr.reserved1 = 0;
- 
- 	/* primary MAC */
-@@ -4540,7 +5076,7 @@ static void bnx2x_set_mac_addr(struct bnx2x *bp)
- 					swab16(*(u16 *)&bp->dev->dev_addr[2]);
- 	config->config_table[0].cam_entry.lsb_mac_addr =
- 					swab16(*(u16 *)&bp->dev->dev_addr[4]);
--	config->config_table[0].cam_entry.flags = cpu_to_le16(bp->port);
-+	config->config_table[0].cam_entry.flags = cpu_to_le16(port);
- 	config->config_table[0].target_table_entry.flags = 0;
- 	config->config_table[0].target_table_entry.client_id = 0;
- 	config->config_table[0].target_table_entry.vlan_id = 0;
-@@ -4554,7 +5090,7 @@ static void bnx2x_set_mac_addr(struct bnx2x *bp)
- 	config->config_table[1].cam_entry.msb_mac_addr = 0xffff;
- 	config->config_table[1].cam_entry.middle_mac_addr = 0xffff;
- 	config->config_table[1].cam_entry.lsb_mac_addr = 0xffff;
--	config->config_table[1].cam_entry.flags = cpu_to_le16(bp->port);
-+	config->config_table[1].cam_entry.flags = cpu_to_le16(port);
- 	config->config_table[1].target_table_entry.flags =
- 				TSTORM_CAM_TARGET_TABLE_ENTRY_BROADCAST;
- 	config->config_table[1].target_table_entry.client_id = 0;
-@@ -4565,64 +5101,105 @@ static void bnx2x_set_mac_addr(struct bnx2x *bp)
- 		      U64_LO(bnx2x_sp_mapping(bp, mac_config)), 0);
- }
- 
-+static void bnx2x_set_mac_addr_e1h(struct bnx2x *bp)
-+{
-+	struct mac_configuration_cmd_e1h *config =
-+		(struct mac_configuration_cmd_e1h *)bnx2x_sp(bp, mac_config);
-+
-+	if (bp->state != BNX2X_STATE_OPEN) {
-+		DP(NETIF_MSG_IFUP, "state is %x, returning\n", bp->state);
-+		return;
-+	}
-+
-+	/* CAM allocation for E1H
-+	 * unicasts: by func number
-+	 * multicast: 20+FUNC*20, 20 each
-+	 */
-+	config->hdr.length_6b = 1;
-+	config->hdr.offset = BP_FUNC(bp);
-+	config->hdr.client_id = BP_CL_ID(bp);
-+	config->hdr.reserved1 = 0;
-+
-+	/* primary MAC */
-+	config->config_table[0].msb_mac_addr =
-+					swab16(*(u16 *)&bp->dev->dev_addr[0]);
-+	config->config_table[0].middle_mac_addr =
-+					swab16(*(u16 *)&bp->dev->dev_addr[2]);
-+	config->config_table[0].lsb_mac_addr =
-+					swab16(*(u16 *)&bp->dev->dev_addr[4]);
-+	config->config_table[0].client_id = BP_L_ID(bp);
-+	config->config_table[0].vlan_id = 0;
-+	config->config_table[0].e1hov_id = cpu_to_le16(bp->e1hov);
-+	config->config_table[0].flags = BP_PORT(bp);
-+
-+	DP(NETIF_MSG_IFUP, "setting MAC (%04x:%04x:%04x)  E1HOV %d  CLID %d\n",
-+	   config->config_table[0].msb_mac_addr,
-+	   config->config_table[0].middle_mac_addr,
-+	   config->config_table[0].lsb_mac_addr, bp->e1hov, BP_L_ID(bp));
-+
-+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-+		      U64_HI(bnx2x_sp_mapping(bp, mac_config)),
-+		      U64_LO(bnx2x_sp_mapping(bp, mac_config)), 0);
-+}
-+
- static int bnx2x_wait_ramrod(struct bnx2x *bp, int state, int idx,
- 			     int *state_p, int poll)
- {
- 	/* can take a while if any port is running */
--	int timeout = 500;
-+	int cnt = 500;
- 
- 	DP(NETIF_MSG_IFUP, "%s for state to become %x on IDX [%d]\n",
- 	   poll ? "polling" : "waiting", state, idx);
- 
- 	might_sleep();
--
--	while (timeout) {
--
-+	while (cnt--) {
- 		if (poll) {
- 			bnx2x_rx_int(bp->fp, 10);
--			/* If index is different from 0
--			 * The reply for some commands will
-+			/* if index is different from 0
-+			 * the reply for some commands will
- 			 * be on the none default queue
- 			 */
- 			if (idx)
- 				bnx2x_rx_int(&bp->fp[idx], 10);
- 		}
--
--		mb(); /* state is changed by bnx2x_sp_event()*/
-+		mb(); /* state is changed by bnx2x_sp_event() */
- 
- 		if (*state_p == state)
- 			return 0;
- 
--		timeout--;
- 		msleep(1);
--
- 	}
- 
- 	/* timeout! */
- 	BNX2X_ERR("timeout %s for state %x on IDX [%d]\n",
- 		  poll ? "polling" : "waiting", state, idx);
-+#ifdef BNX2X_STOP_ON_ERROR
-+	bnx2x_panic();
-+#endif
- 
- 	return -EBUSY;
- }
- 
- static int bnx2x_setup_leading(struct bnx2x *bp)
- {
-+	int rc;
- 
- 	/* reset IGU state */
--	bnx2x_ack_sb(bp, DEF_SB_ID, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
-+	bnx2x_ack_sb(bp, bp->fp[0].sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
- 
- 	/* SETUP ramrod */
- 	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_PORT_SETUP, 0, 0, 0, 0);
- 
--	return bnx2x_wait_ramrod(bp, BNX2X_STATE_OPEN, 0, &(bp->state), 0);
-+	/* Wait for completion */
-+	rc = bnx2x_wait_ramrod(bp, BNX2X_STATE_OPEN, 0, &(bp->state), 0);
- 
-+	return rc;
- }
- 
- static int bnx2x_setup_multi(struct bnx2x *bp, int index)
- {
--
- 	/* reset IGU state */
--	bnx2x_ack_sb(bp, index, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
-+	bnx2x_ack_sb(bp, bp->fp[index].sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
- 
- 	/* SETUP ramrod */
- 	bp->fp[index].state = BNX2X_FP_STATE_OPENING;
-@@ -4631,82 +5208,107 @@ static int bnx2x_setup_multi(struct bnx2x *bp, int index)
- 	/* Wait for completion */
- 	return bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_OPEN, index,
- 				 &(bp->fp[index].state), 0);
--
- }
- 
--
- static int bnx2x_poll(struct napi_struct *napi, int budget);
- static void bnx2x_set_rx_mode(struct net_device *dev);
- 
--static int bnx2x_nic_load(struct bnx2x *bp, int req_irq)
-+/* must be called with rtnl_lock */
-+static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- {
- 	u32 load_code;
--	int i;
-+	int i, rc;
-+
-+#ifdef BNX2X_STOP_ON_ERROR
-+	if (unlikely(bp->panic))
-+		return -EPERM;
-+#endif
- 
- 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
- 
--	/* Send LOAD_REQUEST command to MCP.
--	   Returns the type of LOAD command: if it is the
--	   first port to be initialized common blocks should be
--	   initialized, otherwise - not.
-+	/* Send LOAD_REQUEST command to MCP
-+	   Returns the type of LOAD command:
-+	   if it is the first port to be initialized
-+	   common blocks should be initialized, otherwise - not
- 	*/
--	if (!nomcp) {
-+	if (!BP_NOMCP(bp)) {
- 		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ);
- 		if (!load_code) {
- 			BNX2X_ERR("MCP response failure, unloading\n");
- 			return -EBUSY;
- 		}
--		if (load_code == FW_MSG_CODE_DRV_LOAD_REFUSED) {
--			BNX2X_ERR("MCP refused load request, unloading\n");
-+		if (load_code == FW_MSG_CODE_DRV_LOAD_REFUSED)
- 			return -EBUSY; /* other port in diagnostic mode */
--		}
-+
- 	} else {
--		load_code = FW_MSG_CODE_DRV_LOAD_COMMON;
-+		DP(NETIF_MSG_IFUP, "NO MCP load counts before us %d, %d, %d\n",
-+		   load_count[0], load_count[1], load_count[2]);
-+		load_count[0]++;
-+		load_count[1 + BP_PORT(bp)]++;
-+		DP(NETIF_MSG_IFUP, "NO MCP new load counts       %d, %d, %d\n",
-+		   load_count[0], load_count[1], load_count[2]);
-+		if (load_count[0] == 1)
-+			load_code = FW_MSG_CODE_DRV_LOAD_COMMON;
-+		else if (load_count[1 + BP_PORT(bp)] == 1)
-+			load_code = FW_MSG_CODE_DRV_LOAD_PORT;
-+		else
-+			load_code = FW_MSG_CODE_DRV_LOAD_FUNCTION;
- 	}
- 
--	/* if we can't use msix we only need one fp,
--	 * so try to enable msix with the requested number of fp's
-+	if ((load_code == FW_MSG_CODE_DRV_LOAD_COMMON) ||
-+	    (load_code == FW_MSG_CODE_DRV_LOAD_PORT))
-+		bp->port.pmf = 1;
-+	else
-+		bp->port.pmf = 0;
-+	DP(NETIF_MSG_LINK, "pmf %d\n", bp->port.pmf);
-+
-+	/* if we can't use MSI-X we only need one fp,
-+	 * so try to enable MSI-X with the requested number of fp's
- 	 * and fallback to inta with one fp
- 	 */
--	if (req_irq) {
--		if (use_inta) {
-+	if (use_inta) {
-+		bp->num_queues = 1;
-+
-+	} else {
-+		if ((use_multi > 1) && (use_multi <= BP_MAX_QUEUES(bp)))
-+			/* user requested number */
-+			bp->num_queues = use_multi;
-+
-+		else if (use_multi)
-+			bp->num_queues = min_t(u32, num_online_cpus(),
-+					       BP_MAX_QUEUES(bp));
-+		else
- 			bp->num_queues = 1;
--		} else {
--			if ((use_multi > 1) && (use_multi <= 16))
--				/* user requested number */
--				bp->num_queues = use_multi;
--			else if (use_multi == 1)
--				bp->num_queues = num_online_cpus();
--			else
--				bp->num_queues = 1;
--
--			if (bnx2x_enable_msix(bp)) {
--				/* failed to enable msix */
--				bp->num_queues = 1;
--				if (use_multi)
--					BNX2X_ERR("Multi requested but failed"
--						  " to enable MSI-X\n");
--			}
-+
-+		if (bnx2x_enable_msix(bp)) {
-+			/* failed to enable MSI-X */
-+			bp->num_queues = 1;
-+			if (use_multi)
-+				BNX2X_ERR("Multi requested but failed"
-+					  " to enable MSI-X\n");
- 		}
- 	}
--
--	DP(NETIF_MSG_IFUP, "set number of queues to %d\n", bp->num_queues);
-+	DP(NETIF_MSG_IFUP,
-+	   "set number of queues to %d\n", bp->num_queues);
- 
- 	if (bnx2x_alloc_mem(bp))
- 		return -ENOMEM;
- 
--	if (req_irq) {
--		if (bp->flags & USING_MSIX_FLAG) {
--			if (bnx2x_req_msix_irqs(bp)) {
--				pci_disable_msix(bp->pdev);
--				goto load_error;
--			}
-+	/* Disable interrupt handling until HW is initialized */
-+	atomic_set(&bp->intr_sem, 1);
- 
--		} else {
--			if (bnx2x_req_irq(bp)) {
--				BNX2X_ERR("IRQ request failed, aborting\n");
--				goto load_error;
--			}
-+	if (bp->flags & USING_MSIX_FLAG) {
-+		rc = bnx2x_req_msix_irqs(bp);
-+		if (rc) {
-+			pci_disable_msix(bp->pdev);
-+			goto load_error;
-+		}
-+	} else {
-+		bnx2x_ack_int(bp);
-+		rc = bnx2x_req_irq(bp);
-+		if (rc) {
-+			BNX2X_ERR("IRQ request failed, aborting\n");
-+			goto load_error;
- 		}
- 	}
- 
-@@ -4714,26 +5316,25 @@ static int bnx2x_nic_load(struct bnx2x *bp, int req_irq)
- 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
- 			       bnx2x_poll, 128);
- 
--
- 	/* Initialize HW */
--	if (bnx2x_function_init(bp,
--				(load_code == FW_MSG_CODE_DRV_LOAD_COMMON))) {
-+	rc = bnx2x_init_hw(bp, load_code);
-+	if (rc) {
- 		BNX2X_ERR("HW init failed, aborting\n");
- 		goto load_error;
- 	}
- 
--
-+	/* Enable interrupt handling */
- 	atomic_set(&bp->intr_sem, 0);
- 
--
- 	/* Setup NIC internals and enable interrupts */
- 	bnx2x_nic_init(bp);
- 
- 	/* Send LOAD_DONE command to MCP */
--	if (!nomcp) {
-+	if (!BP_NOMCP(bp)) {
- 		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_DONE);
- 		if (!load_code) {
- 			BNX2X_ERR("MCP response failure, unloading\n");
-+			rc = -EBUSY;
- 			goto load_int_disable;
- 		}
- 	}
-@@ -4745,33 +5346,68 @@ static int bnx2x_nic_load(struct bnx2x *bp, int req_irq)
- 	for_each_queue(bp, i)
- 		napi_enable(&bnx2x_fp(bp, i, napi));
- 
--	if (bnx2x_setup_leading(bp))
-+	rc = bnx2x_setup_leading(bp);
-+	if (rc) {
-+#ifdef BNX2X_STOP_ON_ERROR
-+		bp->panic = 1;
-+#endif
- 		goto load_stop_netif;
-+	}
- 
--	for_each_nondefault_queue(bp, i)
--		if (bnx2x_setup_multi(bp, i))
--			goto load_stop_netif;
-+	if (CHIP_IS_E1H(bp))
-+		if (bp->mf_config & FUNC_MF_CFG_FUNC_DISABLED) {
-+			BNX2X_ERR("!!!  mf_cfg function disabled\n");
-+			bp->state = BNX2X_STATE_DISABLED;
-+		}
- 
--	bnx2x_set_mac_addr(bp);
-+	if (bp->state == BNX2X_STATE_OPEN)
-+		for_each_nondefault_queue(bp, i) {
-+			rc = bnx2x_setup_multi(bp, i);
-+			if (rc)
-+				goto load_stop_netif;
-+		}
-+
-+	if (CHIP_IS_E1(bp))
-+		bnx2x_set_mac_addr_e1(bp);
-+	else
-+		bnx2x_set_mac_addr_e1h(bp);
- 
--	bnx2x_initial_phy_init(bp);
-+	if (bp->port.pmf)
-+		bnx2x_initial_phy_init(bp);
- 
- 	/* Start fast path */
--	if (req_irq) { /* IRQ is only requested from bnx2x_open */
-+	switch (load_mode) {
-+	case LOAD_NORMAL:
-+		/* Tx queue should be only reenabled */
-+		netif_wake_queue(bp->dev);
-+		bnx2x_set_rx_mode(bp->dev);
-+		break;
-+
-+	case LOAD_OPEN:
-+		/* IRQ is only requested from bnx2x_open */
- 		netif_start_queue(bp->dev);
-+		bnx2x_set_rx_mode(bp->dev);
- 		if (bp->flags & USING_MSIX_FLAG)
- 			printk(KERN_INFO PFX "%s: using MSI-X\n",
- 			       bp->dev->name);
-+		break;
- 
--	/* Otherwise Tx queue should be only reenabled */
--	} else if (netif_running(bp->dev)) {
--		netif_wake_queue(bp->dev);
-+	case LOAD_DIAG:
- 		bnx2x_set_rx_mode(bp->dev);
-+		bp->state = BNX2X_STATE_DIAG;
-+		break;
-+
-+	default:
-+		break;
- 	}
- 
-+	if (!bp->port.pmf)
-+		bnx2x__link_status_update(bp);
-+
- 	/* start the timer */
- 	mod_timer(&bp->timer, jiffies + bp->current_interval);
- 
-+
- 	return 0;
- 
- load_stop_netif:
-@@ -4781,7 +5417,7 @@ load_stop_netif:
- load_int_disable:
- 	bnx2x_int_disable_sync(bp);
- 
--	bnx2x_free_skbs(bp);
-+	/* Release IRQs */
- 	bnx2x_free_irq(bp);
- 
- load_error:
-@@ -4789,95 +5425,50 @@ load_error:
- 
- 	/* TBD we really need to reset the chip
- 	   if we want to recover from this */
--	return -EBUSY;
--}
--
--
--static void bnx2x_reset_chip(struct bnx2x *bp, u32 reset_code)
--{
--	int port = bp->port;
--#ifdef USE_DMAE
--	u32 wb_write[2];
--#endif
--	int base, i;
--
--	DP(NETIF_MSG_IFDOWN, "reset called with code %x\n", reset_code);
--
--	/* Do not rcv packets to BRB */
--	REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK + port*4, 0x0);
--	/* Do not direct rcv packets that are not for MCP to the BRB */
--	REG_WR(bp, (port ? NIG_REG_LLH1_BRB1_NOT_MCP :
--			   NIG_REG_LLH0_BRB1_NOT_MCP), 0x0);
--
--	/* Configure IGU and AEU */
--	REG_WR(bp, HC_REG_CONFIG_0 + port*4, 0x1000);
--	REG_WR(bp, MISC_REG_AEU_MASK_ATTN_FUNC_0 + port*4, 0);
--
--	/* TODO: Close Doorbell port? */
--
--	/* Clear ILT */
--#ifdef USE_DMAE
--	wb_write[0] = 0;
--	wb_write[1] = 0;
--#endif
--	base = port * RQ_ONCHIP_AT_PORT_SIZE;
--	for (i = base; i < base + RQ_ONCHIP_AT_PORT_SIZE; i++) {
--#ifdef USE_DMAE
--		REG_WR_DMAE(bp, PXP2_REG_RQ_ONCHIP_AT + i*8, wb_write, 2);
--#else
--		REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT, 0);
--		REG_WR_IND(bp, PXP2_REG_RQ_ONCHIP_AT + 4, 0);
--#endif
--	}
--
--	if (reset_code == FW_MSG_CODE_DRV_UNLOAD_COMMON) {
--		/* reset_common */
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
--		       0xd3ffff7f);
--		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
--		       0x1403);
--	}
-+	return rc;
- }
- 
- static int bnx2x_stop_multi(struct bnx2x *bp, int index)
- {
--
- 	int rc;
- 
- 	/* halt the connection */
- 	bp->fp[index].state = BNX2X_FP_STATE_HALTING;
- 	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, index, 0, 0, 0);
- 
--
-+	/* Wait for completion */
- 	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, index,
--				       &(bp->fp[index].state), 1);
-+			       &(bp->fp[index].state), 1);
- 	if (rc) /* timeout */
- 		return rc;
- 
- 	/* delete cfc entry */
- 	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CFC_DEL, index, 0, 0, 1);
- 
--	return bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_CLOSED, index,
--				 &(bp->fp[index].state), 1);
--
-+	/* Wait for completion */
-+	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_CLOSED, index,
-+			       &(bp->fp[index].state), 1);
-+	return rc;
- }
- 
--
- static void bnx2x_stop_leading(struct bnx2x *bp)
- {
- 	u16 dsb_sp_prod_idx;
- 	/* if the other port is handling traffic,
- 	   this can take a lot of time */
--	int timeout = 500;
-+	int cnt = 500;
-+	int rc;
- 
- 	might_sleep();
- 
- 	/* Send HALT ramrod */
- 	bp->fp[0].state = BNX2X_FP_STATE_HALTING;
--	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, 0, 0, 0, 0);
-+	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, 0, 0, BP_CL_ID(bp), 0);
- 
--	if (bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, 0,
--			       &(bp->fp[0].state), 1))
-+	/* Wait for completion */
-+	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, 0,
-+			       &(bp->fp[0].state), 1);
-+	if (rc) /* timeout */
- 		return;
- 
- 	dsb_sp_prod_idx = *bp->dsb_sp_prod;
-@@ -4889,29 +5480,110 @@ static void bnx2x_stop_leading(struct bnx2x *bp)
- 	   we are going to reset the chip anyway
- 	   so there is not much to do if this times out
- 	 */
--	while ((dsb_sp_prod_idx == *bp->dsb_sp_prod) && timeout) {
--		timeout--;
-+	while (dsb_sp_prod_idx == *bp->dsb_sp_prod) {
- 		msleep(1);
--	}
--	if (!timeout) {
--		DP(NETIF_MSG_IFDOWN, "timeout polling for completion "
--		   "dsb_sp_prod 0x%x != dsb_sp_prod_idx 0x%x\n",
--		   *bp->dsb_sp_prod, dsb_sp_prod_idx);
-+		if (!cnt) {
-+			DP(NETIF_MSG_IFDOWN, "timeout waiting for port del "
-+			   "dsb_sp_prod 0x%x != dsb_sp_prod_idx 0x%x\n",
-+			   *bp->dsb_sp_prod, dsb_sp_prod_idx);
-+#ifdef BNX2X_STOP_ON_ERROR
-+			bnx2x_panic();
-+#endif
-+			break;
-+		}
-+		cnt--;
- 	}
- 	bp->state = BNX2X_STATE_CLOSING_WAIT4_UNLOAD;
- 	bp->fp[0].state = BNX2X_FP_STATE_CLOSED;
- }
- 
-+static void bnx2x_reset_func(struct bnx2x *bp)
-+{
-+	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
-+	int base, i;
-+
-+	/* Configure IGU */
-+	REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, 0);
-+	REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, 0);
-+
-+	REG_WR(bp, HC_REG_CONFIG_0 + port*4, 0x1000);
-+
-+	/* Clear ILT */
-+	base = FUNC_ILT_BASE(func);
-+	for (i = base; i < base + ILT_PER_FUNC; i++)
-+		bnx2x_ilt_wr(bp, i, 0);
-+}
-+
-+static void bnx2x_reset_port(struct bnx2x *bp)
-+{
-+	int port = BP_PORT(bp);
-+	u32 val;
-+
-+	REG_WR(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4, 0);
-+
-+	/* Do not rcv packets to BRB */
-+	REG_WR(bp, NIG_REG_LLH0_BRB1_DRV_MASK + port*4, 0x0);
-+	/* Do not direct rcv packets that are not for MCP to the BRB */
-+	REG_WR(bp, (port ? NIG_REG_LLH1_BRB1_NOT_MCP :
-+			   NIG_REG_LLH0_BRB1_NOT_MCP), 0x0);
-+
-+	/* Configure AEU */
-+	REG_WR(bp, MISC_REG_AEU_MASK_ATTN_FUNC_0 + port*4, 0);
-+
-+	msleep(100);
-+	/* Check for BRB port occupancy */
-+	val = REG_RD(bp, BRB1_REG_PORT_NUM_OCC_BLOCKS_0 + port*4);
-+	if (val)
-+		DP(NETIF_MSG_IFDOWN,
-+		   "BRB1 is not empty  %d blooks are occupied\n", val);
-+
-+	/* TODO: Close Doorbell port? */
-+}
-+
-+static void bnx2x_reset_common(struct bnx2x *bp)
-+{
-+	/* reset_common */
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
-+	       0xd3ffff7f);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR, 0x1403);
-+}
- 
--static int bnx2x_nic_unload(struct bnx2x *bp, int free_irq)
-+static void bnx2x_reset_chip(struct bnx2x *bp, u32 reset_code)
-+{
-+	DP(BNX2X_MSG_MCP, "function %d  reset_code %x\n",
-+	   BP_FUNC(bp), reset_code);
-+
-+	switch (reset_code) {
-+	case FW_MSG_CODE_DRV_UNLOAD_COMMON:
-+		bnx2x_reset_port(bp);
-+		bnx2x_reset_func(bp);
-+		bnx2x_reset_common(bp);
-+		break;
-+
-+	case FW_MSG_CODE_DRV_UNLOAD_PORT:
-+		bnx2x_reset_port(bp);
-+		bnx2x_reset_func(bp);
-+		break;
-+
-+	case FW_MSG_CODE_DRV_UNLOAD_FUNCTION:
-+		bnx2x_reset_func(bp);
-+		break;
-+
-+	default:
-+		BNX2X_ERR("Unknown reset_code (0x%x) from MCP\n", reset_code);
-+		break;
-+	}
-+}
-+
-+/* msut be called with rtnl_lock */
-+static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- {
- 	u32 reset_code = 0;
--	int i, timeout;
-+	int i, cnt;
- 
- 	bp->state = BNX2X_STATE_CLOSING_WAIT4_HALT;
- 
--	del_timer_sync(&bp->timer);
--
- 	bp->rx_mode = BNX2X_RX_MODE_NONE;
- 	bnx2x_set_storm_rx_mode(bp);
- 
-@@ -4920,21 +5592,44 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int free_irq)
- 		bp->dev->trans_start = jiffies;	/* prevent tx timeout */
- 	}
- 
-+	del_timer_sync(&bp->timer);
-+	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
-+		 (DRV_PULSE_ALWAYS_ALIVE | bp->fw_drv_pulse_wr_seq));
-+
- 	/* Wait until all fast path tasks complete */
- 	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
--		timeout = 1000;
--		while (bnx2x_has_work(fp) && (timeout--))
-+#ifdef BNX2X_STOP_ON_ERROR
-+#ifdef __powerpc64__
-+		DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
-+#else
-+		DP(NETIF_MSG_IFDOWN, "fp->tpa_queue_used = 0x%llx\n",
-+#endif
-+		   fp->tpa_queue_used);
-+#endif
-+		cnt = 1000;
-+		smp_rmb();
-+		while (bnx2x_has_work(fp)) {
- 			msleep(1);
--		if (!timeout)
--			BNX2X_ERR("timeout waiting for queue[%d]\n", i);
-+			if (!cnt) {
-+				BNX2X_ERR("timeout waiting for queue[%d]\n",
-+					  i);
-+#ifdef BNX2X_STOP_ON_ERROR
-+				bnx2x_panic();
-+				return -EBUSY;
-+#else
-+				break;
-+#endif
-+			}
-+			cnt--;
-+			smp_rmb();
-+		}
- 	}
- 
--	/* Wait until stat ramrod returns and all SP tasks complete */
--	timeout = 1000;
--	while ((bp->stat_pending || (bp->spq_left != MAX_SPQ_PENDING)) &&
--	       (timeout--))
-+	/* Wait until all slow path tasks complete */
-+	cnt = 1000;
-+	while ((bp->spq_left != MAX_SPQ_PENDING) && cnt--)
- 		msleep(1);
- 
- 	for_each_queue(bp, i)
-@@ -4942,59 +5637,84 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int free_irq)
- 	/* Disable interrupts after Tx and Rx are disabled on stack level */
- 	bnx2x_int_disable_sync(bp);
- 
-+	/* Release IRQs */
-+	bnx2x_free_irq(bp);
-+
- 	if (bp->flags & NO_WOL_FLAG)
- 		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP;
- 
- 	else if (bp->wol) {
--		u32 emac_base = bp->port ? GRCBASE_EMAC0 : GRCBASE_EMAC1;
-+		u32 emac_base = BP_PORT(bp) ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
- 		u8 *mac_addr = bp->dev->dev_addr;
--		u32 val = (EMAC_MODE_MPKT | EMAC_MODE_MPKT_RCVD |
--			   EMAC_MODE_ACPI_RCVD);
--
--		EMAC_WR(EMAC_REG_EMAC_MODE, val);
-+		u32 val;
- 
-+		/* The mac address is written to entries 1-4 to
-+		   preserve entry 0 which is used by the PMF */
- 		val = (mac_addr[0] << 8) | mac_addr[1];
--		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH, val);
-+		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH + (BP_E1HVN(bp) + 1)*8, val);
- 
- 		val = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
- 		      (mac_addr[4] << 8) | mac_addr[5];
--		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH + 4, val);
-+		EMAC_WR(EMAC_REG_EMAC_MAC_MATCH + (BP_E1HVN(bp) + 1)*8 + 4,
-+			val);
- 
- 		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_EN;
- 
- 	} else
- 		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
- 
--	/* Close multi and leading connections */
-+	/* Close multi and leading connections
-+	   Completions for ramrods are collected in a synchronous way */
- 	for_each_nondefault_queue(bp, i)
- 		if (bnx2x_stop_multi(bp, i))
- 			goto unload_error;
- 
-+	if (CHIP_IS_E1H(bp))
-+		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + BP_PORT(bp)*8, 0);
-+
- 	bnx2x_stop_leading(bp);
-+#ifdef BNX2X_STOP_ON_ERROR
-+	/* If ramrod completion timed out - break here! */
-+	if (bp->panic) {
-+		BNX2X_ERR("Stop leading failed!\n");
-+		return -EBUSY;
-+	}
-+#endif
-+
- 	if ((bp->state != BNX2X_STATE_CLOSING_WAIT4_UNLOAD) ||
- 	    (bp->fp[0].state != BNX2X_FP_STATE_CLOSED)) {
--		DP(NETIF_MSG_IFDOWN, "failed to close leading properly!"
--		   "state 0x%x  fp[0].state 0x%x",
-+		DP(NETIF_MSG_IFDOWN, "failed to close leading properly!  "
-+		   "state 0x%x  fp[0].state 0x%x\n",
- 		   bp->state, bp->fp[0].state);
- 	}
- 
- unload_error:
--	bnx2x__link_reset(bp);
--
--	if (!nomcp)
-+	if (!BP_NOMCP(bp))
- 		reset_code = bnx2x_fw_command(bp, reset_code);
--	else
--		reset_code = FW_MSG_CODE_DRV_UNLOAD_COMMON;
-+	else {
-+		DP(NETIF_MSG_IFDOWN, "NO MCP load counts      %d, %d, %d\n",
-+		   load_count[0], load_count[1], load_count[2]);
-+		load_count[0]--;
-+		load_count[1 + BP_PORT(bp)]--;
-+		DP(NETIF_MSG_IFDOWN, "NO MCP new load counts  %d, %d, %d\n",
-+		   load_count[0], load_count[1], load_count[2]);
-+		if (load_count[0] == 0)
-+			reset_code = FW_MSG_CODE_DRV_UNLOAD_COMMON;
-+		else if (load_count[1 + BP_PORT(bp)] == 0)
-+			reset_code = FW_MSG_CODE_DRV_UNLOAD_PORT;
-+		else
-+			reset_code = FW_MSG_CODE_DRV_UNLOAD_FUNCTION;
-+	}
- 
--	/* Release IRQs */
--	if (free_irq)
--		bnx2x_free_irq(bp);
-+	if ((reset_code == FW_MSG_CODE_DRV_UNLOAD_COMMON) ||
-+	    (reset_code == FW_MSG_CODE_DRV_UNLOAD_PORT))
-+		bnx2x__link_reset(bp);
- 
- 	/* Reset the chip */
- 	bnx2x_reset_chip(bp, reset_code);
- 
- 	/* Report UNLOAD_DONE to MCP */
--	if (!nomcp)
-+	if (!BP_NOMCP(bp))
- 		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
- 
- 	/* Free SKBs and driver internals */
-@@ -5008,6 +5728,29 @@ unload_error:
- 	return 0;
- }
- 
-+static void bnx2x_reset_task(struct work_struct *work)
-+{
-+	struct bnx2x *bp = container_of(work, struct bnx2x, reset_task);
-+
-+#ifdef BNX2X_STOP_ON_ERROR
-+	BNX2X_ERR("reset task called but STOP_ON_ERROR defined"
-+		  " so reset not done to allow debug dump,\n"
-+	 KERN_ERR " you will need to reboot when done\n");
-+	return;
-+#endif
-+
-+	rtnl_lock();
-+
-+	if (!netif_running(bp->dev))
-+		goto reset_task_exit;
-+
-+	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-+	bnx2x_nic_load(bp, LOAD_NORMAL);
-+
-+reset_task_exit:
-+	rtnl_unlock();
-+}
-+
- /* end of nic load/unload */
- 
- /* ethtool_ops */
-@@ -5016,9 +5759,139 @@ unload_error:
-  * Init service functions
-  */
- 
--static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
-+static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
-+{
-+	u32 val;
-+
-+	/* Check if there is any driver already loaded */
-+	val = REG_RD(bp, MISC_REG_UNPREPARED);
-+	if (val == 0x1) {
-+		/* Check if it is the UNDI driver
-+		 * UNDI driver initializes CID offset for normal bell to 0x7
-+		 */
-+		val = REG_RD(bp, DORQ_REG_NORM_CID_OFST);
-+		if (val == 0x7) {
-+			u32 reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
-+			/* save our func and fw_seq */
-+			int func = BP_FUNC(bp);
-+			u16 fw_seq = bp->fw_seq;
-+
-+			BNX2X_DEV_INFO("UNDI is active! reset device\n");
-+
-+			/* try unload UNDI on port 0 */
-+			bp->func = 0;
-+			bp->fw_seq = (SHMEM_RD(bp,
-+					     func_mb[bp->func].drv_mb_header) &
-+				      DRV_MSG_SEQ_NUMBER_MASK);
-+
-+			reset_code = bnx2x_fw_command(bp, reset_code);
-+			bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
-+
-+			/* if UNDI is loaded on the other port */
-+			if (reset_code != FW_MSG_CODE_DRV_UNLOAD_COMMON) {
-+
-+				bp->func = 1;
-+				bp->fw_seq = (SHMEM_RD(bp,
-+					     func_mb[bp->func].drv_mb_header) &
-+					      DRV_MSG_SEQ_NUMBER_MASK);
-+
-+				bnx2x_fw_command(bp,
-+					     DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS);
-+				bnx2x_fw_command(bp,
-+						 DRV_MSG_CODE_UNLOAD_DONE);
-+
-+				/* restore our func and fw_seq */
-+				bp->func = func;
-+				bp->fw_seq = fw_seq;
-+			}
-+
-+			/* reset device */
-+			REG_WR(bp,
-+			       GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_CLEAR,
-+			       0xd3ffff7f);
-+			REG_WR(bp,
-+			       GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
-+			       0x1403);
-+		}
-+	}
-+}
-+
-+static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
-+{
-+	u32 val, val2, val3, val4, id;
-+
-+	/* Get the chip revision id and number. */
-+	/* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
-+	val = REG_RD(bp, MISC_REG_CHIP_NUM);
-+	id = ((val & 0xffff) << 16);
-+	val = REG_RD(bp, MISC_REG_CHIP_REV);
-+	id |= ((val & 0xf) << 12);
-+	val = REG_RD(bp, MISC_REG_CHIP_METAL);
-+	id |= ((val & 0xff) << 4);
-+	REG_RD(bp, MISC_REG_BOND_ID);
-+	id |= (val & 0xf);
-+	bp->common.chip_id = id;
-+	bp->link_params.chip_id = bp->common.chip_id;
-+	BNX2X_DEV_INFO("chip ID is 0x%x\n", id);
-+
-+	val = REG_RD(bp, MCP_REG_MCPR_NVM_CFG4);
-+	bp->common.flash_size = (NVRAM_1MB_SIZE <<
-+				 (val & MCPR_NVM_CFG4_FLASH_SIZE));
-+	BNX2X_DEV_INFO("flash_size 0x%x (%d)\n",
-+		       bp->common.flash_size, bp->common.flash_size);
-+
-+	bp->common.shmem_base = REG_RD(bp, MISC_REG_SHARED_MEM_ADDR);
-+	bp->link_params.shmem_base = bp->common.shmem_base;
-+	BNX2X_DEV_INFO("shmem offset is 0x%x\n", bp->common.shmem_base);
-+
-+	if (!bp->common.shmem_base ||
-+	    (bp->common.shmem_base < 0xA0000) ||
-+	    (bp->common.shmem_base >= 0xC0000)) {
-+		BNX2X_DEV_INFO("MCP not active\n");
-+		bp->flags |= NO_MCP_FLAG;
-+		return;
-+	}
-+
-+	val = SHMEM_RD(bp, validity_map[BP_PORT(bp)]);
-+	if ((val & (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
-+		!= (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
-+		BNX2X_ERR("BAD MCP validity signature\n");
-+
-+	bp->common.hw_config = SHMEM_RD(bp, dev_info.shared_hw_config.config);
-+	bp->common.board = SHMEM_RD(bp, dev_info.shared_hw_config.board);
-+
-+	BNX2X_DEV_INFO("hw_config 0x%08x  board 0x%08x\n",
-+		       bp->common.hw_config, bp->common.board);
-+
-+	bp->link_params.hw_led_mode = ((bp->common.hw_config &
-+					SHARED_HW_CFG_LED_MODE_MASK) >>
-+				       SHARED_HW_CFG_LED_MODE_SHIFT);
-+
-+	val = SHMEM_RD(bp, dev_info.bc_rev) >> 8;
-+	bp->common.bc_ver = val;
-+	BNX2X_DEV_INFO("bc_ver %X\n", val);
-+	if (val < BNX2X_BC_VER) {
-+		/* for now only warn
-+		 * later we might need to enforce this */
-+		BNX2X_ERR("This driver needs bc_ver %X but found %X,"
-+			  " please upgrade BC\n", BNX2X_BC_VER, val);
-+	}
-+	BNX2X_DEV_INFO("%sWoL Capable\n",
-+		       (bp->flags & NO_WOL_FLAG)? "Not " : "");
-+
-+	val = SHMEM_RD(bp, dev_info.shared_hw_config.part_num);
-+	val2 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[4]);
-+	val3 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[8]);
-+	val4 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[12]);
-+
-+	printk(KERN_INFO PFX "part number %X-%X-%X-%X\n",
-+	       val, val2, val3, val4);
-+}
-+
-+static void __devinit bnx2x_link_settings_supported(struct bnx2x *bp,
-+						    u32 switch_cfg)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	u32 ext_phy_type;
- 
- 	switch (switch_cfg) {
-@@ -5032,31 +5905,33 @@ static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (Direct)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10baseT_Half |
--					  SUPPORTED_10baseT_Full |
--					  SUPPORTED_100baseT_Half |
--					  SUPPORTED_100baseT_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_2500baseX_Full |
--					  SUPPORTED_TP | SUPPORTED_FIBRE |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10baseT_Half |
-+					       SUPPORTED_10baseT_Full |
-+					       SUPPORTED_100baseT_Half |
-+					       SUPPORTED_100baseT_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_2500baseX_Full |
-+					       SUPPORTED_TP |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (5482)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10baseT_Half |
--					  SUPPORTED_10baseT_Full |
--					  SUPPORTED_100baseT_Half |
--					  SUPPORTED_100baseT_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_TP | SUPPORTED_FIBRE |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10baseT_Half |
-+					       SUPPORTED_10baseT_Full |
-+					       SUPPORTED_100baseT_Half |
-+					       SUPPORTED_100baseT_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_TP |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		default:
-@@ -5066,9 +5941,9 @@ static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
- 			return;
- 		}
- 
--		bp->phy_addr = REG_RD(bp, NIG_REG_SERDES0_CTRL_PHY_ADDR +
--				      port*0x10);
--		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->phy_addr);
-+		bp->port.phy_addr = REG_RD(bp, NIG_REG_SERDES0_CTRL_PHY_ADDR +
-+					   port*0x10);
-+		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->port.phy_addr);
- 		break;
- 
- 	case SWITCH_CFG_10G:
-@@ -5081,75 +5956,75 @@ static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (Direct)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10baseT_Half |
--					  SUPPORTED_10baseT_Full |
--					  SUPPORTED_100baseT_Half |
--					  SUPPORTED_100baseT_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_2500baseX_Full |
--					  SUPPORTED_10000baseT_Full |
--					  SUPPORTED_TP | SUPPORTED_FIBRE |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10baseT_Half |
-+					       SUPPORTED_10baseT_Full |
-+					       SUPPORTED_100baseT_Half |
-+					       SUPPORTED_100baseT_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_2500baseX_Full |
-+					       SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_TP |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (8705)\n",
--					ext_phy_type);
-+				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10000baseT_Full |
--					  SUPPORTED_FIBRE |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (8706)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10000baseT_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_FIBRE |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (8072)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10000baseT_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_FIBRE |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (8073)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10000baseT_Full |
--					  SUPPORTED_2500baseX_Full |
--					  SUPPORTED_1000baseT_Full |
--					  SUPPORTED_FIBRE |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_2500baseX_Full |
-+					       SUPPORTED_1000baseT_Full |
-+					       SUPPORTED_FIBRE |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
- 			BNX2X_DEV_INFO("ext_phy_type 0x%x (SFX7101)\n",
- 				       ext_phy_type);
- 
--			bp->supported |= (SUPPORTED_10000baseT_Full |
--					  SUPPORTED_TP |
--					  SUPPORTED_Autoneg |
--					  SUPPORTED_Pause |
--					  SUPPORTED_Asym_Pause);
-+			bp->port.supported |= (SUPPORTED_10000baseT_Full |
-+					       SUPPORTED_TP |
-+					       SUPPORTED_Autoneg |
-+					       SUPPORTED_Pause |
-+					       SUPPORTED_Asym_Pause);
- 			break;
- 
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
-@@ -5164,61 +6039,61 @@ static void bnx2x_link_settings_supported(struct bnx2x *bp, u32 switch_cfg)
- 			return;
- 		}
- 
--		bp->phy_addr = REG_RD(bp, NIG_REG_XGXS0_CTRL_PHY_ADDR +
--				      port*0x18);
--		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->phy_addr);
-+		bp->port.phy_addr = REG_RD(bp, NIG_REG_XGXS0_CTRL_PHY_ADDR +
-+					   port*0x18);
-+		BNX2X_DEV_INFO("phy_addr 0x%x\n", bp->port.phy_addr);
- 
- 		break;
- 
- 	default:
- 		BNX2X_ERR("BAD switch_cfg link_config 0x%x\n",
--			  bp->link_config);
-+			  bp->port.link_config);
- 		return;
- 	}
--	bp->link_params.phy_addr = bp->phy_addr;
-+	bp->link_params.phy_addr = bp->port.phy_addr;
- 
- 	/* mask what we support according to speed_cap_mask */
- 	if (!(bp->link_params.speed_cap_mask &
- 				PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_HALF))
--		bp->supported &= ~SUPPORTED_10baseT_Half;
-+		bp->port.supported &= ~SUPPORTED_10baseT_Half;
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 				PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL))
--		bp->supported &= ~SUPPORTED_10baseT_Full;
-+		bp->port.supported &= ~SUPPORTED_10baseT_Full;
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 				PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF))
--		bp->supported &= ~SUPPORTED_100baseT_Half;
-+		bp->port.supported &= ~SUPPORTED_100baseT_Half;
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 				PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_FULL))
--		bp->supported &= ~SUPPORTED_100baseT_Full;
-+		bp->port.supported &= ~SUPPORTED_100baseT_Full;
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 					PORT_HW_CFG_SPEED_CAPABILITY_D0_1G))
--		bp->supported &= ~(SUPPORTED_1000baseT_Half |
--				   SUPPORTED_1000baseT_Full);
-+		bp->port.supported &= ~(SUPPORTED_1000baseT_Half |
-+					SUPPORTED_1000baseT_Full);
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 					PORT_HW_CFG_SPEED_CAPABILITY_D0_2_5G))
--		bp->supported &= ~SUPPORTED_2500baseX_Full;
-+		bp->port.supported &= ~SUPPORTED_2500baseX_Full;
- 
- 	if (!(bp->link_params.speed_cap_mask &
- 					PORT_HW_CFG_SPEED_CAPABILITY_D0_10G))
--		bp->supported &= ~SUPPORTED_10000baseT_Full;
-+		bp->port.supported &= ~SUPPORTED_10000baseT_Full;
- 
--	BNX2X_DEV_INFO("supported 0x%x\n", bp->supported);
-+	BNX2X_DEV_INFO("supported 0x%x\n", bp->port.supported);
- }
- 
--static void bnx2x_link_settings_requested(struct bnx2x *bp)
-+static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- {
- 	bp->link_params.req_duplex = DUPLEX_FULL;
- 
--	switch (bp->link_config & PORT_FEATURE_LINK_SPEED_MASK) {
-+	switch (bp->port.link_config & PORT_FEATURE_LINK_SPEED_MASK) {
- 	case PORT_FEATURE_LINK_SPEED_AUTO:
--		if (bp->supported & SUPPORTED_Autoneg) {
-+		if (bp->port.supported & SUPPORTED_Autoneg) {
- 			bp->link_params.req_line_speed = SPEED_AUTO_NEG;
--			bp->advertising = bp->supported;
-+			bp->port.advertising = bp->port.supported;
- 		} else {
- 			u32 ext_phy_type =
- 			    XGXS_EXT_PHY_TYPE(bp->link_params.ext_phy_config);
-@@ -5229,7 +6104,7 @@ static void bnx2x_link_settings_requested(struct bnx2x *bp)
- 			     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706)) {
- 				/* force 10G, no AN */
- 				bp->link_params.req_line_speed = SPEED_10000;
--				bp->advertising =
-+				bp->port.advertising =
- 						(ADVERTISED_10000baseT_Full |
- 						 ADVERTISED_FIBRE);
- 				break;
-@@ -5237,98 +6112,98 @@ static void bnx2x_link_settings_requested(struct bnx2x *bp)
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  Autoneg not supported\n",
--				  bp->link_config);
-+				  bp->port.link_config);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_10M_FULL:
--		if (bp->supported & SUPPORTED_10baseT_Full) {
-+		if (bp->port.supported & SUPPORTED_10baseT_Full) {
- 			bp->link_params.req_line_speed = SPEED_10;
--			bp->advertising = (ADVERTISED_10baseT_Full |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_10baseT_Full |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_10M_HALF:
--		if (bp->supported & SUPPORTED_10baseT_Half) {
-+		if (bp->port.supported & SUPPORTED_10baseT_Half) {
- 			bp->link_params.req_line_speed = SPEED_10;
- 			bp->link_params.req_duplex = DUPLEX_HALF;
--			bp->advertising = (ADVERTISED_10baseT_Half |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_10baseT_Half |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_100M_FULL:
--		if (bp->supported & SUPPORTED_100baseT_Full) {
-+		if (bp->port.supported & SUPPORTED_100baseT_Full) {
- 			bp->link_params.req_line_speed = SPEED_100;
--			bp->advertising = (ADVERTISED_100baseT_Full |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_100baseT_Full |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_100M_HALF:
--		if (bp->supported & SUPPORTED_100baseT_Half) {
-+		if (bp->port.supported & SUPPORTED_100baseT_Half) {
- 			bp->link_params.req_line_speed = SPEED_100;
- 			bp->link_params.req_duplex = DUPLEX_HALF;
--			bp->advertising = (ADVERTISED_100baseT_Half |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_100baseT_Half |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_1G:
--		if (bp->supported & SUPPORTED_1000baseT_Full) {
-+		if (bp->port.supported & SUPPORTED_1000baseT_Full) {
- 			bp->link_params.req_line_speed = SPEED_1000;
--			bp->advertising = (ADVERTISED_1000baseT_Full |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_1000baseT_Full |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
- 		break;
- 
- 	case PORT_FEATURE_LINK_SPEED_2_5G:
--		if (bp->supported & SUPPORTED_2500baseX_Full) {
-+		if (bp->port.supported & SUPPORTED_2500baseX_Full) {
- 			bp->link_params.req_line_speed = SPEED_2500;
--			bp->advertising = (ADVERTISED_2500baseX_Full |
--					   ADVERTISED_TP);
-+			bp->port.advertising = (ADVERTISED_2500baseX_Full |
-+						ADVERTISED_TP);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
-@@ -5337,15 +6212,15 @@ static void bnx2x_link_settings_requested(struct bnx2x *bp)
- 	case PORT_FEATURE_LINK_SPEED_10G_CX4:
- 	case PORT_FEATURE_LINK_SPEED_10G_KX4:
- 	case PORT_FEATURE_LINK_SPEED_10G_KR:
--		if (bp->supported & SUPPORTED_10000baseT_Full) {
-+		if (bp->port.supported & SUPPORTED_10000baseT_Full) {
- 			bp->link_params.req_line_speed = SPEED_10000;
--			bp->advertising = (ADVERTISED_10000baseT_Full |
--					   ADVERTISED_FIBRE);
-+			bp->port.advertising = (ADVERTISED_10000baseT_Full |
-+						ADVERTISED_FIBRE);
- 		} else {
- 			BNX2X_ERR("NVRAM config error. "
- 				  "Invalid link_config 0x%x"
- 				  "  speed_cap_mask 0x%x\n",
--				  bp->link_config,
-+				  bp->port.link_config,
- 				  bp->link_params.speed_cap_mask);
- 			return;
- 		}
-@@ -5354,64 +6229,33 @@ static void bnx2x_link_settings_requested(struct bnx2x *bp)
- 	default:
- 		BNX2X_ERR("NVRAM config error. "
- 			  "BAD link speed link_config 0x%x\n",
--			  bp->link_config);
-+			  bp->port.link_config);
- 		bp->link_params.req_line_speed = SPEED_AUTO_NEG;
--		bp->advertising = bp->supported;
-+		bp->port.advertising = bp->port.supported;
- 		break;
- 	}
- 
--	bp->link_params.req_flow_ctrl = (bp->link_config &
--			     PORT_FEATURE_FLOW_CONTROL_MASK);
-+	bp->link_params.req_flow_ctrl = (bp->port.link_config &
-+					 PORT_FEATURE_FLOW_CONTROL_MASK);
- 	if ((bp->link_params.req_flow_ctrl == FLOW_CTRL_AUTO) &&
--	    (!bp->supported & SUPPORTED_Autoneg))
-+	    (!bp->port.supported & SUPPORTED_Autoneg))
- 		bp->link_params.req_flow_ctrl = FLOW_CTRL_NONE;
- 
- 	BNX2X_DEV_INFO("req_line_speed %d  req_duplex %d  req_flow_ctrl 0x%x"
- 		       "  advertising 0x%x\n",
- 		       bp->link_params.req_line_speed,
- 		       bp->link_params.req_duplex,
--		       bp->link_params.req_flow_ctrl, bp->advertising);
-+		       bp->link_params.req_flow_ctrl, bp->port.advertising);
- }
- 
--static void bnx2x_get_hwinfo(struct bnx2x *bp)
-+static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- {
--	u32 val, val2, val3, val4, id;
--	int port = bp->port;
--
--	bp->shmem_base = REG_RD(bp, MISC_REG_SHARED_MEM_ADDR);
--	BNX2X_DEV_INFO("shmem offset is %x\n", bp->shmem_base);
--
--	/* Get the chip revision id and number. */
--	/* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
--	val = REG_RD(bp, MISC_REG_CHIP_NUM);
--	id = ((val & 0xffff) << 16);
--	val = REG_RD(bp, MISC_REG_CHIP_REV);
--	id |= ((val & 0xf) << 12);
--	val = REG_RD(bp, MISC_REG_CHIP_METAL);
--	id |= ((val & 0xff) << 4);
--	REG_RD(bp, MISC_REG_BOND_ID);
--	id |= (val & 0xf);
--	bp->chip_id = id;
--	BNX2X_DEV_INFO("chip ID is %x\n", id);
-+	int port = BP_PORT(bp);
-+	u32 val, val2;
- 
- 	bp->link_params.bp = bp;
-+	bp->link_params.port = port;
- 
--	if (!bp->shmem_base || (bp->shmem_base != 0xAF900)) {
--		BNX2X_DEV_INFO("MCP not active\n");
--		nomcp = 1;
--		goto set_mac;
--	}
--
--	val = SHMEM_RD(bp, validity_map[port]);
--	if ((val & (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
--		!= (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
--		BNX2X_ERR("BAD MCP validity signature\n");
--
--	bp->fw_seq = (SHMEM_RD(bp, func_mb[port].drv_mb_header) &
--		      DRV_MSG_SEQ_NUMBER_MASK);
--
--	bp->hw_config = SHMEM_RD(bp, dev_info.shared_hw_config.config);
--	bp->board = SHMEM_RD(bp, dev_info.shared_hw_config.board);
- 	bp->link_params.serdes_config =
- 		SHMEM_RD(bp, dev_info.port_hw_config[port].serdes_config);
- 	bp->link_params.lane_config =
-@@ -5423,19 +6267,18 @@ static void bnx2x_get_hwinfo(struct bnx2x *bp)
- 		SHMEM_RD(bp,
- 			 dev_info.port_hw_config[port].speed_capability_mask);
- 
--	bp->link_config =
-+	bp->port.link_config =
- 		SHMEM_RD(bp, dev_info.port_feature_config[port].link_config);
- 
--	BNX2X_DEV_INFO("serdes_config (%08x)  lane_config (%08x)\n"
--	     KERN_INFO "  ext_phy_config (%08x)  speed_cap_mask (%08x)"
--		       "  link_config (%08x)\n",
-+	BNX2X_DEV_INFO("serdes_config 0x%08x  lane_config 0x%08x\n"
-+	     KERN_INFO "  ext_phy_config 0x%08x  speed_cap_mask 0x%08x"
-+		       "  link_config 0x%08x\n",
- 		       bp->link_params.serdes_config,
- 		       bp->link_params.lane_config,
- 		       bp->link_params.ext_phy_config,
--		       bp->link_params.speed_cap_mask,
--		       bp->link_config);
-+		       bp->link_params.speed_cap_mask, bp->port.link_config);
- 
--	bp->link_params.switch_cfg = (bp->link_config &
-+	bp->link_params.switch_cfg = (bp->port.link_config &
- 				      PORT_FEATURE_CONNECTED_SWITCH_MASK);
- 	bnx2x_link_settings_supported(bp, bp->link_params.switch_cfg);
- 
-@@ -5451,43 +6294,126 @@ static void bnx2x_get_hwinfo(struct bnx2x *bp)
- 	bp->dev->dev_addr[5] = (u8)(val & 0xff);
- 	memcpy(bp->link_params.mac_addr, bp->dev->dev_addr, ETH_ALEN);
- 	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, ETH_ALEN);
-+}
- 
-+static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
-+{
-+	int func = BP_FUNC(bp);
-+	u32 val, val2;
-+	int rc = 0;
- 
-+	bnx2x_get_common_hwinfo(bp);
- 
--	val = SHMEM_RD(bp, dev_info.shared_hw_config.part_num);
--	val2 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[4]);
--	val3 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[8]);
--	val4 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[12]);
-+	bp->e1hov = 0;
-+	bp->e1hmf = 0;
-+	if (CHIP_IS_E1H(bp)) {
-+		bp->mf_config =
-+			SHMEM_RD(bp, mf_cfg.func_mf_config[func].config);
- 
--	printk(KERN_INFO PFX "part number %X-%X-%X-%X\n",
--	       val, val2, val3, val4);
-+		val =
-+		   (SHMEM_RD(bp, mf_cfg.func_mf_config[func].e1hov_tag) &
-+		    FUNC_MF_CFG_E1HOV_TAG_MASK);
-+		if (val != FUNC_MF_CFG_E1HOV_TAG_DEFAULT) {
- 
--	/* bc ver */
--	if (!nomcp) {
--		bp->bc_ver = val = ((SHMEM_RD(bp, dev_info.bc_rev)) >> 8);
--		BNX2X_DEV_INFO("bc_ver %X\n", val);
--		if (val < BNX2X_BC_VER) {
--			/* for now only warn
--			 * later we might need to enforce this */
--			BNX2X_ERR("This driver needs bc_ver %X but found %X,"
--				  " please upgrade BC\n", BNX2X_BC_VER, val);
-+			bp->e1hov = val;
-+			bp->e1hmf = 1;
-+			BNX2X_DEV_INFO("MF mode  E1HOV for func %d is %d "
-+				       "(0x%04x)\n",
-+				       func, bp->e1hov, bp->e1hov);
-+		} else {
-+			BNX2X_DEV_INFO("Single function mode\n");
-+			if (BP_E1HVN(bp)) {
-+				BNX2X_ERR("!!!  No valid E1HOV for func %d,"
-+					  "  aborting\n", func);
-+				rc = -EPERM;
-+			}
- 		}
--	} else {
--		bp->bc_ver = 0;
- 	}
- 
--	val = REG_RD(bp, MCP_REG_MCPR_NVM_CFG4);
--	bp->flash_size = (NVRAM_1MB_SIZE << (val & MCPR_NVM_CFG4_FLASH_SIZE));
--	BNX2X_DEV_INFO("flash_size 0x%x (%d)\n",
--		       bp->flash_size, bp->flash_size);
-+	if (!BP_NOMCP(bp)) {
-+		bnx2x_get_port_hwinfo(bp);
-+
-+		bp->fw_seq = (SHMEM_RD(bp, func_mb[func].drv_mb_header) &
-+			      DRV_MSG_SEQ_NUMBER_MASK);
-+		BNX2X_DEV_INFO("fw_seq 0x%08x\n", bp->fw_seq);
-+	}
-+
-+	if (IS_E1HMF(bp)) {
-+		val2 = SHMEM_RD(bp, mf_cfg.func_mf_config[func].mac_upper);
-+		val = SHMEM_RD(bp,  mf_cfg.func_mf_config[func].mac_lower);
-+		if ((val2 != FUNC_MF_CFG_UPPERMAC_DEFAULT) &&
-+		    (val != FUNC_MF_CFG_LOWERMAC_DEFAULT)) {
-+			bp->dev->dev_addr[0] = (u8)(val2 >> 8 & 0xff);
-+			bp->dev->dev_addr[1] = (u8)(val2 & 0xff);
-+			bp->dev->dev_addr[2] = (u8)(val >> 24 & 0xff);
-+			bp->dev->dev_addr[3] = (u8)(val >> 16 & 0xff);
-+			bp->dev->dev_addr[4] = (u8)(val >> 8  & 0xff);
-+			bp->dev->dev_addr[5] = (u8)(val & 0xff);
-+			memcpy(bp->link_params.mac_addr, bp->dev->dev_addr,
-+			       ETH_ALEN);
-+			memcpy(bp->dev->perm_addr, bp->dev->dev_addr,
-+			       ETH_ALEN);
-+		}
- 
--	return;
-+		return rc;
-+	}
-+
-+	if (BP_NOMCP(bp)) {
-+		/* only supposed to happen on emulation/FPGA */
-+		BNX2X_ERR("warning rendom MAC workaround active\n");
-+		random_ether_addr(bp->dev->dev_addr);
-+		memcpy(bp->dev->perm_addr, bp->dev->dev_addr, ETH_ALEN);
-+	}
-+
-+	return rc;
-+}
-+
-+static int __devinit bnx2x_init_bp(struct bnx2x *bp)
-+{
-+	int func = BP_FUNC(bp);
-+	int rc;
-+
-+	if (nomcp)
-+		bp->flags |= NO_MCP_FLAG;
-+
-+	mutex_init(&bp->port.phy_mutex);
-+
-+	INIT_WORK(&bp->sp_task, bnx2x_sp_task);
-+	INIT_WORK(&bp->reset_task, bnx2x_reset_task);
-+
-+	rc = bnx2x_get_hwinfo(bp);
-+
-+	/* need to reset chip if undi was active */
-+	if (!BP_NOMCP(bp))
-+		bnx2x_undi_unload(bp);
-+
-+	if (CHIP_REV_IS_FPGA(bp))
-+		printk(KERN_ERR PFX "FPGA detected\n");
- 
--set_mac: /* only supposed to happen on emulation/FPGA */
--	BNX2X_ERR("warning rendom MAC workaround active\n");
--	random_ether_addr(bp->dev->dev_addr);
--	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, 6);
-+	if (BP_NOMCP(bp) && (func == 0))
-+		printk(KERN_ERR PFX
-+		       "MCP disabled, must load devices in order!\n");
- 
-+	bp->tx_ring_size = MAX_TX_AVAIL;
-+	bp->rx_ring_size = MAX_RX_AVAIL;
-+
-+	bp->rx_csum = 1;
-+	bp->rx_offset = 0;
-+
-+	bp->tx_ticks = 50;
-+	bp->rx_ticks = 25;
-+
-+	bp->stats_ticks = 1000000 & 0xffff00;
-+
-+	bp->timer_interval = (CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ);
-+	bp->current_interval = (poll ? poll : bp->timer_interval);
-+
-+	init_timer(&bp->timer);
-+	bp->timer.expires = jiffies + bp->current_interval;
-+	bp->timer.data = (unsigned long) bp;
-+	bp->timer.function = bnx2x_timer;
-+
-+	return rc;
- }
- 
- /*
-@@ -5500,8 +6426,8 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
--	cmd->supported = bp->supported;
--	cmd->advertising = bp->advertising;
-+	cmd->supported = bp->port.supported;
-+	cmd->advertising = bp->port.advertising;
- 
- 	if (netif_carrier_ok(dev)) {
- 		cmd->speed = bp->link_vars.line_speed;
-@@ -5510,6 +6436,14 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		cmd->speed = bp->link_params.req_line_speed;
- 		cmd->duplex = bp->link_params.req_duplex;
- 	}
-+	if (IS_E1HMF(bp)) {
-+		u16 vn_max_rate;
-+
-+		vn_max_rate = ((bp->mf_config & FUNC_MF_CFG_MAX_BW_MASK) >>
-+				FUNC_MF_CFG_MAX_BW_SHIFT) * 100;
-+		if (vn_max_rate < cmd->speed)
-+			cmd->speed = vn_max_rate;
-+	}
- 
- 	if (bp->link_params.switch_cfg == SWITCH_CFG_10G) {
- 		u32 ext_phy_type =
-@@ -5541,7 +6475,7 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	} else
- 		cmd->port = PORT_TP;
- 
--	cmd->phy_address = bp->phy_addr;
-+	cmd->phy_address = bp->port.phy_addr;
- 	cmd->transceiver = XCVR_INTERNAL;
- 
- 	if (bp->link_params.req_line_speed == SPEED_AUTO_NEG)
-@@ -5568,6 +6502,9 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u32 advertising;
- 
-+	if (IS_E1HMF(bp))
-+		return 0;
-+
- 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
- 	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %d\n"
- 	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
-@@ -5577,24 +6514,25 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
- 
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
--		if (!(bp->supported & SUPPORTED_Autoneg)) {
--			DP(NETIF_MSG_LINK, "Aotoneg not supported\n");
-+		if (!(bp->port.supported & SUPPORTED_Autoneg)) {
-+			DP(NETIF_MSG_LINK, "Autoneg not supported\n");
- 			return -EINVAL;
- 		}
- 
- 		/* advertise the requested speed and duplex if supported */
--		cmd->advertising &= bp->supported;
-+		cmd->advertising &= bp->port.supported;
- 
- 		bp->link_params.req_line_speed = SPEED_AUTO_NEG;
- 		bp->link_params.req_duplex = DUPLEX_FULL;
--		bp->advertising |= (ADVERTISED_Autoneg | cmd->advertising);
-+		bp->port.advertising |= (ADVERTISED_Autoneg |
-+					 cmd->advertising);
- 
- 	} else { /* forced speed */
- 		/* advertise the requested speed and duplex if supported */
- 		switch (cmd->speed) {
- 		case SPEED_10:
- 			if (cmd->duplex == DUPLEX_FULL) {
--				if (!(bp->supported &
-+				if (!(bp->port.supported &
- 				      SUPPORTED_10baseT_Full)) {
- 					DP(NETIF_MSG_LINK,
- 					   "10M full not supported\n");
-@@ -5604,7 +6542,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				advertising = (ADVERTISED_10baseT_Full |
- 					       ADVERTISED_TP);
- 			} else {
--				if (!(bp->supported &
-+				if (!(bp->port.supported &
- 				      SUPPORTED_10baseT_Half)) {
- 					DP(NETIF_MSG_LINK,
- 					   "10M half not supported\n");
-@@ -5618,7 +6556,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- 		case SPEED_100:
- 			if (cmd->duplex == DUPLEX_FULL) {
--				if (!(bp->supported &
-+				if (!(bp->port.supported &
- 						SUPPORTED_100baseT_Full)) {
- 					DP(NETIF_MSG_LINK,
- 					   "100M full not supported\n");
-@@ -5628,7 +6566,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				advertising = (ADVERTISED_100baseT_Full |
- 					       ADVERTISED_TP);
- 			} else {
--				if (!(bp->supported &
-+				if (!(bp->port.supported &
- 						SUPPORTED_100baseT_Half)) {
- 					DP(NETIF_MSG_LINK,
- 					   "100M half not supported\n");
-@@ -5646,7 +6584,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				return -EINVAL;
- 			}
- 
--			if (!(bp->supported & SUPPORTED_1000baseT_Full)) {
-+			if (!(bp->port.supported & SUPPORTED_1000baseT_Full)) {
- 				DP(NETIF_MSG_LINK, "1G full not supported\n");
- 				return -EINVAL;
- 			}
-@@ -5662,7 +6600,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				return -EINVAL;
- 			}
- 
--			if (!(bp->supported & SUPPORTED_2500baseX_Full)) {
-+			if (!(bp->port.supported & SUPPORTED_2500baseX_Full)) {
- 				DP(NETIF_MSG_LINK,
- 				   "2.5G full not supported\n");
- 				return -EINVAL;
-@@ -5678,7 +6616,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				return -EINVAL;
- 			}
- 
--			if (!(bp->supported & SUPPORTED_10000baseT_Full)) {
-+			if (!(bp->port.supported & SUPPORTED_10000baseT_Full)) {
- 				DP(NETIF_MSG_LINK, "10G full not supported\n");
- 				return -EINVAL;
- 			}
-@@ -5694,16 +6632,18 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- 		bp->link_params.req_line_speed = cmd->speed;
- 		bp->link_params.req_duplex = cmd->duplex;
--		bp->advertising = advertising;
-+		bp->port.advertising = advertising;
- 	}
- 
- 	DP(NETIF_MSG_LINK, "req_line_speed %d\n"
- 	   DP_LEVEL "  req_duplex %d  advertising 0x%x\n",
- 	   bp->link_params.req_line_speed, bp->link_params.req_duplex,
--	   bp->advertising);
-+	   bp->port.advertising);
- 
--	bnx2x_stop_stats(bp);
--	bnx2x_link_set(bp);
-+	if (netif_running(dev)) {
-+		bnx2x_stop_stats(bp);
-+		bnx2x_link_set(bp);
-+	}
- 
- 	return 0;
- }
-@@ -5720,21 +6660,23 @@ static void bnx2x_get_drvinfo(struct net_device *dev,
- 	strcpy(info->version, DRV_MODULE_VERSION);
- 
- 	phy_fw_ver[0] = '\0';
--	bnx2x_phy_hw_lock(bp);
--	bnx2x_get_ext_phy_fw_version(&bp->link_params,
--				     (bp->state != BNX2X_STATE_CLOSED),
--				     phy_fw_ver, PHY_FW_VER_LEN);
--	bnx2x_phy_hw_unlock(bp);
-+	if (bp->port.pmf) {
-+		bnx2x_phy_hw_lock(bp);
-+		bnx2x_get_ext_phy_fw_version(&bp->link_params,
-+					     (bp->state != BNX2X_STATE_CLOSED),
-+					     phy_fw_ver, PHY_FW_VER_LEN);
-+		bnx2x_phy_hw_unlock(bp);
-+	}
- 
- 	snprintf(info->fw_version, 32, "%d.%d.%d:%d BC:%x%s%s",
- 		 BCM_5710_FW_MAJOR_VERSION, BCM_5710_FW_MINOR_VERSION,
- 		 BCM_5710_FW_REVISION_VERSION,
--		 BCM_5710_FW_COMPILE_FLAGS, bp->bc_ver,
-+		 BCM_5710_FW_COMPILE_FLAGS, bp->common.bc_ver,
- 		 ((phy_fw_ver[0] != '\0')? " PHY:":""), phy_fw_ver);
- 	strcpy(info->bus_info, pci_name(bp->pdev));
- 	info->n_stats = BNX2X_NUM_STATS;
- 	info->testinfo_len = BNX2X_NUM_TESTS;
--	info->eedump_len = bp->flash_size;
-+	info->eedump_len = bp->common.flash_size;
- 	info->regdump_len = 0;
- }
- 
-@@ -5767,9 +6709,9 @@ static int bnx2x_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 			return -EINVAL;
- 
- 		bp->wol = 1;
--	} else {
-+	} else
- 		bp->wol = 0;
--	}
-+
- 	return 0;
- }
- 
-@@ -5792,13 +6734,13 @@ static int bnx2x_nway_reset(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
--	if (bp->state != BNX2X_STATE_OPEN) {
--		DP(NETIF_MSG_PROBE, "state is %x, returning\n", bp->state);
--		return -EAGAIN;
--	}
-+	if (!bp->port.pmf)
-+		return 0;
- 
--	bnx2x_stop_stats(bp);
--	bnx2x_link_set(bp);
-+	if (netif_running(dev)) {
-+		bnx2x_stop_stats(bp);
-+		bnx2x_link_set(bp);
-+	}
- 
- 	return 0;
- }
-@@ -5807,12 +6749,12 @@ static int bnx2x_get_eeprom_len(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
--	return bp->flash_size;
-+	return bp->common.flash_size;
- }
- 
- static int bnx2x_acquire_nvram_lock(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int count, i;
- 	u32 val = 0;
- 
-@@ -5834,7 +6776,7 @@ static int bnx2x_acquire_nvram_lock(struct bnx2x *bp)
- 	}
- 
- 	if (!(val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port))) {
--		DP(NETIF_MSG_NVM, "cannot get access to nvram interface\n");
-+		DP(BNX2X_MSG_NVM, "cannot get access to nvram interface\n");
- 		return -EBUSY;
- 	}
- 
-@@ -5843,7 +6785,7 @@ static int bnx2x_acquire_nvram_lock(struct bnx2x *bp)
- 
- static int bnx2x_release_nvram_lock(struct bnx2x *bp)
- {
--	int port = bp->port;
-+	int port = BP_PORT(bp);
- 	int count, i;
- 	u32 val = 0;
- 
-@@ -5865,7 +6807,7 @@ static int bnx2x_release_nvram_lock(struct bnx2x *bp)
- 	}
- 
- 	if (val & (MCPR_NVM_SW_ARB_ARB_ARB1 << port)) {
--		DP(NETIF_MSG_NVM, "cannot free access to nvram interface\n");
-+		DP(BNX2X_MSG_NVM, "cannot free access to nvram interface\n");
- 		return -EBUSY;
- 	}
- 
-@@ -5929,7 +6871,6 @@ static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, u32 *ret_val,
- 
- 		if (val & MCPR_NVM_COMMAND_DONE) {
- 			val = REG_RD(bp, MCP_REG_MCPR_NVM_READ);
--			DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
- 			/* we read nvram data in cpu order
- 			 * but ethtool sees it as an array of bytes
- 			 * converting to big-endian will do the work */
-@@ -5951,16 +6892,16 @@ static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
- 	u32 val;
- 
- 	if ((offset & 0x03) || (buf_size & 0x03) || (buf_size == 0)) {
--		DP(NETIF_MSG_NVM,
-+		DP(BNX2X_MSG_NVM,
- 		   "Invalid parameter: offset 0x%x  buf_size 0x%x\n",
- 		   offset, buf_size);
- 		return -EINVAL;
- 	}
- 
--	if (offset + buf_size > bp->flash_size) {
--		DP(NETIF_MSG_NVM, "Invalid parameter: offset (0x%x) +"
-+	if (offset + buf_size > bp->common.flash_size) {
-+		DP(BNX2X_MSG_NVM, "Invalid parameter: offset (0x%x) +"
- 				  " buf_size (0x%x) > flash_size (0x%x)\n",
--		   offset, buf_size, bp->flash_size);
-+		   offset, buf_size, bp->common.flash_size);
- 		return -EINVAL;
- 	}
- 
-@@ -6004,7 +6945,7 @@ static int bnx2x_get_eeprom(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
- 	int rc;
- 
--	DP(NETIF_MSG_NVM, "ethtool_eeprom: cmd %d\n"
-+	DP(BNX2X_MSG_NVM, "ethtool_eeprom: cmd %d\n"
- 	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
- 	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
- 	   eeprom->len, eeprom->len);
-@@ -6066,10 +7007,10 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 	u32 align_offset;
- 	u32 val;
- 
--	if (offset + buf_size > bp->flash_size) {
--		DP(NETIF_MSG_NVM, "Invalid parameter: offset (0x%x) +"
-+	if (offset + buf_size > bp->common.flash_size) {
-+		DP(BNX2X_MSG_NVM, "Invalid parameter: offset (0x%x) +"
- 				  " buf_size (0x%x) > flash_size (0x%x)\n",
--		   offset, buf_size, bp->flash_size);
-+		   offset, buf_size, bp->common.flash_size);
- 		return -EINVAL;
- 	}
- 
-@@ -6093,8 +7034,6 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 		 * convert it back to cpu order */
- 		val = be32_to_cpu(val);
- 
--		DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
--
- 		rc = bnx2x_nvram_write_dword(bp, align_offset, val,
- 					     cmd_flags);
- 	}
-@@ -6114,21 +7053,20 @@ static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 	u32 val;
- 	u32 written_so_far;
- 
--	if (buf_size == 1) {    /* ethtool */
-+	if (buf_size == 1)	/* ethtool */
- 		return bnx2x_nvram_write1(bp, offset, data_buf, buf_size);
--	}
- 
- 	if ((offset & 0x03) || (buf_size & 0x03) || (buf_size == 0)) {
--		DP(NETIF_MSG_NVM,
-+		DP(BNX2X_MSG_NVM,
- 		   "Invalid parameter: offset 0x%x  buf_size 0x%x\n",
- 		   offset, buf_size);
- 		return -EINVAL;
- 	}
- 
--	if (offset + buf_size > bp->flash_size) {
--		DP(NETIF_MSG_NVM, "Invalid parameter: offset (0x%x) +"
-+	if (offset + buf_size > bp->common.flash_size) {
-+		DP(BNX2X_MSG_NVM, "Invalid parameter: offset (0x%x) +"
- 				  " buf_size (0x%x) > flash_size (0x%x)\n",
--		   offset, buf_size, bp->flash_size);
-+		   offset, buf_size, bp->common.flash_size);
- 		return -EINVAL;
- 	}
- 
-@@ -6151,7 +7089,6 @@ static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 			cmd_flags |= MCPR_NVM_COMMAND_FIRST;
- 
- 		memcpy(&val, data_buf, 4);
--		DP(NETIF_MSG_NVM, "val 0x%08x\n", val);
- 
- 		rc = bnx2x_nvram_write_dword(bp, offset, val, cmd_flags);
- 
-@@ -6175,7 +7112,7 @@ static int bnx2x_set_eeprom(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
- 	int rc;
- 
--	DP(NETIF_MSG_NVM, "ethtool_eeprom: cmd %d\n"
-+	DP(BNX2X_MSG_NVM, "ethtool_eeprom: cmd %d\n"
- 	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
- 	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
- 	   eeprom->len, eeprom->len);
-@@ -6183,20 +7120,23 @@ static int bnx2x_set_eeprom(struct net_device *dev,
- 	/* parameters already validated in ethtool_set_eeprom */
- 
- 	/* If the magic number is PHY (0x00504859) upgrade the PHY FW */
--	if (eeprom->magic == 0x00504859) {
--
--		bnx2x_phy_hw_lock(bp);
--		rc = bnx2x_flash_download(bp, bp->port,
--				     bp->link_params.ext_phy_config,
--				     (bp->state != BNX2X_STATE_CLOSED),
--				     eebuf, eeprom->len);
--		rc |= bnx2x_link_reset(&bp->link_params,
--				       &bp->link_vars);
--		rc |= bnx2x_phy_init(&bp->link_params,
--				     &bp->link_vars);
--		bnx2x_phy_hw_unlock(bp);
--
--	} else
-+	if (eeprom->magic == 0x00504859)
-+		if (bp->port.pmf) {
-+
-+			bnx2x_phy_hw_lock(bp);
-+			rc = bnx2x_flash_download(bp, BP_PORT(bp),
-+					     bp->link_params.ext_phy_config,
-+					     (bp->state != BNX2X_STATE_CLOSED),
-+					     eebuf, eeprom->len);
-+				rc |= bnx2x_link_reset(&bp->link_params,
-+						       &bp->link_vars);
-+				rc |= bnx2x_phy_init(&bp->link_params,
-+						     &bp->link_vars);
-+			bnx2x_phy_hw_unlock(bp);
-+
-+		} else /* Only the PMF can access the PHY */
-+			return -EINVAL;
-+	else
- 		rc = bnx2x_nvram_write(bp, eeprom->offset, eebuf, eeprom->len);
- 
- 	return rc;
-@@ -6234,7 +7174,7 @@ static int bnx2x_set_coalesce(struct net_device *dev,
- 		bp->stats_ticks = 0xffff00;
- 	bp->stats_ticks &= 0xffff00;
- 
--	if (netif_running(bp->dev))
-+	if (netif_running(dev))
- 		bnx2x_update_coalesce(bp);
- 
- 	return 0;
-@@ -6261,6 +7201,7 @@ static int bnx2x_set_ringparam(struct net_device *dev,
- 			       struct ethtool_ringparam *ering)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
-+	int rc = 0;
- 
- 	if ((ering->rx_pending > MAX_RX_AVAIL) ||
- 	    (ering->tx_pending > MAX_TX_AVAIL) ||
-@@ -6270,12 +7211,12 @@ static int bnx2x_set_ringparam(struct net_device *dev,
- 	bp->rx_ring_size = ering->rx_pending;
- 	bp->tx_ring_size = ering->tx_pending;
- 
--	if (netif_running(bp->dev)) {
--		bnx2x_nic_unload(bp, 0);
--		bnx2x_nic_load(bp, 0);
-+	if (netif_running(dev)) {
-+		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-+		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
- 	}
- 
--	return 0;
-+	return rc;
- }
- 
- static void bnx2x_get_pauseparam(struct net_device *dev,
-@@ -6301,6 +7242,9 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
-+	if (IS_E1HMF(bp))
-+		return 0;
-+
- 	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
- 	   DP_LEVEL "  autoneg %d  rx_pause %d  tx_pause %d\n",
- 	   epause->cmd, epause->autoneg, epause->rx_pause, epause->tx_pause);
-@@ -6317,7 +7261,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- 		bp->link_params.req_flow_ctrl = FLOW_CTRL_NONE;
- 
- 	if (epause->autoneg) {
--		if (!(bp->supported & SUPPORTED_Autoneg)) {
-+		if (!(bp->port.supported & SUPPORTED_Autoneg)) {
- 			DP(NETIF_MSG_LINK, "Autoneg not supported\n");
- 			return -EINVAL;
- 		}
-@@ -6328,8 +7272,11 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- 
- 	DP(NETIF_MSG_LINK,
- 	   "req_flow_ctrl 0x%x\n", bp->link_params.req_flow_ctrl);
--	bnx2x_stop_stats(bp);
--	bnx2x_link_set(bp);
-+
-+	if (netif_running(dev)) {
-+		bnx2x_stop_stats(bp);
-+		bnx2x_link_set(bp);
-+	}
- 
- 	return 0;
- }
-@@ -6531,18 +7478,25 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
- static int bnx2x_phys_id(struct net_device *dev, u32 data)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
-+	int port = BP_PORT(bp);
- 	int i;
- 
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	if (!bp->port.pmf)
-+		return 0;
-+
- 	if (data == 0)
- 		data = 2;
- 
- 	for (i = 0; i < (data * 2); i++) {
- 		if ((i % 2) == 0)
--			bnx2x_set_led(bp, bp->port, LED_MODE_OPER, SPEED_1000,
-+			bnx2x_set_led(bp, port, LED_MODE_OPER, SPEED_1000,
- 				      bp->link_params.hw_led_mode,
- 				      bp->link_params.chip_id);
- 		else
--			bnx2x_set_led(bp, bp->port, LED_MODE_OFF, 0,
-+			bnx2x_set_led(bp, port, LED_MODE_OFF, 0,
- 				      bp->link_params.hw_led_mode,
- 				      bp->link_params.chip_id);
- 
-@@ -6552,7 +7506,7 @@ static int bnx2x_phys_id(struct net_device *dev, u32 data)
- 	}
- 
- 	if (bp->link_vars.link_up)
--		bnx2x_set_led(bp, bp->port, LED_MODE_OPER,
-+		bnx2x_set_led(bp, port, LED_MODE_OPER,
- 			      bp->link_vars.line_speed,
- 			      bp->link_params.hw_led_mode,
- 			      bp->link_params.chip_id);
-@@ -6609,8 +7563,7 @@ static int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
- 
- 	switch (state) {
- 	case PCI_D0:
--		pci_write_config_word(bp->pdev,
--				      bp->pm_cap + PCI_PM_CTRL,
-+		pci_write_config_word(bp->pdev, bp->pm_cap + PCI_PM_CTRL,
- 				      ((pmcsr & ~PCI_PM_CTRL_STATE_MASK) |
- 				       PCI_PM_CTRL_PME_STATUS));
- 
-@@ -6644,82 +7597,6 @@ static int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
-  * net_device service functions
-  */
- 
--/* called with netif_tx_lock from set_multicast */
--static void bnx2x_set_rx_mode(struct net_device *dev)
--{
--	struct bnx2x *bp = netdev_priv(dev);
--	u32 rx_mode = BNX2X_RX_MODE_NORMAL;
--
--	DP(NETIF_MSG_IFUP, "called dev->flags = %x\n", dev->flags);
--
--	if (dev->flags & IFF_PROMISC)
--		rx_mode = BNX2X_RX_MODE_PROMISC;
--
--	else if ((dev->flags & IFF_ALLMULTI) ||
--		 (dev->mc_count > BNX2X_MAX_MULTICAST))
--		rx_mode = BNX2X_RX_MODE_ALLMULTI;
--
--	else { /* some multicasts */
--		int i, old, offset;
--		struct dev_mc_list *mclist;
--		struct mac_configuration_cmd *config =
--						bnx2x_sp(bp, mcast_config);
--
--		for (i = 0, mclist = dev->mc_list;
--		     mclist && (i < dev->mc_count);
--		     i++, mclist = mclist->next) {
--
--			config->config_table[i].cam_entry.msb_mac_addr =
--					swab16(*(u16 *)&mclist->dmi_addr[0]);
--			config->config_table[i].cam_entry.middle_mac_addr =
--					swab16(*(u16 *)&mclist->dmi_addr[2]);
--			config->config_table[i].cam_entry.lsb_mac_addr =
--					swab16(*(u16 *)&mclist->dmi_addr[4]);
--			config->config_table[i].cam_entry.flags =
--							cpu_to_le16(bp->port);
--			config->config_table[i].target_table_entry.flags = 0;
--			config->config_table[i].target_table_entry.
--								client_id = 0;
--			config->config_table[i].target_table_entry.
--								vlan_id = 0;
--
--			DP(NETIF_MSG_IFUP,
--			   "setting MCAST[%d] (%04x:%04x:%04x)\n",
--			   i, config->config_table[i].cam_entry.msb_mac_addr,
--			   config->config_table[i].cam_entry.middle_mac_addr,
--			   config->config_table[i].cam_entry.lsb_mac_addr);
--		}
--		old = config->hdr.length_6b;
--		if (old > i) {
--			for (; i < old; i++) {
--				if (CAM_IS_INVALID(config->config_table[i])) {
--					i--; /* already invalidated */
--					break;
--				}
--				/* invalidate */
--				CAM_INVALIDATE(config->config_table[i]);
--			}
--		}
--
--		if (CHIP_REV_IS_SLOW(bp))
--			offset = BNX2X_MAX_EMUL_MULTI*(1 + bp->port);
--		else
--			offset = BNX2X_MAX_MULTICAST*(1 + bp->port);
--
--		config->hdr.length_6b = i;
--		config->hdr.offset = offset;
--		config->hdr.reserved0 = 0;
--		config->hdr.reserved1 = 0;
--
--		bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
--			      U64_HI(bnx2x_sp_mapping(bp, mcast_config)),
--			      U64_LO(bnx2x_sp_mapping(bp, mcast_config)), 0);
--	}
--
--	bp->rx_mode = rx_mode;
--	bnx2x_set_storm_rx_mode(bp);
--}
--
- static int bnx2x_poll(struct napi_struct *napi, int budget)
- {
- 	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
-@@ -6729,7 +7606,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
--		goto out_panic;
-+		goto poll_panic;
- #endif
- 
- 	prefetch(fp->tx_buf_ring[TX_BD(fp->tx_pkt_cons)].skb);
-@@ -6738,30 +7615,28 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 
- 	bnx2x_update_fpsb_idx(fp);
- 
--	if (le16_to_cpu(*fp->tx_cons_sb) != fp->tx_pkt_cons)
-+	if ((fp->tx_pkt_prod != le16_to_cpu(*fp->tx_cons_sb)) ||
-+	    (fp->tx_pkt_prod != fp->tx_pkt_cons))
- 		bnx2x_tx_int(fp, budget);
- 
--
- 	if (le16_to_cpu(*fp->rx_cons_sb) != fp->rx_comp_cons)
- 		work_done = bnx2x_rx_int(fp, budget);
- 
--
- 	rmb(); /* bnx2x_has_work() reads the status block */
- 
- 	/* must not complete if we consumed full budget */
- 	if ((work_done < budget) && !bnx2x_has_work(fp)) {
- 
- #ifdef BNX2X_STOP_ON_ERROR
--out_panic:
-+poll_panic:
- #endif
- 		netif_rx_complete(bp->dev, napi);
- 
--		bnx2x_ack_sb(bp, fp->index, USTORM_ID,
-+		bnx2x_ack_sb(bp, FP_SB_ID(fp), USTORM_ID,
- 			     le16_to_cpu(fp->fp_u_idx), IGU_INT_NOP, 1);
--		bnx2x_ack_sb(bp, fp->index, CSTORM_ID,
-+		bnx2x_ack_sb(bp, FP_SB_ID(fp), CSTORM_ID,
- 			     le16_to_cpu(fp->fp_c_idx), IGU_INT_ENABLE, 1);
- 	}
--
- 	return work_done;
- }
- 
-@@ -7055,18 +7930,145 @@ static int bnx2x_close(struct net_device *dev)
- 	return 0;
- }
- 
--/* Called with rtnl_lock */
-+/* called with netif_tx_lock from set_multicast */
-+static void bnx2x_set_rx_mode(struct net_device *dev)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+	u32 rx_mode = BNX2X_RX_MODE_NORMAL;
-+	int port = BP_PORT(bp);
-+
-+	if (bp->state != BNX2X_STATE_OPEN) {
-+		DP(NETIF_MSG_IFUP, "state is %x, returning\n", bp->state);
-+		return;
-+	}
-+
-+	DP(NETIF_MSG_IFUP, "dev->flags = %x\n", dev->flags);
-+
-+	if (dev->flags & IFF_PROMISC)
-+		rx_mode = BNX2X_RX_MODE_PROMISC;
-+
-+	else if ((dev->flags & IFF_ALLMULTI) ||
-+		 ((dev->mc_count > BNX2X_MAX_MULTICAST) && CHIP_IS_E1(bp)))
-+		rx_mode = BNX2X_RX_MODE_ALLMULTI;
-+
-+	else { /* some multicasts */
-+		if (CHIP_IS_E1(bp)) {
-+			int i, old, offset;
-+			struct dev_mc_list *mclist;
-+			struct mac_configuration_cmd *config =
-+						bnx2x_sp(bp, mcast_config);
-+
-+			for (i = 0, mclist = dev->mc_list;
-+			     mclist && (i < dev->mc_count);
-+			     i++, mclist = mclist->next) {
-+
-+				config->config_table[i].
-+					cam_entry.msb_mac_addr =
-+					swab16(*(u16 *)&mclist->dmi_addr[0]);
-+				config->config_table[i].
-+					cam_entry.middle_mac_addr =
-+					swab16(*(u16 *)&mclist->dmi_addr[2]);
-+				config->config_table[i].
-+					cam_entry.lsb_mac_addr =
-+					swab16(*(u16 *)&mclist->dmi_addr[4]);
-+				config->config_table[i].cam_entry.flags =
-+							cpu_to_le16(port);
-+				config->config_table[i].
-+					target_table_entry.flags = 0;
-+				config->config_table[i].
-+					target_table_entry.client_id = 0;
-+				config->config_table[i].
-+					target_table_entry.vlan_id = 0;
-+
-+				DP(NETIF_MSG_IFUP,
-+				   "setting MCAST[%d] (%04x:%04x:%04x)\n", i,
-+				   config->config_table[i].
-+						cam_entry.msb_mac_addr,
-+				   config->config_table[i].
-+						cam_entry.middle_mac_addr,
-+				   config->config_table[i].
-+						cam_entry.lsb_mac_addr);
-+			}
-+			old = config->hdr.length_6b;
-+			if (old > i) {
-+				for (; i < old; i++) {
-+					if (CAM_IS_INVALID(config->
-+							   config_table[i])) {
-+						i--; /* already invalidated */
-+						break;
-+					}
-+					/* invalidate */
-+					CAM_INVALIDATE(config->
-+						       config_table[i]);
-+				}
-+			}
-+
-+			if (CHIP_REV_IS_SLOW(bp))
-+				offset = BNX2X_MAX_EMUL_MULTI*(1 + port);
-+			else
-+				offset = BNX2X_MAX_MULTICAST*(1 + port);
-+
-+			config->hdr.length_6b = i;
-+			config->hdr.offset = offset;
-+			config->hdr.client_id = BP_CL_ID(bp);
-+			config->hdr.reserved1 = 0;
-+
-+			bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-+				   U64_HI(bnx2x_sp_mapping(bp, mcast_config)),
-+				   U64_LO(bnx2x_sp_mapping(bp, mcast_config)),
-+				      0);
-+		} else { /* E1H */
-+			/* Accept one or more multicasts */
-+			struct dev_mc_list *mclist;
-+			u32 mc_filter[MC_HASH_SIZE];
-+			u32 crc, bit, regidx;
-+			int i;
-+
-+			memset(mc_filter, 0, 4 * MC_HASH_SIZE);
-+
-+			for (i = 0, mclist = dev->mc_list;
-+			     mclist && (i < dev->mc_count);
-+			     i++, mclist = mclist->next) {
-+
-+				DP(NETIF_MSG_IFUP, "Adding mcast MAC: "
-+				   "%02x:%02x:%02x:%02x:%02x:%02x\n",
-+				   mclist->dmi_addr[0], mclist->dmi_addr[1],
-+				   mclist->dmi_addr[2], mclist->dmi_addr[3],
-+				   mclist->dmi_addr[4], mclist->dmi_addr[5]);
-+
-+				crc = crc32c_le(0, mclist->dmi_addr, ETH_ALEN);
-+				bit = (crc >> 24) & 0xff;
-+				regidx = bit >> 5;
-+				bit &= 0x1f;
-+				mc_filter[regidx] |= (1 << bit);
-+			}
-+
-+			for (i = 0; i < MC_HASH_SIZE; i++)
-+				REG_WR(bp, MC_HASH_OFFSET(bp, i),
-+				       mc_filter[i]);
-+		}
-+	}
-+
-+	bp->rx_mode = rx_mode;
-+	bnx2x_set_storm_rx_mode(bp);
-+}
-+
-+/* called with rtnl_lock */
- static int bnx2x_change_mac_addr(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr = p;
- 	struct bnx2x *bp = netdev_priv(dev);
- 
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!is_valid_ether_addr((u8 *)(addr->sa_data)))
- 		return -EINVAL;
- 
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
--	if (netif_running(dev))
--		bnx2x_set_mac_addr(bp);
-+	if (netif_running(dev)) {
-+		if (CHIP_IS_E1(bp))
-+			bnx2x_set_mac_addr_e1(bp);
-+		else
-+			bnx2x_set_mac_addr_e1h(bp);
-+	}
- 
- 	return 0;
- }
-@@ -7080,7 +8082,7 @@ static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 
- 	switch (cmd) {
- 	case SIOCGMIIPHY:
--		data->phy_id = bp->phy_addr;
-+		data->phy_id = bp->port.phy_addr;
- 
- 		/* fallthrough */
- 
-@@ -7090,12 +8092,12 @@ static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (!netif_running(dev))
- 			return -EAGAIN;
- 
--		mutex_lock(&bp->phy_mutex);
--		err = bnx2x_cl45_read(bp, bp->port, 0, bp->phy_addr,
-+		mutex_lock(&bp->port.phy_mutex);
-+		err = bnx2x_cl45_read(bp, BP_PORT(bp), 0, bp->port.phy_addr,
- 				      DEFAULT_PHY_DEV_ADDR,
- 				      (data->reg_num & 0x1f), &mii_regval);
- 		data->val_out = mii_regval;
--		mutex_unlock(&bp->phy_mutex);
-+		mutex_unlock(&bp->port.phy_mutex);
- 		return err;
- 	}
- 
-@@ -7106,11 +8108,11 @@ static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (!netif_running(dev))
- 			return -EAGAIN;
- 
--		mutex_lock(&bp->phy_mutex);
--		err = bnx2x_cl45_write(bp, bp->port, 0, bp->phy_addr,
-+		mutex_lock(&bp->port.phy_mutex);
-+		err = bnx2x_cl45_write(bp, BP_PORT(bp), 0, bp->port.phy_addr,
- 				       DEFAULT_PHY_DEV_ADDR,
- 				       (data->reg_num & 0x1f), data->val_in);
--		mutex_unlock(&bp->phy_mutex);
-+		mutex_unlock(&bp->port.phy_mutex);
- 		return err;
- 
- 	default:
-@@ -7121,10 +8123,11 @@ static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return -EOPNOTSUPP;
- }
- 
--/* Called with rtnl_lock */
-+/* called with rtnl_lock */
- static int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
-+	int rc = 0;
- 
- 	if ((new_mtu > ETH_MAX_JUMBO_PACKET_SIZE) ||
- 	    ((new_mtu + ETH_HLEN) < ETH_MIN_PACKET_SIZE))
-@@ -7137,10 +8140,11 @@ static int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
- 	dev->mtu = new_mtu;
- 
- 	if (netif_running(dev)) {
--		bnx2x_nic_unload(bp, 0);
--		bnx2x_nic_load(bp, 0);
-+		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-+		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
- 	}
--	return 0;
-+
-+	return rc;
- }
- 
- static void bnx2x_tx_timeout(struct net_device *dev)
-@@ -7156,7 +8160,7 @@ static void bnx2x_tx_timeout(struct net_device *dev)
- }
- 
- #ifdef BCM_VLAN
--/* Called with rtnl_lock */
-+/* called with rtnl_lock */
- static void bnx2x_vlan_rx_register(struct net_device *dev,
- 				   struct vlan_group *vlgrp)
- {
-@@ -7166,6 +8170,7 @@ static void bnx2x_vlan_rx_register(struct net_device *dev,
- 	if (netif_running(dev))
- 		bnx2x_set_client_config(bp);
- }
-+
- #endif
- 
- #if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-@@ -7179,36 +8184,8 @@ static void poll_bnx2x(struct net_device *dev)
- }
- #endif
- 
--static void bnx2x_reset_task(struct work_struct *work)
--{
--	struct bnx2x *bp = container_of(work, struct bnx2x, reset_task);
--
--#ifdef BNX2X_STOP_ON_ERROR
--	BNX2X_ERR("reset task called but STOP_ON_ERROR defined"
--		  " so reset not done to allow debug dump,\n"
--	 KERN_ERR " you will need to reboot when done\n");
--	return;
--#endif
--
--	if (!netif_running(bp->dev))
--		return;
--
--	rtnl_lock();
--
--	if (bp->state != BNX2X_STATE_OPEN) {
--		DP(NETIF_MSG_TX_ERR, "state is %x, returning\n", bp->state);
--		goto reset_task_exit;
--	}
--
--	bnx2x_nic_unload(bp, 0);
--	bnx2x_nic_load(bp, 0);
--
--reset_task_exit:
--	rtnl_unlock();
--}
--
--static int __devinit bnx2x_init_board(struct pci_dev *pdev,
--				      struct net_device *dev)
-+static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
-+				    struct net_device *dev)
- {
- 	struct bnx2x *bp;
- 	int rc;
-@@ -7216,8 +8193,10 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	bp = netdev_priv(dev);
- 
-+	bp->dev = dev;
-+	bp->pdev = pdev;
- 	bp->flags = 0;
--	bp->port = PCI_FUNC(pdev->devfn);
-+	bp->func = PCI_FUNC(pdev->devfn);
- 
- 	rc = pci_enable_device(pdev);
- 	if (rc) {
-@@ -7239,14 +8218,17 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
- 		goto err_out_disable;
- 	}
- 
--	rc = pci_request_regions(pdev, DRV_MODULE_NAME);
--	if (rc) {
--		printk(KERN_ERR PFX "Cannot obtain PCI resources,"
--		       " aborting\n");
--		goto err_out_disable;
--	}
-+	if (atomic_read(&pdev->enable_cnt) == 1) {
-+		rc = pci_request_regions(pdev, DRV_MODULE_NAME);
-+		if (rc) {
-+			printk(KERN_ERR PFX "Cannot obtain PCI resources,"
-+			       " aborting\n");
-+			goto err_out_disable;
-+		}
- 
--	pci_set_master(pdev);
-+		pci_set_master(pdev);
-+		pci_save_state(pdev);
-+	}
- 
- 	bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
- 	if (bp->pm_cap == 0) {
-@@ -7280,13 +8262,9 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
- 		goto err_out_release;
- 	}
- 
--	bp->dev = dev;
--	bp->pdev = pdev;
--
--	INIT_WORK(&bp->reset_task, bnx2x_reset_task);
--	INIT_WORK(&bp->sp_task, bnx2x_sp_task);
--
--	dev->base_addr = pci_resource_start(pdev, 0);
-+	dev->mem_start = pci_resource_start(pdev, 0);
-+	dev->base_addr = dev->mem_start;
-+	dev->mem_end = pci_resource_end(pdev, 0);
- 
- 	dev->irq = pdev->irq;
- 
-@@ -7298,8 +8276,9 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
- 		goto err_out_release;
- 	}
- 
--	bp->doorbells = ioremap_nocache(pci_resource_start(pdev , 2),
--					pci_resource_len(pdev, 2));
-+	bp->doorbells = ioremap_nocache(pci_resource_start(pdev, 2),
-+					min_t(u64, BNX2X_DB_SIZE,
-+					      pci_resource_len(pdev, 2)));
- 	if (!bp->doorbells) {
- 		printk(KERN_ERR PFX "Cannot map doorbell space, aborting\n");
- 		rc = -ENOMEM;
-@@ -7308,47 +8287,43 @@ static int __devinit bnx2x_init_board(struct pci_dev *pdev,
- 
- 	bnx2x_set_power_state(bp, PCI_D0);
- 
--	bnx2x_get_hwinfo(bp);
--
--
--	if (nomcp) {
--		printk(KERN_ERR PFX "MCP disabled, will only"
--		       " init first device\n");
--		onefunc = 1;
--	}
--
--	if (onefunc && bp->port) {
--		printk(KERN_ERR PFX "Second device disabled, exiting\n");
--		rc = -ENODEV;
--		goto err_out_unmap;
--	}
--
--	bp->tx_ring_size = MAX_TX_AVAIL;
--	bp->rx_ring_size = MAX_RX_AVAIL;
--
--	bp->rx_csum = 1;
--
--	bp->rx_offset = 0;
--
--	bp->tx_quick_cons_trip_int = 0xff;
--	bp->tx_quick_cons_trip = 0xff;
--	bp->tx_ticks_int = 50;
--	bp->tx_ticks = 50;
-+	/* clean indirect addresses */
-+	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
-+			       PCICFG_VENDOR_ID_OFFSET);
-+	REG_WR(bp, PXP2_REG_PGL_ADDR_88_F0 + BP_PORT(bp)*16, 0);
-+	REG_WR(bp, PXP2_REG_PGL_ADDR_8C_F0 + BP_PORT(bp)*16, 0);
-+	REG_WR(bp, PXP2_REG_PGL_ADDR_90_F0 + BP_PORT(bp)*16, 0);
-+	REG_WR(bp, PXP2_REG_PGL_ADDR_94_F0 + BP_PORT(bp)*16, 0);
- 
--	bp->rx_quick_cons_trip_int = 0xff;
--	bp->rx_quick_cons_trip = 0xff;
--	bp->rx_ticks_int = 25;
--	bp->rx_ticks = 25;
-+	dev->hard_start_xmit = bnx2x_start_xmit;
-+	dev->watchdog_timeo = TX_TIMEOUT;
- 
--	bp->stats_ticks = 1000000 & 0xffff00;
-+	dev->ethtool_ops = &bnx2x_ethtool_ops;
-+	dev->open = bnx2x_open;
-+	dev->stop = bnx2x_close;
-+	dev->set_multicast_list = bnx2x_set_rx_mode;
-+	dev->set_mac_address = bnx2x_change_mac_addr;
-+	dev->do_ioctl = bnx2x_ioctl;
-+	dev->change_mtu = bnx2x_change_mtu;
-+	dev->tx_timeout = bnx2x_tx_timeout;
-+#ifdef BCM_VLAN
-+	dev->vlan_rx_register = bnx2x_vlan_rx_register;
-+#endif
-+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-+	dev->poll_controller = poll_bnx2x;
-+#endif
-+	dev->features |= NETIF_F_SG;
-+	dev->features |= NETIF_F_HW_CSUM;
-+	if (bp->flags & USING_DAC_FLAG)
-+		dev->features |= NETIF_F_HIGHDMA;
-+#ifdef BCM_VLAN
-+	dev->features |= (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
-+#endif
-+	dev->features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
- 
- 	bp->timer_interval = HZ;
- 	bp->current_interval = (poll ? poll : HZ);
- 
--	init_timer(&bp->timer);
--	bp->timer.expires = jiffies + bp->current_interval;
--	bp->timer.data = (unsigned long) bp;
--	bp->timer.function = bnx2x_timer;
- 
- 	return 0;
- 
-@@ -7357,14 +8332,14 @@ err_out_unmap:
- 		iounmap(bp->regview);
- 		bp->regview = NULL;
- 	}
--
- 	if (bp->doorbells) {
- 		iounmap(bp->doorbells);
- 		bp->doorbells = NULL;
- 	}
- 
- err_out_release:
--	pci_release_regions(pdev);
-+	if (atomic_read(&pdev->enable_cnt) == 1)
-+		pci_release_regions(pdev);
- 
- err_out_disable:
- 	pci_disable_device(pdev);
-@@ -7398,7 +8373,6 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 	struct net_device *dev = NULL;
- 	struct bnx2x *bp;
- 	int rc;
--	int port = PCI_FUNC(pdev->devfn);
- 	DECLARE_MAC_BUF(mac);
- 
- 	if (version_printed++ == 0)
-@@ -7406,78 +8380,62 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 
- 	/* dev zeroed in init_etherdev */
- 	dev = alloc_etherdev(sizeof(*bp));
--	if (!dev)
-+	if (!dev) {
-+		printk(KERN_ERR PFX "Cannot allocate net device\n");
- 		return -ENOMEM;
-+	}
- 
- 	netif_carrier_off(dev);
- 
- 	bp = netdev_priv(dev);
- 	bp->msglevel = debug;
- 
--	if (port && onefunc) {
--		printk(KERN_ERR PFX "second function disabled. exiting\n");
--		free_netdev(dev);
--		return 0;
--	}
--
--	rc = bnx2x_init_board(pdev, dev);
-+	rc = bnx2x_init_dev(pdev, dev);
- 	if (rc < 0) {
- 		free_netdev(dev);
- 		return rc;
- 	}
- 
--	dev->hard_start_xmit = bnx2x_start_xmit;
--	dev->watchdog_timeo = TX_TIMEOUT;
--
--	dev->ethtool_ops = &bnx2x_ethtool_ops;
--	dev->open = bnx2x_open;
--	dev->stop = bnx2x_close;
--	dev->set_multicast_list = bnx2x_set_rx_mode;
--	dev->set_mac_address = bnx2x_change_mac_addr;
--	dev->do_ioctl = bnx2x_ioctl;
--	dev->change_mtu = bnx2x_change_mtu;
--	dev->tx_timeout = bnx2x_tx_timeout;
--#ifdef BCM_VLAN
--	dev->vlan_rx_register = bnx2x_vlan_rx_register;
--#endif
--#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
--	dev->poll_controller = poll_bnx2x;
--#endif
--	dev->features |= NETIF_F_SG;
--	if (bp->flags & USING_DAC_FLAG)
--		dev->features |= NETIF_F_HIGHDMA;
--	dev->features |= NETIF_F_IP_CSUM;
--#ifdef BCM_VLAN
--	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--#endif
--	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
--
- 	rc = register_netdev(dev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Cannot register net device\n");
--		if (bp->regview)
--			iounmap(bp->regview);
--		if (bp->doorbells)
--			iounmap(bp->doorbells);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		pci_set_drvdata(pdev, NULL);
--		free_netdev(dev);
--		return rc;
-+		goto init_one_exit;
- 	}
- 
- 	pci_set_drvdata(pdev, dev);
- 
--	bp->name = board_info[ent->driver_data].name;
-+	rc = bnx2x_init_bp(bp);
-+	if (rc) {
-+		unregister_netdev(dev);
-+		goto init_one_exit;
-+	}
-+
-+	bp->common.name = board_info[ent->driver_data].name;
- 	printk(KERN_INFO "%s: %s (%c%d) PCI-E x%d %s found at mem %lx,"
--	       " IRQ %d, ", dev->name, bp->name,
--	       ((CHIP_ID(bp) & 0xf000) >> 12) + 'A',
--	       ((CHIP_ID(bp) & 0x0ff0) >> 4),
-+	       " IRQ %d, ", dev->name, bp->common.name,
-+	       (CHIP_REV(bp) >> 12) + 'A', (CHIP_METAL(bp) >> 4),
- 	       bnx2x_get_pcie_width(bp),
- 	       (bnx2x_get_pcie_speed(bp) == 2) ? "5GHz (Gen2)" : "2.5GHz",
- 	       dev->base_addr, bp->pdev->irq);
- 	printk(KERN_CONT "node addr %s\n", print_mac(mac, dev->dev_addr));
- 	return 0;
-+
-+init_one_exit:
-+	if (bp->regview)
-+		iounmap(bp->regview);
-+
-+	if (bp->doorbells)
-+		iounmap(bp->doorbells);
-+
-+	free_netdev(dev);
-+
-+	if (atomic_read(&pdev->enable_cnt) == 1)
-+		pci_release_regions(pdev);
-+
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+
-+	return rc;
- }
- 
- static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
-@@ -7486,11 +8444,9 @@ static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
- 	struct bnx2x *bp;
- 
- 	if (!dev) {
--		/* we get here if init_one() fails */
- 		printk(KERN_ERR PFX "BAD net device from bnx2x_init_one\n");
- 		return;
- 	}
--
- 	bp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
-@@ -7502,7 +8458,10 @@ static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
- 		iounmap(bp->doorbells);
- 
- 	free_netdev(dev);
--	pci_release_regions(pdev);
-+
-+	if (atomic_read(&pdev->enable_cnt) == 1)
-+		pci_release_regions(pdev);
-+
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- }
-@@ -7512,21 +8471,29 @@ static int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct bnx2x *bp;
- 
--	if (!dev)
--		return 0;
-+	if (!dev) {
-+		printk(KERN_ERR PFX "BAD net device from bnx2x_init_one\n");
-+		return -ENODEV;
-+	}
-+	bp = netdev_priv(dev);
- 
--	if (!netif_running(dev))
--		return 0;
-+	rtnl_lock();
- 
--	bp = netdev_priv(dev);
-+	pci_save_state(pdev);
- 
--	bnx2x_nic_unload(bp, 0);
-+	if (!netif_running(dev)) {
-+		rtnl_unlock();
-+		return 0;
-+	}
- 
- 	netif_device_detach(dev);
- 
--	pci_save_state(pdev);
-+	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-+
- 	bnx2x_set_power_state(bp, pci_choose_state(pdev, state));
- 
-+	rtnl_unlock();
-+
- 	return 0;
- }
- 
-@@ -7540,21 +8507,25 @@ static int bnx2x_resume(struct pci_dev *pdev)
- 		printk(KERN_ERR PFX "BAD net device from bnx2x_init_one\n");
- 		return -ENODEV;
- 	}
--
--	if (!netif_running(dev))
--		return 0;
--
- 	bp = netdev_priv(dev);
- 
-+	rtnl_lock();
-+
- 	pci_restore_state(pdev);
-+
-+	if (!netif_running(dev)) {
-+		rtnl_unlock();
-+		return 0;
-+	}
-+
- 	bnx2x_set_power_state(bp, PCI_D0);
- 	netif_device_attach(dev);
- 
--	rc = bnx2x_nic_load(bp, 0);
--	if (rc)
--		return rc;
-+	rc = bnx2x_nic_load(bp, LOAD_NORMAL);
- 
--	return 0;
-+	rtnl_unlock();
-+
-+	return rc;
- }
- 
- static struct pci_driver bnx2x_pci_driver = {
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index 8707c0d..15c9a99 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -38,21 +38,19 @@
-    was asserted. */
- #define BRB1_REG_NUM_OF_FULL_CYCLES_0				 0x600c8
- #define BRB1_REG_NUM_OF_FULL_CYCLES_1				 0x600cc
--#define BRB1_REG_NUM_OF_FULL_CYCLES_2				 0x600d0
--#define BRB1_REG_NUM_OF_FULL_CYCLES_3				 0x600d4
- #define BRB1_REG_NUM_OF_FULL_CYCLES_4				 0x600d8
- /* [ST 32] The number of cycles that the pause signal towards MAC #0 was
-    asserted. */
- #define BRB1_REG_NUM_OF_PAUSE_CYCLES_0				 0x600b8
- #define BRB1_REG_NUM_OF_PAUSE_CYCLES_1				 0x600bc
--#define BRB1_REG_NUM_OF_PAUSE_CYCLES_2				 0x600c0
--#define BRB1_REG_NUM_OF_PAUSE_CYCLES_3				 0x600c4
- /* [RW 10] Write client 0: De-assert pause threshold. */
- #define BRB1_REG_PAUSE_HIGH_THRESHOLD_0 			 0x60078
- #define BRB1_REG_PAUSE_HIGH_THRESHOLD_1 			 0x6007c
- /* [RW 10] Write client 0: Assert pause threshold. */
- #define BRB1_REG_PAUSE_LOW_THRESHOLD_0				 0x60068
- #define BRB1_REG_PAUSE_LOW_THRESHOLD_1				 0x6006c
-+/* [R 24] The number of full blocks occpied by port. */
-+#define BRB1_REG_PORT_NUM_OCC_BLOCKS_0				 0x60094
- /* [RW 1] Reset the design by software. */
- #define BRB1_REG_SOFT_RESET					 0x600dc
- /* [R 5] Used to read the value of the XX protection CAM occupancy counter. */
-@@ -513,7 +511,6 @@
- /* [RW 15] Interrupt table Read and write access to it is not possible in
-    the middle of the work */
- #define CSEM_REG_INT_TABLE					 0x200400
--#define CSEM_REG_INT_TABLE_SIZE 				 256
- /* [ST 24] Statistics register. The number of messages that entered through
-    FIC0 */
- #define CSEM_REG_MSG_NUM_FIC0					 0x200000
-@@ -587,13 +584,10 @@
- #define DBG_REG_DBG_PRTY_MASK					 0xc0a8
- /* [R 1] Parity register #0 read */
- #define DBG_REG_DBG_PRTY_STS					 0xc09c
--/* [RW 2] debug only: These bits indicate the credit for PCI request type 4
--   interface; MUST be configured AFTER pci_ext_buffer_strt_addr_lsb/msb are
--   configured */
--#define DBG_REG_PCI_REQ_CREDIT					 0xc120
- /* [RW 32] Commands memory. The address to command X; row Y is to calculated
-    as 14*X+Y. */
- #define DMAE_REG_CMD_MEM					 0x102400
-+#define DMAE_REG_CMD_MEM_SIZE					 224
- /* [RW 1] If 0 - the CRC-16c initial value is all zeroes; if 1 - the CRC-16c
-    initial value is all ones. */
- #define DMAE_REG_CRC16C_INIT					 0x10201c
-@@ -1626,7 +1620,7 @@
-    is reset to 0x080; giving a default blink period of approximately 8Hz. */
- #define NIG_REG_LED_CONTROL_BLINK_RATE_P0			 0x10310
- /* [RW 1] Port0: If set along with the
--   nig_registers_led_control_override_traffic_p0.led_control_override_traffic_p0
-+ ~nig_registers_led_control_override_traffic_p0.led_control_override_traffic_p0
-    bit and ~nig_registers_led_control_traffic_p0.led_control_traffic_p0 LED
-    bit; the Traffic LED will blink with the blink rate specified in
-    ~nig_registers_led_control_blink_rate_p0.led_control_blink_rate_p0 and
-@@ -1733,9 +1727,21 @@
- /* [R 32] Rx statistics : In user packets discarded due to BRB backpressure
-    for port0 */
- #define NIG_REG_STAT0_BRB_DISCARD				 0x105f0
-+/* [WB_R 36] Tx statistics : Number of packets from emac0 or bmac0 that
-+   between 1024 and 1522 bytes for port0 */
-+#define NIG_REG_STAT0_EGRESS_MAC_PKT0				 0x10750
-+/* [WB_R 36] Tx statistics : Number of packets from emac0 or bmac0 that
-+   between 1523 bytes and above for port0 */
-+#define NIG_REG_STAT0_EGRESS_MAC_PKT1				 0x10760
- /* [R 32] Rx statistics : In user packets discarded due to BRB backpressure
-    for port1 */
- #define NIG_REG_STAT1_BRB_DISCARD				 0x10628
-+/* [WB_R 36] Tx statistics : Number of packets from emac1 or bmac1 that
-+   between 1024 and 1522 bytes for port1 */
-+#define NIG_REG_STAT1_EGRESS_MAC_PKT0				 0x107a0
-+/* [WB_R 36] Tx statistics : Number of packets from emac1 or bmac1 that
-+   between 1523 bytes and above for port1 */
-+#define NIG_REG_STAT1_EGRESS_MAC_PKT1				 0x107b0
- /* [WB_R 64] Rx statistics : User octets received for LP */
- #define NIG_REG_STAT2_BRB_OCTET 				 0x107e0
- #define NIG_REG_STATUS_INTERRUPT_PORT0				 0x10328
-@@ -1849,7 +1855,6 @@
- #define PRS_REG_CFC_SEARCH_INITIAL_CREDIT			 0x4011c
- /* [RW 24] CID for port 0 if no match */
- #define PRS_REG_CID_PORT_0					 0x400fc
--#define PRS_REG_CID_PORT_1					 0x40100
- /* [RW 32] The CM header for flush message where 'load existed' bit in CFC
-    load response is reset and packet type is 0. Used in packet start message
-    to TCM. */
-@@ -1957,6 +1962,10 @@
- #define PXP2_REG_HST_DATA_FIFO_STATUS				 0x12047c
- /* [R 7] Debug only: Number of used entries in the header FIFO */
- #define PXP2_REG_HST_HEADER_FIFO_STATUS 			 0x120478
-+#define PXP2_REG_PGL_ADDR_88_F0 				 0x120534
-+#define PXP2_REG_PGL_ADDR_8C_F0 				 0x120538
-+#define PXP2_REG_PGL_ADDR_90_F0 				 0x12053c
-+#define PXP2_REG_PGL_ADDR_94_F0 				 0x120540
- #define PXP2_REG_PGL_CONTROL0					 0x120490
- #define PXP2_REG_PGL_CONTROL1					 0x120514
- /* [RW 32] third dword data of expansion rom request. this register is
-@@ -2060,12 +2069,13 @@
- #define PXP2_REG_PSWRQ_SRC0_L2P 				 0x120054
- #define PXP2_REG_PSWRQ_TM0_L2P					 0x12001c
- #define PXP2_REG_PSWRQ_TSDM0_L2P				 0x1200e0
--/* [RW 25] Interrupt mask register #0 read/write */
--#define PXP2_REG_PXP2_INT_MASK					 0x120578
--/* [R 25] Interrupt register #0 read */
--#define PXP2_REG_PXP2_INT_STS					 0x12056c
--/* [RC 25] Interrupt register #0 read clear */
--#define PXP2_REG_PXP2_INT_STS_CLR				 0x120570
-+/* [RW 32] Interrupt mask register #0 read/write */
-+#define PXP2_REG_PXP2_INT_MASK_0				 0x120578
-+/* [R 32] Interrupt register #0 read */
-+#define PXP2_REG_PXP2_INT_STS_0 				 0x12056c
-+#define PXP2_REG_PXP2_INT_STS_1 				 0x120608
-+/* [RC 32] Interrupt register #0 read clear */
-+#define PXP2_REG_PXP2_INT_STS_CLR_0				 0x120570
- /* [RW 32] Parity mask register #0 read/write */
- #define PXP2_REG_PXP2_PRTY_MASK_0				 0x120588
- #define PXP2_REG_PXP2_PRTY_MASK_1				 0x120598
-@@ -2811,22 +2821,6 @@
- #define QM_REG_QVOQIDX_97					 0x16e490
- #define QM_REG_QVOQIDX_98					 0x16e494
- #define QM_REG_QVOQIDX_99					 0x16e498
--/* [R 24] Remaining pause timeout for queues 15-0 */
--#define QM_REG_REMAINPAUSETM0					 0x168418
--/* [R 24] Remaining pause timeout for queues 31-16 */
--#define QM_REG_REMAINPAUSETM1					 0x16841c
--/* [R 24] Remaining pause timeout for queues 47-32 */
--#define QM_REG_REMAINPAUSETM2					 0x16e69c
--/* [R 24] Remaining pause timeout for queues 63-48 */
--#define QM_REG_REMAINPAUSETM3					 0x16e6a0
--/* [R 24] Remaining pause timeout for queues 79-64 */
--#define QM_REG_REMAINPAUSETM4					 0x16e6a4
--/* [R 24] Remaining pause timeout for queues 95-80 */
--#define QM_REG_REMAINPAUSETM5					 0x16e6a8
--/* [R 24] Remaining pause timeout for queues 111-96 */
--#define QM_REG_REMAINPAUSETM6					 0x16e6ac
--/* [R 24] Remaining pause timeout for queues 127-112 */
--#define QM_REG_REMAINPAUSETM7					 0x16e6b0
- /* [RW 1] Initialization bit command */
- #define QM_REG_SOFT_RESET					 0x168428
- /* [RW 8] The credit cost per every task in the QM. A value per each VOQ */
-@@ -3826,7 +3820,6 @@
- /* [RW 15] Interrupt table Read and write access to it is not possible in
-    the middle of the work */
- #define TSEM_REG_INT_TABLE					 0x180400
--#define TSEM_REG_INT_TABLE_SIZE 				 256
- /* [ST 24] Statistics register. The number of messages that entered through
-    FIC0 */
- #define TSEM_REG_MSG_NUM_FIC0					 0x180000
-@@ -4283,7 +4276,6 @@
- /* [RW 15] Interrupt table Read and write access to it is not possible in
-    the middle of the work */
- #define USEM_REG_INT_TABLE					 0x300400
--#define USEM_REG_INT_TABLE_SIZE 				 256
- /* [ST 24] Statistics register. The number of messages that entered through
-    FIC0 */
- #define USEM_REG_MSG_NUM_FIC0					 0x300000
-@@ -4802,7 +4794,6 @@
- /* [RW 15] Interrupt table Read and write access to it is not possible in
-    the middle of the work */
- #define XSEM_REG_INT_TABLE					 0x280400
--#define XSEM_REG_INT_TABLE_SIZE 				 256
- /* [ST 24] Statistics register. The number of messages that entered through
-    FIC0 */
- #define XSEM_REG_MSG_NUM_FIC0					 0x280000
-@@ -4930,10 +4921,7 @@
- #define EMAC_MDIO_MODE_CLOCK_CNT				 (0x3fL<<16)
- #define EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT			 16
- #define EMAC_MODE_25G_MODE					 (1L<<5)
--#define EMAC_MODE_ACPI_RCVD					 (1L<<20)
- #define EMAC_MODE_HALF_DUPLEX					 (1L<<1)
--#define EMAC_MODE_MPKT						 (1L<<18)
--#define EMAC_MODE_MPKT_RCVD					 (1L<<19)
- #define EMAC_MODE_PORT_GMII					 (2L<<2)
- #define EMAC_MODE_PORT_MII					 (1L<<2)
- #define EMAC_MODE_PORT_MII_10M					 (3L<<2)
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index caa0005..e74b14a 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -1949,6 +1949,8 @@
- #define PCI_DEVICE_ID_NX2_5708		0x164c
- #define PCI_DEVICE_ID_TIGON3_5702FE	0x164d
- #define PCI_DEVICE_ID_NX2_57710		0x164e
-+#define PCI_DEVICE_ID_NX2_57711		0x164f
-+#define PCI_DEVICE_ID_NX2_57711E	0x1650
- #define PCI_DEVICE_ID_TIGON3_5705	0x1653
- #define PCI_DEVICE_ID_TIGON3_5705_2	0x1654
- #define PCI_DEVICE_ID_TIGON3_5720	0x1658
+ static const u32 usem_int_table_data_e1h[] = {
 -- 
 1.5.3.2
 
