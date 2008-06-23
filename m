@@ -1,50 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/8] textsearch: fix Boyer-Moore algorithm for case insensitive
- searching
-Date: Mon, 23 Jun 2008 14:27:18 +0200
-Message-ID: <485F96A6.20904@netfilter.org>
-References: <1214034845-1316-1-git-send-email-joonwpark81@gmail.com>	 <485CBAE4.4030307@trash.net> <b25c3fa70806210217w48658acewc2f987414bd312c3@mail.gmail.com> <485F8A13.90808@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <485F8A13.90808@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] ibm_newemac:  Fixes kernel crashes when speed of cable connected changes
+Date: Mon, 23 Jun 2008 14:54:54 +0200
+Message-ID: <1214225694-25815-1-git-send-email-sr@denx.de>
+Cc: benh@kernel.crashing.org, Sathya Narayanan <sathyan@teamf1.com>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.179]:56204 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508AbYFWMzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 08:55:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Joonwoo Park wrote:
->> 2008/6/21 Patrick McHardy <kaber@trash.net>:
->>>> +static void compute_prefix_tbl(struct ts_bm *bm, u8 icase)
->>>>  {
->>>>        int i, j, g;
->>>>          for (i = 0; i < ASIZE; i++)
->>>>                bm->bad_shift[i] = bm->patlen;
->>>> -       for (i = 0; i < bm->patlen - 1; i++)
->>>> +       for (i = 0; i < bm->patlen - 1; i++) {
->>>>                bm->bad_shift[bm->pattern[i]] = bm->patlen - 1 - i;
->>>> +               if (icase)
->>>> +                       bm->bad_shift[tolower(bm->pattern[i])]
->>>> +                           = bm->patlen - 1 - i;
->>>> +       }
->>> You use toupper() above and tolower() here, is that correct?
->>>
->>
->> It should be, bm->pattern's characters are all upper case since It was
->> altered before.
->> So we should use toupper() for target string character to compare.
->> And to ignore case, we should prepare one more bad_shift array
->> calculation, opposite tolower() should be used for it.
-> 
-> OK thanks. I'll wait for an ACK from Thomas before applying
-> them though.
+From: Sathya Narayanan <sathyan@teamf1.com>
 
-This is rather confusing. Why not set both the pattern and the bad_shift
-to lower or upper case?
+The descriptor pointers were not initialized to NIL values, so it was
+poiniting to some random addresses which was completely invalid. This
+fix takes care of initializing the descriptor to NIL values and clearing
+the valid descriptors on clean ring operation.
 
+Signed-off-by: Sathya Narayanan <sathyan@teamf1.com>
+Signed-off-by: Stefan Roese <sr@denx.de>
+---
+ drivers/net/ibm_newemac/core.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 5d2108c..6dfc2c9 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -1025,7 +1025,7 @@ static void emac_clean_tx_ring(struct emac_instance *dev)
+ 	int i;
+ 
+ 	for (i = 0; i < NUM_TX_BUFF; ++i) {
+-		if (dev->tx_skb[i]) {
++		if (dev->tx_skb[i] && dev->tx_desc[i].data_ptr) {
+ 			dev_kfree_skb(dev->tx_skb[i]);
+ 			dev->tx_skb[i] = NULL;
+ 			if (dev->tx_desc[i].ctrl & MAL_TX_CTRL_READY)
+@@ -2719,6 +2719,10 @@ static int __devinit emac_probe(struct of_device *ofdev,
+ 	/* Clean rings */
+ 	memset(dev->tx_desc, 0, NUM_TX_BUFF * sizeof(struct mal_descriptor));
+ 	memset(dev->rx_desc, 0, NUM_RX_BUFF * sizeof(struct mal_descriptor));
++	for (i = 0; i <= NUM_TX_BUFF; i++)
++		dev->tx_skb[i] = NULL;
++	for (i = 0; i <= NUM_RX_BUFF; i++)
++		dev->rx_skb[i] = NULL;
+ 
+ 	/* Attach to ZMII, if needed */
+ 	if (emac_has_feature(dev, EMAC_FTR_HAS_ZMII) &&
 -- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+1.5.6
+
