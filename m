@@ -1,59 +1,64 @@
-From: Julius Volz <juliusv@google.com>
-Subject: [PATCH] Netlink: Fix some doc comments in net/netlink/attr.c
-Date: Mon, 23 Jun 2008 21:19:11 +0200
-Message-ID: <1214248751-6498-1-git-send-email-juliusv@google.com>
-Cc: tgraf@suug.ch, netdev@vger.kernel.org,
-	Julius Volz <juliusv@google.com>
-To: davem@davemloft.net
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] NET_SCHED: restore HZ value to /proc/net/psched
+Date: Mon, 23 Jun 2008 21:36:08 +0200
+Message-ID: <485FFB28.7070503@trash.net>
+References: <20080623111320.7ddb72b9@extreme>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:48825 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757333AbYFWTT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:19:28 -0400
+Received: from stinky.trash.net ([213.144.137.162]:60170 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754475AbYFWTgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 15:36:13 -0400
+In-Reply-To: <20080623111320.7ddb72b9@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix some doc comments to match function and attribute names in
-net/netlink/attr.c.
+Stephen Hemminger wrote:
+> Some changes back in  2.6.22 broke a number of
+> other places where the iproute2 utilities depended on kernel HZ
+> value. The use of HZ was a bad original ABI design choice; the
+> question is how to fix the impacts.
+> 
+> During 2.6.22 development, the psched clock was converted over
+> to use high resolution timers, and one of the changes was to the
+> return value of /proc/net/psched. This file is used by utilities
+> to determine conversion between time and jiffies.
+> It would be better to go back to the original format
+> output where the fourth field was the kernel HZ.
+> 
+> The motivation for the change was to make the HTB burst size
+> default smaller because the kernel clock resolution was better.  
+> But the change broke the use of jiffies by dst_metrics.
+> 
+> With this revert all the metric RTT values will work again.
+> The only use of hz in htb is to set the buffer and ceiling buffer default,
+> and having the old value would cause a slightly larger value. Note: the comment
+> in q_htb is incorrect, the value calculated is the default not the
+> minimum.  As an example if HTB rate is 1mbit, then the default buffer
+> would be come 11500 (with 100 HZ) vs 1500 (with 2.6.25).
+> 
+> This effectively reverts commit 4361cb17f0df5491fe6e2c3ae1defc98e9a64a79
+> I am not 100% convinced this is the best or only solution.
 
-Signed-off-by: Julius Volz <juliusv@google.com>
----
- net/netlink/attr.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+Me neither. As you've mentioned yourself, the fact that
+the interfaces use kernel HZ as unit is a bug, and the use
+of /proc/net/psched is another bug (one that isn't present
+for *that* long I should add, the iproute git history
+unfortunately only contains one huge patch which includes
+this change).
 
-diff --git a/net/netlink/attr.c b/net/netlink/attr.c
-index 47bbf45..2d106cf 100644
---- a/net/netlink/attr.c
-+++ b/net/netlink/attr.c
-@@ -132,6 +132,7 @@ errout:
-  * @maxtype: maximum attribute type to be expected
-  * @head: head of attribute stream
-  * @len: length of attribute stream
-+ * @policy: validation policy
-  *
-  * Parses a stream of attributes and stores a pointer to each attribute in
-  * the tb array accessable via the attribute type. Attributes with a type
-@@ -194,7 +195,7 @@ struct nlattr *nla_find(struct nlattr *head, int len, int attrtype)
- /**
-  * nla_strlcpy - Copy string attribute payload into a sized buffer
-  * @dst: where to copy the string to
-- * @src: attribute to copy the string from
-+ * @nla: attribute to copy the string from
-  * @dstsize: size of destination buffer
-  *
-  * Copies at most dstsize - 1 bytes into the destination buffer.
-@@ -340,9 +341,9 @@ struct nlattr *nla_reserve(struct sk_buff *skb, int attrtype, int attrlen)
- }
- 
- /**
-- * nla_reserve - reserve room for attribute without header
-+ * nla_reserve_nohdr - reserve room for attribute without header
-  * @skb: socket buffer to reserve room on
-- * @len: length of attribute payload
-+ * @attrlen: length of attribute payload
-  *
-  * Reserves room for attribute payload without a header.
-  *
--- 
-1.5.3.6
+IMO qdiscs shouldn't be punished for bugs in other code
+and the main problem would still remain. Two alternative
+approaches:
+
+- just fix the interface (something we've done multiple
+   times, even after 2.6 was released).
+
+- add a new proc file to get the value of kernel HZ (the
+   fix needs a kernel change anyway, this would additionally
+   require a new iproute version).
 
