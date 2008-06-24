@@ -1,34 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/8] textsearch: fix textsearch for case insensitive searching
-Date: Tue, 24 Jun 2008 14:27:36 +0200
-Message-ID: <4860E838.6090508@trash.net>
-References: <1214034838-1270-1-git-send-email-joonwpark81@gmail.com> <485CB9F6.6050601@trash.net> <20080623232224.GG20815@postel.suug.ch>
+From: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: RFC: always enable MAC80211_RC_PID?
+Date: Tue, 24 Jun 2008 15:43:14 +0300
+Message-ID: <20080624124311.GC16021@cs181140183.pp.htv.fi>
+References: <20080622125553.GB22539@cs181133002.pp.htv.fi> <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com> <1214298259.8967.260.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Joonwoo Park <joonwpark81@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50294 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751338AbYFXM1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 08:27:41 -0400
-In-Reply-To: <20080623232224.GG20815@postel.suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1214298259.8967.260.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Patrick McHardy <kaber@trash.net> 2008-06-21 10:21
->> This looks fine to me, although a generic flags argument
->> would prevent changing all users again next time someone
->> wants to add a feature. But I'll leave that decision to
->> Thomas.
+On Tue, Jun 24, 2008 at 11:04:19AM +0200, Johannes Berg wrote:
 > 
-> I agree, I'd favour a general flag for this as well.
+> > You can currently only get away living without it if you are just
+> > using iwl3945 or iwl4965 as they provide their own rate control
+> > algorithms. In the future if other vendor drivers are added with their
+> > own rate control algorithm this list grows.
+> 
+> FWIW, I would like to see those algorithms be supported as part of
+> mac80211 and not be internal like iwlwifi hacked them on, and have some
+> sort of feature negotiation between the hardware and the RC algorithm
+> when choosing one.
 
+Do we need it as complicated as it is today?
 
-Joonwoo, if you send me a replacement patch that uses a flag
-instead I'm going to apply the entire series.
+Currently the infrastructure is:
+- the default algorithm is built into mac80211
+- other algorithms get into their own modules
+
+The implementation of this complicated scheme is horrible
+(just look at net/mac80211/Makefile), and anyone adding a new
+algorithm will most likely not get it right at his first attempt.
+
+Can we get one of either:
+- all selected mac80211 algorithms are built into the mac80211 module or
+- all selected mac80211 algorithms (including the default one) are in
+  their own modules
+?
+
+It wouldn't make any difference today for the CONFIG_EMBEDDED=n case, 
+but allows to make things less complicated and will make it easier to 
+add additional algorithms.
+
+I'll be glad to provide a patch if one of these is considered 
+acceptable.
+
+> johannes
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
