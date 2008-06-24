@@ -1,78 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 2/2] net: Fix consumers of skb->queue_mapping to use lower 8
-	bits
-Date: Tue, 24 Jun 2008 16:28:12 -0700
-Message-ID: <20080624232719.11654.97193.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Add the CPU id to skb->queue_mapping's upper
+ 8 bits
+Date: Tue, 24 Jun 2008 16:37:42 -0700 (PDT)
+Message-ID: <20080624.163742.224488012.davem@davemloft.net>
 References: <20080624232545.11654.65805.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22858 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752036AbYFXX2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 19:28:13 -0400
+Cc: jeff@garzik.org, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757407AbYFXXhz@vger.kernel.org>
 In-Reply-To: <20080624232545.11654.65805.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 24 Jun 2008 16:27:12 -0700
 
-This patch will cause the consumers of skb->queue_mapping to only use the
-lower 8 bits, so drivers can use the upper 8 bits for CPU index.
+> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> 
+> This patch adds the CPU index to the upper 8 bits of the queue_mapping in
+> the skb.  This will support 256 CPUs and 256 Tx queues.  The reason for
+> this is the qdisc layer can obscure which CPU is generating a certain flow
+> of packets, so network drivers don't have any insight which CPU generated a
+> particular packet.  If the driver knows which CPU generated the packet,
+> then it could adjust Rx filtering in the hardware to redirect the packet
+> back to the CPU who owns the process that generated this packet.
+> Preventing the cache miss and reschedule of a process to a different CPU is
+> a big win in network performance, especially at 10 gigabit speeds.
+> 
+> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Well:
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- include/linux/skbuff.h         |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+1) All of this multiqueue stuff is going away with my changes in
+   net-tx-2.6
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 0d37c90..7b39394 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3244,7 +3244,7 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
- 	len -= skb->data_len;
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
--	r_idx = (adapter->num_tx_queues - 1) & skb->queue_mapping;
-+	r_idx = (adapter->num_tx_queues - 1) & (skb->queue_mapping & 0xff);
- #endif
- 	tx_ring = &adapter->tx_ring[r_idx];
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 299ec4b..0246827 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1672,14 +1672,14 @@ static inline void skb_init_secmark(struct sk_buff *skb)
- static inline void skb_set_queue_mapping(struct sk_buff *skb, u16 queue_mapping)
- {
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
--	skb->queue_mapping = queue_mapping;
-+	skb->queue_mapping = (queue_mapping & 0xff);
- #endif
- }
- 
- static inline u16 skb_get_queue_mapping(struct sk_buff *skb)
- {
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
--	return skb->queue_mapping;
-+	return (skb->queue_mapping & 0xff);
- #else
- 	return 0;
- #endif
-@@ -1688,7 +1688,7 @@ static inline u16 skb_get_queue_mapping(struct sk_buff *skb)
- static inline void skb_copy_queue_mapping(struct sk_buff *to, const struct sk_buff *from)
- {
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
--	to->queue_mapping = from->queue_mapping;
-+	to->queue_mapping = (from->queue_mapping & 0xff);
- #endif
- }
- 
+2) This CPU number is going to be wrong half of the time.
 
+For #2, when TCP is processing ACKs, it sends packets out from
+whichever CPU the ACK landed on.
+
+So you could end up retargetting the RX flow back and forth between
+cpus.  The cpu that sends the packet into the device layer is far
+from the cpu that should be used to target the RX flow at.
+
+So this idea is pretty seriously flawed and the infrastructure it's
+using is going away anyways.
+
+It also adds all sorts of arbitray limitations (256 queues and cpus? I
+already have systems coming to me with more than 256 cpus)
