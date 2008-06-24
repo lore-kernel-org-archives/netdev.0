@@ -1,57 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Sending big Netlink messages to userspace
-Date: Tue, 24 Jun 2008 19:00:28 +0200
-Message-ID: <4861282C.4000208@trash.net>
-References: <f4845fc0806240938h36d275ect109fd5f5414cba37@mail.gmail.com>
+From: "Ray Lee" <ray-lk@madrabbit.org>
+Subject: Re: stuck tcp connections 2.6.26-rc7
+Date: Tue, 24 Jun 2008 10:16:14 -0700
+Message-ID: <2c0942db0806241016o3be1dae8i433da13697c4531c@mail.gmail.com>
+References: <dd18b0c30806221109t2ff73f9ai52f6716748648a79@mail.gmail.com>
+	 <20080622205927.301501e7.akpm@linux-foundation.org>
+	 <dd18b0c30806230013x5446991bi9eba7623ffaae131@mail.gmail.com>
+	 <g3ol3u$li2$1@ger.gmane.org>
+	 <dd18b0c30806231845s1cc6151coc2a4f26ed3521500@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vince Busam <vbusam@google.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Julius Volz <juliusv@google.com>
+Cc: "Didier Raboud" <didier@raboud.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Justin Mattock" <justinmattock@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58544 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637AbYFXRAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 13:00:33 -0400
-In-Reply-To: <f4845fc0806240938h36d275ect109fd5f5414cba37@mail.gmail.com>
+Received: from py-out-1112.google.com ([64.233.166.179]:52149 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755526AbYFXRQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 13:16:15 -0400
+Received: by py-out-1112.google.com with SMTP id p76so1432722pyb.10
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 10:16:14 -0700 (PDT)
+In-Reply-To: <dd18b0c30806231845s1cc6151coc2a4f26ed3521500@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Hi,
-> 
-> While adding a Netlink interface to IPVS, I've been wondering how to
-> properly send very big messages to userspace and found these posts:
-> 
-> http://lists.openwall.net/netdev/2007/03/06/214
-> http://lists.openwall.net/netdev/2007/03/07/2
-> 
-> Herbert writes in the second one, "Dumps should be done using 4K
-> (NLMSG_GOODSIZE) skb's, where is the problem?" How is that meant?
-> Should one manually split up dumps into several NLMSG_GOODSIZE
-> messages or is there some mechanism for that?
+2008/6/23 Justin Mattock <justinmattock@gmail.com>:
+> On Mon, Jun 23, 2008 at 5:04 PM, Didier Raboud <didier@raboud.com> wrote:
+>> -----BEGIN PGP SIGNED MESSAGE-----
+>> Hash: SHA1
+>>
+>> Justin Mattock wrote:
+>>
+>>> On Mon, Jun 23, 2008 at 3:59 AM, Andrew Morton
+>>> <akpm@linux-foundation.org> wrote:
+>>>> On Sun, 22 Jun 2008 18:09:16 +0000 "Justin Mattock"
+>>>> <justinmattock@gmail.com> wrote:
+>>>>
+>>>>> Hello; I too am experiencing internet connectivity problems, for  a
+>>>>> while I thought
+>>>>> It was due to low bandwidth(or being ddos attacked) but yesterday I
+>>>>> noticed with watch netstat -ntu
+>>>>> send-Q was stuck on a number; the connection would not go to TIME_WAIT
+>>>>> resulting in music to pause, and t.v. to freeze.
+>>>>> In my experiences running xmms streaming music is fine, no problems,
+>>>>> but as soon as
+>>>>> you watch something with flash player the stream start's getting
+>>>>> really bad. In the past with older kernel's
+>>>>> I usually can watch t.v.(with flash) and stream music at the same time
+>>>>> without any trouble.
+>>>>> lately I've been Running the kernel in No forced Preemption with a
+>>>>> time frequency at 100. having the kernel set in this mode really shows
+>>>>> the connection problems, but if I change the preemption to another,
+>>>>> and bump up the timer frequency the poor internet connection is not as
+>>>>> bad(or stuck tcp) but still prevalent. more pops in the music, and
+>>>>> sudden internet loss for around five seconds, then goes back
+>>>>> So from over here streaming music has no problems from what I can see,
+>>>>> but as soon as I watch media, it becomes a mess.
+>>>>
+>>>> (cc netdev)
+>>>>
+>>>
+>>>
+>>> Cool, Thanks for sending the cc
+>>> regards;
+>>
+>> Hi,
+>>
+>> I get something like a similar bug: when pinging my local gateway, I loose
+>> packets (over wifi (iwl3945) ). Before the update to 2.6.26-rc7 (Debian), I
+>> had no such issues (which makes Internet browsing working but weirdly).
+>>
+>> I can't know for sure that my bug is related to the above, but suppose so.
+>> Please ask for details !
+>>
+>> Regards,
+>>
+>> Didier Raboud
+>> - --
+>
+> Cool;(cool as in I'm not the only one,not cool for sh*%y internet connections)
+> there is something definitely happening with the tcp connection.,
+> After looking more at the situation
+> I get a good connection when just streaming music, but as soon as I
+> watch with flash or even search through firefox
+> I'm getting a dead period of no internet, and then a few seconds later
+> no problems.Almost as if some timer in the code is missing something
+> or not firing off at the right time.
+> At this point I'm still uncertain with what is happening.
+> regards;
 
-Thats done automatically through netlink_dump_start().
-You send one skb per dump callback invocation. The final
-call returns a zero sized skb to indicate the end of the
-dump.
-
-> I need to send arbitrarily long lists to userspace and I'm already
-> choosing a big enough size for nlmsg_new(), so I get no put failures
-> while constructing the message. However, when receiving the data in
-> userspace (with libnl), the receive callback is never called. An
-> strace shows that MSG_TRUNC is set in the oversized message, so the
-> data is never fully received.
-
-You probably need to increase the receive buffer size in libnl.
-
-> I just call nl_recvmsgs_default(sock) once (which does not return an
-> error). Am I handling libnl incorrectly or do I need to do this
-> differently on the kernel side?
-
-It depends on what kind of attributes you're sending. In case
-of top-level attributes you should only dump objects until
-you reach NLMSG_GOODSIZE and continue during the next dump
-callback invocation. Sending arbitary amounts of nested
-data is more tricky, or might even be impossible currently.
+If you leave a ping running as root to your local gateway from a
+console ( nice -n -10 ping -i 0.5 192.168.1.1
+ or whichever ip ), does it show dropouts?
