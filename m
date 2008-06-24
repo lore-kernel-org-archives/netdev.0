@@ -1,298 +1,232 @@
-From: "Subrata Modak" <tosubrata-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2] CONNECTOR: add a proc entry to list connectors
-Date: Tue, 24 Jun 2008 15:30:22 +0530
-Message-ID: <bb33bcf20806240300h44b7805bk8673fd53dd5c021f@mail.gmail.com>
-References: <4860B279.9070105@cn.fujitsu.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH] net: refactor tcp splice receive path to improve readability
+Date: Tue, 24 Jun 2008 13:03:36 +0300
+Message-ID: <200806241303.36453.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1998590854=="
-Cc: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ltp-list <ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Li Zefan" <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <4860B279.9070105-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ltp-list>,
-	<mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ltp-list>
-List-Post: <mailto:ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ltp-list>,
-	<mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_4ZMYIcm0jsVnTVI"
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3139 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753954AbYFXKFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 06:05:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============1998590854==
-Content-Type: multipart/alternative;
-	boundary="----=_Part_589_25102481.1214301622175"
-
-------=_Part_589_25102481.1214301622175
-Content-Type: text/plain; charset=UTF-8
+--Boundary-00=_4ZMYIcm0jsVnTVI
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Hi Li,
 
-I hope we are also facing the same problem for executing the Process Event
-Connector test cases patch in LTP. If this works out, so will our test cases
-patch.
+Hi David,
 
-Regards--
-Subrata
+Sorry for the duplicate, forgot to CC netdev.
 
-On Tue, Jun 24, 2008 at 2:08 PM, Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org> wrote:
+Please consider applying this to net-next-2.6. I've minimally tested it and no 
+performance or functional problems were found. It applies on top of the 
+previous fix I've sent ([PATH] tcp: fix for splice receive when used with 
+software LRO). 
 
-> I got a problem when I wanted to check if the kernel supports process
-> event connector, and It seems there's no way to do this check.
->
-> At best I can check if the kernel supports connector or not, by looking
-> into /proc/net/netlink, or maybe checking the return value of bind() to
-> see if it's ENOENT.
->
-> So it would be useful to add /proc/net/connector to list all supported
-> connectors:
->  # cat /proc/net/connector
->  Name            ID
->  connector       4294967295:4294967295
->  cn_proc         1:1
->  w1              3:1
->
-> Changelog:
-> - fix memory leak: s/seq_release/single_release
-> - use spin_lock_bh instead of spin_lock_irqsave
->
-> Signed-off-by: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Acked-by: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
-> ---
->  drivers/connector/connector.c |   40
-> ++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 40 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-> index 85e2ba7..bf48300 100644
-> --- a/drivers/connector/connector.c
-> +++ b/drivers/connector/connector.c
-> @@ -27,6 +27,8 @@
->  #include <linux/moduleparam.h>
->  #include <linux/connector.h>
->  #include <linux/mutex.h>
-> +#include <linux/proc_fs.h>
-> +#include <linux/spinlock.h>
->
->  #include <net/sock.h>
->
-> @@ -403,6 +405,40 @@ static void cn_callback(void *data)
->        mutex_unlock(&notify_lock);
->  }
->
-> +static int cn_proc_show(struct seq_file *m, void *v)
-> +{
-> +       struct cn_queue_dev *dev = cdev.cbdev;
-> +       struct cn_callback_entry *cbq;
-> +
-> +       seq_printf(m, "Name            ID\n");
-> +
-> +       spin_lock_bh(&dev->queue_lock);
-> +
-> +       list_for_each_entry(cbq, &dev->queue_list, callback_entry) {
-> +               seq_printf(m, "%-15s %u:%u\n",
-> +                          cbq->id.name,
-> +                          cbq->id.id.idx,
-> +                          cbq->id.id.val);
-> +       }
-> +
-> +       spin_unlock_bh(&dev->queue_lock);
-> +
-> +       return 0;
-> +}
-> +
-> +static int cn_proc_open(struct inode *inode, struct file *file)
-> +{
-> +       return single_open(file, cn_proc_show, NULL);
-> +}
-> +
-> +static const struct file_operations cn_file_ops = {
-> +       .owner   = THIS_MODULE,
-> +       .open    = cn_proc_open,
-> +       .read    = seq_read,
-> +       .llseek  = seq_lseek,
-> +       .release = single_release
-> +};
-> +
->  static int __devinit cn_init(void)
->  {
->        struct cn_dev *dev = &cdev;
-> @@ -434,6 +470,8 @@ static int __devinit cn_init(void)
->                return -EINVAL;
->        }
->
-> +       proc_net_fops_create(&init_net, "connector", S_IRUGO,
-> &cn_file_ops);
-> +
->        return 0;
->  }
->
-> @@ -443,6 +481,8 @@ static void __devexit cn_fini(void)
->
->        cn_already_initialized = 0;
->
-> +       proc_net_remove(&init_net, "connector");
-> +
->        cn_del_callback(&dev->id);
->        cn_queue_free_dev(dev->cbdev);
->        netlink_kernel_release(dev->nls);
-> --
-> 1.5.4.rc3
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+Thanks,
+tavi
 
-
-
--- 
-Regards & Thanks--
-Subrata
-
-------=_Part_589_25102481.1214301622175
-Content-Type: text/html; charset=UTF-8
+--Boundary-00=_4ZMYIcm0jsVnTVI
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="x"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Content-Disposition: inline;
+	filename="x"
 
-Hi Li,<br><br>I hope we are also facing the same problem for executing the Process Event Connector test cases patch in LTP. If this works out, so will our test cases patch.<br><br>Regards--<br>Subrata<br><br><div class="gmail_quote">
-On Tue, Jun 24, 2008 at 2:08 PM, Li Zefan &lt;<a href="mailto:lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org">lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org</a>&gt; wrote:<br><blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;">
-I got a problem when I wanted to check if the kernel supports process<br>
-event connector, and It seems there&#39;s no way to do this check.<br>
-<br>
-At best I can check if the kernel supports connector or not, by looking<br>
-into /proc/net/netlink, or maybe checking the return value of bind() to<br>
-see if it&#39;s ENOENT.<br>
-<br>
-So it would be useful to add /proc/net/connector to list all supported<br>
-connectors:<br>
-&nbsp;# cat /proc/net/connector<br>
-&nbsp;Name &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;ID<br>
-&nbsp;connector &nbsp; &nbsp; &nbsp; 4294967295:4294967295<br>
-&nbsp;cn_proc &nbsp; &nbsp; &nbsp; &nbsp; 1:1<br>
-&nbsp;w1 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;3:1<br>
-<br>
-Changelog:<br>
-- fix memory leak: s/seq_release/single_release<br>
-- use spin_lock_bh instead of spin_lock_irqsave<br>
-<br>
-Signed-off-by: Li Zefan &lt;<a href="mailto:lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org">lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org</a>&gt;<br>
-Acked-by: Evgeniy Polyakov &lt;<a href="mailto:johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org">johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org</a>&gt;<br>
----<br>
-&nbsp;drivers/connector/connector.c | &nbsp; 40 ++++++++++++++++++++++++++++++++++++++++<br>
-&nbsp;1 files changed, 40 insertions(+), 0 deletions(-)<br>
-<br>
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c<br>
-index 85e2ba7..bf48300 100644<br>
---- a/drivers/connector/connector.c<br>
-+++ b/drivers/connector/connector.c<br>
-@@ -27,6 +27,8 @@<br>
-&nbsp;#include &lt;linux/moduleparam.h&gt;<br>
-&nbsp;#include &lt;linux/connector.h&gt;<br>
-&nbsp;#include &lt;linux/mutex.h&gt;<br>
-+#include &lt;linux/proc_fs.h&gt;<br>
-+#include &lt;linux/spinlock.h&gt;<br>
-<br>
-&nbsp;#include &lt;net/sock.h&gt;<br>
-<br>
-@@ -403,6 +405,40 @@ static void cn_callback(void *data)<br>
- &nbsp; &nbsp; &nbsp; &nbsp;mutex_unlock(&amp;notify_lock);<br>
-&nbsp;}<br>
-<br>
-+static int cn_proc_show(struct seq_file *m, void *v)<br>
-+{<br>
-+ &nbsp; &nbsp; &nbsp; struct cn_queue_dev *dev = cdev.cbdev;<br>
-+ &nbsp; &nbsp; &nbsp; struct cn_callback_entry *cbq;<br>
-+<br>
-+ &nbsp; &nbsp; &nbsp; seq_printf(m, &quot;Name &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;ID\n&quot;);<br>
-+<br>
-+ &nbsp; &nbsp; &nbsp; spin_lock_bh(&amp;dev-&gt;queue_lock);<br>
-+<br>
-+ &nbsp; &nbsp; &nbsp; list_for_each_entry(cbq, &amp;dev-&gt;queue_list, callback_entry) {<br>
-+ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; seq_printf(m, &quot;%-15s %u:%u\n&quot;,<br>
-+ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;cbq-&gt;<a href="http://id.name" target="_blank">id.name</a>,<br>
-+ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;cbq-&gt;id.id.idx,<br>
-+ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;cbq-&gt;id.id.val);<br>
-+ &nbsp; &nbsp; &nbsp; }<br>
-+<br>
-+ &nbsp; &nbsp; &nbsp; spin_unlock_bh(&amp;dev-&gt;queue_lock);<br>
-+<br>
-+ &nbsp; &nbsp; &nbsp; return 0;<br>
-+}<br>
-+<br>
-+static int cn_proc_open(struct inode *inode, struct file *file)<br>
-+{<br>
-+ &nbsp; &nbsp; &nbsp; return single_open(file, cn_proc_show, NULL);<br>
-+}<br>
-+<br>
-+static const struct file_operations cn_file_ops = {<br>
-+ &nbsp; &nbsp; &nbsp; .owner &nbsp; = THIS_MODULE,<br>
-+ &nbsp; &nbsp; &nbsp; .open &nbsp; &nbsp;= cn_proc_open,<br>
-+ &nbsp; &nbsp; &nbsp; .read &nbsp; &nbsp;= seq_read,<br>
-+ &nbsp; &nbsp; &nbsp; .llseek &nbsp;= seq_lseek,<br>
-+ &nbsp; &nbsp; &nbsp; .release = single_release<br>
-+};<br>
-+<br>
-&nbsp;static int __devinit cn_init(void)<br>
-&nbsp;{<br>
- &nbsp; &nbsp; &nbsp; &nbsp;struct cn_dev *dev = &amp;cdev;<br>
-@@ -434,6 +470,8 @@ static int __devinit cn_init(void)<br>
- &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;return -EINVAL;<br>
- &nbsp; &nbsp; &nbsp; &nbsp;}<br>
-<br>
-+ &nbsp; &nbsp; &nbsp; proc_net_fops_create(&amp;init_net, &quot;connector&quot;, S_IRUGO, &amp;cn_file_ops);<br>
-+<br>
- &nbsp; &nbsp; &nbsp; &nbsp;return 0;<br>
-&nbsp;}<br>
-<br>
-@@ -443,6 +481,8 @@ static void __devexit cn_fini(void)<br>
-<br>
- &nbsp; &nbsp; &nbsp; &nbsp;cn_already_initialized = 0;<br>
-<br>
-+ &nbsp; &nbsp; &nbsp; proc_net_remove(&amp;init_net, &quot;connector&quot;);<br>
-+<br>
- &nbsp; &nbsp; &nbsp; &nbsp;cn_del_callback(&amp;dev-&gt;id);<br>
- &nbsp; &nbsp; &nbsp; &nbsp;cn_queue_free_dev(dev-&gt;cbdev);<br>
- &nbsp; &nbsp; &nbsp; &nbsp;netlink_kernel_release(dev-&gt;nls);<br>
---<br>
-1.5.4.rc3<br>
-<font color="#888888">--<br>
-To unsubscribe from this list: send the line &quot;unsubscribe linux-kernel&quot; in<br>
-the body of a message to <a href="mailto:majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org">majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org</a><br>
-More majordomo info at &nbsp;<a href="http://vger.kernel.org/majordomo-info.html" target="_blank">http://vger.kernel.org/majordomo-info.html</a><br>
-Please read the FAQ at &nbsp;<a href="http://www.tux.org/lkml/" target="_blank">http://www.tux.org/lkml/</a><br>
-</font></blockquote></div><br><br clear="all"><br>-- <br>Regards &amp; Thanks--<br>Subrata
+commit 8caea829369378e2dff254978eea6b59d2d4629e
+Author: Octavian Purdila <opurdila@ixiacom.com>
+Date:   Mon Jun 23 18:08:00 2008 +0300
 
-------=_Part_589_25102481.1214301622175--
+    net: refactor tcp splice receive path to improve readability
+    
+    - move all of the details on offsets, lengths and buffers into a
+    single function instead of doing these operation from multiple places
+    
+    - use a bottom up approach: try to avoid details in the high level
+    functions, introduce them gradually as we go deeper in the function
+    call stack
+    
+    With helpful feedback from Jarek Poplawski.
+    
+    Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+    Acked-by: Jarek Poplawski <jarkao2@gmail.com>
 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3895b1c..418c958 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1280,104 +1280,83 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
+ 	return 0;
+ }
+ 
+-/*
+- * Map linear and fragment data from the skb to spd. Returns number of
+- * pages mapped.
+- */
+-static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+-			     unsigned int *total_len,
+-			     struct splice_pipe_desc *spd)
++static inline void __segment_seek(struct page **page, unsigned int *poff,
++				  unsigned int *plen, unsigned int off)
+ {
+-	unsigned int poff, plen, len, toff, tlen;
+-	int headlen, seg;
++	*poff += off;
++	*page += *poff / PAGE_SIZE;
++	*poff = *poff % PAGE_SIZE;
++	*plen -= off;
++}
+ 
+-	toff = *offset;
+-	tlen = *total_len;
+-	if (!tlen)
+-		goto err;
++static inline int __splice_segment(struct page *page, unsigned int poff,
++				   unsigned int plen, unsigned int *off,
++				   unsigned int *len, struct sk_buff *skb,
++				   struct splice_pipe_desc *spd)
++{
++	if (!*len)
++		return 1;
+ 
+-	/*
+-	 * if the offset is greater than the linear part, go directly to
+-	 * the fragments.
+-	 */
+-	headlen = skb_headlen(skb);
+-	if (toff >= headlen) {
+-		toff -= headlen;
+-		goto map_frag;
++	/* skip this segment if already processed */
++	if (*off >= plen) {
++		*off -= plen;
++		return 0;
+ 	}
+ 
+-	/*
+-	 * first map the linear region into the pages/partial map, skipping
+-	 * any potential initial offset.
+-	 */
+-	len = 0;
+-	while (len < headlen) {
+-		void *p = skb->data + len;
+-
+-		poff = (unsigned long) p & (PAGE_SIZE - 1);
+-		plen = min_t(unsigned int, headlen - len, PAGE_SIZE - poff);
+-		len += plen;
+-
+-		if (toff) {
+-			if (plen <= toff) {
+-				toff -= plen;
+-				continue;
+-			}
+-			plen -= toff;
+-			poff += toff;
+-			toff = 0;
+-		}
++	/* ignore any bits we already processed */
++	if (*off) {
++		__segment_seek(&page, &poff, &plen, *off);
++		*off = 0;
++	}
+ 
+-		plen = min(plen, tlen);
+-		if (!plen)
+-			break;
++	do {
++		unsigned int flen = min(*len, plen);
+ 
+-		/*
+-		 * just jump directly to update and return, no point
+-		 * in going over fragments when the output is full.
+-		 */
+-		if (spd_fill_page(spd, virt_to_page(p), plen, poff, skb))
+-			goto err;
++		/* the linear region may spread across several pages  */
++		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
+ 
+-		tlen -= plen;
+-	}
++		if (spd_fill_page(spd, page, flen, poff, skb))
++			return 1;
++
++		__segment_seek(&page, &poff, &plen, flen);
++		*len -= flen;
++
++	} while (*len && plen);
++
++	return 0;
++}
++
++/*
++ * Map linear and fragment data from the skb to spd. It reports failure if the
++ * pipe is full or if we already spliced the requested length.
++ */
++int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
++		      unsigned int *len,
++		      struct splice_pipe_desc *spd)
++{
++	int seg;
++
++	/*
++	 * map the linear part
++	 */
++	if (__splice_segment(virt_to_page(skb->data),
++			     (unsigned long) skb->data & (PAGE_SIZE - 1),
++			     skb_headlen(skb),
++			     offset, len, skb, spd))
++		return 1;
+ 
+ 	/*
+ 	 * then map the fragments
+ 	 */
+-map_frag:
+ 	for (seg = 0; seg < skb_shinfo(skb)->nr_frags; seg++) {
+ 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+ 
+-		plen = f->size;
+-		poff = f->page_offset;
+-
+-		if (toff) {
+-			if (plen <= toff) {
+-				toff -= plen;
+-				continue;
+-			}
+-			plen -= toff;
+-			poff += toff;
+-			toff = 0;
+-		}
+-
+-		plen = min(plen, tlen);
+-		if (!plen)
+-			break;
+-
+-		if (spd_fill_page(spd, f->page, plen, poff, skb))
+-			goto err;
+-
+-		tlen -= plen;
++		if (__splice_segment(f->page, f->page_offset, f->size,
++				     offset, len, skb, spd))
++			return 1;
+ 	}
+ 
+-	*offset = toff;
+-	*total_len = tlen;
+-
+ 	return 0;
+-err:
+-	return 1;
+ }
+ 
+ /*
 
---===============1998590854==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
---===============1998590854==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Ltp-list mailing list
-Ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-https://lists.sourceforge.net/lists/listinfo/ltp-list
-
---===============1998590854==--
+--Boundary-00=_4ZMYIcm0jsVnTVI--
