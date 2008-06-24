@@ -1,56 +1,172 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch v3 11/12] DM9000: Remove DEFAULT_TRIGGER for request_irq() flags.
-Date: Tue, 24 Jun 2008 22:16:07 +0100
-Message-ID: <20080624211906.330282002@fluff.org.uk>
+Subject: [patch v3 01/12] DM9000: Remove the 2 resources probe scheme.
+Date: Tue, 24 Jun 2008 22:15:57 +0100
+Message-ID: <20080624211903.586586947@fluff.org.uk>
 References: <20080624211556.566149406@fluff.org.uk>
 Cc: jeff@garzik.org, laurentp@cse-semaphore.com,
 	Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:64004 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:64014 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753262AbYFXVTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 17:19:07 -0400
-Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-default-trigger.patch
+	with ESMTP id S1754012AbYFXVTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 17:19:10 -0400
+Content-Disposition: inline; filename=thirdparty/dm9000-remove-2resources.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently all but one user (AT91SAM9261EK) of the dm9000
-driver passes their IRQ flags through the resources attached
-to the platform device. This means we can remove the use
-of DEFAULT_TRIGGER as the blackfin machines all seem to
-have their triggers set properly.
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+
+The dm9000 driver accepts either 2 or 3 resources to describe the platform
+devices. The 2 resources case abuses the ioresource mechanism by passing
+ioremap()ed memory through the platform device resources. This patch removes
+that case and converts boards that were using it to the 3 resources scheme.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+---
 
 Index: linux-2.6.26-rc7-next20080624/drivers/net/dm9000.c
 ===================================================================
---- linux-2.6.26-rc7-next20080624.orig/drivers/net/dm9000.c	2008-06-24 22:09:43.000000000 +0100
-+++ linux-2.6.26-rc7-next20080624/drivers/net/dm9000.c	2008-06-24 22:09:44.000000000 +0100
-@@ -54,9 +54,6 @@
- #define writesb	outsb
- #define writesw	outsw
- #define writesl	outsl
--#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
--#else
--#define DEFAULT_TRIGGER (0)
- #endif
+--- linux-2.6.26-rc7-next20080624.orig/drivers/net/dm9000.c	2008-06-24 21:58:09.000000000 +0100
++++ linux-2.6.26-rc7-next20080624/drivers/net/dm9000.c	2008-06-24 21:58:25.000000000 +0100
+@@ -528,7 +528,6 @@ dm9000_probe(struct platform_device *pde
+ 	struct board_info *db;	/* Point a board information structure */
+ 	struct net_device *ndev;
+ 	const unsigned char *mac_src;
+-	unsigned long base;
+ 	int ret = 0;
+ 	int iosize;
+ 	int i;
+@@ -558,81 +557,64 @@ dm9000_probe(struct platform_device *pde
+ 	INIT_DELAYED_WORK(&db->phy_poll, dm9000_poll_work);
  
- /*
-@@ -1014,11 +1011,9 @@ dm9000_open(struct net_device *dev)
- 	/* If there is no IRQ type specified, default to something that
- 	 * may work, and tell the user that this is a problem */
  
--	if (irqflags == IRQF_TRIGGER_NONE) {
-+	if (irqflags == IRQF_TRIGGER_NONE)
- 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
--		irqflags = DEFAULT_TRIGGER;
--	}
--	
+-	if (pdev->num_resources < 2) {
++	if (pdev->num_resources < 3) {
+ 		ret = -ENODEV;
+ 		goto out;
+-	} else if (pdev->num_resources == 2) {
+-		base = pdev->resource[0].start;
+-
+-		if (!request_mem_region(base, 4, ndev->name)) {
+-			ret = -EBUSY;
+-			goto out;
+-		}
+-
+-		ndev->base_addr = base;
+-		ndev->irq = pdev->resource[1].start;
+-		db->io_addr = (void __iomem *)base;
+-		db->io_data = (void __iomem *)(base + 4);
+-
+-		/* ensure at least we have a default set of IO routines */
+-		dm9000_set_io(db, 2);
+-
+-	} else {
+-		db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-		db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-		db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-
+-		if (db->addr_res == NULL || db->data_res == NULL ||
+-		    db->irq_res == NULL) {
+-			dev_err(db->dev, "insufficient resources\n");
+-			ret = -ENOENT;
+-			goto out;
+-		}
++	}
+ 
+-		i = res_size(db->addr_res);
+-		db->addr_req = request_mem_region(db->addr_res->start, i,
+-						  pdev->name);
+-
+-		if (db->addr_req == NULL) {
+-			dev_err(db->dev, "cannot claim address reg area\n");
+-			ret = -EIO;
+-			goto out;
+-		}
++	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 +
- 	irqflags |= IRQF_SHARED;
++	if (db->addr_res == NULL || db->data_res == NULL ||
++	    db->irq_res == NULL) {
++		dev_err(db->dev, "insufficient resources\n");
++		ret = -ENOENT;
++		goto out;
++	}
  
- 	if (request_irq(dev->irq, &dm9000_interrupt, irqflags, dev->name, dev))
+-		db->io_addr = ioremap(db->addr_res->start, i);
++	iosize = res_size(db->addr_res);
++	db->addr_req = request_mem_region(db->addr_res->start, iosize,
++					  pdev->name);
++
++	if (db->addr_req == NULL) {
++		dev_err(db->dev, "cannot claim address reg area\n");
++		ret = -EIO;
++		goto out;
++	}
+ 
+-		if (db->io_addr == NULL) {
+-			dev_err(db->dev, "failed to ioremap address reg\n");
+-			ret = -EINVAL;
+-			goto out;
+-		}
++	db->io_addr = ioremap(db->addr_res->start, iosize);
+ 
+-		iosize = res_size(db->data_res);
+-		db->data_req = request_mem_region(db->data_res->start, iosize,
+-						  pdev->name);
+-
+-		if (db->data_req == NULL) {
+-			dev_err(db->dev, "cannot claim data reg area\n");
+-			ret = -EIO;
+-			goto out;
+-		}
++	if (db->io_addr == NULL) {
++		dev_err(db->dev, "failed to ioremap address reg\n");
++		ret = -EINVAL;
++		goto out;
++	}
+ 
+-		db->io_data = ioremap(db->data_res->start, iosize);
++	iosize = res_size(db->data_res);
++	db->data_req = request_mem_region(db->data_res->start, iosize,
++					  pdev->name);
++
++	if (db->data_req == NULL) {
++		dev_err(db->dev, "cannot claim data reg area\n");
++		ret = -EIO;
++		goto out;
++	}
+ 
+-		if (db->io_data == NULL) {
+-			dev_err(db->dev,"failed to ioremap data reg\n");
+-			ret = -EINVAL;
+-			goto out;
+-		}
++	db->io_data = ioremap(db->data_res->start, iosize);
+ 
+-		/* fill in parameters for net-dev structure */
++	if (db->io_data == NULL) {
++		dev_err(db->dev, "failed to ioremap data reg\n");
++		ret = -EINVAL;
++		goto out;
++	}
+ 
+-		ndev->base_addr = (unsigned long)db->io_addr;
+-		ndev->irq	= db->irq_res->start;
++	/* fill in parameters for net-dev structure */
++	ndev->base_addr = (unsigned long)db->io_addr;
++	ndev->irq	= db->irq_res->start;
+ 
+-		/* ensure at least we have a default set of IO routines */
+-		dm9000_set_io(db, iosize);
+-	}
++	/* ensure at least we have a default set of IO routines */
++	dm9000_set_io(db, iosize);
+ 
+ 	/* check to see if anything is being over-ridden */
+ 	if (pdata != NULL) {
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
