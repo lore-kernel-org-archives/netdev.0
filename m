@@ -1,48 +1,44 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH] NET: Proper handling of IPv6 header in tun driver when
- TUN_NO_PI is set
-Date: Mon, 23 Jun 2008 22:09:46 -0700
-Message-ID: <4860819A.4030809@qualcomm.com>
-References: <48499C32.6070703@qualcomm.com>	<20080617.163205.160864233.davem@davemloft.net>	<48586F4B.4060404@nav6.org> <20080617.210803.190930256.davem@davemloft.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH] net-driver: Drivers don't set IFF_* flag [Was: [PATCH
+	3/3] netdevice: order of synchronization of IFF_PROMISC and
+	IFF_ALLMULTI]
+Date: Mon, 23 Jun 2008 23:10:29 -0600
+Message-ID: <20080624051029.GB19434@colo.lackof.org>
+References: <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com> <485F8332.6010203@trash.net> <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net> <4860478B.2080109@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: wcang@nav6.org, steve.zabele@baesystems.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, Jeff Garzik <jgarzik@pobox.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>, davies@maniac.ultranet.com,
+	grundler@parisc-linux.org, kyle@parisc-linux.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:5915 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751531AbYFXFJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 01:09:48 -0400
-In-Reply-To: <20080617.210803.190930256.davem@davemloft.net>
+Received: from colo.lackof.org ([198.49.126.79]:41466 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751628AbYFXFKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 01:10:51 -0400
+Content-Disposition: inline
+In-Reply-To: <4860478B.2080109@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Ang Way Chuang <wcang@nav6.org>
-> Date: Wed, 18 Jun 2008 10:13:31 +0800
+On Tue, Jun 24, 2008 at 09:02:03AM +0800, Wang Chen wrote:
+...
+> So I want to remove "clear promisc" feature by ioctl of this driver
+> instead of adding it to feature-removal-schedule.
+> "set promisc" feature by ioctl can be fixed temporarily and should be
+> added to feature-removal-schedule. 
+> Fortunately most of the features of this driver's ioctl are for
+> developer testing.
 > 
->> David Miller wrote:
->>> From: Max Krasnyanskiy <maxk@qualcomm.com>
->>> Date: Fri, 06 Jun 2008 13:21:06 -0700
->>>
->>>> Acked-by: Max Krasnyansky <maxk@qualcomm.com>
->>>>
->>>> Dave, can you please add this patch to your tree.
->>> I can't, the patch is severely whitespace damaged.
->>>
->> Resend. Hopefully Thunderbird won't screw this time.
-> 
-> Same problem, tabs were transformed into spaces, and
-> lines composed of only whitespace were transformed into
-> empty lines.
-> 
-> This is frustrating enough, I'm just going to fix this up
-> by hand for you, but please get your shit straight for next
-> time because I won't do this twice.
+> This week I want to wait for tulip driver maintainer's confirmation.
 
-Dave, thanks a lot for fixing this up. I looked at the patch and logic wise it
-looked perfectly fine. I did not notice the problem with the spaces. Sorry.
+Confirmation of what?
+Apologies for not being able to follow the whole conversation.
 
-Max
+If you want to remove a developer debug feature, please just submit
+a patch like usual to kyle and myself.
+
+thanks,
+grant
