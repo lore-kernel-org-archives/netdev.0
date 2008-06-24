@@ -1,15 +1,15 @@
 From: Eric Miao <eric.y.miao@gmail.com>
-Subject: [PATCH 01/10] smc91x: remove unused code enclosed by #ifdef CONFIG_ISA .. #endif
-Date: Tue, 24 Jun 2008 17:47:38 +0800
-Message-ID: <1214300867-15495-2-git-send-email-eric.y.miao@gmail.com>
+Subject: [PATCH 06/10] smc91x: prepare SMC_USE_PXA_DMA to be specified in platform data
+Date: Tue, 24 Jun 2008 17:47:43 +0800
+Message-ID: <1214300867-15495-7-git-send-email-eric.y.miao@gmail.com>
 Cc: Nicolas Pitre <nico@cam.org>, Magnus Damm <magnus.damm@gmail.com>,
 	Eric Miao <eric.miao@marvell.com>
 To: linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
 	linux-netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host2.marvell.com ([65.219.4.2]:44705 "EHLO maili.marvell.com"
+Received: from host2.marvell.com ([65.219.4.2]:44709 "EHLO maili.marvell.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752896AbYFXJrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753336AbYFXJrk (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Jun 2008 05:47:40 -0400
 In-Reply-To: <>
 References: <>
@@ -18,102 +18,114 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eric Miao <eric.miao@marvell.com>
 
-Apparently, the code enclosed by #ifdef CONFIG_ISA .. #endif are no longer
-used, remove them from the driver to avoid confusion.
+Now that the original SMC_USE_PXA_DMA specific code will always being
+built if CONFIG_ARCH_PXA is defined, so to make this part of the code
+to be PXA public, and still prevent it from being built if support of
+PXA is not selected.
+
+A SMC91X_USE_DMA flag is added to the platform data to allow platform
+to choose its usage of DMA. Note this flag itself is so named to be
+generic enough (assuming other platforms can also use DMA).
+
+It keeps backward compatibility to set the SMC91X_USE_DMA flag if
+SMC_USE_PXA_DMA is still defined.
 
 Signed-off-by: Eric Miao <eric.miao@marvell.com>
 ---
- drivers/net/smc91x.c |   38 --------------------------------------
- drivers/net/smc91x.h |   13 -------------
- 2 files changed, 0 insertions(+), 51 deletions(-)
+ drivers/net/smc91x.c   |   13 ++++++++-----
+ drivers/net/smc91x.h   |    6 +++---
+ include/linux/smc91x.h |    2 ++
+ 3 files changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index a188e33..d471308 100644
+index 3a319f2..a7b583d 100644
 --- a/drivers/net/smc91x.c
 +++ b/drivers/net/smc91x.c
-@@ -23,8 +23,6 @@
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-  *
-  * Arguments:
-- * 	io	= for the base address
-- *	irq	= for the IRQ
-  *	nowait	= 0 for normal wait states, 1 eliminates additional wait states
-  *
-  * original author:
-@@ -90,33 +88,6 @@ static const char version[] =
+@@ -1923,8 +1923,11 @@ static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr,
+       	if (retval)
+       		goto err_out;
  
- #include "smc91x.h"
+-#ifdef SMC_USE_PXA_DMA
+-	{
++#ifdef CONFIG_ARCH_PXA
++#  ifdef SMC_USE_PXA_DMA
++	lp->cfg.flags |= SMC91X_USE_DMA;
++#  endif
++	if (lp->cfg.flags & SMC91X_USE_DMA) {
+ 		int dma = pxa_request_dma(dev->name, DMA_PRIO_LOW,
+ 					  smc_pxa_dma_irq, NULL);
+ 		if (dma >= 0)
+@@ -1964,7 +1967,7 @@ static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr,
+ 	}
  
--#ifdef CONFIG_ISA
--/*
-- * the LAN91C111 can be at any of the following port addresses.  To change,
-- * for a slightly different card, you can add it to the array.  Keep in
-- * mind that the array must end in zero.
-- */
--static unsigned int smc_portlist[] __initdata = {
--	0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0,
--	0x300, 0x320, 0x340, 0x360, 0x380, 0x3A0, 0x3C0, 0x3E0, 0
--};
--
--#ifndef SMC_IOADDR
--# define SMC_IOADDR		-1
--#endif
--static unsigned long io = SMC_IOADDR;
--module_param(io, ulong, 0400);
--MODULE_PARM_DESC(io, "I/O base address");
--
--#ifndef SMC_IRQ
--# define SMC_IRQ		-1
--#endif
--static int irq = SMC_IRQ;
--module_param(irq, int, 0400);
--MODULE_PARM_DESC(irq, "IRQ number");
--
--#endif  /* CONFIG_ISA */
--
- #ifndef SMC_NOWAIT
- # define SMC_NOWAIT		0
+ err_out:
+-#ifdef SMC_USE_PXA_DMA
++#ifdef CONFIG_ARCH_PXA
+ 	if (retval && dev->dma != (unsigned char)-1)
+ 		pxa_free_dma(dev->dma);
  #endif
-@@ -2315,15 +2286,6 @@ static struct platform_driver smc_driver = {
+@@ -2178,7 +2181,7 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 		goto out_release_attrib;
+ 	}
  
- static int __init smc_init(void)
- {
--#ifdef MODULE
--#ifdef CONFIG_ISA
--	if (io == -1)
--		printk(KERN_WARNING
--			"%s: You shouldn't use auto-probing with insmod!\n",
--			CARDNAME);
--#endif
--#endif
--
- 	return platform_driver_register(&smc_driver);
- }
+-#ifdef SMC_USE_PXA_DMA
++#ifdef CONFIG_ARCH_PXA
+ 	{
+ 		struct smc_local *lp = netdev_priv(ndev);
+ 		lp->device = &pdev->dev;
+@@ -2221,7 +2224,7 @@ static int smc_drv_remove(struct platform_device *pdev)
  
+ 	free_irq(ndev->irq, ndev);
+ 
+-#ifdef SMC_USE_PXA_DMA
++#ifdef CONFIG_ARCH_PXA
+ 	if (ndev->dma != (unsigned char)-1)
+ 		pxa_free_dma(ndev->dma);
+ #endif
 diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
-index 69e97a1..97a3c52 100644
+index 6a90400..208dfc8 100644
 --- a/drivers/net/smc91x.h
 +++ b/drivers/net/smc91x.h
-@@ -279,19 +279,6 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+@@ -479,7 +479,7 @@ struct smc_local {
  
- #define SMC_IRQ_FLAGS		(0)
+ 	spinlock_t lock;
  
--#elif	defined(CONFIG_ISA)
--
--#define SMC_CAN_USE_8BIT	1
--#define SMC_CAN_USE_16BIT	1
--#define SMC_CAN_USE_32BIT	0
--
--#define SMC_inb(a, r)		inb((a) + (r))
--#define SMC_inw(a, r)		inw((a) + (r))
--#define SMC_outb(v, a, r)	outb(v, (a) + (r))
--#define SMC_outw(v, a, r)	outw(v, (a) + (r))
--#define SMC_insw(a, r, p, l)	insw((a) + (r), p, l)
--#define SMC_outsw(a, r, p, l)	outsw((a) + (r), p, l)
--
- #elif   defined(CONFIG_M32R)
+-#ifdef SMC_USE_PXA_DMA
++#ifdef CONFIG_ARCH_PXA
+ 	/* DMA needs the physical address of the chip */
+ 	u_long physaddr;
+ 	struct device *device;
+@@ -494,7 +494,7 @@ struct smc_local {
+ #define SMC_16BIT(p)	((p)->cfg.flags & SMC91X_USE_16BIT)
+ #define SMC_32BIT(p)	((p)->cfg.flags & SMC91X_USE_32BIT)
  
- #define SMC_CAN_USE_8BIT	0
+-#ifdef SMC_USE_PXA_DMA
++#ifdef CONFIG_ARCH_PXA
+ /*
+  * Let's use the DMA engine on the XScale PXA2xx for RX packets. This is
+  * always happening in irq context so no need to worry about races.  TX is
+@@ -588,7 +588,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
+ {
+ 	DCSR(dma) = 0;
+ }
+-#endif  /* SMC_USE_PXA_DMA */
++#endif  /* CONFIG_ARCH_PXA */
+ 
+ 
+ /*
+diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
+index 0dea945..3827b92 100644
+--- a/include/linux/smc91x.h
++++ b/include/linux/smc91x.h
+@@ -14,6 +14,8 @@
+ #define SMC91X_IO_SHIFT_3	(3 << 4)
+ #define SMC91X_IO_SHIFT(x)	(((x) >> 4) & 0x3)
+ 
++#define SMC91X_USE_DMA		(1 << 6)
++
+ struct smc91x_platdata {
+ 	unsigned long flags;
+ };
 -- 
 1.5.4.3
 
