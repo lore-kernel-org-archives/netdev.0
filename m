@@ -1,176 +1,159 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH v2 2/2] [iproute2/tc] hfsc: add link layer overhead adaption
-Date: Tue, 24 Jun 2008 11:55:20 +0300
-Message-ID: <20080624085519.22540.40534.stgit@fate.lan>
-References: <20080624085514.22540.91038.stgit@fate.lan>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: iw lockdep warning on wireless-testing
+Date: Tue, 24 Jun 2008 10:59:15 +0200
+Message-ID: <1214297955.8967.258.camel@johannes.berg>
+References: <1214293174.14590.229.camel@debian.sh.intel.com>
+	 (sfid-20080624_094030_856715_6751BF69)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@osdl.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.dnainternet.fi ([87.94.96.112]:40017 "EHLO
-	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753759AbYFXIzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:55:22 -0400
-In-Reply-To: <20080624085514.22540.91038.stgit@fate.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-1eNgOeETCc9LeyUU2YiT"
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1214293174.14590.229.camel-F7Q/YMNgnyhhZnBKgDE8z0EOCMrvLtNR@public.gmane.org> (sfid-20080624_094030_856715_6751BF69)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Patch adds 'mpu', 'mtu', 'overhead' and 'linklayer' options to hfsc. These
-options are used to create size table for sch_hfsc. Size table is only used
-and passed to kernel if these options are used.
 
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
----
+--=-1eNgOeETCc9LeyUU2YiT
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
- include/linux/pkt_sched.h |    2 +
- tc/q_hfsc.c               |   71 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 72 insertions(+), 1 deletions(-)
+Hi,
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index b8366fb..43c11f2 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -326,6 +326,8 @@ enum
- 	TCA_HFSC_RSC,
- 	TCA_HFSC_FSC,
- 	TCA_HFSC_USC,
-+	TCA_HFSC_SZOPTS,
-+	TCA_HFSC_STAB,
- 	__TCA_HFSC_MAX,
- };
- 
-diff --git a/tc/q_hfsc.c b/tc/q_hfsc.c
-index b190c71..aa1c9b0 100644
---- a/tc/q_hfsc.c
-+++ b/tc/q_hfsc.c
-@@ -42,6 +42,13 @@ explain_class(void)
- {
- 	fprintf(stderr,
- 		"Usage: ... hfsc [ [ rt SC ] [ ls SC ] | [ sc SC ] ] [ ul SC ]\n"
-+		"                [ mtu BYTES] [ mpu BYTES ] [ overhead BYTES ]\n"
-+		"                [ linklayer TYPE ]\n"
-+		"\n"
-+		" mtu       : max packet size we create rate map for {2047}\n"
-+		" mpu       : minimum packet size used in rate computations\n"
-+		" overhead  : per-packet size overhead used in rate computations\n"
-+		" linklayer : adapting to a linklayer e.g. atm\n"
- 		"\n"
- 		"SC := [ [ m1 BPS ] [ d SEC ] m2 BPS\n"
- 		"\n"
-@@ -145,14 +152,45 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 	struct tc_service_curve rsc, fsc, usc;
- 	int rsc_ok, fsc_ok, usc_ok;
- 	struct rtattr *tail;
-+	struct tc_sizespec szopts;
-+	__u16 stab[512];
-+	int use_stab;
-+	unsigned mtu = 0;
-+	unsigned int linklayer = LINKLAYER_ETHERNET; /* Assume ethernet */
-+	unsigned short overhead = 0, mpu = 0;
- 
- 	memset(&rsc, 0, sizeof(rsc));
- 	memset(&fsc, 0, sizeof(fsc));
- 	memset(&usc, 0, sizeof(usc));
-+	memset(&szopts, 0, sizeof(szopts));
- 	rsc_ok = fsc_ok = usc_ok = 0;
- 
- 	while (argc > 0) {
--		if (matches(*argv, "rt") == 0) {
-+		if (matches(*argv, "mtu") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&mtu, *argv, 10)) {
-+				explain1("mtu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "mpu") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&mpu, *argv, 10)) {
-+				explain1("mpu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "overhead") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&overhead, *argv, 10)) {
-+				explain1("overhead");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "linklayer") == 0) {
-+			NEXT_ARG();
-+			if (get_linklayer(&linklayer, *argv)) {
-+				explain1("linklayer");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "rt") == 0) {
- 			NEXT_ARG();
- 			if (hfsc_get_sc(&argc, &argv, &rsc) < 0) {
- 				explain1("rt");
-@@ -205,6 +243,18 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 		return -1;
- 	}
- 
-+	/* Only use stab when needed, mtu only defines stab properties so
-+	 * it is not checked for. */
-+	use_stab = (linklayer != LINKLAYER_ETHERNET || mpu != 0 || overhead != 0);
-+	if (use_stab) {
-+		szopts.mpu = mpu;
-+		szopts.overhead = overhead;
-+		if (tc_calc_stable(&szopts, stab, -1, mtu, linklayer) < 0) {
-+			fprintf(stderr, "HFSC: failed to calculate rate table.\n");
-+			return -1;
-+		}
-+	}
-+
- 	tail = NLMSG_TAIL(n);
- 
- 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-@@ -214,6 +264,10 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 		addattr_l(n, 1024, TCA_HFSC_FSC, &fsc, sizeof(fsc));
- 	if (usc_ok)
- 		addattr_l(n, 1024, TCA_HFSC_USC, &usc, sizeof(usc));
-+	if (use_stab) {
-+		addattr_l(n, 2024, TCA_HFSC_SZOPTS, &szopts, sizeof(szopts));
-+		addattr_l(n, 3024, TCA_HFSC_STAB, stab, TC_STAB_SIZE);
-+	}
- 
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
-@@ -235,6 +289,8 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
- 	struct rtattr *tb[TCA_HFSC_MAX+1];
- 	struct tc_service_curve *rsc = NULL, *fsc = NULL, *usc = NULL;
-+	struct tc_sizespec *szopts = NULL;
-+	SPRINT_BUF(b1);
- 
- 	if (opt == NULL)
- 		return 0;
-@@ -259,6 +315,12 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		else
- 			usc = RTA_DATA(tb[TCA_HFSC_USC]);
- 	}
-+	if (tb[TCA_HFSC_SZOPTS]) {
-+		if (RTA_PAYLOAD(tb[TCA_HFSC_SZOPTS]) < sizeof(*szopts))
-+			fprintf(stderr, "HFSC: truncated rate options\n");
-+		else
-+			szopts = RTA_DATA(tb[TCA_HFSC_SZOPTS]);
-+	}
- 
- 
- 	if (rsc != NULL && fsc != NULL &&
-@@ -273,6 +335,13 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (usc != NULL)
- 		hfsc_print_sc(f, "ul", usc);
- 
-+	if (szopts != NULL && show_details) {
-+		if (szopts->mpu)
-+			fprintf(f, "mpu %s ", sprint_size(szopts->mpu, b1));
-+		if (szopts->overhead)
-+			fprintf(f, "overhead %s ", sprint_size(szopts->overhead, b1));
-+	}
-+
- 	return 0;
- }
- 
+> I begin to see below lockdep warning on wireless-testing when I use iw
+> to create a monitor interface with iwl4965. Any clues?
 
+Yeah I've seen that reported too, but I think it's in genetlink.
+
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
+> [ INFO: possible circular locking dependency detected ]
+> 2.6.26-rc6-wl #57
+> -------------------------------------------------------
+> iw/2763 is trying to acquire lock:
+>  (genl_mutex){--..}, at: [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>=20
+> but task is already holding lock:
+>  (nlk->cb_mutex){--..}, at: [<ffffffff812137c8>] netlink_dump+0x40/0x19d
+>=20
+> which lock already depends on the new lock.
+
+None of those is anything nl80211 has influence over, afaict.
+
+>=20
+> the existing dependency chain (in reverse order) is:
+>=20
+> -> #1 (nlk->cb_mutex){--..}:
+>        [<ffffffff810518cb>] __lock_acquire+0xa4c/0xc28
+>        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
+>        [<ffffffff81051e5d>] lock_acquire+0x51/0x6c
+>        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
+>        [<ffffffff8104eab1>] debug_mutex_lock_common+0x16/0x23
+>        [<ffffffff8127c622>] mutex_lock_nested+0xde/0x23f
+>        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
+>        [<ffffffff81216d7e>] genl_rcv_msg+0xae/0x14b
+>        [<ffffffff8127c774>] mutex_lock_nested+0x230/0x23f
+>        [<ffffffff81216cd0>] genl_rcv_msg+0x0/0x14b
+>        [<ffffffff8121483a>] netlink_rcv_skb+0x34/0x7c
+>        [<ffffffff81216fe1>] genl_rcv+0x21/0x30
+>        [<ffffffff812145ec>] netlink_unicast+0x1f7/0x287
+>        [<ffffffff811f7eb7>] __alloc_skb+0x84/0x132
+>        [<ffffffff81214d60>] netlink_sendmsg+0x274/0x287
+>        [<ffffffff811f1b49>] sock_sendmsg+0xe2/0xff
+>        [<ffffffff8104582f>] autoremove_wake_function+0x0/0x2e
+>        [<ffffffff81050878>] mark_held_locks+0x49/0x67
+>        [<ffffffff811f1d7d>] sys_sendmsg+0x217/0x28a
+>        [<ffffffff8107de49>] __do_fault+0x35d/0x3a5
+>        [<ffffffff8100bf10>] tracesys+0xd5/0xda
+>        [<ffffffffffffffff>] 0xffffffffffffffff
+>=20
+> -> #0 (genl_mutex){--..}:
+>        [<ffffffff81050226>] print_circular_bug_header+0xc8/0xcf
+>        [<ffffffff810517d0>] __lock_acquire+0x951/0xc28
+>        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>        [<ffffffff81051e5d>] lock_acquire+0x51/0x6c
+>        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>        [<ffffffff8104eab1>] debug_mutex_lock_common+0x16/0x23
+>        [<ffffffff8127c622>] mutex_lock_nested+0xde/0x23f
+>        [<ffffffff81050a10>] trace_hardirqs_on+0xf3/0x117
+>        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>        [<ffffffff812137e3>] netlink_dump+0x5b/0x19d
+>        [<ffffffff81214ef3>] netlink_recvmsg+0x180/0x2a8
+>        [<ffffffff811f1a48>] sock_recvmsg+0xf0/0x10f
+>        [<ffffffff8104582f>] autoremove_wake_function+0x0/0x2e
+>        [<ffffffff81050878>] mark_held_locks+0x49/0x67
+>        [<ffffffff811f295c>] sys_recvmsg+0x15c/0x254
+>        [<ffffffff81067ac3>] audit_syscall_entry+0x12d/0x160
+>        [<ffffffff8127d6da>] trace_hardirqs_on_thunk+0x35/0x3a
+>        [<ffffffff8100bf10>] tracesys+0xd5/0xda
+>        [<ffffffffffffffff>] 0xffffffffffffffff
+>=20
+> other info that might help us debug this:
+>=20
+> 1 lock held by iw/2763:
+>  #0:  (nlk->cb_mutex){--..}, at: [<ffffffff812137c8>] netlink_dump
+> +0x40/0x19d
+>=20
+> stack backtrace:
+> Pid: 2763, comm: iw Not tainted 2.6.26-rc6-wl #57
+>=20
+> Call Trace:
+>  [<ffffffff8104fe63>] print_circular_bug_tail+0x69/0x72
+>  [<ffffffff81050226>] print_circular_bug_header+0xc8/0xcf
+>  [<ffffffff810517d0>] __lock_acquire+0x951/0xc28
+>  [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>  [<ffffffff81051e5d>] lock_acquire+0x51/0x6c
+>  [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>  [<ffffffff8104eab1>] debug_mutex_lock_common+0x16/0x23
+>  [<ffffffff8127c622>] mutex_lock_nested+0xde/0x23f
+>  [<ffffffff81050a10>] trace_hardirqs_on+0xf3/0x117
+>  [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
+>  [<ffffffff812137e3>] netlink_dump+0x5b/0x19d
+>  [<ffffffff81214ef3>] netlink_recvmsg+0x180/0x2a8
+>  [<ffffffff811f1a48>] sock_recvmsg+0xf0/0x10f
+>  [<ffffffff8104582f>] autoremove_wake_function+0x0/0x2e
+>  [<ffffffff81050878>] mark_held_locks+0x49/0x67
+>  [<ffffffff811f295c>] sys_recvmsg+0x15c/0x254
+>  [<ffffffff81067ac3>] audit_syscall_entry+0x12d/0x160
+>  [<ffffffff8127d6da>] trace_hardirqs_on_thunk+0x35/0x3a
+>  [<ffffffff8100bf10>] tracesys+0xd5/0xda
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless"=
+ in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+
+--=-1eNgOeETCc9LeyUU2YiT
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIYLdfAAoJEKVg1VMiehFY/64P/i3aLRylN5q9z/Aif/xf9Nw0
+ToZrNvROfzG5+ChRvDFGHq7JlCYdSMflPMoj6yBYxa0bgFo9QwIbRgZEqJASFq6n
+Ti5KeoMD3FBwYRQZcGOtxlnkGn5gkqdpNOMqBW9iYJUjpWlPnG8ZdW2XnbJO994b
+nSlYTgUdNmGWKLF/7tVQ+2Kpy+qPnsM0qDXZ6CXwwsRCko2THuKk/TCd/OYyHtVu
+oyxtVZ4EOcnTHpoIHGadUyyZ6SYizzC9EicKPW6UjrGR6WdmWyPoNBdvpxBXHe31
+G16AfkRgGNOsOzeVGJ6iVqd3LW/a18ZMyKInfnRArIE64EKCvMLxAnvm3DJgucT+
+jbD5u/n1zKm6+S6BpvTT2qfGiiXet6/pbfgZv1LgaG1Rj9i9isOXUg/tXBPuMYJn
+b6xSEYaMr1hpvi+04EgFU0ZfEvaphKVwY4fd7VQYOSQ6nkjayqzuVf/eouYMegxB
+hUHSuL9S3CO1bRkVmYUZ9mCUaAOdKTxH3az0+z/Nva3yavoxZIlJV/zRLWA3Df2j
+eTFhZLSFnhybCM8xqWJ07QC4Ee4d/No9iLMSLfcL+6xd2Q+1mv4Cp//vZUK6MMrO
+e1APnTDsNDW1zFoJFe4MdFG0ytga5kCukYFVhTC77GT1B3/B/Vbz1EYW02x77xFv
+fMl2ZyvVYi+nCatn+F1W
+=BpJG
+-----END PGP SIGNATURE-----
+
+--=-1eNgOeETCc9LeyUU2YiT--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
