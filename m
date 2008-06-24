@@ -1,34 +1,29 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next 5/8] ipv6: Check return of dev_set_allmulti
-Date: Tue, 24 Jun 2008 12:52:43 +0900 (JST)
-Message-ID: <20080624.125243.112730755.yoshfuji@linux-ipv6.org>
-References: <485AFFFB.5040901@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/3]: Seperate netdev address list locking.
+Date: Mon, 23 Jun 2008 20:54:09 -0700 (PDT)
+Message-ID: <20080623.205409.75801733.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
-	yoshfuji@linux-ipv6.org
-To: wangchen@cn.fujitsu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:60197 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237AbYFXDvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 23:51:48 -0400
-In-Reply-To: <485AFFFB.5040901@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41037
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752549AbYFXDyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 23:54:09 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id A34CCC8C1B6
+	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 20:54:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <485AFFFB.5040901@cn.fujitsu.com> (at Fri, 20 Jun 2008 08:55:23 +0800), Wang Chen <wangchen@cn.fujitsu.com> says:
 
-> allmulti might overflow.
-> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-> dev_set_promiscuity/allmulti return error number if overflow happened.
-> 
-> Here, we check the positive increment for allmulti to get error return.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+The generic TX lock is overloaded to protect both
+->hard_start_xmit() execution and the unicast/multicast
+device lists.
 
-The comment is too obvious to have.
+These patches seperate out that usage so that the TX
+lock only protects packet transmit.
 
---yoshfuji
+This work is pretty straightforward so I will check it
+directly into net-tx-2.6
