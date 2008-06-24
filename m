@@ -1,91 +1,46 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: iw lockdep warning on wireless-testing
-Date: Tue, 24 Jun 2008 17:05:50 +0800
-Message-ID: <1214298350.14590.238.camel@debian.sh.intel.com>
-References: <1214293174.14590.229.camel@debian.sh.intel.com>
-	 (sfid-20080624_094030_856715_6751BF69)  <1214297955.8967.258.camel@johannes.berg>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH] IRDA: Fix genlmsg_put() return value check.
+Date: Tue, 24 Jun 2008 11:18:01 +0200
+Message-ID: <f4845fc0806240218x978c7ceoe487734f9358fb54@mail.gmail.com>
+References: <1214248629-6208-1-git-send-email-juliusv@google.com>
+	 <485FFCE3.2050800@trash.net>
+	 <f4845fc0806231329p7ef94a8dqafe63feea89ad949@mail.gmail.com>
+	 <486037C7.6010409@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1214297955.8967.258.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:7685 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbYFXJSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 05:18:13 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id m5O9I3ek004275
+	for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 10:18:03 +0100
+Received: from yx-out-1718.google.com (yxh36.prod.google.com [10.190.2.228])
+	by zps75.corp.google.com with ESMTP id m5O9I2s0032287
+	for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 02:18:02 -0700
+Received: by yx-out-1718.google.com with SMTP id 36so394047yxh.24
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 02:18:02 -0700 (PDT)
+In-Reply-To: <486037C7.6010409@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-06-24 at 10:59 +0200, Johannes Berg wrote:
-> > [ INFO: possible circular locking dependency detected ]
-> > 2.6.26-rc6-wl #57
-> > -------------------------------------------------------
-> > iw/2763 is trying to acquire lock:
-> >  (genl_mutex){--..}, at: [<ffffffff81216e4c>] ctrl_dumpfamily
-> +0x31/0xf7
-> > 
-> > but task is already holding lock:
-> >  (nlk->cb_mutex){--..}, at: [<ffffffff812137c8>] netlink_dump
-> +0x40/0x19d
-> > 
-> > which lock already depends on the new lock.
-> 
-> None of those is anything nl80211 has influence over, afaict.
+On Tue, Jun 24, 2008, Patrick McHardy wrote:
+> Yes, all those should be using ENOSPC as well. nl80211 returns
+> inconsistent errors currently (-1/EMSGSIZE), but doesn't propagate
+> them back to userspace. That should probably be fixed as well.
+>
+> Actually I was wrong, its EMSGSIZE, not ENOSPC that should be
+> returned, its more fitting and what other netlink users do as
+> well.
 
-Agreed. I can follow the two scenarios below. Apparently it's a ABBA
-locking issue. Just don't know which should be the correct sequence for
-using with the two locks.
+Thanks, I will use that then!
 
-Thanks,
--yi
+Julius
 
-> > the existing dependency chain (in reverse order) is:
-> > 
-> > -> #1 (nlk->cb_mutex){--..}:
-> >        [<ffffffff810518cb>] __lock_acquire+0xa4c/0xc28
-> >        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
-> >        [<ffffffff81051e5d>] lock_acquire+0x51/0x6c
-> >        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
-> >        [<ffffffff8104eab1>] debug_mutex_lock_common+0x16/0x23
-> >        [<ffffffff8127c622>] mutex_lock_nested+0xde/0x23f
-> >        [<ffffffff81215774>] netlink_dump_start+0xd9/0x169
-> >        [<ffffffff81216d7e>] genl_rcv_msg+0xae/0x14b
-> >        [<ffffffff8127c774>] mutex_lock_nested+0x230/0x23f
-> >        [<ffffffff81216cd0>] genl_rcv_msg+0x0/0x14b
-> >        [<ffffffff8121483a>] netlink_rcv_skb+0x34/0x7c
-> >        [<ffffffff81216fe1>] genl_rcv+0x21/0x30
-> >        [<ffffffff812145ec>] netlink_unicast+0x1f7/0x287
-> >        [<ffffffff811f7eb7>] __alloc_skb+0x84/0x132
-> >        [<ffffffff81214d60>] netlink_sendmsg+0x274/0x287
-> >        [<ffffffff811f1b49>] sock_sendmsg+0xe2/0xff
-> >        [<ffffffff8104582f>] autoremove_wake_function+0x0/0x2e
-> >        [<ffffffff81050878>] mark_held_locks+0x49/0x67
-> >        [<ffffffff811f1d7d>] sys_sendmsg+0x217/0x28a
-> >        [<ffffffff8107de49>] __do_fault+0x35d/0x3a5
-> >        [<ffffffff8100bf10>] tracesys+0xd5/0xda
-> >        [<ffffffffffffffff>] 0xffffffffffffffff
-> > 
-> > -> #0 (genl_mutex){--..}:
-> >        [<ffffffff81050226>] print_circular_bug_header+0xc8/0xcf
-> >        [<ffffffff810517d0>] __lock_acquire+0x951/0xc28
-> >        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
-> >        [<ffffffff81051e5d>] lock_acquire+0x51/0x6c
-> >        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
-> >        [<ffffffff8104eab1>] debug_mutex_lock_common+0x16/0x23
-> >        [<ffffffff8127c622>] mutex_lock_nested+0xde/0x23f
-> >        [<ffffffff81050a10>] trace_hardirqs_on+0xf3/0x117
-> >        [<ffffffff81216e4c>] ctrl_dumpfamily+0x31/0xf7
-> >        [<ffffffff812137e3>] netlink_dump+0x5b/0x19d
-> >        [<ffffffff81214ef3>] netlink_recvmsg+0x180/0x2a8
-> >        [<ffffffff811f1a48>] sock_recvmsg+0xf0/0x10f
-> >        [<ffffffff8104582f>] autoremove_wake_function+0x0/0x2e
-> >        [<ffffffff81050878>] mark_held_locks+0x49/0x67
-> >        [<ffffffff811f295c>] sys_recvmsg+0x15c/0x254
-> >        [<ffffffff81067ac3>] audit_syscall_entry+0x12d/0x160
-> >        [<ffffffff8127d6da>] trace_hardirqs_on_thunk+0x35/0x3a
-> >        [<ffffffff8100bf10>] tracesys+0xd5/0xda
-> >        [<ffffffffffffffff>] 0xffffffffffffffff
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Google Switzerland GmbH
