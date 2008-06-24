@@ -1,94 +1,56 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [patch v3 02/12] DM9000: Fixup blackfin after removing 2 resource usage
-Date: Tue, 24 Jun 2008 22:15:58 +0100
-Message-ID: <20080624211903.856572720@fluff.org.uk>
+Subject: [patch v3 11/12] DM9000: Remove DEFAULT_TRIGGER for request_irq() flags.
+Date: Tue, 24 Jun 2008 22:16:07 +0100
+Message-ID: <20080624211906.330282002@fluff.org.uk>
 References: <20080624211556.566149406@fluff.org.uk>
 Cc: jeff@garzik.org, laurentp@cse-semaphore.com,
-	Bryan Wu <cooloney@kernel.org>, Ben Dooks <ben-linux@fluff.org>
+	Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:63988 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:64004 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753424AbYFXVTH (ORCPT
+	with ESMTP id S1753262AbYFXVTH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 17:19:07 -0400
-Content-Disposition: inline; filename=thirdparty/dm9000-fixup-blackfin.patch
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-remove-default-trigger.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Currently all but one user (AT91SAM9261EK) of the dm9000
+driver passes their IRQ flags through the resources attached
+to the platform device. This means we can remove the use
+of DEFAULT_TRIGGER as the blackfin machines all seem to
+have their triggers set properly.
 
-The dm9000 driver accepts either 2 or 3 resources to describe the platform
-devices. The 2 resources case abuses the ioresource mechanism by passing
-ioremap()ed memory through the platform device resources. This patch removes
-converts boards that were using it to the 3 resources scheme.
-
-CC: Bryan Wu <cooloney@kernel.org>
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
 
-diff --git a/arch/blackfin/mach-bf527/boards/ezkit.c b/arch/blackfin/mach-bf527/boards/ezkit.c
-index 5958eec..689b69c 100644
---- a/arch/blackfin/mach-bf527/boards/ezkit.c
-+++ b/arch/blackfin/mach-bf527/boards/ezkit.c
-@@ -323,10 +323,15 @@ static struct platform_device smc91x_device = {
- static struct resource dm9000_resources[] = {
- 	[0] = {
- 		.start	= 0x203FB800,
--		.end	= 0x203FB800 + 8,
-+		.end	= 0x203FB800 + 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	[1] = {
-+		.start	= 0x203FB800 + 4,
-+		.end	= 0x203FB800 + 5,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	[2] = {
- 		.start	= IRQ_PF9,
- 		.end	= IRQ_PF9,
- 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
-diff --git a/arch/blackfin/mach-bf533/boards/H8606.c b/arch/blackfin/mach-bf533/boards/H8606.c
-index 7cc4864..4103a97 100644
---- a/arch/blackfin/mach-bf533/boards/H8606.c
-+++ b/arch/blackfin/mach-bf533/boards/H8606.c
-@@ -65,10 +65,15 @@ static struct platform_device rtc_device = {
- static struct resource dm9000_resources[] = {
- 	[0] = {
- 		.start	= 0x20300000,
--		.end	= 0x20300000 + 8,
-+		.end	= 0x20300000 + 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	[1] = {
-+		.start	= 0x20300000 + 4,
-+		.end	= 0x20300000 + 5,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	[2] = {
- 		.start	= IRQ_PF10,
- 		.end	= IRQ_PF10,
- 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
-diff --git a/arch/blackfin/mach-bf537/boards/generic_board.c b/arch/blackfin/mach-bf537/boards/generic_board.c
-index 7d25082..01b63e2 100644
---- a/arch/blackfin/mach-bf537/boards/generic_board.c
-+++ b/arch/blackfin/mach-bf537/boards/generic_board.c
-@@ -166,10 +166,15 @@ static struct platform_device smc91x_device = {
- static struct resource dm9000_resources[] = {
- 	[0] = {
- 		.start	= 0x203FB800,
--		.end	= 0x203FB800 + 8,
-+		.end	= 0x203FB800 + 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	[1] = {
-+		.start	= 0x203FB800 + 4,
-+		.end	= 0x203FB800 + 5,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	[2] = {
- 		.start	= IRQ_PF9,
- 		.end	= IRQ_PF9,
- 		.flags	= (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE),
+Index: linux-2.6.26-rc7-next20080624/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-rc7-next20080624.orig/drivers/net/dm9000.c	2008-06-24 22:09:43.000000000 +0100
++++ linux-2.6.26-rc7-next20080624/drivers/net/dm9000.c	2008-06-24 22:09:44.000000000 +0100
+@@ -54,9 +54,6 @@
+ #define writesb	outsb
+ #define writesw	outsw
+ #define writesl	outsl
+-#define DEFAULT_TRIGGER IRQF_TRIGGER_HIGH
+-#else
+-#define DEFAULT_TRIGGER (0)
+ #endif
+ 
+ /*
+@@ -1014,11 +1011,9 @@ dm9000_open(struct net_device *dev)
+ 	/* If there is no IRQ type specified, default to something that
+ 	 * may work, and tell the user that this is a problem */
+ 
+-	if (irqflags == IRQF_TRIGGER_NONE) {
++	if (irqflags == IRQF_TRIGGER_NONE)
+ 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
+-		irqflags = DEFAULT_TRIGGER;
+-	}
+-	
++
+ 	irqflags |= IRQF_SHARED;
+ 
+ 	if (request_irq(dev->irq, &dm9000_interrupt, irqflags, dev->name, dev))
 
 -- 
 Ben (ben@fluff.org, http://www.fluff.org/)
