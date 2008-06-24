@@ -1,113 +1,38 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH v2] CONNECTOR: add a proc entry to list connectors
-Date: Tue, 24 Jun 2008 16:38:17 +0800
-Message-ID: <4860B279.9070105@cn.fujitsu.com>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: Re: [PATCH] drivers/net/r6040.c: Eliminate double sizeof
+Date: Tue, 24 Jun 2008 10:54:18 +0200
+Message-ID: <200806241054.19392.florian.fainelli@telecomint.eu>
+References: <Pine.LNX.4.64.0806232311570.13402@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758623AbYFXIkK@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.int-evry.fr ([157.159.10.71]:47848 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbYFXIyu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:54:50 -0400
+In-Reply-To: <Pine.LNX.4.64.0806232311570.13402@ask.diku.dk>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I got a problem when I wanted to check if the kernel supports process
-event connector, and It seems there's no way to do this check.
+Hello Julia,
 
-At best I can check if the kernel supports connector or not, by looking
-into /proc/net/netlink, or maybe checking the return value of bind() to
-see if it's ENOENT.
+Le Monday 23 June 2008 23:12:31 Julia Lawall, vous avez =E9crit=A0:
+> From: Julia Lawall <julia@diku.dk>
+>
+> Taking sizeof the result of sizeof is quite strange and does not seem=
+ to be
+> what is wanted here.
 
-So it would be useful to add /proc/net/connector to list all supported
-connectors:
- # cat /proc/net/connector
- Name            ID
- connector       4294967295:4294967295
- cn_proc         1:1
- w1              3:1
+Yes, definitively.
 
-Changelog:
-- fix memory leak: s/seq_release/single_release
-- use spin_lock_bh instead of spin_lock_irqsave
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
-Acked-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
----
- drivers/connector/connector.c |   40 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 40 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index 85e2ba7..bf48300 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -27,6 +27,8 @@
- #include <linux/moduleparam.h>
- #include <linux/connector.h>
- #include <linux/mutex.h>
-+#include <linux/proc_fs.h>
-+#include <linux/spinlock.h>
- 
- #include <net/sock.h>
- 
-@@ -403,6 +405,40 @@ static void cn_callback(void *data)
- 	mutex_unlock(&notify_lock);
- }
- 
-+static int cn_proc_show(struct seq_file *m, void *v)
-+{
-+	struct cn_queue_dev *dev = cdev.cbdev;
-+	struct cn_callback_entry *cbq;
-+
-+	seq_printf(m, "Name            ID\n");
-+
-+	spin_lock_bh(&dev->queue_lock);
-+
-+	list_for_each_entry(cbq, &dev->queue_list, callback_entry) {
-+		seq_printf(m, "%-15s %u:%u\n",
-+			   cbq->id.name,
-+			   cbq->id.id.idx,
-+			   cbq->id.id.val);
-+	}
-+
-+	spin_unlock_bh(&dev->queue_lock);
-+
-+	return 0;
-+}
-+
-+static int cn_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, cn_proc_show, NULL);
-+}
-+
-+static const struct file_operations cn_file_ops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cn_proc_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = single_release
-+};
-+
- static int __devinit cn_init(void)
- {
- 	struct cn_dev *dev = &cdev;
-@@ -434,6 +470,8 @@ static int __devinit cn_init(void)
- 		return -EINVAL;
- 	}
- 
-+	proc_net_fops_create(&init_net, "connector", S_IRUGO, &cn_file_ops);
-+
- 	return 0;
- }
- 
-@@ -443,6 +481,8 @@ static void __devexit cn_fini(void)
- 
- 	cn_already_initialized = 0;
- 
-+	proc_net_remove(&init_net, "connector");
-+
- 	cn_del_callback(&dev->id);
- 	cn_queue_free_dev(dev->cbdev);
- 	netlink_kernel_release(dev->nls);
--- 
-1.5.4.rc3
+Acked-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+--=20
+Cordialement, Florian Fainelli
+------------------------------
