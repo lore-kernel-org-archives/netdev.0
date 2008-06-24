@@ -1,63 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: current work on net-tx-2.6
-Date: Mon, 23 Jun 2008 21:04:38 -0700 (PDT)
-Message-ID: <20080623.210438.237685652.davem@davemloft.net>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [PATCH 5/8] smc91x: add SMC91X_IO_SHIFT* macros and make
+ SMC_IO_SHIFT a variable
+Date: Tue, 24 Jun 2008 00:15:47 -0400 (EDT)
+Message-ID: <alpine.LFD.1.10.0806240005370.2979@xanadu.home>
+References: <485A3E0B.1080505@gmail.com>
+ <alpine.LFD.1.10.0806191223390.2982@xanadu.home> <485B2850.5050004@gmail.com>
+ <alpine.LFD.1.10.0806200754030.23059@xanadu.home> <4860663D.9040606@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Eric Miao <eric.y.miao@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40940
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753831AbYFXEEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 00:04:38 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 97A3DC8C1B6
-	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 21:04:38 -0700 (PDT)
+Received: from relais.videotron.ca ([24.201.245.36]:39209 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825AbYFXEPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 00:15:48 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR005.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0K2Y00C5Y95O3OB0@VL-MO-MR005.ip.videotron.ca> for
+ netdev@vger.kernel.org; Tue, 24 Jun 2008 00:15:24 -0400 (EDT)
+In-reply-to: <4860663D.9040606@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 24 Jun 2008, Eric Miao wrote:
 
-So after the patches I've posted so far and checked into
-the net-tx-2.6 tree, here is what I have coming up next.
+> Nicolas Pitre wrote:
+> > That's not acceptable as an argument to introduce what actually is a 
+> > regression, especially when it should be possible to avoid it.  And the 
+> > fact is that there are already designs out there using this chip in 
+> > production, serious or not.
+> > 
+> 
+> OK, so is it arguable that boards like lubbock/mainstone/zylonite/littleton
+> can be switched over to use the SMC_IO_SHIFT as a variable and leave other
+> platforms unchanged due to the fact that these boards are just development
+> platforms and do not care much about performance?
 
-Basically, the generic netdev struct TX lock dies.
+As long as the variable is not used for all 
+configurations unconditionally so it is still possible to have a fixed 
+config where everything is optimized at compile time.
 
-The largest part of this work is pushing the locking
-down into the individual driver ->hard_start_xmit()
-routines.
 
-To be honest, this is what should have happened when
-we first added SMP locking, but at that time the easiest
-thing to do was to hide this stuff from the drivers :-)
-
-So at that point, LLTX behavior is essentially the default
-and all of the LLTX related flags etc. can just be killed
-off.
-
-A device with multiple TX queues can then implement their
-backlog and TX locking in a per-queue manner.
-
-There are some holes, semantic wise, that I haven't come
-to a full resolution of yet.  Rate measurements et al.
-in the packet scheduler will be inaccurate because the
-device isn't saying "I queued that packet into my TX
-backlog" or similar.  The rate measurement mechanisms
-of the packet scheduler depended firmly upon knowing
-when the driver actually gave packet X to the hardware.
-
-Another hole is pktgen.  It wants to know when all packets
-have been queued up to the device.  Or, at the very least, it
-would want to know when a packet got dropped from the backlog.
-So I will have to consider how to help provide the semantics
-pktgen wants as well.
-
-Even at this point, the qdisc lock will single thread all TX activity.
-So in the subsequent step I have to do something to address that.
-My basic current plan revolves around simply using a noqueue
-qdisc by default, so the qdisc doesn't get used at all.
-
-At that point we can get real multiqueue locking seperation on
-capable devices.  And furthermore the generic TX flow hashing
-layer can be implemented.
-
+Nicolas
