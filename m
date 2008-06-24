@@ -1,64 +1,60 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [PATCH] fix netxen_pci_tbl[] breakage
-Date: Mon, 23 Jun 2008 22:53:17 -0700
-Message-ID: <alpine.DEB.1.00.0806232249310.20801@unm84.unminc.com>
-References: <20080623010450.GV28946@ZenIV.linux.org.uk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] CONNECTOR: add a proc entry to list connectors
+Date: Tue, 24 Jun 2008 10:49:53 +0400
+Message-ID: <20080624064953.GA1736@2ka.mipt.ru>
+References: <48604E44.5040402@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Li Zefan <lizf@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netxen.com ([66.126.254.36]:50275 "EHLO nxexch.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752716AbYFXF7k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 01:59:40 -0400
-In-Reply-To: <20080623010450.GV28946@ZenIV.linux.org.uk>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38605 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756541AbYFXGtx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 02:49:53 -0400
+Content-Disposition: inline
+In-Reply-To: <48604E44.5040402@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-oops, that was oversight in last patch. changing order of PCI_DEVICE(),
-PCI_DEVICE_CLASS() would have worked as well.
+Hi.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
-
-On Sun, 22 Jun 2008, Al Viro wrote:
-
->         PCI_DEVICE_CLASS sets .device and .vendor to PCI_ANY_DEV,
-> which overrides the effect of preceding PCI_DEVICE() and makes
-> all elements of netxen_pci_tbl[] identical.  Introduced in the
-> commit dcd56fdbaeae1008044687b973c4a3e852e8a726.
+On Tue, Jun 24, 2008 at 09:30:44AM +0800, Li Zefan (lizf@cn.fujitsu.com) wrote:
+> I got a problem when I wanted to check if the kernel supports process
+> event connector, and It seems there's no way to do this check.
 > 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
-> diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-> index 6797ed0..63cd67b 100644
-> --- a/drivers/net/netxen/netxen_nic_main.c
-> +++ b/drivers/net/netxen/netxen_nic_main.c
-> @@ -71,14 +71,18 @@ static irqreturn_t netxen_intr(int irq, void *data);
->  static irqreturn_t netxen_msi_intr(int irq, void *data);
+> At best I can check if the kernel supports connector or not, by looking
+> into /proc/net/netlink, or maybe checking the return value of bind() to
+> see if it's ENOENT.
 > 
->  /*  PCI Device ID Table  */
-> +#define ENTRY(device) \
-> +       {PCI_DEVICE(0x4040, (device)), \
-> +       .class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
+> So how about add /proc/net/connector to list all supported connectors?
+>  # cat /proc/net/connector
+>  Name      ID
+>  connector 4294967295:4294967295
+>  cn_proc   1:1
+>  w1        3:1
+
+I like the idea, but if it is not appropriate way, I can extend
+connector core itself so it will support not only add/remove
+notification of added/removed users, but will also allow to query if
+given user exists.
+
+> Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+
+Ack.
+
+> +static int cn_proc_show(struct seq_file *m, void *v)
+> +{
+> +	struct cn_queue_dev *dev = cdev.cbdev;
+> +	struct cn_callback_entry *cbq;
+> +	unsigned long flags;
 > +
->  static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
-> -       {PCI_DEVICE(0x4040, 0x0001), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0002), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0003), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0004), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0005), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0024), PCI_DEVICE_CLASS(0x020000, ~0)},
-> -       {PCI_DEVICE(0x4040, 0x0025), PCI_DEVICE_CLASS(0x020000, ~0)},
-> +       ENTRY(0x0001),
-> +       ENTRY(0x0002),
-> +       ENTRY(0x0003),
-> +       ENTRY(0x0004),
-> +       ENTRY(0x0005),
-> +       ENTRY(0x0024),
-> +       ENTRY(0x0025),
->         {0,}
->  };
-> 
-> 
+> +	seq_printf(m, "Name      ID\n");
+> +
+> +	spin_lock_irqsave(&dev->queue_lock, flags);
+
+It can be BH lock only.
+
+-- 
+	Evgeniy Polyakov
