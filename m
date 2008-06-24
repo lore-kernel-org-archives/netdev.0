@@ -1,115 +1,38 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] net-driver: Drivers don't set IFF_* flag [Was: [PATCH
- 3/3] netdevice: order of synchronization of IFF_PROMISC and IFF_ALLMULTI]
-Date: Tue, 24 Jun 2008 09:02:03 +0800
-Message-ID: <4860478B.2080109@cn.fujitsu.com>
-References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com> <485F8332.6010203@trash.net> <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net>
+From: "Joonwoo Park" <joonwpark81@gmail.com>
+Subject: Re: [PATCH 0/8] textsearch: case insensitive pattern matching for netfilter
+Date: Mon, 23 Jun 2008 18:25:54 -0700
+Message-ID: <b25c3fa70806231825q21144461jdcc20cc77aff8c80@mail.gmail.com>
+References: <b25c3fa70806210054o74a46068ifa3b396662080265@mail.gmail.com>
+	 <20080623232756.GH20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, davies@maniac.ultranet.com,
-	grundler@parisc-linux.org, kyle@parisc-linux.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55077 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752547AbYFXBGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2008 21:06:11 -0400
-In-Reply-To: <485FB8B1.8020000@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Pablo Neira Ayuso" <pablo@netfilter.org>,
+	"David Miller" <davem@davemloft.net>
+To: "Thomas Graf" <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080623232756.GH20815@postel.suug.ch>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy said the following on 2008-6-23 22:52:
-> Wang Chen wrote:
->> Patrick McHardy said the following on 2008-6-23 21:47:
->>>>>> @@ -5528,6 +5529,7 @@ de4x5_ioctl(struct net_device *dev, struct
->>>>>> ifreq
->>>>>> *rq, int cmd)
->>>>>>      omr &= ~OMR_PR;
->>>>>>      outl(omr, DE4X5_OMR);
->>>>>>      dev->flags &= ~IFF_PROMISC;
->>>>>> +    dev->promiscuity = 0;
->>>>>>      break;
->>>>> Shouldn't this be using dev_set_promiscuity().
->>>>>
->>> I actually meant dev_change_flags(), sorry.
->>>
->>
->> dev_change_flags() can not completely change flag IFF_PROMISC like
->> IFF_UP, etc.
-> 
-> It shouldn't (in the case of IFF_PROMISC). It can for IFF_UP.
-> 
->> So dev_change_flags() has no big difference to dev_set_promiscuity().
->> I think dev_set_promiscuity() is suitable here.
-> 
-> It doesn't send notifications and this should always be
-> done if changes are performed on behalf of userspace.
-> 
+2008/6/23 Thomas Graf <tgraf@suug.ch>:
+> * Joonwoo Park <joonwpark81@gmail.com> 2008-06-21 00:54
+>> This patchset aim at supporting case insensitive text search for netfilter
+>> string extension.
+>> It contains fixing of Boyer-Moore algorithm and Knuth-Morris-Pratt algorithm.
+>> Also this includes bug fixing of Boyer-Moore algorithm.
+>
+> All patches look good, except that a general flags field in ts_config
+> would make features like this easier to add going forward.
+>
+> It should be noted that this may slow down the algorithms noticeable for
+> very large strings such as skb data buffers.
+>
 
-Ooh, there is a call_netdevice_notifiers() in  dev_change_flags().
-Yes. dev_change_flags() should be used.
+Thanks Thomas for reviewing this.
 
->>>> No.
->>>> 1. dev_set_promiscuity do
->>>>   a. set/unset IFF_PROMISC
->>>>   b. promiscuity++/--
->>>>   c. audit
->>>>   d. dev_set_rx_mode (upload unicast and multicast list to device)
->>>>   Here, in ioctl, a & b is enough.
->>> Auditing should certainly be done if promiscous mode is set.
->>> Calling dev_set_rx_mode doesn't hurt, even if it does the ioctl
->>> handler could be changed not to care. Besides this is neither
->>> taking the rtnl_mutex as required nor sending notifcations
->>> to userspace.
->>>
->>
->> Agree.
->>
->>>> 2. dev->flags unset IFF_PROMISC and dev->promiscuity = 0 can not be
->>>>    replaced by dev_set_promiscuity(). Because, we don't decrease
->>>>    promiscuity here, but set promiscuity zero for unset IFF_PROMISC.
->>> And that looks like a bug, the driver shouldn't disable
->>> promiscuity if something still requires it.
->>>
->>
->> It's hard to say that.
->> In theory, user-space can require device to disable promisc by driver's
->> ioctl. 
-> 
-> It can't normally, only this driver can. And that doesn't
-> look right.
-> 
->> But OTOH if something else still want device to be promisc, user and
->> driver have no method to let them decrease the refcnt promiscuity.
->> Because
->> promiscuity decrement is initiative action from upper layer, drivers
->> don't
->> know who need promiscuity.
->>
->> Humm, tired, go to sleep and figure out how to do after refreshing. :)
-> 
-> I'd suggest to make it user dev_change_flags() and
-> maybe even print a warning and add these ioctls to
-> feature-removal-schedule.
-> 
-
-Yes. I also agree.
-Except that if use dev_change_flags() for "case DE4X5_CLR_PROM",
-we will break the logic of this code. Because it sets hardware to
-non-promisc, but dev_change_flags() can only decrease the refcnt and
-do not clear IFF_PROMISC. The hw side and software side will be
-inconsistent.
-
-So I want to remove "clear promisc" feature by ioctl of this driver
-instead of adding it to feature-removal-schedule.
-"set promisc" feature by ioctl can be fixed temporarily and should be
-added to feature-removal-schedule. 
-Fortunately most of the features of this driver's ioctl are for
-developer testing.
-
-This week I want to wait for tulip driver maintainer's confirmation.
-
+Do you mean a note by commenting on the code? or any message to user?
