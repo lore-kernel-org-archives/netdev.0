@@ -1,104 +1,49 @@
-From: "Justin Mattock" <justinmattock@gmail.com>
-Subject: Re: stuck tcp connections 2.6.26-rc7
-Date: Tue, 24 Jun 2008 20:03:22 +0000
-Message-ID: <dd18b0c30806241303g755e3881y4ea7d403eb2922fc@mail.gmail.com>
-References: <dd18b0c30806221109t2ff73f9ai52f6716748648a79@mail.gmail.com>
-	 <20080622205927.301501e7.akpm@linux-foundation.org>
-	 <dd18b0c30806230013x5446991bi9eba7623ffaae131@mail.gmail.com>
-	 <g3ol3u$li2$1@ger.gmane.org>
-	 <dd18b0c30806231845s1cc6151coc2a4f26ed3521500@mail.gmail.com>
-	 <2c0942db0806241016o3be1dae8i433da13697c4531c@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: ping6 is sent out from wrong interface
+Date: Wed, 25 Jun 2008 05:04:45 +0900 (JST)
+Message-ID: <20080625.050445.30187899.yoshfuji@linux-ipv6.org>
+References: <485B0B1D.5000603@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Didier Raboud" <didier@raboud.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Ray Lee" <ray-lk@madrabbit.org>
+Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org
+To: nooiwa@miraclelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:34913 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752846AbYFXUDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 16:03:23 -0400
-Received: by an-out-0708.google.com with SMTP id d40so737256and.103
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 13:03:22 -0700 (PDT)
-In-Reply-To: <2c0942db0806241016o3be1dae8i433da13697c4531c@mail.gmail.com>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:60216 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756899AbYFXUDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 16:03:50 -0400
+In-Reply-To: <485B0B1D.5000603@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2008 at 5:16 PM, Ray Lee <ray-lk@madrabbit.org> wrote:
-> 2008/6/23 Justin Mattock <justinmattock@gmail.com>:
->> On Mon, Jun 23, 2008 at 5:04 PM, Didier Raboud <didier@raboud.com> wrote:
->>> -----BEGIN PGP SIGNED MESSAGE-----
->>> Hash: SHA1
->>>
->>> Justin Mattock wrote:
->>>
->>>> On Mon, Jun 23, 2008 at 3:59 AM, Andrew Morton
->>>> <akpm@linux-foundation.org> wrote:
->>>>> On Sun, 22 Jun 2008 18:09:16 +0000 "Justin Mattock"
->>>>> <justinmattock@gmail.com> wrote:
->>>>>
->>>>>> Hello; I too am experiencing internet connectivity problems, for  a
->>>>>> while I thought
->>>>>> It was due to low bandwidth(or being ddos attacked) but yesterday I
->>>>>> noticed with watch netstat -ntu
->>>>>> send-Q was stuck on a number; the connection would not go to TIME_WAIT
->>>>>> resulting in music to pause, and t.v. to freeze.
->>>>>> In my experiences running xmms streaming music is fine, no problems,
->>>>>> but as soon as
->>>>>> you watch something with flash player the stream start's getting
->>>>>> really bad. In the past with older kernel's
->>>>>> I usually can watch t.v.(with flash) and stream music at the same time
->>>>>> without any trouble.
->>>>>> lately I've been Running the kernel in No forced Preemption with a
->>>>>> time frequency at 100. having the kernel set in this mode really shows
->>>>>> the connection problems, but if I change the preemption to another,
->>>>>> and bump up the timer frequency the poor internet connection is not as
->>>>>> bad(or stuck tcp) but still prevalent. more pops in the music, and
->>>>>> sudden internet loss for around five seconds, then goes back
->>>>>> So from over here streaming music has no problems from what I can see,
->>>>>> but as soon as I watch media, it becomes a mess.
->>>>>
->>>>> (cc netdev)
->>>>>
->>>>
->>>>
->>>> Cool, Thanks for sending the cc
->>>> regards;
->>>
->>> Hi,
->>>
->>> I get something like a similar bug: when pinging my local gateway, I loose
->>> packets (over wifi (iwl3945) ). Before the update to 2.6.26-rc7 (Debian), I
->>> had no such issues (which makes Internet browsing working but weirdly).
->>>
->>> I can't know for sure that my bug is related to the above, but suppose so.
->>> Please ask for details !
->>>
->>> Regards,
->>>
->>> Didier Raboud
->>> - --
->>
->> Cool;(cool as in I'm not the only one,not cool for sh*%y internet connections)
->> there is something definitely happening with the tcp connection.,
->> After looking more at the situation
->> I get a good connection when just streaming music, but as soon as I
->> watch with flash or even search through firefox
->> I'm getting a dead period of no internet, and then a few seconds later
->> no problems.Almost as if some timer in the code is missing something
->> or not firing off at the right time.
->> At this point I'm still uncertain with what is happening.
->> regards;
->
-> If you leave a ping running as root to your local gateway from a
-> console ( nice -n -10 ping -i 0.5 192.168.1.1
->  or whichever ip ), does it show dropouts?
->
+In article <485B0B1D.5000603@miraclelinux.com> (at Fri, 20 Jun 2008 10:42:53 +0900), Naohiro Ooiwa <nooiwa@miraclelinux.com> says:
 
-I'll give that a try and see what happens.
-regards;
+> The ping packets were sent out from "eth0"(00:19:d1:19:23:af),
+> but IPv6 address was "eth1"(2001:2c0:418:2::2).
+> Why is interface "eth0".  Isn't it bug ?
+> 
+> The following is additional information.
+> 
+>     # ifconfig eth0
+>     eth0      Link encap:Ethernet  HWaddr 00:19:D1:19:23:AF
+>               inet addr:10.1.0.161  Bcast:10.1.255.255  Mask:255.255.0.0
+>               inet6 addr: 2001:2c0:418:1::1/64 Scope:Global
+>               inet6 addr: fe80::219:d1ff:fe19:23af/64 Scope:Link
+>               ::::::
+>     # ifconfig eth1
+>     eth1      Link encap:Ethernet  HWaddr 00:10:18:0E:0C:B4
+>               inet addr:172.16.255.200  Bcast:172.16.255.255  Mask:255.255.0.0
+>               inet6 addr: 2001:2c0:418:2::2/64 Scope:Global
+>               inet6 addr: fe80::210:18ff:fe0e:cb4/64 Scope:Link
+>               ::::::
 
--- 
-Justin P. Mattock
+-I does not specify interface strictly but source address.
+Which means, if you just specify an address, interface is unspecified.
+You can give "-I eth1", too.
+
+BTW, we should accept '-I fe80::1%eth0', maybe.
+
+--yoshfuji
