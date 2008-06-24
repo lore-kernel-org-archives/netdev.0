@@ -1,127 +1,115 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] NET_SCHED: restore HZ value to /proc/net/psched
-Date: Tue, 24 Jun 2008 02:15:53 +0200
-Message-ID: <48603CB9.60509@trash.net>
-References: <20080623111320.7ddb72b9@extreme>	<485FFB28.7070503@trash.net> <20080623134551.24246494@extreme>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] net-driver: Drivers don't set IFF_* flag [Was: [PATCH
+ 3/3] netdevice: order of synchronization of IFF_PROMISC and IFF_ALLMULTI]
+Date: Tue, 24 Jun 2008 09:02:03 +0800
+Message-ID: <4860478B.2080109@cn.fujitsu.com>
+References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com> <485F8332.6010203@trash.net> <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>, davies@maniac.ultranet.com,
+	grundler@parisc-linux.org, kyle@parisc-linux.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33221 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753238AbYFXAQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 20:16:00 -0400
-In-Reply-To: <20080623134551.24246494@extreme>
+Received: from cn.fujitsu.com ([222.73.24.84]:55077 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752547AbYFXBGL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2008 21:06:11 -0400
+In-Reply-To: <485FB8B1.8020000@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Mon, 23 Jun 2008 21:36:08 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->> Stephen Hemminger wrote:
->>> Some changes back in  2.6.22 broke a number of
->>> other places where the iproute2 utilities depended on kernel HZ
->>> value. The use of HZ was a bad original ABI design choice; the
->>> question is how to fix the impacts.
+Patrick McHardy said the following on 2008-6-23 22:52:
+> Wang Chen wrote:
+>> Patrick McHardy said the following on 2008-6-23 21:47:
+>>>>>> @@ -5528,6 +5529,7 @@ de4x5_ioctl(struct net_device *dev, struct
+>>>>>> ifreq
+>>>>>> *rq, int cmd)
+>>>>>>      omr &= ~OMR_PR;
+>>>>>>      outl(omr, DE4X5_OMR);
+>>>>>>      dev->flags &= ~IFF_PROMISC;
+>>>>>> +    dev->promiscuity = 0;
+>>>>>>      break;
+>>>>> Shouldn't this be using dev_set_promiscuity().
+>>>>>
+>>> I actually meant dev_change_flags(), sorry.
 >>>
->>> During 2.6.22 development, the psched clock was converted over
->>> to use high resolution timers, and one of the changes was to the
->>> return value of /proc/net/psched. This file is used by utilities
->>> to determine conversion between time and jiffies.
->>> It would be better to go back to the original format
->>> output where the fourth field was the kernel HZ.
->>>
->>> The motivation for the change was to make the HTB burst size
->>> default smaller because the kernel clock resolution was better.  
->>> But the change broke the use of jiffies by dst_metrics.
->>>
->>> With this revert all the metric RTT values will work again.
->>> The only use of hz in htb is to set the buffer and ceiling buffer default,
->>> and having the old value would cause a slightly larger value. Note: the comment
->>> in q_htb is incorrect, the value calculated is the default not the
->>> minimum.  As an example if HTB rate is 1mbit, then the default buffer
->>> would be come 11500 (with 100 HZ) vs 1500 (with 2.6.25).
->>>
->>> This effectively reverts commit 4361cb17f0df5491fe6e2c3ae1defc98e9a64a79
->>> I am not 100% convinced this is the best or only solution.
->> Me neither. As you've mentioned yourself, the fact that
->> the interfaces use kernel HZ as unit is a bug, and the use
->> of /proc/net/psched is another bug (one that isn't present
->> for *that* long I should add, the iproute git history
->> unfortunately only contains one huge patch which includes
->> this change).
 >>
->> IMO qdiscs shouldn't be punished for bugs in other code
->> and the main problem would still remain. Two alternative
->> approaches:
+>> dev_change_flags() can not completely change flag IFF_PROMISC like
+>> IFF_UP, etc.
+> 
+> It shouldn't (in the case of IFF_PROMISC). It can for IFF_UP.
+> 
+>> So dev_change_flags() has no big difference to dev_set_promiscuity().
+>> I think dev_set_promiscuity() is suitable here.
+> 
+> It doesn't send notifications and this should always be
+> done if changes are performed on behalf of userspace.
+> 
+
+Ooh, there is a call_netdevice_notifiers() in  dev_change_flags().
+Yes. dev_change_flags() should be used.
+
+>>>> No.
+>>>> 1. dev_set_promiscuity do
+>>>>   a. set/unset IFF_PROMISC
+>>>>   b. promiscuity++/--
+>>>>   c. audit
+>>>>   d. dev_set_rx_mode (upload unicast and multicast list to device)
+>>>>   Here, in ioctl, a & b is enough.
+>>> Auditing should certainly be done if promiscous mode is set.
+>>> Calling dev_set_rx_mode doesn't hurt, even if it does the ioctl
+>>> handler could be changed not to care. Besides this is neither
+>>> taking the rtnl_mutex as required nor sending notifcations
+>>> to userspace.
+>>>
 >>
->> - just fix the interface (something we've done multiple
->>    times, even after 2.6 was released).
+>> Agree.
+>>
+>>>> 2. dev->flags unset IFF_PROMISC and dev->promiscuity = 0 can not be
+>>>>    replaced by dev_set_promiscuity(). Because, we don't decrease
+>>>>    promiscuity here, but set promiscuity zero for unset IFF_PROMISC.
+>>> And that looks like a bug, the driver shouldn't disable
+>>> promiscuity if something still requires it.
+>>>
+>>
+>> It's hard to say that.
+>> In theory, user-space can require device to disable promisc by driver's
+>> ioctl. 
 > 
-> It is easy if the only thing to worry about is the current kernel
-> and current iproute2 utilities. But if you want to deal with 3rd
-> party applications that use the API's already, then the problem
-> is much harder. I fixed the places where get_hz was used and user hz already.
-
-Thats true, and in the case of rtmetrics it might actually matter.
-But since the bug is a combination of using kernel units *and*
-using /proc/net/psched to convert them, I wonder if its actually
-present in more applications. Are you aware of any applications
-using these rt metrics and /proc/net/psched? I would expect if
-there are any at all, they are simply interpreting the values
-as USER_HZ as was valid in 2.4 days. All the affected metrics
-belong in the "rarely used" category.
-
-> Do I have to get down to:
+> It can't normally, only this driver can. And that doesn't
+> look right.
 > 
-> static unsigned long kernel_version(void)
-> {
-> 	struct utsname uts;
-> 	unsigned a, b, c;
+>> But OTOH if something else still want device to be promisc, user and
+>> driver have no method to let them decrease the refcnt promiscuity.
+>> Because
+>> promiscuity decrement is initiative action from upper layer, drivers
+>> don't
+>> know who need promiscuity.
+>>
+>> Humm, tired, go to sleep and figure out how to do after refreshing. :)
 > 
-> 	
-> 	uname(&uts);
-> 	sscanf(uts.release, "%u.%u.%u", &a, &b, &c);
-> 	return KERNEL_VERSION(a, b, c);
-> }
-> 		
-> static unsigned long kernel_hz(void)
-> {
-> 	unsigned long version = kernel_version();
+> I'd suggest to make it user dev_change_flags() and
+> maybe even print a warning and add these ioctls to
+> feature-removal-schedule.
 > 
-> 	if (version <= KERNEL_VERSION(2,6,21))
-> 		return __get_hz();
-> 	else if (version <= KERNEL_VERSION(2,6,27)) {
-> 		fprintf(stderr, "Your kernel is screwed up and I can't find correct HZ\n");
-> 		exit(1);
-> 	}
-> 	else
-> 		return get_user_hz();	/* interface is now in correct units */
-> }
-> 
-> 
-> Even HTB shouldn't really care what the kernel clock resolution is.
 
-Its not only HTB, its also used for rtabs, which are used by
-CBQ, HTB, TBF and policing. They really need to know about
-the packet scheduler clock resolution and that has at least
-historical justification. The interface is using these units on
-purpose to allow cheaps computations in the kernel. It might have
-been better to convert within the kernel and use ns from the
-beginning, but thats unfortunately much harder to change.
+Yes. I also agree.
+Except that if use dev_change_flags() for "case DE4X5_CLR_PROM",
+we will break the logic of this code. Because it sets hardware to
+non-promisc, but dev_change_flags() can only decrease the refcnt and
+do not clear IFF_PROMISC. The hw side and software side will be
+inconsistent.
 
->> - add a new proc file to get the value of kernel HZ (the
->>    fix needs a kernel change anyway, this would additionally
->>    require a new iproute version).
-> 
-> Don't like this might encourage new bad ABI's.
+So I want to remove "clear promisc" feature by ioctl of this driver
+instead of adding it to feature-removal-schedule.
+"set promisc" feature by ioctl can be fixed temporarily and should be
+added to feature-removal-schedule. 
+Fortunately most of the features of this driver's ioctl are for
+developer testing.
 
-Me neither, it was just an ugly alternative to the API
-change, but on second though I'm even more convinced
-that the metrics should be fixed.
-
-
+This week I want to wait for tulip driver maintainer's confirmation.
 
