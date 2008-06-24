@@ -1,38 +1,40 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Tue, 24 Jun 2008 17:12:22 -0400
-Message-ID: <20080624211222.GB25892@tuxdriver.com>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi> <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com> <1214298259.8967.260.camel@johannes.berg> <20080624124311.GC16021@cs181140183.pp.htv.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080624124311.GC16021-re2QNgSbS3j4D6uPqz5PAwR5/fbUUdgG@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: [patch v3 09/12] DM9000: Add missing msleep() in EEPROM wait code.
+Date: Tue, 24 Jun 2008 22:16:05 +0100
+Message-ID: <20080624211905.828139680@fluff.org.uk>
+References: <20080624211556.566149406@fluff.org.uk>
+Cc: jeff@garzik.org, laurentp@cse-semaphore.com,
+	Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:64001 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753877AbYFXVTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 17:19:07 -0400
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-eeprom-delay.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
+The msleep() call in the code that checks for the
+EEPROM controller's busy status was missing.
 
-> Can we get one of either:
-> - all selected mac80211 algorithms are built into the mac80211 module or
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-This seems fine to me.
+Index: linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-rc6-quilt1.orig/drivers/net/dm9000.c	2008-06-16 00:07:15.000000000 +0100
++++ linux-2.6.26-rc6-quilt1/drivers/net/dm9000.c	2008-06-16 00:07:44.000000000 +0100
+@@ -343,6 +343,8 @@ static int dm9000_wait_eeprom(board_info
+ 		if ((status & EPCR_ERRE) == 0)
+ 			break;
+ 
++		msleep(1);
++
+ 		if (timeout-- < 0) {
+ 			dev_dbg(db->dev, "timeout waiting EEPROM\n");
+ 			break;
 
-> - all selected mac80211 algorithms (including the default one) are in
->   their own modules
-
-We got here trying to avoid this one in the first place.
-
-John
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben (ben@fluff.org, http://www.fluff.org/)
+
+  'a smiley only costs 4 bytes'
