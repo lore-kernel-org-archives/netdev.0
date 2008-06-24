@@ -1,60 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pppoe: fix compiler warning
-Date: Tue, 24 Jun 2008 13:35:47 -0700 (PDT)
-Message-ID: <20080624.133547.14143189.davem@davemloft.net>
-References: <48611A06.9070607@trash.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: RFC: always enable MAC80211_RC_PID?
+Date: Tue, 24 Jun 2008 17:12:22 -0400
+Message-ID: <20080624211222.GB25892@tuxdriver.com>
+References: <20080622125553.GB22539@cs181133002.pp.htv.fi> <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com> <1214298259.8967.260.camel@johannes.berg> <20080624124311.GC16021@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55425
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752115AbYFXUfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 16:35:47 -0400
-In-Reply-To: <48611A06.9070607@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080624124311.GC16021-re2QNgSbS3j4D6uPqz5PAwR5/fbUUdgG@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 24 Jun 2008 18:00:06 +0200
+On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
 
-> pppoe: fix compiler warning
-> 
-> Fix warning introduced by 392fdb0 (net pppoe: Check packet length on all receive paths):
-> 
-> drivers/net/pppoe.c: In function 'pppoe_recvmsg':
-> drivers/net/pppoe.c:945: warning: comparison of distinct pointer types lacks a cast
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Can we get one of either:
+> - all selected mac80211 algorithms are built into the mac80211 module or
 
-Should already be fixed in net-2.6 by:
+This seems fine to me.
 
-commit 2645a3c3761ac25498db2e627271016c849c68e1
-Author: Stephen Hemminger <shemminger@vyatta.com>
-Date:   Fri Jun 20 21:58:02 2008 -0700
+> - all selected mac80211 algorithms (including the default one) are in
+>   their own modules
 
-    pppoe: warning fix
-    
-    Fix warning:
-    drivers/net/pppoe.c: In function 'pppoe_recvmsg':
-    drivers/net/pppoe.c:945: warning: comparison of distinct pointer types lacks a cast
-    because skb->len is unsigned int and total_len is size_t
-    
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+We got here trying to avoid this one in the first place.
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index bafb69b..fc6f4b8 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -942,7 +942,7 @@ static int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	m->msg_namelen = 0;
- 
- 	if (skb) {
--		total_len = min(total_len, skb->len);
-+		total_len = min_t(size_t, total_len, skb->len);
- 		error = skb_copy_datagram_iovec(skb, 0, m->msg_iov, total_len);
- 		if (error == 0)
- 			error = total_len;
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
