@@ -1,60 +1,73 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] CONNECTOR: add a proc entry to list connectors
-Date: Tue, 24 Jun 2008 10:49:53 +0400
-Message-ID: <20080624064953.GA1736@2ka.mipt.ru>
-References: <48604E44.5040402@cn.fujitsu.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
+Date: Tue, 24 Jun 2008 10:02:42 +0200
+Message-ID: <200806241002.42482.tomasz@grobelny.oswiecenia.net>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806202303.37924.tomasz@grobelny.oswiecenia.net> <20080623165826.GB8692@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Li Zefan <lizf@cn.fujitsu.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38605 "EHLO 2ka.mipt.ru"
+Received: from oswiecenia.net ([83.13.108.58]:2111 "EHLO poczta.oswiecenia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756541AbYFXGtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 02:49:53 -0400
+	id S1752000AbYFXIDC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:03:02 -0400
+In-Reply-To: <20080623165826.GB8692@gerrit.erg.abdn.ac.uk>
 Content-Disposition: inline
-In-Reply-To: <48604E44.5040402@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Dnia Monday 23 of June 2008, Gerrit Renker napisa=B3:
+> | > We could still encode the parameters in the policy ID, by splitti=
+ng the
+> | > bitmask, e.g. the low 24 bits to encode parameters, and the high =
+8 bits
+> | > to encode the policies using the same combination of parameters.
+> |
+> | Yes, technically we could do it this way. Encoding accepted paramet=
+ers in
+> | policy ID would provide applications with means to check whether ce=
+rtain
+> | parameters are supported. But should we mix two IMO distinct concep=
+ts
+> | (policy behaviour and accepted parameters) in one bitfield? I'd rat=
+her
+> | have them separated.
+>
+> Yes having them separate gives a clearer semantics. But it comes at a=
+ price
+> - to retrieve the parameters, we need an extra function or lookup tab=
+le.
+>
+An additional bitfield in dccp_qpolicy_operations should do it when it =
+comes=20
+to storing that information. When it comes to retrieving see next point=
+=2E..
 
-On Tue, Jun 24, 2008 at 09:30:44AM +0800, Li Zefan (lizf@cn.fujitsu.com) wrote:
-> I got a problem when I wanted to check if the kernel supports process
-> event connector, and It seems there's no way to do this check.
-> 
-> At best I can check if the kernel supports connector or not, by looking
-> into /proc/net/netlink, or maybe checking the return value of bind() to
-> see if it's ENOENT.
-> 
-> So how about add /proc/net/connector to list all supported connectors?
->  # cat /proc/net/connector
->  Name      ID
->  connector 4294967295:4294967295
->  cn_proc   1:1
->  w1        3:1
+> Maybe there is an elegant solution which allows to encode the require=
+d
+> parameters while keeping the semantics clear?
+>
+What about something like:
+	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_ID, DCCPQ_POLICY_PRIO);
+to choose policy (exactly as it is now) and a new function to ensure th=
+at the=20
+kernel understands parameters:
+	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_PARAMS, DCCP_SCM_PRIORITY |=20
+DCCP_SCM_TIMEOUT);
 
-I like the idea, but if it is not appropriate way, I can extend
-connector core itself so it will support not only add/remove
-notification of added/removed users, but will also allow to query if
-given user exists.
+The second call would return an error if the kernel does not know anyth=
+ing=20
+about DCCP_SCM_TIMEOUT (or a choosen policy does not support it). This =
+would=20
+have the additional benefit (over similar getsockopt) that the kernel w=
+ill be=20
+able to optimize its behaviour knowning the set of parameters that will=
+ be=20
+used.
 
-> Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
-
-Ack.
-
-> +static int cn_proc_show(struct seq_file *m, void *v)
-> +{
-> +	struct cn_queue_dev *dev = cdev.cbdev;
-> +	struct cn_callback_entry *cbq;
-> +	unsigned long flags;
-> +
-> +	seq_printf(m, "Name      ID\n");
-> +
-> +	spin_lock_irqsave(&dev->queue_lock, flags);
-
-It can be BH lock only.
-
--- 
-	Evgeniy Polyakov
+What do you think about such an interface?
+--=20
+Regards,
+Tomasz Grobelny
