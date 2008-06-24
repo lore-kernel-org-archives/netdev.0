@@ -1,17 +1,18 @@
 From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH v2 1/2] net_sched: add size table functions
-Date: Tue, 24 Jun 2008 11:54:59 +0300
-Message-ID: <20080624085459.22411.51103.stgit@fate.lan>
+Subject: [PATCH v2 1/2] [iproute2/tc] tc_core: add size table
+Date: Tue, 24 Jun 2008 11:55:14 +0300
+Message-ID: <20080624085514.22540.91038.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@osdl.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:36360 "EHLO
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:36378 "EHLO
 	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756158AbYFXIzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:55:03 -0400
+	with ESMTP id S1757684AbYFXIzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:55:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,11 +25,10 @@ transfer time using rate tables.
 Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 ---
 
- include/linux/pkt_sched.h |   10 ++++++++++
- include/net/pkt_sched.h   |    3 +++
- include/net/sch_generic.h |   23 ++++++++++++++++++++++
- net/sched/sch_api.c       |   47 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 83 insertions(+), 0 deletions(-)
+ include/linux/pkt_sched.h |   10 ++++++
+ tc/tc_core.c              |   73 ++++++++++++++++++++++++++++++++++++---------
+ tc/tc_core.h              |    2 +
+ 3 files changed, 70 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
 index dbb7ac3..b8366fb 100644
@@ -51,118 +51,115 @@ index dbb7ac3..b8366fb 100644
  /* FIFO section */
  
  struct tc_fifo_qopt
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 46fb4d8..b032488 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -78,7 +78,10 @@ extern struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
- extern struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
- extern struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
- 		struct nlattr *tab);
-+extern struct qdisc_size_table *qdisc_get_stab(struct tc_sizespec *s,
-+		struct nlattr *tab);
- extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
-+extern void qdisc_put_stab(struct qdisc_size_table *tab);
- 
- extern void __qdisc_run(struct net_device *dev);
- 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index ab502ec..32b6865 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -23,6 +23,13 @@ struct qdisc_rate_table
- 	int		refcnt;
- };
- 
-+struct qdisc_size_table {
-+	struct tc_sizespec szopts;
-+	u16		data[512];
-+	struct qdisc_size_table *next;
-+	int		refcnt;
-+};
-+
- struct Qdisc
- {
- 	int 			(*enqueue)(struct sk_buff *skb, struct Qdisc *dev);
-@@ -316,6 +323,22 @@ static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int pktlen)
- 	return rtab->data[slot];
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 855c115..ca509d9 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -87,6 +87,25 @@ unsigned tc_align_to_atm(unsigned size)
+ 	return linksize;
  }
  
-+/* Length to link layer size lookup in a qdisc_size_table, to determine how
-+   what size packet takes on link layer.
++unsigned tc_adjust_size(unsigned sz, unsigned mpu, enum link_layer linklayer)
++{
++	if (sz < mpu)
++		sz = mpu;
++
++	switch (linklayer) {
++	case LINKLAYER_ATM:
++		sz = tc_align_to_atm(sz);
++		break;
++	case LINKLAYER_ETHERNET:
++		// No size adjustments on Ethernet
++		break;
++	default:
++		break;
++	}
++
++	return sz;
++}
++
+ /*
+    rtab[pkt_len>>cell_log] = pkt_xmit_time
+  */
+@@ -109,21 +128,7 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
+ 	}
+ 
+ 	for (i=0; i<256; i++) {
+-		unsigned sz = (i+1)<<cell_log;
+-		if (sz < mpu)
+-			sz = mpu;
+-
+-		switch (linklayer) {
+-		case LINKLAYER_ATM:
+-			sz = tc_align_to_atm(sz);
+-			break;
+-		case LINKLAYER_ETHERNET:
+-			// No size adjustments on Ethernet
+-			break;
+-		default:
+-			break;
+-		}
+-
++		unsigned sz = tc_adjust_size((i+1)<<cell_log, mpu, linklayer);
+ 		rtab[i] = tc_calc_xmittime(bps, sz);
+ 	}
+ 
+@@ -132,6 +137,44 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
+ 	return cell_log;
+ }
+ 
++/*
++   stab[pkt_len>>cell_log] = pkt_xmit_size
 + */
-+static inline u32 qdisc_linklayer_sz(struct qdisc_size_table *stab, u32 pktlen)
++
++int tc_calc_stable(struct tc_sizespec *s, __u16 *stab,
++		   int cell_log, unsigned mtu,
++		   enum link_layer linklayer)
 +{
-+	int slot = pktlen + stab->szopts.cell_align + stab->szopts.overhead;
-+	unsigned char size_log = stab->szopts.size_log;
-+	if (unlikely(slot < 0))
-+		slot = 0;
-+	slot >>= stab->szopts.cell_log;
-+	if (unlikely(slot > 511))
-+		return ((u32)stab->data[511] << size_log) * (slot >> 9) +
-+			((u32)stab->data[slot & 0x1FF] << size_log);
-+	return (u32)stab->data[slot] << size_log;
++	int i;
++	unsigned mpu = s->mpu;
++	unsigned size_log = 0;
++	unsigned sz;
++
++	if (mtu == 0)
++		mtu = 2047;
++
++	if (cell_log < 0) {
++		cell_log = 0;
++		while ((mtu >> cell_log) > 512 - 1)
++			cell_log++;
++	}
++
++again:
++	for (i = 512 - 1; i >= 0; i--) {
++		sz = tc_adjust_size((i + 1) << cell_log, mpu, linklayer);
++		if ((sz >> size_log) > UINT16_MAX) {
++			size_log++;
++			goto again;
++		}
++		stab[i] = sz >> size_log;
++	}
++
++	s->size_log = size_log;
++	s->cell_align = -1; // Due to the sz calc
++	s->cell_log = cell_log;
++	return cell_log;
 +}
 +
- #ifdef CONFIG_NET_CLS_ACT
- static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ int tc_core_init()
  {
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c40773c..de25928 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -277,6 +277,53 @@ void qdisc_put_rtab(struct qdisc_rate_table *tab)
- }
- EXPORT_SYMBOL(qdisc_put_rtab);
+ 	FILE *fp;
+diff --git a/tc/tc_core.h b/tc/tc_core.h
+index 9f835e8..97a4894 100644
+--- a/tc/tc_core.h
++++ b/tc/tc_core.h
+@@ -21,6 +21,8 @@ unsigned tc_calc_xmittime(unsigned rate, unsigned size);
+ unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks);
+ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
+ 		   int cell_log, unsigned mtu, enum link_layer link_layer);
++int tc_calc_stable(struct tc_sizespec *r, __u16 *stab,
++		   int cell_log, unsigned mtu, enum link_layer link_layer);
  
-+static struct qdisc_size_table *qdisc_stab_list;
-+
-+struct qdisc_size_table *qdisc_get_stab(struct tc_sizespec *s,
-+					struct nlattr *tab)
-+{
-+	struct qdisc_size_table *stab;
-+
-+	for (stab = qdisc_stab_list; stab; stab = stab->next) {
-+		if (memcmp(&stab->szopts, s, sizeof(struct tc_sizespec)) == 0) {
-+			stab->refcnt++;
-+			return stab;
-+		}
-+	}
-+
-+	if (tab == NULL || s->cell_log == 0 || nla_len(tab) != TC_STAB_SIZE)
-+		return NULL;
-+
-+	stab = kmalloc(sizeof(*stab), GFP_KERNEL);
-+	if (stab) {
-+		stab->szopts = *s;
-+		stab->refcnt = 1;
-+		memcpy(stab->data, nla_data(tab), TC_STAB_SIZE);
-+		stab->next = qdisc_stab_list;
-+		qdisc_stab_list = stab;
-+	}
-+	return stab;
-+}
-+EXPORT_SYMBOL(qdisc_get_stab);
-+
-+void qdisc_put_stab(struct qdisc_size_table *tab)
-+{
-+	struct qdisc_size_table *stab, **stabp;
-+
-+	if (!tab || --tab->refcnt)
-+		return;
-+
-+	for (stabp = &qdisc_stab_list; (stab = *stabp) != NULL;
-+							stabp = &stab->next) {
-+		if (stab == tab) {
-+			*stabp = stab->next;
-+			kfree(stab);
-+			return;
-+		}
-+	}
-+}
-+EXPORT_SYMBOL(qdisc_put_stab);
-+
- static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
- {
- 	struct qdisc_watchdog *wd = container_of(timer, struct qdisc_watchdog,
+ int tc_setup_estimator(unsigned A, unsigned time_const, struct tc_estimator *est);
+ 
 
