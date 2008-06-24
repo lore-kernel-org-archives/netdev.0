@@ -1,165 +1,303 @@
 From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH v2 1/2] [iproute2/tc] tc_core: add size table
-Date: Tue, 24 Jun 2008 11:55:14 +0300
-Message-ID: <20080624085514.22540.91038.stgit@fate.lan>
+Subject: [PATCH v2 2/2] hfsc: add link layer overhead adaption
+Date: Tue, 24 Jun 2008 11:55:05 +0300
+Message-ID: <20080624085505.22411.38295.stgit@fate.lan>
+References: <20080624085459.22411.51103.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@osdl.org>
+Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:36378 "EHLO
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:36366 "EHLO
 	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757684AbYFXIzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:55:16 -0400
+	with ESMTP id S1757128AbYFXIzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:55:07 -0400
+In-Reply-To: <20080624085459.22411.51103.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch adds size table that is similiar to rate table, with difference that
-size table stores link layer packet size. It's needed for HFSC link
-layer adaption patch as it converts skb->len to link layer packet size
-directly, unlike HTB/CFQ/etc that convert packet length to link layer
-transfer time using rate tables.
+CBQ and HTB have options for emulating overhead of underlying link layer
+(mpu/overhead/linklayer options). This patch makes sch_hfsc use size table
+to emulate link layer overhead.
+
+Patch uses size table to convert packet length to emulated link layer packet
+length. Converted packet length is passed to hfsc calculations instead of
+real. If size table isn't passed to kernel, hfsc works as before.
 
 Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 ---
 
- include/linux/pkt_sched.h |   10 ++++++
- tc/tc_core.c              |   73 ++++++++++++++++++++++++++++++++++++---------
- tc/tc_core.h              |    2 +
- 3 files changed, 70 insertions(+), 15 deletions(-)
+ include/linux/pkt_sched.h |    2 +
+ net/sched/sch_hfsc.c      |  116 +++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 93 insertions(+), 25 deletions(-)
 
 diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index dbb7ac3..b8366fb 100644
+index b8366fb..43c11f2 100644
 --- a/include/linux/pkt_sched.h
 +++ b/include/linux/pkt_sched.h
-@@ -85,6 +85,16 @@ struct tc_ratespec
+@@ -326,6 +326,8 @@ enum
+ 	TCA_HFSC_RSC,
+ 	TCA_HFSC_FSC,
+ 	TCA_HFSC_USC,
++	TCA_HFSC_SZOPTS,
++	TCA_HFSC_STAB,
+ 	__TCA_HFSC_MAX,
+ };
  
- #define TC_RTAB_SIZE	1024
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index fdfaa3f..de958aa 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -128,6 +128,8 @@ struct hfsc_class
+ 	struct list_head siblings;	/* sibling classes */
+ 	struct list_head children;	/* child classes */
+ 	struct Qdisc	*qdisc;		/* leaf qdisc */
++	struct qdisc_size_table *stab;	/* size table used for link layer
++					   overhead adaption */
  
-+struct tc_sizespec {
-+	unsigned char	cell_log;
-+	unsigned char	size_log;
-+	unsigned short	overhead;
-+	short		cell_align;
-+	unsigned short	mpu;
-+};
-+
-+#define TC_STAB_SIZE	1024
-+
- /* FIFO section */
- 
- struct tc_fifo_qopt
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 855c115..ca509d9 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -87,6 +87,25 @@ unsigned tc_align_to_atm(unsigned size)
- 	return linksize;
+ 	struct rb_node el_node;		/* qdisc's eligible tree member */
+ 	struct rb_root vt_tree;		/* active children sorted by cl_vt */
+@@ -496,6 +498,14 @@ sc2isc(struct tc_service_curve *sc, struct internal_sc *isc)
+ 	isc->ism2 = m2ism(sc->m2);
  }
  
-+unsigned tc_adjust_size(unsigned sz, unsigned mpu, enum link_layer linklayer)
++/* convert packet length to link layer packet length */
++static unsigned int get_linklayer_len(struct hfsc_class *cl, unsigned int len)
 +{
-+	if (sz < mpu)
-+		sz = mpu;
-+
-+	switch (linklayer) {
-+	case LINKLAYER_ATM:
-+		sz = tc_align_to_atm(sz);
-+		break;
-+	case LINKLAYER_ETHERNET:
-+		// No size adjustments on Ethernet
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return sz;
++	if (unlikely(!len) || likely(!cl->stab))
++		return len;
++	return qdisc_linklayer_sz(cl->stab, len);
 +}
 +
  /*
-    rtab[pkt_len>>cell_log] = pkt_xmit_time
-  */
-@@ -109,21 +128,7 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 	}
- 
- 	for (i=0; i<256; i++) {
--		unsigned sz = (i+1)<<cell_log;
--		if (sz < mpu)
--			sz = mpu;
--
--		switch (linklayer) {
--		case LINKLAYER_ATM:
--			sz = tc_align_to_atm(sz);
--			break;
--		case LINKLAYER_ETHERNET:
--			// No size adjustments on Ethernet
--			break;
--		default:
--			break;
--		}
--
-+		unsigned sz = tc_adjust_size((i+1)<<cell_log, mpu, linklayer);
- 		rtab[i] = tc_calc_xmittime(bps, sz);
- 	}
- 
-@@ -132,6 +137,44 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 	return cell_log;
+  * initialize the runtime service curve with the given internal
+  * service curve starting at (x, y).
+@@ -987,9 +997,11 @@ hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
  }
  
-+/*
-+   stab[pkt_len>>cell_log] = pkt_xmit_size
-+ */
-+
-+int tc_calc_stable(struct tc_sizespec *s, __u16 *stab,
-+		   int cell_log, unsigned mtu,
-+		   enum link_layer linklayer)
-+{
-+	int i;
-+	unsigned mpu = s->mpu;
-+	unsigned size_log = 0;
-+	unsigned sz;
-+
-+	if (mtu == 0)
-+		mtu = 2047;
-+
-+	if (cell_log < 0) {
-+		cell_log = 0;
-+		while ((mtu >> cell_log) > 512 - 1)
-+			cell_log++;
+ static const struct nla_policy hfsc_policy[TCA_HFSC_MAX + 1] = {
+-	[TCA_HFSC_RSC]	= { .len = sizeof(struct tc_service_curve) },
+-	[TCA_HFSC_FSC]	= { .len = sizeof(struct tc_service_curve) },
+-	[TCA_HFSC_USC]	= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_RSC]		= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_FSC]		= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_USC]		= { .len = sizeof(struct tc_service_curve) },
++	[TCA_HFSC_SZOPTS]	= { .len = sizeof(struct tc_sizespec) },
++	[TCA_HFSC_STAB]		= { .type = NLA_BINARY, .len = TC_STAB_SIZE },
+ };
+ 
+ static int
+@@ -1000,18 +1012,21 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	struct hfsc_class *cl = (struct hfsc_class *)*arg;
+ 	struct hfsc_class *parent = NULL;
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+-	struct nlattr *tb[TCA_HFSC_MAX + 1];
++	struct nlattr *tb[TCA_HFSC_STAB + 1];
+ 	struct tc_service_curve *rsc = NULL, *fsc = NULL, *usc = NULL;
++	struct tc_sizespec *szopts = NULL;
++	struct qdisc_size_table *stab = NULL;
+ 	u64 cur_time;
+ 	int err;
+ 
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	err = nla_parse_nested(tb, TCA_HFSC_MAX, opt, hfsc_policy);
++	err = nla_parse_nested(tb, TCA_HFSC_STAB, opt, hfsc_policy);
+ 	if (err < 0)
+ 		return err;
+ 
++	err = -EINVAL;
+ 	if (tb[TCA_HFSC_RSC]) {
+ 		rsc = nla_data(tb[TCA_HFSC_RSC]);
+ 		if (rsc->m1 == 0 && rsc->m2 == 0)
+@@ -1030,12 +1045,18 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			usc = NULL;
+ 	}
+ 
++	if (tb[TCA_HFSC_SZOPTS]) {
++		szopts = nla_data(tb[TCA_HFSC_SZOPTS]);
++		stab = qdisc_get_stab(szopts, tb[TCA_HFSC_STAB]);
 +	}
 +
-+again:
-+	for (i = 512 - 1; i >= 0; i--) {
-+		sz = tc_adjust_size((i + 1) << cell_log, mpu, linklayer);
-+		if ((sz >> size_log) > UINT16_MAX) {
-+			size_log++;
-+			goto again;
+ 	if (cl != NULL) {
+ 		if (parentid) {
++			err = -EINVAL;
+ 			if (cl->cl_parent && cl->cl_parent->classid != parentid)
+-				return -EINVAL;
++				goto failure;
+ 			if (cl->cl_parent == NULL && parentid != TC_H_ROOT)
+-				return -EINVAL;
++				goto failure;
+ 		}
+ 		cur_time = psched_get_time();
+ 
+@@ -1047,9 +1068,14 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		if (usc != NULL)
+ 			hfsc_change_usc(cl, usc, cur_time);
+ 
++		if (cl->stab)
++			qdisc_put_stab(cl->stab);
++		cl->stab = stab;
++
+ 		if (cl->qdisc->q.qlen != 0) {
+ 			if (cl->cl_flags & HFSC_RSC)
+-				update_ed(cl, qdisc_peek_len(cl->qdisc));
++				update_ed(cl, get_linklayer_len(cl,
++						qdisc_peek_len(cl->qdisc)));
+ 			if (cl->cl_flags & HFSC_FSC)
+ 				update_vf(cl, 0, cur_time);
+ 		}
+@@ -1062,27 +1088,39 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		return 0;
+ 	}
+ 
+-	if (parentid == TC_H_ROOT)
+-		return -EEXIST;
++	if (parentid == TC_H_ROOT) {
++		err = -EEXIST;
++		goto failure;
++	}
+ 
+ 	parent = &q->root;
+ 	if (parentid) {
+ 		parent = hfsc_find_class(parentid, sch);
+-		if (parent == NULL)
+-			return -ENOENT;
++		if (parent == NULL) {
++			err = -ENOENT;
++			goto failure;
 +		}
-+		stab[i] = sz >> size_log;
+ 	}
+ 
+-	if (classid == 0 || TC_H_MAJ(classid ^ sch->handle) != 0)
+-		return -EINVAL;
+-	if (hfsc_find_class(classid, sch))
+-		return -EEXIST;
++	if (classid == 0 || TC_H_MAJ(classid ^ sch->handle) != 0) {
++		err = -EINVAL;
++		goto failure;
 +	}
++	if (hfsc_find_class(classid, sch)) {
++		err = -EEXIST;
++		goto failure;
++	}
+ 
+-	if (rsc == NULL && fsc == NULL)
+-		return -EINVAL;
++	if (rsc == NULL && fsc == NULL) {
++		err = -EINVAL;
++		goto failure;
++	}
+ 
+ 	cl = kzalloc(sizeof(struct hfsc_class), GFP_KERNEL);
+-	if (cl == NULL)
+-		return -ENOBUFS;
++	if (cl == NULL) {
++		err = -ENOBUFS;
++		goto failure;
++	}
+ 
+ 	if (rsc != NULL)
+ 		hfsc_change_rsc(cl, rsc, 0);
+@@ -1109,6 +1147,9 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		hfsc_purge_queue(sch, parent);
+ 	hfsc_adjust_levels(parent);
+ 	cl->cl_pcvtoff = parent->cl_cvtoff;
++	if (cl->stab)
++		qdisc_put_stab(cl->stab);
++	cl->stab = stab;
+ 	sch_tree_unlock(sch);
+ 
+ 	if (tca[TCA_RATE])
+@@ -1116,6 +1157,10 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 				  &sch->dev->queue_lock, tca[TCA_RATE]);
+ 	*arg = (unsigned long)cl;
+ 	return 0;
++failure:
++	if (stab)
++		qdisc_put_stab(stab);
++	return err;
+ }
+ 
+ static void
+@@ -1126,6 +1171,8 @@ hfsc_destroy_class(struct Qdisc *sch, struct hfsc_class *cl)
+ 	tcf_destroy_chain(cl->filter_list);
+ 	qdisc_destroy(cl->qdisc);
+ 	gen_kill_estimator(&cl->bstats, &cl->rate_est);
++	if (cl->stab)
++		qdisc_put_stab(cl->stab);
+ 	if (cl != &q->root)
+ 		kfree(cl);
+ }
+@@ -1338,6 +1385,21 @@ hfsc_dump_curves(struct sk_buff *skb, struct hfsc_class *cl)
+ 	return -1;
+ }
+ 
++static inline int
++hfsc_dump_szopts(struct sk_buff *skb, struct hfsc_class *cl)
++{
++	if (!cl->stab)
++		return 0;
 +
-+	s->size_log = size_log;
-+	s->cell_align = -1; // Due to the sz calc
-+	s->cell_log = cell_log;
-+	return cell_log;
++	NLA_PUT(skb, TCA_HFSC_SZOPTS, sizeof(cl->stab->szopts),
++		&cl->stab->szopts);
++
++	return skb->len;
++
++ nla_put_failure:
++	return -1;
 +}
 +
- int tc_core_init()
- {
- 	FILE *fp;
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index 9f835e8..97a4894 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -21,6 +21,8 @@ unsigned tc_calc_xmittime(unsigned rate, unsigned size);
- unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks);
- int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 		   int cell_log, unsigned mtu, enum link_layer link_layer);
-+int tc_calc_stable(struct tc_sizespec *r, __u16 *stab,
-+		   int cell_log, unsigned mtu, enum link_layer link_layer);
+ static int
+ hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
+ 		struct tcmsg *tcm)
+@@ -1355,6 +1417,8 @@ hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
+ 		goto nla_put_failure;
+ 	if (hfsc_dump_curves(skb, cl) < 0)
+ 		goto nla_put_failure;
++	if (hfsc_dump_szopts(skb, cl) < 0)
++		goto nla_put_failure;
+ 	nla_nest_end(skb, nest);
+ 	return skb->len;
  
- int tc_setup_estimator(unsigned A, unsigned time_const, struct tc_estimator *est);
+@@ -1588,7 +1652,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	}
  
+ 	if (cl->qdisc->q.qlen == 1)
+-		set_active(cl, len);
++		set_active(cl, get_linklayer_len(cl, len));
+ 
+ 	cl->bstats.packets++;
+ 	cl->bstats.bytes += len;
+@@ -1606,7 +1670,7 @@ hfsc_dequeue(struct Qdisc *sch)
+ 	struct hfsc_class *cl;
+ 	struct sk_buff *skb;
+ 	u64 cur_time;
+-	unsigned int next_len;
++	unsigned int next_len, cur_len;
+ 	int realtime = 0;
+ 
+ 	if (sch->q.qlen == 0)
+@@ -1643,14 +1707,16 @@ hfsc_dequeue(struct Qdisc *sch)
+ 		return NULL;
+ 	}
+ 
+-	update_vf(cl, skb->len, cur_time);
++	cur_len = get_linklayer_len(cl, skb->len);
++	update_vf(cl, cur_len, cur_time);
+ 	if (realtime)
+-		cl->cl_cumul += skb->len;
++		cl->cl_cumul += cur_len;
+ 
+ 	if (cl->qdisc->q.qlen != 0) {
+ 		if (cl->cl_flags & HFSC_RSC) {
+ 			/* update ed */
+-			next_len = qdisc_peek_len(cl->qdisc);
++			next_len = get_linklayer_len(cl,
++						qdisc_peek_len(cl->qdisc));
+ 			if (realtime)
+ 				update_ed(cl, next_len);
+ 			else
 
