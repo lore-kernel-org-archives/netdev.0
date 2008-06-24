@@ -1,33 +1,26 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: [PATCH v2 2/2] [iproute2/tc] hfsc: add link layer overhead adaption
-Date: Tue, 24 Jun 2008 11:14:40 +0100
-Message-ID: <4860C910.4050703@andyfurniss.entadsl.com>
-References: <20080624085514.22540.91038.stgit@fate.lan> <20080624085519.22540.40534.stgit@fate.lan>
-Reply-To: lists@andyfurniss.entadsl.com
+From: "Matti Linnanvuori" <mattilinn@gmail.com>
+Subject: [PATCH v1.2.31] wan: add driver retina
+Date: Tue, 24 Jun 2008 13:35:02 +0300
+Message-ID: <ca0148c30806240335t799ab518o2f7589f6d3282787@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@osdl.org>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ukfsn.org ([77.75.108.10]:56859 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753699AbYFXKOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 06:14:45 -0400
-In-Reply-To: <20080624085519.22540.40534.stgit@fate.lan>
+Received: from yx-out-2324.google.com ([74.125.44.28]:9864 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753820AbYFXKfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 06:35:03 -0400
+Received: by yx-out-2324.google.com with SMTP id 31so494338yxl.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 03:35:02 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-> Patch adds 'mpu', 'mtu', 'overhead' and 'linklayer' options to hfsc. These
-> options are used to create size table for sch_hfsc. Size table is only used
-> and passed to kernel if these options are used.
+The patch is on top of linux-next June 24:
+http://pcidriver.googlegroups.com/web/retina-1.2.31.patch?hl=en&gda=IAodQEQAAAD13nxGN0cierCNeIeJfDX5xXkFPvbRgqL6oDt-R_zhlWG1qiJ7UbTIup-M2XPURDSCRcGQDyno6jchG3K2xOQpIvUJau0VvnTEe9ncJ6VTfQ&gsc=eDZaJAsAAADBvYu52m-YgWqvwRZy0wen
 
-> +	unsigned short overhead = 0, mpu = 0;
-
-overhead may need to be negative because skb->len on eth is payload + 14
-
-Andy.
-
-
+Change log:
+Fixed ETH_ZLEN minimal packet size
+Added mmap(2) interface description
