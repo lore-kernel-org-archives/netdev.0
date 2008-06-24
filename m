@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-tx-2.6 GIT tree
-Date: Mon, 23 Jun 2008 20:51:06 -0700 (PDT)
-Message-ID: <20080623.205106.159594562.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next 5/8] ipv6: Check return of dev_set_allmulti
+Date: Tue, 24 Jun 2008 12:52:43 +0900 (JST)
+Message-ID: <20080624.125243.112730755.yoshfuji@linux-ipv6.org>
+References: <485AFFFB.5040901@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	yoshfuji@linux-ipv6.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46951
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753308AbYFXDvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 23:51:06 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 2C233C8C1B6
-	for <netdev@vger.kernel.org>; Mon, 23 Jun 2008 20:51:06 -0700 (PDT)
+Received: from yue.linux-ipv6.org ([203.178.140.15]:60197 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237AbYFXDvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2008 23:51:48 -0400
+In-Reply-To: <485AFFFB.5040901@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In article <485AFFFB.5040901@cn.fujitsu.com> (at Fri, 20 Jun 2008 08:55:23 +0800), Wang Chen <wangchen@cn.fujitsu.com> says:
 
-I've created:
+> allmulti might overflow.
+> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+> dev_set_promiscuity/allmulti return error number if overflow happened.
+> 
+> Here, we check the positive increment for allmulti to get error return.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-tx-2.6.git
+The comment is too obvious to have.
 
-For the TX packet queueing overhaul.  It is a clone of
-net-next-2.6
-
-Currently the TG3 and NIU TX backlog patch sets are checked into
-there.
+--yoshfuji
