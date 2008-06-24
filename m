@@ -1,73 +1,113 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies available to userspace
-Date: Tue, 24 Jun 2008 10:02:42 +0200
-Message-ID: <200806241002.42482.tomasz@grobelny.oswiecenia.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806202303.37924.tomasz@grobelny.oswiecenia.net> <20080623165826.GB8692@gerrit.erg.abdn.ac.uk>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH v2] CONNECTOR: add a proc entry to list connectors
+Date: Tue, 24 Jun 2008 16:38:17 +0800
+Message-ID: <4860B279.9070105@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, acme@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:2111 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbYFXIDC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2008 04:03:02 -0400
-In-Reply-To: <20080623165826.GB8692@gerrit.erg.abdn.ac.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758623AbYFXIkK@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dnia Monday 23 of June 2008, Gerrit Renker napisa=B3:
-> | > We could still encode the parameters in the policy ID, by splitti=
-ng the
-> | > bitmask, e.g. the low 24 bits to encode parameters, and the high =
-8 bits
-> | > to encode the policies using the same combination of parameters.
-> |
-> | Yes, technically we could do it this way. Encoding accepted paramet=
-ers in
-> | policy ID would provide applications with means to check whether ce=
-rtain
-> | parameters are supported. But should we mix two IMO distinct concep=
-ts
-> | (policy behaviour and accepted parameters) in one bitfield? I'd rat=
-her
-> | have them separated.
->
-> Yes having them separate gives a clearer semantics. But it comes at a=
- price
-> - to retrieve the parameters, we need an extra function or lookup tab=
-le.
->
-An additional bitfield in dccp_qpolicy_operations should do it when it =
-comes=20
-to storing that information. When it comes to retrieving see next point=
-=2E..
+I got a problem when I wanted to check if the kernel supports process
+event connector, and It seems there's no way to do this check.
 
-> Maybe there is an elegant solution which allows to encode the require=
-d
-> parameters while keeping the semantics clear?
->
-What about something like:
-	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_ID, DCCPQ_POLICY_PRIO);
-to choose policy (exactly as it is now) and a new function to ensure th=
-at the=20
-kernel understands parameters:
-	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_PARAMS, DCCP_SCM_PRIORITY |=20
-DCCP_SCM_TIMEOUT);
+At best I can check if the kernel supports connector or not, by looking
+into /proc/net/netlink, or maybe checking the return value of bind() to
+see if it's ENOENT.
 
-The second call would return an error if the kernel does not know anyth=
-ing=20
-about DCCP_SCM_TIMEOUT (or a choosen policy does not support it). This =
-would=20
-have the additional benefit (over similar getsockopt) that the kernel w=
-ill be=20
-able to optimize its behaviour knowning the set of parameters that will=
- be=20
-used.
+So it would be useful to add /proc/net/connector to list all supported
+connectors:
+ # cat /proc/net/connector
+ Name            ID
+ connector       4294967295:4294967295
+ cn_proc         1:1
+ w1              3:1
 
-What do you think about such an interface?
---=20
-Regards,
-Tomasz Grobelny
+Changelog:
+- fix memory leak: s/seq_release/single_release
+- use spin_lock_bh instead of spin_lock_irqsave
+
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+Acked-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+---
+ drivers/connector/connector.c |   40 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 40 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index 85e2ba7..bf48300 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -27,6 +27,8 @@
+ #include <linux/moduleparam.h>
+ #include <linux/connector.h>
+ #include <linux/mutex.h>
++#include <linux/proc_fs.h>
++#include <linux/spinlock.h>
+ 
+ #include <net/sock.h>
+ 
+@@ -403,6 +405,40 @@ static void cn_callback(void *data)
+ 	mutex_unlock(&notify_lock);
+ }
+ 
++static int cn_proc_show(struct seq_file *m, void *v)
++{
++	struct cn_queue_dev *dev = cdev.cbdev;
++	struct cn_callback_entry *cbq;
++
++	seq_printf(m, "Name            ID\n");
++
++	spin_lock_bh(&dev->queue_lock);
++
++	list_for_each_entry(cbq, &dev->queue_list, callback_entry) {
++		seq_printf(m, "%-15s %u:%u\n",
++			   cbq->id.name,
++			   cbq->id.id.idx,
++			   cbq->id.id.val);
++	}
++
++	spin_unlock_bh(&dev->queue_lock);
++
++	return 0;
++}
++
++static int cn_proc_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, cn_proc_show, NULL);
++}
++
++static const struct file_operations cn_file_ops = {
++	.owner   = THIS_MODULE,
++	.open    = cn_proc_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = single_release
++};
++
+ static int __devinit cn_init(void)
+ {
+ 	struct cn_dev *dev = &cdev;
+@@ -434,6 +470,8 @@ static int __devinit cn_init(void)
+ 		return -EINVAL;
+ 	}
+ 
++	proc_net_fops_create(&init_net, "connector", S_IRUGO, &cn_file_ops);
++
+ 	return 0;
+ }
+ 
+@@ -443,6 +481,8 @@ static void __devexit cn_fini(void)
+ 
+ 	cn_already_initialized = 0;
+ 
++	proc_net_remove(&init_net, "connector");
++
+ 	cn_del_callback(&dev->id);
+ 	cn_queue_free_dev(dev->cbdev);
+ 	netlink_kernel_release(dev->nls);
+-- 
+1.5.4.rc3
