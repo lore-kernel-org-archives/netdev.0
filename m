@@ -1,49 +1,50 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: tc regression?
-Date: Wed, 25 Jun 2008 17:54:50 +0400
-Message-ID: <48624E2A.4040300@bigtelecom.ru>
-References: <485FA55A.4070107@bigtelecom.ru> <485FAAF1.6060304@trash.net> <485FAC36.4040706@trash.net>
+From: Moni Shoua <monis@Voltaire.COM>
+Subject: Re: [PATCH]  net/bonding: Don't destroy bonding master wehn unensalving
+ with a sysfs command
+Date: Wed, 25 Jun 2008 17:08:40 +0300
+Message-ID: <48625168.5090703@Voltaire.COM>
+References: <485A74D1.10900@Voltaire.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Olga Stern <olgas@voltaire.com>, netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:51428 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125AbYFYNy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 09:54:58 -0400
-In-Reply-To: <485FAC36.4040706@trash.net>
+Received: from fwil.voltaire.com ([193.47.165.2]:29299 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755995AbYFYOIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2008 10:08:53 -0400
+In-Reply-To: <485A74D1.10900@Voltaire.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sorry for long answer.... I will try it tomorrow!...
-> Patrick McHardy wrote:
->> Badalian Vyacheslav wrote:
->>> Hello all.
->>>
->>> Ditrib: Gentoo (i hope its not gentoo bug...)
->>>
->>> I try update package to "sys-apps/iproute2-2.6.25.20080417" and see 
->>> that filter can't del filter...
->>>
->>> # tc filter show dev eth1 | grep 4:29:d1
->>> filter parent 1: protocol ip pref 5 u32 fh 4:29:d1 order 209 key ht 
->>> 4 bkt 29 flowid 1:b7aa
->>>
->>> # tc filter del dev eth1 parent 1: pref 5 handle 4:29:d1 u32
->>> RTNETLINK answers: Invalid argument
->>> We have an error talking to the kernel
->>>
->>> after rollback to package"sys-apps/iproute2-2.6.24.20080108" all 
->>> deleted normal...
->>
->> The current iproute version uses "protocol all" by default
->> if its not specified. This is actually only useful for creating
->> new filters, on deletion an unset protocol is treated as wildcard.
->>
->> Does this patch fix it?
->
-> Oops, buggy patch. This one should work.
->
-
+Moni Shoua wrote:
+> It is wrong to destroy a bonding  master from a context that uses the sysfs of
+>  that bond. When last IPoIB slave is unenslaved from by writing to a sysfs
+>  file (for bond0 this would be /sys/class/net/bond0/bonding/slaves) the driver
+>  tries to destroy the bond. This is wrong and can lead to a lockup or a crash.
+>  This fix lets the bonding master stay and relies on the user to destroy the
+>  bonding master if necessary (i.e. before module ib_ipoib is unloaded)
+> 
+> This patch affects only bonds of IPoIB slaves. Ethernet slaves stay unaffected.
+> Signed-off-by: Moni Shoua <monis@voltaire.com>
+> ---
+>  drivers/net/bonding/bond_sysfs.c |    3 ---
+>  1 files changed, 0 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> index 08f3d39..f66f590 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -351,9 +351,6 @@ static ssize_t bonding_store_slaves(struct device *d,
+>  		if (dev) {
+>  			printk(KERN_INFO DRV_NAME ": %s: Removing slave %s\n",
+>  				bond->dev->name, dev->name);
+> -			if (bond->setup_by_slave)
+> -				res = bond_release_and_destroy(bond->dev, dev);
+> -			else
+>  				res = bond_release(bond->dev, dev);
+>  			if (res) {
+>  				ret = res;
+Hi Jay,
+Could you please refer to this one?
