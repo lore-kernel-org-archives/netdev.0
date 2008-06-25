@@ -1,59 +1,51 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: Re: [BUG or cosmic ray] WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0xe8/0x100()
-Date: Tue, 24 Jun 2008 23:34:39 -0500
-Message-ID: <E6FF208A16840D4EBAA31D261B15A506011CAF8B@ausx3mpc121.aus.amer.dell.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: RFC:  Patch to add support for multiple multicast routing
+ tables.
+Date: Tue, 24 Jun 2008 22:28:07 -0700
+Message-ID: <20080624222807.3a9918d1@speedy>
+References: <4861966B.5090208@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:28851 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137AbYFYEeu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 00:34:50 -0400
-Content-class: urn:content-classes:message
+Received: from mail.vyatta.com ([216.93.170.194]:43153 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751002AbYFYF2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2008 01:28:22 -0400
+In-Reply-To: <4861966B.5090208@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unfortunately, I am running into the same problem on a RTL8102EL.  I
-added it to the table locally to ensure it was identifying with the
-correct mac_version, (mac_version=0x11).
+On Tue, 24 Jun 2008 17:50:51 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> If lspci can not read the device registers correctly, chances are high
-> that the device driver can not either.
-Correct, in my case.
+> In order to run multiple Xorp instances and treat different groups of
+> interfaces as being in their own virtual router, I had to update the
+> ipv4/ipmr.c logic to support multiple routing tables.
+> 
+> I will be attempting to push the cooresponding xorp changes to it's
+> maintainers if this is accepted into the kernel.  It should be fully
+> backwards compatible with existing xorp and other multicast
+> routing tools.  It does change the procfs output slightly, adding
+> a TableId column.
+> 
+> The original patch was written by me, and then Patrick McHardy
+> fixed up my cruft and made it much smaller and with better locking.
+> I then fixed a few bugs I found while testing with my modified xorp.
+> 
+> The attached patch is against 2.6.25.4 + hacks.  It has a few rejects 
+> against 2.6.26.rc7,
+> but I will fix those sooner rather than later if the patch is otherwise 
+> deemed
+> worthy.
+> 
+> Please let me know if this stands a chance of inclusion.
+> 
+> Thanks,
+> Ben
 
-> If you can reproduce the "!!! Unknown header type 7f" error with lspci
-> on 2.6.26-rc6 we have a problem which goes beyond the sole r8169
-device
-> driver. linux-kernel or linux-pci will probably be more helpful than
-> netdev then.
-
-Exact same behavior on this end.  It's reproducible in a variety of
-ways:
-* Randomly on startup, in an invalid state
-* After a random resume from S3
-* rmmod/modprobe r8169 over and over.  It's important to note that it
-breaks on the "modprobe" not on the rmmod.  This can be verified by
-checking
-Lspci -vvv -nn -d 10ec:8136 in between rmmod and modprobe
-
-
-If it happens after the  S3, rmmod will cause a kernel panic.
-
-I'm not on 2.6.26-rc6 at this point, but 2.6.24 (the Ubuntu -19 variant)
-with the r8169 module compiled out of tree.  If there are indeed other
-fixes to the PCI subsystem that are relevant, I'll pull a 2.6.26 kernel,
-but in the end need to be able to narrow this down to a small series of
-fixes.
-
-> Playing with the pci=nommconf , noapic or nomsi options at boot time
-> can make a difference with relation to lspci behavior. It is possible
-> (or almost certain given Murphy's grip) that the r8169 driver will
-> still not behave correctly. I have not received a lot of
-success/failure
-> reports for this chipset ([10ec:8136]) so things can surely improve.
-These all give the same behavior.  I'm a bit doubtful that it is not
-r8169 specific as I've not been able to ever produce this problem with
-other network drivers.
+Ben private ioctl's make it hard to handle 32bit/64bit compatiablity,
+and routing is better managed through rtnetlink. Doesn't XORP do
+netlink?
