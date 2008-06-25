@@ -1,33 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch v3 01/12] DM9000: Remove the 2 resources probe scheme.
-Date: Tue, 24 Jun 2008 23:06:37 -0400
-Message-ID: <4861B63D.1010509@garzik.org>
-References: <20080624211556.566149406@fluff.org.uk> <20080624211903.586586947@fluff.org.uk>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: PATCH 2.6.27 update first comment in tulip files
+Date: Tue, 24 Jun 2008 23:09:14 -0400
+Message-ID: <4861B6DA.90304@pobox.com>
+References: <20080605063855.GA20609@colo.lackof.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, laurentp@cse-semaphore.com
-To: Ben Dooks <ben-linux@fluff.org>
+Cc: netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36901 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48103 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752376AbYFYDGl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 23:06:41 -0400
-In-Reply-To: <20080624211903.586586947@fluff.org.uk>
+	id S1753815AbYFYDJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 23:09:18 -0400
+In-Reply-To: <20080605063855.GA20609@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Dooks wrote:
-> From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Grant Grundler wrote:
+> Three basic changes to the comments at the top of each file:
+> 1) remove stale "Maintained by" line...I prefer people look in MAINTAINERS.
+> 2) Drop reference to stale sf.net/tulip website (I didn't see anything
+>    of value there)
+> 3) Point people at bugzilla.kernel.org to submit bugs...will always
+>    get tracked regardless of who the maintainer is.
 > 
-> The dm9000 driver accepts either 2 or 3 resources to describe the platform
-> devices. The 2 resources case abuses the ioresource mechanism by passing
-> ioremap()ed memory through the platform device resources. This patch removes
-> that case and converts boards that were using it to the 3 resources scheme.
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 > 
-> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+> ---
+> Jeff,
+> This is intended for 2.6.27 once the merge window opens.
+> Patch is actually against 2.6.26-rc4.
 
-applied 1-12
+applied
+
+For future patches, please enclose the "PATCH 2.6.27" in the subject 
+line in brackets ("[", "]").  The text inside the brackets is 
+automatically swallowed by patch processing tools.  For more info on 
+patch format see #14 of
+Documentation/SubmittingPatches or http://linux.yyz.us/patch-format.html
+
+Thanks,
+
+	Jeff
+
 
 
