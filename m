@@ -1,68 +1,59 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 1/2] net: Add the CPU id to skb->queue_mapping's upper 8 bits
-Date: Wed, 25 Jun 2008 11:31:01 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329054E55AF@orsmsx414.amr.corp.intel.com>
-References: <20080624232545.11654.65805.stgit@localhost.localdomain> <20080624.163742.224488012.davem@davemloft.net>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: Sending big Netlink messages to userspace
+Date: Wed, 25 Jun 2008 20:56:35 +0200
+Message-ID: <f4845fc0806251156m5c6405c9w65cd126c1e5551ce@mail.gmail.com>
+References: <f4845fc0806240938h36d275ect109fd5f5414cba37@mail.gmail.com>
+	 <f4845fc0806241118u397a17e3qbe09f5d04a7e5035@mail.gmail.com>
+	 <4861282C.4000208@trash.net> <20080625104401.GJ20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Patrick McHardy" <kaber@trash.net>, netdev@vger.kernel.org,
+	"Vince Busam" <vbusam@google.com>
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:23779 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752424AbYFYSbP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 14:31:15 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080624.163742.224488012.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:18279 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752811AbYFYS4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 14:56:41 -0400
+Received: from zps35.corp.google.com (zps35.corp.google.com [172.25.146.35])
+	by smtp-out.google.com with ESMTP id m5PIubjl029763
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 19:56:38 +0100
+Received: from yx-out-1718.google.com (yxp4.prod.google.com [10.190.4.196])
+	by zps35.corp.google.com with ESMTP id m5PIuat5026304
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 11:56:36 -0700
+Received: by yx-out-1718.google.com with SMTP id 4so697717yxp.42
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 11:56:35 -0700 (PDT)
+In-Reply-To: <20080625104401.GJ20815@postel.suug.ch>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Well:
->
->1) All of this multiqueue stuff is going away with my changes in
->   net-tx-2.6
+On Wed, Jun 25, 2008, Thomas Graf wrote:
+> libnl initializes the buffer size to the size of a page. The value
+> can be overwritten by calling nl_set_buffer_size(socket, rx, tx)
 
-Do you have a guestimate of which kernel you'll be targeting these
-changes?  I'm very interested in this schedule.
+Thanks, I missed that. Though now I won't need that anymore as I got
+the dump working!
 
->2) This CPU number is going to be wrong half of the time.
->
->For #2, when TCP is processing ACKs, it sends packets out from
->whichever CPU the ACK landed on.
->
->So you could end up retargetting the RX flow back and forth between
->cpus.  The cpu that sends the packet into the device layer is far
->from the cpu that should be used to target the RX flow at.
->
->So this idea is pretty seriously flawed and the infrastructure it's
->using is going away anyways.
+> Yes, that's how it's intended to work. You can fill until one of the
+> nla_put variantes aborts and starting trimming off what you've added
+> already using the nla_nest_cancel() methods until you reach a point
+> where you can safely cut your stream of attributes. So far we typically
+> made sure that this barrier is on netlink message level but is no
+> requirement. You may split a list into several messages you just
+> have to make sure that you call nla_nest_end() and nlmsg_end() properly
+> before you send the message.
 
-The whole point is to identify the flow and redirect your Rx filtering
-to the CPU it came from.  So if you did this properly, the ACKs would be
-landing on the CPU that originally opened the TCP flow.  I don't follow
-why the scheduler would move the process if the Rx traffic is returning
-to that core.
+Ok, I did exactly that! Took me a while to figure out all of the
+necessary quirks (including userland), but now it works! :)
 
-I also understand the infrastructure is going away.  But without knowing
-when things are being changed, we can't be expected to delay sending in
-patches to this area of the kernel if there is something we see a
-potential benefit for.  We have seen benefit in our labs of keeping
-flows on dedicated CPUs and Tx/Rx queue pairs.  I think the concept is
-also sensible.  But if my method of getting it working in the kernel is
-flawed, then that's fine.  Is there an alternative we can use, or is
-this something we can influence the new Tx flow design with?
+So userspace now gets one callback invocation per part of a multipart
+message. I guess it's not possible to aggregate the data into just one
+callback invocation?
 
->It also adds all sorts of arbitray limitations (256 queues and cpus? I
->already have systems coming to me with more than 256 cpus)
+Thanks again!
+Julius
 
-I was trying to fit this into existing infrastructure to support the
-more common case, which is probably 4-64 CPUs.  Plus I'm not aware of
-any NICs out there that support upwards of 256 Tx queues in the physical
-function, but I guess I wouldn't be surprised if there are some on the
-market.
-
--PJ Waskiewicz
+-- 
+Google Switzerland GmbH
