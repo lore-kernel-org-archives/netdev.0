@@ -1,83 +1,99 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH (regression)] Fragments: fix race between
-	inet_frag_find and   inet_frag_secret_rebuild
-Date: Wed, 25 Jun 2008 11:37:48 +0200
-Message-ID: <20080625093748.GA2455@ami.dom.local>
-References: <20080624180714.GA3125@ami.dom.local> <4861E8F0.9080507@openvz.org>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: Re: (usagi-users 04056) Re: ping6 is sent out from wrong interface
+Date: Wed, 25 Jun 2008 19:18:38 +0900
+Message-ID: <48621B7E.5090600@miraclelinux.com>
+References: <4861ED72.6080100@miraclelinux.com> <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: usagi-users@ml.linux-ipv6.org,
+	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2k=?=
+	 =?ISO-2022-JP?B?IC8gGyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	usagi-users@linux-ipv6.org
+To: Fey Marcus <Fey@iabg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:7920 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753844AbYFYJik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 05:38:40 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so86459ugf.16
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 02:38:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4861E8F0.9080507@openvz.org>
+Received: from ns.miraclelinux.com ([219.118.163.66]:26741 "EHLO
+	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754649AbYFYKSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 06:18:40 -0400
+In-Reply-To: <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2008 at 10:42:56AM +0400, Pavel Emelyanov wrote:
-> Jarek Poplawski wrote:
-> > Pavel Emelyanov wrote, On 06/24/2008 12:43 PM:
-> > 
-> >> The problem is that while we work w/o the inet_frags.lock even
-> >> read-locked the secret rebuild timer may occur (on another CPU,
-> > - since BHs are still disables in the inet_frag_find) and change 
-> > 
-> > + since BHs are still disabled in the inet_frag_find) and change 
-> > 
-> >> the rnd seed for ipv4/6 fragments.
-> >>
-> >> It was caused by my patch fd9e63544cac30a34c951f0ec958038f0529e244
-> >> ([INET]: Omit double hash calculations in xxx_frag_intern) late 
-> >> in the 2.6.24 kernel, so this should probably be queued to -stable.
-> >>
-> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> >>
-> >> ---
-> >>
-> >> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> >> index 4ed429b..0546a0b 100644
-> >> --- a/net/ipv4/inet_fragment.c
-> >> +++ b/net/ipv4/inet_fragment.c
-> >> @@ -192,14 +192,21 @@ EXPORT_SYMBOL(inet_frag_evictor);
-> >>  
-> >>  static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
-> >>  		struct inet_frag_queue *qp_in, struct inet_frags *f,
-> >> -		unsigned int hash, void *arg)
-> >> +		void *arg)
-> >>  {
-> >>  	struct inet_frag_queue *qp;
-> >>  #ifdef CONFIG_SMP
-> >>  	struct hlist_node *n;
-> >>  #endif
-> >> +	unsigned int hash;
-> >>  
-> >>  	write_lock(&f->lock);
-> >> +	/*
-> >> +	 * While we stayed w/o the lock other CPU could update
-> >> +	 * the rnd seed, so we need to re-calculate the hash
-> >> +	 * chain. Fortunatelly the qp_in can be used to get one.
-> >> +	 */
-> >> +	hash = f->hashfn(qp_in);
-> >>  #ifdef CONFIG_SMP
-> >>  	/* With SMP race we have to recheck hash table, because
-> >>  	 * such entry could be created on other cpu, while we
-> > 
-> > Maybe it's a matter of taste: since there is this "#ifdef CONFIG_SMP",
-> > and the new comment concerns with "other CPU", why this re-calculation
-> > isn't done only for SMP? 
+Hi Marcus
+
+Thank you for your quick reply.
+
+> It's due to routing.
+
+For the reason of selecting 'eth0', I agree.
+But, I think the device is specified before
+looking up the routing table in this case.
+
+> ...with eth0 being preferred over eth1 for multicast packets.
+> You could add a dedicated route for ff02::/16 to make the kernel output the packet via eth1.
+
+This works when using only "eth1" for multicasts.
+When multiple I/Fs are connected to separate networks,
+this scheme requires changing the route every time
+a user need to send ping to different network.
+
+I think kernel can solve this problem better.
+
+
+Regards,
+Naohiro Ooiwa
+
+
+Fey Marcus さんは書きました:
+> Hi Naohiro,
 > 
-> Because the hash value is required also *outside* this ifdef and adding
-> a fancier logic is probably not good for a -rc7 fix.
+>> I'm not convinced yet.
+>> I don't think it's correct that kernel or ping6 arbitrarily 
+>> decides outgoing interface.
+>>
+>> Is this really an expected behaviour?
+>> Could you explain to me the reason of it, too?
+>>
+>> I think the behavior should be similar to IPv4.
+> 
+> It's due to routing.
+> 
+> Your routing table shows this:
+> ---
+>     # route -A inet6
+>     Kernel IPv6 routing table
+>     Destination            Next Hop Flags Metric Ref    Use Iface
+>     2001:2c0:418:1::/64    *        U     256    0        0 eth0
+>     2001:2c0:418:2::/64    *        U     256    0        0 eth1
+>     fe80::/64              *        U     256    0        0 eth0
+>     fe80::/64              *        U     256    0        0 eth1
+>     ::::::
+>     2001:2c0:418:1::1/128  *        U     0      8        1 lo
+>     2001:2c0:418:2::2/128  *        U     0      5        1 lo
+>     ::::::
+>     ff00::/8               *        U     256    0        0 eth0
+>     ff00::/8               *        U     256    0        0 eth1
+>     #
+> ---
+> 
+> ...with eth0 being preferred over eth1 for multicast packets.
+> 
+> You could add a dedicated route for ff02::/16 to make the kernel output the packet via eth1.
+> 
+> Bye,
+> 
+> Marcus
+> -----------------------------------------
+> IABG mbH
+> Sitz der Gesellschaft: Ottobrunn, Registergericht: Amtsgericht Muenchen, HRB 5499
+> Geschaeftsfuehrung: Prof. Dr.-Ing. Rudolf F. Schwarz
+> Vorsitzender des Aufsichtsrats: General a. D. Wolfgang Altenburg
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I'm not sure what fancier logic do you mean: I've thought about simply
-leaving the "hash" as functions argument as it is, and only adding this
-recalculation under #ifdef CONFIG_SMP, but I can miss something...
-
-Jarek P.
