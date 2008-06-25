@@ -1,38 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, rb_insert_color, HTB, ifb
-Date: Wed, 25 Jun 2008 20:14:08 +0200
-Message-ID: <48628AF0.4030907@gmail.com>
-References: <200806250900.10152.denys@visp.net.lb>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 1/2] net: Add the CPU id to skb->queue_mapping's upper 8 bits
+Date: Wed, 25 Jun 2008 11:31:01 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329054E55AF@orsmsx414.amr.corp.intel.com>
+References: <20080624232545.11654.65805.stgit@localhost.localdomain> <20080624.163742.224488012.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.237]:51107 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250AbYFYSLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 14:11:06 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so2655540wri.5
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 11:11:03 -0700 (PDT)
-In-Reply-To: <200806250900.10152.denys@visp.net.lb>
+Received: from mga14.intel.com ([143.182.124.37]:23779 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752424AbYFYSbP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 14:31:15 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080624.163742.224488012.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote, On 06/25/2008 08:00 AM:
+>Well:
+>
+>1) All of this multiqueue stuff is going away with my changes in
+>   net-tx-2.6
 
-> Kernel is vanilla, with HTB hysteresis changed to 0 (i guess in this git it is not patched like that by default).
-> Version 2.6.26-rc6-git2
-> 
-> This bug very rare and happening on router only sometimes, once per 3-4 days, but it is hitting the router and sometimes crashing it critically.
-> Not always NMI watchdog can reboot it, and on this chipset iTCO_wdt not functional :-(
-> I was hunting for this panic message last 1-2 month.
-> 
+Do you have a guestimate of which kernel you'll be targeting these
+changes?  I'm very interested in this schedule.
 
+>2) This CPU number is going to be wrong half of the time.
+>
+>For #2, when TCP is processing ACKs, it sends packets out from
+>whichever CPU the ACK landed on.
+>
+>So you could end up retargetting the RX flow back and forth between
+>cpus.  The cpu that sends the packet into the device layer is far
+>from the cpu that should be used to target the RX flow at.
+>
+>So this idea is pretty seriously flawed and the infrastructure it's
+>using is going away anyways.
 
-Hi Denys,
+The whole point is to identify the flow and redirect your Rx filtering
+to the CPU it came from.  So if you did this properly, the ACKs would be
+landing on the CPU that originally opened the TCP flow.  I don't follow
+why the scheduler would move the process if the Rx traffic is returning
+to that core.
 
-I think, you could try with CONFIG_DEBUG_OBJECTS_TIMERS (unless it's on already).
+I also understand the infrastructure is going away.  But without knowing
+when things are being changed, we can't be expected to delay sending in
+patches to this area of the kernel if there is something we see a
+potential benefit for.  We have seen benefit in our labs of keeping
+flows on dedicated CPUs and Tx/Rx queue pairs.  I think the concept is
+also sensible.  But if my method of getting it working in the kernel is
+flawed, then that's fine.  Is there an alternative we can use, or is
+this something we can influence the new Tx flow design with?
 
-Regards,
-Jarek P.
+>It also adds all sorts of arbitray limitations (256 queues and cpus? I
+>already have systems coming to me with more than 256 cpus)
+
+I was trying to fit this into existing infrastructure to support the
+more common case, which is probably 4-64 CPUs.  Plus I'm not aware of
+any NICs out there that support upwards of 256 Tx queues in the physical
+function, but I guess I wouldn't be surprised if there are some on the
+market.
+
+-PJ Waskiewicz
