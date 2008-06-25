@@ -1,78 +1,297 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC:  Patch to add support for multiple multicast routing tables.
-Date: Tue, 24 Jun 2008 22:52:49 -0700
-Message-ID: <4861DD31.3020203@candelatech.com>
-References: <4861966B.5090208@candelatech.com> <20080624222807.3a9918d1@speedy>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: NMI lockup, rb_insert_color, HTB, ifb
+Date: Wed, 25 Jun 2008 09:00:10 +0300
+Message-ID: <200806250900.10152.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([66.165.47.212]:33892 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501AbYFYFwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 01:52:50 -0400
-In-Reply-To: <20080624222807.3a9918d1@speedy>
+Received: from relay2.globalproof.net ([194.146.153.25]:57050 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbYFYGAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 02:00:07 -0400
+Received: from localhost (unknown [195.69.208.251])
+	by relay2.globalproof.net (Postfix) with ESMTP id 4D657130434
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 09:00:02 +0300 (EEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 24 Jun 2008 17:50:51 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->
->   
->> In order to run multiple Xorp instances and treat different groups of
->> interfaces as being in their own virtual router, I had to update the
->> ipv4/ipmr.c logic to support multiple routing tables.
->>
->> I will be attempting to push the cooresponding xorp changes to it's
->> maintainers if this is accepted into the kernel.  It should be fully
->> backwards compatible with existing xorp and other multicast
->> routing tools.  It does change the procfs output slightly, adding
->> a TableId column.
->>
->> The original patch was written by me, and then Patrick McHardy
->> fixed up my cruft and made it much smaller and with better locking.
->> I then fixed a few bugs I found while testing with my modified xorp.
->>
->> The attached patch is against 2.6.25.4 + hacks.  It has a few rejects 
->> against 2.6.26.rc7,
->> but I will fix those sooner rather than later if the patch is otherwise 
->> deemed
->> worthy.
->>
->> Please let me know if this stands a chance of inclusion.
->>
->> Thanks,
->> Ben
->>     
->
-> Ben private ioctl's make it hard to handle 32bit/64bit compatiablity,
-> and routing is better managed through rtnetlink. Doesn't XORP do
-> netlink?
->   
-It seemed the path of least resistance, less the patch become even larger.
+Kernel is vanilla, with HTB hysteresis changed to 0 (i guess in this git it is not patched like that by default).
+Version 2.6.26-rc6-git2
 
-Xorp does use netlink, but not for multicast (or, at least, not for the 
-part of
-multicast that talks to ipv4/ipmr.c).  The patch to xorp to support 
-multiple routing tables is
-not too large, and is backwards compat with older kernels (and bsd-ish 
-systems
-I suppose.)
+This bug very rare and happening on router only sometimes, once per 3-4 days, but it is hitting the router and sometimes crashing it critically.
+Not always NMI watchdog can reboot it, and on this chipset iTCO_wdt not functional :-(
+I was hunting for this panic message last 1-2 month.
 
-For 32/64 compat, how about we make the structs passed in 'attribute 
-packed' ?
-
-We can also make the table-id 'u32' or similar to guarantee the size of the
-member.
-
-Thanks,
-Ben
+Jun 24 20:51:09 10.154.154.1 [412283.451785] BUG: NMI Watchdog detected LOCKUP
+Jun 24 20:51:09 10.154.154.1 on CPU1, ip c01c9a1f, registers:
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Modules linked in:
+Jun 24 20:51:09 10.154.154.1 netconsole
+Jun 24 20:51:09 10.154.154.1 coretemp
+Jun 24 20:51:09 10.154.154.1 hwmon
+Jun 24 20:51:09 10.154.154.1 i2c_i801
+Jun 24 20:51:09 10.154.154.1 i2c_core
+Jun 24 20:51:09 10.154.154.1 nf_nat_ftp
+Jun 24 20:51:09 10.154.154.1 nf_conntrack_ftp
+Jun 24 20:51:09 10.154.154.1 softdog
+Jun 24 20:51:09 10.154.154.1 nf_nat_pptp
+Jun 24 20:51:09 10.154.154.1 nf_conntrack_pptp
+Jun 24 20:51:09 10.154.154.1 nf_conntrack_proto_gre
+Jun 24 20:51:09 10.154.154.1 nf_nat_proto_gre
+Jun 24 20:51:09 10.154.154.1 configfs
+Jun 24 20:51:09 10.154.154.1 hangcheck_timer
+Jun 24 20:51:09 10.154.154.1 act_mirred
+Jun 24 20:51:09 10.154.154.1 sch_ingress
+Jun 24 20:51:09 10.154.154.1 act_police
+Jun 24 20:51:09 10.154.154.1 cls_u32
+Jun 24 20:51:09 10.154.154.1 sch_sfq
+Jun 24 20:51:09 10.154.154.1 sch_htb
+Jun 24 20:51:09 10.154.154.1 iptable_nat
+Jun 24 20:51:09 10.154.154.1 nf_nat
+Jun 24 20:51:09 10.154.154.1 nf_conntrack_ipv4
+Jun 24 20:51:09 10.154.154.1 xt_tcpudp
+Jun 24 20:51:09 10.154.154.1 ipt_TTL
+Jun 24 20:51:09 10.154.154.1 ipt_ttl
+Jun 24 20:51:09 10.154.154.1 xt_NOTRACK
+Jun 24 20:51:09 10.154.154.1 nf_conntrack
+Jun 24 20:51:09 10.154.154.1 iptable_raw
+Jun 24 20:51:09 10.154.154.1 iptable_mangle
+Jun 24 20:51:09 10.154.154.1 ifb
+Jun 24 20:51:09 10.154.154.1 e1000e
+Jun 24 20:51:09 10.154.154.1 iptable_filter
+Jun 24 20:51:09 10.154.154.1 ip_tables
+Jun 24 20:51:09 10.154.154.1 x_tables
+Jun 24 20:51:09 10.154.154.1 8021q
+Jun 24 20:51:09 10.154.154.1 tun
+Jun 24 20:51:09 10.154.154.1 tulip
+Jun 24 20:51:09 10.154.154.1 r8169
+Jun 24 20:51:09 10.154.154.1 sky2
+Jun 24 20:51:09 10.154.154.1 via_velocity
+Jun 24 20:51:09 10.154.154.1 via_rhine
+Jun 24 20:51:09 10.154.154.1 sis900
+Jun 24 20:51:09 10.154.154.1 ne2k_pci
+Jun 24 20:51:09 10.154.154.1 8390
+Jun 24 20:51:09 10.154.154.1 skge
+Jun 24 20:51:09 10.154.154.1 tg3
+Jun 24 20:51:09 10.154.154.1 8139too
+Jun 24 20:51:09 10.154.154.1 e1000
+Jun 24 20:51:09 10.154.154.1 e100
+Jun 24 20:51:09 10.154.154.1 usb_storage
+Jun 24 20:51:09 10.154.154.1 mtdblock
+Jun 24 20:51:09 10.154.154.1 mtd_blkdevs
+Jun 24 20:51:09 10.154.154.1 usbhid
+Jun 24 20:51:09 10.154.154.1 uhci_hcd
+Jun 24 20:51:09 10.154.154.1 ehci_hcd
+Jun 24 20:51:09 10.154.154.1 ohci_hcd
+Jun 24 20:51:09 10.154.154.1 usbcore
+Jun 24 20:51:09 10.154.154.1 [last unloaded: netconsole]
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 [412283.451785]
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Pid: 0, comm: swapper Not tainted (2.6.26-rc6-git2-build-0029 #4)
+Jun 24 20:51:09 10.154.154.1 [412283.451785] EIP: 0060:[<c01c9a1f>] EFLAGS: 00000082 CPU: 1
+Jun 24 20:51:09 10.154.154.1 [412283.451785] EIP is at rb_insert_color+0x9b/0xbc
+Jun 24 20:51:09 10.154.154.1 [412283.451785] EAX: f190f4a4 EBX: f190f4a4 ECX: 00000000 EDX: f190f4a4
+Jun 24 20:51:09 10.154.154.1 [412283.451785] ESI: f190f4a4 EDI: f190f4a4 EBP: c08d5d14 ESP: c08d5cfc
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Process swapper (pid: 0, ti=c08d5000 task=f7c314a0 task.ti=f7c3c000)
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Stack:
+Jun 24 20:51:09 10.154.154.1 c1ff8480
+Jun 24 20:51:09 10.154.154.1 00000000
+Jun 24 20:51:09 10.154.154.1 00000000
+Jun 24 20:51:09 10.154.154.1 f190f4a4
+Jun 24 20:51:09 10.154.154.1 f190f4a8
+Jun 24 20:51:09 10.154.154.1 c1ff8478
+Jun 24 20:51:09 10.154.154.1 c08d5d34
+Jun 24 20:51:09 10.154.154.1 c0130014
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 [412283.451785]
+Jun 24 20:51:09 10.154.154.1 00000001
+Jun 24 20:51:09 10.154.154.1 f190f4a4
+Jun 24 20:51:09 10.154.154.1 00000000
+Jun 24 20:51:09 10.154.154.1 c1ff8478
+Jun 24 20:51:09 10.154.154.1 f190f4a4
+Jun 24 20:51:09 10.154.154.1 c1fee478
+Jun 24 20:51:09 10.154.154.1 c08d5d58
+Jun 24 20:51:09 10.154.154.1 c0130681
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 [412283.451785]
+Jun 24 20:51:09 10.154.154.1 a3911c00
+Jun 24 20:51:09 10.154.154.1 000176f7
+Jun 24 20:51:09 10.154.154.1 00000001
+Jun 24 20:51:09 10.154.154.1 00000286
+Jun 24 20:51:09 10.154.154.1 f190f000
+Jun 24 20:51:09 10.154.154.1 f7c9e000
+Jun 24 20:51:09 10.154.154.1 00000000
+Jun 24 20:51:09 10.154.154.1 c08d5d68
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Call Trace:
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0130014>]
+un 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 enqueue_hrtimer+0xd1/0xdd
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0130681>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 hrtimer_start+0xd6/0x100
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c02544d5>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 qdisc_watchdog_schedule+0x19/0x1f
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f89f3d91>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 htb_dequeue+0x6a6/0x6b1 [sch_htb]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f8987ad0>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 sfq_enqueue+0x16/0x1c2 [sch_sfq]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0253596>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 __qdisc_run+0x5f/0x187
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0248b1e>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 dev_queue_xmit+0x185/0x293
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f8a1023d>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 tcf_mirred+0x12d/0x149 [act_mirred]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f8a10110>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 tcf_mirred+0x0/0x149 [act_mirred]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c02558a4>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 tcf_action_exec+0x44/0x77
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f89bd792>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 u32_classify+0x119/0x24e [cls_u32]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0246861>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 dev_hard_start_xmit+0x1f8/0x266
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0253606>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 __qdisc_run+0xcf/0x187
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c02539ca>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 tc_classify_compat+0x2f/0x5e
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c02543cd>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 tc_classify+0x17/0x78
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f8a0e0a2>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 ingress_enqueue+0x1a/0x53 [sch_ingress]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0246220>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 netif_receive_skb+0x20e/0x393
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f89a7c21>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 e1000_receive_skb+0x138/0x15f [e1000e]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f89aa4bc>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 e1000_clean_rx_irq+0x1fc/0x28a [e1000e]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<f89a7406>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 e1000_clean+0x50/0x1be [e1000e]
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0248096>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 net_rx_action+0x8f/0x199
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c012290f>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 __do_softirq+0x64/0xcd
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0105e1e>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 do_softirq+0x55/0x89
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c013e2e8>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 handle_edge_irq+0x0/0x100
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0122878>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 irq_exit+0x38/0x6b
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0105ef2>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 do_IRQ+0xa0/0xb6
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c01041d7>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 common_interrupt+0x23/0x28
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0122b82>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 raise_softirq+0x57/0x5a
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c013ef8c>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 rcu_check_callbacks+0x72/0x7a
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0108858>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 mwait_idle+0x0/0x38
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  [<c0102522>]
+Jun 24 20:51:09 10.154.154.1 ?
+Jun 24 20:51:09 10.154.154.1 cpu_idle+0x3d/0x8a
+Jun 24 20:51:09 10.154.154.1 [412283.451785]  =======================
+Jun 24 20:51:09 10.154.154.1 [412283.451785] Code:
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 53
+Jun 24 20:51:09 10.154.154.1 08
+Jun 24 20:51:09 10.154.154.1 39
+Jun 24 20:51:09 10.154.154.1 fa
+Jun 24 20:51:09 10.154.154.1 89
+Jun 24 20:51:09 10.154.154.1 55
+Jun 24 20:51:09 10.154.154.1 ec
+Jun 24 20:51:09 10.154.154.1 75
+Jun 24 20:51:09 10.154.154.1 0f
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 55
+Jun 24 20:51:09 10.154.154.1 e8
+Jun 24 20:51:09 10.154.154.1 89
+Jun 24 20:51:09 10.154.154.1 d8
+Jun 24 20:51:09 10.154.154.1 89
+Jun 24 20:51:09 10.154.154.1 df
+Jun 24 20:51:09 10.154.154.1 e8
+Jun 24 20:51:09 10.154.154.1 26
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 4d
+Jun 24 20:51:09 10.154.154.1 ec
+Jun 24 20:51:09 10.154.154.1 83
+Jun 24 20:51:09 10.154.154.1 09
+Jun 24 20:51:09 10.154.154.1 01
+Jun 24 20:51:09 10.154.154.1 89
+Jun 24 20:51:09 10.154.154.1 f0
+Jun 24 20:51:09 10.154.154.1 83
+Jun 24 20:51:09 10.154.154.1 26
+Jun 24 20:51:09 10.154.154.1 fe
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 55
+Jun 24 20:51:09 10.154.154.1 e8
+Jun 24 20:51:09 10.154.154.1 e8
+Jun 24 20:51:09 10.154.154.1 bf
+Jun 24 20:51:09 10.154.154.1 fe
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 1f
+Jun 24 20:51:09 10.154.154.1
+Jun 24 20:51:09 10.154.154.1 e3
+Jun 24 20:51:09 10.154.154.1 fc
+Jun 24 20:51:09 10.154.154.1 74
+Jun 24 20:51:09 10.154.154.1 0c
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 03
+Jun 24 20:51:09 10.154.154.1 89
+Jun 24 20:51:09 10.154.154.1 d9
+Jun 24 20:51:09 10.154.154.1 a8
+Jun 24 20:51:09 10.154.154.1 01
+Jun 24 20:51:09 10.154.154.1 0f
+Jun 24 20:51:09 10.154.154.1 84
+Jun 24 20:51:09 10.154.154.1 67
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 ff
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1 55
+Jun 24 20:51:09 10.154.154.1 e8
+Jun 24 20:51:09 10.154.154.1 8b
+Jun 24 20:51:09 10.154.154.1
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
