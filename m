@@ -1,58 +1,120 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/4] e1000: disable TSO workaround on 82544
-Date: Wed, 25 Jun 2008 01:50:40 -0700
-Message-ID: <9929d2390806250150v75965ff6k6773288fe1b28089@mail.gmail.com>
-References: <20080619211836.GC22981@gospo.rdu.redhat.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: [ofa-general] [PATCH] net/inet_lro: remove setting skb->ip_summed
+ when not LRO-able
+Date: Wed, 25 Jun 2008 12:26:12 +0300
+Message-ID: <48620F34.6090901@voltaire.com>
+References: <1214318386.23583.37.camel@mtls03>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: "Andy Gospodarek" <andy@greyhouse.net>,
-	"Jeff Garzik" <jeff@garzik.org>
+Cc: Eli Cohen <eli@dev.mellanox.co.il>, netdev@vger.kernel.org,
+	Roland Dreier <rdreier@cisco.com>,
+	Vladimir Sokolovsky <vlad@mellanox.co.il>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Jan-Bernd Themann <THEMANN@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:52281 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753844AbYFYIun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 04:50:43 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so1038264waf.23
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 01:50:41 -0700 (PDT)
-In-Reply-To: <20080619211836.GC22981@gospo.rdu.redhat.com>
-Content-Disposition: inline
+Received: from fwil.voltaire.com ([193.47.165.2]:59942 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752459AbYFYJ0R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2008 05:26:17 -0400
+In-Reply-To: <1214318386.23583.37.camel@mtls03>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 19, 2008 at 2:18 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
+Eli Cohen wrote:
+> When an SKB cannot be chained to a session, the current code attempts to "restore" its ip_summed field from lro_mgr->ip_summed. However, lro_mgr->ip_summed does not hold the original value; in fact, we'd better not touch skb->ip_summed since it is not modified by the code in the path leading to a failure to chain it.
 >
-> It appears that the 82544 does not need the TSO workaround needed on
-> other chips.  This seems to resolve excessive messages that appear to be
-> Tx Unit Hangs when a system is under heavy stress.
->
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
->  drivers/net/e1000/e1000_main.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 59579b1..af6846d 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -3479,7 +3479,8 @@ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
->        }
->
->        if (likely(tso)) {
-> -               tx_ring->last_tx_tso = 1;
-> +               if (likely(adapter->hw.mac_type != e1000_82544))
-> +                       tx_ring->last_tx_tso = 1;
->                tx_flags |= E1000_TX_FLAGS_TSO;
->        } else if (likely(e1000_tx_csum(adapter, tx_ring, skb)))
->                tx_flags |= E1000_TX_FLAGS_CSUM;
-> --
-> 1.5.2.1
->
+> --- a/net/ipv4/inet_lro.c
+> +++ b/net/ipv4/inet_lro.c
+> @@ -383,8 +383,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+>  out2: /* send aggregated SKBs to stack */
+>  	lro_flush(lro_mgr, lro_desc);
+>  
+> -out:  /* Original SKB has to be posted to stack */
+> -	skb->ip_summed = lro_mgr->ip_summed;
+> +out:
+>  	return 1;
+>  }
+Jan-Bernd,
 
-ACK - patches 1-4
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I understand from your response that lro_mgr->ip_summed is not needed, 
+so I guess it should removed from all other places that (eg its 
+definition and usage in inet_lro.[ch] and under drivers/net.
 
--- 
-Cheers,
-Jeff
+Second, if lro_mgr->aggr_ip_summed is indeed needed, I tend to think it 
+need to be derived per received packet from skb->ip_summed, since the 
+kernel allows for drivers ti have different checksum offload 
+capabilities which for some drivers might be impossible to be encoded in 
+one global value (lro_mgr->aggr_ip_summed), what's your thinking here?
+
+Third, consider a case where the receiver gets some very small data 
+chunks (eg file/block target that has to serve lots of IOPS for some 
+clients but also large IOs for other clients), that is some senders set 
+TCP_NODELAY, etc. Now, looking in the code _lro_proc_skb() (below) and 
+doing reading some reads at the archives, my understanding is that its 
+very possible that a large set of small packets would be gathered and 
+sent up to the stack only by the consumer calling lro_flush_all in the 
+end of its NAPI poll loop. Am I correct?
+
+Or
+
+> static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+> 			  struct vlan_group *vgrp, u16 vlan_tag, void *priv)
+> {
+> 	struct net_lro_desc *lro_desc;
+> 	struct iphdr *iph;
+> 	struct tcphdr *tcph;
+> 	u64 flags;
+> 	int vlan_hdr_len = 0;
+>
+> 	if (!lro_mgr->get_skb_header
+> 	    || lro_mgr->get_skb_header(skb, (void *)&iph, (void *)&tcph,
+> 				       &flags, priv))
+> 		goto out;
+>
+> 	if (!(flags & LRO_IPV4) || !(flags & LRO_TCP))
+> 		goto out;
+>
+> 	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+> 	if (!lro_desc)
+> 		goto out;
+>
+> 	if ((skb->protocol == htons(ETH_P_8021Q))
+> 	    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
+> 		vlan_hdr_len = VLAN_HLEN;
+>
+> 	if (!lro_desc->active) { /* start new lro session */
+> 		if (lro_tcp_ip_check(iph, tcph, skb->len - vlan_hdr_len, NULL))
+> 			goto out;
+>
+> 		skb->ip_summed = lro_mgr->ip_summed_aggr;
+> 		lro_init_desc(lro_desc, skb, iph, tcph, vlan_tag, vgrp);
+> 		LRO_INC_STATS(lro_mgr, aggregated);
+> 		return 0;
+> 	}
+>
+> 	if (lro_desc->tcp_next_seq != ntohl(tcph->seq))
+> 		goto out2;
+>
+> 	if (lro_tcp_ip_check(iph, tcph, skb->len, lro_desc))
+> 		goto out2;
+>
+> 	lro_add_packet(lro_desc, skb, iph, tcph);
+> 	LRO_INC_STATS(lro_mgr, aggregated);
+>
+> 	if ((lro_desc->pkt_aggr_cnt >= lro_mgr->max_aggr) ||
+> 	    lro_desc->parent->len > (0xFFFF - lro_mgr->dev->mtu))
+> 		lro_flush(lro_mgr, lro_desc);
+>
+> 	return 0;
+>
+> out2: /* send aggregated SKBs to stack */
+> 	lro_flush(lro_mgr, lro_desc);
+>
+> out:  /* Original SKB has to be posted to stack */
+> 	skb->ip_summed = lro_mgr->ip_summed;
+> 	return 1;
+> }
+
+ 
+
