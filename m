@@ -1,47 +1,57 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] remove the unused APOLLO_ELPLUS option
-Date: Wed, 25 Jun 2008 19:24:54 +0300
-Message-ID: <20080625162454.GB10285@cs181140183.pp.htv.fi>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
+	available to userspace
+Date: Wed, 25 Jun 2008 19:05:45 +0100
+Message-ID: <20080625180545.GB8260@gerrit.erg.abdn.ac.uk>
+References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806202303.37924.tomasz@grobelny.oswiecenia.net> <20080623165826.GB8692@gerrit.erg.abdn.ac.uk> <200806241002.42482.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, "Robert P. J. Day" <rpjday@crashcourse.ca>,
-	linux-m68k@lists.linux-m68k.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:42891 "EHLO smtp6.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751476AbYFYQ06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2008 12:26:58 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63315 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751778AbYFYSGN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2008 14:06:13 -0400
 Content-Disposition: inline
+In-Reply-To: <200806241002.42482.tomasz@grobelny.oswiecenia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking at older kernel sources the APOLLO_ELPLUS option was added 
-somewhere during kernel 2.1, but even kernel 2.2.0 does not contain
-any driver that would be enabled through it...
+| > Yes having them separate gives a clearer semantics. But it comes at a price
+| > - to retrieve the parameters, we need an extra function or lookup table.
+| >
+| An additional bitfield in dccp_qpolicy_operations should do it when it comes 
+| to storing that information. When it comes to retrieving see next point...
+| 
+| > Maybe there is an elegant solution which allows to encode the required
+| > parameters while keeping the semantics clear?
+| >
+| What about something like:
+| 	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_ID, DCCPQ_POLICY_PRIO);
+| to choose policy (exactly as it is now) and a new function to ensure that the 
+| kernel understands parameters:
+| 	setsockopt(sockfd, DCCP_SOCKOPT_QPOLICY_PARAMS, DCCP_SCM_PRIORITY | DCCP_SCM_TIMEOUT);
+| 
+| The second call would return an error if the kernel does not know anything 
+| about DCCP_SCM_TIMEOUT (or a choosen policy does not support it). This would 
+| have the additional benefit (over similar getsockopt) that the kernel will be 
+| able to optimize its behaviour knowning the set of parameters that will be 
+| used.
+| 
+| What do you think about such an interface?
+| -- 
+In both solutions there is a need to maintain an integrity constraint
+between the qpolicy ID and the set of parameters that the qpolicy uses.
 
-Reported-by: Robert P. J. Day <rpjday@crashcourse.ca>
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+With the bitmask approach this constraint is expressed only once, when
+the policy is defined in the source file.
 
----
-da9c97ae1bc6780bf484040e7160b8344cbe730f diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f4182cf..5598783 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -333,15 +333,6 @@ config APNE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called apne.
- 
--config APOLLO_ELPLUS
--	tristate "Apollo 3c505 support"
--	depends on APOLLO
--	help
--	  Say Y or M here if your Apollo has a 3Com 3c505 ISA Ethernet card.
--	  If you don't have one made for Apollos, you can use one from a PC,
--	  except that your Apollo won't be able to boot from it (because the
--	  code in the ROM will be for a PC).
--
- config MAC8390
- 	bool "Macintosh NS 8390 based ethernet cards"
- 	depends on MAC
+With the socket approach, the constraint needs to be expressed each time
+the policy is used.
 
+I don't know your reservations against the bitmask approach (other than the
+semantics), but I find having to define the parameters each time the qpolicy
+is used cumbersome, and it can also be a source of errors.
+
+Gerrit
