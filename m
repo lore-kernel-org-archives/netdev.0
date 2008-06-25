@@ -1,63 +1,40 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Re: ping6 is sent out from wrong interface
-Date: Wed, 25 Jun 2008 16:02:10 +0900
-Message-ID: <4861ED72.6080100@miraclelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (regression)] Fragments: fix race between
+ inet_frag_find and inet_frag_secret_rebuild
+Date: Wed, 25 Jun 2008 00:09:03 -0700 (PDT)
+Message-ID: <20080625.000903.262554536.davem@davemloft.net>
+References: <20080624180714.GA3125@ami.dom.local>
+	<4861E8F0.9080507@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:3474 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbYFYHCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 03:02:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43784
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751832AbYFYHJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 03:09:04 -0400
+In-Reply-To: <4861E8F0.9080507@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi YOSHIFUJI-san
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 25 Jun 2008 10:42:56 +0400
 
-Thank you for your reply.
+> Jarek Poplawski wrote:
+> > Maybe it's a matter of taste: since there is this "#ifdef CONFIG_SMP",
+> > and the new comment concerns with "other CPU", why this re-calculation
+> > isn't done only for SMP? 
+> 
+> Because the hash value is required also *outside* this ifdef and adding
+> a fancier logic is probably not good for a -rc7 fix.
+> 
+> However, I will re-consider this for net-next.
+> 
+> > And, btw., probably __acquires/__releases annotations could be added
+> > with this patch.
+> 
+> This is also a net-next material (I hope Dave agrees with me on both).
 
-> -I does not specify interface strictly but source address.
-> Which means, if you just specify an address, interface is unspecified.
-> You can give "-I eth1", too.
-
-I'm not convinced yet.
-I don't think it's correct that kernel or ping6 arbitrarily decides outgoing interface.
-
-Is this really an expected behaviour?
-Could you explain to me the reason of it, too?
-
-I think the behavior should be similar to IPv4.
-
-The following is my image. ipv6_dev_find() is an imaginary function, which
-finds the interface with a given source address.
-
-How do you think?
-
-
-
---- linux-2.6.25/net/ipv6/raw.c.orig    2008-04-17 11:49:44.000000000 +0900
-+++ linux-2.6.25/net/ipv6/raw.c 2008-06-25 15:20:27.000000000 +0900
-@@ -875,8 +875,13 @@ static int rawv6_sendmsg(struct kiocb *i
-                final_p = &final;
-        }
-
--       if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst))
--               fl.oif = np->mcast_oif;
-+       if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst)) {
-+               if (np->mcast_oif)
-+                       fl.oif = np->mcast_oif;
-+               else
-+                       fl.oif = ipv6_dev_find(oldflp->fl6_src);
-+       }
-+
-        security_sk_classify_flow(sk, &fl);
-
-        err = ip6_dst_lookup(sk, &dst, &fl);
-
-
-
-
+I do. :-)
