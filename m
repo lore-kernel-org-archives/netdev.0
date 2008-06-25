@@ -1,59 +1,46 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Sending big Netlink messages to userspace
-Date: Wed, 25 Jun 2008 20:56:35 +0200
-Message-ID: <f4845fc0806251156m5c6405c9w65cd126c1e5551ce@mail.gmail.com>
-References: <f4845fc0806240938h36d275ect109fd5f5414cba37@mail.gmail.com>
-	 <f4845fc0806241118u397a17e3qbe09f5d04a7e5035@mail.gmail.com>
-	 <4861282C.4000208@trash.net> <20080625104401.GJ20815@postel.suug.ch>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 4/4] lguest: Use GSO/IFF_VNET_HDR extensions on tun/tap
+Date: Wed, 25 Jun 2008 14:07:18 -0500
+Message-ID: <48629766.4040905@codemonkey.ws>
+References: <200806260028.07883.rusty@rustcorp.com.au>	<200806260029.40267.rusty@rustcorp.com.au>	<200806260030.38293.rusty@rustcorp.com.au> <200806260032.12359.rusty__46755.7742762894$1214404667$gmane$org@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Patrick McHardy" <kaber@trash.net>, netdev@vger.kernel.org,
-	"Vince Busam" <vbusam@google.com>
-To: "Thomas Graf" <tgraf@suug.ch>
+Cc: Max Krasnyansky <maxk@qualcomm.com>, markmc@redhat.com,
+	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:18279 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811AbYFYS4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 14:56:41 -0400
-Received: from zps35.corp.google.com (zps35.corp.google.com [172.25.146.35])
-	by smtp-out.google.com with ESMTP id m5PIubjl029763
-	for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 19:56:38 +0100
-Received: from yx-out-1718.google.com (yxp4.prod.google.com [10.190.4.196])
-	by zps35.corp.google.com with ESMTP id m5PIuat5026304
-	for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 11:56:36 -0700
-Received: by yx-out-1718.google.com with SMTP id 4so697717yxp.42
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 11:56:35 -0700 (PDT)
-In-Reply-To: <20080625104401.GJ20815@postel.suug.ch>
-Content-Disposition: inline
+Received: from yx-out-2324.google.com ([74.125.44.30]:8142 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752401AbYFYTHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 15:07:40 -0400
+Received: by yx-out-2324.google.com with SMTP id 31so701312yxl.1
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 12:07:39 -0700 (PDT)
+In-Reply-To: <200806260032.12359.rusty__46755.7742762894$1214404667$gmane$org@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2008, Thomas Graf wrote:
-> libnl initializes the buffer size to the size of a page. The value
-> can be overwritten by calling nl_set_buffer_size(socket, rx, tx)
+Rusty Russell wrote:
+> @@ -1563,6 +1561,16 @@ static void setup_tun_net(char *arg)
+>  	/* Tell Guest what MAC address to use. */
+>  	add_feature(dev, VIRTIO_NET_F_MAC);
+>  	add_feature(dev, VIRTIO_F_NOTIFY_ON_EMPTY);
+> +	/* Expect Guest to handle everything except UFO */
+> +	add_feature(dev, VIRTIO_NET_F_CSUM);
 
-Thanks, I missed that. Though now I won't need that anymore as I got
-the dump working!
+You're setting this feature twice.
 
-> Yes, that's how it's intended to work. You can fill until one of the
-> nla_put variantes aborts and starting trimming off what you've added
-> already using the nla_nest_cancel() methods until you reach a point
-> where you can safely cut your stream of attributes. So far we typically
-> made sure that this barrier is on netlink message level but is no
-> requirement. You may split a list into several messages you just
-> have to make sure that you call nla_nest_end() and nlmsg_end() properly
-> before you send the message.
+> +	add_feature(dev, VIRTIO_NET_F_GUEST_CSUM);
 
-Ok, I did exactly that! Took me a while to figure out all of the
-necessary quirks (including userland), but now it works! :)
+You set this feature, but I never see the virtio-net driver acknowledge 
+the feature.  Curiously, my implementation with KVM is struggling 
+because UDP packet checksums are not correct so the DHCP client is 
+ignoring them.  If I disable CSUM offload, things it works fine (using 
+the virtio-net header).  The problem is only host=>guest, guest=>host is 
+fine.
 
-So userspace now gets one callback invocation per part of a multipart
-message. I guess it's not possible to aggregate the data into just one
-callback invocation?
+Regards,
 
-Thanks again!
-Julius
+Anthony Liguori
 
--- 
-Google Switzerland GmbH
