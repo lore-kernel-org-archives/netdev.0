@@ -1,54 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: Add the CPU id to skb->queue_mapping's upper
- 8 bits
-Date: Tue, 24 Jun 2008 16:37:42 -0700 (PDT)
-Message-ID: <20080624.163742.224488012.davem@davemloft.net>
-References: <20080624232545.11654.65805.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757407AbYFXXhz@vger.kernel.org>
-In-Reply-To: <20080624232545.11654.65805.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 24 Jun 2008 16:27:12 -0700
+Subject: [PATCH 1/3] ixgbe: fix EEH recovery during reset on PPC
+Date: Tue, 24 Jun 2008 17:00:56 -0700
+Message-ID: <20080625000036.16592.6621.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, pl@us.ibm.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:31298 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751942AbYFYABL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 20:01:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> 
-> This patch adds the CPU index to the upper 8 bits of the queue_mapping in
-> the skb.  This will support 256 CPUs and 256 Tx queues.  The reason for
-> this is the qdisc layer can obscure which CPU is generating a certain flow
-> of packets, so network drivers don't have any insight which CPU generated a
-> particular packet.  If the driver knows which CPU generated the packet,
-> then it could adjust Rx filtering in the hardware to redirect the packet
-> back to the CPU who owns the process that generated this packet.
-> Preventing the cache miss and reschedule of a process to a different CPU is
-> a big win in network performance, especially at 10 gigabit speeds.
-> 
-> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Paul Larson <pl@us.ibm.com>
 
-Well:
+EEh is not recovering in a resonable amount of time on PPC during
+ixgbe_down().
 
-1) All of this multiqueue stuff is going away with my changes in
-   net-tx-2.6
+Signed-off-by: Paul Larson <pl@us.ibm.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-2) This CPU number is going to be wrong half of the time.
+ drivers/net/ixgbe/ixgbe_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-For #2, when TCP is processing ACKs, it sends packets out from
-whichever CPU the ACK landed on.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7b39394..5774377 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1969,7 +1969,8 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+ 
+-	ixgbe_reset(adapter);
++	if (!pci_channel_offline(adapter->pdev))
++		ixgbe_reset(adapter);
+ 	ixgbe_clean_all_tx_rings(adapter);
+ 	ixgbe_clean_all_rx_rings(adapter);
+ 
 
-So you could end up retargetting the RX flow back and forth between
-cpus.  The cpu that sends the packet into the device layer is far
-from the cpu that should be used to target the RX flow at.
-
-So this idea is pretty seriously flawed and the infrastructure it's
-using is going away anyways.
-
-It also adds all sorts of arbitray limitations (256 queues and cpus? I
-already have systems coming to me with more than 256 cpus)
