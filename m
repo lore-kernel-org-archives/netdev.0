@@ -1,11 +1,11 @@
 From: Jan-Bernd Themann <THEMANN@de.ibm.com>
 Subject: Re: [ofa-general] [PATCH] net/inet_lro: remove setting skb->ip_summed
 	when not LRO-able
-Date: Wed, 25 Jun 2008 14:10:02 +0200
-Message-ID: <OFF22ABD0B.B3396141-ONC1257473.0042666B-C1257473.0042BB30@de.ibm.com>
+Date: Wed, 25 Jun 2008 14:15:19 +0200
+Message-ID: <OFB432FE83.4918CFA4-ONC1257473.0042EBD2-C1257473.004336F0@de.ibm.com>
 References: <4862304D.2050306@voltaire.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0752614969=="
+Content-Type: multipart/mixed; boundary="===============1512524019=="
 Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
 	Vladimir Sokolovsky <vlad@mellanox.co.il>,
 	OpenFabrics General <general@lists.openfabrics.org>
@@ -25,13 +25,17 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 This is a multipart message in MIME format.
---===============0752614969==
+--===============1512524019==
 Content-Type: multipart/alternative;
-	boundary="=_alternative 0042BB2EC1257473_="
+	boundary="=_alternative 004336EEC1257473_="
 
 This is a multipart message in MIME format.
---=_alternative 0042BB2EC1257473_=
+--=_alternative 004336EEC1257473_=
 Content-Type: text/plain; charset="US-ASCII"
+
+Hi Or,
+
+sorry, had a problem with the last mail...
 
 Or Gerlitz <ogerlitz@voltaire.com> wrote on 25.06.2008 13:47:25:
 
@@ -71,17 +75,20 @@ Or Gerlitz <ogerlitz@voltaire.com> wrote on 25.06.2008 13:47:25:
 > Is there some pointer you might be able to provide on LRO benchmark for 
 > small packets and/or mixed small/large packet streams?
 
+I don't have any benchmarks handy, but Andrew Gallatin from myrinet posted 
+his results on
+the mailing list some month ago. I'll let you know if I find a link.
 
-
-> 
-> Or.
-> 
-> 
-
---=_alternative 0042BB2EC1257473_=
+Regards,
+Jan-Bernd
+--=_alternative 004336EEC1257473_=
 Content-Type: text/html; charset="US-ASCII"
 
 
+<br><tt><font size=2>Hi Or,</font></tt>
+<br>
+<br><tt><font size=2>sorry, had a problem with the last mail...</font></tt>
+<br>
 <br><tt><font size=2>Or Gerlitz &lt;ogerlitz@voltaire.com&gt; wrote on
 25.06.2008 13:47:25:<br>
 <br>
@@ -138,22 +145,22 @@ the <br>
 &gt; &gt;<br>
 &gt; Is there some pointer you might be able to provide on LRO benchmark
 for <br>
-&gt; small packets and/or mixed small/large packet streams?</font></tt>
-<br>
-<br>
-<br><tt><font size=2><br>
-&gt; <br>
-&gt; Or.<br>
-&gt; <br>
-&gt; <br>
+&gt; small packets and/or mixed small/large packet streams?<br>
 </font></tt>
---=_alternative 0042BB2EC1257473_=--
+<br><tt><font size=2>I don't have any benchmarks handy, but Andrew Gallatin
+from myrinet posted his results on</font></tt>
+<br><tt><font size=2>the mailing list some month ago. I'll let you know
+if I find a link.</font></tt>
+<br>
+<br><tt><font size=2>Regards,</font></tt>
+<br><tt><font size=2>Jan-Bernd</font></tt>
+--=_alternative 004336EEC1257473_=--
 
---===============0752614969==
+--===============1512524019==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 
---===============0752614969==--
+--===============1512524019==--
