@@ -1,49 +1,39 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH] netlabel: Fix a problem when dumping the default IPv6 static
-	labels
-Date: Wed, 25 Jun 2008 16:29:13 -0400
-Message-ID: <20080625202913.19613.5413.stgit@flek.lan>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH] igb: completely disable interrupts during netpoll
+Date: Wed, 25 Jun 2008 13:29:19 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52057B3B27@orsmsx418.amr.corp.intel.com>
+References: <20080625141511.GH22981@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:36944 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751144AbYFYU3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 16:29:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-pci@vger.kernel.org>
+To: "Andy Gospodarek" <andy@greyhouse.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20080625141511.GH22981@gospo.rdu.redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a missing "!" in a conditional statement which is causing entries to
-be skipped when dumping the default IPv6 static label entries.  This can be
-demonstrated by running the following:
+Andy Gospodarek wrote:
+> Globally disable the interrupt during netpoll rather than simply
+> disabling it on the hardware.  This will ensure all pending operations
+> are complete and no more will execute.  I've seen reports of deadlocks
+> with the current driver and this patch resolves them.
 
- # netlabelctl unlbl add default address:::1 \
-                                 label:system_u:object_r:unlabeled_t:s0
- # netlabelctl -p unlbl list
+I agree this patch is probably okay, and if it fixes a specific problem
+should be accepted however I have a question that didn't apply when we
+originally created code like this.
 
-... you will notice that the entry for the IPv6 localhost address is not
-displayed but does exist (works correctly, causes collisions when attempting
-to add duplicate entries, etc.).
+> @@ -4024,7 +4024,7 @@ static void igb_netpoll(struct net_device
+>  	*netdev) int i;
+>  	int work_done = 0;
+> 
+> -	igb_irq_disable(adapter);
+> +	disable_irq(adapter->pdev->irq);
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
-
- net/netlabel/netlabel_unlabeled.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index 0099da5..52b2611 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1534,7 +1534,7 @@ static int netlbl_unlabel_staticlistdef(struct sk_buff *skb,
- 		}
- 	}
- 	list_for_each_entry_rcu(addr6, &iface->addr6_list, list) {
--		if (addr6->valid || iter_addr6++ < skip_addr6)
-+		if (!addr6->valid || iter_addr6++ < skip_addr6)
- 			continue;
- 		if (netlbl_unlabel_staticlist_gen(NLBL_UNLABEL_C_STATICLISTDEF,
- 					   iface,
-
+how does changing to disable_irq/enable_irq work with MSI and MSI-X
+interrupts?
