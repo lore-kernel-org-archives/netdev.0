@@ -1,7 +1,7 @@
 From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: [PATCH 3/8 v2] textsearch: fix Boyer-Moore algorithm for case insensitive searching
-Date: Wed, 25 Jun 2008 03:24:58 -0700
-Message-ID: <1214389498-21345-1-git-send-email-joonwpark81@gmail.com>
+Subject: [PATCH 8/8 v2] iptables: string extension case insensitive matching
+Date: Wed, 25 Jun 2008 03:25:10 -0700
+Message-ID: <1214389510-21445-1-git-send-email-joonwpark81@gmail.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	netfilter-devel <netfilter-devel@vger.kernel.org>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -9,109 +9,107 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Joonwoo Park <joonwpark81@gmail.com>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:63005 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.229]:63458 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497AbYFYKY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 06:24:59 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so8130417rvb.1
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 03:24:59 -0700 (PDT)
+	with ESMTP id S1753226AbYFYKZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 06:25:10 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so8130487rvb.1
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 03:25:10 -0700 (PDT)
 In-Reply-To: <>
 References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix Boyer-Moore algorithm to have capability of case insensitive
-searching
+The string extension can search patterns case insensitively with --icase
+option.
 
 Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
 ---
- lib/ts_bm.c |   26 ++++++++++++++++++++------
- 1 files changed, 20 insertions(+), 6 deletions(-)
+ extensions/libxt_string.c           |   14 +++++++++++++-
+ include/linux/netfilter/xt_string.h |    3 +++
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/lib/ts_bm.c b/lib/ts_bm.c
-index 4a7fce7..9e66ee4 100644
---- a/lib/ts_bm.c
-+++ b/lib/ts_bm.c
-@@ -39,6 +39,7 @@
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/string.h>
-+#include <linux/ctype.h>
- #include <linux/textsearch.h>
+diff --git a/extensions/libxt_string.c b/extensions/libxt_string.c
+index 5eec44b..54f4fda 100644
+--- a/extensions/libxt_string.c
++++ b/extensions/libxt_string.c
+@@ -37,7 +37,8 @@ static void string_help(void)
+ "string match options:\n"
+ "--from                       Offset to start searching from\n"
+ "--to                         Offset to stop searching\n"
+-"--algo	                      Algorithm\n"
++"--algo                       Algorithm\n"
++"--icase                      Ignore case\n"
+ "[!] --string string          Match a string in a packet\n"
+ "[!] --hex-string string      Match a hex string in a packet\n");
+ }
+@@ -48,6 +49,7 @@ static const struct option string_opts[] = {
+ 	{ "algo", 1, NULL, '3' },
+ 	{ "string", 1, NULL, '4' },
+ 	{ "hex-string", 1, NULL, '5' },
++	{ "icase", 0, NULL, '6' },
+ 	{ .name = NULL }
+ };
  
- /* Alphabet size, use ASCII */
-@@ -64,6 +65,7 @@ static unsigned int bm_find(struct ts_config *conf, struct ts_state *state)
- 	unsigned int i, text_len, consumed = state->offset;
- 	const u8 *text;
- 	int shift = bm->patlen - 1, bs;
-+	const u8 icase = conf->flags & TS_IGNORECASE;
+@@ -162,6 +164,7 @@ parse_hex_string(const char *s, struct xt_string_info *info)
+ #define ALGO   0x2
+ #define FROM   0x4
+ #define TO     0x8
++#define ICASE  0x10
  
- 	for (;;) {
- 		text_len = conf->get_next_block(consumed, &text, conf, state);
-@@ -75,7 +77,9 @@ static unsigned int bm_find(struct ts_config *conf, struct ts_state *state)
- 			DEBUGP("Searching in position %d (%c)\n", 
- 				shift, text[shift]);
- 			for (i = 0; i < bm->patlen; i++) 
--			     if (text[shift-i] != bm->pattern[bm->patlen-1-i])
-+				if ((icase ? toupper(text[shift-i])
-+				    : text[shift-i])
-+					!= bm->pattern[bm->patlen-1-i])
- 				     goto next;
+ /* Function which parses command options; returns true if it
+    ate an option */
+@@ -217,6 +220,11 @@ string_parse(int c, char **argv, int invert, unsigned int *flags,
+ 		*flags |= STRING;
+ 		break;
  
- 			/* London calling... */
-@@ -111,14 +115,18 @@ static int subpattern(u8 *pattern, int i, int j, int g)
- 	return ret;
++	case '6':
++		stringinfo->flags |= XT_STRING_FLAG_IGNORECASE;
++		*flags |= ICASE;
++		break;
++
+ 	default:
+ 		return 0;
+ 	}
+@@ -300,6 +308,8 @@ string_print(const void *ip, const struct xt_entry_match *match, int numeric)
+ 		printf("FROM %u ", info->from_offset);
+ 	if (info->to_offset != 0)
+ 		printf("TO %u ", info->to_offset);
++	if (info->flags & XT_STRING_FLAG_IGNORECASE)
++		printf("ICASE ");
  }
  
--static void compute_prefix_tbl(struct ts_bm *bm)
-+static void compute_prefix_tbl(struct ts_bm *bm, int flags)
+ 
+@@ -321,6 +331,8 @@ static void string_save(const void *ip, const struct xt_entry_match *match)
+ 		printf("--from %u ", info->from_offset);
+ 	if (info->to_offset != 0)
+ 		printf("--to %u ", info->to_offset);
++	if (info->flags & XT_STRING_FLAG_IGNORECASE)
++		printf("--icase ");
+ }
+ 
+ 
+diff --git a/include/linux/netfilter/xt_string.h b/include/linux/netfilter/xt_string.h
+index bb21dd1..2de02e9 100644
+--- a/include/linux/netfilter/xt_string.h
++++ b/include/linux/netfilter/xt_string.h
+@@ -4,6 +4,8 @@
+ #define XT_STRING_MAX_PATTERN_SIZE 128
+ #define XT_STRING_MAX_ALGO_NAME_SIZE 16
+ 
++#define XT_STRING_FLAG_IGNORECASE 0x01
++
+ struct xt_string_info
  {
- 	int i, j, g;
+ 	u_int16_t from_offset;
+@@ -12,6 +14,7 @@ struct xt_string_info
+ 	char 	  pattern[XT_STRING_MAX_PATTERN_SIZE];
+ 	u_int8_t  patlen;
+ 	u_int8_t  invert;
++	u_int8_t  flags;
  
- 	for (i = 0; i < ASIZE; i++)
- 		bm->bad_shift[i] = bm->patlen;
--	for (i = 0; i < bm->patlen - 1; i++)
-+	for (i = 0; i < bm->patlen - 1; i++) {
- 		bm->bad_shift[bm->pattern[i]] = bm->patlen - 1 - i;
-+		if (flags & TS_IGNORECASE)
-+			bm->bad_shift[tolower(bm->pattern[i])]
-+			    = bm->patlen - 1 - i;
-+	}
- 
- 	/* Compute the good shift array, used to match reocurrences 
- 	 * of a subpattern */
-@@ -135,10 +143,11 @@ static void compute_prefix_tbl(struct ts_bm *bm)
- }
- 
- static struct ts_config *bm_init(const void *pattern, unsigned int len,
--				 gfp_t gfp_mask)
-+				 gfp_t gfp_mask, int flags)
- {
- 	struct ts_config *conf;
- 	struct ts_bm *bm;
-+	int i;
- 	unsigned int prefix_tbl_len = len * sizeof(unsigned int);
- 	size_t priv_size = sizeof(*bm) + len + prefix_tbl_len;
- 
-@@ -146,11 +155,16 @@ static struct ts_config *bm_init(const void *pattern, unsigned int len,
- 	if (IS_ERR(conf))
- 		return conf;
- 
-+	conf->flags = flags;
- 	bm = ts_config_priv(conf);
- 	bm->patlen = len;
- 	bm->pattern = (u8 *) bm->good_shift + prefix_tbl_len;
--	memcpy(bm->pattern, pattern, len);
--	compute_prefix_tbl(bm);
-+	if (flags & TS_IGNORECASE)
-+		for (i = 0; i < len; i++)
-+			bm->pattern[i] = toupper(((u8 *)pattern)[i]);
-+	else
-+		memcpy(bm->pattern, pattern, len);
-+	compute_prefix_tbl(bm, flags);
- 
- 	return conf;
- }
+ 	/* Used internally by the kernel */
+ 	struct ts_config __attribute__((aligned(8))) *config;
 -- 
 1.5.4.3
 
