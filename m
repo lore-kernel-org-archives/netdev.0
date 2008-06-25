@@ -1,119 +1,86 @@
-From: "Justin Mattock" <justinmattock@gmail.com>
-Subject: Re: stuck tcp connections 2.6.26-rc7
-Date: Wed, 25 Jun 2008 06:25:45 +0000
-Message-ID: <dd18b0c30806242325j4f6d1b1bw1cdde7ea08ad12e2@mail.gmail.com>
-References: <dd18b0c30806221109t2ff73f9ai52f6716748648a79@mail.gmail.com>
-	 <20080622205927.301501e7.akpm@linux-foundation.org>
-	 <dd18b0c30806230013x5446991bi9eba7623ffaae131@mail.gmail.com>
-	 <g3ol3u$li2$1@ger.gmane.org>
-	 <dd18b0c30806231845s1cc6151coc2a4f26ed3521500@mail.gmail.com>
-	 <2c0942db0806241016o3be1dae8i433da13697c4531c@mail.gmail.com>
-	 <dd18b0c30806241303g755e3881y4ea7d403eb2922fc@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH (regression)] Fragments: fix race between	inet_frag_find
+ and   inet_frag_secret_rebuild
+Date: Wed, 25 Jun 2008 10:42:56 +0400
+Message-ID: <4861E8F0.9080507@openvz.org>
+References: <20080624180714.GA3125@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Didier Raboud" <didier@raboud.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Ray Lee" <ray-lk@madrabbit.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.244]:28603 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055AbYFYGZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 02:25:46 -0400
-Received: by an-out-0708.google.com with SMTP id d40so785000and.103
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2008 23:25:45 -0700 (PDT)
-In-Reply-To: <dd18b0c30806241303g755e3881y4ea7d403eb2922fc@mail.gmail.com>
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:35179 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751085AbYFYGpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2008 02:45:34 -0400
+In-Reply-To: <20080624180714.GA3125@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2008 at 8:03 PM, Justin Mattock <justinmattock@gmail.com> wrote:
-> On Tue, Jun 24, 2008 at 5:16 PM, Ray Lee <ray-lk@madrabbit.org> wrote:
->> 2008/6/23 Justin Mattock <justinmattock@gmail.com>:
->>> On Mon, Jun 23, 2008 at 5:04 PM, Didier Raboud <didier@raboud.com> wrote:
->>>> -----BEGIN PGP SIGNED MESSAGE-----
->>>> Hash: SHA1
->>>>
->>>> Justin Mattock wrote:
->>>>
->>>>> On Mon, Jun 23, 2008 at 3:59 AM, Andrew Morton
->>>>> <akpm@linux-foundation.org> wrote:
->>>>>> On Sun, 22 Jun 2008 18:09:16 +0000 "Justin Mattock"
->>>>>> <justinmattock@gmail.com> wrote:
->>>>>>
->>>>>>> Hello; I too am experiencing internet connectivity problems, for  a
->>>>>>> while I thought
->>>>>>> It was due to low bandwidth(or being ddos attacked) but yesterday I
->>>>>>> noticed with watch netstat -ntu
->>>>>>> send-Q was stuck on a number; the connection would not go to TIME_WAIT
->>>>>>> resulting in music to pause, and t.v. to freeze.
->>>>>>> In my experiences running xmms streaming music is fine, no problems,
->>>>>>> but as soon as
->>>>>>> you watch something with flash player the stream start's getting
->>>>>>> really bad. In the past with older kernel's
->>>>>>> I usually can watch t.v.(with flash) and stream music at the same time
->>>>>>> without any trouble.
->>>>>>> lately I've been Running the kernel in No forced Preemption with a
->>>>>>> time frequency at 100. having the kernel set in this mode really shows
->>>>>>> the connection problems, but if I change the preemption to another,
->>>>>>> and bump up the timer frequency the poor internet connection is not as
->>>>>>> bad(or stuck tcp) but still prevalent. more pops in the music, and
->>>>>>> sudden internet loss for around five seconds, then goes back
->>>>>>> So from over here streaming music has no problems from what I can see,
->>>>>>> but as soon as I watch media, it becomes a mess.
->>>>>>
->>>>>> (cc netdev)
->>>>>>
->>>>>
->>>>>
->>>>> Cool, Thanks for sending the cc
->>>>> regards;
->>>>
->>>> Hi,
->>>>
->>>> I get something like a similar bug: when pinging my local gateway, I loose
->>>> packets (over wifi (iwl3945) ). Before the update to 2.6.26-rc7 (Debian), I
->>>> had no such issues (which makes Internet browsing working but weirdly).
->>>>
->>>> I can't know for sure that my bug is related to the above, but suppose so.
->>>> Please ask for details !
->>>>
->>>> Regards,
->>>>
->>>> Didier Raboud
->>>> - --
->>>
->>> Cool;(cool as in I'm not the only one,not cool for sh*%y internet connections)
->>> there is something definitely happening with the tcp connection.,
->>> After looking more at the situation
->>> I get a good connection when just streaming music, but as soon as I
->>> watch with flash or even search through firefox
->>> I'm getting a dead period of no internet, and then a few seconds later
->>> no problems.Almost as if some timer in the code is missing something
->>> or not firing off at the right time.
->>> At this point I'm still uncertain with what is happening.
->>> regards;
+Jarek Poplawski wrote:
+> Pavel Emelyanov wrote, On 06/24/2008 12:43 PM:
+> 
+>> The problem is that while we work w/o the inet_frags.lock even
+>> read-locked the secret rebuild timer may occur (on another CPU,
+> - since BHs are still disables in the inet_frag_find) and change 
+> 
+> + since BHs are still disabled in the inet_frag_find) and change 
+> 
+>> the rnd seed for ipv4/6 fragments.
 >>
->> If you leave a ping running as root to your local gateway from a
->> console ( nice -n -10 ping -i 0.5 192.168.1.1
->>  or whichever ip ), does it show dropouts?
+>> It was caused by my patch fd9e63544cac30a34c951f0ec958038f0529e244
+>> ([INET]: Omit double hash calculations in xxx_frag_intern) late 
+>> in the 2.6.24 kernel, so this should probably be queued to -stable.
 >>
->
-> I'll give that a try and see what happens.
-> regards;
->
-> --
-> Justin P. Mattock
->
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>>
+>> ---
+>>
+>> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+>> index 4ed429b..0546a0b 100644
+>> --- a/net/ipv4/inet_fragment.c
+>> +++ b/net/ipv4/inet_fragment.c
+>> @@ -192,14 +192,21 @@ EXPORT_SYMBOL(inet_frag_evictor);
+>>  
+>>  static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+>>  		struct inet_frag_queue *qp_in, struct inet_frags *f,
+>> -		unsigned int hash, void *arg)
+>> +		void *arg)
+>>  {
+>>  	struct inet_frag_queue *qp;
+>>  #ifdef CONFIG_SMP
+>>  	struct hlist_node *n;
+>>  #endif
+>> +	unsigned int hash;
+>>  
+>>  	write_lock(&f->lock);
+>> +	/*
+>> +	 * While we stayed w/o the lock other CPU could update
+>> +	 * the rnd seed, so we need to re-calculate the hash
+>> +	 * chain. Fortunatelly the qp_in can be used to get one.
+>> +	 */
+>> +	hash = f->hashfn(qp_in);
+>>  #ifdef CONFIG_SMP
+>>  	/* With SMP race we have to recheck hash table, because
+>>  	 * such entry could be created on other cpu, while we
+> 
+> Maybe it's a matter of taste: since there is this "#ifdef CONFIG_SMP",
+> and the new comment concerns with "other CPU", why this re-calculation
+> isn't done only for SMP? 
 
-Hmm, well I really don't know what to say with the tcp
-connection(issue), It seems to go in and out of phases i.g.
-at first running music, and t.v.(through flash) there's moments of
-pauses,(around 5 secs or so) then after a while
-the tcp seems to even itself out, but then after a while(5min or so)
-the same pauses begin. Maybe due to some missing packet, or
-some deadlock if this is proper to say.
-regards;
+Because the hash value is required also *outside* this ifdef and adding
+a fancier logic is probably not good for a -rc7 fix.
 
--- 
-Justin P. Mattock
+However, I will re-consider this for net-next.
+
+> And, btw., probably __acquires/__releases annotations could be added
+> with this patch.
+
+This is also a net-next material (I hope Dave agrees with me on both).
+
+> Regards,
+> Jarek P.
+> 
+
