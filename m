@@ -1,99 +1,108 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Re: (usagi-users 04056) Re: ping6 is sent out from wrong interface
-Date: Wed, 25 Jun 2008 19:18:38 +0900
-Message-ID: <48621B7E.5090600@miraclelinux.com>
-References: <4861ED72.6080100@miraclelinux.com> <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: usagi-users@ml.linux-ipv6.org,
-	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2k=?=
-	 =?ISO-2022-JP?B?IC8gGyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	usagi-users@linux-ipv6.org
-To: Fey Marcus <Fey@iabg.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:26741 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754649AbYFYKSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 06:18:40 -0400
-In-Reply-To: <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joonwoo Park <joonwpark81@gmail.com>
+Subject: [PATCH 1/8 v2] textsearch: fix textsearch for case insensitive searching
+Date: Wed, 25 Jun 2008 03:24:53 -0700
+Message-ID: <1214389493-21305-1-git-send-email-joonwpark81@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Joonwoo Park <joonwpark81@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <>
+References: <>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Marcus
+The function textsearch_prepare has a new flag to support case
+insensitive searching.
 
-Thank you for your quick reply.
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+---
+ include/linux/textsearch.h |   10 +++++-----
+ lib/textsearch.c           |   14 ++++++++------
+ 2 files changed, 13 insertions(+), 11 deletions(-)
 
-> It's due to routing.
-
-For the reason of selecting 'eth0', I agree.
-But, I think the device is specified before
-looking up the routing table in this case.
-
-> ...with eth0 being preferred over eth1 for multicast packets.
-> You could add a dedicated route for ff02::/16 to make the kernel output the packet via eth1.
-
-This works when using only "eth1" for multicasts.
-When multiple I/Fs are connected to separate networks,
-this scheme requires changing the route every time
-a user need to send ping to different network.
-
-I think kernel can solve this problem better.
-
-
-Regards,
-Naohiro Ooiwa
-
-
-Fey Marcus さんは書きました:
-> Hi Naohiro,
-> 
->> I'm not convinced yet.
->> I don't think it's correct that kernel or ping6 arbitrarily 
->> decides outgoing interface.
->>
->> Is this really an expected behaviour?
->> Could you explain to me the reason of it, too?
->>
->> I think the behavior should be similar to IPv4.
-> 
-> It's due to routing.
-> 
-> Your routing table shows this:
-> ---
->     # route -A inet6
->     Kernel IPv6 routing table
->     Destination            Next Hop Flags Metric Ref    Use Iface
->     2001:2c0:418:1::/64    *        U     256    0        0 eth0
->     2001:2c0:418:2::/64    *        U     256    0        0 eth1
->     fe80::/64              *        U     256    0        0 eth0
->     fe80::/64              *        U     256    0        0 eth1
->     ::::::
->     2001:2c0:418:1::1/128  *        U     0      8        1 lo
->     2001:2c0:418:2::2/128  *        U     0      5        1 lo
->     ::::::
->     ff00::/8               *        U     256    0        0 eth0
->     ff00::/8               *        U     256    0        0 eth1
->     #
-> ---
-> 
-> ...with eth0 being preferred over eth1 for multicast packets.
-> 
-> You could add a dedicated route for ff02::/16 to make the kernel output the packet via eth1.
-> 
-> Bye,
-> 
-> Marcus
-> -----------------------------------------
-> IABG mbH
-> Sitz der Gesellschaft: Ottobrunn, Registergericht: Amtsgericht Muenchen, HRB 5499
-> Geschaeftsfuehrung: Prof. Dr.-Ing. Rudolf F. Schwarz
-> Vorsitzender des Aufsichtsrats: General a. D. Wolfgang Altenburg
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/include/linux/textsearch.h b/include/linux/textsearch.h
+index 6f371f2..6c34cf2 100644
+--- a/include/linux/textsearch.h
++++ b/include/linux/textsearch.h
+@@ -10,10 +10,8 @@
+ 
+ struct ts_config;
+ 
+-/**
+- * TS_AUTOLOAD - Automatically load textsearch modules when needed
+- */
+-#define TS_AUTOLOAD	1
++#define TS_AUTOLOAD	1 /* Automatically load textsearch modules when needed */
++#define TS_IGNORECASE	2 /* Searches string case insensitively */
+ 
+ /**
+  * struct ts_state - search state
+@@ -39,7 +37,7 @@ struct ts_state
+ struct ts_ops
+ {
+ 	const char		*name;
+-	struct ts_config *	(*init)(const void *, unsigned int, gfp_t);
++	struct ts_config *	(*init)(const void *, unsigned int, gfp_t, int);
+ 	unsigned int		(*find)(struct ts_config *,
+ 					struct ts_state *);
+ 	void			(*destroy)(struct ts_config *);
+@@ -52,12 +50,14 @@ struct ts_ops
+ /**
+  * struct ts_config - search configuration
+  * @ops: operations of chosen algorithm
++ * @flags: flags
+  * @get_next_block: callback to fetch the next block to search in
+  * @finish: callback to finalize a search
+  */
+ struct ts_config
+ {
+ 	struct ts_ops		*ops;
++	int 			flags;
+ 
+ 	/**
+ 	 * get_next_block - fetch next block of data
+diff --git a/lib/textsearch.c b/lib/textsearch.c
+index be8bda3..b451fcc 100644
+--- a/lib/textsearch.c
++++ b/lib/textsearch.c
+@@ -54,10 +54,13 @@
+  * USAGE
+  *
+  *   Before a search can be performed, a configuration must be created
+- *   by calling textsearch_prepare() specyfing the searching algorithm and
+- *   the pattern to look for. The returned configuration may then be used
+- *   for an arbitary amount of times and even in parallel as long as a
+- *   separate struct ts_state variable is provided to every instance.
++ *   by calling textsearch_prepare() specifying the searching algorithm,
++ *   the pattern to look for and flags. As a flag, you can set TS_IGNORECASE
++ *   to perform case insensitive matching. But it might slow down
++ *   performance of algorithm, so you should use it at own your risk.
++ *   The returned configuration may then be used for an arbitary
++ *   amount of times and even in parallel as long as a separate struct
++ *   ts_state variable is provided to every instance.
+  *
+  *   The actual search is performed by either calling textsearch_find_-
+  *   continuous() for linear data or by providing an own get_next_block()
+@@ -89,7 +92,6 @@
+  *       panic("Oh my god, dancing chickens at %d\n", pos);
+  *
+  *   textsearch_destroy(conf);
+- *
+  * ==========================================================================
+  */
+ 
+@@ -279,7 +281,7 @@ struct ts_config *textsearch_prepare(const char *algo, const void *pattern,
+ 	if (ops == NULL)
+ 		goto errout;
+ 
+-	conf = ops->init(pattern, len, gfp_mask);
++	conf = ops->init(pattern, len, gfp_mask, flags);
+ 	if (IS_ERR(conf)) {
+ 		err = PTR_ERR(conf);
+ 		goto errout;
+-- 
+1.5.4.3
 
