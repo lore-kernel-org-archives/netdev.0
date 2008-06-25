@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: stuck tcp connections 2.6.26-rc7
-Date: Wed, 25 Jun 2008 15:24:47 -0700 (PDT)
-Message-ID: <20080625.152447.178284093.davem@davemloft.net>
-References: <dd18b0c30806241303g755e3881y4ea7d403eb2922fc@mail.gmail.com>
-	<dd18b0c30806242325j4f6d1b1bw1cdde7ea08ad12e2@mail.gmail.com>
-	<2c0942db0806250816r123affb4x4ef17f4773180a10@mail.gmail.com>
+Subject: Re: [PATCH] igb: completely disable interrupts during netpoll
+Date: Wed, 25 Jun 2008 15:27:51 -0700 (PDT)
+Message-ID: <20080625.152751.154176346.davem@davemloft.net>
+References: <20080625141511.GH22981@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: justinmattock@gmail.com, didier@raboud.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ray-lk@madrabbit.org
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, john.ronciak@intel.com,
+	netdev@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56638
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754303AbYFYWYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 18:24:47 -0400
-In-Reply-To: <2c0942db0806250816r123affb4x4ef17f4773180a10@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1753568AbYFYW1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 18:27:51 -0400
+In-Reply-To: <20080625141511.GH22981@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Date: Wed, 25 Jun 2008 08:16:20 -0700
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Wed, 25 Jun 2008 10:15:11 -0400
 
-> On my system, I've noticed that the flashplugin can manage to starve
-> other processes in a pure scheduler sort of way, so you might try
-> running latencytop to see if there's some sort of issue there. OTOH,
-> I've noticed firefox itself hang for 3-15 seconds in the middle of a
-> read (just as you describe), with nothing else going on in the system,
-> so <shrug>. I've been blaming firefox, but I could be wrong.
+> 
+> Globally disable the interrupt during netpoll rather than simply
+> disabling it on the hardware.  This will ensure all pending operations
+> are complete and no more will execute.  I've seen reports of deadlocks
+> with the current driver and this patch resolves them.
 
-See if firefox is stuck in disk wait when things get wedged like
-this.
+I don't want to see network drivers start getting into the habit
+of doing this.  This operation could be extremely expensive with
+certain IRQ controllers.
+
+It's better to have a good understanding of why the deadlocks
+happen, and this was decidedly missing from your commit message.
+
+NAPI is designed in such a way that if pending interrupts arrive
+after NAPI disables chip interrupts it should be handled just
+fine and in fact I see this happen all the time on some of my
+test systems.
