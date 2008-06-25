@@ -1,68 +1,41 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] net: em_cmp.c use unaligned access helpers
-Date: Wed, 25 Jun 2008 14:14:00 -0700
-Message-ID: <1214428440.6908.1.camel@brick>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash,
+	Another Problem)
+Date: Wed, 25 Jun 2008 23:31:42 +0200
+Message-ID: <20080625213142.GA29890@electric-eye.fr.zoreil.com>
+References: <4861800B.90703@nscus.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Michael Grollman <mgrollman@nscus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:54526 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825AbYFYVOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 17:14:03 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so730340yxl.1
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 14:14:02 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41741 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752499AbYFYVbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 17:31:48 -0400
+Content-Disposition: inline
+In-Reply-To: <4861800B.90703@nscus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both locations are loading a big-endian value in cpu-endianness.  The
-be32/be16_to_cpu immediately afterwards seems suspect.
+Michael Grollman <mgrollman@nscus.com> :
+> <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
- net/sched/em_cmp.c |   11 +++--------
- 1 files changed, 3 insertions(+), 8 deletions(-)
+No html please.
 
-diff --git a/net/sched/em_cmp.c b/net/sched/em_cmp.c
-index cc49c93..56f1eae 100644
---- a/net/sched/em_cmp.c
-+++ b/net/sched/em_cmp.c
-@@ -15,6 +15,7 @@
- #include <linux/skbuff.h>
- #include <linux/tc_ematch/tc_em_cmp.h>
- #include <net/pkt_cls.h>
-+#include <asm/unaligned.h>
- 
- static inline int cmp_needs_transformation(struct tcf_em_cmp *cmp)
- {
-@@ -37,9 +38,7 @@ static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
- 			break;
- 
- 		case TCF_EM_ALIGN_U16:
--			val = *ptr << 8;
--			val |= *(ptr+1);
--
-+			val = get_unaligned_be16(ptr);
- 			if (cmp_needs_transformation(cmp))
- 				val = be16_to_cpu(val);
- 			break;
-@@ -47,11 +46,7 @@ static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
- 		case TCF_EM_ALIGN_U32:
- 			/* Worth checking boundries? The branching seems
- 			 * to get worse. Visit again. */
--			val = *ptr << 24;
--			val |= *(ptr+1) << 16;
--			val |= *(ptr+2) << 8;
--			val |= *(ptr+3);
--
-+			val = get_unaligned_be32(ptr);
- 			if (cmp_needs_transformation(cmp))
- 				val = be32_to_cpu(val);
- 			break;
+[...]
+> Patch of <a class="moz-txt-link-freetext" href="http://lkml.org/lkml/2008/4/17/298">http://lkml.org/lkml/2008/4/17/298</a> seems to fix the boot-up
+> modprobe crash related to r8169 Intermittent Issue With RTL8102E
+> Chipset in Intel's New D945GCLF Atom Board.&nbsp; However, the r8169 still
+> only seems to work with this motherboard / realtek combo a certain
+> percentage of the time.&nbsp; I have found the best luck when unplugging the
+> power supply for 5 minutes, and then bring it up cold, thought his was
+> also not perfect.&nbsp; Warm boots, then r8169 driver will load, but not
+> work correctly all the time.<br>
+
+Can you simply check with the latest -rc that 'lspci -vx' correctly displays
+the pci registers of the 8102 when the device does not work ?
+
 -- 
-1.5.6.290.gc4e15
-
-
-
+Ueimor
