@@ -1,39 +1,33 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Mark carrier-off before starting PHY
-Date: Wed, 25 Jun 2008 11:41:01 +0900 (JST)
-Message-ID: <20080625.114101.102912128.nemoto@toshiba-tops.co.jp>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch v3 01/12] DM9000: Remove the 2 resources probe scheme.
+Date: Tue, 24 Jun 2008 23:06:37 -0400
+Message-ID: <4861B63D.1010509@garzik.org>
+References: <20080624211556.566149406@fluff.org.uk> <20080624211903.586586947@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, laurentp@cse-semaphore.com
+To: Ben Dooks <ben-linux@fluff.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:36901 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752376AbYFYDGl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 23:06:41 -0400
+In-Reply-To: <20080624211903.586586947@fluff.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Call netif_carrier_off() before starting PHY device.  This is a
-behavior before converting to generic PHY layer.
+Ben Dooks wrote:
+> From: Laurent Pinchart <laurentp@cse-semaphore.com>
+> 
+> The dm9000 driver accepts either 2 or 3 resources to describe the platform
+> devices. The 2 resources case abuses the ioresource mechanism by passing
+> ioremap()ed memory through the platform device resources. This patch removes
+> that case and converts boards that were using it to the 3 resources scheme.
+> 
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 10e4e85..dccea52 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -1394,6 +1394,7 @@ tc35815_open(struct net_device *dev)
- 	tc35815_chip_init(dev);
- 	spin_unlock_irq(&lp->lock);
- 
-+	netif_carrier_off(dev);
- 	/* schedule a link state check */
- 	phy_start(lp->phy_dev);
- 
-@@ -2453,6 +2454,7 @@ static int tc35815_resume(struct pci_dev *pdev)
- 		return 0;
- 	pci_set_power_state(pdev, PCI_D0);
- 	tc35815_restart(dev);
-+	netif_carrier_off(dev);
- 	if (lp->phy_dev)
- 		phy_start(lp->phy_dev);
- 	netif_device_attach(dev);
+applied 1-12
+
+
