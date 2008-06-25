@@ -1,120 +1,83 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [ofa-general] [PATCH] net/inet_lro: remove setting skb->ip_summed
- when not LRO-able
-Date: Wed, 25 Jun 2008 12:26:12 +0300
-Message-ID: <48620F34.6090901@voltaire.com>
-References: <1214318386.23583.37.camel@mtls03>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH (regression)] Fragments: fix race between
+	inet_frag_find and   inet_frag_secret_rebuild
+Date: Wed, 25 Jun 2008 11:37:48 +0200
+Message-ID: <20080625093748.GA2455@ami.dom.local>
+References: <20080624180714.GA3125@ami.dom.local> <4861E8F0.9080507@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eli Cohen <eli@dev.mellanox.co.il>, netdev@vger.kernel.org,
-	Roland Dreier <rdreier@cisco.com>,
-	Vladimir Sokolovsky <vlad@mellanox.co.il>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Jan-Bernd Themann <THEMANN@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:59942 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752459AbYFYJ0R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2008 05:26:17 -0400
-In-Reply-To: <1214318386.23583.37.camel@mtls03>
+Received: from ug-out-1314.google.com ([66.249.92.173]:7920 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753844AbYFYJik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 05:38:40 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so86459ugf.16
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 02:38:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4861E8F0.9080507@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eli Cohen wrote:
-> When an SKB cannot be chained to a session, the current code attempts to "restore" its ip_summed field from lro_mgr->ip_summed. However, lro_mgr->ip_summed does not hold the original value; in fact, we'd better not touch skb->ip_summed since it is not modified by the code in the path leading to a failure to chain it.
->
-> --- a/net/ipv4/inet_lro.c
-> +++ b/net/ipv4/inet_lro.c
-> @@ -383,8 +383,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
->  out2: /* send aggregated SKBs to stack */
->  	lro_flush(lro_mgr, lro_desc);
->  
-> -out:  /* Original SKB has to be posted to stack */
-> -	skb->ip_summed = lro_mgr->ip_summed;
-> +out:
->  	return 1;
->  }
-Jan-Bernd,
+On Wed, Jun 25, 2008 at 10:42:56AM +0400, Pavel Emelyanov wrote:
+> Jarek Poplawski wrote:
+> > Pavel Emelyanov wrote, On 06/24/2008 12:43 PM:
+> > 
+> >> The problem is that while we work w/o the inet_frags.lock even
+> >> read-locked the secret rebuild timer may occur (on another CPU,
+> > - since BHs are still disables in the inet_frag_find) and change 
+> > 
+> > + since BHs are still disabled in the inet_frag_find) and change 
+> > 
+> >> the rnd seed for ipv4/6 fragments.
+> >>
+> >> It was caused by my patch fd9e63544cac30a34c951f0ec958038f0529e244
+> >> ([INET]: Omit double hash calculations in xxx_frag_intern) late 
+> >> in the 2.6.24 kernel, so this should probably be queued to -stable.
+> >>
+> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> >>
+> >> ---
+> >>
+> >> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> >> index 4ed429b..0546a0b 100644
+> >> --- a/net/ipv4/inet_fragment.c
+> >> +++ b/net/ipv4/inet_fragment.c
+> >> @@ -192,14 +192,21 @@ EXPORT_SYMBOL(inet_frag_evictor);
+> >>  
+> >>  static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+> >>  		struct inet_frag_queue *qp_in, struct inet_frags *f,
+> >> -		unsigned int hash, void *arg)
+> >> +		void *arg)
+> >>  {
+> >>  	struct inet_frag_queue *qp;
+> >>  #ifdef CONFIG_SMP
+> >>  	struct hlist_node *n;
+> >>  #endif
+> >> +	unsigned int hash;
+> >>  
+> >>  	write_lock(&f->lock);
+> >> +	/*
+> >> +	 * While we stayed w/o the lock other CPU could update
+> >> +	 * the rnd seed, so we need to re-calculate the hash
+> >> +	 * chain. Fortunatelly the qp_in can be used to get one.
+> >> +	 */
+> >> +	hash = f->hashfn(qp_in);
+> >>  #ifdef CONFIG_SMP
+> >>  	/* With SMP race we have to recheck hash table, because
+> >>  	 * such entry could be created on other cpu, while we
+> > 
+> > Maybe it's a matter of taste: since there is this "#ifdef CONFIG_SMP",
+> > and the new comment concerns with "other CPU", why this re-calculation
+> > isn't done only for SMP? 
+> 
+> Because the hash value is required also *outside* this ifdef and adding
+> a fancier logic is probably not good for a -rc7 fix.
 
-I understand from your response that lro_mgr->ip_summed is not needed, 
-so I guess it should removed from all other places that (eg its 
-definition and usage in inet_lro.[ch] and under drivers/net.
+I'm not sure what fancier logic do you mean: I've thought about simply
+leaving the "hash" as functions argument as it is, and only adding this
+recalculation under #ifdef CONFIG_SMP, but I can miss something...
 
-Second, if lro_mgr->aggr_ip_summed is indeed needed, I tend to think it 
-need to be derived per received packet from skb->ip_summed, since the 
-kernel allows for drivers ti have different checksum offload 
-capabilities which for some drivers might be impossible to be encoded in 
-one global value (lro_mgr->aggr_ip_summed), what's your thinking here?
-
-Third, consider a case where the receiver gets some very small data 
-chunks (eg file/block target that has to serve lots of IOPS for some 
-clients but also large IOs for other clients), that is some senders set 
-TCP_NODELAY, etc. Now, looking in the code _lro_proc_skb() (below) and 
-doing reading some reads at the archives, my understanding is that its 
-very possible that a large set of small packets would be gathered and 
-sent up to the stack only by the consumer calling lro_flush_all in the 
-end of its NAPI poll loop. Am I correct?
-
-Or
-
-> static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
-> 			  struct vlan_group *vgrp, u16 vlan_tag, void *priv)
-> {
-> 	struct net_lro_desc *lro_desc;
-> 	struct iphdr *iph;
-> 	struct tcphdr *tcph;
-> 	u64 flags;
-> 	int vlan_hdr_len = 0;
->
-> 	if (!lro_mgr->get_skb_header
-> 	    || lro_mgr->get_skb_header(skb, (void *)&iph, (void *)&tcph,
-> 				       &flags, priv))
-> 		goto out;
->
-> 	if (!(flags & LRO_IPV4) || !(flags & LRO_TCP))
-> 		goto out;
->
-> 	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
-> 	if (!lro_desc)
-> 		goto out;
->
-> 	if ((skb->protocol == htons(ETH_P_8021Q))
-> 	    && !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
-> 		vlan_hdr_len = VLAN_HLEN;
->
-> 	if (!lro_desc->active) { /* start new lro session */
-> 		if (lro_tcp_ip_check(iph, tcph, skb->len - vlan_hdr_len, NULL))
-> 			goto out;
->
-> 		skb->ip_summed = lro_mgr->ip_summed_aggr;
-> 		lro_init_desc(lro_desc, skb, iph, tcph, vlan_tag, vgrp);
-> 		LRO_INC_STATS(lro_mgr, aggregated);
-> 		return 0;
-> 	}
->
-> 	if (lro_desc->tcp_next_seq != ntohl(tcph->seq))
-> 		goto out2;
->
-> 	if (lro_tcp_ip_check(iph, tcph, skb->len, lro_desc))
-> 		goto out2;
->
-> 	lro_add_packet(lro_desc, skb, iph, tcph);
-> 	LRO_INC_STATS(lro_mgr, aggregated);
->
-> 	if ((lro_desc->pkt_aggr_cnt >= lro_mgr->max_aggr) ||
-> 	    lro_desc->parent->len > (0xFFFF - lro_mgr->dev->mtu))
-> 		lro_flush(lro_mgr, lro_desc);
->
-> 	return 0;
->
-> out2: /* send aggregated SKBs to stack */
-> 	lro_flush(lro_mgr, lro_desc);
->
-> out:  /* Original SKB has to be posted to stack */
-> 	skb->ip_summed = lro_mgr->ip_summed;
-> 	return 1;
-> }
-
- 
-
+Jarek P.
