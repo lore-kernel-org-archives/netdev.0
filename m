@@ -1,40 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 2/2] [iproute2/tc] hfsc: add link layer overhead	adaption
-Date: Wed, 25 Jun 2008 13:07:30 +0200
-Message-ID: <486226F2.60703@trash.net>
-References: <20080624085514.22540.91038.stgit@fate.lan>	<20080624085519.22540.40534.stgit@fate.lan>	<4860C910.4050703@andyfurniss.entadsl.com> <20080624225850.nvasycyghwko8k8o@hayate.ip6>
+From: "Fey Marcus" <Fey@iabg.de>
+Subject: RE: (usagi-users 04056) Re: ping6 is sent out from wrong interface
+Date: Wed, 25 Jun 2008 13:26:06 +0200
+Message-ID: <69A5E767EC979846826F566C7932A3F207233D99@exchange03.iabg.de>
+References: <4861ED72.6080100@miraclelinux.com> <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de> <48621B7E.5090600@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: lists@andyfurniss.entadsl.com, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: text/plain;
+	charset="ISO-2022-JP"
+Content-Transfer-Encoding: 8BIT
+Cc: <usagi-users@ml.linux-ipv6.org>,
+	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>, <netdev@vger.kernel.org>,
+	<usagi-users@linux-ipv6.org>
+To: "Naohiro Ooiwa" <nooiwa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50132 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754335AbYFYLHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 07:07:35 -0400
-In-Reply-To: <20080624225850.nvasycyghwko8k8o@hayate.ip6>
+Received: from mail2.iabg.de ([62.245.167.132]:33231 "EHLO mail2.iabg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752012AbYFYL0J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 07:26:09 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <48621B7E.5090600@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-> Quoting Andy Furniss <lists@andyfurniss.entadsl.com>:
-> 
->> Jussi Kivilinna wrote:
->>> Patch adds 'mpu', 'mtu', 'overhead' and 'linklayer' options to hfsc. 
->>> These
->>> options are used to create size table for sch_hfsc. Size table is 
->>> only used
->>> and passed to kernel if these options are used.
->>
->>> +    unsigned short overhead = 0, mpu = 0;
->>
->> overhead may need to be negative because skb->len on eth is payload + 14
->>
->> Andy.
-> 
-> Ok, I made size tables use signed short for overhead instead.
+Hi Naohiro,
 
-Please wait with resending until I get a chance to review the
-patches (probably later today) in case something else comes up.
+>
+>Hi Marcus
+>
+>Thank you for your quick reply.
+>
+>> It's due to routing.
+>
+>For the reason of selecting 'eth0', I agree.
+>But, I think the device is specified before looking up the 
+>routing table in this case.
+
+Well, ping's man page reads: 
+---
+       -I interface address
+              Set source address to specified interface  address.  Argument
+              may  be  numeric  IP  address or name of device. When pinging
+              IPv6 link-local address this option is required.
+---
+
+So you only set the address, not the interface to be used for sending.
+
+>
+>> ...with eth0 being preferred over eth1 for multicast packets.
+>> You could add a dedicated route for ff02::/16 to make the 
+>kernel output the packet via eth1.
+>
+>This works when using only "eth1" for multicasts.
+>When multiple I/Fs are connected to separate networks, this 
+>scheme requires changing the route every time a user need to 
+>send ping to different network.
+>
+
+Ok, my proposition was a bit too general. It would probably be better to set up routes for the exact addresses. So in your case to ff02::1. 
+
+Of course, if you wish to send the same packet via several interfaces within a short time, this would still result in adding and deleting the routes over and over again.
+
+>I think kernel can solve this problem better.
+>
+
+I don't think this would be intended....
+
+
+Bye,
+
+Marcus
+-----------------------------------------
+IABG mbH
+Sitz der Gesellschaft: Ottobrunn, Registergericht: Amtsgericht Muenchen, HRB 5499
+Geschaeftsfuehrung: Prof. Dr.-Ing. Rudolf F. Schwarz
+Vorsitzender des Aufsichtsrats: General a. D. Wolfgang Altenburg
+
