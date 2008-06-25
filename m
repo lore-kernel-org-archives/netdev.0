@@ -1,34 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.27] cxgb3 - add missing adapter type for RDMA
-Date: Tue, 24 Jun 2008 23:09:24 -0400
-Message-ID: <4861B6E4.3040803@garzik.org>
-References: <20080623180259.12447.52386.stgit@speedy5>
+Subject: Re: [PATCH] [UPDATED] ixgbe: add LRO support
+Date: Tue, 24 Jun 2008 23:09:33 -0400
+Message-ID: <4861B6ED.1010903@garzik.org>
+References: <20080618222715.7333.59688.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, randy.dunlap@oracle.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48110 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48120 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754094AbYFYDJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2008 23:09:28 -0400
-In-Reply-To: <20080623180259.12447.52386.stgit@speedy5>
+	id S1756714AbYFYDJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2008 23:09:37 -0400
+In-Reply-To: <20080618222715.7333.59688.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+Jeff Kirsher wrote:
+> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 > 
-> T3C added support is now reflected to the RDMA driver.
+> Support for in-kernel LRO with the ability to enable/disable via ethtool
+> based on comments from Ben Hutchings.
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 > ---
 > 
->  drivers/net/cxgb3/cxgb3_offload.c |   21 ++++++++++++++++++++-
->  drivers/net/cxgb3/t3cdev.h        |    3 ++-
->  2 files changed, 22 insertions(+), 2 deletions(-)
+>  drivers/net/Kconfig               |    3 +
+>  drivers/net/ixgbe/ixgbe.h         |    9 +++
+>  drivers/net/ixgbe/ixgbe_ethtool.c |   11 ++++
+>  drivers/net/ixgbe/ixgbe_main.c    |  111 ++++++++++++++++++++++++++++++-------
+>  4 files changed, 112 insertions(+), 22 deletions(-)
 
 applied
 
