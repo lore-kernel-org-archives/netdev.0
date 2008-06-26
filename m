@@ -1,76 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [2.6 patch] build algorithms into the mac80211 module
-Date: Thu, 26 Jun 2008 15:46:15 +0200
-Message-ID: <1214487975.20763.46.camel@johannes.berg>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
-	 <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
-	 <1214298259.8967.260.camel@johannes.berg>
-	 <20080624124311.GC16021@cs181140183.pp.htv.fi>
-	 <20080624211222.GB25892@tuxdriver.com>
-	 <20080626103813.GB30359@cs181140183.pp.htv.fi>
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: Re: [PATCH 2/2] fs_enet: MDIO on GPIO support
+Date: Thu, 26 Jun 2008 17:55:23 +0400
+Message-ID: <20080626175523.54728d07@vitb.ru.mvista.com>
+References: <200805261152.37636.laurentp@cse-semaphore.com>
+	<48592322.3090201@pobox.com>
+	<200806181716.40362.laurentp@cse-semaphore.com>
+	<200806261321.24338.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kWi03TUrJsXCx1PGffWH"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
+	Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
+To: Laurent Pinchart <laurentp@cse-semaphore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:36383 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763476AbYFZNqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 09:46:34 -0400
-In-Reply-To: <20080626103813.GB30359@cs181140183.pp.htv.fi>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:5360 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752257AbYFZNzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 09:55:18 -0400
+In-Reply-To: <200806261321.24338.laurentp@cse-semaphore.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 26 Jun 2008 13:21:23 +0200
+Laurent Pinchart <laurentp@cse-semaphore.com> wrote:
 
---=-kWi03TUrJsXCx1PGffWH
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> > There should be no dependencies. When the OF GPIO support is not selected 
+> > linux/of_gpio.h will define of_get_gpio() as a stub, so the fs_enet driver 
+> > will fall back to the legacy binding.  
+> 
+> Have we reached a consensus on which tree the patch should go to ?
+I think it should go through powerpc tree, not seeing too much netdev-generic stuff in here.
+If noone will object, Kumar will pick it up I guess...
 
-On Thu, 2008-06-26 at 13:38 +0300, Adrian Bunk wrote:
-> On Tue, Jun 24, 2008 at 05:12:22PM -0400, John W. Linville wrote:
-> > On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
-> >=20
-> > > Can we get one of either:
-> > > - all selected mac80211 algorithms are built into the mac80211 module=
- or
-> >=20
-> > This seems fine to me.
-> >=20
-> > > - all selected mac80211 algorithms (including the default one) are in
-> > >   their own modules
-> >=20
-> > We got here trying to avoid this one in the first place.
->=20
-> What about the patch below?
-
-Seems ok to me, especially since we don't have a tunable for the rate
-control algorithm nor any other than the iwlwifi ones and this one...
-
-johannes
-
---=-kWi03TUrJsXCx1PGffWH
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJIY52kAAoJEKVg1VMiehFYLbsP/3opCtQ2M5NAvPlUxMJWm/6z
-rPU7jVxPICD2yPcavke0UueZEyitMqVIWsXzUjRG1M1TrOMzXa8qYnQrvfGre4rM
-0AjmSgdCCxVfmIyNuDMrK/HqEIPdcTNeYceP3VyeUz/NT8axVXPw7I1OyGuSmvmP
-H4X+BHtqFN8bmUsSDd1ADUAQ1Dv02MvkhADHceWurnQkdCWosOyeaeEKG0rdW8NG
-FrQ8Ip0U8Cow0m5NzVAatcmWtWwJxjl58Ic1Cnsb9gvtYuvGlX1ltK7vBRGsdzUo
-BGfjP2HI7/NarAXYJGaWTmGDm8+cOPZlCEldP/+vW/YWm/IBJGnkU37sXZbUTyFI
-ur8t8HWamgpkb7kTbKnMh09XBJLyzunzNpFc/6EvxfhRoYR3rqb64f3spwhsxdG0
-1zZkpNgwcg3uZxqP+ZKW7QYOirH28D60qD6EnJVxDx6oWv/Hi/lc9XSvjnf+breU
-pR7OSy4sNSTx8IDxTRy98OZ+lwrm4oJ+tnneEOOZY2ZYMUw9V3rN5WVa3G+OqLi5
-b/hgsMQa+4x52RhjiBXPPvf28sCBJ7iiiYqaAhOva3ep9+khdV2eTQ9CiD1KJ9Jx
-lP52pxPX690N4tfIqelVSDh6npr0SwbgDjatWNntUYZYy6Egy4vjtpDQxv1OmR1d
-uhxDlfeDCPHeISM5GSRm
-=473j
------END PGP SIGNATURE-----
-
---=-kWi03TUrJsXCx1PGffWH--
-
+-- 
+Sincerely, 
+Vitaly
