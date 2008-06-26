@@ -1,74 +1,92 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Fri, 27 Jun 2008 01:37:10 +0300
-Message-ID: <1ba2fa240806261537h2dddf468h67243f84772d9da3@mail.gmail.com>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
-	 <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
-	 <1214298259.8967.260.camel@johannes.berg>
-	 <20080624124311.GC16021@cs181140183.pp.htv.fi>
-	 <20080624211222.GB25892@tuxdriver.com>
-	 <43e72e890806261435t3d06e955x590a6fafb223bbca@mail.gmail.com>
+From: "Justin Mattock" <justinmattock@gmail.com>
+Subject: Re: stuck tcp connections 2.6.26-rc7
+Date: Thu, 26 Jun 2008 22:40:14 +0000
+Message-ID: <dd18b0c30806261540l56d68868p1d32597b2f5cb171@mail.gmail.com>
+References: <dd18b0c30806241303g755e3881y4ea7d403eb2922fc@mail.gmail.com>
+	 <dd18b0c30806242325j4f6d1b1bw1cdde7ea08ad12e2@mail.gmail.com>
+	 <2c0942db0806250816r123affb4x4ef17f4773180a10@mail.gmail.com>
+	 <20080625.152447.178284093.davem@davemloft.net>
+	 <dd18b0c30806251629q78abef79sb5b3d5a1ab17a004@mail.gmail.com>
+	 <dd18b0c30806260054p654e4ca9o57bf3e9b20f75907@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Adrian Bunk" <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Adrian Bunk" <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <43e72e890806261435t3d06e955x590a6fafb223bbca-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Cc: ray-lk@madrabbit.org, didier@raboud.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.251]:6689 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753865AbYFZWkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 18:40:15 -0400
+Received: by an-out-0708.google.com with SMTP id d40so53823and.103
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 15:40:14 -0700 (PDT)
+In-Reply-To: <dd18b0c30806260054p654e4ca9o57bf3e9b20f75907@mail.gmail.com>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2008 at 12:35 AM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, Jun 24, 2008 at 2:12 PM, John W. Linville
-> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
+On Thu, Jun 26, 2008 at 7:54 AM, Justin Mattock <justinmattock@gmail.com> wrote:
+> On Wed, Jun 25, 2008 at 11:29 PM, Justin Mattock
+> <justinmattock@gmail.com> wrote:
+>> On Wed, Jun 25, 2008 at 10:24 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: "Ray Lee" <ray-lk@madrabbit.org>
+>>> Date: Wed, 25 Jun 2008 08:16:20 -0700
+>>>
+>>>> On my system, I've noticed that the flashplugin can manage to starve
+>>>> other processes in a pure scheduler sort of way, so you might try
+>>>> running latencytop to see if there's some sort of issue there. OTOH,
+>>>> I've noticed firefox itself hang for 3-15 seconds in the middle of a
+>>>> read (just as you describe), with nothing else going on in the system,
+>>>> so <shrug>. I've been blaming firefox, but I could be wrong.
+>>>
+>>> See if firefox is stuck in disk wait when things get wedged like
+>>> this.
+>>>
 >>
->>> Can we get one of either:
->>> - all selected mac80211 algorithms are built into the mac80211 module or
+>> Hello; Thanks for the response. I must admit I need to figure out how
+>> to do that(disk wait mode with firefox).
+>> Aside from that, it seems there are reports of this with the latest
+>> and so forth. As a note
+>> This explains why and when I plugged in an older kernel that had no
+>> problems at all,
+>> was suddenly giving me problems, leading me to believe  that my
+>> service provider(was bandwidth limiting), or a script kiddie
+>> was messing with the line, but this did not seem to be the case; Thankfully.
+>> I'll look into it and let you know.
+>> regards;
 >>
->> This seems fine to me.
+>> --
+>> Justin P. Mattock
+>>
 >
-> OK so just to be clear -- moving forward we strive to not allow driver
-> specific rate control algorithms and push out current ones into
-> mac80211? This would mean we don't have to *cleanup* support for
-> driver specific RCs but instead just have them stashed in as part of
-> the build. The difficulty here lies in ensuring they do work for well
-> for other drivers but I do agree it strives to cleanup RC code. I
-> think vendors also tend to use a few driver specific tweaks to boost
-> their own throughput in their own RCs though. Can't say for sure right
-> now of specific details but I'll try to get back to you with them.
-> Perhaps Tomas can say more about that for iwl's RCs.
+> Hello;
+> I must be mature too admit when I'm wrong, (I'm very wrong, and stupid);
+>  I was too quick to judge. : (          (apologize firefox)
+> I had overlooked one aspect of the situation: "wpa_supplicant",
+> After watching wpa_supplicant do it's job, I had noticed that it keeps
+> CTRL-EVENT-DISCONNECT - Disconnect event - remove keys,
+> and CTRL-EVENT-SCAN-RESULTS and trying to associate with
+> XX:XX:XX:XX:XX (SSID= XX freq= 2462 MHz).
+> anyways despite the manual jargon of wpa_supplicant; basically
+> whenever wpa_supplicant disconnects  and reconnects  the keys
+> I had noticed flash player, and any other connection's to stop or even
+> pause during the playback, depending on how well the transmission was.
+> So for now as for what I can see: wpa_supplicant is the main cause of
+> my troubles.
+> regards,
 >
-Annual talk about rate scaling algorithm :)
-I understand of need of clean framework however:
-Our rate scaling algorithm has intimate knowledge of iwlwifi firmware
-and hardware and I'm currently not seeing any benefit for it for other
-HW.
-I'm also pretty much sure that no other algorithm can do same job for
-iwlwifi driver.
-For example the rate is not attached to each frame but supplied out of
-band in a form of 16 steps rate sale table. I've explained already
-benefits of this.
+>
+>
+> --
+> Justin P. Mattock
+>
 
-Detaching algorithm form the driver would at minimum require opening
-another API for rate scaling not usable by others. And this is not the
-end. This just doesn't worth the sweat if no other algorithm can be
-used for iwlwifi and this algorithm cannot be used by others.
-This would be cleaning code for sake of cleaning code without any
-benefits. If there be finally some other 11n card in Linux we can see
-the new picture and reevaluate.
-I'm not the Kconfig expert but  desalinizing the current iwlwifi
-driver for prize of removing MAC80211_RC_DEFAULT_NONE just doesn't
-feel OK.
-Thanks
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yep that resolved the issue. i.e. madwifi latest svn and previous
+versions has a bug in it to where it is causing wpa_supplicant
+to constantly disconnect and connect (re keying event) under heavy
+loads resulting in horrible internet connections.
+loaded an older version prior to march 08 and voila no problems(knock on wood)
+I'll monitor this for a few days, and see what results of it.
+-- 
+Justin P. Mattock
