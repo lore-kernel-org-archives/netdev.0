@@ -1,51 +1,54 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Thu, 26 Jun 2008 21:10:06 +0300
-Message-ID: <20080626181006.GB22827@cs181140183.pp.htv.fi>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi> <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com> <1214298259.8967.260.camel@johannes.berg> <20080624124311.GC16021@cs181140183.pp.htv.fi> <1214502942.4432.6.camel@localhost>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] igb: completely disable interrupts during netpoll
+Date: Thu, 26 Jun 2008 14:12:52 -0400
+Message-ID: <20080626181252.GD32408@gospo.rdu.redhat.com>
+References: <20080625141511.GH22981@gospo.rdu.redhat.com> <20080625.152751.154176346.davem@davemloft.net> <36D9DB17C6DE9E40B059440DB8D95F52057B3FE5@orsmsx418.amr.corp.intel.com> <20080626.021658.126239340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Mattias Nissler <mattias.nissler@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, andy@greyhouse.net,
+	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:56850 "EHLO smtp6.pp.htv.fi"
+Received: from mx1.redhat.com ([66.187.233.31]:41178 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753418AbYFZSMR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 14:12:17 -0400
+	id S1756036AbYFZSNF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 14:13:05 -0400
 Content-Disposition: inline
-In-Reply-To: <1214502942.4432.6.camel@localhost>
+In-Reply-To: <20080626.021658.126239340.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 26, 2008 at 07:55:42PM +0200, Mattias Nissler wrote:
-> Just what I remember about the discussion that led to the ugly Makefile.
+On Thu, Jun 26, 2008 at 02:16:58AM -0700, David Miller wrote:
+> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+> Date: Thu, 26 Jun 2008 00:23:59 -0700
 > 
-> On Tue, 2008-06-24 at 15:43 +0300, Adrian Bunk wrote:
-> > 
-> > Can we get one of either:
-> > - all selected mac80211 algorithms are built into the mac80211 module or
+> > I think the deadlocks occur (only when using netpoll) because the tx
+> > cleanup (igb_clean_tx_irq) is being called simultaneously from two
+> > routines, which generally is guaranteed not to happen in regular
+> > everyday napi mode because of the bh_disable before calling dev->poll.
 > 
-> IIRC, this was originally voted against because this approach would
-> increase kernel image size or module size unnecessarily.
->...
+> Thanks for the info, it's clear what the IGB driver bug is.
+> 
+> It's that the TX reclaim is not happening in the ->poll() handler.  If
+> you did that, all of this would work out correctly and you wouldn't
+> need to disable the IRQ with disable_irq() to prevent deadlocks.
+> 
+> Instead IGB what does is do TX reclaim inside of it's hw interrupt
+> handler.
+> 
+> And that is actually making much more work than if you did it properly
+> from a NAPI ->poll() context.  When igb_unmap_and_free_tx_resource()
+> runs from the HW interrupt it is going to queue these packet frees up
+> into the mid-layer's per-cpu TX free queue, and that will schedule yet
+> another software interrupt to actually run the kfree_skb()'s on all of
+> these liberated TX frames.
+> 
+> I moved the napi context out of the generic net device, use it! :-)
+> And then you can call dev_kfree_skb() directly from
+> igb_unmap_and_free_tx_resource() instead of dev_kfree_skb_any().
 
-I don't see this point here.
-
-People who _really_ need small kernels can still disable unneeded 
-algorithms, and distribution kernels are anyway not usable for cases 
-where a few kB more or less would matter.
-
-> Mattias
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+This is basically the same problem that I fixed with e1000 and posted
+last week.  I remember that igb and ixgbe had the same possible, bug but
+hadn't gotten around to posting it yet.
 
