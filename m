@@ -1,75 +1,61 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Re: (usagi-users 04056) Re: ping6 is sent out from wrong interface
-Date: Thu, 26 Jun 2008 09:48:26 +0900
-Message-ID: <4862E75A.8060006@miraclelinux.com>
-References: <4861ED72.6080100@miraclelinux.com> <69A5E767EC979846826F566C7932A3F207233B5F@exchange03.iabg.de> <48621B7E.5090600@miraclelinux.com> <69A5E767EC979846826F566C7932A3F207233D99@exchange03.iabg.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: e1000e "Detected Tx Unit Hang"
+Date: Thu, 26 Jun 2008 08:52:53 +0800
+Message-ID: <20080626005253.GA25316@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: usagi-users@ml.linux-ipv6.org,
-	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2k=?=
-	 =?ISO-2022-JP?B?IC8gGyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	usagi-users@linux-ipv6.org
-To: Fey Marcus <Fey@iabg.de>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:14485 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306AbYFZAs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 20:48:28 -0400
-In-Reply-To: <69A5E767EC979846826F566C7932A3F207233D99@exchange03.iabg.de>
+Received: from rhun.apana.org.au ([64.62.148.172]:44359 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754826AbYFZAw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 20:52:57 -0400
+Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
+	by arnor.apana.org.au with esmtp (Exim 4.63 #1 (Debian))
+	id 1KBfjK-0007LS-H2
+	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 10:52:54 +1000
+Received: from herbert by gondolin.me.apana.org.au with local (Exim 3.36 #1 (Debian))
+	id 1KBfjK-0006ak-00
+	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 08:52:54 +0800
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcus
+Hi:
 
-Thank you for your comment.
+I'm getting these errors after upgrading to 2.6.26-rc8 (previously
+running Red Hat's 2.6.18-53.el5xen which was stable):
 
->>
->> Thank you for your quick reply.
->>
->>> It's due to routing.
->> For the reason of selecting 'eth0', I agree.
->> But, I think the device is specified before looking up the 
->> routing table in this case.
-> 
-> Well, ping's man page reads: 
-> ---
->        -I interface address
->               Set source address to specified interface  address.  Argument
->               may  be  numeric  IP  address or name of device. When pinging
->               IPv6 link-local address this option is required.
-> ---
-> 
-> So you only set the address, not the interface to be used for sending.
+Jun 26 08:26:16 gorgoroth kernel: eth0: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+Jun 26 08:27:28 gorgoroth kernel: eth0: TSO is Disabled
+Jun 26 08:37:29 gorgoroth kernel: eth0: Detected Tx Unit Hang:
+Jun 26 08:37:29 gorgoroth kernel:   TDH                  <ca>
+Jun 26 08:37:29 gorgoroth kernel:   TDT                  <ce>
+Jun 26 08:37:29 gorgoroth kernel:   next_to_use          <ce>
+Jun 26 08:37:29 gorgoroth kernel:   next_to_clean        <c9>
+Jun 26 08:37:29 gorgoroth kernel: buffer_info[next_to_clean]:
+Jun 26 08:37:29 gorgoroth kernel:   time_stamp           <2d235>
+Jun 26 08:37:29 gorgoroth kernel:   next_to_watch        <cb>
+Jun 26 08:37:29 gorgoroth kernel:   jiffies              <2d49c>
+Jun 26 08:37:29 gorgoroth kernel:   next_to_watch.status <0>
+Jun 26 08:37:31 gorgoroth kernel: eth0: Detected Tx Unit Hang:
+Jun 26 08:37:31 gorgoroth kernel:   TDH                  <ca>
+Jun 26 08:37:31 gorgoroth kernel:   TDT                  <ce>
+Jun 26 08:37:31 gorgoroth kernel:   next_to_use          <ce>
+Jun 26 08:37:31 gorgoroth kernel:   next_to_clean        <c9>
+Jun 26 08:37:31 gorgoroth kernel: buffer_info[next_to_clean]:
+Jun 26 08:37:31 gorgoroth kernel:   time_stamp           <2d235>
+Jun 26 08:37:31 gorgoroth kernel:   next_to_watch        <cb>
+Jun 26 08:37:31 gorgoroth kernel:   jiffies              <2d690>
+Jun 26 08:37:31 gorgoroth kernel:   next_to_watch.status <0>
+Jun 26 08:37:32 gorgoroth kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Jun 26 08:37:34 gorgoroth kernel: eth0: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
 
-Then, the man page doesn't match with the implementation.
+This happens with or without TSO enabled.
 
-> 
->>> ...with eth0 being preferred over eth1 for multicast packets.
->>> You could add a dedicated route for ff02::/16 to make the 
->> kernel output the packet via eth1.
->>
->> This works when using only "eth1" for multicasts.
->> When multiple I/Fs are connected to separate networks, this 
->> scheme requires changing the route every time a user need to 
->> send ping to different network.
->>
-> 
-> Ok, my proposition was a bit too general. It would probably be better to set up routes for the exact addresses. So in your case to ff02::1. 
-> 
-> Of course, if you wish to send the same packet via several interfaces within a short time, this would still result in adding and deleting the routes over and over again.
-> 
->> I think kernel can solve this problem better.
->>
-> 
-> I don't think this would be intended....
-> 
-
-I was just confused by the difference of
-source address things between IPv4 and IPv6.
-
-Regards,
-Naohiro Ooiwa
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
