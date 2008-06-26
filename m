@@ -1,50 +1,59 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Thu, 26 Jun 2008 14:35:42 -0700
-Message-ID: <43e72e890806261435t3d06e955x590a6fafb223bbca@mail.gmail.com>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
-	 <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
-	 <1214298259.8967.260.camel@johannes.berg>
-	 <20080624124311.GC16021@cs181140183.pp.htv.fi>
-	 <20080624211222.GB25892@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: private email...
+Date: Thu, 26 Jun 2008 14:46:07 -0700 (PDT)
+Message-ID: <20080626.144607.67888608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Adrian Bunk" <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Adrian Bunk" <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Winkler, Tomas" <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080624211222.GB25892-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59400
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751328AbYFZVqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 17:46:08 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id A168DC8C192
+	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 14:46:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2008 at 2:12 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
->
->> Can we get one of either:
->> - all selected mac80211 algorithms are built into the mac80211 module or
->
-> This seems fine to me.
 
-OK so just to be clear -- moving forward we strive to not allow driver
-specific rate control algorithms and push out current ones into
-mac80211? This would mean we don't have to *cleanup* support for
-driver specific RCs but instead just have them stashed in as part of
-the build. The difficulty here lies in ensuring they do work for well
-for other drivers but I do agree it strives to cleanup RC code. I
-think vendors also tend to use a few driver specific tweaks to boost
-their own throughput in their own RCs though. Can't say for sure right
-now of specific details but I'll try to get back to you with them.
-Perhaps Tomas can say more about that for iwl's RCs.
+People have been doing something over time that really bugs the crap
+out of me.  So I'll state it publicly right now so that everyone knows
+that it is not appropriate.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you aren't getting the response you want here about a patch or bug
+report you've posted, THE LAST THING you should do is send me a
+private email.
+
+If I had the time I would have looked at your stuff already, else it's
+sitting deep in my inbox waiting for me to have the necessary time to
+look into it.
+
+If you email me privately, that's time taken unfairly away from me,
+and that means it will take me longer to look at your stuff.  Private
+email to me is detrimental, and will have the exact opposite effect of
+what you're trying to accomplish.  When you email me privately, you
+are rudely forcing me and only me to look at your problem, instead of
+allowing the host of developers all over the world to possibly take
+a look at it and therefore offload the work from me.
+
+I cannot scale properly if people email me privately and don't work
+things out on the mailing list.  So in this sense it is rude, it
+is the wrong thing to do, and it is a poor use of global developer
+resources.  So just don't do it.
+
+These past few days I haven't processed anyone's patches or bug
+reports, because I want to make some progress on the things I want to
+work on.  And I make the most progress on such things when I do not
+allow myself to be distracted by bug reports and patch review.
+
+So nobody is being treated unfairly or different.
+
+You just have to be patient.  If you think your posting was lost or
+forgotten, send a ping here to the list, NOT to me privately.
+
+I used to do the courtesy of sending a canned reply to private emails
+at least letting them know that I will not read it and that they
+should instead use the lists.  But I am not going to even do that any
+more, it eats too much of my time and my time is valuable to me.
