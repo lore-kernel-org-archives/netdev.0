@@ -1,40 +1,30 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [patch v3 01/12] DM9000: Remove the 2 resources probe scheme.
-Date: Thu, 26 Jun 2008 13:42:19 +0100
-Message-ID: <20080626124219.GA4289@fluff.org.uk>
-References: <20080624211556.566149406@fluff.org.uk> <20080624211903.586586947@fluff.org.uk> <4861B63D.1010509@garzik.org>
+From: "=?BIG5?B?rUqw+7Bh?=" <fmb7qe8753a@gmail.com>
+Subject: =?BIG5?B?pHPgvqzsp9669K22s12tcA==?=
+Date: Thu, 26 Jun 2008 21:13:54 +0800
+Message-ID: <70fae2e50806260613q33be695bl3dbecf6519c36a5a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
-	laurentp@cse-semaphore.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=BIG5
+Content-Transfer-Encoding: base64
+To: netinn@udngroup.com, netdev@vger.kernel.org,
+	net_teresaliu@wdpa.org.tw, net0258@yahoo.com.tw,
+	net22316356@yahoo.com.tw, net254548@yahoo.com.tw,
+	net51228@yahoo.com.tw, net55077@yahoo.c
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:61782 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756984AbYFZMm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 08:42:29 -0400
+Received: from ag-out-0708.google.com ([72.14.246.251]:44197 "EHLO
+	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761526AbYFZNN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 09:13:56 -0400
+Received: by ag-out-0708.google.com with SMTP id 31so203368agc.10
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 06:13:55 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <4861B63D.1010509@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2008 at 11:06:37PM -0400, Jeff Garzik wrote:
-> Ben Dooks wrote:
->> From: Laurent Pinchart <laurentp@cse-semaphore.com>
->>
->> The dm9000 driver accepts either 2 or 3 resources to describe the platform
->> devices. The 2 resources case abuses the ioresource mechanism by passing
->> ioremap()ed memory through the platform device resources. This patch removes
->> that case and converts boards that were using it to the 3 resources scheme.
->>
->> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
->> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
->
-> applied 1-12
-
-Great, thankyou.
-
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
-
-  'a smiley only costs 4 bytes'
+pHPgvqzsp9669K22s12tcAoKp9qtzKq6qXamrqFHq8ik4aq6qEOjuKXzpHCoxrGhoUGzo6xPpHPg
+vqq6pGqoxrGhCgqn2q3MpmKxwKVYpfi3fqfOtki69K+4pV2ndKtlpXi69K22rPykdSur4aV4ut6y
+erV7pqEKCq2trsmtrbZxsU2u17v5IKV1rW4kMjQsOTAwCgoopmKwZaO4pn4xMDBNQqSjra2sebZx
+uvSvuKrFtqEgLCA3LzGwX7FOpFe6pqywJDI5LDkwMCkKCqfarcywtaq6pKOldaxPuvSvuKFBptOs
+T7F6pfi3fqq6pEqkZgoKo7it06Zuqrql+Ld+uvSvuLjqrsanWa7Jp/O3c6q6s3Sr16xPq9ytq61u
+qroKCqX4t36i7aTGqrqwqqt+vei5zrakoUGltLN5sXqqurr0uPSq+a2xCgq/777cpHPgvqaotE6x
+eqq6udq3UQoKxXeq76jTuXGsorjftsCxTa37oV1TYW2hXqFHMDkzODc2NDM5NSAvIDA5ODAxMTk4
+MTIK
