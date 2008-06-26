@@ -1,7 +1,7 @@
 From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: [PATCH 2.6.25.3 2/5] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Thu, 26 Jun 2008 13:37:50 +0800
-Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE603B864@SHEXMB-01.global.atheros.com>
+Subject: [PATCH 2.6.25.3 3/5] atl1e: Atheros L1E Gigabit Ethernet driver
+Date: Thu, 26 Jun 2008 13:38:00 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE603B866@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -11,8 +11,8 @@ To: "jeff@garzik.org" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 175.210.DSNET ([203.110.175.210]:60476 "EHLO mail.atheros.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753988AbYFZFia convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 01:38:30 -0400
+	id S1751494AbYFZFjG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 01:39:06 -0400
 Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,10 +24,10 @@ Supportring AR8121, AR8113 and AR8114
 
 Signed-off-by: Jie Yang <jie.yang @atheros.com>
 ---
-diff -uprN -X linux-2.6.25.3.orig/Documentation/dontdiff linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_main.c linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_main.c
---- linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_main.c  1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_main.c       2008-06-20 11:23:23.000000000 +0800
-@@ -0,0 +1,2855 @@
+diff -uprN -X linux-2.6.25.3.orig/Documentation/dontdiff linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_hw.h linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_hw.h
+--- linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_hw.h    1970-01-01 08:00:00.000000000 +0800
++++ linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_hw.h 2008-06-20 11:22:34.000000000 +0800
+@@ -0,0 +1,1116 @@
 +/*
 + * Copyright(c) 2007 Atheros Corporation. All rights reserved.
 + *
@@ -53,3273 +53,1094 @@ diff -uprN -X linux-2.6.25.3.orig/Documentation/dontdiff linux-2.6.25.3.orig/dri
 + * to a spec from Atheros at present. *ahem* -- CHS
 + */
 +
++#ifndef _ATHEROS_HW_H__
++#define _ATHEROS_HW_H__
 +
-+#include "atl1e.h"
++#include "atl1e_osdep.h"
 +
-+char atl1e_driver_name[] = "ATL1e";
-+static char atl1e_driver_string[] =
-+       "Atheros(R) AR8121/AR8113/AR8114 PCI-E Ethernet Network Driver";
-+#ifndef CONFIG_ATL1E_NAPI
-+#define DRIVERNAPI
-+#else
-+#define DRIVERNAPI "-NAPI"
-+#endif
-+#define DRV_VERSION "1.0.0.7"DRIVERNAPI
-+char atl1e_driver_version[] = DRV_VERSION;
-+static char atl1e_copyright[] = "Copyright (c) 2007 Atheros Corporation.";
++struct atl1e_adapter;
++struct atl1e_hw;
 +
++/* function prototype */
++s32 atl1e_reset_hw(struct atl1e_hw *hw);
++s32 atl1e_read_mac_addr(struct atl1e_hw *hw);
++s32 atl1e_init_hw(struct atl1e_hw *hw);
++s32 atl1e_phy_commit(struct atl1e_hw *hw);
++s32 atl1e_get_speed_and_duplex(struct atl1e_hw *hw, u16 *speed, u16 *duplex);
++u32 atl1e_auto_get_fc(struct atl1e_adapter *adapter, u16 duplex);
++u32 atl1e_hash_mc_addr(struct atl1e_hw *hw, u8 *mc_addr);
++void atl1e_hash_set(struct atl1e_hw *hw, u32 hash_value);
++s32 atl1e_read_phy_reg(struct atl1e_hw *hw, u16 reg_addr, u16 *phy_data);
++s32 atl1e_write_phy_reg(struct atl1e_hw *hw, u32 reg_addr, u16 phy_data);
++void atl1e_read_pci_cfg(struct atl1e_hw *hw, u32 reg, u16 *value);
++void atl1e_write_pci_cfg(struct atl1e_hw *hw, u32 reg, u16 *value);
++s32 atl1e_validate_mdi_setting(struct atl1e_hw *hw);
++void set_mac_addr(struct atl1e_hw *hw);
++bool read_eeprom(struct atl1e_hw *hw, u32 offset, u32 *p_value);
++bool write_eeprom(struct atl1e_hw *hw, u32 offset, u32 value);
++s32 atl1e_phy_enter_power_saving(struct atl1e_hw *hw);
++s32 atl1e_phy_leave_power_saving(struct atl1e_hw *hw);
++s32 atl1e_phy_init(struct atl1e_hw *hw);
++int check_eeprom_exist(struct atl1e_hw *hw);
++void atl1e_force_ps(struct atl1e_hw *hw);
++s32 atl1e_restart_autoneg(struct atl1e_hw *hw);
++
++/* register definition */
++#define REG_PM_CTRLSTAT             0x44
++
++#define REG_PCIE_CAP_LIST           0x58
++
++#define REG_DEVICE_CAP              0x5C
++#define     DEVICE_CAP_MAX_PAYLOAD_MASK     0x7
++#define     DEVICE_CAP_MAX_PAYLOAD_SHIFT    0
++
++#define REG_DEVICE_CTRL             0x60
++#define     DEVICE_CTRL_MAX_PAYLOAD_MASK    0x7
++#define     DEVICE_CTRL_MAX_PAYLOAD_SHIFT   5
++#define     DEVICE_CTRL_MAX_RREQ_SZ_MASK    0x7
++#define     DEVICE_CTRL_MAX_RREQ_SZ_SHIFT   12
++
++#define REG_VPD_CAP                 0x6C
++#define     VPD_CAP_ID_MASK                 0xff
++#define     VPD_CAP_ID_SHIFT                0
++#define     VPD_CAP_NEXT_PTR_MASK           0xFF
++#define     VPD_CAP_NEXT_PTR_SHIFT          8
++#define     VPD_CAP_VPD_ADDR_MASK           0x7FFF
++#define     VPD_CAP_VPD_ADDR_SHIFT          16
++#define     VPD_CAP_VPD_FLAG                0x80000000
++
++#define REG_VPD_DATA                0x70
++
++#define REG_SPI_FLASH_CTRL          0x200
++#define     SPI_FLASH_CTRL_STS_NON_RDY      0x1
++#define     SPI_FLASH_CTRL_STS_WEN          0x2
++#define     SPI_FLASH_CTRL_STS_WPEN         0x80
++#define     SPI_FLASH_CTRL_DEV_STS_MASK     0xFF
++#define     SPI_FLASH_CTRL_DEV_STS_SHIFT    0
++#define     SPI_FLASH_CTRL_INS_MASK         0x7
++#define     SPI_FLASH_CTRL_INS_SHIFT        8
++#define     SPI_FLASH_CTRL_START            0x800
++#define     SPI_FLASH_CTRL_EN_VPD           0x2000
++#define     SPI_FLASH_CTRL_LDSTART          0x8000
++#define     SPI_FLASH_CTRL_CS_HI_MASK       0x3
++#define     SPI_FLASH_CTRL_CS_HI_SHIFT      16
++#define     SPI_FLASH_CTRL_CS_HOLD_MASK     0x3
++#define     SPI_FLASH_CTRL_CS_HOLD_SHIFT    18
++#define     SPI_FLASH_CTRL_CLK_LO_MASK      0x3
++#define     SPI_FLASH_CTRL_CLK_LO_SHIFT     20
++#define     SPI_FLASH_CTRL_CLK_HI_MASK      0x3
++#define     SPI_FLASH_CTRL_CLK_HI_SHIFT     22
++#define     SPI_FLASH_CTRL_CS_SETUP_MASK    0x3
++#define     SPI_FLASH_CTRL_CS_SETUP_SHIFT   24
++#define     SPI_FLASH_CTRL_EROM_PGSZ_MASK   0x3
++#define     SPI_FLASH_CTRL_EROM_PGSZ_SHIFT  26
++#define     SPI_FLASH_CTRL_WAIT_READY       0x10000000
++
++#define REG_SPI_ADDR                0x204
++
++#define REG_SPI_DATA                0x208
++
++#define REG_SPI_FLASH_CONFIG        0x20C
++#define     SPI_FLASH_CONFIG_LD_ADDR_MASK   0xFFFFFF
++#define     SPI_FLASH_CONFIG_LD_ADDR_SHIFT  0
++#define     SPI_FLASH_CONFIG_VPD_ADDR_MASK  0x3
++#define     SPI_FLASH_CONFIG_VPD_ADDR_SHIFT 24
++#define     SPI_FLASH_CONFIG_LD_EXIST       0x4000000
++
++
++#define REG_SPI_FLASH_OP_PROGRAM    0x210
++#define REG_SPI_FLASH_OP_SC_ERASE   0x211
++#define REG_SPI_FLASH_OP_CHIP_ERASE 0x212
++#define REG_SPI_FLASH_OP_RDID       0x213
++#define REG_SPI_FLASH_OP_WREN       0x214
++#define REG_SPI_FLASH_OP_RDSR       0x215
++#define REG_SPI_FLASH_OP_WRSR       0x216
++#define REG_SPI_FLASH_OP_READ       0x217
++
++#define REG_TWSI_CTRL               0x218
++#define     TWSI_CTRL_LD_OFFSET_MASK        0xFF
++#define     TWSI_CTRL_LD_OFFSET_SHIFT       0
++#define     TWSI_CTRL_LD_SLV_ADDR_MASK      0x7
++#define     TWSI_CTRL_LD_SLV_ADDR_SHIFT     8
++#define     TWSI_CTRL_SW_LDSTART            0x800
++#define     TWSI_CTRL_HW_LDSTART            0x1000
++#define     TWSI_CTRL_SMB_SLV_ADDR_MASK     0x0x7F
++#define     TWSI_CTRL_SMB_SLV_ADDR_SHIFT    15
++#define     TWSI_CTRL_LD_EXIST              0x400000
++#define     TWSI_CTRL_READ_FREQ_SEL_MASK    0x3
++#define     TWSI_CTRL_READ_FREQ_SEL_SHIFT   23
++#define     TWSI_CTRL_FREQ_SEL_100K         0
++#define     TWSI_CTRL_FREQ_SEL_200K         1
++#define     TWSI_CTRL_FREQ_SEL_300K         2
++#define     TWSI_CTRL_FREQ_SEL_400K         3
++#define     TWSI_CTRL_SMB_SLV_ADDR
++#define     TWSI_CTRL_WRITE_FREQ_SEL_MASK   0x3
++#define     TWSI_CTRL_WRITE_FREQ_SEL_SHIFT  24
++
++
++#define REG_PCIE_DEV_MISC_CTRL      0x21C
++#define     PCIE_DEV_MISC_CTRL_EXT_PIPE     0x2
++#define     PCIE_DEV_MISC_CTRL_RETRY_BUFDIS 0x1
++#define     PCIE_DEV_MISC_CTRL_SPIROM_EXIST 0x4
++#define     PCIE_DEV_MISC_CTRL_SERDES_ENDIAN    0x8
++#define     PCIE_DEV_MISC_CTRL_SERDES_SEL_DIN   0x10
++
++#define REG_PCIE_PHYMISC           0x1000
++#define PCIE_PHYMISC_FORCE_RCV_DET     0x4
++
++#define REG_LTSSM_TEST_MODE         0x12FC
++#define         LTSSM_TEST_MODE_DEF     0xE000
++
++/* Selene Master Control Register */
++#define REG_MASTER_CTRL             0x1400
++#define     MASTER_CTRL_SOFT_RST            0x1
++#define     MASTER_CTRL_MTIMER_EN           0x2
++#define     MASTER_CTRL_ITIMER_EN           0x4
++#define     MASTER_CTRL_MANUAL_INT          0x8
++#define     MASTER_CTRL_ITIMER2_EN          0x20
++#define     MASTER_CTRL_INT_RDCLR           0x40
++#define     MASTER_CTRL_LED_MODE           0x200
++#define     MASTER_CTRL_REV_NUM_SHIFT       16
++#define     MASTER_CTRL_REV_NUM_MASK        0xff
++#define     MASTER_CTRL_DEV_ID_SHIFT        24
++#define     MASTER_CTRL_DEV_ID_MASK         0xff
++
++/* Timer Initial Value Register */
++#define REG_MANUAL_TIMER_INIT       0x1404
++
++
++/* IRQ ModeratorTimer Initial Value Register */
++#define REG_IRQ_MODU_TIMER_INIT     0x1408   /* w */
++#define REG_IRQ_MODU_TIMER2_INIT    0x140A   /* w */
++
++
++#define REG_GPHY_CTRL               0x140C
++#define     GPHY_CTRL_EXT_RESET         1
++#define     GPHY_CTRL_PIPE_MOD          2
++#define     GPHY_CTRL_TEST_MODE_MASK    3
++#define     GPHY_CTRL_TEST_MODE_SHIFT   2
++#define     GPHY_CTRL_BERT_START        0x10
++#define     GPHY_CTRL_GATE_25M_EN       0x20
++#define     GPHY_CTRL_LPW_EXIT          0x40
++#define     GPHY_CTRL_PHY_IDDQ          0x80
++#define     GPHY_CTRL_PHY_IDDQ_DIS      0x100
++#define     GPHY_CTRL_PCLK_SEL_DIS      0x200
++#define     GPHY_CTRL_HIB_EN            0x400
++#define     GPHY_CTRL_HIB_PULSE         0x800
++#define     GPHY_CTRL_SEL_ANA_RST       0x1000
++#define     GPHY_CTRL_PHY_PLL_ON        0x2000
++#define     GPHY_CTRL_PWDOWN_HW                0x4000
++#define     GPHY_CTRL_DEFAULT (\
++               GPHY_CTRL_PHY_PLL_ON    |\
++               GPHY_CTRL_SEL_ANA_RST   |\
++               GPHY_CTRL_HIB_PULSE     |\
++               GPHY_CTRL_HIB_EN)
++
++#define     GPHY_CTRL_PW_WOL_DIS (\
++               GPHY_CTRL_PHY_PLL_ON    |\
++               GPHY_CTRL_SEL_ANA_RST   |\
++               GPHY_CTRL_HIB_PULSE     |\
++               GPHY_CTRL_HIB_EN        |\
++               GPHY_CTRL_PWDOWN_HW     |\
++               GPHY_CTRL_PCLK_SEL_DIS  |\
++               GPHY_CTRL_PHY_IDDQ)
++
++/* IRQ Anti-Lost Timer Initial Value Register */
++#define REG_CMBDISDMA_TIMER         0x140E
++
++
++/* Block IDLE Status Register */
++#define REG_IDLE_STATUS        0x1410
++#define     IDLE_STATUS_RXMAC       1    /* 1: RXMAC state machine is in non-IDLE state. 0: RXMAC is idling */
++#define     IDLE_STATUS_TXMAC       2    /* 1: TXMAC state machine is in non-IDLE state. 0: TXMAC is idling */
++#define     IDLE_STATUS_RXQ         4    /* 1: RXQ state machine is in non-IDLE state.   0: RXQ is idling   */
++#define     IDLE_STATUS_TXQ         8    /* 1: TXQ state machine is in non-IDLE state.   0: TXQ is idling   */
++#define     IDLE_STATUS_DMAR        0x10 /* 1: DMAR state machine is in non-IDLE state.  0: DMAR is idling  */
++#define     IDLE_STATUS_DMAW        0x20 /* 1: DMAW state machine is in non-IDLE state.  0: DMAW is idling  */
++#define     IDLE_STATUS_SMB         0x40 /* 1: SMB state machine is in non-IDLE state.   0: SMB is idling   */
++#define     IDLE_STATUS_CMB         0x80 /* 1: CMB state machine is in non-IDLE state.   0: CMB is idling   */
++
++/* MDIO Control Register */
++#define REG_MDIO_CTRL           0x1414
++#define     MDIO_DATA_MASK          0xffff  /* On MDIO write, the 16-bit control data to write to PHY MII management register */
++#define     MDIO_DATA_SHIFT         0       /* On MDIO read, the 16-bit status data that was read from the PHY MII management register*/
++#define     MDIO_REG_ADDR_MASK      0x1f    /* MDIO register address */
++#define     MDIO_REG_ADDR_SHIFT     16
++#define     MDIO_RW                 0x200000      /* 1: read, 0: write */
++#define     MDIO_SUP_PREAMBLE       0x400000      /* Suppress preamble */
++#define     MDIO_START              0x800000      /* Write 1 to initiate the MDIO master. And this bit is self cleared after one cycle*/
++#define     MDIO_CLK_SEL_SHIFT      24
++#define     MDIO_CLK_25_4           0
++#define     MDIO_CLK_25_6           2
++#define     MDIO_CLK_25_8           3
++#define     MDIO_CLK_25_10          4
++#define     MDIO_CLK_25_14          5
++#define     MDIO_CLK_25_20          6
++#define     MDIO_CLK_25_28          7
++#define     MDIO_BUSY               0x8000000
++#define     MDIO_AP_EN              0x10000000
++#define MDIO_WAIT_TIMES         10
++
++/* MII PHY Status Register */
++#define REG_PHY_STATUS           0x1418
++#define     PHY_STATUS_100M          0x20000
++#define     PHY_STATUS_EMI_CA        0x40000
++
++/* BIST Control and Status Register0 (for the Packet Memory) */
++#define REG_BIST0_CTRL              0x141c
++#define     BIST0_NOW                   0x1 /* 1: To trigger BIST0 logic. This bit stays high during the */
++/* BIST process and reset to zero when BIST is done */
++#define     BIST0_SRAM_FAIL             0x2 /* 1: The SRAM failure is un-repairable because it has address */
++/* decoder failure or more than 1 cell stuck-to-x failure */
++#define     BIST0_FUSE_FLAG             0x4 /* 1: Indicating one cell has been fixed */
++
++/* BIST Control and Status Register1(for the retry buffer of PCI Express) */
++#define REG_BIST1_CTRL              0x1420
++#define     BIST1_NOW                   0x1 /* 1: To trigger BIST0 logic. This bit stays high during the */
++/* BIST process and reset to zero when BIST is done */
++#define     BIST1_SRAM_FAIL             0x2 /* 1: The SRAM failure is un-repairable because it has address */
++/* decoder failure or more than 1 cell stuck-to-x failure.*/
++#define     BIST1_FUSE_FLAG             0x4
++
++/* SerDes Lock Detect Control and Status Register */
++#define REG_SERDES_LOCK             0x1424
++#define     SERDES_LOCK_DETECT          1  /* 1: SerDes lock detected . This signal comes from Analog SerDes */
++#define     SERDES_LOCK_DETECT_EN       2  /* 1: Enable SerDes Lock detect function */
++
++/* MAC Control Register  */
++#define REG_MAC_CTRL                0x1480
++#define     MAC_CTRL_TX_EN              1  /* 1: Transmit Enable */
++#define     MAC_CTRL_RX_EN              2  /* 1: Receive Enable */
++#define     MAC_CTRL_TX_FLOW            4  /* 1: Transmit Flow Control Enable */
++#define     MAC_CTRL_RX_FLOW            8  /* 1: Receive Flow Control Enable */
++#define     MAC_CTRL_LOOPBACK           0x10      /* 1: Loop back at G/MII Interface */
++#define     MAC_CTRL_DUPLX              0x20      /* 1: Full-duplex mode  0: Half-duplex mode */
++#define     MAC_CTRL_ADD_CRC            0x40      /* 1: Instruct MAC to attach CRC on all egress Ethernet frames */
++#define     MAC_CTRL_PAD                0x80      /* 1: Instruct MAC to pad short frames to 60-bytes, and then attach CRC. This bit has higher priority over CRC_EN */
++#define     MAC_CTRL_LENCHK             0x100     /* 1: Instruct MAC to check if length field matches the real packet length */
++#define     MAC_CTRL_HUGE_EN            0x200     /* 1: receive Jumbo frame enable */
++#define     MAC_CTRL_PRMLEN_SHIFT       10        /* Preamble length */
++#define     MAC_CTRL_PRMLEN_MASK        0xf
++#define     MAC_CTRL_RMV_VLAN           0x4000    /* 1: to remove VLAN Tag automatically from all receive packets */
++#define     MAC_CTRL_PROMIS_EN          0x8000    /* 1: Promiscuous Mode Enable */
++#define     MAC_CTRL_TX_PAUSE           0x10000   /* 1: transmit test pause */
++#define     MAC_CTRL_SCNT               0x20000   /* 1: shortcut slot time counter */
++#define     MAC_CTRL_SRST_TX            0x40000   /* 1: synchronized reset Transmit MAC module */
++#define     MAC_CTRL_TX_SIMURST         0x80000   /* 1: transmit simulation reset */
++#define     MAC_CTRL_SPEED_SHIFT        20        /* 10: gigabit 01:10M/100M */
++#define     MAC_CTRL_SPEED_MASK         0x300000
++#define     MAC_CTRL_SPEED_1000         2
++#define     MAC_CTRL_SPEED_10_100       1
++#define     MAC_CTRL_DBG_TX_BKPRESURE   0x400000  /* 1: transmit maximum backoff (half-duplex test bit) */
++#define     MAC_CTRL_TX_HUGE            0x800000  /* 1: transmit huge enable */
++#define     MAC_CTRL_RX_CHKSUM_EN       0x1000000 /* 1: RX checksum enable */
++#define     MAC_CTRL_MC_ALL_EN          0x2000000 /* 1: upload all multicast frame without error to system */
++#define     MAC_CTRL_BC_EN              0x4000000 /* 1: upload all broadcast frame without error to system */
++#define     MAC_CTRL_DBG                0x8000000 /* 1: upload all received frame to system (Debug Mode) */
++
++/* MAC IPG/IFG Control Register  */
++#define REG_MAC_IPG_IFG             0x1484
++#define     MAC_IPG_IFG_IPGT_SHIFT      0     /* Desired back to back inter-packet gap. The default is 96-bit time */
++#define     MAC_IPG_IFG_IPGT_MASK       0x7f
++#define     MAC_IPG_IFG_MIFG_SHIFT      8     /* Minimum number of IFG to enforce in between RX frames */
++#define     MAC_IPG_IFG_MIFG_MASK       0xff  /* Frame gap below such IFP is dropped */
++#define     MAC_IPG_IFG_IPGR1_SHIFT     16    /* 64bit Carrier-Sense window */
++#define     MAC_IPG_IFG_IPGR1_MASK      0x7f
++#define     MAC_IPG_IFG_IPGR2_SHIFT     24    /* 96-bit IPG window */
++#define     MAC_IPG_IFG_IPGR2_MASK      0x7f
++
++/* MAC STATION ADDRESS  */
++#define REG_MAC_STA_ADDR            0x1488
++
++/* Hash table for multicast address */
++#define REG_RX_HASH_TABLE           0x1490
++
++
++/* MAC Half-Duplex Control Register */
++#define REG_MAC_HALF_DUPLX_CTRL     0x1498
++#define     MAC_HALF_DUPLX_CTRL_LCOL_SHIFT   0      /* Collision Window */
++#define     MAC_HALF_DUPLX_CTRL_LCOL_MASK    0x3ff
++#define     MAC_HALF_DUPLX_CTRL_RETRY_SHIFT  12     /* Retransmission maximum, afterwards the packet will be discarded */
++#define     MAC_HALF_DUPLX_CTRL_RETRY_MASK   0xf
++#define     MAC_HALF_DUPLX_CTRL_EXC_DEF_EN   0x10000 /* 1: Allow the transmission of a packet which has been excessively deferred */
++#define     MAC_HALF_DUPLX_CTRL_NO_BACK_C    0x20000 /* 1: No back-off on collision, immediately start the retransmission */
++#define     MAC_HALF_DUPLX_CTRL_NO_BACK_P    0x40000 /* 1: No back-off on backpressure, immediately start the transmission after back pressure */
++#define     MAC_HALF_DUPLX_CTRL_ABEBE        0x80000 /* 1: Alternative Binary Exponential Back-off Enabled */
++#define     MAC_HALF_DUPLX_CTRL_ABEBT_SHIFT  20      /* Maximum binary exponential number */
++#define     MAC_HALF_DUPLX_CTRL_ABEBT_MASK   0xf
++#define     MAC_HALF_DUPLX_CTRL_JAMIPG_SHIFT 24      /* IPG to start JAM for collision based flow control in half-duplex */
++#define     MAC_HALF_DUPLX_CTRL_JAMIPG_MASK  0xf     /* mode. In unit of 8-bit time */
++
++/* Maximum Frame Length Control Register   */
++#define REG_MTU                     0x149c
++
++/* Wake-On-Lan control register */
++#define REG_WOL_CTRL                0x14a0
++#define     WOL_PATTERN_EN                  0x00000001
++#define     WOL_PATTERN_PME_EN              0x00000002
++#define     WOL_MAGIC_EN                    0x00000004
++#define     WOL_MAGIC_PME_EN                0x00000008
++#define     WOL_LINK_CHG_EN                 0x00000010
++#define     WOL_LINK_CHG_PME_EN             0x00000020
++#define     WOL_PATTERN_ST                  0x00000100
++#define     WOL_MAGIC_ST                    0x00000200
++#define     WOL_LINKCHG_ST                  0x00000400
++#define     WOL_CLK_SWITCH_EN               0x00008000
++#define     WOL_PT0_EN                      0x00010000
++#define     WOL_PT1_EN                      0x00020000
++#define     WOL_PT2_EN                      0x00040000
++#define     WOL_PT3_EN                      0x00080000
++#define     WOL_PT4_EN                      0x00100000
++#define     WOL_PT5_EN                      0x00200000
++#define     WOL_PT6_EN                      0x00400000
++/* WOL Length ( 2 DWORD ) */
++#define REG_WOL_PATTERN_LEN         0x14a4
++#define     WOL_PT_LEN_MASK                 0x7f
++#define     WOL_PT0_LEN_SHIFT               0
++#define     WOL_PT1_LEN_SHIFT               8
++#define     WOL_PT2_LEN_SHIFT               16
++#define     WOL_PT3_LEN_SHIFT               24
++#define     WOL_PT4_LEN_SHIFT               0
++#define     WOL_PT5_LEN_SHIFT               8
++#define     WOL_PT6_LEN_SHIFT               16
++
++/* Internal SRAM Partition Register */
++#define REG_SRAM_TRD_ADDR           0x1518
++#define REG_SRAM_TRD_LEN            0x151C
++#define REG_SRAM_RXF_ADDR           0x1520
++#define REG_SRAM_RXF_LEN            0x1524
++#define REG_SRAM_TXF_ADDR           0x1528
++#define REG_SRAM_TXF_LEN            0x152C
++#define REG_SRAM_TCPH_ADDR          0x1530
++#define REG_SRAM_PKTH_ADDR          0x1532
++
++/* Load Ptr Register */
++#define REG_LOAD_PTR                0x1534  /* Software sets this bit after the initialization of the head and tail */
 +
 +/*
-+ * atl1e_pci_tbl - PCI Device ID Table
-+ *
-+ * Wildcard entries (PCI_ANY_ID) should come last
-+ * Last entry must be all 0s
-+ *
-+ * { Vendor ID, Device ID, SubVendor ID, SubDevice ID,
-+ *   Class, Class Mask, private data (not used) }
++ * addresses of all descriptors, as well as the following descriptor
++ * control register, which triggers each function block to load the head
++ * pointer to prepare for the operation. This bit is then self-cleared
++ * after one cycle.
 + */
-+static struct pci_device_id atl1e_pci_tbl[] = {
-+       {PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATTANSIC_L1E)},
-+       /* required last entry */
-+       { 0 }
-+};
 +
-+MODULE_DEVICE_TABLE(pci, atl1e_pci_tbl);
-+
-+static const u16
-+atl1e_rx_page_vld_regs[AT_MAX_RECEIVE_QUEUE][AT_PAGE_NUM_PER_QUEUE] =
-+{
-+       {REG_HOST_RXF0_PAGE0_VLD, REG_HOST_RXF0_PAGE1_VLD},
-+       {REG_HOST_RXF1_PAGE0_VLD, REG_HOST_RXF1_PAGE1_VLD},
-+       {REG_HOST_RXF2_PAGE0_VLD, REG_HOST_RXF2_PAGE1_VLD},
-+       {REG_HOST_RXF3_PAGE0_VLD, REG_HOST_RXF3_PAGE1_VLD}
-+};
-+
-+static const u16 atl1e_rx_page_hi_addr_regs[AT_MAX_RECEIVE_QUEUE] =
-+{
-+       REG_RXF0_BASE_ADDR_HI,
-+       REG_RXF1_BASE_ADDR_HI,
-+       REG_RXF2_BASE_ADDR_HI,
-+       REG_RXF3_BASE_ADDR_HI
-+};
-+
-+static const u16
-+atl1e_rx_page_lo_addr_regs[AT_MAX_RECEIVE_QUEUE][AT_PAGE_NUM_PER_QUEUE] =
-+{
-+       {REG_HOST_RXF0_PAGE0_LO, REG_HOST_RXF0_PAGE1_LO},
-+       {REG_HOST_RXF1_PAGE0_LO, REG_HOST_RXF1_PAGE1_LO},
-+       {REG_HOST_RXF2_PAGE0_LO, REG_HOST_RXF2_PAGE1_LO},
-+       {REG_HOST_RXF3_PAGE0_LO, REG_HOST_RXF3_PAGE1_LO}
-+};
-+
-+static const u16
-+atl1e_rx_page_write_offset_regs[AT_MAX_RECEIVE_QUEUE][AT_PAGE_NUM_PER_QUEUE] =
-+{
-+       {REG_HOST_RXF0_MB0_LO,  REG_HOST_RXF0_MB1_LO},
-+       {REG_HOST_RXF1_MB0_LO,  REG_HOST_RXF1_MB1_LO},
-+       {REG_HOST_RXF2_MB0_LO,  REG_HOST_RXF2_MB1_LO},
-+       {REG_HOST_RXF3_MB0_LO,  REG_HOST_RXF3_MB1_LO}
-+};
-+
-+static const u16 atl1e_pay_load_size[] = {
-+       128, 256, 512, 1024, 2048, 4096,
-+};
-+
-+
-+int atl1e_up(struct atl1e_adapter *adapter);
-+void atl1e_down(struct atl1e_adapter *adapter);
-+#if 0
-+static int atl1e_reset(struct atl1e_adapter *adapter);
-+#endif
-+static int atl1e_setup_ring_resources(struct atl1e_adapter *adapter);
-+static void atl1e_free_ring_resources(struct atl1e_adapter *adapter);
-+void atl1e_reinit_locked(struct atl1e_adapter *adapter);
-+
-+
-+/* Local Function Prototypes */
-+static int atl1e_init_module(void);
-+static void atl1e_exit_module(void);
-+static int atl1e_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
-+#ifdef CONFIG_ATL1E_NAPI
-+static int atl1e_clean(struct napi_struct *napi, int budget);
-+#endif
-+static void __devexit atl1e_remove(struct pci_dev *pdev);
-+static int atl1e_open(struct net_device *netdev);
-+static int atl1e_close(struct net_device *netdev);
-+static int atl1e_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
-+static struct net_device_stats *atl1e_get_stats(struct net_device *netdev);
-+static int atl1e_tso_csum(struct atl1e_adapter *adapter, struct sk_buff *skb,
-+                       struct atl1e_tpd_desc *tpd_desc);
-+static void atl1e_tx_map(struct atl1e_adapter *adapter, struct sk_buff *skb,
-+                       struct atl1e_tpd_desc *tpd_desc);
-+static void atl1e_tx_queue(struct atl1e_adapter *adapter, u16 count,
-+                       struct atl1e_tpd_desc *tpd_desc);
-+static int atl1e_change_mtu(struct net_device *netdev, int new_mtu);
-+static void atl1e_set_multi(struct net_device *netdev);
-+static int atl1e_set_mac(struct net_device *netdev, void *p);
-+static int atl1e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
-+static void atl1e_tx_timeout(struct net_device *dev);
-+static irqreturn_t atl1e_intr(int irq, void *data);
-+static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter);
-+
-+static void atl1e_update_hw_stats(struct atl1e_adapter *adapter);
-+static void atl1e_init_ring_resources(struct atl1e_adapter *adapter);
-+static int atl1e_sw_init(struct atl1e_adapter *adapter);
-+static int atl1e_alloc_queues(struct atl1e_adapter *adapter);
-+
-+static void atl1e_phy_config(unsigned long data);
-+static void atl1e_reset_task(struct work_struct *work);
-+static void atl1e_link_chg_task(struct work_struct *work);
-+static void atl1e_link_chg_event(struct atl1e_adapter *adapter);
-+void atl1e_set_ethtool_ops(struct net_device *netdev);
-+static int atl1e_check_link(struct atl1e_adapter *adapter);
-+static void atl1e_init_ring_ptrs(struct atl1e_adapter *adapter);
-+static s32 atl1e_configure(struct atl1e_adapter *adapter);
-+#ifdef CONFIG_ATL1E_NAPI
-+static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
-+                               int *work_done, int work_to_do);
-+#else
-+static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que);
-+#endif
-+
-+static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter);
-+static void atl1e_clean_rx_ring(struct atl1e_adapter *adapter);
-+
-+static int atl1e_mii_ioctl(struct net_device *netdev,
-+                          struct ifreq *ifr, int cmd);
-+
-+static void atl1e_vlan_rx_register(struct net_device *netdev,
-+                               struct vlan_group *grp);
-+static void atl1e_restore_vlan(struct atl1e_adapter *adapter);
-+
-+static int atl1e_suspend(struct pci_dev *pdev, pm_message_t state);
-+#ifdef CONFIG_PM
-+static int atl1e_resume(struct pci_dev *pdev);
-+#endif
-+
-+static void atl1e_shutdown(struct pci_dev *pdev);
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/* for netdump / net console */
-+static void atl1e_netpoll(struct net_device *netdev);
-+#endif
-+
-+static pci_ers_result_t atl1e_io_error_detected(struct pci_dev *pdev,
-+               pci_channel_state_t state);
-+static pci_ers_result_t atl1e_io_slot_reset(struct pci_dev *pdev);
-+static void atl1e_io_resume(struct pci_dev *pdev);
-+
-+static struct pci_error_handlers atl1e_err_handler = {
-+       .error_detected = atl1e_io_error_detected,
-+       .slot_reset = atl1e_io_slot_reset,
-+       .resume = atl1e_io_resume,
-+};
-+
-+static struct pci_driver atl1e_driver = {
-+       .name     = atl1e_driver_name,
-+       .id_table = atl1e_pci_tbl,
-+       .probe    = atl1e_probe,
-+       .remove   = __devexit_p(atl1e_remove),
-+       /* Power Managment Hooks */
-+#ifdef CONFIG_PM
-+       .suspend  = atl1e_suspend,
-+       .resume   = atl1e_resume,
-+#endif
-+       .shutdown = atl1e_shutdown,
-+       .err_handler = &atl1e_err_handler
-+};
-+
-+MODULE_AUTHOR("Atheros Corporation, <xiong.huang@atheros.com>, Jie Yang <jie.yang@atheros.com>");
-+MODULE_DESCRIPTION("Atheros 1000M Ethernet Network Driver");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
-+
-+/**
-+ * atl1e_init_module - Driver Registration Routine
-+ *
-+ * atl1e_init_module is the first routine called when the driver is
-+ * loaded. All it does is register with the PCI subsystem.
-+ **/
-+
-+static int __init atl1e_init_module(void)
-+{
-+       int ret;
-+
-+       printk(KERN_INFO "%s - version %s\n",
-+                       atl1e_driver_string, atl1e_driver_version);
-+       printk(KERN_INFO "%s\n", atl1e_copyright);
-+       ret = pci_register_driver(&atl1e_driver);
-+
-+       return ret;
-+}
-+
-+module_init(atl1e_init_module);
-+
-+/**
-+ * atl1e_exit_module - Driver Exit Cleanup Routine
-+ *
-+ * atl1e_exit_module is called just before the driver is removed
-+ * from memory.
-+ **/
-+
-+static void __exit atl1e_exit_module(void)
-+{
-+       pci_unregister_driver(&atl1e_driver);
-+
-+}
-+
-+module_exit(atl1e_exit_module);
-+
-+static int atl1e_request_irq(struct atl1e_adapter *adapter)
-+{
-+       struct net_device *netdev = adapter->netdev;
-+       int flags = 0;
-+       int err = 0;
-+
-+       adapter->have_msi = true;
-+       err = pci_enable_msi(adapter->pdev);
-+       if (err) {
-+               AT_DBG("Unable to allocate MSI interrupt Error: %d\n", err);
-+               adapter->have_msi = false;
-+       }
-+
-+       if (!adapter->have_msi)
-+               flags |= IRQF_SHARED;
-+
-+       err = request_irq(adapter->pdev->irq, &atl1e_intr, flags,
-+                       netdev->name, netdev);
-+       if (err) {
-+               AT_DBG("Unable to allocate interrupt Error: %d\n", err);
-+               if (adapter->have_msi)
-+                       pci_disable_msi(adapter->pdev);
-+               return err;
-+       }
-+       AT_DBG("atl1e_request_irq OK\n");
-+       return err;
-+}
-+
-+static void atl1e_free_irq(struct atl1e_adapter *adapter)
-+{
-+       struct net_device *netdev = adapter->netdev;
-+
-+       free_irq(adapter->pdev->irq, netdev);
-+
-+       if (adapter->have_msi)
-+               pci_disable_msi(adapter->pdev);
-+}
-+
-+static void atl1e_setup_pcicmd(struct pci_dev *pdev)
-+{
-+       u16 cmd;
-+
-+       pci_read_config_word(pdev, PCI_COMMAND, &cmd);
-+       cmd &= ~(PCI_COMMAND_INTX_DISABLE | PCI_COMMAND_IO);
-+       cmd |=  (PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-+       pci_write_config_word(pdev, PCI_COMMAND, cmd);
-+
-+       /*
-+        * some motherboards BIOS(PXE/EFI) driver may set PME
-+        * while they transfer control to OS (Windows/Linux)
-+        * so we should clear this bit before NIC work normally
-+        */
-+       pci_write_config_dword(pdev, REG_PM_CTRLSTAT, 0);
-+       msec_delay(1);
-+}
-+
-+
-+static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
-+{
-+       SET_NETDEV_DEV(netdev, &pdev->dev);
-+       pci_set_drvdata(pdev, netdev);
-+
-+       netdev->irq  = pdev->irq;
-+       netdev->open = &atl1e_open;
-+       netdev->stop = &atl1e_close;
-+       netdev->hard_start_xmit = &atl1e_xmit_frame;
-+       netdev->get_stats = &atl1e_get_stats;
-+       netdev->set_multicast_list = &atl1e_set_multi;
-+       netdev->set_mac_address = &atl1e_set_mac;
-+       netdev->change_mtu = &atl1e_change_mtu;
-+       netdev->do_ioctl = &atl1e_ioctl;
-+       netdev->tx_timeout = &atl1e_tx_timeout;
-+       netdev->watchdog_timeo = AT_TX_WATCHDOG;
-+       netdev->vlan_rx_register = atl1e_vlan_rx_register;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+       netdev->poll_controller = atl1e_netpoll;
-+#endif
-+       atl1e_set_ethtool_ops(netdev);
-+
-+       netdev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
-+               NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-+       netdev->features |= NETIF_F_LLTX;
-+       netdev->features |= NETIF_F_TSO;
-+       netdev->features |= NETIF_F_TSO6;
-+
-+       return 0;
-+}
-+
-+/**
-+ *  caller should hold mdio_lock
-+ **/
-+static int mdio_read(struct net_device *netdev, int phy_id, int reg_num)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       u16 result;
-+
-+       atl1e_read_phy_reg(&adapter->hw, reg_num & MDIO_REG_ADDR_MASK, &result);
-+       return result;
-+}
-+
-+static void mdio_write(struct net_device *netdev, int phy_id, int reg_num,
-+               int val)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+
-+       atl1e_write_phy_reg(&adapter->hw, reg_num & MDIO_REG_ADDR_MASK, val);
-+}
-+/**
-+ * atl1e_probe - Device Initialization Routine
-+ * @pdev: PCI device information struct
-+ * @ent: entry in atl1e_pci_tbl
-+ *
-+ * Returns 0 on success, negative on failure
-+ *
-+ * atl1e_probe initializes an adapter identified by a pci_dev structure.
-+ * The OS initialization, configuring of the adapter private structure,
-+ * and a hardware reset occur.
-+ **/
-+
-+static int __devinit atl1e_probe(struct pci_dev *pdev,
-+               const struct pci_device_id *ent)
-+{
-+       struct net_device *netdev;
-+       struct atl1e_adapter *adapter = NULL;
-+       static int cards_found;
-+       bool pci_using_64 = true;
-+
-+       int err = 0;
-+
-+       DEBUGFUNC("atl1e_probe !");
-+
-+       err = pci_enable_device(pdev);
-+       if (err) {
-+               dev_err(&pdev->dev, "cannot enable PCI device\n");
-+               return err;
-+       }
-+
-+       pci_set_master(pdev);
-+
-+       err = pci_request_regions(pdev, atl1e_driver_name);
-+       if (err) {
-+               dev_err(&pdev->dev, "cannot obtain PCI resources\n");
-+               goto err_pci_reg;
-+       }
-+
-+       netdev = alloc_etherdev(sizeof(struct atl1e_adapter));
-+       if (netdev == NULL) {
-+               err = -ENOMEM;
-+               dev_err(&pdev->dev, "etherdev alloc failed\n");
-+               goto err_alloc_etherdev;
-+       }
-+
-+       err = atl1e_init_netdev(netdev, pdev);
-+       if (err) {
-+               dev_err(&pdev->dev, "init netdevice failed\n");
-+               goto err_init_netdev;
-+       }
-+
-+       if (sizeof(dma_addr_t) > sizeof(u32) &&
-+               !(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
-+               !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
-+               pci_using_64 = true;
-+       } else {
-+               if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) &&
-+                   (err = pci_set_consistent_dma_mask(pdev,
-+                                               DMA_32BIT_MASK))) {
-+                       dev_err(&pdev->dev, "No usable DMA configuration,"
-+                                           "aborting\n");
-+                       goto err_dma;
-+               }
-+               pci_using_64 = false;
-+       }
-+
-+       adapter = netdev_priv(netdev);
-+       adapter->bd_number = cards_found;
-+       adapter->pci_using_64 = pci_using_64;
-+       adapter->netdev = netdev;
-+       adapter->pdev = pdev;
-+       adapter->hw.adapter = adapter;
-+       adapter->hw.hw_addr = pci_iomap(pdev, BAR_0, 0);
-+       if (!adapter->hw.hw_addr) {
-+               err = -EIO;
-+               dev_err(&pdev->dev, "cannot map device registers\n");
-+               goto err_ioremap;
-+       }
-+
-+       /* init mii data */
-+       adapter->mii.dev = netdev;
-+       adapter->mii.mdio_read  = mdio_read;
-+       adapter->mii.mdio_write = mdio_write;
-+       adapter->mii.phy_id_mask = 0x1f;
-+       adapter->mii.reg_num_mask = MDIO_REG_ADDR_MASK;
-+
-+       if ((err = atl1e_read_mac_addr(&adapter->hw)) ||
-+           (!is_valid_ether_addr(adapter->hw.mac_addr))) {
-+               err = -EIO;
-+               dev_err(&pdev->dev, "get mac address failed\n");
-+               goto err_eeprom;
-+       }
-+#ifdef CONFIG_ATL1E_NAPI
-+       netif_napi_add(netdev, &adapter->napi, atl1e_clean, 64);
-+#endif
-+
-+       memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
-+       memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
-+
-+       AT_DBG("mac address : %02x-%02x-%02x-%02x-%02x-%02x\n",
-+                       adapter->hw.mac_addr[0], adapter->hw.mac_addr[1],
-+                       adapter->hw.mac_addr[2], adapter->hw.mac_addr[3],
-+                       adapter->hw.mac_addr[4], adapter->hw.mac_addr[5]);
-+
-+       init_timer(&adapter->phy_config_timer);
-+       adapter->phy_config_timer.function = &atl1e_phy_config;
-+       adapter->phy_config_timer.data = (unsigned long) adapter;
-+
-+       /*
-+        * Mark all PCI regions associated with PCI device
-+        * pdev as being reserved by owner atl1e_driver_name
-+        * Enables bus-mastering on the device and calls
-+        * pcibios_set_master to do the needed arch specific settings
-+        */
-+       atl1e_setup_pcicmd(pdev);
-+       /* setup the private structure */
-+       err = atl1e_sw_init(adapter);
-+       if (err) {
-+               dev_err(&pdev->dev, "net device private data init failed\n");
-+               goto err_sw_init;
-+       }
-+
-+
-+       if (pci_using_64) {
-+               netdev->features |= NETIF_F_HIGHDMA;
-+               AT_DBG("pci using 64bit address\n");
-+       }
-+
-+       /* get user settings */
-+       atl1e_check_options(adapter);
-+
-+       /* Init GPHY as early as possible due to power saving issue  */
-+       AT_MII_LOCK(adapter);
-+       atl1e_phy_init(&adapter->hw);
-+       AT_MII_UNLOCK(adapter);
-+       /* reset the controller to
-+        * put the device in a known good starting state */
-+       err = atl1e_reset_hw(&adapter->hw);
-+       if (err) {
-+               err = -EIO;
-+               goto err_reset;
-+       }
-+
-+       INIT_WORK(&adapter->reset_task, atl1e_reset_task);
-+       INIT_WORK(&adapter->link_chg_task, atl1e_link_chg_task);
-+
-+       err = register_netdev(netdev);
-+       if (err) {
-+               dev_err(&pdev->dev, "register netdevice failed\n");
-+               goto err_register;
-+       }
-+
-+       /* assume we have no link for now */
-+       netif_stop_queue(netdev);
-+       netif_carrier_off(netdev);
-+
-+       cards_found++;
-+
-+       return 0;
-+
-+err_reset:
-+err_register:
-+err_sw_init:
-+err_eeprom:
-+       iounmap(adapter->hw.hw_addr);
-+err_init_netdev:
-+err_ioremap:
-+       free_netdev(netdev);
-+err_alloc_etherdev:
-+       pci_release_regions(pdev);
-+err_pci_reg:
-+err_dma:
-+       pci_disable_device(pdev);
-+       return err;
-+}
-+
-+static void atl1e_del_timer(struct atl1e_adapter *adapter)
-+{
-+       del_timer_sync(&adapter->phy_config_timer);
-+}
-+
-+static void atl1e_cancel_work(struct atl1e_adapter *adapter)
-+{
-+       cancel_work_sync(&adapter->reset_task);
-+       cancel_work_sync(&adapter->link_chg_task);
-+}
-+
-+/**
-+ * atl1e_remove - Device Removal Routine
-+ * @pdev: PCI device information struct
-+ *
-+ * atl1e_remove is called by the PCI subsystem to alert the driver
-+ * that it should release a PCI device.  The could be caused by a
-+ * Hot-Plug event, or because the driver is going to be removed from
-+ * memory.
-+ **/
-+
-+static void __devexit atl1e_remove(struct pci_dev *pdev)
-+{
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+
-+       DEBUGFUNC("atl1e_remove");
-+
-+       /*
-+        * flush_scheduled work may reschedule our watchdog task, so
-+        * explicitly disable watchdog tasks from being rescheduled
-+        */
-+       set_bit(__AT_DOWN, &adapter->flags);
-+
-+       atl1e_del_timer(adapter);
-+       atl1e_cancel_work(adapter);
-+
-+       unregister_netdev(netdev);
-+       atl1e_free_ring_resources(adapter);
-+       atl1e_force_ps(&adapter->hw);
-+       iounmap(adapter->hw.hw_addr);
-+       pci_release_regions(pdev);
-+       free_netdev(netdev);
-+       pci_disable_device(pdev);
-+}
-+
-+
-+static void atl1e_shutdown(struct pci_dev *pdev)
-+{
-+       atl1e_suspend(pdev, PMSG_SUSPEND);
-+}
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
++/* Descriptor Control register  */
++#define REG_RXF3_BASE_ADDR_HI           0x153C
++#define REG_DESC_BASE_ADDR_HI           0x1540
++#define REG_RXF0_BASE_ADDR_HI           0x1540 /* share with DESC BASE ADDR HI */
++#define REG_HOST_RXF0_PAGE0_LO          0x1544
++#define REG_HOST_RXF0_PAGE1_LO          0x1548
++#define REG_TPD_BASE_ADDR_LO            0x154C
++#define REG_RXF1_BASE_ADDR_HI           0x1550
++#define REG_RXF2_BASE_ADDR_HI           0x1554
++#define REG_HOST_RXFPAGE_SIZE           0x1558
++#define REG_TPD_RING_SIZE               0x155C
++/* RSS about */
++#define REG_RSS_KEY0                    0x14B0
++#define REG_RSS_KEY1                    0x14B4
++#define REG_RSS_KEY2                    0x14B8
++#define REG_RSS_KEY3                    0x14BC
++#define REG_RSS_KEY4                    0x14C0
++#define REG_RSS_KEY5                    0x14C4
++#define REG_RSS_KEY6                    0x14C8
++#define REG_RSS_KEY7                    0x14CC
++#define REG_RSS_KEY8                    0x14D0
++#define REG_RSS_KEY9                    0x14D4
++#define REG_IDT_TABLE4                  0x14E0
++#define REG_IDT_TABLE5                  0x14E4
++#define REG_IDT_TABLE6                  0x14E8
++#define REG_IDT_TABLE7                  0x14EC
++#define REG_IDT_TABLE0                  0x1560
++#define REG_IDT_TABLE1                  0x1564
++#define REG_IDT_TABLE2                  0x1568
++#define REG_IDT_TABLE3                  0x156C
++#define REG_IDT_TABLE                   REG_IDT_TABLE0
++#define REG_RSS_HASH_VALUE              0x1570
++#define REG_RSS_HASH_FLAG               0x1574
++#define REG_BASE_CPU_NUMBER             0x157C
++
++
++/* TXQ Control Register */
++#define REG_TXQ_CTRL                0x1580
++#define     TXQ_CTRL_NUM_TPD_BURST_MASK     0xF
++#define     TXQ_CTRL_NUM_TPD_BURST_SHIFT    0
++#define     TXQ_CTRL_EN                     0x20  /* 1: Enable TXQ */
++#define     TXQ_CTRL_ENH_MODE               0x40  /* Performance enhancement mode, in which up to two back-to-back DMA read commands might be dispatched. */
++#define     TXQ_CTRL_TXF_BURST_NUM_SHIFT    16    /* Number of data byte to read in a cache-aligned burst. Each SRAM entry is 8-byte in length. */
++#define     TXQ_CTRL_TXF_BURST_NUM_MASK     0xffff
++
++/* Jumbo packet Threshold for task offload */
++#define REG_TX_EARLY_TH                     0x1584 /* Jumbo frame threshold in QWORD unit. Packet greater than */
++/* JUMBO_TASK_OFFLOAD_THRESHOLD will not be task offloaded. */
++#define     TX_TX_EARLY_TH_MASK             0x7ff
++#define     TX_TX_EARLY_TH_SHIFT            0
++
++
++/* RXQ Control Register */
++#define REG_RXQ_CTRL                0x15A0
++#define         RXQ_CTRL_PBA_ALIGN_32                   0   /* rx-packet alignment */
++#define         RXQ_CTRL_PBA_ALIGN_64                   1
++#define         RXQ_CTRL_PBA_ALIGN_128                  2
++#define         RXQ_CTRL_PBA_ALIGN_256                  3
++#define         RXQ_CTRL_Q1_EN                         0x10
++#define         RXQ_CTRL_Q2_EN                         0x20
++#define         RXQ_CTRL_Q3_EN                         0x40
++#define         RXQ_CTRL_IPV6_XSUM_VERIFY_EN           0x80
++#define         RXQ_CTRL_HASH_TLEN_SHIFT                8
++#define         RXQ_CTRL_HASH_TLEN_MASK                 0xFF
++#define         RXQ_CTRL_HASH_TYPE_IPV4                 0x10000
++#define         RXQ_CTRL_HASH_TYPE_IPV4_TCP             0x20000
++#define         RXQ_CTRL_HASH_TYPE_IPV6                 0x40000
++#define         RXQ_CTRL_HASH_TYPE_IPV6_TCP             0x80000
++#define         RXQ_CTRL_RSS_MODE_DISABLE               0
++#define         RXQ_CTRL_RSS_MODE_SQSINT                0x4000000
++#define         RXQ_CTRL_RSS_MODE_MQUESINT              0x8000000
++#define         RXQ_CTRL_RSS_MODE_MQUEMINT              0xC000000
++#define         RXQ_CTRL_NIP_QUEUE_SEL_TBL              0x10000000
++#define         RXQ_CTRL_HASH_ENABLE                    0x20000000
++#define         RXQ_CTRL_CUT_THRU_EN                    0x40000000
++#define         RXQ_CTRL_EN                             0x80000000
++
++/* Rx jumbo packet threshold and rrd  retirement timer  */
++#define REG_RXQ_JMBOSZ_RRDTIM       0x15A4
 +/*
-+ * Polling 'interrupt' - used by things like netconsole to send skbs
-+ * without having to re-enable interrupts. It's not called while
-+ * the interrupt routine is executing.
++ * Jumbo packet threshold for non-VLAN packet, in QWORD (64-bit) unit.
++ * When the packet length greater than or equal to this value, RXQ
++ * shall start cut-through forwarding of the received packet.
 + */
-+static void atl1e_netpoll(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+
-+       disable_irq(adapter->pdev->irq);
-+       atl1e_intr(adapter->pdev->irq, netdev);
-+       atl1e_clean_tx_irq(adapter);
-+#ifndef CONFIG_ATL1E_NAPI
-+       atl1e_clean_rx_irq(adapter, 0);
-+#endif
-+       enable_irq(adapter->pdev->irq);
-+}
-+#endif
-+
-+
-+static int atl1e_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+#define AT_SUSPEND_LINK_TIMEOUT 28
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct atl1e_hw *hw = &adapter->hw;
-+       u32 ctrl = 0;
-+       u32 mac_ctrl_data = 0;
-+       u32 wol_ctrl_data = 0;
-+       u16 mii_advertise_data = 0;
-+       u16 mii_bmsr_data = 0;
-+       u16 mii_intr_status_data = 0;
-+       u32 wufc = adapter->wol;
-+       u32 i;
-+#ifdef CONFIG_PM
-+       int retval = 0;
-+#endif
-+
-+       DEBUGFUNC("atl1e_suspend !");
-+
-+       if (netif_running(netdev)) {
-+               WARN_ON(test_bit(__AT_RESETTING, &adapter->flags));
-+               atl1e_down(adapter);
-+       }
-+
-+       netif_device_detach(netdev);
-+
-+#ifdef CONFIG_PM
-+       retval = pci_save_state(pdev);
-+       if (retval)
-+               return retval;
-+#endif
-+
-+       if (wufc) {
-+               /* get link status */
-+               atl1e_read_phy_reg(hw, MII_BMSR, (u16 *)&mii_bmsr_data);
-+               atl1e_read_phy_reg(hw, MII_BMSR, (u16 *)&mii_bmsr_data);
-+
-+               mii_advertise_data = hw->mii_autoneg_adv_reg &
-+                                    MII_AR_SPEED_MASK;
-+               mii_advertise_data |= MII_AR_10T_HD_CAPS;
-+
-+               if ((atl1e_write_phy_reg(hw, MII_ADVERTISE,
-+                     mii_advertise_data) != 0) || (atl1e_phy_commit(hw)) != 0) {
-+                       printk(KERN_DEBUG "set phy register failed\n");
-+                       goto wol_dis;
-+               }
-+
-+               hw->phy_configured = false; /* re-init PHY when resume */
-+
-+               /* turn on magic packet wol */
-+               if (wufc & AT_WUFC_MAG)
-+                       wol_ctrl_data |= WOL_MAGIC_EN | WOL_MAGIC_PME_EN;
-+
-+               if (wufc & AT_WUFC_LNKC) {
-+               /* if orignal link status is link, just wait for retrive link */
-+                       if (mii_bmsr_data & BMSR_LSTATUS) {
-+                               for (i = 0; i < AT_SUSPEND_LINK_TIMEOUT; i++) {
-+                                       msec_delay(100);
-+                                       atl1e_read_phy_reg(hw, MII_BMSR,
-+                                                       (u16 *)&mii_bmsr_data);
-+                                       if (mii_bmsr_data & BMSR_LSTATUS)
-+                                               break;
-+                               }
-+
-+                               if ((mii_bmsr_data & BMSR_LSTATUS) == 0)
-+                                       printk(KERN_DEBUG "%s: Link may change"
-+                                                         "when suspend\n",
-+                                                         atl1e_driver_name);
-+                       }
-+                       wol_ctrl_data |=  WOL_LINK_CHG_EN | WOL_LINK_CHG_PME_EN;
-+                       /* only link up can wake up */
-+                       if (atl1e_write_phy_reg(hw, MII_INT_CTRL, 0x400) != 0) {
-+                               printk(KERN_DEBUG "%s: read write phy "
-+                                                 "register failed.\n",
-+                                                 atl1e_driver_name);
-+                               goto wol_dis;
-+                       }
-+               }
-+               /* clear phy interrupt */
-+               atl1e_read_phy_reg(hw, MII_INT_STATUS, &mii_intr_status_data);
-+               /* Config MAC Ctrl register */
-+               mac_ctrl_data = MAC_CTRL_RX_EN;
-+               /* set to 10/100M halt duplex */
-+               mac_ctrl_data |= MAC_CTRL_SPEED_10_100 << MAC_CTRL_SPEED_SHIFT;
-+               mac_ctrl_data |= (((u32)adapter->hw.preamble_len &
-+                                MAC_CTRL_PRMLEN_MASK) <<
-+                                MAC_CTRL_PRMLEN_SHIFT);
-+
-+               if (adapter->vlgrp)
-+                       mac_ctrl_data |= MAC_CTRL_RMV_VLAN;
-+
-+               /* magic packet maybe Broadcast&multicast&Unicast frame */
-+               if (wufc & AT_WUFC_MAG)
-+                       mac_ctrl_data |= MAC_CTRL_BC_EN;
-+
-+               AT_DBG("%s: suspend MAC=0x%x\n", atl1e_driver_name, mac_ctrl_data);
-+
-+               AT_WRITE_REG(hw, REG_WOL_CTRL, wol_ctrl_data);
-+               AT_WRITE_REG(hw, REG_MAC_CTRL, mac_ctrl_data);
-+               /* pcie patch */
-+               ctrl = AT_READ_REG(hw, REG_PCIE_PHYMISC);
-+               ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
-+               AT_WRITE_REG(hw, REG_PCIE_PHYMISC, ctrl);
-+               pci_enable_wake(pdev, pci_choose_state(pdev, state), 1);
-+               goto suspend_exit;
-+       }
-+wol_dis:
-+
-+       /* WOL disabled */
-+       AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
-+
-+       /* pcie patch */
-+       ctrl = AT_READ_REG(hw, REG_PCIE_PHYMISC);
-+       ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
-+       AT_WRITE_REG(hw, REG_PCIE_PHYMISC, ctrl);
-+
-+       atl1e_force_ps(hw);
-+       hw->phy_configured = false; /* re-init PHY when resume */
-+
-+       pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
-+
-+suspend_exit:
-+
-+       if (netif_running(netdev))
-+               atl1e_free_irq(adapter);
-+
-+       pci_disable_device(pdev);
-+
-+       pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+
-+       return 0;
-+#undef AT_SUSPEND_LINK_TIMEOUT
-+}
-+
-+#ifdef CONFIG_PM
-+static int atl1e_resume(struct pci_dev *pdev)
-+{
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       u32 err;
-+
-+       DEBUGFUNC("atl1e_resume !");
-+
-+       pci_set_power_state(pdev, PCI_D0);
-+       pci_restore_state(pdev);
-+
-+       if ((err = pci_enable_device(pdev))) {
-+               printk(KERN_ERR "ATL1e: Cannot enable PCI"
-+                               " device from suspend\n");
-+               return err;
-+       }
-+
-+       pci_set_master(pdev);
-+
-+       AT_READ_REG(&adapter->hw, REG_WOL_CTRL); /* clear WOL status */
-+
-+       pci_enable_wake(pdev, PCI_D3hot, 0);
-+       pci_enable_wake(pdev, PCI_D3cold, 0);
-+
-+       AT_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
-+
-+       if (netif_running(netdev) && (err = atl1e_request_irq(adapter)))
-+               return err;
-+
-+       atl1e_reset_hw(&adapter->hw);
-+
-+       if (netif_running(netdev))
-+               atl1e_up(adapter);
-+
-+       netif_device_attach(netdev);
-+
-+       return 0;
-+}
-+#endif
-+
-+
-+/**
-+ * atl1e_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci connection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t
-+atl1e_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
-+{
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev->priv;
-+
-+       netif_device_detach(netdev);
-+
-+       if (netif_running(netdev))
-+               atl1e_down(adapter);
-+
-+       pci_disable_device(pdev);
-+
-+       /* Request a slot slot reset. */
-+       return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * atl1e_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot. Implementation
-+ * resembles the first-half of the e1000_resume routine.
-+ */
-+static pci_ers_result_t atl1e_io_slot_reset(struct pci_dev *pdev)
-+{
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev->priv;
-+
-+       if (pci_enable_device(pdev)) {
-+               printk(KERN_ERR
-+                      "ATL1e: Cannot re-enable PCI device after reset.\n");
-+               return PCI_ERS_RESULT_DISCONNECT;
-+       }
-+       pci_set_master(pdev);
-+
-+       pci_enable_wake(pdev, PCI_D3hot, 0);
-+       pci_enable_wake(pdev, PCI_D3cold, 0);
-+
-+       atl1e_reset_hw(&adapter->hw);
-+
-+       return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * atl1e_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation. Implementation resembles the
-+ * second-half of the atl1e_resume routine.
-+ */
-+static void atl1e_io_resume(struct pci_dev *pdev)
-+{
-+       struct net_device *netdev = pci_get_drvdata(pdev);
-+       struct atl1e_adapter *adapter = netdev->priv;
-+
-+       if (netif_running(netdev)) {
-+               if (atl1e_up(adapter)) {
-+                       printk(KERN_ERR
-+                          "ATL1e: can't bring device back up after reset\n");
-+                       return;
-+               }
-+       }
-+
-+       netif_device_attach(netdev);
-+}
-+
-+
-+/**
-+ * atl1e_irq_enable - Enable default interrupt generation settings
-+ * @adapter: board private structure
-+ **/
-+
-+static inline void atl1e_irq_enable(struct atl1e_adapter *adapter)
-+{
-+       if (likely(atomic_dec_and_test(&adapter->irq_sem))) {
-+               AT_WRITE_REG(&adapter->hw, REG_ISR, 0);
-+               AT_WRITE_REG(&adapter->hw, REG_IMR, IMR_NORMAL_MASK);
-+               AT_WRITE_FLUSH(&adapter->hw);
-+       }
-+}
-+
-+/**
-+ * atl1e_irq_disable - Mask off interrupt generation on the NIC
-+ * @adapter: board private structure
-+ **/
-+
-+static inline void atl1e_irq_disable(struct atl1e_adapter *adapter)
-+{
-+       atomic_inc(&adapter->irq_sem);
-+       AT_WRITE_REG(&adapter->hw, REG_IMR, 0);
-+       AT_WRITE_FLUSH(&adapter->hw);
-+       synchronize_irq(adapter->pdev->irq);
-+}
-+
-+/**
-+ * atl1e_irq_reset - reset interrupt confiure on the NIC
-+ * @adapter: board private structure
-+ **/
-+static inline void atl1e_irq_reset(struct atl1e_adapter *adapter)
-+{
-+       atomic_set(&adapter->irq_sem, 0);
-+       AT_WRITE_REG(&adapter->hw, REG_ISR, 0);
-+       AT_WRITE_REG(&adapter->hw, REG_IMR, 0);
-+       AT_WRITE_FLUSH(&adapter->hw);
-+}
-+/**
-+ * atl1e_sw_init - Initialize general software structures (struct atl1e_adapter)
-+ * @adapter: board private structure to initialize
-+ *
-+ * atl1e_sw_init initializes the Adapter private data structure.
-+ * Fields are initialized based on PCI device information and
-+ * OS network device settings (MTU size).
-+ **/
-+
-+static int __devinit atl1e_sw_init(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw    *hw = &adapter->hw;
-+       struct pci_dev  *pdev = adapter->pdev;
-+       u32             phy_status_data = 0;
-+
-+       adapter->wol = 0;
-+       adapter->link_speed = SPEED_0;   /* hardware init */
-+       adapter->link_duplex = FULL_DUPLEX;
-+       adapter->num_rx_queues = 1;
-+
-+       /* PCI config space info */
-+
-+       hw->vendor_id = pdev->vendor;
-+       hw->device_id = pdev->device;
-+       hw->subsystem_vendor_id = pdev->subsystem_vendor;
-+       hw->subsystem_id = pdev->subsystem_device;
-+
-+       pci_read_config_byte(pdev, PCI_REVISION_ID, &hw->revision_id);
-+       pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
-+
-+       phy_status_data = AT_READ_REG(hw, REG_PHY_STATUS);
-+       /* nic type */
-+       if (hw->revision_id >= 0xF0) {
-+               hw->nic_type = athr_l2e_revB;
-+       } else {
-+               if (phy_status_data & PHY_STATUS_100M)
-+                       hw->nic_type = athr_l1e;
-+               else
-+                       hw->nic_type = athr_l2e_revA;
-+
-+       }
-+
-+       phy_status_data = AT_READ_REG(hw, REG_PHY_STATUS);
-+
-+       if (phy_status_data & PHY_STATUS_EMI_CA)
-+               hw->emi_ca = true;
-+       else
-+               hw->emi_ca = false;
-+
-+
-+       hw->phy_configured = false;
-+       hw->preamble_len = 7;
-+       hw->max_frame_size = adapter->netdev->mtu;
-+       hw->rx_jumbo_th = (hw->max_frame_size + ENET_HEADER_SIZE +
-+                               VLAN_SIZE + ETHERNET_FCS_SIZE + 7) >> 3;
-+
-+       hw->rrs_type = atl1e_rrs_disable;
-+       hw->indirect_tab = 0;
-+       hw->base_cpu = 0;
-+
-+       /* need confirm */
-+       hw->ict = 50000;                 /* 100ms */
-+       hw->smb_timer = 200000;          /* 200ms  */
-+       hw->tpd_burst = 5;
-+       hw->rrd_thresh = 1;
-+       hw->tpd_thresh = adapter->tx_ring.count / 2;
-+       hw->rx_count_down = 4;  /* 2us resolution */
-+       hw->tx_count_down = hw->imt * 4 / 3;
-+       hw->dmar_block = atl1e_dma_req_1024;
-+       hw->dmaw_block = atl1e_dma_req_1024;
-+       hw->dmar_dly_cnt = 15;
-+       hw->dmaw_dly_cnt = 4;
-+
-+       if (atl1e_alloc_queues(adapter)) {
-+               AT_ERR("Unable to allocate memory for queues\n");
-+               return -ENOMEM;
-+       }
-+
-+       atomic_set(&adapter->irq_sem, 1);
-+       spin_lock_init(&adapter->mdio_lock);
-+       spin_lock_init(&adapter->tx_lock);
-+
-+       set_bit(__AT_DOWN, &adapter->flags);
-+
-+       return 0;
-+}
-+
-+#ifdef CONFIG_ATL1E_NAPI
-+/**
-+ * atl1e_clean - NAPI Rx polling callback
-+ * @adapter: board private structure
-+ **/
-+
-+static int atl1e_clean(struct napi_struct *napi, int budget)
-+{
-+       struct atl1e_adapter *adapter =
-+                       container_of(napi, struct atl1e_adapter, napi);
-+       struct net_device *netdev  = adapter->netdev;
-+       int work_done = 0;
-+
-+       /* Keep link state information with original netdev */
-+       if (!netif_carrier_ok(adapter->netdev))
-+               goto quit_polling;
-+
-+       atl1e_clean_rx_irq(adapter, 0, &work_done, budget);
-+
-+       /* If no Tx and not enough Rx work done, exit the polling mode */
-+       if (work_done < budget) {
-+quit_polling:
-+               netif_rx_complete(netdev, napi);
-+               if (test_bit(__AT_DOWN, &adapter->flags)) {
-+                       atomic_dec(&adapter->irq_sem);
-+               } else {
-+                       /* reenable RX intr */
-+                       atl1e_irq_enable(adapter);
-+               }
-+       }
-+       return work_done;
-+}
-+
-+#endif
-+
-+
-+/**
-+ * atl1e_alloc_queues - Allocate memory for all rings
-+ * @adapter: board private structure to initialize
-+ *
-+ **/
-+
-+static int __devinit atl1e_alloc_queues(struct atl1e_adapter *adapter)
-+{
-+       return AT_SUCCESS;
-+}
-+
-+#if 0
-+static int atl1e_reset(struct atl1e_adapter *adapter)
-+{
-+       int err = 0;
-+
-+       err = atl1e_reset_hw(&adapter->hw);
-+       if (err) {
-+               printk(KERN_WARNING"at reset failed.\n");
-+               return err;
-+       }
-+
-+       return atl1e_init_hw(&adapter->hw);
-+}
-+#endif
-+
-+/**
-+ * atl1e_open - Called when a network interface is made active
-+ * @netdev: network interface device structure
-+ *
-+ * Returns 0 on success, negative value on failure
-+ *
-+ * The open entry point is called when a network interface is made
-+ * active by the system (IFF_UP).  At this point all resources needed
-+ * for transmit and receive operations are allocated, the interrupt
-+ * handler is registered with the OS, the watchdog timer is started,
-+ * and the stack is notified that the interface is ready.
-+ **/
-+
-+static int atl1e_open(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       int err;
-+
-+       DEBUGFUNC("atl1e_open !");
-+
-+       /* disallow open during test */
-+       if (test_bit(__AT_TESTING, &adapter->flags))
-+               return -EBUSY;
-+       /* allocate rx/tx dma buffer & descriptors */
-+
-+       atl1e_init_ring_resources(adapter);
-+       err = atl1e_setup_ring_resources(adapter);
-+       if (unlikely(err))
-+               return err;
-+
-+       err = atl1e_request_irq(adapter);
-+       if (unlikely(err))
-+               goto err_req_irq;
-+
-+       err = atl1e_up(adapter);
-+       if (unlikely(err))
-+               goto err_up;
-+
-+       return 0;
-+
-+err_up:
-+       atl1e_free_irq(adapter);
-+err_req_irq:
-+       atl1e_free_ring_resources(adapter);
-+       atl1e_reset_hw(&adapter->hw);
-+
-+       return err;
-+}
-+
-+/**
-+ * atl1e_close - Disables a network interface
-+ * @netdev: network interface device structure
-+ *
-+ * Returns 0, this is not allowed to fail
-+ *
-+ * The close entry point is called when an interface is de-activated
-+ * by the OS.  The hardware is still under the drivers control, but
-+ * needs to be disabled.  A global MAC reset is issued to stop the
-+ * hardware, and all transmit and receive resources are freed.
-+ **/
-+
-+static int atl1e_close(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       DEBUGFUNC("atl1e_close!");
-+
-+       WARN_ON(test_bit(__AT_RESETTING, &adapter->flags));
-+
-+       atl1e_down(adapter);
-+       atl1e_free_irq(adapter);
-+       atl1e_free_ring_resources(adapter);
-+
-+       return 0;
-+}
-+
-+static void atl1e_cal_ring_size(struct atl1e_adapter *adapter, u32 *ring_size)
-+{
-+       *ring_size = ((u32)(adapter->tx_ring.count *
-+                    sizeof(struct atl1e_tpd_desc) + 7
-+                       /* tx ring, qword align */
-+                    + adapter->rx_ring.real_page_size * AT_PAGE_NUM_PER_QUEUE *
-+                       adapter->num_rx_queues + 31
-+                       /* rx ring,  32 bytes align */
-+                    + (1 + AT_PAGE_NUM_PER_QUEUE * adapter->num_rx_queues) *
-+                       sizeof(u32) + 3));
-+                       /* tx, rx cmd, dword align   */
-+}
-+
-+
-+static void atl1e_init_ring_resources(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = NULL;
-+       struct atl1e_rx_ring *rx_ring = NULL;
-+
-+       tx_ring = &adapter->tx_ring;
-+       rx_ring = &adapter->rx_ring;
-+
-+       rx_ring->real_page_size = adapter->rx_ring.page_size
-+                                + adapter->hw.max_frame_size
-+                                + ENET_HEADER_SIZE + VLAN_SIZE
-+                                + ETHERNET_FCS_SIZE;
-+       rx_ring->real_page_size = roundup(rx_ring->real_page_size, 32);
-+       atl1e_cal_ring_size(adapter, &adapter->ring_size);
-+
-+       adapter->ring_vir_addr = NULL;
-+       adapter->rx_ring.desc = NULL;
-+       rwlock_init(&adapter->tx_ring.tx_lock);
-+
-+       return;
-+}
-+
-+/**
-+ * atl1e_setup_mem_resources - allocate Tx / RX descriptor resources
-+ * @adapter: board private structure
-+ *
-+ * Return 0 on success, negative on failure
-+ **/
-+static int atl1e_setup_ring_resources(struct atl1e_adapter *adapter)
-+{
-+       struct pci_dev *pdev = adapter->pdev;
-+       struct atl1e_tx_ring *tx_ring = NULL;
-+       struct atl1e_rx_ring *rx_ring = NULL;
-+       struct atl1e_rx_page_desc  *rx_page_desc = NULL;
-+       int size, i, j;
-+       u32 offset = 0;
-+       int err = 0;
-+
-+       DEBUGFUNC("atl1e_setup_ring_resources");
-+       if (adapter->ring_vir_addr != NULL)
-+               return 0; /* alloced already */
-+
-+       tx_ring = &adapter->tx_ring;
-+       rx_ring = &adapter->rx_ring;
-+
-+       /* real ring DMA buffer */
-+
-+       size = adapter->ring_size;
-+       adapter->ring_vir_addr = pci_alloc_consistent(pdev,
-+                       adapter->ring_size, &adapter->ring_dma);
-+
-+       if (adapter->ring_vir_addr == NULL) {
-+               dev_err(&pdev->dev, "pci_alloc_consistent failed, "
-+                                   "size = D%d", size);
-+               return -ENOMEM;
-+       }
-+
-+       if (adapter->pci_using_64) {
-+               /* test whether HIDWORD dma buffer is not cross boundary */
-+               if (((adapter->ring_dma & AT_DMA_HI_ADDR_MASK) >> 32) !=
-+                   (((adapter->ring_dma + size) &
-+                   AT_DMA_HI_ADDR_MASK) >> 32)) {
-+                       dma_addr_t dma;
-+                       u8 *addr;
-+
-+                       addr = pci_alloc_consistent(pdev, size, &dma);
-+                       if (addr) {
-+                               if (((dma & AT_DMA_HI_ADDR_MASK) >> 32) !=
-+                                   (((dma + size) &
-+                                   AT_DMA_HI_ADDR_MASK) >> 32)) {
-+                                       err = -1;
-+                                       dev_err(&pdev->dev,
-+                                          "memory allocated cross 32bit\n");
-+                                       goto failed;
-+                               } else {
-+                                       pci_free_consistent(pdev,
-+                                                       adapter->ring_size,
-+                                                       adapter->ring_vir_addr,
-+                                                       adapter->ring_dma);
-+                                       adapter->ring_vir_addr = addr;
-+                                       adapter->ring_dma = dma;
-+                                       goto init_desc;
-+                               }
-+                       } else {
-+                               dev_err(&pdev->dev, "memory allocated cross"
-+                                                   "32bit boundary !");
-+                               err = -ENOMEM;
-+                               goto failed;
-+                       }
-+               }
-+       }
-+
-+init_desc:
-+
-+       memset(adapter->ring_vir_addr, 0, adapter->ring_size);
-+
-+       rx_page_desc = rx_ring->rx_page_desc;
-+
-+       /* Init TPD Ring */
-+       tx_ring->dma = roundup(adapter->ring_dma, 8);
-+       offset = tx_ring->dma - adapter->ring_dma;
-+       tx_ring->desc = (struct atl1e_tpd_desc *)
-+                       (adapter->ring_vir_addr + offset);
-+       size = sizeof(struct atl1e_tx_buffer) * (tx_ring->count);
-+       tx_ring->tx_buffer = kzalloc(size, GFP_KERNEL);
-+       if (tx_ring->tx_buffer == NULL) {
-+               dev_err(&pdev->dev, "kzalloc failed , size = D%d", size);
-+               err = -ENOMEM;
-+               goto failed;
-+       }
-+
-+       /* Init RXF-Pages */
-+       offset += (sizeof(struct atl1e_tpd_desc) * tx_ring->count);
-+       offset = roundup(offset, 32);
-+
-+       for (i = 0; i < adapter->num_rx_queues; i++) {
-+               for (j = 0; j < AT_PAGE_NUM_PER_QUEUE; j++) {
-+                       rx_page_desc[i].rx_page[j].dma =
-+                               adapter->ring_dma + offset;
-+                       rx_page_desc[i].rx_page[j].addr =
-+                               adapter->ring_vir_addr + offset;
-+                       offset += rx_ring->real_page_size;
-+               }
-+       }
-+
-+       /* Init CMB dma address */
-+       tx_ring->cmb_dma = adapter->ring_dma + offset;
-+       tx_ring->cmb     = (u32 *)(adapter->ring_vir_addr + offset);
-+       offset += sizeof(u32);
-+
-+       for (i = 0; i < adapter->num_rx_queues; i++) {
-+               for (j = 0; j < AT_PAGE_NUM_PER_QUEUE; j++) {
-+                       rx_page_desc[i].rx_page[j].write_offset_dma =
-+                               adapter->ring_dma + offset;
-+                       rx_page_desc[i].rx_page[j].write_offset_addr =
-+                               adapter->ring_vir_addr + offset;
-+                       offset += sizeof(u32);
-+               }
-+       }
-+
-+       if (unlikely(offset > adapter->ring_size)) {
-+               dev_err(&pdev->dev, "offset(%d) > ring size(%d) !!\n",
-+                               offset, adapter->ring_size);
-+               err = -1;
-+               goto failed;
-+       }
-+
-+
-+       return AT_SUCCESS;
-+failed:
-+       if (adapter->ring_vir_addr != NULL) {
-+               pci_free_consistent(pdev, adapter->ring_size,
-+                               adapter->ring_vir_addr, adapter->ring_dma);
-+               adapter->ring_vir_addr = NULL;
-+       }
-+       return err;
-+}
-+
-+
++#define         RXQ_JMBOSZ_TH_MASK      0x7ff
++#define         RXQ_JMBOSZ_TH_SHIFT         0  /* RRD retirement timer. Decrement by 1 after every 512ns passes*/
++#define         RXQ_JMBO_LKAH_MASK          0xf
++#define         RXQ_JMBO_LKAH_SHIFT         11
++
++/* RXF flow control register */
++#define REG_RXQ_RXF_PAUSE_THRESH    0x15A8
++#define     RXQ_RXF_PAUSE_TH_HI_SHIFT       0
++#define     RXQ_RXF_PAUSE_TH_HI_MASK        0xfff
++#define     RXQ_RXF_PAUSE_TH_LO_SHIFT       16
++#define     RXQ_RXF_PAUSE_TH_LO_MASK        0xfff
++
++
++/* DMA Engine Control Register */
++#define REG_DMA_CTRL                0x15C0
++#define     DMA_CTRL_DMAR_IN_ORDER          0x1
++#define     DMA_CTRL_DMAR_ENH_ORDER         0x2
++#define     DMA_CTRL_DMAR_OUT_ORDER         0x4
++#define     DMA_CTRL_RCB_VALUE              0x8
++#define     DMA_CTRL_DMAR_BURST_LEN_SHIFT   4
++#define     DMA_CTRL_DMAR_BURST_LEN_MASK    7
++#define     DMA_CTRL_DMAW_BURST_LEN_SHIFT   7
++#define     DMA_CTRL_DMAW_BURST_LEN_MASK    7
++#define     DMA_CTRL_DMAR_REQ_PRI           0x400
++#define     DMA_CTRL_DMAR_DLY_CNT_MASK      0x1F
++#define     DMA_CTRL_DMAR_DLY_CNT_SHIFT     11
++#define     DMA_CTRL_DMAW_DLY_CNT_MASK      0xF
++#define     DMA_CTRL_DMAW_DLY_CNT_SHIFT     16
++#define     DMA_CTRL_TXCMB_EN               0x100000
++#define     DMA_CTRL_RXCMB_EN                          0x200000
++
++
++/* CMB/SMB Control Register */
++#define REG_SMB_STAT_TIMER                      0x15C4
++#define REG_TRIG_RRD_THRESH                     0x15CA
++#define REG_TRIG_TPD_THRESH                     0x15C8
++#define REG_TRIG_TXTIMER                        0x15CC
++#define REG_TRIG_RXTIMER                        0x15CE
++
++/* HOST RXF Page 1,2,3 address */
++#define REG_HOST_RXF1_PAGE0_LO                  0x15D0
++#define REG_HOST_RXF1_PAGE1_LO                  0x15D4
++#define REG_HOST_RXF2_PAGE0_LO                  0x15D8
++#define REG_HOST_RXF2_PAGE1_LO                  0x15DC
++#define REG_HOST_RXF3_PAGE0_LO                  0x15E0
++#define REG_HOST_RXF3_PAGE1_LO                  0x15E4
++
++/* Mail box */
++#define REG_MB_RXF1_RADDR                       0x15B4
++#define REG_MB_RXF2_RADDR                       0x15B8
++#define REG_MB_RXF3_RADDR                       0x15BC
++#define REG_MB_TPD_PROD_IDX                     0x15F0
++
++/* RXF-Page 0-3  PageNo & Valid bit */
++#define REG_HOST_RXF0_PAGE0_VLD     0x15F4
++#define     HOST_RXF_VALID              1
++#define     HOST_RXF_PAGENO_SHIFT       1
++#define     HOST_RXF_PAGENO_MASK        0x7F
++#define REG_HOST_RXF0_PAGE1_VLD     0x15F5
++#define REG_HOST_RXF1_PAGE0_VLD     0x15F6
++#define REG_HOST_RXF1_PAGE1_VLD     0x15F7
++#define REG_HOST_RXF2_PAGE0_VLD     0x15F8
++#define REG_HOST_RXF2_PAGE1_VLD     0x15F9
++#define REG_HOST_RXF3_PAGE0_VLD     0x15FA
++#define REG_HOST_RXF3_PAGE1_VLD     0x15FB
++
++/* Interrupt Status Register */
++#define REG_ISR    0x1600
++#define  ISR_SMB               1
++#define  ISR_TIMER             2       /* Interrupt when Timer is counted down to zero */
 +/*
-+ * Read / Write Ptr Initialize:
++ * Software manual interrupt, for debug. Set when SW_MAN_INT_EN is set
++ * in Table 51 Selene Master Control Register (Offset 0x1400).
 + */
-+static void atl1e_init_ring_ptrs(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = NULL;
-+       struct atl1e_rx_ring *rx_ring = NULL;
-+       struct atl1e_rx_page_desc *rx_page_desc = NULL;
-+       int i, j;
-+
-+       tx_ring = &adapter->tx_ring;
-+       rx_ring = &adapter->rx_ring;
-+       rx_page_desc = rx_ring->rx_page_desc;
-+
-+       tx_ring->next_to_use = 0;
-+       atomic_set(&tx_ring->next_to_clean, 0);
-+
-+       for (i = 0; i < adapter->num_rx_queues; i++) {
-+               rx_page_desc[i].rx_using  = 0;
-+               rx_page_desc[i].rx_nxseq = 0;
-+               for (j = 0; j < AT_PAGE_NUM_PER_QUEUE; j++) {
-+                       *rx_page_desc[i].rx_page[j].write_offset_addr = 0;
-+                       rx_page_desc[i].rx_page[j].read_offset = 0;
-+               }
-+       }
-+}
-+
-+/**
-+ * atl1e_free_ring_resources - Free Tx / RX descriptor Resources
-+ * @adapter: board private structure
-+ *
-+ * Free all transmit software resources
-+ **/
-+
-+static void atl1e_free_ring_resources(struct atl1e_adapter *adapter)
-+{
-+       struct pci_dev *pdev = adapter->pdev;
-+
-+       DEBUGFUNC("atl1e_free_ring_resources");
-+
-+       atl1e_clean_tx_ring(adapter);
-+       atl1e_clean_rx_ring(adapter);
-+
-+       if (adapter->ring_vir_addr) {
-+               pci_free_consistent(pdev, adapter->ring_size,
-+                               adapter->ring_vir_addr, adapter->ring_dma);
-+               adapter->ring_vir_addr = NULL;
-+       }
-+
-+       if (adapter->tx_ring.tx_buffer) {
-+               kfree(adapter->tx_ring.tx_buffer);
-+               adapter->tx_ring.tx_buffer = NULL;
-+       }
-+}
-+
-+int atl1e_up(struct atl1e_adapter *adapter)
-+{
-+       struct net_device *netdev = adapter->netdev;
-+       int err = 0;
-+       u32 val;
-+
-+       DEBUGFUNC("atl1e_up !");
-+
-+       atl1e_init_ring_ptrs(adapter);
-+
-+       /* hardware has been reset, we need to reload some things */
-+       err = atl1e_init_hw(&adapter->hw);
-+       if (err) {
-+               err = -EIO;
-+               return err;
-+       }
-+       atl1e_set_multi(netdev);
-+       atl1e_restore_vlan(adapter);
-+
-+       if (atl1e_configure(adapter)) {
-+               err = -EIO;
-+               goto err_up;
-+       }
-+
-+       clear_bit(__AT_DOWN, &adapter->flags);
-+       atl1e_irq_enable(adapter);
-+
-+       val = AT_READ_REG(&adapter->hw, REG_MASTER_CTRL);
-+       AT_WRITE_REG(&adapter->hw, REG_MASTER_CTRL,
-+                     val | MASTER_CTRL_MANUAL_INT);
-+
-+#ifdef CONFIG_ATL1E_NAPI
-+       napi_enable(&adapter->napi);
-+#endif
-+
-+err_up:
-+       return err;
-+}
-+
-+static inline void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
-+{
-+       u32 value;
-+       struct atl1e_hw *hw = &adapter->hw;
-+       struct net_device *netdev = adapter->netdev;
-+
-+       /* Config MAC CTRL Register */
-+       value = MAC_CTRL_TX_EN |
-+               MAC_CTRL_RX_EN ;
-+
-+       if (FULL_DUPLEX == adapter->link_duplex)
-+               value |= MAC_CTRL_DUPLX;
-+
-+       value |= ((u32)((SPEED_1000 == adapter->link_speed) ?
-+                         MAC_CTRL_SPEED_1000 : MAC_CTRL_SPEED_10_100) <<
-+                         MAC_CTRL_SPEED_SHIFT);
-+       value |= (MAC_CTRL_TX_FLOW | MAC_CTRL_RX_FLOW);
-+
-+       value |= (MAC_CTRL_ADD_CRC | MAC_CTRL_PAD);
-+       value |= (((u32)adapter->hw.preamble_len &
-+                 MAC_CTRL_PRMLEN_MASK) << MAC_CTRL_PRMLEN_SHIFT);
-+
-+       if (adapter->vlgrp)
-+               value |= MAC_CTRL_RMV_VLAN;
-+
-+       value |= MAC_CTRL_BC_EN;
-+       if (netdev->flags & IFF_PROMISC)
-+               value |= MAC_CTRL_PROMIS_EN;
-+       if (netdev->flags & IFF_ALLMULTI)
-+               value |= MAC_CTRL_MC_ALL_EN;
-+
-+       AT_WRITE_REG(hw, REG_MAC_CTRL, value);
-+}
-+
-+
-+static int atl1e_check_link(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw *hw = &adapter->hw;
-+       struct net_device *netdev = adapter->netdev;
-+       int err = 0;
-+       u16 speed, duplex, phy_data;
-+
-+       DEBUGFUNC("atl1e_check_link !");
-+
-+       /* MII_BMSR must read twise */
-+       atl1e_read_phy_reg(hw, MII_BMSR, &phy_data);
-+       atl1e_read_phy_reg(hw, MII_BMSR, &phy_data);
-+       if ((phy_data & BMSR_LSTATUS) == 0) {
-+               /* link down */
-+               if (netif_carrier_ok(netdev)) { /* old link state: Up */
-+                       u32 value;
-+                       DEBUGOUT("NIC Link is Down");
-+                       /* disable rx */
-+                       value = AT_READ_REG(hw, REG_MAC_CTRL);
-+                       value &= ~MAC_CTRL_RX_EN;
-+                       AT_WRITE_REG(hw, REG_MAC_CTRL, value);
-+                       adapter->link_speed = SPEED_0;
-+                       netif_carrier_off(netdev);
-+                       netif_stop_queue(netdev);
-+               }
-+       } else {
-+               /* Link Up */
-+               err = atl1e_get_speed_and_duplex(hw, &speed, &duplex);
-+               if (unlikely(err))
-+                       return err;
-+
-+               /* link result is our setting */
-+               if (adapter->link_speed != speed ||
-+                   adapter->link_duplex != duplex) {
-+                       adapter->link_speed  = speed;
-+                       adapter->link_duplex = duplex;
-+                       atl1e_setup_mac_ctrl(adapter);
-+                       printk(KERN_INFO "%s: %s NIC Link is Up<%d Mbps %s>\n",
-+                                       atl1e_driver_name, netdev->name,
-+                                       adapter->link_speed,
-+                                       adapter->link_duplex == FULL_DUPLEX ?
-+                                       "Full Duplex" : "Half Duplex");
-+               }
-+
-+               if (!netif_carrier_ok(netdev)) {
-+                       /* Link down -> Up */
-+                       netif_carrier_on(netdev);
-+                       netif_wake_queue(netdev);
-+               }
-+       }
-+       return AT_SUCCESS;
-+}
-+
-+void atl1e_down(struct atl1e_adapter *adapter)
-+{
-+       struct net_device *netdev = adapter->netdev;
-+
-+       DEBUGFUNC("atl1e_down !");
-+
-+       /* signal that we're down so the interrupt handler does not
-+        * reschedule our watchdog timer */
-+       set_bit(__AT_DOWN, &adapter->flags);
-+
-+#ifdef NETIF_F_LLTX
-+       netif_stop_queue(netdev);
-+#else
-+       netif_tx_disable(netdev);
-+#endif
-+
-+       /* reset MAC to disable all RX/TX */
-+       atl1e_reset_hw(&adapter->hw);
-+       msleep(1);
-+
-+#ifdef CONFIG_ATL1E_NAPI
-+       napi_disable(&adapter->napi);
-+#endif
-+       atl1e_del_timer(adapter);
-+       atl1e_irq_disable(adapter);
-+
-+       netif_carrier_off(netdev);
-+       adapter->link_speed = SPEED_0;
-+       adapter->link_duplex = -1;
-+       atl1e_clean_tx_ring(adapter);
-+       atl1e_clean_rx_ring(adapter);
-+}
-+
-+
-+
-+/**
-+ * atl1e_set_multi - Multicast and Promiscuous mode set
-+ * @netdev: network interface device structure
-+ *
-+ * The set_multi entry point is called whenever the multicast address
-+ * list or the network interface flags are updated.  This routine is
-+ * responsible for configuring the hardware for proper multicast,
-+ * promiscuous mode, and all-multi behavior.
-+ **/
-+
-+static void atl1e_set_multi(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct atl1e_hw *hw = &adapter->hw;
-+       struct dev_mc_list *mc_ptr;
-+       u32 mac_ctrl_data = 0;
-+       u32 hash_value;
-+
-+       DEBUGFUNC("atl1e_set_multi !");
-+
-+       /* Check for Promiscuous and All Multicast modes */
-+
-+       mac_ctrl_data = AT_READ_REG(hw, REG_MAC_CTRL);
-+
-+       if (netdev->flags & IFF_PROMISC) {
-+               mac_ctrl_data |= MAC_CTRL_PROMIS_EN;
-+       } else if (netdev->flags & IFF_ALLMULTI) {
-+               mac_ctrl_data |= MAC_CTRL_MC_ALL_EN;
-+               mac_ctrl_data &= ~MAC_CTRL_PROMIS_EN;
-+       } else {
-+               mac_ctrl_data &= ~(MAC_CTRL_PROMIS_EN | MAC_CTRL_MC_ALL_EN);
-+       }
-+
-+       AT_WRITE_REG(hw, REG_MAC_CTRL, mac_ctrl_data);
-+
-+       /* clear the old settings from the multicast hash table */
-+       AT_WRITE_REG(hw, REG_RX_HASH_TABLE, 0);
-+       AT_WRITE_REG_ARRAY(hw, REG_RX_HASH_TABLE, 1, 0);
-+
-+       /* comoute mc addresses' hash value ,and put it into hash table */
-+
-+       for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
-+               hash_value = atl1e_hash_mc_addr(hw, mc_ptr->dmi_addr);
-+               atl1e_hash_set(hw, hash_value);
-+       }
-+}
-+
-+
-+static void atl1e_vlan_rx_register(struct net_device *netdev,
-+                               struct vlan_group *grp)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       u32 mac_ctrl_data = 0;
-+
-+       DEBUGFUNC("atl1e_vlan_rx_register !");
-+
-+       atl1e_irq_disable(adapter);
-+
-+       adapter->vlgrp = grp;
-+       mac_ctrl_data = AT_READ_REG(&adapter->hw, REG_MAC_CTRL);
-+
-+       if (grp) {
-+               /* enable VLAN tag insert/strip */
-+               mac_ctrl_data |= MAC_CTRL_RMV_VLAN;
-+       } else {
-+               /* disable VLAN tag insert/strip */
-+               mac_ctrl_data &= ~MAC_CTRL_RMV_VLAN;
-+       }
-+
-+       AT_WRITE_REG(&adapter->hw, REG_MAC_CTRL, mac_ctrl_data);
-+       atl1e_irq_enable(adapter);
-+}
-+
-+       static void
-+atl1e_restore_vlan(struct atl1e_adapter *adapter)
-+{
-+       DEBUGFUNC("atl1e_restore_vlan !");
-+       atl1e_vlan_rx_register(adapter->netdev, adapter->vlgrp);
-+}
-+
-+
-+static inline void atl1e_configure_des_ring(const struct atl1e_adapter *adapter)
-+{
-+
-+       struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
-+       struct atl1e_rx_ring *rx_ring = (struct atl1e_rx_ring *)&adapter->rx_ring;
-+       struct atl1e_tx_ring *tx_ring = (struct atl1e_tx_ring *)&adapter->tx_ring;
-+       struct atl1e_rx_page_desc *rx_page_desc = NULL;
-+       int i, j;
-+
-+       AT_WRITE_REG(hw, REG_DESC_BASE_ADDR_HI,
-+                       (u32)((adapter->ring_dma & AT_DMA_HI_ADDR_MASK) >> 32));
-+       AT_WRITE_REG(hw, REG_TPD_BASE_ADDR_LO,
-+                       (u32)((tx_ring->dma) & AT_DMA_LO_ADDR_MASK));
-+       AT_WRITE_REG(hw, REG_TPD_RING_SIZE, (u16)(tx_ring->count));
-+       AT_WRITE_REG(hw, REG_HOST_TX_CMB_LO,
-+                       (u32)((tx_ring->cmb_dma) & AT_DMA_LO_ADDR_MASK));
-+
-+       rx_page_desc = rx_ring->rx_page_desc;
-+       /* RXF Page Physical address / Page Length */
-+       for (i = 0; i < AT_MAX_RECEIVE_QUEUE; i++) {
-+               AT_WRITE_REG(hw, atl1e_rx_page_hi_addr_regs[i],
-+                                (u32)((adapter->ring_dma &
-+                                AT_DMA_HI_ADDR_MASK) >> 32));
-+               for (j = 0; j < AT_PAGE_NUM_PER_QUEUE; j++) {
-+                       u32 page_phy_addr;
-+                       u32 offset_phy_addr;
-+
-+                       page_phy_addr = rx_page_desc[i].rx_page[j].dma;
-+                       offset_phy_addr =
-+                                  rx_page_desc[i].rx_page[j].write_offset_dma;
-+
-+                       AT_WRITE_REG(hw, atl1e_rx_page_lo_addr_regs[i][j],
-+                                       page_phy_addr & AT_DMA_LO_ADDR_MASK);
-+                       AT_WRITE_REG(hw, atl1e_rx_page_write_offset_regs[i][j],
-+                                       offset_phy_addr & AT_DMA_LO_ADDR_MASK);
-+                       AT_WRITE_REGB(hw, atl1e_rx_page_vld_regs[i][j], 1);
-+               }
-+       }
-+       /* Page Length */
-+       AT_WRITE_REG(hw, REG_HOST_RXFPAGE_SIZE, rx_ring->page_size);
-+       /* Load all of base address above */
-+       AT_WRITE_REG(hw, REG_LOAD_PTR, 1);
-+
-+       return;
-+}
-+
-+static inline void atl1e_configure_tx(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
-+       u32 dev_ctrl_data = 0;
-+       u32 max_pay_load = 0;
-+       u32 jumbo_thresh = 0;
-+       u32 extra_size = 0;     /* Jumbo frame threshold in QWORD unit */
-+
-+       /* configure TXQ param */
-+       if (hw->nic_type != athr_l2e_revB) {
-+               extra_size = ENET_HEADER_SIZE + VLAN_SIZE + ETHERNET_FCS_SIZE;
-+               if (hw->max_frame_size <= 1500) {
-+                       jumbo_thresh = hw->max_frame_size + extra_size;
-+               } else if (hw->max_frame_size < 6*1024) {
-+                       jumbo_thresh =
-+                               (hw->max_frame_size + extra_size) * 2 / 3;
-+               } else {
-+                       jumbo_thresh = (hw->max_frame_size + extra_size) / 2;
-+               }
-+               AT_WRITE_REG(hw, REG_TX_EARLY_TH, (jumbo_thresh + 7) >> 3);
-+       }
-+
-+       dev_ctrl_data = AT_READ_REG(hw, REG_DEVICE_CTRL);
-+
-+       max_pay_load  = ((dev_ctrl_data >> DEVICE_CTRL_MAX_PAYLOAD_SHIFT)) &
-+                       DEVICE_CTRL_MAX_PAYLOAD_MASK;
-+
-+       hw->dmaw_block = min((atl1e_dma_req_block)max_pay_load, hw->dmaw_block);
-+
-+       max_pay_load  = ((dev_ctrl_data >> DEVICE_CTRL_MAX_RREQ_SZ_SHIFT)) &
-+                       DEVICE_CTRL_MAX_RREQ_SZ_MASK;
-+       hw->dmar_block = min((atl1e_dma_req_block)max_pay_load, hw->dmar_block);
-+
-+       if (hw->nic_type != athr_l2e_revB)
-+               AT_WRITE_REGW(hw, REG_TXQ_CTRL + 2,
-+                             atl1e_pay_load_size[hw->dmar_block]);
-+
-+
-+       /* enable TXQ */
-+       AT_WRITE_REGW(hw, REG_TXQ_CTRL,
-+                       (((u16)hw->tpd_burst & TXQ_CTRL_NUM_TPD_BURST_MASK)
-+                        << TXQ_CTRL_NUM_TPD_BURST_SHIFT)
-+                       | TXQ_CTRL_ENH_MODE | TXQ_CTRL_EN);
-+       return;
-+}
-+
-+static inline void atl1e_configure_rx(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
-+       u32 rxf_len  = 0;
-+       u32 rxf_low  = 0;
-+       u32 rxf_high = 0;
-+       u32 rxf_thresh_data = 0;
-+       u32 rxq_ctrl_data = 0;
-+
-+       if (hw->nic_type != athr_l2e_revB) {
-+               AT_WRITE_REGW(hw, REG_RXQ_JMBOSZ_RRDTIM,
-+                             (u16)((hw->rx_jumbo_th & RXQ_JMBOSZ_TH_MASK) <<
-+                             RXQ_JMBOSZ_TH_SHIFT |
-+                             (1 & RXQ_JMBO_LKAH_MASK) <<
-+                             RXQ_JMBO_LKAH_SHIFT));
-+
-+               rxf_len  = AT_READ_REG(hw, REG_SRAM_RXF_LEN);
-+               rxf_high = rxf_len * 4 / 5;
-+               rxf_low  = rxf_len / 5;
-+               rxf_thresh_data = ((rxf_high  & RXQ_RXF_PAUSE_TH_HI_MASK)
-+                                 << RXQ_RXF_PAUSE_TH_HI_SHIFT) |
-+                                 ((rxf_low & RXQ_RXF_PAUSE_TH_LO_MASK)
-+                                 << RXQ_RXF_PAUSE_TH_LO_SHIFT);
-+
-+               AT_WRITE_REG(hw, REG_RXQ_RXF_PAUSE_THRESH, rxf_thresh_data);
-+       }
-+
-+       /* RRS */
-+       AT_WRITE_REG(hw, REG_IDT_TABLE, hw->indirect_tab);
-+       AT_WRITE_REG(hw, REG_BASE_CPU_NUMBER, hw->base_cpu);
-+
-+       if (hw->rrs_type & atl1e_rrs_ipv4)
-+               rxq_ctrl_data |= RXQ_CTRL_HASH_TYPE_IPV4;
-+
-+       if (hw->rrs_type & atl1e_rrs_ipv4_tcp)
-+               rxq_ctrl_data |= RXQ_CTRL_HASH_TYPE_IPV4_TCP;
-+
-+       if (hw->rrs_type & atl1e_rrs_ipv6)
-+               rxq_ctrl_data |= RXQ_CTRL_HASH_TYPE_IPV6;
-+
-+       if (hw->rrs_type & atl1e_rrs_ipv6_tcp)
-+               rxq_ctrl_data |= RXQ_CTRL_HASH_TYPE_IPV6_TCP;
-+
-+       if (hw->rrs_type != atl1e_rrs_disable)
-+               rxq_ctrl_data |=
-+                       (RXQ_CTRL_HASH_ENABLE | RXQ_CTRL_RSS_MODE_MQUESINT);
-+
-+
-+       rxq_ctrl_data |= RXQ_CTRL_IPV6_XSUM_VERIFY_EN | RXQ_CTRL_PBA_ALIGN_32 |
-+                        RXQ_CTRL_CUT_THRU_EN | RXQ_CTRL_EN;
-+
-+       AT_WRITE_REG(hw, REG_RXQ_CTRL, rxq_ctrl_data);
-+       return;
-+}
-+
-+static inline void atl1e_configure_dma(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw *hw = &adapter->hw;
-+       u32 dma_ctrl_data = 0;
-+
-+       dma_ctrl_data = DMA_CTRL_RXCMB_EN;
-+       dma_ctrl_data |= (((u32)hw->dmar_block) & DMA_CTRL_DMAR_BURST_LEN_MASK)
-+               << DMA_CTRL_DMAR_BURST_LEN_SHIFT;
-+       dma_ctrl_data |= (((u32)hw->dmaw_block) & DMA_CTRL_DMAW_BURST_LEN_MASK)
-+               << DMA_CTRL_DMAW_BURST_LEN_SHIFT;
-+       dma_ctrl_data |= DMA_CTRL_DMAR_REQ_PRI | DMA_CTRL_DMAR_OUT_ORDER;
-+       dma_ctrl_data |= (((u32)hw->dmar_dly_cnt) & DMA_CTRL_DMAR_DLY_CNT_MASK)
-+               << DMA_CTRL_DMAR_DLY_CNT_SHIFT;
-+       dma_ctrl_data |= (((u32)hw->dmaw_dly_cnt) & DMA_CTRL_DMAW_DLY_CNT_MASK)
-+               << DMA_CTRL_DMAW_DLY_CNT_SHIFT;
-+
-+       AT_WRITE_REG(hw, REG_DMA_CTRL, dma_ctrl_data);
-+       return;
-+}
-+/**
-+ * atl1e_configure - Configure Transmit&Receive Unit after Reset
-+ * @adapter: board private structure
-+ *
-+ * Configure the Tx /Rx unit of the MAC after a reset.
-+ **/
-+static int atl1e_configure(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_hw *hw = &adapter->hw;
-+       u32 intr_status_data = 0;
-+
-+       DEBUGFUNC("atl1e_configure !");
-+
-+       /* clear interrupt status */
-+       AT_WRITE_REG(hw, REG_ISR, ~0);
-+
-+       /* 1. set MAC Address */
-+       set_mac_addr(hw);
-+
-+       /* 2. Init the Multicast HASH table done by set_muti */
-+
-+       /* 3. Clear any WOL status */
-+       AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
-+
-+       /* 4. Descripter Ring BaseMem/Length/Read ptr/Write ptr
-+        *    TPD Ring/SMB/RXF0 Page CMBs, they use the same
-+        *    High 32bits memory */
-+       atl1e_configure_des_ring(adapter);
-+
-+       /* 5. set Interrupt Moderator Timer */
-+       AT_WRITE_REGW(hw, REG_IRQ_MODU_TIMER_INIT, hw->imt);
-+       AT_WRITE_REGW(hw, REG_IRQ_MODU_TIMER2_INIT, hw->imt);
-+       AT_WRITE_REG(hw, REG_MASTER_CTRL, MASTER_CTRL_LED_MODE |
-+                       MASTER_CTRL_ITIMER_EN | MASTER_CTRL_ITIMER2_EN);
-+
-+       /* 6. rx/tx threshold to trig interrupt */
-+       AT_WRITE_REGW(hw, REG_TRIG_RRD_THRESH, hw->rrd_thresh);
-+       AT_WRITE_REGW(hw, REG_TRIG_TPD_THRESH, hw->tpd_thresh);
-+       AT_WRITE_REGW(hw, REG_TRIG_RXTIMER, hw->rx_count_down);
-+       AT_WRITE_REGW(hw, REG_TRIG_TXTIMER, hw->tx_count_down);
-+
-+       /* 7. set Interrupt Clear Timer */
-+       AT_WRITE_REGW(hw, REG_CMBDISDMA_TIMER, hw->ict);
-+
-+       /* 8. set MTU */
-+       AT_WRITE_REG(hw, REG_MTU, hw->max_frame_size + ENET_HEADER_SIZE +
-+                       VLAN_SIZE + ETHERNET_FCS_SIZE);
-+
-+       /* 9. config TXQ early tx threshold */
-+       atl1e_configure_tx(adapter);
-+
-+       /* 10. config RXQ */
-+       atl1e_configure_rx(adapter);
-+
-+       /* 11. config  DMA Engine */
-+       atl1e_configure_dma(adapter);
-+
-+       /* 12. smb timer to trig interrupt */
-+       AT_WRITE_REG(hw, REG_SMB_STAT_TIMER, hw->smb_timer);
-+
-+       intr_status_data = AT_READ_REG(hw, REG_ISR);
-+       if (unlikely((intr_status_data & ISR_PHY_LINKDOWN) != 0)) {
-+               printk(KERN_ERR "atl1e_configure failed,"
-+                       "PCIE phy link down\n");
-+               return -1;
-+       }
-+
-+       AT_WRITE_REG(hw, REG_ISR, 0x7fffffff);
-+       return AT_SUCCESS;
-+}
-+
-+/**
-+ * atl1e_set_mac - Change the Ethernet Address of the NIC
-+ * @netdev: network interface device structure
-+ * @p: pointer to an address structure
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+
-+static int atl1e_set_mac(struct net_device *netdev, void *p)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct sockaddr *addr = p;
-+
-+       DEBUGFUNC("atl1e_set_mac !");
-+
-+       if (!is_valid_ether_addr(addr->sa_data))
-+               return -EADDRNOTAVAIL;
-+
-+       if (netif_running(netdev))
-+               return -EBUSY;
-+
-+       memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+       memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
-+
-+       set_mac_addr(&adapter->hw);
-+
-+       return 0;
-+}
-+
-+
-+/**
-+ * atl1e_change_mtu - Change the Maximum Transfer Unit
-+ * @netdev: network interface device structure
-+ * @new_mtu: new value for maximum frame size
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+
-+static int atl1e_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       int old_mtu   = netdev->mtu;
-+       int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+
-+       DEBUGFUNC("atl1e_change_mtu !");
-+
-+       if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
-+                       (max_frame > MAX_JUMBO_FRAME_SIZE)) {
-+               dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
-+               return -EINVAL;
-+       }
-+       /* set MTU */
-+       if (old_mtu != new_mtu && netif_running(netdev)) {
-+               while (test_and_set_bit(__AT_RESETTING, &adapter->flags))
-+                       msleep(1);
-+               netdev->mtu = new_mtu;
-+               adapter->hw.max_frame_size = new_mtu;
-+               adapter->hw.rx_jumbo_th = (max_frame + 7) >> 3;
-+               atl1e_down(adapter);
-+               atl1e_up(adapter);
-+               clear_bit(__AT_RESETTING, &adapter->flags);
-+       }
-+       return 0;
-+}
-+
-+
-+
-+void atl1e_read_pci_cfg(struct atl1e_hw *hw, u32 reg, u16 *value)
-+{
-+       struct atl1e_adapter *adapter = hw->adapter;
-+
-+       pci_read_config_word(adapter->pdev, reg, value);
-+}
-+
-+void atl1e_write_pci_cfg(struct atl1e_hw *hw, u32 reg, u16 *value)
-+{
-+       struct atl1e_adapter *adapter = hw->adapter;
-+
-+       pci_write_config_word(adapter->pdev, reg, *value);
-+}
-+
-+/**
-+ * atl1e_clean_tx_ring - Free Tx-skb
-+ * @adapter: board private structure
-+ **/
-+
-+static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = (struct atl1e_tx_ring *)
-+                               &adapter->tx_ring;
-+       struct atl1e_tx_buffer *tx_buffer = NULL;
-+       struct pci_dev *pdev = adapter->pdev;
-+       u16 index, ring_count;
-+
-+       if (tx_ring->desc == NULL || tx_ring->tx_buffer == NULL)
-+               return;
-+
-+       ring_count = tx_ring->count;
-+       /* first unmmap dma */
-+       for (index = 0; index < ring_count; index++) {
-+               tx_buffer = &tx_ring->tx_buffer[index];
-+               if (tx_buffer->dma) {
-+                       pci_unmap_page(pdev, tx_buffer->dma,
-+                                       tx_buffer->length, PCI_DMA_TODEVICE);
-+                       tx_buffer->dma = 0;
-+               }
-+       }
-+       /* second free skb */
-+       for (index = 0; index < ring_count; index++) {
-+               tx_buffer = &tx_ring->tx_buffer[index];
-+               if (tx_buffer->skb) {
-+                       dev_kfree_skb_any(tx_buffer->skb);
-+                       tx_buffer->skb = NULL;
-+               }
-+       }
-+       /* Zero out Tx-buffers */
-+       memset(tx_ring->desc, 0, sizeof(struct atl1e_tpd_desc) *
-+                               ring_count);
-+       memset(tx_ring->tx_buffer, 0, sizeof(struct atl1e_tx_buffer) *
-+                               ring_count);
-+}
-+
-+/**
-+ * atl1e_clean_rx_ring - Free rx-reservation skbs
-+ * @adapter: board private structure
-+ **/
-+
-+static void atl1e_clean_rx_ring(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_rx_ring *rx_ring = (struct atl1e_rx_ring *)&adapter->rx_ring;
-+       struct atl1e_rx_page_desc *rx_page_desc = rx_ring->rx_page_desc;
-+       u16 i, j;
-+
-+
-+       if (adapter->ring_vir_addr == NULL)
-+               return;
-+       /* Zero out the descriptor ring */
-+       for (i = 0; i < adapter->num_rx_queues; i++) {
-+               for (j = 0; j < AT_PAGE_NUM_PER_QUEUE; j++) {
-+                       if (rx_page_desc[i].rx_page[j].addr != NULL) {
-+                               memset(rx_page_desc[i].rx_page[j].addr, 0,
-+                                               rx_ring->real_page_size);
-+                       }
-+               }
-+       }
-+}
-+
-+
-+/**
-+ * atl1e_get_stats - Get System Network Statistics
-+ * @netdev: network interface device structure
-+ *
-+ * Returns the address of the device statistics structure.
-+ * The statistics are actually updated from the timer callback.
-+ **/
-+
-+static struct net_device_stats *atl1e_get_stats(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct atl1e_hw_stats  *hw_stats = &adapter->hw_stats;
-+       struct net_device_stats *net_stats = &adapter->net_stats;
-+
-+       net_stats->rx_packets = hw_stats->rx_ok;
-+       net_stats->tx_packets = hw_stats->tx_ok;
-+       net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
-+       net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
-+       net_stats->multicast  = hw_stats->rx_mcast;
-+       net_stats->collisions = hw_stats->tx_1_col +
-+                               hw_stats->tx_2_col * 2 +
-+                               hw_stats->tx_late_col + hw_stats->tx_abort_col;
-+
-+       net_stats->rx_errors  = hw_stats->rx_frag + hw_stats->rx_fcs_err +
-+                               hw_stats->rx_len_err + hw_stats->rx_sz_ov +
-+                               hw_stats->rx_rrd_ov + hw_stats->rx_align_err;
-+       net_stats->rx_fifo_errors   = hw_stats->rx_rxf_ov;
-+       net_stats->rx_length_errors = hw_stats->rx_len_err;
-+       net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
-+       net_stats->rx_frame_errors  = hw_stats->rx_align_err;
-+       net_stats->rx_over_errors   = hw_stats->rx_rrd_ov + hw_stats->rx_rxf_ov;
-+
-+       net_stats->rx_missed_errors = hw_stats->rx_rrd_ov + hw_stats->rx_rxf_ov;
-+
-+       net_stats->tx_errors = hw_stats->tx_late_col + hw_stats->tx_abort_col +
-+                              hw_stats->tx_underrun + hw_stats->tx_trunc;
-+       net_stats->tx_fifo_errors    = hw_stats->tx_underrun;
-+       net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
-+       net_stats->tx_window_errors  = hw_stats->tx_late_col;
-+
-+       return &adapter->net_stats;
-+}
-+
-+static void atl1e_update_hw_stats(struct atl1e_adapter *adapter)
-+{
-+       u16 hw_reg_addr = 0;
-+       unsigned long *stats_item = NULL;
-+
-+       /* update rx status */
-+       hw_reg_addr = REG_MAC_RX_STATUS_BIN;
-+       stats_item  = &adapter->hw_stats.rx_ok;
-+       while (hw_reg_addr <= REG_MAC_RX_STATUS_END) {
-+               *stats_item += AT_READ_REG(&adapter->hw, hw_reg_addr);
-+               stats_item++;
-+               hw_reg_addr += 4;
-+       }
-+       /* update tx status */
-+       hw_reg_addr = REG_MAC_TX_STATUS_BIN;
-+       stats_item  = &adapter->hw_stats.tx_ok;
-+       while (hw_reg_addr <= REG_MAC_TX_STATUS_END) {
-+               *stats_item += AT_READ_REG(&adapter->hw, hw_reg_addr);
-+               stats_item++;
-+               hw_reg_addr += 4;
-+       }
-+}
-+/**
-+ * atl1e_ioctl -
-+ * @netdev:
-+ * @ifreq:
-+ * @cmd:
-+ **/
-+
-+static int atl1e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
-+       switch (cmd) {
-+       case SIOCGMIIPHY:
-+       case SIOCGMIIREG:
-+       case SIOCSMIIREG:
-+               return atl1e_mii_ioctl(netdev, ifr, cmd);
-+       default:
-+               return -EOPNOTSUPP;
-+       }
-+}
-+
-+
-+/**
-+ * atl1e_mii_ioctl -
-+ * @netdev:
-+ * @ifreq:
-+ * @cmd:
-+ **/
-+
-+static int atl1e_mii_ioctl(struct net_device *netdev,
-+                          struct ifreq *ifr, int cmd)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct mii_ioctl_data *data = if_mii(ifr);
-+       unsigned long flags;
-+       int retval = 0;
-+
-+       DEBUGFUNC("atl1e_mii_ioctl !");
-+       if (!netif_running(netdev))
-+               return -EINVAL;
-+
-+       AT_MII_LOCK_IRQSAVE(adapter, flags);
-+
-+       switch (cmd) {
-+       case SIOCGMIIPHY:
-+               data->phy_id = 0;
-+               break;
-+
-+       case SIOCGMIIREG:
-+               if (!capable(CAP_NET_ADMIN)) {
-+                       retval = -EPERM;
-+                       goto out;
-+               }
-+               if (atl1e_read_phy_reg(&adapter->hw, data->reg_num & 0x1F,
-+                                   &data->val_out)) {
-+                       retval = -EIO;
-+                       goto out;
-+               }
-+               break;
-+
-+       case SIOCSMIIREG:
-+               if (!capable(CAP_NET_ADMIN)) {
-+                       retval = -EPERM;
-+                       goto out;
-+               }
-+               if (data->reg_num & ~(0x1F)) {
-+                       retval = -EFAULT;
-+                       goto out;
-+               }
-+
-+               DEBUGOUT1("<atl1e_mii_ioctl> write %x %x",
-+                               data->reg_num, data->val_in);
-+               if (atl1e_write_phy_reg(&adapter->hw,
-+                                    data->reg_num, data->val_in)) {
-+                       retval = -EIO;
-+                       goto out;
-+               }
-+               break;
-+
-+       default:
-+               retval = -EOPNOTSUPP;
-+               break;
-+       }
-+out:
-+       AT_MII_UNLOCK_IRQRESTORE(adapter, flags);
-+       return retval;
-+
-+}
-+
-+
-+/**
-+ * atl1e_tx_timeout - Respond to a Tx Hang
-+ * @netdev: network interface device structure
-+ **/
-+
-+static void atl1e_tx_timeout(struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+
-+       DEBUGFUNC("atl1e_tx_timeout !");
-+
-+       /* Do the reset outside of interrupt context */
-+       schedule_work(&adapter->reset_task);
-+}
-+
-+static void atl1e_reset_task(struct work_struct *work)
-+{
-+       struct atl1e_adapter *adapter;
-+       adapter = container_of(work, struct atl1e_adapter, reset_task);
-+
-+       atl1e_reinit_locked(adapter);
-+}
-+
-+
-+void atl1e_reinit_locked(struct atl1e_adapter *adapter)
-+{
-+
-+       DEBUGFUNC("atl1e_reinit_locked !");
-+
-+       WARN_ON(in_interrupt());
-+       while (test_and_set_bit(__AT_RESETTING, &adapter->flags))
-+               msleep(1);
-+       atl1e_down(adapter);
-+       atl1e_up(adapter);
-+       clear_bit(__AT_RESETTING, &adapter->flags);
-+}
-+
-+
-+/**
-+ * atl1e_link_chg_task - deal with link change event Out of interrupt context
-+ * @netdev: network interface device structure
-+ **/
-+static void atl1e_link_chg_task(struct work_struct *work)
-+{
-+       struct atl1e_adapter *adapter;
-+       unsigned long flags;
-+
-+       DEBUGFUNC("atl1e_link_chg_task !");
-+       adapter = container_of(work, struct atl1e_adapter, link_chg_task);
-+       AT_MII_LOCK_IRQSAVE(adapter, flags);
-+       atl1e_check_link(adapter);
-+       AT_MII_UNLOCK_IRQRESTORE(adapter, flags);
-+}
-+
-+static void atl1e_link_chg_event(struct atl1e_adapter *adapter)
-+{
-+       struct net_device *netdev = adapter->netdev;
-+       u16 phy_data = 0;
-+       u16 link_up = 0;
-+
-+       DEBUGFUNC("atl1e_link_chg_event!");
-+       AT_MII_LOCK(adapter);
-+       atl1e_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
-+       atl1e_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
-+       AT_MII_UNLOCK(adapter);
-+       DEBUGOUT1("MII_BMSR=%x <atl1e_link_chg_event>", phy_data);
-+
-+       link_up = phy_data & BMSR_LSTATUS;
-+       /* notify upper layer link down ASAP */
-+       if (!link_up) {
-+               if (netif_carrier_ok(netdev)) {
-+                       /* old link state: Up */
-+                       printk(KERN_INFO "%s: %s NIC Link is Down\n",
-+                                       atl1e_driver_name, netdev->name);
-+                       adapter->link_speed = SPEED_0;
-+                       netif_stop_queue(netdev);
-+               }
-+       }
-+       schedule_work(&adapter->link_chg_task);
-+}
-+
-+static inline void atl1e_clear_phy_int(struct atl1e_adapter *adapter)
-+{
-+       u16 phy_data;
-+
-+       spin_lock(&adapter->mdio_lock);
-+       atl1e_read_phy_reg(&adapter->hw, MII_INT_STATUS, &phy_data);
-+       spin_unlock(&adapter->mdio_lock);
-+}
-+
-+
-+
-+/**
-+ * atl1e_intr - Interrupt Handler
-+ * @irq: interrupt number
-+ * @data: pointer to a network interface device structure
-+ * @pt_regs: CPU registers structure
-+ **/
-+
-+static irqreturn_t atl1e_intr(int irq, void *data)
-+{
-+       struct net_device *netdev  = data;
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       struct atl1e_hw *hw = &adapter->hw;
-+       u32 status;
-+
-+       status = AT_READ_REG(hw, REG_ISR);
-+       if (0 == (status & IMR_NORMAL_MASK) ||
-+                       0 != (status & ISR_DIS_INT))
-+               return IRQ_NONE;
-+
-+       /* link event */
-+       if (status & ISR_GPHY)
-+               atl1e_clear_phy_int(adapter);
-+       /* Ack ISR */
-+       AT_WRITE_REG(hw, REG_ISR, status | ISR_DIS_INT);
-+
-+       /* check if PCIE PHY Link down */
-+       if (status & ISR_PHY_LINKDOWN) {
-+               DEBUGOUT1("pcie phy linkdown %x", status);
-+               if (netif_running(adapter->netdev)) {
-+                       /* reset MAC */
-+                       atl1e_irq_reset(adapter);
-+                       schedule_work(&adapter->reset_task);
-+                       return IRQ_HANDLED;
-+               }
-+       }
-+
-+
-+       /* check if DMA read/write error */
-+       if (status & (ISR_DMAR_TO_RST | ISR_DMAW_TO_RST)) {
-+               DEBUGOUT1("PCIE DMA RW error (status = 0x%x) !", status);
-+               atl1e_irq_reset(adapter);
-+               schedule_work(&adapter->reset_task);
-+               return IRQ_HANDLED;
-+       }
-+
-+       if (status & ISR_SMB)
-+               atl1e_update_hw_stats(adapter);
-+
-+       /* link event */
-+       if (status & (ISR_GPHY | ISR_MANUAL)) {
-+               adapter->net_stats.tx_carrier_errors++;
-+               atl1e_link_chg_event(adapter);
-+       }
-+
-+       /* transmit event */
-+       if (status & ISR_TX_EVENT)
-+               atl1e_clean_tx_irq(adapter);
-+
-+#ifdef CONFIG_ATL1E_NAPI
-+       if (status & ISR_RX_EVENT) {
-+               /* disable rx interrupts, without the synchronize_irq bit */
-+               atomic_inc(&adapter->irq_sem);
-+               AT_WRITE_REG(hw, REG_IMR, IMR_NORMAL_MASK & ~ISR_RX_EVENT);
-+               AT_WRITE_FLUSH(hw);
-+
-+               if (likely(netif_rx_schedule_prep(netdev, &adapter->napi)))
-+                       __netif_rx_schedule(netdev, &adapter->napi);
-+       }
-+#else /* if !CONFIG_ATL1E_NAPI */
-+
-+       if (status & ISR_RX_EVENT)
-+               atl1e_clean_rx_irq(adapter, 0);
-+
-+#endif /* CONFIG_ATL1E_NAPI */
-+
-+       /* re-enable Interrupt*/
-+       AT_WRITE_REG(&adapter->hw, REG_ISR, 0);
-+
-+       return IRQ_HANDLED;
-+}
-+
-+static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = (struct atl1e_tx_ring *)
-+                                       &adapter->tx_ring;
-+       struct atl1e_tx_buffer *tx_buffer = NULL;
-+       u16 hw_next_to_clean = AT_READ_REGW(&adapter->hw, REG_TPD_CONS_IDX);
-+       u16 next_to_clean = atomic_read(&tx_ring->next_to_clean);
-+
-+       while (next_to_clean != hw_next_to_clean) {
-+               tx_buffer = &tx_ring->tx_buffer[next_to_clean];
-+               if (tx_buffer->dma) {
-+                       pci_unmap_page(adapter->pdev, tx_buffer->dma,
-+                                       tx_buffer->length, PCI_DMA_TODEVICE);
-+                       tx_buffer->dma = 0;
-+               }
-+
-+               if (tx_buffer->skb) {
-+                       dev_kfree_skb_irq(tx_buffer->skb);
-+                       tx_buffer->skb = NULL;
-+               }
-+
-+               if (++next_to_clean == tx_ring->count)
-+                       next_to_clean = 0;
-+       }
-+
-+       atomic_set(&tx_ring->next_to_clean, next_to_clean);
-+
-+       if (netif_queue_stopped(adapter->netdev) &&
-+                       netif_carrier_ok(adapter->netdev)) {
-+               netif_wake_queue(adapter->netdev);
-+       }
-+
-+       return true;
-+}
-+
-+static inline void atl1e_rx_checksum(struct atl1e_adapter *adapter,
-+                                 struct sk_buff *skb,
-+                                 struct atl1e_recv_ret_status *prrs)
-+{
-+       u8 *packet = (u8 *)(prrs+1);
-+       struct iphdr *h;
-+       skb->ip_summed = CHECKSUM_NONE;
-+
-+       if ((prrs->ipv4 || prrs->ipv6) && (prrs->tcp || prrs->udp)) {
-+               if (prrs->ipv4) {
-+                       h = (struct iphdr *)
-+                               (packet + (prrs->eth_type ? 22 : 14));
-+                       if (0 != h->frag_off && 0 == prrs->ipv4_df) {
-+                               /* fragment packet */
-+                               goto hw_xsum;
-+                       }
-+               }
-+               if (0 == prrs->ip_xsum && 0 == prrs->l4_xsum) {
-+                               /* good checksum */
-+                       skb->ip_summed = CHECKSUM_UNNECESSARY;
-+                       return;
-+               }
-+       }
-+
-+hw_xsum :
-+       return;
-+}
-+
-+static struct atl1e_rx_page *atl1e_get_rx_page(struct atl1e_adapter *adapter,
-+                                              u8 que)
-+{
-+       struct atl1e_rx_page_desc *rx_page_desc =
-+               (struct atl1e_rx_page_desc *) adapter->rx_ring.rx_page_desc;
-+       u8 rx_using = rx_page_desc[que].rx_using;
-+
-+       return (struct atl1e_rx_page *)&(rx_page_desc[que].rx_page[rx_using]);
-+}
-+
-+static void
-+#ifdef CONFIG_ATL1E_NAPI
-+atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
-+               int *work_done, int work_to_do)
-+#else
-+atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que)
-+#endif
-+{
-+       struct net_device *netdev  = adapter->netdev;
-+       struct atl1e_rx_ring *rx_ring = (struct atl1e_rx_ring *)
-+                                        &adapter->rx_ring;
-+       struct atl1e_rx_page_desc *rx_page_desc =
-+               (struct atl1e_rx_page_desc *) rx_ring->rx_page_desc;
-+       struct sk_buff *skb = NULL;
-+       struct atl1e_rx_page *rx_page = atl1e_get_rx_page(adapter, que);
-+       u32 packet_size, write_offset;
-+       struct atl1e_recv_ret_status *prrs;
-+
-+       DEBUGFUNC("atl1e_clean_rx_irq");
-+       write_offset = *(rx_page->write_offset_addr);
-+
-+       if (likely(rx_page->read_offset < write_offset)) {
-+               do {
-+#ifdef CONFIG_ATL1E_NAPI
-+                       if (*work_done >= work_to_do)
-+                               break;
-+                       (*work_done)++;
-+#endif
-+                       /* get new packet's  rrs */
-+                       prrs = (struct atl1e_recv_ret_status *) (rx_page->addr +
-+                                                rx_page->read_offset);
-+                       /* check sequence number */
-+                       if (prrs->seq_num != rx_page_desc[que].rx_nxseq) {
-+                               AT_ERR("rx sequence number "
-+                                      "error (rx=%d) (expect=%d)\n",
-+                                       prrs->seq_num,
-+                                       rx_page_desc[que].rx_nxseq);
-+                               rx_page_desc[que].rx_nxseq++;
-+                               /* just for debug use */
-+                               AT_WRITE_REG(&adapter->hw, REG_DEBUG_DATA0,
-+                                            (((u32)prrs->seq_num) << 16) |
-+                                            rx_page_desc[que].rx_nxseq);
-+                               goto fatal_err;
-+                       }
-+                       rx_page_desc[que].rx_nxseq++;
-+
-+                       /* error packet */
-+                       if (prrs->err) {
-+                               if (prrs->crc || prrs->dribble ||
-+                                   prrs->code || prrs->trunc) {
-+                               /* hardware error, discard this packet*/
-+                                       AT_ERR("rx packet desc error %x\n",
-+                                               *((u32 *)prrs + 1));
-+                                       goto skip_pkt;
-+                               }
-+                       }
-+
-+                       packet_size = prrs->pkt_len - 4; /* CRC */
-+                       skb = netdev_alloc_skb(netdev,
-+                                              packet_size + NET_IP_ALIGN);
-+                       if (skb == NULL) {
-+                               printk(KERN_WARNING "%s: Memory squeeze,"
-+                                                   "deferring packet.\n",
-+                                                   netdev->name);
-+                               goto skip_pkt;
-+                       }
-+                       skb_reserve(skb, NET_IP_ALIGN);
-+                       skb->dev = netdev;
-+                       memcpy(skb->data, (u8 *)(prrs+1), packet_size);
-+                       skb_put(skb, packet_size);
-+                       skb->protocol = eth_type_trans(skb, netdev);
-+                       atl1e_rx_checksum(adapter, skb, prrs);
-+
-+#ifdef CONFIG_ATL1E_NAPI
-+                       if (unlikely(adapter->vlgrp && (prrs->vlan))) {
-+                               u16 vlan_tag = (prrs->vtag >> 4) |
-+                                              ((prrs->vtag & 7) << 13) |
-+                                              ((prrs->vtag & 8) << 9);
-+                               DEBUGOUT1("RXD VLAN TAG<RRD>=0x%04x",
-+                                         prrs->vtag);
-+                               vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
-+                                                        vlan_tag);
-+                       } else {
-+                               netif_receive_skb(skb);
-+                       }
-+#else /* CONFIG_ATL1E_NAPI */
-+                       if (unlikely(adapter->vlgrp && (prrs->vlan))) {
-+                               u16 vlan_tag = (prrs->vtag >> 4) |
-+                                              ((prrs->vtag & 7) << 13) |
-+                                              ((prrs->vtag & 8) << 9);
-+                               DEBUGOUT1("RXD VLAN TAG<RRD>=0x%04x",
-+                                         prrs->vtag);
-+                               vlan_hwaccel_rx(skb, adapter->vlgrp, vlan_tag);
-+                       } else {
-+                               netif_rx(skb);
-+                       }
-+#endif /* CONFIG_ATL1E_NAPI */
-+
-+                       netdev->last_rx = jiffies;
-+
-+skip_pkt:
-+       /* skip current packet whether it's ok or not. */
-+                       rx_page->read_offset += ((u32)(prrs->pkt_len +
-+                               sizeof(struct atl1e_recv_ret_status) + 31) &
-+                                               0xFFFFFFE0);
-+
-+                       if (rx_page->read_offset >= rx_ring->page_size) {
-+                               /* mark this page clean */
-+                               u16 reg_addr;
-+                               u8  rx_using;
-+
-+                               rx_page->read_offset =
-+                                       *(rx_page->write_offset_addr) = 0;
-+                               rx_using = rx_page_desc[que].rx_using;
-+                               reg_addr =
-+                                       atl1e_rx_page_vld_regs[que][rx_using];
-+                               AT_WRITE_REGB(&adapter->hw, reg_addr, 1);
-+                               rx_page_desc[que].rx_using ^= 1;
-+                               rx_page = atl1e_get_rx_page(adapter, que);
-+                       }
-+                       write_offset = *(rx_page->write_offset_addr);
-+               } while (rx_page->read_offset < write_offset);
-+       }
-+
-+       return;
-+
-+fatal_err:
-+
-+       if (!test_bit(__AT_DOWN, &adapter->flags))
-+               schedule_work(&adapter->reset_task);
-+}
-+
-+
-+static inline u16 atl1e_tpd_avail(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
-+       u16 next_to_use = 0;
-+       u16 next_to_clean = 0;
-+
-+       next_to_clean = atomic_read(&tx_ring->next_to_clean);
-+       next_to_use   = tx_ring->next_to_use;
-+
-+       return (u16)(next_to_clean > next_to_use) ?
-+               (next_to_clean - next_to_use - 1) :
-+               (tx_ring->count + next_to_clean - next_to_use - 1);
-+}
-+/*
-+ * get next usable tpd
-+ * Note: should call atl1e_tdp_avail to make sure
-+ * there is enough tpd to use
-+ */
-+static struct atl1e_tpd_desc *atl1e_get_tpd(struct atl1e_adapter *adapter)
-+{
-+       struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
-+       u16 next_to_use = 0;
-+
-+       next_to_use = tx_ring->next_to_use;
-+       if (++tx_ring->next_to_use == tx_ring->count)
-+               tx_ring->next_to_use = 0;
-+
-+       memset(&tx_ring->desc[next_to_use], 0, sizeof(struct atl1e_tpd_desc));
-+       return (struct atl1e_tpd_desc *)&tx_ring->desc[next_to_use];
-+}
-+
-+static struct atl1e_tx_buffer *
-+atl1e_get_tx_buffer(struct atl1e_adapter *adapter, struct atl1e_tpd_desc *tpd)
-+{
-+       struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
-+
-+       return &tx_ring->tx_buffer[tpd - tx_ring->desc];
-+}
-+
-+/* Calculate the transmit packet descript needed*/
-+static u16 atl1e_cal_tdp_req(const struct sk_buff *skb)
-+{
-+       int i = 0;
-+       u16 tpd_req = 1;
-+       u16 fg_size = 0;
-+       u16 proto_hdr_len = 0;
-+
-+       for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+               fg_size = skb_shinfo(skb)->frags[i].size;
-+               tpd_req += ((fg_size + MAX_TX_BUF_LEN - 1) >> MAX_TX_BUF_SHIFT);
-+       }
-+
-+       if (skb_is_gso(skb)) {
-+               if (skb->protocol == ntohs(ETH_P_IP) ||
-+                  (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6)) {
-+                       proto_hdr_len = skb_transport_offset(skb) +
-+                                       tcp_hdrlen(skb);
-+                       if (proto_hdr_len < skb_headlen(skb)) {
-+                               tpd_req += ((skb_headlen(skb) - proto_hdr_len +
-+                                          MAX_TX_BUF_LEN - 1) >>
-+                                          MAX_TX_BUF_SHIFT);
-+                       }
-+               }
-+
-+       }
-+       return tpd_req;
-+}
-+
-+static int atl1e_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-+{
-+       struct atl1e_adapter *adapter = netdev_priv(netdev);
-+       unsigned long flags;
-+       u16 tpd_req = 1;
-+       struct atl1e_tpd_desc *tpd;
-+
-+       DEBUGFUNC("atl1e_xmit_frame");
-+
-+       if (test_bit(__AT_DOWN, &adapter->flags)) {
-+               dev_kfree_skb_any(skb);
-+               return NETDEV_TX_OK;
-+       }
-+
-+       if (unlikely(skb->len <= 0)) {
-+               dev_kfree_skb_any(skb);
-+               return NETDEV_TX_OK;
-+       }
-+
-+       tpd_req = atl1e_cal_tdp_req(skb);
-+       if (!spin_trylock_irqsave(&adapter->tx_lock, flags))
-+               return NETDEV_TX_LOCKED;
-+
-+       if (atl1e_tpd_avail(adapter) < tpd_req) {
-+               /* no enough descriptor, just stop queue */
-+               netif_stop_queue(netdev);
-+               spin_unlock_irqrestore(&adapter->tx_lock, flags);
-+               return NETDEV_TX_BUSY;
-+       }
-+
-+       tpd = atl1e_get_tpd(adapter);
-+
-+       if (unlikely(adapter->vlgrp && vlan_tx_tag_present(skb))) {
-+               u16 vlan_tag = vlan_tx_tag_get(skb);
-+               tpd->ins_vlan = 1;
-+               AT_VLAN_TAG_TO_TPD_TAG(vlan_tag, tpd->vlan);
-+       }
-+
-+       if (skb->protocol == ntohs(ETH_P_8021Q))
-+               tpd->vlan_tag = 1; /* may double-vlan */
-+
-+
-+       if (skb_network_offset(skb) != ETH_HLEN)
-+               tpd->eth_type = 1; /* 802.3 frame */
-+
-+       /* do TSO and check sum */
-+       if (atl1e_tso_csum(adapter, skb, tpd) != 0) {
-+               spin_unlock_irqrestore(&adapter->tx_lock, flags);
-+               dev_kfree_skb_any(skb);
-+               return NETDEV_TX_OK;
-+       }
-+
-+       atl1e_tx_map(adapter, skb, tpd);
-+       atl1e_tx_queue(adapter, tpd_req, tpd);
-+
-+       netdev->trans_start = jiffies;
-+       spin_unlock_irqrestore(&adapter->tx_lock, flags);
-+       return NETDEV_TX_OK;
-+}
-+
-+static int atl1e_tso_csum(struct atl1e_adapter *adapter,
-+                      struct sk_buff *skb, struct atl1e_tpd_desc *tpd_desc)
-+{
-+       u8 hdr_len;
-+       u32 real_len;
-+       unsigned short offload_type;
-+       int err;
-+
-+       if (skb_is_gso(skb)) {
-+               if (skb_header_cloned(skb)) {
-+                       err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+                       if (unlikely(err))
-+                               return -1;
-+               }
-+               offload_type = skb_shinfo(skb)->gso_type;
-+
-+               if (offload_type & SKB_GSO_TCPV4) {
-+                       real_len = (((unsigned char *)ip_hdr(skb) - skb->data)
-+                                       + ntohs(ip_hdr(skb)->tot_len));
-+
-+                       if (real_len < skb->len)
-+                               pskb_trim(skb, real_len);
-+
-+                       hdr_len = (skb_transport_offset(skb) + tcp_hdrlen(skb));
-+                       if (unlikely(skb->len == hdr_len)) {
-+                               /* only xsum need */
-+                               printk(KERN_WARNING
-+                                     "IPV4 tso with zero data??\n");
-+                               goto check_sum;
-+                       } else {
-+                               ip_hdr(skb)->check = 0;
-+                               ip_hdr(skb)->tot_len = 0;
-+                               tcp_hdr(skb)->check = ~csum_tcpudp_magic(
-+                                                       ip_hdr(skb)->saddr,
-+                                                       ip_hdr(skb)->daddr,
-+                                                       0, IPPROTO_TCP, 0);
-+                               tpd_desc->iphdrlen = ip_hdr(skb)->ihl;
-+                               tpd_desc->tcphdrlen = tcp_hdrlen(skb) >> 2;
-+                               tpd_desc->tcp_mss = skb_shinfo(skb)->gso_size;
-+                               tpd_desc->segment = 1;
-+                       }
-+                       return 0;
-+               }
-+
-+               if (offload_type & SKB_GSO_TCPV6) {
-+                       struct atl1e_tpd_ipv6_desc *p6 =
-+                               (struct atl1e_tpd_ipv6_desc *) tpd_desc;
-+
-+                       real_len = (((unsigned char *)ipv6_hdr(skb) - skb->data)
-+                                       + ntohs(ipv6_hdr(skb)->payload_len));
-+                       if (real_len < skb->len)
-+                               pskb_trim(skb, real_len);
-+
-+                       /* check payload == 0 byte ? */
-+                       hdr_len = (skb_transport_offset(skb) + tcp_hdrlen(skb));
-+                       if (unlikely(skb->len == hdr_len)) {
-+                               /* only xsum need */
-+                               printk(KERN_WARNING
-+                                       "IPV6 tso with zero data??\n");
-+                               goto check_sum;
-+                       } else {
-+                               tcp_hdr(skb)->check = ~csum_ipv6_magic(
-+                                               &ipv6_hdr(skb)->saddr,
-+                                               &ipv6_hdr(skb)->daddr,
-+                                               0, IPPROTO_TCP, 0);
-+                               p6->ipver = 1; /* IPV6 */
-+                               hdr_len >>= 1;
-+                               p6->ipv6hdrlen_1 = (hdr_len & 0x7);
-+                               p6->ipv6hdrlen_2 = ((hdr_len >> 3) & 0xF);
-+                               p6->tcphdrlen = tcp_hdrlen(skb) >> 2;
-+                               p6->tcp_mss = skb_shinfo(skb)->gso_size;
-+                               p6->segment = 1;
-+                       }
-+               }
-+               return 0;
-+       }
-+
-+check_sum:
-+       if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
-+               struct atl1e_tpd_csum_desc *px =
-+                                       (struct atl1e_tpd_csum_desc *) tpd_desc;
-+               u8 css, cso;
-+
-+               cso = skb_transport_offset(skb);
-+               if (unlikely(cso & 0x1)) {
-+                       dev_err(&adapter->pdev->dev,
-+                          "pay load offset should not ant event number\n");
-+                       return -1;
-+               } else {
-+                       css = cso + skb->csum_offset;
-+                       px->payld_ofs = cso;
-+                       px->psdxsum_ofs = css;
-+                       px->my_xsum = 1;
-+               }
-+       }
-+
-+       return 0;
-+}
-+
-+static void atl1e_tx_map(struct atl1e_adapter *adapter,
-+                     struct sk_buff *skb, struct atl1e_tpd_desc *tpd)
-+{
-+       struct atl1e_tpd_desc *use_tpd = NULL;
-+       struct atl1e_tx_buffer *tx_buffer = NULL;
-+       u16 buf_len = skb->len - skb->data_len;
-+       u16 map_len = 0;
-+       u16 mapped_len = 0;
-+       u16 hdr_len = 0;
-+       u16 nr_frags;
-+       u16 f;
-+
-+       nr_frags = skb_shinfo(skb)->nr_frags;
-+
-+       if (tpd->segment) {
-+               /* TSO */
-+               map_len = hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+               use_tpd = tpd;
-+
-+               tx_buffer = atl1e_get_tx_buffer(adapter, use_tpd);
-+               tx_buffer->length = map_len;
-+               tx_buffer->dma = pci_map_single(adapter->pdev,
-+                                       skb->data, hdr_len, PCI_DMA_TODEVICE);
-+               mapped_len += map_len;
-+               use_tpd->addr    = cpu_to_le64(tx_buffer->dma);
-+               use_tpd->buf_len = cpu_to_le16(tx_buffer->length);
-+       }
-+
-+       while (mapped_len < buf_len) {
-+               /* mapped_len == 0, means we should use the first tpd,
-+                  which is given by caller  */
-+               if (mapped_len == 0) {
-+                       use_tpd = tpd;
-+               } else {
-+                       use_tpd = atl1e_get_tpd(adapter);
-+                       memcpy(use_tpd, tpd, sizeof(struct atl1e_tpd_desc));
-+               }
-+               tx_buffer = atl1e_get_tx_buffer(adapter, use_tpd);
-+               tx_buffer->skb = NULL;
-+
-+               tx_buffer->length = map_len =
-+                       ((buf_len - mapped_len) >= MAX_TX_BUF_LEN) ?
-+                       MAX_TX_BUF_LEN : (buf_len - mapped_len);
-+               tx_buffer->dma =
-+                       pci_map_single(adapter->pdev, skb->data + mapped_len,
-+                                       map_len, PCI_DMA_TODEVICE);
-+               mapped_len  += map_len;
-+               use_tpd->addr    = cpu_to_le64(tx_buffer->dma);
-+               use_tpd->buf_len = cpu_to_le16(tx_buffer->length);
-+       }
-+
-+       for (f = 0; f < nr_frags; f++) {
-+               struct skb_frag_struct *frag;
-+               u16 i;
-+               u16 seg_num;
-+
-+               frag = &skb_shinfo(skb)->frags[f];
-+               buf_len = frag->size;
-+
-+               seg_num = (buf_len + MAX_TX_BUF_LEN - 1) / MAX_TX_BUF_LEN;
-+               for (i = 0; i < seg_num; i++) {
-+                       use_tpd = atl1e_get_tpd(adapter);
-+                       memcpy(use_tpd, tpd, sizeof(struct atl1e_tpd_desc));
-+
-+                       tx_buffer = atl1e_get_tx_buffer(adapter, use_tpd);
-+                       if (tx_buffer->skb)
-+                               BUG();
-+
-+                       tx_buffer->skb = NULL;
-+                       tx_buffer->length =
-+                               (buf_len > MAX_TX_BUF_LEN) ?
-+                               MAX_TX_BUF_LEN : buf_len;
-+                       buf_len -= tx_buffer->length;
-+
-+                       tx_buffer->dma =
-+                               pci_map_page(adapter->pdev, frag->page,
-+                                               frag->page_offset +
-+                                               (i * MAX_TX_BUF_LEN),
-+                                               tx_buffer->length,
-+                                               PCI_DMA_TODEVICE);
-+                       use_tpd->addr    = cpu_to_le64(tx_buffer->dma);
-+                       use_tpd->buf_len = cpu_to_le16(tx_buffer->length);
-+               }
-+       }
-+
-+       if (tpd->segment)
-+               tpd->hdr_flag = 1; /* note this one is a tcp header */
-+
-+       /* The last tpd */
-+       use_tpd->eop = 1;
-+       /* The last buffer info contain the skb address,
-+          so it will be free after unmap */
-+       tx_buffer->skb = skb;
-+}
-+
-+static void atl1e_tx_queue(struct atl1e_adapter *adapter, u16 count,
-+                          struct atl1e_tpd_desc *tpd_desc)
-+{
-+       struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
-+       /* Force memory writes to complete before letting h/w
-+        * know there are new descriptors to fetch.  (Only
-+        * applicable for weak-ordered memory model archs,
-+        * such as IA-64). */
-+       wmb();
-+       AT_WRITE_REG(&adapter->hw, REG_MB_TPD_PROD_IDX, tx_ring->next_to_use);
-+}
-+
-+
-+/**
-+ * atl1e_phy_config - Timer Call-back
-+ * @data: pointer to netdev cast into an unsigned long
-+ **/
-+
-+static void atl1e_phy_config(unsigned long data)
-+{
-+       struct atl1e_adapter *adapter = (struct atl1e_adapter *) data;
-+       struct atl1e_hw *hw = &adapter->hw;
-+       unsigned long flags;
-+
-+       DEBUGFUNC("atl1e_phy_reconfig!");
-+
-+       AT_MII_LOCK_IRQSAVE(adapter, flags);
-+       atl1e_restart_autoneg(hw);
-+       AT_MII_UNLOCK_IRQRESTORE(adapter, flags);
-+}
-+
-diff -uprN -X linux-2.6.25.3.orig/Documentation/dontdiff linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_osdep.h linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_osdep.h
---- linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_osdep.h 1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_osdep.h      2008-06-20 11:22:34.000000000 +0800
-@@ -0,0 +1,115 @@
-+/*
-+ * Copyright(c) 2007 Atheros Corporation. All rights reserved.
-+ *
-+ * Derived from Intel e1000 driver
-+ * Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59
-+ * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ * There are a lot of defines in here that are unused and/or have cryptic
-+ * names.  Please leave them alone, as they're the closest thing we have
-+ * to a spec from Atheros at present. *ahem* -- CHS
-+ */
-+
-+#ifndef _ATHEROS_OS_DEP_H_
-+#define _ATHEROS_OS_DEP_H_
-+
-+#include <linux/pci.h>
-+#include <linux/delay.h>
-+#include <linux/interrupt.h>
-+#include <linux/if_ether.h>
-+#include <linux/workqueue.h>
-+#include <linux/spinlock.h>
-+
-+
-+#define usec_delay(x) udelay(x)
-+#ifndef msec_delay
-+#define msec_delay(x)                  \
-+       do {                            \
-+               if (in_interrupt()) {   \
-+               /* Don't mdelay in interrupt context! */ \
-+                       BUG();          \
-+               } else {                \
-+                       msleep(x);      \
-+               }                       \
-+       } while (0)
-+
-+/* Some workarounds require millisecond delays and are run during interrupt
-+ * context.  Most notably, when establishing link, the phy may need tweaking
-+ * but cannot process phy register reads/writes faster than millisecond
-+ * intervals...and we establish link due to a "link status change" interrupt.
-+ */
-+#define msec_delay_irq(x) mdelay(x)
-+#endif
-+
-+
-+#define PCI_COMMAND_REGISTER    PCI_COMMAND
-+#define CMD_MEM_WRT_INVALIDATE  PCI_COMMAND_INVALIDATE
-+#define ETH_ADDR_LEN            ETH_ALEN
-+
-+
-+#ifdef DBG
-+#define DEBUGOUT(S)     printk(KERN_DEBUG S "\n")
-+#define DEBUGOUT1(S, A...)  printk(KERN_DEBUG S "\n", A)
-+#else
-+#define DEBUGOUT(S)
-+#define DEBUGOUT1(S, A...)
-+#endif
-+
-+#define DEBUGFUNC(F) DEBUGOUT(F)
-+#define DEBUGOUT2 DEBUGOUT1
-+#define DEBUGOUT3 DEBUGOUT2
-+#define DEBUGOUT7 DEBUGOUT3
-+
-+#ifdef DBG
-+#define AT_DBG(args...) printk(KERN_DEBUG "atheros: " args)
-+#else
-+#define AT_DBG(args...)
-+#endif
-+
-+#define AT_ERR(args...) printk(KERN_ERR "atheros: " args)
-+
-+
-+#define AT_WRITE_REG(a, reg, value) ( \
-+               writel((value), ((a)->hw_addr + reg)))
-+
-+#define AT_WRITE_FLUSH(a) (\
-+               readl((a)->hw_addr))
-+
-+#define AT_READ_REG(a, reg) ( \
-+               readl((a)->hw_addr + reg))
-+
-+
-+#define AT_WRITE_REGB(a, reg, value) (\
-+               writeb((value), ((a)->hw_addr + reg)))
-+
-+#define AT_READ_REGB(a, reg) (\
-+               readb((a)->hw_addr + reg))
-+
-+#define AT_WRITE_REGW(a, reg, value) (\
-+               writew((value), ((a)->hw_addr + reg)))
-+
-+#define AT_READ_REGW(a, reg) (\
-+               readw((a)->hw_addr + reg))
-+
-+#define AT_WRITE_REG_ARRAY(a, reg, offset, value) ( \
-+               writel((value), (((a)->hw_addr + reg) + ((offset) << 2))))
-+
-+#define AT_READ_REG_ARRAY(a, reg, offset) ( \
-+               readl(((a)->hw_addr + reg) + ((offset) << 2)))
-+
-+
-+#endif /* _ATHEROS_OS_DEP_H_ */
-+
-diff -uprN -X linux-2.6.25.3.orig/Documentation/dontdiff linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_param.c linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_param.c
---- linux-2.6.25.3.orig/drivers/net/atl1e/atl1e_param.c 1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.25.3.atheros/drivers/net/atl1e/atl1e_param.c      2008-06-20 11:22:34.000000000 +0800
-@@ -0,0 +1,317 @@
-+/*
-+ * Copyright(c) 2007 Atheros Corporation. All rights reserved.
-+ *
-+ * Derived from Intel e1000 driver
-+ * Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59
-+ * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ * There are a lot of defines in here that are unused and/or have cryptic
-+ * names.  Please leave them alone, as they're the closest thing we have
-+ * to a spec from Atheros at present. *ahem* -- CHS
-+ */
-+
-+#include <linux/netdevice.h>
-+
-+#include "atl1e.h"
-+
-+/* This is the only thing that needs to be changed to adjust the
-+ * maximum number of ports that the driver can manage.
-+ */
-+
-+#define AT_MAX_NIC 32
-+
-+#define OPTION_UNSET    -1
-+#define OPTION_DISABLED 0
-+#define OPTION_ENABLED  1
-+
-+
-+
-+/* All parameters are treated the same, as an integer array of values.
-+ * This macro just reduces the need to repeat the same declaration code
-+ * over and over (plus this helps to avoid typo bugs).
-+ */
-+#define AT_PARAM_INIT { [0 ... AT_MAX_NIC] = OPTION_UNSET }
-+#ifndef module_param_array
-+/* Module Parameters are always initialized to -1, so that the driver
-+ * can tell the difference between no user specified value or the
-+ * user asking for the default value.
-+ * The true default values are loaded in when atl1e_check_options is called.
-+ *
-+ * This is a GCC extension to ANSI C.
-+ * See the item "Labeled Elements in Initializers" in the section
-+ * "Extensions to the C Language Family" of the GCC documentation.
-+ */
-+
-+#define AT_PARAM(X, desc) \
-+       static const int __devinitdata X[AT_MAX_NIC+1] = AT_PARAM_INIT; \
-+MODULE_PARM(X, "1-" __MODULE_STRING(AT_MAX_NIC) "i"); \
-+MODULE_PARM_DESC(X, desc);
-+#else
-+#define AT_PARAM(X, desc) \
-+       static int __devinitdata X[AT_MAX_NIC+1] = AT_PARAM_INIT; \
-+       static int num_##X; \
-+module_param_array_named(X, X, int, &num_##X, 0); \
-+MODULE_PARM_DESC(X, desc);
-+#endif
-+
-+/* Transmit Memory Size
-+ *
-+ * Valid Range: 64-2048
-+ *
-+ * Default Value: 128
-+ */
-+#define AT_MIN_TX_RING_SZ       32
-+#define AT_MAX_TX_RING_SZ       1020
-+#define AT_DEFAULT_TX_RING_SZ   128
-+AT_PARAM(TxRingSz, "Transmit Ring Sizen");
-+
-+/* Receive Memory Block Count
-+ *
-+ * Valid Range: 16-512
-+ *
-+ * Default Value: 128
-+ */
-+#define AT_MIN_RXF_SZ        8    /* 8KB   */
-+#define AT_MAX_RXF_SZ        1024 /* 1MB   */
-+#define AT_DEFAULT_RXF_SZ    256  /* 128KB */
-+AT_PARAM(RxfMemSize, "memory size of rx buffer(KB)");
-+
-+/* User Specified MediaType Override
-+ *
-+ * Valid Range: 0-5
-+ *  - 0    - auto-negotiate at all supported speeds
-+ *  - 1    - only link at 100Mbps Full Duplex
-+ *  - 2    - only link at 100Mbps Half Duplex
-+ *  - 3    - only link at 10Mbps Full Duplex
-+ *  - 4    - only link at 10Mbps Half Duplex
-+ * Default Value: 0
-+ */
-+
-+AT_PARAM(media_type, "MediaType Select");
-+
-+/* Interrupt Moderate Timer in units of 2 us
-+ *
-+ * Valid Range: 10-65535
-+ *
-+ * Default Value: 45000(90ms)
-+ */
-+#define INT_MOD_DEFAULT_CNT             100 /* 200us */
-+#define INT_MOD_MAX_CNT                 65000
-+#define INT_MOD_MIN_CNT                 50
-+AT_PARAM(IntModTimer, "Interrupt Moderator Timer");
-+
-+
-+
-+
-+#define AUTONEG_ADV_DEFAULT  0x2F
-+#define AUTONEG_ADV_MASK     0x2F
-+#define FLOW_CONTROL_DEFAULT FLOW_CONTROL_FULL
-+
-+
-+
-+#define FLASH_VENDOR_DEFAULT    0
-+#define FLASH_VENDOR_MIN        0
-+#define FLASH_VENDOR_MAX        2
-+
-+
-+struct atl1e_option {
-+       enum { enable_option, range_option, list_option } type;
-+       char *name;
-+       char *err;
-+       int  def;
-+       union {
-+               struct { /* range_option info */
-+                       int min;
-+                       int max;
-+               } r;
-+               struct { /* list_option info */
-+                       int nr;
-+                       struct atl1e_opt_list { int i; char *str; } *p;
-+               } l;
-+       } arg;
++#define  ISR_MANUAL            4
++#define  ISR_HW_RXF_OV          8        /* RXF overflow interrupt */
++#define  ISR_HOST_RXF0_OV       0x10
++#define  ISR_HOST_RXF1_OV       0x20
++#define  ISR_HOST_RXF2_OV       0x40
++#define  ISR_HOST_RXF3_OV       0x80
++#define  ISR_TXF_UN             0x100
++#define  ISR_RX0_PAGE_FULL      0x200
++#define  ISR_DMAR_TO_RST        0x400
++#define  ISR_DMAW_TO_RST        0x800
++#define  ISR_GPHY               0x1000
++#define  ISR_TX_CREDIT          0x2000
++#define  ISR_GPHY_LPW           0x4000    /* GPHY low power state interrupt */
++#define  ISR_RX_PKT             0x10000   /* One packet received, triggered by RFD */
++#define  ISR_TX_PKT             0x20000   /* One packet transmitted, triggered by TPD */
++#define  ISR_TX_DMA             0x40000
++#define  ISR_RX_PKT_1           0x80000
++#define  ISR_RX_PKT_2           0x100000
++#define  ISR_RX_PKT_3           0x200000
++#define  ISR_MAC_RX             0x400000
++#define  ISR_MAC_TX             0x800000
++#define  ISR_UR_DETECTED        0x1000000
++#define  ISR_FERR_DETECTED      0x2000000
++#define  ISR_NFERR_DETECTED     0x4000000
++#define  ISR_CERR_DETECTED      0x8000000
++#define  ISR_PHY_LINKDOWN       0x10000000
++#define  ISR_DIS_INT            0x80000000
++
++
++/* Interrupt Mask Register */
++#define REG_IMR 0x1604
++
++
++#define IMR_NORMAL_MASK (\
++               ISR_SMB         |\
++               ISR_TXF_UN      |\
++               ISR_HW_RXF_OV   |\
++               ISR_HOST_RXF0_OV|\
++               ISR_MANUAL      |\
++               ISR_GPHY        |\
++               ISR_GPHY_LPW    |\
++               ISR_DMAR_TO_RST |\
++               ISR_DMAW_TO_RST |\
++               ISR_PHY_LINKDOWN|\
++               ISR_RX_PKT      |\
++               ISR_TX_PKT)
++
++#define ISR_TX_EVENT (ISR_TXF_UN | ISR_TX_PKT)
++#define ISR_RX_EVENT (ISR_HOST_RXF0_OV | ISR_HW_RXF_OV | ISR_RX_PKT)
++
++#define REG_MAC_RX_STATUS_BIN 0x1700
++#define REG_MAC_RX_STATUS_END 0x175c
++#define REG_MAC_TX_STATUS_BIN 0x1760
++#define REG_MAC_TX_STATUS_END 0x17c0
++
++/* Hardware Offset Register */
++#define REG_HOST_RXF0_PAGEOFF 0x1800
++#define REG_TPD_CONS_IDX      0x1804
++#define REG_HOST_RXF1_PAGEOFF 0x1808
++#define REG_HOST_RXF2_PAGEOFF 0x180C
++#define REG_HOST_RXF3_PAGEOFF 0x1810
++
++/* RXF-Page 0-3 Offset DMA Address */
++#define REG_HOST_RXF0_MB0_LO  0x1820
++#define REG_HOST_RXF0_MB1_LO  0x1824
++#define REG_HOST_RXF1_MB0_LO  0x1828
++#define REG_HOST_RXF1_MB1_LO  0x182C
++#define REG_HOST_RXF2_MB0_LO  0x1830
++#define REG_HOST_RXF2_MB1_LO  0x1834
++#define REG_HOST_RXF3_MB0_LO  0x1838
++#define REG_HOST_RXF3_MB1_LO  0x183C
++
++/* Tpd CMB DMA Address */
++#define REG_HOST_TX_CMB_LO    0x1840
++#define REG_HOST_SMB_ADDR_LO  0x1844
++
++/* DEBUG ADDR */
++#define REG_DEBUG_DATA0 0x1900
++#define REG_DEBUG_DATA1 0x1904
++
++/***************************** MII definition ***************************************/
++/* PHY Common Register */
++#define MII_BMCR                        0x00
++#define MII_BMSR                        0x01
++#define MII_PHYSID1                     0x02
++#define MII_PHYSID2                     0x03
++#define MII_ADVERTISE                   0x04
++#define MII_LPA                         0x05
++#define MII_EXPANSION                   0x06
++#define MII_AT001_CR                    0x09
++#define MII_AT001_SR                    0x0A
++#define MII_AT001_ESR                   0x0F
++#define MII_AT001_PSCR                  0x10
++#define MII_AT001_PSSR                  0x11
++#define MII_INT_CTRL                    0x12
++#define MII_INT_STATUS                  0x13
++#define MII_SMARTSPEED                  0x14
++#define MII_RERRCOUNTER                 0x15
++#define MII_SREVISION                   0x16
++#define MII_RESV1                       0x17
++#define MII_LBRERROR                    0x18
++#define MII_PHYADDR                     0x19
++#define MII_RESV2                       0x1a
++#define MII_TPISTATUS                   0x1b
++#define MII_NCONFIG                     0x1c
++
++#define MII_DBG_ADDR                   0x1D
++#define MII_DBG_DATA                   0x1E
++
++
++/* PHY Control Register */
++#define MII_CR_SPEED_SELECT_MSB                  0x0040  /* bits 6,13: 10=1000, 01=100, 00=10 */
++#define MII_CR_COLL_TEST_ENABLE                  0x0080  /* Collision test enable */
++#define MII_CR_FULL_DUPLEX                       0x0100  /* FDX =1, half duplex =0 */
++#define MII_CR_RESTART_AUTO_NEG                  0x0200  /* Restart auto negotiation */
++#define MII_CR_ISOLATE                           0x0400  /* Isolate PHY from MII */
++#define MII_CR_POWER_DOWN                        0x0800  /* Power down */
++#define MII_CR_AUTO_NEG_EN                       0x1000  /* Auto Neg Enable */
++#define MII_CR_SPEED_SELECT_LSB                  0x2000  /* bits 6,13: 10=1000, 01=100, 00=10 */
++#define MII_CR_LOOPBACK                          0x4000  /* 0 = normal, 1 = loopback */
++#define MII_CR_RESET                             0x8000  /* 0 = normal, 1 = PHY reset */
++#define MII_CR_SPEED_MASK                        0x2040
++#define MII_CR_SPEED_1000                        0x0040
++#define MII_CR_SPEED_100                         0x2000
++#define MII_CR_SPEED_10                          0x0000
++
++
++/* PHY Status Register */
++#define MII_SR_EXTENDED_CAPS                     0x0001  /* Extended register capabilities */
++#define MII_SR_JABBER_DETECT                     0x0002  /* Jabber Detected */
++#define MII_SR_LINK_STATUS                       0x0004  /* Link Status 1 = link */
++#define MII_SR_AUTONEG_CAPS                      0x0008  /* Auto Neg Capable */
++#define MII_SR_REMOTE_FAULT                      0x0010  /* Remote Fault Detect */
++#define MII_SR_AUTONEG_COMPLETE                  0x0020  /* Auto Neg Complete */
++#define MII_SR_PREAMBLE_SUPPRESS                 0x0040  /* Preamble may be suppressed */
++#define MII_SR_EXTENDED_STATUS                   0x0100  /* Ext. status info in Reg 0x0F */
++#define MII_SR_100T2_HD_CAPS                     0x0200  /* 100T2 Half Duplex Capable */
++#define MII_SR_100T2_FD_CAPS                     0x0400  /* 100T2 Full Duplex Capable */
++#define MII_SR_10T_HD_CAPS                       0x0800  /* 10T   Half Duplex Capable */
++#define MII_SR_10T_FD_CAPS                       0x1000  /* 10T   Full Duplex Capable */
++#define MII_SR_100X_HD_CAPS                      0x2000  /* 100X  Half Duplex Capable */
++#define MII_SR_100X_FD_CAPS                      0x4000  /* 100X  Full Duplex Capable */
++#define MII_SR_100T4_CAPS                        0x8000  /* 100T4 Capable */
++
++/* Link partner ability register. */
++#define MII_LPA_SLCT                             0x001f  /* Same as advertise selector  */
++#define MII_LPA_10HALF                           0x0020  /* Can do 10mbps half-duplex   */
++#define MII_LPA_10FULL                           0x0040  /* Can do 10mbps full-duplex   */
++#define MII_LPA_100HALF                          0x0080  /* Can do 100mbps half-duplex  */
++#define MII_LPA_100FULL                          0x0100  /* Can do 100mbps full-duplex  */
++#define MII_LPA_100BASE4                         0x0200  /* 100BASE-T4  */
++#define MII_LPA_PAUSE                            0x0400  /* PAUSE */
++#define MII_LPA_ASYPAUSE                         0x0800  /* Asymmetrical PAUSE */
++#define MII_LPA_RFAULT                           0x2000  /* Link partner faulted        */
++#define MII_LPA_LPACK                            0x4000  /* Link partner acked us       */
++#define MII_LPA_NPAGE                            0x8000  /* Next page bit               */
++
++/* Autoneg Advertisement Register */
++#define MII_AR_SELECTOR_FIELD                   0x0001  /* indicates IEEE 802.3 CSMA/CD */
++#define MII_AR_10T_HD_CAPS                      0x0020  /* 10T   Half Duplex Capable */
++#define MII_AR_10T_FD_CAPS                      0x0040  /* 10T   Full Duplex Capable */
++#define MII_AR_100TX_HD_CAPS                    0x0080  /* 100TX Half Duplex Capable */
++#define MII_AR_100TX_FD_CAPS                    0x0100  /* 100TX Full Duplex Capable */
++#define MII_AR_100T4_CAPS                       0x0200  /* 100T4 Capable */
++#define MII_AR_PAUSE                            0x0400  /* Pause operation desired */
++#define MII_AR_ASM_DIR                          0x0800  /* Asymmetric Pause Direction bit */
++#define MII_AR_REMOTE_FAULT                     0x2000  /* Remote Fault detected */
++#define MII_AR_NEXT_PAGE                        0x8000  /* Next Page ability supported */
++#define MII_AR_SPEED_MASK                       0x01E0
++#define MII_AR_DEFAULT_CAP_MASK                 0x0DE0
++
++/* 1000BASE-T Control Register */
++#define MII_AT001_CR_1000T_HD_CAPS              0x0100  /* Advertise 1000T HD capability */
++#define MII_AT001_CR_1000T_FD_CAPS              0x0200  /* Advertise 1000T FD capability  */
++#define MII_AT001_CR_1000T_REPEATER_DTE         0x0400  /* 1=Repeater/switch device port */
++/* 0=DTE device */
++#define MII_AT001_CR_1000T_MS_VALUE             0x0800  /* 1=Configure PHY as Master */
++/* 0=Configure PHY as Slave */
++#define MII_AT001_CR_1000T_MS_ENABLE            0x1000  /* 1=Master/Slave manual config value */
++/* 0=Automatic Master/Slave config */
++#define MII_AT001_CR_1000T_TEST_MODE_NORMAL     0x0000  /* Normal Operation */
++#define MII_AT001_CR_1000T_TEST_MODE_1          0x2000  /* Transmit Waveform test */
++#define MII_AT001_CR_1000T_TEST_MODE_2          0x4000  /* Master Transmit Jitter test */
++#define MII_AT001_CR_1000T_TEST_MODE_3          0x6000  /* Slave Transmit Jitter test */
++#define MII_AT001_CR_1000T_TEST_MODE_4          0x8000  /* Transmitter Distortion test */
++#define MII_AT001_CR_1000T_SPEED_MASK           0x0300
++#define MII_AT001_CR_1000T_DEFAULT_CAP_MASK     0x0300
++
++/* 1000BASE-T Status Register */
++#define MII_AT001_SR_1000T_LP_HD_CAPS           0x0400  /* LP is 1000T HD capable */
++#define MII_AT001_SR_1000T_LP_FD_CAPS           0x0800  /* LP is 1000T FD capable */
++#define MII_AT001_SR_1000T_REMOTE_RX_STATUS     0x1000  /* Remote receiver OK */
++#define MII_AT001_SR_1000T_LOCAL_RX_STATUS      0x2000  /* Local receiver OK */
++#define MII_AT001_SR_1000T_MS_CONFIG_RES        0x4000  /* 1=Local TX is Master, 0=Slave */
++#define MII_AT001_SR_1000T_MS_CONFIG_FAULT      0x8000  /* Master/Slave config fault */
++#define MII_AT001_SR_1000T_REMOTE_RX_STATUS_SHIFT   12
++#define MII_AT001_SR_1000T_LOCAL_RX_STATUS_SHIFT    13
++
++/* Extended Status Register */
++#define MII_AT001_ESR_1000T_HD_CAPS             0x1000  /* 1000T HD capable */
++#define MII_AT001_ESR_1000T_FD_CAPS             0x2000  /* 1000T FD capable */
++#define MII_AT001_ESR_1000X_HD_CAPS             0x4000  /* 1000X HD capable */
++#define MII_AT001_ESR_1000X_FD_CAPS             0x8000  /* 1000X FD capable */
++
++/* AT001 PHY Specific Control Register */
++#define MII_AT001_PSCR_JABBER_DISABLE           0x0001  /* 1=Jabber Function disabled */
++#define MII_AT001_PSCR_POLARITY_REVERSAL        0x0002  /* 1=Polarity Reversal enabled */
++#define MII_AT001_PSCR_SQE_TEST                 0x0004  /* 1=SQE Test enabled *//
++#define MII_AT001_PSCR_MAC_POWERDOWN            0x0008
++#define MII_AT001_PSCR_CLK125_DISABLE           0x0010  /* 1=CLK125 low,
++                                                        * 0=CLK125 toggling
++                                                        */
++#define MII_AT001_PSCR_MDI_MANUAL_MODE          0x0000  /* MDI Crossover Mode bits 6:5 */
++/* Manual MDI configuration */
++#define MII_AT001_PSCR_MDIX_MANUAL_MODE         0x0020  /* Manual MDIX configuration */
++#define MII_AT001_PSCR_AUTO_X_1000T             0x0040  /* 1000BASE-T: Auto crossover,
++                                                        *  100BASE-TX/10BASE-T:
++                                                        *  MDI Mode
++                                                        */
++#define MII_AT001_PSCR_AUTO_X_MODE              0x0060  /* Auto crossover enabled
++                                                        * all speeds.
++                                                        */
++#define MII_AT001_PSCR_10BT_EXT_DIST_ENABLE     0x0080
++/* 1=Enable Extended 10BASE-T distance
++ * (Lower 10BASE-T RX Threshold)
++ * 0=Normal 10BASE-T RX Threshold */
++#define MII_AT001_PSCR_MII_5BIT_ENABLE          0x0100
++/* 1=5-Bit interface in 100BASE-TX
++ * 0=MII interface in 100BASE-TX */
++#define MII_AT001_PSCR_SCRAMBLER_DISABLE        0x0200  /* 1=Scrambler disable */
++#define MII_AT001_PSCR_FORCE_LINK_GOOD          0x0400  /* 1=Force link good */
++#define MII_AT001_PSCR_ASSERT_CRS_ON_TX         0x0800  /* 1=Assert CRS on Transmit */
++#define MII_AT001_PSCR_POLARITY_REVERSAL_SHIFT    1
++#define MII_AT001_PSCR_AUTO_X_MODE_SHIFT          5
++#define MII_AT001_PSCR_10BT_EXT_DIST_ENABLE_SHIFT 7
++
++
++/* AT001 PHY Specific Status Register */
++#define MII_AT001_PSSR_SPD_DPLX_RESOLVED        0x0800  /* 1=Speed & Duplex resolved */
++#define MII_AT001_PSSR_DPLX                     0x2000  /* 1=Duplex 0=Half Duplex */
++#define MII_AT001_PSSR_SPEED                    0xC000  /* Speed, bits 14:15 */
++#define MII_AT001_PSSR_10MBS                    0x0000  /* 00=10Mbs */
++#define MII_AT001_PSSR_100MBS                   0x4000  /* 01=100Mbs */
++#define MII_AT001_PSSR_1000MBS                  0x8000  /* 10=1000Mbs */
++
++/*********************PCI Command Register ******************************/
++/* PCI Command Register Bit Definitions */
++#define PCI_REG_COMMAND         0x04    /* PCI Command Register */
++#define CMD_IO_SPACE            0x0001
++#define CMD_MEMORY_SPACE        0x0002
++#define CMD_BUS_MASTER          0x0004
++
++/* Wake Up Filter Control */
++#define AT_WUFC_LNKC 0x00000001 /* Link Status Change Wakeup Enable */
++#define AT_WUFC_MAG  0x00000002 /* Magic Packet Wakeup Enable */
++#define AT_WUFC_EX   0x00000004 /* Directed Exact Wakeup Enable */
++#define AT_WUFC_MC   0x00000008 /* Multicast Wakeup Enable */
++#define AT_WUFC_BC   0x00000010 /* Broadcast Wakeup Enable */
++
++/*********************************************************************/
++
++/* Error Codes */
++
++#define AT_SUCCESS         0
++#define AT_ERR_EEPROM      1
++#define AT_ERR_PHY         2
++#define AT_ERR_CONFIG      3
++#define AT_ERR_PARAM       4
++#define AT_ERR_MAC_TYPE    5
++#define AT_ERR_PHY_TYPE    6
++#define AT_ERR_PHY_SPEED   7
++#define AT_ERR_PHY_RES     8
++#define AT_ERR_TIMEOUT     9
++
++#define SPEED_0            0xffff
++#define SPEED_10           10
++#define SPEED_100          100
++#define SPEED_1000         1000
++#define HALF_DUPLEX        1
++#define FULL_DUPLEX        2
++
++#define AUTONEG_ADVERTISE_SPEED_DEFAULT 0x002F /* Everything but 1000-Half */
++#define AUTONEG_ADVERTISE_10_100_ALL    0x000F /* All 10/100 speeds*/
++#define AUTONEG_ADVERTISE_10_ALL        0x0003 /* 10Mbps Full & Half speeds*/
++
++
++/* The size (in bytes) of a ethernet packet */
++#define ENET_HEADER_SIZE                14
++#define MAXIMUM_ETHERNET_FRAME_SIZE     1518 /* with FCS */
++#define MINIMUM_ETHERNET_FRAME_SIZE     64   /* with FCS */
++#define ETHERNET_FCS_SIZE               4
++#define MAX_JUMBO_FRAME_SIZE            0x2000
++#define VLAN_SIZE                                               4
++
++#define PHY_AUTO_NEG_TIME               45          /* 4.5 Seconds */
++#define PHY_FORCE_TIME                  20          /* 2.0 Seconds */
++
++/* For checksumming , the sum of all words in the EEPROM should equal 0xBABA */
++#define EEPROM_SUM                      0xBABA
++#define NODE_ADDRESS_SIZE               6
++
++
++/* TPD definition */
++struct atl1e_tpd_desc {
++       u64         addr;
++       u16         buf_len :14;
++       u16         dma_int :1;
++       u16         tx_int  :1;
++       u16         vlan;
++       u16         eop     :1;
++       u16         ipver   :1;     /* 0 : IPV4, 1:IPV6 */
++       u16         ins_vlan:1;
++       u16         my_xsum :1;
++       u16         segment :1;
++       u16         ipxsum  :1;
++       u16         tcpxsum :1;
++       u16         udpxsum :1;
++       u16         vlan_tag:1;
++       u16         eth_type:1;
++       u16         iphdrlen:4;
++       u16         tcphdrlen:4;
++       u16         hdr_flag:1;
++       u16         tcp_mss :13;
++} __attribute__((packed));
++
++struct atl1e_tpd_ipv6_desc {
++       u64         addr;
++       u16         buf_len :14;
++       u16         dma_int :1;
++       u16         tx_int  :1;
++       u16         vlan;
++       u16         eop     :1;
++       u16         ipver   :1;     /* 0 : IPV4, 1:IPV6 */
++       u16         ins_vlan:1;
++       u16         my_xsum :1;
++       u16         segment :1;
++       u16         ipv6hdrlen_1:3;
++       u16         vlan_tag:1;
++       u16         eth_type:1;
++       u16         ipv6hdrlen_2:4;
++       u16         tcphdrlen:4;
++       u16         hdr_flag:1;
++       u16         tcp_mss :13;
++} __attribute__((packed));
++
++/* Tpd for custom checksum  */
++struct atl1e_tpd_csum_desc {
++       u64        addr;
++       u16        buf_len :14;
++       u16        dma_int :1;
++       u16        tx_int  :1;
++       u16        vlan;
++       u16        eop     :1;
++       u16        coals   :1;
++       u16        ins_vlan:1;
++       u16        my_xsum :1;
++       u16        segment :1;
++       u16        ipxsum  :1;
++       u16        tcpxsum :1;
++       u16        udpxsum :1;
++       u16        vlan_tag:1;
++       u16        eth_type:1;
++       u16        iphdrlen:4;
++       u16        tcphdrlen:2;
++       u16        payld_ofs:8;
++       u16        psdxsum_ofs:8;
++} __attribute__((packed));
++/* how about 0x2000 */
++#define MAX_TX_BUF_LEN      0x2000
++#define MAX_TX_BUF_SHIFT    13
++/*#define MAX_TX_BUF_LEN  0x3000 */
++
++/* RRS(Receive Return Status) definition */
++struct atl1e_recv_ret_status {
++       u16        seq_num         ;
++       u16        hash_lo         ;
++       u16        ippld_xsum      ; /* ip payload checksum */
++       u16        pkt_len :14     ;
++       u16        cpu_n   :2      ;
++       /* packet flags */
++       u16        rss_ipv4:1      ;
++       u16        rss_ipv4_tcp:1  ;
++       u16        rss_ipv6:1      ;
++       u16        rss_ipv6_tcp:1  ;
++       u16        ipv6 :1         ;
++       u16        ipv4_mf:1       ;
++       u16        ipv4_df:1       ;
++
++       u16        eth_type:1      ;
++       u16        vlan    :1      ;
++       u16        err     :1      ;
++       u16        ipv4    :1      ;
++       u16        udp     :1      ;
++       u16        tcp     :1      ;
++       u16        bcast   :1      ;
++       u16        mcast   :1      ;
++       u16        pause   :1      ;
++       /* error info */
++       u16        crc     :1      ;
++       u16        code    :1      ;
++       u16        dribble :1      ;
++       u16        runt    :1      ;
++       u16        ov      :1      ;
++       u16        trunc   :1      ;
++       u16        ip_xsum :1      ;
++       u16        l4_xsum :1      ;
++       u16        length  :1      ;
++       u16        dest    :1      ;
++       u16        res2    :6      ;
++
++       u16        hash_hi ;
++       u16        vtag    ; /* vlan tag if bit vlan == 1 */
++} __attribute__((packed));
++
++typedef enum {
++       atl1e_10_half = 0,
++       atl1e_10_full = 1,
++       atl1e_100_half = 2,
++       atl1e_100_full = 3
++} atl1e_speed_duplex_type;
++
++
++
++typedef enum  {
++       atl1e_dma_req_128 = 0,
++       atl1e_dma_req_256 = 1,
++       atl1e_dma_req_512 = 2,
++       atl1e_dma_req_1024 = 3,
++       atl1e_dma_req_2048 = 4,
++       atl1e_dma_req_4096 = 5
++} atl1e_dma_req_block;
++
++typedef enum {
++       atl1e_rrs_disable = 0,
++       atl1e_rrs_ipv4 = 1,
++       atl1e_rrs_ipv4_tcp = 2,
++       atl1e_rrs_ipv6 = 4,
++       atl1e_rrs_ipv6_tcp = 8
++} atl1e_rrs_type;
++
++typedef enum {
++       athr_l1e = 0,
++       athr_l2e_revA = 1,
++       athr_l2e_revB = 2
++} atl1e_nic_type;
++
++struct atl1e_hw_stats {
++       /* rx */
++       unsigned long rx_ok;      /* The number of good packet received. */
++       unsigned long rx_bcast;       /* The number of good broadcast packet received. */
++       unsigned long rx_mcast;       /* The number of good multicast packet received. */
++       unsigned long rx_pause;       /* The number of Pause packet received. */
++       unsigned long rx_ctrl;        /* The number of Control packet received other than Pause frame. */
++       unsigned long rx_fcs_err;     /* The number of packets with bad FCS. */
++       unsigned long rx_len_err;     /* The number of packets with mismatch of length field and actual size. */
++       unsigned long rx_byte_cnt;    /* The number of bytes of good packet received. FCS is NOT included. */
++       unsigned long rx_runt;        /* The number of packets received that are less than 64 byte long and with good FCS. */
++       unsigned long rx_frag;        /* The number of packets received that are less than 64 byte long and with bad FCS. */
++       unsigned long rx_sz_64;       /* The number of good and bad packets received that are 64 byte long. */
++       unsigned long rx_sz_65_127;   /* The number of good and bad packets received that are between 65 and 127-byte long. */
++       unsigned long rx_sz_128_255;  /* The number of good and bad packets received that are between 128 and 255-byte long. */
++       unsigned long rx_sz_256_511;  /* The number of good and bad packets received that are between 256 and 511-byte long. */
++       unsigned long rx_sz_512_1023; /* The number of good and bad packets received that are between 512 and 1023-byte long. */
++       unsigned long rx_sz_1024_1518;    /* The number of good and bad packets received that are between 1024 and 1518-byte long. */
++       unsigned long rx_sz_1519_max; /* The number of good and bad packets received that are between 1519-byte and MTU. */
++       unsigned long rx_sz_ov;       /* The number of good and bad packets received that are more than MTU size truncated by Selene. */
++       unsigned long rx_rxf_ov;      /* The number of frame dropped due to occurrence of RX FIFO overflow. */
++       unsigned long rx_rrd_ov;      /* The number of frame dropped due to occurrence of RRD overflow. */
++       unsigned long rx_align_err;   /* Alignment Error */
++       unsigned long rx_bcast_byte_cnt;  /* The byte count of broadcast packet received, excluding FCS. */
++       unsigned long rx_mcast_byte_cnt;  /* The byte count of multicast packet received, excluding FCS. */
++       unsigned long rx_err_addr;    /* The number of packets dropped due to address filtering. */
++
++       /* tx */
++       unsigned long tx_ok;      /* The number of good packet transmitted. */
++       unsigned long tx_bcast;       /* The number of good broadcast packet transmitted. */
++       unsigned long tx_mcast;       /* The number of good multicast packet transmitted. */
++       unsigned long tx_pause;       /* The number of Pause packet transmitted. */
++       unsigned long tx_exc_defer;   /* The number of packets transmitted with excessive deferral. */
++       unsigned long tx_ctrl;        /* The number of packets transmitted is a control frame, excluding Pause frame. */
++       unsigned long tx_defer;       /* The number of packets transmitted that is deferred. */
++       unsigned long tx_byte_cnt;    /* The number of bytes of data transmitted. FCS is NOT included. */
++       unsigned long tx_sz_64;       /* The number of good and bad packets transmitted that are 64 byte long. */
++       unsigned long tx_sz_65_127;   /* The number of good and bad packets transmitted that are between 65 and 127-byte long. */
++       unsigned long tx_sz_128_255;  /* The number of good and bad packets transmitted that are between 128 and 255-byte long. */
++       unsigned long tx_sz_256_511;  /* The number of good and bad packets transmitted that are between 256 and 511-byte long. */
++       unsigned long tx_sz_512_1023; /* The number of good and bad packets transmitted that are between 512 and 1023-byte long. */
++       unsigned long tx_sz_1024_1518;    /* The number of good and bad packets transmitted that are between 1024 and 1518-byte long. */
++       unsigned long tx_sz_1519_max; /* The number of good and bad packets transmitted that are between 1519-byte and MTU. */
++       unsigned long tx_1_col;       /* The number of packets subsequently transmitted successfully with a single prior collision. */
++       unsigned long tx_2_col;       /* The number of packets subsequently transmitted successfully with multiple prior collisions. */
++       unsigned long tx_late_col;    /* The number of packets transmitted with late collisions. */
++       unsigned long tx_abort_col;   /* The number of transmit packets aborted due to excessive collisions. */
++       unsigned long tx_underrun;    /* The number of transmit packets aborted due to transmit FIFO underrun, or TRD FIFO underrun */
++       unsigned long tx_rd_eop;      /* The number of times that read beyond the EOP into the next frame area when TRD was not written timely */
++       unsigned long tx_len_err;     /* The number of transmit packets with length field does NOT match the actual frame size. */
++       unsigned long tx_trunc;       /* The number of transmit packets truncated due to size exceeding MTU. */
++       unsigned long tx_bcast_byte;  /* The byte count of broadcast packet transmitted, excluding FCS. */
++       unsigned long tx_mcast_byte;  /* The byte count of multicast packet transmitted, excluding FCS. */
 +};
 +
-+static int __devinit atl1e_validate_option(int *value, struct atl1e_option *opt)
-+{
-+       if (*value == OPTION_UNSET) {
-+               *value = opt->def;
-+               return 0;
-+       }
++struct atl1e_hw {
++       u8 __iomem      *hw_addr;            /* inner register address */
++       resource_size_t mem_rang;
++       void            *adapter;
 +
-+       switch (opt->type) {
-+       case enable_option:
-+               switch (*value) {
-+               case OPTION_ENABLED:
-+                       printk(KERN_INFO "%s Enabled\n", opt->name);
-+                       return 0;
-+               case OPTION_DISABLED:
-+                       printk(KERN_INFO "%s Disabled\n", opt->name);
-+                       return 0;
-+               }
-+               break;
-+       case range_option:
-+               if (*value >= opt->arg.r.min && *value <= opt->arg.r.max) {
-+                       printk(KERN_INFO "%s set to %i\n", opt->name, *value);
-+                       return 0;
-+               }
-+               break;
-+       case list_option:{
-+                       int i;
-+                       struct atl1e_opt_list *ent;
++       atl1e_nic_type  nic_type;
++       u16 device_id;
++       u16 vendor_id;
++       u16 subsystem_id;
++       u16 subsystem_vendor_id;
++       u8  revision_id;
++       u16 pci_cmd_word;
++       u8 mac_addr[NODE_ADDRESS_SIZE];
++       u8 perm_mac_addr[NODE_ADDRESS_SIZE];
++       u8  preamble_len;
++       u16 max_frame_size;
++       u16 rx_jumbo_th;
++       u16 tx_jumbo_th;
 +
-+                       for (i = 0; i < opt->arg.l.nr; i++) {
-+                               ent = &opt->arg.l.p[i];
-+                               if (*value == ent->i) {
-+                                       if (ent->str[0] != '\0')
-+                                               printk(KERN_INFO "%s\n",
-+                                                       ent->str);
-+                                       return 0;
-+                               }
-+                       }
-+                       break;
-+               }
-+       default:
-+               BUG();
-+       }
++       u16 media_type;
++#define MEDIA_TYPE_AUTO_SENSOR  0
++#define MEDIA_TYPE_100M_FULL    1
++#define MEDIA_TYPE_100M_HALF    2
++#define MEDIA_TYPE_10M_FULL     3
++#define MEDIA_TYPE_10M_HALF     4
 +
-+       printk(KERN_INFO "Invalid %s specified (%i) %s\n",
-+                       opt->name, *value, opt->err);
-+       *value = opt->def;
-+       return -1;
-+}
++       u16 autoneg_advertised;
++#define ADVERTISE_10_HALF               0x0001
++#define ADVERTISE_10_FULL               0x0002
++#define ADVERTISE_100_HALF              0x0004
++#define ADVERTISE_100_FULL              0x0008
++#define ADVERTISE_1000_HALF             0x0010 /* Not used, just FYI */
++#define ADVERTISE_1000_FULL             0x0020
++       u16 mii_autoneg_adv_reg;
++       u16 mii_1000t_ctrl_reg;
 +
-+/**
-+ * atl1e_check_options - Range Checking for Command Line Parameters
-+ * @adapter: board private structure
-+ *
-+ * This routine checks all command line parameters for valid user
-+ * input.  If an invalid value is given, or if no user specified
-+ * value exists, a default value is used.  The final value is stored
-+ * in a variable in the adapter structure.
-+ **/
++       u16 imt;        /* Interrupt Moderator timer ( 2us resolution) */
++       u16 ict;        /* Interrupt Clear timer (2us resolution) */
++       u32 smb_timer;
++       u16 rrd_thresh; /* Threshold of number of RRD produced to trigger
++                         interrupt request */
++       u16 tpd_thresh;
++       u16 rx_count_down; /* 2us resolution */
++       u16 tx_count_down;
 +
-+void __devinit atl1e_check_options(struct atl1e_adapter *adapter)
-+{
-+       int bd = adapter->bd_number;
-+       if (bd >= AT_MAX_NIC) {
-+               printk(KERN_NOTICE
-+                       "Warning: no configuration for board #%i\n", bd);
-+               printk(KERN_NOTICE "Using defaults for all values\n");
-+#ifndef module_param_array
-+               bd = AT_MAX_NIC;
-+#endif
-+       }
++       u8 tpd_burst;   /* Number of TPD to prefetch in cache-aligned burst. */
++       atl1e_rrs_type rrs_type;
++       u32 base_cpu;
++       u32 indirect_tab;
 +
-+       { /* Transmit Ring Size */
-+               struct atl1e_option opt = {
-+                       .type = range_option,
-+                       .name = "Transmit Ring Size",
-+                       .err  = "using default of "
-+                               __MODULE_STRING(AT_DEFAULT_TX_RING_SZ),
-+                       .def  = AT_DEFAULT_TX_RING_SZ,
-+                       .arg  = { .r = { .min = AT_MIN_TX_RING_SZ,
-+                                        .max = AT_MAX_TX_RING_SZ} }
-+               };
-+               int val;
-+#ifdef module_param_array
-+               if (num_TxRingSz > bd) {
-+#endif
-+                       val = TxRingSz[bd];
-+                       atl1e_validate_option(&val, &opt);
-+                       adapter->tx_ring.count = (u16) val & 0xFFFC;
-+#ifdef module_param_array
-+               } else {
-+                       adapter->tx_ring.count = (u16)opt.def;
-+               }
-+#endif
-+       }
++       atl1e_dma_req_block dmar_block;
++       atl1e_dma_req_block dmaw_block;
++       u8 dmaw_dly_cnt;
++       u8 dmar_dly_cnt;
 +
-+       { /* Receive Memory Block Count */
-+               struct atl1e_option opt = {
-+                       .type = range_option,
-+                       .name = "memory size of rx buffer(KB)",
-+                       .err  = "using default of "
-+                               __MODULE_STRING(AT_DEFAULT_RXF_SZ),
-+                       .def  = AT_DEFAULT_RXF_SZ,
-+                       .arg  = { .r = { .min = AT_MIN_RXF_SZ,
-+                                        .max = AT_MAX_RXF_SZ} }
-+               };
-+               int val;
-+#ifdef module_param_array
-+               if (num_RxfMemSize > bd) {
-+#endif
-+                       val = RxfMemSize[bd];
-+                       atl1e_validate_option(&val, &opt);
-+                       adapter->rx_ring.page_size = (u32)val * 1024;
-+#ifdef module_param_array
-+               } else {
-+                       adapter->rx_ring.page_size = (u32)opt.def * 1024;
-+               }
-+#endif
++       bool phy_configured;
++       bool re_autoneg;
++       bool emi_ca;
++};
 +
-+       }
-+
-+       { /* Interrupt Moderate Timer */
-+               struct atl1e_option opt = {
-+                       .type = range_option,
-+                       .name = "Interrupt Moderate Timer",
-+                       .err  = "using default of "
-+                               __MODULE_STRING(INT_MOD_DEFAULT_CNT),
-+                       .def  = INT_MOD_DEFAULT_CNT,
-+                       .arg  = { .r = { .min = INT_MOD_MIN_CNT,
-+                                        .max = INT_MOD_MAX_CNT} }
-+               } ;
-+               int val;
-+#ifdef module_param_array
-+               if (num_IntModTimer > bd) {
-+#endif
-+                       val = IntModTimer[bd];
-+                       atl1e_validate_option(&val, &opt);
-+                       adapter->hw.imt = (u16) val;
-+#ifdef module_param_array
-+               } else {
-+                       adapter->hw.imt = (u16)(opt.def);
-+               }
-+#endif
-+       }
-+
-+       { /* MediaType */
-+               struct atl1e_option opt = {
-+                       .type = range_option,
-+                       .name = "Speed/Duplex Selection",
-+                       .err  = "using default of "
-+                               __MODULE_STRING(MEDIA_TYPE_AUTO_SENSOR),
-+                       .def  = MEDIA_TYPE_AUTO_SENSOR,
-+                       .arg  = { .r = { .min = MEDIA_TYPE_AUTO_SENSOR,
-+                                        .max = MEDIA_TYPE_10M_HALF} }
-+               } ;
-+               int val;
-+#ifdef module_param_array
-+               if (num_media_type > bd) {
-+#endif
-+                       val = media_type[bd];
-+                       atl1e_validate_option(&val, &opt);
-+                       adapter->hw.media_type = (u16) val;
-+#ifdef module_param_array
-+               } else {
-+                       adapter->hw.media_type = (u16)(opt.def);
-+               }
-+#endif
-+       }
-+}
-+
-+
-+
++#endif /*_ATHEROS_HW_H__*/
