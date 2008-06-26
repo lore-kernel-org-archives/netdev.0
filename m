@@ -1,37 +1,50 @@
-From: Vitaly Bordug <vbordug@ru.mvista.com>
-Subject: Re: [PATCH 2/2] fs_enet: MDIO on GPIO support
-Date: Thu, 26 Jun 2008 17:55:23 +0400
-Message-ID: <20080626175523.54728d07@vitb.ru.mvista.com>
-References: <200805261152.37636.laurentp@cse-semaphore.com>
-	<48592322.3090201@pobox.com>
-	<200806181716.40362.laurentp@cse-semaphore.com>
-	<200806261321.24338.laurentp@cse-semaphore.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] s2io: fix documentation about intr_type
+Date: Thu, 26 Jun 2008 16:06:19 +0200
+Message-ID: <20080626160619.2f469b3f@brian.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
-	Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Cc: netdev@vger.kernel.org,
+	Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:5360 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752257AbYFZNzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 09:55:18 -0400
-In-Reply-To: <200806261321.24338.laurentp@cse-semaphore.com>
+Received: from mx1.redhat.com ([66.187.233.31]:57798 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751476AbYFZOG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 10:06:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Jun 2008 13:21:23 +0200
-Laurent Pinchart <laurentp@cse-semaphore.com> wrote:
+The documentation for intr_type module parameter of the s2io driver is
+not consistent with the code. The comments in drivers/net/s2io.c are
+OK, but Documentation/networking/s2io.txt is wrong.
 
-> > There should be no dependencies. When the OF GPIO support is not selected 
-> > linux/of_gpio.h will define of_get_gpio() as a stub, so the fs_enet driver 
-> > will fall back to the legacy binding.  
-> 
-> Have we reached a consensus on which tree the patch should go to ?
-I think it should go through powerpc tree, not seeing too much netdev-generic stuff in here.
-If noone will object, Kumar will pick it up I guess...
+Pointed out by Andrew Hecox.
 
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+
+---
+ Documentation/networking/s2io.txt |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/networking/s2io.txt b/Documentation/networking/s2io.txt
+index 4bde53e..1e28e2d 100644
+--- a/Documentation/networking/s2io.txt
++++ b/Documentation/networking/s2io.txt
+@@ -83,9 +83,9 @@ Valid range: Limited by memory on system
+ Default: 30 
+ 
+ e. intr_type
+-Specifies interrupt type. Possible values 1(INTA), 2(MSI), 3(MSI-X)
+-Valid range: 1-3
+-Default: 1 
++Specifies interrupt type. Possible values 0(INTA), 2(MSI-X)
++Valid values: 0, 2
++Default: 2
+ 
+ 5.  Performance suggestions
+ General:
 -- 
-Sincerely, 
-Vitaly
+1.5.5.1
+
