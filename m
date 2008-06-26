@@ -1,70 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [RESEND PATCH 1/3] e1000e: set CONFIG_E1000E=y in x86 defconfigs
-Date: Thu, 26 Jun 2008 14:39:50 +0200
-Message-ID: <20080626123950.GR29619@elte.hu>
-References: <20080622221916.5907.79563.stgit@localhost.localdomain> <20080623112618.GC7485@elte.hu> <48602FA8.7090508@garzik.org>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Re: [patch v3 01/12] DM9000: Remove the 2 resources probe scheme.
+Date: Thu, 26 Jun 2008 13:42:19 +0100
+Message-ID: <20080626124219.GA4289@fluff.org.uk>
+References: <20080624211556.566149406@fluff.org.uk> <20080624211903.586586947@fluff.org.uk> <4861B63D.1010509@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
+Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
+	laurentp@cse-semaphore.com
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:33975 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758297AbYFZMkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 08:40:13 -0400
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:61782 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756984AbYFZMm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 08:42:29 -0400
 Content-Disposition: inline
-In-Reply-To: <48602FA8.7090508@garzik.org>
+In-Reply-To: <4861B63D.1010509@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Jeff Garzik <jeff@garzik.org> wrote:
-
-> Ingo Molnar wrote:
->> * Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+On Tue, Jun 24, 2008 at 11:06:37PM -0400, Jeff Garzik wrote:
+> Ben Dooks wrote:
+>> From: Laurent Pinchart <laurentp@cse-semaphore.com>
 >>
->>> From: Auke Kok <auke-jan.h.kok@intel.com>
->>>
->>> This adds to the already default CONFIG_E1000=y in these files.
->>>
->>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> ---
->>>
->>>  arch/x86/configs/i386_defconfig   |    1 +
->>>  arch/x86/configs/x86_64_defconfig |    1 +
+>> The dm9000 driver accepts either 2 or 3 resources to describe the platform
+>> devices. The 2 resources case abuses the ioresource mechanism by passing
+>> ioremap()ed memory through the platform device resources. This patch removes
+>> that case and converts boards that were using it to the 3 resources scheme.
 >>
->> that is not an e1000 patch but an arch/x86 defconfig patch. NAK on this 
->> route of patch propagation.
+>> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+>> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
 >
-> But it's dependent on an e1000 patch.  Maybe we could follow the lead 
-> of ppc and other arch maintainers, and work together?
->
-> Typically if there are arch dependencies and little drivers/net 
-> changes, I'll ACK the drivers/net change and then let it go through 
-> the arch tree.
->
-> In this case, there is far more drivers/net code, so it would make the 
-> most sense to work with you to change the defconfigs to your liking, 
-> and then merge them via netdev when the other E1000 changes go in.
+> applied 1-12
 
-the normal flow for defconfig changes is to first do the driver changes, 
-then later on propagate anything that is needed into the defconfig, once 
-the driver change is upstream.
+Great, thankyou.
 
-for example we've already got this queued up in tip/x86:
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
-| commit b5d958ea66ac11b1190c24f042f517adf9229a98
-| Author: Auke Kok <auke-jan.h.kok@intel.com>
-| Date:   Wed Apr 9 13:17:39 2008 -0700
-|
-|    e1000e: set CONFIG_E1000E=y in x86 defconfigs
-|
-|    This adds to the already default CONFIG_E1000=y in these files.
-
-and there's a fair number of other changes as well to the defconfigs for 
-v2.6.27 which might collide. So it would be nice to keep it separate 
-please.
-
-	Ingo
+  'a smiley only costs 4 bytes'
