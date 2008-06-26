@@ -1,47 +1,53 @@
-From: Mattias Nissler <mattias.nissler-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: RFC: always enable MAC80211_RC_PID?
-Date: Thu, 26 Jun 2008 19:55:42 +0200
-Message-ID: <1214502942.4432.6.camel@localhost>
-References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
-	 <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
-	 <1214298259.8967.260.camel@johannes.berg>
-	 <20080624124311.GC16021@cs181140183.pp.htv.fi>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2_poll panicking kernel
+Date: Thu, 26 Jun 2008 11:04:48 -0700
+Message-ID: <4863DA40.9050508@broadcom.com>
+References: <20080621113406.5f89ae8d.billfink@mindspring.com>
+ <C27F8246C663564A84BB7AB343977242019B6FEC8E@IRVEXCHCCR01.corp.ad.broadcom.com>
+ <20080623180439.GA18829@orion.carnet.hr>
+ <20080623213657.GA26447@orion.carnet.hr>
+ <48602847.1020203@broadcom.com> <48617C19.3010005@broadcom.com>
+ <20080626110132.GA30648@orion.carnet.hr>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080624124311.GC16021-re2QNgSbS3j4D6uPqz5PAwR5/fbUUdgG@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "'Bill Fink'" <billfink@mindspring.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"mirrors@debian.org" <mirrors@debian.org>
+To: "Josip Rodin" <joy@entuzijast.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1251 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760078AbYFZSCn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 14:02:43 -0400
+In-Reply-To: <20080626110132.GA30648@orion.carnet.hr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just what I remember about the discussion that led to the ugly Makefile.
-
-On Tue, 2008-06-24 at 15:43 +0300, Adrian Bunk wrote:
+Josip Rodin wrote:
 > 
-> Can we get one of either:
-> - all selected mac80211 algorithms are built into the mac80211 module or
+> Here we go, this is the first batch of debug output. I hope it helps.
+> 
 
-IIRC, this was originally voted against because this approach would
-increase kernel image size or module size unnecessarily.
+Thanks for the data.  I've looked at a few of these SKB dumps and they
+appear to be all modified in the same way:
 
-> - all selected mac80211 algorithms (including the default one) are in
->   their own modules
+1. SKB is unchanged and the clone bit is set.
 
-The argument against this was that there are people who don't compile in
-module autoloading, can't figure out what's wrong (in spite of the
-syslog message) and complain about wireless not working...
+2. skb_shared_info(SKB) has dataref 0x00010002 and these fields are
+changed:
 
-Anyway, I always liked any of the two things you suggested better than
-what we have now.
+   nr_frags changed from n to 1
+   gso_size changed from 0x5a8 to 0
+   gso_type changed from 1 (TCP_V4) to 0
+   gso_segs changed from m to 1
+   1 of the frags' length is modified to split the TSO packet into 1
+segment
 
-Mattias
+I think this is consistent with what David said about tso_fragment()
+splitting the cloned TSO SKB into 2.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
+
