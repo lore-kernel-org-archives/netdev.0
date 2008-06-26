@@ -1,59 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: private email...
-Date: Thu, 26 Jun 2008 14:46:07 -0700 (PDT)
-Message-ID: <20080626.144607.67888608.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash,
+	Another Problem)
+Date: Thu, 26 Jun 2008 23:59:18 +0200
+Message-ID: <20080626215918.GC2555@electric-eye.fr.zoreil.com>
+References: <4861800B.90703@nscus.com> <20080625213142.GA29890@electric-eye.fr.zoreil.com> <48640535.2050000@nscus.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Kasper Sandberg <lkml@metanurb.dk>,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Michael Grollman <mgrollman@nscus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59400
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751328AbYFZVqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 17:46:08 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id A168DC8C192
-	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 14:46:07 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37433 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751939AbYFZV7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 17:59:32 -0400
+Content-Disposition: inline
+In-Reply-To: <48640535.2050000@nscus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+(linux-pci Cced)
 
-People have been doing something over time that really bugs the crap
-out of me.  So I'll state it publicly right now so that everyone knows
-that it is not appropriate.
+Michael Grollman <mgrollman@nscus.com> :
+[...]
+> Per instructions, I built an 2.6.26-rc8 system on the target Intel 
+> hardware, and was able to re-recreate the intermittent failure of the 8201. 
+>  When in failure mode, the lspci -vx' display of the pci registers of the 
+> 8102 is as follows:
+>
+> 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E PCI 
+> Express Fast Ethernet controller (rev ff) (prog-if ff)
+>    !!! Unknown header type 7f
+> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 
-If you aren't getting the response you want here about a patch or bug
-report you've posted, THE LAST THING you should do is send me a
-private email.
+Bad mojo.
 
-If I had the time I would have looked at your stuff already, else it's
-sitting deep in my inbox waiting for me to have the necessary time to
-look into it.
+Can you reproduce the failure of the driver or lspci when you
+boot the kernel with "pci=nommconf" (assuming CONFIG_PCI_MMCONFIG is
+set in your .config) or "pci=conf1" (if CONFIG_PCI_DIRECT is instead).
 
-If you email me privately, that's time taken unfairly away from me,
-and that means it will take me longer to look at your stuff.  Private
-email to me is detrimental, and will have the exact opposite effect of
-what you're trying to accomplish.  When you email me privately, you
-are rudely forcing me and only me to look at your problem, instead of
-allowing the host of developers all over the world to possibly take
-a look at it and therefore offload the work from me.
+[...]
+> Let me know if there is anything else I can do to collect information on 
+> this situation.
 
-I cannot scale properly if people email me privately and don't work
-things out on the mailing list.  So in this sense it is rude, it
-is the wrong thing to do, and it is a poor use of global developer
-resources.  So just don't do it.
+The (gzipped) content of your .config.
 
-These past few days I haven't processed anyone's patches or bug
-reports, because I want to make some progress on the things I want to
-work on.  And I make the most progress on such things when I do not
-allow myself to be distracted by bug reports and patch review.
+Kasper, could you check if you have the same symptoms with
+2.6.26-rc8 (once your rendering is finished of course) ?
 
-So nobody is being treated unfairly or different.
-
-You just have to be patient.  If you think your posting was lost or
-forgotten, send a ping here to the list, NOT to me privately.
-
-I used to do the courtesy of sending a canned reply to private emails
-at least letting them know that I will not read it and that they
-should instead use the lists.  But I am not going to even do that any
-more, it eats too much of my time and my time is valuable to me.
+-- 
+Ueimor
