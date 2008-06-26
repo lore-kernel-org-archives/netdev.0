@@ -1,95 +1,116 @@
-From: Tom Quetchenbach <virtualphtn@gmail.com>
-Subject: s2io: packet reordering with 2.6.25.4
-Date: Wed, 25 Jun 2008 17:11:16 -0700
-Message-ID: <4862DEA4.8020305@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ram.vepa@neterion.com, santosh.rastapur@neterion.com,
-	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com
-To: netdev@vger.kernel.org
+From: Imre Kaloz <kaloz@openwrt.org>
+Subject: [PATCH] Add support for the ethernet ports on IXP43x
+Date: Thu, 26 Jun 2008 02:18:38 +0200
+Message-ID: <12144395181290-git-send-email-kaloz@openwrt.org>
+Cc: netdev@vger.kernel.org, khc@pm.waw.pl
+To: linux-arm-kernel@lists.arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.234]:64192 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446AbYFZAKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 20:10:55 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so1288756wxd.4
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2008 17:10:54 -0700 (PDT)
+Received: from viefep31-int.chello.at ([62.179.121.49]:60888 "EHLO
+	viefep31-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753468AbYFZASl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 20:18:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've been encountering some packet reordering with our Neterion 10
-Gigabit Ethernet-SR cards using the s2io driver in linux 2.6.25.4.
+Signed-off-by: Imre Kaloz <kaloz@openwrt.org>
 
-We have a WAN testbed with the Neterion cards in two dual-processor AMD
-Opteron machines; when the machines are connected back-to-back we start
-to encounter reordering when sending UDP traffic at over 500 Mbit/s.
-(This is synthetic traffic generated with iperf, which reports how many
-datagrams are received out-of-order.)
+---
+ arch/arm/mach-ixp4xx/ixp4xx_npe.c         |    6 +++---
+ drivers/net/arm/ixp4xx_eth.c              |   13 +++++++++----
+ include/asm-arm/arch-ixp4xx/cpu.h         |    2 ++
+ include/asm-arm/arch-ixp4xx/ixp4xx-regs.h |    7 ++++---
+ 4 files changed, 18 insertions(+), 10 deletions(-)
 
-We also see the problem when sending iperf TCP traffic from a machine
-with an e1000 gigabit card to the Neterion card via a Cisco 7609 router.
-It seems to be related to the burstiness of the traffic, as inserting an
-intermediate 2.5Gbit/s POS link seems to reduce the reordering, and
-inserting a gigabit ethernet link eliminates it.
+diff --git a/arch/arm/mach-ixp4xx/ixp4xx_npe.c b/arch/arm/mach-ixp4xx/ixp4xx_npe.c
+index 63a23fa..cb92702 100644
+--- a/arch/arm/mach-ixp4xx/ixp4xx_npe.c
++++ b/arch/arm/mach-ixp4xx/ixp4xx_npe.c
+@@ -575,8 +575,8 @@ int npe_load_firmware(struct npe *npe, const char *name, struct device *dev)
+ 		for (i = 0; i < image->size; i++)
+ 			image->data[i] = swab32(image->data[i]);
+ 
+-	if (!cpu_is_ixp46x() && ((image->id >> 28) & 0xF /* device ID */)) {
+-		print_npe(KERN_INFO, npe, "IXP46x firmware ignored on "
++	if (cpu_is_ixp42x() && ((image->id >> 28) & 0xF /* device ID */)) {
++		print_npe(KERN_INFO, npe, "IXP46x/IXP43x firmware ignored on "
+ 			  "IXP42x\n");
+ 		goto err;
+ 	}
+@@ -596,7 +596,7 @@ int npe_load_firmware(struct npe *npe, const char *name, struct device *dev)
+ 		  "revision 0x%X:%X\n", (image->id >> 16) & 0xFF,
+ 		  (image->id >> 8) & 0xFF, image->id & 0xFF);
+ 
+-	if (!cpu_is_ixp46x()) {
++	if (cpu_is_ixp42x()) {
+ 		if (!npe->id)
+ 			instr_size = NPE_A_42X_INSTR_SIZE;
+ 		else
+diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+index c617b64..aaf7fa6 100644
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -32,6 +32,7 @@
+ #include <linux/kernel.h>
+ #include <linux/mii.h>
+ #include <linux/platform_device.h>
++#include <asm/arch/cpu.h>
+ #include <asm/arch/npe.h>
+ #include <asm/arch/qmgr.h>
+ 
+@@ -1241,12 +1242,16 @@ static struct platform_driver drv = {
+ 
+ static int __init eth_init_module(void)
+ {
+-	if (!(ixp4xx_read_feature_bits() & IXP4XX_FEATURE_NPEB_ETH0))
+-		return -ENOSYS;
+ 
+-	/* All MII PHY accesses use NPE-B Ethernet registers */
+ 	spin_lock_init(&mdio_lock);
+-	mdio_regs = (struct eth_regs __iomem *)IXP4XX_EthB_BASE_VIRT;
++	if (!cpu_is_ixp43x())
++	/* All MII PHY accesses use NPE-B Ethernet registers */
++		mdio_regs = (struct eth_regs __iomem *)IXP4XX_EthB_BASE_VIRT;
++
++	else
++	/* IXP43x lacks NPE-B and uses NPE-C for MII PHY access */
++		mdio_regs = (struct eth_regs __iomem *)IXP4XX_EthC_BASE_VIRT;
++
+ 	__raw_writel(DEFAULT_CORE_CNTRL, &mdio_regs->core_control);
+ 
+ 	return platform_driver_register(&drv);
+diff --git a/include/asm-arm/arch-ixp4xx/cpu.h b/include/asm-arm/arch-ixp4xx/cpu.h
+index 2fa3d6b..0821cf2 100644
+--- a/include/asm-arm/arch-ixp4xx/cpu.h
++++ b/include/asm-arm/arch-ixp4xx/cpu.h
+@@ -34,6 +34,8 @@ static inline u32 ixp4xx_read_feature_bits(void)
+ 	val &= ~IXP4XX_FEATURE_RESERVED;
+ 	if (!cpu_is_ixp46x())
+ 		val &= ~IXP4XX_FEATURE_IXP46X_ONLY;
++	if (cpu_is_ixp42x())
++		val &= ~IXP4XX_FEATURE_IXP43X_46X;
+ 
+ 	return val;
+ }
+diff --git a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
+index 68aca85..1d0a218 100644
+--- a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
++++ b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
+@@ -628,11 +628,12 @@
+ #define IXP4XX_FEATURE_XSCALE_MAX_FREQ	(3 << 22)
+ #define IXP4XX_FEATURE_RESERVED		(0xFF << 24)
+ 
+-#define IXP4XX_FEATURE_IXP46X_ONLY (IXP4XX_FEATURE_ECC_TIMESYNC |	\
++#define IXP4XX_FEATURE_IXP43X_46X (IXP4XX_FEATURE_ECC_TIMESYNC |	\
+ 				    IXP4XX_FEATURE_USB_HOST |		\
+ 				    IXP4XX_FEATURE_NPEA_ETH |		\
+-				    IXP4XX_FEATURE_NPEB_ETH_1_TO_3 |	\
+-				    IXP4XX_FEATURE_RSA |		\
+ 				    IXP4XX_FEATURE_XSCALE_MAX_FREQ)
+ 
++#define IXP4XX_FEATURE_IXP46X_ONLY (IXP4XX_FEATURE_NPEB_ETH_1_TO_3 |	\
++				    IXP4XX_FEATURE_RSA)
++
+ #endif
+-- 
+1.5.2.5
 
-We see reordering with 64-bit and 32-bit kernels, but possibly more with
-the 32-bit kernel.
-
-Is this a known issue? Is there anything that I can do to debug it
-further? (I'm fairly familiar with the Linux TCP stack, but pretty much
-a newbie when it comes to debugging network device drivers.)
-
-Thanks, and let me know if there's anything I can do to help debug,
--Tom
-
-Some possibly relevant information:
-
-NAPI is enabled; LRO is disabled. The s2io module is loaded with default
-settings.
-
-lspci, .config, and some other info are available here:
-http://wil-ns.cs.caltech.edu/~quetchen/s2io-reordering/
-
-After loading the s2io module, dmesg output is:
-PM: Writing back config space on device 0000:03:01.0 at offset 1 (was
-2300142, writing 2300146)
-eth2: Enabling MSIX failed
-eth2: MSI-X requested but failed to enable
-Copyright(c) 2002-2007 Neterion Inc.
-eth2: Neterion 10 Gigabit Ethernet-SR PCI-X 2.0 DDR Adapter (rev 2)
-eth2: Driver version 2.0.26.22
-eth2: MAC ADDR: 00:0c:fc:00:0d:22
-SERIAL NUMBER: SXT0541048
-eth2: Device is on 64 bit 133MHz PCIX(M1) bus
-eth2: 1-Buffer receive mode enabled
-eth2: Interrupt type INTA
-eth2: Link down
-
-Here's a sample of the output we see from iperf:
-[quetchen@fast-2 ~]$ iperf -usi1 -w10M
-------------------------------------------------------------
-Server listening on UDP port 5001
-Receiving 1470 byte datagrams
-UDP buffer size: 9.54 MByte (WARNING: requested 10.0 MByte)
-------------------------------------------------------------
-[  3] local 10.4.72.2 port 5001 connected with 10.4.72.3 port 42532
-[  3]  0.0- 1.0 sec    279 MBytes  2.34 Gbits/sec  0.004 ms   65/198856
-[  3]  0.0- 1.0 sec  65 datagrams received out-of-order
-[  3]  1.0- 2.0 sec    278 MBytes  2.33 Gbits/sec  0.004 ms   60/198413
-[  3]  1.0- 2.0 sec  60 datagrams received out-of-order
-[  3]  2.0- 3.0 sec    279 MBytes  2.34 Gbits/sec  0.004 ms   87/199063
-[  3]  2.0- 3.0 sec  87 datagrams received out-of-order
-[  3]  3.0- 4.0 sec    279 MBytes  2.34 Gbits/sec  0.004 ms   50/198882
-[  3]  3.0- 4.0 sec  50 datagrams received out-of-order
-[  3]  4.0- 5.0 sec    276 MBytes  2.32 Gbits/sec  0.004 ms    0/197179
-[  3]  5.0- 6.0 sec    270 MBytes  2.27 Gbits/sec  0.001 ms  127/192705
-[  3]  5.0- 6.0 sec  127 datagrams received out-of-order
-[  3]  6.0- 7.0 sec    279 MBytes  2.34 Gbits/sec  0.001 ms   71/198909
-[  3]  6.0- 7.0 sec  71 datagrams received out-of-order
-[  3]  7.0- 8.0 sec    277 MBytes  2.32 Gbits/sec  0.003 ms   18/197584
-[  3]  7.0- 8.0 sec  18 datagrams received out-of-order
-[  3]  8.0- 9.0 sec    280 MBytes  2.35 Gbits/sec  0.015 ms   41/199648
-[  3]  8.0- 9.0 sec  41 datagrams received out-of-order
-[  3]  0.0-10.0 sec  2.71 GBytes  2.33 Gbits/sec  0.002 ms  519/1979857
-[  3]  0.0-10.0 sec  520 datagrams received out-of-order
