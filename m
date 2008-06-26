@@ -1,109 +1,209 @@
-From: Joonwoo Park <joonwpark81@gmail.com>
-Subject: Re: [PATCH 6/8 v2] netfilter: fix string extension for case
-	insensitive pattern matching
-Date: Wed, 25 Jun 2008 19:12:41 -0700
-Message-ID: <20080626021241.GA26212@tp64>
-References: <1214389505-21405-1-git-send-email-joonwpark81@gmail.com> <4862260A.9060304@trash.net>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH] Fix IOMMU overflow checking in s2io.c
+Date: Wed, 25 Jun 2008 22:16:04 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7703C9C94D@nekter>
+References: <20080618115836.GA18655@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joonwoo Park <joonwpark81@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4862260A.9060304@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Andi Kleen" <andi@firstfloor.org>, <jeff@garzik.org>,
+	<netdev@vger.kernel.org>,
+	"Rastapur Santosh" <santosh.rastapur@neterion.com>,
+	"Sivakumar Subramani" <Sivakumar.Subramani@neterio
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.neterion.com ([72.1.205.142]:1111 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751252AbYFZCQH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2008 22:16:07 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080618115836.GA18655@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2008 at 01:03:38PM +0200, Patrick McHardy wrote:
-> Joonwoo Park wrote:
->> The flag XT_STRING_FLAG_IGNORECASE indicates case insensitive string
->> matching.
->> netfilter can find cmd.exe, Cmd.exe, cMd.exe and etc easily.
+Andi,
+
+Thanks for this fix. We will recreate a new patch which includes the fix
+mentioned in your comments and resubmit.
+
+Ram
+> -----Original Message-----
+> From: Andi Kleen [mailto:andi@firstfloor.org]
+> Sent: Wednesday, June 18, 2008 4:59 AM
+> To: jeff@garzik.org; netdev@vger.kernel.org; ram.vepa@neterion.com;
+> Rastapur Santosh; Sivakumar Subramani; Sreenivasa Honnur
+> Subject: [PATCH] Fix IOMMU overflow checking in s2io.c
+> 
+> Fix IOMMU overflow checking in s2io.c
+> 
+> s2io has IOMMU overflow checking, but unfortunately it is wrong.
+> 
+> It didn't use the standard macros, which meant that it only worked
+> on POWER and SPARC because only those define DMA_ERROR_CODE. Convert
+it to
+> use the standard macros instead.
+> 
+> I also commented two more bugs in the IOMMU handling. It assumes
+> that 0 DMA addresses cannot happen, but that's not true in all IOMMU
+> setups.
+> The information if a buffer has been already mapped needs to be stored
+> elsewhere.
+> 
+> Didn't fix those because it needs careful checking of the buffer
+handling
+> by the maintainers.
+> 
+> Cc: ram.vepa@neterion.com
+> Cc: santosh.rastapur@neterion.com
+> Cc: sivakumar.subramani@neterion.com
+> Cc: sreenivasa.honnur@neterion.com
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> 
+> Index: linux/drivers/net/s2io.c
+> ===================================================================
+> --- linux.orig/drivers/net/s2io.c
+> +++ linux/drivers/net/s2io.c
+> @@ -2625,9 +2625,7 @@ static int fill_rx_buffers(struct ring_i
+>  			rxdp1->Buffer0_ptr = pci_map_single
+>  			    (ring->pdev, skb->data, size - NET_IP_ALIGN,
+>  				PCI_DMA_FROMDEVICE);
+> -			if( (rxdp1->Buffer0_ptr == 0) ||
+> -				(rxdp1->Buffer0_ptr ==
+> -				DMA_ERROR_CODE))
+> +			if(pci_dma_mapping_error(rxdp1->Buffer0_ptr))
+>  				goto pci_map_failed;
+> 
+>  			rxdp->Control_2 =
+> @@ -2657,6 +2655,7 @@ static int fill_rx_buffers(struct ring_i
+>  			skb->data = (void *) (unsigned long)tmp;
+>  			skb_reset_tail_pointer(skb);
+> 
+> +			/* AK: check is wrong. 0 can be valid dma
+address */
+>  			if (!(rxdp3->Buffer0_ptr))
+>  				rxdp3->Buffer0_ptr =
+>  				   pci_map_single(ring->pdev, ba->ba_0,
+> @@ -2665,8 +2664,7 @@ static int fill_rx_buffers(struct ring_i
 >
-> I've asked you to provide some more information about this patch:
+pci_dma_sync_single_for_device(ring->pdev,
+>  				(dma_addr_t) rxdp3->Buffer0_ptr,
+>  				    BUF0_LEN, PCI_DMA_FROMDEVICE);
+> -			if( (rxdp3->Buffer0_ptr == 0) ||
+> -				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE))
+> +			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr))
+>  				goto pci_map_failed;
+> 
+>  			rxdp->Control_2 = SET_BUFFER0_SIZE_3(BUF0_LEN);
+> @@ -2681,18 +2679,17 @@ static int fill_rx_buffers(struct ring_i
+>  				(ring->pdev, skb->data, ring->mtu + 4,
+>  						PCI_DMA_FROMDEVICE);
+> 
+> -				if( (rxdp3->Buffer2_ptr == 0) ||
+> -					(rxdp3->Buffer2_ptr ==
+DMA_ERROR_CODE))
+> +				if
+(pci_dma_mapping_error(rxdp3->Buffer2_ptr))
+>  					goto pci_map_failed;
+> 
+> +				/* AK: check is wrong */
+>  				if (!rxdp3->Buffer1_ptr)
+>  					rxdp3->Buffer1_ptr =
 >
-> <quote>
-> A few words for the changelog why this won't break compatibility
-> by changing the data structure would be nice, especially
-> considering CRIS that doesn't perform any padding itself (you
-> might be lucky though because of aligned attribute, but please
-> verify that yourself).
-> </quote>
->
-
-I missed it and added few words for the changelog.
-
-Thanks Patrick!
-
----
-netfilter: fix string extension for case insensitive pattern matching
-
-The flag XT_STRING_FLAG_IGNORECASE indicates case insensitive string
-matching.
-netfilter can find cmd.exe, Cmd.exe, cMd.exe and etc easily.
-
-Also this patch won't break compatibility since we have 2 bytes space
-between invert and config, due to config was 8 bytes aligned.
-So we can put a new value 'flags' in xt_string_info between invert and
-config safely.
-If previous version of iptables interact with this kernel, to kernel
-side, flags will be set to zero and to user side, flags will be ignored.
-
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
----
- include/linux/netfilter/xt_string.h |    3 +++
- net/netfilter/xt_string.c           |    5 ++++-
- 2 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netfilter/xt_string.h b/include/linux/netfilter/xt_string.h
-index bb21dd1..2de02e9 100644
---- a/include/linux/netfilter/xt_string.h
-+++ b/include/linux/netfilter/xt_string.h
-@@ -4,6 +4,8 @@
- #define XT_STRING_MAX_PATTERN_SIZE 128
- #define XT_STRING_MAX_ALGO_NAME_SIZE 16
- 
-+#define XT_STRING_FLAG_IGNORECASE 0x01
-+
- struct xt_string_info
- {
- 	u_int16_t from_offset;
-@@ -12,6 +14,7 @@ struct xt_string_info
- 	char 	  pattern[XT_STRING_MAX_PATTERN_SIZE];
- 	u_int8_t  patlen;
- 	u_int8_t  invert;
-+	u_int8_t  flags;
- 
- 	/* Used internally by the kernel */
- 	struct ts_config __attribute__((aligned(8))) *config;
-diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
-index 72f694d..853ca35 100644
---- a/net/netfilter/xt_string.c
-+++ b/net/netfilter/xt_string.c
-@@ -46,6 +46,7 @@ string_mt_check(const char *tablename, const void *ip,
- {
- 	struct xt_string_info *conf = matchinfo;
- 	struct ts_config *ts_conf;
-+	int flags = TS_AUTOLOAD;
- 
- 	/* Damn, can't handle this case properly with iptables... */
- 	if (conf->from_offset > conf->to_offset)
-@@ -54,8 +55,10 @@ string_mt_check(const char *tablename, const void *ip,
- 		return false;
- 	if (conf->patlen > XT_STRING_MAX_PATTERN_SIZE)
- 		return false;
-+	if (conf->flags & XT_STRING_FLAG_IGNORECASE)
-+		flags |= TS_IGNORECASE;
- 	ts_conf = textsearch_prepare(conf->algo, conf->pattern, conf->patlen,
--				     GFP_KERNEL, TS_AUTOLOAD);
-+				     GFP_KERNEL, flags);
- 	if (IS_ERR(ts_conf))
- 		return false;
- 
--- 
-1.5.4.3
----
+pci_map_single(ring->pdev,
+>  						ba->ba_1, BUF1_LEN,
+>  						PCI_DMA_FROMDEVICE);
+> 
+> -				if( (rxdp3->Buffer1_ptr == 0) ||
+> -					(rxdp3->Buffer1_ptr ==
+DMA_ERROR_CODE)) {
+> +				if
+(pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
+>  					pci_unmap_single
+>  						(ring->pdev,
+>  						(dma_addr_t)(unsigned
+long)
+> @@ -4264,16 +4261,14 @@ static int s2io_xmit(struct sk_buff *skb
+>  		txdp->Buffer_Pointer = pci_map_single(sp->pdev,
+>  					fifo->ufo_in_band_v,
+>  					sizeof(u64), PCI_DMA_TODEVICE);
+> -		if((txdp->Buffer_Pointer == 0) ||
+> -			(txdp->Buffer_Pointer == DMA_ERROR_CODE))
+> +		if (pci_dma_mapping_error(txdp->Buffer_Pointer))
+>  			goto pci_map_failed;
+>  		txdp++;
+>  	}
+> 
+>  	txdp->Buffer_Pointer = pci_map_single
+>  	    (sp->pdev, skb->data, frg_len, PCI_DMA_TODEVICE);
+> -	if((txdp->Buffer_Pointer == 0) ||
+> -		(txdp->Buffer_Pointer == DMA_ERROR_CODE))
+> +	if (pci_dma_mapping_error(txdp->Buffer_Pointer))
+>  		goto pci_map_failed;
+> 
+>  	txdp->Host_Control = (unsigned long) skb;
+> @@ -6884,10 +6879,8 @@ static int set_rxd_buffer_pointer(struct
+>  				pci_map_single( sp->pdev, (*skb)->data,
+>  					size - NET_IP_ALIGN,
+>  					PCI_DMA_FROMDEVICE);
+> -			if( (rxdp1->Buffer0_ptr == 0) ||
+> -				(rxdp1->Buffer0_ptr == DMA_ERROR_CODE))
+{
+> +			if (pci_dma_mapping_error(rxdp1->Buffer0_ptr))
+>  				goto memalloc_failed;
+> -			}
+>  			rxdp->Host_Control = (unsigned long) (*skb);
+>  		}
+>  	} else if ((sp->rxd_mode == RXD_MODE_3B) && (rxdp->Host_Control
+==
+> 0)) {
+> @@ -6913,15 +6906,12 @@ static int set_rxd_buffer_pointer(struct
+>  				pci_map_single(sp->pdev, (*skb)->data,
+>  					       dev->mtu + 4,
+>  					       PCI_DMA_FROMDEVICE);
+> -			if( (rxdp3->Buffer2_ptr == 0) ||
+> -				(rxdp3->Buffer2_ptr == DMA_ERROR_CODE))
+{
+> +			if (pci_dma_mapping_error(rxdp3->Buffer2_ptr))
+>  				goto memalloc_failed;
+> -			}
+>  			rxdp3->Buffer0_ptr = *temp0 =
+>  				pci_map_single( sp->pdev, ba->ba_0,
+BUF0_LEN,
+>  						PCI_DMA_FROMDEVICE);
+> -			if( (rxdp3->Buffer0_ptr == 0) ||
+> -				(rxdp3->Buffer0_ptr == DMA_ERROR_CODE))
+{
+> +			if (pci_dma_mapping_error(rxdp3->Buffer0_ptr)) {
+>  				pci_unmap_single (sp->pdev,
+>  					(dma_addr_t)rxdp3->Buffer2_ptr,
+>  					dev->mtu + 4,
+PCI_DMA_FROMDEVICE);
+> @@ -6933,8 +6923,7 @@ static int set_rxd_buffer_pointer(struct
+>  			rxdp3->Buffer1_ptr = *temp1 =
+>  				pci_map_single(sp->pdev, ba->ba_1,
+BUF1_LEN,
+>  						PCI_DMA_FROMDEVICE);
+> -			if( (rxdp3->Buffer1_ptr == 0) ||
+> -				(rxdp3->Buffer1_ptr == DMA_ERROR_CODE))
+{
+> +			if (pci_dma_mapping_error(rxdp3->Buffer1_ptr)) {
+>  				pci_unmap_single (sp->pdev,
+>  					(dma_addr_t)rxdp3->Buffer0_ptr,
+>  					BUF0_LEN, PCI_DMA_FROMDEVICE);
+> Index: linux/drivers/net/s2io.h
+> ===================================================================
+> --- linux.orig/drivers/net/s2io.h
+> +++ linux/drivers/net/s2io.h
+> @@ -75,10 +75,6 @@ static int debug_level = ERR_DBG;
+>  /* DEBUG message print. */
+>  #define DBG_PRINT(dbg_level, args...)  if(!(debug_level<dbg_level))
+> printk(args)
+> 
+> -#ifndef DMA_ERROR_CODE
+> -#define DMA_ERROR_CODE          (~(dma_addr_t)0x0)
+> -#endif
+> -
+>  /* Protocol assist features of the NIC */
+>  #define L3_CKSUM_OK 0xFFFF
+>  #define L4_CKSUM_OK 0xFFFF
