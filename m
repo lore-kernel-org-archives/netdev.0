@@ -1,39 +1,44 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH net-next-2.6] TCP: de-bloat a bit with factoring NET_INC_STATS_BH
- out
-Date: Thu, 26 Jun 2008 11:52:37 +0400
-Message-ID: <48634AC5.20203@openvz.org>
-References: <485931B5.2020509@openvz.org>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: [PATCH] tc35815: Fix receiver hangup on Rx FIFO overflow
+Date: Thu, 26 Jun 2008 17:14:15 +0900 (JST)
+Message-ID: <20080626.171415.81099548.nemoto@toshiba-tops.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52897 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874AbYFZHzL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 03:55:11 -0400
-In-Reply-To: <485931B5.2020509@openvz.org>
+Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:30208 "EHLO
+	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756676AbYFZIOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 04:14:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov wrote:
-> There are some places in TCP that select one MIB index to
-> bump snmp statistics like this:
-> ...
+On Rx FIFO overflow error, the controller consume a buffer descriptor
+but currently the driver does not give it back to the controller.
+This results unrecoverable 'Buffer List Exhausted' condition.  This
+patch fix this problem by moving a "fbl_count--" line to proper place.
 
-Hello, David!
-
-I suppose, that you're busy now with upcoming 2.6.26 release and
-have little time to answer, but can you briefly tell me about your
-plans about this patch?
-
-The thing is that I'm now almost finished with the MIB netnsization
-patch-set to send for discussion (and, frankly speaking, hopefully
-for the inclusion in 2.6.27) and this work (slightly) depends on this
-patch. And, since I mention, the MIBs - do I have any chance to
-attract your attention to that set? :)
-
-Thanks,
-Pavel
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+---
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index dccea52..b07b8cb 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -1736,7 +1736,6 @@ tc35815_rx(struct net_device *dev)
+ 			skb = lp->rx_skbs[cur_bd].skb;
+ 			prefetch(skb->data);
+ 			lp->rx_skbs[cur_bd].skb = NULL;
+-			lp->fbl_count--;
+ 			pci_unmap_single(lp->pci_dev,
+ 					 lp->rx_skbs[cur_bd].skb_dma,
+ 					 RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+@@ -1792,6 +1791,7 @@ tc35815_rx(struct net_device *dev)
+ #ifdef TC35815_USE_PACKEDBUFFER
+ 			while (lp->fbl_curid != id)
+ #else
++			lp->fbl_count--;
+ 			while (lp->fbl_count < RX_BUF_NUM)
+ #endif
+ 			{
