@@ -1,50 +1,78 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: Sending big Netlink messages to userspace
-Date: Thu, 26 Jun 2008 17:39:01 +0200
-Message-ID: <f4845fc0806260839g45fa53e2w473684736e0cce56@mail.gmail.com>
-References: <f4845fc0806240938h36d275ect109fd5f5414cba37@mail.gmail.com>
-	 <4861282C.4000208@trash.net> <20080625104401.GJ20815@postel.suug.ch>
-	 <20080625.155146.103043993.davem@davemloft.net>
-	 <4862E5B0.9080007@trash.net>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH] s2io: fix documentation about intr_type
+Date: Thu, 26 Jun 2008 13:03:05 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7703C9CAAB@nekter>
+References: <20080626160619.2f469b3f@brian.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org, vbusam@google.com
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
+To: "Michal Schmidt" <mschmidt@redhat.com>,
+	"Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:38422 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753253AbYFZPjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 11:39:09 -0400
-Received: from zps19.corp.google.com (zps19.corp.google.com [172.25.146.19])
-	by smtp-out.google.com with ESMTP id m5QFd2mf006229
-	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 16:39:03 +0100
-Received: from wf-out-1314.google.com (wfc25.prod.google.com [10.142.3.25])
-	by zps19.corp.google.com with ESMTP id m5QFcJPu019421
-	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 08:39:02 -0700
-Received: by wf-out-1314.google.com with SMTP id 25so65870wfc.6
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 08:39:01 -0700 (PDT)
-In-Reply-To: <4862E5B0.9080007@trash.net>
-Content-Disposition: inline
+Received: from mx.neterion.com ([72.1.205.142]:20998 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752486AbYFZRmH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 13:42:07 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080626160619.2f469b3f@brian.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 26, 2008 at 2:41 AM, Patrick McHardy <kaber@trash.net> wrote:
->> Therefore userland need never have a buffer larger than 8K or
->> sysconf(_SC_PAGESIZE), whichever is smaller.
->
-> For dumps the size is fine, for large unicast messages it
-> might need to be increased though (like nfnetlink_queue).
+Michal,
+Thanks for the fix. 
 
-Ok, I put everything that is a list of variable size into dumps now.
-One object (list entry) per multipart message (but several multipart
-messages are sent in the same skb until it fills up).
+Jeff,
+Please accept the patch.
 
-All the other reply messages are of a fixed size and very small, so
-fortunately I don't need to increase buffer sizes anywhere.
+Thanks,
+Ram
 
-Julius
-
--- 
-Google Switzerland GmbH
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org
+[mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Michal Schmidt
+> Sent: Thursday, June 26, 2008 7:06 AM
+> To: Jeff Garzik
+> Cc: netdev@vger.kernel.org; Sreenivasa Honnur
+> Subject: [PATCH] s2io: fix documentation about intr_type
+> 
+> The documentation for intr_type module parameter of the s2io driver is
+> not consistent with the code. The comments in drivers/net/s2io.c are
+> OK, but Documentation/networking/s2io.txt is wrong.
+> 
+> Pointed out by Andrew Hecox.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 
+> ---
+>  Documentation/networking/s2io.txt |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/Documentation/networking/s2io.txt
+> b/Documentation/networking/s2io.txt
+> index 4bde53e..1e28e2d 100644
+> --- a/Documentation/networking/s2io.txt
+> +++ b/Documentation/networking/s2io.txt
+> @@ -83,9 +83,9 @@ Valid range: Limited by memory on system
+>  Default: 30
+> 
+>  e. intr_type
+> -Specifies interrupt type. Possible values 1(INTA), 2(MSI), 3(MSI-X)
+> -Valid range: 1-3
+> -Default: 1
+> +Specifies interrupt type. Possible values 0(INTA), 2(MSI-X)
+> +Valid values: 0, 2
+> +Default: 2
+> 
+>  5.  Performance suggestions
+>  General:
+> --
+> 1.5.5.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
