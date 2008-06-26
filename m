@@ -1,44 +1,39 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Fix receiver hangup on Rx FIFO overflow
-Date: Thu, 26 Jun 2008 17:14:15 +0900 (JST)
-Message-ID: <20080626.171415.81099548.nemoto@toshiba-tops.co.jp>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: s2io: packet reordering with 2.6.25.4
+Date: Thu, 26 Jun 2008 10:28:49 +0200
+Message-ID: <48635341.8010609@gmail.com>
+References: <4862DEA4.8020305@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org, ram.vepa@neterion.com,
+	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
+	sreenivasa.honnur@neterion.com
+To: Tom Quetchenbach <virtualphtn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:30208 "EHLO
-	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756676AbYFZIOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 04:14:30 -0400
+Received: from nf-out-0910.google.com ([64.233.182.190]:42909 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752600AbYFZI3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 04:29:18 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so225007nfc.21
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 01:29:17 -0700 (PDT)
+In-Reply-To: <4862DEA4.8020305@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Rx FIFO overflow error, the controller consume a buffer descriptor
-but currently the driver does not give it back to the controller.
-This results unrecoverable 'Buffer List Exhausted' condition.  This
-patch fix this problem by moving a "fbl_count--" line to proper place.
+Tom Quetchenbach wrote, On 06/26/2008 02:11 AM:
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index dccea52..b07b8cb 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -1736,7 +1736,6 @@ tc35815_rx(struct net_device *dev)
- 			skb = lp->rx_skbs[cur_bd].skb;
- 			prefetch(skb->data);
- 			lp->rx_skbs[cur_bd].skb = NULL;
--			lp->fbl_count--;
- 			pci_unmap_single(lp->pci_dev,
- 					 lp->rx_skbs[cur_bd].skb_dma,
- 					 RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
-@@ -1792,6 +1791,7 @@ tc35815_rx(struct net_device *dev)
- #ifdef TC35815_USE_PACKEDBUFFER
- 			while (lp->fbl_curid != id)
- #else
-+			lp->fbl_count--;
- 			while (lp->fbl_count < RX_BUF_NUM)
- #endif
- 			{
+> We've been encountering some packet reordering with our Neterion 10
+> Gigabit Ethernet-SR cards using the s2io driver in linux 2.6.25.4.
+
+...
+
+> Thanks, and let me know if there's anything I can do to help debug,
+
+Out of curiosity: is there affinity set for eths' irqs or they are
+balanced between cpus? (/proc/interrupts?)
+
+Regards,
+Jarek P.
+
+
