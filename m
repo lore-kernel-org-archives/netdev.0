@@ -1,38 +1,45 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH] igb: completely disable interrupts during netpoll
-Date: Thu, 26 Jun 2008 00:23:59 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52057B3FE5@orsmsx418.amr.corp.intel.com>
-References: <20080625141511.GH22981@gospo.rdu.redhat.com> <20080625.152751.154176346.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [2.6 patch] remove the unused APOLLO_ELPLUS option
+Date: Thu, 26 Jun 2008 09:26:18 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806260925190.30924@anakin>
+References: <20080625162454.GB10285@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <andy@greyhouse.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	"Robert P. J. Day" <rpjday@crashcourse.ca>,
+	linux-m68k@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5236 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753725AbYFZHYV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 03:24:21 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080625.152751.154176346.davem@davemloft.net>
+Received: from yorgi.telenet-ops.be ([195.130.133.69]:59491 "EHLO
+	yorgi.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbYFZH1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 03:27:40 -0400
+Received: from monty.telenet-ops.be (monty.telenet-ops.be [195.130.132.56])
+	by yorgi.telenet-ops.be (Postfix) with ESMTP id 500F0589B5E
+	for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 09:26:51 +0200 (CEST)
+In-Reply-To: <20080625162454.GB10285@cs181140183.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> It's better to have a good understanding of why the deadlocks
-> happen, and this was decidedly missing from your commit message.
+On Wed, 25 Jun 2008, Adrian Bunk wrote:
+> Looking at older kernel sources the APOLLO_ELPLUS option was added 
+> somewhere during kernel 2.1, but even kernel 2.2.0 does not contain
+> any driver that would be enabled through it...
 > 
-> NAPI is designed in such a way that if pending interrupts arrive
-> after NAPI disables chip interrupts it should be handled just
-> fine and in fact I see this happen all the time on some of my
-> test systems.
+> Reported-by: Robert P. J. Day <rpjday@crashcourse.ca>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-I think the deadlocks occur (only when using netpoll) because the tx
-cleanup (igb_clean_tx_irq) is being called simultaneously from two
-routines, which generally is guaranteed not to happen in regular
-everyday napi mode because of the bh_disable before calling dev->poll.
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
+(queued for 2.6.27, unless Jeff wants it to pass via his tree?)
 
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
