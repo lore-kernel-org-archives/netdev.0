@@ -1,67 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP MD5 and socket accept
-Date: Thu, 26 Jun 2008 14:33:58 -0700
-Message-ID: <20080626143358.53fa9117@extreme>
-References: <20080625225657.61e1b29b@extreme>
-	<396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: RFC: always enable MAC80211_RC_PID?
+Date: Thu, 26 Jun 2008 14:35:42 -0700
+Message-ID: <43e72e890806261435t3d06e955x590a6fafb223bbca@mail.gmail.com>
+References: <20080622125553.GB22539@cs181133002.pp.htv.fi>
+	 <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com>
+	 <1214298259.8967.260.camel@johannes.berg>
+	 <20080624124311.GC16021@cs181140183.pp.htv.fi>
+	 <20080624211222.GB25892@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"=?UTF-8?B?5ZCJ6Jek6Iux5piO?=" <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: "Adam Langley" <agl@imperialviolet.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:35932 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751273AbYFZVeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 17:34:05 -0400
-In-Reply-To: <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Adrian Bunk" <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Adrian Bunk" <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Rindjunsky, Ron" <ron.rindjunsky-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Winkler, Tomas" <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080624211222.GB25892-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Jun 2008 07:46:59 -0700
-"Adam Langley" <agl@imperialviolet.org> wrote:
+On Tue, Jun 24, 2008 at 2:12 PM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Tue, Jun 24, 2008 at 03:43:14PM +0300, Adrian Bunk wrote:
+>
+>> Can we get one of either:
+>> - all selected mac80211 algorithms are built into the mac80211 module or
+>
+> This seems fine to me.
 
-> On Wed, Jun 25, 2008 at 10:56 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > What will break if tcp_create_openreq_child was fixed to copy md5_info if
-> > present?
-> >
-> > This all comes about because right now using Quagga a Linux to Linux
-> > works with TCP MD5. But a Linux to Cisco connection fails if using
-> > TCP MD5.
-> 
-> I'll have a look at this later today but, as you say, Linux to Linux
-> works, and getting the key wrong certainly breaks it (and without
-> setsockopt on the child, I believe). So some MD5 information is
-> getting copied from listening sockets to children.
-> 
-> Also note the MD5 on Linux is pretty badly broken in the face of
-> packet loss at the moment. I have patches floating around to fix it,
-> but not in any trees yet.
-> 
-> 
-> AGL
-> 
+OK so just to be clear -- moving forward we strive to not allow driver
+specific rate control algorithms and push out current ones into
+mac80211? This would mean we don't have to *cleanup* support for
+driver specific RCs but instead just have them stashed in as part of
+the build. The difficulty here lies in ensuring they do work for well
+for other drivers but I do agree it strives to cleanup RC code. I
+think vendors also tend to use a few driver specific tweaks to boost
+their own throughput in their own RCs though. Can't say for sure right
+now of specific details but I'll try to get back to you with them.
+Perhaps Tomas can say more about that for iwl's RCs.
 
-The problem is that md5 calculation assumes that the data buffer is
-linear! It doesn't handle any kind of scatter-gather in skb!
-
-int tcp_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
-		      int bplen,
-		      struct tcphdr *th, unsigned int tcplen,
-		      struct tcp_md5sig_pool *hp)
-{
-...
-	/* 3. The TCP segment data (if any) */
-	data_len = tcplen - (th->doff << 2);
-	if (data_len > 0) {
-		u8 *data = (u8 *)th + (th->doff << 2);
-		sg_set_buf(&sg[block++], data, data_len);
-		nbytes += data_len;
-	}
-
-This is wrong, it needs to handle fragmented skb's.  I'll work out a patch
-but it means passing skb to calc_md5_hash or just turn off using scatter/gather
-on MD5 connections.
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
