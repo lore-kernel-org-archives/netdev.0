@@ -1,78 +1,52 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH] s2io: fix documentation about intr_type
-Date: Thu, 26 Jun 2008 13:03:05 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7703C9CAAB@nekter>
-References: <20080626160619.2f469b3f@brian.englab.brq.redhat.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: wacky select timeout behaviour in strace
+Date: Thu, 26 Jun 2008 10:48:42 -0600
+Message-ID: <4863C86A.4080903@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
-To: "Michal Schmidt" <mschmidt@redhat.com>,
-	"Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:20998 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752486AbYFZRmH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 13:42:07 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080626160619.2f469b3f@brian.englab.brq.redhat.com>
+Received: from zcars04f.nortel.com ([47.129.242.57]:37551 "EHLO
+	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097AbYFZRtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 13:49:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michal,
-Thanks for the fix. 
+I've got something odd in a couple of recent strace logs (running on an 
+older kernel, I haven't yet tried to reproduce in mainline).
 
-Jeff,
-Please accept the patch.
+First case:
+
+20418 22:06:50.583303 select(19, [7 11 12 13 14 15 16 17 18], NULL, 
+NULL, {0, 498508}) = 1 (in [11], left {0, 0}) <5.074137>
+
+select() was called with a timeout of half a second.  Five seconds later 
+it returns with zero time left and a single socket readable.  Why 
+wouldn't it have returned after half a second with a timeout?
+
+
+
+Second case:
+
+18383 01:46:23.572951 select(16, [15], NULL, NULL, {1, 0}) = 1 (in [15], 
+left {0, 732000}) <1.337443>
+
+Here we call select with a timeout of 1 sec, then 1.3337 sec later we 
+return saying that we have 732ms left to sleep.
+
+In addition, there was an interval timer set up to fire every 500ms, and 
+it didn't interrupt the select call.  It did fire 60ms after the select 
+call returned.  Interestingly, the timing of that firing (x.97 sec) 
+didn't match the normal times (x.07 and x.57), but it then returned to 
+the normal times after the single abnormal firing.
+
+Anyone have any ideas what's going on?  This doesn't appear to be an 
+strace artifact, as I can reproduce it without tracing the process in 
+question.  It also doesn't appear to be a system-wide artifact as I know 
+from instrumentation that other tasks are running during this interval.
 
 Thanks,
-Ram
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org
-[mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Michal Schmidt
-> Sent: Thursday, June 26, 2008 7:06 AM
-> To: Jeff Garzik
-> Cc: netdev@vger.kernel.org; Sreenivasa Honnur
-> Subject: [PATCH] s2io: fix documentation about intr_type
-> 
-> The documentation for intr_type module parameter of the s2io driver is
-> not consistent with the code. The comments in drivers/net/s2io.c are
-> OK, but Documentation/networking/s2io.txt is wrong.
-> 
-> Pointed out by Andrew Hecox.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> ---
->  Documentation/networking/s2io.txt |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/networking/s2io.txt
-> b/Documentation/networking/s2io.txt
-> index 4bde53e..1e28e2d 100644
-> --- a/Documentation/networking/s2io.txt
-> +++ b/Documentation/networking/s2io.txt
-> @@ -83,9 +83,9 @@ Valid range: Limited by memory on system
->  Default: 30
-> 
->  e. intr_type
-> -Specifies interrupt type. Possible values 1(INTA), 2(MSI), 3(MSI-X)
-> -Valid range: 1-3
-> -Default: 1
-> +Specifies interrupt type. Possible values 0(INTA), 2(MSI-X)
-> +Valid values: 0, 2
-> +Default: 2
-> 
->  5.  Performance suggestions
->  General:
-> --
-> 1.5.5.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Chris
