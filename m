@@ -1,45 +1,49 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [Bugme-new] [Bug 10990] New: e1000/e1000e driver
- doesn't work with gigabit connection
-Date: Thu, 26 Jun 2008 12:05:17 -0700
-Message-ID: <4863E86D.1040407@intel.com>
-References: <bug-10990-10286@http.bugzilla.kernel.org/>
-	<20080626120104.2dd670d1.akpm@linux-foundation.org>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: TCP MD5 and socket accept
+Date: Thu, 26 Jun 2008 13:37:08 -0700
+Message-ID: <396556a20806261337n794c22nf538a0953c942879@mail.gmail.com>
+References: <20080625225657.61e1b29b@extreme>
+	 <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, mjc@avtechpulse.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080626120104.2dd670d1.akpm@linux-foundation.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>,
+	"=?UTF-8?B?5ZCJ6Jek6Iux5piO?=" <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.231]:5927 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755423AbYFZUhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 16:37:08 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so201181rvb.1
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 13:37:08 -0700 (PDT)
+In-Reply-To: <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 26, 2008 at 7:46 AM, Adam Langley <agl@imperialviolet.org> wrote:
+> I'll have a look at this later today
 
->> When plugged into a 10/100/1000 porting, forcing:
->> ethtool -s eth0 autoneg off speed 1000 duplex full
+Setup: Linux net-2.6 (almost) <-> Linux net-2.6 (almost)). Userspace
+is only setting TCP_MD5SIG just before connect on the client side and
+just before bind on the server side. Packet dumps show that all
+packets are signed correctly.
 
-gigabit requires autonegotiation, and if you force speeds you would have to force
-it on both ends anyway. The above configuration is therefore not a valid
-configuration.
+>From the code, it appears that we might, in fact, be coping the key
+information twice:
 
-I suggest changing the autonegotiation mask, which leaves autoneg enabled:
+tcp_minisocks.c:tcp_check_req is calling
+inet_csk(sk)->icsk_af_ops->syn_recv_sock, which becomes
+tcp_ipv4.c:tcp_v4_syn_recv_sock which appears to copy the MD5 keys
+over. Additionally, right after that call in tcp_check_req, it appears
+that the keys are copied again.
 
-	ethtool -s eth0 advertise 0x20
+Can you provide packet dumps of Linux screwing up in the face of a
+connection to a Cisco?
 
-this is supported and should accomplish what you want.
+Cheers,
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
