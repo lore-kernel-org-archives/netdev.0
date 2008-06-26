@@ -1,73 +1,67 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Thu, 26 Jun 2008 17:06:24 -0400
-Message-ID: <20080626210624.GA11816@redhat.com>
-References: <20080401235609.GA6947@codemonkey.org.uk> <200804022012.58760.nickpiggin@yahoo.com.au> <20080402085437.7d9abf1f.akpm@linux-foundation.org> <200804031622.26973.nickpiggin@yahoo.com.au> <20080402223254.5ac50337.akpm@linux-foundation.org> <20080403085922.GA10874@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: TCP MD5 and socket accept
+Date: Thu, 26 Jun 2008 14:33:58 -0700
+Message-ID: <20080626143358.53fa9117@extreme>
+References: <20080625225657.61e1b29b@extreme>
+	<396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"=?UTF-8?B?5ZCJ6Jek6Iux5piO?=" <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:50476 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([216.93.170.194]:35932 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753681AbYFZVNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 17:13:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20080403085922.GA10874@2ka.mipt.ru>
+	id S1751273AbYFZVeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 17:34:05 -0400
+In-Reply-To: <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This thread seemed to die out with no resolution..
+On Thu, 26 Jun 2008 07:46:59 -0700
+"Adam Langley" <agl@imperialviolet.org> wrote:
 
-On Thu, Apr 03, 2008 at 12:59:22PM +0400, Evgeniy Polyakov wrote:
- > On Wed, Apr 02, 2008 at 10:32:54PM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
- > > > > It also tells us when we mucked up the net driver - I doubt if we (or at
- > > > > least, I) would have discovered that e1000 does a 32k allocation for a
- > > > > 5k(?) frame if this warning wasn't coming out.
- > > > 
- > > > Is that right? If it is allocating for 9K MTU, then the slab allocator
- > > > (slub in this case) will bump that up to the 16K kmalloc slab. If it is
- > > > a 5K frame, then it would get the 8K kmalloc slab I think.
- > > > 
- > > > Oh, but SLUB's default MIN_OBJECTS is 4, so 4*8 is 32 indeed. So slub
- > > > is probably deciding to round the kmalloc-8192 allocations up to order-3.
- > > > I think. How did you know it was a 5k frame? :)
- > > 
- > > urgh, it was a while ago, and I don't know if e1000e retains the behaviour.
- > > 
- > > iirc the issue was with some errant versions of the hardware needing
- > > exorbitant alignment and additional padding at the end because of
- > > occasional DMA overruns.  Something like that.
- > 
- > e1000 hardware does require power-of-two alignment, network stack adds
- > additional structure at the end, so with e1000 it ends up with two
- > rounds to the higher power of two.
- > 5k ends up with 16k allocations, 9k - to 32k.
- > 
- > This problem is known for years already and number of fixes was
- > proposed, but the really good one is to rewrite e1000 allocation path to
- > use fragments, which I believe was done in the new e1000 driver.
+> On Wed, Jun 25, 2008 at 10:56 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > What will break if tcp_create_openreq_child was fixed to copy md5_info if
+> > present?
+> >
+> > This all comes about because right now using Quagga a Linux to Linux
+> > works with TCP MD5. But a Linux to Cisco connection fails if using
+> > TCP MD5.
+> 
+> I'll have a look at this later today but, as you say, Linux to Linux
+> works, and getting the key wrong certainly breaks it (and without
+> setsockopt on the child, I believe). So some MD5 information is
+> getting copied from listening sockets to children.
+> 
+> Also note the MD5 on Linux is pretty badly broken in the face of
+> packet loss at the moment. I have patches floating around to fix it,
+> but not in any trees yet.
+> 
+> 
+> AGL
+> 
 
-So this morning, we got a fresh report from this in 2.6.25.6's e1000 driver
-https://bugzilla.redhat.com/show_bug.cgi?id=453010
-Pages and pages of spew, which make users freak out.
-This stuff might be 'nice to know', but if it isn't getting fixed,
-I can see why some distros have been shipping the 'silence GFP_ATOMIC failures'
-patches for some time.
+The problem is that md5 calculation assumes that the data buffer is
+linear! It doesn't handle any kind of scatter-gather in skb!
 
-	Dave
+int tcp_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+		      int bplen,
+		      struct tcphdr *th, unsigned int tcplen,
+		      struct tcp_md5sig_pool *hp)
+{
+...
+	/* 3. The TCP segment data (if any) */
+	data_len = tcplen - (th->doff << 2);
+	if (data_len > 0) {
+		u8 *data = (u8 *)th + (th->doff << 2);
+		sg_set_buf(&sg[block++], data, data_len);
+		nbytes += data_len;
+	}
 
- > And as a side note: shuting allocation failures is a very bad step,
- > since it hides allocation problems for drivers. if people do care about
- > it add __GFP_SMALL_WARN flag which will just print that allocation
- > failed, its order and function where it happend.
-
-
-
--- 
-http://www.codemonkey.org.uk
+This is wrong, it needs to handle fragmented skb's.  I'll work out a patch
+but it means passing skb to calc_md5_hash or just turn off using scatter/gather
+on MD5 connections.
