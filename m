@@ -1,53 +1,51 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Thu, 26 Jun 2008 11:04:48 -0700
-Message-ID: <4863DA40.9050508@broadcom.com>
-References: <20080621113406.5f89ae8d.billfink@mindspring.com>
- <C27F8246C663564A84BB7AB343977242019B6FEC8E@IRVEXCHCCR01.corp.ad.broadcom.com>
- <20080623180439.GA18829@orion.carnet.hr>
- <20080623213657.GA26447@orion.carnet.hr>
- <48602847.1020203@broadcom.com> <48617C19.3010005@broadcom.com>
- <20080626110132.GA30648@orion.carnet.hr>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: RFC: always enable MAC80211_RC_PID?
+Date: Thu, 26 Jun 2008 21:10:06 +0300
+Message-ID: <20080626181006.GB22827@cs181140183.pp.htv.fi>
+References: <20080622125553.GB22539@cs181133002.pp.htv.fi> <43e72e890806220804i347b942claae7b725231afcce@mail.gmail.com> <1214298259.8967.260.camel@johannes.berg> <20080624124311.GC16021@cs181140183.pp.htv.fi> <1214502942.4432.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "'Bill Fink'" <billfink@mindspring.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	"mirrors@debian.org" <mirrors@debian.org>
-To: "Josip Rodin" <joy@entuzijast.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Mattias Nissler <mattias.nissler@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1251 "EHLO MMS3.broadcom.com"
+Received: from smtp6.pp.htv.fi ([213.243.153.40]:56850 "EHLO smtp6.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760078AbYFZSCn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 14:02:43 -0400
-In-Reply-To: <20080626110132.GA30648@orion.carnet.hr>
+	id S1753418AbYFZSMR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 14:12:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1214502942.4432.6.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Josip Rodin wrote:
+On Thu, Jun 26, 2008 at 07:55:42PM +0200, Mattias Nissler wrote:
+> Just what I remember about the discussion that led to the ugly Makefile.
 > 
-> Here we go, this is the first batch of debug output. I hope it helps.
+> On Tue, 2008-06-24 at 15:43 +0300, Adrian Bunk wrote:
+> > 
+> > Can we get one of either:
+> > - all selected mac80211 algorithms are built into the mac80211 module or
 > 
+> IIRC, this was originally voted against because this approach would
+> increase kernel image size or module size unnecessarily.
+>...
 
-Thanks for the data.  I've looked at a few of these SKB dumps and they
-appear to be all modified in the same way:
+I don't see this point here.
 
-1. SKB is unchanged and the clone bit is set.
+People who _really_ need small kernels can still disable unneeded 
+algorithms, and distribution kernels are anyway not usable for cases 
+where a few kB more or less would matter.
 
-2. skb_shared_info(SKB) has dataref 0x00010002 and these fields are
-changed:
+> Mattias
 
-   nr_frags changed from n to 1
-   gso_size changed from 0x5a8 to 0
-   gso_type changed from 1 (TCP_V4) to 0
-   gso_segs changed from m to 1
-   1 of the frags' length is modified to split the TSO packet into 1
-segment
+cu
+Adrian
 
-I think this is consistent with what David said about tso_fragment()
-splitting the cloned TSO SKB into 2.
+-- 
 
-Thanks.
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
