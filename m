@@ -1,41 +1,46 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 10/10] pxa: make littleton to use the new smc91x platform
- data
-Date: Fri, 27 Jun 2008 01:58:07 -0400
-Message-ID: <4864816F.5070407@garzik.org>
-References: <> <1214300867-15495-11-git-send-email-eric.y.miao@gmail.com>
+Subject: Re: [RESEND PATCH 2/3] e1000: remove PCI Express device IDs
+Date: Fri, 27 Jun 2008 02:08:14 -0400
+Message-ID: <486483CE.8010305@garzik.org>
+References: <20080622221916.5907.79563.stgit@localhost.localdomain> <20080622222021.5907.16668.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Nicolas Pitre <nico@cam.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Eric Miao <eric.miao@marvell.com>
-To: Eric Miao <eric.y.miao@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55547 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:50240 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752565AbYF0F6K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 01:58:10 -0400
-In-Reply-To: <1214300867-15495-11-git-send-email-eric.y.miao@gmail.com>
+	id S1752257AbYF0GIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 02:08:20 -0400
+In-Reply-To: <20080622222021.5907.16668.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Miao wrote:
-> From: Eric Miao <eric.miao@marvell.com>
+Jeff Kirsher wrote:
+> From: Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> Signed-off-by: Eric Miao <eric.miao@marvell.com>
+> We do not want to prolong the situation much longer that e1000
+> and e1000e support these devices at the same time. As a result,
+> take out the bandage that was added for the interim period
+> and remove all the PCI Express device IDs from e1000.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
 > ---
->  arch/arm/mach-pxa/littleton.c |    9 +++++++++
->  drivers/net/smc91x.h          |    3 ++-
->  2 files changed, 11 insertions(+), 1 deletions(-)
+> 
+>  drivers/net/Kconfig            |    3 ---
+>  drivers/net/e1000/e1000_main.c |   33 ---------------------------------
+>  2 files changed, 0 insertions(+), 36 deletions(-)
 
-The rest of the patches seem OK.
+applied to #upstream-next (queued for 2.6.27)
 
-What do ARM people prefer -- should I ACK this series, and let it be 
-merged via an ARM tree?
+BIG FLASHING WARNING NOTE to x86 maintainers and others:
 
-The series is mainly platform-oriented rather than net-oriented.
+Make sure your defconfig changes are in place for this change.
 
 
