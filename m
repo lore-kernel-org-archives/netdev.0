@@ -1,55 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: How come realtek drivers are combined
-Date: Fri, 27 Jun 2008 21:18:35 +0200
-Message-ID: <20080627191835.GA5064@electric-eye.fr.zoreil.com>
-References: <4864235A.40807@dell.com>
+From: Nye Liu <nyet@nyet.org>
+Subject: [PATCH] FS_ENET: Don't attempt to set mii_speed when fec_inf is
+	null
+Date: Fri, 27 Jun 2008 12:26:51 -0700
+Message-ID: <20080627192651.GA28291@curtisfong.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edward_hsu@realtek.com.tw
-To: Mario Limonciello <mario_limonciello@dell.com>
+Cc: pantelis.antoniou@gmail.com, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60120 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757327AbYF0TSt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 15:18:49 -0400
+Received: from curtis.curtisfong.org ([66.43.110.51]:57358 "EHLO
+	curtis.curtisfong.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757023AbYF0Tee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 15:34:34 -0400
 Content-Disposition: inline
-In-Reply-To: <4864235A.40807@dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mario Limonciello <mario_limonciello@dell.com> :
-[...]
-> Realtek provides several (separated) drivers for their different
-> chipsets, r8169, r8168, r8101, etc. I see that they are regularly all
-> merged into the r8169 driver in the kernel. How come it works this
-> way ?
+From: Nye Liu <nyet@mrv.com>
 
-I made it this way.
+When using CONFIG_FIXED_PHY, fec_inf (fep->phydev->bus->priv) is NULL in
+fs_enet/mac-fec.c restart(). Dereferencing fec_inf when trying to set the
+mii_speed causes a kernel oops.
 
-> Is it just because no one ever bothered to do it differently ? 
+Signed-off-by: Nye Liu <nyet@mrv.com>
 
-It was suggested before but it was not strongly argumented and I have
-a strong bias against it as long as it is not clearly needed.
+---
 
-> Obviously, they all share a very similar code base so its somewhat
-> sensible to try to produce a single driver. 
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+index 8a311d1..350bc73 100644
+--- a/drivers/net/fs_enet/mac-fec.c
++++ b/drivers/net/fs_enet/mac-fec.c
+@@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
+        /*
+         * Set MII speed.
+         */
+-       FW(fecp, mii_speed, fec_inf->mii_speed);
++       if (fec_inf)
++           FW(fecp, mii_speed, fec_inf->mii_speed);
+ 
+        /*
+         * Clear any outstanding interrupt.
 
-It was.
-
-I'll probably end splitting things between the old pci-only 8169 and
-the newest pci-e though.
-
-> I would think it would work a lot better for everyone if Realtek and
-> the kernel maintainers that work on the Realtek driver were directly
-> in sync rather than having to play tag pulling patches from each other's
-> drivers.
-
-Given that the choice of operating systems for laptops on Dell's online
-shop does not include my favorite OS, "everyone" seems a bit of an
-overstatement to me (sorry, could not resist :o) ).
-
-Compare two versions of the same driver from Realtek and you should
-realize that you are addressing a false problem.
-
--- 
-Ueimor
