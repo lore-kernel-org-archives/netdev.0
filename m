@@ -1,44 +1,30 @@
-From: Nye Liu <nyet@nyet.org>
-Subject: [PATCH] FS_ENET: Don't attempt to set mii_speed when fec_inf is
-	null
-Date: Fri, 27 Jun 2008 12:26:51 -0700
-Message-ID: <20080627192651.GA28291@curtisfong.org>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-06-27
+Date: Fri, 27 Jun 2008 15:50:03 -0400
+Message-ID: <1214596203.9513.13.camel@dv>
+References: <20080627191412.GA24606@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pantelis.antoniou@gmail.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from curtis.curtisfong.org ([66.43.110.51]:57358 "EHLO
-	curtis.curtisfong.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757023AbYF0Tee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 15:34:34 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080627191412.GA24606-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nye Liu <nyet@mrv.com>
+On Fri, 2008-06-27 at 15:14 -0400, John W. Linville wrote:
 
-When using CONFIG_FIXED_PHY, fec_inf (fep->phydev->bus->priv) is NULL in
-fs_enet/mac-fec.c restart(). Dereferencing fec_inf when trying to set the
-mii_speed causes a kernel oops.
+> Ivo van Doorn (1):
+>       rt2x00: Fix lock dependency errror
 
-Signed-off-by: Nye Liu <nyet@mrv.com>
+Typo above.
 
----
-
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 8a311d1..350bc73 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
-        /*
-         * Set MII speed.
-         */
--       FW(fecp, mii_speed, fec_inf->mii_speed);
-+       if (fec_inf)
-+           FW(fecp, mii_speed, fec_inf->mii_speed);
- 
-        /*
-         * Clear any outstanding interrupt.
-
+-- 
+Regards,
+Pavel Roskin
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
