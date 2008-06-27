@@ -1,261 +1,83 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v2 [PATCH 1/2] net-driver: Drivers don't set IFF_* flag
-Date: Fri, 27 Jun 2008 09:14:44 +0800
-Message-ID: <48643F04.2070601@cn.fujitsu.com>
-References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com>
+Subject: v2 [PATCH 2/2] de4x5: Remove developer debug feature about set/clear
+ promisc
+Date: Fri, 27 Jun 2008 09:14:52 +0800
+Message-ID: <48643F0C.9020408@cn.fujitsu.com>
+References: <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com> <485F8332.6010203@trash.net> <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net> <4860478B.2080109@cn.fujitsu.com> <20080624051029.GB19434@colo.lackof.org> <48608887.6000102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
+Cc: Patrick McHardy <kaber@trash.net>, Jeff Garzik <jgarzik@pobox.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+	NETDEV <netdev@vger.kernel.org>, kyle@parisc-linux.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55415 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:55445 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbYF0CYO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 22:24:14 -0400
-In-Reply-To: <485BC7BA.60406@cn.fujitsu.com>
+	id S1751727AbYF0CYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 22:24:23 -0400
+In-Reply-To: <48608887.6000102@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Diff from v1 to v2: split de4x5's patch from previews one, because
-it is a little bit different to others.
+>> If you want to remove a developer debug feature, please just submit
+>> a patch like usual to kyle and myself.
+>>
+> 
+> Is there any user space binary use these features?
+> case DE4X5_SET_PROM:
+> case DE4X5_CLR_PROM: 
+> If not, I will send a patch to remove them.
+> 
 
----
-Some hardware set promisc when they are requested to set IFF_ALLMULTI flag.
-It's ok, but if drivers set IFF_PROMISC flag when they set promisc,
-it will broken upper layer handle for promisc and allmulti.
-In addition, drivers can use their own hardware programming to make it.
-So do not allow drivers to set IFF_* flags.
-
-This is a general driver fix, so I didn't split it to pieces and send
-to specific driver maintainers.
+IFF_PROMISC flag shouldn't be set or cleared by drivers, because
+whether device be promisc mode is decided by how many upper layer
+callers being referenced to it.
+And the promisc changing feature of de4x5 ioctl is developer debug
+feature, we can remove it now.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
-diff --git a/drivers/net/3c523.c b/drivers/net/3c523.c
-index 239fc42..9e48660 100644
---- a/drivers/net/3c523.c
-+++ b/drivers/net/3c523.c
-@@ -641,10 +641,8 @@ static int init586(struct net_device *dev)
- 	cfg_cmd->time_low = 0x00;
- 	cfg_cmd->time_high = 0xf2;
- 	cfg_cmd->promisc = 0;
--	if (dev->flags & (IFF_ALLMULTI | IFF_PROMISC)) {
-+	if (dev->flags & (IFF_ALLMULTI | IFF_PROMISC))
- 		cfg_cmd->promisc = 1;
--		dev->flags |= IFF_PROMISC;
--	}
- 	cfg_cmd->carr_coll = 0x00;
+diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
+index bc30c6e..617ef41 100644
+--- a/drivers/net/tulip/de4x5.c
++++ b/drivers/net/tulip/de4x5.c
+@@ -5514,22 +5514,6 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	netif_wake_queue(dev);                      /* Unlock the TX ring */
+ 	break;
  
- 	p->scb->cbl_offset = make16(cfg_cmd);
-diff --git a/drivers/net/3c527.c b/drivers/net/3c527.c
-index fae295b..a0bea51 100644
---- a/drivers/net/3c527.c
-+++ b/drivers/net/3c527.c
-@@ -1524,14 +1524,11 @@ static void do_mc32_set_multicast_list(struct net_device *dev, int retry)
- 	struct mc32_local *lp = netdev_priv(dev);
- 	u16 filt = (1<<2); /* Save Bad Packets, for stats purposes */
- 
--	if (dev->flags&IFF_PROMISC)
-+	if ((dev->flags&IFF_PROMISC) ||
-+	    (dev->flags&IFF_ALLMULTI) ||
-+	    dev->mc_count > 10)
- 		/* Enable promiscuous mode */
- 		filt |= 1;
--	else if((dev->flags&IFF_ALLMULTI) || dev->mc_count > 10)
--	{
--		dev->flags|=IFF_PROMISC;
--		filt |= 1;
--	}
- 	else if(dev->mc_count)
- 	{
- 		unsigned char block[62];
-diff --git a/drivers/net/atp.c b/drivers/net/atp.c
-index 3d44333..c10cd80 100644
---- a/drivers/net/atp.c
-+++ b/drivers/net/atp.c
-@@ -854,14 +854,9 @@ static void set_rx_mode_8002(struct net_device *dev)
- 	struct net_local *lp = netdev_priv(dev);
- 	long ioaddr = dev->base_addr;
- 
--	if ( dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC))) {
--		/* We must make the kernel realise we had to move
--		 *	into promisc mode or we start all out war on
--		 *	the cable. - AC
--		 */
--		dev->flags|=IFF_PROMISC;
-+	if (dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC)))
- 		lp->addr_mode = CMR2h_PROMISC;
--	} else
-+	else
- 		lp->addr_mode = CMR2h_Normal;
- 	write_reg_high(ioaddr, CMR2, lp->addr_mode);
- }
-diff --git a/drivers/net/de620.c b/drivers/net/de620.c
-index 3f5190c..d454e14 100644
---- a/drivers/net/de620.c
-+++ b/drivers/net/de620.c
-@@ -488,13 +488,6 @@ static void de620_set_multicast_list(struct net_device *dev)
- {
- 	if (dev->mc_count || dev->flags&(IFF_ALLMULTI|IFF_PROMISC))
- 	{ /* Enable promiscuous mode */
--		/*
--		 *	We must make the kernel realise we had to move
--		 *	into promisc mode or we start all out war on
--		 *	the cable. - AC
--		 */
--		dev->flags|=IFF_PROMISC;
+-    case DE4X5_SET_PROM:             /* Set Promiscuous Mode */
+-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+-	omr = inl(DE4X5_OMR);
+-	omr |= OMR_PR;
+-	outl(omr, DE4X5_OMR);
+-	dev->flags |= IFF_PROMISC;
+-	break;
 -
- 		de620_set_register(dev, W_TCR, (TCR_DEF & ~RXPBM) | RXALL);
- 	}
- 	else
-diff --git a/drivers/net/eepro.c b/drivers/net/eepro.c
-index 56f5049..1f11350 100644
---- a/drivers/net/eepro.c
-+++ b/drivers/net/eepro.c
-@@ -1283,14 +1283,6 @@ set_multicast_list(struct net_device *dev)
- 
- 	if (dev->flags&(IFF_ALLMULTI|IFF_PROMISC) || dev->mc_count > 63)
- 	{
--		/*
--		 *	We must make the kernel realise we had to move
--		 *	into promisc mode or we start all out war on
--		 *	the cable. If it was a promisc request the
--		 *	flag is already set. If not we assert it.
--		 */
--		dev->flags|=IFF_PROMISC;
+-    case DE4X5_CLR_PROM:             /* Clear Promiscuous Mode */
+-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+-	omr = inl(DE4X5_OMR);
+-	omr &= ~OMR_PR;
+-	outl(omr, DE4X5_OMR);
+-	dev->flags &= ~IFF_PROMISC;
+-	break;
 -
- 		eepro_sw2bank2(ioaddr); /* be CAREFUL, BANK 2 now */
- 		mode = inb(ioaddr + REG2);
- 		outb(mode | PRMSC_Mode, ioaddr + REG2);
-diff --git a/drivers/net/eth16i.c b/drivers/net/eth16i.c
-index e3dd8b1..bee8b3f 100644
---- a/drivers/net/eth16i.c
-+++ b/drivers/net/eth16i.c
-@@ -1356,7 +1356,6 @@ static void eth16i_multicast(struct net_device *dev)
- 
- 	if(dev->mc_count || dev->flags&(IFF_ALLMULTI|IFF_PROMISC))
- 	{
--		dev->flags|=IFF_PROMISC;	/* Must do this */
- 		outb(3, ioaddr + RECEIVE_MODE_REG);
- 	} else {
- 		outb(2, ioaddr + RECEIVE_MODE_REG);
-diff --git a/drivers/net/lp486e.c b/drivers/net/lp486e.c
-index 591a7e4..83fa9d8 100644
---- a/drivers/net/lp486e.c
-+++ b/drivers/net/lp486e.c
-@@ -1272,8 +1272,6 @@ static void set_multicast_list(struct net_device *dev) {
- 			return;
- 		}
- 		if (dev->mc_count == 0 && !(dev->flags & (IFF_PROMISC | IFF_ALLMULTI))) {
--			if (dev->flags & IFF_ALLMULTI)
--				dev->flags |= IFF_PROMISC;
- 			lp->i596_config[8] &= ~0x01;
- 		} else {
- 			lp->i596_config[8] |= 0x01;
-diff --git a/drivers/net/ni5010.c b/drivers/net/ni5010.c
-index a20005c..8e0ca9f 100644
---- a/drivers/net/ni5010.c
-+++ b/drivers/net/ni5010.c
-@@ -648,7 +648,6 @@ static void ni5010_set_multicast_list(struct net_device *dev)
- 	PRINTK2((KERN_DEBUG "%s: entering set_multicast_list\n", dev->name));
- 
- 	if (dev->flags&IFF_PROMISC || dev->flags&IFF_ALLMULTI || dev->mc_list) {
--		dev->flags |= IFF_PROMISC;
- 		outb(RMD_PROMISC, EDLC_RMODE); /* Enable promiscuous mode */
- 		PRINTK((KERN_DEBUG "%s: Entering promiscuous mode\n", dev->name));
- 	} else {
-diff --git a/drivers/net/ni52.c b/drivers/net/ni52.c
-index a316dcc..b9a882d 100644
---- a/drivers/net/ni52.c
-+++ b/drivers/net/ni52.c
-@@ -621,7 +621,7 @@ static int init586(struct net_device *dev)
- 		if (num_addrs > len) {
- 			printk(KERN_ERR "%s: switching to promisc. mode\n",
- 				dev->name);
--			dev->flags |= IFF_PROMISC;
-+			writeb(0x01, &cfg_cmd->promisc);
- 		}
- 	}
- 	if (dev->flags & IFF_PROMISC)
-diff --git a/drivers/net/sun3_82586.c b/drivers/net/sun3_82586.c
-index 9b2a7f7..e531302 100644
---- a/drivers/net/sun3_82586.c
-+++ b/drivers/net/sun3_82586.c
-@@ -425,14 +425,11 @@ static int init586(struct net_device *dev)
- 		int len = ((char *) p->iscp - (char *) ptr - 8) / 6;
- 		if(num_addrs > len)	{
- 			printk("%s: switching to promisc. mode\n",dev->name);
--			dev->flags|=IFF_PROMISC;
-+			cfg_cmd->promisc = 1;
- 		}
- 	}
- 	if(dev->flags&IFF_PROMISC)
--	{
--			 cfg_cmd->promisc=1;
--			 dev->flags|=IFF_PROMISC;
--	}
-+		cfg_cmd->promisc = 1;
- 	cfg_cmd->carr_coll	= 0x00;
- 
- 	p->scb->cbl_offset	= make16(cfg_cmd);
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
-index 6d13a0d..00a0d79 100644
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -1998,13 +1998,6 @@ __orinoco_set_multicast_list(struct net_device *dev)
- 		else
- 			priv->mc_count = mc_count;
- 	}
--
--	/* Since we can set the promiscuous flag when it wasn't asked
--	   for, make sure the net_device knows about it. */
--	if (priv->promiscuous)
--		dev->flags |= IFF_PROMISC;
--	else
--		dev->flags &= ~IFF_PROMISC;
- }
- 
- /* This must be called from user context, without locks held - use
-diff --git a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
-index 49ae970..136220b 100644
---- a/drivers/net/wireless/wavelan.c
-+++ b/drivers/net/wireless/wavelan.c
-@@ -1409,9 +1409,6 @@ static void wavelan_set_multicast_list(struct net_device * dev)
- 			lp->mc_count = 0;
- 
- 			wv_82586_reconfig(dev);
--
--			/* Tell the kernel that we are doing a really bad job. */
--			dev->flags |= IFF_PROMISC;
- 		}
- 	} else
- 		/* Are there multicast addresses to send? */
-diff --git a/drivers/net/wireless/wavelan_cs.c b/drivers/net/wireless/wavelan_cs.c
-index b584c0e..00a3559 100644
---- a/drivers/net/wireless/wavelan_cs.c
-+++ b/drivers/net/wireless/wavelan_cs.c
-@@ -1412,9 +1412,6 @@ wavelan_set_multicast_list(struct net_device *	dev)
- 	  lp->mc_count = 0;
- 
- 	  wv_82593_reconfig(dev);
--
--	  /* Tell the kernel that we are doing a really bad job... */
--	  dev->flags |= IFF_PROMISC;
- 	}
-     }
-   else
-@@ -1433,9 +1430,6 @@ wavelan_set_multicast_list(struct net_device *	dev)
- 	    lp->mc_count = 0;
- 
- 	    wv_82593_reconfig(dev);
--
--	    /* Tell the kernel that we are doing a really bad job... */
--	    dev->flags |= IFF_ALLMULTI;
- 	  }
-       }
-     else
-
+     case DE4X5_SAY_BOO:              /* Say "Boo!" to the kernel log file */
+ 	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+ 	printk("%s: Boo!\n", dev->name);
+diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/tulip/de4x5.h
+index f5f33b3..a6b7638 100644
+--- a/drivers/net/tulip/de4x5.h
++++ b/drivers/net/tulip/de4x5.h
+@@ -1004,8 +1004,8 @@ struct de4x5_ioctl {
+ */
+ #define DE4X5_GET_HWADDR	0x01 /* Get the hardware address */
+ #define DE4X5_SET_HWADDR	0x02 /* Set the hardware address */
+-#define DE4X5_SET_PROM  	0x03 /* Set Promiscuous Mode */
+-#define DE4X5_CLR_PROM  	0x04 /* Clear Promiscuous Mode */
++#define DE4X5_SET_PROM  	0x03 /* Obsoleted. Set Promiscuous Mode */
++#define DE4X5_CLR_PROM  	0x04 /* Obsoleted. Clear Promiscuous Mode */
+ #define DE4X5_SAY_BOO	        0x05 /* Say "Boo!" to the kernel log file */
+ #define DE4X5_GET_MCA   	0x06 /* Get a multicast address */
+ #define DE4X5_SET_MCA   	0x07 /* Set a multicast address */
 
