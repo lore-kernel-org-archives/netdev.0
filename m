@@ -1,31 +1,62 @@
-From: drago01 <drago01@gmail.com>
-Subject: Re: pull request: wireless-next-2.6 2008-06-27
-Date: Fri, 27 Jun 2008 17:54:06 +0200
-Message-ID: <f6ca9fed0806270854u674a9d5aled463865e07829c8@mail.gmail.com>
-References: <20080627153541.GA16597@tuxdriver.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6] ipv6 route: Convert rt6_device_match() to use
+ RT6_LOOKUP_F_xxx flags.
+Date: Sat, 28 Jun 2008 01:47:14 +0900 (JST)
+Message-ID: <20080628.014714.86911438.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.233]:38533 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752462AbYF0PyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 11:54:09 -0400
-Received: by hu-out-0506.google.com with SMTP id 28so1232611hub.21
-        for <netdev@vger.kernel.org>; Fri, 27 Jun 2008 08:54:06 -0700 (PDT)
-In-Reply-To: <20080627153541.GA16597@tuxdriver.com>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:60302 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951AbYF0QqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 12:46:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2008 at 5:35 PM, John W. Linville
-<linville@tuxdriver.com> wrote:
+The commit 77d16f450ae0452d7d4b009f78debb1294fb435c ("[IPV6] ROUTE:
+Unify RT6_F_xxx and RT6_SELECT_F_xxx flags") intended to pass various
+routing lookup hints around RT6_LOOKUP_F_xxx flags, but conversion was
+missing for rt6_device_match().
 
-> Randy Dunlap (1):
->      iwlwifi: fix build for CONFIG_INPUT=n
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-this one was NACKED by Ivo (well not exactly this but the 3945
-version, and Yi posted an updated patch)
+-- 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index efe036a..751e98f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -238,7 +238,7 @@ static inline int rt6_need_strict(struct in6_addr *daddr)
+ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 						    struct rt6_info *rt,
+ 						    int oif,
+-						    int strict)
++						    int flags)
+ {
+ 	struct rt6_info *local = NULL;
+ 	struct rt6_info *sprt;
+@@ -251,7 +251,7 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 			if (dev->flags & IFF_LOOPBACK) {
+ 				if (sprt->rt6i_idev == NULL ||
+ 				    sprt->rt6i_idev->dev->ifindex != oif) {
+-					if (strict && oif)
++					if (flags & RT6_LOOKUP_F_IFACE && oif)
+ 						continue;
+ 					if (local && (!oif ||
+ 						      local->rt6i_idev->dev->ifindex == oif))
+@@ -264,7 +264,7 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 		if (local)
+ 			return local;
+ 
+-		if (strict)
++		if (flags & RT6_LOOKUP_F_IFACE)
+ 			return net->ipv6.ip6_null_entry;
+ 	}
+ 	return rt;
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
