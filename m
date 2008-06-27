@@ -1,87 +1,50 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 1/4] e1000: disable TSO workaround on 82544
-Date: Fri, 27 Jun 2008 10:25:55 -0400
-Message-ID: <20080627142555.GE32408@gospo.rdu.redhat.com>
-References: <20080619211836.GC22981@gospo.rdu.redhat.com> <486476F7.9010506@garzik.org>
+From: Arthur Jones <ajones@riverbed.com>
+Subject: Re: [PATCH 2/4] e1000: add module option to set transmit
+	descriptor size
+Date: Fri, 27 Jun 2008 07:21:22 -0700
+Message-ID: <20080627142122.GA8991@ajones-laptop.nbttech.com>
+References: <20080619211850.GD22981@gospo.rdu.redhat.com> <4864764D.6070802@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44546 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753255AbYF0O03 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 10:26:29 -0400
+Received: from smtp2.riverbed.com ([206.169.144.7]:6548 "EHLO
+	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752622AbYF0Oaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 10:30:30 -0400
 Content-Disposition: inline
-In-Reply-To: <486476F7.9010506@garzik.org>
+In-Reply-To: <4864764D.6070802@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2008 at 01:13:27AM -0400, Jeff Garzik wrote:
+Hi Jeff, ...
+
+On Thu, Jun 26, 2008 at 10:10:37PM -0700, Jeff Garzik wrote:
 > Andy Gospodarek wrote:
-> >It appears that the 82544 does not need the TSO workaround needed on
-> >other chips.  This seems to resolve excessive messages that appear to be
-> >Tx Unit Hangs when a system is under heavy stress.
-> 
-> Do these excessive messages occur for all systems with the TSO 
-> workaround?  i.e. does this patch merely remove one chip from the list 
-> of chips that receive excessive messages?
-> 
+> > This patch added the TxDescPower parameter to the e1000 module.  This
+> > parameter represents the size-order of each transmit descriptor.  The
+> > valid size for descriptors would be 2^7 (128) - 2^12 (4096) bytes each.
+> > As this value decreases one may want to consider increasing the
+> > TxDescriptors value to maintain the same amount of frame memory.  This
+> > patch does not change the defaults for any particular hardware model, so
+> > this will not have an effect on existing users.
+> [...]
+> I don't see why a module parameter is needed.  In practice, nobody will
+> ever think about this option, much less use it.
 
-Jeff,
+I would use it.  I see this issue on some
+interfaces and not others due to different
+traffic patterns.  A module parameter or sysfs
+entry would be a huge help for me -- right now,
+I have to recompile the driver which is difficult
+to deploy...
 
-Sorry I was a bit terse with my original description.  I re-read it and
-realize it isn't that descriptive.
+So for the patch itself:
 
-This patch was added a looong time ago to address an erratum with any
-of this chips that support TSO:
+Acked-by: Arthur Jones <ajones@riverbed.com>
 
-commit fd803241744ad6e4262b6588c6af89e8fb794098
-Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date:   Tue Dec 13 00:06:22 2005 -0500
-
-    e1000: Fixes for 8357x
-
-    - TSO workaround
-    - Fixes eeprom version reporting
-    - Fix loopback test
-    - Fix for WOL
-
-The basic idea was that the TSO workaround (really a workaround for the
-first non-TSO frame after a TSO frame) was needed on all hardware that
-supported TSO (82544 was this first that did, I think).
-
-I've gotten quite a few complaints with 82544 that messages like these
-followed by watchdog timeout were frequent under certain loads:
-
-e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-  Tx Queue             <0>
-  TDH                  <67>
-  TDT                  <51>
-  next_to_use          <51>
-  next_to_clean        <65>
-buffer_info[next_to_clean]
-  time_stamp           <5809242>
-  next_to_watch        <6b>
-  jiffies              <5809b12>
-  next_to_watch.status <0>
-
-Users seemed to quit having problems when TSO was disabled though.  More
-debugging and dumping of registers took place and Jesse B suggested we
-try disabling the workaround added above for 84544 as it may not have
-been needed for that controller.
-
-That fix was tested by someone who was having watchdog timeouts like the
-one above on a frequent basis ceased to have them with this patch.  I've
-seen plenty of reports of these timeouts on 82544 with most users
-reporting that they just disabled TSO and would continue to run that way
-rather than bother debugging the issue.  Thankfully someone who wanted
-to use this hardware and TSO was able to help resolve this.
-
-If you want to read all the gory details you can check out:
-
-https://bugzilla.redhat.com/show_bug.cgi?id=334411
-
--andy
-
+Arthur
