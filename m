@@ -1,8 +1,8 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 4/4] e1000: remove e1000_clean_tx_irq call from e1000_netpoll
-Date: Fri, 27 Jun 2008 01:11:55 -0400
-Message-ID: <4864769B.5050007@garzik.org>
-References: <20080619211912.GF22981@gospo.rdu.redhat.com>
+Subject: Re: [PATCH 1/4] e1000: disable TSO workaround on 82544
+Date: Fri, 27 Jun 2008 01:13:27 -0400
+Message-ID: <486476F7.9010506@garzik.org>
+References: <20080619211836.GC22981@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,43 +10,21 @@ Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
 	jesse.brandeburg@intel.com
 To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40705 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40718 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751452AbYF0FL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 01:11:59 -0400
-In-Reply-To: <20080619211912.GF22981@gospo.rdu.redhat.com>
+	id S1752085AbYF0FNa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 01:13:30 -0400
+In-Reply-To: <20080619211836.GC22981@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Andy Gospodarek wrote:
-> The call to e1000_clean_tx_irq in e1000_netpoll can race with the call
-> to e1000_clean_tx_irq in e1000_clean.  With a small bit of tweaking to
-> to netpoll_send_skb to simulate a system that was under extreme stress,
-> I was able to reproduce these concurrent calls.  This can result in
-> multiple frees to the skbs on the tx ring buffer.
-> 
-> Dropping this call from e1000_netpoll should be fine since we can rely
-> on the calls in e1000_clean to do what is needed since napi will poll
-> the hardware just after calling poll_controller.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
->  drivers/net/e1000/e1000_main.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 0dc1ef0..047028f 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -5277,7 +5277,6 @@ e1000_netpoll(struct net_device *netdev)
->  
->  	disable_irq(adapter->pdev->irq);
->  	e1000_intr(adapter->pdev->irq, netdev);
-> -	e1000_clean_tx_irq(adapter, adapter->tx_ring);
->  #ifndef CONFIG_E1000_NAPI
->  	adapter->clean_rx(adapter, adapter->rx_ring);
+> It appears that the 82544 does not need the TSO workaround needed on
+> other chips.  This seems to resolve excessive messages that appear to be
+> Tx Unit Hangs when a system is under heavy stress.
 
-I'm gonna push this towards .27, since this is a core behavior very late 
-in the .26 game
+Do these excessive messages occur for all systems with the TSO 
+workaround?  i.e. does this patch merely remove one chip from the list 
+of chips that receive excessive messages?
 
 
