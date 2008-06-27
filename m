@@ -1,72 +1,159 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 04/18] igb: fix parameter options
-Date: Fri, 27 Jun 2008 11:00:07 -0700
-Message-ID: <20080627180004.22428.4295.stgit@localhost.localdomain>
+Subject: [NET-NEXT PATCH 06/18] igb: fix init on 82575 with MNG enabled
+Date: Fri, 27 Jun 2008 11:00:29 -0700
+Message-ID: <20080627180023.22428.70451.stgit@localhost.localdomain>
 References: <20080627175921.22428.52767.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
 To: jeff@garzik.org, davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:47346 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758558AbYF0SAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 14:00:30 -0400
 In-Reply-To: <20080627175921.22428.52767.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Currently there are items in the driver to support parameters, but there
-are no parameters being added to the driver.
+This patch resolves an issue seen on 82575 adapters with managability
+pass-thru enabled, which could cause the system to panic.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/igb/e1000_82575.c   |   73 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/igb/e1000_82575.h   |    2 +
+ drivers/net/igb/e1000_defines.h |    1 +
+ drivers/net/igb/igb_main.c      |    3 ++
+ 4 files changed, 79 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 84ef695..2c8b910 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1227,6 +1227,79 @@ static void igb_clear_hw_cntrs_82575(struct e1000_hw *hw)
+ 		temp = rd32(E1000_SCVPC);
+ }
+ 
++/**
++ *  igb_rx_fifo_flush_82575 - Clean rx fifo after RX enable
++ *  @hw: pointer to the HW structure
++ *
++ *  After rx enable if managability is enabled then there is likely some
++ *  bad data at the start of the fifo and possibly in the DMA fifo.  This
++ *  function clears the fifos and flushes any packets that came in as rx was
++ *  being enabled.
++ **/
++void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
++{
++	u32 rctl, rlpml, rxdctl[4], rfctl, temp_rctl, rx_enabled;
++	int i, ms_wait;
++
++	if (hw->mac.type != e1000_82575 ||
++	    !(rd32(E1000_MANC) & E1000_MANC_RCV_TCO_EN))
++		return;
++
++	/* Disable all RX queues */
++	for (i = 0; i < 4; i++) {
++		rxdctl[i] = rd32(E1000_RXDCTL(i));
++		wr32(E1000_RXDCTL(i),
++		     rxdctl[i] & ~E1000_RXDCTL_QUEUE_ENABLE);
++	}
++	/* Poll all queues to verify they have shut down */
++	for (ms_wait = 0; ms_wait < 10; ms_wait++) {
++		msleep(1);
++		rx_enabled = 0;
++		for (i = 0; i < 4; i++)
++			rx_enabled |= rd32(E1000_RXDCTL(i));
++		if (!(rx_enabled & E1000_RXDCTL_QUEUE_ENABLE))
++			break;
++	}
++
++	if (ms_wait == 10)
++		hw_dbg("Queue disable timed out after 10ms\n");
++
++	/* Clear RLPML, RCTL.SBP, RFCTL.LEF, and set RCTL.LPE so that all
++	 * incoming packets are rejected.  Set enable and wait 2ms so that
++	 * any packet that was coming in as RCTL.EN was set is flushed
++	 */
++	rfctl = rd32(E1000_RFCTL);
++	wr32(E1000_RFCTL, rfctl & ~E1000_RFCTL_LEF);
++
++	rlpml = rd32(E1000_RLPML);
++	wr32(E1000_RLPML, 0);
++
++	rctl = rd32(E1000_RCTL);
++	temp_rctl = rctl & ~(E1000_RCTL_EN | E1000_RCTL_SBP);
++	temp_rctl |= E1000_RCTL_LPE;
++
++	wr32(E1000_RCTL, temp_rctl);
++	wr32(E1000_RCTL, temp_rctl | E1000_RCTL_EN);
++	wrfl();
++	msleep(2);
++
++	/* Enable RX queues that were previously enabled and restore our
++	 * previous state
++	 */
++	for (i = 0; i < 4; i++)
++		wr32(E1000_RXDCTL(i), rxdctl[i]);
++	wr32(E1000_RCTL, rctl);
++	wrfl();
++
++	wr32(E1000_RLPML, rlpml);
++	wr32(E1000_RFCTL, rfctl);
++
++	/* Flush receive errors generated by workaround */
++	rd32(E1000_ROC);
++	rd32(E1000_RNBC);
++	rd32(E1000_MPC);
++}
++
+ static struct e1000_mac_operations e1000_mac_ops_82575 = {
+ 	.reset_hw             = igb_reset_hw_82575,
+ 	.init_hw              = igb_init_hw_82575,
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index 5fb79dd..d78ad33 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -28,6 +28,8 @@
+ #ifndef _E1000_82575_H_
+ #define _E1000_82575_H_
+ 
++extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
++
+ #define E1000_RAR_ENTRIES_82575   16
+ 
+ /* SRRCTL bit definitions */
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index 1006d53..ed748dc 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -340,6 +340,7 @@
+ #define E1000_RXCSUM_PCSD      0x00002000   /* packet checksum disabled */
+ 
+ /* Header split receive */
++#define E1000_RFCTL_LEF        0x00040000
+ 
+ /* Collision related configuration parameters */
+ #define E1000_COLLISION_THRESHOLD       15
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 9034339..bf083e3 100644
+index bf083e3..a43186e 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -836,7 +836,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	struct e1000_hw *hw;
- 	const struct e1000_info *ei = igb_info_tbl[ent->driver_data];
- 	unsigned long mmio_start, mmio_len;
--	static int cards_found;
- 	int i, err, pci_using_dac;
- 	u16 eeprom_data = 0;
- 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
-@@ -918,8 +917,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	netdev->mem_start = mmio_start;
- 	netdev->mem_end = mmio_start + mmio_len;
- 
--	adapter->bd_number = cards_found;
--
- 	/* PCI config space info */
- 	hw->vendor_id = pdev->vendor;
- 	hw->device_id = pdev->device;
-@@ -1104,7 +1101,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		adapter->msi_enabled ? "MSI" : "legacy",
- 		adapter->num_rx_queues, adapter->num_tx_queues);
- 
--	cards_found++;
- 	return 0;
- 
- err_register:
+@@ -630,6 +630,9 @@ static void igb_configure(struct igb_adapter *adapter)
+ 	igb_configure_tx(adapter);
+ 	igb_setup_rctl(adapter);
+ 	igb_configure_rx(adapter);
++
++	igb_rx_fifo_flush_82575(&adapter->hw);
++
+ 	/* call IGB_DESC_UNUSED which always leaves
+ 	 * at least 1 descriptor unused to make sure
+ 	 * next_to_use != next_to_clean */
 
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
