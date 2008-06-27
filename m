@@ -1,92 +1,69 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [PATCH 10/10] pxa: make littleton to use the new smc91x platform
- data
-Date: Thu, 26 Jun 2008 20:04:32 -0400 (EDT)
-Message-ID: <alpine.LFD.1.10.0806262004190.2979@xanadu.home>
-References: <1214300867-15495-11-git-send-email-eric.y.miao@gmail.com>
+From: Tom Quetchenbach <virtualphtn@gmail.com>
+Subject: Re: s2io: packet reordering with 2.6.25.4
+Date: Thu, 26 Jun 2008 17:05:35 -0700
+Message-ID: <48642ECF.4090905@gmail.com>
+References: <4862DEA4.8020305@gmail.com> <48635341.8010609@gmail.com> <48635708.8070100@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Eric Miao <eric.miao@marvell.com>
-To: Eric Miao <eric.y.miao@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ram.vepa@neterion.com,
+	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
+	sreenivasa.honnur@neterion.com
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:21849 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754742AbYF0AEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 20:04:33 -0400
-Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR004.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0K33001G3HJKVVF0@VL-MO-MR004.ip.videotron.ca> for
- netdev@vger.kernel.org; Thu, 26 Jun 2008 20:04:32 -0400 (EDT)
-In-reply-to: <1214300867-15495-11-git-send-email-eric.y.miao@gmail.com>
+Received: from wx-out-0506.google.com ([66.249.82.228]:7360 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706AbYF0AFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 20:05:15 -0400
+Received: by wx-out-0506.google.com with SMTP id h29so153698wxd.4
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 17:05:14 -0700 (PDT)
+In-Reply-To: <48635708.8070100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Jun 2008, Eric Miao wrote:
-
-> From: Eric Miao <eric.miao@marvell.com>
+Jarek Poplawski wrote:
 > 
-> Signed-off-by: Eric Miao <eric.miao@marvell.com>
+>> Out of curiosity: is there affinity set for eths' irqs or they are
+>> balanced between cpus? (/proc/interrupts?)
 
-Acked-by: Nicolas Pitre <nico@cam.org>
+No affinity set, but they're not exactly balanced either:
 
-> ---
->  arch/arm/mach-pxa/littleton.c |    9 +++++++++
->  drivers/net/smc91x.h          |    3 ++-
->  2 files changed, 11 insertions(+), 1 deletions(-)
+           CPU0       CPU1
+  0:         73          0   IO-APIC-edge      timer
+  1:          0          2   IO-APIC-edge      i8042
+  2:          0          0    XT-PIC-XT        cascade
+  8:          0          1   IO-APIC-edge      rtc
+ 12:          0          5   IO-APIC-edge      i8042
+ 25:         47      53074   IO-APIC-fasteoi   eth0
+ 26:         21        334   IO-APIC-fasteoi   eth1
+ 28:        358    1280440   IO-APIC-fasteoi   eth2 Neterion 10 Gigabit
+Ethernet-SR PCI-X 2.0 DDR Adapter
+NMI:          0          0   Non-maskable interrupts
+LOC:     227793     227721   Local timer interrupts
+RES:       6483       3213   Rescheduling interrupts
+CAL:         40         31   function call interrupts
+TLB:       1119        105   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+THR:          0          0   Threshold APIC interrupts
+SPU:          0          0   Spurious interrupts
+ERR:          0
+
+Anyhow, it looks like setting CPU affinity for the card on the receiver
+(echo 1 > /proc/irq/28/smp_affinity) does eliminate the reordering, at
+least with UDP at up to 2.5 Gbit/s (which is as fast as iperf can spit
+out packets on this machine). So, it looks like the "mystery" is solved :-)
+
 > 
-> diff --git a/arch/arm/mach-pxa/littleton.c b/arch/arm/mach-pxa/littleton.c
-> index 9a4f51d..dd759d0 100644
-> --- a/arch/arm/mach-pxa/littleton.c
-> +++ b/arch/arm/mach-pxa/littleton.c
-> @@ -20,6 +20,7 @@
->  #include <linux/delay.h>
->  #include <linux/platform_device.h>
->  #include <linux/clk.h>
-> +#include <linux/smc91x.h>
->  
->  #include <asm/types.h>
->  #include <asm/setup.h>
-> @@ -106,11 +107,19 @@ static struct resource smc91x_resources[] = {
->  	}
->  };
->  
-> +static struct smc91x_platdata littleton_smc91x_info = {
-> +	.flags	= SMC91X_USE_8BIT | SMC91X_USE_16BIT |
-> +		  SMC91X_NOWAIT | SMC91X_USE_DMA,
-> +};
-> +
->  static struct platform_device smc91x_device = {
->  	.name		= "smc91x",
->  	.id		= 0,
->  	.num_resources	= ARRAY_SIZE(smc91x_resources),
->  	.resource	= smc91x_resources,
-> +	.dev		= {
-> +		.platform_data = &littleton_smc91x_info,
-> +	},
->  };
->  
->  #if defined(CONFIG_FB_PXA) || defined(CONFIG_FB_PXA_MODULE)
-> diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
-> index d55739c..46ebac8 100644
-> --- a/drivers/net/smc91x.h
-> +++ b/drivers/net/smc91x.h
-> @@ -42,7 +42,8 @@
->  
->  #if defined(CONFIG_ARCH_LUBBOCK) ||\
->      defined(CONFIG_MACH_MAINSTONE) ||\
-> -    defined(CONFIG_MACH_ZYLONITE)
-> +    defined(CONFIG_MACH_ZYLONITE) ||\
-> +    defined(CONFIG_MACH_LITTLETON)
->  
->  #include <asm/mach-types.h>
->  
-> -- 
-> 1.5.4.3
-> 
+> ...and maybe ifconfig on TX side?
 
+eth2      Link encap:Ethernet  HWaddr 00:0C:FC:00:0D:3F
+          inet addr:10.4.72.3  Bcast:10.4.72.15  Mask:255.255.255.240
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:7 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:10 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:496 (496.0 b)  TX bytes:532 (532.0 b)
+          Interrupt:28
 
-Nicolas
+Thanks
+-Tom
