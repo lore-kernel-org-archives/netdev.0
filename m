@@ -1,53 +1,54 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] FS_ENET: Don't attempt to set mii_speed when fec_inf
- is null
-Date: Sat, 28 Jun 2008 01:29:16 +0400
-Message-ID: <48655BAC.8080800@ru.mvista.com>
-References: <20080627192651.GA28291@curtisfong.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: setting ICSK_CA_PRIV_SIZE larger than 16 * sizeof(u32)
+Date: Fri, 27 Jun 2008 14:32:58 -0700
+Message-ID: <20080627143258.173120cd@extreme>
+References: <965f530d0806270137y19c36638yc6ae0a1d4bfa63e7@mail.gmail.com>
+	<20080627.023046.193703830.davem@davemloft.net>
+	<965f530d0806271420y7ffebd40xb9b2f9a035206932@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Nye Liu <nyet@nyet.org>
+To: "Kiran Kotla" <kotlakiran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:61224 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758583AbYF0V3X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 17:29:23 -0400
-In-Reply-To: <20080627192651.GA28291@curtisfong.org>
+Received: from mail.vyatta.com ([216.93.170.194]:41644 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753136AbYF0VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 17:33:06 -0400
+In-Reply-To: <965f530d0806271420y7ffebd40xb9b2f9a035206932@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, 27 Jun 2008 16:20:10 -0500
+"Kiran Kotla" <kotlakiran@gmail.com> wrote:
 
-Nye Liu wrote:
-> From: Nye Liu <nyet@mrv.com>
->
-> When using CONFIG_FIXED_PHY, fec_inf (fep->phydev->bus->priv) is NULL in
-> fs_enet/mac-fec.c restart(). Dereferencing fec_inf when trying to set the
-> mii_speed causes a kernel oops.
->
-> Signed-off-by: Nye Liu <nyet@mrv.com>
->
-> ---
->
-> diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-> index 8a311d1..350bc73 100644
-> --- a/drivers/net/fs_enet/mac-fec.c
-> +++ b/drivers/net/fs_enet/mac-fec.c
-> @@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
->         /*
->          * Set MII speed.
->          */
-> -       FW(fecp, mii_speed, fec_inf->mii_speed);
-> +       if (fec_inf)
-> +           FW(fecp, mii_speed, fec_inf->mii_speed);
->   
+> Hi david,
+> 
+> Thank you very much for your response. I am new to this forum and not
+> sure if I could include you in my reply.
+> 
+> Well, we tried our best to reduce the size of our private variables.
+> 
+> The major consumers of space however are two arrays of 32 bit integers
+> each of size '8', which are used to estimate drop probability and
+> early congestion response probability (our protocol specific), which
+> cannot be reduced to be 16 bit integers and further the size of the
+> array cannot be reduced to some value lesser without degrading the
+> estimation of drop probability.
+> 
+> I guess the only way left is to have a trade-off between the
+> performance of our protocol and size of the array.
+> 
+> In any case, I was wondering if still there is a way to increase the
+> size of the blob, though we would not to increase the size of blob to
+> get our protocol running in the kernel.
+> 
+> Thanks again!
+> Kiran
 
-   Alas, Your patch is whitespace damaged.
-
-
-WBR, Sergei
-
-
+If need be you can use a pointer to an allocated array for that (it would be
+up to your code to free it).  You might even want to make this per route
+rather than per socket. That would require lookup/locking/ref counting, but
+it would allow sharing path information when multiple sockets along same
+path are present.
