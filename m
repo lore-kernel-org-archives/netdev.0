@@ -1,45 +1,28 @@
-From: Nye Liu <nyet@nyet.org>
-Subject: [PATCH] FS_ENET: Don't attempt to set mii_speed when fec_inf is
-	null
-Date: Fri, 27 Jun 2008 15:09:23 -0700
-Message-ID: <20080627220923.GA3126@curtisfong.org>
-References: <20080627192651.GA28291@curtisfong.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2008-06-27
+Date: Fri, 27 Jun 2008 16:06:54 -0700 (PDT)
+Message-ID: <20080627.160654.60362716.davem@davemloft.net>
+References: <20080627191412.GA24606@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pantelis.antoniou@gmail.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from curtis.curtisfong.org ([66.43.110.51]:58578 "EHLO
-	curtis.curtisfong.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757932AbYF0WJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 18:09:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20080627192651.GA28291@curtisfong.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45346
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1765957AbYF0XGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 19:06:54 -0400
+In-Reply-To: <20080627191412.GA24606@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nye Liu <nyet@mrv.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 27 Jun 2008 15:14:12 -0400
 
-When using CONFIG_FIXED_PHY, fec_inf (fep->phydev->bus->priv) is NULL in
-fs_enet/mac-fec.c restart(). Dereferencing fec_inf when trying to set the
-mii_speed causes a kernel oops.
+> Another quick round of fixes hoping to see 2.6.26...
 
-Signed-off-by: Nye Liu <nyet@mrv.com>
+Pulled into net-2.6 and pushed back out to kernel.org
 
----
-
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 8a311d1..7359068 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
- 	/*
- 	 * Set MII speed.
- 	 */
--	FW(fecp, mii_speed, fec_inf->mii_speed);
-+	if (fec_inf)
-+		FW(fecp, mii_speed, fec_inf->mii_speed);
- 
- 	/*
- 	 * Clear any outstanding interrupt.
+Thanks!
