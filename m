@@ -1,69 +1,261 @@
-From: Tom Quetchenbach <virtualphtn@gmail.com>
-Subject: Re: s2io: packet reordering with 2.6.25.4
-Date: Thu, 26 Jun 2008 17:05:35 -0700
-Message-ID: <48642ECF.4090905@gmail.com>
-References: <4862DEA4.8020305@gmail.com> <48635341.8010609@gmail.com> <48635708.8070100@gmail.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: v2 [PATCH 1/2] net-driver: Drivers don't set IFF_* flag
+Date: Fri, 27 Jun 2008 09:14:44 +0800
+Message-ID: <48643F04.2070601@cn.fujitsu.com>
+References: <48562F9A.5030509@cn.fujitsu.com> <485631FF.7040509@trash.net> <485634D1.2010603@cn.fujitsu.com> <48563A7F.50309@trash.net> <485716A1.8030401@cn.fujitsu.com> <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ram.vepa@neterion.com,
-	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
-	sreenivasa.honnur@neterion.com
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:7360 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbYF0AFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 20:05:15 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so153698wxd.4
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2008 17:05:14 -0700 (PDT)
-In-Reply-To: <48635708.8070100@gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:55415 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751618AbYF0CYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 22:24:14 -0400
+In-Reply-To: <485BC7BA.60406@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> 
->> Out of curiosity: is there affinity set for eths' irqs or they are
->> balanced between cpus? (/proc/interrupts?)
+Diff from v1 to v2: split de4x5's patch from previews one, because
+it is a little bit different to others.
 
-No affinity set, but they're not exactly balanced either:
+---
+Some hardware set promisc when they are requested to set IFF_ALLMULTI flag.
+It's ok, but if drivers set IFF_PROMISC flag when they set promisc,
+it will broken upper layer handle for promisc and allmulti.
+In addition, drivers can use their own hardware programming to make it.
+So do not allow drivers to set IFF_* flags.
 
-           CPU0       CPU1
-  0:         73          0   IO-APIC-edge      timer
-  1:          0          2   IO-APIC-edge      i8042
-  2:          0          0    XT-PIC-XT        cascade
-  8:          0          1   IO-APIC-edge      rtc
- 12:          0          5   IO-APIC-edge      i8042
- 25:         47      53074   IO-APIC-fasteoi   eth0
- 26:         21        334   IO-APIC-fasteoi   eth1
- 28:        358    1280440   IO-APIC-fasteoi   eth2 Neterion 10 Gigabit
-Ethernet-SR PCI-X 2.0 DDR Adapter
-NMI:          0          0   Non-maskable interrupts
-LOC:     227793     227721   Local timer interrupts
-RES:       6483       3213   Rescheduling interrupts
-CAL:         40         31   function call interrupts
-TLB:       1119        105   TLB shootdowns
-TRM:          0          0   Thermal event interrupts
-THR:          0          0   Threshold APIC interrupts
-SPU:          0          0   Spurious interrupts
-ERR:          0
+This is a general driver fix, so I didn't split it to pieces and send
+to specific driver maintainers.
 
-Anyhow, it looks like setting CPU affinity for the card on the receiver
-(echo 1 > /proc/irq/28/smp_affinity) does eliminate the reordering, at
-least with UDP at up to 2.5 Gbit/s (which is as fast as iperf can spit
-out packets on this machine). So, it looks like the "mystery" is solved :-)
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+diff --git a/drivers/net/3c523.c b/drivers/net/3c523.c
+index 239fc42..9e48660 100644
+--- a/drivers/net/3c523.c
++++ b/drivers/net/3c523.c
+@@ -641,10 +641,8 @@ static int init586(struct net_device *dev)
+ 	cfg_cmd->time_low = 0x00;
+ 	cfg_cmd->time_high = 0xf2;
+ 	cfg_cmd->promisc = 0;
+-	if (dev->flags & (IFF_ALLMULTI | IFF_PROMISC)) {
++	if (dev->flags & (IFF_ALLMULTI | IFF_PROMISC))
+ 		cfg_cmd->promisc = 1;
+-		dev->flags |= IFF_PROMISC;
+-	}
+ 	cfg_cmd->carr_coll = 0x00;
+ 
+ 	p->scb->cbl_offset = make16(cfg_cmd);
+diff --git a/drivers/net/3c527.c b/drivers/net/3c527.c
+index fae295b..a0bea51 100644
+--- a/drivers/net/3c527.c
++++ b/drivers/net/3c527.c
+@@ -1524,14 +1524,11 @@ static void do_mc32_set_multicast_list(struct net_device *dev, int retry)
+ 	struct mc32_local *lp = netdev_priv(dev);
+ 	u16 filt = (1<<2); /* Save Bad Packets, for stats purposes */
+ 
+-	if (dev->flags&IFF_PROMISC)
++	if ((dev->flags&IFF_PROMISC) ||
++	    (dev->flags&IFF_ALLMULTI) ||
++	    dev->mc_count > 10)
+ 		/* Enable promiscuous mode */
+ 		filt |= 1;
+-	else if((dev->flags&IFF_ALLMULTI) || dev->mc_count > 10)
+-	{
+-		dev->flags|=IFF_PROMISC;
+-		filt |= 1;
+-	}
+ 	else if(dev->mc_count)
+ 	{
+ 		unsigned char block[62];
+diff --git a/drivers/net/atp.c b/drivers/net/atp.c
+index 3d44333..c10cd80 100644
+--- a/drivers/net/atp.c
++++ b/drivers/net/atp.c
+@@ -854,14 +854,9 @@ static void set_rx_mode_8002(struct net_device *dev)
+ 	struct net_local *lp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+-	if ( dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC))) {
+-		/* We must make the kernel realise we had to move
+-		 *	into promisc mode or we start all out war on
+-		 *	the cable. - AC
+-		 */
+-		dev->flags|=IFF_PROMISC;
++	if (dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC)))
+ 		lp->addr_mode = CMR2h_PROMISC;
+-	} else
++	else
+ 		lp->addr_mode = CMR2h_Normal;
+ 	write_reg_high(ioaddr, CMR2, lp->addr_mode);
+ }
+diff --git a/drivers/net/de620.c b/drivers/net/de620.c
+index 3f5190c..d454e14 100644
+--- a/drivers/net/de620.c
++++ b/drivers/net/de620.c
+@@ -488,13 +488,6 @@ static void de620_set_multicast_list(struct net_device *dev)
+ {
+ 	if (dev->mc_count || dev->flags&(IFF_ALLMULTI|IFF_PROMISC))
+ 	{ /* Enable promiscuous mode */
+-		/*
+-		 *	We must make the kernel realise we had to move
+-		 *	into promisc mode or we start all out war on
+-		 *	the cable. - AC
+-		 */
+-		dev->flags|=IFF_PROMISC;
+-
+ 		de620_set_register(dev, W_TCR, (TCR_DEF & ~RXPBM) | RXALL);
+ 	}
+ 	else
+diff --git a/drivers/net/eepro.c b/drivers/net/eepro.c
+index 56f5049..1f11350 100644
+--- a/drivers/net/eepro.c
++++ b/drivers/net/eepro.c
+@@ -1283,14 +1283,6 @@ set_multicast_list(struct net_device *dev)
+ 
+ 	if (dev->flags&(IFF_ALLMULTI|IFF_PROMISC) || dev->mc_count > 63)
+ 	{
+-		/*
+-		 *	We must make the kernel realise we had to move
+-		 *	into promisc mode or we start all out war on
+-		 *	the cable. If it was a promisc request the
+-		 *	flag is already set. If not we assert it.
+-		 */
+-		dev->flags|=IFF_PROMISC;
+-
+ 		eepro_sw2bank2(ioaddr); /* be CAREFUL, BANK 2 now */
+ 		mode = inb(ioaddr + REG2);
+ 		outb(mode | PRMSC_Mode, ioaddr + REG2);
+diff --git a/drivers/net/eth16i.c b/drivers/net/eth16i.c
+index e3dd8b1..bee8b3f 100644
+--- a/drivers/net/eth16i.c
++++ b/drivers/net/eth16i.c
+@@ -1356,7 +1356,6 @@ static void eth16i_multicast(struct net_device *dev)
+ 
+ 	if(dev->mc_count || dev->flags&(IFF_ALLMULTI|IFF_PROMISC))
+ 	{
+-		dev->flags|=IFF_PROMISC;	/* Must do this */
+ 		outb(3, ioaddr + RECEIVE_MODE_REG);
+ 	} else {
+ 		outb(2, ioaddr + RECEIVE_MODE_REG);
+diff --git a/drivers/net/lp486e.c b/drivers/net/lp486e.c
+index 591a7e4..83fa9d8 100644
+--- a/drivers/net/lp486e.c
++++ b/drivers/net/lp486e.c
+@@ -1272,8 +1272,6 @@ static void set_multicast_list(struct net_device *dev) {
+ 			return;
+ 		}
+ 		if (dev->mc_count == 0 && !(dev->flags & (IFF_PROMISC | IFF_ALLMULTI))) {
+-			if (dev->flags & IFF_ALLMULTI)
+-				dev->flags |= IFF_PROMISC;
+ 			lp->i596_config[8] &= ~0x01;
+ 		} else {
+ 			lp->i596_config[8] |= 0x01;
+diff --git a/drivers/net/ni5010.c b/drivers/net/ni5010.c
+index a20005c..8e0ca9f 100644
+--- a/drivers/net/ni5010.c
++++ b/drivers/net/ni5010.c
+@@ -648,7 +648,6 @@ static void ni5010_set_multicast_list(struct net_device *dev)
+ 	PRINTK2((KERN_DEBUG "%s: entering set_multicast_list\n", dev->name));
+ 
+ 	if (dev->flags&IFF_PROMISC || dev->flags&IFF_ALLMULTI || dev->mc_list) {
+-		dev->flags |= IFF_PROMISC;
+ 		outb(RMD_PROMISC, EDLC_RMODE); /* Enable promiscuous mode */
+ 		PRINTK((KERN_DEBUG "%s: Entering promiscuous mode\n", dev->name));
+ 	} else {
+diff --git a/drivers/net/ni52.c b/drivers/net/ni52.c
+index a316dcc..b9a882d 100644
+--- a/drivers/net/ni52.c
++++ b/drivers/net/ni52.c
+@@ -621,7 +621,7 @@ static int init586(struct net_device *dev)
+ 		if (num_addrs > len) {
+ 			printk(KERN_ERR "%s: switching to promisc. mode\n",
+ 				dev->name);
+-			dev->flags |= IFF_PROMISC;
++			writeb(0x01, &cfg_cmd->promisc);
+ 		}
+ 	}
+ 	if (dev->flags & IFF_PROMISC)
+diff --git a/drivers/net/sun3_82586.c b/drivers/net/sun3_82586.c
+index 9b2a7f7..e531302 100644
+--- a/drivers/net/sun3_82586.c
++++ b/drivers/net/sun3_82586.c
+@@ -425,14 +425,11 @@ static int init586(struct net_device *dev)
+ 		int len = ((char *) p->iscp - (char *) ptr - 8) / 6;
+ 		if(num_addrs > len)	{
+ 			printk("%s: switching to promisc. mode\n",dev->name);
+-			dev->flags|=IFF_PROMISC;
++			cfg_cmd->promisc = 1;
+ 		}
+ 	}
+ 	if(dev->flags&IFF_PROMISC)
+-	{
+-			 cfg_cmd->promisc=1;
+-			 dev->flags|=IFF_PROMISC;
+-	}
++		cfg_cmd->promisc = 1;
+ 	cfg_cmd->carr_coll	= 0x00;
+ 
+ 	p->scb->cbl_offset	= make16(cfg_cmd);
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+index 6d13a0d..00a0d79 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -1998,13 +1998,6 @@ __orinoco_set_multicast_list(struct net_device *dev)
+ 		else
+ 			priv->mc_count = mc_count;
+ 	}
+-
+-	/* Since we can set the promiscuous flag when it wasn't asked
+-	   for, make sure the net_device knows about it. */
+-	if (priv->promiscuous)
+-		dev->flags |= IFF_PROMISC;
+-	else
+-		dev->flags &= ~IFF_PROMISC;
+ }
+ 
+ /* This must be called from user context, without locks held - use
+diff --git a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
+index 49ae970..136220b 100644
+--- a/drivers/net/wireless/wavelan.c
++++ b/drivers/net/wireless/wavelan.c
+@@ -1409,9 +1409,6 @@ static void wavelan_set_multicast_list(struct net_device * dev)
+ 			lp->mc_count = 0;
+ 
+ 			wv_82586_reconfig(dev);
+-
+-			/* Tell the kernel that we are doing a really bad job. */
+-			dev->flags |= IFF_PROMISC;
+ 		}
+ 	} else
+ 		/* Are there multicast addresses to send? */
+diff --git a/drivers/net/wireless/wavelan_cs.c b/drivers/net/wireless/wavelan_cs.c
+index b584c0e..00a3559 100644
+--- a/drivers/net/wireless/wavelan_cs.c
++++ b/drivers/net/wireless/wavelan_cs.c
+@@ -1412,9 +1412,6 @@ wavelan_set_multicast_list(struct net_device *	dev)
+ 	  lp->mc_count = 0;
+ 
+ 	  wv_82593_reconfig(dev);
+-
+-	  /* Tell the kernel that we are doing a really bad job... */
+-	  dev->flags |= IFF_PROMISC;
+ 	}
+     }
+   else
+@@ -1433,9 +1430,6 @@ wavelan_set_multicast_list(struct net_device *	dev)
+ 	    lp->mc_count = 0;
+ 
+ 	    wv_82593_reconfig(dev);
+-
+-	    /* Tell the kernel that we are doing a really bad job... */
+-	    dev->flags |= IFF_ALLMULTI;
+ 	  }
+       }
+     else
 
-> 
-> ...and maybe ifconfig on TX side?
 
-eth2      Link encap:Ethernet  HWaddr 00:0C:FC:00:0D:3F
-          inet addr:10.4.72.3  Bcast:10.4.72.15  Mask:255.255.255.240
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:7 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:10 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:496 (496.0 b)  TX bytes:532 (532.0 b)
-          Interrupt:28
-
-Thanks
--Tom
