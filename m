@@ -1,32 +1,34 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: GFP_ATOMIC page allocation failures.
-Date: Fri, 27 Jun 2008 14:01:10 +0400
-Message-ID: <20080627100109.GC18179@2ka.mipt.ru>
-References: <20080401235609.GA6947@codemonkey.org.uk> <200804022012.58760.nickpiggin@yahoo.com.au> <20080402085437.7d9abf1f.akpm@linux-foundation.org> <200804031622.26973.nickpiggin@yahoo.com.au> <20080402223254.5ac50337.akpm@linux-foundation.org> <20080403085922.GA10874@2ka.mipt.ru> <20080626210624.GA11816@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH/RFC] remove irqs_disabled warning from local_bh_enable
+Date: Fri, 27 Jun 2008 12:53:29 +0200
+Message-ID: <20080627105329.GA11218@elte.hu>
+References: <1213739834.3803.137.camel@johannes.berg> <20080620155541.GC6656@elte.hu> <200806201801.09858.mb@bu3sch.de> <200806201818.34904.mb@bu3sch.de> <20080623084123.GA32688@elte.hu> <48647B94.5000006@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Dave Jones <davej@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Chris Snook <csnook@redhat.com>,
-	Dave Jones <davej@codemonkey.org.uk>
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	David Ellingsworth <david@identd.dyndns.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43594 "EHLO 2ka.mipt.ru"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:34773 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755AbYF0KCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 06:02:08 -0400
+	id S1752605AbYF0Kyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 06:54:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20080626210624.GA11816@redhat.com>
+In-Reply-To: <48647B94.5000006@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 26, 2008 at 05:06:24PM -0400, Dave Jones (davej@redhat.com) wrote:
-> This thread seemed to die out with no resolution..
 
-Please ask to test e1000e driver instead, if it supports given PCI ids.
-It has completely rewritten input path which does not suffer from this
-kind of problems, so you do not need to care too much about e1000, which
-will die sooner or later.
+* Jeff Garzik <jgarzik@pobox.com> wrote:
 
--- 
-	Evgeniy Polyakov
+> applied
+
+track record of 4 days of testing: the warning indeed went away and no 
+other funnies in this area happened on that box. Thanks,
+
+	Ingo
