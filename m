@@ -1,51 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/3] e1000e: fix EEH recovery during reset on PPC
-Date: Fri, 27 Jun 2008 00:56:17 -0400
-Message-ID: <486472F1.4050900@garzik.org>
-References: <20080625000036.16592.6621.stgit@localhost.localdomain> <20080625000120.16592.89100.stgit@localhost.localdomain>
+Subject: Re: [PATCH 06/12] net: use linux/of_{device,platform}.h instead of
+ asm
+Date: Fri, 27 Jun 2008 00:58:37 -0400
+Message-ID: <4864737D.80306@garzik.org>
+References: <20080523161627.a75d5010.sfr@canb.auug.org.au> <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, pl@us.ibm.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40793 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40829 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755AbYF0E4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 00:56:24 -0400
-In-Reply-To: <20080625000120.16592.89100.stgit@localhost.localdomain>
+	id S1751451AbYF0E6q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 00:58:46 -0400
+In-Reply-To: <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> EEH is not recovering in a reasonable amount of time on PPC during
-> e1000e_down().
-> 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Stephen Rothwell wrote:
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 > ---
-> 
->  drivers/net/e1000e/netdev.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index ccb8ca2..0320925 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -2535,7 +2535,8 @@ void e1000e_down(struct e1000_adapter *adapter)
->  	adapter->link_speed = 0;
->  	adapter->link_duplex = 0;
->  
-> -	e1000e_reset(adapter);
-> +	if (!pci_channel_offline(adapter->pdev))
-> +		e1000e_reset(adapter);
->  	e1000_clean_tx_ring(adapter);
->  	e1000_clean_rx_ring(adapter);
+>  drivers/net/fs_enet/fs_enet-main.c |    2 +-
+>  drivers/net/fs_enet/mac-scc.c      |    2 +-
+>  drivers/net/fs_enet/mii-fec.c      |    2 +-
+>  drivers/net/ibm_newemac/core.h     |    2 +-
+>  drivers/net/ucc_geth.c             |    2 +-
+>  drivers/net/ucc_geth_mii.c         |    2 +-
+>  6 files changed, 6 insertions(+), 6 deletions(-)
 
-IMO for this type of change, you should consider putting all these 
-changes into a single patch.
+ACK
 
-It's exactly the same logical change, so no need to split it up into 
-three patches.
+I'll let a ppc person queue this
 
 
