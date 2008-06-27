@@ -1,50 +1,31 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 4/4] e1000: remove e1000_clean_tx_irq call from e1000_netpoll
-Date: Fri, 27 Jun 2008 02:08:53 -0400
-Message-ID: <486483F5.9040201@garzik.org>
-References: <20080619211912.GF22981@gospo.rdu.redhat.com>
+Subject: Re: [PATCH] tulip: remove wrapper around get_unaligned
+Date: Fri, 27 Jun 2008 02:10:05 -0400
+Message-ID: <4864843D.7070203@garzik.org>
+References: <1212018664.20781.9.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50258 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41272 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755494AbYF0GI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 02:08:56 -0400
-In-Reply-To: <20080619211912.GF22981@gospo.rdu.redhat.com>
+	id S1758364AbYF0GKI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 02:10:08 -0400
+In-Reply-To: <1212018664.20781.9.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek wrote:
-> The call to e1000_clean_tx_irq in e1000_netpoll can race with the call
-> to e1000_clean_tx_irq in e1000_clean.  With a small bit of tweaking to
-> to netpoll_send_skb to simulate a system that was under extreme stress,
-> I was able to reproduce these concurrent calls.  This can result in
-> multiple frees to the skbs on the tx ring buffer.
+Harvey Harrison wrote:
+> DE_UNALIGNED_16 is always being passed a u16 *, no need to have the
+> wrapper with two casts in it, just call get_unaligned directly.
 > 
-> Dropping this call from e1000_netpoll should be fine since we can rely
-> on the calls in e1000_clean to do what is needed since napi will poll
-> the hardware just after calling poll_controller.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 > ---
->  drivers/net/e1000/e1000_main.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 0dc1ef0..047028f 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -5277,7 +5277,6 @@ e1000_netpoll(struct net_device *netdev)
->  
->  	disable_irq(adapter->pdev->irq);
->  	e1000_intr(adapter->pdev->irq, netdev);
-> -	e1000_clean_tx_irq(adapter, adapter->tx_ring);
->  #ifndef CONFIG_E1000_NAPI
+>  drivers/net/tulip/de2104x.c |   10 ++++------
+>  1 files changed, 4 insertions(+), 6 deletions(-)
 
-applied (2.6.27)
+applied
 
 
