@@ -1,70 +1,43 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] dm9601: don't do usb transfers of data on stack
-Date: Fri, 27 Jun 2008 11:28:11 +0200
-Message-ID: <1214558891-15971-1-git-send-email-jacmet@sunsite.dk>
-Cc: Peter Korsgaard <jacmet@sunsite.dk>
-To: netdev@vger.kernel.org, jeff@garzik.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: setting ICSK_CA_PRIV_SIZE larger than 16 * sizeof(u32)
+Date: Fri, 27 Jun 2008 02:30:46 -0700 (PDT)
+Message-ID: <20080627.023046.193703830.davem@davemloft.net>
+References: <965f530d0806270137y19c36638yc6ae0a1d4bfa63e7@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: kotlakiran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:54920 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbYF0J2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 05:28:16 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so353553ugf.16
-        for <netdev@vger.kernel.org>; Fri, 27 Jun 2008 02:28:14 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47323
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752180AbYF0Jaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 05:30:46 -0400
+In-Reply-To: <965f530d0806270137y19c36638yc6ae0a1d4bfa63e7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dm_{read,write}_shared_word() were doing USB transfers of data on stack,
-which isn't allowed. Fix it by using the usbnet->data area like in
-dm9601_set_multicast().
+From: "Kiran Kotla" <kotlakiran@gmail.com>
+Date: Fri, 27 Jun 2008 03:37:59 -0500
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- drivers/net/usb/dm9601.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+[ Changed linux-net to netdev.  linux-net is for user questions,
+  netdev is for development discussion... ]
 
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index f7319d3..1a5e649 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -158,6 +158,10 @@ static void dm_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
- static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
- {
- 	int ret, i;
-+	/* USB transfers of data on stack is not allowed  - We use
-+	   the 20 byte dev->data for value to avoid allocating memory.
-+	   Notice that dm9601_set_multicast() uses the lower 8 bytes */
-+	void *data = &dev->data[4];
- 
- 	mutex_lock(&dev->phy_mutex);
- 
-@@ -184,7 +188,8 @@ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *valu
- 	}
- 
- 	dm_write_reg(dev, DM_SHARED_CTRL, 0x0);
--	ret = dm_read(dev, DM_SHARED_DATA, 2, value);
-+	ret = dm_read(dev, DM_SHARED_DATA, 2, data);
-+	memcpy(value, data, 2);
- 
- 	devdbg(dev, "read shared %d 0x%02x returned 0x%04x, %d",
- 	       phy, reg, *value, ret);
-@@ -197,10 +202,15 @@ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *valu
- static int dm_write_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 value)
- {
- 	int ret, i;
-+	/* USB transfers of data on stack is not allowed  - We use
-+	   the 20 byte dev->data for value to avoid allocating memory.
-+	   Notice that dm9601_set_multicast() uses the lower 8 bytes */
-+	void *data = &dev->data[4];
- 
- 	mutex_lock(&dev->phy_mutex);
- 
--	ret = dm_write(dev, DM_SHARED_DATA, 2, &value);
-+	memcpy(data, &value, sizeof(value));
-+	ret = dm_write(dev, DM_SHARED_DATA, 2, data);
- 	if (ret < 0)
- 		goto out;
- 
--- 
-1.5.5.1
+> The only other option we have to get the kernel running with our
+> protocol is to reduce the number of private variables and this is not
+> possible without affecting the behavior of our protocol.
 
+I severely doubt this.  25 32-bit state variables is just way
+over the top.
+
+Don't give up so easily.  Maybe some values can be 16-bit instead
+of 32-bit.
+
+Perhaps pairs of two odd-sized values can be encoded into a single
+32-bit (one is 7 bits, the other is <= 25 bits).
+
+Get creative.
+
+I'm going to be very much an asshole about making that blob any
+bigger, because it means every single socket in the kernel will get
+bigger even if they don't use your congestion control algorithm.
