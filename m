@@ -1,61 +1,32 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 6/8 v2] netfilter: fix string extension for case insensitive pattern matching
-Date: Fri, 27 Jun 2008 02:49:34 -0700
-Message-ID: <b25c3fa70806270249m2a6e8962r6e8e1fd3c18d82a0@mail.gmail.com>
-References: <1214389505-21405-1-git-send-email-joonwpark81@gmail.com>
-	 <4862260A.9060304@trash.net> <20080626021241.GA26212@tp64>
-	 <48637EBA.6080003@trash.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: GFP_ATOMIC page allocation failures.
+Date: Fri, 27 Jun 2008 14:01:10 +0400
+Message-ID: <20080627100109.GC18179@2ka.mipt.ru>
+References: <20080401235609.GA6947@codemonkey.org.uk> <200804022012.58760.nickpiggin@yahoo.com.au> <20080402085437.7d9abf1f.akpm@linux-foundation.org> <200804031622.26973.nickpiggin@yahoo.com.au> <20080402223254.5ac50337.akpm@linux-foundation.org> <20080403085922.GA10874@2ka.mipt.ru> <20080626210624.GA11816@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	"Thomas Graf" <tgraf@suug.ch>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <48637EBA.6080003@trash.net>
+Content-Type: text/plain; charset=us-ascii
+To: Dave Jones <davej@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Chris Snook <csnook@redhat.com>,
+	Dave Jones <davej@codemonkey.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43594 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752755AbYF0KCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 06:02:08 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080626210624.GA11816@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2008/6/26 Patrick McHardy <kaber@trash.net>:
-> Joonwoo Park wrote:
->>
->> netfilter: fix string extension for case insensitive pattern matching
->>
->> The flag XT_STRING_FLAG_IGNORECASE indicates case insensitive string
->> matching.
->> netfilter can find cmd.exe, Cmd.exe, cMd.exe and etc easily.
->>
->> Also this patch won't break compatibility since we have 2 bytes space
->> between invert and config, due to config was 8 bytes aligned.
->> So we can put a new value 'flags' in xt_string_info between invert and
->> config safely.
->> If previous version of iptables interact with this kernel, to kernel
->> side, flags will be set to zero and to user side, flags will be ignored.
->
-> This makes it hard for userspace to know whether insensitive
-> search is supported or not, similar for possible future flag
-> additions.
->
-> Please
->
-> - add a new revision for userspace to know whether flags are
->  supported at all. You don't need to duplicate the checkentry
->  function for this since the structure layout didn't change,
->  you can simply parse flags dependant on match->revision.
->  Userspace can use the existance of the new revision as
->  indication that flags are supported.
->
-> - check for unknown flags and return an error
->
+On Thu, Jun 26, 2008 at 05:06:24PM -0400, Dave Jones (davej@redhat.com) wrote:
+> This thread seemed to die out with no resolution..
 
-Hi Patrick,
-Thanks for your advice.
-Since I'm traveling America, so maybe I could catch up these things
-you've asked next weekend.
-I don't need to rush, do I?
+Please ask to test e1000e driver instead, if it supports given PCI ids.
+It has completely rewritten input path which does not suffer from this
+kind of problems, so you do not need to care too much about e1000, which
+will die sooner or later.
 
-Thanks again,
-Joonwoo
+-- 
+	Evgeniy Polyakov
