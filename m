@@ -1,83 +1,44 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v2 [PATCH 2/2] de4x5: Remove developer debug feature about set/clear
- promisc
-Date: Fri, 27 Jun 2008 09:14:52 +0800
-Message-ID: <48643F0C.9020408@cn.fujitsu.com>
-References: <4857B6DC.5020805@trash.net> <48587295.40705@cn.fujitsu.com> <48587854.8050400@pobox.com> <485BC7BA.60406@cn.fujitsu.com> <485F8332.6010203@trash.net> <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net> <4860478B.2080109@cn.fujitsu.com> <20080624051029.GB19434@colo.lackof.org> <48608887.6000102@cn.fujitsu.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another Problem)
+Date: Thu, 26 Jun 2008 20:35:23 -0600
+Message-ID: <20080627023523.GD7703@parisc-linux.org>
+References: <4861800B.90703@nscus.com> <20080625213142.GA29890@electric-eye.fr.zoreil.com> <48640535.2050000@nscus.com> <20080626215918.GC2555@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, kyle@parisc-linux.org
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55445 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751727AbYF0CYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2008 22:24:23 -0400
-In-Reply-To: <48608887.6000102@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
+	Kasper Sandberg <lkml@metanurb.dk>, akpm@linux-foundation.org,
+	linux-pci@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080626215918.GC2555@electric-eye.fr.zoreil.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> If you want to remove a developer debug feature, please just submit
->> a patch like usual to kyle and myself.
->>
+On Thu, Jun 26, 2008 at 11:59:18PM +0200, Francois Romieu wrote:
+> (linux-pci Cced)
 > 
-> Is there any user space binary use these features?
-> case DE4X5_SET_PROM:
-> case DE4X5_CLR_PROM: 
-> If not, I will send a patch to remove them.
-> 
+> Michael Grollman <mgrollman@nscus.com> :
+> [...]
+> > Per instructions, I built an 2.6.26-rc8 system on the target Intel 
+> > hardware, and was able to re-recreate the intermittent failure of the 8201. 
+> >  When in failure mode, the lspci -vx' display of the pci registers of the 
+> > 8102 is as follows:
+> >
+> > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E PCI 
+> > Express Fast Ethernet controller (rev ff) (prog-if ff)
+> >    !!! Unknown header type 7f
+> > 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 
-IFF_PROMISC flag shouldn't be set or cleared by drivers, because
-whether device be promisc mode is decided by how many upper layer
-callers being referenced to it.
-And the promisc changing feature of de4x5 ioctl is developer debug
-feature, we can remove it now.
+Mmm.  All f's means that the device has fallen off the bus.  Nothing is
+responding when we ask the device about it's config space.  What do you
+do to get this device into this state?
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
-index bc30c6e..617ef41 100644
---- a/drivers/net/tulip/de4x5.c
-+++ b/drivers/net/tulip/de4x5.c
-@@ -5514,22 +5514,6 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	netif_wake_queue(dev);                      /* Unlock the TX ring */
- 	break;
- 
--    case DE4X5_SET_PROM:             /* Set Promiscuous Mode */
--	if (!capable(CAP_NET_ADMIN)) return -EPERM;
--	omr = inl(DE4X5_OMR);
--	omr |= OMR_PR;
--	outl(omr, DE4X5_OMR);
--	dev->flags |= IFF_PROMISC;
--	break;
--
--    case DE4X5_CLR_PROM:             /* Clear Promiscuous Mode */
--	if (!capable(CAP_NET_ADMIN)) return -EPERM;
--	omr = inl(DE4X5_OMR);
--	omr &= ~OMR_PR;
--	outl(omr, DE4X5_OMR);
--	dev->flags &= ~IFF_PROMISC;
--	break;
--
-     case DE4X5_SAY_BOO:              /* Say "Boo!" to the kernel log file */
- 	if (!capable(CAP_NET_ADMIN)) return -EPERM;
- 	printk("%s: Boo!\n", dev->name);
-diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/tulip/de4x5.h
-index f5f33b3..a6b7638 100644
---- a/drivers/net/tulip/de4x5.h
-+++ b/drivers/net/tulip/de4x5.h
-@@ -1004,8 +1004,8 @@ struct de4x5_ioctl {
- */
- #define DE4X5_GET_HWADDR	0x01 /* Get the hardware address */
- #define DE4X5_SET_HWADDR	0x02 /* Set the hardware address */
--#define DE4X5_SET_PROM  	0x03 /* Set Promiscuous Mode */
--#define DE4X5_CLR_PROM  	0x04 /* Clear Promiscuous Mode */
-+#define DE4X5_SET_PROM  	0x03 /* Obsoleted. Set Promiscuous Mode */
-+#define DE4X5_CLR_PROM  	0x04 /* Obsoleted. Clear Promiscuous Mode */
- #define DE4X5_SAY_BOO	        0x05 /* Say "Boo!" to the kernel log file */
- #define DE4X5_GET_MCA   	0x06 /* Get a multicast address */
- #define DE4X5_SET_MCA   	0x07 /* Set a multicast address */
-
+-- 
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
