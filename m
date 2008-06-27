@@ -1,42 +1,37 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/3] e1000: make ioport free
-Date: Fri, 27 Jun 2008 10:08:24 -0700
-Message-ID: <9929d2390806271008m633428aeg3fe20b7d67531791@mail.gmail.com>
-References: <485B1B8E.1060108@jp.fujitsu.com> <485B1C31.4020507@jp.fujitsu.com>
-	 <486483DF.5060404@garzik.org> <4864DBE3.3040801@jp.fujitsu.com>
-	 <4864E5A0.60804@jp.fujitsu.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next-2.6 2008-06-27
+Date: Fri, 27 Jun 2008 13:07:51 -0400
+Message-ID: <20080627170751.GB20277@tuxdriver.com>
+References: <20080627153541.GA16597@tuxdriver.com> <f6ca9fed0806270854u674a9d5aled463865e07829c8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"Tomohiro Kusumi" <kusumi.tomohiro@jp.fujitsu.com>,
-	auke-jan.h.kok@intel.com
-To: "Taku Izumi" <izumi.taku@jp.fujitsu.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760830AbYF0RIn@vger.kernel.org>
-In-Reply-To: <4864E5A0.60804@jp.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: drago01 <drago01@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4394 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751147AbYF0RRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 13:17:25 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <f6ca9fed0806270854u674a9d5aled463865e07829c8@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2008 at 6:05 AM, Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
-> This patch makes e1000 driver ioport-free.
-> This corrects behavior in probe function so as not to request ioport
-> resources as long as they are not really needed. This is based on the
-> ioport-free patch of e1000 driver from Auke Kok and Tomohiro Kusumi.
->
->
-> Signed-off-by: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> ---
->  drivers/net/e1000/e1000.h      |    4 +
->  drivers/net/e1000/e1000_main.c |   88 +++++++++++++++++++++++++++++++++++------
->  2 files changed, 80 insertions(+), 12 deletions(-)
+On Fri, Jun 27, 2008 at 05:54:06PM +0200, drago01 wrote:
+> On Fri, Jun 27, 2008 at 5:35 PM, John W. Linville
+> <linville@tuxdriver.com> wrote:
+> 
+> > Randy Dunlap (1):
+> >      iwlwifi: fix build for CONFIG_INPUT=n
+> 
+> this one was NACKED by Ivo (well not exactly this but the 3945
+> version, and Yi posted an updated patch)
 
-I will add this into my e1000 queue and push it out in my next
-patchset for e1000.
+I have no record of that.  Could someone send me a correct patch on
+top of this one?
 
+John
 -- 
-Cheers,
-Jeff
+John W. Linville
+linville@tuxdriver.com
