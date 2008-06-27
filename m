@@ -1,42 +1,43 @@
-From: drago01 <drago01-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-06-27
-Date: Fri, 27 Jun 2008 19:49:47 +0200
-Message-ID: <f6ca9fed0806271049v37b4f7cetc9d918b877024a76@mail.gmail.com>
-References: <20080627153541.GA16597@tuxdriver.com>
-	 <f6ca9fed0806270854u674a9d5aled463865e07829c8@mail.gmail.com>
-	 <20080627171524.GC20277@tuxdriver.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 01/18] igb: limit EEPROM access
+Date: Fri, 27 Jun 2008 10:59:33 -0700
+Message-ID: <20080627175921.22428.52767.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080627171524.GC20277-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: jeff@garzik.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:63388 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755284AbYF0R7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 13:59:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2008 at 7:15 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Fri, Jun 27, 2008 at 05:54:06PM +0200, drago01 wrote:
->> On Fri, Jun 27, 2008 at 5:35 PM, John W. Linville
->> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->>
->> > Randy Dunlap (1):
->> >      iwlwifi: fix build for CONFIG_INPUT=n
->>
->> this one was NACKED by Ivo (well not exactly this but the 3945
->> version, and Yi posted an updated patch)
->
-> That merged patch appears to be identical to the one in this thread:
->
->        http://marc.info/?l=linux-next&m=121436670630784&w=2
->
-> That includes an ACK for Zhu Yi.  Am I missing something?
+EEPROM access beyond the base eeprom page is unsupported.
 
-yeah this one: http://marc.info/?l=linux-wireless&m=121455866524106&w=2
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+ drivers/net/igb/e1000_82575.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index cda3ec8..39d44dc 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -171,6 +171,10 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	 * for setting word_size.
+ 	 */
+ 	size += NVM_WORD_SIZE_BASE_SHIFT;
++
++	/* EEPROM access above 16k is unsupported */
++	if (size > 14)
++		size = 14;
+ 	nvm->word_size = 1 << size;
+ 
+ 	/* setup PHY parameters */
+
