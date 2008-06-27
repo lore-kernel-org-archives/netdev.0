@@ -1,53 +1,54 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] tc35815: Fix receiver hangup on Rx FIFO overflow
-Date: Fri, 27 Jun 2008 01:33:56 -0400
-Message-ID: <48647BC4.90402@garzik.org>
-References: <20080626.171415.81099548.nemoto@toshiba-tops.co.jp>
+Subject: Re: [PATCH 2.6.25.3 1/5] atl1e: Atheros L1E Gigabit Ethernet driver
+Date: Fri, 27 Jun 2008 01:35:12 -0400
+Message-ID: <48647C10.1090604@garzik.org>
+References: <72981EBCFD196144B7C6999B9FC34A9A3EE603B863@SHEXMB-01.global.atheros.com> <20080626214510.01373505@osprey.hogchain.net> <72981EBCFD196144B7C6999B9FC34A9A3EE603BB7C@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: Jay Cliburn <jacliburn@bellsouth.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jie Yang <Jie.Yang@Atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38881 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38924 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758457AbYF0FeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 01:34:03 -0400
-In-Reply-To: <20080626.171415.81099548.nemoto@toshiba-tops.co.jp>
+	id S1751686AbYF0FfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 01:35:17 -0400
+In-Reply-To: <72981EBCFD196144B7C6999B9FC34A9A3EE603BB7C@SHEXMB-01.global.atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Atsushi Nemoto wrote:
-> On Rx FIFO overflow error, the controller consume a buffer descriptor
-> but currently the driver does not give it back to the controller.
-> This results unrecoverable 'Buffer List Exhausted' condition.  This
-> patch fix this problem by moving a "fbl_count--" line to proper place.
+Jie Yang wrote:
+> From: Jay Cliburn [acliburn@bellsouth.net]
+> Date: Friday, June 27, 2008 10:45 AM
 > 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> ---
-> diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-> index dccea52..b07b8cb 100644
-> --- a/drivers/net/tc35815.c
-> +++ b/drivers/net/tc35815.c
-> @@ -1736,7 +1736,6 @@ tc35815_rx(struct net_device *dev)
->  			skb = lp->rx_skbs[cur_bd].skb;
->  			prefetch(skb->data);
->  			lp->rx_skbs[cur_bd].skb = NULL;
-> -			lp->fbl_count--;
->  			pci_unmap_single(lp->pci_dev,
->  					 lp->rx_skbs[cur_bd].skb_dma,
->  					 RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
-> @@ -1792,6 +1791,7 @@ tc35815_rx(struct net_device *dev)
->  #ifdef TC35815_USE_PACKEDBUFFER
->  			while (lp->fbl_curid != id)
->  #else
-> +			lp->fbl_count--;
->  			while (lp->fbl_count < RX_BUF_NUM)
->  #endif
->  			{
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> Patches 1 and 2 reviewed tonight.  I intend to review the
+>> other 3 in coming days.
+> 
+> Thanks for your help.
+> I will update source code on these comments.
+> 
+>> On Thu, 26 Jun 2008 13:37:23 +0800
+>> Jie Yang <Jie.Yang@Atheros.com> wrote:
+>>
+>>> From: Jie Yang <jie.yang@atheros.com>
+>>>
+>>> Full patch for the Atheros L1E Gigabit Ethernet driver.
+>>> Supportring AR8121, AR8113 and AR8114
+>> Please generate the patch against current mainline (or at
+>> least current -rc); it fails to apply cleanly as is.
+>>
+> 
+> how about use the git
+> git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
 
-applied
+You'll want to use
+
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+
+Regards,
+
+	Jeff
 
 
