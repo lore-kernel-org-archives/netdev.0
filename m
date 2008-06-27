@@ -1,54 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: setting ICSK_CA_PRIV_SIZE larger than 16 * sizeof(u32)
-Date: Fri, 27 Jun 2008 14:32:58 -0700
-Message-ID: <20080627143258.173120cd@extreme>
-References: <965f530d0806270137y19c36638yc6ae0a1d4bfa63e7@mail.gmail.com>
-	<20080627.023046.193703830.davem@davemloft.net>
-	<965f530d0806271420y7ffebd40xb9b2f9a035206932@mail.gmail.com>
+From: Nye Liu <nyet@nyet.org>
+Subject: Re: [PATCH] FS_ENET: Don't attempt to set mii_speed when fec_inf
+	is null
+Date: Fri, 27 Jun 2008 15:07:49 -0700
+Message-ID: <20080627220749.GA3046@curtisfong.org>
+References: <20080627192651.GA28291@curtisfong.org> <48655BAC.8080800@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
 	netdev@vger.kernel.org
-To: "Kiran Kotla" <kotlakiran@gmail.com>
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:41644 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753136AbYF0VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 17:33:06 -0400
-In-Reply-To: <965f530d0806271420y7ffebd40xb9b2f9a035206932@mail.gmail.com>
+Received: from curtis.curtisfong.org ([66.43.110.51]:58559 "EHLO
+	curtis.curtisfong.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757624AbYF0WHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 18:07:54 -0400
+Content-Disposition: inline
+In-Reply-To: <48655BAC.8080800@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Jun 2008 16:20:10 -0500
-"Kiran Kotla" <kotlakiran@gmail.com> wrote:
+Sorry!
 
-> Hi david,
-> 
-> Thank you very much for your response. I am new to this forum and not
-> sure if I could include you in my reply.
-> 
-> Well, we tried our best to reduce the size of our private variables.
-> 
-> The major consumers of space however are two arrays of 32 bit integers
-> each of size '8', which are used to estimate drop probability and
-> early congestion response probability (our protocol specific), which
-> cannot be reduced to be 16 bit integers and further the size of the
-> array cannot be reduced to some value lesser without degrading the
-> estimation of drop probability.
-> 
-> I guess the only way left is to have a trade-off between the
-> performance of our protocol and size of the array.
-> 
-> In any case, I was wondering if still there is a way to increase the
-> size of the blob, though we would not to increase the size of blob to
-> get our protocol running in the kernel.
-> 
-> Thanks again!
-> Kiran
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+index 8a311d1..7359068 100644
+--- a/drivers/net/fs_enet/mac-fec.c
++++ b/drivers/net/fs_enet/mac-fec.c
+@@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
+ 	/*
+ 	 * Set MII speed.
+ 	 */
+-	FW(fecp, mii_speed, fec_inf->mii_speed);
++	if (fec_inf)
++		FW(fecp, mii_speed, fec_inf->mii_speed);
+ 
+ 	/*
+ 	 * Clear any outstanding interrupt.
 
-If need be you can use a pointer to an allocated array for that (it would be
-up to your code to free it).  You might even want to make this per route
-rather than per socket. That would require lookup/locking/ref counting, but
-it would allow sharing path information when multiple sockets along same
-path are present.
+On Sat, Jun 28, 2008 at 01:29:16AM +0400, Sergei Shtylyov wrote:
+> Hello.
+>
+> Nye Liu wrote:
+>> From: Nye Liu <nyet@mrv.com>
+>>
+>> When using CONFIG_FIXED_PHY, fec_inf (fep->phydev->bus->priv) is NULL in
+>> fs_enet/mac-fec.c restart(). Dereferencing fec_inf when trying to set the
+>> mii_speed causes a kernel oops.
+>>
+>> Signed-off-by: Nye Liu <nyet@mrv.com>
+>>
+>> ---
+>>
+>> diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+>> index 8a311d1..350bc73 100644
+>> --- a/drivers/net/fs_enet/mac-fec.c
+>> +++ b/drivers/net/fs_enet/mac-fec.c
+>> @@ -328,7 +328,8 @@ static void restart(struct net_device *dev)
+>>         /*
+>>          * Set MII speed.
+>>          */
+>> -       FW(fecp, mii_speed, fec_inf->mii_speed);
+>> +       if (fec_inf)
+>> +           FW(fecp, mii_speed, fec_inf->mii_speed);
+>>   
+>
+>   Alas, Your patch is whitespace damaged.
+>
+>
+> WBR, Sergei
+>
+>
