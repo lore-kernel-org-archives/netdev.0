@@ -1,135 +1,155 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 18/18] igb: update suspend resume
-Date: Fri, 27 Jun 2008 11:02:11 -0700
-Message-ID: <20080627180208.22428.8436.stgit@localhost.localdomain>
-References: <20080627175921.22428.52767.stgit@localhost.localdomain>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: [PATCH] TCP MD5 and TSO/SG breakage
+Date: Fri, 27 Jun 2008 11:21:18 -0700
+Message-ID: <20080627112118.64559f64@speedy>
+References: <20080625225657.61e1b29b@extreme>
+ <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org, davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20080627175921.22428.52767.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "=?UTF-8?B?5ZCJ6Jek6Iux5piO?=" <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:60836 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759207AbYF0SVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 14:21:20 -0400
+In-Reply-To: <396556a20806260746s351ca696xb44b9b4d6bf257c2@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+The TCP MD5 support is broken on any device that does scatter gather.
+The MD5 calculation code doesn't support scatter/gather, the md5_calc
+API assumes the data follows the TCP header. It is too late to rework this
+code for 2.6.26 (and backport to stable). So the sane thing to do is block
+use of SG on TCP sockets using MD5 option.
 
-Updates the suspend and resume to better handle the possibility of MSIX
-vector changes.
+The sk->sk_route_caps are used at the top level to determine if TSO
+or scatter gather can be used. Since the route_caps are set in several
+places, and can get changed by ip rerouting, they need to be wacked
+in several places.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+There is also a small problem in old code where a retransmit gets a new route and
+therefore inherits new route_caps. This could cause TSO segments to be
+generated with MD5!
+
+Patch against 2.6.26-rc8 (latest), this patch won't work for net-next-2.6
+since the MD5 stuff got rearranged there. For 2.6.27 let's work out
+a version MD5 calculation that can do SG.
+
+Should also be considered for stable, because a user can turn on MD5
+and send the kernel off doing MD5 calculation on random bits of memory.
+Not a security hole, unless your massively paranoid but certainly a potential
+for kernel crasher.
+
+Tested by using a modified version of netcat with MD5 support.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 ---
+Resent because it didn't show up on netdev
 
- drivers/net/igb/igb_main.c |   46 ++++++++++++++++++++++++++++----------------
- 1 files changed, 29 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index c43f287..eb90bf8 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -272,6 +272,17 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 	return 0;
- }
+--- a/net/ipv4/tcp_ipv4.c	2008-06-26 22:05:13.000000000 -0700
++++ b/net/ipv4/tcp_ipv4.c	2008-06-26 22:10:15.000000000 -0700
+@@ -861,7 +861,7 @@ int tcp_v4_md5_do_add(struct sock *sk, _
+ 				kfree(newkey);
+ 				return -ENOMEM;
+ 			}
+-			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
++			sk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
+ 		}
+ 		if (tcp_alloc_md5sig_pool() == NULL) {
+ 			kfree(newkey);
+@@ -990,7 +990,7 @@ static int tcp_v4_parse_md5_keys(struct 
+ 			return -EINVAL;
  
-+static void igb_free_queues(struct igb_adapter *adapter)
-+{
-+	int i;
-+
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		netif_napi_del(&adapter->rx_ring[i].napi);
-+
-+	kfree(adapter->tx_ring);
-+	kfree(adapter->rx_ring);
-+}
-+
- #define IGB_N0_QUEUE -1
- static void igb_assign_vector(struct igb_adapter *adapter, int rx_queue,
- 			      int tx_queue, int msix_vector)
-@@ -1295,8 +1306,7 @@ err_eeprom:
- 		iounmap(hw->flash_address);
- 
- 	igb_remove_device(hw);
--	kfree(adapter->tx_ring);
--	kfree(adapter->rx_ring);
-+	igb_free_queues(adapter);
- err_sw_init:
- err_hw_init:
- 	iounmap(hw->hw_addr);
-@@ -1354,8 +1364,7 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 	igb_remove_device(&adapter->hw);
- 	igb_reset_interrupt_capability(adapter);
- 
--	kfree(adapter->tx_ring);
--	kfree(adapter->rx_ring);
-+	igb_free_queues(adapter);
- 
- 	iounmap(adapter->hw.hw_addr);
- 	if (adapter->hw.flash_address)
-@@ -4299,11 +4308,12 @@ static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- 	netif_device_detach(netdev);
- 
--	if (netif_running(netdev)) {
--		WARN_ON(test_bit(__IGB_RESETTING, &adapter->state));
--		igb_down(adapter);
--		igb_free_irq(adapter);
--	}
-+	if (netif_running(netdev))
-+		igb_close(netdev);
-+
-+	igb_reset_interrupt_capability(adapter);
-+
-+	igb_free_queues(adapter);
- 
- #ifdef CONFIG_PM
- 	retval = pci_save_state(pdev);
-@@ -4386,10 +4396,11 @@ static int igb_resume(struct pci_dev *pdev)
- 	pci_enable_wake(pdev, PCI_D3hot, 0);
- 	pci_enable_wake(pdev, PCI_D3cold, 0);
- 
--	if (netif_running(netdev)) {
--		err = igb_request_irq(adapter);
--		if (err)
--			return err;
-+	igb_set_interrupt_capability(adapter);
-+
-+	if (igb_alloc_queues(adapter)) {
-+		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
-+		return -ENOMEM;
+ 		tp->md5sig_info = p;
+-		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
++		sk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
  	}
  
- 	/* e1000_power_up_phy(adapter); */
-@@ -4397,10 +4408,11 @@ static int igb_resume(struct pci_dev *pdev)
- 	igb_reset(adapter);
- 	wr32(E1000_WUS, ~0);
+ 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
+@@ -1196,6 +1196,14 @@ done_opts:
+ 		return 1;
+ 	}
  
--	igb_init_manageability(adapter);
--
--	if (netif_running(netdev))
--		igb_up(adapter);
-+	if (netif_running(netdev)) {
-+		err = igb_open(netdev);
-+		if (err)
-+			return err;
++	/* md5 calculation needs linear skb, so if can't fix it. assume mismatch */
++	if (skb_is_nonlinear(skb)) {
++		if (__skb_linearize(skb))
++			return 1;	/* out of memory, assume failed (ie drop) */
++		th = tcp_hdr(skb);
++		iph = ip_hdr(skb);
 +	}
++
+ 	/* Okay, so this is hash_expected and hash_location -
+ 	 * so we need to calculate the checksum.
+ 	 */
+@@ -1452,6 +1460,7 @@ struct sock *tcp_v4_syn_recv_sock(struct
+ 		if (newkey != NULL)
+ 			tcp_v4_md5_do_add(newsk, inet_sk(sk)->daddr,
+ 					  newkey, key->keylen);
++		newsk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
+ 	}
+ #endif
  
- 	netif_device_attach(netdev);
+--- a/net/ipv4/tcp_output.c	2008-06-26 22:05:13.000000000 -0700
++++ b/net/ipv4/tcp_output.c	2008-06-26 22:26:58.000000000 -0700
+@@ -542,8 +542,10 @@ static int tcp_transmit_skb(struct sock 
+ 	 * room for it.
+ 	 */
+ 	md5 = tp->af_specific->md5_lookup(sk, sk);
+-	if (md5)
++	if (md5) {
+ 		tcp_header_size += TCPOLEN_MD5SIG_ALIGNED;
++		sk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
++	}
+ #endif
+ 
+ 	skb_push(skb, tcp_header_size);
+@@ -603,6 +605,16 @@ static int tcp_transmit_skb(struct sock 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Calculate the MD5 hash, as we have all we need now */
+ 	if (md5) {
++		/* This shouldn't happen, but it is possible that a retransmit
++		 * causes a reroute onto a different interface and we get TSO/SG
++		 * skb that is dropped here, and route_caps has already been
++		 * reset so the next retransmit will be okay.
++		 */
++		if (unlikely(skb_is_nonlinear(skb))) {
++			kfree_skb(skb);
++			return NET_XMIT_DROP;
++		}
++
+ 		tp->af_specific->calc_md5_hash(md5_hash_location,
+ 					       md5,
+ 					       sk, NULL, NULL,
+--- a/net/ipv6/tcp_ipv6.c	2008-06-26 22:05:13.000000000 -0700
++++ b/net/ipv6/tcp_ipv6.c	2008-06-26 22:05:15.000000000 -0700
+@@ -583,7 +583,7 @@ static int tcp_v6_md5_do_add(struct sock
+ 				kfree(newkey);
+ 				return -ENOMEM;
+ 			}
+-			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
++			sk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
+ 		}
+ 		if (tcp_alloc_md5sig_pool() == NULL) {
+ 			kfree(newkey);
+@@ -720,7 +720,7 @@ static int tcp_v6_parse_md5_keys (struct
+ 			return -ENOMEM;
+ 
+ 		tp->md5sig_info = p;
+-		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
++		sk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
+ 	}
+ 
+ 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
+@@ -1529,6 +1529,7 @@ static struct sock * tcp_v6_syn_recv_soc
+ 		if (newkey != NULL)
+ 			tcp_v6_md5_do_add(newsk, &inet6_sk(sk)->daddr,
+ 					  newkey, key->keylen);
++		newsk->sk_route_caps &= ~(NETIF_F_GSO_MASK|NETIF_F_SG);
+ 	}
+ #endif
  
 
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
