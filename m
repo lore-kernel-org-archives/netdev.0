@@ -1,104 +1,99 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another Problem)
-Date: Thu, 26 Jun 2008 22:25:04 -0500
-Message-ID: <E6FF208A16840D4EBAA31D261B15A506011CAF92@ausx3mpc121.aus.amer.dell.com>
-References: <4861800B.90703@nscus.com> <20080625213142.GA29890@electric-eye.fr.zoreil.com> <48640535.2050000@nscus.com> <20080626215918.GC2555@electric-eye.fr.zoreil.com> <20080627023523.GD7703@parisc-linux.org> <006001c8d801$b02daf10$860aa8c0@MICHAEL1>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 4/4] lguest: Use GSO/IFF_VNET_HDR extensions on tun/tap
+Date: Fri, 27 Jun 2008 13:50:44 +1000
+Message-ID: <200806271350.44608.rusty@rustcorp.com.au>
+References: <200806260028.07883.rusty@rustcorp.com.au> <200806261440.43984.rusty@rustcorp.com.au> <4863DCF9.20100@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <lkml@metanurb.dk>,
-	<akpm@linux-foundation.org>, <linux-pci@vger.kernel.org>
-To: <mgrollman@nscus.com>, <matthew@wil.cx>, <romieu@fr.zoreil.com>
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Max Krasnyansky <maxk@qualcomm.com>, markmc@redhat.com,
+	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.linux-foundation.org
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:21796 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbYF0DZ5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2008 23:25:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <006001c8d801$b02daf10$860aa8c0@MICHAEL1>
+Received: from ozlabs.org ([203.10.76.45]:52453 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750874AbYF0Duu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2008 23:50:50 -0400
+In-Reply-To: <4863DCF9.20100@codemonkey.ws>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is *not* just specific to your hardware.  I've encountered it on
-two other platforms that have RTL8102's.  I posted some comments in
-another thread the other day.
+On Friday 27 June 2008 04:16:25 Anthony Liguori wrote:
+> Rusty Russell wrote:
+> > On Thursday 26 June 2008 05:07:18 Anthony Liguori wrote:
+> >> Rusty Russell wrote:
+> >>> +	add_feature(dev, VIRTIO_NET_F_GUEST_CSUM);
+> >>
+> >> You set this feature, but I never see the virtio-net driver acknowledge
+> >> the feature.
+>
+> I still don't see GUEST_CSUM ever get referenced in virtio_net.c.
+> What's the intention of this feature bit?  Could I be missing a
+> virtio_net patch?  I'm using the latest bits in Linus' tree.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of mgrollman@nscus.com
-Sent: Thursday, June 26, 2008 9:58 PM
-To: 'Matthew Wilcox'; 'Francois Romieu'
-Cc: netdev@vger.kernel.org; 'Kasper Sandberg';
-akpm@linux-foundation.org; linux-pci@vger.kernel.org
-Subject: RE: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset
-in Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash,
-Another Problem)
+It says that the guest can does csum offload.  It's not advertised in the 
+current Linus tree (it got snuck in by Mark after the large-packets patches 
+still sitting in my tree).  It should be tho, since the driver can handle it.  
+See patch at end.
 
-Matthew,
-
-The only remedy I have found to date is a system reboot, sometimes a
-soft
-one will work, sometimes a full
-power down is needed.  It may take a few boots to get it happy.  If I
-can
-get it to boot with the Realtek working OK, the system does not seem to
-fail, even after hours of use.  So either it comes up working, or it
-does
-not.
-
-But I am open to any ideas to try and correct!  I have an extra
-motherboard
-around, if you guys think it may be in this particular unit's hardware.
-
-- Michael
-
-
------Original Message-----
-From: Matthew Wilcox [mailto:matthew@wil.cx] 
-Sent: Thursday, June 26, 2008 7:35 PM
-To: Francois Romieu
-Cc: Michael Grollman; netdev@vger.kernel.org; Kasper Sandberg;
-akpm@linux-foundation.org; linux-pci@vger.kernel.org
-Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset
-in
-Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
-Problem)
-
-On Thu, Jun 26, 2008 at 11:59:18PM +0200, Francois Romieu wrote:
-> (linux-pci Cced)
-> 
-> Michael Grollman <mgrollman@nscus.com> :
-> [...]
-> > Per instructions, I built an 2.6.26-rc8 system on the target Intel 
-> > hardware, and was able to re-recreate the intermittent failure of
-the
-8201.
-> >  When in failure mode, the lspci -vx' display of the pci registers 
-> > of the
-> > 8102 is as follows:
+> >>   Curiously, my implementation with KVM is struggling
+> >> because UDP packet checksums are not correct so the DHCP client is
+> >> ignoring them.  If I disable CSUM offload, things it works fine (using
+> >> the virtio-net header).  The problem is only host=>guest, guest=>host is
+> >> fine.
 > >
-> > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
-> > RTL8101E PCI Express Fast Ethernet controller (rev ff) (prog-if ff)
-> >    !!! Unknown header type 7f
-> > 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> > OK, found this: wrong args to skb_partial_csum_set.  It was found by Mark
+> > McLoughlin before, I just lost the fix when I extracted this into a
+> > separate patch.  I chose to move the call to skb_partial_csum_set(),
+> > rather than use his fix (which assumed a tap not tun device).
+>
+> This still doesn't fix the problem.  I can manually assign an IP address
+> and even do netperf runs but I cannot get a dhcp address (dhclient is
+> picky about the udp csum).
 
-Mmm.  All f's means that the device has fallen off the bus.  Nothing is
-responding when we ask the device about it's config space.  What do you
-do
-to get this device into this state?
+I'll retest this when I'm back home with my machines.  Perhaps it's something 
+to do with the csum issue.
 
---
-Intel are signing my paycheques ... these opinions are still mine "Bill,
-look, we understand that you're interested in selling us this operating
-system, but compare it to ours.  We can't possibly take such a
-retrograde
-step."
+> Also, when I exit KVM, QEMU zombies and I notice:
+>
+> Message from syslogd@squirrel at Jun 26 13:02:07 ...
+>  kernel: unregister_netdevice: waiting for tap0 to become free. Usage
+> count = 3
 
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That seems odd; there is a leak in the vringfd interface which I know about, 
+but this looks like a GSO packet from the tun device is sticking around 
+somehow.
+
+Cheers,
+Rusty.
+
+Subject: virtio_net: Set VIRTIO_NET_F_GUEST_CSUM feature
+Date: Fri, 13 Jun 2008 14:27:34 +0100
+From: Mark McLoughlin <markmc@redhat.com>
+
+We can handle receiving partial csums, so set the
+appropriate feature bit.
+
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -550,7 +550,8 @@ static struct virtio_device_id id_table[
+ };
+ 
+ static unsigned int features[] = {
+-	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
++	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
++	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+ 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+ 	VIRTIO_NET_F_HOST_ECN, VIRTIO_F_NOTIFY_ON_EMPTY,
+ };
+
