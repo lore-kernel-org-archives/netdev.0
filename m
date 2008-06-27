@@ -1,34 +1,33 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH net-next] rndis_host: pass buffer length to rndis_command
-Date: Fri, 27 Jun 2008 02:09:25 -0400
-Message-ID: <48648415.9090602@garzik.org>
-References: <20080618124011.11920.98218.stgit@fate.lan>
+Subject: Re: [PATCH] net: sh_eth: Add support of SH7763 to sh_eth
+Date: Fri, 27 Jun 2008 02:09:14 -0400
+Message-ID: <4864840A.3060003@garzik.org>
+References: <485A3437.4010902@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41236 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756394AbYF0GJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 02:09:29 -0400
-In-Reply-To: <20080618124011.11920.98218.stgit@fate.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
+	Linux-sh <linux-sh@vger.kernel.org>,
+	Paul Mundt <lethal@linux-sh.org>
+To: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <485A3437.4010902@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jussi Kivilinna wrote:
-> Pass buffer length to rndis_command so that rndis_command can read full
-> response buffer from device instead of max CONTROL_BUFFER_SIZE bytes.
+Nobuhiro Iwamatsu wrote:
+> SH7763 has Ethernet core same as SH7710/SH7712.
+> Positions of some registry are different, but the basic part is the same.
+> I add support of ethernet of sh7763 to sh_eth.
 > 
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
 > ---
-> 
->  drivers/net/usb/rndis_host.c      |   14 +++++++-------
->  drivers/net/wireless/rndis_wlan.c |    4 ++--
->  include/linux/usb/rndis_host.h    |    3 ++-
->  3 files changed, 11 insertions(+), 10 deletions(-)
+>  drivers/net/Kconfig  |    4 +-
+>  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
+>  drivers/net/sh_eth.h |  425 +++++++++++++++++++++++++++++++++++++-------------
+>  3 files changed, 482 insertions(+), 149 deletions(-)
 
-applied
+ACK but failed to apply
 
 
