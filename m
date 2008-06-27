@@ -1,50 +1,47 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH] IPv6: Fail with appropriate error code when sending RH0
-Date: Fri, 27 Jun 2008 12:28:52 +0800
-Message-ID: <48646C84.1000207@cn.fujitsu.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/4] e1000: add module option to set transmit descriptor
+ size
+Date: Fri, 27 Jun 2008 01:10:37 -0400
+Message-ID: <4864764D.6070802@garzik.org>
+References: <20080619211850.GD22981@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
-	<yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56134 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750814AbYF0FAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 01:00:41 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:40692 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752068AbYF0FKl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 01:10:41 -0400
+In-Reply-To: <20080619211850.GD22981@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending IPv6 packet with RH0(Type 0 Routing Header),
-return EINVAL instead of EPERM.
+Andy Gospodarek wrote:
+> This patch added the TxDescPower parameter to the e1000 module.  This
+> parameter represents the size-order of each transmit descriptor.  The
+> valid size for descriptors would be 2^7 (128) - 2^12 (4096) bytes each.
+> As this value decreases one may want to consider increasing the
+> TxDescriptors value to maintain the same amount of frame memory.  This
+> patch does not change the defaults for any particular hardware model, so
+> this will not have an effect on existing users.
+> 
+> The purpose of the patch is to address Tx Timeouts on 82545 and 82546
+> chips that can show up during high-stress situations.  Decreasing the
+> transmit descriptor size can shorten the amount of time that will be
+> spent DMAing frames to the hardware and can reduce the likely-hood that
+> Tx Timeouts will occur.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> ---
+>  drivers/net/e1000/e1000.h       |    6 ++++++
+>  drivers/net/e1000/e1000_main.c  |   12 ++----------
+>  drivers/net/e1000/e1000_param.c |   33 +++++++++++++++++++++++++++++++++++
+>  3 files changed, 41 insertions(+), 10 deletions(-)
 
-Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
----
- net/ipv6/ipv6_sockglue.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+I don't see why a module parameter is needed.  In practice, nobody will 
+ever think about this option, much less use it.
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 86e28a7..0101d4f 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -377,12 +377,15 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 				break;
- #endif
- 			default:
-+				retv = -EINVAL;
- 				goto sticky_done;
- 			}
- 
- 			if ((rthdr->hdrlen & 1) ||
--			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
-+			    (rthdr->hdrlen >> 1) != rthdr->segments_left) {
-+				retv = -EINVAL;
- 				goto sticky_done;
-+			}
- 		}
- 
- 		retv = 0;
--- 
-1.5.4.4 
 
