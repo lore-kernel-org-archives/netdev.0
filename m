@@ -1,43 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2008-06-25
-Date: Fri, 27 Jun 2008 04:28:18 -0700 (PDT)
-Message-ID: <20080627.042818.76860067.davem@davemloft.net>
-References: <20080625153624.GB9111@tuxdriver.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] Fix missing const in vortex_probe1() in the 3c59x driver
+Date: Fri, 27 Jun 2008 13:12:20 +0100
+Message-ID: <20080627121220.23787.80724.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, dhowells@redhat.com
+To: klassert@mathematik.tu-chemnitz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52366
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752295AbYF0L2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 07:28:18 -0400
-In-Reply-To: <20080625153624.GB9111@tuxdriver.com>
+Received: from mx1.redhat.com ([66.187.233.31]:47266 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760307AbYF0MMc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 08:12:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 25 Jun 2008 11:36:24 -0400
+In vortex_probe1() in the 3c59x driver, print_name should be made a const
+pointer to eliminate the following warning:
 
-> Here is the latest round of wireless fixes for 2.6.26.
-> 
-> The EU regulatory domain patch is straight-forward and should not
-> affect anyone who doesn't choose to use it.  It is already queued in
-> net-next-2.6, but upon reflection I think it makes sense to include
-> it as a fix.  I don't think git will choke on it at all.
-> 
-> The iwlwifi patch is physically bigger than I would like to see at this
-> point of the release, but it is isolated to the iwlwifi drivers and
-> it should avoid problems with some cards trying to scan on channels
-> they don't actually support.
-> 
-> The rt2x00 patch seems a bit bigger than it really is, as it moves
-> and consolidates some existing code.
-> 
-> The b43 and b43legacy are all basically straight-forward bugfixes.
+drivers/net/3c59x.c:1025: warning: assignment discards qualifiers from pointer target type
 
-Pulled and pushed back out to net-2.6, thanks!
+This is this line:
 
-I'll deal with the net-next-2.6 merge stuff after some sleep.
+			print_name = pci_name(pdev);
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ drivers/net/3c59x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 2edda8c..5972114 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -1010,7 +1010,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	static int printed_version;
+ 	int retval, print_info;
+ 	struct vortex_chip_info * const vci = &vortex_info_tbl[chip_idx];
+-	char *print_name = "3c59x";
++	const char *print_name = "3c59x";
+ 	struct pci_dev *pdev = NULL;
+ 	struct eisa_device *edev = NULL;
+ 	DECLARE_MAC_BUF(mac);
+
