@@ -1,36 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 06/12] net: use linux/of_{device,platform}.h instead of
- asm
-Date: Fri, 27 Jun 2008 00:58:37 -0400
-Message-ID: <4864737D.80306@garzik.org>
-References: <20080523161627.a75d5010.sfr@canb.auug.org.au> <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH] IPv6: Fail with appropriate error code when sending RH0
+Date: Fri, 27 Jun 2008 12:28:52 +0800
+Message-ID: <48646C84.1000207@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?GB2312?B?WU9TSElGVUpJIEhpZGVha2kgLyC8qszZ06LD9w==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40829 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751451AbYF0E6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 00:58:46 -0400
-In-Reply-To: <20080523162854.2e6ea8f0.sfr@canb.auug.org.au>
+Received: from cn.fujitsu.com ([222.73.24.84]:56134 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750814AbYF0FAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 01:00:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell wrote:
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/net/fs_enet/fs_enet-main.c |    2 +-
->  drivers/net/fs_enet/mac-scc.c      |    2 +-
->  drivers/net/fs_enet/mii-fec.c      |    2 +-
->  drivers/net/ibm_newemac/core.h     |    2 +-
->  drivers/net/ucc_geth.c             |    2 +-
->  drivers/net/ucc_geth_mii.c         |    2 +-
->  6 files changed, 6 insertions(+), 6 deletions(-)
+When sending IPv6 packet with RH0(Type 0 Routing Header),
+return EINVAL instead of EPERM.
 
-ACK
+Signed-off-by: Shan Wei<shanwei@cn.fujitsu.com>
+---
+ net/ipv6/ipv6_sockglue.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-I'll let a ppc person queue this
-
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 86e28a7..0101d4f 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -377,12 +377,15 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 				break;
+ #endif
+ 			default:
++				retv = -EINVAL;
+ 				goto sticky_done;
+ 			}
+ 
+ 			if ((rthdr->hdrlen & 1) ||
+-			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
++			    (rthdr->hdrlen >> 1) != rthdr->segments_left) {
++				retv = -EINVAL;
+ 				goto sticky_done;
++			}
+ 		}
+ 
+ 		retv = 0;
+-- 
+1.5.4.4 
 
