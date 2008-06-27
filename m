@@ -1,43 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/4] qla3xxx: Hold RTNL while calling dev_close()
-Date: Fri, 27 Jun 2008 01:32:24 -0400
-Message-ID: <48647B68.3010708@pobox.com>
-References: <20080506182654.GF2217@solarflare.com> <20080506183626.GH2217@solarflare.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Fix IOMMU overflow checking in s2io.c
+Date: Fri, 27 Jun 2008 01:32:36 -0400
+Message-ID: <48647B74.8020207@garzik.org>
+References: <20080618115836.GA18655@basil.nowhere.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ron Mercer <linux-driver@qlogic.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, ram.vepa@neterion.com,
+	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
+	sreenivasa.honnur@neterion.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56655 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56666 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752028AbYF0Fc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2008 01:32:28 -0400
-In-Reply-To: <20080506183626.GH2217@solarflare.com>
+	id S1752180AbYF0Fck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2008 01:32:40 -0400
+In-Reply-To: <20080618115836.GA18655@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> dev_close() must be called holding the RTNL.  Compile-tested only.
+Andi Kleen wrote:
+> Fix IOMMU overflow checking in s2io.c
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/qla3xxx.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
+> s2io has IOMMU overflow checking, but unfortunately it is wrong.
 > 
-> diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-> index b7f7b22..bccee68 100644
-> --- a/drivers/net/qla3xxx.c
-> +++ b/drivers/net/qla3xxx.c
-> @@ -3701,7 +3701,9 @@ static int ql_cycle_adapter(struct ql3_adapter *qdev, int reset)
->  		printk(KERN_ERR PFX
->  				"%s: Driver up/down cycle failed, "
->  				"closing device\n",qdev->ndev->name);
-> +		rtnl_lock();
->  		dev_close(qdev->ndev);
-> +		rtnl_unlock();
->  		return -1;
+> It didn't use the standard macros, which meant that it only worked
+> on POWER and SPARC because only those define DMA_ERROR_CODE. Convert it to 
+> use the standard macros instead.
+> 
+> I also commented two more bugs in the IOMMU handling. It assumes
+> that 0 DMA addresses cannot happen, but that's not true in all IOMMU setups.
+> The information if a buffer has been already mapped needs to be stored
+> elsewhere.
+> 
+> Didn't fix those because it needs careful checking of the buffer handling
+> by the maintainers.
+> 
+> Cc: ram.vepa@neterion.com
+> Cc: santosh.rastapur@neterion.com
+> Cc: sivakumar.subramani@neterion.com
+> Cc: sreenivasa.honnur@neterion.com
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
 
 applied
 
