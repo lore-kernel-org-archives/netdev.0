@@ -1,37 +1,99 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Add support for the ethernet ports on IXP43x
-Date: Sat, 28 Jun 2008 14:04:06 +0200
-Message-ID: <m3lk0pkbpl.fsf@maximus.localdomain>
-References: <12144395181290-git-send-email-kaloz@openwrt.org>
+From: Denis Zaitceff <zaitceff@gmail.com>
+Subject: [PATCH 2.6.25.8] ipconfig.c: extend the info in /proc/net/pnp
+Date: Sat, 28 Jun 2008 18:41:36 +0600
+Message-ID: <20080628184136.A5610@ward.six>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Imre Kaloz <kaloz@openwrt.org>,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:50120 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751716AbYF1MEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Jun 2008 08:04:09 -0400
-In-Reply-To: <12144395181290-git-send-email-kaloz@openwrt.org> (Imre Kaloz's message of "Thu\, 26 Jun 2008 02\:18\:38 +0200")
+Received: from [88.205.141.71] ([88.205.141.71]:13031 "EHLO mail.ward.six"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751860AbYF1MtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Jun 2008 08:49:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch extends the info shown thru /proc/net/pnp, making more ipv4
+autoconf results accessible to user.  The variables added are:
 
-Acked-by: Krzysztof Halasa <khc@pm.waw.pl>, seems sane.
+ic_myaddr
+ic_netmask
+ic_gateway
+root_server_addr
+root_server_path
+ic_dev_name
 
-Jeff, could you apply this please (post 2.6.26 I guess)?
+This should make diskless clients more happy, as their startup scripts
+would have more information.
 
-Imre Kaloz <kaloz@openwrt.org> writes:
+Please apply the patch, would you consider it useful.
 
-> Signed-off-by: Imre Kaloz <kaloz@openwrt.org>
->
-> ---
->  arch/arm/mach-ixp4xx/ixp4xx_npe.c         |    6 +++---
->  drivers/net/arm/ixp4xx_eth.c              |   13 +++++++++----
->  include/asm-arm/arch-ixp4xx/cpu.h         |    2 ++
->  include/asm-arm/arch-ixp4xx/ixp4xx-regs.h |    7 ++++---
->  4 files changed, 18 insertions(+), 10 deletions(-)
--- 
-Krzysztof Halasa
+
+--- net/ipv4/ipconfig.c
++++ net/ipv4/ipconfig.c
+@@ -183,6 +183,9 @@
+ 
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
++#ifdef CONFIG_PROC_FS
++static u8 ic_dev_name[sizeof ic_dev->name];
++#endif
+ 
+ static int __init ic_open_devs(void)
+ {
+@@ -1199,6 +1202,19 @@ static int pnp_seq_show(struct seq_file 
+ {
+ 	int i;
+ 
++	const struct info {
++		__be32 *value;
++		const char *name;
++	} static list[]= {
++		{&ic_servaddr,"bootserver"},
++		{&ic_myaddr,"myaddr"},
++		{&ic_netmask,"netmask"},
++		{&ic_gateway,"gateway"},
++		{&root_server_addr,"rootserver"},
++		{NULL}
++	};
++	const struct info *p= list;
++
+ 	if (ic_proto_used & IC_PROTO)
+ 		seq_printf(seq, "#PROTO: %s\n",
+ 			   (ic_proto_used & IC_RARP) ? "RARP"
+@@ -1215,10 +1231,18 @@ static int pnp_seq_show(struct seq_file 
+ 				   "nameserver %u.%u.%u.%u\n",
+ 				   NIPQUAD(ic_nameservers[i]));
+ 	}
+-	if (ic_servaddr != NONE)
+-		seq_printf(seq,
+-			   "bootserver %u.%u.%u.%u\n",
+-			   NIPQUAD(ic_servaddr));
++
++	do if (*p->value != NONE)
++		seq_printf(seq, "%s %u.%u.%u.%u\n",
++			   p->name, NIPQUAD(*p->value));
++	while ((++p)->value);
++
++	if (root_server_path[0])
++		seq_printf(seq, "rootpath %s\n", root_server_path);
++
++	if (ic_dev_name[0])
++		seq_printf(seq, "device %s\n", ic_dev_name);
++
+ 	return 0;
+ }
+ 
+@@ -1386,6 +1410,10 @@ static int __init ip_auto_config(void)
+ 	ic_proto_used = ic_got_reply | (ic_proto_enabled & IC_USE_DHCP);
+ #endif
+ 
++#ifdef CONFIG_PROC_FS
++        strcpy(ic_dev_name, ic_dev->name);
++#endif
++
+ #ifndef IPCONFIG_SILENT
+ 	/*
+ 	 * Clue in the operator.
