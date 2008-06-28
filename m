@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] RTT metrics scaling
-Date: Sat, 28 Jun 2008 01:07:36 -0700 (PDT)
-Message-ID: <20080628.010736.171730473.davem@davemloft.net>
-References: <20080620162234.1c2103ee@extreme>
-	<20080627.195013.184418536.davem@davemloft.net>
-	<20080627223007.02eb6622@speedy>
+Subject: Re: [git patches] net driver updates for .27
+Date: Sat, 28 Jun 2008 01:39:05 -0700 (PDT)
+Message-ID: <20080628.013905.146863178.davem@davemloft.net>
+References: <20080627062556.GA1521@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: stephen.hemminger@vyatta.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37052
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50729
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750971AbYF1IHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2008 04:07:37 -0400
-In-Reply-To: <20080627223007.02eb6622@speedy>
+	by vger.kernel.org with ESMTP id S1751635AbYF1IjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2008 04:39:05 -0400
+In-Reply-To: <20080627062556.GA1521@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Fri, 27 Jun 2008 22:30:07 -0700
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 27 Jun 2008 02:25:56 -0400
 
-> On Fri, 27 Jun 2008 19:50:13 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > But aren't we approaching microsecond RTT's soon? :-) (yes, I know in
-> > TCP we min clamp at 200ms RTT, but that clamp we probably want to
-> > remove soon)
->
-> We could put in microseconds, but since it is computer off of
-> jiffies (ie clock ticks), the resolution wouldn't be worth it.
+> Please pull from 'davem-next' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
 
-Fair enough.
+Please fix these new build failures and warnings then send me another
+pull request :-)
 
-> 
-> > If you don't think that's worth worrying about, I'll apply this patch.
-> 
-> Hold off it needs more testing.
+drivers/net/wan/retina.c: In function 'fepci_stream_open':
+drivers/net/wan/retina.c:930: warning: cast from pointer to integer of different size
+drivers/net/wan/retina.c:930: warning: cast to pointer from integer of different size
+drivers/net/wan/retina.c:933: warning: cast from pointer to integer of different size
+drivers/net/wan/retina.c:933: warning: cast to pointer from integer of different size
+drivers/net/wan/retina.c: In function 'fepci_stream_interrupt':
+drivers/net/wan/retina.c:1129: error: 'struct fepci_ch_private' has no member named 'cur'
+make[3]: *** [drivers/net/wan/retina.o] Error 1
+make[2]: *** [drivers/net/wan] Error 2
+make[2]: *** Waiting for unfinished jobs....
 
-Ok.
+Thanks!
