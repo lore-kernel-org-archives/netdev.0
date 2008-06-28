@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] CONNECTOR: add a proc entry to list connectors
-Date: Fri, 27 Jun 2008 20:03:40 -0700 (PDT)
-Message-ID: <20080627.200340.128759990.davem@davemloft.net>
-References: <4860B279.9070105@cn.fujitsu.com>
+Subject: Re: [PATCH (regression)] Fragments: fix race between
+ inet_frag_find and inet_frag_secret_rebuild
+Date: Fri, 27 Jun 2008 20:06:29 -0700 (PDT)
+Message-ID: <20080627.200629.124429489.davem@davemloft.net>
+References: <4860CFC5.90702@openvz.org>
+	<20080624180714.GA3125@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: lizf@cn.fujitsu.com
+Cc: xemul@openvz.org, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45941
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55721
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752177AbYF1DDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 23:03:40 -0400
-In-Reply-To: <4860B279.9070105@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1751858AbYF1DG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2008 23:06:29 -0400
+In-Reply-To: <20080624180714.GA3125@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Zefan <lizf@cn.fujitsu.com>
-Date: Tue, 24 Jun 2008 16:38:17 +0800
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 24 Jun 2008 20:07:14 +0200
 
-> I got a problem when I wanted to check if the kernel supports process
-> event connector, and It seems there's no way to do this check.
+> Pavel Emelyanov wrote, On 06/24/2008 12:43 PM:
 > 
-> At best I can check if the kernel supports connector or not, by looking
-> into /proc/net/netlink, or maybe checking the return value of bind() to
-> see if it's ENOENT.
+> > The problem is that while we work w/o the inet_frags.lock even
+> > read-locked the secret rebuild timer may occur (on another CPU,
+> - since BHs are still disables in the inet_frag_find) and change 
 > 
-> So it would be useful to add /proc/net/connector to list all supported
-> connectors:
->  # cat /proc/net/connector
->  Name            ID
->  connector       4294967295:4294967295
->  cn_proc         1:1
->  w1              3:1
-> 
-> Changelog:
-> - fix memory leak: s/seq_release/single_release
-> - use spin_lock_bh instead of spin_lock_irqsave
-> 
-> Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
-> Acked-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> + since BHs are still disabled in the inet_frag_find) and change 
 
-Applied, thanks.
+I've applied Pavel's fix with this comment typo cure.
+
+Thanks.
