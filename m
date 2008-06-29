@@ -1,49 +1,36 @@
-From: Pidoux <f6bvp@free.fr>
-Subject: [ROSE] unregister_netdevice: waiting for rose0 to become free
-Date: Sun, 29 Jun 2008 21:25:21 +0200
-Message-ID: <4867E1A1.2000702@free.fr>
-References: <20080617.024224.160706790.davem@davemloft.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH] Re: SFQ depth limit
+Date: Sun, 29 Jun 2008 22:38:26 +0300
+Message-ID: <200806292238.26445.denys@visp.net.lb>
+References: <20080629191113.GA8817@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
-	linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080617.024224.160706790.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:59431 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762324AbYF2TiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 15:38:13 -0400
+In-Reply-To: <20080629191113.GA8817@ami.dom.local>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A bug in ROSE protocol is preventing removal of rose module.
+On Sunday 29 June 2008 22:11, Jarek Poplawski wrote:
+> If it's with vanilla kernel something is wrong, but I couldn't
+> reproduce this: probably some additianal data is needed. BTW,
+> I see this "flows" number above isn't very useful, as it always
+> repeats "limit". I attach a patch proposal to change this.
+No it is ok, since filter is for protocol IP, ARP will not work. Thats what i found. 
+Incorrect QoS settings can cause network breakage, thats it :-)
 
-After killing all ROSE and AX25 applications, there are no more sockets and
-rose usage count is correctly decreased to null as seen in /proc/modules :
+I will try to test patch ASAP on real load.
 
-rose 40120 0 - Live 0xe1071000
-
-However, issuing command rmmod rose displays the following message in loop forever :
-
-kernel: unregister_netdevice: waiting for rose0 to become free. Usage count = 2
-
-Usage count can be different and seems random (not correlated with module usage count reached when ROSE
-applications are loaded).
-
-Tracing the problem shows that above message is sent by core/dev.c
-
-Here is the loop :
-
-while (atomic_read(&dev->refcnt) !=0) {
-....
-}
-
-Obviously, displayed usage count (dev->refcnt) is not the same as in /proc/modules or given by command
-lsmod and also it is not decremented, i.e. it stays at the same, and probably not relevant, value.
-
-A comment in core/dev.c says that buggy protocol don't correctly call dev_put().
-
-I tried to review rose module source but I have not been able to find a correct place where dev_put(dev) could be 
-missing either in af_rose.c or rose_route.c.
-
-Maybe the problem is elsewhere ?
-
-Bernard Pidoux, f6bvp
+-- 
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
