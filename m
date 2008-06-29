@@ -1,47 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Add support for rx flow hash configuration in a
- network device
-Date: Sun, 29 Jun 2008 13:49:36 -0700 (PDT)
-Message-ID: <20080629.134936.139001500.davem@davemloft.net>
-References: <48658078.8030707@Sun.COM>
-	<871w2gph8r.fsf@basil.nowhere.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Add missing skb->dev assignment in Frame Relay RX code
+Date: Sun, 29 Jun 2008 23:10:11 +0200
+Message-ID: <m3od5kaqx8.fsf@maximus.localdomain>
+References: <m3wsk8aupw.fsf@maximus.localdomain>
+	<20080629130420.62d00d59@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Santwona.Behera@Sun.COM, netdev@vger.kernel.org, jeff@garzik.org,
-	Matheos.Worku@Sun.COM, Michael.Speer@Sun.COM,
-	gkernel-commit@lists.sourceforge.net
-To: andi@firstfloor.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41654
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753891AbYF2Utg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 16:49:36 -0400
-In-Reply-To: <871w2gph8r.fsf@basil.nowhere.org>
+Received: from khc.piap.pl ([195.187.100.11]:37649 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751407AbYF2VKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jun 2008 17:10:13 -0400
+In-Reply-To: <20080629130420.62d00d59@extreme> (Stephen Hemminger's message of "Sun\, 29 Jun 2008 13\:04\:20 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Sun, 29 Jun 2008 14:17:56 +0200
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-> Are you sure ethtool is the right interface for this?
+>> --- a/drivers/net/wan/hdlc_fr.c
+>> +++ b/drivers/net/wan/hdlc_fr.c
+>> @@ -1008,6 +1008,7 @@ static int fr_rx(struct sk_buff *skb)
+>>  		stats->rx_bytes += skb->len;
+>>  		if (pvc->state.becn)
+>>  			stats->rx_compressed++;
+>> +		skb->dev = dev;
+>>  		netif_rx(skb);
+>>  		return NET_RX_SUCCESS;
+>>  	} else {
+>
+> Better to use netdev_alloc_skb for receive buffers instead.
+> --- a/drivers/net/wan/hdlc_fr.c	2008-06-29 13:02:42.000000000 -0700
+> +++ b/drivers/net/wan/hdlc_fr.c	2008-06-29 13:04:01.000000000 -0700
+> @@ -515,7 +515,7 @@ static void fr_lmi_send(struct net_devic
+>  		}
+>  	}
+>  
+> -	skb = dev_alloc_skb(len);
+> +	skb = netdev_alloc_skb(dev, len);
+>  	if (!skb) {
+>  		printk(KERN_WARNING "%s: Memory squeeze on fr_lmi_send()\n",
+>  		       dev->name);
 
-Yes.
+Well, no, that's another story - the missing assignment is in fr_rx(),
+in the regular receive path (similar to 802.1q case, ethX ->
+ethX.VLAN_ID transition). I.e., we get incoming packet from a hardware
+driver, with skb->dev pointing to hardware hdlcX device, and we change
+it to point to a logical pvcX device.
 
-> Me thinks the kernel should just do the right thing automatically
-> for this, by distributing the flows over CPUs.
+fr_lmi_send() is for control messages (generated locally) only, in TX
+path. IOW we alloc skb and send it through hw driver immediately. Not
+related to the bug.
 
-How the work, and what kind of work, should be distributed across the
-machine is the user's business.
-
-Or maybe we should just get rid of all of those NUMA knobs we have
-too?
-
-We've discussed this before and Jeff Garzik and I already told
-everyone that we want to make this configurable and ethtool is
-the way to do it no matter how adhoc and device specific the
-interfaces might end up being.
-
-Please don't send submitters mixed messages like this after we've
-told them to do things this way, it only leads to discouragement
-for new contributors.
+That said, perhaps I should indeed use netdev_alloc_skb() for those
+control messages? Or is it RX-only?
+-- 
+Krzysztof Halasa
