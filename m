@@ -1,36 +1,44 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [PATCH] Re: SFQ depth limit
-Date: Sun, 29 Jun 2008 22:38:26 +0300
-Message-ID: <200806292238.26445.denys@visp.net.lb>
-References: <20080629191113.GA8817@ami.dom.local>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] Add missing skb->dev assignment in Frame Relay RX code
+Date: Sun, 29 Jun 2008 21:48:11 +0200
+Message-ID: <m3wsk8aupw.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:59431 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762324AbYF2TiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 15:38:13 -0400
-In-Reply-To: <20080629191113.GA8817@ami.dom.local>
-Content-Disposition: inline
+Received: from khc.piap.pl ([195.187.100.11]:60621 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753585AbYF2TsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jun 2008 15:48:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 29 June 2008 22:11, Jarek Poplawski wrote:
-> If it's with vanilla kernel something is wrong, but I couldn't
-> reproduce this: probably some additianal data is needed. BTW,
-> I see this "flows" number above isn't very useful, as it always
-> repeats "limit". I attach a patch proposal to change this.
-No it is ok, since filter is for protocol IP, ARP will not work. Thats what i found. 
-Incorrect QoS settings can cause network breakage, thats it :-)
+Hi,
 
-I will try to test patch ASAP on real load.
+Commit 4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 ([ETH]: Make
+eth_type_trans set skb->dev like the other *_type_trans) removed
+skb->dev assignment from hdlc_fr.c:fr_rx(). Unfortunately it was also
+needed for cases other than eth_type_trans().
 
--- 
-------
-Technical Manager
-Virtual ISP S.A.L.
-Lebanon
+Adding it back.
+
+It's quite serious and may be a security risk as it causes a wrong
+input interface indication (the physical hdlcX instead of logical
+pvcX). Probably -stable class fix.
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+index c4ab032..3a86e64 100644
+--- a/drivers/net/wan/hdlc_fr.c
++++ b/drivers/net/wan/hdlc_fr.c
+@@ -1008,6 +1008,7 @@ static int fr_rx(struct sk_buff *skb)
+ 		stats->rx_bytes += skb->len;
+ 		if (pvc->state.becn)
+ 			stats->rx_compressed++;
++		skb->dev = dev;
+ 		netif_rx(skb);
+ 		return NET_RX_SUCCESS;
+ 	} else {
