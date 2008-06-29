@@ -1,60 +1,51 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 6/8] netfilter: fix string extension for case insensitive
- pattern matching
-Date: Sun, 29 Jun 2008 16:29:53 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0806210957140.28924@fbirervta.pbzchgretzou.qr>
-References: <> <1214034858-1378-1-git-send-email-joonwpark81@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/13] r8169: multicast register update (sync with Realtek's
+	8.004.00 8168 driver)
+Date: Sun, 29 Jun 2008 16:39:17 +0200
+Message-ID: <20080629143917.GB1540@electric-eye.fr.zoreil.com>
+References: <20080629143817.GA1540@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1214034858-1378-1-git-send-email-joonwpark81@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, akpm@linux-foundation.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Mario Limonciello <mario_limonciello@dell.com>,
+	Kasper Sandberg <lkml@metanurb.dk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52844 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761348AbYF2Ojj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 10:39:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20080629143817.GA1540@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The layout of the 8168 serie is different from that of the 8110 one.
 
-On Saturday 2008-06-21 09:54, Joonwoo Park wrote:
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
->icase of xt_string_info indicates case [in]sensitive matching.
->netfilter can find cmd.exe, Cmd.exe, cMd.exe and etc easily.
->
->Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
->---
-> include/linux/netfilter/xt_string.h |    1 +
-> net/netfilter/xt_string.c           |    2 +-
-> 2 files changed, 2 insertions(+), 1 deletions(-)
->
->diff --git a/include/linux/netfilter/xt_string.h b/include/linux/netfilter/xt_string.h
->index bb21dd1..dfd347f 100644
->--- a/include/linux/netfilter/xt_string.h
->+++ b/include/linux/netfilter/xt_string.h
->@@ -12,6 +12,7 @@ struct xt_string_info
-> 	char 	  pattern[XT_STRING_MAX_PATTERN_SIZE];
-> 	u_int8_t  patlen;
-> 	u_int8_t  invert;
->+	u_int8_t  icase;
-> 
-> 	/* Used internally by the kernel */
-> 	struct ts_config __attribute__((aligned(8))) *config;
-
-Why not just doing it this way?
-
-
-enum {
-	XT_STRING_INVERT = 1 << 0,
-	XT_STRING_ICASE  = 1 << 1,
-};
-
-struct xt_string_info {
-	...
-	union {
-		uint8_t invert;
-		uint8_t flags;
-	};
-	...
-};
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 6572425..9086e81 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3098,8 +3098,10 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_16) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_17)) {
+-		mc_filter[0] = 0xffffffff;
+-		mc_filter[1] = 0xffffffff;
++		u32 data = mc_filter[0];
++
++		mc_filter[0] = swab32(mc_filter[1]);
++		mc_filter[1] = swab32(data);
+ 	}
+ 
+ 	RTL_W32(MAR0 + 0, mc_filter[0]);
+-- 
+1.5.3.3
 
