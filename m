@@ -1,62 +1,61 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 13/13] r8169: change default behavior for mildly identified
-	8168c chipsets
-Date: Sun, 29 Jun 2008 16:49:17 +0200
-Message-ID: <20080629144917.GN1540@electric-eye.fr.zoreil.com>
-References: <20080629143817.GA1540@electric-eye.fr.zoreil.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] net: em_cmp.c use unaligned access helpers
+Date: Sun, 29 Jun 2008 11:01:30 -0700
+Message-ID: <1214762490.6037.9.camel@brick>
+References: <1214428440.6908.1.camel@brick>
+	 <20080627.201649.95998057.davem@davemloft.net>
+	 <20080629095424.GM20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, akpm@linux-foundation.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Mario Limonciello <mario_limonciello@dell.com>,
-	Kasper Sandberg <lkml@metanurb.dk>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46597 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760236AbYF2Oti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 10:49:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20080629143817.GA1540@electric-eye.fr.zoreil.com>
+Received: from wa-out-1112.google.com ([209.85.146.180]:46901 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754619AbYF2SBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 14:01:33 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so942578waf.23
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2008 11:01:33 -0700 (PDT)
+In-Reply-To: <20080629095424.GM20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The addition of a new device has so far implied a specialization of
-these masks. While they identify 8168c devices, they can be expected
-to be further refined.
+On Sun, 2008-06-29 at 11:54 +0200, Thomas Graf wrote:
+> * David Miller <davem@davemloft.net> 2008-06-27 20:16
+> > From: Harvey Harrison <harvey.harrison@gmail.com>
+> > Date: Wed, 25 Jun 2008 14:14:00 -0700
+> > 
+> > > Both locations are loading a big-endian value in cpu-endianness.  The
+> > > be32/be16_to_cpu immediately afterwards seems suspect.
+> > > 
+> > > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> > 
+> > Smells like a bug, Thomas can you take a close look at this?
+> 
+> It's not a bug, the u16|u32 pointed to by ptr can be at any offset in the
+> skb buffer and is not necessarly in big endian, it can be both. Only the
+> user knows so he has to specify a flag if the value should be converted
+> from be to cpu.
 
-Realtek's 8168 driver has switched behavior for the devices. It should
-bring the driver closer to the version 8.006.00 of Realtek's one.
+OK, but be16/32_to_cpu is a no-op on be-arches, so there is a bug here on
+big-endian machines as they won't switch it back, your simplified patch
+is actually a bugfix in that case.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
----
- drivers/net/r8169.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+> 
+> I think the code is correct, although it could be simplified to:
+> 
+> case TCF_EM_ALIGN_U16:
+> 	if (!cmp_needs_transformation(cmp))
+> 		val = get_unaligned_le16(ptr);
+> 	else
+> 		val = get_unaligned_be16(ptr);
+> 
+> I wasn't aware of these flags when I wrote the code initially.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 47fa19b..84e6fc4 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1220,14 +1220,15 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		u32 val;
- 		int mac_version;
- 	} mac_info[] = {
--		/* 8168B family. */
-+		/* 8168C family. */
- 		{ 0x7cf00000, 0x3c900000,	RTL_GIGA_MAC_VER_23 },
--		{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
-+		{ 0x7cf00000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
-+		{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_23 },
- 		{ 0x7cf00000, 0x3c000000,	RTL_GIGA_MAC_VER_19 },
- 		{ 0x7cf00000, 0x3c200000,	RTL_GIGA_MAC_VER_20 },
- 		{ 0x7cf00000, 0x3c300000,	RTL_GIGA_MAC_VER_21 },
- 		{ 0x7cf00000, 0x3c400000,	RTL_GIGA_MAC_VER_22 },
--		{ 0x7c800000, 0x3c000000,	RTL_GIGA_MAC_VER_20 },
-+		{ 0x7c800000, 0x3c000000,	RTL_GIGA_MAC_VER_22 },
- 
- 		/* 8168B family. */
- 		{ 0x7cf00000, 0x38000000,	RTL_GIGA_MAC_VER_12 },
--- 
-1.5.3.3
+I introduced them recently, your patch is probably applicable to
+2.6.26 as a bugfix.
+
+Reviewed-by: Harvey Harrison <harvey.harrison@gmail.com>
+
 
