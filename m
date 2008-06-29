@@ -1,61 +1,85 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Add missing skb->dev assignment in Frame Relay RX code
-Date: Sun, 29 Jun 2008 23:10:11 +0200
-Message-ID: <m3od5kaqx8.fsf@maximus.localdomain>
-References: <m3wsk8aupw.fsf@maximus.localdomain>
-	<20080629130420.62d00d59@extreme>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] net: em_cmp.c use unaligned access helpers
+Date: Sun, 29 Jun 2008 16:20:37 -0700
+Message-ID: <1214781637.6037.13.camel@brick>
+References: <1214428440.6908.1.camel@brick>
+	 <20080627.201649.95998057.davem@davemloft.net>
+	 <20080629095424.GM20815@postel.suug.ch>
+	 <20080629095538.GN20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:37649 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751407AbYF2VKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jun 2008 17:10:13 -0400
-In-Reply-To: <20080629130420.62d00d59@extreme> (Stephen Hemminger's message of "Sun\, 29 Jun 2008 13\:04\:20 -0700")
+Received: from wa-out-1112.google.com ([209.85.146.182]:14639 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752528AbYF2XUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 19:20:46 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so1012083waf.23
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2008 16:20:45 -0700 (PDT)
+In-Reply-To: <20080629095538.GN20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+Explicitly check the endianness and use the appropriate unaligned
+access helpers rather than conditionally byteswapping after the
+unaligned access.
 
->> --- a/drivers/net/wan/hdlc_fr.c
->> +++ b/drivers/net/wan/hdlc_fr.c
->> @@ -1008,6 +1008,7 @@ static int fr_rx(struct sk_buff *skb)
->>  		stats->rx_bytes += skb->len;
->>  		if (pvc->state.becn)
->>  			stats->rx_compressed++;
->> +		skb->dev = dev;
->>  		netif_rx(skb);
->>  		return NET_RX_SUCCESS;
->>  	} else {
->
-> Better to use netdev_alloc_skb for receive buffers instead.
-> --- a/drivers/net/wan/hdlc_fr.c	2008-06-29 13:02:42.000000000 -0700
-> +++ b/drivers/net/wan/hdlc_fr.c	2008-06-29 13:04:01.000000000 -0700
-> @@ -515,7 +515,7 @@ static void fr_lmi_send(struct net_devic
->  		}
->  	}
->  
-> -	skb = dev_alloc_skb(len);
-> +	skb = netdev_alloc_skb(dev, len);
->  	if (!skb) {
->  		printk(KERN_WARNING "%s: Memory squeeze on fr_lmi_send()\n",
->  		       dev->name);
+Fixes a bug on big-endian machines where be16/be32_to_cpu are no-ops
+and would miss byteswapping in the le case.
 
-Well, no, that's another story - the missing assignment is in fr_rx(),
-in the regular receive path (similar to 802.1q case, ethX ->
-ethX.VLAN_ID transition). I.e., we get incoming packet from a hardware
-driver, with skb->dev pointing to hardware hdlcX device, and we change
-it to point to a logical pvcX device.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+Dave, here's a complete patch if you want to apply.
 
-fr_lmi_send() is for control messages (generated locally) only, in TX
-path. IOW we alloc skb and send it through hw driver immediately. Not
-related to the bug.
+ net/sched/em_cmp.c |   17 +++++++----------
+ 1 files changed, 7 insertions(+), 10 deletions(-)
 
-That said, perhaps I should indeed use netdev_alloc_skb() for those
-control messages? Or is it RX-only?
+diff --git a/net/sched/em_cmp.c b/net/sched/em_cmp.c
+index cc49c93..afd2d7a 100644
+--- a/net/sched/em_cmp.c
++++ b/net/sched/em_cmp.c
+@@ -14,6 +14,7 @@
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/tc_ematch/tc_em_cmp.h>
++#include <asm/unaligned.h>
+ #include <net/pkt_cls.h>
+ 
+ static inline int cmp_needs_transformation(struct tcf_em_cmp *cmp)
+@@ -37,23 +38,19 @@ static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
+ 			break;
+ 
+ 		case TCF_EM_ALIGN_U16:
+-			val = *ptr << 8;
+-			val |= *(ptr+1);
+-
+ 			if (cmp_needs_transformation(cmp))
+-				val = be16_to_cpu(val);
++				val = get_unaligned_le16(ptr);
++			else
++				val = get_unaligned_be16(ptr);
+ 			break;
+ 
+ 		case TCF_EM_ALIGN_U32:
+ 			/* Worth checking boundries? The branching seems
+ 			 * to get worse. Visit again. */
+-			val = *ptr << 24;
+-			val |= *(ptr+1) << 16;
+-			val |= *(ptr+2) << 8;
+-			val |= *(ptr+3);
+-
+ 			if (cmp_needs_transformation(cmp))
+-				val = be32_to_cpu(val);
++				val = get_unaligned_le32(ptr);
++			else
++				val = get_unaligned_be32(ptr);
+ 			break;
+ 
+ 		default:
 -- 
-Krzysztof Halasa
+1.5.6.1.179.g18c1f
+
+
+
