@@ -1,24 +1,42 @@
-From: "Aleksey Senin" <aleksey.senin@gmail.com>
-Subject: ip_dev_find alternative for ipv6
-Date: Sun, 29 Jun 2008 13:53:53 +0300
-Message-ID: <118191fa0806290353k4e33d7a9sdb88aca6dda59ccd@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 0/3] Add support for rx flow hash configuration in a network device
+Date: Sun, 29 Jun 2008 14:17:56 +0200
+Message-ID: <871w2gph8r.fsf@basil.nowhere.org>
+References: <48658078.8030707@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	Matheos.Worku@Sun.COM, Michael.Speer@Sun.COM,
+	gkernel-commit@lists.sourceforge.net
+To: Santwona Behera <Santwona.Behera@Sun.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:20272 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754428AbYF2Kxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 06:53:53 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so532642ywe.1
-        for <netdev@vger.kernel.org>; Sun, 29 Jun 2008 03:53:53 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:27171 "EHLO
+	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752314AbYF2MSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 08:18:52 -0400
+In-Reply-To: <48658078.8030707@Sun.COM> (Santwona Behera's message of "Fri, 27 Jun 2008 17:06:16 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-what is the best alternative for ip_dev_find when porting existing
-functions from ipv4 to ipv6, if exist. But probably the right question
-is - How should be implemented searching of HW address by given IP
-address.
+Santwona Behera <Santwona.Behera@Sun.COM> writes:
+
+> Added new interface to ethtool to configure receive network flow
+> classification. This patch adds support for flow distribution using
+> hashing where the device can be configured with the fields in the
+> receive packet to hash onto one of the multiple Rx rings.
+>
+> This feature has 3 related patches:
+>
+> 1. An ethtool application patch.
+> 2. A kernel patch for the ethtool interface.
+> 3. A kernel patch for the niu driver that implements the ethtool
+> config ioctl functions. NOTE: The niu driver already has rx flow
+> hashing implemented. With these 3 patches, this feature is now
+> configurable using ethtool.
+
+Are you sure ethtool is the right interface for this?
+
+Me thinks the kernel should just do the right thing automatically
+for this, by distributing the flows over CPUs.
+
+-Andi
