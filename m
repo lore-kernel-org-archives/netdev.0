@@ -1,35 +1,34 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] [PATCH] firmware: convert Ambassador ATM driver to request_firmware()
-Date: Mon, 30 Jun 2008 08:50:41 -0400
-Message-ID: <200806301250.m5UCofNg022031@cmf.nrl.navy.mil>
-References: <1214818473.10393.337.camel@pmac.infradead.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: Re: (usagi-users 04056) Re: ping6 is sent out from wrong interface
+Date: Mon, 30 Jun 2008 21:57:23 +0900
+Message-ID: <4868D833.4000900@miraclelinux.com>
+References: <4861ED72.6080100@miraclelinux.com> <20080628.041404.82719082.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: usagi-users@ml.linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-users@linux-ipv6.org
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:58165 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558AbYF3Mu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 08:50:56 -0400
-Reply-To: chas3@users.sourceforge.net
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: <1214818473.10393.337.camel@pmac.infradead.org>
+Received: from ns.miraclelinux.com ([219.118.163.66]:22773 "EHLO
+	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753558AbYF3M5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 08:57:25 -0400
+In-Reply-To: <20080628.041404.82719082.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <1214818473.10393.337.camel@pmac.infradead.org>,David Woodhouse writ
-es:
->Sorry for dropping this; I'll let it go through the net tree now it's
->there.
+Hi YOSHIFUJI-san
 
-ok
+Thanks for your proposal.
 
->A couple of comments though... it looks like you forgot to add
->MODULE_FIRMWARE(). And shouldn't 'fw_data' in
+> > In theory, outgoing interface must be selected by routing, if unspecified.
+> > So, I'd propose something like this (not tested, not for real patch).
 
-yes.  i will get davem a patch for that asap.
+This patch looks good enough to me.
+I tested your patch and it works as I expected.
+I'm looking forward to seeing your final fix as well.
 
->fore200e_load_and_start_firmware() be a (__le32 *) not a (u32 *)?
-
-yes, it certainly could be.
+Thank you so much.
+Naohiro Ooiwa
