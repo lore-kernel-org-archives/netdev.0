@@ -1,52 +1,86 @@
-From: "Samuel Ortiz" <samuel@sortiz.org>
-Subject: [PATCH 1/4] irda: via-ircc proper dma freeing
-Date: Mon, 30 Jun 2008 21:23:52 +0200
-Message-ID: <20080630192753.854146476@sortiz.org>
+From: "Samuel Ortiz" <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 2/4] irda: Remove useless pm_dev references
+Date: Mon, 30 Jun 2008 21:23:53 +0200
+Message-ID: <20080630192754.068509474@sortiz.org>
 References: <20080630192351.765611690@sortiz.org>
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	Wang Chen <wangchen@cn.fujitsu.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2b.orange.fr ([80.12.242.146]:18760 "EHLO smtp2b.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751762AbYF3T0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2008 15:26:24 -0400
-Content-Disposition: inline; filename=dma_cleanup.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline; filename=irda_pm.patch
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
+From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
 
-1. dma should be freed when dma2 request fail.
-2. dma2 should be freed too when device close.
+Some IRDA headers contain references to 'struct pm_dev' that are not
+necessary any more and may be removed.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+Acked-by: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 ---
- drivers/net/irda/via-ircc.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/irda/ali-ircc.h    |    2 --
+ drivers/net/irda/au1000_ircc.h |    1 -
+ drivers/net/irda/via-ircc.h    |    1 -
+ 3 files changed, 4 deletions(-)
 
-Index: net-next-2.6/drivers/net/irda/via-ircc.c
+Index: net-next-2.6/drivers/net/irda/au1000_ircc.h
 ===================================================================
---- net-next-2.6.orig/drivers/net/irda/via-ircc.c	2008-06-14 13:20:23.000000000 +0200
-+++ net-next-2.6/drivers/net/irda/via-ircc.c	2008-06-14 13:25:18.000000000 +0200
-@@ -1546,6 +1546,7 @@ static int via_ircc_net_open(struct net_
- 			IRDA_WARNING("%s, unable to allocate dma2=%d\n",
- 				     driver_name, self->io.dma2);
- 			free_irq(self->io.irq, self);
-+			free_dma(self->io.dma);
- 			return -EAGAIN;
- 		}
- 	}
-@@ -1606,6 +1607,8 @@ static int via_ircc_net_close(struct net
- 	EnAllInt(iobase, OFF);
- 	free_irq(self->io.irq, dev);
- 	free_dma(self->io.dma);
-+	if (self->io.dma2 != self->io.dma)
-+		free_dma(self->io.dma2);
+--- net-next-2.6.orig/drivers/net/irda/au1000_ircc.h	2008-06-14 13:20:23.000000000 +0200
++++ net-next-2.6/drivers/net/irda/au1000_ircc.h	2008-06-14 13:25:18.000000000 +0200
+@@ -122,6 +122,5 @@ struct au1k_private {
+ 	struct timer_list timer;
  
- 	return 0;
- }
+ 	spinlock_t lock;           /* For serializing operations */
+-        struct pm_dev *dev;
+ };
+ #endif /* AU1000_IRCC_H */
+Index: net-next-2.6/drivers/net/irda/ali-ircc.h
+===================================================================
+--- net-next-2.6.orig/drivers/net/irda/ali-ircc.h	2008-06-14 13:20:23.000000000 +0200
++++ net-next-2.6/drivers/net/irda/ali-ircc.h	2008-06-14 13:25:18.000000000 +0200
+@@ -219,8 +219,6 @@ struct ali_ircc_cb {
+ 	int index;                 /* Instance index */
+ 	
+ 	unsigned char fifo_opti_buf;
+-
+-        struct pm_dev *dev;
+ };
+ 
+ static inline void switch_bank(int iobase, int bank)
+Index: net-next-2.6/drivers/net/irda/via-ircc.h
+===================================================================
+--- net-next-2.6.orig/drivers/net/irda/via-ircc.h	2008-06-14 13:20:23.000000000 +0200
++++ net-next-2.6/drivers/net/irda/via-ircc.h	2008-06-14 13:25:18.000000000 +0200
+@@ -118,7 +118,6 @@ struct via_ircc_cb {
+ 	int index;		/* Instance index */
+ 
+ 	struct eventflag EventFlag;
+-	struct pm_dev *dev;
+ 	unsigned int chip_id;	/* to remember chip id */
+ 	unsigned int RetryCount;
+ 	unsigned int RxDataReady;
 
 -- 
 
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://sourceforge.net/services/buy/index.php
