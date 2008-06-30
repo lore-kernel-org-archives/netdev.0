@@ -1,118 +1,52 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [udplite] [Patch 1/1] [BUG-FIX]: Avoid u16 checksum coverage
-	wrap-around
-Date: Mon, 30 Jun 2008 12:54:27 +0100
-Message-ID: <20080630115427.GA8416@gerrit.erg.abdn.ac.uk>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
+Date: Mon, 30 Jun 2008 14:01:02 +0200
+Message-ID: <f4845fc0806300501x70aec2a4sb3bdc9a9bd911d0e@mail.gmail.com>
+References: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
+	 <485126BD.7030109@trash.net>
+	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
+	 <485144DF.3030102@trash.net>
+	 <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>
+	 <20080613062621.GA10474@verge.net.au>
+	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
+	 <48528EED.7090307@trash.net>
+	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
+	 <485652EA.2020004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34872 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755277AbYF3Lyf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2008 07:54:35 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Simon Horman" <horms@verge.net.au>,
+	"Vince Busam" <vbusam@google.com>,
+	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <485652EA.2020004@trash.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I found this out while writing documentation: there is no protection
-against wrap-around of the setsockopt() argument. Patch applies to
-net-2.6 and has been tested to protect the given ranges.
+On Mon, Jun 16, 2008, Patrick McHardy wrote:
+> b) or c) both look fine. You could save a few operations (ADD/EDIT
+> can be combined) by making use of nlmsg_flags though:
+>
+> The semantics of the flags is:
+>
+> - NLM_F_CREATE|NLM_F_EXCL: create if non-existant
+> - NLM_F_REPLACE: change existing
+> - NLM_F_CREATE|NLM_F_REPLACE: create if non-existing, replace otherwise
+> - NLM_F_EXCL: test existance
 
-Gerrit
------------------------> Patch <---------------------------------------
-udplite: Protection against coverage value wrap-around
+I just noticed that this doesn't work with genetlink. genl_rcv_msg()
+treats all commands as GET requests instead of NEW requests, in which
+the same flag bits mean different things (NLM_F_ROOT, NLM_F_MATCH and
+so on). Specifically, it checks for NLM_F_DUMP, which overlaps with
+the other interpretations of the bits.
 
-The UDP-Lite (sender/receiver) checksum coverages use u16, while the
-corresponding setsocktopt() argument is `int'. 
+So I think I'll just have separate commands for ADD and EDIT, similar
+to what net/wireless/nl80211.c has.
 
-When specifying a checksum coverage greater than 0xFFFF, this can yield
- * illegal checksum coverage, due to wrap-around (65537 <= val <= 65543);
- * unexpected results (other values >= 0xFFFF).
-Furthermore, UDP-Litev6 jumbogramps are not supported (RFC 3828, 3.5).
+Julius
 
-This patch now explicitly disallows invalid checksum coverage values.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- Documentation/networking/udplite.txt |   12 ++++--------
- include/net/udplite.h                |    6 ++++++
- net/ipv4/udp.c                       |    8 ++++----
- 3 files changed, 14 insertions(+), 12 deletions(-)
-
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -29,6 +29,12 @@ static inline int udplite_sk_init(struct sock *sk)
- 	return 0;
- }
- 
-+/* Values between 1..7 are invalid. IPv6 jumbograms are not supported (3.5) */
-+static inline bool udplite_valid_cscov(const u32 cscov)
-+{
-+	return cscov == 0 || (cscov >= 8 && cscov <= USHORT_MAX);
-+}
-+
- /*
-  * 	Checksumming routines
-  */
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1317,8 +1317,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 	case UDPLITE_SEND_CSCOV:
- 		if (!is_udplite)         /* Disable the option on UDP sockets */
- 			return -ENOPROTOOPT;
--		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
--			val = 8;
-+		if (!udplite_valid_cscov(val))
-+			return -EINVAL;
- 		up->pcslen = val;
- 		up->pcflag |= UDPLITE_SEND_CC;
- 		break;
-@@ -1329,8 +1329,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 	case UDPLITE_RECV_CSCOV:
- 		if (!is_udplite)         /* Disable the option on UDP sockets */
- 			return -ENOPROTOOPT;
--		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
--			val = 8;
-+		if (!udplite_valid_cscov(val))
-+			return -EINVAL;
- 		up->pcrlen = val;
- 		up->pcflag |= UDPLITE_RECV_CC;
- 		break;
---- a/Documentation/networking/udplite.txt
-+++ b/Documentation/networking/udplite.txt
-@@ -118,10 +118,9 @@
- 
-   If the sender specifies a value of 0 as coverage length, the module
-   assumes full coverage, transmits a packet with coverage length of 0
--  and according checksum.  If the sender specifies a coverage < 8 and
--  different from 0, the kernel assumes 8 as default value.  Finally,
--  if the specified coverage length exceeds the packet length, the packet
--  length is used instead as coverage length.
-+  and according checksum. Values between 1..7 and greater than 65535 are
-+  invalid. Finally, if the specified coverage length exceeds the packet 
-+  length, the packet length is used instead as coverage length.
- 
-   2) Receiver Socket Options
- 
-@@ -130,9 +129,6 @@
-   always wants the whole of the packet covered. In this case, all
-   partially covered packets are dropped and an error is logged.
- 
--  It is not possible to specify illegal values (<0 and <8); in these
--  cases the default of 8 is assumed.
--
-   All packets arriving with a coverage value less than the specified
-   threshold are discarded, these events are also logged.
- 
-@@ -148,7 +144,7 @@
-         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
- 
-   is meaningless (as in TCP). Packets with a zero checksum field are
--  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
-+  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
- 
-   4) Fragmentation
- 
 -- 
+Google Switzerland GmbH
