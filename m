@@ -1,41 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/4] irda: IrDA updates for 2.6.26
-Date: Mon, 30 Jun 2008 12:59:54 -0700 (PDT)
-Message-ID: <20080630.125954.182681597.davem@davemloft.net>
-References: <20080630192351.765611690@sortiz.org>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: Problem with sky2 (Yukon-EC)
+Date: Mon, 30 Jun 2008 22:01:32 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0806302158270.4958@bizon.gios.gov.pl>
+References: <Pine.LNX.4.64.0806302104141.4958@bizon.gios.gov.pl>
+ <20080630125414.3876f342@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20080630192351.765611690-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-443523211-1214856092=:4958"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:60633 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754145AbYF3UBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:01:36 -0400
+In-Reply-To: <20080630125414.3876f342@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Samuel Ortiz" <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 30 Jun 2008 21:23:51 +0200
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Here goes a 4 patches set for IrDA.
-> This is against your net-next-2.6 tree.
+---187430788-443523211-1214856092=:4958
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-Except for patch 2, these all look like bug fixes.
 
-So I think patches 1, 3, and 4 are likely good candidates
-for net-2.6 and thus merging in to Linus for 2.6.26
 
-What say you?
+On Mon, 30 Jun 2008, Stephen Hemminger wrote:
+<CUT>
+> There was a fix to reset vlan offloading in 2.6.26
+>
+> commit d494eacde8858f9b53f5c640692caf14eb3c8239
+> Author: Stephen Hemminger <shemminger@vyatta.com>
+> Date:   Wed May 14 17:04:13 2008 -0700
 
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
+<CUT>
+
+Yep, I just found this patch looking for recent fixes in 2.6.26. ;)
+Looks very promising. Thank you.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-443523211-1214856092=:4958--
