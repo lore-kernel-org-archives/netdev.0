@@ -1,34 +1,59 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Re: (usagi-users 04056) Re: ping6 is sent out from wrong interface
-Date: Mon, 30 Jun 2008 21:57:23 +0900
-Message-ID: <4868D833.4000900@miraclelinux.com>
-References: <4861ED72.6080100@miraclelinux.com> <20080628.041404.82719082.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: usagi-users@ml.linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-users@linux-ipv6.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [Linux-ATM-General] [PATCH] firmware: convert Ambassador ATM driver to request_firmware()
+Date: Mon, 30 Jun 2008 08:59:40 -0400
+Message-ID: <200806301259.m5UCxewW022114@cmf.nrl.navy.mil>
+References: <1214818473.10393.337.camel@pmac.infradead.org>
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:22773 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558AbYF3M5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 08:57:25 -0400
-In-Reply-To: <20080628.041404.82719082.yoshfuji@linux-ipv6.org>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:43281 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004AbYF3M7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 08:59:47 -0400
+In-reply-to: <1214818473.10393.337.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi YOSHIFUJI-san
+In message <1214818473.10393.337.camel@pmac.infradead.org>,David Woodhouse writ
+es:
+>A couple of comments though... it looks like you forgot to add
+>MODULE_FIRMWARE(). And shouldn't 'fw_data' in
+>fore200e_load_and_start_firmware() be a (__le32 *) not a (u32 *)?
 
-Thanks for your proposal.
+this look ok:
 
-> > In theory, outgoing interface must be selected by routing, if unspecified.
-> > So, I'd propose something like this (not tested, not for real patch).
 
-This patch looks good enough to me.
-I tested your patch and it works as I expected.
-I'm looking forward to seeing your final fix as well.
-
-Thank you so much.
-Naohiro Ooiwa
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index d5c1bbf..91710d4 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -2562,7 +2562,8 @@ fore200e_load_and_start_fw(struct fore200e* fore200e)
+     const struct firmware *firmware;
+     struct device *device;
+     struct fw_header *fw_header;
+-    u32 *fw_data, fw_size;
++    __le32 *fw_data;
++    u32 fw_size;
+     u32 __iomem *load_addr;
+     char buf[48];
+     int err = -ENODEV;
+@@ -2582,7 +2583,7 @@ fore200e_load_and_start_fw(struct fore200e* fore200e)
+ 	return err;
+     }
+ 
+-    fw_data = (u32 *) firmware->data;
++    fw_data = (__le32 *) firmware->data;
+     fw_size = firmware->size / sizeof(u32);
+     fw_header = (struct fw_header *) firmware->data;
+     load_addr = fore200e->virt_base + le32_to_cpu(fw_header->load_offset);
+@@ -3199,6 +3200,7 @@ static const struct fore200e_bus fore200e_bus[] = {
+     {}
+ };
+ 
+-#ifdef MODULE_LICENSE
+ MODULE_LICENSE("GPL");
+-#endif
++MODULE_FIRMWARE("sba200e.bin");
++MODULE_FIRMWARE("pca200e.bin");
++MODULE_FIRMWARE("pca200e_ecd.bin");
