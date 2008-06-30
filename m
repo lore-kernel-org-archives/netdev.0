@@ -1,66 +1,50 @@
-From: Glen Gray <glen.gray@lincor.com>
-Subject: Re: [PATCH 1/2] r8169: multicast register update (sync with Realtek's 8.004.00 8168 driver)
-Date: Mon, 30 Jun 2008 11:02:57 +0100
-Message-ID: <5B0BE23C-3952-40DB-94B5-453417DA21D4@lincor.com>
-References: <20080629131739.GA31201@electric-eye.fr.zoreil.com> <20080629131852.GB31201@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v924)
-Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] netdevice: Fix wrong string handle in kernel command line parsing
+Date: Mon, 30 Jun 2008 11:25:03 +0100
+Message-ID: <20080630102502.GG4050@solarflare.com>
+References: <48686D7A.9030200@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail151.emailantidote.com ([80.169.59.151]:3073 "EHLO
-	mail2.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754920AbYF3KO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 06:14:26 -0400
-In-Reply-To: <20080629131852.GB31201@electric-eye.fr.zoreil.com>
+Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:49192 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756717AbYF3KZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 06:25:10 -0400
+Content-Disposition: inline
+In-Reply-To: <48686D7A.9030200@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey Francois,
+Wang Chen wrote:
+> 1. In netdev_boot_setup_add(), a long name will leak.
+>    ex. : dev=21,0x1234,0x1234,0x2345,eth123456789verylongname.........
+> 2. In netdev_boot_setup_check(), mismatch will happen if s[i].name
+>    is a substring of dev->name.
+>    ex. : dev=...eth1 dev=...eth11
 
-Do you think this might resolve my issues with multicast SAP  
-announcements ?
---
-Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
-Software Engineering Manager                        Dublin 8, Ireland
-Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+Well spotted, but...
 
-On 29 Jun 2008, at 14:18, Francois Romieu wrote:
-
-> The layout of the 8168 serie is different from that of the 8110 one.
->
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 > ---
-> drivers/net/r8169.c |    6 ++++--
-> 1 files changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 6572425..9086e81 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -3098,8 +3098,10 @@ static void rtl_set_rx_mode(struct net_device  
-> *dev)
-> 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
-> 	    (tp->mac_version == RTL_GIGA_MAC_VER_16) ||
-> 	    (tp->mac_version == RTL_GIGA_MAC_VER_17)) {
-> -		mc_filter[0] = 0xffffffff;
-> -		mc_filter[1] = 0xffffffff;
-> +		u32 data = mc_filter[0];
-> +
-> +		mc_filter[0] = swab32(mc_filter[1]);
-> +		mc_filter[1] = swab32(data);
-> 	}
->
-> 	RTL_W32(MAR0 + 0, mc_filter[0]);
-> -- 
-> 1.5.3.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index c421a1f..9ecb3db 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -454,7 +454,7 @@ static int netdev_boot_setup_add(char *name, struct ifmap *map)
+>  	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+>  		if (s[i].name[0] == '\0' || s[i].name[0] == ' ') {
+>  			memset(s[i].name, 0, sizeof(s[i].name));
+> -			strcpy(s[i].name, name);
+> +			strncpy(s[i].name, name, IFNAMSIZ);
 
+I think that strncpy() should be strlcpy(), because strncpy() does not
+ensure null-termination.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
