@@ -1,50 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv2] ipvs: Cleanup sync daemon code
-Date: Mon, 30 Jun 2008 14:51:56 +1000
-Message-ID: <20080630045153.GA25021@verge.net.au>
-References: <1214760766-1526-1-git-send-email-sven.wegener@stealer.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH] netdevice: Fix wrong string handle in kernel command line
+ parsing
+Date: Mon, 30 Jun 2008 13:22:02 +0800
+Message-ID: <48686D7A.9030200@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wensong@linux-vs.org, ja@ssi.bg, netdev@vger.kernel.org
-To: Sven Wegener <sven.wegener@stealer.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:42236 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344AbYF3Ev7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 00:51:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1214760766-1526-1-git-send-email-sven.wegener@stealer.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:50925 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752408AbYF3G3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2008 02:29:16 -0400
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id A747B17013D
+	for <netdev@vger.kernel.org>; Mon, 30 Jun 2008 14:29:12 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 29, 2008 at 07:32:41PM +0200, Sven Wegener wrote:
-> It's been a while since my last post of this patch series, but here we go gain.
-> 
-> Changes since last post:
-> - Dropped the master daemon sleep change for now, that needs some more work.
-> - Splitted up the patch into a couple of logical chunks.
-> 
-> The patches are
-> 
-> Sven Wegener (5):
->       ipvs: Initialize mcast addr at compile time
->       ipvs: Use ERR_PTR for returning errors from make_receive_sock() and make_send_sock()
->       ipvs: Use kthread_run() instead of doing a double-fork via kernel_thread()
->       ipvs: Put backup thread on mcast socket wait queue
->       ipvs: Use schedule_timeout_interruptible() instead of msleep_interruptible()
-> 
-> The overall difstat looks like
-> 
->  ip_vs_sync.c |  431 +++++++++++++++++++++++------------------------------------
->   1 file changed, 172 insertions(+), 259 deletions(-)
-> 
-> The patches are based on v2.6.26-rc8. If someone wants to pull them, that can
-> be done from
-> 
-> git://git.stealer.net/linux-2.6.git stealer/ipvs/sync-daemon-cleanup
+1. In netdev_boot_setup_add(), a long name will leak.
+   ex. : dev=21,0x1234,0x1234,0x2345,eth123456789verylongname.........
+2. In netdev_boot_setup_check(), mismatch will happen if s[i].name
+   is a substring of dev->name.
+   ex. : dev=...eth1 dev=...eth11
 
-These patches look good to me.
-
--- 
-Horms
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c421a1f..9ecb3db 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -454,7 +454,7 @@ static int netdev_boot_setup_add(char *name, struct ifmap *map)
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+ 		if (s[i].name[0] == '\0' || s[i].name[0] == ' ') {
+ 			memset(s[i].name, 0, sizeof(s[i].name));
+-			strcpy(s[i].name, name);
++			strncpy(s[i].name, name, IFNAMSIZ);
+ 			memcpy(&s[i].map, map, sizeof(s[i].map));
+ 			break;
+ 		}
+@@ -479,7 +479,7 @@ int netdev_boot_setup_check(struct net_device *dev)
+ 
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+ 		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
+-		    !strncmp(dev->name, s[i].name, strlen(s[i].name))) {
++		    !strcmp(dev->name, s[i].name)) {
+ 			dev->irq 	= s[i].map.irq;
+ 			dev->base_addr 	= s[i].map.base_addr;
+ 			dev->mem_start 	= s[i].map.mem_start;
 
