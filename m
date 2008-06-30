@@ -1,66 +1,27 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: net: fib_rules: fix error code for unsupported families
-Date: Mon, 30 Jun 2008 22:21:50 +0200
-Message-ID: <4869405E.9030807@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2008-06-30
+Date: Mon, 30 Jun 2008 13:44:27 -0700 (PDT)
+Message-ID: <20080630.134427.82686530.davem@davemloft.net>
+References: <20080630201147.GB878@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000506060508050005040803"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45420 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862AbYF3UVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:21:52 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33235
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751257AbYF3Uo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:44:26 -0400
+In-Reply-To: <20080630201147.GB878@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000506060508050005040803
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 30 Jun 2008 16:11:47 -0400
 
+> Here is another quick round of some (relatively minor) fixes hoping
+> to see 2.6.26.  Please let me know if there are problems!
 
---------------000506060508050005040803
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit 92cfe56bb3a0b93db12f84618660fdc0153523eb
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Jun 30 22:19:48 2008 +0200
-
-    net: fib_rules: fix error code for unsupported families
-    
-    The errno code returned must be negative.
-    
-    Fixes "RTNETLINK answers: Unknown error 18446744073709551519".
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index e3e9ab0..277a230 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -226,7 +226,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 
- 	ops = lookup_rules_ops(net, frh->family);
- 	if (ops == NULL) {
--		err = EAFNOSUPPORT;
-+		err = -EAFNOSUPPORT;
- 		goto errout;
- 	}
- 
-@@ -365,7 +365,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 
- 	ops = lookup_rules_ops(net, frh->family);
- 	if (ops == NULL) {
--		err = EAFNOSUPPORT;
-+		err = -EAFNOSUPPORT;
- 		goto errout;
- 	}
- 
-
---------------000506060508050005040803--
+Pulled into net-2.6 and pushed back out to kernel.org, thanks John!
