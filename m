@@ -1,35 +1,57 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: How come realtek drivers are combined
-Date: Mon, 30 Jun 2008 23:31:02 +0200
-Message-ID: <20080630213102.GB24253@electric-eye.fr.zoreil.com>
-References: <4864235A.40807@dell.com> <20080627191835.GA5064@electric-eye.fr.zoreil.com> <4868FA94.7060500@dell.com>
+From: Tony Lill <ajlill@ajlc.waterloo.on.ca>
+Subject: Re: [Bugme-new] [Bug 10996] New: 2.6.25 kernels spew SKB BUG:
+ Invalid truesize when using ipsec/openswan
+Date: Mon, 30 Jun 2008 17:58:34 -0400
+Message-ID: <200806302158.m5ULwYfA025042@freevo.ajlc.waterloo.on.ca>
+References: <bug-10996-10286@http.bugzilla.kernel.org/>
+	<20080627164038.3338fb39.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edward_hsu@realtek.com.tw
-To: Mario Limonciello <mario_limonciello@dell.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53158 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763338AbYF3VbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 17:31:16 -0400
-Content-Disposition: inline
-In-Reply-To: <4868FA94.7060500@dell.com>
+Received: from ajlill.sentex.ca ([64.7.134.25]:44463 "EHLO
+	freevo.ajlc.waterloo.on.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1762898AbYF3WHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 18:07:20 -0400
+In-Reply-To: <20080627164038.3338fb39.akpm@linux-foundation.org> (Andrew
+ Morton's message of "Fri, 27 Jun 2008 16:40:38 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mario Limonciello <mario_limonciello@dell.com> :
-[...]
-> This is sometimes a bit difficult to do since I didn't see historical
-> versioning on their website.  It was a hunch, however.
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-ee ftp://210.51.181.211/cn/nic/ for the previous versions. It is rather
-coarse though.
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>
+> On Fri, 27 Jun 2008 16:37:22 -0700 (PDT)
+> bugme-daemon@bugzilla.kernel.org wrote:
+>
+>> http://bugzilla.kernel.org/show_bug.cgi?id=10996
+>> 
+>>            Summary: 2.6.25 kernels spew SKB BUG: Invalid truesize when using
+>>                     ipsec/openswan
+>>            Product: Networking
+>>            Version: 2.5
+>>      KernelVersion: Linux version 2.6.25.9 (ajlill@ds) (gcc version 3.4.6
+>>                     (Debian 3.
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: low
+>>           Priority: P1
+>>          Component: IPV4
+>>         AssignedTo: shemminger@linux-foundation.org
+>>         ReportedBy: ajlill@ajlc.waterloo.on.ca
+>> 
+>> 
+>> Latest working kernel version: 2.6.24.4
+>> Earliest failing kernel version:2.6.25.4
+>
+> These two lines are contradictory.  Please clarify.
 
-> Now I did see a fair deal of patches floating in from you, so I'll clone
-> your netdev git tree and give this a run on some of the RTL8101's that
-> are having trouble.
+There were no messages when I was running 2.6.24.4, and there were
+when I switched to 2.6.25.4. Now I haven't tried any kernels between
+those, but I suspect it's a problem with the entire 2.6.25 branch.
 
-Don't expect miracle: the 8101/8102 part is not floating yet.
-
--- 
-Ueimor
