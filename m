@@ -1,27 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2008-06-30
-Date: Mon, 30 Jun 2008 13:44:27 -0700 (PDT)
-Message-ID: <20080630.134427.82686530.davem@davemloft.net>
-References: <20080630201147.GB878@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] r8169: multicast register update (sync with
+	Realtek's 8.004.00 8168 driver)
+Date: Mon, 30 Jun 2008 23:17:32 +0200
+Message-ID: <20080630211732.GA24253@electric-eye.fr.zoreil.com>
+References: <20080629131739.GA31201@electric-eye.fr.zoreil.com> <20080629131852.GB31201@electric-eye.fr.zoreil.com> <5B0BE23C-3952-40DB-94B5-453417DA21D4@lincor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Glen Gray <glen.gray@lincor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33235
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751257AbYF3Uo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:44:26 -0400
-In-Reply-To: <20080630201147.GB878@tuxdriver.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38666 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753617AbYF3VRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 17:17:54 -0400
+Content-Disposition: inline
+In-Reply-To: <5B0BE23C-3952-40DB-94B5-453417DA21D4@lincor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 30 Jun 2008 16:11:47 -0400
+Glen Gray <glen.gray@lincor.com> :
+[...]
+> Do you think this might resolve my issues with multicast SAP announcements 
+> ?
 
-> Here is another quick round of some (relatively minor) fixes hoping
-> to see 2.6.26.  Please let me know if there are problems!
+I do not think so. The change is only relevant for the 8168.
 
-Pulled into net-2.6 and pushed back out to kernel.org, thanks John!
+-- 
+Ueimor
