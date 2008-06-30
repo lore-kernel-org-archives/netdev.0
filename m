@@ -1,52 +1,40 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 00/26] IPVS: Add first IPv6 support to IPVS.
-Date: Mon, 30 Jun 2008 14:01:02 +0200
-Message-ID: <f4845fc0806300501x70aec2a4sb3bdc9a9bd911d0e@mail.gmail.com>
-References: <f4845fc0806111314r41e7736ay54d22cf28efa2d27@mail.gmail.com>
-	 <485126BD.7030109@trash.net>
-	 <f4845fc0806120834xd904f45x19e100c832d3417@mail.gmail.com>
-	 <485144DF.3030102@trash.net>
-	 <f4845fc0806121233i54099a18k9104eb34359b923f@mail.gmail.com>
-	 <20080613062621.GA10474@verge.net.au>
-	 <f4845fc0806130717v2e892707tee1e401b39dbab81@mail.gmail.com>
-	 <48528EED.7090307@trash.net>
-	 <f4845fc0806151714r515545b1l443200d3377b59ad@mail.gmail.com>
-	 <485652EA.2020004@trash.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 10/10] pxa: make littleton to use the new smc91x platform data
+Date: Mon, 30 Jun 2008 13:24:08 +0100
+Message-ID: <20080630122408.GB14862@flint.arm.linux.org.uk>
+References: <1214300867-15495-11-git-send-email-eric.y.miao@gmail.com> <4864816F.5070407@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Simon Horman" <horms@verge.net.au>,
-	"Vince Busam" <vbusam@google.com>,
-	"Ben Greear" <greearb@candelatech.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <485652EA.2020004@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Miao <eric.y.miao@gmail.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Nicolas Pitre <nico@cam.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
+	Eric Miao <eric.miao@marvell.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45797 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761618AbYF3MYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 08:24:30 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4864816F.5070407@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2008, Patrick McHardy wrote:
-> b) or c) both look fine. You could save a few operations (ADD/EDIT
-> can be combined) by making use of nlmsg_flags though:
->
-> The semantics of the flags is:
->
-> - NLM_F_CREATE|NLM_F_EXCL: create if non-existant
-> - NLM_F_REPLACE: change existing
-> - NLM_F_CREATE|NLM_F_REPLACE: create if non-existing, replace otherwise
-> - NLM_F_EXCL: test existance
+On Fri, Jun 27, 2008 at 01:58:07AM -0400, Jeff Garzik wrote:
+> Eric Miao wrote:
+> > From: Eric Miao <eric.miao@marvell.com>
+> > 
+> > Signed-off-by: Eric Miao <eric.miao@marvell.com>
+> > ---
+> >  arch/arm/mach-pxa/littleton.c |    9 +++++++++
+> >  drivers/net/smc91x.h          |    3 ++-
+> >  2 files changed, 11 insertions(+), 1 deletions(-)
+> 
+> The rest of the patches seem OK.
+> 
+> What do ARM people prefer -- should I ACK this series, and let it be 
+> merged via an ARM tree?
 
-I just noticed that this doesn't work with genetlink. genl_rcv_msg()
-treats all commands as GET requests instead of NEW requests, in which
-the same flag bits mean different things (NLM_F_ROOT, NLM_F_MATCH and
-so on). Specifically, it checks for NLM_F_DUMP, which overlaps with
-the other interpretations of the bits.
-
-So I think I'll just have separate commands for ADD and EDIT, similar
-to what net/wireless/nl80211.c has.
-
-Julius
-
--- 
-Google Switzerland GmbH
+I've not seen the patches, so I can't comment.
