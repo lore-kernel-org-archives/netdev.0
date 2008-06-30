@@ -1,50 +1,43 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 6/8] netfilter: fix string extension for case insensitive
- pattern matching
-Date: Mon, 30 Jun 2008 21:09:12 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0806302108290.30639@fbirervta.pbzchgretzou.qr>
-References: <1214034858-1378-1-git-send-email-joonwpark81@gmail.com>  <alpine.LNX.1.10.0806210957140.28924@fbirervta.pbzchgretzou.qr> <b25c3fa70806301144x4cd521dfpdd8bb6ef13b8466@mail.gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [Linux-ATM-General] [PATCH] firmware: convert Ambassador ATM
+	driver to request_firmware()
+Date: Mon, 30 Jun 2008 20:18:12 +0100
+Message-ID: <1214853492.10393.350.camel@pmac.infradead.org>
+References: <200806301610.m5UGAlqr025302@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Joonwoo Park <joonwpark81@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <b25c3fa70806301144x4cd521dfpdd8bb6ef13b8466@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:57358 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797AbYF3TSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 15:18:20 -0400
+In-Reply-To: <200806301610.m5UGAlqr025302@cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2008-06-30 at 12:10 -0400, Chas Williams (CONTRACTOR) wrote:
+> In message <1214837678.10393.345.camel@pmac.infradead.org>,David Woodhouse writ
+> es:
+> >> i removed the #ifdef's from around MODULE_LICENSE().  there shouldnt
+> >> be any need for #ifdef's around MODULE_FIRMWARE() either.
+> >
+> >Unless you put #ifdef CONFIG_SBUS around the
+> >MODULE_FIRMWARE("sba200e_ecd.bin") you will be requesting that firmware
+> >even on non-sbus machines. Likewise little-endian vs. big-endian on PCI.
+> 
+> does it?  i was under the impression that MODULE_FIRMWARE() just
+> provides a hint that modinfo can read.  request_firmware() still
+> the requestor for the firmware image.
 
-On Monday 2008-06-30 20:44, Joonwoo Park wrote:
->> Why not just doing it this way?
->>
->>
->> enum {
->>        XT_STRING_INVERT = 1 << 0,
->>        XT_STRING_ICASE  = 1 << 1,
->> };
->>
->> struct xt_string_info {
->>        ...
->>        union {
->>                uint8_t invert;
->>                uint8_t flags;
->>        };
->>        ...
->> };
->>
->>
->
->Not bad for me,
->I think invert might be removed and flags can contain XT_STRING_INVERT as well.
+True. But if you were to put the driver into an initrd, for example,
+then the tools would pick out all three firmwares to include in the
+initrd too. Given that we _do_ know at runtime that we'll need a maximum
+of two of the three, it makes sense to list only the ones we might use.
 
-Right, since we copy eader files anyway, we can just make it uint8_t flags
-without the union.
+-- 
+dwmw2
 
->But I guess we should do version checking between user-space and
->kernel more strictly whatever.
-
-That is what we have '.revision' in xt_match/xt_target for.
-In this case however it should be fine with just flags.
