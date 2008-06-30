@@ -1,29 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: em_cmp.c use unaligned access helpers
-Date: Mon, 30 Jun 2008 01:26:39 +0200
-Message-ID: <20080629232638.GO20815@postel.suug.ch>
-References: <1214428440.6908.1.camel@brick> <20080627.201649.95998057.davem@davemloft.net> <20080629095424.GM20815@postel.suug.ch> <1214762490.6037.9.camel@brick>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 0/3] Add support for rx flow hash configuration in a network device
+Date: Mon, 30 Jun 2008 02:15:09 +0200
+Message-ID: <20080630001509.GA19093@one.firstfloor.org>
+References: <48658078.8030707@Sun.COM> <871w2gph8r.fsf@basil.nowhere.org> <20080629.134936.139001500.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: andi@firstfloor.org, Santwona.Behera@Sun.COM,
+	netdev@vger.kernel.org, jeff@garzik.org, Matheos.Worku@Sun.COM,
+	Michael.Speer@Sun.COM, gkernel-commit@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:47113 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941AbYF2X0U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jun 2008 19:26:20 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:38825 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106AbYF3AD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2008 20:03:26 -0400
 Content-Disposition: inline
-In-Reply-To: <1214762490.6037.9.camel@brick>
+In-Reply-To: <20080629.134936.139001500.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Harvey Harrison <harvey.harrison@gmail.com> 2008-06-29 11:01
-> OK, but be16/32_to_cpu is a no-op on be-arches, so there is a bug here on
-> big-endian machines as they won't switch it back, your simplified patch
-> is actually a bugfix in that case.
+> Please don't send submitters mixed messages like this after we've
 
-I noticed that my change wouldn't be correct. The point is to allow
-userspace to convert the filter values to big endian once, supply them
-to the kernel and compare big endian values directly. The be16/32_to_cpu
-convertion is available to support greater-than/lesser-than on little
-endian architectures.
+Sorry must have missed the official bulletin on the latest party line.
+
+> told them to do things this way, it only leads to discouragement
+> for new contributors.
+
+I suspect "adhoc and device specific interfaces" like you are
+advocating will finally lead to discouragement of end users. 
+But it is your choice.
+
+-Andi
+
