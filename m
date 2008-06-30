@@ -1,45 +1,33 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: Problem with sky2 (Yukon-EC)
-Date: Mon, 30 Jun 2008 22:01:32 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0806302158270.4958@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0806302104141.4958@bizon.gios.gov.pl>
- <20080630125414.3876f342@extreme>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 6/8] netfilter: fix string extension for case insensitive
+ pattern matching
+Date: Mon, 30 Jun 2008 22:04:31 +0200
+Message-ID: <48693C4F.20408@trash.net>
+References: <1214034858-1378-1-git-send-email-joonwpark81@gmail.com>	 <alpine.LNX.1.10.0806210957140.28924@fbirervta.pbzchgretzou.qr>	 <b25c3fa70806301144x4cd521dfpdd8bb6ef13b8466@mail.gmail.com>	 <alpine.LNX.1.10.0806302108290.30639@fbirervta.pbzchgretzou.qr> <b25c3fa70806301232w41617d02qa53292f5982c25d0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-443523211-1214856092=:4958"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@medozas.de>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Joonwoo Park <joonwpark81@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:60633 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754145AbYF3UBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:01:36 -0400
-In-Reply-To: <20080630125414.3876f342@extreme>
+Received: from stinky.trash.net ([213.144.137.162]:45071 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751667AbYF3UEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 16:04:36 -0400
+In-Reply-To: <b25c3fa70806301232w41617d02qa53292f5982c25d0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Joonwoo Park wrote:
+> 2008/6/30 Jan Engelhardt <jengelh@medozas.de>:
+>> Right, since we copy eader files anyway, we can just make it uint8_t flags
+>> without the union.
+> 
+> I like it :-)
+> Patrick, Thomas, If you want I'll send this fix with version checking patch.
 
----187430788-443523211-1214856092=:4958
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-
-
-
-On Mon, 30 Jun 2008, Stephen Hemminger wrote:
-<CUT>
-> There was a fix to reset vlan offloading in 2.6.26
->
-> commit d494eacde8858f9b53f5c640692caf14eb3c8239
-> Author: Stephen Hemminger <shemminger@vyatta.com>
-> Date:   Wed May 14 17:04:13 2008 -0700
-
-<CUT>
-
-Yep, I just found this patch looking for recent fixes in 2.6.26. ;)
-Looks very promising. Thank you.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-443523211-1214856092=:4958--
+Yes, please also include the suggestions I made previously
+that still apply (should be all of them).
