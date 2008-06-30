@@ -1,86 +1,47 @@
-From: "Samuel Ortiz" <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 2/4] irda: Remove useless pm_dev references
-Date: Mon, 30 Jun 2008 21:23:53 +0200
-Message-ID: <20080630192754.068509474@sortiz.org>
+From: "Samuel Ortiz" <samuel@sortiz.org>
+Subject: [PATCH 4/4] irda: Fix netlink error path return value
+Date: Mon, 30 Jun 2008 21:23:55 +0200
+Message-ID: <20080630192754.518128980@sortiz.org>
 References: <20080630192351.765611690@sortiz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline; filename=irda_pm.patch
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
+	Julius Volz <juliusv@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp21.orange.fr ([80.12.242.46]:29379 "EHLO smtp21.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752139AbYF3T0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2008 15:26:24 -0400
+Content-Disposition: inline; filename=irda_nl.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+From: Julius Volz <juliusv@google.com>
 
-Some IRDA headers contain references to 'struct pm_dev' that are not
-necessary any more and may be removed.
+Fix an incorrect return value check of genlmsg_put() in irda_nl_get_mode().
+genlmsg_put() does not use ERR_PTR() to encode return values, it just
+returns NULL on error.
 
-Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-Acked-by: Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Signed-off-by: Julius Volz <juliusv@google.com>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 ---
- drivers/net/irda/ali-ircc.h    |    2 --
- drivers/net/irda/au1000_ircc.h |    1 -
- drivers/net/irda/via-ircc.h    |    1 -
- 3 files changed, 4 deletions(-)
+ net/irda/irnetlink.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: net-next-2.6/drivers/net/irda/au1000_ircc.h
+Index: net-next-2.6/net/irda/irnetlink.c
 ===================================================================
---- net-next-2.6.orig/drivers/net/irda/au1000_ircc.h	2008-06-14 13:20:23.000000000 +0200
-+++ net-next-2.6/drivers/net/irda/au1000_ircc.h	2008-06-14 13:25:18.000000000 +0200
-@@ -122,6 +122,5 @@ struct au1k_private {
- 	struct timer_list timer;
+--- net-next-2.6.orig/net/irda/irnetlink.c	2008-06-14 13:20:33.000000000 +0200
++++ net-next-2.6/net/irda/irnetlink.c	2008-06-30 21:03:13.000000000 +0200
+@@ -101,8 +101,8 @@ static int irda_nl_get_mode(struct sk_bu
  
- 	spinlock_t lock;           /* For serializing operations */
--        struct pm_dev *dev;
- };
- #endif /* AU1000_IRCC_H */
-Index: net-next-2.6/drivers/net/irda/ali-ircc.h
-===================================================================
---- net-next-2.6.orig/drivers/net/irda/ali-ircc.h	2008-06-14 13:20:23.000000000 +0200
-+++ net-next-2.6/drivers/net/irda/ali-ircc.h	2008-06-14 13:25:18.000000000 +0200
-@@ -219,8 +219,6 @@ struct ali_ircc_cb {
- 	int index;                 /* Instance index */
- 	
- 	unsigned char fifo_opti_buf;
--
--        struct pm_dev *dev;
- };
+ 	hdr = genlmsg_put(msg, info->snd_pid, info->snd_seq,
+ 			  &irda_nl_family, 0,  IRDA_NL_CMD_GET_MODE);
+-	if (IS_ERR(hdr)) {
+-		ret = PTR_ERR(hdr);
++	if (hdr == NULL) {
++		ret = -EMSGSIZE;
+ 		goto err_out;
+ 	}
  
- static inline void switch_bank(int iobase, int bank)
-Index: net-next-2.6/drivers/net/irda/via-ircc.h
-===================================================================
---- net-next-2.6.orig/drivers/net/irda/via-ircc.h	2008-06-14 13:20:23.000000000 +0200
-+++ net-next-2.6/drivers/net/irda/via-ircc.h	2008-06-14 13:25:18.000000000 +0200
-@@ -118,7 +118,6 @@ struct via_ircc_cb {
- 	int index;		/* Instance index */
- 
- 	struct eventflag EventFlag;
--	struct pm_dev *dev;
- 	unsigned int chip_id;	/* to remember chip id */
- 	unsigned int RetryCount;
- 	unsigned int RxDataReady;
 
 -- 
 
-
--------------------------------------------------------------------------
-Check out the new SourceForge.net Marketplace.
-It's the best place to buy or sell services for
-just about anything Open Source.
-http://sourceforge.net/services/buy/index.php
