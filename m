@@ -1,62 +1,118 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 8/13] r8169: Tx performance tweak
-Date: Mon, 30 Jun 2008 11:53:59 +0100
-Message-ID: <20080630105357.GH4050@solarflare.com>
-References: <20080629143817.GA1540@electric-eye.fr.zoreil.com> <20080629144526.GI1540@electric-eye.fr.zoreil.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [udplite] [Patch 1/1] [BUG-FIX]: Avoid u16 checksum coverage
+	wrap-around
+Date: Mon, 30 Jun 2008 12:54:27 +0100
+Message-ID: <20080630115427.GA8416@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Mario Limonciello <mario_limonciello@dell.com>,
-	Kasper Sandberg <lkml@metanurb.dk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:41558 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752685AbYF3KyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2008 06:54:20 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34872 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755277AbYF3Lyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2008 07:54:35 -0400
 Content-Disposition: inline
-In-Reply-To: <20080629144526.GI1540@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Edward Hsu <edward_hsu@realtek.com.tw>
-> ---
->  drivers/net/r8169.c |   10 +++++-----
->  1 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index c2861a4..46bdcb9 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -2156,19 +2156,19 @@ static void rtl_hw_start_8169(struct net_device *dev)
->  	RTL_W16(IntrMask, tp->intr_event);
->  }
->  
-> -static void rtl8168_tx_performance_tweak(struct pci_dev *pdev, unsigned int reg
-> -)
-> +static void rtl8168_tx_performance_tweak(struct pci_dev *pdev,
-> +					 unsigned int reg, u8 force)
->  {
->  	u8 ctl;
->  
->  	pci_read_config_byte(pdev, reg, &ctl);
-> -	ctl = (ctl & ~0x70) | 0x50;
-> +	ctl = (ctl & ~0x70) | force;
->  	pci_write_config_byte(pdev, reg, ctl);
-[...]
+I found this out while writing documentation: there is no protection
+against wrap-around of the setsockopt() argument. Patch applies to
+net-2.6 and has been tested to protect the given ranges.
 
-This would be a lot more understandable if you used pci_find_capability()
-and the named constants from <linux/pci_regs.h>:
+Gerrit
+-----------------------> Patch <---------------------------------------
+udplite: Protection against coverage value wrap-around
 
-#define PCI_EXP_DEVCTL          8       /* Device Control */
-#define  PCI_EXP_DEVCTL_NOSNOOP_EN 0x0800  /* Enable No Snoop */
-#define  PCI_EXP_DEVCTL_READRQ  0x7000  /* Max_Read_Request_Size */
+The UDP-Lite (sender/receiver) checksum coverages use u16, while the
+corresponding setsocktopt() argument is `int'. 
 
-Ben.
+When specifying a checksum coverage greater than 0xFFFF, this can yield
+ * illegal checksum coverage, due to wrap-around (65537 <= val <= 65543);
+ * unexpected results (other values >= 0xFFFF).
+Furthermore, UDP-Litev6 jumbogramps are not supported (RFC 3828, 3.5).
 
+This patch now explicitly disallows invalid checksum coverage values.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ Documentation/networking/udplite.txt |   12 ++++--------
+ include/net/udplite.h                |    6 ++++++
+ net/ipv4/udp.c                       |    8 ++++----
+ 3 files changed, 14 insertions(+), 12 deletions(-)
+
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -29,6 +29,12 @@ static inline int udplite_sk_init(struct sock *sk)
+ 	return 0;
+ }
+ 
++/* Values between 1..7 are invalid. IPv6 jumbograms are not supported (3.5) */
++static inline bool udplite_valid_cscov(const u32 cscov)
++{
++	return cscov == 0 || (cscov >= 8 && cscov <= USHORT_MAX);
++}
++
+ /*
+  * 	Checksumming routines
+  */
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1317,8 +1317,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 	case UDPLITE_SEND_CSCOV:
+ 		if (!is_udplite)         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+-		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
+-			val = 8;
++		if (!udplite_valid_cscov(val))
++			return -EINVAL;
+ 		up->pcslen = val;
+ 		up->pcflag |= UDPLITE_SEND_CC;
+ 		break;
+@@ -1329,8 +1329,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 	case UDPLITE_RECV_CSCOV:
+ 		if (!is_udplite)         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+-		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
+-			val = 8;
++		if (!udplite_valid_cscov(val))
++			return -EINVAL;
+ 		up->pcrlen = val;
+ 		up->pcflag |= UDPLITE_RECV_CC;
+ 		break;
+--- a/Documentation/networking/udplite.txt
++++ b/Documentation/networking/udplite.txt
+@@ -118,10 +118,9 @@
+ 
+   If the sender specifies a value of 0 as coverage length, the module
+   assumes full coverage, transmits a packet with coverage length of 0
+-  and according checksum.  If the sender specifies a coverage < 8 and
+-  different from 0, the kernel assumes 8 as default value.  Finally,
+-  if the specified coverage length exceeds the packet length, the packet
+-  length is used instead as coverage length.
++  and according checksum. Values between 1..7 and greater than 65535 are
++  invalid. Finally, if the specified coverage length exceeds the packet 
++  length, the packet length is used instead as coverage length.
+ 
+   2) Receiver Socket Options
+ 
+@@ -130,9 +129,6 @@
+   always wants the whole of the packet covered. In this case, all
+   partially covered packets are dropped and an error is logged.
+ 
+-  It is not possible to specify illegal values (<0 and <8); in these
+-  cases the default of 8 is assumed.
+-
+   All packets arriving with a coverage value less than the specified
+   threshold are discarded, these events are also logged.
+ 
+@@ -148,7 +144,7 @@
+         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
+ 
+   is meaningless (as in TCP). Packets with a zero checksum field are
+-  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
++  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
+ 
+   4) Fragmentation
+ 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
