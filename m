@@ -1,21 +1,20 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: v2 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
-Date: Tue, 01 Jul 2008 11:39:19 +0200
-Message-ID: <4869FB47.6080502@trash.net>
-References: <4869A251.108@cn.fujitsu.com> <4869A3EF.60403@cn.fujitsu.com>
+Subject: Re: v2 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
+Date: Tue, 01 Jul 2008 11:40:16 +0200
+Message-ID: <4869FB80.8050107@trash.net>
+References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	NETDEV <netdev@vger.kernel.org>
 To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63197 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:63230 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbYGAJjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 05:39:21 -0400
-In-Reply-To: <4869A3EF.60403@cn.fujitsu.com>
+	with ESMTP id S1750899AbYGAJkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 05:40:18 -0400
+In-Reply-To: <4869A42A.2010009@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,29 +27,30 @@ Wang Chen wrote:
 > 
 > Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 > ---
->  net/ipv6/ip6mr.c |    5 ++++-
+>  net/ipv4/ipmr.c |    5 ++++-
 >  1 files changed, 4 insertions(+), 1 deletions(-)
 > 
-> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-> index 1479618..3e2d964 100644
-> --- a/net/ipv6/ip6mr.c
-> +++ b/net/ipv6/ip6mr.c
-> @@ -603,6 +603,7 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
->  	int vifi = vifc->mif6c_mifi;
->  	struct mif_device *v = &vif6_table[vifi];
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 11700a4..ba0280f 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -398,6 +398,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
+>  	struct vif_device *v = &vif_table[vifi];
 >  	struct net_device *dev;
+>  	struct in_device *in_dev;
 > +	int err;
 >  
 >  	/* Is vif busy ? */
->  	if (MIF_EXISTS(vifi))
-> @@ -632,7 +633,9 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
->  		return -EINVAL;
->  	}
->  
-> -	dev_set_allmulti(dev, 1);
+>  	if (VIF_EXISTS(vifi))
+> @@ -435,7 +436,9 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
+>  	if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
+>  		return -EADDRNOTAVAIL;
+>  	IPV4_DEVCONF(in_dev->cnf, MC_FORWARDING)++;
+> -	dev_set_allmulti(dev, +1);
 > +	err = dev_set_allmulti(dev, 1);
 > +	if (err)
 > +		return err;
 
+Missing error handling for VIFF_REGISTER and VIFF_TUNNEL case.
 
-Missing error handling for the MIFF_REGISTER case.
+
