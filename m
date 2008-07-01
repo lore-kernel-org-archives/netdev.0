@@ -1,118 +1,67 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Passive OS fingerprinting.
-Date: Wed, 2 Jul 2008 01:21:40 +0400
-Message-ID: <20080701212139.GA18619@2ka.mipt.ru>
-References: <20080701113927.GA16343@2ka.mipt.ru> <20080701195648.GD7488@linux.vnet.ibm.com>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
+Date: Tue, 01 Jul 2008 17:35:50 -0400
+Message-ID: <486AA336.7010102@roinet.com>
+References: <20071108181741.8648.61629.stgit@localhost.localdomain> <474DBDA6.50705@roinet.com> <474DBFCE.8010101@intel.com> <474DC0F3.8070604@garzik.org> <474DC68D.9020003@roinet.com> <485959DC.80902@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080701195648.GD7488@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	miltonm@bga.com, e1000-devel@lists.sourceforge.net,
+	kexin.hao@windriver.com
+To: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:40461
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbYGAVfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 17:35:51 -0400
+In-Reply-To: <485959DC.80902@users.sourceforge.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul.
+Anders Grafstr=F6m wrote:
+>>>> David Acker wrote:
+>>>>> What is the status of this patch?
+>>>>
+>>>> Jeff merged it in netdev-2.6#upstream so it is queued for 2.6.25.
+>=20
+> The e100 driver broke in 2.6.25 on the ixp4xx based platform I'm usin=
+g.
+> This patch seems to be the cause.
+>=20
+> It appears to work again with pci_dma_sync_single_for_device() restor=
+ed.
+> So I'm wondering if the patch below would be valid and correct?
+>=20
+> Anders
+>=20
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index f3cba5e..1037b13 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -1803,6 +1803,8 @@ static int e100_rx_alloc_skb(struct nic *nic,=20
+> struct rx *rx)
+>      if (rx->prev->skb) {
+>          struct rfd *prev_rfd =3D (struct rfd *)rx->prev->skb->data;
+>          put_unaligned_le32(rx->dma_addr, &prev_rfd->link);
+> +        pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr=
+,
+> +            sizeof(struct rfd), PCI_DMA_TODEVICE);
+>      }
+>=20
+>      return 0;
+> --=20
 
-On Tue, Jul 01, 2008 at 12:56:48PM -0700, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > static int ipt_osf_proc_read(char *buf, char **start, off_t off, int count,
-> > 			 int *eof, void *data)
-> > {
-> > 	struct ipt_osf_finger *f = NULL;
-> > 	int i, __count, err;
-> > 
-> > 	*eof = 1;
-> > 	__count = count;
-> > 	count = 0;
-> > 
-> > 	rcu_read_lock();
-> > 	list_for_each_entry(f, &ipt_finger_list, flist) {
-> 
-> Does the above need to be list_for_each_entry_rcu()?
+Acked-by: David Acker <dacker@roinet.com>
 
-Yeah, I messed with procfs handlers.
+I got a chance to test this patch on both a Compulab CM-X255 and a=20
+Gateworks Avila GW2348-4.  It seems to work fine with little to no=20
+performance hit.  I will give it some longer tests over this week.  If =
+I=20
+run into any problems I will report them here.  Thanks to Anders and=20
+Kevin Hao who posted a similar patch.
+-Ack
 
-...
-
-> > static int ipt_osf_proc_write(struct file *file, const char *buffer,
-> > 			  unsigned long count, void *data)
-> > {
-> > 	int cnt, i;
-> > 	char obuf[MAXOPTSTRLEN];
-> > 	struct ipt_osf_finger *finger, *n;
-> > 	char *pbeg, *pend;
-> > 
-> > 	if (count > 0xffff)
-> > 		return -E2BIG;
-> > 
-> > 	if (count == strlen(OSFFLUSH) && !strncmp(buffer, OSFFLUSH, strlen(OSFFLUSH))) {
-> > 		int i = 0;
-> > 		synchronize_rcu();
-> > 		spin_lock_bh(&ipt_osf_lock);
-> > 		list_for_each_entry_safe(finger, n, &ipt_finger_list, flist) {
-> 
-> This is OK -- we hold the update-side lock, so don't need _rcu.
-> 
-> > 			i++;
-> > 			list_del_rcu(&finger->flist);
-> > 			ipt_osf_finger_free(finger);
-> 
-> Why is it safe to immediately free the element that we just removed from
-> an RCU-protected list?  The above synchronize_rcu() won't help us given
-> that it is still in the list at that point.
-> 
-> This could be fixed by using call_rcu() in ipt_osf_finger_free().
-
-Yup, it is safe on UP machine, since without lock it is only accessed
-from the bottom half, which is disabled, but running it on different CPU
-will lead to crash.
-
-procfs was not a very good choice here :)
-
-> > 	cnt = snprintf(finger->details,
-> > 		       ((count - (pbeg - buffer) + 1) >
-> > 			MAXDETLEN) ? MAXDETLEN : (count - (pbeg - buffer) + 1),
-> > 		       "%s", pbeg);
-> > 
-> > 	log("%s - %s[%s] : %s\n",
-> > 	    finger->genre, finger->version, finger->subtype, finger->details);
-> > 
-> > 	ipt_osf_parse_opt(finger->opt, &finger->opt_num, obuf, sizeof(obuf));
-> > 
-> > 	synchronize_rcu();
-> 
-> I don't understand what this synchronize_rcu() is doing for us.
-> 
-> Is the idea to make sure that all RCU readers see the prior deletes as
-> having happened before we do the below addition?  If so, please add a
-> comment to this effect.
-
-Just to be sure, that  return from the call does update the list.
-It is not needed in practice.
-
-> > static void __devexit ipt_osf_fini(void)
-> > {
-> > 	struct ipt_osf_finger *f, *n;
-> > 
-> > 	remove_proc_entry("osf", proc_net_netfilter);
-> > 	xt_unregister_match(&ipt_osf_match);
-> > 
-> > 	list_for_each_entry_safe(f, n, &ipt_finger_list, flist) {
-> 
-> Why is it safe to do the above without being in an RCU read-side critical
-> section?  Have all possible RCU readers somehow been banished?  If so,
-> how have they been banished?
-> 
-> > 		list_del(&f->flist);
-> 
-> Ditto for why the list_del() is safe without the update-side lock and
-> why it doesn't have to be list_del_rcu().
-
-Procfs was messed, it should use proper rcu freeing path, and although
-procefs entry was removed, there may be some reference.
-
-Thanks a lot for your review Paul.
-
--- 
-	Evgeniy Polyakov
