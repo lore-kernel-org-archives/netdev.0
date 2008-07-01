@@ -1,54 +1,47 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [ofa-general] [PATCH] IB/IPoIB: Fix change mtu when switching
-	to UD mode
-Date: Tue, 1 Jul 2008 16:45:56 +0300
-Message-ID: <20080701134556.GD14384@mtls03>
-References: <20080630160651.GA6024@mtls03> <4869CE9C.2050408@voltaire.com>
-	<20080701071559.GE6024@mtls03> <486A1CB1.1020904@voltaire.com>
-	<20080701134229.GC14384@mtls03>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Passive OS fingerprinting.
+Date: Tue, 1 Jul 2008 17:47:10 +0400
+Message-ID: <20080701134709.GA14457@2ka.mipt.ru>
+References: <20080701113927.GA16343@2ka.mipt.ru> <486A1AC7.9020706@trash.net> <20080701120320.GA9412@2ka.mipt.ru> <486A2487.2010303@trash.net> <486A31FF.8050201@garzik.org> <486A3286.9060100@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	general-list <general@lists.openfabrics.org>
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <general-bounces@lists.openfabrics.org>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080701134229.GC14384@mtls03>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+In-Reply-To: <486A3286.9060100@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 01, 2008 at 04:42:29PM +0300, Eli Cohen wrote:
+On Tue, Jul 01, 2008 at 03:35:02PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+> >It sure would be nice for regular socket applications to have an easy, 
+> >unprivileged way to query the OS fingerprint information of a given 
+> >socket.
 > 
-> I see, though I would expect to see a comment stating this requirement
-> both at the documentation of call_netdevice_notifiers() and that of
-> dev_set_mtu() and any other exported functions that requires this kind
-> of locking.
-> Moreover, in this specific case, it appears that it is not required to
-> take the rtlnl lock -- if it would be a must, I would have experienced
-> a dump_stack() due to
-> 
-> ASSERT_RTNL();
-> 
-> in bond_alb_handle_active_change().
+> I'm not sure how much OSF depends on the TTL, but doing this
+> more than one hop away from the host (or without knowledge of
+> the number of hops) makes using the TTL basically impossible.
 
-Or some other function registered for notifications.
+There are three modes in OSF: LAN where things are simple, no-ttl, where
+things are even more simpler and false positive, and heueristic mode,
+which checks ttl, but with some addons. Like if ttl is 31, it is
+possible that it is OS with initial TTL being equal to 32, and other OS,
+with initial TTL 48, and whatever other checks succeeded for that cases,
+determine what OS is.
 
+It works quite good in internet not only LAN, since it is frequently
+only enough to roughly determine initial TTL.
+
+> >Another use case is validating whether a browser is "lying" about its 
+> >OS, when parsing HTTP user-agent info, or in general when any remote 
+> >agent is "lying" about its OS.  Security software can use that as an 
+> >additional red-flag factor. 
 > 
-> 
-> The fact that I did not hit such an assert does not mean I may avoid
-> taking the rtnl lock but it appears to me that the issue is not well
-> undrestood.
-> _______________________________________________
-> general mailing list
-> general@lists.openfabrics.org
-> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
-> 
-> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+> I for one would be much happier to only have netfilter as a user
+> of this :)
+
+Security checkers do like to put its hands into sooo deep places in the stack :)
+
+-- 
+	Evgeniy Polyakov
