@@ -1,37 +1,331 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC]: net-sched 00/05: dynamically sized class hashes
-Date: Tue,  1 Jul 2008 16:34:11 +0200 (MEST)
-Message-ID: <20080701143410.26309.45560.sendpatchset@localhost.localdomain>
+Subject: net-sched 03/05: sch_cbq: use dynamic class hash helpers
+Date: Tue,  1 Jul 2008 16:34:15 +0200 (MEST)
+Message-ID: <20080701143414.26309.66076.sendpatchset@localhost.localdomain>
+References: <20080701143410.26309.45560.sendpatchset@localhost.localdomain>
 Cc: devik@cdi.cz, Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39056 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:39069 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755199AbYGAOeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 10:34:12 -0400
+	with ESMTP id S1756981AbYGAOeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 10:34:16 -0400
+In-Reply-To: <20080701143410.26309.45560.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches add support for dynamically sized class hash tables
-to remove a major bottleneck in qdisc filters with many classes
-when filters are not bound to classes and convert CBQ, HTB and HFSC
-to use them.
+net-sched: sch_cbq: use dynamic class hash helpers
 
-Only RFC at this point because they haven't been tested thoroughly yet
-and depend on the filter destruction fixes I sent this morning, but any
-review (especially of 4/5, the htb_delete changes) is welcome.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
+---
+commit 1c1dd74775cc105566840b020475186ee321e6ec
+tree 1bfbe6763e00238289b55d026ac50db305b4482f
+parent 894a1f0874e239e431ec524eb10782d577a0a6d3
+author Patrick McHardy <kaber@trash.net> Tue, 01 Jul 2008 14:02:56 +0200
+committer Patrick McHardy <kaber@trash.net> Tue, 01 Jul 2008 14:02:56 +0200
 
- include/net/sch_generic.h |   41 +++++++++++++++
- net/sched/sch_api.c       |  104 ++++++++++++++++++++++++++++++++++++++
- net/sched/sch_cbq.c       |  114 +++++++++++++++++++++--------------------
- net/sched/sch_hfsc.c      |   90 ++++++++++++++++++---------------
- net/sched/sch_htb.c       |  123 +++++++++++++++++++++------------------------
- 5 files changed, 310 insertions(+), 162 deletions(-)
+ net/sched/sch_cbq.c |  114 ++++++++++++++++++++++++++-------------------------
+ 1 files changed, 58 insertions(+), 56 deletions(-)
 
-Patrick McHardy (5):
-      net-sched: add dynamically sized qdisc class hash helpers
-      net-sched: sch_hfsc: use dynamic class hash helpers
-      net-sched: sch_cbq: use dynamic class hash helpers
-      net-sched: sch_htb: move hash and sibling list removal to htb_delete
-      net-sched: sch_htb: use dynamic class hash helpers
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 2a3c97f..6896bd0 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -73,11 +73,10 @@ struct cbq_sched_data;
+ 
+ struct cbq_class
+ {
+-	struct cbq_class	*next;		/* hash table link */
++	struct Qdisc_class_common common;
+ 	struct cbq_class	*next_alive;	/* next class with backlog in this priority band */
+ 
+ /* Parameters */
+-	u32			classid;
+ 	unsigned char		priority;	/* class priority */
+ 	unsigned char		priority2;	/* priority to be used after overlimit */
+ 	unsigned char		ewma_log;	/* time constant for idle time calculation */
+@@ -144,7 +143,7 @@ struct cbq_class
+ 
+ struct cbq_sched_data
+ {
+-	struct cbq_class	*classes[16];		/* Hash table of all classes */
++	struct Qdisc_class_hash	clhash;			/* Hash table of all classes */
+ 	int			nclasses[TC_CBQ_MAXPRIO+1];
+ 	unsigned		quanta[TC_CBQ_MAXPRIO+1];
+ 
+@@ -177,23 +176,15 @@ struct cbq_sched_data
+ 
+ #define L2T(cl,len)	qdisc_l2t((cl)->R_tab,len)
+ 
+-
+-static __inline__ unsigned cbq_hash(u32 h)
+-{
+-	h ^= h>>8;
+-	h ^= h>>4;
+-	return h&0xF;
+-}
+-
+ static __inline__ struct cbq_class *
+ cbq_class_lookup(struct cbq_sched_data *q, u32 classid)
+ {
+-	struct cbq_class *cl;
++	struct Qdisc_class_common *clc;
+ 
+-	for (cl = q->classes[cbq_hash(classid)]; cl; cl = cl->next)
+-		if (cl->classid == classid)
+-			return cl;
+-	return NULL;
++	clc = qdisc_class_find(&q->clhash, classid);
++	if (clc == NULL)
++		return NULL;
++	return container_of(clc, struct cbq_class, common);
+ }
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -1070,14 +1061,17 @@ static void cbq_adjust_levels(struct cbq_class *this)
+ 
+ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
+ {
++	struct Qdisc_class_common *clc;
++	struct hlist_node *n;
+ 	struct cbq_class *cl;
+-	unsigned h;
++	unsigned int h;
+ 
+ 	if (q->quanta[prio] == 0)
+ 		return;
+ 
+-	for (h=0; h<16; h++) {
+-		for (cl = q->classes[h]; cl; cl = cl->next) {
++	for (h = 0; h < q->clhash.hashsize; h++) {
++		hlist_for_each_entry(clc, n, &q->clhash.hash[h], hnode) {
++			cl = container_of(clc, struct cbq_class, common);
+ 			/* BUGGGG... Beware! This expression suffer of
+ 			   arithmetic overflows!
+ 			 */
+@@ -1086,7 +1080,7 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
+ 					q->quanta[prio];
+ 			}
+ 			if (cl->quantum <= 0 || cl->quantum>32*cl->qdisc->dev->mtu) {
+-				printk(KERN_WARNING "CBQ: class %08x has bad quantum==%ld, repaired.\n", cl->classid, cl->quantum);
++				printk(KERN_WARNING "CBQ: class %08x has bad quantum==%ld, repaired.\n", cl->common.classid, cl->quantum);
+ 				cl->quantum = cl->qdisc->dev->mtu/2 + 1;
+ 			}
+ 		}
+@@ -1114,10 +1108,13 @@ static void cbq_sync_defmap(struct cbq_class *cl)
+ 		if (split->defaults[i])
+ 			continue;
+ 
+-		for (h=0; h<16; h++) {
++		for (h = 0; h < q->clhash.hashsize; h++) {
++			struct Qdisc_class_common *clc;
++			struct hlist_node *n;
+ 			struct cbq_class *c;
+ 
+-			for (c = q->classes[h]; c; c = c->next) {
++			hlist_for_each_entry(clc, n, &q->clhash.hash[h], hnode) {
++				c = container_of(clc, struct cbq_class, common);
+ 				if (c->split == split && c->level < level &&
+ 				    c->defmap&(1<<i)) {
+ 					split->defaults[i] = c;
+@@ -1135,12 +1132,12 @@ static void cbq_change_defmap(struct cbq_class *cl, u32 splitid, u32 def, u32 ma
+ 	if (splitid == 0) {
+ 		if ((split = cl->split) == NULL)
+ 			return;
+-		splitid = split->classid;
++		splitid = split->common.classid;
+ 	}
+ 
+-	if (split == NULL || split->classid != splitid) {
++	if (split == NULL || split->common.classid != splitid) {
+ 		for (split = cl->tparent; split; split = split->tparent)
+-			if (split->classid == splitid)
++			if (split->common.classid == splitid)
+ 				break;
+ 	}
+ 
+@@ -1163,13 +1160,7 @@ static void cbq_unlink_class(struct cbq_class *this)
+ 	struct cbq_class *cl, **clp;
+ 	struct cbq_sched_data *q = qdisc_priv(this->qdisc);
+ 
+-	for (clp = &q->classes[cbq_hash(this->classid)]; (cl = *clp) != NULL; clp = &cl->next) {
+-		if (cl == this) {
+-			*clp = cl->next;
+-			cl->next = NULL;
+-			break;
+-		}
+-	}
++	qdisc_class_hash_remove(&q->clhash, &this->common);
+ 
+ 	if (this->tparent) {
+ 		clp=&this->sibling;
+@@ -1195,12 +1186,10 @@ static void cbq_unlink_class(struct cbq_class *this)
+ static void cbq_link_class(struct cbq_class *this)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(this->qdisc);
+-	unsigned h = cbq_hash(this->classid);
+ 	struct cbq_class *parent = this->tparent;
+ 
+ 	this->sibling = this;
+-	this->next = q->classes[h];
+-	q->classes[h] = this;
++	qdisc_class_hash_insert(&q->clhash, &this->common);
+ 
+ 	if (parent == NULL)
+ 		return;
+@@ -1241,6 +1230,8 @@ static void
+ cbq_reset(struct Qdisc* sch)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
++	struct Qdisc_class_common *clc;
++	struct hlist_node *n;
+ 	struct cbq_class *cl;
+ 	int prio;
+ 	unsigned h;
+@@ -1258,8 +1249,9 @@ cbq_reset(struct Qdisc* sch)
+ 	for (prio = 0; prio <= TC_CBQ_MAXPRIO; prio++)
+ 		q->active[prio] = NULL;
+ 
+-	for (h = 0; h < 16; h++) {
+-		for (cl = q->classes[h]; cl; cl = cl->next) {
++	for (h = 0; h < q->clhash.hashsize; h++) {
++		hlist_for_each_entry(clc, n, &q->clhash.hash[h], hnode) {
++			cl = container_of(clc, struct cbq_class, common);
+ 			qdisc_reset(cl->q);
+ 
+ 			cl->next_alive = NULL;
+@@ -1408,7 +1400,7 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	q->link.refcnt = 1;
+ 	q->link.sibling = &q->link;
+-	q->link.classid = sch->handle;
++	q->link.common.classid = sch->handle;
+ 	q->link.qdisc = sch;
+ 	if (!(q->link.q = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
+ 					    sch->handle)))
+@@ -1521,7 +1513,7 @@ static __inline__ int cbq_dump_fopt(struct sk_buff *skb, struct cbq_class *cl)
+ 	struct tc_cbq_fopt opt;
+ 
+ 	if (cl->split || cl->defmap) {
+-		opt.split = cl->split ? cl->split->classid : 0;
++		opt.split = cl->split ? cl->split->common.classid : 0;
+ 		opt.defmap = cl->defmap;
+ 		opt.defchange = ~0;
+ 		NLA_PUT(skb, TCA_CBQ_FOPT, sizeof(opt), &opt);
+@@ -1602,10 +1594,10 @@ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	struct nlattr *nest;
+ 
+ 	if (cl->tparent)
+-		tcm->tcm_parent = cl->tparent->classid;
++		tcm->tcm_parent = cl->tparent->common.classid;
+ 	else
+ 		tcm->tcm_parent = TC_H_ROOT;
+-	tcm->tcm_handle = cl->classid;
++	tcm->tcm_handle = cl->common.classid;
+ 	tcm->tcm_info = cl->q->handle;
+ 
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+@@ -1650,8 +1642,9 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
+ 
+ 	if (cl) {
+ 		if (new == NULL) {
+-			if ((new = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
+-						     cl->classid)) == NULL)
++			new = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
++						cl->common.classid);
++			if (new == NULL)
+ 				return -ENOBUFS;
+ 		} else {
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -1716,6 +1709,8 @@ static void
+ cbq_destroy(struct Qdisc* sch)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
++	struct Qdisc_class_common *clc;
++	struct hlist_node *n, *next;
+ 	struct cbq_class *cl;
+ 	unsigned h;
+ 
+@@ -1727,18 +1722,20 @@ cbq_destroy(struct Qdisc* sch)
+ 	 * classes from root to leafs which means that filters can still
+ 	 * be bound to classes which have been destroyed already. --TGR '04
+ 	 */
+-	for (h = 0; h < 16; h++) {
+-		for (cl = q->classes[h]; cl; cl = cl->next)
++	for (h = 0; h < q->clhash.hashsize; h++) {
++		hlist_for_each_entry(clc, n, &q->clhash.hash[h], hnode) {
++			cl = container_of(clc, struct cbq_class, common);
+ 			tcf_destroy_chain(&cl->filter_list);
++		}
+ 	}
+-	for (h = 0; h < 16; h++) {
+-		struct cbq_class *next;
+-
+-		for (cl = q->classes[h]; cl; cl = next) {
+-			next = cl->next;
++	for (h = 0; h < q->clhash.hashsize; h++) {
++		hlist_for_each_entry_safe(clc, n, next, &q->clhash.hash[h],
++					  hnode) {
++			cl = container_of(clc, struct cbq_class, common);
+ 			cbq_destroy_class(sch, cl);
+ 		}
+ 	}
++	qdisc_class_hash_destroy(&q->clhash);
+ }
+ 
+ static void cbq_put(struct Qdisc *sch, unsigned long arg)
+@@ -1781,7 +1778,8 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 	if (cl) {
+ 		/* Check parent */
+ 		if (parentid) {
+-			if (cl->tparent && cl->tparent->classid != parentid)
++			if (cl->tparent &&
++			    cl->tparent->common.classid != parentid)
+ 				return -EINVAL;
+ 			if (!cl->tparent && parentid != TC_H_ROOT)
+ 				return -EINVAL;
+@@ -1883,7 +1881,7 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 	cl->refcnt = 1;
+ 	if (!(cl->q = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops, classid)))
+ 		cl->q = &noop_qdisc;
+-	cl->classid = classid;
++	cl->common.classid = classid;
+ 	cl->tparent = parent;
+ 	cl->qdisc = sch;
+ 	cl->allot = parent->allot;
+@@ -1916,6 +1914,8 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 		cbq_set_fopt(cl, nla_data(tb[TCA_CBQ_FOPT]));
+ 	sch_tree_unlock(sch);
+ 
++	qdisc_class_hash_grow(sch, &q->clhash);
++
+ 	if (tca[TCA_RATE])
+ 		gen_new_estimator(&cl->bstats, &cl->rate_est,
+ 				  &sch->dev->queue_lock, tca[TCA_RATE]);
+@@ -2008,19 +2008,21 @@ static void cbq_unbind_filter(struct Qdisc *sch, unsigned long arg)
+ static void cbq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
++	struct Qdisc_class_common *clc;
++	struct hlist_node *n;
++	struct cbq_class *cl;
+ 	unsigned h;
+ 
+ 	if (arg->stop)
+ 		return;
+ 
+-	for (h = 0; h < 16; h++) {
+-		struct cbq_class *cl;
+-
+-		for (cl = q->classes[h]; cl; cl = cl->next) {
++	for (h = 0; h < q->clhash.hashsize; h++) {
++		hlist_for_each_entry(clc, n, &q->clhash.hash[h], hnode) {
+ 			if (arg->count < arg->skip) {
+ 				arg->count++;
+ 				continue;
+ 			}
++			cl = container_of(clc, struct cbq_class, common);
+ 			if (arg->fn(sch, (unsigned long)cl, arg) < 0) {
+ 				arg->stop = 1;
+ 				return;
