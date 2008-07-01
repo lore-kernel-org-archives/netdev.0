@@ -1,67 +1,97 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: kmemcheck detected possible information leak to userspace?
-Date: Tue, 1 Jul 2008 14:17:48 +0200
-Message-ID: <19f34abd0807010517w6e2003d6j86922df0aa0052ac@mail.gmail.com>
-References: <19f34abd0807010216k11a60382xf7a27b4b27f0819@mail.gmail.com>
-	 <20080701102459.GB30248@2ka.mipt.ru>
-	 <19f34abd0807010352t264fda16g826912a857e88140@mail.gmail.com>
-	 <87skutu8pw.fsf@basil.nowhere.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Passive OS fingerprinting.
+Date: Tue, 01 Jul 2008 14:35:19 +0200
+Message-ID: <486A2487.2010303@trash.net>
+References: <20080701113927.GA16343@2ka.mipt.ru> <486A1AC7.9020706@trash.net> <20080701120320.GA9412@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	"Pekka Enberg" <penberg@cs.helsinki.fi>,
-	"Ingo Molnar" <mingo@elte.hu>, linux-kernel@vger.kernel.org
-To: "Andi Kleen" <andi@firstfloor.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:60235 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756772AbYGAMRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 08:17:49 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1982461wfd.4
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2008 05:17:48 -0700 (PDT)
-In-Reply-To: <87skutu8pw.fsf@basil.nowhere.org>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:35307 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752173AbYGAMfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 08:35:21 -0400
+In-Reply-To: <20080701120320.GA9412@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 1, 2008 at 1:47 PM, Andi Kleen <andi@firstfloor.org> wrote:
-> "Vegard Nossum" <vegard.nossum@gmail.com> writes:
->
->> But there is one thing I forgot: Is this memory initialized by DMA? If
->> so, the warning is bogus and I will go hide in shame.
->
-> Yes it is.
->
-> [btw that was something I noted during the initial review and was then
-> ridiculed for]
+Evgeniy Polyakov wrote:
+> On Tue, Jul 01, 2008 at 01:53:43PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+>> My two main objections are that this only works for TCP and
+>> can be trivially evaded. What use cases does it have?
+> 
+> Yes, it is TCP specific module.
 
-I just went back and reviewed the original thread. (I assume you're
-talking about the kmemcheck v3 thread,
-http://lkml.org/lkml/2008/2/7/500.)
+What about the use cases? I certainly like the idea you suggest in
+your blog ("Ever dreamt to block all Linux users in your network
+from accessing internet and allow full bandwidth to Windows worm?")
+:) But something this easy to evade doesn't seem to provide a real
+benefit for a firewall.
 
-I'm sorry about having forgotten this particular comment you made.
-Please take into account that before December last year, I didn't even
-know what an skbuff was. And I didn't know how DMA worked. There can
-be a lot of things that slip past when I don't have the basic mental
-hooks on which to hang them. (Though, I must say, those discussions
-have taught me a lot.) There was also the fact that Ingo for a long
-time carried patches to silence these warnings, but which were dropped
-before the 2.6.26 merge window because they should go through the
-right maintainers instead of the x86 tree. I forgot about it, so I've
-made a mistake this time.
+I can see that something like "Block IE6 running on Windows version X"
+might be useful (NUFW can do this I think), but that needs support
+from the host.
 
-But I don't see that you were ever ridiculed. In fact, I am only
-grateful for all the comments you've made, and the help you've been.
+>> I'm also wondering whether this couldn't be implemented
+>> using the u32 match.
+> 
+> I'm not sure it is that simple. OSF uses common rules database
+> shared with OpenBSD (and other *BSDs as well), so converting it into u32
+> match would require noticeble efforts. But in theory it is probably
+> doable.
 
+This would be preferrable in my opinion since they both allow
+programmable filters, but u32 appears to be more flexible. I'm
+very reluctant to add new iptables modules that don't increase
+expressiveness or provide other clear benefits since we already
+have an insane amount of modules.
 
-Vegard
+ From the fingerprint file:
 
-PS: The error I just reported was different from the ones we've had
-before, which is why I didn't recognize it immediately.
+# Fingerprint entry format:
+#
+# wwww:ttt:D:ss:OOO...:OS:Version:Subtype:Details
+#
+# wwww     - window size (can be *, %nnn, Snn or Tnn).  The special values
+#            "S" and "T" which are a multiple of MSS or a multiple of MTU
+#            respectively.
+# ttt      - initial TTL
+# D        - don't fragment bit (0 - not set, 1 - set)
+# ss       - overall SYN packet size
+# OOO      - option value and order specification (see below)
+# OS       - OS genre (Linux, Solaris, Windows)
+# Version  - OS Version (2.0.27 on x86, etc)
+# Subtype  - OS subtype or patchlevel (SP3, lo0)
+# details  - Generic OS details
 
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+MSS can be matched using the tcpmss match, options (but not order)
+using the tcp match, TTL using the ttl match, DF using the IP flags
+match, packet size using the length match. That leaves WS for u32
+(or adding support to the tcp match).
+
+The conversion looks pretty easy actually.
+
+>>> # iptables -I INPUT -j DROP -p tcp -m osf --genre Linux --log 2 \
+>>> --ttl 2 --connector
+>> And I don't think it should be using connector. AFAIK we
+>> only have a single user in the tree currently and new
+>> stuff usually uses genetlink (which is pretty similar),
+>> so we might be able to remove connection in the future
+>> unless we add new users. But netfilter modules should
+>> use nfnetlink anyway.
+>  
+> This module was created way before genetlink was ever designed (on
+> behalf of connector btw :)
+
+Yes, I know.
+
+> Also I do not know why we want to remove connector in favour of
+> genetlink, since the former is much simpler to work with. Connector
+> logging is optional in OSF.
+
+I'm not sure if we want to, but they appear to provide similar
+functionality and connector only has a single user in the tree
+so far. But thats a different discussion, for netfilter related
+things nfnetlink should be used.
