@@ -1,51 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Add support for rx flow hash configuration in a
- network device
-Date: Mon, 30 Jun 2008 21:42:23 -0700 (PDT)
-Message-ID: <20080630.214223.53060905.davem@davemloft.net>
-References: <871w2gph8r.fsf@basil.nowhere.org>
-	<20080629.134936.139001500.davem@davemloft.net>
-	<adaabh2ffc6.fsf@cisco.com>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: [RFC] UDP SndbufErrors interface and the /proc/net/udp interface.
+Date: Tue, 1 Jul 2008 09:47:23 +0300
+Message-ID: <d0383f90806302347q702416faxe29901bf0d2cdbbb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, Santwona.Behera@Sun.COM,
-	netdev@vger.kernel.org, jeff@garzik.org, Matheos.Worku@Sun.COM,
-	Michael.Speer@Sun.COM, gkernel-commit@lists.sourceforge.net
-To: rdreier@cisco.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50252
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750785AbYGAEmX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 00:42:23 -0400
-In-Reply-To: <adaabh2ffc6.fsf@cisco.com>
+Received: from fg-out-1718.google.com ([72.14.220.159]:56924 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717AbYGAGrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 02:47:24 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so900454fgg.17
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2008 23:47:23 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 30 Jun 2008 20:33:45 -0700
+Hello,
 
->  > We've discussed this before and Jeff Garzik and I already told
->  > everyone that we want to make this configurable and ethtool is
->  > the way to do it no matter how adhoc and device specific the
->  > interfaces might end up being.
-> 
-> I think it was a few weeks ago that Jeff said:
-> 
->   I know user interfaces are annoying because you have to think about 
->   chips other than your own, but that's life.  Other hardware vendors have 
->   to do it too.
-> 
->   Letting each driver have a different user interface is /unfriendly/ to 
->   both developers users.
-> 
-> I guess as long as you stick an "ethtool" in front of the different
-> interfaces it all becomes OK.
+You can see UDP RcvbufErrors via /proc/net/snmp interface.
+These are UDP RcvbufErrors per system.
 
-This interface we're talking about is in fact not all that device
-specific, and it's extensible so that we can describe different types
-of flow hashing types if so needed to support other chips.
+A recent patch (from two weeks ago) added the ability to view
+RcvbufErrors also per
+port, via /proc/net/udp. This was done by incrementing sk_drops of the
+sock struct when RcvbufErrors is incremented; see , in udp.c (both in
+ipv4 and in ipv6)
+the call to atomic_inc(&sk->sk_drops).
 
-Currently Sun's Neptune is the only one that offers so many options,
-and to be honest I expect other implementations to be subsets of what
-Neptune can do.
+see:
+http://kerneltrap.org/mailarchive/linux-netdev/2008/6/17/2153994
+
+You can see UDP SndbufErrors also via /proc/net/snmp interface.
+These are UDP SndbufErrors per system.
+I was wondering if it is worthwhile to enable viewing SndbufErrors per
+port, via /proc/net/udp interface. It could be done, for example, by adding
+a member to the sock structure, for example, sk_send_err, (or
+sk_udp_send_drop) incrementing it when SndbufErrors
+is incremented, and adding code enable viewing it via /proc/net/udp interface.
+
+I wonder: would such a patch (form me or others) in needed ? Or will
+it be rejected because this idea is not good ?
+In case this idea is not good, I wonder what is the reason for it.
+
+Regards,
+Ian
