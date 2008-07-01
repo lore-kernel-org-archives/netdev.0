@@ -1,64 +1,44 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: v2 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
-Date: Tue, 01 Jul 2008 17:44:45 +0800
-Message-ID: <4869FC8D.1010507@cn.fujitsu.com>
-References: <4869A251.108@cn.fujitsu.com> <4869A3EF.60403@cn.fujitsu.com> <4869FB47.6080502@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
+Date: Tue, 01 Jul 2008 05:49:47 -0400
+Message-ID: <4869FDBB.80501@garzik.org>
+References: <20071108181741.8648.61629.stgit@localhost.localdomain>	<474DBDA6.50705@roinet.com>	<474DBFCE.8010101@intel.com>	<474DC0F3.8070604@garzik.org>	<474DC68D.9020003@roinet.com>	<485959DC.80902@users.sourceforge.net>	<48595F16.5000905@roinet.com>	<485A5349.6070601@users.sourceforge.net> <20080701012631.c3d1d262.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>,
+	David Acker <dacker@roinet.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, miltonm@bga.com,
+	e1000-devel@lists.sourceforge.net
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64747 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751444AbYGAJtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2008 05:49:16 -0400
-In-Reply-To: <4869FB47.6080502@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:43347 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752665AbYGAJuB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2008 05:50:01 -0400
+In-Reply-To: <20080701012631.c3d1d262.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy said the following on 2008-7-1 17:39:
-> Wang Chen wrote:
->> allmulti might overflow.
->> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next
->> makes
->> dev_set_promiscuity/allmulti return error number if overflow happened.
->>
->> Here, we check the positive increment for allmulti to get error return.
->>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->> ---
->>  net/ipv6/ip6mr.c |    5 ++++-
->>  1 files changed, 4 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
->> index 1479618..3e2d964 100644
->> --- a/net/ipv6/ip6mr.c
->> +++ b/net/ipv6/ip6mr.c
->> @@ -603,6 +603,7 @@ static int mif6_add(struct mif6ctl *vifc, int
->> mrtsock)
->>      int vifi = vifc->mif6c_mifi;
->>      struct mif_device *v = &vif6_table[vifi];
->>      struct net_device *dev;
->> +    int err;
->>  
->>      /* Is vif busy ? */
->>      if (MIF_EXISTS(vifi))
->> @@ -632,7 +633,9 @@ static int mif6_add(struct mif6ctl *vifc, int
->> mrtsock)
->>          return -EINVAL;
->>      }
->>  
->> -    dev_set_allmulti(dev, 1);
->> +    err = dev_set_allmulti(dev, 1);
->> +    if (err)
->> +        return err;
+Andrew Morton wrote:
+> On Thu, 19 Jun 2008 14:38:33 +0200 Anders Grafstr__m <grfstrm@users.sourceforge.net> wrote:
 > 
+>> David Acker wrote:
+>>> May I ask what actual board you are using and how the e100 is connected 
+>>> to it?  I plan to test with miniPCI based e100 cards.  Also, can you say 
+>>> more about it being broke?  Does it crash immediately, fail to move any 
+>>> data, move some data and stop, etc. ?
+>> It's a custom board based on the IXDP425 reference design.
+>> IXP420 with 82551ER integrated on the same board.
+>> Both RX and TX appears to stop shortly after the driver has been initialized.
+>> It never recovers after the "exec cuc_dump_reset failed" messages start to show.
 > 
-> Missing error handling for the MIFF_REGISTER case.
-> 
+> So..  where are we with this?
 
-will do, thank you.
+It's in net-2.6, davem's 2.6.26-rc queue.
+
+	Jeff
+
+
 
