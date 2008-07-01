@@ -1,43 +1,76 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: v2 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
-Date: Tue, 01 Jul 2008 11:57:13 +0200
-Message-ID: <4869FF79.1060803@trash.net>
-References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com> <4869FB80.8050107@trash.net> <4869FDB3.1040400@cn.fujitsu.com>
+Subject: net-sched 02/02: fix filter destruction in atm/hfsc qdisc destruction
+Date: Tue, 01 Jul 2008 12:06:25 +0200
+Message-ID: <486A01A1.5060102@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: multipart/mixed;
+ boundary="------------020308060207040102090804"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63628 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:63866 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386AbYGAJ5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 05:57:16 -0400
-In-Reply-To: <4869FDB3.1040400@cn.fujitsu.com>
+	with ESMTP id S1753295AbYGAKG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 06:06:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> Patrick McHardy said the following on 2008-7-1 17:40:
->> Wang Chen wrote:
->>> -    dev_set_allmulti(dev, +1);
->>> +    err = dev_set_allmulti(dev, 1);
->>> +    if (err)
->>> +        return err;
->> Missing error handling for VIFF_REGISTER and VIFF_TUNNEL case.
->>
-> 
-> will do.
+This is a multi-part message in MIME format.
+--------------020308060207040102090804
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks. I didn't check the other patches (except those
-I ACKed). Please also verify wether they all do error
-handling properly.
 
-> seems 
->>      if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
-> should do error handling too.
+--------------020308060207040102090804
+Content-Type: text/x-diff;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
 
-Doesn't seem necessary, it doesn't take a reference or has
-any other sideeffects.
+commit 096191c2ded6435a9a22fe0e2ee494b6e7686f95
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Thu Jun 26 18:55:20 2008 +0200
 
+    net-sched: fix filter destruction in atm/hfsc qdisc destruction
+    
+    Filters need to be destroyed before beginning to destroy classes
+    since the destination class needs to still be alive to unbind the
+    filter.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 8e5f70b..db0e23a 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -586,9 +586,11 @@ static void atm_tc_destroy(struct Qdisc *sch)
+ 	struct atm_flow_data *flow;
+ 
+ 	pr_debug("atm_tc_destroy(sch %p,[qdisc %p])\n", sch, p);
++	for (flow = p->flows; flow; flow = flow->next)
++		tcf_destroy_chain(&flow->filter_list);
++
+ 	/* races ? */
+ 	while ((flow = p->flows)) {
+-		tcf_destroy_chain(&flow->filter_list);
+ 		if (flow->ref > 1)
+ 			printk(KERN_ERR "atm_destroy: %p->ref = %d\n", flow,
+ 			       flow->ref);
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index eca83a3..e817aa0 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1541,6 +1541,10 @@ hfsc_destroy_qdisc(struct Qdisc *sch)
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < HFSC_HSIZE; i++) {
++		list_for_each_entry(cl, &q->clhash[i], hlist)
++			tcf_destroy_chain(&cl->filter_list);
++	}
++	for (i = 0; i < HFSC_HSIZE; i++) {
+ 		list_for_each_entry_safe(cl, next, &q->clhash[i], hlist)
+ 			hfsc_destroy_class(sch, cl);
+ 	}
+
+--------------020308060207040102090804--
