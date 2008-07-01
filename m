@@ -1,57 +1,64 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [ofa-general] [PATCH] IB/IPoIB: Fix change mtu when switching
-	to UD mode
-Date: Tue, 1 Jul 2008 16:42:29 +0300
-Message-ID: <20080701134229.GC14384@mtls03>
-References: <20080630160651.GA6024@mtls03> <4869CE9C.2050408@voltaire.com>
-	<20080701071559.GE6024@mtls03> <486A1CB1.1020904@voltaire.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Passive OS fingerprinting.
+Date: Tue, 01 Jul 2008 15:35:02 +0200
+Message-ID: <486A3286.9060100@trash.net>
+References: <20080701113927.GA16343@2ka.mipt.ru> <486A1AC7.9020706@trash.net> <20080701120320.GA9412@2ka.mipt.ru> <486A2487.2010303@trash.net> <486A31FF.8050201@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	general-list <general@lists.openfabrics.org>
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <486A1CB1.1020904@voltaire.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:37615 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753726AbYGANlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 09:41:00 -0400
+In-Reply-To: <486A31FF.8050201@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 01, 2008 at 03:01:53PM +0300, Or Gerlitz wrote:
-> The calls to dev_set_mtu from the bonding driver are from the device 
-> .set_mtu function and this means that the caller have taken the appropriate 
-> locking needed (set mtu is done on the master which in turn does it on the 
-> slaves). Recently, I worked on some change to bonding and throughout this 
-> work I learned on the need (must) to call the rtnl locking when invoking a 
-> dev_set_x function who further does call_netdevice_notifiers(), see
+Jeff Garzik wrote:
+> Patrick McHardy wrote:
+>> What about the use cases? I certainly like the idea you suggest in
+>> your blog ("Ever dreamt to block all Linux users in your network
+>> from accessing internet and allow full bandwidth to Windows worm?")
+>> :) But something this easy to evade doesn't seem to provide a real
+>> benefit for a firewall.
+>>
+>> I can see that something like "Block IE6 running on Windows version X"
+>> might be useful (NUFW can do this I think), but that needs support
+>> from the host.
 >
-> "the correct locking context for the notifier calls (which is RTNL and 
-> nothing else)"
+> Not addressing Evgeniy's module but speaking generally...
 >
-> comment from the bonding maintainer in 
-> http://marc.info/?l=linux-netdev&m=121201324611292&w=2
+> It sure would be nice for regular socket applications to have an easy, 
+> unprivileged way to query the OS fingerprint information of a given 
+> socket.
+
+I'm not sure how much OSF depends on the TTL, but doing this
+more than one hop away from the host (or without knowledge of
+the number of hops) makes using the TTL basically impossible.
+
+> Speaking purely from a userspace application API perspective, it would 
+> be most useful for an app to be able to stop OSF collection, start OSF 
+> collection, and query OSF stats.  start/stop would be a refcount that 
+> disables in-kernel OSF when not in use.
 >
+> To present a specific use case:  I would like to know if incoming SMTP 
+> connections are Windows or not.  That permits me to better determine 
+> if the incoming connection is a hijacked PC or not -- it becomes a 
+> useful factor in spamassassin scoring.
+>
+> In this case, incoming SMTP is -always- TCP, thus being a TCP-specific 
+> module is not a problem.  You cover a huge swath of apps even if the 
+> module is TCP-specific.
+>
+> Another use case is validating whether a browser is "lying" about its 
+> OS, when parsing HTTP user-agent info, or in general when any remote 
+> agent is "lying" about its OS.  Security software can use that as an 
+> additional red-flag factor. 
 
-I see, though I would expect to see a comment stating this requirement
-both at the documentation of call_netdevice_notifiers() and that of
-dev_set_mtu() and any other exported functions that requires this kind
-of locking.
-Moreover, in this specific case, it appears that it is not required to
-take the rtlnl lock -- if it would be a must, I would have experienced
-a dump_stack() due to
+I for one would be much happier to only have netfilter as a user
+of this :)
 
-ASSERT_RTNL();
-
-in bond_alb_handle_active_change().
-
-
-The fact that I did not hit such an assert does not mean I may avoid
-taking the rtnl lock but it appears to me that the issue is not well
-undrestood.
