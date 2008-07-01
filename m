@@ -1,42 +1,34 @@
-From: "Joonwoo Park" <joonwpark81@gmail.com>
-Subject: Re: [PATCH 6/8] netfilter: fix string extension for case insensitive pattern matching
-Date: Tue, 1 Jul 2008 00:10:21 -0700
-Message-ID: <b25c3fa70807010010n496b4f13o28d8c1840359a6a6@mail.gmail.com>
-References: <1214034858-1378-1-git-send-email-joonwpark81@gmail.com>
-	 <alpine.LNX.1.10.0806210957140.28924@fbirervta.pbzchgretzou.qr>
-	 <b25c3fa70806301144x4cd521dfpdd8bb6ef13b8466@mail.gmail.com>
-	 <alpine.LNX.1.10.0806302108290.30639@fbirervta.pbzchgretzou.qr>
-	 <b25c3fa70806301232w41617d02qa53292f5982c25d0@mail.gmail.com>
-	 <48693C4F.20408@trash.net>
+From: Peter Palfrader <peter@palfrader.org>
+Subject: Re: 2.6.25.6: warn_on_slowpath in tcp_input.c
+Date: Tue, 1 Jul 2008 09:38:33 +0200
+Message-ID: <20080701073833.GT16698@anguilla.noreply.org>
+References: <20080630230954.GS16698@anguilla.noreply.org> <396556a20806301656ydc44e3ey6deb229ab69904@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Jan Engelhardt" <jengelh@medozas.de>,
-	"Thomas Graf" <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <48693C4F.20408@trash.net>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Adam Langley <agl@imperialviolet.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from anguilla.debian.or.at ([86.59.118.152]:44186 "EHLO
+	anguilla.debian.or.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbYGAHif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 03:38:35 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <396556a20806301656ydc44e3ey6deb229ab69904@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2008/6/30 Patrick McHardy <kaber@trash.net>:
-> Joonwoo Park wrote:
->>
->> 2008/6/30 Jan Engelhardt <jengelh@medozas.de>:
->>>
->>> Right, since we copy eader files anyway, we can just make it uint8_t
->>> flags
->>> without the union.
->>
->> I like it :-)
->> Patrick, Thomas, If you want I'll send this fix with version checking
->> patch.
->
-> Yes, please also include the suggestions I made previously
-> that still apply (should be all of them).
->
+On Mon, 30 Jun 2008, Adam Langley wrote:
 
-ok, as soon as I finish travel, I'll catch up your suggestions, thanks!
+> On Mon, Jun 30, 2008 at 4:09 PM, Peter Palfrader <peter@palfrader.org> wrote:
+> > I've had 13 or so of them since upgrading the machine to a 2.6.25 kernel
+> > 20 days ago.
+> 
+> Which kernel was it running before?
+
+It was running 2.6.22.17 (+ the splice fix) before that.
+
+-- 
+                           |  .''`.  ** Debian GNU/Linux **
+      Peter Palfrader      | : :' :      The  universal
+ http://www.palfrader.org/ | `. `'      Operating System
+                           |   `-    http://www.debian.org/
