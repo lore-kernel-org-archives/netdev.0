@@ -1,63 +1,43 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: v2 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
-Date: Tue, 01 Jul 2008 17:49:39 +0800
-Message-ID: <4869FDB3.1040400@cn.fujitsu.com>
-References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com> <4869FB80.8050107@trash.net>
+Date: Tue, 01 Jul 2008 11:57:13 +0200
+Message-ID: <4869FF79.1060803@trash.net>
+References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com> <4869FB80.8050107@trash.net> <4869FDB3.1040400@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58083 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752511AbYGAJyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2008 05:54:09 -0400
-In-Reply-To: <4869FB80.8050107@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:63628 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386AbYGAJ5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 05:57:16 -0400
+In-Reply-To: <4869FDB3.1040400@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy said the following on 2008-7-1 17:40:
-> Wang Chen wrote:
->> allmulti might overflow.
->> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next
->> makes
->> dev_set_promiscuity/allmulti return error number if overflow happened.
+Wang Chen wrote:
+> Patrick McHardy said the following on 2008-7-1 17:40:
+>> Wang Chen wrote:
+>>> -    dev_set_allmulti(dev, +1);
+>>> +    err = dev_set_allmulti(dev, 1);
+>>> +    if (err)
+>>> +        return err;
+>> Missing error handling for VIFF_REGISTER and VIFF_TUNNEL case.
 >>
->> Here, we check the positive increment for allmulti to get error return.
->>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->> ---
->>  net/ipv4/ipmr.c |    5 ++++-
->>  1 files changed, 4 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
->> index 11700a4..ba0280f 100644
->> --- a/net/ipv4/ipmr.c
->> +++ b/net/ipv4/ipmr.c
->> @@ -398,6 +398,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
->>      struct vif_device *v = &vif_table[vifi];
->>      struct net_device *dev;
->>      struct in_device *in_dev;
->> +    int err;
->>  
->>      /* Is vif busy ? */
->>      if (VIF_EXISTS(vifi))
->> @@ -435,7 +436,9 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
->>      if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
->>          return -EADDRNOTAVAIL;
->>      IPV4_DEVCONF(in_dev->cnf, MC_FORWARDING)++;
->> -    dev_set_allmulti(dev, +1);
->> +    err = dev_set_allmulti(dev, 1);
->> +    if (err)
->> +        return err;
 > 
-> Missing error handling for VIFF_REGISTER and VIFF_TUNNEL case.
-> 
+> will do.
 
-will do.
-seems 
->      if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
-should do error handling too.
+Thanks. I didn't check the other patches (except those
+I ACKed). Please also verify wether they all do error
+handling properly.
+
+> seems 
+>>      if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
+> should do error handling too.
+
+Doesn't seem necessary, it doesn't take a reference or has
+any other sideeffects.
 
