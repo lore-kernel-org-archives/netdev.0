@@ -1,134 +1,124 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: Re: [PATCH 1/1] [DCCP][QPOLICY]: Make information about qpolicies
- available to userspace
-Date: Tue, 01 Jul 2008 14:38:45 +0200
-Message-ID: <486A2555.9050901@grobelny.oswiecenia.net>
-References: <20080517155916.34622BD22@poczta.oswiecenia.net> <200806241002.42482.tomasz@grobelny.oswiecenia.net> <20080625180545.GB8260@gerrit.erg.abdn.ac.uk> <200806252215.19851.tomasz@grobelny.oswiecenia.net> <20080630123904.GA10758@gerrit.erg.abdn.ac.uk>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] WAN: Remove no longer needed pvc_desc in FR code.
+Date: Tue, 01 Jul 2008 14:42:07 +0200
+Message-ID: <m3bq1hvkrk.fsf@maximus.localdomain>
+References: <m3d4ly4ns2.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:3444 "EHLO poczta.oswiecenia.net"
+Received: from khc.piap.pl ([195.187.100.11]:39212 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753244AbYGAMjo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2008 08:39:44 -0400
-In-Reply-To: <20080630123904.GA10758@gerrit.erg.abdn.ac.uk>
+	id S1753933AbYGAMmO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 08:42:14 -0400
+In-Reply-To: <m3d4ly4ns2.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Mon\, 30 Jun 2008 23\:26\:53 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gerrit Renker pisze:
-> | > With the bitmask approach this constraint is expressed only once, when
-> | > the policy is defined in the source file.
-> | >
-> | In what I propose it would also be defined once. Instead of:
-> | 	[DCCPQ_POLICY_PRIO] = {
-> | 		.push	= qpolicy_simple_push,
-> | 		.full	= qpolicy_prio_full,
-> | 		.top	= qpolicy_prio_best_skb,
-> | 	},
-> | we would simply have:
-> | 	[DCCPQ_POLICY_PRIO] = {
-> | 		.push	= qpolicy_simple_push,
-> | 		.full	= qpolicy_prio_full,
-> | 		.top	= qpolicy_prio_best_skb,
-> | 		.params = DCCP_SCM_PRIORITY | DCCP_SCM_TIMEOUT,
-> | 	},
-> | Doesn't seem complicated, does it?
-> | 
-> ... and is also simpler than the bitmask approach. Very good idea: let's use this.
-> 
-Ok, so now we know how to store information about parameters in kernel
-structures. What remains to be discussed is how to pass that information
-to userspace.
+Remove no longer needed struct pvc_desc in FR code.
+Requires "WAN: convert drivers to use built-in netdev_stats" patch.
 
-> | > With the socket approach, the constraint needs to be expressed each time
-> | > the policy is used.
-> | >
-> | Yes. Two points:
-> | 1. The other option is /proc I guess... would that be better? I think not 
-> | (even though I had other optinion on this subject earlier).
-> Why put so much effort into this?
-Now I think that /proc is overly complicated approach.
+Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
 
-> All that is required is to refuse to
-> accept nonsensical parameters.
-> 
-You can refuse to accept them on sendmsg(). And IMO the application 
-should be able to determine which parameters are correct earlier.
-
-> | 2. I think that it is actually good to enforce on application developers the 
-> | need to declare which parameters they want to use. This way they almost 
-> | cannot do it wrong.
-> | 
-> I don't agree: such a safety-net will only annoy good programmers who understand
-> what they are doing. And it will not help bad programmers much, since their problems
-> lie elsewhere. 
-> 
-The history of software development shows that with newer programming 
-languages you can do yourself less and less harm. Think of machine code 
--> assembler -> C -> C++ -> Java/C#. Ok, the last two languages assume 
-the programmer is dumb but their success shows that people want 
-fool-proof development environments (even if it restricts capabilities). 
-In fact they want everything to be fool-proof (from toothbrush to car).
-
-> Further, the protection is not a strong one: nothing stops the user from first
-> declaring parameters X/Y and then supply something completely different.
-> 
-We could make it strong that is enforce that when a parameter was not 
-declared it cannot be used.
-
-> | To make things clear: we both agree that the application should be able to get 
-> | information if the parameters it wants to use are supported by the kernel 
-> | it's running on, right?
-> | 
-> That is the central point. What we agree on is that that the policy should validate
-> the parameters that the user supplies via cmsg. 
-Yes. But it's only part of the problem. We should also allow 
-applications to detect which parameters are ok before calling sendmsg().
-
-> We don't need the bitmask approach,
-> and with your suggested solution we have a mapping (.params field) between parameters
-> and policy IDs.
-> 
-> Which is sufficient to find out which parameters are acceptable for a policy.
-> 
-The .param field idea only shows how we store that information in 
-kernel. It doesn't show how the user can retrieve that information.
-
-> | The place where we differ is that you would prefer to have:
-> | setsockopt(sockfd, DCCP_POLICY_ID, DCCPQ_POLICY_PRIO|(DCCP_SCM_PRIORITY<<8));
-> | 
-> | and I would like to have:
-> | setsockopt(sockfd, DCCP_POLICY_ID, DCCPQ_POLICY_PRIO);
-> | setsockopt(sockfd, DCCP_POLICY_PARAMS, DCCP_SCM_PRIORITY);
-> | 
-> | Is that right?
-> | -- 
-> Not quite. 
-I knew we must have been talking different languages ;-)
-
-> The first is just one way of relating policy IDs and parameters. First, as
-> above, I prefer your approach of using a .params field because it is simpler.    
-> 
-Ok.
-
-> To summarise, what we have so far is:
->  * qpolicy parameters are declared as disjoint bit values so that they can
->    be or-ed together and tested with `&'/`==' operations;
->  * the qpol_table gets a new (u32) field to keep the list of parameters
->    that a policy accepts;
->  * dccp_msghdr_parse() (net/dccp/proto.c) calls a qpolicy check routine to see
->    if cmsg->cmsg_type is a parameter which is allowed by the  current qpolicy
->  * if the parameter is not mentioned in the `.params' field of the qpol_table,
->    dccp_msghdr_parse() returns -EINVAL.
-Yes, that's better than what we currently have (and I'll try to 
-implement a patch for this).
-
-But this still means that the application that wants to use 
-DCCP_SCM_TIMEOUT can get information that it's not supported on calling 
-sendmsg(). Which is IMO too late.
--- 
-Regards,
-Tomasz Grobelny
+diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+index cb1b415..109bab3 100644
+--- a/drivers/net/wan/hdlc_fr.c
++++ b/drivers/net/wan/hdlc_fr.c
+@@ -135,10 +135,6 @@ typedef struct pvc_device_struct {
+ 	}state;
+ }pvc_device;
+=20
+-struct pvc_desc {
+-	pvc_device *pvc;
+-};
+-
+ struct frad_state {
+ 	fr_proto settings;
+ 	pvc_device *first_pvc;
+@@ -178,10 +174,6 @@ static inline struct frad_state* state(hdlc_device=
+ *hdlc)
+ 	return(struct frad_state *)(hdlc->state);
+ }
+=20
+-static inline struct pvc_desc* pvcdev_to_desc(struct net_device *dev)
+-{
+-	return dev->priv;
+-}
+=20
+ static inline pvc_device* find_pvc(hdlc_device *hdlc, u16 dlci)
+ {
+@@ -351,7 +343,7 @@ static int fr_hard_header(struct sk_buff **skb_p, u=
+16 dlci)
+=20
+ static int pvc_open(struct net_device *dev)
+ {
+-	pvc_device *pvc =3D pvcdev_to_desc(dev)->pvc;
++	pvc_device *pvc =3D dev->priv;
+=20
+ 	if ((pvc->frad->flags & IFF_UP) =3D=3D 0)
+ 		return -EIO;  /* Frad must be UP in order to activate PVC */
+@@ -371,7 +363,7 @@ static int pvc_open(struct net_device *dev)
+=20
+ static int pvc_close(struct net_device *dev)
+ {
+-	pvc_device *pvc =3D pvcdev_to_desc(dev)->pvc;
++	pvc_device *pvc =3D dev->priv;
+=20
+ 	if (--pvc->open_count =3D=3D 0) {
+ 		hdlc_device *hdlc =3D dev_to_hdlc(pvc->frad);
+@@ -390,7 +382,7 @@ static int pvc_close(struct net_device *dev)
+=20
+ static int pvc_ioctl(struct net_device *dev, struct ifreq *ifr, int cm=
+d)
+ {
+-	pvc_device *pvc =3D pvcdev_to_desc(dev)->pvc;
++	pvc_device *pvc =3D dev->priv;
+ 	fr_proto_pvc_info info;
+=20
+ 	if (ifr->ifr_settings.type =3D=3D IF_GET_PROTO) {
+@@ -418,7 +410,7 @@ static int pvc_ioctl(struct net_device *dev, struct=
+ ifreq *ifr, int cmd)
+=20
+ static int pvc_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	pvc_device *pvc =3D pvcdev_to_desc(dev)->pvc;
++	pvc_device *pvc =3D dev->priv;
+=20
+ 	if (pvc->state.active) {
+ 		if (dev->type =3D=3D ARPHRD_ETHER) {
+@@ -1079,7 +1071,7 @@ static void pvc_setup(struct net_device *dev)
+ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int =
+type)
+ {
+ 	hdlc_device *hdlc =3D dev_to_hdlc(frad);
+-	pvc_device *pvc =3D NULL;
++	pvc_device *pvc;
+ 	struct net_device *dev;
+ 	int result, used;
+=20
+@@ -1095,10 +1087,9 @@ static int fr_add_pvc(struct net_device *frad, u=
+nsigned int dlci, int type)
+ 	used =3D pvc_is_used(pvc);
+=20
+ 	if (type =3D=3D ARPHRD_ETHER)
+-		dev =3D alloc_netdev(sizeof(struct pvc_desc), "pvceth%d",
+-				   ether_setup);
++		dev =3D alloc_netdev(0, "pvceth%d", ether_setup);
+ 	else
+-		dev =3D alloc_netdev(sizeof(struct pvc_desc), "pvc%d", pvc_setup);
++		dev =3D alloc_netdev(0, "pvc%d", pvc_setup);
+=20
+ 	if (!dev) {
+ 		printk(KERN_WARNING "%s: Memory squeeze on fr_pvc()\n",
+@@ -1120,7 +1111,7 @@ static int fr_add_pvc(struct net_device *frad, un=
+signed int dlci, int type)
+ 	dev->change_mtu =3D pvc_change_mtu;
+ 	dev->mtu =3D HDLC_MAX_MTU;
+ 	dev->tx_queue_len =3D 0;
+-	pvcdev_to_desc(dev)->pvc =3D pvc;
++	dev->priv =3D pvc;
+=20
+ 	result =3D dev_alloc_name(dev, dev->name);
+ 	if (result < 0) {
