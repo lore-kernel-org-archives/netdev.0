@@ -1,21 +1,73 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH net-next 0/7] Check return of dev_set_promiscuity/allmulti
-Date: Tue, 01 Jul 2008 11:19:45 +0800
-Message-ID: <4869A251.108@cn.fujitsu.com>
+Subject: v2 [PATCH net-next 1/8] af_packet: Check return of dev_set_promiscuity/allmulti
+Date: Tue, 01 Jul 2008 11:21:57 +0800
+Message-ID: <4869A2D5.1010605@cn.fujitsu.com>
+References: <4869A251.108@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50116 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53172 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750825AbYGADYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2008 23:24:18 -0400
+	id S1751116AbYGAD03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2008 23:26:29 -0400
+In-Reply-To: <4869A251.108@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, I've send this series of patch before, but discussion
-made the mail thread turbid.
-I cleanup it again and make it easy for you to pick them up.
+dev_set_promiscuity/allmulti might overflow.
+Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+dev_set_promiscuity/allmulti return error number if overflow happened.
+
+In af_packet, we check all positive increment for promiscuity and allmulti
+to get error return.
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ net/packet/af_packet.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2cee87d..6370b9d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1175,7 +1175,8 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	return 0;
+ }
+ 
+-static void packet_dev_mc(struct net_device *dev, struct packet_mclist *i, int what)
++static int packet_dev_mc(struct net_device *dev, struct packet_mclist *i,
++			 int what)
+ {
+ 	switch (i->type) {
+ 	case PACKET_MR_MULTICAST:
+@@ -1185,13 +1186,14 @@ static void packet_dev_mc(struct net_device *dev, struct packet_mclist *i, int w
+ 			dev_mc_delete(dev, i->addr, i->alen, 0);
+ 		break;
+ 	case PACKET_MR_PROMISC:
+-		dev_set_promiscuity(dev, what);
++		return dev_set_promiscuity(dev, what);
+ 		break;
+ 	case PACKET_MR_ALLMULTI:
+-		dev_set_allmulti(dev, what);
++		return dev_set_allmulti(dev, what);
+ 		break;
+ 	default:;
+ 	}
++	return 0;
+ }
+ 
+ static void packet_dev_mclist(struct net_device *dev, struct packet_mclist *i, int what)
+@@ -1245,7 +1247,7 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
+ 	i->count = 1;
+ 	i->next = po->mclist;
+ 	po->mclist = i;
+-	packet_dev_mc(dev, i, +1);
++	err = packet_dev_mc(dev, i, 1);
+ 
+ done:
+ 	rtnl_unlock();
+-- 1.5.3.4
 
