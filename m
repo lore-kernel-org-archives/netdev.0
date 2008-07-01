@@ -1,38 +1,34 @@
-From: Glen Gray <glen.gray@lincor.com>
-Subject: Re: [PATCH 1/2] r8169: multicast register update (sync with Realtek's 8.004.00 8168 driver)
-Date: Tue, 1 Jul 2008 10:15:50 +0100
-Message-ID: <26E39839-6EBE-4BDB-921E-B87E03D32751@lincor.com>
-References: <20080629131739.GA31201@electric-eye.fr.zoreil.com> <20080629131852.GB31201@electric-eye.fr.zoreil.com> <5B0BE23C-3952-40DB-94B5-453417DA21D4@lincor.com> <20080630211732.GA24253@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v924)
-Content-Type: text/plain; charset="US-ASCII"; format=flowed; delsp=yes
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH] net: Tyop of sk_filter() comment
+Date: Tue, 01 Jul 2008 17:19:21 +0800
+Message-ID: <4869F699.8000907@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail151.emailantidote.com ([80.169.59.151]:4376 "EHLO
-	mail2.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750882AbYGAJQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 05:16:11 -0400
-In-Reply-To: <20080630211732.GA24253@electric-eye.fr.zoreil.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:53503 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753451AbYGAJYE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2008 05:24:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Parameter "needlock" no long exists.
 
-On 30 Jun 2008, at 22:17, Francois Romieu wrote:
-
-> Glen Gray <glen.gray@lincor.com> :
-> [...]
->> Do you think this might resolve my issues with multicast SAP  
->> announcements
->> ?
->
-> I do not think so. The change is only relevant for the 8168.
-
-Thanks Francois, it was worth checking.
---
-Glen Gray <glen.gray@lincor.com>         Digital Depot, Thomas Street
-Software Engineering Manager                        Dublin 8, Ireland
-Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4f83697..df37443 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -68,7 +68,6 @@ static inline void *load_pointer(struct sk_buff *skb, int k,
+  *	sk_filter - run a packet through a socket filter
+  *	@sk: sock associated with &sk_buff
+  *	@skb: buffer to filter
+- *	@needlock: set to 1 if the sock is not locked by caller.
+  *
+  * Run the filter code and then cut skb->data to correct size returned by
+  * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
 
