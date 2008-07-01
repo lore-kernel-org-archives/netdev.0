@@ -1,1264 +1,323 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Passive OS fingerprinting.
-Date: Tue, 1 Jul 2008 12:56:48 -0700
-Message-ID: <20080701195648.GD7488@linux.vnet.ibm.com>
-References: <20080701113927.GA16343@2ka.mipt.ru>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: MD5 SG fix
+Date: Tue, 1 Jul 2008 14:16:34 -0700
+Message-ID: <396556a20805301217k293e5718h6bbf02bfe0683151@europa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP02.au.ibm.com ([202.81.18.163]:45539 "EHLO
-	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755877AbYGAT5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 15:57:01 -0400
+Received: from yw-out-2324.google.com ([74.125.46.29]:29229 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbYGAVZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 17:25:40 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so23812ywe.1
+        for <netdev@vger.kernel.org>; Tue, 01 Jul 2008 14:25:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20080701113927.GA16343@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 01, 2008 at 03:39:28PM +0400, Evgeniy Polyakov wrote:
-> Hi.
-> 
-> Passive OS fingerprinting iptables (xtables) allows to match incoming
-> packets by different sets of SYN-packet and determine, which remote
-> system is on the remote end, so you can make decisions based on OS
-> type and even version at some degreee and perform various netfilter
-> actions based on that knowledge.
-> 
-> This module compares some data (WS, MSS, options and it's order, ttl, df
-> and others) from packets with SYN bit set with dynamically loaded OS
-> fingerprints.
-> 
-> This version existed quite for a while in patch-o-matic(-ng), but
-> suddenly was dropped and then only was updated on its own repo:
-> http://tservice.net.ru/~s0mbre/old/?section=projects&item=osf
-> 
-> I've updated OSF to match new iptables standards (namely xtables
-> support) and present new kernelspace and userspace library files in
-> attach.
+I believe this patch fixes MD5 in the face of SG interfaces for IPv4. Stephen,
+could you test this because I don't get non-linear packets in my test network?
+The patch includes a debugging function which can be uncommented if you have
+issues.
 
-A few quick questions below.
+If this works for you, I'll clean it up and perform the same fix for IPv6
+before submiting.
 
-							Thanx, Paul
+Sadly, I couldn't just pass in the SKB to the md5_hash function because there
+are several places where we don't have an SKB to hand (generating ACKs and
+RSTs, for example).
 
-> To setup single rule, which will drop and log all Linux incoming
-> access one needs to do following steps:
-> # insmod ./ipt_osf.ko
-> # ./load ./pf.os /proc/sys/net/ipv4/osf
-> # iptables -I INPUT -j DROP -p tcp -m osf --genre Linux --log 2 \
-> --ttl 2 --connector
-> 
-> And you will find following lines in dmesg:
-> 
-> ipt_osf: Linux [2.5-2.6::Linux 2.5/2.6] : aa:aa:aa:aa:32885 -> bb:bb:bb:bb:23 hops=3
-> 
-> More info can be found on homepage:
-> http://tservice.net.ru/~s0mbre/old/?section=projects&item=osf
-> 
-> Enjoy!
-> 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> 
-> -- 
-> 	Evgeniy Polyakov
+This patch is, obviously, semantically incongruent with [1] and [1] should be
+backed out before applying.
 
-> /*
->  * ipt_osf.c
->  *
->  * Copyright (c) 2003-2006 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
->  *
->  *
->  * This program is free software; you can redistribute it and/or modify
->  * it under the terms of the GNU General Public License as published by
->  * the Free Software Foundation; either version 2 of the License, or
->  * (at your option) any later version.
->  *
->  * This program is distributed in the hope that it will be useful,
->  * but WITHOUT ANY WARRANTY; without even the implied warranty of
->  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->  * GNU General Public License for more details.
->  *
->  * You should have received a copy of the GNU General Public License
->  * along with this program; if not, write to the Free Software
->  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
->  */
-> 
-> #include <linux/module.h>
-> #include <linux/kernel.h>
-> 
-> #include <linux/types.h>
-> #include <linux/string.h>
-> #include <linux/smp.h>
-> #include <linux/skbuff.h>
-> #include <linux/file.h>
-> #include <linux/ip.h>
-> #include <linux/proc_fs.h>
-> #include <linux/fs.h>
-> #include <linux/slab.h>
-> #include <linux/spinlock.h>
-> #include <linux/ctype.h>
-> #include <linux/list.h>
-> #include <linux/if.h>
-> #include <linux/inetdevice.h>
-> #include <net/ip.h>
-> #include <linux/tcp.h>
-> 
-> #include <linux/netfilter/x_tables.h>
-> #include <linux/netfilter_ipv4/ip_tables.h>
-> #include "ipt_osf.h"
-> 
-> #define OSF_DEBUG
-> 
-> #ifdef OSF_DEBUG
-> #define log(x...) 		printk(KERN_INFO "ipt_osf: " x)
-> #define loga(x...) 		printk(x)
-> #else
-> #define log(x...) 		do {} while(0)
-> #define loga(x...) 		do {} while(0)
-> #endif
-> 
-> #define FMATCH_WRONG		0
-> #define FMATCH_OK		1
-> #define FMATCH_OPT_WRONG	2
-> 
-> #define OPTDEL			','
-> #define OSFPDEL 		':'
-> #define MAXOPTSTRLEN		128
-> #define OSFFLUSH		"FLUSH"
-> 
-> static DEFINE_SPINLOCK(ipt_osf_lock);
-> static LIST_HEAD(ipt_finger_list);
-> 
-> #ifdef CONFIG_CONNECTOR
-> #include <linux/connector.h>
-> 
-> /*
->  * They should live in connector.h.
->  */
-> #define CN_IDX_OSF		0x0008
-> #define CN_VAL_OSF		0x0000
-> 
-> static char osf_finger_buf[sizeof(struct ipt_osf_nlmsg) +
-> 			   sizeof(struct cn_msg)];
-> static struct cb_id osf_id = { CN_IDX_OSF, CN_VAL_OSF };
-> static u32 osf_seq;
-> 
-> static void ipt_osf_send_connector(struct ipt_osf_finger *f,
-> 				   const struct sk_buff *sk)
-> {
-> 	struct cn_msg *m;
-> 	struct ipt_osf_nlmsg *data;
-> 
-> 	m = (struct cn_msg *)osf_finger_buf;
-> 	data = (struct ipt_osf_nlmsg *)(m + 1);
-> 
-> 	memcpy(&m->id, &osf_id, sizeof(m->id));
-> 	m->seq = osf_seq++;
-> 	m->ack = 0;
-> 	m->len = sizeof(*data);
-> 
-> 	memcpy(&data->f, f, sizeof(struct ipt_osf_finger));
-> 	memcpy(&data->ip, sk->nh.iph, sizeof(struct iphdr));
-> 	memcpy(&data->tcp,
-> 	       (struct tcphdr *)((u32 *)sk->nh.iph + sk->nh.iph->ihl),
-> 	       sizeof(struct tcphdr));
-> 
-> 	cn_netlink_send(m, m->id.idx, GFP_ATOMIC);
-> }
-> #else
-> static void ipt_osf_send_connector(struct ipt_osf_finger *f,
-> 				   const struct sk_buff *sk)
-> {
-> }
-> #endif
-> 
-> static char *ipt_osf_strchr(char *ptr, char c)
-> {
-> 	char *tmp;
-> 
-> 	tmp = strchr(ptr, c);
-> 
-> 	while (tmp && tmp + 1 && isspace(*(tmp + 1)))
-> 		tmp++;
-> 
-> 	return tmp;
-> }
-> 
-> static struct ipt_osf_finger *ipt_osf_finger_alloc(void)
-> {
-> 	return kzalloc(sizeof(struct ipt_osf_finger), GFP_KERNEL);
-> }
-> 
-> static void ipt_osf_finger_free(struct ipt_osf_finger *f)
-> {
-> 	memset(f, 0, sizeof(struct ipt_osf_finger));
-> 	kfree(f);
-> }
-> 
-> static void ipt_osf_parse_opt(struct ipt_osf_opt *opt, int *optnum, char *obuf,
-> 			  int olen)
-> {
-> 	int i, op;
-> 	char *ptr, wc;
-> 	unsigned long val;
-> 
-> 	ptr = &obuf[0];
-> 	i = 0;
-> 	while (ptr != NULL && i < olen) {
-> 		val = 0;
-> 		op = 0;
-> 		wc = 0;
-> 		switch (obuf[i]) {
-> 		case 'N':
-> 			op = OSFOPT_NOP;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				*ptr = '\0';
-> 				ptr++;
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		case 'S':
-> 			op = OSFOPT_SACKP;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				*ptr = '\0';
-> 				ptr++;
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		case 'T':
-> 			op = OSFOPT_TS;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				*ptr = '\0';
-> 				ptr++;
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		case 'W':
-> 			op = OSFOPT_WSO;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				switch (obuf[i + 1]) {
-> 				case '%':
-> 					wc = '%';
-> 					break;
-> 				case 'S':
-> 					wc = 'S';
-> 					break;
-> 				case 'T':
-> 					wc = 'T';
-> 					break;
-> 				default:
-> 					wc = 0;
-> 					break;
-> 				}
-> 
-> 				*ptr = '\0';
-> 				ptr++;
-> 				if (wc)
-> 					val = simple_strtoul(&obuf[i + 2], 
-> 							NULL, 10);
-> 				else
-> 					val = simple_strtoul(&obuf[i + 1], 
-> 							NULL, 10);
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		case 'M':
-> 			op = OSFOPT_MSS;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				if (obuf[i + 1] == '%')
-> 					wc = '%';
-> 				*ptr = '\0';
-> 				ptr++;
-> 				if (wc)
-> 					val = simple_strtoul(&obuf[i + 2], 
-> 							NULL, 10);
-> 				else
-> 					val = simple_strtoul(&obuf[i + 1], 
-> 							NULL, 10);
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		case 'E':
-> 			op = OSFOPT_EOL;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				*ptr = '\0';
-> 				ptr++;
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		default:
-> 			op = OSFOPT_EMPTY;
-> 			ptr = ipt_osf_strchr(&obuf[i], OPTDEL);
-> 			if (ptr) {
-> 				ptr++;
-> 				i += (int)(ptr - &obuf[i]);
-> 
-> 			} else
-> 				i++;
-> 			break;
-> 		}
-> 
-> 		if (op != OSFOPT_EMPTY) {
-> 			opt[*optnum].kind = IANA_opts[op].kind;
-> 			opt[*optnum].length = IANA_opts[op].length;
-> 			opt[*optnum].wc.wc = wc;
-> 			opt[*optnum].wc.val = val;
-> 			(*optnum)++;
-> 		}
-> 	}
-> }
-> 
-> static int ipt_osf_proc_read(char *buf, char **start, off_t off, int count,
-> 			 int *eof, void *data)
-> {
-> 	struct ipt_osf_finger *f = NULL;
-> 	int i, __count, err;
-> 
-> 	*eof = 1;
-> 	__count = count;
-> 	count = 0;
-> 
-> 	rcu_read_lock();
-> 	list_for_each_entry(f, &ipt_finger_list, flist) {
+Cheers,
 
-Does the above need to be list_for_each_entry_rcu()?
 
-> 		log("%s [%s]", f->genre, f->details);
-> 
-> 		err = snprintf(buf + count, __count - count, "%s - %s[%s] : %s",
-> 			       f->genre, f->version, f->subtype, f->details);
-> 		if (err == 0 || __count <= count + err)
-> 			break;
-> 		else
-> 			count += err;
-> 		if (f->opt_num) {
-> 			loga(" OPT: ");
-> 			/* count += sprintf(buf+count, " OPT: "); */
-> 			for (i = 0; i < f->opt_num; ++i) {
-> 				/*
-> 				count += sprintf(buf+count, "%d.%c%u; ", 
-> 					f->opt[i].kind, (f->opt[i].wc.wc)?f->opt[i].wc.wc:' ', 
-> 					f->opt[i].wc.val);
-> 				*/
-> 				loga("%d.%c%u; ",
-> 				     f->opt[i].kind,
-> 				     (f->opt[i].wc.wc) ? f->opt[i].wc.wc : ' ',
-> 				     f->opt[i].wc.val);
-> 			}
-> 		}
-> 		loga("\n");
-> 		err = snprintf(buf + count, __count - count, "\n");
-> 		if (err == 0 || __count <= count + err)
-> 			break;
-> 		else
-> 			count += err;
-> 	}
-> 	rcu_read_unlock();
-> 
-> 	return count;
-> }
-> 
-> static int ipt_osf_proc_write(struct file *file, const char *buffer,
-> 			  unsigned long count, void *data)
-> {
-> 	int cnt, i;
-> 	char obuf[MAXOPTSTRLEN];
-> 	struct ipt_osf_finger *finger, *n;
-> 	char *pbeg, *pend;
-> 
-> 	if (count > 0xffff)
-> 		return -E2BIG;
-> 
-> 	if (count == strlen(OSFFLUSH) && !strncmp(buffer, OSFFLUSH, strlen(OSFFLUSH))) {
-> 		int i = 0;
-> 		synchronize_rcu();
-> 		spin_lock_bh(&ipt_osf_lock);
-> 		list_for_each_entry_safe(finger, n, &ipt_finger_list, flist) {
+AGL
 
-This is OK -- we hold the update-side lock, so don't need _rcu.
 
-> 			i++;
-> 			list_del_rcu(&finger->flist);
-> 			ipt_osf_finger_free(finger);
+[1] http://marc.info/?l=linux-netdev&m=121459157816964&w=2
 
-Why is it safe to immediately free the element that we just removed from
-an RCU-protected list?  The above synchronize_rcu() won't help us given
-that it is still in the list at that point.
+---
 
-This could be fixed by using call_rcu() in ipt_osf_finger_free().
+ include/net/tcp.h     |   11 +++--
+ net/ipv4/tcp_ipv4.c   |  113 +++++++++++++++++++++++++++++++++++++------------
+ net/ipv4/tcp_output.c |   14 ++++--
+ 3 files changed, 101 insertions(+), 37 deletions(-)
 
-> 		}
-> 		spin_unlock_bh(&ipt_osf_lock);
-> 
-> 		log("Flushed %d entries.\n", i);
-> 
-> 		return count;
-> 	}
-> 
-> 	cnt = 0;
-> 	for (i = 0; i < count && buffer[i] != '\0'; ++i)
-> 		if (buffer[i] == ':')
-> 			cnt++;
-> 
-> 	if (cnt != 8 || i != count) {
-> 		log("Wrong input line cnt=%d[8], len=%u[%lu]\n",
-> 		    cnt, i, count);
-> 		return count;
-> 	}
-> 
-> 	memset(obuf, 0, sizeof(obuf));
-> 
-> 	finger = ipt_osf_finger_alloc();
-> 	if (!finger) {
-> 		log("Failed to allocate new fingerprint entry.\n");
-> 		return -ENOMEM;
-> 	}
-> 
-> 	pbeg = (char *)buffer;
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		if (pbeg[0] == 'S') {
-> 			finger->wss.wc = 'S';
-> 			if (pbeg[1] == '%')
-> 				finger->wss.val = simple_strtoul(&pbeg[2], NULL, 10);
-> 			else if (pbeg[1] == '*')
-> 				finger->wss.val = 0;
-> 			else
-> 				finger->wss.val = simple_strtoul(&pbeg[1], NULL, 10);
-> 		} else if (pbeg[0] == 'T') {
-> 			finger->wss.wc = 'T';
-> 			if (pbeg[1] == '%')
-> 				finger->wss.val = simple_strtoul(&pbeg[2], NULL, 10);
-> 			else if (pbeg[1] == '*')
-> 				finger->wss.val = 0;
-> 			else
-> 				finger->wss.val = simple_strtoul(&pbeg[1], NULL, 10);
-> 		} else if (pbeg[0] == '%') {
-> 			finger->wss.wc = '%';
-> 			finger->wss.val = simple_strtoul(&pbeg[1], NULL, 10);
-> 		} else if (isdigit(pbeg[0])) {
-> 			finger->wss.wc = 0;
-> 			finger->wss.val = simple_strtoul(&pbeg[0], NULL, 10);
-> 		}
-> 
-> 		pbeg = pend + 1;
-> 	}
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		finger->ttl = simple_strtoul(pbeg, NULL, 10);
-> 		pbeg = pend + 1;
-> 	}
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		finger->df = simple_strtoul(pbeg, NULL, 10);
-> 		pbeg = pend + 1;
-> 	}
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		finger->ss = simple_strtoul(pbeg, NULL, 10);
-> 		pbeg = pend + 1;
-> 	}
-> 
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		cnt = snprintf(obuf, sizeof(obuf), "%s", pbeg);
-> 		pbeg = pend + 1;
-> 	}
-> 
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		if (pbeg[0] == '@' || pbeg[0] == '*')
-> 			cnt = snprintf(finger->genre, sizeof(finger->genre), 
-> 					"%s", pbeg + 1);
-> 		else
-> 			cnt = snprintf(finger->genre, sizeof(finger->genre), 
-> 					"%s", pbeg);
-> 		pbeg = pend + 1;
-> 	}
-> 
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		cnt =
-> 		    snprintf(finger->version, sizeof(finger->version), "%s",
-> 			     pbeg);
-> 		pbeg = pend + 1;
-> 	}
-> 
-> 	pend = ipt_osf_strchr(pbeg, OSFPDEL);
-> 	if (pend) {
-> 		*pend = '\0';
-> 		cnt =
-> 		    snprintf(finger->subtype, sizeof(finger->subtype), "%s",
-> 			     pbeg);
-> 		pbeg = pend + 1;
-> 	}
-> 
-> 	cnt = snprintf(finger->details,
-> 		       ((count - (pbeg - buffer) + 1) >
-> 			MAXDETLEN) ? MAXDETLEN : (count - (pbeg - buffer) + 1),
-> 		       "%s", pbeg);
-> 
-> 	log("%s - %s[%s] : %s\n",
-> 	    finger->genre, finger->version, finger->subtype, finger->details);
-> 
-> 	ipt_osf_parse_opt(finger->opt, &finger->opt_num, obuf, sizeof(obuf));
-> 
-> 	synchronize_rcu();
-
-I don't understand what this synchronize_rcu() is doing for us.
-
-Is the idea to make sure that all RCU readers see the prior deletes as
-having happened before we do the below addition?  If so, please add a
-comment to this effect.
-
-> 	spin_lock_bh(&ipt_osf_lock);
-> 	list_add_tail_rcu(&finger->flist, &ipt_finger_list);
-> 	spin_unlock_bh(&ipt_osf_lock);
-> 
-> 	return count;
-> }
-> 
-> static inline int ipt_osf_ttl(const struct sk_buff *skb, struct ipt_osf_info *info,
-> 			    unsigned char f_ttl)
-> {
-> 	struct iphdr *ip = ip_hdr(skb);
-> #if 0
-> 	log("f_ttl: %u, ip_ttl: %u, info->ttl: %u, flags_ttl: %u.\n",
-> 			f_ttl, ip->ttl, info->ttl, info->flags & IPT_OSF_TTL);
-> #endif
-> 	if (info->flags & IPT_OSF_TTL) {
-> 		if (info->ttl == IPT_OSF_TTL_TRUE)
-> 			return (ip->ttl == f_ttl);
-> 		if (info->ttl == IPT_OSF_TTL_NOCHECK)
-> 			return 1;
-> 		else {
-> 			struct in_device *in_dev = in_dev_get(skb->dev);
-> 
-> 			for_ifa(in_dev) {
-> 				if (inet_ifa_match(ip->saddr, ifa)) {
-> 					in_dev_put(in_dev);
-> 					return (ip->ttl == f_ttl);
-> 				}
-> 			}
-> 			endfor_ifa(in_dev);
-> 
-> 			in_dev_put(in_dev);
-> 			return (ip->ttl <= f_ttl);
-> 		}
-> 	}
-> 	
-> 	return (ip->ttl == f_ttl);
-> }
-> 
-> static bool
-> ipt_osf_match_packet(const struct sk_buff *skb,
-> 		const struct net_device *in,
-> 		const struct net_device *out,
-> 		const struct xt_match *match,
-> 		const void *matchinfo,
-> 		int offset,
-> 		unsigned int unused,
-> 		bool *hotdrop)
-> {
-> 	struct ipt_osf_info *info = (struct ipt_osf_info *)matchinfo;
-> 	struct iphdr _iph, *ip;
-> 	struct tcphdr _tcph, *tcp;
-> 	int fmatch = FMATCH_WRONG, fcount = 0;
-> 	unsigned int optsize = 0, check_WSS = 0;
-> 	u16 window, totlen, mss = 0;
-> 	unsigned char df, *optp = NULL, *_optp = NULL;
-> 	unsigned char opts[MAX_IPOPTLEN];
-> 	struct ipt_osf_finger *f;
-> 
-> 	if (!info)
-> 		return 0;
-> 
-> 	ip = skb_header_pointer(skb, 0, sizeof(struct iphdr), &_iph);
-> 	if (!ip)
-> 		return 0;
-> 
-> 	tcp = skb_header_pointer(skb, ip->ihl * 4, sizeof(struct tcphdr), &_tcph);
-> 	if (!tcp)
-> 		return 0;
-> 
-> 	if (!tcp->syn)
-> 		return 0;
-> 
-> 	totlen = ntohs(ip->tot_len);
-> 	df = ((ntohs(ip->frag_off) & IP_DF) ? 1 : 0);
-> 	window = ntohs(tcp->window);
-> 
-> 	if (tcp->doff * 4 > sizeof(struct tcphdr)) {
-> 		optsize = tcp->doff * 4 - sizeof(struct tcphdr);
-> 
-> 		if (optsize > sizeof(opts)) {
-> 			log("%s: BUG: too big options size: optsize=%u, max=%zu.\n", 
-> 					__func__, optsize, sizeof(opts));
-> 			optsize = sizeof(opts);
-> 		}
-> 
-> 		_optp = optp = skb_header_pointer(skb, ip->ihl * 4 + sizeof(struct tcphdr), 
-> 				optsize, opts);
-> 	}
-> 
-> 	rcu_read_lock();
-> 	list_for_each_entry_rcu(f, &ipt_finger_list, flist) {
-> 		if (!(info->flags & IPT_OSF_LOG) && strcmp(info->genre, f->genre))
-> 			continue;
-> 
-> 		optp = _optp;
-> 		fmatch = FMATCH_WRONG;
-> 
-> 		if (totlen == f->ss && df == f->df && ipt_osf_ttl(skb, info, f->ttl)) {
-> 			int foptsize, optnum;
-> 
-> 			check_WSS = 0;
-> 
-> 			switch (f->wss.wc) {
-> 			case 0:
-> 				check_WSS = 0;
-> 				break;
-> 			case 'S':
-> 				check_WSS = 1;
-> 				break;
-> 			case 'T':
-> 				check_WSS = 2;
-> 				break;
-> 			case '%':
-> 				check_WSS = 3;
-> 				break;
-> 			default:
-> 				log("Wrong fingerprint wss.wc=%d, %s - %s\n",
-> 				    f->wss.wc, f->genre, f->details);
-> 				check_WSS = 4;
-> 				break;
-> 			}
-> 			if (check_WSS == 4)
-> 				continue;
-> 
-> 			/* Check options */
-> 
-> 			foptsize = 0;
-> 			for (optnum = 0; optnum < f->opt_num; ++optnum)
-> 				foptsize += f->opt[optnum].length;
-> #if 0
-> 			log("%s.%s.%s: optsize: %u, foptsize: %u, fopt_num: %u, optp: %p, win: %u, mss: %u, totlen: %u, df: %d, ttl: %u.\n", 
-> 					f->genre, f->version, f->subtype, optsize, foptsize, f->opt_num, optp,
-> 					window, mss, totlen, df, ip->ttl);
-> #endif
-> 			if (foptsize > MAX_IPOPTLEN || optsize > MAX_IPOPTLEN || optsize != foptsize)
-> 				continue;
-> 
-> 			for (optnum = 0; optnum < f->opt_num; ++optnum) {
-> 				if (f->opt[optnum].kind == (*optp)) {
-> 					__u32 len = f->opt[optnum].length;
-> 					__u8 *optend = optp + len;
-> 					int loop_cont = 0;
-> 					
-> 					fmatch = FMATCH_OK;
-> 
-> 					switch (*optp) {
-> 					case OSFOPT_MSS:
-> 						mss = ntohs(*(u16 *)(optp + 2));
-> 						break;
-> 					case OSFOPT_TS:
-> 						loop_cont = 1;
-> 						break;
-> 					}
-> 
-> #if 0
-> 					if (loop_cont) {
-> 						optp = optend;
-> 						continue;
-> 					}
-> 					if (len != 1) {
-> 						/* Skip kind and length fields */
-> 						optp += 2;
-> 
-> 						if (f->opt[optnum].wc.val != 0) {
-> 							u32 tmp = 0;
-> 							u32 copy = len > 4 ? 4 : len;
-> 
-> 							/* Hmmm... It looks a bit ugly. :) */
-> 							memcpy(&tmp, optp, copy);
-> 
-> 							/* 2 + 2: optlen(2 bytes) + 
-> 							 *      kind(1 byte) + length(1 byte) */
-> 							if (len == 4)
-> 								tmp = ntohs(tmp);
-> 							else
-> 								tmp = ntohl(tmp);
-> 
-> 							if (f->opt[optnum].wc.wc == '%') {
-> 								if ((tmp % f->opt[optnum].wc.val) != 0)
-> 									fmatch = FMATCH_OPT_WRONG;
-> 							} else if (tmp != f->opt[optnum].wc.val)
-> 								fmatch = FMATCH_OPT_WRONG;
-> 						}
-> 					}
-> #endif
-> 					optp = optend;
-> 				} else
-> 					fmatch = FMATCH_OPT_WRONG;
-> 
-> 				if (fmatch != FMATCH_OK)
-> 					break;
-> 			}
-> 
-> 			if (fmatch != FMATCH_OPT_WRONG) {
-> 				fmatch = FMATCH_WRONG;
-> 
-> 				switch (check_WSS) {
-> 				case 0:
-> 					if (f->wss.val == 0 || window == f->wss.val)
-> 						fmatch = FMATCH_OK;
-> 					break;
-> 				case 1:	/* MSS */
-> #define SMART_MSS_1	1460
-> #define SMART_MSS_2	1448
-> 					if (window == f->wss.val * mss ||
-> 					    window == f->wss.val * SMART_MSS_1 ||
-> 					    window == f->wss.val * SMART_MSS_2)
-> 						fmatch = FMATCH_OK;
-> 					break;
-> 				case 2:	/* MTU */
-> 					if (window == f->wss.val * (mss + 40) ||
-> 					    window == f->wss.val * (SMART_MSS_1 + 40) ||
-> 					    window == f->wss.val * (SMART_MSS_2 + 40))
-> 						fmatch = FMATCH_OK;
-> 					break;
-> 				case 3:	/* MOD */
-> 					if ((window % f->wss.val) == 0)
-> 						fmatch = FMATCH_OK;
-> 					break;
-> 				}
-> 			}
-> 
-> 			if (fmatch == FMATCH_OK) {
-> 				fcount++;
-> 				log("%s [%s:%s:%s] : %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u hops=%d\n", 
-> 						f->genre, f->version, f->subtype, f->details, 
-> 						NIPQUAD(ip->saddr), ntohs(tcp->source), 
-> 						NIPQUAD(ip->daddr), ntohs(tcp->dest), 
-> 						f->ttl - ip->ttl);
-> 				if (info->flags & IPT_OSF_CONNECTOR)
-> 					ipt_osf_send_connector(f, skb);
-> 
-> 				if ((info->flags & IPT_OSF_LOG) &&
-> 				    info->loglevel == IPT_OSF_LOGLEVEL_FIRST)
-> 					break;
-> 			}
-> 		}
-> 	}
-> 	rcu_read_unlock();
-> 
-> 	if (!fcount && (info->flags & (IPT_OSF_LOG | IPT_OSF_NETLINK | IPT_OSF_CONNECTOR))) {
-> 		unsigned char opt[4 * 15 - sizeof(struct tcphdr)];
-> 		unsigned int i, optsize;
-> 		struct ipt_osf_finger fg;
-> 
-> 		memset(&fg, 0, sizeof(fg));
-> #if 1
-> 		if ((info->flags & IPT_OSF_LOG) && (info->loglevel != IPT_OSF_LOGLEVEL_ALL_KNOWN))
-> 			log("Unknown: win: %u, mss: %u, totlen: %u, df: %d, ttl: %u : ", window, mss, totlen, df, ip->ttl);
-> 		if (optp) {
-> 			optsize = tcp->doff * 4 - sizeof(struct tcphdr);
-> 			if (skb_copy_bits(skb, ip->ihl * 4 + sizeof(struct tcphdr),
-> 					opt, optsize) < 0) {
-> 				if (info->flags & IPT_OSF_LOG)
-> 					loga("TRUNCATED");
-> 				if (info->flags & IPT_OSF_NETLINK)
-> 					strcpy(fg.details, "TRUNCATED");
-> 			} else {
-> 				for (i = 0; i < optsize; i++) {
-> 					if (info->flags & IPT_OSF_LOG)
-> 						loga("%02X ", opt[i]);
-> 				}
-> 				if (info->flags & IPT_OSF_NETLINK)
-> 					memcpy(fg.details, opt, min_t(unsigned int, optsize, MAXDETLEN));
-> 			}
-> 		}
-> 		if ((info->flags & IPT_OSF_LOG) && (info->loglevel != IPT_OSF_LOGLEVEL_ALL_KNOWN))
-> 			loga(" %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n",
-> 			     NIPQUAD(ip->saddr), ntohs(tcp->source),
-> 			     NIPQUAD(ip->daddr), ntohs(tcp->dest));
-> #endif
-> 		if (info->flags & (IPT_OSF_NETLINK | IPT_OSF_CONNECTOR)) {
-> 			fg.wss.val = window;
-> 			fg.ttl = ip->ttl;
-> 			fg.df = df;
-> 			fg.ss = totlen;
-> 			fg.mss = mss;
-> 			strncpy(fg.genre, "Unknown", MAXGENRELEN);
-> 
-> 			if (info->flags & IPT_OSF_CONNECTOR)
-> 				ipt_osf_send_connector(&fg, skb);
-> 		}
-> 	}
-> 
-> 	if (fcount)
-> 		fmatch = FMATCH_OK;
-> 
-> 	return (fmatch == FMATCH_OK) ? 1 : 0;
-> }
-> 
-> static bool
-> ipt_osf_checkentry(const char *tablename,
-> 		const void *data,
-> 		const struct xt_match *match,
-> 		void *matchinfo,
-> 		unsigned int hook_mask)
-> {
-> 	struct ipt_ip *ip = (struct ipt_ip *)data;
-> 
-> 	if (ip->proto != IPPROTO_TCP)
-> 		return false;
-> 
-> 	return true;
-> }
-> 
-> static struct xt_match ipt_osf_match = {
-> 	.name 		= "osf",
-> 	.revision	= 0,
-> 	.family		= AF_INET,
-> 	.hooks      	= (1 << NF_INET_LOCAL_IN) | (1 << NF_INET_PRE_ROUTING),
-> 	.match 		= ipt_osf_match_packet,
-> 	.checkentry	= ipt_osf_checkentry,
-> 	.matchsize	= sizeof(struct ipt_osf_info),
-> 	.me		= THIS_MODULE,
-> };
-> 
-> static int __devinit ipt_osf_init(void)
-> {
-> 	int err = -EINVAL;
-> 	struct proc_dir_entry *p;
-> 
-> 	log("Startng OS fingerprint matching module.\n");
-> 
-> 	p = create_proc_entry("osf", S_IFREG | 0644, proc_net_netfilter);
-> 	if (!p)
-> 		goto err_out_exit;
-> 
-> 	p->write_proc = ipt_osf_proc_write;
-> 	p->read_proc = ipt_osf_proc_read;
-> 
-> 	err = xt_register_match(&ipt_osf_match);
-> 	if (err) {
-> 		log("Failed to register OS fingerprint matching module.\n");
-> 		goto err_out_remove;
-> 	}
-> 
-> 	return 0;
-> 
-> err_out_remove:
-> 	remove_proc_entry("osf", proc_net_netfilter);
-> err_out_exit:
-> 	return err;
-> }
-> 
-> static void __devexit ipt_osf_fini(void)
-> {
-> 	struct ipt_osf_finger *f, *n;
-> 
-> 	remove_proc_entry("osf", proc_net_netfilter);
-> 	xt_unregister_match(&ipt_osf_match);
-> 
-> 	list_for_each_entry_safe(f, n, &ipt_finger_list, flist) {
-
-Why is it safe to do the above without being in an RCU read-side critical
-section?  Have all possible RCU readers somehow been banished?  If so,
-how have they been banished?
-
-> 		list_del(&f->flist);
-
-Ditto for why the list_del() is safe without the update-side lock and
-why it doesn't have to be list_del_rcu().
-
-> 		ipt_osf_finger_free(f);
-> 	}
-> 
-> 	log("OS fingerprint matching module finished.\n");
-> }
-> 
-> module_init(ipt_osf_init);
-> module_exit(ipt_osf_fini);
-> 
-> MODULE_LICENSE("GPL");
-> MODULE_AUTHOR("Evgeniy Polyakov <johnpol@2ka.mipt.ru>");
-> MODULE_DESCRIPTION("Passive OS fingerprint matching.");
-
-> /*
->  * ipt_osf.h
->  *
->  * Copyright (c) 2003 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
->  *
->  *
->  * This program is free software; you can redistribute it and/or modify
->  * it under the terms of the GNU General Public License as published by
->  * the Free Software Foundation; either version 2 of the License, or
->  * (at your option) any later version.
->  *
->  * This program is distributed in the hope that it will be useful,
->  * but WITHOUT ANY WARRANTY; without even the implied warranty of
->  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->  * GNU General Public License for more details.
->  *
->  * You should have received a copy of the GNU General Public License
->  * along with this program; if not, write to the Free Software
->  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
->  */
-> 
-> #ifndef _IPT_OSF_H
-> #define _IPT_OSF_H
-> 
-> #define MAXGENRELEN		32
-> #define MAXDETLEN		64
-> 
-> #define IPT_OSF_GENRE		1
-> #define	IPT_OSF_TTL		2
-> #define IPT_OSF_LOG		4
-> #define IPT_OSF_NETLINK		8
-> #define IPT_OSF_CONNECTOR	16
-> #define IPT_OSF_INVERT		32
-> 
-> #define IPT_OSF_LOGLEVEL_ALL	0
-> #define IPT_OSF_LOGLEVEL_FIRST	1
-> #define IPT_OSF_LOGLEVEL_ALL_KNOWN	2
-> 
-> #define IPT_OSF_TTL_TRUE	0	/* True ip and fingerprint TTL comparison */
-> #define IPT_OSF_TTL_LESS	1	/* Check if ip TTL is less than fingerprint one */
-> #define IPT_OSF_TTL_NOCHECK	2	/* Do not compare ip and fingerprint TTL at all */
-> 
-> #ifndef __KERNEL__
-> #include <netinet/ip.h>
-> #include <netinet/tcp.h>
-> 
-> struct list_head {
-> 	struct list_head *prev, *next;
-> };
-> #endif
-> 
-> struct ipt_osf_info {
-> 	char genre[MAXGENRELEN];
-> 	__u32 len, flags, loglevel, ttl;
-> } __attribute__ ((packed));
-> 
-> struct ipt_osf_wc {
-> 	__u8 wc;
-> 	__u32 val;
-> } __attribute__ ((packed));
-> 
-> /* This struct represents IANA options
->  * http://www.iana.org/assignments/tcp-parameters
->  */
-> struct ipt_osf_opt {
-> 	__u8 kind, length;
-> 	struct ipt_osf_wc wc;
-> } __attribute__ ((packed));
-> 
-> struct ipt_osf_finger {
-> 	struct list_head flist;
-> 	struct ipt_osf_wc wss;
-> 	__u8 ttl, df;
-> 	__u16 ss, mss;
-> 	unsigned char genre[MAXGENRELEN];
-> 	unsigned char version[MAXGENRELEN], subtype[MAXGENRELEN];
-> 
-> 	/* Not needed, but for consistency with original table from Michal Zalewski */
-> 	unsigned char details[MAXDETLEN];
-> 
-> 	int opt_num;
-> 	struct ipt_osf_opt opt[MAX_IPOPTLEN];	/* In case it is all NOP or EOL */
-> 
-> } __attribute__ ((packed));
-> 
-> struct ipt_osf_nlmsg {
-> 	struct ipt_osf_finger f;
-> 	struct iphdr ip;
-> 	struct tcphdr tcp;
-> } __attribute__ ((packed));
-> 
-> #ifdef __KERNEL__
-> 
-> #include <linux/list.h>
-> #include <net/tcp.h>
-> 
-> /* Defines for IANA option kinds */
-> 
-> #define OSFOPT_EOL		0	/* End of options */
-> #define OSFOPT_NOP		1	/* NOP */
-> #define OSFOPT_MSS		2	/* Maximum segment size */
-> #define OSFOPT_WSO		3	/* Window scale option */
-> #define OSFOPT_SACKP		4	/* SACK permitted */
-> #define OSFOPT_SACK		5	/* SACK */
-> #define OSFOPT_ECHO		6
-> #define OSFOPT_ECHOREPLY	7
-> #define OSFOPT_TS		8	/* Timestamp option */
-> #define OSFOPT_POCP		9	/* Partial Order Connection Permitted */
-> #define OSFOPT_POSP		10	/* Partial Order Service Profile */
-> #define OSFOPT_EMPTY		255
-> /* Others are not used in current OSF */
-> 
-> static struct ipt_osf_opt IANA_opts[] = {
-> 	{0, 1,},
-> 	{1, 1,},
-> 	{2, 4,},
-> 	{3, 3,},
-> 	{4, 2,},
-> 	{5, 1,},		/* SACK length is not defined */
-> 	{6, 6,},
-> 	{7, 6,},
-> 	{8, 10,},
-> 	{9, 2,},
-> 	{10, 3,},
-> 	{11, 1,},		/* CC: Suppose 1 */
-> 	{12, 1,},		/* the same */
-> 	{13, 1,},		/* and here too */
-> 	{14, 3,},
-> 	{15, 1,},		/* TCP Alternate Checksum Data. Length is not defined */
-> 	{16, 1,},
-> 	{17, 1,},
-> 	{18, 3,},
-> 	{19, 18,},
-> 	{20, 1,},
-> 	{21, 1,},
-> 	{22, 1,},
-> 	{23, 1,},
-> 	{24, 1,},
-> 	{25, 1,},
-> 	{26, 1,},
-> };
-> 
-> #endif				/* __KERNEL__ */
-> 
-> #endif				/* _IPT_OSF_H */
-
-> /*
->  * libipt_osf.c
->  *
->  * Copyright (c) 2003-2006 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
->  *
->  *
->  * This program is free software; you can redistribute it and/or modify
->  * it under the terms of the GNU General Public License as published by
->  * the Free Software Foundation; either version 2 of the License, or
->  * (at your option) any later version.
->  *
->  * This program is distributed in the hope that it will be useful,
->  * but WITHOUT ANY WARRANTY; without even the implied warranty of
->  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->  * GNU General Public License for more details.
->  *
->  * You should have received a copy of the GNU General Public License
->  * along with this program; if not, write to the Free Software
->  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
->  */
-> 
-> /*
->  * iptables interface for OS fingerprint matching module.
->  */
-> 
-> #include <stdio.h>
-> #include <netdb.h>
-> #include <string.h>
-> #include <stdlib.h>
-> #include <getopt.h>
-> #include <ctype.h>
-> 
-> #include <iptables.h>
-> 
-> typedef unsigned int __u32;
-> typedef unsigned short __u16;
-> typedef unsigned char __u8;
-> 
-> #include "ipt_osf.h"
-> 
-> static void osf_help(void)
-> {
-> 	printf("OS fingerprint match options:\n"
-> 		"--genre [!] string	Match a OS genre by passive fingerprinting.\n"
-> 		"--ttl			Use some TTL check extensions to determine OS:\n"
-> 		"	0			true ip and fingerprint TTL comparison. Works for LAN.\n"
-> 		"	1			check if ip TTL is less than fingerprint one. Works for global addresses.\n"
-> 		"	2			do not compare TTL at all. Allows to detect NMAP, but can produce false results.\n"
-> 		"--log level		Log determined genres into dmesg even if they do not match desired one:\n"
-> 		"	0			log all matched or unknown signatures.\n"
-> 		"	1			log only first one.\n"
-> 		"	2			log all known matched signatures.\n"
-> 		"--connector		Log through kernel connector [2.6.14+].\n\n"
-> 		);
-> }
-> 
-> 
-> static const struct option osf_opts[] = {
-> 	{ .name = "genre",	.has_arg = 1, .flag = 0, .val = '1' },
-> 	{ .name = "ttl",	.has_arg = 1, .flag = 0, .val = '2' },
-> 	{ .name = "log",	.has_arg = 1, .flag = 0, .val = '3' },
-> 	{ .name = "netlink",	.has_arg = 0, .flag = 0, .val = '4' },
-> 	{ .name = "connector",	.has_arg = 0, .flag = 0, .val = '5' },
-> 	{ .name = NULL }
-> };
-> 
-> 
-> static void osf_init(struct xt_entry_match *m)
-> {
-> }
-> 
-> static void osf_parse_string(const unsigned char *s, struct ipt_osf_info *info)
-> {
-> 	if (strlen(s) < MAXGENRELEN) 
-> 		strcpy(info->genre, s);
-> 	else 
-> 		exit_error(PARAMETER_PROBLEM, "Genre string too long `%s' [%d], max=%d", 
-> 				s, strlen(s), MAXGENRELEN);
-> }
-> 
-> static int osf_parse(int c, char **argv, int invert, unsigned int *flags,
->       			const void *entry,
->       			struct xt_entry_match **match)
-> {
-> 	struct ipt_osf_info *info = (struct ipt_osf_info *)(*match)->data;
-> 	
-> 	switch(c) 
-> 	{
-> 		case '1': /* --genre */
-> 			if (*flags & IPT_OSF_GENRE)
-> 				exit_error(PARAMETER_PROBLEM, "Can't specify multiple genre parameter");
-> 			check_inverse(optarg, &invert, &optind, 0);
-> 			osf_parse_string(argv[optind-1], info);
-> 			if (invert)
-> 				info->flags |= IPT_OSF_INVERT;
-> 			info->len=strlen((char *)info->genre);
-> 			*flags |= IPT_OSF_GENRE;
-> 			break;
-> 		case '2': /* --ttl */
-> 			if (*flags & IPT_OSF_TTL)
-> 				exit_error(PARAMETER_PROBLEM, "Can't specify multiple ttl parameter");
-> 			*flags |= IPT_OSF_TTL;
-> 			info->flags |= IPT_OSF_TTL;
-> 			info->ttl = atoi(argv[optind-1]);
-> 			break;
-> 		case '3': /* --log */
-> 			if (*flags & IPT_OSF_LOG)
-> 				exit_error(PARAMETER_PROBLEM, "Can't specify multiple log parameter");
-> 			*flags |= IPT_OSF_LOG;
-> 			info->loglevel = atoi(argv[optind-1]);
-> 			info->flags |= IPT_OSF_LOG;
-> 			break;
-> 		case '4': /* --netlink */
-> 			if (*flags & IPT_OSF_NETLINK)
-> 				exit_error(PARAMETER_PROBLEM, "Can't specify multiple netlink parameter");
-> 			*flags |= IPT_OSF_NETLINK;
-> 			info->flags |= IPT_OSF_NETLINK;
-> 			break;
-> 		case '5': /* --connector */
-> 			if (*flags & IPT_OSF_CONNECTOR)
-> 				exit_error(PARAMETER_PROBLEM, "Can't specify multiple connector parameter");
-> 			*flags |= IPT_OSF_CONNECTOR;
-> 			info->flags |= IPT_OSF_CONNECTOR;
-> 			break;
-> 		default:
-> 			return 0;
-> 	}
-> 
-> 	return 1;
-> }
-> 
-> static void osf_final_check(unsigned int flags)
-> {
-> 	if (!flags)
-> 		exit_error(PARAMETER_PROBLEM, "OS fingerprint match: You must specify `--genre'");
-> }
-> 
-> static void osf_print(const void *ip, const struct xt_entry_match *match, int numeric)
-> {
-> 	const struct ipt_osf_info *info = (const struct ipt_osf_info*) match->data;
-> 
-> 	printf("OS fingerprint match %s%s ", (info->flags & IPT_OSF_INVERT) ? "!" : "", info->genre);
-> }
-> 
-> static void osf_save(const void *ip, const struct xt_entry_match *match)
-> {
-> 	const struct ipt_osf_info *info = (const struct ipt_osf_info*) match->data;
-> 
-> 	printf("--genre %s%s ", (info->flags & IPT_OSF_INVERT) ? "! ": "", info->genre);
-> }
-> 
-> 
-> static struct xtables_match osf_match = {
->     .name		= "osf",
->     .version		= XTABLES_VERSION,
->     .size		= XT_ALIGN(sizeof(struct ipt_osf_info)),
->     .userspacesize	= XT_ALIGN(sizeof(struct ipt_osf_info)),
->     .help		= &osf_help,
->     .init		= &osf_init,
->     .parse		= &osf_parse,
->     .print		= &osf_print,
->     .final_check	= &osf_final_check,
->     .save		= &osf_save,
->     .extra_opts		= osf_opts
-> };
-> 
-> 
-> void _init(void)
-> {
-> 	xtables_register_match(&osf_match);
-> }
-
-> obj-m		:= ipt_osf.o
-> 
-> KDIR	:= /lib/modules/$(shell uname -r)/build
-> IPTABLES:= /usr/include
-> 
-> ifeq ($(IPTABLES),path_to_iptables_sources_or_header_files)
-> $(error "Edit IPTABLES variable in Makefile and read README")
-> endif
-> PWD	:= $(shell pwd)
-> 
-> iptables_version=$(shell (/sbin/iptables -V | awk {'print $$2'} | cut -c 2-))
-> LCFLAGS = -DIPTABLES_VERSION=\"$(iptables_version)\"
-> 
-> default:
-> 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
-> 
-> clean:
-> 	rm -f *.o *.ko *.mod.* .*.cmd *~
-> 	rm -rf .tmp_versions
-> 	rm -f *.o *~ *.so *.ko load osfd ucon_osf
-> 
-> lib:	libipt_osf.c ipt_osf.h
-> 	gcc $(LCFLAGS) libipt_osf.c -D_INIT=_init -fPIC -I$(IPTABLES)/include -c -o libipt_osf.o
-> 	gcc -shared -nostdlib -rdynamic -Wl,-soname,libipt_osf.so -o libipt_osf.so libipt_osf.o
-> 
-> bin:	osfd.c load.c ucon_osf.c
-> 	gcc -W -Wall osfd.c -o osfd
-> 	gcc -W -Wall load.c -o load
-> 	gcc -W -Wall ucon_osf.c -o ucon_osf
-
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 633147c..4213379 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1110,6 +1110,7 @@ union tcp_md5sum_block {
+ struct tcp_md5sig_pool {
+ 	struct hash_desc	md5_desc;
+ 	union tcp_md5sum_block	md5_blk;
++	struct scatterlist sg[MAX_SKB_FRAGS + 3];
+ };
+ 
+ #define TCP_MD5SIG_MAXKEYS	(~(u32)0)	/* really?! */
+@@ -1120,9 +1121,10 @@ extern int			tcp_v4_calc_md5_hash(char *md5_hash,
+ 						     struct sock *sk,
+ 						     struct dst_entry *dst,
+ 						     struct request_sock *req,
+-						     struct tcphdr *th,
+ 						     int protocol,
+-						     unsigned int tcplen);
++						     struct tcphdr *th,
++						     int data_off, int tcplen,
++						     struct skb_shared_info *);
+ extern struct tcp_md5sig_key	*tcp_v4_md5_lookup(struct sock *sk,
+ 						   struct sock *addr_sk);
+ 
+@@ -1370,9 +1372,10 @@ struct tcp_sock_af_ops {
+ 						  struct sock *sk,
+ 						  struct dst_entry *dst,
+ 						  struct request_sock *req,
+-						  struct tcphdr *th,
+ 						  int protocol,
+-						  unsigned int len);
++						  struct tcphdr *th,
++						  int data_off, int tcplen,
++						  struct skb_shared_info*frags);
+ 	int			(*md5_add) (struct sock *sk,
+ 					    struct sock *addr_sk,
+ 					    u8 *newkey,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index cd601a8..5041e92 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -95,8 +95,9 @@ static struct tcp_md5sig_key *tcp_v4_md5_do_lookup(struct sock *sk,
+ 						   __be32 addr);
+ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 				   __be32 saddr, __be32 daddr,
+-				   struct tcphdr *th, int protocol,
+-				   unsigned int tcplen);
++				   int protocol,
++				   struct tcphdr *th, int data_off, int tcplen,
++				   struct skb_shared_info *frags);
+ #endif
+ 
+ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
+@@ -586,8 +587,9 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 					key,
+ 					ip_hdr(skb)->daddr,
+ 					ip_hdr(skb)->saddr,
+-					&rep.th, IPPROTO_TCP,
+-					arg.iov[0].iov_len);
++					IPPROTO_TCP, &rep.th,
++					arg.iov[0].iov_len, arg.iov[0].iov_len,
++					NULL);
+ 	}
+ #endif
+ 	arg.csum = csum_tcpudp_nofold(ip_hdr(skb)->daddr,
+@@ -680,8 +682,9 @@ static void tcp_v4_send_ack(struct tcp_timewait_sock *twsk,
+ 					key,
+ 					ip_hdr(skb)->daddr,
+ 					ip_hdr(skb)->saddr,
+-					&rep.th, IPPROTO_TCP,
+-					arg.iov[0].iov_len);
++					IPPROTO_TCP, &rep.th,
++					arg.iov[0].iov_len, arg.iov[0].iov_len,
++					NULL);
+ 	}
+ #endif
+ 	arg.csum = csum_tcpudp_nofold(ip_hdr(skb)->daddr,
+@@ -1004,20 +1007,56 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
+ 				 newkey, cmd.tcpm_keylen);
+ }
+ 
++/*
++static void
++md5_dump(struct scatterlist *sglist, int nsg, unsigned nbytes, int data_off, int tcplen, char frags) {
++	struct scatterlist *sg;
++	unsigned e;
++
++	printk(KERN_INFO "MD5: %d %d %d %d %d\n", nsg, nbytes, data_off, tcplen, frags);
++	for_each_sg(sglist, sg, nsg, e) {
++		u8 *buf = sg_virt(sg);
++		unsigned i;
++
++		for (i = 0; i < sg->length; ++i)
++			printk(" %02x", buf[i]);
++
++		printk("\n");
++	}
++
++	printk("\n");
++}*/
++
++/**
++ * tcp_v4_do_calc_md5_hash - calculate an MD5 hash (RFC 2385)
++ * @md5_hash: (output) a 16 byte space into which the MD5 sig is written
++ * @key: the key that is appened to the hash input
++ * @saddr: source IP address for the packet
++ * @daddr: destination IP address for the packet
++ * @protocol: the protocol number in the IP header (see the RFC)
++ * @th: the TCP header, followed by options and (optional) data
++ * @data_off: the offset of the optional data (in bytes) from @th
++ * @tcplen: the length of the buffer (in bytes) pointed to by @th. If
++ *   @tcplen == @data_off then there is no data following the header
++ * @frags: (maybe NULL) a list of additional fragments of data
++ *
++ * We don't always have the SKB when this function is called, thus the pointer
++ * to the TCP header and all the length arguments.
++ */
+ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+-				   __be32 saddr, __be32 daddr,
+-				   struct tcphdr *th, int protocol,
+-				   unsigned int tcplen)
++				   __be32 saddr, __be32 daddr, int protocol,
++				   struct tcphdr *th, int data_off, int tcplen,
++				   struct skb_shared_info *frags)
+ {
+-	struct scatterlist sg[4];
+-	__u16 data_len;
++	struct scatterlist *sg;
++	const __u16 head_data_len = tcplen - data_off;
+ 	int block = 0;
+ 	__sum16 old_checksum;
+ 	struct tcp_md5sig_pool *hp;
+ 	struct tcp4_pseudohdr *bp;
+ 	struct hash_desc *desc;
+-	int err;
+-	unsigned int nbytes = 0;
++	int err, i;
++	unsigned int nbytes = tcplen;
+ 
+ 	/*
+ 	 * Okay, so RFC2385 is turned on for this connection,
+@@ -1029,6 +1068,7 @@ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 		goto clear_hash_noput;
+ 
+ 	bp = &hp->md5_blk.ip4;
++	sg = hp->sg;
+ 	desc = &hp->md5_desc;
+ 
+ 	/*
+@@ -1040,9 +1080,14 @@ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 	bp->daddr = daddr;
+ 	bp->pad = 0;
+ 	bp->protocol = protocol;
+-	bp->len = htons(tcplen);
++	if (frags)
++		for (i = 0; i < frags->nr_frags; ++i)
++			nbytes += frags->frags[i].size;
++	bp->len = htons(nbytes);
++	nbytes = 0;
+ 
+-	sg_init_table(sg, 4);
++	sg_init_table(sg, 3 + (head_data_len > 0) +
++		      (frags ? frags->nr_frags : 0));
+ 
+ 	sg_set_buf(&sg[block++], bp, sizeof(*bp));
+ 	nbytes += sizeof(*bp);
+@@ -1056,11 +1101,21 @@ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 	nbytes += sizeof(struct tcphdr);
+ 
+ 	/* 3. the TCP segment data (if any) */
+-	data_len = tcplen - (th->doff << 2);
+-	if (data_len > 0) {
+-		unsigned char *data = (unsigned char *)th + (th->doff << 2);
+-		sg_set_buf(&sg[block++], data, data_len);
+-		nbytes += data_len;
++	if (head_data_len > 0) {
++		unsigned char *data = (unsigned char *)th + data_off;
++		sg_set_buf(&sg[block++], data, head_data_len);
++		nbytes += head_data_len;
++	}
++
++	if (frags) {
++		for (i = 0; i < frags->nr_frags; ++i) {
++			const struct skb_frag_struct *f = &frags->frags[i];
++			sg_set_buf(&sg[block++],
++				   ((unsigned char *) page_address(f->page)) +
++				     f->page_offset,
++				   f->size);
++			nbytes += f->size;
++		}
+ 	}
+ 
+ 	/* 4. an independently-specified key or password, known to both
+@@ -1069,7 +1124,7 @@ static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 	sg_set_buf(&sg[block++], key->key, key->keylen);
+ 	nbytes += key->keylen;
+ 
+-	sg_mark_end(&sg[block - 1]);
++	/*md5_dump(sg, block, nbytes, data_off, tcplen, frags != NULL);*/
+ 
+ 	/* Now store the Hash into the packet */
+ 	err = crypto_hash_init(desc);
+@@ -1099,8 +1154,9 @@ int tcp_v4_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 			 struct sock *sk,
+ 			 struct dst_entry *dst,
+ 			 struct request_sock *req,
+-			 struct tcphdr *th, int protocol,
+-			 unsigned int tcplen)
++			 int protocol,
++			 struct tcphdr *th, int data_off, int tcplen,
++			 struct skb_shared_info *frags)
+ {
+ 	__be32 saddr, daddr;
+ 
+@@ -1113,9 +1169,8 @@ int tcp_v4_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+ 		saddr = rt->rt_src;
+ 		daddr = rt->rt_dst;
+ 	}
+-	return tcp_v4_do_calc_md5_hash(md5_hash, key,
+-				       saddr, daddr,
+-				       th, protocol, tcplen);
++	return tcp_v4_do_calc_md5_hash(md5_hash, key, saddr, daddr, protocol,
++				       th, data_off, tcplen, frags);
+ }
+ 
+ EXPORT_SYMBOL(tcp_v4_calc_md5_hash);
+@@ -1206,8 +1261,10 @@ done_opts:
+ 	genhash = tcp_v4_do_calc_md5_hash(newhash,
+ 					  hash_expected,
+ 					  iph->saddr, iph->daddr,
+-					  th, sk->sk_protocol,
+-					  skb->len);
++					  sk->sk_protocol, th, th->doff << 2,
++					  skb_headlen(skb),
++					  skb_is_nonlinear(skb) ?
++						skb_shinfo(skb) : NULL);
+ 
+ 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
+ 		if (net_ratelimit()) {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e399bde..40b2c72 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -606,9 +606,11 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		tp->af_specific->calc_md5_hash(md5_hash_location,
+ 					       md5,
+ 					       sk, NULL, NULL,
+-					       tcp_hdr(skb),
+ 					       sk->sk_protocol,
+-					       skb->len);
++					       th, th->doff << 2,
++					       skb_headlen(skb),
++					       skb_is_nonlinear(skb) ?
++						 skb_shinfo(skb) : NULL);
+ 	}
+ #endif
+ 
+@@ -2263,9 +2265,11 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	if (md5) {
+ 		tp->af_specific->calc_md5_hash(md5_hash_location,
+ 					       md5,
+-					       NULL, dst, req,
+-					       tcp_hdr(skb), sk->sk_protocol,
+-					       skb->len);
++					       NULL, dst, req, sk->sk_protocol,
++					       th, th->doff << 2,
++					       skb_headlen(skb),
++					       skb_is_nonlinear(skb) ?
++						 skb_shinfo(skb) : NULL);
+ 	}
+ #endif
+ 
