@@ -1,58 +1,71 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: Re: [RFC] UDP SndbufErrors interface and the /proc/net/udp interface.
-Date: Tue, 1 Jul 2008 16:50:03 +0300
-Message-ID: <d0383f90807010650y1762e0an52b3f8d44a8af33f@mail.gmail.com>
-References: <d0383f90806302347q702416faxe29901bf0d2cdbbb@mail.gmail.com>
-	 <87wsk5ucu2.fsf@basil.nowhere.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Passive OS fingerprinting.
+Date: Tue, 1 Jul 2008 18:14:12 +0400
+Message-ID: <20080701141412.GA30644@2ka.mipt.ru>
+References: <20080701113927.GA16343@2ka.mipt.ru> <486A1AC7.9020706@trash.net> <20080701120320.GA9412@2ka.mipt.ru> <486A2487.2010303@trash.net> <20080701130835.GA29223@2ka.mipt.ru> <486A3426.3000807@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:10619 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020AbYGANuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 09:50:05 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so950672fgg.17
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2008 06:50:04 -0700 (PDT)
-In-Reply-To: <87wsk5ucu2.fsf@basil.nowhere.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59632 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756652AbYGAONz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2008 10:13:55 -0400
 Content-Disposition: inline
+In-Reply-To: <486A3426.3000807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
->That might be overriden by a very clear use case.
+On Tue, Jul 01, 2008 at 03:41:58PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+> >Actually worm detection is one of the use cases - I was told about
+> >successful installations several years ago.
+> 
+> How does that work? I assume in combination with some kind of
+> rate-limit?
 
+IIRC during worm attacks all windows (according to OSF) traffic
+was just routed via slow/shaped device (that was forwarding on
+a gateway with appropriate NAT). Right now I would recomment to
+use recent/rateest module to make fine-grained tuning of the connection.
 
-What I had in mind is this:
+> >I am also not sure OSF should live in kernel, but what it does it does
+> >good and there is no simple way to do the same with existing
+> >functionality. It is possible, but not simple, and definitely not
+> >trivial for administrator :)
+> 
+> I don't like the current way such things are implemented in iptables
+> (have all logic in the kernel instead of just providing a mechanism
+> for implementing it in userspace and presenting a nice view to the
+> administrator). Thats not your fault of course and your module is
+> also not the first one to do this.
 
-This can help in debugging problems.
+I bet it is not the last one :)
 
-I have a machine which works with many UDP sockets. After some hours
-(sometimes days), there are problems ; some of them might be due to
-that UDP packets are not sent. I want to know stats per UDP port so
-that I will know for each socket how many packets were not sent; in
-current implementation, I can only know the total of these packets,
-and not per port (by probing into the /proc/net/snmp stats)
+> Unfortunately its most likely not possible to convince me to like
+> this, so lets just say that I'm fine with merging it if someone
+> speaks up in favour of it :)
 
-Regards,
-Ian
+Cool. If no none will reply, nothing actually changes :)
+OSF lived on its own all the time except several months in patch-o-matic
+and then its next generation.
 
+> >There was no nfnetlink either 5 years ago, when OSF was created,
+> >this release is just subsequent update to the project.
+> >At some moment OSF shared netlink group with ulog, but it was
+> >considered harmful, so I dropped support. Netlink usage is
+> >rather trivial: it just sends information about matched packt to
+> >userspace, so it can block it on its own, rise a message in the window
+> >or perform some other steps. Nothing exceptionally complex :)
+> >  
+> 
+> Yes, but I don't want to add another interface netfilter userspace
+> has to know about. It should either use nfnetlink and remove the proc
+> interface, or remove the connector interface and use proc.
+> Preferrably the former.
 
-On Tue, Jul 1, 2008 at 1:18 PM, Andi Kleen <andi@firstfloor.org> wrote:
-> "Ian Brown" <ianbrn@gmail.com> writes:
->>
->> I wonder: would such a patch (form me or others) in needed ? Or will
->> it be rejected because this idea is not good ?
->> In case this idea is not good, I wonder what is the reason for it.
->
-> One possible reason against it is that struct sock size is relatively
-> critical for memory consumption and there's usually some resistance
-> against adding more fields for it.
->
-> That might be overriden by a very clear use case.
->
-> -Andi
->
->
+It uses proc to load rules - I do not like it either, but it was the
+simplest way to do so :)
+
+-- 
+	Evgeniy Polyakov
