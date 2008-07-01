@@ -1,41 +1,37 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Passive OS fingerprinting.
-Date: Tue, 01 Jul 2008 16:25:06 +0200
-Message-ID: <486A3E42.9000009@trash.net>
-References: <20080701113927.GA16343@2ka.mipt.ru> <486A1AC7.9020706@trash.net> <20080701120320.GA9412@2ka.mipt.ru> <486A2487.2010303@trash.net> <20080701130835.GA29223@2ka.mipt.ru> <alpine.LNX.1.10.0807011623340.12878@fbirervta.pbzchgretzou.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.1.10.0807011623340.12878@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [RFC]: net-sched 00/05: dynamically sized class hashes
+Date: Tue,  1 Jul 2008 16:34:11 +0200 (MEST)
+Message-ID: <20080701143410.26309.45560.sendpatchset@localhost.localdomain>
+Cc: devik@cdi.cz, Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:39056 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755199AbYGAOeM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 10:34:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
-> On Tuesday 2008-07-01 15:08, Evgeniy Polyakov wrote:
->   
->>>> I'm not sure it is that simple. OSF uses common rules database
->>>> shared with OpenBSD (and other *BSDs as well), so converting it into u32
->>>> match would require noticeble efforts. But in theory it is probably
->>>> doable.
->>>>         
->>> This would be preferrable in my opinion since they both allow
->>> programmable filters, but u32 appears to be more flexible. I'm
->>> very reluctant to add new iptables modules that don't increase
->>> expressiveness or provide other clear benefits since we already
->>> have an insane amount of modules.
->>>       
->
-> An iptables extension which you can use with -m osf --genre Linux
-> but which internally uses xt_u32.ko would be the perfect solution
-> ATM IMO. It would require a number of changes to the iptables API
-> though...
->   
+These patches add support for dynamically sized class hash tables
+to remove a major bottleneck in qdisc filters with many classes
+when filters are not bound to classes and convert CBQ, HTB and HFSC
+to use them.
 
-I agree that this would be much nicer. I assume you would either need
-a way to associate multiple matches with a single userspace extension
-or a much more intelligent parser in userspace?
+Only RFC at this point because they haven't been tested thoroughly yet
+and depend on the filter destruction fixes I sent this morning, but any
+review (especially of 4/5, the htb_delete changes) is welcome.
 
+
+ include/net/sch_generic.h |   41 +++++++++++++++
+ net/sched/sch_api.c       |  104 ++++++++++++++++++++++++++++++++++++++
+ net/sched/sch_cbq.c       |  114 +++++++++++++++++++++--------------------
+ net/sched/sch_hfsc.c      |   90 ++++++++++++++++++---------------
+ net/sched/sch_htb.c       |  123 +++++++++++++++++++++------------------------
+ 5 files changed, 310 insertions(+), 162 deletions(-)
+
+Patrick McHardy (5):
+      net-sched: add dynamically sized qdisc class hash helpers
+      net-sched: sch_hfsc: use dynamic class hash helpers
+      net-sched: sch_cbq: use dynamic class hash helpers
+      net-sched: sch_htb: move hash and sibling list removal to htb_delete
+      net-sched: sch_htb: use dynamic class hash helpers
