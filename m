@@ -1,67 +1,74 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
-Date: Tue, 01 Jul 2008 17:35:50 -0400
-Message-ID: <486AA336.7010102@roinet.com>
-References: <20071108181741.8648.61629.stgit@localhost.localdomain> <474DBDA6.50705@roinet.com> <474DBFCE.8010101@intel.com> <474DC0F3.8070604@garzik.org> <474DC68D.9020003@roinet.com> <485959DC.80902@users.sourceforge.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: MD5 SG fix
+Date: Tue, 1 Jul 2008 14:39:43 -0700
+Message-ID: <20080701143943.426c9f24@extreme>
+References: <396556a20805301217k293e5718h6bbf02bfe0683151@europa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	miltonm@bga.com, e1000-devel@lists.sourceforge.net,
-	kexin.hao@windriver.com
-To: =?ISO-8859-1?Q?Anders_Grafstr=F6m?= <grfstrm@users.sourceforge.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:40461
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085AbYGAVfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2008 17:35:51 -0400
-In-Reply-To: <485959DC.80902@users.sourceforge.net>
+Received: from mail.vyatta.com ([216.93.170.194]:45324 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751190AbYGAVju (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2008 17:39:50 -0400
+In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe0683151@europa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anders Grafstr=F6m wrote:
->>>> David Acker wrote:
->>>>> What is the status of this patch?
->>>>
->>>> Jeff merged it in netdev-2.6#upstream so it is queued for 2.6.25.
->=20
-> The e100 driver broke in 2.6.25 on the ixp4xx based platform I'm usin=
-g.
-> This patch seems to be the cause.
->=20
-> It appears to work again with pci_dma_sync_single_for_device() restor=
-ed.
-> So I'm wondering if the patch below would be valid and correct?
->=20
-> Anders
->=20
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index f3cba5e..1037b13 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1803,6 +1803,8 @@ static int e100_rx_alloc_skb(struct nic *nic,=20
-> struct rx *rx)
->      if (rx->prev->skb) {
->          struct rfd *prev_rfd =3D (struct rfd *)rx->prev->skb->data;
->          put_unaligned_le32(rx->dma_addr, &prev_rfd->link);
-> +        pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr=
-,
-> +            sizeof(struct rfd), PCI_DMA_TODEVICE);
->      }
->=20
->      return 0;
-> --=20
+On Tue, 1 Jul 2008 14:16:34 -0700
+"Adam Langley" <agl@imperialviolet.org> wrote:
 
-Acked-by: David Acker <dacker@roinet.com>
+> I believe this patch fixes MD5 in the face of SG interfaces for IPv4. Stephen,
+> could you test this because I don't get non-linear packets in my test network?
+> The patch includes a debugging function which can be uncommented if you have
+> issues.
+> 
+> If this works for you, I'll clean it up and perform the same fix for IPv6
+> before submiting.
+> 
+> Sadly, I couldn't just pass in the SKB to the md5_hash function because there
+> are several places where we don't have an SKB to hand (generating ACKs and
+> RSTs, for example).
+> 
+> This patch is, obviously, semantically incongruent with [1] and [1] should be
+> backed out before applying.
+> 
+> Cheers,
+> 
+> 
+> AGL
+> 
+> 
+> [1] http://marc.info/?l=linux-netdev&m=121459157816964&w=2
+> 
+> ---
+> 
+>  include/net/tcp.h     |   11 +++--
+>  net/ipv4/tcp_ipv4.c   |  113 +++++++++++++++++++++++++++++++++++++------------
+>  net/ipv4/tcp_output.c |   14 ++++--
+>  3 files changed, 101 insertions(+), 37 deletions(-)
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 633147c..4213379 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1110,6 +1110,7 @@ union tcp_md5sum_block {
+>  struct tcp_md5sig_pool {
+>  	struct hash_desc	md5_desc;
+>  	union tcp_md5sum_block	md5_blk;
+> +	struct scatterlist sg[MAX_SKB_FRAGS + 3];
+>  };
+>  
 
-I got a chance to test this patch on both a Compulab CM-X255 and a=20
-Gateworks Avila GW2348-4.  It seems to work fine with little to no=20
-performance hit.  I will give it some longer tests over this week.  If =
-I=20
-run into any problems I will report them here.  Thanks to Anders and=20
-Kevin Hao who posted a similar patch.
--Ack
+I would rather see the pool used less and the stack used more.
+Global context is more like FORTRAN common blocks.
+
+My suggestion would be to have two hash functions, one that takes a block
+for the cases of TCP SYN, etc. and another that takes an skb for data packets.
+
+You still need to have some of the places that reset sk_route_caps otherwise
+you will get TSO/GSO packets because of the resetting of route_caps after the SYN/ACK.
+
 
