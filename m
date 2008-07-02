@@ -1,97 +1,43 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v3 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
-Date: Wed, 02 Jul 2008 16:24:18 +0800
-Message-ID: <486B3B32.3090702@cn.fujitsu.com>
-References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com> <4869FB80.8050107@trash.net>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: [ofa-general] locking requirements when calling dev_set_mtu()
+Date: Wed, 2 Jul 2008 11:54:09 +0300
+Message-ID: <20080702085409.GA13098@mtls03>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62600 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752672AbYGBI3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2008 04:29:00 -0400
-In-Reply-To: <4869FB80.8050107@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <rdreier@cisco.com>,
+	general-list <general@lists.openfabrics.org>
+To: netdev <netdev@vger.kernel.org>, fubar@us.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-v2->v3
-  Do some unwind work when error happen.
+Hi,
 
-allmulti might overflow.
-Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-dev_set_promiscuity/allmulti return error number if overflow happened.
+I have the need to change the MTU of IP over IB from the driver code
+and not from the shell. Looking for the right way to do it I came
+across the dev_set_mtu() which seems appropriate as it handles all
+notifications too. However, it is not clear to me whether I have to
+wrap the call to dev_set_mtu() with any locks. Specifically, I was
+referred to a mail thread that suggests that I have to use
+rtnl_lock()/rtnl_unlock():
+http://marc.info/?l=linux-netdev&m=121201324611292&w=2
 
-Here, we check the positive increment for allmulti to get error return.
+With reference to the above URL, I would say that it is possible for
+me to hit to the assertion ASSERT_RTNL() if I don't take rtnl_lock
+prior to calling dev_set_mtu(). However I don't hit it, though I can't
+count on that there will not be a case that any function registered
+for notification would expect to see the lock acquired.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 11700a4..b1916d2 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -244,6 +244,13 @@ failure:
- 	unregister_netdevice(dev);
- 	return NULL;
- }
-+
-+static void ipmr_unreg_vif(struct net_device *dev)
-+{
-+	dev_close(dev);
-+	unregister_netdevice(dev);
-+	free_netdev(dev);
-+}
- #endif
- 
- /*
-@@ -398,6 +405,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 	struct vif_device *v = &vif_table[vifi];
- 	struct net_device *dev;
- 	struct in_device *in_dev;
-+	int err;
- 
- 	/* Is vif busy ? */
- 	if (VIF_EXISTS(vifi))
-@@ -415,18 +423,31 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 		dev = ipmr_reg_vif();
- 		if (!dev)
- 			return -ENOBUFS;
-+		err = dev_set_allmulti(dev, 1);
-+		if (err) {
-+			ipmr_unreg_vif(dev);
-+			return err;
-+		}
- 		break;
- #endif
- 	case VIFF_TUNNEL:
- 		dev = ipmr_new_tunnel(vifc);
- 		if (!dev)
- 			return -ENOBUFS;
-+		err = dev_set_allmulti(dev, 1);
-+		if (err) {
-+			dev_close(dev);
-+			return err;
-+		}
- 		break;
- 	case 0:
- 		dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
- 		if (!dev)
- 			return -EADDRNOTAVAIL;
- 		dev_put(dev);
-+		err = dev_set_allmulti(dev, 1);
-+		if (err)
-+			return err;
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -435,7 +456,6 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 	if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
- 		return -EADDRNOTAVAIL;
- 	IPV4_DEVCONF(in_dev->cnf, MC_FORWARDING)++;
--	dev_set_allmulti(dev, +1);
- 	ip_rt_multicast_event(in_dev);
- 
- 	/*
+Can someone shed light on this?
 
+Thanks,
+Eli
