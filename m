@@ -1,33 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: net-sched: consolidate default fifo qdisc setup
-Date: Wed, 2 Jul 2008 09:53:52 -0700
-Message-ID: <20080702095352.1cb1a601@extreme>
-References: <486B8CE2.5000603@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [ofa-general] Re: locking requirements when calling dev_set_mtu()
+Date: Wed, 2 Jul 2008 18:15:52 +0100
+Message-ID: <20080702171550.GE17872@solarflare.com>
+References: <20080702085409.GA13098@mtls03>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:36249 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774AbYGBQxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2008 12:53:54 -0400
-In-Reply-To: <486B8CE2.5000603@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Roland Dreier <rdreier@cisco.com>,
+	fubar@us.ibm.com, general-list <general@lists.openfabrics.org>
+To: Eli Cohen <eli@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20080702085409.GA13098@mtls03>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 02 Jul 2008 16:12:50 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> commit dbe4e4f34c356cd31cf9bc8972c0eb4eadebe920
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Wed Jul 2 12:19:36 2008 +0200
+Eli Cohen wrote:
+> Hi,
 > 
->     net-sched: consolidate default fifo qdisc setup
->     
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
+> I have the need to change the MTU of IP over IB from the driver code
+> and not from the shell. Looking for the right way to do it I came
+> across the dev_set_mtu() which seems appropriate as it handles all
+> notifications too. However, it is not clear to me whether I have to
+> wrap the call to dev_set_mtu() with any locks. Specifically, I was
+> referred to a mail thread that suggests that I have to use
+> rtnl_lock()/rtnl_unlock():
+> http://marc.info/?l=linux-netdev&m=121201324611292&w=2
+[...]
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Essentially any function that changes net device configuration requires
+the caller to hold the RTNL lock.  This probably ought to be consistently
+documented through kernel-doc and/or ASSERT_RTNL() though.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
