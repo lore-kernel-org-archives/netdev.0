@@ -1,22 +1,33 @@
-From: "Matti Linnanvuori" <mattilinn@gmail.com>
-Subject: WAN: add drivers etp and etp_stream
-Date: Wed, 2 Jul 2008 15:20:11 +0300
-Message-ID: <ca0148c30807020520w205df57dt4f38c3005ed1a126@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: net-sched 04/05: sch_htb: move hash and sibling list removal
+ to htb_delete
+Date: Wed, 02 Jul 2008 14:25:10 +0200
+Message-ID: <486B73A6.30104@trash.net>
+References: <20080702081559.GA2764@ami.dom.local> <486B543A.8040608@trash.net> <20080702121602.GA2554@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:28711 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756512AbYGBMUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 08:20:13 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so338524wfd.4
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2008 05:20:11 -0700 (PDT)
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:35842 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757819AbYGBMZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 08:25:14 -0400
+In-Reply-To: <20080702121602.GA2554@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch is on top of linux-next July 2:
-http://pcidriver.googlegroups.com/web/etp.patch?hl=en&gda=gY2j2ToAAAD9a223ZdyQxc6jQf5toR43Tvvj2Z9q-U_TAieFz-LtZ2G1qiJ7UbTIup-M2XPURDT_Bl0FHlAiGttY81BZyQiq&gsc=0AWATAsAAABeF7tHcyCs2jwE5zMvzMc5
+Jarek Poplawski wrote:
+> On Wed, Jul 02, 2008 at 12:11:06PM +0200, Patrick McHardy wrote:
+> ...
+>> commit c5b52f74c6b35a570995472295a5dae9d3d3ca74
+>> Author: Patrick McHardy <kaber@trash.net>
+>> Date:   Wed Jul 2 12:10:36 2008 +0200
+>>
+>>     net-sched: sch_htb: move hash and sibling list removal to htb_delete
+>>     
+> I think this patch is OK.
+
+Thanks for your help.
+
