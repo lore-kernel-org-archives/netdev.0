@@ -1,164 +1,69 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: WAN: Remove bogus dosyncppp variable from synclink drivers.
-Date: Wed, 02 Jul 2008 21:10:30 +0200
-Message-ID: <m3tzf83xw9.fsf@maximus.localdomain>
+Subject: WAN: Remove bogus variables from syncppp.[ch]
+Date: Wed, 02 Jul 2008 21:11:56 +0200
+Message-ID: <m3skus3xtv.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57324 "EHLO khc.piap.pl"
+Received: from khc.piap.pl ([195.187.100.11]:55961 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752268AbYGBTX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2008 15:23:28 -0400
+	id S1752116AbYGBTX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2008 15:23:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 For review only, the actual patch will be made available in git.
 
-Remove bogus dosyncppp variable from synclink drivers.
+Remove bogus variables from syncppp.[ch]
 
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index fb2fb15..cddfb11 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -232,7 +232,6 @@ typedef struct _mgslpc_info {
+diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
+index 29b4b94..327d585 100644
+--- a/drivers/net/wan/syncppp.c
++++ b/drivers/net/wan/syncppp.c
+@@ -230,13 +230,6 @@ static void sppp_input (struct net_device *dev, struct sk_buff *skb)
+ 	skb->dev=dev;
+ 	skb_reset_mac_header(skb);
  
- 	/* SPPP/Cisco HDLC device parts */
- 	int netcount;
--	int dosyncppp;
- 	spinlock_t netlock;
- 
- #if SYNCLINK_GENERIC_HDLC
-@@ -459,13 +458,11 @@ static int ttymajor=0;
- 
- static int debug_level = 0;
- static int maxframe[MAX_DEVICE_COUNT] = {0,};
--static int dosyncppp[MAX_DEVICE_COUNT] = {1,1,1,1};
- 
- module_param(break_on_load, bool, 0);
- module_param(ttymajor, int, 0);
- module_param(debug_level, int, 0);
- module_param_array(maxframe, int, NULL, 0);
--module_param_array(dosyncppp, int, NULL, 0);
- 
- MODULE_LICENSE("GPL");
- 
-@@ -2914,7 +2911,6 @@ static void mgslpc_add_device(MGSLPC_INFO *info)
- 	if (info->line < MAX_DEVICE_COUNT) {
- 		if (maxframe[info->line])
- 			info->max_frame_size = maxframe[info->line];
--		info->dosyncppp = dosyncppp[info->line];
+-	if (dev->flags & IFF_RUNNING)
+-	{
+-		/* Count received bytes, add FCS and one flag */
+-		sp->ibytes+= skb->len + 3;
+-		sp->ipkts++;
+-	}
+-
+ 	if (!pskb_may_pull(skb, PPP_HEADER_LEN)) {
+ 		/* Too small packet, drop it. */
+ 		if (sp->pp_flags & PP_DEBUG)
+@@ -832,7 +825,6 @@ static void sppp_cp_send (struct sppp *sp, u16 proto, u8 type,
+ 			sppp_print_bytes ((u8*) (lh+1), len);
+ 		printk (">\n");
  	}
- 
- 	mgslpc_device_count++;
-diff --git a/drivers/char/synclink.c b/drivers/char/synclink.c
-index 9d247d8..9b1748f 100644
---- a/drivers/char/synclink.c
-+++ b/drivers/char/synclink.c
-@@ -312,7 +312,6 @@ struct mgsl_struct {
- 
- 	/* generic HDLC device parts */
- 	int netcount;
--	int dosyncppp;
- 	spinlock_t netlock;
- 
- #if SYNCLINK_GENERIC_HDLC
-@@ -876,7 +875,6 @@ static int irq[MAX_ISA_DEVICES];
- static int dma[MAX_ISA_DEVICES];
- static int debug_level;
- static int maxframe[MAX_TOTAL_DEVICES];
--static int dosyncppp[MAX_TOTAL_DEVICES];
- static int txdmabufs[MAX_TOTAL_DEVICES];
- static int txholdbufs[MAX_TOTAL_DEVICES];
- 	
-@@ -887,7 +885,6 @@ module_param_array(irq, int, NULL, 0);
- module_param_array(dma, int, NULL, 0);
- module_param(debug_level, int, 0);
- module_param_array(maxframe, int, NULL, 0);
--module_param_array(dosyncppp, int, NULL, 0);
- module_param_array(txdmabufs, int, NULL, 0);
- module_param_array(txholdbufs, int, NULL, 0);
- 
-@@ -4265,7 +4262,6 @@ static void mgsl_add_device( struct mgsl_struct *info )
- 	if (info->line < MAX_TOTAL_DEVICES) {
- 		if (maxframe[info->line])
- 			info->max_frame_size = maxframe[info->line];
--		info->dosyncppp = dosyncppp[info->line];
- 
- 		if (txdmabufs[info->line]) {
- 			info->num_tx_dma_buffers = txdmabufs[info->line];
-diff --git a/drivers/char/synclink_gt.c b/drivers/char/synclink_gt.c
-index d88a607..aa4e1f2 100644
---- a/drivers/char/synclink_gt.c
-+++ b/drivers/char/synclink_gt.c
-@@ -128,17 +128,14 @@ static int slgt_device_count;
- static int ttymajor;
- static int debug_level;
- static int maxframe[MAX_DEVICES];
--static int dosyncppp[MAX_DEVICES];
- 
- module_param(ttymajor, int, 0);
- module_param(debug_level, int, 0);
- module_param_array(maxframe, int, NULL, 0);
--module_param_array(dosyncppp, int, NULL, 0);
- 
- MODULE_PARM_DESC(ttymajor, "TTY major device number override: 0=auto assigned");
- MODULE_PARM_DESC(debug_level, "Debug syslog output: 0=disabled, 1 to 5=increasing detail");
- MODULE_PARM_DESC(maxframe, "Maximum frame size used by device (4096 to 65535)");
--MODULE_PARM_DESC(dosyncppp, "Enable synchronous net device, 0=disable 1=enable");
- 
- /*
-  * tty support and callbacks
-@@ -356,7 +353,6 @@ struct slgt_info {
- 	/* SPPP/Cisco HDLC device parts */
- 
- 	int netcount;
--	int dosyncppp;
- 	spinlock_t netlock;
- #if SYNCLINK_GENERIC_HDLC
- 	struct net_device *netdev;
-@@ -3393,7 +3389,6 @@ static void add_device(struct slgt_info *info)
- 	if (info->line < MAX_DEVICES) {
- 		if (maxframe[info->line])
- 			info->max_frame_size = maxframe[info->line];
--		info->dosyncppp = dosyncppp[info->line];
- 	}
- 
- 	slgt_device_count++;
-diff --git a/drivers/char/synclinkmp.c b/drivers/char/synclinkmp.c
-index 10241ed..6a388e5 100644
---- a/drivers/char/synclinkmp.c
-+++ b/drivers/char/synclinkmp.c
-@@ -276,7 +276,6 @@ typedef struct _synclinkmp_info {
- 
- 	/* SPPP/Cisco HDLC device parts */
- 	int netcount;
--	int dosyncppp;
- 	spinlock_t netlock;
- 
- #if SYNCLINK_GENERIC_HDLC
-@@ -475,13 +474,11 @@ static int ttymajor=0;
-  */
- static int debug_level = 0;
- static int maxframe[MAX_DEVICES] = {0,};
--static int dosyncppp[MAX_DEVICES] = {0,};
- 
- module_param(break_on_load, bool, 0);
- module_param(ttymajor, int, 0);
- module_param(debug_level, int, 0);
- module_param_array(maxframe, int, NULL, 0);
--module_param_array(dosyncppp, int, NULL, 0);
- 
- static char *driver_name = "SyncLink MultiPort driver";
- static char *driver_version = "$Revision: 4.38 $";
-@@ -3757,7 +3754,6 @@ static void add_device(SLMP_INFO *info)
- 	if (info->line < MAX_DEVICES) {
- 		if (maxframe[info->line])
- 			info->max_frame_size = maxframe[info->line];
--		info->dosyncppp = dosyncppp[info->line];
- 	}
- 
- 	synclinkmp_device_count++;
+-	sp->obytes += skb->len;
+ 	/* Control is high priority so it doesn't get queued behind data */
+ 	skb->priority=TC_PRIO_CONTROL;
+ 	skb->dev = dev;
+@@ -875,7 +867,6 @@ static void sppp_cisco_send (struct sppp *sp, int type, u32 par1, u32 par2)
+ 		printk (KERN_WARNING "%s: cisco output: <%xh %xh %xh %xh %xh-%xh>\n",
+ 			dev->name,  ntohl (ch->type), ch->par1,
+ 			ch->par2, ch->rel, ch->time0, ch->time1);
+-	sp->obytes += skb->len;
+ 	skb->priority=TC_PRIO_CONTROL;
+ 	skb->dev = dev;
+ 	skb_queue_tail(&tx_queue, skb);
+diff --git a/include/net/syncppp.h b/include/net/syncppp.h
+index e43f407..9e306f7 100644
+--- a/include/net/syncppp.h
++++ b/include/net/syncppp.h
+@@ -43,8 +43,6 @@ struct sppp
+ 	u32		pp_rseq;	/* remote sequence number */
+ 	struct slcp	lcp;		/* LCP params */
+ 	struct sipcp	ipcp;		/* IPCP params */
+-	u32		ibytes,obytes;	/* Bytes in/out */
+-	u32		ipkts,opkts;	/* Packets in/out */
+ 	struct timer_list	pp_timer;
+ 	struct net_device	*pp_if;
+ 	char		pp_link_state;	/* Link status */
 
 -- 
 Krzysztof Halasa
