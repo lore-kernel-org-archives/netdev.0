@@ -1,43 +1,34 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: [ofa-general] locking requirements when calling dev_set_mtu()
-Date: Wed, 2 Jul 2008 11:54:09 +0300
-Message-ID: <20080702085409.GA13098@mtls03>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: Do cleanup for ip_mr_init
+Date: Wed, 02 Jul 2008 16:49:16 +0800
+Message-ID: <486B410C.6020501@cn.fujitsu.com>
+References: <48606D1B.3040507@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <rdreier@cisco.com>,
-	general-list <general@lists.openfabrics.org>
-To: netdev <netdev@vger.kernel.org>, fubar@us.ibm.com
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60907 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754320AbYGBIxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2008 04:53:55 -0400
+In-Reply-To: <48606D1B.3040507@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Wang Chen said the following on 2008-6-24 11:42:
+> If do not do it, we will get following issues:
+> 1. Leaving junks after inet6_init failing halfway.
+> 2. Leaving proc and notifier junks after ipv6 modules unloading.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  include/linux/mroute6.h |    1 +
+>  net/ipv6/af_inet6.c     |    5 +++++
+>  net/ipv6/ip6mr.c        |   10 ++++++++++
+>  3 files changed, 16 insertions(+), 0 deletions(-)
 
-I have the need to change the MTU of IP over IB from the driver code
-and not from the shell. Looking for the right way to do it I came
-across the dev_set_mtu() which seems appropriate as it handles all
-notifications too. However, it is not clear to me whether I have to
-wrap the call to dev_set_mtu() with any locks. Specifically, I was
-referred to a mail thread that suggests that I have to use
-rtnl_lock()/rtnl_unlock():
-http://marc.info/?l=linux-netdev&m=121201324611292&w=2
+Yoshifuji-san, would please take a look at this patch.
 
-With reference to the above URL, I would say that it is possible for
-me to hit to the assertion ASSERT_RTNL() if I don't take rtnl_lock
-prior to calling dev_set_mtu(). However I don't hit it, though I can't
-count on that there will not be a case that any function registered
-for notification would expect to see the lock acquired.
-
-Can someone shed light on this?
-
-Thanks,
-Eli
