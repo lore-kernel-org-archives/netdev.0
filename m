@@ -1,186 +1,54 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: can: add sanity checks
-Date: Wed, 02 Jul 2008 20:44:48 +0200
-Message-ID: <486BCCA0.9040006@hartkopp.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Fwd: iproute2 / xtables / undefined symbol in m_ipt again
+Date: Wed, 2 Jul 2008 21:58:00 +0300
+Message-ID: <200807022158.00343.denys@visp.net.lb>
+References: <200807021308.20117.denys@visp.net.lb> <20080702111139.43ca320a@extreme>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010307030205010701080607"
-Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Andre Naujoks <nautsch@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linuxfoundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:56162 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302AbYGBSrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 14:47:16 -0400
+Received: from relay2.globalproof.net ([194.146.153.25]:54294 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752180AbYGBS6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 14:58:00 -0400
+In-Reply-To: <20080702111139.43ca320a@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010307030205010701080607
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+I did test on vanilla iptables and git iproute2.
+Only thing i change - corrected path to libraries in iproute2 sources.
 
-Even though the CAN netlayer only deals with CAN netdevices, the 
-netlayer interface to the userspace and to the device layer should 
-perform some sanity checks.
+How it can work correctly if iptables doesn't add param_act (which is inside xtables.o) to anything else than iptables/ip6tables/iptables-restore/iptables-multi binaries?
+It is physically impossible. Possibly your iproute2 using old iptables library, since in new one path to libraries is changed.
 
-This patch adds several sanity checks that mainly prevent userspace apps 
-to send broken content into the system that may be misinterpreted by 
-some other userspace application.
+The new iptables will show:
+tablename: mangle hook: NF_IP_PRE_ROUTING
+        target: MARK xset 0xc8/0xffffffff  index 0
 
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
-Acked-by: Andre Naujoks <nautsch@gmail.com>
----
+old:
+tablename: mangle hook: NF_IP_PRE_ROUTING
+        target: MARK set 0xcb  index 0
+
+Command:
+    $TC filter add dev $2 parent ffff: protocol ip prio 10 u32 \
+      match u32 0 0 flowid 1:1 \
+      action ipt -j MARK --set-mark ${id} \
+      action mirred egress redirect dev ifb0
+
+On Wednesday 02 July 2008, Stephen Hemminger wrote:
+> 
+> This needs more investigation.  I think it is more of problem with your iptables
+> library installation than iproute. It works fine for me build/run on Ubuntu Hardy.
+> 
 
 
-Hello Dave,
 
-please consider this patch for 2.6.26. It adds several sanity checks 
-that turned out to be necessary. I'll additionally cook a patch for 
--stable .25 .
-
-Thanks to Andre Naujoks who accidentally built a really broken userspace 
-app :-]
-
-Thanks & best regards,
-Oliver
-
---------------010307030205010701080607
-Content-Type: text/x-diff;
- name="can-sanity-checks.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can-sanity-checks.patch"
-
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 7e8ca28..484bbf6 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -205,12 +205,19 @@ static int can_create(struct net *net, struct socket *sock, int protocol)
-  *  -ENOBUFS on full driver queue (see net_xmit_errno())
-  *  -ENOMEM when local loopback failed at calling skb_clone()
-  *  -EPERM when trying to send on a non-CAN interface
-+ *  -EINVAL when the skb->data does not contain a valid CAN frame
-  */
- int can_send(struct sk_buff *skb, int loop)
- {
- 	struct sk_buff *newskb = NULL;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int err;
- 
-+	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
-+		kfree_skb(skb);
-+		return -EINVAL;
-+	}
-+
- 	if (skb->dev->type != ARPHRD_CAN) {
- 		kfree_skb(skb);
- 		return -EPERM;
-@@ -605,6 +612,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
- 		   struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct dev_rcv_lists *d;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int matches;
- 
- 	if (dev->type != ARPHRD_CAN || dev_net(dev) != &init_net) {
-@@ -612,6 +620,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
- 		return 0;
- 	}
- 
-+	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
-+
- 	/* update statistics */
- 	can_stats.rx_frames++;
- 	can_stats.rx_frames_delta++;
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index d9a3a9d..72c2ce9 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -298,7 +298,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
- 
- 	if (head->nframes) {
- 		/* can_frames starting here */
--		firstframe = (struct can_frame *) skb_tail_pointer(skb);
-+		firstframe = (struct can_frame *)skb_tail_pointer(skb);
- 
- 		memcpy(skb_put(skb, datalen), frames, datalen);
- 
-@@ -826,6 +826,10 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0)
- 				return err;
- 
-@@ -858,6 +862,10 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0) {
- 				if (op->frames != &op->sframe)
- 					kfree(op->frames);
-@@ -1164,9 +1172,12 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
- 
- 	skb->dev = dev;
- 	skb->sk  = sk;
--	can_send(skb, 1); /* send with loopback */
-+	err = can_send(skb, 1); /* send with loopback */
- 	dev_put(dev);
- 
-+	if (err)
-+		return err;
-+
- 	return CFSIZ + MHSIZ;
- }
- 
-@@ -1185,6 +1196,10 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (!bo->bound)
- 		return -ENOTCONN;
- 
-+	/* check for valid message length from userspace */
-+	if (size < MHSIZ || (size - MHSIZ) % CFSIZ)
-+		return -EINVAL;
-+
- 	/* check for alternative ifindex for this bcm_op */
- 
- 	if (!ifindex && msg->msg_name) {
-@@ -1259,8 +1274,8 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		break;
- 
- 	case TX_SEND:
--		/* we need at least one can_frame */
--		if (msg_head.nframes < 1)
-+		/* we need exactly one can_frame behind the msg head */
-+		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
- 			ret = -EINVAL;
- 		else
- 			ret = bcm_tx_send(msg, ifindex, sk);
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 69877b8..3e46ee3 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -632,6 +632,9 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	} else
- 		ifindex = ro->ifindex;
- 
-+	if (size != sizeof(struct can_frame))
-+		return -EINVAL;
-+
- 	dev = dev_get_by_index(&init_net, ifindex);
- 	if (!dev)
- 		return -ENXIO;
-
---------------010307030205010701080607--
+-- 
+------
+Technical Manager
+Virtual ISP S.A.L.
+Lebanon
