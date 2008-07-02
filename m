@@ -1,38 +1,44 @@
-From: Toyo Abe <tabe@miraclelinux.com>
-Subject: Re: [GIT PULL net-next-2.6] IPv6 Updates
-Date: Thu, 03 Jul 2008 01:46:58 +0900
-Message-ID: <486BB102.7040409@miraclelinux.com>
-References: <20080702.123957.75682669.yoshfuji@linux-ipv6.org>	<486B2208.2000104@miraclelinux.com> <20080702195934.754349fb.mitch@linux.vnet.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: bridge: fix use-after-free in br_cleanup_bridges()
+Date: Wed, 2 Jul 2008 09:48:17 -0700
+Message-ID: <20080702094817.646c6c60@extreme>
+References: <486B7CCE.2@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:12960 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbYGBQq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 12:46:56 -0400
-In-Reply-To: <20080702195934.754349fb.mitch@linux.vnet.ibm.com>
+Received: from mail.vyatta.com ([216.93.170.194]:35947 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752116AbYGBQsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2008 12:48:19 -0400
+In-Reply-To: <486B7CCE.2@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Chinen-san,
+On Wed, 02 Jul 2008 15:04:14 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-Mitsuru Chinen wrote:
->> I don't see why you set 1 as a default, so far.
->> Any concerns on setting >1 as a default?
+> commit 96f1dd78dad10d61bdd487edadea6adda5425e4c
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed Jul 2 15:02:23 2008 +0200
 > 
-> You may want to read this discussion:
-> - Linux IPv6 DAD not full conform to RFC 4862 ?
->   http://www.spinics.net/lists/netdev/msg52027.html
+>     bridge: fix use-after-free in br_cleanup_bridges()
 > 
-> The conclusion is:
->   http://www.spinics.net/lists/netdev/msg52095.html
+>     Unregistering a bridge device may cause virtual devices stacked on the
+>     bridge, like vlan or macvlan devices, to be unregistered as well.
+>     br_cleanup_bridges() uses for_each_netdev_safe() to iterate over all
+>     devices during cleanup. This is not enough however, if one of the
+>     additionally unregistered devices is next in the list to the bridge
+>     device, it will get freed as well and the iteration continues on
+>     the freed element.
+> 
+>     Restart iteration after each bridge device removal from the beginning to
+>     fix this, similar to what rtnl_link_unregister() does.
+> 
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Now I see. Thank you for pointing.
-
-Regards,
--toyo
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
