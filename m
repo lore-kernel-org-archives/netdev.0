@@ -1,124 +1,90 @@
-From: SathyaNarayanan <sathyan@teamf1.com>
-Subject: Re: [PATCH] ibm_newemac: Fixes memory leak in ibm_newemac ethernet
-	driver
-Date: Wed, 2 Jul 2008 11:41:41 +0530
-Message-ID: <1946a170807012311o1595d9d1r477fabc8f4504f7d@mail.gmail.com>
-References: <1214225712-25882-1-git-send-email-sr@denx.de>
-	<1214263310.8011.280.camel@pasglop>
-	<1946a170807012145v6e6d629cvea443f2b8462d708@mail.gmail.com>
-	<1214977560.21182.35.camel@pasglop>
+From: <Mario_Limonciello@Dell.com>
+Subject: [PATCH] Setup PHYs for rtl8101/2(e) hardware
+Date: Wed, 2 Jul 2008 01:24:10 -0500
+Message-ID: <E6FF208A16840D4EBAA31D261B15A50601415DC7@ausx3mpc121.aus.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1324172280=="
-Cc: linuxppc-dev@ozlabs.org, Stefan Roese <sr@denx.de>, netdev@vger.kernel.org
-To: benh@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1214977560.21182.35.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>, <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:55938 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756582AbYGBG2g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 02:28:36 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============1324172280==
-Content-Type: multipart/alternative;
-	boundary="----=_Part_3515_8103274.1214979101172"
+Hello:
 
-------=_Part_3515_8103274.1214979101172
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+In comparing the differences with the Realtek release r8101-1.008.05-1 of their r8101 driver, I found a handful of differences in  the startup procedures of the r8169 driver.  I isolated two sets of fixes that get rid of transient errors when loading the drivers.
 
-On Wed, Jul 2, 2008 at 11:16 AM, Benjamin Herrenschmidt <
-benh@kernel.crashing.org> wrote:
+Signed-off-by: Mario Limonciello <Mario_Limonciello@Dell.com> <mailto:Mario_Limonciello@Dell.com> 
+---
+ drivers/net/r8169.c |   29 +++++++++++++++++++++++++++--
+ 1 files changed, 27 insertions(+), 2 deletions(-)
 
->
-> >
-> > Actually the meachanism of stopping the queue and starting it is
-> > already there.  But even then due to some sync issue between the poll
-> > routine and xmit, we were resulted in using the slots of skb which was
-> > not actually got freed before.
-> > I agree this could a bug , Since its not is not clear why buffers are
-> > not getting transferred timely?. But to handle this we should have a
-> > work around otherwise system may go out of memory. If we go for
-> > stopping the queue in these scenario also ( Where a unfreed skbs slot
-> > has been assigned  to another ), Then kernel may call tx timeout, And
-> > reset the driver. In that case handelling this special case here could
-> > lead us better performance as compared to stopping the queue
-> > Let me know your comments.
->
-> Well, if we have a bug, we need to fix it. ie, understand how it is that
-> the existing mechanism to stop the queue doesn't work, and prevent xmit
-> from overwriting a non-clear transmit slot (possibly displaying an error
-> to help us track down the bug).
->
-> I'll have to dig a bit, I'll see if I can find some time tomorrow.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 4c5a875..89def08 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1139,6 +1139,10 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+         { 0x7cf00000, 0x34000000,    RTL_GIGA_MAC_VER_13 },
+         { 0x7cf00000, 0x34200000,    RTL_GIGA_MAC_VER_16 },
+         { 0x7c800000, 0x34000000,    RTL_GIGA_MAC_VER_16 },
++        /* 8101E */
++        { 0x7c800000, 0x24800000,    RTL_GIGA_MAC_VER_16 },
++        /* 8102E */
++        { 0x7c800000, 0x34800000,    RTL_GIGA_MAC_VER_16 },
+         /* FIXME: where did these entries come from ? -- FR */
+         { 0xfc800000, 0x38800000,    RTL_GIGA_MAC_VER_15 },
+         { 0xfc800000, 0x30800000,    RTL_GIGA_MAC_VER_14 },
+@@ -1299,6 +1303,21 @@ static void rtl8168cx_hw_phy_config(void __iomem *ioaddr)
+     rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
+ 
++static void rtl8101_hw_phy_config(void __iomem *ioaddr)
++{
++    struct phy_reg phy_reg_init[] = {
++        { 0x1f, 0x0000 },
++        { 0x11, mdio_read(ioaddr,0x11) | 0x1000 },
++        { 0x19, mdio_read(ioaddr,0x19) | 0x2000 },
++        { 0x1f, 0x0003 },
++        { 0x08, 0x441D },
++        { 0x01, 0xc066 },
++        { 0x1f, 0x0000 }
++    };
++
++    rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
++
+ static void rtl_hw_phy_config(struct net_device *dev)
+ {
+     struct rtl8169_private *tp = netdev_priv(dev);
+@@ -1316,6 +1335,9 @@ static void rtl_hw_phy_config(struct net_device *dev)
+     case RTL_GIGA_MAC_VER_04:
+         rtl8169sb_hw_phy_config(ioaddr);
+         break;
++    case RTL_GIGA_MAC_VER_13:
++    case RTL_GIGA_MAC_VER_16:
++        rtl8101_hw_phy_config(ioaddr);
+     case RTL_GIGA_MAC_VER_18:
+         rtl8168cp_hw_phy_config(ioaddr);
+         break;
+@@ -1438,8 +1460,11 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ 
+     rtl_hw_phy_config(dev);
+ 
+-    dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+-    RTL_W8(0x82, 0x01);
++    if (tp->mac_version != RTL_GIGA_MAC_VER_13 && tp->mac_version != RTL_GIGA_MAC_VER_16)
++    {
++        dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
++        RTL_W8(0x82, 0x01);
++    }
+ 
+     pci_write_config_byte(tp->pci_dev, PCI_LATENCY_TIMER, 0x40);
+ 
+-- 
 
 
-The reason could be sync issue between poll and xmit. I would like to have
-one clarification , Why in the present design no locks has been implemented
-to protect the queue from simulatenous access ??
-
->
->
-> Cheers,
-> Ben.
->
->
->
->
-
-------=_Part_3515_8103274.1214979101172
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-<br><br><div class="gmail_quote">On Wed, Jul 2, 2008 at 11:16 AM, Benjamin Herrenschmidt &lt;<a href="mailto:benh@kernel.crashing.org">benh@kernel.crashing.org</a>&gt; wrote:<br><blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;">
-<div class="Ih2E3d"><br>
-&gt;<br>
-&gt; Actually the meachanism of stopping the queue and starting it is<br>
-&gt; already there. &nbsp;But even then due to some sync issue between the poll<br>
-&gt; routine and xmit, we were resulted in using the slots of skb which was<br>
-&gt; not actually got freed before.<br>
-&gt; I agree this could a bug , Since its not is not clear why buffers are<br>
-&gt; not getting transferred timely?. But to handle this we should have a<br>
-&gt; work around otherwise system may go out of memory. If we go for<br>
-&gt; stopping the queue in these scenario also ( Where a unfreed skbs slot<br>
-&gt; has been assigned &nbsp;to another ), Then kernel may call tx timeout, And<br>
-&gt; reset the driver. In that case handelling this special case here could<br>
-&gt; lead us better performance as compared to stopping the queue<br>
-&gt; Let me know your comments.<br>
-<br>
-</div>Well, if we have a bug, we need to fix it. ie, understand how it is that<br>
-the existing mechanism to stop the queue doesn&#39;t work, and prevent xmit<br>
-from overwriting a non-clear transmit slot (possibly displaying an error<br>
-to help us track down the bug).<br>
-<br>
-I&#39;ll have to dig a bit, I&#39;ll see if I can find some time tomorrow.</blockquote><div><br>The reason could be sync issue between poll and xmit. I would like to have one clarification , Why in the present design no locks has been implemented to protect the queue from simulatenous access ??<br>
-</div><blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;"><br>
-<br>
-Cheers,<br>
-Ben.<br>
-<br>
-<br>
-<br>
-</blockquote></div><br>
-
-------=_Part_3515_8103274.1214979101172--
-
---===============1324172280==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============1324172280==--
