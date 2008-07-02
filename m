@@ -1,251 +1,131 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net-sched: consolidate default fifo qdisc setup
-Date: Wed, 02 Jul 2008 16:12:50 +0200
-Message-ID: <486B8CE2.5000603@trash.net>
+Subject: Re: [RFC]: net-sched 00/05: dynamically sized class hashes
+Date: Wed, 02 Jul 2008 16:21:03 +0200
+Message-ID: <486B8ECF.3070604@trash.net>
+References: <20080701143410.26309.45560.sendpatchset@localhost.localdomain> <20080701.195050.177373433.davem@davemloft.net> <486B262F.2040108@cdi.cz> <486B54B7.2060100@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020707070307010702020009"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
+ boundary="------------050904080206040601080604"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Martin Devera <devik@cdi.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38936 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:39143 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbYGBOMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 10:12:55 -0400
+	with ESMTP id S1752393AbYGBOVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 10:21:06 -0400
+In-Reply-To: <486B54B7.2060100@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------020707070307010702020009
+--------------050904080206040601080604
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
+Patrick McHardy wrote:
+> Martin Devera wrote:
+>> Interestingly, once you do this patch then children/siblings list-heads
+>> are used only in htb_parent_last_child and to detect empty class.
+>> Thus we could remove children/siblings lists altogether ane keep only
+>> children counter.
+>> I can't believe it is so simple, what do you think, Patrick ?
+> 
+> Yes, it looks like that would work. I'll give it a try :)
 
---------------020707070307010702020009
-Content-Type: text/x-diff;
- name="01.diff"
+How about this, on top of my previous patches?
+
+
+
+--------------050904080206040601080604
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01.diff"
+ filename="x"
 
-commit dbe4e4f34c356cd31cf9bc8972c0eb4eadebe920
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jul 2 12:19:36 2008 +0200
-
-    net-sched: consolidate default fifo qdisc setup
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 46fb4d8..8e3a0c4 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -72,6 +72,10 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
- extern struct Qdisc_ops pfifo_qdisc_ops;
- extern struct Qdisc_ops bfifo_qdisc_ops;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 4fc866d..bb1c210 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -81,9 +81,8 @@ struct htb_class {
  
-+extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
-+extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
-+				      unsigned int limit);
-+
- extern int register_qdisc(struct Qdisc_ops *qops);
- extern int unregister_qdisc(struct Qdisc_ops *qops);
- extern struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 95ed482..82d7d7b 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -107,3 +107,45 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
- 	.owner		=	THIS_MODULE,
- };
- EXPORT_SYMBOL(bfifo_qdisc_ops);
-+
-+/* Pass size change message down to embedded FIFO */
-+int fifo_set_limit(struct Qdisc *q, unsigned int limit)
-+{
-+	struct nlattr *nla;
-+	int ret = -ENOMEM;
-+
-+	/* Hack to avoid sending change message to non-FIFO */
-+	if (strncmp(q->ops->id + 1, "fifo", 4) != 0)
-+		return 0;
-+
-+	nla = kmalloc(nla_attr_size(sizeof(struct tc_fifo_qopt)), GFP_KERNEL);
-+	if (nla) {
-+		nla->nla_type = RTM_NEWQDISC;
-+		nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
-+		((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
-+
-+		ret = q->ops->change(q, nla);
-+		kfree(nla);
-+	}
-+	return ret;
-+}
-+EXPORT_SYMBOL(fifo_set_limit);
-+
-+struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
-+			       unsigned int limit)
-+{
-+	struct Qdisc *q;
-+	int err = -ENOMEM;
-+
-+	q = qdisc_create_dflt(sch->dev, ops, TC_H_MAKE(sch->handle, 1));
-+	if (q) {
-+		err = fifo_set_limit(q, limit);
-+		if (err < 0) {
-+			qdisc_destroy(q);
-+			q = NULL;
-+		}
-+	}
-+
-+	return q ? : ERR_PTR(err);
-+}
-+EXPORT_SYMBOL(fifo_create_dflt);
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index c9c649b..2469766 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -310,28 +310,6 @@ static void netem_reset(struct Qdisc *sch)
- 	qdisc_watchdog_cancel(&q->watchdog);
+ 	/* topology */
+ 	int level;		/* our level (see above) */
++	unsigned int children;
+ 	struct htb_class *parent;	/* parent class */
+-	struct list_head sibling;	/* sibling list item */
+-	struct list_head children;	/* children list */
+ 
+ 	union {
+ 		struct htb_class_leaf {
+@@ -138,7 +137,6 @@ static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
  }
  
--/* Pass size change message down to embedded FIFO */
--static int set_fifo_limit(struct Qdisc *q, int limit)
--{
--	struct nlattr *nla;
--	int ret = -ENOMEM;
--
--	/* Hack to avoid sending change message to non-FIFO */
--	if (strncmp(q->ops->id + 1, "fifo", 4) != 0)
--		return 0;
--
--	nla = kmalloc(nla_attr_size(sizeof(struct tc_fifo_qopt)), GFP_KERNEL);
--	if (nla) {
--		nla->nla_type = RTM_NEWQDISC;
--		nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
--		((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
--
--		ret = q->ops->change(q, nla);
--		kfree(nla);
--	}
--	return ret;
--}
--
- /*
-  * Distribution data is a variable size payload containing
-  * signed 16 bit values.
-@@ -416,7 +394,7 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (ret < 0)
- 		return ret;
+ struct htb_sched {
+-	struct list_head root;	/* root classes list */
+ 	struct Qdisc_class_hash clhash;
+ 	struct list_head drops[TC_HTB_NUMPRIO];/* active leaves (for drops) */
  
--	ret = set_fifo_limit(q->qdisc, qopt->limit);
-+	ret = fifo_set_limit(q->qdisc, qopt->limit);
- 	if (ret) {
- 		pr_debug("netem: can't set fifo limit\n");
- 		return ret;
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 5c56985..77098ac 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -174,33 +174,6 @@ static void red_destroy(struct Qdisc *sch)
- 	qdisc_destroy(q->qdisc);
- }
- 
--static struct Qdisc *red_create_dflt(struct Qdisc *sch, u32 limit)
--{
--	struct Qdisc *q;
--	struct nlattr *nla;
--	int ret;
--
--	q = qdisc_create_dflt(sch->dev, &bfifo_qdisc_ops,
--			      TC_H_MAKE(sch->handle, 1));
--	if (q) {
--		nla = kmalloc(nla_attr_size(sizeof(struct tc_fifo_qopt)),
--			      GFP_KERNEL);
--		if (nla) {
--			nla->nla_type = RTM_NEWQDISC;
--			nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
--			((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
--
--			ret = q->ops->change(q, nla);
--			kfree(nla);
--
--			if (ret == 0)
--				return q;
--		}
--		qdisc_destroy(q);
--	}
--	return NULL;
--}
--
- static const struct nla_policy red_policy[TCA_RED_MAX + 1] = {
- 	[TCA_RED_PARMS]	= { .len = sizeof(struct tc_red_qopt) },
- 	[TCA_RED_STAB]	= { .len = RED_STAB_SIZE },
-@@ -228,9 +201,9 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
- 	ctl = nla_data(tb[TCA_RED_PARMS]);
- 
- 	if (ctl->limit > 0) {
--		child = red_create_dflt(sch, ctl->limit);
--		if (child == NULL)
--			return -ENOMEM;
-+		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, ctl->limit);
-+		if (IS_ERR(child))
-+			return PTR_ERR(child);
+@@ -1022,7 +1020,6 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 		return -EINVAL;
  	}
  
- 	sch_tree_lock(sch);
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 0b7d78f..444c227 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -242,34 +242,6 @@ static void tbf_reset(struct Qdisc* sch)
- 	qdisc_watchdog_cancel(&q->watchdog);
+-	INIT_LIST_HEAD(&q->root);
+ 	err = qdisc_class_hash_init(&q->clhash);
+ 	if (err < 0)
+ 		return err;
+@@ -1177,12 +1174,9 @@ static inline int htb_parent_last_child(struct htb_class *cl)
+ 	if (!cl->parent)
+ 		/* the root class */
+ 		return 0;
+-
+-	if (!(cl->parent->children.next == &cl->sibling &&
+-		cl->parent->children.prev == &cl->sibling))
++	if (cl->parent->children > 1)
+ 		/* not the last child */
+ 		return 0;
+-
+ 	return 1;
  }
  
--static struct Qdisc *tbf_create_dflt_qdisc(struct Qdisc *sch, u32 limit)
--{
--	struct Qdisc *q;
--	struct nlattr *nla;
--	int ret;
--
--	q = qdisc_create_dflt(sch->dev, &bfifo_qdisc_ops,
--			      TC_H_MAKE(sch->handle, 1));
--	if (q) {
--		nla = kmalloc(nla_attr_size(sizeof(struct tc_fifo_qopt)),
--			      GFP_KERNEL);
--		if (nla) {
--			nla->nla_type = RTM_NEWQDISC;
--			nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
--			((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
--
--			ret = q->ops->change(q, nla);
--			kfree(nla);
--
--			if (ret == 0)
--				return q;
--		}
--		qdisc_destroy(q);
--	}
--
--	return NULL;
--}
--
- static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
- 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
- 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-@@ -322,8 +294,11 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
- 		goto done;
+@@ -1266,7 +1260,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 	// TODO: why don't allow to delete subtree ? references ? does
+ 	// tc subsys quarantee us that in htb_destroy it holds no class
+ 	// refs so that we can remove children safely there ?
+-	if (!list_empty(&cl->children) || cl->filter_cnt)
++	if (cl->children || cl->filter_cnt)
+ 		return -EBUSY;
  
- 	if (qopt->limit > 0) {
--		if ((child = tbf_create_dflt_qdisc(sch, qopt->limit)) == NULL)
-+		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, qopt->limit);
-+		if (IS_ERR(child)) {
-+			err = PTR_ERR(child);
- 			goto done;
-+		}
- 	}
+ 	if (!cl->level && htb_parent_last_child(cl)) {
+@@ -1285,7 +1279,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
  
- 	sch_tree_lock(sch);
+ 	/* delete from hash and active; remainder in destroy_class */
+ 	qdisc_class_hash_remove(&q->clhash, &cl->common);
+-	list_del(&cl->sibling);
++	cl->parent->children--;
+ 
+ 	if (cl->prio_activity)
+ 		htb_deactivate(q, cl);
+@@ -1380,8 +1374,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 				  &sch->dev->queue_lock,
+ 				  tca[TCA_RATE] ? : &est.nla);
+ 		cl->refcnt = 1;
+-		INIT_LIST_HEAD(&cl->sibling);
+-		INIT_LIST_HEAD(&cl->children);
++		cl->children = 0;
+ 		INIT_LIST_HEAD(&cl->un.leaf.drop_list);
+ 		RB_CLEAR_NODE(&cl->pq_node);
+ 
+@@ -1427,8 +1420,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 
+ 		/* attach to the hash list and parent's family */
+ 		qdisc_class_hash_insert(&q->clhash, &cl->common);
+-		list_add_tail(&cl->sibling,
+-			      parent ? &parent->children : &q->root);
++		if (parent)
++			parent->children++;
+ 	} else {
+ 		if (tca[TCA_RATE])
+ 			gen_replace_estimator(&cl->bstats, &cl->rate_est,
 
---------------020707070307010702020009--
+--------------050904080206040601080604--
