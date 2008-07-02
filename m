@@ -1,98 +1,157 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: v3 [PATCH 2/2] de4x5: Remove developer debug feature about
-	set/clear promisc
-Date: Tue, 1 Jul 2008 22:22:35 -0600
-Message-ID: <20080702042235.GA19167@colo.lackof.org>
-References: <485FA635.4090903@cn.fujitsu.com> <485FA962.5060704@trash.net> <485FB6D1.7000604@cn.fujitsu.com> <485FB8B1.8020000@trash.net> <4860478B.2080109@cn.fujitsu.com> <20080624051029.GB19434@colo.lackof.org> <48608887.6000102@cn.fujitsu.com> <48643F0C.9020408@cn.fujitsu.com> <20080628175241.GA12265@colo.lackof.org> <486851F1.1080808@cn.fujitsu.com>
+From: SathyaNarayanan <sathyan@teamf1.com>
+Subject: Re: [PATCH] ibm_newemac: Fixes memory leak in ibm_newemac ethernet
+	driver
+Date: Wed, 2 Jul 2008 10:15:21 +0530
+Message-ID: <1946a170807012145v6e6d629cvea443f2b8462d708@mail.gmail.com>
+References: <1214225712-25882-1-git-send-email-sr@denx.de>
+	<1214263310.8011.280.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>, kyle@parisc-linux.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:44519 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750701AbYGBEWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2008 00:22:47 -0400
+Content-Type: multipart/mixed; boundary="===============1081622414=="
+Cc: linuxppc-dev@ozlabs.org, Stefan Roese <sr@denx.de>, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <1214263310.8011.280.camel@pasglop>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Mime-version: 1.0
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
+
+--===============1081622414==
+Content-Type: multipart/alternative;
+	boundary="----=_Part_3388_4513222.1214973921901"
+
+------=_Part_3388_4513222.1214973921901
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <486851F1.1080808@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 30, 2008 at 11:24:33AM +0800, Wang Chen wrote:
-> Grant Grundler said the following on 2008-6-29 1:52:
-> >> @@ -1004,8 +1004,8 @@ struct de4x5_ioctl {
-> >>  */
-> >>  #define DE4X5_GET_HWADDR	0x01 /* Get the hardware address */
-> >>  #define DE4X5_SET_HWADDR	0x02 /* Set the hardware address */
-> >> -#define DE4X5_SET_PROM  	0x03 /* Set Promiscuous Mode */
-> >> -#define DE4X5_CLR_PROM  	0x04 /* Clear Promiscuous Mode */
-> >> +#define DE4X5_SET_PROM  	0x03 /* Obsoleted. Set Promiscuous Mode */
-> >> +#define DE4X5_CLR_PROM  	0x04 /* Obsoleted. Clear Promiscuous Mode */
-> > 
-> > Please just remove them. If the kernel isn't going to provide the
-> > functionality, I'd rather any apps that attempt to use it break
-> > when they compile (vs later when they try to be run).
-> 
-> OK. I removed the macros, but left comment to prevent people from reusing
-> the code 0x03 and 0x04.
+Hi Benn,
 
-LGTM.
-Jeff, can you please apply this?
+               Please find my comments below.
 
-> IFF_PROMISC flag shouldn't be set or cleared by drivers, because
-> whether device be promisc mode is decided by how many upper layer
-> callers being referenced to it.
-> And the promisc changing feature of de4x5 ioctl is developer debug
-> feature, we can remove it now.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+On Tue, Jun 24, 2008 at 4:51 AM, Benjamin Herrenschmidt <
+benh@kernel.crashing.org> wrote:
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+> On Mon, 2008-06-23 at 14:55 +0200, Stefan Roese wrote:
+> > From: Sathya Narayanan <sathyan@teamf1.com>
+> >
+> > This patch addresses the memory leak happenning in drivers transmit queue
+> > under heavy load condition. Once the transmit queue becomes full, driver
+> > does an automatic wrapup of queue. During which the untransmitted SKB's
+> are
+> > lost without getting freed up.
+>
+> This would be a bug. We should stop the queue when full instead.
 
-> ---
-> diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
-> index bc30c6e..617ef41 100644
-> --- a/drivers/net/tulip/de4x5.c
-> +++ b/drivers/net/tulip/de4x5.c
-> @@ -5514,22 +5514,6 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->  	netif_wake_queue(dev);                      /* Unlock the TX ring */
->  	break;
->  
-> -    case DE4X5_SET_PROM:             /* Set Promiscuous Mode */
-> -	if (!capable(CAP_NET_ADMIN)) return -EPERM;
-> -	omr = inl(DE4X5_OMR);
-> -	omr |= OMR_PR;
-> -	outl(omr, DE4X5_OMR);
-> -	dev->flags |= IFF_PROMISC;
-> -	break;
-> -
-> -    case DE4X5_CLR_PROM:             /* Clear Promiscuous Mode */
-> -	if (!capable(CAP_NET_ADMIN)) return -EPERM;
-> -	omr = inl(DE4X5_OMR);
-> -	omr &= ~OMR_PR;
-> -	outl(omr, DE4X5_OMR);
-> -	dev->flags &= ~IFF_PROMISC;
-> -	break;
-> -
->      case DE4X5_SAY_BOO:              /* Say "Boo!" to the kernel log file */
->  	if (!capable(CAP_NET_ADMIN)) return -EPERM;
->  	printk("%s: Boo!\n", dev->name);
-> diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/tulip/de4x5.h
-> index f5f33b3..9f28774 100644
-> --- a/drivers/net/tulip/de4x5.h
-> +++ b/drivers/net/tulip/de4x5.h
-> @@ -1004,8 +1004,7 @@ struct de4x5_ioctl {
->  */
->  #define DE4X5_GET_HWADDR	0x01 /* Get the hardware address */
->  #define DE4X5_SET_HWADDR	0x02 /* Set the hardware address */
-> -#define DE4X5_SET_PROM  	0x03 /* Set Promiscuous Mode */
-> -#define DE4X5_CLR_PROM  	0x04 /* Clear Promiscuous Mode */
-> +/* 0x03 and 0x04 were used before and are obsoleted now. Don't use them. */
->  #define DE4X5_SAY_BOO	        0x05 /* Say "Boo!" to the kernel log file */
->  #define DE4X5_GET_MCA   	0x06 /* Get a multicast address */
->  #define DE4X5_SET_MCA   	0x07 /* Set a multicast address */
-> 
+
+Actually the meachanism of stopping the queue and starting it is already
+there.  But even then due to some sync issue between the poll routine and
+xmit, we were resulted in using the slots of skb which was not actually got
+freed before.
+I agree this could a bug , Since its not is not clear why buffers are not
+getting transferred timely?. But to handle this we should have a work around
+otherwise system may go out of memory. If we go for stopping the queue in
+these scenario also ( Where a unfreed skbs slot has been assigned  to
+another ), Then kernel may call tx timeout, And reset the driver. In that
+case handelling this special case here could lead us better performance as
+compared to stopping the queue
+Let me know your comments.
+
+>
+>
+> > Signed-off-by: Sathya Narayanan <sathyan@teamf1.com>
+> > Signed-off-by: Stefan Roese <sr@denx.de>
+> > ---
+> >  drivers/net/ibm_newemac/core.c |    7 +++++++
+> >  1 files changed, 7 insertions(+), 0 deletions(-)
+> >
+> > diff --git a/drivers/net/ibm_newemac/core.c
+> b/drivers/net/ibm_newemac/core.c
+> > index aa407b2..ee868b6 100644
+> > --- a/drivers/net/ibm_newemac/core.c
+> > +++ b/drivers/net/ibm_newemac/core.c
+> > @@ -1328,6 +1328,13 @@ static int emac_start_xmit(struct sk_buff *skb,
+> struct net_device *ndev)
+> >
+> >       DBG2(dev, "xmit(%u) %d" NL, len, slot);
+> >
+> > +     if (dev->tx_skb[slot] && dev->tx_desc[slot].data_ptr) {
+> > +             dev_kfree_skb(dev->tx_skb[slot]);
+> > +             dev->tx_skb[slot] = NULL;
+> > +             dev->tx_cnt--;
+> > +             ++dev->estats.tx_dropped;
+> > +     }
+> > +
+> >       dev->tx_skb[slot] = skb;
+> >       dev->tx_desc[slot].data_ptr = dma_map_single(&dev->ofdev->dev,
+> >                                                    skb->data, len,
+>
+>
+
+------=_Part_3388_4513222.1214973921901
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Hi Benn,<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Please find my comments below.<br><br><div class="gmail_quote">On Tue, Jun 24, 2008 at 4:51 AM, Benjamin Herrenschmidt &lt;<a href="mailto:benh@kernel.crashing.org">benh@kernel.crashing.org</a>&gt; wrote:<br>
+<blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;"><div class="Ih2E3d">On Mon, 2008-06-23 at 14:55 +0200, Stefan Roese wrote:<br>
+&gt; From: Sathya Narayanan &lt;<a href="mailto:sathyan@teamf1.com">sathyan@teamf1.com</a>&gt;<br>
+&gt;<br>
+&gt; This patch addresses the memory leak happenning in drivers transmit queue<br>
+&gt; under heavy load condition. Once the transmit queue becomes full, driver<br>
+&gt; does an automatic wrapup of queue. During which the untransmitted SKB&#39;s are<br>
+&gt; lost without getting freed up.<br>
+<br>
+</div>This would be a bug. We should stop the queue when full instead.</blockquote><div><br>Actually the meachanism of stopping the queue and starting it is
+already there.&nbsp; But even then due to some sync issue between the poll
+routine and xmit, we were resulted in using the slots of skb which was
+not actually got freed before. <br>I agree this could a bug , Since its not is not clear why buffers are not getting transferred timely?. But to handle this we should have a work around otherwise system may go out of memory. If we go for stopping the queue in these scenario also ( Where a unfreed skbs slot has been assigned&nbsp; to another ), Then kernel may call tx timeout, And reset the driver. In that case handelling this special case here could lead us better performance as compared to stopping the queue<br>
+Let me know your comments.<br></div><blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;"><br>
+<div><div></div><div class="Wj3C7c"><br>
+&gt; Signed-off-by: Sathya Narayanan &lt;<a href="mailto:sathyan@teamf1.com">sathyan@teamf1.com</a>&gt;<br>
+&gt; Signed-off-by: Stefan Roese &lt;<a href="mailto:sr@denx.de">sr@denx.de</a>&gt;<br>
+&gt; ---<br>
+&gt; &nbsp;drivers/net/ibm_newemac/core.c | &nbsp; &nbsp;7 +++++++<br>
+&gt; &nbsp;1 files changed, 7 insertions(+), 0 deletions(-)<br>
+&gt;<br>
+&gt; diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c<br>
+&gt; index aa407b2..ee868b6 100644<br>
+&gt; --- a/drivers/net/ibm_newemac/core.c<br>
+&gt; +++ b/drivers/net/ibm_newemac/core.c<br>
+&gt; @@ -1328,6 +1328,13 @@ static int emac_start_xmit(struct sk_buff *skb, struct net_device *ndev)<br>
+&gt;<br>
+&gt; &nbsp; &nbsp; &nbsp; DBG2(dev, &quot;xmit(%u) %d&quot; NL, len, slot);<br>
+&gt;<br>
+&gt; + &nbsp; &nbsp; if (dev-&gt;tx_skb[slot] &amp;&amp; dev-&gt;tx_desc[slot].data_ptr) {<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; dev_kfree_skb(dev-&gt;tx_skb[slot]);<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; dev-&gt;tx_skb[slot] = NULL;<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; dev-&gt;tx_cnt--;<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ++dev-&gt;estats.tx_dropped;<br>
+&gt; + &nbsp; &nbsp; }<br>
+&gt; +<br>
+&gt; &nbsp; &nbsp; &nbsp; dev-&gt;tx_skb[slot] = skb;<br>
+&gt; &nbsp; &nbsp; &nbsp; dev-&gt;tx_desc[slot].data_ptr = dma_map_single(&amp;dev-&gt;ofdev-&gt;dev,<br>
+&gt; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;skb-&gt;data, len,<br>
+<br>
+</div></div></blockquote></div><br>
+
+------=_Part_3388_4513222.1214973921901--
+
+--===============1081622414==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@ozlabs.org
+https://ozlabs.org/mailman/listinfo/linuxppc-dev
+--===============1081622414==--
