@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: TX multiqueue status...
-Date: Wed, 02 Jul 2008 03:33:05 -0700 (PDT)
-Message-ID: <20080702.033305.141238860.davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Add support for rx flow hash configuration in a
+ network device
+Date: Wed, 02 Jul 2008 03:50:22 -0700 (PDT)
+Message-ID: <20080702.035022.204721470.davem@davemloft.net>
+References: <48658078.8030707@Sun.COM>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org, Matheos.Worku@Sun.COM,
+	Michael.Speer@Sun.COM, gkernel-commit@lists.sourceforge.net
+To: Santwona.Behera@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36336
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56393
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751767AbYGBKdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 06:33:06 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id F168EC8C2F3
-	for <netdev@vger.kernel.org>; Wed,  2 Jul 2008 03:33:05 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1754139AbYGBKuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 06:50:22 -0400
+In-Reply-To: <48658078.8030707@Sun.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Santwona Behera <Santwona.Behera@Sun.COM>
+Date: Fri, 27 Jun 2008 17:06:16 -0700
 
-So I have a 34 patch rough draft of my new design sitting here in my
-tree.
+> This feature has 3 related patches:
+> 
+> 1. An ethtool application patch.
+> 2. A kernel patch for the ethtool interface.
+> 3. A kernel patch for the niu driver that implements the ethtool config 
+> ioctl functions. NOTE: The niu driver already has rx flow hashing 
+> implemented. With these 3 patches, this feature is now configurable 
+> using ethtool.
 
-I think some of it might even work :-)
+Thanks for doing this work Santwona.
 
-This is the end of my evening, but tomorrow I plan to respin this
-series, do the 3 or 4 line "port" of NIU to support multique, and then
-if that tests out alright I'll post what I have.
+I've applied patch 2 and 3 to my net-next-2.6 kernel tree.
 
-A lot of the work was going through the tree and saying "what does
-this operation mean in a multiqueue environment".
+I spoke with Jeff Garzik, and he will add your first patch
+to the ethtool tree when he gets a chance.
+
+Thanks again!
