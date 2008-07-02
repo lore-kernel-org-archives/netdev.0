@@ -1,69 +1,58 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [RESEND] [PATCH] tcp: fix a size_t < 0 comparison in tcp_read_sock
-Date: Wed, 2 Jul 2008 21:57:53 +0300
-Message-ID: <200807022157.53647.opurdila@ixiacom.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Fwd: iproute2 / xtables / undefined symbol in m_ipt again
+Date: Wed, 2 Jul 2008 12:10:12 -0700
+Message-ID: <20080702121012.01678189@extreme>
+References: <200807021308.20117.denys@visp.net.lb>
+	<20080702111139.43ca320a@extreme>
+	<200807022158.00343.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_x+8aI0QFs/gfF1Q"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linuxfoundation.org, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3140 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751185AbYGBS7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 14:59:48 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58675 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755454AbYGBTKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2008 15:10:53 -0400
+In-Reply-To: <200807022158.00343.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_x+8aI0QFs/gfF1Q
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, 2 Jul 2008 21:58:00 +0300
+Denys Fedoryshchenko <denys@visp.net.lb> wrote:
 
+> I did test on vanilla iptables and git iproute2.
+> Only thing i change - corrected path to libraries in iproute2 sources.
+> 
+> How it can work correctly if iptables doesn't add param_act (which is inside xtables.o) to anything else than iptables/ip6tables/iptables-restore/iptables-multi binaries?
+> It is physically impossible. Possibly your iproute2 using old iptables library, since in new one path to libraries is changed.
+> 
+> The new iptables will show:
+> tablename: mangle hook: NF_IP_PRE_ROUTING
+>         target: MARK xset 0xc8/0xffffffff  index 0
+> 
+> old:
+> tablename: mangle hook: NF_IP_PRE_ROUTING
+>         target: MARK set 0xcb  index 0
+> 
+> Command:
+>     $TC filter add dev $2 parent ffff: protocol ip prio 10 u32 \
+>       match u32 0 0 flowid 1:1 \
+>       action ipt -j MARK --set-mark ${id} \
+>       action mirred egress redirect dev ifb0
+> 
+> On Wednesday 02 July 2008, Stephen Hemminger wrote:
+> > 
+> > This needs more investigation.  I think it is more of problem with your iptables
+> > library installation than iproute. It works fine for me build/run on Ubuntu Hardy.
+> > 
+> 
+> 
+> 
 
-Discovered it while testing this patch:
+Ubuntu ships iptables 1.3.8 and Debian ships 1.4.0 in Lenny(testing), 1.3.6 in Sarge (stable[ancient])
+Iptables needs to build/install working complete libraries. I'm not going to drag bits
+and pieces back to iproute
 
-http://www.spinics.net/lists/netdev/msg64668.html
-
-(in this case, tcp_read_sock breaks; but regardless of that patch I think we 
-should have this one)
-
-Thanks,
-tavi
-
-
---Boundary-00=_x+8aI0QFs/gfF1Q
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="x"
-
-commit 6cf0a9254f0b7fc41781a2cacd5a8b312a4b1e70
-Author: Octavian Purdila <opurdila@ixiacom.com>
-Date:   Wed Jul 2 21:25:51 2008 +0300
-
-    tcp: fix a size_t < 0 comparison in tcp_read_sock
-    
-    <used> should be of type int (not size_t) since recv_actor can return
-    negative values and it is also used in a < 0 comparison.
-    
-    Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 850825d..4f91d17 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1208,7 +1208,8 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
- 		return -ENOTCONN;
- 	while ((skb = tcp_recv_skb(sk, seq, &offset)) != NULL) {
- 		if (offset < skb->len) {
--			size_t used, len;
-+			int used;
-+			size_t len;
- 
- 			len = skb->len - offset;
- 			/* Stop reading if we hit a patch of urgent data */
-
---Boundary-00=_x+8aI0QFs/gfF1Q--
+If iptables 
