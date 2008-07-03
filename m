@@ -1,76 +1,58 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 4 Jul 2008 00:27:16 +0200
-Message-ID: <200807040027.17750.rjw@sisk.pl>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org> <200807032352.35056.rjw@sisk.pl> <486D4A92.2060004@infradead.org>
+Date: Thu, 3 Jul 2008 23:25:54 +0100
+Message-ID: <20080703232554.7271d645@lxorguk.ukuu.org.uk>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+	<20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<486CC440.9030909@garzik.org>
+	<Pine.LNX.4.64.0807031353030.11033@blonde.site>
+	<486CCFED.7010308@garzik.org>
+	<1215091999.10393.556.camel@pmac.infradead.org>
+	<486CD654.4020605@garzik.org>
+	<1215093175.10393.567.camel@pmac.infradead.org>
+	<20080703173040.GB30506@mit.edu>
+	<1215111362.10393.651.camel@pmac.infradead.org>
+	<486D3E88.9090900@garzik.org>
+	<486D4596.60005@infradead.org>
+	<486D511A.9020405@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Theodore Tso <tytso@mit.edu>,
-	Hugh Dickins <hugh@veritas.com>,
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	Theodore Tso <tytso@mit.edu>, Hugh Dickins <hugh@veritas.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
 	mchan@broadcom.com, linux-kernel@vger.kernel.org,
 	linux-mm@kvack.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:44301 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754255AbYGCWZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2008 18:25:41 -0400
-In-Reply-To: <486D4A92.2060004@infradead.org>
-Content-Disposition: inline
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:52492 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755364AbYGCWoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 18:44:23 -0400
+In-Reply-To: <486D511A.9020405@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 3 of July 2008, David Woodhouse wrote:
-> Rafael J. Wysocki wrote:
-> > On Thursday, 3 of July 2008, David Woodhouse wrote:
-> >> Rafael J. Wysocki wrote:
-> >>> Still, maybe we can add some kbuild magic to build the blobs along with
-> >>> their modules and to install them under /lib/firmware (by default) when the
-> >>> modules are installed in /lib/modules/... ?
-> >> Something like appending this to Makefile?
-> >>
-> >> firmware_and_modules_install: firmware_install modules_install
-> >>
-> >> (I'm still wondering if we should make 'firmware_install' install to 
-> >> /lib/firmware by default, instead of into the build tree as 
-> >> 'headers_install' does. The Aunt Tillie answer would definitely be 
-> >> 'yes', although that means it requires root privs; like modules_install 
-> >> does.)
-> > 
-> > I would prefer 'make firmware_install' to just copy the blobs into specific
-> > location in analogy with 'make modules_install', so that you can build the
-> > blobs as a normal user (for example, on an NFS server) and then put them
-> > into the right place as root (for example, on an NFS client that has no write
-> > privilege on the server).
-> 
-> Not entirely sure which you mean. You _can't_ run 'make modules_install' 
-> as a normal user, unless you override $(INSTALL_MOD_PATH) on the command 
-> line.
+O
+> Further, all current kernel build and test etc. scripts are unaware of 
+> 'make firmware_install', and it is unfair to everybody to force a 
+> flag-day build process change on people, just to keep their drivers in 
+> the same working state today as it was yesterday.
 
-Yes, I know that.
+IMHO we want firmware built in as the default for the moment. If the
+firmware model makes sense (as I think it does) then the distributions
+will catch up, turn it on and sort out the default behaviour - exactly as
+they did all those years ago with modules, more recently with "use an
+initrd" and so on.
 
-> Do you want 'make firmware_install' to be the same?
+> as "making no sense".  All these are real world examples where users 
+> FOLLOWING THEIR NORMAL, PROSCRIBED KERNEL PROCESSES will produce 
 
-Yes, I'd prefer it to behave in the same way as 'make modules_install'.
+I hope you mean "prescribed" ;)
 
-I'd use a config option like BUILD_FIRMWARE_BLOBS that, if set, would make
-the build system create firmware bin files in the same directories where the
-driver's .o files are located.  Then, 'make firmware_install' would only copy
-those bin files to wherever was appropriate (eg. /lib/firmware/).
+> The only valid assumption here is to assume that the user is /unaware/ 
+> of these new steps they must take in order to continue to have a working 
+> system.
 
-Of course, there still would be a problem if there already were such firmware
-files at the destination, but that would have to be resolved anyway by the user
-wanting to install the new kernel along with the new firmware blobs.
-
-> It isn't at the moment -- it installs to a subdirectory of the kernel build tree, like 
-> 'make headers_install' does. But I'm not sure which is better.
-
-IMO 'make headers_install' is used for a different purpose.  You don't have to
-run it to be able to use the kernel in a usual way.
-
-OTOH, everyone is familiar with the 'make modules_install' mechanics and it
-seems natural to use analogous mechanics for firmware blobs.
+To a large extent not the user but their distro - consider "make install"
