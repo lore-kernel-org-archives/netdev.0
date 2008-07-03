@@ -1,176 +1,119 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH v3 2/2] [iproute2/tc] hfsc: add link layer overhead adaption
-Date: Fri, 04 Jul 2008 01:04:47 +0300
-Message-ID: <20080703220447.30620.50467.stgit@fate.lan>
-References: <20080703220442.30620.55142.stgit@fate.lan>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 03 Jul 2008 18:22:18 -0400
+Message-ID: <486D511A.9020405@garzik.org>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>	 <486CC440.9030909@garzik.org>	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>	 <486CCFED.7010308@garzik.org>	 <1215091999.10393.556.camel@pmac.infradead.org>	 <486CD654.4020605@garzik.org>	 <1215093175.10393.567.camel@pmac.infradead.org>	 <20080703173040.GB30506@mit.edu> <1215111362.10393.651.camel@pmac.infradead.org> <486D3E88.9090900@garzik.org> <486D4596.60005@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+Cc: Theodore Tso <tytso@mit.edu>, Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:34723 "EHLO
-	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754214AbYGCWEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 18:04:49 -0400
-In-Reply-To: <20080703220442.30620.55142.stgit@fate.lan>
+Received: from srv5.dvmed.net ([207.36.208.214]:57364 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754216AbYGCWWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jul 2008 18:22:38 -0400
+In-Reply-To: <486D4596.60005@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch adds 'mpu', 'mtu', 'overhead' and 'linklayer' options to hfsc. These
-options are used to create size table for sch_hfsc. Size table is only used
-and passed to kernel if these options are used.
+David Woodhouse wrote:
+> Jeff Garzik wrote:
+>> David Woodhouse wrote:
+>>> Although it does make me wonder if it was better the way I had it
+>>> originally, with individual options like TIGON3_FIRMWARE_IN_KERNEL
+>>> attached to each driver, rather than a single FIRMWARE_IN_KERNEL option
+>>> which controls them all.
+>>
+>> IMO, individual options would be better.
+> 
+> They had individual options for a long time, but the consensus was that 
+> I should remove them -- a consensus which was probably right. It was 
+> moderately inconvenient going back through it all and recommitting it 
+> without that, but it was worth it to get it right...
+> 
+>> Plus, unless I am misunderstanding, the firmware is getting built into 
+>> the kernel image not the tg3 module?
+> 
+> That's right, although it doesn't really matter when they're both in the 
+> vmlinux.
+> 
+> When it's actually a module, there really is no good reason not to let 
+> request_firmware() get satisfied from userspace. If you can load 
+> modules, then you can load firmware too -- the required udev stuff has 
+> been there as standard for a _long_ time, as most modern drivers 
+> _require_ it without even giving you the built-in-firmware option at all.
+> 
+> It makes no more sense to object to that than it does to object to the 
+> module depending on _other_ modules. Both those other modules, and the 
+> required firmware, are _installed_ by the kernel Makefiles, after all.
+> 
+> It wouldn't be _impossible_ to put firmware blobs into the foo.ko files 
+> themselves and find them there. The firmware blobs in the kernel are 
+> done in a separate section (like initcalls, exceptions tables, pci 
+> fixups, and a bunch of other stuff). It'd just take some work in 
+> module.c to link them into a global list, and some locking shenanigans 
+> in the lookups (and lifetime issues to think about). But it just isn't 
+> worth the added complexity, given that userspace is known to be alive 
+> and working. It's pointless not to just use request_firmware() normally, 
+> from a module.
 
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
----
+It is pointless -- if you assume everybody wants to run their distro and 
+universe your way.
 
- include/linux/pkt_sched.h |    2 +
- tc/q_hfsc.c               |   72 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 73 insertions(+), 1 deletions(-)
+If a firmware is built-in, then 'make firmware_install' is clearly 
+optional and may be omitted.  That invalidates several of your 
+assumptions above.
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 5bf1444..6a2cbc4 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -326,6 +326,8 @@ enum
- 	TCA_HFSC_RSC,
- 	TCA_HFSC_FSC,
- 	TCA_HFSC_USC,
-+	TCA_HFSC_SZOPTS,
-+	TCA_HFSC_STAB,
- 	__TCA_HFSC_MAX,
- };
- 
-diff --git a/tc/q_hfsc.c b/tc/q_hfsc.c
-index b190c71..40511c0 100644
---- a/tc/q_hfsc.c
-+++ b/tc/q_hfsc.c
-@@ -42,6 +42,13 @@ explain_class(void)
- {
- 	fprintf(stderr,
- 		"Usage: ... hfsc [ [ rt SC ] [ ls SC ] | [ sc SC ] ] [ ul SC ]\n"
-+		"                [ mtu BYTES] [ mpu BYTES ] [ overhead BYTES ]\n"
-+		"                [ linklayer TYPE ]\n"
-+		"\n"
-+		" mtu       : max packet size we create rate map for {2047}\n"
-+		" mpu       : minimum packet size used in rate computations\n"
-+		" overhead  : per-packet size overhead used in rate computations\n"
-+		" linklayer : adapting to a linklayer e.g. atm\n"
- 		"\n"
- 		"SC := [ [ m1 BPS ] [ d SEC ] m2 BPS\n"
- 		"\n"
-@@ -145,14 +152,46 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 	struct tc_service_curve rsc, fsc, usc;
- 	int rsc_ok, fsc_ok, usc_ok;
- 	struct rtattr *tail;
-+	struct tc_sizespec szopts;
-+	__u16 stab[512];
-+	int use_stab;
-+	unsigned mtu = 0;
-+	unsigned int linklayer = LINKLAYER_ETHERNET; /* Assume ethernet */
-+	short overhead = 0;
-+	unsigned short mpu = 0;
- 
- 	memset(&rsc, 0, sizeof(rsc));
- 	memset(&fsc, 0, sizeof(fsc));
- 	memset(&usc, 0, sizeof(usc));
-+	memset(&szopts, 0, sizeof(szopts));
- 	rsc_ok = fsc_ok = usc_ok = 0;
- 
- 	while (argc > 0) {
--		if (matches(*argv, "rt") == 0) {
-+		if (matches(*argv, "mtu") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&mtu, *argv, 10)) {
-+				explain1("mtu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "mpu") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&mpu, *argv, 10)) {
-+				explain1("mpu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "overhead") == 0) {
-+			NEXT_ARG();
-+			if (get_s16(&overhead, *argv, 10)) {
-+				explain1("overhead");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "linklayer") == 0) {
-+			NEXT_ARG();
-+			if (get_linklayer(&linklayer, *argv)) {
-+				explain1("linklayer");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "rt") == 0) {
- 			NEXT_ARG();
- 			if (hfsc_get_sc(&argc, &argv, &rsc) < 0) {
- 				explain1("rt");
-@@ -205,6 +244,18 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 		return -1;
- 	}
- 
-+	/* Only use stab when needed, mtu only defines stab properties so
-+	 * it is not checked here. */
-+	use_stab = (linklayer != LINKLAYER_ETHERNET || mpu != 0 || overhead != 0);
-+	if (use_stab) {
-+		szopts.mpu = mpu;
-+		szopts.overhead = overhead;
-+		if (tc_calc_stable(&szopts, stab, -1, mtu, linklayer) < 0) {
-+			fprintf(stderr, "HFSC: failed to calculate rate table.\n");
-+			return -1;
-+		}
-+	}
-+
- 	tail = NLMSG_TAIL(n);
- 
- 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-@@ -214,6 +265,10 @@ hfsc_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
- 		addattr_l(n, 1024, TCA_HFSC_FSC, &fsc, sizeof(fsc));
- 	if (usc_ok)
- 		addattr_l(n, 1024, TCA_HFSC_USC, &usc, sizeof(usc));
-+	if (use_stab) {
-+		addattr_l(n, 2024, TCA_HFSC_SZOPTS, &szopts, sizeof(szopts));
-+		addattr_l(n, 3024, TCA_HFSC_STAB, stab, TC_STAB_SIZE);
-+	}
- 
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
-@@ -235,6 +290,8 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
- 	struct rtattr *tb[TCA_HFSC_MAX+1];
- 	struct tc_service_curve *rsc = NULL, *fsc = NULL, *usc = NULL;
-+	struct tc_sizespec *szopts = NULL;
-+	SPRINT_BUF(b1);
- 
- 	if (opt == NULL)
- 		return 0;
-@@ -259,6 +316,12 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		else
- 			usc = RTA_DATA(tb[TCA_HFSC_USC]);
- 	}
-+	if (tb[TCA_HFSC_SZOPTS]) {
-+		if (RTA_PAYLOAD(tb[TCA_HFSC_SZOPTS]) < sizeof(*szopts))
-+			fprintf(stderr, "HFSC: truncated rate options\n");
-+		else
-+			szopts = RTA_DATA(tb[TCA_HFSC_SZOPTS]);
-+	}
- 
- 
- 	if (rsc != NULL && fsc != NULL &&
-@@ -273,6 +336,13 @@ hfsc_print_class_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (usc != NULL)
- 		hfsc_print_sc(f, "ul", usc);
- 
-+	if (szopts != NULL && show_details) {
-+		if (szopts->mpu)
-+			fprintf(f, "mpu %s ", sprint_size(szopts->mpu, b1));
-+		if (szopts->overhead)
-+			fprintf(f, "overhead %s ", sprint_size(szopts->overhead, b1));
-+	}
-+
- 	return 0;
- }
- 
+Further, all current kernel build and test etc. scripts are unaware of 
+'make firmware_install', and it is unfair to everybody to force a 
+flag-day build process change on people, just to keep their drivers in 
+the same working state today as it was yesterday.
+
+
+Conclusion - kernel build process must produce a working driver after 
+your changes are applied, even in absence of 'make firmware_install'.
+
+That does not, repeat /not/ exclude the desired end goal of course -- 
+separating the firmware from the driver, installing in /lib/firmware via 
+'make firmware_install', etc.
+
+
+I support your end goal, I really do.  But I continue to feel there is a 
+lack of regard for breakage and regressions.  You are either ignoring or 
+apparently just not seeing
+	* how many new ways this can produce a non-working driver
+	* how important it is in this specific case to fail-safe,
+	  and avoid a broken driver at all costs.
+
+As a concrete example, in the above quoted text you assume that a user 
+will never copy kernel modules around.  I can tell you that, with tg3.ko 
+being nice and self-contained, yes it does get copied around (to 
+multiple machines, etc.).  With the firmware newly separated from 
+tg3.ko, you have introduced breakage for any user that is unaware of 
+this new requirement (kernel module == requires additional file now).
+
+Scripts that build install disks must be updated, otherwise a script 
+that builds a boot image will include the drivers it knows about, but 
+/not/ include the crucial firmware.
+
+None of this stuff is "pointless", none of this stuff may be dismissed 
+as "making no sense".  All these are real world examples where users 
+FOLLOWING THEIR NORMAL, PROSCRIBED KERNEL PROCESSES will produce 
+non-working drivers.
+
+The only valid assumption here is to assume that the user is /unaware/ 
+of these new steps they must take in order to continue to have a working 
+system.
+
+Regards,
+
+	Jeff
+
+
+
 
