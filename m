@@ -1,7 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 13/39]: pkt_sched: Add qdisc_all_tx_empty()
-Date: Thu, 03 Jul 2008 00:03:43 -0700 (PDT)
-Message-ID: <20080703.000343.16709755.davem@davemloft.net>
+Subject: [PATCH 16/39]: mac80211: Decrease number of explicit ->tx_queue
+ references.
+Date: Thu, 03 Jul 2008 00:03:58 -0700 (PDT)
+Message-ID: <20080703.000358.13934940.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,61 +10,83 @@ Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com,
 	Matheos.Worku@Sun.COM, linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47523
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47556
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757302AbYGCHDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:03:44 -0400
+	by vger.kernel.org with ESMTP id S1757592AbYGCHD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:03:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-As per comments, this isn't a foolproof implementation.  This is being
-added so that we can contain and isolate all the explicit ->tx_queue
-references in the tree.
+Accomplish this by using local variables.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/irda/irda_device.h |    2 +-
- include/net/sch_generic.h      |   13 +++++++++++++
- 2 files changed, 14 insertions(+), 1 deletions(-)
+ net/mac80211/main.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_device.h
-index 16fbf67..3025ae1 100644
---- a/include/net/irda/irda_device.h
-+++ b/include/net/irda/irda_device.h
-@@ -223,7 +223,7 @@ int  irda_device_is_receiving(struct net_device *dev);
- /* Interface for internal use */
- static inline int irda_device_txqueue_empty(const struct net_device *dev)
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 81fe145..b00bb73 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -570,6 +570,7 @@ static int ieee80211_stop(struct net_device *dev)
+ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
  {
--	return skb_queue_empty(&dev->tx_queue.qdisc->q);
-+	return qdisc_all_tx_empty(dev);
- }
- int  irda_device_set_raw_mode(struct net_device* self, int status);
- struct net_device *alloc_irdadev(int sizeof_priv);
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a71994b..f83e860 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -191,6 +191,19 @@ static inline void qdisc_reset_all_tx(struct net_device *dev)
- 	qdisc_reset(dev->tx_queue.qdisc);
- }
+ 	struct ieee80211_local *local = hw_to_local(hw);
++	struct netdev_queue *dev_queue;
+ 	struct sta_info *sta;
+ 	struct ieee80211_sub_if_data *sdata;
+ 	u16 start_seq_num = 0;
+@@ -632,7 +633,8 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
  
-+/* Are all TX queues of the device empty?  */
-+static inline bool qdisc_all_tx_empty(const struct net_device *dev)
-+{
-+	struct netdev_queue *txq = &dev->tx_queue;
-+
-+	/* XXX This is not correct but it is good enough for the
-+	 * XXX one place that wants this, IRDA.  If we wanted to
-+	 * XXX do this right, we'd need to add a qdisc op to
-+	 * XXX probe for the queue state.
-+	 */
-+	return skb_queue_empty(&txq->qdisc->q);
-+}
-+
- static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
- 				       struct sk_buff_head *list)
+ 	/* ensure that TX flow won't interrupt us
+ 	 * until the end of the call to requeue function */
+-	spin_lock_bh(&local->mdev->tx_queue.lock);
++	dev_queue = &local->mdev->tx_queue;
++	spin_lock_bh(&dev_queue->lock);
+ 
+ 	/* create a new queue for this aggregation */
+ 	ret = ieee80211_ht_agg_queue_add(local, sta, tid);
+@@ -671,7 +673,7 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
+ 
+ 	/* Will put all the packets in the new SW queue */
+ 	ieee80211_requeue(local, ieee802_1d_to_ac[tid]);
+-	spin_unlock_bh(&local->mdev->tx_queue.lock);
++	spin_unlock_bh(&dev_queue->lock);
+ 	spin_unlock_bh(&sta->lock);
+ 
+ 	/* send an addBA request */
+@@ -695,7 +697,7 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
+ err_unlock_queue:
+ 	kfree(sta->ampdu_mlme.tid_tx[tid]);
+ 	sta->ampdu_mlme.tid_tx[tid] = NULL;
+-	spin_unlock_bh(&local->mdev->tx_queue.lock);
++	spin_unlock_bh(&dev_queue->lock);
+ 	ret = -EBUSY;
+ err_unlock_sta:
+ 	spin_unlock_bh(&sta->lock);
+@@ -812,6 +814,7 @@ EXPORT_SYMBOL(ieee80211_start_tx_ba_cb);
+ void ieee80211_stop_tx_ba_cb(struct ieee80211_hw *hw, u8 *ra, u8 tid)
  {
+ 	struct ieee80211_local *local = hw_to_local(hw);
++	struct netdev_queue *dev_queue;
+ 	struct sta_info *sta;
+ 	u8 *state;
+ 	int agg_queue;
+@@ -855,10 +858,11 @@ void ieee80211_stop_tx_ba_cb(struct ieee80211_hw *hw, u8 *ra, u8 tid)
+ 
+ 	/* avoid ordering issues: we are the only one that can modify
+ 	 * the content of the qdiscs */
+-	spin_lock_bh(&local->mdev->tx_queue.lock);
++	dev_queue = &local->mdev->tx_queue;
++	spin_lock_bh(&dev_queue->lock);
+ 	/* remove the queue for this aggregation */
+ 	ieee80211_ht_agg_queue_remove(local, sta, tid, 1);
+-	spin_unlock_bh(&local->mdev->tx_queue.lock);
++	spin_unlock_bh(&dev_queue->lock);
+ 
+ 	/* we just requeued the all the frames that were in the removed
+ 	 * queue, and since we might miss a softirq we do netif_schedule.
 -- 
 1.5.6
 
