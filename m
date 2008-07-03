@@ -1,50 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 03 Jul 2008 09:38:28 -0400
-Message-ID: <486CD654.4020605@garzik.org>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org>	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>	 <486CC440.9030909@garzik.org>	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>	 <486CCFED.7010308@garzik.org> <1215091999.10393.556.camel@pmac.infradead.org>
+From: Doug Kehn <rdkehn@yahoo.com>
+Subject: skb_bond(): Let master dev see skb
+Date: Thu, 3 Jul 2008 06:38:57 -0700 (PDT)
+Message-ID: <19562.56527.qm@web52008.mail.re2.yahoo.com>
+Reply-To: rdkehn@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hugh Dickins <hugh@veritas.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51963 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755248AbYGCNio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2008 09:38:44 -0400
-In-Reply-To: <1215091999.10393.556.camel@pmac.infradead.org>
+Received: from web52008.mail.re2.yahoo.com ([206.190.48.57]:21871 "HELO
+	web52008.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756247AbYGCNi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 09:38:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
->> dwmw2 has been told repeatedly that his changes will cause PRECISELY 
->> these problems, but he refuses to take the simple steps necessary to 
->> ensure people can continue to boot their kernels after his changes go in.
-> 
-> Complete nonsense. Setting CONFIG_FIRMWARE_IN_KERNEL isn't hard. But
-> shouldn't be the _default_, either.
-> 
->> Presently his tg3 changes have been nak'd, in part, because of this 
->> obviously, forseeable, work-around-able breakage.
-> 
-> They haven't even been reviewed. Nobody seems to have actually looked at
+Hi All,
+
+I was looking at writing a net driver for a Marvell switch chip attached 
+to an Ethernet MAC on a SoC.  The driver would be similar to the bonding 
+driver except that it would bond to a single slave (the SoC Ethernet 
+driver) and export multiple net devs.  The idea is to steer frames to a 
+physical port on the switch by adding a 4-byte trailer to the frame.  The 
+switch will use the trailer to determine the port to send the frame.  The 
+switch also strips the trailer before sending.  On packet reception, the 
+switch adds the 4-byte trailer to the frame indicating the physical port 
+the frame was received.  The master needs to see the skb in order to 
+determine the actual dev to associate with the skb and to strip off the 
+4-byte trailer.
+
+I was thinking of adding a function pointer to net_dev to allow a master 
+to see the skb and have skb_bond() call the function if the pointer has 
+been initialized.  skb_bond would function as is if the pointer is not 
+initialized.
+
+Is there a better way to accomplish this or is this approach reasonable?
 
 
-Yes, they have.  You just didn't like the answers you received.
-
-In particular, the Kconfig default for built-in tg3 firmware should 
-result in the current behavior, without the user having to take extra steps.
-
-Because of your stubborn refusal on this Kconfig defaults issue, WE 
-ALREADY HAVE DRIVER-DOES-NOT-WORK BREAKAGE, JUST AS PREDICTED.
-
-Wake up and smell reality.  Please.
-
-	Jeff
+Thanks,
+...doug
 
 
+
+      
