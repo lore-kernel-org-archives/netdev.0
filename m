@@ -1,40 +1,75 @@
-From: Doug Kehn <rdkehn@yahoo.com>
-Subject: skb_bond: Let master see skb
-Date: Thu, 3 Jul 2008 05:21:29 -0700 (PDT)
-Message-ID: <661004.68730.qm@web52010.mail.re2.yahoo.com>
-Reply-To: rdkehn@yahoo.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: net-sched 01/05: add dynamically sized qdisc class hash helpers
+Date: Thu, 03 Jul 2008 14:16:40 +0200
+Message-ID: <486CC328.5070107@trash.net>
+References: <20080703121824.GA2559@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52010.mail.re2.yahoo.com ([206.190.48.26]:28964 "HELO
-	web52010.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758897AbYGCM2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 08:28:10 -0400
+Received: from stinky.trash.net ([213.144.137.162]:35539 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757415AbYGCM1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 08:27:53 -0400
+In-Reply-To: <20080703121824.GA2559@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Jarek Poplawski wrote:
+>> +static inline void *qdisc_class_find(struct Qdisc_class_hash *hash, u32 id)
+>>     
+>
+> Why not Qdisc_class_common *?
+>   
 
-I was looking at writing a net driver for a Marvell switch chip attached 
-to an Ethernet MAC on a SoC.  The driver would be similar to the bonding 
-driver except that it would bond to a single slave (the SoC Ethernet 
-driver) and export multiple net devs.  The idea is to steer frames to a physical port on the switch by adding a 4-byte trailer to the frame.  The 
-switch will use the trailer to determine the port to send the frame.  The switch also strips the trailer before sending.  On packet reception, the 
-switch adds the 4-byte trailer to the frame indicating the physical port 
-the frame was received.  The master needs to see the skb in order to determine the actual dev to associate with the skb and to strip off the 
-4-byte trailer.
+I originally didn't use container_of but simply required
+Qdisc_class_common to be the first element of the
+class struct, this is a remnant of that. I'll change it,
+thanks.
 
-I was thinking of adding a function pointer to net_dev to allow a master 
-to see the skb and have skb_bond() call the function if the pointer has 
-been initialized.  skb_bond would function as is if the pointer is not 
-initialized.
+>> +void qdisc_class_hash_grow(struct Qdisc *sch, struct Qdisc_class_hash *clhash)
+>> +{
+>> +	struct Qdisc_class_common *cl;
+>> +	struct hlist_node *n, *next;
+>> +	struct hlist_head *nhash, *ohash;
+>> +	unsigned int nsize, nmask, osize;
+>> +	unsigned int i, h;
+>> +
+>> +	/* Rehash when load factor exceeds 0.75 */
+>> +	if (clhash->hashelems * 4 <= clhash->hashsize * 3)
+>>     
+>
+> With current init hashsize == 4 this will trigger after adding: 4th,
+> 7th, 13th,... class. Maybe we could start with something higher?
+>   
 
-Is there a better way to accomplish this or is this approach reasonable?
+We could, but I don't think it makes any difference, for those
+small numbers the rehashing is really cheap.
+
+>> +		return;
+>> +	nsize = clhash->hashsize * 2;
+>> +	nmask = nsize - 1;
+>> +	nhash = qdisc_class_hash_alloc(nsize);
+>> +	if (nhash == NULL)
+>> +		return;
+>> +
+>> +	ohash = clhash->hash;
+>> +	osize = clhash->hashsize;
+>> +
+>> +	sch_tree_lock(sch);
+>> +	for (i = 0; i < osize; i++) {
+>> +		hlist_for_each_entry_safe(cl, n, next, &ohash[i], hnode) {
+>> +			h = qdisc_class_hash(cl->classid, nmask);
+>> +			hlist_add_head(&cl->hnode, &nhash[h]);
+>>     
+>
+> With a large number of classes and changes this could probably give
+> noticable delays, so maybe there would be reasonable to add a
+> possibility of user defined, ungrowable hashsize as well?
+
+I don't think its really going to be noticable (the numbers are not
+*that* large), but I'll try to get some numbers.
 
 
-Thanks,
-...doug
-
-
-      
