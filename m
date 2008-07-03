@@ -1,45 +1,29 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: Re: [PATCH 13/39]: pkt_sched: Add qdisc_all_tx_empty()
-Date: Thu, 03 Jul 2008 15:11:26 +0200
-Message-ID: <486CCFFE.7060009@trash.net>
-References: <20080703.000343.16709755.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: Fix possible error pointer dereference
+Date: Thu, 3 Jul 2008 15:18:58 +0200
+Message-ID: <20080703131858.GN9549@secunet.com>
+References: <20080703084836.GI9549@secunet.com> <20080703090403.GA27923@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080703.000343.16709755.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	klassert@mathematik.tu-chemnitz.de
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([213.68.205.161]:49116 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751865AbYGCNTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jul 2008 09:19:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20080703090403.GA27923@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> As per comments, this isn't a foolproof implementation.  This is being
-> added so that we can contain and isolate all the explicit ->tx_queue
-> references in the tree.
+On Thu, Jul 03, 2008 at 05:04:03PM +0800, Herbert Xu wrote:
 > 
-> +/* Are all TX queues of the device empty?  */
-> +static inline bool qdisc_all_tx_empty(const struct net_device *dev)
-> +{
-> +	struct netdev_queue *txq = &dev->tx_queue;
-> +
-> +	/* XXX This is not correct but it is good enough for the
-> +	 * XXX one place that wants this, IRDA.  If we wanted to
-> +	 * XXX do this right, we'd need to add a qdisc op to
-> +	 * XXX probe for the queue state.
-> +	 */
-> +	return skb_queue_empty(&txq->qdisc->q);
-> +}
+> Please check again, we're not dereferencing it here.
+> 
+Yes, we are just getting a pointer.
 
+Sorry for the noise,
 
-It this comment referring to the fact that its looking at
-qdisc->q itself, while the qdisc might be using internal
-queues? If so, just using txq->qdisc->q.qlen should be
-fine since qdiscs are required to always update this value,
-even if they're not using the queue itself.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Steffen
