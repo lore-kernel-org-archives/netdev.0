@@ -1,217 +1,88 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net 03/06: Add GARP applicant-only participant
-Date: Thu,  3 Jul 2008 19:04:45 +0200 (MEST)
-Message-ID: <20080703170445.6650.86510.sendpatchset@localhost.localdomain>
+Subject: net 01/06: Add STP demux layer
+Date: Thu,  3 Jul 2008 19:04:42 +0200 (MEST)
+Message-ID: <20080703170442.6650.31951.sendpatchset@localhost.localdomain>
 References: <20080703170441.6650.64717.sendpatchset@localhost.localdomain>
 Cc: shemminger@vyatta.com, Patrick McHardy <kaber@trash.net>,
 	davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42853 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:42845 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760AbYGCREr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 13:04:47 -0400
+	with ESMTP id S1752653AbYGCREo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 13:04:44 -0400
 In-Reply-To: <20080703170441.6650.64717.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net: Add GARP applicant-only participant
+net: Add STP demux layer
 
-Add an implementation of the GARP (Generic Attribute Registration Protocol)
-applicant-only participant. This will be used by the following patch to
-add GVRP support to the VLAN code.
+Add small STP demux layer for demuxing STP PDUs based on MAC address.
+This is needed to run both GARP and STP in parallel (or even load the
+modules) since both use LLC_SAP_BSPAN.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 4c8767ab0402e70217e9ec118d940e56255a8221
-tree 5559fa726cb8ac236f69ccd2ead03adb26304e2b
-parent 85ecc2934a05203a4f6372cd8f0b132c2d1f2f97
-author Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 18:11:18 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 18:11:18 +0200
+commit 6c0be0e52a154f1991c221a6f60c6b9be71a10c8
+tree 6dcdf3d929edeae8463c6957e688f1e91ca6cfe5
+parent 44d28ab19c64d095314ac66f765d0c747519f4ed
+author Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 18:05:56 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 18:05:56 +0200
 
- include/linux/netdevice.h |    2 
- include/net/garp.h        |  127 +++++++++
- net/802/Kconfig           |    4 
- net/802/Makefile          |    1 
- net/802/garp.c            |  633 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 767 insertions(+), 0 deletions(-)
+ include/net/stp.h |   14 +++++++
+ net/802/Kconfig   |    3 ++
+ net/802/Makefile  |    1 +
+ net/802/stp.c     |  102 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/Kconfig       |    1 +
+ 5 files changed, 121 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 56dadb5..e009c6f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -740,6 +740,8 @@ struct net_device
- 	struct net_bridge_port	*br_port;
- 	/* macvlan */
- 	struct macvlan_port	*macvlan_port;
-+	/* GARP */
-+	struct garp_port	*garp_port;
- 
- 	/* class/net/name entry */
- 	struct device		dev;
-diff --git a/include/net/garp.h b/include/net/garp.h
+diff --git a/include/net/stp.h b/include/net/stp.h
 new file mode 100644
-index 0000000..73c7723
+index 0000000..ad447f1
 --- /dev/null
-+++ b/include/net/garp.h
-@@ -0,0 +1,127 @@
-+#ifndef _NET_GARP_H
-+#define _NET_GARP_H
++++ b/include/net/stp.h
+@@ -0,0 +1,14 @@
++#ifndef _NET_STP_H
++#define _NET_STP_H
 +
-+#include <net/stp.h>
-+
-+#define GARP_PROTOCOL_ID	0x1
-+#define GARP_END_MARK		0x0
-+
-+struct garp_pdu_hdr {
-+	__be16	protocol;
++struct stp_proto {
++	unsigned char	group_address[ETH_ALEN];
++	void		(*rcv)(const struct stp_proto *, struct sk_buff *,
++			       struct net_device *);
++	void		*data;
 +};
 +
-+struct garp_msg_hdr {
-+	u8	attrtype;
-+};
++extern int stp_proto_register(const struct stp_proto *proto);
++extern void stp_proto_unregister(const struct stp_proto *proto);
 +
-+enum garp_attr_event {
-+	GARP_LEAVE_ALL,
-+	GARP_JOIN_EMPTY,
-+	GARP_JOIN_IN,
-+	GARP_LEAVE_EMPTY,
-+	GARP_LEAVE_IN,
-+	GARP_EMPTY,
-+};
-+
-+struct garp_attr_hdr {
-+	u8	len;
-+	u8	event;
-+	u8	data[];
-+};
-+
-+struct garp_skb_cb {
-+	u8	cur_type;
-+};
-+
-+static inline struct garp_skb_cb *garp_cb(struct sk_buff *skb)
-+{
-+	BUILD_BUG_ON(sizeof(struct garp_skb_cb) >
-+		     FIELD_SIZEOF(struct sk_buff, cb));
-+	return (struct garp_skb_cb *)skb->cb;
-+}
-+
-+enum garp_applicant_state {
-+	GARP_APPLICANT_INVALID,
-+	GARP_APPLICANT_VA,
-+	GARP_APPLICANT_AA,
-+	GARP_APPLICANT_QA,
-+	GARP_APPLICANT_LA,
-+	GARP_APPLICANT_VP,
-+	GARP_APPLICANT_AP,
-+	GARP_APPLICANT_QP,
-+	GARP_APPLICANT_VO,
-+	GARP_APPLICANT_AO,
-+	GARP_APPLICANT_QO,
-+	__GARP_APPLICANT_MAX
-+};
-+#define GARP_APPLICANT_MAX	(__GARP_APPLICANT_MAX - 1)
-+
-+enum garp_event {
-+	GARP_EVENT_REQ_JOIN,
-+	GARP_EVENT_REQ_LEAVE,
-+	GARP_EVENT_R_JOIN_IN,
-+	GARP_EVENT_R_JOIN_EMPTY,
-+	GARP_EVENT_R_EMPTY,
-+	GARP_EVENT_R_LEAVE_IN,
-+	GARP_EVENT_R_LEAVE_EMPTY,
-+	GARP_EVENT_TRANSMIT_PDU,
-+	__GARP_EVENT_MAX
-+};
-+#define GARP_EVENT_MAX		(__GARP_EVENT_MAX - 1)
-+
-+enum garp_action {
-+	GARP_ACTION_NONE,
-+	GARP_ACTION_S_JOIN_IN,
-+	GARP_ACTION_S_LEAVE_EMPTY,
-+};
-+
-+struct garp_attr {
-+	struct rb_node			node;
-+	enum garp_applicant_state	state;
-+	u8				type;
-+	u8				dlen;
-+	unsigned char			data[];
-+};
-+
-+enum garp_applications {
-+	__GARP_APPLICATION_MAX
-+};
-+#define GARP_APPLICATION_MAX	(__GARP_APPLICATION_MAX - 1)
-+
-+struct garp_application {
-+	enum garp_applications	type;
-+	unsigned int		maxattr;
-+	struct stp_proto	proto;
-+};
-+
-+struct garp_applicant {
-+	struct garp_application	*app;
-+	struct net_device	*dev;
-+	struct timer_list	join_timer;
-+
-+	spinlock_t		lock;
-+	struct sk_buff_head	queue;
-+	struct sk_buff		*pdu;
-+	struct rb_root		gid;
-+};
-+
-+struct garp_port {
-+	struct garp_applicant	*applicants[GARP_APPLICATION_MAX + 1];
-+};
-+
-+extern int	garp_register_application(struct garp_application *app);
-+extern void	garp_unregister_application(struct garp_application *app);
-+
-+extern int	garp_init_applicant(struct net_device *dev,
-+				    struct garp_application *app);
-+extern void	garp_uninit_applicant(struct net_device *dev,
-+				      struct garp_application *app);
-+
-+extern int	garp_request_join(const struct net_device *dev,
-+				  const struct garp_application *app,
-+				  const void *data, u8 len, u8 type);
-+extern void	garp_request_leave(const struct net_device *dev,
-+				   const struct garp_application *app,
-+				   const void *data, u8 len, u8 type);
-+
-+#endif /* _NET_GARP_H */
++#endif /* _NET_STP_H */
 diff --git a/net/802/Kconfig b/net/802/Kconfig
-index 01cb094..be33d27 100644
---- a/net/802/Kconfig
+new file mode 100644
+index 0000000..01cb094
+--- /dev/null
 +++ b/net/802/Kconfig
-@@ -1,3 +1,7 @@
- config STP
- 	tristate
- 	select LLC
-+
-+config GARP
+@@ -0,0 +1,3 @@
++config STP
 +	tristate
-+	select STP
++	select LLC
 diff --git a/net/802/Makefile b/net/802/Makefile
-index c441d89..7893d67 100644
+index 68569ff..c441d89 100644
 --- a/net/802/Makefile
 +++ b/net/802/Makefile
-@@ -11,3 +11,4 @@ obj-$(CONFIG_HIPPI)	+=                 hippi.o
+@@ -10,3 +10,4 @@ obj-$(CONFIG_FDDI)	+=                 fddi.o
+ obj-$(CONFIG_HIPPI)	+=                 hippi.o
  obj-$(CONFIG_IPX)	+= p8022.o psnap.o p8023.o
  obj-$(CONFIG_ATALK)	+= p8022.o psnap.o
- obj-$(CONFIG_STP)	+= stp.o
-+obj-$(CONFIG_GARP)	+= garp.o
-diff --git a/net/802/garp.c b/net/802/garp.c
++obj-$(CONFIG_STP)	+= stp.o
+diff --git a/net/802/stp.c b/net/802/stp.c
 new file mode 100644
-index 0000000..3b78f7b
+index 0000000..0b7a244
 --- /dev/null
-+++ b/net/802/garp.c
-@@ -0,0 +1,633 @@
++++ b/net/802/stp.c
+@@ -0,0 +1,102 @@
 +/*
-+ *	IEEE 802.1D Generic Attribute Registration Protocol (GARP)
++ *	STP SAP demux
 + *
 + *	Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
 + *
@@ -219,627 +90,108 @@ index 0000000..3b78f7b
 + *	modify it under the terms of the GNU General Public License
 + *	version 2 as published by the Free Software Foundation.
 + */
-+#include <linux/kernel.h>
-+#include <linux/timer.h>
++#include <linux/mutex.h>
 +#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
 +#include <linux/etherdevice.h>
-+#include <linux/rtnetlink.h>
 +#include <linux/llc.h>
 +#include <net/llc.h>
 +#include <net/llc_pdu.h>
-+#include <net/garp.h>
-+#include <asm/unaligned.h>
++#include <net/stp.h>
 +
-+static unsigned int garp_join_time __read_mostly = 200;
-+module_param(garp_join_time, uint, 0644);
-+MODULE_PARM_DESC(garp_join_time, "Join time in ms (default 200ms)");
-+MODULE_LICENSE("GPL");
++/* 01:80:c2:00:00:20 - 01:80:c2:00:00:2F */
++#define GARP_ADDR_MIN	0x20
++#define GARP_ADDR_MAX	0x2F
++#define GARP_ADDR_RANGE	(GARP_ADDR_MAX - GARP_ADDR_MIN)
 +
-+static const struct garp_state_trans {
-+	u8	state;
-+	u8	action;
-+} garp_applicant_state_table[GARP_APPLICANT_MAX + 1][GARP_EVENT_MAX + 1] = {
-+	[GARP_APPLICANT_VA] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_AA,
-+						    .action = GARP_ACTION_S_JOIN_IN },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_AA },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_LA },
-+	},
-+	[GARP_APPLICANT_AA] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_QA,
-+						    .action = GARP_ACTION_S_JOIN_IN },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QA },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_LA },
-+	},
-+	[GARP_APPLICANT_QA] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QA },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_LA },
-+	},
-+	[GARP_APPLICANT_LA] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_VO,
-+						    .action = GARP_ACTION_S_LEAVE_EMPTY },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_LA },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_LA },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_LA },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_VA },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_INVALID },
-+	},
-+	[GARP_APPLICANT_VP] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_AA,
-+						    .action = GARP_ACTION_S_JOIN_IN },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_AP },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_VO },
-+	},
-+	[GARP_APPLICANT_AP] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_QA,
-+						    .action = GARP_ACTION_S_JOIN_IN },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QP },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_AO },
-+	},
-+	[GARP_APPLICANT_QP] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QP },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_QO },
-+	},
-+	[GARP_APPLICANT_VO] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_AO },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_VP },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_INVALID },
-+	},
-+	[GARP_APPLICANT_AO] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QO },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_AP },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_INVALID },
-+	},
-+	[GARP_APPLICANT_QO] = {
-+		[GARP_EVENT_TRANSMIT_PDU]	= { .state = GARP_APPLICANT_INVALID },
-+		[GARP_EVENT_R_JOIN_IN]		= { .state = GARP_APPLICANT_QO },
-+		[GARP_EVENT_R_JOIN_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_EMPTY]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_IN]		= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_R_LEAVE_EMPTY]	= { .state = GARP_APPLICANT_VO },
-+		[GARP_EVENT_REQ_JOIN]		= { .state = GARP_APPLICANT_QP },
-+		[GARP_EVENT_REQ_LEAVE]		= { .state = GARP_APPLICANT_INVALID },
-+	},
-+};
++static const struct stp_proto *garp_protos[GARP_ADDR_RANGE + 1] __read_mostly;
++static const struct stp_proto *stp_proto __read_mostly;
 +
-+static int garp_attr_cmp(const struct garp_attr *attr,
-+			 const void *data, u8 len, u8 type)
++static struct llc_sap *sap __read_mostly;
++static unsigned int sap_registered;
++static DEFINE_MUTEX(stp_proto_mutex);
++
++/* Called under rcu_read_lock from LLC */
++static int stp_pdu_rcv(struct sk_buff *skb, struct net_device *dev,
++		       struct packet_type *pt, struct net_device *orig_dev)
 +{
-+	if (attr->type != type)
-+		return attr->type - type;
-+	if (attr->dlen != len)
-+		return attr->dlen - len;
-+	return memcmp(attr->data, data, len);
-+}
++	const struct ethhdr *eh = eth_hdr(skb);
++	const struct llc_pdu_un *pdu = llc_pdu_un_hdr(skb);
++	const struct stp_proto *proto;
 +
-+static struct garp_attr *garp_attr_lookup(const struct garp_applicant *app,
-+					  const void *data, u8 len, u8 type)
-+{
-+	struct rb_node *parent = app->gid.rb_node;
-+	struct garp_attr *attr;
-+	int d;
-+
-+	while (parent) {
-+		attr = rb_entry(parent, struct garp_attr, node);
-+		d = garp_attr_cmp(attr, data, len, type);
-+		if (d < 0)
-+			parent = parent->rb_left;
-+		else if (d > 0)
-+			parent = parent->rb_right;
-+		else
-+			return attr;
-+	}
-+	return NULL;
-+}
-+
-+static void garp_attr_insert(struct garp_applicant *app, struct garp_attr *new)
-+{
-+	struct rb_node *parent = NULL, **p = &app->gid.rb_node;
-+	struct garp_attr *attr;
-+	int d;
-+
-+	while (*p) {
-+		parent = *p;
-+		attr = rb_entry(parent, struct garp_attr, node);
-+		d = garp_attr_cmp(attr, new->data, new->dlen, new->type);
-+		if (d < 0)
-+			p = &parent->rb_left;
-+		else if (d > 0)
-+			p = &parent->rb_right;
-+	}
-+	rb_link_node(&new->node, parent, p);
-+	rb_insert_color(&new->node, &app->gid);
-+}
-+
-+static struct garp_attr *garp_attr_create(struct garp_applicant *app,
-+					  const void *data, u8 len, u8 type)
-+{
-+	struct garp_attr *attr;
-+
-+	attr = kmalloc(sizeof(*attr) + len, GFP_ATOMIC);
-+	if (!attr)
-+		return attr;
-+	attr->state = GARP_APPLICANT_VO;
-+	attr->type  = type;
-+	attr->dlen  = len;
-+	memcpy(attr->data, data, len);
-+	garp_attr_insert(app, attr);
-+	return attr;
-+}
-+
-+static void garp_attr_destroy(struct garp_applicant *app, struct garp_attr *attr)
-+{
-+	rb_erase(&attr->node, &app->gid);
-+	kfree(attr);
-+}
-+
-+static int garp_pdu_init(struct garp_applicant *app)
-+{
-+	struct sk_buff *skb;
-+	struct garp_pdu_hdr *gp;
-+
-+#define LLC_RESERVE	sizeof(struct llc_pdu_un)
-+	skb = alloc_skb(app->dev->mtu + LL_RESERVED_SPACE(app->dev),
-+			GFP_ATOMIC);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	skb->dev = app->dev;
-+	skb->protocol = htons(ETH_P_802_2);
-+	skb_reserve(skb, LL_RESERVED_SPACE(app->dev) + LLC_RESERVE);
-+
-+	gp = (struct garp_pdu_hdr *)__skb_put(skb, sizeof(*gp));
-+	put_unaligned(htons(GARP_PROTOCOL_ID), &gp->protocol);
-+
-+	app->pdu = skb;
-+	return 0;
-+}
-+
-+static int garp_pdu_append_end_mark(struct garp_applicant *app)
-+{
-+	if (skb_tailroom(app->pdu) < sizeof(u8))
-+		return -1;
-+	*(u8 *)__skb_put(app->pdu, sizeof(u8)) = GARP_END_MARK;
-+	return 0;
-+}
-+
-+static void garp_pdu_queue(struct garp_applicant *app)
-+{
-+	if (!app->pdu)
-+		return;
-+
-+	garp_pdu_append_end_mark(app);
-+	garp_pdu_append_end_mark(app);
-+
-+	llc_pdu_header_init(app->pdu, LLC_PDU_TYPE_U, LLC_SAP_BSPAN,
-+			    LLC_SAP_BSPAN, LLC_PDU_CMD);
-+	llc_pdu_init_as_ui_cmd(app->pdu);
-+	llc_mac_hdr_init(app->pdu, app->dev->dev_addr,
-+			 app->app->proto.group_address);
-+
-+	skb_queue_tail(&app->queue, app->pdu);
-+	app->pdu = NULL;
-+}
-+
-+static void garp_queue_xmit(struct garp_applicant *app)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_dequeue(&app->queue)))
-+		dev_queue_xmit(skb);
-+}
-+
-+static int garp_pdu_append_msg(struct garp_applicant *app, u8 attrtype)
-+{
-+	struct garp_msg_hdr *gm;
-+
-+	if (skb_tailroom(app->pdu) < sizeof(*gm))
-+		return -1;
-+	gm = (struct garp_msg_hdr *)__skb_put(app->pdu, sizeof(*gm));
-+	gm->attrtype = attrtype;
-+	garp_cb(app->pdu)->cur_type = attrtype;
-+	return 0;
-+}
-+
-+static int garp_pdu_append_attr(struct garp_applicant *app,
-+				const struct garp_attr *attr,
-+				enum garp_attr_event event)
-+{
-+	struct garp_attr_hdr *ga;
-+	unsigned int len;
-+	int err;
-+again:
-+	if (!app->pdu) {
-+		err = garp_pdu_init(app);
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	if (garp_cb(app->pdu)->cur_type != attr->type) {
-+		if (garp_cb(app->pdu)->cur_type &&
-+		    garp_pdu_append_end_mark(app) < 0)
-+			goto queue;
-+		if (garp_pdu_append_msg(app, attr->type) < 0)
-+			goto queue;
-+	}
-+
-+	len = sizeof(*ga) + attr->dlen;
-+	if (skb_tailroom(app->pdu) < len)
-+		goto queue;
-+	ga = (struct garp_attr_hdr *)__skb_put(app->pdu, len);
-+	ga->len   = len;
-+	ga->event = event;
-+	memcpy(ga->data, attr->data, attr->dlen);
-+	return 0;
-+
-+queue:
-+	garp_pdu_queue(app);
-+	goto again;
-+}
-+
-+static void garp_attr_event(struct garp_applicant *app,
-+			    struct garp_attr *attr, enum garp_event event)
-+{
-+	enum garp_applicant_state state;
-+
-+	state = garp_applicant_state_table[attr->state][event].state;
-+	if (state == GARP_APPLICANT_INVALID)
-+		return;
-+
-+	switch (garp_applicant_state_table[attr->state][event].action) {
-+	case GARP_ACTION_NONE:
-+		break;
-+	case GARP_ACTION_S_JOIN_IN:
-+		garp_pdu_append_attr(app, attr, GARP_JOIN_IN);
-+		break;
-+	case GARP_ACTION_S_LEAVE_EMPTY:
-+		garp_pdu_append_attr(app, attr, GARP_LEAVE_EMPTY);
-+		/* As a pure applicant, sending a leave message implies that
-+		 * the attribute was unregistered and can be destroyed. */
-+		garp_attr_destroy(app, attr);
-+		return;
-+	default:
-+		WARN_ON(1);
-+	}
-+
-+	attr->state = state;
-+}
-+
-+int garp_request_join(const struct net_device *dev,
-+		      const struct garp_application *appl,
-+		      const void *data, u8 len, u8 type)
-+{
-+	struct garp_port *port = dev->garp_port;
-+	struct garp_applicant *app = port->applicants[appl->type];
-+	struct garp_attr *attr;
-+
-+	spin_lock_bh(&app->lock);
-+	attr = garp_attr_create(app, data, len, type);
-+	if (!attr) {
-+		spin_unlock_bh(&app->lock);
-+		return -ENOMEM;
-+	}
-+	garp_attr_event(app, attr, GARP_EVENT_REQ_JOIN);
-+	spin_unlock_bh(&app->lock);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(garp_request_join);
-+
-+void garp_request_leave(const struct net_device *dev,
-+			const struct garp_application *appl,
-+			const void *data, u8 len, u8 type)
-+{
-+	struct garp_port *port = dev->garp_port;
-+	struct garp_applicant *app = port->applicants[appl->type];
-+	struct garp_attr *attr;
-+
-+	spin_lock_bh(&app->lock);
-+	attr = garp_attr_lookup(app, data, len, type);
-+	if (!attr) {
-+		spin_unlock_bh(&app->lock);
-+		return;
-+	}
-+	garp_attr_event(app, attr, GARP_EVENT_REQ_LEAVE);
-+	spin_unlock_bh(&app->lock);
-+}
-+EXPORT_SYMBOL_GPL(garp_request_leave);
-+
-+static void garp_gid_event(struct garp_applicant *app, enum garp_event event)
-+{
-+	struct rb_node *node, *next;
-+	struct garp_attr *attr;
-+
-+	for (node = rb_first(&app->gid);
-+	     next = node ? rb_next(node) : NULL, node != NULL;
-+	     node = next) {
-+		attr = rb_entry(node, struct garp_attr, node);
-+		garp_attr_event(app, attr, event);
-+	}
-+}
-+
-+static void garp_join_timer_arm(struct garp_applicant *app)
-+{
-+	unsigned long delay;
-+
-+	delay = (u64)msecs_to_jiffies(garp_join_time) * net_random() >> 32;
-+	mod_timer(&app->join_timer, jiffies + delay);
-+}
-+
-+static void garp_join_timer(unsigned long data)
-+{
-+	struct garp_applicant *app = (struct garp_applicant *)data;
-+
-+	spin_lock(&app->lock);
-+	garp_gid_event(app, GARP_EVENT_TRANSMIT_PDU);
-+	garp_pdu_queue(app);
-+	spin_unlock(&app->lock);
-+
-+	garp_queue_xmit(app);
-+	garp_join_timer_arm(app);
-+}
-+
-+static int garp_pdu_parse_end_mark(struct sk_buff *skb)
-+{
-+	if (!pskb_may_pull(skb, sizeof(u8)))
-+		return -1;
-+	if (*skb->data == GARP_END_MARK) {
-+		skb_pull(skb, sizeof(u8));
-+		return -1;
-+	}
-+	return 0;
-+}
-+
-+static int garp_pdu_parse_attr(struct garp_applicant *app, struct sk_buff *skb,
-+			       u8 attrtype)
-+{
-+	const struct garp_attr_hdr *ga;
-+	struct garp_attr *attr;
-+	enum garp_event event;
-+	unsigned int dlen;
-+
-+	if (!pskb_may_pull(skb, sizeof(*ga)))
-+		return -1;
-+	ga = (struct garp_attr_hdr *)skb->data;
-+	if (ga->len < sizeof(*ga))
-+		return -1;
-+
-+	if (!pskb_may_pull(skb, ga->len))
-+		return -1;
-+	skb_pull(skb, ga->len);
-+	dlen = sizeof(*ga) - ga->len;
-+
-+	if (attrtype > app->app->maxattr)
-+		return 0;
-+
-+	switch (ga->event) {
-+	case GARP_LEAVE_ALL:
-+		if (dlen != 0)
-+			return -1;
-+		garp_gid_event(app, GARP_EVENT_R_LEAVE_EMPTY);
-+		return 0;
-+	case GARP_JOIN_EMPTY:
-+		event = GARP_EVENT_R_JOIN_EMPTY;
-+		break;
-+	case GARP_JOIN_IN:
-+		event = GARP_EVENT_R_JOIN_IN;
-+		break;
-+	case GARP_LEAVE_EMPTY:
-+		event = GARP_EVENT_R_LEAVE_EMPTY;
-+		break;
-+	case GARP_EMPTY:
-+		event = GARP_EVENT_R_EMPTY;
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	if (dlen == 0)
-+		return -1;
-+	attr = garp_attr_lookup(app, ga->data, dlen, attrtype);
-+	if (attr == NULL)
-+		return 0;
-+	garp_attr_event(app, attr, event);
-+	return 0;
-+}
-+
-+static int garp_pdu_parse_msg(struct garp_applicant *app, struct sk_buff *skb)
-+{
-+	const struct garp_msg_hdr *gm;
-+
-+	if (!pskb_may_pull(skb, sizeof(*gm)))
-+		return -1;
-+	gm = (struct garp_msg_hdr *)skb->data;
-+	if (gm->attrtype == 0)
-+		return -1;
-+	skb_pull(skb, sizeof(*gm));
-+
-+	while (skb->len > 0) {
-+		if (garp_pdu_parse_attr(app, skb, gm->attrtype) < 0)
-+			return -1;
-+		if (garp_pdu_parse_end_mark(skb) < 0)
-+			break;
-+	}
-+	return 0;
-+}
-+
-+static void garp_pdu_rcv(const struct stp_proto *proto, struct sk_buff *skb,
-+			 struct net_device *dev)
-+{
-+	struct garp_application *appl = proto->data;
-+	struct garp_port *port;
-+	struct garp_applicant *app;
-+	const struct garp_pdu_hdr *gp;
-+
-+	port = rcu_dereference(dev->garp_port);
-+	if (!port)
-+		goto err;
-+	app = rcu_dereference(port->applicants[appl->type]);
-+	if (!app)
++	if (pdu->ssap != LLC_SAP_BSPAN ||
++	    pdu->dsap != LLC_SAP_BSPAN ||
++	    pdu->ctrl_1 != LLC_PDU_TYPE_U)
 +		goto err;
 +
-+	if (!pskb_may_pull(skb, sizeof(*gp)))
-+		goto err;
-+	gp = (struct garp_pdu_hdr *)skb->data;
-+	if (get_unaligned(&gp->protocol) != htons(GARP_PROTOCOL_ID))
-+		goto err;
-+	skb_pull(skb, sizeof(*gp));
++	if (eh->h_dest[5] >= GARP_ADDR_MIN && eh->h_dest[5] <= GARP_ADDR_MAX) {
++		proto = rcu_dereference(garp_protos[eh->h_dest[5] -
++						    GARP_ADDR_MIN]);
++		if (proto &&
++		    compare_ether_addr(eh->h_dest, proto->group_address))
++			goto err;
++	} else
++		proto = rcu_dereference(stp_proto);
 +
-+	spin_lock(&app->lock);
-+	while (skb->len > 0) {
-+		if (garp_pdu_parse_msg(app, skb) < 0)
-+			break;
-+		if (garp_pdu_parse_end_mark(skb) < 0)
-+			break;
-+	}
-+	spin_unlock(&app->lock);
++	if (!proto)
++		goto err;
++
++	proto->rcv(proto, skb, dev);
++	return 0;
++
 +err:
 +	kfree_skb(skb);
-+}
-+
-+static int garp_init_port(struct net_device *dev)
-+{
-+	struct garp_port *port;
-+
-+	port = kzalloc(sizeof(*port), GFP_KERNEL);
-+	if (!port)
-+		return -ENOMEM;
-+	rcu_assign_pointer(dev->garp_port, port);
 +	return 0;
 +}
 +
-+static void garp_release_port(struct net_device *dev)
++int stp_proto_register(const struct stp_proto *proto)
 +{
-+	struct garp_port *port = dev->garp_port;
-+	unsigned int i;
++	int err = 0;
 +
-+	for (i = 0; i <= GARP_APPLICATION_MAX; i++) {
-+		if (port->applicants[i])
-+			return;
++	mutex_lock(&stp_proto_mutex);
++	if (sap_registered++ == 0) {
++		sap = llc_sap_open(LLC_SAP_BSPAN, stp_pdu_rcv);
++		if (!sap) {
++			err = -ENOMEM;
++			goto out;
++		}
 +	}
-+	rcu_assign_pointer(dev->garp_port, NULL);
-+	synchronize_rcu();
-+	kfree(port);
-+}
-+
-+int garp_init_applicant(struct net_device *dev, struct garp_application *appl)
-+{
-+	struct garp_applicant *app;
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	if (!dev->garp_port) {
-+		err = garp_init_port(dev);
-+		if (err < 0)
-+			goto err1;
-+	}
-+
-+	err = -ENOMEM;
-+	app = kzalloc(sizeof(*app), GFP_KERNEL);
-+	if (!app)
-+		goto err2;
-+
-+	err = dev_mc_add(dev, appl->proto.group_address, ETH_ALEN, 0);
-+	if (err < 0)
-+		goto err3;
-+
-+	app->dev = dev;
-+	app->app = appl;
-+	app->gid = RB_ROOT;
-+	spin_lock_init(&app->lock);
-+	skb_queue_head_init(&app->queue);
-+	rcu_assign_pointer(dev->garp_port->applicants[appl->type], app);
-+	setup_timer(&app->join_timer, garp_join_timer, (unsigned long)app);
-+	garp_join_timer_arm(app);
-+	return 0;
-+
-+err3:
-+	kfree(app);
-+err2:
-+	garp_release_port(dev);
-+err1:
++	if (is_zero_ether_addr(proto->group_address))
++		rcu_assign_pointer(stp_proto, proto);
++	else
++		rcu_assign_pointer(garp_protos[proto->group_address[5] -
++					       GARP_ADDR_MIN], proto);
++out:
++	mutex_unlock(&stp_proto_mutex);
 +	return err;
 +}
-+EXPORT_SYMBOL_GPL(garp_init_applicant);
++EXPORT_SYMBOL_GPL(stp_proto_register);
 +
-+void garp_uninit_applicant(struct net_device *dev, struct garp_application *appl)
++void stp_proto_unregister(const struct stp_proto *proto)
 +{
-+	struct garp_port *port = dev->garp_port;
-+	struct garp_applicant *app = port->applicants[appl->type];
-+
-+	ASSERT_RTNL();
-+
-+	rcu_assign_pointer(port->applicants[appl->type], NULL);
++	mutex_lock(&stp_proto_mutex);
++	if (is_zero_ether_addr(proto->group_address))
++		rcu_assign_pointer(stp_proto, NULL);
++	else
++		rcu_assign_pointer(garp_protos[proto->group_address[5] -
++					       GARP_ADDR_MIN], NULL);
 +	synchronize_rcu();
 +
-+	/* Delete timer and generate a final TRANSMIT_PDU event to flush out
-+	 * all pending messages before the applicant is gone. */
-+	del_timer_sync(&app->join_timer);
-+	garp_gid_event(app, GARP_EVENT_TRANSMIT_PDU);
-+	garp_pdu_queue(app);
-+	garp_queue_xmit(app);
-+
-+	dev_mc_delete(dev, appl->proto.group_address, ETH_ALEN, 0);
-+	kfree(app);
-+	garp_release_port(dev);
++	if (--sap_registered == 0)
++		llc_sap_put(sap);
++	mutex_unlock(&stp_proto_mutex);
 +}
-+EXPORT_SYMBOL_GPL(garp_uninit_applicant);
++EXPORT_SYMBOL_GPL(stp_proto_unregister);
 +
-+int garp_register_application(struct garp_application *appl)
-+{
-+	appl->proto.rcv = garp_pdu_rcv;
-+	appl->proto.data = appl;
-+	return stp_proto_register(&appl->proto);
-+}
-+EXPORT_SYMBOL_GPL(garp_register_application);
-+
-+void garp_unregister_application(struct garp_application *appl)
-+{
-+	stp_proto_unregister(&appl->proto);
-+}
-+EXPORT_SYMBOL_GPL(garp_unregister_application);
++MODULE_LICENSE("GPL");
+diff --git a/net/Kconfig b/net/Kconfig
+index acbf7c6..b986687 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -181,6 +181,7 @@ source "net/dccp/Kconfig"
+ source "net/sctp/Kconfig"
+ source "net/tipc/Kconfig"
+ source "net/atm/Kconfig"
++source "net/802/Kconfig"
+ source "net/bridge/Kconfig"
+ source "net/8021q/Kconfig"
+ source "net/decnet/Kconfig"
