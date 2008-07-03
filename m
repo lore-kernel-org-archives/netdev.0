@@ -1,14 +1,16 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 1/3] tun: Interface to query tun/tap features.
-Date: Thu, 3 Jul 2008 11:32:12 +1000
-Message-ID: <200807031132.12810.rusty@rustcorp.com.au>
+Subject: [PATCH 2/3] tun: TUNSETFEATURES to set gso features.
+Date: Thu, 3 Jul 2008 11:33:11 +1000
+Message-ID: <200807031133.11813.rusty@rustcorp.com.au>
+References: <200807031132.12810.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Max Krasnyansky <maxk@qualcomm.com>,
+Cc: markmc@redhat.com, Max Krasnyansky <maxk@qualcomm.com>,
         virtualization@lists.linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <200807031132.12810.rusty@rustcorp.com.au>
 Content-Disposition: inline
 List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
@@ -21,95 +23,104 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The problem with introducing checksum offload and gso to tun is they
-need to set dev->features to enable GSO and/or checksumming, which is
-supposed to be done before register_netdevice(), ie. as part of
-TUNSETIFF.
+ethtool is useful for setting (some) device fields, but it's
+root-only.  Finer feature control is available through a tun-specific
+ioctl.
 
-Unfortunately, TUNSETIFF has always just ignored flags it doesn't
-understand, so there's no good way of detecting whether the kernel
-supports new IFF_ flags.
-
-This patch implements a TUNGETFEATURES ioctl which returns all the valid IFF
-flags.  It could be extended later to include other features.
-
-Here's an example program which uses it:
-
-#include <linux/if_tun.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <err.h>
-#include <stdio.h>
-
-static struct {
-	unsigned int flag;
-	const char *name;
-} known_flags[] = {
-	{ IFF_TUN, "TUN" },
-	{ IFF_TAP, "TAP" },
-	{ IFF_NO_PI, "NO_PI" },
-	{ IFF_ONE_QUEUE, "ONE_QUEUE" },
-};
-
-int main()
-{
-	unsigned int features, i;
-
-	int netfd = open("/dev/net/tun", O_RDWR);
-	if (netfd < 0)
-		err(1, "Opening /dev/net/tun");
-
-	if (ioctl(netfd, TUNGETFEATURES, &features) != 0) {
-		printf("Kernel does not support TUNGETFEATURES, guessing\n");
-		features = (IFF_TUN|IFF_TAP|IFF_NO_PI|IFF_ONE_QUEUE);
-	}
-	printf("Available features are: ");
-	for (i = 0; i < sizeof(known_flags)/sizeof(known_flags[0]); i++) {
-		if (features & known_flags[i].flag) {
-			features &= ~known_flags[i].flag;
-			printf("%s ", known_flags[i].name);
-		}
-	}
-	if (features)
-		printf("(UNKNOWN %#x)", features);
-	printf("\n");
-	return 0;
-}
+(Includes Mark McLoughlin <markmc@redhat.com>'s fix to hold rtnl sem).
 
 Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- drivers/net/tun.c      |    8 ++++++++
- include/linux/if_tun.h |    1 +
- 2 files changed, 9 insertions(+)
+ drivers/net/tun.c      |   49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/if_tun.h |    7 +++++++
+ 2 files changed, 56 insertions(+)
 
-diff -r 8414a579e106 drivers/net/tun.c
---- a/drivers/net/tun.c	Tue Apr 22 07:36:45 2008 +1000
-+++ b/drivers/net/tun.c	Tue Apr 22 07:37:33 2008 +1000
-@@ -625,6 +625,14 @@ static int tun_chr_ioctl(struct inode *i
- 		return 0;
- 	}
+diff -r e08e6c5130ff drivers/net/tun.c
+--- a/drivers/net/tun.c	Thu Jun 26 00:17:07 2008 +1000
++++ b/drivers/net/tun.c	Thu Jun 26 00:21:11 2008 +1000
+@@ -596,6 +596,46 @@ static int tun_set_iff(struct net *net, 
+ 	return err;
+ }
  
-+	if (cmd == TUNGETFEATURES) {
-+		/* Currently this just means: "what IFF flags are valid?".
-+		 * This is needed because we never checked for invalid flags on
-+		 * TUNSETIFF. */
-+		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE,
-+				(unsigned int __user*)argp);
++/* This is like a cut-down ethtool ops, except done via tun fd so no
++ * privs required. */
++static int set_offload(struct net_device *dev, unsigned long arg)
++{
++	unsigned int old_features, features;
++
++	old_features = dev->features;
++	/* Unset features, set them as we chew on the arg. */
++	features = (old_features & ~(NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST
++				    |NETIF_F_TSO_ECN|NETIF_F_TSO|NETIF_F_TSO6));
++
++	if (arg & TUN_F_CSUM) {
++		features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		arg &= ~TUN_F_CSUM;
++
++		if (arg & (TUN_F_TSO4|TUN_F_TSO6)) {
++			if (arg & TUN_F_TSO_ECN) {
++				features |= NETIF_F_TSO_ECN;
++				arg &= ~TUN_F_TSO_ECN;
++			}
++			if (arg & TUN_F_TSO4)
++				features |= NETIF_F_TSO;
++			if (arg & TUN_F_TSO6)
++				features |= NETIF_F_TSO6;
++			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
++		}
 +	}
 +
- 	if (!tun)
- 		return -EBADFD;
++	/* This gives the user a way to test for new features in future by
++	 * trying to set them. */
++	if (arg)
++		return -EINVAL;
++
++	dev->features = features;
++	if (old_features != dev->features)
++		netdev_features_change(dev);
++
++	return 0;
++}
++
+ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 			 unsigned int cmd, unsigned long arg)
+ {
+@@ -699,6 +739,15 @@ static int tun_chr_ioctl(struct inode *i
+ 		tun->debug = arg;
+ 		break;
+ #endif
++
++	case TUNSETOFFLOAD:
++	{
++		int ret;
++		rtnl_lock();
++		ret = set_offload(tun->dev, arg);
++		rtnl_unlock();
++		return ret;
++	}
  
-diff -r 8414a579e106 include/linux/if_tun.h
---- a/include/linux/if_tun.h	Tue Apr 22 07:36:45 2008 +1000
-+++ b/include/linux/if_tun.h	Tue Apr 22 07:37:33 2008 +1000
-@@ -42,6 +42,7 @@
- #define TUNSETOWNER   _IOW('T', 204, int)
+ 	case SIOCGIFFLAGS:
+ 		ifr.ifr_flags = tun->if_flags;
+diff -r e08e6c5130ff include/linux/if_tun.h
+--- a/include/linux/if_tun.h	Thu Jun 26 00:17:07 2008 +1000
++++ b/include/linux/if_tun.h	Thu Jun 26 00:21:11 2008 +1000
+@@ -43,12 +43,19 @@
  #define TUNSETLINK    _IOW('T', 205, int)
  #define TUNSETGROUP   _IOW('T', 206, int)
-+#define TUNGETFEATURES _IOR('T', 207, unsigned int)
+ #define TUNGETFEATURES _IOR('T', 207, unsigned int)
++#define TUNSETOFFLOAD _IOW('T', 208, unsigned int)
  
  /* TUNSETIFF ifr flags */
  #define IFF_TUN		0x0001
+ #define IFF_TAP		0x0002
+ #define IFF_NO_PI	0x1000
+ #define IFF_ONE_QUEUE	0x2000
++
++/* Features for GSO (TUNSETOFFLOAD). */
++#define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
++#define TUN_F_TSO4	0x02	/* I can handle TSO for IPv4 packets */
++#define TUN_F_TSO6	0x04	/* I can handle TSO for IPv6 packets */
++#define TUN_F_TSO_ECN	0x08	/* I can handle TSO with ECN bits. */
+ 
+ struct tun_pi {
+ 	unsigned short flags;
