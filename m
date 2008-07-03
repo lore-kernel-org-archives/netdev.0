@@ -1,46 +1,110 @@
-From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 06/39]: netdev: ->ingress_lock is no longer needed.
-Date: Thu, 03 Jul 2008 18:01:18 +0800
-Message-ID: <486CA36E.60704@cn.fujitsu.com>
-References: <20080703.000303.167904111.davem@davemloft.net>	<486CA212.6020705@cn.fujitsu.com> <20080703.030241.34728979.davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 03 Jul 2008 14:33:19 +0100
+Message-ID: <1215091999.10393.556.camel@pmac.infradead.org>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	 <486CC440.9030909@garzik.org>
+	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>
+	 <486CCFED.7010308@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080703.030241.34728979.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:49881 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753015AbYGCNdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 09:33:32 -0400
+In-Reply-To: <486CCFED.7010308@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller said the following on 2008-7-3 18:02:
-> From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-> Date: Thu, 03 Jul 2008 17:55:30 +0800
-> 
->> David Miller said the following on 2008-7-3 15:03:
->>> @@ -2014,10 +2014,11 @@ static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
->>>   */
->>>  static int ing_filter(struct sk_buff *skb)
->>>  {
->>> -	struct Qdisc *q;
->>>  	struct net_device *dev = skb->dev;
->>> -	int result = TC_ACT_OK;
->>>  	u32 ttl = G_TC_RTTL(skb->tc_verd);
->>> +	struct netdev_queue *rxq;
->>> +	int result = TC_ACT_OK;
->>> +	struct Qdisc *q;
->>>  
->> Two lines do not change anything.
-> 
-> They make the variables have a nice style slope from longest
-> lines to the shortest.
-> 
+On Thu, 2008-07-03 at 09:11 -0400, Jeff Garzik wrote:
+> Hugh Dickins wrote:
+> > On Thu, 3 Jul 2008, Jeff Garzik wrote:
+> >> KOSAKI Motohiro wrote:
+> >>> Hi Michael,
+> >>>
+> >>> my server output following error message on 2.6.26-rc8-mm1.
+> >>> Is this a bug?
+> >>>
+> >>> ------------------------------------------------------------------
+> >>> tg3.c:v3.93 (May 22, 2008)
+> >>> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51
+> >>> tg3 0000:06:01.0: PCI INT A -> GSI 72 (level, low) -> IRQ 51
+> >>> firmware: requesting tigon/tg3_tso.bin
+> >>> tg3: Failed to load firmware "tigon/tg3_tso.bin"
+> >>> tg3 0000:06:01.0: PCI INT A disabled
+> >>> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51 unregistered
+> >>> tg3: probe of 0000:06:01.0 failed with error -2
+> >>> GSI 73 (level, low) -> CPU 0 (0x0001) vector 51
+> >>> tg3 0000:06:01.1: PCI INT B -> GSI 73 (level, low) -> IRQ 52
+> >>> firmware: requesting tigon/tg3_tso.bin
+> >> This change did not come from the network developers or Broadcom, so someone
+> >> else broke tg3 in -mm...
+> > 
+> > I think it's a consequence of not choosing CONFIG_FIRMWARE_IN_KERNEL=y.
+> > 
+> > That caught me out on PowerMac G5 trying mmotm yesterday, it just hung
+> > for a few minutes in earlyish boot with a message about tg3_tso.bin,
+> > and then proceeded to boot up but without the network.  I was unclear
+> > whether I'd been stupid, or the FIRMWARE_IN_KERNEL Kconfigery was poor.
 
-Understood now :)
+I shall respectfully refrain from commenting on the likelihood of the
+former. With regard to the latter, here is the help text for the
+FIRMWARE_IN_KERNEL option:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+        help
+          The kernel source tree includes a number of firmware 'blobs'
+          which are used by various drivers. The recommended way to
+          use these is to run "make firmware_install" and to copy the
+          resulting binary files created in usr/lib/firmware directory
+          of the kernel tree to the /lib/firmware on your system so
+          that they can be loaded by userspace helpers on request.
+
+          Enabling this option will build each required firmware blob
+          into the kernel directly, where request_firmware() will find
+          them without having to call out to userspace. This may be
+          useful if your root file system requires a device which uses
+          such firmware, and do not wish to use an initrd.
+
+          This single option controls the inclusion of firmware for
+          every driver which usees request_firmare() and ships its
+          firmware in the kernel source tree, to avoid a proliferation
+          of 'Include firmware for xxx device' options.
+
+          Say 'N' and let firmware be loaded from userspace.
+
+If you think you can improve it, please let me have a revised attempt.
+
+> > I avoid initrd, and have tigon3 built in, if that's of any relevance.
+> > 
+> > I wonder if that's Andrew's problem with 2.6.26-rc8-mm1 on his G5:
+> > mine here boots up fine (now I know to CONFIG_FIRMWARE_IN_KERNEL=y).
+> 
+> 
+> dwmw2 has been told repeatedly that his changes will cause PRECISELY 
+> these problems, but he refuses to take the simple steps necessary to 
+> ensure people can continue to boot their kernels after his changes go in.
+
+Complete nonsense. Setting CONFIG_FIRMWARE_IN_KERNEL isn't hard. But
+shouldn't be the _default_, either.
+
+> Presently his tg3 changes have been nak'd, in part, because of this 
+> obviously, forseeable, work-around-able breakage.
+
+They haven't even been reviewed. Nobody seems to have actually looked at
+the real changes (in particular, and commented on whether the device can
+run anyway without the TSO firmware being loaded, as some people seem to
+report). You're just throwing your toys out of the pram because of the
+'default n' on a patch about 30 commits earlier in my tree.
+
+-- 
+dwmw2
+
