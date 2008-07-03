@@ -1,800 +1,1184 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 32/39]: mac80211: Reimplement WME using ->select_queue().
-Date: Thu, 03 Jul 2008 00:05:21 -0700 (PDT)
-Message-ID: <20080703.000521.13130101.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 24/39]: netdev: Allocate multiple queues for TX.
+Date: Thu, 03 Jul 2008 00:04:36 -0700 (PDT)
+Message-ID: <20080703.000436.77009639.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Matheos.Worku-UdXhSnd/wVw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com,
+	Matheos.Worku@Sun.COM, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50642
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758004AbYGCHEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:04:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Unfortunately it temporarily loses some features, such
-as packet dropping (easy to add) and requeueing (harder).
+alloc_netdev_mq() now allocates an array of netdev_queue
+structures for TX, based upon the queue_count argument.
 
-But it is so much incredibly simpler now.
+Furthermore, all accesses to the TX queues are now vectored
+through the netdev_get_tx_queue() and netdev_for_each_tx_queue()
+interfaces.  This makes it easy to grep the tree for all
+things that want to get to a TX queue of a net device.
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Problem spots which are not really multiqueue aware yet, and
+only work with one queue, can easily be spotted by grepping
+for all netdev_get_tx_queue() calls that pass in a zero index.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/mac80211/ieee80211_i.h |    6 +
- net/mac80211/main.c        |   16 +--
- net/mac80211/wme.c         |  531 ++------------------------------------------
- net/mac80211/wme.h         |   19 +--
- 4 files changed, 34 insertions(+), 538 deletions(-)
+ drivers/net/bonding/bond_main.c         |    6 +-
+ drivers/net/hamradio/bpqether.c         |    6 +-
+ drivers/net/ifb.c                       |   12 ++-
+ drivers/net/macvlan.c                   |    6 +-
+ drivers/net/wireless/hostap/hostap_hw.c |    6 +-
+ include/linux/netdevice.h               |   62 +++++++++--
+ include/net/sch_generic.h               |   41 +++++---
+ net/8021q/vlan_dev.c                    |   10 +-
+ net/core/dev.c                          |   41 ++++++--
+ net/core/pktgen.c                       |    2 +-
+ net/core/rtnetlink.c                    |    2 +-
+ net/mac80211/main.c                     |    4 +-
+ net/mac80211/wme.c                      |   12 +-
+ net/netrom/af_netrom.c                  |    6 +-
+ net/rose/af_rose.c                      |    6 +-
+ net/sched/cls_api.c                     |    4 +-
+ net/sched/sch_api.c                     |   32 ++++--
+ net/sched/sch_generic.c                 |  178 ++++++++++++++++++++++--------
+ net/sched/sch_teql.c                    |   21 +++--
+ 19 files changed, 325 insertions(+), 132 deletions(-)
 
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index af352c0..0ecc0c0 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -25,6 +25,7 @@
- #include <linux/etherdevice.h>
- #include <net/wireless.h>
- #include <net/iw_handler.h>
-+#include <net/mac80211.h>
- #include "key.h"
- #include "sta_info.h"
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3f4d87e..39cbb04 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -5019,7 +5019,9 @@ static int bond_check_params(struct bond_params *params)
  
-@@ -542,6 +543,9 @@ enum {
- 	IEEE80211_ADDBA_MSG	= 4,
- };
+ static struct lock_class_key bonding_netdev_xmit_lock_key;
  
-+/* maximum number of hardware queues we support. */
-+#define QD_MAX_QUEUES (IEEE80211_MAX_AMPDU_QUEUES + IEEE80211_MAX_QUEUES)
-+
- struct ieee80211_local {
- 	/* embed the driver visible part.
- 	 * don't cast (use the static inlines below), but we keep
-@@ -550,6 +554,8 @@ struct ieee80211_local {
+-static void bond_set_lockdep_class_one(struct netdev_queue *dev_queue)
++static void bond_set_lockdep_class_one(struct net_device *dev,
++				       struct netdev_queue *dev_queue,
++				       void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock,
+ 			  &bonding_netdev_xmit_lock_key);
+@@ -5027,7 +5029,7 @@ static void bond_set_lockdep_class_one(struct netdev_queue *dev_queue)
  
- 	const struct ieee80211_ops *ops;
+ static void bond_set_lockdep_class(struct net_device *dev)
+ {
+-	bond_set_lockdep_class_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, bond_set_lockdep_class_one, NULL);
+ }
  
-+	unsigned long queue_pool[BITS_TO_LONGS(QD_MAX_QUEUES)];
-+
- 	struct net_device *mdev; /* wmaster# - "master" 802.11 device */
- 	int open_count;
- 	int monitors, cooked_mntrs;
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index c4d36fe..b78b56e 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -684,7 +684,7 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
- 		/* No need to requeue the packets in the agg queue, since we
- 		 * held the tx lock: no packet could be enqueued to the newly
- 		 * allocated queue */
--		 ieee80211_ht_agg_queue_remove(local, sta, tid, 0);
-+		 ieee80211_ht_agg_queue_remove(local, sta, tid);
- #ifdef CONFIG_MAC80211_HT_DEBUG
- 		printk(KERN_DEBUG "BA request denied - HW unavailable for"
- 					" tid %d\n", tid);
-@@ -693,8 +693,6 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
- 		goto err_unlock_queue;
- 	}
+ /* Create a new bond based on the specified name and bonding parameters.
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+index b20acb0..daea716 100644
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -124,14 +124,16 @@ static LIST_HEAD(bpq_devices);
+  */
+ static struct lock_class_key bpq_netdev_xmit_lock_key;
  
--	/* Will put all the packets in the new SW queue */
--	ieee80211_requeue(local, ieee802_1d_to_ac[tid]);
- 	unlock_all_queues_bh(local->mdev);
- 	spin_unlock_bh(&sta->lock);
+-static void bpq_set_lockdep_class_one(struct netdev_queue *dev_queue)
++static void bpq_set_lockdep_class_one(struct net_device *dev,
++				      struct netdev_queue *dev_queue,
++				      void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock, &bpq_netdev_xmit_lock_key);
+ }
  
-@@ -883,7 +881,7 @@ void ieee80211_stop_tx_ba_cb(struct ieee80211_hw *hw, u8 *ra, u8 tid)
- 	dev_queue = netdev_get_tx_queue(local->mdev, 0);
- 	spin_lock_bh(&dev_queue->lock);
- 	/* remove the queue for this aggregation */
--	ieee80211_ht_agg_queue_remove(local, sta, tid, 1);
-+	ieee80211_ht_agg_queue_remove(local, sta, tid);
- 	spin_unlock_bh(&dev_queue->lock);
+ static void bpq_set_lockdep_class(struct net_device *dev)
+ {
+-	bpq_set_lockdep_class_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, bpq_set_lockdep_class_one, NULL);
+ }
  
- 	/* we just requeued the all the frames that were in the removed
-@@ -1900,19 +1898,10 @@ static int __init ieee80211_init(void)
- 	if (ret)
- 		goto out;
+ /* ------------------------------------------------------------------------ */
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index ccbd655..897b05e 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -229,14 +229,20 @@ module_param(numifbs, int, 0);
+ MODULE_PARM_DESC(numifbs, "Number of ifb devices");
  
--	ret = ieee80211_wme_register();
--	if (ret) {
--		printk(KERN_DEBUG "ieee80211_init: failed to "
--		       "initialize WME (err=%d)\n", ret);
--		goto out_cleanup_pid;
--	}
--
- 	ieee80211_debugfs_netdev_init();
+ /*
+- * dev_ifb->tx_queue.lock is usually taken after dev->rx_queue.lock,
++ * dev_ifb's TX queue lock is usually taken after dev->rx_queue.lock,
+  * reversely to e.g. qdisc_lock_tree(). It should be safe until
+- * ifb doesn't take dev->tx_queue.lock with dev_ifb->rx_queue.lock.
++ * ifb doesn't take dev's TX queue lock with dev_ifb->rx_queue.lock.
+  * But lockdep should know that ifb has different locks from dev.
+  */
+ static struct lock_class_key ifb_tx_queue_lock_key;
+ static struct lock_class_key ifb_rx_queue_lock_key;
+ 
++static void set_tx_lockdep_key(struct net_device *dev,
++			       struct netdev_queue *txq,
++			       void *_unused)
++{
++	lockdep_set_class(&txq->lock, &ifb_tx_queue_lock_key);
++}
+ 
+ static int __init ifb_init_one(int index)
+ {
+@@ -258,7 +264,7 @@ static int __init ifb_init_one(int index)
+ 	if (err < 0)
+ 		goto err;
+ 
+-	lockdep_set_class(&dev_ifb->tx_queue.lock, &ifb_tx_queue_lock_key);
++	netdev_for_each_tx_queue(dev_ifb, set_tx_lockdep_key, NULL);
+ 	lockdep_set_class(&dev_ifb->rx_queue.lock, &ifb_rx_queue_lock_key);
  
  	return 0;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 42c463d..37fdbb7 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -277,7 +277,9 @@ static struct lock_class_key macvlan_netdev_xmit_lock_key;
+ #define MACVLAN_STATE_MASK \
+ 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
  
-- out_cleanup_pid:
--	rc80211_pid_exit();
-  out:
- 	return ret;
+-static void macvlan_set_lockdep_class_one(struct netdev_queue *dev_queue)
++static void macvlan_set_lockdep_class_one(struct net_device *dev,
++					  struct netdev_queue *dev_queue,
++					  void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock,
+ 			  &macvlan_netdev_xmit_lock_key);
+@@ -285,7 +287,7 @@ static void macvlan_set_lockdep_class_one(struct netdev_queue *dev_queue)
+ 
+ static void macvlan_set_lockdep_class(struct net_device *dev)
+ {
+-	macvlan_set_lockdep_class_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, macvlan_set_lockdep_class_one, NULL);
  }
-@@ -1930,7 +1919,6 @@ static void __exit ieee80211_exit(void)
- 	if (mesh_allocated)
- 		ieee80211s_stop();
  
--	ieee80211_wme_unregister();
- 	ieee80211_debugfs_netdev_exit();
+ static int macvlan_init(struct net_device *dev)
+diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
+index 76fa737..be85f95 100644
+--- a/drivers/net/wireless/hostap/hostap_hw.c
++++ b/drivers/net/wireless/hostap/hostap_hw.c
+@@ -3102,7 +3102,9 @@ static void prism2_clear_set_tim_queue(local_info_t *local)
+  */
+ static struct lock_class_key hostap_netdev_xmit_lock_key;
+ 
+-static void prism2_set_lockdep_class_one(struct netdev_queue *dev_queue)
++static void prism2_set_lockdep_class_one(struct net_device *dev,
++					 struct netdev_queue *dev_queue,
++					 void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock,
+ 			  &hostap_netdev_xmit_lock_key);
+@@ -3110,7 +3112,7 @@ static void prism2_set_lockdep_class_one(struct netdev_queue *dev_queue)
+ 
+ static void prism2_set_lockdep_class(struct net_device *dev)
+ {
+-	prism2_set_lockdep_class_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, prism2_set_lockdep_class_one, NULL);
  }
  
+ static struct net_device *
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2ab4d92..6bb3f8c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -640,7 +640,9 @@ struct net_device
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+ 
+ 	struct netdev_queue	rx_queue;
+-	struct netdev_queue	tx_queue;
++
++	struct netdev_queue	*_tx;
++	unsigned int		num_tx_queues;
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ 
+ /*
+@@ -761,6 +763,28 @@ struct net_device
+ #define	NETDEV_ALIGN		32
+ #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
+ 
++extern struct netdev_queue *dev_pick_tx(struct net_device *dev,
++					struct sk_buff *skb);
++
++static inline
++struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
++					 int index)
++{
++	return &dev->_tx[index];
++}
++
++static inline void netdev_for_each_tx_queue(struct net_device *dev,
++					    void (*f)(struct net_device *,
++						      struct netdev_queue *,
++						      void *),
++					    void *arg)
++{
++	int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++)
++		f(dev, &dev->_tx[i], arg);
++}
++
+ /*
+  * Net namespace inlines
+  */
+@@ -961,7 +985,7 @@ static inline void netif_schedule_queue(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_schedule(struct net_device *dev)
+ {
+-	netif_schedule_queue(&dev->tx_queue);
++	netif_schedule_queue(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -977,7 +1001,7 @@ static inline void netif_tx_start_queue(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_start_queue(struct net_device *dev)
+ {
+-	netif_tx_start_queue(&dev->tx_queue);
++	netif_tx_start_queue(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -1001,7 +1025,7 @@ static inline void netif_tx_wake_queue(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_wake_queue(struct net_device *dev)
+ {
+-	netif_tx_wake_queue(&dev->tx_queue);
++	netif_tx_wake_queue(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -1018,7 +1042,7 @@ static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_stop_queue(struct net_device *dev)
+ {
+-	netif_tx_stop_queue(&dev->tx_queue);
++	netif_tx_stop_queue(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -1034,7 +1058,7 @@ static inline int netif_tx_queue_stopped(const struct netdev_queue *dev_queue)
+ 
+ static inline int netif_queue_stopped(const struct net_device *dev)
+ {
+-	return netif_tx_queue_stopped(&dev->tx_queue);
++	return netif_tx_queue_stopped(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -1118,7 +1142,7 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
+ #endif
+ 	if (test_and_clear_bit(__QUEUE_STATE_XOFF,
+ 			       &dev->egress_subqueue[queue_index].state))
+-		__netif_schedule(&dev->tx_queue);
++		__netif_schedule(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
+@@ -1414,7 +1438,13 @@ static inline void __netif_tx_lock(struct netdev_queue *dev_queue, int cpu)
+ 
+ static inline void netif_tx_lock(struct net_device *dev)
+ {
+-	__netif_tx_lock(&dev->tx_queue, smp_processor_id());
++	int cpu = smp_processor_id();
++	unsigned int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		__netif_tx_lock(txq, cpu);
++	}
+ }
+ 
+ static inline void __netif_tx_lock_bh(struct netdev_queue *dev_queue)
+@@ -1425,7 +1455,8 @@ static inline void __netif_tx_lock_bh(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_tx_lock_bh(struct net_device *dev)
+ {
+-	__netif_tx_lock_bh(&dev->tx_queue);
++	local_bh_disable();
++	netif_tx_lock(dev);
+ }
+ 
+ static inline int __netif_tx_trylock(struct netdev_queue *dev_queue)
+@@ -1438,7 +1469,7 @@ static inline int __netif_tx_trylock(struct netdev_queue *dev_queue)
+ 
+ static inline int netif_tx_trylock(struct net_device *dev)
+ {
+-	return __netif_tx_trylock(&dev->tx_queue);
++	return __netif_tx_trylock(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ static inline void __netif_tx_unlock(struct netdev_queue *dev_queue)
+@@ -1449,7 +1480,13 @@ static inline void __netif_tx_unlock(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_tx_unlock(struct net_device *dev)
+ {
+-	__netif_tx_unlock(&dev->tx_queue);
++	unsigned int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		__netif_tx_unlock(txq);
++	}
++
+ }
+ 
+ static inline void __netif_tx_unlock_bh(struct netdev_queue *dev_queue)
+@@ -1460,7 +1497,8 @@ static inline void __netif_tx_unlock_bh(struct netdev_queue *dev_queue)
+ 
+ static inline void netif_tx_unlock_bh(struct net_device *dev)
+ {
+-	__netif_tx_unlock_bh(&dev->tx_queue);
++	netif_tx_unlock(dev);
++	local_bh_enable();
+ }
+ 
+ #define HARD_TX_LOCK(dev, dev_queue, cpu) {		\
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index bfb05a7..cc5ac9d 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -188,36 +188,45 @@ extern void tcf_destroy_chain(struct tcf_proto *fl);
+ /* Reset all TX qdiscs of a device.  */
+ static inline void qdisc_reset_all_tx(struct net_device *dev)
+ {
+-	qdisc_reset(dev->tx_queue.qdisc);
++	unsigned int i;
++	for (i = 0; i < dev->num_tx_queues; i++)
++		qdisc_reset(netdev_get_tx_queue(dev, i)->qdisc);
+ }
+ 
+ /* Are all TX queues of the device empty?  */
+ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+ {
+-	struct netdev_queue *txq = &dev->tx_queue;
+-
+-	/* XXX This is not correct but it is good enough for the
+-	 * XXX one place that wants this, IRDA.  If we wanted to
+-	 * XXX do this right, we'd need to add a qdisc op to
+-	 * XXX probe for the queue state.
+-	 */
+-	return skb_queue_empty(&txq->qdisc->q);
++	unsigned int i;
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		if (!skb_queue_empty(&txq->qdisc->q))
++			return false;
++	}
++	return true;
+ }
+ 
+ /* Are any of the TX qdiscs changing?  */
+ static inline bool qdisc_tx_changing(struct net_device *dev)
+ {
+-	struct netdev_queue *txq = &dev->tx_queue;
+-
+-	return (txq->qdisc != txq->qdisc_sleeping);
++	unsigned int i;
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		if (txq->qdisc != txq->qdisc_sleeping)
++			return true;
++	}
++	return false;
+ }
+ 
+-/* Is the device using the noop qdisc?  */
++/* Is the device using the noop qdisc on all queues?  */
+ static inline bool qdisc_tx_is_noop(struct net_device *dev)
+ {
+-	struct netdev_queue *txq = &dev->tx_queue;
+-
+-	return (txq->qdisc == &noop_qdisc);
++	unsigned int i;
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		if (txq->qdisc != &noop_qdisc)
++			return false;
++	}
++	return true;
+ }
+ 
+ static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 6ad4a8c..5283d21 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -645,16 +645,18 @@ static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
+  */
+ static struct lock_class_key vlan_netdev_xmit_lock_key;
+ 
+-static void vlan_dev_set_lockdep_one(struct netdev_queue *dev_queue,
+-				     int subclass)
++static void vlan_dev_set_lockdep_one(struct net_device *dev,
++				     struct netdev_queue *dev_queue,
++				     void *_subclass)
+ {
+ 	lockdep_set_class_and_subclass(&dev_queue->_xmit_lock,
+-				       &vlan_netdev_xmit_lock_key, subclass);
++				       &vlan_netdev_xmit_lock_key,
++				       *(int *)_subclass);
+ }
+ 
+ static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)
+ {
+-	vlan_dev_set_lockdep_one(&dev->tx_queue, subclass);
++	netdev_for_each_tx_queue(dev, vlan_dev_set_lockdep_one, &subclass);
+ }
+ 
+ static const struct header_ops vlan_header_ops = {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5209a3f..4b1d39f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1666,6 +1666,13 @@ out_kfree_skb:
+  *          --BLG
+  */
+ 
++struct netdev_queue *dev_pick_tx(struct net_device *dev,
++				 struct sk_buff *skb)
++{
++	return netdev_get_tx_queue(dev, 0);
++}
++EXPORT_SYMBOL(dev_pick_tx);
++
+ int dev_queue_xmit(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+@@ -1702,7 +1709,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	}
+ 
+ gso:
+-	txq = &dev->tx_queue;
++	txq = dev_pick_tx(dev, skb);
+ 	spin_lock_prefetch(&txq->lock);
+ 
+ 	/* Disable soft irqs for various locks below. Also
+@@ -3760,8 +3767,9 @@ static void rollback_registered(struct net_device *dev)
+ 	dev_put(dev);
+ }
+ 
+-static void __netdev_init_queue_locks_one(struct netdev_queue *dev_queue,
+-					  struct net_device *dev)
++static void __netdev_init_queue_locks_one(struct net_device *dev,
++					  struct netdev_queue *dev_queue,
++					  void *_unused)
+ {
+ 	spin_lock_init(&dev_queue->_xmit_lock);
+ 	netdev_set_lockdep_class(&dev_queue->_xmit_lock, dev->type);
+@@ -3770,8 +3778,8 @@ static void __netdev_init_queue_locks_one(struct netdev_queue *dev_queue,
+ 
+ static void netdev_init_queue_locks(struct net_device *dev)
+ {
+-	__netdev_init_queue_locks_one(&dev->tx_queue, dev);
+-	__netdev_init_queue_locks_one(&dev->rx_queue, dev);
++	netdev_for_each_tx_queue(dev, __netdev_init_queue_locks_one, NULL);
++	__netdev_init_queue_locks_one(dev, &dev->rx_queue, NULL);
+ }
+ 
+ /**
+@@ -4090,7 +4098,8 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
+ }
+ 
+ static void netdev_init_one_queue(struct net_device *dev,
+-				  struct netdev_queue *queue)
++				  struct netdev_queue *queue,
++				  void *_unused)
+ {
+ 	spin_lock_init(&queue->lock);
+ 	queue->dev = dev;
+@@ -4098,8 +4107,8 @@ static void netdev_init_one_queue(struct net_device *dev,
+ 
+ static void netdev_init_queues(struct net_device *dev)
+ {
+-	netdev_init_one_queue(dev, &dev->rx_queue);
+-	netdev_init_one_queue(dev, &dev->tx_queue);
++	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
++	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+ }
+ 
+ /**
+@@ -4116,9 +4125,10 @@ static void netdev_init_queues(struct net_device *dev)
+ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		void (*setup)(struct net_device *), unsigned int queue_count)
+ {
+-	void *p;
++	struct netdev_queue *tx;
+ 	struct net_device *dev;
+ 	int alloc_size;
++	void *p;
+ 
+ 	BUG_ON(strlen(name) >= sizeof(dev->name));
+ 
+@@ -4138,11 +4148,22 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		return NULL;
+ 	}
+ 
++	tx = kzalloc(sizeof(struct netdev_queue) * queue_count, GFP_KERNEL);
++	if (!tx) {
++		printk(KERN_ERR "alloc_netdev: Unable to allocate "
++		       "tx qdiscs.\n");
++		kfree(p);
++		return NULL;
++	}
++
+ 	dev = (struct net_device *)
+ 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+ 	dev->padded = (char *)dev - (char *)p;
+ 	dev_net_set(dev, &init_net);
+ 
++	dev->_tx = tx;
++	dev->num_tx_queues = queue_count;
++
+ 	if (sizeof_priv) {
+ 		dev->priv = ((char *)dev +
+ 			     ((sizeof(struct net_device) +
+@@ -4176,6 +4197,8 @@ void free_netdev(struct net_device *dev)
+ {
+ 	release_net(dev_net(dev));
+ 
++	kfree(dev->_tx);
++
+ 	/*  Compatibility with error handling in drivers */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+ 		kfree((char *)dev - dev->padded);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f6dc5b3..6aeff58 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3286,7 +3286,7 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		}
+ 	}
+ 
+-	odev_queue = &odev->tx_queue;
++	odev_queue = dev_pick_tx(odev, pkt_dev->skb);
+ 	if (netif_tx_queue_stopped(odev_queue) ||
+ 	    need_resched()) {
+ 		idle_start = getCurUs();
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 8ef9f1d..71edb8b 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -636,7 +636,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (dev->master)
+ 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
+ 
+-	txq = &dev->tx_queue;
++	txq = netdev_get_tx_queue(dev, 0);
+ 	if (txq->qdisc_sleeping)
+ 		NLA_PUT_STRING(skb, IFLA_QDISC, txq->qdisc_sleeping->ops->id);
+ 
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 6439d3b..45b992a 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -633,7 +633,7 @@ int ieee80211_start_tx_ba_session(struct ieee80211_hw *hw, u8 *ra, u16 tid)
+ 
+ 	/* ensure that TX flow won't interrupt us
+ 	 * until the end of the call to requeue function */
+-	dev_queue = &local->mdev->tx_queue;
++	dev_queue = netdev_get_tx_queue(local->mdev, 0);
+ 	spin_lock_bh(&dev_queue->lock);
+ 
+ 	/* create a new queue for this aggregation */
+@@ -858,7 +858,7 @@ void ieee80211_stop_tx_ba_cb(struct ieee80211_hw *hw, u8 *ra, u8 tid)
+ 
+ 	/* avoid ordering issues: we are the only one that can modify
+ 	 * the content of the qdiscs */
+-	dev_queue = &local->mdev->tx_queue;
++	dev_queue = netdev_get_tx_queue(local->mdev, 0);
+ 	spin_lock_bh(&dev_queue->lock);
+ 	/* remove the queue for this aggregation */
+ 	ieee80211_ht_agg_queue_remove(local, sta, tid, 1);
 diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
-index 42b1fbf..3bbee5a 100644
+index 811d0de..42b1fbf 100644
 --- a/net/mac80211/wme.c
 +++ b/net/mac80211/wme.c
-@@ -18,8 +18,6 @@
- #include "ieee80211_i.h"
- #include "wme.h"
+@@ -576,7 +576,7 @@ static struct Qdisc_ops wme_qdisc_ops __read_mostly =
  
--/* maximum number of hardware queues we support. */
--#define QD_MAX_QUEUES (IEEE80211_MAX_AMPDU_QUEUES + IEEE80211_MAX_QUEUES)
- /* current number of hardware queues we support. */
- #define QD_NUM(hw) ((hw)->queues + (hw)->ampdu_queues)
- 
-@@ -29,32 +27,14 @@
-  */
- const int ieee802_1d_to_ac[8] = { 2, 3, 3, 2, 1, 1, 0, 0 };
- 
--struct ieee80211_sched_data
--{
--	unsigned long qdisc_pool[BITS_TO_LONGS(QD_MAX_QUEUES)];
--	struct tcf_proto *filter_list;
--	struct Qdisc *queues[QD_MAX_QUEUES];
--	struct sk_buff_head requeued[QD_MAX_QUEUES];
--};
--
- static const char llc_ip_hdr[8] = {0xAA, 0xAA, 0x3, 0, 0, 0, 0x08, 0};
- 
- /* given a data frame determine the 802.1p/1d tag to use */
--static inline unsigned classify_1d(struct sk_buff *skb, struct Qdisc *qd)
-+static inline unsigned classify_1d(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct iphdr *ip;
--	int dscp;
- 	int offset;
--
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct tcf_result res = { -1, 0 };
--
--	/* if there is a user set filter list, call out to that */
--	if (q->filter_list) {
--		tc_classify(skb, q->filter_list, &res);
--		if (res.class != -1)
--			return res.class;
--	}
-+	int dscp;
- 
- 	/* skb->priority values from 256->263 are magic values to
- 	 * directly indicate a specific 802.1d priority.
-@@ -99,11 +79,10 @@ static inline int wme_downgrade_ac(struct sk_buff *skb)
- }
- 
- 
--/* positive return value indicates which queue to use
-- * negative return value indicates to drop the frame */
--static int classify80211(struct sk_buff *skb, struct Qdisc *qd)
-+/* positive return value indicates which queue to use */
-+static u16 classify80211(struct sk_buff *skb, struct net_device *dev)
- {
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
-+	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
- 
- 	if (!ieee80211_is_data(hdr->frame_control)) {
-@@ -123,14 +102,12 @@ static int classify80211(struct sk_buff *skb, struct Qdisc *qd)
- 
- 	/* use the data classifier to determine what 802.1d tag the
- 	 * data frame has */
--	skb->priority = classify_1d(skb, qd);
-+	skb->priority = classify_1d(skb, dev);
- 
- 	/* in case we are a client verify acm is not set for this ac */
- 	while (unlikely(local->wmm_acm & BIT(skb->priority))) {
--		if (wme_downgrade_ac(skb)) {
--			/* No AC with lower priority has acm=0, drop packet. */
--			return -1;
--		}
-+		if (wme_downgrade_ac(skb))
-+			return 0;
- 	}
- 
- 	/* look up which queue to use for frames with this 1d tag */
-@@ -138,40 +115,17 @@ static int classify80211(struct sk_buff *skb, struct Qdisc *qd)
- }
- 
- 
--static int wme_qdiscop_enqueue(struct sk_buff *skb, struct Qdisc* qd)
-+static u16 ieee80211_select_queue(struct net_device *dev,
-+				  struct sk_buff *skb)
- {
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
--	struct Qdisc *qdisc;
-+	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
-+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
- 	struct sta_info *sta;
--	int err, queue;
-+	u16 queue;
- 	u8 tid;
- 
--	if (info->flags & IEEE80211_TX_CTL_REQUEUE) {
--		queue = skb_get_queue_mapping(skb);
--		rcu_read_lock();
--		sta = sta_info_get(local, hdr->addr1);
--		tid = skb->priority & QOS_CONTROL_TAG1D_MASK;
--		if (sta) {
--			int ampdu_queue = sta->tid_to_tx_q[tid];
--			if ((ampdu_queue < QD_NUM(hw)) &&
--			    test_bit(ampdu_queue, q->qdisc_pool)) {
--				queue = ampdu_queue;
--				info->flags |= IEEE80211_TX_CTL_AMPDU;
--			} else {
--				info->flags &= ~IEEE80211_TX_CTL_AMPDU;
--			}
--		}
--		rcu_read_unlock();
--		skb_queue_tail(&q->requeued[queue], skb);
--		qd->q.qlen++;
--		return 0;
--	}
--
--	queue = classify80211(skb, qd);
-+	queue = classify80211(skb, dev);
- 
- 	if (unlikely(queue >= local->hw.queues))
- 		queue = local->hw.queues - 1;
-@@ -193,436 +147,32 @@ static int wme_qdiscop_enqueue(struct sk_buff *skb, struct Qdisc* qd)
- 
- 		sta = sta_info_get(local, hdr->addr1);
- 		if (sta) {
--			int ampdu_queue = sta->tid_to_tx_q[tid];
--			if ((ampdu_queue < QD_NUM(hw)) &&
--			    test_bit(ampdu_queue, q->qdisc_pool)) {
--				queue = ampdu_queue;
--				info->flags |= IEEE80211_TX_CTL_AMPDU;
--			} else {
--				info->flags &= ~IEEE80211_TX_CTL_AMPDU;
--			}
-+			queue = sta->tid_to_tx_q[tid];
-+			info->flags |= IEEE80211_TX_CTL_AMPDU;
- 		}
- 
- 		rcu_read_unlock();
- 	}
- 
--	if (unlikely(queue < 0)) {
--			kfree_skb(skb);
--			err = NET_XMIT_DROP;
--	} else {
--		tid = skb->priority & QOS_CONTROL_TAG1D_MASK;
--		skb_set_queue_mapping(skb, queue);
--		qdisc = q->queues[queue];
--		err = qdisc->enqueue(skb, qdisc);
--		if (err == NET_XMIT_SUCCESS) {
--			qd->q.qlen++;
--			qd->bstats.bytes += skb->len;
--			qd->bstats.packets++;
--			return NET_XMIT_SUCCESS;
--		}
--	}
--	qd->qstats.drops++;
--	return err;
--}
--
--
--/* TODO: clean up the cases where master_hard_start_xmit
-- * returns non 0 - it shouldn't ever do that. Once done we
-- * can remove this function */
--static int wme_qdiscop_requeue(struct sk_buff *skb, struct Qdisc* qd)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct Qdisc *qdisc;
--	int err;
--
--	/* we recorded which queue to use earlier! */
--	qdisc = q->queues[skb_get_queue_mapping(skb)];
--
--	if ((err = qdisc->ops->requeue(skb, qdisc)) == 0) {
--		qd->q.qlen++;
--		return 0;
--	}
--	qd->qstats.drops++;
--	return err;
--}
--
--
--static struct sk_buff *wme_qdiscop_dequeue(struct Qdisc* qd)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct net_device *dev = qdisc_dev(qd);
--	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	struct sk_buff *skb;
--	struct Qdisc *qdisc;
--	int queue;
--
--	/* check all the h/w queues in numeric/priority order */
--	for (queue = 0; queue < QD_NUM(hw); queue++) {
--		/* see if there is room in this hardware queue */
--		if (__netif_subqueue_stopped(local->mdev, queue) ||
--		    !test_bit(queue, q->qdisc_pool))
--			continue;
--
--		/* there is space - try and get a frame */
--		skb = skb_dequeue(&q->requeued[queue]);
--		if (skb) {
--			qd->q.qlen--;
--			return skb;
--		}
--
--		qdisc = q->queues[queue];
--		skb = qdisc->dequeue(qdisc);
--		if (skb) {
--			qd->q.qlen--;
--			return skb;
--		}
--	}
--	/* returning a NULL here when all the h/w queues are full means we
--	 * never need to call netif_stop_queue in the driver */
--	return NULL;
--}
--
--
--static void wme_qdiscop_reset(struct Qdisc* qd)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	int queue;
--
--	/* QUESTION: should we have some hardware flush functionality here? */
--
--	for (queue = 0; queue < QD_NUM(hw); queue++) {
--		skb_queue_purge(&q->requeued[queue]);
--		qdisc_reset(q->queues[queue]);
--	}
--	qd->q.qlen = 0;
--}
--
--
--static void wme_qdiscop_destroy(struct Qdisc* qd)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	int queue;
--
--	tcf_destroy_chain(q->filter_list);
--	q->filter_list = NULL;
--
--	for (queue = 0; queue < QD_NUM(hw); queue++) {
--		skb_queue_purge(&q->requeued[queue]);
--		qdisc_destroy(q->queues[queue]);
--		q->queues[queue] = &noop_qdisc;
--	}
--}
--
--
--/* called whenever parameters are updated on existing qdisc */
--static int wme_qdiscop_tune(struct Qdisc *qd, struct nlattr *opt)
--{
--	return 0;
--}
--
--
--/* called during initial creation of qdisc on device */
--static int wme_qdiscop_init(struct Qdisc *qd, struct nlattr *opt)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct net_device *dev = qdisc_dev(qd);
--	struct ieee80211_local *local;
--	struct ieee80211_hw *hw;
--	int err = 0, i;
--
--	/* check that device is a mac80211 device */
--	if (!dev->ieee80211_ptr ||
--	    dev->ieee80211_ptr->wiphy->privid != mac80211_wiphy_privid)
--		return -EINVAL;
--
--	local = wdev_priv(dev->ieee80211_ptr);
--	hw = &local->hw;
--
--	/* only allow on master dev */
--	if (dev != local->mdev)
--		return -EINVAL;
--
--	/* ensure that we are root qdisc */
--	if (qd->parent != TC_H_ROOT)
--		return -EINVAL;
--
--	if (qd->flags & TCQ_F_INGRESS)
--		return -EINVAL;
--
--	/* if options were passed in, set them */
--	if (opt)
--		err = wme_qdiscop_tune(qd, opt);
--
--	/* create child queues */
--	for (i = 0; i < QD_NUM(hw); i++) {
--		skb_queue_head_init(&q->requeued[i]);
--		q->queues[i] = qdisc_create_dflt(qdisc_dev(qd), qd->dev_queue,
--						 &pfifo_qdisc_ops,
--						 qd->handle);
--		if (!q->queues[i]) {
--			q->queues[i] = &noop_qdisc;
--			printk(KERN_ERR "%s child qdisc %i creation failed\n",
--			       dev->name, i);
--		}
--	}
--
--	/* non-aggregation queues: reserve/mark as used */
--	for (i = 0; i < local->hw.queues; i++)
--		set_bit(i, q->qdisc_pool);
--
--	return err;
--}
--
--static int wme_qdiscop_dump(struct Qdisc *qd, struct sk_buff *skb)
--{
--	return -1;
--}
--
--
--static int wme_classop_graft(struct Qdisc *qd, unsigned long arg,
--			     struct Qdisc *new, struct Qdisc **old)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	unsigned long queue = arg - 1;
--
--	if (queue >= QD_NUM(hw))
--		return -EINVAL;
--
--	if (!new)
--		new = &noop_qdisc;
--
--	sch_tree_lock(qd);
--	*old = q->queues[queue];
--	q->queues[queue] = new;
--	qdisc_reset(*old);
--	sch_tree_unlock(qd);
--
--	return 0;
--}
--
--
--static struct Qdisc *
--wme_classop_leaf(struct Qdisc *qd, unsigned long arg)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	unsigned long queue = arg - 1;
--
--	if (queue >= QD_NUM(hw))
--		return NULL;
--
--	return q->queues[queue];
--}
--
--
--static unsigned long wme_classop_get(struct Qdisc *qd, u32 classid)
--{
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	unsigned long queue = TC_H_MIN(classid);
--
--	if (queue - 1 >= QD_NUM(hw))
--		return 0;
--
- 	return queue;
- }
- 
--
--static unsigned long wme_classop_bind(struct Qdisc *qd, unsigned long parent,
--				      u32 classid)
--{
--	return wme_classop_get(qd, classid);
--}
--
--
--static void wme_classop_put(struct Qdisc *q, unsigned long cl)
--{
--}
--
--
--static int wme_classop_change(struct Qdisc *qd, u32 handle, u32 parent,
--			      struct nlattr **tca, unsigned long *arg)
--{
--	unsigned long cl = *arg;
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--
--	if (cl - 1 > QD_NUM(hw))
--		return -ENOENT;
--
--	/* TODO: put code to program hardware queue parameters here,
--	 * to allow programming from tc command line */
--
--	return 0;
--}
--
--
--/* we don't support deleting hardware queues
-- * when we add WMM-SA support - TSPECs may be deleted here */
--static int wme_classop_delete(struct Qdisc *qd, unsigned long cl)
--{
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--
--	if (cl - 1 > QD_NUM(hw))
--		return -ENOENT;
--	return 0;
--}
--
--
--static int wme_classop_dump_class(struct Qdisc *qd, unsigned long cl,
--				  struct sk_buff *skb, struct tcmsg *tcm)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--
--	if (cl - 1 > QD_NUM(hw))
--		return -ENOENT;
--	tcm->tcm_handle = TC_H_MIN(cl);
--	tcm->tcm_parent = qd->handle;
--	tcm->tcm_info = q->queues[cl-1]->handle; /* do we need this? */
--	return 0;
--}
--
--
--static void wme_classop_walk(struct Qdisc *qd, struct qdisc_walker *arg)
--{
--	struct ieee80211_local *local = wdev_priv(qdisc_dev(qd)->ieee80211_ptr);
--	struct ieee80211_hw *hw = &local->hw;
--	int queue;
--
--	if (arg->stop)
--		return;
--
--	for (queue = 0; queue < QD_NUM(hw); queue++) {
--		if (arg->count < arg->skip) {
--			arg->count++;
--			continue;
--		}
--		/* we should return classids for our internal queues here
--		 * as well as the external ones */
--		if (arg->fn(qd, queue+1, arg) < 0) {
--			arg->stop = 1;
--			break;
--		}
--		arg->count++;
--	}
--}
--
--
--static struct tcf_proto ** wme_classop_find_tcf(struct Qdisc *qd,
--						unsigned long cl)
--{
--	struct ieee80211_sched_data *q = qdisc_priv(qd);
--
--	if (cl)
--		return NULL;
--
--	return &q->filter_list;
--}
--
--
--/* this qdisc is classful (i.e. has classes, some of which may have leaf qdiscs attached)
-- * - these are the operations on the classes */
--static const struct Qdisc_class_ops class_ops =
--{
--	.graft = wme_classop_graft,
--	.leaf = wme_classop_leaf,
--
--	.get = wme_classop_get,
--	.put = wme_classop_put,
--	.change = wme_classop_change,
--	.delete = wme_classop_delete,
--	.walk = wme_classop_walk,
--
--	.tcf_chain = wme_classop_find_tcf,
--	.bind_tcf = wme_classop_bind,
--	.unbind_tcf = wme_classop_put,
--
--	.dump = wme_classop_dump_class,
--};
--
--
--/* queueing discipline operations */
--static struct Qdisc_ops wme_qdisc_ops __read_mostly =
--{
--	.next = NULL,
--	.cl_ops = &class_ops,
--	.id = "ieee80211",
--	.priv_size = sizeof(struct ieee80211_sched_data),
--
--	.enqueue = wme_qdiscop_enqueue,
--	.dequeue = wme_qdiscop_dequeue,
--	.requeue = wme_qdiscop_requeue,
--	.drop = NULL, /* drop not needed since we are always the root qdisc */
--
--	.init = wme_qdiscop_init,
--	.reset = wme_qdiscop_reset,
--	.destroy = wme_qdiscop_destroy,
--	.change = wme_qdiscop_tune,
--
--	.dump = wme_qdiscop_dump,
--};
--
--
  void ieee80211_install_qdisc(struct net_device *dev)
  {
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
--	struct Qdisc *qdisc;
--
--	qdisc = qdisc_create_dflt(dev, txq,
--				  &wme_qdisc_ops, TC_H_ROOT);
--	if (!qdisc) {
--		printk(KERN_ERR "%s: qdisc installation failed\n", dev->name);
--		return;
--	}
--
--	/* same handle as would be allocated by qdisc_alloc_handle() */
--	qdisc->handle = 0x80010000;
--
--	qdisc_lock_tree(dev);
--	list_add_tail(&qdisc->list, &txq->qdisc_list);
--	txq->qdisc_sleeping = qdisc;
--	qdisc_unlock_tree(dev);
-+	dev->select_queue = ieee80211_select_queue;
- }
+-	struct netdev_queue *txq = &dev->tx_queue;
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+ 	struct Qdisc *qdisc;
  
+ 	qdisc = qdisc_create_dflt(dev, txq,
+@@ -598,7 +598,7 @@ void ieee80211_install_qdisc(struct net_device *dev)
  
  int ieee80211_qdisc_installed(struct net_device *dev)
  {
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
--
--	return txq->qdisc_sleeping->ops == &wme_qdisc_ops;
--}
--
--
--int ieee80211_wme_register(void)
--{
--	return register_qdisc(&wme_qdisc_ops);
--}
--
--
--void ieee80211_wme_unregister(void)
--{
--	unregister_qdisc(&wme_qdisc_ops);
-+	return dev->select_queue == ieee80211_select_queue;
- }
+-	struct netdev_queue *txq = &dev->tx_queue;
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
  
- int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
+ 	return txq->qdisc_sleeping->ops == &wme_qdisc_ops;
+ }
+@@ -619,7 +619,7 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
  			struct sta_info *sta, u16 tid)
  {
--	int i;
--	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
--	struct ieee80211_sched_data *q =
--			qdisc_priv(txq->qdisc_sleeping);
+ 	int i;
+-	struct netdev_queue *txq = &local->mdev->tx_queue;
++	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
+ 	struct ieee80211_sched_data *q =
+ 			qdisc_priv(txq->qdisc_sleeping);
  	DECLARE_MAC_BUF(mac);
-+	int i;
+@@ -654,14 +654,14 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
+ }
  
- 	/* prepare the filter and save it for the SW queue
- 	 * matching the received HW queue */
-@@ -632,7 +182,7 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
- 
- 	/* try to get a Qdisc from the pool */
- 	for (i = local->hw.queues; i < QD_NUM(&local->hw); i++)
--		if (!test_and_set_bit(i, q->qdisc_pool)) {
-+		if (!test_and_set_bit(i, local->queue_pool)) {
- 			ieee80211_stop_queue(local_to_hw(local), i);
- 			sta->tid_to_tx_q[tid] = i;
- 
-@@ -643,9 +193,8 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
- #ifdef CONFIG_MAC80211_HT_DEBUG
- 			if (net_ratelimit())
- 				printk(KERN_DEBUG "allocated aggregation queue"
--					" %d tid %d addr %s pool=0x%lX\n",
--					i, tid, print_mac(mac, sta->addr),
--					q->qdisc_pool[0]);
-+				       " %d tid %d addr %s\n",
-+				       i, tid, print_mac(mac, sta->addr));
- #endif /* CONFIG_MAC80211_HT_DEBUG */
- 			return 0;
- 		}
-@@ -657,44 +206,12 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
-  * the caller needs to hold netdev_get_tx_queue(local->mdev, X)->lock
+ /**
+- * the caller needs to hold local->mdev->tx_queue.lock
++ * the caller needs to hold netdev_get_tx_queue(local->mdev, X)->lock
   */
  void ieee80211_ht_agg_queue_remove(struct ieee80211_local *local,
--				   struct sta_info *sta, u16 tid,
--				   u8 requeue)
-+				   struct sta_info *sta, u16 tid)
+ 				   struct sta_info *sta, u16 tid,
+ 				   u8 requeue)
  {
  	struct ieee80211_hw *hw = &local->hw;
--	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
--	struct ieee80211_sched_data *q =
--		qdisc_priv(txq->qdisc_sleeping);
+-	struct netdev_queue *txq = &local->mdev->tx_queue;
++	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
+ 	struct ieee80211_sched_data *q =
+ 		qdisc_priv(txq->qdisc_sleeping);
  	int agg_queue = sta->tid_to_tx_q[tid];
+@@ -678,7 +678,7 @@ void ieee80211_ht_agg_queue_remove(struct ieee80211_local *local,
  
- 	/* return the qdisc to the pool */
--	clear_bit(agg_queue, q->qdisc_pool);
-+	clear_bit(agg_queue, local->queue_pool);
- 	sta->tid_to_tx_q[tid] = QD_NUM(hw);
--
--	if (requeue)
--		ieee80211_requeue(local, agg_queue);
--	else
--		q->queues[agg_queue]->ops->reset(q->queues[agg_queue]);
--}
--
--void ieee80211_requeue(struct ieee80211_local *local, int queue)
--{
--	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
--	struct Qdisc *root_qd = txq->qdisc_sleeping;
--	struct ieee80211_sched_data *q = qdisc_priv(root_qd);
--	struct Qdisc *qdisc = q->queues[queue];
--	struct sk_buff *skb = NULL;
--	u32 len;
--
--	if (!qdisc || !qdisc->dequeue)
--		return;
--
--	printk(KERN_DEBUG "requeue: qlen = %d\n", qdisc->q.qlen);
--	for (len = qdisc->q.qlen; len > 0; len--) {
--		skb = qdisc->dequeue(qdisc);
--		root_qd->q.qlen--;
--		/* packet will be classified again and */
--		/* skb->packet_data->queue will be overridden if needed */
--		if (skb)
--			wme_qdiscop_enqueue(skb, root_qd);
+ void ieee80211_requeue(struct ieee80211_local *local, int queue)
+ {
+-	struct netdev_queue *txq = &local->mdev->tx_queue;
++	struct netdev_queue *txq = netdev_get_tx_queue(local->mdev, 0);
+ 	struct Qdisc *root_qd = txq->qdisc_sleeping;
+ 	struct ieee80211_sched_data *q = qdisc_priv(root_qd);
+ 	struct Qdisc *qdisc = q->queues[queue];
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index 73d1e14..22f3736 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -74,14 +74,16 @@ static const struct proto_ops nr_proto_ops;
+  */
+ static struct lock_class_key nr_netdev_xmit_lock_key;
+ 
+-static void nr_set_lockdep_one(struct netdev_queue *dev_queue)
++static void nr_set_lockdep_one(struct net_device *dev,
++			       struct netdev_queue *dev_queue,
++			       void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock, &nr_netdev_xmit_lock_key);
+ }
+ 
+ static void nr_set_lockdep_key(struct net_device *dev)
+ {
+-	nr_set_lockdep_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, nr_set_lockdep_one, NULL);
+ }
+ 
+ /*
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 37046f9..987ee73 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -75,14 +75,16 @@ ax25_address rose_callsign;
+  */
+ static struct lock_class_key rose_netdev_xmit_lock_key;
+ 
+-static void rose_set_lockdep_one(struct netdev_queue *dev_queue)
++static void rose_set_lockdep_one(struct net_device *dev,
++				 struct netdev_queue *dev_queue,
++				 void *_unused)
+ {
+ 	lockdep_set_class(&dev_queue->_xmit_lock, &rose_netdev_xmit_lock_key);
+ }
+ 
+ static void rose_set_lockdep_key(struct net_device *dev)
+ {
+-	rose_set_lockdep_one(&dev->tx_queue);
++	netdev_for_each_tx_queue(dev, rose_set_lockdep_one, NULL);
+ }
+ 
+ /*
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index b483bbe..d0b0a9b 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -166,7 +166,7 @@ replay:
+ 
+ 	/* Find qdisc */
+ 	if (!parent) {
+-		struct netdev_queue *dev_queue = &dev->tx_queue;
++		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
+ 		q = dev_queue->qdisc_sleeping;
+ 		parent = q->handle;
+ 	} else {
+@@ -410,7 +410,7 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ 		return skb->len;
+ 
+-	dev_queue = &dev->tx_queue;
++	dev_queue = netdev_get_tx_queue(dev, 0);
+ 	if (!tcm->tcm_parent)
+ 		q = dev_queue->qdisc_sleeping;
+ 	else
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 8de8bf5..8ed69b6 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -183,9 +183,8 @@ EXPORT_SYMBOL(unregister_qdisc);
+    (root qdisc, all its children, children of children etc.)
+  */
+ 
+-struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
++static struct Qdisc *__qdisc_lookup(struct netdev_queue *dev_queue, u32 handle)
+ {
+-	struct netdev_queue *dev_queue = &dev->tx_queue;
+ 	struct Qdisc *q;
+ 
+ 	list_for_each_entry(q, &dev_queue->qdisc_list, list) {
+@@ -195,6 +194,19 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ 	return NULL;
+ }
+ 
++struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
++{
++	unsigned int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		struct Qdisc *q = __qdisc_lookup(txq, handle);
++		if (q)
++			return q;
++	}
++	return NULL;
++}
++
+ static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
+ {
+ 	unsigned long cl;
+@@ -358,7 +370,7 @@ dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
+ 		}
+ 
+ 	} else {
+-		dev_queue = &dev->tx_queue;
++		dev_queue = netdev_get_tx_queue(dev, 0);
+ 		oqdisc = dev_queue->qdisc_sleeping;
+ 
+ 		/* Prune old scheduler */
+@@ -638,7 +650,8 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 				q = dev->rx_queue.qdisc;
+ 			}
+ 		} else {
+-			struct netdev_queue *dev_queue = &dev->tx_queue;
++			struct netdev_queue *dev_queue;
++			dev_queue = netdev_get_tx_queue(dev, 0);
+ 			q = dev_queue->qdisc_sleeping;
+ 		}
+ 		if (!q)
+@@ -713,7 +726,8 @@ replay:
+ 				q = dev->rx_queue.qdisc;
+ 			}
+ 		} else {
+-			struct netdev_queue *dev_queue = &dev->tx_queue;
++			struct netdev_queue *dev_queue;
++			dev_queue = netdev_get_tx_queue(dev, 0);
+ 			q = dev_queue->qdisc_sleeping;
+ 		}
+ 
+@@ -795,7 +809,7 @@ create_n_graft:
+ 				 tcm->tcm_parent, tcm->tcm_parent,
+ 				 tca, &err);
+ 	else
+-		q = qdisc_create(dev, &dev->tx_queue,
++		q = qdisc_create(dev, netdev_get_tx_queue(dev, 0),
+ 				 tcm->tcm_parent, tcm->tcm_handle,
+ 				 tca, &err);
+ 	if (q == NULL) {
+@@ -921,7 +935,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (idx > s_idx)
+ 			s_q_idx = 0;
+ 		q_idx = 0;
+-		dev_queue = &dev->tx_queue;
++		dev_queue = netdev_get_tx_queue(dev, 0);
+ 		list_for_each_entry(q, &dev_queue->qdisc_list, list) {
+ 			if (q_idx < s_q_idx) {
+ 				q_idx++;
+@@ -994,7 +1008,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 
+ 	/* Step 1. Determine qdisc handle X:0 */
+ 
+-	dev_queue = &dev->tx_queue;
++	dev_queue = netdev_get_tx_queue(dev, 0);
+ 	if (pid != TC_H_ROOT) {
+ 		u32 qid1 = TC_H_MAJ(pid);
+ 
+@@ -1171,7 +1185,7 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	s_t = cb->args[0];
+ 	t = 0;
+ 
+-	dev_queue = &dev->tx_queue;
++	dev_queue = netdev_get_tx_queue(dev, 0);
+ 	list_for_each_entry(q, &dev_queue->qdisc_list, list) {
+ 		if (t < s_t || !q->ops->cl_ops ||
+ 		    (tcm->tcm_parent &&
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 1092d54..76575fe 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -40,20 +40,30 @@
+  */
+ 
+ void qdisc_lock_tree(struct net_device *dev)
+-	__acquires(dev->tx_queue.lock)
+ 	__acquires(dev->rx_queue.lock)
+ {
+-	spin_lock_bh(&dev->tx_queue.lock);
++	unsigned int i;
++
++	local_bh_disable();
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		spin_lock(&txq->lock);
++	}
+ 	spin_lock(&dev->rx_queue.lock);
+ }
+ EXPORT_SYMBOL(qdisc_lock_tree);
+ 
+ void qdisc_unlock_tree(struct net_device *dev)
+ 	__releases(dev->rx_queue.lock)
+-	__releases(dev->tx_queue.lock)
+ {
++	unsigned int i;
++
+ 	spin_unlock(&dev->rx_queue.lock);
+-	spin_unlock_bh(&dev->tx_queue.lock);
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++		spin_unlock(&txq->lock);
++	}
++	local_bh_enable();
+ }
+ EXPORT_SYMBOL(qdisc_unlock_tree);
+ 
+@@ -211,22 +221,37 @@ void __qdisc_run(struct netdev_queue *dev_queue)
+ static void dev_watchdog(unsigned long arg)
+ {
+ 	struct net_device *dev = (struct net_device *)arg;
+-	struct netdev_queue *dev_queue = &dev->tx_queue;
+ 
+ 	netif_tx_lock(dev);
+-	if (dev_queue->qdisc != &noop_qdisc) {
++	if (!qdisc_tx_is_noop(dev)) {
+ 		if (netif_device_present(dev) &&
+ 		    netif_running(dev) &&
+ 		    netif_carrier_ok(dev)) {
+-			if (netif_queue_stopped(dev) &&
+-			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
++			int some_queue_stopped = 0;
++			unsigned int i;
++
++			for (i = 0; i < dev->num_tx_queues; i++) {
++				struct netdev_queue *txq;
++
++				txq = netdev_get_tx_queue(dev, i);
++				if (netif_tx_queue_stopped(txq)) {
++					some_queue_stopped = 1;
++					break;
++				}
++			}
+ 
+-				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
++			if (some_queue_stopped &&
++			    time_after(jiffies, (dev->trans_start +
++						 dev->watchdog_timeo))) {
++				printk(KERN_INFO "NETDEV WATCHDOG: %s: "
++				       "transmit timed out\n",
+ 				       dev->name);
+ 				dev->tx_timeout(dev);
+ 				WARN_ON_ONCE(1);
+ 			}
+-			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
++			if (!mod_timer(&dev->watchdog_timer,
++				       round_jiffies(jiffies +
++						     dev->watchdog_timeo)))
+ 				dev_hold(dev);
+ 		}
+ 	}
+@@ -541,9 +566,55 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ }
+ EXPORT_SYMBOL(qdisc_destroy);
+ 
++static bool dev_all_qdisc_sleeping_noop(struct net_device *dev)
++{
++	unsigned int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
++
++		if (txq->qdisc_sleeping != &noop_qdisc)
++			return false;
++	}
++	return true;
++}
++
++static void attach_one_default_qdisc(struct net_device *dev,
++				     struct netdev_queue *dev_queue,
++				     void *_unused)
++{
++	struct Qdisc *qdisc;
++
++	if (dev->tx_queue_len) {
++		qdisc = qdisc_create_dflt(dev, dev_queue,
++					  &pfifo_fast_ops, TC_H_ROOT);
++		if (!qdisc) {
++			printk(KERN_INFO "%s: activation failed\n", dev->name);
++			return;
++		}
++		list_add_tail(&qdisc->list, &dev_queue->qdisc_list);
++	} else {
++		qdisc =  &noqueue_qdisc;
++	}
++	dev_queue->qdisc_sleeping = qdisc;
++}
++
++static void transition_one_qdisc(struct net_device *dev,
++				 struct netdev_queue *dev_queue,
++				 void *_need_watchdog)
++{
++	int *need_watchdog_p = _need_watchdog;
++
++	spin_lock_bh(&dev_queue->lock);
++	rcu_assign_pointer(dev_queue->qdisc, dev_queue->qdisc_sleeping);
++	if (dev_queue->qdisc != &noqueue_qdisc)
++		*need_watchdog_p = 1;
++	spin_unlock_bh(&dev_queue->lock);
++}
++
+ void dev_activate(struct net_device *dev)
+ {
+-	struct netdev_queue *dev_queue = &dev->tx_queue;
++	int need_watchdog;
+ 
+ 	/* No queueing discipline is attached to device;
+ 	   create default one i.e. pfifo_fast for devices,
+@@ -551,39 +622,27 @@ void dev_activate(struct net_device *dev)
+ 	   virtual interfaces
+ 	 */
+ 
+-	if (dev_queue->qdisc_sleeping == &noop_qdisc) {
+-		struct Qdisc *qdisc;
+-		if (dev->tx_queue_len) {
+-			qdisc = qdisc_create_dflt(dev, dev_queue,
+-						  &pfifo_fast_ops,
+-						  TC_H_ROOT);
+-			if (qdisc == NULL) {
+-				printk(KERN_INFO "%s: activation failed\n", dev->name);
+-				return;
+-			}
+-			list_add_tail(&qdisc->list, &dev_queue->qdisc_list);
+-		} else {
+-			qdisc =  &noqueue_qdisc;
+-		}
+-		dev_queue->qdisc_sleeping = qdisc;
 -	}
++	if (dev_all_qdisc_sleeping_noop(dev))
++		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
+ 
+ 	if (!netif_carrier_ok(dev))
+ 		/* Delay activation until next carrier-on event */
+ 		return;
+ 
+-	spin_lock_bh(&dev_queue->lock);
+-	rcu_assign_pointer(dev_queue->qdisc, dev_queue->qdisc_sleeping);
+-	if (dev_queue->qdisc != &noqueue_qdisc) {
++	need_watchdog = 0;
++	netdev_for_each_tx_queue(dev, transition_one_qdisc, &need_watchdog);
++
++	if (need_watchdog) {
+ 		dev->trans_start = jiffies;
+ 		dev_watchdog_up(dev);
+ 	}
+-	spin_unlock_bh(&dev_queue->lock);
  }
-diff --git a/net/mac80211/wme.h b/net/mac80211/wme.h
-index bbdb533..c79be0e 100644
---- a/net/mac80211/wme.h
-+++ b/net/mac80211/wme.h
-@@ -37,11 +37,7 @@ int ieee80211_qdisc_installed(struct net_device *dev);
- int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
- 			       struct sta_info *sta, u16 tid);
- void ieee80211_ht_agg_queue_remove(struct ieee80211_local *local,
--				   struct sta_info *sta, u16 tid,
--				   u8 requeue);
--void ieee80211_requeue(struct ieee80211_local *local, int queue);
--int ieee80211_wme_register(void);
--void ieee80211_wme_unregister(void);
-+				   struct sta_info *sta, u16 tid);
- #else
- static inline void ieee80211_install_qdisc(struct net_device *dev)
+ 
+-static void dev_deactivate_queue(struct netdev_queue *dev_queue,
+-				 struct Qdisc *qdisc_default)
++static void dev_deactivate_queue(struct net_device *dev,
++				 struct netdev_queue *dev_queue,
++				 void *_qdisc_default)
  {
-@@ -56,18 +52,7 @@ static inline int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
- 	return -EAGAIN;
++	struct Qdisc *qdisc_default = _qdisc_default;
+ 	struct Qdisc *qdisc;
+ 	struct sk_buff *skb;
+ 
+@@ -602,12 +661,35 @@ static void dev_deactivate_queue(struct netdev_queue *dev_queue,
+ 	kfree_skb(skb);
  }
- static inline void ieee80211_ht_agg_queue_remove(struct ieee80211_local *local,
--						 struct sta_info *sta, u16 tid,
--						 u8 requeue)
--{
--}
--static inline void ieee80211_requeue(struct ieee80211_local *local, int queue)
--{
--}
--static inline int ieee80211_wme_register(void)
--{
--	return 0;
--}
--static inline void ieee80211_wme_unregister(void)
-+						 struct sta_info *sta, u16 tid)
+ 
++static bool some_qdisc_is_running(struct net_device *dev, int lock)
++{
++	unsigned int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *dev_queue;
++		int val;
++
++		dev_queue = netdev_get_tx_queue(dev, i);
++
++		if (lock)
++			spin_lock_bh(&dev_queue->lock);
++
++		val = test_bit(__QUEUE_STATE_QDISC_RUNNING, &dev_queue->state);
++
++		if (lock)
++			spin_unlock_bh(&dev_queue->lock);
++
++		if (val)
++			return true;
++	}
++	return false;
++}
++
+ void dev_deactivate(struct net_device *dev)
  {
+-	struct netdev_queue *dev_queue = &dev->tx_queue;
+-	int running;
++	bool running;
+ 
+-	dev_deactivate_queue(dev_queue, &noop_qdisc);
++	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
+ 
+ 	dev_watchdog_down(dev);
+ 
+@@ -616,17 +698,14 @@ void dev_deactivate(struct net_device *dev)
+ 
+ 	/* Wait for outstanding qdisc_run calls. */
+ 	do {
+-		while (test_bit(__QUEUE_STATE_QDISC_RUNNING, &dev_queue->state))
++		while (some_qdisc_is_running(dev, 0))
+ 			yield();
+ 
+ 		/*
+ 		 * Double-check inside queue lock to ensure that all effects
+ 		 * of the queue run are visible when we return.
+ 		 */
+-		spin_lock_bh(&dev_queue->lock);
+-		running = test_bit(__QUEUE_STATE_QDISC_RUNNING,
+-				   &dev_queue->state);
+-		spin_unlock_bh(&dev_queue->lock);
++		running = some_qdisc_is_running(dev, 1);
+ 
+ 		/*
+ 		 * The running flag should never be set at this point because
+@@ -641,8 +720,10 @@ void dev_deactivate(struct net_device *dev)
+ 
+ static void dev_init_scheduler_queue(struct net_device *dev,
+ 				     struct netdev_queue *dev_queue,
+-				     struct Qdisc *qdisc)
++				     void *_qdisc)
+ {
++	struct Qdisc *qdisc = _qdisc;
++
+ 	dev_queue->qdisc = qdisc;
+ 	dev_queue->qdisc_sleeping = qdisc;
+ 	INIT_LIST_HEAD(&dev_queue->qdisc_list);
+@@ -651,18 +732,19 @@ static void dev_init_scheduler_queue(struct net_device *dev,
+ void dev_init_scheduler(struct net_device *dev)
+ {
+ 	qdisc_lock_tree(dev);
+-	dev_init_scheduler_queue(dev, &dev->tx_queue, &noop_qdisc);
++	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
+ 	dev_init_scheduler_queue(dev, &dev->rx_queue, NULL);
+ 	qdisc_unlock_tree(dev);
+ 
+ 	setup_timer(&dev->watchdog_timer, dev_watchdog, (unsigned long)dev);
  }
- #endif /* CONFIG_NET_SCHED */
+ 
+-static void dev_shutdown_scheduler_queue(struct net_device *dev,
+-					 struct netdev_queue *dev_queue,
+-					 struct Qdisc *qdisc_default)
++static void shutdown_scheduler_queue(struct net_device *dev,
++				     struct netdev_queue *dev_queue,
++				     void *_qdisc_default)
+ {
+ 	struct Qdisc *qdisc = dev_queue->qdisc_sleeping;
++	struct Qdisc *qdisc_default = _qdisc_default;
+ 
+ 	if (qdisc) {
+ 		dev_queue->qdisc = qdisc_default;
+@@ -675,8 +757,8 @@ static void dev_shutdown_scheduler_queue(struct net_device *dev,
+ void dev_shutdown(struct net_device *dev)
+ {
+ 	qdisc_lock_tree(dev);
+-	dev_shutdown_scheduler_queue(dev, &dev->tx_queue, &noop_qdisc);
+-	dev_shutdown_scheduler_queue(dev, &dev->rx_queue, NULL);
++	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
++	shutdown_scheduler_queue(dev, &dev->rx_queue, NULL);
+ 	BUG_TRAP(!timer_pending(&dev->watchdog_timer));
+ 	qdisc_unlock_tree(dev);
+ }
+diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+index 16d975f..ade3372 100644
+--- a/net/sched/sch_teql.c
++++ b/net/sched/sch_teql.c
+@@ -111,7 +111,7 @@ teql_dequeue(struct Qdisc* sch)
+ 	struct sk_buff *skb;
+ 
+ 	skb = __skb_dequeue(&dat->q);
+-	dat_queue = &dat->m->dev->tx_queue;
++	dat_queue = netdev_get_tx_queue(dat->m->dev, 0);
+ 	if (skb == NULL) {
+ 		struct net_device *m = qdisc_dev(dat_queue->qdisc);
+ 		if (m) {
+@@ -155,10 +155,13 @@ teql_destroy(struct Qdisc* sch)
+ 				if (q == master->slaves) {
+ 					master->slaves = NEXT_SLAVE(q);
+ 					if (q == master->slaves) {
++						struct netdev_queue *txq;
++
++						txq = netdev_get_tx_queue(master->dev, 0);
+ 						master->slaves = NULL;
+-						spin_lock_bh(&master->dev->tx_queue.lock);
+-						qdisc_reset(master->dev->tx_queue.qdisc);
+-						spin_unlock_bh(&master->dev->tx_queue.lock);
++						spin_lock_bh(&txq->lock);
++						qdisc_reset(txq->qdisc);
++						spin_unlock_bh(&txq->lock);
+ 					}
+ 				}
+ 				skb_queue_purge(&dat->q);
+@@ -218,7 +221,8 @@ static int teql_qdisc_init(struct Qdisc *sch, struct nlattr *opt)
+ static int
+ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *dev)
+ {
+-	struct teql_sched_data *q = qdisc_priv(dev->tx_queue.qdisc);
++	struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
++	struct teql_sched_data *q = qdisc_priv(dev_queue->qdisc);
+ 	struct neighbour *mn = skb->dst->neighbour;
+ 	struct neighbour *n = q->ncache;
+ 
+@@ -254,7 +258,8 @@ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *
+ static inline int teql_resolve(struct sk_buff *skb,
+ 			       struct sk_buff *skb_res, struct net_device *dev)
+ {
+-	if (dev->tx_queue.qdisc == &noop_qdisc)
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
++	if (txq->qdisc == &noop_qdisc)
+ 		return -ENODEV;
+ 
+ 	if (dev->header_ops == NULL ||
+@@ -285,8 +290,10 @@ restart:
+ 
+ 	do {
+ 		struct net_device *slave = qdisc_dev(q);
++		struct netdev_queue *slave_txq;
+ 
+-		if (slave->tx_queue.qdisc_sleeping != q)
++		slave_txq = netdev_get_tx_queue(slave, 0);
++		if (slave_txq->qdisc_sleeping != q)
+ 			continue;
+ 		if (__netif_subqueue_stopped(slave, subq) ||
+ 		    !netif_running(slave)) {
 -- 
 1.5.6
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
