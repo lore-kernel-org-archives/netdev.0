@@ -1,8 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 37/39]: netdev: Convert all drivers away from
- netif_schedule().
-Date: Thu, 03 Jul 2008 00:05:48 -0700 (PDT)
-Message-ID: <20080703.000548.69489465.davem@davemloft.net>
+Subject: [PATCH 26/39]: netdev: netdev_priv() can now be sane again.
+Date: Thu, 03 Jul 2008 00:04:46 -0700 (PDT)
+Message-ID: <20080703.000446.125029084.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,165 +9,79 @@ Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com,
 	Matheos.Worku@Sun.COM, linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50752
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50662
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759448AbYGCHFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:05:50 -0400
+	by vger.kernel.org with ESMTP id S1758149AbYGCHEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:04:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-They logically all want to trigger a schedule for all device
-TX queues.
+The private area of a netdev is now at a fixed offset once more.
+
+Unfortunately, some assumptions that netdev_priv() == netdev->priv
+crept back into the tree.  In particular this happened in the
+loopback driver.  Make it use netdev->ml_priv.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/au1000_eth.c           |    2 +-
- drivers/net/bfin_mac.c             |    2 +-
- drivers/net/fec_mpc52xx.c          |    2 +-
- drivers/net/fs_enet/fs_enet-main.c |    2 +-
- drivers/net/gianfar.c              |    4 ++--
- drivers/net/macb.c                 |    2 +-
- drivers/net/sh_eth.c               |    2 +-
- drivers/net/tc35815.c              |    2 +-
- drivers/net/ucc_geth.c             |    4 ++--
- 9 files changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/loopback.c    |    8 ++++----
+ include/linux/netdevice.h |    4 +++-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 7023d77..3ab61e4 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -912,7 +912,7 @@ au1000_adjust_link(struct net_device *dev)
- 		// link state changed
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 41b774b..49f6bc0 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -153,7 +153,7 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	dev->last_rx = jiffies;
  
- 		if (phydev->link) // link went up
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		else { // link went down
- 			aup->old_speed = 0;
- 			aup->old_duplex = -1;
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 4144343..a6a3da8 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -357,7 +357,7 @@ static void bfin_mac_adjust_link(struct net_device *dev)
- 		if (!lp->old_link) {
- 			new_state = 1;
- 			lp->old_link = 1;
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		}
- 	} else if (lp->old_link) {
- 		new_state = 1;
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 329edd9..ae9ecb7 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -197,7 +197,7 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
- 		if (priv->link == PHY_DOWN) {
- 			new_state = 1;
- 			priv->link = phydev->link;
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 			netif_carrier_on(dev);
- 			netif_start_queue(dev);
- 		}
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index fb7c477..bdb81f5 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -738,7 +738,7 @@ static void generic_adjust_link(struct  net_device *dev)
- 		if (!fep->oldlink) {
- 			new_state = 1;
- 			fep->oldlink = 1;
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 			netif_carrier_on(dev);
- 			netif_start_queue(dev);
- 		}
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 393a0f1..7e627bd 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1259,7 +1259,7 @@ static void gfar_timeout(struct net_device *dev)
- 		startup_gfar(dev);
- 	}
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
+-	pcpu_lstats = netdev_priv(dev);
++	pcpu_lstats = dev->ml_priv;
+ 	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
+ 	lb_stats->bytes += skb->len;
+ 	lb_stats->packets++;
+@@ -171,7 +171,7 @@ static struct net_device_stats *get_stats(struct net_device *dev)
+ 	unsigned long packets = 0;
+ 	int i;
  
--	netif_schedule(dev);
-+	netif_tx_schedule_all(dev);
+-	pcpu_lstats = netdev_priv(dev);
++	pcpu_lstats = dev->ml_priv;
+ 	for_each_possible_cpu(i) {
+ 		const struct pcpu_lstats *lb_stats;
+ 
+@@ -207,13 +207,13 @@ static int loopback_dev_init(struct net_device *dev)
+ 	if (!lstats)
+ 		return -ENOMEM;
+ 
+-	dev->priv = lstats;
++	dev->ml_priv = lstats;
+ 	return 0;
  }
  
- /* Interrupt Handler for Transmit complete */
-@@ -1784,7 +1784,7 @@ static void adjust_link(struct net_device *dev)
- 		if (!priv->oldlink) {
- 			new_state = 1;
- 			priv->oldlink = 1;
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		}
- 	} else if (priv->oldlink) {
- 		new_state = 1;
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index e346302..50688a5 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -165,7 +165,7 @@ static void macb_handle_link_change(struct net_device *dev)
+ static void loopback_dev_free(struct net_device *dev)
+ {
+-	struct pcpu_lstats *lstats = netdev_priv(dev);
++	struct pcpu_lstats *lstats = dev->ml_priv;
  
- 	if (phydev->link != bp->link) {
- 		if (phydev->link)
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		else {
- 			bp->speed = 0;
- 			bp->duplex = -1;
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 37f3116..a4bc812 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -642,7 +642,7 @@ static void sh_eth_adjust_link(struct net_device *ndev)
- 					| ECMR_DM, ioaddr + ECMR);
- 			new_state = 1;
- 			mdp->link = phydev->link;
--			netif_schedule(ndev);
-+			netif_tx_schedule_all(ndev);
- 			netif_carrier_on(ndev);
- 			netif_start_queue(ndev);
- 		}
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index b07b8cb..41d3ac4 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -672,7 +672,7 @@ static void tc_handle_link_change(struct net_device *dev)
- 			if (dev->flags & IFF_PROMISC)
- 				tc35815_set_multicast_list(dev);
- #endif
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		} else {
- 			lp->speed = 0;
- 			lp->duplex = -1;
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index fb0b918..e2c598a 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1588,7 +1588,7 @@ static void adjust_link(struct net_device *dev)
- 		if (!ugeth->oldlink) {
- 			new_state = 1;
- 			ugeth->oldlink = 1;
--			netif_schedule(dev);
-+			netif_tx_schedule_all(dev);
- 		}
- 	} else if (ugeth->oldlink) {
- 			new_state = 1;
-@@ -3372,7 +3372,7 @@ static void ucc_geth_timeout(struct net_device *dev)
- 		ucc_geth_startup(ugeth);
- 	}
- 
--	netif_schedule(dev);
-+	netif_tx_schedule_all(dev);
+ 	free_percpu(lstats);
+ 	free_netdev(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index df44e44..8558046 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -809,7 +809,9 @@ void dev_net_set(struct net_device *dev, struct net *net)
+  */
+ static inline void *netdev_priv(const struct net_device *dev)
+ {
+-	return dev->priv;
++	return (char *)dev + ((sizeof(struct net_device)
++			       + NETDEV_ALIGN_CONST)
++			      & ~NETDEV_ALIGN_CONST);
  }
  
- /* This is called by the kernel when a frame is ready for transmission. */
+ /* Set the sysfs physical device reference for the network logical device
 -- 
 1.5.6
 
