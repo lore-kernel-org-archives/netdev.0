@@ -1,47 +1,120 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH] phylib: fix forced mode misbehaviour for aneg off case
-Date: Thu, 3 Jul 2008 22:11:18 +0400
-Message-ID: <20080703181118.GA30139@polina.dev.rtsoft.ru>
-References: <20080703171614.GA21126@polina.dev.rtsoft.ru> <20080703104143.6620e99f@extreme>
-Reply-To: avorontsov@ru.mvista.com
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 03 Jul 2008 19:56:02 +0100
+Message-ID: <1215111362.10393.651.camel@pmac.infradead.org>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	 <486CC440.9030909@garzik.org>
+	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>
+	 <486CCFED.7010308@garzik.org>
+	 <1215091999.10393.556.camel@pmac.infradead.org>
+	 <486CD654.4020605@garzik.org>
+	 <1215093175.10393.567.camel@pmac.infradead.org>
+	 <20080703173040.GB30506@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Theodore Tso <tytso@mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:21955 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753227AbYGCSLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 14:11:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20080703104143.6620e99f@extreme>
+Received: from bombadil.infradead.org ([18.85.46.34]:49428 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982AbYGCS4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 14:56:19 -0400
+In-Reply-To: <20080703173040.GB30506@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 03, 2008 at 10:41:43AM -0700, Stephen Hemminger wrote:
-> On Thu, 3 Jul 2008 21:16:14 +0400
-> Anton Vorontsov <avorontsov@ru.mvista.com> wrote:
-> 
-> > With disabled autonegotiation and link absence, phylib will place phy
-> > into the forcing mode, thus will start calling phy_force_reduction().
-> > That means that for the drivers that are using phylib we can't actually
-> > set fixed speed for the link.
-> > 
-> > For example:
-> > 
-> > # ethtool -s eth0 autoneg off speed 1000
-> 
-> FYI autonegotiation is required in gigabit mode per 802 spec.
+On Thu, 2008-07-03 at 13:30 -0400, Theodore Tso wrote:
+> I don't think it's whining.
 
-Thanks for the information. FWIW, that behaviour observed for
-speed 100 or speed 10, too.
+Neither is it an adequate review of the actual patch which was
+submitted.
 
-As for gbit, this is interesting indeed. If we're not permitted to
-disable aneg, how could we force the PHY to use gigabit, so that it
-will not try to downgrade? I mean ethtool option.
+>   If your patch introduces changes which
+> cause people .config to break by default after upgrading to a newer
+> kernel and doing "make oldconfig" 
+
+They had to 'make oldconfig' and then actually _choose_ to say 'no' to
+an option which is fairly clearly documented, that they are the
+relatively unusual position of wanting to have said 'yes' to. You're
+getting into Aunt Tillie territory, when you complain about that.
+
+Although it does make me wonder if it was better the way I had it
+originally, with individual options like TIGON3_FIRMWARE_IN_KERNEL
+attached to each driver, rather than a single FIRMWARE_IN_KERNEL option
+which controls them all.
+
+Perhaps one way to help Aunt Tillie would be to tweak Kbuild to look at
+the MODULE_FIRMWARE() statements for in-kernel drivers, and to print a
+warning when the build finishes: "Your static kernel image may require
+the following firmware files, which are not included: ..."
+
+It's wrong to change the CONFIG_FIRMWARE_IN_KERNEL default to 'Y',
+because the _normal_ setting for that option _really_ should be 'N'.
+Using request_firmware() satisfied from userspace is best practice these
+days, and almost all recent drivers do it that way _unconditionally_
+anyway.
+
+What we're doing now is just cleaning up the older drivers which don't
+use request_firmware(), to conform to what is now common practice. And
+while we're retaining the _option_ to continue to build their firmware
+into the static kernel image, it isn't recommended and really shouldn't
+be the default configuration.
+
+> Linus has ruled this way in the past, when he's gotten screwed by this
+> sort of issue in the past, and he was justifiably annoyed. 
+
+I am content to let Linus decide on what the default for the
+FIRMWARE_IN_KERNEL option will be. I am adamant that it _should_ be 'N',
+but it's easy enough for Linus to overrule me with a one-line change. 
+
+In the meantime, it would be useful if Jeff would quit throwing his toys
+out of the pram on that issue and actually review the _code_ changes. In
+particular, are the reports correct that the device operates just fine
+without the TSO firmware loaded? Should we change the request_firmware()
+error path to just disable TSO and continue with the initialisation?
+
+I can understand why he might not want to answer that if the answer is
+affirmative, I suppose -- it detracts even _further_ from his already
+rather dubious argument about 'breaking' the driver, if it'll actually
+continue to work even when the firmware is completely absent. But it
+would be nice to get an honest and straightforward review of the code
+from _someone_ who actually knows the hardware.
+
+>  And if there are licensing religious fundamentalists who feel
+> strongly about the firmware issue, then fine, they can change
+> the .config. 
+
+Less of the ad hominem, please. Especially when it's so misdirected.
+
+Updating these drivers to remove large blobs of static unswappable data
+from the kernel, and having it provided from userspace on demand as
+modern Linux drivers do, is a perfectly sensible technical goal all on
+its own.
+
+And given the GPL's explicit provisions with regard to collective works
+there are also entirely reasonable, non-"fundamentalist" grounds for
+believing that it _may_ pose a licensing problem, and for wanting to err
+on the side of caution in that respect too.
+
+Fedora is almost certain to ship with CONFIG_FIRMWARE_IN_KERNEL=n, and
+I'd be very surprised if Debian and other major distributions don't
+follow suit. It is the sensible, pragmatic, technically sound choice.
+
+>  But the default should be to avoid users from having broken kernels,
+> and a number of (quite clueful) users have already demonstrated that
+> without setting CONFIG_FIRMWARE_IN_KERNEL=y as the default, your
+> patches cause breakage.
+
+By this argument, shouldn't we include images in the static kernel for
+_all_ drivers which currently use request_firmware()? Otherwise, it's
+possible for the user to 'break' them, right?
 
 -- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+dwmw2
+
