@@ -1,99 +1,106 @@
-From: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 24/39]: netdev: Allocate multiple queues for TX.
-Date: Thu, 3 Jul 2008 15:19:50 +0530
-Message-ID: <OF4D241345.95F11555-ON6525747B.002760BE-6525747B.00360059@in.ibm.com>
-References: <20080703.000436.77009639.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [udplite] [Patch 1/1] [BUG-FIX]: Avoid u16 checksum coverage
+	wrap-around
+Date: Thu, 3 Jul 2008 12:31:41 +0100
+Message-ID: <20080703113141.GA8223@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
-	mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080703.000436.77009639.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36137 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753326AbYGCL4E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jul 2008 07:56:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+udplite: Protection against coverage value wrap-around
 
-I have to clone to get a full picture of the changes and that
-unfortunately works only in the mornings due to network issues,
-so from looking at code on kernel.org:
+This protects UDP-Lite against illegal checksum coverage values and
+against illegal checksum coverage values caused by the `int' argument
+wrapping around at 0xffff.
 
-1. Some netdev_queue variables are called dev_queue and others are
-   called txq. Is it to signify difference between functions that are
-   single queue vs multiqueue? Can it be made consistent to use txq
-   instead since everything is a transmit queue?
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ Documentation/networking/udplite.txt |   12 ++++--------
+ include/net/udplite.h                |    6 ++++++
+ net/ipv4/udp.c                       |    8 ++++----
+ 3 files changed, 14 insertions(+), 12 deletions(-)
 
-2. netif_queue_stopped and netif_subqueue_stopped can be both made to
-   call netif_tx_queue_stopped to make them look consistent. Then you
-   can delete __netif_subqueue_stopped(). However, I haven't looked if
-   any other user of this function is there or not (due to download
-   issue).
-
-static inline int netif_tx_queue_stopped(const struct netdev_queue
-*dev_queue)
-{
-      return test_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
-}
-
-static inline int netif_queue_stopped(const struct net_device *dev)
-{
-      return netif_tx_queue_stopped(netdev_get_tx_queue(dev, 0));
-}
-
-static inline int netif_subqueue_stopped(const struct net_device *dev,
-                                         struct sk_buff *skb)
-{
-      return netif_tx_queue_stopped(netdev_get_tx_queue(dev,
-                                    skb_get_queue_mapping(skb)));
-}
-
-3. Since many functions iterate over the list of tx-queues, you could
-   optimize all those functions (saving a few cycles per loop), eg:
-
-struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
-{
-      unsigned int i;
-
-      for (i = 0; i < dev->num_tx_queues; i++) {
-            struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-            struct Qdisc *q = __qdisc_lookup(txq, handle);
-            if (q)
-                  return q;
-      }
-      return NULL;
-}
-To ->
-struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
-{
-      struct netdev_queue *txq;
-      unsigned int i;
-
-      for (i = 0, txq = netdev_get_tx_queue(dev, 0); i <
-dev->num_tx_queues; i++, txq++) {
-            struct Qdisc *q = __qdisc_lookup(txq, handle);
-            if (q)
-                  return q;
-      }
-      return NULL;
-}
-
-And since there are many functions doing:
-      for (i = 0; i < dev->num_tx_queues; i++) {
-            struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-
-this can be changed to:
-      list_for_each_txq(...)?
-
-If you feel either of these or both will help, I can submit a patch to do
-similarly for all the other occurences.
-
-Thanks,
-
-- KK
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -29,6 +29,12 @@ static inline int udplite_sk_init(struct sock *sk)
+ 	return 0;
+ }
+ 
++/* Values between 1..7 are invalid. IPv6 jumbograms are not supported (3.5) */
++static inline bool udplite_valid_cscov(const u32 cscov)
++{
++	return cscov == 0 || (cscov >= 8 && cscov <= USHORT_MAX);
++}
++
+ /*
+  * 	Checksumming routines
+  */
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1317,8 +1317,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 	case UDPLITE_SEND_CSCOV:
+ 		if (!is_udplite)         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+-		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
+-			val = 8;
++		if (!udplite_valid_cscov(val))
++			return -EINVAL;
+ 		up->pcslen = val;
+ 		up->pcflag |= UDPLITE_SEND_CC;
+ 		break;
+@@ -1329,8 +1329,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 	case UDPLITE_RECV_CSCOV:
+ 		if (!is_udplite)         /* Disable the option on UDP sockets */
+ 			return -ENOPROTOOPT;
+-		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
+-			val = 8;
++		if (!udplite_valid_cscov(val))
++			return -EINVAL;
+ 		up->pcrlen = val;
+ 		up->pcflag |= UDPLITE_RECV_CC;
+ 		break;
+--- a/Documentation/networking/udplite.txt
++++ b/Documentation/networking/udplite.txt
+@@ -118,10 +118,9 @@
+ 
+   If the sender specifies a value of 0 as coverage length, the module
+   assumes full coverage, transmits a packet with coverage length of 0
+-  and according checksum.  If the sender specifies a coverage < 8 and
+-  different from 0, the kernel assumes 8 as default value.  Finally,
+-  if the specified coverage length exceeds the packet length, the packet
+-  length is used instead as coverage length.
++  and according checksum. Values between 1..7 and greater than 65535 are
++  invalid. Finally, if the specified coverage length exceeds the packet 
++  length, the packet length is used instead as coverage length.
+ 
+   2) Receiver Socket Options
+ 
+@@ -130,9 +129,6 @@
+   always wants the whole of the packet covered. In this case, all
+   partially covered packets are dropped and an error is logged.
+ 
+-  It is not possible to specify illegal values (<0 and <8); in these
+-  cases the default of 8 is assumed.
+-
+   All packets arriving with a coverage value less than the specified
+   threshold are discarded, these events are also logged.
+ 
+@@ -148,7 +144,7 @@
+         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
+ 
+   is meaningless (as in TCP). Packets with a zero checksum field are
+-  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
++  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
+ 
+   4) Fragmentation
+ 
+-- 
