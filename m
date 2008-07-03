@@ -1,106 +1,46 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [udplite] [Patch 1/1] [BUG-FIX]: Avoid u16 checksum coverage
-	wrap-around
-Date: Thu, 3 Jul 2008 12:31:41 +0100
-Message-ID: <20080703113141.GA8223@gerrit.erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 06/39]: netdev: ->ingress_lock is no longer needed.
+Date: Thu, 03 Jul 2008 03:02:41 -0700 (PDT)
+Message-ID: <20080703.030241.34728979.davem@davemloft.net>
+References: <20080703.000303.167904111.davem@davemloft.net>
+	<486CA212.6020705@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vinay@linux.vnet.ibm.com,
+	krkumar2@in.ibm.com, mchan@broadcom.com, Matheos.Worku@Sun.COM,
+	linux-wireless@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36137 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753326AbYGCL4E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2008 07:56:04 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52361
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753094AbYGCL5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 07:57:25 -0400
+In-Reply-To: <486CA212.6020705@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udplite: Protection against coverage value wrap-around
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Thu, 03 Jul 2008 17:55:30 +0800
 
-This protects UDP-Lite against illegal checksum coverage values and
-against illegal checksum coverage values caused by the `int' argument
-wrapping around at 0xffff.
+> David Miller said the following on 2008-7-3 15:03:
+> > @@ -2014,10 +2014,11 @@ static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
+> >   */
+> >  static int ing_filter(struct sk_buff *skb)
+> >  {
+> > -	struct Qdisc *q;
+> >  	struct net_device *dev = skb->dev;
+> > -	int result = TC_ACT_OK;
+> >  	u32 ttl = G_TC_RTTL(skb->tc_verd);
+> > +	struct netdev_queue *rxq;
+> > +	int result = TC_ACT_OK;
+> > +	struct Qdisc *q;
+> >  
+> 
+> Two lines do not change anything.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- Documentation/networking/udplite.txt |   12 ++++--------
- include/net/udplite.h                |    6 ++++++
- net/ipv4/udp.c                       |    8 ++++----
- 3 files changed, 14 insertions(+), 12 deletions(-)
+They make the variables have a nice style slope from longest
+lines to the shortest.
 
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -29,6 +29,12 @@ static inline int udplite_sk_init(struct sock *sk)
- 	return 0;
- }
- 
-+/* Values between 1..7 are invalid. IPv6 jumbograms are not supported (3.5) */
-+static inline bool udplite_valid_cscov(const u32 cscov)
-+{
-+	return cscov == 0 || (cscov >= 8 && cscov <= USHORT_MAX);
-+}
-+
- /*
-  * 	Checksumming routines
-  */
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1317,8 +1317,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 	case UDPLITE_SEND_CSCOV:
- 		if (!is_udplite)         /* Disable the option on UDP sockets */
- 			return -ENOPROTOOPT;
--		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
--			val = 8;
-+		if (!udplite_valid_cscov(val))
-+			return -EINVAL;
- 		up->pcslen = val;
- 		up->pcflag |= UDPLITE_SEND_CC;
- 		break;
-@@ -1329,8 +1329,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 	case UDPLITE_RECV_CSCOV:
- 		if (!is_udplite)         /* Disable the option on UDP sockets */
- 			return -ENOPROTOOPT;
--		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
--			val = 8;
-+		if (!udplite_valid_cscov(val))
-+			return -EINVAL;
- 		up->pcrlen = val;
- 		up->pcflag |= UDPLITE_RECV_CC;
- 		break;
---- a/Documentation/networking/udplite.txt
-+++ b/Documentation/networking/udplite.txt
-@@ -118,10 +118,9 @@
- 
-   If the sender specifies a value of 0 as coverage length, the module
-   assumes full coverage, transmits a packet with coverage length of 0
--  and according checksum.  If the sender specifies a coverage < 8 and
--  different from 0, the kernel assumes 8 as default value.  Finally,
--  if the specified coverage length exceeds the packet length, the packet
--  length is used instead as coverage length.
-+  and according checksum. Values between 1..7 and greater than 65535 are
-+  invalid. Finally, if the specified coverage length exceeds the packet 
-+  length, the packet length is used instead as coverage length.
- 
-   2) Receiver Socket Options
- 
-@@ -130,9 +129,6 @@
-   always wants the whole of the packet covered. In this case, all
-   partially covered packets are dropped and an error is logged.
- 
--  It is not possible to specify illegal values (<0 and <8); in these
--  cases the default of 8 is assumed.
--
-   All packets arriving with a coverage value less than the specified
-   threshold are discarded, these events are also logged.
- 
-@@ -148,7 +144,7 @@
-         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
- 
-   is meaningless (as in TCP). Packets with a zero checksum field are
--  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
-+  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
- 
-   4) Fragmentation
- 
--- 
+If I'm going to edit this much of the TX path, I'm going to
+cleanup coding style details like this along the way.
