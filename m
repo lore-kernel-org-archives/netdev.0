@@ -1,41 +1,31 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 03 Jul 2008 20:59:36 +0900
-Message-ID: <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+From: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [PATCH 26/39]: netdev: netdev_priv() can now be sane again.
+Date: Thu, 03 Jul 2008 13:23:32 +0200
+Message-ID: <m3tzf7nrd7.fsf@maximus.localdomain>
+References: <20080703.000446.125029084.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46235 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755556AbYGCL7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 07:59:53 -0400
-In-Reply-To: <20080703020236.adaa51fa.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080703.000446.125029084.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David Miller's message of "Thu\, 03 Jul 2008 00\:04\:46 -0700 \(PDT\)")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-my server output following error message on 2.6.26-rc8-mm1.
-Is this a bug?
+> The private area of a netdev is now at a fixed offset once more.
+>
+> Unfortunately, some assumptions that netdev_priv() == netdev->priv
+> crept back into the tree.  In particular this happened in the
+> loopback driver.
 
-------------------------------------------------------------------
-tg3.c:v3.93 (May 22, 2008)
-GSI 72 (level, low) -> CPU 0 (0x0001) vector 51
-tg3 0000:06:01.0: PCI INT A -> GSI 72 (level, low) -> IRQ 51
-firmware: requesting tigon/tg3_tso.bin
-tg3: Failed to load firmware "tigon/tg3_tso.bin"
-tg3 0000:06:01.0: PCI INT A disabled
-GSI 72 (level, low) -> CPU 0 (0x0001) vector 51 unregistered
-tg3: probe of 0000:06:01.0 failed with error -2
-GSI 73 (level, low) -> CPU 0 (0x0001) vector 51
-tg3 0000:06:01.1: PCI INT B -> GSI 73 (level, low) -> IRQ 52
-firmware: requesting tigon/tg3_tso.bin
-
-
-
+Perhaps the netdev_priv() should be renamed to avoid confusion?
+-- 
+Krzysztof Halasa
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
