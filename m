@@ -1,41 +1,37 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 3 Jul 2008 12:10:02 -0400
-Message-ID: <B8CBA141-D78E-4EEF-92C4-9CF7184E6C7F@oracle.com>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org> <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-Mime-Version: 1.0 (Apple Message framework v926)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, LKML Kernel <linux-kernel@vger.kernel.org>,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net-sched 00/06: dynamically sized class hashes v2
+Date: Thu, 3 Jul 2008 18:14:03 +0200
+Message-ID: <20080703161403.GA2637@ami.dom.local>
+References: <20080703151600.26225.3394.sendpatchset@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devik@cdi.cz
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.178]:50070 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752773AbYGCQMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 12:12:48 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so552080waf.23
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2008 09:12:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080703151600.26225.3394.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Jul 3, 2008, at 7:59 AM, KOSAKI Motohiro wrote:
-> Hi Michael,
->
-> my server output following error message on 2.6.26-rc8-mm1.
-> Is this a bug?
->
-> ------------------------------------------------------------------
-> tg3.c:v3.93 (May 22, 2008)
-> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51
-> tg3 0000:06:01.0: PCI INT A -> GSI 72 (level, low) -> IRQ 51
-> firmware: requesting tigon/tg3_tso.bin
-> tg3: Failed to load firmware "tigon/tg3_tso.bin"
-> tg3 0000:06:01.0: PCI INT A disabled
-> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51 unregistered
-> tg3: probe of 0000:06:01.0 failed with error -2
-> GSI 73 (level, low) -> CPU 0 (0x0001) vector 51
-> tg3 0000:06:01.1: PCI INT B -> GSI 73 (level, low) -> IRQ 52
-> firmware: requesting tigon/tg3_tso.bin
+On Thu, Jul 03, 2008 at 05:16:01PM +0200, Patrick McHardy wrote:
+...
+> The patches need the two filter destruction fixes that went into
+> net-2.6.git to apply cleanly, so they won't apply until net-2.6.git
+> is merged into net-next-2.6.git.
 
-Same problem here with linux-next on a Dell Latitude D620.
+Patrick, I just was about to write that some patches (1, 3, 5) give
+checkpatch warnings... (but no big deal).
 
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+I'll try to look at this later, but let's say: if I don't write
+means I'm OK with all these patches.
+
+Thanks again,
+Jarek P.
+
+BTW: I wonder why cbq and htb have "common", while hfsc "cl_common"?
