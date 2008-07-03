@@ -1,240 +1,88 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 01/39]: pkt_sched: Remove RR scheduler.
-Date: Thu, 03 Jul 2008 00:01:59 -0700 (PDT)
-Message-ID: <20080703.000159.239589220.davem@davemloft.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: v4 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
+Date: Thu, 03 Jul 2008 11:25:47 +0800
+Message-ID: <486C46BB.9040206@cn.fujitsu.com>
+References: <4869A251.108@cn.fujitsu.com> <4869A42A.2010009@cn.fujitsu.com> <4869FB80.8050107@trash.net> <486B3B32.3090702@cn.fujitsu.com> <486B7AB2.9050104@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Matheos.Worku-UdXhSnd/wVw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:56924 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754636AbYGCDaN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2008 23:30:13 -0400
+In-Reply-To: <486B7AB2.9050104@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Patrick McHardy said the following on 2008-7-2 20:55:
+> Same problems as the IPv6 version.
+> 
 
-This actually fixes a bug added by the RR scheduler changes.
-The ->bands and ->prio2band parameters were being set outside
-of the sch_tree_lock() and thus could result in strange behavior
-and inconsistencies.
+v3->v4
+As Patrick said, unregister_netdevice() can do all unwind job
+for ipmr_reg_vif().
 
-It might be possible, in the new design (where there will be one qdisc
-per device TX queue) to allow similar functionality via a TX hash
-algorithm for RR but I really see no reason to export this aspect of
-how these multiqueue cards actually implement the scheduling of the
-the individual DMA TX rings and the single physical MAC/PHY port.
+allmulti might overflow.
+Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+dev_set_promiscuity/allmulti return error number if overflow happened.
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Here, we check the positive increment for allmulti to get error return.
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- include/linux/pkt_sched.h |    9 ---
- net/sched/sch_prio.c      |  130 +++++---------------------------------------
- 2 files changed, 15 insertions(+), 124 deletions(-)
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index dbb7ac3..87f4e0f 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -103,15 +103,6 @@ struct tc_prio_qopt
- 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
- };
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 11700a4..05a2ab8 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -398,6 +398,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
+ 	struct vif_device *v = &vif_table[vifi];
+ 	struct net_device *dev;
+ 	struct in_device *in_dev;
++	int err;
  
--enum
--{
--	TCA_PRIO_UNSPEC,
--	TCA_PRIO_MQ,
--	__TCA_PRIO_MAX
--};
--
--#define TCA_PRIO_MAX    (__TCA_PRIO_MAX - 1)
--
- /* TBF section */
- 
- struct tc_tbf_qopt
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 4aa2b45..b050c26 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -24,11 +24,9 @@
- struct prio_sched_data
- {
- 	int bands;
--	int curband; /* for round-robin */
- 	struct tcf_proto *filter_list;
- 	u8  prio2band[TC_PRIO_MAX+1];
- 	struct Qdisc *queues[TCQ_PRIO_BANDS];
--	int mq;
- };
- 
- 
-@@ -55,17 +53,14 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		if (!q->filter_list || err < 0) {
- 			if (TC_H_MAJ(band))
- 				band = 0;
--			band = q->prio2band[band&TC_PRIO_MAX];
--			goto out;
-+			return q->queues[q->prio2band[band&TC_PRIO_MAX]];
- 		}
- 		band = res.classid;
- 	}
- 	band = TC_H_MIN(band) - 1;
- 	if (band >= q->bands)
--		band = q->prio2band[0];
--out:
--	if (q->mq)
--		skb_set_queue_mapping(skb, band);
-+		return q->queues[q->prio2band[0]];
-+
- 	return q->queues[band];
- }
- 
-@@ -132,58 +127,17 @@ prio_dequeue(struct Qdisc* sch)
- 	struct Qdisc *qdisc;
- 
- 	for (prio = 0; prio < q->bands; prio++) {
--		/* Check if the target subqueue is available before
--		 * pulling an skb.  This way we avoid excessive requeues
--		 * for slower queues.
--		 */
--		if (!__netif_subqueue_stopped(sch->dev, (q->mq ? prio : 0))) {
--			qdisc = q->queues[prio];
--			skb = qdisc->dequeue(qdisc);
--			if (skb) {
--				sch->q.qlen--;
--				return skb;
--			}
-+		qdisc = q->queues[prio];
-+		skb = qdisc->dequeue(qdisc);
-+		if (skb) {
-+			sch->q.qlen--;
-+			return skb;
- 		}
- 	}
- 	return NULL;
- 
- }
- 
--static struct sk_buff *rr_dequeue(struct Qdisc* sch)
--{
--	struct sk_buff *skb;
--	struct prio_sched_data *q = qdisc_priv(sch);
--	struct Qdisc *qdisc;
--	int bandcount;
--
--	/* Only take one pass through the queues.  If nothing is available,
--	 * return nothing.
--	 */
--	for (bandcount = 0; bandcount < q->bands; bandcount++) {
--		/* Check if the target subqueue is available before
--		 * pulling an skb.  This way we avoid excessive requeues
--		 * for slower queues.  If the queue is stopped, try the
--		 * next queue.
--		 */
--		if (!__netif_subqueue_stopped(sch->dev,
--					    (q->mq ? q->curband : 0))) {
--			qdisc = q->queues[q->curband];
--			skb = qdisc->dequeue(qdisc);
--			if (skb) {
--				sch->q.qlen--;
--				q->curband++;
--				if (q->curband >= q->bands)
--					q->curband = 0;
--				return skb;
--			}
--		}
--		q->curband++;
--		if (q->curband >= q->bands)
--			q->curband = 0;
--	}
--	return NULL;
--}
--
- static unsigned int prio_drop(struct Qdisc* sch)
- {
- 	struct prio_sched_data *q = qdisc_priv(sch);
-@@ -228,45 +182,22 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct prio_sched_data *q = qdisc_priv(sch);
- 	struct tc_prio_qopt *qopt;
--	struct nlattr *tb[TCA_PRIO_MAX + 1];
--	int err;
- 	int i;
- 
--	err = nla_parse_nested_compat(tb, TCA_PRIO_MAX, opt, NULL, qopt,
--				      sizeof(*qopt));
--	if (err < 0)
--		return err;
--
--	q->bands = qopt->bands;
--	/* If we're multiqueue, make sure the number of incoming bands
--	 * matches the number of queues on the device we're associating with.
--	 * If the number of bands requested is zero, then set q->bands to
--	 * dev->egress_subqueue_count.  Also, the root qdisc must be the
--	 * only one that is enabled for multiqueue, since it's the only one
--	 * that interacts with the underlying device.
--	 */
--	q->mq = nla_get_flag(tb[TCA_PRIO_MQ]);
--	if (q->mq) {
--		if (sch->parent != TC_H_ROOT)
--			return -EINVAL;
--		if (netif_is_multiqueue(sch->dev)) {
--			if (q->bands == 0)
--				q->bands = sch->dev->egress_subqueue_count;
--			else if (q->bands != sch->dev->egress_subqueue_count)
--				return -EINVAL;
--		} else
--			return -EOPNOTSUPP;
--	}
-+	if (nla_len(opt) < sizeof(*qopt))
-+		return -EINVAL;
-+	qopt = nla_data(opt);
- 
--	if (q->bands > TCQ_PRIO_BANDS || q->bands < 2)
-+	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
+ 	/* Is vif busy ? */
+ 	if (VIF_EXISTS(vifi))
+@@ -415,18 +416,31 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
+ 		dev = ipmr_reg_vif();
+ 		if (!dev)
+ 			return -ENOBUFS;
++		err = dev_set_allmulti(dev, 1);
++		if (err) {
++			unregister_netdevice(dev);
++			return err;
++		}
+ 		break;
+ #endif
+ 	case VIFF_TUNNEL:
+ 		dev = ipmr_new_tunnel(vifc);
+ 		if (!dev)
+ 			return -ENOBUFS;
++		err = dev_set_allmulti(dev, 1);
++		if (err) {
++			dev_close(dev);
++			return err;
++		}
+ 		break;
+ 	case 0:
+ 		dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
+ 		if (!dev)
+ 			return -EADDRNOTAVAIL;
+ 		dev_put(dev);
++		err = dev_set_allmulti(dev, 1);
++		if (err)
++			return err;
+ 		break;
+ 	default:
  		return -EINVAL;
+@@ -435,7 +449,6 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
+ 	if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
+ 		return -EADDRNOTAVAIL;
+ 	IPV4_DEVCONF(in_dev->cnf, MC_FORWARDING)++;
+-	dev_set_allmulti(dev, +1);
+ 	ip_rt_multicast_event(in_dev);
  
- 	for (i=0; i<=TC_PRIO_MAX; i++) {
--		if (qopt->priomap[i] >= q->bands)
-+		if (qopt->priomap[i] >= qopt->bands)
- 			return -EINVAL;
- 	}
- 
- 	sch_tree_lock(sch);
-+	q->bands = qopt->bands;
- 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
- 
- 	for (i=q->bands; i<TCQ_PRIO_BANDS; i++) {
-@@ -331,10 +262,6 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	nest = nla_nest_compat_start(skb, TCA_OPTIONS, sizeof(opt), &opt);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	if (q->mq) {
--		if (nla_put_flag(skb, TCA_PRIO_MQ) < 0)
--			goto nla_put_failure;
--	}
- 	nla_nest_compat_end(skb, nest);
- 
- 	return skb->len;
-@@ -507,44 +434,17 @@ static struct Qdisc_ops prio_qdisc_ops __read_mostly = {
- 	.owner		=	THIS_MODULE,
- };
- 
--static struct Qdisc_ops rr_qdisc_ops __read_mostly = {
--	.next		=	NULL,
--	.cl_ops		=	&prio_class_ops,
--	.id		=	"rr",
--	.priv_size	=	sizeof(struct prio_sched_data),
--	.enqueue	=	prio_enqueue,
--	.dequeue	=	rr_dequeue,
--	.requeue	=	prio_requeue,
--	.drop		=	prio_drop,
--	.init		=	prio_init,
--	.reset		=	prio_reset,
--	.destroy	=	prio_destroy,
--	.change		=	prio_tune,
--	.dump		=	prio_dump,
--	.owner		=	THIS_MODULE,
--};
--
- static int __init prio_module_init(void)
- {
--	int err;
+ 	/*
+
