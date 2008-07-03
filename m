@@ -1,92 +1,143 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE]: iflink_vlan: support GVRP flag
-Date: Thu, 03 Jul 2008 19:06:29 +0200
-Message-ID: <486D0715.9090902@trash.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] phylib: fix forced mode misbehaviour for aneg off case
+Date: Thu, 3 Jul 2008 21:16:14 +0400
+Message-ID: <20080703171614.GA21126@polina.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020301050508050409000808"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42907 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752672AbYGCRGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 13:06:31 -0400
+Received: from rtsoft3.corbina.net ([85.21.88.6]:21855 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753156AbYGCRQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 13:16:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020301050508050409000808
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+With disabled autonegotiation and link absence, phylib will place phy
+into the forcing mode, thus will start calling phy_force_reduction().
+That means that for the drivers that are using phylib we can't actually
+set fixed speed for the link.
 
-This is the patch for iproute for configuring GVRP.
+For example:
 
+# ethtool -s eth0 autoneg off speed 1000
 
+Without link attached what will actually happen is:
 
---------------020301050508050409000808
-Content-Type: text/x-diff;
- name="iproute-gvrp.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="iproute-gvrp.diff"
+Trying 100/FULL
+Trying 100/HALF
+Trying 10/FULL
+Trying 10/HALF
+Trying 10/HALF
+Trying 10/HALF
+...
 
-commit 32143eed8b706e5c6554ab42903533b3bccdc060
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Jul 3 19:05:09 2008 +0200
+This patch implements "software autonegotiation" that is equivalent to
+the current behaviour, but enabled only when hardware autonegotiation
+was enabled and failed afterwards. With aneg disabled, phylib will not
+try other link setups, thus will pay attention to user's needs.
 
-    [IPROUTE]: iflink_vlan: support GVRP flag
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 4014ba9..2dc4a57 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -32,6 +32,7 @@ enum vlan_ioctl_cmds {
+(it took me four months to recall that I need to respin this patch. ;-)
+
+Andy, I incorporated your comment regarding link_timeout zeroing:
+http://www.mail-archive.com/netdev@vger.kernel.org/msg62458.html
+
+ drivers/net/phy/phy.c   |   21 ++++++++++++++-------
+ include/linux/ethtool.h |    4 ++++
+ 2 files changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 45cc291..5295016 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -264,7 +264,8 @@ void phy_sanitize_settings(struct phy_device *phydev)
+ 	int idx;
  
- enum vlan_flags {
- 	VLAN_FLAG_REORDER_HDR	= 0x1,
-+	VLAN_FLAG_GVRP		= 0x2,
- };
+ 	/* Sanitize settings based on PHY capabilities */
+-	if ((features & SUPPORTED_Autoneg) == 0)
++	if ((features & SUPPORTED_Autoneg) == 0 &&
++			phydev->autoneg != AUTONEG_SOFT)
+ 		phydev->autoneg = AUTONEG_DISABLE;
  
- enum vlan_name_types {
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-index 1964839..9724482 100644
---- a/ip/iplink_vlan.c
-+++ b/ip/iplink_vlan.c
-@@ -26,7 +26,7 @@ static void explain(void)
- 		"\n"
- 		"VLANID := 0-4095\n"
- 		"FLAG-LIST := [ FLAG-LIST ] FLAG\n"
--		"FLAG := [ reorder_hdr { on | off } ]\n"
-+		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ]\n"
- 		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
- 		"QOS-MAPPING := FROM:TO\n"
- 	);
-@@ -93,6 +93,15 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				flags.flags &= ~VLAN_FLAG_REORDER_HDR;
- 			else
- 				return on_off("reorder_hdr");
-+		} else if (matches(*argv, "gvrp") == 0) {
-+			NEXT_ARG();
-+			flags.mask |= VLAN_FLAG_GVRP;
-+			if (strcmp(*argv, "on") == 0)
-+				flags.flags |= VLAN_FLAG_GVRP;
-+			else if (strcmp(*argv, "off") == 0)
-+				flags.flags &= ~VLAN_FLAG_GVRP;
+ 	idx = phy_find_valid(phy_find_setting(phydev->speed, phydev->duplex),
+@@ -297,13 +298,15 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ 	cmd->advertising &= phydev->supported;
+ 
+ 	/* Verify the settings we care about. */
+-	if (cmd->autoneg != AUTONEG_ENABLE && cmd->autoneg != AUTONEG_DISABLE)
++	if (cmd->autoneg != AUTONEG_ENABLE &&
++			cmd->autoneg != AUTONEG_DISABLE &&
++			cmd->autoneg != AUTONEG_SOFT)
+ 		return -EINVAL;
+ 
+ 	if (cmd->autoneg == AUTONEG_ENABLE && cmd->advertising == 0)
+ 		return -EINVAL;
+ 
+-	if (cmd->autoneg == AUTONEG_DISABLE
++	if ((cmd->autoneg == AUTONEG_DISABLE || cmd->autoneg == AUTONEG_SOFT)
+ 			&& ((cmd->speed != SPEED_1000
+ 					&& cmd->speed != SPEED_100
+ 					&& cmd->speed != SPEED_10)
+@@ -435,7 +438,8 @@ int phy_start_aneg(struct phy_device *phydev)
+ 
+ 	mutex_lock(&phydev->lock);
+ 
+-	if (AUTONEG_DISABLE == phydev->autoneg)
++	if (phydev->autoneg == AUTONEG_DISABLE ||
++			phydev->autoneg == AUTONEG_SOFT)
+ 		phy_sanitize_settings(phydev);
+ 
+ 	err = phydev->drv->config_aneg(phydev);
+@@ -449,7 +453,10 @@ int phy_start_aneg(struct phy_device *phydev)
+ 			phydev->link_timeout = PHY_AN_TIMEOUT;
+ 		} else {
+ 			phydev->state = PHY_FORCING;
+-			phydev->link_timeout = PHY_FORCE_TIMEOUT;
++			if (phydev->autoneg == AUTONEG_SOFT)
++				phydev->link_timeout = PHY_FORCE_TIMEOUT;
 +			else
-+				return on_off("gvrp");
- 		} else if (matches(*argv, "ingress-qos-map") == 0) {
- 			NEXT_ARG();
- 			if (vlan_parse_qos_map(&argc, &argv, n,
-@@ -146,6 +155,7 @@ static void vlan_print_flags(FILE *fp, __u32 flags)
- 			fprintf(fp, #f "%s", flags ? "," : ""); \
++				phydev->link_timeout = 0;
  		}
- 	_PF(REORDER_HDR);
-+	_PF(GVRP);
- #undef _PF
- 	if (flags)
- 		fprintf(fp, "%x", flags);
-
---------------020301050508050409000808--
+ 	}
+ 
+@@ -877,7 +884,7 @@ static void phy_state_machine(struct work_struct *work)
+ 				phydev->speed = settings[idx].speed;
+ 				phydev->duplex = settings[idx].duplex;
+ 
+-				phydev->autoneg = AUTONEG_DISABLE;
++				phydev->autoneg = AUTONEG_SOFT;
+ 
+ 				pr_info("Trying %d/%s\n", phydev->speed,
+ 						DUPLEX_FULL ==
+@@ -906,7 +913,7 @@ static void phy_state_machine(struct work_struct *work)
+ 			if (phydev->link) {
+ 				phydev->state = PHY_RUNNING;
+ 				netif_carrier_on(phydev->attached_dev);
+-			} else {
++			} else if (phydev->autoneg == AUTONEG_SOFT) {
+ 				if (0 == phydev->link_timeout--) {
+ 					phy_force_reduction(phydev);
+ 					needs_aneg = 1;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c8d2163..337c88e 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -518,6 +518,10 @@ struct ethtool_ops {
+  */
+ #define AUTONEG_DISABLE		0x00
+ #define AUTONEG_ENABLE		0x01
++/* "Software autonegotiation": will try several link variants in this
++ * order -- 1000/FULL, 1000/HALF, 100/FULL, 100/HALF, 10/FULL, 10/HALF.
++ */
++#define AUTONEG_SOFT		0x02
+ 
+ /* Wake-On-Lan options. */
+ #define WAKE_PHY		(1 << 0)
+-- 
+1.5.5.4
