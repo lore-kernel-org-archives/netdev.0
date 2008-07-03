@@ -1,173 +1,233 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 25/39]: netdev: Kill netdev->egress_subqueue{,_count}.
-Date: Thu, 03 Jul 2008 00:04:41 -0700 (PDT)
-Message-ID: <20080703.000441.02056414.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH 23/39]: net: In core generic transmit paths, use queue
+ aware tests.
+Date: Thu, 03 Jul 2008 00:04:31 -0700 (PDT)
+Message-ID: <20080703.000431.36765176.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com,
-	Matheos.Worku@Sun.COM, linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50652
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758069AbYGCHEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:04:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	Matheos.Worku-UdXhSnd/wVw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Replace with appropriate TX queue accesses.
+Even pktgen is mostly queue aware now.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- include/linux/netdevice.h      |   34 +++++++++++++++-------------------
- net/core/dev.c                 |    9 +++------
- 3 files changed, 19 insertions(+), 26 deletions(-)
+ include/linux/netdevice.h |    3 ++-
+ include/net/pkt_sched.h   |    4 +---
+ net/core/dev.c            |   11 +++++------
+ net/core/netpoll.c        |    8 +++-----
+ net/core/pktgen.c         |   16 +++++++---------
+ net/sched/sch_generic.c   |    5 ++---
+ net/sched/sch_teql.c      |    6 ++----
+ 7 files changed, 22 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 10a1c8c..db50962 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2355,7 +2355,7 @@ try_msi:
- 
- out:
- 	/* Notify the stack of the (possibly) reduced Tx Queue count. */
--	adapter->netdev->egress_subqueue_count = adapter->num_tx_queues;
-+	adapter->netdev->real_num_tx_queues = adapter->num_tx_queues;
- 
- 	return err;
- }
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6bb3f8c..df44e44 100644
+index 89bab7e..2ab4d92 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -118,14 +118,6 @@ struct wireless_dev;
+@@ -1162,7 +1162,8 @@ extern int		dev_set_mtu(struct net_device *, int);
+ extern int		dev_set_mac_address(struct net_device *,
+ 					    struct sockaddr *);
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+-					    struct net_device *dev);
++					    struct net_device *dev,
++					    struct netdev_queue *dev_queue);
  
- #endif  /*  __KERNEL__  */
+ extern int		netdev_budget;
  
--struct net_device_subqueue
--{
--	/* Give a control state for each queue.  This struct may contain
--	 * per-queue locks in the future.
--	 */
--	unsigned long   state;
--};
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 1e2263c..89b106e 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -84,9 +84,7 @@ extern void __qdisc_run(struct netdev_queue *dev_queue);
+ 
+ static inline void qdisc_run(struct netdev_queue *dev_queue)
+ {
+-	struct net_device *dev = dev_queue->dev;
 -
- /*
-  *	Network device statistics. Akin to the 2.0 ether stats but
-  *	with byte counters.
-@@ -642,7 +634,13 @@ struct net_device
- 	struct netdev_queue	rx_queue;
- 
- 	struct netdev_queue	*_tx;
-+
-+	/* Number of TX queues allocated at alloc_netdev_mq() time  */
- 	unsigned int		num_tx_queues;
-+
-+	/* Number of TX queues currently active in device  */
-+	unsigned int		real_num_tx_queues;
-+
- 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
- 
- /*
-@@ -753,10 +751,6 @@ struct net_device
- 	/* for setting kernel sock attribute on TCP connection setup */
- #define GSO_MAX_SIZE		65536
- 	unsigned int		gso_max_size;
--
--	/* The TX queue control structures */
--	unsigned int			egress_subqueue_count;
--	struct net_device_subqueue	egress_subqueue[1];
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-@@ -1088,7 +1082,8 @@ static inline int netif_running(const struct net_device *dev)
-  */
- static inline void netif_start_subqueue(struct net_device *dev, u16 queue_index)
- {
--	clear_bit(__QUEUE_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
-+	clear_bit(__QUEUE_STATE_XOFF, &txq->state);
+-	if (!netif_queue_stopped(dev) &&
++	if (!netif_tx_queue_stopped(dev_queue) &&
+ 	    !test_and_set_bit(__QUEUE_STATE_QDISC_RUNNING, &dev_queue->state))
+ 		__qdisc_run(dev_queue);
  }
- 
- /**
-@@ -1100,11 +1095,12 @@ static inline void netif_start_subqueue(struct net_device *dev, u16 queue_index)
-  */
- static inline void netif_stop_subqueue(struct net_device *dev, u16 queue_index)
- {
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
- #ifdef CONFIG_NETPOLL_TRAP
- 	if (netpoll_trap())
- 		return;
- #endif
--	set_bit(__QUEUE_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
-+	set_bit(__QUEUE_STATE_XOFF, &txq->state);
- }
- 
- /**
-@@ -1117,8 +1113,8 @@ static inline void netif_stop_subqueue(struct net_device *dev, u16 queue_index)
- static inline int __netif_subqueue_stopped(const struct net_device *dev,
- 					 u16 queue_index)
- {
--	return test_bit(__QUEUE_STATE_XOFF,
--			&dev->egress_subqueue[queue_index].state);
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
-+	return test_bit(__QUEUE_STATE_XOFF, &txq->state);
- }
- 
- static inline int netif_subqueue_stopped(const struct net_device *dev,
-@@ -1136,13 +1132,13 @@ static inline int netif_subqueue_stopped(const struct net_device *dev,
-  */
- static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- {
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
- #ifdef CONFIG_NETPOLL_TRAP
- 	if (netpoll_trap())
- 		return;
- #endif
--	if (test_and_clear_bit(__QUEUE_STATE_XOFF,
--			       &dev->egress_subqueue[queue_index].state))
--		__netif_schedule(netdev_get_tx_queue(dev, 0));
-+	if (test_and_clear_bit(__QUEUE_STATE_XOFF, &txq->state))
-+		__netif_schedule(txq);
- }
- 
- /**
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 4b1d39f..6bf4930 100644
+index 039ceff..5209a3f 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4132,8 +4132,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+@@ -1598,7 +1598,8 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	return 0;
+ }
  
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
+-int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
++			struct netdev_queue *dev_queue)
+ {
+ 	if (likely(!skb->next)) {
+ 		if (!list_empty(&ptype_all))
+@@ -1627,8 +1628,7 @@ gso:
+ 			skb->next = nskb;
+ 			return rc;
+ 		}
+-		if (unlikely((netif_queue_stopped(dev) ||
+-			     netif_subqueue_stopped(dev, skb)) &&
++		if (unlikely(netif_tx_queue_stopped(dev_queue) &&
+ 			     skb->next))
+ 			return NETDEV_TX_BUSY;
+ 	} while (skb->next);
+@@ -1762,10 +1762,9 @@ gso:
  
--	alloc_size = sizeof(struct net_device) +
--		     sizeof(struct net_device_subqueue) * (queue_count - 1);
-+	alloc_size = sizeof(struct net_device);
- 	if (sizeof_priv) {
- 		/* ensure 32-byte alignment of private area */
- 		alloc_size = (alloc_size + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
-@@ -4163,16 +4162,14 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 			HARD_TX_LOCK(dev, txq, cpu);
  
- 	dev->_tx = tx;
- 	dev->num_tx_queues = queue_count;
-+	dev->real_num_tx_queues = queue_count;
+-			if (!netif_queue_stopped(dev) &&
+-			    !netif_subqueue_stopped(dev, skb)) {
++			if (!netif_tx_queue_stopped(txq)) {
+ 				rc = 0;
+-				if (!dev_hard_start_xmit(skb, dev)) {
++				if (!dev_hard_start_xmit(skb, dev, txq)) {
+ 					HARD_TX_UNLOCK(dev, txq);
+ 					goto out;
+ 				}
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 8fb134d..2271d19 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -66,9 +66,8 @@ static void queue_process(struct work_struct *work)
  
- 	if (sizeof_priv) {
- 		dev->priv = ((char *)dev +
--			     ((sizeof(struct net_device) +
--			       (sizeof(struct net_device_subqueue) *
--				(queue_count - 1)) + NETDEV_ALIGN_CONST)
-+			     ((sizeof(struct net_device) + NETDEV_ALIGN_CONST)
- 			      & ~NETDEV_ALIGN_CONST));
+ 		local_irq_save(flags);
+ 		netif_tx_lock(dev);
+-		if ((netif_queue_stopped(dev) ||
+-		     netif_subqueue_stopped(dev, skb)) ||
+-		     dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
++		if (netif_subqueue_stopped(dev, skb) ||
++		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
+ 			skb_queue_head(&npinfo->txq, skb);
+ 			netif_tx_unlock(dev);
+ 			local_irq_restore(flags);
+@@ -285,8 +284,7 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+ 		     tries > 0; --tries) {
+ 			if (netif_tx_trylock(dev)) {
+-				if (!netif_queue_stopped(dev) &&
+-				    !netif_subqueue_stopped(dev, skb))
++				if (!netif_subqueue_stopped(dev, skb))
+ 					status = dev->hard_start_xmit(skb, dev);
+ 				netif_tx_unlock(dev);
+ 
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index fdf5377..f6dc5b3 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3262,6 +3262,7 @@ static void pktgen_rem_thread(struct pktgen_thread *t)
+ 
+ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ {
++	struct netdev_queue *odev_queue;
+ 	struct net_device *odev = NULL;
+ 	__u64 idle_start = 0;
+ 	int ret;
+@@ -3285,9 +3286,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		}
  	}
  
--	dev->egress_subqueue_count = queue_count;
- 	dev->gso_max_size = GSO_MAX_SIZE;
+-	if ((netif_queue_stopped(odev) ||
+-	     (pkt_dev->skb &&
+-	      netif_subqueue_stopped(odev, pkt_dev->skb))) ||
++	odev_queue = &odev->tx_queue;
++	if (netif_tx_queue_stopped(odev_queue) ||
+ 	    need_resched()) {
+ 		idle_start = getCurUs();
  
- 	netdev_init_queues(dev);
+@@ -3303,8 +3303,7 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 
+ 		pkt_dev->idle_acc += getCurUs() - idle_start;
+ 
+-		if (netif_queue_stopped(odev) ||
+-		    netif_subqueue_stopped(odev, pkt_dev->skb)) {
++		if (netif_tx_queue_stopped(odev_queue)) {
+ 			pkt_dev->next_tx_us = getCurUs();	/* TODO */
+ 			pkt_dev->next_tx_ns = 0;
+ 			goto out;	/* Try the next interface */
+@@ -3331,9 +3330,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		}
+ 	}
+ 
+-	netif_tx_lock_bh(odev);
+-	if (!netif_queue_stopped(odev) &&
+-	    !netif_subqueue_stopped(odev, pkt_dev->skb)) {
++	__netif_tx_lock_bh(odev_queue);
++	if (!netif_tx_queue_stopped(odev_queue)) {
+ 
+ 		atomic_inc(&(pkt_dev->skb->users));
+ 	      retry_now:
+@@ -3377,7 +3375,7 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		pkt_dev->next_tx_ns = 0;
+ 	}
+ 
+-	netif_tx_unlock_bh(odev);
++	__netif_tx_unlock_bh(odev_queue);
+ 
+ 	/* If pkt_dev->count is zero, then run forever */
+ 	if ((pkt_dev->count != 0) && (pkt_dev->sofar >= pkt_dev->count)) {
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index b919c0b..1092d54 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -156,7 +156,7 @@ static inline int qdisc_restart(struct netdev_queue *dev_queue)
+ 
+ 	HARD_TX_LOCK(dev, dev_queue, smp_processor_id());
+ 	if (!netif_subqueue_stopped(dev, skb))
+-		ret = dev_hard_start_xmit(skb, dev);
++		ret = dev_hard_start_xmit(skb, dev, dev_queue);
+ 	HARD_TX_UNLOCK(dev, dev_queue);
+ 
+ 	spin_lock(&dev_queue->lock);
+@@ -188,11 +188,10 @@ static inline int qdisc_restart(struct netdev_queue *dev_queue)
+ 
+ void __qdisc_run(struct netdev_queue *dev_queue)
+ {
+-	struct net_device *dev = dev_queue->dev;
+ 	unsigned long start_time = jiffies;
+ 
+ 	while (qdisc_restart(dev_queue)) {
+-		if (netif_queue_stopped(dev))
++		if (netif_tx_queue_stopped(dev_queue))
+ 			break;
+ 
+ 		/*
+diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+index 8ac0598..16d975f 100644
+--- a/net/sched/sch_teql.c
++++ b/net/sched/sch_teql.c
+@@ -288,8 +288,7 @@ restart:
+ 
+ 		if (slave->tx_queue.qdisc_sleeping != q)
+ 			continue;
+-		if (netif_queue_stopped(slave) ||
+-		    __netif_subqueue_stopped(slave, subq) ||
++		if (__netif_subqueue_stopped(slave, subq) ||
+ 		    !netif_running(slave)) {
+ 			busy = 1;
+ 			continue;
+@@ -298,8 +297,7 @@ restart:
+ 		switch (teql_resolve(skb, skb_res, slave)) {
+ 		case 0:
+ 			if (netif_tx_trylock(slave)) {
+-				if (!netif_queue_stopped(slave) &&
+-				    !__netif_subqueue_stopped(slave, subq) &&
++				if (!__netif_subqueue_stopped(slave, subq) &&
+ 				    slave->hard_start_xmit(skb, slave) == 0) {
+ 					netif_tx_unlock(slave);
+ 					master->slaves = NEXT_SLAVE(q);
 -- 
 1.5.6
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
