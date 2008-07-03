@@ -1,206 +1,124 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net-sched 01/06: add dynamically sized qdisc class hash helpers
-Date: Thu,  3 Jul 2008 17:16:02 +0200 (MEST)
-Message-ID: <20080703151602.26225.4418.sendpatchset@localhost.localdomain>
+Subject: net-sched 04/06: sch_htb: move hash and sibling list removal to htb_delete
+Date: Thu,  3 Jul 2008 17:16:06 +0200 (MEST)
+Message-ID: <20080703151606.26225.61647.sendpatchset@localhost.localdomain>
 References: <20080703151600.26225.3394.sendpatchset@localhost.localdomain>
 Cc: devik@cdi.cz, Patrick McHardy <kaber@trash.net>, jarkao2@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40212 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:40232 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbYGCPQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 11:16:04 -0400
+	with ESMTP id S1752696AbYGCPQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 11:16:08 -0400
 In-Reply-To: <20080703151600.26225.3394.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net-sched: add dynamically sized qdisc class hash helpers
+net-sched: sch_htb: move hash and sibling list removal to htb_delete
 
-Currently all qdiscs which allow to create classes uses a fixed sized hash
-table with size 16 to hash the classes. This causes a large bottleneck
-when using thousands of classes and unbound filters.
+Hash list removal currently happens twice (once in htb_delete, once
+in htb_destroy_class), which makes it harder to use the dynamically
+sized class hash without adding special cases for HTB. The reason is
+that qdisc destruction destroys classes in hierarchical order, which
+is not necessary if filters are destroyed in a separate iteration
+during qdisc destruction.
 
-Add helpers for dynamically sized class hashes to fix this. The following
-patches will convert the qdiscs to use them.
+Adjust qdisc destruction to follow the same scheme as other hierarchical
+qdiscs by first performing a filter destruction pass, then destroying
+all classes in hash order.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit ba0c034039d0c4a76c38cd1d252a4e6a5a65333d
-tree 6bf49094e76c1fea2594a404c718ffa2aa652d9a
-parent dbe4e4f34c356cd31cf9bc8972c0eb4eadebe920
-author Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 16:58:45 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 16:58:45 +0200
+commit 3fcfd66ab1737d4bcb2158866d7b2b574b0099bf
+tree 9146a96a6353464ef6a42706ad5bc4a7c8ce92d2
+parent 7ce0dc13a43a80bcce1dc862f35fddc9740aaf27
+author Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 16:58:46 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 03 Jul 2008 16:58:46 +0200
 
- include/net/sch_generic.h |   42 ++++++++++++++++++
- net/sched/sch_api.c       |  104 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 146 insertions(+), 0 deletions(-)
+ net/sched/sch_htb.c |   40 +++++++++++++++++-----------------------
+ 1 files changed, 17 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a87fc03..073f258 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -167,6 +167,48 @@ extern void qdisc_unlock_tree(struct net_device *dev);
- extern struct Qdisc noop_qdisc;
- extern struct Qdisc_ops noop_qdisc_ops;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 0284791..d01fe3a 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1226,8 +1226,6 @@ static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
  
-+struct Qdisc_class_common
-+{
-+	u32			classid;
-+	struct hlist_node	hnode;
-+};
-+
-+struct Qdisc_class_hash
-+{
-+	struct hlist_head	*hash;
-+	unsigned int		hashsize;
-+	unsigned int		hashmask;
-+	unsigned int		hashelems;
-+};
-+
-+static inline unsigned int qdisc_class_hash(u32 id, u32 mask)
-+{
-+	id ^= id >> 8;
-+	id ^= id >> 4;
-+	return id & mask;
-+}
-+
-+static inline struct Qdisc_class_common *
-+qdisc_class_find(struct Qdisc_class_hash *hash, u32 id)
-+{
-+	struct Qdisc_class_common *cl;
-+	struct hlist_node *n;
-+	unsigned int h;
-+
-+	h = qdisc_class_hash(id, hash->hashmask);
-+	hlist_for_each_entry(cl, n, &hash->hash[h], hnode) {
-+		if (cl->classid == id)
-+			return cl;
-+	}
-+	return NULL;
-+}
-+
-+extern int qdisc_class_hash_init(struct Qdisc_class_hash *);
-+extern void qdisc_class_hash_insert(struct Qdisc_class_hash *, struct Qdisc_class_common *);
-+extern void qdisc_class_hash_remove(struct Qdisc_class_hash *, struct Qdisc_class_common *);
-+extern void qdisc_class_hash_grow(struct Qdisc *, struct Qdisc_class_hash *);
-+extern void qdisc_class_hash_destroy(struct Qdisc_class_hash *);
-+
- extern void dev_init_scheduler(struct net_device *dev);
- extern void dev_shutdown(struct net_device *dev);
- extern void dev_activate(struct net_device *dev);
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 10f01ad..e9ebc7a 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -316,6 +316,110 @@ void qdisc_watchdog_cancel(struct qdisc_watchdog *wd)
+ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
+ {
+-	struct htb_sched *q = qdisc_priv(sch);
+-
+ 	if (!cl->level) {
+ 		BUG_TRAP(cl->un.leaf.q);
+ 		qdisc_destroy(cl->un.leaf.q);
+@@ -1237,21 +1235,6 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
+ 	qdisc_put_rtab(cl->ceil);
+ 
+ 	tcf_destroy_chain(&cl->filter_list);
+-
+-	while (!list_empty(&cl->children))
+-		htb_destroy_class(sch, list_entry(cl->children.next,
+-						  struct htb_class, sibling));
+-
+-	/* note: this delete may happen twice (see htb_delete) */
+-	hlist_del_init(&cl->hlist);
+-	list_del(&cl->sibling);
+-
+-	if (cl->prio_activity)
+-		htb_deactivate(q, cl);
+-
+-	if (cl->cmode != HTB_CAN_SEND)
+-		htb_safe_rb_erase(&cl->pq_node, q->wait_pq + cl->level);
+-
+ 	kfree(cl);
  }
- EXPORT_SYMBOL(qdisc_watchdog_cancel);
  
-+struct hlist_head *qdisc_class_hash_alloc(unsigned int n)
-+{
-+	unsigned int size = n * sizeof(struct hlist_head), i;
-+	struct hlist_head *h;
-+
-+	if (size <= PAGE_SIZE)
-+		h = kmalloc(size, GFP_KERNEL);
-+	else
-+		h = (struct hlist_head *)
-+			__get_free_pages(GFP_KERNEL, get_order(size));
-+
-+	if (h != NULL) {
-+		for (i = 0; i < n; i++)
-+			INIT_HLIST_HEAD(&h[i]);
-+	}
-+	return h;
-+}
-+
-+static void qdisc_class_hash_free(struct hlist_head *h, unsigned int n)
-+{
-+	unsigned int size = n * sizeof(struct hlist_head);
-+
-+	if (size <= PAGE_SIZE)
-+		kfree(h);
-+	else
-+		free_pages((unsigned long)h, get_order(size));
-+}
-+
-+void qdisc_class_hash_grow(struct Qdisc *sch, struct Qdisc_class_hash *clhash)
-+{
-+	struct Qdisc_class_common *cl;
+@@ -1259,6 +1242,9 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
+ static void htb_destroy(struct Qdisc *sch)
+ {
+ 	struct htb_sched *q = qdisc_priv(sch);
 +	struct hlist_node *n, *next;
-+	struct hlist_head *nhash, *ohash;
-+	unsigned int nsize, nmask, osize;
-+	unsigned int i, h;
-+
-+	/* Rehash when load factor exceeds 0.75 */
-+	if (clhash->hashelems * 4 <= clhash->hashsize * 3)
-+		return;
-+	nsize = clhash->hashsize * 2;
-+	nmask = nsize - 1;
-+	nhash = qdisc_class_hash_alloc(nsize);
-+	if (nhash == NULL)
-+		return;
-+
-+	ohash = clhash->hash;
-+	osize = clhash->hashsize;
-+
-+	sch_tree_lock(sch);
-+	for (i = 0; i < osize; i++) {
-+		hlist_for_each_entry_safe(cl, n, next, &ohash[i], hnode) {
-+			h = qdisc_class_hash(cl->classid, nmask);
-+			hlist_add_head(&cl->hnode, &nhash[h]);
-+		}
-+	}
-+	clhash->hash     = nhash;
-+	clhash->hashsize = nsize;
-+	clhash->hashmask = nmask;
-+	sch_tree_unlock(sch);
-+
-+	qdisc_class_hash_free(ohash, osize);
-+}
-+EXPORT_SYMBOL(qdisc_class_hash_grow);
-+
-+int qdisc_class_hash_init(struct Qdisc_class_hash *clhash)
-+{
-+	unsigned int size = 4;
-+
-+	clhash->hash = qdisc_class_hash_alloc(size);
-+	if (clhash->hash == NULL)
-+		return -ENOMEM;
-+	clhash->hashsize  = size;
-+	clhash->hashmask  = size - 1;
-+	clhash->hashelems = 0;
-+	return 0;
-+}
-+EXPORT_SYMBOL(qdisc_class_hash_init);
-+
-+void qdisc_class_hash_destroy(struct Qdisc_class_hash *clhash)
-+{
-+	qdisc_class_hash_free(clhash->hash, clhash->hashsize);
-+}
-+EXPORT_SYMBOL(qdisc_class_hash_destroy);
-+
-+void qdisc_class_hash_insert(struct Qdisc_class_hash *clhash,
-+			     struct Qdisc_class_common *cl)
-+{
-+	unsigned int h;
-+
-+	INIT_HLIST_NODE(&cl->hnode);
-+	h = qdisc_class_hash(cl->classid, clhash->hashmask);
-+	hlist_add_head(&cl->hnode, &clhash->hash[h]);
-+	clhash->hashelems++;
-+}
-+EXPORT_SYMBOL(qdisc_class_hash_insert);
-+
-+void qdisc_class_hash_remove(struct Qdisc_class_hash *clhash,
-+			     struct Qdisc_class_common *cl)
-+{
-+	hlist_del(&cl->hnode);
-+	clhash->hashelems--;
-+}
-+EXPORT_SYMBOL(qdisc_class_hash_remove);
-+
- /* Allocate an unique handle from space managed by kernel */
++	struct htb_class *cl;
++	unsigned int i;
  
- static u32 qdisc_alloc_handle(struct net_device *dev)
+ 	qdisc_watchdog_cancel(&q->watchdog);
+ 	/* This line used to be after htb_destroy_class call below
+@@ -1267,10 +1253,14 @@ static void htb_destroy(struct Qdisc *sch)
+ 	   unbind_filter on it (without Oops). */
+ 	tcf_destroy_chain(&q->filter_list);
+ 
+-	while (!list_empty(&q->root))
+-		htb_destroy_class(sch, list_entry(q->root.next,
+-						  struct htb_class, sibling));
+-
++	for (i = 0; i < HTB_HSIZE; i++) {
++		hlist_for_each_entry(cl, n, q->hash + i, hlist)
++			tcf_destroy_chain(&cl->filter_list);
++	}
++	for (i = 0; i < HTB_HSIZE; i++) {
++		hlist_for_each_entry_safe(cl, n, next, q->hash + i, hlist)
++			htb_destroy_class(sch, cl);
++	}
+ 	__skb_queue_purge(&q->direct_queue);
+ }
+ 
+@@ -1302,12 +1292,16 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 		qdisc_tree_decrease_qlen(cl->un.leaf.q, qlen);
+ 	}
+ 
+-	/* delete from hash and active; remainder in destroy_class */
+-	hlist_del_init(&cl->hlist);
++	/* delete from hash, sibling list and active */
++	hlist_del(&cl->hlist);
++	list_del(&cl->sibling);
+ 
+ 	if (cl->prio_activity)
+ 		htb_deactivate(q, cl);
+ 
++	if (cl->cmode != HTB_CAN_SEND)
++		htb_safe_rb_erase(&cl->pq_node, q->wait_pq + cl->level);
++
+ 	if (last_child)
+ 		htb_parent_to_leaf(q, cl, new_q);
+ 
