@@ -1,69 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 03 Jul 2008 09:11:09 -0400
-Message-ID: <486CCFED.7010308@garzik.org>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org> <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com> <486CC440.9030909@garzik.org> <Pine.LNX.4.64.0807031353030.11033@blonde.site>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [PATCH 13/39]: pkt_sched: Add qdisc_all_tx_empty()
+Date: Thu, 03 Jul 2008 15:11:26 +0200
+Message-ID: <486CCFFE.7060009@trash.net>
+References: <20080703.000343.16709755.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>
-To: Hugh Dickins <hugh@veritas.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37001 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753728AbYGCNLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2008 09:11:18 -0400
-In-Reply-To: <Pine.LNX.4.64.0807031353030.11033@blonde.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080703.000343.16709755.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hugh Dickins wrote:
-> On Thu, 3 Jul 2008, Jeff Garzik wrote:
->> KOSAKI Motohiro wrote:
->>> Hi Michael,
->>>
->>> my server output following error message on 2.6.26-rc8-mm1.
->>> Is this a bug?
->>>
->>> ------------------------------------------------------------------
->>> tg3.c:v3.93 (May 22, 2008)
->>> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51
->>> tg3 0000:06:01.0: PCI INT A -> GSI 72 (level, low) -> IRQ 51
->>> firmware: requesting tigon/tg3_tso.bin
->>> tg3: Failed to load firmware "tigon/tg3_tso.bin"
->>> tg3 0000:06:01.0: PCI INT A disabled
->>> GSI 72 (level, low) -> CPU 0 (0x0001) vector 51 unregistered
->>> tg3: probe of 0000:06:01.0 failed with error -2
->>> GSI 73 (level, low) -> CPU 0 (0x0001) vector 51
->>> tg3 0000:06:01.1: PCI INT B -> GSI 73 (level, low) -> IRQ 52
->>> firmware: requesting tigon/tg3_tso.bin
->> This change did not come from the network developers or Broadcom, so someone
->> else broke tg3 in -mm...
+David Miller wrote:
+> As per comments, this isn't a foolproof implementation.  This is being
+> added so that we can contain and isolate all the explicit ->tx_queue
+> references in the tree.
 > 
-> I think it's a consequence of not choosing CONFIG_FIRMWARE_IN_KERNEL=y.
-> 
-> That caught me out on PowerMac G5 trying mmotm yesterday, it just hung
-> for a few minutes in earlyish boot with a message about tg3_tso.bin,
-> and then proceeded to boot up but without the network.  I was unclear
-> whether I'd been stupid, or the FIRMWARE_IN_KERNEL Kconfigery was poor.
-> 
-> I avoid initrd, and have tigon3 built in, if that's of any relevance.
-> 
-> I wonder if that's Andrew's problem with 2.6.26-rc8-mm1 on his G5:
-> mine here boots up fine (now I know to CONFIG_FIRMWARE_IN_KERNEL=y).
+> +/* Are all TX queues of the device empty?  */
+> +static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+> +{
+> +	struct netdev_queue *txq = &dev->tx_queue;
+> +
+> +	/* XXX This is not correct but it is good enough for the
+> +	 * XXX one place that wants this, IRDA.  If we wanted to
+> +	 * XXX do this right, we'd need to add a qdisc op to
+> +	 * XXX probe for the queue state.
+> +	 */
+> +	return skb_queue_empty(&txq->qdisc->q);
+> +}
 
 
-dwmw2 has been told repeatedly that his changes will cause PRECISELY 
-these problems, but he refuses to take the simple steps necessary to 
-ensure people can continue to boot their kernels after his changes go in.
-
-Presently his tg3 changes have been nak'd, in part, because of this 
-obviously, forseeable, work-around-able breakage.
-
-	Jeff
-
-
+It this comment referring to the fact that its looking at
+qdisc->q itself, while the qdisc might be using internal
+queues? If so, just using txq->qdisc->q.qlen should be
+fine since qdiscs are required to always update this value,
+even if they're not using the queue itself.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
