@@ -1,58 +1,59 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 3 Jul 2008 23:25:54 +0100
-Message-ID: <20080703232554.7271d645@lxorguk.ukuu.org.uk>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
-	<20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-	<486CC440.9030909@garzik.org>
-	<Pine.LNX.4.64.0807031353030.11033@blonde.site>
-	<486CCFED.7010308@garzik.org>
-	<1215091999.10393.556.camel@pmac.infradead.org>
-	<486CD654.4020605@garzik.org>
-	<1215093175.10393.567.camel@pmac.infradead.org>
-	<20080703173040.GB30506@mit.edu>
-	<1215111362.10393.651.camel@pmac.infradead.org>
-	<486D3E88.9090900@garzik.org>
-	<486D4596.60005@infradead.org>
-	<486D511A.9020405@garzik.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [RFC] support for IEEE 1588
+Date: Fri, 4 Jul 2008 01:47:11 +0300
+Message-ID: <200807040147.11148.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Theodore Tso <tytso@mit.edu>, Hugh Dickins <hugh@veritas.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:52492 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755364AbYGCWoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 18:44:23 -0400
-In-Reply-To: <486D511A.9020405@garzik.org>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1345 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755364AbYGCWtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 18:49:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-O
-> Further, all current kernel build and test etc. scripts are unaware of 
-> 'make firmware_install', and it is unfair to everybody to force a 
-> flag-day build process change on people, just to keep their drivers in 
-> the same working state today as it was yesterday.
 
-IMHO we want firmware built in as the default for the moment. If the
-firmware model makes sense (as I think it does) then the distributions
-will catch up, turn it on and sort out the default behaviour - exactly as
-they did all those years ago with modules, more recently with "use an
-initrd" and so on.
+Hi everybody,
 
-> as "making no sense".  All these are real world examples where users 
-> FOLLOWING THEIR NORMAL, PROSCRIBED KERNEL PROCESSES will produce 
+IEEE 1588 Precision Time Protocol [1] requires hardware timestamping support 
+for both RX and TX frames. It seems that in Linux we do not have the support 
+required for this protocol to be implemented. 
 
-I hope you mean "prescribed" ;)
+Any feedback on the approach we are planing to take is greatly appreciated. We 
+will follow with a patch at some point, but I just want to check with you 
+gurus early, to avoid potential design flaws. If a patch is preferred for 
+commenting on, then please ignore this and will come back later with the 
+patch.
 
-> The only valid assumption here is to assume that the user is /unaware/ 
-> of these new steps they must take in order to continue to have a working 
-> system.
+1. RX path
+- add a new field in skb to keep the hardware stamp (hwstamp)
+- add a new socket flag to enable RX stamping 
+- add a new control message to retrieve the hwstamp from the skb to user-space 
+application (for UDP and maybe PF_PACKET)
 
-To a large extent not the user but their distro - consider "make install"
+2. TX path - this is a bit more complicated since we need a new mechanism to 
+wait for a packet transmission on wire, from users-space.
+- add a new flag for the skb to request TX stamping
+- add a new control message to propagate the TX stamping request from 
+userspace to the skb
+- when the driver will send the packet will get the stamp from the TX 
+completion ring; the driver will then propagate the stamp either to
+(a) the skb stamp field, or (b) some special structure - this to avoid keeping 
+the skb around
+- the special structure or the skb will be linked to a special queue in the 
+socket and a POLLPRI event will be generated
+- the application will use recvmsg and will receive a new control message 
+which contains the timestamp from the socket special queue 
+
+We will probably need to associate a cookie with each TX stamping control 
+message which will be retrieve in the later control message, so that the 
+application can match send packets with timestamps.
+
+[1] http://ieee1588.nist.gov/tutorial-basic.pdf
+
+Thanks,
+tavi
