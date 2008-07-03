@@ -1,54 +1,74 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 13/39]: pkt_sched: Add qdisc_all_tx_empty()
-Date: Thu, 03 Jul 2008 13:46:10 -0700 (PDT)
-Message-ID: <20080703.134610.250208084.davem@davemloft.net>
-References: <20080703.000343.16709755.davem@davemloft.net>
-	<486CCFFE.7060009@trash.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 3 Jul 2008 22:52:36 +0200
+Message-ID: <200807032252.37992.rjw@sisk.pl>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org> <92840.1215113467@turing-police.cc.vt.edu> <1215114540.10393.659.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <486CCFFE.7060009-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Valdis.Kletnieks@vt.edu, Theodore Tso <tytso@mit.edu>,
+	Jeff Garzik <jeff@garzik.org>, Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:43955 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752430AbYGCUuh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jul 2008 16:50:37 -0400
+In-Reply-To: <1215114540.10393.659.camel@pmac.infradead.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Date: Thu, 03 Jul 2008 15:11:26 +0200
-
-> David Miller wrote:
-> > As per comments, this isn't a foolproof implementation.  This is being
-> > added so that we can contain and isolate all the explicit ->tx_queue
-> > references in the tree.
+On Thursday, 3 of July 2008, David Woodhouse wrote:
+> On Thu, 2008-07-03 at 15:31 -0400, Valdis.Kletnieks@vt.edu wrote:
+> > On Thu, 03 Jul 2008 19:56:02 BST, David Woodhouse said:
 > > 
-> > +/* Are all TX queues of the device empty?  */
-> > +static inline bool qdisc_all_tx_empty(const struct net_device *dev)
-> > +{
-> > +	struct netdev_queue *txq = &dev->tx_queue;
-> > +
-> > +	/* XXX This is not correct but it is good enough for the
-> > +	 * XXX one place that wants this, IRDA.  If we wanted to
-> > +	 * XXX do this right, we'd need to add a qdisc op to
-> > +	 * XXX probe for the queue state.
-> > +	 */
-> > +	return skb_queue_empty(&txq->qdisc->q);
-> > +}
+> > > They had to 'make oldconfig' and then actually _choose_ to say 'no' to
+> > > an option which is fairly clearly documented, that they are the
+> > > relatively unusual position of wanting to have said 'yes' to. You're
+> > > getting into Aunt Tillie territory, when you complain about that.
+> > 
+> > Note that some of us chose 'no' because we *thought* that we already *had*
+> > everything in /lib/firmware that we needed (in my case, the iwl3945 wireless
+> > firmware and the Intel cpu microcode).  The first that I realized that
+> > the tg3 *had* firmware was when I saw the failure message, because before
+> > that, the binary blob was inside the kernel.  And then, it wasn't trivially
+> > obvious how to get firmware loaded if the tg3 driver was builtin rather
+> > than a module.
+> > 
+> > And based on some of the other people who apparently got bit by this same
+> > exact behavior change on this same exact "builtin but no firmware in kernel"
+> > config with this same exact driver, it's obvious that one of two things is true:
+> > 
+> > 1) Several of the highest-up maintainers are Aunt Tillies.
+> > or
+> > 2) This is sufficiently subtle and complicated that far more experienced
+> > people than Aunt Tillie will Get It Very Wrong.
 > 
+> Not really. It's just a transitional thing. As you said, you know
+> perfectly well that modern Linux drivers like iwl3945 handle their
+> firmware separately through request_firmware() rather than including it
+> in unswappable memory in the static kernel. We're just updating some of
+> the older drivers to match.
 > 
-> It this comment referring to the fact that its looking at
-> qdisc->q itself, while the qdisc might be using internal
-> queues? If so, just using txq->qdisc->q.qlen should be
-> fine since qdiscs are required to always update this value,
-> even if they're not using the queue itself.
+> I've often managed to configure a kernel which doesn't boot, when I've
+> updated and not paid attention to the questions which 'oldconfig' asks
+> me. It's fairly easy to do. But I don't advocate that 'allyesconfig'
+> should be the default, just in case someone needs one of the options...
+> 
+> But as I said, I'm content to let Linus make that decision. In the
+> meantime, I'd prefer to get back to the simple business of updating
+> drivers to use request_firmware() as they should, and have maintainers
+> actually respond to the _patches_ rather than refusing to even look at
+> the code changes because they disagree with the default setting for the
+> CONFIG_FIRMWARE_IN_KERNEL option.
 
-Indeed, and this is exactly what the sch_generic.c packet output path
-uses as a test too.
+Hm, well, but if the driver in question is in a module, then whether or not
+this option is set really doesn't matter, does it?
 
-Thanks Patrick, I'll fix this up.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Rafael
