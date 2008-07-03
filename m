@@ -1,44 +1,81 @@
-From: Doug Kehn <rdkehn@yahoo.com>
-Subject: skb_bond(): Let master dev see skb
-Date: Thu, 3 Jul 2008 06:38:57 -0700 (PDT)
-Message-ID: <19562.56527.qm@web52008.mail.re2.yahoo.com>
-Reply-To: rdkehn@yahoo.com
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 03 Jul 2008 14:52:55 +0100
+Message-ID: <1215093175.10393.567.camel@pmac.infradead.org>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	 <486CC440.9030909@garzik.org>
+	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>
+	 <486CCFED.7010308@garzik.org>
+	 <1215091999.10393.556.camel@pmac.infradead.org>
+	 <486CD654.4020605@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52008.mail.re2.yahoo.com ([206.190.48.57]:21871 "HELO
-	web52008.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756247AbYGCNi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 09:38:58 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:56007 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752395AbYGCNxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 09:53:07 -0400
+In-Reply-To: <486CD654.4020605@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+On Thu, 2008-07-03 at 09:38 -0400, Jeff Garzik wrote:
+> David Woodhouse wrote:
+> >> dwmw2 has been told repeatedly that his changes will cause PRECISELY 
+> >> these problems, but he refuses to take the simple steps necessary to 
+> >> ensure people can continue to boot their kernels after his changes go in.
+> > 
+> > Complete nonsense. Setting CONFIG_FIRMWARE_IN_KERNEL isn't hard. But
+> > shouldn't be the _default_, either.
+> > 
+> >> Presently his tg3 changes have been nak'd, in part, because of this 
+> >> obviously, forseeable, work-around-able breakage.
+> > 
+> > They haven't even been reviewed. Nobody seems to have actually looked at
+> 
+> 
+> Yes, they have.  You just didn't like the answers you received.
 
-I was looking at writing a net driver for a Marvell switch chip attached 
-to an Ethernet MAC on a SoC.  The driver would be similar to the bonding 
-driver except that it would bond to a single slave (the SoC Ethernet 
-driver) and export multiple net devs.  The idea is to steer frames to a 
-physical port on the switch by adding a 4-byte trailer to the frame.  The 
-switch will use the trailer to determine the port to send the frame.  The 
-switch also strips the trailer before sending.  On packet reception, the 
-switch adds the 4-byte trailer to the frame indicating the physical port 
-the frame was received.  The master needs to see the skb in order to 
-determine the actual dev to associate with the skb and to strip off the 
-4-byte trailer.
+I received no comment on any part of the changes within tg3.c; only
+whining about the default behaviour -- which isn't even _set_ as part of
+the patch in question, any more.
 
-I was thinking of adding a function pointer to net_dev to allow a master 
-to see the skb and have skb_bond() call the function if the pointer has 
-been initialized.  skb_bond would function as is if the pointer is not 
-initialized.
+> In particular, the Kconfig default for built-in tg3 firmware should 
+> result in the current behavior, without the user having to take extra steps.
 
-Is there a better way to accomplish this or is this approach reasonable?
+After feedback from a number of people, there is no individual Kconfig
+option for the various firmwares; there is only one which controls them
+all -- CONFIG_FIRMWARE_IN_KERNEL. The thing you're whining about isn't
+even part of the patch which needs review.
 
+> Because of your stubborn refusal on this Kconfig defaults issue, WE 
+> ALREADY HAVE DRIVER-DOES-NOT-WORK BREAKAGE, JUST AS PREDICTED.
 
-Thanks,
-...doug
+I strongly disagree that CONFIG_FIRMWARE_IN_KERNEL=y should be the
+default. But if I add this patch elsewhere in the kernel, will you quit
+your whining and actually review the patch you were asked to review? ...
 
+diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
+index 339c148..d47482f 100644
+--- a/drivers/base/Kconfig
++++ b/drivers/base/Kconfig
+@@ -37,6 +37,7 @@ config FW_LOADER
+ config FIRMWARE_IN_KERNEL
+ 	bool "Include in-kernel firmware blobs in kernel binary"
+ 	depends on FW_LOADER
++	default y
+ 	help
+ 	  The kernel source tree includes a number of firmware 'blobs'
+ 	  which are used by various drivers. The recommended way to
 
+-- 
+dwmw2
 
-      
