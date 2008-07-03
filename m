@@ -1,57 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] phylib: fix forced mode misbehaviour for aneg off case
-Date: Thu, 3 Jul 2008 20:18:17 +0100
-Message-ID: <20080703191815.GG17872@solarflare.com>
-References: <20080703171614.GA21126@polina.dev.rtsoft.ru> <20080703104143.6620e99f@extreme> <20080703181118.GA30139@polina.dev.rtsoft.ru>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Thu, 03 Jul 2008 15:31:07 -0400
+Message-ID: <92840.1215113467@turing-police.cc.vt.edu>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org> <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com> <486CC440.9030909@garzik.org> <Pine.LNX.4.64.0807031353030.11033@blonde.site> <486CCFED.7010308@garzik.org> <1215091999.10393.556.camel@pmac.infradead.org> <486CD654.4020605@garzik.org> <1215093175.10393.567.camel@pmac.infradead.org> <20080703173040.GB30506@mit.edu>
+            <1215111362.10393.651.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Content-Type: multipart/signed; boundary="==_Exmh_1215113467_4193P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Theodore Tso <tytso@mit.edu>, Jeff Garzik <jeff@garzik.org>,
+	Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:44896 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752395AbYGCTSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 15:18:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20080703181118.GA30139@polina.dev.rtsoft.ru>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:48164 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753405AbYGCTcP (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 15:32:15 -0400
+In-Reply-To: Your message of "Thu, 03 Jul 2008 19:56:02 BST."
+             <1215111362.10393.651.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov wrote:
-> On Thu, Jul 03, 2008 at 10:41:43AM -0700, Stephen Hemminger wrote:
-> > On Thu, 3 Jul 2008 21:16:14 +0400
-> > Anton Vorontsov <avorontsov@ru.mvista.com> wrote:
-> > 
-> > > With disabled autonegotiation and link absence, phylib will place phy
-> > > into the forcing mode, thus will start calling phy_force_reduction().
-> > > That means that for the drivers that are using phylib we can't actually
-> > > set fixed speed for the link.
-> > > 
-> > > For example:
-> > > 
-> > > # ethtool -s eth0 autoneg off speed 1000
-> > 
-> > FYI autonegotiation is required in gigabit mode per 802 spec.
- 
-This is technically correct, but all "negotiated" settings can be manually
-configured such that only a single possible configuration is advertised
-during auto-negotiation.
+--==_Exmh_1215113467_4193P
+Content-Type: text/plain; charset=us-ascii
 
-> Thanks for the information. FWIW, that behaviour observed for
-> speed 100 or speed 10, too.
-> 
-> As for gbit, this is interesting indeed. If we're not permitted to
-> disable aneg, how could we force the PHY to use gigabit, so that it
-> will not try to downgrade? I mean ethtool option.
+On Thu, 03 Jul 2008 19:56:02 BST, David Woodhouse said:
 
-You should be able to use
-"ethtool -s eth0 autoneg on speed 1000 duplex full" (you have to specify
-all three).  Not all drivers implement that correctly though.
+> They had to 'make oldconfig' and then actually _choose_ to say 'no' to
+> an option which is fairly clearly documented, that they are the
+> relatively unusual position of wanting to have said 'yes' to. You're
+> getting into Aunt Tillie territory, when you complain about that.
 
-Ben.
+Note that some of us chose 'no' because we *thought* that we already *had*
+everything in /lib/firmware that we needed (in my case, the iwl3945 wireless
+firmware and the Intel cpu microcode).  The first that I realized that
+the tg3 *had* firmware was when I saw the failure message, because before
+that, the binary blob was inside the kernel.  And then, it wasn't trivially
+obvious how to get firmware loaded if the tg3 driver was builtin rather
+than a module.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+And based on some of the other people who apparently got bit by this same
+exact behavior change on this same exact "builtin but no firmware in kernel"
+config with this same exact driver, it's obvious that one of two things is true:
+
+1) Several of the highest-up maintainers are Aunt Tillies.
+or
+2) This is sufficiently subtle and complicated that far more experienced
+people than Aunt Tillie will Get It Very Wrong.
+
+--==_Exmh_1215113467_4193P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFIbSj7cC3lWbTT17ARAgRJAJ9f5OBi6ZMoDDh4l/SOO5rzlbw3dgCg1KRC
+0rGxreac3Gnc8oKVstJmfoI=
+=CaEO
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1215113467_4193P--
