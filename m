@@ -1,219 +1,526 @@
-From: "Woodruff, Richard" <r-woodruff2@ti.com>
-Subject: [PATCH] Fix smc911x.c suspend/resume and power up issues.
-Date: Wed, 2 Jul 2008 20:08:10 -0500
-Message-ID: <13B9B4C6EF24D648824FF11BE8967162035BC6AEB3@dlee02.ent.ti.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_13B9B4C6EF24D648824FF11BE8967162035BC6AEB3dlee02enttico_"
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 1/5] bonding: refactor mii monitor
+Date: Wed,  2 Jul 2008 18:21:58 -0700
+Message-ID: <12150481241992-git-send-email-fubar@us.ibm.com>
+References: <12150481222323-git-send-email-fubar@us.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:56517 "EHLO arroyo.ext.ti.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:51968 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739AbYGCBIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2008 21:08:19 -0400
-Content-Language: en-US
+	id S1751533AbYGCBWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2008 21:22:06 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id m631M6wD008620
+	for <netdev@vger.kernel.org>; Wed, 2 Jul 2008 21:22:06 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m631M6BL162804
+	for <netdev@vger.kernel.org>; Wed, 2 Jul 2008 21:22:06 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m631M5LZ004139
+	for <netdev@vger.kernel.org>; Wed, 2 Jul 2008 21:22:06 -0400
+In-Reply-To: <12150481222323-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_13B9B4C6EF24D648824FF11BE8967162035BC6AEB3dlee02enttico_
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+	Refactor mii monitor.  As with the previous ARP monitor refactor,
+the motivation for this is to handle locking rationally (in this case,
+removing conditional locking) and generally clean up the code.
 
-This patch fixes lockups seen on resume and allows a ifdown/ifup to work.
+	This patch breaks up the monolithic mii monitor into two phases:
+an inspection phase, followed by an optional commit phase.  The commit phase
+is the only portion that requires RTNL or makes changes to state, and is
+only called when inspection finds something to change.
 
-ifdown/up fix:
-- MII BMCR_PDOWN is set on smc911x_close() but is not cleared on the
-autonegotiaion path on open.  Clearing is added into smc911x_reset()
-if bit was set after making sure chip is accessible.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/net/bonding/bond_3ad.c  |    1 +
+ drivers/net/bonding/bond_main.c |  394 +++++++++++++++++----------------------
+ 2 files changed, 173 insertions(+), 222 deletions(-)
 
-suspend/resume fixes:
-- When trying for D2 power state the part family specification says
-MODE_CTRL_STS_EDPWRDOWN_ should be written before PM_CTRL, this was missing=
-.
-This same bit also needs to be cleared on resume after chip is woken.
-- The sequence of resume was changed to match init {reset, config, enable}
-from old {reset, enable, config}
-
-Patch tested on SMC9211 variant on embedded boards.
-
-Signed-off-by: Richard Woodruff <r-woodruff2@ti.com>
-
---- smc911x.c   2008-07-02 18:32:59.000000000 -0500
-+++ ../smc911x.c        2008-07-02 19:24:35.000000000 -0500
-@@ -232,14 +232,16 @@ static void smc911x_reset(struct net_dev
-        struct smc911x_local *lp =3D netdev_priv(dev);
-        unsigned int reg, timeout=3D0, resets=3D1;
-        unsigned long flags;
-+       int bmcr, phyaddr =3D lp->mii.phy_id;
-
-        DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __FUNCTION__);
-
--       /*       Take out of PM setting first */
-+       /* Take out of PM setting first */
-        if ((SMC_GET_PMT_CTRL() & PMT_CTRL_READY_) =3D=3D 0) {
-                /* Write to the bytetest will take out of powerdown */
-                SMC_SET_BYTE_TEST(0);
-                timeout=3D10;
-+               /* no other writes to device before ready */
-                do {
-                        udelay(10);
-                        reg =3D SMC_GET_PMT_CTRL() & PMT_CTRL_READY_;
-@@ -248,6 +250,16 @@ static void smc911x_reset(struct net_dev
-                        PRINTK("%s: smc911x_reset timeout waiting for PM re=
-store\n", dev->name);
-                        return;
-                }
-+               /* clear low power state */
-+               SMC_SET_PHY_CTRL_STS(phyaddr, MODE_CTRL_STS_EDPWRDOWN_);
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ebb539e..6106660 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2107,6 +2107,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 			aggregator = __get_first_agg(port);
+ 			ad_agg_selection_logic(aggregator);
+ 		}
++		bond_3ad_set_carrier(bond);
+ 	}
+ 
+ 	// for each port run the state machines
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d57b65d..6ee6db0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2208,272 +2208,217 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
+ 
+ /*-------------------------------- Monitoring -------------------------------*/
+ 
+-/*
+- * if !have_locks, return nonzero if a failover is necessary.  if
+- * have_locks, do whatever failover activities are needed.
+- *
+- * This is to separate the inspection and failover steps for locking
+- * purposes; failover requires rtnl, but acquiring it for every
+- * inspection is undesirable, so a wrapper first does inspection, and
+- * the acquires the necessary locks and calls again to perform
+- * failover if needed.  Since all locks are dropped, a complete
+- * restart is needed between calls.
+- */
+-static int __bond_mii_monitor(struct bonding *bond, int have_locks)
+-{
+-	struct slave *slave, *oldcurrent;
+-	int do_failover = 0;
+-	int i;
+-
+-	if (bond->slave_cnt == 0)
+-		goto out;
+ 
+-	/* we will try to read the link status of each of our slaves, and
+-	 * set their IFF_RUNNING flag appropriately. For each slave not
+-	 * supporting MII status, we won't do anything so that a user-space
+-	 * program could monitor the link itself if needed.
+-	 */
+-
+-	read_lock(&bond->curr_slave_lock);
+-	oldcurrent = bond->curr_active_slave;
+-	read_unlock(&bond->curr_slave_lock);
++static int bond_miimon_inspect(struct bonding *bond)
++{
++	struct slave *slave;
++	int i, link_state, commit = 0;
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+-		struct net_device *slave_dev = slave->dev;
+-		int link_state;
+-		u16 old_speed = slave->speed;
+-		u8 old_duplex = slave->duplex;
++		slave->new_link = BOND_LINK_NOCHANGE;
+ 
+-		link_state = bond_check_dev_link(bond, slave_dev, 0);
++		link_state = bond_check_dev_link(bond, slave->dev, 0);
+ 
+ 		switch (slave->link) {
+-		case BOND_LINK_UP:	/* the link was up */
+-			if (link_state == BMSR_LSTATUS) {
+-				if (!oldcurrent) {
+-					if (!have_locks)
+-						return 1;
+-					do_failover = 1;
+-				}
+-				break;
+-			} else { /* link going down */
+-				slave->link  = BOND_LINK_FAIL;
+-				slave->delay = bond->params.downdelay;
+-
+-				if (slave->link_failure_count < UINT_MAX) {
+-					slave->link_failure_count++;
+-				}
++		case BOND_LINK_UP:
++			if (link_state)
++				continue;
+ 
+-				if (bond->params.downdelay) {
+-					printk(KERN_INFO DRV_NAME
+-					       ": %s: link status down for %s "
+-					       "interface %s, disabling it in "
+-					       "%d ms.\n",
+-					       bond->dev->name,
+-					       IS_UP(slave_dev)
+-					       ? ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+-						  ? ((slave == oldcurrent)
+-						     ? "active " : "backup ")
+-						  : "")
+-					       : "idle ",
+-					       slave_dev->name,
+-					       bond->params.downdelay * bond->params.miimon);
+-				}
++			slave->link = BOND_LINK_FAIL;
++			slave->delay = bond->params.downdelay;
++			if (slave->delay) {
++				printk(KERN_INFO DRV_NAME
++				       ": %s: link status down for %s"
++				       "interface %s, disabling it in %d ms.\n",
++				       bond->dev->name,
++				       (bond->params.mode ==
++					BOND_MODE_ACTIVEBACKUP) ?
++				       ((slave->state == BOND_STATE_ACTIVE) ?
++					"active " : "backup ") : "",
++				       slave->dev->name,
++				       bond->params.downdelay * bond->params.miimon);
+ 			}
+-			/* no break ! fall through the BOND_LINK_FAIL test to
+-			   ensure proper action to be taken
+-			*/
+-		case BOND_LINK_FAIL:	/* the link has just gone down */
+-			if (link_state != BMSR_LSTATUS) {
+-				/* link stays down */
+-				if (slave->delay <= 0) {
+-					if (!have_locks)
+-						return 1;
+-
+-					/* link down for too long time */
+-					slave->link = BOND_LINK_DOWN;
+-
+-					/* in active/backup mode, we must
+-					 * completely disable this interface
+-					 */
+-					if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP) ||
+-					    (bond->params.mode == BOND_MODE_8023AD)) {
+-						bond_set_slave_inactive_flags(slave);
+-					}
+-
+-					printk(KERN_INFO DRV_NAME
+-					       ": %s: link status definitely "
+-					       "down for interface %s, "
+-					       "disabling it\n",
+-					       bond->dev->name,
+-					       slave_dev->name);
+-
+-					/* notify ad that the link status has changed */
+-					if (bond->params.mode == BOND_MODE_8023AD) {
+-						bond_3ad_handle_link_change(slave, BOND_LINK_DOWN);
+-					}
+-
+-					if ((bond->params.mode == BOND_MODE_TLB) ||
+-					    (bond->params.mode == BOND_MODE_ALB)) {
+-						bond_alb_handle_link_change(bond, slave, BOND_LINK_DOWN);
+-					}
+-
+-					if (slave == oldcurrent) {
+-						do_failover = 1;
+-					}
+-				} else {
+-					slave->delay--;
+-				}
+-			} else {
+-				/* link up again */
+-				slave->link  = BOND_LINK_UP;
++			/*FALLTHRU*/
++		case BOND_LINK_FAIL:
++			if (link_state) {
++				/*
++				 * recovered before downdelay expired
++				 */
++				slave->link = BOND_LINK_UP;
+ 				slave->jiffies = jiffies;
+ 				printk(KERN_INFO DRV_NAME
+ 				       ": %s: link status up again after %d "
+ 				       "ms for interface %s.\n",
+ 				       bond->dev->name,
+-				       (bond->params.downdelay - slave->delay) * bond->params.miimon,
+-				       slave_dev->name);
++				       (bond->params.downdelay - slave->delay) *
++				       bond->params.miimon,
++				       slave->dev->name);
++				continue;
+ 			}
+-			break;
+-		case BOND_LINK_DOWN:	/* the link was down */
+-			if (link_state != BMSR_LSTATUS) {
+-				/* the link stays down, nothing more to do */
+-				break;
+-			} else {	/* link going up */
+-				slave->link  = BOND_LINK_BACK;
+-				slave->delay = bond->params.updelay;
+ 
+-				if (bond->params.updelay) {
+-					/* if updelay == 0, no need to
+-					   advertise about a 0 ms delay */
+-					printk(KERN_INFO DRV_NAME
+-					       ": %s: link status up for "
+-					       "interface %s, enabling it "
+-					       "in %d ms.\n",
+-					       bond->dev->name,
+-					       slave_dev->name,
+-					       bond->params.updelay * bond->params.miimon);
+-				}
++			if (slave->delay <= 0) {
++				slave->new_link = BOND_LINK_DOWN;
++				commit++;
++				continue;
+ 			}
+-			/* no break ! fall through the BOND_LINK_BACK state in
+-			   case there's something to do.
+-			*/
+-		case BOND_LINK_BACK:	/* the link has just come back */
+-			if (link_state != BMSR_LSTATUS) {
+-				/* link down again */
+-				slave->link  = BOND_LINK_DOWN;
+ 
++			slave->delay--;
++			break;
 +
-+               /* Link Power ON if off*/
-+               SMC_GET_PHY_BMCR(phyaddr, bmcr);
-+               if (bmcr & BMCR_PDOWN) {
-+                       bmcr &=3D ~BMCR_PDOWN;
-+                       SMC_SET_PHY_BMCR(phyaddr, bmcr);
-+                       mdelay(10);
-+               }
-        }
-
-        /* Disable all interrupts */
-@@ -2207,18 +2219,28 @@ static int smc911x_drv_remove(struct pla
- static int smc911x_drv_suspend(struct platform_device *dev, pm_message_t s=
-tate)
- {
-        struct net_device *ndev =3D platform_get_drvdata(dev);
--       unsigned long ioaddr =3D ndev->base_addr;
-+       unsigned long flags, ioaddr =3D ndev->base_addr;
-
-        DBG(SMC_DEBUG_FUNC, "--> %s\n", __FUNCTION__);
-        if (ndev) {
--               if (netif_running(ndev)) {
-+               struct smc911x_local *lp =3D netdev_priv(ndev);
-+               spin_lock_irqsave(&lp->lock, flags);
-+               if (netif_running(ndev))
-                        netif_device_detach(ndev);
--                       smc911x_shutdown(ndev);
++		case BOND_LINK_DOWN:
++			if (!link_state)
++				continue;
 +
-+               netif_stop_queue(ndev);
-+               smc911x_shutdown(ndev);
++			slave->link = BOND_LINK_BACK;
++			slave->delay = bond->params.updelay;
 +
- #if POWER_DOWN
--                       /* Set D2 - Energy detect only setting */
--                       SMC_SET_PMT_CTRL(2<<12);
--#endif
-+               {
-+               /* Set D2 - Energy detect only setting */
-+               int phyaddr =3D lp->mii.phy_id;
++			if (slave->delay) {
++				printk(KERN_INFO DRV_NAME
++				       ": %s: link status up for "
++				       "interface %s, enabling it in %d ms.\n",
++				       bond->dev->name, slave->dev->name,
++				       bond->params.updelay *
++				       bond->params.miimon);
++			}
++			/*FALLTHRU*/
++		case BOND_LINK_BACK:
++			if (!link_state) {
++				slave->link = BOND_LINK_DOWN;
+ 				printk(KERN_INFO DRV_NAME
+ 				       ": %s: link status down again after %d "
+ 				       "ms for interface %s.\n",
+ 				       bond->dev->name,
+-				       (bond->params.updelay - slave->delay) * bond->params.miimon,
+-				       slave_dev->name);
+-			} else {
+-				/* link stays up */
+-				if (slave->delay == 0) {
+-					if (!have_locks)
+-						return 1;
+-
+-					/* now the link has been up for long time enough */
+-					slave->link = BOND_LINK_UP;
+-					slave->jiffies = jiffies;
+-
+-					if (bond->params.mode == BOND_MODE_8023AD) {
+-						/* prevent it from being the active one */
+-						slave->state = BOND_STATE_BACKUP;
+-					} else if (bond->params.mode != BOND_MODE_ACTIVEBACKUP) {
+-						/* make it immediately active */
+-						slave->state = BOND_STATE_ACTIVE;
+-					} else if (slave != bond->primary_slave) {
+-						/* prevent it from being the active one */
+-						slave->state = BOND_STATE_BACKUP;
+-					}
++				       (bond->params.updelay - slave->delay) *
++				       bond->params.miimon,
++				       slave->dev->name);
+ 
+-					printk(KERN_INFO DRV_NAME
+-					       ": %s: link status definitely "
+-					       "up for interface %s.\n",
+-					       bond->dev->name,
+-					       slave_dev->name);
+-
+-					/* notify ad that the link status has changed */
+-					if (bond->params.mode == BOND_MODE_8023AD) {
+-						bond_3ad_handle_link_change(slave, BOND_LINK_UP);
+-					}
+-
+-					if ((bond->params.mode == BOND_MODE_TLB) ||
+-					    (bond->params.mode == BOND_MODE_ALB)) {
+-						bond_alb_handle_link_change(bond, slave, BOND_LINK_UP);
+-					}
+-
+-					if ((!oldcurrent) ||
+-					    (slave == bond->primary_slave)) {
+-						do_failover = 1;
+-					}
+-				} else {
+-					slave->delay--;
+-				}
++				continue;
+ 			}
 +
-+               SMC_SET_PHY_CTRL_STS(phyaddr, MODE_CTRL_STS_EDPWRDOWN_);
-+               SMC_SET_PMT_CTRL(2<<12);
-                }
-+#endif
-+               spin_unlock_irqrestore(&lp->lock, flags);
-        }
-        return 0;
++			if (slave->delay <= 0) {
++				slave->new_link = BOND_LINK_UP;
++				commit++;
++				continue;
++			}
++
++			slave->delay--;
+ 			break;
+-		default:
+-			/* Should not happen */
+-			printk(KERN_ERR DRV_NAME
+-			       ": %s: Error: %s Illegal value (link=%d)\n",
+-			       bond->dev->name,
+-			       slave->dev->name,
+-			       slave->link);
+-			goto out;
+-		} /* end of switch (slave->link) */
++		}
++	}
+ 
+-		bond_update_speed_duplex(slave);
++	return commit;
++}
+ 
+-		if (bond->params.mode == BOND_MODE_8023AD) {
+-			if (old_speed != slave->speed) {
+-				bond_3ad_adapter_speed_changed(slave);
+-			}
++static void bond_miimon_commit(struct bonding *bond)
++{
++	struct slave *slave;
++	int i;
++
++	bond_for_each_slave(bond, slave, i) {
++		switch (slave->new_link) {
++		case BOND_LINK_NOCHANGE:
++			continue;
++
++		case BOND_LINK_UP:
++			slave->link = BOND_LINK_UP;
++			slave->jiffies = jiffies;
+ 
+-			if (old_duplex != slave->duplex) {
+-				bond_3ad_adapter_duplex_changed(slave);
++			if (bond->params.mode == BOND_MODE_8023AD) {
++				/* prevent it from being the active one */
++				slave->state = BOND_STATE_BACKUP;
++			} else if (bond->params.mode != BOND_MODE_ACTIVEBACKUP) {
++				/* make it immediately active */
++				slave->state = BOND_STATE_ACTIVE;
++			} else if (slave != bond->primary_slave) {
++				/* prevent it from being the active one */
++				slave->state = BOND_STATE_BACKUP;
+ 			}
+-		}
+ 
+-	} /* end of for */
++			printk(KERN_INFO DRV_NAME
++			       ": %s: link status definitely "
++			       "up for interface %s.\n",
++			       bond->dev->name, slave->dev->name);
+ 
+-	if (do_failover) {
+-		ASSERT_RTNL();
++			/* notify ad that the link status has changed */
++			if (bond->params.mode == BOND_MODE_8023AD)
++				bond_3ad_handle_link_change(slave, BOND_LINK_UP);
+ 
+-		write_lock_bh(&bond->curr_slave_lock);
++			if ((bond->params.mode == BOND_MODE_TLB) ||
++			    (bond->params.mode == BOND_MODE_ALB))
++				bond_alb_handle_link_change(bond, slave,
++							    BOND_LINK_UP);
+ 
+-		bond_select_active_slave(bond);
++			if (!bond->curr_active_slave ||
++			    (slave == bond->primary_slave))
++				goto do_failover;
+ 
+-		write_unlock_bh(&bond->curr_slave_lock);
++			continue;
+ 
+-	} else
+-		bond_set_carrier(bond);
++		case BOND_LINK_DOWN:
++			slave->link = BOND_LINK_DOWN;
+ 
+-out:
+-	return 0;
++			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
++			    bond->params.mode == BOND_MODE_8023AD)
++				bond_set_slave_inactive_flags(slave);
++
++			printk(KERN_INFO DRV_NAME
++			       ": %s: link status definitely down for "
++			       "interface %s, disabling it\n",
++			       bond->dev->name, slave->dev->name);
++
++			if (bond->params.mode == BOND_MODE_8023AD)
++				bond_3ad_handle_link_change(slave,
++							    BOND_LINK_DOWN);
++
++			if (bond->params.mode == BOND_MODE_TLB ||
++			    bond->params.mode == BOND_MODE_ALB)
++				bond_alb_handle_link_change(bond, slave,
++							    BOND_LINK_DOWN);
++
++			if (slave == bond->curr_active_slave)
++				goto do_failover;
++
++			continue;
++
++		default:
++			printk(KERN_ERR DRV_NAME
++			       ": %s: invalid new link %d on slave %s\n",
++			       bond->dev->name, slave->new_link,
++			       slave->dev->name);
++			slave->new_link = BOND_LINK_NOCHANGE;
++
++			continue;
++		}
++
++do_failover:
++		ASSERT_RTNL();
++		write_lock_bh(&bond->curr_slave_lock);
++		bond_select_active_slave(bond);
++		write_unlock_bh(&bond->curr_slave_lock);
++	}
++
++	bond_set_carrier(bond);
  }
-@@ -2226,18 +2248,20 @@ static int smc911x_drv_suspend(struct pl
- static int smc911x_drv_resume(struct platform_device *dev)
+ 
+ /*
+  * bond_mii_monitor
+  *
+  * Really a wrapper that splits the mii monitor into two phases: an
+- * inspection, then (if inspection indicates something needs to be
+- * done) an acquisition of appropriate locks followed by another pass
+- * to implement whatever link state changes are indicated.
++ * inspection, then (if inspection indicates something needs to be done)
++ * an acquisition of appropriate locks followed by a commit phase to
++ * implement whatever link state changes are indicated.
+  */
+ void bond_mii_monitor(struct work_struct *work)
  {
-        struct net_device *ndev =3D platform_get_drvdata(dev);
-+       unsigned long flags;
-
-        DBG(SMC_DEBUG_FUNC, "--> %s\n", __FUNCTION__);
-        if (ndev) {
-                struct smc911x_local *lp =3D netdev_priv(ndev);
-+               spin_lock_irqsave(&lp->lock, flags);
-+               smc911x_reset(ndev);
-+               if (lp->phy_type !=3D 0)
-+                       smc911x_phy_configure(&lp->phy_configure);
-+               smc911x_enable(ndev);
-
--               if (netif_running(ndev)) {
--                       smc911x_reset(ndev);
--                       smc911x_enable(ndev);
--                       if (lp->phy_type !=3D 0)
--                               smc911x_phy_configure(&lp->phy_configure);
-+               if (netif_running(ndev))
-                        netif_device_attach(ndev);
--               }
-+               spin_unlock_irqrestore(&lp->lock, flags);
-        }
-        return 0;
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    mii_work.work);
+-	unsigned long delay;
+ 
+ 	read_lock(&bond->lock);
+-	if (bond->kill_timers) {
+-		read_unlock(&bond->lock);
+-		return;
+-	}
++	if (bond->kill_timers)
++		goto out;
++
++	if (bond->slave_cnt == 0)
++		goto re_arm;
+ 
+ 	if (bond->send_grat_arp) {
+ 		read_lock(&bond->curr_slave_lock);
+@@ -2481,19 +2426,24 @@ void bond_mii_monitor(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
+-	if (__bond_mii_monitor(bond, 0)) {
++	if (bond_miimon_inspect(bond)) {
+ 		read_unlock(&bond->lock);
+ 		rtnl_lock();
+ 		read_lock(&bond->lock);
+-		__bond_mii_monitor(bond, 1);
++
++		bond_miimon_commit(bond);
++
+ 		read_unlock(&bond->lock);
+ 		rtnl_unlock();	/* might sleep, hold no other locks */
+ 		read_lock(&bond->lock);
+ 	}
+ 
+-	delay = msecs_to_jiffies(bond->params.miimon);
++re_arm:
++	if (bond->params.miimon)
++		queue_delayed_work(bond->wq, &bond->mii_work,
++				   msecs_to_jiffies(bond->params.miimon));
++out:
+ 	read_unlock(&bond->lock);
+-	queue_delayed_work(bond->wq, &bond->mii_work, delay);
  }
+ 
+ static __be32 bond_glean_dev_ip(struct net_device *dev)
+-- 
+1.5.2.4
 
---_002_13B9B4C6EF24D648824FF11BE8967162035BC6AEB3dlee02enttico_
-Content-Type: application/octet-stream;
-	name="smc911x_suspend_resume_fix.diff"
-Content-Description: smc911x_suspend_resume_fix.diff
-Content-Disposition: attachment; filename="smc911x_suspend_resume_fix.diff";
-	size=3668; creation-date="Wed, 02 Jul 2008 20:04:43 GMT";
-	modification-date="Wed, 02 Jul 2008 20:04:43 GMT"
-Content-Transfer-Encoding: base64
-
-VGhpcyBwYXRjaCBmaXhlcyBsb2NrdXBzIHNlZW4gb24gcmVzdW1lIGFuZCBhbGxvd3MgYSBpZmRv
-d24vaWZ1cCB0byB3b3JrLgoKaWZkb3duL3VwIGZpeDoKLSBNSUkgQk1DUl9QRE9XTiBpcyBzZXQg
-b24gc21jOTExeF9jbG9zZSgpIGJ1dCBpcyBub3QgY2xlYXJlZCBvbiB0aGUKYXV0b25lZ290aWFp
-b24gcGF0aCBvbiBvcGVuLiAgQ2xlYXJpbmcgaXMgYWRkZWQgaW50byBzbWM5MTF4X3Jlc2V0KCkg
-CmlmIGJpdCB3YXMgc2V0IGFmdGVyIG1ha2luZyBzdXJlIGNoaXAgaXMgYWNjZXNzaWJsZS4KCnN1
-c3BlbmQvcmVzdW1lIGZpeGVzOgotIFdoZW4gdHJ5aW5nIGZvciBEMiBwb3dlciBzdGF0ZSB0aGUg
-cGFydCBmYW1pbHkgc3BlY2lmaWNhdGlvbiBzYXlzCk1PREVfQ1RSTF9TVFNfRURQV1JET1dOXyBz
-aG91bGQgYmUgd3JpdHRlbiBiZWZvcmUgUE1fQ1RSTCwgdGhpcyB3YXMgbWlzc2luZy4KVGhpcyBz
-YW1lIGJpdCBhbHNvIG5lZWRzIHRvIGJlIGNsZWFyZWQgb24gcmVzdW1lIGFmdGVyIGNoaXAgaXMg
-d29rZW4uCi0gVGhlIHNlcXVlbmNlIG9mIHJlc3VtZSB3YXMgY2hhbmdlZCB0byBtYXRjaCBpbml0
-IHtyZXNldCwgY29uZmlnLCBlbmFibGV9CmZyb20gb2xkIHtyZXNldCwgZW5hYmxlLCBjb25maWd9
-CgpQYXRjaCB0ZXN0ZWQgb24gU01DOTIxMSB2YXJpYW50IG9uIGVtYmVkZGVkIGJvYXJkcy4KClNp
-Z25lZC1vZmYtYnk6IFJpY2hhcmQgV29vZHJ1ZmYgPHItd29vZHJ1ZmYyQHRpLmNvbT4KCi0tLSBz
-bWM5MTF4LmMJMjAwOC0wNy0wMiAxODozMjo1OS4wMDAwMDAwMDAgLTA1MDAKKysrIC4uL3NtYzkx
-MXguYwkyMDA4LTA3LTAyIDE5OjI0OjM1LjAwMDAwMDAwMCAtMDUwMApAQCAtMjMyLDE0ICsyMzIs
-MTYgQEAgc3RhdGljIHZvaWQgc21jOTExeF9yZXNldChzdHJ1Y3QgbmV0X2RldgogCXN0cnVjdCBz
-bWM5MTF4X2xvY2FsICpscCA9IG5ldGRldl9wcml2KGRldik7CiAJdW5zaWduZWQgaW50IHJlZywg
-dGltZW91dD0wLCByZXNldHM9MTsKIAl1bnNpZ25lZCBsb25nIGZsYWdzOworCWludCBibWNyLCBw
-aHlhZGRyID0gbHAtPm1paS5waHlfaWQ7CiAKIAlEQkcoU01DX0RFQlVHX0ZVTkMsICIlczogLS0+
-ICVzXG4iLCBkZXYtPm5hbWUsIF9fRlVOQ1RJT05fXyk7CiAKLQkvKgkgVGFrZSBvdXQgb2YgUE0g
-c2V0dGluZyBmaXJzdCAqLworCS8qIFRha2Ugb3V0IG9mIFBNIHNldHRpbmcgZmlyc3QgKi8KIAlp
-ZiAoKFNNQ19HRVRfUE1UX0NUUkwoKSAmIFBNVF9DVFJMX1JFQURZXykgPT0gMCkgewogCQkvKiBX
-cml0ZSB0byB0aGUgYnl0ZXRlc3Qgd2lsbCB0YWtlIG91dCBvZiBwb3dlcmRvd24gKi8KIAkJU01D
-X1NFVF9CWVRFX1RFU1QoMCk7CiAJCXRpbWVvdXQ9MTA7CisJCS8qIG5vIG90aGVyIHdyaXRlcyB0
-byBkZXZpY2UgYmVmb3JlIHJlYWR5ICovCiAJCWRvIHsKIAkJCXVkZWxheSgxMCk7CiAJCQlyZWcg
-PSBTTUNfR0VUX1BNVF9DVFJMKCkgJiBQTVRfQ1RSTF9SRUFEWV87CkBAIC0yNDgsNiArMjUwLDE2
-IEBAIHN0YXRpYyB2b2lkIHNtYzkxMXhfcmVzZXQoc3RydWN0IG5ldF9kZXYKIAkJCVBSSU5USygi
-JXM6IHNtYzkxMXhfcmVzZXQgdGltZW91dCB3YWl0aW5nIGZvciBQTSByZXN0b3JlXG4iLCBkZXYt
-Pm5hbWUpOwogCQkJcmV0dXJuOwogCQl9CisJCS8qIGNsZWFyIGxvdyBwb3dlciBzdGF0ZSAqLwor
-CQlTTUNfU0VUX1BIWV9DVFJMX1NUUyhwaHlhZGRyLCBNT0RFX0NUUkxfU1RTX0VEUFdSRE9XTl8p
-OworCisJCS8qIExpbmsgUG93ZXIgT04gaWYgb2ZmKi8KKwkJU01DX0dFVF9QSFlfQk1DUihwaHlh
-ZGRyLCBibWNyKTsKKwkJaWYgKGJtY3IgJiBCTUNSX1BET1dOKSB7CisJCQlibWNyICY9IH5CTUNS
-X1BET1dOOworCQkJU01DX1NFVF9QSFlfQk1DUihwaHlhZGRyLCBibWNyKTsKKwkJCW1kZWxheSgx
-MCk7CisJCX0KIAl9CiAKIAkvKiBEaXNhYmxlIGFsbCBpbnRlcnJ1cHRzICovCkBAIC0yMjA3LDE4
-ICsyMjE5LDI4IEBAIHN0YXRpYyBpbnQgc21jOTExeF9kcnZfcmVtb3ZlKHN0cnVjdCBwbGEKIHN0
-YXRpYyBpbnQgc21jOTExeF9kcnZfc3VzcGVuZChzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpkZXYs
-IHBtX21lc3NhZ2VfdCBzdGF0ZSkKIHsKIAlzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiA9IHBsYXRm
-b3JtX2dldF9kcnZkYXRhKGRldik7Ci0JdW5zaWduZWQgbG9uZyBpb2FkZHIgPSBuZGV2LT5iYXNl
-X2FkZHI7CisJdW5zaWduZWQgbG9uZyBmbGFncywgaW9hZGRyID0gbmRldi0+YmFzZV9hZGRyOwog
-CiAJREJHKFNNQ19ERUJVR19GVU5DLCAiLS0+ICVzXG4iLCBfX0ZVTkNUSU9OX18pOwogCWlmIChu
-ZGV2KSB7Ci0JCWlmIChuZXRpZl9ydW5uaW5nKG5kZXYpKSB7CisJCXN0cnVjdCBzbWM5MTF4X2xv
-Y2FsICpscCA9IG5ldGRldl9wcml2KG5kZXYpOworCQlzcGluX2xvY2tfaXJxc2F2ZSgmbHAtPmxv
-Y2ssIGZsYWdzKTsKKwkJaWYgKG5ldGlmX3J1bm5pbmcobmRldikpCiAJCQluZXRpZl9kZXZpY2Vf
-ZGV0YWNoKG5kZXYpOwotCQkJc21jOTExeF9zaHV0ZG93bihuZGV2KTsKKworCQluZXRpZl9zdG9w
-X3F1ZXVlKG5kZXYpOworCQlzbWM5MTF4X3NodXRkb3duKG5kZXYpOworCiAjaWYgUE9XRVJfRE9X
-TgotCQkJLyogU2V0IEQyIC0gRW5lcmd5IGRldGVjdCBvbmx5IHNldHRpbmcgKi8KLQkJCVNNQ19T
-RVRfUE1UX0NUUkwoMjw8MTIpOwotI2VuZGlmCisJCXsKKwkJLyogU2V0IEQyIC0gRW5lcmd5IGRl
-dGVjdCBvbmx5IHNldHRpbmcgKi8KKwkJaW50IHBoeWFkZHIgPSBscC0+bWlpLnBoeV9pZDsKKwor
-CQlTTUNfU0VUX1BIWV9DVFJMX1NUUyhwaHlhZGRyLCBNT0RFX0NUUkxfU1RTX0VEUFdSRE9XTl8p
-OworCQlTTUNfU0VUX1BNVF9DVFJMKDI8PDEyKTsKIAkJfQorI2VuZGlmCisJCXNwaW5fdW5sb2Nr
-X2lycXJlc3RvcmUoJmxwLT5sb2NrLCBmbGFncyk7CiAJfQogCXJldHVybiAwOwogfQpAQCAtMjIy
-NiwxOCArMjI0OCwyMCBAQCBzdGF0aWMgaW50IHNtYzkxMXhfZHJ2X3N1c3BlbmQoc3RydWN0IHBs
-CiBzdGF0aWMgaW50IHNtYzkxMXhfZHJ2X3Jlc3VtZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpk
-ZXYpCiB7CiAJc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYgPSBwbGF0Zm9ybV9nZXRfZHJ2ZGF0YShk
-ZXYpOworCXVuc2lnbmVkIGxvbmcgZmxhZ3M7CiAKIAlEQkcoU01DX0RFQlVHX0ZVTkMsICItLT4g
-JXNcbiIsIF9fRlVOQ1RJT05fXyk7CiAJaWYgKG5kZXYpIHsKIAkJc3RydWN0IHNtYzkxMXhfbG9j
-YWwgKmxwID0gbmV0ZGV2X3ByaXYobmRldik7CisJCXNwaW5fbG9ja19pcnFzYXZlKCZscC0+bG9j
-aywgZmxhZ3MpOworCQlzbWM5MTF4X3Jlc2V0KG5kZXYpOworCQlpZiAobHAtPnBoeV90eXBlICE9
-IDApCisJCQlzbWM5MTF4X3BoeV9jb25maWd1cmUoJmxwLT5waHlfY29uZmlndXJlKTsKKwkJc21j
-OTExeF9lbmFibGUobmRldik7CiAKLQkJaWYgKG5ldGlmX3J1bm5pbmcobmRldikpIHsKLQkJCXNt
-YzkxMXhfcmVzZXQobmRldik7Ci0JCQlzbWM5MTF4X2VuYWJsZShuZGV2KTsKLQkJCWlmIChscC0+
-cGh5X3R5cGUgIT0gMCkKLQkJCQlzbWM5MTF4X3BoeV9jb25maWd1cmUoJmxwLT5waHlfY29uZmln
-dXJlKTsKKwkJaWYgKG5ldGlmX3J1bm5pbmcobmRldikpCiAJCQluZXRpZl9kZXZpY2VfYXR0YWNo
-KG5kZXYpOwotCQl9CisJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmxwLT5sb2NrLCBmbGFncyk7
-CiAJfQogCXJldHVybiAwOwogfQo=
-
---_002_13B9B4C6EF24D648824FF11BE8967162035BC6AEB3dlee02enttico_--
