@@ -1,210 +1,132 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 28/39]: pktgen: Fix multiqueue handling.
-Date: Thu, 03 Jul 2008 00:04:59 -0700 (PDT)
-Message-ID: <20080703.000459.256709613.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 34/39]: netdev: Kill NETIF_F_MULTI_QUEUE.
+Date: Thu, 03 Jul 2008 00:05:34 -0700 (PDT)
+Message-ID: <20080703.000534.203160848.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Matheos.Worku-UdXhSnd/wVw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vinay@linux.vnet.ibm.com, krkumar2@in.ibm.com, mchan@broadcom.com,
+	Matheos.Worku@Sun.COM, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50727
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758988AbYGCHFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 03:05:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-We make sure we operate on whatever queue gets mapped
-to the pkt_dev->skb.
+There is no need for a feature bit for something that
+can be tested by simply checking the TX queue count.
 
-This is currently functional, but it could be largely
-improved.  The initial check in pktgen_xmit() will
-sometimes check the wrong queue, which is mostly
-harmless.  The thing to do is probably to invoke
-fill_packet() earlier.
-
-Also, dev_pick_tx() has no external references, so we
-can mark it static and kill the module export.
-
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/netdevice.h |    3 --
- net/core/dev.c            |    5 +--
- net/core/pktgen.c         |   55 +++++++++++++++++++++++++++++++--------------
- 3 files changed, 40 insertions(+), 23 deletions(-)
+ Documentation/networking/multiqueue.txt |   11 -----------
+ drivers/net/cpmac.c                     |    1 -
+ drivers/net/ixgbe/ixgbe_main.c          |    2 --
+ drivers/net/s2io.c                      |    2 --
+ include/linux/netdevice.h               |    4 +---
+ net/mac80211/main.c                     |    3 ---
+ 6 files changed, 1 insertions(+), 22 deletions(-)
 
+diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
+index e6dc1ee..d391ea6 100644
+--- a/Documentation/networking/multiqueue.txt
++++ b/Documentation/networking/multiqueue.txt
+@@ -24,15 +24,4 @@ netif_{start|stop|wake}_subqueue() functions to manage each queue while the
+ device is still operational.  netdev->queue_lock is still used when the device
+ comes online or when it's completely shut down (unregister_netdev(), etc.).
+ 
+-Finally, the base driver should indicate that it is a multiqueue device.  The
+-feature flag NETIF_F_MULTI_QUEUE should be added to the netdev->features
+-bitmap on device initialization.  Below is an example from e1000:
+-
+-#ifdef CONFIG_E1000_MQ
+-	if ( (adapter->hw.mac.type == e1000_82571) ||
+-	     (adapter->hw.mac.type == e1000_82572) ||
+-	     (adapter->hw.mac.type == e1000_80003es2lan))
+-		netdev->features |= NETIF_F_MULTI_QUEUE;
+-#endif
+-
+ Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index d630e2a..7c7b54e 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -1165,7 +1165,6 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 	dev->set_multicast_list = cpmac_set_multicast_list;
+ 	dev->tx_timeout         = cpmac_tx_timeout;
+ 	dev->ethtool_ops        = &cpmac_ethtool_ops;
+-	dev->features |= NETIF_F_MULTI_QUEUE;
+ 
+ 	netif_napi_add(dev, &priv->napi, cpmac_poll, 64);
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index db50962..9a0bb4d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3562,8 +3562,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
+-	netdev->features |= NETIF_F_MULTI_QUEUE;
+-
+ 	/* make sure the EEPROM is good */
+ 	if (ixgbe_validate_eeprom_checksum(hw, NULL) < 0) {
+ 		dev_err(&pdev->dev, "The EEPROM Checksum Is Not Valid\n");
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 51a9115..6acbfbc 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -7950,8 +7950,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 		dev->features |= NETIF_F_UFO;
+ 		dev->features |= NETIF_F_HW_CSUM;
+ 	}
+-	if (config->multiq)
+-		dev->features |= NETIF_F_MULTI_QUEUE;
+ 	dev->tx_timeout = &s2io_tx_watchdog;
+ 	dev->watchdog_timeo = WATCH_DOG_TIMEOUT;
+ 	INIT_WORK(&sp->rst_timer_task, s2io_restart_nic);
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 510a420..f119532 100644
+index 6ba9cd0..79a153f 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -757,9 +757,6 @@ struct net_device
- #define	NETDEV_ALIGN		32
- #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
+@@ -525,7 +525,6 @@ struct net_device
+ #define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
+ 					/* do not use LLTX in new drivers */
+ #define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
+-#define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
+ #define NETIF_F_LRO		32768	/* large receive offload */
  
--extern struct netdev_queue *dev_pick_tx(struct net_device *dev,
--					struct sk_buff *skb);
--
- static inline
- struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 					 int index)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6bf4930..cfda430 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1666,12 +1666,11 @@ out_kfree_skb:
-  *          --BLG
+ 	/* Segmentation offload features */
+@@ -1148,11 +1147,10 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
+  *	@dev: network device
+  *
+  * Check if device has multiple transmit queues
+- * Always falls if NETDEVICE_MULTIQUEUE is not configured
   */
- 
--struct netdev_queue *dev_pick_tx(struct net_device *dev,
--				 struct sk_buff *skb)
-+static struct netdev_queue *dev_pick_tx(struct net_device *dev,
-+					struct sk_buff *skb)
+ static inline int netif_is_multiqueue(const struct net_device *dev)
  {
- 	return netdev_get_tx_queue(dev, 0);
+-	return (!!(NETIF_F_MULTI_QUEUE & dev->features));
++	return (dev->num_tx_queues > 1);
  }
--EXPORT_SYMBOL(dev_pick_tx);
  
- int dev_queue_xmit(struct sk_buff *skb)
- {
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 6aeff58..3b08df4 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2123,6 +2123,24 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
- 	}
- }
- #endif
-+static void set_cur_queue_map(struct pktgen_dev *pkt_dev)
-+{
-+	if (pkt_dev->queue_map_min < pkt_dev->queue_map_max) {
-+		__u16 t;
-+		if (pkt_dev->flags & F_QUEUE_MAP_RND) {
-+			t = random32() %
-+				(pkt_dev->queue_map_max -
-+				 pkt_dev->queue_map_min + 1)
-+				+ pkt_dev->queue_map_min;
-+		} else {
-+			t = pkt_dev->cur_queue_map + 1;
-+			if (t > pkt_dev->queue_map_max)
-+				t = pkt_dev->queue_map_min;
-+		}
-+		pkt_dev->cur_queue_map = t;
-+	}
-+}
-+
- /* Increment/randomize headers according to flags and current values
-  * for IP src/dest, UDP src/dst port, MAC-Addr src/dst
-  */
-@@ -2325,19 +2343,7 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 		pkt_dev->cur_pkt_size = t;
- 	}
+ /* Use this variant when it is known for sure that it
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index b78b56e..be32e8a 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -1686,9 +1686,6 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
+ 	if (!mdev)
+ 		goto fail_mdev_alloc;
  
--	if (pkt_dev->queue_map_min < pkt_dev->queue_map_max) {
--		__u16 t;
--		if (pkt_dev->flags & F_QUEUE_MAP_RND) {
--			t = random32() %
--				(pkt_dev->queue_map_max - pkt_dev->queue_map_min + 1)
--				+ pkt_dev->queue_map_min;
--		} else {
--			t = pkt_dev->cur_queue_map + 1;
--			if (t > pkt_dev->queue_map_max)
--				t = pkt_dev->queue_map_min;
--		}
--		pkt_dev->cur_queue_map = t;
--	}
-+	set_cur_queue_map(pkt_dev);
- 
- 	pkt_dev->flows[flow].count++;
- }
-@@ -2458,7 +2464,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 	__be16 *vlan_encapsulated_proto = NULL;  /* packet type ID field (or len) for VLAN tag */
- 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
- 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+-	if (ieee80211_num_queues(hw) > 1)
+-		mdev->features |= NETIF_F_MULTI_QUEUE;
 -
-+	u16 queue_map;
- 
- 	if (pkt_dev->nr_labels)
- 		protocol = htons(ETH_P_MPLS_UC);
-@@ -2469,6 +2475,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
- 	 */
-+	queue_map = pkt_dev->cur_queue_map;
- 	mod_cur_headers(pkt_dev);
- 
- 	datalen = (odev->hard_header_len + 16) & ~0xf;
-@@ -2507,7 +2514,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 	skb->network_header = skb->tail;
- 	skb->transport_header = skb->network_header + sizeof(struct iphdr);
- 	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
--	skb_set_queue_mapping(skb, pkt_dev->cur_queue_map);
-+	skb_set_queue_mapping(skb, queue_map);
- 	iph = ip_hdr(skb);
- 	udph = udp_hdr(skb);
- 
-@@ -2797,6 +2804,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 	__be16 *vlan_encapsulated_proto = NULL;  /* packet type ID field (or len) for VLAN tag */
- 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
- 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
-+	u16 queue_map;
- 
- 	if (pkt_dev->nr_labels)
- 		protocol = htons(ETH_P_MPLS_UC);
-@@ -2807,6 +2815,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
- 	 */
-+	queue_map = pkt_dev->cur_queue_map;
- 	mod_cur_headers(pkt_dev);
- 
- 	skb = alloc_skb(pkt_dev->cur_pkt_size + 64 + 16 +
-@@ -2844,7 +2853,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 	skb->network_header = skb->tail;
- 	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
- 	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
--	skb_set_queue_mapping(skb, pkt_dev->cur_queue_map);
-+	skb_set_queue_mapping(skb, queue_map);
- 	iph = ipv6_hdr(skb);
- 	udph = udp_hdr(skb);
- 
-@@ -3265,6 +3274,7 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	struct netdev_queue *odev_queue;
- 	struct net_device *odev = NULL;
- 	__u64 idle_start = 0;
-+	u16 queue_map;
- 	int ret;
- 
- 	odev = pkt_dev->odev;
-@@ -3286,7 +3296,14 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		}
- 	}
- 
--	odev_queue = dev_pick_tx(odev, pkt_dev->skb);
-+	if (!pkt_dev->skb) {
-+		set_cur_queue_map(pkt_dev);
-+		queue_map = pkt_dev->cur_queue_map;
-+	} else {
-+		queue_map = skb_get_queue_mapping(pkt_dev->skb);
-+	}
-+
-+	odev_queue = netdev_get_tx_queue(odev, queue_map);
- 	if (netif_tx_queue_stopped(odev_queue) ||
- 	    need_resched()) {
- 		idle_start = getCurUs();
-@@ -3330,6 +3347,10 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		}
- 	}
- 
-+	/* fill_packet() might have changed the queue */
-+	queue_map = skb_get_queue_mapping(pkt_dev->skb);
-+	odev_queue = netdev_get_tx_queue(odev, queue_map);
-+
- 	__netif_tx_lock_bh(odev_queue);
- 	if (!netif_tx_queue_stopped(odev_queue)) {
- 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(mdev);
+ 	mdev->ieee80211_ptr = &sdata->wdev;
+ 	sdata->wdev.wiphy = local->hw.wiphy;
 -- 
 1.5.6
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
