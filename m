@@ -1,8 +1,9 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/3] tun: TUNSETFEATURES to set gso features.
-Date: Thu, 3 Jul 2008 11:33:11 +1000
-Message-ID: <200807031133.11813.rusty@rustcorp.com.au>
+Subject: [PATCH 3/3] tun: Allow GSO using virtio_net_hdr
+Date: Thu, 3 Jul 2008 11:34:14 +1000
+Message-ID: <200807031134.15036.rusty@rustcorp.com.au>
 References: <200807031132.12810.rusty@rustcorp.com.au>
+	<200807031133.11813.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,7 +11,7 @@ Cc: markmc@redhat.com, Max Krasnyansky <maxk@qualcomm.com>,
         virtualization@lists.linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <200807031132.12810.rusty@rustcorp.com.au>
+In-Reply-To: <200807031133.11813.rusty@rustcorp.com.au>
 Content-Disposition: inline
 List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
@@ -23,104 +24,185 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-ethtool is useful for setting (some) device fields, but it's
-root-only.  Finer feature control is available through a tun-specific
-ioctl.
-
-(Includes Mark McLoughlin <markmc@redhat.com>'s fix to hold rtnl sem).
+Add a IFF_VNET_HDR flag.  This uses the same ABI as virtio_net (ie. prepending
+struct virtio_net_hdr to packets) to indicate GSO and checksum information.
 
 Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- drivers/net/tun.c      |   49 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/if_tun.h |    7 +++++++
- 2 files changed, 56 insertions(+)
+ drivers/net/tun.c      |   95 +++++++++++++++++++++++++++++++++++++++++++++++--
+ include/linux/if_tun.h |    2 +
+ 2 files changed, 94 insertions(+), 3 deletions(-)
 
-diff -r e08e6c5130ff drivers/net/tun.c
---- a/drivers/net/tun.c	Thu Jun 26 00:17:07 2008 +1000
-+++ b/drivers/net/tun.c	Thu Jun 26 00:21:11 2008 +1000
-@@ -596,6 +596,46 @@ static int tun_set_iff(struct net *net, 
- 	return err;
- }
+diff -r 2c95ece55f0a drivers/net/tun.c
+--- a/drivers/net/tun.c	Thu Jun 26 02:07:18 2008 +1000
++++ b/drivers/net/tun.c	Thu Jun 26 14:35:03 2008 +1000
+@@ -63,6 +63,7 @@
+ #include <linux/if_tun.h>
+ #include <linux/crc32.h>
+ #include <linux/nsproxy.h>
++#include <linux/virtio_net.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
  
-+/* This is like a cut-down ethtool ops, except done via tun fd so no
-+ * privs required. */
-+static int set_offload(struct net_device *dev, unsigned long arg)
-+{
-+	unsigned int old_features, features;
+@@ -283,6 +284,7 @@ static __inline__ ssize_t tun_get_user(s
+ 	struct tun_pi pi = { 0, __constant_htons(ETH_P_IP) };
+ 	struct sk_buff *skb;
+ 	size_t len = count, align = 0;
++	struct virtio_net_hdr gso = { 0 };
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+ 		if ((len -= sizeof(pi)) > count)
+@@ -290,6 +292,17 @@ static __inline__ ssize_t tun_get_user(s
+ 
+ 		if(memcpy_fromiovec((void *)&pi, iv, sizeof(pi)))
+ 			return -EFAULT;
++	}
 +
-+	old_features = dev->features;
-+	/* Unset features, set them as we chew on the arg. */
-+	features = (old_features & ~(NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST
-+				    |NETIF_F_TSO_ECN|NETIF_F_TSO|NETIF_F_TSO6));
++	if (tun->flags & TUN_VNET_HDR) {
++		if ((len -= sizeof(gso)) > count)
++			return -EINVAL;
 +
-+	if (arg & TUN_F_CSUM) {
-+		features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-+		arg &= ~TUN_F_CSUM;
++		if (memcpy_fromiovec((void *)&gso, iv, sizeof(gso)))
++			return -EFAULT;
 +
-+		if (arg & (TUN_F_TSO4|TUN_F_TSO6)) {
-+			if (arg & TUN_F_TSO_ECN) {
-+				features |= NETIF_F_TSO_ECN;
-+				arg &= ~TUN_F_TSO_ECN;
-+			}
-+			if (arg & TUN_F_TSO4)
-+				features |= NETIF_F_TSO;
-+			if (arg & TUN_F_TSO6)
-+				features |= NETIF_F_TSO6;
-+			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
++		if (gso.hdr_len > len)
++			return -EINVAL;
+ 	}
+ 
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+@@ -311,6 +324,16 @@ static __inline__ ssize_t tun_get_user(s
+ 		return -EFAULT;
+ 	}
+ 
++	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
++		if (!skb_partial_csum_set(skb, gso.csum_start,
++					  gso.csum_offset)) {
++			tun->dev->stats.rx_frame_errors++;
++			kfree_skb(skb);
++			return -EINVAL;
 +		}
-+	}
++	} else if (tun->flags & TUN_NOCHECKSUM)
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
 +
-+	/* This gives the user a way to test for new features in future by
-+	 * trying to set them. */
-+	if (arg)
-+		return -EINVAL;
-+
-+	dev->features = features;
-+	if (old_features != dev->features)
-+		netdev_features_change(dev);
-+
-+	return 0;
-+}
-+
- static int tun_chr_ioctl(struct inode *inode, struct file *file,
- 			 unsigned int cmd, unsigned long arg)
- {
-@@ -699,6 +739,15 @@ static int tun_chr_ioctl(struct inode *i
- 		tun->debug = arg;
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case TUN_TUN_DEV:
+ 		skb_reset_mac_header(skb);
+@@ -322,8 +345,35 @@ static __inline__ ssize_t tun_get_user(s
  		break;
- #endif
+ 	};
+ 
+-	if (tun->flags & TUN_NOCHECKSUM)
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
++	if (gso.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
++		pr_debug("GSO!\n");
++		switch (gso.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
++		case VIRTIO_NET_HDR_GSO_TCPV4:
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++			break;
++		case VIRTIO_NET_HDR_GSO_TCPV6:
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++			break;
++		default:
++			tun->dev->stats.rx_frame_errors++;
++			kfree_skb(skb);
++			return -EINVAL;
++		}
 +
-+	case TUNSETOFFLOAD:
-+	{
-+		int ret;
-+		rtnl_lock();
-+		ret = set_offload(tun->dev, arg);
-+		rtnl_unlock();
-+		return ret;
++		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
++			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
++
++		skb_shinfo(skb)->gso_size = gso.gso_size;
++		if (skb_shinfo(skb)->gso_size == 0) {
++			tun->dev->stats.rx_frame_errors++;
++			kfree_skb(skb);
++			return -EINVAL;
++		}
++
++		/* Header must be checked, and gso_segs computed. */
++		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
++		skb_shinfo(skb)->gso_segs = 0;
 +	}
  
- 	case SIOCGIFFLAGS:
- 		ifr.ifr_flags = tun->if_flags;
-diff -r e08e6c5130ff include/linux/if_tun.h
---- a/include/linux/if_tun.h	Thu Jun 26 00:17:07 2008 +1000
-+++ b/include/linux/if_tun.h	Thu Jun 26 00:21:11 2008 +1000
-@@ -43,12 +43,19 @@
- #define TUNSETLINK    _IOW('T', 205, int)
- #define TUNSETGROUP   _IOW('T', 206, int)
- #define TUNGETFEATURES _IOR('T', 207, unsigned int)
-+#define TUNSETOFFLOAD _IOW('T', 208, unsigned int)
+ 	netif_rx_ni(skb);
+ 	tun->dev->last_rx = jiffies;
+@@ -367,6 +417,39 @@ static __inline__ ssize_t tun_put_user(s
+ 		if (memcpy_toiovec(iv, (void *) &pi, sizeof(pi)))
+ 			return -EFAULT;
+ 		total += sizeof(pi);
++	}
++
++	if (tun->flags & TUN_VNET_HDR) {
++		struct virtio_net_hdr gso = { 0 }; /* no info leak */
++		if ((len -= sizeof(gso)) < 0)
++			return -EINVAL;
++
++		if (skb_is_gso(skb)) {
++			struct skb_shared_info *sinfo = skb_shinfo(skb);
++
++			/* This is a hint as to how much should be linear. */
++			gso.hdr_len = skb_headlen(skb);
++			gso.gso_size = sinfo->gso_size;
++			if (sinfo->gso_type & SKB_GSO_TCPV4)
++				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
++			else if (sinfo->gso_type & SKB_GSO_TCPV6)
++				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
++			else
++				BUG();
++			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
++				gso.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
++		} else
++			gso.gso_type = VIRTIO_NET_HDR_GSO_NONE;
++
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
++			gso.csum_start = skb->csum_start - skb_headroom(skb);
++			gso.csum_offset = skb->csum_offset;
++		} /* else everything is zero */
++
++		if (unlikely(memcpy_toiovec(iv, (void *)&gso, sizeof(gso))))
++			return -EFAULT;
++		total += sizeof(gso);
+ 	}
  
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
+ 	len = min_t(int, skb->len, len);
+@@ -583,6 +666,11 @@ static int tun_set_iff(struct net *net, 
+ 	else
+ 		tun->flags &= ~TUN_ONE_QUEUE;
+ 
++	if (ifr->ifr_flags & IFF_VNET_HDR)
++		tun->flags |= TUN_VNET_HDR;
++	else
++		tun->flags &= ~TUN_VNET_HDR;
++
+ 	file->private_data = tun;
+ 	tun->attached = 1;
+ 	get_net(dev_net(tun->dev));
+@@ -669,7 +757,8 @@ static int tun_chr_ioctl(struct inode *i
+ 		/* Currently this just means: "what IFF flags are valid?".
+ 		 * This is needed because we never checked for invalid flags on
+ 		 * TUNSETIFF. */
+-		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE,
++		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
++				IFF_VNET_HDR,
+ 				(unsigned int __user*)argp);
+ 	}
+ 
+diff -r 2c95ece55f0a include/linux/if_tun.h
+--- a/include/linux/if_tun.h	Thu Jun 26 02:07:18 2008 +1000
++++ b/include/linux/if_tun.h	Thu Jun 26 14:35:03 2008 +1000
+@@ -33,6 +33,7 @@
+ #define TUN_NO_PI	0x0040
+ #define TUN_ONE_QUEUE	0x0080
+ #define TUN_PERSIST 	0x0100	
++#define TUN_VNET_HDR 	0x0200
+ 
+ /* Ioctl defines */
+ #define TUNSETNOCSUM  _IOW('T', 200, int) 
+@@ -50,6 +51,7 @@
  #define IFF_TAP		0x0002
  #define IFF_NO_PI	0x1000
  #define IFF_ONE_QUEUE	0x2000
-+
-+/* Features for GSO (TUNSETOFFLOAD). */
-+#define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
-+#define TUN_F_TSO4	0x02	/* I can handle TSO for IPv4 packets */
-+#define TUN_F_TSO6	0x04	/* I can handle TSO for IPv6 packets */
-+#define TUN_F_TSO_ECN	0x08	/* I can handle TSO with ECN bits. */
++#define IFF_VNET_HDR	0x4000
  
- struct tun_pi {
- 	unsigned short flags;
+ /* Features for GSO (TUNSETOFFLOAD). */
+ #define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
