@@ -1,12 +1,12 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: [PATCH 32/39]: mac80211: Reimplement WME using
 	->select_queue().
-Date: Thu, 03 Jul 2008 12:23:03 +0200
-Message-ID: <1215080583.13270.38.camel@johannes.berg>
+Date: Thu, 03 Jul 2008 14:02:29 +0200
+Message-ID: <1215086549.9975.4.camel@johannes.berg>
 References: <20080703.000521.13130101.davem@davemloft.net>
-	 (sfid-20080703_103230_813110_7C480890)
+	 (sfid-20080703_103230_813110_7C480890)  <1215080583.13270.38.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
 	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-UdXhSnd/wVw@public.gmane.org,
@@ -14,33 +14,33 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKd
 	Ron Rindjunsky <rindjon-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080703.000521.13130101.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (sfid-20080703_103230_813110_7C480890)
+In-Reply-To: <1215080583.13270.38.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Here's a little cleanup patch. My kernel is still compiling so I haven'=
-t
-tested it yet though. Note it removes =EF=BB=BFnetif_is_multiqueue(). I=
- think
-the first hunk to =EF=BB=BFnet/mac80211/main.c is a bugfix for your cha=
-nges,
-while the rest is just cleanups.
+On Thu, 2008-07-03 at 12:23 +0200, Johannes Berg wrote:
+> Here's a little cleanup patch. My kernel is still compiling so I have=
+n't
+> tested it yet though.
 
-Ron, your Intel address is bouncing (=EF=BB=BF550 #5.1.0 Address reject=
-ed),
-might want to check that out.
-
-As Dave said, his patch breaks requeuing and first I thought that wasn'=
+This is a fixed version of the patch, but mac80211 still hangs and I
+haven't been able to figure out why yet. iwlwifi scans fine, but since
+that is hardware-assisted scanning we don't actually send packets, so i=
 t
-important, but I think the point was to put frames we have already
-queued for a station into the right aggregation queue so that it can be
-aggregated when aggregation is started; and that we don't try to send i=
-t
-out on an aggregation queue when aggregation is stopped.
+looks like it hangs as soon as the first packet is sent out...
 
 johannes
+
+
+=EF=BB=BFmac8021: Clean up after multiqueue rework
+
+This cleans up mac80211 and removes a lot of now useless things. Also
+removes netif_is_multiqueue().
+
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 ---
  include/linux/netdevice.h  |   11 -----------
+ include/net/mac80211.h     |    8 --------
  net/mac80211/Kconfig       |   10 ----------
  net/mac80211/Makefile      |    4 ++--
  net/mac80211/ieee80211_i.h |    9 ---------
@@ -48,7 +48,7 @@ johannes
  net/mac80211/util.c        |   14 ++------------
  net/mac80211/wme.c         |   14 +-------------
  net/mac80211/wme.h         |   22 +---------------------
- 8 files changed, 8 insertions(+), 85 deletions(-)
+ 9 files changed, 8 insertions(+), 93 deletions(-)
 
 --- everything.orig/net/mac80211/ieee80211_i.h	2008-07-03 11:43:40.0000=
 00000 +0200
@@ -271,6 +271,32 @@ rupts
 =20
  	/* add one default STA interface */
  	result =3D ieee80211_if_add(local->mdev, "wlan%d", NULL,
+--- everything.orig/include/net/mac80211.h	2008-07-03 13:39:28.00000000=
+0 +0200
++++ everything/include/net/mac80211.h	2008-07-03 13:39:44.000000000 +02=
+00
+@@ -812,20 +812,12 @@ static inline void SET_IEEE80211_PERM_AD
+=20
+ static inline int ieee80211_num_regular_queues(struct ieee80211_hw *hw=
+)
+ {
+-#ifdef CONFIG_MAC80211_QOS
+ 	return hw->queues;
+-#else
+-	return 1;
+-#endif
+ }
+=20
+ static inline int ieee80211_num_queues(struct ieee80211_hw *hw)
+ {
+-#ifdef CONFIG_MAC80211_QOS
+ 	return hw->queues + hw->ampdu_queues;
+-#else
+-	return 1;
+-#endif
+ }
+=20
+ static inline struct ieee80211_rate *
 
 
 --
