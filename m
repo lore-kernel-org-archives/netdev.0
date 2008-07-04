@@ -1,62 +1,59 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 4 Jul 2008 15:38:22 +0100
-Message-ID: <20080704153822.4db2f325@lxorguk.ukuu.org.uk>
-References: <1215093175.10393.567.camel@pmac.infradead.org>
-	<20080703173040.GB30506@mit.edu>
-	<1215111362.10393.651.camel@pmac.infradead.org>
-	<20080703.162120.206258339.davem@davemloft.net>
-	<486D6DDB.4010205@infradead.org>
-	<87ej6armez.fsf@basil.nowhere.org>
-	<1215177044.10393.743.camel@pmac.infradead.org>
-	<486E2260.5050503@garzik.org>
-	<1215178035.10393.763.camel@pmac.infradead.org>
-	<486E2818.1060003@garzik.org>
-	<1215179161.10393.773.camel@pmac.infradead.org>
-	<486E2E9B.20200@garzik.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
+	for device classes.
+Date: Fri, 4 Jul 2008 09:12:00 -0700
+Message-ID: <20080704161200.GA1440@suse.de>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org> <m14p76ih9a.fsf_-_@frodo.ebiederm.org> <m1zloyh2mb.fsf_-_@frodo.ebiederm.org> <m1vdzmh2jr.fsf_-_@frodo.ebiederm.org> <m1r6aah2hh.fsf_-_@frodo.ebiederm.org> <m1mykyh2fu.fsf_-_@frodo.ebiederm.org> <m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
 	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:39888 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758483AbYGDO5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 10:57:22 -0400
-In-Reply-To: <486E2E9B.20200@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Tejun Heo <htejun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756772AbYGDQV6@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <486E2C3B.6020603@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 04 Jul 2008 10:07:23 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> David Woodhouse wrote:
-> > On Fri, 2008-07-04 at 09:39 -0400, Jeff Garzik wrote:
-> >> You have been told repeatedly that cp(1) and scp(1) are commonly used
-> >> to transport the module David and I care about -- tg3.  It's been a
-> >> single file module since birth, and people take advantage of that
-> >> fact.
-> > 
-> > And you can _continue_ to do that. You'd need to install the firmware
-> > just once, and that's all. It's a non-issue, and it isn't _worth_ the
-> > added complexity of building the firmware into the module.
+On Fri, Jul 04, 2008 at 10:57:15PM +0900, Tejun Heo wrote:
+> Hello, Eric.
 > 
-> We can stop there.  Real-world examples are apparently non-issues not 
-> worth your time.
+> Eric W. Biederman wrote:
+> > Thank you for your opinion.
+> > 
+> > Incremental patches to make things more beautiful are welcome.
+> > 
+> > Please remember we are not building lisp.  The goal is code that works today.
+> > 
+> > Since we are not talking about correctness of the code.  Since we are not
+> > talking about interfaces with user space.  Since we are talking something
+> > that is currently about 100 lines of code, and so will be easy to change
+> > even after it is merged.   I don't understand how discussing this further
+> > is useful.  Especially when I get a NAK  based on the feel that the code
+> > is ugly.
+> 
+> I'm sorry if I gave you the impression of being draconian.  Explanations
+> below.
+> 
+> > As for your main objection.  Adding a accessor method to an object versus
+> > adding a data field that contain the same thing.  The two are effectively
+> > identical.  With the practical difference in my eyes that an accessor method
+> > prevents data duplication which reduces maintenance and reduces skew problems,
+> > and it keeps the size of struct kobject small.  Since you think methods are
+> > horrible I must respectfully disagree with you.
+> 
+> Yeah, it seems we should agree to disagree here.  I think using callback
+> for static values is a really bad idea.  It obfuscates the code and
+> opens up a big hole for awful misuses.  Greg, what do you think?
 
-Jeff - real world issues and gains are measured on a scale across the
-userbase not "Jeff's having a tantrum because his specific usage case
-requires one extra copy once"
+Sorry, Greg is walking out the door in 30 minutes for a much needed week
+long vacation and can't look into this right now :(
 
-And we had the same argument over ten years ago about those evil module
-things which stopped you just using scp to copy the kernel in one go.
-Fortunately the nay sayers lost so we have modules.
+I'll be able to review it next weekend, sorry for the delay.
 
-Alan
+greg k-h
