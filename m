@@ -1,43 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [NET-NEXT PATCH 08/18] igb: Introduce multiple TX queues with
- infrastructure
-Date: Fri, 04 Jul 2008 08:43:10 -0400
-Message-ID: <486E1ADE.50706@garzik.org>
-References: <20080627175921.22428.52767.stgit@localhost.localdomain> <20080627180044.22428.21729.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 5/5] net/core: Allow receive on active slaves.
+Date: Fri, 04 Jul 2008 08:45:52 -0400
+Message-ID: <486E1B80.7060900@pobox.com>
+References: <12150481222323-git-send-email-fubar@us.ibm.com> <12150481241992-git-send-email-fubar@us.ibm.com> <1215048125108-git-send-email-fubar@us.ibm.com> <12150481262025-git-send-email-fubar@us.ibm.com> <1215048127619-git-send-email-fubar@us.ibm.com> <1215048128335-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Joe Eykholt <jre@nuovasystems.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54578 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43457 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753945AbYGDMnO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 08:43:14 -0400
-In-Reply-To: <20080627180044.22428.21729.stgit@localhost.localdomain>
+	id S1753711AbYGDMp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 08:45:56 -0400
+In-Reply-To: <1215048128335-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Jay Vosburgh wrote:
+> From: Joe Eykholt <jre@nuovasystems.com>
 > 
-> This code adds multiple Tx queue infrastructure much like we
-> previously did in ixgbe. The MSI-X vector mapping is the bulk of
-> the change.
+> If a packet_type specifies an active slave to bonding and not just any
+> interface, allow it to receive frames that came in on that interface.
 > 
-> IAM can now be safely enabled and we've verified that it does
-> work correctly. We can also eliminate the tx ring lock.
-> 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Joe Eykholt <jre@nuovasystems.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 > ---
+>  net/core/dev.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
 > 
->  drivers/net/igb/igb.h      |    6 +-
->  drivers/net/igb/igb_main.c |  160 ++++++++++++++++++++++++++++++--------------
->  2 files changed, 113 insertions(+), 53 deletions(-)
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a949664..d68f662 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2104,7 +2104,8 @@ int netif_receive_skb(struct sk_buff *skb)
+>  #endif
+>  
+>  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> -		if (ptype->dev == null_or_orig || ptype->dev == skb->dev) {
+> +		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+> +		    ptype->dev == orig_dev) {
+>  			if (pt_prev)
+>  				ret = deliver_skb(skb, pt_prev, orig_dev);
+>  			pt_prev = ptype;
+> @@ -2129,7 +2130,8 @@ ncls:
+>  	list_for_each_entry_rcu(ptype,
+>  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+>  		if (ptype->type == type &&
+> -		    (ptype->dev == null_or_orig || ptype->dev == skb->dev)) {
+> +		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+> +		     ptype->dev == orig_dev)) {
+>  			if (pt_prev)
 
-presumably this should wait for david to finish his multi-TX stuff?
+This needs a review&ack from David, then OK...
 
 
