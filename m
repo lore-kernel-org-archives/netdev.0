@@ -1,32 +1,26 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] support for IEEE 1588
-Date: Fri, 04 Jul 2008 13:24:20 +0200
-Message-ID: <8763rlsxi3.fsf@basil.nowhere.org>
-References: <200807040147.11148.opurdila@ixiacom.com>
-	<20080703162428.55d9f345@extreme>
-	<200807040240.04801.opurdila@ixiacom.com> <486D6B87.9030409@hp.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 0/4] MIB: add struct net to UDP accounting macros
+Date: Fri, 04 Jul 2008 15:58:44 +0400
+Message-ID: <486E1074.7040702@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Denis Lunev <den@openvz.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:11894 "EHLO
-	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938AbYGDLZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 07:25:07 -0400
-In-Reply-To: <486D6B87.9030409@hp.com> (Rick Jones's message of "Thu, 03 Jul 2008 17:15:03 -0700")
+Received: from sacred.ru ([62.205.161.221]:35755 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752581AbYGDMBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 08:01:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick Jones <rick.jones2@hp.com> writes:
->
-> I've not had a good emily litella moment in at least a week, so I'll
-> ask - if the clock in the hardware generating the timestamp and the
-> clock in the host aren't synchronized in _some_ way, what benefit is
-> there to putting the hardware's timestamp in there?
+This is the first small set of MIB statistics netnsization. The easiest
+case is UDP stats, so I started with this one. If this set is accepted,
+I will go on step-by-step with adding struct net to all the other stats' 
+accounting macros, then SNMP_XXX ones and finish with a set than will put 
+the stats on the struct net and fix appropriate proc files.
 
-The point is to synchronize them using a high quality data stamp.
-
--Andi
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Acked-by: Denis V. Lunev <den@openvz.org>
