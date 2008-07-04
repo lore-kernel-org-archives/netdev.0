@@ -1,52 +1,42 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC] support for IEEE 1588
-Date: Fri, 4 Jul 2008 02:40:04 +0300
-Message-ID: <200807040240.04801.opurdila@ixiacom.com>
-References: <200807040147.11148.opurdila@ixiacom.com> <20080703162428.55d9f345@extreme>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: MD5 SG fix
+Date: Thu, 3 Jul 2008 17:07:54 -0700
+Message-ID: <396556a20807031707u26276f7dx8787f8b23d050087@mail.gmail.com>
+References: <396556a20805301217k293e5718h6bbf02bfe0683152@europa>
+	 <396556a20805301217k293e5718h6bbf02bfe0683153@europa>
+	 <20080702045555.GB11252@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "Stephen Hemminger" <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1454 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757716AbYGCXmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 19:42:05 -0400
-In-Reply-To: <20080703162428.55d9f345@extreme>
+Received: from rv-out-0506.google.com ([209.85.198.232]:38029 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752895AbYGDAHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 20:07:54 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1243867rvb.1
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2008 17:07:54 -0700 (PDT)
+In-Reply-To: <20080702045555.GB11252@2ka.mipt.ru>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 July 2008, Stephen Hemminger wrote:
+On Tue, Jul 1, 2008 at 9:55 PM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> Why dont't you want to iterate over all provided data/page pointers with
+> crypto_hash_update() and do not mess with huge scatterlist arrays?
 
-> >
-> > 1. RX path
-> > - add a new field in skb to keep the hardware stamp (hwstamp)
-> > - add a new socket flag to enable RX stamping
-> > - add a new control message to retrieve the hwstamp from the skb to
-> > user-space application (for UDP and maybe PF_PACKET)
->
-> The existing skb timestamp is there, and if the hardware supports it, it
-> could be updated by the device driver  I had a version of sky2 that did
-> just that but never fully pushed it upstream because of available time and
-> testing issues.
->
-> The API's are already there (and used) for timestamping; don't invent
-> new ones.
+You're right, it's easier that way. I was just stuck in the thinking
+of the original code.
 
-Hi Stephen,
-
-Thanks for taking the time to respond.
-
-The hardware we will be using will not have the timestamping unit synchronized 
-to gettimeofday(). In this conditions, is it OK to put our hw stamp into 
-skb->tstamp?
-
-Also, are there any APIs we can use on the TX side as well?
-
-Thanks,
-tavi
+Stephen: I managed to test the SG stuff by setting up lo in jumbo
+frames mode, so no need to test it on your BGP stuff.
 
 
+Cheers,
+
+AGL
+
+
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
