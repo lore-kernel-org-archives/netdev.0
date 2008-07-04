@@ -1,232 +1,66 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 04 Jul 2008 19:01:56 +0100
-Message-ID: <1215194516.3189.5.camel@shinybook.infradead.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>
-	 <20080703173040.GB30506@mit.edu>
-	 <1215111362.10393.651.camel@pmac.infradead.org>
-	 <20080703.162120.206258339.davem@davemloft.net>
-	 <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org>
-	 <1215177044.10393.743.camel@pmac.infradead.org>
-	 <486E2260.5050503@garzik.org>
-	 <1215178035.10393.763.camel@pmac.infradead.org>
-	 <486E2818.1060003@garzik.org>  <20080704143058.GB23215@mit.edu>
+From: "Alexander Beregalov" <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2213
+Date: Fri, 4 Jul 2008 22:55:18 +0400
+Message-ID: <a4423d670807041155o7629b3d7ie3323d79a9ea7301@mail.gmail.com>
+References: <a4423d670806041450h17a2d3b1w40ea9ff8550a4b11@mail.gmail.com>
+	 <20080604.145244.07802877.davem@davemloft.net>
+	 <a4423d670806041529q6911f68fq68ee9ed8f8f50139@mail.gmail.com>
+	 <Pine.LNX.4.64.0806061509530.16829@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, hugh@veritas.com,
-	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org, sam@ravnborg.org
-To: Theodore Tso <tytso@mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:44194 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751633AbYGDSCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 14:02:38 -0400
-In-Reply-To: <20080704143058.GB23215@mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0806061509530.16829-x/A8LOkYjdVsRR2hCrRKtT03IgOmwywn@public.gmane.org>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-07-04 at 10:30 -0400, Theodore Tso wrote:
-> So on this point I'd side with David, and say that folding "make
-> firmware_install" into "make modules_install" goes a long way towards
-> healing this particular breakage.
+It looks similar.
 
-make modules_install | tail ...
-  INSTALL fs/nfs/nfs.ko
-  INSTALL fs/nls/nls_iso8859-1.ko
-  INSTALL fs/vfat/vfat.ko
-  MKDIR   /lib/firmware/acenic
-  INSTALL /lib/firmware/acenic/tg2.bin
-  MKDIR   /lib/firmware/tigon
-  INSTALL /lib/firmware/tigon/tg3.bin
-  INSTALL /lib/firmware/tigon/tg3_tso.bin
-  INSTALL /lib/firmware/tigon/tg3_tso5.bin
-  DEPMOD  2.6.26-rc8
-
->From 9fcda0ce34142cb8d7450dd262173a1c7c629515 Mon Sep 17 00:00:00 2001
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Fri, 4 Jul 2008 18:53:27 +0100
-Subject: [PATCH] firmware: 'make modules_install' installs firmware to match modules
-
-(and also the static kernel, when CONFIG_FIRMWARE_IN_KERNEL=n).
-
-This means that people no longer have to know to run 'make
-firmware_install' for themselves, and firmware should get installed
-automatically.
-
-Signed-off-by: David Woodhouse <dwmw2@infradead.org>
----
- Makefile                |    6 ++++--
- firmware/Makefile       |   39 +++++++++++++++++++++++++++++----------
- scripts/Makefile.fwinst |   21 ++++++++++++++++++---
- 3 files changed, 51 insertions(+), 15 deletions(-)
-
-diff --git a/Makefile b/Makefile
-index 947a90f..676fa96 100644
---- a/Makefile
-+++ b/Makefile
-@@ -996,11 +996,12 @@ depend dep:
- 
- # ---------------------------------------------------------------------------
- # Firmware install
--INSTALL_FW_PATH=/lib/firmware
-+INSTALL_FW_PATH=$(INSTALL_MOD_PATH)/lib/firmware
- export INSTALL_FW_PATH
- 
- PHONY += firmware_install
- firmware_install: FORCE
-+	@mkdir -p $(objtree)/firmware
- 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_install
- 
- # ---------------------------------------------------------------------------
-@@ -1089,6 +1090,7 @@ _modinst_:
- # boot script depmod is the master version.
- PHONY += _modinst_post
- _modinst_post: _modinst_
-+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_modinst
- 	$(call cmd,depmod)
- 
- else # CONFIG_MODULES
-@@ -1207,7 +1209,7 @@ help:
- 	@echo  '* modules	  - Build all modules'
- 	@echo  '  modules_install - Install all modules to INSTALL_MOD_PATH (default: /)'
- 	@echo  '  firmware_install- Install all firmware to INSTALL_FW_PATH'
--	@echo  '                    (default: /lib/firmware)'
-+	@echo  '                    (default: $$(INSTALL_MOD_PATH)/lib/firmware)'
- 	@echo  '  dir/            - Build all files in dir and below'
- 	@echo  '  dir/file.[ois]  - Build specified target only'
- 	@echo  '  dir/file.ko     - Build module including final link'
-diff --git a/firmware/Makefile b/firmware/Makefile
-index f88d746..da9c92b 100644
---- a/firmware/Makefile
-+++ b/firmware/Makefile
-@@ -9,10 +9,24 @@ fwabs := $(addprefix $(srctree)/,$(filter-out /%,$(fwdir)))$(filter /%,$(fwdir))
- 
- fw-external-y := $(subst ",,$(CONFIG_EXTRA_FIRMWARE))
- 
--ifneq ($(CONFIG_ACENIC_OMIT_TIGON_I),y)
--fw-shipped-$(CONFIG_ACENIC) += acenic/tg1.bin
-+# There are three cases to care about:
-+# 1. Building kernel with CONFIG_FIRMWARE_IN_KERNEL=y -- $(fw-shipped-y) should
-+#    include the firmware files to include, according to .config
-+# 2. 'make modules_install', which will install firmware for modules, and 
-+#    _also_ for the in-kernel drivers when CONFIG_FIRMWARE_IN_KERNEL=n
-+# 3. 'make firmware_install', which installs all firmware, unconditionally.
-+
-+# For the former two cases we want $(fw-shipped-y) and $(fw-shipped-m) to be
-+# accurate. In the latter case it doesn't matter -- it'll use $(fw-shipped-all).
-+# But be aware that the config file might not be included at all.
-+
-+ifdef CONFIG_ACENIC_OMIT_TIGON_I
-+acenic-objs := acenic/tg2.bin
-+fw-shipped- += acenic/tg1.bin
-+else
-+acenic-objs := acenic/tg1.bin acenic/tg2.bin
- endif
--fw-shipped-$(CONFIG_ACENIC) += acenic/tg2.bin
-+fw-shipped-$(CONFIG_ACENIC) += $(acenic-objs)
- fw-shipped-$(CONFIG_ATM_AMBASSADOR) += atmsar11.fw
- fw-shipped-$(CONFIG_COMPUTONE) += intelliport2.bin
- fw-shipped-$(CONFIG_DVB_AV7110) += av7110/bootcode.bin
-@@ -35,6 +49,7 @@ fw-shipped-$(CONFIG_USB_EMI62) += emi62/loader.fw emi62/bitstream.fw \
- fw-shipped-$(CONFIG_USB_KAWETH) += kaweth/new_code.bin kaweth/trigger_code.bin \
- 				   kaweth/new_code_fix.bin \
- 				   kaweth/trigger_code_fix.bin
-+ifdef CONFIG_FIRMWARE_IN_KERNEL
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_MPR) += keyspan/mpr.fw
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA18X) += keyspan/usa18x.fw
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA19) += keyspan/usa19.fw
-@@ -47,6 +62,12 @@ fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA28XB) += keyspan/usa28xb.fw
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA28X) += keyspan/usa28x.fw
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA49W) += keyspan/usa49w.fw
- fw-shipped-$(CONFIG_USB_SERIAL_KEYSPAN_USA49WLC) += keyspan/usa49wlc.fw
-+else
-+fw-shipped- := keyspan/mpr.fw keyspan/usa18x.fw keyspan/usa19.fw	\
-+	keyspan/usa19qi.fw keyspan/usa19qw.fw keyspan/usa19w.fw		\
-+	keyspan/usa28.fw keyspan/usa28xa.fw keyspan/usa28xb.fw		\
-+	keyspan/usa28x.fw keyspan/usa49w.fw keyspan/usa49wlc.fw
-+endif
- fw-shipped-$(CONFIG_USB_SERIAL_TI) += ti_3410.fw ti_5052.fw
- fw-shipped-$(CONFIG_USB_SERIAL_WHITEHEAT) += whiteheat_loader.fw whiteheat.fw \
- 					   # whiteheat_loader_debug.fw
-@@ -55,13 +76,10 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
- fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
- fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
- 
--# If CONFIG_FIRMWARE_IN_KERNEL is not set, then don't include any firmware
--ifneq ($(CONFIG_FIRMWARE_IN_KERNEL),y)
--fw-shipped-y :=
--endif
-+fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
- 
--firmware-y    := $(fw-external-y) $(fw-shipped-y)
--firmware-dirs := $(sort $(patsubst %,$(objtree)/$(obj)/%/,$(dir $(firmware-y) $(fw-shipped-))))
-+# Directories which we _might_ need to create, so we have a rule for them.
-+firmware-dirs := $(sort $(patsubst %,$(objtree)/$(obj)/%/,$(dir $(fw-external-y) $(fw-shipped-all))))
- 
- quiet_cmd_mkdir = MKDIR   $(patsubst $(objtree)/%,%,$@)
-       cmd_mkdir = mkdir -p $@
-@@ -146,7 +164,8 @@ $(obj)/%.fw: $(obj)/%.H16 $(obj)/ihex2fw | $(objtree)/$(obj)/$$(dir %)
- $(firmware-dirs):
- 	$(call cmd,mkdir)
- 
--obj-y := $(patsubst %,%.gen.o, $(firmware-y))
-+obj-y				 += $(patsubst %,%.gen.o, $(fw-external-y))
-+obj-$(CONFIG_FIRMWARE_IN_KERNEL) += $(patsubst %,%.gen.o, $(fw-shipped-y))
- 
- # Remove .S files and binaries created from ihex
- # (during 'make clean' .config isn't included so they're all in $(fw-shipped-))
-diff --git a/scripts/Makefile.fwinst b/scripts/Makefile.fwinst
-index 8301802..df91610 100644
---- a/scripts/Makefile.fwinst
-+++ b/scripts/Makefile.fwinst
-@@ -8,13 +8,25 @@
- INSTALL := install
- src := $(obj)
- 
-+# For modules_install installing firmware, we want to see .config
-+# But for firmware_install, we don't care, but don't want to require it.
-+-include $(objtree)/.config
-+
- include scripts/Kbuild.include
- include $(srctree)/$(obj)/Makefile
- 
- include scripts/Makefile.host
- 
--installed-fw := $(addprefix $(INSTALL_FW_PATH)/,$(fw-shipped-))
--installed-fw-dirs := $(sort $(dir $(installed-fw)))
-+mod-fw := $(addprefix $(INSTALL_FW_PATH)/,$(fw-shipped-m))
-+
-+# If CONFIG_FIRMWARE_IN_KERNEL isn't set, then install the 
-+# firmware for in-kernel drivers too.
-+ifndef CONFIG_FIRMWARE_IN_KERNEL
-+mod-fw += $(addprefix $(INSTALL_FW_PATH)/,$(fw-shipped-y))
-+endif
-+
-+installed-fw := $(addprefix $(INSTALL_FW_PATH)/,$(fw-shipped-all))
-+installed-fw-dirs := $(sort $(dir $(installed-fw))) $(INSTALL_FW_PATH)/.
- 
- quiet_cmd_install = INSTALL $(subst $(srctree)/,,$@)
-       cmd_install = $(INSTALL) -m0644 $< $@
-@@ -25,7 +37,10 @@ $(installed-fw-dirs):
- $(installed-fw): $(INSTALL_FW_PATH)/%: $(obj)/% | $(INSTALL_FW_PATH)/$$(dir %)/
- 	$(call cmd,install)
- 
--.PHONY: __fw_install FORCE
-+.PHONY: __fw_install __fw_modinst FORCE
-+
- __fw_install: $(installed-fw)
-+__fw_modinst: $(mod-fw)
-+
- 
- FORCE:
--- 
-1.5.5.1
+WARNING: at net/ipv4/tcp_input.c:2213 tcp_mark_head_lost+0x15c/0x164()
+Modules linked in: i2c_nforce2
+Pid: 0, comm: swapper Not tainted 2.6.26-rc8-00089-ge1441b9-dirty #1
+ [<c0119f15>] warn_on_slowpath+0x41/0x7b
+ [<c01348dc>] ? mark_held_locks+0x4e/0x66
+ [<c011e518>] ? local_bh_enable+0xcf/0xe6
+ [<c0134a50>] ? trace_hardirqs_on+0xd0/0x10d
+ [<c031f8c5>] ? dev_queue_xmit+0x2cd/0x300
+ [<c0336968>] ? ip_finish_output+0x20c/0x244
+ [<c0336a06>] ? ip_output+0x66/0x6a
+ [<c0135b9e>] ? __lock_acquire+0xc26/0xc35
+ [<c033e5e1>] tcp_mark_head_lost+0x15c/0x164
+ [<c034064c>] tcp_ack+0x14ff/0x1760
+ [<c0342ffa>] tcp_rcv_established+0xdc/0x96a
+ [<c0348807>] tcp_v4_do_rcv+0x25/0x14e
+ [<c0383159>] ? _spin_lock_nested+0x4f/0x57
+ [<c0348c2a>] tcp_v4_rcv+0x2fa/0x492
+ [<c0332b42>] ip_local_deliver+0x7d/0xcd
+ [<c0332a9e>] ip_rcv+0x352/0x379
+ [<c012c918>] ? ktime_get_real+0x13/0x2f
+ [<c031eecb>] netif_receive_skb+0x1ec/0x21a
+ [<c032a9d4>] ? eth_type_trans+0x28/0xc7
+ [<c02e3a2e>] nv_napi_poll+0x1fa/0x618
+ [<c0134a50>] ? trace_hardirqs_on+0xd0/0x10d
+ [<c031df80>] net_rx_action+0x8b/0x14e
+ [<c011e60b>] __do_softirq+0x54/0xa1
+ [<c013fc13>] ? handle_fasteoi_irq+0x0/0xab
+ [<c010494f>] do_softirq+0x57/0xa6
+ [<c011e201>] irq_exit+0x3b/0x7c
+ [<c0104b18>] do_IRQ+0xca/0xe2
+ [<c0101d2a>] ? default_idle+0x0/0x4e
+ [<c0101d2a>] ? default_idle+0x0/0x4e
+ [<c0103712>] common_interrupt+0x2e/0x34
+ [<c0101d2a>] ? default_idle+0x0/0x4e
+ [<c0101d2a>] ? default_idle+0x0/0x4e
+ [<c0101d57>] ? default_idle+0x2d/0x4e
+ [<c0101cfd>] cpu_idle+0x62/0x8f
+ [<c0375c81>] rest_init+0x61/0x63
+ =======================
+---[ end trace 458274215148af5e ]---
 
 
--- 
-dwmw2
-
+You are right, I have no idea how to reproduce it.
+I have two events, once per  month.
