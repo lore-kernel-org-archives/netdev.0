@@ -1,322 +1,143 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 05/15] sysfs: Rename Support multiple superblocks
-Date: Thu, 03 Jul 2008 18:10:05 -0700
-Message-ID: <m1d4luihea.fsf_-_@frodo.ebiederm.org>
-References: <20080618170729.808539948@theryb.frec.bull.fr>
-	<486706C9.9040303@gmail.com> <m18wwmsqdv.fsf@frodo.ebiederm.org>
-	<4869D314.5030403@gmail.com> <m1ej6enep7.fsf@frodo.ebiederm.org>
-	<486A0751.9080602@gmail.com> <m1wsk5hjm0.fsf@frodo.ebiederm.org>
-	<486AF4FA.8020805@gmail.com> <m1ej6d9c2r.fsf@frodo.ebiederm.org>
-	<486B060C.7030607@gmail.com> <m14p78s02q.fsf@frodo.ebiederm.org>
-	<486C4515.1070007@gmail.com> <m1hcb7o8lv.fsf@frodo.ebiederm.org>
-	<486CB051.5000507@fr.ibm.com> <m14p77m9uy.fsf@frodo.ebiederm.org>
-	<486CF71F.5090405@gmail.com> <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
-	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
-	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>
-	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] sctp: remove unnecessary byteshifting, calculate crc in
+	big-endian
+Date: Thu, 03 Jul 2008 18:13:15 -0700
+Message-ID: <1215133995.16647.51.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	<netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:38467 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755062AbYGDBLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:11:44 -0400
-In-Reply-To: <m1hcb6ihfz.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 03 Jul 2008 18:09:04 -0700")
+Received: from rv-out-0506.google.com ([209.85.198.232]:14352 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754804AbYGDBNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:13:48 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so1268253rvb.1
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2008 18:13:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-This patch modifies the sysfs_rename_dir and sysfs_move_dir routines
-to support multiple sysfs dentry tries rooted in different
-sysfs superblocks.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Acked-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- fs/sysfs/dir.c |  193 +++++++++++++++++++++++++++++++++++++++-----------------
- 1 files changed, 136 insertions(+), 57 deletions(-)
+ include/net/sctp/checksum.h            |   23 ++++++++++++++---------
+ net/ipv4/netfilter/nf_nat_proto_sctp.c |    4 ++--
+ net/sctp/input.c                       |    4 ++--
+ net/sctp/output.c                      |    4 ++--
+ 4 files changed, 20 insertions(+), 15 deletions(-)
 
-diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-index df9934a..b2d92ea 100644
---- a/fs/sysfs/dir.c
-+++ b/fs/sysfs/dir.c
-@@ -803,43 +803,113 @@ static struct dentry *__sysfs_get_dentry(struct super_block *sb,
- 	return dentry;
- }
+diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
+index ba75c67..b799fb2 100644
+--- a/include/net/sctp/checksum.h
++++ b/include/net/sctp/checksum.h
+@@ -46,9 +46,14 @@
+ #include <net/sctp/sctp.h>
+ #include <linux/crc32c.h>
  
-+struct sysfs_rename_struct {
-+	struct list_head list;
-+	struct dentry *old_dentry;
-+	struct dentry *new_dentry;
-+	struct dentry *old_parent;
-+	struct dentry *new_parent;
-+};
-+
-+static void post_rename(struct list_head *head)
-+{
-+	struct sysfs_rename_struct *srs;
-+	while (!list_empty(head)) {
-+		srs = list_entry(head->next, struct sysfs_rename_struct, list);
-+		dput(srs->old_dentry);
-+		dput(srs->new_dentry);
-+		dput(srs->old_parent);
-+		dput(srs->new_parent);
-+		list_del(&srs->list);
-+		kfree(srs);
-+	}
+-static inline __u32 sctp_start_cksum(__u8 *buffer, __u16 length)
++static inline __be32 sctp_crc32c(__be32 crc, u8 *buffer, u16 length)
+ {
+-	__u32 crc = ~(__u32) 0;
++	return (__force __be32)crc32c((__force u32)crc, buffer, length);
 +}
 +
-+static int prep_rename(struct list_head *head,
-+	struct sysfs_dirent *sd, struct sysfs_dirent *new_parent_sd,
-+	const char *name)
++static inline __be32 sctp_start_cksum(__u8 *buffer, __u16 length)
 +{
-+	struct sysfs_rename_struct *srs;
-+	struct super_block *sb;
-+	struct dentry *dentry;
-+	int error;
-+
-+	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-+		dentry = sysfs_get_dentry(sb, sd);
-+		if (dentry == ERR_PTR(-EXDEV))
-+			continue;
-+		if (IS_ERR(dentry)) {
-+			error = PTR_ERR(dentry);
-+			goto err_out;
-+		}
-+
-+		srs = kzalloc(sizeof(*srs), GFP_KERNEL);
-+		if (!srs) {
-+			error = -ENOMEM;
-+			dput(dentry);
-+			goto err_out;
-+		}
-+
-+		INIT_LIST_HEAD(&srs->list);
-+		list_add(head, &srs->list);
-+		srs->old_dentry = dentry;
-+		srs->old_parent = dget(dentry->d_parent);
-+
-+		dentry = sysfs_get_dentry(sb, new_parent_sd);
-+		if (IS_ERR(dentry)) {
-+			error = PTR_ERR(dentry);
-+			goto err_out;
-+		}
-+		srs->new_parent = dentry;
-+
-+		error = -ENOMEM;
-+		dentry = d_alloc_name(srs->new_parent, name);
-+		if (!dentry)
-+			goto err_out;
-+		srs->new_dentry = dentry;
-+	}
-+	return 0;
-+
-+err_out:
-+	post_rename(head);
-+	return error;
-+}
-+
- int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
- {
- 	struct sysfs_dirent *sd = kobj->sd;
--	struct dentry *parent = NULL;
--	struct dentry *old_dentry = NULL, *new_dentry = NULL;
-+	struct list_head todo;
-+	struct sysfs_rename_struct *srs;
-+	struct inode *parent_inode = NULL;
- 	const char *dup_name = NULL;
- 	int error;
++	__be32 crc = ~cpu_to_be32(0);
+ 	__u8  zero[sizeof(__u32)] = {0};
  
-+	INIT_LIST_HEAD(&todo);
- 	mutex_lock(&sysfs_rename_mutex);
+ 	/* Optimize this routine to be SCTP specific, knowing how
+@@ -56,23 +61,23 @@ static inline __u32 sctp_start_cksum(__u8 *buffer, __u16 length)
+ 	 */
  
- 	error = 0;
- 	if (strcmp(sd->s_name, new_name) == 0)
- 		goto out;	/* nothing to rename */
+ 	/* Calculate CRC up to the checksum. */
+-	crc = crc32c(crc, buffer, sizeof(struct sctphdr) - sizeof(__u32));
++	crc = sctp_crc32c(crc, buffer, sizeof(struct sctphdr) - sizeof(__u32));
  
--	/* get the original dentry */
--	old_dentry = sysfs_get_dentry(sysfs_sb, sd);
--	if (IS_ERR(old_dentry)) {
--		error = PTR_ERR(old_dentry);
--		old_dentry = NULL;
--		goto out;
--	}
-+	sysfs_grab_supers();
-+	error = prep_rename(&todo, sd, sd->s_parent, new_name);
-+	if (error)
-+		goto out_release;
+ 	/* Skip checksum field of the header. */
+-	crc = crc32c(crc, zero, sizeof(__u32));
++	crc = sctp_crc32c(crc, zero, sizeof(__u32));
  
--	parent = old_dentry->d_parent;
-+	error = -ENOMEM;
-+	mutex_lock(&sysfs_mutex);
-+	parent_inode = sysfs_get_inode(sd->s_parent);
-+	mutex_unlock(&sysfs_mutex);
-+	if (!parent_inode)
-+		goto out_release;
- 
--	/* lock parent and get dentry for new name */
--	mutex_lock(&parent->d_inode->i_mutex);
-+	mutex_lock(&parent_inode->i_mutex);
- 	mutex_lock(&sysfs_mutex);
- 
- 	error = -EEXIST;
- 	if (sysfs_find_dirent(sd->s_parent, new_name))
- 		goto out_unlock;
- 
--	error = -ENOMEM;
--	new_dentry = d_alloc_name(parent, new_name);
--	if (!new_dentry)
--		goto out_unlock;
--
- 	/* rename sysfs_dirent */
- 	error = -ENOMEM;
- 	new_name = dup_name = kstrdup(new_name, GFP_KERNEL);
-@@ -850,17 +920,21 @@ int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
- 	sd->s_name = new_name;
- 
- 	/* rename */
--	d_add(new_dentry, NULL);
--	d_move(old_dentry, new_dentry);
-+	list_for_each_entry(srs, &todo, list) {
-+		d_add(srs->new_dentry, NULL);
-+		d_move(srs->old_dentry, srs->new_dentry);
-+	}
- 
- 	error = 0;
-- out_unlock:
-+out_unlock:
- 	mutex_unlock(&sysfs_mutex);
--	mutex_unlock(&parent->d_inode->i_mutex);
-+	mutex_unlock(&parent_inode->i_mutex);
- 	kfree(dup_name);
--	dput(old_dentry);
--	dput(new_dentry);
-- out:
-+out_release:
-+	iput(parent_inode);
-+	post_rename(&todo);
-+	sysfs_release_supers();
-+out:
- 	mutex_unlock(&sysfs_rename_mutex);
- 	return error;
+ 	/* Calculate the rest of the CRC. */
+-	crc = crc32c(crc, &buffer[sizeof(struct sctphdr)],
++	crc = sctp_crc32c(crc, &buffer[sizeof(struct sctphdr)],
+ 			    length - sizeof(struct sctphdr));
+ 	return crc;
  }
-@@ -869,10 +943,12 @@ int sysfs_move_dir(struct kobject *kobj, struct kobject *new_parent_kobj)
+ 
+-static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
++static inline __be32 sctp_update_cksum(__u8 *buffer, __u16 length, __be32 crc32)
  {
- 	struct sysfs_dirent *sd = kobj->sd;
- 	struct sysfs_dirent *new_parent_sd;
--	struct dentry *old_parent, *new_parent = NULL;
--	struct dentry *old_dentry = NULL, *new_dentry = NULL;
-+	struct list_head todo;
-+	struct sysfs_rename_struct *srs;
-+	struct inode *old_parent_inode = NULL, *new_parent_inode = NULL;
- 	int error;
- 
-+	INIT_LIST_HEAD(&todo);
- 	mutex_lock(&sysfs_rename_mutex);
- 	BUG_ON(!sd->s_parent);
- 	new_parent_sd = new_parent_kobj->sd ? new_parent_kobj->sd : &sysfs_root;
-@@ -881,26 +957,29 @@ int sysfs_move_dir(struct kobject *kobj, struct kobject *new_parent_kobj)
- 	if (sd->s_parent == new_parent_sd)
- 		goto out;	/* nothing to move */
- 
--	/* get dentries */
--	old_dentry = sysfs_get_dentry(sysfs_sb, sd);
--	if (IS_ERR(old_dentry)) {
--		error = PTR_ERR(old_dentry);
--		old_dentry = NULL;
--		goto out;
--	}
--	old_parent = old_dentry->d_parent;
-+	sysfs_grab_supers();
-+	error = prep_rename(&todo, sd, new_parent_sd, sd->s_name);
-+	if (error)
-+		goto out_release;
- 
--	new_parent = sysfs_get_dentry(sysfs_sb, new_parent_sd);
--	if (IS_ERR(new_parent)) {
--		error = PTR_ERR(new_parent);
--		new_parent = NULL;
--		goto out;
--	}
-+	error = -ENOMEM;
-+	mutex_lock(&sysfs_mutex);
-+	old_parent_inode = sysfs_get_inode(sd->s_parent);
-+	mutex_unlock(&sysfs_mutex);
-+	if (!old_parent_inode)
-+		goto out_release;
-+
-+	error = -ENOMEM;
-+	mutex_lock(&sysfs_mutex);
-+	new_parent_inode = sysfs_get_inode(new_parent_sd);
-+	mutex_unlock(&sysfs_mutex);
-+	if (!new_parent_inode)
-+		goto out_release;
- 
- again:
--	mutex_lock(&old_parent->d_inode->i_mutex);
--	if (!mutex_trylock(&new_parent->d_inode->i_mutex)) {
--		mutex_unlock(&old_parent->d_inode->i_mutex);
-+	mutex_lock(&old_parent_inode->i_mutex);
-+	if (!mutex_trylock(&new_parent_inode->i_mutex)) {
-+		mutex_unlock(&old_parent_inode->i_mutex);
- 		goto again;
- 	}
- 	mutex_lock(&sysfs_mutex);
-@@ -909,14 +988,11 @@ again:
- 	if (sysfs_find_dirent(new_parent_sd, sd->s_name))
- 		goto out_unlock;
- 
--	error = -ENOMEM;
--	new_dentry = d_alloc_name(new_parent, sd->s_name);
--	if (!new_dentry)
--		goto out_unlock;
--
- 	error = 0;
--	d_add(new_dentry, NULL);
--	d_move(old_dentry, new_dentry);
-+	list_for_each_entry(srs, &todo, list) {
-+		d_add(srs->new_dentry, NULL);
-+		d_move(srs->old_dentry, srs->new_dentry);
-+	}
- 
- 	/* Remove from old parent's list and insert into new parent's list. */
- 	sysfs_unlink_sibling(sd);
-@@ -925,14 +1001,17 @@ again:
- 	sd->s_parent = new_parent_sd;
- 	sysfs_link_sibling(sd);
- 
-- out_unlock:
-+out_unlock:
- 	mutex_unlock(&sysfs_mutex);
--	mutex_unlock(&new_parent->d_inode->i_mutex);
--	mutex_unlock(&old_parent->d_inode->i_mutex);
-- out:
--	dput(new_parent);
--	dput(old_dentry);
--	dput(new_dentry);
-+	mutex_unlock(&new_parent_inode->i_mutex);
-+	mutex_unlock(&old_parent_inode->i_mutex);
-+
-+out_release:
-+	iput(new_parent_inode);
-+	iput(old_parent_inode);
-+	post_rename(&todo);
-+	sysfs_release_supers();
-+out:
- 	mutex_unlock(&sysfs_rename_mutex);
- 	return error;
+-	return crc32c(crc32, buffer, length);
++	return sctp_crc32c(crc32, buffer, length);
  }
+ 
+-static inline __u32 sctp_end_cksum(__u32 crc32)
++static inline __be32 sctp_end_cksum(__be32 crc32)
+ {
+-	return ntohl(~crc32);
++	return ~crc32;
+ }
+diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+index 82e4c0e..65e470b 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+@@ -36,7 +36,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 	sctp_sctphdr_t *hdr;
+ 	unsigned int hdroff = iphdroff + iph->ihl*4;
+ 	__be32 oldip, newip;
+-	u32 crc32;
++	__be32 crc32;
+ 
+ 	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+ 		return false;
+@@ -61,7 +61,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 		crc32 = sctp_update_cksum((u8 *)skb->data, skb_headlen(skb),
+ 					  crc32);
+ 	crc32 = sctp_end_cksum(crc32);
+-	hdr->checksum = htonl(crc32);
++	hdr->checksum = crc32;
+ 
+ 	return true;
+ }
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index d354a23..463d529 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -82,8 +82,8 @@ static inline int sctp_rcv_checksum(struct sk_buff *skb)
+ {
+ 	struct sk_buff *list = skb_shinfo(skb)->frag_list;
+ 	struct sctphdr *sh = sctp_hdr(skb);
+-	__u32 cmp = ntohl(sh->checksum);
+-	__u32 val = sctp_start_cksum((__u8 *)sh, skb_headlen(skb));
++	__be32 cmp = sh->checksum;
++	__be32 val = sctp_start_cksum((__u8 *)sh, skb_headlen(skb));
+ 
+ 	for (; list; list = list->next)
+ 		val = sctp_update_cksum((__u8 *)list->data, skb_headlen(list),
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index abcd00d..e2158ad 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -364,7 +364,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	struct sctp_transport *tp = packet->transport;
+ 	struct sctp_association *asoc = tp->asoc;
+ 	struct sctphdr *sh;
+-	__u32 crc32 = 0;
++	__be32 crc32 = cpu_to_be32(0);
+ 	struct sk_buff *nskb;
+ 	struct sctp_chunk *chunk, *tmp;
+ 	struct sock *sk;
+@@ -537,7 +537,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	/* 3) Put the resultant value into the checksum field in the
+ 	 *    common header, and leave the rest of the bits unchanged.
+ 	 */
+-	sh->checksum = htonl(crc32);
++	sh->checksum = crc32;
+ 
+ 	/* IP layer ECN support
+ 	 * From RFC 2481
 -- 
-1.5.3.rc6.17.g1911
+1.5.6.1.281.g1087e
 
