@@ -1,67 +1,57 @@
-From: Theodore Tso <tytso@mit.edu>
+From: Mikael Pettersson <mikpe@it.uu.se>
 Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Thu, 3 Jul 2008 21:47:05 -0400
-Message-ID: <20080704014705.GM30506@mit.edu>
-References: <1215093175.10393.567.camel@pmac.infradead.org> <20080703173040.GB30506@mit.edu> <1215111362.10393.651.camel@pmac.infradead.org> <20080703.162120.206258339.davem@davemloft.net> <20080704001855.GJ30506@mit.edu> <486D783B.6040904@infradead.org>
+Date: Fri, 4 Jul 2008 04:31:36 +0200
+Message-ID: <18541.35720.223976.231701@harpo.it.uu.se>
+References: <20080703020236.adaa51fa.akpm@linux-foundation.org>
+	<20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<486CC440.9030909@garzik.org>
+	<Pine.LNX.4.64.0807031353030.11033@blonde.site>
+	<486CCFED.7010308@garzik.org>
+	<1215091999.10393.556.camel@pmac.infradead.org>
+	<486CD654.4020605@garzik.org>
+	<1215093175.10393.567.camel@pmac.infradead.org>
+	<20080703173040.GB30506@mit.edu>
+	<1215111362.10393.651.camel@pmac.infradead.org>
+	<486D3E88.9090900@garzik.org>
+	<486D4596.60005@infradead.org>
+	<486D511A.9020405@garzik.org>
+	<20080703232554.7271d645@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Theodore Tso <tytso@mit.edu>, Hugh Dickins <hugh@veritas.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.church-of-our-saviour.ORG ([69.25.196.31]:57179 "EHLO
-	thunker.thunk.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755092AbYGDBsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:48:16 -0400
-Content-Disposition: inline
-In-Reply-To: <486D783B.6040904@infradead.org>
+Received: from aun.it.uu.se ([130.238.12.36]:46593 "EHLO aun.it.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755238AbYGDCcm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jul 2008 22:32:42 -0400
+In-Reply-To: <20080703232554.7271d645@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 04, 2008 at 02:09:15AM +0100, David Woodhouse wrote:
-> But there's no need to do it _now_. It can wait until the basic stuff is  
-> in Linus' tree and it can automatically derive from that. There's no  
-> particular rush, is there?
+Alan Cox writes:
+ > > The only valid assumption here is to assume that the user is /unaware/ 
+ > > of these new steps they must take in order to continue to have a working 
+ > > system.
+ > 
+ > To a large extent not the user but their distro - consider "make install"
+ > --
 
-The only rush if the main agenda is to extirpate all firmware from the
-mainline kernel sources.  I don't think we can start the timer for
-doing that until the firmware tarball is created and it starts being
-used as the default way of delivering firmware for what you call
-"legacy" drivers.  If there's no particular rush to finally rm the
-firmware for trivers such as tg3 from the source tree (and I
-personally don't think there should be any rush), or any rush to
-change the default for CONFIG_FIRMWARE_IN_KERNEL to "no", then I don't
-see any rush in creating the firmware tarball.  
+Last time I checked only x86 had 'make install'. I regularly build
+natively on ppc(32|64) and sparc64, and none of them implement
+'make install' AFAIK. And on ARM I move the kernels over to a tftp
+server for network boots, again w/o 'make install'.
 
-If *you* think there is a rush in making CONFIG_FIRMWARE_IN_KERNEL
-default to "no", then you might want to decide to create the firmware
-tarball sooner, and get distro's everywhere to start using it, and to
-get everyone to understand that they should start including it in
-their systems.  (Remember, not everyone uses the popular distributions
-like Fedora, Debian, Ubuntu, Open SuSE, etc.)
+Not that 'make install' is difficult. All it does it hand over to
+/sbin/installkernel or something like that.
 
-But heck, that's up to you.  :-)
-
->> and for a while (read: at least 9-18 months) we can distribute firmware
-> > both in the kernel source tarball as well as separately
->
-> That makes a certain amount of sense.
-
-Glad we agree.
-
->> in the licensing-religion-firmware tarball. 
->
-> Please don't be gratuitously offensive, Ted. It's not polite, and it's  
-> not a particularly good debating technique either. I expect better from 
-> you.
-
-Well, I think it's offensive to break users who have happily been
-using drivers that have been including firmware for a long, long, LONG
-time, and I expected better of you.
-
-So there.  :-)
-
-						- Ted
+In the context of .config changes, 'make oldconfig' with 'select the
+default' must IMO result in a working kernel similar to the previous
+one. Anything else is madness or arrogance.
