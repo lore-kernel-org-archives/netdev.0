@@ -1,51 +1,70 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 04 Jul 2008 14:48:24 +0100
-Message-ID: <1215179304.10393.777.camel@pmac.infradead.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>
-	 <20080703173040.GB30506@mit.edu>
-	 <1215111362.10393.651.camel@pmac.infradead.org>
-	 <20080703.162120.206258339.davem@davemloft.net>
-	 <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org>
-	 <1215177044.10393.743.camel@pmac.infradead.org>
-	 <486E2260.5050503@garzik.org>
-	 <1215178035.10393.763.camel@pmac.infradead.org>
-	 <486E2818.1060003@garzik.org> <20080704142753.27848ff8@lxorguk.ukuu.org.uk>
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
+ for device classes.
+Date: Fri, 04 Jul 2008 22:57:15 +0900
+Message-ID: <486E2C3B.6020603@gmail.com>
+References: <20080618170729.808539948@theryb.frec.bull.fr>	<m14p78s02q.fsf@frodo.ebiederm.org> <486C4515.1070007@gmail.com>	<m1hcb7o8lv.fsf@frodo.ebiederm.org> <486CB051.5000507@fr.ibm.com>	<m14p77m9uy.fsf@frodo.ebiederm.org> <486CF71F.5090405@gmail.com>	<m1y74iiidz.fsf_-_@frodo.ebiederm.org>	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>	<m1d4luihea.fsf_-_@frodo.ebiederm.org>	<m18wwiihbn.fsf_-_@frodo.ebiederm.org>	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593
+ ny.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
 	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:49274 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480AbYGDNst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 09:48:49 -0400
-In-Reply-To: <20080704142753.27848ff8@lxorguk.ukuu.org.uk>
+Received: from qb-out-0506.google.com ([72.14.204.238]:48363 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753381AbYGDN5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 09:57:42 -0400
+Received: by qb-out-0506.google.com with SMTP id d8so631603qbc.37
+        for <netdev@vger.kernel.org>; Fri, 04 Jul 2008 06:57:41 -0700 (PDT)
+In-Reply-To: <m1tzf593ny.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-07-04 at 14:27 +0100, Alan Cox wrote:
-> > Why is it so difficult to see the value of KEEPING STUFF WORKING AS
-> IT 
-> > WORKS TODAY?
+Hello, Eric.
+
+Eric W. Biederman wrote:
+> Thank you for your opinion.
 > 
-> Sure Jeff. Lets delete libata, that caused all sorts of problems when
-> it was being added.
+> Incremental patches to make things more beautiful are welcome.
+> 
+> Please remember we are not building lisp.  The goal is code that works today.
+> 
+> Since we are not talking about correctness of the code.  Since we are not
+> talking about interfaces with user space.  Since we are talking something
+> that is currently about 100 lines of code, and so will be easy to change
+> even after it is merged.   I don't understand how discussing this further
+> is useful.  Especially when I get a NAK  based on the feel that the code
+> is ugly.
 
-A particularly good example. I used to be able to just copy around the
-driver for my host controller. Now I have to copy _two_ files, so the
-world is going to end! Should I have insisted that we link libata
-statically into each and every module which uses it?
+I'm sorry if I gave you the impression of being draconian.  Explanations
+below.
 
-(Or at least I have to copy two files _if_ I actually want to make
-changes to libata.ko too, which I almost never do...)
+> As for your main objection.  Adding a accessor method to an object versus
+> adding a data field that contain the same thing.  The two are effectively
+> identical.  With the practical difference in my eyes that an accessor method
+> prevents data duplication which reduces maintenance and reduces skew problems,
+> and it keeps the size of struct kobject small.  Since you think methods are
+> horrible I must respectfully disagree with you.
+
+Yeah, it seems we should agree to disagree here.  I think using callback
+for static values is a really bad idea.  It obfuscates the code and
+opens up a big hole for awful misuses.  Greg, what do you think?
+
+As we're very close to rc1 window, I think we can work out a solution
+here.  The reason why I nack'd was because the change wouldn't take too
+much effort and I thought it could be done before -rc1.  Unless you
+disagree with making tags static values, I'll try to write up a patch to
+do so.  If you (and Greg) think the callback interface is better, we can
+merge the code as-is and update (or not) later.
+
+Thanks.
 
 -- 
-dwmw2
-
+tejun
