@@ -1,50 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/2] Pull request for 'r8169-next' branch
-Date: Fri, 04 Jul 2008 08:36:53 -0400
-Message-ID: <486E1965.30909@garzik.org>
-References: <20080629131739.GA31201@electric-eye.fr.zoreil.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Add missing skb->dev assignment in Frame Relay RX code
+Date: Fri, 04 Jul 2008 14:39:22 +0200
+Message-ID: <m3bq1dzuv9.fsf@maximus.localdomain>
+References: <m3wsk8aupw.fsf@maximus.localdomain> <486E1404.8090704@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60177 "EHLO mail.dvmed.net"
+Received: from khc.piap.pl ([195.187.100.11]:52037 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753331AbYGDMg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 08:36:58 -0400
-In-Reply-To: <20080629131739.GA31201@electric-eye.fr.zoreil.com>
+	id S1753351AbYGDMjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 08:39:23 -0400
+In-Reply-To: <486E1404.8090704@garzik.org> (Jeff Garzik's message of "Fri\, 04 Jul 2008 08\:13\:56 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Please pull from branch 'r8169-next' in repository
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-next
-> 
-> to get the changes below.
-> 
-> Distance from 'davem-next' (be0976be9148f31ee0d1997354c3e30ff8d07587)
-> ---------------------------------------------------------------------
-> 
-> 865c652d6be9929927cabdc54b137b7541eb6612
-> 1087f4f4af302e6e2fa40dd741f306444d90bece
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/Kconfig |   16 +-----
->  drivers/net/r8169.c |  145 +++++++++++++++-----------------------------------
->  2 files changed, 45 insertions(+), 116 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Francois Romieu (2):
->       r8169: multicast register update (sync with Realtek's 8.004.00 8168 driver)
->       r8169: remove non-napi code
+Jeff Garzik <jeff@garzik.org> writes:
 
-pulled
+>> Commit 4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 ([ETH]: Make
+>> eth_type_trans set skb->dev like the other *_type_trans) removed
+>> skb->dev assignment from hdlc_fr.c:fr_rx(). Unfortunately it was also
+>> needed for cases other than eth_type_trans().
+>>
+>> Adding it back.
 
+> applied
 
+Thanks.
+-- 
+Krzysztof Halasa
