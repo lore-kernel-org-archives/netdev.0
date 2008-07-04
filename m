@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 02/15] sysfs: Support for preventing unmounts.
-Date: Thu, 03 Jul 2008 18:07:04 -0700
-Message-ID: <m1prpuihjb.fsf_-_@frodo.ebiederm.org>
+Subject: [PATCH 01/15] kobject: Cleanup kobject_rename and !CONFIG_SYSFS
+Date: Thu, 03 Jul 2008 18:05:28 -0700
+Message-ID: <m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
 References: <20080618170729.808539948@theryb.frec.bull.fr>
 	<20080618170731.002784342@theryb.frec.bull.fr>
 	<485F04E1.70204@gmail.com> <m1y74svtff.fsf@frodo.ebiederm.org>
@@ -13,220 +13,126 @@ References: <20080618170729.808539948@theryb.frec.bull.fr>
 	<486C4515.1070007@gmail.com> <m1hcb7o8lv.fsf@frodo.ebiederm.org>
 	<486CB051.5000507@fr.ibm.com> <m14p77m9uy.fsf@frodo.ebiederm.org>
 	<486CF71F.5090405@gmail.com> <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
-	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>,
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
 	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
 	Linux Containers <containers@lists.osdl.org>,
 	Benjamin Thery <benjamin.thery@bull.net>,
 	<netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:38463 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981AbYGDBLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:11:42 -0400
-In-Reply-To: <m1tzf6ihlz.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 03 Jul 2008 18:05:28 -0700")
+Received: from out02.mta.xmission.com ([166.70.13.232]:37112 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754334AbYGDBLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:11:46 -0400
+In-Reply-To: <m1y74iiidz.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
+	message of "Thu, 03 Jul 2008 17:48:40 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-To support mounting multiple instances of sysfs occassionally I
-need to walk through all of the currently present sysfs super blocks.
-
-To allow this iteration this patch adds sysfs_grab_supers
-and sysfs_release_supers.  While a piece of code is in
-a section surrounded by these no more sysfs super blocks
-will be either created or destroyed.
-
-So the fundamentals.
-- The data in sysfs fundamentally changes behind the back of the
-  VFS and we need to keep the VFS in sync.  Essentially this is the
-  distributed filesystem problem.
-
-- In particular for sysfs_rename and sysfs_move_dir we need to support finding
-  the dcache entries and calling d_move.  So that the dcache does not
-  get into an inconsistent state.  Timeouts and invalidates like NFS
-  uses are to be  avoided if at all possible.
-
-- Coming through the vfs we are guaranteed that the filesystem will
-  not be unmounted while we have a reference on a dentry, and with
-  multiple mounts we do not get that guarantee.  Therefore to get that
-  guarantee for all of the superblocks we need the blunt instrument.
-
-- Since mount/unmount are rare blocking them is no big deal.
-
-I believe any distributed filesystem that is together enough to tell
-us about renames (so we can update the dcache) instead of doing the
-NFS timeout will need the ability to block mount/unmount while it is
-executing d_move.
-
-Currently sysfs does not need to block mounts only because we perform
-an internal mount and then never unmount sysfs.
+It finally dawned on me what the clean fix to sysfs_rename_dir
+calling kobject_set_name is.  Move the work into kobject_rename
+where it belongs.  The callers serialize us anyway so this is
+safe.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Acked-by: Tejun Heo <tj@kernel.org>
 ---
- fs/sysfs/mount.c |   79 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- fs/sysfs/sysfs.h |   10 +++++++
- 2 files changed, 81 insertions(+), 8 deletions(-)
+ fs/sysfs/dir.c        |    6 +-----
+ include/linux/sysfs.h |    4 +---
+ lib/kobject.c         |   17 +++++++++++++++--
+ 3 files changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
-index 9f328d2..c812cc4 100644
---- a/fs/sysfs/mount.c
-+++ b/fs/sysfs/mount.c
-@@ -41,47 +41,110 @@ struct sysfs_dirent sysfs_root = {
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index 8c0e4b9..146b86a 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -799,16 +799,12 @@ int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
+ 	if (!new_dentry)
+ 		goto out_unlock;
  
- static int sysfs_fill_super(struct super_block *sb, void *data, int silent)
+-	/* rename kobject and sysfs_dirent */
++	/* rename sysfs_dirent */
+ 	error = -ENOMEM;
+ 	new_name = dup_name = kstrdup(new_name, GFP_KERNEL);
+ 	if (!new_name)
+ 		goto out_unlock;
+ 
+-	error = kobject_set_name(kobj, "%s", new_name);
+-	if (error)
+-		goto out_unlock;
+-
+ 	dup_name = sd->s_name;
+ 	sd->s_name = new_name;
+ 
+diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
+index 84d92bb..f7e43ed 100644
+--- a/include/linux/sysfs.h
++++ b/include/linux/sysfs.h
+@@ -20,8 +20,6 @@
+ struct kobject;
+ struct module;
+ 
+-extern int kobject_set_name(struct kobject *kobj, const char *name, ...)
+-			    __attribute__((format(printf, 2, 3)));
+ /* FIXME
+  * The *owner field is no longer used, but leave around
+  * until the tree gets cleaned up fully.
+@@ -140,7 +138,7 @@ static inline void sysfs_remove_dir(struct kobject *kobj)
+ 
+ static inline int sysfs_rename_dir(struct kobject *kobj, const char *new_name)
  {
--	struct inode *inode;
--	struct dentry *root;
-+	struct sysfs_super_info *info = NULL;
-+	struct inode *inode = NULL;
-+	struct dentry *root = NULL;
-+	int error;
- 
- 	sb->s_blocksize = PAGE_CACHE_SIZE;
- 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
- 	sb->s_magic = SYSFS_MAGIC;
- 	sb->s_op = &sysfs_ops;
- 	sb->s_time_gran = 1;
--	sysfs_sb = sb;
-+	if (!sysfs_sb)
-+		sysfs_sb = sb;
-+
-+	error = -ENOMEM;
-+	info = kzalloc(sizeof(*info), GFP_KERNEL);
-+	if (!info)
-+		goto out_err;
- 
- 	/* get root inode, initialize and unlock it */
-+	error = -ENOMEM;
- 	inode = sysfs_get_inode(&sysfs_root);
- 	if (!inode) {
- 		pr_debug("sysfs: could not get root inode\n");
--		return -ENOMEM;
-+		goto out_err;
- 	}
- 
- 	/* instantiate and link root dentry */
-+	error = -ENOMEM;
- 	root = d_alloc_root(inode);
- 	if (!root) {
- 		pr_debug("%s: could not get root dentry!\n",__func__);
--		iput(inode);
--		return -ENOMEM;
-+		goto out_err;
- 	}
- 	root->d_fsdata = &sysfs_root;
- 	sb->s_root = root;
-+	sb->s_fs_info = info;
- 	return 0;
-+
-+out_err:
-+	dput(root);
-+	iput(inode);
-+	kfree(info);
-+	if (sysfs_sb == sb)
-+		sysfs_sb = NULL;
-+	return error;
+-	return kobject_set_name(kobj, "%s", new_name);
++	return 0;
  }
  
- static int sysfs_get_sb(struct file_system_type *fs_type,
- 	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+ static inline int sysfs_move_dir(struct kobject *kobj,
+diff --git a/lib/kobject.c b/lib/kobject.c
+index 829b839..49b3bc4 100644
+--- a/lib/kobject.c
++++ b/lib/kobject.c
+@@ -451,6 +451,7 @@ int kobject_rename(struct kobject *kobj, const char *new_name)
  {
--	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
-+	int rc;
-+	mutex_lock(&sysfs_rename_mutex);
-+	rc = get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
-+	mutex_unlock(&sysfs_rename_mutex);
-+	return rc;
- }
+ 	int error = 0;
+ 	const char *devpath = NULL;
++	const char *dup_name = NULL, *name;
+ 	char *devpath_string = NULL;
+ 	char *envp[2];
  
--static struct file_system_type sysfs_fs_type = {
-+struct file_system_type sysfs_fs_type = {
- 	.name		= "sysfs",
- 	.get_sb		= sysfs_get_sb,
- 	.kill_sb	= kill_anon_super,
- };
+@@ -474,15 +475,27 @@ int kobject_rename(struct kobject *kobj, const char *new_name)
+ 	envp[0] = devpath_string;
+ 	envp[1] = NULL;
  
-+void sysfs_grab_supers(void)
-+{
-+	/* must hold sysfs_rename_mutex */
-+	struct super_block *sb;
-+	/* Loop until I have taken s_umount on all sysfs superblocks */
-+restart:
-+	spin_lock(&sb_lock);
-+	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-+		if (sysfs_info(sb)->grabbed)
-+			continue;
-+		/* Wait for unmount activity to complete. */
-+		if (sb->s_count < S_BIAS) {
-+			sb->s_count += 1;
-+			spin_unlock(&sb_lock);
-+			down_read(&sb->s_umount);
-+			drop_super(sb);
-+			goto restart;
-+		}
-+		atomic_inc(&sb->s_active);
-+		sysfs_info(sb)->grabbed = 1;
++	name = dup_name = kstrdup(new_name, GFP_KERNEL);
++	if (!name) {
++		error = -ENOMEM;
++		goto out;
 +	}
-+	spin_unlock(&sb_lock);
-+}
 +
-+void sysfs_release_supers(void)
-+{
-+	/* must hold sysfs_rename_mutex */
-+	struct super_block *sb;
-+restart:
-+	spin_lock(&sb_lock);
-+	list_for_each_entry(sb, &sysfs_fs_type.fs_supers, s_instances) {
-+		if (!sysfs_info(sb)->grabbed)
-+			continue;
-+		sysfs_info(sb)->grabbed = 0;
-+		spin_unlock(&sb_lock);
-+		deactivate_super(sb);
-+		goto restart;
-+	}
-+	spin_unlock(&sb_lock);
-+}
+ 	error = sysfs_rename_dir(kobj, new_name);
++	if (error)
++		goto out;
 +
- int __init sysfs_init(void)
- {
- 	int err = -ENOMEM;
-diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
-index 2915959..0fdc3de 100644
---- a/fs/sysfs/sysfs.h
-+++ b/fs/sysfs/sysfs.h
-@@ -85,6 +85,12 @@ struct sysfs_addrm_cxt {
- 	int			cnt;
- };
++	/* Install the new kobject name */
++	dup_name = kobj->name;
++	kobj->name = name;
  
-+struct sysfs_super_info {
-+	int	grabbed;
-+};
-+
-+#define sysfs_info(SB) ((struct sysfs_super_info *)(SB)->s_fs_info)
-+
- /*
-  * mount.c
-  */
-@@ -92,6 +98,10 @@ extern struct sysfs_dirent sysfs_root;
- extern struct super_block *sysfs_sb;
- extern struct kmem_cache *sysfs_dir_cachep;
- extern struct vfsmount *sysfs_mount;
-+extern struct file_system_type sysfs_fs_type;
-+
-+void sysfs_grab_supers(void);
-+void sysfs_release_supers(void);
+ 	/* This function is mostly/only used for network interface.
+ 	 * Some hotplug package track interfaces by their name and
+ 	 * therefore want to know when the name is changed by the user. */
+-	if (!error)
+-		kobject_uevent_env(kobj, KOBJ_MOVE, envp);
++	kobject_uevent_env(kobj, KOBJ_MOVE, envp);
  
- /*
-  * dir.c
+ out:
++	kfree(dup_name);
+ 	kfree(devpath_string);
+ 	kfree(devpath);
+ 	kobject_put(kobj);
 -- 
 1.5.3.rc6.17.g1911
 
