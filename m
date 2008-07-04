@@ -1,103 +1,31 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.26? 2/2] forcedeth: fix lockdep warning on ethtool
- -s
-Date: Fri, 04 Jul 2008 08:14:10 -0400
-Message-ID: <486E1412.2000600@garzik.org>
-References: <200807040654.m646suhY018107@imap1.linux-foundation.org>
+Subject: Re: [PATCH 1/3] ehea: fix might sleep problem
+Date: Fri, 04 Jul 2008 08:14:23 -0400
+Message-ID: <486E141F.6070108@garzik.org>
+References: <200807031618.46087.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ranma+kernel@tdiedrich.de,
-	aabdulla@nvidia.com
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48107 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753832AbYGDMOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 08:14:14 -0400
-In-Reply-To: <200807040654.m646suhY018107@imap1.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, kamalesh@linux.vnet.ibm.com,
+	hering2@de.ibm.com
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757004AbYGDMOp@vger.kernel.org>
+In-Reply-To: <200807031618.46087.ossthema@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Jan-Bernd Themann wrote:
+> A mutex has to be replaced by spinlocks as it can be called from
+> a context which does not allow sleeping.
+> The kzalloc flag GFP_KERNEL has to be replaced by GFP_ATOMIC
+> for the same reason.
 > 
-> After enabling CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING I get the
-> following warning when ethtool -s is first called on one of the
-> forcedeth ports:
-> 
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.26-rc4 #28
-> ---------------------------------
-> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> ethtool/1985 [HC0[0]:SC0[1]:HE1:SE0] takes:
->  (&np->lock){++..}, at: [<ffffffffa000c5fd>] nv_set_settings+0xc8/0x3de [forcedeth]
-> {in-hardirq-W} state was registered at:
->   [<ffffffffffffffff>] 0xffffffffffffffff
-> irq event stamp: 3606
-> hardirqs last  enabled at (3605): [<ffffffff8068106f>] _spin_unlock_irqrestore+0x3f/0x68
-> hardirqs last disabled at (3604): [<ffffffff80680d38>] _spin_lock_irqsave+0x13/0x46
-> softirqs last  enabled at (3534): [<ffffffff80246ba5>] __do_softirq+0xbc/0xc5
-> softirqs last disabled at (3606): [<ffffffff80680b33>] _spin_lock_bh+0x11/0x41
-> 
-> other info that might help us debug this:
-> 2 locks held by ethtool/1985:
->  #0:  (rtnl_mutex){--..}, at: [<ffffffff80596072>] rtnl_lock+0x12/0x14
->  #1:  (_xmit_ETHER){-+..}, at: [<ffffffffa000c5e8>] nv_set_settings+0xb3/0x3de [forcedeth]
-> stack backtrace:
-> Pid: 1985, comm: ethtool Not tainted 2.6.26-rc4 #28
-> Call Trace:
->  [<ffffffff8025f190>] print_usage_bug+0x162/0x173
->  [<ffffffff8025fa8b>] mark_lock+0x231/0x41f
->  [<ffffffff802607cf>] __lock_acquire+0x4e7/0xcac
->  [<ffffffff8025fe64>] ? trace_hardirqs_on+0xf1/0x115
->  [<ffffffff80272c3a>] ? disable_irq_nosync+0x6f/0x7b
->  [<ffffffff80261375>] lock_acquire+0x55/0x6e
->  [<ffffffffa000c5fd>] ? :forcedeth:nv_set_settings+0xc8/0x3de
->  [<ffffffff80680b15>] _spin_lock+0x2f/0x3c
->  [<ffffffffa000c5fd>] :forcedeth:nv_set_settings+0xc8/0x3de
->  [<ffffffff8058f8bb>] dev_ethtool+0x186/0xea3
->  [<ffffffff8067f446>] ? mutex_lock_nested+0x243/0x275
->  [<ffffffff8025df2b>] ? debug_mutex_free_waiter+0x46/0x4a
->  [<ffffffff8067f469>] ? mutex_lock_nested+0x266/0x275
->  [<ffffffff8058e1ce>] dev_ioctl+0x4eb/0x600
->  [<ffffffff8068106f>] ? _spin_unlock_irqrestore+0x3f/0x68
->  [<ffffffff80580f91>] sock_ioctl+0x1f5/0x202
->  [<ffffffff802a322e>] vfs_ioctl+0x2a/0x77
->  [<ffffffff802a34d6>] do_vfs_ioctl+0x25b/0x270
->  [<ffffffff806807b6>] ? trace_hardirqs_on_thunk+0x35/0x3a
->  [<ffffffff802a352d>] sys_ioctl+0x42/0x65
->  [<ffffffff8021fffb>] system_call_after_swapgs+0x7b/0x80
-> 
-> This is caused by the following snippet in nv_set_settings:
-> 
-> 
-> 	netif_carrier_off(dev);
-> 	if (netif_running(dev)) {
-> 		nv_disable_irq(dev);
-> 		netif_tx_lock_bh(dev);
-> 		spin_lock(&np->lock);
-> 		/* stop engines */
-> 		nv_stop_rxtx(dev);
-> 		spin_unlock(&np->lock);
-> 		netif_tx_unlock_bh(dev);
-> 	}
-> 
-> Because of nv_disable_irq this is probably not really a problem
-> though (I guess) and replacing the spin_lock with spin_lock_irqsave
-> could keep interrupts disabled for a longer period of time because
-> of delays in nv_stop_rx and nv_stop_tx.
-> 
-> Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |   15 +++++++++++++--
->  1 file changed, 13 insertions(+), 2 deletions(-)
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-applied
-
-
+applied 1-3 to 2.6.26
