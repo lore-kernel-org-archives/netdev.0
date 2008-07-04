@@ -1,42 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [patch 4/6] 8390: Split 8390 support into a pausing and a non
- pausing driver core
-Date: Fri, 4 Jul 2008 09:44:56 +0100
-Message-ID: <20080704094456.13a1a03a@lxorguk.ukuu.org.uk>
-References: <200807040643.m646hCdF017240@imap1.linux-foundation.org>
-	<20080704092623.2b254997@lxorguk.ukuu.org.uk>
-	<20080704015216.7edfab57.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, alan@redhat.com,
-	randy.dunlap@oracle.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:52535 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750848AbYGDJDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 05:03:22 -0400
-In-Reply-To: <20080704015216.7edfab57.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 00/39]: New multiqueue TX implementation.
+Date: Fri, 04 Jul 2008 17:33:48 +0800
+Message-ID: <E1KEhfo-0001RJ-00@gondolin.me.apana.org.au>
+References: <20080703.000146.168093325.davem@davemloft.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vinay-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org, mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Matheos.Worku-xsfywfwIY+M@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org (David Miller)
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080703.000146.168093325.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Jul 2008 01:52:16 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> On Fri, 4 Jul 2008 09:26:23 +0100 Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 > 
-> > > [randy.dunlap@oracle.com: ne2 (MCA) needs both 8390.o and 8390p.o functions]
-> > 
-> > That comment is wrong - the code is now correct but not the comment
+> I'm finally at the point where I can post a patch series that actually
+> does something and I know works for at least one card :-)
 > 
-> OK, I am officially fed up with trying to get that patch into working
-> shape.  I dropped it.
+> The backlog and batching bits are sidelined for the time being.
+> Don't worry, we'll get back to that soon enough :)
+> 
+> This can all be found in:
+> 
+>        kernel.org:/pub/scm/linux/kernel/git/davem/net-tx-2.6.git
+> 
+> which uses net-next-2.6 as it's origin.
 
-You've got the patch in shape - just not the comment. So you've just
-thrown it out rather than hitting 'dd' on a comment line that is out of
-date.
+I've only had a quick look but it is clear that this stuff is
+pretty awesome and fills in a major missing piece of infrastructure
+that's needed to bring Linux networking into the age of multi-core.
 
-Oh well.
+Nice work!
 
-Alan
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
