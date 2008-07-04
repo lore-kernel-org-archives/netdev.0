@@ -1,64 +1,92 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 00/15] sysfs support for namespaces
-Date: Thu, 03 Jul 2008 17:48:40 -0700
-Message-ID: <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
-References: <20080618170729.808539948@theryb.frec.bull.fr>
-	<20080618170731.002784342@theryb.frec.bull.fr>
-	<485F04E1.70204@gmail.com> <m1y74svtff.fsf@frodo.ebiederm.org>
-	<486706C9.9040303@gmail.com> <m18wwmsqdv.fsf@frodo.ebiederm.org>
-	<4869D314.5030403@gmail.com> <m1ej6enep7.fsf@frodo.ebiederm.org>
-	<486A0751.9080602@gmail.com> <m1wsk5hjm0.fsf@frodo.ebiederm.org>
-	<486AF4FA.8020805@gmail.com> <m1ej6d9c2r.fsf@frodo.ebiederm.org>
-	<486B060C.7030607@gmail.com> <m14p78s02q.fsf@frodo.ebiederm.org>
-	<486C4515.1070007@gmail.com> <m1hcb7o8lv.fsf@frodo.ebiederm.org>
-	<486CB051.5000507@fr.ibm.com> <m14p77m9uy.fsf@frodo.ebiederm.org>
-	<486CF71F.5090405@gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Fri, 04 Jul 2008 02:09:15 +0100
+Message-ID: <486D783B.6040904@infradead.org>
+References: <1215093175.10393.567.camel@pmac.infradead.org> <20080703173040.GB30506@mit.edu> <1215111362.10393.651.camel@pmac.infradead.org> <20080703.162120.206258339.davem@davemloft.net> <20080704001855.GJ30506@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	<netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Theodore Tso <tytso@mit.edu>, David Miller <davem@davemloft.net>,
+	dwmw2@infradead.org, jeff@garzik.org, hugh@veritas.com,
+	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
+	mc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:60356 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754111AbYGDAvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 20:51:44 -0400
-In-Reply-To: <486CF71F.5090405@gmail.com> (Tejun Heo's message of "Fri, 04 Jul
-	2008 00:58:23 +0900")
+Received: from casper.infradead.org ([85.118.1.10]:60704 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbYGDBJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 21:09:49 -0400
+In-Reply-To: <20080704001855.GJ30506@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Theodore Tso wrote:
+> On Thu, Jul 03, 2008 at 04:21:20PM -0700, David Miller wrote:
+>> You want to choose a default based upon your legal agenda.
+> 
+> Yep, legal agenda.  As I suspected, licensing religious fundamentalism.  :-)
 
-When multiple namespaces are in use we can get multiple kernel objects
-with the same name which is currently impossible to represent in sysfs.
-In particular directories like /sys/class/net and /sys/kernel/uids have
-significant problems.
+You are mistaken, and you're responding some words that someone _else_ 
+put in my mouth.
 
-Not wanting to change the user space interface and wanting to have a simple
-implementation where all objects are in the kobject and sysfs trees.  The
-decision has been made to tag objects with the namespace they live in,
-and in a particular mount of sysfs only display objects with the tag
-that corresponds to the namespaces in effect when sysfs was mounted.
+> The staged approach means that if you really want to do this ASAP,
+> then start assembling the firmware tarball *now*,
 
-After the last round of reviews the mount/umount logic is
-significantly cleaned up and easier to maintain.  From a 10,000
-foot view the code and the way it functions has remained the
-same since we settled on tagged directories a year or so ago.   I
-intend any future cleanups to be as incremental patches on top
-of this existing set.
+That's easy enough. We can automatically generate a tree _from_ Linus' 
+tree, with a scripted transform so that it includes only the firmware 
+files (much like the kernel-headers tree automatically follows each 
+commit in Linus' tree, but includes only the exported headers).
 
-Lack of these patches are keeping the generally complete network
-namespace work in 2.6.26 from being used and tested more heavily.
-Can we please get the patches merged?
+And there are some hardware manufacturers who are willing to have their 
+firmware included in such a firmware tarball, but who will _not_ give 
+their permission to have it included in the Linux kernel because of the 
+legal concerns you're so dismissive of. But that's OK -- we can pull 
+from the automatically generated tree into a 'real' linux-firmware.git 
+tree, which includes those extra firmware files.
 
-These patches are based off of 2.6.26-rc8 + the -gregkh tree from
-last night.  Hopefully that means they apply -mm -gregkh and
--linux-next.
+But there's no need to do it _now_. It can wait until the basic stuff is 
+in Linus' tree and it can automatically derive from that. There's no 
+particular rush, is there?
 
-Eric
+> and for a while (read: at least 9-18 months) we can distribute firmware
+ > both in the kernel source tarball as well as separately
 
+That makes a certain amount of sense.
 
+> in the licensing-religion-firmware tarball. 
+
+Please don't be gratuitously offensive, Ted. It's not polite, and it's 
+not a particularly good debating technique either. I expect better from you.
+
+> See if you can get distros willing to ship it by default in most
+> user's  systems, and give people plenty of time to understand that we
+ > are trying to decouple firmware from the kernel sources.
+
+The distros are certainly willing (and keen) to do it. The Fedora 
+Engineering Steering Committee has already stated that it wants to do 
+so, and the specfile changes to spit out a 'kernel-firmware' sub-package 
+with the kernel build are ready to go right now.
+
+Fedora already modifies tarballs, for example 'openssh-5.0p1-noacss'. I 
+think it's quite likely they'd end up using a 'linux-2.6.27-nofirmware' 
+tarball too, and build the firmware package from the separate tree.
+
+Some other distributions have been doing that kind of thing _already_, 
+even when it meant just ripping out certain drivers completely. That 
+seems excessive to me; I prefer not to actually _break_ anything.
+
+> If we need to institute better versioning regimes between the drivers
+ > and firmware release levels, that will also give people a chance to
+ > get that all right.  Then 6-9 months later, we can turn the default
+> to 'no', and then maybe another 6-9 months after that, we can talk 
+ > about removing the firmware modules.
+> But it seems to me that you are skipping a few steps by arguing that
+> the default should be changed here-and-now.
+
+I disagree that the _default_ is such an issue -- largely because the 
+normal case for modern drivers is not to include the firmware _anyway_, 
+and the tools like 'mkinitrd' already cope with it just fine.
+
+But I've changed the default to 'y' now, as I already said.
+
+-- 
+dwmw2
