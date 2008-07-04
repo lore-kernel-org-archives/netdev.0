@@ -1,41 +1,37 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH] Variables only used in ifdef
-Date: Fri, 04 Jul 2008 16:25:54 +0800
-Message-ID: <486DDE92.2010900@cn.fujitsu.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] ipv[46]: Fix MD5 signatures for non-linear skbs
+Date: Fri, 4 Jul 2008 12:24:03 +0400
+Message-ID: <20080704082402.GA16259@2ka.mipt.ru>
+References: <396556a20805301217k293e5718h6bbf02bfe069000@europa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: NETDEV <netdev@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Adam Langley <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61373 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756055AbYGDIae (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 04:30:34 -0400
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:58248 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753048AbYGDIa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 04:30:57 -0400
+Content-Disposition: inline
+In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe069000@europa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the variables which only used in #ifdef to where they should be.
-Otherwise, "defined but not used" compile warning will go out.
+Hi.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
-index 29b4b94..c938d4c 100644
---- a/drivers/net/wan/syncppp.c
-+++ b/drivers/net/wan/syncppp.c
-@@ -763,10 +763,10 @@ static void sppp_cisco_input (struct sppp *sp, struct sk_buff *skb)
- 	case CISCO_ADDR_REQ:
- 		/* Stolen from net/ipv4/devinet.c -- SIOCGIFADDR ioctl */
- 		{
--		struct in_device *in_dev;
--		struct in_ifaddr *ifa;
- 		__be32 addr = 0, mask = htonl(~0U); /* FIXME: is the mask correct? */
- #ifdef CONFIG_INET
-+		struct in_device *in_dev;
-+		struct in_ifaddr *ifa;
- 		rcu_read_lock();
- 		if ((in_dev = __in_dev_get_rcu(dev)) != NULL)
- 		{
+On Thu, Jul 03, 2008 at 05:19:41PM -0700, Adam Langley (agl@imperialviolet.org) wrote:
+> +int tcp_md5_hash_key(struct tcp_md5sig_pool *hp, struct tcp_md5sig_key *key)
+> +{
+> +	struct scatterlist sg;
+> +
+> +	sg_init_table(&sg, 1);
+> +	sg_set_buf(&sg, key->key, key->keylen);
+> +	return crypto_hash_update(&hp->md5_desc, &sg, key->keylen);
+> +}
 
+A trivial nit: you can use sg_init_one() to initialize single
+scatterlist and set data pointer instead of sg_init_table()/sg_set_buf()
+in all places where you use single sg.
 
+-- 
+	Evgeniy Polyakov
