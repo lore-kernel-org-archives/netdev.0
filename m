@@ -1,34 +1,62 @@
 From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [PATCH 5/8] benet: hwlib functions
-Date: Fri, 04 Jul 2008 09:55:05 -0700
-Message-ID: <20080704165505.341f0749@mailhost.serverengines.com>
+Subject: [PATCH 6/8] benet: f/w header files
+Date: Fri, 04 Jul 2008 09:55:59 -0700
+Message-ID: <20080704165559.4b4f41d4@mailhost.serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.245.99]:35277 "EHLO
-	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932065AbYGDQzK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 12:55:10 -0400
+Received: from mail142.messagelabs.com ([216.82.249.99]:5988 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760550AbYGDQ4E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 12:56:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
 ---
- drivers/net/benet/hwlib/funcobj.c |  565 +++++++++++++++
- drivers/net/benet/hwlib/mpu.c     | 1362 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 1927 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/benet/hwlib/funcobj.c
- create mode 100644 drivers/net/benet/hwlib/mpu.c
+ drivers/net/benet/fw/asyncmesg.h     |   98 ++++++++++++++
+ drivers/net/benet/fw/be_cm.h         |  134 +++++++++++++++++++
+ drivers/net/benet/fw/be_common.h     |   53 ++++++++
+ drivers/net/benet/fw/cev.h           |  243 +++++++++++++++++++++++++++++++++
+ drivers/net/benet/fw/descriptors.h   |   71 ++++++++++
+ drivers/net/benet/fw/doorbells.h     |  179 +++++++++++++++++++++++++
+ drivers/net/benet/fw/ep.h            |   66 +++++++++
+ drivers/net/benet/fw/etx_context.h   |   55 ++++++++
+ drivers/net/benet/fw/fwcmd_common.h  |  222 +++++++++++++++++++++++++++++++
+ drivers/net/benet/fw/fwcmd_mcc.h     |   94 +++++++++++++
+ drivers/net/benet/fw/fwcmd_opcodes.h |  244 ++++++++++++++++++++++++++++++++++
+ drivers/net/benet/fw/host_struct.h   |  182 +++++++++++++++++++++++++
+ drivers/net/benet/fw/mpu.h           |   74 ++++++++++
+ drivers/net/benet/fw/mpu_context.h   |   46 +++++++
+ drivers/net/benet/fw/post_codes.h    |  111 +++++++++++++++
+ drivers/net/benet/fw/regmap.h        |   68 ++++++++++
+ 16 files changed, 1940 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/benet/fw/asyncmesg.h
+ create mode 100644 drivers/net/benet/fw/be_cm.h
+ create mode 100644 drivers/net/benet/fw/be_common.h
+ create mode 100644 drivers/net/benet/fw/cev.h
+ create mode 100644 drivers/net/benet/fw/descriptors.h
+ create mode 100644 drivers/net/benet/fw/doorbells.h
+ create mode 100644 drivers/net/benet/fw/ep.h
+ create mode 100644 drivers/net/benet/fw/etx_context.h
+ create mode 100644 drivers/net/benet/fw/fwcmd_common.h
+ create mode 100644 drivers/net/benet/fw/fwcmd_mcc.h
+ create mode 100644 drivers/net/benet/fw/fwcmd_opcodes.h
+ create mode 100644 drivers/net/benet/fw/host_struct.h
+ create mode 100644 drivers/net/benet/fw/mpu.h
+ create mode 100644 drivers/net/benet/fw/mpu_context.h
+ create mode 100644 drivers/net/benet/fw/post_codes.h
+ create mode 100644 drivers/net/benet/fw/regmap.h
 
-diff --git a/drivers/net/benet/hwlib/funcobj.c b/drivers/net/benet/hwlib/funcobj.c
+diff --git a/drivers/net/benet/fw/asyncmesg.h b/drivers/net/benet/fw/asyncmesg.h
 new file mode 100644
-index 0000000..6eabe96
+index 0000000..b47c9a5
 --- /dev/null
-+++ b/drivers/net/benet/hwlib/funcobj.c
-@@ -0,0 +1,565 @@
++++ b/drivers/net/benet/fw/asyncmesg.h
+@@ -0,0 +1,98 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -45,561 +73,94 @@ index 0000000..6eabe96
 + * 209 N. Fair Oaks Ave
 + * Sunnyvale, CA 94085
 + */
-+#include "hwlib.h"
-+#include "bestatus.h"
-+
-+
-+int
-+be_function_internal_query_firmware_config(struct be_function_object *pfob,
-+				   struct BE_FIRMWARE_CONFIG *config)
-+{
-+	struct FWCMD_COMMON_FIRMWARE_CONFIG *fwcmd = NULL;
-+	struct MCC_WRB_AMAP *wrb = NULL;
-+	int status = 0;
-+	unsigned long irql;
-+	struct be_mcc_wrb_response_copy rc;
-+
-+	spin_lock_irqsave(&pfob->post_lock, irql);
-+
-+	wrb = be_function_peek_mcc_wrb(pfob);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded fwcmd, including request/response sizes. */
-+	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_FIRMWARE_CONFIG);
-+
-+	rc.length = FIELD_SIZEOF(struct FWCMD_COMMON_FIRMWARE_CONFIG,
-+					params.response);
-+	rc.fwcmd_offset = offsetof(struct FWCMD_COMMON_FIRMWARE_CONFIG,
-+					params.response);
-+	rc.va = config;
-+
-+	/* Post the f/w command */
-+	status = be_function_post_mcc_wrb(pfob, wrb, NULL, NULL,
-+					NULL, NULL, NULL, fwcmd, &rc);
-+error:
-+	spin_unlock_irqrestore(&pfob->post_lock, irql);
-+	if (pfob->pend_queue_driving && pfob->mcc) {
-+		pfob->pend_queue_driving = 0;
-+		be_drive_mcc_wrb_queue(pfob->mcc);
-+	}
-+	return status;
-+}
-+
 +/*
-+    This allocates and initializes a function object based on the information
-+    provided by upper layer drivers.
-+
-+    Returns BE_SUCCESS on success and an appropriate int on failure.
-+
-+    A function object represents a single BladeEngine (logical) PCI function.
-+    That is a function object either represents
-+    the networking side of BladeEngine or the iSCSI side of BladeEngine.
-+
-+    This routine will also detect and create an appropriate PD object for the
-+    PCI function as needed.
-+*/
-+int
-+be_function_object_create(u8 __iomem *csr_va, u8 __iomem *db_va,
-+		u8 __iomem *pci_va, u32 function_type,
-+		struct ring_desc *mailbox, struct be_function_object *pfob)
-+{
-+	int status;
-+
-+	ASSERT(pfob);	/* not a magic assert */
-+	ASSERT(function_type <= 2);
-+
-+	TRACE(DL_INFO, "Create function object. type:%s object:0x%p",
-+	      (function_type == BE_FUNCTION_TYPE_ISCSI ? "iSCSI" :
-+	       (function_type == BE_FUNCTION_TYPE_NETWORK ? "Network" :
-+		"Arm")), pfob);
-+
-+	memset(pfob, 0, sizeof(*pfob));
-+
-+	pfob->type = function_type;
-+	pfob->csr_va = csr_va;
-+	pfob->db_va = db_va;
-+	pfob->pci_va = pci_va;
-+
-+	spin_lock_init(&pfob->cq_lock);
-+	spin_lock_init(&pfob->post_lock);
-+	spin_lock_init(&pfob->mcc_context_lock);
-+
-+
-+	pfob->pci_function_number = 1;
-+
-+
-+	pfob->emulate = false;
-+	TRACE(DL_NOTE, "Non-emulation mode");
-+	status = be_drive_POST(pfob);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "BladeEngine POST failed.");
-+		goto error;
-+	}
-+
-+	/* Initialize the mailbox */
-+	status = be_mpu_init_mailbox(pfob, mailbox);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "Failed to initialize mailbox.");
-+		goto error;
-+	}
-+	/*
-+	 * Cache the firmware config for ASSERTs in hwclib and later
-+	 * driver queries.
-+	 */
-+	status = be_function_internal_query_firmware_config(pfob,
-+					       &pfob->fw_config);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "Failed to query firmware config.");
-+		goto error;
-+	}
-+
-+error:
-+	if (status != BE_SUCCESS) {
-+		/* No cleanup necessary */
-+		TRACE(DL_ERR, "Failed to create function.");
-+		memset(pfob, 0, sizeof(*pfob));
-+	}
-+	return status;
-+}
-+
-+/*
-+    This routine drops the reference count on a given function object. Once
-+    the reference count falls to zero, the function object is destroyed and all
-+    resources held are freed.
-+
-+    FunctionObject      - The function object to drop the reference to.
-+*/
-+int be_function_object_destroy(struct be_function_object *pfob)
-+{
-+	TRACE(DL_INFO, "Destroy pfob. Object:0x%p",
-+	      pfob);
-+
-+
-+	ASSERT(pfob->mcc == NULL);
-+
-+	return BE_SUCCESS;
-+}
-+
-+int be_function_cleanup(struct be_function_object *pfob)
-+{
-+	int status = 0;
-+	u32 isr;
-+	u32 host_intr;
-+	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
-+
-+
-+	if (pfob->type == BE_FUNCTION_TYPE_NETWORK) {
-+		status = be_rxf_multicast_config(pfob, false, 0,
-+						NULL, NULL, NULL, NULL);
-+		ASSERT(status == BE_SUCCESS);
-+	}
-+	/* VLAN */
-+	status = be_rxf_vlan_config(pfob, false, 0, NULL, NULL, NULL, NULL);
-+	ASSERT(status == BE_SUCCESS);
-+	/*
-+	 * MCC Queue -- Switches to mailbox mode.  May want to destroy
-+	 * all but the MCC CQ before this call if polling CQ is much better
-+	 * performance than polling mailbox register.
-+	 */
-+	if (pfob->mcc)
-+		status = be_mcc_ring_destroy(pfob->mcc);
-+	/*
-+	 * If interrupts are disabled, clear any CEV interrupt assertions that
-+	 * fired after we stopped processing EQs.
-+	 */
-+	ctrl.dw[0] = PCICFG1_READ(pfob, host_timer_int_ctrl);
-+	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
-+							hostintr, ctrl.dw);
-+	if (!host_intr)
-+		if (pfob->type == BE_FUNCTION_TYPE_NETWORK)
-+			isr = CSR_READ(pfob, cev.isr1);
-+		else
-+			isr = CSR_READ(pfob, cev.isr0);
-+	else
-+		/* This should never happen... */
-+		TRACE(DL_ERR, "function_cleanup called with interrupt enabled");
-+	/* Function object destroy */
-+	status = be_function_object_destroy(pfob);
-+	ASSERT(status == BE_SUCCESS);
-+
-+	return status;
-+}
-+
-+
-+void *
-+be_function_prepare_embedded_fwcmd(struct be_function_object *pfob,
-+	struct MCC_WRB_AMAP *wrb, u32 payld_len, u32 request_length,
-+	u32 response_length, u32 opcode, u32 subsystem)
-+{
-+	struct FWCMD_REQUEST_HEADER *header = NULL;
-+	u32 n;
-+
-+	ASSERT(wrb);
-+
-+	n = AMAP_BYTE_OFFSET(MCC_WRB, payload);
-+	AMAP_SET_BITS_PTR(MCC_WRB, embedded, wrb, 1);
-+	AMAP_SET_BITS_PTR(MCC_WRB, payload_length, wrb, min(payld_len, n));
-+	header = (struct FWCMD_REQUEST_HEADER *)((u8 *)wrb + n);
-+
-+	header->timeout = 0;
-+	header->domain = 0;
-+	header->request_length = max(request_length, response_length);
-+	header->opcode = opcode;
-+	header->subsystem = subsystem;
-+
-+	return header;
-+}
-+
-+void *
-+be_function_prepare_nonembedded_fwcmd(struct be_function_object *pfob,
-+	struct MCC_WRB_AMAP *wrb,
-+	void *fwcmd_va, u64 fwcmd_pa,
-+	u32 payld_len,
-+	u32 request_length,
-+	u32 response_length,
-+	u32 opcode, u32 subsystem)
-+{
-+	struct FWCMD_REQUEST_HEADER *header = NULL;
-+	u32 n;
-+	struct MCC_WRB_PAYLOAD_AMAP *plp;
-+
-+	ASSERT(wrb);
-+	ASSERT(fwcmd_va);
-+
-+	header = (struct FWCMD_REQUEST_HEADER *) fwcmd_va;
-+
-+	AMAP_SET_BITS_PTR(MCC_WRB, embedded, wrb, 0);
-+	AMAP_SET_BITS_PTR(MCC_WRB, payload_length, wrb, payld_len);
-+
-+	/*
-+	 * Assume one fragment. The caller may override the SGL by
-+	 * rewriting the 0th length and adding more entries.  They
-+	 * will also need to update the sge_count.
-+	 */
-+	AMAP_SET_BITS_PTR(MCC_WRB, sge_count, wrb, 1);
-+
-+	n = AMAP_BYTE_OFFSET(MCC_WRB, payload);
-+	plp = (struct MCC_WRB_PAYLOAD_AMAP *)((u8 *)wrb + n);
-+	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].length, plp, payld_len);
-+	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].pa_lo, plp, (u32)fwcmd_pa);
-+	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].pa_hi, plp,
-+					upper_32_bits(fwcmd_pa));
-+
-+	header->timeout = 0;
-+	header->domain = 0;
-+	header->request_length = max(request_length, response_length);
-+	header->opcode = opcode;
-+	header->subsystem = subsystem;
-+
-+	return header;
-+}
-+
-+struct MCC_WRB_AMAP *
-+be_function_peek_mcc_wrb(struct be_function_object *pfob)
-+{
-+	struct MCC_WRB_AMAP *wrb = NULL;
-+	u32 offset;
-+
-+	if (pfob->mcc)
-+		wrb = _be_mpu_peek_ring_wrb(pfob->mcc, false);
-+	else {
-+		offset = AMAP_BYTE_OFFSET(MCC_MAILBOX, wrb);
-+		wrb = (struct MCC_WRB_AMAP *) ((u8 *) pfob->mailbox.va +
-+				offset);
-+	}
-+
-+	if (wrb)
-+		memset(wrb, 0, sizeof(struct MCC_WRB_AMAP));
-+
-+	return wrb;
-+}
-+
-+#if defined(BE_DEBUG)
-+void be_function_debug_print_wrb(struct be_function_object *pfob,
-+		struct MCC_WRB_AMAP *wrb, void *optional_fwcmd_va,
-+		struct be_mcc_wrb_context *wrb_context)
-+{
-+
-+	struct FWCMD_REQUEST_HEADER *header = NULL;
-+	u8 embedded;
-+	u32 n;
-+
-+	embedded = AMAP_GET_BITS_PTR(MCC_WRB, embedded, wrb);
-+
-+	if (embedded) {
-+		n = AMAP_BYTE_OFFSET(MCC_WRB, payload);
-+		header = (struct FWCMD_REQUEST_HEADER *)((u8 *)wrb + n);
-+	} else {
-+		header = (struct FWCMD_REQUEST_HEADER *) optional_fwcmd_va;
-+	}
-+
-+	/* Save the completed count before posting for a debug assert. */
-+
-+	if (header) {
-+		wrb_context->opcode = header->opcode;
-+		wrb_context->subsystem = header->subsystem;
-+
-+	} else {
-+		wrb_context->opcode = 0;
-+		wrb_context->subsystem = 0;
-+	}
-+}
-+#else
-+#define be_function_debug_print_wrb(a_, b_, c_, d_)
-+#endif
-+
-+int
-+be_function_post_mcc_wrb(struct be_function_object *pfob,
-+		struct MCC_WRB_AMAP *wrb,
-+		struct be_generic_q_ctxt *q_ctxt,
-+		mcc_wrb_cqe_callback cb, void *cb_context,
-+		mcc_wrb_cqe_callback internal_cb,
-+		void *internal_cb_context, void *optional_fwcmd_va,
-+		struct be_mcc_wrb_response_copy *rc)
-+{
-+	int status;
-+	struct be_mcc_wrb_context *wrb_context = NULL;
-+	u64 *p;
-+
-+	if (q_ctxt) {
-+		/* Initialize context.         */
-+		q_ctxt->context.internal_cb = internal_cb;
-+		q_ctxt->context.internal_cb_context = internal_cb_context;
-+		q_ctxt->context.cb = cb;
-+		q_ctxt->context.cb_context = cb_context;
-+		if (rc) {
-+			q_ctxt->context.copy.length = rc->length;
-+			q_ctxt->context.copy.fwcmd_offset = rc->fwcmd_offset;
-+			q_ctxt->context.copy.va = rc->va;
-+		} else
-+			q_ctxt->context.copy.length = 0;
-+
-+		q_ctxt->context.optional_fwcmd_va = optional_fwcmd_va;
-+
-+		/* Queue this request */
-+		status = be_function_queue_mcc_wrb(pfob, q_ctxt);
-+
-+		goto Error;
-+	}
-+	/*
-+	 * Allocate a WRB context struct to hold the callback pointers,
-+	 * status, etc.  This is required if commands complete out of order.
-+	 */
-+	wrb_context = _be_mcc_allocate_wrb_context(pfob);
-+	if (!wrb_context) {
-+		TRACE(DL_WARN, "Failed to allocate MCC WRB context.");
-+		status = BE_STATUS_SYSTEM_RESOURCES;
-+		goto Error;
-+	}
-+	/* Initialize context. */
-+	memset(wrb_context, 0, sizeof(*wrb_context));
-+	wrb_context->internal_cb = internal_cb;
-+	wrb_context->internal_cb_context = internal_cb_context;
-+	wrb_context->cb = cb;
-+	wrb_context->cb_context = cb_context;
-+	if (rc) {
-+		wrb_context->copy.length = rc->length;
-+		wrb_context->copy.fwcmd_offset = rc->fwcmd_offset;
-+		wrb_context->copy.va = rc->va;
-+	} else
-+		wrb_context->copy.length = 0;
-+	wrb_context->wrb = wrb;
-+
-+	/*
-+	 * Copy the context pointer into the WRB opaque tag field.
-+	 * Verify assumption of 64-bit tag with a compile time assert.
-+	 */
-+	p = (u64 *) ((u8 *)wrb + AMAP_BYTE_OFFSET(MCC_WRB, tag));
-+	*p = (u64)(size_t)wrb_context;
-+
-+	/* Print info about this FWCMD for debug builds. */
-+	be_function_debug_print_wrb(pfob, wrb, optional_fwcmd_va, wrb_context);
-+
-+	/*
-+	 * issue the WRB to the MPU as appropriate
-+	 */
-+	if (pfob->mcc) {
-+		/*
-+		 * we're in WRB mode, pass to the mcc layer
-+		 */
-+		status = _be_mpu_post_wrb_ring(pfob->mcc, wrb, wrb_context);
-+	} else {
-+		/*
-+		 * we're in mailbox mode
-+		 */
-+		status = _be_mpu_post_wrb_mailbox(pfob, wrb, wrb_context);
-+
-+		/* mailbox mode always completes synchronously */
-+		ASSERT(status != BE_STATUS_PENDING);
-+	}
-+
-+Error:
-+
-+	return status;
-+}
-+
-+int
-+be_function_ring_destroy(struct be_function_object *pfob,
-+		u32 id, u32 ring_type, mcc_wrb_cqe_callback cb,
-+		void *cb_context, mcc_wrb_cqe_callback internal_cb,
-+		void *internal_cb_context)
-+{
-+
-+	struct FWCMD_COMMON_RING_DESTROY *fwcmd = NULL;
-+	struct MCC_WRB_AMAP *wrb = NULL;
-+	int status = 0;
-+	unsigned long irql;
-+
-+	spin_lock_irqsave(&pfob->post_lock, irql);
-+
-+	TRACE(DL_INFO, "Destroy ring id:%d type:%d", id, ring_type);
-+
-+	wrb = be_function_peek_mcc_wrb(pfob);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in destroy ring.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
-+	/* Prepares an embedded fwcmd, including request/response sizes. */
-+	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_RING_DESTROY);
-+
-+	fwcmd->params.request.id = id;
-+	fwcmd->params.request.ring_type = ring_type;
-+
-+	/* Post the f/w command */
-+	status = be_function_post_mcc_wrb(pfob, wrb, NULL, cb, cb_context,
-+				internal_cb, internal_cb_context, fwcmd, NULL);
-+	if (status != BE_SUCCESS && status != BE_PENDING) {
-+		TRACE(DL_ERR, "Ring destroy fwcmd failed. id:%d ring_type:%d",
-+			id, ring_type);
-+		goto Error;
-+	}
-+
-+Error:
-+	spin_unlock_irqrestore(&pfob->post_lock, irql);
-+	if (pfob->pend_queue_driving && pfob->mcc) {
-+		pfob->pend_queue_driving = 0;
-+		be_drive_mcc_wrb_queue(pfob->mcc);
-+	}
-+	return status;
-+}
-+
-+void
-+be_rd_to_pa_list(struct ring_desc *rd, struct PHYS_ADDR *pa_list, u32 max_num)
-+{
-+	u32 num_pages = PAGES_SPANNED(rd->va, rd->length);
-+	u32 i = 0;
-+	u64 pa = rd->pa;
-+	__le64 lepa;
-+
-+	ASSERT(pa_list);
-+	ASSERT(pa);
-+
-+	for (i = 0; i < min(num_pages, max_num); i++) {
-+		lepa = cpu_to_le64(pa);
-+		pa_list[i].lo = (u32)lepa;
-+		pa_list[i].hi = upper_32_bits(lepa);
-+		pa += PAGE_SIZE;
-+	}
-+}
-+
-+
-+
-+/*-----------------------------------------------------------------------------
-+ * Function: be_function_get_fw_version
-+ *   Retrieves the firmware version on the adpater. If the callback is
-+ *   NULL this call executes synchronously. If the callback is not NULL,
-+ *   the returned status will be BE_PENDING if the command was issued
-+ *   successfully.
-+ * pfob    -
-+ * fwv         - Pointer to response buffer if callback is NULL.
-+ * cb           - Callback function invoked when the FWCMD completes.
-+ * cb_context   - Passed to the callback function.
-+ * return pend_status - BE_SUCCESS (0) on success.
-+ * 			BE_PENDING (postive value) if the FWCMD
-+ *                      completion is pending. Negative error code on failure.
-+ *---------------------------------------------------------------------------
++ * Autogenerated by srcgen version: 0127
 + */
-+int
-+be_function_get_fw_version(struct be_function_object *pfob,
-+		struct FWCMD_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD *fwv,
-+		mcc_wrb_cqe_callback cb, void *cb_context)
-+{
-+	int status = BE_SUCCESS;
-+	struct MCC_WRB_AMAP *wrb = NULL;
-+	struct FWCMD_COMMON_GET_FW_VERSION *fwcmd = NULL;
-+	unsigned long irql;
-+	struct be_mcc_wrb_response_copy rc;
++#ifndef __asyncmesg_amap_h__
++#define __asyncmesg_amap_h__
++#include "fwcmd_common.h"
 +
-+	spin_lock_irqsave(&pfob->post_lock, irql);
++/* --- ASYNC_EVENT_CODES --- */
++#define ASYNC_EVENT_CODE_LINK_STATE     (1)
++#define ASYNC_EVENT_CODE_ISCSI          (2)
 +
-+	wrb = be_function_peek_mcc_wrb(pfob);
-+	if (!wrb) {
-+		TRACE(DL_ERR, "MCC wrb peek failed.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto Error;
-+	}
++/* --- ASYNC_LINK_STATES --- */
++#define ASYNC_EVENT_LINK_DOWN           (0)	/* Link Down on a port */
++#define ASYNC_EVENT_LINK_UP             (1)	/* Link Up on a port */
 +
-+	if (!cb && !fwv) {
-+		TRACE(DL_ERR, "callback and response buffer NULL!");
-+		status = BE_NOT_OK;
-+		goto Error;
-+	}
-+	/* Prepares an embedded fwcmd, including request/response sizes. */
-+	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_GET_FW_VERSION);
++/*
++ * The last 4 bytes of the async events have this common format.  It allows
++ * the driver to distinguish [link]MCC_CQ_ENTRY[/link] structs from
++ * asynchronous events.  Both arrive on the same completion queue.  This
++ * structure also contains the common fields used to decode the async event.
++ */
++struct BE_ASYNC_EVENT_TRAILER_AMAP {
++	u8 rsvd0[8];	/* DWORD 0 */
++	u8 event_code[8];	/* DWORD 0 */
++	u8 event_type[8];	/* DWORD 0 */
++	u8 rsvd1[6];	/* DWORD 0 */
++	u8 async_event;	/* DWORD 0 */
++	u8 valid;		/* DWORD 0 */
++} __packed;
++struct ASYNC_EVENT_TRAILER_AMAP {
++	u32 dw[1];
++};
 +
-+	rc.length = FIELD_SIZEOF(struct FWCMD_COMMON_GET_FW_VERSION,
-+					params.response);
-+	rc.fwcmd_offset = offsetof(struct FWCMD_COMMON_GET_FW_VERSION,
-+					params.response);
-+	rc.va = fwv;
-+
-+	/* Post the f/w command */
-+	status = be_function_post_mcc_wrb(pfob, wrb, NULL, cb,
-+				cb_context, NULL, NULL, fwcmd, &rc);
-+
-+Error:
-+	spin_unlock_irqrestore(&pfob->post_lock, irql);
-+	if (pfob->pend_queue_driving && pfob->mcc) {
-+		pfob->pend_queue_driving = 0;
-+		be_drive_mcc_wrb_queue(pfob->mcc);
-+	}
-+	return status;
-+}
-+
-+int
-+be_function_queue_mcc_wrb(struct be_function_object *pfob,
-+			  struct be_generic_q_ctxt *q_ctxt)
-+{
-+	int status;
-+
-+	ASSERT(q_ctxt);
-+
-+	/*
-+	 * issue the WRB to the MPU as appropriate
-+	 */
-+	if (pfob->mcc) {
-+
-+		/* We're in ring mode.  Queue this item. */
-+		pfob->mcc->backlog_length++;
-+		list_add_tail(&q_ctxt->context.list, &pfob->mcc->backlog);
-+		status = BE_PENDING;
-+	} else {
-+		status = BE_NOT_OK;
-+	}
-+	return status;
-+}
-+
-diff --git a/drivers/net/benet/hwlib/mpu.c b/drivers/net/benet/hwlib/mpu.c
++/*
++ * Applicable in Initiator, Target and NIC modes.
++ * A link state async event is seen by all device drivers as soon they
++ * create an MCC ring. Thereafter, anytime the link status changes the
++ * drivers will receive a link state async event. Notifications continue to
++ * be sent until a driver destroys its MCC ring. A link down event is
++ * reported when either port loses link. A link up event is reported
++ * when either port regains link. When BE's failover mechanism is enabled, a
++ * link down on the active port causes traffic to be diverted to the standby
++ * port by the BE's ARM firmware (assuming the standby port has link). In
++ * this case, the standy port assumes the active status. Note: when link is
++ * restored on the failed port, traffic continues on the currently active
++ * port. The ARM firmware does not attempt to 'fail back' traffic to
++ * the restored port.
++ */
++#if 0
++struct BE_ASYNC_EVENT_LINK_STATE_AMAP {
++	struct BE_UEXACT8_AMAP port0_link_status;
++	struct BE_UEXACT8_AMAP port1_link_status;
++	struct BE_UEXACT8_AMAP active_port;
++	u8 rsvd0[8];	/* DWORD 0 */
++	struct BE_UEXACT8_AMAP port0_duplex;
++	struct BE_UEXACT8_AMAP port0_speed;
++	struct BE_UEXACT8_AMAP port1_duplex;
++	struct BE_UEXACT8_AMAP port1_speed;
++	struct BE_UEXACT8_AMAP port0_fault;
++	struct BE_UEXACT8_AMAP port1_fault;
++	u8 rsvd1[2][8];	/* DWORD 2 */
++	struct BE_ASYNC_EVENT_TRAILER_AMAP trailer;
++} __packed;
++#endif
++struct BE_ASYNC_EVENT_LINK_STATE_AMAP {
++	u8 port0_link_status[8];
++	u8 port1_link_status[8];
++	u8 active_port[8];
++	u8 rsvd0[8];	/* DWORD 0 */
++	u8 port0_duplex[8];
++	u8 port0_speed[8];
++	u8 port1_duplex[8];
++	u8 port1_speed[8];
++	u8 port0_fault[8];
++	u8 port1_fault[8];
++	u8 rsvd1[2][8];	/* DWORD 2 */
++	struct BE_ASYNC_EVENT_TRAILER_AMAP trailer;
++} __packed;
++struct ASYNC_EVENT_LINK_STATE_AMAP {
++	u32 dw[4];
++};
++#endif /* __asyncmesg_amap_h__ */
+diff --git a/drivers/net/benet/fw/be_cm.h b/drivers/net/benet/fw/be_cm.h
 new file mode 100644
-index 0000000..b8db4df
+index 0000000..b7a1dfd
 --- /dev/null
-+++ b/drivers/net/benet/hwlib/mpu.c
-@@ -0,0 +1,1362 @@
++++ b/drivers/net/benet/fw/be_cm.h
+@@ -0,0 +1,134 @@
 +/*
 + * Copyright (C) 2005 - 2008 ServerEngines
 + * All rights reserved.
@@ -616,1352 +177,1916 @@ index 0000000..b8db4df
 + * 209 N. Fair Oaks Ave
 + * Sunnyvale, CA 94085
 + */
-+#include "hwlib.h"
-+#include "bestatus.h"
-+
-+static
-+inline void mp_ring_create(struct mp_ring *ring, u32 num, u32 size, void *va)
-+{
-+	ASSERT(ring);
-+	memset(ring, 0, sizeof(struct mp_ring));
-+	ring->num = num;
-+	ring->pages = DIV_ROUND_UP(num * size, PAGE_SIZE);
-+	ring->itemSize = size;
-+	ring->va = va;
-+}
-+
 +/*
-+ * -----------------------------------------------------------------------
-+ * Interface for 2 index rings. i.e. consumer/producer rings
-+ * --------------------------------------------------------------------------
++ * Autogenerated by srcgen version: 0127
 + */
-+
-+/* Returns number items pending on ring. */
-+static inline u32 mp_ring_num_pending(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	if (ring->num == 0)
-+		return 0;
-+	return be_subc(ring->pidx, ring->cidx, ring->num);
-+}
-+
-+/* Returns number items free on ring. */
-+static inline u32 mp_ring_num_empty(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	return ring->num - 1 - mp_ring_num_pending(ring);
-+}
-+
-+/* Consume 1 item */
-+static inline void mp_ring_consume(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	ASSERT(ring->pidx != ring->cidx);
-+
-+	ring->cidx = be_addc(ring->cidx, 1, ring->num);
-+}
-+
-+/* Produce 1 item */
-+static inline void mp_ring_produce(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	ring->pidx = be_addc(ring->pidx, 1, ring->num);
-+}
-+
-+/* Consume count items */
-+static inline void mp_ring_consume_multiple(struct mp_ring *ring, u32 count)
-+{
-+	ASSERT(ring);
-+	ASSERT(mp_ring_num_pending(ring) >= count);
-+	ring->cidx = be_addc(ring->cidx, count, ring->num);
-+}
-+
-+static inline void *mp_ring_item(struct mp_ring *ring, u32 index)
-+{
-+	ASSERT(ring);
-+	ASSERT(index < ring->num);
-+	ASSERT(ring->itemSize > 0);
-+	return (u8 *) ring->va + index * ring->itemSize;
-+}
-+
-+/* Ptr to produce item */
-+static inline void *mp_ring_producer_ptr(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	return mp_ring_item(ring, ring->pidx);
-+}
++#ifndef __be_cm_amap_h__
++#define __be_cm_amap_h__
++#include "be_common.h"
++#include "etx_context.h"
++#include "mpu_context.h"
 +
 +/*
-+ * Returns a pointer to the current location in the ring.
-+ * This is used for rings with 1 index.
++ * --- CEV_WATERMARK_ENUM ---
++ * CQ/EQ Watermark Encodings. Encoded as number of free entries in
++ * Queue when Watermark is reached.
 + */
-+static inline void *mp_ring_current(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	ASSERT(ring->pidx == 0);	/* not used */
-+
-+	return mp_ring_item(ring, ring->cidx);
-+}
++#define CEV_WMARK_0        (0)	/* Watermark when Queue full */
++#define CEV_WMARK_16       (1)	/* Watermark at 16 free entries */
++#define CEV_WMARK_32       (2)	/* Watermark at 32 free entries */
++#define CEV_WMARK_48       (3)	/* Watermark at 48 free entries */
++#define CEV_WMARK_64       (4)	/* Watermark at 64 free entries */
++#define CEV_WMARK_80       (5)	/* Watermark at 80 free entries */
++#define CEV_WMARK_96       (6)	/* Watermark at 96 free entries */
++#define CEV_WMARK_112      (7)	/* Watermark at 112 free entries */
++#define CEV_WMARK_128      (8)	/* Watermark at 128 free entries */
++#define CEV_WMARK_144      (9)	/* Watermark at 144 free entries */
++#define CEV_WMARK_160      (10)	/* Watermark at 160 free entries */
++#define CEV_WMARK_176      (11)	/* Watermark at 176 free entries */
++#define CEV_WMARK_192      (12)	/* Watermark at 192 free entries */
++#define CEV_WMARK_208      (13)	/* Watermark at 208 free entries */
++#define CEV_WMARK_224      (14)	/* Watermark at 224 free entries */
++#define CEV_WMARK_240      (15)	/* Watermark at 240 free entries */
 +
 +/*
-+ * Increment index for rings with only 1 index.
-+ * This is used for rings with 1 index.
++ * --- CQ_CNT_ENUM ---
++ * Completion Queue Count Encodings.
 + */
-+static inline void *mp_ring_next(struct mp_ring *ring)
-+{
-+	ASSERT(ring);
-+	ASSERT(ring->num > 0);
-+	ASSERT(ring->pidx == 0);	/* not used */
-+
-+	ring->cidx = be_addc(ring->cidx, 1, ring->num);
-+	return mp_ring_current(ring);
-+}
++#define CEV_CQ_CNT_256                  (0)	/* CQ has 256 entries */
++#define CEV_CQ_CNT_512                  (1)	/* CQ has 512 entries */
++#define CEV_CQ_CNT_1024                 (2)	/* CQ has 1024 entries */
 +
 +/*
-+    This routine waits for a previously posted mailbox WRB to be completed.
-+    Specifically it waits for the mailbox to say that it's ready to accept
-+    more data by setting the LSB of the mailbox pd register to 1.
-+
-+    pcontroller      - The function object to post this data to
-+
-+    IRQL < DISPATCH_LEVEL
-+*/
-+static void be_mcc_mailbox_wait(struct be_function_object *pfob)
-+{
-+	struct MPU_MAILBOX_DB_AMAP mailbox_db;
-+	u32 i = 0;
-+	u32 ready;
-+
-+	if (pfob->emulate) {
-+		/* No waiting for mailbox in emulated mode. */
-+		return;
-+	}
-+
-+	mailbox_db.dw[0] = PD_READ(pfob, mcc_bootstrap_db);
-+	ready = AMAP_GET_BITS_PTR(MPU_MAILBOX_DB, ready, &mailbox_db);
-+
-+	while (ready == false) {
-+		if ((++i & 0x3FFFF) == 0) {
-+			TRACE(DL_WARN, "Waiting for mailbox ready - %dk polls",
-+								i / 1000);
-+		}
-+		udelay(1);
-+		mailbox_db.dw[0] = PD_READ(pfob, mcc_bootstrap_db);
-+		ready = AMAP_GET_BITS_PTR(MPU_MAILBOX_DB, ready, &mailbox_db);
-+	}
-+}
-+
-+/*
-+    This routine tells the MCC mailbox that there is data to processed
-+    in the mailbox. It does this by setting the physical address for the
-+    mailbox location and clearing the LSB.  This routine returns immediately
-+    and does not wait for the WRB to be processed.
-+
-+    pcontroller      - The function object to post this data to
-+
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+static void be_mcc_mailbox_notify(struct be_function_object *pfob)
-+{
-+	struct MPU_MAILBOX_DB_AMAP mailbox_db;
-+	u32 pa;
-+
-+	ASSERT(pfob->mailbox.pa);
-+	ASSERT(pfob->mailbox.va);
-+
-+	/* If emulated, do not ring the mailbox */
-+	if (pfob->emulate) {
-+		TRACE(DL_WARN, "MPU disabled. Skipping mailbox notify.");
-+		return;
-+	}
-+
-+	/* form the higher bits in the address */
-+	mailbox_db.dw[0] = 0;	/* init */
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, hi, &mailbox_db, 1);
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, ready, &mailbox_db, 0);
-+
-+	/* bits 34 to 63 */
-+	pa = (u32) (pfob->mailbox.pa >> 34);
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, address, &mailbox_db, pa);
-+
-+	/* Wait for the MPU to be ready */
-+	be_mcc_mailbox_wait(pfob);
-+
-+	/* Ring doorbell 1st time */
-+	PD_WRITE(pfob, mcc_bootstrap_db, mailbox_db.dw[0]);
-+
-+	/* Wait for 1st write to be acknowledged. */
-+	be_mcc_mailbox_wait(pfob);
-+
-+	/* lower bits 30 bits from 4th bit (bits 4 to 33)*/
-+	pa = (u32) (pfob->mailbox.pa >> 4) & 0x3FFFFFFF;
-+
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, hi, &mailbox_db, 0);
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, ready, &mailbox_db, 0);
-+	AMAP_SET_BITS_PTR(MPU_MAILBOX_DB, address, &mailbox_db, pa);
-+
-+	/* Ring doorbell 2nd time */
-+	PD_WRITE(pfob, mcc_bootstrap_db, mailbox_db.dw[0]);
-+}
-+
-+/*
-+    This routine tells the MCC mailbox that there is data to processed
-+    in the mailbox. It does this by setting the physical address for the
-+    mailbox location and clearing the LSB.  This routine spins until the
-+    MPU writes a 1 into the LSB indicating that the data has been received
-+    and is ready to be processed.
-+
-+    pcontroller      - The function object to post this data to
-+
-+    IRQL < DISPATCH_LEVEL
-+*/
-+static void
-+be_mcc_mailbox_notify_and_wait(struct be_function_object *pfob)
-+{
-+	/*
-+	 * Notify it
-+	 */
-+	be_mcc_mailbox_notify(pfob);
-+	/*
-+	 * Now wait for completion of WRB
-+	 */
-+	be_mcc_mailbox_wait(pfob);
-+}
-+
-+void
-+be_mcc_process_cqe(struct be_function_object *pfob,
-+				struct MCC_CQ_ENTRY_AMAP *cqe)
-+{
-+	struct be_mcc_wrb_context *wrb_context = NULL;
-+	u32 offset, status;
-+	u8 *p;
-+
-+	ASSERT(cqe);
-+	/*
-+	 * A command completed.  Commands complete out-of-order.
-+	 * Determine which command completed from the TAG.
-+	 */
-+	offset = AMAP_BYTE_OFFSET(MCC_CQ_ENTRY, mcc_tag);
-+	p = (u8 *) cqe + offset;
-+	wrb_context = (struct be_mcc_wrb_context *)(void *)(size_t)(*(u64 *)p);
-+
-+	ASSERT(wrb_context);
-+	/*
-+	 * Perform a response copy if requested.
-+	 * Only copy data if the FWCMD is successful.
-+	 */
-+	status = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY, completion_status, cqe);
-+	if (status == MGMT_STATUS_SUCCESS && wrb_context->copy.length > 0) {
-+		ASSERT(wrb_context->wrb);
-+		ASSERT(wrb_context->copy.va);
-+		p = (u8 *)wrb_context->wrb + AMAP_BYTE_OFFSET(MCC_WRB, payload);
-+		memcpy(wrb_context->copy.va,
-+			  (u8 *)p + wrb_context->copy.fwcmd_offset,
-+			  wrb_context->copy.length);
-+	}
-+
-+	if (status)
-+		status = BE_NOT_OK;
-+	/* internal callback */
-+	if (wrb_context->internal_cb) {
-+		wrb_context->internal_cb(wrb_context->internal_cb_context,
-+						status, wrb_context->wrb);
-+	}
-+
-+	/* callback */
-+	if (wrb_context->cb) {
-+		wrb_context->cb(wrb_context->cb_context,
-+					      status, wrb_context->wrb);
-+	}
-+	/* Free the context structure */
-+	_be_mcc_free_wrb_context(pfob, wrb_context);
-+}
-+
-+void be_drive_mcc_wrb_queue(struct be_mcc_object *mcc)
-+{
-+	struct be_function_object *pfob = NULL;
-+	int status = BE_PENDING;
-+	struct be_generic_q_ctxt *q_ctxt;
-+	struct MCC_WRB_AMAP *wrb;
-+	struct MCC_WRB_AMAP *queue_wrb;
-+	u32 length, payload_length, sge_count, embedded;
-+	unsigned long irql;
-+
-+	BUILD_BUG_ON((sizeof(struct be_generic_q_ctxt) <
-+			  sizeof(struct be_queue_driver_context) +
-+					sizeof(struct MCC_WRB_AMAP)));
-+	pfob = mcc->parent_function;
-+
-+	spin_lock_irqsave(&pfob->post_lock, irql);
-+
-+	if (mcc->driving_backlog) {
-+		spin_unlock_irqrestore(&pfob->post_lock, irql);
-+		if (pfob->pend_queue_driving && pfob->mcc) {
-+			pfob->pend_queue_driving = 0;
-+			be_drive_mcc_wrb_queue(pfob->mcc);
-+		}
-+		return;
-+	}
-+	/* Acquire the flag to limit 1 thread to redrive posts. */
-+	mcc->driving_backlog = 1;
-+
-+	while (!list_empty(&mcc->backlog)) {
-+		wrb = _be_mpu_peek_ring_wrb(mcc, true);	/* Driving the queue */
-+		if (!wrb)
-+			break;	/* No space in the ring yet. */
-+		/* Get the next queued entry to process. */
-+		q_ctxt = list_first_entry(&mcc->backlog,
-+				struct be_generic_q_ctxt, context.list);
-+		list_del(&q_ctxt->context.list);
-+		pfob->mcc->backlog_length--;
-+		/*
-+		 * Compute the required length of the WRB.
-+		 * Since the queue element may be smaller than
-+		 * the complete WRB, copy only the required number of bytes.
-+		 */
-+		queue_wrb = (struct MCC_WRB_AMAP *) &q_ctxt->wrb_header;
-+		embedded = AMAP_GET_BITS_PTR(MCC_WRB, embedded, queue_wrb);
-+		if (embedded) {
-+			payload_length = AMAP_GET_BITS_PTR(MCC_WRB,
-+						payload_length, queue_wrb);
-+			length = sizeof(struct be_mcc_wrb_header) +
-+								payload_length;
-+		} else {
-+			sge_count = AMAP_GET_BITS_PTR(MCC_WRB, sge_count,
-+								queue_wrb);
-+			ASSERT(sge_count == 1); /* only 1 frag. */
-+			length = sizeof(struct be_mcc_wrb_header) +
-+			    sge_count * sizeof(struct MCC_SGE_AMAP);
-+		}
-+
-+		/*
-+		 * Truncate the length based on the size of the
-+		 * queue element.  Some elements that have output parameters
-+		 * can be smaller than the payload_length field would
-+		 * indicate.  We really only need to copy the request
-+		 * parameters, not the response.
-+		 */
-+		length = min(length, (u32) (q_ctxt->context.bytes -
-+			offsetof(struct be_generic_q_ctxt, wrb_header)));
-+
-+		/* Copy the queue element WRB into the ring. */
-+		memcpy(wrb, &q_ctxt->wrb_header, length);
-+
-+		/* Post the wrb.  This should not fail assuming we have
-+		 * enough context structs. */
-+		status = be_function_post_mcc_wrb(pfob, wrb, NULL,
-+			   q_ctxt->context.cb, q_ctxt->context.cb_context,
-+			   q_ctxt->context.internal_cb,
-+			   q_ctxt->context.internal_cb_context,
-+			   q_ctxt->context.optional_fwcmd_va,
-+			   &q_ctxt->context.copy);
-+
-+		if (status == BE_SUCCESS) {
-+			/*
-+			 * Synchronous completion. Since it was queued,
-+			 * we will invoke the callback.
-+			 * To the user, this is an asynchronous request.
-+			 */
-+			spin_unlock_irqrestore(&pfob->post_lock, irql);
-+			if (pfob->pend_queue_driving && pfob->mcc) {
-+				pfob->pend_queue_driving = 0;
-+				be_drive_mcc_wrb_queue(pfob->mcc);
-+			}
-+
-+			ASSERT(q_ctxt->context.cb);
-+
-+			q_ctxt->context.cb(
-+				q_ctxt->context.cb_context,
-+						BE_SUCCESS, NULL);
-+
-+			spin_lock_irqsave(&pfob->post_lock, irql);
-+
-+		} else if (status != BE_PENDING) {
-+			/*
-+			 * Another resource failed.  Should never happen
-+			 * if we have sufficient MCC_WRB_CONTEXT structs.
-+			 * Return to head of the queue.
-+			 */
-+			TRACE(DL_WARN, "Failed to post a queued WRB. 0x%x",
-+			      status);
-+			list_add(&q_ctxt->context.list, &mcc->backlog);
-+			pfob->mcc->backlog_length++;
-+			break;
-+		}
-+	}
-+
-+	/* Free the flag to limit 1 thread to redrive posts. */
-+	mcc->driving_backlog = 0;
-+	spin_unlock_irqrestore(&pfob->post_lock, irql);
-+}
-+
-+/* This function asserts that the WRB was consumed in order. */
-+#ifdef BE_DEBUG
-+u32 be_mcc_wrb_consumed_in_order(struct be_mcc_object *mcc,
-+					struct MCC_CQ_ENTRY_AMAP *cqe)
-+{
-+	struct be_mcc_wrb_context *wrb_context = NULL;
-+	u32 wrb_index;
-+	u32 wrb_consumed_in_order;
-+	u32 offset;
-+	u8 *p;
-+
-+	ASSERT(cqe);
-+	/*
-+	 * A command completed.  Commands complete out-of-order.
-+	 * Determine which command completed from the TAG.
-+	 */
-+	offset = AMAP_BYTE_OFFSET(MCC_CQ_ENTRY, mcc_tag);
-+	p = (u8 *) cqe + offset;
-+	wrb_context = (struct be_mcc_wrb_context *)(void *)(size_t)(*(u64 *)p);
-+
-+	ASSERT(wrb_context);
-+
-+	wrb_index = (u32) (((u64)(size_t)wrb_context->ring_wrb -
-+		(u64)(size_t)mcc->sq.ring.va) / sizeof(struct MCC_WRB_AMAP));
-+
-+	ASSERT(wrb_index < mcc->sq.ring.num);
-+
-+	wrb_consumed_in_order = (u32) (wrb_index == mcc->consumed_index);
-+	mcc->consumed_index = be_addc(mcc->consumed_index, 1, mcc->sq.ring.num);
-+	return wrb_consumed_in_order;
-+}
-+#endif
-+
-+int be_mcc_process_cq(struct be_mcc_object *mcc, bool rearm)
-+{
-+	struct be_function_object *pfob = NULL;
-+	struct MCC_CQ_ENTRY_AMAP *cqe;
-+	struct CQ_DB_AMAP db;
-+	struct mp_ring *cq_ring = &mcc->cq.ring;
-+	struct mp_ring *mp_ring = &mcc->sq.ring;
-+	u32 num_processed = 0;
-+	u32 consumed = 0, valid, completed, cqe_consumed, async_event;
-+
-+	pfob = mcc->parent_function;
-+
-+	spin_lock_irqsave(&pfob->cq_lock, pfob->cq_irq);
-+
-+	/*
-+	 * Verify that only one thread is processing the CQ at once.
-+	 * We cannot hold the lock while processing the CQ due to
-+	 * the callbacks into the OS.  Therefore, this flag is used
-+	 * to control it.  If any of the threads want to
-+	 * rearm the CQ, we need to honor that.
-+	 */
-+	if (mcc->processing != 0) {
-+		mcc->rearm = mcc->rearm || rearm;
-+		goto Error;
-+	} else {
-+		mcc->processing = 1;	/* lock processing for this thread. */
-+		mcc->rearm = rearm;	/* set our rearm setting */
-+	}
-+
-+	spin_unlock_irqrestore(&pfob->cq_lock, pfob->cq_irq);
-+
-+	cqe = mp_ring_current(cq_ring);
-+	valid = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY, valid, cqe);
-+	while (valid) {
-+
-+		if (num_processed >= 8) {
-+			/* coalesce doorbells, but free space in cq
-+			 * ring while processing. */
-+			db.dw[0] = 0;	/* clear */
-+			AMAP_SET_BITS_PTR(CQ_DB, qid, &db, cq_ring->id);
-+			AMAP_SET_BITS_PTR(CQ_DB, rearm, &db, false);
-+			AMAP_SET_BITS_PTR(CQ_DB, event, &db, false);
-+			AMAP_SET_BITS_PTR(CQ_DB, num_popped, &db,
-+							num_processed);
-+			num_processed = 0;
-+
-+			PD_WRITE(pfob, cq_db, db.dw[0]);
-+		}
-+
-+		async_event = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY, async_event, cqe);
-+		if (async_event) {
-+			/* This is an asynchronous event. */
-+			struct ASYNC_EVENT_TRAILER_AMAP *async_trailer =
-+			    (struct ASYNC_EVENT_TRAILER_AMAP *)
-+			    ((u8 *) cqe + sizeof(struct MCC_CQ_ENTRY_AMAP) -
-+			     sizeof(struct ASYNC_EVENT_TRAILER_AMAP));
-+			u32 event_code;
-+			async_event = AMAP_GET_BITS_PTR(ASYNC_EVENT_TRAILER,
-+						async_event, async_trailer);
-+			ASSERT(async_event == 1);
-+
-+
-+			valid = AMAP_GET_BITS_PTR(ASYNC_EVENT_TRAILER,
-+						valid, async_trailer);
-+			ASSERT(valid == 1);
-+
-+			/* Call the async event handler if it is installed. */
-+			if (mcc->async_cb) {
-+				event_code =
-+					AMAP_GET_BITS_PTR(ASYNC_EVENT_TRAILER,
-+						event_code, async_trailer);
-+				mcc->async_cb(mcc->async_context,
-+					    (u32) event_code, (void *) cqe);
-+			}
-+
-+		} else {
-+			/* This is a completion entry. */
-+
-+			/* No vm forwarding in this driver. */
-+
-+			cqe_consumed = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY,
-+						consumed, cqe);
-+			if (cqe_consumed) {
-+				/*
-+				 * A command on the MCC ring was consumed.
-+				 * Update the consumer index.
-+				 * These occur in order.
-+				 */
-+				ASSERT(be_mcc_wrb_consumed_in_order(mcc, cqe));
-+				consumed++;
-+			}
-+
-+			completed = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY,
-+					completed, cqe);
-+			if (completed) {
-+				/* A command completed.  Use tag to
-+				 * determine which command.  */
-+				be_mcc_process_cqe(pfob, cqe);
-+			}
-+		}
-+
-+		/* Reset the CQE */
-+		AMAP_SET_BITS_PTR(MCC_CQ_ENTRY, valid, cqe, false);
-+		num_processed++;
-+
-+		/* Update our tracking for the CQ ring. */
-+		cqe = mp_ring_next(cq_ring);
-+		valid = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY, valid, cqe);
-+	}
-+
-+	TRACE(DL_INFO, "num_processed:0x%x, and consumed:0x%x",
-+	      num_processed, consumed);
-+	/*
-+	 * Grab the CQ lock to synchronize the "rearm" setting for
-+	 * the doorbell, and for clearing the "processing" flag.
-+	 */
-+	spin_lock_irqsave(&pfob->cq_lock, pfob->cq_irq);
-+
-+	/*
-+	 * Rearm the cq.  This is done based on the global mcc->rearm
-+	 * flag which combines the rearm parameter from the current
-+	 * call to process_cq and any other threads
-+	 * that tried to process the CQ while this one was active.
-+	 * This handles the situation where a sync. fwcmd was processing
-+	 * the CQ while the interrupt/dpc tries to process it.
-+	 * The sync process gets to continue -- but it is now
-+	 * responsible for the rearming.
-+	 */
-+	if (num_processed > 0 || mcc->rearm == true) {
-+		db.dw[0] = 0;	/* clear */
-+		AMAP_SET_BITS_PTR(CQ_DB, qid, &db, cq_ring->id);
-+		AMAP_SET_BITS_PTR(CQ_DB, rearm, &db, mcc->rearm);
-+		AMAP_SET_BITS_PTR(CQ_DB, event, &db, false);
-+		AMAP_SET_BITS_PTR(CQ_DB, num_popped, &db, num_processed);
-+
-+		PD_WRITE(pfob, cq_db, db.dw[0]);
-+	}
-+	/*
-+	 * Update the consumer index after ringing the CQ doorbell.
-+	 * We don't want another thread to post more WRBs before we
-+	 * have CQ space available.
-+	 */
-+	mp_ring_consume_multiple(mp_ring, consumed);
-+
-+	/* Clear the processing flag. */
-+	mcc->processing = 0;
-+
-+Error:
-+	spin_unlock_irqrestore(&pfob->cq_lock, pfob->cq_irq);
-+	/*
-+	 * Use the local variable to detect if the current thread
-+	 * holds the WRB post lock.  If rearm is false, this is
-+	 * either a synchronous command, or the upper layer driver is polling
-+	 * from a thread.  We do not drive the queue from that
-+	 * context since the driver may hold the
-+	 * wrb post lock already.
-+	 */
-+	if (rearm)
-+		be_drive_mcc_wrb_queue(mcc);
-+	else
-+		pfob->pend_queue_driving = 1;
-+
-+	return BE_SUCCESS;
-+}
-+
-+/*
-+ *============================================================================
-+ *                  P U B L I C  R O U T I N E S
-+ *============================================================================
++ * --- EQ_CNT_ENUM ---
++ * Event Queue Count Encodings.
 + */
++#define CEV_EQ_CNT_256     (0)	/* EQ has 256 entries (16-byte EQEs only) */
++#define CEV_EQ_CNT_512     (1)	/* EQ has 512 entries (16-byte EQEs only) */
++#define CEV_EQ_CNT_1024    (2)	/* EQ has 1024 entries (4-byte or */
++				/* 16-byte EQEs only) */
++#define CEV_EQ_CNT_2048    (3)	/* EQ has 2048 entries (4-byte or */
++				/* 16-byte EQEs only) */
++#define CEV_EQ_CNT_4096    (4)	/* EQ has 4096 entries (4-byte EQEs only) */
 +
 +/*
-+    This routine creates an MCC object.  This object contains an MCC send queue
-+    and a CQ private to the MCC.
-+
-+    pcontroller      - Handle to a function object
-+
-+    EqObject            - EQ object that will be used to dispatch this MCC
-+
-+    ppMccObject         - Pointer to an internal Mcc Object returned.
-+
-+    Returns BE_SUCCESS if successfull,, otherwise a useful error code
-+	is returned.
-+
-+    IRQL < DISPATCH_LEVEL
-+
-+*/
-+int
-+be_mcc_ring_create(struct be_function_object *pfob,
-+		   struct ring_desc *rd, u32 length,
-+		   struct be_mcc_wrb_context *context_array,
-+		   u32 num_context_entries,
-+		   struct be_cq_object *cq, struct be_mcc_object *mcc)
-+{
-+	int status = 0;
-+
-+	struct FWCMD_COMMON_MCC_CREATE *fwcmd = NULL;
-+	struct MCC_WRB_AMAP *wrb = NULL;
-+	u32 num_entries_encoded, n, i;
-+	void *va = NULL;
-+	unsigned long irql;
-+
-+	if (length < sizeof(struct MCC_WRB_AMAP) * 2) {
-+		TRACE(DL_ERR, "Invalid MCC ring length:%d", length);
-+		return BE_NOT_OK;
-+	}
-+	/*
-+	 * Reduce the actual ring size to be less than the number
-+	 * of context entries.  This ensures that we run out of
-+	 * ring WRBs first so the queuing works correctly.  We never
-+	 * queue based on context structs.
-+	 */
-+	if (num_context_entries + 1 <
-+			length / sizeof(struct MCC_WRB_AMAP) - 1) {
-+
-+		u32 max_length =
-+		    (num_context_entries + 2) * sizeof(struct MCC_WRB_AMAP);
-+
-+		if (is_power_of_2(max_length))
-+			length = __roundup_pow_of_two(max_length+1) / 2;
-+		else
-+			length = __roundup_pow_of_two(max_length) / 2;
-+
-+		ASSERT(length <= max_length);
-+
-+		TRACE(DL_WARN,
-+			"MCC ring length reduced based on context entries."
-+			" length:%d wrbs:%d context_entries:%d", length,
-+			length / sizeof(struct MCC_WRB_AMAP),
-+			num_context_entries);
-+	}
-+
-+	spin_lock_irqsave(&pfob->post_lock, irql);
-+
-+	num_entries_encoded =
-+	    be_ring_length_to_encoding(length, sizeof(struct MCC_WRB_AMAP));
-+
-+	/* Init MCC object. */
-+	memset(mcc, 0, sizeof(*mcc));
-+	mcc->parent_function = pfob;
-+	mcc->cq_object = cq;
-+
-+	INIT_LIST_HEAD(&mcc->backlog);
-+
-+	wrb = be_function_peek_mcc_wrb(pfob);
-+	if (!wrb) {
-+		ASSERT(wrb);
-+		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
-+		status = BE_STATUS_NO_MCC_WRB;
-+		goto error;
-+	}
-+	/* Prepares an embedded fwcmd, including request/response sizes. */
-+	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_MCC_CREATE);
-+
-+	fwcmd->params.request.num_pages = DIV_ROUND_UP(length, PAGE_SIZE);
-+	/*
-+	 * Program MCC ring context
-+	 */
-+	AMAP_SET_BITS_PTR(MCC_RING_CONTEXT, pdid,
-+			&fwcmd->params.request.context, 0);
-+	AMAP_SET_BITS_PTR(MCC_RING_CONTEXT, invalid,
-+			&fwcmd->params.request.context, false);
-+	AMAP_SET_BITS_PTR(MCC_RING_CONTEXT, ring_size,
-+			&fwcmd->params.request.context, num_entries_encoded);
-+
-+	n = cq->cq_id;
-+	AMAP_SET_BITS_PTR(MCC_RING_CONTEXT,
-+				cq_id, &fwcmd->params.request.context, n);
-+	be_rd_to_pa_list(rd, fwcmd->params.request.pages,
-+				ARRAY_SIZE(fwcmd->params.request.pages));
-+	/* Post the f/w command */
-+	status = be_function_post_mcc_wrb(pfob, wrb, NULL, NULL, NULL,
-+						NULL, NULL, fwcmd, NULL);
-+	if (status != BE_SUCCESS) {
-+		TRACE(DL_ERR, "MCC to create CQ failed.");
-+		goto error;
-+	}
-+	/*
-+	 * Create a linked list of context structures
-+	 */
-+	mcc->wrb_context.base = context_array;
-+	mcc->wrb_context.num = num_context_entries;
-+	INIT_LIST_HEAD(&mcc->wrb_context.list_head);
-+	memset(context_array, 0,
-+		    sizeof(struct be_mcc_wrb_context) * num_context_entries);
-+	for (i = 0; i < mcc->wrb_context.num; i++) {
-+		list_add_tail(&context_array[i].next,
-+					&mcc->wrb_context.list_head);
-+	}
-+
-+	/*
-+	 *
-+	 * Create an mcc_ring for tracking WRB hw ring
-+	 */
-+	va = rd->va;
-+	ASSERT(va);
-+	mp_ring_create(&mcc->sq.ring, length / sizeof(struct MCC_WRB_AMAP),
-+				sizeof(struct MCC_WRB_AMAP), va);
-+	mcc->sq.ring.id = fwcmd->params.response.id;
-+	/*
-+	 * Init a mcc_ring for tracking the MCC CQ.
-+	 */
-+	ASSERT(cq->va);
-+	mp_ring_create(&mcc->cq.ring, cq->num_entries,
-+		       sizeof(struct MCC_CQ_ENTRY_AMAP), cq->va);
-+	mcc->cq.ring.id = cq->cq_id;
-+
-+	/* Force zeroing of CQ. */
-+	memset(cq->va, 0, cq->num_entries * sizeof(struct MCC_CQ_ENTRY_AMAP));
-+
-+	/* Initialize debug index. */
-+	mcc->consumed_index = 0;
-+
-+	atomic_inc(&cq->ref_count);
-+	pfob->mcc = mcc;
-+
-+	TRACE(DL_INFO, "MCC ring created. id:%d bytes:%d cq_id:%d cq_entries:%d"
-+	      " num_context:%d", mcc->sq.ring.id, length,
-+	      cq->cq_id, cq->num_entries, num_context_entries);
-+
-+error:
-+	spin_unlock_irqrestore(&pfob->post_lock, irql);
-+	if (pfob->pend_queue_driving && pfob->mcc) {
-+		pfob->pend_queue_driving = 0;
-+		be_drive_mcc_wrb_queue(pfob->mcc);
-+	}
-+	return status;
-+}
-+
-+/*
-+    This routine destroys an MCC send queue
-+
-+    MccObject         - Internal Mcc Object to be destroyed.
-+
-+    Returns BE_SUCCESS if successfull, otherwise an error code is returned.
-+
-+    IRQL < DISPATCH_LEVEL
-+
-+    The caller of this routine must ensure that no other WRB may be posted
-+    until this routine returns.
-+
-+*/
-+int be_mcc_ring_destroy(struct be_mcc_object *mcc)
-+{
-+	int status = 0;
-+	struct be_function_object *pfob = mcc->parent_function;
-+
-+
-+	ASSERT(mcc->processing == 0);
-+
-+	/*
-+	 * Remove the ring from the function object.
-+	 * This transitions back to mailbox mode.
-+	 */
-+	pfob->mcc = NULL;
-+
-+	/* Send fwcmd to destroy the queue.  (Using the mailbox.) */
-+	status = be_function_ring_destroy(mcc->parent_function, mcc->sq.ring.id,
-+			     FWCMD_RING_TYPE_MCC, NULL, NULL, NULL, NULL);
-+	ASSERT(status == 0);
-+
-+	/* Release the SQ reference to the CQ */
-+	atomic_dec(&mcc->cq_object->ref_count);
-+
-+	return status;
-+}
-+
-+static void
-+mcc_wrb_sync_cb(void *context, int staus, struct MCC_WRB_AMAP *wrb)
-+{
-+	struct be_mcc_wrb_context *wrb_context =
-+				(struct be_mcc_wrb_context *) context;
-+	ASSERT(wrb_context);
-+	*wrb_context->users_final_status = staus;
-+}
-+
-+/*
-+    This routine posts a command to the MCC send queue
-+
-+    mcc       - Internal Mcc Object to be destroyed.
-+
-+    wrb             - wrb to post.
-+
-+    Returns BE_SUCCESS if successfull, otherwise an error code is returned.
-+
-+    IRQL < DISPATCH_LEVEL if CompletionCallback is not NULL
-+    IRQL <=DISPATCH_LEVEL if CompletionCallback is  NULL
-+
-+    If this routine is called with CompletionCallback != NULL the
-+    call is considered to be asynchronous and will return as soon
-+    as the WRB is posted to the MCC with BE_PENDING.
-+
-+    If CompletionCallback is NULL, then this routine will not return until
-+    a completion for this MCC command has been processed.
-+    If called at DISPATCH_LEVEL the CompletionCallback must be NULL.
-+
-+    This routine should only be called if the MPU has been boostraped past
-+    mailbox mode.
-+
-+
-+*/
-+int
-+_be_mpu_post_wrb_ring(struct be_mcc_object *mcc, struct MCC_WRB_AMAP *wrb,
-+				struct be_mcc_wrb_context *wrb_context)
-+{
-+
-+	struct MCC_WRB_AMAP *ring_wrb = NULL;
-+	int status = BE_PENDING;
-+	int final_status = BE_PENDING;
-+	mcc_wrb_cqe_callback cb = NULL;
-+	struct MCC_DB_AMAP mcc_db;
-+	u32 embedded;
-+
-+	ASSERT(mp_ring_num_empty(&mcc->sq.ring) > 0);
-+	/*
-+	 * Input wrb is most likely the next wrb in the ring, since the client
-+	 * can peek at the address.
-+	 */
-+	ring_wrb = mp_ring_producer_ptr(&mcc->sq.ring);
-+	if (wrb != ring_wrb) {
-+		/* If not equal, copy it into the ring. */
-+		memcpy(ring_wrb, wrb, sizeof(struct MCC_WRB_AMAP));
-+	}
-+#ifdef BE_DEBUG
-+	wrb_context->ring_wrb = ring_wrb;
-+#endif
-+	embedded = AMAP_GET_BITS_PTR(MCC_WRB, embedded, ring_wrb);
-+	if (embedded) {
-+		/* embedded commands will have the response within the WRB. */
-+		wrb_context->wrb = ring_wrb;
-+	} else {
-+		/*
-+		 * non-embedded commands will not have the response
-+		 * within the WRB, and they may complete out-of-order.
-+		 * The WRB will not be valid to inspect
-+		 * during the completion.
-+		 */
-+		wrb_context->wrb = NULL;
-+	}
-+	cb = wrb_context->cb;
-+
-+	if (cb == NULL) {
-+		/* Assign our internal callback if this is a
-+		 * synchronous call. */
-+		wrb_context->cb = mcc_wrb_sync_cb;
-+		wrb_context->cb_context = wrb_context;
-+		wrb_context->users_final_status = &final_status;
-+	}
-+	/* Increment producer index */
-+
-+	mcc_db.dw[0] = 0;		/* initialize */
-+	AMAP_SET_BITS_PTR(MCC_DB, rid, &mcc_db, mcc->sq.ring.id);
-+	AMAP_SET_BITS_PTR(MCC_DB, numPosted, &mcc_db, 1);
-+
-+	mp_ring_produce(&mcc->sq.ring);
-+	PD_WRITE(mcc->parent_function, mpu_mcc_db, mcc_db.dw[0]);
-+	TRACE(DL_INFO, "pidx: %x and cidx: %x.", mcc->sq.ring.pidx,
-+	      mcc->sq.ring.cidx);
-+
-+	if (cb == NULL) {
-+		int polls = 0;	/* At >= 1 us per poll   */
-+		/* Wait until this command completes, polling the CQ. */
-+		do {
-+			TRACE(DL_INFO, "FWCMD submitted in the poll mode.");
-+			/* Do not rearm CQ in this context. */
-+			be_mcc_process_cq(mcc, false);
-+
-+			if (final_status == BE_PENDING) {
-+				if ((++polls & 0x7FFFF) == 0) {
-+					TRACE(DL_WARN,
-+					      "Warning : polling MCC CQ for %d"
-+					      "ms.", polls / 1000);
-+				}
-+
-+				udelay(1);
-+			}
-+
-+			/* final_status changed when the command completes */
-+		} while (final_status == BE_PENDING);
-+
-+		status = final_status;
-+	}
-+
-+	return status;
-+}
-+
-+struct MCC_WRB_AMAP *
-+_be_mpu_peek_ring_wrb(struct be_mcc_object *mcc, bool driving_queue)
-+{
-+	/* If we have queued items, do not allow a post to bypass the queue. */
-+	if (!driving_queue && !list_empty(&mcc->backlog))
-+		return NULL;
-+
-+	if (mp_ring_num_empty(&mcc->sq.ring) <= 0)
-+		return NULL;
-+	return (struct MCC_WRB_AMAP *) mp_ring_producer_ptr(&mcc->sq.ring);
-+}
-+
-+int
-+be_mpu_init_mailbox(struct be_function_object *pfob, struct ring_desc *mailbox)
-+{
-+	ASSERT(mailbox);
-+	pfob->mailbox.va = mailbox->va;
-+	pfob->mailbox.pa =  cpu_to_le64(mailbox->pa);
-+	pfob->mailbox.length = mailbox->length;
-+
-+	ASSERT(((u32)(size_t)pfob->mailbox.va & 0xf) == 0);
-+	ASSERT(((u32)(size_t)pfob->mailbox.pa & 0xf) == 0);
-+	/*
-+	 * Issue the WRB to set MPU endianness
-+	 */
-+	{
-+		u64 *endian_check = (u64 *) (pfob->mailbox.va +
-+					AMAP_BYTE_OFFSET(MCC_MAILBOX, wrb));
-+		*endian_check = 0xFF1234FFFF5678FFULL;
-+	}
-+
-+	be_mcc_mailbox_notify_and_wait(pfob);
-+
-+	return BE_SUCCESS;
-+}
-+
-+
-+/*
-+    This routine posts a command to the MCC mailbox.
-+
-+    FuncObj         - Function Object to post the WRB on behalf of.
-+    wrb             - wrb to post.
-+    CompletionCallback  - Address of a callback routine to invoke once the WRB
-+				is completed.
-+    CompletionCallbackContext - Opaque context to be passed during the call to
-+				the CompletionCallback.
-+    Returns BE_SUCCESS if successfull, otherwise an error code is returned.
-+
-+    IRQL <=DISPATCH_LEVEL if CompletionCallback is  NULL
-+
-+    This routine will block until a completion for this MCC command has been
-+    processed. If called at DISPATCH_LEVEL the CompletionCallback must be NULL.
-+
-+    This routine should only be called if the MPU has not been boostraped past
-+    mailbox mode.
-+*/
-+int
-+_be_mpu_post_wrb_mailbox(struct be_function_object *pfob,
-+	 struct MCC_WRB_AMAP *wrb, struct be_mcc_wrb_context *wrb_context)
-+{
-+	struct MCC_MAILBOX_AMAP *mailbox = NULL;
-+	struct MCC_WRB_AMAP *mb_wrb;
-+	struct MCC_CQ_ENTRY_AMAP *mb_cq;
-+	u32 offset, status;
-+
-+	ASSERT(pfob->mcc == NULL);
-+	mailbox = pfob->mailbox.va;
-+	ASSERT(mailbox);
-+
-+	offset = AMAP_BYTE_OFFSET(MCC_MAILBOX, wrb);
-+	mb_wrb = (struct MCC_WRB_AMAP *) (u8 *)mailbox + offset;
-+	if (mb_wrb != wrb) {
-+		memset(mailbox, 0, sizeof(*mailbox));
-+		memcpy(mb_wrb, wrb, sizeof(struct MCC_WRB_AMAP));
-+	}
-+	/* The callback can inspect the final WRB to get output parameters. */
-+	wrb_context->wrb = mb_wrb;
-+
-+	be_mcc_mailbox_notify_and_wait(pfob);
-+
-+	/* A command completed.  Use tag to determine which command. */
-+	offset = AMAP_BYTE_OFFSET(MCC_MAILBOX, cq);
-+	mb_cq = (struct MCC_CQ_ENTRY_AMAP *) ((u8 *)mailbox + offset);
-+	be_mcc_process_cqe(pfob, mb_cq);
-+
-+	status = AMAP_GET_BITS_PTR(MCC_CQ_ENTRY, completion_status, mb_cq);
-+	if (status)
-+		status = BE_NOT_OK;
-+	return status;
-+}
-+
-+struct be_mcc_wrb_context *
-+_be_mcc_allocate_wrb_context(struct be_function_object *pfob)
-+{
-+	struct be_mcc_wrb_context *context = NULL;
-+	unsigned long irq;
-+
-+	spin_lock_irqsave(&pfob->mcc_context_lock, irq);
-+
-+	if (!pfob->mailbox.default_context_allocated) {
-+		/* Use the single default context that we
-+		 * always have allocated. */
-+		pfob->mailbox.default_context_allocated = true;
-+		context = &pfob->mailbox.default_context;
-+	} else if (pfob->mcc) {
-+		/* Get a context from the free list. If any are available. */
-+		if (!list_empty(&pfob->mcc->wrb_context.list_head)) {
-+			context = list_first_entry(
-+				&pfob->mcc->wrb_context.list_head,
-+					 struct be_mcc_wrb_context, next);
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&pfob->mcc_context_lock, irq);
-+
-+	return context;
-+}
-+
-+void
-+_be_mcc_free_wrb_context(struct be_function_object *pfob,
-+			 struct be_mcc_wrb_context *context)
-+{
-+	unsigned long irq;
-+
-+	ASSERT(context);
-+	/*
-+	 * Zero during free to try and catch any bugs where the context
-+	 * is accessed after a free.
-+	 */
-+	memset(context, 0, sizeof(context));
-+
-+	spin_lock_irqsave(&pfob->mcc_context_lock, irq);
-+
-+	if (context == &pfob->mailbox.default_context) {
-+		/* Free the default context. */
-+		ASSERT(pfob->mailbox.default_context_allocated);
-+		pfob->mailbox.default_context_allocated = false;
-+	} else {
-+		/* Add to free list. */
-+		ASSERT(pfob->mcc);
-+		list_add_tail(&context->next,
-+				&pfob->mcc->wrb_context.list_head);
-+	}
-+
-+	spin_unlock_irqrestore(&pfob->mcc_context_lock, irq);
-+}
-+
-+int
-+be_mcc_add_async_event_callback(struct be_mcc_object *mcc_object,
-+		mcc_async_event_callback cb, void *cb_context)
-+{
-+	/* Lock against anyone trying to change the callback/context pointers
-+	 * while being used. */
-+	spin_lock_irqsave(&mcc_object->parent_function->cq_lock,
-+		mcc_object->parent_function->cq_irq);
-+
-+	/* Assign the async callback. */
-+	mcc_object->async_context = cb_context;
-+	mcc_object->async_cb = cb;
-+
-+	spin_unlock_irqrestore(&mcc_object->parent_function->cq_lock,
-+					mcc_object->parent_function->cq_irq);
-+
-+	return BE_SUCCESS;
-+}
-+
-+#define MPU_EP_CONTROL 0
-+#define MPU_EP_SEMAPHORE 0xac
-+
-+/*
-+ *-------------------------------------------------------------------
-+ * Function: be_wait_for_POST_complete
-+ *   Waits until the BladeEngine POST completes (either in error or success).
-+ * pfob -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * --- EQ_SIZE_ENUM ---
++ * Event Queue Entry Size Encoding.
 + */
-+static int be_wait_for_POST_complete(struct be_function_object *pfob)
-+{
-+	struct MGMT_HBA_POST_STATUS_STRUCT_AMAP status;
-+	int s;
-+	u32 post_error, post_stage;
-+
-+	const u32 us_per_loop = 1000;	/* 1000us */
-+	const u32 print_frequency_loops = 1000000 / us_per_loop;
-+	const u32 max_loops = 60 * print_frequency_loops;
-+	u32 loops = 0;
-+
-+	/*
-+	 * Wait for arm fw indicating it is done or a fatal error happened.
-+	 * Note: POST can take some time to complete depending on configuration
-+	 * settings (consider ARM attempts to acquire an IP address
-+	 * over DHCP!!!).
-+	 *
-+	 */
-+	do {
-+		status.dw[0] = ioread32(pfob->csr_va + MPU_EP_SEMAPHORE);
-+		post_error = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT,
-+						error, &status);
-+		post_stage = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT,
-+						stage, &status);
-+		if (0 == (loops % print_frequency_loops)) {
-+			/* Print current status */
-+			TRACE(DL_INFO, "POST status = 0x%x (stage = 0x%x)",
-+				status.dw[0], post_stage);
-+		}
-+		udelay(us_per_loop);
-+	} while ((post_error != 1) &&
-+		 (post_stage != POST_STAGE_ARMFW_READY) &&
-+		 (++loops < max_loops));
-+
-+	if (post_error == 1) {
-+		TRACE(DL_ERR, "POST error! Status = 0x%x (stage = 0x%x)",
-+		      status.dw[0], post_stage);
-+		s = BE_NOT_OK;
-+	} else if (post_stage != POST_STAGE_ARMFW_READY) {
-+		TRACE(DL_ERR, "POST time-out! Status = 0x%x (stage = 0x%x)",
-+		      status.dw[0], post_stage);
-+		s = BE_NOT_OK;
-+	} else {
-+		s = BE_SUCCESS;
-+	}
-+	return s;
-+}
++#define CEV_EQ_SIZE_4                   (0)	/* EQE is 4 bytes */
++#define CEV_EQ_SIZE_16                  (1)	/* EQE is 16 bytes */
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_kickoff_and_wait_for_POST
-+ *   Interacts with the BladeEngine management processor to initiate POST, and
-+ *   subsequently waits until POST completes (either in error or success).
-+ *   The caller must acquire the reset semaphore before initiating POST
-+ *   to prevent multiple drivers interacting with the management processor.
-+ *   Once POST is complete the caller must release the reset semaphore.
-+ *   Callers who only want to wait for POST complete may call
-+ *   be_wait_for_POST_complete.
-+ * pfob -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * Completion Queue Context Table Entry. Contains the state of a CQ.
++ * Located in RAM within the CEV block.
 + */
-+static int
-+be_kickoff_and_wait_for_POST(struct be_function_object *pfob)
-+{
-+	struct MGMT_HBA_POST_STATUS_STRUCT_AMAP status;
-+	int s;
-+
-+	const u32 us_per_loop = 1000;	/* 1000us */
-+	const u32 print_frequency_loops = 1000000 / us_per_loop;
-+	const u32 max_loops = 5 * print_frequency_loops;
-+	u32 loops = 0;
-+	u32 post_error, post_stage;
-+
-+	/* Wait for arm fw awaiting host ready or a fatal error happened. */
-+	TRACE(DL_INFO, "Wait for BladeEngine ready to POST");
-+	do {
-+		status.dw[0] = ioread32(pfob->csr_va + MPU_EP_SEMAPHORE);
-+		post_error = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT,
-+						error, &status);
-+		post_stage = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT,
-+						stage, &status);
-+		if (0 == (loops % print_frequency_loops)) {
-+			/* Print current status */
-+			TRACE(DL_INFO, "POST status = 0x%x (stage = 0x%x)",
-+			      status.dw[0], post_stage);
-+		}
-+		udelay(us_per_loop);
-+	} while ((post_error != 1) &&
-+		 (post_stage < POST_STAGE_AWAITING_HOST_RDY) &&
-+		 (++loops < max_loops));
-+
-+	if (post_error == 1) {
-+		TRACE(DL_ERR, "Pre-POST error! Status = 0x%x (stage = 0x%x)",
-+		      status.dw[0], post_stage);
-+		s = BE_NOT_OK;
-+	} else if (post_stage == POST_STAGE_AWAITING_HOST_RDY) {
-+		iowrite32(POST_STAGE_HOST_RDY, pfob->csr_va + MPU_EP_SEMAPHORE);
-+
-+		/* Wait for POST to complete */
-+		s = be_wait_for_POST_complete(pfob);
-+	} else {
-+		/*
-+		 * Either a timeout waiting for host ready signal or POST has
-+		 * moved ahead without requiring a host ready signal.
-+		 * Might as well give POST a chance to complete
-+		 * (or timeout again).
-+		 */
-+		s = be_wait_for_POST_complete(pfob);
-+	}
-+	return s;
-+}
++struct BE_CQ_CONTEXT_AMAP {
++	u8 Cidx[11];	/* DWORD 0 */
++	u8 Watermark[4];	/* DWORD 0 */
++	u8 NoDelay;		/* DWORD 0 */
++	u8 EPIdx[11];	/* DWORD 0 */
++	u8 Count[2];	/* DWORD 0 */
++	u8 valid;		/* DWORD 0 */
++	u8 SolEvent;	/* DWORD 0 */
++	u8 Eventable;	/* DWORD 0 */
++	u8 Pidx[11];	/* DWORD 1 */
++	u8 PD[10];		/* DWORD 1 */
++	u8 EQID[7];		/* DWORD 1 */
++	u8 Func;		/* DWORD 1 */
++	u8 WME;		/* DWORD 1 */
++	u8 Stalled;		/* DWORD 1 */
++	u8 Armed;		/* DWORD 1 */
++} __packed;
++struct CQ_CONTEXT_AMAP {
++	u32 dw[2];
++};
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_pci_soft_reset
-+ *   This function is called to issue a BladeEngine soft reset.
-+ *   Callers should acquire the soft reset semaphore before calling this
-+ *   function. Additionaly, callers should ensure they cannot be pre-empted
-+ *   while the routine executes. Upon completion of this routine, callers
-+ *   should release the reset semaphore. This routine implicitly waits
-+ *   for BladeEngine POST to complete.
-+ * pfob -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * Event Queue Context Table Entry. Contains the state of an EQ.
++ * Located in RAM in the CEV block.
 + */
-+int be_pci_soft_reset(struct be_function_object *pfob)
-+{
-+	struct PCICFG_SOFT_RESET_CSR_AMAP soft_reset;
-+	struct PCICFG_ONLINE0_CSR_AMAP pciOnline0;
-+	struct PCICFG_ONLINE1_CSR_AMAP pciOnline1;
-+	struct EP_CONTROL_CSR_AMAP epControlCsr;
-+	int status = BE_SUCCESS;
-+	u32 i, soft_reset_bit;
++struct BE_EQ_CONTEXT_AMAP {
++	u8 Cidx[13];	/* DWORD 0 */
++	u8 rsvd0[2];	/* DWORD 0 */
++	u8 Func;		/* DWORD 0 */
++	u8 EPIdx[13];	/* DWORD 0 */
++	u8 valid;		/* DWORD 0 */
++	u8 rsvd1;		/* DWORD 0 */
++	u8 Size;		/* DWORD 0 */
++	u8 Pidx[13];	/* DWORD 1 */
++	u8 rsvd2[3];	/* DWORD 1 */
++	u8 PD[10];		/* DWORD 1 */
++	u8 Count[3];	/* DWORD 1 */
++	u8 SolEvent;	/* DWORD 1 */
++	u8 Stalled;		/* DWORD 1 */
++	u8 Armed;		/* DWORD 1 */
++	u8 Watermark[4];	/* DWORD 2 */
++	u8 WME;		/* DWORD 2 */
++	u8 rsvd3[3];	/* DWORD 2 */
++	u8 EventVect[6];	/* DWORD 2 */
++	u8 rsvd4[2];	/* DWORD 2 */
++	u8 Delay[8];	/* DWORD 2 */
++	u8 rsvd5[6];	/* DWORD 2 */
++	u8 TMR;		/* DWORD 2 */
++	u8 rsvd6;		/* DWORD 2 */
++	u8 rsvd7[32];	/* DWORD 3 */
++} __packed;
++struct EQ_CONTEXT_AMAP {
++	u32 dw[4];
++};
 +
-+	TRACE(DL_NOTE, "PCI reset...");
++#endif /* __be_cm_amap_h__ */
+diff --git a/drivers/net/benet/fw/be_common.h b/drivers/net/benet/fw/be_common.h
+new file mode 100644
+index 0000000..7e63dc5
+--- /dev/null
++++ b/drivers/net/benet/fw/be_common.h
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __be_common_amap_h__
++#define __be_common_amap_h__
 +
-+	/* Issue soft reset #1 to get BladeEngine into a known state. */
-+	soft_reset.dw[0] = PCICFG0_READ(pfob, soft_reset);
-+	AMAP_SET_BITS_PTR(PCICFG_SOFT_RESET_CSR, softreset, soft_reset.dw, 1);
-+	PCICFG0_WRITE(pfob, host_timer_int_ctrl, soft_reset.dw[0]);
-+	/*
-+	 * wait til soft reset is deasserted - hardware
-+	 * deasserts after some time.
-+	 */
-+	i = 0;
-+	do {
-+		udelay(50);
-+		soft_reset.dw[0] = PCICFG0_READ(pfob, soft_reset);
-+		soft_reset_bit = AMAP_GET_BITS_PTR(PCICFG_SOFT_RESET_CSR,
-+					softreset, soft_reset.dw);
-+	} while (soft_reset_bit  && (i++ < 1024));
-+	if (soft_reset_bit != 0) {
-+		TRACE(DL_ERR, "Soft-reset #1 did not deassert as expected.");
-+		status = BE_NOT_OK;
-+		goto Error_label;
-+	}
-+	/* Mask everything  */
-+	PCICFG0_WRITE(pfob, ue_status_low_mask, 0xFFFFFFFF);
-+	PCICFG0_WRITE(pfob, ue_status_hi_mask, 0xFFFFFFFF);
-+	/*
-+	 * Set everything offline except MPU IRAM (it is offline with
-+	 * the soft-reset, but soft-reset does not reset the PCICFG registers!)
-+	 */
-+	pciOnline0.dw[0] = 0;
-+	pciOnline1.dw[0] = 0;
-+	AMAP_SET_BITS_PTR(PCICFG_ONLINE1_CSR, mpu_iram_online,
-+				pciOnline1.dw, 1);
-+	PCICFG0_WRITE(pfob, online0, pciOnline0.dw[0]);
-+	PCICFG0_WRITE(pfob, online1, pciOnline1.dw[0]);
++/* Physical Address. */
++struct BE_PHYS_ADDR_AMAP {
++	u8 lo[32];		/* DWORD 0 */
++	u8 hi[32];		/* DWORD 1 */
++} __packed;
++struct PHYS_ADDR_AMAP {
++	u32 dw[2];
++};
 +
-+	udelay(20000);
++/* Virtual Address. */
++struct BE_VIRT_ADDR_AMAP {
++	u8 lo[32];		/* DWORD 0 */
++	u8 hi[32];		/* DWORD 1 */
++} __packed;
++struct VIRT_ADDR_AMAP {
++	u32 dw[2];
++};
 +
-+	/* Issue soft reset #2. */
-+	AMAP_SET_BITS_PTR(PCICFG_SOFT_RESET_CSR, softreset, soft_reset.dw, 1);
-+	PCICFG0_WRITE(pfob, host_timer_int_ctrl, soft_reset.dw[0]);
-+	/*
-+	 * wait til soft reset is deasserted - hardware
-+	 * deasserts after some time.
-+	 */
-+	i = 0;
-+	do {
-+		udelay(50);
-+		soft_reset.dw[0] = PCICFG0_READ(pfob, soft_reset);
-+		soft_reset_bit = AMAP_GET_BITS_PTR(PCICFG_SOFT_RESET_CSR,
-+					softreset, soft_reset.dw);
-+	} while (soft_reset_bit  && (i++ < 1024));
-+	if (soft_reset_bit != 0) {
-+		TRACE(DL_ERR, "Soft-reset #1 did not deassert as expected.");
-+		status = BE_NOT_OK;
-+		goto Error_label;
-+	}
++/* Scatter gather element. */
++struct BE_SGE_AMAP {
++	u8 addr_hi[32];	/* DWORD 0 */
++	u8 addr_lo[32];	/* DWORD 1 */
++	u8 rsvd0[32];	/* DWORD 2 */
++	u8 len[16];		/* DWORD 3 */
++	u8 rsvd1[16];	/* DWORD 3 */
++} __packed;
++struct SGE_AMAP {
++	u32 dw[4];
++};
++
++#endif /* __be_common_amap_h__ */
+diff --git a/drivers/net/benet/fw/cev.h b/drivers/net/benet/fw/cev.h
+new file mode 100644
+index 0000000..3099692
+--- /dev/null
++++ b/drivers/net/benet/fw/cev.h
+@@ -0,0 +1,243 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __cev_amap_h__
++#define __cev_amap_h__
++#include "ep.h"
++
++/*
++ * Host Interrupt Status Register 0. The first of four application
++ * interrupt status registers. This register contains the interrupts
++ * for Event Queues EQ0 through EQ31.
++ */
++struct BE_CEV_ISR0_CSR_AMAP {
++	u8 interrupt0;	/* DWORD 0 */
++	u8 interrupt1;	/* DWORD 0 */
++	u8 interrupt2;	/* DWORD 0 */
++	u8 interrupt3;	/* DWORD 0 */
++	u8 interrupt4;	/* DWORD 0 */
++	u8 interrupt5;	/* DWORD 0 */
++	u8 interrupt6;	/* DWORD 0 */
++	u8 interrupt7;	/* DWORD 0 */
++	u8 interrupt8;	/* DWORD 0 */
++	u8 interrupt9;	/* DWORD 0 */
++	u8 interrupt10;	/* DWORD 0 */
++	u8 interrupt11;	/* DWORD 0 */
++	u8 interrupt12;	/* DWORD 0 */
++	u8 interrupt13;	/* DWORD 0 */
++	u8 interrupt14;	/* DWORD 0 */
++	u8 interrupt15;	/* DWORD 0 */
++	u8 interrupt16;	/* DWORD 0 */
++	u8 interrupt17;	/* DWORD 0 */
++	u8 interrupt18;	/* DWORD 0 */
++	u8 interrupt19;	/* DWORD 0 */
++	u8 interrupt20;	/* DWORD 0 */
++	u8 interrupt21;	/* DWORD 0 */
++	u8 interrupt22;	/* DWORD 0 */
++	u8 interrupt23;	/* DWORD 0 */
++	u8 interrupt24;	/* DWORD 0 */
++	u8 interrupt25;	/* DWORD 0 */
++	u8 interrupt26;	/* DWORD 0 */
++	u8 interrupt27;	/* DWORD 0 */
++	u8 interrupt28;	/* DWORD 0 */
++	u8 interrupt29;	/* DWORD 0 */
++	u8 interrupt30;	/* DWORD 0 */
++	u8 interrupt31;	/* DWORD 0 */
++} __packed;
++struct CEV_ISR0_CSR_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * Host Interrupt Status Register 1. The second of four application
++ * interrupt status registers. This register contains the interrupts
++ * for Event Queues EQ32 through EQ63.
++ */
++struct BE_CEV_ISR1_CSR_AMAP {
++	u8 interrupt32;	/* DWORD 0 */
++	u8 interrupt33;	/* DWORD 0 */
++	u8 interrupt34;	/* DWORD 0 */
++	u8 interrupt35;	/* DWORD 0 */
++	u8 interrupt36;	/* DWORD 0 */
++	u8 interrupt37;	/* DWORD 0 */
++	u8 interrupt38;	/* DWORD 0 */
++	u8 interrupt39;	/* DWORD 0 */
++	u8 interrupt40;	/* DWORD 0 */
++	u8 interrupt41;	/* DWORD 0 */
++	u8 interrupt42;	/* DWORD 0 */
++	u8 interrupt43;	/* DWORD 0 */
++	u8 interrupt44;	/* DWORD 0 */
++	u8 interrupt45;	/* DWORD 0 */
++	u8 interrupt46;	/* DWORD 0 */
++	u8 interrupt47;	/* DWORD 0 */
++	u8 interrupt48;	/* DWORD 0 */
++	u8 interrupt49;	/* DWORD 0 */
++	u8 interrupt50;	/* DWORD 0 */
++	u8 interrupt51;	/* DWORD 0 */
++	u8 interrupt52;	/* DWORD 0 */
++	u8 interrupt53;	/* DWORD 0 */
++	u8 interrupt54;	/* DWORD 0 */
++	u8 interrupt55;	/* DWORD 0 */
++	u8 interrupt56;	/* DWORD 0 */
++	u8 interrupt57;	/* DWORD 0 */
++	u8 interrupt58;	/* DWORD 0 */
++	u8 interrupt59;	/* DWORD 0 */
++	u8 interrupt60;	/* DWORD 0 */
++	u8 interrupt61;	/* DWORD 0 */
++	u8 interrupt62;	/* DWORD 0 */
++	u8 interrupt63;	/* DWORD 0 */
++} __packed;
++struct CEV_ISR1_CSR_AMAP {
++	u32 dw[1];
++};
++/*
++ * Host Interrupt Status Register 2. The third of four application
++ * interrupt status registers. This register contains the interrupts
++ * for Event Queues EQ64 through EQ95.
++ */
++struct BE_CEV_ISR2_CSR_AMAP {
++	u8 interrupt64;	/* DWORD 0 */
++	u8 interrupt65;	/* DWORD 0 */
++	u8 interrupt66;	/* DWORD 0 */
++	u8 interrupt67;	/* DWORD 0 */
++	u8 interrupt68;	/* DWORD 0 */
++	u8 interrupt69;	/* DWORD 0 */
++	u8 interrupt70;	/* DWORD 0 */
++	u8 interrupt71;	/* DWORD 0 */
++	u8 interrupt72;	/* DWORD 0 */
++	u8 interrupt73;	/* DWORD 0 */
++	u8 interrupt74;	/* DWORD 0 */
++	u8 interrupt75;	/* DWORD 0 */
++	u8 interrupt76;	/* DWORD 0 */
++	u8 interrupt77;	/* DWORD 0 */
++	u8 interrupt78;	/* DWORD 0 */
++	u8 interrupt79;	/* DWORD 0 */
++	u8 interrupt80;	/* DWORD 0 */
++	u8 interrupt81;	/* DWORD 0 */
++	u8 interrupt82;	/* DWORD 0 */
++	u8 interrupt83;	/* DWORD 0 */
++	u8 interrupt84;	/* DWORD 0 */
++	u8 interrupt85;	/* DWORD 0 */
++	u8 interrupt86;	/* DWORD 0 */
++	u8 interrupt87;	/* DWORD 0 */
++	u8 interrupt88;	/* DWORD 0 */
++	u8 interrupt89;	/* DWORD 0 */
++	u8 interrupt90;	/* DWORD 0 */
++	u8 interrupt91;	/* DWORD 0 */
++	u8 interrupt92;	/* DWORD 0 */
++	u8 interrupt93;	/* DWORD 0 */
++	u8 interrupt94;	/* DWORD 0 */
++	u8 interrupt95;	/* DWORD 0 */
++} __packed;
++struct CEV_ISR2_CSR_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * Host Interrupt Status Register 3. The fourth of four application
++ * interrupt status registers. This register contains the interrupts
++ * for Event Queues EQ96 through EQ127.
++ */
++struct BE_CEV_ISR3_CSR_AMAP {
++	u8 interrupt96;	/* DWORD 0 */
++	u8 interrupt97;	/* DWORD 0 */
++	u8 interrupt98;	/* DWORD 0 */
++	u8 interrupt99;	/* DWORD 0 */
++	u8 interrupt100;	/* DWORD 0 */
++	u8 interrupt101;	/* DWORD 0 */
++	u8 interrupt102;	/* DWORD 0 */
++	u8 interrupt103;	/* DWORD 0 */
++	u8 interrupt104;	/* DWORD 0 */
++	u8 interrupt105;	/* DWORD 0 */
++	u8 interrupt106;	/* DWORD 0 */
++	u8 interrupt107;	/* DWORD 0 */
++	u8 interrupt108;	/* DWORD 0 */
++	u8 interrupt109;	/* DWORD 0 */
++	u8 interrupt110;	/* DWORD 0 */
++	u8 interrupt111;	/* DWORD 0 */
++	u8 interrupt112;	/* DWORD 0 */
++	u8 interrupt113;	/* DWORD 0 */
++	u8 interrupt114;	/* DWORD 0 */
++	u8 interrupt115;	/* DWORD 0 */
++	u8 interrupt116;	/* DWORD 0 */
++	u8 interrupt117;	/* DWORD 0 */
++	u8 interrupt118;	/* DWORD 0 */
++	u8 interrupt119;	/* DWORD 0 */
++	u8 interrupt120;	/* DWORD 0 */
++	u8 interrupt121;	/* DWORD 0 */
++	u8 interrupt122;	/* DWORD 0 */
++	u8 interrupt123;	/* DWORD 0 */
++	u8 interrupt124;	/* DWORD 0 */
++	u8 interrupt125;	/* DWORD 0 */
++	u8 interrupt126;	/* DWORD 0 */
++	u8 interrupt127;	/* DWORD 0 */
++} __packed;
++struct CEV_ISR3_CSR_AMAP {
++	u32 dw[1];
++};
++
++/*  Completions and Events block Registers.  */
++struct BE_CEV_CSRMAP_AMAP {
++	u8 rsvd0[32];	/* DWORD 0 */
++	u8 rsvd1[32];	/* DWORD 1 */
++	u8 rsvd2[32];	/* DWORD 2 */
++	u8 rsvd3[32];	/* DWORD 3 */
++	struct BE_CEV_ISR0_CSR_AMAP isr0;
++	struct BE_CEV_ISR1_CSR_AMAP isr1;
++	struct BE_CEV_ISR2_CSR_AMAP isr2;
++	struct BE_CEV_ISR3_CSR_AMAP isr3;
++	u8 rsvd4[32];	/* DWORD 8 */
++	u8 rsvd5[32];	/* DWORD 9 */
++	u8 rsvd6[32];	/* DWORD 10 */
++	u8 rsvd7[32];	/* DWORD 11 */
++	u8 rsvd8[32];	/* DWORD 12 */
++	u8 rsvd9[32];	/* DWORD 13 */
++	u8 rsvd10[32];	/* DWORD 14 */
++	u8 rsvd11[32];	/* DWORD 15 */
++	u8 rsvd12[32];	/* DWORD 16 */
++	u8 rsvd13[32];	/* DWORD 17 */
++	u8 rsvd14[32];	/* DWORD 18 */
++	u8 rsvd15[32];	/* DWORD 19 */
++	u8 rsvd16[32];	/* DWORD 20 */
++	u8 rsvd17[32];	/* DWORD 21 */
++	u8 rsvd18[32];	/* DWORD 22 */
++	u8 rsvd19[32];	/* DWORD 23 */
++	u8 rsvd20[32];	/* DWORD 24 */
++	u8 rsvd21[32];	/* DWORD 25 */
++	u8 rsvd22[32];	/* DWORD 26 */
++	u8 rsvd23[32];	/* DWORD 27 */
++	u8 rsvd24[32];	/* DWORD 28 */
++	u8 rsvd25[32];	/* DWORD 29 */
++	u8 rsvd26[32];	/* DWORD 30 */
++	u8 rsvd27[32];	/* DWORD 31 */
++	u8 rsvd28[32];	/* DWORD 32 */
++	u8 rsvd29[32];	/* DWORD 33 */
++	u8 rsvd30[192];	/* DWORD 34 */
++	u8 rsvd31[192];	/* DWORD 40 */
++	u8 rsvd32[160];	/* DWORD 46 */
++	u8 rsvd33[160];	/* DWORD 51 */
++	u8 rsvd34[160];	/* DWORD 56 */
++	u8 rsvd35[96];	/* DWORD 61 */
++	u8 rsvd36[192][32];	/* DWORD 64 */
++} __packed;
++struct CEV_CSRMAP_AMAP {
++	u32 dw[256];
++};
++
++#endif /* __cev_amap_h__ */
+diff --git a/drivers/net/benet/fw/descriptors.h b/drivers/net/benet/fw/descriptors.h
+new file mode 100644
+index 0000000..8da438c
+--- /dev/null
++++ b/drivers/net/benet/fw/descriptors.h
+@@ -0,0 +1,71 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __descriptors_amap_h__
++#define __descriptors_amap_h__
++
++/*
++ * --- IPC_NODE_ID_ENUM ---
++ * IPC processor id values
++ */
++#define TPOST_NODE_ID                   (0)	/* TPOST ID */
++#define TPRE_NODE_ID                    (1)	/* TPRE ID */
++#define TXULP0_NODE_ID                  (2)	/* TXULP0 ID */
++#define TXULP1_NODE_ID                  (3)	/* TXULP1 ID */
++#define TXULP2_NODE_ID                  (4)	/* TXULP2 ID */
++#define RXULP0_NODE_ID                  (5)	/* RXULP0 ID */
++#define RXULP1_NODE_ID                  (6)	/* RXULP1 ID */
++#define RXULP2_NODE_ID                  (7)	/* RXULP2 ID */
++#define MPU_NODE_ID                     (15)	/* MPU ID */
++
++/*
++ * --- MAC_ID_ENUM ---
++ * Meaning of the mac_id field in rxpp_eth_d
++ */
++#define PORT0_HOST_MAC0    (0)  /* PD 0, Port 0, host networking, MAC 0. */
++#define PORT0_HOST_MAC1    (1)	/* PD 0, Port 0, host networking, MAC 1. */
++#define PORT0_STORAGE_MAC0 (2)	/* PD 0, Port 0, host storage, MAC 0. */
++#define PORT0_STORAGE_MAC1 (3)	/* PD 0, Port 0, host storage, MAC 1. */
++#define PORT1_HOST_MAC0    (4)	/* PD 0, Port 1 host networking, MAC 0. */
++#define PORT1_HOST_MAC1    (5)	/* PD 0, Port 1 host networking, MAC 1. */
++#define PORT1_STORAGE_MAC0 (6)	/* PD 0, Port 1 host storage, MAC 0. */
++#define PORT1_STORAGE_MAC1 (7)	/* PD 0, Port 1 host storage, MAC 1. */
++#define FIRST_VM_MAC       (8)	/* PD 1 MAC. Protection domains have IDs */
++				/* from 0x8-0x26, one per PD. */
++#define LAST_VM_MAC        (38)	/* PD 31 MAC. */
++#define MGMT_MAC           (39)	/* Management port MAC. */
++#define MARBLE_MAC0        (59)	/* Used for flushing function 0 receive */
++				  /*
++				   * queues before re-using a torn-down
++				   * receive ring. the DA =
++				   * 00-00-00-00-00-00, and the MSB of the
++				   * SA = 00
++				   */
++#define MARBLE_MAC1        (60)	/* Used for flushing function 1 receive */
++				  /*
++				   * queues before re-using a torn-down
++				   * receive ring. the DA =
++				   * 00-00-00-00-00-00, and the MSB of the
++				   * SA != 00
++				   */
++#define NULL_MAC           (61)	/* Promiscuous mode, indicates no match */
++#define MCAST_MAC          (62)	/* Multicast match. */
++#define BCAST_MATCH        (63)	/* Broadcast match. */
++
++#endif /* __descriptors_amap_h__ */
+diff --git a/drivers/net/benet/fw/doorbells.h b/drivers/net/benet/fw/doorbells.h
+new file mode 100644
+index 0000000..550cc4d
+--- /dev/null
++++ b/drivers/net/benet/fw/doorbells.h
+@@ -0,0 +1,179 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __doorbells_amap_h__
++#define __doorbells_amap_h__
++
++/* The TX/RDMA send queue doorbell. */
++struct BE_SQ_DB_AMAP {
++	u8 cid[11];		/* DWORD 0 */
++	u8 rsvd0[5];	/* DWORD 0 */
++	u8 numPosted[14];	/* DWORD 0 */
++	u8 rsvd1[2];	/* DWORD 0 */
++} __packed;
++struct SQ_DB_AMAP {
++	u32 dw[1];
++};
++
++/* The receive queue doorbell. */
++struct BE_RQ_DB_AMAP {
++	u8 rq[10];		/* DWORD 0 */
++	u8 rsvd0[13];	/* DWORD 0 */
++	u8 Invalidate;	/* DWORD 0 */
++	u8 numPosted[8];	/* DWORD 0 */
++} __packed;
++struct RQ_DB_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * The CQ/EQ doorbell. Software MUST set reserved fields in this
++ * descriptor to zero, otherwise (CEV) hardware will not execute the
++ * doorbell (flagging a bad_db_qid error instead).
++ */
++struct BE_CQ_DB_AMAP {
++	u8 qid[10];		/* DWORD 0 */
++	u8 rsvd0[4];	/* DWORD 0 */
++	u8 rearm;		/* DWORD 0 */
++	u8 event;		/* DWORD 0 */
++	u8 num_popped[13];	/* DWORD 0 */
++	u8 rsvd1[3];	/* DWORD 0 */
++} __packed;
++struct CQ_DB_AMAP {
++	u32 dw[1];
++};
++
++struct BE_TPM_RQ_DB_AMAP {
++	u8 qid[10];		/* DWORD 0 */
++	u8 rsvd0[6];	/* DWORD 0 */
++	u8 numPosted[11];	/* DWORD 0 */
++	u8 mss_cnt[5];	/* DWORD 0 */
++} __packed;
++struct TPM_RQ_DB_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * Post WRB Queue Doorbell Register used by the host Storage stack
++ * to notify the controller of a posted Work Request Block
++ */
++struct BE_WRB_POST_DB_AMAP {
++	u8 wrb_cid[10];	/* DWORD 0 */
++	u8 rsvd0[6];	/* DWORD 0 */
++	u8 wrb_index[8];	/* DWORD 0 */
++	u8 numberPosted[8];	/* DWORD 0 */
++} __packed;
++struct WRB_POST_DB_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * Update Default PDU Queue Doorbell Register used to communicate
++ * to the controller that the driver has stopped processing the queue
++ * and where in the queue it stopped, this is
++ * a CQ Entry Type. Used by storage driver.
++ */
++struct BE_DEFAULT_PDU_DB_AMAP {
++	u8 qid[10];		/* DWORD 0 */
++	u8 rsvd0[4];	/* DWORD 0 */
++	u8 rearm;		/* DWORD 0 */
++	u8 event;		/* DWORD 0 */
++	u8 cqproc[14];	/* DWORD 0 */
++	u8 rsvd1[2];	/* DWORD 0 */
++} __packed;
++struct DEFAULT_PDU_DB_AMAP {
++	u32 dw[1];
++};
++
++/* Management Command and Controller default fragment ring */
++struct BE_MCC_DB_AMAP {
++	u8 rid[11];		/* DWORD 0 */
++	u8 rsvd0[5];	/* DWORD 0 */
++	u8 numPosted[14];	/* DWORD 0 */
++	u8 rsvd1[2];	/* DWORD 0 */
++} __packed;
++struct MCC_DB_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * Used for bootstrapping the Host interface. This register is
++ * used for driver communication with the MPU when no MCC Rings exist.
++ * The software must write this register twice to post any MCC
++ * command. First, it writes the register with hi=1 and the upper bits of
++ * the  physical address for the MCC_MAILBOX structure.  Software must poll
++ * the ready bit until this is acknowledged.  Then, sotware writes the
++ * register with hi=0 with the lower bits in the address.  It must
++ * poll the ready bit until the MCC command is complete.  Upon completion,
++ * the MCC_MAILBOX will contain a valid completion queue  entry.
++ */
++struct BE_MPU_MAILBOX_DB_AMAP {
++	u8 ready;		/* DWORD 0 */
++	u8 hi;		/* DWORD 0 */
++	u8 address[30];	/* DWORD 0 */
++} __packed;
++struct MPU_MAILBOX_DB_AMAP {
++	u32 dw[1];
++};
++
++/*
++ *  This is the protection domain doorbell register map. Note that
++ *  while this map shows doorbells for all Blade Engine supported
++ *  protocols, not all of these may be valid in a given function or
++ *  protection domain. It is the responsibility of the application
++ *  accessing the doorbells to know which are valid. Each doorbell
++ *  occupies 32 bytes of space, but unless otherwise specified,
++ *  only the first 4 bytes should be written.  There are 32 instances
++ *  of these doorbells for the host and 31 virtual machines respectively.
++ *  The host and VMs will only map the doorbell pages belonging to its
++ *  protection domain. It will not be able to touch the doorbells for
++ *  another VM. The doorbells are the only registers directly accessible
++ *  by a virtual machine. Similarly, there are 511 additional
++ *  doorbells for RDMA protection domains. PD 0 for RDMA shares
++ *  the same physical protection domain doorbell page as ETH/iSCSI.
++ *
++ */
++struct BE_PROTECTION_DOMAIN_DBMAP_AMAP {
++	u8 rsvd0[512];	/* DWORD 0 */
++	struct BE_SQ_DB_AMAP rdma_sq_db;
++	u8 rsvd1[7][32];	/* DWORD 17 */
++	struct BE_WRB_POST_DB_AMAP iscsi_wrb_post_db;
++	u8 rsvd2[7][32];	/* DWORD 25 */
++	struct BE_SQ_DB_AMAP etx_sq_db;
++	u8 rsvd3[7][32];	/* DWORD 33 */
++	struct BE_RQ_DB_AMAP rdma_rq_db;
++	u8 rsvd4[7][32];	/* DWORD 41 */
++	struct BE_DEFAULT_PDU_DB_AMAP iscsi_default_pdu_db;
++	u8 rsvd5[7][32];	/* DWORD 49 */
++	struct BE_TPM_RQ_DB_AMAP tpm_rq_db;
++	u8 rsvd6[7][32];	/* DWORD 57 */
++	struct BE_RQ_DB_AMAP erx_rq_db;
++	u8 rsvd7[7][32];	/* DWORD 65 */
++	struct BE_CQ_DB_AMAP cq_db;
++	u8 rsvd8[7][32];	/* DWORD 73 */
++	struct BE_MCC_DB_AMAP mpu_mcc_db;
++	u8 rsvd9[7][32];	/* DWORD 81 */
++	struct BE_MPU_MAILBOX_DB_AMAP mcc_bootstrap_db;
++	u8 rsvd10[935][32];	/* DWORD 89 */
++} __packed;
++struct PROTECTION_DOMAIN_DBMAP_AMAP {
++	u32 dw[1024];
++};
++
++#endif /* __doorbells_amap_h__ */
+diff --git a/drivers/net/benet/fw/ep.h b/drivers/net/benet/fw/ep.h
+new file mode 100644
+index 0000000..72fcf64
+--- /dev/null
++++ b/drivers/net/benet/fw/ep.h
+@@ -0,0 +1,66 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __ep_amap_h__
++#define __ep_amap_h__
++
++/* General Control and Status Register. */
++struct BE_EP_CONTROL_CSR_AMAP {
++	u8 m0_RxPbuf;	/* DWORD 0 */
++	u8 m1_RxPbuf;	/* DWORD 0 */
++	u8 m2_RxPbuf;	/* DWORD 0 */
++	u8 ff_en;		/* DWORD 0 */
++	u8 rsvd0[27];	/* DWORD 0 */
++	u8 CPU_reset;	/* DWORD 0 */
++} __packed;
++struct EP_CONTROL_CSR_AMAP {
++	u32 dw[1];
++};
++
++/* Semaphore Register. */
++struct BE_EP_SEMAPHORE_CSR_AMAP {
++	u8 value[32];	/* DWORD 0 */
++} __packed;
++struct EP_SEMAPHORE_CSR_AMAP {
++	u32 dw[1];
++};
++
++/* Embedded Processor Specific Registers. */
++struct BE_EP_CSRMAP_AMAP {
++	struct BE_EP_CONTROL_CSR_AMAP ep_control;
++	u8 rsvd0[32];	/* DWORD 1 */
++	u8 rsvd1[32];	/* DWORD 2 */
++	u8 rsvd2[32];	/* DWORD 3 */
++	u8 rsvd3[32];	/* DWORD 4 */
++	u8 rsvd4[32];	/* DWORD 5 */
++	u8 rsvd5[8][128];	/* DWORD 6 */
++	u8 rsvd6[32];	/* DWORD 38 */
++	u8 rsvd7[32];	/* DWORD 39 */
++	u8 rsvd8[32];	/* DWORD 40 */
++	u8 rsvd9[32];	/* DWORD 41 */
++	u8 rsvd10[32];	/* DWORD 42 */
++	struct BE_EP_SEMAPHORE_CSR_AMAP ep_semaphore;
++	u8 rsvd11[32];	/* DWORD 44 */
++	u8 rsvd12[19][32];	/* DWORD 45 */
++} __packed;
++struct EP_CSRMAP_AMAP {
++	u32 dw[64];
++};
++
++#endif /* __ep_amap_h__ */
+diff --git a/drivers/net/benet/fw/etx_context.h b/drivers/net/benet/fw/etx_context.h
+new file mode 100644
+index 0000000..554fbe5
+--- /dev/null
++++ b/drivers/net/benet/fw/etx_context.h
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __etx_context_amap_h__
++#define __etx_context_amap_h__
++
++/* ETX ring  context structure. */
++struct BE_ETX_CONTEXT_AMAP {
++	u8 tx_cidx[11];	/* DWORD 0 */
++	u8 rsvd0[5];	/* DWORD 0 */
++	u8 rsvd1[16];	/* DWORD 0 */
++	u8 tx_pidx[11];	/* DWORD 1 */
++	u8 rsvd2;		/* DWORD 1 */
++	u8 tx_ring_size[4];	/* DWORD 1 */
++	u8 pd_id[5];	/* DWORD 1 */
++	u8 pd_id_not_valid;	/* DWORD 1 */
++	u8 cq_id_send[10];	/* DWORD 1 */
++	u8 rsvd3[32];	/* DWORD 2 */
++	u8 rsvd4[32];	/* DWORD 3 */
++	u8 cur_bytes[32];	/* DWORD 4 */
++	u8 max_bytes[32];	/* DWORD 5 */
++	u8 time_stamp[32];	/* DWORD 6 */
++	u8 rsvd5[11];	/* DWORD 7 */
++	u8 func;		/* DWORD 7 */
++	u8 rsvd6[20];	/* DWORD 7 */
++	u8 cur_txd_count[32];	/* DWORD 8 */
++	u8 max_txd_count[32];	/* DWORD 9 */
++	u8 rsvd7[32];	/* DWORD 10 */
++	u8 rsvd8[32];	/* DWORD 11 */
++	u8 rsvd9[32];	/* DWORD 12 */
++	u8 rsvd10[32];	/* DWORD 13 */
++	u8 rsvd11[32];	/* DWORD 14 */
++	u8 rsvd12[32];	/* DWORD 15 */
++} __packed;
++struct ETX_CONTEXT_AMAP {
++	u32 dw[16];
++};
++
++#endif /* __etx_context_amap_h__ */
+diff --git a/drivers/net/benet/fw/fwcmd_common.h b/drivers/net/benet/fw/fwcmd_common.h
+new file mode 100644
+index 0000000..406e0d6
+--- /dev/null
++++ b/drivers/net/benet/fw/fwcmd_common.h
+@@ -0,0 +1,222 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __fwcmd_common_amap_h__
++#define __fwcmd_common_amap_h__
++#include "host_struct.h"
++
++/* --- PHY_LINK_DUPLEX_ENUM --- */
++#define PHY_LINK_DUPLEX_NONE            (0)
++#define PHY_LINK_DUPLEX_HALF            (1)
++#define PHY_LINK_DUPLEX_FULL            (2)
++
++/* --- PHY_LINK_SPEED_ENUM --- */
++#define PHY_LINK_SPEED_ZERO             (0)	/* No link. */
++#define PHY_LINK_SPEED_10MBPS           (1)	/* 10 Mbps */
++#define PHY_LINK_SPEED_100MBPS          (2)	/* 100 Mbps */
++#define PHY_LINK_SPEED_1GBPS            (3)	/* 1 Gbps */
++#define PHY_LINK_SPEED_10GBPS           (4)	/* 10 Gbps */
++
++/* --- PHY_LINK_FAULT_ENUM --- */
++#define PHY_LINK_FAULT_NONE             (0)	/* No fault status
++							available or detected */
++#define PHY_LINK_FAULT_LOCAL            (1)	/* Local fault detected */
++#define PHY_LINK_FAULT_REMOTE           (2)	/* Remote fault detected */
++
++/* --- BE_ULP_MASK --- */
++#define BE_ULP0_MASK                    (1)
++#define BE_ULP1_MASK                    (2)
++#define BE_ULP2_MASK                    (4)
++
++/* --- NTWK_ACTIVE_PORT --- */
++#define NTWK_PORT_A                     (0)	/* Port A is currently active */
++#define NTWK_PORT_B                     (1)	/* Port B is currently active */
++#define NTWK_NO_ACTIVE_PORT             (15)	/* Both ports have lost link */
++
++/* --- NTWK_LINK_TYPE --- */
++#define NTWK_LINK_TYPE_PHYSICAL         (0)	/* link up/down event
++						   applies to BladeEngine's
++						   Physical Ports
++						   */
++#define NTWK_LINK_TYPE_VIRTUAL          (1)	/* Virtual link up/down event
++						   reported by BladeExchange.
++						   This applies only when the
++						   VLD feature is enabled
++						   */
++
++/*
++ * --- FWCMD_MAC_TYPE_ENUM ---
++ * This enum defines the types of MAC addresses in the RXF MAC Address Table.
++ */
++#define MAC_ADDRESS_TYPE_STORAGE        (0)	/* Storage MAC Address */
++#define MAC_ADDRESS_TYPE_NETWORK        (1)	/* Network MAC Address */
++#define MAC_ADDRESS_TYPE_PD             (2)	/* Protection Domain MAC Addr */
++#define MAC_ADDRESS_TYPE_MANAGEMENT     (3)	/* Managment MAC Address */
 +
 +
-+	udelay(20000);
++/* --- FWCMD_RING_TYPE_ENUM --- */
++#define FWCMD_RING_TYPE_ETH_RX          (1)	/* Ring created with */
++					/* FWCMD_COMMON_ETH_RX_CREATE. */
++#define FWCMD_RING_TYPE_ETH_TX          (2)	/* Ring created with */
++					/* FWCMD_COMMON_ETH_TX_CREATE. */
++#define FWCMD_RING_TYPE_ISCSI_WRBQ      (3)	/* Ring created with */
++					/* FWCMD_COMMON_ISCSI_WRBQ_CREATE. */
++#define FWCMD_RING_TYPE_ISCSI_DEFQ      (4)	/* Ring created with */
++					/* FWCMD_COMMON_ISCSI_DEFQ_CREATE. */
++#define FWCMD_RING_TYPE_TPM_WRBQ        (5)	/* Ring created with */
++					/* FWCMD_COMMON_TPM_WRBQ_CREATE. */
++#define FWCMD_RING_TYPE_TPM_DEFQ        (6)	/* Ring created with */
++					/* FWCMD_COMMONTPM_TDEFQ_CREATE. */
++#define FWCMD_RING_TYPE_TPM_RQ          (7)	/* Ring created with */
++					/* FWCMD_COMMON_TPM_RQ_CREATE. */
++#define FWCMD_RING_TYPE_MCC             (8)	/* Ring created with */
++					/* FWCMD_COMMON_MCC_CREATE. */
++#define FWCMD_RING_TYPE_CQ              (9)	/* Ring created with */
++					/* FWCMD_COMMON_CQ_CREATE. */
++#define FWCMD_RING_TYPE_EQ              (10)	/* Ring created with */
++					/* FWCMD_COMMON_EQ_CREATE. */
++#define FWCMD_RING_TYPE_QP              (11)	/* Ring created with */
++					/* FWCMD_RDMA_QP_CREATE. */
 +
-+	/* Take MPU out of reset. */
 +
-+	epControlCsr.dw[0] = ioread32(pfob->csr_va + MPU_EP_CONTROL);
-+	AMAP_SET_BITS_PTR(EP_CONTROL_CSR, CPU_reset, &epControlCsr, 0);
-+	iowrite32((u32)epControlCsr.dw, pfob->csr_va + MPU_EP_CONTROL);
++/* --- ETH_TX_RING_TYPE_ENUM --- */
++#define ETH_TX_RING_TYPE_FORWARDING     (1)	/* Ethernet ring for
++						   forwarding packets */
++#define ETH_TX_RING_TYPE_STANDARD       (2)	/* Ethernet ring for sending
++						   network packets. */
++#define ETH_TX_RING_TYPE_BOUND          (3)	/* Ethernet ring bound to the
++						   port specified in the command
++						   header.port_number field.
++						   Rings of this type are
++						   NOT subject to the
++						   failover logic implemented
++						   in the BladeEngine.
++						   */
 +
-+	/* Kickoff BE POST and wait for completion */
-+	status = be_kickoff_and_wait_for_POST(pfob);
-+
-+Error_label:
-+	return status;
-+}
++/* --- FWCMD_COMMON_QOS_TYPE_ENUM --- */
++#define QOS_BITS_NIC                    (1)	/* max_bits_per_second_NIC */
++						  /* field is valid.  */
++#define QOS_PKTS_NIC                    (2)	/* max_packets_per_second_NIC */
++						  /* field is valid.  */
++#define QOS_IOPS_ISCSI                  (4)	/* max_ios_per_second_iSCSI */
++						  /*field is valid.  */
++#define QOS_VLAN_TAG                    (8)	/* domain_VLAN_tag field
++						   is valid. */
++#define QOS_FABRIC_ID                   (16)	/* fabric_domain_ID field
++						   is valid. */
++#define QOS_OEM_PARAMS                  (32)	/* qos_params_oem field
++						   is valid. */
++#define QOS_TPUT_ISCSI                  (64)	/* max_bytes_per_second_iSCSI
++						   field  is valid.  */
 +
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_pci_reset_required
-+ *   This private function is called to detect if a host entity is
-+ *   required to issue a PCI soft reset and subsequently drive
-+ *   BladeEngine POST. Scenarios where this is required:
-+ *   1) BIOS-less configuration
-+ *   2) Hot-swap/plug/power-on
-+ * pfob -
-+ * return   true if a reset is required, false otherwise
-+ *-------------------------------------------------------------------
++ * --- FAILOVER_CONFIG_ENUM ---
++ * Failover configuration setting used in FWCMD_COMMON_FORCE_FAILOVER
 + */
-+static bool be_pci_reset_required(struct be_function_object *pfob)
-+{
-+	struct MGMT_HBA_POST_STATUS_STRUCT_AMAP status;
-+	bool do_reset = false;
-+	u32 post_error, post_stage;
-+
-+	/*
-+	 * Read the POST status register
-+	 */
-+	status.dw[0] = ioread32(pfob->csr_va + MPU_EP_SEMAPHORE);
-+	post_error = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT, error,
-+								&status);
-+	post_stage = AMAP_GET_BITS_PTR(MGMT_HBA_POST_STATUS_STRUCT, stage,
-+								&status);
-+	if (post_stage <= POST_STAGE_AWAITING_HOST_RDY) {
-+		/*
-+		 * If BladeEngine is waiting for host ready indication,
-+		 * we want to do a PCI reset.
-+		 */
-+		do_reset = true;
-+	}
-+
-+	return do_reset;
-+}
++#define FAILOVER_CONFIG_NO_CHANGE       (0)	/* No change to automatic */
++						  /* port failover setting. */
++#define FAILOVER_CONFIG_ON              (1)	/* Automatic port failover
++						   on link down  is enabled. */
++#define FAILOVER_CONFIG_OFF             (2)	/* Automatic port failover
++						   on link down is disabled. */
 +
 +/*
-+ *-------------------------------------------------------------------
-+ * Function: be_drive_POST
-+ *   This function is called to drive BladeEngine POST. The
-+ *   caller should ensure they cannot be pre-empted while this routine executes.
-+ * pfob -
-+ * return status   - BE_SUCCESS (0) on success. Negative error code on failure.
-+ *-------------------------------------------------------------------
++ * --- FAILOVER_PORT_ENUM ---
++ * Failover port setting used in FWCMD_COMMON_FORCE_FAILOVER
 + */
-+int be_drive_POST(struct be_function_object *pfob)
-+{
-+	int status;
++#define FAILOVER_PORT_A                 (0)	/* Selects port A. */
++#define FAILOVER_PORT_B                 (1)	/* Selects port B. */
++#define FAILOVER_PORT_NONE              (15)	/* No port change requested. */
 +
-+	if (false != be_pci_reset_required(pfob)) {
-+		/* PCI reset is needed (implicitly starts and waits for POST) */
-+		status = be_pci_soft_reset(pfob);
-+	} else {
-+		/* No PCI reset is needed, start POST */
-+		status = be_kickoff_and_wait_for_POST(pfob);
-+	}
 +
-+	return status;
-+}
++/*
++ * --- MGMT_FLASHROM_OPCODE ---
++ * Flash ROM operation code
++ */
++#define MGMT_FLASHROM_OPCODE_FLASH      (1)	/* Commit downloaded data
++						   to Flash ROM */
++#define MGMT_FLASHROM_OPCODE_SAVE       (2)	/* Save downloaded data to
++						   ARM's DDR - do not flash */
++#define MGMT_FLASHROM_OPCODE_CLEAR      (3)	/* Erase specified component
++						   from FlashROM */
++#define MGMT_FLASHROM_OPCODE_REPORT     (4)	/* Read specified component
++						   from Flash ROM */
++#define MGMT_FLASHROM_OPCODE_IMAGE_INFO (5)	/* Returns size of a
++						   component */
++
++/*
++ * --- MGMT_FLASHROM_OPTYPE ---
++ * Flash ROM operation type
++ */
++#define MGMT_FLASHROM_OPTYPE_CODE_FIRMWARE (0)	/* Includes ARM firmware,
++						   IPSec (optional) and EP
++						   firmware  */
++#define MGMT_FLASHROM_OPTYPE_CODE_REDBOOT (1)
++#define MGMT_FLASHROM_OPTYPE_CODE_BIOS  (2)
++#define MGMT_FLASHROM_OPTYPE_CODE_PXE_BIOS (3)
++#define MGMT_FLASHROM_OPTYPE_CODE_CTRLS (4)
++#define MGMT_FLASHROM_OPTYPE_CFG_IPSEC  (5)
++#define MGMT_FLASHROM_OPTYPE_CFG_INI    (6)
++#define MGMT_FLASHROM_OPTYPE_ROM_OFFSET_SPECIFIED (7)
++
++/*
++ * --- FLASHROM_TYPE ---
++ * Flash ROM manufacturers supported in the f/w
++ */
++#define INTEL                           (0)
++#define SPANSION                        (1)
++#define MICRON                          (2)
++
++/* --- DDR_CAS_TYPE --- */
++#define CAS_3                           (0)
++#define CAS_4                           (1)
++#define CAS_5                           (2)
++
++/* --- DDR_SIZE_TYPE --- */
++#define SIZE_256MB                      (0)
++#define SIZE_512MB                      (1)
++
++/* --- DDR_MODE_TYPE --- */
++#define DDR_NO_ECC                      (0)
++#define DDR_ECC                         (1)
++
++/* --- INTERFACE_10GB_TYPE --- */
++#define CX4_TYPE                        (0)
++#define XFP_TYPE                        (1)
++
++/* --- BE_CHIP_MAX_MTU --- */
++#define CHIP_MAX_MTU                    (9000)
++
++/* --- XAUI_STATE_ENUM --- */
++#define XAUI_STATE_ENABLE               (0)	/* This MUST be the default
++						   value for all requests
++						   which set/change
++						   equalization parameter.  */
++#define XAUI_STATE_DISABLE              (255)	/* The XAUI for both ports
++						   may be disabled for EMI
++						   tests. There is no
++						   provision for turning off
++						   individual ports.
++						   */
++/* --- BE_ASIC_REVISION --- */
++#define BE_ASIC_REV_A0                  (1)
++#define BE_ASIC_REV_A1                  (2)
++
++#endif /* __fwcmd_common_amap_h__ */
+diff --git a/drivers/net/benet/fw/fwcmd_mcc.h b/drivers/net/benet/fw/fwcmd_mcc.h
+new file mode 100644
+index 0000000..9eeca87
+--- /dev/null
++++ b/drivers/net/benet/fw/fwcmd_mcc.h
+@@ -0,0 +1,94 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __fwcmd_mcc_amap_h__
++#define __fwcmd_mcc_amap_h__
++#include "fwcmd_opcodes.h"
++/*
++ * Where applicable, a WRB, may contain a list of Scatter-gather elements.
++ * Each element supports a 64 bit address and a 32bit length field.
++ */
++struct BE_MCC_SGE_AMAP {
++	u8 pa_lo[32];	/* DWORD 0 */
++	u8 pa_hi[32];	/* DWORD 1 */
++	u8 length[32];	/* DWORD 2 */
++} __packed;
++struct MCC_SGE_AMAP {
++	u32 dw[3];
++};
++/*
++ * The design of an MCC_SGE allows up to 19 elements to be embedded
++ * in a WRB, supporting 64KB data transfers (assuming a 4KB page size).
++ */
++struct BE_MCC_WRB_PAYLOAD_AMAP {
++	union {
++		struct BE_MCC_SGE_AMAP sgl[19];
++		u8 embedded[59][32];	/* DWORD 0 */
++	};
++} __packed;
++struct MCC_WRB_PAYLOAD_AMAP {
++	u32 dw[59];
++};
++
++/*
++ * This is the structure of the MCC Command WRB for commands
++ * sent to the Management Processing Unit (MPU). See section
++ * for usage in embedded and non-embedded modes.
++ */
++struct BE_MCC_WRB_AMAP {
++	u8 embedded;	/* DWORD 0 */
++	u8 rsvd0[2];	/* DWORD 0 */
++	u8 sge_count[5];	/* DWORD 0 */
++	u8 rsvd1[16];	/* DWORD 0 */
++	u8 special[8];	/* DWORD 0 */
++	u8 payload_length[32];	/* DWORD 1 */
++	u8 tag[2][32];	/* DWORD 2 */
++	u8 rsvd2[32];	/* DWORD 4 */
++	struct BE_MCC_WRB_PAYLOAD_AMAP payload;
++} __packed;
++struct MCC_WRB_AMAP {
++	u32 dw[64];
++};
++
++/*  This is the structure of the MCC Completion queue entry  */
++struct BE_MCC_CQ_ENTRY_AMAP {
++	u8 completion_status[16];	/* DWORD 0 */
++	u8 extended_status[16];	/* DWORD 0 */
++	u8 mcc_tag[2][32];	/* DWORD 1 */
++	u8 rsvd0[27];	/* DWORD 3 */
++	u8 consumed;	/* DWORD 3 */
++	u8 completed;	/* DWORD 3 */
++	u8 hpi_buffer_completion;	/* DWORD 3 */
++	u8 async_event;	/* DWORD 3 */
++	u8 valid;		/* DWORD 3 */
++} __packed;
++struct MCC_CQ_ENTRY_AMAP {
++	u32 dw[4];
++};
++
++/* Mailbox structures used by the MPU during bootstrap */
++struct BE_MCC_MAILBOX_AMAP {
++	struct BE_MCC_WRB_AMAP wrb;
++	struct BE_MCC_CQ_ENTRY_AMAP cq;
++} __packed;
++struct MCC_MAILBOX_AMAP {
++	u32 dw[68];
++};
++
++#endif /* __fwcmd_mcc_amap_h__ */
+diff --git a/drivers/net/benet/fw/fwcmd_opcodes.h b/drivers/net/benet/fw/fwcmd_opcodes.h
+new file mode 100644
+index 0000000..23d5693
+--- /dev/null
++++ b/drivers/net/benet/fw/fwcmd_opcodes.h
+@@ -0,0 +1,244 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __fwcmd_opcodes_amap_h__
++#define __fwcmd_opcodes_amap_h__
++
++/*
++ * --- FWCMD_SUBSYSTEMS ---
++ * The commands are grouped into the following subsystems. The subsystem
++ * code along with the opcode uniquely identify a particular fwcmd.
++ */
++#define FWCMD_SUBSYSTEM_RSVD  (0)	/* This subsystem is reserved. It is */
++						  /* never used. */
++#define FWCMD_SUBSYSTEM_COMMON (1)	/* CMDs in this group are common to
++					* all subsystems. See
++					* COMMON_SUBSYSTEM_OPCODES for opcodes
++					* and Common Host Configuration CMDs
++					* for the FWCMD descriptions.
++					*/
++#define FWCMD_SUBSYSTEM_COMMON_ISCSI    (2) /* CMDs in this group are */
++					/*
++					* common to Initiator and Target. See
++					* COMMON_ISCSI_SUBSYSTEM_OPCODES and
++					* Common iSCSI Initiator and Target
++					* CMDs for the command descriptions.
++					*/
++#define FWCMD_SUBSYSTEM_ETH             (3)	/* This subsystem is used to
++						execute  Ethernet commands.  */
++
++#define FWCMD_SUBSYSTEM_TPM             (4)	/* This subsystem is used
++						 to execute TPM  commands.  */
++#define FWCMD_SUBSYSTEM_PXE_UNDI        (5)	/* This subsystem is used
++						* to execute PXE
++						* and UNDI specific commands.
++						*/
++
++#define FWCMD_SUBSYSTEM_ISCSI_INI       (6)	/* This subsystem is used to
++						execute ISCSI Initiator
++						specific commands.
++						*/
++#define FWCMD_SUBSYSTEM_ISCSI_TGT       (7)	/* This subsystem is used
++						to execute iSCSI Target
++						specific commands.between
++						PTL and ARM firmware.
++						*/
++#define FWCMD_SUBSYSTEM_MILI_PTL        (8)	/* This subsystem is used to
++						execute iSCSI Target specific
++						commands.between MILI
++						and PTL.  */
++#define FWCMD_SUBSYSTEM_MILI_TMD        (9)	/* This subsystem is used to
++						execute iSCSI Target specific
++						commands between MILI
++						and TMD.  */
++#define FWCMD_SUBSYSTEM_PROXY           (11)	/* This subsystem is used
++						to execute proxied commands
++						within the host at the
++						explicit request of a
++						non priviledged domain.
++						This 'subsystem' is entirely
++						virtual from the controller
++						and firmware perspective as
++						it is implemented in host
++						drivers.
++						*/
++
++/*
++ * --- COMMON_SUBSYSTEM_OPCODES ---
++ * These opcodes are common to both networking and storage PCI
++ * functions. They are used to reserve resources and configure
++ * BladeEngine. These opcodes all use the FWCMD_SUBSYSTEM_COMMON
++ * subsystem code.
++ */
++#define OPCODE_COMMON_NTWK_MAC_QUERY    (1)
++#define SUBSYSTEM_COMMON_NTWK_MAC_QUERY (1)
++#define SUBSYSTEM_COMMON_NTWK_MAC_SET   (1)
++#define SUBSYSTEM_COMMON_NTWK_MULTICAST_SET (1)
++#define SUBSYSTEM_COMMON_NTWK_VLAN_CONFIG (1)
++#define SUBSYSTEM_COMMON_NTWK_LINK_STATUS_QUERY (1)
++#define SUBSYSTEM_COMMON_READ_FLASHROM  (1)
++#define SUBSYSTEM_COMMON_WRITE_FLASHROM (1)
++#define SUBSYSTEM_COMMON_QUERY_MAX_FWCMD_BUFFER_SIZE (1)
++#define SUBSYSTEM_COMMON_ADD_PAGE_TABLES (1)
++#define SUBSYSTEM_COMMON_REMOVE_PAGE_TABLES (1)
++#define SUBSYSTEM_COMMON_RING_DESTROY   (1)
++#define SUBSYSTEM_COMMON_CQ_CREATE      (1)
++#define SUBSYSTEM_COMMON_EQ_CREATE      (1)
++#define SUBSYSTEM_COMMON_ETH_RX_CREATE  (1)
++#define SUBSYSTEM_COMMON_ETH_TX_CREATE  (1)
++#define SUBSYSTEM_COMMON_ISCSI_DEFQ_CREATE (1)
++#define SUBSYSTEM_COMMON_ISCSI_WRBQ_CREATE (1)
++#define SUBSYSTEM_COMMON_MCC_CREATE     (1)
++#define SUBSYSTEM_COMMON_JELL_CONFIG    (1)
++#define SUBSYSTEM_COMMON_FORCE_FAILOVER (1)
++#define SUBSYSTEM_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (1)
++#define SUBSYSTEM_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (1)
++#define SUBSYSTEM_COMMON_POST_ZERO_BUFFER (1)
++#define SUBSYSTEM_COMMON_GET_QOS        (1)
++#define SUBSYSTEM_COMMON_SET_QOS        (1)
++#define SUBSYSTEM_COMMON_TCP_GET_STATISTICS (1)
++#define SUBSYSTEM_COMMON_SEEPROM_READ   (1)
++#define SUBSYSTEM_COMMON_TCP_STATE_QUERY (1)
++#define SUBSYSTEM_COMMON_GET_CNTL_ATTRIBUTES (1)
++#define SUBSYSTEM_COMMON_NOP            (1)
++#define SUBSYSTEM_COMMON_NTWK_RX_FILTER (1)
++#define SUBSYSTEM_COMMON_GET_FW_VERSION (1)
++#define SUBSYSTEM_COMMON_SET_FLOW_CONTROL (1)
++#define SUBSYSTEM_COMMON_GET_FLOW_CONTROL (1)
++#define SUBSYSTEM_COMMON_SET_TCP_PARAMETERS (1)
++#define SUBSYSTEM_COMMON_SET_FRAME_SIZE (1)
++#define SUBSYSTEM_COMMON_GET_FAT        (1)
++#define SUBSYSTEM_COMMON_MODIFY_EQ_DELAY (1)
++#define SUBSYSTEM_COMMON_FIRMWARE_CONFIG (1)
++#define SUBSYSTEM_COMMON_ENABLE_DISABLE_DOMAINS (1)
++#define SUBSYSTEM_COMMON_GET_DOMAIN_CONFIG (1)
++#define SUBSYSTEM_COMMON_SET_VLD_CONFIG (1)
++#define SUBSYSTEM_COMMON_GET_VLD_CONFIG (1)
++#define SUBSYSTEM_COMMON_GET_PORT_EQUALIZATION (1)
++#define SUBSYSTEM_COMMON_SET_PORT_EQUALIZATION (1)
++#define SUBSYSTEM_COMMON_RED_CONFIG     (1)
++#define OPCODE_COMMON_NTWK_MAC_SET      (2)
++#define OPCODE_COMMON_NTWK_MULTICAST_SET (3)
++#define OPCODE_COMMON_NTWK_VLAN_CONFIG  (4)
++#define OPCODE_COMMON_NTWK_LINK_STATUS_QUERY (5)
++#define OPCODE_COMMON_READ_FLASHROM     (6)
++#define OPCODE_COMMON_WRITE_FLASHROM    (7)
++#define OPCODE_COMMON_QUERY_MAX_FWCMD_BUFFER_SIZE (8)
++#define OPCODE_COMMON_ADD_PAGE_TABLES   (9)
++#define OPCODE_COMMON_REMOVE_PAGE_TABLES (10)
++#define OPCODE_COMMON_RING_DESTROY      (11)
++#define OPCODE_COMMON_CQ_CREATE         (12)
++#define OPCODE_COMMON_EQ_CREATE         (13)
++#define OPCODE_COMMON_ETH_RX_CREATE     (14)
++#define OPCODE_COMMON_ETH_TX_CREATE     (15)
++#define OPCODE_COMMON_NET_RESERVED0     (16)	/* Reserved */
++#define OPCODE_COMMON_NET_RESERVED1     (17)	/* Reserved */
++#define OPCODE_COMMON_NET_RESERVED2     (18)	/* Reserved */
++#define OPCODE_COMMON_ISCSI_DEFQ_CREATE (19)
++#define OPCODE_COMMON_ISCSI_WRBQ_CREATE (20)
++#define OPCODE_COMMON_MCC_CREATE        (21)
++#define OPCODE_COMMON_JELL_CONFIG       (22)
++#define OPCODE_COMMON_FORCE_FAILOVER    (23)
++#define OPCODE_COMMON_ADD_TEMPLATE_HEADER_BUFFERS (24)
++#define OPCODE_COMMON_REMOVE_TEMPLATE_HEADER_BUFFERS (25)
++#define OPCODE_COMMON_POST_ZERO_BUFFER  (26)
++#define OPCODE_COMMON_GET_QOS           (27)
++#define OPCODE_COMMON_SET_QOS           (28)
++#define OPCODE_COMMON_TCP_GET_STATISTICS (29)
++#define OPCODE_COMMON_SEEPROM_READ      (30)
++#define OPCODE_COMMON_TCP_STATE_QUERY   (31)
++#define OPCODE_COMMON_GET_CNTL_ATTRIBUTES (32)
++#define OPCODE_COMMON_NOP               (33)
++#define OPCODE_COMMON_NTWK_RX_FILTER    (34)
++#define OPCODE_COMMON_GET_FW_VERSION    (35)
++#define OPCODE_COMMON_SET_FLOW_CONTROL  (36)
++#define OPCODE_COMMON_GET_FLOW_CONTROL  (37)
++#define OPCODE_COMMON_SET_TCP_PARAMETERS (38)
++#define OPCODE_COMMON_SET_FRAME_SIZE    (39)
++#define OPCODE_COMMON_GET_FAT           (40)
++#define OPCODE_COMMON_MODIFY_EQ_DELAY   (41)
++#define OPCODE_COMMON_FIRMWARE_CONFIG   (42)
++#define OPCODE_COMMON_ENABLE_DISABLE_DOMAINS (43)
++#define OPCODE_COMMON_GET_DOMAIN_CONFIG (44)
++#define OPCODE_COMMON_SET_VLD_CONFIG    (45)
++#define OPCODE_COMMON_GET_VLD_CONFIG    (46)
++#define OPCODE_COMMON_GET_PORT_EQUALIZATION (47)
++#define OPCODE_COMMON_SET_PORT_EQUALIZATION (48)
++#define OPCODE_COMMON_RED_CONFIG        (49)
++
++
++
++/*
++ * --- ETH_SUBSYSTEM_OPCODES ---
++ * These opcodes are used for configuring the Ethernet interfaces. These
++ * opcodes all use the FWCMD_SUBSYSTEM_ETH subsystem code.
++ */
++#define OPCODE_ETH_RSS_CONFIG           (1)
++#define OPCODE_ETH_ACPI_CONFIG          (2)
++#define SUBSYSTEM_ETH_RSS_CONFIG        (3)
++#define SUBSYSTEM_ETH_ACPI_CONFIG       (3)
++#define OPCODE_ETH_PROMISCUOUS          (3)
++#define SUBSYSTEM_ETH_PROMISCUOUS       (3)
++#define SUBSYSTEM_ETH_GET_STATISTICS    (3)
++#define SUBSYSTEM_ETH_GET_RX_FRAG_SIZE  (3)
++#define SUBSYSTEM_ETH_SET_RX_FRAG_SIZE  (3)
++#define OPCODE_ETH_GET_STATISTICS       (4)
++#define OPCODE_ETH_GET_RX_FRAG_SIZE     (5)
++#define OPCODE_ETH_SET_RX_FRAG_SIZE     (6)
++
++
++
++
++
++/*
++ * --- MCC_STATUS_CODE ---
++ * These are the global status codes used by all subsystems
++ */
++#define MCC_STATUS_SUCCESS              (0)	/* Indicates a successful
++						completion of  the command */
++#define MCC_STATUS_INSUFFICIENT_PRIVILEGES (1)	/* The client does not have
++						sufficient privileges to
++						execute the command */
++#define MCC_STATUS_INVALID_PARAMETER    (2)	/* A parameter in the command
++						was invalid. The extended
++						status contains the index
++						of the parameter */
++#define MCC_STATUS_INSUFFICIENT_RESOURCES (3)	/* There are insufficient
++						chip resources to execute
++						the command */
++#define MCC_STATUS_QUEUE_FLUSHING       (4)	/* The command is completing
++						because the queue was
++						getting flushed */
++#define MCC_STATUS_DMA_FAILED           (5)	/* The command is completing
++						with a DMA error */
++
++/*
++ * --- MGMT_ERROR_CODES ---
++ * Error Codes returned in the status field of the FWCMD response header
++ */
++#define MGMT_STATUS_SUCCESS             (0)	/* The FWCMD completed
++						without errors */
++#define MGMT_STATUS_FAILED              (1)	/* Error status in the Status
++						field of  the
++						struct FWCMD_RESPONSE_HEADER */
++#define MGMT_STATUS_ILLEGAL_REQUEST     (2)	/* Invalid FWCMD opcode */
++#define MGMT_STATUS_ILLEGAL_FIELD       (3)	/* Invalid parameter in
++						the FWCMD  payload */
++
++#endif /* __fwcmd_opcodes_amap_h__ */
+diff --git a/drivers/net/benet/fw/host_struct.h b/drivers/net/benet/fw/host_struct.h
+new file mode 100644
+index 0000000..3de6722
+--- /dev/null
++++ b/drivers/net/benet/fw/host_struct.h
+@@ -0,0 +1,182 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __host_struct_amap_h__
++#define __host_struct_amap_h__
++#include "be_cm.h"
++#include "be_common.h"
++#include "descriptors.h"
++
++/* --- EQ_COMPLETION_MAJOR_CODE_ENUM --- */
++#define EQ_MAJOR_CODE_COMPLETION        (0)	/* Completion event on a */
++						  /* qcompletion ueue. */
++#define EQ_MAJOR_CODE_ETH               (1)	/* Affiliated Ethernet Event. */
++#define EQ_MAJOR_CODE_RESERVED          (2)	/* Reserved */
++#define EQ_MAJOR_CODE_RDMA              (3)	/* Affiliated RDMA Event. */
++#define EQ_MAJOR_CODE_ISCSI             (4)	/* Affiliated ISCSI Event */
++#define EQ_MAJOR_CODE_UNAFFILIATED      (5)	/* Unaffiliated Event */
++
++/* --- EQ_COMPLETION_MINOR_CODE_ENUM --- */
++#define EQ_MINOR_CODE_COMPLETION        (0)	/* Completion event on a */
++						  /* completion queue. */
++#define EQ_MINOR_CODE_OTHER             (1)	/* Other Event (TBD). */
++
++/* Queue Entry Definition for all 4 byte event queue types. */
++struct BE_EQ_ENTRY_AMAP {
++	u8 Valid;		/* DWORD 0 */
++	u8 MajorCode[3];	/* DWORD 0 */
++	u8 MinorCode[12];	/* DWORD 0 */
++	u8 ResourceID[16];	/* DWORD 0 */
++} __packed;
++struct EQ_ENTRY_AMAP {
++	u32 dw[1];
++};
++
++/*
++ * --- ETH_EVENT_CODE ---
++ * These codes are returned by the MPU when one of these events has occurred,
++ * and the event is configured to report to an Event Queue when an event
++ * is detected.
++ */
++#define ETH_EQ_LINK_STATUS              (0)	/* Link status change event */
++						  /* detected. */
++#define ETH_EQ_WATERMARK                (1)	/* watermark event detected. */
++#define ETH_EQ_MAGIC_PKT                (2)	/* magic pkt event detected. */
++#define ETH_EQ_ACPI_PKT0                (3)	/* ACPI interesting packet */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT1                (3)	/* ACPI interesting packet */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT2                (3)	/* ACPI interesting packet */
++						  /* detected. */
++#define ETH_EQ_ACPI_PKT3                (3)	/* ACPI interesting packet */
++						  /* detected. */
++
++/*
++ * --- ETH_TX_COMPL_STATUS_ENUM ---
++ * Status codes contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_VALID                  (0)
++#define ETH_COMP_ERROR                  (1)
++#define ETH_COMP_INVALID                (15)
++
++/*
++ * --- ETH_TX_COMPL_PORT_ENUM ---
++ * Port indicator contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_PORT0                  (0)
++#define ETH_COMP_PORT1                  (1)
++#define ETH_COMP_MGMT                   (2)
++
++/*
++ * --- ETH_TX_COMPL_CT_ENUM ---
++ * Completion type indicator contained in Ethernet TX completion descriptors.
++ */
++#define ETH_COMP_ETH                    (0)
++
++/*
++ * Work request block that the driver issues to the chip for
++ * Ethernet transmissions. All control fields must be valid in each WRB for
++ * a message. The controller, as specified by the flags, optionally writes
++ * an entry to the Completion Ring and generate an event.
++ */
++struct BE_ETH_WRB_AMAP {
++	u8 frag_pa_hi[32];	/* DWORD 0 */
++	u8 frag_pa_lo[32];	/* DWORD 1 */
++	u8 complete;	/* DWORD 2 */
++	u8 event;		/* DWORD 2 */
++	u8 crc;		/* DWORD 2 */
++	u8 forward;		/* DWORD 2 */
++	u8 ipsec;		/* DWORD 2 */
++	u8 mgmt;		/* DWORD 2 */
++	u8 ipcs;		/* DWORD 2 */
++	u8 udpcs;		/* DWORD 2 */
++	u8 tcpcs;		/* DWORD 2 */
++	u8 lso;		/* DWORD 2 */
++	u8 last;		/* DWORD 2 */
++	u8 vlan;		/* DWORD 2 */
++	u8 dbg[3];		/* DWORD 2 */
++	u8 hash_val[3];	/* DWORD 2 */
++	u8 lso_mss[14];	/* DWORD 2 */
++	u8 frag_len[16];	/* DWORD 3 */
++	u8 vlan_tag[16];	/* DWORD 3 */
++} __packed;
++struct ETH_WRB_AMAP {
++	u32 dw[4];
++};
++
++/* This is an Ethernet transmit completion descriptor */
++struct BE_ETH_TX_COMPL_AMAP {
++	u8 user_bytes[16];	/* DWORD 0 */
++	u8 nwh_bytes[8];	/* DWORD 0 */
++	u8 lso;		/* DWORD 0 */
++	u8 rsvd0[7];	/* DWORD 0 */
++	u8 wrb_index[16];	/* DWORD 1 */
++	u8 ct[2];		/* DWORD 1 */
++	u8 port[2];		/* DWORD 1 */
++	u8 rsvd1[8];	/* DWORD 1 */
++	u8 status[4];	/* DWORD 1 */
++	u8 rsvd2[16];	/* DWORD 2 */
++	u8 ringid[11];	/* DWORD 2 */
++	u8 hash_val[4];	/* DWORD 2 */
++	u8 valid;		/* DWORD 2 */
++	u8 rsvd3[32];	/* DWORD 3 */
++} __packed;
++struct ETH_TX_COMPL_AMAP {
++	u32 dw[4];
++};
++
++/* Ethernet Receive Buffer descriptor */
++struct BE_ETH_RX_D_AMAP {
++	u8 fragpa_hi[32];	/* DWORD 0 */
++	u8 fragpa_lo[32];	/* DWORD 1 */
++} __packed;
++struct ETH_RX_D_AMAP {
++	u32 dw[2];
++};
++
++/* This is an Ethernet Receive Completion Descriptor */
++struct BE_ETH_RX_COMPL_AMAP {
++	u8 vlan_tag[16];	/* DWORD 0 */
++	u8 pktsize[14];	/* DWORD 0 */
++	u8 port;		/* DWORD 0 */
++	u8 rsvd0;		/* DWORD 0 */
++	u8 err;		/* DWORD 1 */
++	u8 rsshp;		/* DWORD 1 */
++	u8 ipf;		/* DWORD 1 */
++	u8 tcpf;		/* DWORD 1 */
++	u8 udpf;		/* DWORD 1 */
++	u8 ipcksm;		/* DWORD 1 */
++	u8 tcpcksm;		/* DWORD 1 */
++	u8 udpcksm;		/* DWORD 1 */
++	u8 macdst[6];	/* DWORD 1 */
++	u8 vtp;		/* DWORD 1 */
++	u8 vtm;		/* DWORD 1 */
++	u8 fragndx[10];	/* DWORD 1 */
++	u8 ct[2];		/* DWORD 1 */
++	u8 ipsec;		/* DWORD 1 */
++	u8 numfrags[3];	/* DWORD 1 */
++	u8 rsvd1[31];	/* DWORD 2 */
++	u8 valid;		/* DWORD 2 */
++	u8 rsshash[32];	/* DWORD 3 */
++} __packed;
++struct ETH_RX_COMPL_AMAP {
++	u32 dw[4];
++};
++
++#endif /* __host_struct_amap_h__ */
+diff --git a/drivers/net/benet/fw/mpu.h b/drivers/net/benet/fw/mpu.h
+new file mode 100644
+index 0000000..41f3f87
+--- /dev/null
++++ b/drivers/net/benet/fw/mpu.h
+@@ -0,0 +1,74 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __mpu_amap_h__
++#define __mpu_amap_h__
++#include "ep.h"
++
++/* Provide control parameters for the Managment Processor Unit. */
++struct BE_MPU_CSRMAP_AMAP {
++	struct BE_EP_CSRMAP_AMAP ep;
++	u8 rsvd0[128];	/* DWORD 64 */
++	u8 rsvd1[32];	/* DWORD 68 */
++	u8 rsvd2[192];	/* DWORD 69 */
++	u8 rsvd3[192];	/* DWORD 75 */
++	u8 rsvd4[32];	/* DWORD 81 */
++	u8 rsvd5[32];	/* DWORD 82 */
++	u8 rsvd6[32];	/* DWORD 83 */
++	u8 rsvd7[32];	/* DWORD 84 */
++	u8 rsvd8[32];	/* DWORD 85 */
++	u8 rsvd9[32];	/* DWORD 86 */
++	u8 rsvd10[32];	/* DWORD 87 */
++	u8 rsvd11[32];	/* DWORD 88 */
++	u8 rsvd12[32];	/* DWORD 89 */
++	u8 rsvd13[32];	/* DWORD 90 */
++	u8 rsvd14[32];	/* DWORD 91 */
++	u8 rsvd15[32];	/* DWORD 92 */
++	u8 rsvd16[32];	/* DWORD 93 */
++	u8 rsvd17[32];	/* DWORD 94 */
++	u8 rsvd18[32];	/* DWORD 95 */
++	u8 rsvd19[32];	/* DWORD 96 */
++	u8 rsvd20[32];	/* DWORD 97 */
++	u8 rsvd21[32];	/* DWORD 98 */
++	u8 rsvd22[32];	/* DWORD 99 */
++	u8 rsvd23[32];	/* DWORD 100 */
++	u8 rsvd24[32];	/* DWORD 101 */
++	u8 rsvd25[32];	/* DWORD 102 */
++	u8 rsvd26[32];	/* DWORD 103 */
++	u8 rsvd27[32];	/* DWORD 104 */
++	u8 rsvd28[96];	/* DWORD 105 */
++	u8 rsvd29[32];	/* DWORD 108 */
++	u8 rsvd30[32];	/* DWORD 109 */
++	u8 rsvd31[32];	/* DWORD 110 */
++	u8 rsvd32[32];	/* DWORD 111 */
++	u8 rsvd33[32];	/* DWORD 112 */
++	u8 rsvd34[96];	/* DWORD 113 */
++	u8 rsvd35[32];	/* DWORD 116 */
++	u8 rsvd36[32];	/* DWORD 117 */
++	u8 rsvd37[32];	/* DWORD 118 */
++	u8 rsvd38[32];	/* DWORD 119 */
++	u8 rsvd39[32];	/* DWORD 120 */
++	u8 rsvd40[32];	/* DWORD 121 */
++	u8 rsvd41[134][32];	/* DWORD 122 */
++} __packed;
++struct MPU_CSRMAP_AMAP {
++	u32 dw[256];
++};
++
++#endif /* __mpu_amap_h__ */
+diff --git a/drivers/net/benet/fw/mpu_context.h b/drivers/net/benet/fw/mpu_context.h
+new file mode 100644
+index 0000000..8ce90f9
+--- /dev/null
++++ b/drivers/net/benet/fw/mpu_context.h
+@@ -0,0 +1,46 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __mpu_context_amap_h__
++#define __mpu_context_amap_h__
++
++/*
++ * Management command and control ring context. The MPUs BTLR_CTRL1 CSR
++ * controls the writeback behavior of the producer and consumer index values.
++ */
++struct BE_MCC_RING_CONTEXT_AMAP {
++	u8 con_index[16];	/* DWORD 0 */
++	u8 ring_size[4];	/* DWORD 0 */
++	u8 cq_id[11];	/* DWORD 0 */
++	u8 rsvd0;		/* DWORD 0 */
++	u8 prod_index[16];	/* DWORD 1 */
++	u8 pdid[15];	/* DWORD 1 */
++	u8 invalid;		/* DWORD 1 */
++	u8 cmd_pending_current[7];	/* DWORD 2 */
++	u8 rsvd1[25];	/* DWORD 2 */
++	u8 hpi_port_cq_id[11];	/* DWORD 3 */
++	u8 rsvd2[5];	/* DWORD 3 */
++	u8 cmd_pending_max[7];	/* DWORD 3 */
++	u8 rsvd3[9];	/* DWORD 3 */
++} __packed;
++struct MCC_RING_CONTEXT_AMAP {
++	u32 dw[4];
++};
++
++#endif /* __mpu_context_amap_h__ */
+diff --git a/drivers/net/benet/fw/post_codes.h b/drivers/net/benet/fw/post_codes.h
+new file mode 100644
+index 0000000..6d1621f
+--- /dev/null
++++ b/drivers/net/benet/fw/post_codes.h
+@@ -0,0 +1,111 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __post_codes_amap_h__
++#define __post_codes_amap_h__
++
++/* --- MGMT_HBA_POST_STAGE_ENUM --- */
++#define POST_STAGE_POWER_ON_RESET   (0)	/* State after a cold or warm boot. */
++#define POST_STAGE_AWAITING_HOST_RDY (1)	/* ARM boot code awaiting a
++						go-ahed from  the host. */
++#define POST_STAGE_HOST_RDY (2)	/* Host has given go-ahed to ARM. */
++#define POST_STAGE_BE_RESET (3)	/* Host wants to reset chip, this is a  chip
++						workaround  */
++#define POST_STAGE_SEEPROM_CS_START (256)	/* SEEPROM checksum
++						test start. */
++#define POST_STAGE_SEEPROM_CS_DONE  (257)	/* SEEPROM checksum test
++							done. */
++#define POST_STAGE_DDR_CONFIG_START (512)	/* DDR configuration start. */
++#define POST_STAGE_DDR_CONFIG_DONE  (513)	/* DDR configuration done. */
++#define POST_STAGE_DDR_CALIBRATE_START  (768)	/* DDR calibration start. */
++#define POST_STAGE_DDR_CALIBRATE_DONE   (769)	/* DDR calibration done. */
++#define POST_STAGE_DDR_TEST_START   (1024)	/* DDR memory test start. */
++#define POST_STAGE_DDR_TEST_DONE    (1025)	/* DDR memory test done. */
++#define POST_STAGE_REDBOOT_INIT_START   (1536)	/* Redboot starts execution. */
++#define POST_STAGE_REDBOOT_INIT_DONE (1537)	/* Redboot done execution. */
++#define POST_STAGE_FW_IMAGE_LOAD_START (1792)	/* Firmware image load to
++							DDR start. */
++#define POST_STAGE_FW_IMAGE_LOAD_DONE   (1793)	/* Firmware image load
++							to DDR done. */
++#define POST_STAGE_ARMFW_START          (2048)	/* ARMfw runtime code
++						starts execution. */
++#define POST_STAGE_DHCP_QUERY_START     (2304)	/* DHCP server query start. */
++#define POST_STAGE_DHCP_QUERY_DONE      (2305)	/* DHCP server query done. */
++#define POST_STAGE_BOOT_TARGET_DISCOVERY_START (2560)	/* Boot Target
++						Discovery Start. */
++#define POST_STAGE_BOOT_TARGET_DISCOVERY_DONE (2561)	/* Boot Target
++						Discovery Done. */
++#define POST_STAGE_RC_OPTION_SET        (2816)	/* Remote configuration
++						option is set in  SEEPROM  */
++#define POST_STAGE_SWITCH_LINK          (2817)	/* Wait for link up on switch */
++#define POST_STAGE_SEND_ICDS_MESSAGE    (2818)	/* Send the ICDS message
++						to switch */
++#define POST_STAGE_PERFROM_TFTP         (2819)	/* Download xml using TFTP */
++#define POST_STAGE_PARSE_XML            (2820)	/* Parse XML file */
++#define POST_STAGE_DOWNLOAD_IMAGE       (2821)	/* Download IMAGE from
++						TFTP server */
++#define POST_STAGE_FLASH_IMAGE          (2822)	/* Flash the IMAGE */
++#define POST_STAGE_RC_DONE              (2823)	/* Remote configuration
++						complete */
++#define POST_STAGE_REBOOT_SYSTEM        (2824)	/* Upgrade IMAGE done,
++						reboot required */
++#define POST_STAGE_MAC_ADDRESS          (3072)	/* MAC Address Check */
++#define POST_STAGE_ARMFW_READY          (49152)	/* ARMfw is done with POST
++						and ready. */
++#define POST_STAGE_ARMFW_UE             (61440)	/* ARMfw has asserted an
++						unrecoverable error. The
++						lower 3 hex digits of the
++						stage code identify the
++						unique error code.
++						*/
++
++/* This structure defines the format of the MPU semaphore
++ * register when used for POST.
++ */
++struct BE_MGMT_HBA_POST_STATUS_STRUCT_AMAP {
++	u8 stage[16];	/* DWORD 0 */
++	u8 rsvd0[10];	/* DWORD 0 */
++	u8 iscsi_driver_loaded;	/* DWORD 0 */
++	u8 option_rom_installed;	/* DWORD 0 */
++	u8 iscsi_ip_conflict;	/* DWORD 0 */
++	u8 iscsi_no_ip;	/* DWORD 0 */
++	u8 backup_fw;	/* DWORD 0 */
++	u8 error;		/* DWORD 0 */
++} __packed;
++struct MGMT_HBA_POST_STATUS_STRUCT_AMAP {
++	u32 dw[1];
++};
++
++/* --- MGMT_HBA_POST_DUMMY_BITS_ENUM --- */
++#define POST_BIT_ISCSI_LOADED           (26)
++#define POST_BIT_OPTROM_INST            (27)
++#define POST_BIT_BAD_IP_ADDR            (28)
++#define POST_BIT_NO_IP_ADDR             (29)
++#define POST_BIT_BACKUP_FW              (30)
++#define POST_BIT_ERROR                  (31)
++
++/* --- MGMT_HBA_POST_DUMMY_VALUES_ENUM --- */
++#define POST_ISCSI_DRIVER_LOADED        (67108864)
++#define POST_OPTROM_INSTALLED           (134217728)
++#define POST_ISCSI_IP_ADDRESS_CONFLICT  (268435456)
++#define POST_ISCSI_NO_IP_ADDRESS        (536870912)
++#define POST_BACKUP_FW_LOADED           (1073741824)
++#define POST_FATAL_ERROR                (2147483648)
++
++#endif /* __post_codes_amap_h__ */
+diff --git a/drivers/net/benet/fw/regmap.h b/drivers/net/benet/fw/regmap.h
+new file mode 100644
+index 0000000..e816ba2
+--- /dev/null
++++ b/drivers/net/benet/fw/regmap.h
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++/*
++ * Autogenerated by srcgen version: 0127
++ */
++#ifndef __regmap_amap_h__
++#define __regmap_amap_h__
++#include "pcicfg.h"
++#include "ep.h"
++#include "cev.h"
++#include "mpu.h"
++#include "doorbells.h"
++
++/*
++ * This is the control and status register map for BladeEngine, showing
++ * the relative size and offset of each sub-module. The CSR registers
++ * are identical for the network and storage PCI functions. The
++ * CSR map is shown below, followed by details of each block,
++ * in sub-sections.  The sub-sections begin with a description
++ * of CSRs that are instantiated in multiple blocks.
++ */
++struct BE_BLADE_ENGINE_CSRMAP_AMAP {
++	struct BE_MPU_CSRMAP_AMAP mpu;
++	u8 rsvd0[8192];	/* DWORD 256 */
++	u8 rsvd1[8192];	/* DWORD 512 */
++	struct BE_CEV_CSRMAP_AMAP cev;
++	u8 rsvd2[8192];	/* DWORD 1024 */
++	u8 rsvd3[8192];	/* DWORD 1280 */
++	u8 rsvd4[8192];	/* DWORD 1536 */
++	u8 rsvd5[8192];	/* DWORD 1792 */
++	u8 rsvd6[8192];	/* DWORD 2048 */
++	u8 rsvd7[8192];	/* DWORD 2304 */
++	u8 rsvd8[8192];	/* DWORD 2560 */
++	u8 rsvd9[8192];	/* DWORD 2816 */
++	u8 rsvd10[8192];	/* DWORD 3072 */
++	u8 rsvd11[8192];	/* DWORD 3328 */
++	u8 rsvd12[8192];	/* DWORD 3584 */
++	u8 rsvd13[8192];	/* DWORD 3840 */
++	u8 rsvd14[8192];	/* DWORD 4096 */
++	u8 rsvd15[8192];	/* DWORD 4352 */
++	u8 rsvd16[8192];	/* DWORD 4608 */
++	u8 rsvd17[8192];	/* DWORD 4864 */
++	u8 rsvd18[8192];	/* DWORD 5120 */
++	u8 rsvd19[8192];	/* DWORD 5376 */
++	u8 rsvd20[8192];	/* DWORD 5632 */
++	u8 rsvd21[8192];	/* DWORD 5888 */
++	u8 rsvd22[8192];	/* DWORD 6144 */
++	u8 rsvd23[17152][32];	/* DWORD 6400 */
++} __packed;
++struct BLADE_ENGINE_CSRMAP_AMAP {
++	u32 dw[23552];
++};
++
++#endif /* __regmap_amap_h__ */
 -- 
 1.5.5
 
