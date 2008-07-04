@@ -1,76 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
-Date: Fri, 04 Jul 2008 15:00:36 -0700
-Message-ID: <m1od5d71iz.fsf@frodo.ebiederm.org>
-References: <20080618170729.808539948@theryb.frec.bull.fr>
-	<m1hcb7o8lv.fsf@frodo.ebiederm.org> <486CB051.5000507@fr.ibm.com>
-	<m14p77m9uy.fsf@frodo.ebiederm.org> <486CF71F.5090405@gmail.com>
-	<m1y74iiidz.fsf_-_@frodo.ebiederm.org>
-	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
-	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>
-	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
-	<m1d4luihea.fsf_-_@frodo.ebiederm.org>
-	<m18wwiihbn.fsf_-_@frodo.ebiederm.org>
-	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
-	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
-	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
-	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>
-	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
-	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Fri, 04 Jul 2008 23:08:00 +0100
+Message-ID: <1215209280.3189.33.camel@shinybook.infradead.org>
+References: <20080703173040.GB30506@mit.edu>
+	 <1215111362.10393.651.camel@pmac.infradead.org>
+	 <20080703.162120.206258339.davem@davemloft.net>
+	 <486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>
+	 <1215177044.10393.743.camel@pmac.infradead.org>
+	 <486E2260.5050503@garzik.org>
+	 <1215178035.10393.763.camel@pmac.infradead.org>
+	 <20080704141014.GA23215@mit.edu> <s5habgxloct.wl%tiwai@suse.de>
+	 <486E3622.1000900@suse.de> <1215182557.10393.808.camel@pmac.infradead.org>
+	 <9l5t64tlov332uf2vfqvop9hh6ctvh067v@4ax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Tejun Heo <htejun@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Reinecke <hare@suse.de>, Takashi Iwai <tiwai@suse.de>,
+	Theodore Tso <tytso@mit.edu>, Jeff Garzik <jeff@garzik.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, hugh@veritas.com,
+	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Grant Coady <gcoady.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:40087 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752445AbYGDWBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 18:01:42 -0400
-In-Reply-To: <486E2C3B.6020603@gmail.com> (Tejun Heo's message of "Fri, 04 Jul
-	2008 22:57:15 +0900")
+Received: from bombadil.infradead.org ([18.85.46.34]:47386 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753189AbYGDWIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 18:08:30 -0400
+In-Reply-To: <9l5t64tlov332uf2vfqvop9hh6ctvh067v@4ax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo <htejun@gmail.com> writes:
+On Sat, 2008-07-05 at 07:34 +1000, Grant Coady wrote:
+> On Fri, 04 Jul 2008 15:42:37 +0100, David Woodhouse <dwmw2@infradead.org> wrote:
+> 
+> >On Fri, 2008-07-04 at 16:39 +0200, Hannes Reinecke wrote:
+> >> Firmware loading is just a matter of copying the file at the correct
+> >> location (ie /lib/firmware) and with the name the fw loader expects.
+> >> mkinitrd should do it correctly.
+> >> But I wasn't aware that the tg3 has external firmware, so I doubt
+> >> we have any rpm for it.
+> >
+> >It doesn't yet; that patch is in linux-next. The firmware is shipped as
+> >part of the kernel source tree, and you currently need to run 'make
+> >firmware_install' to put it in /lib/firmware, although we're looking at
+> >making that easier because apparently having to run 'make
+> >firmware_install' is too hard...
+> 
+> Oh come on now -- not a case of too hard, it's a case of breaking _all_ 
+> existing kernel build scripts.
 
-> Yeah, it seems we should agree to disagree here.  I think using callback
-> for static values is a really bad idea.  It obfuscates the code and
-> opens up a big hole for awful misuses.  Greg, what do you think?
+It's done as part of 'make modules_install' now anyway.
 
-The misuse argument is small because currently all users must be compiled
-into the kernel and must add to the static enumeration.  I'm afraid we
-are making the facility over general for the problem at hand.
+-- 
+dwmw2
 
-> As we're very close to rc1 window, I think we can work out a solution
-> here.  The reason why I nack'd was because the change wouldn't take too
-> much effort and I thought it could be done before -rc1.  Unless you
-> disagree with making tags static values, I'll try to write up a patch to
-> do so.  If you (and Greg) think the callback interface is better, we can
-> merge the code as-is and update (or not) later.
-
-Making a change and pushing down into the patches is much more time intensive
-then I would like.  The last round of changes simple as they were took something
-between 16 and 30 hours, and has left me sapped.  Keeping all of the other
-pieces in flight in all of the other patches so I can't just focus on the
-change at hand is what makes it difficult at this point.
-
-Adding an additional patch on top isn't too bad, but my creativity is sapped on
-this right now.  I agree that a function called device_rename isn't the best
-possible name when we are changing tags, but I can't think of anything that
-seems better.
-
-I know in the users that the tags are already quite static and that I call
-kobject_rename in the one case where they change (which is a significant
-exception).  So that part doesn't concern me as I have not intention of using
-the interface like that.  Ultimately I don't care as long as we have code
-that works.
-
-Eric
