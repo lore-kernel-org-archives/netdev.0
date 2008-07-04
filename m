@@ -1,71 +1,50 @@
-From: Marcela Maslanova <mmaslano@redhat.com>
-Subject: [PATCH] [iproute2/ip] ip segfault with wrong key
-Date: Fri, 04 Jul 2008 14:33:32 +0200
-Message-ID: <486E189C.2010507@redhat.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/2] Pull request for 'r8169-next' branch
+Date: Fri, 04 Jul 2008 08:36:53 -0400
+Message-ID: <486E1965.30909@garzik.org>
+References: <20080629131739.GA31201@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040804000902090507040604"
-Cc: shemminger@osdl.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46262 "EHLO mx1.redhat.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:60177 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752653AbYGDMdk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 08:33:40 -0400
+	id S1753331AbYGDMg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 08:36:58 -0400
+In-Reply-To: <20080629131739.GA31201@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040804000902090507040604
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 8bit
+Francois Romieu wrote:
+> Please pull from branch 'r8169-next' in repository
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-next
+> 
+> to get the changes below.
+> 
+> Distance from 'davem-next' (be0976be9148f31ee0d1997354c3e30ff8d07587)
+> ---------------------------------------------------------------------
+> 
+> 865c652d6be9929927cabdc54b137b7541eb6612
+> 1087f4f4af302e6e2fa40dd741f306444d90bece
+> 
+> Diffstat
+> --------
+> 
+>  drivers/net/Kconfig |   16 +-----
+>  drivers/net/r8169.c |  145 +++++++++++++++-----------------------------------
+>  2 files changed, 45 insertions(+), 116 deletions(-)
+> 
+> Shortlog
+> --------
+> 
+> Francois Romieu (2):
+>       r8169: multicast register update (sync with Realtek's 8.004.00 8168 driver)
+>       r8169: remove non-napi code
 
-Wrong key in "ip xfrm state" command lead to segfault. I thought there 
-could be used only hexadecimal numbers. I'm suggesting attached patch. 
-The example of problem could be seen here: 
-https://bugzilla.redhat.com/show_bug.cgi?id=449933
-
--- 
-Marcela Ma¹láòová
-BaseOS team Brno
-
-
---------------040804000902090507040604
-Content-Type: text/x-patch;
- name="0001-The-key-should-be-hexadecimal-number.-This-fix-shoul.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="0001-The-key-should-be-hexadecimal-number.-This-fix-shoul.pa";
- filename*1="tch"
-
->From e2ea8623c5d4fb761924cb7744a0bb220b65e03e Mon Sep 17 00:00:00 2001
-From: =?utf-8?q?Marcela=20Ma=C5=A1l=C3=A1=C5=88ov=C3=A1?= <mmaslano@redhat.com>
-Date: Fri, 4 Jul 2008 13:38:17 +0200
-Subject: [PATCH] The key should be hexadecimal number. This fix should solve
- segfault with wrong key.
-
----
- ip/xfrm_state.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index ff309e7..9a34da4 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -160,8 +160,9 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, enum xfrm_attr_type_t type,
- 		if (len > 0) {
- 			if (len > max)
- 				invarg("\"ALGOKEY\" makes buffer overflow\n", key);
--
--			strncpy(alg->alg_key, key, len);
-+			else
-+				invarg("\"ALGOKEY\" is invalid", key);
-+			/* strncpy(alg->alg_key, key, len); */
- 		}
- 	}
- 
--- 
-1.5.5.1
+pulled
 
 
---------------040804000902090507040604--
