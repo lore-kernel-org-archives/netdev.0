@@ -1,44 +1,64 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC] support for IEEE 1588
-Date: Fri, 4 Jul 2008 03:42:36 +0300
-Message-ID: <200807040342.36505.opurdila@ixiacom.com>
-References: <200807040147.11148.opurdila@ixiacom.com> <200807040240.04801.opurdila@ixiacom.com> <486D6B87.9030409@hp.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 00/15] sysfs support for namespaces
+Date: Thu, 03 Jul 2008 17:48:40 -0700
+Message-ID: <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
+References: <20080618170729.808539948@theryb.frec.bull.fr>
+	<20080618170731.002784342@theryb.frec.bull.fr>
+	<485F04E1.70204@gmail.com> <m1y74svtff.fsf@frodo.ebiederm.org>
+	<486706C9.9040303@gmail.com> <m18wwmsqdv.fsf@frodo.ebiederm.org>
+	<4869D314.5030403@gmail.com> <m1ej6enep7.fsf@frodo.ebiederm.org>
+	<486A0751.9080602@gmail.com> <m1wsk5hjm0.fsf@frodo.ebiederm.org>
+	<486AF4FA.8020805@gmail.com> <m1ej6d9c2r.fsf@frodo.ebiederm.org>
+	<486B060C.7030607@gmail.com> <m14p78s02q.fsf@frodo.ebiederm.org>
+	<486C4515.1070007@gmail.com> <m1hcb7o8lv.fsf@frodo.ebiederm.org>
+	<486CB051.5000507@fr.ibm.com> <m14p77m9uy.fsf@frodo.ebiederm.org>
+	<486CF71F.5090405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	<netdev@vger.kernel.org>
+To: Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1504 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754061AbYGDAoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 20:44:38 -0400
-In-Reply-To: <486D6B87.9030409@hp.com>
-Content-Disposition: inline
+Received: from out02.mta.xmission.com ([166.70.13.232]:60356 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754111AbYGDAvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2008 20:51:44 -0400
+In-Reply-To: <486CF71F.5090405@gmail.com> (Tejun Heo's message of "Fri, 04 Jul
+	2008 00:58:23 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 July 2008, Rick Jones wrote:
 
-> I've not had a good emily litella moment in at least a week, so I'll ask
-> - if the clock in the hardware generating the timestamp and the clock in
-> the host aren't synchronized in _some_ way, what benefit is there to
-> putting the hardware's timestamp in there?
->
+When multiple namespaces are in use we can get multiple kernel objects
+with the same name which is currently impossible to represent in sysfs.
+In particular directories like /sys/class/net and /sys/kernel/uids have
+significant problems.
 
-We actually currently use them for delay/jitter calculation in conjunction 
-with having the RX and TX port's source timestamping units running in sync. 
-We can do that since both the RX and TX port (Linux based) will run in our 
-hardware (chassis).
+Not wanting to change the user space interface and wanting to have a simple
+implementation where all objects are in the kobject and sysfs trees.  The
+decision has been made to tag objects with the namespace they live in,
+and in a particular mount of sysfs only display objects with the tag
+that corresponds to the namespaces in effect when sysfs was mounted.
 
-I guess we could try to do a simple sync between the host clock and the hw 
-clock by getting the initial delta between the two. But since the two clocks 
-are not in sync, they will diverge in time. And since I do not know enough 
-about the way in which tstamp is currently used, I'm not very confident that 
-this will not break something... so, back to grepping :)
+After the last round of reviews the mount/umount logic is
+significantly cleaned up and easier to maintain.  From a 10,000
+foot view the code and the way it functions has remained the
+same since we settled on tagged directories a year or so ago.   I
+intend any future cleanups to be as incremental patches on top
+of this existing set.
 
-Thanks,
-tavi
+Lack of these patches are keeping the generally complete network
+namespace work in 2.6.26 from being used and tested more heavily.
+Can we please get the patches merged?
+
+These patches are based off of 2.6.26-rc8 + the -gregkh tree from
+last night.  Hopefully that means they apply -mm -gregkh and
+-linux-next.
+
+Eric
 
 
