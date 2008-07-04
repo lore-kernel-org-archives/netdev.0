@@ -1,73 +1,63 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 04 Jul 2008 09:39:36 -0400
-Message-ID: <486E2818.1060003@garzik.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>	 <20080703173040.GB30506@mit.edu>	 <1215111362.10393.651.camel@pmac.infradead.org>	 <20080703.162120.206258339.davem@davemloft.net>	 <486D6DDB.4010205@infradead.org>  <87ej6armez.fsf@basil.nowhere.org>	 <1215177044.10393.743.camel@pmac.infradead.org>	 <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
+Date: Fri, 04 Jul 2008 06:31:29 -0700
+Message-ID: <m1tzf593ny.fsf@frodo.ebiederm.org>
+References: <20080618170729.808539948@theryb.frec.bull.fr>
+	<m14p78s02q.fsf@frodo.ebiederm.org> <486C4515.1070007@gmail.com>
+	<m1hcb7o8lv.fsf@frodo.ebiederm.org> <486CB051.5000507@fr.ibm.com>
+	<m14p77m9uy.fsf@frodo.ebiederm.org> <486CF71F.5090405@gmail.com>
+	<m1y74iiidz.fsf_-_@frodo.ebiederm.org>
+	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
+	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>
+	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
+	<m1d4luihea.fsf_-_@frodo.ebiederm.org>
+	<m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
+	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
+	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
+	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>
+	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
 	netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+To: Tejun Heo <htejun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48921 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516AbYGDNjz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 09:39:55 -0400
-In-Reply-To: <1215178035.10393.763.camel@pmac.infradead.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:59814 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754020AbYGDNl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 09:41:58 -0400
+In-Reply-To: <486DD650.3000804@gmail.com> (Tejun Heo's message of "Fri, 04 Jul
+	2008 16:50:40 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
-> On Fri, 2008-07-04 at 09:15 -0400, Jeff Garzik wrote:
->> However, there is still a broken element to the system:  the firmware no 
->> longer rides along in the module's .ko file.  That introduces new 
->> problems for any user and script that copies modules around.
->>
->> The compiled-in firmware should be in the same place where it was before 
->> your changes -- in the driver's kernel module.
-> 
-> No, Jeff. That is neither new, nor a real problem. You're just
-> posturing.
-> 
-> That's the way it has been for a _long_ time anyway, for any modern
-> driver which uses request_firmware(). The whole point about modules is
-> _modularity_. Yes, that means that sometimes they depend on _other_
-> modules, or on firmware. 
-> 
-> The scripts which handle that kind of thing have handled inter-module
-> dependencies, and MODULE_FIRMWARE(), for a long time now.
 
-You have been told repeatedly that cp(1) and scp(1) are commonly used to 
-transport the module David and I care about -- tg3.  It's been a single 
-file module since birth, and people take advantage of that fact.
+Thank you for your opinion.
 
-Therefore, logically, you have introduced additional dependencies and 
-regressions into what was once a single-file copy.
+Incremental patches to make things more beautiful are welcome.
 
-If you wish to hand-wave away what developers and users do today as 
-posturing, that's up to you...
+Please remember we are not building lisp.  The goal is code that works today.
 
-How difficult is it to see that you must create a system that LET'S 
-PEOPLE CHOOSE whether or not they like your stuff.
+Since we are not talking about correctness of the code.  Since we are not
+talking about interfaces with user space.  Since we are talking something
+that is currently about 100 lines of code, and so will be easy to change
+even after it is merged.   I don't understand how discussing this further
+is useful.  Especially when I get a NAK  based on the feel that the code
+is ugly.
 
-Why are you so hell-bent on removing choice?
+As for your main objection.  Adding a accessor method to an object versus
+adding a data field that contain the same thing.  The two are effectively
+identical.  With the practical difference in my eyes that an accessor method
+prevents data duplication which reduces maintenance and reduces skew problems,
+and it keeps the size of struct kobject small.  Since you think methods are
+horrible I must respectfully disagree with you.
 
-Why is it so difficult to see the value of KEEPING STUFF WORKING AS IT 
-WORKS TODAY?
-
-Doing so (a) keeps developers happy, (b) GUARANTEES no regressions, and 
-(c) in no way excludes /lib/firmware, moving firmware to userspace.
-
-Sheesh.
-
-Let developers, users, and distros endorse your plan on their own 
-schedule.  Stop forcing your choices down our throats.
-
-	Jeff
-
-
+Eric
