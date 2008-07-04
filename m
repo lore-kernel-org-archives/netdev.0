@@ -1,70 +1,81 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
- for device classes.
-Date: Fri, 04 Jul 2008 22:57:15 +0900
-Message-ID: <486E2C3B.6020603@gmail.com>
-References: <20080618170729.808539948@theryb.frec.bull.fr>	<m14p78s02q.fsf@frodo.ebiederm.org> <486C4515.1070007@gmail.com>	<m1hcb7o8lv.fsf@frodo.ebiederm.org> <486CB051.5000507@fr.ibm.com>	<m14p77m9uy.fsf@frodo.ebiederm.org> <486CF71F.5090405@gmail.com>	<m1y74iiidz.fsf_-_@frodo.ebiederm.org>	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>	<m1d4luihea.fsf_-_@frodo.ebiederm.org>	<m18wwiihbn.fsf_-_@frodo.ebiederm.org>	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593
- ny.fsf@frodo.ebiederm.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Fri, 04 Jul 2008 10:06:19 -0400
+Message-ID: <486E2E5B.8030801@garzik.org>
+References: <1215093175.10393.567.camel@pmac.infradead.org>	<20080703173040.GB30506@mit.edu>	<1215111362.10393.651.camel@pmac.infradead.org>	<20080703.162120.206258339.davem@davemloft.net>	<486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>	<1215177044.10393.743.camel@pmac.infradead.org>	<486E2260.5050503@garzik.org>	<1215178035.10393.763.camel@pmac.infradead.org>	<486E2818.1060003@garzik.org> <20080704142753.27848ff8@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, tytso@mit.edu,
+	hugh@veritas.com, akpm@linux-foundation.org,
+	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.238]:48363 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753381AbYGDN5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 09:57:42 -0400
-Received: by qb-out-0506.google.com with SMTP id d8so631603qbc.37
-        for <netdev@vger.kernel.org>; Fri, 04 Jul 2008 06:57:41 -0700 (PDT)
-In-Reply-To: <m1tzf593ny.fsf@frodo.ebiederm.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:42604 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750974AbYGDOGk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 10:06:40 -0400
+In-Reply-To: <20080704142753.27848ff8@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Eric.
-
-Eric W. Biederman wrote:
-> Thank you for your opinion.
+Alan Cox wrote:
+>> Why is it so difficult to see the value of KEEPING STUFF WORKING AS IT 
+>> WORKS TODAY?
 > 
-> Incremental patches to make things more beautiful are welcome.
+> Sure Jeff. Lets delete libata, that caused all sorts of problems when it
+> was being added. We could freeze on linux 1.2.13-lmp, that was a good
+> release - why break it ?
 > 
-> Please remember we are not building lisp.  The goal is code that works today.
-> 
-> Since we are not talking about correctness of the code.  Since we are not
-> talking about interfaces with user space.  Since we are talking something
-> that is currently about 100 lines of code, and so will be easy to change
-> even after it is merged.   I don't understand how discussing this further
-> is useful.  Especially when I get a NAK  based on the feel that the code
-> is ugly.
+> There are good sound reasons for having a firmware tree, the fact tg3 is
+> a bit of dinosaur in this area doesn't make it wrong.
 
-I'm sorry if I gave you the impression of being draconian.  Explanations
-below.
+I never said it was wrong.
 
-> As for your main objection.  Adding a accessor method to an object versus
-> adding a data field that contain the same thing.  The two are effectively
-> identical.  With the practical difference in my eyes that an accessor method
-> prevents data duplication which reduces maintenance and reduces skew problems,
-> and it keeps the size of struct kobject small.  Since you think methods are
-> horrible I must respectfully disagree with you.
+I have said repeatedly that separating out the firmware is the right 
+thing to do.
 
-Yeah, it seems we should agree to disagree here.  I think using callback
-for static values is a really bad idea.  It obfuscates the code and
-opens up a big hole for awful misuses.  Greg, what do you think?
+But...  you don't need to force the switchover.  You don't need to break 
+things that work today, in order to accomplish this.
 
-As we're very close to rc1 window, I think we can work out a solution
-here.  The reason why I nack'd was because the change wouldn't take too
-much effort and I thought it could be done before -rc1.  Unless you
-disagree with making tags static values, I'll try to write up a patch to
-do so.  If you (and Greg) think the callback interface is better, we can
-merge the code as-is and update (or not) later.
+It is quite feasible to do both -- keep things working as they work 
+today, _and_ add /lib/firmware infrastructure.  Then we can work to 
+switch distros over to the new system.
 
-Thanks.
+Further, it is not only feasible, but the only "nice" thing to do to 
+other developers, users, and distros:  permit them to choose when to 
+stop the decades-old practice of building firmware into some drivers.
 
--- 
-tejun
+Perform the transition in a sane, staged, planned manner that doesn't 
+result in tons of non-working drivers.  I have already provided many 
+real world examples where people, doing the same things they do today, 
+will be greeted with non-working drivers upon the next boot.  Without 
+any warning or error messages along the way, hinting that something 
+might be wrong.
+
+Or, for the cheap seats:
+
+	End goal: good
+
+	dwmw2's current path:  very easy to produce dead driver
+
+	Needed resolution:  first step should /not/ produce regressions;
+
+			    current evidence demonstrates current
+			    implementation is full of regressions
+			    that seasoned kernel hackers are hitting
+
+It /is/ possible to add /lib/firmware gadgetry while avoiding the 
+obvious low-hanging-fruit regressions and flag-day conversions that have 
+been pointed out here.
+
+Just say no to flag-day changes like this.  It is possible for each 
+distro and boot image script to have their own flag-day.  Give them that 
+choice.
+
+	Jeff
+
