@@ -1,42 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 5/6] e100: fix printk format warning
-Date: Thu, 03 Jul 2008 23:43:12 -0700
-Message-ID: <200807040643.m646hCaG017243@imap1.linux-foundation.org>
+Subject: [patch 2/6] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+Date: Thu, 03 Jul 2008 23:43:10 -0700
+Message-ID: <200807040643.m646hAOq017234@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	randy.dunlap@oracle.com, jeffrey.t.kirsher@intel.com
+	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
+	stable@kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43641 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38578 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752938AbYGDGoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 02:44:04 -0400
+	by vger.kernel.org with ESMTP id S1752484AbYGDGoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 02:44:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: Michael Pyne <michael.pyne@kdemail.net>
 
-Fix printk format warning:
+Partially revert a change to mac address detection introduced to the forcedeth
+driver.  The change was intended to correct mac address detection for newer
+nVidia chipsets where the mac address was stored in reverse order.  One of
+those chipsets appears to still have the mac address in reverse order (or at
+least, it does on my system).
 
-drivers/net/e100.c:1145: warning: format '%d' expects type 'int', but argument 5 has type 'size_t'
+The change that broke mac address detection for my card was commit
+ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+My network card is an nVidia built-in Ethernet card, output from lspci as
+follows (with text and numeric ids):
+$ lspci | grep Ethernet
+00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+$ lspci -n | grep 07.0
+00:07.0 0680: 10de:03ef (rev a2)
+
+The vendor id is, of course, nVidia.  The device id corresponds to the
+NVIDIA_NVENET_19 entry.
+
+The included patch fixes the MAC address detection on my system.
+Interestingly, the MAC address appears to be in the range reserved for my
+motherboard manufacturer (Gigabyte) and not nVidia.
+
+Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: <stable@kernel.org>
+
+On Wed, 21 Nov 2007 15:34:52 -0800
+"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
+
+> The solution is to get the OEM to update their BIOS (instead of
+> integrating this patch) since the MCP61 specs indicate that the MAC
+> Address should be in correct order from BIOS.
+> 
+> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
+> could cause it to break on other OEM systems who have implemented it
+> correctly.
+> 
+
+On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+> NAK - this fixes one set of users, and breaks a working set of users.
+> 
+> Need to add DMI check for the specific motherboard (dmi_check_system), 
+> and flip flag according to success/failure of that check.
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/e100.c |    2 +-
+ drivers/net/forcedeth.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/e100.c~e100-fix-printk-format-warning drivers/net/e100.c
---- a/drivers/net/e100.c~e100-fix-printk-format-warning
-+++ a/drivers/net/e100.c
-@@ -1142,7 +1142,7 @@ static const struct firmware *e100_reque
- 	/* Firmware should be precisely UCODE_SIZE (words) plus three bytes
- 	   indicating the offsets for BUNDLESMALL, BUNDLEMAX, INTDELAY */
- 	if (fw->size != UCODE_SIZE * 4 + 3) {
--		DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %d\n",
-+		DPRINTK(PROBE,ERR, "Firmware \"%s\" has wrong size %zu\n",
- 			fw_name, fw->size);
- 		release_firmware(fw);
- 		return ERR_PTR(-EINVAL);
+diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
++++ a/drivers/net/forcedeth.c
+@@ -5948,7 +5948,7 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
 _
