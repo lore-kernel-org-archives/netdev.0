@@ -1,75 +1,84 @@
-From: maximilian attems <max@stro.at>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 4 Jul 2008 16:24:03 +0200
-Message-ID: <20080704142403.GD7212@baikonur.stro.at>
-References: <1215093175.10393.567.camel@pmac.infradead.org> <20080703173040.GB30506@mit.edu> <1215111362.10393.651.camel@pmac.infradead.org> <20080703.162120.206258339.davem@davemloft.net> <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org> <1215177044.10393.743.camel@pmac.infradead.org> <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org> <20080704141014.GA23215@mit.edu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net-sched 07/06: sch_htb: remove write-only qdisc filter_cnt
+Date: Fri, 4 Jul 2008 16:29:38 +0200
+Message-ID: <20080704142938.GA4258@ami.dom.local>
+References: <20080703151600.26225.3394.sendpatchset@localhost.localdomain> <486E1573.8040303@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Theodore Tso <tytso@mit.edu>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, hugh@veritas
+Cc: netdev@vger.kernel.org, devik@cdi.cz
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:35134 "EHLO
-	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964AbYGDO0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 10:26:48 -0400
+Received: from fk-out-0910.google.com ([209.85.128.190]:53257 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753526AbYGDO2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 10:28:32 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so890797fkq.5
+        for <netdev@vger.kernel.org>; Fri, 04 Jul 2008 07:28:31 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20080704141014.GA23215@mit.edu>
+In-Reply-To: <486E1573.8040303@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 04, 2008 at 10:10:14AM -0400, Theodore Tso wrote:
-> On Fri, Jul 04, 2008 at 02:27:15PM +0100, David Woodhouse wrote:
-> > 
-> > That's the way it has been for a _long_ time anyway, for any modern
-> > driver which uses request_firmware(). The whole point about modules is
-> > _modularity_. Yes, that means that sometimes they depend on _other_
-> > modules, or on firmware. 
-> > 
-> > The scripts which handle that kind of thing have handled inter-module
-> > dependencies, and MODULE_FIRMWARE(), for a long time now.
+On Fri, Jul 04, 2008 at 02:20:03PM +0200, Patrick McHardy wrote:
+
+> commit 50ed378778be0c8d435163122827cf513882a707
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Fri Jul 4 14:18:03 2008 +0200
 > 
-> FYI, at least Ubuntu Hardy's initramfs does not seem to deal with
-> firmware for modules correctly.  
+>     net-sched: sch_htb: remove write-only qdisc filter_cnt
+>     
+>     The filter_cnt is supposed to count filter references to a class.
+>     Since the qdisc can't be the target of a filter, it doesn't need
+>     a filter_cnt. In fact the counter is never decreased since cls_api
+>     considers a return value of zero a failure and doesn't unbind again.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+...plus, of course, it's never checked. Good point and good patch (IMHO).
+
+Regards,
+Jarek P.
+
 > 
-> https://bugs.launchpad.net/ubuntu/+source/initramfs-tools/+bug/180544
-> 
-> And remember, kernel/userspace interfaces are things which are far
-> more careful about than kernel ABI interfaces....
-> 
-> You can flame about Ubuntu being broken (and I predict you will :-),
-> but there are a large number of users who do use Ubuntu.  And so
-> adding more breakages when it is *known* the distro's aren't moving as
-> quickly as you think is reasonable for quote, modern, unquote, drivers
-> is something you can flame about, but at the end of the day, *you* are
-> the one introducing changes that is causing more breakages.  
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 128a5ab..ee8b4ff 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -159,7 +159,6 @@ struct htb_sched {
+>  
+>  	/* filters for qdisc itself */
+>  	struct tcf_proto *filter_list;
+> -	int filter_cnt;
+>  
+>  	int rate2quantum;	/* quant = rate / rate2quantum */
+>  	psched_time_t now;	/* cached dequeue time */
+> @@ -1484,7 +1483,6 @@ static struct tcf_proto **htb_find_tcf(struct Qdisc *sch, unsigned long arg)
+>  static unsigned long htb_bind_filter(struct Qdisc *sch, unsigned long parent,
+>  				     u32 classid)
+>  {
+> -	struct htb_sched *q = qdisc_priv(sch);
+>  	struct htb_class *cl = htb_find(classid, sch);
+>  
+>  	/*if (cl && !cl->level) return 0;
+> @@ -1498,20 +1496,15 @@ static unsigned long htb_bind_filter(struct Qdisc *sch, unsigned long parent,
+>  	 */
+>  	if (cl)
+>  		cl->filter_cnt++;
+> -	else
+> -		q->filter_cnt++;
+>  	return (unsigned long)cl;
+>  }
+>  
+>  static void htb_unbind_filter(struct Qdisc *sch, unsigned long arg)
+>  {
+> -	struct htb_sched *q = qdisc_priv(sch);
+>  	struct htb_class *cl = (struct htb_class *)arg;
+>  
+>  	if (cl)
+>  		cl->filter_cnt--;
+> -	else
+> -		q->filter_cnt--;
+>  }
+>  
+>  static void htb_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 
-yes i'd call them severly broken.
-as it is quite easy to pick up the modinfo firmware module output.
-
-their trouble is that they sync initramfs-tools from Debian only
-once every 2 years or so.
- 
-> Userspace interfaces (and this includes things like
-> mkinitramfs/mkinitrd, since we made the design decision --- in my
-> opinion a very bad decision --- to make initrd/initramfs creation it a
-> distro-specific thing instead of somethign where the kernel supplies
-> the scripts) by their very nature move much more slowly than things
-> which are inside the "shipped by the kernel" boundary.
-
-hpa is working to provide a lot of what is needed in klibc.
-it isn't yet there as it misses mdadm, lvm2 and cryptsetup support,
-but it is getting much better due to our Debian/Ubuntu exposure.
-we added several features to klibc and fixed bugs. similar to the
-early opensuse exposure which unfortunately got dropped.
-
-although kinit strived for a very monolithic way that doesn't fit
-the modular needs of a distribution. klibc and klibc-utils are
-the base of our initramfs.
-
-best regards
-
--- 
-maks
