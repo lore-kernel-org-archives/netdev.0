@@ -1,48 +1,71 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCHv2] fs_enet: restore promiscuous and multicast settings
- in restart()
-Date: Fri, 04 Jul 2008 08:25:07 -0400
-Message-ID: <486E16A3.6020403@garzik.org>
-References: <200806261148.26569.laurentp@cse-semaphore.com>
+From: Marcela Maslanova <mmaslano@redhat.com>
+Subject: [PATCH] [iproute2/ip] ip segfault with wrong key
+Date: Fri, 04 Jul 2008 14:33:32 +0200
+Message-ID: <486E189C.2010507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	Matvejchikov Ilya <matvejchikov@gmail.com>
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Content-Type: multipart/mixed;
+ boundary="------------040804000902090507040604"
+Cc: shemminger@osdl.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48136 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:46262 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753086AbYGDMZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2008 08:25:14 -0400
-In-Reply-To: <200806261148.26569.laurentp@cse-semaphore.com>
+	id S1752653AbYGDMdk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2008 08:33:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Laurent Pinchart wrote:
-> The restart() function is called when the link state changes and resets
-> multicast and promiscuous settings. This patch restores those settings at the
-> end of restart().
-> 
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> ---
->  drivers/net/fs_enet/mac-fcc.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
-> index e363211..849afbe 100644
-> --- a/drivers/net/fs_enet/mac-fcc.c
-> +++ b/drivers/net/fs_enet/mac-fcc.c
-> @@ -463,6 +463,9 @@ static void restart(struct net_device *dev)
->  	else
->  		C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
->  
-> +	/* Restore multicast and promiscuous settings */
-> +	set_multicast_list(dev);
-> +
->  	S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
+This is a multi-part message in MIME format.
+--------------040804000902090507040604
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 8bit
 
-applied 2.6.26
+Wrong key in "ip xfrm state" command lead to segfault. I thought there 
+could be used only hexadecimal numbers. I'm suggesting attached patch. 
+The example of problem could be seen here: 
+https://bugzilla.redhat.com/show_bug.cgi?id=449933
+
+-- 
+Marcela Ma¹láòová
+BaseOS team Brno
 
 
+--------------040804000902090507040604
+Content-Type: text/x-patch;
+ name="0001-The-key-should-be-hexadecimal-number.-This-fix-shoul.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="0001-The-key-should-be-hexadecimal-number.-This-fix-shoul.pa";
+ filename*1="tch"
+
+>From e2ea8623c5d4fb761924cb7744a0bb220b65e03e Mon Sep 17 00:00:00 2001
+From: =?utf-8?q?Marcela=20Ma=C5=A1l=C3=A1=C5=88ov=C3=A1?= <mmaslano@redhat.com>
+Date: Fri, 4 Jul 2008 13:38:17 +0200
+Subject: [PATCH] The key should be hexadecimal number. This fix should solve
+ segfault with wrong key.
+
+---
+ ip/xfrm_state.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index ff309e7..9a34da4 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -160,8 +160,9 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, enum xfrm_attr_type_t type,
+ 		if (len > 0) {
+ 			if (len > max)
+ 				invarg("\"ALGOKEY\" makes buffer overflow\n", key);
+-
+-			strncpy(alg->alg_key, key, len);
++			else
++				invarg("\"ALGOKEY\" is invalid", key);
++			/* strncpy(alg->alg_key, key, len); */
+ 		}
+ 	}
+ 
+-- 
+1.5.5.1
+
+
+--------------040804000902090507040604--
