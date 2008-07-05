@@ -1,33 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sat, 05 Jul 2008 02:14:06 -0400
-Message-ID: <486F112E.5090001@garzik.org>
-References: <20080703020236.adaa51fa.akpm@linux-foundation.org>	 <20080703205548.D6E5.KOSAKI.MOTOHIRO@jp.fujitsu.com>	 <486CC440.9030909@garzik.org>	 <Pine.LNX.4.64.0807031353030.11033@blonde.site>	 <s5hmykxc3ja.wl%tiwai@suse.de>	 <1215177471.10393.753.camel@pmac.infradead.org>	 <s5hej69lqzk.wl%tiwai@suse.de>  <486E28BB.1030205@garzik.org>	 <1215179126.10393.771.camel@pmac.infradead.org>	 <486E2F68.2000707@garzik.org> <1215180802.10393.783.camel@pmac.infradead.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Oops/Warning report of the week of July 4th 2008
+Date: Sat, 5 Jul 2008 08:39:18 +0200
+Message-ID: <20080705063917.GA11599@elte.hu>
+References: <486EA0D6.2040504@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Takashi Iwai <tiwai@suse.de>, Hugh Dickins <hugh@veritas.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dave Jones <davej@redhat.com>
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55721 "EHLO mail.dvmed.net"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:50668 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752500AbYGEGOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jul 2008 02:14:15 -0400
-In-Reply-To: <1215180802.10393.783.camel@pmac.infradead.org>
+	id S1750881AbYGEGjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jul 2008 02:39:41 -0400
+Content-Disposition: inline
+In-Reply-To: <486EA0D6.2040504@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse wrote:
-> I'm working on making the required firmware get installed as part of
-> 'make modules_install'.
 
-Great!  That will definitely reduce silent regressions due to build 
-process changes.
+* Arjan van de Ven <arjan@linux.intel.com> wrote:
 
-	Jeff
+> Rank 8: tick_broadcast_oneshot_control (softlockup)
+> 	Reported 91 times (634 total reports)
+>
+> 	Some interaction between tickless and systems with an AMD CPU 
+> 	and an ATI chipset (eg only seen on systems that both have an 
+> 	AMD cpu and an ATI chipset) Current suspicion is some kind of 
+> 	time-warp problem that causes the softlockup code to trigger 
+> 	incorrectly
+>
+>       This softlockup was last seen in version 2.6.25.9,
+> 	and first seen in 2.6.24-rc4. More info:
+>
+> 	http://www.kerneloops.org/searchweek.php?search=tick_broadcast_oneshot_control
 
+ok, so it's a false positive due to bad timer readout, not a real 
+lockup. That probably also explains how it was able to show up in such 
+numbers - the system kept functioning just fine so every system that 
+produced this warning was able to report it to kerneloops.org.
 
+i'll think about extending the softlockup code with time warp detection 
+and reporting - that would be a useful facility in itself as right now 
+there's nothing that warns about time warps in monotonic system time.
+
+	Ingo
