@@ -1,58 +1,58 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sat, 05 Jul 2008 13:22:20 +0200
-Message-ID: <486F596C.8050109@firstfloor.org>
-References: <87ej6armez.fsf@basil.nowhere.org> <1215177044.10393.743.camel@pmac.infradead.org> <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org> <20080704141014.GA23215@mit.edu> <s5habgxloct.wl%tiwai@suse.de> <486E3622.1000900@suse.de> <1215182557.10393.808.camel@pmac.infradead.org> <20080704231322.GA4410@dspnet.fr.eu.org> <s5h4p746am3.wl%tiwai@suse.de> <20080705105317.GA44773@dspnet.fr.eu.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2] xfrm: Fix inter family IPsec tunnel handling again
+Date: Sat, 5 Jul 2008 19:56:55 +0800
+Message-ID: <20080705115654.GA18290@gondor.apana.org.au>
+References: <20080705071950.GA26532@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Olivier Galibert <galibert@pobox.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Hannes Reinecke <hare@suse.de>, Theodore Tso <tytso@mit.edu>,
-	Jeff Garzik
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:47297 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496AbYGELWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2008 07:22:24 -0400
-In-Reply-To: <20080705105317.GA44773@dspnet.fr.eu.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:48777 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751170AbYGEL5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2008 07:57:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080705071950.GA26532@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Olivier Galibert wrote:
-> On Sat, Jul 05, 2008 at 09:41:56AM +0200, Takashi Iwai wrote:
->> Yes, it will, if the firmware blobs are packed into the kernel
->> package.  In a long term, we can put firmware files into a separate, 
->> architecture independent noarch package, though.  This will save the
->> total package size, too.
+On Sat, Jul 05, 2008 at 09:19:50AM +0200, Steffen Klassert wrote:
+> Move the selector family initialization behind the check for AF_UNSPEC
+> and call xfrm_ip2inner_mode() in any case. So the selector family is
+> intitalized and we can choose for the right inner_mode.
 > 
-> That could be interestingly hard, actually.  Right now the kernel
-> package is one of these packages designed so that multiple versions
-> can be installed together.  When the version of one of the firmwares
-> changes, the firmware package will have to be updated.  But will it
-> keep the previous version?  If it doesn't, the possibly still
-> installed older kernels won't work anymore.  If it does, it will
-> accumulate a lot of files over time...
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/xfrm/xfrm_input.c |   19 ++++---------------
+>  net/xfrm/xfrm_state.c |    2 ++
+>  net/xfrm/xfrm_user.c  |    4 ----
+>  3 files changed, 6 insertions(+), 19 deletions(-)
+> 
+> diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+> index 7527940..d220ecf 100644
+> --- a/net/xfrm/xfrm_input.c
+> +++ b/net/xfrm/xfrm_input.c
+> @@ -91,11 +91,9 @@ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
+>  	if (err)
+>  		return err;
+>  
+> -	if (x->sel.family == AF_UNSPEC) {
+> -		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> -		if (inner_mode == NULL)
+> -			return -EAFNOSUPPORT;
+> -	}
+> +	inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> +	if (inner_mode == NULL)
+> +		return -EAFNOSUPPORT;
 
-Many distribution have some way for separate kernel module packages.
-It's essentially the same problem so it should be already solved
-in some way. Also there are already drivers who rely on separate
-firmware so they already should have this problem (and hopefully
-a solution). Of course these existing solutions might not be good
-enough. And a lot of people ignored them because they didn't use
-these external packages and drivers with those requirements.
+If sel.family is specified, inner_mode should already be set, no?
+Overriding it would seem insecure.
 
-I agree with you that doing this for more drivers will be a further complication
-and the rationale why this complication is needed for drivers like tg3 or
-e100 so far didn't  sound very convincing to me. If I read it correctly it
-was "some other drivers do it this way so let's complicate everybody and
-put them on the same level". Perhaps I'm dense, but I failed
-to see the convincing reason in that.
-
-On the other hand for my personal use it this change should be
-transparent, at least as long as "make firmware_install"
-will be integrated into "make modules_install" and put the files somewhere where
-they don't conflict with other versions.
-
--Andi
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
