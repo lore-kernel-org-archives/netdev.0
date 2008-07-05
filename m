@@ -1,52 +1,101 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Fri, 4 Jul 2008 17:51:18 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0807041742500.13075@t2.domain.actdsltmp>
-References: <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org>
- <1215177044.10393.743.camel@pmac.infradead.org> <486E2260.5050503@garzik.org>
- <1215178035.10393.763.camel@pmac.infradead.org> <20080704141014.GA23215@mit.edu>
- <s5habgxloct.wl%tiwai@suse.de> <486E3622.1000900@suse.de>
- <1215182557.10393.808.camel@pmac.infradead.org> <20080704231322.GA4410@dspnet.fr.eu.org>
- <20080704235839.GA5649@khazad-dum.debian.net>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] net: em_cmp.c use unaligned access helpers
+Date: Fri, 04 Jul 2008 19:10:40 -0700
+Message-ID: <1215223840.27271.7.camel@brick>
+References: <1214428440.6908.1.camel@brick>
+	 <20080627.201649.95998057.davem@davemloft.net>
+	 <20080629095424.GM20815@postel.suug.ch> <1214762490.6037.9.camel@brick>
+	 <20080629232638.GO20815@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Olivier Galibert <galibert@pobox.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Hannes Reinecke <hare@suse.de>, Takashi Iwai <tiwai@suse.de>,
-	Theodore Tso <tytso@mit.edu>, Jeff Garzik <jeff@garzik.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, hugh@veritas.com,
-	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org
-To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:62594 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbYGEAxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 20:53:35 -0400
-In-Reply-To: <20080704235839.GA5649@khazad-dum.debian.net>
+Received: from wa-out-1112.google.com ([209.85.146.180]:16629 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbYGECKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2008 22:10:42 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so919444waf.23
+        for <netdev@vger.kernel.org>; Fri, 04 Jul 2008 19:10:42 -0700 (PDT)
+In-Reply-To: <20080629232638.GO20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Jul 2008, Henrique de Moraes Holschuh wrote:
-> On Sat, 05 Jul 2008, Olivier Galibert wrote:
->> Won't that break multiple kernel installs on any binary packaging
->> system that cares about file collisions?  Multiple kernel rpms
->> providing the same /lib/firmware files would break things wouldn't
->> they ?
->
-> We will probably need per-kernel directories, exactly like what is done for
-> modules.  And since there are (now) both kernel-version-specific, and
-> non-kernel-version-specific firmware, this means the firmware loader should
-> look first on the version-specific directory (say, /lib/firmware/$(uname
-> -r)/), then if not found, on the general directory (/lib/firmware).
+On Mon, 2008-06-30 at 01:26 +0200, Thomas Graf wrote:
+> * Harvey Harrison <harvey.harrison@gmail.com> 2008-06-29 11:01
+> > OK, but be16/32_to_cpu is a no-op on be-arches, so there is a bug here on
+> > big-endian machines as they won't switch it back, your simplified patch
+> > is actually a bugfix in that case.
+> 
+> I noticed that my change wouldn't be correct. The point is to allow
+> userspace to convert the filter values to big endian once, supply them
+> to the kernel and compare big endian values directly. The be16/32_to_cpu
+> convertion is available to support greater-than/lesser-than on little
+> endian architectures.
 
-How about /lib/modules/`uname -r`/firmware
+Thomas, maybe I'm just being slow, put if it's always a be-value, why
+not the following:
 
-Keeps all the stuff for a given kernel together in one directory.  Easier to
-delete, e.g. when getting ride of an old kernel or when wiping a broken kernel
-install clean.  The non-kernel-specific directory could be for firmwares that
-don't come with the kernel and aren't specific to the driver version.  That
-avoids the complexity of providing kernel version specific packages when it's
-not necessary.
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] net: em_cmp.c use unaligned access helper
+
+ptr pointers to a big endian value, instead of constructing a be
+value and conditionally byteswapping on little-endian arches, use
+the unaligned to access helpers return a cpu-endian value.
+
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ net/sched/em_cmp.c |   20 +++-----------------
+ 1 files changed, 3 insertions(+), 17 deletions(-)
+
+diff --git a/net/sched/em_cmp.c b/net/sched/em_cmp.c
+index cc49c93..6e64af1 100644
+--- a/net/sched/em_cmp.c
++++ b/net/sched/em_cmp.c
+@@ -14,13 +14,9 @@
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/tc_ematch/tc_em_cmp.h>
++#include <asm/unaligned.h>
+ #include <net/pkt_cls.h>
+ 
+-static inline int cmp_needs_transformation(struct tcf_em_cmp *cmp)
+-{
+-	return unlikely(cmp->flags & TCF_EM_CMP_TRANS);
+-}
+-
+ static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
+ 			struct tcf_pkt_info *info)
+ {
+@@ -37,23 +33,13 @@ static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
+ 			break;
+ 
+ 		case TCF_EM_ALIGN_U16:
+-			val = *ptr << 8;
+-			val |= *(ptr+1);
+-
+-			if (cmp_needs_transformation(cmp))
+-				val = be16_to_cpu(val);
++			val = get_unaligned_be16(ptr);
+ 			break;
+ 
+ 		case TCF_EM_ALIGN_U32:
+ 			/* Worth checking boundries? The branching seems
+ 			 * to get worse. Visit again. */
+-			val = *ptr << 24;
+-			val |= *(ptr+1) << 16;
+-			val |= *(ptr+2) << 8;
+-			val |= *(ptr+3);
+-
+-			if (cmp_needs_transformation(cmp))
+-				val = be32_to_cpu(val);
++			val = get_unaligned_be32(ptr);
+ 			break;
+ 
+ 		default:
+-- 
+1.5.6.1.322.ge904b
+
+
+
