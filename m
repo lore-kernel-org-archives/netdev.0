@@ -1,58 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] xfrm: Fix inter family IPsec tunnel handling again
-Date: Sat, 5 Jul 2008 19:56:55 +0800
-Message-ID: <20080705115654.GA18290@gondor.apana.org.au>
-References: <20080705071950.GA26532@secunet.com>
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Sat, 5 Jul 2008 14:02:21 +0200
+Message-ID: <20080705120221.GC44773@dspnet.fr.eu.org>
+References: <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org> <20080704141014.GA23215@mit.edu> <s5habgxloct.wl%tiwai@suse.de> <486E3622.1000900@suse.de> <1215182557.10393.808.camel@pmac.infradead.org> <20080704231322.GA4410@dspnet.fr.eu.org> <s5h4p746am3.wl%tiwai@suse.de> <20080705105317.GA44773@dspnet.fr.eu.org> <486F596C.8050109@firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Takashi Iwai <tiwai@suse.de>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Hannes Reinecke <hare@suse.de>, Theodore Tso <tytso@mit.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	David Miller <davem@davemloft.net>, hugh@veritas.com,
+	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48777 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751170AbYGEL5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2008 07:57:09 -0400
+Received: from dspnet.fr.eu.org ([213.186.44.138]:3188 "EHLO dspnet.fr.eu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751877AbYGEMCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jul 2008 08:02:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20080705071950.GA26532@secunet.com>
+In-Reply-To: <486F596C.8050109@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 05, 2008 at 09:19:50AM +0200, Steffen Klassert wrote:
-> Move the selector family initialization behind the check for AF_UNSPEC
-> and call xfrm_ip2inner_mode() in any case. So the selector family is
-> intitalized and we can choose for the right inner_mode.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/xfrm/xfrm_input.c |   19 ++++---------------
->  net/xfrm/xfrm_state.c |    2 ++
->  net/xfrm/xfrm_user.c  |    4 ----
->  3 files changed, 6 insertions(+), 19 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-> index 7527940..d220ecf 100644
-> --- a/net/xfrm/xfrm_input.c
-> +++ b/net/xfrm/xfrm_input.c
-> @@ -91,11 +91,9 @@ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
->  	if (err)
->  		return err;
->  
-> -	if (x->sel.family == AF_UNSPEC) {
-> -		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-> -		if (inner_mode == NULL)
-> -			return -EAFNOSUPPORT;
-> -	}
-> +	inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-> +	if (inner_mode == NULL)
-> +		return -EAFNOSUPPORT;
+On Sat, Jul 05, 2008 at 01:22:20PM +0200, Andi Kleen wrote:
+> Many distribution have some way for separate kernel module packages.
+> It's essentially the same problem so it should be already solved
+> in some way.
 
-If sel.family is specified, inner_mode should already be set, no?
-Overriding it would seem insecure.
+Errr, no.  Modules go in /lib/modules/`uname -r`, so no conflict.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  OG.
