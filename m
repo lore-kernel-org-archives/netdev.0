@@ -1,70 +1,59 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sat, 05 Jul 2008 00:35:52 -0400
-Message-ID: <486EFA28.9040105@garzik.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org> <20080703173040.GB30506@mit.edu> <1215111362.10393.651.camel@pmac.infradead.org> <20080703.162120.206258339.davem@davemloft.net> <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org> <1215177044.10393.743.camel@pmac.infradead.org> <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org> <486E2818.1060003@garzik.org> <20080704143058.GB23215@mit.edu>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+Date: Sat, 5 Jul 2008 01:39:33 -0400
+Message-ID: <20080705013933.91175119.billfink@mindspring.com>
+References: <20080704165755.1c3a284c@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Theodore Tso <tytso@mit.edu>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, hugh@veritas.com,
-	akpm@linux-foundation.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: "Subbu Seetharaman" <subbus@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51614 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959AbYGEEgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jul 2008 00:36:13 -0400
-In-Reply-To: <20080704143058.GB23215@mit.edu>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:50631 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750722AbYGEFjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2008 01:39:41 -0400
+In-Reply-To: <20080704165755.1c3a284c@mailhost.serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Theodore Tso wrote:
-> On Fri, Jul 04, 2008 at 09:39:36AM -0400, Jeff Garzik wrote:
->> You have been told repeatedly that cp(1) and scp(1) are commonly used to  
->> transport the module David and I care about -- tg3.  It's been a single  
->> file module since birth, and people take advantage of that fact.
-> 
-> Here, I think I'll have to respectly disagree with you and say that
-> you are taking things too far.  I don't think scp'ing individual
-> modules around counts as an "exported user interface" the same way,
-> say "make install; make modules_install" is a commonly understand and
-> used interface by users and scripts (i.e., such as Debian's make-kpkg,
-> which does NOT know about "make firmware_install", BTW).
+On Fri, 04 Jul 2008, Subbu Seetharaman wrote:
 
-It's not just netdev developers that use that method, root (notably 
-router) image and driver disk build scripts use it too.  They've been 
-able to skate around module dependencies because network drivers rarely 
-have module dependencies or require big multi-module systems.
+> Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
+> ---
+>  MAINTAINERS          |    7 +++++++
+>  drivers/net/Kconfig  |    8 ++++++++
+>  drivers/net/Makefile |    1 +
+>  3 files changed, 16 insertions(+), 0 deletions(-)
 
-Example -- the driver disk kit that RH informally gave out, which was 
-widely used, but does not use normal kernel build processes:
+...
 
-	http://people.redhat.com/dledford/mod_devel_kit.tgz
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f4182cf..78b4d6e 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2581,6 +2581,14 @@ config BNX2X
+>  
+>  source "drivers/net/sfc/Kconfig"
+>  
+> +config BENET
+> +	tristate "ServerEngines 10Gb NIC - BladeEngine"
+> +	depends on PCI
+> +	select INET_LRO
+> +	help
+> +	  This driver implements the NIC functionality for ServerEngines
+> +	  10Gb network adapter BladeEngine (EC 3210).
+> +
+>  endif # NETDEV_10000
+>  
+>  source "drivers/net/tokenring/Kconfig"
 
-Even if one modifies 'make modules_install' as discussed[1], kits like 
-these will report "100% success! driver disk created", yet ship a dead 
-driver disk.
+I'm no Kconfig expert, but based on previous driver discussions,
+I believe the above depends needs to be changed to:
 
-That is why putting the firmware in the kernel image, as dwmw2 has done, 
-does not fix regressions here:  driver disk authors do not necessarily 
-have the luxury of updating the kernel.
+	depends on PCI && INET
 
-Conclusion - we should not build a system today that /excludes/ the 
-possibility of building drivers as they are built today -- with the 
-firmware inside the module [if CONFIG_FOO=m] or kernel image [if 
-CONFIG_FOO=y].
+to prevent certain build problems that can arise from having just
+the "select INET_LRO" clause.
 
-That is the only path that gives everyone a chance to deal with this 
-transition.
-
-	Jeff
-
-
-
-
-
-[1] a laudable and useful thing to do, and it sounds like it is being 
-accomplished.  great!
-
+						-Bill
