@@ -1,54 +1,39 @@
-From: Valdis.Kletnieks@vt.edu
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sat, 05 Jul 2008 00:05:35 -0400
-Message-ID: <26354.1215230735@turing-police.cc.vt.edu>
-References: <20080704.133721.98729739.davem@davemloft.net> <20080704134208.6c712031@infradead.org> <1215204218.3189.8.camel@shinybook.infradead.org>
-            <20080704.135258.255741026.davem@davemloft.net>
+Date: Sat, 05 Jul 2008 00:10:08 -0400
+Message-ID: <486EF420.40801@garzik.org>
+References: <486D6DDB.4010205@infradead.org> <87ej6armez.fsf@basil.nowhere.org> <1215177044.10393.743.camel@pmac.infradead.org> <486E2260.5050503@garzik.org> <1215178035.10393.763.camel@pmac.infradead.org> <20080704141014.GA23215@mit.edu> <s5habgxloct.wl%tiwai@suse.de> <486E3622.1000900@suse.de> <1215182557.10393.808.camel@pmac.infradead.org> <20080704231322.GA4410@dspnet.fr.eu.org> <20080704235839.GA5649@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1215230735_3050P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, arjan@infradead.org, jeff@garzik.org,
-	andi@firstfloor.org, tytso@mit.edu, hugh@veritas.com,
+Cc: Olivier Galibert <galibert@pobox.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Hannes Reinecke <hare@suse.de>, Takashi Iwai <tiwai@suse.de>,
+	Theodore Tso <tytso@mit.edu>, Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, hugh@veritas.com,
 	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
 	mchan@broadcom.com, linux-kernel@vger.kernel.org,
 	linux-mm@kvack.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:36611 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbYGEEHL (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Sat, 5 Jul 2008 00:07:11 -0400
-In-Reply-To: Your message of "Fri, 04 Jul 2008 13:52:58 PDT."
-             <20080704.135258.255741026.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:46912 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750762AbYGEEKx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jul 2008 00:10:53 -0400
+In-Reply-To: <20080704235839.GA5649@khazad-dum.debian.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1215230735_3050P
-Content-Type: text/plain; charset=us-ascii
+Henrique de Moraes Holschuh wrote:
+> Nothing too dificult to pull off, but something that needs to be done before
+> this entire thing gets deployed on unsuspecting users.  It is bad enough
+> that it created such a commotion when deployed on unsuspecting developers...
 
-On Fri, 04 Jul 2008 13:52:58 PDT, David Miller said:
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Fri, 04 Jul 2008 21:43:38 +0100
-> 
-> > He must do. After all, I was working for Red Hat when I started on
-> > cleaning up these drivers.
-> 
-> Then I hope you've caught the e100 ucode in your changes, for
-> the sake of full transparency :-)
 
-Yes, he did - somebody was asking WTF happened to the e100 driver. :)
+If I may...  that summarizes my entire position in this thread.
 
---==_Exmh_1215230735_3050P
-Content-Type: application/pgp-signature
+The current mess is light years from being deployable to average users.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+	Jeff
 
-iD8DBQFIbvMPcC3lWbTT17ARAio7AJ4+YheKsjZEfaEDbPhG65iuztn08gCgpGG3
-u17sz5iP/G0CQBDciaimtJ4=
-=gQFk
------END PGP SIGNATURE-----
 
---==_Exmh_1215230735_3050P--
