@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: refactor tcp splice receive path to improve
- readability
-Date: Sat, 05 Jul 2008 23:43:40 -0700 (PDT)
-Message-ID: <20080705.234340.53048543.davem@davemloft.net>
-References: <200806241303.36453.opurdila@ixiacom.com>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-07-02
+Date: Sun, 6 Jul 2008 10:07:42 +0300
+Message-ID: <1ba2fa240807060007i572d054va60aa16b41cadce3@mail.gmail.com>
+References: <20080630215651.GA666@tuxdriver.com>
+	 <20080702193710.GA4682@tuxdriver.com>
+	 <20080702202653.GA10719@tuxdriver.com>
+	 <20080705.214752.85024966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: opurdila@ixiacom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48979
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751544AbYGFGnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 02:43:41 -0400
-In-Reply-To: <200806241303.36453.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080705.214752.85024966.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Tue, 24 Jun 2008 13:03:36 +0300
+On Sun, Jul 6, 2008 at 7:47 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Wed, 2 Jul 2008 16:26:53 -0400
+>
+>> Here is another slew of updates for 2.6.27.  The bulk of this batch is
+>> for iwlwifi, with some mac80211 and other bits thrown-in.
+>>
+>> Let me know if there are problems!
+>
+> Pulled and pushed back out to net-next-2.6, thanks.
+>
+> Here are some warnings I noticed during an allmodconfig build
+> on sparc64, please fix:
+>
+> drivers/net/wireless/hostap/hostap_hw.c:3422: warning: 'prism2_suspend' defined but not used
+> drivers/net/wireless/iwlwifi/iwl-rfkill.c:114: warning: label 'freed_rfkill' defined but not used
 
-> Please consider applying this to net-next-2.6. I've minimally tested it and no 
-> performance or functional problems were found. It applies on top of the 
-> previous fix I've sent ([PATH] tcp: fix for splice receive when used with 
-> software LRO). 
-
-It doesn't apply cleanly even though I've merged in net-2.6
-which includes your splice receive bug fix.
-
-Please respin this patch, thanks.
+John what happened to to those patches?
+http://marc.info/?l=linux-wireless&m=121489830307988&w=2
+http://marc.info/?l=linux-wireless&m=121481826531792&w=2
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
