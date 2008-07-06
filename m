@@ -1,59 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 17/18] net: add netif_napi_del
- function to allow for removal of napistructs
-Date: Sat, 05 Jul 2008 21:14:30 -0700 (PDT)
-Message-ID: <20080705.211430.83776216.davem@davemloft.net>
-References: <20080627175921.22428.52767.stgit@localhost.localdomain>
-	<20080627180200.22428.70787.stgit@localhost.localdomain>
-	<486E1AB1.30902@garzik.org>
+Subject: Re: [git patches] net driver updates for .27
+Date: Sat, 05 Jul 2008 21:20:51 -0700 (PDT)
+Message-ID: <20080705.212051.82650078.davem@davemloft.net>
+References: <20080704125446.GA30300@havoc.gtf.org>
+	<20080705.211029.199316974.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: jeff@garzik.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <486E1AB1.30902@garzik.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36558
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750737AbYGFEUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:20:51 -0400
+In-Reply-To: <20080705.211029.199316974.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 04 Jul 2008 08:42:25 -0400
+From: David Miller <davem@davemloft.net>
+Date: Sat, 05 Jul 2008 21:10:29 -0700 (PDT)
 
-> Jeff Kirsher wrote:
-> > From: Alexander Duyck <alexander.h.duyck@intel.com>
- ...
-> > +/**
-> > + *  netif_napi_del - remove a napi context
-> > + *  @napi: napi context
-> > + *
-> > + *  netif_napi_del() removes a napi context from the network device napi list
-> > + */
-> > +static inline void netif_napi_del(struct napi_struct *napi)
-> > +{
-> > +#ifdef CONFIG_NETPOLL
-> > +	list_del(&napi->dev_list);
-> > +#endif
-> > +}
-> > +
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Fri, 4 Jul 2008 08:54:46 -0400
 > 
-> David - ACK?
+> > Please pull from 'davem-next' branch of
+> > master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
+> > 
+> > to receive the following updates:
 > 
-> I would prefer to throw this in with the 18-patch igb pile, if that's OK 
-> with you.
+> Pulled and pushed back out ot net-next-2.6, thanks!
 
-Fine with me.
+BTW, it was super nice to finally see the non-NAPI config
+options get obliterated.
 
--------------------------------------------------------------------------
-Sponsored by: SourceForge.net Community Choice Awards: VOTE NOW!
-Studies have shown that voting for your favorite open source project,
-along with a healthy diet, reduces your potential for chronic lameness
-and boredom. Vote Now at http://www.sourceforge.net/community/cca08
+For those playing at home, these are the similar turds still
+remaining:
+
+AMD8111E_NAPI
+ADAPTEC_STARFIRE_NAPI
+FORCEDETH_NAPI
+VIA_RHINE_NAPI
+E1000_NAPI
+GFAR_NAPI
+UGETH_NAPI
+CHELSIO_T1_NAPI
+IXGB_NAPI
+S2IO_NAPI
+TULIP_NAPI
