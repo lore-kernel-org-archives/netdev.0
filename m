@@ -1,67 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 05/06]: starfire: don't truncate VLAN TCI with VLAN stripping
-Date: Mon, 07 Jul 2008 00:48:18 +0200
-Message-ID: <48714BB2.9020904@trash.net>
-References: <487148E0.5040407@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Sun, 06 Jul 2008 19:22:27 -0400
+Message-ID: <487153B3.80002@garzik.org>
+References: <1215178035.10393.763.camel@pmac.infradead.org>	 <486E2818.1060003@garzik.org> <20080704142753.27848ff8@lxorguk.ukuu.org.uk>	 <20080704.134329.209642254.davem@davemloft.net>	 <20080704220444.011e7e61@lxorguk.ukuu.org.uk>	 <alpine.DEB.1.10.0807061311030.11010@asgard.lang.hm>	 <1215376034.3189.127.camel@shinybook.infradead.org>	 <alpine.DEB.1.10.0807061351040.11010@asgard.lang.hm>	 <1215377814.3189.137.camel@shinybook.infradead.org>	 <48713B73.6030708@garzik.org> <1215382225.3189.174.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070105050809030307000401"
-Cc: Jeff Garzik <jeff@garzik.org>, ionut@cs.columbia.edu
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: david@lang.hm, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
+	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42111 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756673AbYGFWyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 18:54:19 -0400
-In-Reply-To: <487148E0.5040407@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:58655 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756970AbYGFXWx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jul 2008 19:22:53 -0400
+In-Reply-To: <1215382225.3189.174.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070105050809030307000401
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+David Woodhouse wrote:
+> On Sun, 2008-07-06 at 17:38 -0400, Jeff Garzik wrote:
+>> David Woodhouse wrote:
+>>> On Sun, 2008-07-06 at 13:52 -0700, david@lang.hm wrote:
+>>>> On Sun, 6 Jul 2008, David Woodhouse wrote:
+>>>>
+>>>>> On Sun, 2008-07-06 at 13:17 -0700, david@lang.hm wrote:
+>>>>>> if David W were to make it possible to not use the load_firmware() call to
+>>>>>> userspace and build the firmware into the driver (be it in a monolithic
+>>>>>> kernel or the module that contains the driver)
+>>>>> You _can_ build the firmware into the kernel.
+>>>> right, but not into a module. you have half of the answer in place, but 
+>>>> not all of it.
+>>> The useful half. If you have userspace to load modules, you have
+>>> userspace to load firmware too.
+>> Existing examples have already been provided where this logic fails.
+> 
+> I even provided such an example, where your script greps the module for
+> 'request_firmware' and fails if there's a match. I don't think any of
+> the other provided examples were _much_ more sensible than that...
+
+That makes the false presumption that scripts have been updated to avoid 
+the obvious case -- non-working drivers.
+
+Why is it so difficult to follow a simple principle:
+
+	Keep things working tomorrow, that work today.
+
+hmmm?
+
+That's how kernel module support was integrated, so many years ago.
+
+	Jeff
 
 
 
-
---------------070105050809030307000401
-Content-Type: text/x-diff;
- name="05.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="05.diff"
-
-starfire: don't truncate VLAN TCI with VLAN stripping
-
-The vlan_hwaccel_{rx,receive_skb} functions expect the full TCI field
-for priority mappings, don't truncate the upper 4 bits.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit c8695f4c66c53182b2b6dc8a848d07e0208edd5d
-tree 520848e31ff58269e8486a3116387a21e67f3202
-parent 92c22c36d1e18c443bbbe0097c005ebc94e82a4f
-author Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 00:25:14 +0200
-committer Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 00:25:14 +0200
-
- drivers/net/starfire.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
-index 7b7b171..2038f38 100644
---- a/drivers/net/starfire.c
-+++ b/drivers/net/starfire.c
-@@ -1510,7 +1510,7 @@ static int __netdev_rx(struct net_device *dev, int *quota)
- 			if (debug > 4)
- 				printk(KERN_DEBUG "  netdev_rx() vlanid = %d\n", le16_to_cpu(desc->vlanid));
- 			/* vlan_netdev_receive_skb() expects a packet with the VLAN tag stripped out */
--			vlan_netdev_receive_skb(skb, np->vlgrp, le16_to_cpu(desc->vlanid) & VLAN_VID_MASK);
-+			vlan_netdev_receive_skb(skb, np->vlgrp, le16_to_cpu(desc->vlanid));
- 		} else
- #endif /* VLAN_SUPPORT */
- 			netdev_receive_skb(skb);
-
-
---------------070105050809030307000401--
