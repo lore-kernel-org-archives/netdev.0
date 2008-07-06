@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [udplite] [Patch 1/1] [BUG-FIX]: Avoid u16 checksum coverage
- wrap-around
-Date: Sat, 05 Jul 2008 23:36:41 -0700 (PDT)
-Message-ID: <20080705.233641.190712838.davem@davemloft.net>
-References: <20080703113141.GA8223@gerrit.erg.abdn.ac.uk>
+Subject: Re: can: add sanity checks
+Date: Sat, 05 Jul 2008 23:39:00 -0700 (PDT)
+Message-ID: <20080705.233900.251289513.davem@davemloft.net>
+References: <486BCCA0.9040006@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	nautsch@gmail.com, netdev@vger.kernel.org, stable@kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51291
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51296
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751436AbYGFGgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 02:36:42 -0400
-In-Reply-To: <20080703113141.GA8223@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751678AbYGFGjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 02:39:01 -0400
+In-Reply-To: <486BCCA0.9040006@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 3 Jul 2008 12:31:41 +0100
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Wed, 02 Jul 2008 20:44:48 +0200
 
-> udplite: Protection against coverage value wrap-around
+> Even though the CAN netlayer only deals with CAN netdevices, the 
+> netlayer interface to the userspace and to the device layer should 
+> perform some sanity checks.
 > 
-> This protects UDP-Lite against illegal checksum coverage values and
-> against illegal checksum coverage values caused by the `int' argument
-> wrapping around at 0xffff.
+> This patch adds several sanity checks that mainly prevent userspace apps 
+> to send broken content into the system that may be misinterpreted by 
+> some other userspace application.
 > 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+> Acked-by: Andre Naujoks <nautsch@gmail.com>
 
-Please preserve the current of using the default value of "8" when an
-illegal value is specified.  This behavior might be important and
-specified somewhere, such as the BSD socket API for udplite used on
-other systems.  The fact that it's even explicitly mentioned in the
-documentation file is a strong indication that it might be that way
-for a good reason.
-
-Also, even if we should change the behvaior, it's a seperate change
-from correcting the test.
-
-Gerrit, you like to mix up multiple things at the same time and it
-makes your stuff harder to review.  It also, as a result, makes it
-take longer to integrate your work.
+Applied to net-2.6, thanks Oliver.
