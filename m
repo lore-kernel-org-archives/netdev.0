@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] MIB: add struct net to UDP accounting macros
-Date: Sat, 05 Jul 2008 21:21:38 -0700 (PDT)
-Message-ID: <20080705.212138.06508305.davem@davemloft.net>
-References: <486E1074.7040702@openvz.org>
+Subject: Re: net 00/06: add GARP/GVRP support
+Date: Sat, 05 Jul 2008 21:33:47 -0700 (PDT)
+Message-ID: <20080705.213347.114507391.davem@davemloft.net>
+References: <20080703170441.6650.64717.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, den@openvz.org
-To: xemul@openvz.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60829
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44267
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750710AbYGFEVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:21:38 -0400
-In-Reply-To: <486E1074.7040702@openvz.org>
+	by vger.kernel.org with ESMTP id S1750808AbYGFEdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:33:47 -0400
+In-Reply-To: <20080703170441.6650.64717.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 04 Jul 2008 15:58:44 +0400
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu,  3 Jul 2008 19:04:41 +0200 (MEST)
 
-> This is the first small set of MIB statistics netnsization. The easiest
-> case is UDP stats, so I started with this one. If this set is accepted,
-> I will go on step-by-step with adding struct net to all the other stats' 
-> accounting macros, then SNMP_XXX ones and finish with a set than will put 
-> the stats on the struct net and fix appropriate proc files.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Acked-by: Denis V. Lunev <den@openvz.org>
+> These patches add an implementation of the GARP (Generic Attribute
+> Registration Protocol) applicant-only participant, which can be used
+> to dynamically register VLANs and multicast addresses with switches.
+> Applicant-only means it can only be used as a client, not on a bridge.
+> Also included is a GVRP (GARP VLAN Registration Protocol) application
+> on top.
 
-Applied, thanks Pavel.
-
-Are we going to provide some way for an administrator to fetch
-stats from the perspective of all namespaces?  I know the idea
-is seperation with this stuff, but admins are going to want
-something like that.
-
+These look good, applied and pushed out to net-next-2.6, thanks!
