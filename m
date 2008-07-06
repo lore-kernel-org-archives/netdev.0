@@ -1,57 +1,59 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sun, 06 Jul 2008 23:10:25 +0100
-Message-ID: <1215382225.3189.174.camel@shinybook.infradead.org>
-References: <1215178035.10393.763.camel@pmac.infradead.org>
-	 <486E2818.1060003@garzik.org> <20080704142753.27848ff8@lxorguk.ukuu.org.uk>
-	 <20080704.134329.209642254.davem@davemloft.net>
-	 <20080704220444.011e7e61@lxorguk.ukuu.org.uk>
-	 <alpine.DEB.1.10.0807061311030.11010@asgard.lang.hm>
-	 <1215376034.3189.127.camel@shinybook.infradead.org>
-	 <alpine.DEB.1.10.0807061351040.11010@asgard.lang.hm>
-	 <1215377814.3189.137.camel@shinybook.infradead.org>
-	 <48713B73.6030708@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH net-next]: net: fix dev_set_promiscuity() breakage
+Date: Mon, 07 Jul 2008 00:18:36 +0200
+Message-ID: <487144BC.6030609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: david@lang.hm, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Miller <davem@davemloft.net>, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: multipart/mixed;
+ boundary="------------090104000608020603040406"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Wang Chen <wangchen@cn.fujitsu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:41105 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756588AbYGFWKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 18:10:42 -0400
-In-Reply-To: <48713B73.6030708@garzik.org>
+Received: from stinky.trash.net ([213.144.137.162]:41529 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752205AbYGFWYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 18:24:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-07-06 at 17:38 -0400, Jeff Garzik wrote:
-> David Woodhouse wrote:
-> > On Sun, 2008-07-06 at 13:52 -0700, david@lang.hm wrote:
-> >> On Sun, 6 Jul 2008, David Woodhouse wrote:
-> >>
-> >>> On Sun, 2008-07-06 at 13:17 -0700, david@lang.hm wrote:
-> >>>> if David W were to make it possible to not use the load_firmware() call to
-> >>>> userspace and build the firmware into the driver (be it in a monolithic
-> >>>> kernel or the module that contains the driver)
-> >>> You _can_ build the firmware into the kernel.
-> >> right, but not into a module. you have half of the answer in place, but 
-> >> not all of it.
-> > 
-> > The useful half. If you have userspace to load modules, you have
-> > userspace to load firmware too.
-> 
-> Existing examples have already been provided where this logic fails.
+This is a multi-part message in MIME format.
+--------------090104000608020603040406
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I even provided such an example, where your script greps the module for
-'request_firmware' and fails if there's a match. I don't think any of
-the other provided examples were _much_ more sensible than that...
 
--- 
-dwmw2
 
+--------------090104000608020603040406
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit 7aaf76390d820383eb4069065ec2e1b5ee479ef9
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Jul 7 00:21:09 2008 +0200
+
+    net: fix dev_set_promiscuity() breakage
+    
+    Commit dad9b335 (netdevice: Fix promiscuity and allmulti overflow) broke
+    dev_set_promiscuity() by returning on success without reprogramming the
+    device.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bfa9a6a..7593393 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2859,7 +2859,7 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
+ 	int err;
+ 
+ 	err = __dev_set_promiscuity(dev, inc);
+-	if (!err)
++	if (err < 0)
+ 		return err;
+ 	if (dev->flags != old_flags)
+ 		dev_set_rx_mode(dev);
+
+--------------090104000608020603040406--
