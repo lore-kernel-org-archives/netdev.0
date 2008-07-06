@@ -1,46 +1,46 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-07-02
-Date: Sun, 6 Jul 2008 10:07:42 +0300
-Message-ID: <1ba2fa240807060007i572d054va60aa16b41cadce3@mail.gmail.com>
-References: <20080630215651.GA666@tuxdriver.com>
-	 <20080702193710.GA4682@tuxdriver.com>
-	 <20080702202653.GA10719@tuxdriver.com>
-	 <20080705.214752.85024966.davem@davemloft.net>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Sun, 6 Jul 2008 06:02:30 -0400
+Message-ID: <20080706100230.GA21160@infradead.org>
+References: <1215182557.10393.808.camel@pmac.infradead.org> <20080704231322.GA4410@dspnet.fr.eu.org> <s5h4p746am3.wl%tiwai@suse.de> <20080705105317.GA44773@dspnet.fr.eu.org> <486F596C.8050109@firstfloor.org> <20080705120221.GC44773@dspnet.fr.eu.org> <486F6494.8020108@firstfloor.org> <1215260166.10393.816.camel@pmac.infradead.org> <20080705171316.GA3615@infradead.org> <1215291312.3189.88.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080705.214752.85024966.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Olivier Galibert <galibert@pobox.com>,
+	Takashi Iwai <tiwai@suse.de>, Hannes Reinecke <hare@suse.de>,
+	Theodore Tso <tytso@mit.edu>, Jeff Garzik <jeff@garzik.org>,
+	David Miller <davem@davemloft.net>, hugh@veritas.com,
+	akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:34405 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752745AbYGFKDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 06:03:03 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1215291312.3189.88.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 6, 2008 at 7:47 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Wed, 2 Jul 2008 16:26:53 -0400
->
->> Here is another slew of updates for 2.6.27.  The bulk of this batch is
->> for iwlwifi, with some mac80211 and other bits thrown-in.
->>
->> Let me know if there are problems!
->
-> Pulled and pushed back out to net-next-2.6, thanks.
->
-> Here are some warnings I noticed during an allmodconfig build
-> on sparc64, please fix:
->
-> drivers/net/wireless/hostap/hostap_hw.c:3422: warning: 'prism2_suspend' defined but not used
-> drivers/net/wireless/iwlwifi/iwl-rfkill.c:114: warning: label 'freed_rfkill' defined but not used
+On Sat, Jul 05, 2008 at 09:55:11PM +0100, David Woodhouse wrote:
+> > That's unfortunately not true.  There are a lot of drivers that rely
+> > on specific firmware versions.
+> 
+> Do you have examples of such?
 
-John what happened to to those patches?
-http://marc.info/?l=linux-wireless&m=121489830307988&w=2
-http://marc.info/?l=linux-wireless&m=121481826531792&w=2
-Thanks
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The worst examples are aic7xx/aic79xx and the symbios family of drivers
+where the firmware / driver interface is entirely defined by the driver.
+But as we have opensource firmware for these and build it as part of
+the kernel build I suspect you don't want to convert them to external
+firmware either.
+
+aic94xx has a very similar firmware to aic7xx/aic79xx but it's only
+available as blob.  We've alredy required specific firmware versions
+there.
+
+b43 has two totally different firmware major revisions that even require
+different drivers.
+
