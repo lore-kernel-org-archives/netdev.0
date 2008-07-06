@@ -1,81 +1,157 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Sun, 06 Jul 2008 19:40:55 -0400
-Message-ID: <48715807.8070605@garzik.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>	<20080703173040.GB30506@mit.edu>	<1215111362.10393.651.camel@pmac.infradead.org>	<20080703.162120.206258339.davem@davemloft.net>	<486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>	<1215177044.10393.743.camel@pmac.infradead.org>	<486E2260.5050503@garzik.org>	<1215178035.10393.763.camel@pmac.infradead.org>	<486E2818.1060003@garzik.org>	<1215179161.10393.773.camel@pmac.infradead.org>	<486E2E9B.20200@garzik.org> <20080704153822.4db2f325@lxorguk.ukuu.org.uk>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Sun, 6 Jul 2008 16:56:55 -0700
+Message-ID: <20080706165655.0783348b@infradead.org>
+References: <20080706130801.6bc36cf7@infradead.org>
+	<20080706.155318.46569612.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37382 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754413AbYGFXlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jul 2008 19:41:16 -0400
-In-Reply-To: <20080704153822.4db2f325@lxorguk.ukuu.org.uk>
+Received: from casper.infradead.org ([85.118.1.10]:36736 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754413AbYGFX5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 19:57:13 -0400
+In-Reply-To: <20080706.155318.46569612.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
-> On Fri, 04 Jul 2008 10:07:23 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
+On Sun, 06 Jul 2008 15:53:18 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Arjan van de Ven <arjan@infradead.org>
+> Date: Sun, 6 Jul 2008 13:08:01 -0700
 > 
->> David Woodhouse wrote:
->>> On Fri, 2008-07-04 at 09:39 -0400, Jeff Garzik wrote:
->>>> You have been told repeatedly that cp(1) and scp(1) are commonly used
->>>> to transport the module David and I care about -- tg3.  It's been a
->>>> single file module since birth, and people take advantage of that
->>>> fact.
->>> And you can _continue_ to do that. You'd need to install the firmware
->>> just once, and that's all. It's a non-issue, and it isn't _worth_ the
->>> added complexity of building the firmware into the module.
->> We can stop there.  Real-world examples are apparently non-issues not 
->> worth your time.
+> > Does this patch look like the right approach for achieving the goal?
 > 
-> Jeff - real world issues and gains are measured on a scale across the
-> userbase not "Jeff's having a tantrum because his specific usage case
-> requires one extra copy once"
+> It's almost there.
+> 
+> You can issue an ethtool_ops->get_drvinfo() call, on devices which
+> support ethtool, and fetch the driver info from there.
+> 
+> Your current method of obtaining this info can be used as the
+> fallback when the ethtool op fails.
 
-Please look at the example as an example of an entire _class_ of usage 
-that dwmw2 wishes to hand-wave away.
+fair enough...
 
-There are many cases where you have the freedom to update the module, 
-but not the kernel itself -- see vendor kernels and driver update disks, 
-or the typical usage of the upstream kernel's out-of-tree-module build 
-support.
-
-It is trivial to think for five minutes and come up with other examples, 
-because the simple fact is, there is a failure to follow a basic 
-principle of kernel development:  no regressions.
-
-All I'm asking for: what works today, should continue to work tomorrow.
-
-Why is that so wrong?
-
-We applied that principle with libata -- if you did not turn it on, you 
-didn't even have to know it was there.
-
-We applied that principle with kernel modules -- if you do not turn them 
-on, you have the static kernel you've always had.
+how about this then?
+(still leaves the logistics question between when WARN() hits the tree and when this patch go)
 
 
-> And we had the same argument over ten years ago about those evil module
-> things which stopped you just using scp to copy the kernel in one go.
-> Fortunately the nay sayers lost so we have modules.
-
-Broken analogy.
-
-When modules were added, you were given the option to use them, or not.
-
-dwmw2's conversion is not providing analogous choices.
-
-	Jeff
 
 
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Use WARN_ONCE() in the netdev timeout handler (and print module name)
+
+As suggested by Dave:
+
+This patch adds a function to get the driver name from a struct net_device,
+and consequently uses this in the watchdog timeout handler to print as 
+part of the message. To make this useful, use WARN_ONCE() so that the
+message is part of the ===[ cut here ]=== section, meaning that people
+are more likely to report it, and automated warning collection will pick it up.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |   34 +++++++++++++++++++++++++++++++---
+ net/sched/sch_generic.c   |    9 +++++----
+ 3 files changed, 39 insertions(+), 7 deletions(-)
+
+Index: linux.trees.git/include/linux/netdevice.h
+===================================================================
+--- linux.trees.git.orig/include/linux/netdevice.h
++++ linux.trees.git/include/linux/netdevice.h
+@@ -1514,6 +1514,9 @@ extern void dev_seq_stop(struct seq_file
+ extern int netdev_class_create_file(struct class_attribute *class_attr);
+ extern void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
++extern void netdev_drivername(struct net_device *dev, char *buffer, int len);
++
++
+ extern void linkwatch_run_queue(void);
+ 
+ extern int netdev_compute_features(unsigned long all, unsigned long one);
+Index: linux.trees.git/net/core/dev.c
+===================================================================
+--- linux.trees.git.orig/net/core/dev.c
++++ linux.trees.git/net/core/dev.c
+@@ -3706,10 +3706,8 @@ static void rollback_registered(struct n
+ 
+ 	/* Some devices call without registering for initialization unwind. */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+-		printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
++		WARN(1, KERN_DEBUG "unregister_netdevice: device %s/%p never "
+ 				  "was registered\n", dev->name, dev);
+-
+-		WARN_ON(1);
+ 		return;
+ 	}
+ 
+@@ -4554,6 +4552,36 @@ err_name:
+ 	return -ENOMEM;
+ }
+ 
++void netdev_drivername(struct net_device *dev, char *buffer, int len)
++{
++	struct device_driver *driver;
++	struct device *parent;
++	struct ethtool_drvinfo info;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++
++	if (len <= 0)
++		return;
++	buffer[0] = 0;
++
++	if (ops->get_drvinfo) {
++		memset(&info, 0, sizeof(info));
++		info.cmd = ETHTOOL_GDRVINFO;
++		ops->get_drvinfo(dev, &info);
++		strlcpy(buffer, info.driver, len);
++		if (strlen(info.driver) > 0)
++			return;
++	}
++
++	parent = dev->dev.parent;
++
++	if (!parent)
++		return;
++
++	driver = parent->driver;
++	if (driver && driver->name)
++		strlcpy(buffer, driver->name, len);
++}
++
+ static void __net_exit netdev_exit(struct net *net)
+ {
+ 	kfree(net->dev_name_head);
+Index: linux.trees.git/net/sched/sch_generic.c
+===================================================================
+--- linux.trees.git.orig/net/sched/sch_generic.c
++++ linux.trees.git/net/sched/sch_generic.c
+@@ -215,11 +215,12 @@ static void dev_watchdog(unsigned long a
+ 		    netif_carrier_ok(dev)) {
+ 			if (netif_queue_stopped(dev) &&
+ 			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
+-
+-				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
+-				       dev->name);
++				char drivername[64];
++				netdev_drivername(dev, drivername, 64);
++				WARN_ONCE(1, KERN_INFO
++					"NETDEV WATCHDOG: %s (%s): transmit timed out\n",
++					dev->name, drivername);
+ 				dev->tx_timeout(dev);
+-				WARN_ON_ONCE(1);
+ 			}
+ 			if (!mod_timer(&dev->watchdog_timer, round_jiffies(jiffies + dev->watchdog_timeo)))
+ 				dev_hold(dev);
+
+
+
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
