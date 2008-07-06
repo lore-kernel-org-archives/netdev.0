@@ -1,29 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates for .27
-Date: Sat, 05 Jul 2008 21:10:29 -0700 (PDT)
-Message-ID: <20080705.211029.199316974.davem@davemloft.net>
-References: <20080704125446.GA30300@havoc.gtf.org>
+Subject: Re: [PATCH 5/5] net/core: Allow receive on active slaves.
+Date: Sat, 05 Jul 2008 21:12:56 -0700 (PDT)
+Message-ID: <20080705.211256.121382294.davem@davemloft.net>
+References: <1215048127619-git-send-email-fubar@us.ibm.com>
+	<1215048128335-git-send-email-fubar@us.ibm.com>
+	<486E1B80.7060900@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org, jre@nuovasystems.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49994
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53333
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750804AbYGFEK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:10:29 -0400
-In-Reply-To: <20080704125446.GA30300@havoc.gtf.org>
+	by vger.kernel.org with ESMTP id S1750710AbYGFEM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:12:56 -0400
+In-Reply-To: <486E1B80.7060900@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 4 Jul 2008 08:54:46 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Fri, 04 Jul 2008 08:45:52 -0400
 
+> Jay Vosburgh wrote:
+> > @@ -2104,7 +2104,8 @@ int netif_receive_skb(struct sk_buff *skb)
+> >  #endif
+> >  
+> >  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> > -		if (ptype->dev == null_or_orig || ptype->dev == skb->dev) {
+> > +		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+> > +		    ptype->dev == orig_dev) {
+> >  			if (pt_prev)
+> >  				ret = deliver_skb(skb, pt_prev, orig_dev);
+> >  			pt_prev = ptype;
+> > @@ -2129,7 +2130,8 @@ ncls:
+> >  	list_for_each_entry_rcu(ptype,
+> >  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+> >  		if (ptype->type == type &&
+> > -		    (ptype->dev == null_or_orig || ptype->dev == skb->dev)) {
+> > +		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+> > +		     ptype->dev == orig_dev)) {
+> >  			if (pt_prev)
 > 
-> Please pull from 'davem-next' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-next
-> 
-> to receive the following updates:
+> This needs a review&ack from David, then OK...
 
-Pulled and pushed back out ot net-next-2.6, thanks!
+I fear this bit of the changes will break AF_PACKET device binding.
+So for example, if a tap registers it wants to hear eth0, it will now
+hear bond0 as well as eth0 if eth0 is a part of bond0.
