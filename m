@@ -1,53 +1,68 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH] drivers/net/cs89x0.c: remove unnecessary includes.
-Date: Sun, 06 Jul 2008 21:31:38 +0400
-Message-ID: <4871017A.8070208@gmail.com>
-References: <a4423d670807060930p73465b1bj9c2e4eea01fb5b7a@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+Date: Sun, 6 Jul 2008 10:41:30 -0700
+Message-ID: <20080706104130.8044ec03.randy.dunlap@oracle.com>
+References: <20080704165755.1c3a284c@mailhost.serverengines.com>
+	<20080705013933.91175119.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: "Subbu Seetharaman" <subbus@serverengines.com>, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:43710 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbYGFRbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 13:31:50 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so552381nfc.21
-        for <netdev@vger.kernel.org>; Sun, 06 Jul 2008 10:31:49 -0700 (PDT)
-In-Reply-To: <a4423d670807060930p73465b1bj9c2e4eea01fb5b7a@mail.gmail.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:21746 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759950AbYGFRlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 13:41:45 -0400
+In-Reply-To: <20080705013933.91175119.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for wrapping lines, resend.
+On Sat, 5 Jul 2008 01:39:33 -0400 Bill Fink wrote:
 
-From: Alexander Beregalov <a.beregalov@gmail.com>
+> On Fri, 04 Jul 2008, Subbu Seetharaman wrote:
+> 
+> > Signed-off-by: Subbu Seetharaman <subbus@serverengines.com>
+> > ---
+> >  MAINTAINERS          |    7 +++++++
+> >  drivers/net/Kconfig  |    8 ++++++++
+> >  drivers/net/Makefile |    1 +
+> >  3 files changed, 16 insertions(+), 0 deletions(-)
+> 
+> ...
+> 
+> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> > index f4182cf..78b4d6e 100644
+> > --- a/drivers/net/Kconfig
+> > +++ b/drivers/net/Kconfig
+> > @@ -2581,6 +2581,14 @@ config BNX2X
+> >  
+> >  source "drivers/net/sfc/Kconfig"
+> >  
+> > +config BENET
+> > +	tristate "ServerEngines 10Gb NIC - BladeEngine"
+> > +	depends on PCI
+> > +	select INET_LRO
+> > +	help
+> > +	  This driver implements the NIC functionality for ServerEngines
+> > +	  10Gb network adapter BladeEngine (EC 3210).
+> > +
+> >  endif # NETDEV_10000
+> >  
+> >  source "drivers/net/tokenring/Kconfig"
+> 
+> I'm no Kconfig expert, but based on previous driver discussions,
+> I believe the above depends needs to be changed to:
+> 
+> 	depends on PCI && INET
+> 
+> to prevent certain build problems that can arise from having just
+> the "select INET_LRO" clause.
 
-The patch applies to the linux-next tree.
+Correct.  Thanks for catching that.
 
-drivers/net/cs89x0.c: remove unnecessary includes.
-asm/irq.h is already included unconditionally at 151 string.
-
- 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
-
-diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-index fba87ab..5a9d118 100644
---- a/drivers/net/cs89x0.c
-+++ b/drivers/net/cs89x0.c
-@@ -182,13 +182,10 @@ static unsigned int cs8900_irq_map[] = {1,0,0,0};
- #elif defined(CONFIG_MACH_IXDP2351)
- static unsigned int netcard_portlist[] __used __initdata = {IXDP2351_VIRT_CS8900_BASE, 0};
- static unsigned int cs8900_irq_map[] = {IRQ_IXDP2351_CS8900, 0, 0, 0};
--#include <asm/irq.h>
- #elif defined(CONFIG_ARCH_IXDP2X01)
--#include <asm/irq.h>
- static unsigned int netcard_portlist[] __used __initdata = {IXDP2X01_CS8900_VIRT_BASE, 0};
- static unsigned int cs8900_irq_map[] = {IRQ_IXDP2X01_CS8900, 0, 0, 0};
- #elif defined(CONFIG_ARCH_PNX010X)
--#include <asm/irq.h>
- #include <asm/arch/gpio.h>
- #define CIRRUS_DEFAULT_BASE    IO_ADDRESS(EXT_STATIC2_s0_BASE + 0x200000)      /* = Physical address 0x48200000 */
- #define CIRRUS_DEFAULT_IRQ     VH_INTC_INT_NUM_CASCADED_INTERRUPT_1 /* Event inputs bank 1 - ID 35/bit 3 */
+~Randy
+Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
+http://linuxplumbersconf.org/
