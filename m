@@ -1,63 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net/core: Allow receive on active slaves.
-Date: Sat, 05 Jul 2008 21:38:18 -0700 (PDT)
-Message-ID: <20080705.213818.71574869.davem@davemloft.net>
-References: <486E1B80.7060900@pobox.com>
-	<20080705.211256.121382294.davem@davemloft.net>
-	<48704BDA.1000200@nuovasystems.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-07-02
+Date: Sat, 05 Jul 2008 21:47:52 -0700 (PDT)
+Message-ID: <20080705.214752.85024966.davem@davemloft.net>
+References: <20080630215651.GA666@tuxdriver.com>
+	<20080702193710.GA4682@tuxdriver.com>
+	<20080702202653.GA10719@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, fubar@us.ibm.com, netdev@vger.kernel.org
-To: jre@nuovasystems.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36366
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750737AbYGFEiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 00:38:18 -0400
-In-Reply-To: <48704BDA.1000200@nuovasystems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080702202653.GA10719-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Eykholt <jre@nuovasystems.com>
-Date: Sat, 05 Jul 2008 21:36:42 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 2 Jul 2008 16:26:53 -0400
 
-> David Miller wrote:
-> > From: Jeff Garzik <jgarzik@pobox.com>
-> > Date: Fri, 04 Jul 2008 08:45:52 -0400
-> > 
-> >> Jay Vosburgh wrote:
-> >>> @@ -2104,7 +2104,8 @@ int netif_receive_skb(struct sk_buff *skb)
-> >>>  #endif
-> >>>  
-> >>>  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-> >>> -		if (ptype->dev == null_or_orig || ptype->dev == skb->dev) {
-> >>> +		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
-> >>> +		    ptype->dev == orig_dev) {
-> >>>  			if (pt_prev)
-> >>>  				ret = deliver_skb(skb, pt_prev, orig_dev);
-> >>>  			pt_prev = ptype;
-> >>> @@ -2129,7 +2130,8 @@ ncls:
-> >>>  	list_for_each_entry_rcu(ptype,
-> >>>  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-> >>>  		if (ptype->type == type &&
-> >>> -		    (ptype->dev == null_or_orig || ptype->dev == skb->dev)) {
-> >>> +		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
-> >>> +		     ptype->dev == orig_dev)) {
-> >>>  			if (pt_prev)
-> >> This needs a review&ack from David, then OK...
-> > 
-> > I fear this bit of the changes will break AF_PACKET device binding.
-> > So for example, if a tap registers it wants to hear eth0, it will now
-> > hear bond0 as well as eth0 if eth0 is a part of bond0.
+> Here is another slew of updates for 2.6.27.  The bulk of this batch is
+> for iwlwifi, with some mac80211 and other bits thrown-in.
 > 
-> Each ptype will get matched and delivered to at most once.  So if 
-> someone binds AF_PACKET to only eth0, they'll only see the packet once.
-> Whereas before patch 4, the frame wouldn't be delivered to them
-> at all, since skb->dev has already been changed to the bond.
+> Let me know if there are problems!
 
-Ok, that works.
+Pulled and pushed back out to net-next-2.6, thanks.
 
-Jeff, I ACK this patch and the others that go with it:
+Here are some warnings I noticed during an allmodconfig build
+on sparc64, please fix:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+drivers/net/wireless/hostap/hostap_hw.c:3422: warning: 'prism2_suspend' defined but not used
+drivers/net/wireless/iwlwifi/iwl-rfkill.c:114: warning: label 'freed_rfkill' defined but not used
+
+I'll take on the net-2.6 merge into net-next-2.6 next.
+
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
