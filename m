@@ -1,68 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Bridge] [RFC PATCH 0/2] Allow full bridge configuration via
- sysfs
-Date: Mon, 7 Jul 2008 15:04:54 -0700
-Message-ID: <20080707150454.2a02a217@extreme>
-References: <20080707205342.GA19710@nostromo.devel.redhat.com>
-	<4872838B.1060603@trash.net>
-	<20080707213420.GA20089@nostromo.devel.redhat.com>
-	<20080707.145259.103902820.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Mon, 07 Jul 2008 15:45:38 -0700
+Message-ID: <adafxqlxqi5.fsf@cisco.com>
+References: <20080706130801.6bc36cf7@infradead.org>
+	<20080706.155318.46569612.davem@davemloft.net>
+	<20080706180842.36cc0b1c@extreme>
+	<20080706.182243.65603166.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: notting@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, arjan@infradead.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759977AbYGGWFd@vger.kernel.org>
-In-Reply-To: <20080707.145259.103902820.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:14207 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754081AbYGGWpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 18:45:40 -0400
+In-Reply-To: <20080706.182243.65603166.davem@davemloft.net> (David Miller's
+	message of "Sun, 06 Jul 2008 18:22:43 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Jul 2008 14:52:59 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+ > > For consistency each call through ethtool_ops should
+ > > be holding rtnl mutex. And since dev_watchdog is a timer routine,
+ > > it is not safe to acquire a mutex there.
+ > 
+ > I think "get driver info", which does nothing but copy strings out of
+ > the driver software state, is a safe exception to these strict locking
+ > rules.
 
-> From: Bill Nottingham <notting@redhat.com>
-> Date: Mon, 7 Jul 2008 17:34:20 -0400
-> 
-> > I could look at wireless network configuration, but I doubt that's going to
-> > help your argument.
-> 
-> Just like any system with age, we have a lot of legacy to
-> convert over.  But it will happen.
-> 
-> > That being said, how is moving from adding a bonding slave from:
-> >   echo "+eth0" >  /sys/class/net/bond0/bonding/slaves to:
-> > to:
-> >   http://www.linuxfoundation.org/en/Net:Generic_Netlink_HOWTO
-> > 
-> > a worthwhile improvement for the admin? Let's see, a kernel-userspace
-> > protocol with magic message formats. Hey, we reinvented ioctl!
-> > 
-> > Why, if netlink is the standard (and it's been around for a long
-> > damn time), was sysfs configuration for bonding added in 2005? Why
-> > was bridge configuration added in 2005, and *extended* in 2006 and
-> > 2007? Why were the user-space tools such as brctl ported from ioctl
-> > to sysfs?
-> 
-> Because often a lot of shit slips in when someone who understands
-> the ramifications is too busy or on vacation.
-> 
-> We do want everything to be netlink based.
-> 
-> Why?
-> 
-> Because it means that you can run one monitoring tool to listen
-> for netlink events and report them to the user for diagnosis.
-> 
-> It means that network configuration events can be sent over
-> the wire and used remotely at some point.
-> 
-> The latter can never happen as long as we keep adding ad-hoc
-> config stuff.
+it seems that's not universally the case, eg get_drvinfo() in
+drivers/net/cxgb3/cxgb3_main.c does
 
-There are always historical reasons. In this case it was because I knew
-more about sysfs than netlink, and there was no netlink interface for managing
-interfaces back in 2005.  Sysfs is okay for simple stuff (set forward-delay to 10seconds),
-but it falls down when anything interesting and transactional happens. Think of
-sysfs as more an extension of per-device sysctl's or module parameters, rather
-than a good configuration interface.
+	t3_get_fw_version(adapter, &fw_vers);
+	t3_get_tp_version(adapter, &tp_vers);
+
+and from reading further in the code it's not obvious that this is safe
+to do without serialization (it calls into t3_read_flash(), which does a
+typical "write address reg, read data reg" sequence to access flash,
+without any locking).
+
+ - R.
