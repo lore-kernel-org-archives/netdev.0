@@ -1,25 +1,10 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 7 Jul 2008 19:13:59 +0100
-Message-ID: <20080707191359.11f6297f@the-village.bc.nu>
-References: <1215093175.10393.567.camel@pmac.infradead.org>
-	<20080703173040.GB30506@mit.edu>
-	<1215111362.10393.651.camel@pmac.infradead.org>
-	<20080703.162120.206258339.davem@davemloft.net>
-	<486D6DDB.4010205@infradead.org>
-	<87ej6armez.fsf@basil.nowhere.org>
-	<1215177044.10393.743.camel@pmac.infradead.org>
-	<486E2260.5050503@garzik.org>
-	<1215178035.10393.763.camel@pmac.infradead.org>
-	<486E2818.1060003@garzik.org>
-	<1215179161.10393.773.camel@pmac.infradead.org>
-	<486E2E9B.20200@garzik.org>
-	<20080704153822.4db2f325@lxorguk.ukuu.org.uk>
-	<48715807.8070605@garzik.org>
-	<20080707165333.6347f564@the-village.bc.nu>
-	<48725155.2040007@garzik.org>
+Date: Mon, 07 Jul 2008 14:57:56 -0400
+Message-ID: <48726734.7080601@garzik.org>
+References: <1215093175.10393.567.camel@pmac.infradead.org>	<20080703173040.GB30506@mit.edu>	<1215111362.10393.651.camel@pmac.infradead.org>	<20080703.162120.206258339.davem@davemloft.net>	<486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>	<1215177044.10393.743.camel@pmac.infradead.org>	<486E2260.5050503@garzik.org>	<1215178035.10393.763.camel@pmac.infradead.org>	<486E2818.1060003@garzik.org>	<1215179161.10393.773.camel@pmac.infradead.org>	<486E2E9B.20200@garzik.org>	<20080704153822.4db2f325@lxorguk.ukuu.org.uk>	<48715807.8070605@garzik.org>	<20080707165333.6347f564@the-village.bc.nu>	<48725155.2040007@garzik.org> <20080707191359.11f6297f@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: David Woodhouse <dwmw2@infradead.org>,
 	Andi Kleen <andi@firstfloor.org>,
@@ -28,23 +13,29 @@ Cc: David Woodhouse <dwmw2@infradead.org>,
 	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:34284 "EHLO
-	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754698AbYGGSsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 14:48:01 -0400
-In-Reply-To: <48725155.2040007@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:58502 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757816AbYGGS6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 14:58:23 -0400
+In-Reply-To: <20080707191359.11f6297f@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> When the firmware travels with the module, as it does today in tg3, bnx2 
-> and others, is the most reliable system available.  The simplest, the 
-> least amount of "parts", the easiest to upgrade, the best method to 
-> guarantee driver/firmware version matches.  It works wonderfully today.
+Alan Cox wrote:
+>> When the firmware travels with the module, as it does today in tg3, bnx2 
+>> and others, is the most reliable system available.  The simplest, the 
+>> least amount of "parts", the easiest to upgrade, the best method to 
+>> guarantee driver/firmware version matches.  It works wonderfully today.
+>>
+>> Is it difficult to see why someone might want to keep the same attributes?
 > 
-> Is it difficult to see why someone might want to keep the same attributes?
+> No I can see that, should be a simple matter of sending David patches.
 
-No I can see that, should be a simple matter of sending David patches.
+Isn't it David's obligation not to remove a highly reliable, working system?
 
-Alan
+	Jeff
+
+
+
