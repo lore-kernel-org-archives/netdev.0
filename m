@@ -1,52 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: vlan 00/07: VLAN update part 1
-Date: Mon,  7 Jul 2008 14:35:58 +0200 (MEST)
-Message-ID: <20080707123557.23947.70114.sendpatchset@localhost.localdomain>
+Subject: vlan 01/07: fix network_header/mac_header adjustments
+Date: Mon,  7 Jul 2008 14:35:59 +0200 (MEST)
+Message-ID: <20080707123558.23947.97974.sendpatchset@localhost.localdomain>
+References: <20080707123557.23947.70114.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59262 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59266 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbYGGMgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 08:36:00 -0400
+	with ESMTP id S1751714AbYGGMgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 08:36:01 -0400
+In-Reply-To: <20080707123557.23947.70114.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+vlan: fix network_header/mac_header adjustments
 
-following is a first VLAN update for net-next-2.6, containing a fix for the
-skb->network_header issue pointed out by Lennert, VLAN ethtool support for
-querying offload settings, uninlining of __vlan_hwaccel_rx and some assorted
-cleanups.
+Lennert Buytenhek points out that the VLAN code incorrectly adjusts
+skb->network_header to point in the middle of the VLAN header and
+additionally tries to adjust skb->mac_header without checking for
+validity.
 
-A second update in my queue on top of this one will attack the packet socket
-inconsistencies with VLAN acceleration, but I've split the set for easier
-review of the more interesting changes.
+The network_header should not be touched at all since we're only
+adding headers in front of it, mac_header adjustments are not
+necessary at all.
 
-Please apply, thanks.
+Based on patch by Lennert Buytenhek <buytenh@wantstofly.org>.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
- drivers/net/cxgb3/l2t.c         |    2 +-
- drivers/s390/net/qeth_l3_main.c |    4 +-
- include/linux/if_vlan.h         |  204 +++++++++++++--------------------------
- net/8021q/Makefile              |    9 +-
- net/8021q/vlan.c                |   41 ++++-----
- net/8021q/vlan.h                |   67 ++++++++++++-
- net/8021q/vlan_core.c           |   60 ++++++++++++
- net/8021q/vlan_dev.c            |   73 ++++++++------
- net/8021q/vlan_gvrp.c           |    8 +-
- net/8021q/vlanproc.c            |    2 +-
- net/Makefile                    |    4 +-
- 11 files changed, 265 insertions(+), 209 deletions(-)
- create mode 100644 net/8021q/vlan_core.c
+---
+commit 12680f9e7c4d8c1d4dd89569e63f4f74d57243b0
+tree 1ea90c61f99c3fba4ca3cac1729dd550ee98274a
+parent 768cea593522d816b374149f3bf35e7c246fc8d0
+author Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:42 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:42 +0200
 
-Joonwoo Park (1):
-      vlan: Use is_vlan_dev()
+ include/linux/if_vlan.h |    2 --
+ net/8021q/vlan_dev.c    |    1 -
+ 2 files changed, 0 insertions(+), 3 deletions(-)
 
-Patrick McHardy (6):
-      vlan: fix network_header/mac_header adjustments
-      vlan: Add ethtool support
-      vlan: uninline __vlan_hwaccel_rx
-      vlan: move struct vlan_dev_info to private header
-      vlan: remove useless struct hlist_node declaration from if_vlan.h
-      vlan: TCI related type and naming cleanups
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 5190452..8f5bf9b 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -279,8 +279,6 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short
+ 	veth->h_vlan_TCI = htons(tag);
+ 
+ 	skb->protocol = htons(ETH_P_8021Q);
+-	skb->mac_header -= VLAN_HLEN;
+-	skb->network_header -= VLAN_HLEN;
+ 
+ 	return skb;
+ }
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index a0617bf..4a85259 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -308,7 +308,6 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 			vhdr->h_vlan_encapsulated_proto = htons(len);
+ 
+ 		skb->protocol = htons(ETH_P_8021Q);
+-		skb_reset_network_header(skb);
+ 	}
+ 
+ 	/* Before delegating work to the lower layer, enter our MAC-address */
