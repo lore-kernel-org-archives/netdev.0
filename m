@@ -1,49 +1,68 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Mon, 07 Jul 2008 15:57:23 -0700 (PDT)
-Message-ID: <20080707.155723.48071035.davem@davemloft.net>
-References: <20080706180842.36cc0b1c@extreme>
-	<20080706.182243.65603166.davem@davemloft.net>
-	<adafxqlxqi5.fsf@cisco.com>
+Subject: Re: setsockopt()
+Date: Mon, 07 Jul 2008 16:00:29 -0700 (PDT)
+Message-ID: <20080707.160029.13296246.davem@davemloft.net>
+References: <20080707142408.43aa2a2e@extreme>
+	<48728B09.1050801@citi.umich.edu>
+	<48729DAD.8010400@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, arjan@infradead.org, netdev@vger.kernel.org
-To: rdreier@cisco.com
+Cc: aglo@citi.umich.edu, shemminger@vyatta.com, netdev@vger.kernel.org,
+	rees@umich.edu, bfields@fieldses.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60852
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60858
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756997AbYGGW5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 18:57:23 -0400
-In-Reply-To: <adafxqlxqi5.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1758070AbYGGXA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 19:00:29 -0400
+In-Reply-To: <48729DAD.8010400@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 07 Jul 2008 15:45:38 -0700
+From: Rick Jones <rick.jones2@hp.com>
+Date: Mon, 07 Jul 2008 15:50:21 -0700
 
->  > > For consistency each call through ethtool_ops should
->  > > be holding rtnl mutex. And since dev_watchdog is a timer routine,
->  > > it is not safe to acquire a mutex there.
->  > 
->  > I think "get driver info", which does nothing but copy strings out of
->  > the driver software state, is a safe exception to these strict locking
->  > rules.
-> 
-> it seems that's not universally the case, eg get_drvinfo() in
-> drivers/net/cxgb3/cxgb3_main.c does
-> 
-> 	t3_get_fw_version(adapter, &fw_vers);
-> 	t3_get_tp_version(adapter, &tp_vers);
-> 
-> and from reading further in the code it's not obvious that this is safe
-> to do without serialization (it calls into t3_read_flash(), which does a
-> typical "write address reg, read data reg" sequence to access flash,
-> without any locking).
+> I'm still a triffle puzzled/concerned/confused by the extent to which 
+> autotuning will allow the receive window to grow, again based on some 
+> netperf experience thusfar, and patient explanations provided here and 
+> elsewhere, it seems as though autotuning will let things get to 2x what 
+> it thinks the sender's cwnd happens to be.  So far under netperf testing 
+> that seems to be the case, and 99 times out of ten my netperf tests will 
+> have the window grow to the max.
 
-I doubt it uses the RTNL semaphore elsewhere to protect
-against this path, which is the only protection these
-calls currently have.
+We need 2x, in order to have a full window during recovery.
 
-Please don't bring up scarecrows, this looks like simply
-a bug which already exists.
+There was a measurement bug found a few months ago when the
+google folks were probing in this area, which was fixed
+by John Heffner.  Most of which had to deal with TSO subtleties.
+
+--------------------
+commit 246eb2af060fc32650f07203c02bdc0456ad76c7
+Author: John Heffner <johnwheffner@gmail.com>
+Date:   Tue Apr 29 03:13:52 2008 -0700
+
+    tcp: Limit cwnd growth when deferring for GSO
+    
+    This fixes inappropriately large cwnd growth on sender-limited flows
+    when GSO is enabled, limiting cwnd growth to 64k.
+    
+    Signed-off-by: John Heffner <johnwheffner@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+commit ce447eb91409225f8a488f6b7b2a1bdf7b2d884f
+Author: John Heffner <johnwheffner@gmail.com>
+Date:   Tue Apr 29 03:13:02 2008 -0700
+
+    tcp: Allow send-limited cwnd to grow up to max_burst when gso disabled
+    
+    This changes the logic in tcp_is_cwnd_limited() so that cwnd may grow
+    up to tcp_max_burst() even when sk_can_gso() is false, or when
+    sysctl_tcp_tso_win_divisor != 0.
+    
+    Signed-off-by: John Heffner <johnwheffner@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+--------------------
+
+Setting TCP socket buffer via setsockopt() is always wrong.
+If there is a bug, let's fix it.
