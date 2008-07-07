@@ -1,7 +1,7 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v3 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
-Date: Mon, 07 Jul 2008 10:37:38 +0800
-Message-ID: <48718172.8070404@cn.fujitsu.com>
+Subject: v3 [PATCH net-next 6/7] macvlan: Check return of dev_set_allmulti
+Date: Mon, 07 Jul 2008 10:38:24 +0800
+Message-ID: <487181A0.7070202@cn.fujitsu.com>
 References: <48718014.4030009@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57177 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:51371 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752249AbYGGCmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jul 2008 22:42:15 -0400
+	id S1750827AbYGGCnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jul 2008 22:43:01 -0400
 In-Reply-To: <48718014.4030009@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,58 +24,38 @@ dev_set_promiscuity/allmulti return error number if overflow happened.
 Here, we check the positive increment for allmulti to get error return.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Acked-by: Patrick McHardy <kaber@trash.net>
 ---
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 11700a4..05a2ab8 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -398,6 +398,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 	struct vif_device *v = &vif_table[vifi];
- 	struct net_device *dev;
- 	struct in_device *in_dev;
-+	int err;
+ drivers/net/macvlan.c |   14 +++++++++++---
+ 1 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index c36a03a..a857330 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -189,12 +189,20 @@ static int macvlan_open(struct net_device *dev)
  
- 	/* Is vif busy ? */
- 	if (VIF_EXISTS(vifi))
-@@ -415,18 +416,31 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 		dev = ipmr_reg_vif();
- 		if (!dev)
- 			return -ENOBUFS;
-+		err = dev_set_allmulti(dev, 1);
-+		if (err) {
-+			unregister_netdevice(dev);
-+			return err;
-+		}
- 		break;
- #endif
- 	case VIFF_TUNNEL:
- 		dev = ipmr_new_tunnel(vifc);
- 		if (!dev)
- 			return -ENOBUFS;
-+		err = dev_set_allmulti(dev, 1);
-+		if (err) {
-+			dev_close(dev);
-+			return err;
-+		}
- 		break;
- 	case 0:
- 		dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
- 		if (!dev)
- 			return -EADDRNOTAVAIL;
- 		dev_put(dev);
-+		err = dev_set_allmulti(dev, 1);
-+		if (err)
-+			return err;
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -435,7 +449,6 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 	if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
- 		return -EADDRNOTAVAIL;
- 	IPV4_DEVCONF(in_dev->cnf, MC_FORWARDING)++;
--	dev_set_allmulti(dev, +1);
- 	ip_rt_multicast_event(in_dev);
+ 	err = dev_unicast_add(lowerdev, dev->dev_addr, ETH_ALEN);
+ 	if (err < 0)
+-		return err;
+-	if (dev->flags & IFF_ALLMULTI)
+-		dev_set_allmulti(lowerdev, 1);
++		goto out;
++	if (dev->flags & IFF_ALLMULTI) {
++		err = dev_set_allmulti(lowerdev, 1);
++		if (err < 0)
++			goto del_unicast;
++	}
  
- 	/*
+ 	hlist_add_head_rcu(&vlan->hlist, &port->vlan_hash[dev->dev_addr[5]]);
+ 	return 0;
++
++del_unicast:
++	dev_unicast_delete(lowerdev, dev->dev_addr, ETH_ALEN);
++out:
++	return err;
+ }
+ 
+ static int macvlan_stop(struct net_device *dev)
 
 
