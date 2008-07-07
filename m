@@ -1,47 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: setsockopt()
-Date: Mon, 07 Jul 2008 15:50:21 -0700
-Message-ID: <48729DAD.8010400@hp.com>
-References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Mon, 07 Jul 2008 15:57:23 -0700 (PDT)
+Message-ID: <20080707.155723.48071035.davem@davemloft.net>
+References: <20080706180842.36cc0b1c@extreme>
+	<20080706.182243.65603166.davem@davemloft.net>
+	<adafxqlxqi5.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Jim Rees <rees@umich.edu>,
-	"J. Bruce Fields" <bfields@fieldses.org>
-To: Olga Kornievskaia <aglo@citi.umich.edu>
+Cc: shemminger@vyatta.com, arjan@infradead.org, netdev@vger.kernel.org
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:36427 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755177AbYGGWuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 18:50:25 -0400
-In-Reply-To: <48728B09.1050801@citi.umich.edu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60852
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756997AbYGGW5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 18:57:23 -0400
+In-Reply-To: <adafxqlxqi5.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Olga Kornievskaia wrote:
-> Stephen Hemminger wrote:
->> It would be better if NFSD stayed out of doign setsockopt and just
->> let the sender/receiver autotuning work?
->>   
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 07 Jul 2008 15:45:38 -0700
+
+>  > > For consistency each call through ethtool_ops should
+>  > > be holding rtnl mutex. And since dev_watchdog is a timer routine,
+>  > > it is not safe to acquire a mutex there.
+>  > 
+>  > I think "get driver info", which does nothing but copy strings out of
+>  > the driver software state, is a safe exception to these strict locking
+>  > rules.
 > 
-> Auto-tuning would be guided by the sysctl values that are set for all 
-> applications. I could be wrong but what I see is that unless an 
-> application does a setsockopt(), its window is bound by the default 
-> sysctl value. If it is true, than it is not acceptable. It means that in 
-> order for NFSD to achieve a large enough window it needs to modify TCP's 
-> sysctl value which will effect all other applications.
+> it seems that's not universally the case, eg get_drvinfo() in
+> drivers/net/cxgb3/cxgb3_main.c does
+> 
+> 	t3_get_fw_version(adapter, &fw_vers);
+> 	t3_get_tp_version(adapter, &tp_vers);
+> 
+> and from reading further in the code it's not obvious that this is safe
+> to do without serialization (it calls into t3_read_flash(), which does a
+> typical "write address reg, read data reg" sequence to access flash,
+> without any locking).
 
-My experience thusfar is that the sysctl defaults will allow an 
-autotuned TCP receive window far larger than it will allow with a direct 
-setsockopt() call.
+I doubt it uses the RTNL semaphore elsewhere to protect
+against this path, which is the only protection these
+calls currently have.
 
-I'm still a triffle puzzled/concerned/confused by the extent to which 
-autotuning will allow the receive window to grow, again based on some 
-netperf experience thusfar, and patient explanations provided here and 
-elsewhere, it seems as though autotuning will let things get to 2x what 
-it thinks the sender's cwnd happens to be.  So far under netperf testing 
-that seems to be the case, and 99 times out of ten my netperf tests will 
-have the window grow to the max.
-
-rick jones
+Please don't bring up scarecrows, this looks like simply
+a bug which already exists.
