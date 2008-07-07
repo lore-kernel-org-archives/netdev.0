@@ -1,67 +1,97 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 00/15] sysfs support for namespaces
-Date: Mon, 07 Jul 2008 05:22:43 -0700
-Message-ID: <m1od59yjcc.fsf@frodo.ebiederm.org>
-References: <20080618170729.808539948@theryb.frec.bull.fr>
-	<485F04E1.70204@gmail.com> <m1y74svtff.fsf@frodo.ebiederm.org>
-	<486706C9.9040303@gmail.com> <m18wwmsqdv.fsf@frodo.ebiederm.org>
-	<4869D314.5030403@gmail.com> <m1ej6enep7.fsf@frodo.ebiederm.org>
-	<486A0751.9080602@gmail.com> <m1wsk5hjm0.fsf@frodo.ebiederm.org>
-	<486AF4FA.8020805@gmail.com> <m1ej6d9c2r.fsf@frodo.ebiederm.org>
-	<486B060C.7030607@gmail.com> <m14p78s02q.fsf@frodo.ebiederm.org>
-	<486C4515.1070007@gmail.com> <m1hcb7o8lv.fsf@frodo.ebiederm.org>
-	<486CB051.5000507@fr.ibm.com> <m14p77m9uy.fsf@frodo.ebiederm.org>
-	<486CF71F.5090405@gmail.com> <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
-	<m1tzf339ny.fsf@frodo.ebiederm.org>
-	<20080707134101.518734a9@gondolin.boeblingen.de.ibm.com>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [RFC] support for IEEE 1588
+Date: Mon, 07 Jul 2008 14:34:11 +0200
+Message-ID: <1215434051.17113.125.camel@ecld0pohly>
+References: <200807040147.11148.opurdila@ixiacom.com>
+	 <1215178641.7277.71.camel@localhost>
+	 <200807050321.26877.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	<netdev@vger.kernel.org>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:32986 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbYGGMbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 08:31:49 -0400
-In-Reply-To: <20080707134101.518734a9@gondolin.boeblingen.de.ibm.com>
-	(Cornelia Huck's message of "Mon, 7 Jul 2008 13:41:01 +0200")
+Received: from mga11.intel.com ([192.55.52.93]:48517 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804AbYGGMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 08:34:13 -0400
+In-Reply-To: <200807050321.26877.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cornelia Huck <cornelia.huck@de.ibm.com> writes:
+On Sat, 2008-07-05 at 03:21 +0300, Octavian Purdila wrote:
+> On Friday 04 July 2008, Patrick Ohly wrote:
+[cookie for TX time stamp]
+> For the PTPd, this is probably not required, but it will help with 
+> applications that have multiple outstanding TX packets. 
 
-> My impression was that the networking folks didn't want any warnings for
-> renaming failures, not just not for renaming a device to the same name.
+I think it is relevant also for PTPd: without such a cookie the next
+SYNC cannot be sent unless the previous time stamp was obtained
+successfully. If the packet is lost without triggering the hardware time
+stamping (which I have seen happen in practice under load), then the
+PTPd would get stuck. With a cookie it can send SYNCs at the normal
+intervals and be sure not to mix up time stamps.
 
-Which would be reasonable.  Because all of the checks have been done
-before sysfs is called so if sysfs sees a problem it is a sysfs bug.
+This is more of a theoretical problem, though: if there is no time stamp
+after two seconds, the corresponding packet most likely got lost and it
+is fairly safe to send a new SYNC and to assume that the next time stamp
+will be for that SYNC.
 
->> In addition my introduction sysfs_rename_link handles this case
->> cleanly by first removing the old link and then creating the new
->> link.  Preventing false positives when the link names are the same.
->
-> sysfs_rename_link() looks cleaner, I agree.
->
->> 
->> So it should be safe to drop Cornelia patch without a reoccurance
->> of scary errors.
->
-> Hm, the description looks badly worded - I unfortunately left the old
-> text unchanged when I respun the patch :( The patch re-introduces the
-> warning in sysfs_add_one() which had been removed in the meanwhile and
-> makes device_rename() use a non-warning version. I still think we want
-> a warning for the general case since this is usually caused be some
-> problems in the calling code (and the alternative would be to add
-> checks to all callers.)
+> > > - when the driver will send the packet will get the stamp from the TX
+> > > completion ring; the driver will then propagate the stamp either to
+> > > (a) the skb stamp field, or (b) some special structure - this to avoid
+> > > keeping the skb around
+> > > - the special structure or the skb will be linked to a special queue in
+> > > the socket and a POLLPRI event will be generated
+> > > - the application will use recvmsg and will receive a new control message
+> > > which contains the timestamp from the socket special queue
+> >
+> > Sounds a bit complicated to me. The trick currently used by PTPd might
+> > be more elegant and/or require less changes: it enables looping of
+> > outgoing packets with IP_MULTICAST_LOOP. The RX timestamp of the looped
+> > packet is then used as approximation for the TX time stamp of the
+> > original outgoing packet. Clearly this is inaccurate, in particular
+> > under load, but it is very easy to use.
+> >
+> 
+> I am probably missing something: I thought IP_MULTICAST_LOOP is done in 
+> software... If so, how would the hardware be able to timestamp?
 
-Right.  We just need to get the sysfs paths clean enough that we don't
-emit false positives.  I think I have accomplished that for rename.
+I was just using IP_MULTICAST_LOOP+SO_TIMESTAMP as an example of how a
+similar mechanism could work for hardware time stamping.
 
-Eric
+> > When a driver gets a skb with the request to generate a TX time stamp,
+> > it could send the packet, upon completion obtain the time stamp from the
+> > hardware and feed the packet and the time stamp back to the upper layers
+> > as if it had just been received. Would that work?
+> >
+> > The user space then obtains TX time stamps just like RX time stamps and
+> > can use the payload to determine what kind of time stamp it got. That
+> > also avoids the need for special cookies to detect packet loss or
+> > reordering.
+> >
+> 
+> For a generic protocols (not PTP) I think this will not work: e.g an UDP 
+> packet could be dropped or hit the wrong socket (due to missmatch between the 
+> source and destination port).
+
+Right. Perhaps that could be solved with an additional control message
+which specifies where the bounced packet is to be sent to, but that is
+not much (not at all?) easier than the cookie approach.
+
+I'm confident that adapting PTPd to the cookie approach wouldn't be
+difficult, so if you want to implement it, then go for it.
+
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
+The email footer below is automatically added to comply with company
+policy; this particular email is not confidental and does not have a
+limited set of recipients. Therefore it can be redistributed and
+discussed without restrictions.
+
