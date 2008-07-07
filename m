@@ -1,32 +1,39 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: v3 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
-Date: Mon, 07 Jul 2008 13:20:28 +0200
-Message-ID: <4871FBFC.2050408@trash.net>
-References: <48718014.4030009@cn.fujitsu.com> <4871814A.2070707@cn.fujitsu.com>
+Subject: Re: v3 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
+Date: Mon, 07 Jul 2008 13:22:04 +0200
+Message-ID: <4871FC5C.9030106@trash.net>
+References: <48718014.4030009@cn.fujitsu.com> <48718172.8070404@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	NETDEV <netdev@vger.kernel.org>
 To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57190 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:57244 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752979AbYGGLUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 07:20:31 -0400
-In-Reply-To: <4871814A.2070707@cn.fujitsu.com>
+	with ESMTP id S1752942AbYGGLWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 07:22:06 -0400
+In-Reply-To: <48718172.8070404@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Wang Chen wrote:
-> allmulti might overflow.
-> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-> dev_set_promiscuity/allmulti return error number if overflow happened.
-> 
-> Here, we check the positive increment for allmulti to get error return.
-> 
-> @@ -627,13 +633,14 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+>  	case VIFF_TUNNEL:
+>  		dev = ipmr_new_tunnel(vifc);
+>  		if (!dev)
+>  			return -ENOBUFS;
+> +		err = dev_set_allmulti(dev, 1);
+> +		if (err) {
+> +			dev_close(dev);
+> +			return err;
+> +		}
+
+ipmr_new_tunnel creates a new tunnel device that you're not removing.
+
+>  		break;
+>  	case 0:
+>  		dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
 >  		if (!dev)
 >  			return -EADDRNOTAVAIL;
 >  		dev_put(dev);
@@ -34,6 +41,5 @@ Wang Chen wrote:
 > +		if (err)
 > +			return err;
 
-The use of dev after putting it looks wrong, but thats already
-present before your patch. So ACK for your patch, but we need
-a fix on top.
+Also looks like a use after free, but again, one that is
+already present without your patch.
