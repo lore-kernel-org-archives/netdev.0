@@ -1,40 +1,50 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH net-next 0/9] selective (per/namespace) flush of
-	rt_cache
-Date: Mon, 07 Jul 2008 14:51:09 +0400
-Message-ID: <1215427869.29879.81.camel@iris.sw.ru>
-References: <1215177360.27873.50.camel@iris.sw.ru>
-	 <20080705.205548.122498335.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH net-next 3/7] ICMP: drop unused MIB accounting wrappers
+Date: Mon, 07 Jul 2008 14:50:38 +0400
+Message-ID: <4871F4FE.3050509@openvz.org>
+References: <4871F2D8.8030502@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:42889 "EHLO relay.sw.ru"
+Received: from sacred.ru ([62.205.161.221]:44425 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752783AbYGGKvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 06:51:07 -0400
-In-Reply-To: <20080705.205548.122498335.davem@davemloft.net>
+	id S1752663AbYGGKxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 06:53:11 -0400
+In-Reply-To: <4871F2D8.8030502@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-07-05 at 20:55 -0700, David Miller wrote:
-> From: "Denis V. Lunev" <den@openvz.org>
-> Date: Fri, 04 Jul 2008 17:16:00 +0400
-> 
-> > This series of patches implements selective rt cache flushing to make
-> > sure that in one namespace we'll not been able to affect the performance
-> > of other from the user space.
-> 
-> Applied and pushed out to net-next-2.6, thanks.
-> 
-> Although I wish patch 9 didn't have to be so ugly. :-/ Also, is it
-> really the right thing to do if another namespace's RT cache entries
-> are in fact chewing up all the slots in a hash chain?  I think
-> the replacement garbage collection algorithm should be namespace
-> agnostic.
+There are ICMP_XXX_STATS that are not used in the kernel, so I remove
+them, not to "just patch" them later. But if there's some sense in 
+keeping them, kick me - I will remake this set keeping them.
 
-hmmm... it looks like a name rt_is_expired is not good enough for the
-case. May be rt_is_flushed should be better?
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+ include/net/icmp.h |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/icmp.h b/include/net/icmp.h
+index 38ca2f3..e34e981 100644
+--- a/include/net/icmp.h
++++ b/include/net/icmp.h
+@@ -33,13 +33,8 @@ DECLARE_SNMP_STAT(struct icmp_mib, icmp_statistics);
+ DECLARE_SNMP_STAT(struct icmpmsg_mib, icmpmsg_statistics);
+ #define ICMP_INC_STATS(field)		SNMP_INC_STATS(icmp_statistics, field)
+ #define ICMP_INC_STATS_BH(field)	SNMP_INC_STATS_BH(icmp_statistics, field)
+-#define ICMP_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(icmp_statistics, field)
+ #define ICMPMSGOUT_INC_STATS(field)	SNMP_INC_STATS(icmpmsg_statistics, field+256)
+-#define ICMPMSGOUT_INC_STATS_BH(field)	SNMP_INC_STATS_BH(icmpmsg_statistics, field+256)
+-#define ICMPMSGOUT_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(icmpmsg_statistics, field+256)
+-#define ICMPMSGIN_INC_STATS(field)	SNMP_INC_STATS(icmpmsg_statistics, field)
+ #define ICMPMSGIN_INC_STATS_BH(field)	SNMP_INC_STATS_BH(icmpmsg_statistics, field)
+-#define ICMPMSGIN_INC_STATS_USER(field) SNMP_INC_STATS_USER(icmpmsg_statistics, field)
+ 
+ struct dst_entry;
+ struct net_proto_family;
+-- 
+1.5.3.4
 
