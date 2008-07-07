@@ -1,61 +1,113 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 07 Jul 2008 15:48:06 -0400
-Message-ID: <487272F6.1040507@garzik.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>	<20080703173040.GB30506@mit.edu>	<1215111362.10393.651.camel@pmac.infradead.org>	<20080703.162120.206258339.davem@davemloft.net>	<486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>	<1215177044.10393.743.camel@pmac.infradead.org>	<486E2260.5050503@garzik.org>	<1215178035.10393.763.camel@pmac.infradead.org>	<486E2818.1060003@garzik.org>	<1215179161.10393.773.camel@pmac.infradead.org>	<486E2E9B.20200@garzik.org>	<20080704153822.4db2f325@lxorguk.ukuu.org.uk>	<48715807.8070605@garzik.org>	<20080707165333.6347f564@the-village.bc.nu>	<48725155.2040007@garzik.org>	<20080707191359.11f6297f@the-village.bc.nu>	<48726734.7080601@garzik.org>	<20080707193008.17795d61@the-village.bc.nu>	<48726B7F.5010402@garzik.org> <200807071945
- 58.4be87882@the-village.bc.nu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Oops] fib_trie with ip route add throw since 2.6.25
+Date: Mon, 7 Jul 2008 20:57:45 +0100
+Message-ID: <20080707195744.GE28029@solarflare.com>
+References: <20080707184144.GA17506@yuri.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen.hemminger@vyatta.com
+To: William Boughton <bill@boughton.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46125 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755155AbYGGTs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 15:48:28 -0400
-In-Reply-To: <20080707194558.4be87882@the-village.bc.nu>
+Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:34041 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754306AbYGGT5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 15:57:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20080707184144.GA17506@yuri.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
->>> And this is the pot calling the kettle black. You badly
->>> broke Marvell PATA support by setting the Marvell SATA devices to AHCI. I
->>> note you've still not fixed that after some months.
->> Even if we accept that at face value, which I don't (it's more a driver 
->> load order issue), that is no excuse for further regressions.
+William Boughton wrote:
 > 
-> So you are allowed to break stuff without fixing it (and driver load
-> order issue is not as far as I can tell the case - the AHCI stuff means
-> you lose the PATA port)
+> Hello,
 
-It is trivial to see -- both drivers compete for the same PCI IDs, 
-0x6145 and 0x6121, but with different capabilities.  Load pata_marvell 
-first, and it claims those PCI IDs first.
+Hello again!
 
+> ip route add throw 192.168.0.1
+> 
+> ping 192.168.0.1
+> 
+> Oppses when CONFIG_IP_FIB_TRIE=y
+> 
+> Reproduced on both x86_64 and 32 on Xen and a normal
+> kernel running in qemu/kvm.
+> 
+> It seems this problem was introduced in 2.6.25
+> 
+> git bisect reports that it may have been caused by:
+> 
+> a07f5f508a4d9728c8e57d7f66294bf5b254ff7f is first bad commit                    
+> commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f                                 
+> Author: Stephen Hemminger <stephen.hemminger@vyatta.com>                        
+> Date:   Tue Jan 22 21:53:36 2008 -0800                                          
+>                                                                                 
+>     [IPV4] fib_trie: style cleanup                                              
+>                                                                                 
+>     Style cleanups:                                                             
+>           * make check_leaf return -1 or plen, rather than by reference         
+[...]
 
-> How about we revert all the marvell changes - or would in truth be
-> another case where the good done for most (SATA AHCI support) outweighs
-> the bad for a few (PATA port problems) ?
+The changes to check_leaf() and fn_trie_lookup() seem to be wrong - where
+fn_trie_lookup() would previously return a negative error value from
+check_leaf(), it now returns 0.
 
-What load order would you suggest?  pata_marvell-first order preserves 
-the behavior that existed before the PCI IDs appeared in ahci, by 
-ensuring it claims PCI IDs 0x6145 and 0x6121 first.
+Now fn_trie_lookup() doesn't appear to care about plen, so we could revert
+check_leaf() to returning the error value.  How does this work?
 
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 394db9c..43ed894 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1357,17 +1357,17 @@ static int check_leaf(struct trie *t, struct leaf *l,
+ 			t->stats.semantic_match_miss++;
+ #endif
+ 		if (err <= 0)
+-			return plen;
++			return err;
+ 	}
+ 
+-	return -1;
++	return 1;
+ }
+ 
+ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+ 			  struct fib_result *res)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+-	int plen, ret = 0;
++	int ret;
+ 	struct node *n;
+ 	struct tnode *pn;
+ 	int pos, bits;
+@@ -1391,10 +1391,7 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+ 
+ 	/* Just a leaf? */
+ 	if (IS_LEAF(n)) {
+-		plen = check_leaf(t, (struct leaf *)n, key, flp, res);
+-		if (plen < 0)
+-			goto failed;
+-		ret = 0;
++		ret = check_leaf(t, (struct leaf *)n, key, flp, res);
+ 		goto found;
+ 	}
+ 
+@@ -1419,11 +1416,9 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+ 		}
+ 
+ 		if (IS_LEAF(n)) {
+-			plen = check_leaf(t, (struct leaf *)n, key, flp, res);
+-			if (plen < 0)
++			ret = check_leaf(t, (struct leaf *)n, key, flp, res);
++			if (ret > 0)
+ 				goto backtrace;
+-
+-			ret = 0;
+ 			goto found;
+ 		}
+--- END ---
 
-> Sorry Jeff but you don't get to jump up and down on David without being
-> reminded that your own actions are not consistent with your words.
+Ben.
 
-Your sidebar here doesn't change the fact that David's current firmware 
-implementation takes away a tool currently in use, replacing it with 
-another less-reliable tool.
-
-	Jeff
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
