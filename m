@@ -1,59 +1,67 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: data received but not detected
-Date: Tue, 8 Jul 2008 01:25:32 +0400
-Message-ID: <20080707212531.GA15288@2ka.mipt.ru>
-References: <20080620060219.GA22784@2ka.mipt.ru> <1213981859.9245.133.camel@localhost.localdomain> <20080620172513.GA16673@2ka.mipt.ru> <1213983664.9245.150.camel@localhost.localdomain> <20080620175440.GA12197@2ka.mipt.ru> <1213985826.9245.169.camel@localhost.localdomain> <20080620182333.GA9342@2ka.mipt.ru> <1213995972.9245.202.camel@localhost.localdomain> <20080621071253.GA17557@2ka.mipt.ru> <1215465030.14023.105.camel@localhost.localdomain>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: Wrong padding of short packets send by a tagged-vlan interface?
+Date: Mon, 7 Jul 2008 23:29:12 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0807072307230.15459@bizon.gios.gov.pl>
+References: <Pine.LNX.4.64.0807072210470.15459@bizon.gios.gov.pl>
+ <4872854F.80603@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Travis Stratman <tstratman@emacinc.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-182763743-1215466152=:15459"
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:55272 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755876AbYGGVZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 17:25:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1215465030.14023.105.camel@localhost.localdomain>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:50022 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756749AbYGGV3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:29:21 -0400
+In-Reply-To: <4872854F.80603@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 07, 2008 at 04:10:30PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
-> I have not been able to work on this recently but I have some time to
-> look at it again now. Before I stopped working on it, I implemented a
-> workaround using a private ioctl() that was able to correct the issue
-> after a hangup and (I believe) illustrates that a missed interrupt is
-> causing the problem.
-> 
-> I added a private ioctl call to the macb driver that does the following:
-> 1. read rx status register
-> 2. if rx status is true, schedule poll (same block of code as in
-> interrupt handler)
-> 3. return
-> 
-> Then, in my userspace code, I called poll() with a timeout and called
-> the ioctl() if poll timed out with no data. What I found was that the rx
-> status register always reported a packet present but not acknowledged
-> when poll timed out (on the board that missed the packet). Scheduling a
-> poll in the driver forced it to read this new packet and the userspace
-> code was able to continue from there.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Can it be missed acknowledge when ->poll() hits the quota limit?
+---187430788-182763743-1215466152=:15459
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-> If the macb poll is executed, the receive status register will be
-> cleared, so somewhere along the way an interrupt is being missed (or
-> like you suggested some type of coalescing is happening).
-> 
-> Below is a patch of the changes that I have made to the driver including
-> my rewrite of the poll() function and additional private ioctl()
-> workaround. This patch is against 2.6.20 with some of the patches from
-> http://maxim.org.za/sam9.html , most of which have been added to the
-> vanilla kernel in the more current versions that I have tested (i.e.
-> 2.6.25). This shows the changes that I have made more easily, but I can
-> provide the full patch from vanilla if it would be more helpful (i.e.
-> this one will not apply cleanly to a vanilla kernel). I wasn't sure
-> which would be the best to post.
 
-It is quite clear patch, but please provide needed part on top of .25
-tree.
--- 
-	Evgeniy Polyakov
+
+On Mon, 7 Jul 2008, Ben Greear wrote:
+
+> Krzysztof Oledzki wrote:
+>> Hello,
+>>=20
+>> I have a problem that I'm not able to connect from selected linux hosts =
+to=20
+>> a newly installed Netware 6.5 server. After two days of debugging I=20
+>> discovered that the problem seems to be caused by an insufficient paddin=
+g=20
+>> of a .1q tagged packets.
+>
+> Last time this came up I looked up the RFC and according to it
+> there is no need to pad beyond the normal 60 + 4, vlan tag or
+> not.
+>
+> This is a bug in your intervening switch and/or Netware unless you actual=
+ly=20
+> see packets
+> leaving Linux with less than 60 + 4 bytes.
+
+Rather a Broadcom Corporation NetXtreme II driver "feature" as AFAIK=20
+Netware 6.5 does not support .1Q natively and vlans are implemented=20
+directly in network drivers, especially that everything worked with a=20
+previous hardware (Intel 82541GI based).
+
+So yes, it may not be a Linux bug but it would be nice to make Linux more=
+=20
+compatible with such configurations, of course if that is possible. Please=
+=20
+also note that this problem does not exists with Netware<->Netware=20
+communication (both NetXtreme II<->NetXtreme II and 82541GI<->NetXtreme=20
+II) so it seems that both Intel and Broadcom supports the "extened"=20
+padding of .1Q packets in their Netware drivers.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-182763743-1215466152=:15459--
