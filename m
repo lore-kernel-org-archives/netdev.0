@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] MIB: add struct net to UDP accounting macros
-Date: Mon, 07 Jul 2008 01:47:26 -0700 (PDT)
-Message-ID: <20080707.014726.265626342.davem@davemloft.net>
-References: <486E1074.7040702@openvz.org>
-	<20080705.212138.06508305.davem@davemloft.net>
-	<4871D027.4070504@openvz.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/9] ipv4: remove static flush_delay variable
+Date: Mon, 07 Jul 2008 01:43:06 -0700
+Message-ID: <m1k5fyytid.fsf@frodo.ebiederm.org>
+References: <1215177360.27873.50.camel@iris.sw.ru>
+	<1215177432-25934-3-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, den@openvz.org, tgraf@suug.ch
-To: xemul@openvz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50249
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751319AbYGGIr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 04:47:27 -0400
-In-Reply-To: <4871D027.4070504@openvz.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:45709 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751839AbYGGIvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 04:51:48 -0400
+In-Reply-To: <1215177432-25934-3-git-send-email-den@openvz.org> (Denis
+	V. Lunev's message of "Fri, 4 Jul 2008 17:17:06 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 07 Jul 2008 12:13:27 +0400
+"Denis V. Lunev" <den@openvz.org> writes:
 
-> BTW, are there some plans about implementing some netlink-based fetcher
-> of this statistics? If so, then I think it's worth making this engine
-> namespaces aware from the very beginning.
+> flush delay is used as an external storage for net.ipv4.route.flush sysctl
+> entry. It is write-only.
+>
+> The ctl_table->data for this entry is used once. Fix this case to point
+> to the stack to remove global variable. Do this to avoid additional
+> variable on struct net in the next patch.
+>
+> Possible race (as it was before) accessing this local variable is removed
+> using flush_mutex.
 
-I'm not aware of any, or whether that would make any sense.
+FYI.  You can avoid the locking entirely by defining a local struct ctl_table variable
+on the stack.
 
-Thomas?
+Eric
