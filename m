@@ -1,68 +1,55 @@
-From: Kasper Sandberg <lkml@metanurb.dk>
-Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
-	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
-	Problem)
-Date: Mon, 07 Jul 2008 14:53:56 +0200
-Message-ID: <1215435236.11909.121.camel@localhost>
-References: <4861800B.90703@nscus.com>
-	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>
-	 <48640535.2050000@nscus.com>
-	 <20080626215918.GC2555@electric-eye.fr.zoreil.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: v3 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
+Date: Mon, 07 Jul 2008 21:17:52 +0800
+Message-ID: <48721780.9060103@cn.fujitsu.com>
+References: <48718014.4030009@cn.fujitsu.com> <4871814A.2070707@cn.fujitsu.com> <4871FBFC.2050408@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-pci@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20080626215918.GC2555@electric-eye.fr.zoreil.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:57203 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751885AbYGGNWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 09:22:43 -0400
+In-Reply-To: <4871FBFC.2050408@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-06-26 at 23:59 +0200, Francois Romieu wrote:
-> (linux-pci Cced)
+Patrick McHardy said the following on 2008-7-7 19:20:
+> Wang Chen wrote:
+>> allmulti might overflow.
+>> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next
+>> makes
+>> dev_set_promiscuity/allmulti return error number if overflow happened.
+>>
+>> Here, we check the positive increment for allmulti to get error return.
+>>
+>> @@ -627,13 +633,14 @@ static int mif6_add(struct mif6ctl *vifc, int
+>> mrtsock)
+>>          if (!dev)
+>>              return -EADDRNOTAVAIL;
+>>          dev_put(dev);
+>> +        err = dev_set_allmulti(dev, 1);
+>> +        if (err)
+>> +            return err;
 > 
-> Michael Grollman <mgrollman@nscus.com> :
-> [...]
-> > Per instructions, I built an 2.6.26-rc8 system on the target Intel 
-> > hardware, and was able to re-recreate the intermittent failure of the 8201. 
-> >  When in failure mode, the lspci -vx' display of the pci registers of the 
-> > 8102 is as follows:
-> >
-> > 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E PCI 
-> > Express Fast Ethernet controller (rev ff) (prog-if ff)
-> >    !!! Unknown header type 7f
-> > 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> > 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> The use of dev after putting it looks wrong, but thats already
+> present before your patch. So ACK for your patch, but we need
+> a fix on top.
 > 
-> Bad mojo.
-> 
-> Can you reproduce the failure of the driver or lspci when you
-> boot the kernel with "pci=nommconf" (assuming CONFIG_PCI_MMCONFIG is
-> set in your .config) or "pci=conf1" (if CONFIG_PCI_DIRECT is instead).
-> 
-> [...]
-> > Let me know if there is anything else I can do to collect information on 
-> > this situation.
-> 
-> The (gzipped) content of your .config.
-> 
-> Kasper, could you check if you have the same symptoms with
-> 2.6.26-rc8 (once your rendering is finished of course) ?
-> 
-Sorry for the delay, i had to do an onsite thing in another country, so
-i first see your message now.
 
-Would it be okay if i took rc9 instead? also, i saw you posted a set of
-patches to sync more with realteks code, is this something you would
-like me to test too, or aswell? (remember, i have the 8111c).
+Wait a moment :)
+---
+	case 0:
+		dev = dev_get_by_index(&init_net, vifc->mif6c_pifi);
+		if (!dev)
+			return -EADDRNOTAVAIL;
+		dev_put(dev);
+---
+dev_get_by_index() holds the dev, so I think dev_put() just for hold/put
+balance.
 
-Btw, a thought just crossed my mind as to a possible reason why this
-might be happening, i was googling around, and it seems the TWO nic's
-are supposed to have some sort of hardware bonding thing, could it be
-because such stuff isnt handled?
-
-mvh.
-Kasper Sandberg
