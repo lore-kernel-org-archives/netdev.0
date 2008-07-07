@@ -1,38 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] netdev: remove unused S2IO_NAPI
-Date: Sun, 06 Jul 2008 21:52:51 -0400
-Message-ID: <487176F3.1030707@garzik.org>
-References: <20080704125446.GA30300@havoc.gtf.org> <20080705.211029.199316974.davem@davemloft.net> <20080705.212051.82650078.davem@davemloft.net> <20080706214109.GA13120@electric-eye.fr.zoreil.com>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Sun, 06 Jul 2008 21:53:24 -0400
+Message-ID: <48717714.9060800@garzik.org>
+References: <20080706130801.6bc36cf7@infradead.org>	<20080706.155318.46569612.davem@davemloft.net>	<20080706180842.36cc0b1c@extreme> <20080706.182243.65603166.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>
+Cc: shemminger@vyatta.com, arjan@infradead.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37065 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:37075 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753187AbYGGBw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jul 2008 21:52:56 -0400
-In-Reply-To: <20080706214109.GA13120@electric-eye.fr.zoreil.com>
+	id S1753684AbYGGBxc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jul 2008 21:53:32 -0400
+In-Reply-To: <20080706.182243.65603166.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
->  Documentation/networking/s2io.txt      |    7 ++-----
->  arch/ia64/configs/sn2_defconfig        |    1 -
->  arch/mips/configs/mtx1_defconfig       |    1 -
->  arch/powerpc/configs/pseries_defconfig |    1 -
->  arch/x86/configs/x86_64_defconfig      |    1 -
->  drivers/net/Kconfig                    |   14 --------------
->  6 files changed, 2 insertions(+), 23 deletions(-)
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Sun, 6 Jul 2008 18:08:42 -0700
+> 
+>> For consistency each call through ethtool_ops should
+>> be holding rtnl mutex. And since dev_watchdog is a timer routine,
+>> it is not safe to acquire a mutex there.
+> 
+> I think "get driver info", which does nothing but copy strings out of
+> the driver software state, is a safe exception to these strict locking
+> rules.
+> 
+> Don't you think? :-)
 
-patches 1-3,
+Indeed...
 
-Acked-by: Jeff Garzik <jgarzik@redhat.com>
+	Jeff
 
-(davem said he wanted to go ahead and apply to his tree)
 
 
