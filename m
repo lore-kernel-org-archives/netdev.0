@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH net-next 1/7] ICMP: add struct net argument to icmp_out_count
-Date: Mon, 07 Jul 2008 14:44:06 +0400
-Message-ID: <4871F376.3060609@openvz.org>
+Subject: [PATCH net-next 2/7] INET: toss struct net initialization around
+Date: Mon, 07 Jul 2008 14:47:16 +0400
+Message-ID: <4871F434.3000104@openvz.org>
 References: <4871F2D8.8030502@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,100 +9,108 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:56482 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:44404 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752573AbYGGKqj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 06:46:39 -0400
+	id S1752766AbYGGKts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 06:49:48 -0400
 In-Reply-To: <4871F2D8.8030502@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This routine deals with ICMP statistics, but doesn't have a
-struct net at hands, so add one.
+Some places, that deal with ICMP statistics already have where
+to get a struct net from, but use it directly, without declaring
+a separate variable on the stack.
+
+Since I will need this net soon, I declare a struct net on the 
+stack and use it in the existing places in a separate patch not 
+to spoil the future ones.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
 ---
- include/net/icmp.h   |    3 ++-
- net/ipv4/icmp.c      |    2 +-
- net/ipv4/ip_output.c |    3 ++-
- net/ipv4/raw.c       |    3 ++-
- 4 files changed, 7 insertions(+), 4 deletions(-)
+ net/dccp/ipv4.c     |    3 ++-
+ net/ipv4/icmp.c     |    4 +---
+ net/ipv4/tcp_ipv4.c |    3 ++-
+ net/ipv4/udp.c      |    3 ++-
+ 4 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/icmp.h b/include/net/icmp.h
-index dddb839..38ca2f3 100644
---- a/include/net/icmp.h
-+++ b/include/net/icmp.h
-@@ -44,12 +44,13 @@ DECLARE_SNMP_STAT(struct icmpmsg_mib, icmpmsg_statistics);
- struct dst_entry;
- struct net_proto_family;
- struct sk_buff;
-+struct net;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 37d27bc..cc4f334 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -205,13 +205,14 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
+ 	struct sock *sk;
+ 	__u64 seq;
+ 	int err;
++	struct net *net = dev_net(skb->dev);
  
- extern void	icmp_send(struct sk_buff *skb_in,  int type, int code, __be32 info);
- extern int	icmp_rcv(struct sk_buff *skb);
- extern int	icmp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- extern int	icmp_init(void);
--extern void	icmp_out_count(unsigned char type);
-+extern void	icmp_out_count(struct net *net, unsigned char type);
+ 	if (skb->len < (iph->ihl << 2) + 8) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
+ 	}
  
- /* Move into dst.h ? */
- extern int 	xrlim_allow(struct dst_entry *dst, int timeout);
+-	sk = inet_lookup(dev_net(skb->dev), &dccp_hashinfo,
++	sk = inet_lookup(net, &dccp_hashinfo,
+ 			iph->daddr, dh->dccph_dport,
+ 			iph->saddr, dh->dccph_sport, inet_iif(skb));
+ 	if (sk == NULL) {
 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index aa7cf46..1ffe7ad 100644
+index 1ffe7ad..56d6b94 100644
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
-@@ -296,7 +296,7 @@ out:
- /*
-  *	Maintain the counters used in the SNMP statistics for outgoing ICMP
-  */
--void icmp_out_count(unsigned char type)
-+void icmp_out_count(struct net *net, unsigned char type)
+@@ -973,6 +973,7 @@ int icmp_rcv(struct sk_buff *skb)
  {
- 	ICMPMSGOUT_INC_STATS(type);
- 	ICMP_INC_STATS(ICMP_MIB_OUTMSGS);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index f1278ee..f003186 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1211,6 +1211,7 @@ int ip_push_pending_frames(struct sock *sk)
- 	struct sk_buff *skb, *tmp_skb;
- 	struct sk_buff **tail_skb;
- 	struct inet_sock *inet = inet_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct ip_options *opt = NULL;
- 	struct rtable *rt = (struct rtable *)inet->cork.dst;
- 	struct iphdr *iph;
-@@ -1280,7 +1281,7 @@ int ip_push_pending_frames(struct sock *sk)
- 	skb->dst = dst_clone(&rt->u.dst);
+ 	struct icmphdr *icmph;
+ 	struct rtable *rt = skb->rtable;
++	struct net *net = dev_net(rt->u.dst.dev);
  
- 	if (iph->protocol == IPPROTO_ICMP)
--		icmp_out_count(((struct icmphdr *)
-+		icmp_out_count(net, ((struct icmphdr *)
- 			skb_transport_header(skb))->type);
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 		int nh;
+@@ -1027,9 +1028,6 @@ int icmp_rcv(struct sk_buff *skb)
+ 	 */
  
- 	/* Netfilter gets whole the not fragmented skb. */
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 925fdf1..7f39ea4 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -320,6 +320,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
- 			unsigned int flags)
- {
- 	struct inet_sock *inet = inet_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct iphdr *iph;
- 	struct sk_buff *skb;
- 	unsigned int iphlen;
-@@ -368,7 +369,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
- 		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
+-		struct net *net;
+-
+-		net = dev_net(rt->u.dst.dev);
+ 		/*
+ 		 *	RFC 1122: 3.2.2.6 An ICMP_ECHO to broadcast MAY be
+ 		 *	  silently ignored (we let user decide with a sysctl).
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4300bcf..ca41b77 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -343,13 +343,14 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
+ 	struct sock *sk;
+ 	__u32 seq;
+ 	int err;
++	struct net *net = dev_net(skb->dev);
+ 
+ 	if (skb->len < (iph->ihl << 2) + 8) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
  	}
- 	if (iph->protocol == IPPROTO_ICMP)
--		icmp_out_count(((struct icmphdr *)
-+		icmp_out_count(net, ((struct icmphdr *)
- 			skb_transport_header(skb))->type);
  
- 	err = NF_HOOK(PF_INET, NF_INET_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+-	sk = inet_lookup(dev_net(skb->dev), &tcp_hashinfo, iph->daddr, th->dest,
++	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
+ 			iph->saddr, th->source, inet_iif(skb));
+ 	if (!sk) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 7187121..9342cfd 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -354,8 +354,9 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct hlist_head udptable[])
+ 	struct sock *sk;
+ 	int harderr;
+ 	int err;
++	struct net *net = dev_net(skb->dev);
+ 
+-	sk = __udp4_lib_lookup(dev_net(skb->dev), iph->daddr, uh->dest,
++	sk = __udp4_lib_lookup(net, iph->daddr, uh->dest,
+ 			iph->saddr, uh->source, skb->dev->ifindex, udptable);
+ 	if (sk == NULL) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
 -- 
 1.5.3.4
 
