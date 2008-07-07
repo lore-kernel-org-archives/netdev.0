@@ -1,81 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: setsockopt()
-Date: Mon, 7 Jul 2008 14:24:08 -0700
-Message-ID: <20080707142408.43aa2a2e@extreme>
-References: <48725DFE.6000504@citi.umich.edu>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: data received but not detected
+Date: Tue, 8 Jul 2008 01:25:32 +0400
+Message-ID: <20080707212531.GA15288@2ka.mipt.ru>
+References: <20080620060219.GA22784@2ka.mipt.ru> <1213981859.9245.133.camel@localhost.localdomain> <20080620172513.GA16673@2ka.mipt.ru> <1213983664.9245.150.camel@localhost.localdomain> <20080620175440.GA12197@2ka.mipt.ru> <1213985826.9245.169.camel@localhost.localdomain> <20080620182333.GA9342@2ka.mipt.ru> <1213995972.9245.202.camel@localhost.localdomain> <20080621071253.GA17557@2ka.mipt.ru> <1215465030.14023.105.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jim Rees <rees@umich.edu>,
-	"J. Bruce Fields" <bfields@fieldses.org>
-To: Olga Kornievskaia <aglo@citi.umich.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Travis Stratman <tstratman@emacinc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:47586 "EHLO mail.vyatta.com"
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:55272 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756378AbYGGVYO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 17:24:14 -0400
-In-Reply-To: <48725DFE.6000504@citi.umich.edu>
+	id S1755876AbYGGVZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 17:25:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1215465030.14023.105.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Jul 2008 14:18:38 -0400
-Olga Kornievskaia <aglo@citi.umich.edu> wrote:
+On Mon, Jul 07, 2008 at 04:10:30PM -0500, Travis Stratman (tstratman@emacinc.com) wrote:
+> I have not been able to work on this recently but I have some time to
+> look at it again now. Before I stopped working on it, I implemented a
+> workaround using a private ioctl() that was able to correct the issue
+> after a hangup and (I believe) illustrates that a missed interrupt is
+> causing the problem.
+> 
+> I added a private ioctl call to the macb driver that does the following:
+> 1. read rx status register
+> 2. if rx status is true, schedule poll (same block of code as in
+> interrupt handler)
+> 3. return
+> 
+> Then, in my userspace code, I called poll() with a timeout and called
+> the ioctl() if poll timed out with no data. What I found was that the rx
+> status register always reported a packet present but not acknowledged
+> when poll timed out (on the board that missed the packet). Scheduling a
+> poll in the driver forced it to read this new packet and the userspace
+> code was able to continue from there.
 
-> Hi,
-> 
->     I'd like to ask a question regarding socket options, more 
-> specifically send and receive buffer sizes.
-> 
->     One simple question: (on the server-side) is it true that, to set 
-> send/receive buffer size, setsockopt() can only be called before 
-> listen()? From what I can tell, if I were to set socket options for the 
-> listening socket, they get inherited by the socket created during the 
-> accept(). However, when I try to change send/receive buffer size for the 
-> new socket, they take no affect.
-> 
->     The server in question is the NFSD server in the kernel. NFSD's code 
-> tries to adjust the buffer size (in order to have TCP increase the 
-> window size appropriately) but it does so after the new socket is 
-> created. It leads to the fact that the TCP window doesn't open beyond 
-> the TCP's "default" sysctl value (that would be the 2nd value in the 
-> triple net.ipv4.tcp_rmem, which on our system is set to 64KB). We 
-> changed the code so that setsockopt() is called for the listening socket 
-> is created and we set the buffer sizes to something bigger, like 8MB. 
-> Then we try to increase the buffer size for each socket created by the 
-> accept() but what is seen on the network trace is that window size 
-> doesn't open beyond the values used for the listening socket.
+Can it be missed acknowledge when ->poll() hits the quota limit?
 
-It would be better if NFSD stayed out of doign setsockopt and just
-let the sender/receiver autotuning work?
+> If the macb poll is executed, the receive status register will be
+> cleared, so somewhere along the way an interrupt is being missed (or
+> like you suggested some type of coalescing is happening).
+> 
+> Below is a patch of the changes that I have made to the driver including
+> my rewrite of the poll() function and additional private ioctl()
+> workaround. This patch is against 2.6.20 with some of the patches from
+> http://maxim.org.za/sam9.html , most of which have been added to the
+> vanilla kernel in the more current versions that I have tested (i.e.
+> 2.6.25). This shows the changes that I have made more easily, but I can
+> provide the full patch from vanilla if it would be more helpful (i.e.
+> this one will not apply cleanly to a vanilla kernel). I wasn't sure
+> which would be the best to post.
 
->     I looked around in the code. There is a variable called 
-> "window_clamp" that seems to specifies the largest possible window 
-> advertisement. window_clamp gets set during the creation of the accept 
-> socket. At that time, it's value is based on the sk_rcvbuf of the 
-> listening socket. Thus, that would explain the behavior that window 
-> doesn't grow beyond the values used in setsockopt() for the listening 
-> socket, even though the new socket has new (larger) sk_sndbuf and 
-> sk_rcvbuf  than the listening socket.
-> 
->     I realize that send/receive buffer size and window advertisement are 
-> different but they are related in the way that by telling TCP that we 
-> have a certain amount of memory for socket operations, it should try to 
-> open big enough window (provided that there is no congestion).
-> 
->     Can somebody advise us on how to properly set send/receive buffer 
-> sizes for the NFSD in the kernel such that (1) the window is not bound 
-> by the TCP's default sysctl value and (2) if it is possible to do so for 
-> the accept sockets and not the listening socket.
-> 
->     I would appreciate if we could be CC-ed on the reply as we are not 
-> subscribed to the netdev mailing list.
-> 
-> Thank you.
-> 
-> -Olga
-> 
->    
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is quite clear patch, but please provide needed part on top of .25
+tree.
+-- 
+	Evgeniy Polyakov
