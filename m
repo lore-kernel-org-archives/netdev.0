@@ -1,41 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Wrong padding of short packets send by a tagged-vlan interface?
-Date: Mon, 07 Jul 2008 14:06:23 -0700
-Message-ID: <4872854F.80603@candelatech.com>
-References: <Pine.LNX.4.64.0807072210470.15459@bizon.gios.gov.pl>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan tag by hand
+Date: Mon, 7 Jul 2008 23:07:02 +0200
+Message-ID: <20080707210701.GD12997@xi.wantstofly.org>
+References: <20080707205646.GB12997@xi.wantstofly.org> <4872841E.1030609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Pitre <nico@cam.org>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([66.165.47.212]:37880 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755846AbYGGVGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:06:35 -0400
-In-Reply-To: <Pine.LNX.4.64.0807072210470.15459@bizon.gios.gov.pl>
+Received: from xi.wantstofly.org ([83.160.184.112]:40818 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756241AbYGGVHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:07:06 -0400
+Content-Disposition: inline
+In-Reply-To: <4872841E.1030609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki wrote:
-> Hello,
+On Mon, Jul 07, 2008 at 11:01:18PM +0200, Patrick McHardy wrote:
+
+> >When inserting a vlan tag into an skb by hand (in the case the
+> >target network device hardware does not support inserting a vlan
+> >tag by passing it in via the TX descriptor), making a copy of the
+> >skb to be modified by calling skb_copy() is overkill, since
+> >skb_copy() will needlessly linearize the skb, copying of all of
+> >the fragmented data around, and checksumming the paket in software
+> >even if the hardware is perfectly capable of doing that by itself.
+> >
+> >For this case, pskb_copy() does exactly what is needed and no more,
+> >so use that instead.
+> >
+> >Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 > 
-> I have a problem that I'm not able to connect from selected linux hosts 
-> to a newly installed Netware 6.5 server. After two days of debugging I 
-> discovered that the problem seems to be caused by an insufficient 
-> padding of a .1q tagged packets.
+> This looks fine to me.
 
-Last time this came up I looked up the RFC and according to it
-there is no need to pad beyond the normal 60 + 4, vlan tag or
-not.
-
-This is a bug in your intervening switch and/or Netware unless you actually see packets
-leaving Linux with less than 60 + 4 bytes.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+OK.  Since the mv643xx_eth patch (2/2) depends on both this patch
+and the one you/I sent previously, could you merge the mv643xx_eth
+patch (2/2) via your tree as well?
