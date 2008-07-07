@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 0/2][RFC] mv643xx_eth: hw tx checksumming support for vlan-tagged packets
-Date: Mon, 7 Jul 2008 22:56:15 +0200
-Message-ID: <20080707205615.GA12997@xi.wantstofly.org>
+Subject: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan tag by hand
+Date: Mon, 7 Jul 2008 22:56:46 +0200
+Message-ID: <20080707205646.GB12997@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Nicolas Pitre <nico@cam.org>,
@@ -10,24 +10,37 @@ Cc: Nicolas Pitre <nico@cam.org>,
 	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:57529 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:57543 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755735AbYGGU4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:56:18 -0400
+	with ESMTP id S1755755AbYGGU4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:56:48 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two patches let mv643xx_eth use hardware TX checksumming in the
-presence of extra data between the ethernet header and the IP header
-(e.g. vlan tags, or DSA switch tags (for which I'll hopefully submit
-some code soon)).
+When inserting a vlan tag into an skb by hand (in the case the
+target network device hardware does not support inserting a vlan
+tag by passing it in via the TX descriptor), making a copy of the
+skb to be modified by calling skb_copy() is overkill, since
+skb_copy() will needlessly linearize the skb, copying of all of
+the fragmented data around, and checksumming the paket in software
+even if the hardware is perfectly capable of doing that by itself.
 
-The main thing I'd like feedback on is that I had to switch
-vlan_check_reorder_header() from using skb_copy() to using pskb_copy()
-to have fragmented skbs survive the trip through the stack to the
-driver's ->hard_start_xmit() function at all.  The patch to the driver
-itself (2/2) should be pretty straightforward.
+For this case, pskb_copy() does exactly what is needed and no more,
+so use that instead.
 
-(These patches depend on Patrick McHardy's patch "vlan: fix
-network_header/mac_header adjustments".)
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+
+Index: linux-2.6.26-rc9/net/8021q/vlan_dev.c
+===================================================================
+--- linux-2.6.26-rc9.orig/net/8021q/vlan_dev.c
++++ linux-2.6.26-rc9/net/8021q/vlan_dev.c
+@@ -74,7 +74,7 @@ static inline struct sk_buff *vlan_check
+ {
+ 	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
+ 		if (skb_shared(skb) || skb_cloned(skb)) {
+-			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
++			struct sk_buff *nskb = pskb_copy(skb, GFP_ATOMIC);
+ 			kfree_skb(skb);
+ 			skb = nskb;
+ 		}
