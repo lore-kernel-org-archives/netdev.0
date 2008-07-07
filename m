@@ -1,47 +1,60 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 7 Jul 2008 16:53:33 +0100
-Message-ID: <20080707165333.6347f564@the-village.bc.nu>
-References: <1215093175.10393.567.camel@pmac.infradead.org>
-	<20080703173040.GB30506@mit.edu>
-	<1215111362.10393.651.camel@pmac.infradead.org>
-	<20080703.162120.206258339.davem@davemloft.net>
-	<486D6DDB.4010205@infradead.org>
-	<87ej6armez.fsf@basil.nowhere.org>
-	<1215177044.10393.743.camel@pmac.infradead.org>
-	<486E2260.5050503@garzik.org>
-	<1215178035.10393.763.camel@pmac.infradead.org>
-	<486E2818.1060003@garzik.org>
-	<1215179161.10393.773.camel@pmac.infradead.org>
-	<486E2E9B.20200@garzik.org>
-	<20080704153822.4db2f325@lxorguk.ukuu.org.uk>
-	<48715807.8070605@garzik.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: vlan 03/07: Add ethtool support
+Date: Mon, 7 Jul 2008 17:52:18 +0100
+Message-ID: <20080707165217.GC28029@solarflare.com>
+References: <20080707123557.23947.70114.sendpatchset@localhost.localdomain> <20080707123601.23947.96915.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:38576 "EHLO
-	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753358AbYGGQ1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 12:27:46 -0400
-In-Reply-To: <48715807.8070605@garzik.org>
+Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:39540 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756888AbYGGQwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 12:52:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20080707123601.23947.96915.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > And we had the same argument over ten years ago about those evil module
-> > things which stopped you just using scp to copy the kernel in one go.
-> > Fortunately the nay sayers lost so we have modules.
+Patrick McHardy wrote:
+> vlan: Add ethtool support
 > 
-> Broken analogy.
+> Add ethtool support for querying the device for offload settings.
 > 
-> When modules were added, you were given the option to use them, or not.
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+[...]
+> +static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
+> +{
+> +	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+> +	struct net_device *real_dev = vlan->real_dev;
+> +
+> +	if (real_dev->ethtool_ops == NULL ||
+> +	    real_dev->ethtool_ops->get_rx_csum == NULL)
+> +		return 0;
+> +	return real_dev->ethtool_ops->get_rx_csum(real_dev);
 
-You can still choose to compile firmware in. Did you read the patches ?
+But we don't know whether RX checksum offload applies to VLAN-tagged
+packets (or, admittedly, any specific protocol).  It would be nice if there
+was a feature flag for this so it could be advertised in vlan_features.
+
+> +}
+> +
+> +static const struct ethtool_ops vlan_ethtool_ops = {
+> +	.get_link		= ethtool_op_get_link,
+> +	.get_rx_csum		= vlan_ethtool_get_rx_csum,
+
+Can't we also add:
+
+	.get_tx_csum		= ethtool_op_get_tx_csum,
+	.get_sg			= ethtool_op_get_sg,
+	.get_tso		= ethtool_op_get_tso,
+	.get_flags		= ethtool_op_get_flags,
+
+?
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
