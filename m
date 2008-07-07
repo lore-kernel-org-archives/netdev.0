@@ -1,71 +1,81 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: setsockopt()
-Date: Mon, 7 Jul 2008 14:33:06 -0700
-Message-ID: <20080707143306.56dcdb2e@extreme>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme>
-	<48728B09.1050801@citi.umich.edu>
+From: Bill Nottingham <notting@redhat.com>
+Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
+Date: Mon, 7 Jul 2008 17:34:20 -0400
+Message-ID: <20080707213420.GA20089@nostromo.devel.redhat.com>
+References: <cover.1215460681.git.notting@redhat.com> <4872819E.3040604@trash.net> <20080707205342.GA19710@nostromo.devel.redhat.com> <4872838B.1060603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jim Rees <rees@umich.edu>,
-	"J. Bruce Fields" <bfields@fieldses.org>
-To: Olga Kornievskaia <aglo@citi.umich.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:47986 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([66.187.233.31]:35801 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756454AbYGGVdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 17:33:08 -0400
-In-Reply-To: <48728B09.1050801@citi.umich.edu>
+	id S1755344AbYGGVfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 17:35:23 -0400
+Content-Disposition: inline
+In-Reply-To: <4872838B.1060603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Jul 2008 17:30:49 -0400
-Olga Kornievskaia <aglo@citi.umich.edu> wrote:
-
-> 
-> 
-> Stephen Hemminger wrote:
-> > On Mon, 07 Jul 2008 14:18:38 -0400
-> > Olga Kornievskaia <aglo@citi.umich.edu> wrote:
-> >
-> >   
-> >> Hi,
-> >>
-> >>     I'd like to ask a question regarding socket options, more 
-> >> specifically send and receive buffer sizes.
-> >>
-> >>     One simple question: (on the server-side) is it true that, to set 
-> >> send/receive buffer size, setsockopt() can only be called before 
-> >> listen()? From what I can tell, if I were to set socket options for the 
-> >> listening socket, they get inherited by the socket created during the 
-> >> accept(). However, when I try to change send/receive buffer size for the 
-> >> new socket, they take no affect.
-> >>
-> >>     The server in question is the NFSD server in the kernel. NFSD's code 
-> >> tries to adjust the buffer size (in order to have TCP increase the 
-> >> window size appropriately) but it does so after the new socket is 
-> >> created. It leads to the fact that the TCP window doesn't open beyond 
-> >> the TCP's "default" sysctl value (that would be the 2nd value in the 
-> >> triple net.ipv4.tcp_rmem, which on our system is set to 64KB). We 
-> >> changed the code so that setsockopt() is called for the listening socket 
-> >> is created and we set the buffer sizes to something bigger, like 8MB. 
-> >> Then we try to increase the buffer size for each socket created by the 
-> >> accept() but what is seen on the network trace is that window size 
-> >> doesn't open beyond the values used for the listening socket.
-> >>     
-> >
-> > It would be better if NFSD stayed out of doign setsockopt and just
-> > let the sender/receiver autotuning work?
-> >   
-> Auto-tuning would be guided by the sysctl values that are set for all 
-> applications. I could be wrong but what I see is that unless an 
-> application does a setsockopt(), its window is bound by the default 
-> sysctl value. If it is true, than it is not acceptable. It means that in 
-> order for NFSD to achieve a large enough window it needs to modify TCP's 
-> sysctl value which will effect all other applications.
+Patrick McHardy (kaber@trash.net) said: 
+>> Also, moving bonding configuration to netlink seems
+>> like a step backwards.
 >
+> Please read up on what the standard interface for network
+> configuration is
 
-Auto tuning starts at the default and will expand to the max allowed.
-If you set a value with setsockopt, then the kernel just uses that value
-and does no tuning.
+OK, let's see.
+
+In the code: Hm, no TODO or FIXME.
+
+In the included documentation:
+
+Documentation/networking/bonding.txt:
+  Module options, modprobe.conf, or 'distro-specific
+  configuration file', ifenslave, or sysfs.
+
+Documentation/networking/ip-sysctl.txt:
+  sysctl, obviously.
+
+Documentation/networking/generic_netlink.txt
+  Hey, here's netlink! Doucmentation points only to a wiki. Referred
+  to by zero other included in-kernel documentation.
+
+Well, that's helpful.
+
+Let's try the OSDL web!
+
+http://www.linuxfoundation.org/en/Net:Bridge
+  brctl (which uses ioctl and sysfs). And /etc/net.
+  
+http://www.linuxfoundation.org/en/Net:Bonding
+  Module parameters only, including the lovely 'load driver multiple times'
+  method. Doesn't even mention sysfs.
+
+http://www.linuxfoundation.org/en/Net:VLAN
+  vconfig
+  
+I could look at wireless network configuration, but I doubt that's going to
+help your argument.
+
+> I'm tired of reiterating this once a week.
+
+Well, if the documentation that described this as the standard existed,
+or wasn't such crap, perhaps you wouldn't have to.
+
+That being said, how is moving from adding a bonding slave from:
+  echo "+eth0" >  /sys/class/net/bond0/bonding/slaves to:
+to:
+  http://www.linuxfoundation.org/en/Net:Generic_Netlink_HOWTO
+
+a worthwhile improvement for the admin? Let's see, a kernel-userspace
+protocol with magic message formats. Hey, we reinvented ioctl!
+
+Why, if netlink is the standard (and it's been around for a long
+damn time), was sysfs configuration for bonding added in 2005? Why
+was bridge configuration added in 2005, and *extended* in 2006 and
+2007? Why were the user-space tools such as brctl ported from ioctl
+to sysfs?
+
+Bill
