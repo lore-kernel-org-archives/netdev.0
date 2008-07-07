@@ -1,47 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: setsockopt()
-Date: Mon, 07 Jul 2008 14:49:12 -0700 (PDT)
-Message-ID: <20080707.144912.76654646.davem@davemloft.net>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme>
-	<48728B09.1050801@citi.umich.edu>
+Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
+Date: Mon, 07 Jul 2008 14:52:59 -0700 (PDT)
+Message-ID: <20080707.145259.103902820.davem@davemloft.net>
+References: <20080707205342.GA19710@nostromo.devel.redhat.com>
+	<4872838B.1060603@trash.net>
+	<20080707213420.GA20089@nostromo.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: aglo@citi.umich.edu
+Cc: kaber@trash.net, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: notting@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54568
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53554
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756113AbYGGVtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:49:13 -0400
-In-Reply-To: <48728B09.1050801@citi.umich.edu>
+	by vger.kernel.org with ESMTP id S1755855AbYGGVxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:53:00 -0400
+In-Reply-To: <20080707213420.GA20089@nostromo.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Olga Kornievskaia <aglo@citi.umich.edu>
-Date: Mon, 07 Jul 2008 17:30:49 -0400
+From: Bill Nottingham <notting@redhat.com>
+Date: Mon, 7 Jul 2008 17:34:20 -0400
 
-> Auto-tuning would be guided by the sysctl values that are set for all 
-> applications. I could be wrong but what I see is that unless an 
-> application does a setsockopt(), its window is bound by the default 
-> sysctl value. If it is true, than it is not acceptable. It means that in 
-> order for NFSD to achieve a large enough window it needs to modify TCP's 
-> sysctl value which will effect all other applications.
+> I could look at wireless network configuration, but I doubt that's going to
+> help your argument.
 
-This is nonsense.
+Just like any system with age, we have a lot of legacy to
+convert over.  But it will happen.
 
-The kernel autotunes the receive and send buffers based upon the
-dynamic behavior of the connection.
+> That being said, how is moving from adding a bonding slave from:
+>   echo "+eth0" >  /sys/class/net/bond0/bonding/slaves to:
+> to:
+>   http://www.linuxfoundation.org/en/Net:Generic_Netlink_HOWTO
+> 
+> a worthwhile improvement for the admin? Let's see, a kernel-userspace
+> protocol with magic message formats. Hey, we reinvented ioctl!
+> 
+> Why, if netlink is the standard (and it's been around for a long
+> damn time), was sysfs configuration for bonding added in 2005? Why
+> was bridge configuration added in 2005, and *extended* in 2006 and
+> 2007? Why were the user-space tools such as brctl ported from ioctl
+> to sysfs?
 
-The sysctls only control limits.
+Because often a lot of shit slips in when someone who understands
+the ramifications is too busy or on vacation.
 
-If you set the socket buffer sizes explicitly, you essentially turn
-off half of the TCP stack because it won't do dynamic socket buffer
-sizing afterwards.
+We do want everything to be netlink based.
 
-There is no reason these days to ever explicitly set the socket
-buffer sizes on TCP sockets under Linux.
+Why?
 
-If something is going wrong it's a bug and we should fix it.
+Because it means that you can run one monitoring tool to listen
+for netlink events and report them to the user for diagnosis.
+
+It means that network configuration events can be sent over
+the wire and used remotely at some point.
+
+The latter can never happen as long as we keep adding ad-hoc
+config stuff.
+
