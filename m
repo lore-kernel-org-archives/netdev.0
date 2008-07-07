@@ -1,64 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 07 Jul 2008 13:24:37 -0400
-Message-ID: <48725155.2040007@garzik.org>
-References: <1215093175.10393.567.camel@pmac.infradead.org>	<20080703173040.GB30506@mit.edu>	<1215111362.10393.651.camel@pmac.infradead.org>	<20080703.162120.206258339.davem@davemloft.net>	<486D6DDB.4010205@infradead.org>	<87ej6armez.fsf@basil.nowhere.org>	<1215177044.10393.743.camel@pmac.infradead.org>	<486E2260.5050503@garzik.org>	<1215178035.10393.763.camel@pmac.infradead.org>	<486E2818.1060003@garzik.org>	<1215179161.10393.773.camel@pmac.infradead.org>	<486E2E9B.20200@garzik.org>	<20080704153822.4db2f325@lxorguk.ukuu.org.uk>	<48715807.8070605@garzik.org> <20080707165333.6347f564@the-village.bc.nu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: vlan 03/07: Add ethtool support
+Date: Mon, 07 Jul 2008 19:47:04 +0200
+Message-ID: <48725698.1030809@trash.net>
+References: <20080707123557.23947.70114.sendpatchset@localhost.localdomain> <20080707123601.23947.96915.sendpatchset@localhost.localdomain> <20080707165217.GC28029@solarflare.com> <48724B81.2070708@trash.net> <20080707172119.GD28029@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, tytso@mit.edu,
-	hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33981 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753704AbYGGRZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 13:25:08 -0400
-In-Reply-To: <20080707165333.6347f564@the-village.bc.nu>
+Received: from stinky.trash.net ([213.144.137.162]:33978 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753725AbYGGRrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 13:47:07 -0400
+In-Reply-To: <20080707172119.GD28029@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
->>> And we had the same argument over ten years ago about those evil module
->>> things which stopped you just using scp to copy the kernel in one go.
->>> Fortunately the nay sayers lost so we have modules.
->> Broken analogy.
->>
->> When modules were added, you were given the option to use them, or not.
+Ben Hutchings wrote:
+> Patrick McHardy wrote:
+>> Ben Hutchings wrote:
+>>> Patrick McHardy wrote:
+>>>> vlan: Add ethtool support
+>>>>
+>>>> Add ethtool support for querying the device for offload settings.
+>>>>
+>>>> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>>> [...]
+>>>> +static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
+>>>> +{
+>>>> +	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+>>>> +	struct net_device *real_dev = vlan->real_dev;
+>>>> +
+>>>> +	if (real_dev->ethtool_ops == NULL ||
+>>>> +	    real_dev->ethtool_ops->get_rx_csum == NULL)
+>>>> +		return 0;
+>>>> +	return real_dev->ethtool_ops->get_rx_csum(real_dev);
+>>> But we don't know whether RX checksum offload applies to VLAN-tagged
+>>> packets (or, admittedly, any specific protocol).  It would be nice if there
+>>> was a feature flag for this so it could be advertised in vlan_features.
+>> True, for now the assumption is that it works for VLANs.
+>> I don't think that assumption is unreasonable, but I can
+>> look into a separate flag for this.
 > 
-> You can still choose to compile firmware in. Did you read the patches ?
+> I would be surprised if there aren't some NICs that only check frames with
+> protocol/length set to ETH_P_IP.
 
-You cannot compile the firmware into the modules themselves, which is a 
-regression from current behavior.
+Yes, probably. But this is only informational and it won't be
+any wronger than on the device itself. So no big deal I'd say,
+but if you prefer I can also remove the TX csum support.
 
-Its a problem for cases where you cannot as readily update the kernel 
-image, such as vendor kernel + driver disk situations, or other examples 
-already cited.
+>>> Can't we also add:
+>>>
+>>> 	.get_tx_csum		= ethtool_op_get_tx_csum,
+>>> 	.get_sg			= ethtool_op_get_sg,
+>>> 	.get_tso		= ethtool_op_get_tso,
+>>> 	.get_flags		= ethtool_op_get_flags,
+>> Besides get_flags all of these are handled by default handlers.
+> 
+> So they are.
+> 
+>> What is get_flags used for?
+> 
+> Currently only LRO, but potentially other offload features.
 
-When the firmware travels with the module, as it does today in tg3, bnx2 
-and others, is the most reliable system available.  The simplest, the 
-least amount of "parts", the easiest to upgrade, the best method to 
-guarantee driver/firmware version matches.  It works wonderfully today.
-
-Is it difficult to see why someone might want to keep the same attributes?
-
-Compiled-in firmware wastes memory and isn't upgradable -- just like 
-static kernel vs. kernel modules debate -- but it IS far more reliable 
-than any system where the firmware is separated from the kernel module 
-itself.
-
-I'd heartily support David's efforts if it was done in a regression-free 
-manner.  But it is just so easy to build and package a _silently_ 
-non-working driver, simply because the firmware got missed somewhere.
-
-The best path to this new system is to (a) ensure the old system still 
-works, and then (b) make it easy (transparent?) to adopt the new system.
-
-	Jeff
-
-
+LRO is currently not supported by the VLAN code, at least
+not directly (drivers supporting VLAN accel can do VLAN
+LRO though). So for now it seems useless to add it.
