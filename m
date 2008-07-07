@@ -1,81 +1,35 @@
-From: Bill Nottingham <notting@redhat.com>
-Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
-Date: Mon, 7 Jul 2008 17:34:20 -0400
-Message-ID: <20080707213420.GA20089@nostromo.devel.redhat.com>
-References: <cover.1215460681.git.notting@redhat.com> <4872819E.3040604@trash.net> <20080707205342.GA19710@nostromo.devel.redhat.com> <4872838B.1060603@trash.net>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: [PATCH] ipv[46]: Fix MD5 signatures for non-linear skbs
+Date: Mon, 7 Jul 2008 14:40:33 -0700
+Message-ID: <396556a20807071440p58aab414jd622feb4849b977@mail.gmail.com>
+References: <396556a20807071021n2039fc8eo6ab343355e36b468@mail.gmail.com>
+	 <396556a20805301217k293e5718h6bbf02bfe069001@europa>
+	 <20080707112237.14fb3284@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35801 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755344AbYGGVfX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 17:35:23 -0400
+Received: from py-out-1112.google.com ([64.233.166.177]:6122 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753541AbYGGVkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:40:35 -0400
+Received: by py-out-1112.google.com with SMTP id p76so1028436pyb.10
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2008 14:40:34 -0700 (PDT)
+In-Reply-To: <20080707112237.14fb3284@extreme>
 Content-Disposition: inline
-In-Reply-To: <4872838B.1060603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy (kaber@trash.net) said: 
->> Also, moving bonding configuration to netlink seems
->> like a step backwards.
->
-> Please read up on what the standard interface for network
-> configuration is
+On Mon, Jul 7, 2008 at 11:22 AM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> Patch doesn't apply cleanly to net-next-2.6 tree because of other changes
+> so to help the merge, please create a version for that as well.
 
-OK, let's see.
+Yea, that clashes pretty badly with net-next-2.6. Patch for that
+coming in a sec.
 
-In the code: Hm, no TODO or FIXME.
 
-In the included documentation:
-
-Documentation/networking/bonding.txt:
-  Module options, modprobe.conf, or 'distro-specific
-  configuration file', ifenslave, or sysfs.
-
-Documentation/networking/ip-sysctl.txt:
-  sysctl, obviously.
-
-Documentation/networking/generic_netlink.txt
-  Hey, here's netlink! Doucmentation points only to a wiki. Referred
-  to by zero other included in-kernel documentation.
-
-Well, that's helpful.
-
-Let's try the OSDL web!
-
-http://www.linuxfoundation.org/en/Net:Bridge
-  brctl (which uses ioctl and sysfs). And /etc/net.
-  
-http://www.linuxfoundation.org/en/Net:Bonding
-  Module parameters only, including the lovely 'load driver multiple times'
-  method. Doesn't even mention sysfs.
-
-http://www.linuxfoundation.org/en/Net:VLAN
-  vconfig
-  
-I could look at wireless network configuration, but I doubt that's going to
-help your argument.
-
-> I'm tired of reiterating this once a week.
-
-Well, if the documentation that described this as the standard existed,
-or wasn't such crap, perhaps you wouldn't have to.
-
-That being said, how is moving from adding a bonding slave from:
-  echo "+eth0" >  /sys/class/net/bond0/bonding/slaves to:
-to:
-  http://www.linuxfoundation.org/en/Net:Generic_Netlink_HOWTO
-
-a worthwhile improvement for the admin? Let's see, a kernel-userspace
-protocol with magic message formats. Hey, we reinvented ioctl!
-
-Why, if netlink is the standard (and it's been around for a long
-damn time), was sysfs configuration for bonding added in 2005? Why
-was bridge configuration added in 2005, and *extended* in 2006 and
-2007? Why were the user-space tools such as brctl ported from ioctl
-to sysfs?
-
-Bill
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
