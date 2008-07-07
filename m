@@ -1,125 +1,145 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Oops] fib_trie with ip route add throw since 2.6.25
-Date: Mon, 7 Jul 2008 13:12:12 -0700
-Message-ID: <20080707131212.2b1e0a5c@extreme>
-References: <20080707184144.GA17506@yuri.org.uk>
-	<20080707195744.GE28029@solarflare.com>
+From: Mattias Nissler <mattias.nissler@gmx.de>
+Subject: [PATCH] rc80211_pid: Fix fast_start parameter handling
+Date: Mon, 07 Jul 2008 22:23:48 +0200
+Message-ID: <1215462228.4416.3.camel@localhost>
+References: <19f34abd0807070427w5398c617uae0a4e8e40fd8f0e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: William Boughton <bill@boughton.de>, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Stefano Brivio <stefano.brivio@polimi.it>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@elte.hu>,
+	Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:43978 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755265AbYGGUMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 16:12:18 -0400
-In-Reply-To: <20080707195744.GE28029@solarflare.com>
+Received: from mail.gmx.net ([213.165.64.20]:56969 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755469AbYGGUXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 16:23:53 -0400
+In-Reply-To: <19f34abd0807070427w5398c617uae0a4e8e40fd8f0e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Jul 2008 20:57:45 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+This removes the fast_start parameter from the rc_pid parameters information
+and instead uses the parameter macro when initializing the rc_pid state. Since the
+parameter is only used on initialization, there is no point of making exporting
+it via debugfs. This also fixes uninitialized memory references to the
+fast_start and norm_offset parameters.
 
-> William Boughton wrote:
-> > 
-> > Hello,
-> 
-> Hello again!
-> 
-> > ip route add throw 192.168.0.1
-> > 
-> > ping 192.168.0.1
-> > 
-> > Oppses when CONFIG_IP_FIB_TRIE=y
-> > 
-> > Reproduced on both x86_64 and 32 on Xen and a normal
-> > kernel running in qemu/kvm.
-> > 
-> > It seems this problem was introduced in 2.6.25
-> > 
-> > git bisect reports that it may have been caused by:
-> > 
-> > a07f5f508a4d9728c8e57d7f66294bf5b254ff7f is first bad commit                    
-> > commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f                                 
-> > Author: Stephen Hemminger <stephen.hemminger@vyatta.com>                        
-> > Date:   Tue Jan 22 21:53:36 2008 -0800                                          
-> >                                                                                 
-> >     [IPV4] fib_trie: style cleanup                                              
-> >                                                                                 
-> >     Style cleanups:                                                             
-> >           * make check_leaf return -1 or plen, rather than by reference         
-> [...]
-> 
-> The changes to check_leaf() and fn_trie_lookup() seem to be wrong - where
-> fn_trie_lookup() would previously return a negative error value from
-> check_leaf(), it now returns 0.
-> 
-> Now fn_trie_lookup() doesn't appear to care about plen, so we could revert
-> check_leaf() to returning the error value.  How does this work?
-> 
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 394db9c..43ed894 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1357,17 +1357,17 @@ static int check_leaf(struct trie *t, struct leaf *l,
->  			t->stats.semantic_match_miss++;
->  #endif
->  		if (err <= 0)
-> -			return plen;
-> +			return err;
->  	}
->  
-> -	return -1;
-> +	return 1;
->  }
->  
->  static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  			  struct fib_result *res)
->  {
->  	struct trie *t = (struct trie *) tb->tb_data;
-> -	int plen, ret = 0;
-> +	int ret;
->  	struct node *n;
->  	struct tnode *pn;
->  	int pos, bits;
-> @@ -1391,10 +1391,7 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  
->  	/* Just a leaf? */
->  	if (IS_LEAF(n)) {
-> -		plen = check_leaf(t, (struct leaf *)n, key, flp, res);
-> -		if (plen < 0)
-> -			goto failed;
-> -		ret = 0;
-> +		ret = check_leaf(t, (struct leaf *)n, key, flp, res);
->  		goto found;
->  	}
->  
-> @@ -1419,11 +1416,9 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  		}
->  
->  		if (IS_LEAF(n)) {
-> -			plen = check_leaf(t, (struct leaf *)n, key, flp, res);
-> -			if (plen < 0)
-> +			ret = check_leaf(t, (struct leaf *)n, key, flp, res);
-> +			if (ret > 0)
->  				goto backtrace;
-> -
-> -			ret = 0;
->  			goto found;
->  		}
-> --- END ---
-> 
-> Ben.
-> 
+Signed-off-by: Mattias Nissler <mattias.nissler@gmx.de>
+---
 
-Agreed, a little more explanation would be good
-   * return values?? fn_trie_lookup is same as fn_hash_lookup
-   * check_leaf use return value of fn_trie_lookup so it can warpout without conditional
-   * this needs some comments.
+This should fix the problem. I think this should go into mainline ASAP.
 
-Note: in future since the route table is either hash or trie decided
-at compile time, it would be worth getting rid of the indirection through
-fib table functions. Looks like infrastructure was created but never used here.
+Stefano, any comments?
+
+
+
+ net/mac80211/rc80211_pid.h      |    5 -----
+ net/mac80211/rc80211_pid_algo.c |   31 +++++++++++++------------------
+ 2 files changed, 13 insertions(+), 23 deletions(-)
+
+diff --git a/net/mac80211/rc80211_pid.h b/net/mac80211/rc80211_pid.h
+index 04afc13..4ea7b97 100644
+--- a/net/mac80211/rc80211_pid.h
++++ b/net/mac80211/rc80211_pid.h
+@@ -141,7 +141,6 @@ struct rc_pid_events_file_info {
+  *	rate behaviour values (lower means we should trust more what we learnt
+  *	about behaviour of rates, higher means we should trust more the natural
+  *	ordering of rates)
+- * @fast_start: if Y, push high rates right after initialization
+  */
+ struct rc_pid_debugfs_entries {
+ 	struct dentry *dir;
+@@ -154,7 +153,6 @@ struct rc_pid_debugfs_entries {
+ 	struct dentry *sharpen_factor;
+ 	struct dentry *sharpen_duration;
+ 	struct dentry *norm_offset;
+-	struct dentry *fast_start;
+ };
+ 
+ void rate_control_pid_event_tx_status(struct rc_pid_event_buffer *buf,
+@@ -267,9 +265,6 @@ struct rc_pid_info {
+ 	/* Normalization offset. */
+ 	unsigned int norm_offset;
+ 
+-	/* Fast starst parameter. */
+-	unsigned int fast_start;
+-
+ 	/* Rates information. */
+ 	struct rc_pid_rateinfo *rinfo;
+ 
+diff --git a/net/mac80211/rc80211_pid_algo.c b/net/mac80211/rc80211_pid_algo.c
+index a849b74..bcd27c1 100644
+--- a/net/mac80211/rc80211_pid_algo.c
++++ b/net/mac80211/rc80211_pid_algo.c
+@@ -398,13 +398,25 @@ static void *rate_control_pid_alloc(struct ieee80211_local *local)
+ 		return NULL;
+ 	}
+ 
++	pinfo->target = RC_PID_TARGET_PF;
++	pinfo->sampling_period = RC_PID_INTERVAL;
++	pinfo->coeff_p = RC_PID_COEFF_P;
++	pinfo->coeff_i = RC_PID_COEFF_I;
++	pinfo->coeff_d = RC_PID_COEFF_D;
++	pinfo->smoothing_shift = RC_PID_SMOOTHING_SHIFT;
++	pinfo->sharpen_factor = RC_PID_SHARPENING_FACTOR;
++	pinfo->sharpen_duration = RC_PID_SHARPENING_DURATION;
++	pinfo->norm_offset = RC_PID_NORM_OFFSET;
++	pinfo->rinfo = rinfo;
++	pinfo->oldrate = 0;
++
+ 	/* Sort the rates. This is optimized for the most common case (i.e.
+ 	 * almost-sorted CCK+OFDM rates). Kind of bubble-sort with reversed
+ 	 * mapping too. */
+ 	for (i = 0; i < sband->n_bitrates; i++) {
+ 		rinfo[i].index = i;
+ 		rinfo[i].rev_index = i;
+-		if (pinfo->fast_start)
++		if (RC_PID_FAST_START)
+ 			rinfo[i].diff = 0;
+ 		else
+ 			rinfo[i].diff = i * pinfo->norm_offset;
+@@ -425,19 +437,6 @@ static void *rate_control_pid_alloc(struct ieee80211_local *local)
+ 			break;
+ 	}
+ 
+-	pinfo->target = RC_PID_TARGET_PF;
+-	pinfo->sampling_period = RC_PID_INTERVAL;
+-	pinfo->coeff_p = RC_PID_COEFF_P;
+-	pinfo->coeff_i = RC_PID_COEFF_I;
+-	pinfo->coeff_d = RC_PID_COEFF_D;
+-	pinfo->smoothing_shift = RC_PID_SMOOTHING_SHIFT;
+-	pinfo->sharpen_factor = RC_PID_SHARPENING_FACTOR;
+-	pinfo->sharpen_duration = RC_PID_SHARPENING_DURATION;
+-	pinfo->norm_offset = RC_PID_NORM_OFFSET;
+-	pinfo->fast_start = RC_PID_FAST_START;
+-	pinfo->rinfo = rinfo;
+-	pinfo->oldrate = 0;
+-
+ #ifdef CONFIG_MAC80211_DEBUGFS
+ 	de = &pinfo->dentries;
+ 	de->dir = debugfs_create_dir("rc80211_pid",
+@@ -465,9 +464,6 @@ static void *rate_control_pid_alloc(struct ieee80211_local *local)
+ 	de->norm_offset = debugfs_create_u32("norm_offset",
+ 					     S_IRUSR | S_IWUSR, de->dir,
+ 					     &pinfo->norm_offset);
+-	de->fast_start = debugfs_create_bool("fast_start",
+-					     S_IRUSR | S_IWUSR, de->dir,
+-					     &pinfo->fast_start);
+ #endif
+ 
+ 	return pinfo;
+@@ -479,7 +475,6 @@ static void rate_control_pid_free(void *priv)
+ #ifdef CONFIG_MAC80211_DEBUGFS
+ 	struct rc_pid_debugfs_entries *de = &pinfo->dentries;
+ 
+-	debugfs_remove(de->fast_start);
+ 	debugfs_remove(de->norm_offset);
+ 	debugfs_remove(de->sharpen_duration);
+ 	debugfs_remove(de->sharpen_factor);
+-- 
+1.5.6.1
 
