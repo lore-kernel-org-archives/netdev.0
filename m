@@ -1,91 +1,49 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 2/2][RFC] mv643xx_eth: enable hardware TX checksumming with vlan tags
-Date: Mon, 7 Jul 2008 22:57:08 +0200
-Message-ID: <20080707205708.GC12997@xi.wantstofly.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
+Date: Mon, 07 Jul 2008 22:58:51 +0200
+Message-ID: <4872838B.1060603@trash.net>
+References: <cover.1215460681.git.notting@redhat.com> <4872819E.3040604@trash.net> <20080707205342.GA19710@nostromo.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Pitre <nico@cam.org>,
-	Dale Farnsworth <dale@farnsworth.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Patrick McHardy <kaber@trash.net>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:57553 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756162AbYGGU5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:57:10 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:38340 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756234AbYGGU6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:58:54 -0400
+In-Reply-To: <20080707205342.GA19710@nostromo.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although mv643xx_eth has no hardware support for inserting a vlan
-tag by twiddling some bits in the TX descriptor, it does support
-hardware TX checksumming on packets where the IP header starts {a
-limited set of values other than 14} bytes into the packet.
+Bill Nottingham wrote:
+> Patrick McHardy (kaber@trash.net) said: 
+>> Bill Nottingham wrote:
+>>> Right now, you can configure most bridge device parameters via sysfs.
+>>> However, you cannot either:
+>>> - add or remove bridge interfaces
+>>> - add or remove physical interfaces from a bridge
+>>>
+>>> The attached patch set rectifies this. With this patch set, brctl
+>>> (theoretically) becomes completely optional, much like ifenslave is
+>>> now for bonding. (In fact, the idea for this patch, and the syntax
+>>> used herein, is inspired by the sysfs bonding configuration.)
+>> Both should use netlink instead of extending their sysfs interfaces.
+>> For bridging I have a patch for the bridge device itself, the API
+>> is so far missing support for adding ports though.
+> 
+> How does that improve the situation for bridge devices? Are all
+> bridging parameters (forward_delay, stp, etc.) going to be configurable
+> via netlink, or would we still then have multiple tools/interfaces
+> to configuration?
 
-This patch sets mv643xx_eth's ->vlan_features to NETIF_F_SG |
-NETIF_F_IP_CSUM, which prevents the stack from checksumming vlan'ed
-packets in software, and if vlan tags are present on a transmitted
-packet, notifies the hardware of this fact by toggling the right
-bits in the TX descriptor.
+Of course its all going to be configurable via netlink, otherwise
+it really wouldn't make sense.
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> Also, moving bonding configuration to netlink seems
+> like a step backwards.
 
-Index: linux-2.6.26-rc9/drivers/net/mv643xx_eth.c
-===================================================================
---- linux-2.6.26-rc9.orig/drivers/net/mv643xx_eth.c
-+++ linux-2.6.26-rc9/drivers/net/mv643xx_eth.c
-@@ -228,6 +228,8 @@ struct tx_desc {
- #define GEN_IP_V4_CHECKSUM		0x00040000
- #define GEN_TCP_UDP_CHECKSUM		0x00020000
- #define UDP_FRAME			0x00010000
-+#define MAC_HDR_EXTRA_4_BYTES		0x00008000
-+#define MAC_HDR_EXTRA_8_BYTES		0x00000200
- 
- #define TX_IHL_SHIFT			11
- 
-@@ -733,12 +735,35 @@ static void txq_submit_skb(struct tx_que
- 	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		BUG_ON(skb->protocol != htons(ETH_P_IP));
-+		int mac_hdr_len;
-+
-+		BUG_ON(skb->protocol != htons(ETH_P_IP) &&
-+		       skb->protocol != htons(ETH_P_8021Q));
- 
- 		cmd_sts |= GEN_TCP_UDP_CHECKSUM |
- 			   GEN_IP_V4_CHECKSUM   |
- 			   ip_hdr(skb)->ihl << TX_IHL_SHIFT;
- 
-+		mac_hdr_len = (void *)ip_hdr(skb) - (void *)skb->data;
-+		switch (mac_hdr_len - 14) {
-+		case 0:
-+			break;
-+		case 4:
-+			cmd_sts |= MAC_HDR_EXTRA_4_BYTES;
-+			break;
-+		case 8:
-+			cmd_sts |= MAC_HDR_EXTRA_8_BYTES;
-+			break;
-+		case 12:
-+			cmd_sts |= MAC_HDR_EXTRA_4_BYTES;
-+			cmd_sts |= MAC_HDR_EXTRA_8_BYTES;
-+			break;
-+		default:
-+			dev_printk(KERN_ERR, &txq_to_mp(txq)->dev->dev,
-+				   "mac header length is %d?!\n", mac_hdr_len);
-+			BUG();
-+		}
-+
- 		switch (ip_hdr(skb)->protocol) {
- 		case IPPROTO_UDP:
- 			cmd_sts |= UDP_FRAME;
-@@ -2486,6 +2511,7 @@ static int mv643xx_eth_probe(struct plat
- 	 * have to map the buffers to ISA memory which is only 16 MB
- 	 */
- 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
-+	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM;
- #endif
- 
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+Please read up on what the standard interface for network
+configuration is, I'm tired of reiterating this once a week.
