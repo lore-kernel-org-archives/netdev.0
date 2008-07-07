@@ -1,140 +1,68 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [0/3] POHMELFS high performance network filesystem. Strong crypto support.
-Date: Mon, 7 Jul 2008 22:15:55 +0400
-Message-ID: <20080707181554.GE15687@2ka.mipt.ru>
-References: <20080707180736.GA15687@2ka.mipt.ru>
+From: Olga Kornievskaia <aglo@citi.umich.edu>
+Subject: setsockopt()
+Date: Mon, 07 Jul 2008 14:18:38 -0400
+Message-ID: <48725DFE.6000504@citi.umich.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="17pEHd4RhPHOinZp"
-Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080707180736.GA15687@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jim Rees <rees@umich.edu>, "J. Bruce Fields" <bfields@fieldses.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from citi.umich.edu ([141.211.133.111]:4545 "EHLO citi.umich.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754216AbYGGSSm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 14:18:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---17pEHd4RhPHOinZp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+    I'd like to ask a question regarding socket options, more 
+specifically send and receive buffer sizes.
 
-Subject should be "POHMELFS high performance network filesystem. Strong
-crypto support."
+    One simple question: (on the server-side) is it true that, to set 
+send/receive buffer size, setsockopt() can only be called before 
+listen()? From what I can tell, if I were to set socket options for the 
+listening socket, they get inherited by the socket created during the 
+accept(). However, when I try to change send/receive buffer size for the 
+new socket, they take no affect.
 
-This release brings ability to encrypt data channel in case of
-distributed filesystem created on top of uncontrolled channels.
+    The server in question is the NFSD server in the kernel. NFSD's code 
+tries to adjust the buffer size (in order to have TCP increase the 
+window size appropriately) but it does so after the new socket is 
+created. It leads to the fact that the TCP window doesn't open beyond 
+the TCP's "default" sysctl value (that would be the 2nd value in the 
+triple net.ipv4.tcp_rmem, which on our system is set to 64KB). We 
+changed the code so that setsockopt() is called for the listening socket 
+is created and we set the buffer sizes to something bigger, like 8MB. 
+Then we try to increase the buffer size for each socket created by the 
+accept() but what is seen on the network trace is that window size 
+doesn't open beyond the values used for the listening socket.
 
-One can setup different crypto algorithms, which will be autoconfigured
-at mount time (depending on options it will or will not fail, if server
-does not support requested algorithms, if administrator requested not to
-fail, system will disable appropriate algorithm usage).
+    I looked around in the code. There is a variable called 
+"window_clamp" that seems to specifies the largest possible window 
+advertisement. window_clamp gets set during the creation of the accept 
+socket. At that time, it's value is based on the sk_rcvbuf of the 
+listening socket. Thus, that would explain the behavior that window 
+doesn't grow beyond the values used in setsockopt() for the listening 
+socket, even though the new socket has new (larger) sk_sndbuf and 
+sk_rcvbuf  than the listening socket.
 
-IOzone performance testing showed performance drop in case of
-cbc(aes)+sha1 crypto operations, but system still behaves faster than
-plain in-kernel async NFS. Nice picture in attach (or via link at:
-http://tservice.net.ru/~s0mbre/blog/devel/fs/2008_07_07.html)
+    I realize that send/receive buffer size and window advertisement are 
+different but they are related in the way that by telling TCP that we 
+have a certain amount of memory for socket operations, it should try to 
+open big enough window (provided that there is no congestion).
 
-Plain read/write performance link:
-http://tservice.net.ru/~s0mbre/blog/devel/fs/2008_06_25.html
+    Can somebody advise us on how to properly set send/receive buffer 
+sizes for the NFSD in the kernel such that (1) the window is not bound 
+by the TCP's default sysctl value and (2) if it is possible to do so for 
+the accept sockets and not the listening socket.
 
--- 
-	Evgeniy Polyakov
+    I would appreciate if we could be CC-ed on the reply as we are not 
+subscribed to the netdev mailing list.
 
---17pEHd4RhPHOinZp
-Content-Type: image/png
-Content-Disposition: attachment; filename="pohmelfs_sncrypted_vs_plain_async_nfs.png"
-Content-Transfer-Encoding: base64
+Thank you.
 
-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
-1/R/1eppB7K22VcAAAAASUVORK5CYII=
+-Olga
 
---17pEHd4RhPHOinZp--
+   
