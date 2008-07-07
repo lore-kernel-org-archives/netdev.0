@@ -1,43 +1,33 @@
-From: Bill Nottingham <notting@redhat.com>
-Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
-Date: Mon, 7 Jul 2008 16:53:42 -0400
-Message-ID: <20080707205342.GA19710@nostromo.devel.redhat.com>
-References: <cover.1215460681.git.notting@redhat.com> <4872819E.3040604@trash.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 0/2][RFC] mv643xx_eth: hw tx checksumming support for vlan-tagged packets
+Date: Mon, 7 Jul 2008 22:56:15 +0200
+Message-ID: <20080707205615.GA12997@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: Nicolas Pitre <nico@cam.org>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59024 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753509AbYGGUzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2008 16:55:25 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:57529 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755735AbYGGU4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:56:18 -0400
 Content-Disposition: inline
-In-Reply-To: <4872819E.3040604@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy (kaber@trash.net) said: 
-> Bill Nottingham wrote:
->> Right now, you can configure most bridge device parameters via sysfs.
->> However, you cannot either:
->> - add or remove bridge interfaces
->> - add or remove physical interfaces from a bridge
->>
->> The attached patch set rectifies this. With this patch set, brctl
->> (theoretically) becomes completely optional, much like ifenslave is
->> now for bonding. (In fact, the idea for this patch, and the syntax
->> used herein, is inspired by the sysfs bonding configuration.)
->
-> Both should use netlink instead of extending their sysfs interfaces.
-> For bridging I have a patch for the bridge device itself, the API
-> is so far missing support for adding ports though.
+These two patches let mv643xx_eth use hardware TX checksumming in the
+presence of extra data between the ethernet header and the IP header
+(e.g. vlan tags, or DSA switch tags (for which I'll hopefully submit
+some code soon)).
 
-How does that improve the situation for bridge devices? Are all
-bridging parameters (forward_delay, stp, etc.) going to be configurable
-via netlink, or would we still then have multiple tools/interfaces
-to configuration? Also, moving bonding configuration to netlink seems
-like a step backwards.
+The main thing I'd like feedback on is that I had to switch
+vlan_check_reorder_header() from using skb_copy() to using pskb_copy()
+to have fragmented skbs survive the trip through the stack to the
+driver's ->hard_start_xmit() function at all.  The patch to the driver
+itself (2/2) should be pretty straightforward.
 
-Bill
+(These patches depend on Patrick McHardy's patch "vlan: fix
+network_header/mac_header adjustments".)
