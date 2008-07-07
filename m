@@ -1,138 +1,75 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Mon, 7 Jul 2008 08:23:51 -0700
-Message-ID: <20080707082351.0cf77eda@infradead.org>
-References: <20080706213427.406e8f29@infradead.org>
-	<20080706.214915.255106355.davem@davemloft.net>
-	<20080706215711.135a8524@infradead.org>
-	<20080706.234433.172895242.davem@davemloft.net>
+From: "John W. Linville" <linville@redhat.com>
+Subject: Re: Oops/Warning report of the week of July 4th 2008
+Date: Mon, 7 Jul 2008 11:55:52 -0400
+Message-ID: <20080707155552.GF28109@redhat.com>
+References: <486EA0D6.2040504@linux.intel.com> <20080704222341.GB9792@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Becker <stefan.becker@nokia.com>
+To: Dave Jones <davej@redhat.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	Linus Torvalds <to
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51955 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753133AbYGGPXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 11:23:53 -0400
-In-Reply-To: <20080706.234433.172895242.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:49142 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752677AbYGGP4K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 11:56:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20080704222341.GB9792@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 06 Jul 2008 23:44:33 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Arjan van de Ven <arjan@infradead.org>
-> Date: Sun, 6 Jul 2008 21:57:11 -0700
+On Fri, Jul 04, 2008 at 06:23:41PM -0400, Dave Jones wrote:
+> On Fri, Jul 04, 2008 at 03:14:46PM -0700, Arjan van de Ven wrote:
+>  
+>  > The stats look very similar to last week; Fedora released a 2.6.25.9 based
+>  > kernel upgrade, which led to a new sighting (at rank 12): the rt25xx wireless
+>  > driver is calling flush_workqueue() with a NULL parameter in some cases.
+>  > There has been a lot of thrash about the last report with regard to inclusion of wireless.git
+>  > into the Fedora kernel rpms. As an observer I can say that it's both a blessing and a bog.
+>  > It's a blessing in that this allows bugs to show up early before wireless.git hits mainline
+>  > (as an example: this is the third or fourth fedora rpm upgrade in a row that showed new and exciting
+>  > oopses/warnings due to rt25xx... as a result of very active development). It's a bog in that
+>  > it may expose users to not-quite-ready code. So far it seems the Fedora kernel maintainers are happy
+>  > enough with the overall balance that they continue the practice.
 > 
-> > one option is that I carry this patch in the WARN tree (which I
-> > plan to submit for -next tomorrow)
-> 
-> It's going to be a conflict field day with net-next-2.6 especially
-> with some changes I have coming in there soon, otherwise I'd say
-> that yes that would be the way to do.
+> I actually think we need to scale things back a notch wrt pushing
+> wireless.git bits to users of released distros.  The recent disaster
+> in wireless caused a shitstorm in bugzilla that we never even saw
+> in rawhide.  A clear sign that we're pushing things too fast to users.
 
-ok
+Well I agree that we are pushing things too quickly to users.
+However I believe that improper use of Bodhi is at least as much to
+blame as I am.
 
-if you merge the piece below (which is just the core), I can do the WARN()
-part later when the dust has settled (it's a one liner anyway pretty much)
-
---
-
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Print the driver name as part of the WATCHDOG message
-
-As suggested by Dave:
-
-This patch adds a function to get the driver name from a struct net_device,
-and consequently uses this in the watchdog timeout handler to print as 
-part of the message. 
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
----
- include/linux/netdevice.h |    3 +++
- net/core/dev.c            |   37 +++++++++++++++++++++++++++++++++++++
- net/sched/sch_generic.c   |    7 ++++---
- 3 files changed, 44 insertions(+), 3 deletions(-)
-
-Index: linux.trees.git/include/linux/netdevice.h
-===================================================================
---- linux.trees.git.orig/include/linux/netdevice.h
-+++ linux.trees.git/include/linux/netdevice.h
-@@ -1514,6 +1514,9 @@ extern void dev_seq_stop(struct seq_file
- extern int netdev_class_create_file(struct class_attribute *class_attr);
- extern void netdev_class_remove_file(struct class_attribute *class_attr);
+FWIW, I'd like to point out that a user (Stefan Becker) helped
+to sort-out my "human error" screw-up (i.e. not some buggy patch
+from upstream) that caused the latest flurry regarding busted TKIP
+for mac80211.  IMHO this is in the best traditions of open source,
+and a credit to our community.
  
-+extern void netdev_drivername(struct net_device *dev, char *buffer, int len);
-+
-+
- extern void linkwatch_run_queue(void);
- 
- extern int netdev_compute_features(unsigned long all, unsigned long one);
-Index: linux.trees.git/net/core/dev.c
-===================================================================
---- linux.trees.git.orig/net/core/dev.c
-+++ linux.trees.git/net/core/dev.c
-@@ -4554,6 +4554,43 @@ err_name:
- 	return -ENOMEM;
- }
- 
-+void netdev_drivername(struct net_device *dev, char *buffer, int len)
-+{
-+	struct device_driver *driver;
-+	struct device *parent;
-+	struct ethtool_drvinfo info;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+
-+	if (len <= 0)
-+		return;
-+	buffer[0] = 0;
-+
-+	/*
-+	 * Note: in principle ethtool ops need to be called
-+	 * with the RTNL mutex held, while this function is called
-+	 * from IRQ context. However, get_drvinfo is a special exception
-+	 * (confirmed by Dave and Jeff) and doesn't need the mutex.
-+	 */
-+	if (ops && ops->get_drvinfo) {
-+		memset(&info, 0, sizeof(info));
-+		info.cmd = ETHTOOL_GDRVINFO;
-+		ops->get_drvinfo(dev, &info);
-+		if (strlen(info.driver) > 0) {
-+			strlcpy(buffer, info.driver, len);
-+			return;
-+		}
-+	}
-+
-+	parent = dev->dev.parent;
-+
-+	if (!parent)
-+		return;
-+
-+	driver = parent->driver;
-+	if (driver && driver->name)
-+		strlcpy(buffer, driver->name, len);
-+}
-+
- static void __net_exit netdev_exit(struct net *net)
- {
- 	kfree(net->dev_name_head);
-Index: linux.trees.git/net/sched/sch_generic.c
-===================================================================
---- linux.trees.git.orig/net/sched/sch_generic.c
-+++ linux.trees.git/net/sched/sch_generic.c
-@@ -215,9 +215,10 @@ static void dev_watchdog(unsigned long a
- 		    netif_carrier_ok(dev)) {
- 			if (netif_queue_stopped(dev) &&
- 			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
--
--				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
--				       dev->name);
-+				char drivername[64];
-+				netdev_drivername(dev, drivername, 64);
-+				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
-+				       dev->name, drivername);
- 				dev->tx_timeout(dev);
- 				WARN_ON_ONCE(1);
- 			}
+> It's great that we're getting this stuff tested, but at the same time,
+> it doesn't give a great impression, and makes users reluctant to always
+> apply the latest updates if the last time around they have to deal with
+> this kind of fallout.
+
+When patches went-in more slowly, we still hit nearly as many problems.
+Only then it took longer to solve them because we (i.e. Fedora) were
+so far behind what the upstream developers were doing that we couldn't
+get their attention.  As it stands, Fedora gets quick attention even
+from developers who use other distros.
+
+Still, maybe we are approaching a point where it is prudent to slow
+some things down for Fedora.  I sent a proposal along those lines
+to fedora-kernel-list.  I just don't think we should be too quick
+to drop the goodness we are getting by staying close to upstream on
+wireless.  And in either event, we may need to find another monkey,
+because I've been finding it hard enough to keep-up with dumping
+patches to Fedora as-is.
+
+John
+-- 
+John W. Linville
+linville@redhat.com
