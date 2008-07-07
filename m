@@ -1,67 +1,94 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: Wrong padding of short packets send by a tagged-vlan interface?
-Date: Mon, 7 Jul 2008 23:29:12 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0807072307230.15459@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0807072210470.15459@bizon.gios.gov.pl>
- <4872854F.80603@candelatech.com>
+From: Olga Kornievskaia <aglo@citi.umich.edu>
+Subject: Re: setsockopt()
+Date: Mon, 07 Jul 2008 17:30:49 -0400
+Message-ID: <48728B09.1050801@citi.umich.edu>
+References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-182763743-1215466152=:15459"
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jim Rees <rees@umich.edu>,
+	"J. Bruce Fields" <bfields@fieldses.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:50022 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756749AbYGGV3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:29:21 -0400
-In-Reply-To: <4872854F.80603@candelatech.com>
+Received: from citi.umich.edu ([141.211.133.111]:19162 "EHLO citi.umich.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754648AbYGGVax (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 17:30:53 -0400
+In-Reply-To: <20080707142408.43aa2a2e@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----187430788-182763743-1215466152=:15459
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
-
-On Mon, 7 Jul 2008, Ben Greear wrote:
-
-> Krzysztof Oledzki wrote:
->> Hello,
->>=20
->> I have a problem that I'm not able to connect from selected linux hosts =
-to=20
->> a newly installed Netware 6.5 server. After two days of debugging I=20
->> discovered that the problem seems to be caused by an insufficient paddin=
-g=20
->> of a .1q tagged packets.
+Stephen Hemminger wrote:
+> On Mon, 07 Jul 2008 14:18:38 -0400
+> Olga Kornievskaia <aglo@citi.umich.edu> wrote:
 >
-> Last time this came up I looked up the RFC and according to it
-> there is no need to pad beyond the normal 60 + 4, vlan tag or
-> not.
+>   
+>> Hi,
+>>
+>>     I'd like to ask a question regarding socket options, more 
+>> specifically send and receive buffer sizes.
+>>
+>>     One simple question: (on the server-side) is it true that, to set 
+>> send/receive buffer size, setsockopt() can only be called before 
+>> listen()? From what I can tell, if I were to set socket options for the 
+>> listening socket, they get inherited by the socket created during the 
+>> accept(). However, when I try to change send/receive buffer size for the 
+>> new socket, they take no affect.
+>>
+>>     The server in question is the NFSD server in the kernel. NFSD's code 
+>> tries to adjust the buffer size (in order to have TCP increase the 
+>> window size appropriately) but it does so after the new socket is 
+>> created. It leads to the fact that the TCP window doesn't open beyond 
+>> the TCP's "default" sysctl value (that would be the 2nd value in the 
+>> triple net.ipv4.tcp_rmem, which on our system is set to 64KB). We 
+>> changed the code so that setsockopt() is called for the listening socket 
+>> is created and we set the buffer sizes to something bigger, like 8MB. 
+>> Then we try to increase the buffer size for each socket created by the 
+>> accept() but what is seen on the network trace is that window size 
+>> doesn't open beyond the values used for the listening socket.
+>>     
 >
-> This is a bug in your intervening switch and/or Netware unless you actual=
-ly=20
-> see packets
-> leaving Linux with less than 60 + 4 bytes.
+> It would be better if NFSD stayed out of doign setsockopt and just
+> let the sender/receiver autotuning work?
+>   
+Auto-tuning would be guided by the sysctl values that are set for all 
+applications. I could be wrong but what I see is that unless an 
+application does a setsockopt(), its window is bound by the default 
+sysctl value. If it is true, than it is not acceptable. It means that in 
+order for NFSD to achieve a large enough window it needs to modify TCP's 
+sysctl value which will effect all other applications.
 
-Rather a Broadcom Corporation NetXtreme II driver "feature" as AFAIK=20
-Netware 6.5 does not support .1Q natively and vlans are implemented=20
-directly in network drivers, especially that everything worked with a=20
-previous hardware (Intel 82541GI based).
-
-So yes, it may not be a Linux bug but it would be nice to make Linux more=
-=20
-compatible with such configurations, of course if that is possible. Please=
-=20
-also note that this problem does not exists with Netware<->Netware=20
-communication (both NetXtreme II<->NetXtreme II and 82541GI<->NetXtreme=20
-II) so it seems that both Intel and Broadcom supports the "extened"=20
-padding of .1Q packets in their Netware drivers.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-182763743-1215466152=:15459--
+>>     I looked around in the code. There is a variable called 
+>> "window_clamp" that seems to specifies the largest possible window 
+>> advertisement. window_clamp gets set during the creation of the accept 
+>> socket. At that time, it's value is based on the sk_rcvbuf of the 
+>> listening socket. Thus, that would explain the behavior that window 
+>> doesn't grow beyond the values used in setsockopt() for the listening 
+>> socket, even though the new socket has new (larger) sk_sndbuf and 
+>> sk_rcvbuf  than the listening socket.
+>>
+>>     I realize that send/receive buffer size and window advertisement are 
+>> different but they are related in the way that by telling TCP that we 
+>> have a certain amount of memory for socket operations, it should try to 
+>> open big enough window (provided that there is no congestion).
+>>
+>>     Can somebody advise us on how to properly set send/receive buffer 
+>> sizes for the NFSD in the kernel such that (1) the window is not bound 
+>> by the TCP's default sysctl value and (2) if it is possible to do so for 
+>> the accept sockets and not the listening socket.
+>>
+>>     I would appreciate if we could be CC-ed on the reply as we are not 
+>> subscribed to the netdev mailing list.
+>>
+>> Thank you.
+>>
+>> -Olga
+>>
+>>    
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>     
