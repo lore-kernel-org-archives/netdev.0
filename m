@@ -1,278 +1,665 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: vlan 05/07: move struct vlan_dev_info to private header
-Date: Mon,  7 Jul 2008 14:36:05 +0200 (MEST)
-Message-ID: <20080707123604.23947.90001.sendpatchset@localhost.localdomain>
+Subject: vlan 07/07: TCI related type and naming cleanups
+Date: Mon,  7 Jul 2008 14:36:08 +0200 (MEST)
+Message-ID: <20080707123607.23947.50965.sendpatchset@localhost.localdomain>
 References: <20080707123557.23947.70114.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59282 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59287 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbYGGMgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 08:36:07 -0400
+	with ESMTP id S1753507AbYGGMgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 08:36:10 -0400
 In-Reply-To: <20080707123557.23947.70114.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vlan: move struct vlan_dev_info to private header
+vlan: TCI related type and naming cleanups
 
-Hide struct vlan_dev_info from drivers to prevent them from growing
-more creative ways to use it. Provide accessors for the two drivers
-that currently use it.
+The VLAN code contains multiple spots that use tag, id and tci as
+identifiers for arguments and variables incorrectly and they actually
+contain or are expected to contain something different. Additionally
+types are used inconsistently (unsigned short vs u16) and identifiers
+are sometimes capitalized.
+
+- consistently use u16 for storing TCI, ID or QoS values
+- consistently use vlan_id and vlan_tci for storing the respective values
+- remove capitalization
+- add kdoc comment to netif_hwaccel_{rx,receive_skb}
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit b060b0baf74457b1a9e05e7b264be91a753477ee
-tree dd424a8b7481db49bb1160ea8b28c4115d2ad330
-parent f8a70bfd12e6421b2c98e19a475633fddb5d5a2a
-author Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:44 +0200
-committer Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:44 +0200
+commit 030f4ae9fb86661142f2dc12079077ae79ffc98e
+tree 59dcb702888222d4ccea79e241ed168976cd7335
+parent daeb32dc9028e7929568becc899169cd8ff3e6ad
+author Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:45 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 07 Jul 2008 14:26:45 +0200
 
- drivers/net/cxgb3/l2t.c         |    2 +
- drivers/s390/net/qeth_l3_main.c |    4 +--
- include/linux/if_vlan.h         |   56 ++++++++++-----------------------------
- net/8021q/vlan.c                |    4 +--
- net/8021q/vlan.h                |   50 ++++++++++++++++++++++++++++++++++-
- net/8021q/vlan_core.c           |   12 ++++++++
- net/8021q/vlan_dev.c            |    5 ---
- 7 files changed, 80 insertions(+), 53 deletions(-)
+ include/linux/if_vlan.h |   84 +++++++++++++++++++++++++++--------------------
+ net/8021q/vlan.c        |   34 +++++++++----------
+ net/8021q/vlan.h        |   19 +++++------
+ net/8021q/vlan_core.c   |    6 ++-
+ net/8021q/vlan_dev.c    |   47 +++++++++++++-------------
+ net/8021q/vlan_gvrp.c   |    8 ++--
+ 6 files changed, 103 insertions(+), 95 deletions(-)
 
-diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
-index f510140..825e510 100644
---- a/drivers/net/cxgb3/l2t.c
-+++ b/drivers/net/cxgb3/l2t.c
-@@ -337,7 +337,7 @@ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct neighbour *neigh,
- 		atomic_set(&e->refcnt, 1);
- 		neigh_replace(e, neigh);
- 		if (neigh->dev->priv_flags & IFF_802_1Q_VLAN)
--			e->vlan = vlan_dev_info(neigh->dev)->vlan_id;
-+			e->vlan = vlan_dev_vlan_id(neigh->dev);
- 		else
- 			e->vlan = VLAN_NONE;
- 		spin_unlock(&e->lock);
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 999552c..85be40a 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2020,7 +2020,7 @@ static int qeth_l3_verify_vlan_dev(struct net_device *dev,
- 		}
- 	}
- 
--	if (rc && !(netdev_priv(vlan_dev_info(dev)->real_dev) == (void *)card))
-+	if (rc && !(netdev_priv(vlan_dev_real_dev(dev)) == (void *)card))
- 		return 0;
- 
- 	return rc;
-@@ -2056,7 +2056,7 @@ static struct qeth_card *qeth_l3_get_card_from_dev(struct net_device *dev)
- 	if (rc == QETH_REAL_CARD)
- 		card = netdev_priv(dev);
- 	else if (rc == QETH_VLAN_CARD)
--		card = netdev_priv(vlan_dev_info(dev)->real_dev);
-+		card = netdev_priv(vlan_dev_real_dev(dev));
- 	if (card && card->options.layer2)
- 		card = NULL;
- 	QETH_DBF_TEXT_(TRACE, 4, "%d", rc);
 diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 594cd35..cb2e6b4 100644
+index 8e68b05..d36515d 100644
 --- a/include/linux/if_vlan.h
 +++ b/include/linux/if_vlan.h
-@@ -109,47 +109,6 @@ static inline void vlan_group_set_device(struct vlan_group *vg,
- 	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] = dev;
+@@ -87,7 +87,7 @@ struct vlan_group {
+ };
+ 
+ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
+-						       unsigned int vlan_id)
++						       u16 vlan_id)
+ {
+ 	struct net_device **array;
+ 	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
+@@ -95,7 +95,7 @@ static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
  }
  
--struct vlan_priority_tci_mapping {
--	u32 priority;
--	unsigned short vlan_qos; /* This should be shifted when first set, so we only do it
--				  * at provisioning time.
--				  * ((skb->priority << 13) & 0xE000)
--				  */
--	struct vlan_priority_tci_mapping *next;
--};
--
--/* Holds information that makes sense if this device is a VLAN device. */
--struct vlan_dev_info {
--	/** This will be the mapping that correlates skb->priority to
--	 * 3 bits of VLAN QOS tags...
--	 */
--	unsigned int nr_ingress_mappings;
--	u32 ingress_priority_map[8];
--
--	unsigned int nr_egress_mappings;
--	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
--
--	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
--	unsigned short flags;          /* (1 << 0) re_order_header   This option will cause the
--                                        *   VLAN code to move around the ethernet header on
--                                        *   ingress to make the skb look **exactly** like it
--                                        *   came in from an ethernet port.  This destroys some of
--                                        *   the VLAN information in the skb, but it fixes programs
--                                        *   like DHCP that use packet-filtering and don't understand
--                                        *   802.1Q
--                                        */
--	struct net_device *real_dev;    /* the underlying device/interface */
--	unsigned char real_dev_addr[ETH_ALEN];
--	struct proc_dir_entry *dent;    /* Holds the proc data */
--	unsigned long cnt_inc_headroom_on_tx; /* How many times did we have to grow the skb on TX. */
--	unsigned long cnt_encap_on_xmit;      /* How many times did we have to encapsulate the skb on TX. */
--};
--
--static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
--{
--	return netdev_priv(dev);
--}
--
- /* VLAN tx hw acceleration helpers. */
- struct vlan_skb_tx_cookie {
- 	u32	magic;
-@@ -163,9 +122,24 @@ struct vlan_skb_tx_cookie {
- #define vlan_tx_tag_get(__skb)	(VLAN_TX_SKB_CB(__skb)->vlan_tag)
- 
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-+extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
-+extern u16 vlan_dev_vlan_id(const struct net_device *dev);
-+
- extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 			     unsigned short vlan_tag, int polling);
- #else
-+static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
-+{
-+	BUG();
-+	return NULL;
-+}
-+
-+static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
-+{
-+	BUG();
-+	return 0;
-+}
-+
- static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 				    unsigned short vlan_tag, int polling)
+ static inline void vlan_group_set_device(struct vlan_group *vg,
+-					 unsigned int vlan_id,
++					 u16 vlan_id,
+ 					 struct net_device *dev)
  {
+ 	struct net_device **array;
+@@ -122,7 +122,7 @@ extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
+ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+ 
+ extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-			     unsigned short vlan_tag, int polling);
++			     u16 vlan_tci, int polling);
+ #else
+ static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+ {
+@@ -137,39 +137,51 @@ static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
+ }
+ 
+ static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-				    unsigned short vlan_tag, int polling)
++				    u16 vlan_tci, int polling)
+ {
+ 	BUG();
+ 	return NET_XMIT_SUCCESS;
+ }
+ #endif
+ 
++/**
++ * vlan_hwaccel_rx - netif_rx wrapper for VLAN RX acceleration
++ * @skb: buffer
++ * @grp: vlan group
++ * @vlan_tci: VLAN TCI as received from the card
++ */
+ static inline int vlan_hwaccel_rx(struct sk_buff *skb,
+ 				  struct vlan_group *grp,
+-				  unsigned short vlan_tag)
++				  u16 vlan_tci)
+ {
+-	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 0);
++	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 0);
+ }
+ 
++/**
++ * vlan_hwaccel_receive_skb - netif_receive_skb wrapper for VLAN RX acceleration
++ * @skb: buffer
++ * @grp: vlan group
++ * @vlan_tci: VLAN TCI as received from the card
++ */
+ static inline int vlan_hwaccel_receive_skb(struct sk_buff *skb,
+ 					   struct vlan_group *grp,
+-					   unsigned short vlan_tag)
++					   u16 vlan_tci)
+ {
+-	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
++	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 1);
+ }
+ 
+ /**
+  * __vlan_put_tag - regular VLAN tag inserting
+  * @skb: skbuff to tag
+- * @tag: VLAN tag to insert
++ * @vlan_tci: VLAN TCI to insert
+  *
+  * Inserts the VLAN tag into @skb as part of the payload
+  * Returns a VLAN tagged skb. If a new skb is created, @skb is freed.
+- * 
++ *
+  * Following the skb_unshare() example, in case of error, the calling function
+  * doesn't have to worry about freeing the original skb.
+  */
+-static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
++static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, u16 vlan_tci)
+ {
+ 	struct vlan_ethhdr *veth;
+ 
+@@ -197,8 +209,8 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short
+ 	/* first, the ethernet type */
+ 	veth->h_vlan_proto = htons(ETH_P_8021Q);
+ 
+-	/* now, the tag */
+-	veth->h_vlan_TCI = htons(tag);
++	/* now, the TCI */
++	veth->h_vlan_TCI = htons(vlan_tci);
+ 
+ 	skb->protocol = htons(ETH_P_8021Q);
+ 
+@@ -208,17 +220,18 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short
+ /**
+  * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
+  * @skb: skbuff to tag
+- * @tag: VLAN tag to insert
++ * @vlan_tci: VLAN TCI to insert
+  *
+- * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
++ * Puts the VLAN TCI in @skb->cb[] and lets the device do the rest
+  */
+-static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
++static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb,
++						     u16 vlan_tci)
+ {
+ 	struct vlan_skb_tx_cookie *cookie;
+ 
+ 	cookie = VLAN_TX_SKB_CB(skb);
+ 	cookie->magic = VLAN_TX_COOKIE_MAGIC;
+-	cookie->vlan_tag = tag;
++	cookie->vlan_tag = vlan_tci;
+ 
+ 	return skb;
+ }
+@@ -228,28 +241,28 @@ static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsign
+ /**
+  * vlan_put_tag - inserts VLAN tag according to device features
+  * @skb: skbuff to tag
+- * @tag: VLAN tag to insert
++ * @vlan_tci: VLAN TCI to insert
+  *
+  * Assumes skb->dev is the target that will xmit this frame.
+  * Returns a VLAN tagged skb.
+  */
+-static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb, unsigned short tag)
++static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb, u16 vlan_tci)
+ {
+ 	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
+-		return __vlan_hwaccel_put_tag(skb, tag);
++		return __vlan_hwaccel_put_tag(skb, vlan_tci);
+ 	} else {
+-		return __vlan_put_tag(skb, tag);
++		return __vlan_put_tag(skb, vlan_tci);
+ 	}
+ }
+ 
+ /**
+  * __vlan_get_tag - get the VLAN ID that is part of the payload
+  * @skb: skbuff to query
+- * @tag: buffer to store vlaue
+- * 
++ * @vlan_tci: buffer to store vlaue
++ *
+  * Returns error if the skb is not of VLAN type
+  */
+-static inline int __vlan_get_tag(const struct sk_buff *skb, unsigned short *tag)
++static inline int __vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
+ {
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
+ 
+@@ -257,29 +270,28 @@ static inline int __vlan_get_tag(const struct sk_buff *skb, unsigned short *tag)
+ 		return -EINVAL;
+ 	}
+ 
+-	*tag = ntohs(veth->h_vlan_TCI);
+-
++	*vlan_tci = ntohs(veth->h_vlan_TCI);
+ 	return 0;
+ }
+ 
+ /**
+  * __vlan_hwaccel_get_tag - get the VLAN ID that is in @skb->cb[]
+  * @skb: skbuff to query
+- * @tag: buffer to store vlaue
+- * 
++ * @vlan_tci: buffer to store vlaue
++ *
+  * Returns error if @skb->cb[] is not set correctly
+  */
+ static inline int __vlan_hwaccel_get_tag(const struct sk_buff *skb,
+-					 unsigned short *tag)
++					 u16 *vlan_tci)
+ {
+ 	struct vlan_skb_tx_cookie *cookie;
+ 
+ 	cookie = VLAN_TX_SKB_CB(skb);
+ 	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
+-		*tag = cookie->vlan_tag;
++		*vlan_tci = cookie->vlan_tag;
+ 		return 0;
+ 	} else {
+-		*tag = 0;
++		*vlan_tci = 0;
+ 		return -EINVAL;
+ 	}
+ }
+@@ -289,16 +301,16 @@ static inline int __vlan_hwaccel_get_tag(const struct sk_buff *skb,
+ /**
+  * vlan_get_tag - get the VLAN ID from the skb
+  * @skb: skbuff to query
+- * @tag: buffer to store vlaue
+- * 
++ * @vlan_tci: buffer to store vlaue
++ *
+  * Returns error if the skb is not VLAN tagged
+  */
+-static inline int vlan_get_tag(const struct sk_buff *skb, unsigned short *tag)
++static inline int vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
+ {
+ 	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
+-		return __vlan_hwaccel_get_tag(skb, tag);
++		return __vlan_hwaccel_get_tag(skb, vlan_tci);
+ 	} else {
+-		return __vlan_get_tag(skb, tag);
++		return __vlan_get_tag(skb, vlan_tci);
+ 	}
+ }
+ 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 8141e2d..7a2625d 100644
+index 7a2625d..68bdcf4 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -543,7 +543,6 @@ static struct notifier_block vlan_notifier_block __read_mostly = {
- static int vlan_ioctl_handler(struct net *net, void __user *arg)
+@@ -83,13 +83,12 @@ static struct vlan_group *__vlan_find_group(struct net_device *real_dev)
+  *
+  * Must be invoked with RCU read lock (no preempt)
+  */
+-struct net_device *__find_vlan_dev(struct net_device *real_dev,
+-				   unsigned short VID)
++struct net_device *__find_vlan_dev(struct net_device *real_dev, u16 vlan_id)
  {
- 	int err;
--	unsigned short vid = 0;
- 	struct vlan_ioctl_args args;
- 	struct net_device *dev = NULL;
+ 	struct vlan_group *grp = __vlan_find_group(real_dev);
  
-@@ -644,8 +643,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+ 	if (grp)
+-		return vlan_group_get_device(grp, VID);
++		return vlan_group_get_device(grp, vlan_id);
  
- 	case GET_VLAN_VID_CMD:
- 		err = 0;
--		vlan_dev_get_vid(dev, &vid);
--		args.u.VID = vid;
-+		args.u.VID = vlan_dev_vlan_id(dev);
- 		if (copy_to_user(arg, &args,
- 				 sizeof(struct vlan_ioctl_args)))
- 		      err = -EFAULT;
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index 7cc1a97..14c421e 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -3,6 +3,55 @@
- 
- #include <linux/if_vlan.h>
- 
-+
-+/**
-+ *	struct vlan_priority_tci_mapping - vlan egress priority mappings
-+ *	@priority: skb priority
-+ *	@vlan_qos: vlan priority: (skb->priority << 13) & 0xE000
-+ *	@next: pointer to next struct
-+ */
-+struct vlan_priority_tci_mapping {
-+	u32					priority;
-+	unsigned short				vlan_qos;
-+	struct vlan_priority_tci_mapping	*next;
-+};
-+
-+/**
-+ *	struct vlan_dev_info - VLAN private device data
-+ *	@nr_ingress_mappings: number of ingress priority mappings
-+ *	@ingress_priority_map: ingress priority mappings
-+ *	@nr_egress_mappings: number of egress priority mappings
-+ *	@egress_priority_map: hash of egress priority mappings
-+ *	@vlan_id: VLAN identifier
-+ *	@flags: device flags
-+ *	@real_dev: underlying netdevice
-+ *	@real_dev_addr: address of underlying netdevice
-+ *	@dent: proc dir entry
-+ *	@cnt_inc_headroom_on_tx: statistic - number of skb expansions on TX
-+ *	@cnt_encap_on_xmit: statistic - number of skb encapsulations on TX
-+ */
-+struct vlan_dev_info {
-+	unsigned int				nr_ingress_mappings;
-+	u32					ingress_priority_map[8];
-+	unsigned int				nr_egress_mappings;
-+	struct vlan_priority_tci_mapping	*egress_priority_map[16];
-+
-+	unsigned short				vlan_id;
-+	unsigned short				flags;
-+
-+	struct net_device			*real_dev;
-+	unsigned char				real_dev_addr[ETH_ALEN];
-+
-+	struct proc_dir_entry			*dent;
-+	unsigned long				cnt_inc_headroom_on_tx;
-+	unsigned long				cnt_encap_on_xmit;
-+};
-+
-+static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
-+{
-+	return netdev_priv(dev);
-+}
-+
- #define VLAN_GRP_HASH_SHIFT	5
- #define VLAN_GRP_HASH_SIZE	(1 << VLAN_GRP_HASH_SHIFT)
- #define VLAN_GRP_HASH_MASK	(VLAN_GRP_HASH_SIZE - 1)
-@@ -30,7 +79,6 @@ int vlan_dev_set_egress_priority(const struct net_device *dev,
- 				 u32 skb_prio, short vlan_prio);
- int vlan_dev_change_flags(const struct net_device *dev, u32 flag, u32 mask);
- void vlan_dev_get_realdev_name(const struct net_device *dev, char *result);
--void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result);
- 
- int vlan_check_real_dev(struct net_device *real_dev, unsigned short vlan_id);
- void vlan_setup(struct net_device *dev);
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index a6c249c..4daabc2 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -46,3 +46,15 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
+ 	return NULL;
  }
- EXPORT_SYMBOL(__vlan_hwaccel_rx);
-+
-+struct net_device *vlan_dev_real_dev(const struct net_device *dev)
-+{
-+	return vlan_dev_info(dev)->real_dev;
-+}
-+EXPORT_SYMBOL_GPL(vlan_dev_real_dev);
-+
-+u16 vlan_dev_vlan_id(const struct net_device *dev)
-+{
-+	return vlan_dev_info(dev)->vlan_id;
-+}
-+EXPORT_SYMBOL_GPL(vlan_dev_vlan_id);
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 722697d..2aab294 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -531,11 +531,6 @@ void vlan_dev_get_realdev_name(const struct net_device *dev, char *result)
- 	strncpy(result, vlan_dev_info(dev)->real_dev->name, 23);
+@@ -117,14 +116,14 @@ static struct vlan_group *vlan_group_alloc(struct net_device *real_dev)
+ 	return grp;
  }
  
--void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result)
--{
--	*result = vlan_dev_info(dev)->vlan_id;
--}
--
- static int vlan_dev_open(struct net_device *dev)
+-static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
++static int vlan_group_prealloc_vid(struct vlan_group *vg, u16 vlan_id)
+ {
+ 	struct net_device **array;
+ 	unsigned int size;
+ 
+ 	ASSERT_RTNL();
+ 
+-	array = vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN];
++	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
+ 	if (array != NULL)
+ 		return 0;
+ 
+@@ -133,7 +132,7 @@ static int vlan_group_prealloc_vid(struct vlan_group *vg, int vid)
+ 	if (array == NULL)
+ 		return -ENOBUFS;
+ 
+-	vg->vlan_devices_arrays[vid / VLAN_GROUP_ARRAY_PART_LEN] = array;
++	vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN] = array;
+ 	return 0;
+ }
+ 
+@@ -147,7 +146,7 @@ void unregister_vlan_dev(struct net_device *dev)
+ 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 	struct net_device *real_dev = vlan->real_dev;
+ 	struct vlan_group *grp;
+-	unsigned short vlan_id = vlan->vlan_id;
++	u16 vlan_id = vlan->vlan_id;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -205,7 +204,7 @@ static void vlan_transfer_operstate(const struct net_device *dev,
+ 	}
+ }
+ 
+-int vlan_check_real_dev(struct net_device *real_dev, unsigned short vlan_id)
++int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	char *name = real_dev->name;
+ 
+@@ -242,7 +241,7 @@ int register_vlan_dev(struct net_device *dev)
  {
  	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 	struct net_device *real_dev = vlan->real_dev;
+-	unsigned short vlan_id = vlan->vlan_id;
++	u16 vlan_id = vlan->vlan_id;
+ 	struct vlan_group *grp, *ngrp = NULL;
+ 	int err;
+ 
+@@ -295,8 +294,7 @@ out_free_group:
+ /*  Attach a VLAN device to a mac address (ie Ethernet Card).
+  *  Returns 0 if the device was created or a negative error code otherwise.
+  */
+-static int register_vlan_device(struct net_device *real_dev,
+-				unsigned short VLAN_ID)
++static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	struct net_device *new_dev;
+ 	struct net *net = dev_net(real_dev);
+@@ -304,10 +302,10 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	char name[IFNAMSIZ];
+ 	int err;
+ 
+-	if (VLAN_ID >= VLAN_VID_MASK)
++	if (vlan_id >= VLAN_VID_MASK)
+ 		return -ERANGE;
+ 
+-	err = vlan_check_real_dev(real_dev, VLAN_ID);
++	err = vlan_check_real_dev(real_dev, vlan_id);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -315,26 +313,26 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	switch (vn->name_type) {
+ 	case VLAN_NAME_TYPE_RAW_PLUS_VID:
+ 		/* name will look like:	 eth1.0005 */
+-		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, VLAN_ID);
++		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, vlan_id);
+ 		break;
+ 	case VLAN_NAME_TYPE_PLUS_VID_NO_PAD:
+ 		/* Put our vlan.VID in the name.
+ 		 * Name will look like:	 vlan5
+ 		 */
+-		snprintf(name, IFNAMSIZ, "vlan%i", VLAN_ID);
++		snprintf(name, IFNAMSIZ, "vlan%i", vlan_id);
+ 		break;
+ 	case VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD:
+ 		/* Put our vlan.VID in the name.
+ 		 * Name will look like:	 eth0.5
+ 		 */
+-		snprintf(name, IFNAMSIZ, "%s.%i", real_dev->name, VLAN_ID);
++		snprintf(name, IFNAMSIZ, "%s.%i", real_dev->name, vlan_id);
+ 		break;
+ 	case VLAN_NAME_TYPE_PLUS_VID:
+ 		/* Put our vlan.VID in the name.
+ 		 * Name will look like:	 vlan0005
+ 		 */
+ 	default:
+-		snprintf(name, IFNAMSIZ, "vlan%.4i", VLAN_ID);
++		snprintf(name, IFNAMSIZ, "vlan%.4i", vlan_id);
+ 	}
+ 
+ 	new_dev = alloc_netdev(sizeof(struct vlan_dev_info), name,
+@@ -349,7 +347,7 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	 */
+ 	new_dev->mtu = real_dev->mtu;
+ 
+-	vlan_dev_info(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
++	vlan_dev_info(new_dev)->vlan_id = vlan_id;
+ 	vlan_dev_info(new_dev)->real_dev = real_dev;
+ 	vlan_dev_info(new_dev)->dent = NULL;
+ 	vlan_dev_info(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 14c421e..a6603a4 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -12,7 +12,7 @@
+  */
+ struct vlan_priority_tci_mapping {
+ 	u32					priority;
+-	unsigned short				vlan_qos;
++	u16					vlan_qos;
+ 	struct vlan_priority_tci_mapping	*next;
+ };
+ 
+@@ -36,8 +36,8 @@ struct vlan_dev_info {
+ 	unsigned int				nr_egress_mappings;
+ 	struct vlan_priority_tci_mapping	*egress_priority_map[16];
+ 
+-	unsigned short				vlan_id;
+-	unsigned short				flags;
++	u16					vlan_id;
++	u16					flags;
+ 
+ 	struct net_device			*real_dev;
+ 	unsigned char				real_dev_addr[ETH_ALEN];
+@@ -67,30 +67,29 @@ static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
+  *  Must be invoked with rcu_read_lock (ie preempt disabled)
+  *  or with RTNL.
+  */
+-struct net_device *__find_vlan_dev(struct net_device *real_dev,
+-				   unsigned short VID); /* vlan.c */
++struct net_device *__find_vlan_dev(struct net_device *real_dev, u16 vlan_id);
+ 
+ /* found in vlan_dev.c */
+ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		  struct packet_type *ptype, struct net_device *orig_dev);
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+-				   u32 skb_prio, short vlan_prio);
++				   u32 skb_prio, u16 vlan_prio);
+ int vlan_dev_set_egress_priority(const struct net_device *dev,
+-				 u32 skb_prio, short vlan_prio);
++				 u32 skb_prio, u16 vlan_prio);
+ int vlan_dev_change_flags(const struct net_device *dev, u32 flag, u32 mask);
+ void vlan_dev_get_realdev_name(const struct net_device *dev, char *result);
+ 
+-int vlan_check_real_dev(struct net_device *real_dev, unsigned short vlan_id);
++int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id);
+ void vlan_setup(struct net_device *dev);
+ int register_vlan_dev(struct net_device *dev);
+ void unregister_vlan_dev(struct net_device *dev);
+ 
+ static inline u32 vlan_get_ingress_priority(struct net_device *dev,
+-					    unsigned short vlan_tag)
++					    u16 vlan_tci)
+ {
+ 	struct vlan_dev_info *vip = vlan_dev_info(dev);
+ 
+-	return vip->ingress_priority_map[(vlan_tag >> 13) & 0x7];
++	return vip->ingress_priority_map[(vlan_tci >> 13) & 0x7];
+ }
+ 
+ #ifdef CONFIG_VLAN_8021Q_GVRP
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 4daabc2..2bec74c 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -5,7 +5,7 @@
+ 
+ /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
+ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-		      unsigned short vlan_tag, int polling)
++		      u16 vlan_tci, int polling)
+ {
+ 	struct net_device_stats *stats;
+ 
+@@ -14,7 +14,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 		return NET_RX_DROP;
+ 	}
+ 
+-	skb->dev = vlan_group_get_device(grp, vlan_tag & VLAN_VID_MASK);
++	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+ 	if (skb->dev == NULL) {
+ 		dev_kfree_skb_any(skb);
+ 		/* Not NET_RX_DROP, this is not being dropped
+@@ -27,7 +27,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += skb->len;
+ 
+-	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
++	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tci);
+ 	switch (skb->pkt_type) {
+ 	case PACKET_BROADCAST:
+ 		break;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 2aab294..2ccac6b 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -150,9 +150,9 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		  struct packet_type *ptype, struct net_device *orig_dev)
+ {
+ 	struct vlan_hdr *vhdr;
+-	unsigned short vid;
+ 	struct net_device_stats *stats;
+-	unsigned short vlan_TCI;
++	u16 vlan_id;
++	u16 vlan_tci;
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (skb == NULL)
+@@ -162,14 +162,14 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_free;
+ 
+ 	vhdr = (struct vlan_hdr *)skb->data;
+-	vlan_TCI = ntohs(vhdr->h_vlan_TCI);
+-	vid = (vlan_TCI & VLAN_VID_MASK);
++	vlan_tci = ntohs(vhdr->h_vlan_TCI);
++	vlan_id = vlan_tci & VLAN_VID_MASK;
+ 
+ 	rcu_read_lock();
+-	skb->dev = __find_vlan_dev(dev, vid);
++	skb->dev = __find_vlan_dev(dev, vlan_id);
+ 	if (!skb->dev) {
+ 		pr_debug("%s: ERROR: No net_device for VID: %u on dev: %s\n",
+-			 __func__, (unsigned int)vid, dev->name);
++			 __func__, vlan_id, dev->name);
+ 		goto err_unlock;
+ 	}
+ 
+@@ -181,11 +181,10 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	skb_pull_rcsum(skb, VLAN_HLEN);
+ 
+-	skb->priority = vlan_get_ingress_priority(skb->dev,
+-						  ntohs(vhdr->h_vlan_TCI));
++	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tci);
+ 
+ 	pr_debug("%s: priority: %u for TCI: %hu\n",
+-		 __func__, skb->priority, ntohs(vhdr->h_vlan_TCI));
++		 __func__, skb->priority, vlan_tci);
+ 
+ 	switch (skb->pkt_type) {
+ 	case PACKET_BROADCAST: /* Yeah, stats collect these together.. */
+@@ -228,7 +227,7 @@ err_free:
+ 	return NET_RX_DROP;
+ }
+ 
+-static inline unsigned short
++static inline u16
+ vlan_dev_get_egress_qos_mask(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct vlan_priority_tci_mapping *mp;
+@@ -260,7 +259,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				unsigned int len)
+ {
+ 	struct vlan_hdr *vhdr;
+-	unsigned short veth_TCI = 0;
++	u16 vlan_tci = 0;
+ 	int rc = 0;
+ 	int build_vlan_header = 0;
+ 	struct net_device *vdev = dev;
+@@ -292,10 +291,10 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 		 * VLAN ID	 12 bits (low bits)
+ 		 *
+ 		 */
+-		veth_TCI = vlan_dev_info(dev)->vlan_id;
+-		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
++		vlan_tci = vlan_dev_info(dev)->vlan_id;
++		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 
+-		vhdr->h_vlan_TCI = htons(veth_TCI);
++		vhdr->h_vlan_TCI = htons(vlan_tci);
+ 
+ 		/*
+ 		 *  Set the protocol type. For a packet of type ETH_P_802_3 we
+@@ -373,7 +372,7 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
+ 		vlan_dev_info(dev)->flags & VLAN_FLAG_REORDER_HDR) {
+ 		int orig_headroom = skb_headroom(skb);
+-		unsigned short veth_TCI;
++		u16 vlan_tci;
+ 
+ 		/* This is not a VLAN frame...but we can fix that! */
+ 		vlan_dev_info(dev)->cnt_encap_on_xmit++;
+@@ -386,10 +385,10 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		 * CFI		 1 bit
+ 		 * VLAN ID	 12 bits (low bits)
+ 		 */
+-		veth_TCI = vlan_dev_info(dev)->vlan_id;
+-		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
++		vlan_tci = vlan_dev_info(dev)->vlan_id;
++		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 
+-		skb = __vlan_put_tag(skb, veth_TCI);
++		skb = __vlan_put_tag(skb, vlan_tci);
+ 		if (!skb) {
+ 			stats->tx_dropped++;
+ 			return 0;
+@@ -422,7 +421,7 @@ static int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = &dev->stats;
+-	unsigned short veth_TCI;
++	u16 vlan_tci;
+ 
+ 	/* Construct the second two bytes. This field looks something
+ 	 * like:
+@@ -430,9 +429,9 @@ static int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+ 	 * CFI		 1 bit
+ 	 * VLAN ID	 12 bits (low bits)
+ 	 */
+-	veth_TCI = vlan_dev_info(dev)->vlan_id;
+-	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
+-	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
++	vlan_tci = vlan_dev_info(dev)->vlan_id;
++	vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
++	skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
+ 
+ 	stats->tx_packets++;
+ 	stats->tx_bytes += skb->len;
+@@ -457,7 +456,7 @@ static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
+ }
+ 
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+-				   u32 skb_prio, short vlan_prio)
++				   u32 skb_prio, u16 vlan_prio)
+ {
+ 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 
+@@ -470,7 +469,7 @@ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+ }
+ 
+ int vlan_dev_set_egress_priority(const struct net_device *dev,
+-				 u32 skb_prio, short vlan_prio)
++				 u32 skb_prio, u16 vlan_prio)
+ {
+ 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 	struct vlan_priority_tci_mapping *mp = NULL;
+diff --git a/net/8021q/vlan_gvrp.c b/net/8021q/vlan_gvrp.c
+index db97816..061cece 100644
+--- a/net/8021q/vlan_gvrp.c
++++ b/net/8021q/vlan_gvrp.c
+@@ -30,19 +30,19 @@ static struct garp_application vlan_gvrp_app __read_mostly = {
+ int vlan_gvrp_request_join(const struct net_device *dev)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	__be16 vid = htons(vlan->vlan_id);
++	__be16 vlan_id = htons(vlan->vlan_id);
+ 
+ 	return garp_request_join(vlan->real_dev, &vlan_gvrp_app,
+-				 &vid, sizeof(vid), GVRP_ATTR_VID);
++				 &vlan_id, sizeof(vlan_id), GVRP_ATTR_VID);
+ }
+ 
+ void vlan_gvrp_request_leave(const struct net_device *dev)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	__be16 vid = htons(vlan->vlan_id);
++	__be16 vlan_id = htons(vlan->vlan_id);
+ 
+ 	garp_request_leave(vlan->real_dev, &vlan_gvrp_app,
+-			   &vid, sizeof(vid), GVRP_ATTR_VID);
++			   &vlan_id, sizeof(vlan_id), GVRP_ATTR_VID);
+ }
+ 
+ int vlan_gvrp_init_applicant(struct net_device *dev)
