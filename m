@@ -1,48 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: v3 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
-Date: Mon, 07 Jul 2008 15:26:28 +0200
-Message-ID: <48721984.8060202@trash.net>
-References: <48718014.4030009@cn.fujitsu.com> <4871814A.2070707@cn.fujitsu.com> <4871FBFC.2050408@trash.net> <48721780.9060103@cn.fujitsu.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next-2.6 2008-07-02
+Date: Mon, 7 Jul 2008 09:15:02 -0400
+Message-ID: <20080707131502.GD5457@tuxdriver.com>
+References: <20080630215651.GA666@tuxdriver.com> <20080702193710.GA4682@tuxdriver.com> <20080702202653.GA10719@tuxdriver.com> <20080705.214752.85024966.davem@davemloft.net> <1ba2fa240807060007i572d054va60aa16b41cadce3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tomas Winkler <tomasw@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60590 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbYGGN0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 09:26:32 -0400
-In-Reply-To: <48721780.9060103@cn.fujitsu.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4408 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804AbYGGNiE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2008 09:38:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1ba2fa240807060007i572d054va60aa16b41cadce3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-> Patrick McHardy said the following on 2008-7-7 19:20:
->>> @@ -627,13 +633,14 @@ static int mif6_add(struct mif6ctl *vifc, int
->>> mrtsock)
->>>          if (!dev)
->>>              return -EADDRNOTAVAIL;
->>>          dev_put(dev);
->>> +        err = dev_set_allmulti(dev, 1);
->>> +        if (err)
->>> +            return err;
->> The use of dev after putting it looks wrong, but thats already
->> present before your patch. So ACK for your patch, but we need
->> a fix on top.
->>
+On Sun, Jul 06, 2008 at 10:07:42AM +0300, Tomas Winkler wrote:
+> On Sun, Jul 6, 2008 at 7:47 AM, David Miller <davem@davemloft.net> wrote:
+> > From: "John W. Linville" <linville@tuxdriver.com>
+> > Date: Wed, 2 Jul 2008 16:26:53 -0400
+> >
+> >> Here is another slew of updates for 2.6.27.  The bulk of this batch is
+> >> for iwlwifi, with some mac80211 and other bits thrown-in.
+> >>
+> >> Let me know if there are problems!
+> >
+> > Pulled and pushed back out to net-next-2.6, thanks.
+> >
+> > Here are some warnings I noticed during an allmodconfig build
+> > on sparc64, please fix:
+> >
+> > drivers/net/wireless/hostap/hostap_hw.c:3422: warning: 'prism2_suspend' defined but not used
+> > drivers/net/wireless/iwlwifi/iwl-rfkill.c:114: warning: label 'freed_rfkill' defined but not used
 > 
-> Wait a moment :)
-> ---
-> 	case 0:
-> 		dev = dev_get_by_index(&init_net, vifc->mif6c_pifi);
-> 		if (!dev)
-> 			return -EADDRNOTAVAIL;
-> 		dev_put(dev);
-> ---
-> dev_get_by_index() holds the dev, so I think dev_put() just for hold/put
-> balance.
+> John what happened to to those patches?
+> http://marc.info/?l=linux-wireless&m=121489830307988&w=2
+> http://marc.info/?l=linux-wireless&m=121481826531792&w=2
 
-Sure, but its used after dropping the reference again.
+They were posted after this round of patches.  I still have them.
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
