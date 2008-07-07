@@ -1,56 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 07 Jul 2008 13:48:32 -0700 (PDT)
-Message-ID: <20080707.134832.189558582.davem@davemloft.net>
-References: <20080707191359.11f6297f@the-village.bc.nu>
-	<48726734.7080601@garzik.org>
-	<20080707193008.17795d61@the-village.bc.nu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC PATCH 0/2] Allow full bridge configuration via sysfs
+Date: Mon, 07 Jul 2008 22:50:38 +0200
+Message-ID: <4872819E.3040604@trash.net>
+References: <cover.1215460681.git.notting@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bill Nottingham <notting@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42006
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755994AbYGGUsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:48:32 -0400
-In-Reply-To: <20080707193008.17795d61@the-village.bc.nu>
+Received: from stinky.trash.net ([213.144.137.162]:38142 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755827AbYGGUul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 16:50:41 -0400
+In-Reply-To: <cover.1215460681.git.notting@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Mon, 7 Jul 2008 19:30:08 +0100
+Bill Nottingham wrote:
+> Right now, you can configure most bridge device parameters via sysfs.
+> However, you cannot either:
+> - add or remove bridge interfaces
+> - add or remove physical interfaces from a bridge
+> 
+> The attached patch set rectifies this. With this patch set, brctl
+> (theoretically) becomes completely optional, much like ifenslave is
+> now for bonding. (In fact, the idea for this patch, and the syntax
+> used herein, is inspired by the sysfs bonding configuration.)
 
-> I don't see why it should be David's job to add every conceivable feature
-> to the code.
-
-David's changes prevent something from working, which works today.
-
-Usually we refer to that as a regression.
-
-And usually, we rely on the patch author to fix regressions they add,
-and failing that we revert their work.
-
-Bringing up this SATA scarecrow and trying to make Jeff look
-inconsistent is not winning your arguments any extra points.
-Especially not with me.
-
-You also mentioned something about how similar arguments as ours
-were made when modules were proposed as a feature.  Well, I can
-say only two things about that:
-
-1) I could still build a static kernel image and use it as-is after
-   the changes to support modules were added to the kernel.  In fact I
-   still largely do not use modules at all during my own kernel work.
-
-   This is completely unlike what David is doing here, where the
-   previous status quo will cease working.
-
-2) You cannot deny the fine mess we have with proprietary modules and
-   such these days.  It has been quite the pandora's box over time.
+Both should use netlink instead of extending their sysfs interfaces.
+For bridging I have a patch for the bridge device itself, the API
+is so far missing support for adding ports though.
 
