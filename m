@@ -1,32 +1,59 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 7 Jul 2008 21:42:18 +0100
-Message-ID: <20080707214218.055bcb35@the-village.bc.nu>
-References: <20080707191359.11f6297f@the-village.bc.nu>
-	<48726734.7080601@garzik.org>
-	<20080707193008.17795d61@the-village.bc.nu>
-	<20080707.134832.189558582.davem@davemloft.net>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 00/06]: VLAN TCI truncation fixes
+Date: Mon, 7 Jul 2008 14:16:13 -0700
+Message-ID: <9929d2390807071416g1f688affg37230dfd2786bac@mail.gmail.com>
+References: <48714BA3.3080102@trash.net> <4871769E.2020305@garzik.org>
+	 <48717B49.1060804@trash.net>
+	 <20080706.204902.245651270.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: kaber@trash.net, jeff@garzik.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, ionut@cs.columbia.edu,
+	baum@tehutinetworks.net, andy@greyhouse.net
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:43227 "EHLO
-	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756074AbYGGVPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:15:47 -0400
-In-Reply-To: <20080707.134832.189558582.davem@davemloft.net>
+Received: from yx-out-2324.google.com ([74.125.44.29]:53847 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756710AbYGGVQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:16:15 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so518363yxm.1
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2008 14:16:14 -0700 (PDT)
+In-Reply-To: <20080706.204902.245651270.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 2) You cannot deny the fine mess we have with proprietary modules and
->    such these days.  It has been quite the pandora's box over time.
+On Sun, Jul 6, 2008 at 8:49 PM, David Miller <davem@davemloft.net> wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 07 Jul 2008 04:11:21 +0200
+>
+>> Jeff Garzik wrote:
+>> > Patrick McHardy wrote:
+>> >>      e1000: don't truncate VLAN TCI with VLAN stripping
+>> >>      e1000e: don't truncate VLAN TCI with VLAN stripping
+>> >>      igb: don't truncate VLAN TCI with VLAN stripping
+>> >>      ixgb: don't truncate VLAN TCI with VLAN stripping
+>> >>      starfire: don't truncate VLAN TCI with VLAN stripping
+>> >>      tehuti: don't truncate VLAN TCI with VLAN stripping
+>> >
+>> > Acked-by: Jeff Garzik <jgarzik@redhat.com>
+>> Thanks.
+>> >
+>> > Though I would suggest combining all these patches into a single
+>> > patch, since they constitute a single logical change, and each change
+>> > is self-contained and small.
+>>
+>> Attached is a combined patch with these 6 patches.
+>
+> Applied, thanks everyone.
+>
 
-You seem to be trying to conflate legal and technical issues here.
+Although it appears to be to late, since Dave has already pulled these in.
 
-Alan
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+-- 
+Cheers,
+Jeff
