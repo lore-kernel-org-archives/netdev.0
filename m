@@ -1,34 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Sun, 06 Jul 2008 18:22:43 -0700 (PDT)
-Message-ID: <20080706.182243.65603166.davem@davemloft.net>
-References: <20080706130801.6bc36cf7@infradead.org>
-	<20080706.155318.46569612.davem@davemloft.net>
-	<20080706180842.36cc0b1c@extreme>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 00/06]: VLAN TCI truncation fixes
+Date: Sun, 06 Jul 2008 21:51:26 -0400
+Message-ID: <4871769E.2020305@garzik.org>
+References: <48714BA3.3080102@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: arjan@infradead.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	john.ronciak@intel.com, ionut@cs.columbia.edu,
+	baum@tehutinetworks.net, andy@greyhouse.net
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41212
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757501AbYGGBWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2008 21:22:43 -0400
-In-Reply-To: <20080706180842.36cc0b1c@extreme>
+Received: from srv5.dvmed.net ([207.36.208.214]:37048 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750827AbYGGBvd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jul 2008 21:51:33 -0400
+In-Reply-To: <48714BA3.3080102@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sun, 6 Jul 2008 18:08:42 -0700
+Patrick McHardy wrote:
+> These patches fix all drivers supporting VLAN header stripping to
+> pass the complete VLAN TCI to vlan_hwaccel_{rx,receive_skb} instead
+> of just the VID. The upper three bits contain the priority and are
+> used for ingress priority mappings.
+> 
+> The e1000 patch is runtime tested, the others only compile tested.
+> 
+> 
+> drivers/net/e1000/e1000_main.c |   12 ++++--------
+> drivers/net/e1000e/netdev.c    |    3 +--
+> drivers/net/igb/igb_main.c     |    3 +--
+> drivers/net/ixgb/ixgb_main.c   |    6 ++----
+> drivers/net/starfire.c         |    2 +-
+> drivers/net/tehuti.c           |    2 +-
+> drivers/net/tehuti.h           |    1 +
+> 7 files changed, 11 insertions(+), 18 deletions(-)
+> 
+> Patrick McHardy (6):
+>      e1000: don't truncate VLAN TCI with VLAN stripping
+>      e1000e: don't truncate VLAN TCI with VLAN stripping
+>      igb: don't truncate VLAN TCI with VLAN stripping
+>      ixgb: don't truncate VLAN TCI with VLAN stripping
+>      starfire: don't truncate VLAN TCI with VLAN stripping
+>      tehuti: don't truncate VLAN TCI with VLAN stripping
 
-> For consistency each call through ethtool_ops should
-> be holding rtnl mutex. And since dev_watchdog is a timer routine,
-> it is not safe to acquire a mutex there.
+Acked-by: Jeff Garzik <jgarzik@redhat.com>
 
-I think "get driver info", which does nothing but copy strings out of
-the driver software state, is a safe exception to these strict locking
-rules.
+Though I would suggest combining all these patches into a single patch, 
+since they constitute a single logical change, and each change is 
+self-contained and small.
 
-Don't you think? :-)
+	Jeff
+
+
 
