@@ -1,18 +1,19 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v3 [PATCH net-next 2/7] bonding: Check return of dev_set_promiscuity/allmulti
-Date: Mon, 07 Jul 2008 10:34:47 +0800
-Message-ID: <487180C7.8070403@cn.fujitsu.com>
+Subject: v3 [PATCH net-next 3/7] bridge: Check return of dev_set_promiscuity
+Date: Mon, 07 Jul 2008 10:35:57 +0800
+Message-ID: <4871810D.9040406@cn.fujitsu.com>
 References: <48718014.4030009@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55988 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:61048 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751922AbYGGCjY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jul 2008 22:39:24 -0400
+	id S1752045AbYGGCke (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jul 2008 22:40:34 -0400
 In-Reply-To: <48718014.4030009@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,147 +22,50 @@ dev_set_promiscuity/allmulti might overflow.
 Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
 dev_set_promiscuity/allmulti return error number if overflow happened.
 
-In bond_alb and bond_main, we check all positive increment for promiscuity
-and allmulti to get error return.
-But there are still two problems left.
-1. Some code path has no mechanism to signal errors upstream.
-2. If there are multi slaves, it's hard to tell which slaves increment
-   promisc/allmulti successfully and which failed.
-So I left these problems to be FIXME.
-Fortunately, the overflow is very rare case.
+Here, we check the positive increment for promiscuity to get error return.
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 ---
- drivers/net/bonding/bond_alb.c  |    6 ++++--
- drivers/net/bonding/bond_main.c |   39 +++++++++++++++++++++++++++++++--------
- 2 files changed, 35 insertions(+), 10 deletions(-)
+ net/bridge/br_if.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 5a67372..b211486 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -419,8 +419,10 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
- 	}
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c2397f5..58bbfb8 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -375,6 +375,10 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (IS_ERR(p))
+ 		return PTR_ERR(p);
  
- 	if (!bond->alb_info.primary_is_promisc) {
--		bond->alb_info.primary_is_promisc = 1;
--		dev_set_promiscuity(bond->curr_active_slave->dev, 1);
-+		if (!dev_set_promiscuity(bond->curr_active_slave->dev, 1))
-+			bond->alb_info.primary_is_promisc = 1;
-+		else
-+			bond->alb_info.primary_is_promisc = 0;
- 	}
++	err = dev_set_promiscuity(dev, 1);
++	if (err)
++		goto put_back;
++
+ 	err = kobject_init_and_add(&p->kobj, &brport_ktype, &(dev->dev.kobj),
+ 				   SYSFS_BRIDGE_PORT_ATTR);
+ 	if (err)
+@@ -389,7 +393,6 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 		goto err2;
  
- 	bond->alb_info.rlb_promisc_timeout_counter = 0;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 50a40e4..fa3a06d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -762,39 +762,49 @@ static struct dev_mc_list *bond_mc_list_find_dmi(struct dev_mc_list *dmi, struct
- /*
-  * Push the promiscuity flag down to appropriate slaves
-  */
--static void bond_set_promiscuity(struct bonding *bond, int inc)
-+static int bond_set_promiscuity(struct bonding *bond, int inc)
- {
-+	int err = 0;
- 	if (USES_PRIMARY(bond->params.mode)) {
- 		/* write lock already acquired */
- 		if (bond->curr_active_slave) {
--			dev_set_promiscuity(bond->curr_active_slave->dev, inc);
-+			err = dev_set_promiscuity(bond->curr_active_slave->dev,
-+						  inc);
- 		}
- 	} else {
- 		struct slave *slave;
- 		int i;
- 		bond_for_each_slave(bond, slave, i) {
--			dev_set_promiscuity(slave->dev, inc);
-+			err = dev_set_promiscuity(slave->dev, inc);
-+			if (err)
-+				return err;
- 		}
- 	}
-+	return err;
+ 	rcu_assign_pointer(dev->br_port, p);
+-	dev_set_promiscuity(dev, 1);
+ 
+ 	list_add_rcu(&p->list, &br->port_list);
+ 
+@@ -413,12 +416,12 @@ err2:
+ 	br_fdb_delete_by_port(br, p, 1);
+ err1:
+ 	kobject_del(&p->kobj);
+-	goto put_back;
+ err0:
+ 	kobject_put(&p->kobj);
+-
++	dev_set_promiscuity(dev, -1);
+ put_back:
+ 	dev_put(dev);
++	kfree(p);
+ 	return err;
  }
  
- /*
-  * Push the allmulti flag down to all slaves
-  */
--static void bond_set_allmulti(struct bonding *bond, int inc)
-+static int bond_set_allmulti(struct bonding *bond, int inc)
- {
-+	int err = 0;
- 	if (USES_PRIMARY(bond->params.mode)) {
- 		/* write lock already acquired */
- 		if (bond->curr_active_slave) {
--			dev_set_allmulti(bond->curr_active_slave->dev, inc);
-+			err = dev_set_allmulti(bond->curr_active_slave->dev,
-+					       inc);
- 		}
- 	} else {
- 		struct slave *slave;
- 		int i;
- 		bond_for_each_slave(bond, slave, i) {
--			dev_set_allmulti(slave->dev, inc);
-+			err = dev_set_allmulti(slave->dev, inc);
-+			if (err)
-+				return err;
- 		}
- 	}
-+	return err;
- }
- 
- /*
-@@ -955,6 +965,7 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active, struct
- 	}
- 
- 	if (new_active) {
-+		/* FIXME: Signal errors upstream. */
- 		if (bond->dev->flags & IFF_PROMISC) {
- 			dev_set_promiscuity(new_active->dev, 1);
- 		}
-@@ -1456,12 +1467,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		/* set promiscuity level to new slave */
- 		if (bond_dev->flags & IFF_PROMISC) {
--			dev_set_promiscuity(slave_dev, 1);
-+			res = dev_set_promiscuity(slave_dev, 1);
-+			if (res)
-+				goto err_close;
- 		}
- 
- 		/* set allmulti level to new slave */
- 		if (bond_dev->flags & IFF_ALLMULTI) {
--			dev_set_allmulti(slave_dev, 1);
-+			res = dev_set_allmulti(slave_dev, 1);
-+			if (res)
-+				goto err_close;
- 		}
- 
- 		netif_tx_lock_bh(bond_dev);
-@@ -3933,6 +3948,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
- 	 * Do promisc before checking multicast_mode
- 	 */
- 	if ((bond_dev->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC)) {
-+		/*
-+		 * FIXME: Need to handle the error when one of the multi-slaves
-+		 * encounters error.
-+		 */
- 		bond_set_promiscuity(bond, 1);
- 	}
- 
-@@ -3942,6 +3961,10 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
- 
- 	/* set allmulti flag to slaves */
- 	if ((bond_dev->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI)) {
-+		/*
-+		 * FIXME: Need to handle the error when one of the multi-slaves
-+		 * encounters error.
-+		 */
- 		bond_set_allmulti(bond, 1);
- 	}
- 
-
-
 
