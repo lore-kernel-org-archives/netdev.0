@@ -1,53 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Mon, 07 Jul 2008 14:58:19 -0700 (PDT)
-Message-ID: <20080707.145819.209342070.davem@davemloft.net>
-References: <20080707214218.055bcb35@the-village.bc.nu>
-	<20080707.144505.67398603.davem@davemloft.net>
-	<20080707221427.163c4a30@the-village.bc.nu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bridge] [RFC PATCH 0/2] Allow full bridge configuration via
+ sysfs
+Date: Mon, 7 Jul 2008 15:04:54 -0700
+Message-ID: <20080707150454.2a02a217@extreme>
+References: <20080707205342.GA19710@nostromo.devel.redhat.com>
+	<4872838B.1060603@trash.net>
+	<20080707213420.GA20089@nostromo.devel.redhat.com>
+	<20080707.145259.103902820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55412
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758876AbYGGV6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 17:58:19 -0400
-In-Reply-To: <20080707221427.163c4a30@the-village.bc.nu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: notting@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759977AbYGGWFd@vger.kernel.org>
+In-Reply-To: <20080707.145259.103902820.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Mon, 7 Jul 2008 22:14:27 +0100
+On Mon, 07 Jul 2008 14:52:59 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> > > You seem to be trying to conflate legal and technical issues here.
-> > 
-> > Exactly like the patches we are current discussing.
-> > 
-> > Thanks for walking right into that. :-)
+> From: Bill Nottingham <notting@redhat.com>
+> Date: Mon, 7 Jul 2008 17:34:20 -0400
 > 
-> No - the patches are for technical reasons, 
+> > I could look at wireless network configuration, but I doubt that's going to
+> > help your argument.
+> 
+> Just like any system with age, we have a lot of legacy to
+> convert over.  But it will happen.
+> 
+> > That being said, how is moving from adding a bonding slave from:
+> >   echo "+eth0" >  /sys/class/net/bond0/bonding/slaves to:
+> > to:
+> >   http://www.linuxfoundation.org/en/Net:Generic_Netlink_HOWTO
+> > 
+> > a worthwhile improvement for the admin? Let's see, a kernel-userspace
+> > protocol with magic message formats. Hey, we reinvented ioctl!
+> > 
+> > Why, if netlink is the standard (and it's been around for a long
+> > damn time), was sysfs configuration for bonding added in 2005? Why
+> > was bridge configuration added in 2005, and *extended* in 2006 and
+> > 2007? Why were the user-space tools such as brctl ported from ioctl
+> > to sysfs?
+> 
+> Because often a lot of shit slips in when someone who understands
+> the ramifications is too busy or on vacation.
+> 
+> We do want everything to be netlink based.
+> 
+> Why?
+> 
+> Because it means that you can run one monitoring tool to listen
+> for netlink events and report them to the user for diagnosis.
+> 
+> It means that network configuration events can be sent over
+> the wire and used remotely at some point.
+> 
+> The latter can never happen as long as we keep adding ad-hoc
+> config stuff.
 
-Which are?  Consistent use of request_firmware()?
-
-That's pure bullox as far as I can see.  Why provide the means to
-do something nobody has had a need for in 6+ years?  Who needs
-to load different firmware for the tg3 driver?
-
-Who needs that capability? Distribution vendors?  What for?
-In what case will they need to load different firmware from
-what the driver maintainer tested as a unit?
-
-Rather, they want separation.  I can see no other real impetus.
-
-And, btw, who has the right to enforce this new burdon upon driver
-maintainers when they have had a working and maintainable system for
-so long?
-
-I can only see it being about separation, pure and simple.
+There are always historical reasons. In this case it was because I knew
+more about sysfs than netlink, and there was no netlink interface for managing
+interfaces back in 2005.  Sysfs is okay for simple stuff (set forward-delay to 10seconds),
+but it falls down when anything interesting and transactional happens. Think of
+sysfs as more an extension of per-device sysctl's or module parameters, rather
+than a good configuration interface.
