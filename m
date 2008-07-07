@@ -1,56 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v3 2/2] hfsc: add link layer overhead adaption
-Date: Mon, 07 Jul 2008 13:53:24 +0200
-Message-ID: <487203B4.4030701@trash.net>
-References: <20080703220311.30053.63477.stgit@fate.lan> <20080703220317.30053.87947.stgit@fate.lan>
+From: Richard Kennedy <richard@rsk.demon.co.uk>
+Subject: [PATCH]  net: remove padding from struct socket on 64bit &
+	increase objects/cache
+Date: Mon, 07 Jul 2008 12:58:10 +0100
+Message-ID: <1215431890.3101.5.camel@castor.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Cc: lkml <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58054 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753507AbYGGLx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 07:53:28 -0400
-In-Reply-To: <20080703220317.30053.87947.stgit@fate.lan>
+Received: from anchor-post-32.mail.demon.net ([194.217.242.90]:1565 "EHLO
+	anchor-post-32.mail.demon.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752383AbYGGL6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 07:58:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-> CBQ and HTB have options for emulating overhead of underlying link layer
-> (mpu/overhead/linklayer options). This patch makes sch_hfsc use size table
-> to emulate link layer overhead.
-> 
-> Patch uses size table to convert packet length to emulated link layer packet
-> length. Converted packet length is passed to hfsc calculations instead of
-> real. If size table isn't passed to kernel, hfsc works as before.
-> 
-> +/* convert packet length to link layer packet length */
-> +static unsigned int get_linklayer_len(struct hfsc_class *cl, unsigned int len)
-> +{
-> +	if (unlikely(!len) || likely(!cl->stab))
-> +		return len;
-> +	return qdisc_linklayer_sz(cl->stab, len);
-> +}
+remove padding from struct socket reducing its size by 8 bytes.
+    
+This allows more objects/cache in sock_inode_cache
+12 objects/cache when cacheline size is 128 (generic x86_64)
+    
+Signed-off-by: Richard Kennedy <richard@rsk.demon.co.uk>
+----
 
-This means HFSC will use other packet sizes as inner qdiscs, policers,
-statistics etc, which I don't like very much. My original patch used
-the size tables to calculate the size when enqueing to the root qdisc
-and stored it in the cb, so all qdiscs in the hierarchy can use the
-same size.
+compiled & booted on 2.6.26-rc8
 
-> @@ -987,9 +997,11 @@ hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
->  }
->  
->  static const struct nla_policy hfsc_policy[TCA_HFSC_MAX + 1] = {
-> -	[TCA_HFSC_RSC]	= { .len = sizeof(struct tc_service_curve) },
-> -	[TCA_HFSC_FSC]	= { .len = sizeof(struct tc_service_curve) },
-> -	[TCA_HFSC_USC]	= { .len = sizeof(struct tc_service_curve) },
-> +	[TCA_HFSC_RSC]		= { .len = sizeof(struct tc_service_curve) },
-> +	[TCA_HFSC_FSC]		= { .len = sizeof(struct tc_service_curve) },
-> +	[TCA_HFSC_USC]		= { .len = sizeof(struct tc_service_curve) },
-> +	[TCA_HFSC_SZOPTS]	= { .len = sizeof(struct tc_sizespec) },
-> +	[TCA_HFSC_STAB]		= { .type = NLA_BINARY, .len = TC_STAB_SIZE },
+Richard
 
-Why are these two separate attributes?
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 71f7dd5..150a48c 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -106,23 +106,23 @@ enum sock_shutdown_cmd {
+ /**
+  *  struct socket - general BSD socket
+  *  @state: socket state (%SS_CONNECTED, etc)
++ *  @type: socket type (%SOCK_STREAM, etc)
+  *  @flags: socket flags (%SOCK_ASYNC_NOSPACE, etc)
+  *  @ops: protocol specific socket operations
+  *  @fasync_list: Asynchronous wake up list
+  *  @file: File back pointer for gc
+  *  @sk: internal networking protocol agnostic socket representation
+  *  @wait: wait queue for several uses
+- *  @type: socket type (%SOCK_STREAM, etc)
+  */
+ struct socket {
+ 	socket_state		state;
++	short			type;
+ 	unsigned long		flags;
+ 	const struct proto_ops	*ops;
+ 	struct fasync_struct	*fasync_list;
+ 	struct file		*file;
+ 	struct sock		*sk;
+ 	wait_queue_head_t	wait;
+-	short			type;
+ };
+ 
+ struct vm_area_struct;
+
+
