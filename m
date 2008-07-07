@@ -1,83 +1,138 @@
-From: Mario Limonciello <mario_limonciello@dell.com>
-Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
- Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
- Problem)
-Date: Mon, 07 Jul 2008 10:15:00 -0500
-Message-ID: <487232F4.6000206@dell.com>
-References: <4861800B.90703@nscus.com>	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>	 <48640535.2050000@nscus.com>	 <20080626215918.GC2555@electric-eye.fr.zoreil.com> <1215435236.11909.121.camel@localhost>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Mon, 7 Jul 2008 08:23:51 -0700
+Message-ID: <20080707082351.0cf77eda@infradead.org>
+References: <20080706213427.406e8f29@infradead.org>
+	<20080706.214915.255106355.davem@davemloft.net>
+	<20080706215711.135a8524@infradead.org>
+	<20080706.234433.172895242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBA35A398FFCF885A2AB6202B"
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-pci@vger.kernel.org
-To: Kasper Sandberg <lkml@metanurb.dk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:45651 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509AbYGGPPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 11:15:03 -0400
-In-Reply-To: <1215435236.11909.121.camel@localhost>
+Received: from casper.infradead.org ([85.118.1.10]:51955 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753133AbYGGPXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 11:23:53 -0400
+In-Reply-To: <20080706.234433.172895242.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBA35A398FFCF885A2AB6202B
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Sun, 06 Jul 2008 23:44:33 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Kasper:
+> From: Arjan van de Ven <arjan@infradead.org>
+> Date: Sun, 6 Jul 2008 21:57:11 -0700
+> 
+> > one option is that I carry this patch in the WARN tree (which I
+> > plan to submit for -next tomorrow)
+> 
+> It's going to be a conflict field day with net-next-2.6 especially
+> with some changes I have coming in there soon, otherwise I'd say
+> that yes that would be the way to do.
 
-Particularly try the patch that I posted to the list.  It solved the
-ifup (and resume) failures for me on two platforms using that chipset.
+ok
 
-Regards
+if you merge the piece below (which is just the core), I can do the WARN()
+part later when the dust has settled (it's a one liner anyway pretty much)
 
-Kasper Sandberg wrote:
-> On Thu, 2008-06-26 at 23:59 +0200, Francois Romieu wrote:
->  =20
-> Sorry for the delay, i had to do an onsite thing in another country, so=
+--
 
-> i first see your message now.
->
-> Would it be okay if i took rc9 instead? also, i saw you posted a set of=
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Print the driver name as part of the WATCHDOG message
 
-> patches to sync more with realteks code, is this something you would
-> like me to test too, or aswell? (remember, i have the 8111c).
->
-> Btw, a thought just crossed my mind as to a possible reason why this
-> might be happening, i was googling around, and it seems the TWO nic's
-> are supposed to have some sort of hardware bonding thing, could it be
-> because such stuff isnt handled?
->
-> mvh.
-> Kasper Sandberg
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->  =20
+As suggested by Dave:
 
---=20
-Mario Limonciello
-*Dell | Linux Engineering*
-mario_limonciello@dell.com
+This patch adds a function to get the driver name from a struct net_device,
+and consequently uses this in the watchdog timeout handler to print as 
+part of the message. 
 
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |   37 +++++++++++++++++++++++++++++++++++++
+ net/sched/sch_generic.c   |    7 ++++---
+ 3 files changed, 44 insertions(+), 3 deletions(-)
 
---------------enigBA35A398FFCF885A2AB6202B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFIcjL02CrZjkA73YsRAqGfAKCOpuJ231i9Pana31SwgLGHvZ9x4ACeJN54
-GY40X01YXtUuBWa8L1VY0zo=
-=iVw2
------END PGP SIGNATURE-----
-
---------------enigBA35A398FFCF885A2AB6202B--
+Index: linux.trees.git/include/linux/netdevice.h
+===================================================================
+--- linux.trees.git.orig/include/linux/netdevice.h
++++ linux.trees.git/include/linux/netdevice.h
+@@ -1514,6 +1514,9 @@ extern void dev_seq_stop(struct seq_file
+ extern int netdev_class_create_file(struct class_attribute *class_attr);
+ extern void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
++extern void netdev_drivername(struct net_device *dev, char *buffer, int len);
++
++
+ extern void linkwatch_run_queue(void);
+ 
+ extern int netdev_compute_features(unsigned long all, unsigned long one);
+Index: linux.trees.git/net/core/dev.c
+===================================================================
+--- linux.trees.git.orig/net/core/dev.c
++++ linux.trees.git/net/core/dev.c
+@@ -4554,6 +4554,43 @@ err_name:
+ 	return -ENOMEM;
+ }
+ 
++void netdev_drivername(struct net_device *dev, char *buffer, int len)
++{
++	struct device_driver *driver;
++	struct device *parent;
++	struct ethtool_drvinfo info;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++
++	if (len <= 0)
++		return;
++	buffer[0] = 0;
++
++	/*
++	 * Note: in principle ethtool ops need to be called
++	 * with the RTNL mutex held, while this function is called
++	 * from IRQ context. However, get_drvinfo is a special exception
++	 * (confirmed by Dave and Jeff) and doesn't need the mutex.
++	 */
++	if (ops && ops->get_drvinfo) {
++		memset(&info, 0, sizeof(info));
++		info.cmd = ETHTOOL_GDRVINFO;
++		ops->get_drvinfo(dev, &info);
++		if (strlen(info.driver) > 0) {
++			strlcpy(buffer, info.driver, len);
++			return;
++		}
++	}
++
++	parent = dev->dev.parent;
++
++	if (!parent)
++		return;
++
++	driver = parent->driver;
++	if (driver && driver->name)
++		strlcpy(buffer, driver->name, len);
++}
++
+ static void __net_exit netdev_exit(struct net *net)
+ {
+ 	kfree(net->dev_name_head);
+Index: linux.trees.git/net/sched/sch_generic.c
+===================================================================
+--- linux.trees.git.orig/net/sched/sch_generic.c
++++ linux.trees.git/net/sched/sch_generic.c
+@@ -215,9 +215,10 @@ static void dev_watchdog(unsigned long a
+ 		    netif_carrier_ok(dev)) {
+ 			if (netif_queue_stopped(dev) &&
+ 			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
+-
+-				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
+-				       dev->name);
++				char drivername[64];
++				netdev_drivername(dev, drivername, 64);
++				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
++				       dev->name, drivername);
+ 				dev->tx_timeout(dev);
+ 				WARN_ON_ONCE(1);
+ 			}
