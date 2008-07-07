@@ -1,46 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/4] irda: IrDA updates for 2.6.26
-Date: Mon, 07 Jul 2008 04:10:42 -0700 (PDT)
-Message-ID: <20080707.041042.194193759.davem@davemloft.net>
-References: <20080630192351.765611690@sortiz.org>
-	<20080630.125954.182681597.davem@davemloft.net>
-	<20080707110839.GA2949@sortiz.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: v3 [PATCH net-next 4/7] ipv6: Check return of dev_set_allmulti
+Date: Mon, 07 Jul 2008 13:20:28 +0200
+Message-ID: <4871FBFC.2050408@trash.net>
+References: <48718014.4030009@cn.fujitsu.com> <4871814A.2070707@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20080707110839.GA2949-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:57190 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752979AbYGGLUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 07:20:31 -0400
+In-Reply-To: <4871814A.2070707@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 7 Jul 2008 13:08:41 +0200
+Wang Chen wrote:
+> allmulti might overflow.
+> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
+> dev_set_promiscuity/allmulti return error number if overflow happened.
+> 
+> Here, we check the positive increment for allmulti to get error return.
+> 
+> @@ -627,13 +633,14 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+>  		if (!dev)
+>  			return -EADDRNOTAVAIL;
+>  		dev_put(dev);
+> +		err = dev_set_allmulti(dev, 1);
+> +		if (err)
+> +			return err;
 
-> On Mon, Jun 30, 2008 at 12:59:54PM -0700, David Miller wrote:
-> > Except for patch 2, these all look like bug fixes.
-> > 
-> > So I think patches 1, 3, and 4 are likely good candidates
-> > for net-2.6 and thus merging in to Linus for 2.6.26
-> > 
-> > What say you?
-> Sorry for the delay, spam assassin played tricks on me.
-> Yes, if you want to push 1,3 and 4 to net-2.6, it's really fine with
-> me.
-
-Thanks, I'll take care of this tomorrow.
-
--------------------------------------------------------------------------
-Sponsored by: SourceForge.net Community Choice Awards: VOTE NOW!
-Studies have shown that voting for your favorite open source project,
-along with a healthy diet, reduces your potential for chronic lameness
-and boredom. Vote Now at http://www.sourceforge.net/community/cca08
+The use of dev after putting it looks wrong, but thats already
+present before your patch. So ACK for your patch, but we need
+a fix on top.
