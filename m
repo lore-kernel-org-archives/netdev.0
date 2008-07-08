@@ -1,43 +1,201 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan tag by hand
-Date: Tue, 8 Jul 2008 21:33:51 +0200
-Message-ID: <20080708193351.GE14330@xi.wantstofly.org>
-References: <20080707205646.GB12997@xi.wantstofly.org> <4872841E.1030609@trash.net> <20080707210701.GD12997@xi.wantstofly.org> <48728784.2030202@trash.net> <487394CC.7050107@trash.net> <20080708185226.GD14330@xi.wantstofly.org> <4873B6E1.9010702@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Pitre <nico@cam.org>,
-	Dale Farnsworth <dale@farnsworth.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: Add documentation for sctp sysctl variable
+Date: Tue,  8 Jul 2008 15:52:46 -0400
+Message-ID: <1215546766-10014-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:60484 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751380AbYGHTdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 15:33:53 -0400
-Content-Disposition: inline
-In-Reply-To: <4873B6E1.9010702@trash.net>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:3396 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751620AbYGHTwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 15:52:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 08, 2008 at 08:50:09PM +0200, Patrick McHardy wrote:
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ Documentation/networking/ip-sysctl.txt |  167 ++++++++++++++++++++++++++++++++
+ 1 files changed, 167 insertions(+), 0 deletions(-)
 
-> commit 9381fc4a49cb8b75d5ff38e4f5d14d7e135adc4c
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Tue Jul 8 19:56:17 2008 +0200
-> 
->     vlan: avoid header copying and linearisation where possible
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 17a6e46..e92b3d5 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1064,6 +1064,173 @@ bridge-nf-filter-pppoe-tagged - BOOLEAN
+ 	Default: 1
+ 
+ 
++proc/sys/net/sctp/* Variables:
++addip_enable - BOOLEAN
++	Enable or disable extension of  Dynamic Address Reconfiguration
++	(ADD-IP) functionality specified in RFC5061.  This extension provides
++	the ability to dynamically add and remove new addresses for the SCTP
++        associations.
++
++	1: Enable extension.
++
++        0: Disable extenson.
++
++	Default: 0
++
++addip_noauth_enable - BOOLEAN
++	The Dynamic Address Reconfiguration (ADD-IP) requires the use of
++	authentication to protect the operations of add or removing new
++	addresses.  This requirement is mandated so that unauthorized hosts
++	would not be able to hijack associations.  However, older
++	implementations may not have implemented this requirement while
++	allowing the ADD-IP extension.  For reasons of interoperability,
++	we provide this variable to control the enforcement of the
++	authentication requirement.
++
++	1: Allow ADD-IP extension to be used without authentication.  This
++	   should only be set in a closed environment for for interoperability
++	   with older implementations.
++
++	0: Enforce the authenticaion requirement
++
++	Default: 0
++	
++auth_enable - BOOLEAN
++	Enable of disable Autheticated Chunks extensions.  This extensions
++	provides the ability to send and recieve authenticated chunks and is
++	required for secure operation of Dynamic Address Reconfiguration
++	(ADD-IP) extension.
++
++	1: Enable this extension.
++	0: Disable this extension.
++
++	Default: 0
++
++prsctp_enable - BOOLEAN
++	Enable or disable the Partial Reliability extension (RFC3758) which
++	is used to notify peers that a given DATA should no longer be expected.
++
++	1: Enable extension
++	0: Disable
++
++	Default: 1
++
++max_burst - INTEGER
++	The limit of the number of new packets that can be initially sent.  Its
++	controls how busty the generated traffic can be.
++
++	Default: 4
++
++association_max_retrans - INTEGER
++	Set the maximum number for retransmissions that an association can
++	attempt deciding that the remote end is unreachable.  If this value
++	is exceeded, the association is terminated.
++
++	Default: 10
++
++max_init_retransmits - INTEGER
++	The maximum number of retransmissions of INIT and COOKIE-ECHO chunks
++	that an association will attempt before declaring the destination
++	unreachable and terminating.
++
++	Default: 8
++
++path_max_retrans - INTEGER
++	The maximum number of retransmissions that will attempted on a given
++	path.  Once this threshold is exceeded, the path is considered
++	unreachable, and new traffic will use a different path when the
++	association is multihomed.
++
++	Default: 5
++
++rto_initial - INTEGER
++	The initial round trip timeout value in millisecods that will be used
++	in calculating rount trip times.  This is the initial time interval
++	for retransmissions.
++
++	Default: 3000
++
++rto_max - INTEGER
++	The maximum value (in milliseconds) of the round trip timeout.  This
++	is the largest time interval that can elapse between retransmissions.
++
++	Default: 60000
++
++rto_min - INTEGER
++	The minimum value (in milliseconds) of the round trip timeout.  This
++	is the smallest time interval the can elapse between retransmissions.
++
++	Default: 1000
++
++hb_interval - INTEGER
++	The interval (in milliseconds) between HEARTBEAT chunks.  These chunks
++	are sent at the specified interval on idle paths to probe the state of
++	a given path between 2 associations.
++
++	Defautl: 30000 ms
++    
++sack_timeout - INTEGER
++	The amount of time (in milliseconds) that the implementation will wait
++	to send a SACK.
++
++	Default: 200
++
++valid_cookie_life - INTEGER
++	The default lifetime of the SCTP cookie (in millisecons).  The cookie
++	is used during association establishement.
++
++cookie_preserve_enable - BOOLEAN
++	Enable or disable the ability to extend the lifetime of the SCTP cookie
++	that is used during the establishment phase of SCTP association
++
++	1: Enable cookie lifetime extension.
++	0: Disable
++
++	Default: 1
++
++rcvbuf_policy - INTEGER
++	Determines if the receive buffer is attributed to the socket or to
++	association.   SCTP supports the capability to create multiple
++	asocaitions on a single socket.  When using this capability, it is
++	possible that a single stalled association that's buffering a lot
++	of data may block other associations from delivering their data by
++	consuming all of the receive buffer space.  To work around this,
++	the rcvbuf_policy could be set to attribute the receiver buffer space
++	to each association instead of the socket.  This prevents the described
++	blocking.
++
++	1: rcvbuf space is per association
++	0: recbuf space is per socket
++	
++	Default: 0
++	
++sndbuf_policy - INTEGER
++	Similar to rcvbuf_policy above, the applies to send buffer space.
++
++	1: Send buffer is tracked per association
++	0: Send buffer is tracked per socket.
++
++	Default: 0
++
++sctp_mem - vector of 3 INTEGERs: min, pressure, max
++	Number of pages allowed for queueing by all SCTP sockets.
++
++	min: Below this number of pages SCTP is not bothered about its
++	memory appetite. When amount of memory allocated by SCTP exceeds
++	this number, SCTP starts to moderate memory usage.
++
++	pressure: This value was introduced to follow format of tcp_mem.
++
++	max: Number of pages allowed for queueing by all SCTP sockets.
++
++	Default is calculated at boot time from amount of available memory.
++	
++sctp_rmem - vector of 3 INTEGERs: min, default, max
++	See tcp_rmem for a description.
++
++sctp_wmem  - vector of 3 INTEGERs: min, default, max
++	See tcp_wmem for a description.
++
+ UNDOCUMENTED:
+ 
+ dev_weight FIXME
+-- 
+1.5.3.5
 
-That gives me:
-
-- 2.6.26-rc9 + [1] + [2] + this patch: ~75 sec, 13.6 MiB/s
-
-So it's almost back to the non-VLAN case.
-
-
-[1] "vlan 01/07: fix network_header/mac_header adjustments",
-    http://marc.info/?l=linux-netdev&m=121543468509250&w=2
-
-[2] "mv643xx_eth: enable hardware TX checksumming with vlan tags",
-    http://marc.info/?l=linux-netdev&m=121546423330743&w=2
