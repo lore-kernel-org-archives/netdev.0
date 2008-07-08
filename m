@@ -1,65 +1,99 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Mon, 7 Jul 2008 17:10:25 -0700
-Message-ID: <20080707171025.081e124f@infradead.org>
-References: <20080706180842.36cc0b1c@extreme>
-	<20080706.182243.65603166.davem@davemloft.net>
-	<adafxqlxqi5.fsf@cisco.com>
-	<20080707.155723.48071035.davem@davemloft.net>
-	<adazlotwalk.fsf@cisco.com>
-	<20080707164425.0af7087b@extreme>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: setsockopt()
+Date: Mon, 07 Jul 2008 18:15:01 -0700
+Message-ID: <4872BF95.9030209@hp.com>
+References: <20080707142408.43aa2a2e@extreme>	<48728B09.1050801@citi.umich.edu>	<48729DAD.8010400@hp.com>	<20080707.160029.13296246.davem@davemloft.net> <4872A652.2050709@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
+	shemminger@vyatta.com, rees@umich.edu, bfields@fieldses.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:42527 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457AbYGHAKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 20:10:33 -0400
-In-Reply-To: <20080707164425.0af7087b@extreme>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:36423 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755264AbYGHBPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 21:15:06 -0400
+In-Reply-To: <4872A652.2050709@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Jul 2008 16:44:25 -0700
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-
-> On Mon, 07 Jul 2008 16:14:31 -0700
-> Roland Dreier <rdreier@cisco.com> wrote:
+Rick Jones wrote:
+> David Miller wrote:
 > 
-> >  > I doubt it uses the RTNL semaphore elsewhere to protect
-> >  > against this path, which is the only protection these
-> >  > calls currently have.
-> > 
-> > As far as I can tell from reading the code, the only places in cxgb3
-> > that use t3_read_flash() are in the netdevice's open and ioctl
-> > methods, and the ethtool get_drvinfo method.  So as far as I can
-> > tell the current code is fine as long as rtnl is held across
-> > get_drvinfo.
-> > 
-> >  > Please don't bring up scarecrows, this looks like simply
-> >  > a bug which already exists.
-> > 
-> > I don't even know how to take this.  "Please don't review our
-> > changes"?? "Please don't report bugs"??
-> > 
-> >  - R.
-> 
-> Long term, it would be good to move the driver name into device
-> struct? Easier and could work for all those random other drivers :-)
+>> We need 2x, in order to have a full window during recovery.
+>>
+>> There was a measurement bug found a few months ago when the
+>> google folks were probing in this area, which was fixed
+>> by John Heffner.  Most of which had to deal with TSO subtleties.
+>>
+>> --------------------
+>> commit 246eb2af060fc32650f07203c02bdc0456ad76c7
+>> ...
+>> commit ce447eb91409225f8a488f6b7b2a1bdf7b2d884f
+>> ...
+> I'll try my tests again with newer kernels since I'm not 100% certain I 
+> was trying with those commits in place.
 
-well we can already get it from the object model ;)
-Dave just preferred to get it from ethtool and only get it from object
-model if ethtool didn't work out.. (which makes sense)
+Did those commits make it into 2.6.26-rc9?  (Gentle taps of clue-bat as 
+to how to use git to check commits in various trees would be welcome - 
+to say I am a git noob would be an understatement - the tree from which 
+that kernel was made was cloned from Linus' about 16:00 to 17:00 pacific 
+time)
 
-I can see the point almost of having a generic_ethtool_getdrv which
-just fills the struct from the object model data ;)
+Assuming they did, a pair of systems with tg3-driven BCM5704's:
+
+moe:~# ethtool -i eth0
+driver: tg3
+version: 3.92.1
+firmware-version: 5704-v3.27
+bus-info: 0000:01:02.0
+moe:~# uname -a
+Linux moe 2.6.26-rc9-raj #1 SMP Mon Jul 7 17:26:15 PDT 2008 ia64 GNU/Linux
+
+with TSO enabled still takes the socket buffers all the way out to 4MB 
+for a GbE LAN test:
+moe:~# netperf -t omni -H manny -- -o foo
+OMNI TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to manny.west 
+(10.208.0.13) port 0 AF_INET
+Throughput,Local Send Socket Size Requested,Local Send Socket Size 
+Initial,Local Send Socket Size Final,Remote Recv Socket Size 
+Requested,Remote Recv Socket Size Initial,Remote Recv Socket Size Final
+941.41,-1,16384,4194304,-1,87380,4194304
+
+When a 64K socket buffer request was sufficient:
+moe:~# netperf -t omni -H manny -- -o foo -s 64K -S 64K -m 16K
+OMNI TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to manny.west 
+(10.208.0.13) port 0 AF_INET
+Throughput,Local Send Socket Size Requested,Local Send Socket Size 
+Initial,Local Send Socket Size Final,Remote Recv Socket Size 
+Requested,Remote Recv Socket Size Initial,Remote Recv Socket Size Final
+941.12,65536,131072,131072,65536,131072,131072
 
 
+FWIW, disabling TSO via ethtool didn't seem to change the behaviour:
 
--- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+moe:~# ethtool -K eth0 tso off
+moe:~# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+moe:~# netperf -t omni -H manny -- -o foo
+OMNI TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to manny.west 
+(10.208.0.13) port 0 AF_INET
+Throughput,Local Send Socket Size Requested,Local Send Socket Size 
+Initial,Local Send Socket Size Final,Remote Recv Socket Size 
+Requested,Remote Recv Socket Size Initial,Remote Recv Socket Size Final
+941.40,-1,16384,4194304,-1,87380,4194304
+
+If I was cloning off the wrong tree, my apologies and redirects to the 
+correct tree would be gladly accepted.
+
+rick jones
+
+moe:~# cat foo
+throughput,lss_size_req,lss_size,lss_size_end,rsr_size_req,rsr_size,rsr_size_end
