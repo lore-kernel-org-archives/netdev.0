@@ -1,151 +1,75 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC PATCH 04/04]: libpcap: reconstruct VLAN header from auxdata
-Date: Tue, 08 Jul 2008 12:17:10 +0200
-Message-ID: <48733EA6.8050007@trash.net>
-References: <48733E1B.8010501@trash.net>
+Subject: Re: [RFC PATCH 03/04]: packet: Store VLAN tag in auxillary data
+Date: Tue, 08 Jul 2008 12:21:13 +0200
+Message-ID: <48733F99.5010901@trash.net>
+References: <48733E1B.8010501@trash.net> <48733E77.20808@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------060208010901020001050405"
+ boundary="------------070609040704030803060000"
 To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54929 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55014 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441AbYGHKRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 06:17:13 -0400
+	with ESMTP id S1751638AbYGHKVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 06:21:16 -0400
 Received: from [192.168.0.100] (unknown [78.42.204.165])
 	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
 	(No client certificate requested)
-	by stinky.trash.net (Postfix) with ESMTP id D2E02948DA
-	for <netdev@vger.kernel.org>; Tue,  8 Jul 2008 12:17:11 +0200 (MEST)
-In-Reply-To: <48733E1B.8010501@trash.net>
+	by stinky.trash.net (Postfix) with ESMTP id 83158948A4
+	for <netdev@vger.kernel.org>; Tue,  8 Jul 2008 12:21:15 +0200 (MEST)
+In-Reply-To: <48733E77.20808@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------060208010901020001050405
+--------------070609040704030803060000
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
+Missing patch attached.
 
 
---------------060208010901020001050405
+--------------070609040704030803060000
 Content-Type: text/x-diff;
- name="libpcap.diff"
+ name="03.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="libpcap.diff"
+ filename="03.diff"
 
-diff --git a/pcap-linux.c b/pcap-linux.c
-index e9db010..e877cd8 100644
---- a/pcap-linux.c
-+++ b/pcap-linux.c
-@@ -471,7 +471,13 @@ pcap_read_packet(pcap_t *handle, pcap_handler callback, u_char *userdata)
- 	socklen_t		fromlen;
- 	int			packet_len, caplen;
- 	struct pcap_pkthdr	pcap_header;
--
-+	struct iovec		iov;
-+	struct msghdr		msg;
-+	struct cmsghdr		*cmsg;
-+	union {
-+		struct cmsghdr	cmsg;
-+		char		buf[CMSG_SPACE(sizeof(struct tpacket_auxdata))];
-+	} cmsg_buf;
- #ifdef HAVE_PF_PACKET_SOCKETS
- 	/*
- 	 * If this is a cooked device, leave extra room for a
-@@ -492,6 +498,15 @@ pcap_read_packet(pcap_t *handle, pcap_handler callback, u_char *userdata)
- 	/* Receive a single packet from the kernel */
- 
- 	bp = handle->buffer + handle->offset;
-+
-+	msg.msg_name		= &from;
-+	msg.msg_namelen		= sizeof(from);
-+	msg.msg_iov		= &iov;
-+	msg.msg_iovlen		= 1;
-+	msg.msg_control		= &cmsg_buf;
-+	msg.msg_controllen	= sizeof(cmsg_buf);
-+	msg.msg_flags		= 0;
-+
- 	do {
- 		/*
- 		 * Has "pcap_breakloop()" been called?
-@@ -505,11 +520,11 @@ pcap_read_packet(pcap_t *handle, pcap_handler callback, u_char *userdata)
- 			handle->break_loop = 0;
- 			return -2;
- 		}
--		fromlen = sizeof(from);
--		packet_len = recvfrom(
--			handle->fd, bp + offset,
--			handle->bufsize - offset, MSG_TRUNC,
--			(struct sockaddr *) &from, &fromlen);
-+
-+		iov.iov_len	= handle->bufsize - offset;
-+		iov.iov_base	= bp + offset;
-+
-+		packet_len = recvmsg(handle->fd, &msg, MSG_TRUNC);
- 	} while (packet_len == -1 && errno == EINTR);
- 
- 	/* Check if an error occured */
-@@ -524,6 +539,38 @@ pcap_read_packet(pcap_t *handle, pcap_handler callback, u_char *userdata)
- 		}
- 	}
- 
-+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-+		struct tpacket_auxdata *aux;
-+		unsigned int len, copy;
-+		unsigned short *ptr;
-+
-+		if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct tpacket_auxdata)) ||
-+		    cmsg->cmsg_level != SOL_PACKET ||
-+		    cmsg->cmsg_type != PACKET_AUXDATA)
-+			continue;
-+
-+		aux = (struct tpacket_auxdata *)CMSG_DATA(cmsg);
-+		if (aux->tp_vlan_tci == 0)
-+			continue;
-+
-+		len = packet_len > iov.iov_len ? iov.iov_len : packet_len;
-+		if (len > 2 * ETH_ALEN + 4) {
-+			copy = len - 2 * ETH_ALEN - 4;
-+			if (copy > iov.iov_len - 2 * ETH_ALEN - 4)
-+				copy = iov.iov_len - 2 * ETH_ALEN - 4;
-+
-+			memmove(iov.iov_base + 2 * ETH_ALEN + 4,
-+				iov.iov_base + 2 * ETH_ALEN, copy);
-+		}
-+
-+		ptr = (unsigned short *)(iov.iov_base + 2 * ETH_ALEN);
-+		if (len >= 2 * ETH_ALEN + 2)
-+			*(ptr++) = htons(ETH_P_8021Q);
-+		if (len >= 2 * ETH_ALEN + 4)
-+			*(ptr++) = htons(aux->tp_vlan_tci);
-+		packet_len += 4;
-+	}
-+
- #ifdef HAVE_PF_PACKET_SOCKETS
- 	if (!handle->md.sock_packet) {
- 		/*
-@@ -1631,6 +1678,7 @@ iface_bind(int fd, int ifindex, char *ebuf)
- 	struct sockaddr_ll	sll;
- 	int			err;
- 	socklen_t		errlen = sizeof(err);
-+	int			val;
- 
- 	memset(&sll, 0, sizeof(sll));
- 	sll.sll_family		= AF_PACKET;
-@@ -1657,6 +1705,12 @@ iface_bind(int fd, int ifindex, char *ebuf)
- 		return -2;
- 	}
- 
-+	val = 1;
-+	if (setsockopt(fd, SOL_PACKET, PACKET_AUXDATA, &val, sizeof(val)) == -1) {
-+		snprintf(ebuf, PCAP_ERRBUF_SIZE,
-+			 "setsockopt: %s", pcap_strerror(errno));
-+		return -3;
-+	}
- 	return 0;
- }
- 
+commit 97a314a172d9840f9c72ef12d7456b60891b4290
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Jul 8 11:38:43 2008 +0200
 
---------------060208010901020001050405--
+    packet: Store VLAN tag in auxillary data
+    
+    Store the VLAN tag in the auxillary data so userspace can properly deal with
+    hardware VLAN tagging/stripping.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index ad09609..4e1fc2a 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -57,6 +57,7 @@ struct tpacket_auxdata
+ 	__u32		tp_snaplen;
+ 	__u16		tp_mac;
+ 	__u16		tp_net;
++	__u16		tp_vlan_tci;
+ };
+ 
+ struct tpacket_hdr
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index beca640..951e62e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1107,6 +1107,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		aux.tp_snaplen = skb->len;
+ 		aux.tp_mac = 0;
+ 		aux.tp_net = skb_network_offset(skb);
++		aux.tp_vlan_tci = skb->vlan_tci;
+ 
+ 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
+ 	}
+
+--------------070609040704030803060000--
