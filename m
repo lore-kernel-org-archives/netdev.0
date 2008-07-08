@@ -1,83 +1,62 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: setsockopt()
-Date: Tue, 8 Jul 2008 18:05:00 -0400
-Message-ID: <20080708180500.e8a61231.billfink@mindspring.com>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme>
-	<48728B09.1050801@citi.umich.edu>
-	<20080707.144912.76654646.davem@davemloft.net>
-	<20080708045443.GA7726@2ka.mipt.ru>
-	<20080708020235.388a7bd5.billfink@mindspring.com>
-	<adar6a4x510.fsf@cisco.com>
-	<20080708134845.2372a483@speedy>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [RESEND NET-NEXT PATCH 00/20] igb update for net-next
+Date: Tue, 08 Jul 2008 15:06:12 -0700
+Message-ID: <20080708220046.1518.88457.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:52912 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751312AbYGHWFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 18:05:12 -0400
-In-Reply-To: <20080708134845.2372a483@speedy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jeff@garzik.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754911AbYGHWG1@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Jul 2008, Stephen Hemminger wrote:
+Here is the a resubmit of patches 8-18 from Davem's latest net-next tree.
+Patches had to be updated with the changes made from Patrick McHardy's VLAN
+patches.
 
-> On Mon, 07 Jul 2008 23:29:31 -0700
-> Roland Dreier <rdreier@cisco.com> wrote:
-> 
-> > Interesting... I'd not tried nuttcp before, and on my testbed, which is
-> > a very high-bandwidth, low-RTT network (IP-over-InfiniBand with DDR IB,
-> > so the network is capable of 16 Gbps, and the RTT is ~25 microseconds),
-> > the difference between autotuning and not for nuttcp is huge (testing
-> > with 2.6.26-rc8 plus some pending 2.6.27 patches that add checksum
-> > offload, LSO and LRO to the IP-over-IB driver):
-> > 
-> > nuttcp -T30 -i1 ends up with:
-> > 
-> > 14465.0625 MB /  30.01 sec = 4043.6073 Mbps 82 %TX 2 %RX
-> > 
-> > while setting the window even to 128 KB with
-> > nuttcp -w128k -T30 -i1 ends up with:
-> > 
-> > 36416.8125 MB /  30.00 sec = 10182.8137 Mbps 90 %TX 96 %RX
-> > 
-> > so it's a factor of 2.5 with nuttcp.  I've never seen other apps behave
-> > like that -- for example NPtcp (netpipe) only gets slower when
-> > explicitly setting the window size.
-> > 
-> > Strange...
-> 
-> I suspect that the link is so fast that the window growth isn't happening
-> fast enough. With only a 30 second test, you probably barely made it
-> out of TCP slow start.
+In addition, 2 additional patches have been added to correct a un-used
+variable warning and to improve multiqueue AIM support. 
 
-Nah.  30 seconds is plenty of time.  I got up to nearly 8 Gbps
-in 4 seconds (see my test report in earlier message in this thread),
-and that was on an ~72 ms RTT network path.  Roland's IB network
-only has a ~25 usec RTT.
+---
+Summary:
+Alexander Duyck <alexander.h.duyck@intel.com>:
+     igb: update ethtool stats to support multiqueue
+     igb: add 82576 MAC support
+     igb: Add support for quad port WOL and feature flags
+     igb: add page recycling support
+     igb: add support for in kernel LRO
+     net: add netif_napi_del function to allow for removal of napistructs
+     igb: update suspend resume
+     [new] igb: unused variable warning in igb remove
+     [new] igb: Improve multiqueue AIM support
 
-BTW I believe there is one other important difference between the way
-the tcp_rmem/tcp_wmem autotuning parameters are handled versus the way
-the rmem_max/wmem_max parameters are used when explicitly setting the
-socket buffer sizes.  I believe the tcp_rmem/tcp_wmem autotuning maximum
-parameters are hard limits, with the default maximum tcp_rmem setting
-being ~170 KB and the default maximum tcp_wmem setting being 128 KB.
-On the other hand, I believe the rmem_max/wmem_max determines the maximum
-value allowed to be set via the SO_RCVBUF/SO_SNDBUF setsockopt() call.
-But then Linux doubles the requested value, so when Roland specified
-a "-w128" nuttcp parameter, he actually got a socket buffer size
-of 256 KB, which would thus be double that available in the autotuning
-case assuming the tcp_rmem/tcp_wmem settings are using their default
-values.  This could then account for a factor of 2 X between the two
-test cases.  The "-v" verbose option to nuttcp might shed some light
-on this hypothesis.
+Auke Kok <auke-jan.h.kok@intel.com>:
+     igb: reenable CRC stripping in hardware
+     igb: Increment driver version
 
-						-Bill
+Jeb Cramer <cramerj@intel.com>:
+     igb: add DCA support
+
+Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>:
+     igb: Introduce multiple TX queues with infrastructure
+
+---
+ drivers/net/Kconfig             |    9 
+ drivers/net/igb/e1000_82575.c   |  208 +++++++
+ drivers/net/igb/e1000_82575.h   |   22 
+ drivers/net/igb/e1000_defines.h |   10 
+ drivers/net/igb/e1000_hw.h      |    8 
+ drivers/net/igb/e1000_mac.c     |    3 
+ drivers/net/igb/e1000_mac.h     |    1 
+ drivers/net/igb/e1000_regs.h    |    9 
+ drivers/net/igb/igb.h           |   53 +
+ drivers/net/igb/igb_ethtool.c   |  205 +++++--
+ drivers/net/igb/igb_main.c      | 1076 ++++++++++++++++++++++++++++------------
+ include/linux/netdevice.h       |   13 
+ 12 files changed, 1243 insertions(+), 374 deletions(-)
+
+-- 
+Cheers,
+Jeff
