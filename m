@@ -1,45 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan
- tag by hand
-Date: Tue, 08 Jul 2008 22:15:55 +0200
-Message-ID: <4873CAFB.8040606@trash.net>
-References: <20080707205646.GB12997@xi.wantstofly.org> <4872841E.1030609@trash.net> <20080707210701.GD12997@xi.wantstofly.org> <48728784.2030202@trash.net> <487394CC.7050107@trash.net> <20080708185226.GD14330@xi.wantstofly.org> <4873B6E1.9010702@trash.net> <20080708193351.GE14330@xi.wantstofly.org>
+From: John Morrissey <jwm@horde.net>
+Subject: bnx2 hardware VLAN acceleration and PF_PACKET/tap interfaces
+Date: Tue, 8 Jul 2008 16:05:08 -0400
+Message-ID: <20080708200508.GA19505@boost.horde.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Pitre <nico@cam.org>,
-	Dale Farnsworth <dale@farnsworth.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38092 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620AbYGHUP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 16:15:57 -0400
-In-Reply-To: <20080708193351.GE14330@xi.wantstofly.org>
+Received: from boost.horde.net ([69.55.65.181]:60562 "EHLO boost.horde.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753240AbYGHU1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 16:27:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek wrote:
-> On Tue, Jul 08, 2008 at 08:50:09PM +0200, Patrick McHardy wrote:
-> 
->> commit 9381fc4a49cb8b75d5ff38e4f5d14d7e135adc4c
->> Author: Patrick McHardy <kaber@trash.net>
->> Date:   Tue Jul 8 19:56:17 2008 +0200
->>
->>     vlan: avoid header copying and linearisation where possible
-> 
-> That gives me:
-> 
-> - 2.6.26-rc9 + [1] + [2] + this patch: ~75 sec, 13.6 MiB/s
-> 
-> So it's almost back to the non-VLAN case.
+I'm struggling with VLAN tags being stripped the bnx2 driver/hardware when
+hardware VLAN acceleration is enabled.
 
+I'm trying to (a) tcpdump(8) on the main interface and see tagged traffic
+and (b) place the main interface into a bridge group and attach a tap
+interface to the bridge to give KVM virtual machines access to that
+interface. The VMs would then have their own choice of VLANs without having
+to create separate VLAN subints, bridge groups, and tap interfaces on the
+KVM host for each VLAN that a VM needs access to.
 
-Great, thanks. The patch applies cleanly with or without the VLAN
-packet socket patches I sent today, so Dave can either just apply
-it together with your mv643xx_eth patch or I'll include it when
-sending the next VLAN update.
+I've seen these threads, which indicate this is due to the implementation
+particulars of hardware VLAN acceleration:
 
+http://marc.info/?l=linux-netdev&m=117269169822297&w=2
+http://marc.info/?l=linux-netdev&m=119395331216242&w=2
+
+The adapters are "NetXtreme II BCM5708S Gigabit Ethernet rev 12" in IBM
+BladeCenter chassis. I've tried disabling the use of ASF_ENABLE_FLAG in
+bnx2, but this doesn't seem to have changed its behavior any. The Broadcom
+firmware upgarde utility says ASF isn't supported by this chipset when I try
+to 'cfg -asf 0', so perhaps this adapter doesn't support ASF and I'm barking
+up the wrong tree?
+
+Flailing around, I tried #defining BCM_VLAN to 0 to disable hardware VLAN
+acceleration. This breaks the driver build since there's an unguarded use of
+struct bnx2->vlgrp in bnx2_start_xmit().
+
+I'm also seeing some tcpdump(8) behavior that I don't understand. When I
+tcpdump the main interface (not the VLAN subint), I see only *outbound*
+traffic for the last VLAN configured on the interface, and no other traffic.
+Is this some side-effect of the hardware VLAN acceleration?
+
+Is there any hope of having this work? I'm working with 2.6.24 (from Ubuntu
+8.04 FWIW) and have glanced at the bnx2 driver in 2.6.25, which seems
+essentially the same.
+
+john
+-- 
+John Morrissey          _o            /\         ----  __o
+jwm@horde.net        _-< \_          /  \       ----  <  \,
+www.horde.net/    __(_)/_(_)________/    \_______(_) /_(_)__
