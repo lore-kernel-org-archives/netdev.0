@@ -1,119 +1,206 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [Oops] fib_trie with ip route add throw since 2.6.25
-Date: Tue, 8 Jul 2008 15:52:56 -0700
-Message-ID: <20080708155256.1861c1d3@speedy>
-References: <20080707184144.GA17506@yuri.org.uk>
-	<20080707195744.GE28029@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: William Boughton <bill@boughton.de>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH v3] sctp: Add documentation for sctp sysctl variable
+Date: Tue,  8 Jul 2008 18:54:59 -0400
+Message-ID: <1215557699-10457-1-git-send-email-vladislav.yasevich@hp.com>
+References: <20080708143729.73300214.randy.dunlap@oracle.com>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	randy.dunlap@oracle.com, Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:54895 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756208AbYGHWx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:53:29 -0400
-In-Reply-To: <20080707195744.GE28029@solarflare.com>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:28793 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753451AbYGHWzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 18:55:03 -0400
+In-Reply-To: <20080708143729.73300214.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Jul 2008 20:57:45 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ Documentation/networking/ip-sysctl.txt |  170 ++++++++++++++++++++++++++++++++
+ 1 files changed, 170 insertions(+), 0 deletions(-)
 
-> William Boughton wrote:
-> > 
-> > Hello,
-> 
-> Hello again!
-> 
-> > ip route add throw 192.168.0.1
-> > 
-> > ping 192.168.0.1
-> > 
-> > Oppses when CONFIG_IP_FIB_TRIE=y
-> > 
-> > Reproduced on both x86_64 and 32 on Xen and a normal
-> > kernel running in qemu/kvm.
-> > 
-> > It seems this problem was introduced in 2.6.25
-> > 
-> > git bisect reports that it may have been caused by:
-> > 
-> > a07f5f508a4d9728c8e57d7f66294bf5b254ff7f is first bad commit                    
-> > commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f                                 
-> > Author: Stephen Hemminger <stephen.hemminger@vyatta.com>                        
-> > Date:   Tue Jan 22 21:53:36 2008 -0800                                          
-> >                                                                                 
-> >     [IPV4] fib_trie: style cleanup                                              
-> >                                                                                 
-> >     Style cleanups:                                                             
-> >           * make check_leaf return -1 or plen, rather than by reference         
-> [...]
-> 
-> The changes to check_leaf() and fn_trie_lookup() seem to be wrong - where
-> fn_trie_lookup() would previously return a negative error value from
-> check_leaf(), it now returns 0.
-> 
-> Now fn_trie_lookup() doesn't appear to care about plen, so we could revert
-> check_leaf() to returning the error value.  How does this work?
-> 
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 394db9c..43ed894 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1357,17 +1357,17 @@ static int check_leaf(struct trie *t, struct leaf *l,
->  			t->stats.semantic_match_miss++;
->  #endif
->  		if (err <= 0)
-> -			return plen;
-> +			return err;
->  	}
->  
-> -	return -1;
-> +	return 1;
->  }
->  
->  static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  			  struct fib_result *res)
->  {
->  	struct trie *t = (struct trie *) tb->tb_data;
-> -	int plen, ret = 0;
-> +	int ret;
->  	struct node *n;
->  	struct tnode *pn;
->  	int pos, bits;
-> @@ -1391,10 +1391,7 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  
->  	/* Just a leaf? */
->  	if (IS_LEAF(n)) {
-> -		plen = check_leaf(t, (struct leaf *)n, key, flp, res);
-> -		if (plen < 0)
-> -			goto failed;
-> -		ret = 0;
-> +		ret = check_leaf(t, (struct leaf *)n, key, flp, res);
->  		goto found;
->  	}
->  
-> @@ -1419,11 +1416,9 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
->  		}
->  
->  		if (IS_LEAF(n)) {
-> -			plen = check_leaf(t, (struct leaf *)n, key, flp, res);
-> -			if (plen < 0)
-> +			ret = check_leaf(t, (struct leaf *)n, key, flp, res);
-> +			if (ret > 0)
->  				goto backtrace;
-> -
-> -			ret = 0;
->  			goto found;
->  		}
-> --- END ---
-> 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 17a6e46..94a7bb5 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1064,6 +1064,176 @@ bridge-nf-filter-pppoe-tagged - BOOLEAN
+ 	Default: 1
+ 
+ 
++proc/sys/net/sctp/* Variables:
++
++addip_enable - BOOLEAN
++	Enable or disable extension of  Dynamic Address Reconfiguration
++	(ADD-IP) functionality specified in RFC5061.  This extension provides
++	the ability to dynamically add and remove new addresses for the SCTP
++	associations.
++
++	1: Enable extension.
++
++	0: Disable extension.
++
++	Default: 0
++
++addip_noauth_enable - BOOLEAN
++	Dynamic Address Reconfiguration (ADD-IP) requires the use of
++	authentication to protect the operations of adding or removing new
++	addresses.  This requirement is mandated so that unauthorized hosts
++	would not be able to hijack associations.  However, older
++	implementations may not have implemented this requirement while
++	allowing the ADD-IP extension.  For reasons of interoperability,
++	we provide this variable to control the enforcement of the
++	authentication requirement.
++
++	1: Allow ADD-IP extension to be used without authentication.  This
++	   should only be set in a closed environment for interoperability
++	   with older implementations.
++
++	0: Enforce the authentication requirement
++
++	Default: 0
++
++auth_enable - BOOLEAN
++	Enable or disable Authenticated Chunks extension.  This extension
++	provides the ability to send and receive authenticated chunks and is
++	required for secure operation of Dynamic Address Reconfiguration
++	(ADD-IP) extension.
++
++	1: Enable this extension.
++	0: Disable this extension.
++
++	Default: 0
++
++prsctp_enable - BOOLEAN
++	Enable or disable the Partial Reliability extension (RFC3758) which
++	is used to notify peers that a given DATA should no longer be expected.
++
++	1: Enable extension
++	0: Disable
++
++	Default: 1
++
++max_burst - INTEGER
++	The limit of the number of new packets that can be initially sent.  It
++	controls how bursty the generated traffic can be.
++
++	Default: 4
++
++association_max_retrans - INTEGER
++	Set the maximum number for retransmissions that an association can
++	attempt deciding that the remote end is unreachable.  If this value
++	is exceeded, the association is terminated.
++
++	Default: 10
++
++max_init_retransmits - INTEGER
++	The maximum number of retransmissions of INIT and COOKIE-ECHO chunks
++	that an association will attempt before declaring the destination
++	unreachable and terminating.
++
++	Default: 8
++
++path_max_retrans - INTEGER
++	The maximum number of retransmissions that will be attempted on a given
++	path.  Once this threshold is exceeded, the path is considered
++	unreachable, and new traffic will use a different path when the
++	association is multihomed.
++
++	Default: 5
++
++rto_initial - INTEGER
++	The initial round trip timeout value in milliseconds that will be used
++	in calculating round trip times.  This is the initial time interval
++	for retransmissions.
++
++	Default: 3000
++
++rto_max - INTEGER
++	The maximum value (in milliseconds) of the round trip timeout.  This
++	is the largest time interval that can elapse between retransmissions.
++
++	Default: 60000
++
++rto_min - INTEGER
++	The minimum value (in milliseconds) of the round trip timeout.  This
++	is the smallest time interval the can elapse between retransmissions.
++
++	Default: 1000
++
++hb_interval - INTEGER
++	The interval (in milliseconds) between HEARTBEAT chunks.  These chunks
++	are sent at the specified interval on idle paths to probe the state of
++	a given path between 2 associations.
++
++	Default: 30000
++
++sack_timeout - INTEGER
++	The amount of time (in milliseconds) that the implementation will wait
++	to send a SACK.
++
++	Default: 200
++
++valid_cookie_life - INTEGER
++	The default lifetime of the SCTP cookie (in milliseconds).  The cookie
++	is used during association establishment.
++
++	Default: 60000
++
++cookie_preserve_enable - BOOLEAN
++	Enable or disable the ability to extend the lifetime of the SCTP cookie
++	that is used during the establishment phase of SCTP association
++
++	1: Enable cookie lifetime extension.
++	0: Disable
++
++	Default: 1
++
++rcvbuf_policy - INTEGER
++	Determines if the receive buffer is attributed to the socket or to
++	association.   SCTP supports the capability to create multiple
++	associations on a single socket.  When using this capability, it is
++	possible that a single stalled association that's buffering a lot
++	of data may block other associations from delivering their data by
++	consuming all of the receive buffer space.  To work around this,
++	the rcvbuf_policy could be set to attribute the receiver buffer space
++	to each association instead of the socket.  This prevents the described
++	blocking.
++
++	1: rcvbuf space is per association
++	0: recbuf space is per socket
++
++	Default: 0
++
++sndbuf_policy - INTEGER
++	Similar to rcvbuf_policy above, this applies to send buffer space.
++
++	1: Send buffer is tracked per association
++	0: Send buffer is tracked per socket.
++
++	Default: 0
++
++sctp_mem - vector of 3 INTEGERs: min, pressure, max
++	Number of pages allowed for queueing by all SCTP sockets.
++
++	min: Below this number of pages SCTP is not bothered about its
++	memory appetite. When amount of memory allocated by SCTP exceeds
++	this number, SCTP starts to moderate memory usage.
++
++	pressure: This value was introduced to follow format of tcp_mem.
++
++	max: Number of pages allowed for queueing by all SCTP sockets.
++
++	Default is calculated at boot time from amount of available memory.
++
++sctp_rmem - vector of 3 INTEGERs: min, default, max
++	See tcp_rmem for a description.
++
++sctp_wmem  - vector of 3 INTEGERs: min, default, max
++	See tcp_wmem for a description.
++
+ UNDOCUMENTED:
+ 
+ dev_weight FIXME
+-- 
+1.5.3.5
 
-Please resend this patch with proper DCO line
