@@ -1,57 +1,52 @@
-From: "Stoyan Gaydarov" <stoyboyker@gmail.com>
-Subject: [PATCH] round_jiffies in ipv4
-Date: Mon, 7 Jul 2008 22:16:53 -0500
-Message-ID: <6d291e080807072016h5303b656h4633388db5bfc291@mail.gmail.com>
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: setsockopt()
+Date: Mon, 7 Jul 2008 20:33:10 -0700
+Message-ID: <1e41a3230807072033n2f5519e4m42003e191b44cefe@mail.gmail.com>
+References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme>
+	 <48728B09.1050801@citi.umich.edu> <48729DAD.8010400@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:44582 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755592AbYGHDQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 23:16:57 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so723803nfc.21
-        for <netdev@vger.kernel.org>; Mon, 07 Jul 2008 20:16:53 -0700 (PDT)
+Received: from an-out-0708.google.com ([209.85.132.241]:36596 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756125AbYGHDdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 23:33:13 -0400
+Received: by an-out-0708.google.com with SMTP id d40so474964and.103
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2008 20:33:10 -0700 (PDT)
+In-Reply-To: <48729DAD.8010400@hp.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the timers to use round_jiffies() since they are
-used for garbage collection.
+On Mon, Jul 7, 2008 at 3:50 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> I'm still a triffle puzzled/concerned/confused by the extent to which
+> autotuning will allow the receive window to grow, again based on some
+> netperf experience thusfar, and patient explanations provided here and
+> elsewhere, it seems as though autotuning will let things get to 2x what it
+> thinks the sender's cwnd happens to be.  So far under netperf testing that
+> seems to be the case, and 99 times out of ten my netperf tests will have the
+> window grow to the max.
 
 
-Signed-off-by: Stoyan Gaydarov <stoyboyker@gmail.com>
+Rick,
 
-diff -uprN linux-2.6.26-rc9/net/ipv4/ipvs/ip_vs_lblc.c
-devel/net/ipv4/ipvs/ip_vs_lblc.c
---- linux-2.6.26-rc9/net/ipv4/ipvs/ip_vs_lblc.c 2008-07-05
-17:53:22.000000000 -0500
-+++ devel/net/ipv4/ipvs/ip_vs_lblc.c    2008-07-07 22:05:04.000000000 -0500
-@@ -364,7 +364,7 @@ static int ip_vs_lblc_init_svc(struct ip
-         */
-        setup_timer(&tbl->periodic_timer, ip_vs_lblc_check_expire,
-                        (unsigned long)tbl);
--       tbl->periodic_timer.expires = jiffies+CHECK_EXPIRE_INTERVAL;
-+       tbl->periodic_timer.expires =
-round_jiffies(jiffies+CHECK_EXPIRE_INTERVAL);
-        add_timer(&tbl->periodic_timer);
+I thought this was covered pretty thoroughly back in April.  The
+behavior you're seeing is 100% expected, and not likely to change
+unless Jerry Chu gets his local queued data measurement patch working.
+ I'm not sure what ultimately happened there, but it was a cool idea
+and I hope he has time to polish it up.  It's definitely tricky to get
+right.
 
-        return 0;
-diff -uprN linux-2.6.26-rc9/net/ipv4/ipvs/ip_vs_lblcr.c
-devel/net/ipv4/ipvs/ip_vs_lblcr.c
---- linux-2.6.26-rc9/net/ipv4/ipvs/ip_vs_lblcr.c        2008-07-05
-17:53:22.000000000 -0500
-+++ devel/net/ipv4/ipvs/ip_vs_lblcr.c   2008-07-07 22:03:51.000000000 -0500
-@@ -548,7 +548,7 @@ static int ip_vs_lblcr_init_svc(struct i
-         */
-        setup_timer(&tbl->periodic_timer, ip_vs_lblcr_check_expire,
-                        (unsigned long)tbl);
--       tbl->periodic_timer.expires = jiffies+CHECK_EXPIRE_INTERVAL;
-+       tbl->periodic_timer.expires =
-round_jiffies(jiffies+CHECK_EXPIRE_INTERVAL);
-        add_timer(&tbl->periodic_timer);
+Jerry's optimization is a sender-side change.  The fact that the
+receiver announces enough window is almost certainly the right thing
+for it to do, and (I hope) this will not change.
 
-        return 0;
+If you're still curious:
+http://www.psc.edu/networking/ftp/papers/autotune_sigcomm98.ps
+http://www.lanl.gov/radiant/pubs/drs/lacsi2001.pdf
+http://staff.psc.edu/jheffner/papers/senior_thesis.pdf
+
+  -John
