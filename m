@@ -1,33 +1,52 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: setsockopt()
-Date: Tue, 08 Jul 2008 00:03:26 -0700
-Message-ID: <adamyksx3gh.fsf@cisco.com>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu>
-	<20080707.144912.76654646.davem@davemloft.net>
-	<20080708045443.GA7726@2ka.mipt.ru>
-	<20080708020235.388a7bd5.billfink@mindspring.com>
-	<adar6a4x510.fsf@cisco.com> <20080708064324.GA11776@2ka.mipt.ru>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
+Date: Tue, 8 Jul 2008 07:36:37 +0100
+Message-ID: <20080708073637.32037c76@the-village.bc.nu>
+References: <20080707214218.055bcb35@the-village.bc.nu>
+	<20080707.144505.67398603.davem@davemloft.net>
+	<20080707221427.163c4a30@the-village.bc.nu>
+	<20080707.145819.209342070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bill Fink <billfink@mindspring.com>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
+	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
+	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:26304 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751707AbYGHHD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 03:03:28 -0400
-In-Reply-To: <20080708064324.GA11776@2ka.mipt.ru> (Evgeniy Polyakov's message
-	of "Tue, 8 Jul 2008 10:43:24 +0400")
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49018 "EHLO
+	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751394AbYGHHKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 03:10:40 -0400
+In-Reply-To: <20080707.145819.209342070.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > Maybe nuttcp by default sets very small socket buffer size?
+> That's pure bullox as far as I can see.  Why provide the means to
+> do something nobody has had a need for in 6+ years?  Who needs
+> to load different firmware for the tg3 driver?
 
-strace shows no setsockopt() calls other than SO_REUSEADDR in the
-default case.
+Who needs modules, nobody needed it for years ... you are repeating
+historically failed arguments still.
 
- - R.
+> Who needs that capability? Distribution vendors?  What for?
+> In what case will they need to load different firmware from
+> what the driver maintainer tested as a unit?
+
+For some drivers yes. Maybe not tg3.
+
+> And, btw, who has the right to enforce this new burdon upon driver
+> maintainers when they have had a working and maintainable system for
+> so long?
+
+The module argument again - see my comment about the sound driver history.
+
+> I can only see it being about separation, pure and simple.
+
+Separation - of firmware that can be paged from code that cannot. Of
+stuff that doesn't change from stuff that does. That happens to be good
+engineering.
+
+Alan
