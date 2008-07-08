@@ -1,67 +1,79 @@
-From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH v3 2/2] hfsc: add link layer overhead adaption
-Date: Tue, 08 Jul 2008 14:11:35 +0300
-Message-ID: <20080708141135.174942dv1q2og4o4@hayate.ip6>
-References: <20080703220311.30053.63477.stgit@fate.lan>
-	<20080703220317.30053.87947.stgit@fate.lan> <487203B4.4030701@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+From: Julius Volz <juliusv@google.com>
+Subject: [PATCH] net/wireless/nl80211.c: fix endless Netlink callback loop.
+Date: Tue,  8 Jul 2008 14:02:19 +0200
+Message-ID: <1215518539-19587-1-git-send-email-juliusv@google.com>
+Cc: johannes@sipsolutions.net, Julius Volz <juliusv@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.dnainternet.fi ([87.94.96.112]:33191 "EHLO
-	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbYGHLLi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 07:11:38 -0400
-In-Reply-To: <487203B4.4030701@trash.net>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.33.17]:24406 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531AbYGHMCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 08:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting "Patrick McHardy" <kaber@trash.net>:
->
-> This means HFSC will use other packet sizes as inner qdiscs, policers,
-> statistics etc, which I don't like very much. My original patch used
-> the size tables to calculate the size when enqueing to the root qdisc
-> and stored it in the cb, so all qdiscs in the hierarchy can use the
-> same size.
+Although I only tested similar code (I don't use any of this wireless
+code), the state maintainance between Netlink dump callback invocations
+seems wrong here and should lead to an endless loop. There are also other
+examples in the same file which might have the same problem. Perhaps someone
+can actually test this (or refute my logic).
 
-With this patch I have tried to make HFSC support link layer emulation  
-in same way as done in HTB with rate table, so that overhead is  
-defined on leaf qdisc (if have understood right).
+Take the simple example with only one element in the list (which should fit
+into the message):
 
-I have used this patch to have different overhead between qdisc leafs  
-to account for extra overhead of ipv6-in-ipv4 tunnel (redirecting  
-traffic to IMQ device and filtering ipv4&ipv6 to corresponding leafs).  
-If overhead/linklayer is defined on root qdisc, this wouldn't be  
-possible?
+1. invocation:
+  Start:
+    idx = 0, start = 0
+  Loop:
+    condition (++idx < start) => (1 < 0) => false
+    => no continue, fill one entry, exit loop, return skb->len > 0
 
-I'm not too happy about statistics being affected either, I'll look in to it.
+2. invocation:
+  Start:
+    idx = 0, start = 1
+  Loop:
+    condition (++idx < start) => (1 < 1) => false
+    => no continue, fill the same entry again, exit loop, return skb->len > 0
 
->> @@ -987,9 +997,11 @@ hfsc_change_usc(struct hfsc_class *cl, struct   
->> tc_service_curve *usc,
->> }
->>  static const struct nla_policy hfsc_policy[TCA_HFSC_MAX + 1] = {
->> -	[TCA_HFSC_RSC]	= { .len = sizeof(struct tc_service_curve) },
->> -	[TCA_HFSC_FSC]	= { .len = sizeof(struct tc_service_curve) },
->> -	[TCA_HFSC_USC]	= { .len = sizeof(struct tc_service_curve) },
->> +	[TCA_HFSC_RSC]		= { .len = sizeof(struct tc_service_curve) },
->> +	[TCA_HFSC_FSC]		= { .len = sizeof(struct tc_service_curve) },
->> +	[TCA_HFSC_USC]		= { .len = sizeof(struct tc_service_curve) },
->> +	[TCA_HFSC_SZOPTS]	= { .len = sizeof(struct tc_sizespec) },
->> +	[TCA_HFSC_STAB]		= { .type = NLA_BINARY, .len = TC_STAB_SIZE },
->
-> Why are these two separate attributes?
+3. invocation:
+  Same as 2. invocation, endless invocation of callback.
 
-I copied qdisc_get_rtab() to qdisc_get_stab() and qdisc_get_rtab uses  
-nla_data(tab) to get the buffer. Should use single attribute instead?
-I have worked on patch that would merge qdisc_get_rtab/stab to generic  
-qdisc_get_xtab supporting both types of link layer emulation tables.  
-With single attribute here, patch wouldn't work so easily.
+Also, iterations where the filling of an element fails should not be counted as
+completed, so idx should not be incremented in this case.
 
-  - Jussi
+Signed-off-by: Julius Volz <juliusv@google.com>
+
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index fb75f26..b7fefff 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -194,22 +194,24 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx = 0;
+ 	int start = cb->args[0];
+ 	struct cfg80211_registered_device *dev;
+ 
+ 	mutex_lock(&cfg80211_drv_mutex);
+ 	list_for_each_entry(dev, &cfg80211_drv_list, list) {
+-		if (++idx < start)
++		if (++idx <= start)
+ 			continue;
+ 		if (nl80211_send_wiphy(skb, NETLINK_CB(cb->skb).pid,
+ 				       cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-				       dev) < 0)
++				       dev) < 0) {
++			idx--;
+ 			break;
++		}
+ 	}
+ 	mutex_unlock(&cfg80211_drv_mutex);
+ 
+ 	cb->args[0] = idx;
+ 
+ 	return skb->len;
+ }
+ 
+-- 
+1.5.4.5
 
