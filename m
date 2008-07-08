@@ -1,88 +1,324 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] Fix const assignment/discard warnings in the ATM networking
-	driver
-Date: Tue, 08 Jul 2008 18:04:54 +0100
-Message-ID: <20080708170452.8406.47939.stgit@warthog.procyon.org.uk>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC 08/11] remove CONFIG_KMOD from net
+Date: Tue, 08 Jul 2008 19:00:23 +0200
+Message-ID: <20080708170047.433712000@sipsolutions.net>
+References: <20080708170015.470877000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, chas@cmf.nrl.navy.mil, netdev@vger.kernel.org
-To: mitch@sfgoth.com, akpm@linux-foundation.org
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59901 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758805AbYGHRFK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 13:05:10 -0400
+Received: from xc.sipsolutions.net ([83.246.72.84]:57812 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbYGHRPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 13:15:03 -0400
+Content-Disposition: inline; filename=config-kmod-remove-net.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix const assignment/discard warnings in the ATM networking driver.
+Some code here depends on CONFIG_KMOD to not try to load
+protocol modules or similar, replace by CONFIG_MODULES
+where more than just request_module depends on CONFIG_KMOD
+and and also use try_then_request_module in ebtables.
 
-The lane2_assoc_ind() function needed its arguments changing to match changes
-in the lane2_ops struct (patch 61c33e012964ce358b42d2a1e9cd309af5dab02b).
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org
 ---
+ include/linux/netdevice.h       |    5 ++++-
+ net/bluetooth/af_bluetooth.c    |    8 +-------
+ net/bridge/netfilter/ebtables.c |   15 +++------------
+ net/can/af_can.c                |    4 ++--
+ net/core/dev.c                  |    2 +-
+ net/core/rtnetlink.c            |    4 ++--
+ net/dccp/ccid.c                 |    2 +-
+ net/decnet/dn_dev.c             |    2 --
+ net/ipv4/devinet.c              |    2 --
+ net/ipv4/inet_diag.c            |    2 --
+ net/ipv4/tcp_cong.c             |    4 ++--
+ net/netfilter/nfnetlink.c       |    2 +-
+ net/netlink/af_netlink.c        |    2 +-
+ net/sched/act_api.c             |    2 +-
+ net/sched/cls_api.c             |    2 +-
+ net/sched/ematch.c              |    2 +-
+ net/sched/sch_api.c             |    2 +-
+ net/socket.c                    |    2 +-
+ net/sunrpc/auth.c               |    2 --
+ 19 files changed, 23 insertions(+), 43 deletions(-)
 
- net/atm/mpc.c |   22 +++++++++++++---------
- 1 files changed, 13 insertions(+), 9 deletions(-)
-
-
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index 9db332e..a122394 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -62,11 +62,13 @@ static void MPOA_cache_impos_rcvd(struct k_message *msg, struct mpoa_client *mpc
- static void set_mpc_ctrl_addr_rcvd(struct k_message *mesg, struct mpoa_client *mpc);
- static void set_mps_mac_addr_rcvd(struct k_message *mesg, struct mpoa_client *mpc);
+--- everything.orig/net/bluetooth/af_bluetooth.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/bluetooth/af_bluetooth.c	2008-07-08 18:36:06.000000000 +0200
+@@ -36,10 +36,7 @@
+ #include <linux/init.h>
+ #include <linux/poll.h>
+ #include <net/sock.h>
+-
+-#if defined(CONFIG_KMOD)
+ #include <linux/kmod.h>
+-#endif
  
--static uint8_t *copy_macs(struct mpoa_client *mpc, uint8_t *router_mac,
--			  uint8_t *tlvs, uint8_t mps_macs, uint8_t device_type);
-+static const uint8_t *copy_macs(struct mpoa_client *mpc,
-+				const uint8_t *router_mac,
-+				const uint8_t *tlvs, uint8_t mps_macs,
-+				uint8_t device_type);
- static void purge_egress_shortcut(struct atm_vcc *vcc, eg_cache_entry *entry);
+ #include <net/bluetooth/bluetooth.h>
  
--static void send_set_mps_ctrl_addr(char *addr, struct mpoa_client *mpc);
-+static void send_set_mps_ctrl_addr(const char *addr, struct mpoa_client *mpc);
- static void mpoad_close(struct atm_vcc *vcc);
- static int msg_from_mpoad(struct atm_vcc *vcc, struct sk_buff *skb);
+@@ -144,11 +141,8 @@ static int bt_sock_create(struct net *ne
+ 	if (proto < 0 || proto >= BT_MAX_PROTO)
+ 		return -EINVAL;
  
-@@ -351,12 +353,12 @@ static const char *mpoa_device_type_string(char type)
-  * lec sees a TLV it uses the pointer to call this function.
-  *
-  */
--static void lane2_assoc_ind(struct net_device *dev, uint8_t *mac_addr,
--			    uint8_t *tlvs, uint32_t sizeoftlvs)
-+static void lane2_assoc_ind(struct net_device *dev, const u8 *mac_addr,
-+			    const u8 *tlvs, u32 sizeoftlvs)
- {
- 	uint32_t type;
- 	uint8_t length, mpoa_device_type, number_of_mps_macs;
--	uint8_t *end_of_tlvs;
-+	const uint8_t *end_of_tlvs;
- 	struct mpoa_client *mpc;
+-#if defined(CONFIG_KMOD)
+-	if (!bt_proto[proto]) {
++	if (!bt_proto[proto])
+ 		request_module("bt-proto-%d", proto);
+-	}
+-#endif
  
- 	mpoa_device_type = number_of_mps_macs = 0; /* silence gcc */
-@@ -430,8 +432,10 @@ static void lane2_assoc_ind(struct net_device *dev, uint8_t *mac_addr,
-  * plus the possible MAC address(es) to mpc->mps_macs.
-  * For a freshly allocated MPOA client mpc->mps_macs == 0.
-  */
--static uint8_t *copy_macs(struct mpoa_client *mpc, uint8_t *router_mac,
--			  uint8_t *tlvs, uint8_t mps_macs, uint8_t device_type)
-+static const uint8_t *copy_macs(struct mpoa_client *mpc,
-+				const uint8_t *router_mac,
-+				const uint8_t *tlvs, uint8_t mps_macs,
-+				uint8_t device_type)
- {
- 	int num_macs;
- 	num_macs = (mps_macs > 1) ? mps_macs : 1;
-@@ -811,7 +815,7 @@ static int atm_mpoa_mpoad_attach (struct atm_vcc *vcc, int arg)
- 	return arg;
+ 	err = -EPROTONOSUPPORT;
+ 
+--- everything.orig/net/bridge/netfilter/ebtables.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/bridge/netfilter/ebtables.c	2008-07-08 18:36:06.000000000 +0200
+@@ -288,23 +288,14 @@ find_inlist_lock_noload(struct list_head
+ 	return NULL;
  }
  
--static void send_set_mps_ctrl_addr(char *addr, struct mpoa_client *mpc)
-+static void send_set_mps_ctrl_addr(const char *addr, struct mpoa_client *mpc)
+-#ifndef CONFIG_KMOD
+-#define find_inlist_lock(h,n,p,e,m) find_inlist_lock_noload((h),(n),(e),(m))
+-#else
+ static void *
+ find_inlist_lock(struct list_head *head, const char *name, const char *prefix,
+    int *error, struct mutex *mutex)
  {
- 	struct k_message mesg;
+-	void *ret;
+-
+-	ret = find_inlist_lock_noload(head, name, error, mutex);
+-	if (!ret) {
+-		request_module("%s%s", prefix, name);
+-		ret = find_inlist_lock_noload(head, name, error, mutex);
+-	}
+-	return ret;
++	return try_then_request_module(
++			find_inlist_lock_noload(head, name, error, mutex),
++			"%s%s", prefix, name);
+ }
+-#endif
  
+ static inline struct ebt_table *
+ find_table_lock(const char *name, int *error, struct mutex *mutex)
+--- everything.orig/net/can/af_can.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/can/af_can.c	2008-07-08 18:36:06.000000000 +0200
+@@ -128,8 +128,8 @@ static int can_create(struct net *net, s
+ 	if (net != &init_net)
+ 		return -EAFNOSUPPORT;
+ 
+-#ifdef CONFIG_KMOD
+-	/* try to load protocol module, when CONFIG_KMOD is defined */
++#ifdef CONFIG_MODULES
++	/* try to load protocol module kernel is modular */
+ 	if (!proto_tab[protocol]) {
+ 		err = request_module("can-proto-%d", protocol);
+ 
+--- everything.orig/net/core/dev.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/core/dev.c	2008-07-08 18:36:06.000000000 +0200
+@@ -4639,7 +4639,7 @@ EXPORT_SYMBOL(br_fdb_get_hook);
+ EXPORT_SYMBOL(br_fdb_put_hook);
+ #endif
+ 
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ EXPORT_SYMBOL(dev_load);
+ #endif
+ 
+--- everything.orig/net/core/rtnetlink.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/core/rtnetlink.c	2008-07-08 18:36:06.000000000 +0200
+@@ -1029,7 +1029,7 @@ static int rtnl_newlink(struct sk_buff *
+ 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
+ 	int err;
+ 
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ replay:
+ #endif
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+@@ -1118,7 +1118,7 @@ replay:
+ 			return -EOPNOTSUPP;
+ 
+ 		if (!ops) {
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 			if (kind[0]) {
+ 				__rtnl_unlock();
+ 				request_module("rtnl-link-%s", kind);
+--- everything.orig/net/dccp/ccid.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/dccp/ccid.c	2008-07-08 18:36:06.000000000 +0200
+@@ -154,7 +154,7 @@ struct ccid *ccid_new(unsigned char id, 
+ 	struct ccid *ccid = NULL;
+ 
+ 	ccids_read_lock();
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 	if (ccids[id] == NULL) {
+ 		/* We only try to load if in process context */
+ 		ccids_read_unlock();
+--- everything.orig/net/decnet/dn_dev.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/decnet/dn_dev.c	2008-07-08 18:36:06.000000000 +0200
+@@ -490,9 +490,7 @@ int dn_dev_ioctl(unsigned int cmd, void 
+ 		return -EFAULT;
+ 	ifr->ifr_name[IFNAMSIZ-1] = 0;
+ 
+-#ifdef CONFIG_KMOD
+ 	dev_load(&init_net, ifr->ifr_name);
+-#endif
+ 
+ 	switch(cmd) {
+ 		case SIOCGIFADDR:
+--- everything.orig/net/ipv4/devinet.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/ipv4/devinet.c	2008-07-08 18:36:06.000000000 +0200
+@@ -613,9 +613,7 @@ int devinet_ioctl(struct net *net, unsig
+ 	if (colon)
+ 		*colon = 0;
+ 
+-#ifdef CONFIG_KMOD
+ 	dev_load(net, ifr.ifr_name);
+-#endif
+ 
+ 	switch (cmd) {
+ 	case SIOCGIFADDR:	/* Get interface address */
+--- everything.orig/net/ipv4/inet_diag.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/ipv4/inet_diag.c	2008-07-08 18:36:06.000000000 +0200
+@@ -55,11 +55,9 @@ static DEFINE_MUTEX(inet_diag_table_mute
+ 
+ static const struct inet_diag_handler *inet_diag_lock_handler(int type)
+ {
+-#ifdef CONFIG_KMOD
+ 	if (!inet_diag_table[type])
+ 		request_module("net-pf-%d-proto-%d-type-%d", PF_NETLINK,
+ 			       NETLINK_INET_DIAG, type);
+-#endif
+ 
+ 	mutex_lock(&inet_diag_table_mutex);
+ 	if (!inet_diag_table[type])
+--- everything.orig/net/ipv4/tcp_cong.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/ipv4/tcp_cong.c	2008-07-08 18:36:06.000000000 +0200
+@@ -115,7 +115,7 @@ int tcp_set_default_congestion_control(c
+ 
+ 	spin_lock(&tcp_cong_list_lock);
+ 	ca = tcp_ca_find(name);
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 	if (!ca && capable(CAP_SYS_MODULE)) {
+ 		spin_unlock(&tcp_cong_list_lock);
+ 
+@@ -244,7 +244,7 @@ int tcp_set_congestion_control(struct so
+ 	if (ca == icsk->icsk_ca_ops)
+ 		goto out;
+ 
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 	/* not found attempt to autoload module */
+ 	if (!ca && capable(CAP_SYS_MODULE)) {
+ 		rcu_read_unlock();
+--- everything.orig/net/netfilter/nfnetlink.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/netfilter/nfnetlink.c	2008-07-08 18:36:06.000000000 +0200
+@@ -134,7 +134,7 @@ static int nfnetlink_rcv_msg(struct sk_b
+ 	type = nlh->nlmsg_type;
+ 	ss = nfnetlink_get_subsys(type);
+ 	if (!ss) {
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 		nfnl_unlock();
+ 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
+ 		nfnl_lock();
+--- everything.orig/net/netlink/af_netlink.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/netlink/af_netlink.c	2008-07-08 18:36:06.000000000 +0200
+@@ -434,7 +434,7 @@ static int netlink_create(struct net *ne
+ 		return -EPROTONOSUPPORT;
+ 
+ 	netlink_lock_table();
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 	if (!nl_table[protocol].registered) {
+ 		netlink_unlock_table();
+ 		request_module("net-pf-%d-proto-%d", PF_NETLINK, protocol);
+--- everything.orig/net/sched/act_api.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/sched/act_api.c	2008-07-08 18:36:06.000000000 +0200
+@@ -495,7 +495,7 @@ struct tc_action *tcf_action_init_1(stru
+ 
+ 	a_o = tc_lookup_action_n(act_name);
+ 	if (a_o == NULL) {
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 		rtnl_unlock();
+ 		request_module("act_%s", act_name);
+ 		rtnl_lock();
+--- everything.orig/net/sched/cls_api.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/sched/cls_api.c	2008-07-08 18:36:06.000000000 +0200
+@@ -223,7 +223,7 @@ replay:
+ 		err = -ENOENT;
+ 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND]);
+ 		if (tp_ops == NULL) {
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 			struct nlattr *kind = tca[TCA_KIND];
+ 			char name[IFNAMSIZ];
+ 
+--- everything.orig/net/sched/ematch.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/sched/ematch.c	2008-07-08 18:36:06.000000000 +0200
+@@ -224,7 +224,7 @@ static int tcf_em_validate(struct tcf_pr
+ 
+ 		if (em->ops == NULL) {
+ 			err = -ENOENT;
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 			__rtnl_unlock();
+ 			request_module("ematch-kind-%u", em_hdr->kind);
+ 			rtnl_lock();
+--- everything.orig/net/sched/sch_api.c	2008-07-08 18:35:54.000000000 +0200
++++ everything/net/sched/sch_api.c	2008-07-08 18:36:06.000000000 +0200
+@@ -457,7 +457,7 @@ qdisc_create(struct net_device *dev, u32
+ 	struct Qdisc_ops *ops;
+ 
+ 	ops = qdisc_lookup_ops(kind);
+-#ifdef CONFIG_KMOD
++#ifdef CONFIG_MODULES
+ 	if (ops == NULL && kind != NULL) {
+ 		char name[IFNAMSIZ];
+ 		if (nla_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
+--- everything.orig/net/socket.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/socket.c	2008-07-08 18:36:06.000000000 +0200
+@@ -1140,7 +1140,7 @@ static int __sock_create(struct net *net
+ 
+ 	sock->type = type;
+ 
+-#if defined(CONFIG_KMOD)
++#ifdef CONFIG_MODULES
+ 	/* Attempt to load a protocol module if the find failed.
+ 	 *
+ 	 * 12/09/1996 Marcin: But! this makes REALLY only sense, if the user
+--- everything.orig/net/sunrpc/auth.c	2008-07-08 18:35:53.000000000 +0200
++++ everything/net/sunrpc/auth.c	2008-07-08 18:36:06.000000000 +0200
+@@ -83,10 +83,8 @@ rpcauth_create(rpc_authflavor_t pseudofl
+ 	if (flavor >= RPC_AUTH_MAXFLAVOR)
+ 		goto out;
+ 
+-#ifdef CONFIG_KMOD
+ 	if ((ops = auth_flavors[flavor]) == NULL)
+ 		request_module("rpc-auth-%u", flavor);
+-#endif
+ 	spin_lock(&rpc_authflavor_lock);
+ 	ops = auth_flavors[flavor];
+ 	if (ops == NULL || !try_module_get(ops->owner)) {
+--- everything.orig/include/linux/netdevice.h	2008-07-08 18:35:53.000000000 +0200
++++ everything/include/linux/netdevice.h	2008-07-08 18:36:06.000000000 +0200
+@@ -1484,8 +1484,11 @@ extern void		dev_set_promiscuity(struct 
+ extern void		dev_set_allmulti(struct net_device *dev, int inc);
+ extern void		netdev_state_change(struct net_device *dev);
+ extern void		netdev_features_change(struct net_device *dev);
+-/* Load a device via the kmod */
++#ifdef CONFIG_MODULES
+ extern void		dev_load(struct net *net, const char *name);
++#else
++static inline void	dev_load(struct net *net, const char *name) {};
++#endif
+ extern void		dev_mcast_init(void);
+ extern int		netdev_max_backlog;
+ extern int		weight_p;
+
+-- 
 
