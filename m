@@ -1,751 +1,1066 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 11/25] ixgb: update readme text
-Date: Tue, 08 Jul 2008 15:51:57 -0700
-Message-ID: <20080708225157.6925.18516.stgit@localhost.localdomain>
+Subject: [NET-NEXT PATCH 14/25] ixgb: format all if( to be if (
+Date: Tue, 08 Jul 2008 15:52:13 -0700
+Message-ID: <20080708225213.6925.19171.stgit@localhost.localdomain>
 References: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15354 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:53842 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753144AbYGHWwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:52:03 -0400
+	id S1754021AbYGHWwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:52:14 -0400
 In-Reply-To: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+this patch is trivial but because I want to have everything be nice and
+tidy I'm updating it.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- Documentation/networking/ixgb.txt |  419 ++++++++++++++++++++++++++++-=
---------
- 1 files changed, 320 insertions(+), 99 deletions(-)
+ drivers/net/ixgb/ixgb_ee.c      |    8 +-
+ drivers/net/ixgb/ixgb_ethtool.c |   68 +++++++++----------
+ drivers/net/ixgb/ixgb_hw.c      |   13 ++--
+ drivers/net/ixgb/ixgb_main.c    |  141 +++++++++++++++++++--------------------
+ drivers/net/ixgb/ixgb_osdep.h   |    2 -
+ drivers/net/ixgb/ixgb_param.c   |   30 ++++----
+ 6 files changed, 130 insertions(+), 132 deletions(-)
 
-diff --git a/Documentation/networking/ixgb.txt b/Documentation/networki=
-ng/ixgb.txt
-index 7c98277..a0d0ffb 100644
---- a/Documentation/networking/ixgb.txt
-+++ b/Documentation/networking/ixgb.txt
-@@ -1,7 +1,7 @@
--Linux* Base Driver for the Intel(R) PRO/10GbE Family of Adapters
--=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+Linux Base Driver for 10 Gigabit Intel(R) Network Connection
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--November 17, 2004
-+October 9, 2007
-=20
-=20
- Contents
-@@ -9,94 +9,151 @@ Contents
-=20
- - In This Release
- - Identifying Your Adapter
-+- Building and Installation
- - Command Line Parameters
- - Improving Performance
-+- Additional Configurations
-+- Known Issues/Troubleshooting
- - Support
-=20
-=20
-+
- In This Release
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--This file describes the Linux* Base Driver for the Intel(R) PRO/10GbE =
-=46amily=20
--of Adapters, version 1.0.x. =20
-+This file describes the ixgb Linux Base Driver for the 10 Gigabit Inte=
-l(R)
-+Network Connection.  This driver includes support for Itanium(R)2-base=
-d
-+systems.
-+
-+For questions related to hardware requirements, refer to the documenta=
-tion
-+supplied with your 10 Gigabit adapter.  All hardware requirements list=
-ed apply
-+to use with Linux.
-+
-+The following features are available in this kernel:
-+ - Native VLANs
-+ - Channel Bonding (teaming)
-+ - SNMP
-+
-+Channel Bonding documentation can be found in the Linux kernel source:
-+/Documentation/networking/bonding.txt
-+
-+The driver information previously displayed in the /proc filesystem is=
- not
-+supported in this release.  Alternatively, you can use ethtool (versio=
-n 1.6
-+or later), lspci, and ifconfig to obtain the same information.
-+
-+Instructions on updating ethtool can be found in the section "Addition=
-al
-+Configurations" later in this document.
-=20
--For questions related to hardware requirements, refer to the documenta=
-tion=20
--supplied with your Intel PRO/10GbE adapter. All hardware requirements =
-listed=20
--apply to use with Linux.
-=20
- Identifying Your Adapter
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--To verify your Intel adapter is supported, find the board ID number on=
- the=20
--adapter. Look for a label that has a barcode and a number in the forma=
-t =20
--A12345-001.=20
-+The following Intel network adapters are compatible with the drivers i=
-n this
-+release:
-+
-+Controller  Adapter Name                 Physical Layer
-+----------  ------------                 --------------
-+82597EX     Intel(R) PRO/10GbE LR/SR/CX4 10G Base-LR (1310 nm optical =
-fiber)
-+            Server Adapters              10G Base-SR (850 nm optical f=
-iber)
-+                                         10G Base-CX4(twin-axial coppe=
-r cabling)
-+
-+For more information on how to identify your adapter, go to the Adapte=
-r &
-+Driver ID Guide at:
-+
-+    http://support.intel.com/support/network/sb/CS-012904.htm
-+
-+
-+Building and Installation
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-+
-+select m for "Intel(R) PRO/10GbE support" located at:
-+      Location:
-+        -> Device Drivers
-+          -> Network device support (NETDEVICES [=3Dy])
-+            -> Ethernet (10000 Mbit) (NETDEV_10000 [=3Dy])
-+1. make modules && make modules_install
-+
-+2. Load the module:
-+
-+=C2=A0=C2=A0=C2=A0=C2=A0modprobe ixgb <parameter>=3D<value>
-+
-+   The insmod command can be used if the full
-+   path to the driver module is specified.  For example:
-+
-+     insmod /lib/modules/<KERNEL VERSION>/kernel/drivers/net/ixgb/ixgb=
-=2Eko
-+
-+   With 2.6 based kernels also make sure that older ixgb drivers are
-+   removed from the kernel, before loading the new module:
-=20
--Use the above information and the Adapter & Driver ID Guide at:
-+     rmmod ixgb; modprobe ixgb
-=20
--  http://support.intel.com/support/network/adapter/pro100/21397.htm
-+3. Assign an IP address to the interface by entering the following, wh=
-ere
-+   x is the interface number:
-=20
--For the latest Intel network drivers for Linux, go to:
-+     ifconfig ethx <IP_address>
-+
-+4. Verify that the interface works. Enter the following, where <IP_add=
-ress>
-+   is the IP address for another machine on the same subnet as the int=
-erface
-+   that is being tested:
-+
-+     ping  <IP_address>
-=20
--    http://downloadfinder.intel.com/scripts-df/support_intel.asp
-=20
- Command Line Parameters
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--If the driver is built as a module, the  following optional parameters=
- are=20
--used by entering them on the command line with the modprobe or insmod =
-command
--using this syntax:
-+If the driver is built as a module, the  following optional parameters=
- are
-+used by entering them on the command line with the modprobe command us=
-ing
-+this syntax:
-=20
-      modprobe ixgb [<option>=3D<VAL1>,<VAL2>,...]
-=20
--     insmod ixgb [<option>=3D<VAL1>,<VAL2>,...]
-+For example, with two 10GbE PCI adapters, entering:
-=20
--For example, with two PRO/10GbE PCI adapters, entering:
-+     modprobe ixgb TxDescriptors=3D80,128
-=20
--    insmod ixgb TxDescriptors=3D80,128
--
--loads the ixgb driver with 80 TX resources for the first adapter and 1=
-28 TX=20
-+loads the ixgb driver with 80 TX resources for the first adapter and 1=
-28 TX
- resources for the second adapter.
-=20
- The default value for each parameter is generally the recommended sett=
-ing,
--unless otherwise noted. Also, if the driver is statically built into t=
-he
--kernel, the driver is loaded with the default values for all the param=
-eters.
--Ethtool can be used to change some of the parameters at runtime.
-+unless otherwise noted.
-=20
- FlowControl
- Valid Range: 0-3 (0=3Dnone, 1=3DRx only, 2=3DTx only, 3=3DRx&Tx)
- Default: Read from the EEPROM
--         If EEPROM is not detected, default is 3
--    This parameter controls the automatic generation(Tx) and response(=
-Rx) to=20
--    Ethernet PAUSE frames.
-+         If EEPROM is not detected, default is 1
-+    This parameter controls the automatic generation(Tx) and response(=
-Rx) to
-+    Ethernet PAUSE frames.  There are hardware bugs associated with en=
-abling
-+    Tx flow control so beware.
-=20
- RxDescriptors
- Valid Range: 64-512
- Default Value: 512
--    This value is the number of receive descriptors allocated by the d=
-river.=20
--    Increasing this value allows the driver to buffer more incoming pa=
-ckets.=20
--    Each descriptor is 16 bytes.  A receive buffer is also allocated f=
-or=20
--    each descriptor and can be either 2048, 4056, 8192, or 16384 bytes=
-,=20
--    depending on the MTU setting. When the MTU size is 1500 or less, t=
-he=20
-+    This value is the number of receive descriptors allocated by the d=
-river.
-+    Increasing this value allows the driver to buffer more incoming pa=
-ckets.
-+    Each descriptor is 16 bytes.  A receive buffer is also allocated f=
-or
-+    each descriptor and can be either 2048, 4056, 8192, or 16384 bytes=
-,
-+    depending on the MTU setting.  When the MTU size is 1500 or less, =
-the
-     receive buffer size is 2048 bytes. When the MTU is greater than 15=
-00 the
--    receive buffer size will be either 4056, 8192, or 16384 bytes. The=
-=20
-+    receive buffer size will be either 4056, 8192, or 16384 bytes.  Th=
-e
-     maximum MTU size is 16114.
-=20
- RxIntDelay
- Valid Range: 0-65535 (0=3Doff)
--Default Value: 6
--    This value delays the generation of receive interrupts in units of=
-=20
--    0.8192 microseconds.  Receive interrupt reduction can improve CPU=20
--    efficiency if properly tuned for specific network traffic. Increas=
-ing=20
--    this value adds extra latency to frame reception and can end up=20
--    decreasing the throughput of TCP traffic. If the system is reporti=
-ng=20
--    dropped receives, this value may be set too high, causing the driv=
-er to=20
-+Default Value: 72
-+    This value delays the generation of receive interrupts in units of
-+    0.8192 microseconds.  Receive interrupt reduction can improve CPU
-+    efficiency if properly tuned for specific network traffic.  Increa=
-sing
-+    this value adds extra latency to frame reception and can end up
-+    decreasing the throughput of TCP traffic.  If the system is report=
-ing
-+    dropped receives, this value may be set too high, causing the driv=
-er to
-     run out of available receive descriptors.
-=20
- TxDescriptors
- Valid Range: 64-4096
- Default Value: 256
-     This value is the number of transmit descriptors allocated by the =
-driver.
--    Increasing this value allows the driver to queue more transmits. E=
-ach=20
-+    Increasing this value allows the driver to queue more transmits.  =
-Each
-     descriptor is 16 bytes.
-=20
- XsumRX
-@@ -105,51 +162,49 @@ Default Value: 1
-     A value of '1' indicates that the driver should enable IP checksum
-     offload for received packets (both UDP and TCP) to the adapter har=
-dware.
-=20
--XsumTX
--Valid Range: 0-1
--Default Value: 1
--    A value of '1' indicates that the driver should enable IP checksum
--    offload for transmitted packets (both UDP and TCP) to the adapter=20
--    hardware.
-=20
- Improving Performance
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--With the Intel PRO/10 GbE adapter, the default Linux configuration wil=
-l very=20
--likely limit the total available throughput artificially.  There is a =
-set of=20
--things that when applied together increase the ability of Linux to tra=
-nsmit=20
--and receive data.  The following enhancements were originally acquired=
- from
--settings published at http://www.spec.org/web99 for various submitted =
-results=20
--using Linux.
-+With the 10 Gigabit server adapters, the default Linux configuration w=
-ill
-+very likely limit the total available throughput artificially.  There =
-is a set
-+of configuration changes that, when applied together, will increase th=
-e ability
-+of Linux to transmit and receive data.  The following enhancements wer=
-e
-+originally acquired from settings published at http://www.spec.org/web=
-99/ for
-+various submitted results using Linux.
-=20
--NOTE: These changes are only suggestions, and serve as a starting poin=
-t for=20
--tuning your network performance.
-+NOTE: These changes are only suggestions, and serve as a starting poin=
-t for
-+      tuning your network performance.
-=20
- The changes are made in three major ways, listed in order of greatest =
-effect:
--- Use ifconfig to modify the mtu (maximum transmission unit) and the t=
-xqueuelen=20
-+- Use ifconfig to modify the mtu (maximum transmission unit) and the t=
-xqueuelen
-   parameter.
- - Use sysctl to modify /proc parameters (essentially kernel tuning)
--- Use setpci to modify the MMRBC field in PCI-X configuration space to=
- increase=20
-+- Use setpci to modify the MMRBC field in PCI-X configuration space to=
- increase
-   transmit burst lengths on the bus.
-=20
--NOTE: setpci modifies the adapter's configuration registers to allow i=
-t to read=20
--up to 4k bytes at a time (for transmits).  However, for some systems t=
-he=20
--behavior after modifying this register may be undefined (possibly erro=
-rs of some=20
--kind). A power-cycle, hard reset or explicitly setting the e6 register=
- back to=20
--22 (setpci -d 8086:1048 e6.b=3D22) may be required to get back to a st=
-able=20
--configuration.
-+NOTE: setpci modifies the adapter's configuration registers to allow i=
-t to read
-+up to 4k bytes at a time (for transmits).  However, for some systems t=
-he
-+behavior after modifying this register may be undefined (possibly erro=
-rs of
-+some kind).  A power-cycle, hard reset or explicitly setting the e6 re=
-gister
-+back to 22 (setpci -d 8086:1a48 e6.b=3D22) may be required to get back=
- to a
-+stable configuration.
-=20
- - COPY these lines and paste them into ixgb_perf.sh:
- #!/bin/bash
--echo "configuring network performance , edit this file to change the i=
-nterface"
-+echo "configuring network performance , edit this file to change the i=
-nterface
-+or device ID of 10GbE card"
- # set mmrbc to 4k reads, modify only Intel 10GbE device IDs
--setpci -d 8086:1048 e6.b=3D2e
--# set the MTU (max transmission unit) - it requires your switch and cl=
-ients to change too!
-+# replace 1a48 with appropriate 10GbE device's ID installed on the sys=
-tem,
-+# if needed.
-+setpci -d 8086:1a48 e6.b=3D2e
-+# set the MTU (max transmission unit) - it requires your switch and cl=
-ients
-+# to change as well.
- # set the txqueuelen
- # your ixgb adapter should be loaded as eth1 for this to work, change =
-if needed
- ifconfig eth1 mtu 9000 txqueuelen 1000 up
--# call the sysctl utility to modify /proc/sys entries=20
--sysctl -p ./sysctl_ixgb.conf=20
-+# call the sysctl utility to modify /proc/sys entries
-+sysctl -p ./sysctl_ixgb.conf
- - END ixgb_perf.sh
-=20
- - COPY these lines and paste them into sysctl_ixgb.conf:
-@@ -159,54 +214,220 @@ sysctl -p ./sysctl_ixgb.conf
- # several network benchmark tests, your mileage may vary
-=20
- ### IPV4 specific settings
--net.ipv4.tcp_timestamps =3D 0 # turns TCP timestamp support off, defau=
-lt 1, reduces CPU use
--net.ipv4.tcp_sack =3D 0 # turn SACK support off, default on
--# on systems with a VERY fast bus -> memory interface this is the big =
-gainer=20
--net.ipv4.tcp_rmem =3D 10000000 10000000 10000000 # sets min/default/ma=
-x TCP read buffer, default 4096 87380 174760
--net.ipv4.tcp_wmem =3D 10000000 10000000 10000000 # sets min/pressure/m=
-ax TCP write buffer, default 4096 16384 131072
--net.ipv4.tcp_mem =3D 10000000 10000000 10000000 # sets min/pressure/ma=
-x TCP buffer space, default 31744 32256 32768
-+# turn TCP timestamp support off, default 1, reduces CPU use
-+net.ipv4.tcp_timestamps =3D 0
-+# turn SACK support off, default on
-+# on systems with a VERY fast bus -> memory interface this is the big =
-gainer
-+net.ipv4.tcp_sack =3D 0
-+# set min/default/max TCP read buffer, default 4096 87380 174760
-+net.ipv4.tcp_rmem =3D 10000000 10000000 10000000
-+# set min/pressure/max TCP write buffer, default 4096 16384 131072
-+net.ipv4.tcp_wmem =3D 10000000 10000000 10000000
-+# set min/pressure/max TCP buffer space, default 31744 32256 32768
-+net.ipv4.tcp_mem =3D 10000000 10000000 10000000
-=20
- ### CORE settings (mostly for socket and UDP effect)
--net.core.rmem_max =3D 524287 # maximum receive socket buffer size, def=
-ault 131071
--net.core.wmem_max =3D 524287 # maximum send socket buffer size, defaul=
-t 131071
--net.core.rmem_default =3D 524287 # default receive socket buffer size,=
- default 65535
--net.core.wmem_default =3D 524287 # default send socket buffer size, de=
-fault 65535
--net.core.optmem_max =3D 524287 # maximum amount of option memory buffe=
-rs, default 10240
--net.core.netdev_max_backlog =3D 300000 # number of unprocessed input p=
-ackets before kernel starts dropping them, default 300
-+# set maximum receive socket buffer size, default 131071
-+net.core.rmem_max =3D 524287
-+# set maximum send socket buffer size, default 131071
-+net.core.wmem_max =3D 524287
-+# set default receive socket buffer size, default 65535
-+net.core.rmem_default =3D 524287
-+# set default send socket buffer size, default 65535
-+net.core.wmem_default =3D 524287
-+# set maximum amount of option memory buffers, default 10240
-+net.core.optmem_max =3D 524287
-+# set number of unprocessed input packets before kernel starts droppin=
-g them; default 300
-+net.core.netdev_max_backlog =3D 300000
- - END sysctl_ixgb.conf
-=20
--Edit the ixgb_perf.sh script if necessary to change eth1 to whatever i=
-nterface=20
--your ixgb driver is using.
-+Edit the ixgb_perf.sh script if necessary to change eth1 to whatever i=
-nterface
-+your ixgb driver is using and/or replace '1a48' with appropriate 10GbE=
- device's
-+ID installed on the system.
-=20
--NOTE: Unless these scripts are added to the boot process, these change=
-s will=20
--only last only until the next system reboot.
-+NOTE: Unless these scripts are added to the boot process, these change=
-s will
-+      only last only until the next system reboot.
-=20
-=20
- Resolving Slow UDP Traffic
- --------------------------
-+If your server does not seem to be able to receive UDP traffic as fast=
- as it
-+can receive TCP traffic, it could be because Linux, by default, does n=
-ot set
-+the network stack buffers as large as they need to be to support high =
-UDP
-+transfer rates.  One way to alleviate this problem is to allow more me=
-mory to
-+be used by the IP stack to store incoming data.
-=20
--If your server does not seem to be able to receive UDP traffic as fast=
- as it=20
--can receive TCP traffic, it could be because Linux, by default, does n=
-ot set=20
--the network stack buffers as large as they need to be to support high =
-UDP=20
--transfer rates. One way to alleviate this problem is to allow more mem=
-ory to=20
--be used by the IP stack to store incoming data.=20
--
--For instance, use the commands:=20
-+For instance, use the commands:
-     sysctl -w net.core.rmem_max=3D262143
- and
-     sysctl -w net.core.rmem_default=3D262143
--to increase the read buffer memory max and default to 262143 (256k - 1=
-) from=20
--defaults of max=3D131071 (128k - 1) and default=3D65535 (64k - 1). The=
-se variables=20
--will increase the amount of memory used by the network stack for recei=
-ves, and=20
-+to increase the read buffer memory max and default to 262143 (256k - 1=
-) from
-+defaults of max=3D131071 (128k - 1) and default=3D65535 (64k - 1).  Th=
-ese variables
-+will increase the amount of memory used by the network stack for recei=
-ves, and
- can be increased significantly more if necessary for your application.
-=20
-+
-+Additional Configurations
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-+
-+  Configuring the Driver on Different Distributions
-+  -------------------------------------------------
-+  Configuring a network driver to load properly when the system is sta=
-rted is
-+  distribution dependent. Typically, the configuration process involve=
-s adding
-+  an alias line to /etc/modprobe.conf as well as editing other system =
-startup
-+  scripts and/or configuration files.  Many popular Linux distribution=
-s ship
-+  with tools to make these changes for you.  To learn the proper way t=
-o
-+  configure a network device for your system, refer to your distributi=
-on
-+  documentation.  If during this process you are asked for the driver =
-or module
-+  name, the name for the Linux Base Driver for the Intel 10GbE Family =
-of
-+  Adapters is ixgb.
-+
-+  Viewing Link Messages
-+  ---------------------
-+  Link messages will not be displayed to the console if the distributi=
-on is
-+  restricting system messages. In order to see network driver link mes=
-sages on
-+  your console, set dmesg to eight by entering the following:
-+
-+       dmesg -n 8
-+
-+  NOTE: This setting is not saved across reboots.
-+
-+
-+  Jumbo Frames
-+  ------------
-+  The driver supports Jumbo Frames for all adapters. Jumbo Frames supp=
-ort is
-+  enabled by changing the MTU to a value larger than the default of 15=
-00.
-+  The maximum value for the MTU is 16114.  Use the ifconfig command to
-+  increase the MTU size.  For example:
-+
-+        ifconfig ethx mtu 9000 up
-+
-+  The maximum MTU setting for Jumbo Frames is 16114.  This value coinc=
-ides
-+  with the maximum Jumbo Frames size of 16128.
-+
-+
-+  Ethtool
-+  -------
-+  The driver utilizes the ethtool interface for driver configuration a=
-nd
-+  diagnostics, as well as displaying statistical information.  Ethtool
-+  version 1.6 or later is required for this functionality.
-+
-+  The latest release of ethtool can be found from
-+  http://sourceforge.net/projects/gkernel
-+
-+  NOTE: Ethtool 1.6 only supports a limited set of ethtool options. Su=
-pport
-+        for a more complete ethtool feature set can be enabled by upgr=
-ading
-+        to the latest version.
-+
-+
-+  NAPI
-+  ----
-+
-+  NAPI (Rx polling mode) is supported in the ixgb driver.  NAPI is ena=
-bled
-+  or disabled based on the configuration of the kernel.  see CONFIG_IX=
-GB_NAPI
-+
-+  See www.cyberus.ca/~hadi/usenix-paper.tgz for more information on NA=
-PI.
-+
-+
-+Known Issues/Troubleshooting
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-+
-+  NOTE: After installing the driver, if your Intel Network Connection =
-is not
-+  working, verify in the "In This Release" section of the readme that =
-you have
-+  installed the correct driver.
-+
-+  Intel(R) PRO/10GbE CX4 Server Adapter Cable Interoperability Issue w=
-ith
-+  Fujitsu XENPAK Module in SmartBits Chassis
-+  --------------------------------------------------------------------=
--
-+  Excessive CRC errors may be observed if the Intel(R) PRO/10GbE CX4
-+  Server adapter is connected to a Fujitsu XENPAK CX4 module in a Smar=
-tBits
-+  chassis using 15 m/24AWG cable assemblies manufactured by Fujitsu or=
- Leoni.
-+  The CRC errors may be received either by the Intel(R) PRO/10GbE CX4
-+  Server adapter or the SmartBits. If this situation occurs using a di=
-fferent
-+  cable assembly may resolve the issue.
-+
-+  CX4 Server Adapter Cable Interoperability Issues with HP Procurve 34=
-00cl
-+  Switch Port
-+  --------------------------------------------------------------------=
-----
-+  Excessive CRC errors may be observed if the Intel(R) PRO/10GbE CX4 S=
-erver
-+  adapter is connected to an HP Procurve 3400cl switch port using shor=
-t cables
-+  (1 m or shorter). If this situation occurs, using a longer cable may=
- resolve
-+  the issue.
-+
-+  Excessive CRC errors may be observed using Fujitsu 24AWG cable assem=
-blies that
-+  Are 10 m or longer or where using a Leoni 15 m/24AWG cable assembly.=
- The CRC
-+  errors may be received either by the CX4 Server adapter or at the sw=
-itch. If
-+  this situation occurs, using a different cable assembly may resolve =
-the issue.
-+
-+
-+  Jumbo Frames System Requirement
-+  -------------------------------
-+  Memory allocation failures have been observed on Linux systems with =
-64 MB
-+  of RAM or less that are running Jumbo Frames.  If you are using Jumb=
-o
-+  Frames, your system may require more than the advertised minimum
-+  requirement of 64 MB of system memory.
-+
-+
-+  Performance Degradation with Jumbo Frames
-+  -----------------------------------------
-+  Degradation in throughput performance may be observed in some Jumbo =
-frames
-+  environments.  If this is observed, increasing the application's soc=
-ket buffer
-+  size and/or increasing the /proc/sys/net/ipv4/tcp_*mem entry values =
-may help.
-+  See the specific application manual and /usr/src/linux*/Documentatio=
-n/
-+  networking/ip-sysctl.txt for more details.
-+
-+
-+  Allocating Rx Buffers when Using Jumbo Frames
-+  ---------------------------------------------
-+  Allocating Rx buffers when using Jumbo Frames on 2.6.x kernels may f=
-ail if
-+  the available memory is heavily fragmented. This issue may be seen w=
-ith PCI-X
-+  adapters or with packet split disabled. This can be reduced or elimi=
-nated
-+  by changing the amount of available memory for receive buffer alloca=
-tion, by
-+  increasing /proc/sys/vm/min_free_kbytes.
-+
-+
-+  Multiple Interfaces on Same Ethernet Broadcast Network
-+  ------------------------------------------------------
-+  Due to the default ARP behavior on Linux, it is not possible to have
-+  one system on two IP networks in the same Ethernet broadcast domain
-+  (non-partitioned switch) behave as expected.  All Ethernet interface=
-s
-+  will respond to IP traffic for any IP address assigned to the system=
-=2E
-+  This results in unbalanced receive traffic.
-+
-+  If you have multiple interfaces in a server, do either of the follow=
-ing:
-+
-+  - Turn on ARP filtering by entering:
-+      echo 1 > /proc/sys/net/ipv4/conf/all/arp_filter
-+
-+  - Install the interfaces in separate broadcast domains - either in
-+    different switches or in a switch partitioned to VLANs.
-+
-+
-+  UDP Stress Test Dropped Packet Issue
-+  --------------------------------------
-+  Under small packets UDP stress test with 10GbE driver, the Linux sys=
-tem
-+  may drop UDP packets due to the fullness of socket buffers. You may =
-want
-+  to change the driver's Flow Control variables to the minimum value f=
-or
-+  controlling packet reception.
-+
-+
-+  Tx Hangs Possible Under Stress
-+  ------------------------------
-+  Under stress conditions, if TX hangs occur, turning off TSO
-+  "ethtool -K eth0 tso off" may resolve the problem.
-+
-+
- Support
- =3D=3D=3D=3D=3D=3D=3D
-=20
--For general information and support, go to the Intel support website a=
-t:
-+For general information, go to the Intel support website at:
-=20
-     http://support.intel.com
-=20
-+or the Intel Wired Networking project hosted by Sourceforge at:
-+
-+    http://sourceforge.net/projects/e1000
-+
- If an issue is identified with the released source code on the support=
-ed
--kernel with a supported adapter, email the specific information relate=
-d to=20
--the issue to linux.nics@intel.com.
-+kernel with a supported adapter, email the specific information relate=
-d
-+to the issue to e1000-devel@lists.sf.net
+diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ixgb/ixgb_ee.c
+index 2f7ed52..ba41d2a 100644
+--- a/drivers/net/ixgb/ixgb_ee.c
++++ b/drivers/net/ixgb/ixgb_ee.c
+@@ -108,7 +108,7 @@ ixgb_shift_out_bits(struct ixgb_hw *hw,
+ 		 */
+ 		eecd_reg &= ~IXGB_EECD_DI;
+ 
+-		if(data & mask)
++		if (data & mask)
+ 			eecd_reg |= IXGB_EECD_DI;
+ 
+ 		IXGB_WRITE_REG(hw, EECD, eecd_reg);
+@@ -159,7 +159,7 @@ ixgb_shift_in_bits(struct ixgb_hw *hw)
+ 		eecd_reg = IXGB_READ_REG(hw, EECD);
+ 
+ 		eecd_reg &= ~(IXGB_EECD_DI);
+-		if(eecd_reg & IXGB_EECD_DO)
++		if (eecd_reg & IXGB_EECD_DO)
+ 			data |= 1;
+ 
+ 		ixgb_lower_clock(hw, &eecd_reg);
+@@ -300,7 +300,7 @@ ixgb_wait_eeprom_command(struct ixgb_hw *hw)
+ 	for(i = 0; i < 200; i++) {
+ 		eecd_reg = IXGB_READ_REG(hw, EECD);
+ 
+-		if(eecd_reg & IXGB_EECD_DO)
++		if (eecd_reg & IXGB_EECD_DO)
+ 			return (true);
+ 
+ 		udelay(50);
+@@ -331,7 +331,7 @@ ixgb_validate_eeprom_checksum(struct ixgb_hw *hw)
+ 	for(i = 0; i < (EEPROM_CHECKSUM_REG + 1); i++)
+ 		checksum += ixgb_read_eeprom(hw, i);
+ 
+-	if(checksum == (u16) EEPROM_SUM)
++	if (checksum == (u16) EEPROM_SUM)
+ 		return (true);
+ 	else
+ 		return (false);
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+index 8464d8a..7c9b35c 100644
+--- a/drivers/net/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ixgb/ixgb_ethtool.c
+@@ -95,7 +95,7 @@ ixgb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	ecmd->port = PORT_FIBRE;
+ 	ecmd->transceiver = XCVR_EXTERNAL;
+ 
+-	if(netif_carrier_ok(adapter->netdev)) {
++	if (netif_carrier_ok(adapter->netdev)) {
+ 		ecmd->speed = SPEED_10000;
+ 		ecmd->duplex = DUPLEX_FULL;
+ 	} else {
+@@ -122,11 +122,11 @@ ixgb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 
+-	if(ecmd->autoneg == AUTONEG_ENABLE ||
++	if (ecmd->autoneg == AUTONEG_ENABLE ||
+ 	   ecmd->speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL)
+ 		return -EINVAL;
+ 	
+-	if(netif_running(adapter->netdev)) {
++	if (netif_running(adapter->netdev)) {
+ 		ixgb_down(adapter, true);
+ 		ixgb_reset(adapter);
+ 		ixgb_up(adapter);
+@@ -146,11 +146,11 @@ ixgb_get_pauseparam(struct net_device *netdev,
+ 	
+ 	pause->autoneg = AUTONEG_DISABLE;
+ 		
+-	if(hw->fc.type == ixgb_fc_rx_pause)
++	if (hw->fc.type == ixgb_fc_rx_pause)
+ 		pause->rx_pause = 1;
+-	else if(hw->fc.type == ixgb_fc_tx_pause)
++	else if (hw->fc.type == ixgb_fc_tx_pause)
+ 		pause->tx_pause = 1;
+-	else if(hw->fc.type == ixgb_fc_full) {
++	else if (hw->fc.type == ixgb_fc_full) {
+ 		pause->rx_pause = 1;
+ 		pause->tx_pause = 1;
+ 	}
+@@ -163,19 +163,19 @@ ixgb_set_pauseparam(struct net_device *netdev,
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgb_hw *hw = &adapter->hw;
+ 	
+-	if(pause->autoneg == AUTONEG_ENABLE)
++	if (pause->autoneg == AUTONEG_ENABLE)
+ 		return -EINVAL;
+ 
+-	if(pause->rx_pause && pause->tx_pause)
++	if (pause->rx_pause && pause->tx_pause)
+ 		hw->fc.type = ixgb_fc_full;
+-	else if(pause->rx_pause && !pause->tx_pause)
++	else if (pause->rx_pause && !pause->tx_pause)
+ 		hw->fc.type = ixgb_fc_rx_pause;
+-	else if(!pause->rx_pause && pause->tx_pause)
++	else if (!pause->rx_pause && pause->tx_pause)
+ 		hw->fc.type = ixgb_fc_tx_pause;
+-	else if(!pause->rx_pause && !pause->tx_pause)
++	else if (!pause->rx_pause && !pause->tx_pause)
+ 		hw->fc.type = ixgb_fc_none;
+ 
+-	if(netif_running(adapter->netdev)) {
++	if (netif_running(adapter->netdev)) {
+ 		ixgb_down(adapter, true);
+ 		ixgb_up(adapter);
+ 		ixgb_set_speed_duplex(netdev);
+@@ -200,7 +200,7 @@ ixgb_set_rx_csum(struct net_device *netdev, u32 data)
+ 
+ 	adapter->rx_csum = data;
+ 
+-	if(netif_running(netdev)) {
++	if (netif_running(netdev)) {
+ 		ixgb_down(adapter, true);
+ 		ixgb_up(adapter);
+ 		ixgb_set_speed_duplex(netdev);
+@@ -229,7 +229,7 @@ ixgb_set_tx_csum(struct net_device *netdev, u32 data)
+ static int
+ ixgb_set_tso(struct net_device *netdev, u32 data)
+ {
+-	if(data)
++	if (data)
+ 		netdev->features |= NETIF_F_TSO;
+ 	else
+ 		netdev->features &= ~NETIF_F_TSO;
+@@ -415,7 +415,7 @@ ixgb_get_eeprom(struct net_device *netdev,
+ 	int i, max_len, first_word, last_word;
+ 	int ret_val = 0;
+ 
+-	if(eeprom->len == 0) {
++	if (eeprom->len == 0) {
+ 		ret_val = -EINVAL;
+ 		goto geeprom_error;
+ 	}
+@@ -424,12 +424,12 @@ ixgb_get_eeprom(struct net_device *netdev,
+ 
+ 	max_len = ixgb_get_eeprom_len(netdev);
+ 
+-	if(eeprom->offset > eeprom->offset + eeprom->len) {
++	if (eeprom->offset > eeprom->offset + eeprom->len) {
+ 		ret_val = -EINVAL;
+ 		goto geeprom_error;
+ 	}
+ 
+-	if((eeprom->offset + eeprom->len) > max_len)
++	if ((eeprom->offset + eeprom->len) > max_len)
+ 		eeprom->len = (max_len - eeprom->offset);
+ 
+ 	first_word = eeprom->offset >> 1;
+@@ -437,7 +437,7 @@ ixgb_get_eeprom(struct net_device *netdev,
+ 
+ 	eeprom_buff = kmalloc(sizeof(__le16) *
+ 			(last_word - first_word + 1), GFP_KERNEL);
+-	if(!eeprom_buff)
++	if (!eeprom_buff)
+ 		return -ENOMEM;
+ 
+ 	/* note the eeprom was good because the driver loaded */
+@@ -464,35 +464,35 @@ ixgb_set_eeprom(struct net_device *netdev,
+ 	int max_len, first_word, last_word;
+ 	u16 i;
+ 
+-	if(eeprom->len == 0)
++	if (eeprom->len == 0)
+ 		return -EINVAL;
+ 
+-	if(eeprom->magic != (hw->vendor_id | (hw->device_id << 16)))
++	if (eeprom->magic != (hw->vendor_id | (hw->device_id << 16)))
+ 		return -EFAULT;
+ 
+ 	max_len = ixgb_get_eeprom_len(netdev);
+ 
+-	if(eeprom->offset > eeprom->offset + eeprom->len)
++	if (eeprom->offset > eeprom->offset + eeprom->len)
+ 		return -EINVAL;
+ 
+-	if((eeprom->offset + eeprom->len) > max_len)
++	if ((eeprom->offset + eeprom->len) > max_len)
+ 		eeprom->len = (max_len - eeprom->offset);
+ 
+ 	first_word = eeprom->offset >> 1;
+ 	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
+ 	eeprom_buff = kmalloc(max_len, GFP_KERNEL);
+-	if(!eeprom_buff)
++	if (!eeprom_buff)
+ 		return -ENOMEM;
+ 
+ 	ptr = (void *)eeprom_buff;
+ 
+-	if(eeprom->offset & 1) {
++	if (eeprom->offset & 1) {
+ 		/* need read/modify/write of first changed EEPROM word */
+ 		/* only the second byte of the word is being modified */
+ 		eeprom_buff[0] = ixgb_read_eeprom(hw, first_word);
+ 		ptr++;
+ 	}
+-	if((eeprom->offset + eeprom->len) & 1) {
++	if ((eeprom->offset + eeprom->len) & 1) {
+ 		/* need read/modify/write of last changed EEPROM word */
+ 		/* only the first byte of the word is being modified */
+ 		eeprom_buff[last_word - first_word] 
+@@ -504,7 +504,7 @@ ixgb_set_eeprom(struct net_device *netdev,
+ 		ixgb_write_eeprom(hw, first_word + i, eeprom_buff[i]);
+ 
+ 	/* Update the checksum over the first part of the EEPROM if needed */
+-	if(first_word <= EEPROM_CHECKSUM_REG)
++	if (first_word <= EEPROM_CHECKSUM_REG)
+ 		ixgb_update_eeprom_checksum(hw);
+ 
+ 	kfree(eeprom_buff);
+@@ -557,10 +557,10 @@ ixgb_set_ringparam(struct net_device *netdev,
+ 	tx_old = adapter->tx_ring;
+ 	rx_old = adapter->rx_ring;
+ 
+-	if((ring->rx_mini_pending) || (ring->rx_jumbo_pending)) 
++	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+ 
+-	if(netif_running(adapter->netdev))
++	if (netif_running(adapter->netdev))
+ 		ixgb_down(adapter, true);
+ 
+ 	rxdr->count = max(ring->rx_pending,(u32)MIN_RXD);
+@@ -571,11 +571,11 @@ ixgb_set_ringparam(struct net_device *netdev,
+ 	txdr->count = min(txdr->count,(u32)MAX_TXD);
+ 	txdr->count = ALIGN(txdr->count, IXGB_REQ_TX_DESCRIPTOR_MULTIPLE);
+ 
+-	if(netif_running(adapter->netdev)) {
++	if (netif_running(adapter->netdev)) {
+ 		/* Try to get new resources before deleting old */
+-		if((err = ixgb_setup_rx_resources(adapter)))
++		if ((err = ixgb_setup_rx_resources(adapter)))
+ 			goto err_setup_rx;
+-		if((err = ixgb_setup_tx_resources(adapter)))
++		if ((err = ixgb_setup_tx_resources(adapter)))
+ 			goto err_setup_tx;
+ 
+ 		/* save the new, restore the old in order to free it,
+@@ -589,7 +589,7 @@ ixgb_set_ringparam(struct net_device *netdev,
+ 		ixgb_free_tx_resources(adapter);
+ 		adapter->rx_ring = rx_new;
+ 		adapter->tx_ring = tx_new;
+-		if((err = ixgb_up(adapter)))
++		if ((err = ixgb_up(adapter)))
+ 			return err;
+ 		ixgb_set_speed_duplex(netdev);
+ 	}
+@@ -615,7 +615,7 @@ ixgb_led_blink_callback(unsigned long data)
+ {
+ 	struct ixgb_adapter *adapter = (struct ixgb_adapter *)data;
+ 
+-	if(test_and_change_bit(IXGB_LED_ON, &adapter->led_status))
++	if (test_and_change_bit(IXGB_LED_ON, &adapter->led_status))
+ 		ixgb_led_off(&adapter->hw);
+ 	else
+ 		ixgb_led_on(&adapter->hw);
+@@ -631,7 +631,7 @@ ixgb_phys_id(struct net_device *netdev, u32 data)
+ 	if (!data)
+ 		data = INT_MAX;
+ 
+-	if(!adapter->blink_timer.function) {
++	if (!adapter->blink_timer.function) {
+ 		init_timer(&adapter->blink_timer);
+ 		adapter->blink_timer.function = ixgb_led_blink_callback;
+ 		adapter->blink_timer.data = (unsigned long)adapter;
+diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
+index 04d2003..d023fb5 100644
+--- a/drivers/net/ixgb/ixgb_hw.c
++++ b/drivers/net/ixgb/ixgb_hw.c
+@@ -125,7 +125,7 @@ ixgb_adapter_stop(struct ixgb_hw *hw)
+ 	/* If we are stopped or resetting exit gracefully and wait to be
+ 	 * started again before accessing the hardware.
+ 	 */
+-	if(hw->adapter_stopped) {
++	if (hw->adapter_stopped) {
+ 		DEBUGOUT("Exiting because the adapter is already stopped!!!\n");
+ 		return false;
+ 	}
+@@ -482,7 +482,7 @@ ixgb_mc_addr_list_update(struct ixgb_hw *hw,
+ 		/* Place this multicast address in the RAR if there is room, *
+ 		 * else put it in the MTA
+ 		 */
+-		if(rar_used_count < IXGB_RAR_ENTRIES) {
++		if (rar_used_count < IXGB_RAR_ENTRIES) {
+ 			ixgb_rar_set(hw,
+ 				     mc_addr_list +
+ 				     (i * (IXGB_ETH_LENGTH_OF_ADDRESS + pad)),
+@@ -719,9 +719,8 @@ ixgb_setup_fc(struct ixgb_hw *hw)
+ 	/* Write the new settings */
+ 	IXGB_WRITE_REG(hw, CTRL0, ctrl_reg);
+ 
+-	if (pap_reg != 0) {
++	if (pap_reg != 0)
+ 		IXGB_WRITE_REG(hw, PAP, pap_reg);
+-	}
+ 
+ 	/* Set the flow control receive threshold registers.  Normally,
+ 	 * these registers will be set to a default threshold that may be
+@@ -729,14 +728,14 @@ ixgb_setup_fc(struct ixgb_hw *hw)
+ 	 * ability to transmit pause frames in not enabled, then these
+ 	 * registers will be set to 0.
+ 	 */
+-	if(!(hw->fc.type & ixgb_fc_tx_pause)) {
++	if (!(hw->fc.type & ixgb_fc_tx_pause)) {
+ 		IXGB_WRITE_REG(hw, FCRTL, 0);
+ 		IXGB_WRITE_REG(hw, FCRTH, 0);
+ 	} else {
+ 	   /* We need to set up the Receive Threshold high and low water
+ 	    * marks as well as (optionally) enabling the transmission of XON
+ 	    * frames. */
+-		if(hw->fc.send_xon) {
++		if (hw->fc.send_xon) {
+ 			IXGB_WRITE_REG(hw, FCRTL,
+ 				(hw->fc.low_water | IXGB_FCRTL_XONE));
+ 		} else {
+@@ -1007,7 +1006,7 @@ ixgb_clear_hw_cntrs(struct ixgb_hw *hw)
+ 	DEBUGFUNC("ixgb_clear_hw_cntrs");
+ 
+ 	/* if we are stopped or resetting exit gracefully */
+-	if(hw->adapter_stopped) {
++	if (hw->adapter_stopped) {
+ 		DEBUGOUT("Exiting because the adapter is stopped!!!\n");
+ 		return;
+ 	}
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index fc2cf0e..f7dda04 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -250,7 +250,7 @@ ixgb_up(struct ixgb_adapter *adapter)
+ 		return err;
+ 	}
+ 
+-	if((hw->max_frame_size != max_frame) ||
++	if ((hw->max_frame_size != max_frame) ||
+ 		(hw->max_frame_size !=
+ 		(IXGB_READ_REG(hw, MFS) >> IXGB_MFS_SHIFT))) {
+ 
+@@ -258,11 +258,11 @@ ixgb_up(struct ixgb_adapter *adapter)
+ 
+ 		IXGB_WRITE_REG(hw, MFS, hw->max_frame_size << IXGB_MFS_SHIFT);
+ 
+-		if(hw->max_frame_size >
++		if (hw->max_frame_size >
+ 		   IXGB_MAX_ENET_FRAME_SIZE_WITHOUT_FCS + ENET_FCS_LENGTH) {
+ 			u32 ctrl0 = IXGB_READ_REG(hw, CTRL0);
+ 
+-			if(!(ctrl0 & IXGB_CTRL0_JFE)) {
++			if (!(ctrl0 & IXGB_CTRL0_JFE)) {
+ 				ctrl0 |= IXGB_CTRL0_JFE;
+ 				IXGB_WRITE_REG(hw, CTRL0, ctrl0);
+ 			}
+@@ -299,7 +299,7 @@ ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog)
+ 	if (adapter->have_msi)
+ 		pci_disable_msi(adapter->pdev);
+ 
+-	if(kill_watchdog)
++	if (kill_watchdog)
+ 		del_timer_sync(&adapter->watchdog_timer);
+ 
+ 	adapter->link_speed = 0;
+@@ -356,14 +356,14 @@ ixgb_probe(struct pci_dev *pdev,
+ 	int i;
+ 	int err;
+ 
+-	if((err = pci_enable_device(pdev)))
++	if ((err = pci_enable_device(pdev)))
+ 		return err;
+ 
+-	if(!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
++	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
+ 	   !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
+ 		pci_using_dac = 1;
+ 	} else {
+-		if((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) ||
++		if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) ||
+ 		   (err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK))) {
+ 			printk(KERN_ERR
+ 			 "ixgb: No usable DMA configuration, aborting\n");
+@@ -372,13 +372,13 @@ ixgb_probe(struct pci_dev *pdev,
+ 		pci_using_dac = 0;
+ 	}
+ 
+-	if((err = pci_request_regions(pdev, ixgb_driver_name)))
++	if ((err = pci_request_regions(pdev, ixgb_driver_name)))
+ 		goto err_request_regions;
+ 
+ 	pci_set_master(pdev);
+ 
+ 	netdev = alloc_etherdev(sizeof(struct ixgb_adapter));
+-	if(!netdev) {
++	if (!netdev) {
+ 		err = -ENOMEM;
+ 		goto err_alloc_etherdev;
+ 	}
+@@ -400,9 +400,9 @@ ixgb_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	for(i = BAR_1; i <= BAR_5; i++) {
+-		if(pci_resource_len(pdev, i) == 0)
++		if (pci_resource_len(pdev, i) == 0)
+ 			continue;
+-		if(pci_resource_flags(pdev, i) & IORESOURCE_IO) {
++		if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
+ 			adapter->hw.io_base = pci_resource_start(pdev, i);
+ 			break;
+ 		}
+@@ -436,7 +436,7 @@ ixgb_probe(struct pci_dev *pdev,
+ 
+ 	/* setup the private structure */
+ 
+-	if((err = ixgb_sw_init(adapter)))
++	if ((err = ixgb_sw_init(adapter)))
+ 		goto err_sw_init;
+ 
+ 	netdev->features = NETIF_F_SG |
+@@ -446,12 +446,12 @@ ixgb_probe(struct pci_dev *pdev,
+ 			   NETIF_F_HW_VLAN_FILTER;
+ 	netdev->features |= NETIF_F_TSO;
+ 
+-	if(pci_using_dac)
++	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
+ 	/* make sure the EEPROM is good */
+ 
+-	if(!ixgb_validate_eeprom_checksum(&adapter->hw)) {
++	if (!ixgb_validate_eeprom_checksum(&adapter->hw)) {
+ 		DPRINTK(PROBE, ERR, "The EEPROM Checksum Is Not Valid\n");
+ 		err = -EIO;
+ 		goto err_eeprom;
+@@ -460,7 +460,7 @@ ixgb_probe(struct pci_dev *pdev,
+ 	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
+ 	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 
+-	if(!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->perm_addr)) {
+ 		DPRINTK(PROBE, ERR, "Invalid MAC Address\n");
+ 		err = -EIO;
+ 		goto err_eeprom;
+@@ -475,7 +475,7 @@ ixgb_probe(struct pci_dev *pdev,
+ 	INIT_WORK(&adapter->tx_timeout_task, ixgb_tx_timeout_task);
+ 
+ 	strcpy(netdev->name, "eth%d");
+-	if((err = register_netdev(netdev)))
++	if ((err = register_netdev(netdev)))
+ 		goto err_register;
+ 
+ 	/* we're going to reset, so assume we have no link for now */
+@@ -558,7 +558,7 @@ ixgb_sw_init(struct ixgb_adapter *adapter)
+ 	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
+ 	adapter->rx_buffer_len = hw->max_frame_size + 8; /* + 8 for errata */
+ 
+-	if((hw->device_id == IXGB_DEVICE_ID_82597EX)
++	if ((hw->device_id == IXGB_DEVICE_ID_82597EX)
+ 	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_CX4)
+ 	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_LR)
+ 	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
+@@ -596,15 +596,15 @@ ixgb_open(struct net_device *netdev)
+ 
+ 	/* allocate transmit descriptors */
+ 
+-	if((err = ixgb_setup_tx_resources(adapter)))
++	if ((err = ixgb_setup_tx_resources(adapter)))
+ 		goto err_setup_tx;
+ 
+ 	/* allocate receive descriptors */
+ 
+-	if((err = ixgb_setup_rx_resources(adapter)))
++	if ((err = ixgb_setup_rx_resources(adapter)))
+ 		goto err_setup_rx;
+ 
+-	if((err = ixgb_up(adapter)))
++	if ((err = ixgb_up(adapter)))
+ 		goto err_up;
+ 
+ 	return 0;
+@@ -660,7 +660,7 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
+ 
+ 	size = sizeof(struct ixgb_buffer) * txdr->count;
+ 	txdr->buffer_info = vmalloc(size);
+-	if(!txdr->buffer_info) {
++	if (!txdr->buffer_info) {
+ 		DPRINTK(PROBE, ERR,
+ 		 "Unable to allocate transmit descriptor ring memory\n");
+ 		return -ENOMEM;
+@@ -673,7 +673,7 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
+ 	txdr->size = ALIGN(txdr->size, 4096);
+ 
+ 	txdr->desc = pci_alloc_consistent(pdev, txdr->size, &txdr->dma);
+-	if(!txdr->desc) {
++	if (!txdr->desc) {
+ 		vfree(txdr->buffer_info);
+ 		DPRINTK(PROBE, ERR,
+ 		 "Unable to allocate transmit descriptor memory\n");
+@@ -749,7 +749,7 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
+ 
+ 	size = sizeof(struct ixgb_buffer) * rxdr->count;
+ 	rxdr->buffer_info = vmalloc(size);
+-	if(!rxdr->buffer_info) {
++	if (!rxdr->buffer_info) {
+ 		DPRINTK(PROBE, ERR,
+ 		 "Unable to allocate receive descriptor ring\n");
+ 		return -ENOMEM;
+@@ -763,7 +763,7 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
+ 
+ 	rxdr->desc = pci_alloc_consistent(pdev, rxdr->size, &rxdr->dma);
+ 
+-	if(!rxdr->desc) {
++	if (!rxdr->desc) {
+ 		vfree(rxdr->buffer_info);
+ 		DPRINTK(PROBE, ERR,
+ 		 "Unable to allocate receive descriptors\n");
+@@ -984,7 +984,7 @@ ixgb_clean_rx_ring(struct ixgb_adapter *adapter)
+ 
+ 	for(i = 0; i < rx_ring->count; i++) {
+ 		buffer_info = &rx_ring->buffer_info[i];
+-		if(buffer_info->skb) {
++		if (buffer_info->skb) {
+ 
+ 			pci_unmap_single(pdev,
+ 					 buffer_info->dma,
+@@ -1025,7 +1025,7 @@ ixgb_set_mac(struct net_device *netdev, void *p)
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 	struct sockaddr *addr = p;
+ 
+-	if(!is_valid_ether_addr(addr->sa_data))
++	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+@@ -1058,16 +1058,16 @@ ixgb_set_multi(struct net_device *netdev)
+ 
+ 	rctl = IXGB_READ_REG(hw, RCTL);
+ 
+-	if(netdev->flags & IFF_PROMISC) {
++	if (netdev->flags & IFF_PROMISC) {
+ 		rctl |= (IXGB_RCTL_UPE | IXGB_RCTL_MPE);
+-	} else if(netdev->flags & IFF_ALLMULTI) {
++	} else if (netdev->flags & IFF_ALLMULTI) {
+ 		rctl |= IXGB_RCTL_MPE;
+ 		rctl &= ~IXGB_RCTL_UPE;
+ 	} else {
+ 		rctl &= ~(IXGB_RCTL_UPE | IXGB_RCTL_MPE);
+ 	}
+ 
+-	if(netdev->mc_count > IXGB_MAX_NUM_MULTICAST_ADDRESSES) {
++	if (netdev->mc_count > IXGB_MAX_NUM_MULTICAST_ADDRESSES) {
+ 		rctl |= IXGB_RCTL_MPE;
+ 		IXGB_WRITE_REG(hw, RCTL, rctl);
+ 	} else {
+@@ -1104,8 +1104,8 @@ ixgb_watchdog(unsigned long data)
+ 		netif_stop_queue(netdev);
+ 	}
+ 
+-	if(adapter->hw.link_up) {
+-		if(!netif_carrier_ok(netdev)) {
++	if (adapter->hw.link_up) {
++		if (!netif_carrier_ok(netdev)) {
+ 			DPRINTK(LINK, INFO,
+ 			        "NIC Link is Up 10000 Mbps Full Duplex\n");
+ 			adapter->link_speed = 10000;
+@@ -1114,7 +1114,7 @@ ixgb_watchdog(unsigned long data)
+ 			netif_wake_queue(netdev);
+ 		}
+ 	} else {
+-		if(netif_carrier_ok(netdev)) {
++		if (netif_carrier_ok(netdev)) {
+ 			adapter->link_speed = 0;
+ 			adapter->link_duplex = 0;
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+@@ -1126,8 +1126,8 @@ ixgb_watchdog(unsigned long data)
+ 
+ 	ixgb_update_stats(adapter);
+ 
+-	if(!netif_carrier_ok(netdev)) {
+-		if(IXGB_DESC_UNUSED(txdr) + 1 < txdr->count) {
++	if (!netif_carrier_ok(netdev)) {
++		if (IXGB_DESC_UNUSED(txdr) + 1 < txdr->count) {
+ 			/* We've lost link, so the controller stops DMA,
+ 			 * but we've got queued Tx work that's never going
+ 			 * to get done, so reset controller to flush Tx.
+@@ -1207,7 +1207,7 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ 						| (skb->len - (hdr_len)));
+ 
+ 
+-		if(++i == adapter->tx_ring.count) i = 0;
++		if (++i == adapter->tx_ring.count) i = 0;
+ 		adapter->tx_ring.next_to_use = i;
+ 
+ 		return 1;
+@@ -1223,7 +1223,7 @@ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ 	unsigned int i;
+ 	u8 css, cso;
+ 
+-	if(likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
++	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		struct ixgb_buffer *buffer_info;
+ 		css = skb_transport_offset(skb);
+ 		cso = css + skb->csum_offset;
+@@ -1245,7 +1245,7 @@ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ 			cpu_to_le32(IXGB_CONTEXT_DESC_TYPE
+ 				    | IXGB_TX_DESC_CMD_IDE);
+ 
+-		if(++i == adapter->tx_ring.count) i = 0;
++		if (++i == adapter->tx_ring.count) i = 0;
+ 		adapter->tx_ring.next_to_use = i;
+ 
+ 		return true;
+@@ -1295,7 +1295,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 		len -= size;
+ 		offset += size;
+ 		count++;
+-		if(++i == tx_ring->count) i = 0;
++		if (++i == tx_ring->count) i = 0;
+ 	}
+ 
+ 	for(f = 0; f < nr_frags; f++) {
+@@ -1328,7 +1328,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 			len -= size;
+ 			offset += size;
+ 			count++;
+-			if(++i == tx_ring->count) i = 0;
++			if (++i == tx_ring->count) i = 0;
+ 		}
+ 	}
+ 	i = (i == 0) ? tx_ring->count - 1 : i - 1;
+@@ -1349,17 +1349,16 @@ ixgb_tx_queue(struct ixgb_adapter *adapter, int count, int vlan_id,int tx_flags)
+ 	u8 popts = 0;
+ 	unsigned int i;
+ 
+-	if(tx_flags & IXGB_TX_FLAGS_TSO) {
++	if (tx_flags & IXGB_TX_FLAGS_TSO) {
+ 		cmd_type_len |= IXGB_TX_DESC_CMD_TSE;
+ 		popts |= (IXGB_TX_DESC_POPTS_IXSM | IXGB_TX_DESC_POPTS_TXSM);
+ 	}
+ 
+-	if(tx_flags & IXGB_TX_FLAGS_CSUM)
++	if (tx_flags & IXGB_TX_FLAGS_CSUM)
+ 		popts |= IXGB_TX_DESC_POPTS_TXSM;
+ 
+-	if(tx_flags & IXGB_TX_FLAGS_VLAN) {
++	if (tx_flags & IXGB_TX_FLAGS_VLAN)
+ 		cmd_type_len |= IXGB_TX_DESC_CMD_VLE;
+-	}
+ 
+ 	i = tx_ring->next_to_use;
+ 
+@@ -1373,7 +1372,7 @@ ixgb_tx_queue(struct ixgb_adapter *adapter, int count, int vlan_id,int tx_flags)
+ 		tx_desc->popts = popts;
+ 		tx_desc->vlan = cpu_to_le16(vlan_id);
+ 
+-		if(++i == tx_ring->count) i = 0;
++		if (++i == tx_ring->count) i = 0;
+ 	}
+ 
+ 	tx_desc->cmd_type_len |= cpu_to_le32(IXGB_TX_DESC_CMD_EOP 
+@@ -1441,7 +1440,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-	if(skb->len <= 0) {
++	if (skb->len <= 0) {
+ 		dev_kfree_skb_any(skb);
+ 		return 0;
+ 	}
+@@ -1450,7 +1449,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+                      DESC_NEEDED)))
+ 		return NETDEV_TX_BUSY;
+ 
+-	if(adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IXGB_TX_FLAGS_VLAN;
+ 		vlan_id = vlan_tx_tag_get(skb);
+ 	}
+@@ -1465,7 +1464,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	if (likely(tso))
+ 		tx_flags |= IXGB_TX_FLAGS_TSO;
+-	else if(ixgb_tx_csum(adapter, skb))
++	else if (ixgb_tx_csum(adapter, skb))
+ 		tx_flags |= IXGB_TX_FLAGS_CSUM;
+ 
+ 	ixgb_tx_queue(adapter, ixgb_tx_map(adapter, skb, first), vlan_id,
+@@ -1573,7 +1572,7 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
+ 	if (pci_channel_offline(pdev))
+ 		return;
+ 
+-	if((netdev->flags & IFF_PROMISC) || (netdev->flags & IFF_ALLMULTI) ||
++	if ((netdev->flags & IFF_PROMISC) || (netdev->flags & IFF_ALLMULTI) ||
+ 	   (netdev->mc_count > IXGB_MAX_NUM_MULTICAST_ADDRESSES)) {
+ 		u64 multi = IXGB_READ_REG(&adapter->hw, MPRCL);
+ 		u32 bcast_l = IXGB_READ_REG(&adapter->hw, BPRCL);
+@@ -1582,7 +1581,7 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
+ 
+ 		multi |= ((u64)IXGB_READ_REG(&adapter->hw, MPRCH) << 32);
+ 		/* fix up multicast stats by removing broadcasts */
+-		if(multi >= bcast)
++		if (multi >= bcast)
+ 			multi -= bcast;
+ 		
+ 		adapter->stats.mprcl += (multi & 0xFFFFFFFF);
+@@ -1706,7 +1705,7 @@ ixgb_intr(int irq, void *data)
+ 	unsigned int i;
+ #endif
+ 
+-	if(unlikely(!icr))
++	if (unlikely(!icr))
+ 		return IRQ_NONE;  /* Not our interrupt */
+ 
+ 	if (unlikely(icr & (IXGB_INT_RXSEQ | IXGB_INT_LSC)))
+@@ -1729,7 +1728,7 @@ ixgb_intr(int irq, void *data)
+ 	 * transmit queues for completed descriptors, intended to
+ 	 * avoid starvation issues and assist tx/rx fairness. */
+ 	for(i = 0; i < IXGB_MAX_INTR; i++)
+-		if(!ixgb_clean_rx_irq(adapter) &
++		if (!ixgb_clean_rx_irq(adapter) &
+ 		   !ixgb_clean_tx_irq(adapter))
+ 			break;
+ #endif 
+@@ -1798,7 +1797,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *adapter)
+ 			*(u32 *)&(tx_desc->status) = 0;
+ 
+ 			cleaned = (i == eop);
+-			if(++i == tx_ring->count) i = 0;
++			if (++i == tx_ring->count) i = 0;
+ 		}
+ 
+ 		eop = tx_ring->buffer_info[i].next_to_watch;
+@@ -1820,7 +1819,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *adapter)
+ 		}
+ 	}
+ 
+-	if(adapter->detect_tx_hung) {
++	if (adapter->detect_tx_hung) {
+ 		/* detect a transmit hang in hardware, this serializes the
+ 		 * check with the clearing of time_stamp and movement of i */
+ 		adapter->detect_tx_hung = false;
+@@ -1869,7 +1868,7 @@ ixgb_rx_checksum(struct ixgb_adapter *adapter,
+ 	/* Ignore Checksum bit is set OR
+ 	 * TCP Checksum has not been calculated
+ 	 */
+-	if((rx_desc->status & IXGB_RX_DESC_STATUS_IXSM) ||
++	if ((rx_desc->status & IXGB_RX_DESC_STATUS_IXSM) ||
+ 	   (!(rx_desc->status & IXGB_RX_DESC_STATUS_TCPCS))) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		return;
+@@ -1877,7 +1876,7 @@ ixgb_rx_checksum(struct ixgb_adapter *adapter,
+ 
+ 	/* At this point we know the hardware did the TCP checksum */
+ 	/* now look at the TCP checksum error bit */
+-	if(rx_desc->errors & IXGB_RX_DESC_ERRORS_TCPE) {
++	if (rx_desc->errors & IXGB_RX_DESC_ERRORS_TCPE) {
+ 		/* let the stack verify checksum errors */
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		adapter->hw_csum_rx_error++;
+@@ -1918,7 +1917,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
+ 		u8 status;
+ 
+ #ifdef CONFIG_IXGB_NAPI
+-		if(*work_done >= work_to_do)
++		if (*work_done >= work_to_do)
+ 			break;
+ 
+ 		(*work_done)++;
+@@ -1929,11 +1928,11 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
+ 
+ 		prefetch(skb->data);
+ 
+-		if(++i == rx_ring->count) i = 0;
++		if (++i == rx_ring->count) i = 0;
+ 		next_rxd = IXGB_RX_DESC(*rx_ring, i);
+ 		prefetch(next_rxd);
+ 
+-		if((j = i + 1) == rx_ring->count) j = 0;
++		if ((j = i + 1) == rx_ring->count) j = 0;
+ 		next2_buffer = &rx_ring->buffer_info[j];
+ 		prefetch(next2_buffer);
+ 
+@@ -1950,7 +1949,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
+ 
+ 		length = le16_to_cpu(rx_desc->length);
+ 
+-		if(unlikely(!(status & IXGB_RX_DESC_STATUS_EOP))) {
++		if (unlikely(!(status & IXGB_RX_DESC_STATUS_EOP))) {
+ 
+ 			/* All receives must fit into a single buffer */
+ 
+@@ -1999,14 +1998,14 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
+ 
+ 		skb->protocol = eth_type_trans(skb, netdev);
+ #ifdef CONFIG_IXGB_NAPI
+-		if(adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
++		if (adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
+ 			vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+ 				le16_to_cpu(rx_desc->special));
+ 		} else {
+ 			netif_receive_skb(skb);
+ 		}
+ #else /* CONFIG_IXGB_NAPI */
+-		if(adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
++		if (adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
+ 			vlan_hwaccel_rx(skb, adapter->vlgrp,
+ 				le16_to_cpu(rx_desc->special));
+ 		} else {
+@@ -2092,7 +2091,7 @@ map_skb:
+ 		rx_desc->status = 0;
+ 
+ 
+-		if(++i == rx_ring->count) i = 0;
++		if (++i == rx_ring->count) i = 0;
+ 		buffer_info = &rx_ring->buffer_info[i];
+ 	}
+ 
+@@ -2125,7 +2124,7 @@ ixgb_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 	ixgb_irq_disable(adapter);
+ 	adapter->vlgrp = grp;
+ 
+-	if(grp) {
++	if (grp) {
+ 		/* enable VLAN tag insert/strip */
+ 		ctrl = IXGB_READ_REG(&adapter->hw, CTRL0);
+ 		ctrl |= IXGB_CTRL0_VME;
+@@ -2197,10 +2196,10 @@ ixgb_restore_vlan(struct ixgb_adapter *adapter)
+ {
+ 	ixgb_vlan_rx_register(adapter->netdev, adapter->vlgrp);
+ 
+-	if(adapter->vlgrp) {
++	if (adapter->vlgrp) {
+ 		u16 vid;
+ 		for(vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
+-			if(!vlan_group_get_device(adapter->vlgrp, vid))
++			if (!vlan_group_get_device(adapter->vlgrp, vid))
+ 				continue;
+ 			ixgb_vlan_rx_add_vid(adapter->netdev, vid);
+ 		}
+@@ -2238,7 +2237,7 @@ static pci_ers_result_t ixgb_io_error_detected (struct pci_dev *pdev,
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 
+-	if(netif_running(netdev))
++	if (netif_running(netdev))
+ 		ixgb_down(adapter, true);
+ 
+ 	pci_disable_device(pdev);
+@@ -2261,7 +2260,7 @@ static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 
+-	if(pci_enable_device(pdev)) {
++	if (pci_enable_device(pdev)) {
+ 		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+@@ -2277,14 +2276,14 @@ static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev)
+ 	ixgb_reset(adapter);
+ 
+ 	/* Make sure the EEPROM is good */
+-	if(!ixgb_validate_eeprom_checksum(&adapter->hw)) {
++	if (!ixgb_validate_eeprom_checksum(&adapter->hw)) {
+ 		DPRINTK(PROBE, ERR, "After reset, the EEPROM checksum is not valid.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+ 	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
+ 	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 
+-	if(!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->perm_addr)) {
+ 		DPRINTK(PROBE, ERR, "After reset, invalid MAC address.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+@@ -2307,8 +2306,8 @@ static void ixgb_io_resume (struct pci_dev *pdev)
+ 
+ 	pci_set_master(pdev);
+ 
+-	if(netif_running(netdev)) {
+-		if(ixgb_up(adapter)) {
++	if (netif_running(netdev)) {
++		if (ixgb_up(adapter)) {
+ 			printk ("ixgb: can't bring device back up after reset\n");
+ 			return;
+ 		}
+diff --git a/drivers/net/ixgb/ixgb_osdep.h b/drivers/net/ixgb/ixgb_osdep.h
+index 4be1b27..fb74bb1 100644
+--- a/drivers/net/ixgb/ixgb_osdep.h
++++ b/drivers/net/ixgb/ixgb_osdep.h
+@@ -40,7 +40,7 @@
+ #include <linux/sched.h>
+ 
+ #undef ASSERT
+-#define ASSERT(x)	if(!(x)) BUG()
++#define ASSERT(x)	if (!(x)) BUG()
+ #define MSGOUT(S, A, B)	printk(KERN_DEBUG S "\n", A, B)
+ 
+ #ifdef DBG
+diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
+index 865d14d..a23d2ff 100644
+--- a/drivers/net/ixgb/ixgb_param.c
++++ b/drivers/net/ixgb/ixgb_param.c
+@@ -200,7 +200,7 @@ struct ixgb_option {
+ static int __devinit
+ ixgb_validate_option(unsigned int *value, const struct ixgb_option *opt)
+ {
+-	if(*value == OPTION_UNSET) {
++	if (*value == OPTION_UNSET) {
+ 		*value = opt->def;
+ 		return 0;
+ 	}
+@@ -217,7 +217,7 @@ ixgb_validate_option(unsigned int *value, const struct ixgb_option *opt)
+ 		}
+ 		break;
+ 	case range_option:
+-		if(*value >= opt->arg.r.min && *value <= opt->arg.r.max) {
++		if (*value >= opt->arg.r.min && *value <= opt->arg.r.max) {
+ 			printk(KERN_INFO "%s set to %i\n", opt->name, *value);
+ 			return 0;
+ 		}
+@@ -228,8 +228,8 @@ ixgb_validate_option(unsigned int *value, const struct ixgb_option *opt)
+ 
+ 		for(i = 0; i < opt->arg.l.nr; i++) {
+ 			ent = &opt->arg.l.p[i];
+-			if(*value == ent->i) {
+-				if(ent->str[0] != '\0')
++			if (*value == ent->i) {
++				if (ent->str[0] != '\0')
+ 					printk(KERN_INFO "%s\n", ent->str);
+ 				return 0;
+ 			}
+@@ -260,7 +260,7 @@ void __devinit
+ ixgb_check_options(struct ixgb_adapter *adapter)
+ {
+ 	int bd = adapter->bd_number;
+-	if(bd >= IXGB_MAX_NIC) {
++	if (bd >= IXGB_MAX_NIC) {
+ 		printk(KERN_NOTICE
+ 			   "Warning: no configuration for board #%i\n", bd);
+ 		printk(KERN_NOTICE "Using defaults for all values\n");
+@@ -277,7 +277,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 		};
+ 		struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
+ 
+-		if(num_TxDescriptors > bd) {
++		if (num_TxDescriptors > bd) {
+ 			tx_ring->count = TxDescriptors[bd];
+ 			ixgb_validate_option(&tx_ring->count, &opt);
+ 		} else {
+@@ -296,7 +296,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 		};
+ 		struct ixgb_desc_ring *rx_ring = &adapter->rx_ring;
+ 
+-		if(num_RxDescriptors > bd) {
++		if (num_RxDescriptors > bd) {
+ 			rx_ring->count = RxDescriptors[bd];
+ 			ixgb_validate_option(&rx_ring->count, &opt);
+ 		} else {
+@@ -312,7 +312,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 			.def  = OPTION_ENABLED
+ 		};
+ 
+-		if(num_XsumRX > bd) {
++		if (num_XsumRX > bd) {
+ 			unsigned int rx_csum = XsumRX[bd];
+ 			ixgb_validate_option(&rx_csum, &opt);
+ 			adapter->rx_csum = rx_csum;
+@@ -338,7 +338,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					 .p = fc_list }}
+ 		};
+ 
+-		if(num_FlowControl > bd) {
++		if (num_FlowControl > bd) {
+ 			unsigned int fc = FlowControl[bd];
+ 			ixgb_validate_option(&fc, &opt);
+ 			adapter->hw.fc.type = fc;
+@@ -356,7 +356,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					 .max = MAX_FCRTH}}
+ 		};
+ 
+-		if(num_RxFCHighThresh > bd) {
++		if (num_RxFCHighThresh > bd) {
+ 			adapter->hw.fc.high_water = RxFCHighThresh[bd];
+ 			ixgb_validate_option(&adapter->hw.fc.high_water, &opt);
+ 		} else {
+@@ -376,7 +376,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					 .max = MAX_FCRTL}}
+ 		};
+ 
+-		if(num_RxFCLowThresh > bd) {
++		if (num_RxFCLowThresh > bd) {
+ 			adapter->hw.fc.low_water = RxFCLowThresh[bd];
+ 			ixgb_validate_option(&adapter->hw.fc.low_water, &opt);
+ 		} else {
+@@ -396,7 +396,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					.max = MAX_FCPAUSE}}
+ 		};
+ 
+-		if(num_FCReqTimeout > bd) {
++		if (num_FCReqTimeout > bd) {
+ 			unsigned int pause_time = FCReqTimeout[bd];
+ 			ixgb_validate_option(&pause_time, &opt);
+ 			adapter->hw.fc.pause_time = pause_time;
+@@ -429,7 +429,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					 .max = MAX_RDTR}}
+ 		};
+ 
+-		if(num_RxIntDelay > bd) {
++		if (num_RxIntDelay > bd) {
+ 			adapter->rx_int_delay = RxIntDelay[bd];
+ 			ixgb_validate_option(&adapter->rx_int_delay, &opt);
+ 		} else {
+@@ -446,7 +446,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 					 .max = MAX_TIDV}}
+ 		};
+ 
+-		if(num_TxIntDelay > bd) {
++		if (num_TxIntDelay > bd) {
+ 			adapter->tx_int_delay = TxIntDelay[bd];
+ 			ixgb_validate_option(&adapter->tx_int_delay, &opt);
+ 		} else {
+@@ -462,7 +462,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 			.def  = OPTION_ENABLED
+ 		};
+ 
+-		if(num_IntDelayEnable > bd) {
++		if (num_IntDelayEnable > bd) {
+ 			unsigned int ide = IntDelayEnable[bd];
+ 			ixgb_validate_option(&ide, &opt);
+ 			adapter->tx_int_delay_enable = ide;
 
