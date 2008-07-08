@@ -1,47 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Tue, 08 Jul 2008 14:57:38 -0700 (PDT)
-Message-ID: <20080708.145738.12692130.davem@davemloft.net>
-References: <4873BC67.8010205@opengridcomputing.com>
-	<20080708.143158.182627862.davem@davemloft.net>
-	<20080708144725.5b663d19@infradead.org>
+Subject: Re: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan
+ tag by hand
+Date: Tue, 08 Jul 2008 15:02:57 -0700 (PDT)
+Message-ID: <20080708.150257.41516850.davem@davemloft.net>
+References: <4873B6E1.9010702@trash.net>
+	<20080708193351.GE14330@xi.wantstofly.org>
+	<4873CAFB.8040606@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: swise@opengridcomputing.com, rdreier@cisco.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: arjan@infradead.org
+Cc: buytenh@wantstofly.org, nico@cam.org, dale@farnsworth.org,
+	akarkare@marvell.com, jdb@comx.dk, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41202
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46729
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751120AbYGHV5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 17:57:38 -0400
-In-Reply-To: <20080708144725.5b663d19@infradead.org>
+	by vger.kernel.org with ESMTP id S1751352AbYGHWC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 18:02:57 -0400
+In-Reply-To: <4873CAFB.8040606@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Tue, 8 Jul 2008 14:47:25 -0700
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 08 Jul 2008 22:15:55 +0200
 
-> On Tue, 08 Jul 2008 14:31:58 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Steve Wise <swise@opengridcomputing.com>
-> > Date: Tue, 08 Jul 2008 14:13:43 -0500
+> Lennert Buytenhek wrote:
+> > On Tue, Jul 08, 2008 at 08:50:09PM +0200, Patrick McHardy wrote:
 > > 
-> > > So should I put the rtnl acquisitions back in iw_cxgb3?  Or fix
-> > > cxgb3 to not assume rtnl is held?
+> >> commit 9381fc4a49cb8b75d5ff38e4f5d14d7e135adc4c
+> >> Author: Patrick McHardy <kaber@trash.net>
+> >> Date:   Tue Jul 8 19:56:17 2008 +0200
+> >>
+> >>     vlan: avoid header copying and linearisation where possible
 > > 
-> > It appears that the kernel always invokes the ethtool ops with
-> > RTNL held, and therefore that's the environment that needs
-> > to be ensured.
+> > That gives me:
+> > 
+> > - 2.6.26-rc9 + [1] + [2] + this patch: ~75 sec, 13.6 MiB/s
+> > 
+> > So it's almost back to the non-VLAN case.
 > 
-> so for the patch that started all this... do I need to go back to the
-> original where I didn't use ethool?
-> (since this is called from irq context....)
+> 
+> Great, thanks. The patch applies cleanly with or without the VLAN
+> packet socket patches I sent today, so Dave can either just apply
+> it together with your mv643xx_eth patch or I'll include it when
+> sending the next VLAN update.
 
-What we need instead is to cache the info block into the netdev struct
-when the driver is ->open()'d, and then you can fetch it out of
-there however you like.
+Patrick, want me to stuff this one into net-2.6?
 
-Or, at least, that is one possible approach.
+BTW, there is a typo in the commit message, you say
+"skb_cow_header()" which doesn't exist, you mean "skb_cow_head()".
+But you got it right in the code :)
