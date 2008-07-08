@@ -1,324 +1,166 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC 08/11] remove CONFIG_KMOD from net
-Date: Tue, 08 Jul 2008 19:00:23 +0200
-Message-ID: <20080708170047.433712000@sipsolutions.net>
-References: <20080708170015.470877000@sipsolutions.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2][RFC] vlan: use pskb_copy() when inserting a vlan
+ tag by hand
+Date: Tue, 08 Jul 2008 19:41:16 +0200
+Message-ID: <4873A6BC.6030205@trash.net>
+References: <20080707205646.GB12997@xi.wantstofly.org> <4872841E.1030609@trash.net> <20080707210701.GD12997@xi.wantstofly.org> <48728784.2030202@trash.net> <487394CC.7050107@trash.net>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------090507070305040702050005"
+Cc: Nicolas Pitre <nico@cam.org>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Jesper Dangaard Brouer <jdb@comx.dk>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:57812 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546AbYGHRPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 13:15:03 -0400
-Content-Disposition: inline; filename=config-kmod-remove-net.patch
+Received: from stinky.trash.net ([213.144.137.162]:34717 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753408AbYGHRwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 13:52:35 -0400
+In-Reply-To: <487394CC.7050107@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some code here depends on CONFIG_KMOD to not try to load
-protocol modules or similar, replace by CONFIG_MODULES
-where more than just request_module depends on CONFIG_KMOD
-and and also use try_then_request_module in ebtables.
+This is a multi-part message in MIME format.
+--------------090507070305040702050005
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org
----
- include/linux/netdevice.h       |    5 ++++-
- net/bluetooth/af_bluetooth.c    |    8 +-------
- net/bridge/netfilter/ebtables.c |   15 +++------------
- net/can/af_can.c                |    4 ++--
- net/core/dev.c                  |    2 +-
- net/core/rtnetlink.c            |    4 ++--
- net/dccp/ccid.c                 |    2 +-
- net/decnet/dn_dev.c             |    2 --
- net/ipv4/devinet.c              |    2 --
- net/ipv4/inet_diag.c            |    2 --
- net/ipv4/tcp_cong.c             |    4 ++--
- net/netfilter/nfnetlink.c       |    2 +-
- net/netlink/af_netlink.c        |    2 +-
- net/sched/act_api.c             |    2 +-
- net/sched/cls_api.c             |    2 +-
- net/sched/ematch.c              |    2 +-
- net/sched/sch_api.c             |    2 +-
- net/socket.c                    |    2 +-
- net/sunrpc/auth.c               |    2 --
- 19 files changed, 23 insertions(+), 43 deletions(-)
+Patrick McHardy wrote:
+>> Lennert Buytenhek wrote:
+>>>>> When inserting a vlan tag into an skb by hand (in the case the
+>>>>> target network device hardware does not support inserting a vlan
+>>>>> tag by passing it in via the TX descriptor), making a copy of the
+>>>>> skb to be modified by calling skb_copy() is overkill, since
+>>>>> skb_copy() will needlessly linearize the skb, copying of all of
+>>>>> the fragmented data around, and checksumming the paket in software
+>>>>> even if the hardware is perfectly capable of doing that by itself.
+>>>>>
+>>>>> For this case, pskb_copy() does exactly what is needed and no more,
+>>>>> so use that instead. 
+> Actually, are you sure this patch is helping for the case
+> you describe? The function you changed is only called on
+> the RX path.
 
---- everything.orig/net/bluetooth/af_bluetooth.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/bluetooth/af_bluetooth.c	2008-07-08 18:36:06.000000000 +0200
-@@ -36,10 +36,7 @@
- #include <linux/init.h>
- #include <linux/poll.h>
- #include <net/sock.h>
--
--#if defined(CONFIG_KMOD)
- #include <linux/kmod.h>
--#endif
- 
- #include <net/bluetooth/bluetooth.h>
- 
-@@ -144,11 +141,8 @@ static int bt_sock_create(struct net *ne
- 	if (proto < 0 || proto >= BT_MAX_PROTO)
- 		return -EINVAL;
- 
--#if defined(CONFIG_KMOD)
--	if (!bt_proto[proto]) {
-+	if (!bt_proto[proto])
- 		request_module("bt-proto-%d", proto);
--	}
--#endif
- 
- 	err = -EPROTONOSUPPORT;
- 
---- everything.orig/net/bridge/netfilter/ebtables.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/bridge/netfilter/ebtables.c	2008-07-08 18:36:06.000000000 +0200
-@@ -288,23 +288,14 @@ find_inlist_lock_noload(struct list_head
- 	return NULL;
- }
- 
--#ifndef CONFIG_KMOD
--#define find_inlist_lock(h,n,p,e,m) find_inlist_lock_noload((h),(n),(e),(m))
--#else
- static void *
- find_inlist_lock(struct list_head *head, const char *name, const char *prefix,
-    int *error, struct mutex *mutex)
+Could you try this one please?
+
+
+--------------090507070305040702050005
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit 911648966b61f2b1c8d37e6ba972ca5cc908136d
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Jul 8 19:49:15 2008 +0200
+
+    vlan: avoid header copying and linearisation where possible
+    
+    - vlan_dev_reorder_header() is only called on the receive path after
+      calling skb_share_check(). This means we can use skb_cow() since
+      all we need is a writable header.
+    
+    - vlan_dev_hard_header() includes a work-around for some apparently
+      broken out of tree MPLS code. The hard_header functions can expect
+      to always have a headroom of at least there own hard_header_len
+      available, so the reallocation check is unnecessary.
+    
+    - __vlan_put_tag() can use skb_cow_header() to avoid the skb_unshare()
+      copy when the header is writable.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index e8360a2..9e7b49b 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -176,22 +176,10 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, u16 vlan_tci)
  {
--	void *ret;
+ 	struct vlan_ethhdr *veth;
+ 
+-	if (skb_headroom(skb) < VLAN_HLEN) {
+-		struct sk_buff *sk_tmp = skb;
+-		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-		kfree_skb(sk_tmp);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to realloc headroom\n");
+-			return NULL;
+-		}
+-	} else {
+-		skb = skb_unshare(skb, GFP_ATOMIC);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-			return NULL;
+-		}
++	if (skb_cow_head(skb, VLAN_HLEN) < 0) {
++		kfree_skb(skb);
++		return NULL;
+ 	}
 -
--	ret = find_inlist_lock_noload(head, name, error, mutex);
--	if (!ret) {
--		request_module("%s%s", prefix, name);
--		ret = find_inlist_lock_noload(head, name, error, mutex);
--	}
--	return ret;
-+	return try_then_request_module(
-+			find_inlist_lock_noload(head, name, error, mutex),
-+			"%s%s", prefix, name);
- }
--#endif
+ 	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
  
- static inline struct ebt_table *
- find_table_lock(const char *name, int *error, struct mutex *mutex)
---- everything.orig/net/can/af_can.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/can/af_can.c	2008-07-08 18:36:06.000000000 +0200
-@@ -128,8 +128,8 @@ static int can_create(struct net *net, s
- 	if (net != &init_net)
- 		return -EAFNOSUPPORT;
- 
--#ifdef CONFIG_KMOD
--	/* try to load protocol module, when CONFIG_KMOD is defined */
-+#ifdef CONFIG_MODULES
-+	/* try to load protocol module kernel is modular */
- 	if (!proto_tab[protocol]) {
- 		err = request_module("can-proto-%d", protocol);
- 
---- everything.orig/net/core/dev.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/core/dev.c	2008-07-08 18:36:06.000000000 +0200
-@@ -4639,7 +4639,7 @@ EXPORT_SYMBOL(br_fdb_get_hook);
- EXPORT_SYMBOL(br_fdb_put_hook);
- #endif
- 
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- EXPORT_SYMBOL(dev_load);
- #endif
- 
---- everything.orig/net/core/rtnetlink.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/core/rtnetlink.c	2008-07-08 18:36:06.000000000 +0200
-@@ -1029,7 +1029,7 @@ static int rtnl_newlink(struct sk_buff *
- 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
- 	int err;
- 
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- replay:
- #endif
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
-@@ -1118,7 +1118,7 @@ replay:
- 			return -EOPNOTSUPP;
- 
- 		if (!ops) {
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 			if (kind[0]) {
- 				__rtnl_unlock();
- 				request_module("rtnl-link-%s", kind);
---- everything.orig/net/dccp/ccid.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/dccp/ccid.c	2008-07-08 18:36:06.000000000 +0200
-@@ -154,7 +154,7 @@ struct ccid *ccid_new(unsigned char id, 
- 	struct ccid *ccid = NULL;
- 
- 	ccids_read_lock();
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 	if (ccids[id] == NULL) {
- 		/* We only try to load if in process context */
- 		ccids_read_unlock();
---- everything.orig/net/decnet/dn_dev.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/decnet/dn_dev.c	2008-07-08 18:36:06.000000000 +0200
-@@ -490,9 +490,7 @@ int dn_dev_ioctl(unsigned int cmd, void 
- 		return -EFAULT;
- 	ifr->ifr_name[IFNAMSIZ-1] = 0;
- 
--#ifdef CONFIG_KMOD
- 	dev_load(&init_net, ifr->ifr_name);
--#endif
- 
- 	switch(cmd) {
- 		case SIOCGIFADDR:
---- everything.orig/net/ipv4/devinet.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/ipv4/devinet.c	2008-07-08 18:36:06.000000000 +0200
-@@ -613,9 +613,7 @@ int devinet_ioctl(struct net *net, unsig
- 	if (colon)
- 		*colon = 0;
- 
--#ifdef CONFIG_KMOD
- 	dev_load(net, ifr.ifr_name);
--#endif
- 
- 	switch (cmd) {
- 	case SIOCGIFADDR:	/* Get interface address */
---- everything.orig/net/ipv4/inet_diag.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/ipv4/inet_diag.c	2008-07-08 18:36:06.000000000 +0200
-@@ -55,11 +55,9 @@ static DEFINE_MUTEX(inet_diag_table_mute
- 
- static const struct inet_diag_handler *inet_diag_lock_handler(int type)
+ 	/* Move the mac addresses to the beginning of the new header. */
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 2ccac6b..00867e9 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -74,11 +74,8 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
+ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
  {
--#ifdef CONFIG_KMOD
- 	if (!inet_diag_table[type])
- 		request_module("net-pf-%d-proto-%d-type-%d", PF_NETLINK,
- 			       NETLINK_INET_DIAG, type);
--#endif
+ 	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
+-		if (skb_shared(skb) || skb_cloned(skb)) {
+-			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+-			kfree_skb(skb);
+-			skb = nskb;
+-		}
++		if (skb_cow(skb, skb_headroom(skb)) < 0)
++			skb = NULL;
+ 		if (skb) {
+ 			/* Lifted from Gleb's VLAN code... */
+ 			memmove(skb->data - ETH_HLEN,
+@@ -262,7 +259,9 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 	u16 vlan_tci = 0;
+ 	int rc = 0;
+ 	int build_vlan_header = 0;
+-	struct net_device *vdev = dev;
++
++	if (WARN_ON(skb_headroom(skb) < dev->hard_header_len + VLAN_HLEN))
++		return -ENOSPC;
  
- 	mutex_lock(&inet_diag_table_mutex);
- 	if (!inet_diag_table[type])
---- everything.orig/net/ipv4/tcp_cong.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/ipv4/tcp_cong.c	2008-07-08 18:36:06.000000000 +0200
-@@ -115,7 +115,7 @@ int tcp_set_default_congestion_control(c
+ 	pr_debug("%s: skb: %p type: %hx len: %u vlan_id: %hx, daddr: %p\n",
+ 		 __func__, skb, type, len, vlan_dev_info(dev)->vlan_id,
+@@ -316,29 +315,6 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
  
- 	spin_lock(&tcp_cong_list_lock);
- 	ca = tcp_ca_find(name);
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 	if (!ca && capable(CAP_SYS_MODULE)) {
- 		spin_unlock(&tcp_cong_list_lock);
+ 	dev = vlan_dev_info(dev)->real_dev;
  
-@@ -244,7 +244,7 @@ int tcp_set_congestion_control(struct so
- 	if (ca == icsk->icsk_ca_ops)
- 		goto out;
- 
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 	/* not found attempt to autoload module */
- 	if (!ca && capable(CAP_SYS_MODULE)) {
- 		rcu_read_unlock();
---- everything.orig/net/netfilter/nfnetlink.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/netfilter/nfnetlink.c	2008-07-08 18:36:06.000000000 +0200
-@@ -134,7 +134,7 @@ static int nfnetlink_rcv_msg(struct sk_b
- 	type = nlh->nlmsg_type;
- 	ss = nfnetlink_get_subsys(type);
- 	if (!ss) {
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 		nfnl_unlock();
- 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
- 		nfnl_lock();
---- everything.orig/net/netlink/af_netlink.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/netlink/af_netlink.c	2008-07-08 18:36:06.000000000 +0200
-@@ -434,7 +434,7 @@ static int netlink_create(struct net *ne
- 		return -EPROTONOSUPPORT;
- 
- 	netlink_lock_table();
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 	if (!nl_table[protocol].registered) {
- 		netlink_unlock_table();
- 		request_module("net-pf-%d-proto-%d", PF_NETLINK, protocol);
---- everything.orig/net/sched/act_api.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/sched/act_api.c	2008-07-08 18:36:06.000000000 +0200
-@@ -495,7 +495,7 @@ struct tc_action *tcf_action_init_1(stru
- 
- 	a_o = tc_lookup_action_n(act_name);
- 	if (a_o == NULL) {
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 		rtnl_unlock();
- 		request_module("act_%s", act_name);
- 		rtnl_lock();
---- everything.orig/net/sched/cls_api.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/sched/cls_api.c	2008-07-08 18:36:06.000000000 +0200
-@@ -223,7 +223,7 @@ replay:
- 		err = -ENOENT;
- 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND]);
- 		if (tp_ops == NULL) {
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 			struct nlattr *kind = tca[TCA_KIND];
- 			char name[IFNAMSIZ];
- 
---- everything.orig/net/sched/ematch.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/sched/ematch.c	2008-07-08 18:36:06.000000000 +0200
-@@ -224,7 +224,7 @@ static int tcf_em_validate(struct tcf_pr
- 
- 		if (em->ops == NULL) {
- 			err = -ENOENT;
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 			__rtnl_unlock();
- 			request_module("ematch-kind-%u", em_hdr->kind);
- 			rtnl_lock();
---- everything.orig/net/sched/sch_api.c	2008-07-08 18:35:54.000000000 +0200
-+++ everything/net/sched/sch_api.c	2008-07-08 18:36:06.000000000 +0200
-@@ -457,7 +457,7 @@ qdisc_create(struct net_device *dev, u32
- 	struct Qdisc_ops *ops;
- 
- 	ops = qdisc_lookup_ops(kind);
--#ifdef CONFIG_KMOD
-+#ifdef CONFIG_MODULES
- 	if (ops == NULL && kind != NULL) {
- 		char name[IFNAMSIZ];
- 		if (nla_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
---- everything.orig/net/socket.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/socket.c	2008-07-08 18:36:06.000000000 +0200
-@@ -1140,7 +1140,7 @@ static int __sock_create(struct net *net
- 
- 	sock->type = type;
- 
--#if defined(CONFIG_KMOD)
-+#ifdef CONFIG_MODULES
- 	/* Attempt to load a protocol module if the find failed.
- 	 *
- 	 * 12/09/1996 Marcin: But! this makes REALLY only sense, if the user
---- everything.orig/net/sunrpc/auth.c	2008-07-08 18:35:53.000000000 +0200
-+++ everything/net/sunrpc/auth.c	2008-07-08 18:36:06.000000000 +0200
-@@ -83,10 +83,8 @@ rpcauth_create(rpc_authflavor_t pseudofl
- 	if (flavor >= RPC_AUTH_MAXFLAVOR)
- 		goto out;
- 
--#ifdef CONFIG_KMOD
- 	if ((ops = auth_flavors[flavor]) == NULL)
- 		request_module("rpc-auth-%u", flavor);
--#endif
- 	spin_lock(&rpc_authflavor_lock);
- 	ops = auth_flavors[flavor];
- 	if (ops == NULL || !try_module_get(ops->owner)) {
---- everything.orig/include/linux/netdevice.h	2008-07-08 18:35:53.000000000 +0200
-+++ everything/include/linux/netdevice.h	2008-07-08 18:36:06.000000000 +0200
-@@ -1484,8 +1484,11 @@ extern void		dev_set_promiscuity(struct 
- extern void		dev_set_allmulti(struct net_device *dev, int inc);
- extern void		netdev_state_change(struct net_device *dev);
- extern void		netdev_features_change(struct net_device *dev);
--/* Load a device via the kmod */
-+#ifdef CONFIG_MODULES
- extern void		dev_load(struct net *net, const char *name);
-+#else
-+static inline void	dev_load(struct net *net, const char *name) {};
-+#endif
- extern void		dev_mcast_init(void);
- extern int		netdev_max_backlog;
- extern int		weight_p;
+-	/* MPLS can send us skbuffs w/out enough space.	This check will grow
+-	 * the skb if it doesn't have enough headroom. Not a beautiful solution,
+-	 * so I'll tick a counter so that users can know it's happening...
+-	 * If they care...
+-	 */
+-
+-	/* NOTE: This may still break if the underlying device is not the final
+-	 * device (and thus there are more headers to add...) It should work for
+-	 * good-ole-ethernet though.
+-	 */
+-	if (skb_headroom(skb) < dev->hard_header_len) {
+-		struct sk_buff *sk_tmp = skb;
+-		skb = skb_realloc_headroom(sk_tmp, dev->hard_header_len);
+-		kfree_skb(sk_tmp);
+-		if (skb == NULL) {
+-			struct net_device_stats *stats = &vdev->stats;
+-			stats->tx_dropped++;
+-			return -ENOMEM;
+-		}
+-		vlan_dev_info(vdev)->cnt_inc_headroom_on_tx++;
+-		pr_debug("%s: %s: had to grow skb\n", __func__, vdev->name);
+-	}
+-
+ 	if (build_vlan_header) {
+ 		/* Now make the underlying real hard header */
+ 		rc = dev_hard_header(skb, dev, ETH_P_8021Q, daddr, saddr,
 
--- 
-
+--------------090507070305040702050005--
