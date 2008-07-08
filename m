@@ -1,52 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Tue, 8 Jul 2008 07:36:37 +0100
-Message-ID: <20080708073637.32037c76@the-village.bc.nu>
-References: <20080707214218.055bcb35@the-village.bc.nu>
-	<20080707.144505.67398603.davem@davemloft.net>
-	<20080707221427.163c4a30@the-village.bc.nu>
-	<20080707.145819.209342070.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio_net: Set VIRTIO_NET_F_GUEST_CSUM feature
+Date: Tue, 8 Jul 2008 17:10:42 +1000
+Message-ID: <200807081710.42530.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49018 "EHLO
-	the-village.bc.nu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751394AbYGHHKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 03:10:40 -0400
-In-Reply-To: <20080707.145819.209342070.davem@davemloft.net>
+Received: from ozlabs.org ([203.10.76.45]:54706 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755469AbYGHHKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 03:10:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> That's pure bullox as far as I can see.  Why provide the means to
-> do something nobody has had a need for in 6+ years?  Who needs
-> to load different firmware for the tg3 driver?
+From: Mark McLoughlin <markmc@redhat.com>
 
-Who needs modules, nobody needed it for years ... you are repeating
-historically failed arguments still.
+We can handle receiving partial csums, so set the
+appropriate feature bit.
 
-> Who needs that capability? Distribution vendors?  What for?
-> In what case will they need to load different firmware from
-> what the driver maintainer tested as a unit?
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-For some drivers yes. Maybe not tg3.
-
-> And, btw, who has the right to enforce this new burdon upon driver
-> maintainers when they have had a working and maintainable system for
-> so long?
-
-The module argument again - see my comment about the sound driver history.
-
-> I can only see it being about separation, pure and simple.
-
-Separation - of firmware that can be paged from code that cannot. Of
-stuff that doesn't change from stuff that does. That happens to be good
-engineering.
-
-Alan
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -550,7 +550,8 @@ static struct virtio_device_id id_table[
+ };
+ 
+ static unsigned int features[] = {
+-	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
++	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
++	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+ 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+ 	VIRTIO_NET_F_HOST_ECN, VIRTIO_F_NOTIFY_ON_EMPTY,
+ };
