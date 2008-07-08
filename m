@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND NET-NEXT PATCH 14/20] igb: Add support for quad port WOL and
-	feature flags
-Date: Tue, 08 Jul 2008 15:10:46 -0700
-Message-ID: <20080708221018.1518.97407.stgit@localhost.localdomain>
+Subject: [RESEND NET-NEXT PATCH 15/20] igb: add page recycling support
+Date: Tue, 08 Jul 2008 15:11:40 -0700
+Message-ID: <20080708221052.1518.56662.stgit@localhost.localdomain>
 References: <20080708220046.1518.88457.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,394 +11,275 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15760 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757303AbYGHWKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:10:48 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757752AbYGHWL7@vger.kernel.org>
 In-Reply-To: <20080708220046.1518.88457.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Change igb from using a series of boolean operators to using a single flags
-value that contains a number of different bit flags for all the different
-features of the adapter.
-
-This patch also adds WOL support for quad port adapters.
+This patch adds support for page recycling by splitting the page into two
+usable portions and tracking the reference count.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h         |   13 ++++--
- drivers/net/igb/igb_ethtool.c |   12 ++++-
- drivers/net/igb/igb_main.c    |   92 ++++++++++++++++++++++++++++-------------
- 3 files changed, 81 insertions(+), 36 deletions(-)
+ drivers/net/igb/igb.h      |    4 -
+ drivers/net/igb/igb_main.c |  138 ++++++++++++++++++++------------------------
+ 2 files changed, 63 insertions(+), 79 deletions(-)
 
 diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index d4a0423..ee08010 100644
+index ee08010..f41b999 100644
 --- a/drivers/net/igb/igb.h
 +++ b/drivers/net/igb/igb.h
-@@ -270,10 +270,7 @@ struct igb_adapter {
- 
- 	/* to not mess up cache alignment, always add to the bottom */
- 	unsigned long state;
--	unsigned int msi_enabled;
--#ifdef CONFIG_DCA
--	unsigned int dca_enabled;
--#endif
-+	unsigned int flags;
- 	u32 eeprom_wol;
- 
- 	/* for ioport free */
-@@ -285,6 +282,14 @@ struct igb_adapter {
- #endif /* CONFIG_NETDEVICES_MULTIQUEUE */
+@@ -125,6 +125,7 @@ struct igb_buffer {
+ 		struct {
+ 			struct page *page;
+ 			u64 page_dma;
++			unsigned int page_offset;
+ 		};
+ 	};
  };
- 
-+#define IGB_FLAG_HAS_MSI           (1 << 0)
-+#define IGB_FLAG_MSI_ENABLE        (1 << 1)
-+#define IGB_FLAG_HAS_DCA           (1 << 2)
-+#define IGB_FLAG_DCA_ENABLED       (1 << 3)
-+#define IGB_FLAG_IN_NETPOLL        (1 << 5)
-+#define IGB_FLAG_QUAD_PORT_A       (1 << 6)
-+#define IGB_FLAG_NEED_CTX_IDX      (1 << 7)
-+
- enum e1000_state_t {
- 	__IGB_TESTING,
- 	__IGB_RESETTING,
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index e27d5a5..ef209b5 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1097,7 +1097,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	if (adapter->msix_entries) {
- 		/* NOTE: we don't test MSI-X interrupts here, yet */
- 		return 0;
--	} else if (adapter->msi_enabled) {
-+	} else if (adapter->flags & IGB_FLAG_HAS_MSI) {
- 		shared_int = false;
- 		if (request_irq(irq, &igb_test_intr, 0, netdev->name, netdev)) {
- 			*data = 1;
-@@ -1727,7 +1727,6 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
- 
- 	switch (hw->device_id) {
- 	case E1000_DEV_ID_82575GB_QUAD_COPPER:
--	case E1000_DEV_ID_82576_QUAD_COPPER:
- 		/* WoL not supported */
- 		wol->supported = 0;
- 		break;
-@@ -1742,6 +1741,15 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
- 		/* return success for non excluded adapter ports */
- 		retval = 0;
- 		break;
-+	case E1000_DEV_ID_82576_QUAD_COPPER:
-+		/* quad port adapters only support WoL on port A */
-+		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
-+			wol->supported = 0;
-+			break;
-+		}
-+		/* return success for non excluded adapter ports */
-+		retval = 0;
-+		break;
- 	default:
- 		/* dual port cards only support WoL on port A from now on
- 		 * unless it was enabled in the eeprom for port B
+@@ -163,9 +164,6 @@ struct igb_ring {
+ 		};
+ 		/* RX */
+ 		struct {
+-			/* arrays of page information for packet split */
+-			struct sk_buff *pending_skb;
+-			int pending_skb_page;
+ 			int no_itr_adjust;
+ 			struct igb_queue_stats rx_stats;
+ 			struct napi_struct napi;
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index ba043c4..68a4fef 100644
+index 68a4fef..660a786 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -53,7 +53,6 @@ static const char igb_driver_string[] =
- 				"Intel(R) Gigabit Ethernet Network Driver";
- static const char igb_copyright[] = "Copyright (c) 2008 Intel Corporation.";
+@@ -1725,7 +1725,6 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
  
--
- static const struct e1000_info *igb_info_tbl[] = {
- 	[board_82575] = &e1000_82575_info,
- };
-@@ -170,6 +169,8 @@ static struct pci_driver igb_driver = {
- 	.err_handler = &igb_err_handler
- };
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
+-	rx_ring->pending_skb = NULL;
  
-+static int global_quad_port_a; /* global quad port a indication */
-+
- MODULE_AUTHOR("Intel Corporation, <e1000-devel@lists.sourceforge.net>");
- MODULE_DESCRIPTION("Intel(R) Gigabit Ethernet Network Driver");
- MODULE_LICENSE("GPL");
-@@ -201,6 +202,8 @@ static int __init igb_init_module(void)
+ 	rx_ring->adapter = adapter;
  
- 	printk(KERN_INFO "%s\n", igb_copyright);
- 
-+	global_quad_port_a = 0;
-+
- 	ret = pci_register_driver(&igb_driver);
- #ifdef CONFIG_DCA
- 	dca_register_notify(&dca_notifier);
-@@ -471,7 +474,7 @@ static void igb_reset_interrupt_capability(struct igb_adapter *adapter)
- 		pci_disable_msix(adapter->pdev);
- 		kfree(adapter->msix_entries);
- 		adapter->msix_entries = NULL;
--	} else if (adapter->msi_enabled)
-+	} else if (adapter->flags & IGB_FLAG_HAS_MSI)
- 		pci_disable_msi(adapter->pdev);
- 	return;
- }
-@@ -510,7 +513,7 @@ msi_only:
- 	adapter->num_rx_queues = 1;
- 	adapter->num_tx_queues = 1;
- 	if (!pci_enable_msi(adapter->pdev))
--		adapter->msi_enabled = 1;
-+		adapter->flags |= IGB_FLAG_HAS_MSI;
- 
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	/* Notify the stack of the (possibly) reduced Tx Queue count. */
-@@ -538,7 +541,7 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 		/* fall back to MSI */
- 		igb_reset_interrupt_capability(adapter);
- 		if (!pci_enable_msi(adapter->pdev))
--			adapter->msi_enabled = 1;
-+			adapter->flags |= IGB_FLAG_HAS_MSI;
- 		igb_free_all_tx_resources(adapter);
- 		igb_free_all_rx_resources(adapter);
- 		adapter->num_rx_queues = 1;
-@@ -557,14 +560,14 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 		}
- 	}
- 
--	if (adapter->msi_enabled) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSI) {
- 		err = request_irq(adapter->pdev->irq, &igb_intr_msi, 0,
- 				  netdev->name, netdev);
- 		if (!err)
- 			goto request_done;
- 		/* fall back to legacy interrupts */
- 		igb_reset_interrupt_capability(adapter);
--		adapter->msi_enabled = 0;
-+		adapter->flags &= ~IGB_FLAG_HAS_MSI;
- 	}
- 
- 	err = request_irq(adapter->pdev->irq, &igb_intr, IRQF_SHARED,
-@@ -1097,6 +1100,17 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 
- 	igb_get_bus_info_pcie(hw);
- 
-+	/* set flags */
-+	switch (hw->mac.type) {
-+	case e1000_82576:
-+	case e1000_82575:
-+		adapter->flags |= IGB_FLAG_HAS_DCA;
-+		adapter->flags |= IGB_FLAG_NEED_CTX_IDX;
-+		break;
-+	default:
-+		break;
-+	}
-+
- 	hw->phy.autoneg_wait_to_complete = false;
- 	hw->mac.adaptive_ifs = true;
- 
-@@ -1209,7 +1223,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	 * lan on a particular port */
- 	switch (pdev->device) {
- 	case E1000_DEV_ID_82575GB_QUAD_COPPER:
--	case E1000_DEV_ID_82576_QUAD_COPPER:
- 		adapter->eeprom_wol = 0;
- 		break;
- 	case E1000_DEV_ID_82575EB_FIBER_SERDES:
-@@ -1220,6 +1233,16 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
- 			adapter->eeprom_wol = 0;
- 		break;
-+	case E1000_DEV_ID_82576_QUAD_COPPER:
-+		/* if quad port adapter, disable WoL on all but port A */
-+		if (global_quad_port_a != 0)
-+			adapter->eeprom_wol = 0;
-+		else
-+			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
-+		/* Reset for multiple quad port adapters */
-+		if (++global_quad_port_a == 4)
-+			global_quad_port_a = 0;
-+		break;
- 	}
- 
- 	/* initialize the wol settings based on the eeprom settings */
-@@ -1246,8 +1269,9 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		goto err_register;
- 
- #ifdef CONFIG_DCA
--	if (dca_add_requester(&pdev->dev) == 0) {
--		adapter->dca_enabled = true;
-+	if ((adapter->flags & IGB_FLAG_HAS_DCA) &&
-+	    (dca_add_requester(&pdev->dev) == 0)) {
-+		adapter->flags |= IGB_FLAG_DCA_ENABLED;
- 		dev_info(&pdev->dev, "DCA enabled\n");
- 		/* Always use CB2 mode, difference is masked
- 		 * in the CB driver. */
-@@ -1276,7 +1300,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	dev_info(&pdev->dev,
- 		"Using %s interrupts. %d rx queue(s), %d tx queue(s)\n",
- 		adapter->msix_entries ? "MSI-X" :
--		adapter->msi_enabled ? "MSI" : "legacy",
-+		(adapter->flags & IGB_FLAG_HAS_MSI) ? "MSI" : "legacy",
- 		adapter->num_rx_queues, adapter->num_tx_queues);
- 
- 	return 0;
-@@ -1330,10 +1354,10 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 	flush_scheduled_work();
- 
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled) {
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED) {
- 		dev_info(&pdev->dev, "DCA disabled\n");
- 		dca_remove_requester(&pdev->dev);
--		adapter->dca_enabled = false;
-+		adapter->flags &= ~IGB_FLAG_DCA_ENABLED;
- 		wr32(E1000_DCA_CTRL, 1);
- 	}
- #endif
-@@ -2650,9 +2674,9 @@ static inline int igb_tso_adv(struct igb_adapter *adapter,
- 	mss_l4len_idx = (skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT);
- 	mss_l4len_idx |= (l4len << E1000_ADVTXD_L4LEN_SHIFT);
- 
--	/* Context index must be unique per ring.  Luckily, so is the interrupt
--	 * mask value. */
--	mss_l4len_idx |= tx_ring->eims_value >> 4;
-+	/* Context index must be unique per ring. */
-+	if (adapter->flags & IGB_FLAG_NEED_CTX_IDX)
-+		mss_l4len_idx |= tx_ring->queue_index << 4;
- 
- 	context_desc->mss_l4len_idx = cpu_to_le32(mss_l4len_idx);
- 	context_desc->seqnum_seed = 0;
-@@ -2716,8 +2740,9 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 
- 		context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
- 		context_desc->seqnum_seed = 0;
--		context_desc->mss_l4len_idx =
--					  cpu_to_le32(tx_ring->queue_index << 4);
-+		if (adapter->flags & IGB_FLAG_NEED_CTX_IDX)
-+			context_desc->mss_l4len_idx =
-+				cpu_to_le32(tx_ring->queue_index << 4);
- 
- 		buffer_info->time_stamp = jiffies;
- 		buffer_info->dma = 0;
-@@ -2818,8 +2843,9 @@ static inline void igb_tx_queue_adv(struct igb_adapter *adapter,
- 		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
- 	}
- 
--	if (tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_TSO |
--			IGB_TX_FLAGS_VLAN))
-+	if ((adapter->flags & IGB_FLAG_NEED_CTX_IDX) &&
-+	    (tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_TSO |
-+			 IGB_TX_FLAGS_VLAN)))
- 		olinfo_status |= tx_ring->queue_index << 4;
- 
- 	olinfo_status |= ((paylen - hdr_len) << E1000_ADVTXD_PAYLEN_SHIFT);
-@@ -3255,7 +3281,7 @@ static irqreturn_t igb_msix_tx(int irq, void *data)
- 	if (!tx_ring->itr_val)
- 		wr32(E1000_EIMC, tx_ring->eims_value);
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled)
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_tx_dca(tx_ring);
- #endif
- 	tx_ring->total_bytes = 0;
-@@ -3292,7 +3318,7 @@ static irqreturn_t igb_msix_rx(int irq, void *data)
- 		__netif_rx_schedule(adapter->netdev, &rx_ring->napi);
- 
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled)
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_rx_dca(rx_ring);
- #endif
- 		return IRQ_HANDLED;
-@@ -3355,7 +3381,7 @@ static void igb_setup_dca(struct igb_adapter *adapter)
- {
- 	int i;
- 
--	if (!(adapter->dca_enabled))
-+	if (!(adapter->flags & IGB_FLAG_DCA_ENABLED))
- 		return;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
-@@ -3375,12 +3401,15 @@ static int __igb_notify_dca(struct device *dev, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	unsigned long event = *(unsigned long *)data;
- 
-+	if (!(adapter->flags & IGB_FLAG_HAS_DCA))
-+		goto out;
-+
- 	switch (event) {
- 	case DCA_PROVIDER_ADD:
- 		/* if already enabled, don't do it again */
--		if (adapter->dca_enabled)
-+		if (adapter->flags & IGB_FLAG_DCA_ENABLED)
+@@ -1817,15 +1816,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 			rctl |= E1000_RCTL_SZ_2048;
+ 			rctl &= ~E1000_RCTL_BSEX;
  			break;
--		adapter->dca_enabled = true;
-+		adapter->flags |= IGB_FLAG_DCA_ENABLED;
- 		/* Always use CB2 mode, difference is masked
- 		 * in the CB driver. */
- 		wr32(E1000_DCA_CTRL, 2);
-@@ -3391,17 +3420,17 @@ static int __igb_notify_dca(struct device *dev, void *data)
+-		case IGB_RXBUFFER_4096:
+-			rctl |= E1000_RCTL_SZ_4096;
+-			break;
+-		case IGB_RXBUFFER_8192:
+-			rctl |= E1000_RCTL_SZ_8192;
+-			break;
+-		case IGB_RXBUFFER_16384:
+-			rctl |= E1000_RCTL_SZ_16384;
+-			break;
  		}
- 		/* Fall Through since DCA is disabled. */
- 	case DCA_PROVIDER_REMOVE:
--		if (adapter->dca_enabled) {
-+		if (adapter->flags & IGB_FLAG_DCA_ENABLED) {
- 			/* without this a class_device is left
-  			 * hanging around in the sysfs model */
- 			dca_remove_requester(dev);
- 			dev_info(&adapter->pdev->dev, "DCA disabled\n");
--			adapter->dca_enabled = false;
-+			adapter->flags &= ~IGB_FLAG_DCA_ENABLED;
- 			wr32(E1000_DCA_CTRL, 1);
+ 	} else {
+ 		rctl &= ~E1000_RCTL_BSEX;
+@@ -1843,10 +1833,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	 * so only enable packet split for jumbo frames */
+ 	if (rctl & E1000_RCTL_LPE) {
+ 		adapter->rx_ps_hdr_size = IGB_RXBUFFER_128;
+-		srrctl = adapter->rx_ps_hdr_size <<
++		srrctl |= adapter->rx_ps_hdr_size <<
+ 			 E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
+-		/* buffer size is ALWAYS one page */
+-		srrctl |= PAGE_SIZE >> E1000_SRRCTL_BSIZEPKT_SHIFT;
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+ 	} else {
+ 		adapter->rx_ps_hdr_size = 0;
+@@ -2151,20 +2139,17 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 			buffer_info->skb = NULL;
  		}
- 		break;
+ 		if (buffer_info->page) {
+-			pci_unmap_page(pdev, buffer_info->page_dma,
+-				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
++			if (buffer_info->page_dma)
++				pci_unmap_page(pdev, buffer_info->page_dma,
++					       PAGE_SIZE / 2,
++					       PCI_DMA_FROMDEVICE);
+ 			put_page(buffer_info->page);
+ 			buffer_info->page = NULL;
+ 			buffer_info->page_dma = 0;
++			buffer_info->page_offset = 0;
+ 		}
  	}
+ 
+-	/* there also may be some cached data from a chained receive */
+-	if (rx_ring->pending_skb) {
+-		dev_kfree_skb(rx_ring->pending_skb);
+-		rx_ring->pending_skb = NULL;
+-	}
 -
-+out:
- 	return 0;
- }
+ 	size = sizeof(struct igb_buffer) * rx_ring->count;
+ 	memset(rx_ring->buffer_info, 0, size);
  
-@@ -3507,13 +3536,13 @@ static int igb_poll(struct napi_struct *napi, int budget)
+@@ -3091,7 +3076,11 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 	else if (max_frame <= IGB_RXBUFFER_2048)
+ 		adapter->rx_buffer_len = IGB_RXBUFFER_2048;
+ 	else
+-		adapter->rx_buffer_len = IGB_RXBUFFER_4096;
++#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
++		adapter->rx_buffer_len = IGB_RXBUFFER_16384;
++#else
++		adapter->rx_buffer_len = PAGE_SIZE / 2;
++#endif
+ 	/* adjust allocation if LPE protects us, and we aren't using SBP */
+ 	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN) ||
+ 	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE))
+@@ -3796,7 +3785,7 @@ static bool igb_clean_rx_irq_adv(struct igb_ring *rx_ring,
+ 	union e1000_adv_rx_desc *rx_desc , *next_rxd;
+ 	struct igb_buffer *buffer_info , *next_buffer;
+ 	struct sk_buff *skb;
+-	unsigned int i, j;
++	unsigned int i;
+ 	u32 length, hlen, staterr;
+ 	bool cleaned = false;
+ 	int cleaned_count = 0;
+@@ -3826,61 +3815,46 @@ static bool igb_clean_rx_irq_adv(struct igb_ring *rx_ring,
+ 		cleaned = true;
+ 		cleaned_count++;
  
- 	/* this poll routine only supports one tx and one rx queue */
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled)
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_tx_dca(&adapter->tx_ring[0]);
- #endif
- 	tx_clean_complete = igb_clean_tx_irq(&adapter->tx_ring[0]);
- 
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled)
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_rx_dca(&adapter->rx_ring[0]);
- #endif
- 	igb_clean_rx_irq_adv(&adapter->rx_ring[0], &work_done, budget);
-@@ -3545,7 +3574,7 @@ static int igb_clean_rx_ring_msix(struct napi_struct *napi, int budget)
- 		goto quit_polling;
- 
- #ifdef CONFIG_DCA
--	if (adapter->dca_enabled)
-+	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_rx_dca(rx_ring);
- #endif
- 	igb_clean_rx_irq_adv(rx_ring, &work_done, budget);
-@@ -4350,6 +4379,8 @@ static void igb_netpoll(struct net_device *netdev)
- 	int work_done = 0;
- 
- 	igb_irq_disable(adapter);
-+	adapter->flags |= IGB_FLAG_IN_NETPOLL;
+-		if (rx_ring->pending_skb != NULL) {
+-			skb = rx_ring->pending_skb;
+-			rx_ring->pending_skb = NULL;
+-			j = rx_ring->pending_skb_page;
+-		} else {
+-			skb = buffer_info->skb;
+-			prefetch(skb->data - NET_IP_ALIGN);
+-			buffer_info->skb = NULL;
+-			if (hlen) {
+-				pci_unmap_single(pdev, buffer_info->dma,
+-						 adapter->rx_ps_hdr_size +
+-						   NET_IP_ALIGN,
+-						 PCI_DMA_FROMDEVICE);
+-				skb_put(skb, hlen);
+-			} else {
+-				pci_unmap_single(pdev, buffer_info->dma,
+-						 adapter->rx_buffer_len +
+-						   NET_IP_ALIGN,
+-						 PCI_DMA_FROMDEVICE);
+-				skb_put(skb, length);
+-				goto send_up;
+-			}
+-			j = 0;
++		skb = buffer_info->skb;
++		prefetch(skb->data - NET_IP_ALIGN);
++		buffer_info->skb = NULL;
++		if (!adapter->rx_ps_hdr_size) {
++			pci_unmap_single(pdev, buffer_info->dma,
++					 adapter->rx_buffer_len +
++					   NET_IP_ALIGN,
++					 PCI_DMA_FROMDEVICE);
++			skb_put(skb, length);
++			goto send_up;
++		}
 +
- 	for (i = 0; i < adapter->num_tx_queues; i++)
- 		igb_clean_tx_irq(&adapter->tx_ring[i]);
++		if (!skb_shinfo(skb)->nr_frags) {
++			pci_unmap_single(pdev, buffer_info->dma,
++					 adapter->rx_ps_hdr_size +
++					   NET_IP_ALIGN,
++					 PCI_DMA_FROMDEVICE);
++			skb_put(skb, hlen);
+ 		}
  
-@@ -4358,6 +4389,7 @@ static void igb_netpoll(struct net_device *netdev)
- 				     &work_done,
- 				     adapter->rx_ring[i].napi.weight);
+-		while (length) {
++		if (length) {
+ 			pci_unmap_page(pdev, buffer_info->page_dma,
+-				PAGE_SIZE, PCI_DMA_FROMDEVICE);
++				       PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
+ 			buffer_info->page_dma = 0;
+-			skb_fill_page_desc(skb, j, buffer_info->page,
+-						0, length);
+-			buffer_info->page = NULL;
++
++			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags++,
++						buffer_info->page,
++						buffer_info->page_offset,
++						length);
++
++			if ((adapter->rx_buffer_len > (PAGE_SIZE / 2)) ||
++			    (page_count(buffer_info->page) != 1))
++				buffer_info->page = NULL;
++			else
++				get_page(buffer_info->page);
  
-+	adapter->flags &= ~IGB_FLAG_IN_NETPOLL;
- 	igb_irq_enable(adapter);
- }
- #endif /* CONFIG_NET_POLL_CONTROLLER */
-
+ 			skb->len += length;
+ 			skb->data_len += length;
+-			skb->truesize += length;
+-			rx_desc->wb.upper.status_error = 0;
+-			if (staterr & E1000_RXD_STAT_EOP)
+-				break;
+-
+-			j++;
+-			cleaned_count++;
+-			i++;
+-			if (i == rx_ring->count)
+-				i = 0;
+ 
+-			buffer_info = &rx_ring->buffer_info[i];
+-			rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
+-			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+-			length = le16_to_cpu(rx_desc->wb.upper.length);
+-			if (!(staterr & E1000_RXD_STAT_DD)) {
+-				rx_ring->pending_skb = skb;
+-				rx_ring->pending_skb_page = j;
+-				goto out;
+-			}
++			skb->truesize += length;
+ 		}
+ send_up:
+ 		i++;
+@@ -3890,6 +3864,12 @@ send_up:
+ 		prefetch(next_rxd);
+ 		next_buffer = &rx_ring->buffer_info[i];
+ 
++		if (!(staterr & E1000_RXD_STAT_EOP)) {
++			buffer_info->skb = xchg(&next_buffer->skb, skb);
++			buffer_info->dma = xchg(&next_buffer->dma, 0);
++			goto next_desc;
++		}
++
+ 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_desc;
+@@ -3922,7 +3902,7 @@ next_desc:
+ 
+ 		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 	}
+-out:
++
+ 	rx_ring->next_to_clean = i;
+ 	cleaned_count = IGB_DESC_UNUSED(rx_ring);
+ 
+@@ -3960,16 +3940,22 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
+ 	while (cleaned_count--) {
+ 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
+ 
+-		if (adapter->rx_ps_hdr_size && !buffer_info->page) {
+-			buffer_info->page = alloc_page(GFP_ATOMIC);
++		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
+ 			if (!buffer_info->page) {
+-				adapter->alloc_rx_buff_failed++;
+-				goto no_buffers;
++				buffer_info->page = alloc_page(GFP_ATOMIC);
++				if (!buffer_info->page) {
++					adapter->alloc_rx_buff_failed++;
++					goto no_buffers;
++				}
++				buffer_info->page_offset = 0;
++			} else {
++				buffer_info->page_offset ^= PAGE_SIZE / 2;
+ 			}
+ 			buffer_info->page_dma =
+ 				pci_map_page(pdev,
+ 					     buffer_info->page,
+-					     0, PAGE_SIZE,
++					     buffer_info->page_offset,
++					     PAGE_SIZE / 2,
+ 					     PCI_DMA_FROMDEVICE);
+ 		}
+ 
