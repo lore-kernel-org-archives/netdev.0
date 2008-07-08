@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 18/25] ixgb: trivial fix space after for
-Date: Tue, 08 Jul 2008 15:52:33 -0700
-Message-ID: <20080708225233.6925.16772.stgit@localhost.localdomain>
+Subject: [NET-NEXT PATCH 17/25] ixgb: fix spelling errors
+Date: Tue, 08 Jul 2008 15:52:28 -0700
+Message-ID: <20080708225228.6925.37458.stgit@localhost.localdomain>
 References: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7402 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:34140 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754130AbYGHWwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:52:34 -0400
+	id S1754453AbYGHWwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:52:39 -0400
 In-Reply-To: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,276 +25,113 @@ Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_ee.c      |   10 +++++-----
- drivers/net/ixgb/ixgb_ethtool.c |   14 ++++++--------
- drivers/net/ixgb/ixgb_hw.c      |   21 ++++++++++-----------
- drivers/net/ixgb/ixgb_main.c    |   12 ++++++------
- drivers/net/ixgb/ixgb_param.c   |    2 +-
- 5 files changed, 28 insertions(+), 31 deletions(-)
+ drivers/net/ixgb/ixgb.h      |    4 ++--
+ drivers/net/ixgb/ixgb_ee.c   |    6 +++---
+ drivers/net/ixgb/ixgb_ee.h   |   10 +++++-----
+ drivers/net/ixgb/ixgb_hw.c   |    4 ++--
+ drivers/net/ixgb/ixgb_main.c |    2 +-
+ 5 files changed, 13 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
+index 69529ec..6cb4dde 100644
+--- a/drivers/net/ixgb/ixgb.h
++++ b/drivers/net/ixgb/ixgb.h
+@@ -94,8 +94,8 @@ struct ixgb_adapter;
+ #define MIN_TXD	  64
+ 
+ /* hardware cannot reliably support more than 512 descriptors owned by
+- * hardware descrioptor cache otherwise an unreliable ring under heavy
+- * recieve load may result */
++ * hardware descriptor cache otherwise an unreliable ring under heavy
++ * receive load may result */
+ /* #define DEFAULT_RXD	   1024 */
+ /* #define MAX_RXD	   4096 */
+ #define DEFAULT_RXD	512
 diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ixgb/ixgb_ee.c
-index aa71b9b..4a9e52f 100644
+index 8bc9716..aa71b9b 100644
 --- a/drivers/net/ixgb/ixgb_ee.c
 +++ b/drivers/net/ixgb/ixgb_ee.c
-@@ -152,7 +152,7 @@ ixgb_shift_in_bits(struct ixgb_hw *hw)
- 	eecd_reg &= ~(IXGB_EECD_DO | IXGB_EECD_DI);
- 	data = 0;
+@@ -205,7 +205,7 @@ ixgb_standby_eeprom(struct ixgb_hw *hw)
  
--	for(i = 0; i < 16; i++) {
-+	for (i = 0; i < 16; i++) {
- 		data = data << 1;
- 		ixgb_raise_clock(hw, &eecd_reg);
+ 	eecd_reg = IXGB_READ_REG(hw, EECD);
  
-@@ -297,7 +297,7 @@ ixgb_wait_eeprom_command(struct ixgb_hw *hw)
+-	/*  Deselct EEPROM  */
++	/*  Deselect EEPROM  */
+ 	eecd_reg &= ~(IXGB_EECD_CS | IXGB_EECD_SK);
+ 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
+ 	udelay(50);
+@@ -293,7 +293,7 @@ ixgb_wait_eeprom_command(struct ixgb_hw *hw)
+ 	 */
+ 	ixgb_standby_eeprom(hw);
+ 
+-	/* Now read DO repeatedly until is high (equal to '1').  The EEEPROM will
++	/* Now read DO repeatedly until is high (equal to '1').  The EEPROM will
  	 * signal that the command has been completed by raising the DO signal.
  	 * If DO does not go high in 10 milliseconds, then error out.
  	 */
--	for(i = 0; i < 200; i++) {
-+	for (i = 0; i < 200; i++) {
- 		eecd_reg = IXGB_READ_REG(hw, EECD);
+@@ -365,7 +365,7 @@ ixgb_update_eeprom_checksum(struct ixgb_hw *hw)
+  *
+  * hw - Struct containing variables accessed by shared code
+  * reg - offset within the EEPROM to be written to
+- * data - 16 bit word to be writen to the EEPROM
++ * data - 16 bit word to be written to the EEPROM
+  *
+  * If ixgb_update_eeprom_checksum is not called after this function, the
+  * EEPROM will most likely contain an invalid checksum.
+diff --git a/drivers/net/ixgb/ixgb_ee.h b/drivers/net/ixgb/ixgb_ee.h
+index 4b7bd0d..12136b6 100644
+--- a/drivers/net/ixgb/ixgb_ee.h
++++ b/drivers/net/ixgb/ixgb_ee.h
+@@ -34,11 +34,11 @@
+ #define IXGB_ETH_LENGTH_OF_ADDRESS   6
  
- 		if (eecd_reg & IXGB_EECD_DO)
-@@ -328,7 +328,7 @@ ixgb_validate_eeprom_checksum(struct ixgb_hw *hw)
- 	u16 checksum = 0;
- 	u16 i;
+ /* EEPROM Commands */
+-#define EEPROM_READ_OPCODE  0x6	/* EERPOM read opcode */
+-#define EEPROM_WRITE_OPCODE 0x5	/* EERPOM write opcode */
+-#define EEPROM_ERASE_OPCODE 0x7	/* EERPOM erase opcode */
+-#define EEPROM_EWEN_OPCODE  0x13	/* EERPOM erase/write enable */
+-#define EEPROM_EWDS_OPCODE  0x10	/* EERPOM erast/write disable */
++#define EEPROM_READ_OPCODE  0x6	/* EEPROM read opcode */
++#define EEPROM_WRITE_OPCODE 0x5	/* EEPROM write opcode */
++#define EEPROM_ERASE_OPCODE 0x7	/* EEPROM erase opcode */
++#define EEPROM_EWEN_OPCODE  0x13	/* EEPROM erase/write enable */
++#define EEPROM_EWDS_OPCODE  0x10	/* EEPROM erase/write disable */
  
--	for(i = 0; i < (EEPROM_CHECKSUM_REG + 1); i++)
-+	for (i = 0; i < (EEPROM_CHECKSUM_REG + 1); i++)
- 		checksum += ixgb_read_eeprom(hw, i);
- 
- 	if (checksum == (u16) EEPROM_SUM)
-@@ -351,7 +351,7 @@ ixgb_update_eeprom_checksum(struct ixgb_hw *hw)
- 	u16 checksum = 0;
- 	u16 i;
- 
--	for(i = 0; i < EEPROM_CHECKSUM_REG; i++)
-+	for (i = 0; i < EEPROM_CHECKSUM_REG; i++)
- 		checksum += ixgb_read_eeprom(hw, i);
- 
- 	checksum = (u16) EEPROM_SUM - checksum;
-@@ -472,7 +472,7 @@ ixgb_get_eeprom_data(struct ixgb_hw *hw)
- 	ee_map = (struct ixgb_ee_map_type *)hw->eeprom;
- 
- 	DEBUGOUT("ixgb_ee: Reading eeprom data\n");
--	for(i = 0; i < IXGB_EEPROM_SIZE ; i++) {
-+	for (i = 0; i < IXGB_EEPROM_SIZE ; i++) {
- 		u16 ee_data;
- 		ee_data = ixgb_read_eeprom(hw, i);
- 		checksum += ee_data;
-diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-index 5b354e3..e1836c1 100644
---- a/drivers/net/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ixgb/ixgb_ethtool.c
-@@ -301,7 +301,7 @@ ixgb_get_regs(struct net_device *netdev,
- 	*reg++ = IXGB_READ_REG(hw, RXCSUM);	/*  20 */
- 
- 	/* there are 16 RAR entries in hardware, we only use 3 */
--	for(i = 0; i < IXGB_ALL_RAR_ENTRIES; i++) {
-+	for (i = 0; i < IXGB_ALL_RAR_ENTRIES; i++) {
- 		*reg++ = IXGB_READ_REG_ARRAY(hw, RAL, (i << 1)); /*21,...,51 */
- 		*reg++ = IXGB_READ_REG_ARRAY(hw, RAH, (i << 1)); /*22,...,52 */
- 	}
-@@ -441,12 +441,10 @@ ixgb_get_eeprom(struct net_device *netdev,
- 		return -ENOMEM;
- 
- 	/* note the eeprom was good because the driver loaded */
--	for(i = 0; i <= (last_word - first_word); i++) {
-+	for (i = 0; i <= (last_word - first_word); i++)
- 		eeprom_buff[i] = ixgb_get_eeprom_word(hw, (first_word + i));
--	}
- 
--	memcpy(bytes, (u8 *)eeprom_buff + (eeprom->offset & 1),
--			eeprom->len);
-+	memcpy(bytes, (u8 *)eeprom_buff + (eeprom->offset & 1), eeprom->len);
- 	kfree(eeprom_buff);
- 
- geeprom_error:
-@@ -500,7 +498,7 @@ ixgb_set_eeprom(struct net_device *netdev,
- 	}
- 
- 	memcpy(ptr, bytes, eeprom->len);
--	for(i = 0; i <= (last_word - first_word); i++)
-+	for (i = 0; i <= (last_word - first_word); i++)
- 		ixgb_write_eeprom(hw, first_word + i, eeprom_buff[i]);
- 
- 	/* Update the checksum over the first part of the EEPROM if needed */
-@@ -666,7 +664,7 @@ ixgb_get_ethtool_stats(struct net_device *netdev,
- 	int i;
- 
- 	ixgb_update_stats(adapter);
--	for(i = 0; i < IXGB_STATS_LEN; i++) {
-+	for (i = 0; i < IXGB_STATS_LEN; i++) {
- 		char *p = (char *)adapter+ixgb_gstrings_stats[i].stat_offset;
- 		data[i] = (ixgb_gstrings_stats[i].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-@@ -680,7 +678,7 @@ ixgb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 
- 	switch(stringset) {
- 	case ETH_SS_STATS:
--		for(i=0; i < IXGB_STATS_LEN; i++) {
-+		for (i = 0; i < IXGB_STATS_LEN; i++) {
- 			memcpy(data + i * ETH_GSTRING_LEN,
- 			ixgb_gstrings_stats[i].stat_string,
- 			ETH_GSTRING_LEN);
+ /* EEPROM MAP (Word Offsets) */
+ #define EEPROM_IA_1_2_REG        0x0000
 diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index 3694e8c..9cc75ce 100644
+index d023fb5..3694e8c 100644
 --- a/drivers/net/ixgb/ixgb_hw.c
 +++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -347,7 +347,7 @@ ixgb_init_hw(struct ixgb_hw *hw)
- 
- 	/* Zero out the Multicast HASH table */
- 	DEBUGOUT("Zeroing the MTA\n");
--	for(i = 0; i < IXGB_MC_TBL_SIZE; i++)
-+	for (i = 0; i < IXGB_MC_TBL_SIZE; i++)
- 		IXGB_WRITE_REG_ARRAY(hw, MTA, i, 0);
- 
- 	/* Zero out the VLAN Filter Table Array */
-@@ -413,7 +413,7 @@ ixgb_init_rx_addrs(struct ixgb_hw *hw)
- 
- 	/* Zero out the other 15 receive addresses. */
- 	DEBUGOUT("Clearing RAR[1-15]\n");
--	for(i = 1; i < IXGB_RAR_ENTRIES; i++) {
-+	for (i = 1; i < IXGB_RAR_ENTRIES; i++) {
- 		/* Write high reg first to disable the AV bit first */
- 		IXGB_WRITE_REG_ARRAY(hw, RA, ((i << 1) + 1), 0);
- 		IXGB_WRITE_REG_ARRAY(hw, RA, (i << 1), 0);
-@@ -452,19 +452,18 @@ ixgb_mc_addr_list_update(struct ixgb_hw *hw,
- 
- 	/* Clear RAR[1-15] */
- 	DEBUGOUT(" Clearing RAR[1-15]\n");
--	for(i = rar_used_count; i < IXGB_RAR_ENTRIES; i++) {
-+	for (i = rar_used_count; i < IXGB_RAR_ENTRIES; i++) {
- 		IXGB_WRITE_REG_ARRAY(hw, RA, (i << 1), 0);
- 		IXGB_WRITE_REG_ARRAY(hw, RA, ((i << 1) + 1), 0);
- 	}
- 
- 	/* Clear the MTA */
- 	DEBUGOUT(" Clearing MTA\n");
--	for(i = 0; i < IXGB_MC_TBL_SIZE; i++) {
-+	for (i = 0; i < IXGB_MC_TBL_SIZE; i++)
- 		IXGB_WRITE_REG_ARRAY(hw, MTA, i, 0);
--	}
- 
- 	/* Add the new addresses */
--	for(i = 0; i < mc_addr_count; i++) {
-+	for (i = 0; i < mc_addr_count; i++) {
- 		DEBUGOUT(" Adding the multicast addresses:\n");
- 		DEBUGOUT7(" MC Addr #%d =%.2X %.2X %.2X %.2X %.2X %.2X\n", i,
- 			  mc_addr_list[i * (IXGB_ETH_LENGTH_OF_ADDRESS + pad)],
-@@ -649,7 +648,7 @@ ixgb_clear_vfta(struct ixgb_hw *hw)
- {
- 	u32 offset;
- 
--	for(offset = 0; offset < IXGB_VLAN_FILTER_TBL_SIZE; offset++)
-+	for (offset = 0; offset < IXGB_VLAN_FILTER_TBL_SIZE; offset++)
- 		IXGB_WRITE_REG_ARRAY(hw, VFTA, offset, 0);
- 	return;
+@@ -371,7 +371,7 @@ ixgb_init_hw(struct ixgb_hw *hw)
+  * hw - Struct containing variables accessed by shared code
+  *
+  * Places the MAC address in receive address register 0 and clears the rest
+- * of the receive addresss registers. Clears the multicast table. Assumes
++ * of the receive address registers. Clears the multicast table. Assumes
+  * the receiver is in reset when the routine is called.
+  *****************************************************************************/
+ static void
+@@ -964,7 +964,7 @@ ixgb_check_for_link(struct ixgb_hw *hw)
  }
-@@ -790,7 +789,7 @@ ixgb_read_phy_reg(struct ixgb_hw *hw,
-     ** from the CPU Write to the Ready bit assertion.
-     **************************************************************/
  
--	for(i = 0; i < 10; i++)
-+	for (i = 0; i < 10; i++)
- 	{
- 		udelay(10);
- 
-@@ -817,7 +816,7 @@ ixgb_read_phy_reg(struct ixgb_hw *hw,
-     ** from the CPU Write to the Ready bit assertion.
-     **************************************************************/
- 
--	for(i = 0; i < 10; i++)
-+	for (i = 0; i < 10; i++)
- 	{
- 		udelay(10);
- 
-@@ -886,7 +885,7 @@ ixgb_write_phy_reg(struct ixgb_hw *hw,
- 	** from the CPU Write to the Ready bit assertion.
- 	**************************************************************/
- 
--	for(i = 0; i < 10; i++)
-+	for (i = 0; i < 10; i++)
- 	{
- 		udelay(10);
- 
-@@ -913,7 +912,7 @@ ixgb_write_phy_reg(struct ixgb_hw *hw,
- 	** from the CPU Write to the Ready bit assertion.
- 	**************************************************************/
- 
--	for(i = 0; i < 10; i++)
-+	for (i = 0; i < 10; i++)
- 	{
- 		udelay(10);
- 
+ /******************************************************************************
+- * Check for a bad link condition that may have occured.
++ * Check for a bad link condition that may have occurred.
+  * The indication is that the RFC / LFC registers may be incrementing
+  * continually.  A full adapter reset is required to recover.
+  *
 diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 796f011..c1dde79 100644
+index fc211a3..796f011 100644
 --- a/drivers/net/ixgb/ixgb_main.c
 +++ b/drivers/net/ixgb/ixgb_main.c
-@@ -398,7 +398,7 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_ioremap;
- 	}
- 
--	for(i = BAR_1; i <= BAR_5; i++) {
-+	for (i = BAR_1; i <= BAR_5; i++) {
- 		if (pci_resource_len(pdev, i) == 0)
- 			continue;
- 		if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-@@ -923,7 +923,7 @@ ixgb_clean_tx_ring(struct ixgb_adapter *adapter)
- 
- 	/* Free all the Tx ring sk_buffs */
- 
--	for(i = 0; i < tx_ring->count; i++) {
-+	for (i = 0; i < tx_ring->count; i++) {
- 		buffer_info = &tx_ring->buffer_info[i];
- 		ixgb_unmap_and_free_tx_resource(adapter, buffer_info);
- 	}
-@@ -981,7 +981,7 @@ ixgb_clean_rx_ring(struct ixgb_adapter *adapter)
- 
- 	/* Free all the Rx ring sk_buffs */
- 
--	for(i = 0; i < rx_ring->count; i++) {
-+	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
- 		if (buffer_info->skb) {
- 
-@@ -1298,7 +1298,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
- 		if (++i == tx_ring->count) i = 0;
- 	}
- 
--	for(f = 0; f < nr_frags; f++) {
-+	for (f = 0; f < nr_frags; f++) {
- 		struct skb_frag_struct *frag;
- 
- 		frag = &skb_shinfo(skb)->frags[f];
-@@ -1727,7 +1727,7 @@ ixgb_intr(int irq, void *data)
- 	 * every pass through this for loop checks both receive and
- 	 * transmit queues for completed descriptors, intended to
- 	 * avoid starvation issues and assist tx/rx fairness. */
--	for(i = 0; i < IXGB_MAX_INTR; i++)
-+	for (i = 0; i < IXGB_MAX_INTR; i++)
- 		if (!ixgb_clean_rx_irq(adapter) &
- 		   !ixgb_clean_tx_irq(adapter))
- 			break;
-@@ -2196,7 +2196,7 @@ ixgb_restore_vlan(struct ixgb_adapter *adapter)
- 
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for(vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			ixgb_vlan_rx_add_vid(adapter->netdev, vid);
-diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
-index 07a6980..107ef48 100644
---- a/drivers/net/ixgb/ixgb_param.c
-+++ b/drivers/net/ixgb/ixgb_param.c
-@@ -226,7 +226,7 @@ ixgb_validate_option(unsigned int *value, const struct ixgb_option *opt)
- 		int i;
- 		struct ixgb_opt_list *ent;
- 
--		for(i = 0; i < opt->arg.l.nr; i++) {
-+		for (i = 0; i < opt->arg.l.nr; i++) {
- 			ent = &opt->arg.l.p[i];
- 			if (*value == ent->i) {
- 				if (ent->str[0] != '\0')
+@@ -2248,7 +2248,7 @@ static pci_ers_result_t ixgb_io_error_detected(struct pci_dev *pdev,
+  * ixgb_io_slot_reset - called after the pci bus has been reset.
+  * @pdev    pointer to pci device with error
+  *
+- * This callback is called after the PCI buss has been reset.
++ * This callback is called after the PCI bus has been reset.
+  * Basically, this tries to restart the card from scratch.
+  * This is a shortened version of the device probe/discovery code,
+  * it resembles the first-half of the ixgb_probe() routine.
 
