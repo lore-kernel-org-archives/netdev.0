@@ -1,52 +1,45 @@
-From: "John Heffner" <johnwheffner@gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: setsockopt()
-Date: Mon, 7 Jul 2008 20:33:10 -0700
-Message-ID: <1e41a3230807072033n2f5519e4m42003e191b44cefe@mail.gmail.com>
-References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme>
-	 <48728B09.1050801@citi.umich.edu> <48729DAD.8010400@hp.com>
+Date: Tue, 8 Jul 2008 08:54:43 +0400
+Message-ID: <20080708045443.GA7726@2ka.mipt.ru>
+References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu> <20080707.144912.76654646.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Rick Jones" <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: aglo@citi.umich.edu, shemminger@vyatta.com, netdev@vger.kernel.org,
+	rees@umich.edu, bfields@fieldses.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:36596 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125AbYGHDdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2008 23:33:13 -0400
-Received: by an-out-0708.google.com with SMTP id d40so474964and.103
-        for <netdev@vger.kernel.org>; Mon, 07 Jul 2008 20:33:10 -0700 (PDT)
-In-Reply-To: <48729DAD.8010400@hp.com>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:57656 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259AbYGHEzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 00:55:16 -0400
 Content-Disposition: inline
+In-Reply-To: <20080707.144912.76654646.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 7, 2008 at 3:50 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> I'm still a triffle puzzled/concerned/confused by the extent to which
-> autotuning will allow the receive window to grow, again based on some
-> netperf experience thusfar, and patient explanations provided here and
-> elsewhere, it seems as though autotuning will let things get to 2x what it
-> thinks the sender's cwnd happens to be.  So far under netperf testing that
-> seems to be the case, and 99 times out of ten my netperf tests will have the
-> window grow to the max.
+Hi.
 
+On Mon, Jul 07, 2008 at 02:49:12PM -0700, David Miller (davem@davemloft.net) wrote:
+> There is no reason these days to ever explicitly set the socket
+> buffer sizes on TCP sockets under Linux.
+> 
+> If something is going wrong it's a bug and we should fix it.
 
-Rick,
+Just for the reference: autosizing is (was?) not always working correctly
+for some workloads at least couple of years ago.
+For example I worked with small enough embedded systems with 16-32 MB
+of RAM where socket buffer size never grew up more than 200Kb (100mbit
+network), but workload was very bursty, so if remote system froze for
+several milliseconds (and sometimes upto couple of seconds), socket
+buffer was completely filled with new burst of data and either sending
+started to sleep or returned EAGAIN, which resulted in semi-realtime
+data to be dropped.
 
-I thought this was covered pretty thoroughly back in April.  The
-behavior you're seeing is 100% expected, and not likely to change
-unless Jerry Chu gets his local queued data measurement patch working.
- I'm not sure what ultimately happened there, but it was a cool idea
-and I hope he has time to polish it up.  It's definitely tricky to get
-right.
+Setting buffer size explicitely to large enough value like 8Mb fixed
+this burst issues. Another fix was to allocate data each time it becomes
+ready and copy portion to this buffer, but allocation was quite slow,
+which led to unneded latencies, which again could lead to data loss.
 
-Jerry's optimization is a sender-side change.  The fact that the
-receiver announces enough window is almost certainly the right thing
-for it to do, and (I hope) this will not change.
-
-If you're still curious:
-http://www.psc.edu/networking/ftp/papers/autotune_sigcomm98.ps
-http://www.lanl.gov/radiant/pubs/drs/lacsi2001.pdf
-http://staff.psc.edu/jheffner/papers/senior_thesis.pdf
-
-  -John
+-- 
+	Evgeniy Polyakov
