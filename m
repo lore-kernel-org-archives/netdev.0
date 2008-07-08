@@ -1,196 +1,119 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 25/25] ixgb: update copyright dates and versions
-Date: Tue, 08 Jul 2008 15:53:09 -0700
-Message-ID: <20080708225309.6925.91758.stgit@localhost.localdomain>
-References: <20080708224858.6925.29725.stgit@localhost.localdomain>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [Oops] fib_trie with ip route add throw since 2.6.25
+Date: Tue, 8 Jul 2008 15:52:56 -0700
+Message-ID: <20080708155256.1861c1d3@speedy>
+References: <20080707184144.GA17506@yuri.org.uk>
+	<20080707195744.GE28029@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Cc: William Boughton <bill@boughton.de>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58387 "EHLO mga02.intel.com"
+Received: from mail.vyatta.com ([216.93.170.194]:54895 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755025AbYGHWxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:53:10 -0400
-In-Reply-To: <20080708224858.6925.29725.stgit@localhost.localdomain>
+	id S1756208AbYGHWx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:53:29 -0400
+In-Reply-To: <20080707195744.GE28029@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Mon, 7 Jul 2008 20:57:45 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> William Boughton wrote:
+> > 
+> > Hello,
+> 
+> Hello again!
+> 
+> > ip route add throw 192.168.0.1
+> > 
+> > ping 192.168.0.1
+> > 
+> > Oppses when CONFIG_IP_FIB_TRIE=y
+> > 
+> > Reproduced on both x86_64 and 32 on Xen and a normal
+> > kernel running in qemu/kvm.
+> > 
+> > It seems this problem was introduced in 2.6.25
+> > 
+> > git bisect reports that it may have been caused by:
+> > 
+> > a07f5f508a4d9728c8e57d7f66294bf5b254ff7f is first bad commit                    
+> > commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f                                 
+> > Author: Stephen Hemminger <stephen.hemminger@vyatta.com>                        
+> > Date:   Tue Jan 22 21:53:36 2008 -0800                                          
+> >                                                                                 
+> >     [IPV4] fib_trie: style cleanup                                              
+> >                                                                                 
+> >     Style cleanups:                                                             
+> >           * make check_leaf return -1 or plen, rather than by reference         
+> [...]
+> 
+> The changes to check_leaf() and fn_trie_lookup() seem to be wrong - where
+> fn_trie_lookup() would previously return a negative error value from
+> check_leaf(), it now returns 0.
+> 
+> Now fn_trie_lookup() doesn't appear to care about plen, so we could revert
+> check_leaf() to returning the error value.  How does this work?
+> 
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 394db9c..43ed894 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -1357,17 +1357,17 @@ static int check_leaf(struct trie *t, struct leaf *l,
+>  			t->stats.semantic_match_miss++;
+>  #endif
+>  		if (err <= 0)
+> -			return plen;
+> +			return err;
+>  	}
+>  
+> -	return -1;
+> +	return 1;
+>  }
+>  
+>  static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+>  			  struct fib_result *res)
+>  {
+>  	struct trie *t = (struct trie *) tb->tb_data;
+> -	int plen, ret = 0;
+> +	int ret;
+>  	struct node *n;
+>  	struct tnode *pn;
+>  	int pos, bits;
+> @@ -1391,10 +1391,7 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+>  
+>  	/* Just a leaf? */
+>  	if (IS_LEAF(n)) {
+> -		plen = check_leaf(t, (struct leaf *)n, key, flp, res);
+> -		if (plen < 0)
+> -			goto failed;
+> -		ret = 0;
+> +		ret = check_leaf(t, (struct leaf *)n, key, flp, res);
+>  		goto found;
+>  	}
+>  
+> @@ -1419,11 +1416,9 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
+>  		}
+>  
+>  		if (IS_LEAF(n)) {
+> -			plen = check_leaf(t, (struct leaf *)n, key, flp, res);
+> -			if (plen < 0)
+> +			ret = check_leaf(t, (struct leaf *)n, key, flp, res);
+> +			if (ret > 0)
+>  				goto backtrace;
+> -
+> -			ret = 0;
+>  			goto found;
+>  		}
+> --- END ---
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
 
- drivers/net/ixgb/Makefile       |    2 +-
- drivers/net/ixgb/ixgb.h         |    2 +-
- drivers/net/ixgb/ixgb_ee.c      |    2 +-
- drivers/net/ixgb/ixgb_ee.h      |    2 +-
- drivers/net/ixgb/ixgb_ethtool.c |    2 +-
- drivers/net/ixgb/ixgb_hw.c      |    2 +-
- drivers/net/ixgb/ixgb_hw.h      |    2 +-
- drivers/net/ixgb/ixgb_ids.h     |    2 +-
- drivers/net/ixgb/ixgb_main.c    |    6 +++---
- drivers/net/ixgb/ixgb_osdep.h   |    2 +-
- drivers/net/ixgb/ixgb_param.c   |    2 +-
- 11 files changed, 13 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ixgb/Makefile b/drivers/net/ixgb/Makefile
-index 838a508..0b20c5e 100644
---- a/drivers/net/ixgb/Makefile
-+++ b/drivers/net/ixgb/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel PRO/10GbE Linux driver
--# Copyright(c) 1999 - 2006 Intel Corporation.
-+# Copyright(c) 1999 - 2008 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
-index 5e8a605..804698f 100644
---- a/drivers/net/ixgb/ixgb.h
-+++ b/drivers/net/ixgb/ixgb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ixgb/ixgb_ee.c
-index 4a9e52f..89ffa72 100644
---- a/drivers/net/ixgb/ixgb_ee.c
-+++ b/drivers/net/ixgb/ixgb_ee.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_ee.h b/drivers/net/ixgb/ixgb_ee.h
-index 12136b6..7ea1265 100644
---- a/drivers/net/ixgb/ixgb_ee.h
-+++ b/drivers/net/ixgb/ixgb_ee.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-index e1836c1..288ee1d 100644
---- a/drivers/net/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ixgb/ixgb_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index 9cc75ce..11dcda0 100644
---- a/drivers/net/ixgb/ixgb_hw.c
-+++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_hw.h b/drivers/net/ixgb/ixgb_hw.h
-index 39cfa47..831fe0c 100644
---- a/drivers/net/ixgb/ixgb_hw.h
-+++ b/drivers/net/ixgb/ixgb_hw.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_ids.h b/drivers/net/ixgb/ixgb_ids.h
-index 4ba4d19..2a58847 100644
---- a/drivers/net/ixgb/ixgb_ids.h
-+++ b/drivers/net/ixgb/ixgb_ids.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 5264134..e83feaf 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -32,9 +32,9 @@ char ixgb_driver_name[] = "ixgb";
- static char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
- 
- #define DRIVERNAPI "-NAPI"
--#define DRV_VERSION "1.0.126" DRIVERNAPI
-+#define DRV_VERSION "1.0.135-k2" DRIVERNAPI
- const char ixgb_driver_version[] = DRV_VERSION;
--static const char ixgb_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
-+static const char ixgb_copyright[] = "Copyright (c) 1999-2008 Intel Corporation.";
- 
- #define IXGB_CB_LENGTH 256
- static unsigned int copybreak __read_mostly = IXGB_CB_LENGTH;
-diff --git a/drivers/net/ixgb/ixgb_osdep.h b/drivers/net/ixgb/ixgb_osdep.h
-index fb74bb1..d92e72b 100644
---- a/drivers/net/ixgb/ixgb_osdep.h
-+++ b/drivers/net/ixgb/ixgb_osdep.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
-index 169636a..af35e1d 100644
---- a/drivers/net/ixgb/ixgb_param.c
-+++ b/drivers/net/ixgb/ixgb_param.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel PRO/10GbE Linux driver
--  Copyright(c) 1999 - 2006 Intel Corporation.
-+  Copyright(c) 1999 - 2008 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-
+Please resend this patch with proper DCO line
