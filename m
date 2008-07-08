@@ -1,47 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH 00/04]: VLAN vs. packet socket inconsistencies
-Date: Wed, 09 Jul 2008 00:48:38 +0200
-Message-ID: <4873EEC6.1060306@trash.net>
-References: <20080708.151233.259338088.davem@davemloft.net>	<4873EA6C.40408@trash.net>	<20080708.153510.107686198.davem@davemloft.net> <20080708.153850.195636789.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 00/25] ixgb: update to latest
+Date: Tue, 08 Jul 2008 15:51:01 -0700
+Message-ID: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41811 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbYGHWsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 18:48:41 -0400
-In-Reply-To: <20080708.153850.195636789.davem@davemloft.net>
+Received: from mga09.intel.com ([134.134.136.24]:18836 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752746AbYGHWvD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:51:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 08 Jul 2008 15:35:10 -0700 (PDT)
->
->   
->> From: Patrick McHardy <kaber@trash.net>
->> Date: Wed, 09 Jul 2008 00:30:04 +0200
->>
->>     
->>> That sounds good. Userspace needs to know about the size of
->>> the tpacket_hdr before setting the ring parameters so it can
->>> size the ring frames appropriately for the largest packet size
->>> it wants to receive. This means the offset field in the
->>> tpacket_hdr is redundant, so I'll just add a getsockopt
->>> option for getting the size. Unless we want to be able to
->>> include only a partial tpacket_hdr, but I don't think that
->>> would be very useful.
->>>       
->> Ok, in that case using a getsockopt() to query the size sounds great.
->>     
->
-> BTW, what you might want to do is say that if the user
-> makes the new getsockopt() size query, he understands
-> and wants the new style tpacket_hdr layout.
->   
+The following series implements a set of cleanups and bug fixes for the ixgb
+driver. 
 
-I'm torn between "nice hack" and "doesn't belong there".
-I'll see how I feel about this once I get to that point :)
+---
+Summary:
+Jesse Brandeburg <jesse.brandeburg@intel.com>:
+     ixgb: maybe stop tx port missed a piece
+     ixgb: repeat 32 bit ioremap cleanup
+     ixgb: fix bug in descriptor ring due to prefetch corruption
+     ixgb: leave room for extra hardware memory usage
+     ixgb: check down state before enable irq
+     ixgb: don't allow too small MTU
+     ixgb: move time stamp set before setting dma pointer
+     ixgb: fix race on rx_buffer_len in mtu change
+     ixgb: fix unload race with timers
+     ixgb: remove lltx support and update tx routine
+     ixgb: update readme text
+     ixgb: add copybreak parameter
+     ixgb: clean up un-necessary declarations
+     ixgb: format all if( to be if (
+     ixgb: cleanup space after while
+     ixgb: whitespace fixups
+     ixgb: fix spelling errors
+     ixgb: trivial fix space after for
+     ixgb: cleanup checkpatch suggestions that are relevant
+     ixgb: rx cleanup performance improvements
+     ixgb: clean up assignments inside if statements
+     ixgb: audit use of dev_kfree_skb_any
+     ixgb: cleanup header
+     ixgb: make NAPI the only option and the default
+     ixgb: update copyright dates and versions
+
+---
+ Documentation/networking/ixgb.txt |  419 +++++++++++++++++++++++--------
+ drivers/net/Kconfig               |   14 -
+ drivers/net/ixgb/Makefile         |    2 
+ drivers/net/ixgb/ixgb.h           |   23 -
+ drivers/net/ixgb/ixgb_ee.c        |   28 +-
+ drivers/net/ixgb/ixgb_ee.h        |   12 
+ drivers/net/ixgb/ixgb_ethtool.c   |  120 ++++----
+ drivers/net/ixgb/ixgb_hw.c        |   40 +-
+ drivers/net/ixgb/ixgb_hw.h        |    2 
+ drivers/net/ixgb/ixgb_ids.h       |   10 
+ drivers/net/ixgb/ixgb_main.c      |  512 ++++++++++++++++----------------------
+ drivers/net/ixgb/ixgb_osdep.h     |    4 
+ drivers/net/ixgb/ixgb_param.c     |   46 +--
+
+-- 
+Cheers,
+Jeff
