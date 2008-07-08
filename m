@@ -1,96 +1,223 @@
-From: Thomas Zeitlhofer <tzeitlho+lkml@nt.tuwien.ac.at>
-Subject: Re: IPSEC in 2.6.25 causes stalled connections
-Date: Tue, 8 Jul 2008 23:33:02 +0200
-Message-ID: <20080708213302.GA28842@swan.nt.tuwien.ac.at>
-References: <20080608010858.GA8877@swan.nt.tuwien.ac.at> <E1K8TuP-0002Qd-00@gondolin.me.apana.org.au> <20080618004544.GA25439@swan.nt.tuwien.ac.at> <20080708080742.GA25027@gondor.apana.org.au>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH v2] sctp: Add documentation for sctp sysctl variable
+Date: Tue, 8 Jul 2008 14:37:29 -0700
+Message-ID: <20080708143729.73300214.randy.dunlap@oracle.com>
+References: <20080708133158.0c39d355.randy.dunlap@oracle.com>
+	<1215550588-10223-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swan.nt.tuwien.ac.at ([128.131.67.158]:48879 "EHLO
-	swan.nt.tuwien.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbYGHVdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 17:33:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20080708080742.GA25027@gondor.apana.org.au>
+Received: from rgminet01.oracle.com ([148.87.113.118]:11417 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbYGHVhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 17:37:38 -0400
+In-Reply-To: <1215550588-10223-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 08, 2008 at 04:07:42PM +0800, Herbert Xu wrote:
-> Sorry for the late response.
+On Tue,  8 Jul 2008 16:56:28 -0400 Vlad Yasevich wrote:
+
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt |  168 ++++++++++++++++++++++++++++++++
+>  1 files changed, 168 insertions(+), 0 deletions(-)
 > 
-> On Wed, Jun 18, 2008 at 02:45:44AM +0200, Thomas Zeitlhofer wrote:
-> > 
-> > src 192.168.69.2 dst 192.168.69.1
-> >         proto esp spi 0xc885bfdd(3364208605) reqid 3(0x00000003) mode tunnel
-> >         replay-window 32 seq 0x00000000 flag  (0x00000000)
-> >         auth hmac(sha1) 0xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (160 bits)
-> >         enc cbc(aes) 0xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (256 bits)
-> >         sel src 0.0.0.0/0 dst 0.0.0.0/0 uid 0
-> >         lifetime config:
-> >           limit: soft (INF)(bytes), hard (INF)(bytes)
-> >           limit: soft (INF)(packets), hard (INF)(packets)
-> >           expire add: soft 3056(sec), hard 3600(sec)
-> >           expire use: soft 0(sec), hard 0(sec)
-> >         lifetime current:
-> >           2964393536(bytes), 2063237(packets)
-> >           add 2008-06-18 01:19:47 use 2008-06-18 01:19:48
-> 
-> Your SA has been marked for expiry at 02:19:47.  So what time
-> did you take this snapshot? Hmm, we really should make the SA
-> state available to ip x s so that I don't have to ask :)
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 17a6e46..c56f70e 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1064,6 +1064,174 @@ bridge-nf-filter-pppoe-tagged - BOOLEAN
+>  	Default: 1
+>  
+>  
+> +proc/sys/net/sctp/* Variables:
+> +
+> +addip_enable - BOOLEAN
+> +	Enable or disable extension of  Dynamic Address Reconfiguration
+> +	(ADD-IP) functionality specified in RFC5061.  This extension provides
+> +	the ability to dynamically add and remove new addresses for the SCTP
+> +	associations.
+> +
+> +	1: Enable extension.
+> +
 
-The output above has been produced after I observed a stalled
-connection - I guess some time afterwards. Anyway, I took care that the
-lifetime of the SA is long enough (1 hour) to avoid eventual problems
-while rekeying. 
+Still alignment problem above/below here.
 
-> What IPsec daemon are you using to manage SA rekeying?
+> +        0: Disable extension.
+> +
+> +	Default: 0
+> +
+> +addip_noauth_enable - BOOLEAN
+> +	Dynamic Address Reconfiguration (ADD-IP) requires the use of
+> +	authentication to protect the operations of adding or removing new
+> +	addresses.  This requirement is mandated so that unauthorized hosts
+> +	would not be able to hijack associations.  However, older
+> +	implementations may not have implemented this requirement while
+> +	allowing the ADD-IP extension.  For reasons of interoperability,
+> +	we provide this variable to control the enforcement of the
+> +	authentication requirement.
+> +
+> +	1: Allow ADD-IP extension to be used without authentication.  This
+> +	   should only be set in a closed environment for interoperability
+> +	   with older implementations.
+> +
+> +	0: Enforce the authentication requirement
+> +
+> +	Default: 0
+> +	
+> +auth_enable - BOOLEAN
+> +	Enable or disable Authenticated Chunks extension.  This extension
+> +	provides the ability to send and receive authenticated chunks and is
+> +	required for secure operation of Dynamic Address Reconfiguration
+> +	(ADD-IP) extension.
+> +
+> +	1: Enable this extension.
+> +	0: Disable this extension.
+> +
+> +	Default: 0
+> +
+> +prsctp_enable - BOOLEAN
+> +	Enable or disable the Partial Reliability extension (RFC3758) which
+> +	is used to notify peers that a given DATA should no longer be expected.
+> +
+> +	1: Enable extension
+> +	0: Disable
+> +
+> +	Default: 1
+> +
+> +max_burst - INTEGER
+> +	The limit of the number of new packets that can be initially sent.  It
+> +	controls how bursty the generated traffic can be.
+> +
+> +	Default: 4
+> +
+> +association_max_retrans - INTEGER
+> +	Set the maximum number for retransmissions that an association can
+> +	attempt deciding that the remote end is unreachable.  If this value
+> +	is exceeded, the association is terminated.
+> +
+> +	Default: 10
+> +
+> +max_init_retransmits - INTEGER
+> +	The maximum number of retransmissions of INIT and COOKIE-ECHO chunks
+> +	that an association will attempt before declaring the destination
+> +	unreachable and terminating.
+> +
+> +	Default: 8
+> +
+> +path_max_retrans - INTEGER
+> +	The maximum number of retransmissions that will be attempted on a given
+> +	path.  Once this threshold is exceeded, the path is considered
+> +	unreachable, and new traffic will use a different path when the
+> +	association is multihomed.
+> +
+> +	Default: 5
+> +
+> +rto_initial - INTEGER
+> +	The initial round trip timeout value in milliseconds that will be used
+> +	in calculating round trip times.  This is the initial time interval
+> +	for retransmissions.
+> +
+> +	Default: 3000
+> +
+> +rto_max - INTEGER
+> +	The maximum value (in milliseconds) of the round trip timeout.  This
+> +	is the largest time interval that can elapse between retransmissions.
+> +
+> +	Default: 60000
+> +
+> +rto_min - INTEGER
+> +	The minimum value (in milliseconds) of the round trip timeout.  This
+> +	is the smallest time interval the can elapse between retransmissions.
+> +
+> +	Default: 1000
+> +
+> +hb_interval - INTEGER
+> +	The interval (in milliseconds) between HEARTBEAT chunks.  These chunks
+> +	are sent at the specified interval on idle paths to probe the state of
+> +	a given path between 2 associations.
+> +
+> +	Default: 30000
+> +    
+> +sack_timeout - INTEGER
+> +	The amount of time (in milliseconds) that the implementation will wait
+> +	to send a SACK.
+> +
+> +	Default: 200
+> +
+> +valid_cookie_life - INTEGER
+> +	The default lifetime of the SCTP cookie (in milliseconds).  The cookie
+> +	is used during association establishment.
+> +
 
-I tried it with racoon and strongswan and both show the same behavior.
+No default value??
 
-Here are some additional observations:
 
--) Changing the crypto algorithms from aes/sha1 to 3des/md5 makes no
-   difference.
+Rest looks good.  Thanks for the quick update.
 
--) It does not matter if tunnel or transport mode is used.
 
--) The problem is already present in 2.6.25-rc1 and still found in
-   2.6.25.10 and also in 2.6.26-rc9. There is no problem with
-   2.6.24[.x].
+> +cookie_preserve_enable - BOOLEAN
+> +	Enable or disable the ability to extend the lifetime of the SCTP cookie
+> +	that is used during the establishment phase of SCTP association
+> +
+> +	1: Enable cookie lifetime extension.
+> +	0: Disable
+> +
+> +	Default: 1
+> +
+> +rcvbuf_policy - INTEGER
+> +	Determines if the receive buffer is attributed to the socket or to
+> +	association.   SCTP supports the capability to create multiple
+> +	associations on a single socket.  When using this capability, it is
+> +	possible that a single stalled association that's buffering a lot
+> +	of data may block other associations from delivering their data by
+> +	consuming all of the receive buffer space.  To work around this,
+> +	the rcvbuf_policy could be set to attribute the receiver buffer space
+> +	to each association instead of the socket.  This prevents the described
+> +	blocking.
+> +
+> +	1: rcvbuf space is per association
+> +	0: recbuf space is per socket
+> +	
+> +	Default: 0
+> +	
+> +sndbuf_policy - INTEGER
+> +	Similar to rcvbuf_policy above, this applies to send buffer space.
+> +
+> +	1: Send buffer is tracked per association
+> +	0: Send buffer is tracked per socket.
+> +
+> +	Default: 0
+> +
+> +sctp_mem - vector of 3 INTEGERs: min, pressure, max
+> +	Number of pages allowed for queueing by all SCTP sockets.
+> +
+> +	min: Below this number of pages SCTP is not bothered about its
+> +	memory appetite. When amount of memory allocated by SCTP exceeds
+> +	this number, SCTP starts to moderate memory usage.
+> +
+> +	pressure: This value was introduced to follow format of tcp_mem.
+> +
+> +	max: Number of pages allowed for queueing by all SCTP sockets.
+> +
+> +	Default is calculated at boot time from amount of available memory.
+> +	
+> +sctp_rmem - vector of 3 INTEGERs: min, default, max
+> +	See tcp_rmem for a description.
+> +
+> +sctp_wmem  - vector of 3 INTEGERs: min, default, max
+> +	See tcp_wmem for a description.
+> +
+>  UNDOCUMENTED:
+>  
+>  dev_weight FIXME
+> -- 
 
--) I manged to reproduce it also with kvm-based (x86_64, virtio) and
-   vmware-based (i386) virtual machines.
-
--) The easiest way to reproduce the effect is as follows:
-
-   (1) Use two (virtual) machines kvm1 and kvm2 and configure an IPSEC
-       connection between them.
-   (2) Watch the interface of one machine with nload or a similar tool
-   (3) kvm1:~# cat /dev/zero | netcat -l -p 12345 &
-   (4) kvm2:~# cat /dev/zero | netcat -l -p 12345 &
-   (5) kvm1:~# netcat kvm2 12345 >/dev/null
-
-   According to (2), the packet flow from kvm2 to kvm1 can bee watched
-   now and everything works fine.
-
-   (6) kvm2:~# netcat kvm1 12345 >/dev/null
-
-   Now, the additional packet flow from kvm1 to kvm2 can been watched
-   only for a couple of seconds and then the connection (6) stalls.
-   Typically, the other connection (5) does not stall and keeps on
-   working. But these results may vary, so sometimes both connections
-   stall and sometimes connection (5) stalls and connection (6) works
-   fine.
-
-   It seems that once a connection is stalled it does not even recover
-   temporarily - strace on the listening netcat process shows that the
-   write call to the socket blocks until it times out.
-
-   Without IPSEC, steps (2) to (6) result in two packet flows that keep
-   on running without problems.
-
---
-Thomas
+---
+~Randy
+Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
+http://linuxplumbersconf.org/
