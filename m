@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND NET-NEXT PATCH 15/20] igb: add page recycling support
-Date: Tue, 08 Jul 2008 15:11:40 -0700
-Message-ID: <20080708221052.1518.56662.stgit@localhost.localdomain>
+Subject: [RESEND NET-NEXT PATCH 16/20] igb: add support for in kernel LRO
+Date: Tue, 08 Jul 2008 15:12:13 -0700
+Message-ID: <20080708221147.1518.36543.stgit@localhost.localdomain>
 References: <20080708220046.1518.88457.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,275 +11,325 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757752AbYGHWL7@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:1901 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753590AbYGHWMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:12:14 -0400
 In-Reply-To: <20080708220046.1518.88457.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for page recycling by splitting the page into two
-usable portions and tracking the reference count.
+This patch adds support for the use of the inet_lro module to provide
+software LRO support.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h      |    4 -
- drivers/net/igb/igb_main.c |  138 ++++++++++++++++++++------------------------
- 2 files changed, 63 insertions(+), 79 deletions(-)
+ drivers/net/Kconfig           |    9 +++
+ drivers/net/igb/e1000_82575.h |    2 +
+ drivers/net/igb/igb.h         |   16 ++++++
+ drivers/net/igb/igb_ethtool.c |   17 ++++++
+ drivers/net/igb/igb_main.c    |  112 ++++++++++++++++++++++++++++++++++++++---
+ 5 files changed, 147 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ef733ab..5252514 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2037,6 +2037,15 @@ config IGB
+          To compile this driver as a module, choose M here. The module
+          will be called igb.
+ 
++config IGB_LRO 
++	bool "Use software LRO"
++	depends on IGB && INET
++	select INET_LRO
++	---help---
++	  Say Y here if you want to use large receive offload. 
++
++	  If in doubt, say N.
++
+ source "drivers/net/ixp2000/Kconfig"
+ 
+ config MYRI_SBUS
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index d273236..2f848e5 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -99,6 +99,8 @@ union e1000_adv_rx_desc {
+ /* RSS Hash results */
+ 
+ /* RSS Packet Types as indicated in the receive descriptor */
++#define E1000_RXDADV_PKTTYPE_IPV4        0x00000010 /* IPV4 hdr present */
++#define E1000_RXDADV_PKTTYPE_TCP         0x00000100 /* TCP hdr present */
+ 
+ /* Transmit Descriptor - Advanced */
+ union e1000_adv_tx_desc {
 diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index ee08010..f41b999 100644
+index f41b999..c25ca17 100644
 --- a/drivers/net/igb/igb.h
 +++ b/drivers/net/igb/igb.h
-@@ -125,6 +125,7 @@ struct igb_buffer {
- 		struct {
- 			struct page *page;
- 			u64 page_dma;
-+			unsigned int page_offset;
- 		};
- 	};
- };
-@@ -163,9 +164,6 @@ struct igb_ring {
- 		};
- 		/* RX */
- 		struct {
--			/* arrays of page information for packet split */
--			struct sk_buff *pending_skb;
--			int pending_skb_page;
+@@ -36,6 +36,12 @@
+ 
+ struct igb_adapter;
+ 
++#ifdef CONFIG_IGB_LRO
++#include <linux/inet_lro.h>
++#define MAX_LRO_AGGR                      32
++#define MAX_LRO_DESCRIPTORS                8
++#endif
++
+ /* Interrupt defines */
+ #define IGB_MAX_TX_CLEAN 72
+ 
+@@ -167,6 +173,10 @@ struct igb_ring {
  			int no_itr_adjust;
  			struct igb_queue_stats rx_stats;
  			struct napi_struct napi;
++#ifdef CONFIG_IGB_LRO
++			struct net_lro_mgr lro_mgr;
++			bool lro_used;
++#endif
+ 		};
+ 	};
+ 
+@@ -278,6 +288,12 @@ struct igb_adapter {
+ #ifdef CONFIG_NETDEVICES_MULTIQUEUE
+ 	struct igb_ring *multi_tx_table[IGB_MAX_TX_QUEUES];
+ #endif /* CONFIG_NETDEVICES_MULTIQUEUE */
++#ifdef CONFIG_IGB_LRO
++	unsigned int lro_max_aggr;
++	unsigned int lro_aggregated;
++	unsigned int lro_flushed;
++	unsigned int lro_no_desc;
++#endif
+ };
+ 
+ #define IGB_FLAG_HAS_MSI           (1 << 0)
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index ef209b5..7db1830 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -93,6 +93,11 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ 	{ "tx_smbus", IGB_STAT(stats.mgptc) },
+ 	{ "rx_smbus", IGB_STAT(stats.mgprc) },
+ 	{ "dropped_smbus", IGB_STAT(stats.mgpdc) },
++#ifdef CONFIG_IGB_LRO
++	{ "lro_aggregated", IGB_STAT(lro_aggregated) },
++	{ "lro_flushed", IGB_STAT(lro_flushed) },
++	{ "lro_no_desc", IGB_STAT(lro_no_desc) },
++#endif
+ };
+ 
+ #define IGB_QUEUE_STATS_LEN \
+@@ -1917,6 +1922,18 @@ static void igb_get_ethtool_stats(struct net_device *netdev,
+ 	int stat_count = sizeof(struct igb_queue_stats) / sizeof(u64);
+ 	int j;
+ 	int i;
++#ifdef CONFIG_IGB_LRO
++	int aggregated = 0, flushed = 0, no_desc = 0;
++
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		aggregated += adapter->rx_ring[i].lro_mgr.stats.aggregated;
++		flushed += adapter->rx_ring[i].lro_mgr.stats.flushed;
++		no_desc += adapter->rx_ring[i].lro_mgr.stats.no_desc;
++	}
++	adapter->lro_aggregated = aggregated;
++	adapter->lro_flushed = flushed;
++	adapter->lro_no_desc = no_desc;
++#endif
+ 
+ 	igb_update_stats(adapter);
+ 	for (i = 0; i < IGB_GLOBAL_STATS_LEN; i++) {
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 68a4fef..660a786 100644
+index 660a786..89416eb 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -1725,7 +1725,6 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
- 
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
--	rx_ring->pending_skb = NULL;
- 
- 	rx_ring->adapter = adapter;
- 
-@@ -1817,15 +1816,6 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 			rctl |= E1000_RCTL_SZ_2048;
- 			rctl &= ~E1000_RCTL_BSEX;
- 			break;
--		case IGB_RXBUFFER_4096:
--			rctl |= E1000_RCTL_SZ_4096;
--			break;
--		case IGB_RXBUFFER_8192:
--			rctl |= E1000_RCTL_SZ_8192;
--			break;
--		case IGB_RXBUFFER_16384:
--			rctl |= E1000_RCTL_SZ_16384;
--			break;
- 		}
- 	} else {
- 		rctl &= ~E1000_RCTL_BSEX;
-@@ -1843,10 +1833,8 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
- 	 * so only enable packet split for jumbo frames */
- 	if (rctl & E1000_RCTL_LPE) {
- 		adapter->rx_ps_hdr_size = IGB_RXBUFFER_128;
--		srrctl = adapter->rx_ps_hdr_size <<
-+		srrctl |= adapter->rx_ps_hdr_size <<
- 			 E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
--		/* buffer size is ALWAYS one page */
--		srrctl |= PAGE_SIZE >> E1000_SRRCTL_BSIZEPKT_SHIFT;
- 		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
- 	} else {
- 		adapter->rx_ps_hdr_size = 0;
-@@ -2151,20 +2139,17 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 			buffer_info->skb = NULL;
- 		}
- 		if (buffer_info->page) {
--			pci_unmap_page(pdev, buffer_info->page_dma,
--				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
-+			if (buffer_info->page_dma)
-+				pci_unmap_page(pdev, buffer_info->page_dma,
-+					       PAGE_SIZE / 2,
-+					       PCI_DMA_FROMDEVICE);
- 			put_page(buffer_info->page);
- 			buffer_info->page = NULL;
- 			buffer_info->page_dma = 0;
-+			buffer_info->page_offset = 0;
- 		}
- 	}
- 
--	/* there also may be some cached data from a chained receive */
--	if (rx_ring->pending_skb) {
--		dev_kfree_skb(rx_ring->pending_skb);
--		rx_ring->pending_skb = NULL;
--	}
--
- 	size = sizeof(struct igb_buffer) * rx_ring->count;
- 	memset(rx_ring->buffer_info, 0, size);
- 
-@@ -3091,7 +3076,11 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 	else if (max_frame <= IGB_RXBUFFER_2048)
- 		adapter->rx_buffer_len = IGB_RXBUFFER_2048;
- 	else
--		adapter->rx_buffer_len = IGB_RXBUFFER_4096;
-+#if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
-+		adapter->rx_buffer_len = IGB_RXBUFFER_16384;
-+#else
-+		adapter->rx_buffer_len = PAGE_SIZE / 2;
+@@ -116,6 +116,9 @@ static bool igb_clean_tx_irq(struct igb_ring *);
+ static int igb_poll(struct napi_struct *, int);
+ static bool igb_clean_rx_irq_adv(struct igb_ring *, int *, int);
+ static void igb_alloc_rx_buffers_adv(struct igb_ring *, int);
++#ifdef CONFIG_IGB_LRO
++static int igb_get_skb_hdr(struct sk_buff *skb, void **, void **, u64 *, void *);
 +#endif
- 	/* adjust allocation if LPE protects us, and we aren't using SBP */
- 	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN) ||
- 	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE))
-@@ -3796,7 +3785,7 @@ static bool igb_clean_rx_irq_adv(struct igb_ring *rx_ring,
- 	union e1000_adv_rx_desc *rx_desc , *next_rxd;
- 	struct igb_buffer *buffer_info , *next_buffer;
- 	struct sk_buff *skb;
--	unsigned int i, j;
-+	unsigned int i;
- 	u32 length, hlen, staterr;
- 	bool cleaned = false;
- 	int cleaned_count = 0;
-@@ -3826,61 +3815,46 @@ static bool igb_clean_rx_irq_adv(struct igb_ring *rx_ring,
- 		cleaned = true;
- 		cleaned_count++;
+ static int igb_ioctl(struct net_device *, struct ifreq *, int cmd);
+ static void igb_tx_timeout(struct net_device *);
+ static void igb_reset_task(struct work_struct *);
+@@ -1134,6 +1137,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	netdev->features |= NETIF_F_TSO;
+ 	netdev->features |= NETIF_F_TSO6;
  
--		if (rx_ring->pending_skb != NULL) {
--			skb = rx_ring->pending_skb;
--			rx_ring->pending_skb = NULL;
--			j = rx_ring->pending_skb_page;
--		} else {
--			skb = buffer_info->skb;
--			prefetch(skb->data - NET_IP_ALIGN);
--			buffer_info->skb = NULL;
--			if (hlen) {
--				pci_unmap_single(pdev, buffer_info->dma,
--						 adapter->rx_ps_hdr_size +
--						   NET_IP_ALIGN,
--						 PCI_DMA_FROMDEVICE);
--				skb_put(skb, hlen);
--			} else {
--				pci_unmap_single(pdev, buffer_info->dma,
--						 adapter->rx_buffer_len +
--						   NET_IP_ALIGN,
--						 PCI_DMA_FROMDEVICE);
--				skb_put(skb, length);
--				goto send_up;
--			}
--			j = 0;
-+		skb = buffer_info->skb;
-+		prefetch(skb->data - NET_IP_ALIGN);
-+		buffer_info->skb = NULL;
-+		if (!adapter->rx_ps_hdr_size) {
-+			pci_unmap_single(pdev, buffer_info->dma,
-+					 adapter->rx_buffer_len +
-+					   NET_IP_ALIGN,
-+					 PCI_DMA_FROMDEVICE);
-+			skb_put(skb, length);
-+			goto send_up;
-+		}
++#ifdef CONFIG_IGB_LRO
++	netdev->features |= NETIF_F_LRO;
++#endif
 +
-+		if (!skb_shinfo(skb)->nr_frags) {
-+			pci_unmap_single(pdev, buffer_info->dma,
-+					 adapter->rx_ps_hdr_size +
-+					   NET_IP_ALIGN,
-+					 PCI_DMA_FROMDEVICE);
-+			skb_put(skb, hlen);
- 		}
+ 	netdev->vlan_features |= NETIF_F_TSO;
+ 	netdev->vlan_features |= NETIF_F_TSO6;
+ 	netdev->vlan_features |= NETIF_F_HW_CSUM;
+@@ -1705,6 +1712,14 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int size, desc_len;
  
--		while (length) {
-+		if (length) {
- 			pci_unmap_page(pdev, buffer_info->page_dma,
--				PAGE_SIZE, PCI_DMA_FROMDEVICE);
-+				       PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
- 			buffer_info->page_dma = 0;
--			skb_fill_page_desc(skb, j, buffer_info->page,
--						0, length);
--			buffer_info->page = NULL;
++#ifdef CONFIG_IGB_LRO
++	size = sizeof(struct net_lro_desc) * MAX_LRO_DESCRIPTORS;
++	rx_ring->lro_mgr.lro_arr = vmalloc(size);
++	if (!rx_ring->lro_mgr.lro_arr)
++		goto err;
++	memset(rx_ring->lro_mgr.lro_arr, 0, size);
++#endif
 +
-+			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags++,
-+						buffer_info->page,
-+						buffer_info->page_offset,
-+						length);
-+
-+			if ((adapter->rx_buffer_len > (PAGE_SIZE / 2)) ||
-+			    (page_count(buffer_info->page) != 1))
-+				buffer_info->page = NULL;
-+			else
-+				get_page(buffer_info->page);
+ 	size = sizeof(struct igb_buffer) * rx_ring->count;
+ 	rx_ring->buffer_info = vmalloc(size);
+ 	if (!rx_ring->buffer_info)
+@@ -1731,6 +1746,10 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
+ 	return 0;
  
- 			skb->len += length;
- 			skb->data_len += length;
--			skb->truesize += length;
--			rx_desc->wb.upper.status_error = 0;
--			if (staterr & E1000_RXD_STAT_EOP)
--				break;
--
--			j++;
--			cleaned_count++;
--			i++;
--			if (i == rx_ring->count)
--				i = 0;
- 
--			buffer_info = &rx_ring->buffer_info[i];
--			rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
--			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
--			length = le16_to_cpu(rx_desc->wb.upper.length);
--			if (!(staterr & E1000_RXD_STAT_DD)) {
--				rx_ring->pending_skb = skb;
--				rx_ring->pending_skb_page = j;
--				goto out;
--			}
-+			skb->truesize += length;
- 		}
- send_up:
- 		i++;
-@@ -3890,6 +3864,12 @@ send_up:
- 		prefetch(next_rxd);
- 		next_buffer = &rx_ring->buffer_info[i];
- 
-+		if (!(staterr & E1000_RXD_STAT_EOP)) {
-+			buffer_info->skb = xchg(&next_buffer->skb, skb);
-+			buffer_info->dma = xchg(&next_buffer->dma, 0);
-+			goto next_desc;
-+		}
-+
- 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
-@@ -3922,7 +3902,7 @@ next_desc:
- 
- 		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ err:
++#ifdef CONFIG_IGB_LRO
++	vfree(rx_ring->lro_mgr.lro_arr);
++	rx_ring->lro_mgr.lro_arr = NULL;
++#endif
+ 	vfree(rx_ring->buffer_info);
+ 	dev_err(&adapter->pdev->dev, "Unable to allocate memory for "
+ 		"the receive descriptor ring\n");
+@@ -1894,6 +1913,16 @@ static void igb_configure_rx(struct igb_adapter *adapter)
+ 		rxdctl |= IGB_RX_HTHRESH << 8;
+ 		rxdctl |= IGB_RX_WTHRESH << 16;
+ 		wr32(E1000_RXDCTL(i), rxdctl);
++#ifdef CONFIG_IGB_LRO
++		/* Intitial LRO Settings */
++		ring->lro_mgr.max_aggr = MAX_LRO_AGGR;
++		ring->lro_mgr.max_desc = MAX_LRO_DESCRIPTORS;
++		ring->lro_mgr.get_skb_header = igb_get_skb_hdr;
++		ring->lro_mgr.features = LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
++		ring->lro_mgr.dev = adapter->netdev;
++		ring->lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
++		ring->lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
++#endif
  	}
--out:
+ 
+ 	if (adapter->num_rx_queues > 1) {
+@@ -2085,6 +2114,11 @@ static void igb_free_rx_resources(struct igb_ring *rx_ring)
+ 	vfree(rx_ring->buffer_info);
+ 	rx_ring->buffer_info = NULL;
+ 
++#ifdef CONFIG_IGB_LRO
++	vfree(rx_ring->lro_mgr.lro_arr);
++	rx_ring->lro_mgr.lro_arr = NULL;
++#endif 
 +
+ 	pci_free_consistent(pdev, rx_ring->size, rx_ring->desc, rx_ring->dma);
+ 
+ 	rx_ring->desc = NULL;
+@@ -3735,22 +3769,75 @@ done_cleaning:
+ 	return retval;
+ }
+ 
++#ifdef CONFIG_IGB_LRO
++ /**
++ * igb_get_skb_hdr - helper function for LRO header processing
++ * @skb: pointer to sk_buff to be added to LRO packet
++ * @iphdr: pointer to ip header structure
++ * @tcph: pointer to tcp header structure
++ * @hdr_flags: pointer to header flags
++ * @priv: pointer to the receive descriptor for the current sk_buff
++ **/
++static int igb_get_skb_hdr(struct sk_buff *skb, void **iphdr, void **tcph,
++                           u64 *hdr_flags, void *priv)
++{
++	union e1000_adv_rx_desc *rx_desc = priv;
++	u16 pkt_type = rx_desc->wb.lower.lo_dword.pkt_info &
++	               (E1000_RXDADV_PKTTYPE_IPV4 | E1000_RXDADV_PKTTYPE_TCP);
++
++	/* Verify that this is a valid IPv4 TCP packet */
++	if (pkt_type != (E1000_RXDADV_PKTTYPE_IPV4 |
++	                  E1000_RXDADV_PKTTYPE_TCP))
++		return -1;
++
++	/* Set network headers */
++	skb_reset_network_header(skb);
++	skb_set_transport_header(skb, ip_hdrlen(skb));
++	*iphdr = ip_hdr(skb);
++	*tcph = tcp_hdr(skb);
++	*hdr_flags = LRO_IPV4 | LRO_TCP;
++
++	return 0;
++
++}
++#endif /* CONFIG_IGB_LRO */
+ 
+ /**
+  * igb_receive_skb - helper function to handle rx indications
+- * @adapter: board private structure
++ * @ring: pointer to receive ring receving this packet 
+  * @status: descriptor status field as written by hardware
+  * @vlan: descriptor vlan field as written by hardware (no le/be conversion)
+  * @skb: pointer to sk_buff to be indicated to stack
+  **/
+-static void igb_receive_skb(struct igb_adapter *adapter, u8 status, __le16 vlan,
+-			    struct sk_buff *skb)
++static void igb_receive_skb(struct igb_ring *ring, u8 status,
++                            union e1000_adv_rx_desc * rx_desc,
++                            struct sk_buff *skb)
+ {
+-	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
+-		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+-					 le16_to_cpu(vlan));
+-	else
+-		netif_receive_skb(skb);
++	struct igb_adapter * adapter = ring->adapter;
++	bool vlan_extracted = (adapter->vlgrp && (status & E1000_RXD_STAT_VP));
++
++#ifdef CONFIG_IGB_LRO
++	if (adapter->netdev->features & NETIF_F_LRO &&
++	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
++		if (vlan_extracted)
++			lro_vlan_hwaccel_receive_skb(&ring->lro_mgr, skb,
++			                   adapter->vlgrp,
++			                   le16_to_cpu(rx_desc->wb.upper.vlan),
++			                   rx_desc);
++		else
++			lro_receive_skb(&ring->lro_mgr,skb, rx_desc);
++		ring->lro_used = 1;
++	} else {
++#endif
++		if (vlan_extracted)
++			vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
++			                  le16_to_cpu(rx_desc->wb.upper.vlan));
++		else
++
++			netif_receive_skb(skb);
++#ifdef CONFIG_IGB_LRO
++	}
++#endif
+ }
+ 
+ 
+@@ -3883,7 +3970,7 @@ send_up:
+ 
+ 		skb->protocol = eth_type_trans(skb, netdev);
+ 
+-		igb_receive_skb(adapter, staterr, rx_desc->wb.upper.vlan, skb);
++		igb_receive_skb(rx_ring, staterr, rx_desc, skb);
+ 
+ 		netdev->last_rx = jiffies;
+ 
+@@ -3906,6 +3993,13 @@ next_desc:
  	rx_ring->next_to_clean = i;
  	cleaned_count = IGB_DESC_UNUSED(rx_ring);
  
-@@ -3960,16 +3940,22 @@ static void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring,
- 	while (cleaned_count--) {
- 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
++#ifdef CONFIG_IGB_LRO
++	if (rx_ring->lro_used) {
++		lro_flush_all(&rx_ring->lro_mgr);
++		rx_ring->lro_used = 0;
++	}
++#endif
++
+ 	if (cleaned_count)
+ 		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
  
--		if (adapter->rx_ps_hdr_size && !buffer_info->page) {
--			buffer_info->page = alloc_page(GFP_ATOMIC);
-+		if (adapter->rx_ps_hdr_size && !buffer_info->page_dma) {
- 			if (!buffer_info->page) {
--				adapter->alloc_rx_buff_failed++;
--				goto no_buffers;
-+				buffer_info->page = alloc_page(GFP_ATOMIC);
-+				if (!buffer_info->page) {
-+					adapter->alloc_rx_buff_failed++;
-+					goto no_buffers;
-+				}
-+				buffer_info->page_offset = 0;
-+			} else {
-+				buffer_info->page_offset ^= PAGE_SIZE / 2;
- 			}
- 			buffer_info->page_dma =
- 				pci_map_page(pdev,
- 					     buffer_info->page,
--					     0, PAGE_SIZE,
-+					     buffer_info->page_offset,
-+					     PAGE_SIZE / 2,
- 					     PCI_DMA_FROMDEVICE);
- 		}
- 
+
