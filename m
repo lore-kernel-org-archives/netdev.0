@@ -1,28 +1,42 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [iproute2/ip] ip segfault with wrong key
-Date: Tue, 08 Jul 2008 15:16:48 +0800
-Message-ID: <E1KG7RQ-0006Om-00@gondolin.me.apana.org.au>
-References: <486E189C.2010507@redhat.com>
-Cc: netdev@vger.kernel.org, shemminger@osdl.org
-To: mmaslano@redhat.com (Marcela Maslanova)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34615 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751609AbYGHHQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 03:16:52 -0400
-In-Reply-To: <486E189C.2010507@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: IPSEC in 2.6.25 causes stalled connections
+Date: Tue, 8 Jul 2008 16:07:42 +0800
+Message-ID: <20080708080742.GA25027@gondor.apana.org.au>
+References: <20080608010858.GA8877@swan.nt.tuwien.ac.at> <E1K8TuP-0002Qd-00@gondolin.me.apana.org.au> <20080618004544.GA25439@swan.nt.tuwien.ac.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Zeitlhofer <tzeitlho+lkml@nt.tuwien.ac.at>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755544AbYGHIH4@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080618004544.GA25439@swan.nt.tuwien.ac.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marcela Maslanova <mmaslano@redhat.com> wrote:
+Sorry for the late response.
+
+On Wed, Jun 18, 2008 at 02:45:44AM +0200, Thomas Zeitlhofer wrote:
 > 
-> Wrong key in "ip xfrm state" command lead to segfault. I thought there 
-> could be used only hexadecimal numbers. I'm suggesting attached patch. 
-> The example of problem could be seen here: 
-> https://bugzilla.redhat.com/show_bug.cgi?id=449933
+> src 192.168.69.2 dst 192.168.69.1
+>         proto esp spi 0xc885bfdd(3364208605) reqid 3(0x00000003) mode tunnel
+>         replay-window 32 seq 0x00000000 flag  (0x00000000)
+>         auth hmac(sha1) 0xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (160 bits)
+>         enc cbc(aes) 0xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (256 bits)
+>         sel src 0.0.0.0/0 dst 0.0.0.0/0 uid 0
+>         lifetime config:
+>           limit: soft (INF)(bytes), hard (INF)(bytes)
+>           limit: soft (INF)(packets), hard (INF)(packets)
+>           expire add: soft 3056(sec), hard 3600(sec)
+>           expire use: soft 0(sec), hard 0(sec)
+>         lifetime current:
+>           2964393536(bytes), 2063237(packets)
+>           add 2008-06-18 01:19:47 use 2008-06-18 01:19:48
 
-I don't see why we should disallow string keys.  Let's treat the
-disease instead of chopping off limbs.
+Your SA has been marked for expiry at 02:19:47.  So what time
+did you take this snapshot? Hmm, we really should make the SA
+state available to ip x s so that I don't have to ask :)
+
+What IPsec daemon are you using to manage SA rekeying?
 
 Cheers,
 -- 
