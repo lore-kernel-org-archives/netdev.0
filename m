@@ -1,335 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND NET-NEXT PATCH 16/20] igb: add support for in kernel LRO
-Date: Tue, 08 Jul 2008 15:12:13 -0700
-Message-ID: <20080708221147.1518.36543.stgit@localhost.localdomain>
-References: <20080708220046.1518.88457.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 00/04]: VLAN vs. packet socket inconsistencies
+Date: Tue, 08 Jul 2008 15:12:33 -0700 (PDT)
+Message-ID: <20080708.151233.259338088.davem@davemloft.net>
+References: <48733E1B.8010501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1901 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753590AbYGHWMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:12:14 -0400
-In-Reply-To: <20080708220046.1518.88457.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39351
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757486AbYGHWMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 18:12:33 -0400
+In-Reply-To: <48733E1B.8010501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 08 Jul 2008 12:14:51 +0200
 
-This patch adds support for the use of the inet_lro module to provide
-software LRO support.
+> There are mainly two remaining problems with this approach:
+> 
+> - socket filters for VLAN headers don't work properly since they
+>    expect the VLAN header to be present. Since with the approach
+>    taken by these patches, userspace has to have knowledge about
+>    VLAN acceleration anyway, it seems OK to simply add a filter
+>    instruction to filter on skb->vlan_tci and have userspace
+>    construct its filters accordingly.
+> 
+> - packet socket auxdata is only available for non-mmaped sockets.
+>    For mmaped sockets the only place to store the data is in
+>    struct tpacket_hdr, but that would break compatibility. Not sure
+>    what to do about this case.
+> 
+> Comments welcome.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+The mmap socket limitation is pretty serious.  It's the only
+thing holding me back from just applying these patches right now.
 
- drivers/net/Kconfig           |    9 +++
- drivers/net/igb/e1000_82575.h |    2 +
- drivers/net/igb/igb.h         |   16 ++++++
- drivers/net/igb/igb_ethtool.c |   17 ++++++
- drivers/net/igb/igb_main.c    |  112 ++++++++++++++++++++++++++++++++++++++---
- 5 files changed, 147 insertions(+), 9 deletions(-)
+I think we should make a new version of the tpacket_hdr structure
+anyways, in order to make it more compat-friendly.  It currently
+has "unsigned long" members and other crap.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ef733ab..5252514 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2037,6 +2037,15 @@ config IGB
-          To compile this driver as a module, choose M here. The module
-          will be called igb.
- 
-+config IGB_LRO 
-+	bool "Use software LRO"
-+	depends on IGB && INET
-+	select INET_LRO
-+	---help---
-+	  Say Y here if you want to use large receive offload. 
-+
-+	  If in doubt, say N.
-+
- source "drivers/net/ixp2000/Kconfig"
- 
- config MYRI_SBUS
-diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
-index d273236..2f848e5 100644
---- a/drivers/net/igb/e1000_82575.h
-+++ b/drivers/net/igb/e1000_82575.h
-@@ -99,6 +99,8 @@ union e1000_adv_rx_desc {
- /* RSS Hash results */
- 
- /* RSS Packet Types as indicated in the receive descriptor */
-+#define E1000_RXDADV_PKTTYPE_IPV4        0x00000010 /* IPV4 hdr present */
-+#define E1000_RXDADV_PKTTYPE_TCP         0x00000100 /* TCP hdr present */
- 
- /* Transmit Descriptor - Advanced */
- union e1000_adv_tx_desc {
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index f41b999..c25ca17 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -36,6 +36,12 @@
- 
- struct igb_adapter;
- 
-+#ifdef CONFIG_IGB_LRO
-+#include <linux/inet_lro.h>
-+#define MAX_LRO_AGGR                      32
-+#define MAX_LRO_DESCRIPTORS                8
-+#endif
-+
- /* Interrupt defines */
- #define IGB_MAX_TX_CLEAN 72
- 
-@@ -167,6 +173,10 @@ struct igb_ring {
- 			int no_itr_adjust;
- 			struct igb_queue_stats rx_stats;
- 			struct napi_struct napi;
-+#ifdef CONFIG_IGB_LRO
-+			struct net_lro_mgr lro_mgr;
-+			bool lro_used;
-+#endif
- 		};
- 	};
- 
-@@ -278,6 +288,12 @@ struct igb_adapter {
- #ifdef CONFIG_NETDEVICES_MULTIQUEUE
- 	struct igb_ring *multi_tx_table[IGB_MAX_TX_QUEUES];
- #endif /* CONFIG_NETDEVICES_MULTIQUEUE */
-+#ifdef CONFIG_IGB_LRO
-+	unsigned int lro_max_aggr;
-+	unsigned int lro_aggregated;
-+	unsigned int lro_flushed;
-+	unsigned int lro_no_desc;
-+#endif
- };
- 
- #define IGB_FLAG_HAS_MSI           (1 << 0)
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index ef209b5..7db1830 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -93,6 +93,11 @@ static const struct igb_stats igb_gstrings_stats[] = {
- 	{ "tx_smbus", IGB_STAT(stats.mgptc) },
- 	{ "rx_smbus", IGB_STAT(stats.mgprc) },
- 	{ "dropped_smbus", IGB_STAT(stats.mgpdc) },
-+#ifdef CONFIG_IGB_LRO
-+	{ "lro_aggregated", IGB_STAT(lro_aggregated) },
-+	{ "lro_flushed", IGB_STAT(lro_flushed) },
-+	{ "lro_no_desc", IGB_STAT(lro_no_desc) },
-+#endif
- };
- 
- #define IGB_QUEUE_STATS_LEN \
-@@ -1917,6 +1922,18 @@ static void igb_get_ethtool_stats(struct net_device *netdev,
- 	int stat_count = sizeof(struct igb_queue_stats) / sizeof(u64);
- 	int j;
- 	int i;
-+#ifdef CONFIG_IGB_LRO
-+	int aggregated = 0, flushed = 0, no_desc = 0;
-+
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		aggregated += adapter->rx_ring[i].lro_mgr.stats.aggregated;
-+		flushed += adapter->rx_ring[i].lro_mgr.stats.flushed;
-+		no_desc += adapter->rx_ring[i].lro_mgr.stats.no_desc;
-+	}
-+	adapter->lro_aggregated = aggregated;
-+	adapter->lro_flushed = flushed;
-+	adapter->lro_no_desc = no_desc;
-+#endif
- 
- 	igb_update_stats(adapter);
- 	for (i = 0; i < IGB_GLOBAL_STATS_LEN; i++) {
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 660a786..89416eb 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -116,6 +116,9 @@ static bool igb_clean_tx_irq(struct igb_ring *);
- static int igb_poll(struct napi_struct *, int);
- static bool igb_clean_rx_irq_adv(struct igb_ring *, int *, int);
- static void igb_alloc_rx_buffers_adv(struct igb_ring *, int);
-+#ifdef CONFIG_IGB_LRO
-+static int igb_get_skb_hdr(struct sk_buff *skb, void **, void **, u64 *, void *);
-+#endif
- static int igb_ioctl(struct net_device *, struct ifreq *, int cmd);
- static void igb_tx_timeout(struct net_device *);
- static void igb_reset_task(struct work_struct *);
-@@ -1134,6 +1137,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
- 
-+#ifdef CONFIG_IGB_LRO
-+	netdev->features |= NETIF_F_LRO;
-+#endif
-+
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
- 	netdev->vlan_features |= NETIF_F_HW_CSUM;
-@@ -1705,6 +1712,14 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	int size, desc_len;
- 
-+#ifdef CONFIG_IGB_LRO
-+	size = sizeof(struct net_lro_desc) * MAX_LRO_DESCRIPTORS;
-+	rx_ring->lro_mgr.lro_arr = vmalloc(size);
-+	if (!rx_ring->lro_mgr.lro_arr)
-+		goto err;
-+	memset(rx_ring->lro_mgr.lro_arr, 0, size);
-+#endif
-+
- 	size = sizeof(struct igb_buffer) * rx_ring->count;
- 	rx_ring->buffer_info = vmalloc(size);
- 	if (!rx_ring->buffer_info)
-@@ -1731,6 +1746,10 @@ int igb_setup_rx_resources(struct igb_adapter *adapter,
- 	return 0;
- 
- err:
-+#ifdef CONFIG_IGB_LRO
-+	vfree(rx_ring->lro_mgr.lro_arr);
-+	rx_ring->lro_mgr.lro_arr = NULL;
-+#endif
- 	vfree(rx_ring->buffer_info);
- 	dev_err(&adapter->pdev->dev, "Unable to allocate memory for "
- 		"the receive descriptor ring\n");
-@@ -1894,6 +1913,16 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 		rxdctl |= IGB_RX_HTHRESH << 8;
- 		rxdctl |= IGB_RX_WTHRESH << 16;
- 		wr32(E1000_RXDCTL(i), rxdctl);
-+#ifdef CONFIG_IGB_LRO
-+		/* Intitial LRO Settings */
-+		ring->lro_mgr.max_aggr = MAX_LRO_AGGR;
-+		ring->lro_mgr.max_desc = MAX_LRO_DESCRIPTORS;
-+		ring->lro_mgr.get_skb_header = igb_get_skb_hdr;
-+		ring->lro_mgr.features = LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
-+		ring->lro_mgr.dev = adapter->netdev;
-+		ring->lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
-+		ring->lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
-+#endif
- 	}
- 
- 	if (adapter->num_rx_queues > 1) {
-@@ -2085,6 +2114,11 @@ static void igb_free_rx_resources(struct igb_ring *rx_ring)
- 	vfree(rx_ring->buffer_info);
- 	rx_ring->buffer_info = NULL;
- 
-+#ifdef CONFIG_IGB_LRO
-+	vfree(rx_ring->lro_mgr.lro_arr);
-+	rx_ring->lro_mgr.lro_arr = NULL;
-+#endif 
-+
- 	pci_free_consistent(pdev, rx_ring->size, rx_ring->desc, rx_ring->dma);
- 
- 	rx_ring->desc = NULL;
-@@ -3735,22 +3769,75 @@ done_cleaning:
- 	return retval;
- }
- 
-+#ifdef CONFIG_IGB_LRO
-+ /**
-+ * igb_get_skb_hdr - helper function for LRO header processing
-+ * @skb: pointer to sk_buff to be added to LRO packet
-+ * @iphdr: pointer to ip header structure
-+ * @tcph: pointer to tcp header structure
-+ * @hdr_flags: pointer to header flags
-+ * @priv: pointer to the receive descriptor for the current sk_buff
-+ **/
-+static int igb_get_skb_hdr(struct sk_buff *skb, void **iphdr, void **tcph,
-+                           u64 *hdr_flags, void *priv)
-+{
-+	union e1000_adv_rx_desc *rx_desc = priv;
-+	u16 pkt_type = rx_desc->wb.lower.lo_dword.pkt_info &
-+	               (E1000_RXDADV_PKTTYPE_IPV4 | E1000_RXDADV_PKTTYPE_TCP);
-+
-+	/* Verify that this is a valid IPv4 TCP packet */
-+	if (pkt_type != (E1000_RXDADV_PKTTYPE_IPV4 |
-+	                  E1000_RXDADV_PKTTYPE_TCP))
-+		return -1;
-+
-+	/* Set network headers */
-+	skb_reset_network_header(skb);
-+	skb_set_transport_header(skb, ip_hdrlen(skb));
-+	*iphdr = ip_hdr(skb);
-+	*tcph = tcp_hdr(skb);
-+	*hdr_flags = LRO_IPV4 | LRO_TCP;
-+
-+	return 0;
-+
-+}
-+#endif /* CONFIG_IGB_LRO */
- 
- /**
-  * igb_receive_skb - helper function to handle rx indications
-- * @adapter: board private structure
-+ * @ring: pointer to receive ring receving this packet 
-  * @status: descriptor status field as written by hardware
-  * @vlan: descriptor vlan field as written by hardware (no le/be conversion)
-  * @skb: pointer to sk_buff to be indicated to stack
-  **/
--static void igb_receive_skb(struct igb_adapter *adapter, u8 status, __le16 vlan,
--			    struct sk_buff *skb)
-+static void igb_receive_skb(struct igb_ring *ring, u8 status,
-+                            union e1000_adv_rx_desc * rx_desc,
-+                            struct sk_buff *skb)
- {
--	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
--		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
--					 le16_to_cpu(vlan));
--	else
--		netif_receive_skb(skb);
-+	struct igb_adapter * adapter = ring->adapter;
-+	bool vlan_extracted = (adapter->vlgrp && (status & E1000_RXD_STAT_VP));
-+
-+#ifdef CONFIG_IGB_LRO
-+	if (adapter->netdev->features & NETIF_F_LRO &&
-+	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+		if (vlan_extracted)
-+			lro_vlan_hwaccel_receive_skb(&ring->lro_mgr, skb,
-+			                   adapter->vlgrp,
-+			                   le16_to_cpu(rx_desc->wb.upper.vlan),
-+			                   rx_desc);
-+		else
-+			lro_receive_skb(&ring->lro_mgr,skb, rx_desc);
-+		ring->lro_used = 1;
-+	} else {
-+#endif
-+		if (vlan_extracted)
-+			vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
-+			                  le16_to_cpu(rx_desc->wb.upper.vlan));
-+		else
-+
-+			netif_receive_skb(skb);
-+#ifdef CONFIG_IGB_LRO
-+	}
-+#endif
- }
- 
- 
-@@ -3883,7 +3970,7 @@ send_up:
- 
- 		skb->protocol = eth_type_trans(skb, netdev);
- 
--		igb_receive_skb(adapter, staterr, rx_desc->wb.upper.vlan, skb);
-+		igb_receive_skb(rx_ring, staterr, rx_desc, skb);
- 
- 		netdev->last_rx = jiffies;
- 
-@@ -3906,6 +3993,13 @@ next_desc:
- 	rx_ring->next_to_clean = i;
- 	cleaned_count = IGB_DESC_UNUSED(rx_ring);
- 
-+#ifdef CONFIG_IGB_LRO
-+	if (rx_ring->lro_used) {
-+		lro_flush_all(&rx_ring->lro_mgr);
-+		rx_ring->lro_used = 0;
-+	}
-+#endif
-+
- 	if (cleaned_count)
- 		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
- 
+We can design this thing to be extensible quite easily, by simply
+giving it an "offset" field.  My suggestion is:
+
+1) sed 's/tpacket_hdr/tpacket_hdr_old/'
+
+2) Create packet socket option PACKET_NEW_TPHDR which enables
+   use of a new tpacket_hdr layout.
+
+3) Make new tpacket_hdr which has the VLAN tag stuff as well
+   as an 'offset' field so that we can add more stuff later
+   in a backwards compat way.
+
+4) New new tpacket_hdr layout when PACKET_NEW_TPHDR has been
+   set.
 
