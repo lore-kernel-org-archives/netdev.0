@@ -1,45 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: setsockopt()
-Date: Tue, 8 Jul 2008 08:54:43 +0400
-Message-ID: <20080708045443.GA7726@2ka.mipt.ru>
-References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu> <20080707.144912.76654646.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: net-next-2.6 reverts.... PLEASE READ
+Date: Mon, 07 Jul 2008 22:43:36 -0700 (PDT)
+Message-ID: <20080707.224336.59099363.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: aglo@citi.umich.edu, shemminger@vyatta.com, netdev@vger.kernel.org,
-	rees@umich.edu, bfields@fieldses.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:57656 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259AbYGHEzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 00:55:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20080707.144912.76654646.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60284
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751312AbYGHFng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 01:43:36 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id D0FE9C8D0B5
+	for <netdev@vger.kernel.org>; Mon,  7 Jul 2008 22:43:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
 
-On Mon, Jul 07, 2008 at 02:49:12PM -0700, David Miller (davem@davemloft.net) wrote:
-> There is no reason these days to ever explicitly set the socket
-> buffer sizes on TCP sockets under Linux.
-> 
-> If something is going wrong it's a bug and we should fix it.
+I had to pop off the top 3 commits in net-next-2.6 in order to fix
+them up and get rid of some very unintentional changes that slipped
+in.
 
-Just for the reference: autosizing is (was?) not always working correctly
-for some workloads at least couple of years ago.
-For example I worked with small enough embedded systems with 16-32 MB
-of RAM where socket buffer size never grew up more than 200Kb (100mbit
-network), but workload was very bursty, so if remote system froze for
-several milliseconds (and sometimes upto couple of seconds), socket
-buffer was completely filled with new burst of data and either sending
-started to sleep or returned EAGAIN, which resulted in semi-realtime
-data to be dropped.
+Some defconfig files got modified in the NAPI config option removal
+commits that went in yesterday, and that's not supposed to happen.
 
-Setting buffer size explicitely to large enough value like 8Mb fixed
-this burst issues. Another fix was to allocate data each time it becomes
-ready and copy portion to this buffer, but allocation was quite slow,
-which led to unneded latencies, which again could lead to data loss.
+If you've already pulled, you can fix your net-next-2.6 tree like
+this:
 
--- 
-	Evgeniy Polyakov
+1) Put "38b221957b155ef410bdc28856a66386303fbd5a" into the
+   .git/refs/heads/master file.
+
+2) Repull.
+
+I hope this doesn't inconvenience too many people.
+
+I didn't want to even think about rebuilding the entire tree
+just to fix this. :-/
