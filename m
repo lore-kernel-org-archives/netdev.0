@@ -1,78 +1,83 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 08/11] remove CONFIG_KMOD from net
-Date: Tue, 08 Jul 2008 20:42:03 +0200
-Message-ID: <1215542523.3670.4.camel@johannes.berg>
-References: <20080708170015.470877000@sipsolutions.net>
-	 <20080708170047.433712000@sipsolutions.net>
-	 <20080708183035.GC11954@cs181140183.pp.htv.fi>
-	 <1215542220.3670.0.camel@johannes.berg>
-	 <20080708184017.GD11954@cs181140183.pp.htv.fi>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: setsockopt()
+Date: Tue, 8 Jul 2008 14:48:17 -0400
+Message-ID: <20080708144817.3c364962.billfink@mindspring.com>
+References: <48725DFE.6000504@citi.umich.edu>
+	<20080707142408.43aa2a2e@extreme>
+	<48728B09.1050801@citi.umich.edu>
+	<20080707.144912.76654646.davem@davemloft.net>
+	<20080708045443.GA7726@2ka.mipt.ru>
+	<20080708020235.388a7bd5.billfink@mindspring.com>
+	<adar6a4x510.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Y2eLXq1wAcsohgb78VOv"
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
+	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
+	bfields@fieldses.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:45112 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbYGHSmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 14:42:51 -0400
-In-Reply-To: <20080708184017.GD11954@cs181140183.pp.htv.fi>
+Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:60019 "EHLO
+	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752019AbYGHSse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 14:48:34 -0400
+In-Reply-To: <adar6a4x510.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Roland,
 
---=-Y2eLXq1wAcsohgb78VOv
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I think you set a new nuttcp speed record.  :-)
+I've merely had 10-GigE networks to play with.
 
+On Mon, 07 Jul 2008, Roland Dreier wrote:
 
-> > Eh, no. Not unless I also always compile in dev_load, which as of now
-> > depends on CONFIG_MODULES. In fact, another hunk in this series makes i=
-t
-> > a static inline when CONFIG_MODULES=3Dn so that callers don't need to t=
-ake
-> > care of #ifdef'ing it.
->=20
-> Look at include/linux/module.h:
->=20
-> ...
-> #ifdef CONFIG_MODULES
-> ...
-> #define EXPORT_SYMBOL(sym)                                      \
->         __EXPORT_SYMBOL(sym, "")
-> ...
-> #else /* !CONFIG_MODULES... */
-> #define EXPORT_SYMBOL(sym)
-> ...
+> Interesting... I'd not tried nuttcp before, and on my testbed, which is
+> a very high-bandwidth, low-RTT network (IP-over-InfiniBand with DDR IB,
+> so the network is capable of 16 Gbps, and the RTT is ~25 microseconds),
+> the difference between autotuning and not for nuttcp is huge (testing
+> with 2.6.26-rc8 plus some pending 2.6.27 patches that add checksum
+> offload, LSO and LRO to the IP-over-IB driver):
+> 
+> nuttcp -T30 -i1 ends up with:
+> 
+> 14465.0625 MB /  30.01 sec = 4043.6073 Mbps 82 %TX 2 %RX
+> 
+> while setting the window even to 128 KB with
+> nuttcp -w128k -T30 -i1 ends up with:
+> 
+> 36416.8125 MB /  30.00 sec = 10182.8137 Mbps 90 %TX 96 %RX
+> 
+> so it's a factor of 2.5 with nuttcp.  I've never seen other apps behave
+> like that -- for example NPtcp (netpipe) only gets slower when
+> explicitly setting the window size.
+> 
+> Strange...
 
-Oh, right, I forgot I was dealing with CONFIG_MODULES and treated it
-just like another config option, thanks.
+It is strange.  The first case just uses the TCP autotuning, since
+as you discovered, nuttcp doesn't make any SO_SNDBUF/SO_RCVBUF
+setsockopt() calls unless you explicitly set the "-w" option.
+Perhaps the maximum value for tcp_rmem/tcp_wmem is smallish on
+your systems (check both client and server).
 
-johannes
+On my system:
 
---=-Y2eLXq1wAcsohgb78VOv
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+# cat /proc/sys/net/ipv4/tcp_rmem
+4096    524288  104857600
+# cat /proc/sys/net/ipv4/tcp_wmem
+4096    524288  104857600
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+IIRC the explicit setting of SO_SNDBUF/SO_RCVBUF is instead governed
+by rmem_max/wmem_max.
 
-iQIcBAABAgAGBQJIc7T3AAoJEKVg1VMiehFYaC8P/RGyVxvAz+3vuAVfu6qUrFSc
-O1M3Y1L7SzsLfd9IhKZ3jjePEBd5U+cUj4osPnSwJQCO2cItTEB2wOyV9lZHheo8
-UubXeaYQP1+c5wQafUa0D+q1272m8Njp1hn3mww2N7YhAMC0Yhzfil1mKW4ru4+N
-3ogcyNfsnUzXbGqnSz3JC7LkD/KmVcRoduCzmpKZI/D1udO/JhONxsTYsfTOq40I
-MDq3zXZSDfqoq4rDTXnxBDpT+0FDbcGOJtOE8jBZk98JvAKmHkz5pyQp5TKzVYL9
-5vhvNQJtYfe8gyiQSP7zhNK2o/0KCVBm/Q/Djjsso+o55eW1tQpJ2kJzY7igpzvA
-lgox5ywmHJFKTEhRIhIjyw1Sy3Tib15KfLOL13j5DipkaHAjcf6CRjMvkOl0/uRx
-+lgwfQTnRnv5MiLw8Qqy+dyHe+Y8kc/8psOcLxWZwI6RYtdEUr4sRpnSrpeiAdsJ
-6kVTTsfiukV7VQUFW9/R5qczcbUkjd17ocio6GkXAdygifWHl+G9IbbclL3yVOEA
-DXVUyn6wYu9exJfnqel3IE4RjG2syVhBhH2l9L/qlyPAMvXPfMEqTJmwyRxCUJkp
-CcssSzUI5qnK4Atl8o48qNRBZdXhaBDGo5HBxUmFIuUCQrlvFdRzAH7fn/TbOG+j
-LaNaWfzhjxaCnDCoDvJb
-=Vg/y
------END PGP SIGNATURE-----
+# cat /proc/sys/net/core/rmem_max
+104857600
+# cat /proc/sys/net/core/wmem_max
+104857600
 
---=-Y2eLXq1wAcsohgb78VOv--
+The other weird thing about your test is the huge difference in
+the receiver (and server in this case) CPU utilization between the
+autotuning and explicit setting cases (2 %RX versus 96 %RX).
 
+						-Bill
