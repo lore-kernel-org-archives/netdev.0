@@ -1,128 +1,80 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: v3 [PATCH net-next 5/7] ipv4: Check return of dev_set_allmulti
-Date: Tue, 08 Jul 2008 17:41:35 +0800
-Message-ID: <4873364F.1030709@cn.fujitsu.com>
-References: <48718014.4030009@cn.fujitsu.com> <48718172.8070404@cn.fujitsu.com> <4871FC5C.9030106@trash.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2] xfrm: Fix inter family IPsec tunnel handling again
+Date: Tue, 8 Jul 2008 11:53:35 +0200
+Message-ID: <20080708095335.GP9549@secunet.com>
+References: <20080705071950.GA26532@secunet.com> <20080705115654.GA18290@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63999 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441AbYGHJqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 05:46:16 -0400
-In-Reply-To: <4871FC5C.9030106@trash.net>
+Received: from a.mx.secunet.com ([213.68.205.161]:43068 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751276AbYGHJxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 05:53:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20080705115654.GA18290@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy said the following on 2008-7-7 19:22:
->>      case 0:
->>          dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
->>          if (!dev)
->>              return -EADDRNOTAVAIL;
->>          dev_put(dev);
->> +        err = dev_set_allmulti(dev, 1);
->> +        if (err)
->> +            return err;
+On Sat, Jul 05, 2008 at 07:56:55PM +0800, Herbert Xu wrote:
+> > 
+> > diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+> > index 7527940..d220ecf 100644
+> > --- a/net/xfrm/xfrm_input.c
+> > +++ b/net/xfrm/xfrm_input.c
+> > @@ -91,11 +91,9 @@ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
+> >  	if (err)
+> >  		return err;
+> >  
+> > -	if (x->sel.family == AF_UNSPEC) {
+> > -		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> > -		if (inner_mode == NULL)
+> > -			return -EAFNOSUPPORT;
+> > -	}
+> > +	inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> > +	if (inner_mode == NULL)
+> > +		return -EAFNOSUPPORT;
 > 
-> Also looks like a use after free, but again, one that is
-> already present without your patch.
+> If sel.family is specified, inner_mode should already be set, no?
+> Overriding it would seem insecure.
 > 
 
-Here is the patch for fixing use after free.
-It fixes both ipv4 and ipv6 side and on top of my patches.
-This patch will be the 6/8 of the series.
+Actually we are setting sel.family to the outer mode family if it is 
+unspecified from userspace, so it is always specified at this point. This was 
+changed by 
+commit bcf0dda8 ([XFRM]: xfrm_user: fix selector family initialization)
+because openswan seems to have problems if sel.family is not initialized.
 
-I will wait for Patrick's ack and resend the whole series again.
+But now the checks for AF_UNSPEC that are introduced by 
+commit df9dcb45 ([IPSEC]: Fix inter address family IPsec tunnel handling)
+return false. So the code that tries to choose for the right inner mode if
+sel.family was not specified from userspace is not executed and an 
+inter family tunnel does not work in this case.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index a55a23a..23fa3f3 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -441,8 +441,10 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 		dev = ipmr_reg_vif();
- 		if (!dev)
- 			return -ENOBUFS;
-+		dev_hold(dev);
- 		err = dev_set_allmulti(dev, 1);
- 		if (err) {
-+			dev_put(dev);
- 			unregister_netdevice(dev);
- 			return err;
- 		}
-@@ -452,8 +454,10 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 		dev = ipmr_new_tunnel(vifc);
- 		if (!dev)
- 			return -ENOBUFS;
-+		dev_hold(dev);
- 		err = dev_set_allmulti(dev, 1);
- 		if (err) {
-+			dev_put(dev);
- 			ipmr_del_tunnel(dev, vifc);
- 			return err;
- 		}
-@@ -462,10 +466,11 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 		dev = ip_dev_find(&init_net, vifc->vifc_lcl_addr.s_addr);
- 		if (!dev)
- 			return -EADDRNOTAVAIL;
--		dev_put(dev);
- 		err = dev_set_allmulti(dev, 1);
--		if (err)
-+		if (err) {
-+			dev_put(dev);
- 			return err;
-+		}
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -496,7 +501,6 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
- 
- 	/* And finish update writing critical data */
- 	write_lock_bh(&mrt_lock);
--	dev_hold(dev);
- 	v->dev=dev;
- #ifdef CONFIG_IP_PIMSM
- 	if (v->flags&VIFF_REGISTER)
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 6cd286d..a9bd74d 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -621,8 +621,10 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
- 		dev = ip6mr_reg_vif();
- 		if (!dev)
- 			return -ENOBUFS;
-+		dev_hold(dev);
- 		err = dev_set_allmulti(dev, 1);
- 		if (err) {
-+			dev_put(dev);
- 			unregister_netdevice(dev);
- 			return err;
- 		}
-@@ -632,10 +634,11 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
- 		dev = dev_get_by_index(&init_net, vifc->mif6c_pifi);
- 		if (!dev)
- 			return -EADDRNOTAVAIL;
--		dev_put(dev);
- 		err = dev_set_allmulti(dev, 1);
--		if (err)
-+		if (err) {
-+			dev_put(dev);
- 			return err;
-+		}
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -659,7 +662,6 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
- 
- 	/* And finish update writing critical data */
- 	write_lock_bh(&mrt_lock);
--	dev_hold(dev);
- 	v->dev = dev;
- #ifdef CONFIG_IPV6_PIMSM_V2
- 	if (v->flags & MIFF_REGISTER)
+I tried to move the selector family initialization behind the check for 
+AF_UNSPEC in xfrm_init_state(). This brings an inter family tunnel to work if 
+no selector family is specified from userspace. But yes, if a selector family 
+is specified we may send a packet that is not allowed to go. So this patch is 
+probaply not what we want.
 
+But what's the right thing to do for inter family tunnels?
+
+Is it expected that the selector family is set explicitly from userspace in 
+this case?
+Unfortunalely many userspace applications don't do this by default.
+In this case there is nothing to fix here but most of the code introduced by 
+commit df9dcb45 is obsolete then. 
+
+Or should the kernel try to do the right thing if the selector is not 
+specified?
+This was probaply the idea of commit df9dcb45. But if we have to initialize the
+selector family with something that is not AF_UNSPEC at initialization time of
+the xfrm_state, we can't know whether we got a selector family from userspace
+or whether it was set by the kernel when we process packets with that 
+xfrm_state.  Thus, we can't decide whether we are allowed to modify the 
+inner mode. At the moment I don't see an easy solution for this case, 
+but perhaps somebody else has an idea.
+
+Steffen
