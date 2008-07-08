@@ -1,40 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [bug?] tg3: Failed to load firmware "tigon/tg3_tso.bin"
-Date: Tue, 08 Jul 2008 01:57:01 -0700 (PDT)
-Message-ID: <20080708.015701.249196626.davem@davemloft.net>
-References: <20080707221427.163c4a30@the-village.bc.nu>
-	<20080707.145819.209342070.davem@davemloft.net>
-	<20080708073637.32037c76@the-village.bc.nu>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] ipv6: fix race between ipv6_del_addr and DAD timer
+Date: Tue, 08 Jul 2008 12:55:24 +0400
+Message-ID: <48732B7C.70802@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, dwmw2@infradead.org, andi@firstfloor.org,
-	tytso@mit.edu, hugh@veritas.com, akpm@linux-foundation.org,
-	kosaki.motohiro@jp.fujitsu.com, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Andrey Vagin <avagin@parallels.com>
+To: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39243
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751900AbYGHI5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 04:57:01 -0400
-In-Reply-To: <20080708073637.32037c76@the-village.bc.nu>
+Received: from sacred.ru ([62.205.161.221]:57913 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823AbYGHI6K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 04:58:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Tue, 8 Jul 2008 07:36:37 +0100
+From: Andrey Vagin <avagin@parallels.com>
 
-> > I can only see it being about separation, pure and simple.
-> 
-> Separation - of firmware that can be paged from code that cannot.
+Consider the following scenario:
 
-It can't be paged from the drivers we're talking about,
-no matter how hard you try.
+ipv6_del_addr(ifp)
+  ipv6_ifa_notify(RTM_DELADDR, ifp)
+    ip6_del_rt(ifp->rt)
 
-Every chip reset needs the firmware around so it can be
-reloaded into the card.
+after returning from the ipv6_ifa_notify and enabling BH-s
+back, but *before* calling the addrconf_del_timer the 
+ifp->timer fires and:
 
-This applies to tg3, bnx2, bnx2x, etc. etc. etc.
+addrconf_dad_timer(ifp)
+  addrconf_dad_completed(ifp)
+    ipv6_ifa_notify(RTM_NEWADDR, ifp)
+      ip6_ins_rt(ifp->rt)
 
+then return back to the ipv6_del_addr and:
+
+in6_ifa_put(ifp)
+  inet6_ifa_finish_destroy(ifp)
+    dst_release(&ifp->rt->u.dst)
+
+After this we have an ifp->rt inserted into fib6 lists, but 
+queued for gc, which in turn can result in oopses in the
+fib6_run_gc. Maybe some other nasty things, but we caught 
+only the oops in gc so far.
+
+The solution is to disarm the ifp->timer before flushing the
+rt from it.
+
+Signed-off-by: Andrey Vagin <avagin@parallels.com>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 147588f..ff61a5c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -749,12 +749,12 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 	}
+ 	write_unlock_bh(&idev->lock);
+ 
++	addrconf_del_timer(ifp);
++
+ 	ipv6_ifa_notify(RTM_DELADDR, ifp);
+ 
+ 	atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifp);
+ 
+-	addrconf_del_timer(ifp);
+-
+ 	/*
+ 	 * Purge or update corresponding prefix
+ 	 *
