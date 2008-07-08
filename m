@@ -1,57 +1,61 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: setsockopt()
-Date: Tue, 8 Jul 2008 13:48:45 -0700
-Message-ID: <20080708134845.2372a483@speedy>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme>
-	<48728B09.1050801@citi.umich.edu>
-	<20080707.144912.76654646.davem@davemloft.net>
-	<20080708045443.GA7726@2ka.mipt.ru>
-	<20080708020235.388a7bd5.billfink@mindspring.com>
-	<adar6a4x510.fsf@cisco.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: bnx2 hardware VLAN acceleration and PF_PACKET/tap interfaces
+Date: Tue, 08 Jul 2008 22:50:25 +0200
+Message-ID: <4873D311.50806@trash.net>
+References: <20080708200508.GA19505@boost.horde.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org
+To: John Morrissey <jwm@horde.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:49386 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751066AbYGHUsr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 16:48:47 -0400
-In-Reply-To: <adar6a4x510.fsf@cisco.com>
+Received: from stinky.trash.net ([213.144.137.162]:38927 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbYGHUu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 16:50:27 -0400
+In-Reply-To: <20080708200508.GA19505@boost.horde.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Jul 2008 23:29:31 -0700
-Roland Dreier <rdreier@cisco.com> wrote:
+John Morrissey wrote:
+> I'm struggling with VLAN tags being stripped the bnx2 driver/hardware when
+> hardware VLAN acceleration is enabled.
+> 
+> I'm trying to (a) tcpdump(8) on the main interface and see tagged traffic
+> and (b) place the main interface into a bridge group and attach a tap
+> interface to the bridge to give KVM virtual machines access to that
+> interface. The VMs would then have their own choice of VLANs without having
+> to create separate VLAN subints, bridge groups, and tap interfaces on the
+> KVM host for each VLAN that a VM needs access to.
+> 
+> I've seen these threads, which indicate this is due to the implementation
+> particulars of hardware VLAN acceleration:
+> 
+> http://marc.info/?l=linux-netdev&m=117269169822297&w=2
+> http://marc.info/?l=linux-netdev&m=119395331216242&w=2
+> 
+> The adapters are "NetXtreme II BCM5708S Gigabit Ethernet rev 12" in IBM
+> BladeCenter chassis. I've tried disabling the use of ASF_ENABLE_FLAG in
+> bnx2, but this doesn't seem to have changed its behavior any. The Broadcom
+> firmware upgarde utility says ASF isn't supported by this chipset when I try
+> to 'cfg -asf 0', so perhaps this adapter doesn't support ASF and I'm barking
+> up the wrong tree?
+> 
+> Flailing around, I tried #defining BCM_VLAN to 0 to disable hardware VLAN
+> acceleration. This breaks the driver build since there's an unguarded use of
+> struct bnx2->vlgrp in bnx2_start_xmit().
+> 
+> I'm also seeing some tcpdump(8) behavior that I don't understand. When I
+> tcpdump the main interface (not the VLAN subint), I see only *outbound*
+> traffic for the last VLAN configured on the interface, and no other traffic.
+> Is this some side-effect of the hardware VLAN acceleration?
+> 
+> Is there any hope of having this work? I'm working with 2.6.24 (from Ubuntu
+> 8.04 FWIW) and have glanced at the bnx2 driver in 2.6.25, which seems
+> essentially the same.
 
-> Interesting... I'd not tried nuttcp before, and on my testbed, which is
-> a very high-bandwidth, low-RTT network (IP-over-InfiniBand with DDR IB,
-> so the network is capable of 16 Gbps, and the RTT is ~25 microseconds),
-> the difference between autotuning and not for nuttcp is huge (testing
-> with 2.6.26-rc8 plus some pending 2.6.27 patches that add checksum
-> offload, LSO and LRO to the IP-over-IB driver):
-> 
-> nuttcp -T30 -i1 ends up with:
-> 
-> 14465.0625 MB /  30.01 sec = 4043.6073 Mbps 82 %TX 2 %RX
-> 
-> while setting the window even to 128 KB with
-> nuttcp -w128k -T30 -i1 ends up with:
-> 
-> 36416.8125 MB /  30.00 sec = 10182.8137 Mbps 90 %TX 96 %RX
-> 
-> so it's a factor of 2.5 with nuttcp.  I've never seen other apps behave
-> like that -- for example NPtcp (netpipe) only gets slower when
-> explicitly setting the window size.
-> 
-> Strange...
 
-I suspect that the link is so fast that the window growth isn't happening
-fast enough. With only a 30 second test, you probably barely made it
-out of TCP slow start.
+These patches I posted this morning are supposed to fix this:
+
+http://marc.info/?l=linux-netdev&m=121551210526043&w=2
+
