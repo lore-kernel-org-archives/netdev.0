@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 01/25] ixgb: maybe stop tx port missed a piece
-Date: Tue, 08 Jul 2008 15:51:07 -0700
-Message-ID: <20080708225107.6925.57805.stgit@localhost.localdomain>
+Subject: [NET-NEXT PATCH 02/25] ixgb: repeat 32 bit ioremap cleanup
+Date: Tue, 08 Jul 2008 15:51:12 -0700
+Message-ID: <20080708225112.6925.48330.stgit@localhost.localdomain>
 References: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,53 +11,62 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8067 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:1237 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbYGHWvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2008 18:51:08 -0400
+	id S1753295AbYGHWvN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2008 18:51:13 -0400
 In-Reply-To: <20080708224858.6925.29725.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-back when maybe stop tx was added to the ixgb driver some mistakes
-were made and the driver
-a) didn't remove the tx lock, which is now un-necessary
-b) didn't change the restart code to be compliant with maybe_stop
+this patch has been made to many other drivers in kernel to fix
+the storage of 64 bit resources in 32 bit variables.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_main.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/ixgb/ixgb_main.c |   13 +++----------
+ 1 files changed, 3 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 41f3adf..04cac41 100644
+index 04cac41..652c0ea 100644
 --- a/drivers/net/ixgb/ixgb_main.c
 +++ b/drivers/net/ixgb/ixgb_main.c
-@@ -1855,12 +1855,17 @@ ixgb_clean_tx_irq(struct ixgb_adapter *adapter)
+@@ -363,8 +363,6 @@ ixgb_probe(struct pci_dev *pdev,
+ 	struct net_device *netdev = NULL;
+ 	struct ixgb_adapter *adapter;
+ 	static int cards_found = 0;
+-	unsigned long mmio_start;
+-	int mmio_len;
+ 	int pci_using_dac;
+ 	int i;
+ 	int err;
+@@ -405,11 +403,9 @@ ixgb_probe(struct pci_dev *pdev,
+ 	adapter->hw.back = adapter;
+ 	adapter->msg_enable = netif_msg_init(debug, DEFAULT_DEBUG_LEVEL_SHIFT);
  
- 	tx_ring->next_to_clean = i;
- 
--	if (unlikely(netif_queue_stopped(netdev))) {
--		spin_lock(&adapter->tx_lock);
--		if (netif_queue_stopped(netdev) && netif_carrier_ok(netdev) &&
--		    (IXGB_DESC_UNUSED(tx_ring) >= DESC_NEEDED))
-+	if (unlikely(cleaned && netif_carrier_ok(netdev) &&
-+		     IXGB_DESC_UNUSED(tx_ring) >= DESC_NEEDED)) {
-+		/* Make sure that anybody stopping the queue after this
-+		 * sees the new next_to_clean. */
-+		smp_mb();
-+
-+		if (netif_queue_stopped(netdev) &&
-+		    !(test_bit(__IXGB_DOWN, &adapter->flags))) {
- 			netif_wake_queue(netdev);
--		spin_unlock(&adapter->tx_lock);
-+			++adapter->restart_queue;
-+		}
+-	mmio_start = pci_resource_start(pdev, BAR_0);
+-	mmio_len = pci_resource_len(pdev, BAR_0);
+-
+-	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+-	if(!adapter->hw.hw_addr) {
++	adapter->hw.hw_addr = ioremap(pci_resource_start(pdev, BAR_0),
++	                              pci_resource_len(pdev, BAR_0));
++	if (!adapter->hw.hw_addr) {
+ 		err = -EIO;
+ 		goto err_ioremap;
  	}
+@@ -444,9 +440,6 @@ ixgb_probe(struct pci_dev *pdev,
+ #endif
  
- 	if(adapter->detect_tx_hung) {
+ 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+-	netdev->mem_start = mmio_start;
+-	netdev->mem_end = mmio_start + mmio_len;
+-	netdev->base_addr = adapter->hw.io_base;
+ 
+ 	adapter->bd_number = cards_found;
+ 	adapter->link_speed = 0;
 
