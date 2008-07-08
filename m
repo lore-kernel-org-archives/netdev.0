@@ -1,223 +1,46 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH v2] sctp: Add documentation for sctp sysctl variable
-Date: Tue, 8 Jul 2008 14:37:29 -0700
-Message-ID: <20080708143729.73300214.randy.dunlap@oracle.com>
-References: <20080708133158.0c39d355.randy.dunlap@oracle.com>
-	<1215550588-10223-1-git-send-email-vladislav.yasevich@hp.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Tue, 8 Jul 2008 14:47:25 -0700
+Message-ID: <20080708144725.5b663d19@infradead.org>
+References: <20080707.155723.48071035.davem@davemloft.net>
+	<adazlotwalk.fsf@cisco.com>
+	<4873BC67.8010205@opengridcomputing.com>
+	<20080708.143158.182627862.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: swise@opengridcomputing.com, rdreier@cisco.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:11417 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbYGHVhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 17:37:38 -0400
-In-Reply-To: <1215550588-10223-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from casper.infradead.org ([85.118.1.10]:60797 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751161AbYGHVre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 17:47:34 -0400
+In-Reply-To: <20080708.143158.182627862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  8 Jul 2008 16:56:28 -0400 Vlad Yasevich wrote:
+On Tue, 08 Jul 2008 14:31:58 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |  168 ++++++++++++++++++++++++++++++++
->  1 files changed, 168 insertions(+), 0 deletions(-)
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Tue, 08 Jul 2008 14:13:43 -0500
 > 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 17a6e46..c56f70e 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1064,6 +1064,174 @@ bridge-nf-filter-pppoe-tagged - BOOLEAN
->  	Default: 1
->  
->  
-> +proc/sys/net/sctp/* Variables:
-> +
-> +addip_enable - BOOLEAN
-> +	Enable or disable extension of  Dynamic Address Reconfiguration
-> +	(ADD-IP) functionality specified in RFC5061.  This extension provides
-> +	the ability to dynamically add and remove new addresses for the SCTP
-> +	associations.
-> +
-> +	1: Enable extension.
-> +
+> > So should I put the rtnl acquisitions back in iw_cxgb3?  Or fix
+> > cxgb3 to not assume rtnl is held?
+> 
+> It appears that the kernel always invokes the ethtool ops with
+> RTNL held, and therefore that's the environment that needs
+> to be ensured.
 
-Still alignment problem above/below here.
-
-> +        0: Disable extension.
-> +
-> +	Default: 0
-> +
-> +addip_noauth_enable - BOOLEAN
-> +	Dynamic Address Reconfiguration (ADD-IP) requires the use of
-> +	authentication to protect the operations of adding or removing new
-> +	addresses.  This requirement is mandated so that unauthorized hosts
-> +	would not be able to hijack associations.  However, older
-> +	implementations may not have implemented this requirement while
-> +	allowing the ADD-IP extension.  For reasons of interoperability,
-> +	we provide this variable to control the enforcement of the
-> +	authentication requirement.
-> +
-> +	1: Allow ADD-IP extension to be used without authentication.  This
-> +	   should only be set in a closed environment for interoperability
-> +	   with older implementations.
-> +
-> +	0: Enforce the authentication requirement
-> +
-> +	Default: 0
-> +	
-> +auth_enable - BOOLEAN
-> +	Enable or disable Authenticated Chunks extension.  This extension
-> +	provides the ability to send and receive authenticated chunks and is
-> +	required for secure operation of Dynamic Address Reconfiguration
-> +	(ADD-IP) extension.
-> +
-> +	1: Enable this extension.
-> +	0: Disable this extension.
-> +
-> +	Default: 0
-> +
-> +prsctp_enable - BOOLEAN
-> +	Enable or disable the Partial Reliability extension (RFC3758) which
-> +	is used to notify peers that a given DATA should no longer be expected.
-> +
-> +	1: Enable extension
-> +	0: Disable
-> +
-> +	Default: 1
-> +
-> +max_burst - INTEGER
-> +	The limit of the number of new packets that can be initially sent.  It
-> +	controls how bursty the generated traffic can be.
-> +
-> +	Default: 4
-> +
-> +association_max_retrans - INTEGER
-> +	Set the maximum number for retransmissions that an association can
-> +	attempt deciding that the remote end is unreachable.  If this value
-> +	is exceeded, the association is terminated.
-> +
-> +	Default: 10
-> +
-> +max_init_retransmits - INTEGER
-> +	The maximum number of retransmissions of INIT and COOKIE-ECHO chunks
-> +	that an association will attempt before declaring the destination
-> +	unreachable and terminating.
-> +
-> +	Default: 8
-> +
-> +path_max_retrans - INTEGER
-> +	The maximum number of retransmissions that will be attempted on a given
-> +	path.  Once this threshold is exceeded, the path is considered
-> +	unreachable, and new traffic will use a different path when the
-> +	association is multihomed.
-> +
-> +	Default: 5
-> +
-> +rto_initial - INTEGER
-> +	The initial round trip timeout value in milliseconds that will be used
-> +	in calculating round trip times.  This is the initial time interval
-> +	for retransmissions.
-> +
-> +	Default: 3000
-> +
-> +rto_max - INTEGER
-> +	The maximum value (in milliseconds) of the round trip timeout.  This
-> +	is the largest time interval that can elapse between retransmissions.
-> +
-> +	Default: 60000
-> +
-> +rto_min - INTEGER
-> +	The minimum value (in milliseconds) of the round trip timeout.  This
-> +	is the smallest time interval the can elapse between retransmissions.
-> +
-> +	Default: 1000
-> +
-> +hb_interval - INTEGER
-> +	The interval (in milliseconds) between HEARTBEAT chunks.  These chunks
-> +	are sent at the specified interval on idle paths to probe the state of
-> +	a given path between 2 associations.
-> +
-> +	Default: 30000
-> +    
-> +sack_timeout - INTEGER
-> +	The amount of time (in milliseconds) that the implementation will wait
-> +	to send a SACK.
-> +
-> +	Default: 200
-> +
-> +valid_cookie_life - INTEGER
-> +	The default lifetime of the SCTP cookie (in milliseconds).  The cookie
-> +	is used during association establishment.
-> +
-
-No default value??
+so for the patch that started all this... do I need to go back to the
+original where I didn't use ethool?
+(since this is called from irq context....)
 
 
-Rest looks good.  Thanks for the quick update.
 
-
-> +cookie_preserve_enable - BOOLEAN
-> +	Enable or disable the ability to extend the lifetime of the SCTP cookie
-> +	that is used during the establishment phase of SCTP association
-> +
-> +	1: Enable cookie lifetime extension.
-> +	0: Disable
-> +
-> +	Default: 1
-> +
-> +rcvbuf_policy - INTEGER
-> +	Determines if the receive buffer is attributed to the socket or to
-> +	association.   SCTP supports the capability to create multiple
-> +	associations on a single socket.  When using this capability, it is
-> +	possible that a single stalled association that's buffering a lot
-> +	of data may block other associations from delivering their data by
-> +	consuming all of the receive buffer space.  To work around this,
-> +	the rcvbuf_policy could be set to attribute the receiver buffer space
-> +	to each association instead of the socket.  This prevents the described
-> +	blocking.
-> +
-> +	1: rcvbuf space is per association
-> +	0: recbuf space is per socket
-> +	
-> +	Default: 0
-> +	
-> +sndbuf_policy - INTEGER
-> +	Similar to rcvbuf_policy above, this applies to send buffer space.
-> +
-> +	1: Send buffer is tracked per association
-> +	0: Send buffer is tracked per socket.
-> +
-> +	Default: 0
-> +
-> +sctp_mem - vector of 3 INTEGERs: min, pressure, max
-> +	Number of pages allowed for queueing by all SCTP sockets.
-> +
-> +	min: Below this number of pages SCTP is not bothered about its
-> +	memory appetite. When amount of memory allocated by SCTP exceeds
-> +	this number, SCTP starts to moderate memory usage.
-> +
-> +	pressure: This value was introduced to follow format of tcp_mem.
-> +
-> +	max: Number of pages allowed for queueing by all SCTP sockets.
-> +
-> +	Default is calculated at boot time from amount of available memory.
-> +	
-> +sctp_rmem - vector of 3 INTEGERs: min, default, max
-> +	See tcp_rmem for a description.
-> +
-> +sctp_wmem  - vector of 3 INTEGERs: min, default, max
-> +	See tcp_wmem for a description.
-> +
->  UNDOCUMENTED:
->  
->  dev_weight FIXME
-> -- 
-
----
-~Randy
-Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
-http://linuxplumbersconf.org/
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
