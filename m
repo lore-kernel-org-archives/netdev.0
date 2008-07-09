@@ -1,65 +1,33 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] [PATCH] firmware: convert Ambassador ATM driver to request_firmware()
-Date: Wed, 09 Jul 2008 16:37:48 -0400
-Message-ID: <200807092037.m69Kbmc0030545@cmf.nrl.navy.mil>
-References: <1214853492.10393.350.camel@pmac.infradead.org>
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
-To: davem@davemloft.net
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: WAN: Remove dead code from wanmain.c, CONFIG_WANPIPE_MULTPPP doesn't exist
+Date: Wed, 09 Jul 2008 22:43:37 +0200
+Message-ID: <m3y74aiy9y.fsf@maximus.localdomain>
+References: <m3r6ac3xs8.fsf@maximus.localdomain>
+	<20080709144432.GD31126@csclub.uwaterloo.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>
+To: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:55817 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522AbYGIUiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 16:38:06 -0400
-In-reply-to: <1214853492.10393.350.camel@pmac.infradead.org>
+Received: from OSB1387.piap.pl ([195.187.100.11]:59592 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753050AbYGIUno (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 16:43:44 -0400
+In-Reply-To: <20080709144432.GD31126@csclub.uwaterloo.ca> (Lennart Sorensen's message of "Wed\, 9 Jul 2008 10\:44\:32 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dave, please apply to net-next.  thanks! 
+lsorense@csclub.uwaterloo.ca (Lennart Sorensen) writes:
 
-Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-Date:   Wed Jul 9 12:39:08 2008 -0400
+>> Remove dead code from wanmain.c, CONFIG_WANPIPE_MULTPPP doesn't exist
+>
+> Does anyone use this ancient code anymore?  Sangoma has been maintaining
+> their drivers out of tree for years now and the leftover bits (from 2.2
+> or 2.4 days) really isn't interesting anymore as far as I can tell.
+> Maybe removal entirely is the correct clean up method.
 
-    atm: [fore200e] use MODULE_FIRMWARE() and other suggested cleanups
-    
-    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index d5c1bbf..73338d2 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -2562,7 +2562,8 @@ fore200e_load_and_start_fw(struct fore200e* fore200e)
-     const struct firmware *firmware;
-     struct device *device;
-     struct fw_header *fw_header;
--    u32 *fw_data, fw_size;
-+    const __le32 *fw_data;
-+    u32 fw_size;
-     u32 __iomem *load_addr;
-     char buf[48];
-     int err = -ENODEV;
-@@ -2582,7 +2583,7 @@ fore200e_load_and_start_fw(struct fore200e* fore200e)
- 	return err;
-     }
- 
--    fw_data = (u32 *) firmware->data;
-+    fw_data = (__le32 *) firmware->data;
-     fw_size = firmware->size / sizeof(u32);
-     fw_header = (struct fw_header *) firmware->data;
-     load_addr = fore200e->virt_base + le32_to_cpu(fw_header->load_offset);
-@@ -3199,6 +3200,14 @@ static const struct fore200e_bus fore200e_bus[] = {
-     {}
- };
- 
--#ifdef MODULE_LICENSE
- MODULE_LICENSE("GPL");
-+#ifdef CONFIG_PCI
-+#ifdef __LITTLE_ENDIAN__
-+MODULE_FIRMWARE("pca200e.bin");
-+#else
-+MODULE_FIRMWARE("pca200e_ecd.bin2");
-+#endif
-+#endif /* CONFIG_PCI */
-+#ifdef CONFIG_SBUS
-+MODULE_FIRMWARE("sba200e_ecd.bin2");
- #endif
+It seems Cyclades Cyclom 2X (ISA only?) cards use the wanpipe/wanrouter
+thing for X.25. I don't know exact status, though.
+-- 
+Krzysztof Halasa
