@@ -1,42 +1,93 @@
 From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: Implementing RSTP and MSTP in Linux Kernel
-Date: Wed, 9 Jul 2008 09:21:43 -0700
-Message-ID: <20080709092143.19b9d9da@speedy>
-References: <6dd1343e0807090900s3d905da1qe36cf21731fd3d4e@mail.gmail.com>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Tue, 8 Jul 2008 20:16:58 -0700
+Message-ID: <20080708201658.2c496b6a@speedy>
+References: <20080708144725.5b663d19@infradead.org>
+	<20080708.145738.12692130.davem@davemloft.net>
+	<20080708164826.2a2d52c2@infradead.org>
+	<20080708.165304.55424424.davem@davemloft.net>
+	<20080708184456.52e94b93@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "\"G\"" <balajig81@gmail.com>
+Cc: David Miller <davem@davemloft.net>, swise@opengridcomputing.com,
+	rdreier@cisco.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:39999 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:40071 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750712AbYGIQVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2008 12:21:44 -0400
-In-Reply-To: <6dd1343e0807090900s3d905da1qe36cf21731fd3d4e@mail.gmail.com>
+	id S1751304AbYGIQWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 12:22:06 -0400
+In-Reply-To: <20080708184456.52e94b93@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Jul 2008 21:30:16 +0530
-"\"G\"" <balajig81@gmail.com> wrote:
+On Tue, 8 Jul 2008 18:44:56 -0700
+Arjan van de Ven <arjan@infradead.org> wrote:
 
-> Hi all
+> On Tue, 08 Jul 2008 16:53:04 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> I am trying to extend the Linux bridging functionaltiy by adding
-> support for RSTP and MSTP in the linux kernel and i want to implement
-> it as a linux kernel module. I would like to know whats that i ve to
-> take care of while implementing this functionlality especially with
-> respect to locks etc. I ve gone through the basic bridging code so any
-> suggestions on this implementation would be of real good help.
+> > From: Arjan van de Ven <arjan@infradead.org>
+> > Date: Tue, 8 Jul 2008 16:48:26 -0700
+> > 
+> > > On Tue, 08 Jul 2008 14:57:38 -0700 (PDT)
+> > > David Miller <davem@davemloft.net> wrote:
+> > > 
+> > > > What we need instead is to cache the info block into the netdev
+> > > > struct when the driver is ->open()'d, and then you can fetch it
+> > > > out of there however you like.
+> > > 
+> > > but.. isn't that like almost the same as using the object model
+> > > data at that point?
+> > 
+> > You're right, this is getting silly
+> > 
+> > To be honest, the more I think about this, the driver->name should
+> > be sufficient.
+> > 
 > 
-> Thanks for your time
+> ok here it is:
 > 
-> Cheers,
-> Balaji
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Subject: Print the module name as part of the watchdog message
+> 
+> As suggested by Dave:
+> 
+> This patch adds a function to get the driver name from a struct net_device,
+> and consequently uses this in the watchdog timeout handler to print as 
+> part of the message. 
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> ---
+>  include/linux/netdevice.h |    2 ++
+>  net/core/dev.c            |   19 +++++++++++++++++++
+>  net/sched/sch_generic.c   |    7 ++++---
+>  3 files changed, 25 insertions(+), 3 deletions(-)
+> 
+> Index: linux.trees.git/include/linux/netdevice.h
+> ===================================================================
+> --- linux.trees.git.orig/include/linux/netdevice.h
+> +++ linux.trees.git/include/linux/netdevice.h
+> @@ -1516,6 +1516,8 @@ extern void dev_seq_stop(struct seq_file
+>  extern int netdev_class_create_file(struct class_attribute *class_attr);
+>  extern void netdev_class_remove_file(struct class_attribute *class_attr);
+>  
+> +extern void netdev_drivername(struct net_device *dev, char *buffer, int len);
+> +
+>  extern void linkwatch_run_queue(void);
+>  
+>  extern int netdev_compute_features(unsigned long all, unsigned long one);
+> Index: linux.trees.git/net/core/dev.c
+> ===================================================================
+> --- linux.trees.git.orig/net/core/dev.c
+> +++ linux.trees.git/net/core/dev.c
+> @@ -4554,6 +4554,25 @@ err_name:
+>  	return -ENOMEM;
+>  }
+>  
+> +void netdev_drivername(struct net_device *dev, char *buffer, int len)
 
-There is already an out of kernel rstpd in user space (actually two of them),
-and a couple of people had done RSTP in kernel in older 2.4 embedded devices.
+void netdev_drivername(const struct net_device *dev, char *buffer, int len)
+
+since net device not changed.
