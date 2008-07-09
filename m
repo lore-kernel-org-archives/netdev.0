@@ -1,87 +1,68 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [Bugme-new] [Bug 11058] New: DEADLOOP in kernel network module
-Date: Wed, 9 Jul 2008 15:27:06 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0807091519380.11391@blackhole.kfki.hu>
-References: <bug-11058-10286@http.bugzilla.kernel.org/>
- <20080708210014.a1d3baf8.akpm@linux-foundation.org> <4874B2DC.2070305@trash.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2] xfrm: Fix inter family IPsec tunnel handling again
+Date: Wed, 9 Jul 2008 16:24:18 +0200
+Message-ID: <20080709142418.GT9549@secunet.com>
+References: <20080705071950.GA26532@secunet.com> <20080705115654.GA18290@gondor.apana.org.au> <20080708095335.GP9549@secunet.com> <20080708104022.GA26280@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, hemao77@gmail.com,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4874B2DC.2070305@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([213.68.205.161]:52402 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751879AbYGIOYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 10:24:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20080708104022.GA26280@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Jul 2008, Patrick McHardy wrote:
-
-> Andrew Morton wrote:
-> > (switched to email.  Please respond via emailed reply-to-all, not via the
-> > bugzilla web interface).
-> > 
-> > On Tue,  8 Jul 2008 20:13:20 -0700 (PDT) bugme-daemon@bugzilla.kernel.org
-> > wrote:
-> > 
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=11058
-> > > 
-> > >            Summary: DEADLOOP in kernel network module
-[...]
-> > > How the DEADLOOP happened?
-> > > 
-> > >     (1)in ctnetlink_del_conntrack()(runs in system call context): the
-> > > del_timer
-> > > is called and then goes to timeout.function.
-> > >     (2)before timeout.function finish excution(means the conntrack not
-> > > removed),an interrupt happens and a SYN packet of  the same conntrack
-> > > comes.CPU goes to irq handle and enventually runs tcp_packet().
-> > >     (3)in tcp_packet() ,del_timer() will fail because the timer was
-> > > already deleted. the timeout.function in tcp_packet will not run,
-> > > -NF_REPEAT is returned, the SYN packet will be passed back again.
-> > >     (4)Neither side has the chance to run timeout.function,the
-> > > conntrack remains there,deadloop happen,the SYN packet will be passed back
-> > > again and again.
-> > > 
-> > > The fix maybe,add lock the softirq when doing conntrack removing:
-> > > +++    local_bh_disable();
-> > >       if (del_timer(&ct->timeout))                /*deactive the timer*/
-> > >          ct->timeout.function((unsigned long) ct);/*remove conntrack from
-> > > conntrack table*/
-> > > +++    local_bh_enable();
-> > > 
-> > > Thanks, may this be helpful.
-> > > My email: hemao77@gmail.com
-> > > 
-> > > It is hard to reproduce , but it really happen on our linux box.
-> > > 
-> > 
-> > Thanks.
-> > 
-> > Please submit patches via email as described in
-> > Documentation/SubmittingPatches.  The file ./MAINTAINERS can be used to
-> > determine which individuals and mailing lists the patch should be sent to.
-> > 
-> > But that's for next time - this patch is small enough for the netfilter
-> > developers to be able to type in again ;)
+On Tue, Jul 08, 2008 at 06:40:22PM +0800, Herbert Xu wrote:
 > 
-> Good catch, thanks. Basically all del_timer()/timeout.function calls
-> in conntrack can happen in process context, so we'd have to disable
-> BHs every time we do this. I think this fix should also work. The
-> only spot where we return NF_REPEAT is in TCP conntrack, so we can
-> simply make sure we only do this if we actually managed to kill the
-> connection.
+> I discussed this with Miyazawa-san earlier in the year.  In order
+> to maintain backwards compatibility, the use of AF_UNSPEC needs to
+> be combined with an SA flag.  So let's create a new flag that can
+> be set by the applications which needs the AF_UNSPEC behaviour.
 > 
-> Jozsef, what do you think?
 
-I agree with you completely - and nice catch, indeed! Your proposed patch 
-looks just fine.
+Just to get you right, do you mean something like the patch below?
+With this and a patched iproute2 I've got the inter family tunnels running.
 
-Best regards,
-Jozsef
+Steffen
+
+---
+ include/linux/xfrm.h |    1 +
+ net/xfrm/xfrm_user.c |    3 +--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 2ca6bae..fb0c215 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -339,6 +339,7 @@ struct xfrm_usersa_info {
+ #define XFRM_STATE_NOPMTUDISC	4
+ #define XFRM_STATE_WILDRECV	8
+ #define XFRM_STATE_ICMP		16
++#define XFRM_STATE_AF_UNSPEC	32
+ };
+ 
+ struct xfrm_usersa_id {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b976d9e..04c4150 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -277,9 +277,8 @@ static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *
+ 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
+ 	x->props.flags = p->flags;
+ 
+-	if (!x->sel.family)
++	if (!x->sel.family && !(p->flags & XFRM_STATE_AF_UNSPEC))
+ 		x->sel.family = p->family;
 -
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+ }
+ 
+ /*
+-- 
+1.5.3
+
