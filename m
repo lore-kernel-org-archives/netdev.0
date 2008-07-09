@@ -1,122 +1,42 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: [patch 15/15] LTTng instrumentation - ipv6
-Date: Wed, 9 Jul 2008 13:11:24 -0400
-Message-ID: <20080709171124.GC12193@Krystal>
-References: <20080709145929.352201601@polymtl.ca> <4874EEF3.9010700@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Wed, 09 Jul 2008 10:20:55 -0700
+Message-ID: <1215624055.5553.252.camel@localhost>
+References: <20080708144725.5b663d19@infradead.org>
+	 <20080708.145738.12692130.davem@davemloft.net>
+	 <20080708164826.2a2d52c2@infradead.org>
+	 <20080708.165304.55424424.davem@davemloft.net>
+	 <20080708184456.52e94b93@infradead.org>  <20080708201658.2c496b6a@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org, Pekka Savola <pekkas@netcore.fi>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Masami Hiramatsu <mhiramat@redhat.com>,
-	'Peter Zijlstra' <peterz@infradead.org>,
-	"Frank Ch. Eigler" <fche@redhat.com>,
-	'Hideo AOKI' <haoki@redhat.com>,
-	Takashi Nishiie <t-nishiie@np.css.fujitsu.com>,
-	'Steven Rostedt' <rostedt@goodmis.org>,
-	Eduard - Gabriel Munteanu <eduard.munteanu@linux360.ro>
-To: Masami Hiramatsu <mhiramat@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754598AbYGIRLl@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4874EEF3.9010700@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	swise@opengridcomputing.com, rdreier@cisco.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1741 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbYGIRZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 13:25:41 -0400
+In-Reply-To: <20080708201658.2c496b6a@speedy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Masami Hiramatsu (mhiramat@redhat.com) wrote:
-> Hi Mathieu,
-> 
-> I couldn't find your 15th patch in my mailbox, neither lkml archive.
-> Could you resend it?
-> 
-> Thank you,
-> 
+On Tue, 2008-07-08 at 20:16 -0700, Stephen Hemminger wrote:
+> > +void netdev_drivername(struct net_device *dev, char *buffer, int len)
+> void netdev_drivername(const struct net_device *dev, char *buffer, int len)
+> since net device not changed.
 
-Sure, I think quilt had some problem with it because of a ill formatted
-email. Here it is.
+char *netdev_drivername(const struct net_dev *dev, char *buffer, size_t len)
 
+size_t len and returns *buffer
+
+allows:
+
+	char drivername[64];
+        printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
+               dev->name, netdev_drivername(dev, drivername, sizeof(drivername));
 
 
-Instrument addr_add and del of network interfaces. Lets a tracer know the
-interface address changes.
-
-Those tracepoints are used by LTTng.
-
-About the performance impact of tracepoints (which is comparable to markers),
-even without immediate values optimizations, tests done by Hideo Aoki on ia64
-show no regression. His test case was using hackbench on a kernel where
-scheduler instrumentation (about 5 events in code scheduler code) was added.
-See the "Tracepoints" patch header for performance result detail.
-
-Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-CC: Pekka Savola <pekkas@netcore.fi>
-CC: netdev@vger.kernel.org
-CC: David S. Miller <davem@davemloft.net>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-CC: Masami Hiramatsu <mhiramat@redhat.com>
-CC: 'Peter Zijlstra' <peterz@infradead.org>
-CC: "Frank Ch. Eigler" <fche@redhat.com>
-CC: 'Ingo Molnar' <mingo@elte.hu>
-CC: 'Hideo AOKI' <haoki@redhat.com>
-CC: Takashi Nishiie <t-nishiie@np.css.fujitsu.com>
-CC: 'Steven Rostedt' <rostedt@goodmis.org>
-CC: Eduard - Gabriel Munteanu <eduard.munteanu@linux360.ro>
----
- net/ipv6/addrconf.c   |    4 ++++
- net/ipv6/ipv6-trace.h |   14 ++++++++++++++
- 2 files changed, 18 insertions(+)
-
-Index: linux-2.6-lttng/net/ipv6/addrconf.c
-===================================================================
---- linux-2.6-lttng.orig/net/ipv6/addrconf.c	2008-07-09 10:55:46.000000000 -0400
-+++ linux-2.6-lttng/net/ipv6/addrconf.c	2008-07-09 10:58:43.000000000 -0400
-@@ -85,6 +85,7 @@
- 
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-+#include "ipv6-trace.h"
- 
- /* Set to 3 to get tracing... */
- #define ACONF_DEBUG 2
-@@ -650,6 +651,8 @@ ipv6_add_addr(struct inet6_dev *idev, co
- 	/* For caller */
- 	in6_ifa_hold(ifa);
- 
-+	trace_ipv6_addr_add(ifa);
-+
- 	/* Add to big hash table */
- 	hash = ipv6_addr_hash(addr);
- 
-@@ -2163,6 +2166,7 @@ static int inet6_addr_del(struct net *ne
- 			in6_ifa_hold(ifp);
- 			read_unlock_bh(&idev->lock);
- 
-+			trace_ipv6_addr_del(ifp);
- 			ipv6_del_addr(ifp);
- 
- 			/* If the last address is deleted administratively,
-Index: linux-2.6-lttng/net/ipv6/ipv6-trace.h
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6-lttng/net/ipv6/ipv6-trace.h	2008-07-09 10:58:43.000000000 -0400
-@@ -0,0 +1,14 @@
-+#ifndef _IPV6_TRACE_H
-+#define _IPV6_TRACE_H
-+
-+#include <net/if_inet6.h>
-+#include <linux/tracepoint.h>
-+
-+DEFINE_TRACE(ipv6_addr_add,
-+	TPPROTO(struct inet6_ifaddr *ifa),
-+	TPARGS(ifa));
-+DEFINE_TRACE(ipv6_addr_del,
-+	TPPROTO(struct inet6_ifaddr *ifa),
-+	TPARGS(ifa));
-+
-+#endif
-
-
--- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
