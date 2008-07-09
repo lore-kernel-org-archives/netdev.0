@@ -1,71 +1,124 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Multicast and receive filtering in TUN/TAP
-Date: Wed, 09 Jul 2008 15:58:23 -0700
-Message-ID: <4875428F.4080704@qualcomm.com>
+From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
+Subject: [DCCP][QPOLICY]: More strict controlling of supplied parameters
+Date: Thu, 10 Jul 2008 01:20:45 +0200
+Message-ID: <200807100120.46504.tomasz@grobelny.oswiecenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Brian Braunstein <linuxkernel@bristyle.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Shaun Jackman <sjackman@gmail.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-fou
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:16921 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752699AbYGIW6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 18:58:25 -0400
+Received: from oswiecenia.net ([83.13.108.58]:3017 "EHLO poczta.oswiecenia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750922AbYGIXVG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 19:21:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yesterday while fixing xoff stuckiness issue in the TUN/TAP driver I got 
-a chance to look into the multicast filtering code in there. And 
-immediately realized how terribly broken & confusing it is. The patch 
-was originally done by Shaun (CC'ed) and went in without any proper ACK 
-from me, Dave or Jeff.
-Here is the original ref
-	http://marc.info/?l=linux-netdev&m=110490502102308&w=2
+Ensure that cmsg->cmsg_type value is valid for qpolicy that is currently in 
+use.
 
-I'm not going to dive into too much details on what's wrong with the 
-current code. The main issues are that it mixes RX and TX filtering 
-which are orthogonal, and it reuses ioctl names and stuff for 
-manipulating TX filter state as if it was a normal RX multicast state.
-Later on Brian's patch added insult to the injury
-	http://git.kernel.org/?p=linux/kernel/git/\
-		torvalds/linux-2.6.git;\
-		a=commit;h=36226a8ded46b89a94f9de5976f554bb5e02d84c
-Brian missed the point of the original patch (not his fault, as I said 
-the original patch was not the best) that the separate address 
-introduced by the MC patch was used for filtering _TX_ packets. It had 
-nothing to do with the HW addr of the local network interface.
-
-The problem is that MC stuff is now even more broken and ioctls that 
-were used originally now mean something different. So my first thinking 
-was to just rip the MC stuff out because it's broken and probably nobody 
-uses it (given that we got no complains after Brian's patch broke it 
-completely). But then I realized that if done properly it might be very 
-useful for virtualization.
-
+Signed-off-by: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
 ---
+ net/dccp/dccp.h    |    1 +
+ net/dccp/proto.c   |    8 ++++++--
+ net/dccp/qpolicy.c |   23 +++++++++++++++++------
+ 3 files changed, 24 insertions(+), 8 deletions(-)
 
-So the first question is are there any users out there that ever used 
-the original patch. Shaun, any insight ? How did you intend to use it ?
-
----
-
-The second question is do you guys think that QEMU/KVM/LGUEST/etc would 
-benefit if receive filtering was done by the host OS. Here is a specific 
-example of what I'm talking about.
-We can do what qemu/hw/e1000.c:receive_filter() does in the _host_ 
-context (that function currently runs in the guest context). By looking 
-at libvirt, typical QEMU based setup is that you have a single bridge 
-and all the TAPs from different VMs are hooked up to that bridge. What 
-that means is that if one VM is getting MC traffic or when the bridge 
-sees MACADDR that is not in its tables the packets get delivered to all 
-the VMs. ie We have to wake all of the up only to so that they could 
-drop that packet. Instead, we could setup filters in the host's side of 
-the TAP device.
-Does that sound like something useful for QEMU/KVM ?
-If yes we can talk about the API. If not then I'll just nuke it.
-
-Thanx
-Max
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index 9c60d01..988eea7 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -241,6 +241,7 @@ extern bool		dccp_qpolicy_full(struct sock *sk);
+ extern void		dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
+ extern struct sk_buff	*dccp_qpolicy_top(struct sock *sk);
+ extern struct sk_buff	*dccp_qpolicy_pop(struct sock *sk);
++extern bool		dccp_qpolicy_param_ok(struct sock *sk, int param);
+ 
+ /*
+  * TX Packet Output and TX Timers
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index d818606..7d6dbc1 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -709,7 +709,8 @@ int compat_dccp_getsockopt(struct sock *sk, int level, int 
+optname,
+ EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
+ #endif
+ 
+-static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
++static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb,
++							struct sock *sk)
+ {
+ 	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
+ 
+@@ -733,6 +734,9 @@ static int dccp_msghdr_parse(struct msghdr *msg, struct 
+sk_buff *skb)
+ 		if (cmsg->cmsg_level != SOL_DCCP)
+ 			continue;
+ 
++		if (!dccp_qpolicy_param_ok(sk, cmsg->cmsg_type))
++			return -EINVAL;
++
+ 		switch (cmsg->cmsg_type) {
+ 		case DCCP_SCM_PRIORITY:
+ 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u32)))
+@@ -789,7 +793,7 @@ int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, 
+struct msghdr *msg,
+ 	if (rc != 0)
+ 		goto out_discard;
+ 
+-	rc = dccp_msghdr_parse(msg, skb);
++	rc = dccp_msghdr_parse(msg, skb, sk);
+ 	if (rc != 0)
+ 		goto out_discard;
+ 
+diff --git a/net/dccp/qpolicy.c b/net/dccp/qpolicy.c
+index 414696b..4ca6e5b 100644
+--- a/net/dccp/qpolicy.c
++++ b/net/dccp/qpolicy.c
+@@ -73,17 +73,20 @@ static struct dccp_qpolicy_operations {
+ 	void		(*push)	(struct sock *sk, struct sk_buff *skb);
+ 	bool		(*full) (struct sock *sk);
+ 	struct sk_buff*	(*top)  (struct sock *sk);
++	unsigned int	params;
+ 
+ } qpol_table[DCCPQ_POLICY_MAX] = {
+ 	[DCCPQ_POLICY_SIMPLE] = {
+-		.push = qpolicy_simple_push,
+-		.full = qpolicy_simple_full,
+-		.top  = qpolicy_simple_top,
++		.push   = qpolicy_simple_push,
++		.full   = qpolicy_simple_full,
++		.top    = qpolicy_simple_top,
++		.params = 0,
+ 	},
+ 	[DCCPQ_POLICY_PRIO] = {
+-		.push = qpolicy_simple_push,
+-		.full = qpolicy_prio_full,
+-		.top  = qpolicy_prio_best_skb,
++		.push   = qpolicy_simple_push,
++		.full   = qpolicy_prio_full,
++		.top    = qpolicy_prio_best_skb,
++		.params = DCCP_SCM_PRIORITY,
+ 	},
+ };
+ 
+@@ -124,3 +127,11 @@ struct sk_buff *dccp_qpolicy_pop(struct sock *sk)
+ 		skb_unlink(skb, &sk->sk_write_queue);
+ 	return skb;
+ }
++
++bool dccp_qpolicy_param_ok(struct sock *sk, int param)
++{
++	/* check if exactly one bit is set */
++	if (!param || (param & (param - 1)))
++		return false;
++	return (qpol_table[dccp_sk(sk)->dccps_qpolicy].params & param) == param;
++}
+-- 
+1.5.4.5
+-- 
+Regards,
+Tomasz Grobelny
