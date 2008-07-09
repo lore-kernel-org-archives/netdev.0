@@ -1,74 +1,79 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: setsockopt()
-Date: Wed, 9 Jul 2008 14:11:22 -0400
-Message-ID: <20080709181122.GB488@fieldses.org>
-References: <48728B09.1050801@citi.umich.edu> <20080707.144912.76654646.davem@davemloft.net> <20080708045443.GA7726@2ka.mipt.ru> <20080708020235.388a7bd5.billfink@mindspring.com> <adar6a4x510.fsf@cisco.com> <20080708134845.2372a483@speedy> <20080708180500.e8a61231.billfink@mindspring.com> <20080709052534.GA8157@2ka.mipt.ru> <20080709014758.d59be0d8.billfink@mindspring.com> <20080709060341.GA29743@2ka.mipt.ru>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
+Date: Wed, 9 Jul 2008 20:16:43 +0200
+Message-ID: <f4845fc0807091116s58b0b492p9f28281fcdca4e17@mail.gmail.com>
+References: <1215616317-11386-1-git-send-email-juliusv@google.com>
+	 <1215616317-11386-3-git-send-email-juliusv@google.com>
+	 <4874EABC.4000301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bill Fink <billfink@mindspring.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Roland Dreier <rdreier@cisco.com>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([66.93.2.214]:48267 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752020AbYGISLp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2008 14:11:45 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4874EABC.4000301@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20080709060341.GA29743@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 09, 2008 at 10:03:41AM +0400, Evgeniy Polyakov wrote:
-> On Wed, Jul 09, 2008 at 01:47:58AM -0400, Bill Fink (billfink@mindspring.com) wrote:
-> > Are you sure you're not thinking about tcp_mem, which is a function
-> > of available memory, or has this been changed in more recent kernels?
-> > The 2.6.22.9 Documentation/networking/ip-sysctl.txt indicates:
-> 
-> In 2.6.25 tcp_mem depends on amount of ram, and third tcp_wmem is
-> calculated based on it:
-> 
-> /* Set per-socket limits to no more than 1/128 the pressure threshold */
-> limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
-> max_share = min(4UL*1024*1024, limit);
-> 
-> sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
-> sysctl_tcp_wmem[1] = 16*1024;
-> sysctl_tcp_wmem[2] = max(64*1024, max_share);
-> 
-> sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
-> sysctl_tcp_rmem[1] = 87380;
-> sysctl_tcp_rmem[2] = max(87380, max_share);
-> 
-> > tcp_wmem - vector of 3 INTEGERs: min, default, max
-> > 	...
-> > 	max: Maximal amount of memory allowed for automatically selected
-> > 	send buffers for TCP socket. This value does not override
-> > 	net.core.wmem_max, "static" selection via SO_SNDBUF does not use this.
-> > 	Default: 128K
-> 
-> Yeah, its a bit confusing. It probably was copypasted, there is no
-> default, but minimum possible value.
+On Wed, Jul 9, 2008, Patrick McHardy wrote:
+> Just a few quick comments, will try to do a full review later:
 
-I don't understand; what do you mean by "there is no default"?  (And if
-not, what does tcp_wmem[1] mean?)
+Thanks!
 
---b.
+>> + * Policy used for commands that operate on service, destination
+>> + * or daemon entries
+>> + */
+>> +static struct nla_policy ip_vs_entries_policy[IPVS_ENTRY_ATTR_MAX + 1]
+>> +__read_mostly = {
+>
+> These can all be const (and have the __read_mostly annotation removed).
 
-> 
-> > 
-> > The TCP autotuning worked great, with both tests basically achieving
-> > full 10-GigE line rate.  The test with the TCP autotuning actually
-> > did slightly better than the test where an explicitly specified 1 MB
-> > socket buffer was used, although this could just be within the margin
-> > of error of the testing.
-> 
-> If you will check tcp_wmem on your machine, it will likely show that
-> tcp_wmem[max] is far larger than 128k. It is equal to 1mb on my old
-> laptop with 256mb of ram, I suppose machines equipped with 10gige
-> network adapters usually have slightly more.
-> 
-> -- 
-> 	Evgeniy Polyakov
+Ok!
+
+>> +static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
+>> +                                struct ip_vs_stats *stats)
+>> +{
+>> +       struct nlattr *nl_stats = nla_nest_start(skb, container_type);
+>> +       if (!nl_stats)
+>> +               goto nla_put_failure;
+>
+> Unbalanced locking.
+
+Whoa, right! Will correct that.
+
+>> +static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info
+>> *info)
+>> +{
+>> +       struct ip_vs_service *svc;
+>> +       struct ip_vs_service_user usvc;
+>> +       struct ip_vs_dest_user udest;
+>> +       int ret = 0, cmd, flags;
+>> +       int need_full_svc = 0, need_full_dest = 0;
+>> +
+>> +       cmd = info->genlhdr->cmd;
+>> +       flags = info->nlhdr->nlmsg_flags;
+>> +
+>> +       /* increase the module use count */
+>> +       ip_vs_use_count_inc();
+>
+> This looks fishy - the reference probably must be taken by
+> genetlink before calling the command handler.
+
+That would seem better, but is that possible? I took this from the
+sockopt interface. What would you generally want to do in this
+situation?
+
+>> +void ip_vs_genl_unregister(void)
+>> +{
+>> +       genl_unregister_family(&ip_vs_genl_family);
+>
+> Doesn't it also has to unregister the ops?
+
+No, that happens automatically when you unregister the family.
+
+Julius
+
+-- 
+Google Switzerland GmbH
