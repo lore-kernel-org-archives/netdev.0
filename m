@@ -1,73 +1,74 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 00/08]: VLAN update
-Date: Wed,  9 Jul 2008 14:09:45 +0200 (MEST)
-Message-ID: <20080709120945.11669.42790.sendpatchset@localhost.localdomain>
+Subject: [PATCH 04/08]: packet: deliver VLAN TCI to userspace
+Date: Wed,  9 Jul 2008 14:09:51 +0200 (MEST)
+Message-ID: <20080709120950.11669.98921.sendpatchset@localhost.localdomain>
+References: <20080709120945.11669.42790.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58609 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:58622 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752951AbYGIMJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 08:09:48 -0400
+	with ESMTP id S1753590AbYGIMJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 08:09:52 -0400
+In-Reply-To: <20080709120945.11669.42790.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches include an updated set of the VLAN packet socket fixes,
-now also supporting VLAN TCI delivery to userspace using mmaped packet
-sockets, as well as a patch to add ->get_flags ethtool support and
-a few minor cleanup patches.
+packet: deliver VLAN TCI to userspace
 
-To recap the VLAN packet socket problems fixed by these patches:
+Store the VLAN tag in the auxillary data/tpacket2_hdr so userspace can properly
+deal with hardware VLAN tagging/stripping.
 
-- With hardware tagging, outgoing packets are visible without
-  the VLAN header, while with software tagging the full VLAN
-  header is visible
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-- With hardware stripping, incoming packets for locally configured
-  VLANs appear on the VLAN device without being visible on the
-  underlying device. Packets for unknown VLANs are not visible
-  at all. Without hardware stripping, all VLAN packets are visible
-  on the underlying device.
+---
+commit 1e655d00db6762d05f8d99912a70f58fe4c4f977
+tree 605cd8de3e2752890703706e7dd9acaaadcf5324
+parent 67facd0da49b1c2061e17a6623904f675d0b1bc9
+author Patrick McHardy <kaber@trash.net> Wed, 09 Jul 2008 13:56:52 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 09 Jul 2008 13:56:52 +0200
 
-The patches move the VLAN TCI from skb->cb to a new skb member
-to avoid clashes with qdiscs and packet sockets use of skb->cb.
-On the TX path this is enough to make sure that packet sockets
-can be made aware of the VLAN TCI. On the hardware accelerated
-RX path, we also store the VLAN TCI in the skb and manually invoke
-the ptype_all handlers. The packet socket code stores the TCI in
-either the auxdata (for regular packet sockets) or the new
-tpacket2_hdr (for mmaped packet sockets) and delivers it to
-userspace, where it can be used to reconstruct the VLAN header.
+ include/linux/if_packet.h |    2 ++
+ net/packet/af_packet.c    |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-The only remaining problem is that socket filters contructed for
-VLAN headers don't work properly since no header is present.
-Since with the approach taken by these patches, userspace has
-to be aware of VLAN acceleration anyway, it seems reasonable
-to add a new filter instruction for getting the VLAN TCI from
-the skb and expect it to construct its filters accordingly.
-This is not done so far however, other suggestions are still
-welcome :)
-
-
- include/linux/if_packet.h |   23 ++++++
- include/linux/if_vlan.h   |   31 ++------
- include/linux/netdevice.h |    1 +
- include/linux/skbuff.h    |    3 +
- net/8021q/vlan.c          |    8 +--
- net/8021q/vlan_core.c     |    4 +
- net/8021q/vlan_dev.c      |  116 +++++++----------------------
- net/8021q/vlanproc.c      |   11 +--
- net/core/dev.c            |   27 +++++++
- net/core/skbuff.c         |    3 +
- net/packet/af_packet.c    |  181 ++++++++++++++++++++++++++++++++++++--------
- 11 files changed, 248 insertions(+), 160 deletions(-)
-
-Patrick McHardy (8):
-      vlan: Don't store VLAN tag in cb
-      vlan: deliver packets received with VLAN acceleration to network taps
-      packet: support extensible, 64 bit clean mmaped ring structure
-      packet: deliver VLAN TCI to userspace
-      vlan: ethtool ->get_flags support
-      vlan: clean up vlan_dev_hard_header()
-      vlan: clean up hard_start_xmit functions
-      vlan: remove unnecessary include statements
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index d4d3c82..a630295 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -59,6 +59,7 @@ struct tpacket_auxdata
+ 	__u32		tp_snaplen;
+ 	__u16		tp_mac;
+ 	__u16		tp_net;
++	__u16		tp_vlan_tci;
+ };
+ 
+ struct tpacket_hdr
+@@ -90,6 +91,7 @@ struct tpacket2_hdr
+ 	__u16		tp_net;
+ 	__u32		tp_sec;
+ 	__u32		tp_nsec;
++	__u16		tp_vlan_tci;
+ };
+ 
+ #define TPACKET2_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket2_hdr)) + sizeof(struct sockaddr_ll))
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 85ab3e3..250e9b8 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -702,6 +702,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+ 			getnstimeofday(&ts);
+ 		h.h2->tp_sec = ts.tv_sec;
+ 		h.h2->tp_nsec = ts.tv_nsec;
++		h.h2->tp_vlan_tci = skb->vlan_tci;
+ 		hdrlen = sizeof(*h.h2);
+ 		break;
+ 	default:
+@@ -1172,6 +1173,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		aux.tp_snaplen = skb->len;
+ 		aux.tp_mac = 0;
+ 		aux.tp_net = skb_network_offset(skb);
++		aux.tp_vlan_tci = skb->vlan_tci;
+ 
+ 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
+ 	}
