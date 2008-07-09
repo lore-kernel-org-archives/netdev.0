@@ -1,67 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: setsockopt()
-Date: Wed, 9 Jul 2008 10:03:41 +0400
-Message-ID: <20080709060341.GA29743@2ka.mipt.ru>
-References: <20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu> <20080707.144912.76654646.davem@davemloft.net> <20080708045443.GA7726@2ka.mipt.ru> <20080708020235.388a7bd5.billfink@mindspring.com> <adar6a4x510.fsf@cisco.com> <20080708134845.2372a483@speedy> <20080708180500.e8a61231.billfink@mindspring.com> <20080709052534.GA8157@2ka.mipt.ru> <20080709014758.d59be0d8.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Roland Dreier <rdreier@cisco.com>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Bill Fink <billfink@mindspring.com>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: [PATCH] tun: Persistent devices can get stuck in xoff state
+Date: Tue,  8 Jul 2008 23:24:08 -0700
+Message-ID: <1215584648-13444-1-git-send-email-maxk@qualcomm.com>
+Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:50560 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751381AbYGIGED (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2008 02:04:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20080709014758.d59be0d8.billfink@mindspring.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:58346 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526AbYGIGYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 02:24:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 09, 2008 at 01:47:58AM -0400, Bill Fink (billfink@mindspring.com) wrote:
-> Are you sure you're not thinking about tcp_mem, which is a function
-> of available memory, or has this been changed in more recent kernels?
-> The 2.6.22.9 Documentation/networking/ip-sysctl.txt indicates:
+The scenario goes like this. App stops reading from tun/tap.
+TX queue gets full and driver does netif_stop_queue().
+App closes fd and TX queue gets flushed as part of the cleanup.
+Next time the app opens tun/tap and starts reading from it but
+the xoff state is not cleared. We're stuck.
+Normally xoff state is cleared when netdev is brought up. But
+in the case of persistent devices this happens only during
+initial setup.
 
-In 2.6.25 tcp_mem depends on amount of ram, and third tcp_wmem is
-calculated based on it:
+The fix is trivial. If device is already up when an app opens
+it we clear xoff state and that gets things moving again.
 
-/* Set per-socket limits to no more than 1/128 the pressure threshold */
-limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
-max_share = min(4UL*1024*1024, limit);
+Signed-off-by: Max Krasnyansky <maxk@qualcomm.com>
+---
+ drivers/net/tun.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
-sysctl_tcp_wmem[1] = 16*1024;
-sysctl_tcp_wmem[2] = max(64*1024, max_share);
-
-sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
-sysctl_tcp_rmem[1] = 87380;
-sysctl_tcp_rmem[2] = max(87380, max_share);
-
-> tcp_wmem - vector of 3 INTEGERs: min, default, max
-> 	...
-> 	max: Maximal amount of memory allowed for automatically selected
-> 	send buffers for TCP socket. This value does not override
-> 	net.core.wmem_max, "static" selection via SO_SNDBUF does not use this.
-> 	Default: 128K
-
-Yeah, its a bit confusing. It probably was copypasted, there is no
-default, but minimum possible value.
-
-> 
-> The TCP autotuning worked great, with both tests basically achieving
-> full 10-GigE line rate.  The test with the TCP autotuning actually
-> did slightly better than the test where an explicitly specified 1 MB
-> socket buffer was used, although this could just be within the margin
-> of error of the testing.
-
-If you will check tcp_wmem on your machine, it will likely show that
-tcp_wmem[max] is far larger than 128k. It is equal to 1mb on my old
-laptop with 256mb of ram, I suppose machines equipped with 10gige
-network adapters usually have slightly more.
-
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5b5d875..e665f72 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -576,6 +576,11 @@ static int tun_set_iff(struct file *file, struct ifreq *ifr)
+ 	file->private_data = tun;
+ 	tun->attached = 1;
+ 
++	/* Make sure persistent devices do not get stuck in
++	 * xoff state */
++	if (netif_running(tun->dev))
++		netif_wake_queue(tun->dev);
++
+ 	strcpy(ifr->ifr_name, tun->dev->name);
+ 	return 0;
+ 
 -- 
-	Evgeniy Polyakov
+1.5.5.1
+
