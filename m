@@ -1,65 +1,114 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: [PATCH] TCP: Add seq and ack numbers to TCP_INFO
-Date: Wed, 9 Jul 2008 10:23:43 -0700
-Message-ID: <396556a20805301217k293e5718h6bbf02bfe069003@europa>
+From: Mario Limonciello <mario_limonciello@dell.com>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+ Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
+ Problem)
+Date: Wed, 09 Jul 2008 12:31:59 -0500
+Message-ID: <4874F60F.2030501@dell.com>
+References: <4861800B.90703@nscus.com>	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>	 <48640535.2050000@nscus.com>	 <20080626215918.GC2555@electric-eye.fr.zoreil.com> <1215435236.11909.121.camel@localhost> <487232F4.6000206@dell.com> <4874EFC5.4070008@nscus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:41703 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752535AbYGIR1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 13:27:44 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so869674yxm.1
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2008 10:27:42 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig98D03D9A84A15847D79F3081"
+Cc: Kasper Sandberg <lkml@metanurb.dk>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: mgrollman@nscus.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <4874EFC5.4070008@nscus.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-TCP: Add seq and ack numbers to TCP_INFO
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig98D03D9A84A15847D79F3081
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-No ABI breakage: Userspace specifies the size of the structure that they're
-expecting, and the new fields are at the end, so existing code should function
-just fine as we'll truncate the new struct tcp_info to fit.
+Hi Michael:
 
-Signed-off-by: Adam Langley <agl@imperialviolet.org>
----
+Sorry, I posted this to the list I received your message from
+(netdev@vger.kernel.org).  I don't believe it's been applied by anyone
+as of yet.
 
- include/linux/tcp.h |    5 +++++
- net/ipv4/tcp.c      |    5 +++++
- 2 files changed, 10 insertions(+), 0 deletions(-)
+Regards
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 07e79bd..55094ea 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -157,6 +157,11 @@ struct tcp_info
- 	__u32	tcpi_rcv_space;
- 
- 	__u32	tcpi_total_retrans;
-+
-+	__u32	tcpi_seq; /* seq number of next byte to be written to socket */
-+	__u32	tcpi_ack; /* ack number of next byte to be read from socket */
-+	__u32	tcpi_tseq; /* seq number of next byte to be transmitted */
-+	__u32	tcpi_tack; /* ack number of next byte to be received */
- };
- 
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 56a133c..c56d5c3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2255,6 +2255,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_rcv_space = tp->rcvq_space.space;
- 
- 	info->tcpi_total_retrans = tp->total_retrans;
-+
-+	info->tcpi_seq = tp->write_seq;
-+	info->tcpi_ack = tp->copied_seq;
-+	info->tcpi_tseq = tp->pushed_seq;
-+	info->tcpi_tack = tp->rcv_nxt;
- }
- 
- EXPORT_SYMBOL_GPL(tcp_get_info);
+Michael Grollman wrote:
+> Mario,
+>
+> Apologies in advance for my ignorance.
+>
+> When you write below about  'the patch' and 'the list,' can you be a
+> bit more specific, particularly about which list you posted it to?
+>
+> Also, I think Kasper's question below related to, was the patch you
+> used to fix your 8169 issues now part of  rc9, or is it still
+> independent of the main tree?  For those like me not used to be
+> bleeding edge, its cleaner to just snag the rc candidate than to try
+> the hand patch method.
+>
+> Any insight you can offer is appreciated.
+>
+> Cheers,
+>
+> - Michael
+>
+> Mario Limonciello wrote:
+>> Kasper:
+>>
+>> Particularly try the patch that I posted to the list.  It solved the
+>> ifup (and resume) failures for me on two platforms using that chipset.=
+
+>>
+>> Regards
+>>
+>> Kasper Sandberg wrote:
+>> =20
+>>> On Thu, 2008-06-26 at 23:59 +0200, Francois Romieu wrote:
+>>>   Sorry for the delay, i had to do an onsite thing in another
+>>> country, so
+>>> i first see your message now.
+>>>
+>>> Would it be okay if i took rc9 instead? also, i saw you posted a set =
+of
+>>> patches to sync more with realteks code, is this something you would
+>>> like me to test too, or aswell? (remember, i have the 8111c).
+>>>
+>>> Btw, a thought just crossed my mind as to a possible reason why this
+>>> might be happening, i was googling around, and it seems the TWO nic's=
+
+>>> are supposed to have some sort of hardware bonding thing, could it be=
+
+>>> because such stuff isnt handled?
+>>>
+>>> mvh.
+>>> Kasper Sandberg
+>>>
+>>> --=20
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>      =20
+>>
+>>  =20
+>
+
+--=20
+Mario Limonciello
+*Dell | Linux Engineering*
+mario_limonciello@dell.com
+
+
+--------------enig98D03D9A84A15847D79F3081
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFIdPYP2CrZjkA73YsRAhQtAKCfaC0rZDkEvuU5EpNNA0IR7GVKUgCePB3H
+eZIumrJlwuNrFKKwg/hhYj0=
+=mZDT
+-----END PGP SIGNATURE-----
+
+--------------enig98D03D9A84A15847D79F3081--
