@@ -1,39 +1,124 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Move userspace definitions to
-	include/linux/ip_vs.h
-Date: Wed, 9 Jul 2008 11:11:12 +1000
-Message-ID: <20080709011110.GA600@verge.net.au>
-References: <1215527396-15135-1-git-send-email-juliusv@google.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Tue, 8 Jul 2008 18:44:56 -0700
+Message-ID: <20080708184456.52e94b93@infradead.org>
+References: <20080708144725.5b663d19@infradead.org>
+	<20080708.145738.12692130.davem@davemloft.net>
+	<20080708164826.2a2d52c2@infradead.org>
+	<20080708.165304.55424424.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1215527396-15135-1-git-send-email-juliusv@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: swise@opengridcomputing.com, rdreier@cisco.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:36790 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381AbYGIBpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2008 21:45:18 -0400
+In-Reply-To: <20080708.165304.55424424.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 08, 2008 at 04:29:56PM +0200, Julius Volz wrote:
-> Current versions of ipvsadm include "/usr/src/linux/include/net/ip_vs.h"
-> directly. This file also contains kernel-only definitions. Normally, public
-> definitions should live in include/linux, so this patch moves the
-> definitions shared with userspace to a new file, "include/linux/ip_vs.h".
+On Tue, 08 Jul 2008 16:53:04 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Arjan van de Ven <arjan@infradead.org>
+> Date: Tue, 8 Jul 2008 16:48:26 -0700
 > 
-> To make old ipvsadms still compile with this, the old header file includes
-> the new one.
+> > On Tue, 08 Jul 2008 14:57:38 -0700 (PDT)
+> > David Miller <davem@davemloft.net> wrote:
+> > 
+> > > What we need instead is to cache the info block into the netdev
+> > > struct when the driver is ->open()'d, and then you can fetch it
+> > > out of there however you like.
+> > 
+> > but.. isn't that like almost the same as using the object model
+> > data at that point?
 > 
-> The motivation for this cleanup is the planned Netlink interface for IPVS.
+> You're right, this is getting silly
+> 
+> To be honest, the more I think about this, the driver->name should
+> be sufficient.
+> 
 
-Hi Julius,
+ok here it is:
 
-Firstly these changes look fine: Acked
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Print the module name as part of the watchdog message
 
-Secondly, What are your plans for ipvsadm? Do you think that a fork will
-be neccessasry to utilise the netlink interface? Or even a new tool with
-a completely new name?
+As suggested by Dave:
 
--- 
-Horms
+This patch adds a function to get the driver name from a struct net_device,
+and consequently uses this in the watchdog timeout handler to print as 
+part of the message. 
 
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |   19 +++++++++++++++++++
+ net/sched/sch_generic.c   |    7 ++++---
+ 3 files changed, 25 insertions(+), 3 deletions(-)
+
+Index: linux.trees.git/include/linux/netdevice.h
+===================================================================
+--- linux.trees.git.orig/include/linux/netdevice.h
++++ linux.trees.git/include/linux/netdevice.h
+@@ -1516,6 +1516,8 @@ extern void dev_seq_stop(struct seq_file
+ extern int netdev_class_create_file(struct class_attribute *class_attr);
+ extern void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
++extern void netdev_drivername(struct net_device *dev, char *buffer, int len);
++
+ extern void linkwatch_run_queue(void);
+ 
+ extern int netdev_compute_features(unsigned long all, unsigned long one);
+Index: linux.trees.git/net/core/dev.c
+===================================================================
+--- linux.trees.git.orig/net/core/dev.c
++++ linux.trees.git/net/core/dev.c
+@@ -4554,6 +4554,25 @@ err_name:
+ 	return -ENOMEM;
+ }
+ 
++void netdev_drivername(struct net_device *dev, char *buffer, int len)
++{
++	struct device_driver *driver;
++	struct device *parent;
++
++	if (len <= 0)
++		return;
++	buffer[0] = 0;
++
++	parent = dev->dev.parent;
++
++	if (!parent)
++		return;
++
++	driver = parent->driver;
++	if (driver && driver->name)
++		strlcpy(buffer, driver->name, len);
++}
++
+ static void __net_exit netdev_exit(struct net *net)
+ {
+ 	kfree(net->dev_name_head);
+Index: linux.trees.git/net/sched/sch_generic.c
+===================================================================
+--- linux.trees.git.orig/net/sched/sch_generic.c
++++ linux.trees.git/net/sched/sch_generic.c
+@@ -215,9 +215,10 @@ static void dev_watchdog(unsigned long a
+ 		    netif_carrier_ok(dev)) {
+ 			if (netif_queue_stopped(dev) &&
+ 			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
+-
+-				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
+-				       dev->name);
++				char drivername[64];
++				netdev_drivername(dev, drivername, 64);
++				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
++				       dev->name, drivername);
+ 				dev->tx_timeout(dev);
+ 				WARN_ON_ONCE(1);
+ 			}
