@@ -1,46 +1,45 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [FIX] ARM: IXP4xx Ethernet NAPI fix
-Date: Wed, 09 Jul 2008 13:10:32 +0200
-Message-ID: <m31w23ia8n.fsf@maximus.localdomain>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH] IPVS: Move userspace definitions to include/linux/ip_vs.h
+Date: Wed, 9 Jul 2008 13:24:35 +0200
+Message-ID: <f4845fc0807090424lc592889o7f9626385eb83d0f@mail.gmail.com>
+References: <1215527396-15135-1-git-send-email-juliusv@google.com>
+	 <20080709011110.GA600@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:59411 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757056AbYGILKe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 07:10:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080709011110.GA600@verge.net.au>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes some weirdness from IXP4xx Ethernet driver.
-Ideally it should go in 2.6.26 though it's not that critical. Thanks.
+On Wed, Jul 9, 2008, Simon Horman wrote:
+> Firstly these changes look fine: Acked
 
-Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
+Thanks!
 
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.=
-c
-index c617b64..9b777d9 100644
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -522,7 +522,6 @@ static int eth_poll(struct napi_struct *napi, int b=
-udget)
- #endif
-=20
- 		if ((n =3D queue_get_desc(rxq, port, 0)) < 0) {
--			received =3D 0; /* No packet received */
- #if DEBUG_RX
- 			printk(KERN_DEBUG "%s: eth_poll netif_rx_complete\n",
- 			       dev->name);
-@@ -543,7 +542,7 @@ static int eth_poll(struct napi_struct *napi, int b=
-udget)
- 			printk(KERN_DEBUG "%s: eth_poll all done\n",
- 			       dev->name);
- #endif
--			return 0; /* all work done */
-+			return received; /* all work done */
- 		}
-=20
- 		desc =3D rx_desc_ptr(port, n);
+> Secondly, What are your plans for ipvsadm? Do you think that a fork will
+> be neccessasry to utilise the netlink interface? Or even a new tool with
+> a completely new name?
+
+Vince is converting the latest available ipvsadm version to support
+the Netlink interface and IPv6 features. So ideally, there will be no
+fork or new tool, just a new version. We are keeping the old sockopt
+interface in the kernel for userspace backwards compatibility, so
+people will only need the new ipvsadm version if they need the new
+features. The way Vince is currently implementing it, the new ipvsadm
+will probably also keep supporting the sockopt interface as a
+fallback, which would mean full backwards compatibility in both
+directions.
+
+As for the kernel part, I'm planning to post the Netlink interface
+implementation (with minimal stubs for IPv6 support) sometime the next
+days.
+
+Julius
+
+-- 
+Google Switzerland GmbH
