@@ -1,110 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
-Date: Wed, 09 Jul 2008 18:43:40 +0200
-Message-ID: <4874EABC.4000301@trash.net>
-References: <1215616317-11386-1-git-send-email-juliusv@google.com> <1215616317-11386-3-git-send-email-juliusv@google.com>
+From: Josip Rodin <joy@debian.org>
+Subject: Re: bnx2_poll panicking kernel
+Date: Wed, 9 Jul 2008 18:46:19 +0200
+Message-ID: <20080709164619.GA26098@orion.carnet.hr>
+References: <20080621113406.5f89ae8d.billfink@mindspring.com> <C27F8246C663564A84BB7AB343977242019B6FEC8E@IRVEXCHCCR01.corp.ad.broadcom.com> <20080623180439.GA18829@orion.carnet.hr> <20080623213657.GA26447@orion.carnet.hr> <48602847.1020203@broadcom.com> <48617C19.3010005@broadcom.com> <20080626110132.GA30648@orion.carnet.hr> <4863DA40.9050508@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1215616317-11386-3-git-send-email-juliusv@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Bill Fink' <billfink@mindspring.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"mirrors@debian.org" <mirrors@debian.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orion.CARNet.hr ([161.53.160.90]:45321 "EHLO orion.carnet.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753863AbYGIQqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 12:46:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4863DA40.9050508@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Add the implementation of the new Generic Netlink interface to IPVS and keep
-> the old set/getsockopt interface for userspace backwards compatibility.
+On Thu, Jun 26, 2008 at 11:04:48AM -0700, Michael Chan wrote:
+> Josip Rodin wrote:
+> > 
+> > Here we go, this is the first batch of debug output. I hope it helps.
+> > 
 > 
-> Signed-off-by: Julius Volz <juliusv@google.com>
+> Thanks for the data.  I've looked at a few of these SKB dumps and they
+> appear to be all modified in the same way:
+> 
+> 1. SKB is unchanged and the clone bit is set.
+> 
+> 2. skb_shared_info(SKB) has dataref 0x00010002 and these fields are
+> changed:
+> 
+>    nr_frags changed from n to 1
+>    gso_size changed from 0x5a8 to 0
+>    gso_type changed from 1 (TCP_V4) to 0
+>    gso_segs changed from m to 1
+>    1 of the frags' length is modified to split the TSO packet into 1
+> segment
+> 
+> I think this is consistent with what David said about tso_fragment()
+> splitting the cloned TSO SKB into 2.
 
-Just a few quick comments, will try to do a full review later:
+Okay, thanks, can you tell me if the previous patch is a proper fix or just
+a workaround?
 
-> + * Policy used for commands that operate on service, destination
-> + * or daemon entries
-> + */
-> +static struct nla_policy ip_vs_entries_policy[IPVS_ENTRY_ATTR_MAX + 1]
-> +__read_mostly = {
+Recently we've been seeing rsync errors with some of the sites which used to
+be pretty fast - the connection unexpectedly closes, or it times out.
+Something is still fishy about it...
 
-These can all be const (and have the __read_mostly annotation removed).
-
-> +static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
-> +				 struct ip_vs_stats *stats)
-> +{
-> +	struct nlattr *nl_stats = nla_nest_start(skb, container_type);
-> +	if (!nl_stats)
-> +		goto nla_put_failure;
-
-Unbalanced locking.
-
-> +
-> +	spin_lock_bh(&stats->lock);
-> +
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, stats->conns);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, stats->inpkts);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, stats->outpkts);
-> +	NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, stats->inbytes);
-> +	NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, stats->outbytes);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, stats->cps);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, stats->inpps);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, stats->outpps);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, stats->inbps);
-> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, stats->outbps);
-> +
-> +	spin_unlock_bh(&stats->lock);
-> +
-> +	nla_nest_end(skb, nl_stats);
-> +
-> +	return 0;
-> +
-> +nla_put_failure:
-> +	spin_unlock_bh(&stats->lock);
-> +
-> +	nla_nest_cancel(skb, nl_stats);
-> +	return -EMSGSIZE;
-> +}
-> +
-> +static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
-> +{
-> +	struct ip_vs_service *svc;
-> +	struct ip_vs_service_user usvc;
-> +	struct ip_vs_dest_user udest;
-> +	int ret = 0, cmd, flags;
-> +	int need_full_svc = 0, need_full_dest = 0;
-> +
-> +	cmd = info->genlhdr->cmd;
-> +	flags = info->nlhdr->nlmsg_flags;
-> +
-> +	/* increase the module use count */
-> +	ip_vs_use_count_inc();
-
-This looks fishy - the reference probably must be taken by
-genetlink before calling the command handler.
-
-> +int ip_vs_genl_register(void)
-> +{
-> +	int ret, i;
-> +
-> +	ret = genl_register_family(&ip_vs_genl_family);
-> +	if (ret)
-> +		return ret;
-> +
-> +	for (i = 0; i < ARRAY_SIZE(ip_vs_genl_ops); i++) {
-> +		ret = genl_register_ops(&ip_vs_genl_family, &ip_vs_genl_ops[i]);
-> +		if (ret)
-> +			goto err_out;
-> +	}
-> +	return 0;
-> +
-> +err_out:
-> +	genl_unregister_family(&ip_vs_genl_family);
-> +	return ret;
-> +}
-> +
-> +void ip_vs_genl_unregister(void)
-> +{
-> +	genl_unregister_family(&ip_vs_genl_family);
-
-Doesn't it also has to unregister the ops?
+-- 
+Josip Rodin
+mirrors@debian.org
