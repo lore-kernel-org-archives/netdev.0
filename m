@@ -1,61 +1,74 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
 Subject: Re: setsockopt()
-Date: Wed, 09 Jul 2008 11:10:31 -0700
-Message-ID: <ada63rfrkrs.fsf@cisco.com>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu>
-	<20080707.144912.76654646.davem@davemloft.net>
-	<20080708045443.GA7726@2ka.mipt.ru>
-	<20080708020235.388a7bd5.billfink@mindspring.com>
-	<adar6a4x510.fsf@cisco.com>
-	<20080708144817.3c364962.billfink@mindspring.com>
+Date: Wed, 9 Jul 2008 14:11:22 -0400
+Message-ID: <20080709181122.GB488@fieldses.org>
+References: <48728B09.1050801@citi.umich.edu> <20080707.144912.76654646.davem@davemloft.net> <20080708045443.GA7726@2ka.mipt.ru> <20080708020235.388a7bd5.billfink@mindspring.com> <adar6a4x510.fsf@cisco.com> <20080708134845.2372a483@speedy> <20080708180500.e8a61231.billfink@mindspring.com> <20080709052534.GA8157@2ka.mipt.ru> <20080709014758.d59be0d8.billfink@mindspring.com> <20080709060341.GA29743@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+Cc: Bill Fink <billfink@mindspring.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Roland Dreier <rdreier@cisco.com>,
 	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Bill Fink <billfink@mindspring.com>
+	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:9106 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752186AbYGISKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 14:10:33 -0400
-In-Reply-To: <20080708144817.3c364962.billfink@mindspring.com> (Bill Fink's
-	message of "Tue, 8 Jul 2008 14:48:17 -0400")
+Received: from mail.fieldses.org ([66.93.2.214]:48267 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752020AbYGISLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 14:11:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20080709060341.GA29743@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > The other weird thing about your test is the huge difference in
- > the receiver (and server in this case) CPU utilization between the
- > autotuning and explicit setting cases (2 %RX versus 96 %RX).
+On Wed, Jul 09, 2008 at 10:03:41AM +0400, Evgeniy Polyakov wrote:
+> On Wed, Jul 09, 2008 at 01:47:58AM -0400, Bill Fink (billfink@mindspring.com) wrote:
+> > Are you sure you're not thinking about tcp_mem, which is a function
+> > of available memory, or has this been changed in more recent kernels?
+> > The 2.6.22.9 Documentation/networking/ip-sysctl.txt indicates:
+> 
+> In 2.6.25 tcp_mem depends on amount of ram, and third tcp_wmem is
+> calculated based on it:
+> 
+> /* Set per-socket limits to no more than 1/128 the pressure threshold */
+> limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
+> max_share = min(4UL*1024*1024, limit);
+> 
+> sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+> sysctl_tcp_wmem[1] = 16*1024;
+> sysctl_tcp_wmem[2] = max(64*1024, max_share);
+> 
+> sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
+> sysctl_tcp_rmem[1] = 87380;
+> sysctl_tcp_rmem[2] = max(87380, max_share);
+> 
+> > tcp_wmem - vector of 3 INTEGERs: min, default, max
+> > 	...
+> > 	max: Maximal amount of memory allowed for automatically selected
+> > 	send buffers for TCP socket. This value does not override
+> > 	net.core.wmem_max, "static" selection via SO_SNDBUF does not use this.
+> > 	Default: 128K
+> 
+> Yeah, its a bit confusing. It probably was copypasted, there is no
+> default, but minimum possible value.
 
-I think I found another clue -- it seems that CPU affinity has something
-to do with the results.  Usually I pin the adapter interrupt to CPU 0
-and use "taskset 4" to pin the benchmarking process to CPU 2 (this leads
-to the best performance for these particular systems in almost all
-benchmarks).  But with nuttcp I see the following:
+I don't understand; what do you mean by "there is no default"?  (And if
+not, what does tcp_wmem[1] mean?)
 
-  with taskset 4:
+--b.
 
-    $ taskset 4 nuttcp -T30 192.168.145.73 
-     9911.3125 MB /  30.01 sec = 2770.3202 Mbps 42 %TX 10 %RX
-    $ taskset 4 nuttcp -w128k -T30 192.168.145.73 
-    36241.9375 MB /  30.00 sec = 10133.8931 Mbps 89 %TX 96 %RX
-
-  with no taskset (ie let kernel schedule as it wants to):
-
-    $ nuttcp -T30 192.168.145.73
-    36689.6875 MB /  30.00 sec = 10259.1525 Mbps 99 %TX 96 %RX
-    $ nuttcp -w128k -T30 192.168.145.73
-    36486.0000 MB /  30.00 sec = 10202.1870 Mbps 74 %TX 95 %RX
-
-so somehow setting the window helps with the scheduling of
-processes... I guess autotuning lets some queue get too long or
-something like that.  The actual window doesn't matter too much, since
-the delay of the network is low enough that even though the bandwidth is
-very high, the BDP is quite small.  (With a 25 usec RTT, a 128 KB window
-should be enough for 40 Gbps, well over the raw link speed of 16 Gbps
-that I have)
-
- - R.
+> 
+> > 
+> > The TCP autotuning worked great, with both tests basically achieving
+> > full 10-GigE line rate.  The test with the TCP autotuning actually
+> > did slightly better than the test where an explicitly specified 1 MB
+> > socket buffer was used, although this could just be within the margin
+> > of error of the testing.
+> 
+> If you will check tcp_wmem on your machine, it will likely show that
+> tcp_wmem[max] is far larger than 128k. It is equal to 1mb on my old
+> laptop with 256mb of ram, I suppose machines equipped with 10gige
+> network adapters usually have slightly more.
+> 
+> -- 
+> 	Evgeniy Polyakov
