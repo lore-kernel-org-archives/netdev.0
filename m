@@ -1,153 +1,225 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/08]: vlan: deliver packets received with VLAN acceleration
- to network taps
-Date: Wed, 09 Jul 2008 14:37:59 +0200
-Message-ID: <4874B127.4080305@trash.net>
-References: <20080709120945.11669.42790.sendpatchset@localhost.localdomain> <20080709120948.11669.98935.sendpatchset@localhost.localdomain> <20080709123520.GK28029@solarflare.com>
+Subject: Re: [Bugme-new] [Bug 11058] New: DEADLOOP in kernel network module
+Date: Wed, 09 Jul 2008 14:45:16 +0200
+Message-ID: <4874B2DC.2070305@trash.net>
+References: <bug-11058-10286@http.bugzilla.kernel.org/> <20080708210014.a1d3baf8.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030003080103020306040102"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59317 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961AbYGIMiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 08:38:03 -0400
-In-Reply-To: <20080709123520.GK28029@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ boundary="------------020008000508040000070901"
+Cc: hemao77@gmail.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080708210014.a1d3baf8.akpm@linux-foundation.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030003080103020306040102
+--------------020008000508040000070901
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Ben Hutchings wrote:
-> Patrick McHardy wrote:
->> vlan: deliver packets received with VLAN acceleration to network taps
->>
->> When VLAN header stripping is used, packets currently bypass packet
->> sockets (and other network taps) completely. For locally existing
->> VLANs, they appear directly on the VLAN device, for unknown VLANs
->> they are silently dropped.
->>
->> Add a new function netif_nit_deliver() to deliver incoming packets
->> to all network interface taps and use it in __vlan_hwaccel_rx() to
->> make VLAN packets visible on the underlying device.
-> [...]
->> +/*
->> + * 	netif_tap_deliver - deliver received packets to network taps
->> + * 	@skb: buffer
->> + *
->> + * 	This function is used to deliver incoming packets to network
->> + * 	taps. It should be used when the normal netif_receive_skb path
->> + * 	is bypassed, for example because of VLAN acceleration.
->> + */
->> +void netif_nit_deliver(struct sk_buff *skb)
-> [...]
+Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 > 
-> Is it supposed to be called netif_nit_deliver() or netif_tap_deliver()?
+> On Tue,  8 Jul 2008 20:13:20 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=11058
+>>
+>>            Summary: DEADLOOP in kernel network module
+>> ...
+>> Problem Description:
+>>
+>> We have seen a deadloop in softirq and we got the cause by creating and
+>> analysising the core dump of the kernel.I dont know where to submit a patch ,
+>> so I report it here,wish you can apply it to furthur version of linux kernel.
+>>
+>> The Cause:
+>>
+>> Both  ctnetlink_del_conntrack() and the tcp_packet() run
+>> the code below:
+>>
+>>     if (del_timer(&ct->timeout))                /*deactive the timer*/
+>>        ct->timeout.function((unsigned long) ct);/*remove conntrack from
+>> conntrack table*/
+>>
+>> the ctnetlink_del_conntrack() context is:
+>> ................
+>>         if (cda[CTA_ID-1]) {
+>>                 u_int32_t id = ntohl(*(u_int32_t *)NFA_DATA(cda[CTA_ID-1]));
+>>                 if (ct->id != id) {
+>>                         ip_conntrack_put(ct);
+>>                         return -ENOENT;
+>>                 }
+>>         }       
+>> *       if (del_timer(&ct->timeout))
+>> *               ct->timeout.function((unsigned long)ct);
+>>
+>>         ip_conntrack_put(ct);
+>> ...........
+>>
+>> the tcp_packet() context is:
+>> ...........
+>>         case TCP_CONNTRACK_SYN_SENT:
+>>                 if (old_state < TCP_CONNTRACK_TIME_WAIT)
+>>                         break;
+>>                 if ((conntrack->proto.tcp.seen[dir].flags &
+>>                          IP_CT_TCP_FLAG_CLOSE_INIT)
+>>                     || after(ntohl(th->seq),
+>>                              conntrack->proto.tcp.seen[dir].td_end)) {  
+>>                         /* Attempt to reopen a closed connection.
+>>                         * Delete this connection and look up again. */
+>>                         write_unlock_bh(&tcp_lock);
+>> *                       if (del_timer(&conntrack->timeout))
+>> *                               conntrack->timeout.function((unsigned long)
+>> *                                                           conntrack);
+>>                         return -NF_REPEAT;
+>> ......
+>>
+>> How the DEADLOOP happened?
+>>
+>>     (1)in ctnetlink_del_conntrack()(runs in system call context): the del_timer
+>> is called and then goes to timeout.function.
+>>     (2)before timeout.function finish excution(means the conntrack not
+>> removed),an interrupt happens and a SYN packet of  the same conntrack
+>> comes.CPU goes to irq handle and enventually runs tcp_packet().
+>>     (3)in tcp_packet() ,del_timer() will fail because the timer was
+>> already deleted. the timeout.function in tcp_packet will not run,
+>> -NF_REPEAT is returned, the SYN packet will be passed back again.
+>>     (4)Neither side has the chance to run timeout.function,the
+>> conntrack remains there,deadloop happen,the SYN packet will be passed back
+>> again and again.
+>>
+>> The fix maybe,add lock the softirq when doing conntrack removing:
+>> +++    local_bh_disable();
+>>       if (del_timer(&ct->timeout))                /*deactive the timer*/
+>>          ct->timeout.function((unsigned long) ct);/*remove conntrack from
+>> conntrack table*/
+>> +++    local_bh_enable();
+>>
+>> Thanks, may this be helpful.
+>> My email: hemao77@gmail.com
+>>
+>> It is hard to reproduce , but it really happen on our linux box.
+>>
+> 
+> Thanks.
+> 
+> Please submit patches via email as described in
+> Documentation/SubmittingPatches.  The file ./MAINTAINERS can be used to
+> determine which individuals and mailing lists the patch should be sent to.
+> 
+> But that's for next time - this patch is small enough for the netfilter
+> developers to be able to type in again ;)
 
-Thanks, seems I only renamed it half way :)
+Good catch, thanks. Basically all del_timer()/timeout.function calls
+in conntrack can happen in process context, so we'd have to disable
+BHs every time we do this. I think this fix should also work. The
+only spot where we return NF_REPEAT is in TCP conntrack, so we can
+simply make sure we only do this if we actually managed to kill the
+connection.
 
-Fixed patch attached.
+Jozsef, what do you think?
 
---------------030003080103020306040102
-Content-Type: text/x-diff;
- name="02.diff"
+[patch for review against net-next, I'll backport it later unless
+there are objections]
+
+
+--------------020008000508040000070901
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="02.diff"
+ filename="x"
 
-commit d5c10a9dd25c8c9333e12d92cd81191a37376097
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jul 9 14:37:44 2008 +0200
-
-    vlan: deliver packets received with VLAN acceleration to network taps
-    
-    When VLAN header stripping is used, packets currently bypass packet
-    sockets (and other network taps) completely. For locally existing
-    VLANs, they appear directly on the VLAN device, for unknown VLANs
-    they are silently dropped.
-    
-    Add a new function netif_nit_deliver() to deliver incoming packets
-    to all network interface taps and use it in __vlan_hwaccel_rx() to
-    make VLAN packets visible on the underlying device.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 203c550..85c5db8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1152,6 +1152,7 @@ extern int		netif_rx(struct sk_buff *skb);
- extern int		netif_rx_ni(struct sk_buff *skb);
- #define HAVE_NETIF_RECEIVE_SKB 1
- extern int		netif_receive_skb(struct sk_buff *skb);
-+extern void		netif_nit_deliver(struct sk_buff *skb);
- extern int		dev_valid_name(const char *name);
- extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
- extern int		dev_ethtool(struct net *net, struct ifreq *);
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 68df12d..916061f 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -14,6 +14,9 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 		return NET_RX_DROP;
- 	}
- 
-+	skb->vlan_tci = vlan_tci;
-+	netif_nit_deliver(skb);
-+
- 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
- 	if (skb->dev == NULL) {
- 		dev_kfree_skb_any(skb);
-@@ -22,6 +25,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 		return NET_RX_SUCCESS;
- 	}
- 	skb->dev->last_rx = jiffies;
-+	skb->vlan_tci = 0;
- 
- 	stats = &skb->dev->stats;
- 	stats->rx_packets++;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a29a359..feaab48 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2068,6 +2068,33 @@ out:
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index d5d76ec..15ce3fb 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -223,23 +223,23 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
+ 	__nf_ct_refresh_acct(ct, 0, skb, extra_jiffies, 0);
  }
- #endif
  
-+/*
-+ * 	netif_nit_deliver - deliver received packets to network taps
-+ * 	@skb: buffer
-+ *
-+ * 	This function is used to deliver incoming packets to network
-+ * 	taps. It should be used when the normal netif_receive_skb path
-+ * 	is bypassed, for example because of VLAN acceleration.
-+ */
-+void netif_nit_deliver(struct sk_buff *skb)
-+{
-+	struct packet_type *ptype;
-+
-+	if (list_empty(&ptype_all))
-+		return;
-+
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+	skb->mac_len = skb->network_header - skb->mac_header;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-+		if (!ptype->dev || ptype->dev == skb->dev)
-+			deliver_skb(skb, ptype, skb->dev);
+-extern void __nf_ct_kill_acct(struct nf_conn *ct,
+-				enum ip_conntrack_info ctinfo,
+-				const struct sk_buff *skb,
+-				int do_acct);
++extern int __nf_ct_kill_acct(struct nf_conn *ct,
++			     enum ip_conntrack_info ctinfo,
++			     const struct sk_buff *skb,
++			     int do_acct);
+ 
+ /* kill conntrack and do accounting */
+-static inline void nf_ct_kill_acct(struct nf_conn *ct,
++static inline int nf_ct_kill_acct(struct nf_conn *ct,
+ 				enum ip_conntrack_info ctinfo,
+ 				const struct sk_buff *skb)
+ {
+-	__nf_ct_kill_acct(ct, ctinfo, skb, 1);
++	return __nf_ct_kill_acct(ct, ctinfo, skb, 1);
+ }
+ 
+ /* kill conntrack without accounting */
+-static inline void nf_ct_kill(struct nf_conn *ct)
++static inline int nf_ct_kill(struct nf_conn *ct)
+ {
+-	__nf_ct_kill_acct(ct, 0, NULL, 0);
++	return __nf_ct_kill_acct(ct, 0, NULL, 0);
+ }
+ 
+ /* These are for NAT.  Icky. */
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 212a088..aad9585 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -848,10 +848,10 @@ acct:
+ }
+ EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
+ 
+-void __nf_ct_kill_acct(struct nf_conn *ct,
+-		enum ip_conntrack_info ctinfo,
+-		const struct sk_buff *skb,
+-		int do_acct)
++int __nf_ct_kill_acct(struct nf_conn *ct,
++		      enum ip_conntrack_info ctinfo,
++		      const struct sk_buff *skb,
++		      int do_acct)
+ {
+ #ifdef CONFIG_NF_CT_ACCT
+ 	if (do_acct) {
+@@ -862,8 +862,11 @@ void __nf_ct_kill_acct(struct nf_conn *ct,
+ 		spin_unlock_bh(&nf_conntrack_lock);
+ 	}
+ #endif
+-	if (del_timer(&ct->timeout))
++	if (del_timer(&ct->timeout)) {
+ 		ct->timeout.function((unsigned long)ct);
++		return 1;
 +	}
-+	rcu_read_unlock();
-+}
-+
- /**
-  *	netif_receive_skb - process receive buffer from network
-  *	@skb: buffer to process
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(__nf_ct_kill_acct);
+ 
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 740acd6..41032d2 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -844,7 +844,11 @@ static int tcp_packet(struct nf_conn *ct,
+ 			/* Attempt to reopen a closed/aborted connection.
+ 			 * Delete this connection and look up again. */
+ 			write_unlock_bh(&tcp_lock);
+-			nf_ct_kill(ct);
++			/* The connection might be killed in parallel in process
++			 * context. Don't repeat lookup so it gets a chance to
++			 * complete. */
++			if (!nf_ct_kill(ct))
++				return -NF_DROP;
+ 			return -NF_REPEAT;
+ 		}
+ 		/* Fall through */
 
---------------030003080103020306040102--
+--------------020008000508040000070901--
