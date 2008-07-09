@@ -1,64 +1,33 @@
-From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH v3 2/2] hfsc: add link layer overhead adaption
-Date: Wed, 09 Jul 2008 20:42:48 +0300
-Message-ID: <20080709204248.506775otd5me5pwc@naisho.dyndns.info>
-References: <20080703220311.30053.63477.stgit@fate.lan>
-	<20080703220317.30053.87947.stgit@fate.lan> <487203B4.4030701@trash.net>
-	<20080708141135.174942dv1q2og4o4@hayate.ip6> <48738ECA.9050703@trash.net>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] TCP: Add seq and ack numbers to TCP_INFO
+Date: Wed, 9 Jul 2008 10:49:34 -0700
+Message-ID: <20080709104934.390cd81b@speedy>
+References: <396556a20805301217k293e5718h6bbf02bfe069003@europa>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Adam Langley" <agl@imperialviolet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:52098 "EHLO
-	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750792AbYGIRmv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 13:42:51 -0400
-In-Reply-To: <48738ECA.9050703@trash.net>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:44394 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751194AbYGIRtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 13:49:36 -0400
+In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe069003@europa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting "Patrick McHardy" <kaber@trash.net>:
+On Wed, 9 Jul 2008 10:23:43 -0700
+"Adam Langley" <agl@imperialviolet.org> wrote:
 
-> Jussi Kivilinna wrote:
->> Quoting "Patrick McHardy" <kaber@trash.net>:
->>>
->>> This means HFSC will use other packet sizes as inner qdiscs, policers,
->>> statistics etc, which I don't like very much. My original patch used
->>> the size tables to calculate the size when enqueing to the root qdisc
->>> and stored it in the cb, so all qdiscs in the hierarchy can use the
->>> same size.
->>
->> With this patch I have tried to make HFSC support link layer   
->> emulation in same way as done in HTB with rate table, so that   
->> overhead is defined on leaf qdisc (if have understood right).
->
-> The difference is that with this approach you are actually
-> able to make the entire qdisc hierarchy use the same size
-> for calculations/statistics/etc. The rate tables only work
-> in TBF based qdiscs and policers (which was always one of
-> my complaints).
->
->>
->> I have used this patch to have different overhead between qdisc   
->> leafs to account for extra overhead of ipv6-in-ipv4 tunnel   
->> (redirecting traffic to IMQ device and filtering ipv4&ipv6 to   
->> corresponding leafs). If overhead/linklayer is defined on root   
->> qdisc, this wouldn't be possible?
->
-> You could override the size in inner classes and qdiscs.
-> Having an optional size table per qdisc would make this
-> consistent from a user perspective with the top-level
-> size calculation. (And I agree that including tunnel
-> overhead makes sense).
->
+> TCP: Add seq and ack numbers to TCP_INFO
+> 
+> No ABI breakage: Userspace specifies the size of the structure that they're
+> expecting, and the new fields are at the end, so existing code should function
+> just fine as we'll truncate the new struct tcp_info to fit.
+> 
+> Signed-off-by: Adam Langley <agl@imperialviolet.org>
 
-Ok, having one table for whole qdisc tree (with overrides) sounds better.
-
-  - Jussi
-
+Of what possible use is this to an application? I worry that applications would
+come to expect or use certain characteristics of the network and TCP which
+would be broken by later changes.
