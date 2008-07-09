@@ -1,43 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TCP checksum error on local device
-Date: Wed, 9 Jul 2008 16:38:38 +0100
-Message-ID: <20080709153836.GL28029@solarflare.com>
-References: <9a6873fa0807090734ge7ef12lf09e78db44ba77f5@mail.gmail.com> <20080709151019.GG27741@nereid> <4874D936.9020100@ieee.org>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [PATCH] tun: Persistent devices can get stuck in xoff state
+Date: Wed, 9 Jul 2008 17:59:39 +0200
+Message-ID: <200807091759.39171.borntraeger@de.ibm.com>
+References: <1215584648-13444-1-git-send-email-maxk@qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Kevin Spiteri <kspiteri@ieee.org>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Max Krasnyansky <maxk@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:48567 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751834AbYGIPin (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 11:38:43 -0400
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:3138 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754616AbYGIQAB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 12:00:01 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m69Fxg1p559280
+	for <netdev@vger.kernel.org>; Wed, 9 Jul 2008 15:59:42 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m69Fxg1g2474178
+	for <netdev@vger.kernel.org>; Wed, 9 Jul 2008 16:59:42 +0100
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m69FxflL028544
+	for <netdev@vger.kernel.org>; Wed, 9 Jul 2008 16:59:41 +0100
+In-Reply-To: <1215584648-13444-1-git-send-email-maxk@qualcomm.com>
 Content-Disposition: inline
-In-Reply-To: <4874D936.9020100@ieee.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kevin Spiteri wrote:
-[...]
-> I saw the behaviour as strange because only the segment containing data 
-> had an incorrect TCP checksum, all other segments (SYN, SYN ACK, ACKs 
-> without data and FIN ACK) had a correct TCP checksum.
-> 
-> Also, the incorrect checksum field seems to depend on the IP address and 
-> the packet length, but not on the port number, sequence/acknowledgement 
-> number or data content. Thus, the incorrect checksum is the same when 
-> the sample is run repeatedly, it only changes when the data length 
-> and/or IP address are changed.
-[...]
+Am Mittwoch, 9. Juli 2008 schrieb Max Krasnyansky:
+> The scenario goes like this. App stops reading from tun/tap.
+> TX queue gets full and driver does netif_stop_queue().
+> App closes fd and TX queue gets flushed as part of the cleanup.
+> Next time the app opens tun/tap and starts reading from it but
+> the xoff state is not cleared. We're stuck.
+> Normally xoff state is cleared when netdev is brought up. But
+> in the case of persistent devices this happens only during
+> initial setup.
 
-The TCP/IP stack will unconditionally start calculating a checksum as it
-prepares some of the headers.  Then at a later stage it checks the checksum
-capability of the destination route/device (checksum calculation may be
-offloaded or unnecessary) and decides whether to update the TCP checksum to
-include the rest of the packet, including the payload.
+I was able to reproduce the problem. The patch seems to fix it.
 
-Ben.
+Tested-by: Christian Borntraeger <borntraeger@de.ibm.com>
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
