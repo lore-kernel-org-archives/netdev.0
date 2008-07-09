@@ -1,46 +1,49 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Move userspace definitions to
-	include/linux/ip_vs.h
-Date: Wed, 9 Jul 2008 22:20:30 +1000
-Message-ID: <20080709122029.GC7151@verge.net.au>
-References: <1215527396-15135-1-git-send-email-juliusv@google.com> <20080709011110.GA600@verge.net.au> <f4845fc0807090424lc592889o7f9626385eb83d0f@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 02/08]: vlan: deliver packets received with VLAN acceleration to network taps
+Date: Wed, 9 Jul 2008 13:35:21 +0100
+Message-ID: <20080709123520.GK28029@solarflare.com>
+References: <20080709120945.11669.42790.sendpatchset@localhost.localdomain> <20080709120948.11669.98935.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:55175 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751834AbYGIMfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 08:35:24 -0400
 Content-Disposition: inline
-In-Reply-To: <f4845fc0807090424lc592889o7f9626385eb83d0f@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080709120948.11669.98935.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 09, 2008 at 01:24:35PM +0200, Julius Volz wrote:
-> On Wed, Jul 9, 2008, Simon Horman wrote:
-> > Firstly these changes look fine: Acked
+Patrick McHardy wrote:
+> vlan: deliver packets received with VLAN acceleration to network taps
 > 
-> Thanks!
+> When VLAN header stripping is used, packets currently bypass packet
+> sockets (and other network taps) completely. For locally existing
+> VLANs, they appear directly on the VLAN device, for unknown VLANs
+> they are silently dropped.
 > 
-> > Secondly, What are your plans for ipvsadm? Do you think that a fork will
-> > be neccessasry to utilise the netlink interface? Or even a new tool with
-> > a completely new name?
-> 
-> Vince is converting the latest available ipvsadm version to support
-> the Netlink interface and IPv6 features. So ideally, there will be no
-> fork or new tool, just a new version. We are keeping the old sockopt
-> interface in the kernel for userspace backwards compatibility, so
-> people will only need the new ipvsadm version if they need the new
-> features. The way Vince is currently implementing it, the new ipvsadm
-> will probably also keep supporting the sockopt interface as a
-> fallback, which would mean full backwards compatibility in both
-> directions.
+> Add a new function netif_nit_deliver() to deliver incoming packets
+> to all network interface taps and use it in __vlan_hwaccel_rx() to
+> make VLAN packets visible on the underlying device.
+[...]
+> +/*
+> + * 	netif_tap_deliver - deliver received packets to network taps
+> + * 	@skb: buffer
+> + *
+> + * 	This function is used to deliver incoming packets to network
+> + * 	taps. It should be used when the normal netif_receive_skb path
+> + * 	is bypassed, for example because of VLAN acceleration.
+> + */
+> +void netif_nit_deliver(struct sk_buff *skb)
+[...]
 
-That sounds great.
+Is it supposed to be called netif_nit_deliver() or netif_tap_deliver()?
 
-> As for the kernel part, I'm planning to post the Netlink interface
-> implementation (with minimal stubs for IPv6 support) sometime the next
-> days.
+Ben.
 
 -- 
-Horms
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
