@@ -1,42 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Wed, 09 Jul 2008 10:20:55 -0700
-Message-ID: <1215624055.5553.252.camel@localhost>
-References: <20080708144725.5b663d19@infradead.org>
-	 <20080708.145738.12692130.davem@davemloft.net>
-	 <20080708164826.2a2d52c2@infradead.org>
-	 <20080708.165304.55424424.davem@davemloft.net>
-	 <20080708184456.52e94b93@infradead.org>  <20080708201658.2c496b6a@speedy>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: [PATCH] TCP: Add seq and ack numbers to TCP_INFO
+Date: Wed, 9 Jul 2008 10:23:43 -0700
+Message-ID: <396556a20805301217k293e5718h6bbf02bfe069003@europa>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	swise@opengridcomputing.com, rdreier@cisco.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1741 "EHLO
-	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750940AbYGIRZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 13:25:41 -0400
-In-Reply-To: <20080708201658.2c496b6a@speedy>
+Received: from yx-out-2324.google.com ([74.125.44.30]:41703 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752535AbYGIR1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 13:27:44 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so869674yxm.1
+        for <netdev@vger.kernel.org>; Wed, 09 Jul 2008 10:27:42 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-07-08 at 20:16 -0700, Stephen Hemminger wrote:
-> > +void netdev_drivername(struct net_device *dev, char *buffer, int len)
-> void netdev_drivername(const struct net_device *dev, char *buffer, int len)
-> since net device not changed.
+TCP: Add seq and ack numbers to TCP_INFO
 
-char *netdev_drivername(const struct net_dev *dev, char *buffer, size_t len)
+No ABI breakage: Userspace specifies the size of the structure that they're
+expecting, and the new fields are at the end, so existing code should function
+just fine as we'll truncate the new struct tcp_info to fit.
 
-size_t len and returns *buffer
+Signed-off-by: Adam Langley <agl@imperialviolet.org>
+---
 
-allows:
+ include/linux/tcp.h |    5 +++++
+ net/ipv4/tcp.c      |    5 +++++
+ 2 files changed, 10 insertions(+), 0 deletions(-)
 
-	char drivername[64];
-        printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
-               dev->name, netdev_drivername(dev, drivername, sizeof(drivername));
-
-
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 07e79bd..55094ea 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -157,6 +157,11 @@ struct tcp_info
+ 	__u32	tcpi_rcv_space;
+ 
+ 	__u32	tcpi_total_retrans;
++
++	__u32	tcpi_seq; /* seq number of next byte to be written to socket */
++	__u32	tcpi_ack; /* ack number of next byte to be read from socket */
++	__u32	tcpi_tseq; /* seq number of next byte to be transmitted */
++	__u32	tcpi_tack; /* ack number of next byte to be received */
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 56a133c..c56d5c3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2255,6 +2255,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_rcv_space = tp->rcvq_space.space;
+ 
+ 	info->tcpi_total_retrans = tp->total_retrans;
++
++	info->tcpi_seq = tp->write_seq;
++	info->tcpi_ack = tp->copied_seq;
++	info->tcpi_tseq = tp->pushed_seq;
++	info->tcpi_tack = tp->rcv_nxt;
+ }
+ 
+ EXPORT_SYMBOL_GPL(tcp_get_info);
