@@ -1,49 +1,61 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [PATCH] TCP: Add seq and ack numbers to TCP_INFO
-Date: Wed, 9 Jul 2008 11:02:54 -0700
-Message-ID: <396556a20807091102n5bb061daw91f41512faa8474@mail.gmail.com>
-References: <396556a20805301217k293e5718h6bbf02bfe069003@europa>
-	 <20080709104934.390cd81b@speedy>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: setsockopt()
+Date: Wed, 09 Jul 2008 11:10:31 -0700
+Message-ID: <ada63rfrkrs.fsf@cisco.com>
+References: <48725DFE.6000504@citi.umich.edu>
+	<20080707142408.43aa2a2e@extreme> <48728B09.1050801@citi.umich.edu>
+	<20080707.144912.76654646.davem@davemloft.net>
+	<20080708045443.GA7726@2ka.mipt.ru>
+	<20080708020235.388a7bd5.billfink@mindspring.com>
+	<adar6a4x510.fsf@cisco.com>
+	<20080708144817.3c364962.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Stephen Hemminger" <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
+	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
+	bfields@fieldses.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:1068 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbYGISCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 14:02:55 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so3649018rvb.1
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2008 11:02:54 -0700 (PDT)
-In-Reply-To: <20080709104934.390cd81b@speedy>
-Content-Disposition: inline
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:9106 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752186AbYGISKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 14:10:33 -0400
+In-Reply-To: <20080708144817.3c364962.billfink@mindspring.com> (Bill Fink's
+	message of "Tue, 8 Jul 2008 14:48:17 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 9, 2008 at 10:49 AM, Stephen Hemminger
-<stephen.hemminger@vyatta.com> wrote:
-> Of what possible use is this to an application? I worry that applications would
-> come to expect or use certain characteristics of the network and TCP which
-> would be broken by later changes.
+ > The other weird thing about your test is the huge difference in
+ > the receiver (and server in this case) CPU utilization between the
+ > autotuning and explicit setting cases (2 %RX versus 96 %RX).
 
-Well, when you consider what else is in tcp_info (window scaling, SACK
-info, MTU, RTT, reorder detection), the sequence numbers seem
-positively pedestrian.
+I think I found another clue -- it seems that CPU affinity has something
+to do with the results.  Usually I pin the adapter interrupt to CPU 0
+and use "taskset 4" to pin the benchmarking process to CPU 2 (this leads
+to the best performance for these particular systems in almost all
+benchmarks).  But with nuttcp I see the following:
 
-There are a bunch of crazy reasons why userspace might be interested
-in the seq/ack numbers: handing connections between hosts, checking
-the backlog, analyzing the RNG strength of remote hosts etc. All
-experimental crap to be sure, but it's very handy in those
-experiments. I used a very similar patch when doing some of the very
-early basic on backlogs that Jerry Chu has taken up now.
+  with taskset 4:
 
-And sequence numbers are pretty fundamental to TCP. Certainly much
-more so than much of the other stuff that we're currently happy to
-export with sufficient warnings.
+    $ taskset 4 nuttcp -T30 192.168.145.73 
+     9911.3125 MB /  30.01 sec = 2770.3202 Mbps 42 %TX 10 %RX
+    $ taskset 4 nuttcp -w128k -T30 192.168.145.73 
+    36241.9375 MB /  30.00 sec = 10133.8931 Mbps 89 %TX 96 %RX
 
+  with no taskset (ie let kernel schedule as it wants to):
 
-AGL
+    $ nuttcp -T30 192.168.145.73
+    36689.6875 MB /  30.00 sec = 10259.1525 Mbps 99 %TX 96 %RX
+    $ nuttcp -w128k -T30 192.168.145.73
+    36486.0000 MB /  30.00 sec = 10202.1870 Mbps 74 %TX 95 %RX
 
--- 
-Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
+so somehow setting the window helps with the scheduling of
+processes... I guess autotuning lets some queue get too long or
+something like that.  The actual window doesn't matter too much, since
+the delay of the network is low enough that even though the bandwidth is
+very high, the BDP is quite small.  (With a 25 usec RTT, a 128 KB window
+should be enough for 40 Gbps, well over the raw link speed of 16 Gbps
+that I have)
+
+ - R.
