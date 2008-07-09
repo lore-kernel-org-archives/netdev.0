@@ -1,79 +1,44 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
-Date: Wed, 9 Jul 2008 20:16:43 +0200
-Message-ID: <f4845fc0807091116s58b0b492p9f28281fcdca4e17@mail.gmail.com>
-References: <1215616317-11386-1-git-send-email-juliusv@google.com>
-	 <1215616317-11386-3-git-send-email-juliusv@google.com>
-	 <4874EABC.4000301@trash.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Printing the driver name as part of the netdev watchdog message
+Date: Wed, 09 Jul 2008 11:20:49 -0700
+Message-ID: <1215627649.5553.265.camel@localhost>
+References: <20080708144725.5b663d19@infradead.org>
+	 <20080708.145738.12692130.davem@davemloft.net>
+	 <20080708164826.2a2d52c2@infradead.org>
+	 <20080708.165304.55424424.davem@davemloft.net>
+	 <20080708184456.52e94b93@infradead.org> <20080708201658.2c496b6a@speedy>
+	 <1215624055.5553.252.camel@localhost>
+	 <20080709105631.492f86bd@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4874EABC.4000301@trash.net>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	swise@opengridcomputing.com, rdreier@cisco.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.labridge.com ([206.117.136.22]:1840 "EHLO
+	mail.perches.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbYGISZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 14:25:48 -0400
+In-Reply-To: <20080709105631.492f86bd@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 9, 2008, Patrick McHardy wrote:
-> Just a few quick comments, will try to do a full review later:
+On Wed, 2008-07-09 at 10:56 -0700, Arjan van de Ven wrote:
+> I don't like the size_t... size_t is an abstraction to deal with file
+> sizes.... but there's nothing else wrong with using an int for numbers.
 
-Thanks!
+<pedant_mode>
 
->> + * Policy used for commands that operate on service, destination
->> + * or daemon entries
->> + */
->> +static struct nla_policy ip_vs_entries_policy[IPVS_ENTRY_ATTR_MAX + 1]
->> +__read_mostly = {
->
-> These can all be const (and have the __read_mostly annotation removed).
+o size_t is an abstraction to deal with arbitrary sizes
+o an unnecessary <= 0 test exists
+o using sizeof(drivername) reduces a dependency on a magic number
+o netdev_drivername calls strlcpy with implicit cast to size_t
 
-Ok!
+$ grep strlcpy include/linux/string.h
+size_t strlcpy(char *, const char *, size_t);
 
->> +static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
->> +                                struct ip_vs_stats *stats)
->> +{
->> +       struct nlattr *nl_stats = nla_nest_start(skb, container_type);
->> +       if (!nl_stats)
->> +               goto nla_put_failure;
->
-> Unbalanced locking.
+Your choice.  Cheers, Joe
 
-Whoa, right! Will correct that.
-
->> +static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info
->> *info)
->> +{
->> +       struct ip_vs_service *svc;
->> +       struct ip_vs_service_user usvc;
->> +       struct ip_vs_dest_user udest;
->> +       int ret = 0, cmd, flags;
->> +       int need_full_svc = 0, need_full_dest = 0;
->> +
->> +       cmd = info->genlhdr->cmd;
->> +       flags = info->nlhdr->nlmsg_flags;
->> +
->> +       /* increase the module use count */
->> +       ip_vs_use_count_inc();
->
-> This looks fishy - the reference probably must be taken by
-> genetlink before calling the command handler.
-
-That would seem better, but is that possible? I took this from the
-sockopt interface. What would you generally want to do in this
-situation?
-
->> +void ip_vs_genl_unregister(void)
->> +{
->> +       genl_unregister_family(&ip_vs_genl_family);
->
-> Doesn't it also has to unregister the ops?
-
-No, that happens automatically when you unregister the family.
-
-Julius
-
--- 
-Google Switzerland GmbH
