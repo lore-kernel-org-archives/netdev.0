@@ -1,100 +1,110 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 11058] New: DEADLOOP in kernel network module
-Date: Wed, 09 Jul 2008 18:32:57 +0200
-Message-ID: <4874E839.50100@trash.net>
-References: <bug-11058-10286@http.bugzilla.kernel.org/> <20080708210014.a1d3baf8.akpm@linux-foundation.org> <4874B2DC.2070305@trash.net> <Pine.LNX.4.64.0807091519380.11391@blackhole.kfki.hu> <4874D291.1010707@trash.net>
+Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
+Date: Wed, 09 Jul 2008 18:43:40 +0200
+Message-ID: <4874EABC.4000301@trash.net>
+References: <1215616317-11386-1-git-send-email-juliusv@google.com> <1215616317-11386-3-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010202080809000201080206"
-Cc: Andrew Morton <akpm@linux-foundation.org>, hemao77@gmail.com,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32892 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158AbYGIQdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 12:33:03 -0400
-In-Reply-To: <4874D291.1010707@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------010202080809000201080206
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1215616317-11386-3-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Jozsef Kadlecsik wrote:
->> On Wed, 9 Jul 2008, Patrick McHardy wrote:
->>
->>> Good catch, thanks. Basically all del_timer()/timeout.function calls
->>> in conntrack can happen in process context, so we'd have to disable
->>> BHs every time we do this. I think this fix should also work. The
->>> only spot where we return NF_REPEAT is in TCP conntrack, so we can
->>> simply make sure we only do this if we actually managed to kill the
->>> connection.
->>>
->>> Jozsef, what do you think?
->>
->> I agree with you completely - and nice catch, indeed! Your proposed 
->> patch looks just fine.
+Julius Volz wrote:
+> Add the implementation of the new Generic Netlink interface to IPVS and keep
+> the old set/getsockopt interface for userspace backwards compatibility.
 > 
-> Thanks, I'll send a backport for 2.6.26 to Dave tonight.
+> Signed-off-by: Julius Volz <juliusv@google.com>
 
-OK, this is the patch I'll send upstream.
+Just a few quick comments, will try to do a full review later:
 
+> + * Policy used for commands that operate on service, destination
+> + * or daemon entries
+> + */
+> +static struct nla_policy ip_vs_entries_policy[IPVS_ENTRY_ATTR_MAX + 1]
+> +__read_mostly = {
 
---------------010202080809000201080206
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+These can all be const (and have the __read_mostly annotation removed).
 
-commit baa04a1fb3dbef550ed1dc5acd15e21e7dde3b85
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jul 9 18:32:29 2008 +0200
+> +static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
+> +				 struct ip_vs_stats *stats)
+> +{
+> +	struct nlattr *nl_stats = nla_nest_start(skb, container_type);
+> +	if (!nl_stats)
+> +		goto nla_put_failure;
 
-    netfilter: nf_conntrack_tcp: fix endless loop
-    
-    When a conntrack entry is destroyed in process context and destruction
-    is interrupted by packet processing and the packet is an attempt to
-    reopen a closed connection, TCP conntrack tries to kill the old entry
-    itself and returns NF_REPEAT to pass the packet through the hook
-    again. This may lead to an endless loop: TCP conntrack repeatedly
-    finds the old entry, but can not kill it itself since destruction
-    is already in progress, but destruction in process context can not
-    complete since TCP conntrack is keeping the CPU busy.
-    
-    Drop the packet in TCP conntrack if we can't kill the connection
-    ourselves to avoid this.
-    
-    Reported by: hemao77@gmail.com [ Kernel bugzilla #11058 ]
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Unbalanced locking.
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 271cd01..dd28fb2 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -844,9 +844,15 @@ static int tcp_packet(struct nf_conn *ct,
- 			/* Attempt to reopen a closed/aborted connection.
- 			 * Delete this connection and look up again. */
- 			write_unlock_bh(&tcp_lock);
--			if (del_timer(&ct->timeout))
-+			/* Only repeat if we can actually remove the timer.
-+			 * Destruction may already be in progress in process
-+			 * context and we must give it a chance to terminate.
-+			 */
-+			if (del_timer(&ct->timeout)) {
- 				ct->timeout.function((unsigned long)ct);
--			return -NF_REPEAT;
-+				return -NF_REPEAT;
-+			}
-+			return -NF_DROP;
- 		}
- 		/* Fall through */
- 	case TCP_CONNTRACK_IGNORE:
+> +
+> +	spin_lock_bh(&stats->lock);
+> +
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, stats->conns);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, stats->inpkts);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, stats->outpkts);
+> +	NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, stats->inbytes);
+> +	NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, stats->outbytes);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, stats->cps);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, stats->inpps);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, stats->outpps);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, stats->inbps);
+> +	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, stats->outbps);
+> +
+> +	spin_unlock_bh(&stats->lock);
+> +
+> +	nla_nest_end(skb, nl_stats);
+> +
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	spin_unlock_bh(&stats->lock);
+> +
+> +	nla_nest_cancel(skb, nl_stats);
+> +	return -EMSGSIZE;
+> +}
+> +
+> +static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	struct ip_vs_service *svc;
+> +	struct ip_vs_service_user usvc;
+> +	struct ip_vs_dest_user udest;
+> +	int ret = 0, cmd, flags;
+> +	int need_full_svc = 0, need_full_dest = 0;
+> +
+> +	cmd = info->genlhdr->cmd;
+> +	flags = info->nlhdr->nlmsg_flags;
+> +
+> +	/* increase the module use count */
+> +	ip_vs_use_count_inc();
 
---------------010202080809000201080206--
+This looks fishy - the reference probably must be taken by
+genetlink before calling the command handler.
+
+> +int ip_vs_genl_register(void)
+> +{
+> +	int ret, i;
+> +
+> +	ret = genl_register_family(&ip_vs_genl_family);
+> +	if (ret)
+> +		return ret;
+> +
+> +	for (i = 0; i < ARRAY_SIZE(ip_vs_genl_ops); i++) {
+> +		ret = genl_register_ops(&ip_vs_genl_family, &ip_vs_genl_ops[i]);
+> +		if (ret)
+> +			goto err_out;
+> +	}
+> +	return 0;
+> +
+> +err_out:
+> +	genl_unregister_family(&ip_vs_genl_family);
+> +	return ret;
+> +}
+> +
+> +void ip_vs_genl_unregister(void)
+> +{
+> +	genl_unregister_family(&ip_vs_genl_family);
+
+Doesn't it also has to unregister the ops?
