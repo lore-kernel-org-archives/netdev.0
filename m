@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: multique TX mergable set...
-Date: Tue, 08 Jul 2008 23:35:24 -0700 (PDT)
-Message-ID: <20080708.233524.205527637.davem@davemloft.net>
-References: <20080708.021248.28202057.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPSEC in 2.6.25 causes stalled connections
+Date: Wed, 9 Jul 2008 16:43:34 +0800
+Message-ID: <20080709084334.GA12484@gondor.apana.org.au>
+References: <20080608010858.GA8877@swan.nt.tuwien.ac.at> <E1K8TuP-0002Qd-00@gondolin.me.apana.org.au> <20080618004544.GA25439@swan.nt.tuwien.ac.at> <20080708080742.GA25027@gondor.apana.org.au> <20080708213302.GA28842@swan.nt.tuwien.ac.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Zeitlhofer <tzeitlho+lkml@nt.tuwien.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33724
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751269AbYGIGfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 02:35:24 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 94CAFC8C187
-	for <netdev@vger.kernel.org>; Tue,  8 Jul 2008 23:35:24 -0700 (PDT)
-In-Reply-To: <20080708.021248.28202057.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:56780 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752205AbYGIInu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 04:43:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20080708213302.GA28842@swan.nt.tuwien.ac.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 08 Jul 2008 02:12:48 -0700 (PDT)
+On Tue, Jul 08, 2008 at 11:33:02PM +0200, Thomas Zeitlhofer wrote:
+>
+>    (1) Use two (virtual) machines kvm1 and kvm2 and configure an IPSEC
+>        connection between them.
+>    (2) Watch the interface of one machine with nload or a similar tool
+>    (3) kvm1:~# cat /dev/zero | netcat -l -p 12345 &
+>    (4) kvm2:~# cat /dev/zero | netcat -l -p 12345 &
+>    (5) kvm1:~# netcat kvm2 12345 >/dev/null
+> 
+>    According to (2), the packet flow from kvm2 to kvm1 can bee watched
+>    now and everything works fine.
+> 
+>    (6) kvm2:~# netcat kvm1 12345 >/dev/null
 
-> Ok, what I've done is take patches 2 to 22 from the multiqueue patch
-> set I posted last week and applied the feedback I've received so far
-> as appropriate.
-> 
-> You can find it in a GIT tree here:
-> 
-> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-davem-2.6.git
-> 
-> It's based upon a clone of current net-next-2.6
- ...
-> Unless I hear a major objection I'll toss those bits into net-next-2.6
-> late tomorrow.
+Thanks! I've reproduced the problem.  Now we just need to figure
+out what it is :)
 
-This is now done :-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
