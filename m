@@ -1,57 +1,74 @@
-From: Kevin Spiteri <kspiteri@ieee.org>
-Subject: Re: TCP checksum error on local device
-Date: Wed, 09 Jul 2008 17:28:54 +0200
-Message-ID: <4874D936.9020100@ieee.org>
-References: <9a6873fa0807090734ge7ef12lf09e78db44ba77f5@mail.gmail.com> <20080709151019.GG27741@nereid>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [RFC] support for IEEE 1588
+Date: Wed, 9 Jul 2008 11:31:03 -0400
+Message-ID: <20080709153103.GC31127@csclub.uwaterloo.ca>
+References: <200807040147.11148.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:57067 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774AbYGIP1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 11:27:32 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1568207fkq.5
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2008 08:27:30 -0700 (PDT)
-In-Reply-To: <20080709151019.GG27741@nereid>
+Received: from csclub.uwaterloo.ca ([129.97.134.17]:60290 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753230AbYGIPbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 11:31:05 -0400
+Content-Disposition: inline
+In-Reply-To: <200807040147.11148.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kristof Provost wrote:
-> On 2008-07-09 16:34:32 (+0200), Kevin Spiteri <kspiteri@ieee.org> wrote:
->   
->> When I send TCP data from localhost to localhost (either on 127.0.0.1
->> or on the public IP of the machine), the TCP checksum is wrong.
->>
->>     
-> I suspect this is intended and expected behaviour. The checksum is quite
-> useless as the packet never travels over the network and can't be
-> corrupted. 
->   
-Probably.
+On Fri, Jul 04, 2008 at 01:47:11AM +0300, Octavian Purdila wrote:
+> 
+> Hi everybody,
+> 
+> IEEE 1588 Precision Time Protocol [1] requires hardware timestamping support 
+> for both RX and TX frames. It seems that in Linux we do not have the support 
+> required for this protocol to be implemented. 
 
-I saw the behaviour as strange because only the segment containing data 
-had an incorrect TCP checksum, all other segments (SYN, SYN ACK, ACKs 
-without data and FIN ACK) had a correct TCP checksum.
+ptpd in user space plus some specialized hardware is doing it for us.
+No kernel changes were required.  Of course the specialized hardware
+maintains time and receives it from GPS, so I guess that's only one
+possible use.
 
-Also, the incorrect checksum field seems to depend on the IP address and 
-the packet length, but not on the port number, sequence/acknowledgement 
-number or data content. Thus, the incorrect checksum is the same when 
-the sample is run repeatedly, it only changes when the data length 
-and/or IP address are changed.
-> The transmit code in net/ipv4/ip_output.c seems to mark packets for the
-> loopback interface with CHECKSUM_UNNECESSARY.
->   
-The same happens when I bind the server socket on the public IP (e.g. 
-10.111.110.71:12345) and connect from a socket on the same IP 
-(10.111.110.71). But then, although the IP is for device eth0 rather 
-than for device lo, the packet still never has to be transmitted and the 
-checksum is still unnecessary.
-> I guess the connection over loopback still carries the data like you'd
-> expect right?
->   
-Yes, the data was still received and correct.
+As a client the hardware deals with the 1588 packets and generates NMEA
+style messages on a serial port and makes it look to ntp as if it is
+receiving time from a standard GPS with PPS on the CD pin.
 
-Kevin
+To support receiving 1588 on one port and forwarding it out another
+would certainly need more support both from hardware and probably
+software.
 
+> Any feedback on the approach we are planing to take is greatly appreciated. We 
+> will follow with a patch at some point, but I just want to check with you 
+> gurus early, to avoid potential design flaws. If a patch is preferred for 
+> commenting on, then please ignore this and will come back later with the 
+> patch.
+> 
+> 1. RX path
+> - add a new field in skb to keep the hardware stamp (hwstamp)
+> - add a new socket flag to enable RX stamping 
+> - add a new control message to retrieve the hwstamp from the skb to user-space 
+> application (for UDP and maybe PF_PACKET)
+> 
+> 2. TX path - this is a bit more complicated since we need a new mechanism to 
+> wait for a packet transmission on wire, from users-space.
+> - add a new flag for the skb to request TX stamping
+> - add a new control message to propagate the TX stamping request from 
+> userspace to the skb
+> - when the driver will send the packet will get the stamp from the TX 
+> completion ring; the driver will then propagate the stamp either to
+> (a) the skb stamp field, or (b) some special structure - this to avoid keeping 
+> the skb around
+> - the special structure or the skb will be linked to a special queue in the 
+> socket and a POLLPRI event will be generated
+> - the application will use recvmsg and will receive a new control message 
+> which contains the timestamp from the socket special queue 
+> 
+> We will probably need to associate a cookie with each TX stamping control 
+> message which will be retrieve in the later control message, so that the 
+> application can match send packets with timestamps.
+> 
+> [1] http://ieee1588.nist.gov/tutorial-basic.pdf
+
+-- 
+Len Sorensen
