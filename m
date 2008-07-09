@@ -1,56 +1,140 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: Printing the driver name as part of the netdev watchdog message
-Date: Wed, 9 Jul 2008 11:50:10 -0700
-Message-ID: <20080709115010.388b7b1c@infradead.org>
-References: <20080708144725.5b663d19@infradead.org>
-	<20080708.145738.12692130.davem@davemloft.net>
-	<20080708164826.2a2d52c2@infradead.org>
-	<20080708.165304.55424424.davem@davemloft.net>
-	<20080708184456.52e94b93@infradead.org>
-	<20080708201658.2c496b6a@speedy>
-	<1215624055.5553.252.camel@localhost>
-	<20080709105631.492f86bd@infradead.org>
-	<1215627649.5553.265.camel@localhost>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Wed, 9 Jul 2008 15:09:15 -0400
+Message-ID: <20080709190915.GA8238@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	swise@opengridcomputing.com, rdreier@cisco.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:45634 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754882AbYGISud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 14:50:33 -0400
-In-Reply-To: <1215627649.5553.265.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 09 Jul 2008 11:20:49 -0700
-Joe Perches <joe@perches.com> wrote:
+The third Linux Wireless mini-summit will occur on Tuesday July 22,
+2008 in Ottawa, just before the Ottawa Linux Symposium.  OLS is
+generously supporting Linux mini-summits by providing the room and
+projector (http://www.linuxsymposium.org/2008/minisummits.php).
+Several vendors are supporting the event by sponsoring their own
+employees to attend, and Canonical and Intel have both helped with
+travel funds for key community participants as well.
 
-> On Wed, 2008-07-09 at 10:56 -0700, Arjan van de Ven wrote:
-> > I don't like the size_t... size_t is an abstraction to deal with
-> > file sizes.... but there's nothing else wrong with using an int for
-> > numbers.
-> 
-> <pedant_mode>
-> 
-> o size_t is an abstraction to deal with arbitrary sizes
+Although it is already a bit late, I would like to re-open discussions
+on our agenda for the meeting.  Based on current upstream topics and
+those persons whom I expect to be attending, I have cobbled together
+an agenda proposal below.  Please review it and feel free to suggest
+amendments or alterations, or to elaborate or ask questions about my
+proposed schedule of topics.
 
-it's an int. abstractions hurt. sorry.
+I look forward to seeing many of you in Ottawa!
 
-> o an unnecessary <= 0 test exists
+John
 
-it's not. if it was a < test going to an unsigned makes the test go
-away, but it's a <=.
-And signed actually catches more bugs because unsigned makes things
-silent.
+P.S.  If you intend to attend the event in Ottawa, please send me a
+private reply to this note -- even if you believe that I already know
+that you are coming! :-)
 
+---
+
+3rd Linux Wireless Summit
+Ottawa, Canada
+22 July 2008
+
+Proposed Agenda
+
+0830	Meet & Greet
+
+	Introductions and opening remarks
+
+0900	Status Reports
+
+	Overview of where things stand today
+
+	- 802.11n
+
+	- QoS/Multiqueue
+
+	- Mesh mode (802.11s)
+
+	- RF kill
+
+1015	Break
+
+1100	Vendor/Distro Round Table
+
+	Representatives from hardware vendors and Linux distributions
+	discuss issues around cooperation between themselves and the
+	development community, what we are doing well, and what problems we
+	are causing for each other.
+
+1200	Lunch/Break (sorry, no funding)
+
+1300	Current Work
+
+	Short presentations/discussions about work in progress
+
+	- encrypted management frames (802.11w)
+
+	- regulatory enforcement (802.11d, CRDA)
+
+	- virtual hardware (mac80211_hwsim)
+
+1445	Break
+
+1500	Future work
+
+	Short presentations/discussions about work that has previously
+	been suggested or requested
+
+	- cfg80211/nl80211
+		- time to push to replace WEXT?
+		- tool enhancements and/or userland support?
+
+	- power management (suspend/resume)
+
+	- lib80211 (code sharing w/ full MAC drivers)
+
+	- rate scaling algorithms
+		- minstrel
+		- others?
+
+	- userland MLME
+
+	- userland driver implementation
+
+1645	Break
+
+1700	Maintainence Issues
+
+	Round table discussion of issues related to maintenance of
+	the wireless trees
+
+	- trivial/cleanup patches
+		- testing or other requirements?
+		- should they have lower priority?
+		- should they require ACKs from primary author?
+
+	- submissions to -stable
+		- who should drive it?
+		- what policies?
+
+	- rate scaling algs
+		- driver-specific ok?  what limitations?
+		- build policies (part of mac80211.ko?)
+
+	- questions/suggestions/complaints
+
+1800	Dinner/Break (sorry, no funding)
+
+2000	BoF/Break-out Sessions
+
+	Impromptu and/or unscheduled discussions as desired by group
+	participants
 
 -- 
-If you want to reach me at my work email, use arjan@linux.intel.com
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
