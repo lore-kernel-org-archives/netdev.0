@@ -1,124 +1,119 @@
-From: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
-Subject: [DCCP][QPOLICY]: More strict controlling of supplied parameters
-Date: Thu, 10 Jul 2008 01:20:45 +0200
-Message-ID: <200807100120.46504.tomasz@grobelny.oswiecenia.net>
+From: Michael Grollman <mgrollman@nscus.com>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+ Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
+ Problem)
+Date: Wed, 09 Jul 2008 16:31:03 -0700
+Message-ID: <48754A37.6040200@nscus.com>
+References: <4861800B.90703@nscus.com>	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>	 <48640535.2050000@nscus.com>	 <20080626215918.GC2555@electric-eye.fr.zoreil.com> <1215435236.11909.121.camel@localhost> <487232F4.6000206@dell.com> <4874EFC5.4070008@nscus.com> <4874F60F.2030501@dell.com>
+Reply-To: mgrollman@nscus.com
 Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oswiecenia.net ([83.13.108.58]:3017 "EHLO poczta.oswiecenia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750922AbYGIXVG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2008 19:21:06 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kasper Sandberg <lkml@metanurb.dk>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Mario Limonciello <mario_limonciello@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <4874F60F.2030501@dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ensure that cmsg->cmsg_type value is valid for qpolicy that is currently in 
-use.
+Mario,
 
-Signed-off-by: Tomasz Grobelny <tomasz@grobelny.oswiecenia.net>
----
- net/dccp/dccp.h    |    1 +
- net/dccp/proto.c   |    8 ++++++--
- net/dccp/qpolicy.c |   23 +++++++++++++++++------
- 3 files changed, 24 insertions(+), 8 deletions(-)
+I think patch noted below worked to resolve the remaining issues I have 
+been experiencing with with realtek Ethernet port on the Intel D945GCLF 
+motherboard (Atom Mini-ITX).  I tested with the 2.6.26-rc9 kernel this 
+time, although I applied the patch to the 2.6.25's r8169.c.
 
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 9c60d01..988eea7 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -241,6 +241,7 @@ extern bool		dccp_qpolicy_full(struct sock *sk);
- extern void		dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
- extern struct sk_buff	*dccp_qpolicy_top(struct sock *sk);
- extern struct sk_buff	*dccp_qpolicy_pop(struct sock *sk);
-+extern bool		dccp_qpolicy_param_ok(struct sock *sk, int param);
- 
- /*
-  * TX Packet Output and TX Timers
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index d818606..7d6dbc1 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -709,7 +709,8 @@ int compat_dccp_getsockopt(struct sock *sk, int level, int 
-optname,
- EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
- #endif
- 
--static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
-+static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb,
-+							struct sock *sk)
- {
- 	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
- 
-@@ -733,6 +734,9 @@ static int dccp_msghdr_parse(struct msghdr *msg, struct 
-sk_buff *skb)
- 		if (cmsg->cmsg_level != SOL_DCCP)
- 			continue;
- 
-+		if (!dccp_qpolicy_param_ok(sk, cmsg->cmsg_type))
-+			return -EINVAL;
-+
- 		switch (cmsg->cmsg_type) {
- 		case DCCP_SCM_PRIORITY:
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u32)))
-@@ -789,7 +793,7 @@ int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, 
-struct msghdr *msg,
- 	if (rc != 0)
- 		goto out_discard;
- 
--	rc = dccp_msghdr_parse(msg, skb);
-+	rc = dccp_msghdr_parse(msg, skb, sk);
- 	if (rc != 0)
- 		goto out_discard;
- 
-diff --git a/net/dccp/qpolicy.c b/net/dccp/qpolicy.c
-index 414696b..4ca6e5b 100644
---- a/net/dccp/qpolicy.c
-+++ b/net/dccp/qpolicy.c
-@@ -73,17 +73,20 @@ static struct dccp_qpolicy_operations {
- 	void		(*push)	(struct sock *sk, struct sk_buff *skb);
- 	bool		(*full) (struct sock *sk);
- 	struct sk_buff*	(*top)  (struct sock *sk);
-+	unsigned int	params;
- 
- } qpol_table[DCCPQ_POLICY_MAX] = {
- 	[DCCPQ_POLICY_SIMPLE] = {
--		.push = qpolicy_simple_push,
--		.full = qpolicy_simple_full,
--		.top  = qpolicy_simple_top,
-+		.push   = qpolicy_simple_push,
-+		.full   = qpolicy_simple_full,
-+		.top    = qpolicy_simple_top,
-+		.params = 0,
- 	},
- 	[DCCPQ_POLICY_PRIO] = {
--		.push = qpolicy_simple_push,
--		.full = qpolicy_prio_full,
--		.top  = qpolicy_prio_best_skb,
-+		.push   = qpolicy_simple_push,
-+		.full   = qpolicy_prio_full,
-+		.top    = qpolicy_prio_best_skb,
-+		.params = DCCP_SCM_PRIORITY,
- 	},
- };
- 
-@@ -124,3 +127,11 @@ struct sk_buff *dccp_qpolicy_pop(struct sock *sk)
- 		skb_unlink(skb, &sk->sk_write_queue);
- 	return skb;
- }
-+
-+bool dccp_qpolicy_param_ok(struct sock *sk, int param)
-+{
-+	/* check if exactly one bit is set */
-+	if (!param || (param & (param - 1)))
-+		return false;
-+	return (qpol_table[dccp_sk(sk)->dccps_qpolicy].params & param) == param;
-+}
+Likely it is my inexperience, but the patch as I copied it from the 
+netdev@vger.kernel.org posting did not apply cleanly using the patch 
+tool, so I had to hand-apply the patch code changes to 8169.c.  However, 
+once this was done and compiled, the Ethernet began working much 
+better.  I have not been able so far to make it fail, even more than two 
+dozen or more cold and warm resets.  Previous failure rate was at least 
+during 50% of resets, so it is at a minimum much more stable on startup.
+
+Much thanks!
+
+- Michael
+
+
+Mario Limonciello wrote:
+> Hi Michael:
+>
+> Sorry, I posted this to the list I received your message from
+> (netdev@vger.kernel.org).  I don't believe it's been applied by anyone
+> as of yet.
+>
+> Regards
+>
+> Michael Grollman wrote:
+>   
+>> Mario,
+>>
+>> Apologies in advance for my ignorance.
+>>
+>> When you write below about  'the patch' and 'the list,' can you be a
+>> bit more specific, particularly about which list you posted it to?
+>>
+>> Also, I think Kasper's question below related to, was the patch you
+>> used to fix your 8169 issues now part of  rc9, or is it still
+>> independent of the main tree?  For those like me not used to be
+>> bleeding edge, its cleaner to just snag the rc candidate than to try
+>> the hand patch method.
+>>
+>> Any insight you can offer is appreciated.
+>>
+>> Cheers,
+>>
+>> - Michael
+>>
+>> Mario Limonciello wrote:
+>>     
+>>> Kasper:
+>>>
+>>> Particularly try the patch that I posted to the list.  It solved the
+>>> ifup (and resume) failures for me on two platforms using that chipset.
+>>>
+>>> Regards
+>>>
+>>> Kasper Sandberg wrote:
+>>>  
+>>>       
+>>>> On Thu, 2008-06-26 at 23:59 +0200, Francois Romieu wrote:
+>>>>   Sorry for the delay, i had to do an onsite thing in another
+>>>> country, so
+>>>> i first see your message now.
+>>>>
+>>>> Would it be okay if i took rc9 instead? also, i saw you posted a set of
+>>>> patches to sync more with realteks code, is this something you would
+>>>> like me to test too, or aswell? (remember, i have the 8111c).
+>>>>
+>>>> Btw, a thought just crossed my mind as to a possible reason why this
+>>>> might be happening, i was googling around, and it seems the TWO nic's
+>>>> are supposed to have some sort of hardware bonding thing, could it be
+>>>> because such stuff isnt handled?
+>>>>
+>>>> mvh.
+>>>> Kasper Sandberg
+>>>>
+>>>> -- 
+>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>       
+>>>>         
+>>>   
+>>>       
+>
+>   
+
 -- 
-1.5.4.5
--- 
-Regards,
-Tomasz Grobelny
+Michael Grollman
+National Scientific Corporation
+8361 East Evans Rd Ste 106
+Scottsdale, AZ.  85260  USA
+Voice: +1-480-948-8324 x 303
+Fax: +1-480-483-8893
+mgrollman@nscus.com
+www.nsct.info
