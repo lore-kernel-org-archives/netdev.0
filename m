@@ -1,110 +1,75 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 1/1] netlabel: netlink_unicast calls kfree_skb on error path by itself
-Date: Thu, 10 Jul 2008 09:42:49 -0400
-Message-ID: <200807100942.49545.paul.moore@hp.com>
-References: <1215695484-17519-1-git-send-email-den@openvz.org>
+From: Marcus Sundberg <marcus@ingate.com>
+Subject: [PATCH 2.6.26-rc9] r8169: Avoid thrashing PCI conf space on RTL_GIGA_MAC_VER_20.
+Date: Thu, 10 Jul 2008 15:31:14 +0200
+Message-ID: <48760F22.8040208@ingate.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:49137 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755700AbYGJNmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 09:42:54 -0400
-In-Reply-To: <1215695484-17519-1-git-send-email-den@openvz.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758594AbYGJNwo@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 10 July 2008 9:11:24 am Denis V. Lunev wrote:
-> So, no need to kfree_skb here on the error path. In this case we can
-> simply return.
->
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
+The magic write to register 0x82 will often cause PCI config space on
+my 8168 (PCI ID 10ec:8168, revision 2. mounted in an LG P300 laptop)
+to be filled with ones during driver load, and thus breaking NIC
+operation until reboot. If it does not happen on first driver load it
+can easily be reproduced by unloading and loading the driver a few
+times.
 
-Hi Denis,
+The magic write was added long ago by this commit:
 
-Thanks for catching this and fixing it.
+Author: Fran=E7ois Romieu <romieu@fr.zoreil.com>
+Date:   Sat Jan 10 06:00:46 2004 -0500
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+     [netdrvr r8169] Merge of changes done by Realtek to rtl8169_init_o=
+ne():
+     - phy capability settings allows lower or equal capability as sugg=
+ested
+       in Realtek's changes;
+     - I/O voodoo;
+     - no need to s/mdio_write/RTL8169_WRITE_GMII_REG/;
+     - s/rtl8169_hw_PHY_config/rtl8169_hw_phy_config/;
+     - rtl8169_hw_phy_config(): ad-hoc struct "phy_magic" to limit dupl=
+ication
+       of code (yep, the u16 -> int conversions should work as expected=
+);
+     - variable renames and whitepace changes ignored.
 
-> ---
->  net/netlabel/netlabel_cipso_v4.c  |    7 +------
->  net/netlabel/netlabel_mgmt.c      |   12 ++----------
->  net/netlabel/netlabel_unlabeled.c |    6 +-----
->  3 files changed, 4 insertions(+), 21 deletions(-)
->
-> diff --git a/net/netlabel/netlabel_cipso_v4.c
-> b/net/netlabel/netlabel_cipso_v4.c index fdc14a0..9080c61 100644
-> --- a/net/netlabel/netlabel_cipso_v4.c
-> +++ b/net/netlabel/netlabel_cipso_v4.c
-> @@ -584,12 +584,7 @@ list_start:
->  	rcu_read_unlock();
->
->  	genlmsg_end(ans_skb, data);
-> -
-> -	ret_val = genlmsg_reply(ans_skb, info);
-> -	if (ret_val != 0)
-> -		goto list_failure;
-> -
-> -	return 0;
-> +	return genlmsg_reply(ans_skb, info);
->
->  list_retry:
->  	/* XXX - this limit is a guesstimate */
-> diff --git a/net/netlabel/netlabel_mgmt.c
-> b/net/netlabel/netlabel_mgmt.c index 22c1912..44be5d5 100644
-> --- a/net/netlabel/netlabel_mgmt.c
-> +++ b/net/netlabel/netlabel_mgmt.c
-> @@ -386,11 +386,7 @@ static int netlbl_mgmt_listdef(struct sk_buff
-> *skb, struct genl_info *info) rcu_read_unlock();
->
->  	genlmsg_end(ans_skb, data);
-> -
-> -	ret_val = genlmsg_reply(ans_skb, info);
-> -	if (ret_val != 0)
-> -		goto listdef_failure;
-> -	return 0;
-> +	return genlmsg_reply(ans_skb, info);
->
->  listdef_failure_lock:
->  	rcu_read_unlock();
-> @@ -501,11 +497,7 @@ static int netlbl_mgmt_version(struct sk_buff
-> *skb, struct genl_info *info) goto version_failure;
->
->  	genlmsg_end(ans_skb, data);
-> -
-> -	ret_val = genlmsg_reply(ans_skb, info);
-> -	if (ret_val != 0)
-> -		goto version_failure;
-> -	return 0;
-> +	return genlmsg_reply(ans_skb, info);
->
->  version_failure:
->  	kfree_skb(ans_skb);
-> diff --git a/net/netlabel/netlabel_unlabeled.c
-> b/net/netlabel/netlabel_unlabeled.c index 52b2611..56f8087 100644
-> --- a/net/netlabel/netlabel_unlabeled.c
-> +++ b/net/netlabel/netlabel_unlabeled.c
-> @@ -1107,11 +1107,7 @@ static int netlbl_unlabel_list(struct sk_buff
-> *skb, struct genl_info *info) goto list_failure;
->
->  	genlmsg_end(ans_skb, data);
-> -
-> -	ret_val = genlmsg_reply(ans_skb, info);
-> -	if (ret_val != 0)
-> -		goto list_failure;
-> -	return 0;
-> +	return genlmsg_reply(ans_skb, info);
->
->  list_failure:
->  	kfree_skb(ans_skb);
+As the 8168 wasn't supported by that version this patch simply removes
+the bogus write from mac versions <=3D RTL_GIGA_MAC_VER_06.
 
+Signed-off-by: Marcus Sundberg <marcus@ingate.com>
+---
+The magic write is not present in the r8168 driver from RealTek either.
+Does anyone know what it's supposed to do?
 
+//Marcus
 
--- 
-paul moore
-linux @ hp
+  drivers/net/r8169.c |    6 ++++--
+  1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 6572425..42d7c0a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1438,8 +1438,10 @@ static void rtl8169_init_phy(struct net_device *=
+dev, struct rtl8169_private *tp)
+
+  	rtl_hw_phy_config(dev);
+
+-	dprintk("Set MAC Reg C+CR Offset 0x82h =3D 0x01h\n");
+-	RTL_W8(0x82, 0x01);
++	if (tp->mac_version <=3D RTL_GIGA_MAC_VER_06) {
++		dprintk("Set MAC Reg C+CR Offset 0x82h =3D 0x01h\n");
++		RTL_W8(0x82, 0x01);
++	}
+
+  	pci_write_config_byte(tp->pci_dev, PCI_LATENCY_TIMER, 0x40);
+
+--=20
+---------------------------------------+--------------------------
+   Marcus Sundberg <marcus@ingate.com>  | Firewalls with SIP & NAT
+  Software Developer, Ingate Systems AB |  http://www.ingate.com/
