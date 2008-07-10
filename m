@@ -1,38 +1,46 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/1] ipv6: missed namespace context in ipv6_rthdr_rcv
-Date: Thu, 10 Jul 2008 16:09:08 +0400
-Message-ID: <1215691748-17151-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	dlezcano@fr.ibm.com, benjamin.thery@bull.net,
-	"Denis V. Lunev" <den@openvz.org>,
-	"Denis V. Lunev" <den@parallels.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:1088 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752704AbYGJMKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 08:10:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
+Date: Thu, 10 Jul 2008 14:15:49 +0200
+Message-ID: <4875FD75.1090107@trash.net>
+References: <1215616317-11386-1-git-send-email-juliusv@google.com>	 <1215616317-11386-3-git-send-email-juliusv@google.com>	 <4874EABC.4000301@trash.net> <f4845fc0807091116s58b0b492p9f28281fcdca4e17@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <f4845fc0807091116s58b0b492p9f28281fcdca4e17@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Denis V. Lunev <den@parallels.com>
----
- net/ipv6/exthdrs.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Julius Volz wrote:
+> On Wed, Jul 9, 2008, Patrick McHardy wrote:
+>>> +static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info
+>>> *info)
+>>> +{
+>>> +       struct ip_vs_service *svc;
+>>> +       struct ip_vs_service_user usvc;
+>>> +       struct ip_vs_dest_user udest;
+>>> +       int ret = 0, cmd, flags;
+>>> +       int need_full_svc = 0, need_full_dest = 0;
+>>> +
+>>> +       cmd = info->genlhdr->cmd;
+>>> +       flags = info->nlhdr->nlmsg_flags;
+>>> +
+>>> +       /* increase the module use count */
+>>> +       ip_vs_use_count_inc();
+>> This looks fishy - the reference probably must be taken by
+>> genetlink before calling the command handler.
+> 
+> That would seem better, but is that possible? I took this from the
+> sockopt interface. What would you generally want to do in this
+> situation?
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 3cd1c99..dcf94fd 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -445,7 +445,7 @@ looped_back:
- 			kfree_skb(skb);
- 			return -1;
- 		}
--		if (!ipv6_chk_home_addr(&init_net, addr)) {
-+		if (!ipv6_chk_home_addr(dev_net(skb->dst->dev), addr)) {
- 			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
- 					 IPSTATS_MIB_INADDRERRORS);
- 			kfree_skb(skb);
--- 
-1.5.3.rc5
+There probably should be a struct module *owner in the
+ops registered with genetlink. This is necessary at
+least to make sure that modules don't disappear during
+dumps.
+
+
 
