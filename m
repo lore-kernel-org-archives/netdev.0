@@ -1,7 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 0/6] via-velocity: remove the bounce buffers
-Date: Fri, 11 Jul 2008 00:02:02 +0200
-Message-ID: <20080710220202.GA29764@electric-eye.fr.zoreil.com>
+Subject: [PATCH 1/6] via-velocity: remove the bounce buffers
+Date: Fri, 11 Jul 2008 00:03:44 +0200
+Message-ID: <20080710220344.GB29764@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=unknown-8bit
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org,
 	akpm@linux-foundation.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38098 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38107 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751582AbYGJWCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:02:49 -0400
+	by vger.kernel.org with ESMTP id S1752919AbYGJWE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:04:27 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -226,4 +226,3 @@ index 7387be4..8644614 100644
  	enum chip_type chip_id;
 --=20
 1.5.3.3
-
