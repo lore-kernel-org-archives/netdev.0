@@ -1,18 +1,18 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/6] cxgb: delete non NAPI code from the driver.
-Date: Fri, 11 Jul 2008 00:29:19 +0200
-Message-ID: <20080710222919.GA31019@electric-eye.fr.zoreil.com>
+Subject: [PATCH 2/6] via-rhine: delete non NAPI code from the driver.
+Date: Fri, 11 Jul 2008 00:30:14 +0200
+Message-ID: <20080710223014.GB31019@electric-eye.fr.zoreil.com>
 References: <20080707.224336.59099363.davem@davemloft.net> <20080708070106.GA30382@electric-eye.fr.zoreil.com> <20080708.015548.127198943.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Divy Le Ray <divy@chelsio.com>
+	Roger Luethi <rl@hellgate.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59384 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59393 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752880AbYGJW3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:29:43 -0400
+	by vger.kernel.org with ESMTP id S1754891AbYGJWa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:30:27 -0400
 Content-Disposition: inline
 In-Reply-To: <20080708.015548.127198943.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
@@ -22,154 +22,146 @@ Compile-tested only.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/Kconfig         |    8 -----
- drivers/net/chelsio/cxgb2.c |    2 -
- drivers/net/chelsio/sge.c   |   70 +++---------------------------------------
- 3 files changed, 5 insertions(+), 75 deletions(-)
+ drivers/net/Kconfig     |   11 -----------
+ drivers/net/via-rhine.c |   27 ++-------------------------
+ 2 files changed, 2 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 4675c1b..50ca1cf 100644
+index 50ca1cf..fb618b6 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -2378,14 +2378,6 @@ config CHELSIO_T1_1G
-           Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
-           are using only 10G cards say 'N' here.
+@@ -1694,17 +1694,6 @@ config VIA_RHINE_MMIO
  
--config CHELSIO_T1_NAPI
+ 	  If unsure, say Y.
+ 
+-config VIA_RHINE_NAPI
 -	bool "Use Rx Polling (NAPI)"
--	depends on CHELSIO_T1
--	default y
+-	depends on VIA_RHINE
 -	help
--	  NAPI is a driver API designed to reduce CPU and interrupt load
+-	  NAPI is a new driver API designed to reduce CPU and interrupt load
 -	  when the driver is receiving lots of packets from the card.
 -
- config CHELSIO_T3
- 	tristate "Chelsio Communications T3 10Gb Ethernet support"
- 	depends on PCI && INET
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index a509337..638c9a2 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -1153,9 +1153,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 		netdev->poll_controller = t1_netpoll;
+-	  If your estimated Rx load is 10kpps or more, or if the card will be
+-	  deployed on potentially unfriendly networks (e.g. in a firewall),
+-	  then say Y here.
+-
+ config LAN_SAA9730
+ 	bool "Philips SAA9730 Ethernet support"
+ 	depends on NET_PCI && PCI && MIPS_ATLAS
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 8c9d6ae..96dff04 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -73,12 +73,7 @@ static const int multicast_filter_limit = 32;
+    There are no ill effects from too-large receive rings. */
+ #define TX_RING_SIZE	16
+ #define TX_QUEUE_LEN	10	/* Limit ring entries actually used. */
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ #define RX_RING_SIZE	64
+-#else
+-#define RX_RING_SIZE	16
+-#endif
+-
+ 
+ /* Operational parameters that usually are not changed. */
+ 
+@@ -583,7 +578,6 @@ static void rhine_poll(struct net_device *dev)
+ }
  #endif
--#ifdef CONFIG_CHELSIO_T1_NAPI
- 		netif_napi_add(netdev, &adapter->napi, t1_poll, 64);
--#endif
  
- 		SET_ETHTOOL_OPS(netdev, &t1_ethtool_ops);
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ static int rhine_napipoll(struct napi_struct *napi, int budget)
+ {
+ 	struct rhine_private *rp = container_of(napi, struct rhine_private, napi);
+@@ -604,7 +598,6 @@ static int rhine_napipoll(struct napi_struct *napi, int budget)
  	}
-diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
-index 8a7efd3..d6c7d2a 100644
---- a/drivers/net/chelsio/sge.c
-+++ b/drivers/net/chelsio/sge.c
-@@ -1396,20 +1396,10 @@ static void sge_rx(struct sge *sge, struct freelQ *fl, unsigned int len)
- 
- 	if (unlikely(adapter->vlan_grp && p->vlan_valid)) {
- 		st->vlan_xtract++;
--#ifdef CONFIG_CHELSIO_T1_NAPI
--			vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
--						 ntohs(p->vlan));
--#else
--			vlan_hwaccel_rx(skb, adapter->vlan_grp,
--					ntohs(p->vlan));
--#endif
--	} else {
--#ifdef CONFIG_CHELSIO_T1_NAPI
-+		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
-+					 ntohs(p->vlan));
-+	} else
- 		netif_receive_skb(skb);
--#else
--		netif_rx(skb);
--#endif
--	}
- }
- 
- /*
-@@ -1568,7 +1558,6 @@ static inline int responses_pending(const struct adapter *adapter)
- 	return (e->GenerationBit == Q->genbit);
- }
- 
--#ifdef CONFIG_CHELSIO_T1_NAPI
- /*
-  * A simpler version of process_responses() that handles only pure (i.e.,
-  * non data-carrying) responses.  Such respones are too light-weight to justify
-@@ -1636,9 +1625,6 @@ int t1_poll(struct napi_struct *napi, int budget)
  	return work_done;
  }
- 
--/*
-- * NAPI version of the main interrupt handler.
-- */
- irqreturn_t t1_interrupt(int irq, void *data)
- {
- 	struct adapter *adapter = data;
-@@ -1656,7 +1642,8 @@ irqreturn_t t1_interrupt(int irq, void *data)
- 			else {
- 				/* no data, no NAPI needed */
- 				writel(sge->respQ.cidx, adapter->regs + A_SG_SLEEPING);
--				napi_enable(&adapter->napi);	/* undo schedule_prep */
-+				/* undo schedule_prep */
-+				napi_enable(&adapter->napi);
- 			}
- 		}
- 		return IRQ_HANDLED;
-@@ -1672,53 +1659,6 @@ irqreturn_t t1_interrupt(int irq, void *data)
- 	return IRQ_RETVAL(handled != 0);
- }
- 
--#else
--/*
-- * Main interrupt handler, optimized assuming that we took a 'DATA'
-- * interrupt.
-- *
-- * 1. Clear the interrupt
-- * 2. Loop while we find valid descriptors and process them; accumulate
-- *      information that can be processed after the loop
-- * 3. Tell the SGE at which index we stopped processing descriptors
-- * 4. Bookkeeping; free TX buffers, ring doorbell if there are any
-- *      outstanding TX buffers waiting, replenish RX buffers, potentially
-- *      reenable upper layers if they were turned off due to lack of TX
-- *      resources which are available again.
-- * 5. If we took an interrupt, but no valid respQ descriptors was found we
-- *      let the slow_intr_handler run and do error handling.
-- */
--irqreturn_t t1_interrupt(int irq, void *cookie)
--{
--	int work_done;
--	struct adapter *adapter = cookie;
--	struct respQ *Q = &adapter->sge->respQ;
--
--	spin_lock(&adapter->async_lock);
--
--	writel(F_PL_INTR_SGE_DATA, adapter->regs + A_PL_CAUSE);
--
--	if (likely(responses_pending(adapter)))
--		work_done = process_responses(adapter, -1);
--	else
--		work_done = t1_slow_intr_handler(adapter);
--
--	/*
--	 * The unconditional clearing of the PL_CAUSE above may have raced
--	 * with DMA completion and the corresponding generation of a response
--	 * to cause us to miss the resulting data interrupt.  The next write
--	 * is also unconditional to recover the missed interrupt and render
--	 * this race harmless.
--	 */
--	writel(Q->cidx, adapter->regs + A_SG_SLEEPING);
--
--	if (!work_done)
--		adapter->sge->stats.unhandled_irqs++;
--	spin_unlock(&adapter->async_lock);
--	return IRQ_RETVAL(work_done != 0);
--}
 -#endif
--
- /*
-  * Enqueues the sk_buff onto the cmdQ[qid] and has hardware fetch it.
-  *
+ 
+ static void __devinit rhine_hw_init(struct net_device *dev, long pioaddr)
+ {
+@@ -784,9 +777,8 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = rhine_poll;
+ #endif
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 	netif_napi_add(dev, &rp->napi, rhine_napipoll, 64);
+-#endif
++
+ 	if (rp->quirks & rqRhineI)
+ 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
+ 
+@@ -1056,9 +1048,7 @@ static void init_registers(struct net_device *dev)
+ 
+ 	rhine_set_rx_mode(dev);
+ 
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_enable(&rp->napi);
+-#endif
+ 
+ 	/* Enable interrupts by setting the interrupt mask. */
+ 	iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
+@@ -1193,9 +1183,7 @@ static void rhine_tx_timeout(struct net_device *dev)
+ 	/* protect against concurrent rx interrupts */
+ 	disable_irq(rp->pdev->irq);
+ 
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_disable(&rp->napi);
+-#endif
+ 
+ 	spin_lock(&rp->lock);
+ 
+@@ -1319,16 +1307,12 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
+ 
+ 		if (intr_status & (IntrRxDone | IntrRxErr | IntrRxDropped |
+ 				   IntrRxWakeUp | IntrRxEmpty | IntrRxNoBuf)) {
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 			iowrite16(IntrTxAborted |
+ 				  IntrTxDone | IntrTxError | IntrTxUnderrun |
+ 				  IntrPCIErr | IntrStatsMax | IntrLinkChange,
+ 				  ioaddr + IntrEnable);
+ 
+ 			netif_rx_schedule(dev, &rp->napi);
+-#else
+-			rhine_rx(dev, RX_RING_SIZE);
+-#endif
+ 		}
+ 
+ 		if (intr_status & (IntrTxErrSummary | IntrTxDone)) {
+@@ -1520,11 +1504,7 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 						 PCI_DMA_FROMDEVICE);
+ 			}
+ 			skb->protocol = eth_type_trans(skb, dev);
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 			netif_receive_skb(skb);
+-#else
+-			netif_rx(skb);
+-#endif
+ 			dev->last_rx = jiffies;
+ 			rp->stats.rx_bytes += pkt_len;
+ 			rp->stats.rx_packets++;
+@@ -1836,9 +1816,7 @@ static int rhine_close(struct net_device *dev)
+ 	spin_lock_irq(&rp->lock);
+ 
+ 	netif_stop_queue(dev);
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_disable(&rp->napi);
+-#endif
+ 
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
+@@ -1937,9 +1915,8 @@ static int rhine_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	if (!netif_running(dev))
+ 		return 0;
+ 
+-#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_disable(&rp->napi);
+-#endif
++
+ 	netif_device_detach(dev);
+ 	pci_save_state(pdev);
+ 
 -- 
 1.5.3.3
 
