@@ -1,50 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
-Date: Thu, 10 Jul 2008 23:16:30 +0200
-Message-ID: <20080710211630.GW20815@postel.suug.ch>
-References: <1215616317-11386-1-git-send-email-juliusv@google.com> <1215616317-11386-3-git-send-email-juliusv@google.com> <4874EABC.4000301@trash.net> <20080710112017.GA26952@google.com> <20080710113649.GS20815@postel.suug.ch> <f4845fc0807100533h6867ed00x8975d156b15a866f@mail.gmail.com> <20080710144131.GU20815@postel.suug.ch> <f4845fc0807100813o65dee75bgfc53a395dccf74f6@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Detecting TCP loss on the receiving side?
+Date: Thu, 10 Jul 2008 14:20:07 -0700
+Message-ID: <48767D07.2000003@hp.com>
+References: <4876668C.8040108@limebrokerage.com> <48766CF0.1020101@hp.com>	<48766EC2.2090000@limebrokerage.com> <1e41a3230807101405y437dff4er443185be3228caa5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, vbusam@google.com, horms@verge.net.au,
-	davem@davemloft.net
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f4845fc0807100813o65dee75bgfc53a395dccf74f6@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Dan_No=E9?= <dnoe@limebrokerage.com>,
+	netdev@vger.kernel.org
+To: John Heffner <johnwheffner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:41032 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbYGJVUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 17:20:51 -0400
+In-Reply-To: <1e41a3230807101405y437dff4er443185be3228caa5@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Julius Volz <juliusv@google.com> 2008-07-10 17:13
-> So, just to be sure: when I'm not returning an object (like in
-> IPVS_CMD_GET_INFO), I still use IPVS_CMD_GET_INFO as the command ID in
-> the response? This is also how net/irda/irnetlink.c does it, but maybe
-> I'm copying bad examples again.
-> 
-> But whenever a response message is about objects, be it one or
-> multiple entries, I use the IPVS_CMD_NEW_* response IDs.
+John Heffner wrote:
+> Looking for loss at the receiver is a bit tricky.  It doesn't look
+> like struct tcp_info has enough information to do this easily.  If you
+> are able to install a custom kernel on this machine, the Web100 patch
+> would be able to gather enough information to figure it out.  The
+> basic idea would be to look for a difference between RcvNxt and
+> RcvMax.
 
-Personally I would never use a GET id to send any data at all. My main
-focus is on trying to make message protocols self documenting. If a
-certain message type has multiple meanings depending on the direction
-it will make it harder to understand and harder to debug from a protocol
-standpoint.
+And even then it depends on the connections having multiple segments in 
+flight at one time.  Although I suppose that cuts both ways and affects 
+the tracing too, but perhaps not to the same extent.
 
-The common netlink semantics are
+Dan - seeing "brokerage" in your email and worries about latency makes 
+me think that your app(s) are pushing around lots of small messages - 
+are those spread-out across lots of connections, or are they 
+consolidated into a rather smaller number of connections?  Also, what is 
+the magnitude of the latency in these latency events?
 
- CMD_OBJ_NEW - create or update objects as described in the message
-               content.
- CMD_OBJ_SET - rarely used, update a static object which doesn't have
-               to be created or added. asme as OBJ_NEW otherwise.
- CMD_OBJ_DEL - delete object described in the message
- CMD_OBJ_GET - search for a object as described in the message and
-               send a CMD_OBJ_NEW as reply including the full object.
-
-	       with NLM_F_DUMP: iterate over all objects and send a
-	       CMD_OBJ_NEW for each object. This request often carries
-	       no additional data.
-
-It's pretty simple but covers almost every possible protocol for use
-in configuration interfaces. In the case of IPVS_CMD_GET_INFO the
-actual data being sent back can be regarded as a info object. Basically
-netlink is mainly used as a very basic form of rpc.
+rick jones
