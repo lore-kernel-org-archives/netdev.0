@@ -1,109 +1,144 @@
-From: "Shaun Jackman" <sjackman@gmail.com>
-Subject: Re: Multicast and receive filtering in TUN/TAP
-Date: Thu, 10 Jul 2008 14:38:23 -0700
-Message-ID: <7f45d9390807101438q785232f1sfec7fcc580683d0f@mail.gmail.com>
-References: <4875428F.4080704@qualcomm.com>
-Reply-To: "Shaun Jackman" <sjackman@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] ip: sysctl documentation cleanup
+Date: Thu, 10 Jul 2008 14:39:07 -0700
+Message-ID: <20080710143907.29b6be10@extreme>
+References: <20080701154306.21b04c75@extreme>
+	<Pine.LNX.4.64.0807011549340.26330@shark.he.net>
+	<20080701161357.3ddccd2f@speedy>
+	<20080701.192838.153872666.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Brian Braunstein" <linuxkernel@bristyle.com>,
-	"Christian Borntraeger" <borntraeger@de.ibm.com>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Max Krasnyansky" <maxk@qualcomm.com>
+Cc: rdunlap@xenotime.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:55598 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbYGJVi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 17:38:28 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so1732148ywe.1
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 14:38:24 -0700 (PDT)
-In-Reply-To: <4875428F.4080704@qualcomm.com>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:59726 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751944AbYGJVjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 17:39:13 -0400
+In-Reply-To: <20080701.192838.153872666.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Max,
+Reduced version of the spelling cleanup patch.
+Take out the confusing language in tcp_frto, and organize the undocumented
+values.
 
-The original patch implemented receive multicast filtering by
-emulating the implementation used by many physical Ethernet
-interfaces: hashing the multicast address. TUN emulates two network
-cards (and communication via the virtual link between them), the guest
-and the host, or the character device and the network device, so there
-are two receive filters: chr_filter and net_filter. I implemented the
-filtering at the character device using chr_filter in tun_chr_readv,
-and left filtering at the network device for someone else to
-implement.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I'm not sure what you mean by TX filtering. Multicast filtering is
-implemented uniquely at the receiver. There are, however, two
-receivers: the character device and the network device.
 
-I believe Brian's patch was mistaken. Two entirely distinct Ethernet
-addresses are required: one for the character device and one for the
-network device, or put another way, one for the virtual Ethernet
-interface at the guest and one for the virtual Ethernet interface at
-the host. For the same reason, there are two distinct multicast
-filters.
-
-Looking over the original patch, I believe I see a bug in tun_net_mclist:
-memset(tun->chr_filter, 0, sizeof tun->chr_filter);
-should be
-memset(tun->net_filter, 0, sizeof tun->net_filter);
-
-Cheers,
-Shaun
-
-On Wed, Jul 9, 2008 at 3:58 PM, Max Krasnyansky <maxk@qualcomm.com> wrote:
-> Yesterday while fixing xoff stuckiness issue in the TUN/TAP driver I got a
-> chance to look into the multicast filtering code in there. And immediately
-> realized how terribly broken & confusing it is. The patch was originally
-> done by Shaun (CC'ed) and went in without any proper ACK from me, Dave or
-> Jeff.
-> Here is the original ref
->        http://marc.info/?l=linux-netdev&m=110490502102308&w=2
->
-> I'm not going to dive into too much details on what's wrong with the current
-> code. The main issues are that it mixes RX and TX filtering which are
-> orthogonal, and it reuses ioctl names and stuff for manipulating TX filter
-> state as if it was a normal RX multicast state.
-> Later on Brian's patch added insult to the injury
->        http://git.kernel.org/?p=linux/kernel/git/\
->                torvalds/linux-2.6.git;\
->                a=commit;h=36226a8ded46b89a94f9de5976f554bb5e02d84c
-> Brian missed the point of the original patch (not his fault, as I said the
-> original patch was not the best) that the separate address introduced by the
-> MC patch was used for filtering _TX_ packets. It had nothing to do with the
-> HW addr of the local network interface.
->
-> The problem is that MC stuff is now even more broken and ioctls that were
-> used originally now mean something different. So my first thinking was to
-> just rip the MC stuff out because it's broken and probably nobody uses it
-> (given that we got no complains after Brian's patch broke it completely).
-> But then I realized that if done properly it might be very useful for
-> virtualization.
->
-> ---
->
-> So the first question is are there any users out there that ever used the
-> original patch. Shaun, any insight ? How did you intend to use it ?
->
-> ---
->
-> The second question is do you guys think that QEMU/KVM/LGUEST/etc would
-> benefit if receive filtering was done by the host OS. Here is a specific
-> example of what I'm talking about.
-> We can do what qemu/hw/e1000.c:receive_filter() does in the _host_ context
-> (that function currently runs in the guest context). By looking at libvirt,
-> typical QEMU based setup is that you have a single bridge and all the TAPs
-> from different VMs are hooked up to that bridge. What that means is that if
-> one VM is getting MC traffic or when the bridge sees MACADDR that is not in
-> its tables the packets get delivered to all the VMs. ie We have to wake all
-> of the up only to so that they could drop that packet. Instead, we could
-> setup filters in the host's side of the TAP device.
-> Does that sound like something useful for QEMU/KVM ?
-> If yes we can talk about the API. If not then I'll just nuke it.
->
-> Thanx
-> Max
->
+--- a/Documentation/networking/ip-sysctl.txt	2008-07-07 11:16:14.000000000 -0700
++++ b/Documentation/networking/ip-sysctl.txt	2008-07-07 11:17:23.000000000 -0700
+@@ -148,9 +148,9 @@ tcp_available_congestion_control - STRIN
+ 	but not loaded.
+ 
+ tcp_base_mss - INTEGER
+-	The initial value of search_low to be used by Packetization Layer
+-	Path MTU Discovery (MTU probing).  If MTU probing is enabled,
+-	this is the inital MSS used by the connection.
++	The initial value of search_low to be used by the packetization layer
++	Path MTU discovery (MTU probing).  If MTU probing is enabled,
++	this is the initial MSS used by the connection.
+ 
+ tcp_congestion_control - STRING
+ 	Set the congestion control algorithm to be used for new
+@@ -185,10 +185,9 @@ tcp_frto - INTEGER
+ 	timeouts.  It is particularly beneficial in wireless environments
+ 	where packet loss is typically due to random radio interference
+ 	rather than intermediate router congestion.  F-RTO is sender-side
+-	only modification.  Therefore it does not require any support from
+-	the peer, but in a typical case, however, where wireless link is
+-	the local access link and most of the data flows downlink, the
+-	faraway servers should have F-RTO enabled to take advantage of it.
++	only modification. Therefore it does not require any support from
++	the peer.
++
+ 	If set to 1, basic version is enabled.  2 enables SACK enhanced
+ 	F-RTO if flow uses SACK.  The basic version can be used also when
+ 	SACK is in use though scenario(s) with it exists where F-RTO
+@@ -276,7 +275,7 @@ tcp_mem - vector of 3 INTEGERs: min, pre
+ 	memory.
+ 
+ tcp_moderate_rcvbuf - BOOLEAN
+-	If set, TCP performs receive buffer autotuning, attempting to
++	If set, TCP performs receive buffer auto-tuning, attempting to
+ 	automatically size the buffer (no greater than tcp_rmem[2]) to
+ 	match the size required by the path for full throughput.  Enabled by
+ 	default.
+@@ -358,7 +357,7 @@ tcp_slow_start_after_idle - BOOLEAN
+ 	Default: 1
+ 
+ tcp_stdurg - BOOLEAN
+-	Use the Host requirements interpretation of the TCP urg pointer field.
++	Use the Host requirements interpretation of the TCP urgent pointer field.
+ 	Most hosts use the older BSD interpretation, so if you turn this on
+ 	Linux might not communicate correctly with them.
+ 	Default: FALSE
+@@ -371,12 +370,12 @@ tcp_synack_retries - INTEGER
+ tcp_syncookies - BOOLEAN
+ 	Only valid when the kernel was compiled with CONFIG_SYNCOOKIES
+ 	Send out syncookies when the syn backlog queue of a socket
+-	overflows. This is to prevent against the common 'syn flood attack'
++	overflows. This is to prevent against the common 'SYN flood attack'
+ 	Default: FALSE
+ 
+ 	Note, that syncookies is fallback facility.
+ 	It MUST NOT be used to help highly loaded servers to stand
+-	against legal connection rate. If you see synflood warnings
++	against legal connection rate. If you see SYN flood warnings
+ 	in your logs, but investigation	shows that they occur
+ 	because of overload with legal connections, you should tune
+ 	another parameters until this warning disappear.
+@@ -386,7 +385,7 @@ tcp_syncookies - BOOLEAN
+ 	to use TCP extensions, can result in serious degradation
+ 	of some services (f.e. SMTP relaying), visible not by you,
+ 	but your clients and relays, contacting you. While you see
+-	synflood warnings in logs not being really flooded, your server
++	SYN flood warnings in logs not being really flooded, your server
+ 	is seriously misconfigured.
+ 
+ tcp_syn_retries - INTEGER
+@@ -1072,25 +1071,24 @@ bridge-nf-filter-pppoe-tagged - BOOLEAN
+ 	0 : disable this.
+ 	Default: 1
+ 
+-
+ UNDOCUMENTED:
+ 
+-dev_weight FIXME
+-discovery_slots FIXME
+-discovery_timeout FIXME
+-fast_poll_increase FIXME
+-ip6_queue_maxlen FIXME
+-lap_keepalive_time FIXME
+-lo_cong FIXME
+-max_baud_rate FIXME
+-max_dgram_qlen FIXME
+-max_noreply_time FIXME
+-max_tx_data_size FIXME
+-max_tx_window FIXME
+-min_tx_turn_time FIXME
+-mod_cong FIXME
+-no_cong FIXME
+-no_cong_thresh FIXME
+-slot_timeout FIXME
+-warn_noreply_time FIXME
++/proc/sys/net/core/*
++	dev_weight FIXME
++
++/proc/sys/net/unix/*
++	max_dgram_qlen FIXME
++
++/proc/sys/net/irda/*
++	fast_poll_increase FIXME
++	warn_noreply_time FIXME
++	discovery_slots FIXME
++	slot_timeout FIXME
++	max_baud_rate FIXME
++	discovery_timeout FIXME
++	lap_keepalive_time FIXME
++	max_noreply_time FIXME
++	max_tx_data_size FIXME
++	max_tx_window FIXME
++	min_tx_turn_time FIXME
+ 
