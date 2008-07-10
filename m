@@ -1,60 +1,66 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] xfrm: Add a XFRM_STATE_AF_UNSPEC flag to xfrm_usersa_info
-Date: Thu, 10 Jul 2008 13:29:01 +0200
-Message-ID: <20080710112901.GV9549@secunet.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
+Date: Thu, 10 Jul 2008 13:36:49 +0200
+Message-ID: <20080710113649.GS20815@postel.suug.ch>
+References: <1215616317-11386-1-git-send-email-juliusv@google.com> <1215616317-11386-3-git-send-email-juliusv@google.com> <4874EABC.4000301@trash.net> <20080710112017.GA26952@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, vbusam@google.com, horms@verge.net.au,
+	davem@davemloft.net
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:57598 "EHLO a.mx.secunet.com"
+Received: from postel.suug.ch ([194.88.212.233]:40053 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754779AbYGJL3D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 07:29:03 -0400
+	id S1752652AbYGJLg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 07:36:29 -0400
 Content-Disposition: inline
+In-Reply-To: <20080710112017.GA26952@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a XFRM_STATE_AF_UNSPEC flag to handle the AF_UNSPEC behavior
-for the selector family. Userspace applications can set this flag
-to leave the selector family of the xfrm_state unspecified.
-This can be used to to handle inter family tunnels if the
-selector is not set from userspace.
+* Julius Volz <juliusv@google.com> 2008-07-10 13:20
+> +/* IPVS genetlink family */
+> +static struct genl_family ip_vs_genl_family = {
+> +	.id		= GENL_ID_GENERATE,
+> +	.hdrsize	= 0,
+> +	.name		= IPVS_GENL_NAME,
+> +	.version	= IPVS_GENL_VERSION,
+> +	.maxattr	= IPVS_CMD_MAX
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/linux/xfrm.h |    1 +
- net/xfrm/xfrm_user.c |    3 +--
- 2 files changed, 2 insertions(+), 2 deletions(-)
+It's not a bug but looks like a typo, maxattr should
+specify the number of first level attributes.
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 2ca6bae..fb0c215 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -339,6 +339,7 @@ struct xfrm_usersa_info {
- #define XFRM_STATE_NOPMTUDISC	4
- #define XFRM_STATE_WILDRECV	8
- #define XFRM_STATE_ICMP		16
-+#define XFRM_STATE_AF_UNSPEC	32
- };
- 
- struct xfrm_usersa_id {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index b976d9e..04c4150 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -277,9 +277,8 @@ static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *
- 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
- 	x->props.flags = p->flags;
- 
--	if (!x->sel.family)
-+	if (!x->sel.family && !(p->flags & XFRM_STATE_AF_UNSPEC))
- 		x->sel.family = p->family;
--
- }
- 
- /*
--- 
-1.5.3
+> +static int ip_vs_genl_dump_service(struct sk_buff *skb, struct ip_vs_service *svc,
+> +				   struct netlink_callback *cb)
+> +{
+> +	void *hdr;
+> +
+> +	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq,
+> +			  &ip_vs_genl_family, NLM_F_MULTI,
+> +			  IPVS_CMD_GET_SERVICES);
 
+Typically, netlink code follows the following semantics WRT to
+commands/message types:
+-> GET_SERVICE (NLM_F_DUMP)
+<- NEW_SERVICE
+<- NEW_SERVICE
+<- NEW_SERVICE
+
+If you are ever going to send notifications, you can use the very same
+NEW_SERVICE and userspace can use the same parsing functions.
+
+> +static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	struct sk_buff *msg;
+> +	void *reply;
+> +	int ret, cmd;
+> +
+> +	mutex_lock(&__ip_vs_mutex);
+> +
+> +	cmd = info->genlhdr->cmd;
+> +
+> +	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+
+This should be nlmsg_new(NLMSG_DEFAULT_SIZE, ...) , NLMSG_GOODSIZE is for use
+with skb_alloc().
