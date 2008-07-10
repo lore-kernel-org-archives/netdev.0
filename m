@@ -1,34 +1,49 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH v2] rc80211_pid: Fix fast_start parameter handling
-Date: Thu, 10 Jul 2008 12:40:07 +0200
-Message-ID: <20080710104007.GB30650@elte.hu>
-References: <19f34abd0807070427w5398c617uae0a4e8e40fd8f0e@mail.gmail.com> <1215464899.4416.22.camel@localhost>
+From: "Tomas Winkler" <tomasw@gmail.com>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Thu, 10 Jul 2008 13:50:37 +0300
+Message-ID: <1ba2fa240807100350n57e6121en46cc0febf12b6e50@mail.gmail.com>
+References: <20080709190915.GA8238@tuxdriver.com>
+	 <1215685335.3483.5.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vegard Nossum <vegard.nossum@gmail.com>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Enberg <penberg@cs.helsinki.fi>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Mattias Nissler <mattias.nissler@gmx.de>
+To: "Johannes Berg" <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:43812 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752751AbYGJKk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 06:40:27 -0400
+Received: from wa-out-1112.google.com ([209.85.146.181]:55002 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752419AbYGJKuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 06:50:37 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so2004128waf.23
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 03:50:37 -0700 (PDT)
+In-Reply-To: <1215685335.3483.5.camel@johannes.berg>
 Content-Disposition: inline
-In-Reply-To: <1215464899.4416.22.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 10, 2008 at 1:22 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+>
+>> 0900  Status Reports
+>>       Overview of where things stand today
+>>       - 802.11n
+>>       - QoS/Multiqueue
+>>       - Mesh mode (802.11s)
+>>       - RF kill
+>
+> And spectrum management (Tomas) please.
 
-* Mattias Nissler <mattias.nissler@gmx.de> wrote:
 
-> [...] This also fixes uninitialized memory references to the 
-> fast_start and norm_offset parameters detected by the kmemcheck 
-> utility.
 
-cool :-)
+>
+> We've seen initial patches that add a bit of infrastructure, but aren't
+> using these things yet.
 
-	Ingo
+Hope to submit all the patches before symposium.
+The whole package is already visible in iwl5000 branch of
+iwlwifi-2.6.git Need to clean it up and submit.
+
+Thanks
+Tomas
