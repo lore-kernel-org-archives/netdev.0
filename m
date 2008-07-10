@@ -1,82 +1,110 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] [IPV4] fib_trie: Fix lookup error return
-Date: Thu, 10 Jul 2008 14:23:37 +0100
-Message-ID: <20080710132336.GO28029@solarflare.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/1] netlabel: netlink_unicast calls kfree_skb on error path by itself
+Date: Thu, 10 Jul 2008 09:42:49 -0400
+Message-ID: <200807100942.49545.paul.moore@hp.com>
+References: <1215695484-17519-1-git-send-email-den@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: William Boughton <bill@boughton.de>, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:58842 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754026AbYGJNXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 09:23:43 -0400
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:49137 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755700AbYGJNmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 09:42:54 -0400
+In-Reply-To: <1215695484-17519-1-git-send-email-den@openvz.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f "[IPV4] fib_trie: style
-cleanup", the changes to check_leaf() and fn_trie_lookup() were wrong - where
-fn_trie_lookup() would previously return a negative error value from
-check_leaf(), it now returns 0.
- 
-Now fn_trie_lookup() doesn't appear to care about plen, so we can revert
-check_leaf() to returning the error value.
+On Thursday 10 July 2008 9:11:24 am Denis V. Lunev wrote:
+> So, no need to kfree_skb here on the error path. In this case we can
+> simply return.
+>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Tested-by: William Boughton <bill@boughton.de>
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 394db9c..43ed894 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1357,17 +1357,17 @@ static int check_leaf(struct trie *t, struct leaf *l,
- 			t->stats.semantic_match_miss++;
- #endif
- 		if (err <= 0)
--			return plen;
-+			return err;
- 	}
- 
--	return -1;
-+	return 1;
- }
- 
- static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
- 			  struct fib_result *res)
- {
- 	struct trie *t = (struct trie *) tb->tb_data;
--	int plen, ret = 0;
-+	int ret;
- 	struct node *n;
- 	struct tnode *pn;
- 	int pos, bits;
-@@ -1391,10 +1391,7 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
- 
- 	/* Just a leaf? */
- 	if (IS_LEAF(n)) {
--		plen = check_leaf(t, (struct leaf *)n, key, flp, res);
--		if (plen < 0)
--			goto failed;
--		ret = 0;
-+		ret = check_leaf(t, (struct leaf *)n, key, flp, res);
- 		goto found;
- 	}
- 
-@@ -1419,11 +1416,9 @@ static int fn_trie_lookup(struct fib_table *tb, const struct flowi *flp,
- 		}
- 
- 		if (IS_LEAF(n)) {
--			plen = check_leaf(t, (struct leaf *)n, key, flp, res);
--			if (plen < 0)
-+			ret = check_leaf(t, (struct leaf *)n, key, flp, res);
-+			if (ret > 0)
- 				goto backtrace;
--
--			ret = 0;
- 			goto found;
- 		}
+Hi Denis,
+
+Thanks for catching this and fixing it.
+
+Acked-by: Paul Moore <paul.moore@hp.com>
+
+> ---
+>  net/netlabel/netlabel_cipso_v4.c  |    7 +------
+>  net/netlabel/netlabel_mgmt.c      |   12 ++----------
+>  net/netlabel/netlabel_unlabeled.c |    6 +-----
+>  3 files changed, 4 insertions(+), 21 deletions(-)
+>
+> diff --git a/net/netlabel/netlabel_cipso_v4.c
+> b/net/netlabel/netlabel_cipso_v4.c index fdc14a0..9080c61 100644
+> --- a/net/netlabel/netlabel_cipso_v4.c
+> +++ b/net/netlabel/netlabel_cipso_v4.c
+> @@ -584,12 +584,7 @@ list_start:
+>  	rcu_read_unlock();
+>
+>  	genlmsg_end(ans_skb, data);
+> -
+> -	ret_val = genlmsg_reply(ans_skb, info);
+> -	if (ret_val != 0)
+> -		goto list_failure;
+> -
+> -	return 0;
+> +	return genlmsg_reply(ans_skb, info);
+>
+>  list_retry:
+>  	/* XXX - this limit is a guesstimate */
+> diff --git a/net/netlabel/netlabel_mgmt.c
+> b/net/netlabel/netlabel_mgmt.c index 22c1912..44be5d5 100644
+> --- a/net/netlabel/netlabel_mgmt.c
+> +++ b/net/netlabel/netlabel_mgmt.c
+> @@ -386,11 +386,7 @@ static int netlbl_mgmt_listdef(struct sk_buff
+> *skb, struct genl_info *info) rcu_read_unlock();
+>
+>  	genlmsg_end(ans_skb, data);
+> -
+> -	ret_val = genlmsg_reply(ans_skb, info);
+> -	if (ret_val != 0)
+> -		goto listdef_failure;
+> -	return 0;
+> +	return genlmsg_reply(ans_skb, info);
+>
+>  listdef_failure_lock:
+>  	rcu_read_unlock();
+> @@ -501,11 +497,7 @@ static int netlbl_mgmt_version(struct sk_buff
+> *skb, struct genl_info *info) goto version_failure;
+>
+>  	genlmsg_end(ans_skb, data);
+> -
+> -	ret_val = genlmsg_reply(ans_skb, info);
+> -	if (ret_val != 0)
+> -		goto version_failure;
+> -	return 0;
+> +	return genlmsg_reply(ans_skb, info);
+>
+>  version_failure:
+>  	kfree_skb(ans_skb);
+> diff --git a/net/netlabel/netlabel_unlabeled.c
+> b/net/netlabel/netlabel_unlabeled.c index 52b2611..56f8087 100644
+> --- a/net/netlabel/netlabel_unlabeled.c
+> +++ b/net/netlabel/netlabel_unlabeled.c
+> @@ -1107,11 +1107,7 @@ static int netlbl_unlabel_list(struct sk_buff
+> *skb, struct genl_info *info) goto list_failure;
+>
+>  	genlmsg_end(ans_skb, data);
+> -
+> -	ret_val = genlmsg_reply(ans_skb, info);
+> -	if (ret_val != 0)
+> -		goto list_failure;
+> -	return 0;
+> +	return genlmsg_reply(ans_skb, info);
+>
+>  list_failure:
+>  	kfree_skb(ans_skb);
+
+
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+paul moore
+linux @ hp
