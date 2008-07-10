@@ -1,61 +1,56 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Thu, 10 Jul 2008 16:31:49 +0200
-Message-ID: <1215700309.3483.21.camel@johannes.berg>
-References: <20080709190915.GA8238@tuxdriver.com>
-	 (sfid-20080709_213808_434368_5FE083A0)
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
+Date: Thu, 10 Jul 2008 16:41:31 +0200
+Message-ID: <20080710144131.GU20815@postel.suug.ch>
+References: <1215616317-11386-1-git-send-email-juliusv@google.com> <1215616317-11386-3-git-send-email-juliusv@google.com> <4874EABC.4000301@trash.net> <20080710112017.GA26952@google.com> <20080710113649.GS20815@postel.suug.ch> <f4845fc0807100533h6867ed00x8975d156b15a866f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/6metlsUcf40iya5uiWZ"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080709190915.GA8238-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (sfid-20080709_213808_434368_5FE083A0)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, vbusam@google.com, horms@verge.net.au,
+	davem@davemloft.net
+To: Julius Volz <juliusv@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:43677 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753820AbYGJOlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 10:41:11 -0400
+Content-Disposition: inline
+In-Reply-To: <f4845fc0807100533h6867ed00x8975d156b15a866f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+* Julius Volz <juliusv@google.com> 2008-07-10 14:33
+> Ah, this is how the family's attrbuf size is set. Looks like a bug
+> actually, but it hasn't affected anything because the command enum is
+> bigger than any of the first-level attribute enums. I might have
+> gotten this from net/irda/irnetlink.c, where it's also set to the
+> maximum command attribute value.
 
---=-/6metlsUcf40iya5uiWZ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Thanks for the note, I will fix that.
 
+> Note that I use different first level attributes depending on the
+> command. Rather than calculating the largest needed size, it's
+> probably best to join all attributes that may ever occur in the first
+> level into one big enum, right?
 
-> 1500	Future work
+Yes, that's the easiest solution and it doesn't really cost you
+anything besides the slightly bigger allocation.
 
-Maybe something about testing? Or I'll do a testing brainstorming
-session after dinner.
+> > Typically, netlink code follows the following semantics WRT to
+> > commands/message types:
+> > -> GET_SERVICE (NLM_F_DUMP)
+> > <- NEW_SERVICE
+> > <- NEW_SERVICE
+> > <- NEW_SERVICE
+> 
+> Ok, so I will set the answer message type to IPVS_CMD_NEW_SERVICE (and
+> accordingly in the other dump cases). For non-dump GET commands, is it
+> usual to have the response ID be the same as the request?
 
-Obviously, testing at orbit never worked out, but it'd be good to have
-_something_ other than everybody testing their thing locally. Ties in
-with the virtual hardware, maybe?
-
-johannes
-
---=-/6metlsUcf40iya5uiWZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJIdh1RAAoJEKVg1VMiehFY/aYP/iHzQeuInHrBEb1rCmL9Avbi
-o6zFcHixMYHliZmKmkPiEtgtdY5sa1oXRtoTO9hkXnVM5faLND1OL4JB5V4xI56T
-WCyx6zyG/NlXJFdGpIoY2rcBgZ6sL3oFao4qmiekBEzYxUUIcxrlwvQ98WAvZvBo
-JZLky9FWQwicl7SZgKutt4LjKthEKDqDzqNQvDf13pxfhCjsy/sIF/W4hQJZY4OU
-fIkjrW8wwovYg4au3IGum1uF/lGKByuead/MKzUPk5VNx4tmkU/baujdKyL7TTbf
-jDud+5ztgiEcs0FJY3Lx6w60yUK13cawbwR6DkhK/6CNP4MYQKHQy2E0Zqa7Fb0M
-8IFTvOfJB9sinDtBSOL4w1NDWOCbDFst6KUWWWRxdGyF9S0JkvPF3HXiKpmsPLRj
-cWRlV4uwrkhq4am0J/YyoOi48S9PIopXQr98R1Cc0W4y4U9LLWF9OQxzPwFZgclk
-Cm+agZScdIbc2RsMCyLDU0mz9IljVtOUK/SsCK0QwrWwhrCPMCCqd1PWFFhorbix
-mEgBP73R7Fl5oinQK8nNqFl5jHJaqMc17v+FRg4MuCQCjSpo9WTeb0zaHDHly5ap
-vj0wd5RutWPLphSgzEhJ8+QtTijGRqgQTp06VZmeetfmr78Wdea898NdKpgq6yRh
-IpCOWoW2/1fmQjnkSpYa
-=8jkp
------END PGP SIGNATURE-----
-
---=-/6metlsUcf40iya5uiWZ--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It should follow the same semantics as with dumps. Netlink is typically
+used in an object context, where objects are requested, added or deleted. 
+Basically, a dump is a request to fill the userspace listening part with
+all objects of the specified type. genetlink is a bit special as it
+moved away from the traditional 4 commands per family (get, new, set,
+delete) but in a case like IPVS where you are in fact managing objects
+it does make sense to stick to the known semantics.
