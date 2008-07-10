@@ -1,167 +1,93 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/6] via-rhine: delete non NAPI code from the driver.
-Date: Fri, 11 Jul 2008 00:30:14 +0200
-Message-ID: <20080710223014.GB31019@electric-eye.fr.zoreil.com>
-References: <20080707.224336.59099363.davem@davemloft.net> <20080708070106.GA30382@electric-eye.fr.zoreil.com> <20080708.015548.127198943.davem@davemloft.net>
+From: Josip Rodin <joy@entuzijast.net>
+Subject: Re: bnx2_poll panicking kernel
+Date: Fri, 11 Jul 2008 00:31:42 +0200
+Message-ID: <20080710223141.GA2519@orion.carnet.hr>
+References: <4863DA40.9050508@broadcom.com> <20080709164619.GA26098@orion.carnet.hr> <1215622625.5532.43.camel@dell> <20080709.164659.157912631.davem@davemloft.net> <1215723617.6901.3.camel@dell> <20080710212324.GA22521@orion.carnet.hr> <1215725921.6901.10.camel@dell> <20080710220030.GA29558@orion.carnet.hr> <1215728763.6901.23.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Roger Luethi <rl@hellgate.ch>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	"billfink@mindspring.com" <billfink@mindspring.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"mirrors@debian.org" <mirrors@debian.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59393 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754891AbYGJWa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:30:27 -0400
+Received: from orion.CARNet.hr ([161.53.160.90]:55278 "EHLO orion.carnet.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751548AbYGJWbq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 18:31:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20080708.015548.127198943.davem@davemloft.net>
+In-Reply-To: <1215728763.6901.23.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compile-tested only.
+On Thu, Jul 10, 2008 at 03:26:03PM -0700, Michael Chan wrote:
+> > > This is the same crash that you originally reported.  The driver was
+> > > referencing a NULL SKB because the skb_shinfo(skb)->nr_frags was
+> > > modified on the previous packet in the TX ring.
+> > >
+> > > If you had applied my debug patch #1 that I posted several weeks ago, it
+> > > should have avoided this because we should have saved away the nr_frags
+> > > for every packet on the TX ring.
+> > 
+> > It was that same patched kernel that crashed nevertheless.
+> 
+> That's strange.  You also saw lots of "Corrupted SKB..." dmesg as well,
+> right?  May be the debug patch is not bullet-proof although I cannot see
+> how we can still get a NULL SKB in the TX completion path.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/Kconfig     |   11 -----------
- drivers/net/via-rhine.c |   27 ++-------------------------
- 2 files changed, 2 insertions(+), 36 deletions(-)
+Yes, there were gobs of those, as usual. JFTR, this was the last one
+recorded before the crash, though I can't be sure if it was responsible or not:
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 50ca1cf..fb618b6 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1694,17 +1694,6 @@ config VIA_RHINE_MMIO
- 
- 	  If unsure, say Y.
- 
--config VIA_RHINE_NAPI
--	bool "Use Rx Polling (NAPI)"
--	depends on VIA_RHINE
--	help
--	  NAPI is a new driver API designed to reduce CPU and interrupt load
--	  when the driver is receiving lots of packets from the card.
--
--	  If your estimated Rx load is 10kpps or more, or if the card will be
--	  deployed on potentially unfriendly networks (e.g. in a firewall),
--	  then say Y here.
--
- config LAN_SAA9730
- 	bool "Philips SAA9730 Ethernet support"
- 	depends on NET_PCI && PCI && MIPS_ATLAS
-diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 8c9d6ae..96dff04 100644
---- a/drivers/net/via-rhine.c
-+++ b/drivers/net/via-rhine.c
-@@ -73,12 +73,7 @@ static const int multicast_filter_limit = 32;
-    There are no ill effects from too-large receive rings. */
- #define TX_RING_SIZE	16
- #define TX_QUEUE_LEN	10	/* Limit ring entries actually used. */
--#ifdef CONFIG_VIA_RHINE_NAPI
- #define RX_RING_SIZE	64
--#else
--#define RX_RING_SIZE	16
--#endif
--
- 
- /* Operational parameters that usually are not changed. */
- 
-@@ -583,7 +578,6 @@ static void rhine_poll(struct net_device *dev)
- }
- #endif
- 
--#ifdef CONFIG_VIA_RHINE_NAPI
- static int rhine_napipoll(struct napi_struct *napi, int budget)
- {
- 	struct rhine_private *rp = container_of(napi, struct rhine_private, napi);
-@@ -604,7 +598,6 @@ static int rhine_napipoll(struct napi_struct *napi, int budget)
- 	}
- 	return work_done;
- }
--#endif
- 
- static void __devinit rhine_hw_init(struct net_device *dev, long pioaddr)
- {
-@@ -784,9 +777,8 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = rhine_poll;
- #endif
--#ifdef CONFIG_VIA_RHINE_NAPI
- 	netif_napi_add(dev, &rp->napi, rhine_napipoll, 64);
--#endif
-+
- 	if (rp->quirks & rqRhineI)
- 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
- 
-@@ -1056,9 +1048,7 @@ static void init_registers(struct net_device *dev)
- 
- 	rhine_set_rx_mode(dev);
- 
--#ifdef CONFIG_VIA_RHINE_NAPI
- 	napi_enable(&rp->napi);
--#endif
- 
- 	/* Enable interrupts by setting the interrupt mask. */
- 	iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
-@@ -1193,9 +1183,7 @@ static void rhine_tx_timeout(struct net_device *dev)
- 	/* protect against concurrent rx interrupts */
- 	disable_irq(rp->pdev->irq);
- 
--#ifdef CONFIG_VIA_RHINE_NAPI
- 	napi_disable(&rp->napi);
--#endif
- 
- 	spin_lock(&rp->lock);
- 
-@@ -1319,16 +1307,12 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
- 
- 		if (intr_status & (IntrRxDone | IntrRxErr | IntrRxDropped |
- 				   IntrRxWakeUp | IntrRxEmpty | IntrRxNoBuf)) {
--#ifdef CONFIG_VIA_RHINE_NAPI
- 			iowrite16(IntrTxAborted |
- 				  IntrTxDone | IntrTxError | IntrTxUnderrun |
- 				  IntrPCIErr | IntrStatsMax | IntrLinkChange,
- 				  ioaddr + IntrEnable);
- 
- 			netif_rx_schedule(dev, &rp->napi);
--#else
--			rhine_rx(dev, RX_RING_SIZE);
--#endif
- 		}
- 
- 		if (intr_status & (IntrTxErrSummary | IntrTxDone)) {
-@@ -1520,11 +1504,7 @@ static int rhine_rx(struct net_device *dev, int limit)
- 						 PCI_DMA_FROMDEVICE);
- 			}
- 			skb->protocol = eth_type_trans(skb, dev);
--#ifdef CONFIG_VIA_RHINE_NAPI
- 			netif_receive_skb(skb);
--#else
--			netif_rx(skb);
--#endif
- 			dev->last_rx = jiffies;
- 			rp->stats.rx_bytes += pkt_len;
- 			rp->stats.rx_packets++;
-@@ -1836,9 +1816,7 @@ static int rhine_close(struct net_device *dev)
- 	spin_lock_irq(&rp->lock);
- 
- 	netif_stop_queue(dev);
--#ifdef CONFIG_VIA_RHINE_NAPI
- 	napi_disable(&rp->napi);
--#endif
- 
- 	if (debug > 1)
- 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
-@@ -1937,9 +1915,8 @@ static int rhine_suspend(struct pci_dev *pdev, pm_message_t state)
- 	if (!netif_running(dev))
- 		return 0;
- 
--#ifdef CONFIG_VIA_RHINE_NAPI
- 	napi_disable(&rp->napi);
--#endif
-+
- 	netif_device_detach(dev);
- 	pci_save_state(pdev);
- 
+Jul 10 23:13:20 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 2
+Jul 10 23:13:20 arrakis kernel: original skb:
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000000 00000000 15c45900 ffff8100 00000000 00000000
+Jul 10 23:13:20 arrakis kernel: 15c80000 ffff8100 258d4d00 ffff8102 00000000 00000000 00000000 00000000
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000000 00000000 5383c74e 5383d29e 1e3d909e 00000010
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000b92 00000b50 01000000 001000e0 00000000 0008d00e
+Jul 10 23:13:20 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000
+Jul 10 23:13:20 arrakis kernel: 6d8b2897 00000000 000000e0 000000cc 00000000 00000100 00000100 0a8ab8a0
+Jul 10 23:13:20 arrakis kernel: fbd14000 ffff8101 fbd140be ffff8101 00000d28 00000001
+Jul 10 23:13:20 arrakis kernel:
+Jul 10 23:13:20 arrakis kernel: 00010002 05a80002 00010002 00000000 00000000 00000000 0097e340 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000823 000007dd 0134e620 ffffe200 00000000 00000373 026e4338 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 008fd160 ffffe200 00000000 00001000 02447898 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 004e5070 ffffe200 00000000 000001ab 00857ff8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00000d7b 00898ca0 ffffe200 00000000 0000094b 020068b8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 0000051b 078e1fd0 ffffe200 00000000 00001000 0790b710 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 07907d18 ffffe200 00000000 00001000 05c1f540 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 07924a38 ffffe200 00000000 00001000 078d79c8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 0782ae18 ffffe200 00000000 00001000 078c8308 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00000169 00000021 00000000 50545448 654d3a3a
+Jul 10 23:13:20 arrakis kernel:
+Jul 10 23:13:20 arrakis kernel: Corrupted skb:
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000000 00000000 15c45900 ffff8100 00000000 00000000
+Jul 10 23:13:20 arrakis kernel: 15c80000 ffff8100 258d4d00 ffff8102 00000000 00000000 00000000 00000000
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000000 00000000 5383c74e 5383d29e 1e3d909e 00000010
+Jul 10 23:13:20 arrakis kernel: 00000000 00000000 00000b92 00000b50 01000000 001000e0 00000000 0008d00e
+Jul 10 23:13:20 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000
+Jul 10 23:13:20 arrakis kernel: 6d8b2897 00000000 000000e0 000000cc 00000000 00000100 00000100 0a8ab8a0
+Jul 10 23:13:20 arrakis kernel: fbd14000 ffff8101 fbd140be ffff8101 00000d28 00000001
+Jul 10 23:13:20 arrakis kernel:
+Jul 10 23:13:20 arrakis kernel: 00010002 00000001 00000001 00000000 00000000 00000000 0097e340 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000823 000005a8 0134e620 ffffe200 00000000 00000373 026e4338 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 008fd160 ffffe200 00000000 00001000 02447898 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 004e5070 ffffe200 00000000 000001ab 00857ff8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00000d7b 00898ca0 ffffe200 00000000 0000094b 020068b8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 0000051b 078e1fd0 ffffe200 00000000 00001000 0790b710 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 07907d18 ffffe200 00000000 00001000 05c1f540 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 07924a38 ffffe200 00000000 00001000 078d79c8 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00001000 0782ae18 ffffe200 00000000 00001000 078c8308 ffffe200
+Jul 10 23:13:20 arrakis kernel: 00000000 00000169 00000021 00000000 50545448 654d3a3a
+Jul 10 23:13:20 arrakis kernel:
+
+
+> Anyway, please try today's patch as we need to find the source of the
+> problem.
+
+It's running with it now, no messages yet. I'll report when if/when they
+happen.
+
 -- 
-1.5.3.3
-
+Josip Rodin
+mirrors@debian.org
