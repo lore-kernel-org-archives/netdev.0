@@ -1,43 +1,36 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: setsockopt()
-Date: Thu, 10 Jul 2008 10:26:01 -0700
-Message-ID: <48764629.6090209@hp.com>
-References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme>	<48728B09.1050801@citi.umich.edu>	<20080707.144912.76654646.davem@davemloft.net>	<20080708045443.GA7726@2ka.mipt.ru>	<20080708020235.388a7bd5.billfink@mindspring.com>	<adar6a4x510.fsf@cisco.com>	<20080708144817.3c364962.billfink@mindspring.com>	<ada63rfrkrs.fsf@cisco.com> <20080709183432.GB5383@2ka.mipt.ru> <20080709225035.a4d39cb5.billfink@mindspring.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] [IPV4] fib_trie: Fix lookup error return
+Date: Thu, 10 Jul 2008 10:54:50 -0700
+Message-ID: <20080710105450.3ef6cd14@extreme>
+References: <20080710132336.GO28029@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Roland Dreier <rdreier@cisco.com>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Bill Fink <billfink@mindspring.com>
+Cc: David Miller <davem@davemloft.net>,
+	William Boughton <bill@boughton.de>, netdev@vger.kernel.org,
+	stephen.hemminger@vyatta.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:49100 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758588AbYGJR0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 13:26:06 -0400
-In-Reply-To: <20080709225035.a4d39cb5.billfink@mindspring.com>
+Received: from mail.vyatta.com ([216.93.170.194]:49114 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755037AbYGJRy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 13:54:56 -0400
+In-Reply-To: <20080710132336.GO28029@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> In my own network benchmarking experience, I've generally gotten the
-> best performance results when the nuttcp application and the NIC
-> interrupts are on the same CPU, which I understood was because of
-> cache effects.
+On Thu, 10 Jul 2008 14:23:37 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Interestingly enough I have a slightly different experience:
+> In commit a07f5f508a4d9728c8e57d7f66294bf5b254ff7f "[IPV4] fib_trie: style
+> cleanup", the changes to check_leaf() and fn_trie_lookup() were wrong - where
+> fn_trie_lookup() would previously return a negative error value from
+> check_leaf(), it now returns 0.
+>  
+> Now fn_trie_lookup() doesn't appear to care about plen, so we can revert
+> check_leaf() to returning the error value.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Tested-by: William Boughton <bill@boughton.de>
 
-*) single-transaction, single-stream TCP_RR - best when app and NIC use 
-same core
-
-*) bulk transfer - either TCP_STREAM or aggregate TCP_RR:
-   a) enough CPU on one core to reach max tput, best when same core
-   b) not enough, tput max when app and NIC on separate cores, 
-preferably cores sharing some cache
-
-That is in the context of either maximizing throughput or minimizing 
-latency.  If the context is most efficient transfer, then in all cases 
-my experience thusfar agrees with yours.
-
-rick jones
+Acked-by: Stephen Heminger <shemminger@vyatta.com>
