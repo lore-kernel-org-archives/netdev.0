@@ -1,45 +1,32 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Thu, 10 Jul 2008 03:13:49 +0300
-Message-ID: <1ba2fa240807091713t1158c1ddp81c92ae26a002e46@mail.gmail.com>
-References: <20080709190915.GA8238@tuxdriver.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: setsockopt()
+Date: Thu, 10 Jul 2008 05:06:50 +0400
+Message-ID: <20080710010649.GA28491@2ka.mipt.ru>
+References: <20080708020235.388a7bd5.billfink@mindspring.com> <adar6a4x510.fsf@cisco.com> <20080708134845.2372a483@speedy> <20080708180500.e8a61231.billfink@mindspring.com> <20080709052534.GA8157@2ka.mipt.ru> <20080709014758.d59be0d8.billfink@mindspring.com> <20080709060341.GA29743@2ka.mipt.ru> <20080709181122.GB488@fieldses.org> <20080709184329.GC5383@2ka.mipt.ru> <20080709222802.GK488@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bill Fink <billfink@mindspring.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Roland Dreier <rdreier@cisco.com>,
+	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
+	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:36458 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbYGJANv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2008 20:13:51 -0400
-Received: by py-out-1112.google.com with SMTP id p76so1662628pyb.10
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2008 17:13:50 -0700 (PDT)
-In-Reply-To: <20080709190915.GA8238@tuxdriver.com>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:46881 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753134AbYGJBHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2008 21:07:42 -0400
 Content-Disposition: inline
+In-Reply-To: <20080709222802.GK488@fieldses.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 9, 2008 at 10:09 PM, John W. Linville
-<linville@tuxdriver.com> wrote:
-> The third Linux Wireless mini-summit will occur on Tuesday July 22,
-> 2008 in Ottawa, just before the Ottawa Linux Symposium.  OLS is
-> generously supporting Linux mini-summits by providing the room and
-> projector (http://www.linuxsymposium.org/2008/minisummits.php).
-> Several vendors are supporting the event by sponsoring their own
-> employees to attend, and Canonical and Intel have both helped with
-> travel funds for key community participants as well.
->
-> Although it is already a bit late, I would like to re-open discussions
-> on our agenda for the meeting.  Based on current upstream topics and
-> those persons whom I expect to be attending, I have cobbled together
-> an agenda proposal below.  Please review it and feel free to suggest
-> amendments or alterations, or to elaborate or ask questions about my
-> proposed schedule of topics.
->
-> I look forward to seeing many of you in Ottawa!
+On Wed, Jul 09, 2008 at 06:28:02PM -0400, J. Bruce Fields (bfields@fieldses.org) wrote:
+> OK, thanks.  Would the following be any more clearer and/or accurate?
 
-One more topic would be probably
- power management/power save - connection to system power/power supply
-(Battery/AC)
+Looks good, thank you :)
+It is likely the first ever mention of the fact, that SO_RECV/SNDBUF
+disables autotuning.
+
+-- 
+	Evgeniy Polyakov
