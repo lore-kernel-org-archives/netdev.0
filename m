@@ -1,49 +1,38 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Thu, 10 Jul 2008 13:50:37 +0300
-Message-ID: <1ba2fa240807100350n57e6121en46cc0febf12b6e50@mail.gmail.com>
-References: <20080709190915.GA8238@tuxdriver.com>
-	 <1215685335.3483.5.camel@johannes.berg>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 10 Jul 2008 12:51:30 +0200
+Message-ID: <200807101251.30712.thomas.jarosch@intra2net.com>
+References: <200807101146.26034.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Johannes Berg" <johannes@sipsolutions.net>
+Cc: netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:55002 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752419AbYGJKuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 06:50:37 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so2004128waf.23
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 03:50:37 -0700 (PDT)
-In-Reply-To: <1215685335.3483.5.camel@johannes.berg>
+Received: from re01.intra2net.com ([82.165.28.202]:56445 "EHLO
+	re01.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753050AbYGJKve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 06:51:34 -0400
+In-Reply-To: <200807101146.26034.thomas.jarosch@intra2net.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2008 at 1:22 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
+> After upgrading to 2.6.25.10, the TCP connection still stalls.
 >
->> 0900  Status Reports
->>       Overview of where things stand today
->>       - 802.11n
->>       - QoS/Multiqueue
->>       - Mesh mode (802.11s)
->>       - RF kill
->
-> And spectrum management (Tomas) please.
+> I temporarily disabled PMTU discovery, TCP window scaling, TCP SACK
+> and manually forced the MTU to 1400 with no noticable effect.
 
+We found a workaround by putting a linux-based AVM fritz!box router between 
+kernel 2.6.25.10 and the mailserver, now the TCP connection works again,
+though it gets NATed. Still can't make any sense out of this.
 
+On another box which showed similar behaviour,
+upgrading from 2.6.24.7 to 2.6.25.10 solved the issue.
 
->
-> We've seen initial patches that add a bit of infrastructure, but aren't
-> using these things yet.
+Thomas
 
-Hope to submit all the patches before symposium.
-The whole package is already visible in iwl5000 branch of
-iwlwifi-2.6.git Need to clean it up and submit.
-
-Thanks
-Tomas
+-- 
+Address (better: trap) for people I really don't want to get mail from:
+napoleon.dynamite@cactusamerica.com
