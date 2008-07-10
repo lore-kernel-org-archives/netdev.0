@@ -1,47 +1,62 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH 2/2] IPVS: Add genetlink interface implementation
-Date: Thu, 10 Jul 2008 15:58:34 +0200
-Message-ID: <f4845fc0807100658i32f7ba5fo2e04ba81fec02eb1@mail.gmail.com>
-References: <1215616317-11386-1-git-send-email-juliusv@google.com>
-	 <1215616317-11386-3-git-send-email-juliusv@google.com>
-	 <4874EABC.4000301@trash.net>
-	 <f4845fc0807091116s58b0b492p9f28281fcdca4e17@mail.gmail.com>
-	 <4875FD75.1090107@trash.net>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 10 Jul 2008 16:12:58 +0200
+Message-ID: <200807101612.59380.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807071518.10912.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807101457380.13027@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	vbusam@google.com, horms@verge.net.au, davem@davemloft.net
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4875FD75.1090107@trash.net>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0807101457380.13027@blackhole.kfki.hu>
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 10, 2008 at 2:15 PM, Patrick McHardy <kaber@trash.net> wrote:
-> There probably should be a struct module *owner in the
-> ops registered with genetlink. This is necessary at
-> least to make sure that modules don't disappear during
-> dumps.
+On Thursday, 10. July 2008 15:17:53 you wrote:
+> It looks as the smtp server receives the packets slowly and it's just
+> behind the client. There's no more packet to/from port 53132 in the
+> tcpdump.
 
-There seems to be no such thing in genetlink. af_netlink.c tracks the
-owner of a netlink socket, but that would increase the use count of
-the genetlink module.
+Thanks for looking into this, Jozsef. If you take a look at the timing 
+information, the connection was already running ~270 seconds without real 
+data transfer. The mailserver then aborts the SMTP connection with the error 
+msg: "421 mailbackup.webpage.t-com.de Lost connection to [217.85.147.6]"
+Only after that the port is "changed" to the wrong one.
 
-First I would have suspected the genl_mutex to be held while dumping,
-so that at least unregistering the family at module unload would
-block. But the mutex is explicitly unlocked for the duration of the
-netlink dump:
+The time ranges between the retransmissions seem
+to really go downhill after the first retransmission.
 
-net/netlink/genetlink.c:
+The linux box is connected via a mostly idle 2 mbit SDSL line, the mailserver
+is located at the provider. So theoretically this shouldn't be slow at all.
+This is also proved as 2.6.23.17 works without trouble.
 
-                genl_unlock();
-                err = netlink_dump_start(genl_sock, skb, nlh,
-                                         ops->dumpit, ops->done);
-                genl_lock();
+As noted before, small mails below ~220kb always seem to get through.
+Is there any feature in TCP that could trigger such a behaviour?
+This smells like some queue getting full. I'll double check
+there is not some kind of traffic shaping in place.
 
-Julius
+> > 13:44:51.681540 IP mailserver.smtp > linux.41085: P
+> ...
+>
+> But the first packet above from the server looks just wrong in the
+> context: the port of the client "changed". This is why the client sends
+> the RST packet back as there's no such TCP connection there.
+>
+> Makes no sense at all...
+>
+> [Wild guessing: broken virtualized SMTP server migration?]
 
--- 
-Google Switzerland GmbH
+Oh, that really looks strange. Maybe the error handling
+of the server/load balancer/whatever is broken.
+
+The Fritz!box router-in-between worked fine for a day, but now we just had 
+another mail stuck in the queue. So it seems to soften the problem a bit,
+but does not solve it.
+
+Thomas
