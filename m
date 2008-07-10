@@ -1,39 +1,50 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Detecting TCP loss on the receiving side?
-Date: Thu, 10 Jul 2008 14:20:07 -0700
-Message-ID: <48767D07.2000003@hp.com>
-References: <4876668C.8040108@limebrokerage.com> <48766CF0.1020101@hp.com>	<48766EC2.2090000@limebrokerage.com> <1e41a3230807101405y437dff4er443185be3228caa5@mail.gmail.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 10 Jul 2008 23:21:37 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0807102314440.14321@blackhole.kfki.hu>
+References: <47EA0DAB.7080205@securenet.de> <200807071518.10912.thomas.jarosch@intra2net.com>
+ <Pine.LNX.4.64.0807101457380.13027@blackhole.kfki.hu>
+ <200807101612.59380.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Dan_No=E9?= <dnoe@limebrokerage.com>,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:41032 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbYGJVUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 17:20:51 -0400
-In-Reply-To: <1e41a3230807101405y437dff4er443185be3228caa5@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <200807101612.59380.thomas.jarosch@intra2net.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> Looking for loss at the receiver is a bit tricky.  It doesn't look
-> like struct tcp_info has enough information to do this easily.  If you
-> are able to install a custom kernel on this machine, the Web100 patch
-> would be able to gather enough information to figure it out.  The
-> basic idea would be to look for a difference between RcvNxt and
-> RcvMax.
+On Thu, 10 Jul 2008, Thomas Jarosch wrote:
 
-And even then it depends on the connections having multiple segments in 
-flight at one time.  Although I suppose that cuts both ways and affects 
-the tracing too, but perhaps not to the same extent.
+> On Thursday, 10. July 2008 15:17:53 you wrote:
+> > It looks as the smtp server receives the packets slowly and it's just
+> > behind the client. There's no more packet to/from port 53132 in the
+> > tcpdump.
+> 
+> Thanks for looking into this, Jozsef. If you take a look at the timing 
+> information, the connection was already running ~270 seconds without real 
+> data transfer. The mailserver then aborts the SMTP connection with the error 
+> msg: "421 mailbackup.webpage.t-com.de Lost connection to [217.85.147.6]"
+> Only after that the port is "changed" to the wrong one.
+>
+> The time ranges between the retransmissions seem
+> to really go downhill after the first retransmission.
+> 
+> The linux box is connected via a mostly idle 2 mbit SDSL line, the mailserver
+> is located at the provider. So theoretically this shouldn't be slow at all.
+> This is also proved as 2.6.23.17 works without trouble.
 
-Dan - seeing "brokerage" in your email and worries about latency makes 
-me think that your app(s) are pushing around lots of small messages - 
-are those spread-out across lots of connections, or are they 
-consolidated into a rather smaller number of connections?  Also, what is 
-the magnitude of the latency in these latency events?
+You did not mention the type of your driver. Isn't there some changes in 
+the driver code between 2.6.23.17 and 2.6.24 which could cause such 
+stallings?
 
-rick jones
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
