@@ -1,52 +1,47 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: Detecting TCP loss on the receiving side?
-Date: Thu, 10 Jul 2008 14:34:30 -0700
-Message-ID: <1e41a3230807101434s48dc0aaic4760f64f2e78956@mail.gmail.com>
-References: <4876668C.8040108@limebrokerage.com> <48766CF0.1020101@hp.com>
-	 <48766EC2.2090000@limebrokerage.com>
-	 <1e41a3230807101405y437dff4er443185be3228caa5@mail.gmail.com>
-	 <48767D07.2000003@hp.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2_poll panicking kernel
+Date: Thu, 10 Jul 2008 14:38:41 -0700
+Message-ID: <1215725921.6901.10.camel@dell>
+References: <4863DA40.9050508@broadcom.com>
+ <20080709164619.GA26098@orion.carnet.hr>
+ <1215622625.5532.43.camel@dell>
+ <20080709.164659.157912631.davem@davemloft.net>
+ <1215723617.6901.3.camel@dell> <20080710212324.GA22521@orion.carnet.hr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "=?ISO-8859-1?Q?Dan_No=E9?=" <dnoe@limebrokerage.com>,
-	netdev@vger.kernel.org
-To: "Rick Jones" <rick.jones2@hp.com>
+Cc: "David Miller" <davem@davemloft.net>,
+	"billfink@mindspring.com" <billfink@mindspring.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"mirrors@debian.org" <mirrors@debian.org>
+To: "Josip Rodin" <joy@entuzijast.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.228]:49094 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751731AbYGJVeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 17:34:31 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so2644852wri.5
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 14:34:30 -0700 (PDT)
-In-Reply-To: <48767D07.2000003@hp.com>
-Content-Disposition: inline
+Received: from mms2.broadcom.com ([216.31.210.18]:2836 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750952AbYGJVgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 17:36:03 -0400
+In-Reply-To: <20080710212324.GA22521@orion.carnet.hr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2008 at 2:20 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> John Heffner wrote:
->>
->> Looking for loss at the receiver is a bit tricky.  It doesn't look
->> like struct tcp_info has enough information to do this easily.  If you
->> are able to install a custom kernel on this machine, the Web100 patch
->> would be able to gather enough information to figure it out.  The
->> basic idea would be to look for a difference between RcvNxt and
->> RcvMax.
->
-> And even then it depends on the connections having multiple segments in
-> flight at one time.  Although I suppose that cuts both ways and affects the
-> tracing too, but perhaps not to the same extent.
->
-> Dan - seeing "brokerage" in your email and worries about latency makes me
-> think that your app(s) are pushing around lots of small messages - are those
-> spread-out across lots of connections, or are they consolidated into a
-> rather smaller number of connections?  Also, what is the magnitude of the
-> latency in these latency events?
+On Thu, 2008-07-10 at 14:23 -0700, Josip Rodin wrote:
+> I'll try it - but just as I was reading this e-mail, the machine
+> managed to
+> crash :(
+> 
+> The log was:
+> 
+> BUG: unable to handle kernel NULL pointer dereference at
+> 00000000000000b8
+> IP: [<ffffffff8807ad7e>] :bnx2:bnx2_tx_int+0x7e/0x3f0
+
+This is the same crash that you originally reported.  The driver was
+referencing a NULL SKB because the skb_shinfo(skb)->nr_frags was
+modified on the previous packet in the TX ring.
+
+If you had applied my debug patch #1 that I posted several weeks ago, it
+should have avoided this because we should have saved away the nr_frags
+for every packet on the TX ring.
 
 
-Yes, a very slow rate makes things trickier, but transmitting less
-than one segment per minRTO (200 ms) seems pretty unlikely.
-Otherwise, the receiver should observe reordering.
-
-  -John
