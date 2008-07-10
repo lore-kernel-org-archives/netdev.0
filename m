@@ -1,208 +1,133 @@
 From: Allan Stephens <allan.stephens@windriver.com>
-Subject: [PATCH 1/7 net-next-2.6] tipc: Remove unneeded parameter to tipc_createport_raw()
-Date: Thu, 10 Jul 2008 17:26:05 -0400
-Message-ID: <1215725171-10094-2-git-send-email-allan.stephens@windriver.com>
+Subject: [PATCH 3/7 net-next-2.6] tipc: Fix race condition that could cause accept() to fail
+Date: Thu, 10 Jul 2008 17:26:07 -0400
+Message-ID: <1215725171-10094-4-git-send-email-allan.stephens@windriver.com>
 References: <1215725171-10094-1-git-send-email-allan.stephens@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33082 "EHLO mail.wrs.com"
+Received: from mail.windriver.com ([147.11.1.11]:33101 "EHLO mail.wrs.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752030AbYGJVZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 17:25:08 -0400
+	id S1753229AbYGJVZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 17:25:09 -0400
 In-Reply-To: <1215725171-10094-1-git-send-email-allan.stephens@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch eliminates an unneeded parameter when creating a low-level
-TIPC port object.  Instead of returning both the pointer to the port
-structure and the port's reference ID, it now returns only the pointer
-since the port structure contains the reference ID as one of its fields.
+This patch ensurs that accept() returns successfully even when
+the newly created socket is immediately disconnected by its peer.
+Previously, accept() would fail if it was unable to pass back
+the optional address info for the socket's peer before the
+socket became disconnected; TIPC now allows accept() to gather
+peer address information after disconnection.  As a bonus, the
+revised code accesses the socket's port more efficiently, without
+the overhead incurred by a reference table lookup.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 ---
- include/net/tipc/tipc_port.h |   13 +++----------
- net/tipc/port.c              |   28 ++++++++++------------------
- net/tipc/socket.c            |   15 +++++++--------
- 3 files changed, 20 insertions(+), 36 deletions(-)
+ net/tipc/socket.c |   42 ++++++++++++++++++++++--------------------
+ 1 files changed, 22 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/tipc/tipc_port.h b/include/net/tipc/tipc_port.h
-index 9923e41..c54917c 100644
---- a/include/net/tipc/tipc_port.h
-+++ b/include/net/tipc/tipc_port.h
-@@ -2,7 +2,7 @@
-  * include/net/tipc/tipc_port.h: Include file for privileged access to TIPC ports
-  * 
-  * Copyright (c) 1994-2007, Ericsson AB
-- * Copyright (c) 2005-2007, Wind River Systems
-+ * Copyright (c) 2005-2008, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -75,17 +75,10 @@ struct tipc_port {
- };
- 
- 
--/**
-- * tipc_createport_raw - create a native TIPC port and return it's reference
-- *
-- * Note: 'dispatcher' and 'wakeup' deliver a locked port.
-- */
--
--u32 tipc_createport_raw(void *usr_handle,
-+struct tipc_port *tipc_createport_raw(void *usr_handle,
- 			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
- 			void (*wakeup)(struct tipc_port *),
--			const u32 importance,
--			struct tipc_port **tp_ptr);
-+			const u32 importance);
- 
- int tipc_reject_msg(struct sk_buff *buf, u32 err);
- 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 2e0cff4..ffba1e7 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -2,7 +2,7 @@
-  * net/tipc/port.c: TIPC port code
-  *
-  * Copyright (c) 1992-2007, Ericsson AB
-- * Copyright (c) 2004-2007, Wind River Systems
-+ * Copyright (c) 2004-2008, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -213,16 +213,13 @@ exit:
- /**
-  * tipc_createport_raw - create a generic TIPC port
-  *
-- * Returns port reference, or 0 if unable to create it
-- *
-- * Note: The newly created port is returned in the locked state.
-+ * Returns pointer to (locked) TIPC port, or NULL if unable to create it
-  */
- 
--u32 tipc_createport_raw(void *usr_handle,
-+struct tipc_port *tipc_createport_raw(void *usr_handle,
- 			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
- 			void (*wakeup)(struct tipc_port *),
--			const u32 importance,
--			struct tipc_port **tp_ptr)
-+			const u32 importance)
- {
- 	struct port *p_ptr;
- 	struct tipc_msg *msg;
-@@ -231,13 +228,13 @@ u32 tipc_createport_raw(void *usr_handle,
- 	p_ptr = kzalloc(sizeof(*p_ptr), GFP_ATOMIC);
- 	if (!p_ptr) {
- 		warn("Port creation failed, no memory\n");
--		return 0;
-+		return NULL;
- 	}
- 	ref = tipc_ref_acquire(p_ptr, &p_ptr->publ.lock);
- 	if (!ref) {
- 		warn("Port creation failed, reference table exhausted\n");
- 		kfree(p_ptr);
--		return 0;
-+		return NULL;
- 	}
- 
- 	p_ptr->publ.usr_handle = usr_handle;
-@@ -260,8 +257,7 @@ u32 tipc_createport_raw(void *usr_handle,
- 	INIT_LIST_HEAD(&p_ptr->port_list);
- 	list_add_tail(&p_ptr->port_list, &ports);
- 	spin_unlock_bh(&tipc_port_list_lock);
--	*tp_ptr = &p_ptr->publ;
--	return ref;
-+	return &(p_ptr->publ);
- }
- 
- int tipc_deleteport(u32 ref)
-@@ -1044,21 +1040,18 @@ int tipc_createport(u32 user_ref,
- {
- 	struct user_port *up_ptr;
- 	struct port *p_ptr;
--	struct tipc_port *tp_ptr;
--	u32 ref;
- 
- 	up_ptr = kmalloc(sizeof(*up_ptr), GFP_ATOMIC);
- 	if (!up_ptr) {
- 		warn("Port creation failed, no memory\n");
- 		return -ENOMEM;
- 	}
--	ref = tipc_createport_raw(NULL, port_dispatcher, port_wakeup,
--				  importance, &tp_ptr);
--	if (ref == 0) {
-+	p_ptr = (struct port *)tipc_createport_raw(NULL, port_dispatcher,
-+						   port_wakeup, importance);
-+	if (!p_ptr) {
- 		kfree(up_ptr);
- 		return -ENOMEM;
- 	}
--	p_ptr = (struct port *)tp_ptr;
- 
- 	p_ptr->user_port = up_ptr;
- 	up_ptr->user_ref = user_ref;
-@@ -1074,7 +1067,6 @@ int tipc_createport(u32 user_ref,
- 	INIT_LIST_HEAD(&up_ptr->uport_list);
- 	tipc_reg_add_port(up_ptr);
- 	*portref = p_ptr->publ.ref;
--	dbg(" tipc_createport: %x with ref %u\n", p_ptr, p_ptr->publ.ref);
- 	tipc_port_unlock(p_ptr);
- 	return TIPC_OK;
- }
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 38f4879..9c362c5 100644
+index ddcb2a7..1848693 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -2,7 +2,7 @@
-  * net/tipc/socket.c: TIPC socket API
+@@ -63,6 +63,7 @@
+ struct tipc_sock {
+ 	struct sock sk;
+ 	struct tipc_port *p;
++	struct tipc_portid peer_name;
+ };
+ 
+ #define tipc_sk(sk) ((struct tipc_sock *)(sk))
+@@ -377,27 +378,29 @@ static int bind(struct socket *sock, struct sockaddr *uaddr, int uaddr_len)
+  * @sock: socket structure
+  * @uaddr: area for returned socket address
+  * @uaddr_len: area for returned length of socket address
+- * @peer: 0 to obtain socket name, 1 to obtain peer socket name
++ * @peer: 0 = own ID, 1 = current peer ID, 2 = current/former peer ID
   *
-  * Copyright (c) 2001-2007, Ericsson AB
-- * Copyright (c) 2004-2007, Wind River Systems
-+ * Copyright (c) 2004-2008, Wind River Systems
-  * All rights reserved.
+  * Returns 0 on success, errno otherwise
   *
-  * Redistribution and use in source and binary forms, with or without
-@@ -189,7 +189,6 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol)
- 	socket_state state;
- 	struct sock *sk;
- 	struct tipc_port *tp_ptr;
--	u32 portref;
+- * NOTE: This routine doesn't need to take the socket lock since it doesn't
+- *       access any non-constant socket information.
++ * NOTE: This routine doesn't need to take the socket lock since it only
++ *       accesses socket information that is unchanging (or which changes in
++ * 	 a completely predictable manner).
+  */
  
- 	/* Validate arguments */
+ static int get_name(struct socket *sock, struct sockaddr *uaddr,
+ 		    int *uaddr_len, int peer)
+ {
+ 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
+-	u32 portref = tipc_sk_port(sock->sk)->ref;
+-	u32 res;
++	struct tipc_sock *tsock = tipc_sk(sock->sk);
  
-@@ -225,9 +224,9 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol)
- 
- 	/* Allocate TIPC port for socket to use */
- 
--	portref = tipc_createport_raw(sk, &dispatch, &wakeupdispatch,
--				      TIPC_LOW_IMPORTANCE, &tp_ptr);
--	if (unlikely(portref == 0)) {
-+	tp_ptr = tipc_createport_raw(sk, &dispatch, &wakeupdispatch,
-+				     TIPC_LOW_IMPORTANCE);
-+	if (unlikely(!tp_ptr)) {
- 		sk_free(sk);
- 		return -ENOMEM;
- 	}
-@@ -240,14 +239,14 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol)
- 	sock_init_data(sock, sk);
- 	sk->sk_rcvtimeo = msecs_to_jiffies(CONN_TIMEOUT_DEFAULT);
- 	sk->sk_backlog_rcv = backlog_rcv;
--	tipc_sk(sk)->p = tipc_get_port(portref);
-+	tipc_sk(sk)->p = tp_ptr;
- 
- 	spin_unlock_bh(tp_ptr->lock);
- 
- 	if (sock->state == SS_READY) {
--		tipc_set_portunreturnable(portref, 1);
-+		tipc_set_portunreturnable(tp_ptr->ref, 1);
- 		if (sock->type == SOCK_DGRAM)
--			tipc_set_portunreliable(portref, 1);
-+			tipc_set_portunreliable(tp_ptr->ref, 1);
+ 	if (peer) {
+-		res = tipc_peer(portref, &addr->addr.id);
+-		if (res)
+-			return res;
++		if ((sock->state != SS_CONNECTED) &&
++			((peer != 2) || (sock->state != SS_DISCONNECTING)))
++			return -ENOTCONN;
++		addr->addr.id.ref = tsock->peer_name.ref;
++		addr->addr.id.node = tsock->peer_name.node;
+ 	} else {
+-		tipc_ownidentity(portref, &addr->addr.id);
++		tipc_ownidentity(tsock->p->ref, &addr->addr.id);
  	}
  
- 	atomic_inc(&tipc_user_count);
+ 	*uaddr_len = sizeof(*addr);
+@@ -766,18 +769,17 @@ exit:
+ 
+ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
+ {
+-	struct tipc_port *tport = tipc_sk_port(sock->sk);
+-	struct tipc_portid peer;
++	struct tipc_sock *tsock = tipc_sk(sock->sk);
+ 
+ 	if (msg_errcode(msg)) {
+ 		sock->state = SS_DISCONNECTING;
+ 		return -ECONNREFUSED;
+ 	}
+ 
+-	peer.ref = msg_origport(msg);
+-	peer.node = msg_orignode(msg);
+-	tipc_connect2port(tport->ref, &peer);
+-	tipc_set_portimportance(tport->ref, msg_importance(msg));
++	tsock->peer_name.ref = msg_origport(msg);
++	tsock->peer_name.node = msg_orignode(msg);
++	tipc_connect2port(tsock->p->ref, &tsock->peer_name);
++	tipc_set_portimportance(tsock->p->ref, msg_importance(msg));
+ 	sock->state = SS_CONNECTED;
+ 	return 0;
+ }
+@@ -1529,9 +1531,9 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
+ 	res = tipc_create(sock_net(sock->sk), new_sock, 0);
+ 	if (!res) {
+ 		struct sock *new_sk = new_sock->sk;
+-		struct tipc_port *new_tport = tipc_sk_port(new_sk);
++		struct tipc_sock *new_tsock = tipc_sk(new_sk);
++		struct tipc_port *new_tport = new_tsock->p;
+ 		u32 new_ref = new_tport->ref;
+-		struct tipc_portid id;
+ 		struct tipc_msg *msg = buf_msg(buf);
+ 
+ 		lock_sock(new_sk);
+@@ -1545,9 +1547,9 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
+ 
+ 		/* Connect new socket to it's peer */
+ 
+-		id.ref = msg_origport(msg);
+-		id.node = msg_orignode(msg);
+-		tipc_connect2port(new_ref, &id);
++		new_tsock->peer_name.ref = msg_origport(msg);
++		new_tsock->peer_name.node = msg_orignode(msg);
++		tipc_connect2port(new_ref, &new_tsock->peer_name);
+ 		new_sock->state = SS_CONNECTED;
+ 
+ 		tipc_set_portimportance(new_ref, msg_importance(msg));
 -- 
 1.5.4.3
 
