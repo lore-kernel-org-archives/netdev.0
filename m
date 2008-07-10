@@ -1,55 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Thu, 10 Jul 2008 03:09:20 -0700 (PDT)
-Message-ID: <20080710.030920.141237050.davem@davemloft.net>
-References: <1215622625.5532.43.camel@dell>
-	<20080709.164659.157912631.davem@davemloft.net>
-	<3000d2e90807100245j74a11b97q7d01f9f0b94dfbe@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Thu, 10 Jul 2008 12:22:15 +0200
+Message-ID: <1215685335.3483.5.camel@johannes.berg>
+References: <20080709190915.GA8238@tuxdriver.com>
+	 (sfid-20080709_213808_434368_5FE083A0)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, joy@debian.org, billfink@mindspring.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	mirrors@debian.org
-To: avivgnet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49047
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752419AbYGJKJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 06:09:20 -0400
-In-Reply-To: <3000d2e90807100245j74a11b97q7d01f9f0b94dfbe@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-yEpiEa3Bj02we0wir1ny"
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080709190915.GA8238-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (sfid-20080709_213808_434368_5FE083A0)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Aviv Greenberg" <avivgnet@gmail.com>
-Date: Thu, 10 Jul 2008 12:45:54 +0300
 
-> On Thu, Jul 10, 2008 at 02:46, David Miller <davem@davemloft.net> wrote:
-> >
-> > So it has to be something else.
-> 
-> What mechanism prevents the clone from happening between
-> the skb_clone() and skb_split() calls in tcp_fragment?
+--=-yEpiEa3Bj02we0wir1ny
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-The TCP packet is guarenteed to be cloned when the driver
-first gets it.  That's fundamentally how TCP's retransmission
-handling works.
 
-It makes a clone, and sends it down to the driver.
+> 0900	Status Reports
+> 	Overview of where things stand today
+> 	- 802.11n
+> 	- QoS/Multiqueue
+> 	- Mesh mode (802.11s)
+> 	- RF kill
 
-You can't make clones of clones, so in such situations
-code makes a full copy instead.
+And spectrum management (Tomas) please.
 
-TCP always had the whole state of the retransmit queue,
-and thus the base SKB state, locked when it makes all
-of these operations.
+> 1300	Current Work
+>=20
+> 	Short presentations/discussions about work in progress
+> 	- encrypted management frames (802.11w)
+> 	- regulatory enforcement (802.11d, CRDA)
+> 	- virtual hardware (mac80211_hwsim)
 
-When TCP is looking at an SKB on the retransmit queue it can only go
-from cloned to uncloned, not the other way around.
+or here :)
 
-> Maybe there's a path that doesn't take a lock...
+We've seen initial patches that add a bit of infrastructure, but aren't
+using these things yet.
 
-I doubt it.
+johannes
 
-I think it's some piece of code not making careful enough
-checks on the way down to an SKB modification.
+--=-yEpiEa3Bj02we0wir1ny
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIdeLTAAoJEKVg1VMiehFY/5MP/RU7a4XP4ZmXRUju2U8LLb+U
+lfDtoT41kKPfGCYufpndVed8UVaMF/x5T6aERZHmmzjZIWBS7CoaA02DKTWEIPax
+uhdRppYSeI+CWLNPXwh6+ivHHo7rpxkZYwbrutDfsB3IrLDBtaE2IG2EOV6kVDg7
+QC18KAnlwxdmsbQIC/ti7vouqql7jzG5igEY7a4aFth3KwgC24gYoKGTYRCcNryc
+VAzGi2ybqIFRn9HflmWvU31k3vYHJQri8c9JuGcPGZn8PfgTyBGpKAsFVkTPCZZE
+EKFq4ua/waChgzA2/iMfaHnaW019hE7M6JUoaY0HSwJo1mfW7yN8XOsLBqORyecf
++fxdqhK3p8UAkqHhACdzwPuTvLQdAC/v5wbybOGodCj46QWceSCqnbR+baMvNxYZ
++FGEKWDXZWJ2mCkTUETE+MFuSXU3Rv+LV7pKfnYl+4VhUI7ZxSrBqEcyh8m5C+0H
+fl8oBBPV25ac6yTORfJh2wKqduyAzRsZUVVNUDhmK9veRdHDBKmnIIVLvzpCeXuU
+GQm6XZD0rhKgftEV3BPom6POTCKyXl/MK1u4ceHhppOqn0aFJbxKFojRchO378Mb
+LCBgg+fiwf2kFD3hh1FW5un09WpkQfqLBOC1eX7MnGRFZdjeOstmfxYAH0JBIydC
+IFbRvgTzvRZnzlqdrT0C
+=4SlM
+-----END PGP SIGNATURE-----
+
+--=-yEpiEa3Bj02we0wir1ny--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
