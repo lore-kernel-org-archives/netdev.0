@@ -1,59 +1,32 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: Multicast and receive filtering in TUN/TAP
-Date: Thu, 10 Jul 2008 09:57:56 -0700
-Message-ID: <48763F94.7050507@qualcomm.com>
-References: <4875428F.4080704@qualcomm.com> <200807101029.17121.borntraeger@de.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 13/13]: niu: Add TX multiqueue support.
+Date: Thu, 10 Jul 2008 21:14:45 +0400
+Message-ID: <20080710171445.GA5146@2ka.mipt.ru>
+References: <20080710.035729.69923246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org,
-	Brian Braunstein <linuxkernel@bristyle.com>,
-	Shaun Jackman <sjackman@gmail.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:50503 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbYGJQ55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 12:57:57 -0400
-In-Reply-To: <200807101029.17121.borntraeger@de.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:57121 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751251AbYGJROv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 13:14:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20080710.035729.69923246.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christian Borntraeger wrote:
-> Am Donnerstag, 10. Juli 2008 schrieb Max Krasnyansky:
-> [...]
->> The second question is do you guys think that QEMU/KVM/LGUEST/etc would 
->> benefit if receive filtering was done by the host OS. Here is a specific 
->> example of what I'm talking about.
->> We can do what qemu/hw/e1000.c:receive_filter() does in the _host_ 
->> context (that function currently runs in the guest context). By looking 
->> at libvirt, typical QEMU based setup is that you have a single bridge 
->> and all the TAPs from different VMs are hooked up to that bridge. What 
->> that means is that if one VM is getting MC traffic or when the bridge 
->> sees MACADDR that is not in its tables the packets get delivered to all 
->> the VMs. ie We have to wake all of the up only to so that they could 
->> drop that packet. Instead, we could setup filters in the host's side of 
->> the TAP device.
->> Does that sound like something useful for QEMU/KVM ?
->> If yes we can talk about the API. If not then I'll just nuke it.
-> 
-> Max,
-> 
-> I know that on s390 the shared OSA network card have multicast filter 
-> capabilities. So I guess it is worthwile for a virtualization environments 
-> with lots of guests. I also think, that this kind of filtering should be 
-> straightforward to implement with the qemu e1000 code. Qemu already knows the 
-> multicast addresses.
-Sure. It's straightforward to do inside QEMU, and it's already doing it.
-The question is should we do it in the host context instead and avoid some
-wakeups.
+Hi.
 
-> Thing is, we are heading towards virtio. 
-Even for Windows ?
+On Thu, Jul 10, 2008 at 03:57:29AM -0700, David Miller (davem@davemloft.net) wrote:
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/niu.c |   45 +++++++++++++++++++++++++--------------------
+>  1 files changed, 25 insertions(+), 20 deletions(-)
 
-> Unfortunately, virtio_net currently  does not offer a method to register multicast addresses.
-I haven't looked at the virtio stuff much, I was assuming that the host side
-of it is still the TUN driver. Is it not ?
+Out of curiosity, are there some nice graphs of the new multiqueue
+transfer performance or anything like that?
 
-Max
+-- 
+	Evgeniy Polyakov
