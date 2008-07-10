@@ -1,32 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 13/13]: niu: Add TX multiqueue support.
-Date: Thu, 10 Jul 2008 21:14:45 +0400
-Message-ID: <20080710171445.GA5146@2ka.mipt.ru>
-References: <20080710.035729.69923246.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: setsockopt()
+Date: Thu, 10 Jul 2008 10:26:01 -0700
+Message-ID: <48764629.6090209@hp.com>
+References: <48725DFE.6000504@citi.umich.edu> <20080707142408.43aa2a2e@extreme>	<48728B09.1050801@citi.umich.edu>	<20080707.144912.76654646.davem@davemloft.net>	<20080708045443.GA7726@2ka.mipt.ru>	<20080708020235.388a7bd5.billfink@mindspring.com>	<adar6a4x510.fsf@cisco.com>	<20080708144817.3c364962.billfink@mindspring.com>	<ada63rfrkrs.fsf@cisco.com> <20080709183432.GB5383@2ka.mipt.ru> <20080709225035.a4d39cb5.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Roland Dreier <rdreier@cisco.com>,
+	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
+	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
+	bfields@fieldses.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:57121 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751251AbYGJROv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 13:14:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20080710.035729.69923246.davem@davemloft.net>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:49100 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758588AbYGJR0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 13:26:06 -0400
+In-Reply-To: <20080709225035.a4d39cb5.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+> In my own network benchmarking experience, I've generally gotten the
+> best performance results when the nuttcp application and the NIC
+> interrupts are on the same CPU, which I understood was because of
+> cache effects.
 
-On Thu, Jul 10, 2008 at 03:57:29AM -0700, David Miller (davem@davemloft.net) wrote:
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/niu.c |   45 +++++++++++++++++++++++++--------------------
->  1 files changed, 25 insertions(+), 20 deletions(-)
+Interestingly enough I have a slightly different experience:
 
-Out of curiosity, are there some nice graphs of the new multiqueue
-transfer performance or anything like that?
+*) single-transaction, single-stream TCP_RR - best when app and NIC use 
+same core
 
--- 
-	Evgeniy Polyakov
+*) bulk transfer - either TCP_STREAM or aggregate TCP_RR:
+   a) enough CPU on one core to reach max tput, best when same core
+   b) not enough, tput max when app and NIC on separate cores, 
+preferably cores sharing some cache
+
+That is in the context of either maximizing throughput or minimizing 
+latency.  If the context is most efficient transfer, then in all cases 
+my experience thusfar agrees with yours.
+
+rick jones
