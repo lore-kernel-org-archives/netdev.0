@@ -1,144 +1,175 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: Re: e1000e "Detected Tx Unit Hang"
-Date: Thu, 10 Jul 2008 22:25:41 +0000 (UTC)
-Message-ID: <489E193C.4040804@embedded-sol.com>
-References: <4866211E.6040704@embedded-sol.com> <36D9DB17C6DE9E40B059440DB8D95F5205953CF7@orsmsx418.amr.corp.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/6] cxgb: delete non NAPI code from the driver.
+Date: Fri, 11 Jul 2008 00:29:19 +0200
+Message-ID: <20080710222919.GA31019@electric-eye.fr.zoreil.com>
+References: <20080707.224336.59099363.davem@davemloft.net> <20080708070106.GA30382@electric-eye.fr.zoreil.com> <20080708.015548.127198943.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	Divy Le Ray <divy@chelsio.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:56772 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753790AbYGJWZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:25:23 -0400
-Date: Sun, 10 Aug 2008 01:25:00 +0300
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5205953CF7@orsmsx418.amr.corp.intel.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59384 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752880AbYGJW3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 18:29:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20080708.015548.127198943.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Jesse
+Compile-tested only.
 
-I can ping through this card without a problem. Also, doing dd over NFS 
-with block size
-up to 512 bytes works fine.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/Kconfig         |    8 -----
+ drivers/net/chelsio/cxgb2.c |    2 -
+ drivers/net/chelsio/sge.c   |   70 +++---------------------------------------
+ 3 files changed, 5 insertions(+), 75 deletions(-)
 
-I'll apply the patch you've mentioned and report back.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 4675c1b..50ca1cf 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2378,14 +2378,6 @@ config CHELSIO_T1_1G
+           Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+           are using only 10G cards say 'N' here.
+ 
+-config CHELSIO_T1_NAPI
+-	bool "Use Rx Polling (NAPI)"
+-	depends on CHELSIO_T1
+-	default y
+-	help
+-	  NAPI is a driver API designed to reduce CPU and interrupt load
+-	  when the driver is receiving lots of packets from the card.
+-
+ config CHELSIO_T3
+ 	tristate "Chelsio Communications T3 10Gb Ethernet support"
+ 	depends on PCI && INET
+diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
+index a509337..638c9a2 100644
+--- a/drivers/net/chelsio/cxgb2.c
++++ b/drivers/net/chelsio/cxgb2.c
+@@ -1153,9 +1153,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 		netdev->poll_controller = t1_netpoll;
+ #endif
+-#ifdef CONFIG_CHELSIO_T1_NAPI
+ 		netif_napi_add(netdev, &adapter->napi, t1_poll, 64);
+-#endif
+ 
+ 		SET_ETHTOOL_OPS(netdev, &t1_ethtool_ops);
+ 	}
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index 8a7efd3..d6c7d2a 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -1396,20 +1396,10 @@ static void sge_rx(struct sge *sge, struct freelQ *fl, unsigned int len)
+ 
+ 	if (unlikely(adapter->vlan_grp && p->vlan_valid)) {
+ 		st->vlan_xtract++;
+-#ifdef CONFIG_CHELSIO_T1_NAPI
+-			vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
+-						 ntohs(p->vlan));
+-#else
+-			vlan_hwaccel_rx(skb, adapter->vlan_grp,
+-					ntohs(p->vlan));
+-#endif
+-	} else {
+-#ifdef CONFIG_CHELSIO_T1_NAPI
++		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
++					 ntohs(p->vlan));
++	} else
+ 		netif_receive_skb(skb);
+-#else
+-		netif_rx(skb);
+-#endif
+-	}
+ }
+ 
+ /*
+@@ -1568,7 +1558,6 @@ static inline int responses_pending(const struct adapter *adapter)
+ 	return (e->GenerationBit == Q->genbit);
+ }
+ 
+-#ifdef CONFIG_CHELSIO_T1_NAPI
+ /*
+  * A simpler version of process_responses() that handles only pure (i.e.,
+  * non data-carrying) responses.  Such respones are too light-weight to justify
+@@ -1636,9 +1625,6 @@ int t1_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
+-/*
+- * NAPI version of the main interrupt handler.
+- */
+ irqreturn_t t1_interrupt(int irq, void *data)
+ {
+ 	struct adapter *adapter = data;
+@@ -1656,7 +1642,8 @@ irqreturn_t t1_interrupt(int irq, void *data)
+ 			else {
+ 				/* no data, no NAPI needed */
+ 				writel(sge->respQ.cidx, adapter->regs + A_SG_SLEEPING);
+-				napi_enable(&adapter->napi);	/* undo schedule_prep */
++				/* undo schedule_prep */
++				napi_enable(&adapter->napi);
+ 			}
+ 		}
+ 		return IRQ_HANDLED;
+@@ -1672,53 +1659,6 @@ irqreturn_t t1_interrupt(int irq, void *data)
+ 	return IRQ_RETVAL(handled != 0);
+ }
+ 
+-#else
+-/*
+- * Main interrupt handler, optimized assuming that we took a 'DATA'
+- * interrupt.
+- *
+- * 1. Clear the interrupt
+- * 2. Loop while we find valid descriptors and process them; accumulate
+- *      information that can be processed after the loop
+- * 3. Tell the SGE at which index we stopped processing descriptors
+- * 4. Bookkeeping; free TX buffers, ring doorbell if there are any
+- *      outstanding TX buffers waiting, replenish RX buffers, potentially
+- *      reenable upper layers if they were turned off due to lack of TX
+- *      resources which are available again.
+- * 5. If we took an interrupt, but no valid respQ descriptors was found we
+- *      let the slow_intr_handler run and do error handling.
+- */
+-irqreturn_t t1_interrupt(int irq, void *cookie)
+-{
+-	int work_done;
+-	struct adapter *adapter = cookie;
+-	struct respQ *Q = &adapter->sge->respQ;
+-
+-	spin_lock(&adapter->async_lock);
+-
+-	writel(F_PL_INTR_SGE_DATA, adapter->regs + A_PL_CAUSE);
+-
+-	if (likely(responses_pending(adapter)))
+-		work_done = process_responses(adapter, -1);
+-	else
+-		work_done = t1_slow_intr_handler(adapter);
+-
+-	/*
+-	 * The unconditional clearing of the PL_CAUSE above may have raced
+-	 * with DMA completion and the corresponding generation of a response
+-	 * to cause us to miss the resulting data interrupt.  The next write
+-	 * is also unconditional to recover the missed interrupt and render
+-	 * this race harmless.
+-	 */
+-	writel(Q->cidx, adapter->regs + A_SG_SLEEPING);
+-
+-	if (!work_done)
+-		adapter->sge->stats.unhandled_irqs++;
+-	spin_unlock(&adapter->async_lock);
+-	return IRQ_RETVAL(work_done != 0);
+-}
+-#endif
+-
+ /*
+  * Enqueues the sk_buff onto the cmdQ[qid] and has hardware fetch it.
+  *
+-- 
+1.5.3.3
 
-Thanks.
-
-Felix
-
-Brandeburg, Jesse wrote:
-> Felix Radensky wrote:
->   
->> Hi, Jesse
->>
->> I can confirm that I'm also getting these errors with 2.6.26-rc8 on
->> PowerPC platform (AMCC 460EX CPU). The Intel adapter is (as reported
->> by lspci -vv) 
->>     
->
-> Interesting, I haven't heard back from Herbert, but thanks for the
-> reply.
->
-> are you getting the NETDEV WATCHDOG messages in your log?  does ethtool
-> -S show any tx_timeout?
->
-> can you try applying a patch similar to
-> https://sourceforge.net/tracker/download.php?group_id=42302&atid=447449&
-> file_id=283326&aid=2007017
->
-> aka http://tinyurl.com/5vl5g4
->
->
->  
->   
->> 41:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit
->> Ethernet Controller (Copper) (rev 06)
->>         Subsystem: Intel Corporation PRO/1000 PT Desktop Adapter
->>     
->
-> x1 PCIe adapter
->
->   
->> Some relevant output from dmesg:
->>
->> e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
->> e1000e: Copyright (c) 1999-2008 Intel Corporation.
->> e1000e 0000:41:00.0: enabling device (0006 -> 0007)
->> eth2: (PCI Express:2.5GB/s:Width x1) 00:1b:21:1e:2d:2a
->> eth2: Intel(R) PRO/1000 Network Connection
->> eth2: MAC: 1, PHY: 4, PBA No: d50854-003
->> eth2: Link is Up 100 Mbps Full Duplex, Flow Control: RX/TX
->> eth2: 10/100 speed: disabling TSO
->>
->> I can reliably reproduce the  problem  by running
->>
->> dd=/dev/zero of=/mnt/1M bs=1024 count=1024
->>
->> where /mnt is mounted over NFS  with the following options (default
->> ones)
->>
->>     
-> rw,vers=3,rsize=32768,wsize=32768,namlen=255,hard,nointr,nolock,proto=ud
-> p,timeo=7,retrans=3,sec=sys,mountproto=udp,addr
->   
->> Below is register dump produced by patched driver.
->>
->> eth2: Detected Tx Unit Hang:
->>   TDH                  <25>
->>   TDT                  <25>
->>     
->
-> Hardware completed all the packets, but no writebacks made it back to
-> main memory.
->
->   
->> TX Desc ring0 dump
->> Tl[0x000]    0000000000000000 0000000000000000 000000001D734802 0022
->> 2 00000000FFFFD0FE 00000000 NTC
->>     
->
-> Ewww, even worse, it seems that something zeroed out the memory in the
-> tx descriptor ring.  I strongly suspect something bad at your
-> system/chipset level. 
->
->
->   
->> Tl[0x001]    0000000000000000 0000000000000000 0000000015FE2A84 057C
->> 1 00000000FFFFD0FE 00000000
->> Tl[0x002]    0000000000000000 0000000000000000 0000000015FA1000 004C
->> 2 00000000FFFFD0FE dd739f00
->> Tl[0x003]    0000000000000000 0000000000000000 000000001D734A02 0022
->> 4 00000000FFFFD0FE 00000000
->> Tl[0x004]    0000000000000000 0000000000000000 0000000015FA104C 05C8
->> 4 00000000FFFFD0FE dd739c80
->> Tl[0x005]    0000000000000000 0000000000000000 000000001D734C02 0022
->> 6 00000000FFFFD0FE 00000000
->> Tl[0x006]    0000000000000000 0000000000000000 0000000015FA1614 05C8
->> 6 00000000FFFFD0FE dd739280
->> Tl[0x007]    0000000000000000 0000000000000000 000000001D734E02 0022
->> 9 00000000FFFFD0FE 00000000
->> Tl[0x008]    0000000000000000 0000000000000000 0000000015FA1BDC 0424
->> 8 00000000FFFFD0FE 00000000
->> Tl[0x009]    0000000000000000 0000000000000000 0000000015EC6000 01A4
->> 9 00000000FFFFD0FE dd7390a0
->> Tl[0x00A]    0000000000000000 0000000000000000 000000001D73A002 0022
->> B 00000000FFFFD0FE 00000000
->> Tl[0x00B]    0000000000000000 0000000000000000 0000000015EC61A4 05C8
->> B 00000000FFFFD0FE dd739e60
->> Tl[0x00C]    000000001D73A202 0000000002000022 000000001D73A202 0022
->> D 00000000FFFFD0FE 00000000
->>     
->
-> Either the driver is half done cleaning up, which doesn't seem likely
-> due to the driver not ZEROING all the first two 64 bit columns, but the
-> last column which contains an skb pointer still indicates cleanup hasn't
-> completed.
->
-> Does this card work at all in your system?
->
-> Jesse
->   
