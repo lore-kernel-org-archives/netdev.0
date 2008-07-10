@@ -1,93 +1,86 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH] wext: make sysfs bits optional and deprecate them
-Date: Thu, 10 Jul 2008 11:16:47 +0200
-Message-ID: <1215681407.3932.10.camel@johannes.berg>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPSEC in 2.6.25 causes stalled connections
+Date: Thu, 10 Jul 2008 17:43:45 +0800
+Message-ID: <20080710094345.GA24162@gondor.apana.org.au>
+References: <20080608010858.GA8877@swan.nt.tuwien.ac.at> <E1K8TuP-0002Qd-00@gondolin.me.apana.org.au> <20080618004544.GA25439@swan.nt.tuwien.ac.at> <20080708080742.GA25027@gondor.apana.org.au> <20080708213302.GA28842@swan.nt.tuwien.ac.at> <20080709084334.GA12484@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Zeitlhofer <tzeitlho+lkml@nt.tuwien.ac.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:54558 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751731AbYGJJnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 05:43:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20080709084334.GA12484@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The /sys/class/net/*/wireless/ direcory is, as far as I know, not
-used by anyone. Additionally, the same data is available via wext
-ioctls. Hence the sysfs files are pretty much useless. This patch
-makes them optional and schedules them for removal.
+On Wed, Jul 09, 2008 at 04:43:34PM +0800, Herbert Xu wrote:
+> 
+> Thanks! I've reproduced the problem.  Now we just need to figure
+> out what it is :)
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Cc: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
----
-The only known user was hal
-(http://www.freedesktop.org/wiki/Software/hal) and I have removed those,
-the patches are in the git repository for the next release.
+OK, found it: chainiv never called the completion function!
 
- Documentation/feature-removal-schedule.txt |   10 ++++++++++
- net/core/net-sysfs.c                       |    4 ++--
- net/wireless/Kconfig                       |   11 +++++++++++
- 3 files changed, 23 insertions(+), 2 deletions(-)
+commit 066068afee313b7746e7a3de05b57dcd4149a2fe
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Jul 10 17:42:36 2008 +0800
 
---- everything.orig/net/core/net-sysfs.c	2008-07-10 10:23:08.000000000 +0200
-+++ everything/net/core/net-sysfs.c	2008-07-10 10:26:25.000000000 +0200
-@@ -318,7 +318,7 @@ static struct attribute_group netstat_gr
- 	.attrs  = netstat_attrs,
- };
+    crypto: chainiv - Invoke completion function
+    
+    When chainiv postpones requests it never calls their completion functions.
+    This causes symptoms such as memory leaks when IPsec is in use.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/crypto/chainiv.c b/crypto/chainiv.c
+index 6da3f57..9affade 100644
+--- a/crypto/chainiv.c
++++ b/crypto/chainiv.c
+@@ -117,6 +117,7 @@ static int chainiv_init(struct crypto_tfm *tfm)
+ static int async_chainiv_schedule_work(struct async_chainiv_ctx *ctx)
+ {
+ 	int queued;
++	int err = ctx->err;
  
--#ifdef CONFIG_WIRELESS_EXT
-+#ifdef CONFIG_WIRELESS_EXT_SYSFS
- /* helper function that does all the locking etc for wireless stats */
- static ssize_t wireless_show(struct device *d, char *buf,
- 			     ssize_t (*format)(const struct iw_statistics *,
-@@ -460,7 +460,7 @@ int netdev_register_kobject(struct net_d
- 	if (net->get_stats)
- 		*groups++ = &netstat_group;
+ 	if (!ctx->queue.qlen) {
+ 		smp_mb__before_clear_bit();
+@@ -131,7 +132,7 @@ static int async_chainiv_schedule_work(struct async_chainiv_ctx *ctx)
+ 	BUG_ON(!queued);
  
--#ifdef CONFIG_WIRELESS_EXT
-+#ifdef CONFIG_WIRELESS_EXT_SYSFS
- 	if (net->wireless_handlers && net->wireless_handlers->get_wireless_stats)
- 		*groups++ = &wireless_group;
- #endif
---- everything.orig/net/wireless/Kconfig	2008-07-10 08:47:16.000000000 +0200
-+++ everything/net/wireless/Kconfig	2008-07-10 10:26:25.000000000 +0200
-@@ -29,3 +29,14 @@ config WIRELESS_EXT
+ out:
+-	return ctx->err;
++	return err;
+ }
  
- 	  Say N (if you can) unless you know you need wireless
- 	  extensions for external modules.
+ static int async_chainiv_postpone_request(struct skcipher_givcrypt_request *req)
+@@ -227,6 +228,7 @@ static void async_chainiv_do_postponed(struct work_struct *work)
+ 						     postponed);
+ 	struct skcipher_givcrypt_request *req;
+ 	struct ablkcipher_request *subreq;
++	int err;
+ 
+ 	/* Only handle one request at a time to avoid hogging keventd. */
+ 	spin_lock_bh(&ctx->lock);
+@@ -241,7 +243,11 @@ static void async_chainiv_do_postponed(struct work_struct *work)
+ 	subreq = skcipher_givcrypt_reqctx(req);
+ 	subreq->base.flags |= CRYPTO_TFM_REQ_MAY_SLEEP;
+ 
+-	async_chainiv_givencrypt_tail(req);
++	err = async_chainiv_givencrypt_tail(req);
 +
-+config WIRELESS_EXT_SYSFS
-+	bool "Wireless extensions sysfs files"
-+	default y
-+	depends on WIRELESS_EXT && SYSFS
-+	help
-+	  This option enables the deprecated wireless statistics
-+	  files in /sys/class/net/*/wireless/. The same information
-+	  is available via the ioctls as well.
-+
-+	  Say Y if you have programs using it (we don't know of any).
---- everything.orig/Documentation/feature-removal-schedule.txt	2008-07-10 10:23:19.000000000 +0200
-+++ everything/Documentation/feature-removal-schedule.txt	2008-07-10 11:15:56.000000000 +0200
-@@ -280,6 +280,16 @@ Why:	Not used in-tree. The current out-o
- 	out-of-tree driver.
- Who:	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
++	local_bh_disable();
++	skcipher_givcrypt_complete(req, err);
++	local_bh_enable();
+ }
  
-+---------------------------
-+
-+What:	Code that is now under CONFIG_WIRELESS_EXT_SYSFS
-+	(in net/core/net-sysfs.c)
-+When:	After the only user (hal) has seen a release with the patches
-+	for enough time, probably some time in 2010.
-+Why:	Over 1K .text/.data size reduction, data is available in other
-+	ways (ioctls)
-+Who:	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-+
- ----------------------------
- 
- What:	usedac i386 kernel parameter
+ static int async_chainiv_init(struct crypto_tfm *tfm)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
