@@ -1,65 +1,58 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH net-next? 1/1] netlabel: return msg overflow error from netlbl_cipsov4_list faster
-Date: Fri, 11 Jul 2008 09:32:09 -0400
-Message-ID: <200807110932.09901.paul.moore@hp.com>
-References: <1215773149-27728-1-git-send-email-den@openvz.org> <200807110701.05377.paul.moore@hp.com> <1215778392.7001.25.camel@iris.sw.ru>
+From: Kasper Sandberg <lkml@metanurb.dk>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
+	Problem)
+Date: Fri, 11 Jul 2008 15:35:24 +0200
+Message-ID: <1215783324.11909.185.camel@localhost>
+References: <4861800B.90703@nscus.com>
+	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>
+	 <48640535.2050000@nscus.com>
+	 <20080626215918.GC2555@electric-eye.fr.zoreil.com>
+	 <1215435236.11909.121.camel@localhost>  <487232F4.6000206@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:3059 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbYGKNcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 09:32:14 -0400
-In-Reply-To: <1215778392.7001.25.camel@iris.sw.ru>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Mario Limonciello <mario_limonciello@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <487232F4.6000206@dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 11 July 2008 8:13:12 am Denis V. Lunev wrote:
-> On Fri, 2008-07-11 at 07:01 -0400, Paul Moore wrote:
-> > On Friday 11 July 2008 6:45:49 am Denis V. Lunev wrote:
-> > > Currently, we are trying to place the information from the kernel
-> > > to 1, 2, 3 and 4 pages sequentially. These pages are allocated
-> > > via slab. Though, from the slab point of view steps 3 and 4 are
-> > > equivalent on most architectures. So, lets skip 3 pages attempt.
-> > >
-> > > By the way, should we switch from .doit to .dumpit interface
-> > > here? The amount of data seems quite big for me.
-> > >
-> > > Signed-off-by: Denis V. Lunev <den@openvz.org>
+On Mon, 2008-07-07 at 10:15 -0500, Mario Limonciello wrote:
+> Kasper:
+> 
+> Particularly try the patch that I posted to the list.  It solved the
+> ifup (and resume) failures for me on two platforms using that chipset.
+Sorry, i am not subscribed to netdev or pci list, could you post here
+aswell?
+
+> 
+> Regards
+> 
+> Kasper Sandberg wrote:
+> > On Thu, 2008-06-26 at 23:59 +0200, Francois Romieu wrote:
+> >   
+> > Sorry for the delay, i had to do an onsite thing in another country, so
+> > i first see your message now.
 > >
-> > I'll add my ack to this patch because your logic sounds reasonable
-> > and I'm glad to have more eyes on the code :)
->
-> cool :)
->
-> > However, I not a big fan of converting this from a .doit to a
-> > .dumpit interface because this would cause userspace breakage.  We
-> > could potentially do both for backwards compatibility but I have no
-> > idea if it is possible to have both interfaces available at the
-> > same time.  One thing to keep in mind before diving into your
-> > favorite editor is that I've yet to hear of there being a problem
-> > with this NetLabel command and the .doit interface, we may want to
-> > hold off to see if it becomes an issue.
+> > Would it be okay if i took rc9 instead? also, i saw you posted a set of
+> > patches to sync more with realteks code, is this something you would
+> > like me to test too, or aswell? (remember, i have the 8111c).
 > >
-> > Acked-by: Paul Moore <paul.moore@hp.com>
->
-> for the dumpip interface. 2-order page is a real pain on the heavy
-> loaded systems. Yes, the allocation will not fail, but it can take a
-> significant amount of time to perform the allocation.
->
-> I understand your logic with keeping this interface, but such
-> allocation can take > 1 sec for sure.
-
-Okay, that is good to know.  If it ever starts to become a problem I'll 
-look at leveraging the .dumpit interface.
-
-Thanks.
-
--- 
-paul moore
-linux @ hp
+> > Btw, a thought just crossed my mind as to a possible reason why this
+> > might be happening, i was googling around, and it seems the TWO nic's
+> > are supposed to have some sort of hardware bonding thing, could it be
+> > because such stuff isnt handled?
+> >
+> > mvh.
+> > Kasper Sandberg
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >   
+> 
