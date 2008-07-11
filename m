@@ -1,544 +1,198 @@
-From: Josip Rodin <joy@entuzijast.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: bnx2_poll panicking kernel
-Date: Fri, 11 Jul 2008 11:24:16 +0200
-Message-ID: <20080711092416.GA26515@orion.carnet.hr>
-References: <20080710220030.GA29558@orion.carnet.hr> <1215728763.6901.23.camel@dell> <20080710223141.GA2519@orion.carnet.hr> <20080710.162007.04790623.davem@davemloft.net>
+Date: Fri, 11 Jul 2008 02:56:56 -0700 (PDT)
+Message-ID: <20080711.025656.261409874.davem@davemloft.net>
+References: <20080710223141.GA2519@orion.carnet.hr>
+	<20080710.162007.04790623.davem@davemloft.net>
+	<20080711092416.GA26515@orion.carnet.hr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: mchan@broadcom.com, billfink@mindspring.com,
 	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	mirrors@debian.org
-To: David Miller <davem@davemloft.net>
+	mirrors@debian.org, kaber@trash.net, devik@cdi.cz
+To: joy@entuzijast.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:60963 "EHLO orion.carnet.hr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074AbYGKJYW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 05:24:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20080710.162007.04790623.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50764
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750992AbYGKJ5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 05:57:09 -0400
+In-Reply-To: <20080711092416.GA26515@orion.carnet.hr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2008 at 04:20:07PM -0700, David Miller wrote:
-> From: Josip Rodin <joy@entuzijast.net>
-> Date: Fri, 11 Jul 2008 00:31:42 +0200
-> 
-> > It's running with it now, no messages yet. I'll report when if/when they
-> > happen.
-> 
-> Thanks Josip.
-> 
-> I'll try to whip up some other debug patches if this one Michael gave
-> you doesn't trigger.
+From: Josip Rodin <joy@entuzijast.net>
+Date: Fri, 11 Jul 2008 11:24:16 +0200
 
-Here we go, it triggered, here are the first few, tell me if you need more:
+[ Patrick/Martin, you can simply skip to the final paragraph. ]
 
-Jul 11 02:15:10 arrakis kernel: Splitting cloned skb
-Jul 11 02:15:10 arrakis kernel: Pid: 0, comm: swapper Not tainted 2.6.25.6 #2
-Jul 11 02:15:10 arrakis kernel: 
-Jul 11 02:15:10 arrakis kernel: Call Trace:
-Jul 11 02:15:10 arrakis kernel:  <IRQ>  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff80424596>] tcp_rcv_established+0x596/0x9d0
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042a77c>] tcp_v4_do_rcv+0xdc/0x220
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042c213>] tcp_v4_rcv+0x5e3/0x810
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8040e58f>] ip_local_deliver_finish+0x9f/0x200
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8040e2a0>] ip_rcv_finish+0x130/0x380
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff88083b56>] :bnx2:bnx2_poll+0x676/0x1330
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8025e52a>] handle_edge_irq+0x7a/0x150
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff80225076>] __change_page_attr_set_clr+0x8a6/0x920
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff803edad8>] net_rx_action+0xf8/0x200
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8023a5b9>] __do_softirq+0x69/0xe0
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020c4ac>] call_softirq+0x1c/0x30
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020e995>] do_softirq+0x35/0x70
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020ec10>] do_IRQ+0x80/0x100
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020a410>] mwait_idle+0x0/0x50
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020b831>] ret_from_intr+0x0/0xa
-Jul 11 02:15:10 arrakis kernel:  <EOI>  [<ffffffff80419a80>] tcp_poll+0x0/0x180
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020a451>] mwait_idle+0x41/0x50
-Jul 11 02:15:10 arrakis kernel:  [<ffffffff8020a378>] cpu_idle+0x48/0x90
-Jul 11 02:15:10 arrakis kernel: 
-Jul 11 02:15:33 arrakis kernel: Splitting cloned skb
-Jul 11 02:15:33 arrakis kernel: Pid: 4350, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 02:15:33 arrakis kernel: 
-Jul 11 02:15:33 arrakis kernel: Call Trace:
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 02:15:33 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 02:15:33 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: Splitting cloned skb
-Jul 11 02:16:11 arrakis kernel: Pid: 0, comm: swapper Not tainted 2.6.25.6 #2
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: Call Trace:
-Jul 11 02:16:11 arrakis kernel:  <IRQ>  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff80424596>] tcp_rcv_established+0x596/0x9d0
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8042a77c>] tcp_v4_do_rcv+0xdc/0x220
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8042c213>] tcp_v4_rcv+0x5e3/0x810
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8040e58f>] ip_local_deliver_finish+0x9f/0x200
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8040e2a0>] ip_rcv_finish+0x130/0x380
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff88083b56>] :bnx2:bnx2_poll+0x676/0x1330
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8023e7a4>] lock_timer_base+0x34/0x70
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8023e910>] __mod_timer+0xb0/0xd0
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff88085c00>] :bnx2:bnx2_timer+0x0/0x3d0
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff803edad8>] net_rx_action+0xf8/0x200
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8023a5b9>] __do_softirq+0x69/0xe0
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020c4ac>] call_softirq+0x1c/0x30
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020e995>] do_softirq+0x35/0x70
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020ec10>] do_IRQ+0x80/0x100
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020a410>] mwait_idle+0x0/0x50
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020b831>] ret_from_intr+0x0/0xa
-Jul 11 02:16:11 arrakis kernel:  <EOI>  [<ffffffff80419a80>] tcp_poll+0x0/0x180
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020a451>] mwait_idle+0x41/0x50
-Jul 11 02:16:11 arrakis kernel:  [<ffffffff8020a378>] cpu_idle+0x48/0x90
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 2
-Jul 11 02:16:11 arrakis kernel: original skb:
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000000 00000000 8e964080 ffff8101 00000000 00000000 
-Jul 11 02:16:11 arrakis kernel: 2db80000 ffff8102 2e54e700 ffff8102 00000000 00000000 00000000 00000000 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000000 00000000 6616cee6 6616da36 0024c8af 00000010 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000b92 00000b50 01000000 001000e0 00000000 0008d00e 
-Jul 11 02:16:11 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000 
-Jul 11 02:16:11 arrakis kernel: 56255203 00000000 000000e0 000000cc 00000000 00000100 00000100 1eadfa52 
-Jul 11 02:16:11 arrakis kernel: 62c55800 ffff8100 62c558be ffff8100 00000d28 00000001 
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: 00010002 05a80002 00010002 00000000 00000000 00000000 016aaeb0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 0000071d 000008e3 018b4b80 ffffe200 00000000 0000026d 01487eb8 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 0159ebb0 ffffe200 00000000 00001000 01bb2ac0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 014dbe10 ffffe200 00000000 00000bf5 014b1fd0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 015c29b0 ffffe200 00000000 00001000 01598588 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 015b48d0 ffffe200 00000000 00001000 015c51b8 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 01e26de0 ffffe200 00000000 00001000 0148a998 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 0000005d 01594fb8 ffffe200 00000000 00001000 016d8f00 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 00733028 ffffe200 00000000 00001000 01baaa20 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000b9f a958b6d7 05df7a82 05ddd09a 312d8da0 
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: Corrupted skb:
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000000 00000000 8e964080 ffff8101 00000000 00000000 
-Jul 11 02:16:11 arrakis kernel: 2db80000 ffff8102 2e54e700 ffff8102 00000000 00000000 00000000 00000000 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000000 00000000 6616cee6 6616da36 0024c8af 00000010 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000000 00000b92 00000b50 01000000 001000e0 00000000 0008d00e 
-Jul 11 02:16:11 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000 
-Jul 11 02:16:11 arrakis kernel: 56255203 00000000 000000e0 000000cc 00000000 00000100 00000100 1eadfa52 
-Jul 11 02:16:11 arrakis kernel: 62c55800 ffff8100 62c558be ffff8100 00000d28 00000001 
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:16:11 arrakis kernel: 00010002 00000001 00000001 00000000 00000000 00000000 016aaeb0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 0000071d 000005a8 018b4b80 ffffe200 00000000 0000026d 01487eb8 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 0159ebb0 ffffe200 00000000 00001000 01bb2ac0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 014dbe10 ffffe200 00000000 00000bf5 014b1fd0 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 015c29b0 ffffe200 00000000 00001000 01598588 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 015b48d0 ffffe200 00000000 00001000 015c51b8 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 01e26de0 ffffe200 00000000 00001000 0148a998 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 0000005d 01594fb8 ffffe200 00000000 00001000 016d8f00 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00001000 00733028 ffffe200 00000000 00001000 01baaa20 ffffe200 
-Jul 11 02:16:11 arrakis kernel: 00000000 00000b9f a958b6d7 05df7a82 05ddd09a 312d8da0 
-Jul 11 02:16:11 arrakis kernel: 
-Jul 11 02:17:23 arrakis kernel: Splitting cloned skb
-Jul 11 02:17:23 arrakis kernel: Pid: 4350, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 02:17:23 arrakis kernel: 
-Jul 11 02:17:23 arrakis kernel: Call Trace:
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 02:17:23 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 02:17:23 arrakis kernel: 
-Jul 11 02:17:46 arrakis kernel: Splitting cloned skb
-Jul 11 02:17:46 arrakis kernel: Pid: 4350, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 02:17:46 arrakis kernel: 
-Jul 11 02:17:46 arrakis kernel: Call Trace:
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 02:17:46 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 02:17:46 arrakis kernel: 
-Jul 11 02:18:28 arrakis kernel: Splitting cloned skb
-Jul 11 02:18:28 arrakis kernel: Pid: 4350, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 02:18:28 arrakis kernel: 
-Jul 11 02:18:28 arrakis kernel: Call Trace:
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 02:18:28 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 02:18:28 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: Splitting cloned skb
-Jul 11 03:57:08 arrakis kernel: Pid: 0, comm: swapper Not tainted 2.6.25.6 #2
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: Call Trace:
-Jul 11 03:57:08 arrakis kernel:  <IRQ>  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff80424596>] tcp_rcv_established+0x596/0x9d0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042a77c>] tcp_v4_do_rcv+0xdc/0x220
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042c213>] tcp_v4_rcv+0x5e3/0x810
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8040e58f>] ip_local_deliver_finish+0x9f/0x200
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8040e2a0>] ip_rcv_finish+0x130/0x380
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff88083b56>] :bnx2:bnx2_poll+0x676/0x1330
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8022d746>] run_rebalance_domains+0xf6/0x4c0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff80226787>] sys32_mmap2+0x47/0x100
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803edad8>] net_rx_action+0xf8/0x200
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8023a5b9>] __do_softirq+0x69/0xe0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020c4ac>] call_softirq+0x1c/0x30
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020e995>] do_softirq+0x35/0x70
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020ec10>] do_IRQ+0x80/0x100
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a410>] mwait_idle+0x0/0x50
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020b831>] ret_from_intr+0x0/0xa
-Jul 11 03:57:08 arrakis kernel:  <EOI>  [<ffffffff80419a80>] tcp_poll+0x0/0x180
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a451>] mwait_idle+0x41/0x50
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a378>] cpu_idle+0x48/0x90
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: Splitting cloned skb
-Jul 11 03:57:08 arrakis kernel: Pid: 0, comm: swapper Not tainted 2.6.25.6 #2
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: Call Trace:
-Jul 11 03:57:08 arrakis kernel:  <IRQ>  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff80424596>] tcp_rcv_established+0x596/0x9d0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042a77c>] tcp_v4_do_rcv+0xdc/0x220
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8042c213>] tcp_v4_rcv+0x5e3/0x810
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8040e58f>] ip_local_deliver_finish+0x9f/0x200
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8040e2a0>] ip_rcv_finish+0x130/0x380
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff88083b56>] :bnx2:bnx2_poll+0x676/0x1330
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8022d746>] run_rebalance_domains+0xf6/0x4c0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff802267da>] sys32_mmap2+0x9a/0x100
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff803edad8>] net_rx_action+0xf8/0x200
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8023a5b9>] __do_softirq+0x69/0xe0
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020c4ac>] call_softirq+0x1c/0x30
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020e995>] do_softirq+0x35/0x70
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020ec10>] do_IRQ+0x80/0x100
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a410>] mwait_idle+0x0/0x50
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020b831>] ret_from_intr+0x0/0xa
-Jul 11 03:57:08 arrakis kernel:  <EOI>  [<ffffffff80419a80>] tcp_poll+0x0/0x180
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a451>] mwait_idle+0x41/0x50
-Jul 11 03:57:08 arrakis kernel:  [<ffffffff8020a378>] cpu_idle+0x48/0x90
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: bnx2: skb->nr_frags=1 is corrupted, should be 2
-Jul 11 03:57:08 arrakis kernel: original skb:
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 00000000 00000000 964321c0 ffff8101 00000000 00000000 
-Jul 11 03:57:08 arrakis kernel: 2db80000 ffff8102 2e8a4800 ffff8102 00000000 00000000 00000000 00000000 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 00000000 00000000 7207adad 7207beb1 003be3a4 00000010 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 0000113a 00001104 01000000 001000ec 00000000 0008300e 
-Jul 11 03:57:08 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000 
-Jul 11 03:57:08 arrakis kernel: 2d2e3cdb 00000000 000000ec 000000d8 00000000 00000100 00000100 a6f7e35a 
-Jul 11 03:57:08 arrakis kernel: 94e95000 ffff8101 94e950ca ffff8101 000012dc 00000001 
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: 00010002 05ac0002 00010003 00000000 00000000 00000000 05f972a8 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000275 00000d8b 05f8f828 ffffe200 00000000 00000379 05f20388 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 054167a0 ffffe200 00000000 00001000 0540e000 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000c31 05f8f828 ffffe200 00000000 00001000 05f20388 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 054167a0 ffffe200 00000000 00001000 0540e000 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000c31 06ff9af0 ffffe200 00000000 00001000 06d055b0 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 04683f60 ffffe200 00000000 000000ab 014864e8 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000f83 038daff0 ffffe200 00000000 00001000 038dae30 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 038da1f0 ffffe200 00000000 00001000 038dd910 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000ce3 115fe1a6 8119c99d 52de821b 31d7c6c7 
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: Corrupted skb:
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 00000000 00000000 964321c0 ffff8101 00000000 00000000 
-Jul 11 03:57:08 arrakis kernel: 2db80000 ffff8102 2e8a4800 ffff8102 00000000 00000000 00000000 00000000 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 00000000 00000000 7207adad 7207beb1 003be3a4 00000010 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000000 0000113a 00001104 01000000 001000ec 00000000 0008300e 
-Jul 11 03:57:08 arrakis kernel: 803e3440 ffffffff 00000000 00000000 00000000 00000000 00000000 20000000 
-Jul 11 03:57:08 arrakis kernel: 2d2e3cdb 00000000 000000ec 000000d8 00000000 00000100 00000100 a6f7e35a 
-Jul 11 03:57:08 arrakis kernel: 94e95000 ffff8101 94e950ca ffff8101 000012dc 00000001 
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:57:08 arrakis kernel: 00010002 00000001 00000001 00000000 00000000 00000000 05f972a8 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000275 000005ac 05f8f828 ffffe200 00000000 00000379 05f20388 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 054167a0 ffffe200 00000000 00001000 0540e000 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000c31 05f8f828 ffffe200 00000000 00001000 05f20388 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 054167a0 ffffe200 00000000 00001000 0540e000 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000c31 06ff9af0 ffffe200 00000000 00001000 06d055b0 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 04683f60 ffffe200 00000000 000000ab 014864e8 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000f83 038daff0 ffffe200 00000000 00001000 038dae30 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00001000 038da1f0 ffffe200 00000000 00001000 038dd910 ffffe200 
-Jul 11 03:57:08 arrakis kernel: 00000000 00000ce3 115fe1a6 8119c99d 52de821b 31d7c6c7 
-Jul 11 03:57:08 arrakis kernel: 
-Jul 11 03:59:02 arrakis kernel: Splitting cloned skb
-Jul 11 03:59:02 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 03:59:02 arrakis kernel: 
-Jul 11 03:59:02 arrakis kernel: Call Trace:
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 03:59:02 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 03:59:02 arrakis kernel: 
-Jul 11 04:00:02 arrakis kernel: Splitting cloned skb
-Jul 11 04:00:02 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:00:02 arrakis kernel: 
-Jul 11 04:00:02 arrakis kernel: Call Trace:
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff802a4f75>] __mark_inode_dirty+0x65/0x1a0
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff80268ba2>] __pagevec_lru_add_active+0xd2/0xf0
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:00:02 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:00:02 arrakis kernel: 
-Jul 11 04:00:18 arrakis kernel: Splitting cloned skb
-Jul 11 04:00:18 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:00:18 arrakis kernel: 
-Jul 11 04:00:18 arrakis kernel: Call Trace:
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff802a4f75>] __mark_inode_dirty+0x65/0x1a0
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:00:18 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:00:18 arrakis kernel: 
-Jul 11 04:00:34 arrakis kernel: Splitting cloned skb
-Jul 11 04:00:34 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:00:34 arrakis kernel: 
-Jul 11 04:00:34 arrakis kernel: Call Trace:
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:00:34 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:00:34 arrakis kernel: 
-Jul 11 04:01:54 arrakis kernel: Splitting cloned skb
-Jul 11 04:01:54 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:01:54 arrakis kernel: 
-Jul 11 04:01:54 arrakis kernel: Call Trace:
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:01:54 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:01:54 arrakis kernel: 
-Jul 11 04:02:14 arrakis kernel: Splitting cloned skb
-Jul 11 04:02:14 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:02:14 arrakis kernel: 
-Jul 11 04:02:14 arrakis kernel: Call Trace:
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:02:14 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:02:14 arrakis kernel: 
-Jul 11 04:02:34 arrakis kernel: Splitting cloned skb
-Jul 11 04:02:34 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:02:34 arrakis kernel: 
-Jul 11 04:02:34 arrakis kernel: Call Trace:
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:02:34 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:02:34 arrakis kernel: 
-Jul 11 04:02:41 arrakis kernel: Splitting cloned skb
-Jul 11 04:02:41 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:02:41 arrakis kernel: 
-Jul 11 04:02:41 arrakis kernel: Call Trace:
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:02:41 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:02:41 arrakis kernel: 
-Jul 11 04:02:57 arrakis kernel: Splitting cloned skb
-Jul 11 04:02:57 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:02:57 arrakis kernel: 
-Jul 11 04:02:57 arrakis kernel: Call Trace:
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:02:57 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:02:57 arrakis kernel: 
-Jul 11 04:03:02 arrakis kernel: Splitting cloned skb
-Jul 11 04:03:02 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:03:02 arrakis kernel: 
-Jul 11 04:03:02 arrakis kernel: Call Trace:
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff802a4f44>] __mark_inode_dirty+0x34/0x1a0
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:03:02 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:03:02 arrakis kernel: 
-Jul 11 04:04:24 arrakis kernel: Splitting cloned skb
-Jul 11 04:04:24 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:04:24 arrakis kernel: 
-Jul 11 04:04:24 arrakis kernel: Call Trace:
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:04:24 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:04:24 arrakis kernel: 
-Jul 11 04:05:03 arrakis kernel: Splitting cloned skb
-Jul 11 04:05:03 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:05:03 arrakis kernel: 
-Jul 11 04:05:03 arrakis kernel: Call Trace:
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:05:03 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:05:03 arrakis kernel: 
-Jul 11 04:05:19 arrakis kernel: Splitting cloned skb
-Jul 11 04:05:19 arrakis kernel: Pid: 2082, comm: rsync Not tainted 2.6.25.6 #2
-Jul 11 04:05:19 arrakis kernel: 
-Jul 11 04:05:19 arrakis kernel: Call Trace:
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff80265f7b>] __alloc_pages+0x5b/0x390
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff8041b150>] tcp_sendmsg+0x880/0xbf0
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff802a4f75>] __mark_inode_dirty+0x65/0x1a0
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff803ddf70>] sock_aio_write+0x110/0x120
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff80285309>] do_sync_write+0xd9/0x120
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff80249590>] autoremove_wake_function+0x0/0x30
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff802299c3>] set_next_entity+0x23/0x50
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff80285c5a>] vfs_write+0x15a/0x170
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff802862a3>] sys_write+0x53/0x90
-Jul 11 04:05:19 arrakis kernel:  [<ffffffff8020b30b>] system_call_after_swapgs+0x7b/0x80
-Jul 11 04:05:19 arrakis kernel: 
+> Here we go, it triggered, here are the first few, tell me if you need more:
 
--- 
-Josip Rodin
-mirrors@debian.org
+Thanks for the trace:
+
+> Jul 11 02:15:10 arrakis kernel: Splitting cloned skb
+> Jul 11 02:15:10 arrakis kernel: Pid: 0, comm: swapper Not tainted 2.6.25.6 #2
+> Jul 11 02:15:10 arrakis kernel: 
+> Jul 11 02:15:10 arrakis kernel: Call Trace:
+> Jul 11 02:15:10 arrakis kernel:  <IRQ>  [<ffffffff803e5e75>] __alloc_skb+0x85/0x150
+> Jul 11 02:15:10 arrakis kernel:  [<ffffffff803e66aa>] skb_split+0x4a/0x300
+> Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042700b>] tso_fragment+0xfb/0x180
+> Jul 11 02:15:10 arrakis kernel:  [<ffffffff8042716e>] __tcp_push_pending_frames+0xde/0x860
+> Jul 11 02:15:10 arrakis kernel:  [<ffffffff80424596>] tcp_rcv_established+0x596/0x9d0
+
+So it's splitting a frame up which should be new data, but for
+some reason made it to the device previously.
+
+The comment above tso_fragment() reads:
+
+/* Trim TSO SKB to LEN bytes, put the remaining data into a new packet
+ * which is put after SKB on the list.  It is very much like
+ * tcp_fragment() except that it may make several kinds of assumptions
+ * in order to speed up the splitting operation.  In particular, we
+ * know that all the data is in scatter-gather pages, and that the
+ * packet has never been sent out before (and thus is not cloned).
+ */
+
+Note in particular the final phrase inside the parens. :-)))
+
+There is only one way this situation seen in the trace can develop.
+That is if the queueing discipline gave the packet to the device, yet
+returned a value that made TCP believe the packet was not.
+
+When TCP sees such a return value, it does not advance the head of the
+write queue.  It will retry to send that head packet again later.  And
+that's what we seem to be seeing here.
+
+TCP treats any non-zero return value other than NET_XMIT_CN
+in this way (see tcp_transmit_skb and how it uses net_xmit_eval).
+
+I notice that HTB does a lot of very queer things wrt. return
+values.
+
+For example, it seems that if the class's leaf queue ->enqueue()
+returns any non-success value, it gives NET_XMIT_DROP back down to the
+call chain.
+
+But what if that leaf ->enqueue() is something that passes back
+NET_XMIT_CN?  NET_XMIT_CN can be signalled for things like RED, in
+cases where some "other" packet in the same class got dropped but not
+necessarily the one you enqueued.
+
+NET_XMIT_CN means backoff, but it does not indicate that the specific
+packet being enqueued was dropped.  It just means "some" packet from
+the same flow was dropped, and therefore there is congestion on this
+flow.
+
+Even more simpler qdiscs such as SFQ use the NET_XMIT_CN return value
+when it does a drop.
+
+So this return value munging being done by HTB creates the illegal
+situation.
+
+I'm not sure how to fix this, because I'm not sure how these
+NET_XMIT_CN situations should be handled wrt. maintaining a proper
+parent queue length value.
+
+Patrick/Martin, in HTB's ->enqueue() and ->requeue() we need to
+propagate NET_XMIT_CN to the caller if that's what the leaf qdisc
+signals to us.  But the question is, should sch->q.qlen be
+incremented in that case?  NET_XMIT_CN means that some packet got
+dropped, but not necessarily this one.  If, for example, RED
+drops another packet already in the queue does it somehow adjust
+the parent sch->q.qlen back down?  If not, it's pretty clear how
+this bug got created in the first place :)  Below is my idiotic
+attempt to cure this, but this whole situation needs an audit:
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 3fb58f4..aa20b47 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -583,6 +583,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		if (q->direct_queue.qlen < q->direct_qlen) {
+ 			__skb_queue_tail(&q->direct_queue, skb);
+ 			q->direct_pkts++;
++			ret = NET_XMIT_SUCCESS;
+ 		} else {
+ 			kfree_skb(skb);
+ 			sch->qstats.drops++;
+@@ -595,22 +596,26 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		kfree_skb(skb);
+ 		return ret;
+ #endif
+-	} else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) !=
+-		   NET_XMIT_SUCCESS) {
+-		sch->qstats.drops++;
+-		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
+ 	} else {
+-		cl->bstats.packets +=
+-			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+-		cl->bstats.bytes += skb->len;
+-		htb_activate(q, cl);
++		ret = cl->un.leaf.q->enqueue(skb, cl->un.leaf.q);
++		if (ret == NET_XMIT_DROP) {
++			sch->qstats.drops++;
++			cl->qstats.drops++;
++		} else {
++			cl->bstats.packets +=
++				skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
++			cl->bstats.bytes += skb->len;
++			htb_activate(q, cl);
++		}
+ 	}
+ 
+-	sch->q.qlen++;
+-	sch->bstats.packets += skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+-	sch->bstats.bytes += skb->len;
+-	return NET_XMIT_SUCCESS;
++	if (ret == NET_XMIT_SUCCESS) {
++		sch->q.qlen++;
++		sch->bstats.packets +=
++			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
++		sch->bstats.bytes += skb->len;
++	}
++	return ret;
+ }
+ 
+ /* TODO: requeuing packet charges it to policers again !! */
+@@ -625,6 +630,7 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 		/* enqueue to helper queue */
+ 		if (q->direct_queue.qlen < q->direct_qlen) {
+ 			__skb_queue_head(&q->direct_queue, skb);
++			ret = NET_XMIT_SUCCESS;
+ 		} else {
+ 			__skb_queue_head(&q->direct_queue, skb);
+ 			tskb = __skb_dequeue_tail(&q->direct_queue);
+@@ -639,17 +645,21 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 		kfree_skb(skb);
+ 		return ret;
+ #endif
+-	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
+-		   NET_XMIT_SUCCESS) {
+-		sch->qstats.drops++;
+-		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
+-	} else
+-		htb_activate(q, cl);
++	} else {
++		ret = cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q);
++		if (ret == NET_XMIT_DROP) {
++			sch->qstats.drops++;
++			cl->qstats.drops++;
++		} else {
++			htb_activate(q, cl);
++		}
++	}
+ 
+-	sch->q.qlen++;
+-	sch->qstats.requeues++;
+-	return NET_XMIT_SUCCESS;
++	if (ret == NET_XMIT_SUCCESS) {
++		sch->q.qlen++;
++		sch->qstats.requeues++;
++	}
++	return ret;
+ }
+ 
+ /**
+
