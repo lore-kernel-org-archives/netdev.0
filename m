@@ -1,45 +1,53 @@
-From: Kalle Valo <kalle.valo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Fri, 11 Jul 2008 07:46:39 +0300
-Message-ID: <877ibtc9jk.fsf@nokia.com>
-References: <20080709190915.GA8238@tuxdriver.com>
-	<1ba2fa240807091713t1158c1ddp81c92ae26a002e46@mail.gmail.com>
-	<87iqvd3j6w.fsf@nokia.com> <20080711014113.GE7284@jm.kir.nu>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/6] via-velocity: remove the bounce buffers
+Date: Fri, 11 Jul 2008 01:14:04 -0400
+Message-ID: <4876EC1C.4080705@garzik.org>
+References: <20080710220344.GB29764@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Jouni Malinen" <j@w1.fi>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080711014113.GE7284-mgr6C1c9aYeHXe+LvDLADg@public.gmane.org> (ext Jouni Malinen's message of "Fri\, 11 Jul 2008 04\:41\:13 +0300")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>,
+	akpm@linux-foundation.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:46466 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750886AbYGKFOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 01:14:12 -0400
+In-Reply-To: <20080710220344.GB29764@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jouni Malinen <j@w1.fi> writes:
+=46rancois Romieu wrote:
+> Executive summary: the bounce buffers are in my way
+>=20
+> - they use something like a 64 * 1500 bytes area of PCI
+>   consistent area
+> - they are not resized when the MTU changes
+> - they are used
+>   - to hand-pad undersized packets. skb_pad anyone ?
+>   - to linearize fragmented skbs whose fragment count
+>     goes beyond the 7 fragments hardware limit in order
+>     to claim scatter-gather support
+>=20
+> Actually the SG code is commented out and I wonder if it
+> could not be implemented (ab-)using the large send feature
+> of the chipset since the latter should support some
+> multi-descriptor packet transmitting.
+>=20
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Fixed-by: S=E9guier R=E9gis <rseguier@e-teleport.net>
+> ---
+>  drivers/net/via-velocity.c |   72 +++++++++++-----------------------=
+----------
+>  drivers/net/via-velocity.h |    5 ---
+>  2 files changed, 18 insertions(+), 59 deletions(-)
+>=20
 
-> On Thu, Jul 10, 2008 at 05:30:47PM +0300, Kalle Valo wrote:
->
->> I'm just worried if one day is enough for us. The agenda is getting
->> quite long already.
->
-> There should be plenty of time to continue discussions after (or even
-> before) the mini-summit since I would assume most people stay for OLS.
+ACK patches 1-6
 
-Yes, you are right. I guess there are vacant rooms during the OLS
-which we can use, if needed.
+applied 1-4, patch #5 failed to apply
 
-> For example, I will be in Ottawa for the full week (July 18-27) and
-> will be available for discussions related to wireless topics both
-> before and after the mini-summit itself.
 
-I'm also very interested in any discussions. I will be arriving on the
-20th and leaving on the 27th of July.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
