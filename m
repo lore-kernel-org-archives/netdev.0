@@ -1,151 +1,162 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 5/6] bnx2: Support secondary MAC addresses.
-Date: Thu, 10 Jul 2008 18:29:14 -0700
-Message-ID: <1215739755-5495-5-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 4/6] bnx2: Allow flexible VLAN tag settings.
+Date: Thu, 10 Jul 2008 18:29:13 -0700
+Message-ID: <1215739755-5495-4-git-send-email-mchan@broadcom.com>
 References: <1215739755-5495-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2651 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1731 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757314AbYGKB0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 21:26:32 -0400
+	id S1756548AbYGKB03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2008 21:26:29 -0400
 In-Reply-To: <1215739755-5495-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for configuring secondary unicast addresses.  There
-are 4 additional perfect match filters which can be used for
-secondary unicast address support.
+Negotiate with boot code and ASF firmware to see if it can
+support keeping VLAN tags in the RX packets.  If supported
+by firmware, the VLAN tag will be kept in the RX packet
+unless VLAN acceleration is registered.
 
-  *  Modified bnx2_set_mac_addr() to be more generic in handling
-     the setting of the perfect match filters
-  *  Changed bnx2_set_rx_mode() to handle the unicast dev_addr_list
-
-Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/bnx2.c |   35 +++++++++++++++++++++++++++--------
- drivers/net/bnx2.h |    5 +++++
- 2 files changed, 32 insertions(+), 8 deletions(-)
+ drivers/net/bnx2.c |   44 +++++++++++++++++++++++++++-----------------
+ drivers/net/bnx2.h |    6 ++++++
+ 2 files changed, 33 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 2d0213e..0d0bb93 100644
+index 4dfd439..2d0213e 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -2451,19 +2451,18 @@ bnx2_alloc_bad_rbuf(struct bnx2 *bp)
+@@ -4255,35 +4255,43 @@ nvram_write_end:
  }
  
  static void
--bnx2_set_mac_addr(struct bnx2 *bp)
-+bnx2_set_mac_addr(struct bnx2 *bp, u8 *mac_addr, u32 pos)
+-bnx2_init_remote_phy(struct bnx2 *bp)
++bnx2_init_fw_cap(struct bnx2 *bp)
  {
- 	u32 val;
--	u8 *mac_addr = bp->dev->dev_addr;
+-	u32 val;
++	u32 val, sig = 0;
  
- 	val = (mac_addr[0] << 8) | mac_addr[1];
- 
--	REG_WR(bp, BNX2_EMAC_MAC_MATCH0, val);
-+	REG_WR(bp, BNX2_EMAC_MAC_MATCH0 + (pos * 8), val);
- 
- 	val = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
- 		(mac_addr[4] << 8) | mac_addr[5];
- 
--	REG_WR(bp, BNX2_EMAC_MAC_MATCH1, val);
-+	REG_WR(bp, BNX2_EMAC_MAC_MATCH1 + (pos * 8), val);
- }
- 
- static inline int
-@@ -3223,6 +3222,7 @@ bnx2_set_rx_mode(struct net_device *dev)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
- 	u32 rx_mode, sort_mode;
-+	struct dev_addr_list *uc_ptr;
- 	int i;
- 
- 	spin_lock_bh(&bp->phy_lock);
-@@ -3278,6 +3278,25 @@ bnx2_set_rx_mode(struct net_device *dev)
- 		sort_mode |= BNX2_RPM_SORT_USER0_MC_HSH_EN;
- 	}
- 
-+	uc_ptr = NULL;
-+	if (dev->uc_count > BNX2_MAX_UNICAST_ADDRESSES) {
-+		rx_mode |= BNX2_EMAC_RX_MODE_PROMISCUOUS;
-+		sort_mode |= BNX2_RPM_SORT_USER0_PROM_EN |
-+			     BNX2_RPM_SORT_USER0_PROM_VLAN;
-+	} else if (!(dev->flags & IFF_PROMISC)) {
-+		uc_ptr = dev->uc_list;
+ 	bp->phy_flags &= ~BNX2_PHY_FLAG_REMOTE_PHY_CAP;
+-	if (!(bp->phy_flags & BNX2_PHY_FLAG_SERDES))
+-		return;
++	bp->flags &= ~BNX2_FLAG_CAN_KEEP_VLAN;
 +
-+		/* Add all entries into to the match filter list */
-+		for (i = 0; i < dev->uc_count; i++) {
-+			bnx2_set_mac_addr(bp, uc_ptr->da_addr,
-+					  i + BNX2_START_UNICAST_ADDRESS_INDEX);
-+			sort_mode |= (1 <<
-+				      (i + BNX2_START_UNICAST_ADDRESS_INDEX));
-+			uc_ptr = uc_ptr->next;
-+		}
-+
++	if (!(bp->flags & BNX2_FLAG_ASF_ENABLE))
++		bp->flags |= BNX2_FLAG_CAN_KEEP_VLAN;
+ 
+ 	val = bnx2_shmem_rd(bp, BNX2_FW_CAP_MB);
+ 	if ((val & BNX2_FW_CAP_SIGNATURE_MASK) != BNX2_FW_CAP_SIGNATURE)
+ 		return;
+ 
+-	if (val & BNX2_FW_CAP_REMOTE_PHY_CAPABLE) {
++	if ((val & BNX2_FW_CAP_CAN_KEEP_VLAN) == BNX2_FW_CAP_CAN_KEEP_VLAN) {
++		bp->flags |= BNX2_FLAG_CAN_KEEP_VLAN;
++		sig |= BNX2_DRV_ACK_CAP_SIGNATURE | BNX2_FW_CAP_CAN_KEEP_VLAN;
 +	}
 +
- 	if (rx_mode != bp->rx_mode) {
- 		bp->rx_mode = rx_mode;
- 		REG_WR(bp, BNX2_EMAC_RX_MODE, rx_mode);
-@@ -3562,7 +3581,7 @@ bnx2_set_power_state(struct bnx2 *bp, pci_power_t state)
- 			bp->autoneg = autoneg;
- 			bp->advertising = advertising;
++	if ((bp->phy_flags & BNX2_PHY_FLAG_SERDES) &&
++	    (val & BNX2_FW_CAP_REMOTE_PHY_CAPABLE)) {
++		u32 link;
++
+ 		bp->phy_flags |= BNX2_PHY_FLAG_REMOTE_PHY_CAP;
  
--			bnx2_set_mac_addr(bp);
-+			bnx2_set_mac_addr(bp, bp->dev->dev_addr, 0);
+-		val = bnx2_shmem_rd(bp, BNX2_LINK_STATUS);
+-		if (val & BNX2_LINK_STATUS_SERDES_LINK)
++		link = bnx2_shmem_rd(bp, BNX2_LINK_STATUS);
++		if (link & BNX2_LINK_STATUS_SERDES_LINK)
+ 			bp->phy_port = PORT_FIBRE;
+ 		else
+ 			bp->phy_port = PORT_TP;
  
- 			val = REG_RD(bp, BNX2_EMAC_MODE);
- 
-@@ -4472,7 +4491,7 @@ bnx2_init_chip(struct bnx2 *bp)
- 
- 	bnx2_init_nvram(bp);
- 
--	bnx2_set_mac_addr(bp);
-+	bnx2_set_mac_addr(bp, bp->dev->dev_addr, 0);
- 
- 	val = REG_RD(bp, BNX2_MQ_CONFIG);
- 	val &= ~BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE;
-@@ -7100,7 +7119,7 @@ bnx2_change_mac_addr(struct net_device *dev, void *p)
- 
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
- 	if (netif_running(dev))
--		bnx2_set_mac_addr(bp);
-+		bnx2_set_mac_addr(bp, bp->dev->dev_addr, 0);
- 
- 	return 0;
+-		if (netif_running(bp->dev)) {
+-			u32 sig;
+-
+-			sig = BNX2_DRV_ACK_CAP_SIGNATURE |
+-			      BNX2_FW_CAP_REMOTE_PHY_CAPABLE;
+-			bnx2_shmem_wr(bp, BNX2_DRV_ACK_CAP_MB, sig);
+-		}
++		sig |= BNX2_DRV_ACK_CAP_SIGNATURE |
++		       BNX2_FW_CAP_REMOTE_PHY_CAPABLE;
+ 	}
++
++	if (netif_running(bp->dev) && sig)
++		bnx2_shmem_wr(bp, BNX2_DRV_ACK_CAP_MB, sig);
  }
-@@ -7643,7 +7662,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->hard_start_xmit = bnx2_start_xmit;
- 	dev->stop = bnx2_close;
- 	dev->get_stats = bnx2_get_stats;
--	dev->set_multicast_list = bnx2_set_rx_mode;
-+	dev->set_rx_mode = bnx2_set_rx_mode;
- 	dev->do_ioctl = bnx2_ioctl;
- 	dev->set_mac_address = bnx2_change_mac_addr;
- 	dev->change_mtu = bnx2_change_mtu;
+ 
+ static void
+@@ -4380,7 +4388,7 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
+ 
+ 	spin_lock_bh(&bp->phy_lock);
+ 	old_port = bp->phy_port;
+-	bnx2_init_remote_phy(bp);
++	bnx2_init_fw_cap(bp);
+ 	if ((bp->phy_flags & BNX2_PHY_FLAG_REMOTE_PHY_CAP) &&
+ 	    old_port != bp->phy_port)
+ 		bnx2_set_default_remote_link(bp);
+@@ -5879,6 +5887,8 @@ bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
+ 
+ 	bp->vlgrp = vlgrp;
+ 	bnx2_set_rx_mode(dev);
++	if (bp->flags & BNX2_FLAG_CAN_KEEP_VLAN)
++		bnx2_fw_sync(bp, BNX2_DRV_MSG_CODE_KEEP_VLAN_UPDATE, 0, 1);
+ 
+ 	bnx2_netif_start(bp);
+ }
+@@ -7483,8 +7493,6 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 			if (reg & BNX2_SHARED_HW_CFG_PHY_2_5G)
+ 				bp->phy_flags |= BNX2_PHY_FLAG_2_5G_CAPABLE;
+ 		}
+-		bnx2_init_remote_phy(bp);
+-
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5706 ||
+ 		   CHIP_NUM(bp) == CHIP_NUM_5708)
+ 		bp->phy_flags |= BNX2_PHY_FLAG_CRC_FIX;
+@@ -7493,6 +7501,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 		  CHIP_REV(bp) == CHIP_REV_Bx))
+ 		bp->phy_flags |= BNX2_PHY_FLAG_DIS_EARLY_DAC;
+ 
++	bnx2_init_fw_cap(bp);
++
+ 	if ((CHIP_ID(bp) == CHIP_ID_5708_A0) ||
+ 	    (CHIP_ID(bp) == CHIP_ID_5708_B0) ||
+ 	    (CHIP_ID(bp) == CHIP_ID_5708_B1)) {
 diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 7b882fd..bb7b5d5 100644
+index efa0ca9..7b882fd 100644
 --- a/drivers/net/bnx2.h
 +++ b/drivers/net/bnx2.h
-@@ -6440,6 +6440,11 @@ struct l2_fhdr {
+@@ -6670,6 +6670,7 @@ struct bnx2 {
+ #define BNX2_FLAG_USING_MSI_OR_MSIX	(BNX2_FLAG_USING_MSI | \
+ 					 BNX2_FLAG_USING_MSIX)
+ #define BNX2_FLAG_JUMBO_BROKEN		0x00000800
++#define BNX2_FLAG_CAN_KEEP_VLAN		0x00001000
  
- #define BNX2_MISC_ENABLE_DEFAULT	0x17ffffff
+ 	struct bnx2_napi	bnx2_napi[BNX2_MAX_MSIX_VEC];
  
-+#define BNX2_START_UNICAST_ADDRESS_INDEX	4
-+#define BNX2_END_UNICAST_ADDRESS_INDEX		7
-+#define BNX2_MAX_UNICAST_ADDRESSES     	(BNX2_END_UNICAST_ADDRESS_INDEX - \
-+					 BNX2_START_UNICAST_ADDRESS_INDEX + 1)
-+
- #define DMA_READ_CHANS	5
- #define DMA_WRITE_CHANS	3
+@@ -6951,6 +6952,7 @@ struct fw_info {
+ #define BNX2_DRV_MSG_CODE_DIAG			 0x07000000
+ #define BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL	 0x09000000
+ #define BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN		 0x0b000000
++#define BNX2_DRV_MSG_CODE_KEEP_VLAN_UPDATE	 0x0d000000
+ #define BNX2_DRV_MSG_CODE_CMD_SET_LINK		 0x10000000
  
+ #define BNX2_DRV_MSG_DATA			 0x00ff0000
+@@ -7279,6 +7281,10 @@ struct fw_info {
+ #define BNX2_FW_CAP_SIGNATURE_MASK		 0xffff0000
+ #define BNX2_FW_CAP_REMOTE_PHY_CAPABLE		 0x00000001
+ #define BNX2_FW_CAP_REMOTE_PHY_PRESENT		 0x00000002
++#define BNX2_FW_CAP_MFW_CAN_KEEP_VLAN		 0x00000008
++#define BNX2_FW_CAP_BC_CAN_KEEP_VLAN		 0x00000010
++#define BNX2_FW_CAP_CAN_KEEP_VLAN	(BNX2_FW_CAP_BC_CAN_KEEP_VLAN | \
++					 BNX2_FW_CAP_MFW_CAN_KEEP_VLAN)
+ 
+ #define BNX2_RPHY_SIGNATURE			0x36c
+ #define BNX2_RPHY_LOAD_SIGNATURE		 0x5a5a5a5a
 -- 
 1.5.5.GIT
 
