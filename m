@@ -1,114 +1,59 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from
-	unjoined groups
-Date: Fri, 11 Jul 2008 15:27:58 -0400
-Message-ID: <20080711192758.GE4534@hmsreliant.think-freely.org>
-References: <20080711182304.GD4534@hmsreliant.think-freely.org> <OF0B99D809.C4C8DBBF-ON88257483.0066FB51-88257483.00687279@us.ibm.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [FIX] ARM: IXP4xx Ethernet NAPI fix
+Date: Fri, 11 Jul 2008 21:41:23 +0200
+Message-ID: <m3k5fs1a58.fsf@maximus.localdomain>
+References: <m31w23ia8n.fsf@maximus.localdomain>
+	<20080711121822.2d7bccc0.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: Jeff Garzik <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3794 "EHLO ra.tuxdriver.com"
+Received: from OSB1387.piap.pl ([195.187.100.11]:34752 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569AbYGKT3X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 15:29:23 -0400
-Content-Disposition: inline
-In-Reply-To: <OF0B99D809.C4C8DBBF-ON88257483.0066FB51-88257483.00687279@us.ibm.com>
+	id S1751875AbYGKTl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 15:41:26 -0400
+In-Reply-To: <20080711121822.2d7bccc0.akpm@linux-foundation.org> (Andrew Morton's message of "Fri\, 11 Jul 2008 12\:18\:22 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 11, 2008 at 12:00:57PM -0700, David Stevens wrote:
-> Yes, that's me, and that's also true. It wasn't the address, it's the time 
-> delay. I think that
-> was months ago. But you left out a distinguishing piece in your example 
-> here, which is
-> all the difference.
-> 
-> Joins are also per-interface. So, joining a group on "lo" does not join 
-> the group on
-> "eth0". In your example below (4), the reason it won't receive the packets 
-> is because
-> the machine is not a group member on eth0. If any process joined the group 
-> on eth0
-> then an INADDR_ANY-bound socket would receive them (whether it joined or 
-> not).
-> I guess I wasn't clear -- the reason you have to join below is to 
-> guarantee someone
-> has joined. If some other process already joined on that interface, you 
-> would
-> receive them also.
-> 
->                                                                 +-DLS
-> 
-> Neil Horman <nhorman@tuxdriver.com> wrote on 07/11/2008 11:23:04 AM:
-> 
-> > 
-> > >>>
-> > >>> 4) Finally, what if process B bound itself to INADDR_ANY rather than 
-> to
-> > >>>the
-> > >>> specific multicast group.  Should it see process A's sent frames 
-> then?
-> > >>
-> > >>        Not if the group membership is on lo and the sends are on 
-> eth0.
-> > >>The
-> > >>reason it isn't seeing the packets is not the binding, but the group
-> > >>membership. To hear packets you're sending out an interface, you must
-> > >>join that group on that interface *and* the sender must allow loopback 
-> by
-> > >>not clearing IP_MULTICAST_LOOP. Joining the group on a different 
-> interface
-> > >>really is joining a different group, as far as multicasting is 
-> concerned.
-> > 
-> > >         But in the sentence above, I think you missed the point of the
-> > > mail I sent before. Joining a group or not on a particular socket has
-> > > nothing at all to do with delivery of multicasts to the socket.
-> > > 
-> > >         Multicast addresses, like unicast addresses, are for the 
-> entire
-> > > machine, not just the socket that does the join. If anyone on the
-> > > machine has joined the group and your binding matches the packet, you
-> > > will receive a copy. That's intentional. If you don't join any groups
-> > > at all, but bind to INADDR_ANY, you will receive packets for the port
-> > > and protocol and any local unicast or multicast address (including
-> > > groups joined by any other process on the machine).
-> > > 
-> > >  +-DLS
-> > 
-> > If thats the final word, then I'll believe you, but it seems to me that
-> > receiving multicast traffic on a socket that didn't specifically join a
-> > multicast group is asking for trouble, as every application needs to be 
-> prepared
-> > to handle data payloads it was not expected to recieve.
-> > 
-> > Can you clarify your statement above with the one that I copied in from 
-> you
-> > earlier?
-> > 
-> > Regards
-> > Neil
-> > 
-> > 
-> > -- 
-> > /****************************************************
-> >  * Neil Horman <nhorman@tuxdriver.com>
-> >  * Software Engineer, Red Hat
-> >  ****************************************************/
+Andrew Morton <akpm@linux-foundation.org> writes:
 
+>> +++ b/drivers/net/arm/ixp4xx_eth.c
+>> @@ -522,7 +522,6 @@ static int eth_poll(struct napi_struct *napi, int budget)
+>>  #endif
+>>  
+>>  		if ((n = queue_get_desc(rxq, port, 0)) < 0) {
+>> -			received = 0; /* No packet received */
+>>  #if DEBUG_RX
+>>  			printk(KERN_DEBUG "%s: eth_poll netif_rx_complete\n",
+>>  			       dev->name);
+>> @@ -543,7 +542,7 @@ static int eth_poll(struct napi_struct *napi, int budget)
+>>  			printk(KERN_DEBUG "%s: eth_poll all done\n",
+>>  			       dev->name);
+>>  #endif
+>> -			return 0; /* all work done */
+>> +			return received; /* all work done */
+>>  		}
+>>  
+>>  		desc = rx_desc_ptr(port, n);
+>
+> This is a functional change, and I do not believe that "fixes some
+> weirdness" is an adequate description of it.
 
-Alright, we'll it sounds like this has been well thought out, and my
-understanding is in the wrong.  Patch rescinded. Sorry for the noise.
+Well, tried my best :-)
 
-Best
-Neil
+> Please: what was wrong with the old code?
 
+It shouldn't do anything like that, the function has to return the
+number of received packets. I.e., it was not up to the NAPI specs. Now
+it does what NAPI wants, hopefully. I have no idea why did I put that
+in :-(
+
+>  Were the effects user-visible?
+
+I don't know. Actually, for me it works the same before and after the
+change.
 -- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+Krzysztof Halasa
