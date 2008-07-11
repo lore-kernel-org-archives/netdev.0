@@ -1,42 +1,45 @@
-From: "Li Yang" <LeoLi@freescale.com>
-Subject: RE: [PATCH 6/6] ucc_geth: delete non NAPI code from the driver.
-Date: Fri, 11 Jul 2008 11:38:34 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890027C4A15@zch01exm26.fsl.freescale.net>
-References: <20080707.224336.59099363.davem@davemloft.net> <20080708070106.GA30382@electric-eye.fr.zoreil.com> <20080708.015548.127198943.davem@davemloft.net> <20080710223440.GF31019@electric-eye.fr.zoreil.com>
+From: Kalle Valo <kalle.valo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Fri, 11 Jul 2008 07:46:39 +0300
+Message-ID: <877ibtc9jk.fsf@nokia.com>
+References: <20080709190915.GA8238@tuxdriver.com>
+	<1ba2fa240807091713t1158c1ddp81c92ae26a002e46@mail.gmail.com>
+	<87iqvd3j6w.fsf@nokia.com> <20080711014113.GE7284@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	"Fleming Andy" <afleming@freescale.com>
-To: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:62374 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbYGKDil convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 23:38:41 -0400
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m6B3cbUx016959
-	for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 20:38:38 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id m6B3cam1029229
-	for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 22:38:36 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20080710223440.GF31019@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Jouni Malinen" <j@w1.fi>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080711014113.GE7284-mgr6C1c9aYeHXe+LvDLADg@public.gmane.org> (ext Jouni Malinen's message of "Fri\, 11 Jul 2008 04\:41\:13 +0300")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Friday, July 11, 2008 6:35 AM
-> To: David Miller
-> Cc: jeff@garzik.org; netdev@vger.kernel.org; Fleming Andy; Li Yang
-> Subject: [PATCH 6/6] ucc_geth: delete non NAPI code from the driver.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Jouni Malinen <j@w1.fi> writes:
 
-I thought NAPI is left as an option because it adds the latency.  Is it
-not the case any more?
+> On Thu, Jul 10, 2008 at 05:30:47PM +0300, Kalle Valo wrote:
+>
+>> I'm just worried if one day is enough for us. The agenda is getting
+>> quite long already.
+>
+> There should be plenty of time to continue discussions after (or even
+> before) the mini-summit since I would assume most people stay for OLS.
 
-- Leo
+Yes, you are right. I guess there are vacant rooms during the OLS
+which we can use, if needed.
+
+> For example, I will be in Ottawa for the full week (July 18-27) and
+> will be available for discussions related to wireless topics both
+> before and after the mini-summit itself.
+
+I'm also very interested in any discussions. I will be arriving on the
+20th and leaving on the 27th of July.
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
