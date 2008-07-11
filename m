@@ -1,109 +1,42 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
- groups
-Date: Fri, 11 Jul 2008 12:00:57 -0700
-Message-ID: <OF0B99D809.C4C8DBBF-ON88257483.0066FB51-88257483.00687279@us.ibm.com>
-References: <20080711182304.GD4534@hmsreliant.think-freely.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bridge] bridging with gre tunnel
+Date: Fri, 11 Jul 2008 12:07:17 -0700
+Message-ID: <20080711120717.0c59e569@extreme>
+References: <4876FDF0.1030807@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Timo =?UTF-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:60654 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753201AbYGKTBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 15:01:21 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m6BItmMx027581
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 14:55:48 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6BJ19ZE161558
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 13:01:09 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6BJ12Cv025386
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 13:01:09 -0600
-In-Reply-To: <20080711182304.GD4534@hmsreliant.think-freely.org>
+Received: from mail.vyatta.com ([216.93.170.194]:55312 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbYGKTHU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 15:07:20 -0400
+In-Reply-To: <4876FDF0.1030807@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, that's me, and that's also true. It wasn't the address, it's the time 
-delay. I think that
-was months ago. But you left out a distinguishing piece in your example 
-here, which is
-all the difference.
+On Fri, 11 Jul 2008 09:30:08 +0300
+Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
 
-Joins are also per-interface. So, joining a group on "lo" does not join 
-the group on
-"eth0". In your example below (4), the reason it won't receive the packets 
-is because
-the machine is not a group member on eth0. If any process joined the group 
-on eth0
-then an INADDR_ANY-bound socket would receive them (whether it joined or 
-not).
-I guess I wasn't clear -- the reason you have to join below is to 
-guarantee someone
-has joined. If some other process already joined on that interface, you 
-would
-receive them also.
+> Hi all,
+>=20
+> It looks the current kernel still do not support bridging over gre
+> tunnels.
+>=20
+> I did find an old patch for ip_gre that would enable this [1]. But
+> it needs porting from 2.4 to 2.6 kernels and looks like it needs
+> cleaning up too.
+>=20
+> Is there newer/better patches to achieve this? Any thoughts about
+> doing bridging with gre tunnels?
+>=20
+> Cheers,
+>   Timo
+>=20
+> [1] http://mailman.ds9a.nl/pipermail/lartc/2003q4/010327.html
 
-                                                                +-DLS
-
-Neil Horman <nhorman@tuxdriver.com> wrote on 07/11/2008 11:23:04 AM:
-
-> 
-> >>>
-> >>> 4) Finally, what if process B bound itself to INADDR_ANY rather than 
-to
-> >>>the
-> >>> specific multicast group.  Should it see process A's sent frames 
-then?
-> >>
-> >>        Not if the group membership is on lo and the sends are on 
-eth0.
-> >>The
-> >>reason it isn't seeing the packets is not the binding, but the group
-> >>membership. To hear packets you're sending out an interface, you must
-> >>join that group on that interface *and* the sender must allow loopback 
-by
-> >>not clearing IP_MULTICAST_LOOP. Joining the group on a different 
-interface
-> >>really is joining a different group, as far as multicasting is 
-concerned.
-> 
-> >         But in the sentence above, I think you missed the point of the
-> > mail I sent before. Joining a group or not on a particular socket has
-> > nothing at all to do with delivery of multicasts to the socket.
-> > 
-> >         Multicast addresses, like unicast addresses, are for the 
-entire
-> > machine, not just the socket that does the join. If anyone on the
-> > machine has joined the group and your binding matches the packet, you
-> > will receive a copy. That's intentional. If you don't join any groups
-> > at all, but bind to INADDR_ANY, you will receive packets for the port
-> > and protocol and any local unicast or multicast address (including
-> > groups joined by any other process on the machine).
-> > 
-> >  +-DLS
-> 
-> If thats the final word, then I'll believe you, but it seems to me that
-> receiving multicast traffic on a socket that didn't specifically join a
-> multicast group is asking for trouble, as every application needs to be 
-prepared
-> to handle data payloads it was not expected to recieve.
-> 
-> Can you clarify your statement above with the one that I copied in from 
-you
-> earlier?
-> 
-> Regards
-> Neil
-> 
-> 
-> -- 
-> /****************************************************
->  * Neil Horman <nhorman@tuxdriver.com>
->  * Software Engineer, Red Hat
->  ****************************************************/
-
+The idea is fine, but that patch needs work (kind of a mess).
+If you want it, then go through normal process of submitting to
+netdev and take the comments and fix it up.
