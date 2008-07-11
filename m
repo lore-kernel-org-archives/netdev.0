@@ -1,125 +1,73 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: [PATCH] [AX25] unsigned long timers in ax25_info_struct_new
-Date: Fri, 11 Jul 2008 20:30:21 +0200
-Message-ID: <200807112030.22162.bpidoux@free.fr>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
+ groups
+Date: Fri, 11 Jul 2008 11:43:28 -0700
+Message-ID: <OF46B757A0.16C39B0B-ON88257483.00656D0F-88257483.0066D899@us.ibm.com>
+References: <20080711173549.GC4534@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-hams" <linux-hams@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:58632 "EHLO smtp5-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753599AbYGKS25 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 14:28:57 -0400
-Content-Disposition: inline
+Received: from e33.co.us.ibm.com ([32.97.110.151]:49763 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754542AbYGKSnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 14:43:46 -0400
+In-Reply-To: <20080711173549.GC4534@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A new structure is proposed with unsigned long types
-for AX25 timers, in order to be compliant with kernel 2.6.
-These timers are listed in /proc/net/ax25/
+netdev-owner@vger.kernel.org wrote on 07/11/2008 10:35:49 AM:
 
-AX25 info can be copied into user space via ioctl call using
-a new argument SIOCAX25GETINFONEW.
+> So you're saying that if I take a process, call bind, specifying 
+INADDR_ANY, and
+> then call setsockopt(...,IP_ADD_MEMBERSHIP,...) specifying a multicast 
+group X,
+> that I can expect to recieve messages from other multicast addresses 
+that other
+> processes in the system have joined to? 
 
-A KERN_INFO warning is printed if ioctl is called using
-deprecated structure and argument.
+Yes.
 
-Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
----
- include/linux/ax25.h |   16 +++++++++++++++-
- net/ax25/af_ax25.c   |   16 +++++++++++-----
- 2 files changed, 26 insertions(+), 6 deletions(-)
+> That doesn't seem at all correct, and
+> it contradicts what you and I discussed privately. 
 
-diff --git a/include/linux/ax25.h b/include/linux/ax25.h
-index 56c11f0..5b4ee2f 100644
---- a/include/linux/ax25.h
-+++ b/include/linux/ax25.h
-@@ -36,6 +36,7 @@
- #define SIOCAX25DELFWD		(SIOCPROTOPRIVATE+11)
- #define SIOCAX25DEVCTL          (SIOCPROTOPRIVATE+12)
- #define SIOCAX25GETINFO         (SIOCPROTOPRIVATE+13)
-+#define SIOCAX25GETINFONEW      (SIOCPROTOPRIVATE+14)
- 
- #define AX25_SET_RT_IPMODE	2
- 
-@@ -94,7 +95,7 @@ struct ax25_info_struct_deprecated {
- 	unsigned int	state;
- 	unsigned int	rcv_q, snd_q;
- };
--
-+/* deprecated */
- struct ax25_info_struct {
- 	unsigned int	n2, n2count;
- 	unsigned int	t1, t1timer;
-@@ -108,6 +109,19 @@ struct ax25_info_struct {
- 	unsigned int	window;
- };
- 
-+struct ax25_info_struct_new {
-+	unsigned int	n2, n2count;
-+	unsigned long	t1, t1timer;
-+	unsigned long	t2, t2timer;
-+	unsigned long	t3, t3timer;
-+	unsigned long	idle, idletimer;
-+	unsigned int	state;
-+	unsigned int	rcv_q, snd_q;
-+	unsigned int	vs, vr, va, vs_max;
-+	unsigned int	paclen;
-+	unsigned int	window;
-+};
-+
- struct ax25_fwd_struct {
- 	ax25_address	port_from;
- 	ax25_address	port_to;
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 2712544..e52c6af 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1769,9 +1769,10 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 		break;
- 
- 	case SIOCAX25GETINFO:
-+	case SIOCAX25GETINFONEW:
- 	case SIOCAX25GETINFOOLD: {
- 		ax25_cb *ax25 = ax25_sk(sk);
--		struct ax25_info_struct ax25_info;
-+		struct ax25_info_struct_new ax25_info;
- 
- 		ax25_info.t1        = ax25->t1   / HZ;
- 		ax25_info.t2        = ax25->t2   / HZ;
-@@ -1793,11 +1794,11 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 		ax25_info.paclen    = ax25->paclen;
- 		ax25_info.window    = ax25->window;
- 
--		/* old structure? */
--		if (cmd == SIOCAX25GETINFOOLD) {
-+		/* old structure ? */
-+		if (cmd != SIOCAX25GETINFONEW) {
- 			static int warned = 0;
- 			if (!warned) {
--				printk(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
-+				printk(KERN_INFO "%s uses deprecated SIOCAX25GETINFOOLD or SIOCAX25GETINFO\n",
- 					current->comm);
- 				warned=1;
- 			}
-@@ -1806,8 +1807,13 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 				res = -EFAULT;
- 				break;
- 			}
--		} else {
-+
- 			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct))) {
-+				res = -EFAULT;
-+				break;
-+			}
-+		} else {
-+			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct_new))) {
- 				res = -EINVAL;
- 				break;
- 			}
--- 
-1.5.5
+        I don't remember discussing this with you privately, but I think
+either I wasn't clear, or there's a misunderstanding. I think it doesn't
+seem correct to you because you have a different model in mind. You're 
+thinking
+(as almost everyone seems to) that the join has something to do with the 
+socket.
+The model, from the original implementation, is the same as for unicast
+addresses-- it is adding an address _to_the_machine_. It isn't a private
+address for that socket only.
+        The binding is what determines delivery to the socket. If you have
+other traffic on the same port that you don't want, then you don't want
+INADDR_ANY.
+
+> As the code currently
+> stands, if you do the above in process A, joining mcast group X, and 
+then start
+> a second process on the same system, joining mcast group Y, process A 
+will
+> recieve mcast group Y frames.
+
+        Yes. In fact, there are programs that rely on this. Some versions
+of JVM join all the groups it needs in one process, but other processes
+do all the I/O for those groups.
+
+That's how it has always worked in the original socket implementation 
+(BSD)
+and derivatives. The control for socket reception is the binding, so if 
+you
+want only mcast X packets, you need to bind to X. If you bind to 
+INADDR_ANY,
+that *means* you don't care what the destination address is and you'll 
+receive
+all unicast and multicast packets with a matching port and protocol.
+
+                                                                +-DLS
 
