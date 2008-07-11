@@ -1,35 +1,46 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Fri, 11 Jul 2008 04:41:13 +0300
-Message-ID: <20080711014113.GE7284@jm.kir.nu>
-References: <20080709190915.GA8238@tuxdriver.com> <1ba2fa240807091713t1158c1ddp81c92ae26a002e46@mail.gmail.com> <87iqvd3j6w.fsf@nokia.com>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: Multicast and receive filtering in TUN/TAP
+Date: Thu, 10 Jul 2008 19:20:07 -0700
+Message-ID: <4876C357.3030708@qualcomm.com>
+References: <4875428F.4080704@qualcomm.com> <200807101029.17121.borntraeger@de.ibm.com> <48763F94.7050507@qualcomm.com> <200807102223.40717.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kalle.valo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87iqvd3j6w.fsf-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org,
+	Brian Braunstein <linuxkernel@bristyle.com>,
+	Shaun Jackman <sjackman@gmail.com>, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:62245 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752082AbYGKCUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 22:20:08 -0400
+In-Reply-To: <200807102223.40717.borntraeger@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2008 at 05:30:47PM +0300, Kalle Valo wrote:
 
-> I'm just worried if one day is enough for us. The agenda is getting
-> quite long already.
 
-There should be plenty of time to continue discussions after (or even
-before) the mini-summit since I would assume most people stay for OLS.
-For example, I will be in Ottawa for the full week (July 18-27) and
-will be available for discussions related to wireless topics both
-before and after the mini-summit itself.
- 
--- 
-Jouni Malinen                                            PGP id EFC895FA
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Christian Borntraeger wrote:
+> Am Donnerstag, 10. Juli 2008 schrieb Max Krasnyansky:
+>>> Thing is, we are heading towards virtio. 
+>> Even for Windows ?
+> 
+> Its possible:
+> http://marc.info/?l=kvm&m=121075389300722&w=2
+Nice.
+btw Is there something similar for the display driver ? vmware has one.
+
+>>> Unfortunately, virtio_net currently  does not offer a method to register 
+> multicast addresses.
+>> I haven't looked at the virtio stuff much, I was assuming that the host side
+>> of it is still the TUN driver. Is it not ?
+> 
+> Yes, the host side is still tun/tap. The problem is that qemu doesnt know 
+> which multicast addresses are used inside the guest.
+Ah, now I see what you meant by virtio_net does not do multicast. I guess it
+should trivial to add. Rusty will clarify it I guess.
+
+Max
+
