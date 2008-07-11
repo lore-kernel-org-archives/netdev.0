@@ -1,63 +1,59 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: setsockopt()
-Date: Thu, 10 Jul 2008 20:50:45 -0400
-Message-ID: <20080710205045.8b8a0eee.billfink@mindspring.com>
-References: <48725DFE.6000504@citi.umich.edu>
-	<20080707142408.43aa2a2e@extreme>
-	<48728B09.1050801@citi.umich.edu>
-	<20080707.144912.76654646.davem@davemloft.net>
-	<20080708045443.GA7726@2ka.mipt.ru>
-	<20080708020235.388a7bd5.billfink@mindspring.com>
-	<adar6a4x510.fsf@cisco.com>
-	<20080708144817.3c364962.billfink@mindspring.com>
-	<ada63rfrkrs.fsf@cisco.com>
-	<20080709183432.GB5383@2ka.mipt.ru>
-	<20080709225035.a4d39cb5.billfink@mindspring.com>
-	<48764629.6090209@hp.com>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH] tun: Persistent devices can get stuck in xoff state
+Date: Thu, 10 Jul 2008 17:53:34 -0700
+Message-ID: <4876AF0E.507@qualcomm.com>
+References: <1215584648-13444-1-git-send-email-maxk@qualcomm.com>	<200807091759.39171.borntraeger@de.ibm.com>	<48752B60.4050106@qualcomm.com> <20080710.170007.68764077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Roland Dreier <rdreier@cisco.com>,
-	David Miller <davem@davemloft.net>, aglo@citi.umich.edu,
-	shemminger@vyatta.com, netdev@vger.kernel.org, rees@umich.edu,
-	bfields@fieldses.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: borntraeger@de.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:59675
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754661AbYGKAvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 20:51:03 -0400
-In-Reply-To: <48764629.6090209@hp.com>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:9061 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754877AbYGKAxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2008 20:53:35 -0400
+In-Reply-To: <20080710.170007.68764077.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Jul 2008, Rick Jones wrote:
-
-> > In my own network benchmarking experience, I've generally gotten the
-> > best performance results when the nuttcp application and the NIC
-> > interrupts are on the same CPU, which I understood was because of
-> > cache effects.
+David Miller wrote:
+> From: Max Krasnyansky <maxk@qualcomm.com>
+> Date: Wed, 09 Jul 2008 14:19:28 -0700
 > 
-> Interestingly enough I have a slightly different experience:
+>> Christian Borntraeger wrote:
+>>> Am Mittwoch, 9. Juli 2008 schrieb Max Krasnyansky:
+>>>> The scenario goes like this. App stops reading from tun/tap.
+>>>> TX queue gets full and driver does netif_stop_queue().
+>>>> App closes fd and TX queue gets flushed as part of the cleanup.
+>>>> Next time the app opens tun/tap and starts reading from it but
+>>>> the xoff state is not cleared. We're stuck.
+>>>> Normally xoff state is cleared when netdev is brought up. But
+>>>> in the case of persistent devices this happens only during
+>>>> initial setup.
+>>> I was able to reproduce the problem. The patch seems to fix it.
+>>>
+>>> Tested-by: Christian Borntraeger <borntraeger@de.ibm.com>
+>> Oh it definitely fixes that problem. It's very easy to reproduce by just 
+>> suspending (ctrl-z) an app that is ready from the tun, waiting a bit for 
+>> the queue to fill up and then killing the app. I have a simple test app 
+>> that simulates this. It's just that in real life that does not happen 
+>> very often. ie Applications either constantly read from tun or they 
+>> close it.
+>>
+>> Thanks a lot for testing and confirming.
 > 
-> *) single-transaction, single-stream TCP_RR - best when app and NIC use 
-> same core
+> I've applied this, thanks.
 > 
-> *) bulk transfer - either TCP_STREAM or aggregate TCP_RR:
->    a) enough CPU on one core to reach max tput, best when same core
->    b) not enough, tput max when app and NIC on separate cores, 
-> preferably cores sharing some cache
-> 
-> That is in the context of either maximizing throughput or minimizing 
-> latency.  If the context is most efficient transfer, then in all cases 
-> my experience thusfar agrees with yours.
+> But I had to apply it by hand.  You made this against an older
+> tree, because in the current code there is a get_net() call
+> right before the new lines you added but in your patch context
+> it isn't there.
 
-Yes, I was talking about single stream bulk data transfers, where the
-CPU was not a limiting factor (just barely when doing full 10-GigE
-line rate transfers with 9000-byte jumbo frames).
+Hmm, I though I used latest git tree. Oh, turns out it was 2.6.25.4. 
+Sorry. Thanx for fixing it.
 
-On multiple stream tests there can be a benefit to spreading the load
-across multiple cores.
+Max
 
-						-Bill
+
+
