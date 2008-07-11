@@ -1,59 +1,47 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [FIX] ARM: IXP4xx Ethernet NAPI fix
-Date: Fri, 11 Jul 2008 21:41:23 +0200
-Message-ID: <m3k5fs1a58.fsf@maximus.localdomain>
-References: <m31w23ia8n.fsf@maximus.localdomain>
-	<20080711121822.2d7bccc0.akpm@linux-foundation.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] netns: Only route multicast trafic in init_net
+Date: Fri, 11 Jul 2008 13:02:04 -0700
+Message-ID: <m1od54dwar.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from OSB1387.piap.pl ([195.187.100.11]:34752 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751875AbYGKTl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 15:41:26 -0400
-In-Reply-To: <20080711121822.2d7bccc0.akpm@linux-foundation.org> (Andrew Morton's message of "Fri\, 11 Jul 2008 12\:18\:22 -0700")
+Received: from out02.mta.xmission.com ([166.70.13.232]:44198 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754539AbYGKUMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 16:12:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> writes:
 
->> +++ b/drivers/net/arm/ixp4xx_eth.c
->> @@ -522,7 +522,6 @@ static int eth_poll(struct napi_struct *napi, int budget)
->>  #endif
->>  
->>  		if ((n = queue_get_desc(rxq, port, 0)) < 0) {
->> -			received = 0; /* No packet received */
->>  #if DEBUG_RX
->>  			printk(KERN_DEBUG "%s: eth_poll netif_rx_complete\n",
->>  			       dev->name);
->> @@ -543,7 +542,7 @@ static int eth_poll(struct napi_struct *napi, int budget)
->>  			printk(KERN_DEBUG "%s: eth_poll all done\n",
->>  			       dev->name);
->>  #endif
->> -			return 0; /* all work done */
->> +			return received; /* all work done */
->>  		}
->>  
->>  		desc = rx_desc_ptr(port, n);
->
-> This is a functional change, and I do not believe that "fixes some
-> weirdness" is an adequate description of it.
+Currently the code to only support multicast traffic in the initial
+namespace is incomplete, and receiving a multicast packet causes in a
+network namespace causes us to take an initialized lock.  Resulting
+in a nasty oops. Ouch!
 
-Well, tried my best :-)
+So until we have network namespace support in igmp.c simply disable
+multicast packet reception.
 
-> Please: what was wrong with the old code?
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/ipv4/igmp.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-It shouldn't do anything like that, the function has to return the
-number of received packets. I.e., it was not up to the NAPI specs. Now
-it does what NAPI wants, hopefully. I have no idea why did I put that
-in :-(
-
->  Were the effects user-visible?
-
-I don't know. Actually, for me it works the same before and after the
-change.
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 2769dc4..12201ac 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2277,6 +2277,9 @@ int ip_check_mc(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u16 p
+ 	struct ip_sf_list *psf;
+ 	int rv = 0;
+ 
++	if (dev_net(in_dev->dev) != &init_net)
++		return rv;
++
+ 	read_lock(&in_dev->mc_list_lock);
+ 	for (im=in_dev->mc_list; im; im=im->next) {
+ 		if (im->multiaddr == mc_addr)
 -- 
-Krzysztof Halasa
+1.5.3.rc6.17.g1911
+
