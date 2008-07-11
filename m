@@ -1,58 +1,109 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from unjoined groups
-Date: Fri, 11 Jul 2008 21:44:44 +0300
-Message-ID: <200807112144.45018.rdenis@simphalempin.com>
-References: <20080711152112.GA4534@hmsreliant.think-freely.org> <OF6F2387F9.1EAA3BCD-ON88257483.005E2CF9-88257483.005EE681@us.ibm.com> <20080711173549.GC4534@hmsreliant.think-freely.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
+ groups
+Date: Fri, 11 Jul 2008 12:00:57 -0700
+Message-ID: <OF0B99D809.C4C8DBBF-ON88257483.0066FB51-88257483.00687279@us.ibm.com>
+References: <20080711182304.GD4534@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>, davem@davemloft.net,
-	jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
 To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:38759 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754427AbYGKSos convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 14:44:48 -0400
-In-Reply-To: <20080711173549.GC4534@hmsreliant.think-freely.org>
-Content-Disposition: inline
+Received: from e32.co.us.ibm.com ([32.97.110.150]:60654 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753201AbYGKTBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 15:01:21 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m6BItmMx027581
+	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 14:55:48 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6BJ19ZE161558
+	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 13:01:09 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6BJ12Cv025386
+	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 13:01:09 -0600
+In-Reply-To: <20080711182304.GD4534@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 11 juillet 2008 20:35:49 Neil Horman, vous avez =E9crit=A0:
-> So you're saying that if I take a process, call bind, specifying
-> INADDR_ANY, and then call setsockopt(...,IP_ADD_MEMBERSHIP,...) speci=
-fying
-> a multicast group X, that I can expect to recieve messages from other
-> multicast addresses that other processes in the system have joined to=
-?=20
+Yes, that's me, and that's also true. It wasn't the address, it's the time 
+delay. I think that
+was months ago. But you left out a distinguishing piece in your example 
+here, which is
+all the difference.
 
-Yes, he says so. I am not aware of a real standard for the IPv4 socket =
-API:=20
-POSIX and IETF only defined the IPv6 multicast API, it seems. That bein=
-g=20
-noted, the Linux behavior is in accordance with RFC3493:
+Joins are also per-interface. So, joining a group on "lo" does not join 
+the group on
+"eth0". In your example below (4), the reason it won't receive the packets 
+is because
+the machine is not a group member on eth0. If any process joined the group 
+on eth0
+then an INADDR_ANY-bound socket would receive them (whether it joined or 
+not).
+I guess I wasn't clear -- the reason you have to join below is to 
+guarantee someone
+has joined. If some other process already joined on that interface, you 
+would
+receive them also.
 
-|     IPV6_JOIN_GROUP
-|
-|        Join a multicast group on a specified local interface.
-|        If the interface index is specified as 0,
-|        the kernel chooses the local interface.
-|        For example, some kernels look up the multicast group
-|        in the normal IPv6 routing table and use the resulting
-|        interface.
+                                                                +-DLS
 
-Note the use of *interface* rather than *socket* here. And then:
+Neil Horman <nhorman@tuxdriver.com> wrote on 07/11/2008 11:23:04 AM:
 
-|  Note that to receive multicast datagrams a process must join the
-|  multicast group to which datagrams will be sent.  UDP applications
-|  must also bind the UDP port to which datagrams will be sent.  Some
-|  processes also bind the multicast group address to the socket, in
-|  addition to the port, to prevent other datagrams destined to that
-|  same port from being delivered to the socket.
+> 
+> >>>
+> >>> 4) Finally, what if process B bound itself to INADDR_ANY rather than 
+to
+> >>>the
+> >>> specific multicast group.  Should it see process A's sent frames 
+then?
+> >>
+> >>        Not if the group membership is on lo and the sends are on 
+eth0.
+> >>The
+> >>reason it isn't seeing the packets is not the binding, but the group
+> >>membership. To hear packets you're sending out an interface, you must
+> >>join that group on that interface *and* the sender must allow loopback 
+by
+> >>not clearing IP_MULTICAST_LOOP. Joining the group on a different 
+interface
+> >>really is joining a different group, as far as multicasting is 
+concerned.
+> 
+> >         But in the sentence above, I think you missed the point of the
+> > mail I sent before. Joining a group or not on a particular socket has
+> > nothing at all to do with delivery of multicasts to the socket.
+> > 
+> >         Multicast addresses, like unicast addresses, are for the 
+entire
+> > machine, not just the socket that does the join. If anyone on the
+> > machine has joined the group and your binding matches the packet, you
+> > will receive a copy. That's intentional. If you don't join any groups
+> > at all, but bind to INADDR_ANY, you will receive packets for the port
+> > and protocol and any local unicast or multicast address (including
+> > groups joined by any other process on the machine).
+> > 
+> >  +-DLS
+> 
+> If thats the final word, then I'll believe you, but it seems to me that
+> receiving multicast traffic on a socket that didn't specifically join a
+> multicast group is asking for trouble, as every application needs to be 
+prepared
+> to handle data payloads it was not expected to recieve.
+> 
+> Can you clarify your statement above with the one that I copied in from 
+you
+> earlier?
+> 
+> Regards
+> Neil
+> 
+> 
+> -- 
+> /****************************************************
+>  * Neil Horman <nhorman@tuxdriver.com>
+>  * Software Engineer, Red Hat
+>  ****************************************************/
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
