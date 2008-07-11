@@ -1,33 +1,38 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/6] cxgb: delete non NAPI code from the driver.
-Date: Fri, 11 Jul 2008 01:14:44 -0400
-Message-ID: <4876EC44.2040306@garzik.org>
-References: <20080707.224336.59099363.davem@davemloft.net> <20080708070106.GA30382@electric-eye.fr.zoreil.com> <20080708.015548.127198943.davem@davemloft.net> <20080710222919.GA31019@electric-eye.fr.zoreil.com>
+Subject: Re: [NET-NEXT PATCH 01/25] ixgb: maybe stop tx port missed a piece
+Date: Fri, 11 Jul 2008 01:21:56 -0400
+Message-ID: <4876EDF4.1060000@garzik.org>
+References: <20080708224858.6925.29725.stgit@localhost.localdomain> <20080708225107.6925.57805.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Divy Le Ray <divy@chelsio.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46495 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49669 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752143AbYGKFOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 01:14:49 -0400
-In-Reply-To: <20080710222919.GA31019@electric-eye.fr.zoreil.com>
+	id S1751821AbYGKFWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 01:22:00 -0400
+In-Reply-To: <20080708225107.6925.57805.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Compile-tested only.
+Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> back when maybe stop tx was added to the ixgb driver some mistakes
+> were made and the driver
+> a) didn't remove the tx lock, which is now un-necessary
+> b) didn't change the restart code to be compliant with maybe_stop
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/Kconfig         |    8 -----
->  drivers/net/chelsio/cxgb2.c |    2 -
->  drivers/net/chelsio/sge.c   |   70 +++---------------------------------------
->  3 files changed, 5 insertions(+), 75 deletions(-)
+> 
+>  drivers/net/ixgb/ixgb_main.c |   15 ++++++++++-----
+>  1 files changed, 10 insertions(+), 5 deletions(-)
 
-applied:  cxgb (this patch), via-rhine, gianfar, ucc_geth
+applied 1-25
 
 
