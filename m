@@ -1,34 +1,43 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: bridging with gre tunnel
-Date: Fri, 11 Jul 2008 09:30:08 +0300
-Message-ID: <4876FDF0.1030807@iki.fi>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Multicast and receive filtering in TUN/TAP
+Date: Fri, 11 Jul 2008 17:01:38 +1000
+Message-ID: <200807111701.39070.rusty@rustcorp.com.au>
+References: <4875428F.4080704@qualcomm.com>
+	<200807102223.40717.borntraeger@de.ibm.com>
+	<4876C357.3030708@qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:36381 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500AbYGKGaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 02:30:01 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so36084ugf.16
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2008 23:29:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
+        Brian Braunstein <linuxkernel@bristyle.com>,
+        Shaun Jackman <sjackman@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org
+To: Max Krasnyansky <maxk@qualcomm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4876C357.3030708@qualcomm.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Friday 11 July 2008 12:20:07 Max Krasnyansky wrote:
+> >> I haven't looked at the virtio stuff much, I was assuming that the host
+> >> side of it is still the TUN driver. Is it not ?
+> >
+> > Yes, the host side is still tun/tap. The problem is that qemu doesnt know
+> > which multicast addresses are used inside the guest.
+>
+> Ah, now I see what you meant by virtio_net does not do multicast. I guess
+> it should trivial to add. Rusty will clarify it I guess.
 
-It looks the current kernel still do not support bridging over gre
-tunnels.
-
-I did find an old patch for ip_gre that would enable this [1]. But
-it needs porting from 2.4 to 2.6 kernels and looks like it needs
-cleaning up too.
-
-Is there newer/better patches to achieve this? Any thoughts about
-doing bridging with gre tunnels?
+Yes, it could certainly be added; that's what feature bits are for :)
 
 Cheers,
-  Timo
-
-[1] http://mailman.ds9a.nl/pipermail/lartc/2003q4/010327.html
+Rusty.
