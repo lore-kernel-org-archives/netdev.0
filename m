@@ -1,73 +1,58 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
- groups
-Date: Fri, 11 Jul 2008 11:43:28 -0700
-Message-ID: <OF46B757A0.16C39B0B-ON88257483.00656D0F-88257483.0066D899@us.ibm.com>
-References: <20080711173549.GC4534@hmsreliant.think-freely.org>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from unjoined groups
+Date: Fri, 11 Jul 2008 21:44:44 +0300
+Message-ID: <200807112144.45018.rdenis@simphalempin.com>
+References: <20080711152112.GA4534@hmsreliant.think-freely.org> <OF6F2387F9.1EAA3BCD-ON88257483.005E2CF9-88257483.005EE681@us.ibm.com> <20080711173549.GC4534@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Stevens <dlstevens@us.ibm.com>, davem@davemloft.net,
+	jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
 To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:49763 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754542AbYGKSnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 14:43:46 -0400
+Received: from yop.chewa.net ([91.121.105.214]:38759 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754427AbYGKSos convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 14:44:48 -0400
 In-Reply-To: <20080711173549.GC4534@hmsreliant.think-freely.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 07/11/2008 10:35:49 AM:
+Le vendredi 11 juillet 2008 20:35:49 Neil Horman, vous avez =E9crit=A0:
+> So you're saying that if I take a process, call bind, specifying
+> INADDR_ANY, and then call setsockopt(...,IP_ADD_MEMBERSHIP,...) speci=
+fying
+> a multicast group X, that I can expect to recieve messages from other
+> multicast addresses that other processes in the system have joined to=
+?=20
 
-> So you're saying that if I take a process, call bind, specifying 
-INADDR_ANY, and
-> then call setsockopt(...,IP_ADD_MEMBERSHIP,...) specifying a multicast 
-group X,
-> that I can expect to recieve messages from other multicast addresses 
-that other
-> processes in the system have joined to? 
+Yes, he says so. I am not aware of a real standard for the IPv4 socket =
+API:=20
+POSIX and IETF only defined the IPv6 multicast API, it seems. That bein=
+g=20
+noted, the Linux behavior is in accordance with RFC3493:
 
-Yes.
+|     IPV6_JOIN_GROUP
+|
+|        Join a multicast group on a specified local interface.
+|        If the interface index is specified as 0,
+|        the kernel chooses the local interface.
+|        For example, some kernels look up the multicast group
+|        in the normal IPv6 routing table and use the resulting
+|        interface.
 
-> That doesn't seem at all correct, and
-> it contradicts what you and I discussed privately. 
+Note the use of *interface* rather than *socket* here. And then:
 
-        I don't remember discussing this with you privately, but I think
-either I wasn't clear, or there's a misunderstanding. I think it doesn't
-seem correct to you because you have a different model in mind. You're 
-thinking
-(as almost everyone seems to) that the join has something to do with the 
-socket.
-The model, from the original implementation, is the same as for unicast
-addresses-- it is adding an address _to_the_machine_. It isn't a private
-address for that socket only.
-        The binding is what determines delivery to the socket. If you have
-other traffic on the same port that you don't want, then you don't want
-INADDR_ANY.
+|  Note that to receive multicast datagrams a process must join the
+|  multicast group to which datagrams will be sent.  UDP applications
+|  must also bind the UDP port to which datagrams will be sent.  Some
+|  processes also bind the multicast group address to the socket, in
+|  addition to the port, to prevent other datagrams destined to that
+|  same port from being delivered to the socket.
 
-> As the code currently
-> stands, if you do the above in process A, joining mcast group X, and 
-then start
-> a second process on the same system, joining mcast group Y, process A 
-will
-> recieve mcast group Y frames.
-
-        Yes. In fact, there are programs that rely on this. Some versions
-of JVM join all the groups it needs in one process, but other processes
-do all the I/O for those groups.
-
-That's how it has always worked in the original socket implementation 
-(BSD)
-and derivatives. The control for socket reception is the binding, so if 
-you
-want only mcast X packets, you need to bind to X. If you bind to 
-INADDR_ANY,
-that *means* you don't care what the destination address is and you'll 
-receive
-all unicast and multicast packets with a matching port and protocol.
-
-                                                                +-DLS
-
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
