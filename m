@@ -1,65 +1,35 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Autotuning and send buffer size
-Date: Fri, 11 Jul 2008 13:07:03 -0400
-Message-ID: <20080711130703.58115c44.billfink@mindspring.com>
-References: <20080711150208.GA15305@citi.umich.edu>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
+ groups
+Date: Fri, 11 Jul 2008 10:16:41 -0700
+Message-ID: <OF6F2387F9.1EAA3BCD-ON88257483.005E2CF9-88257483.005EE681@us.ibm.com>
+References: <20080711152112.GA4534@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jim Rees <rees@umich.edu>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, nhorman@tuxdriver.com,
+	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:52207 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753357AbYGKRHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 13:07:09 -0400
-In-Reply-To: <20080711150208.GA15305@citi.umich.edu>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:33934 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754245AbYGKRQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 13:16:52 -0400
+In-Reply-To: <20080711152112.GA4534@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Jul 2008, Jim Rees wrote:
+netdev-owner@vger.kernel.org wrote on 07/11/2008 08:21:13 AM:
 
-> Bill Fink and others have mentioned that tcp buffer size autotuning can
-> cause a 5% or so performance penalty.  I looked into this a bit, and it
-> appears that if you set the sender's socket buffer too big, performance
-> suffers.
-> 
-> Consider this, on a 1Gbps link with ~.1msec delay (12KB bdp):
-> 
-> Fixed 128KB sender socket buffer:
-> nuttcp -i1 -w128k pdsi5
->  1115.4375 MB /  10.00 sec =  935.2707 Mbps 4 %TX 11 %RX
-> 
-> Fixed 8MB sender socket buffer:
-> nuttcp -i1 -w8m pdsi5
->  1063.0625 MB /  10.10 sec =  882.7833 Mbps 4 %TX 15 %RX
-> 
-> Autotuned sender socket buffer:
-> nuttcp -i1 pdsi5
->  1056.9375 MB /  10.04 sec =  883.1083 Mbps 4 %TX 15 %RX
-> 
-> I don't undestand how a "too big" sender buffer can hurt performance.  I
-> have not measured what size the sender's buffer is in the autotuning case.
-> 
-> Yes, I know "nuttcp -w" also sets the receiver's socket buffer size.  I
-> tried various upper limits on the receiver's buffer size via
-> net.ipv4.tcp_rmem but that doesn't seem to matter as long as it's big
-> enough:
-> 
-> nuttcp -i1 pdsi5
-> sender wmem_max=131071, receiver rmem_max=15728640
->  1116.9375 MB /  10.01 sec =  936.4816 Mbps 3 %TX 16 %RX
-> sender wmem_max=15728640, receiver rmem_max=15728640
->  1062.8750 MB /  10.10 sec =  882.6013 Mbps 4 %TX 15 %RX
-> sender wmem_max=15728640, receiver rmem_max=131071
->  1060.2500 MB /  10.07 sec =  883.2847 Mbps 4 %TX 15 %RX
+> The current ipv4 multicast code incorrectly allows frames destined to 
+any
+> multicast group to be received on any socket that is bound to 
+INADDR_ANY,
+> regardless of weather or not that socket is subscribed to that group.
 
-FYI you can use the nuttcp "-ws" parameter in addition to the "-w"
-parameter to independently set the server's socket buffer size to
-be different than the client's socket buffer size.  And you can also
-specify "-ws0" if you wanted the server (which is the receiver for
-the client transmitter case) to autotune while still being able to
-explicitly specify the client's socket buffer size with the "-w"
-setting.
+NACK. As Alexey already quoted from me, multicasting just doesn't work
+that way, since the beginning of time.
 
-						-Bill
+                                                                +-DLS
+
