@@ -1,79 +1,125 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from
-	unjoined groups
-Date: Fri, 11 Jul 2008 14:23:04 -0400
-Message-ID: <20080711182304.GD4534@hmsreliant.think-freely.org>
-References: <20080711173125.GB4534@hmsreliant.think-freely.org> <OFE508C572.3640A61A-ON88257483.0061886C-88257483.00623A05@us.ibm.com>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH] [AX25] unsigned long timers in ax25_info_struct_new
+Date: Fri, 11 Jul 2008 20:30:21 +0200
+Message-ID: <200807112030.22162.bpidoux@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-hams" <linux-hams@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3321 "EHLO ra.tuxdriver.com"
+Received: from smtp5-g19.free.fr ([212.27.42.35]:58632 "EHLO smtp5-g19.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441AbYGKS1M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 14:27:12 -0400
+	id S1753599AbYGKS25 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 14:28:57 -0400
 Content-Disposition: inline
-In-Reply-To: <OFE508C572.3640A61A-ON88257483.0061886C-88257483.00623A05@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 11, 2008 at 10:53:01AM -0700, David Stevens wrote:
-> > currently in ip_mc_sf_allow we assume that we need to allow the frame if 
-> no
-> > match is found, but that has the affect of causing frames to be received 
-> for
-> > groups a socket hasn't joined.  I asked david aobut this specifically.
-> 
->         You asked me about this? Or the other David? :-) I don't remember
-> seeing anything on this-- at least not recently.
-> 
-It was you (I wrote from my rh address :)), the question of note that I asked
-you about:
+A new structure is proposed with unsigned long types
+for AX25 timers, in order to be compliant with kernel 2.6.
+These timers are listed in /proc/net/ax25/
 
->>>
->>> 4) Finally, what if process B bound itself to INADDR_ANY rather than to
->>>the
->>> specific multicast group.  Should it see process A's sent frames then?
->>
->>        Not if the group membership is on lo and the sends are on eth0.
->>The
->>reason it isn't seeing the packets is not the binding, but the group
->>membership. To hear packets you're sending out an interface, you must
->>join that group on that interface *and* the sender must allow loopback by
->>not clearing IP_MULTICAST_LOOP. Joining the group on a different interface
->>really is joining a different group, as far as multicasting is concerned.
+AX25 info can be copied into user space via ioctl call using
+a new argument SIOCAX25GETINFONEW.
 
->         But in the sentence above, I think you missed the point of the
-> mail I sent before. Joining a group or not on a particular socket has
-> nothing at all to do with delivery of multicasts to the socket.
-> 
->         Multicast addresses, like unicast addresses, are for the entire
-> machine, not just the socket that does the join. If anyone on the
-> machine has joined the group and your binding matches the packet, you
-> will receive a copy. That's intentional. If you don't join any groups
-> at all, but bind to INADDR_ANY, you will receive packets for the port
-> and protocol and any local unicast or multicast address (including
-> groups joined by any other process on the machine).
-> 
->  +-DLS
+A KERN_INFO warning is printed if ioctl is called using
+deprecated structure and argument.
 
-If thats the final word, then I'll believe you, but it seems to me that
-receiving multicast traffic on a socket that didn't specifically join a
-multicast group is asking for trouble, as every application needs to be prepared
-to handle data payloads it was not expected to recieve.
+Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+---
+ include/linux/ax25.h |   16 +++++++++++++++-
+ net/ax25/af_ax25.c   |   16 +++++++++++-----
+ 2 files changed, 26 insertions(+), 6 deletions(-)
 
-Can you clarify your statement above with the one that I copied in from you
-earlier?
-
-Regards
-Neil
-
-
+diff --git a/include/linux/ax25.h b/include/linux/ax25.h
+index 56c11f0..5b4ee2f 100644
+--- a/include/linux/ax25.h
++++ b/include/linux/ax25.h
+@@ -36,6 +36,7 @@
+ #define SIOCAX25DELFWD		(SIOCPROTOPRIVATE+11)
+ #define SIOCAX25DEVCTL          (SIOCPROTOPRIVATE+12)
+ #define SIOCAX25GETINFO         (SIOCPROTOPRIVATE+13)
++#define SIOCAX25GETINFONEW      (SIOCPROTOPRIVATE+14)
+ 
+ #define AX25_SET_RT_IPMODE	2
+ 
+@@ -94,7 +95,7 @@ struct ax25_info_struct_deprecated {
+ 	unsigned int	state;
+ 	unsigned int	rcv_q, snd_q;
+ };
+-
++/* deprecated */
+ struct ax25_info_struct {
+ 	unsigned int	n2, n2count;
+ 	unsigned int	t1, t1timer;
+@@ -108,6 +109,19 @@ struct ax25_info_struct {
+ 	unsigned int	window;
+ };
+ 
++struct ax25_info_struct_new {
++	unsigned int	n2, n2count;
++	unsigned long	t1, t1timer;
++	unsigned long	t2, t2timer;
++	unsigned long	t3, t3timer;
++	unsigned long	idle, idletimer;
++	unsigned int	state;
++	unsigned int	rcv_q, snd_q;
++	unsigned int	vs, vr, va, vs_max;
++	unsigned int	paclen;
++	unsigned int	window;
++};
++
+ struct ax25_fwd_struct {
+ 	ax25_address	port_from;
+ 	ax25_address	port_to;
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 2712544..e52c6af 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1769,9 +1769,10 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		break;
+ 
+ 	case SIOCAX25GETINFO:
++	case SIOCAX25GETINFONEW:
+ 	case SIOCAX25GETINFOOLD: {
+ 		ax25_cb *ax25 = ax25_sk(sk);
+-		struct ax25_info_struct ax25_info;
++		struct ax25_info_struct_new ax25_info;
+ 
+ 		ax25_info.t1        = ax25->t1   / HZ;
+ 		ax25_info.t2        = ax25->t2   / HZ;
+@@ -1793,11 +1794,11 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		ax25_info.paclen    = ax25->paclen;
+ 		ax25_info.window    = ax25->window;
+ 
+-		/* old structure? */
+-		if (cmd == SIOCAX25GETINFOOLD) {
++		/* old structure ? */
++		if (cmd != SIOCAX25GETINFONEW) {
+ 			static int warned = 0;
+ 			if (!warned) {
+-				printk(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
++				printk(KERN_INFO "%s uses deprecated SIOCAX25GETINFOOLD or SIOCAX25GETINFO\n",
+ 					current->comm);
+ 				warned=1;
+ 			}
+@@ -1806,8 +1807,13 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 				res = -EFAULT;
+ 				break;
+ 			}
+-		} else {
++
+ 			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct))) {
++				res = -EFAULT;
++				break;
++			}
++		} else {
++			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct_new))) {
+ 				res = -EINVAL;
+ 				break;
+ 			}
 -- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+1.5.5
+
