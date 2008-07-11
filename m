@@ -1,72 +1,120 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 1/13]: netdev: Allocate multiple queues for TX.
-Date: Fri, 11 Jul 2008 23:19:39 +0200
-Message-ID: <4877CE6B.2050805@cosmosbay.com>
-References: <20080710.035610.167480342.davem@davemloft.net>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH RESEND] dm9601: don't do usb transfers of data on stack
+Date: Fri, 11 Jul 2008 15:02:20 -0700
+Message-ID: <200807111502.20507.david-b@pacbell.net>
+References: <87mykoircs.fsf@macbook.be.48ers.dk> <200807111422.56406.oliver@neukum.org> <87mykoefy4.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.113]:35244 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754433AbYGKVX3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 17:23:29 -0400
-In-Reply-To: <20080710.035610.167480342.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87mykoefy4.fsf-uXGAPMMVk8amE9MCos8gUmSdvHPH+/yF@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> alloc_netdev_mq() now allocates an array of netdev_queue
-> structures for TX, based upon the queue_count argument.
->=20
-> Furthermore, all accesses to the TX queues are now vectored
-> through the netdev_get_tx_queue() and netdev_for_each_tx_queue()
-> interfaces.  This makes it easy to grep the tree for all
-> things that want to get to a TX queue of a net device.
->=20
-> Problem spots which are not really multiqueue aware yet, and
-> only work with one queue, can easily be spotted by grepping
-> for all netdev_get_tx_queue() calls that pass in a zero index.
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+On Friday 11 July 2008, Peter Korsgaard wrote:
+> dm_{read,write}() were doing USB transfers of data on stack, which isn't
+> allowed. Fix it by kmalloc'ing a temporary buffer.
+> Clean up the error handling for short transfers while we're at it.
+> 
+> Signed-off-by: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+
+Acked-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+
 > ---
-
->  	}
-> =20
-> +	tx =3D kzalloc(sizeof(struct netdev_queue) * queue_count, GFP_KERNE=
-L);
-> +	if (!tx) {
-> +		printk(KERN_ERR "alloc_netdev: Unable to allocate "
-> +		       "tx qdiscs.\n");
-> +		kfree(p);
-> +		return NULL;
+>  drivers/net/usb/dm9601.c |   52 +++++++++++++++++++++++++++++++++++++--------
+>  1 files changed, 42 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+> index f7319d3..78df2be 100644
+> --- a/drivers/net/usb/dm9601.c
+> +++ b/drivers/net/usb/dm9601.c
+> @@ -55,12 +55,28 @@
+>  
+>  static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
+>  {
+> +	void *buf;
+> +	int err = -ENOMEM;
+> +
+>  	devdbg(dev, "dm_read() reg=0x%02x length=%d", reg, length);
+> -	return usb_control_msg(dev->udev,
+> -			       usb_rcvctrlpipe(dev->udev, 0),
+> -			       DM_READ_REGS,
+> -			       USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+> -			       0, reg, data, length, USB_CTRL_SET_TIMEOUT);
+> +
+> +	buf = kmalloc(length, GFP_KERNEL);
+> +	if (!buf)
+> +		goto out;
+> +
+> +	err = usb_control_msg(dev->udev,
+> +			      usb_rcvctrlpipe(dev->udev, 0),
+> +			      DM_READ_REGS,
+> +			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+> +			      0, reg, buf, length, USB_CTRL_SET_TIMEOUT);
+> +	if (err == length)
+> +		memcpy(data, buf, length);
+> +	else if (err >= 0)
+> +		err = -EINVAL;
+> +	kfree(buf);
+> +
+> + out:
+> +	return err;
+>  }
+>  
+>  static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
+> @@ -70,12 +86,28 @@ static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
+>  
+>  static int dm_write(struct usbnet *dev, u8 reg, u16 length, void *data)
+>  {
+> +	void *buf = NULL;
+> +	int err = -ENOMEM;
+> +
+>  	devdbg(dev, "dm_write() reg=0x%02x, length=%d", reg, length);
+> -	return usb_control_msg(dev->udev,
+> -			       usb_sndctrlpipe(dev->udev, 0),
+> -			       DM_WRITE_REGS,
+> -			       USB_DIR_OUT | USB_TYPE_VENDOR |USB_RECIP_DEVICE,
+> -			       0, reg, data, length, USB_CTRL_SET_TIMEOUT);
+> +
+> +	if (data) {
+> +		buf = kmalloc(length, GFP_KERNEL);
+> +		if (!buf)
+> +			goto out;
+> +		memcpy(buf, data, length);
 > +	}
 > +
+> +	err = usb_control_msg(dev->udev,
+> +			      usb_sndctrlpipe(dev->udev, 0),
+> +			      DM_WRITE_REGS,
+> +			      USB_DIR_OUT | USB_TYPE_VENDOR |USB_RECIP_DEVICE,
+> +			      0, reg, buf, length, USB_CTRL_SET_TIMEOUT);
+> +	kfree(buf);
+> +	if (err >= 0 && err < length)
+> +		err = -EINVAL;
+> + out:
+> +	return err;
+>  }
+>  
+>  static int dm_write_reg(struct usbnet *dev, u8 reg, u8 value)
+> -- 
+> 1.5.6.2
+> 
+> 
+> -- 
+> Bye, Peter Korsgaard
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 
-On i386 for example, sizeof(struct netdev_queue) =3D 0x2c
-
-Shouldnt we make sure each queue sits on its own cache line on CONFIG_S=
-MP ?
-
-Also, dev->_tx and dev->num_tx_queues might share a cache line with dev=
-->rx_queue, was it intended ?
-
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -640,7 +640,9 @@ struct net_device
->  	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
-> =20
->  	struct netdev_queue	rx_queue;
-> -	struct netdev_queue	tx_queue ____cacheline_aligned_in_smp;
-> +
-> +	struct netdev_queue	*_tx;
-> +	unsigned int		num_tx_queues;
->  	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
-=20
-
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
