@@ -1,46 +1,52 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RESEND NET-NEXT PATCH 08/20] igb: Introduce multiple TX queues
- with	infrastructure
-Date: Fri, 11 Jul 2008 01:22:12 -0400
-Message-ID: <4876EE04.9090208@garzik.org>
-References: <20080708220046.1518.88457.stgit@localhost.localdomain> <20080708220619.1518.52996.stgit@localhost.localdomain>
+Subject: Re: [PATCH] virtio_net: Set VIRTIO_NET_F_GUEST_CSUM feature
+Date: Fri, 11 Jul 2008 01:22:22 -0400
+Message-ID: <4876EE0E.1000400@garzik.org>
+References: <200807081710.42530.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49679 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49686 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbYGKFWR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2008 01:22:17 -0400
-In-Reply-To: <20080708220619.1518.52996.stgit@localhost.localdomain>
+	id S1755437AbYGKFWa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 01:22:30 -0400
+In-Reply-To: <200807081710.42530.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Rusty Russell wrote:
+> From: Mark McLoughlin <markmc@redhat.com>
 > 
-> This code adds multiple Tx queue infrastructure much like we
-> previously did in ixgbe. The MSI-X vector mapping is the bulk of
-> the change.
+> We can handle receiving partial csums, so set the
+> appropriate feature bit.
 > 
-> IAM can now be safely enabled and we've verified that it does
-> work correctly. We can also eliminate the tx ring lock.
-> 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > ---
+>  drivers/net/virtio_net.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
->  drivers/net/igb/igb.h      |    7 +-
->  drivers/net/igb/igb_main.c |  160 ++++++++++++++++++++++++++++++--------------
->  2 files changed, 114 insertions(+), 53 deletions(-)
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -550,7 +550,8 @@ static struct virtio_device_id id_table[
+>  };
+>  
+>  static unsigned int features[] = {
+> -	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+> +	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
+> +	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+>  	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+>  	VIRTIO_NET_F_HOST_ECN, VIRTIO_F_NOTIFY_ON_EMPTY,
+>  };
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 
-applied 8-20
+applied
 
 
