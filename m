@@ -1,42 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Bridge] bridging with gre tunnel
-Date: Fri, 11 Jul 2008 12:07:17 -0700
-Message-ID: <20080711120717.0c59e569@extreme>
-References: <4876FDF0.1030807@iki.fi>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [FIX] ARM: IXP4xx Ethernet NAPI fix
+Date: Fri, 11 Jul 2008 12:18:22 -0700
+Message-ID: <20080711121822.2d7bccc0.akpm@linux-foundation.org>
+References: <m31w23ia8n.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Timo =?UTF-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:55312 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752104AbYGKTHU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 15:07:20 -0400
-In-Reply-To: <4876FDF0.1030807@iki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42819 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759570AbYGKTS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 15:18:58 -0400
+In-Reply-To: <m31w23ia8n.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Jul 2008 09:30:08 +0300
-Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
+On Wed, 09 Jul 2008 13:10:32 +0200 Krzysztof Halasa <khc@pm.waw.pl> wrote:
 
-> Hi all,
->=20
-> It looks the current kernel still do not support bridging over gre
-> tunnels.
->=20
-> I did find an old patch for ip_gre that would enable this [1]. But
-> it needs porting from 2.4 to 2.6 kernels and looks like it needs
-> cleaning up too.
->=20
-> Is there newer/better patches to achieve this? Any thoughts about
-> doing bridging with gre tunnels?
->=20
-> Cheers,
->   Timo
->=20
-> [1] http://mailman.ds9a.nl/pipermail/lartc/2003q4/010327.html
+> This patch removes some weirdness from IXP4xx Ethernet driver.
+> Ideally it should go in 2.6.26 though it's not that critical. Thanks.
+> 
+> Signed-off-by: Krzysztof Ha__asa <khc@pm.waw.pl>
+> 
+> diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+> index c617b64..9b777d9 100644
+> --- a/drivers/net/arm/ixp4xx_eth.c
+> +++ b/drivers/net/arm/ixp4xx_eth.c
+> @@ -522,7 +522,6 @@ static int eth_poll(struct napi_struct *napi, int budget)
+>  #endif
+>  
+>  		if ((n = queue_get_desc(rxq, port, 0)) < 0) {
+> -			received = 0; /* No packet received */
+>  #if DEBUG_RX
+>  			printk(KERN_DEBUG "%s: eth_poll netif_rx_complete\n",
+>  			       dev->name);
+> @@ -543,7 +542,7 @@ static int eth_poll(struct napi_struct *napi, int budget)
+>  			printk(KERN_DEBUG "%s: eth_poll all done\n",
+>  			       dev->name);
+>  #endif
+> -			return 0; /* all work done */
+> +			return received; /* all work done */
+>  		}
+>  
+>  		desc = rx_desc_ptr(port, n);
 
-The idea is fine, but that patch needs work (kind of a mess).
-If you want it, then go through normal process of submitting to
-netdev and take the comments and fix it up.
+This is a functional change, and I do not believe that "fixes some
+weirdness" is an adequate description of it.
+
+Please: what was wrong with the old code?  Were the effects user-visible? 
+How does the new code fix those problems?  Stuff like that.
+
+You hint that this might be a 2.6.26-worthy change, but we should be able
+to work this out ourselves from your description of it.  But the description
+was no good :(
+
