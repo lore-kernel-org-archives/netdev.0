@@ -1,120 +1,53 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH RESEND] dm9601: don't do usb transfers of data on stack
-Date: Fri, 11 Jul 2008 15:02:20 -0700
-Message-ID: <200807111502.20507.david-b@pacbell.net>
-References: <87mykoircs.fsf@macbook.be.48ers.dk> <200807111422.56406.oliver@neukum.org> <87mykoefy4.fsf@macbook.be.48ers.dk>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 0/9] e1000: update and cleanups
+Date: Fri, 11 Jul 2008 15:16:54 -0700
+Message-ID: <20080711221442.3255.16180.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87mykoefy4.fsf-uXGAPMMVk8amE9MCos8gUmSdvHPH+/yF@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:5722 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754263AbYGKWQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2008 18:16:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 11 July 2008, Peter Korsgaard wrote:
-> dm_{read,write}() were doing USB transfers of data on stack, which isn't
-> allowed. Fix it by kmalloc'ing a temporary buffer.
-> Clean up the error handling for short transfers while we're at it.
-> 
-> Signed-off-by: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+The following series implements several cleanups, removes non NAPI code and
+allows for ioport free driver for silicon not needing ioport for e1000 driver.
 
-Acked-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+---
+Summary:
+Francois Romieu <romieu@fr.zoreil.com>:
+     e1000: delete non NAPI code from the driver
 
-> ---
->  drivers/net/usb/dm9601.c |   52 +++++++++++++++++++++++++++++++++++++--------
->  1 files changed, 42 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-> index f7319d3..78df2be 100644
-> --- a/drivers/net/usb/dm9601.c
-> +++ b/drivers/net/usb/dm9601.c
-> @@ -55,12 +55,28 @@
->  
->  static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
->  {
-> +	void *buf;
-> +	int err = -ENOMEM;
-> +
->  	devdbg(dev, "dm_read() reg=0x%02x length=%d", reg, length);
-> -	return usb_control_msg(dev->udev,
-> -			       usb_rcvctrlpipe(dev->udev, 0),
-> -			       DM_READ_REGS,
-> -			       USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> -			       0, reg, data, length, USB_CTRL_SET_TIMEOUT);
-> +
-> +	buf = kmalloc(length, GFP_KERNEL);
-> +	if (!buf)
-> +		goto out;
-> +
-> +	err = usb_control_msg(dev->udev,
-> +			      usb_rcvctrlpipe(dev->udev, 0),
-> +			      DM_READ_REGS,
-> +			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> +			      0, reg, buf, length, USB_CTRL_SET_TIMEOUT);
-> +	if (err == length)
-> +		memcpy(data, buf, length);
-> +	else if (err >= 0)
-> +		err = -EINVAL;
-> +	kfree(buf);
-> +
-> + out:
-> +	return err;
->  }
->  
->  static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
-> @@ -70,12 +86,28 @@ static int dm_read_reg(struct usbnet *dev, u8 reg, u8 *value)
->  
->  static int dm_write(struct usbnet *dev, u8 reg, u16 length, void *data)
->  {
-> +	void *buf = NULL;
-> +	int err = -ENOMEM;
-> +
->  	devdbg(dev, "dm_write() reg=0x%02x, length=%d", reg, length);
-> -	return usb_control_msg(dev->udev,
-> -			       usb_sndctrlpipe(dev->udev, 0),
-> -			       DM_WRITE_REGS,
-> -			       USB_DIR_OUT | USB_TYPE_VENDOR |USB_RECIP_DEVICE,
-> -			       0, reg, data, length, USB_CTRL_SET_TIMEOUT);
-> +
-> +	if (data) {
-> +		buf = kmalloc(length, GFP_KERNEL);
-> +		if (!buf)
-> +			goto out;
-> +		memcpy(buf, data, length);
-> +	}
-> +
-> +	err = usb_control_msg(dev->udev,
-> +			      usb_sndctrlpipe(dev->udev, 0),
-> +			      DM_WRITE_REGS,
-> +			      USB_DIR_OUT | USB_TYPE_VENDOR |USB_RECIP_DEVICE,
-> +			      0, reg, buf, length, USB_CTRL_SET_TIMEOUT);
-> +	kfree(buf);
-> +	if (err >= 0 && err < length)
-> +		err = -EINVAL;
-> + out:
-> +	return err;
->  }
->  
->  static int dm_write_reg(struct usbnet *dev, u8 reg, u8 value)
-> -- 
-> 1.5.6.2
-> 
-> 
-> -- 
-> Bye, Peter Korsgaard
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Jeff Kirsher <jeffrey.t.kirsher@intel.com>:
+     e1000: remove email reference
 
+Joe Perches <joe@perches.com>:
+     e1000: neaten function declarations
+     e1000: Use hw, er32, and ew32
+     e1000: Move extern function definitions to e1000.h
+     e1000: Remove spaces after casts and function names
+     e1000: checkpatch clean
+     e1000: Move assignments in tests before test
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Taku Izumi <izumi.taku@jp.fugitsu.com>:
+     e1000: make ioport free
+
+---
+ Documentation/networking/e1000.txt |   14 
+ drivers/net/Kconfig                |   14 
+ drivers/net/e1000/e1000.h          |   75 +
+ drivers/net/e1000/e1000_ethtool.c  |  566 ++++++-------
+ drivers/net/e1000/e1000_hw.c       | 1373 ++++++++++++++-------------------
+ drivers/net/e1000/e1000_main.c     | 1516 +++++++++++++++++--------------------
+ drivers/net/e1000/e1000_osdep.h    |   16 
+ drivers/net/e1000/e1000_param.c    |   16 
+ 8 files changed, 1645 insertions(+), 1945 deletions(-)
+
+-- 
+Cheers,
+Jeff
