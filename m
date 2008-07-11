@@ -1,53 +1,48 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPv4 Multicast: prevent reception of mcast frames from	unjoined
- groups
-Date: Fri, 11 Jul 2008 10:53:01 -0700
-Message-ID: <OFE508C572.3640A61A-ON88257483.0061886C-88257483.00623A05@us.ibm.com>
-References: <20080711173125.GB4534@hmsreliant.think-freely.org>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] sctp: remove unnecessary byteshifting, calculate crc
+	in	big-endian
+Date: Fri, 11 Jul 2008 11:07:39 -0700
+Message-ID: <1215799659.15972.1.camel@brick>
+References: <1215133995.16647.51.camel@brick>  <487526B8.70903@hp.com>
+	 <1215651704.476.92.camel@brick>  <487603F0.9070604@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, jmorris@namei.org, kaber@trash.net,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:42056 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753295AbYGKRxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 13:53:15 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m6BHr4VY020776
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 13:53:04 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6BHr4q0104758
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 11:53:04 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6BHr3bX011888
-	for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 11:53:04 -0600
-In-Reply-To: <20080711173125.GB4534@hmsreliant.think-freely.org>
+Received: from wf-out-1314.google.com ([209.85.200.169]:44882 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753532AbYGKSHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2008 14:07:42 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so3698628wfd.4
+        for <netdev@vger.kernel.org>; Fri, 11 Jul 2008 11:07:40 -0700 (PDT)
+In-Reply-To: <487603F0.9070604@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> currently in ip_mc_sf_allow we assume that we need to allow the frame if 
-no
-> match is found, but that has the affect of causing frames to be received 
-for
-> groups a socket hasn't joined.  I asked david aobut this specifically.
+On Thu, 2008-07-10 at 08:43 -0400, Vlad Yasevich wrote:
+> Harvey Harrison wrote:
+> > On Wed, 2008-07-09 at 16:59 -0400, Vlad Yasevich wrote:
+> >> Harvey Harrison wrote:
+> >>> -	__u32 crc32 = 0;
+> >>> +	__be32 crc32 = cpu_to_be32(0);
+> >> Does this actually do anything?
+> >>
+> >> Otherwise, good clean-up. Thanks
+> >>
+> > 
+> > Keeps sparse happy.
+> 
+> Wouldn't just a (__force __be32)0 do the same thing and
+> avoid useless byte swapping on little endian?
+> 
 
-        You asked me about this? Or the other David? :-) I don't remember
-seeing anything on this-- at least not recently.
+I'm trying to get a patch accepted that makes cpu_to_be32 do compile-time
+folding if possible, so in the future this won't produce any additional
+code.  For now, just use __constant_cpu_to_be32(0)
 
-        But in the sentence above, I think you missed the point of the
-mail I sent before. Joining a group or not on a particular socket has
-nothing at all to do with delivery of multicasts to the socket.
-
-        Multicast addresses, like unicast addresses, are for the entire
-machine, not just the socket that does the join. If anyone on the
-machine has joined the group and your binding matches the packet, you
-will receive a copy. That's intentional. If you don't join any groups
-at all, but bind to INADDR_ANY, you will receive packets for the port
-and protocol and any local unicast or multicast address (including
-groups joined by any other process on the machine).
-
- +-DLS
+Harvey
 
