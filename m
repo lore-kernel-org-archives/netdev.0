@@ -1,58 +1,35 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: [PATCH 2/2] Fix 88e1111 copper/fiber selection in RGMII mode
-Date: Fri, 11 Jul 2008 08:55:31 +0800
-Message-ID: <4876AF83.7030206@linux.net.cn>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Fri, 11 Jul 2008 04:41:13 +0300
+Message-ID: <20080711014113.GE7284@jm.kir.nu>
+References: <20080709190915.GA8238@tuxdriver.com> <1ba2fa240807091713t1158c1ddp81c92ae26a002e46@mail.gmail.com> <87iqvd3j6w.fsf@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: Alexandr Smirnov <asmirnov@ru.mvista.com>,
-	Andy Fleming <afleming@freescale.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [210.82.31.146] ([210.82.31.146]:50122 "EHLO mx.linux.net.cn"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755853AbYGKBaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2008 21:30:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kalle.valo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87iqvd3j6w.fsf-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-MII_M1111_HWCFG_FIBER_COPPER_RES is a bit of MII_M1111_PHY_EXT_SR, not
-MII_M1111_PHY_EXT_CR.
+On Thu, Jul 10, 2008 at 05:30:47PM +0300, Kalle Valo wrote:
 
-Signed-off-by: Wang Jian <lark@linux.net.cn>
----
- drivers/net/phy/marvell.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+> I'm just worried if one day is enough for us. The agenda is getting
+> quite long already.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 737512c..4aa5479 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -158,7 +158,6 @@ static int m88e1111_config_init(struct phy_device
-*phydev)
- {
- 	int err;
- 	int temp;
--	int mode;
-
- 	/* Enable Fiber/Copper auto selection */
- 	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-@@ -198,9 +197,7 @@ static int m88e1111_config_init(struct phy_device
-*phydev)
-
- 		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
-
--		mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
--
--		if (mode & MII_M1111_HWCFG_FIBER_COPPER_RES)
-+		if (temp & MII_M1111_HWCFG_FIBER_COPPER_RES)
- 			temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
- 		else
- 			temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
+There should be plenty of time to continue discussions after (or even
+before) the mini-summit since I would assume most people stay for OLS.
+For example, I will be in Ottawa for the full week (July 18-27) and
+will be available for discussions related to wireless topics both
+before and after the mini-summit itself.
+ 
 -- 
-1.5.5.4
-
-
-
-
-
+Jouni Malinen                                            PGP id EFC895FA
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
