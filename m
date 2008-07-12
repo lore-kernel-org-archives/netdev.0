@@ -1,170 +1,145 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/4] dccp: Upgrade NDP count from 3 to 6 bytes
-Date: Sat, 12 Jul 2008 15:51:48 +0100
-Message-ID: <1215874310-10534-3-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <fixes_for_ccid3_loss_detection>
- <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38216 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753440AbYGLOwC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2008 10:52:02 -0400
-In-Reply-To: <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: linux-next: Tree for July 11
+Date: Sat, 12 Jul 2008 20:51:50 +0200
+Message-ID: <200807122051.50909.rjw@sisk.pl>
+References: <20080711182557.9b24df1f.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, "Vegard Nossum" <vegard.nossum@gmail.com>,
+	"Pekka Enberg" <penberg@cs.helsinki.fi>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755384AbYGLSto@vger.kernel.org>
+In-Reply-To: <20080711182557.9b24df1f.sfr@canb.auug.org.au>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4340, 7.7 specifies up to 6 bytes for the NDP Count option, whereas the code
-is limited to up to 3 bytes. This seems to be a relict of an earlier draft
-version and is brought up to date by the patch.
+On Friday, 11 of July 2008, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Changes since next-20080710:
+> 
+> New tree: voltage
+> 
+> The tip-core tree lost its conflict against Linus' tree.
+> 
+> The sched tree gained a conflict against Linus' tree.
+> 
+> The x86 tree gained conflicts against the ftrace and driver-core trees.
+> 
+> The ide tree lost its 2 conflicts against Linus' tree.
+> 
+> The rr tree gained a runtime bug fix patch (which Rusty tells me will not
+> be needed for long).
+> 
+> The firmware tree gained a conflict against the usb tree that required the
+> reverting of one of its commits) but also lost a conflict against Linus'
+> tree.
+> 
+> The kmemcheck tree gained a conflict against the x86 tree.
+> 
+> The ttydev tree had two patches fail to apply which I removed.
+> 
+> I have also applied the following patches for known problems:
+> 
+> 	sparc64: sysdev API change fallout
+> 	s390: fix compile error due to smp_call_function
+> 
+> This patch is no longer needed:
+> 	linux-next: zero based percpu build error on s390
+> 
+> ----------------------------------------------------------------------------
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- include/linux/dccp.h                |    6 ++----
- net/dccp/ccids/ccid3.c              |    2 +-
- net/dccp/ccids/lib/packet_history.c |    6 +++---
- net/dccp/ccids/lib/packet_history.h |    6 +++---
- net/dccp/options.c                  |   14 ++++++++------
- 5 files changed, 17 insertions(+), 17 deletions(-)
+With this tree I see two problems.  The first one is this:
 
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -64,7 +64,7 @@ struct tfrc_rx_hist_entry {
- 	u64		 tfrchrx_seqno:48,
- 			 tfrchrx_ccval:4,
- 			 tfrchrx_type:4;
--	u32		 tfrchrx_ndp; /* In fact it is from 8 to 24 bits */
-+	u64		 tfrchrx_ndp:48;
- 	ktime_t		 tfrchrx_tstamp;
- };
- 
-@@ -145,14 +145,14 @@ static inline int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
- }
- 
- extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
--				    const struct sk_buff *skb, const u32 ndp);
-+				    const struct sk_buff *skb, const u64 ndp);
- 
- extern int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
- 
- struct tfrc_loss_hist;
- extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
- 				struct tfrc_loss_hist *lh,
--				struct sk_buff *skb, u32 ndp,
-+				struct sk_buff *skb, const u64 ndp,
- 				u32 (*first_li)(struct sock *sk),
- 				struct sock *sk);
- extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -364,8 +364,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
- /* FIXME: for now we're default to 1 but it should really be 0 */
- #define DCCPF_INITIAL_SEND_NDP_COUNT		1
- 
--#define DCCP_NDP_LIMIT 0xFFFFFF
--
- /**
-   * struct dccp_minisock - Minimal DCCP connection representation
-   *
-@@ -437,7 +435,7 @@ extern int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 			      struct sk_buff *skb);
- 
- struct dccp_options_received {
--	u32	dccpor_ndp; /* only 24 bits */
-+	u64	dccpor_ndp:48;
- 	u32	dccpor_timestamp;
- 	u32	dccpor_timestamp_echo;
- 	u32	dccpor_elapsed_time;
-@@ -533,7 +531,7 @@ struct dccp_sock {
- 	__u16				dccps_r_ack_ratio;
- 	__u16				dccps_pcslen;
- 	__u16				dccps_pcrlen;
--	unsigned long			dccps_ndp_count;
-+	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
- 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -794,7 +794,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
- 	enum ccid3_fback_type do_feedback = CCID3_FBACK_NONE;
--	const u32 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
-+	const u64 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
- 	const bool is_data_packet = dccp_data_packet(skb);
- 
- 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -153,7 +153,7 @@ void tfrc_rx_packet_history_exit(void)
- 
- static inline void tfrc_rx_hist_entry_from_skb(struct tfrc_rx_hist_entry *entry,
- 					       const struct sk_buff *skb,
--					       const u32 ndp)
-+					       const u64 ndp)
- {
- 	const struct dccp_hdr *dh = dccp_hdr(skb);
- 
-@@ -166,7 +166,7 @@ static inline void tfrc_rx_hist_entry_from_skb(struct tfrc_rx_hist_entry *entry,
- 
- void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
- 			     const struct sk_buff *skb,
--			     const u32 ndp)
-+			     const u64 ndp)
- {
- 	struct tfrc_rx_hist_entry *entry = tfrc_rx_hist_last_rcv(h);
- 
-@@ -356,7 +356,7 @@ static void __three_after_loss(struct tfrc_rx_hist *h)
-  */
- int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
- 			struct tfrc_loss_hist *lh,
--			struct sk_buff *skb, u32 ndp,
-+			struct sk_buff *skb, const u64 ndp,
- 			u32 (*calc_first_li)(struct sock *), struct sock *sk)
- {
- 	int is_new_loss = 0;
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -124,12 +124,12 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 				mandatory = 1;
- 			break;
- 		case DCCPO_NDP_COUNT:
--			if (len > 3)
-+			if (len > 6)
- 				goto out_invalid_option;
- 
- 			opt_recv->dccpor_ndp = dccp_decode_value_var(value, len);
--			dccp_pr_debug("%s rx opt: NDP count=%d\n", dccp_role(sk),
--				      opt_recv->dccpor_ndp);
-+			dccp_pr_debug("%s opt: NDP count=%llu\n", dccp_role(sk),
-+				      (unsigned long long)opt_recv->dccpor_ndp);
- 			break;
- 		case DCCPO_CHANGE_L:
- 			/* fall through */
-@@ -307,9 +307,11 @@ static void dccp_encode_value_var(const u32 value, unsigned char *to,
- 		*to++ = (value & 0xFF);
- }
- 
--static inline int dccp_ndp_len(const int ndp)
-+static inline u8 dccp_ndp_len(const u64 ndp)
- {
--	return likely(ndp <= 0xFF) ? 1 : ndp <= 0xFFFF ? 2 : 3;
-+	if (likely(ndp <= 0xFF))
-+		return 1;
-+	return likely(ndp <= USHORT_MAX) ? 2 : (ndp <= UINT_MAX ? 4 : 6);
- }
- 
- int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
-@@ -336,7 +338,7 @@ EXPORT_SYMBOL_GPL(dccp_insert_option);
- static int dccp_insert_option_ndp(struct sock *sk, struct sk_buff *skb)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
--	int ndp = dp->dccps_ndp_count;
-+	u64 ndp = dp->dccps_ndp_count;
- 
- 	if (dccp_non_data_packet(skb))
- 		++dp->dccps_ndp_count;
+=============================================
+[ INFO: possible recursive locking detected ]
+2.6.26-rc9-next #44
+---------------------------------------------
+swapper/1 is trying to acquire lock:
+ (&queue->lock){-...}, at: [<ffffffff80483067>] qdisc_lock_tree+0x27/0x30
+
+but task is already holding lock:
+ (&queue->lock){-...}, at: [<ffffffff8048305f>] qdisc_lock_tree+0x1f/0x30
+
+other info that might help us debug this:
+3 locks held by swapper/1:
+ #0:  (net_mutex){--..}, at: [<ffffffff8046e482>] register_pernet_device+0x22/0x70
+ #1:  (rtnl_mutex){--..}, at: [<ffffffff8047bac2>] rtnl_lock+0x12/0x20
+ #2:  (&queue->lock){-...}, at: [<ffffffff8048305f>] qdisc_lock_tree+0x1f/0x30
+
+stack backtrace:
+Pid: 1, comm: swapper Not tainted 2.6.26-rc9-next #44
+
+Call Trace:
+ [<ffffffff80263a4e>] __lock_acquire+0xb7e/0x1280
+ [<ffffffff802641a7>] lock_acquire+0x57/0x80
+ [<ffffffff80483067>] ? qdisc_lock_tree+0x27/0x30
+ [<ffffffff80500c65>] _spin_lock+0x25/0x40
+ [<ffffffff80483067>] qdisc_lock_tree+0x27/0x30
+ [<ffffffff804830b1>] dev_init_scheduler+0x11/0x70
+ [<ffffffff8047193b>] register_netdevice+0x1fb/0x370
+ [<ffffffff80471af4>] register_netdev+0x44/0x60
+ [<ffffffff806f18f7>] loopback_net_init+0x47/0x90
+ [<ffffffff806f12c0>] ? firmware_class_init+0x0/0x90
+ [<ffffffff806f1890>] ? loopback_init+0x0/0x20
+ [<ffffffff8046e3e8>] register_pernet_operations+0x18/0x20
+ [<ffffffff8046e491>] register_pernet_device+0x31/0x70
+ [<ffffffff806f18a0>] loopback_init+0x10/0x20
+ [<ffffffff806caa48>] kernel_init+0x128/0x310
+ [<ffffffff8026297f>] ? trace_hardirqs_on_caller+0xbf/0x150
+ [<ffffffff80262a1d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff80500f9b>] ? _spin_unlock_irq+0x2b/0x40
+ [<ffffffff80500830>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+ [<ffffffff8026297f>] ? trace_hardirqs_on_caller+0xbf/0x150
+ [<ffffffff8020c6d9>] child_rip+0xa/0x11
+ [<ffffffff8020bd0f>] ? restore_args+0x0/0x30
+ [<ffffffff806ca920>] ? kernel_init+0x0/0x310
+ [<ffffffff8020c6cf>] ? child_rip+0x0/0x11
+
+and the second one is the following:
+
+WARNING: at /home/rafael/src/linux-next/include/linux/blkdev.h:447 blk_plug_device+0x9b/0xb0()
+Modules linked in: snd_hda_intel ohci1394 ieee1394 snd_pcm rtc_cmos sr_mod rtc_core floppy snd_timer wmi button cdrom rtc_lib serio_raw sky2 snd_page_alloc snd_hwdep snd evdev joydev sg soundcore raid456 async_xor async_memcpy async_tx xor raid0 usbhid ff_memless ehci_hcd ohci_hcd sd_mod edd raid1 ext3 jbd fan pata_marvell pata_atiixp thermal processor
+Pid: 2244, comm: kjournald Not tainted 2.6.26-rc9-next #44
+
+Call Trace:
+ [<ffffffff8023d37f>] warn_on_slowpath+0x5f/0x80
+ [<ffffffff80220030>] ? hpet_unregister_irq_handler+0x0/0x30
+ [<ffffffff8022a8ae>] ? kmemcheck_mark_initialized+0xe/0x10
+ [<ffffffff802b97fb>] ? kmemcheck_slab_alloc+0x2b/0x50
+ [<ffffffff802b8610>] ? kmem_cache_alloc+0xc0/0x140
+ [<ffffffff80291921>] ? mempool_alloc_slab+0x11/0x20
+ [<ffffffff80291a8b>] ? mempool_alloc+0x5b/0x140
+ [<ffffffff803575db>] blk_plug_device+0x9b/0xb0
+ [<ffffffff80453d9f>] bitmap_startwrite+0xbf/0x1b0
+ [<ffffffff802e87e4>] ? bio_alloc_bioset+0x54/0xb0
+ [<ffffffffa004eafa>] make_request+0x39a/0x810 [raid1]
+ [<ffffffff80291a8b>] ? mempool_alloc+0x5b/0x140
+ [<ffffffff80291a8b>] ? mempool_alloc+0x5b/0x140
+ [<ffffffff8035682d>] generic_make_request+0x17d/0x2b0
+ [<ffffffff803581dc>] submit_bio+0x6c/0xf0
+ [<ffffffff802e3c60>] submit_bh+0xf0/0x130
+ [<ffffffffa001cce0>] journal_commit_transaction+0xa40/0x1000 [jbd]
+ [<ffffffff80248504>] ? try_to_del_timer_sync+0x44/0x90
+ [<ffffffffa0020967>] kjournald+0xe7/0x250 [jbd]
+ [<ffffffff80254350>] ? autoremove_wake_function+0x0/0x40
+ [<ffffffffa0020880>] ? kjournald+0x0/0x250 [jbd]
+ [<ffffffff80253efd>] kthread+0x4d/0x80
+ [<ffffffff8020c6d9>] child_rip+0xa/0x11
+ [<ffffffff80500f9b>] ? _spin_unlock_irq+0x2b/0x40
+ [<ffffffff8020bd0f>] ? restore_args+0x0/0x30
+ [<ffffffff80254052>] ? kthreadd+0x122/0x1a0
+ [<ffffffff80253eb0>] ? kthread+0x0/0x80
+ [<ffffffff8020c6cf>] ? child_rip+0x0/0x11
+
+---[ end trace d63b767d1ed7d78a ]---
+
+Full dmesg output is at: http://www.sisk.pl/kernel/debug/20080711/dmesg-1.log
+
+Thanks,
+Rafael
