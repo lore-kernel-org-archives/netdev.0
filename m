@@ -1,67 +1,82 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Sat, 12 Jul 2008 11:49:14 +0200
-Message-ID: <48787E1A.3030804@gmail.com>
-References: <20080710223141.GA2519@orion.carnet.hr>	<20080710.162007.04790623.davem@davemloft.net>	<20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] Fix dccp_timestamp()'s use of do_div()
+Date: Sat, 12 Jul 2008 14:14:34 +0100
+Message-ID: <20080712131434.GA4697@gerrit.erg.abdn.ac.uk>
+References: <20080711135735.28952.84285.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: joy@entuzijast.net, mchan@broadcom.com, billfink@mindspring.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	mirrors@debian.org, kaber@trash.net, devik@cdi.cz
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:43321 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994AbYGLJtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2008 05:49:00 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1698741fgg.17
-        for <netdev@vger.kernel.org>; Sat, 12 Jul 2008 02:48:58 -0700 (PDT)
-In-Reply-To: <20080711.025656.261409874.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33511 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752921AbYGLNPb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2008 09:15:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20080711135735.28952.84285.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 07/11/2008 11:56 AM:
-...
+Quoting David Howells:
+| Fix dccp_timestamps()'s use of do_div() on an s64 by making delta a u64
+| instead and dividing that.
+| 
+| Possibly this should be guarded lest the interval calculation turn up negative,
+| but the possible negativity of the result of the division ignored anyway, and,
+| indeed, should not happen.
+| 
+| This was introduced by patch 4c70f383e0c0273c4092c4efdb414be0966978b7.
+| 
+| Signed-off-by: David Howells <dhowells@redhat.com>
+| ---
+| 
+|  net/dccp/timer.c |    4 +++-
+|  1 files changed, 3 insertions(+), 1 deletions(-)
+| 
+| 
+| diff --git a/net/dccp/timer.c b/net/dccp/timer.c
+| index 8703a79..27218c5 100644
+| --- a/net/dccp/timer.c
+| +++ b/net/dccp/timer.c
+| @@ -300,8 +300,10 @@ static ktime_t dccp_timestamp_seed;
+|   */
+|  u32 dccp_timestamp(void)
+|  {
+| -	s64 delta = ktime_us_delta(ktime_get_real(), dccp_timestamp_seed);
+| +	u64 delta = ktime_us_delta(ktime_get_real(), dccp_timestamp_seed);
+|  
+| +	/* This will produce huge values if the current time should happen to
+| +	 * be earlier than the initial timestamp, but that shouldn't happen */
+|  	do_div(delta, 10);
+|  	return delta;
+|  }
+| 
+I agree that the use of do_div() is problematic but I don't this is a
+good solution. It would be better to use div_u64() with the same effect
+as shown below (taken from a patch soon to be submitted).
 
-> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> index 3fb58f4..aa20b47 100644
-> --- a/net/sched/sch_htb.c
-> +++ b/net/sched/sch_htb.c
-> @@ -583,6 +583,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		if (q->direct_queue.qlen < q->direct_qlen) {
->  			__skb_queue_tail(&q->direct_queue, skb);
->  			q->direct_pkts++;
-> +			ret = NET_XMIT_SUCCESS;
->  		} else {
->  			kfree_skb(skb);
->  			sch->qstats.drops++;
-> @@ -595,22 +596,26 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		kfree_skb(skb);
->  		return ret;
->  #endif
-> -	} else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) !=
-> -		   NET_XMIT_SUCCESS) {
-> -		sch->qstats.drops++;
-> -		cl->qstats.drops++;
-> -		return NET_XMIT_DROP;
->  	} else {
-> -		cl->bstats.packets +=
-> -			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
-> -		cl->bstats.bytes += skb->len;
-> -		htb_activate(q, cl);
-> +		ret = cl->un.leaf.q->enqueue(skb, cl->un.leaf.q);
-> +		if (ret == NET_XMIT_DROP) {
-> +			sch->qstats.drops++;
-> +			cl->qstats.drops++;
-> +		} else {
-> +			cl->bstats.packets +=
-> +				skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
-> +			cl->bstats.bytes += skb->len;
-> +			htb_activate(q, cl);
-
-
-This isn't correct: htb_activate() needs cl->un.leaf.q->q.qlen > 0, and
-only NET_XMIT_SUCCESS can guarantee this.
-
-Jarek P.
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -74,6 +74,9 @@ extern void dccp_time_wait(struct sock *
+ #define DCCP_TIMEWAIT_LEN (60 * HZ) /* how long to wait to destroy TIME-WAIT
+ 				     * state, about 60 seconds */
+ 
++/* DCCP base time resolution - 10 microseconds (RFC 4340, 13.1 ... 13.3) */
++#define DCCP_TIME_RESOLUTION	10
++
+ /* RFC 1122, 4.2.3.1 initial RTO value */
+ #define DCCP_TIMEOUT_INIT ((unsigned)(3 * HZ))
+ 
+--- a/net/dccp/timer.c
++++ b/net/dccp/timer.c
+@@ -281,8 +281,7 @@ u32 dccp_timestamp(void)
+ {
+ 	s64 delta = ktime_us_delta(ktime_get_real(), dccp_timestamp_seed);
+ 
+-	do_div(delta, 10);
+-	return delta;
++	return div_u64(delta, DCCP_TIME_RESOLUTION);
+ }
+ EXPORT_SYMBOL_GPL(dccp_timestamp);
+ 
