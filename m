@@ -1,34 +1,50 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH] netns: Teach the igmp code to handle multiple
-	namespaces
-Date: Sat, 12 Jul 2008 10:58:25 +0400
-Message-ID: <1215845905.8316.4.camel@iris.sw.ru>
-References: <m1od54dwar.fsf@frodo.ebiederm.org>
-	 <m1zloocgd8.fsf@frodo.ebiederm.org>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [2/3] POHMELFS: Documentation.
+Date: Sat, 12 Jul 2008 09:01:51 +0200
+Message-ID: <20080712070150.GD13483@ucw.cz>
+References: <20080707180736.GA15687@2ka.mipt.ru> <20080707181019.GC15687@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:19848 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751260AbYGLG5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2008 02:57:40 -0400
-In-Reply-To: <m1zloocgd8.fsf@frodo.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080707181019.GC15687@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-07-11 at 13:31 -0700, Eric W. Biederman wrote:
-> It turns out that I actually need working multicast reception in my
-> test environment, not something that just the something that doesn't
-> crash when a multicast packet comes in.
-> 
-> So on top of my previous patch that kept the kernel from crashing
-> when multicast frames come it.  Actual support for receiving multicast
-> data in a network namespace.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Hi!
 
-Acked-by: Denis V. Lunev <den@openvz.org>
+> + * Completely async processing of all events (hard, symlinks and rename are the
+> + 	only exceptions) including object creation and data reading and writing.
 
+Hmm... this is little funny.
+
+	Async processing of most events (only exceptions are ...) ?
+
+
+> +POHMELFS network protocol.
+> +
+> +Basic structure used in network communication is following command:
+> +
+> +struct netfs_cmd
+> +{
+> +	__u16			cmd;	/* Command number */
+> +	__u16			csize;	/* Attached crypto information size */
+> +	__u16			cpad;	/* Attached padding size */
+> +	__u16			ext;	/* External flags */
+> +	__u32			size;	/* Size of the attached data */
+> +	__u32			trans;	/* Transaction id */
+> +	__u64			id;	/* Object ID to operate on. Used for feedback.*/
+> +	__u64			start;	/* Start of the object. */
+> +	__u64			iv;	/* IV sequence */
+> +	__u8			data[0];
+> +};
+
+Which endianity?
+
+							Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
