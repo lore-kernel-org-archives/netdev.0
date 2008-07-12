@@ -1,76 +1,46 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/4] dccp ccid-3: Length of loss intervals
-Date: Sat, 12 Jul 2008 15:51:50 +0100
-Message-ID: <1215874310-10534-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/4] dccp: Fixes for TFRC/CCID-3 loss detection
+Date: Sat, 12 Jul 2008 15:51:46 +0100
+Message-ID: <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <fixes_for_ccid3_loss_detection>
- <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1215874310-10534-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1215874310-10534-4-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38202 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753392AbYGLOwA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2008 10:52:00 -0400
-In-Reply-To: <1215874310-10534-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753330AbYGLOv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2008 10:51:57 -0400
+In-Reply-To: <fixes_for_ccid3_loss_detection>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This corrects an error in the computation of the open loss interval I_0:
-  * the interval length is (highest_seqno - start_seqno) + 1
-  * and not (highest_seqno - start_seqno).
+Hi Dave,
 
-This condition was not fully clear in RFC 3448, but reflects the current
-revision state of rfc3448bis and is also consistent with RFC 4340, 6.1.1.
+can you please have a look at this set of fixes.  These address errors which
+recently have been found in the TFRC loss detection:
 
-Further changes:
-----------------
- * variable renamed due to line length constraints;
- * explicit typecast to `s64' to avoid implicit signed/unsigned casting.
+  Patch #1: Fixes an error appearing throughout the TFRC loss detection code.
+  Patch #2: Updates the NDP count option to 6 bytes (code was limited to 3).
+  Patch #3: Fixes a bug in CCID-3 loss detection (causing false positives).
+  Patch #4: Fixes an error in computing the most recent loss interval.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/lib/loss_interval.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+Following your recent suggestions, each patch addresses a single issue only,
+and if a patch contains additional (small) changes, these are remarked in
+the changelog.
 
---- a/net/dccp/ccids/lib/loss_interval.c
-+++ b/net/dccp/ccids/lib/loss_interval.c
-@@ -90,14 +90,14 @@ u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
- {
- 	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh);
- 	u32 old_i_mean = lh->i_mean;
--	s64 length;
-+	s64 len;
- 
- 	if (cur == NULL)			/* not initialised */
- 		return 0;
- 
--	length = dccp_delta_seqno(cur->li_seqno, DCCP_SKB_CB(skb)->dccpd_seq);
-+	len = dccp_delta_seqno(cur->li_seqno, DCCP_SKB_CB(skb)->dccpd_seq) + 1;
- 
--	if (length - cur->li_length <= 0)	/* duplicate or reordered */
-+	if (len - (s64)cur->li_length <= 0)	/* duplicate or reordered */
- 		return 0;
- 
- 	if (SUB16(dccp_hdr(skb)->dccph_ccval, cur->li_ccval) > 4)
-@@ -114,7 +114,7 @@ u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
- 	if (tfrc_lh_length(lh) == 1)		/* due to RFC 3448, 6.3.1 */
- 		return 0;
- 
--	cur->li_length = length;
-+	cur->li_length = len;
- 	tfrc_lh_calc_i_mean(lh);
- 
- 	return (lh->i_mean < old_i_mean);
-@@ -159,7 +159,7 @@ int tfrc_lh_interval_add(struct tfrc_loss_hist *lh, struct tfrc_rx_hist *rh,
- 	else {
- 		cur->li_length = dccp_delta_seqno(cur->li_seqno, new->li_seqno);
- 		new->li_length = dccp_delta_seqno(new->li_seqno,
--				  tfrc_rx_hist_last_rcv(rh)->tfrchrx_seqno);
-+				  tfrc_rx_hist_last_rcv(rh)->tfrchrx_seqno) + 1;
- 		if (lh->counter > (2*LIH_SIZE))
- 			lh->counter -= LIH_SIZE;
- 
+Can you please consider pulling from
+
+	git://eden-feed-erg.abdn.ac.uk/net-2.6		(subtree `master')
+
+At your discretion, since none of the bugs is severe, the set is also on	
+
+	git://eden-feed-erg.abdn.ac.uk/net-next-2.6	(subtree `master')
+
+Both trees have been freshly cloned from today, all patches have been thoroughly
+tested. Tests are encouraging - recovery from loss is now much faster.
+
+Thank you.
+
+(The online documentation for the loss detection has also been updated:
+ http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/\
+ ccid3/ccid3_packet_reception/loss_detection/loss_detection_algorithm_notes.txt)
