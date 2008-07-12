@@ -1,216 +1,170 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/4] dccp ccid-3: Fix error in loss detection
-Date: Sat, 12 Jul 2008 15:51:47 +0100
-Message-ID: <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/4] dccp: Upgrade NDP count from 3 to 6 bytes
+Date: Sat, 12 Jul 2008 15:51:48 +0100
+Message-ID: <1215874310-10534-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <fixes_for_ccid3_loss_detection>
  <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38202 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38216 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753491AbYGLOwG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2008 10:52:06 -0400
-In-Reply-To: <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753440AbYGLOwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2008 10:52:02 -0400
+In-Reply-To: <1215874310-10534-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TFRC loss detection code used the wrong loss condition (RFC 4340, 7.7.1):
- * the difference between sequence numbers s1 and s2 instead of
- * the number of packets missing between s1 and s2 (one less than the distance).
-
-Since this condition appears in many places of the code, it has been put into a
-separate function, dccp_loss_free().
-
-Further changes:
-----------------
- * tidied up incorrect typing (it was using `int' for u64/s64 types);
- * optimised conditional statements for common case of non-reordered packets;
- * rewrote comments/documentation to match the changes.
+RFC 4340, 7.7 specifies up to 6 bytes for the NDP Count option, whereas the code
+is limited to up to 3 bytes. This seems to be a relict of an earlier draft
+version and is brought up to date by the patch.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/lib/packet_history.c |   73 +++++++++++++---------------------
- net/dccp/dccp.h                     |   15 +++++++
- 2 files changed, 43 insertions(+), 45 deletions(-)
+ include/linux/dccp.h                |    6 ++----
+ net/dccp/ccids/ccid3.c              |    2 +-
+ net/dccp/ccids/lib/packet_history.c |    6 +++---
+ net/dccp/ccids/lib/packet_history.h |    6 +++---
+ net/dccp/options.c                  |   14 ++++++++------
+ 5 files changed, 17 insertions(+), 17 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -153,6 +153,21 @@ static inline u64 max48(const u64 seq1, const u64 seq2)
- 	return after48(seq1, seq2) ? seq1 : seq2;
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -64,7 +64,7 @@ struct tfrc_rx_hist_entry {
+ 	u64		 tfrchrx_seqno:48,
+ 			 tfrchrx_ccval:4,
+ 			 tfrchrx_type:4;
+-	u32		 tfrchrx_ndp; /* In fact it is from 8 to 24 bits */
++	u64		 tfrchrx_ndp:48;
+ 	ktime_t		 tfrchrx_tstamp;
+ };
+ 
+@@ -145,14 +145,14 @@ static inline int tfrc_rx_hist_new_loss_indicated(struct tfrc_rx_hist *h,
  }
  
-+/**
-+ * dccp_loss_free  -  Evaluates condition for data loss from RFC 4340, 7.7.1
-+ * @s1:	 start sequence number
-+ * @s2:  end sequence number
-+ * @ndp: NDP count on packet with sequence number @s2
-+ * Returns true if the sequence range s1...s2 has no data loss.
-+ */
-+static inline bool dccp_loss_free(const u64 s1, const u64 s2, const u64 ndp)
-+{
-+	s64 delta = dccp_delta_seqno(s1, s2);
-+
-+	BUG_TRAP(delta >= 0);
-+	return (u64)delta <= ndp + 1;
-+}
-+
- enum {
- 	DCCP_MIB_NUM = 0,
- 	DCCP_MIB_ACTIVEOPENS,			/* ActiveOpens */
+ extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+-				    const struct sk_buff *skb, const u32 ndp);
++				    const struct sk_buff *skb, const u64 ndp);
+ 
+ extern int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
+ 
+ struct tfrc_loss_hist;
+ extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ 				struct tfrc_loss_hist *lh,
+-				struct sk_buff *skb, u32 ndp,
++				struct sk_buff *skb, const u64 ndp,
+ 				u32 (*first_li)(struct sock *sk),
+ 				struct sock *sk);
+ extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -364,8 +364,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+ /* FIXME: for now we're default to 1 but it should really be 0 */
+ #define DCCPF_INITIAL_SEND_NDP_COUNT		1
+ 
+-#define DCCP_NDP_LIMIT 0xFFFFFF
+-
+ /**
+   * struct dccp_minisock - Minimal DCCP connection representation
+   *
+@@ -437,7 +435,7 @@ extern int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 			      struct sk_buff *skb);
+ 
+ struct dccp_options_received {
+-	u32	dccpor_ndp; /* only 24 bits */
++	u64	dccpor_ndp:48;
+ 	u32	dccpor_timestamp;
+ 	u32	dccpor_timestamp_echo;
+ 	u32	dccpor_elapsed_time;
+@@ -533,7 +531,7 @@ struct dccp_sock {
+ 	__u16				dccps_r_ack_ratio;
+ 	__u16				dccps_pcslen;
+ 	__u16				dccps_pcrlen;
+-	unsigned long			dccps_ndp_count;
++	__u64				dccps_ndp_count:48;
+ 	unsigned long			dccps_rate_last;
+ 	struct dccp_minisock		dccps_minisock;
+ 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -794,7 +794,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
+ 	enum ccid3_fback_type do_feedback = CCID3_FBACK_NONE;
+-	const u32 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
++	const u64 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
+ 	const bool is_data_packet = dccp_data_packet(skb);
+ 
+ 	if (unlikely(hcrx->ccid3hcrx_state == TFRC_RSTATE_NO_DATA)) {
 --- a/net/dccp/ccids/lib/packet_history.c
 +++ b/net/dccp/ccids/lib/packet_history.c
-@@ -215,22 +215,19 @@ static void __one_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n2
- 	u64 s0 = tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno,
- 	    s1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_seqno,
- 	    s2 = DCCP_SKB_CB(skb)->dccpd_seq;
--	int n1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_ndp,
--	   d12 = dccp_delta_seqno(s1, s2), d2;
+@@ -153,7 +153,7 @@ void tfrc_rx_packet_history_exit(void)
  
--	if (d12 > 0) {			/* S1  <  S2 */
-+	if (likely(dccp_delta_seqno(s1, s2) > 0)) {	/* S1  <  S2 */
- 		h->loss_count = 2;
- 		tfrc_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 2), skb, n2);
- 		return;
- 	}
+ static inline void tfrc_rx_hist_entry_from_skb(struct tfrc_rx_hist_entry *entry,
+ 					       const struct sk_buff *skb,
+-					       const u32 ndp)
++					       const u64 ndp)
+ {
+ 	const struct dccp_hdr *dh = dccp_hdr(skb);
  
- 	/* S0  <  S2  <  S1 */
--	d2 = dccp_delta_seqno(s0, s2);
+@@ -166,7 +166,7 @@ static inline void tfrc_rx_hist_entry_from_skb(struct tfrc_rx_hist_entry *entry,
  
--	if (d2 == 1 || n2 >= d2) {	/* S2 is direct successor of S0 */
--		int d21 = -d12;
-+	if (dccp_loss_free(s0, s2, n2)) {
-+		u64 n1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_ndp;
+ void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+ 			     const struct sk_buff *skb,
+-			     const u32 ndp)
++			     const u64 ndp)
+ {
+ 	struct tfrc_rx_hist_entry *entry = tfrc_rx_hist_last_rcv(h);
  
--		if (d21 == 1 || n1 >= d21) {
-+		if (dccp_loss_free(s2, s1, n1)) {
- 			/* hole is filled: S0, S2, and S1 are consecutive */
- 			h->loss_count = 0;
- 			h->loss_start = tfrc_rx_hist_index(h, 1);
-@@ -238,9 +235,9 @@ static void __one_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n2
- 			/* gap between S2 and S1: just update loss_prev */
- 			tfrc_rx_hist_entry_from_skb(tfrc_rx_hist_loss_prev(h), skb, n2);
+@@ -356,7 +356,7 @@ static void __three_after_loss(struct tfrc_rx_hist *h)
+  */
+ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ 			struct tfrc_loss_hist *lh,
+-			struct sk_buff *skb, u32 ndp,
++			struct sk_buff *skb, const u64 ndp,
+ 			u32 (*calc_first_li)(struct sock *), struct sock *sk)
+ {
+ 	int is_new_loss = 0;
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -124,12 +124,12 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 				mandatory = 1;
+ 			break;
+ 		case DCCPO_NDP_COUNT:
+-			if (len > 3)
++			if (len > 6)
+ 				goto out_invalid_option;
  
--	} else {			/* hole between S0 and S2 */
-+	} else {	/* gap between S0 and S2 */
- 		/*
--		 * Reorder history to insert S2 between S0 and s1
-+		 * Reorder history to insert S2 between S0 and S1
- 		 */
- 		tfrc_rx_hist_swap(h, 0, 3);
- 		h->loss_start = tfrc_rx_hist_index(h, 3);
-@@ -256,22 +253,18 @@ static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
- 	    s1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_seqno,
- 	    s2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_seqno,
- 	    s3 = DCCP_SKB_CB(skb)->dccpd_seq;
--	int n1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_ndp,
--	   d23 = dccp_delta_seqno(s2, s3), d13, d3, d31;
- 
--	if (d23 > 0) {			/* S2  <  S3 */
-+	if (likely(dccp_delta_seqno(s2, s3) > 0)) {	/* S2  <  S3 */
- 		h->loss_count = 3;
- 		tfrc_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 3), skb, n3);
- 		return 1;
- 	}
- 
- 	/* S3  <  S2 */
--	d13 = dccp_delta_seqno(s1, s3);
- 
--	if (d13 > 0) {
-+	if (dccp_delta_seqno(s1, s3) > 0) {		/* S1  <  S3  <  S2 */
- 		/*
--		 * The sequence number order is S1, S3, S2
--		 * Reorder history to insert entry between S1 and S2
-+		 * Reorder history to insert S3 between S1 and S2
- 		 */
- 		tfrc_rx_hist_swap(h, 2, 3);
- 		tfrc_rx_hist_entry_from_skb(tfrc_rx_hist_entry(h, 2), skb, n3);
-@@ -280,17 +273,15 @@ static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
- 	}
- 
- 	/* S0  <  S3  <  S1 */
--	d31 = -d13;
--	d3  = dccp_delta_seqno(s0, s3);
- 
--	if (d3 == 1 || n3 >= d3) {	/* S3 is a successor of S0 */
-+	if (dccp_loss_free(s0, s3, n3)) {
-+		u64 n1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_ndp;
- 
--		if (d31 == 1 || n1 >= d31) {
-+		if (dccp_loss_free(s3, s1, n1)) {
- 			/* hole between S0 and S1 filled by S3 */
--			int  d2 = dccp_delta_seqno(s1, s2),
--			     n2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_ndp;
-+			u64 n2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_ndp;
- 
--			if (d2 == 1 || n2 >= d2) {
-+			if (dccp_loss_free(s1, s2, n2)) {
- 				/* entire hole filled by S0, S3, S1, S2 */
- 				h->loss_start = tfrc_rx_hist_index(h, 2);
- 				h->loss_count = 0;
-@@ -307,8 +298,8 @@ static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
- 	}
- 
- 	/*
--	 * The remaining case: S3 is not a successor of S0.
--	 * Sequence order is S0, S3, S1, S2; reorder to insert between S0 and S1
-+	 * The remaining case:  S0  <  S3  <  S1  <  S2;  gap between S0 and S3
-+	 * Reorder history to insert S3 between S0 and S1.
- 	 */
- 	tfrc_rx_hist_swap(h, 0, 3);
- 	h->loss_start = tfrc_rx_hist_index(h, 3);
-@@ -318,33 +309,25 @@ static int __two_after_loss(struct tfrc_rx_hist *h, struct sk_buff *skb, u32 n3)
- 	return 1;
+ 			opt_recv->dccpor_ndp = dccp_decode_value_var(value, len);
+-			dccp_pr_debug("%s rx opt: NDP count=%d\n", dccp_role(sk),
+-				      opt_recv->dccpor_ndp);
++			dccp_pr_debug("%s opt: NDP count=%llu\n", dccp_role(sk),
++				      (unsigned long long)opt_recv->dccpor_ndp);
+ 			break;
+ 		case DCCPO_CHANGE_L:
+ 			/* fall through */
+@@ -307,9 +307,11 @@ static void dccp_encode_value_var(const u32 value, unsigned char *to,
+ 		*to++ = (value & 0xFF);
  }
  
--/* return the signed modulo-2^48 sequence number distance from entry e1 to e2 */
--static s64 tfrc_rx_hist_delta_seqno(struct tfrc_rx_hist *h, u8 e1, u8 e2)
--{
--	DCCP_BUG_ON(e1 > h->loss_count || e2 > h->loss_count);
--
--	return dccp_delta_seqno(tfrc_rx_hist_entry(h, e1)->tfrchrx_seqno,
--				tfrc_rx_hist_entry(h, e2)->tfrchrx_seqno);
--}
--
- /* recycle RX history records to continue loss detection if necessary */
- static void __three_after_loss(struct tfrc_rx_hist *h)
+-static inline int dccp_ndp_len(const int ndp)
++static inline u8 dccp_ndp_len(const u64 ndp)
  {
- 	/*
--	 * The distance between S0 and S1 is always greater than 1 and the NDP
--	 * count of S1 is smaller than this distance. Otherwise there would
--	 * have been no loss. Hence it is only necessary to see whether there
--	 * are further missing data packets between S1/S2 and S2/S3.
-+	 * At this stage we know already that there is a gap between S0 and S1
-+	 * (since S0 was the highest sequence number received before detecting
-+	 * the loss). To recycle the loss record, it is	thus only necessary to
-+	 * check for other possible gaps between S1/S2 and between S2/S3.
- 	 */
--	int d2 = tfrc_rx_hist_delta_seqno(h, 1, 2),
--	    d3 = tfrc_rx_hist_delta_seqno(h, 2, 3),
--	    n2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_ndp,
-+	u64 s1 = tfrc_rx_hist_entry(h, 1)->tfrchrx_seqno,
-+	    s2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_seqno,
-+	    s3 = tfrc_rx_hist_entry(h, 3)->tfrchrx_seqno;
-+	u64 n2 = tfrc_rx_hist_entry(h, 2)->tfrchrx_ndp,
- 	    n3 = tfrc_rx_hist_entry(h, 3)->tfrchrx_ndp;
+-	return likely(ndp <= 0xFF) ? 1 : ndp <= 0xFFFF ? 2 : 3;
++	if (likely(ndp <= 0xFF))
++		return 1;
++	return likely(ndp <= USHORT_MAX) ? 2 : (ndp <= UINT_MAX ? 4 : 6);
+ }
  
--	if (d2 == 1 || n2 >= d2) {	/* S2 is successor to S1 */
-+	if (dccp_loss_free(s1, s2, n2)) {
+ int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
+@@ -336,7 +338,7 @@ EXPORT_SYMBOL_GPL(dccp_insert_option);
+ static int dccp_insert_option_ndp(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+-	int ndp = dp->dccps_ndp_count;
++	u64 ndp = dp->dccps_ndp_count;
  
--		if (d3 == 1 || n3 >= d3) {
--			/* S3 is successor of S2: entire hole is filled */
-+		if (dccp_loss_free(s2, s3, n3)) {
-+			/* no gap between S2 and S3: entire hole is filled */
- 			h->loss_start = tfrc_rx_hist_index(h, 3);
- 			h->loss_count = 0;
- 		} else {
-@@ -353,7 +336,7 @@ static void __three_after_loss(struct tfrc_rx_hist *h)
- 			h->loss_count = 1;
- 		}
- 
--	} else {			/* gap between S1 and S2 */
-+	} else {	/* gap between S1 and S2 */
- 		h->loss_start = tfrc_rx_hist_index(h, 1);
- 		h->loss_count = 2;
- 	}
+ 	if (dccp_non_data_packet(skb))
+ 		++dp->dccps_ndp_count;
