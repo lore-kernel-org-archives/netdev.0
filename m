@@ -1,61 +1,67 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: [PATCH] [ROSE] improving AX25 routing frames
-Date: Sat, 12 Jul 2008 11:32:56 +0200
-Message-ID: <48787A48.5030907@free.fr>
-References: <200804251659.47510.bpidoux@free.fr>	<20080426.230111.49125483.davem@davemloft.net>	<4836E223.8080003@upmc.fr> <20080603.145827.170048802.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: bnx2_poll panicking kernel
+Date: Sat, 12 Jul 2008 11:49:14 +0200
+Message-ID: <48787E1A.3030804@gmail.com>
+References: <20080710223141.GA2519@orion.carnet.hr>	<20080710.162007.04790623.davem@davemloft.net>	<20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams <linux-hams@vger.kernel.org>
+Cc: joy@entuzijast.net, mchan@broadcom.com, billfink@mindspring.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	mirrors@debian.org, kaber@trash.net, devik@cdi.cz
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080603.145827.170048802.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:43321 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751994AbYGLJtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2008 05:49:00 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1698741fgg.17
+        for <netdev@vger.kernel.org>; Sat, 12 Jul 2008 02:48:58 -0700 (PDT)
+In-Reply-To: <20080711.025656.261409874.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+David Miller wrote, On 07/11/2008 11:56 AM:
+...
 
-You probably did not notice the following patch I re-sent a while ago at 
-your request:
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 3fb58f4..aa20b47 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -583,6 +583,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		if (q->direct_queue.qlen < q->direct_qlen) {
+>  			__skb_queue_tail(&q->direct_queue, skb);
+>  			q->direct_pkts++;
+> +			ret = NET_XMIT_SUCCESS;
+>  		} else {
+>  			kfree_skb(skb);
+>  			sch->qstats.drops++;
+> @@ -595,22 +596,26 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		kfree_skb(skb);
+>  		return ret;
+>  #endif
+> -	} else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) !=
+> -		   NET_XMIT_SUCCESS) {
+> -		sch->qstats.drops++;
+> -		cl->qstats.drops++;
+> -		return NET_XMIT_DROP;
+>  	} else {
+> -		cl->bstats.packets +=
+> -			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+> -		cl->bstats.bytes += skb->len;
+> -		htb_activate(q, cl);
+> +		ret = cl->un.leaf.q->enqueue(skb, cl->un.leaf.q);
+> +		if (ret == NET_XMIT_DROP) {
+> +			sch->qstats.drops++;
+> +			cl->qstats.drops++;
+> +		} else {
+> +			cl->bstats.packets +=
+> +				skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+> +			cl->bstats.bytes += skb->len;
+> +			htb_activate(q, cl);
 
-200806071944.07304.bpidoux () free ! fr
 
-Although it is not critical for Linux kernel and for general users, it 
-it of valuable interest for the digital hamradio community as it repairs 
-the rose network routing and gives us the connectivity we are lacking.
+This isn't correct: htb_activate() needs cl->un.leaf.q->q.qlen > 0, and
+only NET_XMIT_SUCCESS can guarantee this.
 
-I applied this patch to all kernel versions since it was written without 
-any problem.
-
-Could you look at it ?
-
-Best regards,
-
-
-Bernard Pidoux
-
-
-David Miller wrote:
-> From: "bernard.pidoux" <bernard.pidoux@upmc.fr>
-> Date: Fri, 23 May 2008 17:26:27 +0200
-> 
->> You may have seen that I actually condensed things by finally having 
->> incorporated the search
->> for an already connected node into existing rose_get_neigh() function.
->> This has the advantage to avoid creating a new function and not to use 
->> more spinlocks.
->> Is there any chance that you accept the patch submitted in its resulting 
->> form ?
-> 
-> In the time that has passed I am confused as to which of
-> several pending patches I should look at and apply.
-> 
-> Could you simply resubmit (CC:'ing the proper lists, don't
-> take discussions private like this again please) the patches
-> that you think should be looked at seriously right now?
-> 
-> Thanks.
-> 
-> 
-> 
+Jarek P.
