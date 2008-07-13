@@ -1,86 +1,116 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] sctp: Prevent uninitialized memory access
-Date: Sun, 13 Jul 2008 15:09:16 +0200
-Message-ID: <1215954556-31685-1-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next] sctp: Don't abort initialization when CONFIG_PROC_FS=n
+Date: Sun, 13 Jul 2008 15:09:20 +0200
+Message-ID: <1215954560-31702-1-git-send-email-fw@strlen.de>
 Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	Florian Westphal <fw@strlen.de>
 To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:56257 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:56259 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751001AbYGMNB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 09:01:57 -0400
+	by vger.kernel.org with ESMTP id S1753238AbYGMNCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 09:02:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-valgrind reports uninizialized memory accesses when running
-sctp inside the network simulation cradle simulator:
-
- Conditional jump or move depends on uninitialised value(s)
-    at 0x570E34A: sctp_assoc_sync_pmtu (associola.c:1324)
-    by 0x57427DA: sctp_packet_transmit (output.c:403)
-    by 0x5710EFF: sctp_outq_flush (outqueue.c:824)
-    by 0x5710B88: sctp_outq_uncork (outqueue.c:701)
-    by 0x5745262: sctp_cmd_interpreter (sm_sideeffect.c:1548)
-    by 0x57444B7: sctp_side_effects (sm_sideeffect.c:976)
-    by 0x5744460: sctp_do_sm (sm_sideeffect.c:945)
-    by 0x572157D: sctp_primitive_ASSOCIATE (primitive.c:94)
-    by 0x5725C04: __sctp_connect (socket.c:1094)
-    by 0x57297DC: sctp_connect (socket.c:3297)
-
- Conditional jump or move depends on uninitialised value(s)
-    at 0x575D3A5: mod_timer (timer.c:630)
-    by 0x5752B78: sctp_cmd_hb_timers_start (sm_sideeffect.c:555)
-    by 0x5754133: sctp_cmd_interpreter (sm_sideeffect.c:1448)
-    by 0x5753607: sctp_side_effects (sm_sideeffect.c:976)
-    by 0x57535B0: sctp_do_sm (sm_sideeffect.c:945)
-    by 0x571E9AE: sctp_endpoint_bh_rcv (endpointola.c:474)
-    by 0x573347F: sctp_inq_push (inqueue.c:104)
-    by 0x572EF93: sctp_rcv (input.c:256)
-    by 0x5689623: ip_local_deliver_finish (ip_input.c:230)
-    by 0x5689759: ip_local_deliver (ip_input.c:268)
-    by 0x5689CAC: ip_rcv_finish (dst.h:246)
-
-#1 is due to "if (t->pmtu_pending)".
-8a4794914f9cf2681235ec2311e189fe307c28c7 "[SCTP] Flag a pmtu change request"
-suggests it should be initialized to 0.
-
-#2 is the heartbeat timer 'expires' value, which is uninizialised, but
-test by mod_timer().
-T3_rtx_timer seems to be affected by the same problem, so initialize it, too.
+This puts CONFIG_PROC_FS defines around the proc init/exit functions
+and also avoids compiling proc.c if procfs is not supported.
+Also make SCTP_DBG_OBJCNT depend on procfs.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/sctp/associola.c |    1 +
- net/sctp/transport.c |    3 +++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ net/sctp/Kconfig    |    4 ++--
+ net/sctp/Makefile   |    4 ++--
+ net/sctp/protocol.c |   11 ++++++++++-
+ 3 files changed, 14 insertions(+), 5 deletions(-)
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 024c3eb..1d18710 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -650,6 +650,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+index 0b79f86..7882d36 100644
+--- a/net/sctp/Kconfig
++++ b/net/sctp/Kconfig
+@@ -47,11 +47,11 @@ config SCTP_DBG_MSG
  
- 	SCTP_DEBUG_PRINTK("sctp_assoc_add_peer:association %p PMTU set to "
- 			  "%d\n", asoc, asoc->pathmtu);
-+	peer->pmtu_pending = 0;
+ config SCTP_DBG_OBJCNT
+ 	bool "SCTP: Debug object counts"
++	depends on PROC_FS
+ 	help
+ 	  If you say Y, this will enable debugging support for counting the 
+ 	  type of objects that are currently allocated.  This is useful for 
+-	  identifying memory leaks.   If the /proc filesystem is enabled this 
+-	  debug information can be viewed by 
++	  identifying memory leaks. This debug information can be viewed by
+ 	  'cat /proc/net/sctp/sctp_dbg_objcnt'
  
- 	asoc->frag_point = sctp_frag_point(sp, asoc->pathmtu);
+ 	  If unsure, say N
+diff --git a/net/sctp/Makefile b/net/sctp/Makefile
+index f5356b9..6b79473 100644
+--- a/net/sctp/Makefile
++++ b/net/sctp/Makefile
+@@ -9,10 +9,10 @@ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
+ 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
+ 	  inqueue.o outqueue.o ulpqueue.o command.o \
+ 	  tsnmap.o bind_addr.o socket.o primitive.o \
+-	  output.o input.o debug.o ssnmap.o proc.o \
+-	  auth.o
++	  output.o input.o debug.o ssnmap.o auth.o
  
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 3f34f61..e745c11 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -100,6 +100,9 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
- 	INIT_LIST_HEAD(&peer->send_ready);
- 	INIT_LIST_HEAD(&peer->transports);
+ sctp-$(CONFIG_SCTP_DBG_OBJCNT) += objcnt.o
++sctp-$(CONFIG_PROC_FS) += proc.o
+ sctp-$(CONFIG_SYSCTL) += sysctl.o
  
-+	peer->T3_rtx_timer.expires = 0;
-+	peer->hb_timer.expires = 0;
+ sctp-$(subst m,y,$(CONFIG_IPV6))	+= ipv6.o
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 9258dfe..db13b58 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -64,9 +64,12 @@
+ 
+ /* Global data structures. */
+ struct sctp_globals sctp_globals __read_mostly;
+-struct proc_dir_entry	*proc_net_sctp;
+ DEFINE_SNMP_STAT(struct sctp_mib, sctp_statistics) __read_mostly;
+ 
++#ifdef CONFIG_PROC_FS
++struct proc_dir_entry	*proc_net_sctp;
++#endif
 +
- 	setup_timer(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event,
- 			(unsigned long)peer);
- 	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
+ struct idr sctp_assocs_id;
+ DEFINE_SPINLOCK(sctp_assocs_id_lock);
+ 
+@@ -97,6 +100,7 @@ struct sock *sctp_get_ctl_sock(void)
+ /* Set up the proc fs entry for the SCTP protocol. */
+ static __init int sctp_proc_init(void)
+ {
++#ifdef CONFIG_PROC_FS
+ 	if (!proc_net_sctp) {
+ 		struct proc_dir_entry *ent;
+ 		ent = proc_mkdir("sctp", init_net.proc_net);
+@@ -127,6 +131,9 @@ out_snmp_proc_init:
+ 	}
+ out_nomem:
+ 	return -ENOMEM;
++#else
++	return 0;
++#endif /* CONFIG_PROC_FS */
+ }
+ 
+ /* Clean up the proc fs entry for the SCTP protocol.
+@@ -135,6 +142,7 @@ out_nomem:
+  */
+ static void sctp_proc_exit(void)
+ {
++#ifdef CONFIG_PROC_FS
+ 	sctp_snmp_proc_exit();
+ 	sctp_eps_proc_exit();
+ 	sctp_assocs_proc_exit();
+@@ -143,6 +151,7 @@ static void sctp_proc_exit(void)
+ 		proc_net_sctp = NULL;
+ 		remove_proc_entry("sctp", init_net.proc_net);
+ 	}
++#endif
+ }
+ 
+ /* Private helper to extract ipv4 address and stash them in
 -- 
 1.5.3.7
 
