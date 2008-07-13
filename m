@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian.fainelli@telecomint.eu>
 Subject: [PATCH 04/10] r6040: rework the RX buffers allocation routine
-Date: Sun, 13 Jul 2008 14:30:00 +0200
-Message-ID: <200807131430.01465.florian.fainelli@telecomint.eu>
+Date: Sun, 13 Jul 2008 14:32:18 +0200
+Message-ID: <200807131432.18779.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
@@ -9,9 +9,9 @@ Content-Transfer-Encoding: 7bit
 Cc: Francois Romieu <romieu@fr.zoreil.com>, jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:34675 "EHLO
+Received: from smtp4.int-evry.fr ([157.159.10.71]:55938 "EHLO
 	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752999AbYGMMcq (ORCPT
+	with ESMTP id S1752995AbYGMMcq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 08:32:46 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
