@@ -1,35 +1,45 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: 2.6.26rc9+git bluetooth/rfcomm oops
-Date: Sun, 13 Jul 2008 18:25:54 +0200
-Message-ID: <19f34abd0807130925g3001109cm6bdee9baad701960@mail.gmail.com>
-References: <1215945125.4842.13.camel@localhost>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: [RFC][-rc9 PATCH] Bluetooth: fix oops in rfcomm
+Date: Sun, 13 Jul 2008 19:23:18 +0200
+Message-ID: <20080713172318.GA6180@damson.getinternet.no>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_21806_19432089.1215966354630"
-Cc: "Dave Young" <hidave.darkstar@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Soeren Sonnenburg" <kernel@nn7.de>
+Content-Type: text/plain; charset=us-ascii
+To: Soeren Sonnenburg <kernel@nn7.de>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Dave Young <hidave.darkstar@gmail.com>,
+	linux-kernel@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:51616 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112AbYGMQZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 12:25:55 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so4508292wfd.4
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2008 09:25:54 -0700 (PDT)
-In-Reply-To: <1215945125.4842.13.camel@localhost>
+Received: from ug-out-1314.google.com ([66.249.92.169]:10926 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbYGMRX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 13:23:26 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so147080ugf.16
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2008 10:23:24 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_21806_19432089.1215966354630
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hi,
 
-On Sun, Jul 13, 2008 at 12:32 PM, Soeren Sonnenburg <kernel@nn7.de> wrote:
-> Hi,
->
+Disclaimer: This is just an RFC as I don't really know the code in
+question. But I did try to do it correctly and yes, it DOES fix the
+oops for me. But I'd be really happy if somebody who uses Bluetooth
+in the first place could test & review.
+
+(In other words, you may use this patch for inspiration, etc. if you
+ decide to give it a try yourself.)
+
+
+Vegard
+
+
+>From 675b50291f0af40974074590e2fd16ae0546ecde Mon Sep 17 00:00:00 2001
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Date: Sun, 13 Jul 2008 19:02:11 +0200
+Subject: [PATCH] Bluetooth: fix race between rfcomm and tty
+
+Soeren Sonnenburg reported:
 > this oops happened after a couple of s2ram cycles so it might be very
 > well crap. However I somehow triggered it by /etc/init.d/bluetooth
 > stop/start's which also call hid2hci maybe even a connection was about
@@ -37,98 +47,96 @@ On Sun, Jul 13, 2008 at 12:32 PM, Soeren Sonnenburg <kernel@nn7.de> wrote:
 > this before I thought I report it (even though I have a madwifi tainted
 > kernel).
 >
-> [drm] Num pipes: 1
 > kobject_add_internal failed for rfcomm0 with -EEXIST, don't try to register things with the same name in the same directory.
 
-Hi,
+It turns out that the following sequence of actions will reproduce the
+oops:
 
-Thanks for the report.
+  1. Create a new rfcomm device (using RFCOMMCREATEDEV ioctl)
+  2. (Try to) open the device
+  3. Release the rfcomm device (using RFCOMMRELEASEDEV ioctl)
 
-I was able to reproduce your Oops:
+At this point, the "rfcomm?" tty is still in use, but the device is gone
+from the internal rfcomm list, so the device id can be reused.
 
-kobject_add_internal failed for rfcomm0 with -EEXIST, don't try to
-register things with the same name in the same directory.
-Pid: 2534, comm: a.out Not tainted 2.6.26-rc9-00132-g9df2fe9 #24
- [<c0210161>] kobject_add_internal+0x108/0x13e
- [<c0210478>] kobject_add+0x4a/0x4e
- [<c026e258>] device_add+0x62/0x446
- [<c020feb9>] kobject_init+0x32/0x53
- [<c026e6c4>] device_create_vargs+0x78/0x99
- [<c026e707>] device_create+0x22/0x26
- [<c02521be>] tty_register_device+0x97/0xa2
- [<c0110000>] __cpu_disable+0x10b/0x130
- [<c03721c8>] sk_prot_alloc+0x1c/0x61
- [<c03ea86e>] rfcomm_dev_ioctl+0x213/0x582
- [<c03e9342>] rfcomm_sock_ioctl+0x1e/0x2d
- [<c03715c5>] sock_ioctl+0x152/0x175
- [<c0371473>] sock_ioctl+0x0/0x175
- [<c0166538>] vfs_ioctl+0x1c/0x5d
- [<c01667b6>] do_vfs_ioctl+0x23d/0x254
- [<c037119d>] sys_socketcall+0x51/0x181
- [<c01667f9>] sys_ioctl+0x2c/0x43
- [<c0103569>] sysenter_past_esp+0x6a/0x91
- =======================
+  4. Create a new rfcomm device with the same device id as before
 
-This is because the device may be unregistered even though a reference
-to it is held. When we try to register it again, the kobject layer
-burps because the tty parts have not been unregistered yet. (This only
-happens when the device is finally destroyed, i.e. no references.)
+And now kobject will complain that the tty already exists.
 
-I don't know how to fix this, but I've attached a reproducer and added
-a couple of Ccs.
+This patch attempts to correct this by only removing the device from the
+internal rfcomm list of devices at the final unregister, so that the id
+won't get reused until the device has been completely destructed.
 
+This should be safe as the RFCOMM_TTY_RELEASED bit will be set for the
+device and prevent the device from being reopened after it has been
+released.
 
-Vegard
+We also fix a race at the same time by including the call to
+tty_unregister_device inside the rfcomm_dev_lock (the lock protecting
+the list of devices).
 
+Reported-by: Soeren Sonnenburg <kernel@nn7.de>
+Cc: Marcel Holtmann <marcel@holtmann.org>
+Cc: David Woodhouse <dwmw2@infradead.org>
+Cc: Dave Young <hidave.darkstar@gmail.com>
+Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+---
+ net/bluetooth/rfcomm/tty.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
+index c919187..e289568 100644
+--- a/net/bluetooth/rfcomm/tty.c
++++ b/net/bluetooth/rfcomm/tty.c
+@@ -95,6 +95,8 @@ static void rfcomm_dev_destruct(struct rfcomm_dev *dev)
+ 
+ 	BT_DBG("dev %p dlc %p", dev, dlc);
+ 
++	write_lock_bh(&rfcomm_dev_lock);
++
+ 	/* Refcount should only hit zero when called from rfcomm_dev_del()
+ 	   which will have taken us off the list. Everything else are
+ 	   refcounting bugs. */
+@@ -108,8 +110,11 @@ static void rfcomm_dev_destruct(struct rfcomm_dev *dev)
+ 
+ 	rfcomm_dlc_put(dlc);
+ 
++	list_del_init(&dev->list);
+ 	tty_unregister_device(rfcomm_tty_driver, dev->id);
+ 
++	write_unlock_bh(&rfcomm_dev_lock);
++
+ 	kfree(dev);
+ 
+ 	/* It's safe to call module_put() here because socket still
+@@ -278,14 +283,14 @@ static int rfcomm_dev_add(struct rfcomm_dev_req *req, struct rfcomm_dlc *dlc)
+ 	__module_get(THIS_MODULE);
+ 
+ out:
+-	write_unlock_bh(&rfcomm_dev_lock);
+-
+ 	if (err < 0) {
++		write_unlock_bh(&rfcomm_dev_lock);
+ 		kfree(dev);
+ 		return err;
+ 	}
+ 
+ 	dev->tty_dev = tty_register_device(rfcomm_tty_driver, dev->id, NULL);
++	write_unlock_bh(&rfcomm_dev_lock);
+ 
+ 	if (IS_ERR(dev->tty_dev)) {
+ 		err = PTR_ERR(dev->tty_dev);
+@@ -314,10 +319,6 @@ static void rfcomm_dev_del(struct rfcomm_dev *dev)
+ 	else
+ 		set_bit(RFCOMM_TTY_RELEASED, &dev->flags);
+ 
+-	write_lock_bh(&rfcomm_dev_lock);
+-	list_del_init(&dev->list);
+-	write_unlock_bh(&rfcomm_dev_lock);
+-
+ 	rfcomm_dev_put(dev);
+ }
+ 
 -- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+1.5.4.1
 
-------=_Part_21806_19432089.1215966354630
-Content-Type: text/x-csrc; name=rfcomm.c
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_filutq0c0
-Content-Disposition: attachment; filename=rfcomm.c
-
-I2luY2x1ZGUgPHN5cy9pb2N0bC5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8
-c3lzL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvd2FpdC5oPgoKI2luY2x1ZGUgPGVycm5vLmg+CiNp
-bmNsdWRlIDxmY250bC5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN0ZGludC5oPgoj
-aW5jbHVkZSA8c3RkbGliLmg+CiNpbmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPHVuaXN0ZC5o
-PgoKI2RlZmluZSBSRkNPTU1DUkVBVEVERVYJCV9JT1coJ1InLCAyMDAsIGludCkKI2RlZmluZSBS
-RkNPTU1SRUxFQVNFREVWCV9JT1coJ1InLCAyMDEsIGludCkKI2RlZmluZSBCVFBST1RPX1JGQ09N
-TSAgMwoKdHlwZWRlZiB1aW50OF90IHU4Owp0eXBlZGVmIHVpbnQzMl90IHUzMjsKdHlwZWRlZiBp
-bnQxNl90IHMxNjsKdHlwZWRlZiB1aW50OF90IF9fdTg7CgovKiBCRCBBZGRyZXNzICovCnR5cGVk
-ZWYgc3RydWN0IHsKCV9fdTggYls2XTsKfSBfX2F0dHJpYnV0ZV9fKChwYWNrZWQpKSBiZGFkZHJf
-dDsKCnN0cnVjdCByZmNvbW1fZGV2X3JlcSB7CglzMTYgICAgICBkZXZfaWQ7Cgl1MzIgICAgICBm
-bGFnczsKCWJkYWRkcl90IHNyYzsKCWJkYWRkcl90IGRzdDsKCXU4ICAgICAgIGNoYW5uZWw7Cn07
-Cgp2b2lkIHJmY29tbShpbnQgcmVxdWVzdCwgaW50IGRldl9pZCkKewoJaW50IGZkID0gc29ja2V0
-KFBGX0JMVUVUT09USCwgU09DS19TVFJFQU0sIEJUUFJPVE9fUkZDT01NKTsKCWlmIChmZCA9PSAt
-MSkgewoJCWZwcmludGYoc3RkZXJyLCAic29ja2V0OiBlcnJvcjogJXNcbiIsIHN0cmVycm9yKGVy
-cm5vKSk7CgkJZXhpdChFWElUX0ZBSUxVUkUpOwoJfQoKCXN0cnVjdCByZmNvbW1fZGV2X3JlcSBy
-ZXE7CgltZW1zZXQoJnJlcSwgMCwgc2l6ZW9mKHJlcSkpOwoJcmVxLmRldl9pZCA9IGRldl9pZDsK
-CXJlcS5jaGFubmVsID0gMTsKCglpZiAoaW9jdGwoZmQsIHJlcXVlc3QsICZyZXEpID09IC0xKSB7
-CgkJZnByaW50ZihzdGRlcnIsICJpb2N0bDogZXJyb3I6ICVzXG4iLCBzdHJlcnJvcihlcnJubykp
-OwoJCWV4aXQoRVhJVF9GQUlMVVJFKTsKCX0KCgl3aGlsZSAoY2xvc2UoZmQpID09IC0xICYmIGVy
-cm5vID09IEVJTlRSKTsKfQoKaW50Cm1haW4oaW50IGFyZ2MsIGNoYXIgKmFyZ3ZbXSkKewoJcGlk
-X3QgY2hpbGQ7CgoJY2hpbGQgPSBmb3JrKCk7CglpZiAoY2hpbGQgPT0gLTEpIHsKCQlmcHJpbnRm
-KHN0ZGVyciwgImZvcms6IGVycm9yOiAlc1xuIiwgc3RyZXJyb3IoZXJybm8pKTsKCQlleGl0KEVY
-SVRfRkFJTFVSRSk7Cgl9CgoJaWYgKGNoaWxkID09IDApIHsKCQlwcmludGYoIkNyZWF0aW5nXG4i
-KTsKCQlyZmNvbW0oUkZDT01NQ1JFQVRFREVWLCAwKTsKCgkJcHJpbnRmKCJPcGVuaW5nIC9kZXYv
-cmZjb21tMC4uLlxuIik7CgoJCWludCBmZCA9IG9wZW4oIi9kZXYvcmZjb21tMCIsIE9fUkRXUiB8
-IE9fTk9DVFRZKTsKCQlpZiAoZmQgPT0gLTEpIHsKCQkJZnByaW50ZihzdGRlcnIsICJvcGVuOiBl
-cnJvcjogJXNcbiIsIHN0cmVycm9yKGVycm5vKSk7CgkJCXJmY29tbShSRkNPTU1SRUxFQVNFREVW
-LCAwKTsKCQkJZXhpdChFWElUX0ZBSUxVUkUpOwoJCX0KCgkJZXhpdChFWElUX1NVQ0NFU1MpOwoJ
-fQoKCXNsZWVwKDEpOwoKCS8qIFRoaXMgd2lsbCBkZWxldGUgdGhlIGRldmljZSwgYnV0IHNpbmNl
-IHdlIHN0aWxsIGhvbGQgYSByZWZlcmVuY2UKCSAqIHRvIGl0IGluICJmZCIsIHRoZSB0dHkgd29u
-J3QgYmUgdW5yZWdpc3RlcmVkIHlldC4uLiAqLwoJcHJpbnRmKCJSZWxlYXNpbmdcbiIpOwoJcmZj
-b21tKFJGQ09NTVJFTEVBU0VERVYsIDApOwoKCS8qIEFuZCBub3cgd2UgdHJ5IHRvIHJlZ2lzdGVy
-IHRoZSBzYW1lIHR0eSBkZXZpY2UuLi4gKi8KCXByaW50ZigiUmVjcmVhdGluZ1xuIik7CglyZmNv
-bW0oUkZDT01NQ1JFQVRFREVWLCAwKTsKCgkvKiBDbGVhbnVwICovCglwcmludGYoIlJlbGVhc2lu
-Z1xuIik7CglyZmNvbW0oUkZDT01NUkVMRUFTRURFViwgMCk7CgoJd2hpbGUgKDEpIHsKCQlpbnQg
-c3RhdHVzOwoKCQlpZiAod2FpdCgmc3RhdHVzKSA9PSAtMSkgewoJCQlpZiAoZXJybm8gPT0gRUNI
-SUxEKQoJCQkJYnJlYWs7CgoJCQlmcHJpbnRmKHN0ZGVyciwgIndhaXQ6IGVycm9yOiAlc1xuIiwg
-c3RyZXJyb3IoZXJybm8pKTsKCQkJZXhpdChFWElUX0ZBSUxVUkUpOwoJCX0KCX0KCglyZXR1cm4g
-RVhJVF9TVUNDRVNTOwp9Cg==
-------=_Part_21806_19432089.1215966354630--
