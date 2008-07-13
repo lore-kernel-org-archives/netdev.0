@@ -1,49 +1,43 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [bisected] kernel panic 2.6.22 -> 2.6.26-rc9+
-Date: Sun, 13 Jul 2008 12:48:15 +0200
-Message-ID: <m3abgmcb68.fsf@maximus.localdomain>
-References: <m3d4lisk4i.fsf@maximus.localdomain>
-	<20080713013107.23f060f2.akpm@linux-foundation.org>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: [PATCH 0/10] r6040 bugfixes
+Date: Sun, 13 Jul 2008 13:25:07 +0200
+Message-ID: <200807131325.08404.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+lkml@arm.linux.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>, jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from OSB1387.piap.pl ([195.187.100.11]:53124 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752242AbYGMKsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jul 2008 06:48:17 -0400
-In-Reply-To: <20080713013107.23f060f2.akpm@linux-foundation.org> (Andrew Morton's message of "Sun\, 13 Jul 2008 01\:31\:07 -0700")
+Received: from smtp4.int-evry.fr ([157.159.10.71]:54753 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076AbYGMLZm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 07:25:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+Hi Jeff, Fran=E7ois,
 
-> (cc's added)
+This serie of 10 patches against Jeff's netdev-2.6 tree includes severa=
+l=20
+critical bugfixes and cleanups for the r6040 driver. Please tell me if =
+you=20
+have any problems applying those patches to either Fran=E7ois's r6040 b=
+ranch
+or the netdev repository.
 
-(cc added) :-)
+Thank you very much.
 
-> I guess you're referring to this:
-> http://linux.derkeiler.com/Mailing-Lists/Kernel/2008-07/msg04754.html
-
-Right.
-
->> PPP over ATM connection (Thomson/Alcatel
->> Speedtouch). It doesn't seem to occur on the same IXP4xx with Ethernet
->> or V.35 WAN, and it doesn't occur on i386 + the same Speedtouch ADSL.
->> The kernel is basically unpatched, the only extra patch applied is the
->> platform support (nothing magic).
->> 
->> Generally to trigger the panic one has to request a TCP data stream
->> over that PPPoATM connection.
-
-I see what's wrong now: that's the ARM fls() problem, the call in
-fls64() to be precise. It seems it was already discussed: the patch in
-http://lkml.org/lkml/2008/5/4/233 makes the problem disappear.
-
-Perhaps it's time to fix it definitely?
--- 
-Krzysztof Halasa
+[PATCH 01/10] r6040: prefix all functions with r6040
+[PATCH 02/10] r6040: fix null pointer access and tx timeouts
+[PATCH 03/10] r6040: fix scheduling while atomic in r6040_tx_timeout
+[PATCH 04/10] r6040: rework the RX buffers allocation routine
+PATCH 05/10] r6040: call napi_disable when puting down the interface an=
+d set=20
+lp->dev accordingly
+[PATCH 06/10] r6040: completely rework the RX path
+[PATCH 07/10] r6040: use definitions for magic values in descriptor sta=
+tus
+[PATCH 08/10] r6040: change the default waiting time
+[PATCH 09/10] r6040: handle RX fifo full and no descriptor interrupts
+[PATCH 10/10] r6040: bump release number to 0.18
