@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: [PATCH 03/10] r6040: fix scheduling while atomic in r6040_tx_timeout
-Date: Sun, 13 Jul 2008 14:29:20 +0200
-Message-ID: <200807131429.20589.florian.fainelli@telecomint.eu>
+Subject: [PATCH 04/10] r6040: rework the RX buffers allocation routine
+Date: Sun, 13 Jul 2008 14:30:00 +0200
+Message-ID: <200807131430.01465.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
@@ -9,197 +9,125 @@ Content-Transfer-Encoding: 7bit
 Cc: Francois Romieu <romieu@fr.zoreil.com>, jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:47599 "EHLO
+Received: from smtp4.int-evry.fr ([157.159.10.71]:34675 "EHLO
 	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752973AbYGMMaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 08:30:04 -0400
+	with ESMTP id S1752999AbYGMMcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 08:32:46 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a helper function which only modifies R6040 MAC registers
-use it when we timeout, and on adapter initialization. Fix
-the scheduling while atomic but in the timeout routine due
-to the reallocation of rx/tx buffers.
+Rework the RX buffers allocation function so that we do not
+leak memory in the case we could not allocate skbs for the
+RX path. Propagate the errors to the r6040_up function
+where we call the RX buffers allocation function.
+
+Also rename the r6040_alloc_txbufs function to
+r6040_init_txbufs, to reflect what it really does.
 
 Signed-Off-By: Joerg Albert <jal2@gmx.de>
 Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
 ---
 diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index d277deb..0972152 100644
+index 0972152..4f2ebb2 100644
 --- a/drivers/net/r6040.c
 +++ b/drivers/net/r6040.c
-@@ -295,7 +295,6 @@ static void r6040_init_ring_desc(struct r6040_descriptor *desc_ring,
- static void r6040_rx_buf_alloc(struct r6040_private *lp, struct net_device *dev)
- {
- 	struct r6040_descriptor *descptr;
--	void __iomem *ioaddr = lp->base;
- 
- 	descptr = lp->rx_insert_ptr;
- 	while (lp->rx_free_desc < RX_DCNT) {
-@@ -309,8 +308,6 @@ static void r6040_rx_buf_alloc(struct r6040_private *lp, struct net_device *dev)
- 		descptr->status = 0x8000;
- 		descptr = descptr->vndescp;
- 		lp->rx_free_desc++;
--		/* Trigger RX DMA */
--		iowrite16(lp->mcr0 | 0x0002, ioaddr);
- 	}
+@@ -312,7 +312,7 @@ static void r6040_rx_buf_alloc(struct r6040_private *lp, struct net_device *dev)
  	lp->rx_insert_ptr = descptr;
  }
-@@ -318,21 +315,16 @@ static void r6040_rx_buf_alloc(struct r6040_private *lp, struct net_device *dev)
- static void r6040_alloc_txbufs(struct net_device *dev)
+ 
+-static void r6040_alloc_txbufs(struct net_device *dev)
++static void r6040_init_txbufs(struct net_device *dev)
  {
  	struct r6040_private *lp = netdev_priv(dev);
--	void __iomem *ioaddr = lp->base;
  
- 	lp->tx_free_desc = TX_DCNT;
- 
- 	lp->tx_remove_ptr = lp->tx_insert_ptr = lp->tx_ring;
+@@ -322,16 +322,39 @@ static void r6040_alloc_txbufs(struct net_device *dev)
  	r6040_init_ring_desc(lp->tx_ring, lp->tx_ring_dma, TX_DCNT);
--
--	iowrite16(lp->tx_ring_dma, ioaddr + MTD_SA0);
--	iowrite16(lp->tx_ring_dma >> 16, ioaddr + MTD_SA1);
  }
  
- static void r6040_alloc_rxbufs(struct net_device *dev)
+-static void r6040_alloc_rxbufs(struct net_device *dev)
++static int r6040_alloc_rxbufs(struct net_device *dev)
  {
  	struct r6040_private *lp = netdev_priv(dev);
--	void __iomem *ioaddr = lp->base;
+-
+-	lp->rx_free_desc = 0;
++	struct r6040_descriptor *desc;
++	struct sk_buff *skb;
++	int rc;
  
- 	lp->rx_free_desc = 0;
- 
-@@ -340,9 +332,58 @@ static void r6040_alloc_rxbufs(struct net_device *dev)
+ 	lp->rx_remove_ptr = lp->rx_insert_ptr = lp->rx_ring;
  	r6040_init_ring_desc(lp->rx_ring, lp->rx_ring_dma, RX_DCNT);
  
- 	r6040_rx_buf_alloc(lp, dev);
-+}
+-	r6040_rx_buf_alloc(lp, dev);
++	/* Allocate skbs for the rx descriptors */
++	desc = lp->rx_ring;
++	do {
++		skb = netdev_alloc_skb(dev, MAX_BUF_SIZE);
++		if (!skb) {
++			printk(KERN_ERR "%s: failed to alloc skb for rx\n", dev->name);
++			rc = -ENOMEM;
++			goto err_exit;
++		}
++		desc->skb_ptr = skb;
++		desc->buf = cpu_to_le32(pci_map_single(lp->pdev,
++						desc->skb_ptr->data,
++						MAX_BUF_SIZE, PCI_DMA_FROMDEVICE));
++		desc->status = 0x8000;
++		desc = desc->vndescp;
++	} while (desc != lp->rx_ring);
 +
-+static void r6040_init_mac_regs(struct net_device *dev)
-+{
-+	struct r6040_private *lp = netdev_priv(dev);
-+	void __iomem *ioaddr = lp->base;
-+	int limit = 2048;
-+	u16 cmd;
++	return 0;
 +
-+	/* Mask Off Interrupt */
-+	iowrite16(MSK_INT, ioaddr + MIER);
- 
-+	/* Reset RDC MAC */
-+	iowrite16(MAC_RST, ioaddr + MCR1);
-+	while (limit--) {
-+		cmd = ioread16(ioaddr + MCR1);
-+		if (cmd & 0x1)
-+			break;
-+	}
-+	/* Reset internal state machine */
-+	iowrite16(2, ioaddr + MAC_SM);
-+	iowrite16(0, ioaddr + MAC_SM);
-+	udelay(5000);
-+
-+	/* MAC Bus Control Register */
-+	iowrite16(MBCR_DEFAULT, ioaddr + MBCR);
-+
-+	/* Buffer Size Register */
-+	iowrite16(MAX_BUF_SIZE, ioaddr + MR_BSR);
-+
-+	/* Write TX ring start address */
-+	iowrite16(lp->tx_ring_dma, ioaddr + MTD_SA0);
-+	iowrite16(lp->tx_ring_dma >> 16, ioaddr + MTD_SA1);
-+
-+	/* Write RX ring start address */
- 	iowrite16(lp->rx_ring_dma, ioaddr + MRD_SA0);
- 	iowrite16(lp->rx_ring_dma >> 16, ioaddr + MRD_SA1);
-+
-+	/* Set interrupt waiting time and packet numbers */
-+	iowrite16(0x0F06, ioaddr + MT_ICR);
-+	iowrite16(0x0F06, ioaddr + MR_ICR);
-+
-+	/* Enable interrupts */
-+	iowrite16(INT_MASK, ioaddr + MIER);
-+
-+	/* Enable TX and RX */
-+	iowrite16(lp->mcr0 | 0x0002, ioaddr);
-+
-+	/* Let TX poll the descriptors
-+	 * we may got called by r6040_tx_timeout which has left
-+	 * some unsent tx buffers */
-+	iowrite16(0x01, ioaddr + MTPR);
++err_exit:
++	/* Deallocate all previously allocated skbs */
++	r6040_free_rxbufs(dev);
++	return rc;
  }
  
- static void r6040_tx_timeout(struct net_device *dev)
-@@ -350,27 +391,16 @@ static void r6040_tx_timeout(struct net_device *dev)
- 	struct r6040_private *priv = netdev_priv(dev);
- 	void __iomem *ioaddr = priv->base;
+ static void r6040_init_mac_regs(struct net_device *dev)
+@@ -697,14 +720,17 @@ static void r6040_poll_controller(struct net_device *dev)
+ #endif
  
--	printk(KERN_WARNING "%s: transmit timed out, status %4.4x, PHY status "
--		"%4.4x\n",
-+	printk(KERN_WARNING "%s: transmit timed out, int enable %4.4x "
-+		"status %4.4x, PHY status %4.4x\n",
- 		dev->name, ioread16(ioaddr + MIER),
-+		ioread16(ioaddr + MISR),
- 		r6040_mdio_read(dev, priv->mii_if.phy_id, MII_BMSR));
+ /* Init RDC MAC */
+-static void r6040_up(struct net_device *dev)
++static int r6040_up(struct net_device *dev)
+ {
+ 	struct r6040_private *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
++	int ret;
  
--	disable_irq(dev->irq);
--	napi_disable(&priv->napi);
--	spin_lock(&priv->lock);
--	/* Clear all descriptors */
--	r6040_free_txbufs(dev);
--	r6040_free_rxbufs(dev);
+ 	/* Initialise and alloc RX/TX buffers */
 -	r6040_alloc_txbufs(dev);
 -	r6040_alloc_rxbufs(dev);
--
--	/* Reset MAC */
--	iowrite16(MAC_RST, ioaddr + MCR1);
--	spin_unlock(&priv->lock);
--	enable_irq(dev->irq);
--
- 	dev->stats.tx_errors++;
--	netif_wake_queue(dev);
-+
-+	/* Reset MAC and re-init all registers */
-+	r6040_init_mac_regs(dev);
- }
++	r6040_init_txbufs(dev);
++	ret = r6040_alloc_rxbufs(dev);
++	if (ret)
++		return ret;
  
- static struct net_device_stats *r6040_get_stats(struct net_device *dev)
-@@ -676,8 +706,6 @@ static void r6040_up(struct net_device *dev)
- 	r6040_alloc_txbufs(dev);
- 	r6040_alloc_rxbufs(dev);
- 
--	/* Buffer Size Register */
--	iowrite16(MAX_BUF_SIZE, ioaddr + MR_BSR);
  	/* Read the PHY ID */
  	lp->switch_sig = r6040_phy_read(ioaddr, 0, 2);
+@@ -734,6 +760,8 @@ static void r6040_up(struct net_device *dev)
  
-@@ -694,20 +722,9 @@ static void r6040_up(struct net_device *dev)
- 		else
- 			lp->phy_mode = (PHY_MODE & 0x0100) ? 0x8000:0x0;
- 	}
--	/* MAC Bus Control Register :
--	 * - wait 1 host clock SDRAM bus request
--	 * - RX FIFO : 32 bytes 
--	 * - TX FIFO : 64 bytes 
--	 * - FIFO transfer lenght : 16 bytes */
--	iowrite16(MBCR_DEFAULT, ioaddr + MBCR);
- 
--	/* MAC TX/RX Enable */
-+	/* Set duplex mode */
- 	lp->mcr0 |= lp->phy_mode;
--	iowrite16(lp->mcr0, ioaddr);
--
--	/* set interrupt waiting time and packet numbers */
--	iowrite16(0x0F06, ioaddr + MT_ICR);
--	iowrite16(0x0F06, ioaddr + MR_ICR);
- 
- 	/* improve performance (by RDC guys) */
- 	r6040_phy_write(ioaddr, 30, 17, (r6040_phy_read(ioaddr, 30, 17) | 0x4000));
-@@ -715,8 +732,8 @@ static void r6040_up(struct net_device *dev)
- 	r6040_phy_write(ioaddr, 0, 19, 0x0000);
- 	r6040_phy_write(ioaddr, 0, 30, 0x01F0);
- 
--	/* Interrupt Mask Register */
--	iowrite16(INT_MASK, ioaddr + MIER);
-+	/* Initialize all MAC registers */
-+	r6040_init_mac_regs(dev);
+ 	/* Initialize all MAC registers */
+ 	r6040_init_mac_regs(dev);
++
++	return 0;
  }
  
  /*
+@@ -812,7 +840,14 @@ static int r6040_open(struct net_device *dev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	r6040_up(dev);
++	ret = r6040_up(dev);
++	if (ret) {
++		pci_free_consistent(lp->pdev, TX_DESC_SIZE, lp->tx_ring,
++							lp->tx_ring_dma);
++		pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
++							lp->rx_ring_dma);
++		return ret;
++	}
+ 
+ 	napi_enable(&lp->napi);
+ 	netif_start_queue(dev);
