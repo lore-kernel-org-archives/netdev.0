@@ -1,32 +1,54 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Detecting TCP loss on the receiving side?
-Date: Sun, 13 Jul 2008 20:52:48 +0200
-Message-ID: <87iqv9zke7.fsf@basil.nowhere.org>
-References: <4876668C.8040108@limebrokerage.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [bisected] kernel panic 2.6.22 -> 2.6.26-rc9+
+Date: Sun, 13 Jul 2008 23:51:06 +0200
+Message-ID: <m3lk05jvw5.fsf@maximus.localdomain>
+References: <m3d4lisk4i.fsf@maximus.localdomain>
+	<20080713013107.23f060f2.akpm@linux-foundation.org>
+	<m3abgmcb68.fsf@maximus.localdomain>
+	<20080713112230.e86ba9ae.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dan =?utf-8?Q?No=C3=A9?= <dnoe@limebrokerage.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:21673 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbYGMSwu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 14:52:50 -0400
-In-Reply-To: <4876668C.8040108@limebrokerage.com> (Dan =?utf-8?Q?No=C3=A9'?=
- =?utf-8?Q?s?= message of "Thu, 10 Jul 2008 15:44:12 -0400")
+Received: from khc.piap.pl ([195.187.100.11]:57379 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753949AbYGMVvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jul 2008 17:51:08 -0400
+In-Reply-To: <20080713112230.e86ba9ae.akpm@linux-foundation.org> (Andrew Morton's message of "Sun\, 13 Jul 2008 11\:22\:30 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan No=C3=A9 <dnoe@limebrokerage.com> writes:
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-> We're trying to troubleshoot some problems and we'd like to use the
-> struct tcp_info method to gain some information and attempt to detect
-> TCP loss events on the receiving side of a TCP stream.=20
+> --- a/include/asm-arm/bitops.h~a
+> +++ a/include/asm-arm/bitops.h
+> @@ -277,9 +277,16 @@ static inline int constant_fls(int x)
+>   * the clz instruction for much better code efficiency.
+>   */
+>  
+> -#define fls(x) \
+> +#define __fls(x) \
+>  	( __builtin_constant_p(x) ? constant_fls(x) : \
+>  	  ({ int __r; asm("clz\t%0, %1" : "=r"(__r) : "r"(x) : "cc"); 32-__r; }) )
+> +
+> +/* Implement fls() in C so that 64-bit args are suitably truncated */
+> +static inline int fls(int x)
+> +{
+> +	return __fls(x);
+> +}
+> +
 
-Receiver Loss can be diagnosed using netstat -s at least. Especially if=
- you
-can rule out reordering. But only system global currently, although
-that might change with containers.
+Well, I like it more as it fixes all possible places instead of only
+fls64().
 
--Andi
+But... can't we just move the #define body into the inline fls(x)?
+Will there be other users of __fls(x)? It seems the
+__builtin_constant_p(x) works for inline functions.
+
+The above patch fixes the kernel panic, too.
+-- 
+Krzysztof Halasa
