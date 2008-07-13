@@ -1,78 +1,32 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [bisected] kernel panic 2.6.22 -> 2.6.26-rc9+
-Date: Sun, 13 Jul 2008 11:22:30 -0700
-Message-ID: <20080713112230.e86ba9ae.akpm@linux-foundation.org>
-References: <m3d4lisk4i.fsf@maximus.localdomain>
-	<20080713013107.23f060f2.akpm@linux-foundation.org>
-	<m3abgmcb68.fsf@maximus.localdomain>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Detecting TCP loss on the receiving side?
+Date: Sun, 13 Jul 2008 20:52:48 +0200
+Message-ID: <87iqv9zke7.fsf@basil.nowhere.org>
+References: <4876668C.8040108@limebrokerage.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+lkml@arm.linux.org.uk>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Dan =?utf-8?Q?No=C3=A9?= <dnoe@limebrokerage.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58986 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665AbYGMSXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 14:23:17 -0400
-In-Reply-To: <m3abgmcb68.fsf@maximus.localdomain>
+Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:21673 "EHLO
+	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbYGMSwu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 14:52:50 -0400
+In-Reply-To: <4876668C.8040108@limebrokerage.com> (Dan =?utf-8?Q?No=C3=A9'?=
+ =?utf-8?Q?s?= message of "Thu, 10 Jul 2008 15:44:12 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Jul 2008 12:48:15 +0200 Krzysztof Halasa <khc@pm.waw.pl> wrote:
+Dan No=C3=A9 <dnoe@limebrokerage.com> writes:
 
-> Andrew Morton <akpm@linux-foundation.org> writes:
-> 
-> > (cc's added)
-> 
-> (cc added) :-)
-> 
-> > I guess you're referring to this:
-> > http://linux.derkeiler.com/Mailing-Lists/Kernel/2008-07/msg04754.html
-> 
-> Right.
-> 
-> >> PPP over ATM connection (Thomson/Alcatel
-> >> Speedtouch). It doesn't seem to occur on the same IXP4xx with Ethernet
-> >> or V.35 WAN, and it doesn't occur on i386 + the same Speedtouch ADSL.
-> >> The kernel is basically unpatched, the only extra patch applied is the
-> >> platform support (nothing magic).
-> >> 
-> >> Generally to trigger the panic one has to request a TCP data stream
-> >> over that PPPoATM connection.
-> 
-> I see what's wrong now: that's the ARM fls() problem, the call in
-> fls64() to be precise. It seems it was already discussed: the patch in
-> http://lkml.org/lkml/2008/5/4/233 makes the problem disappear.
+> We're trying to troubleshoot some problems and we'd like to use the
+> struct tcp_info method to gain some information and attempt to detect
+> TCP loss events on the receiving side of a TCP stream.=20
 
-Ah.
+Receiver Loss can be diagnosed using netstat -s at least. Especially if=
+ you
+can rule out reordering. But only system global currently, although
+that might change with containers.
 
-> Perhaps it's time to fix it definitely?
-
-I'd sugget something like this.  Can you test, please?
-
---- a/include/asm-arm/bitops.h~a
-+++ a/include/asm-arm/bitops.h
-@@ -277,9 +277,16 @@ static inline int constant_fls(int x)
-  * the clz instruction for much better code efficiency.
-  */
- 
--#define fls(x) \
-+#define __fls(x) \
- 	( __builtin_constant_p(x) ? constant_fls(x) : \
- 	  ({ int __r; asm("clz\t%0, %1" : "=r"(__r) : "r"(x) : "cc"); 32-__r; }) )
-+
-+/* Implement fls() in C so that 64-bit args are suitably truncated */
-+static inline int fls(int x)
-+{
-+	return __fls(x);
-+}
-+
- #define ffs(x) ({ unsigned long __t = (x); fls(__t & -__t); })
- #define __ffs(x) (ffs(x) - 1)
- #define ffz(x) __ffs( ~(x) )
-_
-
+-Andi
