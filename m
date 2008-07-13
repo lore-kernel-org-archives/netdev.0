@@ -1,116 +1,30 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] sctp: Don't abort initialization when CONFIG_PROC_FS=n
-Date: Sun, 13 Jul 2008 15:09:20 +0200
-Message-ID: <1215954560-31702-1-git-send-email-fw@strlen.de>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>
-To: vladislav.yasevich@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:56259 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753238AbYGMNCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2008 09:02:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: REDIRECT in nat OUTPUT
+Date: Sun, 13 Jul 2008 18:09:30 +0400
+Message-ID: <20080713140930.GA23238@2ka.mipt.ru>
+References: <200807120424.56462.denys@visp.net.lb> <20080712062812.GA7609@2ka.mipt.ru> <200807121655.44547.denys@visp.net.lb> <200807121740.25789.denys@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200807121740.25789.denys@visp.net.lb>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This puts CONFIG_PROC_FS defines around the proc init/exit functions
-and also avoids compiling proc.c if procfs is not supported.
-Also make SCTP_DBG_OBJCNT depend on procfs.
+On Sat, Jul 12, 2008 at 05:40:25PM +0300, Denys Fedoryshchenko (denys@visp.net.lb) wrote:
+> Seems i found something. After issuing ethtool -K lo tso on i got significant performance improvement.
+> Why it is not on by default?
+> Without it performance is VERY poor.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/sctp/Kconfig    |    4 ++--
- net/sctp/Makefile   |    4 ++--
- net/sctp/protocol.c |   11 ++++++++++-
- 3 files changed, 14 insertions(+), 5 deletions(-)
+TSO over loopback turns to be GSO, which allows to aggregate multiple
+packets into single frame. If system is not CPU bound, then it is likely
+REDIRECT problem. If I understood you corerctly, loopback performance is
+always good without REDIRECT, but fails to miserable level when
+apprpriate rule is used?
 
-diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
-index 0b79f86..7882d36 100644
---- a/net/sctp/Kconfig
-+++ b/net/sctp/Kconfig
-@@ -47,11 +47,11 @@ config SCTP_DBG_MSG
- 
- config SCTP_DBG_OBJCNT
- 	bool "SCTP: Debug object counts"
-+	depends on PROC_FS
- 	help
- 	  If you say Y, this will enable debugging support for counting the 
- 	  type of objects that are currently allocated.  This is useful for 
--	  identifying memory leaks.   If the /proc filesystem is enabled this 
--	  debug information can be viewed by 
-+	  identifying memory leaks. This debug information can be viewed by
- 	  'cat /proc/net/sctp/sctp_dbg_objcnt'
- 
- 	  If unsure, say N
-diff --git a/net/sctp/Makefile b/net/sctp/Makefile
-index f5356b9..6b79473 100644
---- a/net/sctp/Makefile
-+++ b/net/sctp/Makefile
-@@ -9,10 +9,10 @@ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
- 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
- 	  inqueue.o outqueue.o ulpqueue.o command.o \
- 	  tsnmap.o bind_addr.o socket.o primitive.o \
--	  output.o input.o debug.o ssnmap.o proc.o \
--	  auth.o
-+	  output.o input.o debug.o ssnmap.o auth.o
- 
- sctp-$(CONFIG_SCTP_DBG_OBJCNT) += objcnt.o
-+sctp-$(CONFIG_PROC_FS) += proc.o
- sctp-$(CONFIG_SYSCTL) += sysctl.o
- 
- sctp-$(subst m,y,$(CONFIG_IPV6))	+= ipv6.o
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 9258dfe..db13b58 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -64,9 +64,12 @@
- 
- /* Global data structures. */
- struct sctp_globals sctp_globals __read_mostly;
--struct proc_dir_entry	*proc_net_sctp;
- DEFINE_SNMP_STAT(struct sctp_mib, sctp_statistics) __read_mostly;
- 
-+#ifdef CONFIG_PROC_FS
-+struct proc_dir_entry	*proc_net_sctp;
-+#endif
-+
- struct idr sctp_assocs_id;
- DEFINE_SPINLOCK(sctp_assocs_id_lock);
- 
-@@ -97,6 +100,7 @@ struct sock *sctp_get_ctl_sock(void)
- /* Set up the proc fs entry for the SCTP protocol. */
- static __init int sctp_proc_init(void)
- {
-+#ifdef CONFIG_PROC_FS
- 	if (!proc_net_sctp) {
- 		struct proc_dir_entry *ent;
- 		ent = proc_mkdir("sctp", init_net.proc_net);
-@@ -127,6 +131,9 @@ out_snmp_proc_init:
- 	}
- out_nomem:
- 	return -ENOMEM;
-+#else
-+	return 0;
-+#endif /* CONFIG_PROC_FS */
- }
- 
- /* Clean up the proc fs entry for the SCTP protocol.
-@@ -135,6 +142,7 @@ out_nomem:
-  */
- static void sctp_proc_exit(void)
- {
-+#ifdef CONFIG_PROC_FS
- 	sctp_snmp_proc_exit();
- 	sctp_eps_proc_exit();
- 	sctp_assocs_proc_exit();
-@@ -143,6 +151,7 @@ static void sctp_proc_exit(void)
- 		proc_net_sctp = NULL;
- 		remove_proc_entry("sctp", init_net.proc_net);
- 	}
-+#endif
- }
- 
- /* Private helper to extract ipv4 address and stash them in
 -- 
-1.5.3.7
-
+	Evgeniy Polyakov
