@@ -1,37 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Mon, 14 Jul 2008 17:27:29 +0200
-Message-ID: <487B7061.5040306@trash.net>
-References: <20080710223141.GA2519@orion.carnet.hr>	<20080710.162007.04790623.davem@davemloft.net>	<20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net> <48787E1A.3030804@gmail.com> <4878AFD8.1000307@gmail.com>
+From: "Guy Cohen" <guy.cohen@intel.com>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Mon, 14 Jul 2008 18:43:27 +0300
+Message-ID: <247d6d340807140843t6903d779h90461ba54160817d@mail.gmail.com>
+References: <20080709190915.GA8238@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, joy@entuzijast.net,
-	mchan@broadcom.com, billfink@mindspring.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	mirrors@debian.org, devik@cdi.cz
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49481 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058AbYGNP3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 11:29:03 -0400
-In-Reply-To: <4878AFD8.1000307@gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.171]:55872 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049AbYGNPna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 11:43:30 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so257137ugf.16
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 08:43:28 -0700 (PDT)
+In-Reply-To: <20080709190915.GA8238@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Jarek Poplawski wrote, On 07/12/2008 11:49 AM:
-> 
->> This isn't correct: htb_activate() needs cl->un.leaf.q->q.qlen > 0, and
->> only NET_XMIT_SUCCESS can guarantee this.
-> 
-> 
-> ...Actually, it looks like even NET_XMIT_SUCCESS can't guarantee this
-> (when returned after TC_ACT_QUEUED or TC_ACT_STOLEN), so additional qlen
-> test is needed here.
+I think that probably the most burning topics were a little diminished
+in our agenda, and should be put higher:
+- cfg80211/nl80211 - much of the current wext begins to fall behind
+the emerging capabilities of the mac80211 and moreover - from future
+abilities and needs of future fullmac devices. The functionality and
+ABI to userspace must be finalized as soon as possible. The status of
+this is very unclear and should be treated more thoroughly, and it
+seems it can't be shared with 5 other topics in less than 2 hours.
+- fullmac support - seems to be very relevant in the next couple of
+years with the integration of wifi into low power devices running
+linux.
 
-The TC action code translation needs to be fixed instead.
+I think that these two topics should take precedence over other topics
+that although important consume more time in the agenda, and are
+currently less likely to have impact on the average users such as 11s
+and 11w.
 
-I didn't manage to work on this this weekend as I intended, but
-I'll take care of it soon unless someone beats me to it.
+it would be good if these topics will get substantial time slot in the agenda.
