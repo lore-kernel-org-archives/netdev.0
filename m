@@ -1,38 +1,55 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [rfc] new sk_buff member: hwstamp
-Date: Mon, 14 Jul 2008 23:07:11 +0300
-Message-ID: <200807142307.11575.opurdila@ixiacom.com>
-References: <200807141843.00845.opurdila@ixiacom.com> <200807142130.12375.opurdila@ixiacom.com> <487BA1B8.5070006@hartkopp.net>
+From: Josip Rodin <joy@entuzijast.net>
+Subject: Re: bnx2_poll panicking kernel
+Date: Mon, 14 Jul 2008 22:21:51 +0200
+Message-ID: <20080714202151.GA28622@orion.carnet.hr>
+References: <20080710223141.GA2519@orion.carnet.hr> <20080710.162007.04790623.davem@davemloft.net> <20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net> <48787E1A.3030804@gmail.com> <4878AFD8.1000307@gmail.com> <487B7061.5040306@trash.net> <20080714172055.GA2638@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	billfink@mindspring.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, mirrors@debian.org, devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4062 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756077AbYGNUJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 16:09:22 -0400
-In-Reply-To: <487BA1B8.5070006@hartkopp.net>
+Received: from orion.CARNet.hr ([161.53.160.90]:34234 "EHLO orion.carnet.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755171AbYGNUV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2008 16:21:59 -0400
 Content-Disposition: inline
+In-Reply-To: <20080714172055.GA2638@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 14 July 2008, Oliver Hartkopp wrote:
->
-> > The problem for this approach in our usecase (one way delay measurement)
-> > is that the real time clock of the CPUs (of the RX and TX ports) is not
-> > synchronized, but the hw timestamp (implemented in the NIC/FPGA) is.
->
-> Is it necessary to have syncronized clocks on the different CPUs or is
-> it feasible to calculate a per-cpu-clock offset in your driver, so that
-> you can build a complete timing overview of your setup?
->
+On Mon, Jul 14, 2008 at 07:20:55PM +0200, Jarek Poplawski wrote:
+> On Mon, Jul 14, 2008 at 05:27:29PM +0200, Patrick McHardy wrote:
+> > Jarek Poplawski wrote:
+> >> Jarek Poplawski wrote, On 07/12/2008 11:49 AM:
+> >>
+> >>> This isn't correct: htb_activate() needs cl->un.leaf.q->q.qlen > 0, and
+> >>> only NET_XMIT_SUCCESS can guarantee this.
+> >>
+> >>
+> >> ...Actually, it looks like even NET_XMIT_SUCCESS can't guarantee this
+> >> (when returned after TC_ACT_QUEUED or TC_ACT_STOLEN), so additional qlen
+> >> test is needed here.
+> >
+> > The TC action code translation needs to be fixed instead.
+> >
+> > I didn't manage to work on this this weekend as I intended, but
+> > I'll take care of it soon unless someone beats me to it.
+> 
+> IMHO, since this TC_ACT_ issue looks quite rare, David's patch, with
+> "htb_activate()" moved to the last "if (ret == NET_XMIT_SUCCESS)"
+> blocks, looks like necessary.
+> 
+> BTW, I wonder how Josip's testing?
 
-Sorry,  what I meant by CPU is a complete and independent system: CPU + memory 
-+ NIC. The real time of the CPUs of the two systems are not synchronized, but 
-the NIC clock of both systems is.
+Do you want me to try out David's patch? I was hoping to get a definite okay
+from someone before applying it, given that this is a production machine
+for us and we do need it in *some* kind of an operational state.
 
-Thanks,
-tavi
+I've got many more tens of kilobytes of logs from the previous debugging
+patches, if you want I can send them over.
+
+-- 
+     2. That which causes joy or happiness.
