@@ -1,687 +1,1002 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 4/14]: pkt_sched: Make classful ->graft() three stage.
-Date: Mon, 14 Jul 2008 15:59:28 -0700 (PDT)
-Message-ID: <20080714.155928.254035359.davem@davemloft.net>
+Subject: [PATCH 5/14]: pkt_sched: Make main qdisc configuration operations
+ multiqueue aware.
+Date: Mon, 14 Jul 2008 15:59:35 -0700 (PDT)
+Message-ID: <20080714.155935.184374140.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49263
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49265
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758325AbYGNW7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:59:31 -0400
+	by vger.kernel.org with ESMTP id S1758316AbYGNW7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:59:40 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 5CFE6C8C188
-	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:59:28 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 8D7BEC8C187
+	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:59:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In order to unwind from errors we need to split the ->graft()
-operation for classful qdiscs into three seperate operations.
+Add/create/delete/get/dump qdisc are all multiqueue aware for the
+most part now.
 
-1) Prepare.
+The basic idea is that we build an array of configuration changes,
+one per queue.  Then we validate each and every change, if any
+errors are signalled we unwind.  Otherwise we commit the changes
+at which point it cannot fail on us.
 
-   This validates arguments, and allocated any resources if
-   necessary.
+Later, this can be easily extended to accept a TX queue specification
+using netlink attributes, to filter the queues which will actually be
+operated upon.  Lack of such attributes will mean "all queues".
 
-2) Commit.
+One part that isn't completely fleshed out is qdisc_change().  We
+need to make that have a prep/commit/cancel sequence just like the
+rest of this stuff.
 
-   This actually commits the graft operation, it must not fail.
-
-3) Cancel.
-
-   This undoes the operations done by a Prepare.  It frees
-   any resources allocated by Prepare.  This is only invoked
-   if the Commit was not performed.
-
-This is part of the plan to replicate qdisc changes across
-more than one netdev_queue.  It will be done in three
-phases.  Allocate qdiscs, prepare grafts, and if all goes
-well commit them.
+After that, the next area to attack will be the traffic filter APIs.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/sch_generic.h |    9 +++++-
- net/sched/sch_api.c       |    8 +++++-
- net/sched/sch_atm.c       |   28 +++++++++++++++-----
- net/sched/sch_cbq.c       |   61 ++++++++++++++++++++++++++++----------------
- net/sched/sch_dsmark.c    |   40 ++++++++++++++++++++---------
- net/sched/sch_hfsc.c      |   45 +++++++++++++++++++++++---------
- net/sched/sch_htb.c       |   59 ++++++++++++++++++++++++++++++-------------
- net/sched/sch_ingress.c   |    8 +++---
- net/sched/sch_netem.c     |   20 ++++++++++++---
- net/sched/sch_prio.c      |   24 ++++++++++++++---
- net/sched/sch_red.c       |   21 ++++++++++++---
- net/sched/sch_tbf.c       |   20 ++++++++++++---
- 12 files changed, 247 insertions(+), 96 deletions(-)
+ net/sched/sch_api.c |  792 +++++++++++++++++++++++++++++++++++++--------------
+ 1 files changed, 584 insertions(+), 208 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b47f556..5318c37 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -56,8 +56,13 @@ struct Qdisc
- struct Qdisc_class_ops
- {
- 	/* Child qdisc manipulation */
--	int			(*graft)(struct Qdisc *, unsigned long cl,
--					struct Qdisc *, struct Qdisc **);
-+	void *			(*prepare_graft)(struct Qdisc *, unsigned long cl,
-+						 struct Qdisc *);
-+	void			(*cancel_graft)(struct Qdisc *, unsigned long cl,
-+						struct Qdisc *, void *);
-+	void			(*commit_graft)(struct Qdisc *, unsigned long cl,
-+						struct Qdisc *, void *,
-+						struct Qdisc **);
- 	struct Qdisc *		(*leaf)(struct Qdisc *, unsigned long cl);
- 	void			(*qlen_notify)(struct Qdisc *, unsigned long);
- 
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index b0da006..fdc79b4 100644
+index fdc79b4..a59f99f 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -547,7 +547,13 @@ static int qdisc_graft(struct netdev_queue *dev_queue, struct Qdisc *parent,
- 		if (cops) {
- 			unsigned long cl = cops->get(parent, classid);
- 			if (cl) {
--				err = cops->graft(parent, cl, new, old);
-+				void *gp = cops->prepare_graft(parent, cl, new);
+@@ -521,46 +521,15 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ }
+ EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
+ 
+-/* Graft qdisc "new" to class "classid" of qdisc "parent" or
+-   to device queue "dev_queue".
+-
+-   Old qdisc is not destroyed but returned in *old.
++/* Grab a reference to the qdisc operations described by 'kind'.
++ * A single module reference to the operations will be held
++ * upon success.
++ *
++ * The RTNL semaphore might be dropped if an attempt is made
++ * to lead the necessary packet scheduler module.  In such
++ * a case -EAGAIN will be returned and the top level should
++ * unwind and retry the operation from the beginning.
+  */
+-
+-static int qdisc_graft(struct netdev_queue *dev_queue, struct Qdisc *parent,
+-		       u32 classid, struct Qdisc *new, struct Qdisc **old)
+-{
+-	struct Qdisc *q = *old;
+-	int err = 0;
+-
+-	if (parent == NULL) {
+-		if (q && q->flags&TCQ_F_INGRESS) {
+-			*old = graft_qdisc(dev_queue, q);
+-		} else {
+-			*old = graft_qdisc(dev_queue, new);
+-		}
+-	} else {
+-		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
+-
+-		err = -EINVAL;
+-
+-		if (cops) {
+-			unsigned long cl = cops->get(parent, classid);
+-			if (cl) {
+-				void *gp = cops->prepare_graft(parent, cl, new);
+-
+-				err = 0;
+-				if (IS_ERR(gp))
+-					err = PTR_ERR(gp);
+-				else
+-					cops->commit_graft(parent, cl, new, gp, old);
+-				cops->put(parent, cl);
+-			}
+-		}
+-	}
+-	return err;
+-}
+-
+ static struct Qdisc_ops *tc_grab_ops(struct nlattr *kind)
+ {
+ 	struct Qdisc_ops *ops = qdisc_lookup_ops(kind);
+@@ -659,6 +628,9 @@ err_out:
+ 	return NULL;
+ }
+ 
++/* Change the parameters on qdisc 'sch', using the attributes described
++ * in 'tca'.
++ */
+ static int qdisc_change(struct Qdisc *sch, struct nlattr **tca)
+ {
+ 	if (tca[TCA_OPTIONS]) {
+@@ -685,6 +657,11 @@ struct check_loop_arg
+ 
+ static int check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w);
+ 
++/* Walk the qdisc tree looking for loops starting at qdisc 'q' which
++ * has parent 'p'.  'depth' is the current depth of the loop search.
++ *
++ * A maximum queue depth of '7' is all that is allowed.
++ */
+ static int check_loop(struct Qdisc *q, struct Qdisc *p, int depth)
+ {
+ 	struct check_loop_arg	arg;
+@@ -716,19 +693,213 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
+ 	return 0;
+ }
+ 
+-/*
+- * Delete/get qdisc.
++/* We setup each Qdisc config operation by recording, per netdev-queue,
++ * whether that queue gets the operation and what parameters will be
++ * used for that instance of the operation.
++ */
++struct tc_qdisc_op_info {
++	struct Qdisc		*parent_q;
++	struct Qdisc		*op_q;
++	unsigned long		cl;
++	void			*graft_mem;
++	unsigned int		flags;
++#define TC_QDISC_OP_CREATE	0x00000001
++#define TC_QDISC_OP_GRAFT	0x00000002
++#define TC_QDISC_OP_CHANGE	0x00000004
++#define TC_QDISC_OP_ALLOCATED	0x00000008
++#define TC_QDISC_OP_GRAFT_PREP	0x00000010
++};
 +
-+				err = 0;
-+				if (IS_ERR(gp))
-+					err = PTR_ERR(gp);
-+				else
-+					cops->commit_graft(parent, cl, new, gp, old);
- 				cops->put(parent, cl);
++/* Prepare a request for a get or delete operation.  */
++static int tc_get_prep_request(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			       struct net_device *dev, struct tcmsg *tcm,
++			       struct nlattr **tca, u32 clid)
++{
++	unsigned int i;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct netdev_queue *dev_queue;
++
++		if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
++			dev_queue = &dev->rx_queue;
++		else
++			dev_queue = netdev_get_tx_queue(dev, i);
++
++		if (!clid) {
++			qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
++			if (!qp->op_q)
++				return -ENOENT;
++		} else {
++			if (clid == TC_H_ROOT) {
++				qp->op_q = dev_queue->qdisc_sleeping;
++			} else {
++				if (TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS)) {
++					qp->op_q = dev_queue->qdisc;
++				} else {
++					qp->parent_q = qdisc_lookup(dev, TC_H_MAJ(clid));
++					if (!qp->parent_q)
++						return -ENOENT;
++					qp->op_q = qdisc_leaf(qp->parent_q, clid);
++				}
++			}
++			if (!qp->op_q)
++				return -ENOENT;
++			if (tcm->tcm_handle && qp->op_q->handle != tcm->tcm_handle)
++				return -EINVAL;
++		}
++
++		if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
++			return -EINVAL;
++	}
++	return 0;
++}
++
++/* Validate and prepare a single delete operation.  */
++static int tc_delete_prep_one(struct tc_qdisc_op_info *qp, u32 clid)
++{
++	const struct Qdisc_class_ops *cops;
++	void *gp;
++
++	if (!qp->op_q->handle)
++		return -ENOENT;
++
++	if (!qp->parent_q)
++		return 0;
++
++	cops = qp->parent_q->ops->cl_ops;
++	if (!cops)
++		return -EINVAL;
++
++	qp->cl = cops->get(qp->parent_q, clid);
++	if (!qp->cl)
++		return -EINVAL;
++
++	gp = cops->prepare_graft(qp->parent_q, qp->cl, NULL);
++	if (IS_ERR(gp)) {
++		cops->put(qp->parent_q, clid);
++		return PTR_ERR(gp);
++	}
++
++	qp->graft_mem = gp;
++	qp->flags |= TC_QDISC_OP_GRAFT_PREP;
++
++	return 0;
++}
++
++/* Commit one qdisc delete operation, it must not fail.  */
++static void tc_delete_commit(struct tc_qdisc_op_info *qp, struct netdev_queue *dev_queue,
++			     struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
++{
++	struct Qdisc *parent, *old;
++
++	parent = qp->parent_q;
++	old = qp->op_q;
++	if (!parent) {
++		if (old->flags&TCQ_F_INGRESS) {
++			old = graft_qdisc(dev_queue, old);
++		} else {
++			old = graft_qdisc(dev_queue, NULL);
++		}
++	} else {
++		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
++
++		cops->commit_graft(parent, qp->cl, NULL, qp->graft_mem, &old);
++		cops->put(parent, qp->cl);
++	}
++
++	if (old) {
++		qdisc_notify(skb, n, clid, old, NULL);
++		spin_lock_bh(&dev_queue->lock);
++		qdisc_destroy(old);
++		spin_unlock_bh(&dev_queue->lock);
++	}
++}
++
++/* Cancel a previous qdisc graft operation for add/change/delete.  */
++static void tc_graft_cancel(struct tc_qdisc_op_info *queue_arr, unsigned int num_q)
++{
++	unsigned int i;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		const struct Qdisc_class_ops *cops;
++
++		if (!(qp->flags & TC_QDISC_OP_GRAFT_PREP))
++			continue;
++
++		BUG_ON(!qp->parent_q);
++
++		cops = qp->parent_q->ops->cl_ops;
++		cops->cancel_graft(qp->parent_q, qp->cl, qp->op_q, qp->graft_mem);
++		cops->put(qp->parent_q, qp->cl);
++
++		qp->graft_mem = NULL;
++		qp->flags &= ~TC_QDISC_OP_GRAFT_PREP;
++	}
++}
++
++/* Delete all qdiscs described by 'queue_arr' and 'num_q'.  */
++static int tc_delete_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			 struct net_device *dev, struct sk_buff *skb,
++			 struct nlmsghdr *n, u32 clid)
++{
++	unsigned int i;
++
++	if (!clid)
++		return -EINVAL;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		int err;
++
++		err = tc_delete_prep_one(qp, clid);
++		if (err) {
++			tc_graft_cancel(queue_arr, num_q);
++			return err;
++		}
++	}
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct netdev_queue *dev_queue;
++
++		if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
++			dev_queue = &dev->rx_queue;
++		else
++			dev_queue = netdev_get_tx_queue(dev, i);
++
++		tc_delete_commit(qp, dev_queue, skb, n, clid);
++	}
++	return 0;
++}
++
++/* Perform a get operation on all qdiscs described by 'queue_arr'
++ * and 'num_q'.
+  */
++static int tc_get_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++		      struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
++{
++	unsigned int i;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++
++		qdisc_notify(skb, n, clid, NULL, qp->op_q);
++	}
++
++	return 0;
++}
+ 
+ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
+ 	struct net *net = sock_net(skb->sk);
++	struct tc_qdisc_op_info *queue_arr;
+ 	struct tcmsg *tcm = NLMSG_DATA(n);
+ 	struct nlattr *tca[TCA_MAX + 1];
+-	struct net_device *dev;
+ 	u32 clid = tcm->tcm_parent;
+-	struct Qdisc *q = NULL;
+-	struct Qdisc *p = NULL;
++	struct net_device *dev;
++	unsigned int num_q;
+ 	int err;
+ 
+ 	if (net != &init_net)
+@@ -741,52 +912,32 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (clid) {
+-		if (clid != TC_H_ROOT) {
+-			if (TC_H_MAJ(clid) != TC_H_MAJ(TC_H_INGRESS)) {
+-				if ((p = qdisc_lookup(dev, TC_H_MAJ(clid))) == NULL)
+-					return -ENOENT;
+-				q = qdisc_leaf(p, clid);
+-			} else { /* ingress */
+-				q = dev->rx_queue.qdisc;
+-			}
+-		} else {
+-			struct netdev_queue *dev_queue;
+-			dev_queue = netdev_get_tx_queue(dev, 0);
+-			q = dev_queue->qdisc_sleeping;
+-		}
+-		if (!q)
+-			return -ENOENT;
++	if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
++		num_q = 1;
++	else
++		num_q = dev->num_tx_queues;
+ 
+-		if (tcm->tcm_handle && q->handle != tcm->tcm_handle)
+-			return -EINVAL;
+-	} else {
+-		if ((q = qdisc_lookup(dev, tcm->tcm_handle)) == NULL)
+-			return -ENOENT;
++	queue_arr = kzalloc(num_q * sizeof(*queue_arr), GFP_KERNEL);
++	if (!queue_arr)
++		return -ENOMEM;
++
++	err = tc_get_prep_request(queue_arr, num_q, dev, tcm, tca, clid);
++	if (err) {
++		kfree(queue_arr);
++		return err;
+ 	}
+ 
+-	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
+-		return -EINVAL;
++	if (n->nlmsg_type == RTM_DELQDISC)
++		err = tc_delete_all(queue_arr, num_q, dev, skb, n, clid);
++	else
++		err = tc_get_all(queue_arr, num_q, skb, n, clid);
++
++	kfree(queue_arr);
+ 
+-	if (n->nlmsg_type == RTM_DELQDISC) {
+-		if (!clid)
+-			return -EINVAL;
+-		if (q->handle == 0)
+-			return -ENOENT;
+-		if ((err = qdisc_graft(q->dev_queue, p, clid, NULL, &q)) != 0)
+-			return err;
+-		if (q) {
+-			qdisc_notify(skb, n, clid, q, NULL);
+-			qdisc_lock_tree(dev);
+-			qdisc_destroy(q);
+-			qdisc_unlock_tree(dev);
+-		}
+-	} else {
+-		qdisc_notify(skb, n, clid, NULL, q);
+-	}
+ 	return 0;
+ }
+ 
++/* Allocate and create one new qdisc instance.  */
+ static struct Qdisc *tc_create(struct net_device *dev,
+ 			       struct netdev_queue *dev_queue,
+ 			       u32 parent, u32 handle,
+@@ -808,125 +959,259 @@ static struct Qdisc *tc_create(struct net_device *dev,
+ 	return q;
+ }
+ 
+-static int tc_graft(struct net_device *dev, struct netdev_queue *dev_queue,
+-		    struct Qdisc *new_q, struct Qdisc *parent_q,
+-		    u32 clid, struct sk_buff *skb, struct nlmsghdr *n)
++static int tc_create_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
++			 struct netdev_queue *dev_queue, struct nlattr **tca,
++			 struct tcmsg *tcm, u32 clid)
+ {
+-	struct Qdisc *old_q = NULL;
+-	int err;
++	u32 parent, handle;
++	struct Qdisc *q;
+ 
+-	err = qdisc_graft(dev_queue, parent_q, clid, new_q, &old_q);
+-	if (err) {
+-		if (new_q) {
+-			qdisc_lock_tree(dev);
+-			qdisc_destroy(new_q);
+-			qdisc_unlock_tree(dev);
++	parent = tcm->tcm_parent;
++	if (clid == TC_H_INGRESS)
++		handle = parent;
++	else
++		handle = tcm->tcm_handle;
++
++	q = tc_create(dev, dev_queue, parent, handle, tca);
++	if (IS_ERR(q))
++		return PTR_ERR(q);
++
++	qp->op_q = q;
++	qp->flags |= TC_QDISC_OP_ALLOCATED;
++
++	return 0;
++}
++
++/* Cancel a set of one or more qdisc creations.  */
++static void tc_create_cancel(struct tc_qdisc_op_info *queue_arr, int num_q)
++{
++	unsigned int i;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++
++		if (qp->flags & TC_QDISC_OP_ALLOCATED) {
++			qdisc_destroy(qp->op_q);
++			qp->op_q = NULL;
++			qp->flags &= ~TC_QDISC_OP_ALLOCATED;
+ 		}
+-		return err;
+ 	}
++}
+ 
+-	qdisc_notify(skb, n, clid, old_q, new_q);
++/* Create new qdiscs, as described by 'queue_arr' and 'num_q', using parameters
++ * in 'tcm' and 'tca'.
++ */
++static int tc_create_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			 struct net_device *dev, struct tcmsg *tcm,
++			 struct nlattr **tca, u32 clid)
++{
++	unsigned int i;
+ 
+-	if (old_q) {
+-		qdisc_lock_tree(dev);
+-		qdisc_destroy(old_q);
+-		qdisc_unlock_tree(dev);
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct netdev_queue *dev_queue;
++		int err;
++
++		if (!(qp->flags & TC_QDISC_OP_CREATE))
++			continue;
++
++		if (clid == TC_H_INGRESS)
++			dev_queue = &dev->rx_queue;
++		else
++			dev_queue = netdev_get_tx_queue(dev, i);
++
++		err = tc_create_one(qp, dev, dev_queue, tca, tcm, clid);
++		if (err) {
++			tc_create_cancel(queue_arr, num_q);
++			return err;
++		}
+ 	}
+ 
+ 	return 0;
+ }
+ 
+-static int tc_create_and_graft(struct net_device *dev, u32 clid,
+-			       struct tcmsg *tcm, struct nlattr **tca,
+-			       struct Qdisc *parent_q,
+-			       struct sk_buff *skb, struct nlmsghdr *n)
++/* Prepare to graft one new qdisc.  */
++static int tc_graft_prep_one(struct tc_qdisc_op_info *qp, u32 clid)
+ {
+-	struct netdev_queue *dev_queue;
+-	u32 parent, handle;
+-	struct Qdisc *q;
++	const struct Qdisc_class_ops *cops;
++	void *gp;
+ 
+-	parent = tcm->tcm_parent;
+-	if (clid == TC_H_INGRESS) {
+-		dev_queue = &dev->rx_queue;
+-		handle = parent;
+-	} else {
+-		dev_queue = netdev_get_tx_queue(dev, 0);
+-		handle = tcm->tcm_handle;
++	if (!qp->parent_q)
++		return 0;
++
++	cops = qp->parent_q->ops->cl_ops;
++	if (!cops)
++		return -EINVAL;
++
++	qp->cl = cops->get(qp->parent_q, clid);
++	if (!qp->cl)
++		return -EINVAL;
++
++	gp = cops->prepare_graft(qp->parent_q, qp->cl, qp->op_q);
++	if (IS_ERR(gp)) {
++		cops->put(qp->parent_q, clid);
++		return PTR_ERR(gp);
+ 	}
+-	q = tc_create(dev, dev_queue, parent, handle, tca);
+-	if (IS_ERR(q))
+-		return PTR_ERR(q);
+ 
+-	return tc_graft(dev, dev_queue, q, parent_q, clid, skb, n);
++	qp->graft_mem = gp;
++	qp->flags |= TC_QDISC_OP_GRAFT_PREP;
++
++	return 0;
+ }
+ 
+-/* Create/change qdisc.  */
++/* Commit one new qdisc.  Emit netlink notifications.  This operation
++ * must not fail.
++ */
++static void tc_graft_commit(struct tc_qdisc_op_info *qp, struct netdev_queue *dev_queue,
++			    struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
++{
++	struct Qdisc *parent, *new, *old;
+ 
+-static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++	parent = qp->parent_q;
++	new = qp->op_q;
++
++	/* Grafting to an existing qdisc rather than a new one?  */
++	if ((qp->flags & TC_QDISC_OP_GRAFT) &&
++	    !(qp->flags & TC_QDISC_OP_CREATE))
++		atomic_inc(&new->refcnt);
++
++	old = NULL;
++	if (!parent) {
++		old = graft_qdisc(dev_queue, new);
++	} else {
++		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
++
++		cops->commit_graft(parent, qp->cl, new, qp->graft_mem, &old);
++		cops->put(parent, qp->cl);
++	}
++
++	qdisc_notify(skb, n, clid, old, new);
++
++	if (old) {
++		spin_lock_bh(&dev_queue->lock);
++		qdisc_destroy(old);
++		spin_unlock_bh(&dev_queue->lock);
++	}
++}
++
++/* Prepare and graft all qdiscs described by 'queue_arr' and 'num_q'.  */
++static int tc_graft_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			struct net_device *dev, struct sk_buff *skb,
++			struct nlmsghdr *n, u32 clid)
+ {
+-	struct net *net = sock_net(skb->sk);
+-	struct tcmsg *tcm;
+-	struct nlattr *tca[TCA_MAX + 1];
+-	struct net_device *dev;
+-	u32 clid;
+-	struct Qdisc *q, *p;
+-	int err;
++	unsigned int i;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		int err;
+ 
+-replay:
+-	/* Reinit, just in case something touches this. */
+-	tcm = NLMSG_DATA(n);
+-	clid = tcm->tcm_parent;
+-	q = p = NULL;
++		if (!(qp->flags & TC_QDISC_OP_GRAFT))
++			continue;
+ 
+-	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+-		return -ENODEV;
++		err = tc_graft_prep_one(qp, clid);
++		if (err) {
++			tc_graft_cancel(queue_arr, num_q);
++			return err;
++		}
++	}
+ 
+-	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+-	if (err < 0)
+-		return err;
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct netdev_queue *dev_queue;
++
++		if (!(qp->flags & TC_QDISC_OP_GRAFT))
++			continue;
++
++		if (clid == TC_H_INGRESS)
++			dev_queue = &dev->rx_queue;
++		else
++			dev_queue = netdev_get_tx_queue(dev, i);
++
++		tc_graft_commit(qp, dev_queue, skb, n, clid);
++	}
++
++	return 0;
++}
+ 
++/* Make qdisc parameter changes as requested in 'tca' to the qdiscs
++ * recorded in 'queue_arr' and 'num_q'.
++ */
++static int tc_change_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			 struct net_device *dev, struct nlattr **tca)
++{
++	unsigned int i;
++
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		int err;
++
++		if (!(qp->flags & TC_QDISC_OP_CHANGE))
++			continue;
++
++		err = qdisc_change(qp->op_q, tca);
++		if (err) {
++			/* XXX In multiqueue case, need rollback... */
++			return err;
++		}
++	}
++	return 0;
++}
++
++/* Parepare one qdisc op array entry for a change/create request.  */
++static int tc_prepare_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
++			  struct netdev_queue *dev_queue, struct nlmsghdr *n,
++			  struct tcmsg *tcm, struct nlattr **tca, u32 clid)
++{
+ 	if (clid) {
+ 		if (clid != TC_H_ROOT) {
+ 			if (clid != TC_H_INGRESS) {
+-				if ((p = qdisc_lookup(dev, TC_H_MAJ(clid))) == NULL)
++				qp->parent_q = qdisc_lookup(dev, TC_H_MAJ(clid));
++				if (!qp->parent_q)
+ 					return -ENOENT;
+-				q = qdisc_leaf(p, clid);
++				qp->op_q = qdisc_leaf(qp->parent_q, clid);
+ 			} else { /*ingress */
+-				q = dev->rx_queue.qdisc;
++				qp->op_q = dev_queue->qdisc;
+ 			}
+ 		} else {
+-			struct netdev_queue *dev_queue;
+-			dev_queue = netdev_get_tx_queue(dev, 0);
+-			q = dev_queue->qdisc_sleeping;
++			qp->op_q = dev_queue->qdisc_sleeping;
+ 		}
+ 
+ 		/* It may be default qdisc, ignore it */
+-		if (q && q->handle == 0)
+-			q = NULL;
++		if (qp->op_q && qp->op_q->handle == 0)
++			qp->op_q = NULL;
+ 
+-		if (!q || !tcm->tcm_handle || q->handle != tcm->tcm_handle) {
++		if (!qp->op_q ||
++		    !tcm->tcm_handle ||
++		    qp->op_q->handle != tcm->tcm_handle) {
+ 			if (tcm->tcm_handle) {
+-				if (q && !(n->nlmsg_flags&NLM_F_REPLACE))
++				if (qp->op_q && !(n->nlmsg_flags&NLM_F_REPLACE))
+ 					return -EEXIST;
+ 				if (TC_H_MIN(tcm->tcm_handle))
+ 					return -EINVAL;
+-				if ((q = qdisc_lookup(dev, tcm->tcm_handle)) == NULL)
+-					goto create_n_graft;
++
++				qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
++				if (!qp->op_q)
++					goto create_and_graft;
++
+ 				if (n->nlmsg_flags&NLM_F_EXCL)
+ 					return -EEXIST;
+-				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
++
++				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
+ 					return -EINVAL;
+-				if (q == p ||
+-				    (p && check_loop(q, p, 0)))
++
++				if (qp->parent_q == qp->op_q ||
++				    (qp->parent_q &&
++				     check_loop(qp->op_q, qp->parent_q, 0)))
+ 					return -ELOOP;
+-				atomic_inc(&q->refcnt);
+-				goto graft;
++
++				/* We'll grab a reference to qp->op_q once the
++				 * graft is fully validated and we commit.
++				 */
++				qp->flags |= TC_QDISC_OP_GRAFT;
++				return 0;
+ 			} else {
+-				if (q == NULL)
+-					goto create_n_graft;
++				if (!qp->op_q)
++					goto create_and_graft;
+ 
+ 				/* This magic test requires explanation.
+ 				 *
+@@ -951,38 +1236,119 @@ replay:
+ 				    (n->nlmsg_flags&NLM_F_REPLACE) &&
+ 				    ((n->nlmsg_flags&NLM_F_EXCL) ||
+ 				     (tca[TCA_KIND] &&
+-				      nla_strcmp(tca[TCA_KIND], q->ops->id))))
+-					goto create_n_graft;
++				      nla_strcmp(tca[TCA_KIND],
++						 qp->op_q->ops->id))))
++					goto create_and_graft;
  			}
  		}
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 0de757e..c084050 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -90,22 +90,34 @@ static inline struct atm_flow_data *lookup_flow(struct Qdisc *sch, u32 classid)
- 	return flow;
- }
+ 	} else {
+ 		if (!tcm->tcm_handle)
+ 			return -EINVAL;
+-		q = qdisc_lookup(dev, tcm->tcm_handle);
++		qp->op_q = qdisc_lookup(dev, tcm->tcm_handle);
+ 	}
  
--static int atm_tc_graft(struct Qdisc *sch, unsigned long arg,
--			struct Qdisc *new, struct Qdisc **old)
-+static void *atm_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new)
- {
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
- 	struct atm_flow_data *flow = (struct atm_flow_data *)arg;
+ 	/* Change qdisc parameters */
+-	if (q == NULL)
++	if (!qp->op_q)
+ 		return -ENOENT;
+ 	if (n->nlmsg_flags&NLM_F_EXCL)
+ 		return -EEXIST;
+-	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
++	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
+ 		return -EINVAL;
+-	err = qdisc_change(q, tca);
+-	if (err == 0)
+-		qdisc_notify(skb, n, clid, NULL, q);
+-	return err;
++	qp->flags |= TC_QDISC_OP_CHANGE;
++	return 0;
  
--	pr_debug("atm_tc_graft(sch %p,[qdisc %p],flow %p,new %p,old %p)\n",
--		sch, p, flow, new, old);
- 	if (!find_flow(p, flow))
--		return -EINVAL;
-+		return ERR_PTR(-EINVAL);
-+
-+	return NULL;
+-create_n_graft:
++create_and_graft:
+ 	if (!(n->nlmsg_flags&NLM_F_CREATE))
+ 		return -ENOENT;
+-	err = tc_create_and_graft(dev, clid, tcm, tca, p, skb, n);
+-	if (err == -EAGAIN)
+-		goto replay;
+-	return err;
++	qp->flags |= (TC_QDISC_OP_CREATE | TC_QDISC_OP_GRAFT);
++	return 0;
 +}
-+
-+static void atm_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem,
-+			     struct Qdisc **old)
+ 
+-graft:
+-	return tc_graft(dev, q->dev_queue, q, p, clid, skb, n);
++/* Prepare an entire array of qdisc operation info entries.  */
++static int tc_prepare(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++		      struct net_device *dev, struct nlmsghdr *n,
++		      struct tcmsg *tcm,
++		      struct nlattr **tca, u32 clid)
 +{
-+	struct atm_flow_data *flow = (struct atm_flow_data *)arg;
++	unsigned int i;
 +
- 	if (!new)
- 		new = &noop_qdisc;
- 	*old = xchg(&flow->q, new);
- 	if (*old)
- 		qdisc_reset(*old);
--	return 0;
-+}
++	for (i = 0; i < num_q; i++) {
++		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct netdev_queue *dev_queue;
++		int err;
 +
-+static void atm_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem)
-+{
- }
- 
- static struct Qdisc *atm_tc_leaf(struct Qdisc *sch, unsigned long cl)
-@@ -672,7 +684,9 @@ static int atm_tc_dump(struct Qdisc *sch, struct sk_buff *skb)
- }
- 
- static const struct Qdisc_class_ops atm_class_ops = {
--	.graft		= atm_tc_graft,
-+	.prepare_graft	= atm_prepare_graft,
-+	.commit_graft	= atm_commit_graft,
-+	.cancel_graft	= atm_cancel_graft,
- 	.leaf		= atm_tc_leaf,
- 	.get		= atm_tc_get,
- 	.put		= atm_tc_put,
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 4efc836..224b9c0 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1639,33 +1639,48 @@ cbq_dump_class_stats(struct Qdisc *sch, unsigned long arg,
- 	return gnet_stats_copy_app(d, &cl->xstats, sizeof(cl->xstats));
- }
- 
--static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		     struct Qdisc **old)
-+static void *cbq_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new)
- {
- 	struct cbq_class *cl = (struct cbq_class*)arg;
-+	void *ret = NULL;
++		if (clid == TC_H_INGRESS)
++			dev_queue = &dev->rx_queue;
++		else
++			dev_queue = netdev_get_tx_queue(dev, i);
 +
-+	if (!new) {
-+		ret = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+					&pfifo_qdisc_ops,
-+					cl->common.classid);
-+		if (!ret)
-+			return ERR_PTR(-ENOBUFS);
++		err = tc_prepare_one(qp, dev, dev_queue, n, tcm, tca, clid);
++		if (err)
++			return err;
 +	}
- 
--	if (cl) {
--		if (new == NULL) {
--			new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
--						&pfifo_qdisc_ops,
--						cl->common.classid);
--			if (new == NULL)
--				return -ENOBUFS;
--		} else {
-+	return ret;
++	return 0;
 +}
 +
-+static void cbq_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem,
-+			     struct Qdisc **old)
-+{
-+	struct cbq_class *cl = (struct cbq_class*)arg;
++/* Create/change qdisc.  */
 +
-+	if (mem)
-+		new = mem;
- #ifdef CONFIG_NET_CLS_ACT
--			if (cl->police == TC_POLICE_RECLASSIFY)
--				new->reshape_fail = cbq_reshape_fail;
-+	else if (cl->police == TC_POLICE_RECLASSIFY)
-+		new->reshape_fail = cbq_reshape_fail;
- #endif
--		}
--		sch_tree_lock(sch);
--		*old = xchg(&cl->q, new);
--		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--		qdisc_reset(*old);
--		sch_tree_unlock(sch);
- 
--		return 0;
--	}
--	return -ENOENT;
-+	sch_tree_lock(sch);
-+	*old = xchg(&cl->q, new);
-+	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
-+	qdisc_reset(*old);
-+	sch_tree_unlock(sch);
-+}
-+
-+static void cbq_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem)
++static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
 +{
-+	if (mem)
-+		qdisc_destroy(mem);
++	struct net *net = sock_net(skb->sk);
++	struct tc_qdisc_op_info *queue_arr;
++	struct nlattr *tca[TCA_MAX + 1];
++	struct net_device *dev;
++	unsigned int num_q;
++	struct tcmsg *tcm;
++	u32 clid;
++	int err;
++
++	if (net != &init_net)
++		return -EINVAL;
++
++	tcm = NLMSG_DATA(n);
++
++	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
++	if (err < 0)
++		return err;
++
++	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++		return -ENODEV;
++
++	clid = tcm->tcm_parent;
++	if (clid == TC_H_INGRESS)
++		num_q = 1;
++	else
++		num_q = dev->num_tx_queues;
++
++	queue_arr = kmalloc(num_q * sizeof(*queue_arr), GFP_KERNEL);
++	if (!queue_arr)
++		return -ENOMEM;
++
++replay:
++	memset(queue_arr, 0, sizeof(*queue_arr) * num_q);
++
++	err = tc_prepare(queue_arr, num_q, dev, n, tcm, tca, clid);
++	if (err)
++		goto err_free;
++
++	err = tc_create_all(queue_arr, num_q, dev, tcm, tca, clid);
++	if (err) {
++		if (err == -EAGAIN)
++			goto replay;
++		goto err_free;
++	}
++
++	err = tc_graft_all(queue_arr, num_q, dev, skb, n, clid);
++	if (err) {
++		tc_create_cancel(queue_arr, num_q);
++		goto err_free;
++	}
++
++	err = tc_change_all(queue_arr, num_q, dev, tca);
++
++err_free:
++	kfree(queue_arr);
++	return err;
  }
  
- static struct Qdisc *
-@@ -2032,7 +2047,9 @@ static void cbq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- }
+ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+@@ -1074,22 +1440,30 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 	read_lock(&dev_base_lock);
+ 	idx = 0;
+ 	for_each_netdev(&init_net, dev) {
+-		struct netdev_queue *dev_queue;
++		unsigned int i;
+ 		if (idx < s_idx)
+ 			goto cont;
+ 		if (idx > s_idx)
+ 			s_q_idx = 0;
+ 		q_idx = 0;
+-		dev_queue = netdev_get_tx_queue(dev, 0);
+-		list_for_each_entry(q, &dev_queue->qdisc_list, list) {
+-			if (q_idx < s_q_idx) {
++		for (i = 0; i < dev->num_tx_queues; i++) {
++			struct netdev_queue *dev_queue;
++
++			dev_queue = netdev_get_tx_queue(dev, i);
++			list_for_each_entry(q, &dev_queue->qdisc_list,
++					    list) {
++				if (q_idx < s_q_idx) {
++					q_idx++;
++					continue;
++				}
++				if (tc_fill_qdisc(skb, q, q->parent,
++						  NETLINK_CB(cb->skb).pid,
++						  cb->nlh->nlmsg_seq,
++						  NLM_F_MULTI,
++						  RTM_NEWQDISC) <= 0)
++					goto done;
+ 				q_idx++;
+-				continue;
+ 			}
+-			if (tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).pid,
+-					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0)
+-				goto done;
+-			q_idx++;
+ 		}
+ cont:
+ 		idx++;
+@@ -1310,14 +1684,13 @@ static int qdisc_class_dump(struct Qdisc *q, unsigned long cl, struct qdisc_walk
  
- static const struct Qdisc_class_ops cbq_class_ops = {
--	.graft		=	cbq_graft,
-+	.prepare_graft	=	cbq_prepare_graft,
-+	.commit_graft	=	cbq_commit_graft,
-+	.cancel_graft	=	cbq_cancel_graft,
- 	.leaf		=	cbq_leaf,
- 	.qlen_notify	=	cbq_qlen_notify,
- 	.get		=	cbq_get,
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 3aafbd1..28f4e77 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -51,29 +51,43 @@ static inline int dsmark_valid_index(struct dsmark_qdisc_data *p, u16 index)
- 
- /* ------------------------- Class/flow operations ------------------------- */
- 
--static int dsmark_graft(struct Qdisc *sch, unsigned long arg,
--			struct Qdisc *new, struct Qdisc **old)
-+static void *dsmark_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+				  struct Qdisc *new)
+ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
  {
--	struct dsmark_qdisc_data *p = qdisc_priv(sch);
++	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
+ 	struct net *net = sock_net(skb->sk);
+-	struct netdev_queue *dev_queue;
+-	int t;
+-	int s_t;
++	struct qdisc_dump_args arg;
+ 	struct net_device *dev;
+ 	struct Qdisc *q;
+-	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
+-	struct qdisc_dump_args arg;
++	unsigned int i;
++	int s_t, t;
+ 
+ 	if (net != &init_net)
+ 		return 0;
+@@ -1330,29 +1703,32 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	s_t = cb->args[0];
+ 	t = 0;
+ 
+-	dev_queue = netdev_get_tx_queue(dev, 0);
+-	list_for_each_entry(q, &dev_queue->qdisc_list, list) {
+-		if (t < s_t || !q->ops->cl_ops ||
+-		    (tcm->tcm_parent &&
+-		     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, i);
++		list_for_each_entry(q, &dev_queue->qdisc_list, list) {
++			if (t < s_t || !q->ops->cl_ops ||
++			    (tcm->tcm_parent &&
++			     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
++				t++;
++				continue;
++			}
++			if (t > s_t)
++				memset(&cb->args[1], 0,
++				       sizeof(cb->args) - sizeof(cb->args[0]));
++			arg.w.fn = qdisc_class_dump;
++			arg.skb = skb;
++			arg.cb = cb;
++			arg.w.stop  = 0;
++			arg.w.skip = cb->args[1];
++			arg.w.count = 0;
++			q->ops->cl_ops->walk(q, &arg.w);
++			cb->args[1] = arg.w.count;
++			if (arg.w.stop)
++				goto stop;
+ 			t++;
+-			continue;
+ 		}
+-		if (t > s_t)
+-			memset(&cb->args[1], 0, sizeof(cb->args)-sizeof(cb->args[0]));
+-		arg.w.fn = qdisc_class_dump;
+-		arg.skb = skb;
+-		arg.cb = cb;
+-		arg.w.stop  = 0;
+-		arg.w.skip = cb->args[1];
+-		arg.w.count = 0;
+-		q->ops->cl_ops->walk(q, &arg.w);
+-		cb->args[1] = arg.w.count;
+-		if (arg.w.stop)
+-			break;
+-		t++;
+ 	}
 -
--	pr_debug("dsmark_graft(sch %p,[qdisc %p],new %p,old %p)\n",
--		sch, p, new, old);
-+	void *ret = NULL;
++stop:
+ 	cb->args[0] = t;
  
--	if (new == NULL) {
--		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+	if (!new) {
-+		ret = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
- 					&pfifo_qdisc_ops,
- 					sch->handle);
--		if (new == NULL)
--			new = &noop_qdisc;
-+		if (!ret)
-+			return ERR_PTR(-ENOBUFS);
- 	}
- 
-+	return ret;
-+}
-+
-+static void dsmark_commit_graft(struct Qdisc *sch, unsigned long arg,
-+				struct Qdisc *new, void *mem,
-+				struct Qdisc **old)
-+{
-+	struct dsmark_qdisc_data *p = qdisc_priv(sch);
-+
-+	if (!new)
-+		new = mem;
-+
- 	sch_tree_lock(sch);
- 	*old = xchg(&p->q, new);
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-+}
- 
--	return 0;
-+static void dsmark_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+				struct Qdisc *new, void *mem)
-+{
-+	if (mem)
-+		qdisc_destroy(mem);
- }
- 
- static struct Qdisc *dsmark_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -474,7 +488,9 @@ nla_put_failure:
- }
- 
- static const struct Qdisc_class_ops dsmark_class_ops = {
--	.graft		=	dsmark_graft,
-+	.prepare_graft	=	dsmark_prepare_graft,
-+	.commit_graft	=	dsmark_commit_graft,
-+	.cancel_graft	=	dsmark_cancel_graft,
- 	.leaf		=	dsmark_leaf,
- 	.get		=	dsmark_get,
- 	.put		=	dsmark_put,
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 997d520..59be192 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1191,29 +1191,46 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	return cl;
- }
- 
--static int
--hfsc_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		 struct Qdisc **old)
-+static void *hfsc_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+				struct Qdisc *new)
- {
- 	struct hfsc_class *cl = (struct hfsc_class *)arg;
-+	void *ret = NULL;
- 
--	if (cl == NULL)
--		return -ENOENT;
--	if (cl->level > 0)
--		return -EINVAL;
--	if (new == NULL) {
--		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+	if (cl->level)
-+		return ERR_PTR(-ENOENT);
-+
-+	if (!new) {
-+		ret = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
- 					&pfifo_qdisc_ops,
- 					cl->cl_common.classid);
--		if (new == NULL)
--			new = &noop_qdisc;
-+		if (!ret)
-+			return ERR_PTR(-ENOBUFS);
- 	}
- 
-+	return ret;
-+}
-+
-+static void hfsc_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			      struct Qdisc *new, void *mem,
-+			      struct Qdisc **old)
-+{
-+	struct hfsc_class *cl = (struct hfsc_class *)arg;
-+
-+	if (mem)
-+		new = mem;
-+
- 	sch_tree_lock(sch);
- 	hfsc_purge_queue(sch, cl);
- 	*old = xchg(&cl->qdisc, new);
- 	sch_tree_unlock(sch);
--	return 0;
-+}
-+
-+static void hfsc_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			      struct Qdisc *new, void *mem)
-+{
-+	if (mem)
-+		qdisc_destroy(mem);
- }
- 
- static struct Qdisc *
-@@ -1713,7 +1730,9 @@ hfsc_drop(struct Qdisc *sch)
- static const struct Qdisc_class_ops hfsc_class_ops = {
- 	.change		= hfsc_change_class,
- 	.delete		= hfsc_delete_class,
--	.graft		= hfsc_graft_class,
-+	.prepare_graft	= hfsc_prepare_graft,
-+	.commit_graft	= hfsc_commit_graft,
-+	.cancel_graft	= hfsc_cancel_graft,
- 	.leaf		= hfsc_class_leaf,
- 	.qlen_notify	= hfsc_qlen_notify,
- 	.get		= hfsc_get_class,
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index c8ca54c..292129d 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1122,27 +1122,48 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
- 	return gnet_stats_copy_app(d, &cl->xstats, sizeof(cl->xstats));
- }
- 
--static int htb_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		     struct Qdisc **old)
-+static void *htb_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new)
- {
- 	struct htb_class *cl = (struct htb_class *)arg;
-+	void *ret = NULL;
- 
--	if (cl && !cl->level) {
--		if (new == NULL &&
--		    (new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
--					     &pfifo_qdisc_ops,
--					     cl->common.classid))
--		    == NULL)
--			return -ENOBUFS;
--		sch_tree_lock(sch);
--		if ((*old = xchg(&cl->un.leaf.q, new)) != NULL) {
--			qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--			qdisc_reset(*old);
--		}
--		sch_tree_unlock(sch);
--		return 0;
-+	if (cl->level)
-+		return ERR_PTR(-ENOENT);
-+
-+	if (!new) {
-+		ret = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
-+					&pfifo_qdisc_ops,
-+					cl->common.classid);
-+		if (!ret)
-+			return ERR_PTR(-ENOBUFS);
-+	}
-+
-+	return ret;
-+}
-+
-+static void htb_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem,
-+			     struct Qdisc **old)
-+{
-+	struct htb_class *cl = (struct htb_class*)arg;
-+
-+	if (mem)
-+		new = mem;
-+
-+	sch_tree_lock(sch);
-+	if ((*old = xchg(&cl->un.leaf.q, new)) != NULL) {
-+		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
-+		qdisc_reset(*old);
- 	}
--	return -ENOENT;
-+	sch_tree_unlock(sch);
-+}
-+
-+static void htb_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem)
-+{
-+	if (mem)
-+		qdisc_destroy(mem);
- }
- 
- static struct Qdisc *htb_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -1536,7 +1557,9 @@ static void htb_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- }
- 
- static const struct Qdisc_class_ops htb_class_ops = {
--	.graft		=	htb_graft,
-+	.prepare_graft	=	htb_prepare_graft,
-+	.commit_graft	=	htb_commit_graft,
-+	.cancel_graft	=	htb_cancel_graft,
- 	.leaf		=	htb_leaf,
- 	.qlen_notify	=	htb_qlen_notify,
- 	.get		=	htb_get,
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 956c80a..1cfb57e 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -22,10 +22,10 @@ struct ingress_qdisc_data {
- 
- /* ------------------------- Class/flow operations ------------------------- */
- 
--static int ingress_graft(struct Qdisc *sch, unsigned long arg,
--			 struct Qdisc *new, struct Qdisc **old)
-+static void *ingress_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+				   struct Qdisc *new)
- {
--	return -EOPNOTSUPP;
-+	return ERR_PTR(-EOPNOTSUPP);
- }
- 
- static struct Qdisc *ingress_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -123,7 +123,7 @@ nla_put_failure:
- }
- 
- static const struct Qdisc_class_ops ingress_class_ops = {
--	.graft		=	ingress_graft,
-+	.prepare_graft	=	ingress_prepare_graft,
- 	.leaf		=	ingress_leaf,
- 	.get		=	ingress_get,
- 	.put		=	ingress_put,
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index bc585f2..180c1e4 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -615,8 +615,15 @@ static int netem_dump_class(struct Qdisc *sch, unsigned long cl,
- 	return 0;
- }
- 
--static int netem_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		     struct Qdisc **old)
-+static void *netem_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+				 struct Qdisc *new)
-+{
-+	return NULL;
-+}
-+
-+static void netem_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new, void *mem,
-+			       struct Qdisc **old)
- {
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 
-@@ -628,8 +635,11 @@ static int netem_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-+}
- 
--	return 0;
-+static void netem_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new, void *mem)
-+{
- }
- 
- static struct Qdisc *netem_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -676,7 +686,9 @@ static struct tcf_proto **netem_find_tcf(struct Qdisc *sch, unsigned long cl)
- }
- 
- static const struct Qdisc_class_ops netem_class_ops = {
--	.graft		=	netem_graft,
-+	.prepare_graft	=	netem_prepare_graft,
-+	.commit_graft	=	netem_commit_graft,
-+	.cancel_graft	=	netem_cancel_graft,
- 	.leaf		=	netem_leaf,
- 	.get		=	netem_get,
- 	.put		=	netem_put,
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 536ca47..ba3b261 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -269,14 +269,23 @@ nla_put_failure:
- 	return -1;
- }
- 
--static int prio_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		      struct Qdisc **old)
-+static void *prio_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+				struct Qdisc *new)
- {
- 	struct prio_sched_data *q = qdisc_priv(sch);
- 	unsigned long band = arg - 1;
- 
- 	if (band >= q->bands)
--		return -EINVAL;
-+		return ERR_PTR(-EINVAL);
-+	return NULL;
-+}
-+
-+static void prio_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			      struct Qdisc *new, void *mem,
-+			      struct Qdisc **old)
-+{
-+	struct prio_sched_data *q = qdisc_priv(sch);
-+	unsigned long band = arg - 1;
- 
- 	if (new == NULL)
- 		new = &noop_qdisc;
-@@ -287,8 +296,11 @@ static int prio_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-+}
- 
--	return 0;
-+static void prio_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			      struct Qdisc *new, void *mem)
-+{
- }
- 
- static struct Qdisc *
-@@ -401,7 +413,9 @@ static struct tcf_proto ** prio_find_tcf(struct Qdisc *sch, unsigned long cl)
- }
- 
- static const struct Qdisc_class_ops prio_class_ops = {
--	.graft		=	prio_graft,
-+	.prepare_graft	=	prio_prepare_graft,
-+	.commit_graft	=	prio_commit_graft,
-+	.cancel_graft	=	prio_cancel_graft,
- 	.leaf		=	prio_leaf,
- 	.get		=	prio_get,
- 	.put		=	prio_put,
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 77098ac..c106e0e 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -283,8 +283,15 @@ static int red_dump_class(struct Qdisc *sch, unsigned long cl,
- 	return 0;
- }
- 
--static int red_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		     struct Qdisc **old)
-+static void *red_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new)
-+{
-+	return NULL;
-+}
-+
-+static void red_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem,
-+			     struct Qdisc **old)
- {
- 	struct red_sched_data *q = qdisc_priv(sch);
- 
-@@ -296,7 +303,11 @@ static int red_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
--	return 0;
-+}
-+
-+static void red_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem)
-+{
- }
- 
- static struct Qdisc *red_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -344,7 +355,9 @@ static struct tcf_proto **red_find_tcf(struct Qdisc *sch, unsigned long cl)
- }
- 
- static const struct Qdisc_class_ops red_class_ops = {
--	.graft		=	red_graft,
-+	.prepare_graft	=	red_prepare_graft,
-+	.commit_graft	=	red_commit_graft,
-+	.cancel_graft	=	red_cancel_graft,
- 	.leaf		=	red_leaf,
- 	.get		=	red_get,
- 	.put		=	red_put,
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 444c227..1afea06 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -394,8 +394,15 @@ static int tbf_dump_class(struct Qdisc *sch, unsigned long cl,
- 	return 0;
- }
- 
--static int tbf_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
--		     struct Qdisc **old)
-+static void *tbf_prepare_graft(struct Qdisc *sch, unsigned long arg,
-+			       struct Qdisc *new)
-+{
-+	return NULL;
-+}
-+
-+static void tbf_commit_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem,
-+			     struct Qdisc **old)
- {
- 	struct tbf_sched_data *q = qdisc_priv(sch);
- 
-@@ -407,8 +414,11 @@ static int tbf_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
- 	qdisc_reset(*old);
- 	sch_tree_unlock(sch);
-+}
- 
--	return 0;
-+static void tbf_cancel_graft(struct Qdisc *sch, unsigned long arg,
-+			     struct Qdisc *new, void *mem)
-+{
- }
- 
- static struct Qdisc *tbf_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -456,7 +466,9 @@ static struct tcf_proto **tbf_find_tcf(struct Qdisc *sch, unsigned long cl)
- 
- static const struct Qdisc_class_ops tbf_class_ops =
- {
--	.graft		=	tbf_graft,
-+	.prepare_graft	=	tbf_prepare_graft,
-+	.commit_graft	=	tbf_commit_graft,
-+	.cancel_graft	=	tbf_cancel_graft,
- 	.leaf		=	tbf_leaf,
- 	.get		=	tbf_get,
- 	.put		=	tbf_put,
+ 	dev_put(dev);
 -- 
 1.5.6.2.255.gbed62
 
