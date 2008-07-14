@@ -1,73 +1,74 @@
-From: Vivek Dasmohapatra <vivek@etla.org>
-Subject: 2.6.24 ipw2200 driver can't be reset after firmware explodes
-Date: Mon, 14 Jul 2008 13:27:51 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0807141240020.6889@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6 v4 2/2] hfsc: add link layer overhead adaption
+Date: Mon, 14 Jul 2008 16:24:41 +0200
+Message-ID: <487B61A9.5090204@trash.net>
+References: <20080710193434.19525.83454.stgit@fate.lan> <20080710193440.19525.93085.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from batfish.pepperfish.net ([87.237.62.180]:53666 "EHLO
-	flounder.pepperfish.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753346AbYGNOGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 10:06:09 -0400
+Received: from stinky.trash.net ([213.144.137.162]:47072 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753783AbYGNO0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 10:26:13 -0400
+In-Reply-To: <20080710193440.19525.93085.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi: I have a thinkpad t43p with an ipw2200 driven piece of hardware in it.
+Jussi Kivilinna wrote:
+> CBQ and HTB have options for emulating overhead of underlying link layer
+> (mpu/overhead/linklayer options). This patch makes sch_hfsc use size table
+> to emulate link layer overhead.
+> 
+> Patch uses size table to convert packet length to emulated link layer packet
+> length. Converted packet length is passed to hfsc calculations instead of
+> real. If size table isn't passed to kernel, hfsc works as before.
+> 
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> ---
+> 
+>  include/linux/pkt_sched.h |    5 +
+>  net/sched/sch_hfsc.c      |  158 +++++++++++++++++++++++++++++++++++++--------
+>  2 files changed, 135 insertions(+), 28 deletions(-)
+> 
+> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+> index 5bf1444..46db55d 100644
+> --- a/include/linux/pkt_sched.h
+> +++ b/include/linux/pkt_sched.h
+> @@ -303,6 +303,9 @@ struct tc_htb_xstats
+>  struct tc_hfsc_qopt
+>  {
+>  	__u16	defcls;		/* default class */
+> +	__u16	__reserved;
+> +	struct tc_sizespec szopts;
+> +	__u16	stab[512];
+>  };
+>  
+>  struct tc_service_curve
+> @@ -326,6 +329,8 @@ enum
+>  	TCA_HFSC_RSC,
+>  	TCA_HFSC_FSC,
+>  	TCA_HFSC_USC,
+> +	TCA_HFSC_SZOPTS,
+> +	TCA_HFSC_STAB,
 
-04:02.0 Network controller [0280]:
-  Intel Corporation PRO/Wireless 2915ABG Network Connection [8086:4224] (rev 05)
-         Kernel driver in use: ipw2200
-         Kernel modules: ipw2200
+I thought you were going to make this a generic qdisc feature.
+Why is configuration still qdisc specific?
 
->From time to time, the firmware flakes out, and I get messages like this:
-[ I'm not sure which version of the firmware I have, I can't see anything
-   obvious in dmesg when the ipw2200 module loads: I have files like
-   ipw-2.4-bss.fw in /lib/firmware if that helps ]
+I was thinking of something like this:
 
-Jul 14 03:42:25 neko kernel: 
-ipw2200: Failed to send SCAN_ABORT: Command timed out.
-Jul 14 03:42:26 neko kernel: 
-ipw2200: Failed to send CARD_DISABLE: Command timed out.
-Jul 14 03:42:32 neko kernel: 
-ipw2200: Failed to send SCAN_ABORT: Command timed out.
-Jul 14 03:42:33 neko kernel: 
-ipw2200: Failed to send CARD_DISABLE: Command timed out.
-Jul 14 03:42:39 neko kernel: 
-ipw2200: Failed to send SCAN_ABORT: Command timed out.
+- add generic attributes for configuring size tables for any
+   qdisc, handle those in sch_api
 
-repeated again and again.
+- add qdisc_enqueue() wrapper that calculates the size and
+   stores it in skb->cb, convert direct calls of sch->enqueue
+   to use it
 
-There's usually a "firmware error detected, restarting" message buried
-somewhere in the logs before that happens.
+- change direct uses of skb->len to use the size from the cb
 
-Under kernel 2.6.16, I was able to fix this as follows:
+The second step might need a bit more thought to make sure
+qdiscs don't get confused when the dequeued packet is larger
+than the enqueued one, but I think they usually don't care.
 
-echo -n 3 > /sys/class/net/$IFACE/device/power/state
-sleep 1
-echo -n 0 > /sys/class/net/$IFACE/device/power/state
-
-( removing and reloading the module has no effect here, under
-   either kernel 2.6.16 or 2.6.24: taking the interface down and
-   bringing it up again is likewise ineffective )
-
-However, I note that under 2.6.24 said /sys interface is no
-longer present, so once the firmware dies, I am forced to either
-hunt down a network cable with something useful on the other end,
-or live without networking, or reboot.
-
-Is there a new way to achieve the same effect in 2.6.24? If there's not,
-is there likely to be in the future? Or should I just revert to 2.6.16
-until such time as I replace my laptop and (hopefully) don't have to
-struggle with the intel wifi hardware any more?
-
-The firmware bug is covered here: 
-http://www.intellinuxwireless.org/bugzilla/show_bug.cgi?id=875
-if that's helpful/relevant.
-
-[ CCd to netdev as I was told it would be of interest there too,
-   apologies if this is not the case ]
-
--- 
-Vivek
