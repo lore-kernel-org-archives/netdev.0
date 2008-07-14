@@ -1,29 +1,50 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [PATCH 6/6] netxen: put back driver xmit lock
-Date: Mon, 14 Jul 2008 12:07:00 -0700
-Message-ID: <487BA3D4.2030708@netxen.com>
-References: <1215890720-29744-7-git-send-email-dhananjay@netxen.com> <20080712.135347.44219316.davem@davemloft.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [rfc] new sk_buff member: hwstamp
+Date: Mon, 14 Jul 2008 20:58:00 +0200
+Message-ID: <487BA1B8.5070006@hartkopp.net>
+References: <200807141843.00845.opurdila@ixiacom.com> <87abgkz8bc.fsf@basil.nowhere.org> <487B9396.1060701@hartkopp.net> <200807142130.12375.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1250"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netxen.com ([66.126.254.36]:2383 "EHLO nxexch.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752178AbYGNTHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 15:07:03 -0400
-In-Reply-To: <20080712.135347.44219316.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:58933 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539AbYGNTJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 15:09:30 -0400
+In-Reply-To: <200807142130.12375.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> This is on hold, and meanwhile there is zero reason for the
-> driver to not take advantage of the mid-layer's lock.
+Octavian Purdila wrote:
+>> However i feel, that *one* nanosec resolution timestamp (as it already
+>> exists inside the skbuff) is enough. AFAIK the timestamp is only set in
+>> the netif_rx(), when it is not already set by the driver itself. For
+>> that reason i would suggest to create some semi-intelligent offset
+>> calculation inside the driver that makes the skb->tstamp value
+>> correspond with the hw timestamp and therefore transports the high
+>> resolution timestamp requirement into the userspace.
+>>
+>>     
 >
-> None whatsoever.
-Okay, that was the last patch in the series, so can be omitted for now.
-Rest may be applied.
+> You mean something like here [1] ?
+> [1] 
+> http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc4/2.6.23-rc4-mm1/broken-out/sky2-hardware-receive-timestamp-counter.patch
+>
+>   
 
--Dhananjay
+Yes - exactly :-)
+
+> The problem for this approach in our usecase (one way delay measurement) is 
+> that the real time clock of the CPUs (of the RX and TX ports) is not 
+> synchronized, but the hw timestamp (implemented in the NIC/FPGA) is. 
+>   
+
+Is it necessary to have syncronized clocks on the different CPUs or is
+it feasible to calculate a per-cpu-clock offset in your driver, so that
+you can build a complete timing overview of your setup?
+
+Regards,
+Oliver
+
