@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH RFC 08/10] mlx4_en: Completion queues management
-Date: Mon, 14 Jul 2008 17:42:11 +0300
-Message-ID: <487B65C3.6000604@mellanox.co.il>
+Subject: [PATCH RFC 09/10] mlx4_en: Helper functions
+Date: Mon, 14 Jul 2008 17:42:17 +0300
+Message-ID: <487B65C9.8050504@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,29 +9,29 @@ Cc: netdev@vger.kernel.org, Liran Liss <liranl@mellanox.co.il>,
 	tziporet@mellanox.co.il, Roland Dreier <rdreier@cisco.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:45152 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:45169 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754284AbYGNOtv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 10:49:51 -0400
+	id S1754572AbYGNOt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2008 10:49:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This file implements Completion queues handling. The completion
-queues are in use by both tx and rx rings.
+This file includes some helper functions to assist in resources
+allocation and bringing them to required state.
 
 Signed-off-by: Liran Liss <liranl@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_cq.c |  132 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 132 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/mlx4/en_cq.c
+ drivers/net/mlx4/en_resources.c |   99 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 99 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/mlx4/en_resources.c
 
-diff --git a/drivers/net/mlx4/en_cq.c b/drivers/net/mlx4/en_cq.c
+diff --git a/drivers/net/mlx4/en_resources.c b/drivers/net/mlx4/en_resources.c
 new file mode 100644
-index 0000000..cdd5bbc
+index 0000000..4f2e96c
 --- /dev/null
-+++ b/drivers/net/mlx4/en_cq.c
-@@ -0,0 +1,132 @@
++++ b/drivers/net/mlx4/en_resources.c
+@@ -0,0 +1,99 @@
 +/*
 + * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
 + *
@@ -67,102 +67,69 @@ index 0000000..cdd5bbc
 +
 +#include <linux/mlx4/cq.h>
 +#include <linux/mlx4/qp.h>
-+#include <linux/mlx4/cmd.h>
++#include <linux/mlx4/srq.h>
 +
 +#include "mlx4_en.h"
 +
-+static void mlx4_en_cq_event(struct mlx4_cq *cq, enum mlx4_event event)
-+{
-+	return;
-+}
-+
-+
-+int mlx4_en_create_cq(struct mlx4_en_priv *priv,
-+		      struct mlx4_en_cq *cq,
-+		      int entries, int ring, enum cq_type mode)
++void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
++			     int is_tx, int rss, int qpn, int cqn, int srqn,
++			     struct mlx4_qp_context *context)
 +{
 +	struct mlx4_en_dev *mdev = priv->mdev;
++
++	memset(context, 0, sizeof *context);
++	context->flags = cpu_to_be32(7 << 16 | rss << 13);
++	context->pd = cpu_to_be32(mdev->priv_pdn);
++	context->mtu_msgmax = 0xff;
++	context->rq_size_stride = 0;
++	if (is_tx)
++		context->sq_size_stride = ilog2(size) << 3 | (ilog2(stride) - 4);
++	else
++		context->sq_size_stride = 1;
++	context->usr_page = cpu_to_be32(mdev->priv_uar.index);
++	context->local_qpn = cpu_to_be32(qpn);
++	context->pri_path.ackto = 1 & 0x07;
++	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
++	context->pri_path.counter_index = 0xff;
++	context->cqn_send = cpu_to_be32(cqn);
++	context->cqn_recv = cpu_to_be32(cqn);
++	context->db_rec_addr = cpu_to_be64(priv->res.db.dma << 2);
++	if (!rss)
++		context->srqn = cpu_to_be32(MLX4_EN_USE_SRQ | srqn);
++
++	/* header separation */
++	if (!is_tx && !rss)
++		context->param3 = cpu_to_be32(priv->rx_buf << 23);
++}
++
++static u32 convert_access(int acc)
++{
++	return (acc & MLX4_EN_ACCESS_REMOTE_ATOMIC ? MLX4_PERM_ATOMIC       : 0) |
++	       (acc & MLX4_EN_ACCESS_REMOTE_WRITE  ? MLX4_PERM_REMOTE_WRITE : 0) |
++	       (acc & MLX4_EN_ACCESS_REMOTE_READ   ? MLX4_PERM_REMOTE_READ  : 0) |
++	       (acc & MLX4_EN_ACCESS_LOCAL_WRITE   ? MLX4_PERM_LOCAL_WRITE  : 0) |
++	       MLX4_PERM_LOCAL_READ;
++}
++
++int mlx4_en_get_dma_mr(struct mlx4_en_dev *mdev, int acc)
++{
 +	int err;
-+	unsigned vector;
 +
-+	cq->size = entries;
-+	if (mode == RX) {
-+		cq->buf_size = cq->size * sizeof(struct mlx4_cqe);
-+		vector = ring % mdev->dev->caps.num_comp_vectors;
-+	} else {
-+		cq->buf_size = sizeof(struct mlx4_cqe);
-+		vector = MLX4_LEAST_ATTACHED_VECTOR;
-+	}
-+	cq->ring = ring;
-+	cq->is_tx = mode;
-+	cq->dev = mdev->pndev[priv->port];
-+	spin_lock_init(&cq->lock);
-+
-+	err = mlx4_alloc_hwq_res(mdev->dev, &cq->wqres,
-+				cq->buf_size, cq->buf_size);
++	err = mlx4_mr_alloc(mdev->dev, mdev->priv_pdn, 0, ~0ull,
++			    convert_access(acc), 0, 0, &mdev->mr);
 +	if (err)
 +		return err;
-+	cq->mcq.set_ci_db  = cq->wqres.db.db;
-+	cq->mcq.arm_db     = cq->wqres.db.db + 1;
-+	*cq->mcq.set_ci_db = 0;
-+	*cq->mcq.arm_db    = 0;
-+	cq->buf = (struct mlx4_en_cqe *) cq->wqres.buf.direct.buf;
-+	memset(cq->buf, 0, cq->buf_size);
 +
-+	err = mlx4_cq_alloc(mdev->dev, cq->size, &cq->wqres.mtt, &mdev->priv_uar,
-+			    cq->wqres.db.dma, &cq->mcq, vector, mode);
++	err = mlx4_mr_enable(mdev->dev, &mdev->mr);
 +	if (err)
-+		goto err_man;
-+
-+	cq->mcq.comp  = cq->is_tx ? NULL : mlx4_en_rx_irq;
-+	cq->mcq.event = mlx4_en_cq_event;
-+
-+	if (cq->is_tx) {
-+		init_timer(&cq->timer);
-+		cq->timer.function = mlx4_en_poll_tx_cq;
-+		cq->timer.data = (unsigned long) cq;
-+	} else {
-+		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
-+		napi_enable(&cq->napi);
-+	}
++		goto err_mr;
 +
 +	return 0;
 +
-+err_man:
-+	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
++err_mr:
++	mlx4_mr_free(mdev->dev, &mdev->mr);
 +	return err;
 +}
-+
-+void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
-+{
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+
-+	if (cq->is_tx)
-+		del_timer(&cq->timer);
-+	else
-+		napi_disable(&cq->napi);
-+
-+	mlx4_cq_free(mdev->dev, &cq->mcq);
-+	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
-+	cq->buf_size = 0;
-+	cq->buf = NULL;
-+}
-+
-+/* Set rx cq moderation parameters */
-+int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
-+{
-+	return mlx4_cq_modify(priv->mdev->dev, &cq->mcq,
-+			      cq->moder_cnt, cq->moder_cnt);
-+}
-+
-+int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
-+{
-+	mlx4_cq_arm(&cq->mcq, MLX4_CQ_DB_REQ_NOT, priv->mdev->uar_map,
-+		    &priv->mdev->uar_lock);
-+
-+	return 0;
-+}
-+
 +
 -- 
 1.5.3.7
