@@ -1,110 +1,73 @@
-From: Maciej Sosnowski <maciej.sosnowski@intel.com>
-Subject: [PATCH 2/2] I/OAT: tcp_dma_copybreak default value dependant on I/OAT
-	version
-Date: Mon, 14 Jul 2008 15:28:39 +0200
-Message-ID: <20080714132834.26941.89982.stgit@linux.site>
-References: <20080714132645.26941.64737.stgit@linux.site>
+From: Vivek Dasmohapatra <vivek@etla.org>
+Subject: 2.6.24 ipw2200 driver can't be reset after firmware explodes
+Date: Mon, 14 Jul 2008 13:27:51 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0807141240020.6889@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dan.j.williams@intel.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9873 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755526AbYGNNif (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 09:38:35 -0400
-In-Reply-To: <20080714132645.26941.64737.stgit@linux.site>
+Received: from batfish.pepperfish.net ([87.237.62.180]:53666 "EHLO
+	flounder.pepperfish.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753346AbYGNOGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 10:06:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I/OAT DMA performance tuning showed different optimal values 
-of tcp_dma_copybreak for different I/OAT versions
-(4096 for 1.2 and 2048 for 2.0).
-This patch lets ioatdma driver set tcp_dma_copybreak value 
-according to these results.
+Hi: I have a thinkpad t43p with an ipw2200 driven piece of hardware in it.
 
-Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
----
+04:02.0 Network controller [0280]:
+  Intel Corporation PRO/Wireless 2915ABG Network Connection [8086:4224] (rev 05)
+         Kernel driver in use: ipw2200
+         Kernel modules: ipw2200
 
- drivers/dma/dmaengine.c   |    3 +++
- drivers/dma/ioat_dma.c    |   15 +++++++++++++++
- include/linux/dmaengine.h |    2 ++
- 3 files changed, 20 insertions(+), 0 deletions(-)
+>From time to time, the firmware flakes out, and I get messages like this:
+[ I'm not sure which version of the firmware I have, I can't see anything
+   obvious in dmesg when the ipw2200 module loads: I have files like
+   ipw-2.4-bss.fw in /lib/firmware if that helps ]
 
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-index 97b329e..d57365a 100644
---- a/drivers/dma/dmaengine.c
-+++ b/drivers/dma/dmaengine.c
-@@ -70,6 +70,7 @@ #include <linux/percpu.h>
- #include <linux/rcupdate.h>
- #include <linux/mutex.h>
- #include <linux/jiffies.h>
-+#include <net/tcp.h>
- 
- static DEFINE_MUTEX(dma_list_mutex);
- static LIST_HEAD(dma_device_list);
-@@ -402,6 +403,8 @@ int dma_async_device_register(struct dma
- 	list_add_tail(&device->global_node, &dma_device_list);
- 	mutex_unlock(&dma_list_mutex);
- 
-+	sysctl_tcp_dma_copybreak = device->tcp_dma_copybreak;
-+
- 	dma_clients_notify_available();
- 
- 	return 0;
-diff --git a/drivers/dma/ioat_dma.c b/drivers/dma/ioat_dma.c
-index 9c0b90a..42e5bfb 100644
---- a/drivers/dma/ioat_dma.c
-+++ b/drivers/dma/ioat_dma.c
-@@ -53,6 +53,12 @@ #define WATCHDOG_DELAY  round_jiffies(ms
- static void ioat_dma_chan_reset_part2(struct work_struct *work);
- static void ioat_dma_chan_watchdog(struct work_struct *work);
- 
-+/*
-+ * default tcp_dma_copybreak values for different IOAT versions
-+ */
-+#define IOAT1_DEFAULT_TCP_DMA_COPYBREAK 4096
-+#define IOAT2_DEFAULT_TCP_DMA_COPYBREAK 2048
-+
- /* internal functions */
- static void ioat_dma_start_null_desc(struct ioat_dma_chan *ioat_chan);
- static void ioat_dma_memcpy_cleanup(struct ioat_dma_chan *ioat_chan);
-@@ -1571,6 +1577,15 @@ struct ioatdma_device *ioat_dma_probe(st
- 	if (err)
- 		goto err_self_test;
- 
-+	switch (device->version) {
-+	case IOAT_VER_1_2:
-+		device->common.tcp_dma_copybreak = IOAT1_DEFAULT_TCP_DMA_COPYBREAK;
-+		break;
-+	case IOAT_VER_2_0:
-+		device->common.tcp_dma_copybreak = IOAT2_DEFAULT_TCP_DMA_COPYBREAK;
-+		break;
-+	}
-+
- 	dma_async_device_register(&device->common);
- 
- 	INIT_DELAYED_WORK(&device->work, ioat_dma_chan_watchdog);
-diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
-index d08a5c5..c09128e 100644
---- a/include/linux/dmaengine.h
-+++ b/include/linux/dmaengine.h
-@@ -251,6 +251,7 @@ struct dma_async_tx_descriptor {
-  * @global_node: list_head for global dma_device_list
-  * @cap_mask: one or more dma_capability flags
-  * @max_xor: maximum number of xor sources, 0 if no capability
-+ * @tcp_dma_copybreak: lower limit of TCP socket reads size offloaded by DMA 
-  * @refcount: reference count
-  * @done: IO completion struct
-  * @dev_id: unique device ID
-@@ -272,6 +273,7 @@ struct dma_device {
- 	struct list_head global_node;
- 	dma_cap_mask_t  cap_mask;
- 	int max_xor;
-+	int tcp_dma_copybreak;
- 
- 	struct kref refcount;
- 	struct completion done;
+Jul 14 03:42:25 neko kernel: 
+ipw2200: Failed to send SCAN_ABORT: Command timed out.
+Jul 14 03:42:26 neko kernel: 
+ipw2200: Failed to send CARD_DISABLE: Command timed out.
+Jul 14 03:42:32 neko kernel: 
+ipw2200: Failed to send SCAN_ABORT: Command timed out.
+Jul 14 03:42:33 neko kernel: 
+ipw2200: Failed to send CARD_DISABLE: Command timed out.
+Jul 14 03:42:39 neko kernel: 
+ipw2200: Failed to send SCAN_ABORT: Command timed out.
 
+repeated again and again.
+
+There's usually a "firmware error detected, restarting" message buried
+somewhere in the logs before that happens.
+
+Under kernel 2.6.16, I was able to fix this as follows:
+
+echo -n 3 > /sys/class/net/$IFACE/device/power/state
+sleep 1
+echo -n 0 > /sys/class/net/$IFACE/device/power/state
+
+( removing and reloading the module has no effect here, under
+   either kernel 2.6.16 or 2.6.24: taking the interface down and
+   bringing it up again is likewise ineffective )
+
+However, I note that under 2.6.24 said /sys interface is no
+longer present, so once the firmware dies, I am forced to either
+hunt down a network cable with something useful on the other end,
+or live without networking, or reboot.
+
+Is there a new way to achieve the same effect in 2.6.24? If there's not,
+is there likely to be in the future? Or should I just revert to 2.6.16
+until such time as I replace my laptop and (hopefully) don't have to
+struggle with the intel wifi hardware any more?
+
+The firmware bug is covered here: 
+http://www.intellinuxwireless.org/bugzilla/show_bug.cgi?id=875
+if that's helpful/relevant.
+
+[ CCd to netdev as I was told it would be of interest there too,
+   apologies if this is not the case ]
+
+-- 
+Vivek
