@@ -1,179 +1,142 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 9/14]: pkt_sched: qdisc_lookup() takes a netdev_queue
-Date: Mon, 14 Jul 2008 16:00:18 -0700 (PDT)
-Message-ID: <20080714.160018.239443255.davem@davemloft.net>
+Subject: [PATCH 11/14]: pkt_sched: Make classifier filter dumping
+ multiqueue aware.
+Date: Mon, 14 Jul 2008 16:00:26 -0700 (PDT)
+Message-ID: <20080714.160026.75040785.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49273
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49277
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758539AbYGNXAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 19:00:20 -0400
+	by vger.kernel.org with ESMTP id S1758548AbYGNXA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 19:00:26 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 28C80C8C188
-	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 16:00:18 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id DADEFC8C187
+	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 16:00:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Everyone outside of sch_api.c is using __qdisc_lookup() which
-takes a netdev_queue.
-
-Rename the existing qdisc_lookup() to qdisc_lookup_dev() and
-mark it static.  Then rename __qdisc_lookup() to qdisc_lookup.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/pkt_sched.h |    3 +--
- net/sched/cls_api.c     |    4 ++--
- net/sched/sch_api.c     |   28 ++++++++++++++--------------
- 3 files changed, 17 insertions(+), 18 deletions(-)
+ net/sched/cls_api.c |   77 +++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 47 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 88f07c0..6a6d546 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -79,8 +79,7 @@ extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
- 
- extern int register_qdisc(struct Qdisc_ops *qops);
- extern int unregister_qdisc(struct Qdisc_ops *qops);
--extern struct Qdisc *__qdisc_lookup(struct netdev_queue *dev_queue, u32 handle);
--extern struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
-+extern struct Qdisc *qdisc_lookup(struct netdev_queue *dev_queue, u32 handle);
- extern struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
- extern struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
- 		struct nlattr *tab);
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 65ca460..d50c3b6 100644
+index d50c3b6..e2d8be4 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -179,7 +179,7 @@ static int tcf_prepare_one(struct tcf_op_parms *parms, struct tcf_op_info *tp,
- 		tp->q = dev_queue->qdisc_sleeping;
- 		parent = tp->q->handle;
- 	} else {
--		tp->q = __qdisc_lookup(dev_queue, TC_H_MAJ(t->tcm_parent));
-+		tp->q = qdisc_lookup(dev_queue, TC_H_MAJ(t->tcm_parent));
- 		if (!tp->q)
- 			return -EINVAL;
- 	}
-@@ -583,7 +583,7 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -557,50 +557,41 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
+ 			     a->cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWTFILTER);
+ }
+ 
+-static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
++static int tc_dump_filter_queue(struct sk_buff *skb, struct netlink_callback *cb,
++				struct tcmsg *tcm, struct netdev_queue *dev_queue,
++				int t)
+ {
+-	struct net *net = sock_net(skb->sk);
+-	struct netdev_queue *dev_queue;
+-	int t;
+-	int s_t;
+-	struct net_device *dev;
+-	struct Qdisc *q;
+-	struct tcf_proto *tp, **chain;
+-	struct tcmsg *tcm = (struct tcmsg *)NLMSG_DATA(cb->nlh);
+-	unsigned long cl = 0;
+ 	const struct Qdisc_class_ops *cops;
++	struct tcf_proto *tp, **chain;
+ 	struct tcf_dump_args arg;
++	unsigned long cl = 0;
++	struct Qdisc *q;
++	int s_t;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+-	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
+-		return skb->len;
+-	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+-		return skb->len;
+-
+-	dev_queue = netdev_get_tx_queue(dev, 0);
  	if (!tcm->tcm_parent)
  		q = dev_queue->qdisc_sleeping;
  	else
--		q = __qdisc_lookup(dev_queue, TC_H_MAJ(tcm->tcm_parent));
-+		q = qdisc_lookup(dev_queue, TC_H_MAJ(tcm->tcm_parent));
+ 		q = qdisc_lookup(dev_queue, TC_H_MAJ(tcm->tcm_parent));
  	if (!q)
- 		goto out;
- 	if ((cops = q->ops->cl_ops) == NULL)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 7d646db..cd5ff65 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -183,7 +183,7 @@ EXPORT_SYMBOL(unregister_qdisc);
-    (root qdisc, all its children, children of children etc.)
-  */
+-		goto out;
+-	if ((cops = q->ops->cl_ops) == NULL)
+-		goto errout;
++		return t;
++
++	cops = q->ops->cl_ops;
++	if (!cops)
++		return t;
++
+ 	if (TC_H_MIN(tcm->tcm_parent)) {
+ 		cl = cops->get(q, tcm->tcm_parent);
+-		if (cl == 0)
+-			goto errout;
++		if (!cl)
++			return t;
+ 	}
+ 	chain = cops->tcf_chain(q, cl);
+ 	if (chain == NULL)
+-		goto errout;
++		goto out_put_cl;
  
--struct Qdisc *__qdisc_lookup(struct netdev_queue *dev_queue, u32 handle)
-+struct Qdisc *qdisc_lookup(struct netdev_queue *dev_queue, u32 handle)
- {
- 	struct Qdisc *q;
+ 	s_t = cb->args[0];
+-
+-	for (tp=*chain, t=0; tp; tp = tp->next, t++) {
+-		if (t < s_t) continue;
++	for (tp = *chain; tp; tp = tp->next, t++) {
++		if (t < s_t)
++			continue;
+ 		if (TC_H_MAJ(tcm->tcm_info) &&
+ 		    TC_H_MAJ(tcm->tcm_info) != tp->prio)
+ 			continue;
+@@ -633,10 +624,36 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
  
-@@ -194,13 +194,13 @@ struct Qdisc *__qdisc_lookup(struct netdev_queue *dev_queue, u32 handle)
- 	return NULL;
+ 	cb->args[0] = t;
+ 
+-errout:
++out_put_cl:
+ 	if (cl)
+ 		cops->put(q, cl);
+-out:
++
++	return t;
++}
++
++static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct tcmsg *tcm = NLMSG_DATA(cb->nlh);
++	struct net *net = sock_net(skb->sk);
++	struct net_device *dev;
++	unsigned int i;
++	int t;
++
++	if (net != &init_net)
++		return 0;
++
++	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
++		return skb->len;
++	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++		return skb->len;
++
++	t = 0;
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, i);
++
++		t = tc_dump_filter_queue(skb, cb, tcm, dev_queue, t);
++	}
++
+ 	dev_put(dev);
+ 	return skb->len;
  }
- 
--struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
-+static struct Qdisc *qdisc_lookup_dev(struct net_device *dev, u32 handle)
- {
- 	unsigned int i;
- 
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		struct Qdisc *q = __qdisc_lookup(txq, handle);
-+		struct Qdisc *q = qdisc_lookup(txq, handle);
- 		if (q)
- 			return q;
- 	}
-@@ -444,7 +444,7 @@ static u32 qdisc_alloc_handle(struct net_device *dev)
- 		autohandle += TC_H_MAKE(0x10000U, 0);
- 		if (autohandle == TC_H_MAKE(TC_H_ROOT, 0))
- 			autohandle = TC_H_MAKE(0x80000000U, 0);
--	} while	(qdisc_lookup(dev, autohandle) && --i > 0);
-+	} while	(qdisc_lookup_dev(dev, autohandle) && --i > 0);
- 
- 	return i>0 ? autohandle : 0;
- }
-@@ -505,7 +505,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
- 			return;
- 
--		sch = __qdisc_lookup(sch->dev_queue, TC_H_MAJ(parentid));
-+		sch = qdisc_lookup(sch->dev_queue, TC_H_MAJ(parentid));
- 		if (sch == NULL) {
- 			WARN_ON(parentid != TC_H_ROOT);
- 			return;
-@@ -708,7 +708,7 @@ static int tc_get_prep_request(struct tc_qdisc_op_info *queue_arr, unsigned int
- 			dev_queue = netdev_get_tx_queue(dev, i);
- 
- 		if (!clid) {
--			qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
-+			qp->op_q = qdisc_lookup(dev_queue, tcm->tcm_handle);
- 			if (!qp->op_q)
- 				return -ENOENT;
- 		} else {
-@@ -718,8 +718,8 @@ static int tc_get_prep_request(struct tc_qdisc_op_info *queue_arr, unsigned int
- 				if (TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS)) {
- 					qp->op_q = dev_queue->qdisc;
- 				} else {
--					qp->parent_q = __qdisc_lookup(dev_queue,
--								      TC_H_MAJ(clid));
-+					qp->parent_q = qdisc_lookup(dev_queue,
-+								    TC_H_MAJ(clid));
- 					if (!qp->parent_q)
- 						return -ENOENT;
- 					qp->op_q = qdisc_leaf(qp->parent_q, clid);
-@@ -1187,8 +1187,8 @@ static int tc_prepare_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
- 	if (clid) {
- 		if (clid != TC_H_ROOT) {
- 			if (clid != TC_H_INGRESS) {
--				qp->parent_q = __qdisc_lookup(dev_queue,
--							      TC_H_MAJ(clid));
-+				qp->parent_q = qdisc_lookup(dev_queue,
-+							    TC_H_MAJ(clid));
- 				if (!qp->parent_q)
- 					return -ENOENT;
- 				qp->op_q = qdisc_leaf(qp->parent_q, clid);
-@@ -1212,8 +1212,8 @@ static int tc_prepare_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
- 				if (TC_H_MIN(tcm->tcm_handle))
- 					return -EINVAL;
- 
--				qp->op_q = __qdisc_lookup(dev_queue,
--							  tcm->tcm_handle);
-+				qp->op_q = qdisc_lookup(dev_queue,
-+							tcm->tcm_handle);
- 				if (!qp->op_q)
- 					goto create_and_graft;
- 
-@@ -1268,7 +1268,7 @@ static int tc_prepare_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
- 	} else {
- 		if (!tcm->tcm_handle)
- 			return -EINVAL;
--		qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
-+		qp->op_q = qdisc_lookup(dev_queue, tcm->tcm_handle);
- 	}
- 
- 	/* Change qdisc parameters */
-@@ -1577,7 +1577,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	}
- 
- 	/* OK. Locate qdisc */
--	if ((q = __qdisc_lookup(dev_queue, qid)) == NULL)
-+	if ((q = qdisc_lookup(dev_queue, qid)) == NULL)
- 		return -ENOENT;
- 
- 	/* An check that it supports classes */
 -- 
 1.5.6.2.255.gbed62
 
