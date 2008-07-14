@@ -1,157 +1,48 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: Re: e1000e "Detected Tx Unit Hang"
-Date: Mon, 14 Jul 2008 10:21:59 +0300
-Message-ID: <487AFE97.8090107@embedded-sol.com>
-References: <4866211E.6040704@embedded-sol.com> <36D9DB17C6DE9E40B059440DB8D95F5205953CF7@orsmsx418.amr.corp.intel.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: bridging with gre tunnel
+Date: Mon, 14 Jul 2008 10:25:54 +0300
+Message-ID: <487AFF82.4090707@iki.fi>
+References: <4876FDF0.1030807@iki.fi> <487AA0CD.9090600@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stefan Roese <sr@denx.de>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Philip Craig <philipc@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:38071 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535AbYGNHWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 03:22:13 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5205953CF7@orsmsx418.amr.corp.intel.com>
+Received: from ug-out-1314.google.com ([66.249.92.171]:49476 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754491AbYGNHZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 03:25:59 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so198875ugf.16
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 00:25:58 -0700 (PDT)
+In-Reply-To: <487AA0CD.9090600@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Jesse
+Philip Craig wrote:
+> Timo Ter=E4s wrote:
+>> Is there newer/better patches to achieve this? Any thoughts about
+>> doing bridging with gre tunnels?
+>=20
+> Here's a patch I did against 2.6.17.
+>=20
+> I didn't submit this to mainline though because the userspace ABI
+> is ugly.  The basic problem is that the struct used for the ioctl
+> isn't extensible.  The only way I can think of to fix it properly
+> is to add configuration of gre using netlink, but I never got around
+> to doing that. =20
 
-I'm CC-ing Stefan, who ported Linux to this platform.
+There is an essential difference in this patch compared to the one
+I referred to. This patch adds a new way to create GRE devices which
+results in ethernet style device whereas the older patch modifies
+transmit and receive paths to detect packets coming from bridging
+code and does not need userland changes at all.
 
-Applying the patch you suggested did not help. I'm still getting TX unit
-hangs. I don't see any netdev watchdog messages. When the hang occurs
-I cannot get the prompt, so I cannot run ethtool.
+I kind of like the fact that userland tools work as-is and that
+I don't need any special flags for the GRE tunnel creation. However
+your patch does look way cleaner.
 
-The following command works always
+Any comments on what the solution to merged in should look like?
 
-dd if=/dev/zero of=/mnt/test bs=512 count=2
-
-and the following causes Tx unit hang
-
- dd if=/dev/zero of=/mnt/test bs=512 count=3
-
-Stefan, are you aware of any PCIe related problems on Canyonlands ?
-AMCC have compatibility chart on their site, which indicates that this
-particular card (Intel PRO/1000 T Desktop Adapter) Iwas tested with 
-linux-2.6.25 kernel.
-
-Thanks  a lot.
-
-Felix.
-
-Brandeburg, Jesse wrote:
-> Felix Radensky wrote:
->   
->> Hi, Jesse
->>
->> I can confirm that I'm also getting these errors with 2.6.26-rc8 on
->> PowerPC platform (AMCC 460EX CPU). The Intel adapter is (as reported
->> by lspci -vv) 
->>     
->
-> Interesting, I haven't heard back from Herbert, but thanks for the
-> reply.
->
-> are you getting the NETDEV WATCHDOG messages in your log?  does ethtool
-> -S show any tx_timeout?
->
-> can you try applying a patch similar to
-> https://sourceforge.net/tracker/download.php?group_id=42302&atid=447449&
-> file_id=283326&aid=2007017
->
-> aka http://tinyurl.com/5vl5g4
->
->
->  
->   
->> 41:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit
->> Ethernet Controller (Copper) (rev 06)
->>         Subsystem: Intel Corporation PRO/1000 PT Desktop Adapter
->>     
->
-> x1 PCIe adapter
->
->   
->> Some relevant output from dmesg:
->>
->> e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
->> e1000e: Copyright (c) 1999-2008 Intel Corporation.
->> e1000e 0000:41:00.0: enabling device (0006 -> 0007)
->> eth2: (PCI Express:2.5GB/s:Width x1) 00:1b:21:1e:2d:2a
->> eth2: Intel(R) PRO/1000 Network Connection
->> eth2: MAC: 1, PHY: 4, PBA No: d50854-003
->> eth2: Link is Up 100 Mbps Full Duplex, Flow Control: RX/TX
->> eth2: 10/100 speed: disabling TSO
->>
->> I can reliably reproduce the  problem  by running
->>
->> dd=/dev/zero of=/mnt/1M bs=1024 count=1024
->>
->> where /mnt is mounted over NFS  with the following options (default
->> ones)
->>
->>     
-> rw,vers=3,rsize=32768,wsize=32768,namlen=255,hard,nointr,nolock,proto=ud
-> p,timeo=7,retrans=3,sec=sys,mountproto=udp,addr
->   
->> Below is register dump produced by patched driver.
->>
->> eth2: Detected Tx Unit Hang:
->>   TDH                  <25>
->>   TDT                  <25>
->>     
->
-> Hardware completed all the packets, but no writebacks made it back to
-> main memory.
->
->   
->> TX Desc ring0 dump
->> Tl[0x000]    0000000000000000 0000000000000000 000000001D734802 0022
->> 2 00000000FFFFD0FE 00000000 NTC
->>     
->
-> Ewww, even worse, it seems that something zeroed out the memory in the
-> tx descriptor ring.  I strongly suspect something bad at your
-> system/chipset level. 
->
->
->   
->> Tl[0x001]    0000000000000000 0000000000000000 0000000015FE2A84 057C
->> 1 00000000FFFFD0FE 00000000
->> Tl[0x002]    0000000000000000 0000000000000000 0000000015FA1000 004C
->> 2 00000000FFFFD0FE dd739f00
->> Tl[0x003]    0000000000000000 0000000000000000 000000001D734A02 0022
->> 4 00000000FFFFD0FE 00000000
->> Tl[0x004]    0000000000000000 0000000000000000 0000000015FA104C 05C8
->> 4 00000000FFFFD0FE dd739c80
->> Tl[0x005]    0000000000000000 0000000000000000 000000001D734C02 0022
->> 6 00000000FFFFD0FE 00000000
->> Tl[0x006]    0000000000000000 0000000000000000 0000000015FA1614 05C8
->> 6 00000000FFFFD0FE dd739280
->> Tl[0x007]    0000000000000000 0000000000000000 000000001D734E02 0022
->> 9 00000000FFFFD0FE 00000000
->> Tl[0x008]    0000000000000000 0000000000000000 0000000015FA1BDC 0424
->> 8 00000000FFFFD0FE 00000000
->> Tl[0x009]    0000000000000000 0000000000000000 0000000015EC6000 01A4
->> 9 00000000FFFFD0FE dd7390a0
->> Tl[0x00A]    0000000000000000 0000000000000000 000000001D73A002 0022
->> B 00000000FFFFD0FE 00000000
->> Tl[0x00B]    0000000000000000 0000000000000000 0000000015EC61A4 05C8
->> B 00000000FFFFD0FE dd739e60
->> Tl[0x00C]    000000001D73A202 0000000002000022 000000001D73A202 0022
->> D 00000000FFFFD0FE 00000000
->>     
->
-> Either the driver is half done cleaning up, which doesn't seem likely
-> due to the driver not ZEROING all the first two 64 bit columns, but the
-> last column which contains an skb pointer still indicates cleanup hasn't
-> completed.
->
-> Does this card work at all in your system?
->
-> Jesse
->   
+- Timo
 
