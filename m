@@ -1,62 +1,74 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: [PATCH] mac80211: return correct error return from ieee80211_wep_init
-Date: Mon, 14 Jul 2008 12:52:08 -0700
-Message-ID: <487BAE68.6040403@goop.org>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another Problem)
+Date: Mon, 14 Jul 2008 21:52:19 +0200
+Message-ID: <200807142152.26163.eike-kernel@sf-tec.de>
+References: <4861800B.90703@nscus.com> <48777BC3.6090108@dell.com> <1216052460.23392.14.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1302757.VNAFtA2WZ5";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:58263 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755947AbYGNTwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 15:52:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mario Limonciello <mario_limonciello@dell.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Kasper Sandberg <lkml@metanurb.dk>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1216052460.23392.14.camel@localhost>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Return the proper error code rather than a hard-coded ENOMEM from
-ieee80211_wep_init.  Also, print the error code on failure.
+--nextPart1302757.VNAFtA2WZ5
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Signed-off-by: Jeremy Fitzhardinge <jeremy@goop.org>
----
- net/mac80211/main.c |    4 ++--
- net/mac80211/wep.c  |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Kasper Sandberg wrote:
+> On Fri, 2008-07-11 at 10:26 -0500, Mario Limonciello wrote:
+> > Kasper:
+> >
+> > http://marc.info/?l=3Dlinux-netdev&m=3D121498012600793&w=3D2
+>
+> I just tested it. It fails.
+>
+> after a few unloads/loads the lspci -x output is garbled again. the
+> funny thing is (i have a dual nic board) its random which one that
+> breaks..
+>
+> Francois, i tested your patch,
+> http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9/20080710-r8169-test.pa=
+tc
+>h against .26 and it WORKS. with all the other tests i've done, ~5
+> unloads/loads is more than enough to trigger it, i just did 50 on your
+> patch, and it functions.
 
-===================================================================
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -1741,8 +1741,8 @@
- 	result = ieee80211_wep_init(local);
- 
- 	if (result < 0) {
--		printk(KERN_DEBUG "%s: Failed to initialize wep\n",
--		       wiphy_name(local->hw.wiphy));
-+		printk(KERN_DEBUG "%s: Failed to initialize wep: %d\n",
-+		       wiphy_name(local->hw.wiphy), result);
- 		goto fail_wep;
- 	}
- 
-===================================================================
---- a/net/mac80211/wep.c
-+++ b/net/mac80211/wep.c
-@@ -31,13 +31,13 @@
- 	local->wep_tx_tfm = crypto_alloc_blkcipher("ecb(arc4)", 0,
- 						CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(local->wep_tx_tfm))
--		return -ENOMEM;
-+		return PTR_ERR(local->wep_tx_tfm);
- 
- 	local->wep_rx_tfm = crypto_alloc_blkcipher("ecb(arc4)", 0,
- 						CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(local->wep_rx_tfm)) {
- 		crypto_free_blkcipher(local->wep_tx_tfm);
--		return -ENOMEM;
-+		return PTR_ERR(local->wep_rx_tfm);
- 	}
- 
- 	return 0;
+Is there any chance this helps with the famous 8101 problems, e.g.=20
+http://bugzilla.kernel.org/show_bug.cgi?id=3D6807 ?
 
+> Now i can have both msi and apic on.. Thanks alot.
+>
+> Do you have plans to get this merged?
 
+There is a typo in the description of 91ba1a976c214766b5ee8c6d17086903c10f6=
+405=20
+(serie should be series I think).
+
+Greetings,
+
+Eike
+
+--nextPart1302757.VNAFtA2WZ5
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+
+iD8DBQBIe656XKSJPmm5/E4RAlIKAJ4/jquOMAlNKBrVR7ogvv/E5rEwwwCgoew7
+IHIiDMB24CPGdrBGMiBWjn8=
+=E/Yz
+-----END PGP SIGNATURE-----
+
+--nextPart1302757.VNAFtA2WZ5--
