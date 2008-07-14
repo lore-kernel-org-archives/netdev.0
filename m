@@ -1,1002 +1,1449 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/14]: pkt_sched: Make main qdisc configuration operations
- multiqueue aware.
-Date: Mon, 14 Jul 2008 15:59:35 -0700 (PDT)
-Message-ID: <20080714.155935.184374140.davem@davemloft.net>
+Subject: [PATCH 6/14]: pkt_sched: Make qdisc ->config() ops use
+ validate/commit/cancel model.
+Date: Mon, 14 Jul 2008 15:59:44 -0700 (PDT)
+Message-ID: <20080714.155944.39015967.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49265
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49267
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758316AbYGNW7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:59:40 -0400
+	by vger.kernel.org with ESMTP id S1758439AbYGNW7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:59:52 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 8D7BEC8C187
-	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:59:35 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 3CBDFC8C187
+	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:59:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Add/create/delete/get/dump qdisc are all multiqueue aware for the
-most part now.
+Just like class grafting, qdisc configuration change requests now
+separate the arg validation and memory allocation from the actual
+commiting of the settings.
 
-The basic idea is that we build an array of configuration changes,
-one per queue.  Then we validate each and every change, if any
-errors are signalled we unwind.  Otherwise we commit the changes
-at which point it cannot fail on us.
-
-Later, this can be easily extended to accept a TX queue specification
-using netlink attributes, to filter the queues which will actually be
-operated upon.  Lack of such attributes will mean "all queues".
-
-One part that isn't completely fleshed out is qdisc_change().  We
-need to make that have a prep/commit/cancel sequence just like the
-rest of this stuff.
-
-After that, the next area to attack will be the traffic filter APIs.
+This allows multiqueue setups to properly unwind when the first queues
+would succeed but a subsequent one would not.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_api.c |  792 +++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 584 insertions(+), 208 deletions(-)
+ include/net/pkt_sched.h   |    3 +-
+ include/net/sch_generic.h |    4 +-
+ net/sched/sch_api.c       |   71 ++++++++++++++--------
+ net/sched/sch_cbq.c       |    1 -
+ net/sched/sch_dsmark.c    |    1 -
+ net/sched/sch_fifo.c      |   85 +++++++++++++++++++-------
+ net/sched/sch_gred.c      |  147 +++++++++++++++++++++++++++-----------------
+ net/sched/sch_hfsc.c      |   24 +++++---
+ net/sched/sch_htb.c       |    1 -
+ net/sched/sch_netem.c     |  147 +++++++++++++++++++++++++++++---------------
+ net/sched/sch_prio.c      |  112 ++++++++++++++++++++++++++--------
+ net/sched/sch_red.c       |   72 ++++++++++++++++++----
+ net/sched/sch_sfq.c       |    1 -
+ net/sched/sch_tbf.c       |  125 +++++++++++++++++++++++++++++++-------
+ 14 files changed, 561 insertions(+), 233 deletions(-)
 
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index cb95278..5d9ffe8 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -72,7 +72,8 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
+ extern struct Qdisc_ops pfifo_qdisc_ops;
+ extern struct Qdisc_ops bfifo_qdisc_ops;
+ 
+-extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
++extern int fifo_validate_limit(struct Qdisc *q, unsigned int limit);
++extern void fifo_commit_limit(struct Qdisc *q, unsigned int limit);
+ extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
+ 				      unsigned int limit);
+ 
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 5318c37..4d11b29 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -102,7 +102,9 @@ struct Qdisc_ops
+ 	int			(*init)(struct Qdisc *, struct nlattr *arg);
+ 	void			(*reset)(struct Qdisc *);
+ 	void			(*destroy)(struct Qdisc *);
+-	int			(*change)(struct Qdisc *, struct nlattr *arg);
++	int			(*validate_change)(struct Qdisc *, struct nlattr *arg);
++	void			(*commit_change)(struct Qdisc *, struct nlattr *arg);
++	void			(*cancel_change)(struct Qdisc *, struct nlattr *arg);
+ 
+ 	int			(*dump)(struct Qdisc *, struct sk_buff *);
+ 	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index fdc79b4..a59f99f 100644
+index a59f99f..d190c49 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -521,46 +521,15 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- }
- EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
- 
--/* Graft qdisc "new" to class "classid" of qdisc "parent" or
--   to device queue "dev_queue".
--
--   Old qdisc is not destroyed but returned in *old.
-+/* Grab a reference to the qdisc operations described by 'kind'.
-+ * A single module reference to the operations will be held
-+ * upon success.
-+ *
-+ * The RTNL semaphore might be dropped if an attempt is made
-+ * to lead the necessary packet scheduler module.  In such
-+ * a case -EAGAIN will be returned and the top level should
-+ * unwind and retry the operation from the beginning.
-  */
--
--static int qdisc_graft(struct netdev_queue *dev_queue, struct Qdisc *parent,
--		       u32 classid, struct Qdisc *new, struct Qdisc **old)
--{
--	struct Qdisc *q = *old;
--	int err = 0;
--
--	if (parent == NULL) {
--		if (q && q->flags&TCQ_F_INGRESS) {
--			*old = graft_qdisc(dev_queue, q);
--		} else {
--			*old = graft_qdisc(dev_queue, new);
--		}
--	} else {
--		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
--
--		err = -EINVAL;
--
--		if (cops) {
--			unsigned long cl = cops->get(parent, classid);
--			if (cl) {
--				void *gp = cops->prepare_graft(parent, cl, new);
--
--				err = 0;
--				if (IS_ERR(gp))
--					err = PTR_ERR(gp);
--				else
--					cops->commit_graft(parent, cl, new, gp, old);
--				cops->put(parent, cl);
--			}
--		}
--	}
--	return err;
--}
--
- static struct Qdisc_ops *tc_grab_ops(struct nlattr *kind)
- {
- 	struct Qdisc_ops *ops = qdisc_lookup_ops(kind);
-@@ -659,6 +628,9 @@ err_out:
+@@ -628,26 +628,6 @@ err_out:
  	return NULL;
  }
  
-+/* Change the parameters on qdisc 'sch', using the attributes described
-+ * in 'tca'.
-+ */
- static int qdisc_change(struct Qdisc *sch, struct nlattr **tca)
- {
- 	if (tca[TCA_OPTIONS]) {
-@@ -685,6 +657,11 @@ struct check_loop_arg
- 
- static int check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w);
- 
-+/* Walk the qdisc tree looking for loops starting at qdisc 'q' which
-+ * has parent 'p'.  'depth' is the current depth of the loop search.
-+ *
-+ * A maximum queue depth of '7' is all that is allowed.
-+ */
- static int check_loop(struct Qdisc *q, struct Qdisc *p, int depth)
- {
- 	struct check_loop_arg	arg;
-@@ -716,19 +693,213 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
- 	return 0;
- }
- 
--/*
-- * Delete/get qdisc.
-+/* We setup each Qdisc config operation by recording, per netdev-queue,
-+ * whether that queue gets the operation and what parameters will be
-+ * used for that instance of the operation.
-+ */
-+struct tc_qdisc_op_info {
-+	struct Qdisc		*parent_q;
-+	struct Qdisc		*op_q;
-+	unsigned long		cl;
-+	void			*graft_mem;
-+	unsigned int		flags;
-+#define TC_QDISC_OP_CREATE	0x00000001
-+#define TC_QDISC_OP_GRAFT	0x00000002
-+#define TC_QDISC_OP_CHANGE	0x00000004
-+#define TC_QDISC_OP_ALLOCATED	0x00000008
-+#define TC_QDISC_OP_GRAFT_PREP	0x00000010
-+};
-+
-+/* Prepare a request for a get or delete operation.  */
-+static int tc_get_prep_request(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+			       struct net_device *dev, struct tcmsg *tcm,
-+			       struct nlattr **tca, u32 clid)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		struct netdev_queue *dev_queue;
-+
-+		if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
-+			dev_queue = &dev->rx_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+
-+		if (!clid) {
-+			qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
-+			if (!qp->op_q)
-+				return -ENOENT;
-+		} else {
-+			if (clid == TC_H_ROOT) {
-+				qp->op_q = dev_queue->qdisc_sleeping;
-+			} else {
-+				if (TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS)) {
-+					qp->op_q = dev_queue->qdisc;
-+				} else {
-+					qp->parent_q = qdisc_lookup(dev, TC_H_MAJ(clid));
-+					if (!qp->parent_q)
-+						return -ENOENT;
-+					qp->op_q = qdisc_leaf(qp->parent_q, clid);
-+				}
-+			}
-+			if (!qp->op_q)
-+				return -ENOENT;
-+			if (tcm->tcm_handle && qp->op_q->handle != tcm->tcm_handle)
-+				return -EINVAL;
-+		}
-+
-+		if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
-+			return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+/* Validate and prepare a single delete operation.  */
-+static int tc_delete_prep_one(struct tc_qdisc_op_info *qp, u32 clid)
-+{
-+	const struct Qdisc_class_ops *cops;
-+	void *gp;
-+
-+	if (!qp->op_q->handle)
-+		return -ENOENT;
-+
-+	if (!qp->parent_q)
-+		return 0;
-+
-+	cops = qp->parent_q->ops->cl_ops;
-+	if (!cops)
-+		return -EINVAL;
-+
-+	qp->cl = cops->get(qp->parent_q, clid);
-+	if (!qp->cl)
-+		return -EINVAL;
-+
-+	gp = cops->prepare_graft(qp->parent_q, qp->cl, NULL);
-+	if (IS_ERR(gp)) {
-+		cops->put(qp->parent_q, clid);
-+		return PTR_ERR(gp);
-+	}
-+
-+	qp->graft_mem = gp;
-+	qp->flags |= TC_QDISC_OP_GRAFT_PREP;
-+
-+	return 0;
-+}
-+
-+/* Commit one qdisc delete operation, it must not fail.  */
-+static void tc_delete_commit(struct tc_qdisc_op_info *qp, struct netdev_queue *dev_queue,
-+			     struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
-+{
-+	struct Qdisc *parent, *old;
-+
-+	parent = qp->parent_q;
-+	old = qp->op_q;
-+	if (!parent) {
-+		if (old->flags&TCQ_F_INGRESS) {
-+			old = graft_qdisc(dev_queue, old);
-+		} else {
-+			old = graft_qdisc(dev_queue, NULL);
-+		}
-+	} else {
-+		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
-+
-+		cops->commit_graft(parent, qp->cl, NULL, qp->graft_mem, &old);
-+		cops->put(parent, qp->cl);
-+	}
-+
-+	if (old) {
-+		qdisc_notify(skb, n, clid, old, NULL);
-+		spin_lock_bh(&dev_queue->lock);
-+		qdisc_destroy(old);
-+		spin_unlock_bh(&dev_queue->lock);
-+	}
-+}
-+
-+/* Cancel a previous qdisc graft operation for add/change/delete.  */
-+static void tc_graft_cancel(struct tc_qdisc_op_info *queue_arr, unsigned int num_q)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		const struct Qdisc_class_ops *cops;
-+
-+		if (!(qp->flags & TC_QDISC_OP_GRAFT_PREP))
-+			continue;
-+
-+		BUG_ON(!qp->parent_q);
-+
-+		cops = qp->parent_q->ops->cl_ops;
-+		cops->cancel_graft(qp->parent_q, qp->cl, qp->op_q, qp->graft_mem);
-+		cops->put(qp->parent_q, qp->cl);
-+
-+		qp->graft_mem = NULL;
-+		qp->flags &= ~TC_QDISC_OP_GRAFT_PREP;
-+	}
-+}
-+
-+/* Delete all qdiscs described by 'queue_arr' and 'num_q'.  */
-+static int tc_delete_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+			 struct net_device *dev, struct sk_buff *skb,
-+			 struct nlmsghdr *n, u32 clid)
-+{
-+	unsigned int i;
-+
-+	if (!clid)
-+		return -EINVAL;
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		int err;
-+
-+		err = tc_delete_prep_one(qp, clid);
-+		if (err) {
-+			tc_graft_cancel(queue_arr, num_q);
-+			return err;
-+		}
-+	}
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		struct netdev_queue *dev_queue;
-+
-+		if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
-+			dev_queue = &dev->rx_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+
-+		tc_delete_commit(qp, dev_queue, skb, n, clid);
-+	}
-+	return 0;
-+}
-+
-+/* Perform a get operation on all qdiscs described by 'queue_arr'
-+ * and 'num_q'.
-  */
-+static int tc_get_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+		      struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+
-+		qdisc_notify(skb, n, clid, NULL, qp->op_q);
-+	}
-+
-+	return 0;
-+}
- 
- static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-+	struct tc_qdisc_op_info *queue_arr;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct nlattr *tca[TCA_MAX + 1];
--	struct net_device *dev;
- 	u32 clid = tcm->tcm_parent;
--	struct Qdisc *q = NULL;
--	struct Qdisc *p = NULL;
-+	struct net_device *dev;
-+	unsigned int num_q;
- 	int err;
- 
- 	if (net != &init_net)
-@@ -741,52 +912,32 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	if (err < 0)
- 		return err;
- 
--	if (clid) {
--		if (clid != TC_H_ROOT) {
--			if (TC_H_MAJ(clid) != TC_H_MAJ(TC_H_INGRESS)) {
--				if ((p = qdisc_lookup(dev, TC_H_MAJ(clid))) == NULL)
--					return -ENOENT;
--				q = qdisc_leaf(p, clid);
--			} else { /* ingress */
--				q = dev->rx_queue.qdisc;
--			}
--		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
--		}
--		if (!q)
--			return -ENOENT;
-+	if (clid && TC_H_MAJ(clid) == TC_H_MAJ(TC_H_INGRESS))
-+		num_q = 1;
-+	else
-+		num_q = dev->num_tx_queues;
- 
--		if (tcm->tcm_handle && q->handle != tcm->tcm_handle)
+-/* Change the parameters on qdisc 'sch', using the attributes described
+- * in 'tca'.
+- */
+-static int qdisc_change(struct Qdisc *sch, struct nlattr **tca)
+-{
+-	if (tca[TCA_OPTIONS]) {
+-		int err;
+-
+-		if (sch->ops->change == NULL)
 -			return -EINVAL;
--	} else {
--		if ((q = qdisc_lookup(dev, tcm->tcm_handle)) == NULL)
--			return -ENOENT;
-+	queue_arr = kzalloc(num_q * sizeof(*queue_arr), GFP_KERNEL);
-+	if (!queue_arr)
-+		return -ENOMEM;
-+
-+	err = tc_get_prep_request(queue_arr, num_q, dev, tcm, tca, clid);
-+	if (err) {
-+		kfree(queue_arr);
-+		return err;
- 	}
- 
--	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
--		return -EINVAL;
-+	if (n->nlmsg_type == RTM_DELQDISC)
-+		err = tc_delete_all(queue_arr, num_q, dev, skb, n, clid);
-+	else
-+		err = tc_get_all(queue_arr, num_q, skb, n, clid);
-+
-+	kfree(queue_arr);
- 
--	if (n->nlmsg_type == RTM_DELQDISC) {
--		if (!clid)
--			return -EINVAL;
--		if (q->handle == 0)
--			return -ENOENT;
--		if ((err = qdisc_graft(q->dev_queue, p, clid, NULL, &q)) != 0)
+-		err = sch->ops->change(sch, tca[TCA_OPTIONS]);
+-		if (err)
 -			return err;
--		if (q) {
--			qdisc_notify(skb, n, clid, q, NULL);
--			qdisc_lock_tree(dev);
--			qdisc_destroy(q);
--			qdisc_unlock_tree(dev);
--		}
--	} else {
--		qdisc_notify(skb, n, clid, NULL, q);
 -	}
+-	if (tca[TCA_RATE])
+-		gen_replace_estimator(&sch->bstats, &sch->rate_est,
+-				      &sch->dev_queue->lock, tca[TCA_RATE]);
+-	return 0;
+-}
+-
+ struct check_loop_arg
+ {
+ 	struct qdisc_walker 	w;
+@@ -708,6 +688,7 @@ struct tc_qdisc_op_info {
+ #define TC_QDISC_OP_CHANGE	0x00000004
+ #define TC_QDISC_OP_ALLOCATED	0x00000008
+ #define TC_QDISC_OP_GRAFT_PREP	0x00000010
++#define TC_QDISC_OP_CHANGE_PREP	0x00000020
+ };
+ 
+ /* Prepare a request for a get or delete operation.  */
+@@ -1133,6 +1114,24 @@ static int tc_graft_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
  	return 0;
  }
  
-+/* Allocate and create one new qdisc instance.  */
- static struct Qdisc *tc_create(struct net_device *dev,
- 			       struct netdev_queue *dev_queue,
- 			       u32 parent, u32 handle,
-@@ -808,125 +959,259 @@ static struct Qdisc *tc_create(struct net_device *dev,
- 	return q;
- }
- 
--static int tc_graft(struct net_device *dev, struct netdev_queue *dev_queue,
--		    struct Qdisc *new_q, struct Qdisc *parent_q,
--		    u32 clid, struct sk_buff *skb, struct nlmsghdr *n)
-+static int tc_create_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
-+			 struct netdev_queue *dev_queue, struct nlattr **tca,
-+			 struct tcmsg *tcm, u32 clid)
- {
--	struct Qdisc *old_q = NULL;
--	int err;
-+	u32 parent, handle;
-+	struct Qdisc *q;
- 
--	err = qdisc_graft(dev_queue, parent_q, clid, new_q, &old_q);
--	if (err) {
--		if (new_q) {
--			qdisc_lock_tree(dev);
--			qdisc_destroy(new_q);
--			qdisc_unlock_tree(dev);
-+	parent = tcm->tcm_parent;
-+	if (clid == TC_H_INGRESS)
-+		handle = parent;
-+	else
-+		handle = tcm->tcm_handle;
-+
-+	q = tc_create(dev, dev_queue, parent, handle, tca);
-+	if (IS_ERR(q))
-+		return PTR_ERR(q);
-+
-+	qp->op_q = q;
-+	qp->flags |= TC_QDISC_OP_ALLOCATED;
-+
-+	return 0;
-+}
-+
-+/* Cancel a set of one or more qdisc creations.  */
-+static void tc_create_cancel(struct tc_qdisc_op_info *queue_arr, int num_q)
++static void tc_change_cancel(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
++			     struct nlattr **tca)
 +{
 +	unsigned int i;
 +
 +	for (i = 0; i < num_q; i++) {
 +		struct tc_qdisc_op_info *qp = queue_arr + i;
++		struct Qdisc *q = qp->op_q;
 +
-+		if (qp->flags & TC_QDISC_OP_ALLOCATED) {
-+			qdisc_destroy(qp->op_q);
-+			qp->op_q = NULL;
-+			qp->flags &= ~TC_QDISC_OP_ALLOCATED;
++		if (!(qp->flags & TC_QDISC_OP_CHANGE_PREP))
++			continue;
++
++		q->ops->cancel_change(q, tca[TCA_OPTIONS]);
++
++		qp->flags &= ~TC_QDISC_OP_CHANGE_PREP;
++	}
++}
++
+ /* Make qdisc parameter changes as requested in 'tca' to the qdiscs
+  * recorded in 'queue_arr' and 'num_q'.
+  */
+@@ -1143,17 +1142,39 @@ static int tc_change_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
+ 
+ 	for (i = 0; i < num_q; i++) {
+ 		struct tc_qdisc_op_info *qp = queue_arr + i;
+-		int err;
++		struct Qdisc *q = qp->op_q;
+ 
+ 		if (!(qp->flags & TC_QDISC_OP_CHANGE))
+ 			continue;
++		if (tca[TCA_OPTIONS]) {
++			int err = -EINVAL;
+ 
+-		err = qdisc_change(qp->op_q, tca);
+-		if (err) {
+-			/* XXX In multiqueue case, need rollback... */
+-			return err;
++			if (q->ops->validate_change)
++				err = q->ops->validate_change(q, tca[TCA_OPTIONS]);
++
++			if (err) {
++				tc_change_cancel(queue_arr, num_q, tca);
++				return err;
++			}
++
++			qp->flags |= TC_QDISC_OP_CHANGE_PREP;
  		}
--		return err;
  	}
-+}
- 
--	qdisc_notify(skb, n, clid, old_q, new_q);
-+/* Create new qdiscs, as described by 'queue_arr' and 'num_q', using parameters
-+ * in 'tcm' and 'tca'.
-+ */
-+static int tc_create_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+			 struct net_device *dev, struct tcmsg *tcm,
-+			 struct nlattr **tca, u32 clid)
-+{
-+	unsigned int i;
- 
--	if (old_q) {
--		qdisc_lock_tree(dev);
--		qdisc_destroy(old_q);
--		qdisc_unlock_tree(dev);
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		struct netdev_queue *dev_queue;
-+		int err;
-+
-+		if (!(qp->flags & TC_QDISC_OP_CREATE))
-+			continue;
-+
-+		if (clid == TC_H_INGRESS)
-+			dev_queue = &dev->rx_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+
-+		err = tc_create_one(qp, dev, dev_queue, tca, tcm, clid);
-+		if (err) {
-+			tc_create_cancel(queue_arr, num_q);
-+			return err;
-+		}
- 	}
- 
- 	return 0;
- }
- 
--static int tc_create_and_graft(struct net_device *dev, u32 clid,
--			       struct tcmsg *tcm, struct nlattr **tca,
--			       struct Qdisc *parent_q,
--			       struct sk_buff *skb, struct nlmsghdr *n)
-+/* Prepare to graft one new qdisc.  */
-+static int tc_graft_prep_one(struct tc_qdisc_op_info *qp, u32 clid)
- {
--	struct netdev_queue *dev_queue;
--	u32 parent, handle;
--	struct Qdisc *q;
-+	const struct Qdisc_class_ops *cops;
-+	void *gp;
- 
--	parent = tcm->tcm_parent;
--	if (clid == TC_H_INGRESS) {
--		dev_queue = &dev->rx_queue;
--		handle = parent;
--	} else {
--		dev_queue = netdev_get_tx_queue(dev, 0);
--		handle = tcm->tcm_handle;
-+	if (!qp->parent_q)
-+		return 0;
-+
-+	cops = qp->parent_q->ops->cl_ops;
-+	if (!cops)
-+		return -EINVAL;
-+
-+	qp->cl = cops->get(qp->parent_q, clid);
-+	if (!qp->cl)
-+		return -EINVAL;
-+
-+	gp = cops->prepare_graft(qp->parent_q, qp->cl, qp->op_q);
-+	if (IS_ERR(gp)) {
-+		cops->put(qp->parent_q, clid);
-+		return PTR_ERR(gp);
- 	}
--	q = tc_create(dev, dev_queue, parent, handle, tca);
--	if (IS_ERR(q))
--		return PTR_ERR(q);
- 
--	return tc_graft(dev, dev_queue, q, parent_q, clid, skb, n);
-+	qp->graft_mem = gp;
-+	qp->flags |= TC_QDISC_OP_GRAFT_PREP;
-+
-+	return 0;
- }
- 
--/* Create/change qdisc.  */
-+/* Commit one new qdisc.  Emit netlink notifications.  This operation
-+ * must not fail.
-+ */
-+static void tc_graft_commit(struct tc_qdisc_op_info *qp, struct netdev_queue *dev_queue,
-+			    struct sk_buff *skb, struct nlmsghdr *n, u32 clid)
-+{
-+	struct Qdisc *parent, *new, *old;
- 
--static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
-+	parent = qp->parent_q;
-+	new = qp->op_q;
-+
-+	/* Grafting to an existing qdisc rather than a new one?  */
-+	if ((qp->flags & TC_QDISC_OP_GRAFT) &&
-+	    !(qp->flags & TC_QDISC_OP_CREATE))
-+		atomic_inc(&new->refcnt);
-+
-+	old = NULL;
-+	if (!parent) {
-+		old = graft_qdisc(dev_queue, new);
-+	} else {
-+		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
-+
-+		cops->commit_graft(parent, qp->cl, new, qp->graft_mem, &old);
-+		cops->put(parent, qp->cl);
-+	}
-+
-+	qdisc_notify(skb, n, clid, old, new);
-+
-+	if (old) {
-+		spin_lock_bh(&dev_queue->lock);
-+		qdisc_destroy(old);
-+		spin_unlock_bh(&dev_queue->lock);
-+	}
-+}
-+
-+/* Prepare and graft all qdiscs described by 'queue_arr' and 'num_q'.  */
-+static int tc_graft_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+			struct net_device *dev, struct sk_buff *skb,
-+			struct nlmsghdr *n, u32 clid)
- {
--	struct net *net = sock_net(skb->sk);
--	struct tcmsg *tcm;
--	struct nlattr *tca[TCA_MAX + 1];
--	struct net_device *dev;
--	u32 clid;
--	struct Qdisc *q, *p;
--	int err;
-+	unsigned int i;
- 
--	if (net != &init_net)
--		return -EINVAL;
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		int err;
- 
--replay:
--	/* Reinit, just in case something touches this. */
--	tcm = NLMSG_DATA(n);
--	clid = tcm->tcm_parent;
--	q = p = NULL;
-+		if (!(qp->flags & TC_QDISC_OP_GRAFT))
-+			continue;
- 
--	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
--		return -ENODEV;
-+		err = tc_graft_prep_one(qp, clid);
-+		if (err) {
-+			tc_graft_cancel(queue_arr, num_q);
-+			return err;
-+		}
-+	}
- 
--	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
--	if (err < 0)
--		return err;
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		struct netdev_queue *dev_queue;
-+
-+		if (!(qp->flags & TC_QDISC_OP_GRAFT))
-+			continue;
-+
-+		if (clid == TC_H_INGRESS)
-+			dev_queue = &dev->rx_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+
-+		tc_graft_commit(qp, dev_queue, skb, n, clid);
-+	}
-+
-+	return 0;
-+}
- 
-+/* Make qdisc parameter changes as requested in 'tca' to the qdiscs
-+ * recorded in 'queue_arr' and 'num_q'.
-+ */
-+static int tc_change_all(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+			 struct net_device *dev, struct nlattr **tca)
-+{
-+	unsigned int i;
 +
 +	for (i = 0; i < num_q; i++) {
 +		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		int err;
++		struct Qdisc *q = qp->op_q;
 +
 +		if (!(qp->flags & TC_QDISC_OP_CHANGE))
 +			continue;
 +
-+		err = qdisc_change(qp->op_q, tca);
-+		if (err) {
-+			/* XXX In multiqueue case, need rollback... */
-+			return err;
-+		}
++		if (tca[TCA_OPTIONS])
++			q->ops->commit_change(q, tca[TCA_OPTIONS]);
++
++		if (tca[TCA_RATE])
++			gen_replace_estimator(&q->bstats, &q->rate_est,
++					      &q->dev_queue->lock, tca[TCA_RATE]);
 +	}
-+	return 0;
-+}
-+
-+/* Parepare one qdisc op array entry for a change/create request.  */
-+static int tc_prepare_one(struct tc_qdisc_op_info *qp, struct net_device *dev,
-+			  struct netdev_queue *dev_queue, struct nlmsghdr *n,
-+			  struct tcmsg *tcm, struct nlattr **tca, u32 clid)
+ 	return 0;
+ }
+ 
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 224b9c0..2c9895a 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -2076,7 +2076,6 @@ static struct Qdisc_ops cbq_qdisc_ops __read_mostly = {
+ 	.init		=	cbq_init,
+ 	.reset		=	cbq_reset,
+ 	.destroy	=	cbq_destroy,
+-	.change		=	NULL,
+ 	.dump		=	cbq_dump,
+ 	.dump_stats	=	cbq_dump_stats,
+ 	.owner		=	THIS_MODULE,
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 28f4e77..85dec9b 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -515,7 +515,6 @@ static struct Qdisc_ops dsmark_qdisc_ops __read_mostly = {
+ 	.init		=	dsmark_init,
+ 	.reset		=	dsmark_reset,
+ 	.destroy	=	dsmark_destroy,
+-	.change		=	NULL,
+ 	.dump		=	dsmark_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index 1d97fa4..7ed1887 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -43,11 +43,18 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	return qdisc_reshape_fail(skb, sch);
+ }
+ 
+-static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
++static int fifo_validate(struct Qdisc *sch, struct nlattr *opt)
 +{
- 	if (clid) {
- 		if (clid != TC_H_ROOT) {
- 			if (clid != TC_H_INGRESS) {
--				if ((p = qdisc_lookup(dev, TC_H_MAJ(clid))) == NULL)
-+				qp->parent_q = qdisc_lookup(dev, TC_H_MAJ(clid));
-+				if (!qp->parent_q)
- 					return -ENOENT;
--				q = qdisc_leaf(p, clid);
-+				qp->op_q = qdisc_leaf(qp->parent_q, clid);
- 			} else { /*ingress */
--				q = dev->rx_queue.qdisc;
-+				qp->op_q = dev_queue->qdisc;
- 			}
- 		} else {
--			struct netdev_queue *dev_queue;
--			dev_queue = netdev_get_tx_queue(dev, 0);
--			q = dev_queue->qdisc_sleeping;
-+			qp->op_q = dev_queue->qdisc_sleeping;
- 		}
- 
- 		/* It may be default qdisc, ignore it */
--		if (q && q->handle == 0)
--			q = NULL;
-+		if (qp->op_q && qp->op_q->handle == 0)
-+			qp->op_q = NULL;
- 
--		if (!q || !tcm->tcm_handle || q->handle != tcm->tcm_handle) {
-+		if (!qp->op_q ||
-+		    !tcm->tcm_handle ||
-+		    qp->op_q->handle != tcm->tcm_handle) {
- 			if (tcm->tcm_handle) {
--				if (q && !(n->nlmsg_flags&NLM_F_REPLACE))
-+				if (qp->op_q && !(n->nlmsg_flags&NLM_F_REPLACE))
- 					return -EEXIST;
- 				if (TC_H_MIN(tcm->tcm_handle))
- 					return -EINVAL;
--				if ((q = qdisc_lookup(dev, tcm->tcm_handle)) == NULL)
--					goto create_n_graft;
-+
-+				qp->op_q = __qdisc_lookup(dev_queue, tcm->tcm_handle);
-+				if (!qp->op_q)
-+					goto create_and_graft;
-+
- 				if (n->nlmsg_flags&NLM_F_EXCL)
- 					return -EEXIST;
--				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
-+
-+				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
- 					return -EINVAL;
--				if (q == p ||
--				    (p && check_loop(q, p, 0)))
-+
-+				if (qp->parent_q == qp->op_q ||
-+				    (qp->parent_q &&
-+				     check_loop(qp->op_q, qp->parent_q, 0)))
- 					return -ELOOP;
--				atomic_inc(&q->refcnt);
--				goto graft;
-+
-+				/* We'll grab a reference to qp->op_q once the
-+				 * graft is fully validated and we commit.
-+				 */
-+				qp->flags |= TC_QDISC_OP_GRAFT;
-+				return 0;
- 			} else {
--				if (q == NULL)
--					goto create_n_graft;
-+				if (!qp->op_q)
-+					goto create_and_graft;
- 
- 				/* This magic test requires explanation.
- 				 *
-@@ -951,38 +1236,119 @@ replay:
- 				    (n->nlmsg_flags&NLM_F_REPLACE) &&
- 				    ((n->nlmsg_flags&NLM_F_EXCL) ||
- 				     (tca[TCA_KIND] &&
--				      nla_strcmp(tca[TCA_KIND], q->ops->id))))
--					goto create_n_graft;
-+				      nla_strcmp(tca[TCA_KIND],
-+						 qp->op_q->ops->id))))
-+					goto create_and_graft;
- 			}
- 		}
- 	} else {
- 		if (!tcm->tcm_handle)
- 			return -EINVAL;
--		q = qdisc_lookup(dev, tcm->tcm_handle);
-+		qp->op_q = qdisc_lookup(dev, tcm->tcm_handle);
- 	}
- 
- 	/* Change qdisc parameters */
--	if (q == NULL)
-+	if (!qp->op_q)
- 		return -ENOENT;
- 	if (n->nlmsg_flags&NLM_F_EXCL)
- 		return -EEXIST;
--	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
-+	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], qp->op_q->ops->id))
- 		return -EINVAL;
--	err = qdisc_change(q, tca);
--	if (err == 0)
--		qdisc_notify(skb, n, clid, NULL, q);
--	return err;
-+	qp->flags |= TC_QDISC_OP_CHANGE;
-+	return 0;
- 
--create_n_graft:
-+create_and_graft:
- 	if (!(n->nlmsg_flags&NLM_F_CREATE))
- 		return -ENOENT;
--	err = tc_create_and_graft(dev, clid, tcm, tca, p, skb, n);
--	if (err == -EAGAIN)
--		goto replay;
--	return err;
-+	qp->flags |= (TC_QDISC_OP_CREATE | TC_QDISC_OP_GRAFT);
-+	return 0;
-+}
- 
--graft:
--	return tc_graft(dev, q->dev_queue, q, p, clid, skb, n);
-+/* Prepare an entire array of qdisc operation info entries.  */
-+static int tc_prepare(struct tc_qdisc_op_info *queue_arr, unsigned int num_q,
-+		      struct net_device *dev, struct nlmsghdr *n,
-+		      struct tcmsg *tcm,
-+		      struct nlattr **tca, u32 clid)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < num_q; i++) {
-+		struct tc_qdisc_op_info *qp = queue_arr + i;
-+		struct netdev_queue *dev_queue;
-+		int err;
-+
-+		if (clid == TC_H_INGRESS)
-+			dev_queue = &dev->rx_queue;
-+		else
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+
-+		err = tc_prepare_one(qp, dev, dev_queue, n, tcm, tca, clid);
-+		if (err)
-+			return err;
-+	}
-+	return 0;
-+}
-+
-+/* Create/change qdisc.  */
-+
-+static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct tc_qdisc_op_info *queue_arr;
-+	struct nlattr *tca[TCA_MAX + 1];
-+	struct net_device *dev;
-+	unsigned int num_q;
-+	struct tcmsg *tcm;
-+	u32 clid;
-+	int err;
-+
-+	if (net != &init_net)
++	if (opt && nla_len(opt) < sizeof (struct tc_fifo_qopt))
 +		return -EINVAL;
++	return 0;
++}
 +
-+	tcm = NLMSG_DATA(n);
++static void fifo_commit(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct fifo_sched_data *q = qdisc_priv(sch);
+ 
+-	if (opt == NULL) {
++	if (!opt) {
+ 		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
+ 
+ 		if (sch->ops == &bfifo_qdisc_ops)
+@@ -57,12 +64,22 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ 	} else {
+ 		struct tc_fifo_qopt *ctl = nla_data(opt);
+ 
+-		if (nla_len(opt) < sizeof(*ctl))
+-			return -EINVAL;
+-
+ 		q->limit = ctl->limit;
+ 	}
++}
 +
-+	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
-+	if (err < 0)
++static void fifo_cancel(struct Qdisc *sch, struct nlattr *opt)
++{
++}
+ 
++static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	int err = fifo_validate(sch, opt);
++
++	if (err)
 +		return err;
 +
-+	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
-+		return -ENODEV;
++	fifo_commit(sch, opt);
+ 	return 0;
+ }
+ 
+@@ -87,7 +104,9 @@ struct Qdisc_ops pfifo_qdisc_ops __read_mostly = {
+ 	.drop		=	qdisc_queue_drop,
+ 	.init		=	fifo_init,
+ 	.reset		=	qdisc_reset_queue,
+-	.change		=	fifo_init,
++	.validate_change=	fifo_validate,
++	.commit_change	=	fifo_commit,
++	.cancel_change	=	fifo_cancel,
+ 	.dump		=	fifo_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+@@ -102,34 +121,54 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
+ 	.drop		=	qdisc_queue_drop,
+ 	.init		=	fifo_init,
+ 	.reset		=	qdisc_reset_queue,
+-	.change		=	fifo_init,
++	.validate_change=	fifo_validate,
++	.commit_change	=	fifo_commit,
++	.cancel_change	=	fifo_cancel,
+ 	.dump		=	fifo_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+ EXPORT_SYMBOL(bfifo_qdisc_ops);
+ 
+ /* Pass size change message down to embedded FIFO */
+-int fifo_set_limit(struct Qdisc *q, unsigned int limit)
++int fifo_validate_limit(struct Qdisc *q, unsigned int limit)
+ {
+-	struct nlattr *nla;
+-	int ret = -ENOMEM;
++	union {
++		struct nlattr n;
++		char buf[nla_attr_size(sizeof(struct tc_fifo_qopt))];
++	} u;
++	struct nlattr *nla = &u.n;
+ 
+ 	/* Hack to avoid sending change message to non-FIFO */
+ 	if (strncmp(q->ops->id + 1, "fifo", 4) != 0)
+ 		return 0;
+ 
+-	nla = kmalloc(nla_attr_size(sizeof(struct tc_fifo_qopt)), GFP_KERNEL);
+-	if (nla) {
+-		nla->nla_type = RTM_NEWQDISC;
+-		nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
+-		((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
++	nla->nla_type = RTM_NEWQDISC;
++	nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
++	((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
+ 
+-		ret = q->ops->change(q, nla);
+-		kfree(nla);
+-	}
+-	return ret;
++	return q->ops->validate_change(q, nla);
++}
++EXPORT_SYMBOL(fifo_validate_limit);
 +
-+	clid = tcm->tcm_parent;
-+	if (clid == TC_H_INGRESS)
-+		num_q = 1;
-+	else
-+		num_q = dev->num_tx_queues;
++void fifo_commit_limit(struct Qdisc *q, unsigned int limit)
++{
++	union {
++		struct nlattr n;
++		char buf[nla_attr_size(sizeof(struct tc_fifo_qopt))];
++	} u;
++	struct nlattr *nla = &u.n;
 +
-+	queue_arr = kmalloc(num_q * sizeof(*queue_arr), GFP_KERNEL);
-+	if (!queue_arr)
-+		return -ENOMEM;
++	/* Hack to avoid sending change message to non-FIFO */
++	if (strncmp(q->ops->id + 1, "fifo", 4) != 0)
++		return;
 +
-+replay:
-+	memset(queue_arr, 0, sizeof(*queue_arr) * num_q);
++	nla->nla_type = RTM_NEWQDISC;
++	nla->nla_len = nla_attr_size(sizeof(struct tc_fifo_qopt));
++	((struct tc_fifo_qopt *)nla_data(nla))->limit = limit;
 +
-+	err = tc_prepare(queue_arr, num_q, dev, n, tcm, tca, clid);
-+	if (err)
-+		goto err_free;
++	q->ops->commit_change(q, nla);
+ }
+-EXPORT_SYMBOL(fifo_set_limit);
++EXPORT_SYMBOL(fifo_commit_limit);
+ 
+ struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
+ 			       unsigned int limit)
+@@ -140,8 +179,10 @@ struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
+ 	q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+ 			      ops, TC_H_MAKE(sch->handle, 1));
+ 	if (q) {
+-		err = fifo_set_limit(q, limit);
+-		if (err < 0) {
++		err = fifo_validate_limit(q, limit);
++		if (!err)
++			fifo_commit_limit(q, limit);
++		if (err) {
+ 			qdisc_destroy(q);
+ 			q = NULL;
+ 		}
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index 39fa285..c38b5d1 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -350,21 +350,16 @@ static inline void gred_destroy_vq(struct gred_sched_data *q)
+ 	kfree(q);
+ }
+ 
+-static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
++static void gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
+ {
+ 	struct gred_sched *table = qdisc_priv(sch);
+ 	struct tc_gred_sopt *sopt;
+ 	int i;
+ 
+-	if (dps == NULL)
+-		return -EINVAL;
+-
+ 	sopt = nla_data(dps);
+ 
+-	if (sopt->DPs > MAX_DPs || sopt->DPs == 0 || sopt->def_DP >= sopt->DPs)
+-		return -EINVAL;
+-
+ 	sch_tree_lock(sch);
 +
-+	err = tc_create_all(queue_arr, num_q, dev, tcm, tca, clid);
-+	if (err) {
-+		if (err == -EAGAIN)
-+			goto replay;
-+		goto err_free;
+ 	table->DPs = sopt->DPs;
+ 	table->def = sopt->def_DP;
+ 	table->red_flags = sopt->flags;
+@@ -394,23 +389,17 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
+ 			table->tab[i] = NULL;
+ 		}
+ 	}
+-
+-	return 0;
+ }
+ 
+-static inline int gred_change_vq(struct Qdisc *sch, int dp,
+-				 struct tc_gred_qopt *ctl, int prio, u8 *stab)
++static void gred_change_vq(struct Qdisc *sch, int dp, struct tc_gred_qopt *ctl,
++			   int prio, u8 *stab)
+ {
+ 	struct gred_sched *table = qdisc_priv(sch);
+ 	struct gred_sched_data *q;
+ 
+-	if (table->tab[dp] == NULL) {
+-		table->tab[dp] = kzalloc(sizeof(*q), GFP_KERNEL);
+-		if (table->tab[dp] == NULL)
+-			return -ENOMEM;
+-	}
+-
+ 	q = table->tab[dp];
++	BUG_ON(!q);
++
+ 	q->DP = dp;
+ 	q->prio = prio;
+ 	q->limit = ctl->limit;
+@@ -421,8 +410,6 @@ static inline int gred_change_vq(struct Qdisc *sch, int dp,
+ 	red_set_parms(&q->parms,
+ 		      ctl->qth_min, ctl->qth_max, ctl->Wlog, ctl->Plog,
+ 		      ctl->Scell_log, stab);
+-
+-	return 0;
+ }
+ 
+ static const struct nla_policy gred_policy[TCA_GRED_MAX + 1] = {
+@@ -431,68 +418,106 @@ static const struct nla_policy gred_policy[TCA_GRED_MAX + 1] = {
+ 	[TCA_GRED_DPS]		= { .len = sizeof(struct tc_gred_sopt) },
+ };
+ 
+-static int gred_change(struct Qdisc *sch, struct nlattr *opt)
++static int gred_validate_table_def(struct tc_gred_sopt *sopt)
++{
++	if (sopt->DPs > MAX_DPs ||
++	    sopt->DPs == 0 ||
++	    sopt->def_DP >= sopt->DPs)
++		return -EINVAL;
++	return 0;
++}
++
++static int gred_validate_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct gred_sched *table = qdisc_priv(sch);
+-	struct tc_gred_qopt *ctl;
+ 	struct nlattr *tb[TCA_GRED_MAX + 1];
+-	int err, prio = GRED_DEF_PRIO;
++	struct tc_gred_qopt *ctl;
+ 	u8 *stab;
+-
+-	if (opt == NULL)
+-		return -EINVAL;
++	int err;
+ 
+ 	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_GRED_PARMS] == NULL && tb[TCA_GRED_STAB] == NULL)
+-		return gred_change_table_def(sch, opt);
++	if (!tb[TCA_GRED_PARMS] && !tb[TCA_GRED_STAB]) {
++		struct tc_gred_sopt *sopt = nla_data(opt);
+ 
+-	if (tb[TCA_GRED_PARMS] == NULL ||
+-	    tb[TCA_GRED_STAB] == NULL)
++		return gred_validate_table_def(sopt);
 +	}
 +
-+	err = tc_graft_all(queue_arr, num_q, dev, skb, n, clid);
-+	if (err) {
-+		tc_create_cancel(queue_arr, num_q);
-+		goto err_free;
++	if (!tb[TCA_GRED_PARMS] || !tb[TCA_GRED_STAB])
+ 		return -EINVAL;
+ 
+-	err = -EINVAL;
+ 	ctl = nla_data(tb[TCA_GRED_PARMS]);
+ 	stab = nla_data(tb[TCA_GRED_STAB]);
+ 
+ 	if (ctl->DP >= table->DPs)
+-		goto errout;
++		return -EINVAL;
+ 
+-	if (gred_rio_mode(table)) {
+-		if (ctl->prio == 0) {
+-			int def_prio = GRED_DEF_PRIO;
++	sch_tree_lock(sch);
++	err = 0;
++	if (!table->tab[ctl->DP]) {
++		table->tab[ctl->DP] = kzalloc(sizeof(struct gred_sched_data),
++					      GFP_ATOMIC);
++		if (!table->tab[ctl->DP])
++			err = -ENOMEM;
 +	}
++	sch_tree_unlock(sch);
+ 
+-			if (table->tab[table->def])
+-				def_prio = table->tab[table->def]->prio;
++	return err;
++}
+ 
+-			printk(KERN_DEBUG "GRED: DP %u does not have a prio "
+-			       "setting default to %d\n", ctl->DP, def_prio);
++static void gred_commit_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct gred_sched *table = qdisc_priv(sch);
++	struct tc_gred_qopt *ctl;
++	struct nlattr *tb[TCA_GRED_MAX + 1];
++	int err, prio = GRED_DEF_PRIO;
++	u8 *stab;
+ 
+-			prio = def_prio;
+-		} else
+-			prio = ctl->prio;
++	err = nla_parse_nested(tb, TCA_GRED_MAX, opt, gred_policy);
++	if (err < 0) {
++		WARN_ON(1);
++		return;
+ 	}
+ 
+-	sch_tree_lock(sch);
++	if (!tb[TCA_GRED_PARMS] && !tb[TCA_GRED_STAB]) {
++		gred_change_table_def(sch, opt);
++	} else {
++		ctl = nla_data(tb[TCA_GRED_PARMS]);
++		stab = nla_data(tb[TCA_GRED_STAB]);
+ 
+-	err = gred_change_vq(sch, ctl->DP, ctl, prio, stab);
+-	if (err < 0)
+-		goto errout_locked;
++		if (gred_rio_mode(table)) {
++			if (ctl->prio == 0) {
++				int def_prio = GRED_DEF_PRIO;
+ 
+-	if (gred_rio_mode(table)) {
+-		gred_disable_wred_mode(table);
+-		if (gred_wred_mode_check(sch))
+-			gred_enable_wred_mode(table);
+-	}
++				if (table->tab[table->def])
++					def_prio = table->tab[table->def]->prio;
+ 
+-	err = 0;
++				printk(KERN_DEBUG "GRED: DP %u does not have a prio "
++				       "setting default to %d\n", ctl->DP, def_prio);
+ 
+-errout_locked:
+-	sch_tree_unlock(sch);
+-errout:
+-	return err;
++				prio = def_prio;
++			} else
++				prio = ctl->prio;
++		}
 +
-+	err = tc_change_all(queue_arr, num_q, dev, tca);
++		sch_tree_lock(sch);
 +
-+err_free:
-+	kfree(queue_arr);
++		gred_change_vq(sch, ctl->DP, ctl, prio, stab);
++
++		if (gred_rio_mode(table)) {
++			gred_disable_wred_mode(table);
++			if (gred_wred_mode_check(sch))
++				gred_enable_wred_mode(table);
++		}
++
++		sch_tree_unlock(sch);
++	}
++}
++
++static void gred_cancel_change(struct Qdisc *sch, struct nlattr *opt)
++{
+ }
+ 
+ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -510,7 +535,13 @@ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_GRED_PARMS] || tb[TCA_GRED_STAB])
+ 		return -EINVAL;
+ 
+-	return gred_change_table_def(sch, tb[TCA_GRED_DPS]);
++	if (!tb[TCA_GRED_DPS])
++		return -EINVAL;
++
++	err = gred_validate_table_def(nla_data(tb[TCA_GRED_DPS]));
++	if (!err)
++		gred_change_table_def(sch, tb[TCA_GRED_DPS]);
 +	return err;
  }
  
- static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
-@@ -1074,22 +1440,30 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 	read_lock(&dev_base_lock);
- 	idx = 0;
- 	for_each_netdev(&init_net, dev) {
--		struct netdev_queue *dev_queue;
-+		unsigned int i;
- 		if (idx < s_idx)
- 			goto cont;
- 		if (idx > s_idx)
- 			s_q_idx = 0;
- 		q_idx = 0;
--		dev_queue = netdev_get_tx_queue(dev, 0);
--		list_for_each_entry(q, &dev_queue->qdisc_list, list) {
--			if (q_idx < s_q_idx) {
-+		for (i = 0; i < dev->num_tx_queues; i++) {
-+			struct netdev_queue *dev_queue;
-+
-+			dev_queue = netdev_get_tx_queue(dev, i);
-+			list_for_each_entry(q, &dev_queue->qdisc_list,
-+					    list) {
-+				if (q_idx < s_q_idx) {
-+					q_idx++;
-+					continue;
-+				}
-+				if (tc_fill_qdisc(skb, q, q->parent,
-+						  NETLINK_CB(cb->skb).pid,
-+						  cb->nlh->nlmsg_seq,
-+						  NLM_F_MULTI,
-+						  RTM_NEWQDISC) <= 0)
-+					goto done;
- 				q_idx++;
--				continue;
- 			}
--			if (tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).pid,
--					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0)
--				goto done;
--			q_idx++;
- 		}
- cont:
- 		idx++;
-@@ -1310,14 +1684,13 @@ static int qdisc_class_dump(struct Qdisc *q, unsigned long cl, struct qdisc_walk
+ static int gred_dump(struct Qdisc *sch, struct sk_buff *skb)
+@@ -607,7 +638,9 @@ static struct Qdisc_ops gred_qdisc_ops __read_mostly = {
+ 	.init		=	gred_init,
+ 	.reset		=	gred_reset,
+ 	.destroy	=	gred_destroy,
+-	.change		=	gred_change,
++	.validate_change=	gred_validate_change,
++	.commit_change	=	gred_commit_change,
++	.cancel_change	=	gred_cancel_change,
+ 	.dump		=	gred_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 59be192..5025de6 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1479,21 +1479,25 @@ hfsc_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+ 	return 0;
+ }
  
- static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+-static int
+-hfsc_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
++static int hfsc_validate_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
  {
-+	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
- 	struct net *net = sock_net(skb->sk);
--	struct netdev_queue *dev_queue;
--	int t;
--	int s_t;
-+	struct qdisc_dump_args arg;
- 	struct net_device *dev;
- 	struct Qdisc *q;
--	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
--	struct qdisc_dump_args arg;
-+	unsigned int i;
-+	int s_t, t;
- 
- 	if (net != &init_net)
- 		return 0;
-@@ -1330,29 +1703,32 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_t = cb->args[0];
- 	t = 0;
- 
--	dev_queue = netdev_get_tx_queue(dev, 0);
--	list_for_each_entry(q, &dev_queue->qdisc_list, list) {
--		if (t < s_t || !q->ops->cl_ops ||
--		    (tcm->tcm_parent &&
--		     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
-+	for (i = 0; i < dev->num_tx_queues; i++) {
-+		struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, i);
-+		list_for_each_entry(q, &dev_queue->qdisc_list, list) {
-+			if (t < s_t || !q->ops->cl_ops ||
-+			    (tcm->tcm_parent &&
-+			     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
-+				t++;
-+				continue;
-+			}
-+			if (t > s_t)
-+				memset(&cb->args[1], 0,
-+				       sizeof(cb->args) - sizeof(cb->args[0]));
-+			arg.w.fn = qdisc_class_dump;
-+			arg.skb = skb;
-+			arg.cb = cb;
-+			arg.w.stop  = 0;
-+			arg.w.skip = cb->args[1];
-+			arg.w.count = 0;
-+			q->ops->cl_ops->walk(q, &arg.w);
-+			cb->args[1] = arg.w.count;
-+			if (arg.w.stop)
-+				goto stop;
- 			t++;
--			continue;
- 		}
--		if (t > s_t)
--			memset(&cb->args[1], 0, sizeof(cb->args)-sizeof(cb->args[0]));
--		arg.w.fn = qdisc_class_dump;
--		arg.skb = skb;
--		arg.cb = cb;
--		arg.w.stop  = 0;
--		arg.w.skip = cb->args[1];
--		arg.w.count = 0;
--		q->ops->cl_ops->walk(q, &arg.w);
--		cb->args[1] = arg.w.count;
--		if (arg.w.stop)
--			break;
--		t++;
- 	}
+-	struct hfsc_sched *q = qdisc_priv(sch);
+-	struct tc_hfsc_qopt *qopt;
 -
-+stop:
- 	cb->args[0] = t;
+-	if (opt == NULL || nla_len(opt) < sizeof(*qopt))
++	if (nla_len(opt) < sizeof(struct tc_hfsc_qopt))
+ 		return -EINVAL;
+-	qopt = nla_data(opt);
++	return 0;
++}
++
++static void hfsc_commit_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct tc_hfsc_qopt *qopt = nla_data(opt);
++	struct hfsc_sched *q = qdisc_priv(sch);
  
- 	dev_put(dev);
+ 	sch_tree_lock(sch);
+ 	q->defcls = qopt->defcls;
+ 	sch_tree_unlock(sch);
++}
+ 
+-	return 0;
++static void hfsc_cancel_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
++{
+ }
+ 
+ static void
+@@ -1748,7 +1752,9 @@ static const struct Qdisc_class_ops hfsc_class_ops = {
+ static struct Qdisc_ops hfsc_qdisc_ops __read_mostly = {
+ 	.id		= "hfsc",
+ 	.init		= hfsc_init_qdisc,
+-	.change		= hfsc_change_qdisc,
++	.validate_change= hfsc_validate_change_qdisc,
++	.commit_change	= hfsc_commit_change_qdisc,
++	.cancel_change	= hfsc_cancel_change_qdisc,
+ 	.reset		= hfsc_reset_qdisc,
+ 	.destroy	= hfsc_destroy_qdisc,
+ 	.dump		= hfsc_dump_qdisc,
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 292129d..186b10b 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1586,7 +1586,6 @@ static struct Qdisc_ops htb_qdisc_ops __read_mostly = {
+ 	.init		=	htb_init,
+ 	.reset		=	htb_reset,
+ 	.destroy	=	htb_destroy,
+-	.change		=	NULL /* htb_change */,
+ 	.dump		=	htb_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 180c1e4..50ec903 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -75,6 +75,8 @@ struct netem_sched_data {
+ 		u32  size;
+ 		s16 table[0];
+ 	} *delay_dist;
++
++	void *delay_dist_pending;
+ };
+ 
+ /* Time stamp put into socket buffer control block */
+@@ -314,13 +316,12 @@ static void netem_reset(struct Qdisc *sch)
+  * Distribution data is a variable size payload containing
+  * signed 16 bit values.
+  */
+-static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
++static int validate_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+ {
++	unsigned long i, n = nla_len(attr)/sizeof(__s16);
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+-	unsigned long n = nla_len(attr)/sizeof(__s16);
+ 	const __s16 *data = nla_data(attr);
+ 	struct disttable *d;
+-	int i;
+ 
+ 	if (n > 65536)
+ 		return -EINVAL;
+@@ -333,15 +334,29 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+ 	for (i = 0; i < n; i++)
+ 		d->table[i] = data[i];
+ 
++	q->delay_dist_pending = d;
++
++	return 0;
++}
++
++static void commit_dist_table(struct Qdisc *sch, const struct nlattr *attr)
++{
++	struct netem_sched_data *q = qdisc_priv(sch);
++	struct disttable *d;
++
+ 	spin_lock_bh(&sch->dev_queue->lock);
++
++	d = q->delay_dist_pending;
++	q->delay_dist_pending = NULL;
++
+ 	d = xchg(&q->delay_dist, d);
++
+ 	spin_unlock_bh(&sch->dev_queue->lock);
+ 
+ 	kfree(d);
+-	return 0;
+ }
+ 
+-static int get_correlation(struct Qdisc *sch, const struct nlattr *attr)
++static void commit_correlation(struct Qdisc *sch, const struct nlattr *attr)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corr *c = nla_data(attr);
+@@ -349,27 +364,24 @@ static int get_correlation(struct Qdisc *sch, const struct nlattr *attr)
+ 	init_crandom(&q->delay_cor, c->delay_corr);
+ 	init_crandom(&q->loss_cor, c->loss_corr);
+ 	init_crandom(&q->dup_cor, c->dup_corr);
+-	return 0;
+ }
+ 
+-static int get_reorder(struct Qdisc *sch, const struct nlattr *attr)
++static void commit_reorder(struct Qdisc *sch, const struct nlattr *attr)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_reorder *r = nla_data(attr);
+ 
+ 	q->reorder = r->probability;
+ 	init_crandom(&q->reorder_cor, r->correlation);
+-	return 0;
+ }
+ 
+-static int get_corrupt(struct Qdisc *sch, const struct nlattr *attr)
++static void commit_corrupt(struct Qdisc *sch, const struct nlattr *attr)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	const struct tc_netem_corrupt *r = nla_data(attr);
+ 
+ 	q->corrupt = r->probability;
+ 	init_crandom(&q->corrupt_cor, r->correlation);
+-	return 0;
+ }
+ 
+ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
+@@ -379,27 +391,46 @@ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
+ };
+ 
+ /* Parse netlink message to set options */
+-static int netem_change(struct Qdisc *sch, struct nlattr *opt)
++static int netem_validate_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_NETEM_MAX + 1];
+ 	struct tc_netem_qopt *qopt;
+-	int ret;
+-
+-	if (opt == NULL)
+-		return -EINVAL;
++	int err;
+ 
+-	ret = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, netem_policy,
++	err = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, netem_policy,
+ 				      qopt, sizeof(*qopt));
+-	if (ret < 0)
+-		return ret;
++	if (err < 0)
++		return err;
+ 
+-	ret = fifo_set_limit(q->qdisc, qopt->limit);
+-	if (ret) {
+-		pr_debug("netem: can't set fifo limit\n");
+-		return ret;
++	err = fifo_validate_limit(q->qdisc, qopt->limit);
++	if (err)
++		return err;
++
++	if (tb[TCA_NETEM_DELAY_DIST]) {
++		err = validate_dist_table(sch, tb[TCA_NETEM_DELAY_DIST]);
++		if (err < 0)
++			return err;
++	}
++	return 0;
++}
++
++static void netem_commit_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct netem_sched_data *q = qdisc_priv(sch);
++	struct nlattr *tb[TCA_NETEM_MAX + 1];
++	struct tc_netem_qopt *qopt;
++	int err;
++
++	err = nla_parse_nested_compat(tb, TCA_NETEM_MAX, opt, netem_policy,
++				      qopt, sizeof(*qopt));
++	if (err < 0) {
++		WARN_ON(1);
++		return;
+ 	}
+ 
++	fifo_commit_limit(q->qdisc, qopt->limit);
++
+ 	q->latency = qopt->latency;
+ 	q->jitter = qopt->jitter;
+ 	q->limit = qopt->limit;
+@@ -414,31 +445,27 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (q->gap)
+ 		q->reorder = ~0;
+ 
+-	if (tb[TCA_NETEM_CORR]) {
+-		ret = get_correlation(sch, tb[TCA_NETEM_CORR]);
+-		if (ret)
+-			return ret;
+-	}
++	if (tb[TCA_NETEM_CORR])
++		commit_correlation(sch, tb[TCA_NETEM_CORR]);
+ 
+-	if (tb[TCA_NETEM_DELAY_DIST]) {
+-		ret = get_dist_table(sch, tb[TCA_NETEM_DELAY_DIST]);
+-		if (ret)
+-			return ret;
+-	}
++	if (tb[TCA_NETEM_DELAY_DIST])
++		commit_dist_table(sch, tb[TCA_NETEM_DELAY_DIST]);
+ 
+-	if (tb[TCA_NETEM_REORDER]) {
+-		ret = get_reorder(sch, tb[TCA_NETEM_REORDER]);
+-		if (ret)
+-			return ret;
+-	}
++	if (tb[TCA_NETEM_REORDER])
++		commit_reorder(sch, tb[TCA_NETEM_REORDER]);
+ 
+-	if (tb[TCA_NETEM_CORRUPT]) {
+-		ret = get_corrupt(sch, tb[TCA_NETEM_CORRUPT]);
+-		if (ret)
+-			return ret;
+-	}
++	if (tb[TCA_NETEM_CORRUPT])
++		commit_corrupt(sch, tb[TCA_NETEM_CORRUPT]);
++}
+ 
+-	return 0;
++static void netem_cancel_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct netem_sched_data *q = qdisc_priv(sch);
++
++	if (q->delay_dist_pending) {
++		kfree(q->delay_dist_pending);
++		q->delay_dist_pending = NULL;
++	}
+ }
+ 
+ /*
+@@ -484,21 +511,35 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
+ 	return qdisc_reshape_fail(nskb, sch);
+ }
+ 
+-static int tfifo_init(struct Qdisc *sch, struct nlattr *opt)
++static int tfifo_validate(struct Qdisc *sch, struct nlattr *opt)
++{
++	if (opt && nla_len(opt) < sizeof(struct tc_fifo_qopt))
++		return -EINVAL;
++
++	return 0;
++}
++
++static void tfifo_commit(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct fifo_sched_data *q = qdisc_priv(sch);
+ 
+ 	if (opt) {
+ 		struct tc_fifo_qopt *ctl = nla_data(opt);
+-		if (nla_len(opt) < sizeof(*ctl))
+-			return -EINVAL;
+ 
+ 		q->limit = ctl->limit;
+ 	} else
+ 		q->limit = max_t(u32, qdisc_dev(sch)->tx_queue_len, 1);
+ 
+ 	q->oldest = PSCHED_PASTPERFECT;
+-	return 0;
++}
++
++static int tfifo_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	int err = tfifo_validate(sch, opt);
++
++	if (!err)
++		tfifo_commit(sch, opt);
++	return err;
+ }
+ 
+ static int tfifo_dump(struct Qdisc *sch, struct sk_buff *skb)
+@@ -522,7 +563,8 @@ static struct Qdisc_ops tfifo_qdisc_ops __read_mostly = {
+ 	.drop		=	qdisc_queue_drop,
+ 	.init		=	tfifo_init,
+ 	.reset		=	qdisc_reset_queue,
+-	.change		=	tfifo_init,
++	.validate_change=	tfifo_validate,
++	.commit_change	=	tfifo_commit,
+ 	.dump		=	tfifo_dump,
+ };
+ 
+@@ -544,7 +586,10 @@ static int netem_init(struct Qdisc *sch, struct nlattr *opt)
+ 		return -ENOMEM;
+ 	}
+ 
+-	ret = netem_change(sch, opt);
++	ret = netem_validate_change(sch, opt);
++	if (!ret)
++		netem_commit_change(sch, opt);
++
+ 	if (ret) {
+ 		pr_debug("netem: change failed\n");
+ 		qdisc_destroy(q->qdisc);
+@@ -710,7 +755,9 @@ static struct Qdisc_ops netem_qdisc_ops __read_mostly = {
+ 	.init		=	netem_init,
+ 	.reset		=	netem_reset,
+ 	.destroy	=	netem_destroy,
+-	.change		=	netem_change,
++	.validate_change=	netem_validate_change,
++	.commit_change	=	netem_commit_change,
++	.cancel_change	=	netem_cancel_change,
+ 	.dump		=	netem_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index ba3b261..42f4cf9 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -27,6 +27,8 @@ struct prio_sched_data
+ 	struct tcf_proto *filter_list;
+ 	u8  prio2band[TC_PRIO_MAX+1];
+ 	struct Qdisc *queues[TCQ_PRIO_BANDS];
++
++	struct Qdisc *pending_queues[TCQ_PRIO_BANDS];
+ };
+ 
+ 
+@@ -175,57 +177,111 @@ prio_destroy(struct Qdisc* sch)
+ 		qdisc_destroy(q->queues[prio]);
+ }
+ 
+-static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
++static int prio_validate_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	struct tc_prio_qopt *qopt;
+-	int i;
++	int i, j;
+ 
+ 	if (nla_len(opt) < sizeof(*qopt))
+ 		return -EINVAL;
+-	qopt = nla_data(opt);
+ 
++	qopt = nla_data(opt);
+ 	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
+ 		return -EINVAL;
+ 
+-	for (i=0; i<=TC_PRIO_MAX; i++) {
++	for (i = 0; i <= TC_PRIO_MAX; i++) {
+ 		if (qopt->priomap[i] >= qopt->bands)
+ 			return -EINVAL;
+ 	}
+ 
+-	sch_tree_lock(sch);
++	for (i = 0; i < qopt->bands; i++) {
++		if (q->queues[i] == &noop_qdisc) {
++			struct Qdisc *child;
++
++			child = qdisc_create_dflt(qdisc_dev(sch),
++						  sch->dev_queue,
++						  &pfifo_qdisc_ops,
++						  TC_H_MAKE(sch->handle, i + 1));
++			if (!child)
++				goto unwind;
++
++			q->pending_queues[i] = child;
++		}
++	}
++	return 0;
++
++unwind:
++	for (j = 0; j < i; j++) {
++		struct Qdisc *child = q->pending_queues[i];
++
++		if (child) {
++			qdisc_destroy(child);
++			q->pending_queues[i] = NULL;
++		}
++	}
++	return -ENOMEM;
++}
++
++static void prio_commit_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct prio_sched_data *q = qdisc_priv(sch);
++	struct tc_prio_qopt *qopt = nla_data(opt);
++	int i;
++
++	spin_lock_bh(&sch->dev_queue->lock);
++
+ 	q->bands = qopt->bands;
+ 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
+ 
+-	for (i=q->bands; i<TCQ_PRIO_BANDS; i++) {
++	/* Relase all of the band slow qdiscs which will no longer
++	 * be in the range 0 --> q->bands.
++	 */
++	for (i = q->bands; i < TCQ_PRIO_BANDS; i++) {
+ 		struct Qdisc *child = xchg(&q->queues[i], &noop_qdisc);
+ 		if (child != &noop_qdisc) {
+ 			qdisc_tree_decrease_qlen(child, child->q.qlen);
+ 			qdisc_destroy(child);
+ 		}
+ 	}
+-	sch_tree_unlock(sch);
+ 
+-	for (i=0; i<q->bands; i++) {
++	/* Now attach the newly active band qdiscs we allocated during
++	 * validation.
++	 */
++	for (i = 0; i < q->bands; i++) {
+ 		if (q->queues[i] == &noop_qdisc) {
+-			struct Qdisc *child;
+-			child = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-						  &pfifo_qdisc_ops,
+-						  TC_H_MAKE(sch->handle, i + 1));
+-			if (child) {
+-				sch_tree_lock(sch);
+-				child = xchg(&q->queues[i], child);
+-
+-				if (child != &noop_qdisc) {
+-					qdisc_tree_decrease_qlen(child,
+-								 child->q.qlen);
+-					qdisc_destroy(child);
+-				}
+-				sch_tree_unlock(sch);
++			struct Qdisc *child = q->pending_queues[i];
++
++			BUG_ON(!child);
++
++			q->pending_queues[i] = NULL;
++
++			child = xchg(&q->queues[i], child);
++
++			if (child != &noop_qdisc) {
++				qdisc_tree_decrease_qlen(child,
++							 child->q.qlen);
++				qdisc_destroy(child);
+ 			}
+ 		}
+ 	}
+-	return 0;
++
++	spin_unlock_bh(&sch->dev_queue->lock);
++}
++
++static void prio_cancel_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct prio_sched_data *q = qdisc_priv(sch);
++	int i;
++
++	for (i = 0; i < TCQ_PRIO_BANDS; i++) {
++		struct Qdisc *child = q->pending_queues[i];
++
++		if (child) {
++			q->pending_queues[i] = NULL;
++			qdisc_destroy(child);
++		}
++	}
+ }
+ 
+ static int prio_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -241,8 +297,10 @@ static int prio_init(struct Qdisc *sch, struct nlattr *opt)
+ 	} else {
+ 		int err;
+ 
+-		if ((err= prio_tune(sch, opt)) != 0)
+-			return err;
++		err = prio_validate_change(sch, opt);
++		if (!err)
++			prio_commit_change(sch, opt);
++		return err;
+ 	}
+ 	return 0;
+ }
+@@ -441,7 +499,9 @@ static struct Qdisc_ops prio_qdisc_ops __read_mostly = {
+ 	.init		=	prio_init,
+ 	.reset		=	prio_reset,
+ 	.destroy	=	prio_destroy,
+-	.change		=	prio_tune,
++	.validate_change=	prio_validate_change,
++	.commit_change	=	prio_commit_change,
++	.cancel_change	=	prio_cancel_change,
+ 	.dump		=	prio_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index c106e0e..4844865 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -43,6 +43,7 @@ struct red_sched_data
+ 	struct red_parms	parms;
+ 	struct red_stats	stats;
+ 	struct Qdisc		*qdisc;
++	struct Qdisc		*pending_child;
+ };
+ 
+ static inline int red_use_ecn(struct red_sched_data *q)
+@@ -179,58 +180,99 @@ static const struct nla_policy red_policy[TCA_RED_MAX + 1] = {
+ 	[TCA_RED_STAB]	= { .len = RED_STAB_SIZE },
+ };
+ 
+-static int red_change(struct Qdisc *sch, struct nlattr *opt)
++static int red_validate_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct red_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_RED_MAX + 1];
+-	struct tc_red_qopt *ctl;
+ 	struct Qdisc *child = NULL;
++	struct tc_red_qopt *ctl;
+ 	int err;
+ 
+-	if (opt == NULL)
+-		return -EINVAL;
+-
+ 	err = nla_parse_nested(tb, TCA_RED_MAX, opt, red_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_RED_PARMS] == NULL ||
+-	    tb[TCA_RED_STAB] == NULL)
++	if (!tb[TCA_RED_PARMS] || !tb[TCA_RED_STAB])
+ 		return -EINVAL;
+ 
+ 	ctl = nla_data(tb[TCA_RED_PARMS]);
+-
+ 	if (ctl->limit > 0) {
+ 		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, ctl->limit);
+ 		if (IS_ERR(child))
+ 			return PTR_ERR(child);
+ 	}
++	q->pending_child = child;
++
++	return 0;
++}
++
++static void red_commit_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct red_sched_data *q = qdisc_priv(sch);
++	struct nlattr *tb[TCA_RED_MAX + 1];
++	struct tc_red_qopt *ctl;
++	int err;
++
++	err = nla_parse_nested(tb, TCA_RED_MAX, opt, red_policy);
++	if (err < 0) {
++		WARN_ON(1);
++		if (q->pending_child) {
++			qdisc_destroy(q->pending_child);
++			q->pending_child = NULL;
++		}
++		return;
++	}
++
++	ctl = nla_data(tb[TCA_RED_PARMS]);
+ 
+ 	sch_tree_lock(sch);
++
+ 	q->flags = ctl->flags;
+ 	q->limit = ctl->limit;
+-	if (child) {
++	if (q->pending_child) {
++		struct Qdisc *child = q->pending_child;
++
++		q->pending_child = NULL;
++
+ 		qdisc_tree_decrease_qlen(q->qdisc, q->qdisc->q.qlen);
+ 		qdisc_destroy(xchg(&q->qdisc, child));
+ 	}
+ 
+ 	red_set_parms(&q->parms, ctl->qth_min, ctl->qth_max, ctl->Wlog,
+-				 ctl->Plog, ctl->Scell_log,
+-				 nla_data(tb[TCA_RED_STAB]));
++		      ctl->Plog, ctl->Scell_log,
++		      nla_data(tb[TCA_RED_STAB]));
+ 
+ 	if (skb_queue_empty(&sch->q))
+ 		red_end_of_idle_period(&q->parms);
+ 
+ 	sch_tree_unlock(sch);
+-	return 0;
++}
++
++static void red_cancel_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct red_sched_data *q = qdisc_priv(sch);
++
++	if (q->pending_child) {
++		qdisc_destroy(q->pending_child);
++		q->pending_child = NULL;
++	}
+ }
+ 
+ static int red_init(struct Qdisc* sch, struct nlattr *opt)
+ {
+ 	struct red_sched_data *q = qdisc_priv(sch);
++	int err;
+ 
+ 	q->qdisc = &noop_qdisc;
+-	return red_change(sch, opt);
++
++	if (!opt)
++		return -EINVAL;
++
++	err = red_validate_change(sch, opt);
++	if (!err)
++		red_commit_change(sch, opt);
++
++	return err;
+ }
+ 
+ static int red_dump(struct Qdisc *sch, struct sk_buff *skb)
+@@ -379,7 +421,9 @@ static struct Qdisc_ops red_qdisc_ops __read_mostly = {
+ 	.init		=	red_init,
+ 	.reset		=	red_reset,
+ 	.destroy	=	red_destroy,
+-	.change		=	red_change,
++	.validate_change=	red_validate_change,
++	.commit_change	=	red_commit_change,
++	.cancel_change	=	red_cancel_change,
+ 	.dump		=	red_dump,
+ 	.dump_stats	=	red_dump_stats,
+ 	.owner		=	THIS_MODULE,
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 8458f63..a52ca74 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -629,7 +629,6 @@ static struct Qdisc_ops sfq_qdisc_ops __read_mostly = {
+ 	.init		=	sfq_init,
+ 	.reset		=	sfq_reset,
+ 	.destroy	=	sfq_destroy,
+-	.change		=	NULL,
+ 	.dump		=	sfq_dump,
+ 	.owner		=	THIS_MODULE,
+ };
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 1afea06..1f34488 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -113,6 +113,11 @@ struct tbf_sched_data
+ 	psched_time_t	t_c;		/* Time check-point */
+ 	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
++
++	struct qdisc_rate_table *pending_rtab;
++	struct qdisc_rate_table *pending_ptab;
++	struct Qdisc *pending_child;
++	int pending_max_size;
+ };
+ 
+ #define L2T(q,L)   qdisc_l2t((q)->R_tab,L)
+@@ -248,59 +253,108 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ };
+ 
+-static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
++static int tbf_validate_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+-	int err;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_TBF_PTAB + 1];
+-	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+-	int max_size,n;
++	struct tc_tbf_qopt *qopt;
++	int err, n, max_size;
+ 
+ 	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+-	err = -EINVAL;
+-	if (tb[TCA_TBF_PARMS] == NULL)
+-		goto done;
++	if (!tb[TCA_TBF_PARMS])
++		return -EINVAL;
+ 
+ 	qopt = nla_data(tb[TCA_TBF_PARMS]);
++
++	err = -EINVAL;
+ 	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
+-	if (rtab == NULL)
+-		goto done;
++	if (!rtab)
++		goto drop_rtabs;
+ 
+ 	if (qopt->peakrate.rate) {
+ 		if (qopt->peakrate.rate > qopt->rate.rate)
+ 			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
+ 		if (ptab == NULL)
+-			goto done;
++			goto drop_rtabs;
+ 	}
+ 
+-	for (n = 0; n < 256; n++)
+-		if (rtab->data[n] > qopt->buffer) break;
+-	max_size = (n << qopt->rate.cell_log)-1;
++	for (n = 0; n < 256; n++) {
++		if (rtab->data[n] > qopt->buffer)
++			break;
++	}
++	max_size = (n << qopt->rate.cell_log) - 1;
+ 	if (ptab) {
+ 		int size;
+ 
+-		for (n = 0; n < 256; n++)
+-			if (ptab->data[n] > qopt->mtu) break;
+-		size = (n << qopt->peakrate.cell_log)-1;
+-		if (size < max_size) max_size = size;
++		for (n = 0; n < 256; n++) {
++			if (ptab->data[n] > qopt->mtu)
++				break;
++		}
++		size = (n << qopt->peakrate.cell_log) - 1;
++		if (size < max_size)
++			max_size = size;
+ 	}
+ 	if (max_size < 0)
+-		goto done;
++		goto drop_rtabs;
+ 
+ 	if (qopt->limit > 0) {
+ 		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, qopt->limit);
+ 		if (IS_ERR(child)) {
+ 			err = PTR_ERR(child);
+-			goto done;
++			goto drop_rtabs;
+ 		}
+ 	}
+ 
++	q->pending_rtab = rtab;
++	q->pending_ptab = ptab;
++	q->pending_child = child;
++	q->pending_max_size = max_size;
++
++	return 0;
++
++drop_rtabs:
++	if (rtab)
++		qdisc_put_rtab(rtab);
++	if (ptab)
++		qdisc_put_rtab(ptab);
++	return err;
++}
++
++static void tbf_commit_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct tbf_sched_data *q = qdisc_priv(sch);
++	struct nlattr *tb[TCA_TBF_PTAB + 1];
++	struct qdisc_rate_table *rtab;
++	struct qdisc_rate_table *ptab;
++	struct Qdisc *child;
++	struct tc_tbf_qopt *qopt;
++	int err, max_size;
++
++	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
++	if (err < 0) {
++		WARN_ON(1);
++		return;
++	}
++
++	qopt = nla_data(tb[TCA_TBF_PARMS]);
++
++	rtab = q->pending_rtab;
++	q->pending_rtab = NULL;
++
++	ptab = q->pending_ptab;
++	q->pending_ptab = NULL;
++
++	child = q->pending_child;
++	q->pending_child = NULL;
++
++	max_size = q->pending_max_size;
++
+ 	sch_tree_lock(sch);
+ 	if (child) {
+ 		qdisc_tree_decrease_qlen(q->qdisc, q->qdisc->q.qlen);
+@@ -315,18 +369,35 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
+ 	rtab = xchg(&q->R_tab, rtab);
+ 	ptab = xchg(&q->P_tab, ptab);
+ 	sch_tree_unlock(sch);
+-	err = 0;
+-done:
++
+ 	if (rtab)
+ 		qdisc_put_rtab(rtab);
+ 	if (ptab)
+ 		qdisc_put_rtab(ptab);
+-	return err;
++}
++
++static void tbf_cancel_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct tbf_sched_data *q = qdisc_priv(sch);
++
++	if (q->pending_rtab) {
++		qdisc_put_rtab(q->pending_rtab);
++		q->pending_rtab = NULL;
++	}
++	if (q->pending_ptab) {
++		qdisc_put_rtab(q->pending_ptab);
++		q->pending_ptab = NULL;
++	}
++	if (q->pending_child) {
++		qdisc_destroy(q->pending_child);
++		q->pending_child = NULL;
++	}
+ }
+ 
+ static int tbf_init(struct Qdisc* sch, struct nlattr *opt)
+ {
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
++	int err;
+ 
+ 	if (opt == NULL)
+ 		return -EINVAL;
+@@ -335,7 +406,11 @@ static int tbf_init(struct Qdisc* sch, struct nlattr *opt)
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	q->qdisc = &noop_qdisc;
+ 
+-	return tbf_change(sch, opt);
++	err = tbf_validate_change(sch, opt);
++	if (!err)
++		tbf_commit_change(sch, opt);
++
++	return err;
+ }
+ 
+ static void tbf_destroy(struct Qdisc *sch)
+@@ -491,7 +566,9 @@ static struct Qdisc_ops tbf_qdisc_ops __read_mostly = {
+ 	.init		=	tbf_init,
+ 	.reset		=	tbf_reset,
+ 	.destroy	=	tbf_destroy,
+-	.change		=	tbf_change,
++	.validate_change=	tbf_validate_change,
++	.commit_change	=	tbf_commit_change,
++	.cancel_change	=	tbf_cancel_change,
+ 	.dump		=	tbf_dump,
+ 	.owner		=	THIS_MODULE,
+ };
 -- 
 1.5.6.2.255.gbed62
 
