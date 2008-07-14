@@ -1,34 +1,75 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: bnx2_poll panicking kernel
-Date: Tue, 15 Jul 2008 00:05:46 +0200
-Message-ID: <20080714220546.GC4849@ami.dom.local>
-References: <20080710.162007.04790623.davem@davemloft.net> <20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net> <48787E1A.3030804@gmail.com> <4878AFD8.1000307@gmail.com> <487B7061.5040306@trash.net> <20080714172055.GA2638@ami.dom.local> <20080714202151.GA28622@orion.carnet.hr> <20080714212223.GA4849@ami.dom.local> <20080714212620.GA8503@orion.carnet.hr>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/14]: Make packet scheduler multiqueue aware.
+Date: Mon, 14 Jul 2008 15:59:08 -0700 (PDT)
+Message-ID: <20080714.155908.174564017.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, mchan@broadcom.com,
-	billfink@mindspring.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, mirrors@debian.org, devik@cdi.cz
-To: Josip Rodin <joy@entuzijast.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:49440 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758767AbYGNWEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:04:05 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so2173754fgg.17
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:04:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080714212620.GA8503@orion.carnet.hr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49255
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758242AbYGNW7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 18:59:08 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id C3531C8C187
+	for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 15:59:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 14, 2008 at 11:26:20PM +0200, Josip Rodin wrote:
-...
-> No (sorry :) but he did call his patch an "idiotic attempt", and asked you
-> guys for input, so I held back :)
 
-FYI: David's "idiotic attempt" usually equals 2x average "brigtest idea"
-here. (It's not a :)
+Ok, here are the fruits of my weekend in a nutshell, it's
+pushed into the net-tx-2.6 tree:
 
-Jarek P.
+1) Every configuration operation previded by qdiscs and
+   classifiers is split into two or three operations:
 
-PS: but don't repeat this (I removed him from CC)
+   Either:
+
+		->validate_foo()
+		->commit_foo()
+		->cancel_foo()
+
+   Or just:
+
+		->validate_foo()
+		->commit_foo()
+
+   The deciding factor is whether validate_foo() allocates
+   some resources which need to be liberated if we decide to
+   no perform the commit operation.
+
+2) The generic top-level operation code allocates an array
+   of info blobs that record the progress of things.
+
+3) First, we iterate over all queues and validate the operation.
+
+4) If all validations pass, we iterate and commit the operation.
+
+5) Else, we iterate and cancel the operation if necessary.
+
+As you can see, this required surgery to a lot of the
+packet scheduler layer.  I'm sure I got something wrong,
+but conceptually I think everything is sound.
+
+At this point I've tested basic qdisc changes.  For example
+on my workstation I'm using a PRIO with 3 bands pointing to
+various SFQ and TBF qdiscs.
+
+So I haven't given the filter/classifier stuff much of a good
+testing yet.
+
+My next plans are:
+
+1) Integrate the feedback received over the weekend which I
+   didn't have time to process yet.
+
+2) Respin the tree against a fresh net-next-2.6
+
+3) Implement "QUEUE_NUM" netlink attribute so that the user can
+   request that packet scheduler operations apply to a specific
+   queue only.
+
+I think, frankly, this is ready to merge upstream even in it's current
+state.  We'll have 3 months to test things more thoroughly and sort
+out any thinkos I added to the code.
