@@ -1,81 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH RFC 01/10] mlx4_en: Include file
-Date: Mon, 14 Jul 2008 17:17:25 +0100
-Message-ID: <20080714161724.GS19302@solarflare.com>
-References: <487B6569.5000806@mellanox.co.il>
+From: Kasper Sandberg <lkml@metanurb.dk>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
+	Problem)
+Date: Mon, 14 Jul 2008 18:21:00 +0200
+Message-ID: <1216052460.23392.14.camel@localhost>
+References: <4861800B.90703@nscus.com>
+	 <20080625213142.GA29890@electric-eye.fr.zoreil.com>
+	 <48640535.2050000@nscus.com>
+	 <20080626215918.GC2555@electric-eye.fr.zoreil.com>
+	 <1215435236.11909.121.camel@localhost>  <487232F4.6000206@dell.com>
+	 <1215783324.11909.185.camel@localhost>  <48777BC3.6090108@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il,
-	Roland Dreier <rdreier@cisco.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:41360 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752686AbYGNQRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 12:17:31 -0400
-Content-Disposition: inline
-In-Reply-To: <487B6569.5000806@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Mario Limonciello <mario_limonciello@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <48777BC3.6090108@dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Yevgeny Petrilin wrote:
-[...]
-> +#ifdef CONFIG_MLX4_EN_DEBUG
-> +#define mlx4_dbg(mdev, format, arg...)	\
-> +	printk(KERN_DEBUG "%s %s: " format , DRV_NAME ,\
-> +		(&mdev->pdev->dev)->bus_id , ## arg)
-> +#else /* CONFIG_MLX4_DEBUG */
-> +#define mlx4_dbg(mdev, format, arg...) do { (void) mdev; } while (0)
-> +#endif /* CONFIG_MLX4_DEBUG */
-> +
-> +#define mlx4_err(mdev, format, arg...) \
-> +	printk(KERN_ERR "%s %s: " format , DRV_NAME ,\
-> +		(&mdev->pdev->dev)->bus_id , ## arg)
-> +#define mlx4_info(mdev, format, arg...) \
-> +	printk(KERN_INFO "%s %s: " format , DRV_NAME ,\
-> +		(&mdev->pdev->dev)->bus_id , ## arg)
-> +#define mlx4_warn(mdev, format, arg...) \
-> +	printk(KERN_WARNING "%s %s: " format , DRV_NAME ,\
-> +		(&mdev->pdev->dev)->bus_id , ## arg)
+On Fri, 2008-07-11 at 10:26 -0500, Mario Limonciello wrote:
+> Kasper:
+> 
+> http://marc.info/?l=linux-netdev&m=121498012600793&w=2
 
-I think these should be defined in terms of dev_dbg etc.
+I just tested it. It fails.
 
-[...]
-> +#ifdef CONFIG_MLX4_EN_PREFETCH
-> +	#define PREFETCH(x)		prefetch(x)
-> +#else
-> +	#define PREFETCH(x)
-> +#endif
-> +
-> +#ifdef CONFIG_MLX4_EN_SW_COUNTERS
-> +#define DO_SW_COUNTERS			1
-> +#define SET_SW_COUNTER(cnt, val)	((cnt) = (val))
-> +#define INC_SW_COUNTER(cnt)		(++(cnt))
-> +#define ADD_SW_COUNTER(cnt, add)	((cnt) += (add))
-> +#else
-> +#define DO_SW_COUNTERS			0
-> +#define SET_SW_COUNTER(cnt, val)
-> +#define INC_SW_COUNTER(cnt)
-> +#define ADD_SW_COUNTER(cnt, add)
-> +#endif
+after a few unloads/loads the lspci -x output is garbled again. the
+funny thing is (i have a dual nic board) its random which one that
+breaks..
 
-The do-nothing implementations should be do {} while (0).
+Francois, i tested your patch,
+http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9/20080710-r8169-test.patch against .26 and it WORKS. with all the other tests i've done, ~5 unloads/loads is more than enough to trigger it, i just did 50 on your patch, and it functions.
 
-[...]
-> +/*
-> + * Useful macros
-> + */
-> +
-> +#define ROUNDUP_LOG2(x)		ilog2(roundup_pow_of_two(x))
-> +#define XNOR(x, y)		(!(x) == !(y))
-> +#define MIN(a, b)		((a) < (b) ? (a) : (b))
-> +#define MAX(a, b)		((a) > (b) ? (a) : (b))
+Now i can have both msi and apic on.. Thanks alot.
 
-So useful that <linux/kernel.h> already has quite a few of them...
+Do you have plans to get this merged?
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+> 
+> Regards
+> 
+> Kasper Sandberg wrote:
+> > On Mon, 2008-07-07 at 10:15 -0500, Mario Limonciello wrote:
+> >   
+> > Sorry, i am not subscribed to netdev or pci list, could you post here
+> > aswell?
+> >
+> >   
+> >
+> >   
+> 
