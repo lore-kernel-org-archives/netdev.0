@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH RFC 03/10] mlx4_en: net_device implementation
-Date: Mon, 14 Jul 2008 17:41:02 +0300
-Message-ID: <487B657E.2040900@mellanox.co.il>
+Subject: [PATCH RFC 05/10] mlx4_en: Device port configuration and querying
+Date: Mon, 14 Jul 2008 17:41:52 +0300
+Message-ID: <487B65B0.2050407@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,31 +9,31 @@ Cc: netdev@vger.kernel.org, Liran Liss <liranl@mellanox.co.il>,
 	tziporet@mellanox.co.il, Roland Dreier <rdreier@cisco.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:45399 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:45140 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754246AbYGNOsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 10:48:41 -0400
+	id S1754219AbYGNOte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2008 10:49:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH] mlx4_en : en_netdev.c
-
-This file implements the network device interface.
-Such device is created for every Ethernet port of the device.
+These files implement port commands: Firmware commands meant to
+set port configuration or query for its state.
 
 Signed-off-by: Liran Liss <liranl@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_netdev.c | 1076 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1076 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/mlx4/en_netdev.c
+ drivers/net/mlx4/en_port.c |  235 ++++++++++++++++++
+ drivers/net/mlx4/en_port.h |  586 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 821 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/mlx4/en_port.c
+ create mode 100644 drivers/net/mlx4/en_port.h
 
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
 new file mode 100644
-index 0000000..5c1f654
+index 0000000..b55e3a0
 --- /dev/null
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -0,0 +1,1076 @@
++++ b/drivers/net/mlx4/en_port.c
+@@ -0,0 +1,235 @@
 +/*
 + * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
 + *
@@ -67,1049 +67,800 @@ index 0000000..5c1f654
 + *
 + */
 +
-+#include <linux/etherdevice.h>
-+#include <linux/tcp.h>
-+#include <linux/if_vlan.h>
-+#include <linux/delay.h>
 +
-+#include <linux/mlx4/driver.h>
++#include <linux/if_vlan.h>
++
 +#include <linux/mlx4/device.h>
 +#include <linux/mlx4/cmd.h>
-+#include <linux/mlx4/cq.h>
 +
-+#include "mlx4_en.h"
 +#include "en_port.h"
++#include "mlx4_en.h"
 +
 +
-+static void mlx4_en_vlan_rx_register(struct net_device *dev,
-+				     struct vlan_group *grp)
++int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port,
++			u64 mac, u64 clear, u8 mode)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	mlx4_dbg(mdev, "Regsitering VLAN group:%p\n", grp);
-+	priv->vlgrp = grp;
-+
-+	down(&mdev->state_sem);
-+	if (mdev->state == DEVICE_UP && priv->port_state == PORT_UP) {
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, grp);
-+		if (err)
-+			mlx4_err(mdev, "Failed configuring VLAN filter\n");
-+	}
-+	up(&mdev->state_sem);
++	return mlx4_cmd(dev, (mac | (clear << 63)), port, mode,
++			MLX4_CMD_SET_MCAST_FLTR, MLX4_CMD_TIME_CLASS_B);
 +}
 +
-+static void mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
++int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	if (!priv->vlgrp)
-+		return;
-+
-+	mlx4_dbg(mdev, "adding VLAN:%d (vlgrp entry:%p)\n",
-+		 vid, vlan_group_get_device(priv->vlgrp, vid));
-+
-+	/* Add VID to port VLAN filter */
-+	down(&mdev->state_sem);
-+	if (mdev->state == DEVICE_UP && priv->port_state == PORT_UP) {
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		if (err)
-+			mlx4_err(mdev, "Failed configuring VLAN filter\n");
-+	}
-+	up(&mdev->state_sem);
-+}
-+
-+static void mlx4_en_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	if (!priv->vlgrp)
-+		return;
-+
-+	mlx4_dbg(mdev, "Killing VID:%d (vlgrp:%p vlgrp "
-+		 "entry:%p)\n", vid, priv->vlgrp,
-+		 vlan_group_get_device(priv->vlgrp, vid));
-+	vlan_group_set_device(priv->vlgrp, vid, NULL);
-+
-+	/* Remove VID from port VLAN filter */
-+	down(&mdev->state_sem);
-+	if (mdev->state == DEVICE_UP && priv->port_state == PORT_UP) {
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		if (err)
-+			mlx4_err(mdev, "Failed configuring VLAN filter\n");
-+	}
-+	up(&mdev->state_sem);
-+}
-+
-+static u64 mlx4_en_mac_to_u64(u8 *addr)
-+{
-+	u64 mac = 0;
-+	int i;
-+
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		mac <<= 8;
-+		mac |= addr[i];
-+	}
-+	return mac;
-+}
-+
-+static int mlx4_en_set_mac(struct net_device *dev, void *addr)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct sockaddr *saddr = addr;
-+
-+	if (!is_valid_ether_addr(saddr->sa_data)) {
-+		mlx4_dbg(mdev, "Invalid mac address!\n");
-+		return -EADDRNOTAVAIL;
-+	}
-+	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
-+	priv->mac = mlx4_en_mac_to_u64(dev->dev_addr);
-+	queue_work(mdev->workqueue, &priv->mac_task);
-+	return 0;
-+}
-+
-+static void mlx4_en_do_set_mac(struct work_struct *work)
-+{
-+	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
-+						 mac_task);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err = 0;
-+
-+	down(&mdev->state_sem);
-+	if (priv->port_state == PORT_UP) {
-+		/* Remove old MAC and insert the new one */
-+		mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
-+		err = mlx4_register_mac(mdev->dev, priv->port,
-+					priv->mac, &priv->mac_index);
-+		if (err)
-+			mlx4_err(mdev, "Failed changing HW MAC address\n");
-+	} else
-+		mlx4_dbg(mdev, "Port is down, exiting...\n");
-+
-+	up(&mdev->state_sem);
-+}
-+
-+static void mlx4_en_clear_list(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct dev_mc_list *plist = priv->mc_list;
-+	struct dev_mc_list *next;
-+
-+	while (plist) {
-+		next = plist->next;
-+		kfree(plist);
-+		plist = next;
-+	}
-+	priv->mc_list = NULL;
-+}
-+
-+static void mlx4_en_cache_mclist(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct dev_mc_list *mclist;
-+	struct dev_mc_list *tmp;
-+	struct dev_mc_list *plist = NULL;
-+
-+	for (mclist = dev->mc_list; mclist; mclist = mclist->next) {
-+		tmp = kmalloc(sizeof(struct dev_mc_list), GFP_ATOMIC);
-+		if (!tmp) {
-+			mlx4_err(mdev, "failed to allocate multicast list\n");
-+			mlx4_en_clear_list(dev);
-+			return;
-+		}
-+		memcpy(tmp, mclist, sizeof(struct dev_mc_list));
-+		tmp->next = NULL;
-+		if (plist)
-+			plist->next = tmp;
-+		else
-+			priv->mc_list = tmp;
-+		plist = tmp;
-+	}
-+}
-+
-+
-+static void mlx4_en_set_multicast(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	if (priv->port_state != PORT_UP)
-+		return;
-+
-+	queue_work(priv->mdev->workqueue, &priv->mcast_task);
-+}
-+
-+static void mlx4_en_do_set_multicast(struct work_struct *work)
-+{
-+	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
-+						 mcast_task);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct net_device *dev = priv->dev;
-+	struct dev_mc_list *mclist;
-+	u64 mcast_addr = 0;
-+	int err;
-+
-+	mlx4_dbg(mdev, "multicast task called for port:%d\n", priv->port);
-+
-+	down(&mdev->state_sem);
-+	if (mdev->state != DEVICE_UP) {
-+		mlx4_dbg(mdev, "Card is not up, ignoring multicast change.\n");
-+		goto out;
-+	}
-+	if (priv->port_state == PORT_DOWN) {
-+		mlx4_dbg(mdev, "Port is down, ignoring multicast change.\n");
-+		goto out;
-+	}
-+
-+	/*
-+	 * Promsicuous mode: disable all filters
-+	 */
-+
-+	if (dev->flags & IFF_PROMISC) {
-+		if (!(priv->flags & MLX4_EN_FLAG_PROMISC)) {
-+			mlx4_warn(mdev, "Port:%d entering promiscuous mode\n",
-+				  priv->port);
-+			priv->flags |= MLX4_EN_FLAG_PROMISC;
-+
-+			/* Enable promiscouos mode */
-+			err = mlx4_SET_PORT_qpn_calc(mdev->dev, priv->port,
-+						     priv->base_qpn, 1);
-+			if (err)
-+				mlx4_err(mdev, "Failed enabling "
-+					 "promiscous mode\n");
-+
-+			/* Disable port multicast filter (unconditionally) */
-+			err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
-+						  0, MLX4_MCAST_DISABLE);
-+			if (err)
-+				mlx4_err(mdev, "Failed disabling "
-+					 "multicast filter\n");
-+
-+			/* Disable port VLAN filter */
-+			err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, NULL);
-+			if (err)
-+				mlx4_err(mdev, "Failed disabling "
-+					 "VLAN filter\n");
-+		}
-+		goto out;
-+	}
-+
-+	/*
-+	 * Not in promiscous mode
-+	 */
-+
-+	if (priv->flags & MLX4_EN_FLAG_PROMISC) {
-+		mlx4_warn(mdev, "Port:%d leaving promiscuous mode\n",
-+			  priv->port);
-+		priv->flags &= ~MLX4_EN_FLAG_PROMISC;
-+
-+		/* Disable promiscouos mode */
-+		err = mlx4_SET_PORT_qpn_calc(mdev->dev, priv->port,
-+					     priv->base_qpn, 0);
-+		if (err)
-+			mlx4_err(mdev, "Failed disabling promiscous mode\n");
-+
-+		/* Enable port VLAN filter */
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		if (err)
-+			mlx4_err(mdev, "Failed enabling VLAN filter\n");
-+	}
-+
-+	/* Enable/disable the multicast filter according to IFF_ALLMULTI */
-+	if (dev->flags & IFF_ALLMULTI) {
-+		err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
-+					  0, MLX4_MCAST_DISABLE);
-+		if (err)
-+			mlx4_err(mdev, "Failed disabling multicast filter\n");
-+	} else {
-+		err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
-+					  0, MLX4_MCAST_DISABLE);
-+		if (err)
-+			mlx4_err(mdev, "Failed disabling multicast filter\n");
-+
-+		/* Flush mcast filter and init it with broadcast address */
-+		mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, ETH_BCAST,
-+				    1, MLX4_MCAST_CONFIG);
-+
-+		/* Update multicast list - we cache all addresses so they won't
-+		 * change while HW is updated holding the command semaphor */
-+		netif_tx_lock_bh(dev);
-+		mlx4_en_cache_mclist(dev);
-+		netif_tx_unlock_bh(dev);
-+		for (mclist = priv->mc_list; mclist; mclist = mclist->next) {
-+			mcast_addr = mlx4_en_mac_to_u64(mclist->dmi_addr);
-+			mlx4_SET_MCAST_FLTR(mdev->dev, priv->port,
-+					    mcast_addr, 0, MLX4_MCAST_CONFIG);
-+		}
-+		err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
-+					  0, MLX4_MCAST_ENABLE);
-+		if (err)
-+			mlx4_err(mdev, "Failed enabling multicast filter\n");
-+
-+		mlx4_en_clear_list(dev);
-+	}
-+out:
-+	up(&mdev->state_sem);
-+}
-+
-+void mlx4_en_netpoll(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_cq *cq;
-+	unsigned long flags;
-+	int i;
-+
-+
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		cq = &priv->rx_cq[i];
-+		spin_lock_irqsave(&cq->lock, flags);
-+		napi_synchronize(&cq->napi);
-+		mlx4_en_process_rx_cq(dev, cq, 0);
-+		spin_unlock_irqrestore(&cq->lock, flags);
-+	}
-+}
-+
-+
-+static void mlx4_en_tx_timeout(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+
-+	mlx4_warn(mdev, "Tx timeout called on port:%d\n", priv->port);
-+
-+	if (netif_carrier_ok(dev)) {
-+		priv->port_stats.rst_cnt++;
-+		mlx4_dbg(mdev, "Scheduling watchdog\n");
-+		queue_work(mdev->workqueue, &priv->watchdog_task);
-+	}
-+}
-+
-+
-+static struct net_device_stats *mlx4_en_get_stats(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	spin_lock_bh(&priv->stats_lock);
-+	memcpy(&dev->stats, &priv->stats, sizeof(priv->stats));
-+	spin_unlock_bh(&priv->stats_lock);
-+
-+	return &dev->stats;
-+}
-+
-+void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
-+{
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct mlx4_en_cq *cq;
-+	int i;
-+
-+	/* If we haven't received a specific coalescing setting
-+	 * (module param), we set the moderation paramters as follows:
-+	 * - moder_cnt is set to the number of mtu sized packets to
-+	 *   satisfy our coelsing target.
-+	 * - moder_time is set to a fixed value.
-+	 */
-+	priv->tx_frames = (mdev->profile.tx_moder_cnt ==
-+			   MLX4_EN_MODER_AUTO_CONF) ?
-+				MLX4_EN_TX_COAL_TARGET /
-+				priv->dev->mtu + 1 :
-+				mdev->profile.tx_moder_cnt;
-+	priv->tx_usecs = (mdev->profile.tx_moder_time ==
-+			  MLX4_EN_MODER_AUTO_CONF) ?
-+				MLX4_EN_TX_COAL_TIME :
-+				mdev->profile.tx_moder_time;
-+	priv->rx_frames = (mdev->profile.rx_moder_cnt ==
-+			   MLX4_EN_MODER_AUTO_CONF) ?
-+				MLX4_EN_RX_COAL_TARGET /
-+				priv->dev->mtu + 1 :
-+				mdev->profile.rx_moder_cnt;
-+	priv->rx_usecs = (mdev->profile.rx_moder_time ==
-+			  MLX4_EN_MODER_AUTO_CONF) ?
-+				MLX4_EN_RX_COAL_TIME :
-+				mdev->profile.rx_moder_time;
-+	mlx4_dbg(mdev, "Default coalesing params for mtu:%d - tx_frames:%d "
-+			"tx_usecs:%d rx_frames:%d rx_usecs:%d\n",
-+			priv->dev->mtu, priv->tx_frames, priv->tx_usecs,
-+			priv->rx_frames, priv->rx_usecs);
-+
-+	/* Setup cq moderation params */
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		cq = &priv->rx_cq[i];
-+		cq->moder_cnt = priv->rx_frames;
-+		cq->moder_time = priv->rx_usecs;
-+	}
-+
-+	/* Reset auto-moderation params */
-+	priv->pkt_rate_low = MLX4_EN_RX_RATE_LOW;
-+	priv->rx_usecs_low = MLX4_EN_RX_COAL_TIME_LOW;
-+	priv->pkt_rate_high = MLX4_EN_RX_RATE_HIGH;
-+	priv->rx_usecs_high = MLX4_EN_RX_COAL_TIME_HIGH;
-+	priv->sample_interval = MLX4_EN_SAMPLE_INTERVAL;
-+	priv->adaptive_rx_coal = mdev->profile.auto_moder;
-+	priv->last_moder_time = MLX4_EN_MODER_AUTO_CONF;
-+	priv->last_moder_jiffies = 0;
-+	priv->last_moder_packets = 0;
-+	priv->last_moder_tx_packets = 0;
-+	priv->last_moder_bytes = 0;
-+}
-+
-+static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
-+{
-+	unsigned long period = (unsigned long) (jiffies - priv->last_moder_jiffies);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct mlx4_en_cq *cq;
-+	unsigned long packets;
-+	unsigned long rate;
-+	unsigned long avg_pkt_size;
-+	unsigned long rx_packets;
-+	unsigned long rx_bytes;
-+	unsigned long tx_packets;
-+	unsigned long tx_pkt_diff;
-+	unsigned long rx_pkt_diff;
-+	int moder_time;
-+	int i, err;
-+
-+	if (!priv->adaptive_rx_coal || period < priv->sample_interval * HZ)
-+		return;
-+
-+	if (DO_SW_COUNTERS) {
-+		struct mlx4_en_rx_ring *rx_ring;
-+		struct mlx4_en_tx_ring *tx_ring;
-+
-+		rx_packets = 0;
-+		rx_bytes = 0;
-+		tx_packets = 0;
-+		for (i = 0; i < priv->rx_ring_num; i++) {
-+			rx_ring = &priv->rx_ring[i];
-+			rx_bytes += rx_ring->bytes;
-+			rx_packets += rx_ring->packets;
-+		}
-+		for (i = 0; i < priv->tx_ring_num; i++) {
-+			tx_ring = &priv->tx_ring[i];
-+			tx_packets += tx_ring->packets;
-+		}
-+	} else {
-+		spin_lock_bh(&priv->stats_lock);
-+		rx_packets = priv->stats.rx_packets;
-+		rx_bytes = priv->stats.rx_bytes;
-+		tx_packets = priv->stats.tx_packets;
-+		spin_unlock_bh(&priv->stats_lock);
-+	}
-+	if (!priv->last_moder_jiffies || !period)
-+		goto out;
-+
-+	tx_pkt_diff = ((unsigned long) (tx_packets -
-+					priv->last_moder_tx_packets));
-+	rx_pkt_diff = ((unsigned long) (rx_packets -
-+					priv->last_moder_packets));
-+	packets = MAX(tx_pkt_diff, rx_pkt_diff);
-+	rate = packets * HZ / period;
-+	avg_pkt_size = packets ? ((unsigned long) (rx_bytes -
-+				 priv->last_moder_bytes)) / packets : 0;
-+
-+	/* Apply auto-moderation only when packet rate exceeds a rate that
-+	 * it matters */
-+	if (rate > MLX4_EN_RX_RATE_THRESH) {
-+		/* If tx and rx packet rates are not balanced, assume that
-+		 * traffic is mainly BW bound and apply maximum moderation.
-+		 * Otherwise, moderate according to packet rate */
-+		if (2 * tx_pkt_diff > 3 * rx_pkt_diff ||
-+		    2 * rx_pkt_diff > 3 * tx_pkt_diff) {
-+			moder_time = priv->rx_usecs_high;
-+		} else {
-+			if (rate < priv->pkt_rate_low)
-+				moder_time = priv->rx_usecs_low;
-+			else if (rate > priv->pkt_rate_high)
-+				moder_time = priv->rx_usecs_high;
-+			else
-+				moder_time = (rate - priv->pkt_rate_low) *
-+					(priv->rx_usecs_high - priv->rx_usecs_low) /
-+					(priv->pkt_rate_high - priv->pkt_rate_low) +
-+					priv->rx_usecs_low;
-+		}
-+	} else {
-+		/* When packet rate is low, use default moderation rather than
-+		 * 0 to prevent interrupt storms if traffic suddenly increases */
-+		moder_time = priv->rx_usecs;
-+	}
-+
-+	mlx4_dbg(mdev, "tx rate:%lu rx_rate:%lu\n",
-+		 tx_pkt_diff * HZ / period, rx_pkt_diff * HZ / period);
-+
-+	mlx4_dbg(mdev, "Rx moder_time changed from:%d to %d period:%lu [jiff] "
-+			"packets:%lu avg_pkt_size:%lu rate:%lu [p/s])\n",
-+			priv->last_moder_time, moder_time, period, packets,
-+			avg_pkt_size, rate);
-+
-+	if (moder_time != priv->last_moder_time) {
-+		priv->last_moder_time = moder_time;
-+		for (i = 0; i < priv->rx_ring_num; i++) {
-+			cq = &priv->rx_cq[i];
-+			cq->moder_time = moder_time;
-+			err = mlx4_en_set_cq_moder(priv, cq);
-+			if (err) {
-+				mlx4_err(mdev, "Failed modifying moderation "
-+					       "for cq:%d on port:%d\n",
-+						i, priv->port);
-+				break;
-+			}
-+		}
-+	}
-+
-+out:
-+	priv->last_moder_packets = rx_packets;
-+	priv->last_moder_tx_packets = tx_packets;
-+	priv->last_moder_bytes = rx_bytes;
-+	priv->last_moder_jiffies = jiffies;
-+}
-+
-+static void mlx4_en_do_get_stats(struct work_struct *work)
-+{
-+	struct delayed_work *delay = container_of(work, struct delayed_work,
-+						  work);
-+	struct mlx4_en_priv *priv = container_of(delay, struct mlx4_en_priv,
-+						 stats_task);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+	int i;
-+
-+	mlx4_dbg(mdev, "Updating statistics for port:%d\n", priv->port);
-+
-+	err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
-+	if (err)
-+		mlx4_dbg(mdev, "Could not update stats for "
-+				"port:%d\n", priv->port);
-+
-+	if (DO_SW_COUNTERS) {
-+		spin_lock_bh(&priv->stats_lock);
-+		priv->stats.tx_bytes = 0;
-+		priv->stats.tx_packets = 0;
-+		for (i = 0; i < priv->tx_ring_num; i++) {
-+			priv->stats.tx_bytes += priv->tx_ring[i].bytes;
-+			priv->stats.tx_packets += priv->tx_ring[i].packets;
-+		}
-+		priv->stats.rx_bytes = 0;
-+		priv->stats.rx_packets = 0;
-+		for (i = 0; i < priv->rx_ring_num; i++) {
-+			priv->stats.rx_bytes += priv->rx_ring[i].bytes;
-+			priv->stats.rx_packets += priv->rx_ring[i].packets;
-+		}
-+		spin_unlock_bh(&priv->stats_lock);
-+	}
-+
-+	down(&mdev->state_sem);
-+	if (mdev->state == DEVICE_UP) {
-+		if (priv->port_state == PORT_UP)
-+			mlx4_en_auto_moderation(priv);
-+
-+		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
-+	}
-+	up(&mdev->state_sem);
-+}
-+
-+static void mlx4_en_linkstate(struct work_struct *work)
-+{
-+	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
-+						 linkstate_task);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int linkstate = priv->link_state;
-+
-+	down(&mdev->state_sem);
-+	/* If observable port state changed set carrier state and
-+	 * report to system log */
-+	if (priv->last_link_state != linkstate) {
-+		if (linkstate == MLX4_DEV_EVENT_PORT_DOWN) {
-+			mlx4_info(mdev, "Port %d - link down\n", priv->port);
-+			netif_carrier_off(priv->dev);
-+		} else {
-+			mlx4_info(mdev, "Port %d - link up\n", priv->port);
-+			netif_carrier_on(priv->dev);
-+		}
-+	}
-+	priv->last_link_state = linkstate;
-+	up(&mdev->state_sem);
-+}
-+
-+
-+int mlx4_en_start_port(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct mlx4_en_cq *cq;
-+	struct mlx4_en_tx_ring *tx_ring;
-+	struct mlx4_en_rx_ring *rx_ring;
-+	int rx_index = 0;
-+	int tx_index = 0;
-+	u16 stride;
-+	int err = 0;
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_vlan_fltr_mbox *filter;
 +	int i;
 +	int j;
-+
-+	mlx4_dbg(mdev, "starting port:%d\n", priv->port);
-+	if (priv->port_state == PORT_UP) {
-+		mlx4_dbg(mdev, "start port called while port already up\n");
-+		return 0;
-+	}
-+
-+	/* Calculate Rx buf size */
-+	dev->mtu = MIN(dev->mtu, priv->max_mtu);
-+	mlx4_en_calc_rx_buf(dev);
-+	mlx4_dbg(mdev, "Rx buf size:%d\n", priv->rx_skb_size);
-+	stride = roundup_pow_of_two(sizeof(struct mlx4_en_rx_desc) +
-+				    DS_SIZE * priv->num_frags);
-+	/* Configure rx cq's and rings */
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		cq = &priv->rx_cq[i];
-+		rx_ring = &priv->rx_ring[i];
-+
-+		err = mlx4_en_create_cq(priv, cq, priv->prof->rx_ring_size, i, RX);
-+		if (err) {
-+			mlx4_err(mdev, "Failed allocating Rx CQ\n");
-+			goto rx_err;
-+		}
-+		for (j = 0; j < cq->size; j++)
-+			cq->buf[j].op_tr_own = MLX4_CQE_OWNER_MASK;
-+		err = mlx4_en_set_cq_moder(priv, cq);
-+		if (err) {
-+			mlx4_err(mdev, "Failed setting cq moderation parameters");
-+			mlx4_en_destroy_cq(priv, cq);
-+			goto rx_err;
-+		}
-+		mlx4_cq_arm(&cq->mcq, MLX4_CQ_DB_REQ_NOT, mdev->uar_map,
-+			    &mdev->uar_lock);
-+
-+		err = mlx4_en_create_rx_ring(priv, rx_ring,
-+					     priv->prof->rx_ring_size,
-+					     stride, cq->mcq.cqn);
-+		if (err) {
-+			mlx4_err(mdev, "Failed allocating Rx ring\n");
-+			mlx4_en_destroy_cq(priv, cq);
-+			goto rx_err;
-+		}
-+		++rx_index;
-+	}
-+
-+	err = mlx4_en_config_rss_steer(priv);
-+	if (err) {
-+		mlx4_err(mdev, "Failed configuring rss steering\n");
-+		goto rx_err;
-+	}
-+
-+	/* Configure tx cq's and rings */
-+	for (i = 0; i < priv->tx_ring_num; i++) {
-+		/* Configure cq */
-+		cq = &priv->tx_cq[i];
-+		err = mlx4_en_create_cq(priv, cq, priv->prof->tx_ring_size, i, TX);
-+		if (err) {
-+			mlx4_err(mdev, "Failed allocating Tx CQ\n");
-+			goto tx_err;
-+		}
-+		mlx4_dbg(mdev, "Resetting index of collapsed CQ:%d "
-+				"to -1\n", i);
-+			cq->buf->index = 0xffff;
-+
-+		/* Configure ring */
-+		tx_ring = &priv->tx_ring[i];
-+		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn,
-+					       priv->rx_ring[0].srq.srqn);
-+		if (err) {
-+			mlx4_err(mdev, "Failed allocating Tx ring\n");
-+			mlx4_en_destroy_cq(priv, cq);
-+			goto tx_err;
-+		}
-+		/* Set initial ownership of all Tx TXBBs to SW (1) */
-+		for (j = 0; j < tx_ring->buf_size; j += STAMP_STRIDE)
-+			*((u32 *) (tx_ring->buf + j)) = 0xffffffff;
-+		++tx_index;
-+	}
-+
-+	/* Configure port */
-+	err = mlx4_SET_PORT_general(mdev->dev, priv->port,
-+				    priv->rx_skb_size + ETH_FCS_LEN,
-+				    mdev->profile.tx_pause,
-+				    mdev->profile.tx_ppp,
-+				    mdev->profile.rx_pause,
-+				    mdev->profile.rx_ppp);
-+	if (err) {
-+		mlx4_err(mdev, "Failed setting port general configurations"
-+			       " for port %d, with error %d\n", priv->port, err);
-+		goto tx_err;
-+	}
-+	/* Set default qp number */
-+	err = mlx4_SET_PORT_qpn_calc(mdev->dev, priv->port, priv->base_qpn, 0);
-+	if (err) {
-+		mlx4_err(mdev, "Failed setting default qp numbers\n");
-+		goto tx_err;
-+	}
-+	/* Set port mac number */
-+	mlx4_dbg(mdev, "Setting mac for port %d\n", priv->port);
-+	err = mlx4_register_mac(mdev->dev, priv->port,
-+				priv->mac, &priv->mac_index);
-+	if (err) {
-+		mlx4_err(mdev, "Failed setting port mac\n");
-+		goto tx_err;
-+	}
-+
-+	/* Init port */
-+	mlx4_dbg(mdev, "Initializing port\n");
-+	err = mlx4_INIT_PORT(mdev->dev, priv->port);
-+	if (err) {
-+		mlx4_err(mdev, "Failed Initializing port\n");
-+		goto mac_err;
-+	}
-+
-+	/* Schedule multicast task to populate multicast list */
-+	queue_work(mdev->workqueue, &priv->mcast_task);
-+
-+	priv->port_state = PORT_UP;
-+	netif_start_queue(dev);
-+	return 0;
-+
-+mac_err:
-+	mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
-+tx_err:
-+	while (tx_index--) {
-+		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[tx_index]);
-+		mlx4_en_destroy_cq(priv, &priv->tx_cq[tx_index]);
-+	}
-+
-+	mlx4_en_release_rss_steer(priv);
-+rx_err:
-+	while (rx_index--) {
-+		mlx4_en_destroy_rx_ring(priv, &priv->rx_ring[rx_index]);
-+		mlx4_en_destroy_cq(priv, &priv->rx_cq[rx_index]);
-+	}
-+
-+	return err; /* need to close devices */
-+}
-+
-+
-+void mlx4_en_stop_port(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int i;
-+
-+	mlx4_dbg(mdev, "Stop_port called for port:%d\n", priv->port);
-+
-+	if (priv->port_state == PORT_DOWN) {
-+		mlx4_dbg(mdev, "stop port (%d) called while port already down\n",
-+			 priv->port);
-+		return;
-+	}
-+	netif_stop_queue(dev);
-+
-+	/* Synchronize with tx routine */
-+	netif_tx_lock_bh(dev);
-+	priv->port_state = PORT_DOWN;
-+	netif_tx_unlock_bh(dev);
-+
-+	/* close port*/
-+	mlx4_CLOSE_PORT(mdev->dev, priv->port);
-+
-+	/* Unregister Mac address for the port */
-+	mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
-+
-+	/* Free TX Rings */
-+	for (i = 0; i < priv->tx_ring_num; i++) {
-+		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[i]);
-+		mlx4_en_destroy_cq(priv, &priv->tx_cq[i]);
-+	}
-+	msleep(10);
-+
-+	for (i = 0; i < priv->tx_ring_num; i++)
-+		mlx4_en_free_tx_buf(dev, &priv->tx_ring[i]);
-+
-+	/* Free RSS qps */
-+	mlx4_en_release_rss_steer(priv);
-+
-+	/* Free RX Rings */
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		mlx4_en_destroy_rx_ring(priv, &priv->rx_ring[i]);
-+		while (test_bit(NAPI_STATE_SCHED, &priv->rx_cq[i].napi.state))
-+			msleep(1);
-+		mlx4_en_destroy_cq(priv, &priv->rx_cq[i]);
-+	}
-+}
-+
-+static void mlx4_en_restart(struct work_struct *work)
-+{
-+	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
-+						 watchdog_task);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct net_device *dev = priv->dev;
-+
-+	mlx4_dbg(mdev, "Watchdog task called for port %d\n", priv->port);
-+	mlx4_en_stop_port(dev);
-+	if (mlx4_en_start_port(dev))
-+	    mlx4_err(mdev, "Failed restarting port %d\n", priv->port);
-+}
-+
-+
-+int mlx4_en_open(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int i;
++	int index = 0;
++	u32 entry;
 +	int err = 0;
 +
-+	mlx4_dbg(mdev, "Open called for port:%d\n", priv->port);
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
 +
-+	down(&mdev->state_sem);
-+
-+	if (mdev->state != DEVICE_UP) {
-+		mlx4_err(mdev, "Cannot open - device down/disabled\n");
-+		err = -EBUSY;
-+		goto out;
-+	}
-+
-+	/* Reset HW statistics and performance counters */
-+	if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
-+		mlx4_dbg(mdev, "Failed dumping statistics\n");
-+
-+	memset(&priv->stats, 0, sizeof(priv->stats));
-+	memset(&priv->pstats, 0, sizeof(priv->pstats));
-+	if (DO_SW_COUNTERS) {
-+		for (i = 0; i < priv->tx_ring_num; i++) {
-+			priv->tx_ring[i].bytes = 0;
-+			priv->tx_ring[i].packets = 0;
++	filter = mailbox->buf;
++	if (grp) {
++		memset(filter, 0, sizeof *filter);
++		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
++			entry = 0;
++			for (j = 0; j < 32; j++)
++				if (vlan_group_get_device(grp, index++))
++					entry |= 1 << j;
++			filter->entry[i] = cpu_to_be32(entry);
 +		}
-+		for (i = 0; i < priv->rx_ring_num; i++) {
-+			priv->rx_ring[i].bytes = 0;
-+			priv->rx_ring[i].packets = 0;
-+		}
++	} else {
++		/* When no vlans are configured we block all vlans */
++		memset(filter, 0, sizeof(*filter));
 +	}
-+	mlx4_en_set_default_moderation(priv);
-+	err = mlx4_en_start_port(dev);
-+	if (err)
-+		mlx4_err(mdev, "Failed starting port:%d\n", priv->port);
-+
-+out:
-+	up(&mdev->state_sem);
++	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
++		       MLX4_CMD_TIME_CLASS_B);
++	mlx4_free_cmd_mailbox(dev, mailbox);
 +	return err;
 +}
 +
 +
-+int mlx4_en_close(struct net_device *dev)
++int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
++			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_general_context *context;
++	int err;
++	u32 in_mod;
 +
-+	mlx4_info(mdev, "Close called for port:%d\n", priv->port);
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
 +
-+	down(&mdev->state_sem);
++	context->flags = SET_PORT_GEN_ALL_VALID;
++	context->mtu = cpu_to_be16(mtu);
++	context->pptx = (pptx * (!pfctx)) << 7;
++	context->pfctx = pfctx;
++	context->pprx = (pprx * (!pfcrx)) << 7;
++	context->pfcrx = pfcrx;
 +
-+	mlx4_en_stop_port(dev);
-+	netif_carrier_off(dev);
++	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B);
 +
-+	up(&mdev->state_sem);
-+	return 0;
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++
++int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
++			   u8 promisc)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_rqp_calc_context *context;
++	int err;
++	u32 in_mod;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
++
++	context->base_qpn = cpu_to_be32(base_qpn);
++	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT | base_qpn);
++	context->mcast = cpu_to_be32(1 << SET_PORT_PROMISC_SHIFT | base_qpn);
++
++	in_mod = MLX4_SET_PORT_RQP_CALC << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
 +}
 +
 +
-+void mlx4_en_destroy_netdev(struct net_device *dev)
++int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int i;
-+
-+	mlx4_dbg(mdev, "Destroying netdev on port:%d\n", priv->port);
-+
-+	/* Unregsiter device - this will close the port if it was up */
-+	if (priv->registered)
-+		unregister_netdev(dev);
-+
-+	mlx4_free_hwq_res(mdev->dev, &priv->res, MLX4_EN_PAGE_SIZE);
-+
-+	cancel_delayed_work(&priv->stats_task);
-+	cancel_delayed_work(&priv->refill_task);
-+	/* flush any pending task for this netdev */
-+	flush_workqueue(mdev->workqueue);
-+
-+	/* Detach the netdev so tasks would not attempt to access it */
-+	down(&mdev->state_sem);
-+	mdev->pndev[priv->port] = NULL;
-+	up(&mdev->state_sem);
-+
-+	for (i = 0; i < priv->tx_ring_num; i++)
-+		mlx4_en_destroy_tx_ring(priv, &priv->tx_ring[i]);
-+
-+	free_netdev(dev);
-+}
-+
-+static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err = 0;
-+
-+	mlx4_dbg(mdev, "Change MTU called - current:%d new:%d\n",
-+		 dev->mtu, new_mtu);
-+
-+	if ((new_mtu < MLX4_EN_MIN_MTU) || (new_mtu > priv->max_mtu)) {
-+		mlx4_err(mdev, "Bad MTU size:%d.\n", new_mtu);
-+		return -EPERM;
-+	}
-+	dev->mtu = new_mtu;
-+
-+	if (netif_running(dev)) {
-+		down(&mdev->state_sem);
-+		if (mdev->state != DEVICE_UP) {
-+			/* NIC is probably restarting - let watchdog task reset
-+			 * the port */
-+			mlx4_dbg(mdev, "Change MTU called with card down!?\n");
-+		} else {
-+			mlx4_en_stop_port(dev);
-+			mlx4_en_set_default_moderation(priv);
-+			err = mlx4_en_start_port(dev);
-+			if (err) {
-+				mlx4_err(mdev, "Failed restarting port:%d\n",
-+					 priv->port);
-+				queue_work(mdev->workqueue, &priv->watchdog_task);
-+			}
-+		}
-+		up(&mdev->state_sem);
-+	}
-+	return 0;
-+}
-+
-+int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-+			struct mlx4_en_port_profile *prof)
-+{
-+	struct net_device *dev;
-+	struct mlx4_en_priv *priv;
-+	int i;
++	struct mlx4_en_stat_out_mbox *mlx4_en_stats;
++	struct mlx4_en_priv *priv = netdev_priv(mdev->pndev[port]);
++	struct net_device_stats *stats = &priv->stats;
++	struct mlx4_cmd_mailbox *mailbox;
++	u64 in_mod = reset << 8 | port;
 +	int err;
 +
-+	dev = alloc_etherdev(sizeof(struct mlx4_en_priv));
-+	if (dev == NULL) {
-+		mlx4_err(mdev, "Net device allocation failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	SET_NETDEV_DEV(dev, &mdev->dev->pdev->dev);
-+
-+	/*
-+	 * Initialize driver private data
-+	 */
-+
-+	priv = netdev_priv(dev);
-+	memset(priv, 0, sizeof(struct mlx4_en_priv));
-+	priv->dev = dev;
-+	priv->mdev = mdev;
-+	priv->prof = prof;
-+	priv->port = port;
-+	priv->port_state = PORT_DOWN;
-+	priv->rx_csum = 1;
-+	priv->rx_buf = prof->rx_buf;
-+	priv->flags = prof->flags;
-+	priv->tx_ring_num = prof->tx_ring_num;
-+	priv->rx_ring_num = prof->rx_ring_num;
-+	priv->mc_list = NULL;
-+	priv->mac_index = -1;
-+	spin_lock_init(&priv->stats_lock);
-+	INIT_WORK(&priv->mcast_task, mlx4_en_do_set_multicast);
-+	INIT_WORK(&priv->mac_task, mlx4_en_do_set_mac);
-+	INIT_DELAYED_WORK(&priv->refill_task, mlx4_en_rx_refill);
-+	INIT_WORK(&priv->watchdog_task, mlx4_en_restart);
-+	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
-+	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
-+
-+	/* Query for default mac and max mtu */
-+	priv->max_mtu = mdev->dev->caps.eth_mtu_cap[priv->port];
-+	priv->mac = mdev->dev->caps.def_mac[priv->port];
-+	mlx4_dbg(mdev, " Max mtu is: %d, Mac is: 0x%llx\n", priv->max_mtu, priv->mac);
-+
-+	/* Create tx Rings */
-+	for (i = 0; i < prof->tx_ring_num; i++) {
-+		err = mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
-+					     prof->tx_ring_size, TXBB_SIZE);
-+		if (err) {
-+			mlx4_err(mdev, "Failed to create tx ring\n");
-+			goto out;
-+		}
-+	}
-+
-+	/* Populate Rx default RSS mappings */
-+	mlx4_en_set_default_rss_map(mdev, &priv->rss_map, prof->rx_ring_num *
-+						RSS_FACTOR, prof->rx_ring_num);
-+	/* Allocate page for receive rings */
-+	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
-+				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
-+	if (err) {
-+		mlx4_err(mdev, "Failed to allocate page for rx qps\n");
++	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	memset(mailbox->buf, 0, sizeof(*mlx4_en_stats));
++	err = mlx4_cmd_box(mdev->dev, 0, mailbox->dma, in_mod, 0,
++			   MLX4_CMD_DUMP_ETH_STATS, MLX4_CMD_TIME_CLASS_B);
++	if (err)
 +		goto out;
-+	}
 +
-+	/* Populate Tx priority mappings */
-+	mlx4_en_set_prio_map(mdev, priv->tx_prio_map, prof->tx_ring_num);
++	mlx4_en_stats = mailbox->buf;
 +
-+	/*
-+	 * Initialize netdev entry points
-+	 */
++	spin_lock_bh(&priv->stats_lock);
++	/* Skip packet+byte counts if we are already doing those in SW */
++	if (DO_SW_COUNTERS)
++		goto skip;
 +
-+	dev->open = &mlx4_en_open;
-+	dev->stop = &mlx4_en_close;
-+	dev->hard_start_xmit = &mlx4_en_xmit;
-+	dev->get_stats = &mlx4_en_get_stats;
-+	dev->set_multicast_list = &mlx4_en_set_multicast;
-+	dev->set_mac_address = &mlx4_en_set_mac;
-+	dev->change_mtu = &mlx4_en_change_mtu;
-+	dev->tx_timeout = &mlx4_en_tx_timeout;
-+	dev->watchdog_timeo = MLX4_EN_WATCHDOG_TIMEOUT;
-+	dev->vlan_rx_register = mlx4_en_vlan_rx_register;
-+	dev->vlan_rx_add_vid = mlx4_en_vlan_rx_add_vid;
-+	dev->vlan_rx_kill_vid = mlx4_en_vlan_rx_kill_vid;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = mlx4_en_netpoll;
-+#endif
-+	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
++	stats->rx_packets = be32_to_cpu(mlx4_en_stats->RTOTFRMS) -
++			    be32_to_cpu(mlx4_en_stats->RDROP);
++	stats->tx_packets = be64_to_cpu(mlx4_en_stats->TTOT_prio_0) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_1) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_2) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_3) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_4) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_5) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_6) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_prio_7) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_novlan) +
++			    be64_to_cpu(mlx4_en_stats->TTOT_loopbk);
++	stats->rx_bytes = be64_to_cpu(mlx4_en_stats->ROCT_prio_0) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_1) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_2) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_3) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_4) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_5) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_6) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_prio_7) +
++			  be64_to_cpu(mlx4_en_stats->ROCT_novlan);
 +
-+	/* Set defualt MAC */
-+	dev->addr_len = ETH_ALEN;
-+	for (i = 0; i < ETH_ALEN; i++)
-+		dev->dev_addr[ETH_ALEN - 1 - i] =
-+		(u8) (priv->mac >> (8 * i));
++	stats->tx_bytes = be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_0) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_1) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_2) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_3) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_4) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_5) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_6) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_7) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_novlan) +
++			  be64_to_cpu(mlx4_en_stats->TTTLOCT_loopbk);
 +
-+	/*
-+	 * Set driver featurs
-+	 */
-+	dev->features |= NETIF_F_SG;
-+	dev->features |= NETIF_F_HW_CSUM;
-+	if (mdev->mlx4_en_flags & MLX4_EN_FLAG_HIGH_DMA)
-+		dev->features |= NETIF_F_HIGHDMA;
-+	dev->features |= NETIF_F_HW_VLAN_TX |
-+			 NETIF_F_HW_VLAN_RX |
-+			 NETIF_F_HW_VLAN_FILTER;
-+#ifdef NETIF_F_TSO
-+	dev->features |= NETIF_F_TSO;
-+#endif
-+#ifdef NETIF_F_TSO6
-+	dev->features |= NETIF_F_TSO6;
-+#endif
-+
-+	mdev->pndev[port] = dev;
-+
-+	netif_carrier_off(dev);
-+	err = register_netdev(dev);
-+	if (err) {
-+		mlx4_err(mdev, "Netdev registration failed\n");
-+		goto out;
-+	}
-+	priv->registered = 1;
-+	queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
-+	return 0;
++skip:
++	stats->rx_errors = be64_to_cpu(mlx4_en_stats->PCS) +
++			   be32_to_cpu(mlx4_en_stats->RdropLength) +
++			   be32_to_cpu(mlx4_en_stats->RJBBR) +
++			   be32_to_cpu(mlx4_en_stats->RCRC) +
++			   be32_to_cpu(mlx4_en_stats->RRUNT);
++	stats->tx_errors = be32_to_cpu(mlx4_en_stats->TDROP);
++	stats->multicast = be64_to_cpu(mlx4_en_stats->MCAST_prio_0) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_1) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_2) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_3) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_4) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_5) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_6) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_prio_7) +
++			   be64_to_cpu(mlx4_en_stats->MCAST_novlan);
++	stats->collisions = 0;
++	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
++	stats->rx_over_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
++	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
++	stats->rx_frame_errors = 0;
++	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
++	stats->rx_missed_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
++	stats->tx_aborted_errors = 0;
++	stats->tx_carrier_errors = 0;
++	stats->tx_fifo_errors = 0;
++	stats->tx_heartbeat_errors = 0;
++	stats->tx_window_errors = 0;
++	memcpy(&priv->hw_stats, mlx4_en_stats, sizeof(*mlx4_en_stats));
++	spin_unlock_bh(&priv->stats_lock);
 +
 +out:
-+	mlx4_en_destroy_netdev(dev);
++	mlx4_free_cmd_mailbox(mdev->dev, mailbox);
 +	return err;
 +}
 +
+diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/mlx4/en_port.h
+new file mode 100644
+index 0000000..7e8ede6
+--- /dev/null
++++ b/drivers/net/mlx4/en_port.h
+@@ -0,0 +1,586 @@
++/*
++ * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++
++#ifndef _MLX4_EN_PORT_H_
++#define _MLX4_EN_PORT_H_
++
++
++#define MAC_VALID_SHIFT		63
++#define VLAN_VALID_SHIFT	31
++#define VLAN_MASK		0xfff
++#define QUERY_PORT_ETH_MASK	(1 << 1)
++#define QUERY_PORT_LINK_MASK	(0x2 << 4)
++#define SET_PORT_GEN_ALL_VALID	0x7
++#define SET_PORT_PROMISC_SHIFT	31
++
++enum {
++	MLX4_CMD_SET_VLAN_FLTR  = 0x47,
++	MLX4_CMD_SET_MCAST_FLTR = 0x48,
++	MLX4_CMD_DUMP_ETH_STATS = 0x49,
++};
++
++struct mlx4_query_port_context {
++	u8 port_type;
++	u8 link_state;
++	__be16 mtu;
++	u32 reserved2[3];
++	__be64 mac;
++};
++
++struct mlx4_set_port_general_context {
++	u8 reserved[3];
++	u8 flags;
++	u16 reserved2;
++	__be16 mtu;
++	u8 pptx;
++	u8 pfctx;
++	u16 reserved3;
++	u8 pprx;
++	u8 pfcrx;
++	u16 reserved4;
++};
++
++struct mlx4_set_port_rqp_calc_context {
++	__be32 base_qpn;
++	__be32 flags;
++	u8 reserved[3];
++	u8 mac_miss;
++	u8 reserved2;
++	u8 no_vlan;
++	u8 reserved3;
++	u8 vlan_miss;
++	u8 reserved4[3];
++	u8 no_vlan_prio;
++	__be32 promisc;
++	__be32 mcast;
++};
++
++#define VLAN_FLTR_SIZE	128
++struct mlx4_set_vlan_fltr_mbox {
++	__be32 entry[VLAN_FLTR_SIZE];
++};
++
++
++enum {
++	MLX4_MCAST_CONFIG       = 0,
++	MLX4_MCAST_DISABLE      = 1,
++	MLX4_MCAST_ENABLE       = 2,
++};
++
++struct mlx4_set_mcast_fltr_mbox {
++	__be64 mac;
++};
++
++struct mlx4_en_stat_out_mbox {
++	/* Received frames with a length of 64 octets */
++	__be64 R64_prio_0;
++	__be64 R64_prio_1;
++	__be64 R64_prio_2;
++	__be64 R64_prio_3;
++	__be64 R64_prio_4;
++	__be64 R64_prio_5;
++	__be64 R64_prio_6;
++	__be64 R64_prio_7;
++	__be64 R64_novlan;
++	/* Received frames with a length of 127 octets */
++	__be64 R127_prio_0;
++	__be64 R127_prio_1;
++	__be64 R127_prio_2;
++	__be64 R127_prio_3;
++	__be64 R127_prio_4;
++	__be64 R127_prio_5;
++	__be64 R127_prio_6;
++	__be64 R127_prio_7;
++	__be64 R127_novlan;
++	/* Received frames with a length of 255 octets */
++	__be64 R255_prio_0;
++	__be64 R255_prio_1;
++	__be64 R255_prio_2;
++	__be64 R255_prio_3;
++	__be64 R255_prio_4;
++	__be64 R255_prio_5;
++	__be64 R255_prio_6;
++	__be64 R255_prio_7;
++	__be64 R255_novlan;
++	/* Received frames with a length of 511 octets */
++	__be64 R511_prio_0;
++	__be64 R511_prio_1;
++	__be64 R511_prio_2;
++	__be64 R511_prio_3;
++	__be64 R511_prio_4;
++	__be64 R511_prio_5;
++	__be64 R511_prio_6;
++	__be64 R511_prio_7;
++	__be64 R511_novlan;
++	/* Received frames with a length of 1023 octets */
++	__be64 R1023_prio_0;
++	__be64 R1023_prio_1;
++	__be64 R1023_prio_2;
++	__be64 R1023_prio_3;
++	__be64 R1023_prio_4;
++	__be64 R1023_prio_5;
++	__be64 R1023_prio_6;
++	__be64 R1023_prio_7;
++	__be64 R1023_novlan;
++	/* Received frames with a length of 1518 octets */
++	__be64 R1518_prio_0;
++	__be64 R1518_prio_1;
++	__be64 R1518_prio_2;
++	__be64 R1518_prio_3;
++	__be64 R1518_prio_4;
++	__be64 R1518_prio_5;
++	__be64 R1518_prio_6;
++	__be64 R1518_prio_7;
++	__be64 R1518_novlan;
++	/* Received frames with a length of 1522 octets */
++	__be64 R1522_prio_0;
++	__be64 R1522_prio_1;
++	__be64 R1522_prio_2;
++	__be64 R1522_prio_3;
++	__be64 R1522_prio_4;
++	__be64 R1522_prio_5;
++	__be64 R1522_prio_6;
++	__be64 R1522_prio_7;
++	__be64 R1522_novlan;
++	/* Received frames with a length of 1548 octets */
++	__be64 R1548_prio_0;
++	__be64 R1548_prio_1;
++	__be64 R1548_prio_2;
++	__be64 R1548_prio_3;
++	__be64 R1548_prio_4;
++	__be64 R1548_prio_5;
++	__be64 R1548_prio_6;
++	__be64 R1548_prio_7;
++	__be64 R1548_novlan;
++	/* Received frames with a length of 1548 < octets < MTU */
++	__be64 R2MTU_prio_0;
++	__be64 R2MTU_prio_1;
++	__be64 R2MTU_prio_2;
++	__be64 R2MTU_prio_3;
++	__be64 R2MTU_prio_4;
++	__be64 R2MTU_prio_5;
++	__be64 R2MTU_prio_6;
++	__be64 R2MTU_prio_7;
++	__be64 R2MTU_novlan;
++	/* Received frames with a length of MTU< octets and good CRC */
++	__be64 RGIANT_prio_0;
++	__be64 RGIANT_prio_1;
++	__be64 RGIANT_prio_2;
++	__be64 RGIANT_prio_3;
++	__be64 RGIANT_prio_4;
++	__be64 RGIANT_prio_5;
++	__be64 RGIANT_prio_6;
++	__be64 RGIANT_prio_7;
++	__be64 RGIANT_novlan;
++	/* Received broadcast frames with good CRC */
++	__be64 RBCAST_prio_0;
++	__be64 RBCAST_prio_1;
++	__be64 RBCAST_prio_2;
++	__be64 RBCAST_prio_3;
++	__be64 RBCAST_prio_4;
++	__be64 RBCAST_prio_5;
++	__be64 RBCAST_prio_6;
++	__be64 RBCAST_prio_7;
++	__be64 RBCAST_novlan;
++	/* Received multicast frames with good CRC */
++	__be64 MCAST_prio_0;
++	__be64 MCAST_prio_1;
++	__be64 MCAST_prio_2;
++	__be64 MCAST_prio_3;
++	__be64 MCAST_prio_4;
++	__be64 MCAST_prio_5;
++	__be64 MCAST_prio_6;
++	__be64 MCAST_prio_7;
++	__be64 MCAST_novlan;
++	/* Received unicast not short or GIANT frames with good CRC */
++	__be64 RTOTG_prio_0;
++	__be64 RTOTG_prio_1;
++	__be64 RTOTG_prio_2;
++	__be64 RTOTG_prio_3;
++	__be64 RTOTG_prio_4;
++	__be64 RTOTG_prio_5;
++	__be64 RTOTG_prio_6;
++	__be64 RTOTG_prio_7;
++	__be64 RTOTG_novlan;
++
++	/* Count of total octets of received frames, includes framing characters */
++	__be64 RTTLOCT_prio_0;
++	/* Count of total octets of received frames, not including framing
++	   characters */
++	__be64 RTTLOCT_NOFRM_prio_0;
++	/* Count of Total number of octets received
++	   (only for frames without errors) */
++	__be64 ROCT_prio_0;
++
++	__be64 RTTLOCT_prio_1;
++	__be64 RTTLOCT_NOFRM_prio_1;
++	__be64 ROCT_prio_1;
++
++	__be64 RTTLOCT_prio_2;
++	__be64 RTTLOCT_NOFRM_prio_2;
++	__be64 ROCT_prio_2;
++
++	__be64 RTTLOCT_prio_3;
++	__be64 RTTLOCT_NOFRM_prio_3;
++	__be64 ROCT_prio_3;
++
++	__be64 RTTLOCT_prio_4;
++	__be64 RTTLOCT_NOFRM_prio_4;
++	__be64 ROCT_prio_4;
++
++	__be64 RTTLOCT_prio_5;
++	__be64 RTTLOCT_NOFRM_prio_5;
++	__be64 ROCT_prio_5;
++
++	__be64 RTTLOCT_prio_6;
++	__be64 RTTLOCT_NOFRM_prio_6;
++	__be64 ROCT_prio_6;
++
++	__be64 RTTLOCT_prio_7;
++	__be64 RTTLOCT_NOFRM_prio_7;
++	__be64 ROCT_prio_7;
++
++	__be64 RTTLOCT_novlan;
++	__be64 RTTLOCT_NOFRM_novlan;
++	__be64 ROCT_novlan;
++
++	/* Count of Total received frames including bad frames */
++	__be64 RTOT_prio_0;
++	/* Count of  Total number of received frames with 802.1Q encapsulation */
++	__be64 R1Q_prio_0;
++	__be64 reserved1;
++
++	__be64 RTOT_prio_1;
++	__be64 R1Q_prio_1;
++	__be64 reserved2;
++
++	__be64 RTOT_prio_2;
++	__be64 R1Q_prio_2;
++	__be64 reserved3;
++
++	__be64 RTOT_prio_3;
++	__be64 R1Q_prio_3;
++	__be64 reserved4;
++
++	__be64 RTOT_prio_4;
++	__be64 R1Q_prio_4;
++	__be64 reserved5;
++
++	__be64 RTOT_prio_5;
++	__be64 R1Q_prio_5;
++	__be64 reserved6;
++
++	__be64 RTOT_prio_6;
++	__be64 R1Q_prio_6;
++	__be64 reserved7;
++
++	__be64 RTOT_prio_7;
++	__be64 R1Q_prio_7;
++	__be64 reserved8;
++
++	__be64 RTOT_novlan;
++	__be64 R1Q_novlan;
++	__be64 reserved9;
++
++	/* Total number of Successfully Received Control Frames */
++	__be64 RCNTL;
++	__be64 reserved10;
++	__be64 reserved11;
++	__be64 reserved12;
++	/* Count of received frames with a length/type field  value between 46
++	   (42 for VLANtagged frames) and 1500 (also 1500 for VLAN-tagged frames),
++	   inclusive */
++	__be64 RInRangeLengthErr;
++	/* Count of received frames with length/type field between 1501 and 1535
++	   decimal, inclusive */
++	__be64 ROutRangeLengthErr;
++	/* Count of received frames that are longer than max allowed size for
++	   802.3 frames (1518/1522) */
++	__be64 RFrmTooLong;
++	/* Count frames received with PCS error */
++	__be64 PCS;
++
++	/* Transmit frames with a length of 64 octets */
++	__be64 T64_prio_0;
++	__be64 T64_prio_1;
++	__be64 T64_prio_2;
++	__be64 T64_prio_3;
++	__be64 T64_prio_4;
++	__be64 T64_prio_5;
++	__be64 T64_prio_6;
++	__be64 T64_prio_7;
++	__be64 T64_novlan;
++	__be64 T64_loopbk;
++	/* Transmit frames with a length of 65 to 127 octets. */
++	__be64 T127_prio_0;
++	__be64 T127_prio_1;
++	__be64 T127_prio_2;
++	__be64 T127_prio_3;
++	__be64 T127_prio_4;
++	__be64 T127_prio_5;
++	__be64 T127_prio_6;
++	__be64 T127_prio_7;
++	__be64 T127_novlan;
++	__be64 T127_loopbk;
++	/* Transmit frames with a length of 128 to 255 octets */
++	__be64 T255_prio_0;
++	__be64 T255_prio_1;
++	__be64 T255_prio_2;
++	__be64 T255_prio_3;
++	__be64 T255_prio_4;
++	__be64 T255_prio_5;
++	__be64 T255_prio_6;
++	__be64 T255_prio_7;
++	__be64 T255_novlan;
++	__be64 T255_loopbk;
++	/* Transmit frames with a length of 256 to 511 octets */
++	__be64 T511_prio_0;
++	__be64 T511_prio_1;
++	__be64 T511_prio_2;
++	__be64 T511_prio_3;
++	__be64 T511_prio_4;
++	__be64 T511_prio_5;
++	__be64 T511_prio_6;
++	__be64 T511_prio_7;
++	__be64 T511_novlan;
++	__be64 T511_loopbk;
++	/* Transmit frames with a length of 512 to 1023 octets */
++	__be64 T1023_prio_0;
++	__be64 T1023_prio_1;
++	__be64 T1023_prio_2;
++	__be64 T1023_prio_3;
++	__be64 T1023_prio_4;
++	__be64 T1023_prio_5;
++	__be64 T1023_prio_6;
++	__be64 T1023_prio_7;
++	__be64 T1023_novlan;
++	__be64 T1023_loopbk;
++	/* Transmit frames with a length of 1024 to 1518 octets */
++	__be64 T1518_prio_0;
++	__be64 T1518_prio_1;
++	__be64 T1518_prio_2;
++	__be64 T1518_prio_3;
++	__be64 T1518_prio_4;
++	__be64 T1518_prio_5;
++	__be64 T1518_prio_6;
++	__be64 T1518_prio_7;
++	__be64 T1518_novlan;
++	__be64 T1518_loopbk;
++	/* Counts transmit frames with a length of 1519 to 1522 bytes */
++	__be64 T1522_prio_0;
++	__be64 T1522_prio_1;
++	__be64 T1522_prio_2;
++	__be64 T1522_prio_3;
++	__be64 T1522_prio_4;
++	__be64 T1522_prio_5;
++	__be64 T1522_prio_6;
++	__be64 T1522_prio_7;
++	__be64 T1522_novlan;
++	__be64 T1522_loopbk;
++	/* Transmit frames with a length of 1523 to 1548 octets */
++	__be64 T1548_prio_0;
++	__be64 T1548_prio_1;
++	__be64 T1548_prio_2;
++	__be64 T1548_prio_3;
++	__be64 T1548_prio_4;
++	__be64 T1548_prio_5;
++	__be64 T1548_prio_6;
++	__be64 T1548_prio_7;
++	__be64 T1548_novlan;
++	__be64 T1548_loopbk;
++	/* Counts transmit frames with a length of 1549 to MTU bytes */
++	__be64 T2MTU_prio_0;
++	__be64 T2MTU_prio_1;
++	__be64 T2MTU_prio_2;
++	__be64 T2MTU_prio_3;
++	__be64 T2MTU_prio_4;
++	__be64 T2MTU_prio_5;
++	__be64 T2MTU_prio_6;
++	__be64 T2MTU_prio_7;
++	__be64 T2MTU_novlan;
++	__be64 T2MTU_loopbk;
++	/* Transmit frames with a length greater than MTU octets and a good CRC. */
++	__be64 TGIANT_prio_0;
++	__be64 TGIANT_prio_1;
++	__be64 TGIANT_prio_2;
++	__be64 TGIANT_prio_3;
++	__be64 TGIANT_prio_4;
++	__be64 TGIANT_prio_5;
++	__be64 TGIANT_prio_6;
++	__be64 TGIANT_prio_7;
++	__be64 TGIANT_novlan;
++	__be64 TGIANT_loopbk;
++	/* Transmit broadcast frames with a good CRC */
++	__be64 TBCAST_prio_0;
++	__be64 TBCAST_prio_1;
++	__be64 TBCAST_prio_2;
++	__be64 TBCAST_prio_3;
++	__be64 TBCAST_prio_4;
++	__be64 TBCAST_prio_5;
++	__be64 TBCAST_prio_6;
++	__be64 TBCAST_prio_7;
++	__be64 TBCAST_novlan;
++	__be64 TBCAST_loopbk;
++	/* Transmit multicast frames with a good CRC */
++	__be64 TMCAST_prio_0;
++	__be64 TMCAST_prio_1;
++	__be64 TMCAST_prio_2;
++	__be64 TMCAST_prio_3;
++	__be64 TMCAST_prio_4;
++	__be64 TMCAST_prio_5;
++	__be64 TMCAST_prio_6;
++	__be64 TMCAST_prio_7;
++	__be64 TMCAST_novlan;
++	__be64 TMCAST_loopbk;
++	/* Transmit good frames that are neither broadcast nor multicast */
++	__be64 TTOTG_prio_0;
++	__be64 TTOTG_prio_1;
++	__be64 TTOTG_prio_2;
++	__be64 TTOTG_prio_3;
++	__be64 TTOTG_prio_4;
++	__be64 TTOTG_prio_5;
++	__be64 TTOTG_prio_6;
++	__be64 TTOTG_prio_7;
++	__be64 TTOTG_novlan;
++	__be64 TTOTG_loopbk;
++
++	/* total octets of transmitted frames, including framing characters */
++	__be64 TTTLOCT_prio_0;
++	/* total octets of transmitted frames, not including framing characters */
++	__be64 TTTLOCT_NOFRM_prio_0;
++	/* ifOutOctets */
++	__be64 TOCT_prio_0;
++
++	__be64 TTTLOCT_prio_1;
++	__be64 TTTLOCT_NOFRM_prio_1;
++	__be64 TOCT_prio_1;
++
++	__be64 TTTLOCT_prio_2;
++	__be64 TTTLOCT_NOFRM_prio_2;
++	__be64 TOCT_prio_2;
++
++	__be64 TTTLOCT_prio_3;
++	__be64 TTTLOCT_NOFRM_prio_3;
++	__be64 TOCT_prio_3;
++
++	__be64 TTTLOCT_prio_4;
++	__be64 TTTLOCT_NOFRM_prio_4;
++	__be64 TOCT_prio_4;
++
++	__be64 TTTLOCT_prio_5;
++	__be64 TTTLOCT_NOFRM_prio_5;
++	__be64 TOCT_prio_5;
++
++	__be64 TTTLOCT_prio_6;
++	__be64 TTTLOCT_NOFRM_prio_6;
++	__be64 TOCT_prio_6;
++
++	__be64 TTTLOCT_prio_7;
++	__be64 TTTLOCT_NOFRM_prio_7;
++	__be64 TOCT_prio_7;
++
++	__be64 TTTLOCT_novlan;
++	__be64 TTTLOCT_NOFRM_novlan;
++	__be64 TOCT_novlan;
++
++	__be64 TTTLOCT_loopbk;
++	__be64 TTTLOCT_NOFRM_loopbk;
++	__be64 TOCT_loopbk;
++
++	/* Total frames transmitted with a good CRC that are not aborted  */
++	__be64 TTOT_prio_0;
++	/* Total number of frames transmitted with 802.1Q encapsulation */
++	__be64 T1Q_prio_0;
++	__be64 reserved13;
++
++	__be64 TTOT_prio_1;
++	__be64 T1Q_prio_1;
++	__be64 reserved14;
++
++	__be64 TTOT_prio_2;
++	__be64 T1Q_prio_2;
++	__be64 reserved15;
++
++	__be64 TTOT_prio_3;
++	__be64 T1Q_prio_3;
++	__be64 reserved16;
++
++	__be64 TTOT_prio_4;
++	__be64 T1Q_prio_4;
++	__be64 reserved17;
++
++	__be64 TTOT_prio_5;
++	__be64 T1Q_prio_5;
++	__be64 reserved18;
++
++	__be64 TTOT_prio_6;
++	__be64 T1Q_prio_6;
++	__be64 reserved19;
++
++	__be64 TTOT_prio_7;
++	__be64 T1Q_prio_7;
++	__be64 reserved20;
++
++	__be64 TTOT_novlan;
++	__be64 T1Q_novlan;
++	__be64 reserved21;
++
++	__be64 TTOT_loopbk;
++	__be64 T1Q_loopbk;
++	__be64 reserved22;
++
++	/* Received frames with a length greater than MTU octets and a bad CRC */
++	__be32 RJBBR;
++	/* Received frames with a bad CRC that are not runts, jabbers,
++	   or alignment errors */
++	__be32 RCRC;
++	/* Received frames with SFD with a length of less than 64 octets and a
++	   bad CRC */
++	__be32 RRUNT;
++	/* Received frames with a length less than 64 octets and a good CRC */
++	__be32 RSHORT;
++	/* Total Number of Received Packets Dropped */
++	__be32 RDROP;
++	/* Drop due to overflow  */
++	__be32 RdropOvflw;
++	/* Drop due to overflow */
++	__be32 RdropLength;
++	/* Total of good frames. Does not include frames received with
++	   frame-too-long, FCS, or length errors */
++	__be32 RTOTFRMS;
++	/* Total dropped Xmited packets */
++	__be32 TDROP;
++};
++
++
++#endif
 -- 
 1.5.3.7
 
