@@ -1,188 +1,163 @@
-From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-07-14
-Date: Mon, 14 Jul 2008 13:29:18 -0700
-Message-ID: <20080714132918.30a1794f.randy.dunlap@oracle.com>
-References: <20080714192302.GA2541@tuxdriver.com>
+From: Kasper Sandberg <lkml@metanurb.dk>
+Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
+	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash, Another
+	Problem)
+Date: Mon, 14 Jul 2008 22:45:44 +0200
+Message-ID: <1216068344.23392.19.camel@localhost>
+References: <4861800B.90703@nscus.com> <48777BC3.6090108@dell.com>
+	 <1216052460.23392.14.camel@localhost>
+	 <200807142152.26163.eike-kernel@sf-tec.de>  <487BB065.3020709@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080714192302.GA2541-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Rolf Eike Beer <eike-kernel@sf-tec.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-pci@vger.kernel.org
+To: Mario Limonciello <mario_limonciello@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <487BB065.3020709@dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Jul 2008 15:23:02 -0400 John W. Linville wrote:
+On Mon, 2008-07-14 at 15:00 -0500, Mario Limonciello wrote:
+> Kasper:
+> 
+> Interesting that it failed for you though.  I was able to run through a
+> script of 200x rmmod/modprobe without any trouble when that patch was
+> applied.
 
-> Dave,
-> 
-> Here is one last(?) round of miscellaneous patches I hope to get into
-> 2.6.27.  There are mostly driver updates, including a sizable iwlwifi
-> set of changes.
-> 
-> Please let me know if there are problems!
+Well are you sure it actually catches my nics?
 
-Hi,
-Dare I ask what happened to the mac80211 kernel-doc patch?
+i have 8111c:
 
-Thanks,
-~Randy
+05:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd.
+RTL8111/8168B PCI Express Gigabit Ethernet controller [10ec:8168] (rev
+02)
+        Subsystem: Giga-byte Technology Unknown device [1458:e000]
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 376
+        Region 0: I/O ports at c000 [size=256]
+        Region 2: Memory at e9010000 (64-bit, prefetchable) [size=4K]
+        Region 4: Memory at e9000000 (64-bit, prefetchable) [size=64K]
+        [virtual] Expansion ROM at e9020000 [disabled] [size=64K]
+        Capabilities: [40] Power Management version 3
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1
++,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+        Capabilities: [50] Message Signalled Interrupts: Mask- 64bit+
+Queue=0/1 Enable+
+                Address: 00000000fee0f00c  Data: 416e
+        Capabilities: [70] Express (v1) Endpoint, MSI 01
+                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s
+<512ns, L1 <8us
+                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+                DevCtl: Report errors: Correctable- Non-Fatal- Fatal-
+Unsupported-
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop-
+                        MaxPayload 128 bytes, MaxReadReq 4096 bytes
+                DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+
+TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1,
+Latency L0 <512ns, L1 <64us
+                        ClockPM+ Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain-
+CommClk-
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+
+DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [b0] MSI-X: Enable- Mask- TabSize=2
+                Vector table: BAR=4 offset=00000000
+                PBA: BAR=4 offset=00000800
+        Capabilities: [d0] Vital Product Data <?>
+        Capabilities: [100] Advanced Error Reporting <?>
+        Capabilities: [140] Virtual Channel <?>
+        Capabilities: [160] Device Serial Number 00-00-00-00-00-00-00-00
+        Kernel driver in use: r8169
+        Kernel modules: r8169
+00: ec 10 68 81 07 04 10 00 02 00 00 02 08 00 00 00
+10: 01 c0 00 00 00 00 00 00 0c 00 01 e9 00 00 00 00
+20: 0c 00 00 e9 00 00 00 00 00 00 00 00 58 14 00 e0
+30: 00 00 00 00 40 00 00 00 00 00 00 00 0a 01 00 00
 
-
-> Thanks,
-> 
-> John
-> 
-> ---
-> 
-> Individual patches are available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
-> 
-> ---
-> 
-> The following changes since commit 79d16385c7f287a33ea771c4dbe60ae43f791b49:
->   David S. Miller (1):
->         netdev: Move atomic queue state bits into netdev_queue.
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
-> 
-> Abhijeet Kolekar (2):
->       iwlwifi: Fix LEDs for 3945
->       iwlwifi: make index unsigned int for iwl_send_led_cmd
-> 
-> Adel Gadllah (1):
->       iwl3965: remove useless network and duplicate checking
-> 
-> Emmanuel Grumbach (4):
->       mac80211: Fix ieee80211_rx_reorder_ampdu: ignore QoS null packets
->       mac80211: dont add a STA which is not in the same IBSS
->       iwlwifi: fixes RTS / CTS support
->       iwlwifi: make iwl4965_mac_conf_tx in atomic context
-> 
-> Esti Kummer (1):
->       iwlwifi: adding pci device ids to iwl_hw_card_ids
-> 
-> Herton Ronaldo Krzesinski (1):
->       rtl8187: use different ANAPARAM*_OFF values for 8187B
-> 
-> Ihar Hrachyshka (1):
->       rtl8187: Fixed section mismatch in rtl8187_dev.c
-> 
-> Ivo van Doorn (4):
->       rt2x00: Fix NULL pointer error in adhoc/master mode
->       rt2x00: Add support for CTS protection in rt2x00lib
->       rt2x00: Reorganize beacon handling
->       rt2x00: Reset LED assoc status after firmware update
-> 
-> Johannes Berg (9):
->       mac80211: make master netdev handling sane
->       mac80211: revamp virtual interface handling
->       mac80211: push interface checks down
->       mac80211: revamp beacon configuration
->       mac80211: fix RX sequence number check
->       wext: make sysfs bits optional and deprecate them
->       mac80211: fix TX sequence numbers
->       mac80211: fix struct ieee80211_tx_queue_params
->       mac80211 hwsim: fix endianness bug
-> 
-> Michael Buesch (1):
->       ssb: Include dma-mapping.h
-> 
-> Samuel Ortiz (1):
->       mac80211: power management wext hooks
-> 
-> Tomas Winkler (8):
->       iwlwif: remove compilation warnings iwl_add_radiotap
->       iwlwifi: remove post associate work
->       iwlwifi: rs always set lq_sta->priv
->       iwlwifi: differentiate 4965 and 5000 hw ampdu queues number
->       iwlwifi: fix LED stall
->       iwlwifi: LED use correctly blink table
->       iwlwifi: unify 4965 and 5000 scanning code
->       iwlwifi: enable active scanning
-> 
-> Zhu Yi (1):
->       iwlwifi: send TXPOWER command after a new RXON command
-> 
->  Documentation/feature-removal-schedule.txt   |   10 +
->  drivers/net/wireless/ath5k/base.c            |   13 +-
->  drivers/net/wireless/b43/main.c              |   48 ++--
->  drivers/net/wireless/b43/xmit.c              |    3 +-
->  drivers/net/wireless/b43legacy/main.c        |   45 ++--
->  drivers/net/wireless/b43legacy/xmit.c        |    3 +-
->  drivers/net/wireless/iwlwifi/iwl-3945-led.c  |  146 ++++------
->  drivers/net/wireless/iwlwifi/iwl-3945-led.h  |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-3945.c      |   50 ++--
->  drivers/net/wireless/iwlwifi/iwl-3945.h      |   20 +--
->  drivers/net/wireless/iwlwifi/iwl-4965-hw.h   |    1 +
->  drivers/net/wireless/iwlwifi/iwl-4965-rs.c   |    2 -
->  drivers/net/wireless/iwlwifi/iwl-4965.c      |   42 +++-
->  drivers/net/wireless/iwlwifi/iwl-5000-hw.h   |    1 +
->  drivers/net/wireless/iwlwifi/iwl-5000.c      |   48 +++-
->  drivers/net/wireless/iwlwifi/iwl-commands.h  |   30 ++-
->  drivers/net/wireless/iwlwifi/iwl-core.c      |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-core.h      |    5 +-
->  drivers/net/wireless/iwlwifi/iwl-dev.h       |   27 +--
->  drivers/net/wireless/iwlwifi/iwl-led.c       |  207 ++++++--------
->  drivers/net/wireless/iwlwifi/iwl-led.h       |    5 +-
->  drivers/net/wireless/iwlwifi/iwl-rx.c        |   37 ++--
->  drivers/net/wireless/iwlwifi/iwl-scan.c      |  103 ++++----
->  drivers/net/wireless/iwlwifi/iwl-tx.c        |    8 +-
->  drivers/net/wireless/iwlwifi/iwl3945-base.c  |  145 +---------
->  drivers/net/wireless/iwlwifi/iwl4965-base.c  |  108 ++++----
->  drivers/net/wireless/mac80211_hwsim.c        |    2 +-
->  drivers/net/wireless/rt2x00/rt2400pci.c      |   89 +++----
->  drivers/net/wireless/rt2x00/rt2500pci.c      |   90 +++----
->  drivers/net/wireless/rt2x00/rt2500usb.c      |  154 ++++------
->  drivers/net/wireless/rt2x00/rt2x00.h         |   37 +---
->  drivers/net/wireless/rt2x00/rt2x00config.c   |    2 +
->  drivers/net/wireless/rt2x00/rt2x00dev.c      |    9 +-
->  drivers/net/wireless/rt2x00/rt2x00firmware.c |    8 +
->  drivers/net/wireless/rt2x00/rt2x00lib.h      |    8 +
->  drivers/net/wireless/rt2x00/rt2x00mac.c      |   40 ++-
->  drivers/net/wireless/rt2x00/rt2x00queue.c    |   67 ++++-
->  drivers/net/wireless/rt2x00/rt61pci.c        |  103 +++-----
->  drivers/net/wireless/rt2x00/rt73usb.c        |  115 +++-----
->  drivers/net/wireless/rtl8187_dev.c           |   23 +-
->  drivers/net/wireless/rtl8187_rtl8225.c       |   21 ++-
->  drivers/net/wireless/rtl8187_rtl8225.h       |   15 +-
->  drivers/net/wireless/zd1211rw/zd_mac.c       |   22 +-
->  include/linux/ssb/ssb.h                      |    1 +
->  include/net/mac80211.h                       |   73 +++---
->  net/core/net-sysfs.c                         |    4 +-
->  net/mac80211/cfg.c                           |   36 +--
->  net/mac80211/debugfs.c                       |   15 +-
->  net/mac80211/debugfs_netdev.c                |   48 ++--
->  net/mac80211/debugfs_netdev.h                |    5 -
->  net/mac80211/ieee80211_i.h                   |   67 ++---
->  net/mac80211/iface.c                         |  392 +++++++++++---------------
->  net/mac80211/main.c                          |  171 ++++--------
->  net/mac80211/mlme.c                          |  172 +++++-------
->  net/mac80211/rc80211_pid_algo.c              |    8 +-
->  net/mac80211/rx.c                            |   38 ++--
->  net/mac80211/sta_info.c                      |   29 ++-
->  net/mac80211/sta_info.h                      |    1 +
->  net/mac80211/tx.c                            |  126 +++++---
->  net/mac80211/util.c                          |    4 -
->  net/mac80211/wext.c                          |   65 +++--
->  net/wireless/Kconfig                         |   11 +
->  62 files changed, 1458 insertions(+), 1724 deletions(-)
-> 
-> Omnibus patch available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2008-07-14.patch.bz2
+06:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd.
+RTL8111/8168B PCI Express Gigabit Ethernet controller [10ec:8168] (rev
+02)
+        Subsystem: Giga-byte Technology Unknown device [1458:e000]
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 375
+        Region 0: I/O ports at d000 [size=256]
+        Region 2: Memory at e9110000 (64-bit, prefetchable) [size=4K]
+        Region 4: Memory at e9100000 (64-bit, prefetchable) [size=64K]
+        [virtual] Expansion ROM at e9120000 [disabled] [size=64K]
+        Capabilities: [40] Power Management version 3
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1
++,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+        Capabilities: [50] Message Signalled Interrupts: Mask- 64bit+
+Queue=0/1 Enable+
+                Address: 00000000fee0f00c  Data: 4176
+        Capabilities: [70] Express (v1) Endpoint, MSI 01
+                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s
+<512ns, L1 <8us
+                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+                DevCtl: Report errors: Correctable- Non-Fatal- Fatal-
+Unsupported-
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop-
+                        MaxPayload 128 bytes, MaxReadReq 512 bytes
+                DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+
+TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1,
+Latency L0 <512ns, L1 <64us
+                        ClockPM+ Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain-
+CommClk-
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+
+DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [b0] MSI-X: Enable- Mask- TabSize=2
+                Vector table: BAR=4 offset=00000000
+                PBA: BAR=4 offset=00000800
+        Capabilities: [d0] Vital Product Data <?>
+        Capabilities: [100] Advanced Error Reporting <?>
+        Capabilities: [140] Virtual Channel <?>
+        Capabilities: [160] Device Serial Number 00-00-00-00-00-00-00-00
+        Kernel driver in use: r8169
+        Kernel modules: r8169
+00: ec 10 68 81 07 04 10 00 02 00 00 02 08 00 00 00
+10: 01 d0 00 00 00 00 00 00 0c 00 11 e9 00 00 00 00
+20: 0c 00 10 e9 00 00 00 00 00 00 00 00 58 14 00 e0
+30: 00 00 00 00 40 00 00 00 00 00 00 00 0b 01 00 00
 
 
----
-~Randy
-Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
-http://linuxplumbersconf.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Either way, the patchset from Francois seems to fix it, With this in
+mind, do we actually know exactly what causes it?
+
+> 
+> Regards
+> 
+> Rolf Eike Beer wrote:
+> > Kasper Sandberg wrote:
+> >   
+> >
+> > Is there any chance this helps with the famous 8101 problems, e.g. 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=6807 ?
+> >
+> >   
+> >
+> > There is a typo in the description of 91ba1a976c214766b5ee8c6d17086903c10f6405 
+> > (serie should be series I think).
+> >
+> > Greetings,
+> >
+> > Eike
+> >   
+> 
