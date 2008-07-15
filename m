@@ -1,34 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: TXQ real_num_tx_queues comments/questions
-Date: Tue, 15 Jul 2008 02:39:54 -0700 (PDT)
-Message-ID: <20080715.023954.234208581.davem@davemloft.net>
-References: <1216113923.3535.14.camel@johannes.berg>
-	<20080715.022854.55875400.davem@davemloft.net>
-	<1216114621.3535.18.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/13]: netdev: Allocate multiple queues for TX.
+Date: Tue, 15 Jul 2008 02:45:19 -0700 (PDT)
+Message-ID: <20080715.024519.95002238.davem@davemloft.net>
+References: <20080710.035610.167480342.davem@davemloft.net>
+	<4877CE6B.2050805@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216114621.3535.18.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58627
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752531AbYGOJpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 05:45:19 -0400
+In-Reply-To: <4877CE6B.2050805@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 15 Jul 2008 11:37:01 +0200
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 11 Jul 2008 23:19:39 +0200
 
-> From mac80211's POV it's just that select_queue must have known
-> about the removed queue when the requeue is done. And we can defer
-> the requeue to a workqueue.
+> On i386 for example, sizeof(struct netdev_queue) = 0x2c
+> 
+> Shouldnt we make sure each queue sits on its own cache line on CONFIG_SMP ?
 
-Ok.
+Yes.
 
-So you're proposing the requeue be deferred to a workqueue
-and what else?  RCU protection around real_num_tx_queues
-access?
+> Also, dev->_tx and dev->num_tx_queues might share a cache line with
+> dev->rx_queue, was it intended ?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nope.
+
+I've added the ____cacheline_aligned_in_smp annotations to my
+tree, thanks!
+
+@@ -463,7 +463,7 @@ struct netdev_queue {
+ 	struct Qdisc		*qdisc_sleeping;
+ 	struct list_head	qdisc_list;
+ 	struct netdev_queue	*next_sched;
+-};
++} ____cacheline_aligned_in_smp;
+ ...
+@@ -641,7 +641,9 @@ struct net_device
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+ 
+ 	struct netdev_queue	rx_queue;
+-	struct netdev_queue	tx_queue ____cacheline_aligned_in_smp;
++
++	struct netdev_queue	*_tx ____cacheline_aligned_in_smp;
++	unsigned int		num_tx_queues;
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ ...
