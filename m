@@ -1,38 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patch] net driver fix for .26
-Date: Mon, 14 Jul 2008 19:36:34 -0700 (PDT)
-Message-ID: <20080714.193634.207900782.davem@davemloft.net>
-References: <20080711140952.GA17593@havoc.gtf.org>
+From: Tobias Koeck <tobias.koeck@gmail.com>
+Subject: What does the BUG() function do in the udp.h (2.6.25.2 kernel)
+Date: Tue, 15 Jul 2008 04:45:48 +0200
+Message-ID: <487C0F5C.6050802@googlemail.com>
+References: <487C0463.8070705@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56261
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761690AbYGOCge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 22:36:34 -0400
-In-Reply-To: <20080711140952.GA17593@havoc.gtf.org>
+Received: from mu-out-0910.google.com ([209.85.134.184]:4590 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535AbYGOCp4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 22:45:56 -0400
+Received: by mu-out-0910.google.com with SMTP id w8so1720832mue.1
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 19:45:55 -0700 (PDT)
+In-Reply-To: <487C0463.8070705@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 11 Jul 2008 10:09:52 -0400
+I=B4m studying the Linux TCP/IP stack.
 
-> 
-> Please pull from 'davem-fixes' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git davem-fixes
-> 
-> to receive the following updates:
-> 
->  drivers/net/arm/ixp4xx_eth.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> Krzysztof Halasa (1):
->       ARM: IXP4xx Ethernet NAPI fix
+What does the BUG() function in the udp.{h,c} (2.6.25.2 kernel) do? Is=20
+udp hasing disabled for that kernel version?
 
-Pulled, thanks Jeff.
+Greetings and thanks
+Tobias
 
-This obviously didn't make it into 2.6.26, but if you think
-it's relevant let me know and I'll queue it to -stable.
