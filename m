@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: netfilter merge conflict...
-Date: Mon, 14 Jul 2008 20:31:07 -0700 (PDT)
-Message-ID: <20080714.203107.107924149.davem@davemloft.net>
+Subject: Re: [PATCH 0/4] dccp: Fixes for TFRC/CCID-3 loss detection
+Date: Mon, 14 Jul 2008 20:35:03 -0700 (PDT)
+Message-ID: <20080714.203503.131741308.davem@davemloft.net>
+References: <1215874310-10534-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<20080712150213.GA11494@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au
-To: kaber@trash.net
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49911
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53405
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753007AbYGODbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:31:06 -0400
+	by vger.kernel.org with ESMTP id S1752607AbYGODfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:35:02 -0400
+In-Reply-To: <20080712150213.GA11494@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Sat, 12 Jul 2008 16:02:13 +0100
 
-Patrick, I had to resolve a conflict in nf_conntrack_proto_tcp.c when
-I merged net-2.6 into net-next-2.6 in preparation for merging with
-Linus.  This is the same one Stephen started hitting when building the
-linux-next tree last week.
+> | 	git://eden-feed-erg.abdn.ac.uk/net-2.6		(subtree `master')
+> | 	git://eden-feed-erg.abdn.ac.uk/net-next-2.6	(subtree `master')
+> | 
+> Typo:   git://eden-feed.erg.abdn.ac.uk/net-...
+>                        ^
 
-The problem is the looping fix.
-
-What I did was first add a changeset that modifies __nf_ct_kill*() to
-return a boolean that indicates if the del_timer() returned true.
-This return value propagates through nf_ct_kill() as well.
-
-Then I did the merge and resolved it by making the loop prevention code
-look like:
-
-			if (nf_ct_kill(ct))
-				return -NF_REPEAT;
-			return -NF_DROP;
-
-Just FYI...  this is pushed out to net-next-2.6 if you want to have a
-closer look.
-
-Thanks.
+Pulled and pushed back out to net-next-2.6, thanks Gerrit.
