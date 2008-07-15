@@ -1,55 +1,54 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-07-14
-Date: Tue, 15 Jul 2008 12:38:58 -0400
-Message-ID: <20080715163858.GA557@tuxdriver.com>
-References: <20080714192302.GA2541@tuxdriver.com> <20080714132918.30a1794f.randy.dunlap@oracle.com> <20080715134849.GA24361@tuxdriver.com> <20080715092431.d288d0e8.randy.dunlap@oracle.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Tue, 15 Jul 2008 13:16:31 -0400
+Message-ID: <1216142191.6039.113.camel@localhost.localdomain>
+References: <20080709190915.GA8238@tuxdriver.com>
+	 <69e28c910807100912h30fcb57fpb4fb48b95c640f77@mail.gmail.com>
+	 <200807101815.27204.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stefanik =?ISO-8859-1?Q?G=E1bor?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080715092431.d288d0e8.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <200807101815.27204.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 15, 2008 at 09:24:31AM -0700, Randy Dunlap wrote:
-> On Tue, 15 Jul 2008 09:48:49 -0400 John W. Linville wrote:
+On Thu, 2008-07-10 at 18:15 +0200, Michael Buesch wrote:
+> On Thursday 10 July 2008 18:12:32 Stefanik G=C3=A1bor wrote:
+> > Some other topics which might be of interest/good to include:
+> > - New chipsets needing drivers (SiS 16x, Marvell, etc.)
+>=20
+> I have no idea what to discuss about non-existing drivers, really.
+> Something like: "Do we need that driver? Everyone votes YES and is ha=
+ppy"?
 
-> > commit 6ef307bc561911c8cdda98ef3896b5982b602a43
-> > Author: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> > Date:   Thu Jul 3 13:52:18 2008 -0700
-> > 
-> >     mac80211: fix lots of kernel-doc
-> >     
-> >     Fix more than 50 kernel-doc warnings in ieee80211/mac80211 kernel-doc notati
-> >     Fix a few typos also.
-> >     
-> >     Note: Some fields are marked as TBD and need to have their description
-> >     corrected.
-> >     
-> >     Signed-off-by: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> >     Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> 
-> 
-> Yes, that's in the wireless-next-2.6 git tree:
-> http://git.kernel.org/?p=linux/kernel/git/linville/wireless-next-2.6.git;a=commit;h=6ef307bc561911c8cdda98ef3896b5982b602a43
-> 
-> and this was a pull request, possibly even the last(?) pull, for wireless-next-2.6
-> for 2.6.27, according to the email intro.  So please tell me what I can
-> expect for this mac80211 kernel-doc patch.  Thanks.
+Maybe during the week we could organize some hackfests to work on the
+Marvell/SiS/etc mac80211 drivers?  Everyone bring their favorite
+non-working Marvell 88w83xx card and we make mrv8k our bitch or
+something like that.
 
-We spoke off-line, but just for the public record that commit was
-already pulled into net-next-2.6.
+Dan
 
-Hth!
+> > - Radiotap enhancements
+>=20
+> What radiotap enhancements specifically? If it's just a field or a bi=
+t
+> to add, just mail the radiotap people. I think there's no need to dis=
+cuss that
+> (except for with the radiotap people on their mailinglist).
+>=20
+> > - Userspace MLME: Plans and status
+>=20
+> Already on the list.
+>=20
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
