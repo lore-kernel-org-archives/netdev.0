@@ -1,148 +1,56 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: REVISED AGENDA -- Re: Linux Wireless Mini-Summit -- Ottawa -- July
-	22, 2008
-Date: Tue, 15 Jul 2008 14:26:54 -0400
-Message-ID: <20080715182654.GA5969@tuxdriver.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Tue, 15 Jul 2008 14:38:38 -0400
+Message-ID: <1216147118.13411.29.camel@localhost.localdomain>
 References: <20080709190915.GA8238@tuxdriver.com>
+	 <69e28c910807100912h30fcb57fpb4fb48b95c640f77@mail.gmail.com>
+	 <200807101815.27204.mb@bu3sch.de>
+	 <1216142191.6039.113.camel@localhost.localdomain>
+	 <alpine.LFD.1.10.0807151323570.12484@xanadu.home>
+	 <1216144711.13411.18.camel@localhost.localdomain>
+	 <alpine.LFD.1.10.0807151404530.12484@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	Stefanik =?ISO-8859-1?Q?G=E1bor?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Nicolas Pitre <nico-mo2vmkxb4K0@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080709190915.GA8238-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <alpine.LFD.1.10.0807151404530.12484-QuJgVwGFrdf/9pzu0YdTqQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-I revised the agenda based on the feedback from last week.
-Most changes are fairly minor, although I moved the vendor/distro
-round table after lunch to give us a chance to cover some in-progress
-work beforehand.
+On Tue, 2008-07-15 at 14:14 -0400, Nicolas Pitre wrote:
+> On Tue, 15 Jul 2008, Dan Williams wrote:
+> 
+> > Some of the issues with the current Marvell 83xx GPL drivers that have
+> > gotten out are (a) code style, (b) lots of commented out stuff that's
+> > never used, (c) OS abstraction that's unnecessary on Linux, (d) doesn't
+> > use mac80211, and (e) uses private ioctls.  So hopefully you're writing
+> > a new 83xx driver from scratch :)
+> 
+> Yes, this is all from scratch.  The objective for this work is to be 
+> "mainlinable".
+> 
+> > We cleaned up a lot of stuff for the OLPC 8388 libertas driver, but
+> > unfortunately we never were able to get the Marvell 8388 team onboard,
+> > and so they just went off and kept working on their driver and didn't
+> > really move the upstream libertas driver forward at all.
+> 
+> Libertas is a rather different beast.
 
-As I mentioned elsewhere in the thread, I don't think we have enough
-time for work sessions on Tuesday.  As others have pointed-out, there
-is plenty of time for extended discussions during the days at OLS.
-So I think we should keep Tuesday for more high-level design and
-development process discussions.
+Obviously; this was just an observation about the last time we got a
+wireless driver from Marvell.  I expect it to work out rather
+differently this time simply on the strength of your and Lennert's
+track-record, but if it's really just you two guys and you don't have
+buy-in from the actual hardware and software teams inside Marvell, it's
+hard to see how this wouldn't just happen again.
 
-Feel free to volunteer to cover any of the listed topics.  Further
-suggestions to alter or augment the agenda are, of course, still
-welcome as well.
+Dan
 
-Thanks!
-
-John
-
----
-
-3rd Linux Wireless Summit
-Ottawa, Canada
-22 July 2008
-
-Proposed Agenda
-
-0830	Meet & Greet
-
-	Introductions and opening remarks
-
-0900	Status Reports
-
-	Overview of where things stand today
-
-	- 802.11n
-
-	- QoS/Multiqueue
-
-	- spectrum management
-
-	- Mesh mode (802.11s)
-
-	- RF kill
-
-1015	Break
-
-1030	Current Work
-
-	Short presentations/discussions about work in progress
-
-	- access point mode
-
-	- cfg80211/nl80211
-		- time to push to replace WEXT?
-		- tool enhancements and/or userland support?
-
-	- regulatory enforcement (802.11d, CRDA)
-
-	- encrypted management frames (802.11w)
-
-	- virtual hardware (mac80211_hwsim)
-
-	- WiMAX
-
-1200	Lunch/Break (provided by HP)
-
-1300	Vendor/Distro Round Table
-
-	Representatives from hardware vendors and Linux distributions
-	discuss issues around cooperation between themselves and the
-	development community, what we are doing well, and what problems we
-	are causing for each other.
-
-1445	Break
-
-1500	Future work
-
-	Short presentations/discussions about work that has previously
-	been suggested or requested
-
-	- power management 
-		- suspend/resume
-		- power savings
-
-	- lib80211 (code sharing w/ full MAC drivers)
-
-	- rate scaling algorithms
-		- minstrel
-		- others?
-
-	- userland MLME
-
-	- userland driver implementation
-
-	- organized testing?
-
-1645	Break
-
-1700	Maintainence Issues
-
-	Round table discussion of issues related to maintenance of
-	the wireless trees
-
-	- trivial/cleanup patches
-		- testing or other requirements?
-		- should they have lower priority?
-		- should they require ACKs from primary author?
-
-	- submissions to -stable
-		- who should drive it?
-		- what policies?
-
-	- rate scaling algs
-		- driver-specific ok?  what limitations?
-		- build policies (part of mac80211.ko?)
-
-	- questions/suggestions/complaints
-
-1800	Dinner/Break (sorry, no funding)
-
-2000	BoF/Break-out Sessions
-
-	Impromptu and/or unscheduled discussions as desired by group
-	participants
-
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
