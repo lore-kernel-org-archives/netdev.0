@@ -1,60 +1,89 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH RFC 10/10] mlx4_en: Makefile and Kconfig
-Date: Mon, 14 Jul 2008 23:27:26 -0400
-Message-ID: <20080714232726.7719a2ab.billfink@mindspring.com>
-References: <487B65CE.4060509@mellanox.co.il>
+From: "Andrew Paprocki" <andrew@ishiboo.com>
+Subject: r8169 device jumps from 12k/sec interrupts with traffic to over 100k/sec interrupts without traffic
+Date: Mon, 14 Jul 2008 23:30:40 -0400
+Message-ID: <76366b180807142030y38b97508id8523b699d2baf37@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il,
-	Roland Dreier <rdreier@cisco.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:56699 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226AbYGOD1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:27:34 -0400
-In-Reply-To: <487B65CE.4060509@mellanox.co.il>
+Received: from rv-out-0506.google.com ([209.85.198.227]:58338 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559AbYGODal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:30:41 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so5794547rvb.1
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 20:30:40 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Jul 2008, Yevgeny Petrilin wrote:
+I'm currently running 2.6.26-rc8 (NAPI enabled) and my r8169 device is
+going a little crazy after a short time under load.
 
-> Changed Makefile and Kconfig files to enable mlx4_en compilation.
-> 
-> Signed-off-by: Liran Liss <liranl@mellanox.co.il>
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> ---
->  drivers/net/Kconfig       |    9 +++++++++
->  drivers/net/mlx4/Makefile |    5 +++++
->  2 files changed, 14 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f4182cf..4aaa7e9 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2549,6 +2549,15 @@ config PASEMI_MAC
->  	  This driver supports the on-chip 1/10Gbit Ethernet controller on
->  	  PA Semi's PWRficient line of chips.
-> 
-> +config MLX4_EN
-> +	tristate "Mellanox Technologies 10Gbit Ethernet support"
-> +	depends on PCI
-> +	select MLX4_CORE
-> +	select INET_LRO
-> +	help
-> +	  This driver supports Mellanox Technollogies ConnectX Ethernet
-> +	  devices.
-> +
->  config MLX4_CORE
->  	tristate
->  	depends on PCI
+Test scenario is as follows...
+r8169-system: nc -l -p 8888 > /dev/null
+remote-system: cat /dev/zero | nc r8169-system 8888
 
-To prevent certain build failures, when you "select INET_LRO" you also
-need to add a depends on INET, so the above "depends on PCI" needs to
-be changed to:
+While this is running, I also do the following:
+r8169-system: dd if=/dev/sda of=/dev/null
 
-	depends on PCI && INET
+While both commands are running under the r8169 system, I run the
+following to see the # of interrupts/sec occuring:
+while true; do cat /proc/interrupts | grep eth0; sleep 1; done
 
-						-Bill
+I see roughly 12k/sec interrupts on eth0 and ~ 400/sec interrupts on
+sata_sil. This continues for some time at which point the system
+appears to hang (I no longer see the /proc/interrupts output every
+second). I switched back to the r8169 netcat and ctrl-c'd it. At this
+point the system is still acting really really sluggish and finally
+the cat /proc/interrupts output begins again. The only difference is
+now that I see it has exploded to 110k/sec interrupts on eth0 even
+though there is no data flowing to the system! The stats on ifconfig
+eth0 show no rx/tx byte counters increasing yet there is a constant
+100+k/sec interrupt load on the device.
+
+It appears to be affecting the rest of the system because during this
+time I also get other strange behavior.. For instance I see libata
+timeouts on the disks and they soft reset occasionally. Another
+example of something which happens in this state:
+
+NETDEV WATCHDOG: eth0: transmit timed out
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0x80/0xc3()
+Pid: 738, comm: dd Not tainted 2.6.26-rc8 #8
+ [<c0216072>] warn_on_slowpath+0x3b/0x61
+ [<c0222d35>] autoremove_wake_function+0xc/0x2b
+ [<c02124f8>] __wake_up_common+0x2d/0x52
+ [<c03a6879>] dev_watchdog+0x0/0xc3
+ [<c0213bd0>] __wake_up+0xf/0x15
+ [<c0216416>] wake_up_klogd+0x2b/0x2d
+ [<c0224c16>] hrtimer_forward+0xe2/0xfe
+ [<c0206bf0>] read_tsc+0x6/0x22
+ [<c0226b5b>] getnstimeofday+0x32/0xaf
+ [<c0206a53>] pit_next_event+0x16/0x1a
+ [<c0228e78>] clockevents_program_event+0xd1/0xe0
+ [<c0220de2>] queue_delayed_work_on+0x70/0x7b
+ [<c03a6879>] dev_watchdog+0x0/0xc3
+ [<c0220e13>] queue_delayed_work+0x16/0x18
+ [<c03a6879>] dev_watchdog+0x0/0xc3
+ [<c03a68f9>] dev_watchdog+0x80/0xc3
+ [<c021c051>] run_timer_softirq+0xf3/0x137
+ [<c02195c0>] __do_softirq+0x35/0x75
+ [<c0219622>] do_softirq+0x22/0x26
+ [<c021989e>] irq_exit+0x25/0x53
+ [<c0204cc3>] do_IRQ+0x4d/0x5d
+ [<c0203833>] common_interrupt+0x23/0x28
+ [<c0260000>] sys_futimesat+0x6/0x81
+ [<c0247eeb>] rw_verify_area+0x5d/0x78
+ [<c0248402>] vfs_write+0x62/0xec
+ [<c0248863>] sys_write+0x3c/0x63
+ [<c02036aa>] syscall_call+0x7/0xb
+ =======================
+---[ end trace f4d1fed7dd1e3699 ]---
+r8169: eth0: link up
+
+What can I do to further debug this problem?
+
+Thanks,
+-Andrew
