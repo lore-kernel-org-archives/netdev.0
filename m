@@ -1,124 +1,45 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 5/5] virtio_net: Recycle unused recv buffer pages for large skbs in net driver
-Date: Mon, 14 Jul 2008 22:42:46 -0500
-Message-ID: <200807151342.46283.rusty@rustcorp.com.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-07-14
+Date: Mon, 14 Jul 2008 20:45:32 -0700 (PDT)
+Message-ID: <20080714.204532.116542087.davem@davemloft.net>
+References: <20080714192302.GA2541@tuxdriver.com>
 Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:44457 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939AbYGODpX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 23:45:23 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080714192302.GA2541-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 14 Jul 2008 15:23:02 -0400
 
-If we hack the virtio_net driver to always allocate full-sized (64k+)
-skbuffs, the driver slows down (lguest numbers):
+> Here is one last(?) round of miscellaneous patches I hope to get into
+> 2.6.27.  There are mostly driver updates, including a sizable iwlwifi
+> set of changes.
+> 
+> Please let me know if there are problems!
 
-  Time to receive 1GB (small buffers): 10.85 seconds
-  Time to receive 1GB (64k+ buffers): 24.75 seconds
+Pulled into net-next-2.6, thanks John.
 
-Of course, large buffers use up more space in the ring, so we increase
-that from 128 to 2048:
+If someone could fix the following wireless warnings I'd appreciate
+it.
 
-  Time to receive 1GB (64k+ buffers, 2k ring): 16.61 seconds
+Thanks!
 
-If we recycle pages rather than using alloc_page/free_page:
-
-  Time to receive 1GB (64k+ buffers, 2k ring, recycle pages): 10.81 seconds
-
-This demonstrates that with efficient allocation, we don't need to
-have a separate "small buffer" queue.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |   36 +++++++++++++++++++++++++++++++++++-
- 1 file changed, 35 insertions(+), 1 deletion(-)
-
-diff -r 4cef5ad6fd51 drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c	Tue May 27 16:07:56 2008 +1000
-+++ b/drivers/net/virtio_net.c	Tue May 27 16:08:23 2008 +1000
-@@ -58,6 +58,9 @@ struct virtnet_info
- 	/* Receive & send queues. */
- 	struct sk_buff_head recv;
- 	struct sk_buff_head send;
-+
-+	/* Chain pages by the private ptr. */
-+	struct page *pages;
- };
- 
- static inline struct virtio_net_hdr *skb_vnet_hdr(struct sk_buff *skb)
-@@ -68,6 +71,23 @@ static inline void vnet_hdr_to_sg(struct
- static inline void vnet_hdr_to_sg(struct scatterlist *sg, struct sk_buff 
-*skb)
- {
- 	sg_init_one(sg, skb_vnet_hdr(skb), sizeof(struct virtio_net_hdr));
-+}
-+
-+static void give_a_page(struct virtnet_info *vi, struct page *page)
-+{
-+	page->private = (unsigned long)vi->pages;
-+	vi->pages = page;
-+}
-+
-+static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
-+{
-+	struct page *p = vi->pages;
-+
-+	if (p)
-+		vi->pages = (struct page *)p->private;
-+	else
-+		p = alloc_page(gfp_mask);
-+	return p;
- }
- 
- static void skb_xmit_done(struct virtqueue *svq)
-@@ -97,6 +117,15 @@ static void receive_skb(struct net_devic
- 		goto drop;
- 	}
- 	len -= sizeof(struct virtio_net_hdr);
-+
-+	if (len <= MAX_PACKET_LEN) {
-+		unsigned int i;
-+
-+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+			give_a_page(dev->priv, skb_shinfo(skb)->frags[i].page);
-+		skb->data_len = 0;
-+		skb_shinfo(skb)->nr_frags = 0;
-+	}
- 
- 	err = pskb_trim(skb, len);
- 	if (err) {
-@@ -180,7 +209,7 @@ static void try_fill_recv(struct virtnet
- 		if (vi->dev->features & NETIF_F_LRO) {
- 			for (i = 0; i < MAX_SKB_FRAGS; i++) {
- 				skb_frag_t *f = &skb_shinfo(skb)->frags[i];
--				f->page = alloc_page(GFP_ATOMIC);
-+				f->page = get_a_page(vi, GFP_ATOMIC);
- 				if (!f->page)
- 					break;
- 
-@@ -509,6 +538,7 @@ static int virtnet_probe(struct virtio_d
- 	vi->dev = dev;
- 	vi->vdev = vdev;
- 	vdev->priv = vi;
-+	vi->pages = NULL;
- 
- 	/* If they give us a callback when all buffers are done, we don't need
- 	 * the timer. */
-@@ -588,6 +618,10 @@ static void virtnet_remove(struct virtio
- 	vdev->config->del_vq(vi->svq);
- 	vdev->config->del_vq(vi->rvq);
- 	unregister_netdev(vi->dev);
-+
-+	while (vi->pages)
-+		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
-+
- 	free_netdev(vi->dev);
- }
- 
-
+drivers/net/wireless/rt2x00/rt2x00mac.c: In function 'rt2x00mac_conf_tx':
+drivers/net/wireless/rt2x00/rt2x00mac.c:557: warning: comparison is always true due to limited range of data type
+drivers/net/wireless/b43/main.c: In function 'b43_qos_params_upload':
+drivers/net/wireless/b43/main.c:3085: warning: comparison is always false due to limited range of data type
+drivers/net/wireless/b43/main.c:3090: warning: comparison is always false due to limited range of data type
+drivers/net/wireless/b43/main.c:3095: warning: comparison is always false due to limited range of data type
+drivers/net/wireless/b43/main.c:3100: warning: comparison is always false due to limited range of data type
+drivers/net/wireless/iwlwifi/iwl-led.c: In function 'iwl_get_blink_rate':
+drivers/net/wireless/iwlwifi/iwl-led.c:271: warning: format '%lld' expects type 'long long int', but argument 6 has type 's64'
+drivers/net/wireless/iwlwifi/iwl-led.c:271: warning: format '%lld' expects type 'long long int', but argument 7 has type 'u64'
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
