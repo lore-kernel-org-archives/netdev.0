@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/14]: Make packet scheduler multiqueue aware.
-Date: Mon, 14 Jul 2008 18:48:49 -0700 (PDT)
-Message-ID: <20080714.184849.121429019.davem@davemloft.net>
-References: <20080714.155908.174564017.davem@davemloft.net>
-	<487BEE7C.6080300@trash.net>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: Why doesn't RAW use daddr_cache ?
+Date: Tue, 15 Jul 2008 10:58:59 +0900
+Message-ID: <487C0463.8070705@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: herbert@gondor.apana.org.au, nicolas.dichtel@6wind.com,
+	usagi-users@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45049
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754117AbYGOBss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 21:48:48 -0400
-In-Reply-To: <487BEE7C.6080300@trash.net>
+Received: from ns.miraclelinux.com ([219.118.163.66]:19027 "EHLO
+	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753916AbYGOB7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 21:59:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 15 Jul 2008 02:25:32 +0200
+Hi all,
 
-> Unfortunately that seems to imply that anything but the really
-> simple qdiscs can't be used transparently in combination with
-> multiqueue without breaking configurations.
+I have a question about "daddr_cache" in IPv6.
 
-I think we can fix this after the merge window :)
+UDP socket uses daddr_cache via p6_sk_dst_lookup()/ip6_dst_store().
+But, RAW socket has stopped using it.
 
-One idea is to allow all of the queues to point at a
-single qdisc.  We'd just need to work out how to do the
-locking.
+I'm afraid of performance degrade in RAW.
+Could you please tell me why "daddr_cache" is
+deleted in RAW?
 
-For example, the Qdisc has a lock member, and a pointer.
-For simple qdiscs the pointer points at the netdev_queue
-lock.  But when sharing, we use the in-Qdisc static lock.
+Note:
+  It's deleted by the following patch.
+  commit 6d3e85ecf22a5e3610df47b9c3fb2fc32cfd35bf
+  commit 497c615abad7ee81994dd592194535aea2aad617
+
+Regards,
+Naohiro Ooiwa
+
