@@ -1,37 +1,42 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Why doesn't RAW use daddr_cache ?
-Date: Tue, 15 Jul 2008 10:58:59 +0900
-Message-ID: <487C0463.8070705@miraclelinux.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/14]: Make packet scheduler multiqueue aware.
+Date: Tue, 15 Jul 2008 04:08:13 +0200
+Message-ID: <487C068D.3060002@trash.net>
+References: <20080714.155908.174564017.davem@davemloft.net>	<487BEE7C.6080300@trash.net> <20080714.184849.121429019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, nicolas.dichtel@6wind.com,
-	usagi-users@linux-ipv6.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:19027 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753916AbYGOB7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 21:59:01 -0400
+Received: from stinky.trash.net ([213.144.137.162]:39941 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754136AbYGOCNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 22:13:51 -0400
+In-Reply-To: <20080714.184849.121429019.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-I have a question about "daddr_cache" in IPv6.
-
-UDP socket uses daddr_cache via p6_sk_dst_lookup()/ip6_dst_store().
-But, RAW socket has stopped using it.
-
-I'm afraid of performance degrade in RAW.
-Could you please tell me why "daddr_cache" is
-deleted in RAW?
-
-Note:
-  It's deleted by the following patch.
-  commit 6d3e85ecf22a5e3610df47b9c3fb2fc32cfd35bf
-  commit 497c615abad7ee81994dd592194535aea2aad617
-
-Regards,
-Naohiro Ooiwa
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Tue, 15 Jul 2008 02:25:32 +0200
+>
+>   
+>> Unfortunately that seems to imply that anything but the really
+>> simple qdiscs can't be used transparently in combination with
+>> multiqueue without breaking configurations.
+>>     
+>
+> I think we can fix this after the merge window :)
+>   
+Yes, that shouldn't be a problem.
+>
+> One idea is to allow all of the queues to point at a
+> single qdisc.  We'd just need to work out how to do the
+> locking.
+>
+> For example, the Qdisc has a lock member, and a pointer.
+> For simple qdiscs the pointer points at the netdev_queue
+> lock.  But when sharing, we use the in-Qdisc static lock
+That sounds nice and easy.
 
