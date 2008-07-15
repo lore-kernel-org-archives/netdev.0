@@ -1,59 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH]: garp: retry sending JoinIn messages after allocation failures
-Date: Tue, 15 Jul 2008 15:02:51 +0200
-Message-ID: <487C9FFB.5060103@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RFC 07/10] mlx4_en: Rx flow
+Date: Tue, 15 Jul 2008 14:40:05 +0100
+Message-ID: <20080715134003.GV19302@solarflare.com>
+References: <487B65BE.6000100@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050506020303070606080308"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il,
+	Roland Dreier <rdreier@cisco.com>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57053 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755301AbYGONCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 09:02:53 -0400
+Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:50632 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756225AbYGONkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 09:40:18 -0400
+Content-Disposition: inline
+In-Reply-To: <487B65BE.6000100@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050506020303070606080308
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Yevgeny Petrilin wrote:
+[...]
+> +static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+> +				   struct mlx4_en_rx_ring *ring, int index)
+> +{
+> +	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index * ring->stride);
+> +	struct skb_frag_struct *skb_frags = ring->rx_info +
+> +					    (index << priv->log_rx_info);
+> +	int i;
+> +
+> +	PREFETCH((void *) rx_desc + L1_CACHE_BYTES);
+> +	PREFETCH((void *) skb_frags + L1_CACHE_BYTES);
+[...]
 
+You should use the standard prefetch() macro, not your own.
 
---------------050506020303070606080308
-Content-Type: text/x-diff;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+Ben.
 
-commit ca42e467171a856e008b754b72c3446b70a7c48d
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Jul 15 15:00:44 2008 +0200
-
-    garp: retry sending JoinIn messages after allocation failures
-    
-    Increase reliability by retrying to send JoinIn messages after memory
-    allocation failures on each TRANSMIT_PDU event until it succeeds.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/802/garp.c b/net/802/garp.c
-index 3b78f7b..1dcb066 100644
---- a/net/802/garp.c
-+++ b/net/802/garp.c
-@@ -323,7 +323,10 @@ static void garp_attr_event(struct garp_applicant *app,
- 	case GARP_ACTION_NONE:
- 		break;
- 	case GARP_ACTION_S_JOIN_IN:
--		garp_pdu_append_attr(app, attr, GARP_JOIN_IN);
-+		/* When appending the attribute fails, don't update state in
-+		 * order to retry on next TRANSMIT_PDU event. */
-+		if (garp_pdu_append_attr(app, attr, GARP_JOIN_IN) < 0)
-+			return;
- 		break;
- 	case GARP_ACTION_S_LEAVE_EMPTY:
- 		garp_pdu_append_attr(app, attr, GARP_LEAVE_EMPTY);
-
---------------050506020303070606080308--
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
