@@ -1,29 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RFC 02/02]: netdrv intel: always enable VLAN filtering
- except in promiscous mode
-Date: Tue, 15 Jul 2008 17:51:46 +0200
-Message-ID: <487CC792.7070702@trash.net>
-References: <487C9CD5.1050600@trash.net> <487C9CFC.5090101@trash.net> <D5C1322C3E673F459512FB59E0DDC329056ACA44@orsmsx414.amr.corp.intel.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Tue, 15 Jul 2008 18:10:42 +0200
+Message-ID: <200807151810.45942.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807111633.42514.thomas.jarosch@intra2net.com> <200807151347.23598.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	=?iso-8859-15?q?D=E2niel_Fraga?= <fragabr@gmail.com>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61058 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346AbYGOPvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 11:51:50 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329056ACA44@orsmsx414.amr.corp.intel.com>
+Received: from mailbackup.webpage.t-com.de ([80.152.31.31]:53839 "EHLO
+	fepb01-svc.webpage.t-com.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752437AbYGOQKv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2008 12:10:51 -0400
+In-Reply-To: <200807151347.23598.thomas.jarosch@intra2net.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Waskiewicz Jr, Peter P wrote:
-> Patrick,
-> 	What about ixgbe?  The patches look fine to me though.
+> Luckily I'm able to reproduce the problem locally using an ADSL line =
+from
+> the same provider, so I'll now bisect the kernel from 2.6.23.17 to 2.=
+6.24.
 
-Thanks. I missed ixgbe, I'll add it to the patch and resubmit.
+After bisecting for hours, l only had ten revisions left to test.
+There was this commit that caught my eye:
+
+------------------------------
+commit c96fd3d461fa495400df24be3b3b66f0e0b152f9
+Author: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Date:   Thu Sep 20 11:36:37 2007 -0700
+
+    [TCP]: Enable SACK enhanced FRTO (RFC4138) by default
+------------------------------
+
+This change sets the value of "tcp_frto" to 2 by default.
+If I reset it to zero, the connection works immediately.
+@D=E2niel Fraga: Does disabling tcp_frto work for you, too?
+
+Disabling tcp_sack makes no difference. To summarize the situation,
+I had two different cases of stalling TCP connections, both connecting
+to busy SMTP relays servers which probably drop some packets here and t=
+here.
+
+I can easily reproduce the problem, so how do we go from here?
+
+Cheers,
+Thomas
