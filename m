@@ -1,50 +1,26 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] netns: Only route multicast trafic in init_net
-Date: Mon, 14 Jul 2008 22:59:52 -0700
-Message-ID: <m1bq0zhelj.fsf@frodo.ebiederm.org>
-References: <m1od54dwar.fsf@frodo.ebiederm.org>
-	<20080714.222553.228256571.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 4/7] MIB: add struct net to ICMP_INC_STATS
+Date: Mon, 14 Jul 2008 23:02:42 -0700 (PDT)
+Message-ID: <20080714.230242.152285201.davem@davemloft.net>
+References: <4871F2D8.8030502@openvz.org>
+	<4871F52C.1030001@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40867 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754409AbYGOGCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 02:02:13 -0400
-In-Reply-To: <20080714.222553.228256571.davem@davemloft.net> (David Miller's
-	message of "Mon, 14 Jul 2008 22:25:53 -0700 (PDT)")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56775
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754632AbYGOGCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 02:02:42 -0400
+In-Reply-To: <4871F52C.1030001@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Mon, 07 Jul 2008 14:51:24 +0400
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Fri, 11 Jul 2008 13:02:04 -0700
->
->> 
->> Currently the code to only support multicast traffic in the initial
->> namespace is incomplete, and receiving a multicast packet causes in a
->> network namespace causes us to take an initialized lock.  Resulting
->> in a nasty oops. Ouch!
->> 
->> So until we have network namespace support in igmp.c simply disable
->> multicast packet reception.
->> 
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->
-> Grumble...
->
-> So you send me a patch later which depended upon these ones and yet
-> you made no mention of this dependency.
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Sorry I thought I had.  I mentioned the other patch applied on top of
-my previous patch.  I guess I did not say it clearly enough.  
-With [PATCH 1/2] [PATCH 2/2].  
-
-> Can you just resend me whatever I should add right now?
-Sure. 
-
-Eric
-
+Applied.
