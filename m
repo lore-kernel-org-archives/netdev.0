@@ -1,78 +1,60 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: v4 [PATCH 9/9] 8021q: Check return of dev_set_promiscuity/allmulti
-Date: Tue, 15 Jul 2008 10:59:49 +0800
-Message-ID: <487C12A5.8010505@cn.fujitsu.com>
-References: <487C0ABA.1070506@cn.fujitsu.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH RFC 10/10] mlx4_en: Makefile and Kconfig
+Date: Mon, 14 Jul 2008 23:27:26 -0400
+Message-ID: <20080714232726.7719a2ab.billfink@mindspring.com>
+References: <487B65CE.4060509@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il,
+	Roland Dreier <rdreier@cisco.com>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63827 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757753AbYGODEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2008 23:04:52 -0400
-In-Reply-To: <487C0ABA.1070506@cn.fujitsu.com>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:56699 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751226AbYGOD1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:27:34 -0400
+In-Reply-To: <487B65CE.4060509@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev_set_promiscuity/allmulti might overflow.
-Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-dev_set_promiscuity/allmulti return error number if overflow happened.
+On Mon, 14 Jul 2008, Yevgeny Petrilin wrote:
 
-Here, we check all positive increment for promiscuity and allmulti
-to get error return.
+> Changed Makefile and Kconfig files to enable mlx4_en compilation.
+> 
+> Signed-off-by: Liran Liss <liranl@mellanox.co.il>
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> ---
+>  drivers/net/Kconfig       |    9 +++++++++
+>  drivers/net/mlx4/Makefile |    5 +++++
+>  2 files changed, 14 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f4182cf..4aaa7e9 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2549,6 +2549,15 @@ config PASEMI_MAC
+>  	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+>  	  PA Semi's PWRficient line of chips.
+> 
+> +config MLX4_EN
+> +	tristate "Mellanox Technologies 10Gbit Ethernet support"
+> +	depends on PCI
+> +	select MLX4_CORE
+> +	select INET_LRO
+> +	help
+> +	  This driver supports Mellanox Technollogies ConnectX Ethernet
+> +	  devices.
+> +
+>  config MLX4_CORE
+>  	tristate
+>  	depends on PCI
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-Acked-by: Patrick McHardy <kaber@trash.net>
----
- net/8021q/vlan_dev.c |   27 +++++++++++++++++++++------
- 1 files changed, 21 insertions(+), 6 deletions(-)
+To prevent certain build failures, when you "select INET_LRO" you also
+need to add a depends on INET, so the above "depends on PCI" needs to
+be changed to:
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 5d055c2..083e0c8 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -543,16 +543,31 @@ static int vlan_dev_open(struct net_device *dev)
- 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr)) {
- 		err = dev_unicast_add(real_dev, dev->dev_addr, ETH_ALEN);
- 		if (err < 0)
--			return err;
-+			goto out;
- 	}
--	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
- 
--	if (dev->flags & IFF_ALLMULTI)
--		dev_set_allmulti(real_dev, 1);
--	if (dev->flags & IFF_PROMISC)
--		dev_set_promiscuity(real_dev, 1);
-+	if (dev->flags & IFF_ALLMULTI) {
-+		err = dev_set_allmulti(real_dev, 1);
-+		if (err < 0)
-+			goto del_unicast;
-+	}
-+	if (dev->flags & IFF_PROMISC) {
-+		err = dev_set_promiscuity(real_dev, 1);
-+		if (err < 0)
-+			goto clear_allmulti;
-+	}
- 
-+	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
- 	return 0;
-+
-+clear_allmulti:
-+	if (dev->flags & IFF_ALLMULTI)
-+		dev_set_allmulti(real_dev, -1);
-+del_unicast:
-+	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
-+		dev_unicast_delete(real_dev, dev->dev_addr, ETH_ALEN);
-+out:
-+	return err;
- }
- 
- static int vlan_dev_stop(struct net_device *dev)
+	depends on PCI && INET
 
-
-
-
+						-Bill
