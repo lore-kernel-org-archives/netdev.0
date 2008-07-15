@@ -1,29 +1,31 @@
-From: Tobias Koeck <tobias.koeck@gmail.com>
-Subject: What does the BUG() function do in the udp.h (2.6.25.2 kernel)
-Date: Tue, 15 Jul 2008 04:45:48 +0200
-Message-ID: <487C0F5C.6050802@googlemail.com>
-References: <487C0463.8070705@miraclelinux.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: v4 [PATCH 0/9] Check return of dev_set_promiscuity/allmulti
+Date: Tue, 15 Jul 2008 10:59:01 +0800
+Message-ID: <487C1275.3040103@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.184]:4590 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535AbYGOCp4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 22:45:56 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so1720832mue.1
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2008 19:45:55 -0700 (PDT)
-In-Reply-To: <487C0463.8070705@miraclelinux.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:57255 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754597AbYGODEK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2008 23:04:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I=B4m studying the Linux TCP/IP stack.
+v3->v4:
+- ipmr: unwind tunnel creating
+- ipmr: fix unregister device oops
+- ip6mr: fix using after dev_put()
 
-What does the BUG() function in the udp.{h,c} (2.6.25.2 kernel) do? Is=20
-udp hasing disabled for that kernel version?
+This series of patch fix the places where calling
+dev_set_promiscuity/allmulti but not do error handling
+according to the return of dev_set_promiscuity/allmulti.
 
-Greetings and thanks
-Tobias
+And among the patches, there is a patch fixes unregister
+device oops of impr and a patch fixes using after dev_put().
+
+
 
