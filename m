@@ -1,68 +1,64 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: TXQ real_num_tx_queues comments/questions
-Date: Tue, 15 Jul 2008 02:16:37 -0700 (PDT)
-Message-ID: <20080715.021637.103260952.davem@davemloft.net>
+Date: Tue, 15 Jul 2008 11:25:23 +0200
+Message-ID: <1216113923.3535.14.camel@johannes.berg>
 References: <1215769627.3483.107.camel@johannes.berg>
+	 <20080715.021637.103260952.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1215769627.3483.107.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-aZOo7ZmERGRAmIPS4DS2"
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:43564 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751809AbYGOJZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 05:25:24 -0400
+In-Reply-To: <20080715.021637.103260952.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Fri, 11 Jul 2008 11:47:06 +0200
 
-> One thing I just noticed that caused me to think about it a bit more is
-> that you didn't change netif_tx_{start,stop,wake}_all_queues to use
-> real_num_tx_queues instead of num_tx_queues. However, since those queues
-> don't actually get used, it doesn't actually matter whether they're
-> started or not.
+--=-aZOo7ZmERGRAmIPS4DS2
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Right, I don't think it matters.
 
-> Also related to real_num_tx_queues, you mentioned in the email (if that
-> restriction is kept it should be explained in a comment somewhere I
-> think) that it must not be changed while the device is operating. While
-> that restriction makes it obviously safe, mac80211 is already
-> effectively violating it, although it isn't setting real_num_tx_queues
-> at all. That makes me question that restriction a bit.
+[...]
 
-In the mac80211 implementation, you control everything.
-mac80211's ->select_queue() is the only thing that selects
-queue values.
+> > I like the RCU variant better, as it means we don't need a "central"
+> > lock that is taken for all tx queues, and it also allows other drivers
+> > to actually change real_num_tx_queues in a similar fashion, should that
+> > ever be required.
+>=20
+> It seems to me that a simple synchronize_net() call near the end of
+> agg queue removal would solve your problem as-is, wouldn't it?
 
-> The only interesting situation is when we need to remove a queue since
-> for adding it we can prepare for that before we make select_queue use
-> it. Removing it is however, I think, still buggy. You removed most of
-> the queue locking and now just lock the single txq in ieee80211_requeue,
-> which seems fine, but when you look at ieee80211_ht_agg_queue_remove it
-> seems still racy:
- ...
-> I'm not entirely sure that my analsysis is correct because the mac80211
-> code is running in a tasklet, but dev_queue_xmit() only disables bhs
-> after using select_queue, and even that is only local bhs.
-> 
-> To fix it, I think we should move the queue selection under the rcu
-> lock. Then we can, in mac80211, instead of deferring the requeuing to
-> the tasklet, defer it to a work struct (i.e. process context) and
-> synchronize_rcu() between making select_queue no longer choose the queue
-> and requeuing from it.
-> 
-> Or we can do more complicated things with the queue_pool bits or an
-> extra spinlock for select_queue.
-> 
-> I like the RCU variant better, as it means we don't need a "central"
-> lock that is taken for all tx queues, and it also allows other drivers
-> to actually change real_num_tx_queues in a similar fashion, should that
-> ever be required.
+Well, as far as I can tell we can't do that there because it's in
+tasklet context/called under spinlocks so it has to be atomic. I think.
 
-It seems to me that a simple synchronize_net() call near the end of
-agg queue removal would solve your problem as-is, wouldn't it?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
+
+--=-aZOo7ZmERGRAmIPS4DS2
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIfGz7AAoJEKVg1VMiehFYyrAQAJ+hOOeozVa1RzNlvPrIzLiK
+a3Yj4ivHpc8d3crnL3kdBAyilMaw6rQLRmHWgCScvgJXPY1zKrgYU4G5R1J1KgdB
+pORycYDc81v+Ts132Dq1H+Ji2yAhBIQI4dyyzlmMsCW6jp5tfQEe1DyI9JTpIYEZ
+gApXgUBwQXb1VOnExfP6HKaNUnydC9CK1NM8ksWIa/w+/GB0AQSUDuSVktgq9WF1
+6YTCEPaYBTdrtgvm9+l0NyCC/ywNbTQbQXeeapgx+CiOhT8HxpKwq+OmXCHhjOS8
+Gea4AzXjnEVBFzS/ZqMGakL0y3snY9VpJ02tJtuE5gAjJRV1k+LX/Z49Wujx7jlH
+75j80grwcxpS6Pxz7tQt7pljw8EOSrxt6vx+BLKrzgGaH+7/fRR+MTmP35ZuUj1z
+LF2lLHAZaFq9rcZmL9BRhPUtE6zUGEn7qD/qpKmffT5U+t0mY/lW3yoG6DbntVrR
+tt19PAGtn/FFPeroo8INbR3eZPztS7+9Ej0L+/15l3kl6beNUMEAudtMpCnt3mO3
+fpZUMGVgwMlIl9U8flg+WcpTETZSe7j+lpr21FdVIXpH2iJPrp6w3OUoQq88mL7j
+x59rZ5Fpn7GCGs7y3TkpqiN9ZHLzfg6ANhBBU/Z/Loa19kWwsAiaDJYISiKgxxEw
+PfK/QwkpfpKXafMcRdlG
+=rYvc
+-----END PGP SIGNATURE-----
+
+--=-aZOo7ZmERGRAmIPS4DS2--
+
