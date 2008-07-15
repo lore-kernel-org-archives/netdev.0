@@ -2,39 +2,32 @@ From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
 	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash,
 	Another Problem)
-Date: Tue, 15 Jul 2008 20:56:46 +0200
-Message-ID: <20080715185646.GA27023@electric-eye.fr.zoreil.com>
-References: <4861800B.90703@nscus.com> <48777BC3.6090108@dell.com> <1216052460.23392.14.camel@localhost> <200807142152.26163.eike-kernel@sf-tec.de> <487BB065.3020709@dell.com> <1216068344.23392.19.camel@localhost> <487BBE77.7050702@dell.com>
+Date: Tue, 15 Jul 2008 20:58:46 +0200
+Message-ID: <20080715185846.GB27023@electric-eye.fr.zoreil.com>
+References: <4861800B.90703@nscus.com> <48777BC3.6090108@dell.com> <1216052460.23392.14.camel@localhost> <200807142152.26163.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Kasper Sandberg <lkml@metanurb.dk>,
-	Rolf Eike Beer <eike-kernel@sf-tec.de>,
-	Marcus Sundberg <marcus@ingate.com>,
+	Mario Limonciello <mario_limonciello@dell.com>,
 	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-pci@vger.kernel.org
-To: Mario Limonciello <mario_limonciello@dell.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+	akpm@linux-foundation.org
+To: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43539 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762480AbYGOS7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 14:59:31 -0400
 Content-Disposition: inline
-In-Reply-To: <487BBE77.7050702@dell.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200807142152.26163.eike-kernel@sf-tec.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mario Limonciello <mario_limonciello@dell.com> :
+Rolf Eike Beer <eike-kernel@sf-tec.de> :
 [...]
-> If I was to guess (I didn't actually work out which one yours identifies
-> as), most likely your NIC isn't caught in my check for MAC_VER_13 or
-> MAC_VER_16, but Francois's patch has:
+> Is there any chance this helps with the famous 8101 problems, e.g. 
+> http://bugzilla.kernel.org/show_bug.cgi?id=6807 ?
 
-+1
-
-(actually this change was contributed by Marcus Sundberg: see
-the Signed-off-by and/or the patch named 
-0003-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch)
-
-I doubt that it will break anybody's 8101 (resp. 8102) but I would
-welcome a report from a 8101/8102 owner before sending it upstream.
-
-Sorry for disturbing linux-pci.
+Yes, it is worth a try.
 
 -- 
 Ueimor
