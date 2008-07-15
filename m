@@ -1,63 +1,59 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH net-next? 1/1] netlabel: return msg overflow error from netlbl_cipsov4_list faster
-Date: Tue, 15 Jul 2008 08:47:43 -0400
-Message-ID: <200807150847.43895.paul.moore@hp.com>
-References: <1215773149-27728-1-git-send-email-den@openvz.org> <200807110701.05377.paul.moore@hp.com> <20080714.222915.159608599.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: garp: retry sending JoinIn messages after allocation failures
+Date: Tue, 15 Jul 2008 15:02:51 +0200
+Message-ID: <487C9FFB.5060103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, den@openvz.org
+Content-Type: multipart/mixed;
+ boundary="------------050506020303070606080308"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:8861 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757958AbYGOMrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 08:47:53 -0400
-In-Reply-To: <20080714.222915.159608599.davem@davemloft.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:57053 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755301AbYGONCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 09:02:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 15 July 2008 1:29:15 am David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Fri, 11 Jul 2008 07:01:05 -0400
->
-> > On Friday 11 July 2008 6:45:49 am Denis V. Lunev wrote:
-> > > Currently, we are trying to place the information from the kernel
-> > > to 1, 2, 3 and 4 pages sequentially. These pages are allocated
-> > > via slab. Though, from the slab point of view steps 3 and 4 are
-> > > equivalent on most architectures. So, lets skip 3 pages attempt.
-> > >
-> > > By the way, should we switch from .doit to .dumpit interface
-> > > here? The amount of data seems quite big for me.
-> > >
-> > > Signed-off-by: Denis V. Lunev <den@openvz.org>
-> >
-> > I'll add my ack to this patch because your logic sounds reasonable
-> > and I'm glad to have more eyes on the code :)
-> >
-> > However, I not a big fan of converting this from a .doit to a
-> > .dumpit interface because this would cause userspace breakage.  We
-> > could potentially do both for backwards compatibility but I have no
-> > idea if it is possible to have both interfaces available at the
-> > same time.  One thing to keep in mind before diving into your
-> > favorite editor is that I've yet to hear of there being a problem
-> > with this NetLabel command and the .doit interface, we may want to
-> > hold off to see if it becomes an issue.
-> >
-> > Acked-by: Paul Moore <paul.moore@hp.com>
->
-> I've applied Denis's patch.
->
-> Also, I agree with him that a .dumpit conversion might be
-> entirely appropriate.
+This is a multi-part message in MIME format.
+--------------050506020303070606080308
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-After Dennis' mail I looked into a bit more and there doesn't appear to 
-be any reason why you couldn't have both a .doit and a .dumpit 
-interface for the same command.  I'll throw this on the ToDo list, but 
-if anyone already has patches I'd be more than happy to review them ;)
 
--- 
-paul moore
-linux @ hp
+--------------050506020303070606080308
+Content-Type: text/x-diff;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit ca42e467171a856e008b754b72c3446b70a7c48d
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Jul 15 15:00:44 2008 +0200
+
+    garp: retry sending JoinIn messages after allocation failures
+    
+    Increase reliability by retrying to send JoinIn messages after memory
+    allocation failures on each TRANSMIT_PDU event until it succeeds.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/802/garp.c b/net/802/garp.c
+index 3b78f7b..1dcb066 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -323,7 +323,10 @@ static void garp_attr_event(struct garp_applicant *app,
+ 	case GARP_ACTION_NONE:
+ 		break;
+ 	case GARP_ACTION_S_JOIN_IN:
+-		garp_pdu_append_attr(app, attr, GARP_JOIN_IN);
++		/* When appending the attribute fails, don't update state in
++		 * order to retry on next TRANSMIT_PDU event. */
++		if (garp_pdu_append_attr(app, attr, GARP_JOIN_IN) < 0)
++			return;
+ 		break;
+ 	case GARP_ACTION_S_LEAVE_EMPTY:
+ 		garp_pdu_append_attr(app, attr, GARP_LEAVE_EMPTY);
+
+--------------050506020303070606080308--
