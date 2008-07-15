@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: v4 [PATCH 8/9] macvlan: Check return of dev_set_allmulti
-Date: Mon, 14 Jul 2008 20:57:14 -0700 (PDT)
-Message-ID: <20080714.205714.227896220.davem@davemloft.net>
-References: <487C0ABA.1070506@cn.fujitsu.com>
-	<487C12A1.6010904@cn.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter merge conflict...
+Date: Tue, 15 Jul 2008 05:53:29 +0200
+Message-ID: <487C1F39.9020003@trash.net>
+References: <20080714.203107.107924149.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48651
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754201AbYGOD5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:57:14 -0400
-In-Reply-To: <487C12A1.6010904@cn.fujitsu.com>
+Received: from stinky.trash.net ([213.144.137.162]:43400 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752189AbYGOD7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2008 23:59:09 -0400
+In-Reply-To: <20080714.203107.107924149.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Tue, 15 Jul 2008 10:59:45 +0800
+David Miller wrote:
+> Patrick, I had to resolve a conflict in nf_conntrack_proto_tcp.c when
+> I merged net-2.6 into net-next-2.6 in preparation for merging with
+> Linus.  This is the same one Stephen started hitting when building the
+> linux-next tree last week.
+>
+> The problem is the looping fix.
+>
+> What I did was first add a changeset that modifies __nf_ct_kill*() to
+> return a boolean that indicates if the del_timer() returned true.
+> This return value propagates through nf_ct_kill() as well.
+>
+> Then I did the merge and resolved it by making the loop prevention code
+> look like:
+>
+> 			if (nf_ct_kill(ct))
+> 				return -NF_REPEAT;
+> 			return -NF_DROP;
+>
+> Just FYI...  this is pushed out to net-next-2.6 if you want to have a
+> closer look.
 
-> allmulti might overflow.
-> Commit: "netdevice: Fix promiscuity and allmulti overflow" in net-next makes
-> dev_set_promiscuity/allmulti return error number if overflow happened.
-> 
-> Here, we check the positive increment for allmulti to get error return.
-> 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> Acked-by: Patrick McHardy <kaber@trash.net>
-
-Applied, thanks.
+The patch looks good, thanks for fixing this.
