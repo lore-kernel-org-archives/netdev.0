@@ -1,36 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 device jumps from 12k/sec interrupts with traffic to
-	over 100k/sec interrupts without traffic
-Date: Tue, 15 Jul 2008 08:56:03 +0200
-Message-ID: <20080715065603.GA8094@electric-eye.fr.zoreil.com>
-References: <76366b180807142030y38b97508id8523b699d2baf37@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/13]: net: Implement simple sw TX hashing.
+Date: Mon, 14 Jul 2008 23:58:02 -0700 (PDT)
+Message-ID: <20080714.235802.243338298.davem@davemloft.net>
+References: <E1KIMIg-0007MB-00@gondolin.me.apana.org.au>
+	<20080714.045806.213105998.davem@davemloft.net>
+	<487C487C.5030403@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andrew Paprocki <andrew@ishiboo.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35964 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751935AbYGOG4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 02:56:09 -0400
-Content-Disposition: inline
-In-Reply-To: <76366b180807142030y38b97508id8523b699d2baf37@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40321
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753890AbYGOG6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 02:58:01 -0400
+In-Reply-To: <487C487C.5030403@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Paprocki <andrew@ishiboo.com> :
-> I'm currently running 2.6.26-rc8 (NAPI enabled) and my r8169 device is
-> going a little crazy after a short time under load.
-[...]
-> What can I do to further debug this problem?
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 15 Jul 2008 08:49:32 +0200
 
-Can you send your complete dmesg (especially the XID line) and a complete
-lspci -vvxx  of your system to identify the network device ?
+> For example, hash_dst() in net/netfilter/xt_hashlimit.c is using the
+> following code :
 
-The content of the /proc/interrupts file would be welcome too.
+Aha, now I see what you mean.
 
-You may try http://userweb.kernel.org/~romieu/r8169/2.6.26-rc9/20080710/
-but it's more or less a shot in the dark for now.
-
--- 
-Ueimor
+Thanks, I'll take this into consideration.
