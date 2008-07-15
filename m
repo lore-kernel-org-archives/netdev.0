@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3]: Seperate netdev address list locking.
-Date: Tue, 15 Jul 2008 00:48:19 -0700 (PDT)
-Message-ID: <20080715.004819.141253326.davem@davemloft.net>
-References: <20080623.205409.75801733.davem@davemloft.net>
+Subject: Re: [PATCH v2] net: refactor tcp splice receive path to improve
+ readability
+Date: Tue, 15 Jul 2008 00:49:56 -0700 (PDT)
+Message-ID: <20080715.004956.111685244.davem@davemloft.net>
+References: <200807071239.17431.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54727
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60808
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752402AbYGOHsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 03:48:18 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 8893DC8C1B2
-	for <netdev@vger.kernel.org>; Tue, 15 Jul 2008 00:48:19 -0700 (PDT)
-In-Reply-To: <20080623.205409.75801733.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1754718AbYGOHtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 03:49:55 -0400
+In-Reply-To: <200807071239.17431.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 23 Jun 2008 20:54:09 -0700 (PDT)
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Mon, 7 Jul 2008 12:39:17 +0300
 
-> The generic TX lock is overloaded to protect both
-> ->hard_start_xmit() execution and the unicast/multicast
-> device lists.
-> 
-> These patches seperate out that usage so that the TX
-> lock only protects packet transmit.
-> 
-> This work is pretty straightforward so I will check it
-> directly into net-tx-2.6
+> This one applies cleanly to head of net-next-2.6. 
 
-FWIW, I just respun these and checked them into net-next-2.6
+Applied, thanks a lot.
