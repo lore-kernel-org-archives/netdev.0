@@ -1,78 +1,65 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: TXQ real_num_tx_queues comments/questions
-Date: Tue, 15 Jul 2008 03:05:31 -0700 (PDT)
-Message-ID: <20080715.030531.227856924.davem@davemloft.net>
+Date: Tue, 15 Jul 2008 12:28:41 +0200
+Message-ID: <1216117721.3535.22.camel@johannes.berg>
 References: <1216114621.3535.18.camel@johannes.berg>
-	<20080715.023954.234208581.davem@davemloft.net>
-	<1216115349.3535.20.camel@johannes.berg>
+	 <20080715.023954.234208581.davem@davemloft.net>
+	 <1216115349.3535.20.camel@johannes.berg>
+	 <20080715.030531.227856924.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216115349.3535.20.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-gVWkmfCNxDFdNUoapZzi"
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:60764 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754797AbYGOK2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 06:28:44 -0400
+In-Reply-To: <20080715.030531.227856924.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 15 Jul 2008 11:49:09 +0200
 
-> Yes, I think we can fix it by deferring the requeue to a workqueue,
-> using synchronize_net() and putting RCU protection against the
-> select_queue call.
+--=-gVWkmfCNxDFdNUoapZzi
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I'm respinning my net-tx-2.6 tree at the moment and I'll
-make patch 8 look like below.
+On Tue, 2008-07-15 at 03:05 -0700, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Tue, 15 Jul 2008 11:49:09 +0200
+>=20
+> > Yes, I think we can fix it by deferring the requeue to a workqueue,
+> > using synchronize_net() and putting RCU protection against the
+> > select_queue call.
+>=20
+> I'm respinning my net-tx-2.6 tree at the moment and I'll
+> make patch 8 look like below.
 
-When I get to the mac80211 bits I'll add the appropriate
-synchronize_net() call.
+Looks good to me, thanks.
 
-netdev: Add netdev->select_queue() method.
+johannes
 
-Devices or device layers can set this to control the queue selection
-performed by dev_pick_tx().
+--=-gVWkmfCNxDFdNUoapZzi
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-This function runs under RCU protection, which allows overriding
-functions to have some way of synchronizing with things like dynamic
-->real_num_tx_queues adjustments.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-This makes the spinlock prefetch in dev_queue_xmit() a little bit
-less effective, but that's the price right now for correctness.
+iQIcBAABAgAGBQJIfHvVAAoJEKVg1VMiehFYhlsP/3KgjsrUrCHtO+F6WHXap59E
+9I1jrYz32bNQPt29Ccx9TcpkgGxba9Csyy99iCqhZ4wTLWWz+FAaQekGLIsUx0fq
+0JBQ/fkkNX27UB0fsK2YhQ/0Pc+rqDjH/f+gS+uOdGqBYIhz0M+pSb6tgWIT+42D
+8k6Zsz4NfGhdvrFScUW8lRmlIYTokSDRZEJ0L8o3WgOtNjoLwhyD8PCsBghzjY64
+338aXO2lAJKAp5+88/mdLCpgWPR+VtoMecf0HIV6fDI0PCidc6iMNFg8XBVSqLIJ
+QBbKwkQqfuuq7lZ0iYWSLZbYjH6UN0beIKhcaSE7BmfRk2cFglPisxIl9bSpCMPz
+HDHd82vsfuZEJaA/QIZ95C+60ky6c0WgHziBioX6J/QLIH7dJ9Q7oISj7vKndiRx
+7gn7eFm8SnNGK8cU4eiwEz09+/vRvJhqHwDXWl7Pw3VvIWIqNBJ7tnRbTw3l9GQt
+0/InoqhHsDYcKucqrX7EeQT5V1PnUXsegSVk38QTlJLI6n33+lWjUoh4kjv8CpcN
+eGnHAfuu3CqshmgVUB8H6/6XLwlkU8u+6hfYEXHtIjygdooqlga2pAhXP5P64qFa
+AJuBhrSLmDR6NebRuVsI3I7RSkbdScgejR76+hxVYTbt/O5odwOLitFFt7RjUeYe
+ss7aDUIzLuVe4rMmxoHV
+=soc3
+-----END PGP SIGNATURE-----
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+--=-gVWkmfCNxDFdNUoapZzi--
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fdac115..9464e64 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -724,6 +724,9 @@ struct net_device
- 	void                    (*poll_controller)(struct net_device *dev);
- #endif
- 
-+	u16			(*select_queue)(struct net_device *dev,
-+						struct sk_buff *skb);
-+
- #ifdef CONFIG_NET_NS
- 	/* Network namespace this network device is inside */
- 	struct net		*nd_net;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f027a1a..7ca9564 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1670,6 +1670,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- {
- 	u16 queue_index = 0;
- 
-+	if (dev->select_queue)
-+		queue_index = dev->select_queue(dev, skb);
-+
- 	skb_set_queue_mapping(skb, queue_index);
- 	return netdev_get_tx_queue(dev, queue_index);
- }
-@@ -1710,14 +1713,14 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	}
- 
- gso:
--	txq = dev_pick_tx(dev, skb);
--	spin_lock_prefetch(&txq->lock);
