@@ -1,70 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: TXQ real_num_tx_queues comments/questions
-Date: Tue, 15 Jul 2008 11:49:09 +0200
-Message-ID: <1216115349.3535.20.camel@johannes.berg>
-References: <1216113923.3535.14.camel@johannes.berg>
-	 <20080715.022854.55875400.davem@davemloft.net>
-	 <1216114621.3535.18.camel@johannes.berg>
-	 <20080715.023954.234208581.davem@davemloft.net>
+Date: Tue, 15 Jul 2008 03:05:31 -0700 (PDT)
+Message-ID: <20080715.030531.227856924.davem@davemloft.net>
+References: <1216114621.3535.18.camel@johannes.berg>
+	<20080715.023954.234208581.davem@davemloft.net>
+	<1216115349.3535.20.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0c/p5HOpQIOIvObg05Yr"
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:60656 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754504AbYGOJtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 05:49:10 -0400
-In-Reply-To: <20080715.023954.234208581.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216115349.3535.20.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 15 Jul 2008 11:49:09 +0200
 
---=-0c/p5HOpQIOIvObg05Yr
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Yes, I think we can fix it by deferring the requeue to a workqueue,
+> using synchronize_net() and putting RCU protection against the
+> select_queue call.
 
-On Tue, 2008-07-15 at 02:39 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Tue, 15 Jul 2008 11:37:01 +0200
->=20
-> > From mac80211's POV it's just that select_queue must have known
-> > about the removed queue when the requeue is done. And we can defer
-> > the requeue to a workqueue.
->=20
-> Ok.
->=20
-> So you're proposing the requeue be deferred to a workqueue
-> and what else?  RCU protection around real_num_tx_queues
-> access?
+I'm respinning my net-tx-2.6 tree at the moment and I'll
+make patch 8 look like below.
 
-Yes, I think we can fix it by deferring the requeue to a workqueue,
-using synchronize_net() and putting RCU protection against the
-select_queue call.
+When I get to the mac80211 bits I'll add the appropriate
+synchronize_net() call.
 
-johannes
+netdev: Add netdev->select_queue() method.
 
---=-0c/p5HOpQIOIvObg05Yr
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Devices or device layers can set this to control the queue selection
+performed by dev_pick_tx().
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+This function runs under RCU protection, which allows overriding
+functions to have some way of synchronizing with things like dynamic
+->real_num_tx_queues adjustments.
 
-iQIcBAABAgAGBQJIfHKPAAoJEKVg1VMiehFYvdoP/RZM5q5Z87/irZxHZNrVKZwD
-nOin2ydnuqDOPwIKmOppX+4CaAZO+KwiB/7UbPYWSQLKNnd9Q8+96VWRmOmivPpl
-JAYJemfaIiDX+JERduKOT4nqI+1PoDFdnBeahhUfAgXmFWjoanhbR0LddD498Lc3
-PAPqW7MGci7TlLi3E0q7H2RYSPFdccwSGjMJYCEp2m9NsUgfP4fYT1iIt/ZY4mRi
-rzrKxO0MSd0s16e5ByC/RbVrxkq7Ut1Jh1TAjkHgwEZh5FtbM4oJWL5eLQg/vpRl
-5+AOtUxA/dLapULo7VNqXypbGbOZd+vrwNQ/WqqX9GWgtS0fgtypkTJ9ss4bCooG
-YIOVg+L+s5jH5mbJbvlwUCWEz8e/LEQX4N9CYRgJTQTSHrmWUXy6Rgg/z1ejmUkx
-3lacX6KfOfPv5kXPlG0aWas1YlhJic2Aar9/82qLk202SK1ZNX0rHhOuzt3pGi0Y
-xcjUBsayez7YY4UKrfCpEJYFiHq33o4ORgXJ8lyrnFWgK8O5p83B6jN7b7yiEvpI
-AUdw5K3aGj+ITVif5KObLqZkwNIvJ/z2poObpPeUMtg15e6ansGbNBSaeA5yeJn3
-/0UF8JlhWrVGLKTPxq5C2Y8adBv7lBVdJ20xU/tzMrLK7OMLcIw2xp6Srru1mEL4
-Re1LXIKyRi6HE/vRylsF
-=/VVO
------END PGP SIGNATURE-----
+This makes the spinlock prefetch in dev_queue_xmit() a little bit
+less effective, but that's the price right now for correctness.
 
---=-0c/p5HOpQIOIvObg05Yr--
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fdac115..9464e64 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -724,6 +724,9 @@ struct net_device
+ 	void                    (*poll_controller)(struct net_device *dev);
+ #endif
+ 
++	u16			(*select_queue)(struct net_device *dev,
++						struct sk_buff *skb);
++
+ #ifdef CONFIG_NET_NS
+ 	/* Network namespace this network device is inside */
+ 	struct net		*nd_net;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f027a1a..7ca9564 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1670,6 +1670,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ {
+ 	u16 queue_index = 0;
+ 
++	if (dev->select_queue)
++		queue_index = dev->select_queue(dev, skb);
++
+ 	skb_set_queue_mapping(skb, queue_index);
+ 	return netdev_get_tx_queue(dev, queue_index);
+ }
+@@ -1710,14 +1713,14 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	}
+ 
+ gso:
+-	txq = dev_pick_tx(dev, skb);
+-	spin_lock_prefetch(&txq->lock);
