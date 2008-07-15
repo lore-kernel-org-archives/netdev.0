@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/08]: VLAN update
-Date: Mon, 14 Jul 2008 22:56:50 -0700 (PDT)
-Message-ID: <20080714.225650.36459474.davem@davemloft.net>
-References: <20080709120945.11669.42790.sendpatchset@localhost.localdomain>
+Subject: Re: [PATCH net-next 1/7] ICMP: add struct net argument to
+ icmp_out_count
+Date: Mon, 14 Jul 2008 23:01:06 -0700 (PDT)
+Message-ID: <20080714.230106.147023557.davem@davemloft.net>
+References: <4871F2D8.8030502@openvz.org>
+	<4871F376.3060609@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45996
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56766
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753329AbYGOF4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 01:56:49 -0400
-In-Reply-To: <20080709120945.11669.42790.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752054AbYGOGBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 02:01:05 -0400
+In-Reply-To: <4871F376.3060609@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed,  9 Jul 2008 14:09:45 +0200 (MEST)
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Mon, 07 Jul 2008 14:44:06 +0400
 
-> These patches include an updated set of the VLAN packet socket fixes,
-> now also supporting VLAN TCI delivery to userspace using mmaped packet
-> sockets, as well as a patch to add ->get_flags ethtool support and
-> a few minor cleanup patches.
+> This routine deals with ICMP statistics, but doesn't have a
+> struct net at hands, so add one.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Applied and pushed out to net-next-2.6, thanks Patrick.
+Applied.
+
+Please use lowercase subsystem names in commit header lines
+in the future, I fixed it up this time.
+
+Thanks!
