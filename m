@@ -1,32 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/5] virtio net: Allow receiving SG packets
-Date: Tue, 15 Jul 2008 16:52:41 +0800
-Message-ID: <20080715085241.GB4285@gondor.apana.org.au>
-References: <200807151341.39337.rusty@rustcorp.com.au> <20080715035209.GB2657@gondor.apana.org.au> <200807151825.04627.rusty@rustcorp.com.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] wireless: fix warnings from QoS patch
+Date: Tue, 15 Jul 2008 02:09:23 -0700 (PDT)
+Message-ID: <20080715.020923.213382355.davem@davemloft.net>
+References: <20080714.204532.116542087.davem@davemloft.net>
+	<1216107805.23746.14.camel@johannes.berg>
+	<1216109364.23746.17.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37652 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755456AbYGOIw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 04:52:56 -0400
-Content-Disposition: inline
-In-Reply-To: <200807151825.04627.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216109364.23746.17.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 15, 2008 at 06:25:04PM +1000, Rusty Russell wrote:
->
-> Oops.  I grepped for LRO when I did this and found nothing.
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 15 Jul 2008 10:09:24 +0200
+
+> When I removed the special "default" meaning from the QoS
+> parameters, I forgot to update drivers and this lead to
+> warnings because some drivers were checking for the special
+> values and putting in defaults. This fixes that by removing
+> the default special-casing completely.
 > 
-> How's this one?
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-Looks good.  Thanks!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks for fixing this so fast Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
