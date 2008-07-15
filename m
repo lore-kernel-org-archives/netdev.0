@@ -1,49 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH RFC 07/10] mlx4_en: Rx flow
-Date: Tue, 15 Jul 2008 15:27:24 +0100
-Message-ID: <20080715142722.GX19302@solarflare.com>
-References: <487B65BE.6000100@mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [PATCH RFC 03/10] mlx4_en: net_device implementation
+Date: Tue, 15 Jul 2008 18:01:03 +0300
+Message-ID: <487CBBAF.9030704@mellanox.co.il>
+References: <487B657E.2040900@mellanox.co.il> <20080714194228.GU19302@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, netdev@vger.kernel.org,
 	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il,
 	Roland Dreier <rdreier@cisco.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:57657 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754152AbYGOO1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 10:27:32 -0400
-Content-Disposition: inline
-In-Reply-To: <487B65BE.6000100@mellanox.co.il>
+Received: from mail.mellanox.co.il ([194.90.237.43]:34734 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755178AbYGOPCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2008 11:02:07 -0400
+In-Reply-To: <20080714194228.GU19302@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yevgeny Petrilin wrote:
-[...]
-> +int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int budget)
-> +{
-[...]
-> +		if (likely(priv->rx_csum)) {
-> +			if ((cqe->flags_h & MLX4_EN_BIT_IPOK) &&
-> +			    (cqe->chksum == 0xffff)) {
-> +				/* This packet is eligible for LRO if it is:
-> +				 * - DIX Ethernet (type interpretation)
-> +				 * - TCP/IP (v4)
-> +				 * - without IP options
-> +				 * - not an IP fragment */
-> +				if ((*((__be32 *) &cqe->flags_h) &
-> +				     cpu_to_be32(TCPIP_MASK_32)) ==
-> +				     cpu_to_be32(LRO_MASK_32)) {
-[...]
+Ben Hutchings wrote:
+> 
+> This is already under RTNL; why do you need your own semaphore?
+> (And why are you using semaphores, not mutexes?)
 
-So far as I can see, your netdevs will neither advertise LRO nor provide any
-way to control it.  You need to implement ethtool get_flags/set_flags ops.
-If you use the standard implementations then you can just test
-priv->dev->features & NETIF_F_LRO here.
+We approach the device/port state from many functions, not all protected by the
+RTNL lock.
+You are right about the mutex, it needs to be changed.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Yevgeny
