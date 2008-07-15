@@ -1,33 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 8169 Intermittent ifup Failure Issue With RTL8102E Chipset in
-	Intel's New D945GCLF Atom Board (Not the Initial Modprobe Crash,
-	Another Problem)
-Date: Tue, 15 Jul 2008 20:58:46 +0200
-Message-ID: <20080715185846.GB27023@electric-eye.fr.zoreil.com>
-References: <4861800B.90703@nscus.com> <48777BC3.6090108@dell.com> <1216052460.23392.14.camel@localhost> <200807142152.26163.eike-kernel@sf-tec.de>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH RFC 00/10] mlx4_en: Mellanox ConnectX 10G NIC driver
+Date: Tue, 15 Jul 2008 12:12:00 -0700
+Message-ID: <adad4lfezcv.fsf@cisco.com>
+References: <487B655D.7030502@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kasper Sandberg <lkml@metanurb.dk>,
-	Mario Limonciello <mario_limonciello@dell.com>,
-	Michael Grollman <mgrollman@nscus.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43539 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762480AbYGOS7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 14:59:31 -0400
-Content-Disposition: inline
-In-Reply-To: <200807142152.26163.eike-kernel@sf-tec.de>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:19226 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754898AbYGOTME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 15:12:04 -0400
+In-Reply-To: <487B655D.7030502@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Mon, 14 Jul 2008 17:40:29 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rolf Eike Beer <eike-kernel@sf-tec.de> :
-[...]
-> Is there any chance this helps with the famous 8101 problems, e.g. 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6807 ?
+ > This series of patches are based on patches that were already sent to
+ > mlx4_core module.  See
+ > http://lists.openfabrics.org/pipermail/general/2008-July/052686.html
+ > for most updated patches.
 
-Yes, it is worth a try.
-
--- 
-Ueimor
+Thanks, will review the mxl4_core patches in the context of this
+support.  This helps a lot move everything forward.
