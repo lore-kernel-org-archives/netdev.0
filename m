@@ -1,52 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/13]: net: Implement simple sw TX hashing.
-Date: Tue, 15 Jul 2008 03:45:57 -0700 (PDT)
-Message-ID: <20080715.034557.06568516.davem@davemloft.net>
-References: <E1KIMIg-0007MB-00@gondolin.me.apana.org.au>
-	<20080714.045806.213105998.davem@davemloft.net>
-	<487C487C.5030403@cosmosbay.com>
+From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH net-next-2.6 v4 2/2] hfsc: add link layer overhead
+	adaption
+Date: Tue, 15 Jul 2008 13:52:44 +0300
+Message-ID: <20080715135244.17106mgc64fxlpj4@hayate.ip6>
+References: <20080710193434.19525.83454.stgit@fate.lan>
+	<20080710193440.19525.93085.stgit@fate.lan> <487B61A9.5090204@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=UTF-8;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56648
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754261AbYGOKp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 06:45:56 -0400
-In-Reply-To: <487C487C.5030403@cosmosbay.com>
+Received: from smtp2.dnainternet.fi ([87.94.96.112]:38977 "EHLO
+	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbYGOKwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 06:52:47 -0400
+In-Reply-To: <487B61A9.5090204@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 15 Jul 2008 08:49:32 +0200
+Quoting "Patrick McHardy" <kaber@trash.net>:
 
-> f2(X) = X % N ;
-> ->g2(X) = ((u64)X * N) >> 32;
-> 
-> But g2() is quite similar to g1() :)
-> 
-> f2() & g2() functions are different of course, but should give 
-> same hash spreading if X has an uniform distribution in 32bits space.
+>
+> I thought you were going to make this a generic qdisc feature.
+> Why is configuration still qdisc specific?
+>
 
-I thought about this some more and I'm having my doubts about
-this.
+I was thinking keeping scope of this patch within hfsc, as done with  
+rest of rate table qdiscs. So it would be better to have they all to  
+use generic size table instead of duplicating rtab code.
 
-Let's say N is 8, this means that all values of X smaller than
-0x20000000 will hash to zero.
+> I was thinking of something like this:
+>
+> - add generic attributes for configuring size tables for any
+>   qdisc, handle those in sch_api
+>
+> - add qdisc_enqueue() wrapper that calculates the size and
+>   stores it in skb->cb, convert direct calls of sch->enqueue
+>   to use it
+>
+> - change direct uses of skb->len to use the size from the cb
+>
+> The second step might need a bit more thought to make sure
+> qdiscs don't get confused when the dequeued packet is larger
+> than the enqueued one, but I think they usually don't care.
+>
 
-It means that all of your entropy comes from the top 3 bits of
-the X.
+I guess I'll start over using your size table patch as base then.
 
-So like hashlimit we'd need to use jhash or something like that
-to spread the bits around some more.
+  - Jussi
 
-I also wonder if we should add hash randomization like the ipv4
-routing cache.  I wonder if the performance hit is bad enough
-to warrant protection against that.  After all, if you "exploit"
-this hash you just end up with the performance we have today.
 
-For now I'm leaving the modulus in there until we understand this
-better.
 
