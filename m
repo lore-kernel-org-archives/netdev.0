@@ -1,60 +1,42 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: [PATCH 2/2] Fix 88e1111 copper/fiber selection in RGMII mode
-Date: Wed, 16 Jul 2008 21:46:20 +0800
-Message-ID: <487DFBAC.7090006@linux.net.cn>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: Re: sendfile() broken with 2.6.26 + Apache 2 ?
+Date: Wed, 16 Jul 2008 09:00:07 -0500
+Message-ID: <487DFEE7.4030308@bellsouth.net>
+References: <487CD7A7.2080800@jeffray.co.uk> <487D893A.5080207@cosmosbay.com>	 <487DA388.3030104@jeffray.co.uk> <487DBA74.3090800@cosmosbay.com>	 <487DF9EC.9060202@bellsouth.net> <84144f020807160641u32dac56fq9b9a30f6e32a27ca@mail.gmail.com>
+Reply-To: jacliburn@bellsouth.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexandr Smirnov <asmirnov@ru.mvista.com>,
-	Andy Fleming <afleming@freescale.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Ian Jeffray <ian@jeffray.co.uk>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	csnook@redhat.com, jeff@garzik.org
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [210.82.31.146] ([210.82.31.146]:49017 "EHLO mx.linux.net.cn"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757205AbYGPNqY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 09:46:24 -0400
+Received: from qw-out-2122.google.com ([74.125.92.24]:4896 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757496AbYGPOAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 10:00:15 -0400
+Received: by qw-out-2122.google.com with SMTP id 3so297354qwe.37
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 07:00:14 -0700 (PDT)
+In-Reply-To: <84144f020807160641u32dac56fq9b9a30f6e32a27ca@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MII_M1111_HWCFG_FIBER_COPPER_RES is a bit of MII_M1111_PHY_EXT_SR, not
-MII_M1111_PHY_EXT_CR.
+Pekka Enberg wrote:
+> On Wed, Jul 16, 2008 at 4:38 PM, J. K. Cliburn <jcliburn@gmail.com> wrote:
+>>> Yes, maybe related to commit 9d90fb1ac9d97da86e24d9ea947bf2a2f333829a
+>>> In this patch, Jay Cliburn enabled TSO by default for atl1 driver.
+>>>
+>>> This might be a driver problem, or a generic sendfile() problem, I dont
+>>> know...
+>> I'm currently traveling and unable to delve into this issue and its relation
+>> to the atl1 driver.  I should be able to look at it this weekend when I get
+>> back home.
+> 
+> Ehh... shouldn't we disable atl1 TSO by default for -stable, then?
 
-Signed-off-by: Wang Jian <lark@linux.net.cn>
----
- drivers/net/phy/marvell.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 737512c..4aa5479 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -158,7 +158,6 @@ static int m88e1111_config_init(struct phy_device
-*phydev)
- {
- 	int err;
- 	int temp;
--	int mode;
-
- 	/* Enable Fiber/Copper auto selection */
- 	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-@@ -198,9 +197,7 @@ static int m88e1111_config_init(struct phy_device
-*phydev)
-
- 		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
-
--		mode = phy_read(phydev, MII_M1111_PHY_EXT_CR);
--
--		if (mode & MII_M1111_HWCFG_FIBER_COPPER_RES)
-+		if (temp & MII_M1111_HWCFG_FIBER_COPPER_RES)
- 			temp |= MII_M1111_HWCFG_MODE_FIBER_RGMII;
- 		else
- 			temp |= MII_M1111_HWCFG_MODE_COPPER_RGMII;
--- 
-1.5.5.4
-
-
-
-
+Based upon my inability to look at the problem for a couple more days?
 
 
 
