@@ -1,76 +1,86 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
-Date: Wed, 16 Jul 2008 14:09:55 -0700
-Message-ID: <m1ej5t1qos.fsf@frodo.ebiederm.org>
-References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
-	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
-	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
-	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
-	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>
-	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
-	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
-	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
-	<487D6A24.9070001@gmail.com> <m17ibmbd39.fsf@frodo.ebiederm.org>
-	<487D8C0A.9060100@gmail.com> <m11w1u9w5j.fsf@frodo.ebiederm.org>
-	<487D99C7.708@gmail.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: IPV4: Enable IP_ID sequencing for all traffic (inquiring mindswant to know why its set to zero)
+Date: Wed, 16 Jul 2008 14:16:49 -0700
+Message-ID: <39C363776A4E8C4A94691D2BD9D1C9A104AFDAA4@XCH-NW-7V2.nw.nos.boeing.com>
+References: <487E4A6B.6040103@linux-foundation.org><20080716.133048.201600858.davem@davemloft.net><487E5C89.7050005@hp.com> <20080716.140100.20638484.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Tejun Heo <htejun@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <cl@linux-foundation.org>, <dlstevens@us.ibm.com>,
+	<netdev@vger.kernel.org>, <netdev-owner@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:52001 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757605AbYGPVMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 17:12:25 -0400
-In-Reply-To: <487D99C7.708@gmail.com> (Tejun Heo's message of "Wed, 16 Jul
-	2008 15:48:39 +0900")
+Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:45143 "EHLO
+	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755112AbYGPVej convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 17:34:39 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080716.140100.20638484.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo <htejun@gmail.com> writes:
->> To do that I believe we would need to ensure sysfs does not use 
->> the inode->i_mutex lock except to keep the VFS layer out.  Allowing us
->> to safely change the directory structure, without holding it.
+
+ >-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net] 
+>Sent: Wednesday, July 16, 2008 2:01 PM
+>To: rick.jones2@hp.com
+>Cc: cl@linux-foundation.org; dlstevens@us.ibm.com; 
+>netdev@vger.kernel.org; netdev-owner@vger.kernel.org
+>Subject: Re: IPV4: Enable IP_ID sequencing for all traffic 
+>(inquiring mindswant to know why its set to zero)
 >
-> I don't think sysfs is depending on i_mutex anymore but I need to go
-> through the code to make sure.
+>From: Rick Jones <rick.jones2@hp.com>
+>Date: Wed, 16 Jul 2008 13:39:37 -0700
+>
+>> I have vague recollections of wanting to avoid (then) locks on the 
+>> increment in the non-fragmented paths, assertions that 
+>covering cases 
+>> like intermediate devices ignoring DF and fragmenting anyway didn't 
+>> warrant concern etc.
+>
+>Partially, yes.
+>
+>If you look, we do increment the ID for TCP connections which will
+>be setting IP_DF, but we allocate such IDs in a socket-local manner
+>which keeps these allocations from depleating the real ID cache
+>for that destination.
+>
+>This is legal because when IP_DF is set, the IDs serve no purpose.
 
-The vfs still does. So at least for directory tree manipulation  we
-need to hold i_mutex before we grab sysfs_mutex.
+The other implied use for IP_ID is as a uniquifier for
+duplicate packet detection (DPD), e.g., to detect routing
+loops in the network. But, 16 bits doesn't give sufficient
+uniqueness for today's data rates anway, so flooding-based
+protocols like Simplified Multicast Forwarding (SMF) really
+can't use IP_ID by itself for that purpose.
 
-I think that means we need to unscramble the whole set of locking
-order issues.
+SEAL extends the IP_ID to 32 bits. With 32 bits, it makes
+sense to set it as monotonically-incrementing for every
+packet out since a network-based DPD mechanism could
+potentially make use of it. Also, 32 bits avoids the ID
+wraparound issue such that a segmentation and reassembly
+mechanism can be used even at high data rates.
 
-In lookup we have:
-local_vfs_lock -> fs_global_lock
+SEAL is specified in 'draft-templin-seal', and is also
+implemented at:
 
-In modifications we have:
-fs_global_lock -> local_vfs_lock
+  http://osprey67.com/seal
 
-Which is the definition of a lock ordering problem.
+This is linux kernel code, but it is not yet ready to be
+submitted to netdev. It would be good to get some extra
+eyes on the code to get some independent verification
+testing and to weed out any bugs. If anyone is interested
+in checking it out, please let me know.
 
-Currently we play jump through some significant hoops to keep things
-in local_vfs_lock -> fs_global_lock order.
+Thanks - Fred
+fred.l.templin@boeing.com 
 
-If we also take the rename_mutex on directory adds and deletes we
-may be able to keep jumping through those hoops.  However I expect
-we would be in a much better situation if we could figure out how
-to avoid the problem.
-
-It looks like the easy way to handle this is to make the sysfs_dirent
-list rcu protected.  Which means we can fix our lock ordering problem
-without VFS modifications.  Allowing the locking to always
-be: sysfs_mutex ... i_mutex.
-
-After that it would be safe and a good idea to have unshared
-inodes between superblocks, just so we don't surprise anyone
-making generic VFS assumptions.
-
-Eric
+>We had to do this because TCP header compression, used by SLIP et
+>al., depends upon the ID value incrementing.
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
