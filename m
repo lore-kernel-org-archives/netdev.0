@@ -1,47 +1,27 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next-2.6 2008-07-14
-Date: Wed, 16 Jul 2008 16:05:52 -0400
-Message-ID: <20080716200552.GA28827@tuxdriver.com>
-References: <20080714192302.GA2541@tuxdriver.com> <20080714.204532.116542087.davem@davemloft.net> <1ba2fa240807160549u68d9ecby25e79d832d772a0a@mail.gmail.com> <20080716.130007.11761812.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: IPV4: Enable IP_ID sequencing for all traffic (inquiring minds
+ want to know why its set to zero)
+Date: Wed, 16 Jul 2008 13:39:37 -0700
+Message-ID: <487E5C89.7050005@hp.com>
+References: <OF4F3F2DB0.24836443-ON88257488.0068C9C1-88257488.0068F7AD@us.ibm.com>	<487E4A6B.6040103@linux-foundation.org> <20080716.133048.201600858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tomasw@gmail.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: cl@linux-foundation.org, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4304 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757056AbYGPUbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 16:31:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20080716.130007.11761812.davem@davemloft.net>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:35230 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752318AbYGPUjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 16:39:41 -0400
+In-Reply-To: <20080716.133048.201600858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2008 at 01:00:07PM -0700, David Miller wrote:
-> From: "Tomas Winkler" <tomasw@gmail.com>
-> Date: Wed, 16 Jul 2008 15:49:34 +0300
-> 
-> > On Tue, Jul 15, 2008 at 6:45 AM, David Miller <davem@davemloft.net> wrote:
-> > > From: "John W. Linville" <linville@tuxdriver.com>
-> > > Date: Mon, 14 Jul 2008 15:23:02 -0400
-> > >
-> > > drivers/net/wireless/iwlwifi/iwl-led.c:271: warning: format '%lld' expects type 'long long int', but argument 6 has type 's64'
-> > > drivers/net/wireless/iwlwifi/iwl-led.c:271: warning: format '%lld' expects type 'long long int', but argument 7 has type 'u64'
-> > 
-> > I cannot reproduce this. Wasn't this conversion already solved or
-> > still need to cast to long long int?
-> 
-> You have to cast u64/s64 values to long long if you want to print them
-> using %llX specifiers, because some 64-bit platforms define these
-> types as plain "long".
+I have vague recollections of wanting to avoid (then) locks on the 
+increment in the non-fragmented paths, assertions that covering cases 
+like intermediate devices ignoring DF and fragmenting anyway didn't 
+warrant concern etc.
 
-There were a number of such warnings fixed in iwlwifi previously.
-It is possible that either one got lost in a merge conflict or this
-new one simply is reminding Tomas of one of the old ones.  Either way,
-it seems to be fixed now.
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+rick jones
