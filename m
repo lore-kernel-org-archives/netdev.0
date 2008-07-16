@@ -1,51 +1,104 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: TCP connection stalls under 2.6.24.7
-Date: Wed, 16 Jul 2008 10:07:56 +0200
-Message-ID: <200807161007.57367.thomas.jarosch@intra2net.com>
-References: <47EA0DAB.7080205@securenet.de> <200807151810.45942.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807152312080.6254@wrl-59.cs.helsinki.fi>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 1/20] ipv4: prepare net initialization for IP accounting
+Date: Wed, 16 Jul 2008 12:08:22 +0400
+Message-ID: <487DAC76.20708@openvz.org>
+References: <487DABB6.5080905@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Sven Riedel <sr@securenet.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	"=?iso-8859-15?q?D=E2niel?= Fraga" <fragabr@gmail.com>
-To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0807152312080.6254@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:38298 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753706AbYGPII3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 04:08:29 -0400
+In-Reply-To: <487DABB6.5080905@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Terve Ilpo,
+Some places, that deal with IP statistics already have where to
+get a struct net from, but use it directly, without declaring
+a separate variable on the stack.
 
-On Tuesday, 15. July 2008 22:17:47 Ilpo J=E4rvinen wrote:
-> > I can easily reproduce the problem, so how do we go from here?
->
-> FRTO in 2.6.24.y is broken, I recently fixed couple of things in FRTO=
-,
-> late 2.6.25.y or 2.6.26 should be used to have all the fixes. If you =
-can
-> reproce with either one, please tcpdump it (I just returned, was coup=
-le of
-> weeks away, so I'm slowly catching up what has happened in between he=
-re).
-> ...I guess somebody had dumped at least 2.6.24.y but that's not
-> interesting due to known (and fixed) bugs with FRTO.
+So, save this net on the stack for future IP_XXX_STATS macros.
 
-I tried 2.6.25.10 without luck. I have a git "master" tree from yesterd=
-ay=20
-which is also stalling for some seconds around ~220kb and then recoveri=
-ng.=20
-The connection completly stalls at around ~1.3mb. I'll send you a tcpdu=
-mp
-in private soon as it's going to be rather big for the mailinglist.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+---
+ net/ipv4/inet_connection_sock.c |    3 ++-
+ net/ipv4/ip_fragment.c          |    6 +++---
+ net/ipv4/udp.c                  |    4 +++-
+ 3 files changed, 8 insertions(+), 5 deletions(-)
 
-Thomas
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 5bbf000..8338e10 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -338,9 +338,10 @@ struct dst_entry* inet_csk_route_req(struct sock *sk,
+ 			    .uli_u = { .ports =
+ 				       { .sport = inet_sk(sk)->sport,
+ 					 .dport = ireq->rmt_port } } };
++	struct net *net = sock_net(sk);
+ 
+ 	security_req_classify_flow(req, &fl);
+-	if (ip_route_output_flow(sock_net(sk), &rt, &fl, sk, 0)) {
++	if (ip_route_output_flow(net, &rt, &fl, sk, 0)) {
+ 		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return NULL;
+ 	}
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index fbd5804..e23be5b 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -187,8 +187,10 @@ static void ip_evictor(struct net *net)
+ static void ip_expire(unsigned long arg)
+ {
+ 	struct ipq *qp;
++	struct net *net;
+ 
+ 	qp = container_of((struct inet_frag_queue *) arg, struct ipq, q);
++	net = container_of(qp->q.net, struct net, ipv4.frags);
+ 
+ 	spin_lock(&qp->q.lock);
+ 
+@@ -202,9 +204,7 @@ static void ip_expire(unsigned long arg)
+ 
+ 	if ((qp->q.last_in & INET_FRAG_FIRST_IN) && qp->q.fragments != NULL) {
+ 		struct sk_buff *head = qp->q.fragments;
+-		struct net *net;
+ 
+-		net = container_of(qp->q.net, struct net, ipv4.frags);
+ 		/* Send an ICMP "Fragment Reassembly Timeout" message. */
+ 		if ((head->dev = dev_get_by_index(net, qp->iif)) != NULL) {
+ 			icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+@@ -570,9 +570,9 @@ int ip_defrag(struct sk_buff *skb, u32 user)
+ 	struct ipq *qp;
+ 	struct net *net;
+ 
++	net = skb->dev ? dev_net(skb->dev) : dev_net(skb->dst->dev);
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
+ 
+-	net = skb->dev ? dev_net(skb->dev) : dev_net(skb->dst->dev);
+ 	/* Start by cleaning up the memory. */
+ 	if (atomic_read(&net->ipv4.frags.mem) > net->ipv4.frags.high_thresh)
+ 		ip_evictor(net);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index fdd4faa..048ef57 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -656,8 +656,10 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 				    .uli_u = { .ports =
+ 					       { .sport = inet->sport,
+ 						 .dport = dport } } };
++		struct net *net = sock_net(sk);
++
+ 		security_sk_classify_flow(sk, &fl);
+-		err = ip_route_output_flow(sock_net(sk), &rt, &fl, sk, 1);
++		err = ip_route_output_flow(net, &rt, &fl, sk, 1);
+ 		if (err) {
+ 			if (err == -ENETUNREACH)
+ 				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+-- 
+1.5.5.1
+
+
