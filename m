@@ -1,48 +1,53 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Wed, 16 Jul 2008 09:36:24 -0700
-Message-ID: <adafxq9bxbr.fsf@cisco.com>
-References: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
-	<20080715211514.25848d8a@extreme>
-	<72981EBCFD196144B7C6999B9FC34A9A3EE60EA59C@SHEXMB-01.global.atheros.com>
-	<20080716085329.03e97b2a@extreme>
+From: Pidoux <f6bvp@free.fr>
+Subject: Re: [PATCH] [ROSE] improving AX25 routing frames
+Date: Wed, 16 Jul 2008 19:29:50 +0200
+Message-ID: <487E300E.3020601@free.fr>
+References: <4836E223.8080003@upmc.fr>	<20080603.145827.170048802.davem@davemloft.net>	<48787A48.5030907@free.fr> <20080714.231423.94246492.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jie Yang <Jie.Yang@Atheros.com>,
-	"jeff\@garzik.org" <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	"jcliburn\@gmail.com" <jcliburn@gmail.com>,
-	"parag.warudkar\@gmail.com" <parag.warudkar@gmail.com>,
-	Willy Tarreau <w@1wt.eu>,
-	"oliver.schuster\@schweigstill.de" <oliver.schuster@schweigstill.de>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:19805 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608AbYGPQg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 12:36:26 -0400
-In-Reply-To: <20080716085329.03e97b2a@extreme> (Stephen Hemminger's message of
-	"Wed, 16 Jul 2008 08:53:29 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bpidoux@free.fr, ralf@linux-mips.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20080714.231423.94246492.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > Output of checkpatch (scripts/checkpatch.pl in kernel source).
- > Personally, I am not a whitespace bigot, and don't think
- > all the warnings in checkpatch have to be fixed.
- > 
- > ----------
- > ERROR: patch seems to be corrupt (line wrapped?)
- > #121: FILE: drivers/net/atl1e/atl1e.h:9:
- > ree
- > 
- > WARNING: space prohibited between function name and open parenthesis '('
- > #212: FILE: drivers/net/atl1e/atl1e.h:97:
- > +       _tpd =3D (((_vlan) << (4)) | (((_vlan) >> 13) & 7) |\
+David,
 
-It's kind of pointless to run checkpatch on a corrupted patch (the email
-was quoted-printable and you didn't decode it back to text).  Of course
-it's also better to send non-mangled patches.
+This is great news indeed.
+I am not pulling net-next-2.6 GIT tree, but only net-2.6.
+As I did not received any acknowledgement I thought you did not had tim=
+e to review my patch.
+Thanks a lot.
 
- - R.
+Bernard
+
+David Miller a =E9crit :
+> From: Bernard Pidoux <bpidoux@free.fr>
+> Date: Sat, 12 Jul 2008 11:32:56 +0200
+>=20
+>> You probably did not notice the following patch I re-sent a while ag=
+o at=20
+>> your request:
+>>
+>> 200806071944.07304.bpidoux () free ! fr
+>>
+>> Although it is not critical for Linux kernel and for general users, =
+it=20
+>> it of valuable interest for the digital hamradio community as it rep=
+airs=20
+>> the rose network routing and gives us the connectivity we are lackin=
+g.
+>=20
+> It's been in my net-next-2.6 GIT tree for weeks, and I will merge it
+> in during the 2.6.27 merge window.
+> --
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
