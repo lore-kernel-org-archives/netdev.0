@@ -1,109 +1,67 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: [patch 16/17] LTTng instrumentation - ipv6
-Date: Tue, 15 Jul 2008 18:26:20 -0400
-Message-ID: <20080715222749.533476549@polymtl.ca>
-References: <20080715222604.331269462@polymtl.ca>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Frank Ch. Eigler" <fche@redhat.com>,
-	Hideo AOKI <haoki@redhat.com>,
-	Takashi Nishiie <t-nishiie@np.css.fujitsu.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Eduard - Gabriel Munteanu <eduard.munteanu@linux360.ro>
-To: akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Masami Hiramatsu <mhiramat@redhat.com>
+From: Brandon Philips <brandon@ifup.org>
+Subject: Re: [RFC] ethtool: Expand ethtool_cmd.speed to 32 bits
+Date: Tue, 15 Jul 2008 23:47:09 -0700
+Message-ID: <20080716064709.GA2424@potty.ifup.org>
+References: <20080715091841.GA6553@potty.ifup.org> <487D1C4C.9080103@hp.com> <20080715.152758.193724361.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: rick.jones2@hp.com, jgarzik@pobox.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.polymtl.ca ([132.207.4.11]:47386 "EHLO smtp.polymtl.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762628AbYGOW3c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2008 18:29:32 -0400
-Content-Disposition: inline; filename=lttng-instrumentation-ipv6.patch
+Received: from wf-out-1314.google.com ([209.85.200.170]:4579 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753749AbYGOWlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 18:41:24 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so5499380wfd.4
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2008 15:41:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080715.152758.193724361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instrument addr_add and del of network interfaces. Lets a tracer know the
-interface address changes.
+On 15:27 Tue 15 Jul 2008, David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Tue, 15 Jul 2008 14:53:16 -0700
+> 
+> > Brandon Philips wrote:
+> > > Introduce the speed_hi field to ethtool_cmd, using the reserved space,
+> > > to expand the speed field to 2^32 Megabits/second.
+> > > 
+> > > Making this field expansion now gives us plenty of time to fix up the
+> > > user-space pieces that use SIOCETHTOOL before hardware faster than 64
+> > > Gb/s is available.
+> > > 
+> > > Signed-off-by: Brandon Philips <bphilips@suse.de>
+> > > 
+> > > ---
+> > >  include/linux/ethtool.h |   17 ++++++++++++++++-
+> > >  1 file changed, 16 insertions(+), 1 deletion(-)
+> > > 
+> > > Index: linux-2.6/include/linux/ethtool.h
+> > > ===================================================================
+> > > --- linux-2.6.orig/include/linux/ethtool.h
+> > > +++ linux-2.6/include/linux/ethtool.h
+> > > @@ -27,9 +27,24 @@ struct ethtool_cmd {
+> > >  	__u8	autoneg;	/* Enable or disable autonegotiation */
+> > >  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+> > >  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+> > > -	__u32	reserved[4];
+> > > +	__u16	speed_hi;
+> > > +	__u16	reserved2;
+> > > +	__u32	reserved[3];
+> > >  };
+> > 
+> > I certainly agree with the concept of preparing for faster NICs.  Are 
+> > bits in that structure sufficiently precious to go the split route, or 
+> > would it be cleaner to just grab a contiguous 32 bits from the structure?
+> 
+> That's less space we can use to make similar expansions.
+> 
+> And we have to keep the existing u16 chunk there anyways, because existing
+> applications are only going to provide that part.
 
-Those tracepoints are used by LTTng.
+Agreed.  Can this be queued for 2.6.27 then?
 
-About the performance impact of tracepoints (which is comparable to markers),
-even without immediate values optimizations, tests done by Hideo Aoki on ia64
-show no regression. His test case was using hackbench on a kernel where
-scheduler instrumentation (about 5 events in code scheduler code) was added.
-See the "Tracepoints" patch header for performance result detail.
+Thanks,
 
-Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-CC: Pekka Savola <pekkas@netcore.fi>
-CC: netdev@vger.kernel.org
-CC: David S. Miller <davem@davemloft.net>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-CC: Masami Hiramatsu <mhiramat@redhat.com>
-CC: 'Peter Zijlstra' <peterz@infradead.org>
-CC: "Frank Ch. Eigler" <fche@redhat.com>
-CC: 'Ingo Molnar' <mingo@elte.hu>
-CC: 'Hideo AOKI' <haoki@redhat.com>
-CC: Takashi Nishiie <t-nishiie@np.css.fujitsu.com>
-CC: 'Steven Rostedt' <rostedt@goodmis.org>
-CC: Eduard - Gabriel Munteanu <eduard.munteanu@linux360.ro>
----
- include/trace/ipv6.h |   14 ++++++++++++++
- net/ipv6/addrconf.c  |    4 ++++
- 2 files changed, 18 insertions(+)
-
-Index: linux-2.6-lttng/net/ipv6/addrconf.c
-===================================================================
---- linux-2.6-lttng.orig/net/ipv6/addrconf.c	2008-07-15 14:51:51.000000000 -0400
-+++ linux-2.6-lttng/net/ipv6/addrconf.c	2008-07-15 15:16:14.000000000 -0400
-@@ -85,6 +85,7 @@
- 
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-+#include <trace/ipv6.h>
- 
- /* Set to 3 to get tracing... */
- #define ACONF_DEBUG 2
-@@ -650,6 +651,8 @@ ipv6_add_addr(struct inet6_dev *idev, co
- 	/* For caller */
- 	in6_ifa_hold(ifa);
- 
-+	trace_ipv6_addr_add(ifa);
-+
- 	/* Add to big hash table */
- 	hash = ipv6_addr_hash(addr);
- 
-@@ -2163,6 +2166,7 @@ static int inet6_addr_del(struct net *ne
- 			in6_ifa_hold(ifp);
- 			read_unlock_bh(&idev->lock);
- 
-+			trace_ipv6_addr_del(ifp);
- 			ipv6_del_addr(ifp);
- 
- 			/* If the last address is deleted administratively,
-Index: linux-2.6-lttng/include/trace/ipv6.h
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6-lttng/include/trace/ipv6.h	2008-07-15 15:16:14.000000000 -0400
-@@ -0,0 +1,14 @@
-+#ifndef _TRACE_IPV6_H
-+#define _TRACE_IPV6_H
-+
-+#include <net/if_inet6.h>
-+#include <linux/tracepoint.h>
-+
-+DEFINE_TRACE(ipv6_addr_add,
-+	TPPROTO(struct inet6_ifaddr *ifa),
-+	TPARGS(ifa));
-+DEFINE_TRACE(ipv6_addr_del,
-+	TPPROTO(struct inet6_ifaddr *ifa),
-+	TPARGS(ifa));
-+
-+#endif
-
--- 
-Mathieu Desnoyers
-Computer Engineering Ph.D. Student, Ecole Polytechnique de Montreal
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+	Brandon
