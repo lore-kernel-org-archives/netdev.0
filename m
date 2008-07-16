@@ -1,53 +1,38 @@
-From: Pidoux <f6bvp@free.fr>
-Subject: Re: [PATCH] [ROSE] improving AX25 routing frames
-Date: Wed, 16 Jul 2008 19:29:50 +0200
-Message-ID: <487E300E.3020601@free.fr>
-References: <4836E223.8080003@upmc.fr>	<20080603.145827.170048802.davem@davemloft.net>	<48787A48.5030907@free.fr> <20080714.231423.94246492.davem@davemloft.net>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Compilation error on drivers/md/raid6int8.c on net-next-2.6
+Date: Wed, 16 Jul 2008 14:56:28 -0300
+Message-ID: <487E364C.3050200@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bpidoux@free.fr, ralf@linux-mips.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080714.231423.94246492.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-next@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from igw2.br.ibm.com ([32.104.18.25]:35842 "EHLO igw2.br.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752909AbYGPR5l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 13:57:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+I just pulled net-next-2.6 and compiling it on a ppc machine I got the 
+following error:
 
-This is great news indeed.
-I am not pulling net-next-2.6 GIT tree, but only net-2.6.
-As I did not received any acknowledgement I thought you did not had tim=
-e to review my patch.
-Thanks a lot.
 
-Bernard
+  CC [M]  drivers/md/raid6tables.o
+  CC [M]  drivers/md/raid6int8.o
+drivers/md/raid6int8.c: In function `raid6_int8_gen_syndrome':
+drivers/md/raid6int8.c:185: error: unable to find a register to spill in 
+class `FLOAT_REGS'
+drivers/md/raid6int8.c:185: error: this is the insn:
+(insn:HI 619 799 638 4 drivers/md/raid6int8.c:168 (set (mem:DI (plus:DI 
+(reg/v/f:DI 122 [ p ])
+                (reg/v:DI 66 ctr [orig:124 d ] [124])) [0 S8 A64])
+        (reg/v:DI 129 [ wp0 ])) 320 {*movdi_internal64} (nil)
+    (expr_list:REG_DEAD (reg/v:DI 129 [ wp0 ])
+        (nil)))
+drivers/md/raid6int8.c:185: confused by earlier errors, bailing out
+make[2]: *** [drivers/md/raid6int8.o] Error 1
+make[1]: *** [drivers/md] Error 2
+make: *** [drivers] Error 2
 
-David Miller a =E9crit :
-> From: Bernard Pidoux <bpidoux@free.fr>
-> Date: Sat, 12 Jul 2008 11:32:56 +0200
->=20
->> You probably did not notice the following patch I re-sent a while ag=
-o at=20
->> your request:
->>
->> 200806071944.07304.bpidoux () free ! fr
->>
->> Although it is not critical for Linux kernel and for general users, =
-it=20
->> it of valuable interest for the digital hamradio community as it rep=
-airs=20
->> the rose network routing and gives us the connectivity we are lackin=
-g.
->=20
-> It's been in my net-next-2.6 GIT tree for weeks, and I will merge it
-> in during the 2.6.27 merge window.
-> --
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
