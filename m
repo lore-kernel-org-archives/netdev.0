@@ -1,64 +1,76 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 0/2]: VLAN filtering fixes
-Date: Wed, 16 Jul 2008 14:03:33 -0700
-Message-ID: <9929d2390807161403g6db1247due0a209a088846a89@mail.gmail.com>
-References: <487DC2C4.9030006@trash.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
+Date: Wed, 16 Jul 2008 14:09:55 -0700
+Message-ID: <m1ej5t1qos.fsf@frodo.ebiederm.org>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
+	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
+	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
+	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>
+	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
+	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
+	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
+	<487D6A24.9070001@gmail.com> <m17ibmbd39.fsf@frodo.ebiederm.org>
+	<487D8C0A.9060100@gmail.com> <m11w1u9w5j.fsf@frodo.ebiederm.org>
+	<487D99C7.708@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Tejun Heo <htejun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:61561 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754102AbYGPVDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 17:03:48 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so3329862waf.23
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 14:03:47 -0700 (PDT)
-In-Reply-To: <487DC2C4.9030006@trash.net>
-Content-Disposition: inline
+Received: from out02.mta.xmission.com ([166.70.13.232]:52001 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757605AbYGPVMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 17:12:25 -0400
+In-Reply-To: <487D99C7.708@gmail.com> (Tejun Heo's message of "Wed, 16 Jul
+	2008 15:48:39 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2008 at 2:43 AM, Patrick McHardy <kaber@trash.net> wrote:
-> These two patches contain the last bits of my VLAN + tcpdump fixes.
-> Currently some (all?) drivers have inconsistent behaviour wrt. VLAN
-> filtering and promiscous mode:
+Tejun Heo <htejun@gmail.com> writes:
+>> To do that I believe we would need to ensure sysfs does not use 
+>> the inode->i_mutex lock except to keep the VFS layer out.  Allowing us
+>> to safely change the directory structure, without holding it.
 >
-> They start with disabled VLAN filtering, meaning all VLAN packets
-> are received on packet sockets. When adding the first VLAN, VLAN
-> filtering is enabled and only packets for locally configured VLANs
-> are received, even in promiscous mode. In most cases VLAN filtering
-> is disabled again when removing the last VLAN, igxbe keeps it enabled
-> permanently however.
->
-> These patches change the Intel drivers to always enable VLAN filtering
-> while not in promiscous mode since there is little point in receiving
-> VLAN packets while nothing is interested in them, but disable filtering
-> while in promiscous mode so all VLANs are visible to packet sockets.
->
-> There are four more drivers that support VLAN filtering that I didn't
-> adapt to this behaviour since I'm not sure about what exactly they
-> currently do. All four of tehuti, starfire, ehea and via-velocity
-> have a flag for the hardware to enable promiscous mode, its unknown
-> to me whether this also automatically disables VLAN filtering.
-> Any information on this someone might have is appreciated.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> I don't think sysfs is depending on i_mutex anymore but I need to go
+> through the code to make sure.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+The vfs still does. So at least for directory tree manipulation  we
+need to hold i_mutex before we grab sysfs_mutex.
 
+I think that means we need to unscramble the whole set of locking
+order issues.
 
--- 
-Cheers,
-Jeff
+In lookup we have:
+local_vfs_lock -> fs_global_lock
+
+In modifications we have:
+fs_global_lock -> local_vfs_lock
+
+Which is the definition of a lock ordering problem.
+
+Currently we play jump through some significant hoops to keep things
+in local_vfs_lock -> fs_global_lock order.
+
+If we also take the rename_mutex on directory adds and deletes we
+may be able to keep jumping through those hoops.  However I expect
+we would be in a much better situation if we could figure out how
+to avoid the problem.
+
+It looks like the easy way to handle this is to make the sysfs_dirent
+list rcu protected.  Which means we can fix our lock ordering problem
+without VFS modifications.  Allowing the locking to always
+be: sysfs_mutex ... i_mutex.
+
+After that it would be safe and a good idea to have unshared
+inodes between superblocks, just so we don't surprise anyone
+making generic VFS assumptions.
+
+Eric
