@@ -1,33 +1,21 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 10/10] mv643xx_eth: bump version to 1.2
-Date: Wed, 16 Jul 2008 12:33:09 +0200
-Message-ID: <20080716103309.GK8545@xi.wantstofly.org>
+From: Rita Dominguez <janetferguson54@cia.com>
+Subject: come see our petite teens
+Date: Wed, 16 Jul 2008 11:15:33 GMT
+Message-ID: <487DD855.1030796@mx.cia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:44745 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756710AbYGPKdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 06:33:10 -0400
-Content-Disposition: inline
+Received: from 243.6-243-81.adsl-static.isp.belgacom.be ([81.243.6.243]:63572
+	"HELO 243.6-243-81.adsl-static.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751227AbYGPLPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 07:15:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 006ad45..433f560 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -55,7 +55,7 @@
- #include <asm/system.h>
- 
- static char mv643xx_eth_driver_name[] = "mv643xx_eth";
--static char mv643xx_eth_driver_version[] = "1.1";
-+static char mv643xx_eth_driver_version[] = "1.2";
- 
- #define MV643XX_ETH_CHECKSUM_OFFLOAD_TX
- #define MV643XX_ETH_NAPI
--- 
-1.5.3.4
+cute myspace teens
+
+http://godozafu67070.blogspot.com
+
