@@ -1,47 +1,61 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] net: make __skb_splice_bits static
-Date: Wed, 16 Jul 2008 12:51:20 -0700
-Message-ID: <1216237880.28841.20.camel@brick>
+From: Rumen Bogdanovski <rumen@voicecho.com>
+Subject: Re: [PATCH] IPVS: More reliable subchronization on connection
+	close.
+Date: Wed, 16 Jul 2008 22:49:38 +0300
+Message-ID: <1216237778.6260.1.camel@lappy>
+References: <20080716063519.GA5144@verge.net.au>
+Reply-To: rumen@voicecho.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-next <linux-next@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: LVS Devel <lvs-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Joseph Mack NA3T <jmack@wm7d.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:15838 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758164AbYGPTvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 15:51:23 -0400
-Received: by qw-out-2122.google.com with SMTP id 3so376125qwe.37
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 12:51:22 -0700 (PDT)
+Received: from mout.perfora.net ([74.208.4.197]:55741 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754531AbYGPTyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 15:54:35 -0400
+In-Reply-To: <20080716063519.GA5144@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/core/skbuff.c:1335:5: warning: symbol '__skb_splice_bits' was not declared. Should it be static?
-
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-Appeared between next-20080715->next-20080716
-
- net/core/skbuff.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 48a4372..e411567 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1332,7 +1332,7 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
-  * Map linear and fragment data from the skb to spd. It reports failure if the
-  * pipe is full or if we already spliced the requested length.
-  */
--int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
-+static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 		      unsigned int *len,
- 		      struct splice_pipe_desc *spd)
- {
--- 
-1.5.6.3.499.geae9
+Would you please change the Subject to (a typo fix):
+[PATCH] IPVS: More reliable synchronization on connection close.
 
 
+On Wed, 2008-07-16 at 16:35 +1000, Simon Horman wrote:
+> From: Rumen Bogdanovski <rumen@voicecho.com>
+> 
+> This patch enhances the synchronization of the closing connections
+> between the master and the backup director. It prevents the closed
+> connections to expire with the 15 min timeout of the ESTABLISHED
+> state on the backup and makes them expire as they would do on the
+> master with much shorter timeouts.
+> 
+> Cc: Joseph Mack NA3T <jmack@wm7d.net>
+> Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
+> Acked-by: Simon Horman <horms@verge.net.au>
+> 
+> --- 
+> 
+> Hi Dave,
+> 
+> please consider applying this.
+> 
+> diff -Naur net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c net-2.6/net/ipv4/ipvs/ip_vs_core.c
+> --- net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:23:44.000000000 +0300
+> +++ net-2.6/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:27:31.000000000 +0300
+> @@ -993,7 +993,8 @@
+>  	       == sysctl_ip_vs_sync_threshold[0])) ||
+>  	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
+>  	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
+> -	       (cp->state == IP_VS_TCP_S_CLOSE)))))
+> +	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
+> +	       (cp->state == IP_VS_TCP_S_TIME_WAIT)))))
+>  		ip_vs_sync_conn(cp);
+>  	cp->old_state = cp->state;
+>  
 
