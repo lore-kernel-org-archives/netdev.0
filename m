@@ -1,76 +1,61 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/2] net/ieee80211: adjust error handling
-Date: Wed, 16 Jul 2008 16:34:54 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0807161634310.28783@ask.diku.dk>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: IPV4: Enable IP_ID sequencing for all traffic (inquiring minds want
+ to know why its set to zero)
+Date: Wed, 16 Jul 2008 09:56:21 -0500
+Message-ID: <487E0C15.1070001@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:53411 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756701AbYGPOe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 10:34:59 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47914 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754587AbYGPO42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 10:56:28 -0400
+Received: from [127.0.0.1] ([38.98.147.130])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id m6GEuQkk003417
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 07:56:28 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
 
-Converts a test in error handling code to a sequence of labels.
+There is some security reason why we set IP_ID == 0 right? Could someone point me at the discussions that lead to having IP_ID be zero? Have not been involved in network that much so forgive my ignorance.... and I can only find some hints about why this was done here and there using google.
 
-The semantic match that found the problem is:
-(http://www.emn.fr/x-info/coccinelle/)
 
-// <smpl>
-@@
-expression E,E1,E2;
-@@
 
-E = alloc_etherdev(...)
-... when != E = E1
-if (...) { ... free_netdev(E); ... return ...; }
-... when != E = E2
-(
-  if (...)
-   {
-   ... when != free_netdev(E);
-   return dev; }
-|
-* if (...)
-   {
-   ... when != free_netdev(E);
-   return ...; }
-|
-register_netdev(E)
-)
+Here is a patch that would reenable IP_ID sequencing
 
-// </smpl>
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+Subject: [IPV4] Enable IP_ID sequencing on all traffic
 
----
-diff -u -p a/net/ieee80211/ieee80211_module.c b/net/ieee80211/ieee80211_module.c
---- a/net/ieee80211/ieee80211_module.c
-+++ b/net/ieee80211/ieee80211_module.c
-@@ -157,7 +157,7 @@ struct net_device *alloc_ieee80211(int s
- 	err = ieee80211_networks_allocate(ieee);
- 	if (err) {
- 		IEEE80211_ERROR("Unable to allocate beacon storage: %d\n", err);
--		goto failed;
-+		goto failed_free_netdev;
- 	}
- 	ieee80211_networks_initialize(ieee);
+The current Linux sources disable IP_ID if the DF flag is set (not always. There
+is an exception for VJ compression on certain windows platforms).
+
+Just remove the check for the DF flag and always generate the ipid.
+
+Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+
+Index: linux-2.6/include/net/ip.h
+===================================================================
+--- linux-2.6.orig/include/net/ip.h	2008-07-16 08:47:50.000000000 -0500
++++ linux-2.6/include/net/ip.h	2008-07-16 08:48:01.000000000 -0500
+@@ -217,16 +217,7 @@
  
-@@ -193,9 +193,9 @@ struct net_device *alloc_ieee80211(int s
- 
- 	return dev;
- 
--      failed:
--	if (dev)
--		free_netdev(dev);
-+failed_free_netdev:
-+	free_netdev(dev);
-+failed:
- 	return NULL;
+ static inline void ip_select_ident(struct iphdr *iph, struct dst_entry *dst, struct sock *sk)
+ {
+-	if (iph->frag_off & htons(IP_DF)) {
+-		/* This is only to work around buggy Windows95/2000
+-		 * VJ compression implementations.  If the ID field
+-		 * does not change, they drop every other packet in
+-		 * a TCP stream using header compression.
+-		 */
+-		iph->id = (sk && inet_sk(sk)->daddr) ?
+-					htons(inet_sk(sk)->id++) : 0;
+-	} else
+-		__ip_select_ident(iph, dst, 0);
++	__ip_select_ident(iph, dst, 0);
  }
  
+ static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
