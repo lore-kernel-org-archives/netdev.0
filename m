@@ -1,60 +1,79 @@
-From: Tejun Heo <teheo@suse.de>
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
- for device classes.
-Date: Wed, 16 Jul 2008 16:02:36 +0900
-Message-ID: <487D9D0C.3060105@suse.de>
-References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>	<487D6A24.9070001@gmail.com> <m17ibmbd39.fsf@frodo.ebiederm.org>	<487D8C0A.9060100@gmail.com> <m11w1u9w5j.fsf@frodo.ebiederm.org> <487D99C7.708@gmail.com>
+From: Ian Jeffray <ian@jeffray.co.uk>
+Subject: Re: sendfile() broken with 2.6.26 + Apache 2 ?
+Date: Wed, 16 Jul 2008 08:30:16 +0100
+Message-ID: <487DA388.3030104@jeffray.co.uk>
+References: <487CD7A7.2080800@jeffray.co.uk> <487D893A.5080207@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:33097 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbYGPHDM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 03:03:12 -0400
-In-Reply-To: <487D99C7.708@gmail.com>
+Received: from smtp-out5.blueyonder.co.uk ([195.188.213.8]:52035 "EHLO
+	smtp-out5.blueyonder.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751618AbYGPHaV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 03:30:21 -0400
+In-Reply-To: <487D893A.5080207@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo wrote:
-> Hello, Eric.
-> 
-> Eric W. Biederman wrote:
->> Tejun Heo <htejun@gmail.com> writes:
+Hi Eric,
+
+Thanks for directing me to a better list.
+
+=46urther responses below:
+
+Eric Dumazet wrote:
+> CC to netdev where this report might find better answers
+>=20
+> Ian Jeffray a =E9crit :
+>> All,
 >>
->>> It's a bit scary tho.  Working inode->i_dentry or dentry->d_alias
->>> crosses multiple sb's.  sysfs isn't too greedy about dcache/icache.
->>> Only open files and directories hold them and only single copy of
->>> sysfs_dirent is there for most nodes.  Wouldn't it be better to stay on
->>> the safer side and use separate inode hierarchy?
->> To do that I believe we would need to ensure sysfs does not use 
->> the inode->i_mutex lock except to keep the VFS layer out.  Allowing us
->> to safely change the directory structure, without holding it.
-> 
-> I don't think sysfs is depending on i_mutex anymore but I need to go
-> through the code to make sure.
-> 
->> You raise a good point about inode->i_dentry and dentry->d_alias.
->> Generally they are used by fat like filesystems but I am starting to
->> see uses in generic pieces of code.  I don't see any problems today
->> but yes it would be good to do the refactoring to allow us to duplicate
->> the inodes. 
-> 
-> Yeah, I can't spot any place which can cause actual problem yet but it's
-> still scary as we're breaking a vfs assumption and even if it's not a
-> problem now, future seemingly unrelated changes can break things subtly.
+>> I moved from kernel 2.6.25.4 to 2.6.26 yesterday and observed that
+>> large files sent via Apache2 are partially corrupt.
+>>
+>> This appears to be linked to sendfile() -- disabling the use of
+>> sendfile in the apache config (EnableSendfile Off) allows it to
+>> function as normal.
+>>
+>> My system is a simple Core2Duo running Debian lenny/sid; nothing
+>> special, and I have never observed problems like this before.
+>>
+>> The problem feels certainly related to sendfile() since the data
+>> reads correctly from disc in other programs, and via CIFS etc.
+>>
+>> The corruption happens part-way in to the file... I've no exact
+>> figure but it would seem like maybe 32KB -- I'm seeing broken
+>> PNGs served from Apache, where the top few dozen lines decode
+>> correctly, and the rest is garbage.
+>>
+>> I've made basically no configuration changes between 2.6.25.4 and
+>> 2.6.26 and have explicitly tried both enabling and disabling the
+>> new PAT support to no effect.
+>>
+>> This is completely repeatable and reproducible.
+>>
+>> Is anyone else seeing this broken behaviour?
+>>
+>=20
+>=20
+> What kind of network adapter are you using ? (lspci | grep -i ether)
 
-Okay, one small problem spotted.  It seems invalidate_inodes() can fail
-which will make generic_shutdown_super() complain.  It's not a fatal
-failure tho.
+02:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit=20
+Ethernet Adapter (rev b0)
 
--- 
-tejun
+
+> If you disable TCP segmentation offload on this NIC (ethtool -K eth0 =
+tso=20
+> off) , is this problem still present ?
+
+Wow.  That 'solves' the problem!  Great.
+
+Does this therefore point to an attansic driver issue?
+
+
+Ian.
+
