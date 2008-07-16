@@ -1,90 +1,191 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Tue, 15 Jul 2008 21:15:14 -0700
-Message-ID: <20080715211514.25848d8a@extreme>
-References: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
+From: "Andrew Paprocki" <andrew@ishiboo.com>
+Subject: [PATCH] ethtool: Adds missing r8169 driver variants to register dump
+Date: Wed, 16 Jul 2008 00:17:22 -0400
+Message-ID: <76366b180807152117m72d89846uc918a5a62c0619df@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "jeff@garzik.org" <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
-	"parag.warudkar@gmail.com" <parag.warudkar@gmail.com>,
-	Willy Tarreau <w@1wt.eu>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jie Yang <Jie.Yang@Atheros.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_14059_11300846.1216181842437"
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:49589 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750806AbYGPEPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 00:15:16 -0400
-In-Reply-To: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
+Received: from qb-out-0506.google.com ([72.14.204.227]:5384 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbYGPERY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 00:17:24 -0400
+Received: by qb-out-0506.google.com with SMTP id e14so7055564qbc.37
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2008 21:17:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Jul 2008 11:28:21 +0800
-Jie Yang <Jie.Yang@Atheros.com> wrote:
+------=_Part_14059_11300846.1216181842437
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> From: Jie Yang <jie.yang@atheros.com>
-> 
-> Full patch for the Atheros L1E Gigabit Ethernet driver.
-> Supportring AR8121, AR8113 and AR8114
-> 
-> Signed-off-by: Jie Yang <jie.yang @atheros.com>
->
-> +
-> +struct atl1e_recv_ret_status {
-> +       u16 seq_num;
-> +       u16 hash_lo;
-> +       __le32  word1;
-> +       u16 pkt_flag;
-> +       u16 err_flag;
-> +       u16 hash_hi;
-> +       u16 vtag;
-> +} __attribute__((packed));
+Adds missing chipset identifiers to the RealTek table and modified
+register dump logic to dump relevant registers for the new chips.
 
-No need for packed if structure has no holes. And compiler is too stupid
-to know that and generates worse code.
+Signed-off-by: Andrew Paprocki <andrew@ishiboo.com>
+---
+ realtek.c |  118 ++++++++++++++++++++++++++++++++++++++----------------------
+ 1 files changed, 75 insertions(+), 43 deletions(-)
 
-> +typedef enum {
-> +       atl1e_10_half = 0,
-> +       atl1e_10_full = 1,
-> +       atl1e_100_half = 2,
-> +       atl1e_100_full = 3
-> +} atl1e_speed_duplex_type;
+------=_Part_14059_11300846.1216181842437
+Content-Type: application/octet-stream;
+ name=0001-ethtool-Adds-missing-r8169-driver-variants-to-regis.patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fipf6g7k1
+Content-Disposition: attachment;
+ filename=0001-ethtool-Adds-missing-r8169-driver-variants-to-regis.patch
 
-enum's are good, typedef's are bad.  Kernel style is not to use typedef's
-except in a very few limited places like locking.
-
-
-...
-
-> +#ifdef module_param_array
-> +               if (num_media_type > bd) {
-> +#endif
-
-shouldn't need to ifdef like that?? module_param_array is part of 2.6 always.
-
-> +                       val = media_type[bd];
-> +                       atl1e_validate_option(&val, &opt, pdev);
-> +                       adapter->hw.media_type = (u16) val;
-> +#ifdef module_param_array
-> +               } else {
-> +                       adapter->hw.media_type = (u16)(opt.def);
-> +               }
-> +#endif
-> +       }
-> +}
-> +
-> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-> index e74b14a..9388130 100644
-> --- a/include/linux/pci_ids.h
-> +++ b/include/linux/pci_ids.h
-> @@ -2181,6 +2181,7 @@
-> 
->  #define PCI_VENDOR_ID_ATTANSIC         0x1969
->  #define PCI_DEVICE_ID_ATTANSIC_L1      0x1048
-> +#define PCI_DEVICE_ID_ATTANSIC_L1E     0x1026
-
-Don't add pci_ids just put in driver. Jeff made that decision because
-the number of id's was just growing too large.
+RnJvbSBlOThlMjZjMjFjZTc5YjYxMTc4N2VjOGUyMTE2NTZiZTU3OThmN2Y3IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBBbmRyZXcgUGFwcm9ja2kgPGFuZHJld0Bpc2hpYm9vLmNvbT4K
+RGF0ZTogVHVlLCAxNSBKdWwgMjAwOCAyMzoxMDo0NCAtMDQwMApTdWJqZWN0OiBbUEFUQ0hdIGV0
+aHRvb2w6IEFkZHMgbWlzc2luZyByODE2OSBkcml2ZXIgdmFyaWFudHMgdG8gcmVnaXN0ZXIgZHVt
+cAoKQWRkcyBtaXNzaW5nIGNoaXBzZXQgaWRlbnRpZmllcnMgdG8gdGhlIFJlYWxUZWsgdGFibGUg
+YW5kIG1vZGlmaWVkCnJlZ2lzdGVyIGR1bXAgbG9naWMgdG8gZHVtcCByZWxldmFudCByZWdpc3Rl
+cnMgZm9yIHRoZSBuZXcgY2hpcHMuCgpTaWduZWQtb2ZmLWJ5OiBBbmRyZXcgUGFwcm9ja2kgPGFu
+ZHJld0Bpc2hpYm9vLmNvbT4KLS0tCiByZWFsdGVrLmMgfCAgMTE4ICsrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogMSBmaWxlcyBjaGFu
+Z2VkLCA3NSBpbnNlcnRpb25zKCspLCA0MyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9yZWFs
+dGVrLmMgYi9yZWFsdGVrLmMKaW5kZXggYzU2YjNmNS4uYzYxOTBjYyAxMDA2NDQKLS0tIGEvcmVh
+bHRlay5jCisrKyBiL3JlYWx0ZWsuYwpAQCAtNSw4ICs1LDkgQEAKIAogI2RlZmluZSBBUlJBWV9T
+SVpFKHgpIChzaXplb2YoeCkgLyBzaXplb2YoKHgpWzBdKSkKIAotI2RlZmluZSBIV19SRVZJRChi
+MzAsIGIyOSwgYjI4LCBiMjcsIGIyNiwgYjIzLCBiMjIpIFwKLQkoYjMwPDwzMCB8IGIyOTw8Mjkg
+fCBiMjg8PDI4IHwgYjI3PDwyNyB8IGIyNjw8MjYgfCBiMjM8PDIzIHwgYjIyPDwyMikKKyNkZWZp
+bmUgSFdfUkVWSUQoYjMxLCBiMzAsIGIyOSwgYjI4LCBiMjcsIGIyNiwgYjIzLCBiMjIpIFwKKwko
+YjMxPDwzMSB8IGIzMDw8MzAgfCBiMjk8PDI5IHwgYjI4PDwyOCB8IFwKKwkgYjI3PDwyNyB8IGIy
+Njw8MjYgfCBiMjM8PDIzIHwgYjIyPDwyMikKIAogZW51bSBjaGlwX3R5cGUgewogCVJUTE5PTkUs
+CkBAIC0yMiwzNCArMjMsNDggQEAgZW51bSBjaGlwX3R5cGUgewogCVJUTDgxMzlDcCwKIAlSVEw4
+MTAxLAogCVJUTDgxNjksCi0JUlRMODE2OXMsCi0JUlRMODExMAorCVJUTDgxNjlTLAorCVJUTDgx
+MTBTLAorCVJUTDgxNjlfODExMFNCLAorCVJUTDgxNjlfODExMFNDZCwKKwlSVEw4MTY5XzgxMTBT
+Q2UsCisJUlRMODE2OF84MTExQmIsCisJUlRMODE2OF84MTExQmVmLAorCVJUTDgxMDFFYmMsCisJ
+UlRMODEwMEUxLAorCVJUTDgxMDBFMiwKIH07CiAKIGVudW0gewotCWNoaXBfdHlwZV9tYXNrID0g
+SFdfUkVWSUQoMSwgMSwgMSwgMSwgMSwgMSwgMSkKKwljaGlwX3R5cGVfbWFzayA9IEhXX1JFVklE
+KDEsIDEsIDEsIDEsIDEsIDEsIDEsIDEpCiB9OwogCiBzdGF0aWMgc3RydWN0IGNoaXBfaW5mbyB7
+CiAJY29uc3QgY2hhciAqbmFtZTsKIAl1MzIgaWRfbWFzazsKIH0gcnRsX2luZm9fdGJsW10gPSB7
+Ci0JeyAiUlRMLTgxMzkiLAkJSFdfUkVWSUQoMSwgMCwgMCwgMCwgMCwgMCwgMCkgfSwKLQl7ICJS
+VEwtODEzOS1LIiwJCUhXX1JFVklEKDEsIDEsIDAsIDAsIDAsIDAsIDApIH0sCi0JeyAiUlRMLTgx
+MzlBIiwJCUhXX1JFVklEKDEsIDEsIDEsIDAsIDAsIDAsIDApIH0sCi0JeyAiUlRMLTgxMzlBLUci
+LCAJSFdfUkVWSUQoMSwgMSwgMSwgMCwgMCwgMSwgMCkgfSwKLQl7ICJSVEwtODEzOUIiLAkJSFdf
+UkVWSUQoMSwgMSwgMSwgMSwgMCwgMCwgMCkgfSwKLQl7ICJSVEwtODEzMCIsCQlIV19SRVZJRCgx
+LCAxLCAxLCAxLCAxLCAwLCAwKSB9LAotCXsgIlJUTC04MTM5QyIsCQlIV19SRVZJRCgxLCAxLCAx
+LCAwLCAxLCAwLCAwKSB9LAotCXsgIlJUTC04MTAwIiwJCUhXX1JFVklEKDEsIDEsIDEsIDEsIDAs
+IDEsIDApIH0sCi0JeyAiUlRMLTgxMDBCLzgxMzlEIiwJSFdfUkVWSUQoMSwgMSwgMSwgMCwgMSwg
+MCwgMSkgfSwKLQl7ICJSVEwtODEzOUMrIiwJCUhXX1JFVklEKDEsIDEsIDEsIDAsIDEsIDEsIDAp
+IH0sCi0JeyAiUlRMLTgxMDEiLAkJSFdfUkVWSUQoMSwgMSwgMSwgMCwgMSwgMSwgMSkgfSwKLQl7
+ICJSVEwtODE2OEIvODExMUIiLAlIV19SRVZJRCgwLCAxLCAxLCAxLCAwLCAwLCAwKSB9LAotCXsg
+IlJUTC04MTAxRSIsCQlIV19SRVZJRCgwLCAxLCAxLCAwLCAxLCAwLCAwKSB9LAotCXsgIlJUTC04
+MTY5IiwJCUhXX1JFVklEKDAsIDAsIDAsIDAsIDAsIDAsIDApIH0sCi0JeyAiUlRMLTgxNjlzIiwJ
+CUhXX1JFVklEKDAsIDAsIDAsIDAsIDEsIDAsIDApIH0sCi0JeyAiUlRMLTgxMTAiLAkJSFdfUkVW
+SUQoMCwgMCwgMSwgMCwgMCwgMCwgMCkgfSwKKwl7ICJSVEwtODEzOSIsCQlIV19SRVZJRCgwLCAx
+LCAwLCAwLCAwLCAwLCAwLCAwKSB9LAorCXsgIlJUTC04MTM5LUsiLAkJSFdfUkVWSUQoMCwgMSwg
+MSwgMCwgMCwgMCwgMCwgMCkgfSwKKwl7ICJSVEwtODEzOUEiLAkJSFdfUkVWSUQoMCwgMSwgMSwg
+MSwgMCwgMCwgMCwgMCkgfSwKKwl7ICJSVEwtODEzOUEtRyIsCUhXX1JFVklEKDAsIDEsIDEsIDEs
+IDAsIDAsIDEsIDApIH0sCisJeyAiUlRMLTgxMzlCIiwJCUhXX1JFVklEKDAsIDEsIDEsIDEsIDEs
+IDAsIDAsIDApIH0sCisJeyAiUlRMLTgxMzAiLAkJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMSwgMSwg
+MCwgMCkgfSwKKwl7ICJSVEwtODEzOUMiLAkJSFdfUkVWSUQoMCwgMSwgMSwgMSwgMCwgMSwgMCwg
+MCkgfSwKKwl7ICJSVEwtODEwMCIsCQlIV19SRVZJRCgwLCAxLCAxLCAxLCAxLCAwLCAxLCAwKSB9
+LAorCXsgIlJUTC04MTAwQi84MTM5RCIsCUhXX1JFVklEKDAsIDEsIDEsIDEsIDAsIDEsIDAsIDEp
+IH0sCisJeyAiUlRMLTgxMzlDKyIsCQlIV19SRVZJRCgwLCAxLCAxLCAxLCAwLCAxLCAxLCAwKSB9
+LAorCXsgIlJUTC04MTAxIiwJCUhXX1JFVklEKDAsIDEsIDEsIDEsIDAsIDEsIDEsIDEpIH0sCisJ
+eyAiUlRMLTgxNjkiLAkJSFdfUkVWSUQoMCwgMCwgMCwgMCwgMCwgMCwgMCwgMCkgfSwKKwl7ICJS
+VEwtODE2OVMiLAkJSFdfUkVWSUQoMCwgMCwgMCwgMCwgMCwgMCwgMSwgMCkgfSwKKwl7ICJSVEwt
+ODExMFMiLAkJSFdfUkVWSUQoMCwgMCwgMCwgMCwgMCwgMSwgMCwgMCkgfSwKKwl7ICJSVEwtODE2
+OS84MTEwU0IiLAlIV19SRVZJRCgwLCAwLCAwLCAxLCAwLCAwLCAwLCAwKSB9LAorCXsgIlJUTC04
+MTY5LzgxMTBTQ2QiLAlIV19SRVZJRCgwLCAwLCAwLCAxLCAxLCAwLCAwLCAwKSB9LAorCXsgIlJU
+TC04MTY5LzgxMTBTQ2UiLAlIV19SRVZJRCgxLCAwLCAwLCAxLCAxLCAwLCAwLCAwKSB9LAorCXsg
+IlJUTC04MTY4LzgxMTFCYiIsCUhXX1JFVklEKDAsIDAsIDEsIDEsIDAsIDAsIDAsIDApIH0sCisJ
+eyAiUlRMLTgxNjgvODExMUJlZiIsCUhXX1JFVklEKDAsIDAsIDEsIDEsIDEsIDAsIDAsIDApIH0s
+CisJeyAiUlRMLTgxMDFFYmMiLAlIV19SRVZJRCgwLCAwLCAxLCAxLCAwLCAxLCAwLCAwKSB9LAor
+CXsgIlJUTC04MTAwRSgxKSIsCUhXX1JFVklEKDAsIDAsIDEsIDEsIDAsIDAsIDEsIDApIH0sCisJ
+eyAiUlRMLTgxMDBFKDIpIiwJSFdfUkVWSUQoMCwgMCwgMSwgMSwgMSwgMCwgMSwgMCkgfSwKIAl7
+IH0KIH07CiAKQEAgLTg5LDcgKzEwNCw3IEBAIHJlYWx0ZWtfZHVtcF9yZWdzKHN0cnVjdCBldGh0
+b29sX2RydmluZm8gKmluZm8sIHN0cnVjdCBldGh0b29sX3JlZ3MgKnJlZ3MpCiAJCWNpKys7CiAJ
+fQogCWlmICh2ICE9IGNpLT5pZF9tYXNrKSB7Ci0JCWZwcmludGYoc3RkZXJyLCAidW5rbm93biBS
+ZWFsVGVrIGNoaXBcbiIpOworCQlmcHJpbnRmKHN0ZGVyciwgIlVua25vd24gUmVhbFRlayBjaGlw
+IChtYXNrOiAweCUwOHgpXG4iLCB2KTsKIAkJcmV0dXJuIDkxOwogCX0KIAlmb3IgKGkgPSAwOyBp
+IDwgQVJSQVlfU0laRShydGxfaW5mb190YmwpOyBpKyspIHsKQEAgLTEwMSw3ICsxMTYsNyBAQCBy
+ZWFsdGVrX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3QgZXRo
+dG9vbF9yZWdzICpyZWdzKQogCiAJZnByaW50ZihzdGRvdXQsCiAJCSJSZWFsVGVrICVzIHJlZ2lz
+dGVyczpcbiIKLQkJIi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLVxuIiwKKwkJIi0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS1cbiIs
+CiAJCWNpLT5uYW1lKTsKIAogCWZwcmludGYoc3Rkb3V0LApAQCAtMTIwLDggKzEzNSwxMSBAQCBy
+ZWFsdGVrX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3QgZXRo
+dG9vbF9yZWdzICpyZWdzKQogCiAJaWYgKGJvYXJkX3R5cGUgPT0gUlRMODEzOUNwIHx8CiAJICAg
+IGJvYXJkX3R5cGUgPT0gUlRMODE2OSB8fAotCSAgICBib2FyZF90eXBlID09IFJUTDgxNjlzIHx8
+Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRMODExMCkgeworCSAgICBib2FyZF90eXBlID09IFJUTDgx
+NjlTIHx8CisJICAgIGJvYXJkX3R5cGUgPT0gUlRMODExMFMgfHwKKwkgICAgYm9hcmRfdHlwZSA9
+PSBSVEw4MTY5XzgxMTBTQiB8fAorCSAgICBib2FyZF90eXBlID09IFJUTDgxNjlfODExMFNDZCB8
+fAorCSAgICBib2FyZF90eXBlID09IFJUTDgxNjlfODExMFNDZSkgewogCWZwcmludGYoc3Rkb3V0
+LAogCQkiMHgxMDogRHVtcCBUYWxseSBDb3VudGVyIENvbW1hbmQgICAweCUwOHggMHglMDh4XG4i
+LAogCQlkYXRhWzB4MTAgPj4gMl0sCkBAIC0xNTgsOCArMTc2LDExIEBAIHJlYWx0ZWtfZHVtcF9y
+ZWdzKHN0cnVjdCBldGh0b29sX2RydmluZm8gKmluZm8sIHN0cnVjdCBldGh0b29sX3JlZ3MgKnJl
+Z3MpCiAJfQogCiAJaWYgKGJvYXJkX3R5cGUgPT0gUlRMODE2OSB8fAotCSAgICBib2FyZF90eXBl
+ID09IFJUTDgxNjlzIHx8Ci0JICAgIGJvYXJkX3R5cGUgPT0gUlRMODExMCkgeworCSAgICBib2Fy
+ZF90eXBlID09IFJUTDgxNjlTIHx8CisJICAgIGJvYXJkX3R5cGUgPT0gUlRMODExMFMgfHwKKwkg
+ICAgYm9hcmRfdHlwZSA9PSBSVEw4MTY5XzgxMTBTQiB8fAorCSAgICBib2FyZF90eXBlID09IFJU
+TDgxNjlfODExMFNDZCB8fAorCSAgICBib2FyZF90eXBlID09IFJUTDgxNjlfODExMFNDZSkgewog
+CWZwcmludGYoc3Rkb3V0LAogCQkiMHgzMDogRmxhc2ggbWVtb3J5IHJlYWQvd3JpdGUgICAgICAg
+ICAgICAgICAgIDB4JTA4eFxuIiwKIAkJZGF0YVsweDMwID4+IDJdKTsKQEAgLTE5NCw5ICsyMTUs
+NyBAQCByZWFsdGVrX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1
+Y3QgZXRodG9vbF9yZWdzICpyZWdzKQogCQl2ICYgKDEgPDwgMikgPyAib24iIDogIm9mZiIsCiAJ
+CXYgJiAoMSA8PCA0KSA/ICIsIFJFU0VUIiA6ICIiKTsKIAotCWlmIChib2FyZF90eXBlICE9IFJU
+TDgxNjkgJiYKLQkgICAgYm9hcmRfdHlwZSAhPSBSVEw4MTY5cyAmJgotCSAgICBib2FyZF90eXBl
+ICE9IFJUTDgxMTApIHsKKwlpZiAoYm9hcmRfdHlwZSA8IFJUTDgxNjkpIHsKIAlmcHJpbnRmKHN0
+ZG91dCwKIAkJIjB4Mzg6IEN1cnJlbnQgQWRkcmVzcyBvZiBQYWNrZXQgUmVhZCAoQyBtb2RlKSAg
+ICAgMHglMDR4XG4iCiAJCSIweDNBOiBDdXJyZW50IFJ4IGJ1ZmZlciBhZGRyZXNzIChDIG1vZGUp
+ICAgICAgICAgIDB4JTA0eFxuIiwKQEAgLTIzMSw5ICsyNTAsNyBAQCByZWFsdGVrX2R1bXBfcmVn
+cyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3QgZXRodG9vbF9yZWdzICpyZWdz
+KQogCQlkYXRhOFsweDUxXSwKIAkJZGF0YThbMHg1Ml0pOwogCi0JaWYgKGJvYXJkX3R5cGUgPT0g
+UlRMODE2OSB8fAotCSAgICBib2FyZF90eXBlID09IFJUTDgxNjlzIHx8Ci0JICAgIGJvYXJkX3R5
+cGUgPT0gUlRMODExMCkgeworCWlmIChib2FyZF90eXBlID49IFJUTDgxNjkpIHsKIAlmcHJpbnRm
+KHN0ZG91dCwKIAkJIjB4NTM6IENvbmZpZyAyICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAweCUwMnhcbiIKIAkJIjB4NTQ6IENvbmZpZyAzICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAweCUwMnhcbiIKQEAgLTI3MiwyNSArMjg5LDI4IEBAIHJlYWx0ZWtf
+ZHVtcF9yZWdzKHN0cnVjdCBldGh0b29sX2RydmluZm8gKmluZm8sIHN0cnVjdCBldGh0b29sX3Jl
+Z3MgKnJlZ3MpCiAJCSIweDVDOiBNdWx0aXBsZSBJbnRlcnJ1cHQgU2VsZWN0ICAgICAgICAgICAg
+ICAgICAgIDB4JTA0eFxuIiwKIAkJZGF0YVsweDVjID4+IDJdICYgMHhmZmZmKTsKIAotCWlmIChi
+b2FyZF90eXBlID09IFJUTDgxNjkgfHwKLQkgICAgYm9hcmRfdHlwZSA9PSBSVEw4MTY5cyB8fAot
+CSAgICBib2FyZF90eXBlID09IFJUTDgxMTApIHsKKwlpZiAoYm9hcmRfdHlwZSA+PSBSVEw4MTY5
+KSB7CiAJZnByaW50ZihzdGRvdXQsCi0JCSIweDYwOiBQSFkgYWNjZXNzICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgMHglMDh4XG4iCi0JCSIweDY0OiBUQkkgY29udHJvbCBhbmQgc3RhdHVz
+ICAgICAgICAgICAgICAgICAgMHglMDh4XG4iLAotCQlkYXRhWzB4NjAgPj4gMl0sCi0JCWRhdGFb
+MHg2NCA+PiAyXSk7CisJCSIweDYwOiBQSFkgYWNjZXNzICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgMHglMDh4XG4iLAorCQlkYXRhWzB4NjAgPj4gMl0pOwogCisJaWYgKGJvYXJkX3R5cGUg
+IT0gUlRMODE2OF84MTExQmIgJiYKKwkgICAgYm9hcmRfdHlwZSAhPSBSVEw4MTY4XzgxMTFCZWYp
+IHsKIAlmcHJpbnRmKHN0ZG91dCwKKwkJIjB4NjQ6IFRCSSBjb250cm9sIGFuZCBzdGF0dXMgICAg
+ICAgICAgICAgICAgICAweCUwOHhcbiIKIAkJIjB4Njg6IFRCSSBBdXRvbmVnb3RpYXRpb24gYWR2
+ZXJ0aXNlbWVudCAoQU5BUikgICAgMHglMDR4XG4iCiAJCSIweDZBOiBUQkkgTGluayBwYXJ0bmVy
+IGFiaWxpdHkgKExQQVIpICAgICAgICAgICAgIDB4JTA0eFxuIiwKKwkJZGF0YVsweDY0ID4+IDJd
+LAogCQlkYXRhWzB4NjggPj4gMl0gJiAweGZmZmYsCiAJCWRhdGFbMHg2OCA+PiAyXSA+PiAxNik7
+CisJfQogCiAJZnByaW50ZihzdGRvdXQsCiAJCSIweDZDOiBQSFkgc3RhdHVzICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgMHglMDJ4XG4iLAogCQlkYXRhOFsweDZDXSk7CiAKKwlp
+ZiAoYm9hcmRfdHlwZSAhPSBSVEw4MTY4XzgxMTFCYiAmJgorCSAgICBib2FyZF90eXBlICE9IFJU
+TDgxNjhfODExMUJlZikgewogCWZwcmludGYoc3Rkb3V0LAogCQkiMHg4NDogUE0gd2FrZXVwIGZy
+YW1lIDAgICAgICAgICAgICAweCUwOHggMHglMDh4XG4iCiAJCSIweDhDOiBQTSB3YWtldXAgZnJh
+bWUgMSAgICAgICAgICAgIDB4JTA4eCAweCUwOHhcbiIsCkBAIC0zMzQsNiArMzU0LDggQEAgcmVh
+bHRla19kdW1wX3JlZ3Moc3RydWN0IGV0aHRvb2xfZHJ2aW5mbyAqaW5mbywgc3RydWN0IGV0aHRv
+b2xfcmVncyAqcmVncykKIAkJZGF0YVsweEM4ID4+IDJdICYgMHhmZmZmLAogCQlkYXRhWzB4Qzgg
+Pj4gMl0gPj4gMTYsCiAJCWRhdGFbMHhDQyA+PiAyXSAmIDB4ZmZmZik7CisJfQorCiAJZnByaW50
+ZihzdGRvdXQsCiAJCSIweERBOiBSWCBwYWNrZXQgbWF4aW11bSBzaXplICAgICAgICAgICAgICAg
+ICAgICAgIDB4JTA0eFxuIiwKIAkJZGF0YVsweEQ4ID4+IDJdID4+IDE2KTsKQEAgLTQ2Niw5ICs0
+ODgsNyBAQCByZWFsdGVrX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBz
+dHJ1Y3QgZXRodG9vbF9yZWdzICpyZWdzKQogCX0KIAogCWlmIChib2FyZF90eXBlID09IFJUTDgx
+MzlDcCB8fAotCSAgICBib2FyZF90eXBlID09IFJUTDgxNjkgfHwKLQkgICAgYm9hcmRfdHlwZSA9
+PSBSVEw4MTY5cyB8fAotCSAgICBib2FyZF90eXBlID09IFJUTDgxMTApIHsKKwkgICAgYm9hcmRf
+dHlwZSA+PSBSVEw4MTY5KSB7CiAJdiA9IGRhdGFbMHhFMCA+PiAyXSAmIDB4ZmZmZjsKIAlmcHJp
+bnRmKHN0ZG91dCwKIAkJIjB4RTA6IEMrIENvbW1hbmQgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgMHglMDR4XG4iLApAQCAtNTEzLDYgKzUzMywxOCBAQCByZWFsdGVrX2R1bXBfcmVn
+cyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICppbmZvLCBzdHJ1Y3QgZXRodG9vbF9yZWdzICpyZWdz
+KQogCQkiMHhGQzogRXh0ZXJuYWwgTUlJIHJlZ2lzdGVyICAgICAgICAgICAgICAgICAgIDB4JTA4
+eFxuIiwKIAkJZGF0YVsweEZDID4+IDJdKTsKIAl9CisJZWxzZSBpZiAoYm9hcmRfdHlwZSA+PSBS
+VEw4MTY5ICYmCisJCSBib2FyZF90eXBlIDw9IFJUTDgxNjlfODExMFNDZSkgeworCWZwcmludGYo
+c3Rkb3V0LAorCQkiMHhGMDogRnVuYyBFdmVudCAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IDB4JTA4eFxuIgorCQkiMHhGNDogRnVuYyBFdmVudCBNYXNrICAgICAgICAgICAgICAgICAgICAg
+ICAgIDB4JTA4eFxuIgorCQkiMHhGODogRnVuYyBQcmVzZXQgU3RhdGUgICAgICAgICAgICAgICAg
+ICAgICAgIDB4JTA4eFxuIgorCQkiMHhGQzogRnVuYyBGb3JjZSBFdmVudCAgICAgICAgICAgICAg
+ICAgICAgICAgIDB4JTA4eFxuIiwKKwkJZGF0YVsweEYwID4+IDJdLAorCQlkYXRhWzB4RjQgPj4g
+Ml0sCisJCWRhdGFbMHhGOCA+PiAyXSwKKwkJZGF0YVsweEZDID4+IDJdKTsKKwl9CiAJfQogCiAJ
+cmV0dXJuIDA7Ci0tIAoxLjUuMy40Lmc1OGJhNAoK
+------=_Part_14059_11300846.1216181842437--
