@@ -1,50 +1,39 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Compilation error on drivers/md/raid6int8.c on net-next-2.6
-Date: Wed, 16 Jul 2008 21:31:28 +0300
-Message-ID: <20080716183128.GG17329@cs181140183.pp.htv.fi>
-References: <487E364C.3050200@linux.vnet.ibm.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: IPV4: Enable IP_ID sequencing for all traffic (inquiring minds want to
+ know why its set to zero)
+Date: Wed, 16 Jul 2008 12:03:25 -0700
+Message-ID: <OF5F2AB2D4.EAFD2016-ON88257488.0067DC0C-88257488.0068AE15@us.ibm.com>
+References: <487E0C15.1070001@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org
-To: Breno Leitao <leitao@linux.vnet.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <487E364C.3050200@linux.vnet.ibm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:53162 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751169AbYGPTD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 15:03:29 -0400
+In-Reply-To: <487E0C15.1070001@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2008 at 02:56:28PM -0300, Breno Leitao wrote:
-> I just pulled net-next-2.6 and compiling it on a ppc machine I got the  
-> following error:
->
->
->  CC [M]  drivers/md/raid6tables.o
->  CC [M]  drivers/md/raid6int8.o
-> drivers/md/raid6int8.c: In function `raid6_int8_gen_syndrome':
-> drivers/md/raid6int8.c:185: error: unable to find a register to spill in  
-> class `FLOAT_REGS'
-> drivers/md/raid6int8.c:185: error: this is the insn:
-> (insn:HI 619 799 638 4 drivers/md/raid6int8.c:168 (set (mem:DI (plus:DI  
-> (reg/v/f:DI 122 [ p ])
->                (reg/v:DI 66 ctr [orig:124 d ] [124])) [0 S8 A64])
->        (reg/v:DI 129 [ wp0 ])) 320 {*movdi_internal64} (nil)
->    (expr_list:REG_DEAD (reg/v:DI 129 [ wp0 ])
->        (nil)))
-> drivers/md/raid6int8.c:185: confused by earlier errors, bailing out
-> make[2]: *** [drivers/md/raid6int8.o] Error 1
-> make[1]: *** [drivers/md] Error 2
-> make: *** [drivers] Error 2
+IP_ID is needed for reassembly of fragments, but a fast network can
+go through all the ID's available before datagrams you've already sent
+have reached their time to live.
 
-That's a gcc bug.
+That means you can end up with two different datagrams with the same ID
+and incorrectly reassemble parts of them together (which you can hope
+the checksum will catch and cause a drop).
 
-Which gcc version are you using?
+By not using IDs for non-fragmented datagrams, the time to wrap the ID
+space is increased, which reduces the chance of getting into that
+situation.
 
-cu
-Adrian
+That really is the only protocol use of IP_IDs, so there isn't any point
+in consuming them for non-fragment datagrams. It's useful sometimes
+when looking at packet traces to correlate pieces on two different
+networks, which I'm guessing is why you want it, but I don't think it's
+a good idea to do it all the time.
 
--- 
+                                                +-DLS
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
