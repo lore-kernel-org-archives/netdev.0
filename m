@@ -1,39 +1,27 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: sendfile() broken with 2.6.26 + Apache 2 ?
-Date: Wed, 16 Jul 2008 16:41:33 +0300
-Message-ID: <84144f020807160641u32dac56fq9b9a30f6e32a27ca@mail.gmail.com>
-References: <487CD7A7.2080800@jeffray.co.uk> <487D893A.5080207@cosmosbay.com>
-	 <487DA388.3030104@jeffray.co.uk> <487DBA74.3090800@cosmosbay.com>
-	 <487DF9EC.9060202@bellsouth.net>
+From: Wang Jian <lark@linux.net.cn>
+Subject: [PATCH 0/2] Fix register misuse in drivers/net/phy/marvel.c
+Date: Wed, 16 Jul 2008 21:45:59 +0800
+Message-ID: <487DFB97.6010507@linux.net.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
-	"Ian Jeffray" <ian@jeffray.co.uk>, linux-kernel@vger.kernel.org,
-	"Linux Netdev List" <netdev@vger.kernel.org>, csnook@redhat.com,
-	jeff@garzik.org
-To: jacliburn@bellsouth.net
+Cc: netdev@vger.kernel.org, Alexandr Smirnov <asmirnov@ru.mvista.com>,
+	Andy Fleming <afleming@freescale.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.227]:49406 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756605AbYGPNle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 09:41:34 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so6421597rvb.1
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 06:41:33 -0700 (PDT)
-In-Reply-To: <487DF9EC.9060202@bellsouth.net>
-Content-Disposition: inline
+Received: from [210.82.31.146] ([210.82.31.146]:49006 "EHLO mx.linux.net.cn"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754993AbYGPNqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 09:46:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2008 at 4:38 PM, J. K. Cliburn <jcliburn@gmail.com> wrote:
->> Yes, maybe related to commit 9d90fb1ac9d97da86e24d9ea947bf2a2f333829a
->> In this patch, Jay Cliburn enabled TSO by default for atl1 driver.
->>
->> This might be a driver problem, or a generic sendfile() problem, I dont
->> know...
->
-> I'm currently traveling and unable to delve into this issue and its relation
-> to the atl1 driver.  I should be able to look at it this weekend when I get
-> back home.
+The following 2 patches fixed misuse of register for 88e1111. I have
+tested the patch 1/2. I have no board to test RGMII mode, patch 2/2 is
+obvious but not tested.
 
-Ehh... shouldn't we disable atl1 TSO by default for -stable, then?
+I have sent email to Andy but get no response.
+
+
+
+
