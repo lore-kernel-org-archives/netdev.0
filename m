@@ -1,48 +1,55 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] IPVS: More reliable subchronization on connection close.
-Date: Wed, 16 Jul 2008 16:35:20 +1000
-Message-ID: <20080716063519.GA5144@verge.net.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
+Date: Tue, 15 Jul 2008 23:32:24 -0700
+Message-ID: <m11w1u9w5j.fsf@frodo.ebiederm.org>
+References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
+	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
+	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
+	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>
+	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
+	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
+	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
+	<487D6A24.9070001@gmail.com> <m17ibmbd39.fsf@frodo.ebiederm.org>
+	<487D8C0A.9060100@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Rumen Bogdanovski <rumen@voicecho.com>,
-	Joseph Mack NA3T <jmack@wm7d.net>
-To: LVS Devel <lvs-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Tejun Heo <htejun@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:48589 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752682AbYGPGmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 02:42:15 -0400
+In-Reply-To: <487D8C0A.9060100@gmail.com> (Tejun Heo's message of "Wed, 16 Jul
+	2008 14:50:02 +0900")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rumen Bogdanovski <rumen@voicecho.com>
+Tejun Heo <htejun@gmail.com> writes:
 
-This patch enhances the synchronization of the closing connections
-between the master and the backup director. It prevents the closed
-connections to expire with the 15 min timeout of the ESTABLISHED
-state on the backup and makes them expire as they would do on the
-master with much shorter timeouts.
+> It's a bit scary tho.  Working inode->i_dentry or dentry->d_alias
+> crosses multiple sb's.  sysfs isn't too greedy about dcache/icache.
+> Only open files and directories hold them and only single copy of
+> sysfs_dirent is there for most nodes.  Wouldn't it be better to stay on
+> the safer side and use separate inode hierarchy?
 
-Cc: Joseph Mack NA3T <jmack@wm7d.net>
-Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
-Acked-by: Simon Horman <horms@verge.net.au>
+To do that I believe we would need to ensure sysfs does not use 
+the inode->i_mutex lock except to keep the VFS layer out.  Allowing us
+to safely change the directory structure, without holding it.
 
---- 
+You raise a good point about inode->i_dentry and dentry->d_alias.
+Generally they are used by fat like filesystems but I am starting to
+see uses in generic pieces of code.  I don't see any problems today
+but yes it would be good to do the refactoring to allow us to duplicate
+the inodes. 
 
-Hi Dave,
+Eric
 
-please consider applying this.
-
-diff -Naur net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c net-2.6/net/ipv4/ipvs/ip_vs_core.c
---- net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:23:44.000000000 +0300
-+++ net-2.6/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:27:31.000000000 +0300
-@@ -993,7 +993,8 @@
- 	       == sysctl_ip_vs_sync_threshold[0])) ||
- 	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
- 	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
--	       (cp->state == IP_VS_TCP_S_CLOSE)))))
-+	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
-+	       (cp->state == IP_VS_TCP_S_TIME_WAIT)))))
- 		ip_vs_sync_conn(cp);
- 	cp->old_state = cp->state;
- 
