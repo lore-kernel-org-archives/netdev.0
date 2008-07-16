@@ -1,77 +1,39 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
 Subject: Re: sendfile() broken with 2.6.26 + Apache 2 ?
-Date: Wed, 16 Jul 2008 08:38:52 -0500
-Message-ID: <487DF9EC.9060202@bellsouth.net>
-References: <487CD7A7.2080800@jeffray.co.uk> <487D893A.5080207@cosmosbay.com> <487DA388.3030104@jeffray.co.uk> <487DBA74.3090800@cosmosbay.com>
-Reply-To: jacliburn@bellsouth.net
+Date: Wed, 16 Jul 2008 16:41:33 +0300
+Message-ID: <84144f020807160641u32dac56fq9b9a30f6e32a27ca@mail.gmail.com>
+References: <487CD7A7.2080800@jeffray.co.uk> <487D893A.5080207@cosmosbay.com>
+	 <487DA388.3030104@jeffray.co.uk> <487DBA74.3090800@cosmosbay.com>
+	 <487DF9EC.9060202@bellsouth.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ian Jeffray <ian@jeffray.co.uk>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	csnook@redhat.com, jeff@garzik.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
+	"Ian Jeffray" <ian@jeffray.co.uk>, linux-kernel@vger.kernel.org,
+	"Linux Netdev List" <netdev@vger.kernel.org>, csnook@redhat.com,
+	jeff@garzik.org
+To: jacliburn@bellsouth.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:55619 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756339AbYGPNi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 09:38:59 -0400
-Received: by py-out-1112.google.com with SMTP id p76so3351349pyb.10
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 06:38:58 -0700 (PDT)
-In-Reply-To: <487DBA74.3090800@cosmosbay.com>
+Received: from rv-out-0506.google.com ([209.85.198.227]:49406 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756605AbYGPNle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 09:41:34 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so6421597rvb.1
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2008 06:41:33 -0700 (PDT)
+In-Reply-To: <487DF9EC.9060202@bellsouth.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Ian Jeffray a =E9crit :
->> Hi Eric,
+On Wed, Jul 16, 2008 at 4:38 PM, J. K. Cliburn <jcliburn@gmail.com> wrote:
+>> Yes, maybe related to commit 9d90fb1ac9d97da86e24d9ea947bf2a2f333829a
+>> In this patch, Jay Cliburn enabled TSO by default for atl1 driver.
 >>
->> Thanks for directing me to a better list.
->>
->> Further responses below:
->>
->> Eric Dumazet wrote:
->>> CC to netdev where this report might find better answers
->>>
->>> Ian Jeffray a =E9crit :
->>>> All,
->>>>
->>>> I moved from kernel 2.6.25.4 to 2.6.26 yesterday and observed that
->>>> large files sent via Apache2 are partially corrupt.
->>>>
->>>> This appears to be linked to sendfile() -- disabling the use of
->>>> sendfile in the apache config (EnableSendfile Off) allows it to
->>>> function as normal.
+>> This might be a driver problem, or a generic sendfile() problem, I dont
+>> know...
+>
+> I'm currently traveling and unable to delve into this issue and its relation
+> to the atl1 driver.  I should be able to look at it this weekend when I get
+> back home.
 
->>>
->>>
->>> What kind of network adapter are you using ? (lspci | grep -i ether=
-)
->>
->> 02:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit=20
->> Ethernet Adapter (rev b0)
->>
->>
->>> If you disable TCP segmentation offload on this NIC (ethtool -K eth=
-0=20
->>> tso off) , is this problem still present ?
->>
->> Wow.  That 'solves' the problem!  Great.
->>
->> Does this therefore point to an attansic driver issue?
->>
->=20
->=20
-> Yes, maybe related to commit 9d90fb1ac9d97da86e24d9ea947bf2a2f333829a
-> In this patch, Jay Cliburn enabled TSO by default for atl1 driver.
->=20
-> This might be a driver problem, or a generic sendfile() problem, I do=
-nt=20
-> know...
-
-I'm currently traveling and unable to delve into this issue and its=20
-relation to the atl1 driver.  I should be able to look at it this=20
-weekend when I get back home.
-
-Jay
+Ehh... shouldn't we disable atl1 TSO by default for -stable, then?
