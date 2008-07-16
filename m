@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 15/20] tcp: replace tcp_sock argument with sock in some places
-Date: Wed, 16 Jul 2008 12:31:47 +0400
-Message-ID: <487DB1F3.5080605@openvz.org>
+Subject: [PATCH 16/20] mib: add net to NET_INC_STATS
+Date: Wed, 16 Jul 2008 12:32:37 +0400
+Message-ID: <487DB225.10808@openvz.org>
 References: <487DABB6.5080905@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,142 +9,69 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52873 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:56745 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753673AbYGPIbu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 04:31:50 -0400
+	id S1754533AbYGPIck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 04:32:40 -0400
 In-Reply-To: <487DABB6.5080905@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These places have a tcp_sock, but we'd prefer the sock itself to
-get net from it. Fortunately, tcp_sk macro is just a type cast, so
-this replace is really cheap.
-
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 ---
- net/ipv4/tcp_input.c |   31 ++++++++++++++++++-------------
- 1 files changed, 18 insertions(+), 13 deletions(-)
+ include/net/ip.h      |    2 +-
+ net/ipv4/tcp.c        |    2 +-
+ net/ipv4/tcp_output.c |    4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 01e8004..f50d843 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1169,10 +1169,11 @@ static void tcp_mark_lost_retrans(struct sock *sk)
- 		tp->lost_retrans_low = new_low_seq;
- }
- 
--static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
-+static int tcp_check_dsack(struct sock *sk, struct sk_buff *ack_skb,
- 			   struct tcp_sack_block_wire *sp, int num_sacks,
- 			   u32 prior_snd_una)
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 93d0e09..b42a434 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -161,7 +161,7 @@ DECLARE_SNMP_STAT(struct ipstats_mib, ip_statistics);
+ #define IP_INC_STATS_BH(net, field)	do { (void)net; SNMP_INC_STATS_BH(ip_statistics, field); } while (0)
+ #define IP_ADD_STATS_BH(net, field, val) SNMP_ADD_STATS_BH(ip_statistics, field, val)
+ DECLARE_SNMP_STAT(struct linux_mib, net_statistics);
+-#define NET_INC_STATS(field)		SNMP_INC_STATS(net_statistics, field)
++#define NET_INC_STATS(net, field)	do { (void)net; SNMP_INC_STATS(net_statistics, field); } while (0)
+ #define NET_INC_STATS_BH(field)		SNMP_INC_STATS_BH(net_statistics, field)
+ #define NET_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(net_statistics, field)
+ #define NET_ADD_STATS_BH(field, adnd)	SNMP_ADD_STATS_BH(net_statistics, field, adnd)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 44b2fda..9c420da 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -319,7 +319,7 @@ EXPORT_SYMBOL(tcp_memory_pressure);
+ void tcp_enter_memory_pressure(struct sock *sk)
  {
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 start_seq_0 = get_unaligned_be32(&sp[0].start_seq);
- 	u32 end_seq_0 = get_unaligned_be32(&sp[0].end_seq);
- 	int dup_sack = 0;
-@@ -1434,7 +1435,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
- 		tcp_highest_sack_reset(sk);
- 	}
- 
--	found_dup_sack = tcp_check_dsack(tp, ack_skb, sp_wire,
-+	found_dup_sack = tcp_check_dsack(sk, ack_skb, sp_wire,
- 					 num_sacks, prior_snd_una);
- 	if (found_dup_sack)
- 		flag |= FLAG_DSACKING_ACK;
-@@ -3711,8 +3712,10 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
- 	return 0;
- }
- 
--static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
-+static void tcp_dsack_set(struct sock *sk, u32 seq, u32 end_seq)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
- 	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
- 		int mib_idx;
- 
-@@ -3731,10 +3734,12 @@ static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
+ 	if (!tcp_memory_pressure) {
+-		NET_INC_STATS(LINUX_MIB_TCPMEMORYPRESSURES);
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMEMORYPRESSURES);
+ 		tcp_memory_pressure = 1;
  	}
  }
- 
--static void tcp_dsack_extend(struct tcp_sock *tp, u32 seq, u32 end_seq)
-+static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
- 	if (!tp->rx_opt.dsack)
--		tcp_dsack_set(tp, seq, end_seq);
-+		tcp_dsack_set(sk, seq, end_seq);
- 	else
- 		tcp_sack_extend(tp->duplicate_sack, seq, end_seq);
- }
-@@ -3753,7 +3758,7 @@ static void tcp_send_dupack(struct sock *sk, struct sk_buff *skb)
- 
- 			if (after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))
- 				end_seq = tp->rcv_nxt;
--			tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, end_seq);
-+			tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, end_seq);
- 		}
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c3b0da8..176f070 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2119,7 +2119,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+ 	skb = alloc_skb(MAX_TCP_HEADER, priority);
+ 	if (!skb) {
+-		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+ 		return;
  	}
  
-@@ -3906,7 +3911,7 @@ static void tcp_ofo_queue(struct sock *sk)
- 			__u32 dsack = dsack_high;
- 			if (before(TCP_SKB_CB(skb)->end_seq, dsack_high))
- 				dsack_high = TCP_SKB_CB(skb)->end_seq;
--			tcp_dsack_extend(tp, TCP_SKB_CB(skb)->seq, dsack);
-+			tcp_dsack_extend(sk, TCP_SKB_CB(skb)->seq, dsack);
- 		}
+@@ -2130,7 +2130,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ 	/* Send it off. */
+ 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
+ 	if (tcp_transmit_skb(sk, skb, 0, priority))
+-		NET_INC_STATS(LINUX_MIB_TCPABORTFAILED);
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
  
- 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
-@@ -4035,7 +4040,7 @@ queue_and_out:
- 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
- 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
- 		NET_INC_STATS_BH(LINUX_MIB_DELAYEDACKLOST);
--		tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
-+		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
- 
- out_of_window:
- 		tcp_enter_quickack_mode(sk);
-@@ -4057,7 +4062,7 @@ drop:
- 			   tp->rcv_nxt, TCP_SKB_CB(skb)->seq,
- 			   TCP_SKB_CB(skb)->end_seq);
- 
--		tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, tp->rcv_nxt);
-+		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, tp->rcv_nxt);
- 
- 		/* If window is closed, drop tail of packet. But after
- 		 * remembering D-SACK for its head made in previous line.
-@@ -4122,12 +4127,12 @@ drop:
- 			if (!after(end_seq, TCP_SKB_CB(skb1)->end_seq)) {
- 				/* All the bits are present. Drop. */
- 				__kfree_skb(skb);
--				tcp_dsack_set(tp, seq, end_seq);
-+				tcp_dsack_set(sk, seq, end_seq);
- 				goto add_sack;
- 			}
- 			if (after(seq, TCP_SKB_CB(skb1)->seq)) {
- 				/* Partial overlap. */
--				tcp_dsack_set(tp, seq,
-+				tcp_dsack_set(sk, seq,
- 					      TCP_SKB_CB(skb1)->end_seq);
- 			} else {
- 				skb1 = skb1->prev;
-@@ -4140,12 +4145,12 @@ drop:
- 		       (struct sk_buff *)&tp->out_of_order_queue &&
- 		       after(end_seq, TCP_SKB_CB(skb1)->seq)) {
- 			if (before(end_seq, TCP_SKB_CB(skb1)->end_seq)) {
--				tcp_dsack_extend(tp, TCP_SKB_CB(skb1)->seq,
-+				tcp_dsack_extend(sk, TCP_SKB_CB(skb1)->seq,
- 						 end_seq);
- 				break;
- 			}
- 			__skb_unlink(skb1, &tp->out_of_order_queue);
--			tcp_dsack_extend(tp, TCP_SKB_CB(skb1)->seq,
-+			tcp_dsack_extend(sk, TCP_SKB_CB(skb1)->seq,
- 					 TCP_SKB_CB(skb1)->end_seq);
- 			__kfree_skb(skb1);
- 		}
+ 	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
+ }
 -- 
 1.5.5.1
 
