@@ -1,52 +1,76 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
- for device classes.
-Date: Wed, 16 Jul 2008 12:25:24 +0900
-Message-ID: <487D6A24.9070001@gmail.com>
-References: <m18wwiihbn.fsf_-_@frodo.ebiederm.org>	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>	<m1r6aah2hh.fsf_-_@frodo.ebiederm.org>	<m1mykyh2fu.fsf_-_@frodo.ebiederm.org>	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/14]: Make packet scheduler multiqueue aware.
+Date: Tue, 15 Jul 2008 21:14:11 -0700 (PDT)
+Message-ID: <20080715.211411.99900109.davem@davemloft.net>
+References: <20080714.155908.174564017.davem@davemloft.net>
+	<487BEE7C.6080300@trash.net>
+	<20080714.184849.121429019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.188]:4167 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753749AbYGPDZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2008 23:25:36 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so2838657tic.23
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2008 20:25:34 -0700 (PDT)
-In-Reply-To: <m1lk052ptp.fsf@frodo.ebiederm.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47785
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751314AbYGPEOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 00:14:12 -0400
+In-Reply-To: <20080714.184849.121429019.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Greg KH <gregkh@suse.de> writes:
->> Sorry, Greg is walking out the door in 30 minutes for a much needed week
->> long vacation and can't look into this right now :(
->>
->> I'll be able to review it next weekend, sorry for the delay.
+From: David Miller <davem@davemloft.net>
+Date: Mon, 14 Jul 2008 18:48:49 -0700 (PDT)
+
+> One idea is to allow all of the queues to point at a
+> single qdisc.  We'd just need to work out how to do the
+> locking.
 > 
-> Any progress in reviewing these changes, and seeing if you can stand
-> to merge them?
+> For example, the Qdisc has a lock member, and a pointer.
+> For simple qdiscs the pointer points at the netdev_queue
+> lock.  But when sharing, we use the in-Qdisc static lock.
 
-Greg, please disregard my earlier NACKs and commit the patches if you're
-okay with them.  I'm working on cleaning it up but I don't think I'll be
-able to make it in time for merge window and as Eric said getting the
-functionality in place is more important at this point as it doesn't
-affect user visible interface.
+I've investigated several avenues to implement this, and so I've hit
+several brick walls with each approach.  It's not easy.
 
-Eric, with the multiple superblocks, sysfs now uses inode from the
-default sysfs_sb with dentries from other sb's.  Is this okay?  Are
-there any other filesystems which do this?
+Much of the locking, and some of the semantics, can be trivially
+sorted out:
 
-Thanks.
+1) I have a change which moves gso_skb into the Qdisc.  That
+   definitely would be needed for qdisc sharing amongst netdev_queue
+   objects.
 
--- 
-tejun
+2) Qdiscs want to lock the qdisc tree and do several things, ror
+   example, unlink and walk up the parents to adjust the qlen.
+
+   For that, locking the root qdisc ought to be sufficient, I suppose.
+
+3) The netdev_queue lock also synchronizes the ->qdisc linkage of the
+   root.  In order to combat some of this, I wrote up a change that moved
+   the bulk of qdisc_destroy()'s work into the qdisc destroy RCU handler.
+   On top of that I passed the first seen qdisc in a qdisc_run() call all
+   the way down into qdisc_restart() and removed all of the "recheck
+   txq->qdisc" scatters all over these parts.
+
+   Basically this works because we can just enqueue or whatever since
+   BH's are disabled the whole time and thus RCU's are blocked out.  The
+   RCU will reset and destroy the queue, freeing up any packets therein.
+
+But then we get into the issue of which netdev_queue backpointer
+should be used?  This is especially important for a shared qdisc.
+
+At the top level we enqueue an SKB for a particular TXQ.  But as we
+call down into qdisc_run(), the SKB we get out of q->dequeue() could
+be for another TXQ.
+
+This gets even more interesting when a qdisc_watchdog() fires.  Which
+TXQ should we call netif_schedule for? :-)
+
+I guess this means qdisc_run() and netif_schedule() should operate
+on root qdiscs, rather than netdev_queue objects.
+
+Then, as qdisc_restart() pulls packets out of the qdisc, it determines
+the TXQ for that SKB and uses that to lock and call down into the
+->hard_start_xmit() handler.
+
+Just FYI and I'll try to explore this further.
