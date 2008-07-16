@@ -1,43 +1,48 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Wed, 16 Jul 2008 12:27:59 -0400
-Message-ID: <1216225679.21973.6.camel@localhost.localdomain>
-References: <20080709190915.GA8238@tuxdriver.com>
-	 <247d6d340807140805gfb6523en74384f6f47469d79@mail.gmail.com>
-	 <20080715174246.GA3117@tuxdriver.com>
-	 <1216145731.13411.25.camel@localhost.localdomain>
-	 (sfid-20080715_201731_895315_46FC8F2F)  <1216196668.3422.2.camel@johannes.berg>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
+Date: Wed, 16 Jul 2008 09:36:24 -0700
+Message-ID: <adafxq9bxbr.fsf@cisco.com>
+References: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
+	<20080715211514.25848d8a@extreme>
+	<72981EBCFD196144B7C6999B9FC34A9A3EE60EA59C@SHEXMB-01.global.atheros.com>
+	<20080716085329.03e97b2a@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Guy Cohen <guy@cguy.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jie Yang <Jie.Yang@Atheros.com>,
+	"jeff\@garzik.org" <jeff@garzik.org>,
+	David Miller <davem@davemloft.net>,
+	"jcliburn\@gmail.com" <jcliburn@gmail.com>,
+	"parag.warudkar\@gmail.com" <parag.warudkar@gmail.com>,
+	Willy Tarreau <w@1wt.eu>,
+	"oliver.schuster\@schweigstill.de" <oliver.schuster@schweigstill.de>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42434 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116AbYGPQaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 12:30:00 -0400
-In-Reply-To: <1216196668.3422.2.camel@johannes.berg>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:19805 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608AbYGPQg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 12:36:26 -0400
+In-Reply-To: <20080716085329.03e97b2a@extreme> (Stephen Hemminger's message of
+	"Wed, 16 Jul 2008 08:53:29 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-16 at 10:24 +0200, Johannes Berg wrote:
-> > > Not sure exactly what you mean with this one.  Are you talking about
-> > > the lib80211 line item?  Or enhancements to the mac80211 component
-> > > to support full(er) MAC designs?
-> > 
-> > I hope just lib80211.  We shouldn't be extending mac80211 to fullmac or
-> > quasi-fullmac parts.  But we can certainly share a lot of stuff.
-> > lib80211 is where I see any additional fullmac effort going.
-> 
-> Just a minor point wrt. lib80211: I see little use in creating yet
-> another module since hopefully soon enough fullmac chipsets will bind
-> cfg80211 anyway so all of that stuff might as well be in there.
+ > Output of checkpatch (scripts/checkpatch.pl in kernel source).
+ > Personally, I am not a whitespace bigot, and don't think
+ > all the warnings in checkpatch have to be fixed.
+ > 
+ > ----------
+ > ERROR: patch seems to be corrupt (line wrapped?)
+ > #121: FILE: drivers/net/atl1e/atl1e.h:9:
+ > ree
+ > 
+ > WARNING: space prohibited between function name and open parenthesis '('
+ > #212: FILE: drivers/net/atl1e/atl1e.h:97:
+ > +       _tpd =3D (((_vlan) << (4)) | (((_vlan) >> 13) & 7) |\
 
-worksforme, I don't really care where that stuff goes as long as we get
-it in one place :)
+It's kind of pointless to run checkpatch on a corrupted patch (the email
+was quoted-printable and you didn't decode it back to text).  Of course
+it's also better to send non-mangled patches.
 
-Dan
-
+ - R.
