@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 14/20] inet: prepare net on the stack for NET accounting macros
-Date: Wed, 16 Jul 2008 12:29:09 +0400
-Message-ID: <487DB155.4070109@openvz.org>
+Subject: [PATCH 15/20] tcp: replace tcp_sock argument with sock in some places
+Date: Wed, 16 Jul 2008 12:31:47 +0400
+Message-ID: <487DB1F3.5080605@openvz.org>
 References: <487DABB6.5080905@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,66 +9,142 @@ Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52840 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:52873 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757794AbYGPI3O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 04:29:14 -0400
+	id S1753673AbYGPIbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2008 04:31:50 -0400
 In-Reply-To: <487DABB6.5080905@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+These places have a tcp_sock, but we'd prefer the sock itself to
+get net from it. Fortunately, tcp_sk macro is just a type cast, so
+this replace is really cheap.
+
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 ---
- net/dccp/ipv6.c     |    3 ++-
- net/ipv4/arp.c      |    3 ++-
- net/ipv6/tcp_ipv6.c |    3 ++-
- 3 files changed, 6 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_input.c |   31 ++++++++++++++++++-------------
+ 1 files changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index eec3c47..83cc9bb 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -93,8 +93,9 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	struct sock *sk;
- 	int err;
- 	__u64 seq;
-+	struct net *net = dev_net(skb->dev);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 01e8004..f50d843 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1169,10 +1169,11 @@ static void tcp_mark_lost_retrans(struct sock *sk)
+ 		tp->lost_retrans_low = new_low_seq;
+ }
  
--	sk = inet6_lookup(dev_net(skb->dev), &dccp_hashinfo,
-+	sk = inet6_lookup(net, &dccp_hashinfo,
- 			&hdr->daddr, dh->dccph_dport,
- 			&hdr->saddr, dh->dccph_sport, inet6_iif(skb));
+-static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
++static int tcp_check_dsack(struct sock *sk, struct sk_buff *ack_skb,
+ 			   struct tcp_sack_block_wire *sp, int num_sacks,
+ 			   u32 prior_snd_una)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 start_seq_0 = get_unaligned_be32(&sp[0].start_seq);
+ 	u32 end_seq_0 = get_unaligned_be32(&sp[0].end_seq);
+ 	int dup_sack = 0;
+@@ -1434,7 +1435,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
+ 		tcp_highest_sack_reset(sk);
+ 	}
  
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 29df75a..aab98b8 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -421,8 +421,9 @@ static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
- 	struct rtable *rt;
- 	int flag = 0;
- 	/*unsigned long now; */
-+	struct net *net = dev_net(dev);
+-	found_dup_sack = tcp_check_dsack(tp, ack_skb, sp_wire,
++	found_dup_sack = tcp_check_dsack(sk, ack_skb, sp_wire,
+ 					 num_sacks, prior_snd_una);
+ 	if (found_dup_sack)
+ 		flag |= FLAG_DSACKING_ACK;
+@@ -3711,8 +3712,10 @@ static inline int tcp_sack_extend(struct tcp_sack_block *sp, u32 seq,
+ 	return 0;
+ }
  
--	if (ip_route_output_key(dev_net(dev), &rt, &fl) < 0)
-+	if (ip_route_output_key(net, &rt, &fl) < 0)
- 		return 1;
- 	if (rt->u.dst.dev != dev) {
- 		NET_INC_STATS_BH(LINUX_MIB_ARPFILTER);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3895d91..d58b83a 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -323,8 +323,9 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	int err;
- 	struct tcp_sock *tp;
- 	__u32 seq;
-+	struct net *net = dev_net(skb->dev);
+-static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
++static void tcp_dsack_set(struct sock *sk, u32 seq, u32 end_seq)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
++
+ 	if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
+ 		int mib_idx;
  
--	sk = inet6_lookup(dev_net(skb->dev), &tcp_hashinfo, &hdr->daddr,
-+	sk = inet6_lookup(net, &tcp_hashinfo, &hdr->daddr,
- 			th->dest, &hdr->saddr, th->source, skb->dev->ifindex);
+@@ -3731,10 +3734,12 @@ static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
+ 	}
+ }
  
- 	if (sk == NULL) {
+-static void tcp_dsack_extend(struct tcp_sock *tp, u32 seq, u32 end_seq)
++static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
++
+ 	if (!tp->rx_opt.dsack)
+-		tcp_dsack_set(tp, seq, end_seq);
++		tcp_dsack_set(sk, seq, end_seq);
+ 	else
+ 		tcp_sack_extend(tp->duplicate_sack, seq, end_seq);
+ }
+@@ -3753,7 +3758,7 @@ static void tcp_send_dupack(struct sock *sk, struct sk_buff *skb)
+ 
+ 			if (after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))
+ 				end_seq = tp->rcv_nxt;
+-			tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, end_seq);
++			tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, end_seq);
+ 		}
+ 	}
+ 
+@@ -3906,7 +3911,7 @@ static void tcp_ofo_queue(struct sock *sk)
+ 			__u32 dsack = dsack_high;
+ 			if (before(TCP_SKB_CB(skb)->end_seq, dsack_high))
+ 				dsack_high = TCP_SKB_CB(skb)->end_seq;
+-			tcp_dsack_extend(tp, TCP_SKB_CB(skb)->seq, dsack);
++			tcp_dsack_extend(sk, TCP_SKB_CB(skb)->seq, dsack);
+ 		}
+ 
+ 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
+@@ -4035,7 +4040,7 @@ queue_and_out:
+ 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
+ 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
+ 		NET_INC_STATS_BH(LINUX_MIB_DELAYEDACKLOST);
+-		tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
++		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
+ 
+ out_of_window:
+ 		tcp_enter_quickack_mode(sk);
+@@ -4057,7 +4062,7 @@ drop:
+ 			   tp->rcv_nxt, TCP_SKB_CB(skb)->seq,
+ 			   TCP_SKB_CB(skb)->end_seq);
+ 
+-		tcp_dsack_set(tp, TCP_SKB_CB(skb)->seq, tp->rcv_nxt);
++		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, tp->rcv_nxt);
+ 
+ 		/* If window is closed, drop tail of packet. But after
+ 		 * remembering D-SACK for its head made in previous line.
+@@ -4122,12 +4127,12 @@ drop:
+ 			if (!after(end_seq, TCP_SKB_CB(skb1)->end_seq)) {
+ 				/* All the bits are present. Drop. */
+ 				__kfree_skb(skb);
+-				tcp_dsack_set(tp, seq, end_seq);
++				tcp_dsack_set(sk, seq, end_seq);
+ 				goto add_sack;
+ 			}
+ 			if (after(seq, TCP_SKB_CB(skb1)->seq)) {
+ 				/* Partial overlap. */
+-				tcp_dsack_set(tp, seq,
++				tcp_dsack_set(sk, seq,
+ 					      TCP_SKB_CB(skb1)->end_seq);
+ 			} else {
+ 				skb1 = skb1->prev;
+@@ -4140,12 +4145,12 @@ drop:
+ 		       (struct sk_buff *)&tp->out_of_order_queue &&
+ 		       after(end_seq, TCP_SKB_CB(skb1)->seq)) {
+ 			if (before(end_seq, TCP_SKB_CB(skb1)->end_seq)) {
+-				tcp_dsack_extend(tp, TCP_SKB_CB(skb1)->seq,
++				tcp_dsack_extend(sk, TCP_SKB_CB(skb1)->seq,
+ 						 end_seq);
+ 				break;
+ 			}
+ 			__skb_unlink(skb1, &tp->out_of_order_queue);
+-			tcp_dsack_extend(tp, TCP_SKB_CB(skb1)->seq,
++			tcp_dsack_extend(sk, TCP_SKB_CB(skb1)->seq,
+ 					 TCP_SKB_CB(skb1)->end_seq);
+ 			__kfree_skb(skb1);
+ 		}
 -- 
 1.5.5.1
 
