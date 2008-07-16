@@ -1,57 +1,68 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 12/20] mib: add net to TCP_ADD_STATS_USER
-Date: Wed, 16 Jul 2008 12:24:38 +0400
-Message-ID: <487DB046.3060608@openvz.org>
-References: <487DABB6.5080905@openvz.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
+Date: Wed, 16 Jul 2008 10:24:28 +0200
+Message-ID: <1216196668.3422.2.camel@johannes.berg>
+References: <20080709190915.GA8238@tuxdriver.com>
+	 <247d6d340807140805gfb6523en74384f6f47469d79@mail.gmail.com>
+	 <20080715174246.GA3117@tuxdriver.com>
+	 <1216145731.13411.25.camel@localhost.localdomain>
+	 (sfid-20080715_201731_895315_46FC8F2F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5SrjtC43sfUzGHmunCAn"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Guy Cohen <guy@cguy.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35651 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756131AbYGPIYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 04:24:44 -0400
-In-Reply-To: <487DABB6.5080905@openvz.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:34303 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756671AbYGPIYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 04:24:53 -0400
+In-Reply-To: <1216145731.13411.25.camel@localhost.localdomain> (sfid-20080715_201731_895315_46FC8F2F)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we're done with the TCP_XXX_STATS macros.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
----
- include/net/tcp.h |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+--=-5SrjtC43sfUzGHmunCAn
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 92d8769..4d78818 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -269,7 +269,7 @@ DECLARE_SNMP_STAT(struct tcp_mib, tcp_statistics);
- #define TCP_INC_STATS(net, field)	do { (void)net; SNMP_INC_STATS(tcp_statistics, field); } while (0)
- #define TCP_INC_STATS_BH(net, field)	do { (void)net; SNMP_INC_STATS_BH(tcp_statistics, field); } while (0)
- #define TCP_DEC_STATS(net, field)	do { (void)net; SNMP_DEC_STATS(tcp_statistics, field); } while (0)
--#define TCP_ADD_STATS_USER(field, val)	SNMP_ADD_STATS_USER(tcp_statistics, field, val)
-+#define TCP_ADD_STATS_USER(net, field, val) do { (void)net; SNMP_ADD_STATS_USER(tcp_statistics, field, val); } while (0)
- 
- extern void			tcp_v4_err(struct sk_buff *skb, u32);
- 
-@@ -1027,10 +1027,10 @@ static inline int tcp_paws_check(const struct tcp_options_received *rx_opt, int
- static inline void tcp_mib_init(struct net *net)
- {
- 	/* See RFC 2012 */
--	TCP_ADD_STATS_USER(TCP_MIB_RTOALGORITHM, 1);
--	TCP_ADD_STATS_USER(TCP_MIB_RTOMIN, TCP_RTO_MIN*1000/HZ);
--	TCP_ADD_STATS_USER(TCP_MIB_RTOMAX, TCP_RTO_MAX*1000/HZ);
--	TCP_ADD_STATS_USER(TCP_MIB_MAXCONN, -1);
-+	TCP_ADD_STATS_USER(net, TCP_MIB_RTOALGORITHM, 1);
-+	TCP_ADD_STATS_USER(net, TCP_MIB_RTOMIN, TCP_RTO_MIN*1000/HZ);
-+	TCP_ADD_STATS_USER(net, TCP_MIB_RTOMAX, TCP_RTO_MAX*1000/HZ);
-+	TCP_ADD_STATS_USER(net, TCP_MIB_MAXCONN, -1);
- }
- 
- /* from STCP */
--- 
-1.5.5.1
+
+> > Not sure exactly what you mean with this one.  Are you talking about
+> > the lib80211 line item?  Or enhancements to the mac80211 component
+> > to support full(er) MAC designs?
+>=20
+> I hope just lib80211.  We shouldn't be extending mac80211 to fullmac or
+> quasi-fullmac parts.  But we can certainly share a lot of stuff.
+> lib80211 is where I see any additional fullmac effort going.
+
+Just a minor point wrt. lib80211: I see little use in creating yet
+another module since hopefully soon enough fullmac chipsets will bind
+cfg80211 anyway so all of that stuff might as well be in there.
+
+johannes
+
+--=-5SrjtC43sfUzGHmunCAn
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIfbA2AAoJEKVg1VMiehFYPUwQAIjia5olwIOp/+ZYuiQGEb4+
+o2vuoBRTd8hcVAXR7SPj3vCPSA072Sgcfy7nxL1C8Wjj3BUKDrDd4s6+bFLE3TTd
+lYbH59eh0OsMFdAZNrNwwGFsC+VpOtPGRqY0WfgeerhmbvkSXsWIcPd5c7kQ1S6v
+pzcQ0ajWroOtaSn0+Ue+45uugAIDskexqA+WWbHPC15I3b2d7uSDUdBq2C3StlPj
+IkK5g5Z/hlSGydPtutkeNsAkiml6VpfJJJLG1dRA99pcZThQwzxhFdhnKoneSnXb
+PToADdr3LfmzOMQIJPjLGcrsnDyX+hkpXPARJXcu+BpnizA7lSkXXPw/Yq/sHQLA
+g4r+nEUnPwkVUAUYJ9AfaVNAKB77sI8+yPxV0Gj8PynlkIkelc5oSYEWxC11yh49
+cSrXeTwWO+YeuNacBx2BGykTxoSzeUQB9XVMUkyr4tqqvV1c7A/he4Q5PcIoM1RU
+/Ns22DdqYHn1LRpwuCwdZkkks52ks7Cb6nsDq5cc5gd0ieFufTz3TxqfysLPDnWR
+bWSxP3LIRsahzpM6czIPaG3WUufEocozPfN4c8BDaNjh3MIeU41xMXvSsgMKBjF/
+8UQWYnjmeZNed5GlEd9+fYxVI9p/uJASoneX5WgbTQIUXEoX8rb+DaI7xJfQDeMt
+g9pPFKlCvhO7aWzxKxq0
+=BHM8
+-----END PGP SIGNATURE-----
+
+--=-5SrjtC43sfUzGHmunCAn--
 
