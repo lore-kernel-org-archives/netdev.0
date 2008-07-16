@@ -1,29 +1,50 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: Re: [PATCH RFC 01/10] mlx4_en: Include file
-Date: Wed, 16 Jul 2008 18:17:30 +0300
-Message-ID: <487E110A.6010201@mellanox.co.il>
-References: <487B6569.5000806@mellanox.co.il> <adabq0zdjy1.fsf@cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:47829 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759588AbYGPPSc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 11:18:32 -0400
-In-Reply-To: <adabq0zdjy1.fsf@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Will Newton <will.newton@imgtec.com>
+Subject: [PATCH] net/ipv4/tcp.c: Fix use of PULLHUP instead of POLLHUP in comments.
+Date: Wed, 16 Jul 2008 16:30:35 +0100
+Message-ID: <1216222235-11338-1-git-send-email-will.newton@imgtec.com>
+Cc: netdev@vger.kernel.org, Will Newton <will.newton@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759747AbYGPPaz@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->  > +struct mlx4_en_cqe {
-> 
-> Same as WQE structs ... can we share the existing struct mlx4_cqe from
-> <linux/mlx4/cq.h>?
-> 
-Will change the code to reuse the structs defined in mlx4_core
+From: Will Newton <will.newton@gmail.com>
 
-Thanks, Yevgeny
+Change PULLHUP to POLLHUP in tcp_poll comments and clean up another
+comment for grammar and coding style.
+
+Signed-off-by: Will Newton <will.newton@gmail.com>
+---
+ net/ipv4/tcp.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1d723de..b343ce3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -346,8 +346,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 		return inet_csk_listen_poll(sk);
+ 
+ 	/* Socket is not locked. We are protected from async events
+-	   by poll logic and correct handling of state changes
+-	   made by another threads is impossible in any case.
++	 * by poll logic and correct handling of state changes
++	 * made by other threads is impossible in any case.
+ 	 */
+ 
+ 	mask = 0;
+@@ -373,10 +373,10 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	 * in state CLOSE_WAIT. One solution is evident --- to set POLLHUP
+ 	 * if and only if shutdown has been made in both directions.
+ 	 * Actually, it is interesting to look how Solaris and DUX
+-	 * solve this dilemma. I would prefer, if PULLHUP were maskable,
++	 * solve this dilemma. I would prefer, if POLLHUP were maskable,
+ 	 * then we could set it on SND_SHUTDOWN. BTW examples given
+ 	 * in Stevens' books assume exactly this behaviour, it explains
+-	 * why PULLHUP is incompatible with POLLOUT.	--ANK
++	 * why POLLHUP is incompatible with POLLOUT.	--ANK
+ 	 *
+ 	 * NOTE. Check for TCP_CLOSE is added. The goal is to prevent
+ 	 * blocking on fresh not-connected or disconnected socket. --ANK
+-- 
+1.5.5.2
