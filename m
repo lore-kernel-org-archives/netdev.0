@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/20] mib: add struct net to IP, TCP and NET macros
-Date: Wed, 16 Jul 2008 20:38:54 -0700 (PDT)
-Message-ID: <20080716.203854.08602318.davem@davemloft.net>
-References: <487DABB6.5080905@openvz.org>
+Subject: Re: [Resend PATCH 1/3] TCP: Fix MD5 signatures for non-linear skbs
+Date: Wed, 16 Jul 2008 20:40:40 -0700 (PDT)
+Message-ID: <20080716.204040.127241370.davem@davemloft.net>
+References: <396556a20805301217k293e5718h6bbf02bfe069011@europa>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43919
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754277AbYGQDiz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 23:38:55 -0400
-In-Reply-To: <487DABB6.5080905@openvz.org>
+	by vger.kernel.org with ESMTP id S1752654AbYGQDkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 23:40:40 -0400
+In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe069011@europa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 16 Jul 2008 12:05:10 +0400
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Tue, 15 Jul 2008 09:30:40 -0700
 
-> This is actually the last very scattered set, that changes many calls
-> to MIB accounting macros. What is left requires less patching.
-> 
-> David, I hope this (and a finalizing set, I will prepare after this
-> one is accepted) can go to current 2.6.27 merge window, but it is OK
-> with me if your decision is to delay this till 2.6.28.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> @@ -1155,6 +1148,11 @@ extern void			tcp_free_md5sig_pool(void);
+>  
+>  extern struct tcp_md5sig_pool	*__tcp_get_md5sig_pool(int cpu);
+>  extern void			__tcp_put_md5sig_pool(void);
+> +extern int tcp_md5_hash_header(struct tcp_md5sig_pool *, struct tcphdr *);
+> +extern int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *, struct sk_buff *,
+> +				 unsigned header_len);
+> +extern int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
+> +			    struct tcp_md5sig_key *key);
 
-Ok, all applied to net-next-2.6, I'll push after I do some build
-testing.
-
-Patch 19 is ugly :(  But I can't recommend another approach.
-If you could find a way to clean that stuff up, it would
-really be appreciated.
-
-If you can get your "finalizing set" to me today or tomorrow,
-I guess I can apply it.
-
-I plan to merge net-next to Linus either Sunday or Monday.
+You don't have any module exports for these functions,
+yet they are called from tcp_ipv6.c, and that will cause
+a build failure.
