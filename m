@@ -1,60 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Thu, 17 Jul 2008 15:36:09 -0700 (PDT)
-Message-ID: <20080717.153609.142867331.davem@davemloft.net>
-References: <487F4327.1000107@trash.net>
-	<20080717.061239.51839567.davem@davemloft.net>
-	<487F4DA6.6010009@trash.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
+	overwritten
+Date: Fri, 18 Jul 2008 00:43:39 +0200
+Message-ID: <20080717224338.GA461@elte.hu>
+References: <20080717214222.GA29449@elte.hu> <20080717.144504.96425101.davem@davemloft.net> <20080717220600.GA1701@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <487F4DA6.6010009-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	penberg@cs.helsinki.fi, vegard.nossum@gmail.com, rjw@sisk.pl
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:39955 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754513AbYGQWoH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 18:44:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20080717220600.GA1701@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Date: Thu, 17 Jul 2008 15:48:22 +0200
 
-> One thought that occured to me - we could avoid all the visiblity
-> issues wrt. dev->qdisc_list by simply getting rid of it :)
-> 
-> If we move the qdisc list from the device to the root Qdisc itself,
-> it would become invisible automatically as soon as we assign a new
-> root qdisc to the netdev_queue. Iteration would become slightly
-> more complicated since we'd have to iterate over all netdev_queues,
-> but I think it should avoid most of the problems I mentioned
-> (besides the u32_list thing).
+* Ingo Molnar <mingo@elte.hu> wrote:
 
-What might make sense is to have a special Qdisc_root structure which
-is simply:
+> Just re-tried it, the bug is reliably repeatable. Will try a bisection 
+> run.
 
-struct Qdisc_root {
-	struct Qdisc		qd;
-	struct list_head	qdisc_list;
-};
+hm, but it was not reproducible on the third and fourth attempt :-( I 
+tried hard to provoke it by generating artificial parallel network and 
+netconsole output - but it didnt want to trigger. Heisenbug ...
 
-Everything about tree level synchronization would be type explicit.
+Maybe the debug output gives someone an idea about the nature of the 
+bug?
 
-Yes, as you say, the qdisc iteration would get slightly ugly.  But
-that doesn't seem to be a huge deal.
-
-But it seems a clean solution to the child qdisc visibility problem.
-
-About u32_list, that thing definitely needs some spinlock.  The
-consultation of that list, and refcount mods, only occur during config
-operations.  So it's not like we have to grab this lock in the data
-paths.
-
-If we really want to sweep this problem under the rug, there is another
-way.  Have the qdisc_destroy() RCU handler kick off a workqueue, and
-grab the RTNL semaphore there during the final destruction calls. :-)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Ingo
