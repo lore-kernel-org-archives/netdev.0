@@ -1,44 +1,40 @@
-From: Josip Rodin <joy@entuzijast.net>
-Subject: Re: bnx2_poll panicking kernel
-Date: Thu, 17 Jul 2008 23:30:58 +0200
-Message-ID: <20080717213058.GA28252@orion.carnet.hr>
-References: <20080711092416.GA26515@orion.carnet.hr> <20080711.025656.261409874.davem@davemloft.net> <48787E1A.3030804@gmail.com> <4878AFD8.1000307@gmail.com> <487B7061.5040306@trash.net> <20080714172055.GA2638@ami.dom.local> <20080714202151.GA28622@orion.carnet.hr> <20080714212223.GA4849@ami.dom.local> <20080714212620.GA8503@orion.carnet.hr> <20080714214851.GB4849@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
+Date: Thu, 17 Jul 2008 14:37:53 -0700 (PDT)
+Message-ID: <20080717.143753.250293973.davem@davemloft.net>
+References: <12162854952457-git-send-email-jie.yang@atheros.com>
+	<200807172204.15342.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	billfink@mindspring.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, mirrors@debian.org, devik@cdi.cz
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jie.yang@atheros.com, jeff@garzik.org, yjwei@cn.fujitsu.com,
+	rdreier@cisco.com, shemminger@vyatta.com, jcliburn@gmail.com,
+	parag.warudkar@gmail.com, w@1wt.eu,
+	oliver.schuster@schweigstill.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: m.kozlowski@tuxland.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.CARNet.hr ([161.53.160.90]:40806 "EHLO orion.carnet.hr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756367AbYGQVbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 17:31:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20080714214851.GB4849@ami.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51178
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754661AbYGQVhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 17:37:54 -0400
+In-Reply-To: <200807172204.15342.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 14, 2008 at 11:48:51PM +0200, Jarek Poplawski wrote:
-> > OK, I'll give it a whirl.
-> > 
-> > (Should I update to .26 at the same time, now that it went live in the
-> > meantime?)
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Date: Thu, 17 Jul 2008 22:04:14 +0200
+
+> Hello,
 > 
-> My proposal is to try .25 first.
+> > +#define SPEED_0		   0xffff
+> > +#define SPEED_10           10
+> > +#define SPEED_100          100
+> > +#define SPEED_100          100
+> 
+> Small thing - double define for SPEED_100.
+> 
+> > +#define SPEED_1000         1000
 
-It looks like the patch fixed my issues - no relevant printk's appeared
-since I've applied it, so apparently there is no more cloned skb splitting
-or corrupted data getting to bnx2.
-
-I used the latest variant, from Jarek's mail
-<20080714212223.GA4849@ami.dom.local>, on the 2.6.25.6 kernel.
-
-Thanks all!
-
-(Now if only someone could make sure this propagates into the stable kernel
-branches, since those were pretty nasty crashes...)
-
--- 
-     2. That which causes joy or happiness.
+And these are all entirely superfluous, since they are already defined
+in linux/ethtool.h
