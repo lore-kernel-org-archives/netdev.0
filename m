@@ -1,167 +1,174 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 14/31]: niu: Add TX multiqueue support.
-Date: Thu, 17 Jul 2008 05:16:53 -0700 (PDT)
-Message-ID: <20080717.051653.214436803.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 12/31]: netdev: Convert all drivers away from
+ netif_schedule().
+Date: Thu, 17 Jul 2008 05:16:41 -0700 (PDT)
+Message-ID: <20080717.051641.80921218.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51645
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756706AbYGQMQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:16:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+They logically all want to trigger a schedule for all device
+TX queues.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/niu.c |   45 +++++++++++++++++++++++++--------------------
- 1 files changed, 25 insertions(+), 20 deletions(-)
+ drivers/net/au1000_eth.c           |    2 +-
+ drivers/net/bfin_mac.c             |    2 +-
+ drivers/net/fec_mpc52xx.c          |    2 +-
+ drivers/net/fs_enet/fs_enet-main.c |    2 +-
+ drivers/net/gianfar.c              |    4 ++--
+ drivers/net/macb.c                 |    2 +-
+ drivers/net/sh_eth.c               |    2 +-
+ drivers/net/tc35815.c              |    2 +-
+ drivers/net/ucc_geth.c             |    4 ++--
+ 9 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index de2a8a3..8ee7d7b 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3236,10 +3236,14 @@ static int release_tx_packet(struct niu *np, struct tx_ring_info *rp, int idx)
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 7023d77..3ab61e4 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -912,7 +912,7 @@ au1000_adjust_link(struct net_device *dev)
+ 		// link state changed
  
- static void niu_tx_work(struct niu *np, struct tx_ring_info *rp)
- {
-+	struct netdev_queue *txq;
- 	u16 pkt_cnt, tmp;
--	int cons;
-+	int cons, index;
- 	u64 cs;
- 
-+	index = (rp - np->tx_rings);
-+	txq = netdev_get_tx_queue(np->dev, index);
-+
- 	cs = rp->tx_cs;
- 	if (unlikely(!(cs & (TX_CS_MK | TX_CS_MMK))))
- 		goto out;
-@@ -3262,13 +3266,13 @@ static void niu_tx_work(struct niu *np, struct tx_ring_info *rp)
- 	smp_mb();
- 
- out:
--	if (unlikely(netif_queue_stopped(np->dev) &&
-+	if (unlikely(netif_tx_queue_stopped(txq) &&
- 		     (niu_tx_avail(rp) > NIU_TX_WAKEUP_THRESH(rp)))) {
--		netif_tx_lock(np->dev);
--		if (netif_queue_stopped(np->dev) &&
-+		__netif_tx_lock(txq, smp_processor_id());
-+		if (netif_tx_queue_stopped(txq) &&
- 		    (niu_tx_avail(rp) > NIU_TX_WAKEUP_THRESH(rp)))
--			netif_wake_queue(np->dev);
--		netif_tx_unlock(np->dev);
-+			netif_tx_wake_queue(txq);
-+		__netif_tx_unlock(txq);
- 	}
- }
- 
-@@ -4061,6 +4065,8 @@ static int niu_alloc_channels(struct niu *np)
- 	np->num_rx_rings = parent->rxchan_per_port[port];
- 	np->num_tx_rings = parent->txchan_per_port[port];
- 
-+	np->dev->real_num_tx_queues = np->num_tx_rings;
-+
- 	np->rx_rings = kzalloc(np->num_rx_rings * sizeof(struct rx_ring_info),
- 			       GFP_KERNEL);
- 	err = -ENOMEM;
-@@ -5686,7 +5692,7 @@ static int niu_open(struct net_device *dev)
- 		goto out_free_irq;
- 	}
- 
--	netif_start_queue(dev);
-+	netif_tx_start_all_queues(dev);
- 
- 	if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
- 		netif_carrier_on(dev);
-@@ -5710,7 +5716,7 @@ static void niu_full_shutdown(struct niu *np, struct net_device *dev)
- 	cancel_work_sync(&np->reset_task);
- 
- 	niu_disable_napi(np);
--	netif_stop_queue(dev);
-+	netif_tx_stop_all_queues(dev);
- 
- 	del_timer_sync(&np->timer);
- 
-@@ -5971,7 +5977,7 @@ static void niu_netif_start(struct niu *np)
- 	 * so long as all callers are assured to have free tx slots
- 	 * (such as after niu_init_hw).
- 	 */
--	netif_wake_queue(np->dev);
-+	netif_tx_wake_all_queues(np->dev);
- 
- 	niu_enable_napi(np);
- 
-@@ -6097,15 +6103,11 @@ static u64 niu_compute_tx_flags(struct sk_buff *skb, struct ethhdr *ehdr,
- 	return ret;
- }
- 
--static struct tx_ring_info *tx_ring_select(struct niu *np, struct sk_buff *skb)
--{
--	return &np->tx_rings[0];
--}
--
- static int niu_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct niu *np = netdev_priv(dev);
- 	unsigned long align, headroom;
-+	struct netdev_queue *txq;
- 	struct tx_ring_info *rp;
- 	struct tx_pkt_hdr *tp;
- 	unsigned int len, nfg;
-@@ -6113,10 +6115,12 @@ static int niu_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int prod, i, tlen;
- 	u64 mapping, mrk;
- 
--	rp = tx_ring_select(np, skb);
-+	i = skb_get_queue_mapping(skb);
-+	rp = &np->tx_rings[i];
-+	txq = netdev_get_tx_queue(dev, i);
- 
- 	if (niu_tx_avail(rp) <= (skb_shinfo(skb)->nr_frags + 1)) {
--		netif_stop_queue(dev);
-+		netif_tx_stop_queue(txq);
- 		dev_err(np->device, PFX "%s: BUG! Tx ring full when "
- 			"queue awake!\n", dev->name);
- 		rp->tx_errors++;
-@@ -6215,9 +6219,9 @@ static int niu_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	nw64(TX_RING_KICK(rp->tx_channel), rp->wrap_bit | (prod << 3));
- 
- 	if (unlikely(niu_tx_avail(rp) <= (MAX_SKB_FRAGS + 1))) {
--		netif_stop_queue(dev);
-+		netif_tx_stop_queue(txq);
- 		if (niu_tx_avail(rp) > NIU_TX_WAKEUP_THRESH(rp))
--			netif_wake_queue(dev);
-+			netif_tx_wake_queue(txq);
- 	}
- 
- 	dev->trans_start = jiffies;
-@@ -6275,7 +6279,7 @@ static int niu_change_mtu(struct net_device *dev, int new_mtu)
- 	spin_unlock_irq(&np->lock);
- 
- 	if (!err) {
--		netif_start_queue(dev);
-+		netif_tx_start_all_queues(dev);
- 		if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
+ 		if (phydev->link) // link went up
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		else { // link went down
+ 			aup->old_speed = 0;
+ 			aup->old_duplex = -1;
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 4144343..a6a3da8 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -357,7 +357,7 @@ static void bfin_mac_adjust_link(struct net_device *dev)
+ 		if (!lp->old_link) {
+ 			new_state = 1;
+ 			lp->old_link = 1;
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		}
+ 	} else if (lp->old_link) {
+ 		new_state = 1;
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index 329edd9..ae9ecb7 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -197,7 +197,7 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
+ 		if (priv->link == PHY_DOWN) {
+ 			new_state = 1;
+ 			priv->link = phydev->link;
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
  			netif_carrier_on(dev);
+ 			netif_start_queue(dev);
+ 		}
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index fb7c477..bdb81f5 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -738,7 +738,7 @@ static void generic_adjust_link(struct  net_device *dev)
+ 		if (!fep->oldlink) {
+ 			new_state = 1;
+ 			fep->oldlink = 1;
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 			netif_carrier_on(dev);
+ 			netif_start_queue(dev);
+ 		}
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index fa78d68..45a6317 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1234,7 +1234,7 @@ static void gfar_timeout(struct net_device *dev)
+ 		startup_gfar(dev);
+ 	}
  
-@@ -8532,9 +8536,10 @@ static struct net_device * __devinit niu_alloc_and_init(
- 	struct of_device *op, const struct niu_ops *ops,
- 	u8 port)
- {
--	struct net_device *dev = alloc_etherdev(sizeof(struct niu));
-+	struct net_device *dev;
- 	struct niu *np;
+-	netif_schedule(dev);
++	netif_tx_schedule_all(dev);
+ }
  
-+	dev = alloc_etherdev_mq(sizeof(struct niu), NIU_NUM_TXCHAN);
- 	if (!dev) {
- 		dev_err(gen_dev, PFX "Etherdev alloc failed, aborting.\n");
- 		return NULL;
+ /* Interrupt Handler for Transmit complete */
+@@ -1725,7 +1725,7 @@ static void adjust_link(struct net_device *dev)
+ 		if (!priv->oldlink) {
+ 			new_state = 1;
+ 			priv->oldlink = 1;
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		}
+ 	} else if (priv->oldlink) {
+ 		new_state = 1;
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index e346302..50688a5 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -165,7 +165,7 @@ static void macb_handle_link_change(struct net_device *dev)
+ 
+ 	if (phydev->link != bp->link) {
+ 		if (phydev->link)
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		else {
+ 			bp->speed = 0;
+ 			bp->duplex = -1;
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index 37f3116..a4bc812 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -642,7 +642,7 @@ static void sh_eth_adjust_link(struct net_device *ndev)
+ 					| ECMR_DM, ioaddr + ECMR);
+ 			new_state = 1;
+ 			mdp->link = phydev->link;
+-			netif_schedule(ndev);
++			netif_tx_schedule_all(ndev);
+ 			netif_carrier_on(ndev);
+ 			netif_start_queue(ndev);
+ 		}
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index b07b8cb..41d3ac4 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -672,7 +672,7 @@ static void tc_handle_link_change(struct net_device *dev)
+ 			if (dev->flags & IFF_PROMISC)
+ 				tc35815_set_multicast_list(dev);
+ #endif
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		} else {
+ 			lp->speed = 0;
+ 			lp->duplex = -1;
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 07933f7..c1b55bc 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1588,7 +1588,7 @@ static void adjust_link(struct net_device *dev)
+ 		if (!ugeth->oldlink) {
+ 			new_state = 1;
+ 			ugeth->oldlink = 1;
+-			netif_schedule(dev);
++			netif_tx_schedule_all(dev);
+ 		}
+ 	} else if (ugeth->oldlink) {
+ 			new_state = 1;
+@@ -3372,7 +3372,7 @@ static void ucc_geth_timeout(struct net_device *dev)
+ 		ucc_geth_startup(ugeth);
+ 	}
+ 
+-	netif_schedule(dev);
++	netif_tx_schedule_all(dev);
+ }
+ 
+ /* This is called by the kernel when a frame is ready for transmission. */
 -- 
 1.5.6.2.255.gbed62
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
