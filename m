@@ -1,8 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 25/31]: pkt_sched: Make qdisc grafting locking more
- specific.
-Date: Thu, 17 Jul 2008 05:17:55 -0700 (PDT)
-Message-ID: <20080717.051755.145101968.davem@davemloft.net>
+Subject: [PATCH 16/31]: pkt_sched: Make QDISC_RUNNING a qdisc state.
+Date: Thu, 17 Jul 2008 05:17:04 -0700 (PDT)
+Message-ID: <20080717.051704.146865283.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,124 +9,150 @@ Cc: kaber@trash.net, johannes@sipsolutions.net,
 	linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51694
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51657
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758642AbYGQMRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:17:55 -0400
+	by vger.kernel.org with ESMTP id S1756411AbYGQMRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:17:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Lock the root of the qdisc being operated upon.
-
-All explicit references to qdisc_tree_lock() are now gone.
-The only remaining uses are via the sch_tree_{lock,unlock}()
-and tcf_tree_{lock,unlock}() macros.
+Currently it is associated with a netdev_queue, but when we have
+qdisc sharing that no longer makes any sense.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_api.c |   41 +++++++++++++++++++++++++++++------------
- 1 files changed, 29 insertions(+), 12 deletions(-)
+ include/linux/netdevice.h |    1 -
+ include/net/pkt_sched.h   |    4 +++-
+ include/net/sch_generic.h |    6 ++++++
+ net/sched/sch_generic.c   |   18 ++++++++++--------
+ 4 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 6958fe7..7492489 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -441,15 +441,29 @@ static struct Qdisc *
- dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0883fcf..9240a95 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -441,7 +441,6 @@ static inline void napi_synchronize(const struct napi_struct *n)
+ enum netdev_queue_state_t
  {
- 	struct netdev_queue *dev_queue;
-+	spinlock_t *root_lock;
- 	struct Qdisc *oqdisc;
-+	int ingress;
+ 	__QUEUE_STATE_XOFF,
+-	__QUEUE_STATE_QDISC_RUNNING,
+ };
  
- 	if (dev->flags & IFF_UP)
- 		dev_deactivate(dev);
+ struct netdev_queue {
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index cb95278..06a442d 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -88,8 +88,10 @@ extern void __qdisc_run(struct netdev_queue *txq);
  
--	qdisc_lock_tree(dev);
--	if (qdisc && qdisc->flags&TCQ_F_INGRESS) {
-+	ingress = 0;
-+	if (qdisc && qdisc->flags&TCQ_F_INGRESS)
-+		ingress = 1;
+ static inline void qdisc_run(struct netdev_queue *txq)
+ {
++	struct Qdisc *q = txq->qdisc;
 +
-+	if (ingress) {
- 		dev_queue = &dev->rx_queue;
- 		oqdisc = dev_queue->qdisc;
-+	} else {
-+		dev_queue = netdev_get_tx_queue(dev, 0);
-+		oqdisc = dev_queue->qdisc_sleeping;
-+	}
+ 	if (!netif_tx_queue_stopped(txq) &&
+-	    !test_and_set_bit(__QUEUE_STATE_QDISC_RUNNING, &txq->state))
++	    !test_and_set_bit(__QDISC_STATE_RUNNING, &q->state))
+ 		__qdisc_run(txq);
+ }
+ 
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index b96c3d9..bc2a09d 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -23,6 +23,11 @@ struct qdisc_rate_table
+ 	int		refcnt;
+ };
+ 
++enum qdisc_state_t
++{
++	__QDISC_STATE_RUNNING,
++};
 +
-+	root_lock = qdisc_root_lock(oqdisc);
-+	spin_lock_bh(root_lock);
-+
-+	if (ingress) {
- 		/* Prune old scheduler */
- 		if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1) {
- 			/* delete */
-@@ -460,9 +474,6 @@ dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
+ struct Qdisc
+ {
+ 	int 			(*enqueue)(struct sk_buff *skb, struct Qdisc *dev);
+@@ -36,6 +41,7 @@ struct Qdisc
+ 	u32			handle;
+ 	u32			parent;
+ 	atomic_t		refcnt;
++	unsigned long		state;
+ 	struct sk_buff		*gso_skb;
+ 	struct sk_buff_head	q;
+ 	struct netdev_queue	*dev_queue;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 2bd75be..ac208c2 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -130,8 +130,8 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+ /*
+  * NOTE: Called under queue->lock with locally disabled BH.
+  *
+- * __QUEUE_STATE_QDISC_RUNNING guarantees only one CPU can process
+- * this queue at a time. queue->lock serializes queue accesses for
++ * __QDISC_STATE_RUNNING guarantees only one CPU can process
++ * this qdisc at a time. queue->lock serializes queue accesses for
+  * this queue AND txq->qdisc pointer itself.
+  *
+  *  netif_tx_lock serializes accesses to device driver.
+@@ -146,9 +146,9 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+  *				>0 - queue is not empty.
+  *
+  */
+-static inline int qdisc_restart(struct netdev_queue *txq)
++static inline int qdisc_restart(struct netdev_queue *txq,
++				struct Qdisc *q)
+ {
+-	struct Qdisc *q = txq->qdisc;
+ 	int ret = NETDEV_TX_BUSY;
+ 	struct net_device *dev;
+ 	struct sk_buff *skb;
+@@ -168,7 +168,6 @@ static inline int qdisc_restart(struct netdev_queue *txq)
+ 	HARD_TX_UNLOCK(dev, txq);
+ 
+ 	spin_lock(&txq->lock);
+-	q = txq->qdisc;
+ 
+ 	switch (ret) {
+ 	case NETDEV_TX_OK:
+@@ -197,8 +196,9 @@ static inline int qdisc_restart(struct netdev_queue *txq)
+ void __qdisc_run(struct netdev_queue *txq)
+ {
+ 	unsigned long start_time = jiffies;
++	struct Qdisc *q = txq->qdisc;
+ 
+-	while (qdisc_restart(txq)) {
++	while (qdisc_restart(txq, q)) {
+ 		if (netif_tx_queue_stopped(txq))
+ 			break;
+ 
+@@ -213,7 +213,7 @@ void __qdisc_run(struct netdev_queue *txq)
  		}
- 
- 	} else {
--		dev_queue = netdev_get_tx_queue(dev, 0);
--		oqdisc = dev_queue->qdisc_sleeping;
--
- 		/* Prune old scheduler */
- 		if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
- 			qdisc_reset(oqdisc);
-@@ -474,7 +485,7 @@ dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
- 		dev_queue->qdisc = &noop_qdisc;
  	}
  
--	qdisc_unlock_tree(dev);
-+	spin_unlock_bh(root_lock);
+-	clear_bit(__QUEUE_STATE_QDISC_RUNNING, &txq->state);
++	clear_bit(__QDISC_STATE_RUNNING, &q->state);
+ }
  
- 	if (dev->flags & IFF_UP)
- 		dev_activate(dev);
-@@ -765,10 +776,12 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 		if ((err = qdisc_graft(dev, p, clid, NULL, &q)) != 0)
- 			return err;
- 		if (q) {
-+			spinlock_t *root_lock = qdisc_root_lock(q);
-+
- 			qdisc_notify(skb, n, clid, q, NULL);
--			qdisc_lock_tree(dev);
-+			spin_unlock_bh(root_lock);
- 			qdisc_destroy(q);
--			qdisc_unlock_tree(dev);
-+			spin_unlock_bh(root_lock);
- 		}
- 	} else {
- 		qdisc_notify(skb, n, clid, NULL, q);
-@@ -911,20 +924,24 @@ create_n_graft:
- graft:
- 	if (1) {
- 		struct Qdisc *old_q = NULL;
-+		spinlock_t *root_lock;
-+
- 		err = qdisc_graft(dev, p, clid, q, &old_q);
- 		if (err) {
- 			if (q) {
--				qdisc_lock_tree(dev);
-+				root_lock = qdisc_root_lock(q);
-+				spin_lock_bh(root_lock);
- 				qdisc_destroy(q);
--				qdisc_unlock_tree(dev);
-+				spin_unlock_bh(root_lock);
- 			}
- 			return err;
- 		}
- 		qdisc_notify(skb, n, clid, old_q, q);
- 		if (old_q) {
--			qdisc_lock_tree(dev);
-+			root_lock = qdisc_root_lock(old_q);
-+			spin_lock_bh(root_lock);
- 			qdisc_destroy(old_q);
--			qdisc_unlock_tree(dev);
-+			spin_unlock_bh(root_lock);
- 		}
- 	}
- 	return 0;
+ static void dev_watchdog(unsigned long arg)
+@@ -666,14 +666,16 @@ static bool some_qdisc_is_running(struct net_device *dev, int lock)
+ 
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		struct netdev_queue *dev_queue;
++		struct Qdisc *q;
+ 		int val;
+ 
+ 		dev_queue = netdev_get_tx_queue(dev, i);
++		q = dev_queue->qdisc;
+ 
+ 		if (lock)
+ 			spin_lock_bh(&dev_queue->lock);
+ 
+-		val = test_bit(__QUEUE_STATE_QDISC_RUNNING, &dev_queue->state);
++		val = test_bit(__QDISC_STATE_RUNNING, &q->state);
+ 
+ 		if (lock)
+ 			spin_unlock_bh(&dev_queue->lock);
 -- 
 1.5.6.2.255.gbed62
 
