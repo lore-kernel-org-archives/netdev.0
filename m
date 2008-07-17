@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] ipvs: Cleanup sync daemon code
-Date: Wed, 16 Jul 2008 19:50:20 -0700 (PDT)
-Message-ID: <20080716.195020.234296508.davem@davemloft.net>
-References: <20080630045153.GA25021@verge.net.au>
-	<alpine.LNX.1.10.0807170004580.17284@titan.stealer.net>
-	<20080717024848.GC23699@verge.net.au>
+Subject: Re: [PATCH] IPVS: More reliable synchronization on connection close
+Date: Wed, 16 Jul 2008 20:04:38 -0700 (PDT)
+Message-ID: <20080716.200438.07028915.davem@davemloft.net>
+References: <20080716063519.GA5144@verge.net.au>
+	<20080717024720.GB23699@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sven.wegener@stealer.net, wensong@linux-vs.org, ja@ssi.bg,
-	netdev@vger.kernel.org
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	rumen@voicecho.com, jmack@wm7d.net
 To: horms@verge.net.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53626
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752960AbYGQCuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 22:50:21 -0400
-In-Reply-To: <20080717024848.GC23699@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080717024720.GB23699@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Simon Horman <horms@verge.net.au>
-Date: Thu, 17 Jul 2008 12:48:50 +1000
+Date: Thu, 17 Jul 2008 12:47:22 +1000
 
-> Dave, is there anything I can do to make merging these patches easier for you?
+> This patch enhances the synchronization of the closing connections
+> between the master and the backup director. It prevents the closed
+> connections to expire with the 15 min timeout of the ESTABLISHED
+> state on the backup and makes them expire as they would do on the
+> master with much shorter timeouts.
+> 
+> Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-I can take care of it directly, thanks Simon.
+Applied, thanks.
