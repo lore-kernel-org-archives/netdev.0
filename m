@@ -1,40 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.27
-Date: Thu, 17 Jul 2008 00:37:13 -0700 (PDT)
-Message-ID: <20080717.003713.193704510.davem@davemloft.net>
-References: <ada8ww5jbaf.fsf@cisco.com>
-	<487EF563.9090102@voltaire.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
-To: ogerlitz@voltaire.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <487EF563.9090102@voltaire.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
-
 From: Or Gerlitz <ogerlitz@voltaire.com>
-Date: Thu, 17 Jul 2008 10:31:47 +0300
+Subject: Re: InfiniBand/RDMA merge plans for 2.6.27
+Date: Thu, 17 Jul 2008 10:44:55 +0300
+Message-ID: <487EF877.3050803@voltaire.com>
+References: <ada8ww5jbaf.fsf@cisco.com>	<487EF563.9090102@voltaire.com> <20080717.003713.193704510.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:36939 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752543AbYGQHo6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 03:44:58 -0400
+In-Reply-To: <20080717.003713.193704510.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> There are some rdma patches for 2.6.27 which are dependent on few 
-> networking patches (below), so Roland can't push them before the net 
-> changes gets in, such that enough time has to be left for the rdma push 
-> before the merge window closes...
+David Miller wrote:
+> I'm pushing to Linus this coming Sunday. I'm sorry if this makes things difficult, but it's the best I can do at the moment.
+>   
+thanks for the update, I believe this will leave Roland enough time to 
+do his push,
 
-I'm pushing to Linus this coming Sunday.
+Or.
 
-I wanted to do it sooner but my tree isn't in a state where I can
-merge it just yet, and Linus is going away for 3 days starting
-Thursday.
 
-I'm sorry if this makes things difficult, but it's the best I can
-do at the moment.
