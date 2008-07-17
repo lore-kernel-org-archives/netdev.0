@@ -1,60 +1,42 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Wed, 16 Jul 2008 20:34:44 -0700
-Message-ID: <20080716203444.181a7375@speedy>
-References: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
-	<20080715211514.25848d8a@extreme>
-	<72981EBCFD196144B7C6999B9FC34A9A3EE60EA59C@SHEXMB-01.global.atheros.com>
-	<20080716085329.03e97b2a@extreme>
-	<adafxq9bxbr.fsf@cisco.com>
-	<72981EBCFD196144B7C6999B9FC34A9A3EE613106D@SHEXMB-01.global.atheros.com>
-	<487EBCD3.6040000@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/20] mib: add struct net to IP, TCP and NET macros
+Date: Wed, 16 Jul 2008 20:38:54 -0700 (PDT)
+Message-ID: <20080716.203854.08602318.davem@davemloft.net>
+References: <487DABB6.5080905@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jie Yang <Jie.Yang@Atheros.com>, Roland Dreier <rdreier@cisco.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
-	"parag.warudkar@gmail.com" <parag.warudkar@gmail.com>,
-	Willy Tarreau <w@1wt.eu>,
-	"oliver.schuster@schweigstill.de" <oliver.schuster@schweigstill.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53022 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752654AbYGQDeo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2008 23:34:44 -0400
-In-Reply-To: <487EBCD3.6040000@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43919
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754277AbYGQDiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 23:38:55 -0400
+In-Reply-To: <487DABB6.5080905@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Jul 2008 11:30:27 +0800
-Wei Yongjun <yjwei@cn.fujitsu.com> wrote:
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 16 Jul 2008 12:05:10 +0400
 
-> Jie Yang wrote:
-> > On Thursday, July 17, 2008 12:36 AM
-> > Roland Dreier <rdreier@cisco.com> wrote:
-> >   
-> >>  > Output of checkpatch (scripts/checkpatch.pl in kernel source).
-> >>  > Personally, I am not a whitespace bigot, and don't think
-> >>     
-> >>> all the warnings in checkpatch have to be fixed.
-> >>>       
-> >
-> > Hi, Roland
-> >         I used outlook to send these patches, can you give me some
-> > aderise on how to send non-mangled patches.
-> >   
+> This is actually the last very scattered set, that changes many calls
+> to MIB accounting macros. What is left requires less patching.
 > 
-> You should use Thunderbird to send you patchs. And check it by send the 
-> mail to yourself.
+> David, I hope this (and a finalizing set, I will prepare after this
+> one is accepted) can go to current 2.6.27 merge window, but it is OK
+> with me if your decision is to delay this till 2.6.28.
 > 
-> Regards.
-> Wei Yongjun
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Alternatively, use a text file as attachment. It doesn't work as well but then
-it comes through unmangled.
+Ok, all applied to net-next-2.6, I'll push after I do some build
+testing.
+
+Patch 19 is ugly :(  But I can't recommend another approach.
+If you could find a way to clean that stuff up, it would
+really be appreciated.
+
+If you can get your "finalizing set" to me today or tomorrow,
+I guess I can apply it.
+
+I plan to merge net-next to Linus either Sunday or Monday.
