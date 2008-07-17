@@ -1,48 +1,75 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: remove unnecessary byteshifting, calculate crc
- in	big-endian
-Date: Thu, 17 Jul 2008 15:24:31 -0400
-Message-ID: <487F9C6F.3080802@hp.com>
-References: <1215133995.16647.51.camel@brick>  <487526B8.70903@hp.com>	 <1215651704.476.92.camel@brick>  <487603F0.9070604@hp.com> <1216322461.6029.3.camel@brick>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: DM9000: Remove magic numbers
+Date: Thu, 17 Jul 2008 20:29:13 +0100
+Message-ID: <20080717192913.003778061@fluff.org.uk>
+Cc: jeff@garzik.org, Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:20186 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932815AbYGQT0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 15:26:00 -0400
-In-Reply-To: <1216322461.6029.3.camel@brick>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:57999 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933104AbYGQT3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 15:29:15 -0400
+Content-Disposition: inline; filename=simtec/simtec-drivers-net-dm9000-cleanups3.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Harvey Harrison wrote:
-> On Thu, 2008-07-10 at 08:43 -0400, Vlad Yasevich wrote:
->> Harvey Harrison wrote:
->>> On Wed, 2008-07-09 at 16:59 -0400, Vlad Yasevich wrote:
->>>> Harvey Harrison wrote:
->>>>> -	__u32 crc32 = 0;
->>>>> +	__be32 crc32 = cpu_to_be32(0);
->>>> Does this actually do anything?
->>>>
->>>> Otherwise, good clean-up. Thanks
->>>>
->>> Keeps sparse happy.
->> Wouldn't just a (__force __be32)0 do the same thing and
->> avoid useless byte swapping on little endian?
->>
-> 
-> Vlad, do you want me to revise the patch, or were you taking it as is?
-> 
-> Harvey
-> 
+Remove magic numbers for items that we already have
+defined in the register header file.
 
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Could you fix it please.
+Index: linux-2.6.26-quilt3/drivers/net/dm9000.c
+===================================================================
+--- linux-2.6.26-quilt3.orig/drivers/net/dm9000.c	2008-07-17 20:12:49.000000000 +0100
++++ linux-2.6.26-quilt3/drivers/net/dm9000.c	2008-07-17 20:24:52.000000000 +0100
+@@ -888,19 +888,22 @@ dm9000_rx(struct net_device *dev)
+ 			dev_dbg(db->dev, "RST: RX Len:%x\n", RxLen);
+ 		}
+ 
+-		if (rxhdr.RxStatus & 0xbf) {
++		/* rxhdr.RxStatus is identical to RSR register. */
++		if (rxhdr.RxStatus & (RSR_FOE | RSR_CE | RSR_AE |
++				      RSR_PLE | RSR_RWTO |
++				      RSR_LCS | RSR_RF)) {
+ 			GoodPacket = false;
+-			if (rxhdr.RxStatus & 0x01) {
++			if (rxhdr.RxStatus & RSR_FOE) {
+ 				if (netif_msg_rx_err(db))
+ 					dev_dbg(db->dev, "fifo error\n");
+ 				dev->stats.rx_fifo_errors++;
+ 			}
+-			if (rxhdr.RxStatus & 0x02) {
++			if (rxhdr.RxStatus & RSR_CE) {
+ 				if (netif_msg_rx_err(db))
+ 					dev_dbg(db->dev, "crc error\n");
+ 				dev->stats.rx_crc_errors++;
+ 			}
+-			if (rxhdr.RxStatus & 0x80) {
++			if (rxhdr.RxStatus & RSR_RF) {
+ 				if (netif_msg_rx_err(db))
+ 					dev_dbg(db->dev, "length error\n");
+ 				dev->stats.rx_length_errors++;
+@@ -1067,7 +1070,7 @@ dm9000_phy_read(struct net_device *dev, 
+ 	/* Fill the phyxcer register into REG_0C */
+ 	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+ 
+-	iow(db, DM9000_EPCR, 0xc);	/* Issue phyxcer read command */
++	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);	/* Issue phyxcer read command */
+ 
+ 	writeb(reg_save, db->io_addr);
+ 	spin_unlock_irqrestore(&db->lock,flags);
+@@ -1118,7 +1121,7 @@ dm9000_phy_write(struct net_device *dev,
+ 	iow(db, DM9000_EPDRL, value);
+ 	iow(db, DM9000_EPDRH, value >> 8);
+ 
+-	iow(db, DM9000_EPCR, 0xa);	/* Issue phyxcer write command */
++	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);	/* Issue phyxcer write command */
+ 
+ 	writeb(reg_save, db->io_addr);
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 
 
-Thanks
--vlad
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
+
+  'a smiley only costs 4 bytes'
