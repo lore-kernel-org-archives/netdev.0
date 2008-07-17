@@ -1,124 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 15/31]: pkt_sched: Move gso_skb into Qdisc.
-Date: Thu, 17 Jul 2008 05:16:58 -0700 (PDT)
-Message-ID: <20080717.051658.129292213.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Thu, 17 Jul 2008 05:17:26 -0700 (PDT)
+Message-ID: <20080717.051726.226040470.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51654
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758077AbYGQMQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:16:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-We liberate any dangling gso_skb during qdisc destruction.
+This allows less strict control of access to the qdisc attached to a
+netdev_queue.  It is even allowed to enqueue into a qdisc which is
+in the process of being destroyed.  The RCU handler will toss out
+those packets.
 
-It really only matters for the root qdisc.  But when qdiscs
-can be shared by multiple netdev_queue objects, we can't
-have the gso_skb in the netdev_queue any more.
+We will need this to handle sharing of a qdisc amongst multiple
+TX queues.  In such a setup the lock has to be shared, so will
+be inside of the qdisc itself.  At which point the netdev_queue
+lock cannot be used to hard synchronize access to the ->qdisc
+pointer.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+One operation we have to keep inside of qdisc_destroy() is the list
+deletion.  It is the only piece of state visible after the RCU quiesce
+period, so we have to undo it early and under the appropriate locking.
+
+The operations in the RCU handler do not need any looking because the
+qdisc tree is no longer visible to anything at that point.
+
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- include/linux/netdevice.h |    1 -
- include/net/sch_generic.h |    1 +
- net/sched/sch_generic.c   |   19 +++++++++----------
- 3 files changed, 10 insertions(+), 11 deletions(-)
+ net/sched/sch_generic.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 787fbfc..0883fcf 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -449,7 +449,6 @@ struct netdev_queue {
- 	struct net_device	*dev;
- 	struct Qdisc		*qdisc;
- 	unsigned long		state;
--	struct sk_buff		*gso_skb;
- 	spinlock_t		_xmit_lock;
- 	int			xmit_lock_owner;
- 	struct Qdisc		*qdisc_sleeping;
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b47f556..b96c3d9 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -36,6 +36,7 @@ struct Qdisc
- 	u32			handle;
- 	u32			parent;
- 	atomic_t		refcnt;
-+	struct sk_buff		*gso_skb;
- 	struct sk_buff_head	q;
- 	struct netdev_queue	*dev_queue;
- 	struct list_head	list;
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 2f575b9..2bd75be 100644
+index 7e078c5..082db8a 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -77,7 +77,7 @@ static inline int dev_requeue_skb(struct sk_buff *skb,
- 				  struct Qdisc *q)
+@@ -545,6 +545,17 @@ EXPORT_SYMBOL(qdisc_reset);
+ static void __qdisc_destroy(struct rcu_head *head)
  {
- 	if (unlikely(skb->next))
--		dev_queue->gso_skb = skb;
-+		q->gso_skb = skb;
- 	else
- 		q->ops->requeue(skb, q);
- 
-@@ -85,13 +85,12 @@ static inline int dev_requeue_skb(struct sk_buff *skb,
- 	return 0;
+ 	struct Qdisc *qdisc = container_of(head, struct Qdisc, q_rcu);
++	const struct Qdisc_ops  *ops = qdisc->ops;
++
++	gen_kill_estimator(&qdisc->bstats, &qdisc->rate_est);
++	if (ops->reset)
++		ops->reset(qdisc);
++	if (ops->destroy)
++		ops->destroy(qdisc);
++
++	module_put(ops->owner);
++	dev_put(qdisc_dev(qdisc));
++
+ 	kfree((char *) qdisc - qdisc->padded);
  }
  
--static inline struct sk_buff *dequeue_skb(struct netdev_queue *dev_queue,
--					  struct Qdisc *q)
-+static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+@@ -552,21 +563,12 @@ static void __qdisc_destroy(struct rcu_head *head)
+ 
+ void qdisc_destroy(struct Qdisc *qdisc)
  {
- 	struct sk_buff *skb;
- 
--	if ((skb = dev_queue->gso_skb))
--		dev_queue->gso_skb = NULL;
-+	if ((skb = q->gso_skb))
-+		q->gso_skb = NULL;
- 	else
- 		skb = q->dequeue(q);
- 
-@@ -155,10 +154,9 @@ static inline int qdisc_restart(struct netdev_queue *txq)
- 	struct sk_buff *skb;
- 
- 	/* Dequeue packet */
--	if (unlikely((skb = dequeue_skb(txq, q)) == NULL))
-+	if (unlikely((skb = dequeue_skb(q)) == NULL))
- 		return 0;
- 
--
- 	/* And release queue */
- 	spin_unlock(&txq->lock);
- 
-@@ -643,8 +641,8 @@ static void dev_deactivate_queue(struct net_device *dev,
- 				 void *_qdisc_default)
- {
- 	struct Qdisc *qdisc_default = _qdisc_default;
-+	struct sk_buff *skb = NULL;
- 	struct Qdisc *qdisc;
--	struct sk_buff *skb;
- 
- 	spin_lock_bh(&dev_queue->lock);
- 
-@@ -652,9 +650,10 @@ static void dev_deactivate_queue(struct net_device *dev,
- 	if (qdisc) {
- 		dev_queue->qdisc = qdisc_default;
- 		qdisc_reset(qdisc);
-+
-+		skb = qdisc->gso_skb;
-+		qdisc->gso_skb = NULL;
- 	}
--	skb = dev_queue->gso_skb;
--	dev_queue->gso_skb = NULL;
- 
- 	spin_unlock_bh(&dev_queue->lock);
- 
--- 
-1.5.6.2.255.gbed62
-
+-	const struct Qdisc_ops  *ops = qdisc->ops;
