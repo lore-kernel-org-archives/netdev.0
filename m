@@ -1,69 +1,76 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 23/31]: pkt_sched: Kill qdisc_lock_tree usage in cls_route.c
-Date: Thu, 17 Jul 2008 05:17:43 -0700 (PDT)
-Message-ID: <20080717.051743.112915778.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 22/31]: pkt_sched: Remove qdisc_lock_tree usage in cls_api.c
+Date: Thu, 17 Jul 2008 05:17:37 -0700 (PDT)
+Message-ID: <20080717.051737.247187813.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51683
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758642AbYGQMRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:17:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-It just wants the qdisc tree to be synchronized, so grabbing
-qdisc_root_lock() is sufficient.
+It just wants the qdisc tree for the filter to be synchronized.
+So just BH lock qdisc_root_lock(q) instead.
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/cls_route.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+ net/sched/cls_api.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 5a16ca2..481260a 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -73,11 +73,13 @@ static __inline__ int route4_fastmap_hash(u32 id, int iif)
- }
- 
- static inline
--void route4_reset_fastmap(struct net_device *dev, struct route4_head *head, u32 id)
-+void route4_reset_fastmap(struct Qdisc *q, struct route4_head *head, u32 id)
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index d0b0a9b..d2b6f54 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -120,6 +120,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
  {
--	qdisc_lock_tree(dev);
-+	spinlock_t *root_lock = qdisc_root_lock(q);
-+
-+	spin_lock_bh(root_lock);
- 	memset(head->fastmap, 0, sizeof(head->fastmap));
--	qdisc_unlock_tree(dev);
-+	spin_unlock_bh(root_lock);
- }
- 
- static inline void
-@@ -302,7 +304,7 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- 			*fp = f->next;
- 			tcf_tree_unlock(tp);
- 
--			route4_reset_fastmap(qdisc_dev(tp->q), head, f->id);
-+			route4_reset_fastmap(tp->q, head, f->id);
- 			route4_delete_filter(tp, f);
- 
- 			/* Strip tree */
-@@ -500,7 +502,7 @@ reinsert:
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tca[TCA_MAX + 1];
++	spinlock_t *root_lock;
+ 	struct tcmsg *t;
+ 	u32 protocol;
+ 	u32 prio;
+@@ -204,6 +205,8 @@ replay:
+ 		}
  	}
- 	tcf_tree_unlock(tp);
  
--	route4_reset_fastmap(qdisc_dev(tp->q), head, f->id);
-+	route4_reset_fastmap(tp->q, head, f->id);
- 	*arg = (unsigned long)f;
- 	return 0;
++	root_lock = qdisc_root_lock(q);
++
+ 	if (tp == NULL) {
+ 		/* Proto-tcf does not exist, create new one */
  
+@@ -263,10 +266,10 @@ replay:
+ 			goto errout;
+ 		}
+ 
+-		qdisc_lock_tree(dev);
++		spin_lock_bh(root_lock);
+ 		tp->next = *back;
+ 		*back = tp;
+-		qdisc_unlock_tree(dev);
++		spin_unlock_bh(root_lock);
+ 
+ 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
+ 		goto errout;
+@@ -275,9 +278,9 @@ replay:
+ 
+ 	if (fh == 0) {
+ 		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
+-			qdisc_lock_tree(dev);
++			spin_lock_bh(root_lock);
+ 			*back = tp->next;
+-			qdisc_unlock_tree(dev);
++			spin_lock_bh(root_lock);
+ 
+ 			tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
+ 			tcf_destroy(tp);
 -- 
 1.5.6.2.255.gbed62
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
