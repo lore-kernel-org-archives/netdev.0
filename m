@@ -1,68 +1,46 @@
-From: karl <jerjerthorjack@gmail.com>
-Subject: Work At Home Made Easy!
-Date: Fri, 18 Jul 2008 02:12:22 -0700
-Message-ID: <718212.UNYBEBCL@yahoo.com>
-Reply-To: snitchman@gmail.com
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] sctp: remove unnecessary byteshifting, calculate crc
+	in	big-endian
+Date: Thu, 17 Jul 2008 12:21:01 -0700
+Message-ID: <1216322461.6029.3.camel@brick>
+References: <1215133995.16647.51.camel@brick>  <487526B8.70903@hp.com>
+	 <1215651704.476.92.camel@brick>  <487603F0.9070604@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ag-out-0708.google.com ([72.14.246.247]:1707 "EHLO
-	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758472AbYGQSJh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 14:09:37 -0400
-Received: by ag-out-0708.google.com with SMTP id 31so6629381agc.10
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 11:09:35 -0700 (PDT)
+Received: from wf-out-1314.google.com ([209.85.200.172]:59781 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759316AbYGQTVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 15:21:03 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so55450wfd.4
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 12:21:03 -0700 (PDT)
+In-Reply-To: <487603F0.9070604@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Thu, 2008-07-10 at 08:43 -0400, Vlad Yasevich wrote:
+> Harvey Harrison wrote:
+> > On Wed, 2008-07-09 at 16:59 -0400, Vlad Yasevich wrote:
+> >> Harvey Harrison wrote:
+> >>> -	__u32 crc32 = 0;
+> >>> +	__be32 crc32 = cpu_to_be32(0);
+> >> Does this actually do anything?
+> >>
+> >> Otherwise, good clean-up. Thanks
+> >>
+> > 
+> > Keeps sparse happy.
+> 
+> Wouldn't just a (__force __be32)0 do the same thing and
+> avoid useless byte swapping on little endian?
+> 
 
+Vlad, do you want me to revise the patch, or were you taking it as is?
 
-Imagine making $300 daily guaranteed working
-from your OWN COMPUTER.
-
-Would you give it a shot?
-
-If the answer is yes, then this opportunity is
-certainly right for YOU!
-
- If you are looking for a proven
-way to earn extra money working from the
-comfort of your home, then you want to check
-this out and discover how you could easily
-increase your earnings more than you ever
-thought possible.
-
-
-Go to >> http://www.affiliatecashpayouts.com/2363.html
-
-
-Just try it hassle-free and you'll
-realize immediately what a powerful program
-this truly is.
-
-Bottom line... You will absolutely be shocked
-from the results YOU will get!
-
-Wishing you every success,
-
-Dern Tan
-
-
-Go to >> http://www.affiliatecashpayouts.com/2363.html
-
-
- If you no longer want to receive our emails, reply STOP to ..
-
-snitchman@gmail.com
-
-
-if you have second thoughts don't hesitate to try to visit us..
-
-Go to >> http://www.affiliatecashpayouts.com/2363.html
-
-
+Harvey
 
