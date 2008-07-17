@@ -1,57 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 10/13]: net: Implement simple sw TX hashing.
-Date: Thu, 17 Jul 2008 18:21:27 +0200
-Message-ID: <487F7187.9060909@trash.net>
-References: <20080710.035713.204601759.davem@davemloft.net> <20080717091641.18684218@extreme>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
+Date: Thu, 17 Jul 2008 21:41:56 +0400
+Message-ID: <20080717174150.GA24002@2ka.mipt.ru>
+References: <200807171633.49791.opurdila@ixiacom.com> <20080717142132.GA11702@2ka.mipt.ru> <200807171747.27775.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60273 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755204AbYGQQVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 12:21:31 -0400
-In-Reply-To: <20080717091641.18684218@extreme>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:50961 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756077AbYGQRmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 13:42:16 -0400
+Content-Disposition: inline
+In-Reply-To: <200807171747.27775.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 10 Jul 2008 03:57:13 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+On Thu, Jul 17, 2008 at 05:47:27PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
+> > Existing behaviour was selected to be able to have a progress if socket
+> > does not have enough data to fill the pipe. With your change if socket
+> > is not opened with non-blocking mode reading will block not matter if
+> > SPLICE_F_NONBLOCK is set or not. 
 > 
->> It just xor hashes over IPv4/IPv6 addresses and ports of transport.
->>
->> The only assumption it makes is that skb_network_header() is set
->> correctly.
->>
->> +	switch (ip_proto) {
->> +	case IPPROTO_TCP:
->> +	case IPPROTO_UDP:
->> +	case IPPROTO_DCCP:
->> +	case IPPROTO_ESP:
->> +	case IPPROTO_AH:
->> +	case IPPROTO_SCTP:
->> +	case IPPROTO_UDPLITE:
->> +		hash ^= *ports;
->> +		break;
->> +
->> +	default:
->> +		break;
->> +	}
->> +
->> +	return hash % dev->real_num_tx_queues;
->> +}
+> I am probably missing some usecases here, but usually if you want to use 
+> non-blocking I/O you need to use special approach anyway (e.g. code the 
+> poll/epoll/select bits) so then you could open the socket with O_NONBLOCK.
+
+It depends. Splice clearly states that it tries to be nonblocking with
+given flag being set, and its reading will be non-blocking indeed.
+
+> > This is a quite serious break of the 
+> > overall idea behind SPLICE_F_NONBLOCK.
+> >
 > 
-> What about VLAN's? and PPPoE?
+> I don't know... the man page explicitly says that even when you use 
+> SPLICE_F_NONBLOCK splice may block because of the underlying fd blocking.
 
+Yes, but reading from the network will not.
 
-Actually I think we could just make the number of tx queues of
-virtual devices match the lower device and use the unencapsulated
-packets for queue selection.
+> But more importantly, how can we solve the deadlock issue described in the 
+> patch? Do we need all of the complications of async I/O for such a simple and 
+> common usecase?
 
-Of course that would require not to perform queue selection
-again on the real device. For VLANs, macvlan etc. that don't
-do any locking internally that would probably make sense.
-Not sure about PPPoE.
+I'm not sure I understand how it can deadlock, please explain it in more
+details.
+
+-- 
+	Evgeniy Polyakov
