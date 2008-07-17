@@ -1,43 +1,41 @@
-From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: RE: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Thu, 17 Jul 2008 17:41:25 +0800
-Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE6131220@SHEXMB-01.global.atheros.com>
-References: <12162854952457-git-send-email-jie.yang@atheros.com>
- <20080717093117.GA8373@martell.zuzino.mipt.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: iproute2: no error message when link up command fails.
+Date: Thu, 17 Jul 2008 09:59:45 +0000
+Message-ID: <20080717095945.GA4327@ff.dom.local>
+References: <487F104E.6070003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "jeff@garzik.org" <jeff@garzik.org>,
-	"yjwei@cn.fujitsu.com" <yjwei@cn.fujitsu.com>,
-	"rdreier@cisco.com" <rdreier@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
-	"parag.warudkar@gmail.com" <parag.warudkar@gmail.com>,
-	"w@1wt.eu" <w@1wt.eu>,
-	"oliver.schuster@schweigstill.de" <oliver.schuster@schweigstill.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Henriksson <andreas@fatal.se>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	stephen.hemminger@vyatta.com, 489340@bugs.debian.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 175.212.dsnet ([203.110.175.212]:24254 "EHLO mail.atheros.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752962AbYGQJla convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 05:41:30 -0400
-In-Reply-To: <20080717093117.GA8373@martell.zuzino.mipt.ru>
-Content-Language: zh-CN
+Received: from fg-out-1718.google.com ([72.14.220.156]:29553 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753901AbYGQJyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 05:54:47 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so2586497fgg.17
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 02:54:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <487F104E.6070003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On  Thursday, July 17, 2008 5:31 PM
-Alexey Dobriyan<adobriyan@gmail.com> wrote:
-> Does it have the same 4G limitation as ATL1 card?
->
-> If yes, pci_using_64 logic isn't needed, and copying comment
-> from atl1 driver wouldn't hurt, If no, you're setting small DMA mask.
->
-> --
-yes,  it do have the limit.
+On 17-07-2008 11:26, Patrick McHardy wrote:
+...
+> rtnetlink: propagate error from dev_change_flags in do_setlink()
+> 
+> Andreas Henriksson <andreas@fatal.se> reported that
 
-Best wishes
-jie
++ Johannes Berg reported that
+
+> unlike ifconfig,
+> iproute doesn't report an error when setting an interface up fails.
+> 
+> Propagate the return value from dev_change_flags() to fix this.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+Jarek P.
