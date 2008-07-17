@@ -1,128 +1,48 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: [Resend v2 PATCH 3/3] TCP: Remove redundant checks when setting eff_sacks
-Date: Thu, 17 Jul 2008 16:08:10 -0700
-Message-ID: <396556a20805301217k293e5718h6bbf02bfe069023@europa>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
+	for device classes.
+Date: Thu, 17 Jul 2008 16:08:57 -0700
+Message-ID: <20080717230857.GB28377@suse.de>
+References: <m1vdzmh2jr.fsf_-_@frodo.ebiederm.org> <m1r6aah2hh.fsf_-_@frodo.ebiederm.org> <m1mykyh2fu.fsf_-_@frodo.ebiederm.org> <m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com> <20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org> <487D6A24.9070001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Tejun Heo <htejun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.224]:13826 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932786AbYGQXJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 19:09:53 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so107335rvb.1
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 16:09:53 -0700 (PDT)
+Received: from ns2.suse.de ([195.135.220.15]:33066 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933157AbYGQXNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 19:13:32 -0400
+Content-Disposition: inline
+In-Reply-To: <487D6A24.9070001@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove redundant checks when setting eff_sacks and make the number of SACKs a
-compile time constant. Now that the options code knows how many SACK blocks can
-fit in the header, we don't need to have the SACK code guessing at it.
+On Wed, Jul 16, 2008 at 12:25:24PM +0900, Tejun Heo wrote:
+> Eric W. Biederman wrote:
+> > Greg KH <gregkh@suse.de> writes:
+> >> Sorry, Greg is walking out the door in 30 minutes for a much needed week
+> >> long vacation and can't look into this right now :(
+> >>
+> >> I'll be able to review it next weekend, sorry for the delay.
+> > 
+> > Any progress in reviewing these changes, and seeing if you can stand
+> > to merge them?
+> 
+> Greg, please disregard my earlier NACKs and commit the patches if you're
+> okay with them.  I'm working on cleaning it up but I don't think I'll be
+> able to make it in time for merge window and as Eric said getting the
+> functionality in place is more important at this point as it doesn't
+> affect user visible interface.
 
-Signed-off-by: Adam Langley <agl@imperialviolet.org>
+Ok, I'll work to get these in where applicable.
 
----
+thanks,
 
- include/linux/tcp.h  |    6 ++++++
- net/ipv4/tcp_input.c |   25 ++++++++++---------------
- 2 files changed, 16 insertions(+), 15 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 07e79bd..2e25573 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -224,6 +224,12 @@ struct tcp_options_received {
- 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
- };
- 
-+/* This is the max number of SACKS that we'll generate and process. It's safe
-+ * to increse this, although since:
-+ *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
-+ * only four options will fit in a standard TCP header */
-+#define TCP_NUM_SACKS 4
-+
- struct tcp_request_sock {
- 	struct inet_request_sock 	req;
- #ifdef CONFIG_TCP_MD5SIG
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d6ea970..2c9b469 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1416,10 +1416,10 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
- 	unsigned char *ptr = (skb_transport_header(ack_skb) +
- 			      TCP_SKB_CB(ack_skb)->sacked);
- 	struct tcp_sack_block_wire *sp_wire = (struct tcp_sack_block_wire *)(ptr+2);
--	struct tcp_sack_block sp[4];
-+	struct tcp_sack_block sp[TCP_NUM_SACKS];
- 	struct tcp_sack_block *cache;
- 	struct sk_buff *skb;
--	int num_sacks = (ptr[1] - TCPOLEN_SACK_BASE) >> 3;
-+	int num_sacks = min(TCP_NUM_SACKS, (ptr[1] - TCPOLEN_SACK_BASE) >> 3);
- 	int used_sacks;
- 	int reord = tp->packets_out;
- 	int flag = 0;
-@@ -3726,8 +3726,7 @@ static void tcp_dsack_set(struct tcp_sock *tp, u32 seq, u32 end_seq)
- 		tp->rx_opt.dsack = 1;
- 		tp->duplicate_sack[0].start_seq = seq;
- 		tp->duplicate_sack[0].end_seq = end_seq;
--		tp->rx_opt.eff_sacks = min(tp->rx_opt.num_sacks + 1,
--					   4 - tp->rx_opt.tstamp_ok);
-+		tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks + 1;
- 	}
- }
- 
-@@ -3780,9 +3779,8 @@ static void tcp_sack_maybe_coalesce(struct tcp_sock *tp)
- 			 * Decrease num_sacks.
- 			 */
- 			tp->rx_opt.num_sacks--;
--			tp->rx_opt.eff_sacks = min(tp->rx_opt.num_sacks +
--						   tp->rx_opt.dsack,
--						   4 - tp->rx_opt.tstamp_ok);
-+			tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks +
-+					       tp->rx_opt.dsack;
- 			for (i = this_sack; i < tp->rx_opt.num_sacks; i++)
- 				sp[i] = sp[i + 1];
- 			continue;
-@@ -3832,7 +3830,7 @@ static void tcp_sack_new_ofo_skb(struct sock *sk, u32 seq, u32 end_seq)
- 	 *
- 	 * If the sack array is full, forget about the last one.
- 	 */
--	if (this_sack >= 4) {
-+	if (this_sack >= TCP_NUM_SACKS) {
- 		this_sack--;
- 		tp->rx_opt.num_sacks--;
- 		sp--;
-@@ -3845,8 +3843,7 @@ new_sack:
- 	sp->start_seq = seq;
- 	sp->end_seq = end_seq;
- 	tp->rx_opt.num_sacks++;
--	tp->rx_opt.eff_sacks = min(tp->rx_opt.num_sacks + tp->rx_opt.dsack,
--				   4 - tp->rx_opt.tstamp_ok);
-+	tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks + tp->rx_opt.dsack;
- }
- 
- /* RCV.NXT advances, some SACKs should be eaten. */
-@@ -3883,9 +3880,8 @@ static void tcp_sack_remove(struct tcp_sock *tp)
- 	}
- 	if (num_sacks != tp->rx_opt.num_sacks) {
- 		tp->rx_opt.num_sacks = num_sacks;
--		tp->rx_opt.eff_sacks = min(tp->rx_opt.num_sacks +
--					   tp->rx_opt.dsack,
--					   4 - tp->rx_opt.tstamp_ok);
-+		tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks +
-+				       tp->rx_opt.dsack;
- 	}
- }
- 
-@@ -3964,8 +3960,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 
- 	if (tp->rx_opt.dsack) {
- 		tp->rx_opt.dsack = 0;
--		tp->rx_opt.eff_sacks = min_t(unsigned int, tp->rx_opt.num_sacks,
--					     4 - tp->rx_opt.tstamp_ok);
-+		tp->rx_opt.eff_sacks = tp->rx_opt.num_sacks;
- 	}
- 
- 	/*  Queue data for delivery to the user.
+greg k-h
