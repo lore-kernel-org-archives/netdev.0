@@ -1,35 +1,54 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: 2nd REVISED AGENDA -- Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Thu, 17 Jul 2008 03:05:58 -0700
-Message-ID: <43e72e890807170305o491e598cl1b27c8d7bf820765@mail.gmail.com>
-References: <20080709190915.GA8238@tuxdriver.com>
-	 <20080715182654.GA5969@tuxdriver.com>
-	 <20080716184803.GB3232@tuxdriver.com>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH RFC 0/3] Add generic size table for qdiscs
+Date: Thu, 17 Jul 2008 13:09:21 +0300
+Message-ID: <20080717100921.3327.3324.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:30512 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955AbYGQKF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:05:59 -0400
-Received: by an-out-0708.google.com with SMTP id d40so146670and.103
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 03:05:58 -0700 (PDT)
-In-Reply-To: <20080716184803.GB3232@tuxdriver.com>
-Content-Disposition: inline
+Received: from smtp2.dnainternet.fi ([87.94.96.112]:39142 "EHLO
+	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753840AbYGQKJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2008 at 11:48 AM, John W. Linville
-<linville@tuxdriver.com> wrote:
+[Resend one patch per mail]
 
->        - regulatory enforcement (802.11d, CRDA)
+Here's first version of generic size table feature. Didn't get chance to
+test too much yet but hfsc&sfq seems to be ok.
 
-I'll cover this. If we can't cover this well in the time frame
-provided we can discuss this over the course of the week in impromptu
-sessions.
+---
 
-  Luis
+Jussi Kivilinna (3):
+      net_sched: Add size table for qdiscs
+      net_sched: Add accessor function for packet length for qdiscs
+      net_sched: Add qdisc_enqueue wrapper
+
+
+ include/linux/pkt_sched.h |   21 ++++++++
+ include/linux/rtnetlink.h |    1
+ include/net/pkt_sched.h   |    1
+ include/net/sch_generic.h |   50 +++++++++++++++++--
+ net/core/dev.c            |    3 +
+ net/mac80211/wme.c        |    2 -
+ net/sched/sch_api.c       |  117 ++++++++++++++++++++++++++++++++++++++++++++-
+ net/sched/sch_atm.c       |    6 +-
+ net/sched/sch_cbq.c       |   19 +++----
+ net/sched/sch_dsmark.c    |    4 +-
+ net/sched/sch_fifo.c      |    2 -
+ net/sched/sch_generic.c   |    1
+ net/sched/sch_gred.c      |   12 ++---
+ net/sched/sch_hfsc.c      |   16 +++---
+ net/sched/sch_htb.c       |   12 ++---
+ net/sched/sch_netem.c     |   26 ++++++----
+ net/sched/sch_prio.c      |    5 +-
+ net/sched/sch_red.c       |    4 +-
+ net/sched/sch_sfq.c       |   16 +++---
+ net/sched/sch_tbf.c       |   12 +++--
+ net/sched/sch_teql.c      |    6 +-
+ 21 files changed, 259 insertions(+), 77 deletions(-)
+
+--
