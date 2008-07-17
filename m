@@ -1,535 +1,124 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH RFC v2] [iproute2/tc] add generic size table for qdiscs
-Date: Thu, 17 Jul 2008 13:25:01 +0300
-Message-ID: <20080717102501.7400.66780.stgit@fate.lan>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RFC 3/3] net_sched: Add size table for qdiscs
+Date: Thu, 17 Jul 2008 12:30:48 +0200
+Message-ID: <487F1F58.3040701@trash.net>
+References: <20080717100921.3327.3324.stgit@fate.lan> <20080717100938.3327.45121.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.dnainternet.fi ([87.94.96.112]:40776 "EHLO
-	smtp2.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752012AbYGQKZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:25:04 -0400
+Received: from stinky.trash.net ([213.144.137.162]:51821 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753901AbYGQKax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:30:53 -0400
+In-Reply-To: <20080717100938.3327.45121.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch adds generic size table that is similiar to rate table, with
-difference that size table stores link layer packet size.
+Jussi Kivilinna wrote:
+> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+> index dbb7ac3..eae53bf 100644
+> --- a/include/linux/pkt_sched.h
+> +++ b/include/linux/pkt_sched.h
+> @@ -85,6 +85,27 @@ struct tc_ratespec
+>  
+>  #define TC_RTAB_SIZE	1024
+>  
+> +struct tc_sizespec {
+> +	unsigned char	cell_log;
+> +	unsigned char	size_log;
+> +	short		cell_align;
+> +	int		overhead;
+> +	unsigned	linklayer;
+> +	unsigned	mpu;
+> +	unsigned	mtu;
+> +};
 
-v2:
- - fix stab linklayer option parsing
+Please use "unsigned int".
 
-Based on patch by Patrick McHardy
- http://marc.info/?l=linux-netdev&m=115201979221729&w=2
+> +
+> +#define TC_STAB_DATA_SIZE 1024
+> +
+> +enum {
+> +	TCA_STAB_UNSPEC,
+> +	TCA_STAB_BASE,
+> +	TCA_STAB_DATA,
+> +	__TCA_STAB_MAX
+> +};
 
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
----
+Since you already split the STAB into a base and a data
+structure, wouldn't it make sense to have the data size
+dynamic for user-defined granularity?
 
- include/linux/pkt_sched.h |   21 ++++++
- include/linux/rtnetlink.h |    1 
- tc/Makefile               |    1 
- tc/tc_common.h            |    5 ++
- tc/tc_core.c              |   64 +++++++++++++++-----
- tc/tc_core.h              |    6 +-
- tc/tc_qdisc.c             |   32 ++++++++++
- tc/tc_stab.c              |  146 +++++++++++++++++++++++++++++++++++++++++++++
- tc/tc_util.c              |   26 ++++++++
- tc/tc_util.h              |    2 +
- 10 files changed, 286 insertions(+), 18 deletions(-)
- create mode 100644 tc/tc_stab.c
+> +static LIST_HEAD(qdisc_stab_list);
+> +
+> +static const struct nla_policy stab_policy[TCA_STAB_MAX + 1] = {
+> +	[TCA_STAB_BASE]	= { .len = sizeof(struct tc_sizespec) },
+> +	[TCA_STAB_DATA] = { .type = NLA_BINARY, .len = TC_STAB_DATA_SIZE },
+> +};
+> +
+> +static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt, int *err)
+> +{
+> +	struct nlattr *tb[TCA_STAB_MAX + 1];
+> +	struct qdisc_size_table *stab;
+> +	struct tc_sizespec *s;
+> +	u16 *tab;
+> +
+> +	*err = nla_parse_nested(tb, TCA_STAB_MAX, opt, stab_policy);
+> +	if (*err < 0)
+> +		return NULL;
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index dbb7ac3..eae53bf 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -85,6 +85,27 @@ struct tc_ratespec
- 
- #define TC_RTAB_SIZE	1024
- 
-+struct tc_sizespec {
-+	unsigned char	cell_log;
-+	unsigned char	size_log;
-+	short		cell_align;
-+	int		overhead;
-+	unsigned	linklayer;
-+	unsigned	mpu;
-+	unsigned	mtu;
-+};
-+
-+#define TC_STAB_DATA_SIZE 1024
-+
-+enum {
-+	TCA_STAB_UNSPEC,
-+	TCA_STAB_BASE,
-+	TCA_STAB_DATA,
-+	__TCA_STAB_MAX
-+};
-+
-+#define TCA_STAB_MAX (__TCA_STAB_MAX - 1)
-+
- /* FIFO section */
- 
- struct tc_fifo_qopt
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index c1f2d50..a125692 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -482,6 +482,7 @@ enum
- 	TCA_RATE,
- 	TCA_FCNT,
- 	TCA_STATS2,
-+	TCA_STAB,
- 	__TCA_MAX
- };
- 
-diff --git a/tc/Makefile b/tc/Makefile
-index bf2df00..a5ac841 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -45,6 +45,7 @@ TCLIB := tc_core.o
- TCLIB += tc_red.o
- TCLIB += tc_cbq.o
- TCLIB += tc_estimator.o
-+TCLIB += tc_stab.o
- 
- CFLAGS += -DCONFIG_GACT -DCONFIG_GACT_PROB
- 
-diff --git a/tc/tc_common.h b/tc/tc_common.h
-index e01b037..4f88856 100644
---- a/tc/tc_common.h
-+++ b/tc/tc_common.h
-@@ -11,6 +11,11 @@ extern int print_action(const struct sockaddr_nl *who, struct nlmsghdr *n, void
- extern int print_filter(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg);
- extern int print_qdisc(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg);
- extern int print_class(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg);
-+extern void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta);
- 
- struct tc_estimator;
- extern int parse_estimator(int *p_argc, char ***p_argv, struct tc_estimator *est);
-+
-+struct tc_sizespec;
-+extern int parse_size_table(int *p_argc, char ***p_argv, struct tc_sizespec *s);
-+extern int check_size_table_opts(struct tc_sizespec *s);
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 855c115..dd7885c 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -87,6 +87,21 @@ unsigned tc_align_to_atm(unsigned size)
- 	return linksize;
- }
- 
-+unsigned tc_adjust_size(unsigned sz, unsigned mpu, enum link_layer linklayer)
-+{
-+	if (sz < mpu)
-+		sz = mpu;
-+
-+	switch (linklayer) {
-+	case LINKLAYER_ATM:
-+		return tc_align_to_atm(sz);
-+	case LINKLAYER_ETHERNET:
-+	default:
-+		// No size adjustments on Ethernet
-+		return sz;
-+	}
-+}
-+
- /*
-    rtab[pkt_len>>cell_log] = pkt_xmit_time
-  */
-@@ -96,6 +111,7 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 		   enum link_layer linklayer)
- {
- 	int i;
-+	unsigned sz;
- 	unsigned bps = r->rate;
- 	unsigned mpu = r->mpu;
- 
-@@ -109,21 +125,7 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 	}
- 
- 	for (i=0; i<256; i++) {
--		unsigned sz = (i+1)<<cell_log;
--		if (sz < mpu)
--			sz = mpu;
--
--		switch (linklayer) {
--		case LINKLAYER_ATM:
--			sz = tc_align_to_atm(sz);
--			break;
--		case LINKLAYER_ETHERNET:
--			// No size adjustments on Ethernet
--			break;
--		default:
--			break;
--		}
--
-+		sz = tc_adjust_size((i + 1) << cell_log, mpu, linklayer);
- 		rtab[i] = tc_calc_xmittime(bps, sz);
- 	}
- 
-@@ -132,6 +134,38 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 	return cell_log;
- }
- 
-+/*
-+   stab[pkt_len>>cell_log] = pkt_xmit_size>>size_log
-+ */
-+
-+int tc_calc_size_table(struct tc_sizespec *s, __u16 *stab)
-+{
-+	int i;
-+	enum link_layer linklayer = s->linklayer;
-+	unsigned mtu = s->mtu;
-+	unsigned sz;
-+
-+	if (mtu == 0)
-+		mtu = 2047;
-+
-+	s->cell_log = 0;
-+	while ((mtu >> s->cell_log) > 512 - 1)
-+		s->cell_log++;
-+
-+again:
-+	for (i = 512 - 1; i >= 0; i--) {
-+		sz = tc_adjust_size((i + 1) << s->cell_log, s->mpu, linklayer);
-+		if ((sz >> s->size_log) > UINT16_MAX) {
-+			s->size_log++;
-+			goto again;
-+		}
-+		stab[i] = sz >> s->size_log;
-+	}
-+
-+	s->cell_align = -1; // Due to the sz calc
-+	return s->cell_log;
-+}
-+
- int tc_core_init()
- {
- 	FILE *fp;
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index 9f835e8..b82d2b8 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -7,8 +7,9 @@
- #define TIME_UNITS_PER_SEC	1000000
- 
- enum link_layer {
--	LINKLAYER_ETHERNET=1,
--	LINKLAYER_ATM     =2,
-+	LINKLAYER_UNSPEC,
-+	LINKLAYER_ETHERNET,
-+	LINKLAYER_ATM,
- };
- 
- 
-@@ -21,6 +22,7 @@ unsigned tc_calc_xmittime(unsigned rate, unsigned size);
- unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks);
- int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
- 		   int cell_log, unsigned mtu, enum link_layer link_layer);
-+int tc_calc_size_table(struct tc_sizespec *s, __u16 *stab);
- 
- int tc_setup_estimator(unsigned A, unsigned time_const, struct tc_estimator *est);
- 
-diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-index 1256f07..60388a4 100644
---- a/tc/tc_qdisc.c
-+++ b/tc/tc_qdisc.c
-@@ -32,12 +32,14 @@ static int usage(void)
- 	fprintf(stderr, "Usage: tc qdisc [ add | del | replace | change | show ] dev STRING\n");
- 	fprintf(stderr, "       [ handle QHANDLE ] [ root | ingress | parent CLASSID ]\n");
- 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
-+	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
- 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ingress]\n");
- 	fprintf(stderr, "Where:\n");
- 	fprintf(stderr, "QDISC_KIND := { [p|b]fifo | tbf | prio | cbq | red | etc. }\n");
- 	fprintf(stderr, "OPTIONS := ... try tc qdisc add <desired QDISC_KIND> help\n");
-+	fprintf(stderr, "STAB_OPTIONS := ... try tc qdisc add stab help\n");
- 	return -1;
- }
- 
-@@ -45,6 +47,10 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
- {
- 	struct qdisc_util *q = NULL;
- 	struct tc_estimator est;
-+	struct {
-+		struct tc_sizespec	szopts;
-+		__u16			data[512];
-+	} stab;
- 	char  d[16];
- 	char  k[16];
- 	struct {
-@@ -54,6 +60,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
- 	} req;
- 
- 	memset(&req, 0, sizeof(req));
-+	memset(&stab, 0, sizeof(stab));
- 	memset(&est, 0, sizeof(est));
- 	memset(&d, 0, sizeof(d));
- 	memset(&k, 0, sizeof(k));
-@@ -108,6 +115,10 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
- 		} else if (matches(*argv, "estimator") == 0) {
- 			if (parse_estimator(&argc, &argv, &est))
- 				return -1;
-+		} else if (matches(*argv, "stab") == 0) {
-+			if (parse_size_table(&argc, &argv, &stab.szopts) < 0)
-+				return -1;
-+			continue;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else {
-@@ -142,6 +153,23 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
- 		}
- 	}
- 
-+	if (check_size_table_opts(&stab.szopts)) {
-+		struct rtattr *tail;
-+
-+		if (tc_calc_size_table(&stab.szopts, stab.data) < 0) {
-+			fprintf(stderr, "failed to calculate size table.\n");
-+			return -1;
-+		}
-+
-+		tail = NLMSG_TAIL(&req.n);
-+		addattr_l(&req.n, sizeof(req), TCA_STAB, NULL, 0);
-+		addattr_l(&req.n, sizeof(req), TCA_STAB_BASE, &stab.szopts,
-+			  sizeof(stab.szopts));
-+		addattr_l(&req.n, sizeof(req), TCA_STAB_DATA, stab.data,
-+			  TC_STAB_DATA_SIZE);
-+		tail->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)tail;
-+	}
-+
- 	if (d[0])  {
- 		int idx;
- 
-@@ -223,6 +251,10 @@ int print_qdisc(const struct sockaddr_nl *who,
- 			fprintf(fp, "[cannot parse qdisc parameters]");
- 	}
- 	fprintf(fp, "\n");
-+	if (tb[TCA_STAB]) {
-+		print_size_table(fp, " ", tb[TCA_STAB]);
-+		fprintf(fp, "\n");
-+	}
- 	if (show_stats) {
- 		struct rtattr *xstats = NULL;
- 
-diff --git a/tc/tc_stab.c b/tc/tc_stab.c
-new file mode 100644
-index 0000000..6dcf2bc
---- /dev/null
-+++ b/tc/tc_stab.c
-@@ -0,0 +1,146 @@
-+/*
-+ * tc_stab.c		"tc qdisc ... stab *".
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Jussi Kivilinna, <jussi.kivilinna@mbnet.fi>
-+ *
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <math.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+
-+#include "utils.h"
-+#include "tc_util.h"
-+#include "tc_core.h"
-+#include "tc_common.h"
-+
-+static void stab_help(void)
-+{
-+	fprintf(stderr,
-+		"Usage: ... stab [ default CLASSID ] [ mtu BYTES] [ mpu BYTES ]\n"
-+		"                [ overhead BYTES ] [ linklayer TYPE ] ...\n"
-+		"   mtu       : max packet size we create rate map for {2047}\n"
-+		"   mpu       : minimum packet size used in rate computations\n"
-+		"   overhead  : per-packet size overhead used in rate computations\n"
-+		"   linklayer : adapting to a linklayer e.g. atm\n"
-+		"Example: ... stab overhead 20 linklayer atm\n");
-+
-+	return;
-+}
-+
-+int check_size_table_opts(struct tc_sizespec *s)
-+{
-+	return s->linklayer >= LINKLAYER_ETHERNET || s->mpu != 0 ||
-+							s->overhead != 0;
-+}
-+
-+int parse_size_table(int *argcp, char ***argvp, struct tc_sizespec *sp)
-+{
-+	char **argv = *argvp;
-+	int argc = *argcp;
-+	struct tc_sizespec s;
-+
-+	memset(&s, 0, sizeof(s));
-+
-+	NEXT_ARG();
-+	if (matches(*argv, "help") == 0) {
-+		stab_help();
-+		return -1;
-+	}
-+	while (argc > 0) {
-+		if (matches(*argv, "mtu") == 0) {
-+			NEXT_ARG();
-+			if (s.mtu)
-+				duparg("mtu", *argv);
-+			if (get_u32(&s.mtu, *argv, 10)) {
-+				invarg("mtu", "invalid mtu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "mpu") == 0) {
-+			NEXT_ARG();
-+			if (s.mpu)
-+				duparg("mpu", *argv);
-+			if (get_u32(&s.mpu, *argv, 10)) {
-+				invarg("mpu", "invalid mpu");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "overhead") == 0) {
-+			NEXT_ARG();
-+			if (s.overhead)
-+				duparg("overhead", *argv);
-+			if (get_integer(&s.overhead, *argv, 10)) {
-+				invarg("overhead", "invalid overhead");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "linklayer") == 0) {
-+			NEXT_ARG();
-+			if (s.linklayer != LINKLAYER_UNSPEC)
-+				duparg("linklayer", *argv);
-+			if (get_linklayer(&s.linklayer, *argv)) {
-+				invarg("linklayer", "invalid linklayer");
-+				return -1;
-+			}
-+		} else
-+			break;
-+		argc--; argv++;
-+	}
-+
-+	if (!check_size_table_opts(&s))
-+		return -1;
-+
-+	*sp = s;
-+	*argvp = argv;
-+	*argcp = argc;
-+	return 0;
-+}
-+
-+void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta)
-+{
-+	struct rtattr *tb[TCA_STAB_MAX + 1];
-+	SPRINT_BUF(b1);
-+
-+	parse_rtattr_nested(tb, TCA_STAB_MAX, rta);
-+
-+	if (tb[TCA_STAB_BASE]) {
-+		struct tc_sizespec s = {0};
-+		memcpy(&s, RTA_DATA(tb[TCA_STAB_BASE]), MIN(RTA_PAYLOAD(tb[TCA_STAB_BASE]), sizeof(s)));
-+
-+		fprintf(fp, "%s", prefix);
-+		if (s.mtu)
-+			fprintf(fp, "mtu %u ", s.mtu);
-+		if (s.mpu)
-+			fprintf(fp, "mpu %u ", s.mpu);
-+		if (s.overhead)
-+			fprintf(fp, "overhead %d ", s.overhead);
-+		if (s.linklayer)
-+			fprintf(fp, "linklayer %s ", sprint_linklayer(s.linklayer, b1));
-+	}
-+
-+#if 0
-+	if (show_details && tb[TCA_STAB_DATA]) {
-+		unsigned i, j, dlen;
-+		__u16 *data = RTA_DATA(tb[TCA_STAB_DATA]);
-+		dlen = RTA_PAYLOAD(tb[TCA_STAB_DATA]) / sizeof(__u16);
-+
-+		fprintf(fp, "\n%sstab data:", prefix);
-+		for (i = 0; i < dlen/12; i++) {
-+			fprintf(fp, "\n%s %3u:", prefix, i * 12);
-+			for (j = 0; i * 12 + j < dlen; j++)
-+				fprintf(fp, " %05x", data[i * 12 + j]);
-+		}
-+	}
-+#endif
-+}
-+
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index cd9dd59..8ec8ec2 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -435,7 +435,7 @@ int action_a2n(char *arg, int *result)
- 	return 0;
- }
- 
--int get_linklayer(unsigned int *val, const char *arg)
-+int get_linklayer(unsigned *val, const char *arg)
- {
- 	int res;
- 
-@@ -452,6 +452,30 @@ int get_linklayer(unsigned int *val, const char *arg)
- 	return 0;
- }
- 
-+void print_linklayer(char *buf, int len, unsigned linklayer)
-+{
-+	switch (linklayer) {
-+	case LINKLAYER_UNSPEC:
-+		snprintf(buf, len, "%s", "unspec");
-+		return;
-+	case LINKLAYER_ETHERNET:
-+		snprintf(buf, len, "%s", "ethernet");
-+		return;
-+	case LINKLAYER_ATM:
-+		snprintf(buf, len, "%s", "atm");
-+		return;
-+	default:
-+		snprintf(buf, len, "%s", "unknown");
-+		return;
-+	}
-+}
-+
-+char *sprint_linklayer(unsigned linklayer, char *buf)
-+{
-+	print_linklayer(buf, SPRINT_BSIZE-1, linklayer);
-+	return buf;
-+}
-+
- void print_tm(FILE * f, const struct tcf_t *tm)
- {
- 	int hz = get_user_hz();
-diff --git a/tc/tc_util.h b/tc/tc_util.h
-index 796da54..c4a386c 100644
---- a/tc/tc_util.h
-+++ b/tc/tc_util.h
-@@ -57,6 +57,7 @@ extern void print_size(char *buf, int len, __u32 size);
- extern void print_percent(char *buf, int len, __u32 percent);
- extern void print_qdisc_handle(char *buf, int len, __u32 h);
- extern void print_time(char *buf, int len, __u32 time);
-+extern void print_linklayer(char *buf, int len, unsigned linklayer);
- extern char * sprint_rate(__u32 rate, char *buf);
- extern char * sprint_size(__u32 size, char *buf);
- extern char * sprint_qdisc_handle(__u32 h, char *buf);
-@@ -64,6 +65,7 @@ extern char * sprint_tc_classid(__u32 h, char *buf);
- extern char * sprint_time(__u32 time, char *buf);
- extern char * sprint_ticks(__u32 ticks, char *buf);
- extern char * sprint_percent(__u32 percent, char *buf);
-+extern char * sprint_linklayer(unsigned linklayer, char *buf);
- 
- extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
- extern void print_tcstats2_attr(FILE *fp, struct rtattr *rta, char *prefix, struct rtattr **xstats);
+ERR_PTR is cleaner than pointer return values IMO.
+
+> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+> index bc9d6af..f75ba82 100644
+> --- a/net/sched/sch_netem.c
+> +++ b/net/sched/sch_netem.c
+> @@ -84,7 +84,7 @@ struct netem_skb_cb {
+>  
+>  static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
+>  {
+> -	return (struct netem_skb_cb *)skb->cb;
+> +	return (struct netem_skb_cb *)qdisc_skb_cb(skb)->data;
+>  }
+
+A BUILD_BUG_ON to make sure the skb->cb size is not exceeded would
+be good to have.
+
+>  /* init_crandom - initialize correlated random number generator
+> @@ -189,6 +189,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		u32 dupsave = q->duplicate; /* prevent duplicating a dup... */
+>  		q->duplicate = 0;
+>  
+> +		qdisc_root_init_tx_len(skb2, rootq);
+>  		qdisc_enqueue(skb2, rootq);
+
+How about adding qdisc_enqueue_root() to perform both these steps
+(its similar to net/core/dev.c).
+
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index 1e3d52e..862c0e3 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+> @@ -123,9 +123,9 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+>  	struct tbf_sched_data *q = qdisc_priv(sch);
+>  	int ret;
+>  
+> -	/* qdisc_tx_len() before qdisc_enqueue() wrapper, might return different
+> -	 * length than after wrapper. Should recalculate tx_len here if q->qdisc
+> -	 * has size table? */
+> +	if (q->qdisc->stab)
+> +		qdisc_calculate_tx_len(skb, q->qdisc->stab);
+> +
+
+I don't think this will help, the inner qdisc might again have
+an inner qdisc that increases the size. So this probably needs
+to be handled during dequeue.
+
+>  	if (qdisc_tx_len(skb) > q->max_size) {
+>  		sch->qstats.drops++;
+>  #ifdef CONFIG_NET_CLS_ACT
+> 
 
