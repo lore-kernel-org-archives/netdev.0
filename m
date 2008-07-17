@@ -1,91 +1,72 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-next 1/1] ipv6: remove unused parameter from ip6_ra_control
-Date: Thu, 17 Jul 2008 16:46:48 +0400
-Message-ID: <1216298808-8640-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:39019 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754289AbYGQMps (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 08:45:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Thu, 17 Jul 2008 15:03:35 +0200
+Message-ID: <487F4327.1000107@trash.net>
+References: <20080717.051726.226040470.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080717.051726.226040470.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- include/net/ipv6.h       |    4 +---
- net/ipv6/ipv6_sockglue.c |    7 ++-----
- net/ipv6/raw.c           |    2 +-
- 3 files changed, 4 insertions(+), 9 deletions(-)
+David Miller wrote:
+> This allows less strict control of access to the qdisc attached to a
+> netdev_queue.  It is even allowed to enqueue into a qdisc which is
+> in the process of being destroyed.  The RCU handler will toss out
+> those packets.
+> 
+> We will need this to handle sharing of a qdisc amongst multiple
+> TX queues.  In such a setup the lock has to be shared, so will
+> be inside of the qdisc itself.  At which point the netdev_queue
+> lock cannot be used to hard synchronize access to the ->qdisc
+> pointer.
+> 
+> One operation we have to keep inside of qdisc_destroy() is the list
+> deletion.  It is the only piece of state visible after the RCU quiesce
+> period, so we have to undo it early and under the appropriate locking.
+> 
+> The operations in the RCU handler do not need any looking because the
+> qdisc tree is no longer visible to anything at that point.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index c2c3649..2d5c185 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -221,9 +221,7 @@ static inline void fl6_sock_release(struct ip6_flowlabel *fl)
- 		atomic_dec(&fl->users);
- }
- 
--extern int 			ip6_ra_control(struct sock *sk, int sel,
--					       void (*destructor)(struct sock *));
--
-+extern int 			ip6_ra_control(struct sock *sk, int sel);
- 
- extern int			ipv6_parse_hopopts(struct sk_buff *skb);
- 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 030c0c9..8c6ea07 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -59,7 +59,7 @@ DEFINE_SNMP_STAT(struct ipstats_mib, ipv6_statistics) __read_mostly;
- struct ip6_ra_chain *ip6_ra_chain;
- DEFINE_RWLOCK(ip6_ra_lock);
- 
--int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
-+int ip6_ra_control(struct sock *sk, int sel)
- {
- 	struct ip6_ra_chain *ra, *new_ra, **rap;
- 
-@@ -81,8 +81,6 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
- 			*rap = ra->next;
- 			write_unlock_bh(&ip6_ra_lock);
- 
--			if (ra->destructor)
--				ra->destructor(sk);
- 			sock_put(sk);
- 			kfree(ra);
- 			return 0;
-@@ -94,7 +92,6 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
- 	}
- 	new_ra->sk = sk;
- 	new_ra->sel = sel;
--	new_ra->destructor = destructor;
- 	new_ra->next = ra;
- 	*rap = new_ra;
- 	sock_hold(sk);
-@@ -632,7 +629,7 @@ done:
- 	case IPV6_ROUTER_ALERT:
- 		if (optlen < sizeof(int))
- 			goto e_inval;
--		retv = ip6_ra_control(sk, val, NULL);
-+		retv = ip6_ra_control(sk, val);
- 		break;
- 	case IPV6_MTU_DISCOVER:
- 		if (optlen < sizeof(int))
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 34cfb3f..01d4767 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1157,7 +1157,7 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
- static void rawv6_close(struct sock *sk, long timeout)
- {
- 	if (inet_sk(sk)->num == IPPROTO_RAW)
--		ip6_ra_control(sk, -1, NULL);
-+		ip6_ra_control(sk, -1);
- 	ip6mr_sk_done(sk);
- 	sk_common_release(sk);
- }
--- 
-1.5.3.rc5
+Still working my way through the patches, but this one caught my
+eye (we had this before and it caused quite a few problems).
 
+One of the problems is that only the uppermost qdisc is destroyed
+immediately, child qdiscs are still visible on qdisc_list and are
+removed without any locking from the RCU callback. There are also
+visibility issues for classifiers and actions deeper down in the
+hierarchy.
+
+The previous way to work around this was quite ugly. qdisc_destroy()
+walked the entire hierarchy to unlink inner classes immediately
+from the qdisc_list (commit 85670cc1f changed it to what we do now).
+That fixed visibility issues for everything visible only through
+qdiscs (child qdiscs and classifiers). Actions are also visible
+globally, so this might still be a problem, not sure though since
+they don't refer to their parent (haven't thought about it much yet).
+
+Another problem we had earlier with this was that qdiscs previously
+assumed changes (destruction) would only happen in process context
+and thus didn't disable BHs when taking a read_lock for walking the
+hierarchy (deadlocking with write_lock in BH context). This seems to
+be handled correctly in your tree by always disabling BHs.
+
+The remaining problem is data that was previously only used and
+modified under the RTNL (u32_list is one example). Modifications
+during destruction now need protection against concurrent use in
+process context.
+
+I still need to get a better understanding of how things work now,
+so I won't suggest a fix until then :)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
