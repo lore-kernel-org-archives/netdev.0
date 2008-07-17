@@ -1,31 +1,25 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Thu, 17 Jul 2008 06:12:39 -0700 (PDT)
-Message-ID: <20080717.061239.51839567.davem@davemloft.net>
-References: <20080717.051726.226040470.davem@davemloft.net>
-	<487F4327.1000107@trash.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 0/16] mib: finish with ipv4 mibs netnsization
+Date: Thu, 17 Jul 2008 17:19:09 +0400
+Message-ID: <487F46CD.7090103@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <487F4327.1000107-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:43248 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751663AbYGQNTR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 09:19:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Date: Thu, 17 Jul 2008 15:03:35 +0200
+This is the notorious "finalizing set" - after this all the ipv4
+stats are isolated from each other. The ipv6, dccp and sctp I
+touched with previous sets deserve special handling and will be
+done in 2.6.28
 
-> Still working my way through the patches, but this one caught my
-> eye (we had this before and it caused quite a few problems).
+No *new* stuff for 2.6.27 from me, thank you Dave for your patience :)
 
-Indeed, it's the most delicate change.
-
-Thanks for the info about all the tricky bits in this area.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
