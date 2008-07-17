@@ -1,61 +1,65 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Fri, 18 Jul 2008 01:56:57 +0200
-Message-ID: <20080717235657.GB6833@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <19f34abd0807171627t1dd0ac5bx26535b5e19606835@mail.gmail.com>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Fri, 18 Jul 2008 01:58:02 +0200
+Message-ID: <487FDC8A.9090101@trash.net>
+References: <487F4327.1000107@trash.net>	<20080717.061239.51839567.davem@davemloft.net>	<487F4DA6.6010009@trash.net> <20080717.153609.142867331.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Vegard Nossum <vegard.nossum@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:59729 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754390AbYGQX5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 19:57:21 -0400
-Content-Disposition: inline
-In-Reply-To: <19f34abd0807171627t1dd0ac5bx26535b5e19606835@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080717.153609.142867331.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-* Vegard Nossum <vegard.nossum@gmail.com> wrote:
-
-> On Thu, Jul 17, 2008 at 11:42 PM, Ingo Molnar <mingo@elte.hu> wrote:
-> > With this config:
-> >
-> >   http://redhat.com/~mingo/misc/config-Thu_Jul_17_20_24_45_CEST_2008.bad
-> >
+David Miller wrote:
+> From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+> Date: Thu, 17 Jul 2008 15:48:22 +0200
 > 
-> It doesn't actually work. The config says
+>> One thought that occured to me - we could avoid all the visiblity
+>> issues wrt. dev->qdisc_list by simply getting rid of it :)
+>>
+>> If we move the qdisc list from the device to the root Qdisc itself,
+>> it would become invisible automatically as soon as we assign a new
+>> root qdisc to the netdev_queue. Iteration would become slightly
+>> more complicated since we'd have to iterate over all netdev_queues,
+>> but I think it should avoid most of the problems I mentioned
+>> (besides the u32_list thing).
 > 
->     # head: 088fcf34
+> What might make sense is to have a special Qdisc_root structure which
+> is simply:
 > 
-> and I checked out this from the tip tree. But kernel-config still
-> complains about unknown config options... What went wrong?
+> struct Qdisc_root {
+> 	struct Qdisc		qd;
+> 	struct list_head	qdisc_list;
+> };
+> 
+> Everything about tree level synchronization would be type explicit.
 
-that's ok - i've got some local qa helpers that have config options. 
+Device level grafting is also explicit, so that looks like
+a clean way.
 
-Things like making SMP bootups more likely in randconfig, adding various 
-boot parameters to the bootup via .config methods (so that boot 
-parameters can be randomized via make randconfig), etc.
+> Yes, as you say, the qdisc iteration would get slightly ugly.  But
+> that doesn't seem to be a huge deal.
+> 
+> But it seems a clean solution to the child qdisc visibility problem.
+> 
+> About u32_list, that thing definitely needs some spinlock.  The
+> consultation of that list, and refcount mods, only occur during config
+> operations.  So it's not like we have to grab this lock in the data
+> paths.
+> 
+> If we really want to sweep this problem under the rug, there is another
+> way.  Have the qdisc_destroy() RCU handler kick off a workqueue, and
+> grab the RTNL semaphore there during the final destruction calls. :-)
 
-these:
-
-  CONFIG_BOOTPARAM_SUPPORT=y
-  CONFIG_BOOTPARAM_NO_HZ_OFF=y
-  CONFIG_BOOTPARAM_NMI_WATCHDOG_BIT_0=y
-  CONFIG_BOOTPARAM_LAPIC=y
-  CONFIG_BOOTPARAM_IDLE_MWAIT=y
-  CONFIG_BOOTPARAM_NOPAT=y
-  CONFIG_BOOTPARAM_NOTSC=y
-
-are equivalent to adding this to the boot line:
-
-   nohz=off nmi_watchdog=1 lapic idle=mwait nopat notsc
-
-although i dont think they are normally material to netconsole workings.
-
-	Ingo
+That would be the safe way. The RCU destruction used to cause us
+bugs for at least two years, but I actually believe the Qdisc_root
+thing will work :)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
