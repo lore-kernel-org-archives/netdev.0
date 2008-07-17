@@ -1,33 +1,25 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Thu, 17 Jul 2008 13:31:17 +0400
-Message-ID: <20080717093117.GA8373@martell.zuzino.mipt.ru>
-References: <12162854952457-git-send-email-jie.yang@atheros.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RFC] net_sched: add generic qdisc size table
+Date: Thu, 17 Jul 2008 11:39:38 +0200
+Message-ID: <487F135A.3000802@trash.net>
+References: <20080710193434.19525.83454.stgit@fate.lan>	<20080710193440.19525.93085.stgit@fate.lan> <487B61A9.5090204@trash.net>	<20080715135244.17106mgc64fxlpj4@hayate.ip6> <487C821D.1010806@trash.net> <20080717024055.18323q4r4ll8sf0g@hayate.ip6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, yjwei@cn.fujitsu.com, rdreier@cisco.com,
-	shemminger@vyatta.com, davem@davemloft.net, jcliburn@gmail.com,
-	parag.warudkar@gmail.com, w@1wt.eu,
-	oliver.schuster@schweigstill.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:28125 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753560AbYGQJeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 05:34:03 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so626277ugf.16
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 02:34:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <12162854952457-git-send-email-jie.yang@atheros.com>
+Received: from stinky.trash.net ([213.144.137.162]:50533 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752012AbYGQJjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 05:39:42 -0400
+In-Reply-To: <20080717024055.18323q4r4ll8sf0g@hayate.ip6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Full patch for the Atheros L1E Gigabit Ethernet driver.
-> Supportring AR8121, AR8113 and AR8114
+Jussi Kivilinna wrote:
+> Here's first version of generic size table feature. Didn't get chance to 
+> test too much yet but hfsc&sfq seems to be ok.
 
-Does it have the same 4G limitation as ATL1 card?
-
-If yes, pci_using_64 logic isn't needed, and copying comment from atl1 driver wouldn't hurt,
-If no, you're setting small DMA mask.
-
+Could you please send as one patch per mail? That makes review
+and commenting easier.
