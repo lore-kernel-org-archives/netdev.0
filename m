@@ -1,35 +1,37 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Fri, 18 Jul 2008 00:43:39 +0200
-Message-ID: <20080717224338.GA461@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <20080717.144504.96425101.davem@davemloft.net> <20080717220600.GA1701@elte.hu>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: [Resend PATCH 1/3] TCP: Fix MD5 signatures for non-linear skbs
+Date: Thu, 17 Jul 2008 16:03:35 -0700
+Message-ID: <396556a20807171603q1b3c79e7nac39f717d7cb4965@mail.gmail.com>
+References: <396556a20805301217k293e5718h6bbf02bfe069011@europa>
+	 <20080716.204040.127241370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	penberg@cs.helsinki.fi, vegard.nossum@gmail.com, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:39955 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754513AbYGQWoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 18:44:07 -0400
+Received: from py-out-1112.google.com ([64.233.166.181]:9320 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbYGQXDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 19:03:39 -0400
+Received: by py-out-1112.google.com with SMTP id p76so93891pyb.10
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 16:03:36 -0700 (PDT)
+In-Reply-To: <20080716.204040.127241370.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080717220600.GA1701@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jul 16, 2008 at 8:40 PM, David Miller <davem@davemloft.net> wrote:
+> You don't have any module exports for these functions,
+> yet they are called from tcp_ipv6.c, and that will cause
+> a build failure.
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+Added these then tested building IPv6 as a module and inserting it.
 
-> Just re-tried it, the bug is reliably repeatable. Will try a bisection 
-> run.
+Cheers
 
-hm, but it was not reproducible on the third and fourth attempt :-( I 
-tried hard to provoke it by generating artificial parallel network and 
-netconsole output - but it didnt want to trigger. Heisenbug ...
 
-Maybe the debug output gives someone an idea about the nature of the 
-bug?
+AGL
 
-	Ingo
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
