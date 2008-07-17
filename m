@@ -1,56 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RFC 2/3] net_sched: Add accessor function for packet length
- for qdiscs
-Date: Thu, 17 Jul 2008 12:11:30 +0200
-Message-ID: <487F1AD2.10208@trash.net>
-References: <20080717100921.3327.3324.stgit@fate.lan> <20080717100933.3327.20158.stgit@fate.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-next 1/1] ipv6: remove unused macros from net/ipv6.h
+Date: Thu, 17 Jul 2008 14:12:44 +0400
+Message-ID: <1216289564-7322-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51317 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755046AbYGQKLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:11:34 -0400
-In-Reply-To: <20080717100933.3327.20158.stgit@fate.lan>
+Received: from mailhub.sw.ru ([195.214.232.25]:2968 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755519AbYGQKLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 06:11:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-> ---
-> 
->  include/net/sch_generic.h |   17 +++++++++++------
->  net/sched/sch_atm.c       |    4 ++--
->  net/sched/sch_cbq.c       |   14 ++++++--------
->  net/sched/sch_dsmark.c    |    2 +-
->  net/sched/sch_fifo.c      |    2 +-
->  net/sched/sch_gred.c      |   12 ++++++------
->  net/sched/sch_hfsc.c      |   14 ++++++--------
->  net/sched/sch_htb.c       |    9 +++++----
->  net/sched/sch_netem.c     |    6 +++---
->  net/sched/sch_prio.c      |    2 +-
->  net/sched/sch_red.c       |    2 +-
->  net/sched/sch_sfq.c       |   16 ++++++++--------
->  net/sched/sch_tbf.c       |    9 ++++++---
->  net/sched/sch_teql.c      |    6 +++---
->  14 files changed, 60 insertions(+), 55 deletions(-)
-> 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index e3b0d71..1f1de3b 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -258,6 +258,11 @@ static inline bool qdisc_tx_is_noop(const struct net_device *dev)
->  	return (txq->qdisc == &noop_qdisc);
->  }
->  
-> +static inline unsigned int qdisc_tx_len(struct sk_buff *skb)
-> +{
-> +	return skb->len;
-> +}
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ include/net/ipv6.h |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index c2222ee..c2c3649 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -131,7 +131,6 @@ DECLARE_SNMP_STAT(struct ipstats_mib, ipv6_statistics);
+ 
+ #define IP6_INC_STATS(idev,field)	_DEVINC(ipv6, , idev, field)
+ #define IP6_INC_STATS_BH(idev,field)	_DEVINC(ipv6, _BH, idev, field)
+-#define IP6_INC_STATS_USER(idev,field)	_DEVINC(ipv6, _USER, idev, field)
+ #define IP6_ADD_STATS_BH(idev,field,val) _DEVADD(ipv6, _BH, idev, field, val)
+ 
+ DECLARE_SNMP_STAT(struct icmpv6_mib, icmpv6_statistics);
+@@ -139,20 +138,15 @@ DECLARE_SNMP_STAT(struct icmpv6msg_mib, icmpv6msg_statistics);
+ 
+ #define ICMP6_INC_STATS(idev, field)	_DEVINC(icmpv6, , idev, field)
+ #define ICMP6_INC_STATS_BH(idev, field)	_DEVINC(icmpv6, _BH, idev, field)
+-#define ICMP6_INC_STATS_USER(idev, field) _DEVINC(icmpv6, _USER, idev, field)
+ 
+ #define ICMP6MSGOUT_INC_STATS(idev, field) \
+ 	_DEVINC(icmpv6msg, , idev, field +256)
+ #define ICMP6MSGOUT_INC_STATS_BH(idev, field) \
+ 	_DEVINC(icmpv6msg, _BH, idev, field +256)
+-#define ICMP6MSGOUT_INC_STATS_USER(idev, field) \
+-	_DEVINC(icmpv6msg, _USER, idev, field +256)
+ #define ICMP6MSGIN_INC_STATS(idev, field) \
+ 	 _DEVINC(icmpv6msg, , idev, field)
+ #define ICMP6MSGIN_INC_STATS_BH(idev, field) \
+ 	_DEVINC(icmpv6msg, _BH, idev, field)
+-#define ICMP6MSGIN_INC_STATS_USER(idev, field) \
+-	_DEVINC(icmpv6msg, _USER, idev, field)
+ 
+ struct ip6_ra_chain
+ {
+-- 
+1.5.3.rc5
 
-Just one question - should this also be useable for ingress? If so
-a different name would make sense.
