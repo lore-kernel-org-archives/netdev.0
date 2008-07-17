@@ -1,7 +1,7 @@
 From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [PATCH RFC 1/3] net_sched: Add qdisc_enqueue wrapper
-Date: Thu, 17 Jul 2008 13:09:27 +0300
-Message-ID: <20080717100927.3327.4197.stgit@fate.lan>
+Subject: [PATCH RFC 3/3] net_sched: Add size table for qdiscs
+Date: Thu, 17 Jul 2008 13:09:39 +0300
+Message-ID: <20080717100938.3327.45121.stgit@fate.lan>
 References: <20080717100921.3327.3324.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,260 +9,388 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:62789 "EHLO
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:62795 "EHLO
 	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754249AbYGQKJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:09:30 -0400
+	with ESMTP id S1755647AbYGQKJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 06:09:41 -0400
 In-Reply-To: <20080717100921.3327.3324.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add size table functions for qdiscs and calculate packet size in
+qdisc_enqueue().
+
+Based on patch by Patrick McHardy
+ http://marc.info/?l=linux-netdev&m=115201979221729&w=2
+
 Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 ---
 
- include/net/sch_generic.h |    5 +++++
- net/core/dev.c            |    2 +-
- net/mac80211/wme.c        |    2 +-
- net/sched/sch_atm.c       |    2 +-
- net/sched/sch_cbq.c       |    5 +++--
- net/sched/sch_dsmark.c    |    2 +-
- net/sched/sch_hfsc.c      |    2 +-
- net/sched/sch_htb.c       |    3 +--
- net/sched/sch_netem.c     |   19 +++++++++++--------
- net/sched/sch_prio.c      |    3 ++-
- net/sched/sch_red.c       |    2 +-
- net/sched/sch_tbf.c       |    3 ++-
- 12 files changed, 30 insertions(+), 20 deletions(-)
+ include/linux/pkt_sched.h |   21 ++++++++
+ include/linux/rtnetlink.h |    1 
+ include/net/pkt_sched.h   |    1 
+ include/net/sch_generic.h |   30 +++++++++++-
+ net/core/dev.c            |    1 
+ net/sched/sch_api.c       |  117 ++++++++++++++++++++++++++++++++++++++++++++-
+ net/sched/sch_generic.c   |    1 
+ net/sched/sch_netem.c     |    3 +
+ net/sched/sch_tbf.c       |    6 +-
+ 9 files changed, 174 insertions(+), 7 deletions(-)
 
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index dbb7ac3..eae53bf 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -85,6 +85,27 @@ struct tc_ratespec
+ 
+ #define TC_RTAB_SIZE	1024
+ 
++struct tc_sizespec {
++	unsigned char	cell_log;
++	unsigned char	size_log;
++	short		cell_align;
++	int		overhead;
++	unsigned	linklayer;
++	unsigned	mpu;
++	unsigned	mtu;
++};
++
++#define TC_STAB_DATA_SIZE 1024
++
++enum {
++	TCA_STAB_UNSPEC,
++	TCA_STAB_BASE,
++	TCA_STAB_DATA,
++	__TCA_STAB_MAX
++};
++
++#define TCA_STAB_MAX (__TCA_STAB_MAX - 1)
++
+ /* FIFO section */
+ 
+ struct tc_fifo_qopt
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index b358c70..f4d386c 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -482,6 +482,7 @@ enum
+ 	TCA_RATE,
+ 	TCA_FCNT,
+ 	TCA_STATS2,
++	TCA_STAB,
+ 	__TCA_MAX
+ };
+ 
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index d58c1a5..7a8a2a0 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -83,6 +83,7 @@ extern struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
+ extern struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
+ 		struct nlattr *tab);
+ extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
++extern void qdisc_put_stab(struct qdisc_size_table *tab);
+ 
+ extern void __qdisc_run(struct netdev_queue *txq);
+ 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 5ba66b5..e3b0d71 100644
+index 1f1de3b..81805d0 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -258,6 +258,11 @@ static inline bool qdisc_tx_is_noop(const struct net_device *dev)
+@@ -23,6 +23,13 @@ struct qdisc_rate_table
+ 	int		refcnt;
+ };
+ 
++struct qdisc_size_table {
++	struct list_head	list;
++	struct tc_sizespec	szopts;
++	int			refcnt;
++	u16			data[512];
++};
++
+ struct Qdisc
+ {
+ 	int 			(*enqueue)(struct sk_buff *skb, struct Qdisc *dev);
+@@ -33,6 +40,7 @@ struct Qdisc
+ #define TCQ_F_INGRESS	4
+ 	int			padded;
+ 	struct Qdisc_ops	*ops;
++	struct qdisc_size_table	*stab;
+ 	u32			handle;
+ 	u32			parent;
+ 	atomic_t		refcnt;
+@@ -154,6 +162,16 @@ struct tcf_proto
+ 	struct tcf_proto_ops	*ops;
+ };
+ 
++struct qdisc_skb_cb {
++	unsigned int		tx_len;
++	char			data[];
++};
++
++static inline struct qdisc_skb_cb *qdisc_skb_cb(struct sk_buff *skb)
++{
++	return (struct qdisc_skb_cb *)skb->cb;
++}
++
+ static inline struct net_device *qdisc_dev(struct Qdisc *qdisc)
+ {
+ 	return qdisc->dev_queue->dev;
+@@ -224,6 +242,8 @@ extern struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ extern struct Qdisc *qdisc_create_dflt(struct net_device *dev,
+ 				       struct netdev_queue *dev_queue,
+ 				       struct Qdisc_ops *ops, u32 parentid);
++extern void qdisc_calculate_tx_len(struct sk_buff *skb,
++				   struct qdisc_size_table *stab);
+ extern void tcf_destroy(struct tcf_proto *tp);
+ extern void tcf_destroy_chain(struct tcf_proto **fl);
+ 
+@@ -258,13 +278,21 @@ static inline bool qdisc_tx_is_noop(const struct net_device *dev)
  	return (txq->qdisc == &noop_qdisc);
  }
  
-+static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++static inline void qdisc_root_init_tx_len(struct sk_buff *skb,
++					  struct Qdisc *sch)
 +{
-+	return sch->enqueue(skb, sch);
++	qdisc_skb_cb(skb)->tx_len = skb->len;
 +}
 +
- static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
- 				       struct sk_buff_head *list)
+ static inline unsigned int qdisc_tx_len(struct sk_buff *skb)
  {
+-	return skb->len;
++	return qdisc_skb_cb(skb)->tx_len;
+ }
+ 
+ static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
++	if (sch->stab)
++		qdisc_calculate_tx_len(skb, sch->stab);
+ 	return sch->enqueue(skb, sch);
+ }
+ 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 9b49f74..ee2df34 100644
+index ee2df34..8223b56 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1733,7 +1733,7 @@ gso:
+@@ -1733,6 +1733,7 @@ gso:
  		if (q->enqueue) {
  			/* reset queue_mapping to zero */
  			skb_set_queue_mapping(skb, 0);
--			rc = q->enqueue(skb, q);
-+			rc = qdisc_enqueue(skb, q);
++			qdisc_root_init_tx_len(skb, q);
+ 			rc = qdisc_enqueue(skb, q);
  			qdisc_run(txq);
  			spin_unlock(&txq->lock);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 95873f8..4d98cb7 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -278,6 +278,97 @@ void qdisc_put_rtab(struct qdisc_rate_table *tab)
+ }
+ EXPORT_SYMBOL(qdisc_put_rtab);
  
-diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
-index 6ae43a3..e263917 100644
---- a/net/mac80211/wme.c
-+++ b/net/mac80211/wme.c
-@@ -212,7 +212,7 @@ static int wme_qdiscop_enqueue(struct sk_buff *skb, struct Qdisc* qd)
- 	} else {
- 		skb_set_queue_mapping(skb, queue);
- 		qdisc = q->queues[queue];
--		err = qdisc->enqueue(skb, qdisc);
-+		err = qdisc_enqueue(skb, qdisc);
- 		if (err == NET_XMIT_SUCCESS) {
- 			qd->q.qlen++;
- 			qd->bstats.bytes += skb->len;
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 0de757e..68ed35e 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -429,7 +429,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- #endif
- 	}
- 
--	ret = flow->q->enqueue(skb, flow->q);
-+	ret = qdisc_enqueue(skb, flow->q);
- 	if (ret != 0) {
- drop: __maybe_unused
- 		sch->qstats.drops++;
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 4efc836..1bcb3e8 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -387,7 +387,8 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- #ifdef CONFIG_NET_CLS_ACT
- 	cl->q->__parent = sch;
- #endif
--	if ((ret = cl->q->enqueue(skb, cl->q)) == NET_XMIT_SUCCESS) {
-+	ret = qdisc_enqueue(skb, cl->q);
-+	if (ret == NET_XMIT_SUCCESS) {
- 		sch->q.qlen++;
- 		sch->bstats.packets++;
- 		sch->bstats.bytes+=len;
-@@ -671,7 +672,7 @@ static int cbq_reshape_fail(struct sk_buff *skb, struct Qdisc *child)
- 		q->rx_class = cl;
- 		cl->q->__parent = sch;
- 
--		if (cl->q->enqueue(skb, cl->q) == 0) {
-+		if (qdisc_enqueue(skb, cl->q) == 0) {
- 			sch->q.qlen++;
- 			sch->bstats.packets++;
- 			sch->bstats.bytes+=len;
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 3aafbd1..44d347e 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -252,7 +252,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		}
- 	}
- 
--	err = p->q->enqueue(skb, p->q);
-+	err = qdisc_enqueue(skb, p->q);
- 	if (err != NET_XMIT_SUCCESS) {
- 		sch->qstats.drops++;
- 		return err;
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 997d520..0ded6d0 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1586,7 +1586,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	}
- 
- 	len = skb->len;
--	err = cl->qdisc->enqueue(skb, cl->qdisc);
-+	err = qdisc_enqueue(skb, cl->qdisc);
- 	if (unlikely(err != NET_XMIT_SUCCESS)) {
- 		cl->qstats.drops++;
- 		sch->qstats.drops++;
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index c8ca54c..5fc0325 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -572,8 +572,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		kfree_skb(skb);
- 		return ret;
- #endif
--	} else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) !=
--		   NET_XMIT_SUCCESS) {
-+	} else if (qdisc_enqueue(skb, cl->un.leaf.q) != NET_XMIT_SUCCESS) {
- 		sch->qstats.drops++;
- 		cl->qstats.drops++;
- 		return NET_XMIT_DROP;
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index bc585f2..cbdbc6a 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -82,6 +82,11 @@ struct netem_skb_cb {
- 	psched_time_t	time_to_send;
- };
- 
-+static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
++static LIST_HEAD(qdisc_stab_list);
++
++static const struct nla_policy stab_policy[TCA_STAB_MAX + 1] = {
++	[TCA_STAB_BASE]	= { .len = sizeof(struct tc_sizespec) },
++	[TCA_STAB_DATA] = { .type = NLA_BINARY, .len = TC_STAB_DATA_SIZE },
++};
++
++static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt, int *err)
 +{
-+	return (struct netem_skb_cb *)skb->cb;
++	struct nlattr *tb[TCA_STAB_MAX + 1];
++	struct qdisc_size_table *stab;
++	struct tc_sizespec *s;
++	u16 *tab;
++
++	*err = nla_parse_nested(tb, TCA_STAB_MAX, opt, stab_policy);
++	if (*err < 0)
++		return NULL;
++
++	s = nla_data(tb[TCA_STAB_BASE]);
++	tab = nla_data(tb[TCA_STAB_DATA]);
++
++	*err = -EINVAL;
++	if (!s || !tab || nla_len(tb[TCA_STAB_DATA]) < TC_STAB_DATA_SIZE)
++		return NULL;
++
++	list_for_each_entry(stab, &qdisc_stab_list, list) {
++		if (memcmp(&stab->szopts, s, sizeof(*s)) == 0 &&
++		    memcmp(stab->data, tab, TC_STAB_DATA_SIZE) == 0) {
++			stab->refcnt++;
++			*err = 0;
++			return stab;
++		}
++	}
++
++	*err = -ENOMEM;
++	stab = kmalloc(sizeof(*stab), GFP_KERNEL);
++	if (stab) {
++		stab->szopts = *s;
++		stab->refcnt = 1;
++		memcpy(stab->data, tab, TC_STAB_DATA_SIZE);
++		list_add_tail(&stab->list, &qdisc_stab_list);
++		*err = 0;
++	}
++	return stab;
 +}
 +
++void qdisc_put_stab(struct qdisc_size_table *tab)
++{
++	if (!tab || --tab->refcnt)
++		return;
++	list_del(&tab->list);
++	kfree(tab);
++}
++EXPORT_SYMBOL(qdisc_put_stab);
++
++static int qdisc_dump_stab(struct sk_buff *skb, struct qdisc_size_table *stab)
++{
++	struct nlattr *nest;
++
++	nest = nla_nest_start(skb, TCA_STAB);
++	NLA_PUT(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts);
++	NLA_PUT(skb, TCA_STAB_DATA, TC_STAB_DATA_SIZE, stab->data);
++	nla_nest_end(skb, nest);
++
++	return skb->len;
++
++nla_put_failure:
++	return -1;
++}
++
++void qdisc_calculate_tx_len(struct sk_buff *skb, struct qdisc_size_table *stab)
++{
++	unsigned int pktlen = skb->len;
++	unsigned char size_log;
++	int slot;
++
++	slot = pktlen + stab->szopts.cell_align + stab->szopts.overhead;
++	if (unlikely(slot < 0))
++		slot = 0;
++	slot >>= stab->szopts.cell_log;
++	size_log = stab->szopts.size_log;
++	if (unlikely(slot > 511))
++		pktlen = ((u32)stab->data[511] << size_log) * (slot >> 9) +
++			((u32)stab->data[slot & 0x1FF] << size_log);
++	else
++		pktlen = (u32)stab->data[slot] << size_log;
++
++	qdisc_skb_cb(skb)->tx_len = pktlen;
++}
++EXPORT_SYMBOL(qdisc_calculate_tx_len);
++
+ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
+ {
+ 	struct qdisc_watchdog *wd = container_of(timer, struct qdisc_watchdog,
+@@ -619,6 +710,11 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 	sch->handle = handle;
+ 
+ 	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS])) == 0) {
++		if (tca[TCA_STAB]) {
++			sch->stab = qdisc_get_stab(tca[TCA_STAB], &err);
++			if (sch->stab == NULL)
++				goto err_out3;
++		}
+ 		if (tca[TCA_RATE]) {
+ 			err = gen_new_estimator(&sch->bstats, &sch->rate_est,
+ 						&sch->dev_queue->lock,
+@@ -641,6 +737,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 		return sch;
+ 	}
+ err_out3:
++	qdisc_put_stab(sch->stab);
+ 	dev_put(dev);
+ 	kfree((char *) sch - sch->padded);
+ err_out2:
+@@ -652,15 +749,28 @@ err_out:
+ 
+ static int qdisc_change(struct Qdisc *sch, struct nlattr **tca)
+ {
+-	if (tca[TCA_OPTIONS]) {
+-		int err;
++	struct qdisc_size_table *stab = NULL;
++	int err = 0;
+ 
++	if (tca[TCA_OPTIONS]) {
+ 		if (sch->ops->change == NULL)
+ 			return -EINVAL;
+ 		err = sch->ops->change(sch, tca[TCA_OPTIONS]);
+ 		if (err)
+ 			return err;
+ 	}
++
++	if (tca[TCA_STAB]) {
++		stab = qdisc_get_stab(tca[TCA_STAB], &err);
++		if (stab == NULL)
++			return err;
++	}
++
++	spin_lock_bh(&sch->dev_queue->lock);
++	qdisc_put_stab(sch->stab);
++	sch->stab = stab;
++	spin_unlock_bh(&sch->dev_queue->lock);
++
+ 	if (tca[TCA_RATE])
+ 		gen_replace_estimator(&sch->bstats, &sch->rate_est,
+ 				      &sch->dev_queue->lock, tca[TCA_RATE]);
+@@ -952,6 +1062,9 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 		goto nla_put_failure;
+ 	q->qstats.qlen = q->q.qlen;
+ 
++	if (q->stab != NULL && qdisc_dump_stab(skb, q->stab) < 0)
++		goto nla_put_failure;
++
+ 	if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS,
+ 					 TCA_XSTATS, &q->dev_queue->lock, &d) < 0)
+ 		goto nla_put_failure;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 243de93..53e941b 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -530,6 +530,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 		return;
+ 
+ 	list_del(&qdisc->list);
++	qdisc_put_stab(qdisc->stab);
+ 	gen_kill_estimator(&qdisc->bstats, &qdisc->rate_est);
+ 	if (ops->reset)
+ 		ops->reset(qdisc);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index bc9d6af..f75ba82 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -84,7 +84,7 @@ struct netem_skb_cb {
+ 
+ static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
+ {
+-	return (struct netem_skb_cb *)skb->cb;
++	return (struct netem_skb_cb *)qdisc_skb_cb(skb)->data;
+ }
+ 
  /* init_crandom - initialize correlated random number generator
-  * Use entropy source for initial seed.
-  */
-@@ -184,7 +189,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -189,6 +189,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  		u32 dupsave = q->duplicate; /* prevent duplicating a dup... */
  		q->duplicate = 0;
  
--		rootq->enqueue(skb2, rootq);
-+		qdisc_enqueue(skb2, rootq);
++		qdisc_root_init_tx_len(skb2, rootq);
+ 		qdisc_enqueue(skb2, rootq);
  		q->duplicate = dupsave;
  	}
- 
-@@ -205,7 +210,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		skb->data[net_random() % skb_headlen(skb)] ^= 1<<(net_random() % 8);
- 	}
- 
--	cb = (struct netem_skb_cb *)skb->cb;
-+	cb = netem_skb_cb(skb);
- 	if (q->gap == 0 		/* not doing reordering */
- 	    || q->counter < q->gap 	/* inside last reordering gap */
- 	    || q->reorder < get_crandom(&q->reorder_cor)) {
-@@ -218,7 +223,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		now = psched_get_time();
- 		cb->time_to_send = now + delay;
- 		++q->counter;
--		ret = q->qdisc->enqueue(skb, q->qdisc);
-+		ret = qdisc_enqueue(skb, q->qdisc);
- 	} else {
- 		/*
- 		 * Do re-ordering by putting one out of N packets at the front
-@@ -277,8 +282,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 
- 	skb = q->qdisc->dequeue(q->qdisc);
- 	if (skb) {
--		const struct netem_skb_cb *cb
--			= (const struct netem_skb_cb *)skb->cb;
-+		const struct netem_skb_cb *cb = netem_skb_cb(skb);
- 		psched_time_t now = psched_get_time();
- 
- 		/* if more time remaining? */
-@@ -454,7 +458,7 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
- {
- 	struct fifo_sched_data *q = qdisc_priv(sch);
- 	struct sk_buff_head *list = &sch->q;
--	psched_time_t tnext = ((struct netem_skb_cb *)nskb->cb)->time_to_send;
-+	psched_time_t tnext = netem_skb_cb(nskb)->time_to_send;
- 	struct sk_buff *skb;
- 
- 	if (likely(skb_queue_len(list) < q->limit)) {
-@@ -465,8 +469,7 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
- 		}
- 
- 		skb_queue_reverse_walk(list, skb) {
--			const struct netem_skb_cb *cb
--				= (const struct netem_skb_cb *)skb->cb;
-+			const struct netem_skb_cb *cb = netem_skb_cb(skb);
- 
- 			if (tnext >= cb->time_to_send)
- 				break;
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 39157f7..918d090 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -86,7 +86,8 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	}
- #endif
- 
--	if ((ret = qdisc->enqueue(skb, qdisc)) == NET_XMIT_SUCCESS) {
-+	ret = qdisc_enqueue(skb, qdisc);
-+	if (ret == NET_XMIT_SUCCESS) {
- 		sch->bstats.bytes += skb->len;
- 		sch->bstats.packets++;
- 		sch->q.qlen++;
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 77098ac..b48a391 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -92,7 +92,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 			break;
- 	}
- 
--	ret = child->enqueue(skb, child);
-+	ret = qdisc_enqueue(skb, child);
- 	if (likely(ret == NET_XMIT_SUCCESS)) {
- 		sch->bstats.bytes += skb->len;
- 		sch->bstats.packets++;
 diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 444c227..7d705b8 100644
+index 1e3d52e..862c0e3 100644
 --- a/net/sched/sch_tbf.c
 +++ b/net/sched/sch_tbf.c
-@@ -133,7 +133,8 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 		return NET_XMIT_DROP;
- 	}
+@@ -123,9 +123,9 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
  
--	if ((ret = q->qdisc->enqueue(skb, q->qdisc)) != 0) {
-+	ret = qdisc_enqueue(skb, q->qdisc);
-+	if (ret != 0) {
+-	/* qdisc_tx_len() before qdisc_enqueue() wrapper, might return different
+-	 * length than after wrapper. Should recalculate tx_len here if q->qdisc
+-	 * has size table? */
++	if (q->qdisc->stab)
++		qdisc_calculate_tx_len(skb, q->qdisc->stab);
++
+ 	if (qdisc_tx_len(skb) > q->max_size) {
  		sch->qstats.drops++;
- 		return ret;
- 	}
+ #ifdef CONFIG_NET_CLS_ACT
 
