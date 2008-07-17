@@ -1,53 +1,63 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH net-next 1/2] iwlwifi: compilation error when CONFIG_IWLWIFI_DEBUG is not set
-Date: Thu, 17 Jul 2008 13:19:24 +0400
-Message-ID: <1216286365-11703-1-git-send-email-den@openvz.org>
-Cc: yi.zhu@intel.com, reinette.chatre@intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:48514 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754137AbYGQJS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 05:18:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH net-next 2/2] iwlwifi: small compile warnings without CONFIG_IWLWIFI_DEBUG
+Date: Thu, 17 Jul 2008 13:19:25 +0400
+Message-ID: <1216286365-11703-2-git-send-email-den@openvz.org>
+References: <1216286365-11703-1-git-send-email-den@openvz.org>
+Cc: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216286365-11703-1-git-send-email-den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-CC [M]  drivers/net/wireless/iwlwifi/iwl-rfkill.o
-drivers/net/wireless/iwlwifi/iwl-led.c: In function 'iwl_led_brightness_set':
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: 'led_type_str' undeclared (first use in this function)
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: (Each undeclared identifier is reported only once
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: for each function it appears in.)
+CC [M]  drivers/net/wireless/iwlwifi/iwl-4965-rs.o
+drivers/net/wireless/iwlwifi/iwl-4965-rs.c: In function 'rs_clear':
+drivers/net/wireless/iwlwifi/iwl-4965-rs.c:2405: warning: unused variable 'priv'
+CC [M]  drivers/net/wireless/iwlwifi/iwl-scan.o
+drivers/net/wireless/iwlwifi/iwl-scan.c: In function 'iwl_rx_scan_complete_notif':
+drivers/net/wireless/iwlwifi/iwl-scan.c:274: warning: unused variable 'scan_notif'
 
-The problem is that led_type_str is defined under CONFIG_IWLWIFI_DEBUG
-while IWL_DEBUG is a static inline function in this case. Replace it
-with macro.
-
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/wireless/iwlwifi/iwl-debug.h |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/wireless/iwlwifi/iwl-4965-rs.c |    2 ++
+ drivers/net/wireless/iwlwifi/iwl-scan.c    |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-debug.h b/drivers/net/wireless/iwlwifi/iwl-debug.h
-index 5838480..d6d729e 100644
---- a/drivers/net/wireless/iwlwifi/iwl-debug.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-debug.h
-@@ -68,12 +68,8 @@ void iwl_dbgfs_unregister(struct iwl_priv *priv);
- #endif
+diff --git a/drivers/net/wireless/iwlwifi/iwl-4965-rs.c b/drivers/net/wireless/iwlwifi/iwl-4965-rs.c
+index 3ccb84a..7549834 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-4965-rs.c
++++ b/drivers/net/wireless/iwlwifi/iwl-4965-rs.c
+@@ -2402,7 +2402,9 @@ static void rs_free(void *priv_rate)
  
- #else
--static inline void IWL_DEBUG(int level, const char *fmt, ...)
--{
--}
--static inline void IWL_DEBUG_LIMIT(int level, const char *fmt, ...)
--{
--}
-+#define IWL_DEBUG(level, fmt, args...)
-+#define IWL_DEBUG_LIMIT(level, fmt, args...)
- #endif				/* CONFIG_IWLWIFI_DEBUG */
+ static void rs_clear(void *priv_rate)
+ {
++#ifdef CONFIG_IWLWIFI_DEBUG
+ 	struct iwl_priv *priv = (struct iwl_priv *) priv_rate;
++#endif
  
+ 	IWL_DEBUG_RATE("enter\n");
  
+diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
+index efc750d..5d0d70c 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-scan.c
++++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
+@@ -270,8 +270,10 @@ static void iwl_rx_scan_results_notif(struct iwl_priv *priv,
+ static void iwl_rx_scan_complete_notif(struct iwl_priv *priv,
+ 				       struct iwl_rx_mem_buffer *rxb)
+ {
++#ifdef CONFIG_IWLWIFI_DEBUG
+ 	struct iwl_rx_packet *pkt = (struct iwl_rx_packet *)rxb->skb->data;
+ 	struct iwl_scancomplete_notification *scan_notif = (void *)pkt->u.raw;
++#endif
+ 
+ 	IWL_DEBUG_SCAN("Scan complete: %d channels (TSF 0x%08X:%08X) - %d\n",
+ 		       scan_notif->scanned_channels,
 -- 
 1.5.4.5
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
