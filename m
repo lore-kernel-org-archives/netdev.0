@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Resend PATCH 3/3] TCP: Remove redundant checks when setting
- eff_sacks
-Date: Wed, 16 Jul 2008 20:49:49 -0700 (PDT)
-Message-ID: <20080716.204949.20726488.davem@davemloft.net>
-References: <396556a20805301217k293e5718h6bbf02bfe069013@europa>
+Subject: Re: [PATCH] core: add stat to track unresolved discards in
+ neighbor cache
+Date: Wed, 16 Jul 2008 20:50:59 -0700 (PDT)
+Message-ID: <20080716.205059.206038375.davem@davemloft.net>
+References: <20080715173731.GF4918@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: agl@imperialviolet.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60020
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60024
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752198AbYGQDtu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 23:49:50 -0400
-In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe069013@europa>
+	by vger.kernel.org with ESMTP id S1753900AbYGQDu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 23:50:59 -0400
+In-Reply-To: <20080715173731.GF4918@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Adam Langley" <agl@imperialviolet.org>
-Date: Tue, 15 Jul 2008 09:30:40 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 15 Jul 2008 13:37:31 -0400
 
-> Remove redundant checks when setting eff_sacks and make the number of SACKs a
-> compile time constant. Now that the options code knows how many SACK blocks can
-> fit in the header, we don't need to have the SACK code guessing at it.
+> in __neigh_event_send, if we have a neighbour entry which is in NUD_INCOMPLETE
+> state, we enqueue any outbound frames to that neighbour to the neighbours
+> arp_queue, which is default capped to a length of 3 skbs.  If that queue exceeds
+> its set length, it will drop an skb on the queue to enqueue the newly arrived
+> skb.  This results in a drop for which we have no statistics incremented.  This
+> patch adds an unresolved_discards stat to /proc/net/stat/ndisc_cache to track
+> these lost frames.
 > 
-> Signed-off-by: Adam Langley <agl@imperialviolet.org>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-This one looks OK, please resned it when you fix up the other
-two.
-
-Thanks.
+Applied, thanks a lot Neil.
