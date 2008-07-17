@@ -1,220 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 29/31]: pkt_sched: Add multiqueue handling to qdisc_graft().
-Date: Thu, 17 Jul 2008 05:18:25 -0700 (PDT)
-Message-ID: <20080717.051825.179223431.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH net-next 1/1] ipv6: remove unused parameter from ip6_ra_control
+Date: Thu, 17 Jul 2008 16:46:48 +0400
+Message-ID: <1216298808-8640-1-git-send-email-den@openvz.org>
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49370
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759126AbYGQMSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 08:18:25 -0400
+Received: from mailhub.sw.ru ([195.214.232.25]:39019 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754289AbYGQMps (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 08:45:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Move the destruction of the old queue into qdisc_graft().
-
-When operating on a root qdisc (ie. "parent == NULL"), apply
-the operation to all queues.  The caller has grabbed a single
-implicit reference for this graft, therefore when we apply the
-change to more than one queue we must grab additional qdisc
-references.
-
-Otherwise, we are operating on a class of a specific parent qdisc, and
-therefore no multiqueue handling is necessary.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
- net/sched/sch_api.c |  101 ++++++++++++++++++++++++++++++---------------------
- 1 files changed, 59 insertions(+), 42 deletions(-)
+ include/net/ipv6.h       |    4 +---
+ net/ipv6/ipv6_sockglue.c |    7 ++-----
+ net/ipv6/raw.c           |    2 +-
+ 3 files changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 7492489..b3ef830 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -435,28 +435,22 @@ static u32 qdisc_alloc_handle(struct net_device *dev)
- 	return i>0 ? autohandle : 0;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index c2c3649..2d5c185 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -221,9 +221,7 @@ static inline void fl6_sock_release(struct ip6_flowlabel *fl)
+ 		atomic_dec(&fl->users);
  }
  
--/* Attach toplevel qdisc to device dev */
-+/* Attach toplevel qdisc to device queue. */
+-extern int 			ip6_ra_control(struct sock *sk, int sel,
+-					       void (*destructor)(struct sock *));
+-
++extern int 			ip6_ra_control(struct sock *sk, int sel);
  
--static struct Qdisc *
--dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
-+static struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
-+				     struct Qdisc *qdisc)
+ extern int			ipv6_parse_hopopts(struct sk_buff *skb);
+ 
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 030c0c9..8c6ea07 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -59,7 +59,7 @@ DEFINE_SNMP_STAT(struct ipstats_mib, ipv6_statistics) __read_mostly;
+ struct ip6_ra_chain *ip6_ra_chain;
+ DEFINE_RWLOCK(ip6_ra_lock);
+ 
+-int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
++int ip6_ra_control(struct sock *sk, int sel)
  {
--	struct netdev_queue *dev_queue;
- 	spinlock_t *root_lock;
- 	struct Qdisc *oqdisc;
- 	int ingress;
+ 	struct ip6_ra_chain *ra, *new_ra, **rap;
  
--	if (dev->flags & IFF_UP)
--		dev_deactivate(dev);
--
- 	ingress = 0;
- 	if (qdisc && qdisc->flags&TCQ_F_INGRESS)
- 		ingress = 1;
+@@ -81,8 +81,6 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
+ 			*rap = ra->next;
+ 			write_unlock_bh(&ip6_ra_lock);
  
- 	if (ingress) {
--		dev_queue = &dev->rx_queue;
- 		oqdisc = dev_queue->qdisc;
- 	} else {
--		dev_queue = netdev_get_tx_queue(dev, 0);
- 		oqdisc = dev_queue->qdisc_sleeping;
+-			if (ra->destructor)
+-				ra->destructor(sk);
+ 			sock_put(sk);
+ 			kfree(ra);
+ 			return 0;
+@@ -94,7 +92,6 @@ int ip6_ra_control(struct sock *sk, int sel, void (*destructor)(struct sock *))
  	}
- 
-@@ -487,9 +481,6 @@ dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
- 
- 	spin_unlock_bh(root_lock);
- 
--	if (dev->flags & IFF_UP)
--		dev_activate(dev);
--
- 	return oqdisc;
- }
- 
-@@ -521,26 +512,66 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- }
- EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
- 
--/* Graft qdisc "new" to class "classid" of qdisc "parent" or
--   to device "dev".
-+static void notify_and_destroy(struct sk_buff *skb, struct nlmsghdr *n, u32 clid,
-+			       struct Qdisc *old, struct Qdisc *new)
-+{
-+	if (new || old)
-+		qdisc_notify(skb, n, clid, old, new);
- 
--   Old qdisc is not destroyed but returned in *old.
-+	if (old) {
-+		spin_lock_bh(&old->q.lock);
-+		qdisc_destroy(old);
-+		spin_unlock_bh(&old->q.lock);
-+	}
-+}
-+
-+/* Graft qdisc "new" to class "classid" of qdisc "parent" or
-+ * to device "dev".
-+ *
-+ * When appropriate send a netlink notification using 'skb'
-+ * and "n".
-+ *
-+ * On success, destroy old qdisc.
-  */
- 
- static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
--		       u32 classid,
--		       struct Qdisc *new, struct Qdisc **old)
-+		       struct sk_buff *skb, struct nlmsghdr *n, u32 classid,
-+		       struct Qdisc *new, struct Qdisc *old)
+ 	new_ra->sk = sk;
+ 	new_ra->sel = sel;
+-	new_ra->destructor = destructor;
+ 	new_ra->next = ra;
+ 	*rap = new_ra;
+ 	sock_hold(sk);
+@@ -632,7 +629,7 @@ done:
+ 	case IPV6_ROUTER_ALERT:
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+-		retv = ip6_ra_control(sk, val, NULL);
++		retv = ip6_ra_control(sk, val);
+ 		break;
+ 	case IPV6_MTU_DISCOVER:
+ 		if (optlen < sizeof(int))
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 34cfb3f..01d4767 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1157,7 +1157,7 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ static void rawv6_close(struct sock *sk, long timeout)
  {
-+	struct Qdisc *q = old;
- 	int err = 0;
--	struct Qdisc *q = *old;
--
- 
- 	if (parent == NULL) {
--		if (q && q->flags&TCQ_F_INGRESS) {
--			*old = dev_graft_qdisc(dev, q);
--		} else {
--			*old = dev_graft_qdisc(dev, new);
-+		unsigned int i, num_q, ingress;
-+
-+		ingress = 0;
-+		num_q = dev->num_tx_queues;
-+		if (q && q->flags & TCQ_F_INGRESS) {
-+			num_q = 1;
-+			ingress = 1;
- 		}
-+
-+		if (dev->flags & IFF_UP)
-+			dev_deactivate(dev);
-+
-+		for (i = 0; i < num_q; i++) {
-+			struct netdev_queue *dev_queue = &dev->rx_queue;
-+
-+			if (!ingress)
-+				dev_queue = netdev_get_tx_queue(dev, i);
-+
-+			if (ingress) {
-+				old = dev_graft_qdisc(dev_queue, q);
-+			} else {
-+				old = dev_graft_qdisc(dev_queue, new);
-+				if (new && i > 0)
-+					atomic_inc(&new->refcnt);
-+			}
-+			notify_and_destroy(skb, n, classid, old, new);
-+		}
-+
-+		if (dev->flags & IFF_UP)
-+			dev_activate(dev);
- 	} else {
- 		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
- 
-@@ -549,10 +580,12 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
- 		if (cops) {
- 			unsigned long cl = cops->get(parent, classid);
- 			if (cl) {
--				err = cops->graft(parent, cl, new, old);
-+				err = cops->graft(parent, cl, new, &old);
- 				cops->put(parent, cl);
- 			}
- 		}
-+		if (!err)
-+			notify_and_destroy(skb, n, classid, old, new);
- 	}
- 	return err;
- }
-@@ -773,16 +806,8 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 			return -EINVAL;
- 		if (q->handle == 0)
- 			return -ENOENT;
--		if ((err = qdisc_graft(dev, p, clid, NULL, &q)) != 0)
-+		if ((err = qdisc_graft(dev, p, skb, n, clid, NULL, q)) != 0)
- 			return err;
--		if (q) {
--			spinlock_t *root_lock = qdisc_root_lock(q);
--
--			qdisc_notify(skb, n, clid, q, NULL);
--			spin_unlock_bh(root_lock);
--			qdisc_destroy(q);
--			spin_unlock_bh(root_lock);
--		}
- 	} else {
- 		qdisc_notify(skb, n, clid, NULL, q);
- 	}
-@@ -923,10 +948,9 @@ create_n_graft:
- 
- graft:
- 	if (1) {
--		struct Qdisc *old_q = NULL;
- 		spinlock_t *root_lock;
- 
--		err = qdisc_graft(dev, p, clid, q, &old_q);
-+		err = qdisc_graft(dev, p, skb, n, clid, q, NULL);
- 		if (err) {
- 			if (q) {
- 				root_lock = qdisc_root_lock(q);
-@@ -936,13 +960,6 @@ graft:
- 			}
- 			return err;
- 		}
--		qdisc_notify(skb, n, clid, old_q, q);
--		if (old_q) {
--			root_lock = qdisc_root_lock(old_q);
--			spin_lock_bh(root_lock);
--			qdisc_destroy(old_q);
--			spin_unlock_bh(root_lock);
--		}
- 	}
- 	return 0;
+ 	if (inet_sk(sk)->num == IPPROTO_RAW)
+-		ip6_ra_control(sk, -1, NULL);
++		ip6_ra_control(sk, -1);
+ 	ip6mr_sk_done(sk);
+ 	sk_common_release(sk);
  }
 -- 
-1.5.6.2.255.gbed62
+1.5.3.rc5
 
