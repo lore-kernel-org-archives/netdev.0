@@ -1,61 +1,61 @@
-From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: RE: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
-Date: Thu, 17 Jul 2008 10:47:07 +0800
-Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE613106D@SHEXMB-01.global.atheros.com>
-References: <72981EBCFD196144B7C6999B9FC34A9A3EE60E9F58@SHEXMB-01.global.atheros.com>
-	<20080715211514.25848d8a@extreme>
-	<72981EBCFD196144B7C6999B9FC34A9A3EE60EA59C@SHEXMB-01.global.atheros.com>
-	<20080716085329.03e97b2a@extreme> <adafxq9bxbr.fsf@cisco.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: More reliable synchronization on connection close
+Date: Thu, 17 Jul 2008 12:47:22 +1000
+Message-ID: <20080717024720.GB23699@verge.net.au>
+References: <20080716063519.GA5144@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
-	"parag.warudkar@gmail.com" <parag.warudkar@gmail.com>,
-	Willy Tarreau <w@1wt.eu>,
-	"oliver.schuster@schweigstill.de" <oliver.schuster@schweigstill.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Rumen Bogdanovski <rumen@voicecho.com>,
+	Joseph Mack NA3T <jmack@wm7d.net>
+To: LVS Devel <lvs-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 175.212.dsnet ([203.110.175.212]:18613 "EHLO mail.atheros.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754105AbYGQCrK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 22:47:10 -0400
-In-Reply-To: <adafxq9bxbr.fsf@cisco.com>
-Content-Language: zh-CN
+Received: from kirsty.vergenet.net ([202.4.237.240]:38495 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758241AbYGQCrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2008 22:47:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20080716063519.GA5144@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 17, 2008 12:36 AM
-Roland Dreier <rdreier@cisco.com> wrote:
->
->  > Output of checkpatch (scripts/checkpatch.pl in kernel source).
->  > Personally, I am not a whitespace bigot, and don't think
-> > all the warnings in checkpatch have to be fixed.
->  >
->  > ----------
->  > ERROR: patch seems to be corrupt (line wrapped?)  > #121:
-> FILE: drivers/net/atl1e/atl1e.h:9:
->  > ree
->  >
->  > WARNING: space prohibited between function name and open
-> parenthesis '('
->  > #212: FILE: drivers/net/atl1e/atl1e.h:97:
->  > +       _tpd =3D (((_vlan) << (4)) | (((_vlan) >> 13) & 7) |\
->
-> It's kind of pointless to run checkpatch on a corrupted patch
-> (the email was quoted-printable and you didn't decode it back
-> to text).  Of course it's also better to send non-mangled patches.
->
->  - R.
->
+From: Rumen Bogdanovski <rumen@voicecho.com>
 
-Hi, Roland
-        I used outlook to send these patches, can you give me some
-aderise on how to send non-mangled patches.
+This patch enhances the synchronization of the closing connections
+between the master and the backup director. It prevents the closed
+connections to expire with the 15 min timeout of the ESTABLISHED
+state on the backup and makes them expire as they would do on the
+master with much shorter timeouts.
 
-Best wishes
-jie
+Cc: Joseph Mack NA3T <jmack@wm7d.net>
+Signed-off-by: Rumen G. Bogdanovski <rumen@voicecho.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+
+--- 
+
+Hi Dave,
+
+please consider applying this.
+
+Changes:
+* Fixed typo in subject
+* Previous post was encoded as quoted-printable
+
+diff -Naur net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c net-2.6/net/ipv4/ipvs/ip_vs_core.c
+--- net-2.6_orig/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:23:44.000000000 +0300
++++ net-2.6/net/ipv4/ipvs/ip_vs_core.c	2008-07-15 11:27:31.000000000 +0300
+@@ -993,7 +993,8 @@
+ 	       == sysctl_ip_vs_sync_threshold[0])) ||
+ 	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
+ 	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
+-	       (cp->state == IP_VS_TCP_S_CLOSE)))))
++	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
++	       (cp->state == IP_VS_TCP_S_TIME_WAIT)))))
+ 		ip_vs_sync_conn(cp);
+ 	cp->old_state = cp->state;
+ 
+
+-- 
+Horms
+
