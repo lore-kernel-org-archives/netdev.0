@@ -1,49 +1,31 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Fri, 18 Jul 2008 00:06:00 +0200
-Message-ID: <20080717220600.GA1701@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <20080717.144504.96425101.davem@davemloft.net>
+ overwritten
+Date: Thu, 17 Jul 2008 15:09:01 -0700 (PDT)
+Message-ID: <20080717.150901.02086760.davem@davemloft.net>
+References: <20080717214222.GA29449@elte.hu>
+	<20080717.144504.96425101.davem@davemloft.net>
+	<20080717220600.GA1701@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	penberg@cs.helsinki.fi, vegard.nossum@gmail.com, rjw@sisk.pl
-To: David Miller <davem@davemloft.net>
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:36815 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754236AbYGQWGV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 18:06:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20080717.144504.96425101.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47187
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754475AbYGQWJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 18:09:01 -0400
+In-Reply-To: <20080717220600.GA1701@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 18 Jul 2008 00:06:00 +0200
 
-* David Miller <davem@davemloft.net> wrote:
-
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Thu, 17 Jul 2008 23:42:22 +0200
+> > > Perhaps SLUB debugging got smarter?
 > 
-> > 
-> > A regression to v2.6.26:
-> > 
-> > I started getting this skb-head corruption message today, on a T60 
-> > laptop with e1000:
-> 
-> This is very unlikely to be added by us networking folks, no 
-> networking merges have happened for the 2.6.27 merge window yet :-)
+> and Cc:-ed SLUB folks. Could be a sleeper cell of bugs gone active ;-) 
 
-yeah. That's why i observed:
-
-> > Perhaps SLUB debugging got smarter?
-
-and Cc:-ed SLUB folks. Could be a sleeper cell of bugs gone active ;-) 
-
-Or could be SLUB (-debugging) breakage. Netconsole is pretty reliable on 
-this box. (and the bootup continued just fine after this report)
-
-Just re-tried it, the bug is reliably repeatable. Will try a bisection 
-run.
-
-	Ingo
+This bug would be a quite positive result then :)
