@@ -1,188 +1,54 @@
-From: <gregkh@suse.de>
-Subject: patch can-add-sanity-checks.patch added to 2.6.25-stable tree
-Date: Wed, 16 Jul 2008 22:42:34 -0700
-Message-ID: <20080717054621.5A3EC1454459@imap.suse.de>
-References: <4873972A.3000404@hartkopp.net>
-Cc: <stable@kernel.org>, <stable-commits@vger.kernel.org>
-To: oliver@hartkopp.net, davem@davemloft.net, gregkh@suse.de,
-	greg@kroah.com, nautsch@gmail.com, netdev@vger.kernel.org,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: git clone net-next-2.6
+Date: Thu, 17 Jul 2008 13:41:21 +0800
+Message-ID: <487EDB81.6080809@cn.fujitsu.com>
+References: <487C0ABA.1070506@cn.fujitsu.com>	<487C12A5.8010505@cn.fujitsu.com> <20080714.210056.47426171.davem@davemloft.net> <487C3DFF.1050809@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:57927 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751654AbYGQFqX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 01:46:23 -0400
-In-Reply-To: <4873972A.3000404@hartkopp.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:49567 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751909AbYGQFqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 01:46:39 -0400
+In-Reply-To: <487C3DFF.1050809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Wang Chen said the following on 2008-7-15 14:04:
+> But I need some help from you, otherwise the latest tree to me is Linus's
+> mainline tree.
+> Actually, long time ago, I want to git-clone your net tree but failed.
+> But I can git-clone Linus's.
+> The reason is that in my working place I can only use http protocol when git
+> clone. But your tree seems not work for http git-clone.
+> I asked Herbert before, he said, maybe git-update-server-info needs to be
+> executed.
+> I am very appreciated if you can figure out why net tree can't be cloned by http.
+> And maybe there are some other people whose employer's firewall filtering git
+> port.
+> Thank you for your understanding in advance :)
+> 
 
-This is a note to let you know that we have just queued up the patch titled
-
-     Subject: can: add sanity checks
-
-to the 2.6.25-stable tree.  Its filename is
-
-     can-add-sanity-checks.patch
-
-A git repo of this tree can be found at 
-    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
-
-
->From stable-bounces@linux.kernel.org  Wed Jul 16 22:22:11 2008
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Tue, 08 Jul 2008 18:34:50 +0200
-Subject: can: add sanity checks
-To: stable@kernel.org, Greg KH <greg@kroah.com>
-Cc: Linux Netdev List <netdev@vger.kernel.org>, Oliver Hartkopp <oliver.hartkopp@volkswagen.de>, Andre Naujoks <nautsch@gmail.com>, David Miller <davem@davemloft.net>, Urs Thuermann <urs.thuermann@volkswagen.de>
-Message-ID: <4873972A.3000404@hartkopp.net>
-
-From: Oliver Hartkopp <oliver@hartkopp.net>
-
-commit 7f2d38eb7a42bea1c1df51bbdaa2ca0f0bdda07f upstream
-
-Even though the CAN netlayer only deals with CAN netdevices, the
-netlayer interface to the userspace and to the device layer should
-perform some sanity checks.
-
-This patch adds several sanity checks that mainly prevent userspace apps
-to send broken content into the system that may be misinterpreted by
-some other userspace application.
-
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
-Acked-by: Andre Naujoks <nautsch@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+David, git-clone your net-next-2.6 tree by http can work now.
+But, it failed half way.
+BTW, I am not urgent :)
 
 ---
- net/can/af_can.c |   10 ++++++++++
- net/can/bcm.c    |   23 +++++++++++++++++++----
- net/can/raw.c    |    3 +++
- 3 files changed, 32 insertions(+), 4 deletions(-)
+# git-clone http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+Initialized empty Git repository in /pub/git/wcn/davem/net-next-2.6/.git/
+Getting alternates list for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+Also look at http://www.kernel.org/home/ftp/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/
+Getting pack list for http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+Getting index for pack b4c5447ecf8fe5dd18e4403f6628e52579ba93aa
+Getting pack b4c5447ecf8fe5dd18e4403f6628e52579ba93aa
+ which contains 79d16385c7f287a33ea771c4dbe60ae43f791b49
+walk 79d16385c7f287a33ea771c4dbe60ae43f791b49
+walk b19fa1fa91845234961c64dbd564671aa7c0fd27
+Getting pack list for http://www.kernel.org/home/ftp/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/
+error: Unable to find 869e1a3b64b6bf969eeced820691e955e03e3068 under http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+Cannot obtain needed blob 869e1a3b64b6bf969eeced820691e955e03e3068
+while processing commit b19fa1fa91845234961c64dbd564671aa7c0fd27.
 
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -205,12 +205,19 @@ static int can_create(struct net *net, s
-  *  -ENOBUFS on full driver queue (see net_xmit_errno())
-  *  -ENOMEM when local loopback failed at calling skb_clone()
-  *  -EPERM when trying to send on a non-CAN interface
-+ *  -EINVAL when the skb->data does not contain a valid CAN frame
-  */
- int can_send(struct sk_buff *skb, int loop)
- {
- 	struct sk_buff *newskb = NULL;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int err;
- 
-+	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
-+		kfree_skb(skb);
-+		return -EINVAL;
-+	}
-+
- 	if (skb->dev->type != ARPHRD_CAN) {
- 		kfree_skb(skb);
- 		return -EPERM;
-@@ -605,6 +612,7 @@ static int can_rcv(struct sk_buff *skb, 
- 		   struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct dev_rcv_lists *d;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int matches;
- 
- 	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
-@@ -612,6 +620,8 @@ static int can_rcv(struct sk_buff *skb, 
- 		return 0;
- 	}
- 
-+	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
-+
- 	/* update statistics */
- 	can_stats.rx_frames++;
- 	can_stats.rx_frames_delta++;
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -326,7 +326,7 @@ static void bcm_send_to_user(struct bcm_
- 
- 	if (head->nframes) {
- 		/* can_frames starting here */
--		firstframe = (struct can_frame *) skb_tail_pointer(skb);
-+		firstframe = (struct can_frame *)skb_tail_pointer(skb);
- 
- 		memcpy(skb_put(skb, datalen), frames, datalen);
- 
-@@ -818,6 +818,10 @@ static int bcm_tx_setup(struct bcm_msg_h
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0)
- 				return err;
- 
-@@ -850,6 +854,10 @@ static int bcm_tx_setup(struct bcm_msg_h
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0) {
- 				if (op->frames != &op->sframe)
- 					kfree(op->frames);
-@@ -1161,9 +1169,12 @@ static int bcm_tx_send(struct msghdr *ms
- 
- 	skb->dev = dev;
- 	skb->sk  = sk;
--	can_send(skb, 1); /* send with loopback */
-+	err = can_send(skb, 1); /* send with loopback */
- 	dev_put(dev);
- 
-+	if (err)
-+		return err;
-+
- 	return CFSIZ + MHSIZ;
- }
- 
-@@ -1182,6 +1193,10 @@ static int bcm_sendmsg(struct kiocb *ioc
- 	if (!bo->bound)
- 		return -ENOTCONN;
- 
-+	/* check for valid message length from userspace */
-+	if (size < MHSIZ || (size - MHSIZ) % CFSIZ)
-+		return -EINVAL;
-+
- 	/* check for alternative ifindex for this bcm_op */
- 
- 	if (!ifindex && msg->msg_name) {
-@@ -1256,8 +1271,8 @@ static int bcm_sendmsg(struct kiocb *ioc
- 		break;
- 
- 	case TX_SEND:
--		/* we need at least one can_frame */
--		if (msg_head.nframes < 1)
-+		/* we need exactly one can_frame behind the msg head */
-+		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
- 			ret = -EINVAL;
- 		else
- 			ret = bcm_tx_send(msg, ifindex, sk);
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -632,6 +632,9 @@ static int raw_sendmsg(struct kiocb *ioc
- 	} else
- 		ifindex = ro->ifindex;
- 
-+	if (size != sizeof(struct can_frame))
-+		return -EINVAL;
-+
- 	dev = dev_get_by_index(&init_net, ifindex);
- 	if (!dev)
- 		return -ENXIO;
-
-
-Patches currently in stable-queue which might be from oliver@hartkopp.net are
-
-queue-2.6.25/can-add-sanity-checks.patch
