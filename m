@@ -1,46 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Thu, 17 Jul 2008 16:02:20 +0200
-Message-ID: <487F50EC.80008@trash.net>
-References: <20080717.051726.226040470.davem@davemloft.net>	 <487F4327.1000107@trash.net> <1216301732.4726.26.camel@localhost>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
+Date: Thu, 17 Jul 2008 18:21:33 +0400
+Message-ID: <20080717142132.GA11702@2ka.mipt.ru>
+References: <200807171633.49791.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57027 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755336AbYGQOCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 10:02:24 -0400
-In-Reply-To: <1216301732.4726.26.camel@localhost>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:53330 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756579AbYGQOVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2008 10:21:42 -0400
+Content-Disposition: inline
+In-Reply-To: <200807171633.49791.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> On Thu, 2008-17-07 at 15:03 +0200, Patrick McHardy wrote:
-> 
->> Actions are also visible
->> globally, so this might still be a problem, not sure though since
->> they don't refer to their parent (haven't thought about it much yet).
-> 
-> Actions are fine because they are intended to be globaly shared.
-> [i.e A classifier on ethx with qdiscA:Y (in/egress) can share an action
-> with  classifer on  ethy with qdiscB:Z (eg/ingress)].
+Hi Octavian.
 
-Yes, in that case its not a problem. The case where it behaves
-differently than now is when only a single reference exists.
+On Thu, Jul 17, 2008 at 04:33:49PM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
+>     This patch changes tcp_splice_read to the behavior implied by man 2
+>     splice:
+>     
+>          SPLICE_F_NONBLOCK - Do not block on I/O. This makes the splice
+>          pipe operations non-blocking, but splice() may nevertheless block
+>          because the file descriptors that are spliced to/from may block
+>          (unless they have the O_NONBLOCK flag set).
+>     
+>     This approach also provides a simple solution to the splice
+>     transfer size problem. Say we have the following common sequence:
+>     
+>          splice(socket, pipe);
+>          splice(pipe, file);
+>     
+>     Unless we specify SPLICE_F_NONBLOCK, we can't use arbitrarily large
+>     transfer sizes with the 1st splice since otherwise we will deadlock
+>     due to pipe being full.  But if we use SPLICE_F_NONBLOCK, the current
+>     implementation will make the underlying socket non-blocking and thus
+>     will force us use poll or other async I/O notification mechanism.
 
-> Like you i need to digest the patches to understand the impact on the
-> rest but one thing i did notice was the last patch (replacement of
-> pfifo_fast):
-> prioritization based on TOS/DSCP (setsockopt) would no longer work, some
-> user space code may suffer (routing daemons likely). One suggestion to
-> fix it is to load pfifo qdisc (which does what fifo_fast is attempting)
-> for drivers that are h/ware multiq capable.
+Existing behaviour was selected to be able to have a progress if socket
+does not have enough data to fill the pipe. With your change if socket
+is not opened with non-blocking mode reading will block not matter if
+SPLICE_F_NONBLOCK is set or not. This is a quite serious break of the
+overall idea behind SPLICE_F_NONBLOCK.
 
-That would perform priorization within each qdisc, the individual
-qdiscs would still be transmitted using seperate HW queues though.
+Socket will not be marked as non-blocking if SPLICE_F_NONBLOCK is
+specified, only splicing will used non-blocking reading, any read via
+recv() will use existing socket flags.
 
+-- 
+	Evgeniy Polyakov
