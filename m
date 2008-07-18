@@ -1,29 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: netdev tree status
-Date: Fri, 18 Jul 2008 19:26:58 -0400
-Message-ID: <488126C2.2010208@garzik.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: missing lock initialization
+Date: Fri, 18 Jul 2008 16:38:36 -0700
+Message-ID: <20080718163836.60f5a021@extreme>
+References: <20080718161048.678a9629@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: NetDev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33225 "EHLO mail.dvmed.net"
+Received: from mail.vyatta.com ([216.93.170.194]:50764 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757330AbYGRX1D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 19:27:03 -0400
+	id S1756122AbYGRXih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 19:38:37 -0400
+In-Reply-To: <20080718161048.678a9629@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just to let folks know, I was holding on to patches received, until 
-DaveM got net-2.6 and net-next upstream and sorted.
+Looks like the xmit_lock is not being initialized in net-next
 
-Since that update has now happened, patches should start flowing from my 
-mbox queue into my git queue (and on to DaveM) again.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-It will be a few days to get things fully "unclogged" however :)
-
-	Jeff
-
-
-
+--- a/net/core/dev.c	2008-07-18 16:31:16.000000000 -0700
++++ b/net/core/dev.c	2008-07-18 16:35:31.000000000 -0700
+@@ -4175,6 +4175,7 @@ static void netdev_init_one_queue(struct
+ 				  struct netdev_queue *queue,
+ 				  void *_unused)
+ {
++	spin_lock_init(&queue->_xmit_lock);
+ 	queue->dev = dev;
+ }
+ 
