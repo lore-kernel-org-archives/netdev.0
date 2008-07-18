@@ -1,79 +1,133 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: e1000e "Detected Tx Unit Hang"
-Date: Fri, 18 Jul 2008 16:55:54 +0200
-Message-ID: <200807181655.54760.sr@denx.de>
-References: <4866211E.6040704@embedded-sol.com> <200807140947.46733.sr@denx.de> <487B0B75.1070506@embedded-sol.com>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] bridge: use netstats in net_device structure
+Date: Fri, 18 Jul 2008 18:27:32 +0300
+Message-ID: <g5qcp4$clp$2@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: Felix Radensky <felix@embedded-sol.com>
+Content-Type: multipart/mixed;
+ boundary="------------040302000402030203030901"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.174]:52287 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbYGRO4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 10:56:12 -0400
-In-Reply-To: <487B0B75.1070506@embedded-sol.com>
-Content-Disposition: inline
+Received: from main.gmane.org ([80.91.229.2]:41098 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751277AbYGRP1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 11:27:42 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1KJrrx-0002zR-2q
+	for netdev@vger.kernel.org; Fri, 18 Jul 2008 15:27:41 +0000
+Received: from 82-135-208-232.static.zebra.lt ([82.135.208.232])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 15:27:41 +0000
+Received: from paulius.zaleckas by 82-135-208-232.static.zebra.lt with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 15:27:41 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Felix,
+This is a multi-part message in MIME format.
+--------------040302000402030203030901
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On Monday 14 July 2008, Felix Radensky wrote:
-> >> The following command works always
-> >>
-> >> dd if=/dev/zero of=/mnt/test bs=512 count=2
-> >>
-> >> and the following causes Tx unit hang
-> >>
-> >>  dd if=/dev/zero of=/mnt/test bs=512 count=3
-> >>
-> >> Stefan, are you aware of any PCIe related problems on Canyonlands ?
-> >> AMCC have compatibility chart on their site, which indicates that this
-> >> particular card (Intel PRO/1000 T Desktop Adapter) Iwas tested with
-> >> linux-2.6.25 kernel.
 
-I just tried this on my Canyonlands with the kernel.org 2.6.26 release:
+--------------040302000402030203030901
+Content-Type: text/x-patch;
+ name="bridge_netstats.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="bridge_netstats.patch"
 
-e1000e: Intel(R) PRO/1000 Network Driver - 0.3.3.3-k2
-e1000e: Copyright (c) 1999-2008 Intel Corporation.
-e1000e 0001:81:00.0: enabling device (0006 -> 0007)
-eth0: (PCI Express:2.5GB/s:Width x1) 00:1b:21:04:a3:47
-eth0: Intel(R) PRO/1000 Network Connection
-eth0: MAC: 1, PHY: 4, PBA No: d50854-003
-...
+Use net_device_stats from net_device structure instead of local.
+Kill br_dev_get_stats function, because by default it is used identical
+internal_stats function from net/core/dev.c
 
--bash-3.2# uname -a
-Linux canyonlands 2.6.26 #2 Fri Jul 18 16:46:00 CEST 2008 ppc ppc ppc GNU/Linux
--bash-3.2# dd if=/dev/zero of=/mnt/test bs=512 count=2
-2+0 records in
-2+0 records out
-1024 bytes (1.0 kB) copied, 0.015222 s, 67.3 kB/s
--bash-3.2# dd if=/dev/zero of=/mnt/test bs=512 count=3
-3+0 records in
-3+0 records out
-1536 bytes (1.5 kB) copied, 0.014824 s, 104 kB/s
--bash-3.2# dd if=/dev/zero of=/mnt/test bs=512 count=256
-256+0 records in
-256+0 records out
-131072 bytes (131 kB) copied, 0.099793 s, 1.3 MB/s
--bash-3.2# dmesg -c
--bash-3.2#                                      
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 
-So no problems here.
+Index: linux-2.6/net/bridge/br_device.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_device.c
++++ linux-2.6/net/bridge/br_device.c
+@@ -21,12 +21,6 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
+-static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
+-{
+-	struct net_bridge *br = netdev_priv(dev);
+-	return &br->statistics;
+-}
+-
+ /* net device transmit always called with no BH (preempt_disabled) */
+ int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -34,8 +28,8 @@ int br_dev_xmit(struct sk_buff *skb, str
+ 	const unsigned char *dest = skb->data;
+ 	struct net_bridge_fdb_entry *dst;
+ 
+-	br->statistics.tx_packets++;
+-	br->statistics.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+@@ -161,7 +155,6 @@ void br_dev_setup(struct net_device *dev
+ 	ether_setup(dev);
+ 
+ 	dev->do_ioctl = br_dev_ioctl;
+-	dev->get_stats = br_dev_get_stats;
+ 	dev->hard_start_xmit = br_dev_xmit;
+ 	dev->open = br_dev_open;
+ 	dev->set_multicast_list = br_dev_set_multicast_list;
+Index: linux-2.6/net/bridge/br_private.h
+===================================================================
+--- linux-2.6.orig/net/bridge/br_private.h
++++ linux-2.6/net/bridge/br_private.h
+@@ -90,7 +90,6 @@ struct net_bridge
+ 	spinlock_t			lock;
+ 	struct list_head		port_list;
+ 	struct net_device		*dev;
+-	struct net_device_stats		statistics;
+ 	spinlock_t			hash_lock;
+ 	struct hlist_head		hash[BR_HASH_SIZE];
+ 	struct list_head		age_list;
+Index: linux-2.6/net/bridge/br_forward.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_forward.c
++++ linux-2.6/net/bridge/br_forward.c
+@@ -115,7 +115,7 @@ static void br_flood(struct net_bridge *
+ 				struct sk_buff *skb2;
+ 
+ 				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+-					br->statistics.tx_dropped++;
++					br->dev->stats.tx_dropped++;
+ 					kfree_skb(skb);
+ 					return;
+ 				}
+Index: linux-2.6/net/bridge/br_input.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_input.c
++++ linux-2.6/net/bridge/br_input.c
+@@ -26,8 +26,8 @@ static void br_pass_frame_up(struct net_
+ {
+ 	struct net_device *indev;
+ 
+-	br->statistics.rx_packets++;
+-	br->statistics.rx_bytes += skb->len;
++	br->dev->stats.rx_packets++;
++	br->dev->stats.rx_bytes += skb->len;
+ 
+ 	indev = skb->dev;
+ 	skb->dev = br->dev;
+@@ -64,7 +64,7 @@ int br_handle_frame_finish(struct sk_buf
+ 	dst = NULL;
+ 
+ 	if (is_multicast_ether_addr(dest)) {
+-		br->statistics.multicast++;
++		br->dev->stats.multicast++;
+ 		skb2 = skb;
+ 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
+ 		skb2 = skb;
 
-Rootfs NFS is mounted via e1000e of course.
+--------------040302000402030203030901--
 
-Did you try with kernel.org 2.6.26 too? If not, please do so.
-
-Best regards,
-Stefan
-
-=====================================================================
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
-=====================================================================
