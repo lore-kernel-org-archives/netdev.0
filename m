@@ -1,90 +1,82 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Fri, 18 Jul 2008 02:01:30 +0200
-Message-ID: <20080718000130.GA24013@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <19f34abd0807171615s5b477d4cr22d3e9444bcf65df@mail.gmail.com> <20080717235254.GA6833@elte.hu>
+From: "Vegard Nossum" <vegard.nossum@gmail.com>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Fri, 18 Jul 2008 02:05:39 +0200
+Message-ID: <19f34abd0807171705h31595809y944792ce697bede7@mail.gmail.com>
+References: <20080717214222.GA29449@elte.hu>
+	 <19f34abd0807171615s5b477d4cr22d3e9444bcf65df@mail.gmail.com>
+	 <20080717235254.GA6833@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
+	"Pekka Enberg" <penberg@cs.helsinki.fi>,
 	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Vegard Nossum <vegard.nossum@gmail.com>
+To: "Ingo Molnar" <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:56333 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760167AbYGRACA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2008 20:02:00 -0400
-Content-Disposition: inline
+Received: from yw-out-2324.google.com ([74.125.46.31]:56747 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760453AbYGRAFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2008 20:05:41 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so17012ywe.1
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2008 17:05:40 -0700 (PDT)
 In-Reply-To: <20080717235254.GA6833@elte.hu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jul 18, 2008 at 1:52 AM, Ingo Molnar <mingo@elte.hu> wrote:
+>  If only we had some kernel technology that could track and validate
+>  memory accesses, and point out the cases where we access uninitialized
+>  memory, just like Valgrind?
+>
+> ... something like kmemcheck? ;-)
 
-two other ones:
+Cool :)
 
-kmemcheck: Caught 32-bit read from uninitialized memory (f459ac00)
-uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-^
+> So i booted that box with tip/master and kmemcheck enabled. (plus a few
+> fixlets to make networking allocations be properly tracked by
+> kmemcheck.)
+>
+> It was a slow bootup and long wait, but it gave a few hits here:
 
-Pid: 1614, comm: kjournald Not tainted (2.6.26-tip #20187)
-EIP: 0060:[<c05ea904>] EFLAGS: 00010216 CPU: 0
-EIP is at skb_copy_bits+0x54/0x220
-EAX: 00000110 EBX: 00000110 ECX: 00000044 EDX: f6c256c0
-ESI: f459ac00 EDI: f459a000 EBP: c09b9f60 ESP: c09de048
- DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-CR0: 8005003b CR2: f71c2700 CR3: 2e849000 CR4: 000006d0
-DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-DR6: ffff4ff0 DR7: 00000400
- [<c05ebe28>] skb_copy+0x78/0x90
- [<c05f9426>] neigh_timer_handler+0x156/0x2c0
- [<c012ba62>] run_timer_softirq+0x142/0x180
- [<c0129092>] __do_softirq+0x82/0xf0
- [<c0105b8a>] call_on_stack+0x1a/0x30
- [<ffffffff>] 0xffffffff
+Hm, if you think it was that slow, I am suspecting you were also using
+SLUB debugging.
+
+This can actually be negative, since now SLUB will access the objects
+(+redzone +padding) and possibly trick kmemcheck into thinking they
+were initialized in the first place.
+
+But what we are really looking for is "read from freed memory"
+messages. So I would actually recommend this: Disable kmemcheck's
+reporting of uninitialized memory, simply to make it easier to spot
+the "freed" messages more easily.
+
+Maybe something like this (warning: whitespace-munged):
+
+diff --git a/arch/x86/mm/kmemcheck/error.c b/arch/x86/mm/kmemcheck/error.c
+index 56410c6..6944cb7 100644
+--- a/arch/x86/mm/kmemcheck/error.c
++++ b/arch/x86/mm/kmemcheck/error.c
+@@ -98,6 +98,9 @@ void kmemcheck_error_save(enum kmemcheck_shadow state,
+                return;
+        prev_ip = regs->ip;
+
++       if (state == KMEMCHECK_SHADOW_UNINITIALIZED)
++               return;
++
+        e = error_next_wr();
+        if (!e)
+                return;
 
 
-plus:
+If this only happens during boot, it would also be a good idea to
+simply reboot the machine a lot...
 
-kmemcheck: Caught 32-bit read from uninitialized memory (f654b590)
-iiiiiiiiiiiiiiiiuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-                ^
 
-Pid: 3130, comm: git-read-tree Not tainted (2.6.26-tip #20187)
-EIP: 0060:[<c05eb396>] EFLAGS: 00010286 CPU: 0
-EIP is at pskb_expand_head+0x86/0x150
-EAX: 00000140 EBX: f6763124 ECX: 00000027 EDX: f6549400
-ESI: f654b590 EDI: f6549650 EBP: c09b9a80 ESP: c09dfa28
- DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-CR0: 8005003b CR2: f71c2700 CR3: 2e849000 CR4: 000006d0
-DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-DR6: ffff4ff0 DR7: 00000400
- [<c05eb67d>] __pskb_pull_tail+0x21d/0x300
- [<c03b45dd>] e1000_xmit_frame+0x1fd/0xa60
- [<c05f0fd4>] dev_hard_start_xmit+0x254/0x2e0
- [<c0609721>] __qdisc_run+0x61/0x1b0
- [<c05f383e>] dev_queue_xmit+0x25e/0x340
- [<c061f315>] ip_finish_output+0x105/0x260
- [<c061f739>] ip_output+0x49/0x50
- [<c061debd>] ip_local_out+0x1d/0x30
- [<c061fa85>] ip_queue_xmit+0x1a5/0x340
- [<c062ffd3>] tcp_transmit_skb+0x443/0x800
- [<c06316aa>] __tcp_push_pending_frames+0xfa/0x730
- [<c062ee58>] tcp_rcv_established+0x3b8/0x6f0
- [<c0634f50>] tcp_v4_do_rcv+0x2d0/0x510
- [<c063720e>] tcp_v4_rcv+0x58e/0x660
- [<c061b5ac>] ip_local_deliver+0x4c/0x180
- [<c061b99e>] ip_rcv+0x2be/0x570
- [<c05f08d3>] netif_receive_skb+0x333/0x400
- [<c03b2aa7>] e1000_receive_skb+0x47/0x180
- [<c03b3983>] e1000_clean_rx_irq+0x223/0x2e0
- [<c03b225b>] e1000_clean+0x5b/0x200
- [<c05f29db>] net_rx_action+0xfb/0x160
- [<c0129092>] __do_softirq+0x82/0xf0
- [<c0105b8a>] call_on_stack+0x1a/0x30
- [<ffffffff>] 0xffffffff
+Vegard
 
-again, from the RX path, likely false positives. We've got to fix these 
-false positives to make automated debugging easier.
-
-	Ingo
+-- 
+"The animistic metaphor of the bug that maliciously sneaked in while
+the programmer was not looking is intellectually dishonest as it
+disguises that the error is the programmer's own creation."
+	-- E. W. Dijkstra, EWD1036
