@@ -1,94 +1,50 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH v2 3/4] I/OAT: tcp_dma_copybreak default value
-	dependant onI/OAT version
-Date: Fri, 18 Jul 2008 11:54:14 -0700
-Message-ID: <1216407254.18755.4.camel@dwillia2-linux.ch.intel.com>
-References: <20080718152541.21235.85961.stgit@linux.site>
-	 <20080718152838.21235.78883.stgit@linux.site>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
+	for device classes.
+Date: Fri, 18 Jul 2008 11:49:36 -0700
+Message-ID: <20080718184936.GA21343@suse.de>
+References: <m1mykyh2fu.fsf_-_@frodo.ebiederm.org> <m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com> <20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org> <487D6A24.9070001@gmail.com> <20080717230857.GB28377@suse.de> <48808F79.7080607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Nelson, Shannon" <shannon.nelson@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Tejun Heo <htejun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:32126 "EHLO mga14.intel.com"
+Received: from ns1.suse.de ([195.135.220.2]:36533 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755644AbYGRSyP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 14:54:15 -0400
-In-Reply-To: <20080718152838.21235.78883.stgit@linux.site>
+	id S1758708AbYGRS4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 14:56:18 -0400
+Content-Disposition: inline
+In-Reply-To: <48808F79.7080607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Fri, 2008-07-18 at 08:29 -0700, Sosnowski, Maciej wrote:
-> I/OAT DMA performance tuning showed different optimal values
-> of tcp_dma_copybreak for different I/OAT versions
-> (4096 for 1.2 and 2048 for 2.0).
-> This patch lets ioatdma driver set tcp_dma_copybreak value
-> according to these results.
+On Fri, Jul 18, 2008 at 09:41:29PM +0900, Tejun Heo wrote:
+> Greg KH wrote:
+> > Ok, I'll work to get these in where applicable.
 > 
-> Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+> Did this get into 2.6.27?  Or will this have to wait till .28?
 
-Let's kill some ifdef's... how about the following instead?
+I haven't sent any patches to Linus yet for 2.6.27, so it hasn't gotten
+there yet.
 
-diff --git a/drivers/dma/ioat_dma.c b/drivers/dma/ioat_dma.c
-index 171cad6..1c0dafc 100644
---- a/drivers/dma/ioat_dma.c
-+++ b/drivers/dma/ioat_dma.c
-@@ -1330,6 +1330,8 @@ struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_self_test;
- 
-+	ioat_set_tcp_copy_break(device);
-+
- 	dma_async_device_register(&device->common);
- 
- 	return device;
-diff --git a/drivers/dma/ioatdma.h b/drivers/dma/ioatdma.h
-index f2c7fed..23e3196 100644
---- a/drivers/dma/ioatdma.h
-+++ b/drivers/dma/ioatdma.h
-@@ -27,6 +27,7 @@
- #include <linux/dmapool.h>
- #include <linux/cache.h>
- #include <linux/pci_ids.h>
-+#include <net/tcp.h>
- 
- #define IOAT_DMA_VERSION  "2.04"
- 
-@@ -121,6 +122,20 @@ struct ioat_desc_sw {
- 	struct dma_async_tx_descriptor async_tx;
- };
- 
-+static inline void ioat_set_tcp_copy_break(struct ioatdma_device *dev)
-+{
-+	#ifdef CONFIG_NET_DMA
-+	switch (dev->version) {
-+	case IOAT_VER_1_2:
-+		sysctl_tcp_dma_copybreak = 4096;
-+		break;
-+	case IOAT_VER_2_0:
-+		sysctl_tcp_dma_copybreak = 2048;
-+		break;
-+	}
-+	#endif
-+}
-+
- #if defined(CONFIG_INTEL_IOATDMA) || defined(CONFIG_INTEL_IOATDMA_MODULE)
- struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
- 				      void __iomem *iobase);
-diff --git a/net/core/user_dma.c b/net/core/user_dma.c
-index 0ad1cd5..de76050 100644
---- a/net/core/user_dma.c
-+++ b/net/core/user_dma.c
-@@ -34,6 +34,7 @@
- #define NET_DMA_DEFAULT_COPYBREAK 4096
- 
- int sysctl_tcp_dma_copybreak = NET_DMA_DEFAULT_COPYBREAK;
-+EXPORT_SYMBOL(sysctl_tcp_dma_copybreak);
- 
- /**
-  *	dma_skb_copy_datagram_iovec - Copy a datagram to an iovec.
+And due to the intrusiveness, and the fact that this hasn't been tested
+at all in any build tree yet, I can't in good concious submit this for
+.27 either.
 
+Part of this is my fault, I know, due to vacation and work, but also
+lots is due to the fact that the code showed up so late in the
+development cycle.
 
+I'll add it to my tree, and get it some testing in the next cycle of
+linux-next until 2.6.27 is out, and then if it's still looking good, go
+into .28.
+
+Hope this helps,
+
+greg k-h
