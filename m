@@ -1,55 +1,39 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: The ATN TP4/CLNP Networking Suite for GNU Linux systems
-Date: Fri, 18 Jul 2008 14:19:05 -0700
-Message-ID: <488108C9.9050605@goop.org>
-References: <105859.20085.qm@web37604.mail.mud.yahoo.com>
+From: "Benjamin Li" <benli@broadcom.com>
+Subject: [PATCH 0/4] Add initial bnx2 TX multiqueue support
+Date: Fri, 18 Jul 2008 14:20:46 -0700
+Message-ID: <1216416050-10572-1-git-send-email-benli@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: eus@member.fsf.org
+Cc: benli@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:41135 "EHLO mail.goop.org"
+Received: from mms3.broadcom.com ([216.31.210.19]:2431 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755312AbYGRVTU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 17:19:20 -0400
-In-Reply-To: <105859.20085.qm@web37604.mail.mud.yahoo.com>
+	id S1751614AbYGRVVA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 17:21:00 -0400
+Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
+ mail-irva-10.broadcom.com (Postfix) with ESMTP id 9C2042B0 for
+ <netdev@vger.kernel.org>; Fri, 18 Jul 2008 14:20:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eus wrote:
-> Hi Ho!
->   
+Add initial bnx2 TX multiqueue support
 
-netdev@vger.kernel.org should be the first point of contact for anything 
-networking related.  Added cc:.
+These changes are to update the bnx2 driver to work with Dave's new TX
+multiqueue changes.
 
-    J
+-Ben
 
-> Currently we are developing ATN TP4/CLNP Networking Suite for use in the aeronautical industry. The networking suite is specifically designed and implemented to work in GNU Linux systems. It is built as a Linux kernel module. This project is hosted in http://sourceforge.net/projects/atn and licensed under the GNU GPL version 2. Further information can be found in the README file on the CVS.
->
-> The primary goal of this project is to provide an economical solution for the government of Indonesia to fulfill the requirement of the International Civil Aviation Organization (ICAO) regarding its new CNS/ATM (Communication, Navigation, and Surveillance for Air Traffic Management) standards.
->
-> What we want to know is whether or not a similar project has already been undertaken by other people. In case it has, we would like to collaborate together. Can you provide any information on this matter?
->
-> If you want to join this project to further the steps of the free software movement in helping our societies, you are very welcome.
->
-> I also welcome any question that you may have concerning this project.
->
-> Please put me in the CC when replying since I am not in the mailing list.
->
-> Thank you.
->
-> Best regards,
-> Eus
->
->
->       
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->   
+Benjamin Li (4):
+  bnx2: Update TPAT firmware
+  bnx2: Add TX multiqueue support.
+  bnx2: Fix Sparse warnings
+  bnx2: Update version to 1.7.9.
+
+ drivers/net/bnx2.c     |   59 ++++---
+ drivers/net/bnx2.h     |    3 +
+ drivers/net/bnx2_fw2.h |  466 ++++++++++++++++++++++++------------------------
+ 3 files changed, 273 insertions(+), 255 deletions(-)
+
 
