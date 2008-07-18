@@ -1,70 +1,57 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
-Date: Fri, 18 Jul 2008 14:18:59 +0300
-Message-ID: <200807181418.59493.opurdila@ixiacom.com>
-References: <200807171633.49791.opurdila@ixiacom.com> <200807180052.33918.opurdila@ixiacom.com> <20080718105344.GA481@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] igb/ixgbe/e1000e: resolve tx multiqueue bug
+Date: Fri, 18 Jul 2008 04:37:08 -0700 (PDT)
+Message-ID: <20080718.043708.19461520.davem@davemloft.net>
+References: <20080718110225.20696.14881.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1068 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755024AbYGRLVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 07:21:52 -0400
-In-Reply-To: <20080718105344.GA481@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43492
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757311AbYGRLhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 07:37:08 -0400
+In-Reply-To: <20080718110225.20696.14881.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 18 July 2008, Evgeniy Polyakov wrote:
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 18 Jul 2008 04:02:25 -0700
 
-> tcp_splice_read:
->
-> timeo = sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
->
-> So, if you set SPLICE_F_NONBLOCK, then reading from the network will not
-> block. Splice can block in reading from other descriptors though. It can
-> also block during writing.
->
+> With the recent changes to tx mutiqueue, igb/ixgbe/e1000e was not calling
+> netif_tx_start_all_queues() before calling netif_tx_wake_all_queues().
+> This causes an issue during loading of the driver.
+> 
+> In addition, updated e1000e to use the updated tx mutliqueue api.
+> 
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-I know that. But I am arguing that splice API does not required not to block 
-even when the SPLICE_F_NONBLOCK is used. So changing this behavior the way I 
-suggested will still be conformant with the splice API requirements.
+Thanks Jeff.  I've applied this to kill the BUG() triggers you were
+seeing.
 
-> > > > But more importantly, how can we solve the deadlock issue described
-> > > > in the patch? Do we need all of the complications of async I/O for
-> > > > such a simple and common usecase?
-> > >
-> > > I'm not sure I understand how it can deadlock, please explain it in
-> > > more details.
-> >
-> > For this "program":
-> >
-> > x=splice(socket, pipe, size, flags=0);
-> > if (x > 0)
-> > 	splice(pipe, file, x, flags=0);
-> >
-> > it is hard to come up with a non tiny value for size that does not
-> > deadlock the program, because the pipe size is measured in packets and
-> > not bytes and we have no control over the packet sizes.
-> >
-> > For example, if we set size=17 and we are unlucky and get 16 packets of 1
-> > byte in a row, at the right time, the first splice call will block - and
-> > the program will deadlock since we can't reach the consumer.
->
-> It is not a deadlock. recv() on blocking socket with the same parameters
-> will behave exactly the same. Application designer should think about 
-> how it is supposed to handle cases, when not enough data is available in
-> the receiving queue - either return or wait.
+Background for everyone else:
 
-Sorry, it was an unfortunate example :) This is not about not enough data 
-being available. Lets change the number of packets in the example with 20 
-instead of 16 (and keep the size to 17) - the splice call will still block 
-because of the pipe being full. The pipe can only hold PIPE_BUFFERS packets 
-(which is 16 currently).
+1) These drivers have a watchdog handler that watches the PHY state
+   and wakes the TX queue when the link comes up.
 
-Thanks,
-tavi
+2) Since ->open() was not doing a start queue, we would do a wake
+   queue while attached to the noop_qdisc
+
+This causes the BUG check in netif_schedule() to trigger.
+
+After some discussion with Jeff I've advised him that it's not
+kosher for the driver to manage the TX queue wake state like
+this in respose to link up and down events, but rather simply
+maintaining the netif_carrier state is all that is needed.
+
+When netif_carrier_ok() is false, we're attached to the noop_qdisc
+which eats all packets and frees them up, never sending them down
+to the device.
+
+When netif_carrier_ok() is true, we attach to the configured normal
+qdisc and packets begin flowing to the device again.
+
+Jeff told me he will take a look more deeply into this.
+
