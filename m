@@ -1,42 +1,29 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [PATCH 0/6] netxen: add support for NX3031 chip
-Date: Fri, 18 Jul 2008 16:23:47 -0700
-Message-ID: <alpine.DEB.1.00.0807181620530.1245@unm84.unminc.com>
-References: <> <1215890720-29744-1-git-send-email-dhananjay@netxen.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: netdev tree status
+Date: Fri, 18 Jul 2008 19:26:58 -0400
+Message-ID: <488126C2.2010208@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "jeff@garzik.org" <jeff@garzik.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netxen.com ([66.126.254.36]:7706 "EHLO nxexch.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755387AbYGRXYI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 19:24:08 -0400
-In-Reply-To: <1215890720-29744-1-git-send-email-dhananjay@netxen.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:33225 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757330AbYGRX1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 19:27:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
+Just to let folks know, I was holding on to patches received, until 
+DaveM got net-2.6 and net-next upstream and sorted.
 
-Please discard this series, I am going to send reworked patch series
-shortly, that has more stuff than this one. That will have prefix
-PATCHv2.
+Since that update has now happened, patches should start flowing from my 
+mbox queue into my git queue (and on to DaveM) again.
 
-Thanks,
--Dhananjay
+It will be a few days to get things fully "unclogged" however :)
 
-On Sat, 12 Jul 2008, Dhananjay Phadke wrote:
+	Jeff
 
-> This is first patch series to add support for NX3031 chip and
-> NIC boards based on this hardware revision.
-> 
-> NX3031 chip has smaller PCI footprint (2MB) and different hardware              windowing. In order to retain compatibilty with older revisions,
-> driver has wrapper functions for register access.
-> 
-> 
-> 
-> No virus found in this incoming message.
-> Checked by AVG.
-> Version: 7.5.526 / Virus Database: 270.4.9/1548 - Release Date: 7/12/2008 07:40
-> 
-> 
+
+
