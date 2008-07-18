@@ -1,28 +1,41 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
-Date: Fri, 18 Jul 2008 08:55:59 -0500
-Message-ID: <4880A0EF.9030006@linux-foundation.org>
-References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Fri, 18 Jul 2008 16:02:40 +0200
+Message-ID: <200807181602.42338.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807181114.53059.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807181617550.24938@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, davem@davemloft.net,
-	johnpol@2ka.mipt.ru
-To: Pekka J Enberg <penberg@cs.helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57553 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756811AbYGRN5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 09:57:13 -0400
-In-Reply-To: <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"=?iso-8859-15?q?D=E2niel?= Fraga" <fragabr@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0807181617550.24938@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Friday, 18. July 2008 15:55:22 Ilpo J=E4rvinen wrote:
+> Btw, on which kernel you ran these things (I hope it wasn't 2.6.24.7,
+> which has FRTO related bugs anyway that the patches I've sent now won=
+'t
+> fix)?
 
->> INFO: 0xf658ae9c-0xf658ae9c. First byte 0x6a instead of 0x6b
-> 
-> 0x6b is POISON_FREE so 0x6a is one bit corruption.
+It's the git "master" tree from two days ago, so it should be 2.6.27-pr=
+e.
+Like I wrote before, there's another box doing NAT in front of it runni=
+ng=20
+2.6.24.7. FRTO is disabled on that box. Hope that helps a bit.
 
-Typically this means that a refcount at the head of the object was decremented. But the object was already freed.
+Thomas
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
