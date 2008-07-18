@@ -1,44 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] e1000: resolve tx multiqueue bug
-Date: Fri, 18 Jul 2008 18:05:30 +0100
-Message-ID: <20080718170529.GD10471@solarflare.com>
-References: <20080718.033947.193705552.davem@davemloft.net> <20080718165128.GC10471@solarflare.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
+Date: Fri, 18 Jul 2008 20:04:44 +0300
+Message-ID: <200807182004.44664.opurdila@ixiacom.com>
+References: <200807171633.49791.opurdila@ixiacom.com> <200807181850.07393.opurdila@ixiacom.com> <20080718160009.GA29740@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	axboe@kernel.dk
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:41052 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757025AbYGRRFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 13:05:36 -0400
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3504 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760553AbYGRRHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 13:07:16 -0400
+In-Reply-To: <20080718160009.GA29740@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20080718165128.GC10471@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the recent changes to tx mutiqueue, e1000 was not calling
-netif_start_queue() before calling netif_wake_queue().
-This causes an oops during loading of the driver.
+On Friday 18 July 2008, Evgeniy Polyakov wrote:
 
-(Based on commit d55b53fff0c2ddb639dca04c3f5a0854f292d982.)
+> > It will take 17 because this is what the user requested. And when trying
+> > to push the 17th on the pipe, it will block. I base this both on
+> > experiments and on my understanding of the tcp splice receive
+> > implementation.
+>
+> Seems like we do not understand each other. How it can take 17 if there
+> are only 16 pages? By 'push' you mean splice-into-pipe or 
+> splice-out-of-pipe-into-other-fd? Where exactly will it block?
+>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index f8df8bd..cf12b05 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1472,6 +1472,8 @@ e1000_open(struct net_device *netdev)
- 
- 	e1000_irq_enable(adapter);
- 
-+	netif_start_queue(netdev);
-+
- 	/* fire a link status change interrupt to start the watchdog */
- 	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_LSC);
- 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+Suppose we have 20 packets in the socket queue and the pipe is empty and the 
+application calls splice(sock, pipe, 17, flags=0).
+
+Then, tcp_splice_read will be called, which in turn calls tcp_read_sock. 
+
+tcp_read_sock will loop until all the 17 bytes will be read from the socket. 
+tcp_read_sock calls skb_splice_bits which calls splice_to_pipe.
+
+Now while skb_splice_bits is carefull to only put a maximum of PIPE_BUFFERS 
+during its iteration, due to the looping in tcp_read_sock, we will end up 
+with 17 calls to splice_to_pipe. Thus on the 17th call, splice_to_pipe will 
+block.
+
+Does this make sense?
+
+Thanks,
+tavi
