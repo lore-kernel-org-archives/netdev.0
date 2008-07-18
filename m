@@ -1,63 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
-Date: Fri, 18 Jul 2008 13:19:55 -0700
-Message-ID: <m1tzenhrmc.fsf@frodo.ebiederm.org>
-References: <m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
-	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
-	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
-	<487D6A24.9070001@gmail.com> <20080717230857.GB28377@suse.de>
-	<48808F79.7080607@gmail.com> <20080718184936.GA21343@suse.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Fri, 18 Jul 2008 14:05:39 -0700 (PDT)
+Message-ID: <20080718.140539.122169028.davem@davemloft.net>
+References: <487FDA67.30902@trash.net>
+	<1216386624.4833.94.camel@localhost>
+	<1216387641.4833.96.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:44161 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814AbYGRUWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 16:22:30 -0400
-In-Reply-To: <20080718184936.GA21343@suse.de> (Greg KH's message of "Fri, 18
-	Jul 2008 11:49:36 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216387641.4833.96.camel@localhost>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Greg KH <gregkh@suse.de> writes:
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Date: Fri, 18 Jul 2008 09:27:21 -0400
 
-> On Fri, Jul 18, 2008 at 09:41:29PM +0900, Tejun Heo wrote:
->> Greg KH wrote:
->> > Ok, I'll work to get these in where applicable.
->> 
->> Did this get into 2.6.27?  Or will this have to wait till .28?
->
-> I haven't sent any patches to Linus yet for 2.6.27, so it hasn't gotten
-> there yet.
->
-> And due to the intrusiveness, and the fact that this hasn't been tested
-> at all in any build tree yet, I can't in good concious submit this for
-> .27 either.
->
-> Part of this is my fault, I know, due to vacation and work, but also
-> lots is due to the fact that the code showed up so late in the
-> development cycle.
+> On Fri, 2008-18-07 at 09:10 -0400, jamal wrote:
+> 
+> > wire still even on multiple rings;->
+> > If Woz (really) showed up at 9am and the Broussards at 3 am[1] on that
+> > single (congestion-buffering) FIFO waiting for the shop/wire to open up,
+> > then Woz should jump the queue (if he deserves it) when shop opens at
+> > 10am.
+> 
+> Sorry, the url of Woz allegedly jumping the queue:
+> http://news.cnet.com/8301-1023_3-9989823-93.html?hhTest=1%C3%A2%C2%88%
+> C2%82=rss&subj=news&tag=2547-1_3-0-20
 
-The code showed up at least by the beginning of may, and the code has
-been around for 9 months or more.  I just haven't always had the
-energy to retransmit every time it has gotten dropped.  The last spin
-of it was very late I agree.
+The fundamental issue is what we believe qdiscs schedule, do they
+schedule a device, or do they schedule what their namesake implies,
+"queues"?
 
-> I'll add it to my tree, and get it some testing in the next cycle of
-> linux-next until 2.6.27 is out, and then if it's still looking good, go
-> into .28.
+Logically once we have multiple queues, we schedule queues.
 
-I think that is unnecessarily precautions but reasonable.  That should at
-least keep other sysfs patches from coming in and causing bit rot.
+Therefore what probably makes sense is that for mostly stateless
+priority queueing such as pfifo_fast, doing prioritization at the
+queue level is OK.
 
-Eric
+But where non-trivial classification occurs, we have to either:
 
+1) Make the queue selection match what the classifiers would do
+   exactly.
+
+OR
+
+2) Point all the queues at a single device global qdisc.
+
+What we have now implements #2.  Later on we can try to do something
+as sophisticated as #1.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
