@@ -1,71 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 4/4] sfc: Create one RX queue and interrupt per CPU package by default
-Date: Fri, 18 Jul 2008 19:03:10 +0100
-Message-ID: <20080718180309.GI10471@solarflare.com>
-References: <20080718175911.GF10471@solarflare.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
+Date: Fri, 18 Jul 2008 21:16:43 +0300
+Message-ID: <200807182116.43451.opurdila@ixiacom.com>
+References: <200807171633.49791.opurdila@ixiacom.com> <200807182004.44664.opurdila@ixiacom.com> <20080718175341.GA21496@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.mbr-roch.zen.net.uk ([212.23.3.141]:53352 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753479AbYGRSDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 14:03:12 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	axboe@kernel.dk
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759254AbYGRSTD@vger.kernel.org>
+In-Reply-To: <20080718175341.GA21496@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20080718175911.GF10471@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using multiple cores in the same package to handle received traffic
-does not appear to provide a performance benefit.  Therefore use CPU
-topology information to count CPU packages and use that as the default
-number of RX queues and interrupts.  We rely on interrupt balancing to
-spread the interrupts across packages.
+On Friday 18 July 2008, Evgeniy Polyakov wrote:
+> Hi.
+>
+> On Fri, Jul 18, 2008 at 08:04:44PM +0300, Octavian Purdila 
+(opurdila@ixiacom.com) wrote:
+> > Suppose we have 20 packets in the socket queue and the pipe is empty and
+> > the application calls splice(sock, pipe, 17, flags=0).
+> >
+> > Then, tcp_splice_read will be called, which in turn calls tcp_read_sock.
+> >
+> > tcp_read_sock will loop until all the 17 bytes will be read from the
+> > socket. tcp_read_sock calls skb_splice_bits which calls splice_to_pipe.
+>
+> How come?
+> spd_fill_page() should fail when it will be called for the 17'th skb and
+> all reading from the socket will return, and thus can be sent to the
+> file.
+>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c |   19 ++++++++++++++++++-
- 1 files changed, 18 insertions(+), 1 deletions(-)
+spd_fill_page work with the splice_pipe_descriptor declared in 
+skb_splice_bits, thus spd_fill_page does not have visibility across multiple 
+skb_splice_bits calls.
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 7b2a818..45c72ee 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -19,6 +19,7 @@
- #include <linux/in.h>
- #include <linux/crc32.h>
- #include <linux/ethtool.h>
-+#include <linux/topology.h>
- #include "net_driver.h"
- #include "gmii.h"
- #include "ethtool.h"
-@@ -832,7 +833,23 @@ static void efx_probe_interrupts(struct efx_nic *efx)
- 	if (efx->interrupt_mode == EFX_INT_MODE_MSIX) {
- 		BUG_ON(!pci_find_capability(efx->pci_dev, PCI_CAP_ID_MSIX));
- 
--		efx->rss_queues = rss_cpus ? rss_cpus : num_online_cpus();
-+		if (rss_cpus == 0) {
-+			cpumask_t core_mask;
-+			int cpu;
-+
-+			cpus_clear(core_mask);
-+			efx->rss_queues = 0;
-+			for_each_online_cpu(cpu) {
-+				if (!cpu_isset(cpu, core_mask)) {
-+					++efx->rss_queues;
-+					cpus_or(core_mask, core_mask,
-+						topology_core_siblings(cpu));
-+				}
-+			}
-+		} else {
-+			efx->rss_queues = rss_cpus;
-+		}
-+
- 		efx->rss_queues = min(efx->rss_queues, max_channel + 1);
- 		efx->rss_queues = min(efx->rss_queues, EFX_MAX_CHANNELS);
- 
+> > Now while skb_splice_bits is carefull to only put a maximum of
+> > PIPE_BUFFERS during its iteration, due to the looping in tcp_read_sock,
+> > we will end up with 17 calls to splice_to_pipe. Thus on the 17th call,
+> > splice_to_pipe will block.
+>
+> Where exactly?
+> Why
+> tcp_splice_data_recv()->skb_splice_bits()->__skb_splice_bits()->spd_fill_pa
+>ge() callchain does not return error and that pipe is full?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+
+Ok, let me try to move through the function calls:
+
+tcp_read_sock
+ ... -> skb_splice_bits -> spd_fill_page; 
+  on return (spd->nr_page is 1 and pipe->nrbufs is 1)
+ ... -> skb_splice_bits -> spd_fill_page; 
+  on return (spd->nr_page is 1 and pipe->nrbufs is 2)
+ ... -> skb_splice_bits -> spd_fill_page; 
+  on return (spd->nr_page is 1 and pipe->nrbufs is 3)
+...
+
+and so on until pipe->nrbufs is 16. At than point, we will block in pipe_wait, 
+inside splice_to_pipe.
+
+Thanks,
+tavi
