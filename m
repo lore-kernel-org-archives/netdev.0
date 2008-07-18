@@ -1,50 +1,64 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net-next 2/2][v2] iwlwifi: small compile warnings without CONFIG_IWLWIFI_DEBUG
-Date: Fri, 18 Jul 2008 10:56:12 +0400
-Message-ID: <1216364172-19922-1-git-send-email-den@openvz.org>
-References: <1216286365-11703-1-git-send-email-den@openvz.org>
-Cc: tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216286365-11703-1-git-send-email-den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Vegard Nossum" <vegard.nossum@gmail.com>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Fri, 18 Jul 2008 09:03:50 +0200
+Message-ID: <19f34abd0807180003m7bdf832g141777751d7ea563@mail.gmail.com>
+References: <20080717214222.GA29449@elte.hu>
+	 <19f34abd0807171615s5b477d4cr22d3e9444bcf65df@mail.gmail.com>
+	 <20080717.190315.186892939.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, penberg@cs.helsinki.fi, rjw@sisk.pl
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754586AbYGRHEK@vger.kernel.org>
+In-Reply-To: <20080717.190315.186892939.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CC [M]  drivers/net/wireless/iwlwifi/iwl-scan.o
-drivers/net/wireless/iwlwifi/iwl-scan.c: In function 'iwl_rx_scan_complete_notif':
-drivers/net/wireless/iwlwifi/iwl-scan.c:274: warning: unused variable 'scan_notif'
+On Fri, Jul 18, 2008 at 4:03 AM, David Miller <davem@davemloft.net> wrote:
+>> On Thu, Jul 17, 2008 at 11:42 PM, Ingo Molnar <mingo@elte.hu> wrote:
+>> >
+>> > A regression to v2.6.26:
+>> >
+>> > I started getting this skb-head corruption message today, on a T60
+>> > laptop with e1000:
+>> >
+>> > PM: Removing info for No Bus:vcs11
+>> > device: 'vcs11': device_create_release
+>> > =============================================================================
+>> > BUG skbuff_head_cache: Poison overwritten
+>> > -----------------------------------------------------------------------------
+>> >
+>> > INFO: 0xf658ae9c-0xf658ae9c. First byte 0x6a instead of 0x6b
+>>
+>> 1. Notice the range. It's just a single byte.
+>> 2. Notice the value. It's just a ++.
+>
+> It's supposed to be 0x6b, this would be a "--"
 
-Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Acked-by: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/iwlwifi/iwl-scan.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+You're right! Oops. In my defence, I wrote that at 2 AM last night ;-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
-index efc750d..5a00ac2 100644
---- a/drivers/net/wireless/iwlwifi/iwl-scan.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
-@@ -270,6 +270,7 @@ static void iwl_rx_scan_results_notif(struct iwl_priv *priv,
- static void iwl_rx_scan_complete_notif(struct iwl_priv *priv,
- 				       struct iwl_rx_mem_buffer *rxb)
- {
-+#ifdef CONFIG_IWLWIFI_DEBUG
- 	struct iwl_rx_packet *pkt = (struct iwl_rx_packet *)rxb->skb->data;
- 	struct iwl_scancomplete_notification *scan_notif = (void *)pkt->u.raw;
- 
-@@ -277,6 +278,7 @@ static void iwl_rx_scan_complete_notif(struct iwl_priv *priv,
- 		       scan_notif->scanned_channels,
- 		       scan_notif->tsf_low,
- 		       scan_notif->tsf_high, scan_notif->status);
-+#endif
- 
- 	/* The HW is no longer scanning */
- 	clear_bit(STATUS_SCAN_HW, &priv->status);
+> Also it (more likely IMHO) could be clearing a flag with the value 0x01.
+
+It could be. But like I said in a later e-mail, the thing is likely
+sk_buff->truesize. Which is not a flags variable. It _is_ however, a
+counter, which is frequently -= and atomic_sub()ed.
+
+That field is also an int, not a byte like I suggested above. This is
+fine, though. "--" on an int can of course legitimately update/change
+just the lower byte of an int.
+
+But.. it could also be some random corruption coming from elsewhere.
+Maybe even bad RAM (it's just a single bit anyway). But that's less
+likely.
+
+
+Vegard
+
 -- 
-1.5.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+"The animistic metaphor of the bug that maliciously sneaked in while
+the programmer was not looking is intellectually dishonest as it
+disguises that the error is the programmer's own creation."
+	-- E. W. Dijkstra, EWD1036
