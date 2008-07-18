@@ -1,60 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Fri, 18 Jul 2008 14:05:39 -0700 (PDT)
-Message-ID: <20080718.140539.122169028.davem@davemloft.net>
-References: <487FDA67.30902@trash.net>
-	<1216386624.4833.94.camel@localhost>
-	<1216387641.4833.96.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: READ ME, net-2.6 fully merged
+Date: Fri, 18 Jul 2008 14:16:59 -0700 (PDT)
+Message-ID: <20080718.141659.137928825.davem@davemloft.net>
+References: <20080718.033947.193705552.davem@davemloft.net>
+	<20080718165128.GC10471@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216387641.4833.96.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37105
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753738AbYGRVQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 17:16:59 -0400
+In-Reply-To: <20080718165128.GC10471@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Date: Fri, 18 Jul 2008 09:27:21 -0400
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 18 Jul 2008 17:51:28 +0100
 
-> On Fri, 2008-18-07 at 09:10 -0400, jamal wrote:
+> David Miller wrote:
+> > 
+> > I merged Linus's current tree into net-next-2.6, fixed up all
+> > the merge conflicts, and pushed this out as plain "net-2.6":
+> > 
+> > 	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
 > 
-> > wire still even on multiple rings;->
-> > If Woz (really) showed up at 9am and the Broussards at 3 am[1] on that
-> > single (congestion-buffering) FIFO waiting for the shop/wire to open up,
-> > then Woz should jump the queue (if he deserves it) when shop opens at
-> > 10am.
-> 
-> Sorry, the url of Woz allegedly jumping the queue:
-> http://news.cnet.com/8301-1023_3-9989823-93.html?hhTest=1%C3%A2%C2%88%
-> C2%82=rss&subj=news&tag=2547-1_3-0-20
+> When I attempted to boot this on a test machine I got the following oops:
 
-The fundamental issue is what we believe qdiscs schedule, do they
-schedule a device, or do they schedule what their namesake implies,
-"queues"?
+Jeff Kirsher's patch I added should have cured this.
 
-Logically once we have multiple queues, we schedule queues.
+Actually it won't, he fixed e1000ebut not e1000.
 
-Therefore what probably makes sense is that for mostly stateless
-priority queueing such as pfifo_fast, doing prioritization at the
-queue level is OK.
-
-But where non-trivial classification occurs, we have to either:
-
-1) Make the queue selection match what the classifiers would do
-   exactly.
-
-OR
-
-2) Point all the queues at a single device global qdisc.
-
-What we have now implements #2.  Later on we can try to do something
-as sophisticated as #1.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jeff?
