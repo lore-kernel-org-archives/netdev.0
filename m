@@ -1,67 +1,48 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: TCP connection stalls under 2.6.24.7
-Date: Fri, 18 Jul 2008 11:14:51 +0200
-Message-ID: <200807181114.53059.thomas.jarosch@intra2net.com>
-References: <47EA0DAB.7080205@securenet.de> <200807171715.16265.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807171819160.13775@wrl-59.cs.helsinki.fi>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Fri, 18 Jul 2008 12:15:26 +0300
+Message-ID: <84144f020807180215p4c3e9fadl75c478f1aacea35f@mail.gmail.com>
+References: <20080717214222.GA29449@elte.hu>
+	 <20080718054626.GA3338@2ka.mipt.ru>
+	 <84144f020807180202l6c703234ic3a2b57e73a1d89a@mail.gmail.com>
+	 <20080718090951.GP6875@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Sven Riedel <sr@securenet.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	"=?iso-8859-15?q?D=E2niel?= Fraga" <fragabr@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0807171819160.13775@wrl-59.cs.helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Vegard Nossum" <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Ingo Molnar" <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.234]:44193 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754373AbYGRJP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 05:15:27 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so258521rvb.1
+        for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 02:15:26 -0700 (PDT)
+In-Reply-To: <20080718090951.GP6875@elte.hu>
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Moi Ilpo,
+Hi Ingo,
 
-On Thursday, 17. July 2008 17:53:01 Ilpo J=E4rvinen wrote:
-> > > One option would be to disable reentry to FRTO when some progress=
- was
-> > > made... Please try with the patch below...
+On Fri, Jul 18, 2008 at 12:09 PM, Ingo Molnar <mingo@elte.hu> wrote:
+> yeah, we want to check use-after free at the next allocation point -
+> i.e. as late as possible to gather all corruptions that happened
+> meanwhile.
 >
-> Ah, I just forgot that the situation might persist... Try with this
-> one instead...
+> We could in theory have a SLUB debug mode where a SCHED_IDLE kernel
+> thread would periodically check all free objects (of that CPU) in the
+> background to ensure their integrity. That would catch corruptions
+> sooner, with a possibly still meaningful context to print out. [right
+> after the IRQ or process that corrupts them finishes running]
+>
+> It could also be hooked into ftrace to print out the last few hundred
+> kernel function calls executed prior any corruption. ftrace/slub-debug
+> plugin perhaps?
 
-Good news everyone: Two connections made it to the finish line.
-
-The bad part: One transfer took four minutes, the other sixteen minutes=
-=2E
-A colleague commented it's still much faster than carrying the message
-by plane ;-) A session without FRTO takes around 84 seconds.
-
-I've added debug printks() to every return path in tcp_use_frto(),
-so you can see what's going on. They look like this:
-
-Jul 18 10:20:40 intratest131 kernel: [  957.318006] tcp_use_frto: ENTER=
-: frto_counter: 0, icsk->icsk_ca_state: 0
-Jul 18 10:20:40 intratest131 kernel: [  957.318011] tcp_use_frto: DEFAU=
-LT RETURN 1;
-Jul 18 10:21:08 intratest131 kernel: [  984.446006] tcp_use_frto: ENTER=
-: frto_counter: 3, icsk->icsk_ca_state: 0
-Jul 18 10:21:08 intratest131 kernel: [  984.446011] tcp_use_frto: RETUR=
-N in "tp->frto_counter > 1 || icsk->icsk_ca_state =3D=3D TCP_CA_Loss"
-Jul 18 10:21:14 intratest131 kernel: [  991.058006] tcp_use_frto: ENTER=
-: frto_counter: 0, icsk->icsk_ca_state: 0
-Jul 18 10:21:14 intratest131 kernel: [  991.058011] tcp_use_frto: DEFAU=
-LT RETURN 1;
-
-Here are two new dumps and the corresponding debug traces:
-http://www.intra2net.com/de/download/tcpdump/tcp_frto_second_patch.tar.=
-bz2
-
-Enjoy,
-Thomas
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, there's this Norwegian guy, Vegard, who has written a small
+piece of code that can detect use-after-free _as it happens_. I think
+he calls the thing kmemcheck :-).
