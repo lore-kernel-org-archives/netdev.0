@@ -1,50 +1,23 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support
-	for device classes.
-Date: Fri, 18 Jul 2008 11:49:36 -0700
-Message-ID: <20080718184936.GA21343@suse.de>
-References: <m1mykyh2fu.fsf_-_@frodo.ebiederm.org> <m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com> <m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com> <20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org> <487D6A24.9070001@gmail.com> <20080717230857.GB28377@suse.de> <48808F79.7080607@gmail.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/31]: netdev: Allocate multiple queues for TX.
+Date: Fri, 18 Jul 2008 12:05:43 -0700
+Message-ID: <20080718120543.17ccf177@extreme>
+References: <20080717.051545.150785763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Tejun Heo <htejun@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:36533 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758708AbYGRS4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 14:56:18 -0400
-Content-Disposition: inline
-In-Reply-To: <48808F79.7080607@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080717.051545.150785763.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 18, 2008 at 09:41:29PM +0900, Tejun Heo wrote:
-> Greg KH wrote:
-> > Ok, I'll work to get these in where applicable.
-> 
-> Did this get into 2.6.27?  Or will this have to wait till .28?
-
-I haven't sent any patches to Linus yet for 2.6.27, so it hasn't gotten
-there yet.
-
-And due to the intrusiveness, and the fact that this hasn't been tested
-at all in any build tree yet, I can't in good concious submit this for
-.27 either.
-
-Part of this is my fault, I know, due to vacation and work, but also
-lots is due to the fact that the code showed up so late in the
-development cycle.
-
-I'll add it to my tree, and get it some testing in the next cycle of
-linux-next until 2.6.27 is out, and then if it's still looking good, go
-into .28.
-
-Hope this helps,
-
-greg k-h
+The new multi-queue stuff confuses sparses lock annotation.
+It thinks any usage of netif_tx_lock/netif_tx_unlock is commiting
+lock imbalance. Maybe some magic annotation will fix it?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
