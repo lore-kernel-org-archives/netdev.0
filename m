@@ -1,75 +1,138 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCHv2 11/11] netxen: update driver version
-Date: Fri, 18 Jul 2008 16:44:09 -0700
-Message-ID: <1216424649-4597-12-git-send-email-dhananjay@netxen.com>
-Cc: jeff@garzik.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:55562 "EHLO unm84.unminc.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757131AbYGRXoM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 19:44:12 -0400
-In-Reply-To: <>
-References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: 3rd REVISED AGENDA -- Re: Linux Wireless Mini-Summit -- Ottawa --
+	July 22, 2008
+Date: Fri, 18 Jul 2008 19:23:21 -0400
+Message-ID: <20080718232321.GA12961@tuxdriver.com>
+References: <20080709190915.GA8238@tuxdriver.com> <20080715182654.GA5969@tuxdriver.com> <20080716184803.GB3232@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080716184803.GB3232-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change driver version to 4.0.0. Netxen firmwares as old as
-v3.4.216 are supported.
+One more adjustment to account for change in the lunch schedule.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+John
+
 ---
- drivers/net/netxen/netxen_nic.h    |   10 ++++++----
- drivers/net/netxen/netxen_nic_hw.c |   14 +++++---------
- 2 files changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index bcc551e..ac710c3 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -63,10 +63,12 @@
- 
- #include "netxen_nic_hw.h"
- 
--#define _NETXEN_NIC_LINUX_MAJOR 3
--#define _NETXEN_NIC_LINUX_MINOR 4
--#define _NETXEN_NIC_LINUX_SUBVERSION 18
--#define NETXEN_NIC_LINUX_VERSIONID  "3.4.18"
-+#define _NETXEN_NIC_LINUX_MAJOR 4
-+#define _NETXEN_NIC_LINUX_MINOR 0
-+#define _NETXEN_NIC_LINUX_SUBVERSION 0
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.0"
-+
-+#define NETXEN_VERSION_CODE(a, b, c)	(((a) << 16) + ((b) << 8) + (c))
- 
- #define NETXEN_NUM_FLASH_SECTORS (64)
- #define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index ed8aa5a..96a3bc6 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -2168,16 +2168,12 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
- 				fw_minor, fw_build);
- 	}
- 
--	if (fw_major != _NETXEN_NIC_LINUX_MAJOR) {
-+	if (NETXEN_VERSION_CODE(fw_major, fw_minor, fw_build) <
-+			NETXEN_VERSION_CODE(3, 4, 216)) {
- 		adapter->driver_mismatch = 1;
--	}
--	if (fw_minor != _NETXEN_NIC_LINUX_MINOR &&
--			fw_minor != (_NETXEN_NIC_LINUX_MINOR + 1)) {
--		adapter->driver_mismatch = 1;
--	}
--	if (adapter->driver_mismatch) {
--		printk(KERN_ERR "%s: driver and firmware version mismatch\n",
--				adapter->netdev->name);
-+		printk(KERN_ERR "%s: firmware version %d.%d.%d unsupported\n",
-+				netxen_nic_driver_name,
-+				fw_major, fw_minor, fw_build);
- 		return;
- 	}
- }
+3rd Linux Wireless Summit
+Les Suites Hotel, Byward Suite
+Ottawa, Canada
+22 July 2008
+
+Proposed Agenda
+
+0830	Meet & Greet
+
+	Introductions and opening remarks
+
+0900	Status Reports
+
+	Overview of where things stand today
+
+	- QoS/Multiqueue
+
+	- 802.11n
+
+	- spectrum management
+
+	- Mesh mode (802.11s)
+
+	- RF kill
+
+	- driver status reports
+
+1000	Break
+
+1030	Current Work
+
+	Short presentations/discussions about work in progress
+
+	- access point mode
+
+	- cfg80211/nl80211
+		- time to push to replace WEXT?
+		- tool enhancements and/or userland support?
+
+	- regulatory enforcement (802.11d, CRDA)
+
+	- encrypted management frames (802.11w)
+
+	- virtual hardware (mac80211_hwsim)
+
+	- WiMAX
+
+1200	Vendor/Distro Round Table
+
+	Representatives from hardware vendors and Linux distributions
+	discuss issues around cooperation between themselves and the
+	development community, what we are doing well, and what problems we
+	are causing for each other.
+
+1230	Lunch/Break (provided)
+
+1400	Future work
+
+	Short presentations/discussions about work that has previously
+	been suggested or requested
+
+	- power management 
+		- suspend/resume
+		- power savings
+
+	- lib80211 (code sharing w/ full MAC drivers)
+
+	- rate scaling algorithms
+		- minstrel
+		- others?
+
+	- userland MLME
+
+	- userland driver implementation
+
+	- organized testing (anyone have a proposal?)
+
+1530	BoF/Break-out/BarCamp Session Proposals
+
+1600	Break
+
+1630	BoF/Break-out/BarCamp Sessions
+
+	Impromptu and/or unscheduled discussions as desired by group
+	participants
+
+1800	BoF/Break-out/BarCamp Session Reports
+
+1830	Maintainence Issues
+
+	Round table discussion of issues related to maintenance of
+	the wireless trees
+
+	- trivial/cleanup patches
+		- testing or other requirements?
+		- should they have lower priority?
+		- should they require ACKs from primary author?
+
+	- submissions to -stable
+		- who should drive it?
+		- what policies?
+
+	- rate scaling algs
+		- driver-specific ok?  what limitations?
+		- build policies (part of mac80211.ko?)
+
+	- questions/suggestions/complaints
+
+1900	Adjourn
 -- 
-1.5.4.3
-
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
