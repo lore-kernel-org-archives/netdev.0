@@ -1,51 +1,36 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
-Date: Fri, 18 Jul 2008 20:04:44 +0300
-Message-ID: <200807182004.44664.opurdila@ixiacom.com>
-References: <200807171633.49791.opurdila@ixiacom.com> <200807181850.07393.opurdila@ixiacom.com> <20080718160009.GA29740@2ka.mipt.ru>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Fri, 18 Jul 2008 10:10:21 -0700
+Message-ID: <adaljzz6ruq.fsf@cisco.com>
+References: <487F4327.1000107@trash.net> <1216301732.4726.26.camel@localhost>
+	<487F50EC.80008@trash.net>
+	<20080717.152447.89672084.davem@davemloft.net>
+	<487FDA67.30902@trash.net> <1216386624.4833.94.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	axboe@kernel.dk
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3504 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760553AbYGRRHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 13:07:16 -0400
-In-Reply-To: <20080718160009.GA29740@2ka.mipt.ru>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216386624.4833.94.camel@localhost> (jamal's message of "Fri, 18
+	Jul 2008 09:10:24 -0400")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 18 July 2008, Evgeniy Polyakov wrote:
+ > The question is whether the packets sitting on the fifo qdisc are being
+ > sorted fairly when congestion kicks in. Remember there is still a single
+ > wire still even on multiple rings;->
 
-> > It will take 17 because this is what the user requested. And when trying
-> > to push the 17th on the pipe, it will block. I base this both on
-> > experiments and on my understanding of the tcp splice receive
-> > implementation.
->
-> Seems like we do not understand each other. How it can take 17 if there
-> are only 16 pages? By 'push' you mean splice-into-pipe or 
-> splice-out-of-pipe-into-other-fd? Where exactly will it block?
->
+This is definitely true, but it is good to keep in mind that in the near
+future we will start to see things look a little like multiple "virtual
+wires."  This is because of new ethernet standards like per-priority
+pause, which makes it possible that one hardware ring on a NIC can
+transmit while another ring is paused (possibly because of congestion
+far off in the network).
 
-Suppose we have 20 packets in the socket queue and the pipe is empty and the 
-application calls splice(sock, pipe, 17, flags=0).
-
-Then, tcp_splice_read will be called, which in turn calls tcp_read_sock. 
-
-tcp_read_sock will loop until all the 17 bytes will be read from the socket. 
-tcp_read_sock calls skb_splice_bits which calls splice_to_pipe.
-
-Now while skb_splice_bits is carefull to only put a maximum of PIPE_BUFFERS 
-during its iteration, due to the looping in tcp_read_sock, we will end up 
-with 17 calls to splice_to_pipe. Thus on the 17th call, splice_to_pipe will 
-block.
-
-Does this make sense?
-
-Thanks,
-tavi
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
