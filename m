@@ -1,37 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/16] mib: finish with ipv4 mibs netnsization
-Date: Fri, 18 Jul 2008 04:09:25 -0700 (PDT)
-Message-ID: <20080718.040925.261545164.davem@davemloft.net>
-References: <487F46CD.7090103@openvz.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
+Date: Fri, 18 Jul 2008 14:18:59 +0300
+Message-ID: <200807181418.59493.opurdila@ixiacom.com>
+References: <200807171633.49791.opurdila@ixiacom.com> <200807180052.33918.opurdila@ixiacom.com> <20080718105344.GA481@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@openvz.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39724
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751786AbYGRLJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 07:09:25 -0400
-In-Reply-To: <487F46CD.7090103@openvz.org>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1068 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755024AbYGRLVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 07:21:52 -0400
+In-Reply-To: <20080718105344.GA481@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 17 Jul 2008 17:19:09 +0400
+On Friday 18 July 2008, Evgeniy Polyakov wrote:
 
-> This is the notorious "finalizing set" - after this all the ipv4
-> stats are isolated from each other. The ipv6, dccp and sctp I
-> touched with previous sets deserve special handling and will be
-> done in 2.6.28
-> 
-> No *new* stuff for 2.6.27 from me, thank you Dave for your patience :)
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> tcp_splice_read:
+>
+> timeo = sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
+>
+> So, if you set SPLICE_F_NONBLOCK, then reading from the network will not
+> block. Splice can block in reading from other descriptors though. It can
+> also block during writing.
+>
 
-All applied, thanks Pavel.
+I know that. But I am arguing that splice API does not required not to block 
+even when the SPLICE_F_NONBLOCK is used. So changing this behavior the way I 
+suggested will still be conformant with the splice API requirements.
 
-I keep hearing noises that some day sysfs+ns will work, is that something
-we'll see in 2.6.27 possibly?  That would help my own build validation
-and testing of changes.
+> > > > But more importantly, how can we solve the deadlock issue described
+> > > > in the patch? Do we need all of the complications of async I/O for
+> > > > such a simple and common usecase?
+> > >
+> > > I'm not sure I understand how it can deadlock, please explain it in
+> > > more details.
+> >
+> > For this "program":
+> >
+> > x=splice(socket, pipe, size, flags=0);
+> > if (x > 0)
+> > 	splice(pipe, file, x, flags=0);
+> >
+> > it is hard to come up with a non tiny value for size that does not
+> > deadlock the program, because the pipe size is measured in packets and
+> > not bytes and we have no control over the packet sizes.
+> >
+> > For example, if we set size=17 and we are unlucky and get 16 packets of 1
+> > byte in a row, at the right time, the first splice call will block - and
+> > the program will deadlock since we can't reach the consumer.
+>
+> It is not a deadlock. recv() on blocking socket with the same parameters
+> will behave exactly the same. Application designer should think about 
+> how it is supposed to handle cases, when not enough data is available in
+> the receiving queue - either return or wait.
 
+Sorry, it was an unfortunate example :) This is not about not enough data 
+being available. Lets change the number of packets in the example with 20 
+instead of 16 (and keep the size to 17) - the splice call will still block 
+because of the pipe being full. The pipe can only hold PIPE_BUFFERS packets 
+(which is 16 currently).
+
+Thanks,
+tavi
