@@ -1,70 +1,107 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
-Date: Fri, 18 Jul 2008 14:53:44 +0400
-Message-ID: <20080718105344.GA481@2ka.mipt.ru>
-References: <200807171633.49791.opurdila@ixiacom.com> <200807171747.27775.opurdila@ixiacom.com> <20080717174150.GA24002@2ka.mipt.ru> <200807180052.33918.opurdila@ixiacom.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] igb/ixgbe/e1000e: resolve tx multiqueue bug
+Date: Fri, 18 Jul 2008 04:02:25 -0700
+Message-ID: <20080718110225.20696.14881.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:43322 "EHLO 2ka.mipt.ru"
+Received: from mga03.intel.com ([143.182.124.21]:63573 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754675AbYGRKxw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 06:53:52 -0400
-Content-Disposition: inline
-In-Reply-To: <200807180052.33918.opurdila@ixiacom.com>
+	id S1751995AbYGRLC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 07:02:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+With the recent changes to tx mutiqueue, igb/ixgbe/e1000e was not calling
+netif_tx_start_all_queues() before calling netif_tx_wake_all_queues().
+This causes an issue during loading of the driver.
 
-On Fri, Jul 18, 2008 at 12:52:33AM +0300, Octavian Purdila (opurdila@ixiacom.com) wrote:
-> You lost me here :)
-> 
-> The way I interpret the man page text is that it is ok for splice to block, 
-> even if SPLICE_F_NONBLOCK is set. The comments near SPLICE_F_NONBLOCK says 
-> the same thing:
-> 
-> #define SPLICE_F_NONBLOCK (0x02) /* don't block on the pipe splicing (but */
->                                  /* we may still block on the fd we splice */
->                                  /* from/to, of course */
-> 
-> Am I missing something?
+In addition, updated e1000e to use the updated tx mutliqueue api.
 
-tcp_splice_read:
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-timeo = sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
+ drivers/net/e1000e/netdev.c    |   10 ++++++----
+ drivers/net/igb/igb_main.c     |    2 ++
+ drivers/net/ixgbe/ixgbe_main.c |    2 ++
+ 3 files changed, 10 insertions(+), 4 deletions(-)
 
-So, if you set SPLICE_F_NONBLOCK, then reading from the network will not
-block. Splice can block in reading from other descriptors though. It can
-also block during writing.
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index be59533..869544b 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2513,7 +2513,7 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	ew32(RCTL, rctl & ~E1000_RCTL_EN);
+ 	/* flush and sleep below */
+ 
+-	netif_stop_queue(netdev);
++	netif_tx_stop_all_queues(netdev);
+ 
+ 	/* disable transmits in the hardware */
+ 	tctl = er32(TCTL);
+@@ -2663,6 +2663,8 @@ static int e1000_open(struct net_device *netdev)
+ 
+ 	e1000_irq_enable(adapter);
+ 
++	netif_tx_start_all_queues(netdev);
++
+ 	/* fire a link status change interrupt to start the watchdog */
+ 	ew32(ICS, E1000_ICS_LSC);
+ 
+@@ -3118,7 +3120,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			ew32(TCTL, tctl);
+ 
+ 			netif_carrier_on(netdev);
+-			netif_wake_queue(netdev);
++			netif_tx_wake_all_queues(netdev);
+ 
+ 			if (!test_bit(__E1000_DOWN, &adapter->state))
+ 				mod_timer(&adapter->phy_info_timer,
+@@ -3130,7 +3132,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			adapter->link_duplex = 0;
+ 			ndev_info(netdev, "Link is Down\n");
+ 			netif_carrier_off(netdev);
+-			netif_stop_queue(netdev);
++			netif_tx_stop_all_queues(netdev);
+ 			if (!test_bit(__E1000_DOWN, &adapter->state))
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
+@@ -4504,7 +4506,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	/* tell the stack to leave us alone until e1000_open() is called */
+ 	netif_carrier_off(netdev);
+-	netif_stop_queue(netdev);
++	netif_tx_stop_all_queues(netdev);
+ 
+ 	strcpy(netdev->name, "eth%d");
+ 	err = register_netdev(netdev);
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 81bba69..1b7cb29 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1493,6 +1493,8 @@ static int igb_open(struct net_device *netdev)
+ 
+ 	igb_irq_enable(adapter);
+ 
++	netif_tx_start_all_queues(netdev);
++
+ 	/* Fire a link status change interrupt to start the watchdog. */
+ 	wr32(E1000_ICS, E1000_ICS_LSC);
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index efebd11..e5f3da8 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2763,6 +2763,8 @@ static int ixgbe_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_up;
+ 
++	netif_tx_start_all_queues(netdev);
++
+ 	return 0;
+ 
+ err_up:
 
-> > > But more importantly, how can we solve the deadlock issue described in
-> > > the patch? Do we need all of the complications of async I/O for such a
-> > > simple and common usecase?
-> >
-> > I'm not sure I understand how it can deadlock, please explain it in more
-> > details.
-> 
-> For this "program":
-> 
-> x=splice(socket, pipe, size, flags=0); 
-> if (x > 0)
-> 	splice(pipe, file, x, flags=0);
-> 
-> it is hard to come up with a non tiny value for size that does not deadlock 
-> the program, because the pipe size is measured in packets and not bytes and 
-> we have no control over the packet sizes.
-> 
-> For example, if we set size=17 and we are unlucky and get 16 packets of 1 byte 
-> in a row, at the right time, the first splice call will block - and the 
-> program will deadlock since we can't reach the consumer. 
-
-It is not a deadlock. recv() on blocking socket with the same parameters
-will behave exactly the same. Application designer should think about
-how it is supposed to handle cases, when not enough data is available in
-the receiving queue - either return or wait.
-
--- 
-	Evgeniy Polyakov
