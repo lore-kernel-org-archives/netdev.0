@@ -1,46 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: READ ME, net-2.6 fully merged
-Date: Sat, 19 Jul 2008 09:50:36 +0200
-Message-ID: <48819CCC.8070800@gmail.com>
+Date: Sat, 19 Jul 2008 01:01:30 -0700 (PDT)
+Message-ID: <20080719.010130.75931447.davem@davemloft.net>
 References: <20080718.033947.193705552.davem@davemloft.net>
+	<48819CCC.8070800@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:57341 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbYGSHta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 03:49:30 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so283740fgg.17
-        for <netdev@vger.kernel.org>; Sat, 19 Jul 2008 00:49:28 -0700 (PDT)
-In-Reply-To: <20080718.033947.193705552.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59204
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751680AbYGSIBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 04:01:30 -0400
+In-Reply-To: <48819CCC.8070800@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 07/18/2008 12:39 PM:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sat, 19 Jul 2008 09:50:36 +0200
 
-> I merged Linus's current tree into net-next-2.6, fixed up all
-> the merge conflicts, and pushed this out as plain "net-2.6":
-> 
-> 	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-> 
-> There is a net-next-2.6 still there, but it's just a plain clone
-> of Linus's tree so that the linux-next folks can still do dummy
-> pulls from it.
+> A little btw. question: I know you are busy now with more serious
+> problems and it's not for now, but: after the last net-next-2.6 git
+> policy change most of the time neither net-2.6 nor net-next-2.6
+> could be treated as current net state. I tried to stick to net-next,
+> but it was idle most of the time.
 
-A little btw. question: I know you are busy now with more serious
-problems and it's not for now, but: after the last net-next-2.6 git
-policy change most of the time neither net-2.6 nor net-next-2.6
-could be treated as current net state. I tried to stick to net-next,
-but it was idle most of the time.
+I don't want to merge too much, but I did merge net-2.6 into
+net-next-2.6 periodically.
 
-Isn't it possible to create the third git tree maintained the old
-net-next way i.e. net-next-2.6 with immediate bug fixes from net-2.6
-(and of course rebased from time to time)? I guess you could be doing
-something like this privately, so it's not necessarily a lot of
-additional hassle?
+Basically my main impetus to merge is when I know or sense that merge
+conflicts are building up.
 
-Thanks,
-Jarek P.
+I would recommend that people work on the tree that is appropriate
+for the work they are doing.  And outside of a merge window that
+means net-2.6 for a bug fix and net-next-2.6 for new work (or bug
+fixes to new work).
+
+Inside of the merge window, like we are now, will have everything
+going into net-2.6
