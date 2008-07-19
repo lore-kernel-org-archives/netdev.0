@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: missing lock initialization
-Date: Fri, 18 Jul 2008 17:49:48 -0700 (PDT)
-Message-ID: <20080718.174948.93120743.davem@davemloft.net>
-References: <20080718161048.678a9629@extreme>
-	<20080718163836.60f5a021@extreme>
+Subject: Re: [PATCH] e1000: resolve tx multiqueue bug
+Date: Fri, 18 Jul 2008 17:51:32 -0700 (PDT)
+Message-ID: <20080718.175132.57732510.davem@davemloft.net>
+References: <20080718165128.GC10471@solarflare.com>
+	<20080718170529.GD10471@solarflare.com>
+	<9929d2390807181704u4e969d2bpb39683b7160b4939@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: bhutchings@solarflare.com, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45789
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45792
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751045AbYGSAts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 20:49:48 -0400
-In-Reply-To: <20080718163836.60f5a021@extreme>
+	by vger.kernel.org with ESMTP id S1751467AbYGSAvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 20:51:33 -0400
+In-Reply-To: <9929d2390807181704u4e969d2bpb39683b7160b4939@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 18 Jul 2008 16:38:36 -0700
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Date: Fri, 18 Jul 2008 17:04:42 -0700
 
-> Looks like the xmit_lock is not being initialized in net-next
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> On Fri, Jul 18, 2008 at 10:05 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > With the recent changes to tx mutiqueue, e1000 was not calling
+> > netif_start_queue() before calling netif_wake_queue().
+> > This causes an oops during loading of the driver.
+> >
+> > (Based on commit d55b53fff0c2ddb639dca04c3f5a0854f292d982.)
+...
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-I guess you can't find the call in __netdev_init_queue_locks_one().
+Applied, thanks everyone.
 
-With your patch we'll now be initializing it twice.
+Jeff, really, I think those wake/stop queue calls in the PHY link
+state watching code of all of these drivers should just flat out
+be removed.
