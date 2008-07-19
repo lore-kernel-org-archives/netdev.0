@@ -1,110 +1,57 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] tcp: do not promote SPLICE_F_NONBLOCK to socket O_NONBLOCK
-Date: Sat, 19 Jul 2008 14:18:36 +0300
-Message-ID: <200807191418.37053.opurdila@ixiacom.com>
-References: <200807171633.49791.opurdila@ixiacom.com> <200807182143.38624.opurdila@ixiacom.com> <20080719085110.GA25052@2ka.mipt.ru>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: Re: sendfile() broken with 2.6.26 + Apache 2 ?
+Date: Sat, 19 Jul 2008 07:31:46 -0500
+Message-ID: <4881DEB2.8030508@bellsouth.net>
+References: <487CD7A7.2080800@jeffray.co.uk>
+Reply-To: jacliburn@bellsouth.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	axboe@kernel.dk
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ian Jeffray <ian@jeffray.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3560 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752539AbYGSLUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 07:20:45 -0400
-In-Reply-To: <20080719085110.GA25052@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from yw-out-2324.google.com ([74.125.46.30]:48321 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755598AbYGSMby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 08:31:54 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so230505ywe.1
+        for <netdev@vger.kernel.org>; Sat, 19 Jul 2008 05:31:52 -0700 (PDT)
+In-Reply-To: <487CD7A7.2080800@jeffray.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 July 2008, Evgeniy Polyakov wrote:
+Ian Jeffray wrote:
+> All,
+> 
+> I moved from kernel 2.6.25.4 to 2.6.26 yesterday and observed that
+> large files sent via Apache2 are partially corrupt.
+> 
+> This appears to be linked to sendfile() -- disabling the use of
+> sendfile in the apache config (EnableSendfile Off) allows it to
+> function as normal.
+> 
+> My system is a simple Core2Duo running Debian lenny/sid; nothing
+> special, and I have never observed problems like this before.
+> 
+> The problem feels certainly related to sendfile() since the data
+> reads correctly from disc in other programs, and via CIFS etc.
+> 
+> The corruption happens part-way in to the file... I've no exact
+> figure but it would seem like maybe 32KB -- I'm seeing broken
+> PNGs served from Apache, where the top few dozen lines decode
+> correctly, and the rest is garbage.
+> 
+> I've made basically no configuration changes between 2.6.25.4 and
+> 2.6.26 and have explicitly tried both enabling and disabling the
+> new PAT support to no effect.
+> 
+> This is completely repeatable and reproducible.
+> 
+> Is anyone else seeing this broken behaviour?
 
->
-> Hmm, than how does it concerns SPLICE_F_NONBLOCK feature change? Your
-> patch does not touch this behaviour.
->
+Can you please enable verbose logging
 
-My patch makes SPLICE_F_NONBLOCK work only on the pipe, it stops 
-SPLICE_F_NONBLOCK giving non-blocking semantics to the socket. It thus allows 
-the application to control the "blockiness" of pipe and socket operations 
-_independently_:
-- you want blocking operations on the socket: you use O_NONBLOCK.
-- you want blocking operations on the pipe: you use SPLICE_F_NONBLOCK
+echo 8 > /proc/sys/kernel/printk
+ethtool -s eth0 msglvl 0xffff
 
-It has a limitation though: you are not able to control the "blockiness" of 
-the socket operation during the splice call. Thats why I propose using two 
-flags: one for the pipe and one for the socket.
-
-> Anyway, in case of not having SPLICE_F_NONBLOCK it does not deadlock,
-> but waits until someone reads from the other side of the pipe. It blocks
-> and expects reader to unblock it.
->
-
-Correct. 
-
-> It looks like you have two unexpected independent issues with splice:
-> ability to perform non-blocking reading from the socket into the pipe
-> when SPLICE_F_NONBLOCK is set,
-> and blocking waiting for reader to get data from the pipe when
-> SPLICE_F_NONBLOCK is not set. Is it correct?
->
-
-What I would like is to have the ability to do blocking operations on the 
-socket and non-blocking operations on the pipe.
-
-> If so, the former is a feature, which allows to have some progress when
-> receiving queue is empty: one can start getting data from the pipe,
-> i.e. splice data out of the pipe to the different file descriptor.
-
-> So, this flag means both non-blocking pipe operations _and_ non-blocking
-> receiving from the socket.
->
-
-Correct. 
-
-> For the blocking in pipe_wait() when pipe is full and SPLICE_F_NONBLOCK
-> is not set, then it is just a pipe behaviour, which is used as a
-> temporal storage for the requested data. It is not some buffer, which is
-> returned to the userspace when it is full (or indication of it), but a
-> pipe, where you put page pointers, so when pipe is full and opened in
-> blocking mode, writer sleeps waiting or reader to get some data out of it
-> and thus awake writer. 
-
-Correct.
-
-
-> It is not a deadlock, but very expected behaviour 
-> of the pipe: to block when pipe is full waiting for reader to get data.
->
-
-But in the larger picture it means that: 
-
-(a) a simple single threaded program that copies data from a socket to a file 
-with splice, using  blocking operations on the socket and file, will not work 
-as it can block in the 1st splice if we specify a non tiny buffer. So, we 
-will either:
-
-(b) need to use threads to read from the pipe and unblock it, or 
-
-(c) need to use full non-blocking operations with the whole poll/epoll/select 
-bits implemented
-
-If you agree with the above statement, and you think that it is ok to be 
-forced to use (b) or (c) instead of (a), than I'll be happy to stop the 
-discussion here since its getting into a matter of personal interpretation of 
-what a good API is :)
-
-> Hope this will clarify this discussion a bit, so it would not look like
-> talk of blind and deaf :)
-
-Indeed :) 
-
-My bad, I probably should have explained this in more details from the 
-beginning. Thanks for taking the time to debate this, despite of my poor 
-explanations.
-
-Thanks,
-tavi
+and see if the driver issues any error messages as the file is transferred?
