@@ -1,128 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Fri, 18 Jul 2008 20:59:02 -0700 (PDT)
-Message-ID: <20080718.205902.180487935.davem@davemloft.net>
-References: <20080717.051726.226040470.davem@davemloft.net>
-	<487F4327.1000107@trash.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: kaber@trash.net
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH 1/7] sctp: Don't abort initialization when CONFIG_PROC_FS=n
+Date: Sat, 19 Jul 2008 00:26:46 -0400
+Message-ID: <12164416141753-git-send-email-vladislav.yasevich@hp.com>
+References: <12164416121552-git-send-email-vladislav.yasevich@hp.com>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51774
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750736AbYGSD7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 23:59:04 -0400
-In-Reply-To: <487F4327.1000107@trash.net>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:38481 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513AbYGSE2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 00:28:21 -0400
+In-Reply-To: <12164416121552-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 17 Jul 2008 15:03:35 +0200
+From: Florian Westphal <fw@strlen.de>
 
-> The remaining problem is data that was previously only used and
-> modified under the RTNL (u32_list is one example). Modifications
-> during destruction now need protection against concurrent use in
-> process context.
+This puts CONFIG_PROC_FS defines around the proc init/exit functions
+and also avoids compiling proc.c if procfs is not supported.
+Also make SCTP_DBG_OBJCNT depend on procfs.
 
-I took a closer look at u32_list.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/Kconfig    |    4 ++--
+ net/sctp/Makefile   |    4 ++--
+ net/sctp/protocol.c |   11 ++++++++++-
+ 3 files changed, 14 insertions(+), 5 deletions(-)
 
-It's members seem to be keyed by qdisc :-)
-
-All this thing is doing is making up for the lack of a classifier
-private pointer in the Qdisc.
-
-It's tough because classifiers of different types can be queued
-up to a qdisc, so it's not like we can add one traffic classifier
-private pointer to struct Qdisc and be done with it.
-
-However, I could not find anything other than u32 that seems to need
-some global state that works like this.
-
-So what I've done is checked in the following change for now to make
-u32 delete operation safe entirely within a qdisc tree's namespace.
-
-pkt_sched: Get rid of u32_list.
-
-The u32_list is just an indirect way of maintaining a reference
-to a U32 node on a per-qdisc basis.
-
-Just add an explicit node pointer for u32 to struct Qdisc an do
-away with this global list.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 0a158ff..8a44386 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -56,6 +56,8 @@ struct Qdisc
- 	int			(*reshape_fail)(struct sk_buff *skb,
- 					struct Qdisc *q);
+diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+index 0b79f86..58b3e88 100644
+--- a/net/sctp/Kconfig
++++ b/net/sctp/Kconfig
+@@ -47,11 +47,11 @@ config SCTP_DBG_MSG
  
-+	void			*u32_node;
+ config SCTP_DBG_OBJCNT
+ 	bool "SCTP: Debug object counts"
++	depends on PROC_FS
+ 	help
+ 	  If you say Y, this will enable debugging support for counting the 
+ 	  type of objects that are currently allocated.  This is useful for 
+-	  identifying memory leaks.   If the /proc filesystem is enabled this 
+-	  debug information can be viewed by 
++	  identifying memory leaks. This debug information can be viewed by
+ 	  'cat /proc/net/sctp/sctp_dbg_objcnt'
+ 
+ 	  If unsure, say N
+diff --git a/net/sctp/Makefile b/net/sctp/Makefile
+index f5356b9..6b79473 100644
+--- a/net/sctp/Makefile
++++ b/net/sctp/Makefile
+@@ -9,10 +9,10 @@ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
+ 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
+ 	  inqueue.o outqueue.o ulpqueue.o command.o \
+ 	  tsnmap.o bind_addr.o socket.o primitive.o \
+-	  output.o input.o debug.o ssnmap.o proc.o \
+-	  auth.o
++	  output.o input.o debug.o ssnmap.o auth.o
+ 
+ sctp-$(CONFIG_SCTP_DBG_OBJCNT) += objcnt.o
++sctp-$(CONFIG_PROC_FS) += proc.o
+ sctp-$(CONFIG_SYSCTL) += sysctl.o
+ 
+ sctp-$(subst m,y,$(CONFIG_IPV6))	+= ipv6.o
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 98c6a88..dd811a8 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -64,9 +64,12 @@
+ 
+ /* Global data structures. */
+ struct sctp_globals sctp_globals __read_mostly;
+-struct proc_dir_entry	*proc_net_sctp;
+ DEFINE_SNMP_STAT(struct sctp_mib, sctp_statistics) __read_mostly;
+ 
++#ifdef CONFIG_PROC_FS
++struct proc_dir_entry	*proc_net_sctp;
++#endif
 +
- 	/* This field is deprecated, but it is still used by CBQ
- 	 * and it will live until better solution will be invented.
- 	 */
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 4d75544..527db25 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -75,7 +75,6 @@ struct tc_u_hnode
+ struct idr sctp_assocs_id;
+ DEFINE_SPINLOCK(sctp_assocs_id_lock);
  
- struct tc_u_common
+@@ -97,6 +100,7 @@ struct sock *sctp_get_ctl_sock(void)
+ /* Set up the proc fs entry for the SCTP protocol. */
+ static __init int sctp_proc_init(void)
  {
--	struct tc_u_common	*next;
- 	struct tc_u_hnode	*hlist;
- 	struct Qdisc		*q;
- 	int			refcnt;
-@@ -87,8 +86,6 @@ static const struct tcf_ext_map u32_ext_map = {
- 	.police = TCA_U32_POLICE
- };
- 
--static struct tc_u_common *u32_list;
--
- static __inline__ unsigned u32_hash_fold(__be32 key, struct tc_u32_sel *sel, u8 fshift)
- {
- 	unsigned h = ntohl(key & sel->hmask)>>fshift;
-@@ -287,9 +284,7 @@ static int u32_init(struct tcf_proto *tp)
- 	struct tc_u_hnode *root_ht;
- 	struct tc_u_common *tp_c;
- 
--	for (tp_c = u32_list; tp_c; tp_c = tp_c->next)
--		if (tp_c->q == tp->q)
--			break;
-+	tp_c = tp->q->u32_node;
- 
- 	root_ht = kzalloc(sizeof(*root_ht), GFP_KERNEL);
- 	if (root_ht == NULL)
-@@ -307,8 +302,7 @@ static int u32_init(struct tcf_proto *tp)
- 			return -ENOBUFS;
- 		}
- 		tp_c->q = tp->q;
--		tp_c->next = u32_list;
--		u32_list = tp_c;
-+		tp->q->u32_node = tp_c;
++#ifdef CONFIG_PROC_FS
+ 	if (!proc_net_sctp) {
+ 		struct proc_dir_entry *ent;
+ 		ent = proc_mkdir("sctp", init_net.proc_net);
+@@ -131,6 +135,9 @@ out_snmp_proc_init:
  	}
+ out_nomem:
+ 	return -ENOMEM;
++#else
++	return 0;
++#endif /* CONFIG_PROC_FS */
+ }
  
- 	tp_c->refcnt++;
-@@ -402,14 +396,8 @@ static void u32_destroy(struct tcf_proto *tp)
+ /* Clean up the proc fs entry for the SCTP protocol.
+@@ -139,6 +146,7 @@ out_nomem:
+  */
+ static void sctp_proc_exit(void)
+ {
++#ifdef CONFIG_PROC_FS
+ 	sctp_snmp_proc_exit();
+ 	sctp_eps_proc_exit();
+ 	sctp_assocs_proc_exit();
+@@ -148,6 +156,7 @@ static void sctp_proc_exit(void)
+ 		proc_net_sctp = NULL;
+ 		remove_proc_entry("sctp", init_net.proc_net);
+ 	}
++#endif
+ }
  
- 	if (--tp_c->refcnt == 0) {
- 		struct tc_u_hnode *ht;
--		struct tc_u_common **tp_cp;
- 
--		for (tp_cp = &u32_list; *tp_cp; tp_cp = &(*tp_cp)->next) {
--			if (*tp_cp == tp_c) {
--				*tp_cp = tp_c->next;
--				break;
--			}
--		}
-+		tp->q->u32_node = NULL;
- 
- 		for (ht = tp_c->hlist; ht; ht = ht->next) {
- 			ht->refcnt--;
+ /* Private helper to extract ipv4 address and stash them in
+-- 
+1.5.2.5
+
