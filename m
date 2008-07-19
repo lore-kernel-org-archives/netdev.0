@@ -1,144 +1,89 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 2/2] mv643xx_eth: print message on link status change
-Date: Sat, 19 Jul 2008 14:49:52 +0200
-Message-ID: <20080719124952.GC12630@xi.wantstofly.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCHes] pull request: WAN
+Date: Sat, 19 Jul 2008 15:04:48 +0200
+Message-ID: <m3ljzyc9e7.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:41888 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753670AbYGSMty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 08:49:54 -0400
-Content-Disposition: inline
+Received: from khc.piap.pl ([195.187.100.11]:55032 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753229AbYGSNEv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jul 2008 09:04:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When there is a link status change (link or phy status interrupt),
-print a message notifying the user of the new link status.
+Hi Jeff,
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+Please pull from:
+git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git hdlc
 
-Index: linux-2.6.26/drivers/net/mv643xx_eth.c
-===================================================================
---- linux-2.6.26.orig/drivers/net/mv643xx_eth.c
-+++ linux-2.6.26/drivers/net/mv643xx_eth.c
-@@ -91,6 +91,12 @@ static char mv643xx_eth_driver_version[]
- #define PORT_STATUS(p)			(0x0444 + ((p) << 10))
- #define  TX_FIFO_EMPTY			0x00000400
- #define  TX_IN_PROGRESS			0x00000080
-+#define  PORT_SPEED_MASK		0x00000030
-+#define  PORT_SPEED_1000		0x00000010
-+#define  PORT_SPEED_100			0x00000020
-+#define  PORT_SPEED_10			0x00000000
-+#define  FLOW_CONTROL_ENABLED		0x00000008
-+#define  FULL_DUPLEX			0x00000004
- #define  LINK_UP			0x00000002
- #define TXQ_COMMAND(p)			(0x0448 + ((p) << 10))
- #define TXQ_FIX_PRIO_CONF(p)		(0x044c + ((p) << 10))
-@@ -1679,6 +1685,64 @@ static void txq_deinit(struct tx_queue *
- 
- 
- /* netdev ops and related ***************************************************/
-+static void handle_link_event(struct mv643xx_eth_private *mp)
-+{
-+	struct net_device *dev = mp->dev;
-+	u32 port_status;
-+	int speed;
-+	int duplex;
-+	int fc;
-+
-+	port_status = rdl(mp, PORT_STATUS(mp->port_num));
-+	if (!(port_status & LINK_UP)) {
-+		if (netif_carrier_ok(dev)) {
-+			int i;
-+
-+			printk(KERN_INFO "%s: link down\n", dev->name);
-+
-+			netif_carrier_off(dev);
-+			netif_stop_queue(dev);
-+
-+			for (i = 0; i < 8; i++) {
-+				struct tx_queue *txq = mp->txq + i;
-+
-+				if (mp->txq_mask & (1 << i)) {
-+					txq_reclaim(txq, 1);
-+					txq_reset_hw_ptr(txq);
-+				}
-+			}
-+		}
-+		return;
-+	}
-+
-+	switch (port_status & PORT_SPEED_MASK) {
-+	case PORT_SPEED_10:
-+		speed = 10;
-+		break;
-+	case PORT_SPEED_100:
-+		speed = 100;
-+		break;
-+	case PORT_SPEED_1000:
-+		speed = 1000;
-+		break;
-+	default:
-+		speed = -1;
-+		break;
-+	}
-+	duplex = (port_status & FULL_DUPLEX) ? 1 : 0;
-+	fc = (port_status & FLOW_CONTROL_ENABLED) ? 1 : 0;
-+
-+	printk(KERN_INFO "%s: link up, %d Mb/s, %s duplex, "
-+			 "flow control %sabled\n", dev->name,
-+			 speed, duplex ? "full" : "half",
-+			 fc ? "en" : "dis");
-+
-+	if (!netif_carrier_ok(dev)) {
-+		netif_carrier_on(dev);
-+		netif_wake_queue(dev);
-+	}
-+}
-+
- static irqreturn_t mv643xx_eth_irq(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *)dev_id;
-@@ -1698,28 +1762,8 @@ static irqreturn_t mv643xx_eth_irq(int i
- 		wrl(mp, INT_CAUSE_EXT(mp->port_num), ~int_cause_ext);
- 	}
- 
--	if (int_cause_ext & (INT_EXT_PHY | INT_EXT_LINK)) {
--		if (rdl(mp, PORT_STATUS(mp->port_num)) & LINK_UP) {
--			if (!netif_carrier_ok(dev)) {
--				netif_carrier_on(dev);
--				netif_wake_queue(dev);
--			}
--		} else if (netif_carrier_ok(dev)) {
--			int i;
--
--			netif_stop_queue(dev);
--			netif_carrier_off(dev);
--
--			for (i = 0; i < 8; i++) {
--				struct tx_queue *txq = mp->txq + i;
--
--				if (mp->txq_mask & (1 << i)) {
--					txq_reclaim(txq, 1);
--					txq_reset_hw_ptr(txq);
--				}
--			}
--		}
--	}
-+	if (int_cause_ext & (INT_EXT_PHY | INT_EXT_LINK))
-+		handle_link_event(mp);
- 
- 	/*
- 	 * RxBuffer or RxError set for any of the 8 queues?
-@@ -1970,6 +2014,9 @@ static int mv643xx_eth_open(struct net_d
- 	napi_enable(&mp->napi);
- #endif
- 
-+	netif_carrier_off(dev);
-+	netif_stop_queue(dev);
-+
- 	port_start(mp);
- 
- 	set_rx_coal(mp, 0);
+This is based on pure v2.6.26 and includes various WAN cleanups as
+well as LMC, Zilog (hostess_sv11 + sealevel = z85230) and Cosa drivers
+ported from syncppp to generic HDLC. I have no hardware for that so -
+untested.
+
+This makes hdlc-ppp the only user of syncppp.
+
+My plan is to replace hdlc-ppp and syncppp with the new hdlc-ppp, hope
+that's now ok with syncppp going.
+
+The long-term plan is to also add generic PPP interface so users can
+do PPP auth, compression and what not. 2.6.30+ maybe.
+
+I have tried to test-merge your upstream-next branch and it causes
+conflicts in drivers/net/wan/pc300_drv.c (a trivial one) and
+net/netfilter/nf_conntrack_proto_tcp.c (some pre-2.6.26 thing I
+guess).
+
+The first commits in my tree (after v2.6.26) are already in your tree,
+you've got them by mail. It seems that git knows that.
+
+Thanks.
+
+ Documentation/DocBook/z8530book.tmpl |   38 ++-
+ drivers/char/pcmcia/synclink_cs.c    |   32 +-
+ drivers/char/synclink.c              |   37 ++-
+ drivers/char/synclink_gt.c           |   33 +-
+ drivers/char/synclinkmp.c            |   35 +-
+ drivers/net/wan/Kconfig              |   13 +-
+ drivers/net/wan/Makefile             |   11 +-
+ drivers/net/wan/c101.c               |    6 +-
+ drivers/net/wan/cosa.c               |  293 +++++++++-------
+ drivers/net/wan/dscc4.c              |   23 +-
+ drivers/net/wan/farsync.c            |   75 +++--
+ drivers/net/wan/farsync.h            |    6 +
+ drivers/net/wan/hd6457x.c            |   33 +-
+ drivers/net/wan/hdlc.c               |   27 +-
+ drivers/net/wan/hdlc_cisco.c         |   33 +-
+ drivers/net/wan/hdlc_fr.c            |   73 +++--
+ drivers/net/wan/hdlc_ppp.c           |   15 +-
+ drivers/net/wan/hdlc_raw.c           |   15 +-
+ drivers/net/wan/hdlc_raw_eth.c       |   19 +-
+ drivers/net/wan/hdlc_x25.c           |   23 +-
+ drivers/net/wan/hostess_sv11.c       |  382 ++++++++++++--------
+ drivers/net/wan/lmc/lmc.h            |   11 +-
+ drivers/net/wan/lmc/lmc_debug.c      |    7 +-
+ drivers/net/wan/lmc/lmc_debug.h      |    6 +-
+ drivers/net/wan/lmc/lmc_ioctl.h      |    2 +-
+ drivers/net/wan/lmc/lmc_main.c       |  672 +++++++++++++++++++---------------
+ drivers/net/wan/lmc/lmc_media.c      |   66 ++--
+ drivers/net/wan/lmc/lmc_proto.c      |  146 ++++++--
+ drivers/net/wan/lmc/lmc_proto.h      |   14 +-
+ drivers/net/wan/lmc/lmc_var.h        |  360 ++++++++++++-------
+ drivers/net/wan/pc300.h              |  228 +++++++-----
+ drivers/net/wan/pc300_drv.c          |  217 +++++++-----
+ drivers/net/wan/pc300_tty.c          |    6 +-
+ drivers/net/wan/sealevel.c           |  361 +++++++++++-------
+ drivers/net/wan/syncppp.c            |    9 +
+ drivers/net/wan/wanxl.c              |   26 +-
+ drivers/net/wan/z85230.c             |  193 ++++++----
+ drivers/net/wan/z85230.h             |   10 +-
+ include/linux/hdlc.h                 |    7 +
+ include/net/syncppp.h                |    2 +
+ net/wanrouter/wanmain.c              |   27 ++
+
+-- 
+Krzysztof Halasa
