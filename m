@@ -1,146 +1,128 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] tcp: RTT metrics scaling
-Date: Fri, 18 Jul 2008 20:34:31 -0700
-Message-ID: <20080718203431.48e16ff0@extreme>
-References: <20080620162234.1c2103ee@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Fri, 18 Jul 2008 20:59:02 -0700 (PDT)
+Message-ID: <20080718.205902.180487935.davem@davemloft.net>
+References: <20080717.051726.226040470.davem@davemloft.net>
+	<487F4327.1000107@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:59399 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750704AbYGSDef (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 23:34:35 -0400
-In-Reply-To: <20080620162234.1c2103ee@extreme>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51774
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750736AbYGSD7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 23:59:04 -0400
+In-Reply-To: <487F4327.1000107@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the metrics (RTT, RTTVAR and RTAX_RTO_MIN) are stored in kernel
-units (jiffies) and this leaks out through the netlink API to user space
-where the units for jiffies are unknown.
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 17 Jul 2008 15:03:35 +0200
 
-This patches changes the kernel to convert to/from milliseconds. This changes
-the ABI, but milliseconds seemed like the most natural unit for these parameters.
-Values available via syscall in /proc/net/rt_cache and netlink will be in milliseconds.
+> The remaining problem is data that was previously only used and
+> modified under the RTNL (u32_list is one example). Modifications
+> during destruction now need protection against concurrent use in
+> process context.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I took a closer look at u32_list.
 
----
- include/net/dst.h    |   14 +++++++++++++-
- net/ipv4/tcp_input.c |   31 ++++++++++++++++++-------------
- 2 files changed, 31 insertions(+), 14 deletions(-)
+It's members seem to be keyed by qdisc :-)
 
---- a/include/net/dst.h	2008-07-18 20:30:22.000000000 -0700
-+++ b/include/net/dst.h	2008-07-18 20:30:40.000000000 -0700
-@@ -128,6 +128,18 @@ static inline u32 dst_mtu(const struct d
- 	return mtu;
- }
+All this thing is doing is making up for the lack of a classifier
+private pointer in the Qdisc.
+
+It's tough because classifiers of different types can be queued
+up to a qdisc, so it's not like we can add one traffic classifier
+private pointer to struct Qdisc and be done with it.
+
+However, I could not find anything other than u32 that seems to need
+some global state that works like this.
+
+So what I've done is checked in the following change for now to make
+u32 delete operation safe entirely within a qdisc tree's namespace.
+
+pkt_sched: Get rid of u32_list.
+
+The u32_list is just an indirect way of maintaining a reference
+to a U32 node on a per-qdisc basis.
+
+Just add an explicit node pointer for u32 to struct Qdisc an do
+away with this global list.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 0a158ff..8a44386 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -56,6 +56,8 @@ struct Qdisc
+ 	int			(*reshape_fail)(struct sk_buff *skb,
+ 					struct Qdisc *q);
  
-+/* RTT metrics are stored in milliseconds for user ABI, but used as jiffies */
-+static inline unsigned long dst_metric_rtt(const struct dst_entry *dst, int metric)
-+{
-+	return msecs_to_jiffies(dst_metric(dst, metric));
-+}
++	void			*u32_node;
 +
-+static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
-+				      unsigned long rtt)
-+{
-+	dst->metrics[metric-1] = jiffies_to_msecs(rtt);
-+}
-+
- static inline u32
- dst_allfrag(const struct dst_entry *dst)
- {
-
---- a/net/ipv4/tcp_input.c	2008-07-18 20:30:22.000000000 -0700
-+++ b/net/ipv4/tcp_input.c	2008-07-18 20:30:27.000000000 -0700
-@@ -602,7 +602,7 @@ static u32 tcp_rto_min(struct sock *sk)
- 	u32 rto_min = TCP_RTO_MIN;
- 
- 	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
--		rto_min = dst_metric(dst, RTAX_RTO_MIN);
-+		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
- 	return rto_min;
- }
- 
-@@ -729,6 +729,7 @@ void tcp_update_metrics(struct sock *sk)
- 	if (dst && (dst->flags & DST_HOST)) {
- 		const struct inet_connection_sock *icsk = inet_csk(sk);
- 		int m;
-+		unsigned long rtt;
- 
- 		if (icsk->icsk_backoff || !tp->srtt) {
- 			/* This session failed to estimate rtt. Why?
-@@ -740,7 +741,8 @@ void tcp_update_metrics(struct sock *sk)
- 			return;
- 		}
- 
--		m = dst_metric(dst, RTAX_RTT) - tp->srtt;
-+		rtt = dst_metric_rtt(dst, RTAX_RTT);
-+		m = rtt - tp->srtt;
- 
- 		/* If newly calculated rtt larger than stored one,
- 		 * store new one. Otherwise, use EWMA. Remember,
-@@ -748,12 +750,13 @@ void tcp_update_metrics(struct sock *sk)
- 		 */
- 		if (!(dst_metric_locked(dst, RTAX_RTT))) {
- 			if (m <= 0)
--				dst->metrics[RTAX_RTT - 1] = tp->srtt;
-+				set_dst_metric_rtt(dst, RTAX_RTT, tp->srtt);
- 			else
--				dst->metrics[RTAX_RTT - 1] -= (m >> 3);
-+				set_dst_metric_rtt(dst, RTAX_RTT, rtt - (m >> 3));
- 		}
- 
- 		if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
-+			unsigned long var;
- 			if (m < 0)
- 				m = -m;
- 
-@@ -762,11 +765,13 @@ void tcp_update_metrics(struct sock *sk)
- 			if (m < tp->mdev)
- 				m = tp->mdev;
- 
--			if (m >= dst_metric(dst, RTAX_RTTVAR))
--				dst->metrics[RTAX_RTTVAR - 1] = m;
-+			var = dst_metric_rtt(dst, RTAX_RTTVAR);
-+			if (m >= var)
-+				var = m;
- 			else
--				dst->metrics[RTAX_RTTVAR-1] -=
--					(dst_metric(dst, RTAX_RTTVAR) - m)>>2;
-+				var -= (var - m) >> 2;
-+
-+			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
- 		}
- 
- 		if (tp->snd_ssthresh >= 0xFFFF) {
-@@ -897,7 +902,7 @@ static void tcp_init_metrics(struct sock
- 	if (dst_metric(dst, RTAX_RTT) == 0)
- 		goto reset;
- 
--	if (!tp->srtt && dst_metric(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
-+	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
- 		goto reset;
- 
- 	/* Initial rtt is determined from SYN,SYN-ACK.
-@@ -914,12 +919,12 @@ static void tcp_init_metrics(struct sock
- 	 * to low value, and then abruptly stops to do it and starts to delay
- 	 * ACKs, wait for troubles.
+ 	/* This field is deprecated, but it is still used by CBQ
+ 	 * and it will live until better solution will be invented.
  	 */
--	if (dst_metric(dst, RTAX_RTT) > tp->srtt) {
--		tp->srtt = dst_metric(dst, RTAX_RTT);
-+	if (dst_metric_rtt(dst, RTAX_RTT) > tp->srtt) {
-+		tp->srtt = dst_metric_rtt(dst, RTAX_RTT);
- 		tp->rtt_seq = tp->snd_nxt;
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 4d75544..527db25 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -75,7 +75,6 @@ struct tc_u_hnode
+ 
+ struct tc_u_common
+ {
+-	struct tc_u_common	*next;
+ 	struct tc_u_hnode	*hlist;
+ 	struct Qdisc		*q;
+ 	int			refcnt;
+@@ -87,8 +86,6 @@ static const struct tcf_ext_map u32_ext_map = {
+ 	.police = TCA_U32_POLICE
+ };
+ 
+-static struct tc_u_common *u32_list;
+-
+ static __inline__ unsigned u32_hash_fold(__be32 key, struct tc_u32_sel *sel, u8 fshift)
+ {
+ 	unsigned h = ntohl(key & sel->hmask)>>fshift;
+@@ -287,9 +284,7 @@ static int u32_init(struct tcf_proto *tp)
+ 	struct tc_u_hnode *root_ht;
+ 	struct tc_u_common *tp_c;
+ 
+-	for (tp_c = u32_list; tp_c; tp_c = tp_c->next)
+-		if (tp_c->q == tp->q)
+-			break;
++	tp_c = tp->q->u32_node;
+ 
+ 	root_ht = kzalloc(sizeof(*root_ht), GFP_KERNEL);
+ 	if (root_ht == NULL)
+@@ -307,8 +302,7 @@ static int u32_init(struct tcf_proto *tp)
+ 			return -ENOBUFS;
+ 		}
+ 		tp_c->q = tp->q;
+-		tp_c->next = u32_list;
+-		u32_list = tp_c;
++		tp->q->u32_node = tp_c;
  	}
--	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
--		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
-+	if (dst_metric_rtt(dst, RTAX_RTTVAR) > tp->mdev) {
-+		tp->mdev = dst_metric_rtt(dst, RTAX_RTTVAR);
- 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
- 	}
- 	tcp_set_rto(sk);
-
+ 
+ 	tp_c->refcnt++;
+@@ -402,14 +396,8 @@ static void u32_destroy(struct tcf_proto *tp)
+ 
+ 	if (--tp_c->refcnt == 0) {
+ 		struct tc_u_hnode *ht;
+-		struct tc_u_common **tp_cp;
+ 
+-		for (tp_cp = &u32_list; *tp_cp; tp_cp = &(*tp_cp)->next) {
+-			if (*tp_cp == tp_c) {
+-				*tp_cp = tp_c->next;
+-				break;
+-			}
+-		}
++		tp->q->u32_node = NULL;
+ 
+ 		for (ht = tp_c->hlist; ht; ht = ht->next) {
+ 			ht->refcnt--;
