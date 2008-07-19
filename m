@@ -1,42 +1,54 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [RFC 2/2] TCP: Add TCP-AO support
-Date: Fri, 18 Jul 2008 18:16:52 -0700
-Message-ID: <396556a20807181816qdb50221nc0aa259d3fb3395d@mail.gmail.com>
-References: <396556a20805301217k293e5718h6bbf02bfe069032@europa>
-	 <20080719.100648.63386563.yoshfuji@linux-ipv6.org>
+From: Dave Chinner <david@fromorbit.com>
+Subject: Re: [BUG, NET] deadlock tearing down a bridged interface
+Date: Sat, 19 Jul 2008 11:17:09 +1000
+Message-ID: <20080719011709.GA5947@disturbed>
+References: <20080718073724.GA5802@disturbed> <4880BA7A.3020909@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.236]:57124 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbYGSBQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 21:16:52 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so521879rvb.1
-        for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 18:16:52 -0700 (PDT)
-In-Reply-To: <20080719.100648.63386563.yoshfuji@linux-ipv6.org>
+Received: from ipmail01.adl6.internode.on.net ([203.16.214.146]:35286 "EHLO
+	ipmail01.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750756AbYGSBRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 21:17:15 -0400
 Content-Disposition: inline
+In-Reply-To: <4880BA7A.3020909@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBKdWwgMTgsIDIwMDggYXQgNjowNiBQTSwgWU9TSElGVUpJIEhpZGVha2kgLyDlkIno
-l6Toi7HmmI4KPHlvc2hmdWppQGxpbnV4LWlwdjYub3JnPiB3cm90ZToKPiBzdHJ1Y3QgdGNwX2F1
-dGggewo+ICAgICAgc3RydWN0IF9fa2VybmVsX3NvY2thZGRyX3N0b3JhZ2UgdGNwYV9hZGRyOwo+
-ICAgICAgX191MzIgICB0Y3BhX2ZsYWdzOwoKUHJvYmFibHkgYSBnb29kIGlkZWEgZm9yIHRoZSBm
-dXR1cmUsCgo+ICAgICAgX191MTYgICB0Y3BhX3R4a2V5OwoKWW91IGNhbiBvbmx5IHNwZWNpZnkg
-MjU2IGtleXMgb24gdGhlIHdpcmUsIHNvIHRoaXMgb25seSBuZWVkIGJlIGEgX191OAoKPiAgICAg
-IF9fdTggICAgdGNwYV9rZXlsZW5bMjU2XTsKPiAgICAgIF9fdTggICAgdGNwYV9rZXlbVENQX0FV
-VEhfTUFYS0VZTEVOXTsKCkFsdGhvdWdoIHRoZSBnZW5lcmFsaXR5IG9mIHN1cHBvcnRpbmcgMjU2
-IGtleXMgaXMgYSBiZW5lZml0LCBpdCBtYWtlcwp0aGUgY29kZSBtb3JlIGNvbXBsZXguIE11bHRp
-cGxlIGtleXMgYXJlIGp1c3QgZm9yIGtleSByb3RhdGlvbjogeW91Cm5lZWQgZW5vdWdoIGtleXMg
-c3VjaCB0aGF0OgogIGNlaWwoaW5mbGlnaHQtdGltZSAvIGtleS1yb3RhdGlvbi10aW1lKSArIDEg
-PSBudW1rZXlzCgpIb3dldmVyLCBmb3IgcmVhc29uYWJsZSB2YWx1ZXMgb2Yga2V5LXJvdGF0aW9u
-LXRpbWUsIHRoYXQgbWVhbnMgdGhhdAp5b3Ugb25seSBuZWVkIHR3byBrZXlzLiBJJ20gcXVpdGUg
-aGFwcHkgdG8gc3VwcG9ydCBuIGtleXMgaW4gZnV0dXJlCnZlcnNpb25zIGlmIHNvbWVvbmUgaGFz
-IGEgZ29vZCBhcmd1bWVudC4KCihUaGUgY2xvc2VzdCBJIGNhbiBjb21lIGlzICJJIGhhdmUgYSA0
-MEdicHMgbGluayB3aXRoIGEgMSBzZWNvbmQgcGluZwp0aW1lIjsgbWF5YmUgdGhhdCdzIG5vdCB0
-b28gY3JhenkgdGhlc2UgZGF5cy4pCgoKQUdMCgotLSAKQWRhbSBMYW5nbGV5IGFnbEBpbXBlcmlh
-bHZpb2xldC5vcmcgaHR0cDovL3d3dy5pbXBlcmlhbHZpb2xldC5vcmcK
+On Fri, Jul 18, 2008 at 08:44:58AM -0700, Ben Greear wrote:
+> Dave Chinner wrote:
+>> Folks,
+>>
+>> I just deadlocked networking on a 2.6.24 kernel. Basically I
+>> was trying to restart the bridge interface I use for UML sessions
+>> because it wasn't passing packets. This happens occasionally
+>> when I leave a UML session too long in gdb, so I bounced the
+>> bridge to get it working again.
+>>   
+> We have been chasing a refcount bug in 2.6.25 that only happens when
+> IPv6 module is loaded.
+
+Which causes what problem? The deadlock I reported or the bridge occasionally
+hanging? Is that a problem in 2.6.24?
+
+The deadlock is the one I'm concerned about - it appears that
+netdev_run_todo() can only wait on a single interface at a time,
+so if we are tearing down two interfaces concurrently where one
+has a reference on the other a deadlock is just waiting to happen...
+
+> If you are not actually using ipv6, try removing it's
+> module from your /lib/modules/* directory and see if that fixes your  
+> problem.
+
+I'll try it, but a) it's not 2.6.25 and b) I don't tend to triage problems
+on my main workstation so I'm not likely to try to reproduce this
+deadlock unless absolutely necessary.
+
+Cheers,
+
+Dave.
+-- 
+Dave Chinner
+david@fromorbit.com
