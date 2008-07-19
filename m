@@ -1,92 +1,85 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/7] sctp: Prevent uninitialized memory access
-Date: Sat, 19 Jul 2008 00:26:47 -0400
-Message-ID: <1216441615995-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 5/7] sctp: Allow only 1 listening socket with SO_REUSEADDR
+Date: Sat, 19 Jul 2008 00:26:50 -0400
+Message-ID: <12164416183890-git-send-email-vladislav.yasevich@hp.com>
 References: <12164416121552-git-send-email-vladislav.yasevich@hp.com>
 Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:38487 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485AbYGSE2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 00:28:22 -0400
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:34563 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752618AbYGSE20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 00:28:26 -0400
 In-Reply-To: <12164416121552-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+When multiple socket bind to the same port with SO_REUSEADDR,
+only 1 can be listining.
 
-valgrind reports uninizialized memory accesses when running
-sctp inside the network simulation cradle simulator:
-
- Conditional jump or move depends on uninitialised value(s)
-    at 0x570E34A: sctp_assoc_sync_pmtu (associola.c:1324)
-    by 0x57427DA: sctp_packet_transmit (output.c:403)
-    by 0x5710EFF: sctp_outq_flush (outqueue.c:824)
-    by 0x5710B88: sctp_outq_uncork (outqueue.c:701)
-    by 0x5745262: sctp_cmd_interpreter (sm_sideeffect.c:1548)
-    by 0x57444B7: sctp_side_effects (sm_sideeffect.c:976)
-    by 0x5744460: sctp_do_sm (sm_sideeffect.c:945)
-    by 0x572157D: sctp_primitive_ASSOCIATE (primitive.c:94)
-    by 0x5725C04: __sctp_connect (socket.c:1094)
-    by 0x57297DC: sctp_connect (socket.c:3297)
-
- Conditional jump or move depends on uninitialised value(s)
-    at 0x575D3A5: mod_timer (timer.c:630)
-    by 0x5752B78: sctp_cmd_hb_timers_start (sm_sideeffect.c:555)
-    by 0x5754133: sctp_cmd_interpreter (sm_sideeffect.c:1448)
-    by 0x5753607: sctp_side_effects (sm_sideeffect.c:976)
-    by 0x57535B0: sctp_do_sm (sm_sideeffect.c:945)
-    by 0x571E9AE: sctp_endpoint_bh_rcv (endpointola.c:474)
-    by 0x573347F: sctp_inq_push (inqueue.c:104)
-    by 0x572EF93: sctp_rcv (input.c:256)
-    by 0x5689623: ip_local_deliver_finish (ip_input.c:230)
-    by 0x5689759: ip_local_deliver (ip_input.c:268)
-    by 0x5689CAC: ip_rcv_finish (dst.h:246)
-
-#1 is due to "if (t->pmtu_pending)".
-8a4794914f9cf2681235ec2311e189fe307c28c7 "[SCTP] Flag a pmtu change request"
-suggests it should be initialized to 0.
-
-#2 is the heartbeat timer 'expires' value, which is uninizialised, but
-test by mod_timer().
-T3_rtx_timer seems to be affected by the same problem, so initialize it, too.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/associola.c |    1 +
- net/sctp/transport.c |    3 +++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ net/sctp/socket.c |   25 ++++++++++++++++---------
+ 1 files changed, 16 insertions(+), 9 deletions(-)
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 35b6a02..ec2a0a3 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -653,6 +653,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index fd7ed9d..79bece1 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -377,18 +377,19 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
+ 	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
+ 		return -EACCES;
  
- 	SCTP_DEBUG_PRINTK("sctp_assoc_add_peer:association %p PMTU set to "
- 			  "%d\n", asoc, asoc->pathmtu);
-+	peer->pmtu_pending = 0;
- 
- 	asoc->frag_point = sctp_frag_point(sp, asoc->pathmtu);
- 
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 3f34f61..e745c11 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -100,6 +100,9 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
- 	INIT_LIST_HEAD(&peer->send_ready);
- 	INIT_LIST_HEAD(&peer->transports);
- 
-+	peer->T3_rtx_timer.expires = 0;
-+	peer->hb_timer.expires = 0;
++	/* See if the address matches any of the addresses we may have
++	 * already bound before checking against other endpoints.
++	 */
++	if (sctp_bind_addr_match(bp, addr, sp))
++		return -EINVAL;
 +
- 	setup_timer(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event,
- 			(unsigned long)peer);
- 	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
+ 	/* Make sure we are allowed to bind here.
+ 	 * The function sctp_get_port_local() does duplicate address
+ 	 * detection.
+ 	 */
+ 	addr->v4.sin_port = htons(snum);
+ 	if ((ret = sctp_get_port_local(sk, addr))) {
+-		if (ret == (long) sk) {
+-			/* This endpoint has a conflicting address. */
+-			return -EINVAL;
+-		} else {
+-			return -EADDRINUSE;
+-		}
++		return -EADDRINUSE;
+ 	}
+ 
+ 	/* Refresh ephemeral port.  */
+@@ -5584,8 +5585,9 @@ pp_found:
+ 			struct sctp_endpoint *ep2;
+ 			ep2 = sctp_sk(sk2)->ep;
+ 
+-			if (reuse && sk2->sk_reuse &&
+-			    sk2->sk_state != SCTP_SS_LISTENING)
++			if (sk == sk2 ||
++			    (reuse && sk2->sk_reuse &&
++			     sk2->sk_state != SCTP_SS_LISTENING))
+ 				continue;
+ 
+ 			if (sctp_bind_addr_conflict(&ep2->base.bind_addr, addr,
+@@ -5702,8 +5704,13 @@ SCTP_STATIC int sctp_seqpacket_listen(struct sock *sk, int backlog)
+ 	if (!ep->base.bind_addr.port) {
+ 		if (sctp_autobind(sk))
+ 			return -EAGAIN;
+-	} else
++	} else {
++		if (sctp_get_port(sk, inet_sk(sk)->num)) {
++			sk->sk_state = SCTP_SS_CLOSED;
++			return -EADDRINUSE;
++		}
+ 		sctp_sk(sk)->bind_hash->fastreuse = 0;
++	}
+ 
+ 	sctp_hash_endpoint(ep);
+ 	return 0;
 -- 
 1.5.2.5
 
