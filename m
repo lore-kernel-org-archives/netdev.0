@@ -1,56 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC 2/2] TCP: Add TCP-AO support
-Date: Sat, 19 Jul 2008 12:07:21 +0900 (JST)
-Message-ID: <20080719.120721.88812679.yoshfuji@linux-ipv6.org>
-References: <396556a20807181816qdb50221nc0aa259d3fb3395d@mail.gmail.com>
-	<20080719.102838.76205933.yoshfuji@linux-ipv6.org>
-	<396556a20807181922t32c05b86l335de10bd1106ab2@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: net-next: unitialized lock
+Date: Fri, 18 Jul 2008 20:19:45 -0700
+Message-ID: <20080718201945.669917ab@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: agl@imperialviolet.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:32801 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbYGSDHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 23:07:24 -0400
-In-Reply-To: <396556a20807181922t32c05b86l335de10bd1106ab2@mail.gmail.com>
+Received: from mail.vyatta.com ([216.93.170.194]:58927 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750704AbYGSDTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 23:19:54 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 5962F4F425A
+	for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 20:19:53 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Njq9GkoApgK5 for <netdev@vger.kernel.org>;
+	Fri, 18 Jul 2008 20:19:49 -0700 (PDT)
+Received: from extreme (pool-71-245-98-107.ptldor.fios.verizon.net [71.245.98.107])
+	by mail.vyatta.com (Postfix) with ESMTP id D80BD4F4248
+	for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 20:19:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In article <396556a20807181922t32c05b86l335de10bd1106ab2@mail.gmail.com> (at Fri, 18 Jul 2008 19:22:35 -0700), "Adam Langley" <agl@imperialviolet.org> says:
+Looks like locks on qdisc aren't initialized properly after
+Dave's conversion to MQ.
 
-> On Fri, Jul 18, 2008 at 6:28 PM, YOSHIFUJI Hideaki / 吉藤英明
-> <yoshfuji@linux-ipv6.org> wrote:
-> > Again, is it okay to add/del one key per each operation?
-> 
-> Yes, I believe so. (At least I can't think of a situation where it isn't)
-> 
-> > If yes, we do not need to change current API too much.
-> 
-> I think, if we're only supporting two keys, the API in the patch (save
-> making the flags wider etc) is good.
-> 
-> If the concenous is that we need to support > 2 keys per address, then
-> I'll have a think.
+# brctl addbr br0
+# ifconfig br0 10.1.1.1
+# ifconfig br0 down
+------------------
 
-If we can do incremental approach, even if we suppor upto 2 keys,
-I'd suggest something like this:
-
-struct tcp_auth {
-       struct sockaddr_storage tcpa_addr;
-       __u8                    tcpa_keyid
-       __u8                    tcpa_algo;
-       __u16                   tcpa_keylen;
-       __u32		       tcpa_flags;
-       __u8		       tcpa_key[TCP_AUTHOPT_MAXKEYLEN];
-};
-
-(I think you can get my idea, anyway.)
-
-And it would be better to have another option such as TCP_AUTHOPT or such
-for property for all keys.
-
---yoshfuji
+[  146.937241] br0: Dropping NETIF_F_UFO since no NETIF_F_HW_CSUM feature.
+[  253.874538] BUG: spinlock bad magic on CPU#2, ifconfig/7861
+[  253.874548]  lock: ffffffff806c0558, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+[  253.874552] Pid: 7861, comm: ifconfig Not tainted 2.6.26 #12
+[  253.874557] 
+[  253.874557] Call Trace:
+[  253.874566]  [<ffffffff803884cf>] spin_bug+0xef/0x100
+[  253.874571]  [<ffffffff803886ff>] _raw_spin_lock+0x9f/0x190
+[  253.874579]  [<ffffffff8050a822>] _spin_lock_bh+0x32/0x40
+[  253.874584]  [<ffffffff8048f197>] dev_deactivate_queue+0x37/0x70
+[  253.874591]  [<ffffffff8048ee10>] dev_deactivate+0x40/0x150
+[  253.874596]  [<ffffffff8047c18a>] dev_close+0x4a/0xa0
+[  253.874602]  [<ffffffff8047bdb1>] dev_change_flags+0xa1/0x1d0
+[  253.874609]  [<ffffffff804cba73>] devinet_ioctl+0x5b3/0x760
+[  253.874619]  [<ffffffff804cc5fd>] inet_ioctl+0x6d/0x90
+[  253.874624]  [<ffffffff8046f446>] sock_ioctl+0x56/0x240
+[  253.874630]  [<ffffffff802cbc91>] vfs_ioctl+0x31/0x90
+[  253.874635]  [<ffffffff802cbf5b>] do_vfs_ioctl+0x26b/0x2d0
+[  253.874640]  [<ffffffff8050a391>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[  253.874646]  [<ffffffff802cc042>] sys_ioctl+0x82/0xa0
+[  253.874653]  [<ffffffff8020c518>] system_call_after_swapgs+0x88/0x8d
+[  253.874660] 
