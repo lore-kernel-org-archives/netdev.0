@@ -1,30 +1,42 @@
-From: "Keyur Chudgar" <kchudgar.linux@gmail.com>
-Subject: Free TCP/IP stack to be used
-Date: Sat, 19 Jul 2008 13:56:07 -0700
-Message-ID: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Free TCP/IP stack to be used
+Date: Sun, 20 Jul 2008 01:01:41 +0400
+Message-ID: <20080719210140.GA12119@2ka.mipt.ru>
+References: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Keyur Chudgar <kchudgar.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:41677 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753725AbYGSU4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 16:56:09 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so282558ywe.1
-        for <netdev@vger.kernel.org>; Sat, 19 Jul 2008 13:56:08 -0700 (PDT)
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:36749 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753725AbYGSVBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jul 2008 17:01:44 -0400
 Content-Disposition: inline
+In-Reply-To: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi.
 
-I am looking for free TCP/IP stack to be used in my system.
-Can anybody suggest which one I should go for? It should be
-light weight and not like Linux TCP/IP stack. I came across
-LwIP, but I am not sure about it's performance.
+On Sat, Jul 19, 2008 at 01:56:07PM -0700, Keyur Chudgar (kchudgar.linux@gmail.com) wrote:
+> I am looking for free TCP/IP stack to be used in my system.
+> Can anybody suggest which one I should go for? It should be
+> light weight and not like Linux TCP/IP stack. I came across
+> LwIP, but I am not sure about it's performance.
 
-Your suggestions would be appreciated.
+What system, what load, what ...?
+Your question is quite incomplete :)
 
-Thanks,
-- Keyur
+Anyway, I will advertise following userspace network stack (works either
+on top of packet socket or own packet reading/writing interface, so if
+you are creating your own kernel, the only thing you need is to create a
+channel to driver to be able to send and receive packets into the
+queue):
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=unetstack
+
+It supports TCP/UDP over IP, but you can extend it whatever you like,
+It is licensed under GPLv2 or higher.
+
+-- 
+	Evgeniy Polyakov
