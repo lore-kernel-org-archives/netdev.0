@@ -1,56 +1,146 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: net-next: unitialized lock
-Date: Fri, 18 Jul 2008 20:19:45 -0700
-Message-ID: <20080718201945.669917ab@extreme>
+Subject: [PATCH] tcp: RTT metrics scaling
+Date: Fri, 18 Jul 2008 20:34:31 -0700
+Message-ID: <20080718203431.48e16ff0@extreme>
+References: <20080620162234.1c2103ee@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:58927 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([216.93.170.194]:59399 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750704AbYGSDTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2008 23:19:54 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 5962F4F425A
-	for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 20:19:53 -0700 (PDT)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Njq9GkoApgK5 for <netdev@vger.kernel.org>;
-	Fri, 18 Jul 2008 20:19:49 -0700 (PDT)
-Received: from extreme (pool-71-245-98-107.ptldor.fios.verizon.net [71.245.98.107])
-	by mail.vyatta.com (Postfix) with ESMTP id D80BD4F4248
-	for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 20:19:48 -0700 (PDT)
+	id S1750704AbYGSDef (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2008 23:34:35 -0400
+In-Reply-To: <20080620162234.1c2103ee@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks like locks on qdisc aren't initialized properly after
-Dave's conversion to MQ.
+Some of the metrics (RTT, RTTVAR and RTAX_RTO_MIN) are stored in kernel
+units (jiffies) and this leaks out through the netlink API to user space
+where the units for jiffies are unknown.
 
-# brctl addbr br0
-# ifconfig br0 10.1.1.1
-# ifconfig br0 down
-------------------
+This patches changes the kernel to convert to/from milliseconds. This changes
+the ABI, but milliseconds seemed like the most natural unit for these parameters.
+Values available via syscall in /proc/net/rt_cache and netlink will be in milliseconds.
 
-[  146.937241] br0: Dropping NETIF_F_UFO since no NETIF_F_HW_CSUM feature.
-[  253.874538] BUG: spinlock bad magic on CPU#2, ifconfig/7861
-[  253.874548]  lock: ffffffff806c0558, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
-[  253.874552] Pid: 7861, comm: ifconfig Not tainted 2.6.26 #12
-[  253.874557] 
-[  253.874557] Call Trace:
-[  253.874566]  [<ffffffff803884cf>] spin_bug+0xef/0x100
-[  253.874571]  [<ffffffff803886ff>] _raw_spin_lock+0x9f/0x190
-[  253.874579]  [<ffffffff8050a822>] _spin_lock_bh+0x32/0x40
-[  253.874584]  [<ffffffff8048f197>] dev_deactivate_queue+0x37/0x70
-[  253.874591]  [<ffffffff8048ee10>] dev_deactivate+0x40/0x150
-[  253.874596]  [<ffffffff8047c18a>] dev_close+0x4a/0xa0
-[  253.874602]  [<ffffffff8047bdb1>] dev_change_flags+0xa1/0x1d0
-[  253.874609]  [<ffffffff804cba73>] devinet_ioctl+0x5b3/0x760
-[  253.874619]  [<ffffffff804cc5fd>] inet_ioctl+0x6d/0x90
-[  253.874624]  [<ffffffff8046f446>] sock_ioctl+0x56/0x240
-[  253.874630]  [<ffffffff802cbc91>] vfs_ioctl+0x31/0x90
-[  253.874635]  [<ffffffff802cbf5b>] do_vfs_ioctl+0x26b/0x2d0
-[  253.874640]  [<ffffffff8050a391>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[  253.874646]  [<ffffffff802cc042>] sys_ioctl+0x82/0xa0
-[  253.874653]  [<ffffffff8020c518>] system_call_after_swapgs+0x88/0x8d
-[  253.874660] 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+ include/net/dst.h    |   14 +++++++++++++-
+ net/ipv4/tcp_input.c |   31 ++++++++++++++++++-------------
+ 2 files changed, 31 insertions(+), 14 deletions(-)
+
+--- a/include/net/dst.h	2008-07-18 20:30:22.000000000 -0700
++++ b/include/net/dst.h	2008-07-18 20:30:40.000000000 -0700
+@@ -128,6 +128,18 @@ static inline u32 dst_mtu(const struct d
+ 	return mtu;
+ }
+ 
++/* RTT metrics are stored in milliseconds for user ABI, but used as jiffies */
++static inline unsigned long dst_metric_rtt(const struct dst_entry *dst, int metric)
++{
++	return msecs_to_jiffies(dst_metric(dst, metric));
++}
++
++static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
++				      unsigned long rtt)
++{
++	dst->metrics[metric-1] = jiffies_to_msecs(rtt);
++}
++
+ static inline u32
+ dst_allfrag(const struct dst_entry *dst)
+ {
+
+--- a/net/ipv4/tcp_input.c	2008-07-18 20:30:22.000000000 -0700
++++ b/net/ipv4/tcp_input.c	2008-07-18 20:30:27.000000000 -0700
+@@ -602,7 +602,7 @@ static u32 tcp_rto_min(struct sock *sk)
+ 	u32 rto_min = TCP_RTO_MIN;
+ 
+ 	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
+-		rto_min = dst_metric(dst, RTAX_RTO_MIN);
++		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
+ 	return rto_min;
+ }
+ 
+@@ -729,6 +729,7 @@ void tcp_update_metrics(struct sock *sk)
+ 	if (dst && (dst->flags & DST_HOST)) {
+ 		const struct inet_connection_sock *icsk = inet_csk(sk);
+ 		int m;
++		unsigned long rtt;
+ 
+ 		if (icsk->icsk_backoff || !tp->srtt) {
+ 			/* This session failed to estimate rtt. Why?
+@@ -740,7 +741,8 @@ void tcp_update_metrics(struct sock *sk)
+ 			return;
+ 		}
+ 
+-		m = dst_metric(dst, RTAX_RTT) - tp->srtt;
++		rtt = dst_metric_rtt(dst, RTAX_RTT);
++		m = rtt - tp->srtt;
+ 
+ 		/* If newly calculated rtt larger than stored one,
+ 		 * store new one. Otherwise, use EWMA. Remember,
+@@ -748,12 +750,13 @@ void tcp_update_metrics(struct sock *sk)
+ 		 */
+ 		if (!(dst_metric_locked(dst, RTAX_RTT))) {
+ 			if (m <= 0)
+-				dst->metrics[RTAX_RTT - 1] = tp->srtt;
++				set_dst_metric_rtt(dst, RTAX_RTT, tp->srtt);
+ 			else
+-				dst->metrics[RTAX_RTT - 1] -= (m >> 3);
++				set_dst_metric_rtt(dst, RTAX_RTT, rtt - (m >> 3));
+ 		}
+ 
+ 		if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
++			unsigned long var;
+ 			if (m < 0)
+ 				m = -m;
+ 
+@@ -762,11 +765,13 @@ void tcp_update_metrics(struct sock *sk)
+ 			if (m < tp->mdev)
+ 				m = tp->mdev;
+ 
+-			if (m >= dst_metric(dst, RTAX_RTTVAR))
+-				dst->metrics[RTAX_RTTVAR - 1] = m;
++			var = dst_metric_rtt(dst, RTAX_RTTVAR);
++			if (m >= var)
++				var = m;
+ 			else
+-				dst->metrics[RTAX_RTTVAR-1] -=
+-					(dst_metric(dst, RTAX_RTTVAR) - m)>>2;
++				var -= (var - m) >> 2;
++
++			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
+ 		}
+ 
+ 		if (tp->snd_ssthresh >= 0xFFFF) {
+@@ -897,7 +902,7 @@ static void tcp_init_metrics(struct sock
+ 	if (dst_metric(dst, RTAX_RTT) == 0)
+ 		goto reset;
+ 
+-	if (!tp->srtt && dst_metric(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
++	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
+ 		goto reset;
+ 
+ 	/* Initial rtt is determined from SYN,SYN-ACK.
+@@ -914,12 +919,12 @@ static void tcp_init_metrics(struct sock
+ 	 * to low value, and then abruptly stops to do it and starts to delay
+ 	 * ACKs, wait for troubles.
+ 	 */
+-	if (dst_metric(dst, RTAX_RTT) > tp->srtt) {
+-		tp->srtt = dst_metric(dst, RTAX_RTT);
++	if (dst_metric_rtt(dst, RTAX_RTT) > tp->srtt) {
++		tp->srtt = dst_metric_rtt(dst, RTAX_RTT);
+ 		tp->rtt_seq = tp->snd_nxt;
+ 	}
+-	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
+-		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
++	if (dst_metric_rtt(dst, RTAX_RTTVAR) > tp->mdev) {
++		tp->mdev = dst_metric_rtt(dst, RTAX_RTTVAR);
+ 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+ 	}
+ 	tcp_set_rto(sk);
+
