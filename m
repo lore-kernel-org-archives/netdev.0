@@ -1,46 +1,35 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] net namespace: build when SYSCTL=n
-Date: Fri, 18 Jul 2008 17:18:12 -0700
-Message-ID: <20080718171812.8dfc9767.randy.dunlap@oracle.com>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: [RFC 0/2] TCP: Add TCP-AO support
+Date: Fri, 18 Jul 2008 17:22:10 -0700
+Message-ID: <396556a20805301217k293e5718h6bbf02bfe069030@europa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: lkml <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:34982 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034AbYGSASi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 20:18:38 -0400
+Received: from rv-out-0506.google.com ([209.85.198.227]:23763 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbYGSAVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2008 20:21:03 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so506472rvb.1
+        for <netdev@vger.kernel.org>; Fri, 18 Jul 2008 17:21:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+This is an experimental pair of patches which adds support for TCP-AO[1]. AO
+(Auth option) is the replacement for TCP MD5 signatures, adding different MAC
+functions, shorter functions, key rotation etc. See the comments at the top of
+the 2/2 patch for details.
 
-When CONFIG_SYSCTL=n, build fails with:
+This patch still supports the TCP MD5 setsockopt as always, it's just a wrapper
+around the TCP-AO code now.
 
-linux-next-20080718/include/net/net_namespace.h:40: error: field 'sysctls' has incomplete type
+The 1/2 patch is just a rename patch (s/md5sig/auth/ more of less). It gets its
+own patch because, otherwise, you wouldn't be able to see the actual changes
+for the noise.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/net_namespace.h |    2 ++
- 1 file changed, 2 insertions(+)
+This is only intended for comments on the userland interface and for anyone who
+wishes to play with it. If you're in the latter set, I have a netcat-like tool
+which can use the new interfaces.
 
---- linux-next-20080718.orig/include/net/net_namespace.h
-+++ linux-next-20080718/include/net/net_namespace.h
-@@ -37,7 +37,9 @@ struct net {
- 	struct proc_dir_entry 	*proc_net;
- 	struct proc_dir_entry 	*proc_net_stat;
- 
-+#ifdef CONFIG_SYSCTL
- 	struct ctl_table_set	sysctls;
-+#endif
- 
- 	struct net_device       *loopback_dev;          /* The loopback */
- 
-
-
----
-~Randy
-Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
-http://linuxplumbersconf.org/
+[1] http://www.ietf.org/internet-drafts/draft-ietf-tcpm-tcp-auth-opt-01.txt
