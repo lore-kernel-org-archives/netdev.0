@@ -1,58 +1,30 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [BUG, NET] deadlock tearing down a bridged interface
-Date: Sat, 19 Jul 2008 10:01:35 -0700
-Message-ID: <48821DEF.1040306@candelatech.com>
-References: <20080718073724.GA5802@disturbed> <4880BA7A.3020909@candelatech.com> <20080719011709.GA5947@disturbed>
+From: "Keyur Chudgar" <kchudgar.linux@gmail.com>
+Subject: Free TCP/IP stack to be used
+Date: Sat, 19 Jul 2008 13:56:07 -0700
+Message-ID: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:57777 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989AbYGSRBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 13:01:41 -0400
-In-Reply-To: <20080719011709.GA5947@disturbed>
+Received: from yw-out-2324.google.com ([74.125.46.31]:41677 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753725AbYGSU4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2008 16:56:09 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so282558ywe.1
+        for <netdev@vger.kernel.org>; Sat, 19 Jul 2008 13:56:08 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave Chinner wrote:
-> On Fri, Jul 18, 2008 at 08:44:58AM -0700, Ben Greear wrote:
->   
->> Dave Chinner wrote:
->>     
->>> Folks,
->>>
->>> I just deadlocked networking on a 2.6.24 kernel. Basically I
->>> was trying to restart the bridge interface I use for UML sessions
->>> because it wasn't passing packets. This happens occasionally
->>> when I leave a UML session too long in gdb, so I bounced the
->>> bridge to get it working again.
->>>   
->>>       
->> We have been chasing a refcount bug in 2.6.25 that only happens when
->> IPv6 module is loaded.
->>     
->
-> Which causes what problem? The deadlock I reported or the bridge occasionally
-> hanging? Is that a problem in 2.6.24?
->
-> The deadlock is the one I'm concerned about - it appears that
-> netdev_run_todo() can only wait on a single interface at a time,
-> so if we are tearing down two interfaces concurrently where one
-> has a reference on the other a deadlock is just waiting to happen...
->   
-Our problem is the refcount hang while trying to remove a netdevice.  It 
-appears
-to be an ipv6 related leakage of some sort, and not directly related to 
-bridges.
+Hi,
+
+I am looking for free TCP/IP stack to be used in my system.
+Can anybody suggest which one I should go for? It should be
+light weight and not like Linux TCP/IP stack. I came across
+LwIP, but I am not sure about it's performance.
+
+Your suggestions would be appreciated.
 
 Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+- Keyur
