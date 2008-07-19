@@ -1,7 +1,7 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH 3/4] tg3: Adapt tg3 to use reworked PCI PM code
-Date: Sat, 19 Jul 2008 14:40:38 +0200
-Message-ID: <200807191440.39243.rjw@sisk.pl>
+Subject: [PATCH 2/4] PCI PM: Make more PCI PM core functionality available to drivers
+Date: Sat, 19 Jul 2008 14:39:24 +0200
+Message-ID: <200807191439.25371.rjw@sisk.pl>
 References: <200807191436.40726.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -14,10 +14,10 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
 To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:44362 "EHLO ogre.sisk.pl"
+Received: from ogre.sisk.pl ([217.79.144.158]:44366 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754203AbYGSMmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jul 2008 08:42:08 -0400
+	id S1754252AbYGSMmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jul 2008 08:42:09 -0400
 In-Reply-To: <200807191436.40726.rjw@sisk.pl>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -25,189 +25,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Adapt tg3 to use reworked PCI PM code
+Make more PCI PM core functionality available to drivers
 
-Adapt the tg3 driver to use the reworked PCI PM and make it use
-the exported PCI PM core functions instead of accessing the PCI PM
-registers directly by itself.
+* Export pci_pme_capable() so that it can be called directly by
+  drivers (for example, tg3 needs that).
+
+* Move the state choosing part of pci_prepare_to_sleep() to a
+  separate function, pci_target_state(), that can be called directly
+  by drivers (for example, tg3 needs that).
 
 Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 ---
- drivers/net/tg3.c |   68 +++++++++++++++++++++++-------------------------------
- 1 file changed, 29 insertions(+), 39 deletions(-)
+ drivers/pci/pci.c   |   35 +++++++++++++++++++++++++----------
+ include/linux/pci.h |    2 ++
+ 2 files changed, 27 insertions(+), 10 deletions(-)
 
-Index: linux-2.6/drivers/net/tg3.c
+Index: linux-next/drivers/pci/pci.c
 ===================================================================
---- linux-2.6.orig/drivers/net/tg3.c
-+++ linux-2.6/drivers/net/tg3.c
-@@ -1449,8 +1449,6 @@ static void tg3_power_down_phy(struct tg
- static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+--- linux-next.orig/drivers/pci/pci.c
++++ linux-next/drivers/pci/pci.c
+@@ -1040,7 +1040,7 @@ int pci_set_pcie_reset_state(struct pci_
+  * @dev: PCI device to handle.
+  * @state: PCI state from which device will issue PME#.
+  */
+-static bool pci_pme_capable(struct pci_dev *dev, pci_power_t state)
++bool pci_pme_capable(struct pci_dev *dev, pci_power_t state)
  {
- 	u32 misc_host_ctrl;
--	u16 power_control, power_caps;
--	int pm = tp->pm_cap;
- 
- 	/* Make sure register accesses (indirect or otherwise)
- 	 * will function correctly.
-@@ -1459,18 +1457,10 @@ static int tg3_set_power_state(struct tg
- 			       TG3PCI_MISC_HOST_CTRL,
- 			       tp->misc_host_ctrl);
- 
--	pci_read_config_word(tp->pdev,
--			     pm + PCI_PM_CTRL,
--			     &power_control);
--	power_control |= PCI_PM_CTRL_PME_STATUS;
--	power_control &= ~(PCI_PM_CTRL_STATE_MASK);
- 	switch (state) {
- 	case PCI_D0:
--		power_control |= 0;
--		pci_write_config_word(tp->pdev,
--				      pm + PCI_PM_CTRL,
--				      power_control);
--		udelay(100);	/* Delay after power state change */
-+		pci_enable_wake(tp->pdev, state, false);
-+		pci_set_power_state(tp->pdev, PCI_D0);
- 
- 		/* Switch out of Vaux if it is a NIC */
- 		if (tp->tg3_flags2 & TG3_FLG2_IS_NIC)
-@@ -1479,25 +1469,15 @@ static int tg3_set_power_state(struct tg
- 		return 0;
- 
- 	case PCI_D1:
--		power_control |= 1;
--		break;
--
- 	case PCI_D2:
--		power_control |= 2;
--		break;
--
- 	case PCI_D3hot:
--		power_control |= 3;
- 		break;
- 
- 	default:
--		printk(KERN_WARNING PFX "%s: Invalid power state (%d) "
--		       "requested.\n",
--		       tp->dev->name, state);
-+		printk(KERN_ERR PFX "%s: Invalid power state (D%d) requested\n",
-+			tp->dev->name, state);
- 		return -EINVAL;
--	};
--
--	power_control |= PCI_PM_CTRL_PME_ENABLE;
-+	}
- 
- 	misc_host_ctrl = tr32(TG3PCI_MISC_HOST_CTRL);
- 	tw32(TG3PCI_MISC_HOST_CTRL,
-@@ -1539,8 +1519,6 @@ static int tg3_set_power_state(struct tg
- 						     WOL_DRV_WOL |
- 						     WOL_SET_MAGIC_PKT);
- 
--	pci_read_config_word(tp->pdev, pm + PCI_PM_PMC, &power_caps);
--
- 	if (tp->tg3_flags & TG3_FLAG_WOL_ENABLE) {
- 		u32 mac_mode;
- 
-@@ -1571,8 +1549,8 @@ static int tg3_set_power_state(struct tg
- 		if (!(tp->tg3_flags2 & TG3_FLG2_5750_PLUS))
- 			tw32(MAC_LED_CTRL, tp->led_ctrl);
- 
--		if (((power_caps & PCI_PM_CAP_PME_D3cold) &&
--		     (tp->tg3_flags & TG3_FLAG_WOL_ENABLE)))
-+		if (pci_pme_capable(tp->pdev, state) &&
-+		     (tp->tg3_flags & TG3_FLAG_WOL_ENABLE))
- 			mac_mode |= MAC_MODE_MAGIC_PKT_ENABLE;
- 
- 		tw32_f(MAC_MODE, mac_mode);
-@@ -1664,9 +1642,11 @@ static int tg3_set_power_state(struct tg
- 
- 	tg3_write_sig_post_reset(tp, RESET_KIND_SHUTDOWN);
- 
-+	if (tp->tg3_flags & TG3_FLAG_WOL_ENABLE)
-+		pci_enable_wake(tp->pdev, state, true);
-+
- 	/* Finally, set the new power state. */
--	pci_write_config_word(tp->pdev, pm + PCI_PM_CTRL, power_control);
--	udelay(100);	/* Delay after power state change */
-+	pci_set_power_state(tp->pdev, state);
- 
- 	return 0;
+ 	if (!dev->pm_cap)
+ 		return false;
+@@ -1123,18 +1123,11 @@ int pci_enable_wake(struct pci_dev *dev,
  }
-@@ -8656,7 +8636,8 @@ static void tg3_get_wol(struct net_devic
+ 
+ /**
+- * pci_prepare_to_sleep - prepare PCI device for system-wide transition into
+- *                        a sleep state
+- * @dev: Device to handle.
+  *
+- * Choose the power state appropriate for the device depending on whether
+- * it can wake up the system and/or is power manageable by the platform
+- * (PCI_D3hot is the default) and put the device into that state.
+  */
+-int pci_prepare_to_sleep(struct pci_dev *dev)
++pci_power_t pci_target_state(struct pci_dev *dev)
  {
- 	struct tg3 *tp = netdev_priv(dev);
+ 	pci_power_t target_state = PCI_D3hot;
+-	int error;
  
--	if (tp->tg3_flags & TG3_FLAG_WOL_CAP)
-+	if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
-+	    device_can_wakeup(&tp->pdev->dev))
- 		wol->supported = WAKE_MAGIC;
- 	else
- 		wol->supported = 0;
-@@ -8669,18 +8650,22 @@ static void tg3_get_wol(struct net_devic
- static int tg3_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct tg3 *tp = netdev_priv(dev);
-+	struct device *dp = &tp->pdev->dev;
+ 	if (platform_pci_power_manageable(dev)) {
+ 		/*
+@@ -1161,7 +1154,7 @@ int pci_prepare_to_sleep(struct pci_dev 
+ 		 * to generate PME#.
+ 		 */
+ 		if (!dev->pm_cap)
+-			return -EIO;
++			return PCI_POWER_ERROR;
  
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EINVAL;
- 	if ((wol->wolopts & WAKE_MAGIC) &&
--	    !(tp->tg3_flags & TG3_FLAG_WOL_CAP))
-+	    !((tp->tg3_flags & TG3_FLAG_WOL_CAP) && device_can_wakeup(dp)))
- 		return -EINVAL;
- 
- 	spin_lock_bh(&tp->lock);
--	if (wol->wolopts & WAKE_MAGIC)
-+	if (wol->wolopts & WAKE_MAGIC) {
- 		tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
--	else
-+		device_set_wakeup_enable(dp, true);
-+	} else {
- 		tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
-+		device_set_wakeup_enable(dp, false);
-+	}
- 	spin_unlock_bh(&tp->lock);
- 
- 	return 0;
-@@ -10799,7 +10784,8 @@ static void __devinit tg3_get_eeprom_hw_
- 		if (val & VCPU_CFGSHDW_ASPM_DBNC)
- 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
- 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
--		    (val & VCPU_CFGSHDW_WOL_MAGPKT))
-+		    (val & VCPU_CFGSHDW_WOL_MAGPKT) &&
-+		    device_may_wakeup(&tp->pdev->dev))
- 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
- 		return;
+ 		if (dev->pme_support) {
+ 			while (target_state
+@@ -1170,6 +1163,26 @@ int pci_prepare_to_sleep(struct pci_dev 
+ 		}
  	}
-@@ -10926,8 +10912,9 @@ static void __devinit tg3_get_eeprom_hw_
- 		    !(nic_cfg & NIC_SRAM_DATA_CFG_FIBER_WOL))
- 			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
  
--		if (tp->tg3_flags & TG3_FLAG_WOL_CAP &&
--		    nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE)
-+		if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
-+		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE) &&
-+		    device_may_wakeup(&tp->pdev->dev))
- 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
- 
- 		if (cfg2 & (1 << 17))
-@@ -13091,6 +13078,7 @@ static int tg3_suspend(struct pci_dev *p
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tg3 *tp = netdev_priv(dev);
-+	pci_power_t target_state;
- 	int err;
- 
- 	/* PCI register 4 needs to be saved whether netif_running() or not.
-@@ -13118,7 +13106,9 @@ static int tg3_suspend(struct pci_dev *p
- 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
- 	tg3_full_unlock(tp);
- 
--	err = tg3_set_power_state(tp, pci_choose_state(pdev, state));
-+	target_state = pdev->pm_cap ? pci_target_state(pdev) : PCI_D3hot;
++	return target_state;
++}
 +
-+	err = tg3_set_power_state(tp, target_state);
- 	if (err) {
- 		tg3_full_lock(tp, 0);
++/**
++ * pci_prepare_to_sleep - prepare PCI device for system-wide transition into
++ *                        a sleep state
++ * @dev: Device to handle.
++ *
++ * Choose the power state appropriate for the device depending on whether
++ * it can wake up the system and/or is power manageable by the platform
++ * (PCI_D3hot is the default) and put the device into that state.
++ */
++int pci_prepare_to_sleep(struct pci_dev *dev)
++{
++	pci_power_t target_state = pci_target_state(dev);
++	int error;
++
++	if (target_state == PCI_POWER_ERROR)
++		return -EIO;
++
+ 	pci_enable_wake(dev, target_state, true);
+ 
+ 	error = pci_set_power_state(dev, target_state);
+@@ -1920,7 +1933,9 @@ EXPORT_SYMBOL(pci_select_bars);
+ EXPORT_SYMBOL(pci_set_power_state);
+ EXPORT_SYMBOL(pci_save_state);
+ EXPORT_SYMBOL(pci_restore_state);
++EXPORT_SYMBOL(pci_pme_capable);
+ EXPORT_SYMBOL(pci_enable_wake);
++EXPORT_SYMBOL(pci_target_state);
+ EXPORT_SYMBOL(pci_prepare_to_sleep);
+ EXPORT_SYMBOL(pci_back_from_sleep);
+ EXPORT_SYMBOL_GPL(pci_set_pcie_reset_state);
+Index: linux-next/include/linux/pci.h
+===================================================================
+--- linux-next.orig/include/linux/pci.h
++++ linux-next/include/linux/pci.h
+@@ -638,7 +638,9 @@ int pci_save_state(struct pci_dev *dev);
+ int pci_restore_state(struct pci_dev *dev);
+ int pci_set_power_state(struct pci_dev *dev, pci_power_t state);
+ pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state);
++bool pci_pme_capable(struct pci_dev *dev, pci_power_t state);
+ int pci_enable_wake(struct pci_dev *dev, pci_power_t state, int enable);
++pci_power_t pci_target_state(struct pci_dev *dev);
+ int pci_prepare_to_sleep(struct pci_dev *dev);
+ int pci_back_from_sleep(struct pci_dev *dev);
  
 
