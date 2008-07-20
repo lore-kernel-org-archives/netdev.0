@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
  RCU.
-Date: Sun, 20 Jul 2008 10:20:50 -0700 (PDT)
-Message-ID: <20080720.102050.21541173.davem@davemloft.net>
-References: <20080717.152447.89672084.davem@davemloft.net>
-	<E1KKZxj-0000vD-00@gondolin.me.apana.org.au>
+Date: Sun, 20 Jul 2008 10:25:34 -0700 (PDT)
+Message-ID: <20080720.102534.246150854.davem@davemloft.net>
+References: <1216387641.4833.96.camel@localhost>
+	<20080718.140539.122169028.davem@davemloft.net>
+	<1216566963.4847.81.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, hadi@cyberus.ca, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: kaber@trash.net, netdev@vger.kernel.org, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48589
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757503AbYGTRUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 13:20:50 -0400
-In-Reply-To: <E1KKZxj-0000vD-00@gondolin.me.apana.org.au>
+	by vger.kernel.org with ESMTP id S1758024AbYGTRZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 13:25:35 -0400
+In-Reply-To: <1216566963.4847.81.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 20 Jul 2008 22:32:35 +0800
+From: jamal <hadi@cyberus.ca>
+Date: Sun, 20 Jul 2008 11:16:03 -0400
 
-> Now I understand that having a pfifo is an anathema to multi-queue TX
-> by definition.  However, even if we couldn't preserve the full
-> semantics by default, if we could at least preserve the ordering
-> within each queue it would still be a plus.
+> IMO, in the case of multiple hardware queues per physical wire,
+> and such a netdevice already has a built-in hardware scheduler (they all
+> seem to have this feature) then if we can feed the hardware queues
+> directly, theres no need for any intermediate buffer(s).
+> In such a case, to compare with qdisc arch, its like the root qdisc is
+> in hardware.
 
-That's how I basically feel right now as well.
+They tend to implement round-robin or some similar fairness algorithm
+amongst the queues, with zero concern about packet priorities.
 
-So we can revert that change that killed pfifo_fast
-if we want.
+It really is just like a bunch of queues to the phsyical layer,
+fairly shared.
+
+These things are built for parallelization, not prioritization.
