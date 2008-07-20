@@ -1,39 +1,46 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Free TCP/IP stack to be used
-Date: Sun, 20 Jul 2008 11:57:33 +0200
-Message-ID: <878wvw98tu.fsf@basil.nowhere.org>
-References: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: IPV6_V6ONLY ignored for SCTP
+Date: Sun, 20 Jul 2008 16:07:44 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0807162242030.32031@fbirervta.pbzchgretzou.qr>
+References: <alpine.LNX.1.10.0805181244480.15590@fbirervta.pbzchgretzou.qr> <1216239342994-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Keyur Chudgar" <kchudgar.linux@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out01.alice-dsl.net ([88.44.60.11]:59825 "EHLO
-	smtp-out01.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979AbYGTJ6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 05:58:19 -0400
-In-Reply-To: <a967d7d00807191356v5dbd0397web585bae1598ee9@mail.gmail.com> (Keyur Chudgar's message of "Sat, 19 Jul 2008 13:56:07 -0700")
+Received: from sovereign.computergmbh.de ([85.214.69.204]:44178 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756923AbYGTOHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 10:07:46 -0400
+In-Reply-To: <1216239342994-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Keyur Chudgar" <kchudgar.linux@gmail.com> writes:
 
-> Hi,
+On Wednesday 2008-07-16 22:15, Vlad Yasevich wrote:
+
+>Hi Jan
 >
-> I am looking for free TCP/IP stack to be used in my system.
-> Can anybody suggest which one I should go for? It should be
-> light weight and not like Linux TCP/IP stack. I came across
-> LwIP, but I am not sure about it's performance.
+>Can you give this patch a try.  I wrote a bunch of test that
+>I could think off and this seems to pass all of them.
+>
+>At this point it might just need to run and have some eyes on
+>it.
 
-FWIW In the big scheme of things (especially when you strip it down a
-little bit at the CONFIG option level or perhaps use the 2.4 version)
-the Linux stack is not actually that heavy in memory. In particular
-many other stacks tend to use pre-allocated packet pools which can
-easily use a lot more memory than the code delta even of a larger
-stack. The Linux stack at least in most drivers doesn't do that and
-only allocates memory on demand. There are unfortunately now a few
-highend drivers who start using preallocated pools too, but these can
-be still easily avoided.
 
--Andi
+stg import sctpv6.diff
+done
+Importing patch "sctpv6.diff" ... 
+<stdin>:35: trailing whitespace.
+            
+<stdin>:43: trailing whitespace.
+/* Does the address 'addr' conflict with any addresses in 
+warning: 2 lines add whitespace errors.
+done
+Now at patch "sctpv6.diff"
 
+
+At least fix these ;-)
+
+But the patch works, thanks!
+Jan
