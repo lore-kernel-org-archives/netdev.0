@@ -1,103 +1,55 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [GIT]: Networking
-Date: Sun, 20 Jul 2008 10:59:41 -0700
-Message-ID: <20080720105941.77061d6a@infradead.org>
-References: <20080720.104411.81744468.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/2] r8169: multicast register update
+Date: Sun, 20 Jul 2008 20:05:55 +0200
+Message-ID: <20080720180555.GB31465@electric-eye.fr.zoreil.com>
+References: <20080720180451.GA31465@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Marcus Sundberg <marcus@ingate.com>,
+	Johan =?unknown-8bit?Q?Myr=C3=A9en?= <jem@iki.fi>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	David Miller <davem@davemloft.net>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33609 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757700AbYGTR7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 13:59:35 -0400
-In-Reply-To: <20080720.104411.81744468.davem@davemloft.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35130 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757812AbYGTSG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 14:06:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20080720180451.GA31465@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+The layout of the 8101 series is identical to that of the 8168 one,
+thus allowing to pack everything not 8169 related above MAC_VER_06.
+New 810x and 8168 chipsets should automagically behave correctly.
 
-I noticed the patch below isn't in this (yet)
-did it slip through or does it still need more work?
+It matches code in Realtek's 1.008.00 8101 and 8.007.00 8168 drivers.
 
-
-
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Print the module name as part of the watchdog message
-
-As suggested by Dave:
-
-This patch adds a function to get the driver name from a struct net_device,
-and consequently uses this in the watchdog timeout handler to print as 
-part of the message. 
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |   20 ++++++++++++++++++++
- net/sched/sch_generic.c   |    6 +++---
- 3 files changed, 25 insertions(+), 3 deletions(-)
+ drivers/net/r8169.c |    8 +-------
+ 1 files changed, 1 insertions(+), 7 deletions(-)
 
-Index: linux.trees.git/include/linux/netdevice.h
-===================================================================
---- linux.trees.git.orig/include/linux/netdevice.h
-+++ linux.trees.git/include/linux/netdevice.h
-@@ -1516,6 +1516,8 @@ extern void dev_seq_stop(struct seq_file
- extern int netdev_class_create_file(struct class_attribute *class_attr);
- extern void netdev_class_remove_file(struct class_attribute *class_attr);
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index cfe8829..2a5486f 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3032,13 +3032,7 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ 	tmp = rtl8169_rx_config | rx_mode |
+ 	      (RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].RxConfigMask);
  
-+extern char *netdev_drivername(struct net_device *dev, char *buffer, int len);
-+
- extern void linkwatch_run_queue(void);
+-	if ((tp->mac_version == RTL_GIGA_MAC_VER_11) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_12) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_13) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_14) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_16) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_17)) {
++	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
+ 		u32 data = mc_filter[0];
  
- extern int netdev_compute_features(unsigned long all, unsigned long one);
-Index: linux.trees.git/net/core/dev.c
-===================================================================
---- linux.trees.git.orig/net/core/dev.c
-+++ linux.trees.git/net/core/dev.c
-@@ -4554,6 +4554,26 @@ err_name:
- 	return -ENOMEM;
- }
- 
-+char *netdev_drivername(struct net_device *dev, char *buffer, int len)
-+{
-+	struct device_driver *driver;
-+	struct device *parent;
-+
-+	if (len <= 0 || !buffer)
-+		return buffer;
-+	buffer[0] = 0;
-+
-+	parent = dev->dev.parent;
-+
-+	if (!parent)
-+		return buffer;
-+
-+	driver = parent->driver;
-+	if (driver && driver->name)
-+		strlcpy(buffer, driver->name, len);
-+	return buffer;
-+}
-+
- static void __net_exit netdev_exit(struct net *net)
- {
- 	kfree(net->dev_name_head);
-Index: linux.trees.git/net/sched/sch_generic.c
-===================================================================
---- linux.trees.git.orig/net/sched/sch_generic.c
-+++ linux.trees.git/net/sched/sch_generic.c
-@@ -215,9 +215,9 @@ static void dev_watchdog(unsigned long a
- 		    netif_carrier_ok(dev)) {
- 			if (netif_queue_stopped(dev) &&
- 			    time_after(jiffies, dev->trans_start + dev->watchdog_timeo)) {
--
--				printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n",
--				       dev->name);
-+				char drivername[64];
-+				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
-+				       dev->name, netdev_drivername(dev, drivername, 64));
- 				dev->tx_timeout(dev);
- 				WARN_ON_ONCE(1);
- 			}
+ 		mc_filter[0] = swab32(mc_filter[1]);
+-- 
+1.5.3.3
+
