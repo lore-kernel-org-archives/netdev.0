@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] netdev: debugging option
-Date: Sun, 20 Jul 2008 00:05:09 -0700 (PDT)
-Message-ID: <20080720.000509.20260185.davem@davemloft.net>
-References: <20080719011709.GA5947@disturbed>
-	<48821DEF.1040306@candelatech.com>
-	<20080719230424.190957a3@extreme>
+Subject: Re: [PATCH v2 0/3] Add size table feature for qdiscs
+Date: Sun, 20 Jul 2008 00:09:50 -0700 (PDT)
+Message-ID: <20080720.000950.96686337.davem@davemloft.net>
+References: <20080719233441.12596.91242.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: jussi.kivilinna@mbnet.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35407
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38819
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752079AbYGTHFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 03:05:10 -0400
-In-Reply-To: <20080719230424.190957a3@extreme>
+	by vger.kernel.org with ESMTP id S1751767AbYGTHJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 03:09:50 -0400
+In-Reply-To: <20080719233441.12596.91242.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 19 Jul 2008 23:04:24 -0700
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date: Sun, 20 Jul 2008 02:34:55 +0300
 
-> This adds a debugging option for network devices. It could grow to add other
-> uses, but for now just add some messages about device reference counting.
+> Patch adds generic size table for qdiscs that is similiar to rate table
+> used by htb/tbf/cbq.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Changes since v1:
+>  - ingress qdisc / actions handled too
+>  - size of table is now dynamic
+>  - add qdisc_enqueue_root wrapper
 
-I think this is useful but it could use some minor
-mods before we put it in.
+This stuff looks fundamentally fine to me, so I've added
+these changes to net-2.6
 
-For example, this thing will spam the logs in at least two
-common cases:
+Please send any further fixups as relative changes.
 
-1) Lots of routing cache replacements
-
-2) For older drivers using netif_rx() (and therefore, every
-   current tunnel), every RX packet will trigger a log message
-
-So we really need to add some kind of run time enable and also a
-filter of some sort, even if it's just on device.
+Thanks.
