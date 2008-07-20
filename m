@@ -1,51 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Udo van den Heuvel <udovdh@xs4all.nl>
 Subject: Re: kernel: TD structure error TDindex=e
-Date: Sun, 20 Jul 2008 18:08:12 +0200
-Message-ID: <20080720160812.GA23652@electric-eye.fr.zoreil.com>
-References: <48835302.1090708@xs4all.nl>
+Date: Sun, 20 Jul 2008 18:14:15 +0200
+Message-ID: <48836457.2050302@xs4all.nl>
+References: <48835302.1090708@xs4all.nl> <20080720160812.GA23652@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Udo van den Heuvel <udovdh@xs4all.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40653 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757292AbYGTQIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 12:08:14 -0400
-Content-Disposition: inline
-In-Reply-To: <48835302.1090708@xs4all.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758256AbYGTQOa@vger.kernel.org>
+In-Reply-To: <20080720160812.GA23652@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Udo van den Heuvel <udovdh@xs4all.nl> :
-[...]
-> 16:41:09 recorder kernel: TD structure error TDindex=e
+Francois Romieu wrote:
+> Udo van den Heuvel <udovdh@xs4all.nl> :
+> [...]
+>> 16:41:09 recorder kernel: TD structure error TDindex=e
+(...)
+>> How can I avoid/fix/etc this situation ?
 > 
-> This was on a VIA EN12000 board (with VIA Velocity Gbit ethernet,
-> running 2.6.25.7) while doing a file transfer. The card was `down` after
-> that.
-[...]
-> How can I avoid/fix/etc this situation ?
+> Can you apply the patch below to get some more information ?
 
-Can you apply the patch below to get some more information ?
+Will do, will look for an earliest opportinuty to boot the machine with
+the patched kernel.
 
-May I assume that it does not count as a regression ?
+> May I assume that it does not count as a regression ?
 
-Thanks in advance.
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 370ce30..57ee35b 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1743,7 +1743,8 @@ static void velocity_error(struct velocity_info *vptr, int status)
- 	if (status & ISR_TXSTLI) {
- 		struct mac_regs __iomem * regs = vptr->mac_regs;
- 
--		printk(KERN_ERR "TD structure error TDindex=%hx\n", readw(&regs->TDIdx[0]));
-+		printk(KERN_ERR "Tx process error TDIdx=0x%04x TXESR=0x%02x\n",
-+		       readw(&regs->TDIdx[0]), readb(&regs->TXESR));
- 		BYTE_REG_BITS_ON(TXESR_TDSTR, &regs->TXESR);
- 		writew(TRDCSR_RUN, &regs->TDCSRClr);
- 		netif_stop_queue(vptr->dev);
--- 
-Ueimor
+Can't confirm/deny.
+It has 'hung' before.
