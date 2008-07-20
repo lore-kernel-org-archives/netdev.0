@@ -1,79 +1,61 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
-	RCU.
-Date: Sun, 20 Jul 2008 11:16:03 -0400
-Message-ID: <1216566963.4847.81.camel@localhost>
-References: <487FDA67.30902@trash.net> <1216386624.4833.94.camel@localhost>
-	 <1216387641.4833.96.camel@localhost>
-	 <20080718.140539.122169028.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction
+	in	RCU.
+Date: Sun, 20 Jul 2008 11:35:19 -0400
+Message-ID: <1216568119.4847.101.camel@localhost>
+References: <E1KKZmE-0000ty-00@gondolin.me.apana.org.au>
+Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:33051 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757940AbYGTPQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 11:16:07 -0400
-Received: by py-out-1112.google.com with SMTP id p76so815845pyb.10
-        for <netdev@vger.kernel.org>; Sun, 20 Jul 2008 08:16:06 -0700 (PDT)
-In-Reply-To: <20080718.140539.122169028.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E1KKZmE-0000ty-00-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-18-07 at 14:05 -0700, David Miller wrote:
+On Sun, 2008-20-07 at 22:20 +0800, Herbert Xu wrote:
 
-> The fundamental issue is what we believe qdiscs schedule, do they
-> schedule a device, or do they schedule what their namesake implies,
-> "queues"?
+> Not all actions :) That nat action for example wasn't intended to
+> be shared at all.  In fact I still need to submit a patch to make
+> it skip the shared hash as otherwise it simply won't scale as the
+> number of nat actions increases (e.g., to 256K).
 
-In the simple case of a single hardware queue/ring, the mapping between
-a hardware queue and "physical wire" is one-to-one.
-So in that case one could argue the root qdiscs are scheduling a device.
+True, sharing in the case of nat will cause scaling challenges because
+there is a per-action locking. So you dont want to share in that case.
+Let me clarify the global "sharedness" of actions, because i dont think
+there is an issue:
 
-> Logically once we have multiple queues, we schedule queues.
-> Therefore what probably makes sense is that for mostly stateless
-> priority queueing such as pfifo_fast, doing prioritization at the
-> queue level is OK.
+All actions (on a per-type hash table basis) have an index.
+You create filter rule X and specify action nat.
+You may specify the index of the action when you create the filter X. 
+If you then create another filter rule Y, also using the same action
+index, then that nat action is shared between rule X and rule Y[1].
 
-IMO, in the case of multiple hardware queues per physical wire,
-and such a netdevice already has a built-in hardware scheduler (they all
-seem to have this feature) then if we can feed the hardware queues
-directly, theres no need for any intermediate buffer(s).
-In such a case, to compare with qdisc arch, its like the root qdisc is
-in hardware.
-
-The only need for intermediate s/ware queues is for cases of congestion.
-If you could have a single software queue for each hardware queue, then
-you still have the obligation of correctness to make sure higher prio
-hardware rings get fed with packets first (depending on the hardwares
-scheduling capability).
-
-> But where non-trivial classification occurs, we have to either:
-> 
-> 1) Make the queue selection match what the classifiers would do
->    exactly.
-> 
-> OR
-> 
-> 2) Point all the queues at a single device global qdisc.
-> 
-> What we have now implements #2.  Later on we can try to do something
-> as sophisticated as #1.
-
-sure; i think you could achieve the goals by using the single queue with
-a software pfifo_fast which maps skb->prio to hardware queues. such a
-pfifo_fast may even sit in the driver. This queue will always be empty
-unless you have congestion. The other thing is to make sure there is an
-upper bound to the size of this queue; otherwise a remote bug could
-cause it to grow infinitely and consume all memory.
+If you dont specify the index a new nat action is created.
+So in essence, if you create 256K rules each with an action and
+as long as you dont specify the action index, you should be fine
+because none will be shared.
+The only scaling thing i can think of is to try and make the nat action
+hash table large to reduce the init lookup. Other than that, once the
+action is bound to a filter lookup cost is zero.
 
 cheers,
 jamal
 
+[1]This is useful for tow reasons:
+a) memory saving purposes: If you dont care that much about performance
+or on a uniprocessor machine, one action would just be sufficient for
+many rules.
+b) accounting purposes; as you know qdiscs/filters/actions are
+per-device. Over the years, a need has arosen from some users to have a
+"per system" accounting (refer to the IMQ/IFB approach). Eg, if i wanted
+the policer action to account for ingress eth0 and egress eth1 for a
+user, i couldnt do it without some acrobatics.
 
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
