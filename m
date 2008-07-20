@@ -1,34 +1,40 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
-Date: Sun, 20 Jul 2008 22:20:42 +0800
-Message-ID: <E1KKZmE-0000ty-00@gondolin.me.apana.org.au>
-References: <1216301732.4726.26.camel@localhost>
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216301732.4726.26.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Sun, 20 Jul 2008 22:32:35 +0800
+Message-ID: <E1KKZxj-0000vD-00@gondolin.me.apana.org.au>
+References: <20080717.152447.89672084.davem@davemloft.net>
+Cc: kaber@trash.net, hadi@cyberus.ca, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: davem@davemloft.net (David Miller)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:40760 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753157AbYGTOcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 10:32:45 -0400
+In-Reply-To: <20080717.152447.89672084.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org> wrote:
->
-> Actions are fine because they are intended to be globaly shared.
-> [i.e A classifier on ethx with qdiscA:Y (in/egress) can share an action
-> with  classifer on  ethy with qdiscB:Z (eg/ingress)].
+David Miller <davem@davemloft.net> wrote:
+> 
+> Are we really really sure it's OK to let users do this?  :)
 
-Not all actions :) That nat action for example wasn't intended to
-be shared at all.  In fact I still need to submit a patch to make
-it skip the shared hash as otherwise it simply won't scale as the
-number of nat actions increases (e.g., to 256K).
+Well security questions aside, I have seen this used on routers
+to ensure certain traffic (e.g., VOIP) get preferential treatment
+when it comes to transmission.
+
+Of course some of these routers setup custom qdiscs so they wouldn't
+be affected, but there may be ones out there relying on the default
+pfifo.
+
+Now I understand that having a pfifo is an anathema to multi-queue TX
+by definition.  However, even if we couldn't preserve the full
+semantics by default, if we could at least preserve the ordering
+within each queue it would still be a plus.
 
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
