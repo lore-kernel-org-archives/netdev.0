@@ -1,37 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
-Date: Mon, 21 Jul 2008 21:58:46 +0800
-Message-ID: <20080721135846.GA11543@gondor.apana.org.au>
-References: <E1KKu2D-0002kd-00@gondolin.me.apana.org.au> <1216645724.4847.275.camel@localhost> <20080721131918.GA11114@gondor.apana.org.au> <1216648585.4847.303.camel@localhost>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
+	overwritten
+Date: Mon, 21 Jul 2008 16:01:28 +0200
+Message-ID: <20080721140128.GA32245@elte.hu>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru> <20080721115555.GA24176@elte.hu> <20080721125747.GA3056@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52325 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752282AbYGUN65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:58:57 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:44831 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752334AbYGUOBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 10:01:49 -0400
 Content-Disposition: inline
-In-Reply-To: <1216648585.4847.303.camel@localhost>
+In-Reply-To: <20080721125747.GA3056@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 09:56:25AM -0400, jamal wrote:
+
+* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+
+> On Mon, Jul 21, 2008 at 01:55:55PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
+> > > > I could try run tests with netconsole deactivated, if you think 
+> > > > that's a worthwile line of probing this problem. (although that 
+> > > > would make me do blind tests in essence - having kernel log output 
+> > > > is really essential.)
+> > > 
+> > > Let's try this way first. If system will continue to crash, we will 
+> > > add some debug options in various pathes. Existing reports do not 
+> > > contain enough information unfortunately, so we will not lose too 
+> > > much.
+> > 
+> > ok. I've turned off netconsole - 8 successful bootups in a row so far. 
+> > The box is a slow booter/builder with an 8 kernels/hour test throughput, 
+> > so if everything goes fine we should have meaningful results in about 10 
+> > hours.
+> > 
+> > ( there are other, faster testboxes in -tip testing with 33 kernels/hour 
+> >   build+boot throughput where we'd have to wait only 2 hours - but as 
+> >   per Murphy's law they dont trigger this bug ;-)
 > 
-> Ok - You may be able to pull it if you have the exact same hashing on
-> hardware rx as it is on transmit stateless filtering.
-> I can see a traffic pattern that could be cooked to give some good
-> numbers in such a scenario;->
+> Since 2.6.25 there was only single change in netpoll.c:
+> f5184d267c1aedb9b7a8cc44e08ff6b8d382c3b5
+> Which looks innocent.
+> 
+> Is your driver e1000 or e1000e? Can you check different one?
 
-Actually you've hit it on the head, as an alternative to TX hashing
-on the packet content, we need to allow TX queue selection based on
-the current CPU ID.
+i cannot check e1000 anymore due to this upstream commit:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+| d03157babed7424f5391af43200593768ce69c9a is first bad commit
+| commit d03157babed7424f5391af43200593768ce69c9a
+| Author: Auke Kok <auke-jan.h.kok@intel.com>
+| Date:   Sun Jun 22 15:21:29 2008 -0700
+|
+|    e1000: remove PCI Express device IDs
+|
+|    We do not want to prolong the situation much longer that e1000
+|    and e1000e support these devices at the same time. As a result,
+|    take out the bandage that was added for the interim period
+|    and remove all the PCI Express device IDs from e1000.
+
+but yes, this box was using e1000 for a long time, and recently migrated 
+to e1000e. I'm not sure there's any connection, do you think there is?
+
+	Ingo
