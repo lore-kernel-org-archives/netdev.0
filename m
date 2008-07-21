@@ -1,51 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
-Date: Tue, 22 Jul 2008 01:24:48 +0400
-Message-ID: <20080721212447.GA10107@2ka.mipt.ru>
-References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru> <20080721115555.GA24176@elte.hu> <20080721192138.GA27672@elte.hu>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [crash] kernel BUG at net/core/dev.c:1328!
+Date: Mon, 21 Jul 2008 23:26:24 +0200
+Message-ID: <4884FF00.30101@s5r6.in-berlin.de>
+References: <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org>	<20080721.120052.123606398.davem@davemloft.net>	<4884E174.5030802@s5r6.in-berlin.de> <20080721.131129.244101157.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
-	davem@davemloft.net, Auke Kok <auke-jan.h.kok@intel.com>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, mingo@elte.hu,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:36414 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbYGUVZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 17:25:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20080721192138.GA27672@elte.hu>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:53999 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751783AbYGUV1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 17:27:21 -0400
+In-Reply-To: <20080721.131129.244101157.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 09:21:38PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> So it's now a strong likelyhood that this crash is a combination of 
-> e1000e+netconsole.
+David Miller wrote:
+> You should only do a netif_stop_queue() in your device
+> initialization, at the very end of ->open() processing
+> when you've fully committed to returning success.
+> 
+> You should not, in particular, be doing a netif_wake_queue()
+> before you've even done a netif_start_queue().
+> 
+> Many of these drivers are using netif_{stop,wake}_queue()
+> to stop packet flow, in particular when link state changes,
+> and netif_carrier_{on,off}() already does all of that for
+> you.
+> 
+> Really, anything outside of:
+> 
+> 1) netif_start_queue() in ->open()
+> 2) netif_stop_queue() in ->stop()
+> 3) netif_{stop,wake}_queue() in the TX packet handling path
+> 
+> is superfluous.
 
-e1000_clean_tx_irq() call looks particulary suspicious: it is called
-without adapter->tx_queue_lock in poll controller (netconsole callback)
-and with that lock in NAPI handler.
-
-Can you check kind of this patch:
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 869544b..5f180d8 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4067,7 +4067,9 @@ static void e1000_netpoll(struct net_device *netdev)
- 	disable_irq(adapter->pdev->irq);
- 	e1000_intr(adapter->pdev->irq, netdev);
- 
-+	spin_lock(&adapter->tx_queue_lock);
- 	e1000_clean_tx_irq(adapter);
-+	spin_unlock(&adapter->tx_queue_lock);
- 
- 	enable_irq(adapter->pdev->irq);
- }
-
-
+Thanks, I wasn't aware of this.  I'll try to fix up eth1394 this way as 
+time permits.
 -- 
-	Evgeniy Polyakov
+Stefan Richter
+-=====-==--- -=== =-=-=
+http://arcgraph.de/sr/
