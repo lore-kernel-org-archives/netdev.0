@@ -1,38 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 20/31] netns ct: NOTRACK in netns
-Date: Mon, 21 Jul 2008 19:08:43 +0200
-Message-ID: <4884C29B.7060107@trash.net>
-References: <20080721165028.GF13390@martell.zuzino.mipt.ru> <alpine.LNX.1.10.0807211901220.21244@fbirervta.pbzchgretzou.qr>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Tue, 22 Jul 2008 01:11:41 +0800
+Message-ID: <20080721171141.GA13573@gondor.apana.org.au>
+References: <20080721164306.GA13131@gondor.apana.org.au> <20080721.095124.89249903.davem@davemloft.net> <20080721170233.GA13417@gondor.apana.org.au> <20080721.100821.38432201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, dev@openvz.org, xemul@openvz.org,
-	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42802 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbYGURIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:08:45 -0400
-In-Reply-To: <alpine.LNX.1.10.0807211901220.21244@fbirervta.pbzchgretzou.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080721.100821.38432201.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt wrote:
-> On Monday 2008-07-21 18:50, Alexey Dobriyan wrote:
-> 
->> +++ b/net/netfilter/xt_state.c
->> @@ -30,7 +31,7 @@ state_mt(const struct sk_buff *skb, const struct net_device *in,
->> 	enum ip_conntrack_info ctinfo;
->> 	unsigned int statebit;
->>
->> -	if (nf_ct_is_untracked(skb))
->> +	if (nf_ct_is_untracked(dev_net(in ? in : out), skb))
-> 
-> Does this even do the right thing? Given the forward path, where
-> both in!=NULL and out!=NULL, why should it specifically be 'in'
-> that is selected?
+On Mon, Jul 21, 2008 at 10:08:21AM -0700, David Miller wrote:
+>
+> Can I at least get some commitment that someone will test
+> that this really is necessary before we add the CPU ID
+> hash option?
 
-It doesn't matter, the namespace during forwaring is always
-equal for the input and output devices.
+Sure, I'll be testing some related things on this front so I'll
+try to produce some results that compare these two cases.
+
+For the purposes of demonstrating this I'll choose the worst-case
+scenario, that is, I'll ensure that the TX hash result exactly
+distributes each RX hash preimage across all possible TX hash
+values.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
