@@ -1,42 +1,47 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/1] qeth: fix 2.6.27 build
-Date: Mon, 21 Jul 2008 13:54:29 +0200
-Message-ID: <20080721115507.647845000@de.ibm.com>
-References: <20080721115428.005485000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	bunk@kernel.org, kaber@trash.net
-To: jgarzik@pobox.com
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
+	overwritten
+Date: Mon, 21 Jul 2008 13:55:55 +0200
+Message-ID: <20080721115555.GA24176@elte.hu>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:36276 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbYGUL4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 07:56:09 -0400
-Content-Disposition: inline; filename=qeth_fix_build.patch
+Received: from mx3.mail.elte.hu ([157.181.1.138]:48720 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750803AbYGUL4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 07:56:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20080721112515.GA4777@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Remove obsolete setting of the VLAN magic. This will fix the build
-error introduced by Commit 6aa895b047720f71ec4eb11452f7c3ce8426941f
-(vlan: Don't store VLAN tag in cb)
+* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
- drivers/s390/net/qeth_l3_main.c |    1 -
- 1 file changed, 1 deletion(-)
+> > I could try run tests with netconsole deactivated, if you think 
+> > that's a worthwile line of probing this problem. (although that 
+> > would make me do blind tests in essence - having kernel log output 
+> > is really essential.)
+> 
+> Let's try this way first. If system will continue to crash, we will 
+> add some debug options in various pathes. Existing reports do not 
+> contain enough information unfortunately, so we will not lose too 
+> much.
 
-Index: git_linus/drivers/s390/net/qeth_l3_main.c
-===================================================================
---- git_linus.orig/drivers/s390/net/qeth_l3_main.c	2008-07-21 13:35:25.000000000 +0200
-+++ git_linus/drivers/s390/net/qeth_l3_main.c	2008-07-21 13:37:12.000000000 +0200
-@@ -2651,7 +2651,6 @@
- 			tag = (u16 *)(new_skb->data + 12);
- 			*tag = __constant_htons(ETH_P_8021Q);
- 			*(tag + 1) = htons(vlan_tx_tag_get(new_skb));
--			VLAN_TX_SKB_CB(new_skb)->magic = 0;
- 		}
- 	}
- 
+ok. I've turned off netconsole - 8 successful bootups in a row so far. 
+The box is a slow booter/builder with an 8 kernels/hour test throughput, 
+so if everything goes fine we should have meaningful results in about 10 
+hours.
 
--- 
+( there are other, faster testboxes in -tip testing with 33 kernels/hour 
+  build+boot throughput where we'd have to wait only 2 hours - but as 
+  per Murphy's law they dont trigger this bug ;-)
+
+	Ingo
