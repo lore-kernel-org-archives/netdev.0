@@ -1,42 +1,260 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add a statistics counter for tx hash miss
-Date: Mon, 21 Jul 2008 09:51:58 -0700 (PDT)
-Message-ID: <20080721.095158.127501421.davem@davemloft.net>
-References: <1216630088-10328-2-git-send-email-andi@firstfloor.org>
-	<20080721.093330.153507902.davem@davemloft.net>
-	<20080721164407.GC29543@basil.nowhere.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 20/31] netns ct: NOTRACK in netns
+Date: Mon, 21 Jul 2008 20:50:28 +0400
+Message-ID: <20080721165028.GF13390@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55664
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751754AbYGUQv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:51:58 -0400
-In-Reply-To: <20080721164407.GC29543@basil.nowhere.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	dev@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, benjamin.thery@bull.net
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 21 Jul 2008 18:44:07 +0200
+Make untracked conntrack per-netns. Compare conntracks with untracked
+one in relevant netns.
 
-> On Mon, Jul 21, 2008 at 09:33:30AM -0700, David Miller wrote:
-> > From: Andi Kleen <andi@firstfloor.org>
-> > Date: Mon, 21 Jul 2008 10:48:08 +0200
-> > 
-> > > Add a counter for the case when the TX hash function doesn't work.
-> > > 
-> > > Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> > 
-> > This is very much not an IPV4 protocol statistic.
-> > 
-> > I understand your desire to export this information, but
-> > as easy as this method is it's not the right way.
-> 
-> It's IPv4 and IPv6 and netstat contains Ipv4 and ipv6 information
-> (e.g. all the TCP counters) and even some completely protocol independent 
-> counters like ArpFilter.
+The following code may looks funny (sort-of self-referential):
 
-You're logging when we don't hit ipv4 or ipv6 :-)
+	if (ct == ct->ct_net->ct.untracked)
+		...
+
+but, but, given that ->ct_net is set in only one place and is never
+overwritten later, it's should be fine actually.
+
+All of this requires some surgery with headers, otherwise circular
+dependencies. For that we also lose nf_ct_is_untracked() as function
+and make it macro.
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ include/linux/netfilter/x_tables.h     |    4 ++--
+ include/net/netfilter/nf_conntrack.h   |    9 ++-------
+ include/net/netns/conntrack.h          |    3 +++
+ net/ipv4/netfilter/arptable_filter.c   |    1 +
+ net/ipv4/netfilter/nf_nat_core.c       |    2 +-
+ net/ipv4/netfilter/nf_nat_standalone.c |    2 +-
+ net/netfilter/nf_conntrack_core.c      |   13 +++++--------
+ net/netfilter/nf_conntrack_netlink.c   |    3 ++-
+ net/netfilter/xt_NOTRACK.c             |    3 ++-
+ net/netfilter/xt_conntrack.c           |    4 ++--
+ net/netfilter/xt_state.c               |    3 ++-
+ 11 files changed, 23 insertions(+), 24 deletions(-)
+
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -171,7 +171,7 @@ struct xt_counters_info
+ 
+ #ifdef __KERNEL__
+ 
+-#include <linux/netdevice.h>
++struct net_device;
+ 
+ struct xt_match
+ {
+@@ -295,7 +295,7 @@ struct xt_table
+ 	int af;		/* address/protocol family */
+ };
+ 
+-#include <linux/netfilter_ipv4.h>
++#include <linux/netfilter.h>
+ 
+ /* The table itself */
+ struct xt_table_info
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -262,9 +262,6 @@ extern void nf_conntrack_tcp_update(const struct sk_buff *skb,
+ 				    struct nf_conn *ct,
+ 				    int dir);
+ 
+-/* Fake conntrack entry for untracked connections */
+-extern struct nf_conn nf_conntrack_untracked;
+-
+ /* Iterate over all conntracks: if iter returns true, it's deleted. */
+ extern void
+ nf_ct_iterate_cleanup(struct net *net, int (*iter)(struct nf_conn *i, void *data), void *data);
+@@ -286,10 +283,8 @@ static inline int nf_ct_is_dying(struct nf_conn *ct)
+ 	return test_bit(IPS_DYING_BIT, &ct->status);
+ }
+ 
+-static inline int nf_ct_is_untracked(const struct sk_buff *skb)
+-{
+-	return (skb->nfct == &nf_conntrack_untracked.ct_general);
+-}
++#define nf_ct_is_untracked(net, skb)	\
++	((skb)->nfct == &(net)->ct.untracked.ct_general)
+ 
+ extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+ extern unsigned int nf_conntrack_htable_size;
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -3,6 +3,7 @@
+ 
+ #include <linux/list.h>
+ #include <asm/atomic.h>
++#include <net/netfilter/nf_conntrack.h>
+ 
+ struct netns_ct {
+ 	atomic_t		count;
+@@ -12,5 +13,7 @@ struct netns_ct {
+ 	struct hlist_head	*expect_hash;
+ 	int			expect_vmalloc;
+ 	struct hlist_head	unconfirmed;
++	/* Fake conntrack entry for untracked connections */
++	struct nf_conn		untracked;
+ };
+ #endif
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #include <linux/module.h>
++#include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_arp/arp_tables.h>
+ 
+ MODULE_LICENSE("GPL");
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -616,7 +616,7 @@ static int __init nf_nat_init(void)
+ 	spin_unlock_bh(&nf_nat_lock);
+ 
+ 	/* Initialize fake conntrack so that NAT will skip it */
+-	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
++	init_net.ct.untracked.status |= IPS_NAT_DONE_MASK;
+ 
+ 	l3proto = nf_ct_l3proto_find_get((u_int16_t)AF_INET);
+ 
+--- a/net/ipv4/netfilter/nf_nat_standalone.c
++++ b/net/ipv4/netfilter/nf_nat_standalone.c
+@@ -97,7 +97,7 @@ nf_nat_fn(unsigned int hooknum,
+ 		return NF_ACCEPT;
+ 
+ 	/* Don't try to NAT if this packet is not conntracked */
+-	if (ct == &nf_conntrack_untracked)
++	if (ct == &nf_ct_net(ct)->ct.untracked)
+ 		return NF_ACCEPT;
+ 
+ 	nat = nfct_nat(ct);
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -49,9 +49,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
+ int nf_conntrack_max __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ 
+-struct nf_conn nf_conntrack_untracked __read_mostly;
+-EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
+-
+ unsigned int nf_ct_log_invalid __read_mostly;
+ static struct kmem_cache *nf_conntrack_cachep __read_mostly;
+ 
+@@ -1018,8 +1015,8 @@ void nf_conntrack_cleanup(struct net *net)
+ 		schedule();
+ 		goto i_see_dead_people;
+ 	}
+-	/* wait until all references to nf_conntrack_untracked are dropped */
+-	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
++	/* wait until all references to untracked conntrack are dropped */
++	while (atomic_read(&net->ct.untracked.ct_general.use) > 1)
+ 		schedule();
+ 
+ 	rcu_assign_pointer(nf_ct_destroy, NULL);
+@@ -1179,11 +1176,11 @@ int nf_conntrack_init(struct net *net)
+ 	/* Set up fake conntrack:
+ 	    - to never be deleted, not in any hashes */
+ #ifdef CONFIG_NET_NS
+-	nf_conntrack_untracked.ct_net = &init_net;
++	net->ct.untracked.ct_net = net;
+ #endif
+-	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
++	atomic_set(&net->ct.untracked.ct_general.use, 1);
+ 	/*  - and look it like as a confirmed connection */
+-	set_bit(IPS_CONFIRMED_BIT, &nf_conntrack_untracked.status);
++	set_bit(IPS_CONFIRMED_BIT, &net->ct.untracked.status);
+ 
+ 	return ret;
+ 
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -30,6 +30,7 @@
+ 
+ #include <linux/netfilter.h>
+ #include <net/netlink.h>
++#include <net/net_namespace.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+ #include <net/netfilter/nf_conntrack_expect.h>
+@@ -425,7 +426,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
+ 	unsigned int flags = 0, group;
+ 
+ 	/* ignore our fake conntrack entry */
+-	if (ct == &nf_conntrack_untracked)
++	if (ct == &nf_ct_net(ct)->ct.untracked)
+ 		return NOTIFY_DONE;
+ 
+ 	if (events & IPCT_DESTROY) {
+--- a/net/netfilter/xt_NOTRACK.c
++++ b/net/netfilter/xt_NOTRACK.c
+@@ -2,6 +2,7 @@
+  * on packets so that they are not seen by the conntrack/NAT code.
+  */
+ #include <linux/module.h>
++#include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ 
+ #include <linux/netfilter/x_tables.h>
+@@ -25,7 +26,7 @@ notrack_tg(struct sk_buff *skb, const struct net_device *in,
+ 	   If there is a real ct entry correspondig to this packet,
+ 	   it'll hang aroun till timing out. We don't deal with it
+ 	   for performance reasons. JK */
+-	skb->nfct = &nf_conntrack_untracked.ct_general;
++	skb->nfct = &dev_net(in ? in : out)->ct.untracked.ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+ 	nf_conntrack_get(skb->nfct);
+ 
+--- a/net/netfilter/xt_conntrack.c
++++ b/net/netfilter/xt_conntrack.c
+@@ -39,7 +39,7 @@ conntrack_mt_v0(const struct sk_buff *skb, const struct net_device *in,
+ 
+ #define FWINV(bool, invflg) ((bool) ^ !!(sinfo->invflags & (invflg)))
+ 
+-	if (ct == &nf_conntrack_untracked)
++	if (ct == &nf_ct_net(ct)->ct.untracked)
+ 		statebit = XT_CONNTRACK_STATE_UNTRACKED;
+ 	else if (ct)
+ 		statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
+@@ -217,7 +217,7 @@ conntrack_mt(const struct sk_buff *skb, const struct net_device *in,
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 
+-	if (ct == &nf_conntrack_untracked)
++	if (ct == &nf_ct_net(ct)->ct.untracked)
+ 		statebit = XT_CONNTRACK_STATE_UNTRACKED;
+ 	else if (ct != NULL)
+ 		statebit = XT_CONNTRACK_STATE_BIT(ctinfo);
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -10,6 +10,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
++#include <linux/netdevice.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_state.h>
+@@ -30,7 +31,7 @@ state_mt(const struct sk_buff *skb, const struct net_device *in,
+ 	enum ip_conntrack_info ctinfo;
+ 	unsigned int statebit;
+ 
+-	if (nf_ct_is_untracked(skb))
++	if (nf_ct_is_untracked(dev_net(in ? in : out), skb))
+ 		statebit = XT_STATE_UNTRACKED;
+ 	else if (!nf_ct_get(skb, &ctinfo))
+ 		statebit = XT_STATE_INVALID;
+-- 
+1.5.4.5
+
+
