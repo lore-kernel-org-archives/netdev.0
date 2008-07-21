@@ -1,53 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [crash] kernel BUG at net/core/dev.c:1328!
-Date: Mon, 21 Jul 2008 13:20:17 -0700 (PDT)
-Message-ID: <20080721.132017.209065925.davem@davemloft.net>
-References: <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org>
-	<20080721.120052.123606398.davem@davemloft.net>
-	<20080721194414.GA4872@elte.hu>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
+ at 0000000000000370
+Date: Mon, 21 Jul 2008 13:21:00 -0700 (PDT)
+Message-ID: <20080721.132100.128525904.davem@davemloft.net>
+References: <4884DFEE.4060003@lwfinger.net>
+	<20080721193425.GA29287@elte.hu>
+	<4884E6E6.7010800@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stefanr@s5r6.in-berlin.de
-To: mingo@elte.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32853
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751554AbYGUUUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 16:20:17 -0400
-In-Reply-To: <20080721194414.GA4872@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-X9Un+BFzKDI@public.gmane.org, ischram-CNXmb7IdZIWZIoH1IeqzKA@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	j@w1.fi
+To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4884E6E6.7010800-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 21 Jul 2008 21:44:14 +0200
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Date: Mon, 21 Jul 2008 14:43:34 -0500
 
+> Jul 21 12:19:37 larrylap kernel: kernel BUG at net/core/dev.c:1328!
+> Jul 21 12:19:37 larrylap kernel: invalid opcode: 0000 [1] SMP
+> Jul 21 12:19:37 larrylap kernel: CPU 0
+> Jul 21 12:19:37 larrylap kernel: Modules linked in: af_packet rfkill_input nfs 
+> lockd nfs_acl sunrpc cpufreq_conservative cpu
+> freq_userspace cpufreq_powersave powernow_k8 fuse loop dm_mod arc4 ecb 
+> crypto_blkcipher b43 firmware_class rfkill mac80211 c
+> fg80211 snd_hda_intel snd_pcm snd_timer led_class snd k8temp input_polldev 
+> sr_mod soundcore button battery hwmon cdrom force
+> deth ac serio_raw ssb snd_page_alloc sg ehci_hcd sd_mod ohci_hcd usbcore edd fan 
+> thermal processor ext3 mbcache jbd pata_amd
+>   ahci libata scsi_mod dock
+> Jul 21 12:19:37 larrylap kernel: Pid: 2057, comm: b43 Not tainted 
+> 2.6.26-Linus-git-05253-g14b395e #1
+> Jul 21 12:19:37 larrylap kernel: RIP: 0010:[<ffffffff8039ec4d>] 
+> [<ffffffff8039ec4d>] __netif_schedule+0x12/0x75
+> Jul 21 12:19:37 larrylap kernel: RSP: 0000:ffff8800b9ae1de0  EFLAGS: 00010246
 > 
-> * David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Linus Torvalds <torvalds@linux-foundation.org>
-> > Date: Mon, 21 Jul 2008 11:35:21 -0700 (PDT)
-> > 
-> > > Maybe the network drivers are few enough that it will get fixed, or
-> > > maybe the WARN_ON_ONCE() will just be removed and the rule not
-> > > reinforced.
-> > > 
-> > > I personally suspect the latter, since it seems to happen with just
-> > > about _any_ random network driver, including the common and
-> > > well-maintained ones (ie the Gods only help us for the truly
-> > > odd/random cases)
-> > 
-> > Yes, we'll see how this plays out.
-> > 
-> > Ian Schram just posted a patch for the NULL pointer derfer in wireless 
-> > Ingo reported, so we'll see if that bug will be fixed now as well.
-> 
-> Yes, the fix from Ian below solved the CONFIG_MAC80211_HWSIM=y crash i 
-> was getting. I have no other pending issues other than a few low-prio 
-> ne2000 build failures.
-> 
-> Thanks guys,
+> With an invalid opcode, mine is likely due to stack corruption.
 
-Thanks everyone, applied.
+No further backtrace?  That will tell us what driver is causing
+this.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
