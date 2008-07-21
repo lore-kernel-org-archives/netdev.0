@@ -1,37 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 4/4] sky2: Adapt sky2 to use reworked PCI PM
-Date: Sun, 20 Jul 2008 19:07:42 -0700
-Message-ID: <20080720190742.84258d7e.akpm@linux-foundation.org>
-References: <200807191436.40726.rjw@sisk.pl>
-	<200807191442.52759.rjw@sisk.pl>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+	RCU.
+Date: Sun, 20 Jul 2008 22:20:38 -0400
+Message-ID: <1216606839.4847.159.camel@localhost>
+References: <1216566963.4847.81.camel@localhost>
+	 <20080720.102534.246150854.davem@davemloft.net>
+	 <1216593170.4847.137.camel@localhost>
+	 <20080720.165911.86437240.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: kaber@trash.net, netdev@vger.kernel.org, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57792 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758404AbYGUCIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 22:08:18 -0400
-In-Reply-To: <200807191442.52759.rjw@sisk.pl>
+Received: from py-out-1112.google.com ([64.233.166.176]:29904 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758927AbYGUCUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 22:20:41 -0400
+Received: by py-out-1112.google.com with SMTP id p76so909306pyb.10
+        for <netdev@vger.kernel.org>; Sun, 20 Jul 2008 19:20:41 -0700 (PDT)
+In-Reply-To: <20080720.165911.86437240.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 19 Jul 2008 14:42:51 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+On Sun, 2008-20-07 at 16:59 -0700, David Miller wrote:
 
-> Adapt the sky2 driver to use the reworked PCI PM.
+> Every time this topic comes up, you insist on them having to match.
+> And I have no idea why.
 
-I fixed the rejects in "[PATCH 3/4] tg3: Adapt tg3 to use reworked PCI
-PM code" but this patch has too many for me to want to fix them.
+I dont insist on them matching, just on correctness. i.e if you say you
+have RR, then the scheduling needs to meet those requirements not an
+estimate - thats all.
 
-As usual, please at least take a look at what's in linux-next before
-going and bypassing all that queued work.
+> The problem is that the bottleneck is the qdisc itself since all those
+> cpus synchonize on it's lock.  We can't have a shared qdisc for the
+> device and get full parallelization.
+> 
+> That's why we're having one qdisc per TX queue, so that they all don't
+> bunch up on the qdisc lock.
 
-Patches 3 and 4 (which are Jeff things) depend upon patch 2, which is a
-Jesse thing.  So I will attempt to not send patches 3 and 4 (assuming 4
-gets fixed) to Jeff until Jesse has sent #2 into mainline.  This should
-be interesting.
+That last sentence i have no issues with - it is what i thought wasnt
+happening;-> i misunderstood it to be a single fifo shared by all
+hardware tx queues from the begining (otherwise i wouldnt be posting).
+We are in sync i think, a single pfifo per TX queue is the way to go. I
+was suggesting it goes in the driver, but this is cleaner: In the
+future, one could could actually replace the pfifo with another qdisc
+since the single virtual wire becomes equivalent to a single virtual
+netdevice
+
+> Otherwise, there is zero point in all of these TX multiqueue features
+> in the hardware if we can't parallelize things fully.
+
+parallelization is achieveable in the ideal case.
+
+cheers,
+jamal
+
