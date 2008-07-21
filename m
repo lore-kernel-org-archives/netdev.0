@@ -1,59 +1,110 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 10:40:24 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0807211037200.31863@woody.linux-foundation.org>
-References: <4883E465.4050405@trash.net> <Xine.LNX.4.64.0807212143540.17349@us.intercode.com.au> <48847BA5.2020600@trash.net> <20080721.102852.124418551.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Mon, 21 Jul 2008 10:58:14 -0700 (PDT)
+Message-ID: <20080721.105814.241900308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaber@trash.net, jmorris@namei.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60632 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751426AbYGURkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:40:31 -0400
-In-Reply-To: <20080721.102852.124418551.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54877
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750794AbYGUR6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:58:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Here is a collection of the fixes that poured in today,
+including your change to use WARN_ON in __netif_schedule()
+as well as a 64-bit counter rework in netfilter.
 
-On Mon, 21 Jul 2008, David Miller wrote:
+I'm looking at a netconsole and a wireless crash reported
+by Ingo.
 
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 21 Jul 2008 14:05:57 +0200
-> 
-> > The idea was that NETFILTER_ADVANCED=n enables everything needed
-> > by mainstream distributions and hides the rest. We can certainly
-> > change the default for this option, but that makes NETFILTER_ADVANCED
-> > pretty much useless.
-> 
-> A new feature cannot possibly be used by existing distributions.  I
-> think that's the main gripe.
+Please pull, thanks a lot!
 
-Well, if the feature really is going to be something that a _normal_ 
-netfilter config needs, then it should indeed be turned on.
+The following changes since commit 14b395e35d1afdd8019d11b92e28041fad591b71:
+  Linus Torvalds (1):
+        Merge branch 'for-2.6.27' of git://linux-nfs.org/~bfields/linux
 
-However, nothing in the docs imply that at all. Can you explain? Why 
-should IP_NF_SECURITY be on, and why should a default netfilter table 
-enable it? And if it should, WHY THE HELL IS IT DOCUMENTED THAT YOU SHOULD 
-SAY 'N'?
+are available in the git repository at:
 
-Patrick, see my original report:
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
 
-> Grr. And I quote:
-> 
->         Security table (IP_NF_SECURITY) [Y/n/?] (NEW) ?
->       
->       This option adds a `security' table to iptables, for use
->       with Mandatory Access Control (MAC) policy.
->       
->       If unsure, say N.
+Anton Vorontsov (2):
+      gianfar: do not touch net queue in adjust_link phylib callback
+      ucc_geth: do not touch net queue in adjust_link phylib callback
 
+Changli Gao (1):
+      netfilter: nf_nat_core: eliminate useless find_appropriate_src for IP_NAT_RANGE_PROTO_RANDOM
 
-That option as it stands now MAKES NO SENSE. Either you should say 'Y' 
-(and you should explain _why_), or you should say 'N' (as documented) and 
-it should damn well default to 'N' too!
+Daniel Lezcano (1):
+      pkt_sched: Remove unused variable skb in dev_deactivate_queue function.
 
-		Linus
+David Howells (1):
+      netfilter: xt_time: fix time's time_mt()'s use of do_div()
+
+David S. Miller (4):
+      atl1: Do not wake queue before queue has been started.
+      sunhme: Remove stop/wake TX queue calls in set-multicast-list handler.
+      net: Improve simple_tx_hash().
+      Revert "pkt_sched: Make default qdisc nonshared-multiqueue safe."
+
+Eric Leblond (1):
+      netfilter: nfnetlink_log: send complete hardware header
+
+Herbert Xu (1):
+      netfilter: nf_nat_sip: c= is optional for session
+
+Jan Engelhardt (1):
+      netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
+
+Krzysztof Piotr Oledzki (2):
+      netlink: add NLA_PUT_BE64 macro
+      netfilter: accounting rework: ct_extend + 64bit counters (v4)
+
+Linus Torvalds (1):
+      net: In __netif_schedule() use WARN_ON instead of BUG_ON
+
+Micah Dowty (1):
+      hdlcdrv: Fix CRC calculation.
+
+Patrick McHardy (1):
+      netfilter: nf_conntrack_sctp: fix sparse warnings
+
+ Documentation/feature-removal-schedule.txt         |   10 ++
+ Documentation/kernel-parameters.txt                |    7 ++
+ drivers/net/atlx/atl1.c                            |    3 +-
+ drivers/net/gianfar.c                              |    1 -
+ drivers/net/hamradio/hdlcdrv.c                     |    1 +
+ drivers/net/sunhme.c                               |    4 -
+ drivers/net/ucc_geth.c                             |    1 -
+ include/linux/netfilter/nf_conntrack_common.h      |    8 +--
+ include/linux/netfilter/nfnetlink_conntrack.h      |    8 +-
+ include/linux/netfilter/nfnetlink_log.h            |    3 +
+ include/net/netfilter/nf_conntrack.h               |    6 -
+ include/net/netfilter/nf_conntrack_acct.h          |   51 ++++++++++
+ include/net/netfilter/nf_conntrack_extend.h        |    2 +
+ include/net/netlink.h                              |    3 +
+ net/core/dev.c                                     |   37 +++++---
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |   18 +---
+ net/ipv4/netfilter/nf_nat_core.c                   |    8 +-
+ net/ipv4/netfilter/nf_nat_sip.c                    |   38 +++++---
+ net/netfilter/Kconfig                              |    9 ++
+ net/netfilter/Makefile                             |    2 +-
+ net/netfilter/nf_conntrack_acct.c                  |  104 ++++++++++++++++++++
+ net/netfilter/nf_conntrack_core.c                  |   39 +++++---
+ net/netfilter/nf_conntrack_netlink.c               |   44 ++++-----
+ net/netfilter/nf_conntrack_proto_sctp.c            |    8 +-
+ net/netfilter/nf_conntrack_standalone.c            |   18 +---
+ net/netfilter/nfnetlink_log.c                      |    8 ++
+ net/netfilter/xt_TCPMSS.c                          |   42 +++------
+ net/netfilter/xt_connbytes.c                       |    8 +-
+ net/netfilter/xt_time.c                            |    2 +-
+ net/sched/sch_generic.c                            |  102 +++++++++++++++-----
+ 30 files changed, 411 insertions(+), 184 deletions(-)
+ create mode 100644 include/net/netfilter/nf_conntrack_acct.h
+ create mode 100644 net/netfilter/nf_conntrack_acct.c
