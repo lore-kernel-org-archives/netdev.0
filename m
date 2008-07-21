@@ -1,93 +1,141 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
- at 0000000000000370
-Date: Mon, 21 Jul 2008 14:43:34 -0500
-Message-ID: <4884E6E6.7010800@lwfinger.net>
-References: <20080721134506.GA27598@elte.hu> <20080721143023.GA32451@elte.hu> <20080721150446.GA17746@elte.hu> <20080721.082419.70392960.davem@davemloft.net> <4884D2F1.2030704@telenet.be> <20080721190646.GA19044@elte.hu> <4884DFEE.4060003@lwfinger.net> <20080721193425.GA29287@elte.hu>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [crash] kernel BUG at net/core/dev.c:1328!
+Date: Mon, 21 Jul 2008 21:44:14 +0200
+Message-ID: <20080721194414.GA4872@elte.hu>
+References: <20080721134506.GA27598@elte.hu> <20080721182318.GA20940@elte.hu> <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org> <20080721.120052.123606398.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Schram <ischram-CNXmb7IdZIWZIoH1IeqzKA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, j@w1.fi
-To: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080721193425.GA29287-X9Un+BFzKDI@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefanr@s5r6.in-berlin.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:51340 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753533AbYGUTof (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 15:44:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20080721.120052.123606398.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
-> 
->> Ingo Molnar wrote:
->>> * Ian Schram <ischram-CNXmb7IdZIWZIoH1IeqzKA@public.gmane.org> wrote:
->>>
->>>> I was looking at this out of interest, but I'm in no way familiar 
->>>> with the code.
->>> thanks Ian for the patch, i'll test it.
->>>
->>> Note that it was whitespace damaged, find below a tidied up version of  
->>> the patch that i've applied to tip/out-of-tree.
->>>
->>> 	Ingo
->> This patch may be needed to fix error handling in the hw_sim code, but 
->> I get the crash even with that code disabled. I'm currently bisecting 
->> to find the culprit.
-> 
-> ok. I just reactivated CONFIG_MAC80211_HWSIM, applied Ian's fix and the 
-> crash went away:
-> 
->  calling  iwl4965_init+0x0/0x6c
->  iwl4965: Intel(R) Wireless WiFi Link 4965AGN driver for Linux, 1.3.27kd
->  iwl4965: Copyright(c) 2003-2008 Intel Corporation
->  initcall iwl4965_init+0x0/0x6c returned 0 after 10 msecs
->  calling  init_mac80211_hwsim+0x0/0x31c
->  mac80211_hwsim: Initializing radio 0
->  PM: Adding info for No Bus:hwsim0
->  PM: Adding info for No Bus:phy0
->  PM: Adding info for No Bus:wmaster0
->  phy0: Failed to select rate control algorithm
->  phy0: Failed to initialize rate control algorithm
->  PM: Removing info for No Bus:wmaster0
->  PM: Removing info for No Bus:phy0
->  mac80211_hwsim: ieee80211_register_hw failed (-2)
->  PM: Removing info for No Bus:hwsim0
->  initcall init_mac80211_hwsim+0x0/0x31c returned -2 after 58 msecs
->  initcall init_mac80211_hwsim+0x0/0x31c returned with error code -2
->  calling  dmfe_init_module+0x0/0xea
->  dmfe: Davicom DM9xxx net driver, version 1.36.4 (2002-01-17)
->  initcall dmfe_init_module+0x0/0xea returned 0 after 5 msecs
-> 
-> So at least as far as the init_mac80211_hwsim() deinit crash goes:
-> 
-> Tested-by: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
 
-Yes, I'm chasing a distinct bug. The header for mine is
+* David Miller <davem@davemloft.net> wrote:
 
-Jul 21 12:19:37 larrylap kernel: kernel BUG at net/core/dev.c:1328!
-Jul 21 12:19:37 larrylap kernel: invalid opcode: 0000 [1] SMP
-Jul 21 12:19:37 larrylap kernel: CPU 0
-Jul 21 12:19:37 larrylap kernel: Modules linked in: af_packet rfkill_input nfs 
-lockd nfs_acl sunrpc cpufreq_conservative cpu
-freq_userspace cpufreq_powersave powernow_k8 fuse loop dm_mod arc4 ecb 
-crypto_blkcipher b43 firmware_class rfkill mac80211 c
-fg80211 snd_hda_intel snd_pcm snd_timer led_class snd k8temp input_polldev 
-sr_mod soundcore button battery hwmon cdrom force
-deth ac serio_raw ssb snd_page_alloc sg ehci_hcd sd_mod ohci_hcd usbcore edd fan 
-thermal processor ext3 mbcache jbd pata_amd
-  ahci libata scsi_mod dock
-Jul 21 12:19:37 larrylap kernel: Pid: 2057, comm: b43 Not tainted 
-2.6.26-Linus-git-05253-g14b395e #1
-Jul 21 12:19:37 larrylap kernel: RIP: 0010:[<ffffffff8039ec4d>] 
-[<ffffffff8039ec4d>] __netif_schedule+0x12/0x75
-Jul 21 12:19:37 larrylap kernel: RSP: 0000:ffff8800b9ae1de0  EFLAGS: 00010246
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Mon, 21 Jul 2008 11:35:21 -0700 (PDT)
+> 
+> > Maybe the network drivers are few enough that it will get fixed, or
+> > maybe the WARN_ON_ONCE() will just be removed and the rule not
+> > reinforced.
+> > 
+> > I personally suspect the latter, since it seems to happen with just
+> > about _any_ random network driver, including the common and
+> > well-maintained ones (ie the Gods only help us for the truly
+> > odd/random cases)
+> 
+> Yes, we'll see how this plays out.
+> 
+> Ian Schram just posted a patch for the NULL pointer derfer in wireless 
+> Ingo reported, so we'll see if that bug will be fixed now as well.
 
-With an invalid opcode, mine is likely due to stack corruption.
+Yes, the fix from Ian below solved the CONFIG_MAC80211_HWSIM=y crash i 
+was getting. I have no other pending issues other than a few low-prio 
+ne2000 build failures.
 
-Larry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks guys,
+
+	Ingo
+
+--------->
+commit 2f77dd3a3b5c3a27298fa0a09d8703c09c633fc6
+Author: Ian Schram <ischram@telenet.be>
+Date:   Mon Jul 21 20:18:25 2008 +0200
+
+    mac80211_hwsim.c: fix: BUG: unable to handle kernel NULL pointer dereference at 0000000000000370
+    
+    I was looking at this out of interest, but I'm in no way familiar with
+    the code.
+    
+    Looks to me that the error handling code in mac80211_hwsim is awkward.
+    Which leads to it calling ieee80211_unregister_hw even when
+    ieee80211_register_hw failed.
+    
+    The function has a for loop where it generates all simulated radios.
+    when something fails, the error handling will call mac80211_hwsim_free
+    which frees all simulated radios who's pointer isn't zero. However the
+    information stored is insufficient to determine whether or not the call
+    to ieee80211_register_hw succeeded or not for a specific radio. The
+    included patch makes init_mac80211_hwsim clean up the current simulated
+    radio, and then calls into mac80211_hwsim_free to clean up all the
+    radios that did succeed.
+    
+    This however doesn't explain why the rate control registration failed..
+    build tested this, but had some problems reproducing the original
+    problem.
+    
+    Signed-off-by: Ian Schram <ischram@telenet.be>
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ drivers/net/wireless/mac80211_hwsim.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index 913dc9f..5816230 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -364,8 +364,7 @@ static void mac80211_hwsim_free(void)
+ 			struct mac80211_hwsim_data *data;
+ 			data = hwsim_radios[i]->priv;
+ 			ieee80211_unregister_hw(hwsim_radios[i]);
+-			if (!IS_ERR(data->dev))
+-				device_unregister(data->dev);
++			device_unregister(data->dev);
+ 			ieee80211_free_hw(hwsim_radios[i]);
+ 		}
+ 	}
+@@ -437,7 +436,7 @@ static int __init init_mac80211_hwsim(void)
+ 			       "mac80211_hwsim: device_create_drvdata "
+ 			       "failed (%ld)\n", PTR_ERR(data->dev));
+ 			err = -ENOMEM;
+-			goto failed;
++			goto failed_drvdata;
+ 		}
+ 		data->dev->driver = &mac80211_hwsim_driver;
+ 
+@@ -461,7 +460,7 @@ static int __init init_mac80211_hwsim(void)
+ 		if (err < 0) {
+ 			printk(KERN_DEBUG "mac80211_hwsim: "
+ 			       "ieee80211_register_hw failed (%d)\n", err);
+-			goto failed;
++			goto failed_hw;
+ 		}
+ 
+ 		printk(KERN_DEBUG "%s: hwaddr %s registered\n",
+@@ -479,9 +478,9 @@ static int __init init_mac80211_hwsim(void)
+ 	rtnl_lock();
+ 
+ 	err = dev_alloc_name(hwsim_mon, hwsim_mon->name);
+-	if (err < 0) {
++	if (err < 0)
+ 		goto failed_mon;
+-	}
++
+ 
+ 	err = register_netdevice(hwsim_mon);
+ 	if (err < 0)
+@@ -494,7 +493,14 @@ static int __init init_mac80211_hwsim(void)
+ failed_mon:
+ 	rtnl_unlock();
+ 	free_netdev(hwsim_mon);
++	mac80211_hwsim_free();
++	return err;
+ 
++failed_hw:
++	device_unregister(data->dev);
++failed_drvdata:
++	ieee80211_free_hw(hw);
++	hwsim_radios[i] = 0;
+ failed:
+ 	mac80211_hwsim_free();
+ 	return err;
