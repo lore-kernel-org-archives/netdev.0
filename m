@@ -1,36 +1,52 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Make simple TX hash little endian safe.
-Date: Mon, 21 Jul 2008 17:17:13 +0200
-Message-ID: <20080721151713.GB29543@basil.nowhere.org>
-References: <1216630088-10328-1-git-send-email-andi@firstfloor.org> <20080721123215.GA4376@ff.dom.local>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATC] sctp: various fixes
+Date: Mon, 21 Jul 2008 11:19:34 -0400
+Message-ID: <4884A906.1000602@hp.com>
+References: <20080718.230833.22196996.davem@davemloft.net>	<20080719.224047.228019059.davem@davemloft.net>	<48848B35.6050702@hp.com> <20080721.080535.194149976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:26141 "EHLO
-	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756750AbYGUPSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:18:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20080721123215.GA4376@ff.dom.local>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:42800 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbYGUPTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:19:37 -0400
+In-Reply-To: <20080721.080535.194149976.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 12:32:15PM +0000, Jarek Poplawski wrote:
-> On 21-07-2008 10:48, Andi Kleen wrote:
-> > From: Andi Kleen <andi@basil.nowhere.org>
-> > 
-> > Currently it will not use the lower
-> > bits at all on big endian system, mapping e.g. all connections to a single
-> > queue on a local network which only differs in the low bits.
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Mon, 21 Jul 2008 09:12:21 -0400
 > 
-> It seems ports could be treated similarly, btw?
+>> David Miller wrote:
+>>> From: David Miller <davem@davemloft.net>
+>>> Date: Fri, 18 Jul 2008 23:08:33 -0700 (PDT)
+>>>
+>>>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>>> Date: Sat, 19 Jul 2008 00:26:45 -0400
+>>>>
+>>>>> This is a bunch of SCTP fixes that have accumlated over the past week or
+>>>>> so. 
+>>>> All applied, thanks Vlad.
+>>> Vlad, I had to add the following fix to the tree in order
+>>> to unbreak the build when CONFIG_HIGHMEM is enabled.
+>>>
+>> ahh...  since tcp isn't a module, it didn't trigger that.
+>>
+>> Thanks Dave.  I didn't think about turning highmem off..
+> 
+> No problem, but the problematic case was turning highmem on :-)
+> 
 
-Ports should be normally better distributed because they tend
-to be more uniform than IP addresses due to the way they are
-generated, so there will hopefully not be too many endian artifacts. 
-But yes at least least folding them too might be a good idea.
+argh.....
 
--Andi
+CONFIG_HIGHMEM=y
+...
+CONFIG_SCTP=y
+
+Ran my tests in kvm and it's easier to build stuff in.
+
+-vlad
