@@ -1,128 +1,35 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 16/31] netns ct: per-netns /proc/net/nf_conntrack_expect
-Date: Mon, 21 Jul 2008 20:45:08 +0400
-Message-ID: <20080721164508.GB13390@martell.zuzino.mipt.ru>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] arptables in netns for real
+Date: Mon, 21 Jul 2008 18:47:22 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0807211846210.21244@fbirervta.pbzchgretzou.qr>
+References: <20080721162920.GD13264@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	dev@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com, benjamin.thery@bull.net
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:9771 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753427AbYGUQq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:46:56 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so275974ugf.16
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 09:46:55 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- net/netfilter/nf_conntrack_expect.c |   23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
-
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -423,16 +423,18 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_related);
- 
- #ifdef CONFIG_PROC_FS
- struct ct_expect_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 	struct hlist_node *n;
- 
- 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
--		n = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 		if (n)
- 			return n;
- 	}
-@@ -442,13 +444,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
- 					     struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_ct_expect_hsize)
- 			return NULL;
--		head = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 	}
- 	return head;
- }
-@@ -522,7 +525,7 @@ static const struct seq_operations exp_seq_ops = {
- 
- static int exp_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &exp_seq_ops,
-+	return seq_open_net(inode, file, &exp_seq_ops,
- 			sizeof(struct ct_expect_iter_state));
- }
- 
-@@ -531,26 +534,26 @@ static const struct file_operations exp_file_ops = {
- 	.open    = exp_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- #endif /* CONFIG_PROC_FS */
- 
--static int exp_proc_init(void)
-+static int exp_proc_init(struct net *net)
- {
- #ifdef CONFIG_PROC_FS
- 	struct proc_dir_entry *proc;
- 
--	proc = proc_net_fops_create(&init_net, "nf_conntrack_expect", 0440, &exp_file_ops);
-+	proc = proc_net_fops_create(net, "nf_conntrack_expect", 0440, &exp_file_ops);
- 	if (!proc)
- 		return -ENOMEM;
- #endif /* CONFIG_PROC_FS */
- 	return 0;
- }
- 
--static void exp_proc_remove(void)
-+static void exp_proc_remove(struct net *net)
- {
- #ifdef CONFIG_PROC_FS
--	proc_net_remove(&init_net, "nf_conntrack_expect");
-+	proc_net_remove(net, "nf_conntrack_expect");
- #endif /* CONFIG_PROC_FS */
- }
- 
-@@ -579,7 +582,7 @@ int nf_conntrack_expect_init(struct net *net)
- 	if (!nf_ct_expect_cachep)
- 		goto err2;
- 
--	err = exp_proc_init();
-+	err = exp_proc_init(net);
- 	if (err < 0)
- 		goto err3;
- 
-@@ -596,7 +599,7 @@ err1:
- 
- void nf_conntrack_expect_fini(struct net *net)
- {
--	exp_proc_remove();
-+	exp_proc_remove(net);
- 	kmem_cache_destroy(nf_ct_expect_cachep);
- 	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
- 			     nf_ct_expect_hsize);
--- 
-1.5.4.5
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, xemul@openvz.org, den@openvz.org,
+	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080721162920.GD13264@martell.zuzino.mipt.ru>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+On Monday 2008-07-21 18:29, Alexey Dobriyan wrote:
+>-			      int (*okfn)(struct sk_buff *))
+>+static unsigned int arpt_in_hook(unsigned int hook,
+>+				 struct sk_buff *skb,
+>+				 const struct net_device *in,
+>+				 const struct net_device *out,
+>+				 int (*okfn)(struct sk_buff *))
+> {
+>-	return arpt_do_table(skb, hook, in, out, init_net.ipv4.arptable_filter);
+>+	return arpt_do_table(skb, hook, in, out,
+>+			     dev_net(in)->ipv4.arptable_filter);
+>+}
+
+What I dislike with this netns stuff is that you need to touch
+the ->ipv4. structure if you want to add new tables and there is
+no more way to dynamically add tables from 3rd party modules unless
+the admin loading them is fine with having them register against
+&init_net only.
