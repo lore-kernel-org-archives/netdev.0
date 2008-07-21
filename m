@@ -1,89 +1,82 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: iwlwifi: fix build bug in "iwlwifi: fix LED stall"
-Date: Mon, 21 Jul 2008 10:36:54 +0200
-Message-ID: <20080721083654.GA19849@elte.hu>
-References: <20080720.104411.81744468.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tomas Winkler <tomas.winkler@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] Add a statistics counter for tx hash miss
+Date: Mon, 21 Jul 2008 10:48:08 +0200
+Message-ID: <1216630088-10328-2-git-send-email-andi@firstfloor.org>
+References: <1216630088-10328-1-git-send-email-andi@firstfloor.org>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:32894 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753979AbYGUIhL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 04:37:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20080720.104411.81744468.davem@davemloft.net>
+Received: from smtp-out03.alice-dsl.net ([88.44.63.5]:28337 "EHLO
+	smtp-out03.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754439AbYGUIsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 04:48:18 -0400
+In-Reply-To: <1216630088-10328-1-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andi Kleen <andi@basil.nowhere.org>
 
-hi David,
+Add a counter for the case when the TX hash function doesn't work.
 
->       iwlwifi: fix LED stall
-
-please find a small build fix below.
-
-	Ingo
-
--------------->
-commit c61b0199e779caf2dcfdb6e83439c1fdf9f20209
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Mon Jul 21 10:33:42 2008 +0200
-
-    iwlwifi: fix build bug in "iwlwifi: fix LED stall"
-   =20
-    -tip testing found the following build failure:
-   =20
-      drivers/net/wireless/iwlwifi/iwl-led.c: In function =E2=80=98iwl_=
-led_brightness_set=E2=80=99:
-      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: =E2=80=98led_t=
-ype_str=E2=80=99 undeclared (first use in this function)
-      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: (Each undeclar=
-ed identifier is reported only once
-      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: for each funct=
-ion it appears in.)
-   =20
-    Triggered if this driver is built with !CONFIG_IWLWIFI_DEBUG. Intro=
-duced
-    by commit 0eee61273.
-   =20
-    The best fix is to make led_type_str available as a zero-size symbo=
-l and to
-    only add members to the array if CONFIG_IWLWIFI_DEBUG is set. This =
-way
-    there's no overhead in the debugging case and we have type checking=
- in the
-    IWL_DEBUG_LED() macro as well.
-   =20
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- drivers/net/wireless/iwlwifi/iwl-led.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/snmp.h |    1 +
+ net/core/dev.c       |    3 +++
+ net/ipv4/proc.c      |    1 +
+ 3 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-led.c b/drivers/net/wirel=
-ess/iwlwifi/iwl-led.c
-index 899d7a2..d7129f7 100644
---- a/drivers/net/wireless/iwlwifi/iwl-led.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-led.c
-@@ -44,15 +44,15 @@
- #include "iwl-io.h"
- #include "iwl-helpers.h"
-=20
--#ifdef CONFIG_IWLWIFI_DEBUG
- static const char *led_type_str[] =3D {
-+#ifdef CONFIG_IWLWIFI_DEBUG
- 	__stringify(IWL_LED_TRG_TX),
- 	__stringify(IWL_LED_TRG_RX),
- 	__stringify(IWL_LED_TRG_ASSOC),
- 	__stringify(IWL_LED_TRG_RADIO),
- 	NULL
--};
- #endif /* CONFIG_IWLWIFI_DEBUG */
-+};
-=20
-=20
- static const struct {
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 5df62ef..c4d69b7 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -214,6 +214,7 @@ enum
+ 	LINUX_MIB_TCPDSACKIGNOREDOLD,		/* TCPSACKIgnoredOld */
+ 	LINUX_MIB_TCPDSACKIGNOREDNOUNDO,	/* TCPSACKIgnoredNoUndo */
+ 	LINUX_MIB_TCPSPURIOUSRTOS,		/* TCPSpuriousRTOs */
++	LINUX_MIB_TXHASHMISS,			/* TxHashMiss */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c35fefc..cc45878 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -124,6 +124,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/in.h>
++#include <net/ip.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -1688,6 +1689,7 @@ static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
+ 		alen = 8;
+ 		break;
+ 	default:
++		NET_INC_STATS_BH(dev_net(dev), LINUX_MIB_TXHASHMISS);
+ 		return 0;
+ 	}
+ 
+@@ -1712,6 +1714,7 @@ static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
+ 		break;
+ 
+ 	default:
++		NET_INC_STATS_BH(dev_net(dev), LINUX_MIB_TXHASHMISS);
+ 		break;
+ 	}
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 834356e..f621b87 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -232,6 +232,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPDSACKIgnoredOld", LINUX_MIB_TCPDSACKIGNOREDOLD),
+ 	SNMP_MIB_ITEM("TCPDSACKIgnoredNoUndo", LINUX_MIB_TCPDSACKIGNOREDNOUNDO),
+ 	SNMP_MIB_ITEM("TCPSpuriousRTOs", LINUX_MIB_TCPSPURIOUSRTOS),
++	SNMP_MIB_ITEM("TxHashMiss", LINUX_MIB_TXHASHMISS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+-- 
+1.5.6
+
