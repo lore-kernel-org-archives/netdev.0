@@ -1,52 +1,46 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 20/31] netns ct: NOTRACK in netns
-Date: Mon, 21 Jul 2008 19:05:10 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0807211901220.21244@fbirervta.pbzchgretzou.qr>
-References: <20080721165028.GF13390@martell.zuzino.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 04/31 DO NOT APPLY] enable netfilter in netns
+Date: Mon, 21 Jul 2008 10:07:22 -0700 (PDT)
+Message-ID: <20080721.100722.106020469.davem@davemloft.net>
+References: <20080721163358.GH13264@martell.zuzino.mipt.ru>
+	<4884C0EC.80204@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, dev@openvz.org, xemul@openvz.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, xemul@openvz.org, den@openvz.org,
 	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080721165028.GF13390@martell.zuzino.mipt.ru>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58564
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751623AbYGURHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:07:22 -0400
+In-Reply-To: <4884C0EC.80204@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 21 Jul 2008 19:01:32 +0200
 
-On Monday 2008-07-21 18:50, Alexey Dobriyan wrote:
-
->Make untracked conntrack per-netns. Compare conntracks with untracked
->one in relevant netns.
->
->The following code may looks funny (sort-of self-referential):
->
->	if (ct == ct->ct_net->ct.untracked)
->		...
-
-The untracked conntrack is a singleton as I see it, as such it
-should not be netnsed.
-
-
->+++ b/net/netfilter/xt_NOTRACK.c
->@@ -25,7 +26,7 @@ notrack_tg(struct sk_buff *skb, const struct net_device *in,
-> 	   If there is a real ct entry correspondig to this packet,
-> 	   it'll hang aroun till timing out. We don't deal with it
-> 	   for performance reasons. JK */
->-	skb->nfct = &nf_conntrack_untracked.ct_general;
->+	skb->nfct = &dev_net(in ? in : out)->ct.untracked.ct_general;
-
-You can just use 'in ? : out'.
-
->+++ b/net/netfilter/xt_state.c
->@@ -30,7 +31,7 @@ state_mt(const struct sk_buff *skb, const struct net_device *in,
-> 	enum ip_conntrack_info ctinfo;
-> 	unsigned int statebit;
+> Alexey Dobriyan wrote:
+> > 	Only for testing.
 > 
->-	if (nf_ct_is_untracked(skb))
->+	if (nf_ct_is_untracked(dev_net(in ? in : out), skb))
+> Thanks for posting this, I'll try to get this reviewed and
+> merged before the merge window closes.
 
-Does this even do the right thing? Given the forward path, where
-both in!=NULL and out!=NULL, why should it specifically be 'in'
-that is selected?
+For networking it closed yesterday:
+
+--------------------
+Subject: net-2.6 merged to Linus...
+From: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Date: Sun, 20 Jul 2008 22:05:06 -0700 (PDT)
+X-Mailer: Mew version 5.2 on Emacs 22.1 / Mule 5.0 (SAKAKI)
+
+
+I would like to thank everyone for their work and I ask that folks
+concentrate on bug fixing now.
+
+Thanks a lot!
+--------------------
