@@ -1,62 +1,29 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/7] drivers/net/ehea/ehea_main.c: Release mutex in error
- handling code
-Date: Mon, 21 Jul 2008 09:57:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0807210957060.24625@ask.diku.dk>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/2] myri10ge update for 2.6.27
+Date: Mon, 21 Jul 2008 10:25:11 +0200
+Message-ID: <488447E7.2060505@myri.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: jgarzik@pobox.com, raisch@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:39758 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756663AbYGUH52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 03:57:28 -0400
+Received: from mailbox2.myri.com ([64.172.73.26]:1849 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754439AbYGUIZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 04:25:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hello Jeff,
 
-The mutex is released on a successful return, so it would seem that it
-should be released on an error return as well.
+Here are 2 small myri10ge patches for 2.6.27:
+1) remove the obsolete wcfifo code
+2) use ioremap_wc()
 
-The semantic patch finds this problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+A multiqueue TX patch is underwork but I am not sure it will be ready
+for 2.6.27. We'll see.
 
-// <smpl>
-@@
-expression l;
-@@
+thanks,
+Brice
 
-mutex_lock(l);
-... when != mutex_unlock(l)
-    when any
-    when strict
-(
-if (...) { ... when != mutex_unlock(l)
-+   mutex_unlock(l);
-    return ...;
-}
-|
-mutex_unlock(l);
-)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
-diff -u -p a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -2937,9 +2937,9 @@ static void ehea_rereg_mrs(struct work_s
- 				}
- 			}
- 		}
--       mutex_unlock(&dlpar_mem_lock);
--       ehea_info("re-initializing driver complete");
-+	ehea_info("re-initializing driver complete");
- out:
-+	mutex_unlock(&dlpar_mem_lock);
- 	return;
- }
- 
