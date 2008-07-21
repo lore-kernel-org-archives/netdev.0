@@ -1,63 +1,46 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATC] sctp: various fixes
-Date: Mon, 21 Jul 2008 09:12:21 -0400
-Message-ID: <48848B35.6050702@hp.com>
-References: <12164416121552-git-send-email-vladislav.yasevich@hp.com>	<20080718.230833.22196996.davem@davemloft.net> <20080719.224047.228019059.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
+Date: Mon, 21 Jul 2008 21:19:18 +0800
+Message-ID: <20080721131918.GA11114@gondor.apana.org.au>
+References: <E1KKu2D-0002kd-00@gondolin.me.apana.org.au> <1216645724.4847.275.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:12773 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbYGUNM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:12:26 -0400
-In-Reply-To: <20080719.224047.228019059.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:53406 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753912AbYGUNTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:19:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1216645724.4847.275.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 18 Jul 2008 23:08:33 -0700 (PDT)
-> 
->> From: Vlad Yasevich <vladislav.yasevich@hp.com>
->> Date: Sat, 19 Jul 2008 00:26:45 -0400
->>
->>> This is a bunch of SCTP fixes that have accumlated over the past week or
->>> so. 
->> All applied, thanks Vlad.
-> 
-> Vlad, I had to add the following fix to the tree in order
-> to unbreak the build when CONFIG_HIGHMEM is enabled.
-> 
+On Mon, Jul 21, 2008 at 09:08:44AM -0400, jamal wrote:
+>
+> The one thing i am unsure of still:
+> I think it would be cleaner to just stop a single queue (instead of all)
+> when one hardware queue fills up. i.e if there is no congestion on the
+> other hardware queues, packets should continue to be fed to their
+> hardware queues and not be buffered at qdisc level.
 
-ahh...  since tcp isn't a module, it didn't trigger that.
+Right you don't necessarily have to stop all queues but you do
+need to direct all packets into the qdisc.
 
-Thanks Dave.  I didn't think about turning highmem off..
+> Parallelization would work if you can get X CPUs to send to X hardware
+> queues concurently. Feasible in static host setup like virtualization
+> environment where you can tie a vm to a cpu. Not very feasible in
+> routing where you are driven to a random hardware tx queue by arriving
+> packets.
 
--vlad
+It should work just fine for routing assuming your card does
+multi-queue RX.
 
-> highmem: Export totalhigh_pages.
-> 
-> Hash et al. sizing code in SCTP wants to make the
-> calculation totalram_pages - totalhigh_pages, just
-> like TCP.  But this requires an export for the
-> CONFIG_HIGHMEM case to work.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/mm/highmem.c b/mm/highmem.c
-> index 7da4a7b..e16e152 100644
-> --- a/mm/highmem.c
-> +++ b/mm/highmem.c
-> @@ -40,6 +40,7 @@
->  #ifdef CONFIG_HIGHMEM
->  
->  unsigned long totalhigh_pages __read_mostly;
-> +EXPORT_SYMBOL(totalhigh_pages);
->  
->  unsigned int nr_free_highpages (void)
->  {
-> 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
