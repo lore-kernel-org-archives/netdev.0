@@ -1,75 +1,57 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: v2 [Patch 1/1] [BUG-FIX] udplite: Avoid u16 checksum coverage
-	wrap-around
-Date: Mon, 21 Jul 2008 11:04:09 +0100
-Message-ID: <20080721100409.GA13198@gerrit.erg.abdn.ac.uk>
-References: <20080630115427.GA8416@gerrit.erg.abdn.ac.uk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Mon, 21 Jul 2008 14:06:27 +0400
+Message-ID: <20080721100627.GA5953@2ka.mipt.ru>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:46481 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756300AbYGUKEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 06:04:20 -0400
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:60798 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752372AbYGUKHR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 06:07:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20080630115427.GA8416@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave, can you please have a look at the patch below?
+Hi.
 
-As per earlier request, the default behaviour of rounding small setsockopt
-values up to the minimum of 8 has not been changed.
+On Mon, Jul 21, 2008 at 12:52:45PM +0300, Pekka Enberg (penberg@cs.helsinki.fi) wrote:
+> On Mon, Jul 21, 2008 at 12:41 PM, Ingo Molnar <mingo@elte.hu> wrote:
+> > update about this problem: just triggered another colorful crash, see
+> > below. This was with the 4K object dump patch already, maybe the dump
+> > gives a clue?
+> 
+> ...to point out the obvious:
+> 
+> > =============================================================================
+> > BUG skbuff_head_cache: Poison overwritten
+> > -----------------------------------------------------------------------------
+> >
+> > INFO: 0xf7ccc100-0xf7ccc103. First byte 0x0 instead of 0x6b
+> > INFO: Allocated in __alloc_skb+0x30/0x10e age=1 cpu=1 pid=1
+> > INFO: Freed in __kfree_skb+0x63/0x66 age=1 cpu=0 pid=0
+> > INFO: Slab 0xc1c34ca0 objects=16 used=1 fp=0xf7ccc100 flags=0x400000c3
+> > INFO: Object 0xf7ccc100 @offset=256 fp=0xf7ccc200
+> >
+> > Bytes b4 0xf7ccc0f0:  5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
+> >  Object 0xf7ccc100:  00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b ....kkkkkkkkkkkk
+> 
+> Use after free where first four bytes are zeroed.
 
-The upshot is that the API now makes it impossible to set an illegal value.
-The result has been tested and was found to work.
+Not that obvious...
+skb->next is cleared in lots of places, in xmit network helper
+for example, but since rest of the packet was not modified, it
+means given skb was not freed, so it will not help.
 
->>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-udplite: Protection against coverage value wrap-around
+Ingo do you see other similar dumps with last byte modified?
+That's the one which can help to determine the reason.
 
-This patch clamps the cscov setsockopt values to a maximum of 0xFFFF.
-
-Setsockopt values greater than 0xffff can cause an unwanted wrap-around.
-Further, IPv6 jumbograms are not supported (RFC 3838, 3.5), so that values
-greater than 0xffff are not even useful.
-
-Further changes: fixed a typo in the documentation.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- Documentation/networking/udplite.txt |    2 +-
- net/ipv4/udp.c                       |    4 ++++
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1325,6 +1325,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 			return -ENOPROTOOPT;
- 		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
- 			val = 8;
-+		else if (val > USHORT_MAX)
-+			val = USHORT_MAX;
- 		up->pcslen = val;
- 		up->pcflag |= UDPLITE_SEND_CC;
- 		break;
-@@ -1337,6 +1339,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 			return -ENOPROTOOPT;
- 		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
- 			val = 8;
-+		else if (val > USHORT_MAX)
-+			val = USHORT_MAX;
- 		up->pcrlen = val;
- 		up->pcflag |= UDPLITE_RECV_CC;
- 		break;
---- a/Documentation/networking/udplite.txt
-+++ b/Documentation/networking/udplite.txt
-@@ -148,7 +148,7 @@
-         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
- 
-   is meaningless (as in TCP). Packets with a zero checksum field are
--  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
-+  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
- 
-   4) Fragmentation
- 
+-- 
+	Evgeniy Polyakov
