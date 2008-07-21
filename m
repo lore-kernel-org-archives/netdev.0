@@ -1,31 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add a statistics counter for tx hash miss
-Date: Mon, 21 Jul 2008 09:33:30 -0700 (PDT)
-Message-ID: <20080721.093330.153507902.davem@davemloft.net>
-References: <1216630088-10328-1-git-send-email-andi@firstfloor.org>
-	<1216630088-10328-2-git-send-email-andi@firstfloor.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 02/31] ip6tables RAW in netns for real
+Date: Mon, 21 Jul 2008 20:31:57 +0400
+Message-ID: <20080721163157.GF13264@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49159
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753659AbYGUQda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:33:30 -0400
-In-Reply-To: <1216630088-10328-2-git-send-email-andi@firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	xemul@openvz.org, den@openvz.org, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, benjamin.thery@bull.net
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 21 Jul 2008 10:48:08 +0200
+PREROUTING -- grab netns from in device,
+OUTPUT -- from out device.
 
-> Add a counter for the case when the TX hash function doesn't work.
-> 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-This is very much not an IPV4 protocol statistic.
+ net/ipv6/netfilter/ip6table_raw.c |   20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-I understand your desire to export this information, but
-as easy as this method is it's not the right way.
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -45,25 +45,37 @@ static struct xt_table packet_raw = {
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-ip6t_hook(unsigned int hook,
++ip6t_pre_routing_hook(unsigned int hook,
+ 	 struct sk_buff *skb,
+ 	 const struct net_device *in,
+ 	 const struct net_device *out,
+ 	 int (*okfn)(struct sk_buff *))
+ {
+-	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_raw);
++	return ip6t_do_table(skb, hook, in, out,
++			     dev_net(in)->ipv6.ip6table_raw);
++}
++
++static unsigned int
++ip6t_local_out_hook(unsigned int hook,
++	 struct sk_buff *skb,
++	 const struct net_device *in,
++	 const struct net_device *out,
++	 int (*okfn)(struct sk_buff *))
++{
++	return ip6t_do_table(skb, hook, in, out,
++			     dev_net(out)->ipv6.ip6table_raw);
+ }
+ 
+ static struct nf_hook_ops ip6t_ops[] __read_mostly = {
+ 	{
+-	  .hook = ip6t_hook,
++	  .hook = ip6t_pre_routing_hook,
+ 	  .pf = PF_INET6,
+ 	  .hooknum = NF_INET_PRE_ROUTING,
+ 	  .priority = NF_IP6_PRI_FIRST,
+ 	  .owner = THIS_MODULE,
+ 	},
+ 	{
+-	  .hook = ip6t_hook,
++	  .hook = ip6t_local_out_hook,
+ 	  .pf = PF_INET6,
+ 	  .hooknum = NF_INET_LOCAL_OUT,
+ 	  .priority = NF_IP6_PRI_FIRST,
+-- 
+1.5.4.5
+
+
