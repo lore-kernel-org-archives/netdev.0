@@ -1,184 +1,65 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 14/31] netns ct: pass netns to L4 proto's ->error hook
-Date: Mon, 21 Jul 2008 20:41:17 +0400
-Message-ID: <20080721164117.GR13264@martell.zuzino.mipt.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Tue, 22 Jul 2008 00:43:06 +0800
+Message-ID: <20080721164306.GA13131@gondor.apana.org.au>
+References: <20080721152220.GA12341@gondor.apana.org.au> <20080721.082627.128593651.davem@davemloft.net> <20080721161616.GA12938@gondor.apana.org.au> <20080721.092556.227421936.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	xemul@openvz.org, den@openvz.org, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com, benjamin.thery@bull.net
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:33495 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751685AbYGUQnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:43:18 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080721.092556.227421936.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Used by ICMP/ICMP6.
+On Mon, Jul 21, 2008 at 09:25:56AM -0700, David Miller wrote:
+>
+> Where are these places they are going to "jump all over"? :-)
 
-Again, we can grab netns from skb->dev or skb->dst->dev, but at the time ->error()
-is called, netns is already known, use it.
+Well consider the case where you have 4 queues, but a large number
+of flows per second (>= 1000).  No matter how good your hash is,
+there is just no way of squeezing 1000 flows into 4 queues without
+getting loads of collisions :)
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+So let's assume that these flows have been distributed uniformly
+by both the RX hash and the TX hash such that each queue is handling
+~250 flows.  If the TX hash does not match the result produced by
+the RX hash, you're going to get a hell lot of contention once you
+get into the NIC driver on the TX side.
 
- include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 ++++----
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    8 ++++----
- net/netfilter/nf_conntrack_core.c              |    2 +-
- net/netfilter/nf_conntrack_proto_dccp.c        |    6 +++---
- net/netfilter/nf_conntrack_proto_tcp.c         |    2 +-
- net/netfilter/nf_conntrack_proto_udp.c         |    2 +-
- net/netfilter/nf_conntrack_proto_udplite.c     |    3 ++-
- 8 files changed, 17 insertions(+), 16 deletions(-)
+This is because for NICs like the ones from Intel ones you have to
+protect the TX queue accesses so that only one CPU touches a given
+queue at any point in time.
 
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -50,7 +50,7 @@ struct nf_conntrack_l4proto
- 	/* Called when a conntrack entry is destroyed */
- 	void (*destroy)(struct nf_conn *ct);
+The end result is either the driver being bogged down by lock or
+TX queue contention, or the mid-layer will have to redistribute
+skb's to the right CPUs in which case the synchronisation cost is
+simply moved over there.
+
+> If the TX hash is good enough (current one certainly isn't and I will
+> work on fixing that), it is likely to spread the accesses enough that
+> there won't be many collisions to matter.
+
+I agree that what you've got here makes total sense for a host.
+But I think there is room for something different for routers.
  
--	int (*error)(struct sk_buff *skb, unsigned int dataoff,
-+	int (*error)(struct net *net, struct sk_buff *skb, unsigned int dataoff,
- 		     enum ip_conntrack_info *ctinfo,
- 		     int pf, unsigned int hooknum);
- 
---- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -123,7 +123,7 @@ static bool icmp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 
- /* Returns conntrack if it dealt with ICMP, and filled in skb fields */
- static int
--icmp_error_message(struct sk_buff *skb,
-+icmp_error_message(struct net *net, struct sk_buff *skb,
- 		 enum ip_conntrack_info *ctinfo,
- 		 unsigned int hooknum)
- {
-@@ -155,7 +155,7 @@ icmp_error_message(struct sk_buff *skb,
- 
- 	*ctinfo = IP_CT_RELATED;
- 
--	h = nf_conntrack_find_get(&init_net, &innertuple);
-+	h = nf_conntrack_find_get(net, &innertuple);
- 	if (!h) {
- 		pr_debug("icmp_error_message: no match\n");
- 		return -NF_ACCEPT;
-@@ -172,7 +172,7 @@ icmp_error_message(struct sk_buff *skb,
- 
- /* Small and modified version of icmp_rcv */
- static int
--icmp_error(struct sk_buff *skb, unsigned int dataoff,
-+icmp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
- 	   enum ip_conntrack_info *ctinfo, int pf, unsigned int hooknum)
- {
- 	const struct icmphdr *icmph;
-@@ -217,7 +217,7 @@ icmp_error(struct sk_buff *skb, unsigned int dataoff,
- 	    && icmph->type != ICMP_REDIRECT)
- 		return NF_ACCEPT;
- 
--	return icmp_error_message(skb, ctinfo, hooknum);
-+	return icmp_error_message(net, skb, ctinfo, hooknum);
- }
- 
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -122,7 +122,7 @@ static bool icmpv6_new(struct nf_conn *ct, const struct sk_buff *skb,
- }
- 
- static int
--icmpv6_error_message(struct sk_buff *skb,
-+icmpv6_error_message(struct net *net, struct sk_buff *skb,
- 		     unsigned int icmp6off,
- 		     enum ip_conntrack_info *ctinfo,
- 		     unsigned int hooknum)
-@@ -156,7 +156,7 @@ icmpv6_error_message(struct sk_buff *skb,
- 
- 	*ctinfo = IP_CT_RELATED;
- 
--	h = nf_conntrack_find_get(&init_net, &intuple);
-+	h = nf_conntrack_find_get(net, &intuple);
- 	if (!h) {
- 		pr_debug("icmpv6_error: no match\n");
- 		return -NF_ACCEPT;
-@@ -172,7 +172,7 @@ icmpv6_error_message(struct sk_buff *skb,
- }
- 
- static int
--icmpv6_error(struct sk_buff *skb, unsigned int dataoff,
-+icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
- 	     enum ip_conntrack_info *ctinfo, int pf, unsigned int hooknum)
- {
- 	const struct icmp6hdr *icmp6h;
-@@ -197,7 +197,7 @@ icmpv6_error(struct sk_buff *skb, unsigned int dataoff,
- 	if (icmp6h->icmp6_type >= 128)
- 		return NF_ACCEPT;
- 
--	return icmpv6_error_message(skb, dataoff, ctinfo, hooknum);
-+	return icmpv6_error_message(net, skb, dataoff, ctinfo, hooknum);
- }
- 
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -698,7 +698,7 @@ nf_conntrack_in(struct net *net, int pf, unsigned int hooknum, struct sk_buff *s
- 	 * inverse of the return code tells to the netfilter
- 	 * core what to do with the packet. */
- 	if (l4proto->error != NULL &&
--	    (ret = l4proto->error(skb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
-+	    (ret = l4proto->error(net, skb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
- 		NF_CT_STAT_INC_ATOMIC(error);
- 		NF_CT_STAT_INC_ATOMIC(invalid);
- 		return -ret;
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -545,9 +545,9 @@ static int dccp_packet(struct nf_conn *ct, const struct sk_buff *skb,
- 	return NF_ACCEPT;
- }
- 
--static int dccp_error(struct sk_buff *skb, unsigned int dataoff,
--		      enum ip_conntrack_info *ctinfo, int pf,
--		      unsigned int hooknum)
-+static int dccp_error(struct net *net, struct sk_buff *skb,
-+		      unsigned int dataoff, enum ip_conntrack_info *ctinfo,
-+		      int pf, unsigned int hooknum)
- {
- 	struct dccp_hdr _dh, *dh;
- 	unsigned int dccp_len = skb->len - dataoff;
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -741,7 +741,7 @@ static const u8 tcp_valid_flags[(TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG) + 1] =
- };
- 
- /* Protect conntrack agaist broken packets. Code taken from ipt_unclean.c.  */
--static int tcp_error(struct sk_buff *skb,
-+static int tcp_error(struct net *net, struct sk_buff *skb,
- 		     unsigned int dataoff,
- 		     enum ip_conntrack_info *ctinfo,
- 		     int pf,
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -89,7 +89,7 @@ static bool udp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	return true;
- }
- 
--static int udp_error(struct sk_buff *skb, unsigned int dataoff,
-+static int udp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
- 		     enum ip_conntrack_info *ctinfo,
- 		     int pf,
- 		     unsigned int hooknum)
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -89,7 +89,8 @@ static bool udplite_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	return true;
- }
- 
--static int udplite_error(struct sk_buff *skb, unsigned int dataoff,
-+static int udplite_error(struct net *net, struct sk_buff *skb,
-+			 unsigned int dataoff,
- 			 enum ip_conntrack_info *ctinfo,
- 			 int pf,
- 			 unsigned int hooknum)
+> We could provide the option, but it is so dangerous and I also see no
+> real tangible benfit from it.
+
+The benefit as far as I can see is that this would allow a packet's
+entire journey through Linux to stay on exactly one CPU.  There will
+be zero memory written by multiple CPUs as far as that packet is
+concerned.
+
+Cheers,
 -- 
-1.5.4.5
-
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
