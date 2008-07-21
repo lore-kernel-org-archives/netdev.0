@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 04/31 DO NOT APPLY] enable netfilter in netns
-Date: Mon, 21 Jul 2008 20:33:58 +0400
-Message-ID: <20080721163358.GH13264@martell.zuzino.mipt.ru>
+Subject: [PATCH 05/31] netns ct: export netns list
+Date: Mon, 21 Jul 2008 20:34:42 +0400
+Message-ID: <20080721163442.GI13264@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,38 +13,26 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Conntrack code will use it for
+a) nuking expectations and helpers when module is removed, and
+b) removing conntracks when L3 protocol conntrack module is removed.
 
-	Only for testing.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -165,14 +165,6 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
- 	unsigned int verdict;
- 	int ret = 0;
+ net/core/net_namespace.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -18,6 +18,7 @@ static struct list_head *first_device = &pernet_list;
+ static DEFINE_MUTEX(net_mutex);
  
--#ifdef CONFIG_NET_NS
--	struct net *net;
--
--	net = indev == NULL ? dev_net(outdev) : dev_net(indev);
--	if (net != &init_net)
--		return 1;
--#endif
--
- 	/* We may already have this, but read-locks nest anyway */
- 	rcu_read_lock();
+ LIST_HEAD(net_namespace_list);
++EXPORT_SYMBOL_GPL(net_namespace_list);
  
---- a/net/netfilter/nf_sockopt.c
-+++ b/net/netfilter/nf_sockopt.c
-@@ -65,9 +65,6 @@ static struct nf_sockopt_ops *nf_sockopt_find(struct sock *sk, int pf,
- {
- 	struct nf_sockopt_ops *ops;
- 
--	if (!net_eq(sock_net(sk), &init_net))
--		return ERR_PTR(-ENOPROTOOPT);
--
- 	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
- 		return ERR_PTR(-EINTR);
- 
+ struct net init_net;
+ EXPORT_SYMBOL(init_net);
 -- 
 1.5.4.5
 
