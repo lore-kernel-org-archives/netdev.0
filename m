@@ -1,60 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
-	RCU.
-Date: Sun, 20 Jul 2008 22:20:38 -0400
-Message-ID: <1216606839.4847.159.camel@localhost>
-References: <1216566963.4847.81.camel@localhost>
-	 <20080720.102534.246150854.davem@davemloft.net>
-	 <1216593170.4847.137.camel@localhost>
-	 <20080720.165911.86437240.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction
+	in	RCU.
+Date: Sun, 20 Jul 2008 22:33:57 -0400
+Message-ID: <1216607637.4847.172.camel@localhost>
+References: <E1KKZmE-0000ty-00@gondolin.me.apana.org.au>
+	 <1216568119.4847.101.camel@localhost>
+	 <20080721001119.GA6515@gondor.apana.org.au>
+Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:29904 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758927AbYGUCUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 22:20:41 -0400
-Received: by py-out-1112.google.com with SMTP id p76so909306pyb.10
-        for <netdev@vger.kernel.org>; Sun, 20 Jul 2008 19:20:41 -0700 (PDT)
-In-Reply-To: <20080720.165911.86437240.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080721001119.GA6515-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2008-20-07 at 16:59 -0700, David Miller wrote:
+On Mon, 2008-21-07 at 08:11 +0800, Herbert Xu wrote:
 
-> Every time this topic comes up, you insist on them having to match.
-> And I have no idea why.
+> This is exactly what I want to get rid of because otherwise even
+> if no index was specified we'll still do a hash insertion which
+> simply falls apart with a small hash table.  Using a large hash
+> table on the other is bad for people who only have a few rules.
 
-I dont insist on them matching, just on correctness. i.e if you say you
-have RR, then the scheduling needs to meet those requirements not an
-estimate - thats all.
+True. 
+But note: this is only during rule creation - once you create the
+rule (user space to kernel path), then no more hash table reference.
+Fast path has already a filter with actions attached, and is a mere
+pointer dereference.
 
-> The problem is that the bottleneck is the qdisc itself since all those
-> cpus synchonize on it's lock.  We can't have a shared qdisc for the
-> device and get full parallelization.
-> 
-> That's why we're having one qdisc per TX queue, so that they all don't
-> bunch up on the qdisc lock.
+> We could do a dynamic table but so far I'm not convinced that
+> it's worth anybody's effort to implement :)
 
-That last sentence i have no issues with - it is what i thought wasnt
-happening;-> i misunderstood it to be a single fifo shared by all
-hardware tx queues from the begining (otherwise i wouldnt be posting).
-We are in sync i think, a single pfifo per TX queue is the way to go. I
-was suggesting it goes in the driver, but this is cleaner: In the
-future, one could could actually replace the pfifo with another qdisc
-since the single virtual wire becomes equivalent to a single virtual
-netdevice
-
-> Otherwise, there is zero point in all of these TX multiqueue features
-> in the hardware if we can't parallelize things fully.
-
-parallelization is achieveable in the ideal case.
+If user<->kernel performance insertion/deletion is important, it is
+worth it.
+For example:
+Dave implemented dynamic hash tables on xfrm (voip setup time with ipsec
+is a metric used in the industry in that case) . The only operational
+problem i had with xfrm was lack of an upper bound of how large a table
+can grow; i would rather user space be told ENOMEM than continuing to
+grow in some cases (I actually implemented a patch which put a stop
+after a certain number of sad/spd - but i dont expect hugs if i was to
+post it;->).
 
 cheers,
 jamal
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
