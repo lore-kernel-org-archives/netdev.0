@@ -1,38 +1,38 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
 Subject: Re: [GIT]: Networking
-Date: Sun, 20 Jul 2008 18:07:28 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0807201804410.31863@woody.linux-foundation.org>
-References: <20080720.104411.81744468.davem@davemloft.net> <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+Date: Mon, 21 Jul 2008 05:09:52 +0400
+Message-ID: <20080721010952.GA4822@martell.zuzino.mipt.ru>
+References: <20080720.104411.81744468.davem@davemloft.net> <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org> <20080720.180304.51601407.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59500 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754238AbYGUBIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:08:07 -0400
-In-Reply-To: <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:62343 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754465AbYGUBME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:12:04 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so538813fgg.17
+        for <netdev@vger.kernel.org>; Sun, 20 Jul 2008 18:12:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080720.180304.51601407.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> > > This is the main networking merge for 2.6.27
 
+Looks like multiqueue changes broken netconsole (it remains silent).
 
-This warning also seems to be new:
+Also, I had to enable CONFIG_NET_SCHED=y, otherwise it wouldn't link:
 
-	net/ipv6/addrconf.c: In function =A1addrconf_add_linklocal=A2:
-	net/ipv6/addrconf.c:2318: warning: unused variable =A1net=A2
+	net/built-in.o: In function `dev_queue_xmit':
+	(.text+0x11210): undefined reference to `qdisc_calculate_pkt_len'
+	net/built-in.o: In function `__qdisc_destroy':
+	sch_generic.c:(.text+0x1ddcd): undefined reference to `qdisc_put_stab'
 
-and looking at the code it's apparently because I'm not an optimistic=20
-enough dad.
+And finally, boot process hangs after TCP cubic is initialized.
 
-But hey, if you had three pre-teenage girls, you might not be all that=20
-optimistic either. So I think that's reasonable.
+This is net-2.6 tree (175f9c1bba9b825d22b142d183c9e175488b260c)
+(tainted with conntracking-in-net-ns changes, though).
 
-Problem seems to have been introduced by 53b7997f ("ipv6 netns: Make=20
-several "global" sysctl variables namespace aware")
-
-		Linus
