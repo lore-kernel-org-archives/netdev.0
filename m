@@ -1,41 +1,21 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 11:16:27 +0100
-Message-ID: <20080721101626.GM10471@solarflare.com>
-References: <20080720.181440.122144107.davem@davemloft.net> <20080721024056.GA4800@martell.zuzino.mipt.ru> <20080720.194856.92564555.davem@davemloft.net> <20080720.221106.201055562.davem@davemloft.net> <a4423d670807210248l1e2e6999ha462edc99002f964@mail.gmail.com>
+From: "Matti Linnanvuori" <mattilinn@gmail.com>
+Subject: [patch] net: add Gigabit Ethernet Switch for PCI driver gesp
+Date: Mon, 21 Jul 2008 13:25:25 +0300
+Message-ID: <ca0148c30807210325j3cbff1f6i59404171089c82f5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, adobriyan@gmail.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Beregalov <a.beregalov@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:48616 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757987AbYGUKQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 06:16:36 -0400
+Received: from wf-out-1314.google.com ([209.85.200.175]:9292 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756847AbYGUKZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 06:25:25 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1518560wfd.4
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 03:25:25 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <a4423d670807210248l1e2e6999ha462edc99002f964@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Beregalov wrote:
-> Hi David!
-> 
-> There is another problem on sparc64 and happymeal ethernet card.
-> 
-> when tring to up interface:
-> 
-> kernel BUG at net/core/dev.c:1328
-[...]
-
-This is yet another driver calling netif_wake_queue() during dev_open(),
-when there is no real qdisc present.  (And yes, sfc is another of those
-drivers - I will post a patch after internal review.)
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+The following patch is on top of linux-next July 21:
+http://groups.google.com/group/pcidriver/web/gesp.patch
