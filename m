@@ -1,36 +1,57 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
-Date: Mon, 21 Jul 2008 23:22:20 +0800
-Message-ID: <20080721152220.GA12341@gondor.apana.org.au>
-References: <20080721131918.GA11114@gondor.apana.org.au> <1216648585.4847.303.camel@localhost> <20080721135846.GA11543@gondor.apana.org.au> <20080721.080901.214889979.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
+ at 0000000000000370
+Date: Mon, 21 Jul 2008 08:24:19 -0700 (PDT)
+Message-ID: <20080721.082419.70392960.davem@davemloft.net>
+References: <20080721134506.GA27598@elte.hu>
+	<20080721143023.GA32451@elte.hu>
+	<20080721150446.GA17746@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080721.080901.214889979.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: mingo@elte.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57073
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752782AbYGUPYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:24:20 -0400
+In-Reply-To: <20080721150446.GA17746@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 08:09:01AM -0700, David Miller wrote:
->
-> > Actually you've hit it on the head, as an alternative to TX hashing
-> > on the packet content, we need to allow TX queue selection based on
-> > the current CPU ID.
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 21 Jul 2008 17:04:48 +0200
+
+[ Adding linux-wireless CC, again, Ingo please retain it for
+  followups, thanks! ]
+
+> * Ingo Molnar <mingo@elte.hu> wrote:
 > 
-> This we should avoid, it would allow reordering within a flow.
-
-Not if the RX hashing is flow-based...
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > Pid: 1, comm: swapper Not tainted 2.6.26-tip-00013-g6de15c6-dirty #21290
+> > 
+> > some more information: find below the same crash with vanilla 
+> > linus/master and no extra patches. The crash site is:
+> 
+> a 32-bit testbox just triggered the same crash too:
+> 
+>  calling  init_mac80211_hwsim+0x0/0x310
+>  mac80211_hwsim: Initializing radio 0
+>  phy0: Failed to select rate control algorithm
+>  phy0: Failed to initialize rate control algorithm
+>  mac80211_hwsim: ieee80211_register_hw failed (-2)
+>  BUG: unable to handle kernel NULL pointer dereference at 00000298
+>  IP: [<c06efb98>] rollback_registered+0x28/0x120
+>  *pdpt = 0000000000bc9001 *pde = 0000000000000000
+>  Oops: 0000 [#1] PREEMPT SMP
+> 
+> and that system has no wireless so i guess it's just some unregister 
+> inbalance kind of init/deinit buglet.
+> 
+> 	Ingo
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
