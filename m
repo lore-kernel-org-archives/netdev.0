@@ -1,51 +1,128 @@
-From: Nicolas Pitre <nico-mo2vmkxb4K0@public.gmane.org>
-Subject: Re: Linux Wireless Mini-Summit -- Ottawa -- July 22, 2008
-Date: Mon, 21 Jul 2008 12:46:31 -0400 (EDT)
-Message-ID: <alpine.LFD.1.10.0807211245020.3213@xanadu.home>
-References: <20080709190915.GA8238@tuxdriver.com>
- <69e28c910807100912h30fcb57fpb4fb48b95c640f77@mail.gmail.com>
- <200807101815.27204.mb@bu3sch.de>
- <1216142191.6039.113.camel@localhost.localdomain>
- <alpine.LFD.1.10.0807151323570.12484@xanadu.home>
- <1216144711.13411.18.camel@localhost.localdomain>
- <alpine.LFD.1.10.0807151404530.12484@xanadu.home>
- <1216650224.22055.7.camel@localhost.localdomain>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 16/31] netns ct: per-netns /proc/net/nf_conntrack_expect
+Date: Mon, 21 Jul 2008 20:45:08 +0400
+Message-ID: <20080721164508.GB13390@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	=?ISO-8859-15?Q?Stefanik_G=E1bor?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <1216650224.22055.7.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	dev@openvz.org, xemul@openvz.org, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, benjamin.thery@bull.net
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:9771 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753427AbYGUQq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:46:56 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so275974ugf.16
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 09:46:55 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Jul 2008, Dan Williams wrote:
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> On Tue, 2008-07-15 at 14:14 -0400, Nicolas Pitre wrote:
-> > On Tue, 15 Jul 2008, Dan Williams wrote:
-> > 
-> > > Some of the issues with the current Marvell 83xx GPL drivers that have
-> > > gotten out are (a) code style, (b) lots of commented out stuff that's
-> > > never used, (c) OS abstraction that's unnecessary on Linux, (d) doesn't
-> > > use mac80211, and (e) uses private ioctls.  So hopefully you're writing
-> > > a new 83xx driver from scratch :)
-> > 
-> > Yes, this is all from scratch.  The objective for this work is to be 
-> > "mainlinable".
-> 
-> BTW, any chance on putting up a git repo somewhere so others can poke
-> around with it?  I'm quite interested in hacking on it.
+ net/netfilter/nf_conntrack_expect.c |   23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
 
-Eventually, of course.  Let's discuss f2f tomorrow.
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -423,16 +423,18 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_related);
+ 
+ #ifdef CONFIG_PROC_FS
+ struct ct_expect_iter_state {
++	struct seq_net_private p;
+ 	unsigned int bucket;
+ };
+ 
+ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ {
++	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 	struct hlist_node *n;
+ 
+ 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
+-		n = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
++		n = rcu_dereference(net->ct.expect_hash[st->bucket].first);
+ 		if (n)
+ 			return n;
+ 	}
+@@ -442,13 +444,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
+ 					     struct hlist_node *head)
+ {
++	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 
+ 	head = rcu_dereference(head->next);
+ 	while (head == NULL) {
+ 		if (++st->bucket >= nf_ct_expect_hsize)
+ 			return NULL;
+-		head = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
++		head = rcu_dereference(net->ct.expect_hash[st->bucket].first);
+ 	}
+ 	return head;
+ }
+@@ -522,7 +525,7 @@ static const struct seq_operations exp_seq_ops = {
+ 
+ static int exp_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &exp_seq_ops,
++	return seq_open_net(inode, file, &exp_seq_ops,
+ 			sizeof(struct ct_expect_iter_state));
+ }
+ 
+@@ -531,26 +534,26 @@ static const struct file_operations exp_file_ops = {
+ 	.open    = exp_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release_net,
+ };
+ #endif /* CONFIG_PROC_FS */
+ 
+-static int exp_proc_init(void)
++static int exp_proc_init(struct net *net)
+ {
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *proc;
+ 
+-	proc = proc_net_fops_create(&init_net, "nf_conntrack_expect", 0440, &exp_file_ops);
++	proc = proc_net_fops_create(net, "nf_conntrack_expect", 0440, &exp_file_ops);
+ 	if (!proc)
+ 		return -ENOMEM;
+ #endif /* CONFIG_PROC_FS */
+ 	return 0;
+ }
+ 
+-static void exp_proc_remove(void)
++static void exp_proc_remove(struct net *net)
+ {
+ #ifdef CONFIG_PROC_FS
+-	proc_net_remove(&init_net, "nf_conntrack_expect");
++	proc_net_remove(net, "nf_conntrack_expect");
+ #endif /* CONFIG_PROC_FS */
+ }
+ 
+@@ -579,7 +582,7 @@ int nf_conntrack_expect_init(struct net *net)
+ 	if (!nf_ct_expect_cachep)
+ 		goto err2;
+ 
+-	err = exp_proc_init();
++	err = exp_proc_init(net);
+ 	if (err < 0)
+ 		goto err3;
+ 
+@@ -596,7 +599,7 @@ err1:
+ 
+ void nf_conntrack_expect_fini(struct net *net)
+ {
+-	exp_proc_remove();
++	exp_proc_remove(net);
+ 	kmem_cache_destroy(nf_ct_expect_cachep);
+ 	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
+ 			     nf_ct_expect_hsize);
+-- 
+1.5.4.5
 
 
-Nicolas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
