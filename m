@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 30/31] netns nat: fix NAT interaction with NOTRACK code
-Date: Mon, 21 Jul 2008 20:57:04 +0400
-Message-ID: <20080721165704.GP13390@martell.zuzino.mipt.ru>
+Subject: [PATCH 31/31] netns nat: PPTP NAT in netns
+Date: Mon, 21 Jul 2008 20:57:28 +0400
+Message-ID: <20080721165728.GQ13390@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -13,38 +13,23 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When NAT module loads, set NAT-done flag for untracked conntrack in
-every netns.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/ipv4/netfilter/nf_nat_core.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/ipv4/netfilter/nf_nat_pptp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -588,6 +588,10 @@ static int __net_init nf_nat_net_init(struct net *net)
- 						      &net->ipv4.nat_vmalloced);
- 	if (!net->ipv4.nat_bysource)
- 		return -ENOMEM;
-+
-+	/* Initialize fake conntrack so that NAT will skip it */
-+	net->ct.untracked.status |= IPS_NAT_DONE_MASK;
-+
- 	return 0;
- }
+--- a/net/ipv4/netfilter/nf_nat_pptp.c
++++ b/net/ipv4/netfilter/nf_nat_pptp.c
+@@ -73,7 +73,7 @@ static void pptp_nat_expected(struct nf_conn *ct,
  
-@@ -645,9 +649,6 @@ static int __init nf_nat_init(void)
- 	rcu_assign_pointer(nf_nat_protos[IPPROTO_ICMP], &nf_nat_protocol_icmp);
- 	spin_unlock_bh(&nf_nat_lock);
- 
--	/* Initialize fake conntrack so that NAT will skip it */
--	init_net.ct.untracked.status |= IPS_NAT_DONE_MASK;
--
- 	l3proto = nf_ct_l3proto_find_get((u_int16_t)AF_INET);
- 
- 	BUG_ON(nf_nat_seq_adjust_hook != NULL);
+ 	pr_debug("trying to unexpect other dir: ");
+ 	nf_ct_dump_tuple_ip(&t);
+-	other_exp = nf_ct_expect_find_get(&init_net, &t);
++	other_exp = nf_ct_expect_find_get(nf_ct_net(ct), &t);
+ 	if (other_exp) {
+ 		nf_ct_unexpect_related(other_exp);
+ 		nf_ct_expect_put(other_exp);
 -- 
 1.5.4.5
 
