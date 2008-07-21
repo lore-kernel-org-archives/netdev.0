@@ -1,41 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
-	at 0000000000000370
-Date: Mon, 21 Jul 2008 17:04:48 +0200
-Message-ID: <20080721150446.GA17746@elte.hu>
-References: <20080720.104411.81744468.davem@davemloft.net> <20080721133059.GA30637@elte.hu> <20080721134506.GA27598@elte.hu> <20080721143023.GA32451@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATC] sctp: various fixes
+Date: Mon, 21 Jul 2008 08:05:35 -0700 (PDT)
+Message-ID: <20080721.080535.194149976.davem@davemloft.net>
+References: <20080718.230833.22196996.davem@davemloft.net>
+	<20080719.224047.228019059.davem@davemloft.net>
+	<48848B35.6050702@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756129AbYGUPF0@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080721143023.GA32451@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49985
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753117AbYGUPFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:05:35 -0400
+In-Reply-To: <48848B35.6050702@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 21 Jul 2008 09:12:21 -0400
 
-* Ingo Molnar <mingo@elte.hu> wrote:
-
-> > Pid: 1, comm: swapper Not tainted 2.6.26-tip-00013-g6de15c6-dirty #21290
+> David Miller wrote:
+> > From: David Miller <davem@davemloft.net>
+> > Date: Fri, 18 Jul 2008 23:08:33 -0700 (PDT)
+> > 
+> >> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> >> Date: Sat, 19 Jul 2008 00:26:45 -0400
+> >>
+> >>> This is a bunch of SCTP fixes that have accumlated over the past week or
+> >>> so. 
+> >> All applied, thanks Vlad.
+> > 
+> > Vlad, I had to add the following fix to the tree in order
+> > to unbreak the build when CONFIG_HIGHMEM is enabled.
+> > 
 > 
-> some more information: find below the same crash with vanilla 
-> linus/master and no extra patches. The crash site is:
+> ahh...  since tcp isn't a module, it didn't trigger that.
+> 
+> Thanks Dave.  I didn't think about turning highmem off..
 
-a 32-bit testbox just triggered the same crash too:
-
- calling  init_mac80211_hwsim+0x0/0x310
- mac80211_hwsim: Initializing radio 0
- phy0: Failed to select rate control algorithm
- phy0: Failed to initialize rate control algorithm
- mac80211_hwsim: ieee80211_register_hw failed (-2)
- BUG: unable to handle kernel NULL pointer dereference at 00000298
- IP: [<c06efb98>] rollback_registered+0x28/0x120
- *pdpt = 0000000000bc9001 *pde = 0000000000000000
- Oops: 0000 [#1] PREEMPT SMP
-
-and that system has no wireless so i guess it's just some unregister 
-inbalance kind of init/deinit buglet.
-
-	Ingo
+No problem, but the problematic case was turning highmem on :-)
