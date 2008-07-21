@@ -1,73 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 1/1] qeth: fix 2.6.27 build
-Date: Mon, 21 Jul 2008 14:48:36 +0200
-Message-ID: <488485A4.9030305@trash.net>
-References: <20080721115428.005485000@de.ibm.com> <20080721115507.647845000@de.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Mon, 21 Jul 2008 16:57:47 +0400
+Message-ID: <20080721125747.GA3056@2ka.mipt.ru>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru> <20080721115555.GA24176@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010405050204050300010504"
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, bunk@kernel.org
-To: frank.blaschka@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36648 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752060AbYGUMsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 08:48:38 -0400
-In-Reply-To: <20080721115507.647845000@de.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:50657 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750847AbYGUM6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 08:58:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080721115555.GA24176@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010405050204050300010504
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, Jul 21, 2008 at 01:55:55PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
+> > > I could try run tests with netconsole deactivated, if you think 
+> > > that's a worthwile line of probing this problem. (although that 
+> > > would make me do blind tests in essence - having kernel log output 
+> > > is really essential.)
+> > 
+> > Let's try this way first. If system will continue to crash, we will 
+> > add some debug options in various pathes. Existing reports do not 
+> > contain enough information unfortunately, so we will not lose too 
+> > much.
+> 
+> ok. I've turned off netconsole - 8 successful bootups in a row so far. 
+> The box is a slow booter/builder with an 8 kernels/hour test throughput, 
+> so if everything goes fine we should have meaningful results in about 10 
+> hours.
+> 
+> ( there are other, faster testboxes in -tip testing with 33 kernels/hour 
+>   build+boot throughput where we'd have to wait only 2 hours - but as 
+>   per Murphy's law they dont trigger this bug ;-)
 
-frank.blaschka@de.ibm.com wrote:
+Since 2.6.25 there was only single change in netpoll.c:
+f5184d267c1aedb9b7a8cc44e08ff6b8d382c3b5
+Which looks innocent.
 
- >                        tag = (u16 *)(new_skb->data + 12);
- >                        *tag = __constant_htons(ETH_P_8021Q);
- >                        *(tag + 1) = htons(vlan_tx_tag_get(new_skb));
- >-                       VLAN_TX_SKB_CB(new_skb)->magic = 0;
+Is your driver e1000 or e1000e? Can you check different one?
 
-The intention appears to be to invalidate the tag (its used
-later on again if present), so that doesn't look correct.
-
-
-
---------------010405050204050300010504
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-qeth: fix build error caused by VLAN changes
-
-Adrian Bunk reports this build error:
-
-CC      drivers/s390/net/qeth_l3_main.o
-/home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_hard_start_xmit':
-/home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c:2654: error: implicit declaration of function 'VLAN_TX_SKB_CB'
-/home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c:2654: error: invalid type argument of '->' (have 'int')
-make[3]: *** [drivers/s390/net/qeth_l3_main.o] Error 1
-
-The intention of the driver appears to be to invalidate the VLAN tag.
-Change it to set skb->vlan_tci to zero, which has the same effect.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index b29afef..38de31b 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2651,7 +2651,7 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			tag = (u16 *)(new_skb->data + 12);
- 			*tag = __constant_htons(ETH_P_8021Q);
- 			*(tag + 1) = htons(vlan_tx_tag_get(new_skb));
--			VLAN_TX_SKB_CB(new_skb)->magic = 0;
-+			new_skb->vlan_tci = 0;
- 		}
- 	}
- 
-
---------------010405050204050300010504--
+-- 
+	Evgeniy Polyakov
