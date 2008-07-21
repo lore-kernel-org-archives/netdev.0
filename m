@@ -1,79 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: drivers/s390/net/qeth_l3_main.c build error
-Date: Mon, 21 Jul 2008 14:13:12 +0200
-Message-ID: <48847D58.7050501@trash.net>
-References: <20080721105553.GB22914@cs181140183.pp.htv.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] Make simple TX hash little endian safe.
+Date: Mon, 21 Jul 2008 12:32:15 +0000
+Message-ID: <20080721123215.GA4376@ff.dom.local>
+References: <1216630088-10328-1-git-send-email-andi@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040204070403000204060400"
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35805 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbYGUMNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 08:13:50 -0400
-In-Reply-To: <20080721105553.GB22914@cs181140183.pp.htv.fi>
+Received: from fg-out-1718.google.com ([72.14.220.156]:36530 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750698AbYGUM1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 08:27:12 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so635447fgg.17
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 05:27:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1216630088-10328-1-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040204070403000204060400
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On 21-07-2008 10:48, Andi Kleen wrote:
+> From: Andi Kleen <andi@basil.nowhere.org>
+> 
+> Currently it will not use the lower
+> bits at all on big endian system, mapping e.g. all connections to a single
+> queue on a local network which only differs in the low bits.
 
-Adrian Bunk wrote:
-> Commit 6aa895b047720f71ec4eb11452f7c3ce8426941f
-> (vlan: Don't store VLAN tag in cb) causes the following build error:
->
-> <--  snip  -->
->
-> ...
->   CC      drivers/s390/net/qeth_l3_main.o
-> /home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_hard_start_xmit':
-> /home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c:2654: error: implicit declaration of function 'VLAN_TX_SKB_CB'
-> /home/bunk/linux/kernel-2.6/git/linux-2.6/drivers/s390/net/qeth_l3_main.c:2654: error: invalid type argument of '->' (have 'int')
-> make[3]: *** [drivers/s390/net/qeth_l3_main.o] Error 1
->
-> <--  snip  -->
->   
+It seems ports could be treated similarly, btw?
 
-Sorry, this patch should fix it.
+Jarek P.
 
-
-
---------------040204070403000204060400
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="x"
-
-cWV0aDogZml4IGJ1aWxkIGVycm9yIGNhdXNlZCBieSBWTEFOIGNoYW5nZXMKCkFkcmlhbiBC
-dW5rIHJlcG9ydHMgdGhpcyBidWlsZCBlcnJvcjoKCkNDICAgICAgZHJpdmVycy9zMzkwL25l
-dC9xZXRoX2wzX21haW4ubwovaG9tZS9idW5rL2xpbnV4L2tlcm5lbC0yLjYvZ2l0L2xpbnV4
-LTIuNi9kcml2ZXJzL3MzOTAvbmV0L3FldGhfbDNfbWFpbi5jOiBJbiBmdW5jdGlvbiAncWV0
-aF9sM19oYXJkX3N0YXJ0X3htaXQnOgovaG9tZS9idW5rL2xpbnV4L2tlcm5lbC0yLjYvZ2l0
-L2xpbnV4LTIuNi9kcml2ZXJzL3MzOTAvbmV0L3FldGhfbDNfbWFpbi5jOjI2NTQ6IGVycm9y
-OiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiAnVkxBTl9UWF9TS0JfQ0InCi9o
-b21lL2J1bmsvbGludXgva2VybmVsLTIuNi9naXQvbGludXgtMi42L2RyaXZlcnMvczM5MC9u
-ZXQvcWV0aF9sM19tYWluLmM6MjY1NDogZXJyb3I6IGludmFsaWQgdHlwZSBhcmd1bWVudCBv
-ZiAnLT4nIChoYXZlICdpbnQnKQptYWtlWzNdOiAqKiogW2RyaXZlcnMvczM5MC9uZXQvcWV0
-aF9sM19tYWluLm9dIEVycm9yIDEKClRoZSBpbnRlbnRpb24gb2YgdGhlIGRyaXZlciBhcHBl
-YXJzIHRvIGJlIHRvIGludmFsaWRhdGUgdGhlIFZMQU4gdGFnLgpDaGFuZ2UgaXQgdG8gc2V0
-IHNrYi0+dmxhbl90Y2kgdG8gemVybywgd2hpY2ggaGFzIHRoZSBzYW1lIGVmZmVjdC4KClNp
-Z25lZC1vZmYtYnk6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0PgpkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9zMzkwL25ldC9xZXRoX2wzX21haW4uYyBiL2RyaXZlcnMvczM5MC9u
-ZXQvcWV0aF9sM19tYWluLmMKaW5kZXggYjI5YWZlZi4uMzhkZTMxYiAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9zMzkwL25ldC9xZXRoX2wzX21haW4uYworKysgYi9kcml2ZXJzL3MzOTAvbmV0
-L3FldGhfbDNfbWFpbi5jCkBAIC0yNjUxLDcgKzI2NTEsNyBAQCBzdGF0aWMgaW50IHFldGhf
-bDNfaGFyZF9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYpCiAJCQl0YWcgPSAodTE2ICopKG5ld19za2ItPmRhdGEgKyAxMik7CiAJCQkq
-dGFnID0gX19jb25zdGFudF9odG9ucyhFVEhfUF84MDIxUSk7CiAJCQkqKHRhZyArIDEpID0g
-aHRvbnModmxhbl90eF90YWdfZ2V0KG5ld19za2IpKTsKLQkJCVZMQU5fVFhfU0tCX0NCKG5l
-d19za2IpLT5tYWdpYyA9IDA7CisJCQluZXdfc2tiLT52bGFuX3RjaSA9IDA7CiAJCX0KIAl9
-CiAK
---------------040204070403000204060400--
+> 
+> Also fold the upper 16 bits always in the lower 16bits.
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> ---
+>  net/core/dev.c |    7 +++++--
+>  1 files changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 2eed17b..c35fefc 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1694,8 +1694,11 @@ static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
+>  	ports = (u32 *) (skb_network_header(skb) + (ihl * 4));
+>  
+>  	hash = 0;
+> -	while (alen--)
+> -		hash ^= *addr++;
+> +	while (alen--) {
+> +		hash ^= ntohl(*addr); 
+> +		addr++;
+> +	}
+> +	hash ^= hash >> 16; /* More folding needed? */
+>  
+>  	switch (ip_proto) {
+>  	case IPPROTO_TCP:
