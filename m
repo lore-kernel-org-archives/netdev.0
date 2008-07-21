@@ -1,86 +1,52 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
-Date: Mon, 21 Jul 2008 12:52:45 +0300
-Message-ID: <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com>
-References: <20080717214222.GA29449@elte.hu>
-	 <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI>
-	 <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu>
+From: "Winkler, Tomas" <tomas.winkler@intel.com>
+Subject: RE: iwlwifi: fix build bug in "iwlwifi: fix LED stall"
+Date: Mon, 21 Jul 2008 13:02:31 +0300
+Message-ID: <C07C4589BE74A34981C3C3525EE1F801042DD9DC@hasmsx412.ger.corp.intel.com>
+References: <20080720.104411.81744468.davem@davemloft.net> <20080721083654.GA19849@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Vegard Nossum" <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
-	davem@davemloft.net, johnpol@2ka.mipt.ru
-To: "Ingo Molnar" <mingo@elte.hu>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "Ingo Molnar" <mingo@elte.hu>, "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:10408 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755629AbYGUJwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 05:52:45 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so1298047rvb.1
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 02:52:45 -0700 (PDT)
-In-Reply-To: <20080721094110.GA16029@elte.hu>
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:61094 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752040AbYGUKC6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 06:02:58 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080721083654.GA19849@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgSW5nbywKCk9uIE1vbiwgSnVsIDIxLCAyMDA4IGF0IDEyOjQxIFBNLCBJbmdvIE1vbG5hciA8
-bWluZ29AZWx0ZS5odT4gd3JvdGU6Cj4gdXBkYXRlIGFib3V0IHRoaXMgcHJvYmxlbToganVzdCB0
-cmlnZ2VyZWQgYW5vdGhlciBjb2xvcmZ1bCBjcmFzaCwgc2VlCj4gYmVsb3cuIFRoaXMgd2FzIHdp
-dGggdGhlIDRLIG9iamVjdCBkdW1wIHBhdGNoIGFscmVhZHksIG1heWJlIHRoZSBkdW1wCj4gZ2l2
-ZXMgYSBjbHVlPwoKLi4udG8gcG9pbnQgb3V0IHRoZSBvYnZpb3VzOgoKPiA9PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PQo+IEJVRyBza2J1ZmZfaGVhZF9jYWNoZTogUG9pc29uIG92ZXJ3cml0dGVuCj4gLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0KPgo+IElORk86IDB4ZjdjY2MxMDAtMHhmN2NjYzEwMy4gRmlyc3Qg
-Ynl0ZSAweDAgaW5zdGVhZCBvZiAweDZiCj4gSU5GTzogQWxsb2NhdGVkIGluIF9fYWxsb2Nfc2ti
-KzB4MzAvMHgxMGUgYWdlPTEgY3B1PTEgcGlkPTEKPiBJTkZPOiBGcmVlZCBpbiBfX2tmcmVlX3Nr
-YisweDYzLzB4NjYgYWdlPTEgY3B1PTAgcGlkPTAKPiBJTkZPOiBTbGFiIDB4YzFjMzRjYTAgb2Jq
-ZWN0cz0xNiB1c2VkPTEgZnA9MHhmN2NjYzEwMCBmbGFncz0weDQwMDAwMGMzCj4gSU5GTzogT2Jq
-ZWN0IDB4ZjdjY2MxMDAgQG9mZnNldD0yNTYgZnA9MHhmN2NjYzIwMAo+Cj4gQnl0ZXMgYjQgMHhm
-N2NjYzBmMDogIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVhIDVh
-IFpaWlpaWlpaWlpaWlpaWloKPiAgT2JqZWN0IDB4ZjdjY2MxMDA6ICAwMCAwMCAwMCAwMCA2YiA2
-YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiAuLi4ua2tra2tra2tra2trCgpVc2UgYWZ0
-ZXIgZnJlZSB3aGVyZSBmaXJzdCBmb3VyIGJ5dGVzIGFyZSB6ZXJvZWQuCgo+ICBPYmplY3QgMHhm
-N2NjYzExMDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZi
-IGtra2tra2tra2tra2tra2sKPiAgT2JqZWN0IDB4ZjdjY2MxMjA6ICA2YiA2YiA2YiA2YiA2YiA2
-YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiBra2tra2tra2tra2tra2trCj4gIE9iamVj
-dCAweGY3Y2NjMTMwOiAgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIg
-NmIgNmIga2tra2tra2tra2tra2trawo+ICBPYmplY3QgMHhmN2NjYzE0MDogIDZiIDZiIDZiIDZi
-IDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIGtra2tra2tra2tra2tra2sKPiAg
-T2JqZWN0IDB4ZjdjY2MxNTA6ICA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2
-YiA2YiA2YiA2YiBra2tra2tra2tra2tra2trCj4gIE9iamVjdCAweGY3Y2NjMTYwOiAgNmIgNmIg
-NmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIga2tra2tra2tra2tra2tr
-awo+ICBPYmplY3QgMHhmN2NjYzE3MDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZi
-IDZiIDZiIDZiIDZiIDZiIGtra2tra2tra2tra2tra2sKPiAgT2JqZWN0IDB4ZjdjY2MxODA6ICA2
-YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiA2YiBra2tra2tra2tr
-a2tra2trCj4gIE9iamVjdCAweGY3Y2NjMTkwOiAgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIgNmIg
-NmIgNmIgNmIgNmIgNmIgNmIgNmIga2tra2tra2tra2tra2trawo+ICBPYmplY3QgMHhmN2NjYzFh
-MDogIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIDZiIGE1IGtra2tr
-a2tra2tra2tra++/vQoKUmVzdCBvZiB0aGUgb2JqZWN0IGxvb2tzIGNvcnJlY3QuCgo+ICBSZWR6
-b25lIDB4ZjdjY2MxYjA6ICBiYiBiYiBiYiBiYiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICDvv73vv73vv73vv70KPiAgUGFkZGluZyAweGY3Y2NjMWQ4OiAgNWEgNWEgNWEgNWEg
-NWEgNWEgNWEgNWEgNWEgNWEgNWEgNWEgNWEgNWEgNWEgNWEgWlpaWlpaWlpaWlpaWlpaWgo+ICBQ
-YWRkaW5nIDB4ZjdjY2MxZTg6ICA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1YSA1
-YSA1YSA1YSA1YSBaWlpaWlpaWlpaWlpaWlpaCj4gIFBhZGRpbmcgMHhmN2NjYzFmODogIDVhIDVh
-IDVhIDVhIDVhIDVhIDVhIDVhICAgICAgICAgICAgICAgICAgICAgICAgIFpaWlpaWlpaCj4gUGlk
-OiAxLCBjb21tOiBzd2FwcGVyIE5vdCB0YWludGVkIDIuNi4yNi10aXAgIzMyNjEKPiAgWzxjMDE2
-NzNhZD5dIHByaW50X3RyYWlsZXIrMHhkMS8weGQ5Cj4gIFs8YzAxNjc0Mjg+XSBjaGVja19ieXRl
-c19hbmRfcmVwb3J0KzB4NzMvMHg4Zgo+ICBbPGMwMTY3NjY0Pl0gY2hlY2tfb2JqZWN0KzB4YTUv
-MHgxNWEKPiAgWzxjMDE2ODI0Yz5dIF9fc2xhYl9hbGxvYysweDJmYi8weDNjOAo+ICBbPGMwMTY4
-MzY0Pl0ga21lbV9jYWNoZV9hbGxvYysweDRiLzB4YTgKPiAgWzxjMDQ5NzM3Nj5dID8gX19hbGxv
-Y19za2IrMHgzMC8weDEwZQo+ICBbPGMwNDk3Mzc2Pl0gPyBfX2FsbG9jX3NrYisweDMwLzB4MTBl
-Cj4gIFs8YzA0OTczNzY+XSBfX2FsbG9jX3NrYisweDMwLzB4MTBlCj4gIFs8YzA0YTY2Nzg+XSBh
-bGxvY19za2IrMHhjLzB4ZQo+ICBbPGMwNGE2Y2U1Pl0gZmluZF9za2IrMHgyOC8weDY2Cj4gIFs8
-YzA0YTZmNWY+XSBuZXRwb2xsX3NlbmRfdWRwKzB4MmIvMHgxY2YKPiAgWzxjMDU4ODAwZj5dID8g
-X3NwaW5fbG9ja19pcnFzYXZlKzB4NGIvMHg1NQo+ICBbPGMwM2RiMzk5Pl0gd3JpdGVfbXNnKzB4
-NzkvMHhhYwo+ICBbPGMwM2RiMzIwPl0gPyB3cml0ZV9tc2crMHgwLzB4YWMKPiAgWzxjMDEyMmY5
-Nj5dIF9fY2FsbF9jb25zb2xlX2RyaXZlcnMrMHg1Ni8weDYzCj4gIFs8YzAxMjJmZmE+XSBfY2Fs
-bF9jb25zb2xlX2RyaXZlcnMrMHg1Ny8weDViCj4gIFs8YzAxMjMzODY+XSByZWxlYXNlX2NvbnNv
-bGVfc2VtKzB4MTEyLzB4MWE1Cj4gIFs8YzAxMjM4ZjM+XSB2cHJpbnRrKzB4MzQ0LzB4MzVlCj4g
-LS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJz
-Y3JpYmUgbGludXgta2VybmVsIiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRv
-bW9Admdlci5rZXJuZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIu
-a2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCj4gUGxlYXNlIHJlYWQgdGhlIEZBUSBhdCAg
-aHR0cDovL3d3dy50dXgub3JnL2xrbWwvCj4K
+
+
+>-----Original Message-----
+>From: Ingo Molnar [mailto:mingo@elte.hu]
+>Sent: Monday, July 21, 2008 11:37 AM
+>To: David Miller
+>Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Winkler,
+Tomas;
+>John W. Linville
+>Subject: iwlwifi: fix build bug in "iwlwifi: fix LED stall"
+>
+>
+>hi David,
+>
+>>       iwlwifi: fix LED stall
+>
+>please find a small build fix below.
+>
+There are already patches that fix this. John has to pick them up from
+the mail.
+Thanks
+Tomas
+
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
+
