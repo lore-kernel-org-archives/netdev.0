@@ -1,48 +1,41 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
-Date: Tue, 22 Jul 2008 01:02:33 +0800
-Message-ID: <20080721170233.GA13417@gondor.apana.org.au>
-References: <20080721161616.GA12938@gondor.apana.org.au> <20080721.092556.227421936.davem@davemloft.net> <20080721164306.GA13131@gondor.apana.org.au> <20080721.095124.89249903.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] arptables in netns for real
+Date: Mon, 21 Jul 2008 21:03:21 +0400
+Message-ID: <20080721170321.GA13486@martell.zuzino.mipt.ru>
+References: <20080721162920.GD13264@martell.zuzino.mipt.ru> <alpine.LNX.1.10.0807211846210.21244@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, xemul@openvz.org, den@openvz.org,
+	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080721.095124.89249903.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <alpine.LNX.1.10.0807211846210.21244@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 21, 2008 at 09:51:24AM -0700, David Miller wrote:
->
-> How so?  If the TX hash is well distributed, which it should be,
-> it is at least going to approximate the distribution provided by
-> the RX hash.
+On Mon, Jul 21, 2008 at 06:47:22PM +0200, Jan Engelhardt wrote:
+> On Monday 2008-07-21 18:29, Alexey Dobriyan wrote:
+> >-			      int (*okfn)(struct sk_buff *))
+> >+static unsigned int arpt_in_hook(unsigned int hook,
+> >+				 struct sk_buff *skb,
+> >+				 const struct net_device *in,
+> >+				 const struct net_device *out,
+> >+				 int (*okfn)(struct sk_buff *))
+> > {
+> >-	return arpt_do_table(skb, hook, in, out, init_net.ipv4.arptable_filter);
+> >+	return arpt_do_table(skb, hook, in, out,
+> >+			     dev_net(in)->ipv4.arptable_filter);
+> >+}
+> 
+> What I dislike with this netns stuff is that you need to touch
+> the ->ipv4. structure if you want to add new tables and there is
+> no more way to dynamically add tables from 3rd party modules unless
+> the admin loading them is fine with having them register against
+> &init_net only.
 
-This is a matter of probabilities :) In general, if the TX hash
-and the RX hash are completely unrelated, then the end result of
-the hash distribution should be independent of each other (independent
-in the probablistic sense).  That is, for the flows which have
-been RX hashed into one queue, they should be hashed on average
-across all queues by the TX hash.  Conversely, those that have
-been hashed into one TX queue would be distributed across all
-RX queues.
+Not exactly sure, if it's sufficient for you, you can use
+net_assign_generic() infrastructure from module and not touch "struct net"
+at all.
 
-Now if you've bound each RX queue to a specific CPU, then this
-means for a given TX queue, its packets are going to come from
-all the CPUs (well all those involved in network reception anyway).
-
-As each TX queue is designed to be accessed by only one CPU at
-a time, somebody somewhere has to pay for all this synchronisation :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
