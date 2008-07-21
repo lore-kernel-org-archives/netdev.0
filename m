@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Mon, 21 Jul 2008 08:26:27 -0700 (PDT)
-Message-ID: <20080721.082627.128593651.davem@davemloft.net>
-References: <20080721135846.GA11543@gondor.apana.org.au>
-	<20080721.080901.214889979.davem@davemloft.net>
-	<20080721152220.GA12341@gondor.apana.org.au>
+Subject: Re: [GIT]: Networking
+Date: Mon, 21 Jul 2008 08:27:57 -0700 (PDT)
+Message-ID: <20080721.082757.103904123.davem@davemloft.net>
+References: <20080720.194856.92564555.davem@davemloft.net>
+	<20080720.221106.201055562.davem@davemloft.net>
+	<20080721115742.GA4871@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57077
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57084
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750803AbYGUP01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:26:27 -0400
-In-Reply-To: <20080721152220.GA12341@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1750760AbYGUP15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:27:57 -0400
+In-Reply-To: <20080721115742.GA4871@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 21 Jul 2008 23:22:20 +0800
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 21 Jul 2008 15:57:42 +0400
 
-> On Mon, Jul 21, 2008 at 08:09:01AM -0700, David Miller wrote:
-> >
-> > > Actually you've hit it on the head, as an alternative to TX hashing
-> > > on the packet content, we need to allow TX queue selection based on
-> > > the current CPU ID.
+> On Sun, Jul 20, 2008 at 10:11:06PM -0700, David Miller wrote:
+> > Alexey, please try this patch:
 > > 
-> > This we should avoid, it would allow reordering within a flow.
+> > atl1: Do not wake queue before queue has been started.
 > 
-> Not if the RX hashing is flow-based...
+> Patch helps and networking is back with and without using netconsole,
+> thank you!
+> 
+> Also wan to say, 8139too driver survived multiqueue TX changes fine.
 
-Can you control the process scheduler and where it decides
-to run the processing running sendmsg() too?
-
-That's the problem.
-
-It is totally unwise to do CPU based TX hashing.
+Thank you very much for testing, I'll push this fix.
