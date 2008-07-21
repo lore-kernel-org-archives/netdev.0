@@ -1,69 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 09:49:49 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0807210942310.31863@woody.linux-foundation.org>
-References: <20080720.181440.122144107.davem@davemloft.net> <20080721024056.GA4800@martell.zuzino.mipt.ru> <20080720.194856.92564555.davem@davemloft.net> <20080720.221106.201055562.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Mon, 21 Jul 2008 09:51:24 -0700 (PDT)
+Message-ID: <20080721.095124.89249903.davem@davemloft.net>
+References: <20080721161616.GA12938@gondor.apana.org.au>
+	<20080721.092556.227421936.davem@davemloft.net>
+	<20080721164306.GA13131@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: adobriyan@gmail.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42976 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751899AbYGUQtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:49:53 -0400
-In-Reply-To: <20080720.221106.201055562.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55658
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751407AbYGUQvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:51:24 -0400
+In-Reply-To: <20080721164306.GA13131@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 22 Jul 2008 00:43:06 +0800
 
+> So let's assume that these flows have been distributed uniformly
+> by both the RX hash and the TX hash such that each queue is handling
+> ~250 flows.  If the TX hash does not match the result produced by
+> the RX hash, you're going to get a hell lot of contention once you
+> get into the NIC driver on the TX side.
 
-On Sun, 20 Jul 2008, David Miller wrote:
->
-> Alexey, please try this patch:
-> 
-> atl1: Do not wake queue before queue has been started.
+How so?  If the TX hash is well distributed, which it should be,
+it is at least going to approximate the distribution provided by
+the RX hash.
 
-David, can we please make this all a bit less fragile?
+> The benefit as far as I can see is that this would allow a packet's
+> entire journey through Linux to stay on exactly one CPU.  There will
+> be zero memory written by multiple CPUs as far as that packet is
+> concerned.
 
-There are _millions_ of network drivers, and these changes seem to have 
-broken not just common drivers, but also drivers that "work" seem to now 
-have broken suspend/resume.
+So will the existing one, enough of the time for it to matter,
+and yes even on a router or firewall.
 
-There's at least one report of suspend apparently oopsing now, and I 
-assume it's basically the same thing - it was bisected down to that same 
-37437bb2e1ae8af470dfcd5b4ff454110894ccaf commit ("pkt_sched: Schedule 
-qdiscs instead of netdev_queue.")
-
-Why is it so unnecessarily fragile to begin with? Especially for stuff 
-that happens at bootup or suspend, doing a BUG_ON() is _particularly_ 
-painful, because a dead machine means that you cannot get any logs or 
-anything else.
-
-So wouldn't it be *much* better to do something like the appended, and at 
-least try to limp on, and maybe have a system that people can get logs 
-out of?
-
-			Linus
-
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2eed17b..43ab4f5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1325,7 +1325,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 
- void __netif_schedule(struct Qdisc *q)
- {
--	BUG_ON(q == &noop_qdisc);
-+	if (WARN_ON_ONCE(q == &noop_qdisc))
-+		return;
- 
- 	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state)) {
- 		struct softnet_data *sd;
----
+At least this is my belief :-)
