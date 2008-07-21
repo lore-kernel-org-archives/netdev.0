@@ -1,47 +1,48 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Mon, 21 Jul 2008 13:55:55 +0200
-Message-ID: <20080721115555.GA24176@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
-	davem@davemloft.net
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:48720 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750803AbYGUL4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 07:56:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20080721112515.GA4777@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
+Date: Mon, 21 Jul 2008 19:58:33 +0800
+Message-ID: <E1KKu2D-0002kd-00@gondolin.me.apana.org.au>
+References: <1216606839.4847.159.camel@localhost>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216606839.4847.159.camel@localhost>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-
-> > I could try run tests with netconsole deactivated, if you think 
-> > that's a worthwile line of probing this problem. (although that 
-> > would make me do blind tests in essence - having kernel log output 
-> > is really essential.)
+jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org> wrote:
+>
+>> Otherwise, there is zero point in all of these TX multiqueue features
+>> in the hardware if we can't parallelize things fully.
 > 
-> Let's try this way first. If system will continue to crash, we will 
-> add some debug options in various pathes. Existing reports do not 
-> contain enough information unfortunately, so we will not lose too 
-> much.
+> parallelization is achieveable in the ideal case.
 
-ok. I've turned off netconsole - 8 successful bootups in a row so far. 
-The box is a slow booter/builder with an 8 kernels/hour test throughput, 
-so if everything goes fine we should have meaningful results in about 10 
-hours.
+I think I get you now.  You're suggesting that we essentially
+do what Dave has right now in the non-contending case, i.e.,
+bypassing the qdisc so we get fully parallel processing until
+one of the hardware queues seizes up.
 
-( there are other, faster testboxes in -tip testing with 33 kernels/hour 
-  build+boot throughput where we'd have to wait only 2 hours - but as 
-  per Murphy's law they dont trigger this bug ;-)
+At that point you'd stop all queues and make every packet go
+through the software qdisc to ensure ordering.  This continues
+until all queues have vacancies again.
 
-	Ingo
+If this is what you're suggesting, then I think that will offer
+pretty much the same behaviour as what we've got, while still
+offering at least some (perhaps even most, but that is debatable)
+of the benefits of multi-queue.
+
+At this point I don't think this is something that we need right
+now, but it would be good to make sure that the architecture
+allows such a thing to be implemented in future.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
