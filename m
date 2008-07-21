@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking build fix.
-Date: Sun, 20 Jul 2008 18:13:18 -0700 (PDT)
-Message-ID: <20080720.181318.17443249.davem@davemloft.net>
+Subject: Re: [GIT]: Networking
+Date: Sun, 20 Jul 2008 18:14:40 -0700 (PDT)
+Message-ID: <20080720.181440.122144107.davem@davemloft.net>
+References: <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+	<20080720.180304.51601407.davem@davemloft.net>
+	<20080721010952.GA4822@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38469
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36831
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754385AbYGUBNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:13:18 -0400
+	by vger.kernel.org with ESMTP id S1755314AbYGUBOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:14:40 -0400
+In-Reply-To: <20080721010952.GA4822@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 21 Jul 2008 05:09:52 +0400
 
-Please pull to get this build fix for a problem Stephen
-Rothwell reported with NET_SCHED disabled.
+> > > > This is the main networking merge for 2.6.27
+> 
+> Looks like multiqueue changes broken netconsole (it remains silent).
 
-Thanks!
+Can you dig a little bit deeper into this one?  It ought to
+work fine.
 
-The following changes since commit fb65a7c091529bfffb1262515252c0d0f6241c5c:
-  David S. Miller (1):
-        iucv: Fix bad merging.
+Thanks.
 
-are available in the git repository at:
+> Also, I had to enable CONFIG_NET_SCHED=y, otherwise it wouldn't link:
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+I just pushed Linus a fix for that, Stephen Rothwell noticed it
+too.
 
-David S. Miller (1):
-      pkt_sched: Fix build with NET_SCHED disabled.
+> And finally, boot process hangs after TCP cubic is initialized.
 
- include/net/sch_generic.h |    2 ++
- net/sched/sch_generic.c   |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+That very much should not happen.  Can you turn on initcall
+tracing so we can see where that is happening exactly?
