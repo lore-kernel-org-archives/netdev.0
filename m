@@ -1,46 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/31 DO NOT APPLY] enable netfilter in netns
-Date: Mon, 21 Jul 2008 10:07:22 -0700 (PDT)
-Message-ID: <20080721.100722.106020469.davem@davemloft.net>
-References: <20080721163358.GH13264@martell.zuzino.mipt.ru>
-	<4884C0EC.80204@trash.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Mon, 21 Jul 2008 10:08:21 -0700 (PDT)
+Message-ID: <20080721.100821.38432201.davem@davemloft.net>
+References: <20080721164306.GA13131@gondor.apana.org.au>
+	<20080721.095124.89249903.davem@davemloft.net>
+	<20080721170233.GA13417@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, xemul@openvz.org, den@openvz.org,
-	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58564
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751623AbYGURHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:07:22 -0400
-In-Reply-To: <4884C0EC.80204@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080721170233.GA13417-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 21 Jul 2008 19:01:32 +0200
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Date: Tue, 22 Jul 2008 01:02:33 +0800
 
-> Alexey Dobriyan wrote:
-> > 	Only for testing.
+> On Mon, Jul 21, 2008 at 09:51:24AM -0700, David Miller wrote:
+> >
+> > How so?  If the TX hash is well distributed, which it should be,
+> > it is at least going to approximate the distribution provided by
+> > the RX hash.
 > 
-> Thanks for posting this, I'll try to get this reviewed and
-> merged before the merge window closes.
+> This is a matter of probabilities :) In general, if the TX hash
+> and the RX hash are completely unrelated, then the end result of
+> the hash distribution should be independent of each other (independent
+> in the probablistic sense).  That is, for the flows which have
+> been RX hashed into one queue, they should be hashed on average
+> across all queues by the TX hash.  Conversely, those that have
+> been hashed into one TX queue would be distributed across all
+> RX queues.
 
-For networking it closed yesterday:
+Theoretically perhaps you are right.
 
---------------------
-Subject: net-2.6 merged to Linus...
-From: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Date: Sun, 20 Jul 2008 22:05:06 -0700 (PDT)
-X-Mailer: Mew version 5.2 on Emacs 22.1 / Mule 5.0 (SAKAKI)
-
-
-I would like to thank everyone for their work and I ask that folks
-concentrate on bug fixing now.
-
-Thanks a lot!
---------------------
+Can I at least get some commitment that someone will test
+that this really is necessary before we add the CPU ID
+hash option?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
