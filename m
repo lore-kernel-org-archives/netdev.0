@@ -1,52 +1,74 @@
-From: "Filka Michal" <Michal.Filka@sitronicsts.com>
-Subject: kernel newbie question on kernel panic
-Date: Mon, 21 Jul 2008 17:24:50 +0200
-Message-ID: <4474723F928CA640ADB2172099AEAB111B603F@exalfa.stromtelecom.cz>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [net-2.6 patch 1/1][SCHED] remove unused variable skb in dev_deactivate_queue
+ function
+Date: Mon, 21 Jul 2008 18:01:31 +0200
+Message-ID: <4884B2DB.2000403@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------070201040608020204090104"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.strom.cz ([80.95.102.231]:40894 "EHLO mail.strom.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733AbYGUPiR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:38:17 -0400
-Content-class: urn:content-classes:message
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:15486 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbYGUQBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:01:48 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id m6LG1bne304144
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 16:01:37 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6LG1b9P2126046
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 17:01:37 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6LG1a8C001638
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 17:01:36 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This is a multi-part message in MIME format.
+--------------070201040608020204090104
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I try to create my first kernel module.
-I have following problem. I have a function rp ... interesting part
-follows (just some initialization is ommited - nothing special - the
-function is just a skeleton)
 
-int rp( struct sk_buff ** skb)
-{
-	_filter_rule * rule = NULL;
 
-...
+--------------070201040608020204090104
+Content-Type: text/plain;
+ name="remove-unused-variable.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="remove-unused-variable.patch"
 
-	rule = placebo();
--->	if( rule == NULL)
-		printk( KERN_DEBUG "null rule\n");
-	return 1;
-}
+Subject: [SCHED] remove unused variable skb in dev_deactivate_queue function
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-The rp is called (subsequently) in netfilter (prerouting) hook context,
-so as far as I know it runs in a SoftIRQ.
+Removed unused variable 'skb' in the dev_deactivate_queue function
 
-The placebo function does nothing - just returns NULL. The problem is in
-line selected (-->).Everything goes until I try to somehow access
-returned value. The access raises kernel panic, seems that some page
-fault happent. If I comment out the line bellow selected (the test), no
-kernel panic happens.
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ net/sched/sch_generic.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-Questions are:
-- why the page fault happens (some trouble in memory usage, or so?)
-- how to avoid it?
+Index: net-2.6/net/sched/sch_generic.c
+===================================================================
+--- net-2.6.orig/net/sched/sch_generic.c
++++ net-2.6/net/sched/sch_generic.c
+@@ -576,7 +576,6 @@ static void dev_deactivate_queue(struct 
+ 				 void *_qdisc_default)
+ {
+ 	struct Qdisc *qdisc_default = _qdisc_default;
+-	struct sk_buff *skb = NULL;
+ 	struct Qdisc *qdisc;
+ 
+ 	qdisc = dev_queue->qdisc;
+@@ -588,8 +587,6 @@ static void dev_deactivate_queue(struct 
+ 
+ 		spin_unlock_bh(qdisc_lock(qdisc));
+ 	}
+-
+-	kfree_skb(skb);
+ }
+ 
+ static bool some_qdisc_is_running(struct net_device *dev, int lock)
 
-Thanks for any help
-Michal Filka
+--------------070201040608020204090104--
