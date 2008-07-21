@@ -1,46 +1,119 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
-Date: Mon, 21 Jul 2008 21:19:18 +0800
-Message-ID: <20080721131918.GA11114@gondor.apana.org.au>
-References: <E1KKu2D-0002kd-00@gondolin.me.apana.org.au> <1216645724.4847.275.camel@localhost>
+Subject: netfilter: nf_nat_sip: c= is optional for session
+Date: Mon, 21 Jul 2008 21:25:13 +0800
+Message-ID: <20080721132513.GA11162@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53406 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:39427 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753912AbYGUNTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:19:30 -0400
+	with ESMTP id S1753488AbYGUNZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:25:20 -0400
 Content-Disposition: inline
-In-Reply-To: <1216645724.4847.275.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 09:08:44AM -0400, jamal wrote:
->
-> The one thing i am unsure of still:
-> I think it would be cleaner to just stop a single queue (instead of all)
-> when one hardware queue fills up. i.e if there is no congestion on the
-> other hardware queues, packets should continue to be fed to their
-> hardware queues and not be buffered at qdisc level.
+Hi Patrick:
 
-Right you don't necessarily have to stop all queues but you do
-need to direct all packets into the qdisc.
+My phone stopped working after my router was upgraded to 2.6.26.
+This patch makes it work again.
 
-> Parallelization would work if you can get X CPUs to send to X hardware
-> queues concurently. Feasible in static host setup like virtualization
-> environment where you can tie a vm to a cpu. Not very feasible in
-> routing where you are driven to a random hardware tx queue by arriving
-> packets.
+netfilter: nf_nat_sip: c= is optional for session
 
-It should work just fine for routing assuming your card does
-multi-queue RX.
+According to RFC2327, the connection information is optional
+in the session description since it can be specified in the
+media description instead.
 
-Cheers,
+My provider does exactly that and does not provide any connection
+information in the session description.  As a result the new
+kernel drops all invite responses.
+
+This patch makes it optional as documented.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
+index 4334d5c..1454432 100644
+--- a/net/ipv4/netfilter/nf_nat_sip.c
++++ b/net/ipv4/netfilter/nf_nat_sip.c
+@@ -318,11 +318,11 @@ static int mangle_content_len(struct sk_buff *skb,
+ 			     buffer, buflen);
+ }
+ 
+-static unsigned mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
+-				  unsigned int dataoff, unsigned int *datalen,
+-				  enum sdp_header_types type,
+-				  enum sdp_header_types term,
+-				  char *buffer, int buflen)
++static int mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
++			     unsigned int dataoff, unsigned int *datalen,
++			     enum sdp_header_types type,
++			     enum sdp_header_types term,
++			     char *buffer, int buflen)
+ {
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+@@ -330,9 +330,9 @@ static unsigned mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
+ 
+ 	if (ct_sip_get_sdp_header(ct, *dptr, dataoff, *datalen, type, term,
+ 				  &matchoff, &matchlen) <= 0)
+-		return 0;
++		return -ENOENT;
+ 	return mangle_packet(skb, dptr, datalen, matchoff, matchlen,
+-			     buffer, buflen);
++			     buffer, buflen) ? 0 : -EINVAL;
+ }
+ 
+ static unsigned int ip_nat_sdp_addr(struct sk_buff *skb, const char **dptr,
+@@ -346,8 +346,8 @@ static unsigned int ip_nat_sdp_addr(struct sk_buff *skb, const char **dptr,
+ 	unsigned int buflen;
+ 
+ 	buflen = sprintf(buffer, NIPQUAD_FMT, NIPQUAD(addr->ip));
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen, type, term,
+-			       buffer, buflen))
++	if (mangle_sdp_packet(skb, dptr, dataoff, datalen, type, term,
++			      buffer, buflen))
+ 		return 0;
+ 
+ 	return mangle_content_len(skb, dptr, datalen);
+@@ -381,15 +381,27 @@ static unsigned int ip_nat_sdp_session(struct sk_buff *skb, const char **dptr,
+ 
+ 	/* Mangle session description owner and contact addresses */
+ 	buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(addr->ip));
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen,
++	if (mangle_sdp_packet(skb, dptr, dataoff, datalen,
+ 			       SDP_HDR_OWNER_IP4, SDP_HDR_MEDIA,
+ 			       buffer, buflen))
+ 		return 0;
+ 
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen,
+-			       SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
+-			       buffer, buflen))
++	switch (mangle_sdp_packet(skb, dptr, dataoff, datalen,
++				  SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
++				  buffer, buflen)) {
++	case 0:
++	/*
++	 * RFC 2327:
++	 *
++	 * Session description
++	 *
++	 * c=* (connection information - not required if included in all media)
++	 */
++	case -ENOENT:
++		break;
++	default:
+ 		return 0;
++	}
+ 
+ 	return mangle_content_len(skb, dptr, datalen);
+ }
