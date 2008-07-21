@@ -1,66 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: include/linux/ipv6.h, struct ipv6_devconf leaks to userspace
-Date: Mon, 21 Jul 2008 13:42:00 -0700 (PDT)
-Message-ID: <20080721.134200.195306719.davem@davemloft.net>
-References: <20080721123430.GA28599@aepfle.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/3] netns: timer allocation
+Date: Mon, 21 Jul 2008 13:44:26 -0700
+Message-ID: <20080721134426.6769f40c@extreme>
+References: <20080721192920.058840619@vyatta.com>
+	<20080721.132601.62660580.davem@davemloft.net>
+	<20080721133037.7b904ddb@extreme>
+	<20080721.133337.36896785.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: olaf@aepfle.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41987
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755461AbYGUUmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 16:42:00 -0400
-In-Reply-To: <20080721123430.GA28599@aepfle.de>
+Received: from mail.vyatta.com ([216.93.170.194]:38383 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752320AbYGUUo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 16:44:28 -0400
+In-Reply-To: <20080721.133337.36896785.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Olaf Hering <olaf@aepfle.de>
-Date: Mon, 21 Jul 2008 14:34:30 +0200
+FIB timer list is a trivial size structure, avoid indirection and just
+put it in existing ns.
 
-> 
-> Found by make O="$header_dir" headers_install_all in 2.6.26:
-> 
-> struct ipv6_devconf contains conditional members, guarded by CONFIG_*.
-> 
-> Please move the struct into #ifdef __KERNEL__
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I've applied the following patch, let me know if it doesn't
-fix the problem.
-
-Thanks.
-
-ipv6: __KERNEL__ ifdef struct ipv6_devconf
-
-Based upon a report by Olaf Hering.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/ipv6.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Applies to net-next-2.6 (after PATCH 1)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 391ad08..641e026 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -123,6 +123,7 @@ struct ipv6hdr {
- 	struct	in6_addr	daddr;
- };
+--- a/net/ipv6/ip6_fib.c	2008-07-21 13:40:46.000000000 -0700
++++ b/net/ipv6/ip6_fib.c	2008-07-21 13:40:48.000000000 -0700
+@@ -661,16 +661,16 @@ static int fib6_add_rt2node(struct fib6_
  
-+#ifdef __KERNEL__
- /*
-  * This structure contains configuration options per IPv6 link.
-  */
-@@ -167,6 +168,7 @@ struct ipv6_devconf {
- 	__s32		accept_dad;
- 	void		*sysctl;
- };
-+#endif
+ static void fib6_start_gc(struct net *net, struct rt6_info *rt)
+ {
+-	if (!timer_pending(net->ipv6.ip6_fib_timer) &&
++	if (!timer_pending(&net->ipv6.ip6_fib_timer) &&
+ 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
+-		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ }
  
- /* index values for the variables in ipv6_devconf */
- enum {
--- 
-1.5.6.4.433.g09651
-
+ void fib6_force_start_gc(struct net *net)
+ {
+-	if (!timer_pending(net->ipv6.ip6_fib_timer))
+-		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++	if (!timer_pending(&net->ipv6.ip6_fib_timer))
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ }
+ 
+@@ -1449,7 +1449,7 @@ void fib6_run_gc(unsigned long expires, 
+ 	} else {
+ 		local_bh_disable();
+ 		if (!spin_trylock(&fib6_gc_lock)) {
+-			mod_timer(net->ipv6.ip6_fib_timer, jiffies + HZ);
++			mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
+ 			local_bh_enable();
+ 			return;
+ 		}
+@@ -1462,10 +1462,10 @@ void fib6_run_gc(unsigned long expires, 
+ 	fib6_clean_all(net, fib6_age, 0, NULL);
+ 
+ 	if (gc_args.more)
+-		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ 	else
+-		del_timer(net->ipv6.ip6_fib_timer);
++		del_timer(&net->ipv6.ip6_fib_timer);
+ 	spin_unlock_bh(&fib6_gc_lock);
+ }
+ 
+@@ -1476,16 +1476,7 @@ static void fib6_gc_timer_cb(unsigned lo
+ 
+ static int fib6_net_init(struct net *net)
+ {
+-	int ret;
+-	struct timer_list *timer;
+-
+-	ret = -ENOMEM;
+-	timer = kzalloc(sizeof(*timer), GFP_KERNEL);
+-	if (!timer)
+-		goto out;
+-
+-	setup_timer(timer, fib6_gc_timer_cb, (unsigned long)net);
+-	net->ipv6.ip6_fib_timer = timer;
++	setup_timer(&net->ipv6.ip6_fib_timer, fib6_gc_timer_cb, (unsigned long)net);
+ 
+ 	net->ipv6.rt6_stats = kzalloc(sizeof(*net->ipv6.rt6_stats), GFP_KERNEL);
+ 	if (!net->ipv6.rt6_stats)
+@@ -1519,9 +1510,7 @@ static int fib6_net_init(struct net *net
+ #endif
+ 	fib6_tables_init(net);
+ 
+-	ret = 0;
+-out:
+-	return ret;
++	return 0;
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ out_fib6_main_tbl:
+@@ -1532,15 +1521,14 @@ out_fib_table_hash:
+ out_rt6_stats:
+ 	kfree(net->ipv6.rt6_stats);
+ out_timer:
+-	kfree(timer);
+-	goto out;
++	return -ENOMEM;
+  }
+ 
+ static void fib6_net_exit(struct net *net)
+ {
+ 	rt6_ifdown(net, NULL);
+-	del_timer_sync(net->ipv6.ip6_fib_timer);
+-	kfree(net->ipv6.ip6_fib_timer);
++	del_timer_sync(&net->ipv6.ip6_fib_timer);
++
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	kfree(net->ipv6.fib6_local_tbl);
+ #endif
+--- a/include/net/netns/ipv6.h	2008-07-21 13:39:51.000000000 -0700
++++ b/include/net/netns/ipv6.h	2008-07-21 13:40:48.000000000 -0700
+@@ -39,7 +39,7 @@ struct netns_ipv6 {
+ #endif
+ 	struct rt6_info         *ip6_null_entry;
+ 	struct rt6_statistics   *rt6_stats;
+-	struct timer_list       *ip6_fib_timer;
++	struct timer_list       ip6_fib_timer;
+ 	struct hlist_head       *fib_table_hash;
+ 	struct fib6_table       *fib6_main_tbl;
+ 	struct dst_ops		*ip6_dst_ops;
