@@ -1,58 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Sun, 20 Jul 2008 16:59:11 -0700 (PDT)
-Message-ID: <20080720.165911.86437240.davem@davemloft.net>
-References: <1216566963.4847.81.camel@localhost>
-	<20080720.102534.246150854.davem@davemloft.net>
-	<1216593170.4847.137.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in	RCU.
+Date: Mon, 21 Jul 2008 08:11:20 +0800
+Message-ID: <20080721001119.GA6515@gondor.apana.org.au>
+References: <E1KKZmE-0000ty-00@gondolin.me.apana.org.au> <1216568119.4847.101.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, johannes@sipsolutions.net,
-	linux-wireless@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40177
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754000AbYGTX7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 19:59:11 -0400
-In-Reply-To: <1216593170.4847.137.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:35406 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754342AbYGUALa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 20:11:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1216568119.4847.101.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 20 Jul 2008 18:32:50 -0400
+On Sun, Jul 20, 2008 at 11:35:19AM -0400, jamal wrote:
+>
+> All actions (on a per-type hash table basis) have an index.
+> You create filter rule X and specify action nat.
+> You may specify the index of the action when you create the filter X. 
+> If you then create another filter rule Y, also using the same action
+> index, then that nat action is shared between rule X and rule Y[1].
 
-> pfifo_fast would be a bad choice in that case, but even a pfifo cannot
-> guarantee proper RR because it would present packets in a FIFO order
-> (and example the first 10 could go to hardware queue1 and the next to
-> hardware queue2).
+This is exactly what I want to get rid of because otherwise even
+if no index was specified we'll still do a hash insertion which
+simply falls apart with a small hash table.  Using a large hash
+table on the other is bad for people who only have a few rules.
 
-Jamal, I have to wonder why are you so hung up on matching our
-software qdiscs with whatever fairness algorithm the hardware happens
-to implement internally for the TX queues?
+> [1]This is useful for tow reasons:
+> a) memory saving purposes: If you dont care that much about performance
+> or on a uniprocessor machine, one action would just be sufficient for
+> many rules.
+> b) accounting purposes; as you know qdiscs/filters/actions are
+> per-device. Over the years, a need has arosen from some users to have a
+> "per system" accounting (refer to the IMQ/IFB approach). Eg, if i wanted
+> the policer action to account for ingress eth0 and egress eth1 for a
+> user, i couldnt do it without some acrobatics.
 
-Every time this topic comes up, you insist on them having to match.
-And I have no idea why.
+We could do a dynamic table but so far I'm not convinced that
+it's worth anybody's effort to implement :)
 
-It's largely irrelevant and the TX queue can be viewed purely as a
-buffer between us and the device, nearly a black hole we stick packets
-into.
-
-> > These things are built for parallelization, not prioritization.
-> 
-> Total parallelization happens in the ideal case. If X cpus classify
-> packets going to X different hardware queueus each CPU grabs only locks
-> for that hardware queue.
-
-The problem is that the bottleneck is the qdisc itself since all those
-cpus synchonize on it's lock.  We can't have a shared qdisc for the
-device and get full parallelization.
-
-That's why we're having one qdisc per TX queue, so that they all don't
-bunch up on the qdisc lock.
-
-Otherwise, there is zero point in all of these TX multiqueue features
-in the hardware if we can't parallelize things fully.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
