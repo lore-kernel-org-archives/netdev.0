@@ -1,110 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 21 Jul 2008 10:58:14 -0700 (PDT)
-Message-ID: <20080721.105814.241900308.davem@davemloft.net>
+From: Ian Schram <ischram@telenet.be>
+Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
+ at 0000000000000370
+Date: Mon, 21 Jul 2008 20:18:25 +0200
+Message-ID: <4884D2F1.2030704@telenet.be>
+References: <20080721134506.GA27598@elte.hu>	<20080721143023.GA32451@elte.hu>	<20080721150446.GA17746@elte.hu> <20080721.082419.70392960.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: mingo@elte.hu, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	wireless <linux-wireless@vger.kernel.org>, j@w1.fi
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54877
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750794AbYGUR6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:58:15 -0400
+Received: from yorgi.telenet-ops.be ([195.130.133.69]:53982 "EHLO
+	yorgi.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649AbYGUSSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 14:18:53 -0400
+In-Reply-To: <20080721.082419.70392960.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I was looking at this out of interest, but I'm in no way familiar with the code.
 
-Here is a collection of the fixes that poured in today,
-including your change to use WARN_ON in __netif_schedule()
-as well as a 64-bit counter rework in netfilter.
+Looks to me that the error handling code in mac80211_hwsim is awkward. Which
+leads to it calling ieee80211_unregister_hw even when ieee80211_register_hw failed.
 
-I'm looking at a netconsole and a wireless crash reported
-by Ingo.
+The function has a for loop where it generates all simulated radios. when something
+fails, the error handling will call mac80211_hwsim_free which frees all simulated radios
+who's pointer isn't zero. However the information stored is insufficient to determine
+whether or not the call to ieee80211_register_hw succeeded or not for a specific radio.
+The included patch makes init_mac80211_hwsim clean up the current simulated radio,
+and then calls into mac80211_hwsim_free to clean up all the radios that did succeed.
 
-Please pull, thanks a lot!
+This however doesn't explain why the rate control registration failed.. build tested this,
+but had some problems reproducing the original problem.
 
-The following changes since commit 14b395e35d1afdd8019d11b92e28041fad591b71:
-  Linus Torvalds (1):
-        Merge branch 'for-2.6.27' of git://linux-nfs.org/~bfields/linux
+signed-off-by: Ian Schram <ischram@telenet.be>
+--- a/mac80211_hwsim.c	2008-07-21 18:48:38.000000000 +0200
++++ b/mac80211_hwsim.c	2008-07-21 19:31:44.000000000 +0200
+@@ -364,8 +364,7 @@ static void mac80211_hwsim_free(void)
+  			struct mac80211_hwsim_data *data;
+  			data = hwsim_radios[i]->priv;
+  			ieee80211_unregister_hw(hwsim_radios[i]);
+-			if (!IS_ERR(data->dev))
+-				device_unregister(data->dev);
++			device_unregister(data->dev);
+  			ieee80211_free_hw(hwsim_radios[i]);
+  		}
+  	}
+@@ -437,7 +436,7 @@ static int __init init_mac80211_hwsim(vo
+  			       "mac80211_hwsim: device_create_drvdata "
+  			       "failed (%ld)\n", PTR_ERR(data->dev));
+  			err = -ENOMEM;
+-			goto failed;
++			goto failed_drvdata;
+  		}
+  		data->dev->driver = &mac80211_hwsim_driver;
 
-are available in the git repository at:
+@@ -461,7 +460,7 @@ static int __init init_mac80211_hwsim(vo
+  		if (err < 0) {
+  			printk(KERN_DEBUG "mac80211_hwsim: "
+  			       "ieee80211_register_hw failed (%d)\n", err);
+-			goto failed;
++			goto failed_hw;
+  		}
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+  		printk(KERN_DEBUG "%s: hwaddr %s registered\n",
+@@ -479,9 +478,9 @@ static int __init init_mac80211_hwsim(vo
+  	rtnl_lock();
 
-Anton Vorontsov (2):
-      gianfar: do not touch net queue in adjust_link phylib callback
-      ucc_geth: do not touch net queue in adjust_link phylib callback
+  	err = dev_alloc_name(hwsim_mon, hwsim_mon->name);
+-	if (err < 0) {
++	if (err < 0)
+  		goto failed_mon;
+-	}
++
 
-Changli Gao (1):
-      netfilter: nf_nat_core: eliminate useless find_appropriate_src for IP_NAT_RANGE_PROTO_RANDOM
+  	err = register_netdevice(hwsim_mon);
+  	if (err < 0)
+@@ -494,7 +493,14 @@ static int __init init_mac80211_hwsim(vo
+  failed_mon:
+  	rtnl_unlock();
+  	free_netdev(hwsim_mon);
++	mac80211_hwsim_free();
++	return err;
 
-Daniel Lezcano (1):
-      pkt_sched: Remove unused variable skb in dev_deactivate_queue function.
++failed_hw:
++	device_unregister(data->dev);
++failed_drvdata:
++	ieee80211_free_hw(hw);
++	hwsim_radios[i] = 0;
+  failed:
+  	mac80211_hwsim_free();
+  	return err;
 
-David Howells (1):
-      netfilter: xt_time: fix time's time_mt()'s use of do_div()
 
-David S. Miller (4):
-      atl1: Do not wake queue before queue has been started.
-      sunhme: Remove stop/wake TX queue calls in set-multicast-list handler.
-      net: Improve simple_tx_hash().
-      Revert "pkt_sched: Make default qdisc nonshared-multiqueue safe."
-
-Eric Leblond (1):
-      netfilter: nfnetlink_log: send complete hardware header
-
-Herbert Xu (1):
-      netfilter: nf_nat_sip: c= is optional for session
-
-Jan Engelhardt (1):
-      netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
-
-Krzysztof Piotr Oledzki (2):
-      netlink: add NLA_PUT_BE64 macro
-      netfilter: accounting rework: ct_extend + 64bit counters (v4)
-
-Linus Torvalds (1):
-      net: In __netif_schedule() use WARN_ON instead of BUG_ON
-
-Micah Dowty (1):
-      hdlcdrv: Fix CRC calculation.
-
-Patrick McHardy (1):
-      netfilter: nf_conntrack_sctp: fix sparse warnings
-
- Documentation/feature-removal-schedule.txt         |   10 ++
- Documentation/kernel-parameters.txt                |    7 ++
- drivers/net/atlx/atl1.c                            |    3 +-
- drivers/net/gianfar.c                              |    1 -
- drivers/net/hamradio/hdlcdrv.c                     |    1 +
- drivers/net/sunhme.c                               |    4 -
- drivers/net/ucc_geth.c                             |    1 -
- include/linux/netfilter/nf_conntrack_common.h      |    8 +--
- include/linux/netfilter/nfnetlink_conntrack.h      |    8 +-
- include/linux/netfilter/nfnetlink_log.h            |    3 +
- include/net/netfilter/nf_conntrack.h               |    6 -
- include/net/netfilter/nf_conntrack_acct.h          |   51 ++++++++++
- include/net/netfilter/nf_conntrack_extend.h        |    2 +
- include/net/netlink.h                              |    3 +
- net/core/dev.c                                     |   37 +++++---
- .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |   18 +---
- net/ipv4/netfilter/nf_nat_core.c                   |    8 +-
- net/ipv4/netfilter/nf_nat_sip.c                    |   38 +++++---
- net/netfilter/Kconfig                              |    9 ++
- net/netfilter/Makefile                             |    2 +-
- net/netfilter/nf_conntrack_acct.c                  |  104 ++++++++++++++++++++
- net/netfilter/nf_conntrack_core.c                  |   39 +++++---
- net/netfilter/nf_conntrack_netlink.c               |   44 ++++-----
- net/netfilter/nf_conntrack_proto_sctp.c            |    8 +-
- net/netfilter/nf_conntrack_standalone.c            |   18 +---
- net/netfilter/nfnetlink_log.c                      |    8 ++
- net/netfilter/xt_TCPMSS.c                          |   42 +++------
- net/netfilter/xt_connbytes.c                       |    8 +-
- net/netfilter/xt_time.c                            |    2 +-
- net/sched/sch_generic.c                            |  102 +++++++++++++++-----
- 30 files changed, 411 insertions(+), 184 deletions(-)
- create mode 100644 include/net/netfilter/nf_conntrack_acct.h
- create mode 100644 net/netfilter/nf_conntrack_acct.c
