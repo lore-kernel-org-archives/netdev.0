@@ -1,47 +1,194 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RFC 3/3] net_sched: Add size table for qdiscs
-Date: Mon, 21 Jul 2008 15:00:33 +0200
-Message-ID: <48848871.3050900@trash.net>
-References: <20080717100921.3327.3324.stgit@fate.lan>	<20080717100938.3327.45121.stgit@fate.lan> <487F1F58.3040701@trash.net> <20080717210231.28364m21mg503g8w@hayate.ip6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36952 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478AbYGUNAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:00:36 -0400
-In-Reply-To: <20080717210231.28364m21mg503g8w@hayate.ip6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julius Volz <juliusv@google.com>
+Subject: [PATCHv2 1/2] IPVS: Add genetlink interface definitions to ip_vs.h
+Date: Mon, 21 Jul 2008 15:02:54 +0200
+Message-ID: <1216645375-20410-2-git-send-email-juliusv@google.com>
+References: <1216645375-20410-1-git-send-email-juliusv@google.com>
+Cc: horms@verge.net.au, kaber@trash.net, davem@davemloft.net,
+	tgraf@suug.ch, vbusam@google.com, Julius Volz <juliusv@google.com>
+To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1216645375-20410-1-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jussi Kivilinna wrote:
-> Quoting "Patrick McHardy" <kaber@trash.net>:
-> 
->>> @@ -123,9 +123,9 @@ static int tbf_enqueue(struct sk_buff *skb,  
->>> struct Qdisc* sch)
->>>     struct tbf_sched_data *q = qdisc_priv(sch);
->>>     int ret;
->>> -    /* qdisc_tx_len() before qdisc_enqueue() wrapper, might return 
->>> different
->>> -     * length than after wrapper. Should recalculate tx_len here if 
->>> q->qdisc
->>> -     * has size table? */
->>> +    if (q->qdisc->stab)
->>> +        qdisc_calculate_tx_len(skb, q->qdisc->stab);
->>> +
->>
->> I don't think this will help, the inner qdisc might again have
->> an inner qdisc that increases the size. So this probably needs
->> to be handled during dequeue.
->>
-> 
-> I don't quite follow you here, what needs to be handled during dequeue? 
-> tbf's q->max_size check?
+Add IPVS Generic Netlink interface definitions to include/linux/ip_vs.h.
 
+This depends on this patch I sent in previously:
+"IPVS: Move userspace definitions to include/linux/ip_vs.h"
 
-Yes. You check on ->enqueue by using the inner qdiscs size table,
-but that qdisc might again have an inner qdisc which increases
-the size, which you can't check during ->enqueue.
+Signed-off-by: Julius Volz <juliusv@google.com>
+
+ 1 files changed, 160 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
+index 2d4eb68..b53a124 100644
+--- a/include/linux/ip_vs.h
++++ b/include/linux/ip_vs.h
+@@ -245,4 +245,164 @@ struct ip_vs_daemon_user {
+ 	int			syncid;
+ };
+ 
++/*
++ *
++ * IPVS Generic Netlink interface definitions
++ *
++ */
++
++/* Generic Netlink family info */
++
++#define IPVS_GENL_NAME		"IPVS"
++#define IPVS_GENL_VERSION	0x1
++
++struct ip_vs_flags {
++	__be32 flags;
++	__be32 mask;
++};
++
++/* Generic Netlink command attributes */
++enum {
++	IPVS_CMD_UNSPEC = 0,
++
++	IPVS_CMD_NEW_SERVICE,		/* add service */
++	IPVS_CMD_SET_SERVICE,		/* modify service */
++	IPVS_CMD_DEL_SERVICE,		/* delete service */
++	IPVS_CMD_GET_SERVICE,		/* get service info */
++
++	IPVS_CMD_NEW_DEST,		/* add destination */
++	IPVS_CMD_SET_DEST,		/* modify destination */
++	IPVS_CMD_DEL_DEST,		/* delete destination */
++	IPVS_CMD_GET_DEST,		/* get destination info */
++
++	IPVS_CMD_NEW_DAEMON,		/* start sync daemon */
++	IPVS_CMD_DEL_DAEMON,		/* stop sync daemon */
++	IPVS_CMD_GET_DAEMON,		/* get sync daemon status */
++
++	IPVS_CMD_SET_CONFIG,		/* set config settings */
++	IPVS_CMD_GET_CONFIG,		/* get config settings */
++
++	IPVS_CMD_SET_INFO,		/* only used in GET_INFO reply */
++	IPVS_CMD_GET_INFO,		/* get general IPVS info */
++
++	IPVS_CMD_ZERO,			/* zero all counters and stats */
++	IPVS_CMD_FLUSH,			/* flush services and dests */
++
++	__IPVS_CMD_MAX,
++};
++
++#define IPVS_CMD_MAX (__IPVS_CMD_MAX - 1)
++
++/* Attributes used in the first level of commands */
++enum {
++	IPVS_CMD_ATTR_UNSPEC = 0,
++	IPVS_CMD_ATTR_SERVICE,		/* nested service attribute */
++	IPVS_CMD_ATTR_DEST,		/* nested destination attribute */
++	IPVS_CMD_ATTR_DAEMON,		/* nested sync daemon attribute */
++	IPVS_CMD_ATTR_TIMEOUT_TCP,	/* TCP connection timeout */
++	IPVS_CMD_ATTR_TIMEOUT_TCP_FIN,	/* TCP FIN wait timeout */
++	IPVS_CMD_ATTR_TIMEOUT_UDP,	/* UDP timeout */
++	__IPVS_CMD_ATTR_MAX,
++};
++
++#define IPVS_CMD_ATTR_MAX (__IPVS_SVC_ATTR_MAX - 1)
++
++/*
++ * Attributes used to describe a service
++ *
++ * Used inside nested attribute IPVS_CMD_ATTR_SERVICE
++ */
++enum {
++	IPVS_SVC_ATTR_UNSPEC = 0,
++	IPVS_SVC_ATTR_AF,		/* address family */
++	IPVS_SVC_ATTR_PROTOCOL,		/* virtual service protocol */
++	IPVS_SVC_ATTR_ADDR,		/* virtual service address */
++	IPVS_SVC_ATTR_PORT,		/* virtual service port */
++	IPVS_SVC_ATTR_FWMARK,		/* firewall mark of service */
++
++	IPVS_SVC_ATTR_SCHED_NAME,	/* name of scheduler */
++	IPVS_SVC_ATTR_FLAGS,		/* virtual service flags */
++	IPVS_SVC_ATTR_TIMEOUT,		/* persistent timeout */
++	IPVS_SVC_ATTR_NETMASK,		/* persistent netmask */
++
++	IPVS_SVC_ATTR_STATS,		/* nested attribute for service stats */
++	__IPVS_SVC_ATTR_MAX,
++};
++
++#define IPVS_SVC_ATTR_MAX (__IPVS_SVC_ATTR_MAX - 1)
++
++/*
++ * Attributes used to describe a destination (real server)
++ *
++ * Used inside nested attribute IPVS_CMD_ATTR_DEST
++ */
++enum {
++	IPVS_DEST_ATTR_UNSPEC = 0,
++	IPVS_DEST_ATTR_ADDR,		/* real server address */
++	IPVS_DEST_ATTR_PORT,		/* real server port */
++
++	IPVS_DEST_ATTR_FWD_METHOD,	/* forwarding method */
++	IPVS_DEST_ATTR_WEIGHT,		/* destination weight */
++
++	IPVS_DEST_ATTR_U_THRESH,	/* upper threshold */
++	IPVS_DEST_ATTR_L_THRESH,	/* lower threshold */
++
++	IPVS_DEST_ATTR_ACTIVE_CONNS,	/* active connections */
++	IPVS_DEST_ATTR_INACT_CONNS,	/* inactive connections */
++	IPVS_DEST_ATTR_PERSIST_CONNS,	/* persistent connections */
++
++	IPVS_DEST_ATTR_STATS,		/* nested attribute for dest stats */
++	__IPVS_DEST_ATTR_MAX,
++};
++
++#define IPVS_DEST_ATTR_MAX (__IPVS_DEST_ATTR_MAX - 1)
++
++/*
++ * Attributes describing a sync daemon
++ *
++ * Used inside nested attribute IPVS_CMD_ATTR_DAEMON
++ */
++enum {
++	IPVS_DAEMON_ATTR_UNSPEC = 0,
++	IPVS_DAEMON_ATTR_STATE,		/* sync daemon state (master/backup) */
++	IPVS_DAEMON_ATTR_MCAST_IFN,	/* multicast interface name */
++	IPVS_DAEMON_ATTR_SYNC_ID,	/* SyncID we belong to */
++	__IPVS_DAEMON_ATTR_MAX,
++};
++
++#define IPVS_DAEMON_ATTR_MAX (__IPVS_DAEMON_ATTR_MAX - 1)
++
++/*
++ * Attributes used to describe service or destination entry statistics
++ *
++ * Used inside nested attributes IPVS_SVC_ATTR_STATS and IPVS_DEST_ATTR_STATS
++ */
++enum {
++	IPVS_STATS_ATTR_UNSPEC = 0,
++	IPVS_STATS_ATTR_CONNS,		/* connections scheduled */
++	IPVS_STATS_ATTR_INPKTS,		/* incoming packets */
++	IPVS_STATS_ATTR_OUTPKTS,	/* outgoing packets */
++	IPVS_STATS_ATTR_INBYTES,	/* incoming bytes */
++	IPVS_STATS_ATTR_OUTBYTES,	/* outgoing bytes */
++
++	IPVS_STATS_ATTR_CPS,		/* current connection rate */
++	IPVS_STATS_ATTR_INPPS,		/* current in packet rate */
++	IPVS_STATS_ATTR_OUTPPS,		/* current out packet rate */
++	IPVS_STATS_ATTR_INBPS,		/* current in byte rate */
++	IPVS_STATS_ATTR_OUTBPS,		/* current out byte rate */
++	__IPVS_STATS_ATTR_MAX,
++};
++
++#define IPVS_STATS_ATTR_MAX (__IPVS_STATS_ATTR_MAX - 1)
++
++/* Attributes used in response to IPVS_CMD_GET_INFO command */
++enum {
++	IPVS_INFO_ATTR_UNSPEC = 0,
++	IPVS_INFO_ATTR_VERSION,		/* IPVS version number */
++	IPVS_INFO_ATTR_CONN_TAB_SIZE,	/* size of connection hash table */
++	__IPVS_INFO_ATTR_MAX,
++};
++
++#define IPVS_INFO_ATTR_MAX (__IPVS_INFO_ATTR_MAX - 1)
++
+ #endif	/* _IP_VS_H */
+-- 
+1.5.4.5
+
