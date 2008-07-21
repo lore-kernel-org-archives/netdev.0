@@ -1,28 +1,34 @@
-From: "Russell McGuire" <rmcguire@videopresence.com>
-Subject: NetDev User Options
-Date: Mon, 21 Jul 2008 15:16:14 -0700
-Message-ID: <BC5DCABAE2DD46CF8C440EBE6D4C924D@absolutdaddy>
-References: <4885028E.5050405@simon.arlott.org.uk>
-Reply-To: <rmcguire@videopresence.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [PATCHv2 0/11] netxen: add support for NX3031 chip
+Date: Mon, 21 Jul 2008 15:36:20 -0700
+Message-ID: <alpine.DEB.1.00.0807211533230.16668@unm84.unminc.com>
+References: <> <1216424649-4597-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "jeff@garzik.org" <jeff@garzik.org>
+To: Jeff Garzik <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout05-04.prod.mesa1.secureserver.net ([64.202.165.221]:60902
-	"HELO smtpout05.prod.mesa1.secureserver.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with SMTP id S1750763AbYGUWQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 18:16:18 -0400
-In-Reply-To: <4885028E.5050405@simon.arlott.org.uk>
+Received: from mail.netxen.com ([66.126.254.36]:7446 "EHLO nxexch.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755292AbYGUWjA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 18:39:00 -0400
+In-Reply-To: <1216424649-4597-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Guys,
+grr .. patch 09 didn't pick up new file netxen_nic_ctx.c. This will 
+break the build, since Makefile changes got picked up in that patch.
 
-Is there a quick way to change the user receive options into a batch digest
-or similar. I signed up to NetDev through MajorDomo, so I never saw a user
-options page.
+I gotta resend the patch series (with prefix RESENDv2).
 
--Russ
+-Dhananjay
 
+On Fri, 18 Jul 2008, Dhananjay Phadke wrote:
+
+> This is a reworked patchset that includes 5 of original patches and
+> 6 new to complete the driver support for NetXen NX3031 chip and
+> NIC boards based on it.
+> 
+> 
+> 
