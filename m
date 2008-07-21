@@ -1,66 +1,46 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
-Date: Mon, 21 Jul 2008 13:41:54 +0200
-Message-ID: <19f34abd0807210441o75c07e0fs60b49157318f59bb@mail.gmail.com>
-References: <20080717214222.GA29449@elte.hu>
-	 <19f34abd0807171627t1dd0ac5bx26535b5e19606835@mail.gmail.com>
-	 <20080717235657.GB6833@elte.hu>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [GIT]: Networking
+Date: Mon, 21 Jul 2008 21:45:58 +1000 (EST)
+Message-ID: <Xine.LNX.4.64.0807212143540.17349@us.intercode.com.au>
+References: <20080720.104411.81744468.davem@davemloft.net>
+ <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+ <20080720.180304.51601407.davem@davemloft.net> <4883E465.4050405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Pekka Enberg" <penberg@cs.helsinki.fi>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: "Ingo Molnar" <mingo@elte.hu>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:34724 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755657AbYGULl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 07:41:56 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1549863wfd.4
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 04:41:54 -0700 (PDT)
-In-Reply-To: <20080717235657.GB6833@elte.hu>
-Content-Disposition: inline
+Received: from namei.org ([69.55.235.186]:49634 "EHLO us.intercode.com.au"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751590AbYGULqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 07:46:45 -0400
+In-Reply-To: <4883E465.4050405@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 18, 2008 at 1:56 AM, Ingo Molnar <mingo@elte.hu> wrote:
->
-> * Vegard Nossum <vegard.nossum@gmail.com> wrote:
->
->> On Thu, Jul 17, 2008 at 11:42 PM, Ingo Molnar <mingo@elte.hu> wrote:
->> > With this config:
->> >
->> >   http://redhat.com/~mingo/misc/config-Thu_Jul_17_20_24_45_CEST_2008.bad
->> >
->>
->> It doesn't actually work. The config says
->>
->>     # head: 088fcf34
->>
->> and I checked out this from the tip tree. But kernel-config still
->> complains about unknown config options... What went wrong?
->
-> that's ok - i've got some local qa helpers that have config options.
->
-> Things like making SMP bootups more likely in randconfig, adding various
-> boot parameters to the bootup via .config methods (so that boot
-> parameters can be randomized via make randconfig), etc.
+On Mon, 21 Jul 2008, Patrick McHardy wrote:
 
-Hm, your config doesn't contain SLUB_DEBUG either. Isn't that a
-requirement for seeing the BUG you're getting?
+> > James/Patrick please fix this.
+> >   
+> 
+> This is only the NETFILTER_ADVANCED=n default (for SECURITY=y).
+> The netfilter defaults for NETFILTER_ADVANCED=n should be m/y for
+> things that are needed by mainstream distributions for normal
+> usage.
+> 
+> I'm not sure how this is going to be used, James?
 
-$ grep SLUB config-Thu_Jul_17_20_24_45_CEST_2008.bad
-# CONFIG_SLUB_DEBUG is not set
-CONFIG_SLUB=y
+I think the idea now is that everything new is N by default, but the 
+intention is to have this enabled in Fedora/RHEL.
 
-Did you post the wrong config?
+Patrick, would you please fix this up?  The only dev box I have access to 
+at the moment doesn't boot with recent git (I think it's the macbook2 
+issue).
 
 
-Vegard
-
+- James
 -- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+James Morris
+<jmorris@namei.org>
