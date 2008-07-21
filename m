@@ -1,52 +1,36 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATC] sctp: various fixes
-Date: Mon, 21 Jul 2008 11:19:34 -0400
-Message-ID: <4884A906.1000602@hp.com>
-References: <20080718.230833.22196996.davem@davemloft.net>	<20080719.224047.228019059.davem@davemloft.net>	<48848B35.6050702@hp.com> <20080721.080535.194149976.davem@davemloft.net>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Mon, 21 Jul 2008 23:22:20 +0800
+Message-ID: <20080721152220.GA12341@gondor.apana.org.au>
+References: <20080721131918.GA11114@gondor.apana.org.au> <1216648585.4847.303.camel@localhost> <20080721135846.GA11543@gondor.apana.org.au> <20080721.080901.214889979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:42800 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752796AbYGUPTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:19:37 -0400
-In-Reply-To: <20080721.080535.194149976.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080721.080901.214889979.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 21 Jul 2008 09:12:21 -0400
+On Mon, Jul 21, 2008 at 08:09:01AM -0700, David Miller wrote:
+>
+> > Actually you've hit it on the head, as an alternative to TX hashing
+> > on the packet content, we need to allow TX queue selection based on
+> > the current CPU ID.
 > 
->> David Miller wrote:
->>> From: David Miller <davem@davemloft.net>
->>> Date: Fri, 18 Jul 2008 23:08:33 -0700 (PDT)
->>>
->>>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
->>>> Date: Sat, 19 Jul 2008 00:26:45 -0400
->>>>
->>>>> This is a bunch of SCTP fixes that have accumlated over the past week or
->>>>> so. 
->>>> All applied, thanks Vlad.
->>> Vlad, I had to add the following fix to the tree in order
->>> to unbreak the build when CONFIG_HIGHMEM is enabled.
->>>
->> ahh...  since tcp isn't a module, it didn't trigger that.
->>
->> Thanks Dave.  I didn't think about turning highmem off..
-> 
-> No problem, but the problematic case was turning highmem on :-)
-> 
+> This we should avoid, it would allow reordering within a flow.
 
-argh.....
+Not if the RX hashing is flow-based...
 
-CONFIG_HIGHMEM=y
-...
-CONFIG_SCTP=y
-
-Ran my tests in kvm and it's easier to build stuff in.
-
--vlad
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
