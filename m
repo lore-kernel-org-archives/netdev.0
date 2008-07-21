@@ -1,68 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] netns: timer allocation
-Date: Mon, 21 Jul 2008 16:28:14 -0700 (PDT)
-Message-ID: <20080721.162814.38681521.davem@davemloft.net>
-References: <20080721134426.6769f40c@extreme>
-	<20080721.134739.262598027.davem@davemloft.net>
-	<20080721140751.4796d6c5@extreme>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
+ overwritten
+Date: Mon, 21 Jul 2008 16:33:49 -0700 (PDT)
+Message-ID: <20080721.163349.113841731.davem@davemloft.net>
+References: <20080721115555.GA24176@elte.hu>
+	<20080721192138.GA27672@elte.hu>
+	<20080721212447.GA10107@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: mingo@elte.hu, penberg@cs.helsinki.fi,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	vegard.nossum@gmail.com, rjw@sisk.pl, cl@linux-foundation.org,
+	auke-jan.h.kok@intel.com
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35263
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34000
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753118AbYGUX2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 19:28:14 -0400
-In-Reply-To: <20080721140751.4796d6c5@extreme>
+	by vger.kernel.org with ESMTP id S1750939AbYGUXdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 19:33:49 -0400
+In-Reply-To: <20080721212447.GA10107@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 21 Jul 2008 14:07:51 -0700
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Tue, 22 Jul 2008 01:24:48 +0400
 
-> FIB timer list is a trivial size structure, avoid indirection and just
-> put it in existing ns.
+> On Mon, Jul 21, 2008 at 09:21:38PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
+> > So it's now a strong likelyhood that this crash is a combination of 
+> > e1000e+netconsole.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> e1000_clean_tx_irq() call looks particulary suspicious: it is called
+> without adapter->tx_queue_lock in poll controller (netconsole callback)
+> and with that lock in NAPI handler.
 > 
-> ---
-> Sigh.. part 1 patch was not refreshed.
+> Can you check kind of this patch:
 
-Sigh, really, 3 times?
+The call even seems pointless, since the caller will call
+->poll() (which is e1000_clean) as the very next action,
+and that will invoke e1000_clean_tx_irq() properly.
 
-+ git apply --check --whitespace=error-all diff
-error: patch failed: net/ipv6/ip6_fib.c:661
-error: net/ipv6/ip6_fib.c: patch does not apply
-
-Would it kill you to just clone out a fresh net-2.6 tree and actually
-try to apply the patch before sending it to me?
-
-You're asking me to do that 3+ times.  So you can do it once, right?
-:)
-
-> --- a/net/ipv6/ip6_fib.c	2008-07-21 14:06:22.000000000 -0700
-> +++ b/net/ipv6/ip6_fib.c	2008-07-21 14:06:32.000000000 -0700
-> @@ -661,16 +661,16 @@ static int fib6_add_rt2node(struct fib6_
->  
->  static __inline__ void fib6_start_gc(struct net *net, struct rt6_info *rt)
->  {
-> -	if (!timer_pending(net->ipv6.ip6_fib_timer) &&
-> +	if (!timer_pending(&net->ipv6.ip6_fib_timer) &&
->  	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
-> -		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
-> +		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
->  			  net->ipv6.sysctl.ip6_rt_gc_interval);
->  }
->  
-
-In net-2.6 those mod_timer() lines read:
-
-		mod_timer(net->ipv6.ip6_fib_timer,
-			  jiffies + net->ipv6.sysctl.ip6_rt_gc_interval);
-
-the jiffies starts on the second line, not the first.
-
-Something is seriously wrong with whatever tree you're generating
-these patches against.
+I would just delete this call from e1000_netpoll() entirely.
