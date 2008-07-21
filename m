@@ -1,37 +1,60 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Mon, 21 Jul 2008 22:05:54 +0200
-Message-ID: <20080721200554.GA15463@elte.hu>
-References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <4884B7C3.9040801@linux-foundation.org> <20080721195748.GA3191@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [crash] kernel BUG at net/core/dev.c:1328!
+Date: Mon, 21 Jul 2008 13:11:29 -0700 (PDT)
+Message-ID: <20080721.131129.244101157.davem@davemloft.net>
+References: <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org>
+	<20080721.120052.123606398.davem@davemloft.net>
+	<4884E174.5030802@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, davem@davemloft.net
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, mingo@elte.hu,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: stefanr@s5r6.in-berlin.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:56621 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754622AbYGUUGx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 16:06:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20080721195748.GA3191@2ka.mipt.ru>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35724
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751542AbYGUUL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 16:11:29 -0400
+In-Reply-To: <4884E174.5030802@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date: Mon, 21 Jul 2008 21:20:20 +0200
 
-* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> In the meantime:  Is there perhaps something obviously wrong with 
+> drivers/ieee1394/eth1394.c's netdevice initialization?  We do it in 
+> ether1394_add_host(), and shortly thereafter the crashing 
+> ether1394_host_reset() is called.  So we have essentially
+> 
+> (add host)
+> 	dev = alloc_netdev(...);
+> 	initialize various members in dev...
+> 	register_netdev(dev);
+> 
+> (host reset)
+> 	netif_stop_queue(dev);
+> 	discard some stale 1394 stuff if there were some...
+> 	netif_wake_queue(dev);  <-- crashes in __netif_schedule(dev);
 
-> It could be an interesting kmemcheck extension to catch not only 
-> non-initialized memory, but also writes into just freed one, but not 
-> yet returned by allocator to the next user.
+You should only do a netif_stop_queue() in your device
+initialization, at the very end of ->open() processing
+when you've fully committed to returning success.
 
-hm, i think kmemcheck does that mostly already. If not then I think 
-kmemcheck should just turn off all buffering that might happen on the 
-SLUB level (if it doesnt do it already). I.e. a kfree()d buffer should 
-be marked as uninitialized immediately.
+You should not, in particular, be doing a netif_wake_queue()
+before you've even done a netif_start_queue().
 
-	Ingo
+Many of these drivers are using netif_{stop,wake}_queue()
+to stop packet flow, in particular when link state changes,
+and netif_carrier_{on,off}() already does all of that for
+you.
+
+Really, anything outside of:
+
+1) netif_start_queue() in ->open()
+2) netif_stop_queue() in ->stop()
+3) netif_{stop,wake}_queue() in the TX packet handling path
+
+is superfluous.
