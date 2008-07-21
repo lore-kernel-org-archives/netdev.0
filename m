@@ -1,43 +1,48 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT]: Networking
-Date: Sun, 20 Jul 2008 18:14:40 -0700 (PDT)
-Message-ID: <20080720.181440.122144107.davem@davemloft.net>
-References: <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
-	<20080720.180304.51601407.davem@davemloft.net>
-	<20080721010952.GA4822@martell.zuzino.mipt.ru>
+Date: Sun, 20 Jul 2008 18:17:02 -0700 (PDT)
+Message-ID: <20080720.181702.239050112.davem@davemloft.net>
+References: <20080720.104411.81744468.davem@davemloft.net>
+	<alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+	<alpine.LFD.1.10.0807201804410.31863@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: adobriyan@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36831
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36836
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755314AbYGUBOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:14:40 -0400
-In-Reply-To: <20080721010952.GA4822@martell.zuzino.mipt.ru>
+	by vger.kernel.org with ESMTP id S1754780AbYGUBRC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:17:02 -0400
+In-Reply-To: <alpine.LFD.1.10.0807201804410.31863@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Mon, 21 Jul 2008 05:09:52 +0400
-
-> > > > This is the main networking merge for 2.6.27
-> 
-> Looks like multiqueue changes broken netconsole (it remains silent).
-
-Can you dig a little bit deeper into this one?  It ought to
-work fine.
-
-Thanks.
-
-> Also, I had to enable CONFIG_NET_SCHED=y, otherwise it wouldn't link:
-
-I just pushed Linus a fix for that, Stephen Rothwell noticed it
-too.
-
-> And finally, boot process hangs after TCP cubic is initialized.
-
-That very much should not happen.  Can you turn on initcall
-tracing so we can see where that is happening exactly?
+RnJvbTogTGludXMgVG9ydmFsZHMgPHRvcnZhbGRzQGxpbnV4LWZvdW5kYXRpb24ub3JnPg0KRGF0
+ZTogU3VuLCAyMCBKdWwgMjAwOCAxODowNzoyOCAtMDcwMCAoUERUKQ0KDQo+IFRoaXMgd2Fybmlu
+ZyBhbHNvIHNlZW1zIHRvIGJlIG5ldzoNCj4gDQo+IAluZXQvaXB2Ni9hZGRyY29uZi5jOiBJbiBm
+dW5jdGlvbiChYWRkcmNvbmZfYWRkX2xpbmtsb2NhbKI6DQo+IAluZXQvaXB2Ni9hZGRyY29uZi5j
+OjIzMTg6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChbmV0og0KPiANCj4gYW5kIGxvb2tpbmcg
+YXQgdGhlIGNvZGUgaXQncyBhcHBhcmVudGx5IGJlY2F1c2UgSSdtIG5vdCBhbiBvcHRpbWlzdGlj
+IA0KPiBlbm91Z2ggZGFkLg0KPiANCj4gQnV0IGhleSwgaWYgeW91IGhhZCB0aHJlZSBwcmUtdGVl
+bmFnZSBnaXJscywgeW91IG1pZ2h0IG5vdCBiZSBhbGwgdGhhdCANCj4gb3B0aW1pc3RpYyBlaXRo
+ZXIuIFNvIEkgdGhpbmsgdGhhdCdzIHJlYXNvbmFibGUuDQo+IA0KPiBQcm9ibGVtIHNlZW1zIHRv
+IGhhdmUgYmVlbiBpbnRyb2R1Y2VkIGJ5IDUzYjc5OTdmICgiaXB2NiBuZXRuczogTWFrZSANCj4g
+c2V2ZXJhbCAiZ2xvYmFsIiBzeXNjdGwgdmFyaWFibGVzIG5hbWVzcGFjZSBhd2FyZSIpDQoNCkxl
+dCdzIGp1c3QgZXhwYW5kIHRoZSB0aGluZyBpbiB0aGUgb25lIHNwb3QgaXQgZ2V0cw0KcmVmZXJl
+bmNlZCBpbi4NCg0KUGxlYXNlIGFwcGx5LCB0aGFua3MuDQoNCmlwdjY6IEZpeCB3YXJuaW5nIGlu
+IGFkZHJjb25mIGNvZGUuDQoNClJlcG9ydGVkIGJ5IExpbnVzLg0KDQpTaWduZWQtb2ZmLWJ5OiBE
+YXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQoNCmRpZmYgLS1naXQgYS9uZXQv
+aXB2Ni9hZGRyY29uZi5jIGIvbmV0L2lwdjYvYWRkcmNvbmYuYw0KaW5kZXggNTgwYWU1MC4uOWY0
+ZmNjZSAxMDA2NDQNCi0tLSBhL25ldC9pcHY2L2FkZHJjb25mLmMNCisrKyBiL25ldC9pcHY2L2Fk
+ZHJjb25mLmMNCkBAIC0yMzE1LDEyICsyMzE1LDExIEBAIHN0YXRpYyB2b2lkIGluaXRfbG9vcGJh
+Y2soc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCiBzdGF0aWMgdm9pZCBhZGRyY29uZl9hZGRfbGlu
+a2xvY2FsKHN0cnVjdCBpbmV0Nl9kZXYgKmlkZXYsIHN0cnVjdCBpbjZfYWRkciAqYWRkcikNCiB7
+DQogCXN0cnVjdCBpbmV0Nl9pZmFkZHIgKiBpZnA7DQotCXN0cnVjdCBuZXQgKm5ldCA9IGRldl9u
+ZXQoaWRldi0+ZGV2KTsNCiAJdTMyIGFkZHJfZmxhZ3MgPSBJRkFfRl9QRVJNQU5FTlQ7DQogDQog
+I2lmZGVmIENPTkZJR19JUFY2X09QVElNSVNUSUNfREFEDQogCWlmIChpZGV2LT5jbmYub3B0aW1p
+c3RpY19kYWQgJiYNCi0JICAgICFuZXQtPmlwdjYuZGV2Y29uZl9hbGwtPmZvcndhcmRpbmcpDQor
+CSAgICAhZGV2X25ldChpZGV2LT5kZXYpLT5pcHY2LmRldmNvbmZfYWxsLT5mb3J3YXJkaW5nKQ0K
+IAkJYWRkcl9mbGFncyB8PSBJRkFfRl9PUFRJTUlTVElDOw0KICNlbmRpZg0KIA0K
