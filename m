@@ -1,48 +1,38 @@
-From: David Miller <davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Sun, 20 Jul 2008 18:03:04 -0700 (PDT)
-Message-ID: <20080720.180304.51601407.davem@davemloft.net>
-References: <20080720.104411.81744468.davem@davemloft.net>
-	<alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
+Date: Sun, 20 Jul 2008 18:07:28 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0807201804410.31863@woody.linux-foundation.org>
+References: <20080720.104411.81744468.davem@davemloft.net> <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jmorris@namei.org, kaber@trash.net
-To: torvalds@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45789
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754956AbYGUBDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:03:05 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59500 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754238AbYGUBIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:08:07 -0400
 In-Reply-To: <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sun, 20 Jul 2008 17:54:04 -0700 (PDT)
 
-> On Sun, 20 Jul 2008, David Miller wrote:
-> > 
-> > Hello Linus.  This is the main networking merge for 2.6.27
-> 
-> Grr. And I quote:
-> 
-> 	  Security table (IP_NF_SECURITY) [Y/n/?] (NEW) ?
-> 	
-> 	This option adds a `security' table to iptables, for use
-> 	with Mandatory Access Control (MAC) policy.
-> 	
-> 	If unsure, say N.
-> 
-> why the heck does this new config option apparently default to 'Y'? It's a 
-> new option, so no old users can need it, and the docs even say you should 
-> say 'N' unless you know what you're doing.
-> 
-> (Same issue with the IPv6 version).
-> 
-> Don't do this.
 
-James/Patrick please fix this.
+This warning also seems to be new:
 
-Thanks.
+	net/ipv6/addrconf.c: In function =A1addrconf_add_linklocal=A2:
+	net/ipv6/addrconf.c:2318: warning: unused variable =A1net=A2
+
+and looking at the code it's apparently because I'm not an optimistic=20
+enough dad.
+
+But hey, if you had three pre-teenage girls, you might not be all that=20
+optimistic either. So I think that's reasonable.
+
+Problem seems to have been introduced by 53b7997f ("ipv6 netns: Make=20
+several "global" sysctl variables namespace aware")
+
+		Linus
