@@ -1,45 +1,51 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
- at 0000000000000370
-Date: Mon, 21 Jul 2008 17:40:10 -0500
-Message-ID: <4885104A.2070201@lwfinger.net>
-References: <4884F3D7.4070604@lwfinger.net>	<20080721.134608.75595942.davem@davemloft.net>	<4884F6E9.6090809@trash.net> <20080721.140120.135667045.davem@davemloft.net> <4884FA3F.70109@trash.net> <48850121.9090106@trash.net> <488504D9.5090100@lwfinger.net> <488507FB.9050101@trash.net>
+From: Nate Case <ncase@xes-inc.com>
+Subject: Re: bug: mutex_lock() in interrupt conntext via phy_stop() in gianfar
+Date: Mon, 21 Jul 2008 17:57:08 -0500
+Message-ID: <1216681028.7559.993.camel@localhost.localdomain>
+References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mingo-X9Un+BFzKDI@public.gmane.org,
-	ischram-CNXmb7IdZIWZIoH1IeqzKA@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	j@w1.fi
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <488507FB.9050101-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Vitaly Bordug <vbordug@ru.mvista.com>, Li Yang <leoli@freescale.com>
+To: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Larry Finger wrote:
->> Patrick McHardy wrote:
->>>
->>> This is what I was missing, we're setting a lockdep class
->>> by default depending on dev->type. This patch combined
->>> with yours should fix all addr_list_lock warnings.
->>
->> No cigar yet. I tried davem's patch first, then yours on top of his. I 
->> still get both the recursive locking and the kernel warning.
+On Fri, 2008-07-18 at 14:10 +0200, Sebastian Siewior wrote:
+> Commit 35b5f6b1a aka [PHYLIB: Locking fixes for PHY I/O potentially sleeping]
+> changed the phydev->lock from spinlock into a mutex. Now, the following
+> code path got triggered while NFS was unavailable:
 > 
-> Does this one earn me my cigar? :)
+[snip]
+> |[  194.864733] BUG: sleeping function called from invalid context at /home/bigeasy/git/linux-2.6-powerpc/kernel/mutex.c:87
+> |[  194.875529] in_atomic():1, irqs_disabled():0
+> |[  194.879805] Call Trace:
+> |[  194.882250] [c0383d90] [c0006dd8] show_stack+0x48/0x184 (unreliable)
+> |[  194.888649] [c0383db0] [c001e938] __might_sleep+0xe0/0xf4
+> |[  194.894069] [c0383dc0] [c025a43c] mutex_lock+0x24/0x3c
+> |[  194.899234] [c0383de0] [c019005c] phy_stop+0x20/0x70
+> |[  194.904234] [c0383df0] [c018d4ec] stop_gfar+0x28/0xf4
+> |[  194.909305] [c0383e10] [c018e8c4] gfar_timeout+0x30/0x60
+> |[  194.914638] [c0383e20] [c01fe7c0] dev_watchdog+0xa8/0x144
 
-Sorry :(
+Hmm..  I'm not sure what the best solution is to this.  Make the
+stop_gfar() call happen in a workqueue, and make a similar change to
+ucc_geth, fec_mpc52xx, and fs_enet? Modify phy_stop() to do the work in
+a workqueue conditionally if in interrupt context?  Between these two
+I'd lean toward the latter.
 
-I used the davem patch, the second version of your first one, and your second 
-one. Both problems persist.
+Does anyone have any better ideas?
 
-Still plugging away on bisection.
-
-Larry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Nate Case <ncase@xes-inc.com>
