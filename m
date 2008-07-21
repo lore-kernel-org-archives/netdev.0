@@ -1,59 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [crash, bisected] Kernel BUG at ffffffff8079afb1
- (__netif_schedule())
-Date: Mon, 21 Jul 2008 08:07:27 -0700 (PDT)
-Message-ID: <20080721.080727.10939720.davem@davemloft.net>
-References: <20080720.104411.81744468.davem@davemloft.net>
-	<20080721133059.GA30637@elte.hu>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Mon, 21 Jul 2008 08:09:01 -0700 (PDT)
+Message-ID: <20080721.080901.214889979.davem@davemloft.net>
+References: <20080721131918.GA11114@gondor.apana.org.au>
+	<1216648585.4847.303.camel@localhost>
+	<20080721135846.GA11543@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mingo@elte.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49988
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751099AbYGUPH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:07:27 -0400
-In-Reply-To: <20080721133059.GA30637@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080721135846.GA11543-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 21 Jul 2008 15:30:59 +0200
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Date: Mon, 21 Jul 2008 21:58:46 +0800
 
-> -tip testing on latest -git (v2.6.26-5253-g14b395e) triggered the 
-> following boot crash on a Core2Duo 64-bit testsystem:
+> On Mon, Jul 21, 2008 at 09:56:25AM -0400, jamal wrote:
+> > 
+> > Ok - You may be able to pull it if you have the exact same hashing on
+> > hardware rx as it is on transmit stateless filtering.
+> > I can see a traffic pattern that could be cooked to give some good
+> > numbers in such a scenario;->
 > 
-> ADDRCONF(NETDEV_UP): eth0: link is not ready
-> eth0: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+> Actually you've hit it on the head, as an alternative to TX hashing
+> on the packet content, we need to allow TX queue selection based on
+> the current CPU ID.
 
-Should be fixed by:
-
-e1000: resolve tx multiqueue bug
-
-With the recent changes to tx mutiqueue, e1000 was not calling
-netif_start_queue() before calling netif_wake_queue().
-This causes an oops during loading of the driver.
-
-(Based on commit d55b53fff0c2ddb639dca04c3f5a0854f292d982
-("igb/ixgbe/e1000e: resolve tx multiqueue bug").)
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index f8df8bd..cf12b05 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1472,6 +1472,8 @@ e1000_open(struct net_device *netdev)
- 
- 	e1000_irq_enable(adapter);
- 
-+	netif_start_queue(netdev);
-+
- 	/* fire a link status change interrupt to start the watchdog */
- 	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_LSC);
- 
+This we should avoid, it would allow reordering within a flow.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
