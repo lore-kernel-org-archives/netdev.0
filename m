@@ -1,31 +1,37 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 05:22:26 +0400
-Message-ID: <20080721012225.GA4808@martell.zuzino.mipt.ru>
-References: <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org> <20080720.180304.51601407.davem@davemloft.net> <20080721010952.GA4822@martell.zuzino.mipt.ru> <20080720.181440.122144107.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 4/4] sky2: Adapt sky2 to use reworked PCI PM
+Date: Sun, 20 Jul 2008 19:07:42 -0700
+Message-ID: <20080720190742.84258d7e.akpm@linux-foundation.org>
+References: <200807191436.40726.rjw@sisk.pl>
+	<200807191442.52759.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:17709 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754385AbYGUBYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 21:24:37 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so203831ugf.16
-        for <netdev@vger.kernel.org>; Sun, 20 Jul 2008 18:24:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080720.181440.122144107.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:57792 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758404AbYGUCIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2008 22:08:18 -0400
+In-Reply-To: <200807191442.52759.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 20, 2008 at 06:14:40PM -0700, David Miller wrote:
-> > And finally, boot process hangs after TCP cubic is initialized.
-> 
-> That very much should not happen.  Can you turn on initcall
-> tracing so we can see where that is happening exactly?
+On Sat, 19 Jul 2008 14:42:51 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-Before that BUG_ON in __netif_schedule() happens (and quickly scrolls
-off). But after netconsole ups device (which is ATL1 if it matters).
+> Adapt the sky2 driver to use the reworked PCI PM.
 
+I fixed the rejects in "[PATCH 3/4] tg3: Adapt tg3 to use reworked PCI
+PM code" but this patch has too many for me to want to fix them.
+
+As usual, please at least take a look at what's in linux-next before
+going and bypassing all that queued work.
+
+Patches 3 and 4 (which are Jeff things) depend upon patch 2, which is a
+Jesse thing.  So I will attempt to not send patches 3 and 4 (assuming 4
+gets fixed) to Jeff until Jesse has sent #2 into mainline.  This should
+be interesting.
