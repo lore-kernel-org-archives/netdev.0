@@ -1,32 +1,37 @@
-From: Julius Volz <juliusv@google.com>
-Subject: [PATCHv2 0/2] IPVS: Add Generic Netlink configuration interface
-Date: Mon, 21 Jul 2008 15:02:53 +0200
-Message-ID: <1216645375-20410-1-git-send-email-juliusv@google.com>
-Cc: horms@verge.net.au, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH RFC 3/3] net_sched: Add size table for qdiscs
+Date: Mon, 21 Jul 2008 16:03:55 +0300
+Message-ID: <20080721160355.80675rpj7pj0nf9c@naisho.dyndns.info>
+References: <20080717100921.3327.3324.stgit@fate.lan>
+	<20080717100938.3327.45121.stgit@fate.lan> <487F1F58.3040701@trash.net>
+	<20080717210231.28364m21mg503g8w@hayate.ip6> <48848871.3050900@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=UTF-8;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:12706 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbYGUNDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:03:42 -0400
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:57111 "EHLO
+	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751485AbYGUND6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 09:03:58 -0400
+In-Reply-To: <48848871.3050900@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the second version of the Generic Netlink interface for
-IPVS. I integrated some comments from Thomas Graf, Patrick McHardy and
-Yoshifuji Hideaki and changed a few things myself. The interface should
-now follow existing Netlink conventions more closely and has been
-tested without problems.
+Quoting "Patrick McHardy" <kaber@trash.net>:
 
-The two patches add a Generic Netlink interface to IPVS while keeping
-the old get/setsockopt interface for userspace backwards compatibility.
-The motivation for this is to have a more extensible interface for
-future changes, such as the planned IPv6 support. ipvsadm is currently
-being extended to support the new interface and features.
+>
+> Yes. You check on ->enqueue by using the inner qdiscs size table,
+> but that qdisc might again have an inner qdisc which increases
+> the size, which you can't check during ->enqueue.
+>
+>
 
-The ip_vs.h header change depends on this patch I sent previously:
-"IPVS: Move userspace definitions to include/linux/ip_vs.h"
-(this one looked good to Horms, can it go in?)
+Ok, I'll send patch when I get back next week.
 
-Julius
+
