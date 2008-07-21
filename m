@@ -1,37 +1,50 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 13:28:49 +0200
-Message-ID: <488472F1.4020609@s5r6.in-berlin.de>
-References: <20080720.104411.81744468.davem@davemloft.net>	<alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org> <20080720.180304.51601407.davem@davemloft.net> <4883E465.4050405@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Mon, 21 Jul 2008 19:36:00 +0800
+Message-ID: <20080721113600.GA10322@gondor.apana.org.au>
+References: <E1KKZmE-0000ty-00@gondolin.me.apana.org.au> <1216568119.4847.101.camel@localhost> <20080721001119.GA6515@gondor.apana.org.au> <1216607637.4847.172.camel@localhost> <20080721031716.GA7535@gondor.apana.org.au> <1216638879.4847.210.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jmorris@namei.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:42271 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692AbYGUL32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 07:29:28 -0400
-In-Reply-To: <4883E465.4050405@trash.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:36593 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752351AbYGULgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 07:36:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1216638879.4847.210.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
->>> 	  Security table (IP_NF_SECURITY) [Y/n/?] (NEW) ?
-...
-> This is only the NETFILTER_ADVANCED=n default (for SECURITY=y).
-> The netfilter defaults for NETFILTER_ADVANCED=n should be m/y for
-> things that are needed by mainstream distributions for normal
-> usage.
+On Mon, Jul 21, 2008 at 07:14:39AM -0400, jamal wrote:
+> 
+> > Only if you also want to share it :) In the end I patched it to
+> > not share it which is much easier.
+> 
+> I am trying to visualize: if you dont share, you must have 256K copies
+> then? Assuming also you have a fast lookup since that was design intent.
 
-Don't ask what mainstream distributors would choose, ask how "make
-oldconfig" or "make silentoldconfig" should behave.  They should not add
-features that weren't there before and are not necessary to continue
-using all features of the old configuration.
+They can't be shared anyway because each of those 256K rules NATs
+to a different IP address.
+
+> #ifdef CONFIG_HASH_SIZE
+> #define NAT_TAB_MASK CONFIGURED_HASH_SIZE
+> #else
+> #define NAT_TAB_MASK 15
+> #endif
+> 
+> What do you think?
+
+Sorry, I think I'll have to poke my eyes out :)
+
+But yeah if we ever get a generic dynamic hash table implmenetation
+then I'd be happy for act_nat to use that.
+
+Cheers,
 -- 
-Stefan Richter
--=====-==--- -=== =-=-=
-http://arcgraph.de/sr/
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
