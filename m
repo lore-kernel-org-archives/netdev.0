@@ -1,54 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
- RCU.
-Date: Mon, 21 Jul 2008 10:35:53 -0700 (PDT)
-Message-ID: <20080721.103553.121723118.davem@davemloft.net>
-References: <1216606839.4847.159.camel@localhost>
-	<E1KKu2D-0002kd-00@gondolin.me.apana.org.au>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 0/16] mib: finish with ipv4 mibs netnsization
+Date: Mon, 21 Jul 2008 21:38:53 +0400
+Message-ID: <4884C9AD.4040608@openvz.org>
+References: <487F46CD.7090103@openvz.org> <20080718.040925.261545164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <E1KKu2D-0002kd-00-XQvu0L+U/CjiRBuR/1fSEKKkPtS2pBon@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:58116 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751204AbYGURjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 13:39:07 -0400
+In-Reply-To: <20080718.040925.261545164.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Date: Mon, 21 Jul 2008 19:58:33 +0800
-
-> I think I get you now.  You're suggesting that we essentially
-> do what Dave has right now in the non-contending case, i.e.,
-> bypassing the qdisc so we get fully parallel processing until
-> one of the hardware queues seizes up.
+David Miller wrote:
+> From: Pavel Emelyanov <xemul@openvz.org>
+> Date: Thu, 17 Jul 2008 17:19:09 +0400
 > 
-> At that point you'd stop all queues and make every packet go
-> through the software qdisc to ensure ordering.  This continues
-> until all queues have vacancies again.
+>> This is the notorious "finalizing set" - after this all the ipv4
+>> stats are isolated from each other. The ipv6, dccp and sctp I
+>> touched with previous sets deserve special handling and will be
+>> done in 2.6.28
+>>
+>> No *new* stuff for 2.6.27 from me, thank you Dave for your patience :)
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 > 
-> If this is what you're suggesting, then I think that will offer
-> pretty much the same behaviour as what we've got, while still
-> offering at least some (perhaps even most, but that is debatable)
-> of the benefits of multi-queue.
+> All applied, thanks Pavel.
 > 
-> At this point I don't think this is something that we need right
-> now, but it would be good to make sure that the architecture
-> allows such a thing to be implemented in future.
+> I keep hearing noises that some day sysfs+ns will work, is that something
+> we'll see in 2.6.27 possibly?  
 
-Doing something like the noqueue_qdisc (bypassing the qdisc entirely)
-is very attractive because it eliminates the qdisc lock.  We're only
-left with the TX lock.
+Unfortunately not in 2.6.27 :( Eric send sysfs-for-namespaces patchset
+2 or 3 weeks ago, but Greg was going for vacation that time.
 
-This whole idea of doing an optimized send to the device when the
-TX queue has space is indeed tempting.
+> That would help my own build validation and testing of changes.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-But we can't do it for qdiscs that measure rates, enforce limits, etc.
-
-And if the device kicks back at us with an error, we have to
-perform the normal ->enqueue() path.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
