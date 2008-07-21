@@ -1,46 +1,27 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 21:45:58 +1000 (EST)
-Message-ID: <Xine.LNX.4.64.0807212143540.17349@us.intercode.com.au>
-References: <20080720.104411.81744468.davem@davemloft.net>
- <alpine.LFD.1.10.0807201751440.31863@woody.linux-foundation.org>
- <20080720.180304.51601407.davem@davemloft.net> <4883E465.4050405@trash.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 0/1] s390: qeth build fix for 2.6.27
+Date: Mon, 21 Jul 2008 13:54:28 +0200
+Message-ID: <20080721115428.005485000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	bunk@kernel.org, kaber@trash.net
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from namei.org ([69.55.235.186]:49634 "EHLO us.intercode.com.au"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751590AbYGULqp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 07:46:45 -0400
-In-Reply-To: <4883E465.4050405@trash.net>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:11009 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750698AbYGULzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 07:55:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Jul 2008, Patrick McHardy wrote:
+Hi Jeff,
 
-> > James/Patrick please fix this.
-> >   
-> 
-> This is only the NETFILTER_ADVANCED=n default (for SECURITY=y).
-> The netfilter defaults for NETFILTER_ADVANCED=n should be m/y for
-> things that are needed by mainstream distributions for normal
-> usage.
-> 
-> I'm not sure how this is going to be used, James?
+here is a patch to fix the broken s390 qeth build
 
-I think the idea now is that everything new is N by default, but the 
-intention is to have this enabled in Fedora/RHEL.
+shortlog:
+Frank Blaschka (1)
+qeth: fix 2.6.27 build
 
-Patrick, would you please fix this up?  The only dev box I have access to 
-at the moment doesn't boot with recent git (I think it's the macbook2 
-issue).
+Thanks,
+        Frank
 
-
-- James
 -- 
-James Morris
-<jmorris@namei.org>
