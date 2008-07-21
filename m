@@ -1,63 +1,89 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 2/2] myri10ge: use ioremap_wc
-Date: Mon, 21 Jul 2008 10:26:25 +0200
-Message-ID: <48844831.9040102@myri.com>
-References: <488447E7.2060505@myri.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: iwlwifi: fix build bug in "iwlwifi: fix LED stall"
+Date: Mon, 21 Jul 2008 10:36:54 +0200
+Message-ID: <20080721083654.GA19849@elte.hu>
+References: <20080720.104411.81744468.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tomas Winkler <tomas.winkler@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1872 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754962AbYGUI0y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 04:26:54 -0400
-In-Reply-To: <488447E7.2060505@myri.com>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:32894 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753979AbYGUIhL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 04:37:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20080720.104411.81744468.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch to ioremap_wc(). We keep the MTRR code since ioremap_wc()
-will use UC_MINUS when falling back to uncachable, and thus let
-the MTRR WC take precedence.
 
-Also rename the error path better.
+hi David,
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+>       iwlwifi: fix LED stall
+
+please find a small build fix below.
+
+	Ingo
+
+-------------->
+commit c61b0199e779caf2dcfdb6e83439c1fdf9f20209
+Author: Ingo Molnar <mingo@elte.hu>
+Date:   Mon Jul 21 10:33:42 2008 +0200
+
+    iwlwifi: fix build bug in "iwlwifi: fix LED stall"
+   =20
+    -tip testing found the following build failure:
+   =20
+      drivers/net/wireless/iwlwifi/iwl-led.c: In function =E2=80=98iwl_=
+led_brightness_set=E2=80=99:
+      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: =E2=80=98led_t=
+ype_str=E2=80=99 undeclared (first use in this function)
+      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: (Each undeclar=
+ed identifier is reported only once
+      drivers/net/wireless/iwlwifi/iwl-led.c:198: error: for each funct=
+ion it appears in.)
+   =20
+    Triggered if this driver is built with !CONFIG_IWLWIFI_DEBUG. Intro=
+duced
+    by commit 0eee61273.
+   =20
+    The best fix is to make led_type_str available as a zero-size symbo=
+l and to
+    only add members to the array if CONFIG_IWLWIFI_DEBUG is set. This =
+way
+    there's no overhead in the debugging case and we have type checking=
+ in the
+    IWL_DEBUG_LED() macro as well.
+   =20
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
 ---
- drivers/net/myri10ge/myri10ge.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/wireless/iwlwifi/iwl-led.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Index: linux-2.6/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-2.6.orig/drivers/net/myri10ge/myri10ge.c	2008-07-21 09:24:21.000000000 +0200
-+++ linux-2.6/drivers/net/myri10ge/myri10ge.c	2008-07-21 09:24:33.000000000 +0200
-@@ -3720,14 +3720,14 @@
- 	if (mgp->sram_size > mgp->board_span) {
- 		dev_err(&pdev->dev, "board span %ld bytes too small\n",
- 			mgp->board_span);
--		goto abort_with_wc;
-+		goto abort_with_mtrr;
- 	}
--	mgp->sram = ioremap(mgp->iomem_base, mgp->board_span);
-+	mgp->sram = ioremap_wc(mgp->iomem_base, mgp->board_span);
- 	if (mgp->sram == NULL) {
- 		dev_err(&pdev->dev, "ioremap failed for %ld bytes at 0x%lx\n",
- 			mgp->board_span, mgp->iomem_base);
- 		status = -ENXIO;
--		goto abort_with_wc;
-+		goto abort_with_mtrr;
- 	}
- 	memcpy_fromio(mgp->eeprom_strings,
- 		      mgp->sram + mgp->sram_size - MYRI10GE_EEPROM_STRINGS_SIZE,
-@@ -3828,7 +3828,7 @@
- abort_with_ioremap:
- 	iounmap(mgp->sram);
- 
--abort_with_wc:
-+abort_with_mtrr:
- #ifdef CONFIG_MTRR
- 	if (mgp->mtrr >= 0)
- 		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
-
-
+diff --git a/drivers/net/wireless/iwlwifi/iwl-led.c b/drivers/net/wirel=
+ess/iwlwifi/iwl-led.c
+index 899d7a2..d7129f7 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-led.c
++++ b/drivers/net/wireless/iwlwifi/iwl-led.c
+@@ -44,15 +44,15 @@
+ #include "iwl-io.h"
+ #include "iwl-helpers.h"
+=20
+-#ifdef CONFIG_IWLWIFI_DEBUG
+ static const char *led_type_str[] =3D {
++#ifdef CONFIG_IWLWIFI_DEBUG
+ 	__stringify(IWL_LED_TRG_TX),
+ 	__stringify(IWL_LED_TRG_RX),
+ 	__stringify(IWL_LED_TRG_ASSOC),
+ 	__stringify(IWL_LED_TRG_RADIO),
+ 	NULL
+-};
+ #endif /* CONFIG_IWLWIFI_DEBUG */
++};
+=20
+=20
+ static const struct {
