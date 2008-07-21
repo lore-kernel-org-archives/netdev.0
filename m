@@ -1,46 +1,49 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 04/31 DO NOT APPLY] enable netfilter in netns
-Date: Mon, 21 Jul 2008 21:17:15 +0400
-Message-ID: <20080721171715.GA13541@martell.zuzino.mipt.ru>
-References: <20080721163358.GH13264@martell.zuzino.mipt.ru> <4884C0EC.80204@trash.net> <20080721.100722.106020469.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Make simple TX hash little endian safe.
+Date: Mon, 21 Jul 2008 19:20:01 +0200
+Message-ID: <20080721172001.GD29543@basil.nowhere.org>
+References: <1216630088-10328-1-git-send-email-andi@firstfloor.org> <20080721.094433.235903960.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, xemul@openvz.org, den@openvz.org,
-	ebiederm@xmission.com, dlezcano@fr.ibm.com, benjamin.thery@bull.net
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out04.alice-dsl.net ([88.44.63.6]:16509 "EHLO
+	smtp-out04.alice-dsl.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784AbYGURUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 13:20:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20080721.100722.106020469.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080721.094433.235903960.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 10:07:22AM -0700, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 21 Jul 2008 19:01:32 +0200
+On Mon, Jul 21, 2008 at 09:44:33AM -0700, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Mon, 21 Jul 2008 10:48:07 +0200
 > 
-> > Alexey Dobriyan wrote:
-> > > 	Only for testing.
+> > Currently it will not use the lower
+> > bits at all on big endian system, mapping e.g. all connections to a single
+> > queue on a local network which only differs in the low bits.
 > > 
-> > Thanks for posting this, I'll try to get this reviewed and
-> > merged before the merge window closes.
+> > Also fold the upper 16 bits always in the lower 16bits.
+> > 
+> > Signed-off-by: Andi Kleen <ak@linux.intel.com>
 > 
-> For networking it closed yesterday:
+> I plan to make this use jhash plus a reciprocol multiply
+> to fix the hash effectiveness as well as get rid of the
+> modulus and make the hash not attackable.
 
-That's fine, if it waits for next one.
-As they say in Russia, who understood life, doesn't hurry. :^)
+Ok makes sense to use jhash and also the multiplication.
 
-> --------------------
-> Subject: net-2.6 merged to Linus...
-> From: David Miller <davem@davemloft.net>
-> To: netdev@vger.kernel.org
-> Date: Sun, 20 Jul 2008 22:05:06 -0700 (PDT)
-> X-Mailer: Mew version 5.2 on Emacs 22.1 / Mule 5.0 (SAKAKI)
-> 
-> 
-> I would like to thank everyone for their work and I ask that folks
-> concentrate on bug fixing now.
-> 
-> Thanks a lot!
-> --------------------
+Hmm but randomizations means it won't be stable on benchmarks, will it?
+Is attacking such a hash really a problem? Having stable performance
+on benchmarks might be preferable.
+
+The other thing (one of my favourite pet peeves) is that
+get_random_bytes() on reasonably early kernel boot
+is not very random because there will be hardly any entropy in the pool.
+So I'm not sure it is actually particularly non predictible,
+at least on systems who transmit packets early.
+
+-Andi
 
