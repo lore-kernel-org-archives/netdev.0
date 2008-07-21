@@ -1,38 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter: nf_nat_sip: c= is optional for session
-Date: Mon, 21 Jul 2008 16:11:40 +0200
-Message-ID: <4884991C.3020503@trash.net>
-References: <20080721132513.GA11162@gondor.apana.org.au>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [GIT]: Networking
+Date: Mon, 21 Jul 2008 16:15:25 +0200
+Message-ID: <488499FD.5090300@s5r6.in-berlin.de>
+References: <20080720.104411.81744468.davem@davemloft.net> <20080721135024.GA18320@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38495 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860AbYGUOLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 10:11:41 -0400
-In-Reply-To: <20080721132513.GA11162@gondor.apana.org.au>
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:42643 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074AbYGUOQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 10:16:04 -0400
+In-Reply-To: <20080721135024.GA18320@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Hi Patrick:
-> 
-> My phone stopped working after my router was upgraded to 2.6.26.
-> This patch makes it work again.
-> 
-> netfilter: nf_nat_sip: c= is optional for session
-> 
-> According to RFC2327, the connection information is optional
-> in the session description since it can be specified in the
-> media description instead.
-> 
-> My provider does exactly that and does not provide any connection
-> information in the session description.  As a result the new
-> kernel drops all invite responses.
-> 
-> This patch makes it optional as documented.
+Ingo Molnar wrote:
+> I'm wondering, couldnt we warn about the removed pci express support via 
+> the kernel log? Some simple printk. (Perhaps also with a default-off 
+> .config option that shuts up this warning for users who intentionally 
+> boot E1000=y without e1000e support.)
 
-Applied, thanks. I'll also push it -stable.
+e1000_init_module() already has two printk()s.  A third unconditional
+one won't hurt a lot.  The first two could also be joined.
+-- 
+Stefan Richter
+-=====-==--- -=== =-=-=
+http://arcgraph.de/sr/
