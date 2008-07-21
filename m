@@ -1,41 +1,47 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
-	RCU.
-Date: Mon, 21 Jul 2008 07:20:01 -0400
-Message-ID: <1216639201.4847.217.camel@localhost>
-References: <1216566963.4847.81.camel@localhost>
-	 <20080720.102534.246150854.davem@davemloft.net>
-	 <1216593170.4847.137.camel@localhost>
-	 <20080720.165911.86437240.davem@davemloft.net>
-	 <1216606839.4847.159.camel@localhost>
-Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
+Date: Mon, 21 Jul 2008 15:25:15 +0400
+Message-ID: <20080721112515.GA4777@2ka.mipt.ru>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1216606839.4847.159.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:48345 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751662AbYGULZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 07:25:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20080721105051.GA5830@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-20-07 at 22:20 -0400, jamal wrote:
+On Mon, Jul 21, 2008 at 12:50:51PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
+> > Ingo do you see other similar dumps with last byte modified? That's 
+> > the one which can help to determine the reason.
+> 
+> the problem is, most of the crashes dont come with any usable dump. This 
+> is a laptop so netconsole is the only reliable route out - and if 
+> something in networking crashes chances are that it hoses netconsole 
+> before it can get anything out.
+> 
+> Another thing is that i'm activating netconsole on this box via a kernel 
+> boot line and from within a bzImage (to get it activated as early as 
+> possible) - maybe that's a tad too early for certain initialization 
+> sequences?
+> 
+> I could try run tests with netconsole deactivated, if you think that's a 
+> worthwile line of probing this problem. (although that would make me do 
+> blind tests in essence - having kernel log output is really essential.)
 
-> We are in sync i think, a single pfifo per TX queue is the way to go. I
-> was suggesting it goes in the driver, but this is cleaner: In the
+Let's try this way first. If system will continue to crash, we will add
+some debug options in various pathes. Existing reports do not contain
+enough information unfortunately, so we will not lose too much.
 
-Actually, can i modify that thought and go back to my initial contention
-now that things are making more sense?;->
-A single s/ware queue per hardware transmit queue is good - but that
-being pfifo_fast would be a lot better. It would, in the minimal, keep
-things as they were for non-multiq and is a sane choice for any virtual
-wire.
-
-cheers,
-jamal
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+	Evgeniy Polyakov
