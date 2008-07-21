@@ -1,44 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATC] sctp: various fixes
-Date: Mon, 21 Jul 2008 08:05:35 -0700 (PDT)
-Message-ID: <20080721.080535.194149976.davem@davemloft.net>
-References: <20080718.230833.22196996.davem@davemloft.net>
-	<20080719.224047.228019059.davem@davemloft.net>
-	<48848B35.6050702@hp.com>
+Subject: Re: [crash, bisected] Kernel BUG at ffffffff8079afb1
+ (__netif_schedule())
+Date: Mon, 21 Jul 2008 08:07:27 -0700 (PDT)
+Message-ID: <20080721.080727.10939720.davem@davemloft.net>
+References: <20080720.104411.81744468.davem@davemloft.net>
+	<20080721133059.GA30637@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49985
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49988
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753117AbYGUPFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:05:35 -0400
-In-Reply-To: <48848B35.6050702@hp.com>
+	by vger.kernel.org with ESMTP id S1751099AbYGUPH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 11:07:27 -0400
+In-Reply-To: <20080721133059.GA30637@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Mon, 21 Jul 2008 09:12:21 -0400
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 21 Jul 2008 15:30:59 +0200
 
-> David Miller wrote:
-> > From: David Miller <davem@davemloft.net>
-> > Date: Fri, 18 Jul 2008 23:08:33 -0700 (PDT)
-> > 
-> >> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> >> Date: Sat, 19 Jul 2008 00:26:45 -0400
-> >>
-> >>> This is a bunch of SCTP fixes that have accumlated over the past week or
-> >>> so. 
-> >> All applied, thanks Vlad.
-> > 
-> > Vlad, I had to add the following fix to the tree in order
-> > to unbreak the build when CONFIG_HIGHMEM is enabled.
-> > 
+> -tip testing on latest -git (v2.6.26-5253-g14b395e) triggered the 
+> following boot crash on a Core2Duo 64-bit testsystem:
 > 
-> ahh...  since tcp isn't a module, it didn't trigger that.
-> 
-> Thanks Dave.  I didn't think about turning highmem off..
+> ADDRCONF(NETDEV_UP): eth0: link is not ready
+> eth0: Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
 
-No problem, but the problematic case was turning highmem on :-)
+Should be fixed by:
+
+e1000: resolve tx multiqueue bug
+
+With the recent changes to tx mutiqueue, e1000 was not calling
+netif_start_queue() before calling netif_wake_queue().
+This causes an oops during loading of the driver.
+
+(Based on commit d55b53fff0c2ddb639dca04c3f5a0854f292d982
+("igb/ixgbe/e1000e: resolve tx multiqueue bug").)
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index f8df8bd..cf12b05 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1472,6 +1472,8 @@ e1000_open(struct net_device *netdev)
+ 
+ 	e1000_irq_enable(adapter);
+ 
++	netif_start_queue(netdev);
++
+ 	/* fire a link status change interrupt to start the watchdog */
+ 	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_LSC);
+ 
