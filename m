@@ -1,59 +1,54 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [crash] kernel BUG at net/core/dev.c:1328!
-Date: Mon, 21 Jul 2008 21:20:20 +0200
-Message-ID: <4884E174.5030802@s5r6.in-berlin.de>
-References: <20080721134506.GA27598@elte.hu>	<20080721182318.GA20940@elte.hu>	<alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org> <20080721.120052.123606398.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
+	overwritten
+Date: Mon, 21 Jul 2008 21:21:38 +0200
+Message-ID: <20080721192138.GA27672@elte.hu>
+References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com> <20080721100627.GA5953@2ka.mipt.ru> <20080721105051.GA5830@elte.hu> <20080721112515.GA4777@2ka.mipt.ru> <20080721115555.GA24176@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, mingo@elte.hu,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
+	davem@davemloft.net, Auke Kok <auke-jan.h.kok@intel.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:52521 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754263AbYGUTUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 15:20:54 -0400
-In-Reply-To: <20080721.120052.123606398.davem@davemloft.net>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:33760 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754125AbYGUTWq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2008 15:22:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080721115555.GA24176@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Mon, 21 Jul 2008 11:35:21 -0700 (PDT)
+
+* Ingo Molnar <mingo@elte.hu> wrote:
+
+> * Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 > 
->> Maybe the network drivers are few enough that it will get fixed, or
->> maybe the WARN_ON_ONCE() will just be removed and the rule not
->> reinforced.
->>
->> I personally suspect the latter, since it seems to happen with just
->> about _any_ random network driver, including the common and
->> well-maintained ones (ie the Gods only help us for the truly
->> odd/random cases)
+> > > I could try run tests with netconsole deactivated, if you think 
+> > > that's a worthwile line of probing this problem. (although that 
+> > > would make me do blind tests in essence - having kernel log output 
+> > > is really essential.)
+> > 
+> > Let's try this way first. If system will continue to crash, we will 
+> > add some debug options in various pathes. Existing reports do not 
+> > contain enough information unfortunately, so we will not lose too 
+> > much.
 > 
-> Yes, we'll see how this plays out.
+> ok. I've turned off netconsole - 8 successful bootups in a row so far. 
+> The box is a slow booter/builder with an 8 kernels/hour test 
+> throughput, so if everything goes fine we should have meaningful 
+> results in about 10 hours.
 > 
-> Ian Schram just posted a patch for the NULL pointer derfer in
-> wireless Ingo reported, so we'll see if that bug will be fixed
-> now as well.
+> ( there are other, faster testboxes in -tip testing with 33 kernels/hour 
+>   build+boot throughput where we'd have to wait only 2 hours - but as 
+>   per Murphy's law they dont trigger this bug ;-)
 
-In the meantime:  Is there perhaps something obviously wrong with 
-drivers/ieee1394/eth1394.c's netdevice initialization?  We do it in 
-ether1394_add_host(), and shortly thereafter the crashing 
-ether1394_host_reset() is called.  So we have essentially
+70 bootups with netconsole turned off, and not a single crash so far.
 
-(add host)
-	dev = alloc_netdev(...);
-	initialize various members in dev...
-	register_netdev(dev);
+So it's now a strong likelyhood that this crash is a combination of 
+e1000e+netconsole.
 
-(host reset)
-	netif_stop_queue(dev);
-	discard some stale 1394 stuff if there were some...
-	netif_wake_queue(dev);  <-- crashes in __netif_schedule(dev);
-
--- 
-Stefan Richter
--=====-==--- -=== =-=-=
-http://arcgraph.de/sr/
+	Ingo
