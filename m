@@ -1,57 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison overwritten
-Date: Mon, 21 Jul 2008 14:06:27 +0400
-Message-ID: <20080721100627.GA5953@2ka.mipt.ru>
-References: <20080717214222.GA29449@elte.hu> <Pine.LNX.4.64.0807181149460.3852@sbz-30.cs.Helsinki.FI> <20080718091146.GQ6875@elte.hu> <20080721094110.GA16029@elte.hu> <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [GIT]: Networking
+Date: Mon, 21 Jul 2008 11:16:27 +0100
+Message-ID: <20080721101626.GM10471@solarflare.com>
+References: <20080720.181440.122144107.davem@davemloft.net> <20080721024056.GA4800@martell.zuzino.mipt.ru> <20080720.194856.92564555.davem@davemloft.net> <20080720.221106.201055562.davem@davemloft.net> <a4423d670807210248l1e2e6999ha462edc99002f964@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@gmail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, cl@linux-foundation.org,
-	davem@davemloft.net
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Cc: David Miller <davem@davemloft.net>, adobriyan@gmail.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: Alexander Beregalov <a.beregalov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:60798 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752372AbYGUKHR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 06:07:17 -0400
+Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:48616 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757987AbYGUKQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 06:16:36 -0400
 Content-Disposition: inline
-In-Reply-To: <84144f020807210252k68d5cf65i8c7ae3c11cecc046@mail.gmail.com>
+In-Reply-To: <a4423d670807210248l1e2e6999ha462edc99002f964@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
-
-On Mon, Jul 21, 2008 at 12:52:45PM +0300, Pekka Enberg (penberg@cs.helsinki.fi) wrote:
-> On Mon, Jul 21, 2008 at 12:41 PM, Ingo Molnar <mingo@elte.hu> wrote:
-> > update about this problem: just triggered another colorful crash, see
-> > below. This was with the 4K object dump patch already, maybe the dump
-> > gives a clue?
+Alexander Beregalov wrote:
+> Hi David!
 > 
-> ...to point out the obvious:
+> There is another problem on sparc64 and happymeal ethernet card.
 > 
-> > =============================================================================
-> > BUG skbuff_head_cache: Poison overwritten
-> > -----------------------------------------------------------------------------
-> >
-> > INFO: 0xf7ccc100-0xf7ccc103. First byte 0x0 instead of 0x6b
-> > INFO: Allocated in __alloc_skb+0x30/0x10e age=1 cpu=1 pid=1
-> > INFO: Freed in __kfree_skb+0x63/0x66 age=1 cpu=0 pid=0
-> > INFO: Slab 0xc1c34ca0 objects=16 used=1 fp=0xf7ccc100 flags=0x400000c3
-> > INFO: Object 0xf7ccc100 @offset=256 fp=0xf7ccc200
-> >
-> > Bytes b4 0xf7ccc0f0:  5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> >  Object 0xf7ccc100:  00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b ....kkkkkkkkkkkk
+> when tring to up interface:
 > 
-> Use after free where first four bytes are zeroed.
+> kernel BUG at net/core/dev.c:1328
+[...]
 
-Not that obvious...
-skb->next is cleared in lots of places, in xmit network helper
-for example, but since rest of the packet was not modified, it
-means given skb was not freed, so it will not help.
+This is yet another driver calling netif_wake_queue() during dev_open(),
+when there is no real qdisc present.  (And yes, sfc is another of those
+drivers - I will post a patch after internal review.)
 
-Ingo do you see other similar dumps with last byte modified?
-That's the one which can help to determine the reason.
+Ben.
 
 -- 
-	Evgeniy Polyakov
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
