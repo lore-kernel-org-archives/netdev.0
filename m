@@ -1,50 +1,65 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Mon, 21 Jul 2008 20:04:43 +0400
-Message-ID: <a4423d670807210904je651e16md5aa61c734de9bdd@mail.gmail.com>
-References: <20080720.221106.201055562.davem@davemloft.net>
-	 <a4423d670807210248l1e2e6999ha462edc99002f964@mail.gmail.com>
-	 <20080721101626.GM10471@solarflare.com>
-	 <20080721.083527.199623566.davem@davemloft.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: kernel newbie question on kernel panic
+Date: Mon, 21 Jul 2008 18:07:25 +0200
+Message-ID: <4884B43D.2080205@fr.ibm.com>
+References: <4474723F928CA640ADB2172099AEAB111B603F@exalfa.stromtelecom.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, adobriyan@gmail.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Filka Michal <Michal.Filka@sitronicsts.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:4995 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751277AbYGUQEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:04:44 -0400
-Received: by an-out-0708.google.com with SMTP id d40so376222and.103
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 09:04:43 -0700 (PDT)
-In-Reply-To: <20080721.083527.199623566.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:47349 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbYGUQIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 12:08:30 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id m6LG7ZZj562518
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 16:07:35 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6LG7ZtB3731672
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 18:07:35 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6LG7YBJ005952
+	for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 18:07:34 +0200
+In-Reply-To: <4474723F928CA640ADB2172099AEAB111B603F@exalfa.stromtelecom.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/7/21 David Miller <davem@davemloft.net>:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 21 Jul 2008 11:16:27 +0100
->
->> Alexander Beregalov wrote:
->> > Hi David!
->> >
->> > There is another problem on sparc64 and happymeal ethernet card.
->> >
->> > when tring to up interface:
->> >
->> > kernel BUG at net/core/dev.c:1328
->> [...]
->>
->> This is yet another driver calling netif_wake_queue() during dev_open(),
->> when there is no real qdisc present.  (And yes, sfc is another of those
->> drivers - I will post a patch after internal review.)
->
-> Yep, what idiot wrote this driver? ;-)
->
-> Alexander please try this patch:
-It works, thanks.
+Filka Michal wrote:
+> Hi all,
+> 
+> I try to create my first kernel module.
+> I have following problem. I have a function rp ... interesting part
+> follows (just some initialization is ommited - nothing special - the
+> function is just a skeleton)
+> 
+> int rp( struct sk_buff ** skb)
+> {
+> 	_filter_rule * rule = NULL;
+> 
+> ...
+> 
+> 	rule = placebo();
+> -->	if( rule == NULL)
+> 		printk( KERN_DEBUG "null rule\n");
+> 	return 1;
+> }
+> 
+> The rp is called (subsequently) in netfilter (prerouting) hook context,
+> so as far as I know it runs in a SoftIRQ.
+> 
+> The placebo function does nothing - just returns NULL. The problem is in
+> line selected (-->).Everything goes until I try to somehow access
+> returned value. The access raises kernel panic, seems that some page
+> fault happent. If I comment out the line bellow selected (the test), no
+> kernel panic happens.
+> 
+> Questions are:
+> - why the page fault happens (some trouble in memory usage, or so?)
+> - how to avoid it?
+> 
+> Thanks for any help
+> Michal Filka
+
+What is the definition of _filter_rule ?
