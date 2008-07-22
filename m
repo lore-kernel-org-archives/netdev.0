@@ -1,79 +1,32 @@
-From: "Ming Lei" <tom.leiming@gmail.com>
-Subject: Re: BUG: iwlwifi build failed
-Date: Tue, 22 Jul 2008 16:01:40 +0800
-Message-ID: <d82e647a0807220101q43da5bf3p43312cacb2f90c76@mail.gmail.com>
-References: <d82e647a0807212143r2f598a59y76a79fd9bb8f17@mail.gmail.com>
-	 <b25312890807220042i66fce3coe4947b569c335b5b@mail.gmail.com>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Invalid truesize messages since 2.6.25
+Date: Tue, 22 Jul 2008 10:54:51 +0200
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13C73AFA@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Rami Rosen" <roszenrami@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755439AbYGVIBy@vger.kernel.org>
-In-Reply-To: <b25312890807220042i66fce3coe4947b569c335b5b@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alpha.facton.com ([83.236.152.122]:37235 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752755AbYGVJPB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 05:15:01 -0400
+Received: from exch.facton.local (exch [192.168.200.5])
+	by alpha.facton.com (8.13.8/8.13.8/FACTON) with ESMTP id m6M8spwa012730
+	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 10:54:51 +0200
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2008/7/22 Rami Rosen <roszenrami@gmail.com>:
-> Hi,
->  - This problem was reported and a patch was sent recently; probably
-> it is not yet in your tree yet.
+Since 2.6.25 we rarely see these messages:
 
-yes, I am using linus tree.
+SKB BUG: Invalid truesize (408) len=198, sizeof(sk_buff)=216
 
->
->  - I assume that your .config file does not have CONFIG_IWLWIFI_DEBUG set.
-> On the net-2.6 current tree, when you **do** set the
-> CONFIG_IWLWIFI_DEBUG, this problem does not occur
-> (and, as can be understood, when CONFIG_IWLWIFI_DEBUG
-> is not set, it does occur).
+Yesterday I saw it the first time after a runtime of one week with
+2.6.26.
+The box is web server / IPSEC gateway.
+Obviously nothing seems to be affected by the message but <= 2.6.24 no
+messages appeared.
 
-yes.
-
->
-> So, if it is possible for you for the time being, till this patch
-> finds its way into the tree, I suggest that you
-> might set the CONFIG_IWLWIFI_DEBUG and run make.
->
-> More details on this patch you can find here:
-> http://linux.derkeiler.com/Mailing-Lists/Kernel/2008-07/msg09132.html
->
-> Regards,
-> Rami Rosen
->
->
-> On Tue, Jul 22, 2008 at 7:43 AM, Ming Lei <tom.leiming@gmail.com> wrote:
->> commit 93ded9b8fd42abe2c3607097963d8de6ad9117eb
->> Merge: 6d52dcb... f756cbd...
->> Author: Linus Torvalds <torvalds@linux-foundation.org>
->> Date:   Mon Jul 21 15:42:20 2008 -0700
->> =====================================
->>
->> drivers/net/wireless/iwlwifi/iwl-led.c: In function 'iwl_led_brightness_set':
->> drivers/net/wireless/iwlwifi/iwl-led.c:198: error: 'led_type_str'
->> undeclared (first use in this function)
->> drivers/net/wireless/iwlwifi/iwl-led.c:198: error: (Each undeclared
->> identifier is reported only once
->> drivers/net/wireless/iwlwifi/iwl-led.c:198: error: for each function
->> it appears in.)
->> make[4]: *** [drivers/net/wireless/iwlwifi/iwl-led.o] Error 1
->> make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
->> make[2]: *** [drivers/net/wireless] Error 2
->> make[1]: *** [drivers/net] Error 2
->> make: *** [drivers] Error 2
->>
->>
->> --
->> Lei Ming
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-
-
-
--- 
-Lei Ming
+Daniel
