@@ -1,42 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Tue, 22 Jul 2008 22:35:29 +0200
-Message-ID: <48864491.3010905@gmail.com>
-References: <200807222142.23710.denys@visp.net.lb> <48863F5A.9080104@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
+ at 0000000000000370
+Date: Tue, 22 Jul 2008 13:43:41 -0700 (PDT)
+Message-ID: <20080722.134341.143920039.davem@davemloft.net>
+References: <48857F74.2040406@lwfinger.net>
+	<20080722.043220.247312412.davem@davemloft.net>
+	<4885D808.9060203@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: denys@visp.net.lb
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:63346 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916AbYGVUfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:35:06 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so753342nfc.21
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 13:35:05 -0700 (PDT)
-In-Reply-To: <48863F5A.9080104@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, mingo@elte.hu, ischram@telenet.be,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, j@w1.fi
+To: Larry.Finger@lwfinger.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754116AbYGVUnz@vger.kernel.org>
+In-Reply-To: <4885D808.9060203@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote, On 07/22/2008 10:13 PM:
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Date: Tue, 22 Jul 2008 07:52:24 -0500
 
-> denys@visp.net.lb wrote, On 07/22/2008 08:42 PM:
+> David Miller wrote:
+> > From: Larry Finger <Larry.Finger@lwfinger.net>
+> > Date: Tue, 22 Jul 2008 01:34:28 -0500
+> > 
+> >> David Miller wrote:
+> >>> From: Larry Finger <Larry.Finger@lwfinger.net>
+> >>> Date: Mon, 21 Jul 2008 17:40:10 -0500
+> >>>
+> >>>> Sorry :(
+> >>>>
+> >>>> I used the davem patch, the second version of your first one, and your second 
+> >>>> one. Both problems persist.
+> >>>>
+> >>>> Still plugging away on bisection.
+> >>> GIT bisecting the lockdep problem is surely going the land you on:
+> >>>
+> >>> commit e308a5d806c852f56590ffdd3834d0df0cbed8d7
+> >> No. It landed on this one.
+> > 
+> > For the lockdep warnings?
 > 
->> workload: ifb shapers, HTB, nat, 1 e1000, 3 e100 (heavily used only two e100)
->>
-> 
-> 
-> Maybe it's unconnected but I'd recommend to try this fresh patch for
-> possible problems with e1000e vs. netconsole:
-> 
-> http://permalink.gmane.org/gmane.linux.network/100581
- 
+> No - this one triggers the kernel BUG as follows:
 
-...and if you have TSO enabled, here is another "maybe unconnected"
-recommendation:
+Well, we were trying to fix the lockdep warnings.  One
+thing at a time :-)
 
-http://permalink.gmane.org/gmane.linux.network/99585
-
-Jarek P.
-
+And that BUG is now just a WARN in Linus's tree, so if
+you update you should get further along.
