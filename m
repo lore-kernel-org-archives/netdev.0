@@ -1,58 +1,65 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
-Date: Tue, 22 Jul 2008 14:30:33 -0500
-Message-ID: <48863559.1090104@lwfinger.net>
-References: <4885104A.2070201@lwfinger.net>	<20080721.161517.27161039.davem@davemloft.net>	<48857F74.2040406@lwfinger.net> <20080722.043220.247312412.davem@davemloft.net> <4885DA49.50703@lwfinger.net> <48860D4B.8070003@lwfinger.net> <488616C0.8070505@trash.net> <4886294C.4060905@lwfinger.net> <48862A76.8030307@trash.net>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: netif_schedule and mpc5200_fec
+Date: Tue, 22 Jul 2008 15:47:51 -0400
+Message-ID: <9e4733910807221247r38509c76uf625195b712a1145@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48862A76.8030307-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: ppc-dev <Linuxppc-dev@ozlabs.org>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.28]:53672 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbYGVTrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 15:47:52 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so867090ywe.1
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 12:47:51 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Larry Finger wrote:
->> Patrick McHardy wrote:
->>> Larry Finger wrote:
->>>>
->>>> =============================================
->>>> [ INFO: possible recursive locking detected ]
->>>> 2.6.26-Linus-git-05752-g93ded9b #49
->>>
->>>                    ^^^^^^^^^^^^^^ dirty?
->>>
->>> This kernel is not using the patches we sent.
->>
->> No, but they didn't make any difference. I tried with all 3 applied, 
->> then backed them out one by one. That was the state when I posted before.
-> 
-> Well, this is a completely different warning.
-> 
->>
->> Here are the dumps with all 3 patches applied:
->>
->> =============================================
->> [ INFO: possible recursive locking detected ]
->> 2.6.26-Linus-05752-g93ded9b-dirty #53
->> ---------------------------------------------
->> b43/1997 is trying to acquire lock:
->>  (_xmit_IEEE80211#2){-...}, at: [<ffffffffa028f322>] 
->> ieee80211_scan_completed+0x130/0x2e1 [mac80211]
->>
->> but task is already holding lock:
->>  (_xmit_IEEE80211#2){-...}, at: [<ffffffffa028f322>] 
->> ieee80211_scan_completed+0x130/0x2e1 [mac80211] 
+I just updated to linus/master and mpc5200_fec won't boot.
 
-Sorry. After all those kernel builds I got bleary-eyed and just looked for 
-recursive locking without any regard for the details.
+Guessing it is this patch but I haven't looked at it yet.
 
-Larry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit 263ba3204a434d0ca851e1321b31cd58376b86cb
+Author: David S. Miller <davem@davemloft.net>
+Date:   Tue Jul 15 03:47:41 2008 -0700
+
+    netdev: Convert all drivers away from netif_schedule().
+
+    They logically all want to trigger a schedule for all device
+    TX queues.
+
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+Sending DHCP requests .<0>------------[ cut here ]------------
+Badness at c01da570 [verbose debug info unavailable]
+NIP: c01da570 LR: c015b31c CTR: c015b234
+REGS: c382de70 TRAP: 0700   Not tainted  (2.6.26-efika)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 22000082  XER: 00000000
+TASK = c3815000[4] 'events/0' THREAD: c382c000
+GPR00: 00000001 c382df20 c3815000 c031e468 c38f25a0 00000000 00000000 00000000
+GPR08: c382dfb4 c0330000 00000000 c031e468 3181b461 ffffffff 03ffe000 ffffffff
+GPR16: 00000001 00000000 007ffc00 00000000 00000000 03ff8838 00000000 00000004
+GPR24: 00000000 00000000 c032b46c c0330000 c38a2e00 00000001 c38f2780 c38f2400
+NIP [c01da570] __netif_schedule+0x3c/0xac
+LR [c015b31c] mpc52xx_fec_adjust_link+0xe8/0x194
+Call Trace:
+[c382df20] [c002eeb0] queue_work+0x58/0x6c (unreliable)
+[c382df40] [c015b31c] mpc52xx_fec_adjust_link+0xe8/0x194
+[c382df60] [c0158cd0] phy_state_machine+0xec/0x4e0
+[c382df80] [c002eb0c] run_workqueue+0xb4/0x148
+[c382dfa0] [c002f070] worker_thread+0x9c/0xb8
+[c382dfd0] [c0032954] kthread+0x4c/0x88
+[c382dff0] [c000f538] kernel_thread+0x44/0x60
+Instruction dump:
+7c6b1b78 3929e468 7f834800 39200002 90010024 38030024 bfa10014 40be0030
+3d20c033 80099988 7c000034 5400d97e <0f000000> 2f800000 41be0054 38000001
+PHY: f0003000:00 - Link is Up - 100/Full
+., OK
+
+
+-- 
+Jon Smirl
+jonsmirl@gmail.com
