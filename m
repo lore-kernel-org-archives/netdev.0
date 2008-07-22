@@ -1,34 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] myri10ge: use ioremap_wc
-Date: Tue, 22 Jul 2008 16:09:23 -0400
-Message-ID: <48863E73.9000404@garzik.org>
-References: <488447E7.2060505@myri.com> <48844831.9040102@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: RESEND [PATCH 2/2] de4x5: Remove developer debug feature about
+ set/clear promisc
+Date: Tue, 22 Jul 2008 16:09:32 -0400
+Message-ID: <48863E7C.8040302@pobox.com>
+References: <48856C0B.7090602@cn.fujitsu.com> <48856C6E.5090706@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48683 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48690 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752073AbYGVUJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 16:09:27 -0400
-In-Reply-To: <48844831.9040102@myri.com>
+	id S1752531AbYGVUJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 16:09:40 -0400
+In-Reply-To: <48856C6E.5090706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Switch to ioremap_wc(). We keep the MTRR code since ioremap_wc()
-> will use UC_MINUS when falling back to uncachable, and thus let
-> the MTRR WC take precedence.
+Wang Chen wrote:
+> IFF_PROMISC flag shouldn't be set or cleared by drivers, because
+> whether device be promisc mode is decided by how many upper layer
+> callers being referenced to it.
+> And the promisc changing feature of de4x5 ioctl is developer debug
+> feature, we can remove it now.
 > 
-> Also rename the error path better.
-> 
-> Signed-off-by: Brice Goglin <brice@myri.com>
-> ---
->  drivers/net/myri10ge/myri10ge.c |    8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-applied 1-2
+applied
 
 
