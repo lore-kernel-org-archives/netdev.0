@@ -1,22 +1,28 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH RESEND] at91_ether: use netstats in net_device structure
-Date: Tue, 22 Jul 2008 19:48:18 -0400
-Message-ID: <488671C2.6010502@garzik.org>
-References: <g5mu8n$hne$1@ger.gmane.org>
+Subject: Re: [PATCH 01/10] r6040: prefix all functions with r6040
+Date: Tue, 22 Jul 2008 19:57:52 -0400
+Message-ID: <48867400.4010206@garzik.org>
+References: <200807131339.33512.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60636 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49786 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753745AbYGVXsX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 19:48:23 -0400
-In-Reply-To: <g5mu8n$hne$1@ger.gmane.org>
+	id S1751856AbYGVX54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:57:56 -0400
+In-Reply-To: <200807131339.33512.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-applied
+Florian Fainelli wrote:
+> Prefix all functions inside the r6040 driver with r6040 to
+> avoid namespace clashing.
+> 
+> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+
+applied 1-4 of 10
 
 
