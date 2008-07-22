@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netif_schedule and mpc5200_fec
-Date: Tue, 22 Jul 2008 16:07:18 -0700 (PDT)
-Message-ID: <20080722.160718.122532549.davem@davemloft.net>
-References: <9e4733910807221403g512f6e37s6722c7950f881224@mail.gmail.com>
-	<20080722.154201.234654750.davem@davemloft.net>
-	<9e4733910807221554j451019a0sa711541e97fbf0aa@mail.gmail.com>
+Subject: Re: CONFIG_NET_KEY defaults to N
+Date: Tue, 22 Jul 2008 16:18:48 -0700 (PDT)
+Message-ID: <20080722.161848.20826100.davem@davemloft.net>
+References: <19f34abd0807220952g6bef12aeufe1abddeb1c3fbad@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, davem@redhat.com
-To: jonsmirl@gmail.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: vegard.nossum@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40691
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45367
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754076AbYGVXHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 19:07:18 -0400
-In-Reply-To: <9e4733910807221554j451019a0sa711541e97fbf0aa@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756692AbYGVXSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 19:18:48 -0400
+In-Reply-To: <19f34abd0807220952g6bef12aeufe1abddeb1c3fbad@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Date: Tue, 22 Jul 2008 18:54:18 -0400
-
-> On 7/22/08, David Miller <davem@davemloft.net> wrote:
-> > From: "Jon Smirl" <jonsmirl@gmail.com>
-> >  Date: Tue, 22 Jul 2008 17:03:32 -0400
-> >
-> >
-> > > On 7/22/08, Jon Smirl <jonsmirl@gmail.com> wrote:
-> >  > > I just updated to linus/master and mpc5200_fec won't boot.
-> >  >
-> >  > It does boot, but this badness looks like it is coming from this
-> >  > patch. I don't know enough about networking to debug it.
-> >
-> >
-> > I just applied the following patch from Anton Vorontsov which
-> >  will fix this.
-> 
-> I applied this piece and still have the same error.
-
-There are no calls to functions in mpc52xx_fec_adjust_link that
-can lead to __netif_schedule() any more.
-
-Therefore I can't see how your backtrace is even possible.
-
-Please double check that you've really applied the patch
-and that mpc52xx_fec_adjust_link lacks any calls to
-netif_*_queue() and *netif_schedule().
-
-Thanks.
+RnJvbTogIlZlZ2FyZCBOb3NzdW0iIDx2ZWdhcmQubm9zc3VtQGdtYWlsLmNvbT4NCkRhdGU6IFR1
+ZSwgMjIgSnVsIDIwMDggMTg6NTI6MTQgKzAyMDANCg0KPiBIaSwNCj4gDQo+IFRoZXJlJ3Mgb25l
+IHRoaW5nIEkga2VlcCB3b25kZXJpbmcgYWJvdXQ6DQo+IA0KPiBDT05GSUdfTkVUX0tFWSBoYXMg
+dGhpcyBoZWxwIHRleHQ6DQo+IA0KPiAgIOKUgiBQRl9LRVl2MiBzb2NrZXQgZmFtaWx5LCBjb21w
+YXRpYmxlIHRvIEtBTUUgb25lcy4NCj4gICDilIIgVGhleSBhcmUgcmVxdWlyZWQgaWYgeW91IGFy
+ZSBnb2luZyB0byB1c2UgSVBzZWMgdG9vbHMgcG9ydGVkDQo+ICAg4pSCIGZyb20gS0FNRS4NCj4g
+ICDilIINCj4gICDilIIgU2F5IFkgdW5sZXNzIHlvdSBrbm93IHdoYXQgeW91IGFyZSBkb2luZy4N
+Cj4gDQo+IEl0IGRlZmF1bHRzIHRvIE4sIGhvd2V2ZXIuDQo+IA0KPiBXaGljaCBvbmUgaXMgd3Jv
+bmcsIHRoZSBoZWxwLXRleHQgb3IgdGhlIGRlZmF1bHQ/IFNob3VsZCBpdCBiZSBjaGFuZ2VkPw0K
+DQpXZSdkIGxpa2UgaXQgdG8gZGVmYXVsdCB0byAneScgYnV0IG9ubHkgaWYgdGhlIHVzZXIgaGFz
+IHR1cm5lZA0Kb24gSVBTRUMgdmlhIFhGUk0gYWxyZWFkeS4NCg0KVW5mb3J0dW5hdGVseSwgd2Ug
+Y2FuJ3QgZG8gdGhhdCBzbyBlYXNpbHkgaGVyZSBiZWNhdXNlIHdlDQphbHdheXMgcHJlc2VudCB0
+aGlzIG9wdGlvbiBhbmQgaXQgc2ltcGx5IHNlbGVjdHMgWEZSTSBpZiB5b3UNCmVuYWJsZSBpdC4N
+Cg0KVGhlIGhlbHAgdGV4dCBpc24ndCBhY2N1cmF0ZSBlaXRoZXIuICBZb3UgY3VycmVudGx5IG5l
+ZWQNCk5FVF9LRVkgZXZlbiBmb3Igb3BlbnN3YW4gYmVjYXVzZSB3ZSAoc3RpbGwpIGxhY2sgYSB3
+YXkgdG8NCnByb2JlIHRoZSBhbGdvcml0aG0gbGlzdHMgd2l0aCBuZXRsaW5rIGFsb25lLg0K
