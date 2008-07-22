@@ -1,103 +1,138 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: netif_schedule and mpc5200_fec
-Date: Tue, 22 Jul 2008 18:54:18 -0400
-Message-ID: <9e4733910807221554j451019a0sa711541e97fbf0aa@mail.gmail.com>
-References: <9e4733910807221247r38509c76uf625195b712a1145@mail.gmail.com>
-	 <9e4733910807221403g512f6e37s6722c7950f881224@mail.gmail.com>
-	 <20080722.154201.234654750.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [BUG] kernel BUG at net/core/dev.c:1328!
+Date: Tue, 22 Jul 2008 15:56:11 -0700 (PDT)
+Message-ID: <20080722.155611.176476925.davem@davemloft.net>
+References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com>
+	<20080721.092027.14394005.davem@davemloft.net>
+	<d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, davem@redhat.com
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:27951 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbYGVWyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 18:54:19 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so907808ywe.1
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 15:54:18 -0700 (PDT)
-In-Reply-To: <20080722.154201.234654750.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d4b984a30807220254t1aaf6ac4q874329966511b0c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 7/22/08, David Miller <davem@davemloft.net> wrote:
-> From: "Jon Smirl" <jonsmirl@gmail.com>
->  Date: Tue, 22 Jul 2008 17:03:32 -0400
->
->
-> > On 7/22/08, Jon Smirl <jonsmirl@gmail.com> wrote:
->  > > I just updated to linus/master and mpc5200_fec won't boot.
->  >
->  > It does boot, but this badness looks like it is coming from this
->  > patch. I don't know enough about networking to debug it.
->
->
-> I just applied the following patch from Anton Vorontsov which
->  will fix this.
+From: "Alessandro Guido" <ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org>
+Date: Tue, 22 Jul 2008 11:54:26 +0200
 
-I applied this piece and still have the same error.
+> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index b487d6f..4e4f683 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -197,9 +197,6 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
-                if (priv->link == PHY_DOWN) {
-                        new_state = 1;
-                        priv->link = phydev->link;
--//                     netif_tx_schedule_all(dev);
--//                     netif_carrier_on(dev);
--//                     netif_start_queue(dev);
-                }
+Please try this patch:
 
-        } else if (priv->link) {
-@@ -207,8 +204,6 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
-                priv->link = PHY_DOWN;
-                priv->speed = 0;
-                priv->duplex = -1;
--//             netif_stop_queue(dev);
--//             netif_carrier_off(dev);
-        }
+ipw2200: Call netif_*_queue() interfaces properly.
 
-        if (new_state && netif_msg_link(priv))
-jonsmirl@terra:~/fs$
+netif_carrier_{on,off}() handles starting and stopping packet
+flow into the driver.  So there is no reason to invoke netif_stop_queue()
+and netif_wake_queue() in response to link status events.
 
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-net eth0: attached phy 0 to driver Generic PHY
-Sending DHCP requests .<0>------------[ cut here ]------------
-Badness at c01da570 [verbose debug info unavailable]
-NIP: c01da570 LR: c015b31c CTR: c015b234
-REGS: c382de70 TRAP: 0700   Not tainted  (2.6.26-efika)
-MSR: 00029032 <EE,ME,IR,DR>  CR: 22000082  XER: 00000000
-TASK = c3815000[4] 'events/0' THREAD: c382c000
-GPR00: 00000001 c382df20 c3815000 c031e468 c38f25a0 00000000 00000000 00000000
-GPR08: c382dfb4 c0330000 00000000 c031e468 2f762097 ffffffff 03ffe000 ffffffff
-GPR16: 00000001 00000000 007ffc00 00000000 00000000 03ff8838 00000000 00000004
-GPR24: 00000000 00000000 c032b46c c0330000 c38a2e00 00000001 c38f2780 c38f2400
-NIP [c01da570] __netif_schedule+0x3c/0xac
-LR [c015b31c] mpc52xx_fec_adjust_link+0xe8/0x194
-Call Trace:
-[c382df20] [c002eeb0] queue_work+0x58/0x6c (unreliable)
-[c382df40] [c015b31c] mpc52xx_fec_adjust_link+0xe8/0x194
-[c382df60] [c0158cd0] phy_state_machine+0xec/0x4e0
-[c382df80] [c002eb0c] run_workqueue+0xb4/0x148
-[c382dfa0] [c002f070] worker_thread+0x9c/0xb8
-[c382dfd0] [c0032954] kthread+0x4c/0x88
-[c382dff0] [c000f538] kernel_thread+0x44/0x60
-Instruction dump:
-7c6b1b78 3929e468 7f834800 39200002 90010024 38030024 bfa10014 40be0030
-3d20c033 80099988 7c000034 5400d97e <0f000000> 2f800000 41be0054 38000001
-PHY: f0003000:00 - Link is Up - 100/Full
-., OK
-IP-Config: Got DHCP answer from 192.168.1.1, my address is 192.168.1.11
-IP-Config: Complete:
-     device=eth0, addr=192.168.1.11, mask=255.255.255.0, gw=192.168.1.1,
-     host=Phytec, domain=, nis-domain=(none),
-     bootserver=192.168.1.1, rootserver=192.168.1.4, rootpath=
-
-
--- 
-Jon Smirl
-jonsmirl@gmail.com
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index 6e70460..1acfbcd 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -4972,8 +4972,7 @@ static int ipw_queue_tx_reclaim(struct ipw_priv *priv,
+ 	}
+       done:
+ 	if ((ipw_tx_queue_space(q) > q->low_mark) &&
+-	    (qindex >= 0) &&
+-	    (priv->status & STATUS_ASSOCIATED) && netif_running(priv->net_dev))
++	    (qindex >= 0))
+ 		netif_wake_queue(priv->net_dev);
+ 	used = q->first_empty - q->last_used;
+ 	if (used < 0)
+@@ -10154,14 +10153,8 @@ static  void init_sys_config(struct ipw_sys_config *sys_config)
+ 
+ static int ipw_net_open(struct net_device *dev)
+ {
+-	struct ipw_priv *priv = ieee80211_priv(dev);
+ 	IPW_DEBUG_INFO("dev->open\n");
+-	/* we should be verifying the device is ready to be opened */
+-	mutex_lock(&priv->mutex);
+-	if (!(priv->status & STATUS_RF_KILL_MASK) &&
+-	    (priv->status & STATUS_ASSOCIATED))
+-		netif_start_queue(dev);
+-	mutex_unlock(&priv->mutex);
++	netif_start_queue(dev);
+ 	return 0;
+ }
+ 
+@@ -10481,13 +10474,6 @@ static int ipw_net_hard_start_xmit(struct ieee80211_txb *txb,
+ 	IPW_DEBUG_TX("dev->xmit(%d bytes)\n", txb->payload_size);
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+-	if (!(priv->status & STATUS_ASSOCIATED)) {
+-		IPW_DEBUG_INFO("Tx attempt while not associated.\n");
+-		priv->ieee->stats.tx_carrier_errors++;
+-		netif_stop_queue(dev);
+-		goto fail_unlock;
+-	}
+-
+ #ifdef CONFIG_IPW2200_PROMISCUOUS
+ 	if (rtap_iface && netif_running(priv->prom_net_dev))
+ 		ipw_handle_promiscuous_tx(priv, txb);
+@@ -10499,10 +10485,6 @@ static int ipw_net_hard_start_xmit(struct ieee80211_txb *txb,
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	return ret;
+-
+-      fail_unlock:
+-	spin_unlock_irqrestore(&priv->lock, flags);
+-	return 1;
+ }
+ 
+ static struct net_device_stats *ipw_net_get_stats(struct net_device *dev)
+@@ -10703,13 +10685,6 @@ static void ipw_link_up(struct ipw_priv *priv)
+ 	priv->last_packet_time = 0;
+ 
+ 	netif_carrier_on(priv->net_dev);
+-	if (netif_queue_stopped(priv->net_dev)) {
+-		IPW_DEBUG_NOTIF("waking queue\n");
+-		netif_wake_queue(priv->net_dev);
+-	} else {
+-		IPW_DEBUG_NOTIF("starting queue\n");
+-		netif_start_queue(priv->net_dev);
+-	}
+ 
+ 	cancel_delayed_work(&priv->request_scan);
+ 	cancel_delayed_work(&priv->request_direct_scan);
+@@ -10739,7 +10714,6 @@ static void ipw_link_down(struct ipw_priv *priv)
+ {
+ 	ipw_led_link_down(priv);
+ 	netif_carrier_off(priv->net_dev);
+-	netif_stop_queue(priv->net_dev);
+ 	notify_wx_assoc_event(priv);
+ 
+ 	/* Cancel any queued work ... */
+@@ -11419,7 +11393,6 @@ static void ipw_down(struct ipw_priv *priv)
+ 	/* Clear all bits but the RF Kill */
+ 	priv->status &= STATUS_RF_KILL_MASK | STATUS_EXIT_PENDING;
+ 	netif_carrier_off(priv->net_dev);
+-	netif_stop_queue(priv->net_dev);
+ 
+ 	ipw_stop_nic(priv);
+ 
+@@ -11522,7 +11495,6 @@ static int ipw_prom_open(struct net_device *dev)
+ 
+ 	IPW_DEBUG_INFO("prom dev->open\n");
+ 	netif_carrier_off(dev);
+-	netif_stop_queue(dev);
+ 
+ 	if (priv->ieee->iw_mode != IW_MODE_MONITOR) {
+ 		priv->sys_config.accept_all_data_frames = 1;
+@@ -11558,7 +11530,6 @@ static int ipw_prom_stop(struct net_device *dev)
+ static int ipw_prom_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	IPW_DEBUG_INFO("prom dev->xmit\n");
+-	netif_stop_queue(dev);
+ 	return -EOPNOTSUPP;
+ }
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
