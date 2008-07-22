@@ -1,47 +1,36 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: Invalid truesize messages since 2.6.25
-Date: Tue, 22 Jul 2008 14:06:50 +0200
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13C73B02@exch.facton.local>
-References: <3C59DB883F7B0B4D8096010D45ACCD13C73AFA@exch.facton.local> <20080722114311.GQ10471@solarflare.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: baycom_ser_fdx - fixed under 2.6
+Date: Tue, 22 Jul 2008 13:08:46 +0100
+Message-ID: <20080722120846.GA26093@linux-mips.org>
+References: <alpine.DEB.1.10.0807191042050.21295@tombstone.paradise.gen.nz> <4885A8F6.7090109@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:39153 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751237AbYGVMGz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 08:06:55 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080722114311.GQ10471@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Robb <ender@paradise.gen.nz>, linux-hams@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pidoux <f6bvp@free.fr>, Jeff Garzik <jeff@garzik.org>,
+	stable@kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4885A8F6.7090109@free.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> Since 2.6.25 we rarely see these messages:
->> 
->> SKB BUG: Invalid truesize (408) len=198, sizeof(sk_buff)=216
->> 
->> Yesterday I saw it the first time after a runtime of one week with
->> 2.6.26.
->> The box is web server / IPSEC gateway.
->> Obviously nothing seems to be affected by the message but <= 2.6.24
-no
->> messages appeared.
+On Tue, Jul 22, 2008 at 11:31:34AM +0200, Pidoux wrote:
 
-> Invalid truesize can be caused by bugs in many different places.  So
-it
-> might be helpful to say which driver(s) and any unusual network
-protocol
-> or filter you are using.
+> This is a trivial but very important bug fix. Thanks David.
+> It was probably not submitted to the right destination and thus never applied.
+>
+> This bug may have discouraged more than one radioamateur wishing to experiment baycom style modems under Linux.
+> Fortunately you have done a very good historical search.
+>
+> I rebuilt the patch against 2.6.26 kernel (the only source I have here on my laptop at my remote location during vacation).
+>
+> I Cc: to David Miller and Ralf Baechle DL5RB maintainers of Linux net devices drivers and Linux AX25 drivers, respectively.
 
-Network driver: tg3
-IPSEC: esp tunnels, ipcomp, 3des/aes
-I use this config so far on other servers too without this message.
+Correct, the CRC should go at the end of the frame, not corrupt the first
+header bytes.  So this one should also go into -stable.
 
-The unusal part special to this server may be:
-Bandwidth management via htb & sfq, CONFIG_IP_MULTIPLE_TABLES for source
-IP routing
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Daniel
+  Ralf
