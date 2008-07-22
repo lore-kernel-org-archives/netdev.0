@@ -1,33 +1,44 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
-	at 0000000000000370
-Date: Tue, 22 Jul 2008 10:51:58 +0000
-Message-ID: <20080722105158.GA6024@ff.dom.local>
-References: <48857F74.2040406@lwfinger.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [build failure] hp-plus.c: (.text+0xd7c1a): undefined reference
+ to `ei_close'
+Date: Tue, 22 Jul 2008 11:28:44 +0100
+Message-ID: <20080722112844.338d30ff@lxorguk.ukuu.org.uk>
+References: <20080721.233512.128618365.anemo@mba.ocn.ne.jp>
+	<20080721191519.GA15843@elte.hu>
+	<20080721214258.787a67ca@lxorguk.ukuu.org.uk>
+	<20080722072334.GA25241@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
-	ischram-CNXmb7IdZIWZIoH1IeqzKA@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	j@w1.fi
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <48857F74.2040406-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Atsushi Nemoto <anemo@mba.ocn.ne.jp>, jgarzik@redhat.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:41512 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750971AbYGVKr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 06:47:26 -0400
+In-Reply-To: <20080722072334.GA25241@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22-07-2008 08:34, Larry Finger wrote:
-...
->>> I used the davem patch, the second version of your first one, and 
->>> your second one. Both problems persist.
+> find the full tested patch below. It solves the build failures i 
+> triggered so far.
 
-Could you send lockdep info after Patrick's "set lockdep classes"
-patch?
+Yes - that matches the patch I sent Jeff on the 8th July
 
-Jarek P.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Subject: Re: linux-next: Tree for July 8 (ns8390)
+
+From: Alan Cox <alan@redhat.com>
+
+Please try this and if it sorts it fold it into the driver. This is a diff
+between my tree and the linux-next tree
+---
+
+ drivers/net/hp-plus.c |    2 +-
+ drivers/net/hp.c      |    2 +-
+ drivers/net/ne.c      |    8 ++++----
+ drivers/net/wd.c      |    2 +-
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
