@@ -1,42 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
- at 0000000000000370
-Date: Tue, 22 Jul 2008 04:32:20 -0700 (PDT)
-Message-ID: <20080722.043220.247312412.davem@davemloft.net>
-References: <4885104A.2070201@lwfinger.net>
-	<20080721.161517.27161039.davem@davemloft.net>
-	<48857F74.2040406@lwfinger.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Invalid truesize messages since 2.6.25
+Date: Tue, 22 Jul 2008 12:43:12 +0100
+Message-ID: <20080722114311.GQ10471@solarflare.com>
+References: <3C59DB883F7B0B4D8096010D45ACCD13C73AFA@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, mingo@elte.hu, ischram@telenet.be,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, j@w1.fi
-To: Larry.Finger@lwfinger.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754982AbYGVLcg@vger.kernel.org>
-In-Reply-To: <48857F74.2040406@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost01.mail.mbr-roch.zen.net.uk ([212.23.3.140]:33725 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751121AbYGVLn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 07:43:27 -0400
+Content-Disposition: inline
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD13C73AFA@exch.facton.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Tue, 22 Jul 2008 01:34:28 -0500
-
-> David Miller wrote:
-> > From: Larry Finger <Larry.Finger@lwfinger.net>
-> > Date: Mon, 21 Jul 2008 17:40:10 -0500
-> > 
-> >> Sorry :(
-> >>
-> >> I used the davem patch, the second version of your first one, and your second 
-> >> one. Both problems persist.
-> >>
-> >> Still plugging away on bisection.
-> > 
-> > GIT bisecting the lockdep problem is surely going the land you on:
-> > 
-> > commit e308a5d806c852f56590ffdd3834d0df0cbed8d7
+Beschorner Daniel wrote:
+> Since 2.6.25 we rarely see these messages:
 > 
-> No. It landed on this one.
+> SKB BUG: Invalid truesize (408) len=198, sizeof(sk_buff)=216
+> 
+> Yesterday I saw it the first time after a runtime of one week with
+> 2.6.26.
+> The box is web server / IPSEC gateway.
+> Obviously nothing seems to be affected by the message but <= 2.6.24 no
+> messages appeared.
 
-For the lockdep warnings?
+Invalid truesize can be caused by bugs in many different places.  So it
+might be helpful to say which driver(s) and any unusual network protocol
+or filter you are using.
+
+Ben.
