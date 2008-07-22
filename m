@@ -1,56 +1,42 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] make struct ipv6_devconf static
-Date: Tue, 22 Jul 2008 20:21:02 +0300
-Message-ID: <20080722172102.GV14846@cs181140183.pp.htv.fi>
+Subject: [2.6 patch] remove sctp_assoc_proc_exit()
+Date: Tue, 22 Jul 2008 20:20:57 +0300
+Message-ID: <20080722172057.GU14846@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	"David S. Miller" <davem@davemloft.net>, sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6.pp.htv.fi ([213.243.153.40]:39684 "EHLO smtp6.pp.htv.fi"
+Received: from smtp4.pp.htv.fi ([213.243.153.38]:59915 "EHLO smtp4.pp.htv.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754597AbYGVRVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 13:21:13 -0400
+	id S1754553AbYGVRVI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 13:21:08 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct ipv6_devconf can now become static.
+Commit 20c2c1fd6c842caf70dcb1d94b9d58861949fd3d
+(sctp: add sctp/remaddr table to complete RFC remote address table OID)
+added an unused sctp_assoc_proc_exit() function that seems to have been 
+unintentionally created when copying the assocs code.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-
- include/net/if_inet6.h |    2 --
- net/ipv6/addrconf.c    |    2 +-
- 2 files changed, 1 insertion(+), 3 deletions(-)
-
-60f8e80305011047545650fd718c1b33e27023eb 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index db66c79..c8effa4 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -193,8 +193,6 @@ struct inet6_dev
- 	struct rcu_head		rcu;
- };
+3020dff4c136f6e7f98e0c02f8b5e1cedfa75d2f 
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 5dd8983..f268910 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -519,8 +519,3 @@ int __init sctp_remaddr_proc_init(void)
  
--extern struct ipv6_devconf ipv6_devconf;
+ 	return 0;
+ }
 -
- static inline void ipv6_eth_mc_map(struct in6_addr *addr, char *buf)
- {
- 	/*
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 9f4fcce..74d543d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -153,7 +153,7 @@ static int ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
- 
- static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
- 
--struct ipv6_devconf ipv6_devconf __read_mostly = {
-+static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.forwarding		= 0,
- 	.hop_limit		= IPV6_DEFAULT_HOPLIMIT,
- 	.mtu6			= IPV6_MIN_MTU,
+-void sctp_assoc_proc_exit(void)
+-{
+-	remove_proc_entry("remaddr", proc_net_sctp);
+-}
 
