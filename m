@@ -1,62 +1,35 @@
-From: jean-pascal billaud <billaud@vmware.com>
-Subject: delayed ack timer, slow start and LRO
-Date: Tue, 22 Jul 2008 15:05:26 -0700
-Message-ID: <488659A6.5030703@vmware.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: delayed ack timer, slow start and LRO
+Date: Wed, 23 Jul 2008 02:11:47 +0400
+Message-ID: <20080722221147.GA29276@2ka.mipt.ru>
+References: <488654A5.5040905@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jean-pascal billaud <billaud@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:48240 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751782AbYGVWIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 18:08:10 -0400
-Received: from mailhost2.vmware.com (mailhost2.vmware.com [10.16.64.160])
-	by smtp-outbound-2.vmware.com (Postfix) with ESMTP id 5443B44005
-	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 15:08:10 -0700 (PDT)
-Received: from [10.20.114.98] (unknown [10.20.114.98])
-	by mailhost2.vmware.com (Postfix) with ESMTP id 809D43C1E3
-	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 15:08:10 -0700 (PDT)
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:33399 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756062AbYGVWLs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 18:11:48 -0400
+Content-Disposition: inline
+In-Reply-To: <488654A5.5040905@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi.
 
-I have a question related to the interaction between the delayed ack
-timer, slow start and LRO.
+On Tue, Jul 22, 2008 at 02:44:05PM -0700, jean-pascal billaud (billaud@vmware.com) wrote:
+> Also as LRO adds some latency, it seems possible to me that the sender 
+> retransmission timer will expires before the delayed ack timer expires. In 
+> this case, how is this gonna work ? Is it possible that the sender will 
+> stay stuck in
+> its slow start trying to retransmit endlessly the same n packets ?
 
-If the sender is doing a slow start, it is going to send one packet. The
-receiver's delayed ack timer is going to
-kick in and when it expires it will send a ack.
+You can check how your favourite driver handles lro and calls
+lro_flush_all(), lro also aggregate packets upto predefined limits of
+total size and numbr of 'inner' packets. It also self-destructs when
+flow breaks (retransmit, pure ack and so on).
 
-Then the sender is going to send 2 packets now. LRO will aggregates them
-and the receiver's delayed ack timer is going
-to kick in, hoping another packet will arrives which is not going to be
-the case. When the timer expires it is going to
-send a ack.
-
-The sender is now going to send 4 packets. LRO will aggregate them and
-the receiver's delayed ack timer is going to
-kick in, hoping another packet will arrives which is not going to be the
-case. When the timer expires it is going to
-send a ack.
-
-The sender is now going to send ... So I am under the impression that
-due to the fact that LRO is aggregating packets,
-the delayed ack timer will kick in every single time.
-
-So how is this fixed in linux ? I believe that ABC implementation will
-fix this issue even if I am not completely sure
-about that ?
-
-Also as LRO adds some latency, it seems possible to me that the sender
-retransmission timer will expires before the
-delayed ack timer expires. In this case, how is this gonna work ? Is it
-possible that the sender will stay stuck in
-its slow start trying to retransmit endlessly the same n packets ?
-
-Can anyone help on that ?
-
-thanks,
-
---jp
+-- 
+	Evgeniy Polyakov
