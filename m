@@ -1,187 +1,40 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 24/47] can: add sanity checks
-Date: Tue, 22 Jul 2008 16:16:17 -0700
-Message-ID: <20080722231617.GY8282@suse.de>
-References: <20080722230208.148102983@mini.kroah.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ixgbe: remove device ID for unsupported device
+Date: Tue, 22 Jul 2008 19:31:19 -0400
+Message-ID: <48866DC7.5000801@garzik.org>
+References: <20080712003458.21801.63058.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	Rodrigo Rubira Branco <rbranco@la.checkpoint.com>,
-	Jake Edge <jake@lwn.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Andre Naujoks <nautsch@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stable@kernel.org, gregkh@suse.de, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:57774 "EHLO mx2.suse.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:48076 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757023AbYGVXTf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 19:19:35 -0400
-Content-Disposition: inline; filename="can-add-sanity-checks.patch"
-In-Reply-To: <20080722231342.GA8282@suse.de>
+	id S1758827AbYGVXb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:31:27 -0400
+In-Reply-To: <20080712003458.21801.63058.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2.6.25-stable review patch.  If anyone has any objections, please let us
-know.
+Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> The ixgbe driver was untested with device ID 8086:10c8 but still advertises
+> support.  Currently if this device is present in the system when the driver
+> is loaded, the system will panic.
+> Remove this device ID until full support can be tested with available
+> hardware.  This patch is necessary for 2.6.24, 2.6.25 and 2.6.26
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  drivers/net/ixgbe/ixgbe_main.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
 
-------------------
-From: Oliver Hartkopp <oliver@hartkopp.net>
+applied
 
-commit 7f2d38eb7a42bea1c1df51bbdaa2ca0f0bdda07f upstream
 
-Even though the CAN netlayer only deals with CAN netdevices, the
-netlayer interface to the userspace and to the device layer should
-perform some sanity checks.
-
-This patch adds several sanity checks that mainly prevent userspace apps
-to send broken content into the system that may be misinterpreted by
-some other userspace application.
-
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
-Acked-by: Andre Naujoks <nautsch@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- net/can/af_can.c |   10 ++++++++++
- net/can/bcm.c    |   23 +++++++++++++++++++----
- net/can/raw.c    |    3 +++
- 3 files changed, 32 insertions(+), 4 deletions(-)
-
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -205,12 +205,19 @@ static int can_create(struct net *net, s
-  *  -ENOBUFS on full driver queue (see net_xmit_errno())
-  *  -ENOMEM when local loopback failed at calling skb_clone()
-  *  -EPERM when trying to send on a non-CAN interface
-+ *  -EINVAL when the skb->data does not contain a valid CAN frame
-  */
- int can_send(struct sk_buff *skb, int loop)
- {
- 	struct sk_buff *newskb = NULL;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int err;
- 
-+	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
-+		kfree_skb(skb);
-+		return -EINVAL;
-+	}
-+
- 	if (skb->dev->type != ARPHRD_CAN) {
- 		kfree_skb(skb);
- 		return -EPERM;
-@@ -605,6 +612,7 @@ static int can_rcv(struct sk_buff *skb, 
- 		   struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct dev_rcv_lists *d;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int matches;
- 
- 	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
-@@ -612,6 +620,8 @@ static int can_rcv(struct sk_buff *skb, 
- 		return 0;
- 	}
- 
-+	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
-+
- 	/* update statistics */
- 	can_stats.rx_frames++;
- 	can_stats.rx_frames_delta++;
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -326,7 +326,7 @@ static void bcm_send_to_user(struct bcm_
- 
- 	if (head->nframes) {
- 		/* can_frames starting here */
--		firstframe = (struct can_frame *) skb_tail_pointer(skb);
-+		firstframe = (struct can_frame *)skb_tail_pointer(skb);
- 
- 		memcpy(skb_put(skb, datalen), frames, datalen);
- 
-@@ -818,6 +818,10 @@ static int bcm_tx_setup(struct bcm_msg_h
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0)
- 				return err;
- 
-@@ -850,6 +854,10 @@ static int bcm_tx_setup(struct bcm_msg_h
- 		for (i = 0; i < msg_head->nframes; i++) {
- 			err = memcpy_fromiovec((u8 *)&op->frames[i],
- 					       msg->msg_iov, CFSIZ);
-+
-+			if (op->frames[i].can_dlc > 8)
-+				err = -EINVAL;
-+
- 			if (err < 0) {
- 				if (op->frames != &op->sframe)
- 					kfree(op->frames);
-@@ -1161,9 +1169,12 @@ static int bcm_tx_send(struct msghdr *ms
- 
- 	skb->dev = dev;
- 	skb->sk  = sk;
--	can_send(skb, 1); /* send with loopback */
-+	err = can_send(skb, 1); /* send with loopback */
- 	dev_put(dev);
- 
-+	if (err)
-+		return err;
-+
- 	return CFSIZ + MHSIZ;
- }
- 
-@@ -1182,6 +1193,10 @@ static int bcm_sendmsg(struct kiocb *ioc
- 	if (!bo->bound)
- 		return -ENOTCONN;
- 
-+	/* check for valid message length from userspace */
-+	if (size < MHSIZ || (size - MHSIZ) % CFSIZ)
-+		return -EINVAL;
-+
- 	/* check for alternative ifindex for this bcm_op */
- 
- 	if (!ifindex && msg->msg_name) {
-@@ -1256,8 +1271,8 @@ static int bcm_sendmsg(struct kiocb *ioc
- 		break;
- 
- 	case TX_SEND:
--		/* we need at least one can_frame */
--		if (msg_head.nframes < 1)
-+		/* we need exactly one can_frame behind the msg head */
-+		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
- 			ret = -EINVAL;
- 		else
- 			ret = bcm_tx_send(msg, ifindex, sk);
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -632,6 +632,9 @@ static int raw_sendmsg(struct kiocb *ioc
- 	} else
- 		ifindex = ro->ifindex;
- 
-+	if (size != sizeof(struct can_frame))
-+		return -EINVAL;
-+
- 	dev = dev_get_by_index(&init_net, ifindex);
- 	if (!dev)
- 		return -ENXIO;
-
--- 
