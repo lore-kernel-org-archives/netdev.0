@@ -1,42 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Fix typo in meth driver
-Date: Tue, 22 Jul 2008 19:39:40 -0400
-Message-ID: <48866FBC.1030008@garzik.org>
-References: <4877CCC2.5050702@linux-foundation.org>
+Subject: Re: [NET-NEXT PATCH 1/9] e1000: neaten function declarations
+Date: Tue, 22 Jul 2008 19:40:04 -0400
+Message-ID: <48866FD4.2010706@garzik.org>
+References: <20080711221442.3255.16180.stgit@localhost.localdomain> <20080711221702.3255.43654.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kay Sievers <kay.sievers@vrfy.org>, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Joe Perches <joe@perches.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49880 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49885 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756834AbYGVXjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 19:39:48 -0400
-In-Reply-To: <4877CCC2.5050702@linux-foundation.org>
+	id S1751061AbYGVXkI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:40:08 -0400
+In-Reply-To: <20080711221702.3255.43654.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter wrote:
-> An | in an if statement to check a bit? I think this needs to be a &.
-> As a result of this typo meth will always operate in promiscuous mode.
+Jeff Kirsher wrote:
+> From: Joe Perches <joe@perches.com>
 > 
-> Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 > 
-> Index: linux-2.6/drivers/net/meth.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/meth.c	2008-07-11 16:05:00.000000000 -0500
-> +++ linux-2.6/drivers/net/meth.c	2008-07-11 16:05:02.000000000 -0500
-> @@ -287,7 +287,7 @@
->  
->  	/* Initial mode: 10 | Half-duplex | Accept normal packets */
->  	priv->mac_ctrl = METH_ACCEPT_MCAST | METH_DEFAULT_IPG;
-> -	if (dev->flags | IFF_PROMISC)
-> +	if (dev->flags & IFF_PROMISC)
->  		priv->mac_ctrl |= METH_PROMISC;
->  	mace->eth.mac_ctrl = priv->mac_ctrl;
->  
+>  drivers/net/e1000/e1000_ethtool.c |  175 +++++-------
+>  drivers/net/e1000/e1000_hw.c      |  558 +++++++++++++------------------------
+>  drivers/net/e1000/e1000_main.c    |  307 ++++++++------------
+>  drivers/net/e1000/e1000_param.c   |   16 -
+>  4 files changed, 385 insertions(+), 671 deletions(-)
 
-applied
+applied 1-9, after making the obvious fixes to the er32/ew32 patch
 
 
