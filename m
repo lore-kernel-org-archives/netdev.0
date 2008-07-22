@@ -1,30 +1,40 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: CONFIG_NET_KEY defaults to N
-Date: Tue, 22 Jul 2008 18:52:14 +0200
-Message-ID: <19f34abd0807220952g6bef12aeufe1abddeb1c3fbad@mail.gmail.com>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
+Date: Tue, 22 Jul 2008 19:20:00 +0200
+Message-ID: <488616C0.8070505@trash.net>
+References: <4885104A.2070201@lwfinger.net>	<20080721.161517.27161039.davem@davemloft.net>	<48857F74.2040406@lwfinger.net> <20080722.043220.247312412.davem@davemloft.net> <4885DA49.50703@lwfinger.net> <48860D4B.8070003@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:14751 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063AbYGVQwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 12:52:14 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so2276883wfd.4
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 09:52:14 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48860D4B.8070003-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SGksCgpUaGVyZSdzIG9uZSB0aGluZyBJIGtlZXAgd29uZGVyaW5nIGFib3V0OgoKQ09ORklHX05F
-VF9LRVkgaGFzIHRoaXMgaGVscCB0ZXh0OgoKICDilIIgUEZfS0VZdjIgc29ja2V0IGZhbWlseSwg
-Y29tcGF0aWJsZSB0byBLQU1FIG9uZXMuCiAg4pSCIFRoZXkgYXJlIHJlcXVpcmVkIGlmIHlvdSBh
-cmUgZ29pbmcgdG8gdXNlIElQc2VjIHRvb2xzIHBvcnRlZAogIOKUgiBmcm9tIEtBTUUuCiAg4pSC
-CiAg4pSCIFNheSBZIHVubGVzcyB5b3Uga25vdyB3aGF0IHlvdSBhcmUgZG9pbmcuCgpJdCBkZWZh
-dWx0cyB0byBOLCBob3dldmVyLgoKV2hpY2ggb25lIGlzIHdyb25nLCB0aGUgaGVscC10ZXh0IG9y
-IHRoZSBkZWZhdWx0PyBTaG91bGQgaXQgYmUgY2hhbmdlZD8KCgpWZWdhcmQKCi0tIAoiVGhlIGFu
-aW1pc3RpYyBtZXRhcGhvciBvZiB0aGUgYnVnIHRoYXQgbWFsaWNpb3VzbHkgc25lYWtlZCBpbiB3
-aGlsZQp0aGUgcHJvZ3JhbW1lciB3YXMgbm90IGxvb2tpbmcgaXMgaW50ZWxsZWN0dWFsbHkgZGlz
-aG9uZXN0IGFzIGl0CmRpc2d1aXNlcyB0aGF0IHRoZSBlcnJvciBpcyB0aGUgcHJvZ3JhbW1lcidz
-IG93biBjcmVhdGlvbi4iCgktLSBFLiBXLiBEaWprc3RyYSwgRVdEMTAzNgo=
+Larry Finger wrote:
+> I pulled from Linus's tree this morning and now have git-05752-g93ded9b. 
+> The kernel WARNING from __netif_schedule and the lockdep warning are 
+> present with or without the patches from yesterday.
+> 
+> As I stated earlier, the kernel WARNING (it was a BUG then) was 
+> introduced in commit 37437bb2 when the BUG statement was entered.
+> 
+> The lockdep warning started with the next commit (16361127).
+> 
+> The lockdep warning is:
+> 
+> =============================================
+> [ INFO: possible recursive locking detected ]
+> 2.6.26-Linus-git-05752-g93ded9b #49
+
+                    ^^^^^^^^^^^^^^ dirty?
+
+This kernel is not using the patches we sent.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
