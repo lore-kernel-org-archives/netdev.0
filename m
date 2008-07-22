@@ -1,27 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] make struct ipv6_devconf static
-Date: Tue, 22 Jul 2008 14:22:08 -0700 (PDT)
-Message-ID: <20080722.142208.239078142.davem@davemloft.net>
-References: <20080722172102.GV14846@cs181140183.pp.htv.fi>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH 2/4] PCI PM: Make more PCI PM core functionality available to drivers
+Date: Tue, 22 Jul 2008 14:26:42 -0700
+Message-ID: <200807221426.42725.jbarnes@virtuousgeek.org>
+References: <200807191436.40726.rjw@sisk.pl> <200807191439.25371.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: bunk@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753173AbYGVVWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 17:22:08 -0400
-In-Reply-To: <20080722172102.GV14846@cs181140183.pp.htv.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Randy Dunlap <rdunlap@xenotime.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755940AbYGVV1S@vger.kernel.org>
+In-Reply-To: <200807191439.25371.rjw@sisk.pl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Tue, 22 Jul 2008 20:21:02 +0300
+On Saturday, July 19, 2008 5:39 am Rafael J. Wysocki wrote:
+> From: Rafael J. Wysocki <rjw@sisk.pl>
+>
+> Make more PCI PM core functionality available to drivers
+>
+> * Export pci_pme_capable() so that it can be called directly by
+>   drivers (for example, tg3 needs that).
+>
+> * Move the state choosing part of pci_prepare_to_sleep() to a
+>   separate function, pci_target_state(), that can be called directly
+>   by drivers (for example, tg3 needs that).
+>
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-> struct ipv6_devconf can now become static.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Applied to for-linus.  I had to fix things up in light of the kdoc fixes Randy 
+sent, but I think I got them right.
 
-Applied, thanks Adrian.
+Thanks,
+Jesse
