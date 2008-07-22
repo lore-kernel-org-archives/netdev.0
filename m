@@ -1,39 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ixgbe: remove device ID for unsupported device
-Date: Tue, 22 Jul 2008 19:31:19 -0400
-Message-ID: <48866DC7.5000801@garzik.org>
-References: <20080712003458.21801.63058.stgit@localhost.localdomain>
+Subject: Re: [PATCH net-next] atl1e: Atheros L1E Gigabit Ethernet driver
+Date: Tue, 22 Jul 2008 19:31:42 -0400
+Message-ID: <48866DDE.9080201@garzik.org>
+References: <12163522333496-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, gregkh@suse.de, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: m.kozlowski@tuxland.pl, bhutchings@solarflare.com,
+	adobriyan@gmail.com, yjwei@cn.fujitsu.com, rdreier@cisco.com,
+	shemminger@vyatta.com, davem@davemloft.net, jcliburn@gmail.com,
+	parag.warudkar@gmail.com, w@1wt.eu,
+	oliver.schuster@schweigstill.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48076 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48094 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758827AbYGVXb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 19:31:27 -0400
-In-Reply-To: <20080712003458.21801.63058.stgit@localhost.localdomain>
+	id S1758310AbYGVXcX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:32:23 -0400
+In-Reply-To: <12163522333496-git-send-email-jie.yang@atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+jie.yang@atheros.com wrote:
+> From: Jie Yang <jie.yang@atheros.com>
 > 
-> The ixgbe driver was untested with device ID 8086:10c8 but still advertises
-> support.  Currently if this device is present in the system when the driver
-> is loaded, the system will panic.
-> Remove this device ID until full support can be tested with available
-> hardware.  This patch is necessary for 2.6.24, 2.6.25 and 2.6.26
+> Full patch for the Atheros L1E Gigabit Ethernet driver.
+> Supportring AR8121, AR8113 and AR8114
 > 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Jie Yang <jie.yang @atheros.com>
 > ---
+> update on comments:
+> 	1) Remove dup MACRO already defined in linux/ethtool.h
+> 	2) Remove pci_using_64 logic for the reason as atl1
 > 
->  drivers/net/ixgbe/ixgbe_main.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
 
 applied
 
