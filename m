@@ -1,23 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [2.6 patch] make qdisc_class_hash_alloc() static
-Date: Tue, 22 Jul 2008 19:31:27 +0200
-Message-ID: <4886196F.2030001@trash.net>
-References: <20080722172041.GS14846@cs181140183.pp.htv.fi>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] tehuti: use request_firmware
+Date: Tue, 22 Jul 2008 13:39:14 -0400
+Message-ID: <20080722173914.GH32408@gospo.rdu.redhat.com>
+References: <1216741806.28669.6.camel@jaswinder.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jaswinder Singh <jaswinder@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37818 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752648AbYGVRba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 13:31:30 -0400
-In-Reply-To: <20080722172041.GS14846@cs181140183.pp.htv.fi>
+Received: from mx1.redhat.com ([66.187.233.31]:51864 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875AbYGVRj7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 13:39:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1216741806.28669.6.camel@jaswinder.satnam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian Bunk wrote:
-> This patch makes the needlessly global qdisc_class_hash_alloc() static.
+On Tue, Jul 22, 2008 at 09:20:06PM +0530, Jaswinder Singh wrote:
+> 
+> Firmware blob is little endian.
+> 
+> Removed bdx_firmware_endianess() as firmware blob is already little endian
+> 
+> Signed-off-by: Jaswinder Singh <jaswinder@infradead.org>
+> ---
+>  drivers/net/tehuti.c         |   29 +-
+>  drivers/net/tehuti.h         |    1 +
+>  drivers/net/tehuti_fw.h      |10712 ------------------------------------------
+>  firmware/Makefile            |    1 +
+>  firmware/WHENCE              |   12 +
+>  firmware/tehuti/bdx.bin.ihex | 2678 +++++++++++
+>  6 files changed, 2708 insertions(+), 10725 deletions(-)
+>  delete mode 100644 drivers/net/tehuti_fw.h
+>  create mode 100644 firmware/tehuti/bdx.bin.ihex
+> 
 
-Ack, this is not supposed to be global.
+This has been on my TODO list for a while, but just haven't gotten
+around to it yet since I didn't feel like it was that crucial.  Thanks
+for taking the time, Jaswinder.  Did you manage to test it?
+
+I would like to try it out before ACKing, so I'll do that tonight or
+tomorrow and post back my results.
+
