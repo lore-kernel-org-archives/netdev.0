@@ -1,99 +1,61 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Tue, 22 Jul 2008 15:34:15 +0200
-Message-ID: <20080722133415.GA23046@elte.hu>
-References: <20080721115555.GA24176@elte.hu> <20080721192138.GA27672@elte.hu> <20080721212447.GA10107@2ka.mipt.ru> <20080721.163349.113841731.davem@davemloft.net> <20080722075000.GB15807@elte.hu>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: [TCP bug] stuck distcc connections in latest -git
+Date: Tue, 22 Jul 2008 23:15:38 +0930
+Message-ID: <4885E482.5020502@davidnewall.com>
+References: <20080720.104411.81744468.davem@davemloft.net> <20080721133059.GA30637@elte.hu> <20080721134506.GA27598@elte.hu> <20080721182318.GA20940@elte.hu> <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org> <20080721184616.GA8442@elte.hu> <20080722112133.GA6575@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, penberg@cs.helsinki.fi,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	vegard.nossum@gmail.com, rjw@sisk.pl, cl@linux-foundation.org,
-	auke-jan.h.kok@intel.com, jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:33240 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750961AbYGVNet (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 09:34:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20080722075000.GB15807@elte.hu>
+Received: from eth7959.sa.adsl.internode.on.net ([150.101.82.22]:50729 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750975AbYGVNpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 09:45:49 -0400
+In-Reply-To: <20080722112133.GA6575@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ingo Molnar wrote:
+> hm, the distcc TCP hangs are back:
+>   
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+The missing four client-side connections are more interesting than the
+unsent data.
 
-> > > Can you check kind of this patch:
-> > 
-> > The call even seems pointless, since the caller will call ->poll() 
-> > (which is e1000_clean) as the very next action, and that will invoke 
-> > e1000_clean_tx_irq() properly.
-> > 
-> > I would just delete this call from e1000_netpoll() entirely.
-> 
-> ok, i've added the patch below to tip/out-of-tree.
-> 
-> Overnight test had about 100 successful bootups on this testbox. 
-> (until it stopped on a drivers/net/hp.c build error - which is 
-> unrelated to this problem)
-> 
-> So testing with netconsole disabled is conclusive enough to implicate 
-> netconsole strongly. I've now re-enabled netconsole on the testbox and 
-> will continue the test with the fix below. Previously it would crash 
-> within 10-40 iterations.
+> I.e. the client side send-queue is stuck in established state, server 
+> side thinks it's a proper established connection. Nobody makes any 
+> progress.
+>   
 
-it's now past 50 successful iterations with e1000e+netconsole enabled 
-again with the fix applied, and not a single crash, hang, memory 
-corruption or other weirdness happened. Jeff, please apply the fix 
-below.
+I might be missing something obvious, but I don't think there's anything
+unusual in the three sessions displayed on the client.  They should be
+"ESTABLISHED", and on the server, too, just as they are.
 
-Thanks,
+> Also note the final 4 connections on the server side - those are not 
+> present on the client box.
+>   
 
-	Ingo
+Now this is interesting.  I would be much more interested in how the
+client's sides for these disappeared.
 
----------------->
-commit 1fd48807674d4f6defe82258c46619ce2c116943
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Tue Jul 22 09:44:32 2008 +0200
+> The hung condition seemed permanent (i waited a couple of minutes).
+>   
 
-    e1000e: fix e1000_netpoll(), remove extraneous e1000_clean_tx_irq() call
-    
-    Evgeniy Polyakov noticed that drivers/net/e1000e/netdev.c:e1000_netpoll()
-    was calling e1000_clean_tx_irq() without taking the TX lock.
-    
-    David Miller suggested to remove the call altogether: since in this
-    callpah there's periodic calls to ->poll() anyway which will do
-    e1000_clean_tx_irq() and will garbage-collect any finished TX ring
-    descriptors.
-    
-    This fix solved the e1000e+netconsole crashes i've been seeing:
-    
-    =============================================================================
-    BUG skbuff_head_cache: Poison overwritten
-    -----------------------------------------------------------------------------
-    
-    INFO: 0xf658ae9c-0xf658ae9c. First byte 0x6a instead of 0x6b
-    INFO: Allocated in __alloc_skb+0x2c/0x110 age=0 cpu=0 pid=5098
-    INFO: Freed in __kfree_skb+0x31/0x80 age=0 cpu=1 pid=4440
-    INFO: Slab 0xc16cc140 objects=16 used=1 fp=0xf658ae00 flags=0x400000c3
-    INFO: Object 0xf658ae00 @offset=3584 fp=0xf658af00
-    
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- drivers/net/e1000e/netdev.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Not nearly long enough.  Retransmits can be sent as infrequently as per
+180 seconds.  I think there's an argument to use one of the the various
+patches that reduce your TCP_RTO_MAX, for example OBATA Noboru's
+(http://marc.info/?l=linux-netdev&m=118422471428855): you don't have to
+wait unreasonably long before seeing a retransmit.  Remember, three minutes!
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 869544b..9c0f56b 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4067,8 +4067,6 @@ static void e1000_netpoll(struct net_device *netdev)
- 	disable_irq(adapter->pdev->irq);
- 	e1000_intr(adapter->pdev->irq, netdev);
- 
--	e1000_clean_tx_irq(adapter);
--
- 	enable_irq(adapter->pdev->irq);
- }
- #endif
+
+> I retried the same build 10 times and it would not reproduce - so this 
+> again is a hard to reproduce condition. (and there's no chance to get a 
+> proper tcpdump either, at these traffic levels)
+
+You really should start that capture, and on both client and server. 
+You don't need to dump everything, only traffic to or from server:distcc.
