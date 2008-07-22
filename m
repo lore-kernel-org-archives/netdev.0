@@ -1,42 +1,134 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/4] sfc: resolve tx multiqueue bug
-Date: Tue, 22 Jul 2008 17:29:59 -0400
-Message-ID: <48865157.20709@pobox.com>
-References: <20080718180156.GH10471@solarflare.com> <20080718184925.GJ10471@solarflare.com> <20080722184118.GR10471@solarflare.com> <20080722.140023.127726788.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/5] netns: dont alloc ipv6 fib timer list
+Date: Tue, 22 Jul 2008 14:29:28 -0700
+Message-ID: <20080722212951.551812845@vyatta.com>
+References: <20080722212927.937523165@vyatta.com>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34082 "EHLO mail.dvmed.net"
+Received: from suva.vyatta.com ([69.59.150.140]:34391 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752182AbYGVVam (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 17:30:42 -0400
-In-Reply-To: <20080722.140023.127726788.davem@davemloft.net>
+	id S1755261AbYGVVbF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 17:31:05 -0400
+Content-Disposition: inline; filename=ipv6-timer-alloc.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 22 Jul 2008 19:41:19 +0100
-> 
->> So long as a queue is only woken in response to TX completions, the current
->> arrangement is fine.  However, sfc needs to tear down and restart hardware TX
->> queues as part of some reconfiguration, self-test and recovery code, and I
->> doubt it's the only such driver.
-> 
-> Mark the carrier off and packets will stop flowing to the driver.
+FIB timer list is a trivial size structure, avoid indirection and just
+put it in existing ns.
 
-Yep.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Though based on looking at a lot of existing driver code, I think this 
-is sometimes unclear to driver writers -- when to manage carrier 
-(netif_carrier_on/off) and when to manage queue flow 
-(netif_queue_start/stop/wake).
+---
+ patch against current net-2.6 tree
 
-	Jeff
+--- a/net/ipv6/ip6_fib.c	2008-07-22 09:21:36.000000000 -0700
++++ b/net/ipv6/ip6_fib.c	2008-07-22 13:48:21.000000000 -0700
+@@ -661,16 +661,16 @@ static int fib6_add_rt2node(struct fib6_
+ 
+ static __inline__ void fib6_start_gc(struct net *net, struct rt6_info *rt)
+ {
+-	if (!timer_pending(net->ipv6.ip6_fib_timer) &&
++	if (!timer_pending(&net->ipv6.ip6_fib_timer) &&
+ 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
+-		mod_timer(net->ipv6.ip6_fib_timer,
++		mod_timer(&net->ipv6.ip6_fib_timer,
+ 			  jiffies + net->ipv6.sysctl.ip6_rt_gc_interval);
+ }
+ 
+ void fib6_force_start_gc(struct net *net)
+ {
+-	if (!timer_pending(net->ipv6.ip6_fib_timer))
+-		mod_timer(net->ipv6.ip6_fib_timer,
++	if (!timer_pending(&net->ipv6.ip6_fib_timer))
++		mod_timer(&net->ipv6.ip6_fib_timer,
+ 			  jiffies + net->ipv6.sysctl.ip6_rt_gc_interval);
+ }
+ 
+@@ -1449,7 +1449,7 @@ void fib6_run_gc(unsigned long expires, 
+ 	} else {
+ 		local_bh_disable();
+ 		if (!spin_trylock(&fib6_gc_lock)) {
+-			mod_timer(net->ipv6.ip6_fib_timer, jiffies + HZ);
++			mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
+ 			local_bh_enable();
+ 			return;
+ 		}
+@@ -1462,12 +1462,10 @@ void fib6_run_gc(unsigned long expires, 
+ 	fib6_clean_all(net, fib6_age, 0, NULL);
+ 
+ 	if (gc_args.more)
+-		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+-	else {
+-		del_timer(net->ipv6.ip6_fib_timer);
+-		net->ipv6.ip6_fib_timer->expires = 0;
+-	}
++	else
++		del_timer(&net->ipv6.ip6_fib_timer);
+ 	spin_unlock_bh(&fib6_gc_lock);
+ }
+ 
+@@ -1478,16 +1476,7 @@ static void fib6_gc_timer_cb(unsigned lo
+ 
+ static int fib6_net_init(struct net *net)
+ {
+-	int ret;
+-	struct timer_list *timer;
+-
+-	ret = -ENOMEM;
+-	timer = kzalloc(sizeof(*timer), GFP_KERNEL);
+-	if (!timer)
+-		goto out;
+-
+-	setup_timer(timer, fib6_gc_timer_cb, (unsigned long)net);
+-	net->ipv6.ip6_fib_timer = timer;
++	setup_timer(&net->ipv6.ip6_fib_timer, fib6_gc_timer_cb, (unsigned long)net);
+ 
+ 	net->ipv6.rt6_stats = kzalloc(sizeof(*net->ipv6.rt6_stats), GFP_KERNEL);
+ 	if (!net->ipv6.rt6_stats)
+@@ -1521,9 +1510,7 @@ static int fib6_net_init(struct net *net
+ #endif
+ 	fib6_tables_init(net);
+ 
+-	ret = 0;
+-out:
+-	return ret;
++	return 0;
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ out_fib6_main_tbl:
+@@ -1534,15 +1521,14 @@ out_fib_table_hash:
+ out_rt6_stats:
+ 	kfree(net->ipv6.rt6_stats);
+ out_timer:
+-	kfree(timer);
+-	goto out;
++	return -ENOMEM;
+  }
+ 
+ static void fib6_net_exit(struct net *net)
+ {
+ 	rt6_ifdown(net, NULL);
+-	del_timer_sync(net->ipv6.ip6_fib_timer);
+-	kfree(net->ipv6.ip6_fib_timer);
++	del_timer_sync(&net->ipv6.ip6_fib_timer);
++
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	kfree(net->ipv6.fib6_local_tbl);
+ #endif
+--- a/include/net/netns/ipv6.h	2008-07-22 09:21:35.000000000 -0700
++++ b/include/net/netns/ipv6.h	2008-07-22 13:46:51.000000000 -0700
+@@ -39,7 +39,7 @@ struct netns_ipv6 {
+ #endif
+ 	struct rt6_info         *ip6_null_entry;
+ 	struct rt6_statistics   *rt6_stats;
+-	struct timer_list       *ip6_fib_timer;
++	struct timer_list       ip6_fib_timer;
+ 	struct hlist_head       *fib_table_hash;
+ 	struct fib6_table       *fib6_main_tbl;
+ 	struct dst_ops		*ip6_dst_ops;
 
-
+-- 
 
