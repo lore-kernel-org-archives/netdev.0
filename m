@@ -1,34 +1,42 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: NetDev User Options
-Date: Tue, 22 Jul 2008 03:22:29 +0300
-Message-ID: <20080722002229.GY3820@mea-ext.zmailer.org>
-References: <4885028E.5050405@simon.arlott.org.uk> <BC5DCABAE2DD46CF8C440EBE6D4C924D@absolutdaddy>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/16] mib: finish with ipv4 mibs netnsization
+Date: Mon, 21 Jul 2008 17:24:29 -0700
+Message-ID: <m1prp6lq9u.fsf@frodo.ebiederm.org>
+References: <487F46CD.7090103@openvz.org>
+	<20080718.040925.261545164.davem@davemloft.net>
+	<4884C9AD.4040608@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Russell McGuire <rmcguire@videopresence.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:43913 "EHLO z2.cat.iki.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754454AbYGVAWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 20:22:32 -0400
-Received: (mea@mea-ext) by mail.zmailer.org id S3541299AbYGVAW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 03:22:29 +0300
-Content-Disposition: inline
-In-Reply-To: <BC5DCABAE2DD46CF8C440EBE6D4C924D@absolutdaddy>
+Received: from out01.mta.xmission.com ([166.70.13.231]:44914 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754837AbYGVAca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 20:32:30 -0400
+In-Reply-To: <4884C9AD.4040608@openvz.org> (Pavel Emelyanov's message of "Mon,
+	21 Jul 2008 21:38:53 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2008 at 03:16:14PM -0700, Russell McGuire wrote:
-> Guys,
-> 
-> Is there a quick way to change the user receive options into a batch digest
-> or similar. I signed up to NetDev through MajorDomo, so I never saw a user
-> options page.
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-No.  It is not supported by the Majordomo, nor do we like (at all) about how
-Mailman does its things.  Completely unmanageable at VGER's traffic levels.
+> David Miller wrote:
+>> 
+>> I keep hearing noises that some day sysfs+ns will work, is that something
+>> we'll see in 2.6.27 possibly?  
+>
+> Unfortunately not in 2.6.27 :( Eric send sysfs-for-namespaces patchset
+> 2 or 3 weeks ago, but Greg was going for vacation that time.
 
-> -Russ
+Yes the timing has been bad all around.  But finally Tejun and
+I agree on a patchset that will work, and Greg doesn't have a problem
+putting it in his tree for post 2.6.27.
 
-/Matti Aarnio -- one of  <postmaster @ vger.kernel.org>
+>> That would help my own build validation and testing of changes.
+
+It currently looks like these changes will show up in the first
+round of linux-next.  My apologies for the delay.  Untangling
+the knot that is sysfs is a challenge.
+
+Eric
