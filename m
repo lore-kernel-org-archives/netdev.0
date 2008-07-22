@@ -1,39 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/5] ipv6: use round_jiffies
-Date: Tue, 22 Jul 2008 14:29:29 -0700
-Message-ID: <20080722212951.629007462@vyatta.com>
-References: <20080722212927.937523165@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/4] sfc: resolve tx multiqueue bug
+Date: Tue, 22 Jul 2008 14:33:13 -0700 (PDT)
+Message-ID: <20080722.143313.147630363.davem@davemloft.net>
+References: <20080722184118.GR10471@solarflare.com>
+	<20080722.140023.127726788.davem@davemloft.net>
+	<48865157.20709@pobox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([69.59.150.140]:34392 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752858AbYGVVbF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 17:31:05 -0400
-Content-Disposition: inline; filename=ipv6-round.patch
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56345
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753384AbYGVVdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 17:33:13 -0400
+In-Reply-To: <48865157.20709@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This timer normally happens once a minute, there is no need to cause an
-early wakeup for it, so align it to next second boundary to safe power.
-It can't be deferred because then it could take too long on cleanup or DoS.
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Tue, 22 Jul 2008 17:29:59 -0400
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > Date: Tue, 22 Jul 2008 19:41:19 +0100
+> > 
+> >> So long as a queue is only woken in response to TX completions, the current
+> >> arrangement is fine.  However, sfc needs to tear down and restart hardware TX
+> >> queues as part of some reconfiguration, self-test and recovery code, and I
+> >> doubt it's the only such driver.
+> > 
+> > Mark the carrier off and packets will stop flowing to the driver.
+> 
+> Yep.
+> 
+> Though based on looking at a lot of existing driver code, I think this 
+> is sometimes unclear to driver writers -- when to manage carrier 
+> (netif_carrier_on/off) and when to manage queue flow 
+> (netif_queue_start/stop/wake).
 
---- a/net/ipv6/ip6_fib.c	2008-07-21 12:06:44.000000000 -0700
-+++ b/net/ipv6/ip6_fib.c	2008-07-21 12:07:41.000000000 -0700
-@@ -1462,8 +1462,9 @@ void fib6_run_gc(unsigned long expires, 
- 	fib6_clean_all(net, fib6_age, 0, NULL);
- 
- 	if (gc_args.more)
--		mod_timer(&net->ipv6.ip6_fib_timer, jiffies +
--			  net->ipv6.sysctl.ip6_rt_gc_interval);
-+		mod_timer(&net->ipv6.ip6_fib_timer,
-+			  round_jiffies(jiffies
-+					+ net->ipv6.sysctl.ip6_rt_gc_interval));
- 	else
- 		del_timer(&net->ipv6.ip6_fib_timer);
- 	spin_unlock_bh(&fib6_gc_lock);
+This is true.
 
--- 
-
+My current plan is to fix up as many drivers as possible, and
+assuming the reality that we can't expect to fix them all
+by 2.6.27 we will remove the WARN_ON_ONCE from __netif_schedule()
+right before 2.6.27-final then reinstate it for the 2.6.28
+merge window.
