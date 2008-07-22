@@ -1,94 +1,241 @@
-From: "Alessandro Suardi" <alessandro.suardi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [BUG] kernel BUG at net/core/dev.c:1328!
-Date: Tue, 22 Jul 2008 22:18:45 +0200
-Message-ID: <5a4c581d0807221318l12989994u121f07dad47f5a0a@mail.gmail.com>
-References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com>
-	 <20080721.092027.14394005.davem@davemloft.net>
-	 <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: Fix build failure with 'make mandocs'.
+Date: Tue, 22 Jul 2008 13:24:39 -0700
+Message-ID: <20080722132439.dfbd6597.randy.dunlap@oracle.com>
+References: <20080721205229.GA26812@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Alessandro Guido" <ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d4b984a30807220254t1aaf6ac4q874329966511b0c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rgminet01.oracle.com ([148.87.113.118]:53155 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868AbYGVU0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:26:18 -0400
+In-Reply-To: <20080721205229.GA26812@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2008 at 11:54 AM, Alessandro Guido
-<ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org> wrote:
-> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
->
->
-> WARNING: at net/core/dev.c:1330 __netif_schedule+0x53/0x60()
-> Modules linked in:
-> Pid: 5, comm: events/0 Not tainted 2.6.26-05752-g93ded9b #1
->  [<c011bc64>] warn_on_slowpath+0x54/0xa0
->  [<c0135483>] ? getnstimeofday+0x53/0x100
->  [<c0132d1c>] ? ktime_get_ts+0x4c/0x50
->  [<c012ba67>] ? insert_work+0x57/0x70
->  [<c012c129>] ? queue_work+0x39/0x60
->  [<c012c1e5>] ? queue_delayed_work+0x25/0x30
->  [<c012c201>] ? schedule_delayed_work+0x11/0x20
->  [<c030398a>] ? linkwatch_schedule_work+0x3a/0xb0
->  [<c02f78d3>] __netif_schedule+0x53/0x60
->  [<c0262a80>] ipw_bg_link_up+0x160/0x1f0
->  [<c035ae4e>] ? schedule+0x1de/0x3f0
->  [<c012bdef>] run_workqueue+0x6f/0x160
->  [<c0262920>] ? ipw_bg_link_up+0x0/0x1f0
->  [<c012c08f>] worker_thread+0x7f/0xe0
->  [<c012f5d0>] ? autoremove_wake_function+0x0/0x50
->  [<c012c010>] ? worker_thread+0x0/0xe0
->  [<c012f15a>] kthread+0x3a/0x70
->  [<c012f120>] ? kthread+0x0/0x70
->  [<c0103d77>] kernel_thread_helper+0x7/0x10
->  =======================
+On Mon, 21 Jul 2008 16:52:29 -0400 Dave Jones wrote:
 
-I also hit a very similar one on my Dell D610 with onboard
- ipw2200 wireless (already kerneloops'd, BTW):
+> The function header comments have to go with the functions
+> they are documenting, or things go horribly wrong when we
+> try to process them with the docbook tools.
+> 
+> Warning(include/linux/netdevice.h:1006): No description found for parameter 'dev_queue'
+> Warning(include/linux/netdevice.h:1033): No description found for parameter 'dev_queue'
+> Warning(include/linux/netdevice.h:1067): No description found for parameter 'dev_queue'
+> Warning(include/linux/netdevice.h:1093): No description found for parameter 'dev_queue'
+> Warning(include/linux/netdevice.h:1474): No description found for parameter 'txq'
+> Error(net/core/dev.c:1674): cannot understand prototype: 'u32 simple_tx_hashrnd; '
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-WARNING: at net/core/dev.c:1330 __netif_schedule+0x2a/0x63()
-Modules linked in: fuse sunrpc iptable_filter ip_tables
-ip6table_filter ip6_tables x_tables ipv6 cpufreq_ondemand ppdev pcmcia
-dcdbas parport_pc parport snd_intel8x0 snd_intel8x0m snd_ac97_codec
-snd_seq_dummy ac97_bus snd_seq_oss snd_seq_midi_event snd_seq
-snd_seq_device snd_pcm_oss pcspkr snd_mixer_oss snd_pcm snd_timer snd
-ipw2200 soundcore snd_page_alloc i2c_i801 ieee80211 ieee80211_crypt
-yenta_socket rsrc_nonstatic pcmcia_core video output pata_acpi
-ata_piix uhci_hcd ehci_hcd [last unloaded: microcode]
-Pid: 5, comm: events/0 Not tainted 2.6.26-git9 #5
- [<c0118cda>] warn_on_slowpath+0x46/0x80
- [<c0113a91>] ? __enqueue_entity+0xe3/0xeb
- [<c0113754>] ? __wake_up+0x31/0x3b
- [<c0125ebb>] ? __queue_work+0x2d/0x32
- [<c0125f05>] ? queue_work+0x2a/0x34
- [<c01261ff>] ? queue_delayed_work+0x11/0x23
- [<c0126227>] ? schedule_delayed_work+0x16/0x1b
- [<c02ce1d5>] ? linkwatch_schedule_work+0x58/0x99
- [<c02ce278>] ? linkwatch_fire_event+0x62/0x66
- [<c02c567f>] __netif_schedule+0x2a/0x63
- [<f8990009>] ipw_bg_link_up+0xae/0x173 [ipw2200]
- [<c0125a0f>] run_workqueue+0x7d/0xf6
- [<f898ff5b>] ? ipw_bg_link_up+0x0/0x173 [ipw2200]
- [<c0125cec>] worker_thread+0xb7/0xc3
- [<c0128862>] ? autoremove_wake_function+0x0/0x38
- [<c0125c35>] ? worker_thread+0x0/0xc3
- [<c01285d3>] kthread+0x3e/0x63
- [<c0128595>] ? kthread+0x0/0x63
- [<c0103003>] kernel_thread_helper+0x7/0x10
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-But it works - to the point that I'm connected to my wireless
- router without apparent issues.
+DaveM, please expedite since this Error is fatal (breaks 'make *docs').
 
---alessandro
 
- "Give me love / Or give me hate
- Give me anything that's not just ok"
+> --- linux-2.6.26.noarch/net/core/dev.c~	2008-07-21 16:49:10.000000000 -0400
+> +++ linux-2.6.26.noarch/net/core/dev.c	2008-07-21 16:49:47.000000000 -0400
+> @@ -1645,32 +1645,6 @@ out_kfree_skb:
+>  	return 0;
+>  }
+>  
+> -/**
+> - *	dev_queue_xmit - transmit a buffer
+> - *	@skb: buffer to transmit
+> - *
+> - *	Queue a buffer for transmission to a network device. The caller must
+> - *	have set the device and priority and built the buffer before calling
+> - *	this function. The function can be called from an interrupt.
+> - *
+> - *	A negative errno code is returned on a failure. A success does not
+> - *	guarantee the frame will be transmitted as it may be dropped due
+> - *	to congestion or traffic shaping.
+> - *
+> - * -----------------------------------------------------------------------------------
+> - *      I notice this method can also return errors from the queue disciplines,
+> - *      including NET_XMIT_DROP, which is a positive value.  So, errors can also
+> - *      be positive.
+> - *
+> - *      Regardless of the return value, the skb is consumed, so it is currently
+> - *      difficult to retry a send to this method.  (You can bump the ref count
+> - *      before sending to hold a reference for retry if you are careful.)
+> - *
+> - *      When calling this method, interrupts MUST be enabled.  This is because
+> - *      the BH enable code must have IRQs enabled so that it will not deadlock.
+> - *          --BLG
+> - */
+> -
+>  static u32 simple_tx_hashrnd;
+>  static int simple_tx_hashrnd_initialized = 0;
+>  
+> @@ -1738,6 +1712,31 @@ static struct netdev_queue *dev_pick_tx(
+>  	return netdev_get_tx_queue(dev, queue_index);
+>  }
+>  
+> +/**
+> + *	dev_queue_xmit - transmit a buffer
+> + *	@skb: buffer to transmit
+> + *
+> + *	Queue a buffer for transmission to a network device. The caller must
+> + *	have set the device and priority and built the buffer before calling
+> + *	this function. The function can be called from an interrupt.
+> + *
+> + *	A negative errno code is returned on a failure. A success does not
+> + *	guarantee the frame will be transmitted as it may be dropped due
+> + *	to congestion or traffic shaping.
+> + *
+> + * -----------------------------------------------------------------------------------
+> + *      I notice this method can also return errors from the queue disciplines,
+> + *      including NET_XMIT_DROP, which is a positive value.  So, errors can also
+> + *      be positive.
+> + *
+> + *      Regardless of the return value, the skb is consumed, so it is currently
+> + *      difficult to retry a send to this method.  (You can bump the ref count
+> + *      before sending to hold a reference for retry if you are careful.)
+> + *
+> + *      When calling this method, interrupts MUST be enabled.  This is because
+> + *      the BH enable code must have IRQs enabled so that it will not deadlock.
+> + *          --BLG
+> + */
+>  int dev_queue_xmit(struct sk_buff *skb)
+>  {
+>  	struct net_device *dev = skb->dev;
+> --- linux-2.6.26.noarch/include/linux/netdevice.h~	2008-07-21 16:46:36.000000000 -0400
+> +++ linux-2.6.26.noarch/include/linux/netdevice.h	2008-07-21 16:48:53.000000000 -0400
+> @@ -996,17 +996,17 @@ static inline void netif_tx_schedule_all
+>  		netif_schedule_queue(netdev_get_tx_queue(dev, i));
+>  }
+>  
+> +static inline void netif_tx_start_queue(struct netdev_queue *dev_queue)
+> +{
+> +	clear_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> +}
+> +
+>  /**
+>   *	netif_start_queue - allow transmit
+>   *	@dev: network device
+>   *
+>   *	Allow upper layers to call the device hard_start_xmit routine.
+>   */
+> -static inline void netif_tx_start_queue(struct netdev_queue *dev_queue)
+> -{
+> -	clear_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> -}
+> -
+>  static inline void netif_start_queue(struct net_device *dev)
+>  {
+>  	netif_tx_start_queue(netdev_get_tx_queue(dev, 0));
+> @@ -1022,13 +1022,6 @@ static inline void netif_tx_start_all_qu
+>  	}
+>  }
+>  
+> -/**
+> - *	netif_wake_queue - restart transmit
+> - *	@dev: network device
+> - *
+> - *	Allow upper layers to call the device hard_start_xmit routine.
+> - *	Used for flow control when transmit resources are available.
+> - */
+>  static inline void netif_tx_wake_queue(struct netdev_queue *dev_queue)
+>  {
+>  #ifdef CONFIG_NETPOLL_TRAP
+> @@ -1041,6 +1034,13 @@ static inline void netif_tx_wake_queue(s
+>  		__netif_schedule(dev_queue->qdisc);
+>  }
+>  
+> +/**
+> + *	netif_wake_queue - restart transmit
+> + *	@dev: network device
+> + *
+> + *	Allow upper layers to call the device hard_start_xmit routine.
+> + *	Used for flow control when transmit resources are available.
+> + */
+>  static inline void netif_wake_queue(struct net_device *dev)
+>  {
+>  	netif_tx_wake_queue(netdev_get_tx_queue(dev, 0));
+> @@ -1056,6 +1056,11 @@ static inline void netif_tx_wake_all_que
+>  	}
+>  }
+>  
+> +static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
+> +{
+> +	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> +}
+> +
+>  /**
+>   *	netif_stop_queue - stop transmitted packets
+>   *	@dev: network device
+> @@ -1063,11 +1068,6 @@ static inline void netif_tx_wake_all_que
+>   *	Stop upper layers calling the device hard_start_xmit routine.
+>   *	Used for flow control when transmit resources are unavailable.
+>   */
+> -static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
+> -{
+> -	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> -}
+> -
+>  static inline void netif_stop_queue(struct net_device *dev)
+>  {
+>  	netif_tx_stop_queue(netdev_get_tx_queue(dev, 0));
+> @@ -1083,17 +1083,17 @@ static inline void netif_tx_stop_all_que
+>  	}
+>  }
+>  
+> +static inline int netif_tx_queue_stopped(const struct netdev_queue *dev_queue)
+> +{
+> +	return test_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> +}
+> +
+>  /**
+>   *	netif_queue_stopped - test if transmit queue is flowblocked
+>   *	@dev: network device
+>   *
+>   *	Test if transmit queue on device is currently unable to send.
+>   */
+> -static inline int netif_tx_queue_stopped(const struct netdev_queue *dev_queue)
+> -{
+> -	return test_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> -}
+> -
+>  static inline int netif_queue_stopped(const struct net_device *dev)
+>  {
+>  	return netif_tx_queue_stopped(netdev_get_tx_queue(dev, 0));
+> @@ -1463,13 +1463,6 @@ static inline void netif_rx_complete(str
+>  	local_irq_restore(flags);
+>  }
+>  
+> -/**
+> - *	netif_tx_lock - grab network device transmit lock
+> - *	@dev: network device
+> - *	@cpu: cpu number of lock owner
+> - *
+> - * Get network device transmit lock
+> - */
+>  static inline void __netif_tx_lock(struct netdev_queue *txq, int cpu)
+>  {
+>  	spin_lock(&txq->_xmit_lock);
+> @@ -1482,6 +1475,13 @@ static inline void __netif_tx_lock_bh(st
+>  	txq->xmit_lock_owner = smp_processor_id();
+>  }
+>  
+> +/**
+> + *	netif_tx_lock - grab network device transmit lock
+> + *	@dev: network device
+> + *	@cpu: cpu number of lock owner
+> + *
+> + * Get network device transmit lock
+> + */
+>  static inline void netif_tx_lock(struct net_device *dev)
+>  {
+>  	int cpu = smp_processor_id();
+> 
+> -- 
 
- (Sophia, 'Weightless')
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+~Randy
+Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
+http://linuxplumbersconf.org/
