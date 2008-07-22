@@ -1,42 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/16] mib: finish with ipv4 mibs netnsization
-Date: Mon, 21 Jul 2008 17:24:29 -0700
-Message-ID: <m1prp6lq9u.fsf@frodo.ebiederm.org>
-References: <487F46CD.7090103@openvz.org>
-	<20080718.040925.261545164.davem@davemloft.net>
-	<4884C9AD.4040608@openvz.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv2 0/2] IPVS: Add Generic Netlink configuration interface
+Date: Tue, 22 Jul 2008 10:34:05 +1000
+Message-ID: <20080722003403.GC9041@verge.net.au>
+References: <1216645375-20410-1-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:44914 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754837AbYGVAca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2008 20:32:30 -0400
-In-Reply-To: <4884C9AD.4040608@openvz.org> (Pavel Emelyanov's message of "Mon,
-	21 Jul 2008 21:38:53 +0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	davem@davemloft.net, tgraf@suug.ch, vbusam@google.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1216645375-20410-1-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+On Mon, Jul 21, 2008 at 03:02:53PM +0200, Julius Volz wrote:
+> This is the second version of the Generic Netlink interface for
+> IPVS. I integrated some comments from Thomas Graf, Patrick McHardy and
+> Yoshifuji Hideaki and changed a few things myself. The interface should
+> now follow existing Netlink conventions more closely and has been
+> tested without problems.
+> 
+> The two patches add a Generic Netlink interface to IPVS while keeping
+> the old get/setsockopt interface for userspace backwards compatibility.
+> The motivation for this is to have a more extensible interface for
+> future changes, such as the planned IPv6 support. ipvsadm is currently
+> being extended to support the new interface and features.
 
-> David Miller wrote:
->> 
->> I keep hearing noises that some day sysfs+ns will work, is that something
->> we'll see in 2.6.27 possibly?  
->
-> Unfortunately not in 2.6.27 :( Eric send sysfs-for-namespaces patchset
-> 2 or 3 weeks ago, but Greg was going for vacation that time.
+I'm not an expert on netlink, but these patches are looking good to me.
+Is the user-space portion available somewhere?
 
-Yes the timing has been bad all around.  But finally Tejun and
-I agree on a patchset that will work, and Greg doesn't have a problem
-putting it in his tree for post 2.6.27.
+> The ip_vs.h header change depends on this patch I sent previously:
+> "IPVS: Move userspace definitions to include/linux/ip_vs.h"
+> (this one looked good to Horms, can it go in?)
 
->> That would help my own build validation and testing of changes.
+Yes, it can. I'll repost it with an Ack.
 
-It currently looks like these changes will show up in the first
-round of linux-next.  My apologies for the delay.  Untangling
-the knot that is sysfs is a challenge.
+-- 
+Horms
 
-Eric
