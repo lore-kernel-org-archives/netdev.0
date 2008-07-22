@@ -1,29 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] netns: dont alloc ipv6 fib timer list
-Date: Tue, 22 Jul 2008 14:33:52 -0700 (PDT)
-Message-ID: <20080722.143352.10502246.davem@davemloft.net>
-References: <20080722212927.937523165@vyatta.com>
-	<20080722212951.551812845@vyatta.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCHv2 01/11] netxen: cleanup unused variables/functions
+Date: Tue, 22 Jul 2008 17:34:08 -0400
+Message-ID: <48865250.2000308@garzik.org>
+References: <> <1216424649-4597-2-git-send-email-dhananjay@netxen.com> <alpine.DEB.1.00.0807212050220.24302@unm84.unminc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dhananjay Phadke <dhananjay@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56349
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753517AbYGVVdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 17:33:52 -0400
-In-Reply-To: <20080722212951.551812845@vyatta.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:46154 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753005AbYGVVeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 17:34:12 -0400
+In-Reply-To: <alpine.DEB.1.00.0807212050220.24302@unm84.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 22 Jul 2008 14:29:28 -0700
+Dhananjay Phadke wrote:
+> Just putting marker that this patch belongs to old patch series 
+> obsoleted by new one prefixed RESENDv2.
 
-> FIB timer list is a trivial size structure, avoid indirection and just
-> put it in existing ns.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Thanks for this marker, it was helpful.
 
-Applied.
+	Jeff
+
+
+
