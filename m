@@ -1,99 +1,109 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [bug, netconsole, SLUB] BUG skbuff_head_cache: Poison
-	overwritten
-Date: Tue, 22 Jul 2008 09:50:00 +0200
-Message-ID: <20080722075000.GB15807@elte.hu>
-References: <20080721115555.GA24176@elte.hu> <20080721192138.GA27672@elte.hu> <20080721212447.GA10107@2ka.mipt.ru> <20080721.163349.113841731.davem@davemloft.net>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: bug: mutex_lock() in interrupt conntext via phy_stop() in
+	gianfar
+Date: Tue, 22 Jul 2008 09:54:26 +0200
+Message-ID: <20080722075426.GA4302@pengutronix.de>
+References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, penberg@cs.helsinki.fi,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	vegard.nossum@gmail.com, rjw@sisk.pl, cl@linux-foundation.org,
-	auke-jan.h.kok@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753798AbYGVHu7@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LZvS9be/3tNcYl/X"
+Cc: Andy Fleming <afleming@freescale.com>,
+	Nate Case <ncase@xes-inc.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Vitaly Bordug <vbordug@ru.mvista.com>,
+	Li Yang <leoli@freescale.com>
+To: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:44226 "EHLO
+	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752012AbYGVHyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 03:54:35 -0400
 Content-Disposition: inline
-In-Reply-To: <20080721.163349.113841731.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-* David Miller <davem@davemloft.net> wrote:
+--LZvS9be/3tNcYl/X
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Tue, 22 Jul 2008 01:24:48 +0400
-> 
-> > On Mon, Jul 21, 2008 at 09:21:38PM +0200, Ingo Molnar (mingo@elte.hu) wrote:
-> > > So it's now a strong likelyhood that this crash is a combination of 
-> > > e1000e+netconsole.
-> > 
-> > e1000_clean_tx_irq() call looks particulary suspicious: it is called
-> > without adapter->tx_queue_lock in poll controller (netconsole callback)
-> > and with that lock in NAPI handler.
-> > 
-> > Can you check kind of this patch:
-> 
-> The call even seems pointless, since the caller will call ->poll() 
-> (which is e1000_clean) as the very next action, and that will invoke 
-> e1000_clean_tx_irq() properly.
-> 
-> I would just delete this call from e1000_netpoll() entirely.
+Hi,
 
-ok, i've added the patch below to tip/out-of-tree.
+On Fri, Jul 18, 2008 at 02:10:08PM +0200, Sebastian Siewior wrote:
+> Commit 35b5f6b1a aka [PHYLIB: Locking fixes for PHY I/O potentially sleep=
+ing]
+> changed the phydev->lock from spinlock into a mutex. Now, the following
+> code path got triggered while NFS was unavailable:
+[...]
+> I found out that the same code path may be trigger in
+> - drivers/net/ucc_geth.c
+> - drivers/net/fec_mpc52xx.c
 
-Overnight test had about 100 successful bootups on this testbox. (until 
-it stopped on a drivers/net/hp.c build error - which is unrelated to 
-this problem)
+Recently, I described a (I think) similar problem:
+(http://ozlabs.org/pipermail/linuxppc-dev/2008-July/059686.html)
 
-So testing with netconsole disabled is conclusive enough to implicate 
-netconsole strongly. I've now re-enabled netconsole on the testbox and 
-will continue the test with the fix below. Previously it would crash 
-within 10-40 iterations.
+=3D=3D=3D
 
-	Ingo
+Hello,
 
------------------>
-commit bf89280dea6d97671aa5f75f2591ae7e8e3e6699
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Tue Jul 22 09:44:32 2008 +0200
+today, I was debugging a kernel crash on a board with a MPC5200B using
+2.6.26-rc9. I found the following code in drivers/net/fec_mpc52xx.c:
 
-    e1000e: fix e1000_netpoll(), remove extraneous e1000_clean_tx_irq() call
-    
-    Evgeniy Polyakov noticed that drivers/net/e1000e/netdev.c:e1000_netpoll()
-    was calling e1000_clean_tx_irq() without taking the TX lock.
-    
-    David Miller suggested to remove the call altogether: since in this
-    callpah there's periodic calls to ->poll() anyway which will do
-    e1000_clean_tx_irq() and will garbage-collect any finished TX ring
-    descriptors.
-    
-    This might solve the e1000e+netconsole crashes i've been seeing:
-    
-    =============================================================================
-    BUG skbuff_head_cache: Poison overwritten
-    -----------------------------------------------------------------------------
-    
-    INFO: 0xf658ae9c-0xf658ae9c. First byte 0x6a instead of 0x6b
-    INFO: Allocated in __alloc_skb+0x2c/0x110 age=0 cpu=0 pid=5098
-    INFO: Freed in __kfree_skb+0x31/0x80 age=0 cpu=1 pid=4440
-    INFO: Slab 0xc16cc140 objects=16 used=1 fp=0xf658ae00 flags=0x400000c3
-    INFO: Object 0xf658ae00 @offset=3584 fp=0xf658af00
-    
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- drivers/net/e1000e/netdev.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+static irqreturn_t mpc52xx_fec_interrupt(int irq, void *dev_id)
+{
+[...]
+	/* on fifo error, soft-reset fec */
+	if (ievent & (FEC_IEVENT_RFIFO_ERROR | FEC_IEVENT_XFIFO_ERROR)) {
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 869544b..9c0f56b 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4067,8 +4067,6 @@ static void e1000_netpoll(struct net_device *netdev)
- 	disable_irq(adapter->pdev->irq);
- 	e1000_intr(adapter->pdev->irq, netdev);
- 
--	e1000_clean_tx_irq(adapter);
--
- 	enable_irq(adapter->pdev->irq);
- }
- #endif
+		if (net_ratelimit() && (ievent & FEC_IEVENT_RFIFO_ERROR))
+			dev_warn(&dev->dev, "FEC_IEVENT_RFIFO_ERROR\n");
+		if (net_ratelimit() && (ievent & FEC_IEVENT_XFIFO_ERROR))
+			dev_warn(&dev->dev, "FEC_IEVENT_XFIFO_ERROR\n");
+
+		mpc52xx_fec_reset(dev);
+
+		netif_wake_queue(dev);
+		return IRQ_HANDLED;
+	}
+[...]
+}
+
+Calling mpc52xx_fec_reset() from interrupt context is bad, at least
+because
+
+a) it calls phy_write, which contains BUG_ON(in_interrupt())
+b) it calls mpc52xx_fec_hw_init, which has a delay-loop to check
+   if the reset was successful (1..50 us)
+
+I assume the proper thing to do is to set a flag in the ISR and handle
+the soft reset later in some other context. Having never dealt with the
+network core and its drivers so far, I am not sure which place would be
+the right one to perform the soft reset. To not make things worse, I
+hope people with more insight to network stuff can deliver a suitable
+solution to this problem.
+
+All the best,
+
+   Wolfram
+
+=3D=3D=3D
+
+--=20
+  Dipl.-Ing. Wolfram Sang | http://www.pengutronix.de
+ Pengutronix - Linux Solutions for Science and Industry
+
+--LZvS9be/3tNcYl/X
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFIhZIyD27XaX1/VRsRAl+KAJ90tZ1gf9X/tcn0nCEDFlph/voN8QCgrqaA
+1NJ/UcRX7VoBXF7k8TjrfvE=
+=IA10
+-----END PGP SIGNATURE-----
+
+--LZvS9be/3tNcYl/X--
