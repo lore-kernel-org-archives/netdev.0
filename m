@@ -1,42 +1,73 @@
-From: "Ming Lei" <tom.leiming@gmail.com>
-Subject: BUG: iwlwifi build failed
-Date: Tue, 22 Jul 2008 12:43:03 +0800
-Message-ID: <d82e647a0807212143r2f598a59y76a79fd9bb8f17@mail.gmail.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: RESEND [PATCH 2/2] de4x5: Remove developer debug feature about set/clear
+ promisc
+Date: Tue, 22 Jul 2008 13:13:18 +0800
+Message-ID: <48856C6E.5090706@cn.fujitsu.com>
+References: <48856C0B.7090602@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	NETDEV <netdev@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.191]:51034 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbYGVEnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 00:43:05 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1156434fkq.5
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2008 21:43:03 -0700 (PDT)
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:54592 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750869AbYGVFOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 01:14:49 -0400
+In-Reply-To: <48856C0B.7090602@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 93ded9b8fd42abe2c3607097963d8de6ad9117eb
-Merge: 6d52dcb... f756cbd...
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Mon Jul 21 15:42:20 2008 -0700
-=====================================
+IFF_PROMISC flag shouldn't be set or cleared by drivers, because
+whether device be promisc mode is decided by how many upper layer
+callers being referenced to it.
+And the promisc changing feature of de4x5 ioctl is developer debug
+feature, we can remove it now.
 
-drivers/net/wireless/iwlwifi/iwl-led.c: In function 'iwl_led_brightness_set':
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: 'led_type_str'
-undeclared (first use in this function)
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: (Each undeclared
-identifier is reported only once
-drivers/net/wireless/iwlwifi/iwl-led.c:198: error: for each function
-it appears in.)
-make[4]: *** [drivers/net/wireless/iwlwifi/iwl-led.o] Error 1
-make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
-make[2]: *** [drivers/net/wireless] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
+---
+diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
+index bc30c6e..617ef41 100644
+--- a/drivers/net/tulip/de4x5.c
++++ b/drivers/net/tulip/de4x5.c
+@@ -5514,22 +5514,6 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	netif_wake_queue(dev);                      /* Unlock the TX ring */
+ 	break;
+ 
+-    case DE4X5_SET_PROM:             /* Set Promiscuous Mode */
+-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+-	omr = inl(DE4X5_OMR);
+-	omr |= OMR_PR;
+-	outl(omr, DE4X5_OMR);
+-	dev->flags |= IFF_PROMISC;
+-	break;
+-
+-    case DE4X5_CLR_PROM:             /* Clear Promiscuous Mode */
+-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+-	omr = inl(DE4X5_OMR);
+-	omr &= ~OMR_PR;
+-	outl(omr, DE4X5_OMR);
+-	dev->flags &= ~IFF_PROMISC;
+-	break;
+-
+     case DE4X5_SAY_BOO:              /* Say "Boo!" to the kernel log file */
+ 	if (!capable(CAP_NET_ADMIN)) return -EPERM;
+ 	printk("%s: Boo!\n", dev->name);
+diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/tulip/de4x5.h
+index f5f33b3..9f28774 100644
+--- a/drivers/net/tulip/de4x5.h
++++ b/drivers/net/tulip/de4x5.h
+@@ -1004,8 +1004,7 @@ struct de4x5_ioctl {
+ */
+ #define DE4X5_GET_HWADDR	0x01 /* Get the hardware address */
+ #define DE4X5_SET_HWADDR	0x02 /* Set the hardware address */
+-#define DE4X5_SET_PROM  	0x03 /* Set Promiscuous Mode */
+-#define DE4X5_CLR_PROM  	0x04 /* Clear Promiscuous Mode */
++/* 0x03 and 0x04 were used before and are obsoleted now. Don't use them. */
+ #define DE4X5_SAY_BOO	        0x05 /* Say "Boo!" to the kernel log file */
+ #define DE4X5_GET_MCA   	0x06 /* Get a multicast address */
+ #define DE4X5_SET_MCA   	0x07 /* Set a multicast address */
 
 
--- 
-Lei Ming
