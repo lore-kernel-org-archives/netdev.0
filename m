@@ -1,113 +1,58 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: [Patch 1/1 net-next] S2io: fix statistics flush after a MTU change
-Date: Tue, 22 Jul 2008 16:27:20 -0300
-Message-ID: <48863498.3020902@linux.vnet.ibm.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
+Date: Tue, 22 Jul 2008 14:30:33 -0500
+Message-ID: <48863559.1090104@lwfinger.net>
+References: <4885104A.2070201@lwfinger.net>	<20080721.161517.27161039.davem@davemloft.net>	<48857F74.2040406@lwfinger.net> <20080722.043220.247312412.davem@davemloft.net> <4885DA49.50703@lwfinger.net> <48860D4B.8070003@lwfinger.net> <488616C0.8070505@trash.net> <4886294C.4060905@lwfinger.net> <48862A76.8030307@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, ram.vepa@neterion.com,
-	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
-	sreenivasa.honnur@neterion.com, Jay Vosburgh <fubar@us.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.br.ibm.com ([32.104.18.25]:47125 "EHLO igw2.br.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756254AbYGVT1v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 15:27:51 -0400
-Received: from mailhub3.br.ibm.com (mailhub3 [9.18.232.110])
-	by igw2.br.ibm.com (Postfix) with ESMTP id 6CCFD17F687
-	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 16:14:29 -0300 (BRT)
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
-	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m6MJRQM62392096
-	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 16:27:35 -0300
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6MJRKNd000731
-	for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 16:27:20 -0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48862A76.8030307-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On s2io driver, when you change the interface MTU, it invokes a card
-reset, which flush some statistics.  This patch solves this problem, and
-also set the net_device->stats as the default statistics structure,
-instead of s2io_nic->stats.
+Patrick McHardy wrote:
+> Larry Finger wrote:
+>> Patrick McHardy wrote:
+>>> Larry Finger wrote:
+>>>>
+>>>> =============================================
+>>>> [ INFO: possible recursive locking detected ]
+>>>> 2.6.26-Linus-git-05752-g93ded9b #49
+>>>
+>>>                    ^^^^^^^^^^^^^^ dirty?
+>>>
+>>> This kernel is not using the patches we sent.
+>>
+>> No, but they didn't make any difference. I tried with all 3 applied, 
+>> then backed them out one by one. That was the state when I posted before.
+> 
+> Well, this is a completely different warning.
+> 
+>>
+>> Here are the dumps with all 3 patches applied:
+>>
+>> =============================================
+>> [ INFO: possible recursive locking detected ]
+>> 2.6.26-Linus-05752-g93ded9b-dirty #53
+>> ---------------------------------------------
+>> b43/1997 is trying to acquire lock:
+>>  (_xmit_IEEE80211#2){-...}, at: [<ffffffffa028f322>] 
+>> ieee80211_scan_completed+0x130/0x2e1 [mac80211]
+>>
+>> but task is already holding lock:
+>>  (_xmit_IEEE80211#2){-...}, at: [<ffffffffa028f322>] 
+>> ieee80211_scan_completed+0x130/0x2e1 [mac80211] 
 
-To do that, s2io_nic->stats turned into a staging area, where is saved
-statistics of the last hardware statistics query. So, the difference
-between the current hardware statistics and s2io_nic->stats, is the
-value that should be summed up, in order to get the correct statistics
-value, even after a reset.
+Sorry. After all those kernel builds I got bleary-eyed and just looked for 
+recursive locking without any regard for the details.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-----
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 9dae40c..f92108e 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -3139,7 +3139,7 @@ static void tx_intr_handler(struct fifo_info *fifo_data)
- 		pkt_cnt++;
- 
- 		/* Updating the statistics block */
--		nic->stats.tx_bytes += skb->len;
-+		nic->dev->stats.tx_bytes += skb->len;
- 		nic->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
- 		dev_kfree_skb_irq(skb);
- 
-@@ -4892,25 +4892,42 @@ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
- 	/* Configure Stats for immediate updt */
- 	s2io_updt_stats(sp);
- 
-+	/* Using sp->stats as a staging area, because reset (due to mtu
-+	   change, for example) will clear some hardware counters */
-+	dev->stats.tx_packets +=
-+		le32_to_cpu(mac_control->stats_info->tmac_frms) - 
-+		sp->stats.tx_packets;
- 	sp->stats.tx_packets =
- 		le32_to_cpu(mac_control->stats_info->tmac_frms);
-+	dev->stats.tx_errors +=
-+		le32_to_cpu(mac_control->stats_info->tmac_any_err_frms) -
-+		sp->stats.tx_errors;
- 	sp->stats.tx_errors =
- 		le32_to_cpu(mac_control->stats_info->tmac_any_err_frms);
-+	dev->stats.rx_errors +=
-+		le64_to_cpu(mac_control->stats_info->rmac_drop_frms) -
-+		sp->stats.rx_errors;
- 	sp->stats.rx_errors =
- 		le64_to_cpu(mac_control->stats_info->rmac_drop_frms);
-+	dev->stats.multicast =
-+		le32_to_cpu(mac_control->stats_info->rmac_vld_mcst_frms) - 
-+		sp->stats.multicast;
- 	sp->stats.multicast =
- 		le32_to_cpu(mac_control->stats_info->rmac_vld_mcst_frms);
-+	dev->stats.rx_length_errors =
-+		le64_to_cpu(mac_control->stats_info->rmac_long_frms) - 
-+		sp->stats.rx_length_errors;
- 	sp->stats.rx_length_errors =
- 		le64_to_cpu(mac_control->stats_info->rmac_long_frms);
- 
- 	/* collect per-ring rx_packets and rx_bytes */
--	sp->stats.rx_packets = sp->stats.rx_bytes = 0;
-+	dev->stats.rx_packets = dev->stats.rx_bytes = 0;
- 	for (i = 0; i < config->rx_ring_num; i++) {
--		sp->stats.rx_packets += mac_control->rings[i].rx_packets;
--		sp->stats.rx_bytes += mac_control->rings[i].rx_bytes;
-+		dev->stats.rx_packets += mac_control->rings[i].rx_packets;
-+		dev->stats.rx_bytes += mac_control->rings[i].rx_bytes;
- 	}
- 
--	return (&sp->stats);
-+	return (&dev->stats);
- }
- 
- /**
-@@ -7413,7 +7430,7 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
- 		if (err_mask != 0x5) {
- 			DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%x\n",
- 				dev->name, err_mask);
--			sp->stats.rx_crc_errors++;
-+			dev->stats.rx_crc_errors++;
- 			sp->mac_control.stats_info->sw_stat.mem_freed
- 				+= skb->truesize;
- 			dev_kfree_skb(skb);
+Larry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
