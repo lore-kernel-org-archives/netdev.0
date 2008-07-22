@@ -1,52 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [crash] BUG: unable to handle kernel NULL pointer dereference
- at 0000000000000370
-Date: Tue, 22 Jul 2008 13:43:41 -0700 (PDT)
-Message-ID: <20080722.134341.143920039.davem@davemloft.net>
-References: <48857F74.2040406@lwfinger.net>
-	<20080722.043220.247312412.davem@davemloft.net>
-	<4885D808.9060203@lwfinger.net>
+From: denys@visp.net.lb
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Tue, 22 Jul 2008 23:46:36 +0300
+Message-ID: <200807222346.36284.denys@visp.net.lb>
+References: <200807222142.23710.denys@visp.net.lb> <48863F5A.9080104@gmail.com> <48864491.3010905@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, mingo@elte.hu, ischram@telenet.be,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, j@w1.fi
-To: Larry.Finger@lwfinger.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754116AbYGVUnz@vger.kernel.org>
-In-Reply-To: <4885D808.9060203@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:45137 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079AbYGVUqs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:46:48 -0400
+In-Reply-To: <48864491.3010905@gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Tue, 22 Jul 2008 07:52:24 -0500
+First patch - probably not related. Netconsole is on e100.
+Second patch looks reasonable, because there is external interface (it is router) and e1000e there, with enabled TSO. Maybe some scanning tools doing connect to SSH and... BOOM.. i will try to patch it, thanks a lot!
 
-> David Miller wrote:
-> > From: Larry Finger <Larry.Finger@lwfinger.net>
-> > Date: Tue, 22 Jul 2008 01:34:28 -0500
-> > 
-> >> David Miller wrote:
-> >>> From: Larry Finger <Larry.Finger@lwfinger.net>
-> >>> Date: Mon, 21 Jul 2008 17:40:10 -0500
-> >>>
-> >>>> Sorry :(
-> >>>>
-> >>>> I used the davem patch, the second version of your first one, and your second 
-> >>>> one. Both problems persist.
-> >>>>
-> >>>> Still plugging away on bisection.
-> >>> GIT bisecting the lockdep problem is surely going the land you on:
-> >>>
-> >>> commit e308a5d806c852f56590ffdd3834d0df0cbed8d7
-> >> No. It landed on this one.
-> > 
-> > For the lockdep warnings?
+On Tuesday 22 July 2008, Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 07/22/2008 10:13 PM:
 > 
-> No - this one triggers the kernel BUG as follows:
+> > denys@visp.net.lb wrote, On 07/22/2008 08:42 PM:
+> > 
+> >> workload: ifb shapers, HTB, nat, 1 e1000, 3 e100 (heavily used only two e100)
+> >>
+> > 
+> > 
+> > Maybe it's unconnected but I'd recommend to try this fresh patch for
+> > possible problems with e1000e vs. netconsole:
+> > 
+> > http://permalink.gmane.org/gmane.linux.network/100581
+>  
+> 
+> ...and if you have TSO enabled, here is another "maybe unconnected"
+> recommendation:
+> 
+> http://permalink.gmane.org/gmane.linux.network/99585
+> 
+> Jarek P.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Well, we were trying to fix the lockdep warnings.  One
-thing at a time :-)
 
-And that BUG is now just a WARN in Linus's tree, so if
-you update you should get further along.
