@@ -1,35 +1,187 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: CONFIG_NET_KEY defaults to N
-Date: Tue, 22 Jul 2008 16:18:48 -0700 (PDT)
-Message-ID: <20080722.161848.20826100.davem@davemloft.net>
-References: <19f34abd0807220952g6bef12aeufe1abddeb1c3fbad@mail.gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 24/47] can: add sanity checks
+Date: Tue, 22 Jul 2008 16:16:17 -0700
+Message-ID: <20080722231617.GY8282@suse.de>
+References: <20080722230208.148102983@mini.kroah.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: vegard.nossum@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
+	Rodrigo Rubira Branco <rbranco@la.checkpoint.com>,
+	Jake Edge <jake@lwn.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Andre Naujoks <nautsch@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45367
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756692AbYGVXSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 19:18:48 -0400
-In-Reply-To: <19f34abd0807220952g6bef12aeufe1abddeb1c3fbad@mail.gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:57774 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757023AbYGVXTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:19:35 -0400
+Content-Disposition: inline; filename="can-add-sanity-checks.patch"
+In-Reply-To: <20080722231342.GA8282@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogIlZlZ2FyZCBOb3NzdW0iIDx2ZWdhcmQubm9zc3VtQGdtYWlsLmNvbT4NCkRhdGU6IFR1
-ZSwgMjIgSnVsIDIwMDggMTg6NTI6MTQgKzAyMDANCg0KPiBIaSwNCj4gDQo+IFRoZXJlJ3Mgb25l
-IHRoaW5nIEkga2VlcCB3b25kZXJpbmcgYWJvdXQ6DQo+IA0KPiBDT05GSUdfTkVUX0tFWSBoYXMg
-dGhpcyBoZWxwIHRleHQ6DQo+IA0KPiAgIOKUgiBQRl9LRVl2MiBzb2NrZXQgZmFtaWx5LCBjb21w
-YXRpYmxlIHRvIEtBTUUgb25lcy4NCj4gICDilIIgVGhleSBhcmUgcmVxdWlyZWQgaWYgeW91IGFy
-ZSBnb2luZyB0byB1c2UgSVBzZWMgdG9vbHMgcG9ydGVkDQo+ICAg4pSCIGZyb20gS0FNRS4NCj4g
-ICDilIINCj4gICDilIIgU2F5IFkgdW5sZXNzIHlvdSBrbm93IHdoYXQgeW91IGFyZSBkb2luZy4N
-Cj4gDQo+IEl0IGRlZmF1bHRzIHRvIE4sIGhvd2V2ZXIuDQo+IA0KPiBXaGljaCBvbmUgaXMgd3Jv
-bmcsIHRoZSBoZWxwLXRleHQgb3IgdGhlIGRlZmF1bHQ/IFNob3VsZCBpdCBiZSBjaGFuZ2VkPw0K
-DQpXZSdkIGxpa2UgaXQgdG8gZGVmYXVsdCB0byAneScgYnV0IG9ubHkgaWYgdGhlIHVzZXIgaGFz
-IHR1cm5lZA0Kb24gSVBTRUMgdmlhIFhGUk0gYWxyZWFkeS4NCg0KVW5mb3J0dW5hdGVseSwgd2Ug
-Y2FuJ3QgZG8gdGhhdCBzbyBlYXNpbHkgaGVyZSBiZWNhdXNlIHdlDQphbHdheXMgcHJlc2VudCB0
-aGlzIG9wdGlvbiBhbmQgaXQgc2ltcGx5IHNlbGVjdHMgWEZSTSBpZiB5b3UNCmVuYWJsZSBpdC4N
-Cg0KVGhlIGhlbHAgdGV4dCBpc24ndCBhY2N1cmF0ZSBlaXRoZXIuICBZb3UgY3VycmVudGx5IG5l
-ZWQNCk5FVF9LRVkgZXZlbiBmb3Igb3BlbnN3YW4gYmVjYXVzZSB3ZSAoc3RpbGwpIGxhY2sgYSB3
-YXkgdG8NCnByb2JlIHRoZSBhbGdvcml0aG0gbGlzdHMgd2l0aCBuZXRsaW5rIGFsb25lLg0K
+2.6.25-stable review patch.  If anyone has any objections, please let us
+know.
+
+------------------
+From: Oliver Hartkopp <oliver@hartkopp.net>
+
+commit 7f2d38eb7a42bea1c1df51bbdaa2ca0f0bdda07f upstream
+
+Even though the CAN netlayer only deals with CAN netdevices, the
+netlayer interface to the userspace and to the device layer should
+perform some sanity checks.
+
+This patch adds several sanity checks that mainly prevent userspace apps
+to send broken content into the system that may be misinterpreted by
+some other userspace application.
+
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+Acked-by: Andre Naujoks <nautsch@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ net/can/af_can.c |   10 ++++++++++
+ net/can/bcm.c    |   23 +++++++++++++++++++----
+ net/can/raw.c    |    3 +++
+ 3 files changed, 32 insertions(+), 4 deletions(-)
+
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -205,12 +205,19 @@ static int can_create(struct net *net, s
+  *  -ENOBUFS on full driver queue (see net_xmit_errno())
+  *  -ENOMEM when local loopback failed at calling skb_clone()
+  *  -EPERM when trying to send on a non-CAN interface
++ *  -EINVAL when the skb->data does not contain a valid CAN frame
+  */
+ int can_send(struct sk_buff *skb, int loop)
+ {
+ 	struct sk_buff *newskb = NULL;
++	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	int err;
+ 
++	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
+ 	if (skb->dev->type != ARPHRD_CAN) {
+ 		kfree_skb(skb);
+ 		return -EPERM;
+@@ -605,6 +612,7 @@ static int can_rcv(struct sk_buff *skb, 
+ 		   struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct dev_rcv_lists *d;
++	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	int matches;
+ 
+ 	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
+@@ -612,6 +620,8 @@ static int can_rcv(struct sk_buff *skb, 
+ 		return 0;
+ 	}
+ 
++	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
++
+ 	/* update statistics */
+ 	can_stats.rx_frames++;
+ 	can_stats.rx_frames_delta++;
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -326,7 +326,7 @@ static void bcm_send_to_user(struct bcm_
+ 
+ 	if (head->nframes) {
+ 		/* can_frames starting here */
+-		firstframe = (struct can_frame *) skb_tail_pointer(skb);
++		firstframe = (struct can_frame *)skb_tail_pointer(skb);
+ 
+ 		memcpy(skb_put(skb, datalen), frames, datalen);
+ 
+@@ -818,6 +818,10 @@ static int bcm_tx_setup(struct bcm_msg_h
+ 		for (i = 0; i < msg_head->nframes; i++) {
+ 			err = memcpy_fromiovec((u8 *)&op->frames[i],
+ 					       msg->msg_iov, CFSIZ);
++
++			if (op->frames[i].can_dlc > 8)
++				err = -EINVAL;
++
+ 			if (err < 0)
+ 				return err;
+ 
+@@ -850,6 +854,10 @@ static int bcm_tx_setup(struct bcm_msg_h
+ 		for (i = 0; i < msg_head->nframes; i++) {
+ 			err = memcpy_fromiovec((u8 *)&op->frames[i],
+ 					       msg->msg_iov, CFSIZ);
++
++			if (op->frames[i].can_dlc > 8)
++				err = -EINVAL;
++
+ 			if (err < 0) {
+ 				if (op->frames != &op->sframe)
+ 					kfree(op->frames);
+@@ -1161,9 +1169,12 @@ static int bcm_tx_send(struct msghdr *ms
+ 
+ 	skb->dev = dev;
+ 	skb->sk  = sk;
+-	can_send(skb, 1); /* send with loopback */
++	err = can_send(skb, 1); /* send with loopback */
+ 	dev_put(dev);
+ 
++	if (err)
++		return err;
++
+ 	return CFSIZ + MHSIZ;
+ }
+ 
+@@ -1182,6 +1193,10 @@ static int bcm_sendmsg(struct kiocb *ioc
+ 	if (!bo->bound)
+ 		return -ENOTCONN;
+ 
++	/* check for valid message length from userspace */
++	if (size < MHSIZ || (size - MHSIZ) % CFSIZ)
++		return -EINVAL;
++
+ 	/* check for alternative ifindex for this bcm_op */
+ 
+ 	if (!ifindex && msg->msg_name) {
+@@ -1256,8 +1271,8 @@ static int bcm_sendmsg(struct kiocb *ioc
+ 		break;
+ 
+ 	case TX_SEND:
+-		/* we need at least one can_frame */
+-		if (msg_head.nframes < 1)
++		/* we need exactly one can_frame behind the msg head */
++		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
+ 			ret = -EINVAL;
+ 		else
+ 			ret = bcm_tx_send(msg, ifindex, sk);
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -632,6 +632,9 @@ static int raw_sendmsg(struct kiocb *ioc
+ 	} else
+ 		ifindex = ro->ifindex;
+ 
++	if (size != sizeof(struct can_frame))
++		return -EINVAL;
++
+ 	dev = dev_get_by_index(&init_net, ifindex);
+ 	if (!dev)
+ 		return -ENXIO;
+
+-- 
