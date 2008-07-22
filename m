@@ -1,61 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netif_schedule and mpc5200_fec
-Date: Tue, 22 Jul 2008 16:36:26 -0700 (PDT)
-Message-ID: <20080722.163626.109432106.davem@davemloft.net>
-References: <9e4733910807221554j451019a0sa711541e97fbf0aa@mail.gmail.com>
-	<20080722.160718.122532549.davem@davemloft.net>
-	<9e4733910807221633x4385c36dod81ac3f81e242e5c@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Fix typo in meth driver
+Date: Tue, 22 Jul 2008 19:39:40 -0400
+Message-ID: <48866FBC.1030008@garzik.org>
+References: <4877CCC2.5050702@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, davem@redhat.com
-To: jonsmirl@gmail.com
+Cc: Kay Sievers <kay.sievers@vrfy.org>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41770
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758370AbYGVXg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 19:36:28 -0400
-In-Reply-To: <9e4733910807221633x4385c36dod81ac3f81e242e5c@mail.gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:49880 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756834AbYGVXjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 19:39:48 -0400
+In-Reply-To: <4877CCC2.5050702@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Date: Tue, 22 Jul 2008 19:33:13 -0400
-
-> On 7/22/08, David Miller <davem@davemloft.net> wrote:
-> > From: "Jon Smirl" <jonsmirl@gmail.com>
-> >
-> > Date: Tue, 22 Jul 2008 18:54:18 -0400
-> >
-> >
-> >  > On 7/22/08, David Miller <davem@davemloft.net> wrote:
-> >  > > From: "Jon Smirl" <jonsmirl@gmail.com>
-> >  > >  Date: Tue, 22 Jul 2008 17:03:32 -0400
-> >  > >
-> >  > >
-> >  > > > On 7/22/08, Jon Smirl <jonsmirl@gmail.com> wrote:
-> >  > >  > > I just updated to linus/master and mpc5200_fec won't boot.
-> >  > >  >
-> >  > >  > It does boot, but this badness looks like it is coming from this
-> >  > >  > patch. I don't know enough about networking to debug it.
-> >  > >
-> >  > >
-> >  > > I just applied the following patch from Anton Vorontsov which
-> >  > >  will fix this.
-> >  >
-> >  > I applied this piece and still have the same error.
-> >
-> >
-> > There are no calls to functions in mpc52xx_fec_adjust_link that
-> >  can lead to __netif_schedule() any more.
-> >
-> >  Therefore I can't see how your backtrace is even possible.
-> >
-> >  Please double check that you've really applied the patch
-> >  and that mpc52xx_fec_adjust_link lacks any calls to
-> >  netif_*_queue() and *netif_schedule().
+Christoph Lameter wrote:
+> An | in an if statement to check a bit? I think this needs to be a &.
+> As a result of this typo meth will always operate in promiscuous mode.
 > 
-> You're right. That patch fixes it. Another thing I brought down made
-> my image file not get generated and I was using an old image.
+> Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+> 
+> Index: linux-2.6/drivers/net/meth.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/meth.c	2008-07-11 16:05:00.000000000 -0500
+> +++ linux-2.6/drivers/net/meth.c	2008-07-11 16:05:02.000000000 -0500
+> @@ -287,7 +287,7 @@
+>  
+>  	/* Initial mode: 10 | Half-duplex | Accept normal packets */
+>  	priv->mac_ctrl = METH_ACCEPT_MCAST | METH_DEFAULT_IPG;
+> -	if (dev->flags | IFF_PROMISC)
+> +	if (dev->flags & IFF_PROMISC)
+>  		priv->mac_ctrl |= METH_PROMISC;
+>  	mace->eth.mac_ctrl = priv->mac_ctrl;
+>  
 
-Thanks for confirming this Jon.
+applied
+
+
