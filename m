@@ -1,64 +1,64 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [RFC: 2.6 patch] #if 0 bnx2x_override_led_value()
-Date: Tue, 22 Jul 2008 20:20:18 +0300
-Message-ID: <20080722172018.GM14846@cs181140183.pp.htv.fi>
+From: "Markus Werner" <markiwer@googlemail.com>
+Subject: Re: Invalid truesize messages since 2.6.25
+Date: Tue, 22 Jul 2008 19:20:48 +0200
+Message-ID: <8a75de9b0807221020s6831bebahafa4de57e93d3098@mail.gmail.com>
+References: <3C59DB883F7B0B4D8096010D45ACCD13C73AFA@exch.facton.local>
+	 <20080722114311.GQ10471@solarflare.com>
+	 <3C59DB883F7B0B4D8096010D45ACCD13C73B02@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Yaniv Rosner <yanivr@broadcom.com>,
-	Eilong Greenstein <eilong@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:34747 "EHLO smtp5.pp.htv.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754540AbYGVRUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 13:20:30 -0400
+Received: from py-out-1112.google.com ([64.233.166.180]:27602 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754843AbYGVRUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 13:20:52 -0400
+Received: by py-out-1112.google.com with SMTP id p76so1423607pyb.10
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 10:20:49 -0700 (PDT)
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD13C73B02@exch.facton.local>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch #if 0's bnx2x_override_led_value() that was added but is not 
-used.
+2008/7/22 Beschorner Daniel <Daniel.Beschorner@facton.com>:
+>>> Since 2.6.25 we rarely see these messages:
+>>>
+>>> SKB BUG: Invalid truesize (408) len=198, sizeof(sk_buff)=216
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Same problem here.
 
----
+>>> Yesterday I saw it the first time after a runtime of one week with
+>>> 2.6.26.
+>>> The box is web server / IPSEC gateway.
+>>> Obviously nothing seems to be affected by the message but <= 2.6.24
+> no
+>>> messages appeared.
+>
+>> Invalid truesize can be caused by bugs in many different places.  So
+> it
+>> might be helpful to say which driver(s) and any unusual network
+> protocol
+>> or filter you are using.
+>
+> Network driver: tg3
+> IPSEC: esp tunnels, ipcomp, 3des/aes
+> I use this config so far on other servers too without this message.
 
- drivers/net/bnx2x_link.c |    2 ++
- drivers/net/bnx2x_link.h |    2 --
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Kernel: 2.6.26
+Tested drivers: pcnet32, e1000, vmxnet
 
-faa4e9c8fe90a958323fc542b4abc768d6bdeb4e 
-diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index ff2743d..8b10bcc 100644
---- a/drivers/net/bnx2x_link.c
-+++ b/drivers/net/bnx2x_link.c
-@@ -3433,6 +3433,7 @@ static void bnx2x_ext_phy_loopback(struct link_params *params)
- }
- 
- 
-+#if 0
- /*
-  *------------------------------------------------------------------------
-  * bnx2x_override_led_value -
-@@ -3547,6 +3548,7 @@ u8 bnx2x_override_led_value(struct bnx2x *bp, u8 port,
- 
- 	return 0;
- }
-+#endif  /*  0  */
- 
- 
- u8 bnx2x_set_led(struct bnx2x *bp, u8 port, u8 mode, u32 speed,
-diff --git a/drivers/net/bnx2x_link.h b/drivers/net/bnx2x_link.h
-index 714d37a..33db685 100644
---- a/drivers/net/bnx2x_link.h
-+++ b/drivers/net/bnx2x_link.h
-@@ -156,8 +156,6 @@ u8 bnx2x_set_led(struct bnx2x *bp, u8 port, u8 mode, u32 speed,
- #define LED_MODE_OFF	0
- #define LED_MODE_OPER 	2
- 
--u8 bnx2x_override_led_value(struct bnx2x *bp, u8 port, u32 led_idx, u32 value);
--
- u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
- 		      u8 driver_loaded, char data[], u32 size);
- /* Get the actual link status. In case it returns 0, link is up,
+> The unusal part special to this server may be:
+> Bandwidth management via htb & sfq, CONFIG_IP_MULTIPLE_TABLES for source
+> IP routing
 
+Both are used here too, but no IPSec.
+
+This box is a router to the internet and an openvpn gateway. The
+problem is not reliably reproducible, but it seems to happen when the
+box is routing udp traffic, for example heavy openvpn usage or video
+streaming via udp.
+
+
+Markus
