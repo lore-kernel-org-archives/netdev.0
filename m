@@ -1,986 +1,450 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [PATCHv2 01/11] netxen: cleanup unused variables/functions
-Date: Mon, 21 Jul 2008 20:52:09 -0700
-Message-ID: <alpine.DEB.1.00.0807212050220.24302@unm84.unminc.com>
-References: <> <1216424649-4597-2-git-send-email-dhananjay@netxen.com>
+From: Ranjit Manomohan <ranjitm@google.com>
+Subject: [PATCH] Traffic control cgroups subsystem
+Date: Mon, 21 Jul 2008 21:08:02 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0807212100580.1760@ranjit.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "jeff@garzik.org" <jeff@garzik.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: lizf@cn.fujitsu.com, kaber@trash.net, menage@google.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netxen.com ([66.126.254.36]:17905 "EHLO nxexch.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753643AbYGVDwa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2008 23:52:30 -0400
-In-Reply-To: <1216424649-4597-2-git-send-email-dhananjay@netxen.com>
+Received: from smtp-out.google.com ([216.239.33.17]:37040 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbYGVEIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 00:08:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just putting marker that this patch belongs to old patch series 
-obsoleted by new one prefixed RESENDv2.
 
--Dhananjay
+[Take 2] - Incorporated comments from Patric McHardy & Li Zefan.
 
-On Fri, 18 Jul 2008, Dhananjay Phadke wrote:
+This patch provides a simple resource controller (cgroup_tc) based on the
+cgroups infrastructure to manage network traffic. The cgroup_tc resource
+controller can be used to schedule and shape traffic belonging to the task(s)
+in a particular cgroup.
 
-> o Reduce access to global arrays in data path.
-> o Remove duplicate/unused variables, unecessary alignment constraints.
-> o Use correct pci_dev instead of fallback device for consistent
->   allocations.
-> o Disable ethtool set_eeprom functionality for now, it was only used
->   for flashing firmware.
-> 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
-> ---
->  drivers/net/netxen/netxen_nic.h          |   19 +--
->  drivers/net/netxen/netxen_nic_ethtool.c  |    5 +-
->  drivers/net/netxen/netxen_nic_hw.c       |  270 +++++++-----------------------
->  drivers/net/netxen/netxen_nic_init.c     |   88 +++-------
->  drivers/net/netxen/netxen_nic_main.c     |   74 ++-------
->  drivers/net/netxen/netxen_nic_phan_reg.h |   17 +--
->  6 files changed, 113 insertions(+), 360 deletions(-)
-> 
-> diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-> index da4c4fb..149bb60 100644
-> --- a/drivers/net/netxen/netxen_nic.h
-> +++ b/drivers/net/netxen/netxen_nic.h
-> @@ -132,7 +132,6 @@
->  #define RX_JUMBO_DMA_MAP_LEN   \
->         (MAX_RX_JUMBO_BUFFER_LENGTH - 2)
->  #define RX_LRO_DMA_MAP_LEN             (MAX_RX_LRO_BUFFER_LENGTH - 2)
-> -#define NETXEN_ROM_ROUNDUP             0x80000000ULL
-> 
->  /*
->   * Maximum number of ring contexts
-> @@ -219,8 +218,6 @@ enum {
->  #define MPORT_MULTI_FUNCTION_MODE 0x2222
-> 
->  #include "netxen_nic_phan_reg.h"
-> -extern unsigned long long netxen_dma_mask;
-> -extern unsigned long last_schedule_time;
-> 
->  /*
->   * NetXen host-peg signal message structure
-> @@ -765,7 +762,6 @@ struct netxen_rx_buffer {
->   * contains interrupt info as well shared hardware info.
->   */
->  struct netxen_hardware_context {
-> -       struct pci_dev *pdev;
->         void __iomem *pci_base0;
->         void __iomem *pci_base1;
->         void __iomem *pci_base2;
-> @@ -781,7 +777,6 @@ struct netxen_hardware_context {
->         u32 qg_linksup;
->         /* Address of cmd ring in Phantom */
->         struct cmd_desc_type0 *cmd_desc_head;
-> -       struct pci_dev *cmd_desc_pdev;
->         dma_addr_t cmd_desc_phys_addr;
->         struct netxen_adapter *adapter;
->         int pci_func;
-> @@ -816,9 +811,8 @@ struct netxen_adapter_stats {
->  struct netxen_rcv_desc_ctx {
->         u32 flags;
->         u32 producer;
-> -       u32 rcv_pending;        /* Num of bufs posted in phantom */
->         dma_addr_t phys_addr;
-> -       struct pci_dev *phys_pdev;
-> +       u32 crb_rcv_producer;   /* reg offset */
->         struct rcv_desc *desc_head;     /* address of rx ring in Phantom */
->         u32 max_rx_desc_count;
->         u32 dma_size;
-> @@ -835,10 +829,9 @@ struct netxen_rcv_desc_ctx {
->   */
->  struct netxen_recv_context {
->         struct netxen_rcv_desc_ctx rcv_desc[NUM_RCV_DESC_RINGS];
-> -       u32 status_rx_producer;
->         u32 status_rx_consumer;
-> +       u32 crb_sts_consumer;   /* reg offset */
->         dma_addr_t rcv_status_desc_phys_addr;
-> -       struct pci_dev *rcv_status_desc_pdev;
->         struct status_desc *rcv_status_desc_head;
->  };
-> 
-> @@ -854,7 +847,6 @@ struct netxen_dummy_dma {
->  struct netxen_adapter {
->         struct netxen_hardware_context ahw;
-> 
-> -       struct netxen_adapter *master;
->         struct net_device *netdev;
->         struct pci_dev *pdev;
->         struct napi_struct napi;
-> @@ -873,6 +865,8 @@ struct netxen_adapter {
->         u32 cmd_producer;
->         __le32 *cmd_consumer;
->         u32 last_cmd_consumer;
-> +       u32 crb_addr_cmd_producer;
-> +       u32 crb_addr_cmd_consumer;
-> 
->         u32 max_tx_desc_count;
->         u32 max_rx_desc_count;
-> @@ -886,14 +880,12 @@ struct netxen_adapter {
-> 
->         struct netxen_adapter_stats stats;
-> 
-> -       u16 portno;
->         u16 link_speed;
->         u16 link_duplex;
->         u16 state;
->         u16 link_autoneg;
->         int rx_csum;
->         int status;
-> -       spinlock_t stats_lock;
-> 
->         struct netxen_cmd_buffer *cmd_buf_arr;  /* Command buffers for xmit */
-> 
-> @@ -908,7 +900,6 @@ struct netxen_adapter {
-> 
->         /* Context interface shared between card and host */
->         struct netxen_ring_ctx *ctx_desc;
-> -       struct pci_dev *ctx_desc_pdev;
->         dma_addr_t ctx_desc_phys_addr;
->         int intr_scheme;
->         int msi_mode;
-> @@ -1034,8 +1025,6 @@ int netxen_rom_se(struct netxen_adapter *adapter, int addr);
-> 
->  /* Functions from netxen_nic_isr.c */
->  void netxen_initialize_adapter_sw(struct netxen_adapter *adapter);
-> -void *netxen_alloc(struct pci_dev *pdev, size_t sz, dma_addr_t * ptr,
-> -                  struct pci_dev **used_dev);
->  void netxen_initialize_adapter_ops(struct netxen_adapter *adapter);
->  int netxen_init_firmware(struct netxen_adapter *adapter);
->  void netxen_free_hw_resources(struct netxen_adapter *adapter);
-> diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-> index 723487b..99071c2 100644
-> --- a/drivers/net/netxen/netxen_nic_ethtool.c
-> +++ b/drivers/net/netxen/netxen_nic_ethtool.c
-> @@ -427,6 +427,7 @@ netxen_nic_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
->         return 0;
->  }
-> 
-> +#if 0
->  static int
->  netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
->                         u8 * bytes)
-> @@ -447,7 +448,6 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
->                 }
->                 printk(KERN_INFO "%s: flash unlocked. \n",
->                         netxen_nic_driver_name);
-> -               last_schedule_time = jiffies;
->                 ret = netxen_flash_erase_secondary(adapter);
->                 if (ret != FLASH_SUCCESS) {
->                         printk(KERN_ERR "%s: Flash erase failed.\n",
-> @@ -497,6 +497,7 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-> 
->         return netxen_rom_fast_write_words(adapter, offset, bytes, eeprom->len);
->  }
-> +#endif /* 0 */
-> 
->  static void
->  netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
-> @@ -745,7 +746,9 @@ struct ethtool_ops netxen_nic_ethtool_ops = {
->         .get_link = ethtool_op_get_link,
->         .get_eeprom_len = netxen_nic_get_eeprom_len,
->         .get_eeprom = netxen_nic_get_eeprom,
-> +#if 0
->         .set_eeprom = netxen_nic_set_eeprom,
-> +#endif
->         .get_ringparam = netxen_nic_get_ringparam,
->         .get_pauseparam = netxen_nic_get_pauseparam,
->         .set_pauseparam = netxen_nic_set_pauseparam,
-> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-> index c43d06b..fa6d034 100644
-> --- a/drivers/net/netxen/netxen_nic_hw.c
-> +++ b/drivers/net/netxen/netxen_nic_hw.c
-> @@ -43,203 +43,61 @@ struct netxen_recv_crb recv_crb_registers[] = {
->          * Instance 0.
->          */
->         {
-> -        /* rcv_desc_crb: */
-> -        {
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x100),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x104),
-> -          /* crb_gloablrcv_ring: */
-> -          NETXEN_NIC_REG(0x108),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x10c),
-> -
-> -          },
-> -         /* Jumbo frames */
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x110),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x114),
-> -          /* crb_gloablrcv_ring: */
-> -          NETXEN_NIC_REG(0x118),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x11c),
-> -          },
-> -         /* LRO */
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x120),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x124),
-> -          /* crb_gloablrcv_ring: */
-> -          NETXEN_NIC_REG(0x128),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x12c),
-> -          }
-> -         },
-> -        /* crb_rcvstatus_ring: */
-> -        NETXEN_NIC_REG(0x130),
-> -        /* crb_rcv_status_producer: */
-> -        NETXEN_NIC_REG(0x134),
-> -        /* crb_rcv_status_consumer: */
-> -        NETXEN_NIC_REG(0x138),
-> -        /* crb_rcvpeg_state: */
-> -        NETXEN_NIC_REG(0x13c),
-> -        /* crb_status_ring_size */
-> -        NETXEN_NIC_REG(0x140),
-> -
-> -        },
-> +               /* crb_rcv_producer: */
-> +               {
-> +                       NETXEN_NIC_REG(0x100),
-> +                       /* Jumbo frames */
-> +                       NETXEN_NIC_REG(0x110),
-> +                       /* LRO */
-> +                       NETXEN_NIC_REG(0x120)
-> +               },
-> +               /* crb_sts_consumer: */
-> +               NETXEN_NIC_REG(0x138),
-> +       },
->         /*
->          * Instance 1,
->          */
->         {
-> -        /* rcv_desc_crb: */
-> -        {
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x144),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x148),
-> -          /* crb_globalrcv_ring: */
-> -          NETXEN_NIC_REG(0x14c),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x150),
-> -
-> -          },
-> -         /* Jumbo frames */
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x154),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x158),
-> -          /* crb_globalrcv_ring: */
-> -          NETXEN_NIC_REG(0x15c),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x160),
-> -          },
-> -         /* LRO */
-> -         {
-> -          /* crb_rcv_producer_offset: */
-> -          NETXEN_NIC_REG(0x164),
-> -          /* crb_rcv_consumer_offset: */
-> -          NETXEN_NIC_REG(0x168),
-> -          /* crb_globalrcv_ring: */
-> -          NETXEN_NIC_REG(0x16c),
-> -          /* crb_rcv_ring_size */
-> -          NETXEN_NIC_REG(0x170),
-> -          }
-> -
-> -         },
-> -        /* crb_rcvstatus_ring: */
-> -        NETXEN_NIC_REG(0x174),
-> -        /* crb_rcv_status_producer: */
-> -        NETXEN_NIC_REG(0x178),
-> -        /* crb_rcv_status_consumer: */
-> -        NETXEN_NIC_REG(0x17c),
-> -        /* crb_rcvpeg_state: */
-> -        NETXEN_NIC_REG(0x180),
-> -        /* crb_status_ring_size */
-> -        NETXEN_NIC_REG(0x184),
-> -        },
-> +               /* crb_rcv_producer: */
-> +               {
-> +                       NETXEN_NIC_REG(0x144),
-> +                       /* Jumbo frames */
-> +                       NETXEN_NIC_REG(0x154),
-> +                       /* LRO */
-> +                       NETXEN_NIC_REG(0x164)
-> +               },
-> +               /* crb_sts_consumer: */
-> +               NETXEN_NIC_REG(0x17c),
-> +       },
->         /*
->          * Instance 2,
->          */
->         {
-> -         {
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x1d8),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x1dc),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x1f0),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x1f4),
-> -           },
-> -           /* Jumbo frames */
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x1f8),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x1fc),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x200),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x204),
-> -           },
-> -           /* LRO */
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x208),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x20c),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x210),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x214),
-> -           }
-> -         },
-> -         /* crb_rcvstatus_ring: */
-> -         NETXEN_NIC_REG(0x218),
-> -         /* crb_rcv_status_producer: */
-> -         NETXEN_NIC_REG(0x21c),
-> -         /* crb_rcv_status_consumer: */
-> -         NETXEN_NIC_REG(0x220),
-> -         /* crb_rcvpeg_state: */
-> -         NETXEN_NIC_REG(0x224),
-> -         /* crb_status_ring_size */
-> -         NETXEN_NIC_REG(0x228),
-> +               /* crb_rcv_producer: */
-> +               {
-> +                       NETXEN_NIC_REG(0x1d8),
-> +                       /* Jumbo frames */
-> +                       NETXEN_NIC_REG(0x1f8),
-> +                       /* LRO */
-> +                       NETXEN_NIC_REG(0x208)
-> +               },
-> +               /* crb_sts_consumer: */
-> +               NETXEN_NIC_REG(0x220),
->         },
->         /*
->          * Instance 3,
->          */
->         {
-> -         {
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x22c),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x230),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x234),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x238),
-> -           },
-> -           /* Jumbo frames */
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x23c),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x240),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x244),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x248),
-> -           },
-> -           /* LRO */
-> -           {
-> -           /* crb_rcv_producer_offset: */
-> -           NETXEN_NIC_REG(0x24c),
-> -           /* crb_rcv_consumer_offset: */
-> -           NETXEN_NIC_REG(0x250),
-> -           /* crb_gloablrcv_ring: */
-> -           NETXEN_NIC_REG(0x254),
-> -           /* crb_rcv_ring_size */
-> -           NETXEN_NIC_REG(0x258),
-> -           }
-> -         },
-> -         /* crb_rcvstatus_ring: */
-> -         NETXEN_NIC_REG(0x25c),
-> -         /* crb_rcv_status_producer: */
-> -         NETXEN_NIC_REG(0x260),
-> -         /* crb_rcv_status_consumer: */
-> -         NETXEN_NIC_REG(0x264),
-> -         /* crb_rcvpeg_state: */
-> -         NETXEN_NIC_REG(0x268),
-> -         /* crb_status_ring_size */
-> -         NETXEN_NIC_REG(0x26c),
-> +               /* crb_rcv_producer: */
-> +               {
-> +                       NETXEN_NIC_REG(0x22c),
-> +                       /* Jumbo frames */
-> +                       NETXEN_NIC_REG(0x23c),
-> +                       /* LRO */
-> +                       NETXEN_NIC_REG(0x24c)
-> +               },
-> +               /* crb_sts_consumer: */
-> +               NETXEN_NIC_REG(0x264),
->         },
->  };
-> 
-> @@ -375,16 +233,12 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
->                 loops = 0;
->                 state = 0;
->                 /* Window 1 call */
-> -               state = readl(NETXEN_CRB_NORMALIZE(adapter,
-> -                                                  recv_crb_registers[ctx].
-> -                                                  crb_rcvpeg_state));
-> +               state = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_RCVPEG_STATE));
->                 while (state != PHAN_PEG_RCV_INITIALIZED && loops < 20) {
->                         msleep(1);
->                         /* Window 1 call */
->                         state = readl(NETXEN_CRB_NORMALIZE(adapter,
-> -                                                          recv_crb_registers
-> -                                                          [ctx].
-> -                                                          crb_rcvpeg_state));
-> +                                       CRB_RCVPEG_STATE));
->                         loops++;
->                 }
->                 if (loops >= 20) {
-> @@ -399,11 +253,9 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
->         adapter->msi_mode = readl(
->                 NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_MSI_MODE_FW));
-> 
-> -       addr = netxen_alloc(adapter->ahw.pdev,
-> -                           sizeof(struct netxen_ring_ctx) +
-> -                           sizeof(uint32_t),
-> -                           (dma_addr_t *) & adapter->ctx_desc_phys_addr,
-> -                           &adapter->ctx_desc_pdev);
-> +       addr = pci_alloc_consistent(adapter->pdev,
-> +                           sizeof(struct netxen_ring_ctx) + sizeof(uint32_t),
-> +                           &adapter->ctx_desc_phys_addr);
-> 
->         if (addr == NULL) {
->                 DPRINTK(ERR, "bad return from pci_alloc_consistent\n");
-> @@ -419,11 +271,10 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
->         adapter->cmd_consumer = (__le32 *) (((char *)addr) +
->                                               sizeof(struct netxen_ring_ctx));
-> 
-> -       addr = netxen_alloc(adapter->ahw.pdev,
-> +       addr = pci_alloc_consistent(adapter->pdev,
->                             sizeof(struct cmd_desc_type0) *
->                             adapter->max_tx_desc_count,
-> -                           (dma_addr_t *) & hw->cmd_desc_phys_addr,
-> -                           &adapter->ahw.cmd_desc_pdev);
-> +                           &hw->cmd_desc_phys_addr);
-> 
->         if (addr == NULL) {
->                 DPRINTK(ERR, "bad return from pci_alloc_consistent\n");
-> @@ -443,10 +294,9 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
-> 
->                 for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++) {
->                         rcv_desc = &recv_ctx->rcv_desc[ring];
-> -                       addr = netxen_alloc(adapter->ahw.pdev,
-> +                       addr = pci_alloc_consistent(adapter->pdev,
->                                             RCV_DESC_RINGSIZE,
-> -                                           &rcv_desc->phys_addr,
-> -                                           &rcv_desc->phys_pdev);
-> +                                           &rcv_desc->phys_addr);
->                         if (addr == NULL) {
->                                 DPRINTK(ERR, "bad return from "
->                                         "pci_alloc_consistent\n");
-> @@ -459,11 +309,13 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
->                             cpu_to_le64(rcv_desc->phys_addr);
->                         adapter->ctx_desc->rcv_ctx[ring].rcv_ring_size =
->                             cpu_to_le32(rcv_desc->max_rx_desc_count);
-> +                       rcv_desc->crb_rcv_producer =
-> +                                   recv_crb_registers[adapter->portnum].
-> +                                   crb_rcv_producer[ring];
->                 }
-> 
-> -               addr = netxen_alloc(adapter->ahw.pdev, STATUS_DESC_RINGSIZE,
-> -                                   &recv_ctx->rcv_status_desc_phys_addr,
-> -                                   &recv_ctx->rcv_status_desc_pdev);
-> +               addr = pci_alloc_consistent(adapter->pdev, STATUS_DESC_RINGSIZE,
-> +                                   &recv_ctx->rcv_status_desc_phys_addr);
->                 if (addr == NULL) {
->                         DPRINTK(ERR, "bad return from"
->                                 " pci_alloc_consistent\n");
-> @@ -476,6 +328,8 @@ int netxen_nic_hw_resources(struct netxen_adapter *adapter)
->                     cpu_to_le64(recv_ctx->rcv_status_desc_phys_addr);
->                 adapter->ctx_desc->sts_ring_size =
->                     cpu_to_le32(adapter->max_rx_desc_count);
-> +               recv_ctx->crb_sts_consumer =
-> +                       recv_crb_registers[adapter->portnum].crb_sts_consumer;
-> 
->         }
->         /* Window = 1 */
-> @@ -496,7 +350,7 @@ void netxen_free_hw_resources(struct netxen_adapter *adapter)
->         int ctx, ring;
-> 
->         if (adapter->ctx_desc != NULL) {
-> -               pci_free_consistent(adapter->ctx_desc_pdev,
-> +               pci_free_consistent(adapter->pdev,
->                                     sizeof(struct netxen_ring_ctx) +
->                                     sizeof(uint32_t),
->                                     adapter->ctx_desc,
-> @@ -505,7 +359,7 @@ void netxen_free_hw_resources(struct netxen_adapter *adapter)
->         }
-> 
->         if (adapter->ahw.cmd_desc_head != NULL) {
-> -               pci_free_consistent(adapter->ahw.cmd_desc_pdev,
-> +               pci_free_consistent(adapter->pdev,
->                                     sizeof(struct cmd_desc_type0) *
->                                     adapter->max_tx_desc_count,
->                                     adapter->ahw.cmd_desc_head,
-> @@ -519,7 +373,7 @@ void netxen_free_hw_resources(struct netxen_adapter *adapter)
->                         rcv_desc = &recv_ctx->rcv_desc[ring];
-> 
->                         if (rcv_desc->desc_head != NULL) {
-> -                               pci_free_consistent(rcv_desc->phys_pdev,
-> +                               pci_free_consistent(adapter->pdev,
->                                                     RCV_DESC_RINGSIZE,
->                                                     rcv_desc->desc_head,
->                                                     rcv_desc->phys_addr);
-> @@ -528,7 +382,7 @@ void netxen_free_hw_resources(struct netxen_adapter *adapter)
->                 }
-> 
->                 if (recv_ctx->rcv_status_desc_head != NULL) {
-> -                       pci_free_consistent(recv_ctx->rcv_status_desc_pdev,
-> +                       pci_free_consistent(adapter->pdev,
->                                             STATUS_DESC_RINGSIZE,
->                                             recv_ctx->rcv_status_desc_head,
->                                             recv_ctx->
-> diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-> index 70d1b22..37fd6bc 100644
-> --- a/drivers/net/netxen/netxen_nic_init.c
-> +++ b/drivers/net/netxen/netxen_nic_init.c
-> @@ -42,8 +42,6 @@ struct crb_addr_pair {
->         u32 data;
->  };
-> 
-> -unsigned long last_schedule_time;
-> -
->  #define NETXEN_MAX_CRB_XFORM 60
->  static unsigned int crb_addr_xform[NETXEN_MAX_CRB_XFORM];
->  #define NETXEN_ADDR_ERROR (0xffffffff)
-> @@ -155,24 +153,6 @@ int netxen_init_firmware(struct netxen_adapter *adapter)
->         return err;
->  }
-> 
-> -#define NETXEN_ADDR_LIMIT 0xffffffffULL
-> -
-> -void *netxen_alloc(struct pci_dev *pdev, size_t sz, dma_addr_t * ptr,
-> -                  struct pci_dev **used_dev)
-> -{
-> -       void *addr;
-> -
-> -       addr = pci_alloc_consistent(pdev, sz, ptr);
-> -       if ((unsigned long long)(*ptr) < NETXEN_ADDR_LIMIT) {
-> -               *used_dev = pdev;
-> -               return addr;
-> -       }
-> -       pci_free_consistent(pdev, sz, addr, *ptr);
-> -       addr = pci_alloc_consistent(NULL, sz, ptr);
-> -       *used_dev = NULL;
-> -       return addr;
-> -}
-> -
->  void netxen_initialize_adapter_sw(struct netxen_adapter *adapter)
->  {
->         int ctxid, ring;
-> @@ -270,7 +250,9 @@ static u32 netxen_decode_crb_addr(u32 addr)
-> 
->  static long rom_max_timeout = 100;
->  static long rom_lock_timeout = 10000;
-> +#if 0
->  static long rom_write_timeout = 700;
-> +#endif
-> 
->  static int rom_lock(struct netxen_adapter *adapter)
->  {
-> @@ -319,6 +301,7 @@ static int netxen_wait_rom_done(struct netxen_adapter *adapter)
->         return 0;
->  }
-> 
-> +#if 0
->  static int netxen_rom_wren(struct netxen_adapter *adapter)
->  {
->         /* Set write enable latch in ROM status register */
-> @@ -348,6 +331,7 @@ static int netxen_do_rom_rdsr(struct netxen_adapter *adapter)
->         }
->         return netxen_rdcrbreg(adapter, NETXEN_ROMUSB_ROM_RDATA);
->  }
-> +#endif
-> 
->  static void netxen_rom_unlock(struct netxen_adapter *adapter)
->  {
-> @@ -358,6 +342,7 @@ static void netxen_rom_unlock(struct netxen_adapter *adapter)
-> 
->  }
-> 
-> +#if 0
->  static int netxen_rom_wip_poll(struct netxen_adapter *adapter)
->  {
->         long timeout = 0;
-> @@ -393,6 +378,7 @@ static int do_rom_fast_write(struct netxen_adapter *adapter, int addr,
-> 
->         return netxen_rom_wip_poll(adapter);
->  }
-> +#endif
-> 
->  static int do_rom_fast_read(struct netxen_adapter *adapter,
->                             int addr, int *valp)
-> @@ -475,7 +461,6 @@ int netxen_rom_fast_write(struct netxen_adapter *adapter, int addr, int data)
->         netxen_rom_unlock(adapter);
->         return ret;
->  }
-> -#endif  /*  0  */
-> 
->  static int do_rom_fast_write_words(struct netxen_adapter *adapter,
->                                    int addr, u8 *bytes, size_t size)
-> @@ -740,13 +725,12 @@ int netxen_flash_unlock(struct netxen_adapter *adapter)
-> 
->         return ret;
->  }
-> +#endif  /*  0  */
-> 
->  #define NETXEN_BOARDTYPE               0x4008
->  #define NETXEN_BOARDNUM                0x400c
->  #define NETXEN_CHIPNUM                 0x4010
->  #define NETXEN_ROMBUS_RESET            0xFFFFFFFF
-> -#define NETXEN_ROM_FIRST_BARRIER       0x800000000ULL
-> -#define NETXEN_ROM_FOUND_INIT          0x400
-> 
->  int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
->  {
-> @@ -776,10 +760,9 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
->                         printk("Could not read chip number\n");
->         }
-> 
-> -       if (netxen_rom_fast_read(adapter, 0, &n) == 0
-> -           && (n & NETXEN_ROM_FIRST_BARRIER)) {
-> -               n &= ~NETXEN_ROM_ROUNDUP;
-> -               if (n < NETXEN_ROM_FOUND_INIT) {
-> +       if (netxen_rom_fast_read(adapter, 0, &n) == 0 && (n & 0x80000000)) {
-> +               n &= ~0x80000000;
-> +               if (n < 0x400) {
->                         if (verbose)
->                                 printk("%s: %d CRB init values found"
->                                        " in ROM.\n", netxen_nic_driver_name, n);
-> @@ -829,16 +812,8 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
->                                 buf[i].data = NETXEN_NIC_XDMA_RESET;
->                         }
-> 
-> -                       if (ADDR_IN_WINDOW1(off)) {
-> -                               writel(buf[i].data,
-> -                                      NETXEN_CRB_NORMALIZE(adapter, off));
-> -                       } else {
-> -                               netxen_nic_pci_change_crbwindow(adapter, 0);
-> -                               writel(buf[i].data,
-> -                                      pci_base_offset(adapter, off));
-> +                       netxen_nic_hw_write_wx(adapter, off, &buf[i].data, 4);
-> 
-> -                               netxen_nic_pci_change_crbwindow(adapter, 1);
-> -                       }
->                         if (init_delay == 1) {
->                                 msleep(1000);
->                                 init_delay = 0;
-> @@ -897,7 +872,7 @@ int netxen_initialize_adapter_offload(struct netxen_adapter *adapter)
->         uint32_t lo;
-> 
->         adapter->dummy_dma.addr =
-> -           pci_alloc_consistent(adapter->ahw.pdev,
-> +           pci_alloc_consistent(adapter->pdev,
->                                  NETXEN_HOST_DUMMY_DMA_SIZE,
->                                  &adapter->dummy_dma.phys_addr);
->         if (adapter->dummy_dma.addr == NULL) {
-> @@ -931,7 +906,7 @@ void netxen_free_adapter_offload(struct netxen_adapter *adapter)
->                 } while (--i);
-> 
->                 if (i) {
-> -                       pci_free_consistent(adapter->ahw.pdev,
-> +                       pci_free_consistent(adapter->pdev,
->                                     NETXEN_HOST_DUMMY_DMA_SIZE,
->                                     adapter->dummy_dma.addr,
->                                     adapter->dummy_dma.phys_addr);
-> @@ -1104,8 +1079,6 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
->         ret = netif_receive_skb(skb);
->         netdev->last_rx = jiffies;
-> 
-> -       rcv_desc->rcv_pending--;
-> -
->         /*
->          * We just consumed one buffer so post a buffer.
->          */
-> @@ -1125,7 +1098,6 @@ u32 netxen_process_rcv_ring(struct netxen_adapter *adapter, int ctxid, int max)
->         struct status_desc *desc_head = recv_ctx->rcv_status_desc_head;
->         struct status_desc *desc;       /* used to read status desc here */
->         u32 consumer = recv_ctx->status_rx_consumer;
-> -       u32 producer = 0;
->         int count = 0, ring;
-> 
->         while (count < max) {
-> @@ -1146,13 +1118,10 @@ u32 netxen_process_rcv_ring(struct netxen_adapter *adapter, int ctxid, int max)
->         /* update the consumer index in phantom */
->         if (count) {
->                 recv_ctx->status_rx_consumer = consumer;
-> -               recv_ctx->status_rx_producer = producer;
-> 
->                 /* Window = 1 */
-> -               writel(consumer,
-> -                      NETXEN_CRB_NORMALIZE(adapter,
-> -                                   recv_crb_registers[adapter->portnum].
-> -                                           crb_rcv_status_consumer));
-> +               writel(consumer, NETXEN_CRB_NORMALIZE(adapter,
-> +                                       recv_ctx->crb_sts_consumer));
->         }
-> 
->         return count;
-> @@ -1231,7 +1200,7 @@ int netxen_process_cmd_ring(struct netxen_adapter *adapter)
->   */
->  void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
->  {
-> -       struct pci_dev *pdev = adapter->ahw.pdev;
-> +       struct pci_dev *pdev = adapter->pdev;
->         struct sk_buff *skb;
->         struct netxen_recv_context *recv_ctx = &(adapter->recv_ctx[ctx]);
->         struct netxen_rcv_desc_ctx *rcv_desc = NULL;
-> @@ -1294,16 +1263,11 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
->         /* if we did allocate buffers, then write the count to Phantom */
->         if (count) {
->                 rcv_desc->begin_alloc = index;
-> -               rcv_desc->rcv_pending += count;
->                 rcv_desc->producer = producer;
->                         /* Window = 1 */
-> -                       writel((producer - 1) &
-> -                              (rcv_desc->max_rx_desc_count - 1),
-> -                              NETXEN_CRB_NORMALIZE(adapter,
-> -                                                   recv_crb_registers[
-> -                                                   adapter->portnum].
-> -                                                   rcv_desc_crb[ringid].
-> -                                                   crb_rcv_producer_offset));
-> +               writel((producer - 1) & (rcv_desc->max_rx_desc_count - 1),
-> +                      NETXEN_CRB_NORMALIZE(adapter,
-> +                              rcv_desc->crb_rcv_producer));
->                         /*
->                          * Write a doorbell msg to tell phanmon of change in
->                          * receive ring producer
-> @@ -1325,7 +1289,7 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
->  static void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter,
->                                         uint32_t ctx, uint32_t ringid)
->  {
-> -       struct pci_dev *pdev = adapter->ahw.pdev;
-> +       struct pci_dev *pdev = adapter->pdev;
->         struct sk_buff *skb;
->         struct netxen_recv_context *recv_ctx = &(adapter->recv_ctx[ctx]);
->         struct netxen_rcv_desc_ctx *rcv_desc = NULL;
-> @@ -1370,7 +1334,6 @@ static void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter,
->                 pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
->                 pdesc->buffer_length = cpu_to_le32(rcv_desc->dma_size);
->                 pdesc->addr_buffer = cpu_to_le64(buffer->dma);
-> -               DPRINTK(INFO, "done writing descripter\n");
->                 producer =
->                     get_next_index(producer, rcv_desc->max_rx_desc_count);
->                 index = get_next_index(index, rcv_desc->max_rx_desc_count);
-> @@ -1380,16 +1343,11 @@ static void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter,
->         /* if we did allocate buffers, then write the count to Phantom */
->         if (count) {
->                 rcv_desc->begin_alloc = index;
-> -               rcv_desc->rcv_pending += count;
->                 rcv_desc->producer = producer;
->                         /* Window = 1 */
-> -                       writel((producer - 1) &
-> -                              (rcv_desc->max_rx_desc_count - 1),
-> -                              NETXEN_CRB_NORMALIZE(adapter,
-> -                                                   recv_crb_registers[
-> -                                                   adapter->portnum].
-> -                                                   rcv_desc_crb[ringid].
-> -                                                   crb_rcv_producer_offset));
-> +               writel((producer - 1) & (rcv_desc->max_rx_desc_count - 1),
-> +                      NETXEN_CRB_NORMALIZE(adapter,
-> +                              rcv_desc->crb_rcv_producer));
->                         wmb();
->         }
->  }
-> diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-> index 63cd67b..91b02eb 100644
-> --- a/drivers/net/netxen/netxen_nic_main.c
-> +++ b/drivers/net/netxen/netxen_nic_main.c
-> @@ -108,66 +108,30 @@ static struct workqueue_struct *netxen_workq;
-> 
->  static void netxen_watchdog(unsigned long);
-> 
-> +static uint32_t crb_cmd_producer[4] = {
-> +       CRB_CMD_PRODUCER_OFFSET, CRB_CMD_PRODUCER_OFFSET_1,
-> +       CRB_CMD_PRODUCER_OFFSET_2, CRB_CMD_PRODUCER_OFFSET_3
-> +};
-> +
->  static void netxen_nic_update_cmd_producer(struct netxen_adapter *adapter,
->                                            uint32_t crb_producer)
->  {
-> -       switch (adapter->portnum) {
-> -               case 0:
-> -                       writel(crb_producer, NETXEN_CRB_NORMALIZE
-> -                                       (adapter, CRB_CMD_PRODUCER_OFFSET));
-> -                       return;
-> -               case 1:
-> -                       writel(crb_producer, NETXEN_CRB_NORMALIZE
-> -                                       (adapter, CRB_CMD_PRODUCER_OFFSET_1));
-> -                       return;
-> -               case 2:
-> -                       writel(crb_producer, NETXEN_CRB_NORMALIZE
-> -                                       (adapter, CRB_CMD_PRODUCER_OFFSET_2));
-> -                       return;
-> -               case 3:
-> -                       writel(crb_producer, NETXEN_CRB_NORMALIZE
-> -                                       (adapter, CRB_CMD_PRODUCER_OFFSET_3));
-> -                       return;
-> -               default:
-> -                       printk(KERN_WARNING "We tried to update "
-> -                                       "CRB_CMD_PRODUCER_OFFSET for invalid "
-> -                                       "PCI function id %d\n",
-> -                                       adapter->portnum);
-> -                       return;
-> -       }
-> +       writel(crb_producer, NETXEN_CRB_NORMALIZE(adapter,
-> +                               adapter->crb_addr_cmd_producer));
->  }
-> 
-> +static uint32_t crb_cmd_consumer[4] = {
-> +       CRB_CMD_CONSUMER_OFFSET, CRB_CMD_CONSUMER_OFFSET_1,
-> +       CRB_CMD_CONSUMER_OFFSET_2, CRB_CMD_CONSUMER_OFFSET_3
-> +};
-> +
->  static void netxen_nic_update_cmd_consumer(struct netxen_adapter *adapter,
->                                            u32 crb_consumer)
->  {
-> -       switch (adapter->portnum) {
-> -               case 0:
-> -                       writel(crb_consumer, NETXEN_CRB_NORMALIZE
-> -                               (adapter, CRB_CMD_CONSUMER_OFFSET));
-> -                       return;
-> -               case 1:
-> -                       writel(crb_consumer, NETXEN_CRB_NORMALIZE
-> -                               (adapter, CRB_CMD_CONSUMER_OFFSET_1));
-> -                       return;
-> -               case 2:
-> -                       writel(crb_consumer, NETXEN_CRB_NORMALIZE
-> -                               (adapter, CRB_CMD_CONSUMER_OFFSET_2));
-> -                       return;
-> -               case 3:
-> -                       writel(crb_consumer, NETXEN_CRB_NORMALIZE
-> -                               (adapter, CRB_CMD_CONSUMER_OFFSET_3));
-> -                       return;
-> -               default:
-> -                       printk(KERN_WARNING "We tried to update "
-> -                                       "CRB_CMD_PRODUCER_OFFSET for invalid "
-> -                                       "PCI function id %d\n",
-> -                                       adapter->portnum);
-> -                       return;
-> -       }
-> +       writel(crb_consumer, NETXEN_CRB_NORMALIZE(adapter,
-> +                               adapter->crb_addr_cmd_consumer));
->  }
-> 
-> -#define        ADAPTER_LIST_SIZE 12
-> -
->  static uint32_t msi_tgt_status[4] = {
->         ISR_INT_TARGET_STATUS, ISR_INT_TARGET_STATUS_F1,
->         ISR_INT_TARGET_STATUS_F2, ISR_INT_TARGET_STATUS_F3
-> @@ -334,7 +298,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-> 
->         adapter = netdev->priv;
-> 
-> -       adapter->ahw.pdev = pdev;
->         adapter->ahw.pci_func  = pci_func_id;
-> 
->         /* remap phys address */
-> @@ -552,12 +515,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->         adapter->watchdog_timer.function = &netxen_watchdog;
->         adapter->watchdog_timer.data = (unsigned long)adapter;
->         INIT_WORK(&adapter->watchdog_task, netxen_watchdog_task);
-> -       adapter->ahw.pdev = pdev;
->         adapter->ahw.revision_id = pdev->revision;
-> 
->         /* make sure Window == 1 */
->         netxen_nic_pci_change_crbwindow(adapter, 1);
-> 
-> +       adapter->crb_addr_cmd_producer = crb_cmd_producer[adapter->portnum];
-> +       adapter->crb_addr_cmd_consumer = crb_cmd_consumer[adapter->portnum];
->         netxen_nic_update_cmd_producer(adapter, 0);
->         netxen_nic_update_cmd_consumer(adapter, 0);
->         writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_HOST_CMD_ADDR_LO));
-> @@ -816,7 +780,7 @@ static int netxen_nic_open(struct net_device *netdev)
->                         for (ring = 0; ring < NUM_RCV_DESC_RINGS; ring++)
->                                 netxen_post_rx_buffers(adapter, ctx, ring);
->                 }
-> -               adapter->irq = adapter->ahw.pdev->irq;
-> +               adapter->irq = adapter->pdev->irq;
->                 if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
->                         handler = netxen_msi_intr;
->                 else {
-> @@ -1220,10 +1184,6 @@ module_init(netxen_init_module);
-> 
->  static void __exit netxen_exit_module(void)
->  {
-> -       /*
-> -        * Wait for some time to allow the dma to drain, if any.
-> -        */
-> -       msleep(100);
->         pci_unregister_driver(&netxen_driver);
->         destroy_workqueue(netxen_workq);
->  }
-> diff --git a/drivers/net/netxen/netxen_nic_phan_reg.h b/drivers/net/netxen/netxen_nic_phan_reg.h
-> index a566b50..db2202a 100644
-> --- a/drivers/net/netxen/netxen_nic_phan_reg.h
-> +++ b/drivers/net/netxen/netxen_nic_phan_reg.h
-> @@ -98,6 +98,7 @@
->  #define CRB_JUMBO_BUFFER_PROD       NETXEN_NIC_REG(0xf4)
->  #define CRB_JUMBO_BUFFER_CONS       NETXEN_NIC_REG(0xf8)
-> 
-> +#define CRB_RCVPEG_STATE            NETXEN_NIC_REG(0x13c)
->  #define CRB_CMD_PRODUCER_OFFSET_1   NETXEN_NIC_REG(0x1ac)
->  #define CRB_CMD_CONSUMER_OFFSET_1   NETXEN_NIC_REG(0x1b0)
->  #define CRB_CMD_PRODUCER_OFFSET_2   NETXEN_NIC_REG(0x1b8)
-> @@ -147,25 +148,13 @@
->  #define nx_get_temp_state(x)           ((x) & 0xffff)
->  #define nx_encode_temp(val, state)     (((val) << 16) | (state))
-> 
-> -/* CRB registers per Rcv Descriptor ring */
-> -struct netxen_rcv_desc_crb {
-> -       u32 crb_rcv_producer_offset __attribute__ ((aligned(512)));
-> -       u32 crb_rcv_consumer_offset;
-> -       u32 crb_globalrcv_ring;
-> -       u32 crb_rcv_ring_size;
-> -};
-> -
->  /*
->   * CRB registers used by the receive peg logic.
->   */
-> 
->  struct netxen_recv_crb {
-> -       struct netxen_rcv_desc_crb rcv_desc_crb[NUM_RCV_DESC_RINGS];
-> -       u32 crb_rcvstatus_ring;
-> -       u32 crb_rcv_status_producer;
-> -       u32 crb_rcv_status_consumer;
-> -       u32 crb_rcvpeg_state;
-> -       u32 crb_status_ring_size;
-> +       u32 crb_rcv_producer[NUM_RCV_DESC_RINGS];
-> +       u32 crb_sts_consumer;
->  };
-> 
->  extern struct netxen_recv_crb recv_crb_registers[];
-> --
-> 1.5.4.3
-> 
-> 
+The implementation consists of two parts:
+
+1) A resource controller (cgroup_tc) that is used to associate packets from
+    a particular task belonging to a cgroup with a traffic control class id (
+    tc_classid). This tc_classid is propagated to all sockets created by tasks
+    in the cgroup and from there to all packets associated with those sockets.
+
+2) A modified traffic control classifier (cls_flow) that can classify packets
+    based on the tc_classid field in the packet to specific destination classes.
+
+An example of the use of this resource controller would be to limit
+the traffic from all tasks from a file_server cgroup to 100Mbps. We could
+achieve this by doing:
+
+# make a cgroup of file transfer processes and assign it a uniqe classid
+# of 0x10 - this will be used lated to direct packets.
+mkdir -p /dev/cgroup
+mount -t cgroup tc -otc /dev/cgroup
+mkdir /dev/cgroup/file_transfer
+echo 0x10 > /dev/cgroup/file_transfer/tc.classid
+echo $PID_OF_FILE_XFER_PROCESS > /dev/cgroup/file_transfer/tasks
+
+# Now create a HTB class that rate limits traffic to 100mbits and attach
+# a filter to direct all traffic from cgroup file_transfer to this new class.
+tc qdisc add dev eth0 root handle 1: htb
+tc class add dev eth0 parent 1: classid 1:10 htb rate 100mbit ceil 100mbit
+tc filter add dev eth0 parent 1: handle 800 protocol ip prio 1 flow map key cgroup-classid baseclass 1:10
+
+Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+
+---
+diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
+index e287745..4b12372 100644
+--- a/include/linux/cgroup_subsys.h
++++ b/include/linux/cgroup_subsys.h
+@@ -48,3 +48,9 @@ SUBSYS(devices)
+  #endif
+
+  /* */
++
++#ifdef CONFIG_CGROUP_TC
++SUBSYS(tc)
++#endif
++
++/* */
+diff --git a/include/linux/cgroup_tc.h b/include/linux/cgroup_tc.h
+new file mode 100644
+index 0000000..decef81
+--- /dev/null
++++ b/include/linux/cgroup_tc.h
+@@ -0,0 +1,25 @@
++#ifndef __LINUX_CGROUP_TC_H
++#define __LINUX_CGROUP_TC_H
++
++/* Interface to obtain tasks cgroup identifier. */
++
++#include <linux/cgroup.h>
++#include <linux/skbuff.h>
++#include <net/sock.h>
++
++#ifdef CONFIG_CGROUP_TC
++
++void cgroup_tc_set_sock_classid(struct sock *sk);
++
++#define cgroup_tc_set_skb_classid(sk, skb) \
++	skb->cgroup_classid = sk->sk_cgroup_classid
++
++#else
++
++#define cgroup_tc_set_sock_classid(sk)
++
++#define cgroup_tc_set_skb_classid(sk, skb)
++
++#endif /* CONFIG_CGROUP_TC */
++
++#endif /* __LINUX_CGROUP_TC_H */
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index 99efbed..deead80 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -349,6 +349,7 @@ enum
+  	FLOW_KEY_SKUID,
+  	FLOW_KEY_SKGID,
+  	FLOW_KEY_VLAN_TAG,
++	FLOW_KEY_CGROUP_CLASSID,
+  	__FLOW_KEY_MAX,
+  };
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 299ec4b..e124294 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -326,6 +326,10 @@ struct sk_buff {
+  	__u32			secmark;
+  #endif
+
++#ifdef CONFIG_CGROUP_TC
++	__u32			cgroup_classid;
++#endif
++
+  	__u32			mark;
+
+  	sk_buff_data_t		transport_header;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index dc42b44..7a4e09c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -271,6 +271,9 @@ struct sock {
+  	int			sk_write_pending;
+  	void			*sk_security;
+  	__u32			sk_mark;
++#ifdef CONFIG_CGROUP_TC
++	__u32			sk_cgroup_classid;
++#endif
+  	/* XXX 4 bytes hole on 64 bit */
+  	void			(*sk_state_change)(struct sock *sk);
+  	void			(*sk_data_ready)(struct sock *sk, int bytes);
+diff --git a/init/Kconfig b/init/Kconfig
+index 6135d07..c28fde8 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -289,6 +289,17 @@ config CGROUP_DEBUG
+
+  	  Say N if unsure
+
++config CGROUP_TC
++	bool "Traffic control cgroup subsystem"
++	depends on CGROUPS
++	default n
++	help
++	  This option enables a simple cgroup subsystem that
++	  allows network traffic to be classified based on the
++	  cgroup of the task originating the traffic.
++
++	  Say N if unsure
++
+  config CGROUP_NS
+          bool "Namespace cgroup subsystem"
+          depends on CGROUPS
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 1c9938a..08b217b 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -42,6 +42,7 @@ obj-$(CONFIG_CGROUPS) += cgroup.o
+  obj-$(CONFIG_CGROUP_DEBUG) += cgroup_debug.o
+  obj-$(CONFIG_CPUSETS) += cpuset.o
+  obj-$(CONFIG_CGROUP_NS) += ns_cgroup.o
++obj-$(CONFIG_CGROUP_TC) += tc_cgroup.o
+  obj-$(CONFIG_UTS_NS) += utsname.o
+  obj-$(CONFIG_USER_NS) += user_namespace.o
+  obj-$(CONFIG_PID_NS) += pid_namespace.o
+diff --git a/kernel/tc_cgroup.c b/kernel/tc_cgroup.c
+new file mode 100644
+index 0000000..1c62a6c
+--- /dev/null
++++ b/kernel/tc_cgroup.c
+@@ -0,0 +1,108 @@
++/*
++ * tc_cgroup.c - traffic control cgroup subsystem
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/cgroup.h>
++#include <linux/fs.h>
++#include <linux/slab.h>
++#include <linux/cgroup_tc.h>
++
++struct tc_cgroup {
++	struct cgroup_subsys_state css;
++	unsigned int classid;
++};
++
++struct cgroup_subsys tc_subsys;
++
++static inline struct tc_cgroup *cgroup_to_tc(
++		struct cgroup *cgroup)
++{
++	return container_of(cgroup_subsys_state(cgroup, tc_subsys_id),
++			    struct tc_cgroup, css);
++}
++
++static int cgroup_tc_classid(struct task_struct *tsk)
++{
++	int tc_classid;
++
++	rcu_read_lock();
++	tc_classid =  container_of(task_subsys_state(tsk, tc_subsys_id),
++					 struct tc_cgroup, css)->classid;
++	rcu_read_unlock();
++	return tc_classid;
++}
++
++void cgroup_tc_set_sock_classid(struct sock *sk)
++{
++	if (sk)
++		sk->sk_cgroup_classid = cgroup_tc_classid(current);
++}
++
++static struct cgroup_subsys_state *tc_create(struct cgroup_subsys *ss,
++						struct cgroup *cgroup)
++{
++	struct tc_cgroup *tc_cgroup;
++
++	tc_cgroup = kzalloc(sizeof(*tc_cgroup), GFP_KERNEL);
++
++	if (!tc_cgroup)
++		return ERR_PTR(-ENOMEM);
++
++	/* Copy parent's class id if present */
++	if (cgroup->parent)
++		tc_cgroup->classid = cgroup_to_tc(cgroup->parent)->classid;
++
++	return &tc_cgroup->css;
++}
++
++static void tc_destroy(struct cgroup_subsys *ss,
++			struct cgroup *cgroup)
++{
++	kfree(cgroup_to_tc(cgroup));
++}
++
++static int tc_write_u64(struct cgroup *cgrp, struct cftype *cft, u64 val)
++{
++	struct tc_cgroup *tc = cgroup_to_tc(cgrp);
++
++	cgroup_lock();
++	if (cgroup_is_removed(cgrp)) {
++		cgroup_unlock();
++		return -ENODEV;
++	}
++
++	tc->classid = (unsigned int) (val & 0xffffffff);
++	cgroup_unlock();
++	return 0;
++}
++
++static u64 tc_read_u64(struct cgroup *cont, struct cftype *cft)
++{
++	struct tc_cgroup *tc = cgroup_to_tc(cont);
++	return tc->classid;
++}
++
++static struct cftype tc_files[] = {
++	{
++		.name = "classid",
++		.read_u64 = tc_read_u64,
++		.write_u64 = tc_write_u64,
++	}
++};
++
++static int tc_populate(struct cgroup_subsys *ss, struct cgroup *cont)
++{
++	int err;
++	err = cgroup_add_files(cont, ss, tc_files, ARRAY_SIZE(tc_files));
++	return err;
++}
++
++struct cgroup_subsys tc_subsys = {
++	.name = "tc",
++	.create = tc_create,
++	.destroy  = tc_destroy,
++	.populate = tc_populate,
++	.subsys_id = tc_subsys_id,
++};
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index e527628..ff75d8e 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -81,6 +81,7 @@
+  #include <linux/mroute.h>
+  #include <linux/netlink.h>
+  #include <linux/tcp.h>
++#include <linux/cgroup_tc.h>
+
+  int sysctl_ip_default_ttl __read_mostly = IPDEFTTL;
+
+@@ -168,6 +169,9 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
+  	}
+
+  	skb->priority = sk->sk_priority;
++
++	cgroup_tc_set_skb_classid(sk, skb);
++
+  	skb->mark = sk->sk_mark;
+
+  	/* Send it out. */
+@@ -386,6 +390,9 @@ packet_routed:
+  			     (skb_shinfo(skb)->gso_segs ?: 1) - 1);
+
+  	skb->priority = sk->sk_priority;
++
++	cgroup_tc_set_skb_classid(sk, skb);
++
+  	skb->mark = sk->sk_mark;
+
+  	return ip_local_out(skb);
+@@ -1278,6 +1285,7 @@ int ip_push_pending_frames(struct sock *sk)
+  	iph->daddr = rt->rt_dst;
+
+  	skb->priority = sk->sk_priority;
++	cgroup_tc_set_skb_classid(sk, skb);
+  	skb->mark = sk->sk_mark;
+  	skb->dst = dst_clone(&rt->u.dst);
+
+@@ -1387,6 +1395,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+  	bh_lock_sock(sk);
+  	inet->tos = ip_hdr(skb)->tos;
+  	sk->sk_priority = skb->priority;
++	cgroup_tc_set_skb_classid(sk, skb);
+  	sk->sk_protocol = ip_hdr(skb)->protocol;
+  	sk->sk_bound_dev_if = arg->bound_dev_if;
+  	ip_append_data(sk, ip_reply_glue_bits, arg->iov->iov_base, len, 0,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 48cdce9..826b770 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -56,6 +56,7 @@
+  #include <net/xfrm.h>
+  #include <net/checksum.h>
+  #include <linux/mroute6.h>
++#include <linux/cgroup_tc.h>
+
+  static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+
+@@ -257,6 +258,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+  	ipv6_addr_copy(&hdr->daddr, first_hop);
+
+  	skb->priority = sk->sk_priority;
++	cgroup_tc_set_skb_classid(sk, skb);
++
+  	skb->mark = sk->sk_mark;
+
+  	mtu = dst_mtu(dst);
+@@ -1448,6 +1451,7 @@ int ip6_push_pending_frames(struct sock *sk)
+  	ipv6_addr_copy(&hdr->daddr, final_dst);
+
+  	skb->priority = sk->sk_priority;
++	cgroup_tc_set_skb_classid(sk, skb);
+  	skb->mark = sk->sk_mark;
+
+  	skb->dst = dst_clone(&rt->u.dst);
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 1d2b0f7..91e9ee0 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -36,6 +36,7 @@ obj-$(CONFIG_NET_CLS_TCINDEX)	+= cls_tcindex.o
+  obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
+  obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
+  obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
++obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
+  obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+  obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+  obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 971b867..2a63ffc 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -280,6 +280,14 @@ static u32 flow_get_vlan_tag(const struct sk_buff *skb)
+  	return tag & VLAN_VID_MASK;
+  }
+
++static u32 flow_get_cgroup_classid(const struct sk_buff *skb)
++{
++#ifdef CONFIG_CGROUP_TC
++	return skb->cgroup_classid;
++#endif
++	return 0;
++}
++
+  static u32 flow_key_get(const struct sk_buff *skb, int key)
+  {
+  	switch (key) {
+@@ -317,6 +325,8 @@ static u32 flow_key_get(const struct sk_buff *skb, int key)
+  		return flow_get_skgid(skb);
+  	case FLOW_KEY_VLAN_TAG:
+  		return flow_get_vlan_tag(skb);
++	case FLOW_KEY_CGROUP_CLASSID:
++		return flow_get_cgroup_classid(skb);
+  	default:
+  		WARN_ON(1);
+  		return 0;
+@@ -359,7 +369,12 @@ static int flow_classify(struct sk_buff *skb, struct tcf_proto *tp,
+  			classid %= f->divisor;
+
+  		res->class   = 0;
+-		res->classid = TC_H_MAKE(f->baseclass, f->baseclass + classid);
++
++		if (key == FLOW_KEY_CGROUP_CLASSID)
++			res->classid = TC_H_MAKE(f->baseclass, classid);
++		else
++			res->classid = TC_H_MAKE(f->baseclass,
++						 f->baseclass + classid);
+
+  		r = tcf_exts_exec(skb, &f->exts, res);
+  		if (r < 0)
+diff --git a/net/socket.c b/net/socket.c
+index 66c4a8c..b7421ec 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -93,6 +93,7 @@
+
+  #include <net/sock.h>
+  #include <linux/netfilter.h>
++#include <linux/cgroup_tc.h>
+
+  static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
+  static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
+@@ -1170,6 +1171,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
+  	if (err < 0)
+  		goto out_module_put;
+
++	cgroup_tc_set_sock_classid(sock->sk);
++
+  	/*
+  	 * Now to bump the refcnt of the [loadable] module that owns this
+  	 * socket at sock_release time we decrement its refcnt.
+@@ -1444,6 +1447,8 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr,
+  	if (err < 0)
+  		goto out_fd;
+
++	cgroup_tc_set_sock_classid(newsock->sk);
++
+  	if (upeer_sockaddr) {
+  		if (newsock->ops->getname(newsock, (struct sockaddr *)address,
+  					  &len, 2) < 0) {
