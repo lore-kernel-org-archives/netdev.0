@@ -1,53 +1,89 @@
-From: denys@visp.net.lb
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Tue, 22 Jul 2008 23:46:36 +0300
-Message-ID: <200807222346.36284.denys@visp.net.lb>
-References: <200807222142.23710.denys@visp.net.lb> <48863F5A.9080104@gmail.com> <48864491.3010905@gmail.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch 2.6.26] rndis_host:  support WM6 devices as modems
+Date: Tue, 22 Jul 2008 13:55:58 -0700
+Message-ID: <200807221355.59207.david-b@pacbell.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Adam Williamson <awilliamson@mandriva.com>,
+	john.carr@unrouted.co.uk, Thomas Backlund <tmb@mandriva.org>
+To: Network development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:45137 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbYGVUqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:46:48 -0400
-In-Reply-To: <48864491.3010905@gmail.com>
+Received: from smtp116.sbc.mail.sp1.yahoo.com ([69.147.64.89]:38236 "HELO
+	smtp116.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753292AbYGVU4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:56:01 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First patch - probably not related. Netconsole is on e100.
-Second patch looks reasonable, because there is external interface (it is router) and e1000e there, with enabled TSO. Maybe some scanning tools doing connect to SSH and... BOOM.. i will try to patch it, thanks a lot!
+From: Thomas Backlund <tmb@mandriva.org>
 
-On Tuesday 22 July 2008, Jarek Poplawski wrote:
-> Jarek Poplawski wrote, On 07/22/2008 10:13 PM:
-> 
-> > denys@visp.net.lb wrote, On 07/22/2008 08:42 PM:
-> > 
-> >> workload: ifb shapers, HTB, nat, 1 e1000, 3 e100 (heavily used only two e100)
-> >>
-> > 
-> > 
-> > Maybe it's unconnected but I'd recommend to try this fresh patch for
-> > possible problems with e1000e vs. netconsole:
-> > 
-> > http://permalink.gmane.org/gmane.linux.network/100581
->  
-> 
-> ...and if you have TSO enabled, here is another "maybe unconnected"
-> recommendation:
-> 
-> http://permalink.gmane.org/gmane.linux.network/99585
-> 
-> Jarek P.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+This patch allows Windows Mobile 6 devices to be used for
+tethering -- that is, used as modems.  It was requested by
+AdamW in kernel bugzilla:
 
+  http://bugzilla.kernel.org/show_bug.cgi?id=11119
 
+and Mandriva kernel-discuss list.  It is tested and confirmed
+to work by Peterl:
+
+  http://forum.eeeuser.com/viewtopic.php?pid=323543#p323543
+
+This patch is based on the patch in the above kernel bugzilla,
+which is from the usb-rndis-lite tree.
+
+[ dbrownell@users.sourceforge.net: misc fixes ]
+Signed-off-by: Thomas Backlund <tmb@mandriva.org>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+---
+ drivers/net/usb/cdc_ether.c  |   11 ++++++++++-
+ drivers/net/usb/rndis_host.c |    4 ++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/usb/cdc_ether.c	2008-07-22 13:37:42.000000000 -0700
++++ b/drivers/net/usb/cdc_ether.c	2008-07-22 13:42:09.000000000 -0700
+@@ -50,10 +50,18 @@ static int is_activesync(struct usb_inte
+ 		&& desc->bInterfaceProtocol == 1;
+ }
+ 
++static int is_wireless_rndis(struct usb_interface_descriptor *desc)
++{
++	return desc->bInterfaceClass == USB_CLASS_WIRELESS_CONTROLLER
++		&& desc->bInterfaceSubClass == 1
++		&& desc->bInterfaceProtocol == 3;
++}
++
+ #else
+ 
+ #define is_rndis(desc)		0
+ #define is_activesync(desc)	0
++#define is_wireless_rndis(desc)	0
+ 
+ #endif
+ 
+@@ -110,7 +118,8 @@ int usbnet_generic_cdc_bind(struct usbne
+ 	 * of cdc-acm, it'll fail RNDIS requests cleanly.
+ 	 */
+ 	rndis = is_rndis(&intf->cur_altsetting->desc)
+-		|| is_activesync(&intf->cur_altsetting->desc);
++		|| is_activesync(&intf->cur_altsetting->desc)
++		|| is_wireless_rndis(&intf->cur_altsetting->desc);
+ 
+ 	memset(info, 0, sizeof *info);
+ 	info->control = intf;
+--- a/drivers/net/usb/rndis_host.c	2008-07-22 13:37:42.000000000 -0700
++++ b/drivers/net/usb/rndis_host.c	2008-07-22 13:38:21.000000000 -0700
+@@ -576,6 +576,10 @@ static const struct usb_device_id	produc
+ 	/* "ActiveSync" is an undocumented variant of RNDIS, used in WM5 */
+ 	USB_INTERFACE_INFO(USB_CLASS_MISC, 1, 1),
+ 	.driver_info = (unsigned long) &rndis_info,
++}, {
++	/* RNDIS for tethering */
++	USB_INTERFACE_INFO(USB_CLASS_WIRELESS_CONTROLLER, 1, 3),
++	.driver_info = (unsigned long) &rndis_info,
+ },
+ 	{ },		// END
+ };
