@@ -1,50 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] fs_enet: Remove unused fields in the fs_mii_bb_platform_info
- structure.
-Date: Tue, 22 Jul 2008 16:09:50 -0400
-Message-ID: <48863E8E.4080308@pobox.com>
-References: <200807221743.47807.laurentp@cse-semaphore.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Tue, 22 Jul 2008 22:13:14 +0200
+Message-ID: <48863F5A.9080104@gmail.com>
+References: <200807222142.23710.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	vbordug@ru.mvista.com
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
+Cc: netdev@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48702 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752682AbYGVUJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 16:09:59 -0400
-In-Reply-To: <200807221743.47807.laurentp@cse-semaphore.com>
+Received: from fg-out-1718.google.com ([72.14.220.158]:30973 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751169AbYGVUNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2008 16:13:07 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so950710fgg.17
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 13:13:03 -0700 (PDT)
+In-Reply-To: <200807222142.23710.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Laurent Pinchart wrote:
-> The mdio_port, mdio_bit, mdc_port and mdc_bit fields in the
-> fs_mii_bb_platform_info structure are left-overs from the move to the Phy
-> Abstraction Layer subsystem. They are not used anymore and can be safely
-> removed.
+denys@visp.net.lb wrote, On 07/22/2008 08:42 PM:
+
+> workload: ifb shapers, HTB, nat, 1 e1000, 3 e100 (heavily used only two e100)
 > 
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-> ---
->  include/linux/fs_enet_pd.h    |    4 ----
->  1 files changed, 0 insertions(+), 4 deletions(-)
-> 
-> diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
-> index 9bc045b..decc4b5 100644
-> --- a/include/linux/fs_enet_pd.h
-> +++ b/include/linux/fs_enet_pd.h
-> @@ -103,10 +103,6 @@ struct fs_mii_bb_platform_info {
->  	struct fs_mii_bit 	mdio_dir;
->  	struct fs_mii_bit 	mdio_dat;
->  	struct fs_mii_bit	mdc_dat;
-> -	int mdio_port;	/* port & bit for MDIO */
-> -	int mdio_bit;
-> -	int mdc_port;	/* port & bit for MDC  */
-> -	int mdc_bit;
->  	int delay;	/* delay in us         */
->  	int irq[32]; 	/* irqs per phy's */
-
-applied
 
 
+Maybe it's unconnected but I'd recommend to try this fresh patch for
+possible problems with e1000e vs. netconsole:
+
+http://permalink.gmane.org/gmane.linux.network/100581
+
+Jarek P.
