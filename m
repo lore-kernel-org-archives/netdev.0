@@ -1,8 +1,8 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [2.6 patch] make sctp_outq_flush() static
-Date: Tue, 22 Jul 2008 14:05:32 -0400
-Message-ID: <20080722180532.GD6887@hmsreliant.think-freely.org>
-References: <20080722172045.GT14846@cs181140183.pp.htv.fi>
+Subject: Re: [2.6 patch] remove sctp_assoc_proc_exit()
+Date: Tue, 22 Jul 2008 14:05:10 -0400
+Message-ID: <20080722180510.GC6887@hmsreliant.think-freely.org>
+References: <20080722172057.GU14846@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
@@ -10,69 +10,47 @@ Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
 	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
 To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4604 "EHLO ra.tuxdriver.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4605 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754738AbYGVSMr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 14:12:47 -0400
+	id S1752607AbYGVSN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2008 14:13:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20080722172045.GT14846@cs181140183.pp.htv.fi>
+In-Reply-To: <20080722172057.GU14846@cs181140183.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2008 at 08:20:45PM +0300, Adrian Bunk wrote:
-> sctp_outq_flush() can now become static.
+On Tue, Jul 22, 2008 at 08:20:57PM +0300, Adrian Bunk wrote:
+> Commit 20c2c1fd6c842caf70dcb1d94b9d58861949fd3d
+> (sctp: add sctp/remaddr table to complete RFC remote address table OID)
+> added an unused sctp_assoc_proc_exit() function that seems to have been 
+> unintentionally created when copying the assocs code.
 > 
 > Signed-off-by: Adrian Bunk <bunk@kernel.org>
 > 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
 > ---
-> 
->  include/net/sctp/structs.h |    1 -
->  net/sctp/outqueue.c        |    4 +++-
->  2 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> 9fc45261b127e54b1c5982b629956db9351e3b1f 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 70eb64a..535a18f 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1161,7 +1161,6 @@ void sctp_outq_init(struct sctp_association *, struct sctp_outq *);
->  void sctp_outq_teardown(struct sctp_outq *);
->  void sctp_outq_free(struct sctp_outq*);
->  int sctp_outq_tail(struct sctp_outq *, struct sctp_chunk *chunk);
-> -int sctp_outq_flush(struct sctp_outq *, int);
->  int sctp_outq_sack(struct sctp_outq *, struct sctp_sackhdr *);
->  int sctp_outq_is_empty(const struct sctp_outq *);
->  void sctp_outq_restart(struct sctp_outq *);
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 70ead8d..4328ad5 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -71,6 +71,8 @@ static void sctp_mark_missing(struct sctp_outq *q,
+> 3020dff4c136f6e7f98e0c02f8b5e1cedfa75d2f 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 5dd8983..f268910 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -519,8 +519,3 @@ int __init sctp_remaddr_proc_init(void)
 >  
->  static void sctp_generate_fwdtsn(struct sctp_outq *q, __u32 sack_ctsn);
->  
-> +static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout);
-> +
->  /* Add data to the front of the queue. */
->  static inline void sctp_outq_head_data(struct sctp_outq *q,
->  					struct sctp_chunk *ch)
-> @@ -712,7 +714,7 @@ int sctp_outq_uncork(struct sctp_outq *q)
->   * locking concerns must be made.  Today we use the sock lock to protect
->   * this function.
->   */
-> -int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
-> +static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
->  {
->  	struct sctp_packet *packet;
->  	struct sctp_packet singleton;
+>  	return 0;
+>  }
+> -
+> -void sctp_assoc_proc_exit(void)
+> -{
+> -	remove_proc_entry("remaddr", proc_net_sctp);
+> -}
 > 
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
+Thanks Adrian!
+
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 -- 
 /****************************************************
  * Neil Horman <nhorman@tuxdriver.com>
