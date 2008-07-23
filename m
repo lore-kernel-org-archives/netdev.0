@@ -1,72 +1,61 @@
-From: Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
-Subject: Re: WARNING: at net/core/dev.c:1328!
-Date: Wed, 23 Jul 2008 07:40:39 +0200
-Message-ID: <20080723054039.GA2272@gentoox2.trippelsdorf.de>
-References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: more atl1 vs multiqueue TX
+Date: Wed, 23 Jul 2008 09:58:23 +0400
+Message-ID: <20080723055823.GA4803@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alessandro Guido <ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, jacliburn@bellsouth.net, csnook@redhat.com,
+	jeff@garzik.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.154]:23072 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbYGWF7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 01:59:10 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1044075fgg.17
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2008 22:59:09 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <d4b984a30807220254t1aaf6ac4q874329966511b0c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
-> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
+Now if I normally boot with cable unplugged, and then plug it,
+bug/warning triggers, always the same:
 
-Same thing here (latest git):
-
-skge eth1: enabling interface
-skge eth1: disabling interface
+eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+atl1 0000:03:00.0: eth0 link is up 1000 Mbps full duplex
 ------------[ cut here ]------------
-WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
-Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
+WARNING: at net/core/dev.c:1344 __netif_schedule+0xbd/0xd0()
+Modules linked in: ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4 xt_state iptable_filter iptable_raw ip_tables x_tables nf_conntrack_irc nf_conntrack fuse usblp ehci_hcd uhci_hcd usbcore sr_mod cdrom
+Pid: 9, comm: events/0 Not tainted 2.6.26-c010b2f76c3032e48097a6eef291d8593d5d79a6 #1
 
 Call Trace:
- [<ffffffff8022e5f4>] warn_on_slowpath+0x4c/0x87
- [<ffffffff802fc5cb>] delay_tsc+0x0/0x55
- [<ffffffff802fc5cb>] delay_tsc+0x0/0x55
- [<ffffffff802fc5e7>] delay_tsc+0x1c/0x55
- [<ffffffff8037e2ee>] gm_phy_write+0x50/0x90
- [<ffffffff8037e2f8>] gm_phy_write+0x5a/0x90
- [<ffffffff8037f03f>] skge_led+0x1fb/0x20b
- [<ffffffff804202e8>] __netif_schedule+0x24/0x6d
- [<ffffffff80381298>] skge_down+0x440/0x4cf
- [<ffffffff803814be>] skge_change_mtu+0x3d/0x61
- [<ffffffff80420775>] dev_set_mtu+0x46/0x79
- [<ffffffff80427a51>] do_setlink+0x1c5/0x31f
- [<ffffffff804287d3>] rtnl_newlink+0x2b9/0x3e3
- [<ffffffff804285a8>] rtnl_newlink+0x8e/0x3e3
- [<ffffffff80428d69>] rtnetlink_rcv_msg+0x5a/0x1ea
- [<ffffffff80428d0f>] rtnetlink_rcv_msg+0x0/0x1ea
- [<ffffffff8042efde>] netlink_rcv_skb+0x34/0x7e
- [<ffffffff80428d09>] rtnetlink_rcv+0x1f/0x25
- [<ffffffff8042eb97>] netlink_unicast+0x119/0x17f
- [<ffffffff8041b35d>] __alloc_skb+0x61/0x123
- [<ffffffff8042ee37>] netlink_sendmsg+0x23a/0x24d
- [<ffffffff804152e4>] sock_sendmsg+0xcb/0xe3
- [<ffffffff8023f670>] autoremove_wake_function+0x0/0x2e
- [<ffffffff80225643>] need_resched+0x1e/0x28
- [<ffffffff804147d8>] move_addr_to_kernel+0x25/0x36
- [<ffffffff8041c090>] verify_iovec+0x46/0x82
- [<ffffffff80415513>] sys_sendmsg+0x217/0x28a
- [<ffffffff8042e01e>] netlink_insert+0xfe/0x121
- [<ffffffff80414b40>] sockfd_lookup_light+0x1a/0x52
- [<ffffffff80261fe5>] __vma_link+0x58/0x61
- [<ffffffff80262062>] vma_link+0x74/0x99
- [<ffffffff802630ce>] do_brk+0x2c1/0x319
- [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
+ <IRQ>  [<ffffffff8022f21f>] warn_on_slowpath+0x5f/0x80
+ [<ffffffff80254616>] ? __lock_acquire+0x816/0xe50
+ [<ffffffff8025135d>] ? trace_hardirqs_off+0xd/0x10
+ [<ffffffff80463932>] ? _spin_unlock_irqrestore+0x42/0x80
+ [<ffffffff804028dd>] __netif_schedule+0xbd/0xd0
+ [<ffffffff803720ea>] atl1_intr+0x62a/0xc30
+ [<ffffffff80254616>] ? __lock_acquire+0x816/0xe50
+ [<ffffffff8025ec55>] handle_IRQ_event+0x35/0x70
+ [<ffffffff8026061e>] handle_edge_irq+0xce/0x150
+ [<ffffffff8020f1cf>] do_IRQ+0xaf/0x140
+ [<ffffffff80370f90>] ? atlx_link_chg_task+0x0/0x60
+ [<ffffffff8020bbf6>] ret_from_intr+0x0/0xf
+ <EOI>  [<ffffffff80239b39>] ? __mod_timer+0x99/0x110
+ [<ffffffff80463958>] ? _spin_unlock_irqrestore+0x68/0x80
+ [<ffffffff80370fd3>] ? atlx_link_chg_task+0x43/0x60
+ [<ffffffff802414bd>] ? run_workqueue+0x18d/0x240
+ [<ffffffff80241703>] ? worker_thread+0x93/0xd0
+ [<ffffffff802457e0>] ? autoremove_wake_function+0x0/0x40
+ [<ffffffff80241670>] ? worker_thread+0x0/0xd0
+ [<ffffffff8024531d>] ? kthread+0x4d/0x80
+ [<ffffffff8020c699>] ? child_rip+0xa/0x11
+ [<ffffffff8020bca3>] ? restore_args+0x0/0x30
+ [<ffffffff80245476>] ? kthreadd+0x126/0x1b0
+ [<ffffffff802452d0>] ? kthread+0x0/0x80
+ [<ffffffff8020c68f>] ? child_rip+0x0/0x11
 
----[ end trace 92936ef183e09876 ]---
-skge eth1: enabling interface
-skge eth1: Link is up at 100 Mbps, full duplex, flow control both
+netconsole is in use, straight from the start.
 
--- 
-Markus
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+After plugging cable, network is fine.
+
