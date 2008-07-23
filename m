@@ -1,46 +1,52 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] xt_hashlimit: fix race between htable_destroy and htable_gc
-Date: Thu, 24 Jul 2008 01:51:23 +0400
-Message-ID: <4887A7DB.4030305@openvz.org>
+From: Dieter Ries <clip3@gmx.de>
+Subject: Re: Current Git: BUG: unable to handle kernel paging request at 0000000001a40ca0
+Date: Wed, 23 Jul 2008 23:53:36 +0200
+Message-ID: <4887A860.6070607@gmx.de>
+References: <488750AA.20707@gmx.de> <19f34abd0807231046o4b194409w7d0e28a7cd745afa@mail.gmail.com> <48877200.9040608@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, Pekka Enberg <penberg@cs.helsinki.fi>,
+	jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net
+To: Vegard Nossum <vegard.nossum@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xsmtp1.ethz.ch ([82.130.70.13]:2187 "EHLO xsmtp1.ethz.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752768AbYGWVxi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 17:53:38 -0400
+In-Reply-To: <48877200.9040608@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Deleting a timer with del_timer doesn't guarantee, that the
-timer function is not running at the moment of deletion. Thus
-in the xt_hashlimit case we can get into a ticklish situation
-when the htable_gc rearms the timer back and we'll actually
-delete an entry with a pending timer.
+Dieter Ries schrieb:
+> Vegard Nossum schrieb:
+>> Hi,
+> 
+Hi
 
-Fix it with using del_timer_sync().
+>> Dieter: If this is reproducible, it would probably help quite a bit to
+>> configure the kernel with CONFIG_SLUB_DEBUG and boot with
+>> slub_debug=FZPUT (unless you already have CONFIG_SLUB_DEBUG_ON set, in
+>> which case you are already running with the SLUB debugging at boot).
+>> It might catch the corruption before it becomes fatal, or give us some
+>> more clues anyway.
 
-AFAIK del_timer_sync checks for the timer to be pending by
-itself, so I remove the check.
+I tried to bisect the bug, which failed because there were too many 
+kernels not booting with other problems, I guess bisecting just fails in 
+the merge window.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+With CONFIG_SLUB_DEBUG_ON the output looks different, unfortunately 
+netconsole stops before those are transmitted.
 
----
+As there are always some lines about e1000 in the backtraces, I tried to 
+boot without LAN cable connected, and it worked, and crashed afterwards 
+when I plugged the cable in, with a bug in net/core/dev.c.
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 6809af5..d9418a2 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -367,9 +367,7 @@ static void htable_gc(unsigned long htlong)
- 
- static void htable_destroy(struct xt_hashlimit_htable *hinfo)
- {
--	/* remove timer, if it is pending */
--	if (timer_pending(&hinfo->timer))
--		del_timer(&hinfo->timer);
-+	del_timer_sync(&hinfo->timer);
- 
- 	/* remove proc entry */
- 	remove_proc_entry(hinfo->pde->name,
+I will search on tomorrow, as it is getting quite late now.
+
+Should I copy the messages with CONFIG_SLUB_DEBUG_ON by hand, or are 
+just some parts important?
+
+cu
+Dieter
