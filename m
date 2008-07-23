@@ -1,53 +1,78 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 11:17:27 +0200
-Message-ID: <4886F727.6010301@tvcablenet.be>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330
+	__netif_schedule+0x2c/0x98()
+Date: Wed, 23 Jul 2008 09:35:00 +0000
+Message-ID: <20080723093459.GC4561@ff.dom.local>
+References: <20080722.160409.216536011.davem@davemloft.net> <20080723062036.GA4561@ff.dom.local> <20080723.005921.113868915.davem@davemloft.net> <20080723085452.GB4561@ff.dom.local> <1216803786.7257.146.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080723010522.389a948f.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1216803786.7257.146.camel@twins>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton a =E9crit :
-> On Wed, 23 Jul 2008 09:58:21 +0200 Fran__ois Valenduc <francois.valen=
-duc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org> wrote:
->
->  =20
->> P.S: why don't you want to use the bugzilla interface ?
->>    =20
->
-> Depends on the subsystem.  ACPI is 100% bugzilla-based, net people=20
-> prefer email, others are in-between.
->
-> Plus for recently-occurring bugs it's best to knock them over via ema=
-il
-> without getting into bugzilla bureaucracy.  bugzilla is more
-> appropriate to longer-term bugs.
->
-> And when the bug affects multiple subsystems, multiple
-> developers and we don't even know which subsystem introduced it, it i=
-s
-> much better to perform the diagnosis and repair via email.
->
->
-> I make a judgement call on each report.  Been doing it for a while,
-> don't get too many complaints ;)
->
->
->  =20
-OK, thanks for the explanation. But do you have more ideas about the=20
-problem ?
+On Wed, Jul 23, 2008 at 11:03:06AM +0200, Peter Zijlstra wrote:
+> On Wed, 2008-07-23 at 08:54 +0000, Jarek Poplawski wrote:
+> > On Wed, Jul 23, 2008 at 12:59:21AM -0700, David Miller wrote:
+> > > From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > Date: Wed, 23 Jul 2008 06:20:36 +0000
+> > > 
+> > > > PS: if there is nothing new in lockdep the classical method would
+> > > > be to change this static array:
+> > > > 
+> > > > static struct lock_class_key
+> > > > netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)];
+> > > > 
+> > > > to
+> > > > 
+> > > > static struct lock_class_key
+> > > > netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)][MAX_NUM_TX_QUEUES];
+> > > > 
+> > > > and set lockdep classes per queue as well. (If we are sure we don't
+> > > > need lockdep subclasses anywhere this could be optimized by using
+> > > > one lock_class_key per 8 queues and spin_lock_nested()).
+> > > 
+> > > Unfortunately MAX_NUM_TX_QUEUES is USHORT_MAX, so this isn't really
+> > > a feasible approach.
+> > 
+> > Is it used by real devices already? Maybe for the beginning we could
+> > start with something less?
+> > 
+> > > spin_lock_nested() isn't all that viable either, as the subclass
+> > > limit is something like 8.
+> > 
+> > This method would need to do some additional counting: depending of
+> > a queue number each 8 subsequent queues share (are set to) the same
+> > class and their number mod 8 gives the subqueue number for
+> > spin_lock_nested().
+> > 
+> > I'll try to find if there is something new around this in lockdep.
+> > (lockdep people added to CC.)
+> 
+> There isn't.
+> 
+> Is there a static data structure that the driver needs to instantiate to
+> 'create' a queue? Something like:
+> 
+> /* this imaginary e1000 hardware has 16 hardware queues */
+> static struct net_tx_queue e1000e_tx_queues[16]; 
+
+I guess, not.
+
+Then, IMHO, we could be practical and simply skip lockdep validation
+for "some" range of locks: e.g. to set the table for the first 256
+queues only, and to do e.g. __raw_spin_lock() for bigger numbers. (If
+there are any bad locking patterns this should be enough for checking.)
+
+Jarek P.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
