@@ -1,64 +1,49 @@
-From: =?ISO-8859-15?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc@tvcablenet.be>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 16:57:35 +0200
-Message-ID: <488746DF.1050501@tvcablenet.be>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be> <48870425.50908@trash.net> <48871632.3010205@tvcablenet.be> <4887169B.6090102@trash.net> <488725D5.8030900@tvcablenet.be> <488727B3.7040007@trash.net> <48872968.9000103@trash.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] ipmr: delete redundant variable
+Date: Wed, 23 Jul 2008 23:16:24 +0800
+Message-ID: <48874B48.8060001@cn.fujitsu.com>
+References: <48868D54.6050701@cn.fujitsu.com> <200807231003.05848.netdev@axxeo.de> <4886FB56.20905@cn.fujitsu.com> <200807231405.39515.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agave.telenet-ops.be ([195.130.137.77]:33075 "EHLO
-	agave.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753762AbYGWO5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 10:57:40 -0400
-In-Reply-To: <48872968.9000103@trash.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:58426 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971AbYGWPSH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 11:18:07 -0400
+In-Reply-To: <200807231405.39515.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
-> Patrick McHardy wrote:
->> Fran=E7ois Valenduc wrote:
->>> Patrick McHardy a =E9crit :
->>>> Interesting. Could you post straces of both commands please?
->>>>
->>> I also send the output of strace for dhcpd under kernel 2.6.26=20
->>> (where it works correctly).
->>
->> Thanks, I couldn't spot anything in these traces. I'll try to
->> reproduce this with iwl3945.
->
->
-> Well, no luck, the current -git kernel doesn't boot on my notebook
-> and I don't have time for a bisection currently. Could someone
-> else try to verify/debug this?
->
->
-I did the bisection again, this time on the whole tree and the first ba=
-d=20
-commit is again the one I mentioned previously:
+Ingo Oeser said the following on 2008-7-23 20:05:
+> Hi Wand Chen,
+> 
+> Wang Chen schrieb:
+>> But "accessing entry of table by index" is always allowed,
+>> right?
+>> If the complier makes such pointer which spills a register with
+>> the multiply/shift, the simple code as following is bug too:
+>> i = table[100].field;
+>> But it shouldn't, right :)
+> 
+> I'm NOT telling you, that your transformation is introducing a BUG.
+> It is semantically perfectly equivalent.
+> 
+> I'm trying to tell you, that it might not led to the same or better 
+> performance and might thus be not worth it.
+> 
 
-175f9c1bba9b825d22b142d183c9e175488b260c is first bad commit
-commit 175f9c1bba9b825d22b142d183c9e175488b260c
-Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Date:   Sun Jul 20 00:08:47 2008 -0700
+Agree. I also think the accessing by index might lead to worse performance.
+But in this code, we don't care performance, since it only be called when
+device is unregistered. :)
 
-    net_sched: Add size table for qdiscs
+> But please check the generated assembly yourself on a CISC and RISC
+> machine to get an idea of the effects. It will be a nice learning 
+> experience I enjoyed myself already.
+> 
 
-    Add size table functions for qdiscs and calculate packet size in
-    qdisc_enqueue().
-
-    Based on patch by Patrick McHardy
-     http://marc.info/?l=3Dlinux-netdev&m=3D115201979221729&w=3D2
-
-This time, I didn't encounter kernels which didn't compile. So, I didn'=
-t=20
-use git-reset or git-bisect skip.
-
-=46ran=E7ois
+Sure. I am doing it.
 
