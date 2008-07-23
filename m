@@ -1,60 +1,70 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH] net: Update entry in af_family_clock_key_strings
-Date: Wed, 23 Jul 2008 22:28:58 +0200
-Message-ID: <4887948A.6030304@hartkopp.net>
+From: Alex Davis <alex14641@yahoo.com>
+Subject: Re: sleeping in irq context in match()
+Date: Wed, 23 Jul 2008 13:29:45 -0700 (PDT)
+Message-ID: <486649.55257.qm@web50203.mail.re2.yahoo.com>
+References: <20080723191443.GT10471@solarflare.com>
+Reply-To: alex14641@yahoo.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060903080300060203060402"
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:44651 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755919AbYGWU3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 16:29:01 -0400
+Received: from web50203.mail.re2.yahoo.com ([206.190.38.44]:44175 "HELO
+	web50203.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753710AbYGWUg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 16:36:27 -0400
+In-Reply-To: <20080723191443.GT10471@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060903080300060203060402
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+--- On Wed, 7/23/08, Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-In the merge phase of the CAN subsystem the 
-af_family_clock_key_strings[] have been added to sock.c in commit 
-443aef0eddfa44c158d1b94ebb431a70638fcab4 
-(lockdep: fixup sk_callback_lock annotation). This trivial patch adds 
-the missing name for address family 29 (AF_CAN).
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Subject: Re: sleeping in irq context in match()
+> To: "Arjan van de Ven" <arjan@infradead.org>
+> Cc: "Alex Davis" <alex14641@yahoo.com>, netdev@vger.kernel.org
+> Date: Wednesday, July 23, 2008, 3:14 PM
+> Arjan van de Ven wrote:
+> > Hi,
+> > 
+> > the backtrace below is popping up in kerneloops.org
+> stats pretty
+> > quickly; I don't know if it's been discussed
+> here before but
+> > just wanted to mention it in case it hasn't been..
+> > (it's rank 13 right now, out of nowhere)
+> > 
+> > http://www.kerneloops.org/searchweek.php?search=match 
+> for more info
+> > 
+> > 
+> > __might_sleep
+> > mutex_lock_nested
+> > rtnl_lock
+> > *match
+> [...]
+> 
+> Looking at the "more info", I see that that
+> function is in xt_ipisforif,
+> which is an out-of-tree module.  The author appears to be
+> Alex Davis <alex14641@yahoo.com>.
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Communications
+> Not speaking for my employer; that's the marketing
+> department's job.
+My goodness!! Someone is actually using it?? I sumbitted the code back in June '06, but it was rejected by Patrick McHardy. I think his words 
+were something along the lines of 'I don't want to create a new match 
+just for this'. Anyway, I'm still using it on a 2.6.18 kernel. Since
+people are using it, I'll consider fixing it to work on later kernels.
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-Cc: Urs Thuermann <urs@isnogud.escape.de>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Is this something the netfilter team would have an interest in?
 
----
+I code, therefore I am
 
 
-
---------------060903080300060203060402
-Content-Type: text/x-patch;
- name="sock-AF_CAN-clock-key-string.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sock-AF_CAN-clock-key-string.patch"
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 10a64d5..91f8bbc 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -180,7 +180,7 @@ static const char *af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_ASH"   , "clock-AF_ECONET"   , "clock-AF_ATMSVC"   ,
-   "clock-21"       , "clock-AF_SNA"      , "clock-AF_IRDA"     ,
-   "clock-AF_PPPOX" , "clock-AF_WANPIPE"  , "clock-AF_LLC"      ,
--  "clock-27"       , "clock-28"          , "clock-29"          ,
-+  "clock-27"       , "clock-28"          , "clock-AF_CAN"      ,
-   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
-   "clock-AF_RXRPC" , "clock-AF_MAX"
- };
-
---------------060903080300060203060402--
+      
