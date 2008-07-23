@@ -1,85 +1,109 @@
-From: "Jon Nelson" <jnelson@jamponi.net>
-Subject: Re: [Bugme-new] [Bug 11147] New: tg3 + jumbo frames + scatter-gather == inoperative NIC
-Date: Wed, 23 Jul 2008 08:42:40 -0500
-Message-ID: <cccedfc60807230642k7dc569c7ta4b2c108139c0d75@mail.gmail.com>
-References: <cccedfc60807221838h442e3b8ah8022c07a685ead34@mail.gmail.com>
-	 <C27F8246C663564A84BB7AB34397724201E1494B6D@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: [PATCH] skge: resolve tx multiqueue bug
+Date: Wed, 23 Jul 2008 16:03:47 +0200
+Message-ID: <20080723140347.GA2245@gentoox2.trippelsdorf.de>
+References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com> <20080723101827.GA2236@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"jnelson-kernel-bugzilla@jamponi.net"
-	<jnelson-kernel-bugzilla@jamponi.net>,
-	"Matthew Carlson" <mcarlson@broadcom.com>
-To: "Michael Chan" <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alessandro Guido <ag@alessandroguido.name>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:35965 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752523AbYGWNmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 09:42:42 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1131828fgg.17
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 06:42:41 -0700 (PDT)
-In-Reply-To: <C27F8246C663564A84BB7AB34397724201E1494B6D@IRVEXCHCCR01.corp.ad.broadcom.com>
+Received: from smtp-out-41.synserver.de ([217.119.50.41]:1032 "HELO
+	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752932AbYGWOD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 10:03:56 -0400
 Content-Disposition: inline
+In-Reply-To: <20080723101827.GA2236@gentoox2.trippelsdorf.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2008 at 1:25 AM, Michael Chan <mchan@broadcom.com> wrote:
-> Jon Nelson wrote:
->
->> What other information can I provide?
->> This is 100% reproducible.
->>
->
-> Please provide lspci output and tg3 signon output so that
-> we know what device is failing.
+On Wed, Jul 23, 2008 at 12:18:27PM +0200, Markus Trippelsdorf wrote:
+> On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
+> > Markus Trippelsdorf said the following on 2008-7-23 13:40:
+> > > On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
+> > >> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
+> > > 
+> > > Same thing here (latest git):
+> > > 
+> > > skge eth1: enabling interface
+> > > skge eth1: disabling interface
+> > > ------------[ cut here ]------------
+> > > WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
+> > > Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
+> > >  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
+> ...
+> > > ---[ end trace 92936ef183e09876 ]---
+> > > skge eth1: enabling interface
+> > > skge eth1: Link is up at 100 Mbps, full duplex, flow control both
+> > > 
+> > 
+> > Markus, please try this.
+> > 
+> > - Add netif_start_queue() in ->open()
+> > - netif_carrier_*() is enough, remove netif_*_queue()
+> 
+> Unfortunately, your patch does not fix this. I still get the same warning.
+> 
 
-OK. I added the output of:
+This patch works for me:
 
-{ lspci -t ; lspci -vvv; lspci -k -xxx ; } > lspci-all.frank
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 2e26dce..d761296 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -1069,7 +1069,6 @@ static void skge_link_up(struct skge_port *skge)
+                    LED_BLK_OFF|LED_SYNC_OFF|LED_ON);
 
-as an attachment to the bug.
+        netif_carrier_on(skge->netdev);
+-       netif_wake_queue(skge->netdev);
 
-Also:
+        if (netif_msg_link(skge)) {
+                printk(KERN_INFO PFX
+@@ -1084,7 +1083,6 @@ static void skge_link_down(struct skge_port *skge)
+ {
+        skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
+        netif_carrier_off(skge->netdev);
+-       netif_stop_queue(skge->netdev);
 
+        if (netif_msg_link(skge))
+                printk(KERN_INFO PFX "%s: Link is down.\n", skge->netdev->name);
+@@ -2450,7 +2448,6 @@ static void skge_phy_reset(struct skge_port *skge)
+        int port = skge->port;
+        struct net_device *dev = hw->dev[port];
 
-frank:~ # ethtool -t eth0
-The test result is FAIL
-The test extra info:
-nvram test     (online)          0
-link test      (online)          0
-register test  (offline)         1
-memory test    (offline)         0
-loopback test  (offline)         0
-interrupt test (offline)         0
+-       netif_stop_queue(skge->netdev);
+        netif_carrier_off(skge->netdev);
 
-frank:~ #
+        spin_lock_bh(&hw->phy_lock);
+@@ -2640,6 +2637,7 @@ static int skge_up(struct net_device *dev)
+        spin_unlock_irq(&hw->hw_lock);
 
-So, I added the output of:
+        napi_enable(&skge->napi);
++       netif_start_queue(dev);
+        return 0;
 
-ethtool -d eth0
+  free_rx_ring:
+@@ -2673,8 +2671,6 @@ static int skge_down(struct net_device *dev)
+        if (netif_msg_ifdown(skge))
+                printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
 
-Now. The above is all with 1500 byte frames.
-If I switch to 9000 byte frames and take the interface down and then
-back up again, I am unable to communicate with it, *provided*
-scatter-gather is also enabled (which it is by default).
+-       netif_stop_queue(dev);
+-
+        if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
+                del_timer_sync(&skge->link_timer);
 
->From a cold boot (and 1500 byte frames):
+@@ -3863,7 +3859,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
 
-frank:~ # ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-frank:~ #
+        /* device is off until link detection */
+        netif_carrier_off(dev);
+-       netif_stop_queue(dev);
 
-I'll be adding ethtool -d using 9000 byte frames in the next 30 minutes.
-Is there anything else I can provide?
+        return dev;
+ }
+
 
 -- 
-Jon
+Markus
