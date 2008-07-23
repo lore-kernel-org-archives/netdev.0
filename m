@@ -1,97 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 17:19:46 +0200
-Message-ID: <48874C12.10606@trash.net>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be> <48870425.50908@trash.net> <48871632.3010205@tvcablenet.be> <4887169B.6090102@trash.net> <488725D5.8030900@tvcablenet.be> <488727B3.7040007@trash.net> <48872968.9000103@trash.net> <488746DF.1050501@tvcablenet.be> <48874BD8.60600@trash.net>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH] skge: resolve tx multiqueue bug
+Date: Wed, 23 Jul 2008 23:21:14 +0800
+Message-ID: <48874C6A.1020604@cn.fujitsu.com>
+References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com> <20080723101827.GA2236@gentoox2.trippelsdorf.de> <20080723140347.GA2245@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060809030809080308010209"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-To: =?ISO-8859-15?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc@tvcablenet.be>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Alessandro Guido <ag@alessandroguido.name>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37687 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394AbYGWPTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 11:19:49 -0400
-In-Reply-To: <48874BD8.60600@trash.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:64951 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752232AbYGWPWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 11:22:47 -0400
+In-Reply-To: <20080723140347.GA2245@gentoox2.trippelsdorf.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060809030809080308010209
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 8bit
-
-Patrick McHardy wrote:
-> François Valenduc wrote:
->> I did the bisection again, this time on the whole tree and the first 
->> bad commit is again the one I mentioned previously:
+Markus Trippelsdorf said the following on 2008-7-23 22:03:
+> On Wed, Jul 23, 2008 at 12:18:27PM +0200, Markus Trippelsdorf wrote:
+>> On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
+>>> Markus Trippelsdorf said the following on 2008-7-23 13:40:
+>>>> On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
+>>>>> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
+>>>> Same thing here (latest git):
+>>>>
+>>>> skge eth1: enabling interface
+>>>> skge eth1: disabling interface
+>>>> ------------[ cut here ]------------
+>>>> WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
+>>>> Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
+>>>>  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
+>> ...
+>>>> ---[ end trace 92936ef183e09876 ]---
+>>>> skge eth1: enabling interface
+>>>> skge eth1: Link is up at 100 Mbps, full duplex, flow control both
+>>>>
+>>> Markus, please try this.
+>>>
+>>> - Add netif_start_queue() in ->open()
+>>> - netif_carrier_*() is enough, remove netif_*_queue()
+>> Unfortunately, your patch does not fix this. I still get the same warning.
 >>
->> 175f9c1bba9b825d22b142d183c9e175488b260c is first bad commit
->> commit 175f9c1bba9b825d22b142d183c9e175488b260c
->> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
->> Date:   Sun Jul 20 00:08:47 2008 -0700
->>
->>    net_sched: Add size table for qdiscs
->>
->>    Add size table functions for qdiscs and calculate packet size in
->>    qdisc_enqueue().
->>
->>    Based on patch by Patrick McHardy
->>     http://marc.info/?l=linux-netdev&m=115201979221729&w=2
->>
->> This time, I didn't encounter kernels which didn't compile. So, I 
->> didn't use git-reset or git-bisect skip.
 > 
-> 
-> I think I know whats happening (Jussi CCed). That commit introduced
-> a qdisc_skb_cb, which conflicts with the mac80211 usage of skb->cb.
-> mac80211 seems to expect the CB to survive the qdisc layer, which
-> is wrong. One possibility to fix this (or just test my theory)
-> would be to make sure they don't clash by adding the struct
-> ieee80211_tx_info to qdisc_skb_cb->data. Something like this patch.
-> 
+> This patch works for me:
 
- > +#include <net/sched_generic.h>
+Your patch works for me too. So I think it's better than mine. :)
 
-That should be sch_generic.h.
+Tested-by: Wang Chen <wangchen@cn.fujitsu.com>
+
+Dave, since Markus and me tested this patch, would you please apply it?
 
 
---------------060809030809080308010209
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
 
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index 4dd3d93..e19815e 100644
---- a/include/net/mac80211.h
-+++ b/include/net/mac80211.h
-@@ -19,6 +19,7 @@
- #include <linux/wireless.h>
- #include <linux/device.h>
- #include <linux/ieee80211.h>
-+#include <net/sch_generic.h>
- #include <net/wireless.h>
- #include <net/cfg80211.h>
- 
-@@ -343,7 +344,10 @@ struct ieee80211_tx_info {
- 
- static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb)
- {
--	return (struct ieee80211_tx_info *)skb->cb;
-+	BUILD_BUG_ON(sizeof(skb->cb) <
-+		     sizeof(struct qdisc_skb_cb) +
-+		     sizeof(struct ieee80211_tx_info));
-+	return (struct ieee80211_tx_info *)qdisc_skb_cb(skb)->data;
- }
- 
- 
-
---------------060809030809080308010209--
