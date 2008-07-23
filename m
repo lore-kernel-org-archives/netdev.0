@@ -1,49 +1,65 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [NET-NEXT PATCH 1/9] e1000: neaten function declarations
-Date: Wed, 23 Jul 2008 09:13:37 -0700
-Message-ID: <9929d2390807230913v13c3f317n44e8313cfad45874@mail.gmail.com>
-References: <20080711221442.3255.16180.stgit@localhost.localdomain>
-	 <20080711221702.3255.43654.stgit@localhost.localdomain>
-	 <48866FD4.2010706@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
+Date: Wed, 23 Jul 2008 18:25:48 +0200
+Message-ID: <48875B8C.2090800@trash.net>
+References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be> <48870425.50908@trash.net> <48871632.3010205@tvcablenet.be> <4887169B.6090102@trash.net> <488725D5.8030900@tvcablenet.be> <488727B3.7040007@trash.net> <48872968.9000103@trash.net> <488746DF.1050501@tvcablenet.be> <48874BD8.60600@trash.net> <48874C12.10606@trash.net> <4887514C.6080903@tvcablenet.be> <488753C6.2090807@trash.net> <4887550B.2070704@tvcablenet.be> <4887555A.30605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Joe Perches" <joe@perches.com>
-To: "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+To: =?UTF-8?B?RnJhbsOnb2lzIFZhbGVuZHVj?=
+	<francois.valenduc@tvcablenet.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:25342 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409AbYGWQNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 12:13:38 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so1446976waf.23
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 09:13:38 -0700 (PDT)
-In-Reply-To: <48866FD4.2010706@garzik.org>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:39245 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbYGWQZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 12:25:54 -0400
+In-Reply-To: <4887555A.30605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2008 at 4:40 PM, Jeff Garzik <jeff@garzik.org> wrote:
-> Jeff Kirsher wrote:
->>
->> From: Joe Perches <joe@perches.com>
->>
->> Signed-off-by: Joe Perches <joe@perches.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>
->>  drivers/net/e1000/e1000_ethtool.c |  175 +++++-------
->>  drivers/net/e1000/e1000_hw.c      |  558
->> +++++++++++++------------------------
->>  drivers/net/e1000/e1000_main.c    |  307 ++++++++------------
->>  drivers/net/e1000/e1000_param.c   |   16 -
->>  4 files changed, 385 insertions(+), 671 deletions(-)
->
-> applied 1-9, after making the obvious fixes to the er32/ew32 patch
->
+Patrick McHardy wrote:
+> Fran=C3=A7ois Valenduc wrote:
+>> Patrick McHardy a =C3=A9crit :
+>>>> In file included from net/mac80211/main.c:11:
+>>>> include/net/mac80211.h: In function =E2=80=98IEEE80211_SKB_CB=E2=80=
+=99:
+>>>> include/net/mac80211.h:347: erreur: size of array =E2=80=98type na=
+me=E2=80=99 is=20
+>>>> negative
+>>>
+>>>
+>>> I was afraid that might happen. This means skb->cb is not large
+>>> enough to hold both the qdisc and the ieee80211 structs.
+>>>
+>>> Just for testing, changing (include/net/mac80211.h):
+>>>
+>>> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
+>>>         (sizeof(((struct sk_buff *)0)->cb) - 8)
+>>>
+>>> to
+>>>
+>>> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
+>>>         (sizeof(((struct sk_buff *)0)->cb) - 12)
+>>>
+>>> might help to get it to compile. If that doesn't work, try -16.
+>>>
+>>>
+>> That didn't work, neither with -12 or -16.
+>=20
+> I'll give it a try myself, please wait a few minutes.
 
-Thanks.
+We can't fit them into the cb together, I don't see a way to
+shrink ieee80211_tx_info.
 
--- 
-Cheers,
-Jeff
+Maybe one of the wireless folks can suggest something? Is it
+really necessary to pass the full struct ieee80211_tx_info
+through the qdisc layer, or could the struct be split? It
+needs to find a way to co-exist peacefully with qdiscs'
+skb->cb usage.
+
