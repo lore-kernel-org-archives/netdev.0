@@ -1,65 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 18:25:48 +0200
-Message-ID: <48875B8C.2090800@trash.net>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be> <48870425.50908@trash.net> <48871632.3010205@tvcablenet.be> <4887169B.6090102@trash.net> <488725D5.8030900@tvcablenet.be> <488727B3.7040007@trash.net> <48872968.9000103@trash.net> <488746DF.1050501@tvcablenet.be> <48874BD8.60600@trash.net> <48874C12.10606@trash.net> <4887514C.6080903@tvcablenet.be> <488753C6.2090807@trash.net> <4887550B.2070704@tvcablenet.be> <4887555A.30605@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: someone broke qeth_l3_main.c
+Date: Wed, 23 Jul 2008 12:28:42 -0400
+Message-ID: <48875C3A.4020300@garzik.org>
+References: <20080723012805.8a528347.akpm@linux-foundation.org> <1216802230.5517.13.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-To: =?UTF-8?B?RnJhbsOnb2lzIFZhbGVuZHVj?=
-	<francois.valenduc@tvcablenet.be>
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	netdev@vger.kernel.org
+To: schwidefsky@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39245 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbYGWQZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 12:25:54 -0400
-In-Reply-To: <4887555A.30605@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:35003 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104AbYGWQ3W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 12:29:22 -0400
+In-Reply-To: <1216802230.5517.13.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Fran=C3=A7ois Valenduc wrote:
->> Patrick McHardy a =C3=A9crit :
->>>> In file included from net/mac80211/main.c:11:
->>>> include/net/mac80211.h: In function =E2=80=98IEEE80211_SKB_CB=E2=80=
-=99:
->>>> include/net/mac80211.h:347: erreur: size of array =E2=80=98type na=
-me=E2=80=99 is=20
->>>> negative
->>>
->>>
->>> I was afraid that might happen. This means skb->cb is not large
->>> enough to hold both the qdisc and the ieee80211 structs.
->>>
->>> Just for testing, changing (include/net/mac80211.h):
->>>
->>> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
->>>         (sizeof(((struct sk_buff *)0)->cb) - 8)
->>>
->>> to
->>>
->>> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
->>>         (sizeof(((struct sk_buff *)0)->cb) - 12)
->>>
->>> might help to get it to compile. If that doesn't work, try -16.
->>>
->>>
->> That didn't work, neither with -12 or -16.
->=20
-> I'll give it a try myself, please wait a few minutes.
+Martin Schwidefsky wrote:
+> On Wed, 2008-07-23 at 01:28 -0700, Andrew Morton wrote:
+>> drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_hard_start_xmit':
+>> drivers/s390/net/qeth_l3_main.c:2654: error: implicit declaration of function 'VLAN_TX_SKB_CB'
+>> drivers/s390/net/qeth_l3_main.c:2654: error: invalid type argument of '->'
+> 
+> Frank already sent a patch to Jeff to fix this. It should be in Jeffs
+> queue now.
 
-We can't fit them into the cb together, I don't see a way to
-shrink ieee80211_tx_info.
+Should be upstream now...
 
-Maybe one of the wireless folks can suggest something? Is it
-really necessary to pass the full struct ieee80211_tx_info
-through the qdisc layer, or could the struct be split? It
-needs to find a way to co-exist peacefully with qdiscs'
-skb->cb usage.
+
 
