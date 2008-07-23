@@ -1,57 +1,32 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: bug: mutex_lock() in interrupt conntext via phy_stop() in
-	gianfar
-Date: Thu, 24 Jul 2008 08:12:48 +1000
-Message-ID: <1216851168.11027.343.camel@pasglop>
-References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
-	 <1216681028.7559.993.camel@localhost.localdomain>
-Reply-To: benh@kernel.crashing.org
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: WARNING: at net/core/dev.c:1344 __netif_schedule+0x26/0x76()
+Date: Wed, 23 Jul 2008 15:21:41 -0700
+Message-ID: <200807231521.41393.david-b@pacbell.net>
+References: <200807231325.25672.david-b@pacbell.net> <20080723.140734.28877846.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sebastian Siewior <netdev@ml.breakpoint.cc>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Li Yang <leoli@freescale.com>
-To: Nate Case <ncase@xes-inc.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45050 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799AbYGWWNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 18:13:16 -0400
-In-Reply-To: <1216681028.7559.993.camel@localhost.localdomain>
+Received: from smtp117.sbc.mail.sp1.yahoo.com ([69.147.64.90]:24735 "HELO
+	smtp117.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753762AbYGWWVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 18:21:43 -0400
+In-Reply-To: <20080723.140734.28877846.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-07-21 at 17:57 -0500, Nate Case wrote:
-> On Fri, 2008-07-18 at 14:10 +0200, Sebastian Siewior wrote:
-> > Commit 35b5f6b1a aka [PHYLIB: Locking fixes for PHY I/O potentially sleeping]
-> > changed the phydev->lock from spinlock into a mutex. Now, the following
-> > code path got triggered while NFS was unavailable:
-> > 
-> [snip]
-> > |[  194.864733] BUG: sleeping function called from invalid context at /home/bigeasy/git/linux-2.6-powerpc/kernel/mutex.c:87
-> > |[  194.875529] in_atomic():1, irqs_disabled():0
-> > |[  194.879805] Call Trace:
-> > |[  194.882250] [c0383d90] [c0006dd8] show_stack+0x48/0x184 (unreliable)
-> > |[  194.888649] [c0383db0] [c001e938] __might_sleep+0xe0/0xf4
-> > |[  194.894069] [c0383dc0] [c025a43c] mutex_lock+0x24/0x3c
-> > |[  194.899234] [c0383de0] [c019005c] phy_stop+0x20/0x70
-> > |[  194.904234] [c0383df0] [c018d4ec] stop_gfar+0x28/0xf4
-> > |[  194.909305] [c0383e10] [c018e8c4] gfar_timeout+0x30/0x60
-> > |[  194.914638] [c0383e20] [c01fe7c0] dev_watchdog+0xa8/0x144
+On Wednesday 23 July 2008, David Miller wrote:
 > 
-> Hmm..  I'm not sure what the best solution is to this.  Make the
-> stop_gfar() call happen in a workqueue, and make a similar change to
-> ucc_geth, fec_mpc52xx, and fs_enet? Modify phy_stop() to do the work in
-> a workqueue conditionally if in interrupt context?  Between these two
-> I'd lean toward the latter.
+> > What change to device initialization is needed remove this warning?
 > 
-> Does anyone have any better ideas?
+> Just ignore it, I'm going to remove the warning today.
 
-Move the reset task to a workqueue.
+OK -- that's easier than I had hoped!  :)
 
-Cheers,
-Ben.
+Thanks.
 
-
+- dave
