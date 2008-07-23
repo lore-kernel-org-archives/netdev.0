@@ -1,63 +1,235 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC] napi: adding an administrative state & priority
-Date: Wed, 23 Jul 2008 15:27:13 -0400
-Message-ID: <20080723192548.GA14654@hmsreliant.think-freely.org>
+From: denys@visp.net.lb
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Wed, 23 Jul 2008 22:47:17 +0300
+Message-ID: <200807232247.17218.denys@visp.net.lb>
+References: <200807222142.23710.denys@visp.net.lb> <200807222346.36284.denys@visp.net.lb> <20080722213603.GA3026@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jgarzik@pobox.com, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4154 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752649AbYGWT1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 15:27:43 -0400
+Received: from relay2.globalproof.net ([194.146.153.25]:57318 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753553AbYGWTr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 15:47:29 -0400
+In-Reply-To: <20080722213603.GA3026@ami.dom.local>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was looking at our napi code recently, and two ideas struck me that I thought
-would be nice to integrate into the napi infrastructure, but I thought I gather
-some opinions on them before I went to the trouble to implement them:
+Seems none of patches help with issue.
+I will recheck if i apply them correctly.
 
-1) An administrative state for napi, specifically administratively disabled
-state, on a per-interface basis.  When napi was administratively disabled the
-interface would behave as though napi had never been configured on it.  I.E.
-netif_rx_schedule would call directly into dev->poll with a budget of 1, so as
-to behave like a legacy interrupt handler.   setting of this administrative
-state can be handled through sysfs
+Here is latest.
+Jul 23 21:37:19 10.154.154.1 [28896.091934] Process swapper (pid: 0, ti=c0842000 task=f7c35c80 task.ti=f7c3d000)
+Jul 23 21:37:19 10.154.154.1
+Jul 23 21:37:19 10.154.154.1 [28896.091934] Stack:
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 c0842eec
+Jul 23 21:37:19 10.154.154.1 c01d7cc9
+Jul 23 21:37:19 10.154.154.1 c2df6498
+Jul 23 21:37:19 10.154.154.1 00000000
+Jul 23 21:37:19 10.154.154.1 00000000
+Jul 23 21:37:19 10.154.154.1
+Jul 23 21:37:19 10.154.154.1 [28896.091934]
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 f6ce64c8
+Jul 23 21:37:19 10.154.154.1 c2df6490
+Jul 23 21:37:19 10.154.154.1 c0842f0c
+Jul 23 21:37:19 10.154.154.1 c0133e9c
+Jul 23 21:37:19 10.154.154.1 00000001
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 00000000
+Jul 23 21:37:19 10.154.154.1
+Jul 23 21:37:19 10.154.154.1 [28896.091934]
+Jul 23 21:37:19 10.154.154.1 c2df6490
+Jul 23 21:37:19 10.154.154.1 f6ce64c4
+Jul 23 21:37:19 10.154.154.1 c2df6490
+Jul 23 21:37:19 10.154.154.1 c0842f34
+Jul 23 21:37:19 10.154.154.1 c01344d3
+Jul 23 21:37:19 10.154.154.1 c2df6484
+Jul 23 21:37:19 10.154.154.1 76103400
+Jul 23 21:37:19 10.154.154.1 00001a45
+Jul 23 21:37:19 10.154.154.1
+Jul 23 21:37:19 10.154.154.1 [28896.091934] Call Trace:
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c01d7cc9>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 rb_insert_color+0x99/0xbc
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0133e9c>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 enqueue_hrtimer+0xfa/0x106
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c01344d3>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 hrtimer_start+0xee/0x118
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0267db2>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 qdisc_watchdog_schedule+0x19/0x1f
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<f89eadf3>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 htb_dequeue+0x6a8/0x6b3 [sch_htb]
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0266e5d>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 __qdisc_run+0x5f/0x191
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c025b1a5>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 net_tx_action+0xb4/0xda
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0125817>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 __do_softirq+0x6f/0xe9
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c010614b>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 do_softirq+0x5e/0xa8
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0146f79>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 handle_edge_irq+0x0/0x10a
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0125775>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 irq_exit+0x44/0x77
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0106235>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 do_IRQ+0xa0/0xb7
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0108fb5>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 mwait_idle+0x0/0x43
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c01042fa>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 common_interrupt+0x2e/0x34
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0108fb5>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 mwait_idle+0x0/0x43
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c01300d8>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 param_set_copystring+0x36/0x60
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0108fee>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 mwait_idle+0x39/0x43
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c0102596>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 cpu_idle+0x9a/0xba
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  [<c02af0a7>]
+Jul 23 21:37:19 10.154.154.1 ?
+Jul 23 21:37:19 10.154.154.1 start_secondary+0x160/0x165
+Jul 23 21:37:19 10.154.154.1 [28896.091934]  =======================
+Jul 23 21:37:19 10.154.154.1 [28896.091934] Code:
+Jul 23 21:37:19 10.154.154.1 09
+Jul 23 21:37:19 10.154.154.1 8b
+Jul 23 21:37:19 10.154.154.1 01
+Jul 23 21:37:19 10.154.154.1 83
+Jul 23 21:37:19 10.154.154.1 e0
+Jul 23 21:37:19 10.154.154.1 03
+Jul 23 21:37:19 10.154.154.1 09
+Jul 23 21:37:19 10.154.154.1 d8
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 01
+Jul 23 21:37:19 10.154.154.1 8b
+Jul 23 21:37:19 10.154.154.1 02
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 5a
+Jul 23 21:37:19 10.154.154.1 08
+Jul 23 21:37:19 10.154.154.1 83
+Jul 23 21:37:19 10.154.154.1 e0
+Jul 23 21:37:19 10.154.154.1 03
+Jul 23 21:37:19 10.154.154.1 09
+Jul 23 21:37:19 10.154.154.1 f0
+Jul 23 21:37:19 10.154.154.1 85
+Jul 23 21:37:19 10.154.154.1 f6
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 02
+Jul 23 21:37:19 10.154.154.1 74
+Jul 23 21:37:19 10.154.154.1 0f
+Jul 23 21:37:19 10.154.154.1 3b
+Jul 23 21:37:19 10.154.154.1 5e
+Jul 23 21:37:19 10.154.154.1 08
+Jul 23 21:37:19 10.154.154.1 75
+Jul 23 21:37:19 10.154.154.1 05
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 56
+Jul 23 21:37:19 10.154.154.1 08
+Jul 23 21:37:19 10.154.154.1 eb
+Jul 23 21:37:19 10.154.154.1 07
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 56
+Jul 23 21:37:19 10.154.154.1 04
+Jul 23 21:37:19 10.154.154.1 eb
+Jul 23 21:37:19 10.154.154.1 02
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 17
+Jul 23 21:37:19 10.154.154.1 unparseable log message: "<8b> "
+Jul 23 21:37:19 10.154.154.1 03
+Jul 23 21:37:19 10.154.154.1 83
+Jul 23 21:37:19 10.154.154.1 e0
+Jul 23 21:37:19 10.154.154.1 03
+Jul 23 21:37:19 10.154.154.1 09
+Jul 23 21:37:19 10.154.154.1 d0
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 03
+Jul 23 21:37:19 10.154.154.1 5b
+Jul 23 21:37:19 10.154.154.1 5e
+Jul 23 21:37:19 10.154.154.1 5f
+Jul 23 21:37:19 10.154.154.1 5d
+Jul 23 21:37:19 10.154.154.1 c3
+Jul 23 21:37:19 10.154.154.1 55
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 e5
+Jul 23 21:37:19 10.154.154.1 57
+Jul 23 21:37:19 10.154.154.1 89
+Jul 23 21:37:19 10.154.154.1 d7
+Jul 23 21:37:19 10.154.154.1 56
+Jul 23 21:37:19 10.154.154.1
 
-2) A priority value attached to napi_struct.  Much in the same way that a napi
-instances weight constrains how much work will be done by a driver in a given
-napi poll, a priority can be assigned to a napi_struct such that its selection
-in net_rx_action will be prioritized over other interfaces.  Like above, we can
-handle the assignment of priorities on a per napi instance basis through sysfs.
 
-My reasoning for these features is common in that I've had occasion to observe
-some workloads where incomming data that is highly sensitive to loss and
-latency, gets lost near the hardware.  Most often this happens because the
-latency from the time of interrupt to the time of serving in dev->poll is
-sufficient to overrun a hardware buffer, or the devices ring buffer.  While ring
-buffers can be extended, I'm personally loathe to simply try out run the problem
-by adding ring-buffer space.  It would be nice if we had a way to drain the
-overrunning queue faster, rather than just making it longer.
+On Wednesday 23 July 2008, Jarek Poplawski wrote:
+> On Tue, Jul 22, 2008 at 11:46:36PM +0300, denys@visp.net.lb wrote:
+> > First patch - probably not related. Netconsole is on e100.
+> > Second patch looks reasonable, because there is external interface (it is router) and e1000e there, with enabled TSO. Maybe some scanning tools doing connect to SSH and... BOOM.. i will try to patch it, thanks a lot!
+> 
+> On the other hand, it seems the corruption of skbs fixed by this
+> second patch should probably show in some other places...
+> 
+> I wonder if you tried to run this without netconsole (or maybe
+> netconsole on another dev/driver) or without this NMI watchdog,
+> and similar lockups still happened?
+> 
+> Jarek P.
+> 
+> > 
+> > On Tuesday 22 July 2008, Jarek Poplawski wrote:
+> > > Jarek Poplawski wrote, On 07/22/2008 10:13 PM:
+> > > 
+> > > > denys@visp.net.lb wrote, On 07/22/2008 08:42 PM:
+> > > > 
+> > > >> workload: ifb shapers, HTB, nat, 1 e1000, 3 e100 (heavily used only two e100)
+> > > >>
+> > > > 
+> > > > 
+> > > > Maybe it's unconnected but I'd recommend to try this fresh patch for
+> > > > possible problems with e1000e vs. netconsole:
+> > > > 
+> > > > http://permalink.gmane.org/gmane.linux.network/100581
+> > >  
+> > > 
+> > > ...and if you have TSO enabled, here is another "maybe unconnected"
+> > > recommendation:
+> > > 
+> > > http://permalink.gmane.org/gmane.linux.network/99585
+> > > 
+> > > Jarek P.
+> > > 
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > 
+> > 
+> > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I think this is also an adventageous set of ideas, in that it would allow us to
-make better use of interrupt coalescing features on the hardware.  Currently
-changing interrupt coalescing on the hardware can effectively reduce or increase
-the interrupt volume seen from a given NIC in a system.  Its performance impact
-is clouded however since the interrupt is deferred until such time as the napi
-poll routine is run, which could be some time, dependent on what else is going
-on in the system.  While reasons to do this might be suspect in some situations,
-I think it would be helpful to have a way to disable napi on an interface so
-effects of hardware adjustments can be more clearly seen
 
-So, there are my thoughts, please feel free to pick them to shreds.
-
-Thanks & Regards
-Neil
-
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
