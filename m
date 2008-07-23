@@ -1,71 +1,85 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: q == &noop_qdisc warning from 802.11 code
-Date: Wed, 23 Jul 2008 10:41:22 -0300
-Message-ID: <48873502.1030106@linux.vnet.ibm.com>
-References: <488723FF.8070707@gmail.com>
+From: "Jon Nelson" <jnelson@jamponi.net>
+Subject: Re: [Bugme-new] [Bug 11147] New: tg3 + jumbo frames + scatter-gather == inoperative NIC
+Date: Wed, 23 Jul 2008 08:42:40 -0500
+Message-ID: <cccedfc60807230642k7dc569c7ta4b2c108139c0d75@mail.gmail.com>
+References: <cccedfc60807221838h442e3b8ah8022c07a685ead34@mail.gmail.com>
+	 <C27F8246C663564A84BB7AB34397724201E1494B6D@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Michael Wu <flamingice@sourmilk.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Jiri Slaby <jirislaby@GMAIL.COM>
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
+	"jnelson-kernel-bugzilla@jamponi.net"
+	<jnelson-kernel-bugzilla@jamponi.net>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw3.br.ibm.com ([32.104.18.26]:51155 "EHLO igw3.br.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752741AbYGWNlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 09:41:52 -0400
-In-Reply-To: <488723FF.8070707@gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.157]:35965 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752523AbYGWNmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 09:42:42 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1131828fgg.17
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 06:42:41 -0700 (PDT)
+In-Reply-To: <C27F8246C663564A84BB7AB34397724201E1494B6D@IRVEXCHCCR01.corp.ad.broadcom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Slaby wrote:
-> Hi,
-> 
-> I hit the warning from __netif_schedule:
+On Wed, Jul 23, 2008 at 1:25 AM, Michael Chan <mchan@broadcom.com> wrote:
+> Jon Nelson wrote:
+>
+>> What other information can I provide?
+>> This is 100% reproducible.
+>>
+>
+> Please provide lspci output and tg3 signon output so that
+> we know what device is failing.
 
-I also hit a bug related to noop_qdisc running the net-next kernel. 
-I hit this bug every time I run "ifconfig eth0 mtu 9000; ifconfg eth0 1500" for any
-interface (tested against s2io and e1000) that is up, otherwise the bug isn't
-reproducible.
+OK. I added the output of:
 
-The bug dumps the following calltrace: 
+{ lspci -t ; lspci -vvv; lspci -k -xxx ; } > lspci-all.frank
 
-[root@io-dolphins net-next-2.6]# ifconfig eth0  mtu 9000; ifconfig eth0 mtu 1500
-------------[ cut here ]------------
-kernel BUG at net/core/dev.c:1328!
-cpu 0x1: Vector: 700 (Program Check) at [c0000000be3d3460]
-    pc: c0000000003603ac: .__netif_schedule+0x2c/0xb8
-    lr: d00000000026b014: .s2io_change_mtu+0x1c4/0x27c [s2io]
-    sp: c0000000be3d36e0
-   msr: 8000000000029032
-  current = 0xc0000000bc4042b0
-  paca    = 0xc0000000006f3680
-    pid   = 3496, comm = ifconfig
-kernel BUG at net/core/dev.c:1328!
-enter ? for help
-[c0000000be3d3760] d00000000026b014 .s2io_change_mtu+0x1c4/0x27c [s2io]
-[c0000000be3d3800] c0000000003631ac .dev_set_mtu+0x68/0xb0
-[c0000000be3d3880] c000000000364bc4 .dev_ioctl+0x67c/0x780
-[c0000000be3d3990] c000000000354394 .sock_ioctl+0x2d8/0x310
-[c0000000be3d3a30] c0000000001054b4 .vfs_ioctl+0x5c/0xf0
-[c0000000be3d3ad0] c000000000105954 .do_vfs_ioctl+0x40c/0x448
-[c0000000be3d3b80] c000000000105a00 .sys_ioctl+0x70/0xb4
-[c0000000be3d3c30] c00000000013a2e8 .dev_ifsioc+0x1b0/0x3e4
-[c0000000be3d3d40] c0000000001398a8 .compat_sys_ioctl+0x3d4/0x468
-[c0000000be3d3e30] c0000000000086b4 syscall_exit+0x0/0x40
---- Exception: c00 (System Call) at 000000000ff15fe8
-SP (ffecf8a0) is in userspace
+as an attachment to the bug.
 
-And the code which is causing the bug is the following: 
+Also:
 
-void __netif_schedule(struct Qdisc *q)
-{
-        BUG_ON(q == &noop_qdisc);
 
-So, somehow we're reaching __netif_schedule() using a noop_qdisc. 
+frank:~ # ethtool -t eth0
+The test result is FAIL
+The test extra info:
+nvram test     (online)          0
+link test      (online)          0
+register test  (offline)         1
+memory test    (offline)         0
+loopback test  (offline)         0
+interrupt test (offline)         0
+
+frank:~ #
+
+So, I added the output of:
+
+ethtool -d eth0
+
+Now. The above is all with 1500 byte frames.
+If I switch to 9000 byte frames and take the interface down and then
+back up again, I am unable to communicate with it, *provided*
+scatter-gather is also enabled (which it is by default).
+
+>From a cold boot (and 1500 byte frames):
+
+frank:~ # ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+frank:~ #
+
+I'll be adding ethtool -d using 9000 byte frames in the next 30 minutes.
+Is there anything else I can provide?
+
 -- 
-Breno Leitao
-leitao@linux.vnet.ibm.com
+Jon
