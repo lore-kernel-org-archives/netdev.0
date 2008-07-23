@@ -1,32 +1,106 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: WARNING: at net/core/dev.c:1344 __netif_schedule+0x26/0x76()
-Date: Wed, 23 Jul 2008 15:21:41 -0700
-Message-ID: <200807231521.41393.david-b@pacbell.net>
-References: <200807231325.25672.david-b@pacbell.net> <20080723.140734.28877846.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Thu, 24 Jul 2008 00:26:32 +0200
+Message-ID: <20080723222631.GA2397@ami.dom.local>
+References: <200807222142.23710.denys@visp.net.lb> <200807222346.36284.denys@visp.net.lb> <20080722213603.GA3026@ami.dom.local> <200807232247.17218.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp117.sbc.mail.sp1.yahoo.com ([69.147.64.90]:24735 "HELO
-	smtp117.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753762AbYGWWVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 18:21:43 -0400
-In-Reply-To: <20080723.140734.28877846.davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.169]:56099 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768AbYGWW1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 18:27:04 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so549155ugf.16
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 15:27:02 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200807232247.17218.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 July 2008, David Miller wrote:
-> 
-> > What change to device initialization is needed remove this warning?
-> 
-> Just ignore it, I'm going to remove the warning today.
+(take 2)
 
-OK -- that's easier than I had hoped!  :)
+Hmm... this should be more accurate.
 
-Thanks.
+Jarek P.
 
-- dave
+---
+
+ net/sched/sch_htb.c |   28 +++++++++++++++++++++++-----
+ 1 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 3fb58f4..fdc84c3 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -169,7 +169,8 @@ struct htb_sched {
+ 
+ 	int rate2quantum;	/* quant = rate / rate2quantum */
+ 	psched_time_t now;	/* cached dequeue time */
+-	struct qdisc_watchdog watchdog;
++	//struct qdisc_watchdog watchdog;
++	struct timer_list timer;	/* send delay timer */
+ 
+ 	/* non shaped skbs; let them go directly thru */
+ 	struct sk_buff_head direct_queue;
+@@ -893,6 +894,14 @@ next:
+ 	return skb;
+ }
+ 
++static void htb_timer(unsigned long arg)
++{
++	struct Qdisc *sch = (struct Qdisc*)arg;
++	sch->flags &= ~TCQ_F_THROTTLED;
++	wmb();
++	netif_schedule(sch->dev);
++}
++
+ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
+ {
+ 	struct sk_buff *skb = NULL;
+@@ -943,7 +952,9 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
+ 		}
+ 	}
+ 	sch->qstats.overlimits++;
+-	qdisc_watchdog_schedule(&q->watchdog, next_event);
++	//qdisc_watchdog_schedule(&q->watchdog, next_event);
++	mod_timer(&q->timer, (unsigned long)next_event * HZ /
++				 PSCHED_TICKS_PER_SEC);
+ fin:
+ 	return skb;
+ }
+@@ -996,7 +1007,9 @@ static void htb_reset(struct Qdisc *sch)
+ 
+ 		}
+ 	}
+-	qdisc_watchdog_cancel(&q->watchdog);
++	//qdisc_watchdog_cancel(&q->watchdog);
++	sch->flags &= ~TCQ_F_THROTTLED;
++	del_timer(&q->timer);
+ 	__skb_queue_purge(&q->direct_queue);
+ 	sch->q.qlen = 0;
+ 	memset(q->row, 0, sizeof(q->row));
+@@ -1047,7 +1060,11 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 	for (i = 0; i < TC_HTB_NUMPRIO; i++)
+ 		INIT_LIST_HEAD(q->drops + i);
+ 
+-	qdisc_watchdog_init(&q->watchdog, sch);
++	//qdisc_watchdog_init(&q->watchdog, sch);
++	q->timer.function = htb_timer;
++	q->timer.data = (unsigned long)sch;
++	init_timer(&q->timer);
++
+ 	skb_queue_head_init(&q->direct_queue);
+ 
+ 	q->direct_qlen = sch->dev->tx_queue_len;
+@@ -1262,7 +1279,8 @@ static void htb_destroy(struct Qdisc *sch)
+ {
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 
+-	qdisc_watchdog_cancel(&q->watchdog);
++	//qdisc_watchdog_cancel(&q->watchdog);
++	del_timer_sync(&q->timer);
+ 	/* This line used to be after htb_destroy_class call below
+ 	   and surprisingly it worked in 2.4. But it must precede it
+ 	   because filter need its target class alive to be able to call
