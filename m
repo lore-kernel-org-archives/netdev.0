@@ -1,70 +1,49 @@
-From: Alex Davis <alex14641@yahoo.com>
-Subject: Re: sleeping in irq context in match()
-Date: Wed, 23 Jul 2008 13:29:45 -0700 (PDT)
-Message-ID: <486649.55257.qm@web50203.mail.re2.yahoo.com>
-References: <20080723191443.GT10471@solarflare.com>
-Reply-To: alex14641@yahoo.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: Performance degradation on 2.6.25 kernels for http servers
+Date: Wed, 23 Jul 2008 13:37:30 -0700
+Message-ID: <4887968A.10308@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web50203.mail.re2.yahoo.com ([206.190.38.44]:44175 "HELO
-	web50203.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753710AbYGWUg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 16:36:27 -0400
-In-Reply-To: <20080723191443.GT10471@solarflare.com>
+Received: from mail.candelatech.com ([208.74.158.172]:59146 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbYGWUhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 16:37:32 -0400
+Received: from [192.168.100.194] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id m6NKbU57029016
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 13:37:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- On Wed, 7/23/08, Ben Hutchings <bhutchings@solarflare.com> wrote:
+We noticed something strange today.
 
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Subject: Re: sleeping in irq context in match()
-> To: "Arjan van de Ven" <arjan@infradead.org>
-> Cc: "Alex Davis" <alex14641@yahoo.com>, netdev@vger.kernel.org
-> Date: Wednesday, July 23, 2008, 3:14 PM
-> Arjan van de Ven wrote:
-> > Hi,
-> > 
-> > the backtrace below is popping up in kerneloops.org
-> stats pretty
-> > quickly; I don't know if it's been discussed
-> here before but
-> > just wanted to mention it in case it hasn't been..
-> > (it's rank 13 right now, out of nowhere)
-> > 
-> > http://www.kerneloops.org/searchweek.php?search=match 
-> for more info
-> > 
-> > 
-> > __might_sleep
-> > mutex_lock_nested
-> > rtnl_lock
-> > *match
-> [...]
-> 
-> Looking at the "more info", I see that that
-> function is in xt_ipisforif,
-> which is an out-of-tree module.  The author appears to be
-> Alex Davis <alex14641@yahoo.com>.
-> 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare
-> Communications
-> Not speaking for my employer; that's the marketing
-> department's job.
-My goodness!! Someone is actually using it?? I sumbitted the code back in June '06, but it was rejected by Patrick McHardy. I think his words 
-were something along the lines of 'I don't want to create a new match 
-just for this'. Anyway, I'm still using it on a 2.6.18 kernel. Since
-people are using it, I'll consider fixing it to work on later kernels.
+We have a test that launches 10 http clients that request a small
+URL over and over again.  Keep-alive is enabled on clients and
+apache.
 
-Is this something the netfilter team would have an interest in?
+When using a 2.6.24 or earlier kernel on the web server, we get around
+1200 urls per second completed on each of the 10 clients.  With 2.6.25 kernel
+we get around 1000 urls per second completed.  In other words, about
+a 20% degradation in connections per second.
 
-I code, therefore I am
+We see the same affect when we use standard Fedora kernels as when
+we use our own patched kernels.  We see similar degradations when using
+FC5 and FC8, and 32-bit and 64-bit installs.  We see similar degradations
+on different hardware systems.  We have only tried our modified kernels
+and standard Fedora kernels at this time (no un-modified kernels from kernel.org).
 
+It could still be something we are doing wrong, but if anyone
+else has a similar test case, I'm curious to know if you see
+similar degradations.
 
-      
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
