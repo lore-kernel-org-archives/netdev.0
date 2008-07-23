@@ -1,60 +1,52 @@
-From: "Tobias Koeck" <tobias.koeck@gmail.com>
-Subject: Re: Performance degradation on 2.6.25 kernels for http servers
-Date: Wed, 23 Jul 2008 23:20:47 +0200
-Message-ID: <379e30200807231420n676323a2h6fd760af50f7437f@mail.gmail.com>
-References: <4887968A.10308@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
+Date: Wed, 23 Jul 2008 14:21:47 -0700 (PDT)
+Message-ID: <20080723.142147.61941255.davem@davemloft.net>
+References: <4887550B.2070704@tvcablenet.be>
+	<4887555A.30605@trash.net>
+	<48875B8C.2090800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: "Ben Greear" <greearb@candelatech.com>
+Cc: francois.valenduc@tvcablenet.be, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	jussi.kivilinna@mbnet.fi
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.236]:34324 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752858AbYGWVUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:20:48 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2598978rvb.1
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 14:20:48 -0700 (PDT)
-In-Reply-To: <4887968A.10308@candelatech.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58260
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754462AbYGWVVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:21:47 -0400
+In-Reply-To: <48875B8C.2090800@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do you have the same configuration?
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 23 Jul 2008 18:25:48 +0200
 
-2008/7/23 Ben Greear <greearb@candelatech.com>:
-> We noticed something strange today.
->
-> We have a test that launches 10 http clients that request a small
-> URL over and over again.  Keep-alive is enabled on clients and
-> apache.
->
-> When using a 2.6.24 or earlier kernel on the web server, we get around
-> 1200 urls per second completed on each of the 10 clients.  With 2.6.25
-> kernel
-> we get around 1000 urls per second completed.  In other words, about
-> a 20% degradation in connections per second.
->
-> We see the same affect when we use standard Fedora kernels as when
-> we use our own patched kernels.  We see similar degradations when using
-> FC5 and FC8, and 32-bit and 64-bit installs.  We see similar degradations
-> on different hardware systems.  We have only tried our modified kernels
-> and standard Fedora kernels at this time (no un-modified kernels from
-> kernel.org).
->
-> It could still be something we are doing wrong, but if anyone
-> else has a similar test case, I'm curious to know if you see
-> similar degradations.
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> We can't fit them into the cb together, I don't see a way to
+> shrink ieee80211_tx_info.
+> 
+> Maybe one of the wireless folks can suggest something? Is it
+> really necessary to pass the full struct ieee80211_tx_info
+> through the qdisc layer, or could the struct be split? It
+> needs to find a way to co-exist peacefully with qdiscs'
+> skb->cb usage.
+
+This is another area that got mangled up in the ->select_queue()
+conversion of the WME bits, but in another aspect this problem
+existed beforehand as well.
+
+Specifically, when RX packets get requeued out to transmit in
+the code in net/mac80211/rx.c that resends packets back out the
+wireless device by setting a bit in the SKB CB then calling
+dev_queue_xmit().
+
+That's completely illegal :-)
+
+There's a ton of stuff in that structure, I can't see how to
+make it smaller either.  Maybe some bits only matter through
+the layers of the TX mac80211 stack and thus can be passed
+as parameters during such processing?
+
