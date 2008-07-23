@@ -1,58 +1,73 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] skge: resolve tx multiqueue bug
-Date: Wed, 23 Jul 2008 23:21:14 +0800
-Message-ID: <48874C6A.1020604@cn.fujitsu.com>
-References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com> <20080723101827.GA2236@gentoox2.trippelsdorf.de> <20080723140347.GA2245@gentoox2.trippelsdorf.de>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: [PATCH] dm9000: Support MAC address setting through platform data.
+Date: Wed, 23 Jul 2008 17:41:52 +0200
+Message-ID: <200807231741.53011.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alessandro Guido <ag@alessandroguido.name>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	David Miller <davem@davemloft.net>
+Cc: Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64951 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752232AbYGWPWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 11:22:47 -0400
-In-Reply-To: <20080723140347.GA2245@gentoox2.trippelsdorf.de>
+Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:20107 "EHLO
+	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751797AbYGWPl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 11:41:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Markus Trippelsdorf said the following on 2008-7-23 22:03:
-> On Wed, Jul 23, 2008 at 12:18:27PM +0200, Markus Trippelsdorf wrote:
->> On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
->>> Markus Trippelsdorf said the following on 2008-7-23 13:40:
->>>> On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
->>>>> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
->>>> Same thing here (latest git):
->>>>
->>>> skge eth1: enabling interface
->>>> skge eth1: disabling interface
->>>> ------------[ cut here ]------------
->>>> WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
->>>> Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
->>>>  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
->> ...
->>>> ---[ end trace 92936ef183e09876 ]---
->>>> skge eth1: enabling interface
->>>> skge eth1: Link is up at 100 Mbps, full duplex, flow control both
->>>>
->>> Markus, please try this.
->>>
->>> - Add netif_start_queue() in ->open()
->>> - netif_carrier_*() is enough, remove netif_*_queue()
->> Unfortunately, your patch does not fix this. I still get the same warning.
->>
-> 
-> This patch works for me:
+The dm9000 driver reads the chip's MAC address from the attached EEPROM. When
+no EEPROM is present, or when the MAC address is invalid, it falls back to
+reading the address from the chip.
 
-Your patch works for me too. So I think it's better than mine. :)
+This patch lets platform code set the desired MAC address through platform
+data.
 
-Tested-by: Wang Chen <wangchen@cn.fujitsu.com>
+Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+---
+ drivers/net/dm9000.c   |    3 +++
+ include/linux/dm9000.h |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-Dave, since Markus and me tested this patch, would you please apply it?
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 864295e..6bc8924 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -716,6 +716,11 @@ dm9000_probe(struct platform_device *pdev)
+ 	for (i = 0; i < 6; i += 2)
+ 		dm9000_read_eeprom(db, i / 2, ndev->dev_addr+i);
+ 
++	if (!is_valid_ether_addr(ndev->dev_addr) && pdata != NULL) {
++		mac_src = "platform data";
++		memcpy(ndev->dev_addr, pdata->dev_addr, 6);
++	}
++
+ 	if (!is_valid_ether_addr(ndev->dev_addr)) {
+ 		/* try reading from mac */
+ 		
+diff --git a/include/linux/dm9000.h b/include/linux/dm9000.h
+index a375046..4fb49a4 100644
+--- a/include/linux/dm9000.h
++++ b/include/linux/dm9000.h
+@@ -26,6 +26,7 @@
+ 
+ struct dm9000_plat_data {
+ 	unsigned int	flags;
++	unsigned char	dev_addr[6];
+ 
+ 	/* allow replacement IO routines */
+ 
+-- 
+1.5.0
 
+-- 
+Laurent Pinchart
+CSE Semaphore Belgium
 
+Chaussee de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
 
+T +32 (2) 387 42 59
+F +32 (2) 387 42 75
