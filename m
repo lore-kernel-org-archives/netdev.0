@@ -1,50 +1,61 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 2/2] ip6mr: delete redundant variable
-Date: Wed, 23 Jul 2008 09:46:07 +0800
-Message-ID: <48868D5F.9060105@cn.fujitsu.com>
+From: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+Subject: Re: [PATCH v3] net: sh_eth: Add support of SH7763 to sh_eth
+Date: Wed, 23 Jul 2008 13:10:56 +0900
+Message-ID: <4886AF50.3000707@renesas.com>
+References: <485A3437.4010902@renesas.com> <4864840A.3060003@garzik.org>
+ <48684011.5020201@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: NETDEV <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58580 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753114AbYGWBrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2008 21:47:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>,
+	netdev <netdev@vger.kernel.org>,
+	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
+	Linux-sh <linux-sh@vger.kernel.org>,
+	Paul Mundt <lethal@linux-sh.org>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <48684011.5020201@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-*v can be removed as this patch showing.
-Same as that of ipv4.
+Hi, Jeff.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 095bc45..49c75b4 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -932,7 +932,6 @@ static int ip6mr_device_event(struct notifier_block *this,
- 			      unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
--	struct mif_device *v;
- 	int ct;
- 
- 	if (!net_eq(dev_net(dev), &init_net))
-@@ -941,9 +940,8 @@ static int ip6mr_device_event(struct notifier_block *this,
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
- 
--	v = &vif6_table[0];
--	for (ct = 0; ct < maxvif; ct++, v++) {
--		if (v->dev == dev)
-+	for (ct = 0; ct < maxvif; ct++) {
-+		if (vif6_table[ct].dev == dev)
- 			mif6_delete(ct);
- 	}
- 	return NOTIFY_DONE;
+Please pick up,  and apply  this patch to 2.6.27 queue too.
 
+Best regards,
+ Nobuhiro
 
+Nobuhiro Iwamatsu wrote:
+> Jeff Garzik wrote:
+>> Nobuhiro Iwamatsu wrote:
+>>> SH7763 has Ethernet core same as SH7710/SH7712.
+>>> Positions of some registry are different, but the basic part is the same.
+>>> I add support of ethernet of sh7763 to sh_eth.
+>>>
+>>> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+>>> ---
+>>>  drivers/net/Kconfig  |    4 +-
+>>>  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
+>>>  drivers/net/sh_eth.h |  425 +++++++++++++++++++++++++++++++++++++-------------
+>>>  3 files changed, 482 insertions(+), 149 deletions(-)
+>> ACK but failed to apply
+> 
+> Sorry, I checked the patch, and corrected that the patch was able to be applied.
+> Please apply.
+> 
+> Best regards,
+>  Nobuhiro
+> 
+> ------->
+> 
+> SH7763 has Ethernet core same as SH7710/SH7712.
+> Positions of some registry are different, but the basic part is the same.
+> I add support of ethernet of sh7763 to sh_eth.
+> 
+> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+> ---
+>  drivers/net/Kconfig  |    4 +-
+>  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
+>  drivers/net/sh_eth.h |  426 +++++++++++++++++++++++++++++++++++++-------------
+>  3 files changed, 482 insertions(+), 150 deletions(-)
 
