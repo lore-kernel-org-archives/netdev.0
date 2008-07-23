@@ -1,50 +1,89 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: [PATCH] skge: resolve tx multiqueue bug
-Date: Wed, 23 Jul 2008 12:18:27 +0200
-Message-ID: <20080723101827.GA2236@gentoox2.trippelsdorf.de>
-References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+Date: Wed, 23 Jul 2008 03:27:20 -0700
+Message-ID: <20080723102720.fe1505ec@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alessandro Guido <ag@alessandroguido.name>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-41.synserver.de ([217.119.50.41]:1044 "HELO
-	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750966AbYGWKSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 06:18:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4886F0C5.7040605@cn.fujitsu.com>
+Received: from mail96.messagelabs.com ([216.82.254.19]:23688 "EHLO
+	mail96.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751433AbYGWK1X convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 06:27:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
-> Markus Trippelsdorf said the following on 2008-7-23 13:40:
-> > On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
-> >> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
-> > 
-> > Same thing here (latest git):
-> > 
-> > skge eth1: enabling interface
-> > skge eth1: disabling interface
-> > ------------[ cut here ]------------
-> > WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
-> > Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
-> >  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
-...
-> > ---[ end trace 92936ef183e09876 ]---
-> > skge eth1: enabling interface
-> > skge eth1: Link is up at 100 Mbps, full duplex, flow control both
-> > 
-> 
-> Markus, please try this.
-> 
-> - Add netif_start_queue() in ->open()
-> - netif_carrier_*() is enough, remove netif_*_queue()
 
-Unfortunately, your patch does not fix this. I still get the same warning.
+Jeff,
 
--- 
-Markus
+Has this patch been applied ?  Thanks.
+
+Subbu
+
+
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+Behalf Of Subbu Seetharaman
+Sent: Wednesday, July 09, 2008 7:25 AM
+To: Jeff Garzik
+Cc: 'Randy Dunlap'; 'Bill Fink'; netdev@vger.kernel.org
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+
+Jeff,
+
+The benet driver patch with this Kconfig change is available 
+as one file under under :
+
+ftp://ftp.serverengines.com/0001.benet.patch
+
+Thanks.
+
+Subbu
+
+----- Original Message -----
+From: Jeff Garzik [mailto:jeff@garzik.org]
+To: subbu [mailto:subbus@serverengines.com]
+Cc: 'Randy Dunlap' [mailto:randy.dunlap@oracle.com], 'Bill Fink'
+[mailto:billfink@mindspring.com], netdev@vger.kernel.org
+Sent: Mon, 07 Jul 2008 06:57:48 -0700
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
+
+
+subbu wrote:
+> Thanks Randy and Bill.  I will wait couple more
+> days for any more comments before sending the updated patch.
+
+Also, if you have a link to a patch that provides everything in one 
+file, that would be useful for me.
+
+	Jeff
+
+____________________________________________________________________________
+_______
+This message, together with any attachment(s), contains confidential and
+proprietary information of
+ServerEngines Corporation and is intended only for the designated
+recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly
+prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by
+reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
