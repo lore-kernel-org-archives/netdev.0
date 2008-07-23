@@ -1,50 +1,64 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] ipt_recent: fix race between recent_mt_destroy and proc manipulations
-Date: Thu, 24 Jul 2008 01:29:10 +0400
-Message-ID: <4887A2A6.1010704@openvz.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCHes] pull request: WAN
+Date: Wed, 23 Jul 2008 23:31:13 +0200
+Message-ID: <m3hcags2xq.fsf@maximus.localdomain>
+References: <m3ljzyc9e7.fsf@maximus.localdomain> <488653A9.50001@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:57024 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754132AbYGWVbQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:31:16 -0400
+In-Reply-To: <488653A9.50001@garzik.org> (Jeff Garzik's message of "Tue\, 22 Jul 2008 17\:39\:53 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The thing is that recent_mt_destroy first flushes the entries
-from table with the recent_table_flush and only *after* this
-removes the proc file, corresponding to that table.
+Jeff Garzik <jeff@garzik.org> writes:
 
-Thus, if we manage to write to this file the '+XXX' command we
-will leak some entries. If we manage to write there a 'clean'
-command we'll race in two recent_table_flush flows, since the
-recent_mt_destroy calls this outside the recent_lock.
+> Anything in upstream-next went upstream, and so we need to apply this
+> on top of the current Linus upstream (torvalds/linux-2.6.git) at the
+> very least.
+>
+> Would you mind doing that, please?
 
-The proper solution as I see it is to remove the proc file first
-and then go on with flushing the table. This flushing becomes
-safe w/o the lock, since the table is already inaccessible from
-the outside.
+No problem, though I guess David would hate us both if I do that,
+so I actually rebased on top of your "upstream" instead, is it ok?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+It's now at:
 
----
+git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git for-j=
+eff
 
-diff --git a/net/ipv4/netfilter/ipt_recent.c b/net/ipv4/netfilter/ipt_recent.c
-index 21cb053..3974d7c 100644
---- a/net/ipv4/netfilter/ipt_recent.c
-+++ b/net/ipv4/netfilter/ipt_recent.c
-@@ -305,10 +305,10 @@ static void recent_mt_destroy(const struct xt_match *match, void *matchinfo)
- 		spin_lock_bh(&recent_lock);
- 		list_del(&t->list);
- 		spin_unlock_bh(&recent_lock);
--		recent_table_flush(t);
- #ifdef CONFIG_PROC_FS
- 		remove_proc_entry(t->name, proc_dir);
- #endif
-+		recent_table_flush(t);
- 		kfree(t);
- 	}
- 	mutex_unlock(&recent_mutex);
+> Also, git pulls are great, but it would be helpful if you supply a
+> git-shortlog summary of the changes, and the patch (>400k will only g=
+o
+> to me, list will ignore).
+
+Sure,
+
+Krzysztof Ha=B3asa (15):
+      WAN: cosmetic changes to generic HDLC
+      Remove bogus dosyncppp variable from synclink drivers.
+      Remove bogus variables from syncppp.[ch]
+      Remove dead code from wanmain.c, CONFIG_WANPIPE_MULTPPP doesn't e=
+xist
+      wanmain.c doesn't need syncppp.h
+      WAN: Remove unneeded "#include <net/syncppp.h>"
+      WAN: Remove dead code from PC300 driver, part #1
+      WAN: Remove dead code from PC300 driver, part #2
+      WAN: Convert PC300 driver to use normal u8/u16/u32 types
+      WAN: farsync driver no longer uses syncppp.c directly
+      WAN: Port COSA driver to generic HDLC.
+      WAN: Convert Zilog-based drivers to generic HDLC
+      WAN: Port LMC driver to generic HDLC
+      WAN: don't mention syncppp in z8530 DocBook.
+      WAN: Use u32 type instead of u_int32_t in LMC driver.
+
+The combined patch follows.
+--=20
+Krzysztof Halasa
