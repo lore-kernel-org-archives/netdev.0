@@ -1,106 +1,48 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 09:58:21 +0200
-Message-ID: <4886E49D.6010700@tvcablenet.be>
-References: <bug-11144-10286@http.bugzilla.kernel.org/> <20080722034850.dbbc5566.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330
+ __netif_schedule+0x2c/0x98()
+Date: Wed, 23 Jul 2008 00:59:21 -0700 (PDT)
+Message-ID: <20080723.005921.113868915.davem@davemloft.net>
+References: <20080722.160409.216536011.davem@davemloft.net>
+	<20080723062036.GA4561@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080722034850.dbbc5566.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Larry.Finger@lwfinger.net, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48439
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751496AbYGWH7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 03:59:21 -0400
+In-Reply-To: <20080723062036.GA4561@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton a =E9crit :
-> (switched to email.  Please respond via emailed reply-to-all, not via=
- the
-> bugzilla web interface).
->
-> On Tue, 22 Jul 2008 03:21:33 -0700 (PDT) bugme-daemon-590EEB7GvNgfezExeAdx9g@public.gmane.org=
-=2Eorg wrote:
->
->  =20
->> http://bugzilla.kernel.org/show_bug.cgi?id=3D11144
->>
->>            Summary: dhcp doesn't work with iwl4965
->>            Product: Networking
->>            Version: 2.5
->>      KernelVersion: 2.6.26-git7
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: Wireless
->>         AssignedTo: networking_wireless-ztI5WcYan/vQLgFONoPN62D2FQJk+8+b@public.gmane.org
->>         ReportedBy: francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org
->>
->>
->> Latest working kernel version: 2.6.26-git6
->> Earliest failing kernel version: 2.6.26-git7
->>    =20
->
-> A very fresh regression.
->
->  =20
->> Distribution: Gentoo
->> Hardware Environment: Packard Bell MB86, iwl4965
->> Software Environment: dhcpcd
->> Problem Description:=20
->> I can't get an IP address via DHCP with my wireless connection. I ha=
-ve an Intel
->> Wireless 4965 card and I use WPA personal with AES encryption. After=
- a
->> git-bisect run, it seems the first bad commit is the following:
->>
->> commit 175f9c1bba9b825d22b142d183c9e175488b260c
->> Author: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
->> Date:   Sun Jul 20 00:08:47 2008 -0700
->>
->>     net_sched: Add size table for qdiscs
->>
->>     Add size table functions for qdiscs and calculate packet size in
->>     qdisc_enqueue().
->>
->>     Based on patch by Patrick McHardy
->>      http://marc.info/?l=3Dlinux-netdev&m=3D115201979221729&w=3D2
->>
->>
->>    =20
->
-> A whole pile of networking patches went into mainline about 12 hours
-> ago, one of which might have fixed this.  Can you please test
-> 2.6.26-git10 once it has appeared and let us know the result?
->
->
-> Thanks.
->
->
->  =20
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 23 Jul 2008 06:20:36 +0000
 
-The problem still occurs with 2.6.26-git-10. But if I use a static=20
-address instead of DHCP, the connection work. DHCP also work with my=20
-ethernet card (a Marvell yukon which use the sky2 driver). But DHCP=20
-doesn't work with my wireless connection using the iwl4965 driver. As I=
-=20
-said, my router offer several time a correct IP adress but it is not=20
-accepted by my computer. I don't use traffic shaping (see my iptables=20
-rules). Furthermore, the problem still occurs if I disable iptables.
-Does anybody have an idea to solve the problem ?
+> PS: if there is nothing new in lockdep the classical method would
+> be to change this static array:
+> 
+> static struct lock_class_key
+> netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)];
+> 
+> to
+> 
+> static struct lock_class_key
+> netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)][MAX_NUM_TX_QUEUES];
+> 
+> and set lockdep classes per queue as well. (If we are sure we don't
+> need lockdep subclasses anywhere this could be optimized by using
+> one lock_class_key per 8 queues and spin_lock_nested()).
 
-Thanks for your help,
-=46ran=E7ois
+Unfortunately MAX_NUM_TX_QUEUES is USHORT_MAX, so this isn't really
+a feasible approach.
 
-P.S: why don't you want to use the bugzilla interface ?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+spin_lock_nested() isn't all that viable either, as the subclass
+limit is something like 8.
+
