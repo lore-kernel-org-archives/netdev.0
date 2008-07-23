@@ -1,52 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 14:21:47 -0700 (PDT)
-Message-ID: <20080723.142147.61941255.davem@davemloft.net>
-References: <4887550B.2070704@tvcablenet.be>
-	<4887555A.30605@trash.net>
-	<48875B8C.2090800@trash.net>
+Subject: Re: q == &noop_qdisc warning from 802.11 code
+Date: Wed, 23 Jul 2008 14:22:41 -0700 (PDT)
+Message-ID: <20080723.142241.41151635.davem@davemloft.net>
+References: <488723FF.8070707@gmail.com>
+	<48873502.1030106@linux.vnet.ibm.com>
+	<1216824786.13587.6.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: francois.valenduc@tvcablenet.be, akpm@linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	jussi.kivilinna@mbnet.fi
-To: kaber@trash.net
+Cc: leitao@linux.vnet.ibm.com, jirislaby@gmail.com,
+	netdev@vger.kernel.org, flamingice@sourmilk.net,
+	linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58260
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58266
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754462AbYGWVVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:21:47 -0400
-In-Reply-To: <48875B8C.2090800@trash.net>
+	by vger.kernel.org with ESMTP id S1756241AbYGWVWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:22:41 -0400
+In-Reply-To: <1216824786.13587.6.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 23 Jul 2008 18:25:48 +0200
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 23 Jul 2008 16:53:05 +0200
 
-> We can't fit them into the cb together, I don't see a way to
-> shrink ieee80211_tx_info.
 > 
-> Maybe one of the wireless folks can suggest something? Is it
-> really necessary to pass the full struct ieee80211_tx_info
-> through the qdisc layer, or could the struct be split? It
-> needs to find a way to co-exist peacefully with qdiscs'
-> skb->cb usage.
+> > I also hit a bug related to noop_qdisc running the net-next kernel. 
+> > I hit this bug every time I run "ifconfig eth0 mtu 9000; ifconfg eth0 1500" for any
+> > interface (tested against s2io and e1000) that is up, otherwise the bug isn't
+> > reproducible.
+> > 
+> > The bug dumps the following calltrace: 
+> > 
+> > [root@io-dolphins net-next-2.6]# ifconfig eth0  mtu 9000; ifconfig eth0 mtu 1500
+> > ------------[ cut here ]------------
+> > kernel BUG at net/core/dev.c:1328!
+> 
+> > void __netif_schedule(struct Qdisc *q)
+> > {
+> >         BUG_ON(q == &noop_qdisc);
+> > 
+> > So, somehow we're reaching __netif_schedule() using a noop_qdisc. 
+> 
+> Yeah, I'm looking into it. Just removing the netif_wake calls in mlme.c
+> might work.
 
-This is another area that got mangled up in the ->select_queue()
-conversion of the WME bits, but in another aspect this problem
-existed beforehand as well.
+Don't work too hard on this now, I'm removing the warning as I mentioned
+in a recent posting.
 
-Specifically, when RX packets get requeued out to transmit in
-the code in net/mac80211/rx.c that resends packets back out the
-wireless device by setting a bit in the SKB CB then calling
-dev_queue_xmit().
-
-That's completely illegal :-)
-
-There's a ton of stuff in that structure, I can't see how to
-make it smaller either.  Maybe some bits only matter through
-the layers of the TX mac80211 stack and thus can be passed
-as parameters during such processing?
+Most important is the bug where wireless expects the SKB control block
+to be untouched across the qdisc layer, which was never true :-)
 
