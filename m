@@ -1,30 +1,50 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 12:12:53 +0200
-Message-ID: <48870425.50908@trash.net>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: [PATCH] skge: resolve tx multiqueue bug
+Date: Wed, 23 Jul 2008 12:18:27 +0200
+Message-ID: <20080723101827.GA2236@gentoox2.trippelsdorf.de>
+References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-15?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4886F727.6010301-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alessandro Guido <ag@alessandroguido.name>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wang Chen <wangchen@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out-41.synserver.de ([217.119.50.41]:1044 "HELO
+	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750966AbYGWKSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 06:18:30 -0400
+Content-Disposition: inline
+In-Reply-To: <4886F0C5.7040605@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ran=E7ois Valenduc wrote:
-> OK, thanks for the explanation. But do you have more ideas about the=20
-> problem ?
+On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
+> Markus Trippelsdorf said the following on 2008-7-23 13:40:
+> > On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
+> >> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
+> > 
+> > Same thing here (latest git):
+> > 
+> > skge eth1: enabling interface
+> > skge eth1: disabling interface
+> > ------------[ cut here ]------------
+> > WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
+> > Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
+> >  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
+...
+> > ---[ end trace 92936ef183e09876 ]---
+> > skge eth1: enabling interface
+> > skge eth1: Link is up at 100 Mbps, full duplex, flow control both
+> > 
+> 
+> Markus, please try this.
+> 
+> - Add netif_start_queue() in ->open()
+> - netif_carrier_*() is enough, remove netif_*_queue()
 
-I tested myself using dhcpcd 3.2.3 on an ethernet device and it
-works fine, so this appears to be driver related.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Unfortunately, your patch does not fix this. I still get the same warning.
+
+-- 
+Markus
