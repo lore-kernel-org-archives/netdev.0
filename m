@@ -1,42 +1,69 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: Huge packet loss on Intel 80003ES2LAN
-Date: Wed, 23 Jul 2008 08:57:51 -0700
-Message-ID: <9929d2390807230857j2afdf865r2084d3e3e6cb537f@mail.gmail.com>
-References: <4885B79E.8060704@yandex-team.ru>
+From: =?UTF-8?B?RnJhbsOnb2lzIFZhbGVuZHVj?=
+	<francois.valenduc@tvcablenet.be>
+Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
+Date: Wed, 23 Jul 2008 17:58:03 +0200
+Message-ID: <4887550B.2070704@tvcablenet.be>
+References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org> <4886F727.6010301@tvcablenet.be> <48870425.50908@trash.net> <48871632.3010205@tvcablenet.be> <4887169B.6090102@trash.net> <488725D5.8030900@tvcablenet.be> <488727B3.7040007@trash.net> <48872968.9000103@trash.net> <488746DF.1050501@tvcablenet.be> <48874BD8.60600@trash.net> <48874C12.10606@trash.net> <4887514C.6080903@tvcablenet.be> <488753C6.2090807@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: "Vlad Seliverstov" <vseliverstov@yandex-team.ru>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:57817 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbYGWP5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 11:57:52 -0400
-Received: by py-out-1112.google.com with SMTP id p76so1780617pyb.10
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 08:57:51 -0700 (PDT)
-In-Reply-To: <4885B79E.8060704@yandex-team.ru>
-Content-Disposition: inline
+Received: from ananke.telenet-ops.be ([195.130.137.78]:46434 "EHLO
+	ananke.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbYGWP6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 11:58:07 -0400
+In-Reply-To: <488753C6.2090807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2008 at 3:34 AM, Vlad Seliverstov
-<vseliverstov@yandex-team.ru> wrote:
-> Hi.
+Patrick McHardy a =C3=A9crit :
+> Fran=C3=A7ois Valenduc wrote:
+>> Patrick McHardy a =C3=A9crit :
+>>>> I think I know whats happening (Jussi CCed). That commit introduce=
+d
+>>>> a qdisc_skb_cb, which conflicts with the mac80211 usage of skb->cb=
+=2E
+>>>> mac80211 seems to expect the CB to survive the qdisc layer, which
+>>>> is wrong. One possibility to fix this (or just test my theory)
+>>>> would be to make sure they don't clash by adding the struct
+>>>> ieee80211_tx_info to qdisc_skb_cb->data. Something like this patch=
+=2E
+>>>>
+>>>
+>> I tested your last patch. Unfortunately, I get the following compile=
+=20
+>> error:
+>>
+>> In file included from net/mac80211/main.c:11:
+>> include/net/mac80211.h: In function =E2=80=98IEEE80211_SKB_CB=E2=80=99=
+:
+>> include/net/mac80211.h:347: erreur: size of array =E2=80=98type name=
+=E2=80=99 is=20
+>> negative
 >
-> Recently, I moved my heavily network-loaded server under Ubuntu Hardy to a
-> box with two 80003ES2LAN onboard NICs and began to experience problems with
-> it. The problem is huge packet loss time to time.
-> Here are ping results from another server (which has address 192.168.0.2) in
-> the same network segment:
 >
+> I was afraid that might happen. This means skb->cb is not large
+> enough to hold both the qdisc and the ieee80211 structs.
+>
+> Just for testing, changing (include/net/mac80211.h):
+>
+> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
+>         (sizeof(((struct sk_buff *)0)->cb) - 8)
+>
+> to
+>
+> #define IEEE80211_TX_INFO_DRIVER_DATA_SIZE \
+>         (sizeof(((struct sk_buff *)0)->cb) - 12)
+>
+> might help to get it to compile. If that doesn't work, try -16.
+>
+>
+That didn't work, neither with -12 or -16.
 
-While your current version of e1000 driver does support that
-particular NIC, the latest e1000 driver has support removed for this
-NIC and support has been moved to the e1000e driver.  Please try the
-latest driver (e1000e).
-The latest e1000e driver (version 0.4.1.7) can be found on http://e1000.sf.net/
-
--- 
-Cheers,
-Jeff
