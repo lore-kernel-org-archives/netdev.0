@@ -1,37 +1,75 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: The proper way of delaying tx in a driver
-Date: Wed, 23 Jul 2008 18:19:09 +1000
-Message-ID: <1216801149.11027.313.camel@pasglop>
-References: <1216795043.11027.311.camel@pasglop>
-	 <20080723.011134.256015233.davem@davemloft.net>
-Reply-To: benh@kernel.crashing.org
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [TCP bug] stuck distcc connections in latest -git
+Date: Wed, 23 Jul 2008 10:26:43 +0200
+Message-ID: <20080723082643.GA992@elte.hu>
+References: <20080721134506.GA27598@elte.hu> <20080721182318.GA20940@elte.hu> <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org> <20080721184616.GA8442@elte.hu> <20080722112133.GA6575@elte.hu> <4885E482.5020502@davidnewall.com> <20080722135723.GA23077@elte.hu> <4885F496.3010305@davidnewall.com> <20080722153443.GB18757@elte.hu> <20080722211256.GB29189@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Newall <davidn@davidnewall.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:60956 "EHLO gate.crashing.org"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:41229 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711AbYGWITO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 04:19:14 -0400
-In-Reply-To: <20080723.011134.256015233.davem@davemloft.net>
+	id S1750774AbYGWI1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 04:27:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20080722211256.GB29189@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-23 at 01:11 -0700, David Miller wrote:
 
- .../...
+* Willy Tarreau <w@1wt.eu> wrote:
 
-> At least for non-LLTX driver.  For LLTX ones, oh well, too bad, they
-> have to find their own ways to ensure such things.  It's deprecated
-> for a reason :)
+> On Tue, Jul 22, 2008 at 05:34:43PM +0200, Ingo Molnar wrote:
+> > * David Newall <davidn@davidnewall.com> wrote:
+> > 
+> > > Ingo Molnar wrote:
+> > > > * David Newall <davidn@davidnewall.com> wrote:
+> > > >   
+> > > >> You really should start that capture, and on both client and server. 
+> > > >> You don't need to dump everything, only traffic to or from 
+> > > >> server:distcc.
+> > > >>     
+> > > >
+> > > > It's not feasible. That box did in excess of 200 GB of network traffic 
+> > > > in the past 7 hours alone.
+> > > 
+> > > You only need distcc traffic, and perhaps only after it's hung.  With 
+> > > 250k outstanding per socket, are you certain that no traffic was sent? 
+> > > Is it certain that one packet wasn't being sent each three minutes?  I 
+> > > suppose you're right and the stack really is stuck, but this is such 
+> > > an easy thing to check and eliminate that you should do so.  I 
+> > > suppose, too, that you should trace the server-side processes and 
+> > > confirm that they are waiting for socket input.  You should dump tcp 
+> > > (for the distcc port) next time the problem recurs and also check that 
+> > > the server processes are waiting for socket input.
+> > 
+> > ok, will do that if it happens again.
+> 
+> Ingo,
+> 
+> if it can help, I have a "capture" script which allows you to define a 
+> size and will rotate captures within that size. That's what I'm using 
+> to troubleshoot rarely occuring problems in datacenters, so it's 
+> horrible but efficient :-)
+> 
+> You just have to stop it once the problem has happened again. Ping me 
+> if you're interested (I'm lazy to start my laptop right just for it 
+> now in fact).
 
-Thanks. I'm happy to remove LLTX from sungem (in fact, I started doing
-it when stumbled upon the problem of how the heck do I freeze my tx
-queue ?).
+yeah, that would be handy, thanks.
 
-Cheers,
-Ben.
+Alas, the problem has not reoccured since then - more than a thousand 
+kernel builds down the line. Yesterday it triggered so quickly when i 
+updated the buildbox to the new kernel, and happened repeatedly when i 
+tried to build a new kernel, that i didnt assume it was something hard 
+to reproduce - but it went poof after i restarted distccd on the server.
 
+So i'd suggest we do not count this as a regression, i've got no way at 
+the moment of reproducing it reliably.
 
+	Ingo
