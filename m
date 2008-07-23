@@ -1,114 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Wed, 23 Jul 2008 23:09:40 +0200
-Message-ID: <20080723210940.GB14788@ami.dom.local>
-References: <200807222142.23710.denys@visp.net.lb> <200807222346.36284.denys@visp.net.lb> <20080722213603.GA3026@ami.dom.local> <200807232247.17218.denys@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] napi: adding an administrative state & priority
+Date: Wed, 23 Jul 2008 14:11:58 -0700 (PDT)
+Message-ID: <20080723.141158.99031196.davem@davemloft.net>
+References: <20080723192548.GA14654@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: denys@visp.net.lb
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:47519 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754558AbYGWVIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:08:45 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so544938ugf.16
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 14:08:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200807232247.17218.denys@visp.net.lb>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60249
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754606AbYGWVL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:11:58 -0400
+In-Reply-To: <20080723192548.GA14654@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2008 at 10:47:17PM +0300, denys@visp.net.lb wrote:
-> Seems none of patches help with issue.
-> I will recheck if i apply them correctly.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 23 Jul 2008 15:27:13 -0400
 
-It's a pity! On the other hand it looks like you have something really
-special...
+> 1) An administrative state for napi, specifically administratively disabled
+> state, on a per-interface basis.  When napi was administratively disabled the
+> interface would behave as though napi had never been configured on it.  I.E.
+> netif_rx_schedule would call directly into dev->poll with a budget of 1, so as
+> to behave like a legacy interrupt handler.   setting of this administrative
+> state can be handled through sysfs
 
-But, since all these reports stop at hrtimers, my proposal is to check 
-where it could hit without them. I attach a patch for debugging, which
-turns back a timer instead of hrtimer watchdog. Alas I didn't test it,
-so be cautious. (This should work with 2.6.26 or .25, I hope.)
+It's not going to be the same, by a large margin.
 
-Jarek P.
+The MMIO operations required by NAPI to disable and enable interrupts
+on most hardware is extremely expensive.
 
----
+The only way to mitigate that cost is a combination of software (NAPI)
+and hardware interrupt mitigation.
 
- net/sched/sch_htb.c |   28 +++++++++++++++++++++++-----
- 1 files changed, 23 insertions(+), 5 deletions(-)
+And therefore...
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 3fb58f4..fdc84c3 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -169,7 +169,8 @@ struct htb_sched {
- 
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
--	struct qdisc_watchdog watchdog;
-+	//struct qdisc_watchdog watchdog;
-+	struct timer_list timer;	/* send delay timer */
- 
- 	/* non shaped skbs; let them go directly thru */
- 	struct sk_buff_head direct_queue;
-@@ -893,6 +894,14 @@ next:
- 	return skb;
- }
- 
-+static void htb_timer(unsigned long arg)
-+{
-+	struct Qdisc *sch = (struct Qdisc*)arg;
-+	sch->flags &= ~TCQ_F_THROTTLED;
-+	wmb();
-+	netif_schedule(sch->dev);
-+}
-+
- static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- {
- 	struct sk_buff *skb = NULL;
-@@ -943,7 +952,9 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- 		}
- 	}
- 	sch->qstats.overlimits++;
--	qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	//qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	mod_timer(&q->timer, (unsigned long)next_event /
-+				 PSCHED_TICKS_PER_SEC * HZ);
- fin:
- 	return skb;
- }
-@@ -996,7 +1007,9 @@ static void htb_reset(struct Qdisc *sch)
- 
- 		}
- 	}
--	qdisc_watchdog_cancel(&q->watchdog);
-+	//qdisc_watchdog_cancel(&q->watchdog);
-+	sch->flags &= ~TCQ_F_THROTTLED;
-+	del_timer(&q->timer);
- 	__skb_queue_purge(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	memset(q->row, 0, sizeof(q->row));
-@@ -1047,7 +1060,11 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	for (i = 0; i < TC_HTB_NUMPRIO; i++)
- 		INIT_LIST_HEAD(q->drops + i);
- 
--	qdisc_watchdog_init(&q->watchdog, sch);
-+	//qdisc_watchdog_init(&q->watchdog, sch);
-+	q->timer.function = htb_timer;
-+	q->timer.data = (unsigned long)sch;
-+	init_timer(&q->timer);
-+
- 	skb_queue_head_init(&q->direct_queue);
- 
- 	q->direct_qlen = sch->dev->tx_queue_len;
-@@ -1262,7 +1279,8 @@ static void htb_destroy(struct Qdisc *sch)
- {
- 	struct htb_sched *q = qdisc_priv(sch);
- 
--	qdisc_watchdog_cancel(&q->watchdog);
-+	//qdisc_watchdog_cancel(&q->watchdog);
-+	del_timer_sync(&q->timer);
- 	/* This line used to be after htb_destroy_class call below
- 	   and surprisingly it worked in 2.4. But it must precede it
- 	   because filter need its target class alive to be able to call
+> My reasoning for these features is common in that I've had occasion to observe
+> some workloads where incomming data that is highly sensitive to loss and
+> latency, gets lost near the hardware.  Most often this happens because the
+> latency from the time of interrupt to the time of serving in dev->poll is
+> sufficient to overrun a hardware buffer, or the devices ring buffer.  While ring
+> buffers can be extended, I'm personally loathe to simply try out run the problem
+> by adding ring-buffer space.  It would be nice if we had a way to drain the
+> overrunning queue faster, rather than just making it longer.
+
+this feature is not going to help you reach your objective.
+
+In fact, disabling NAPI by decreasing the quota to 1 is going to
+result in more, not less, packet loss under high load.
