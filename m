@@ -1,109 +1,78 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: [PATCH] skge: resolve tx multiqueue bug
-Date: Wed, 23 Jul 2008 16:03:47 +0200
-Message-ID: <20080723140347.GA2245@gentoox2.trippelsdorf.de>
-References: <d4b984a30807210914nd4d0db5yb7b93ca5143ff0d5@mail.gmail.com> <20080721.092027.14394005.davem@davemloft.net> <d4b984a30807220254t1aaf6ac4q874329966511b0c5@mail.gmail.com> <20080723054039.GA2272@gentoox2.trippelsdorf.de> <4886F0C5.7040605@cn.fujitsu.com> <20080723101827.GA2236@gentoox2.trippelsdorf.de>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: q == &noop_qdisc warning from 802.11 code
+Date: Wed, 23 Jul 2008 16:53:05 +0200
+Message-ID: <1216824786.13587.6.camel@johannes.berg>
+References: <488723FF.8070707@gmail.com>
+	 <48873502.1030106@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alessandro Guido <ag@alessandroguido.name>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-41.synserver.de ([217.119.50.41]:1032 "HELO
-	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752932AbYGWOD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 10:03:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20080723101827.GA2236@gentoox2.trippelsdorf.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Wed, Jul 23, 2008 at 12:18:27PM +0200, Markus Trippelsdorf wrote:
-> On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
-> > Markus Trippelsdorf said the following on 2008-7-23 13:40:
-> > > On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
-> > >> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
-> > > 
-> > > Same thing here (latest git):
-> > > 
-> > > skge eth1: enabling interface
-> > > skge eth1: disabling interface
-> > > ------------[ cut here ]------------
-> > > WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
-> > > Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
-> > >  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
-> ...
-> > > ---[ end trace 92936ef183e09876 ]---
-> > > skge eth1: enabling interface
-> > > skge eth1: Link is up at 100 Mbps, full duplex, flow control both
-> > > 
-> > 
-> > Markus, please try this.
-> > 
-> > - Add netif_start_queue() in ->open()
-> > - netif_carrier_*() is enough, remove netif_*_queue()
-> 
-> Unfortunately, your patch does not fix this. I still get the same warning.
-> 
-
-This patch works for me:
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 2e26dce..d761296 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -1069,7 +1069,6 @@ static void skge_link_up(struct skge_port *skge)
-                    LED_BLK_OFF|LED_SYNC_OFF|LED_ON);
-
-        netif_carrier_on(skge->netdev);
--       netif_wake_queue(skge->netdev);
-
-        if (netif_msg_link(skge)) {
-                printk(KERN_INFO PFX
-@@ -1084,7 +1083,6 @@ static void skge_link_down(struct skge_port *skge)
- {
-        skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
-        netif_carrier_off(skge->netdev);
--       netif_stop_queue(skge->netdev);
-
-        if (netif_msg_link(skge))
-                printk(KERN_INFO PFX "%s: Link is down.\n", skge->netdev->name);
-@@ -2450,7 +2448,6 @@ static void skge_phy_reset(struct skge_port *skge)
-        int port = skge->port;
-        struct net_device *dev = hw->dev[port];
-
--       netif_stop_queue(skge->netdev);
-        netif_carrier_off(skge->netdev);
-
-        spin_lock_bh(&hw->phy_lock);
-@@ -2640,6 +2637,7 @@ static int skge_up(struct net_device *dev)
-        spin_unlock_irq(&hw->hw_lock);
-
-        napi_enable(&skge->napi);
-+       netif_start_queue(dev);
-        return 0;
-
-  free_rx_ring:
-@@ -2673,8 +2671,6 @@ static int skge_down(struct net_device *dev)
-        if (netif_msg_ifdown(skge))
-                printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
-
--       netif_stop_queue(dev);
--
-        if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
-                del_timer_sync(&skge->link_timer);
-
-@@ -3863,7 +3859,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
-
-        /* device is off until link detection */
-        netif_carrier_off(dev);
--       netif_stop_queue(dev);
-
-        return dev;
- }
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kZWZg+XRbptxpsYasww1"
+Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Breno Leitao <leitao-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48873502.1030106-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-Markus
+--=-kZWZg+XRbptxpsYasww1
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+
+> I also hit a bug related to noop_qdisc running the net-next kernel.=20
+> I hit this bug every time I run "ifconfig eth0 mtu 9000; ifconfg eth0 150=
+0" for any
+> interface (tested against s2io and e1000) that is up, otherwise the bug i=
+sn't
+> reproducible.
+>=20
+> The bug dumps the following calltrace:=20
+>=20
+> [root@io-dolphins net-next-2.6]# ifconfig eth0  mtu 9000; ifconfig eth0 m=
+tu 1500
+> ------------[ cut here ]------------
+> kernel BUG at net/core/dev.c:1328!
+
+> void __netif_schedule(struct Qdisc *q)
+> {
+>         BUG_ON(q =3D=3D &noop_qdisc);
+>=20
+> So, somehow we're reaching __netif_schedule() using a noop_qdisc.=20
+
+Yeah, I'm looking into it. Just removing the netif_wake calls in mlme.c
+might work.
+
+johannes
+
+--=-kZWZg+XRbptxpsYasww1
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJIh0XOAAoJEKVg1VMiehFYcN8QAL54wgOVKSi9Cc0Ud2DT43Hb
+uk4aPPnbJd5YoQWRxD5HswVG616SDd6Bfd8jmbljgBoT/QUvOabaKTrUKN5dHICZ
+HG5CmqArK290WX0Fewj6bwBm2ctGeItRx4Baj7AUE1x2q+dHtYOT1R0gTZWg5p7P
+myrw15Ch4joAxj5JUIbbHnQFs34YSLNRj3TTJ0/BgT14rbQzrVLhjrvNNO2iDwKY
+1pFgcvKrZrEq1DcjOA4No3rp4DoocH3mZUjQJFFjPP/zsBlcu3g/HngnLr8pox47
+JPx+wVqY9GBXPqhpZ28YRglWaYdW9SA7Cc0d8jKxx06IvcVyJ+z/9WQ9+Yex6QlY
+7Il/962BI7gbvg7MQh1GHAzHNvqFsmMms+tMTFk1M3IY2yxtH3YwR7K+JQynFA/+
+7taeoKlJ4GQA2sgtup91yrPmbkEXhoDzIXVgPYh2FrQluMxuvtxztIdSY7TZ5ZW3
+mpWdhQ3B7EViclV9RclCa4AteEN7awgtM6xnQhRaNRyjXE4X3o6al7OLkvDG+zhR
+gReIQWQ1pyP8xsaolGTyL3dOz3Mpfn/4oFdYjFPgZdyR+aGvrPcNUR+Wr5sCajbD
+zdwdJ4fg/37kR+7sE686zfVE9O49s1lpR1NcWDGJqkX1MCK3/gLdqFSV0mzvTTgL
+gIkqp3/78OyJ93zXF3iv
+=s/3a
+-----END PGP SIGNATURE-----
+
+--=-kZWZg+XRbptxpsYasww1--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
