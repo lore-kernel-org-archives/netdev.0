@@ -1,61 +1,50 @@
-From: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
-Subject: Re: [PATCH v3] net: sh_eth: Add support of SH7763 to sh_eth
-Date: Wed, 23 Jul 2008 13:10:56 +0900
-Message-ID: <4886AF50.3000707@renesas.com>
-References: <485A3437.4010902@renesas.com> <4864840A.3060003@garzik.org>
- <48684011.5020201@renesas.com>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH] tun: Fix/rewrite packet filtering logic
+Date: Tue, 22 Jul 2008 21:45:30 -0700
+Message-ID: <4886B76A.6000907@qualcomm.com>
+References: <1215852774-23974-1-git-send-email-maxk@qualcomm.com>	<4886703B.5090609@garzik.org> <20080722.171111.267353608.davem@davemloft.net> <48867BC3.3070506@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>,
-	netdev <netdev@vger.kernel.org>,
-	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
-	Linux-sh <linux-sh@vger.kernel.org>,
-	Paul Mundt <lethal@linux-sh.org>
+Cc: David Miller <davem@davemloft.net>, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, sjackman@gmail.com,
+	linuxkernel@bristyle.com,
+	virtualization@lists.linux-foundation.org, borntraeger@de.ibm.com
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <48684011.5020201@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:63339 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbYGWEpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 00:45:30 -0400
+In-Reply-To: <48867BC3.3070506@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Jeff.
 
-Please pick up,  and apply  this patch to 2.6.27 queue too.
 
-Best regards,
- Nobuhiro
-
-Nobuhiro Iwamatsu wrote:
-> Jeff Garzik wrote:
->> Nobuhiro Iwamatsu wrote:
->>> SH7763 has Ethernet core same as SH7710/SH7712.
->>> Positions of some registry are different, but the basic part is the same.
->>> I add support of ethernet of sh7763 to sh_eth.
+Jeff Garzik wrote:
+> David Miller wrote:
+>> From: Jeff Garzik <jeff@garzik.org>
+>> Date: Tue, 22 Jul 2008 19:41:47 -0400
+>>
+>>> looks mostly OK, but stuff like the above should be
 >>>
->>> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
->>> ---
->>>  drivers/net/Kconfig  |    4 +-
->>>  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
->>>  drivers/net/sh_eth.h |  425 +++++++++++++++++++++++++++++++++++++-------------
->>>  3 files changed, 482 insertions(+), 149 deletions(-)
->> ACK but failed to apply
+>>>     (void __user *) arg
+>>>
+>>> Did you check this with sparse (Documentation/sparse.txt)?
+
+Ah. No I did not check it with sparse.
+
+>>
+>> Jeff, I already added this particular patch to the tree
+>> a week or so ago.
 > 
-> Sorry, I checked the patch, and corrected that the patch was able to be applied.
-> Please apply.
-> 
-> Best regards,
->  Nobuhiro
-> 
-> ------->
-> 
-> SH7763 has Ethernet core same as SH7710/SH7712.
-> Positions of some registry are different, but the basic part is the same.
-> I add support of ethernet of sh7763 to sh_eth.
-> 
-> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
-> ---
->  drivers/net/Kconfig  |    4 +-
->  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
->  drivers/net/sh_eth.h |  426 +++++++++++++++++++++++++++++++++++++-------------
->  3 files changed, 482 insertions(+), 150 deletions(-)
+> Yeah, later on in my queue were the fixes.
+
+I'm not sure I'm following. What fixes ? Are you talking about fixing sparse
+warnings or something else ?
+
+Max
+
+
 
