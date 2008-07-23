@@ -1,46 +1,107 @@
-From: Dieter Ries <clip3@gmx.de>
-Subject: Re: Current Git: BUG: unable to handle kernel paging request at 0000000001a40ca0
-Date: Wed, 23 Jul 2008 20:01:36 +0200
-Message-ID: <48877200.9040608@gmx.de>
-References: <488750AA.20707@gmx.de> <19f34abd0807231046o4b194409w7d0e28a7cd745afa@mail.gmail.com>
+From: Robert Jennings <rcj@linux.vnet.ibm.com>
+Subject: [PATCH 12/16 v4] ibmveth: Automatically enable larger rx buffer
+	pools for larger mtu
+Date: Wed, 23 Jul 2008 13:34:23 -0500
+Message-ID: <20080723183423.GO12905@linux.vnet.ibm.com>
+References: <20080723181932.GC12905@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org, Pekka Enberg <penberg@cs.helsinki.fi>
-To: Vegard Nossum <vegard.nossum@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Brian King <brking@linux.vnet.ibm.com>,
+	Santiago Leon <santil@us.ibm.com>,
+	Nathan Fontenot <nfont@austin.ibm.com>,
+	David Darrington <ddarring@linux.vnet.ibm.com>
+To: paulus@samba.org, benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xsmtp0.ethz.ch ([82.130.70.14]:3660 "EHLO XSMTP0.ethz.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752043AbYGWSQw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 14:16:52 -0400
-In-Reply-To: <19f34abd0807231046o4b194409w7d0e28a7cd745afa@mail.gmail.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:56685 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753108AbYGWSe0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 14:34:26 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m6NIYP53016316
+	for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 14:34:25 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6NIYPFL177406
+	for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 12:34:25 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6NIYN2k029819
+	for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 12:34:25 -0600
+Content-Disposition: inline
+In-Reply-To: <20080723181932.GC12905@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vegard Nossum schrieb:
-> Hi,
+From: Santiago Leon <santil@us.ibm.com>
 
-Hi,
+Activates larger rx buffer pools when the MTU is changed to a larger
+value.  This patch de-activates the large rx buffer pools when the MTU
+changes to a smaller value.
 
-> 
-> Dieter: If this is reproducible, it would probably help quite a bit to
-> configure the kernel with CONFIG_SLUB_DEBUG and boot with
-> slub_debug=FZPUT (unless you already have CONFIG_SLUB_DEBUG_ON set, in
-> which case you are already running with the SLUB debugging at boot).
-> It might catch the corruption before it becomes fatal, or give us some
-> more clues anyway.
-> 
+Signed-off-by: Santiago Leon <santil@us.ibm.com>
+Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
 
-I am bisecting the bug right now, as it is kind of reproducible. Its 
-always network related, sometimes it happens when init brings up the 
-nics, sometimes afterwards with ifconfig etc.
+---
+We would like to take this patch through linuxppc-dev with the full
+change set for this feature.  We are copying netdev for review and ack.
 
-I will add CONFIG_SLUB_DEBUG_ON for the next runs, next time it happens 
-I will post the output.
+---
+ drivers/net/ibmveth.c |   20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
-> 
-> Vegard
-> 
-cu
-Dieter
+Index: b/drivers/net/ibmveth.c
+===================================================================
+--- a/drivers/net/ibmveth.c
++++ b/drivers/net/ibmveth.c
+@@ -1054,7 +1054,6 @@ static int ibmveth_change_mtu(struct net
+ {
+ 	struct ibmveth_adapter *adapter = dev->priv;
+ 	int new_mtu_oh = new_mtu + IBMVETH_BUFF_OH;
+-	int reinit = 0;
+ 	int i, rc;
+ 
+ 	if (new_mtu < IBMVETH_MAX_MTU)
+@@ -1067,15 +1066,21 @@ static int ibmveth_change_mtu(struct net
+ 	if (i == IbmVethNumBufferPools)
+ 		return -EINVAL;
+ 
++	/* Deactivate all the buffer pools so that the next loop can activate
++	   only the buffer pools necessary to hold the new MTU */
++	for (i = 0; i < IbmVethNumBufferPools; i++)
++		if (adapter->rx_buff_pool[i].active) {
++			ibmveth_free_buffer_pool(adapter,
++						 &adapter->rx_buff_pool[i]);
++			adapter->rx_buff_pool[i].active = 0;
++		}
++
+ 	/* Look for an active buffer pool that can hold the new MTU */
+ 	for(i = 0; i<IbmVethNumBufferPools; i++) {
+-		if (!adapter->rx_buff_pool[i].active) {
+-			adapter->rx_buff_pool[i].active = 1;
+-			reinit = 1;
+-		}
++		adapter->rx_buff_pool[i].active = 1;
+ 
+ 		if (new_mtu_oh < adapter->rx_buff_pool[i].buff_size) {
+-			if (reinit && netif_running(adapter->netdev)) {
++			if (netif_running(adapter->netdev)) {
+ 				adapter->pool_config = 1;
+ 				ibmveth_close(adapter->netdev);
+ 				adapter->pool_config = 0;
+@@ -1402,14 +1407,15 @@ const char * buf, size_t count)
+ 				return -EPERM;
+ 			}
+ 
+-			pool->active = 0;
+ 			if (netif_running(netdev)) {
+ 				adapter->pool_config = 1;
+ 				ibmveth_close(netdev);
++				pool->active = 0;
+ 				adapter->pool_config = 0;
+ 				if ((rc = ibmveth_open(netdev)))
+ 					return rc;
+ 			}
++			pool->active = 0;
+ 		}
+ 	} else if (attr == &veth_num_attr) {
+ 		if (value <= 0 || value > IBMVETH_MAX_POOL_COUNT)
