@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPVS: Move userspace definitions to
- include/linux/ip_vs.h
-Date: Wed, 23 Jul 2008 16:42:15 -0700 (PDT)
-Message-ID: <20080723.164215.101337333.davem@davemloft.net>
-References: <20080722003755.GA7962@verge.net.au>
+Subject: Re: [GIT]: Networking
+Date: Wed, 23 Jul 2008 16:42:56 -0700 (PDT)
+Message-ID: <20080723.164256.261160675.davem@davemloft.net>
+References: <20080721.102852.124418551.davem@davemloft.net>
+	<alpine.LFD.1.10.0807211037200.31863@woody.linux-foundation.org>
+	<4884F28E.6040903@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	juliusv@google.com, kaber@trash.net, vbusam@google.com
-To: horms@verge.net.au
+Cc: torvalds@linux-foundation.org, jmorris@namei.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44487
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44492
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754419AbYGWXmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 19:42:15 -0400
-In-Reply-To: <20080722003755.GA7962@verge.net.au>
+	by vger.kernel.org with ESMTP id S1752146AbYGWXm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 19:42:56 -0400
+In-Reply-To: <4884F28E.6040903@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 22 Jul 2008 10:37:57 +1000
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 21 Jul 2008 22:33:18 +0200
 
-> From: Julius Volz <juliusv@google.com>
-> 
-> Current versions of ipvsadm include "/usr/src/linux/include/net/ip_vs.h"
-> directly. This file also contains kernel-only definitions. Normally, public
-> definitions should live in include/linux, so this patch moves the
-> definitions shared with userspace to a new file, "include/linux/ip_vs.h".
-> 
-> To make old ipvsadms still compile with this, the old header file includes
-> the new one.
-> 
-> The motivation for this cleanup is the planned Netlink interface for IPVS.
-> 
-> Signed-off-by: Julius Volz <juliusv@google.com>
-> Acked-by: Simon Horman <horms@verge.net.au>
+> Its not needed today of course, so the attached patch changes it
+> to depend on NETFILTER_ADVANCED and removes the default.
 
-Userland exported headers need to have an entry in include/linux/Kbuild
-
-Since this linux/ip_vs.h file is new, a new entry needs to be added there.
-
-Thanks.
+I've applied this, thanks Patrick.
