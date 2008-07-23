@@ -1,42 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330
- __netif_schedule+0x2c/0x98()
-Date: Wed, 23 Jul 2008 13:55:30 -0700 (PDT)
-Message-ID: <20080723.135530.63039342.davem@davemloft.net>
-References: <20080723114914.GF4561@ff.dom.local>
-	<20080723.131607.79681752.davem@davemloft.net>
-	<20080723204335.GA14788@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Warning is now gone...
+Date: Wed, 23 Jul 2008 14:05:18 -0700 (PDT)
+Message-ID: <20080723.140518.138273179.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080723204335.GA14788-dUp/P3zyUuaNj9Bq2fkWzw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42206
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754164AbYGWVFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:05:17 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 2D8FDC8C2D5
+	for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 14:05:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 23 Jul 2008 22:43:35 +0200
 
-> On Wed, Jul 23, 2008 at 01:16:07PM -0700, David Miller wrote:
-> ...
-> > There will always be a need for a "stop all the TX queues" operation.
-> 
-> The question is if the current way is "all correct". As a matter of
-> fact I think Peter's doubts could be justified: taking "USHORT_MAX"
-> locks looks really dubious (so maybe it's not so strange lockdep
-> didn't get used to this).
+As discussed, here is the warning removal, which I have checked
+into net-2.6
 
-There are, of course, potentially other ways to achieve the objective.
+It really was putting the cart before the horse, because
+one should provide a sane alternative before making something
+illegal :-)
 
-And for non-multiqueue aware devices (which is the vast majority of
-the 400 or so networking drivers we have) there is only one queue and
-thus one lock taken.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll try to come up with a usable netif_tx_{free,unfreeze}()
+set of interfaces.
+
+netdev: Remove warning from __netif_schedule().
+
+It isn't helping anything and we aren't going to be able to change all
+the drivers that do queue wakeups in strange situations.
+
+Just letting a noop_qdisc get scheduled will work because when
+qdisc_run() executes via net_tx_work() it will simply find no packets
+pending when it makes the ->dequeue() call in qdisc_restart.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dev.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6bf217d..ccf97f9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1341,9 +1341,6 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 
+ void __netif_schedule(struct Qdisc *q)
+ {
+-	if (WARN_ON_ONCE(q == &noop_qdisc))
+-		return;
+-
+ 	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state)) {
+ 		struct softnet_data *sd;
+ 		unsigned long flags;
+-- 
+1.6.0.rc0.14.g95f8
+
