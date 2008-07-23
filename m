@@ -1,134 +1,106 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: Current Git: BUG: unable to handle kernel paging request at 0000000001a40ca0
-Date: Wed, 23 Jul 2008 19:46:12 +0200
-Message-ID: <19f34abd0807231046o4b194409w7d0e28a7cd745afa@mail.gmail.com>
-References: <488750AA.20707@gmx.de>
+From: jean-pascal billaud <billaud@vmware.com>
+Subject: Re: delayed ack timer, slow start and LRO
+Date: Wed, 23 Jul 2008 10:58:28 -0700
+Message-ID: <48877144.3090006@vmware.com>
+References: <488659A6.5030703@vmware.com> <Pine.LNX.4.64.0807231439390.13775@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org, "Pekka Enberg" <penberg@cs.helsinki.fi>
-To: "Dieter Ries" <clip2@gmx.de>
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:40419 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810AbYGWRqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 13:46:14 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so1090579ywe.1
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2008 10:46:12 -0700 (PDT)
-In-Reply-To: <488750AA.20707@gmx.de>
-Content-Disposition: inline
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:59797 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753474AbYGWSBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 14:01:19 -0400
+In-Reply-To: <Pine.LNX.4.64.0807231439390.13775@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2008 at 5:39 PM, Dieter Ries <clip2@gmx.de> wrote:
-> Hi,
+
+> On Tue, 22 Jul 2008, jean-pascal billaud wrote:
 >
-> I just encountered a Bug in latest git:
+> Some corrections to assumptions below...
 >
-> As this is my first bugreport, I am not sure who to cc and which information
-> to provide, so please advise me. Some information is below.
+>   
+>> I have a question related to the interaction between the delayed ack
+>> timer, slow start and LRO.
+>>
+>> If the sender is doing a slow start, it is going to send one packet. The
+>> receiver's delayed ack timer is going to
+>> kick in and when it expires it will send a ack.
+>>
+>> Then the sender is going to send 2 packets now. LRO will aggregates them
+>> and the receiver's delayed ack timer is going
+>> to kick in, hoping another packet will arrives which is not going to be
+>> the case. When the timer expires it is going to
+>> send a ack.
+>>     
+>
+> What makes you think so? ...please see conditions in
+> __tcp_ack_snd_check(). ...and like somebody else mentioned, there are
+> quickacks in the picture as well (aka. Delayed ACK After Slow-Start,
+> DAASS).
+>   
+Ok. I found the quickack mode bound by TCP_MAX_QUICKACKS, so by knowing that my assumptions
+are not correct anymore. I am going to check if BSD has the same behavior.
 
-Hi,
+>   
+>> The sender is now going to send 4 packets. LRO will aggregate them and
+>> the receiver's delayed ack timer is going to
+>> kick in, hoping another packet will arrives which is not going to be the
+>> case. When the timer expires it is going to
+>> send a ack.
+>>     
+>
+> Likewise, though in here tcp_max_burst would prevent as large growth as
+> without lro (in other slow-starts than the initial one).
+>
+>   
+>> The sender is now going to send ... So I am under the impression that
+>> due to the fact that LRO is aggregating packets,
+>> the delayed ack timer will kick in every single time.
+>>
+>> So how is this fixed in linux ? I believe that ABC implementation will
+>> fix this issue even if I am not completely sure
+>> about that ?
+>>     
+>
+> ABC is nowadays disable by default because it was found to annoy small
+> segment sending folks enough for them to periodically to come up
+> complaining with that "discovery" on netdev... :-) ...ABC is not
+> that necessary in Linux anyway because Linux' segment based counting is
+> not vulnerable to same kind of problems that byte-based approach would
+> be. Faster window growth during slow-start could be done without ABC
+> though nobody has yet stepped in to do that (though I just got an idea
+> while writing how to do that cleanly :-)).
+>
+>   
+>> Also as LRO adds some latency, it seems possible to me that the sender
+>> retransmission timer will expires before the
+>> delayed ack timer expires.
+>>     
+>
+> In theory yes, but in reality that shouldn't happen since RTT is
+> calculated so that it would include the delayed ACK delays.
+>
+>   
+>> In this case, how is this gonna work ? Is it
+>> possible that the sender will stay stuck in
+>> its slow start trying to retransmit endlessly the same n packets ?
+>>     
+>
+> It wouldn't anyway, because receiver would ACK out-of-order (a duplicate
+> below window) segments immediately. ...And we would resort FRTO in between
+> too and RTO would be declared spurious and TCP would continue sending
+> new data.
+>
+>
+> --
+>  i.
+>   
+thanks for your help,
 
-Thanks for the report!
-
-> BUG: unable to handle kernel paging request at 0000000001a40ca0
-> IP: [<ffffffff80290632>] kmem_cache_alloc+0x50/0x81
-> PGD 79d33067 PUD 79cf7067 PMD 0
-> Oops: 0000 [1] SMP
-> CPU 0
-> Modules linked in: radeon drm uinput snd_hda_intel iwl3945 snd_pcm snd_timer
-> rfkill snd led_class snd_page_alloc
-> Pid: 3516, comm: ifconfig Not tainted 2.6.26-06077-gc010b2f #23
-> RIP: 0010:[<ffffffff80290632>]  [<ffffffff80290632>]
-> kmem_cache_alloc+0x50/0x81
-> RSP: 0000:ffff880079d079e8  EFLAGS: 00010006
-> RAX: 0000000000000000 RBX: 0000000000000296 RCX: ffffffff802704ae
-> RDX: ffff880001016700 RSI: 0000000001a40ca0 RDI: ffffffff808b5fa0
-> RBP: ffff880079d07a08 R08: 000000000000000c R09: 0000000000000001
-
-[snip]
-
-> Code: 98 48 8b 94 c7 e0 00 00 00 48 8b 32 44 8b 6a 18 48 85 f6 75 13 49 89
-> d0 44 89 e6 83 ca ff e8 b3 f8 ff ff 48 89 c6 eb 0a 8b 42 14 <48> 8b 04 c6 48
-> 89 02 53 9d 31 c0 41 c1 ec 0f 48 85 f6 0f 95 c0
-
-The code decodes to:
-
-    mov    0x14(%rdx),%eax
-    mov    (%rsi,%rax,8),%rax <--- HERE!
-
-which corresponds to this code in mm/slub.c:
-
-                c->freelist = object[c->offset];
-
-So the mov 0x14(%rdx) is the loading of c->offset, which means that
-the pointer "c" is held in %rdx (= 0xffff880001016700), and the
-variable c->offset is held in %eax (= 0).
-
-It also means that the pointer "object" is held in %rsi (= 0x1a40ca0).
-Now, clearly the object pointer is bogus. It was loaded on the line
-above:
-
-                object = c->freelist;
-
-..and it may look like c->freelist has become corrupted. This one is
-again loaded from the line:
-
-        c = get_cpu_slab(s, smp_processor_id());
-
-Everything seems normal, except the c->freelist pointer.
-
-The rest of the messages are from the same function, but from
-different code paths:
-
->  [<ffffffff802704ae>] mempool_alloc_slab+0x16/0x18
->  [<ffffffff802705c2>] mempool_alloc+0x3e/0xfa
->  [<ffffffff802b8db7>] bio_alloc_bioset+0x27/0x94
->  [<ffffffff802b8e7e>] bio_alloc+0x15/0x24
->  [<ffffffff802b4ebb>] submit_bh+0x78/0x119
->  [<ffffffff803129dc>] journal_commit_transaction+0x76d/0xccd
->  [<ffffffff8031596b>] kjournald+0xc8/0x200
->  [<ffffffff80247e6a>] kthread+0x4e/0x7c
->  [<ffffffff8020c289>] child_rip+0xa/0x11
-
-and
-
->  [<ffffffff804c6b64>] scsi_pool_alloc_command+0x4d/0x73
->  [<ffffffff804c6c72>] __scsi_get_command+0x1e/0x9c
->  [<ffffffff804c6d26>] scsi_get_command+0x36/0xa5
->  [<ffffffff804cb1e8>] scsi_get_cmd_from_req+0x2a/0x5e
->  [<ffffffff804cb5ec>] scsi_setup_fs_cmnd+0x5d/0x87
->  [<ffffffff804ebc53>] sd_prep_fn+0x66/0x449
->  [<ffffffff803ebed1>] elv_next_request+0xe3/0x1a4
->  [<ffffffff804cc490>] scsi_request_fn+0x80/0x334
->  [<ffffffff803edaee>] __generic_unplug_device+0x29/0x2e
->  [<ffffffff803ee5de>] generic_unplug_device+0x2e/0x3c
->  [<ffffffff803ec5e8>] blk_unplug_work+0x19/0x1b
->  [<ffffffff80244890>] run_workqueue+0x81/0x10a
->  [<ffffffff8024529d>] worker_thread+0xdd/0xea
->  [<ffffffff80247e6a>] kthread+0x4e/0x7c
->  [<ffffffff8020c289>] child_rip+0xa/0x11
-
-...this seems to suggest that none of the backtraces may actually give
-a good clue as to who caused the corruption to begin with. (In other
-words, I have no more clue than you on who to Cc this.)
-
-Does the number 0x1a40ca0 look familiar to anybody?
-
-Dieter: If this is reproducible, it would probably help quite a bit to
-configure the kernel with CONFIG_SLUB_DEBUG and boot with
-slub_debug=FZPUT (unless you already have CONFIG_SLUB_DEBUG_ON set, in
-which case you are already running with the SLUB debugging at boot).
-It might catch the corruption before it becomes fatal, or give us some
-more clues anyway.
+--jp
 
 
-Vegard
-
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
