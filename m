@@ -1,37 +1,50 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Performance degradation on 2.6.25 kernels for http servers
-Date: Wed, 23 Jul 2008 14:22:58 -0700
-Message-ID: <4887A132.7010407@candelatech.com>
-References: <4887968A.10308@candelatech.com> <379e30200807231420n676323a2h6fd760af50f7437f@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] ipt_recent: fix race between recent_mt_destroy and proc manipulations
+Date: Thu, 24 Jul 2008 01:29:10 +0400
+Message-ID: <4887A2A6.1010704@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Tobias Koeck <tobias.koeck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:39768 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755019AbYGWVXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 17:23:08 -0400
-In-Reply-To: <379e30200807231420n676323a2h6fd760af50f7437f@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tobias Koeck wrote:
-> Do you have the same configuration?
+The thing is that recent_mt_destroy first flushes the entries
+from table with the recent_table_flush and only *after* this
+removes the proc file, corresponding to that table.
 
-I'm not sure I understand the question.
+Thus, if we manage to write to this file the '+XXX' command we
+will leak some entries. If we manage to write there a 'clean'
+command we'll race in two recent_table_flush flows, since the
+recent_mt_destroy calls this outside the recent_lock.
 
-We were booting into one kernel, running the test, and
-then rebooting with a different kernel.  There were no other
-changes to any config files or settings that I am aware of.
+The proper solution as I see it is to remove the proc file first
+and then go on with flushing the table. This flushing becomes
+safe w/o the lock, since the table is already inaccessible from
+the outside.
 
-I'll try a git-bisect when I get a chance...
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Thanks,
-Ben
+---
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+diff --git a/net/ipv4/netfilter/ipt_recent.c b/net/ipv4/netfilter/ipt_recent.c
+index 21cb053..3974d7c 100644
+--- a/net/ipv4/netfilter/ipt_recent.c
++++ b/net/ipv4/netfilter/ipt_recent.c
+@@ -305,10 +305,10 @@ static void recent_mt_destroy(const struct xt_match *match, void *matchinfo)
+ 		spin_lock_bh(&recent_lock);
+ 		list_del(&t->list);
+ 		spin_unlock_bh(&recent_lock);
+-		recent_table_flush(t);
+ #ifdef CONFIG_PROC_FS
+ 		remove_proc_entry(t->name, proc_dir);
+ #endif
++		recent_table_flush(t);
+ 		kfree(t);
+ 	}
+ 	mutex_unlock(&recent_mutex);
