@@ -1,75 +1,21 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [TCP bug] stuck distcc connections in latest -git
-Date: Wed, 23 Jul 2008 10:26:43 +0200
-Message-ID: <20080723082643.GA992@elte.hu>
-References: <20080721134506.GA27598@elte.hu> <20080721182318.GA20940@elte.hu> <alpine.LFD.1.10.0807211131390.31863@woody.linux-foundation.org> <20080721184616.GA8442@elte.hu> <20080722112133.GA6575@elte.hu> <4885E482.5020502@davidnewall.com> <20080722135723.GA23077@elte.hu> <4885F496.3010305@davidnewall.com> <20080722153443.GB18757@elte.hu> <20080722211256.GB29189@1wt.eu>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: someone broke qeth_l3_main.c
+Date: Wed, 23 Jul 2008 01:28:05 -0700
+Message-ID: <20080723012805.8a528347.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Newall <davidn@davidnewall.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:41229 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774AbYGWI1m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 04:27:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20080722211256.GB29189@1wt.eu>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54965 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750873AbYGWIaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 04:30:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Willy Tarreau <w@1wt.eu> wrote:
-
-> On Tue, Jul 22, 2008 at 05:34:43PM +0200, Ingo Molnar wrote:
-> > * David Newall <davidn@davidnewall.com> wrote:
-> > 
-> > > Ingo Molnar wrote:
-> > > > * David Newall <davidn@davidnewall.com> wrote:
-> > > >   
-> > > >> You really should start that capture, and on both client and server. 
-> > > >> You don't need to dump everything, only traffic to or from 
-> > > >> server:distcc.
-> > > >>     
-> > > >
-> > > > It's not feasible. That box did in excess of 200 GB of network traffic 
-> > > > in the past 7 hours alone.
-> > > 
-> > > You only need distcc traffic, and perhaps only after it's hung.  With 
-> > > 250k outstanding per socket, are you certain that no traffic was sent? 
-> > > Is it certain that one packet wasn't being sent each three minutes?  I 
-> > > suppose you're right and the stack really is stuck, but this is such 
-> > > an easy thing to check and eliminate that you should do so.  I 
-> > > suppose, too, that you should trace the server-side processes and 
-> > > confirm that they are waiting for socket input.  You should dump tcp 
-> > > (for the distcc port) next time the problem recurs and also check that 
-> > > the server processes are waiting for socket input.
-> > 
-> > ok, will do that if it happens again.
-> 
-> Ingo,
-> 
-> if it can help, I have a "capture" script which allows you to define a 
-> size and will rotate captures within that size. That's what I'm using 
-> to troubleshoot rarely occuring problems in datacenters, so it's 
-> horrible but efficient :-)
-> 
-> You just have to stop it once the problem has happened again. Ping me 
-> if you're interested (I'm lazy to start my laptop right just for it 
-> now in fact).
-
-yeah, that would be handy, thanks.
-
-Alas, the problem has not reoccured since then - more than a thousand 
-kernel builds down the line. Yesterday it triggered so quickly when i 
-updated the buildbox to the new kernel, and happened repeatedly when i 
-tried to build a new kernel, that i didnt assume it was something hard 
-to reproduce - but it went poof after i restarted distccd on the server.
-
-So i'd suggest we do not count this as a regression, i've got no way at 
-the moment of reproducing it reliably.
-
-	Ingo
+drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_hard_start_xmit':
+drivers/s390/net/qeth_l3_main.c:2654: error: implicit declaration of function 'VLAN_TX_SKB_CB'
+drivers/s390/net/qeth_l3_main.c:2654: error: invalid type argument of '->'
