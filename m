@@ -1,75 +1,33 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC] napi: adding an administrative state & priority
-Date: Wed, 23 Jul 2008 21:21:15 -0400
-Message-ID: <20080724012115.GA17150@hmsreliant.think-freely.org>
-References: <20080723192548.GA14654@hmsreliant.think-freely.org> <20080723.141158.99031196.davem@davemloft.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: bunch of warnings in __netif_schedule
+Date: Wed, 23 Jul 2008 12:09:38 -0700
+Message-ID: <20080723120938.36c42453@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3225 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbYGXBVw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 21:21:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20080723.141158.99031196.davem@davemloft.net>
+Received: from casper.infradead.org ([85.118.1.10]:51332 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146AbYGXBp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 21:45:58 -0400
+Received: from c-71-193-193-226.hsd1.or.comcast.net ([71.193.193.226] helo=localhost.localdomain)
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1KLptS-0006xb-3i
+	for netdev@vger.kernel.org; Thu, 24 Jul 2008 01:45:22 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2008 at 02:11:58PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 23 Jul 2008 15:27:13 -0400
-> 
-> > 1) An administrative state for napi, specifically administratively disabled
-> > state, on a per-interface basis.  When napi was administratively disabled the
-> > interface would behave as though napi had never been configured on it.  I.E.
-> > netif_rx_schedule would call directly into dev->poll with a budget of 1, so as
-> > to behave like a legacy interrupt handler.   setting of this administrative
-> > state can be handled through sysfs
-> 
-> It's not going to be the same, by a large margin.
-> 
-> The MMIO operations required by NAPI to disable and enable interrupts
-> on most hardware is extremely expensive.
-> 
-> The only way to mitigate that cost is a combination of software (NAPI)
-> and hardware interrupt mitigation.
-> 
-> And therefore...
-> 
-> > My reasoning for these features is common in that I've had occasion to observe
-> > some workloads where incomming data that is highly sensitive to loss and
-> > latency, gets lost near the hardware.  Most often this happens because the
-> > latency from the time of interrupt to the time of serving in dev->poll is
-> > sufficient to overrun a hardware buffer, or the devices ring buffer.  While ring
-> > buffers can be extended, I'm personally loathe to simply try out run the problem
-> > by adding ring-buffer space.  It would be nice if we had a way to drain the
-> > overrunning queue faster, rather than just making it longer.
-> 
-> this feature is not going to help you reach your objective.
-> 
-> In fact, disabling NAPI by decreasing the quota to 1 is going to
-> result in more, not less, packet loss under high load.
+Hi,
 
-I'd like to find some time to observe this for myself, but I'll certainly take
-my word for it now.  This begs the question however, how does one mitigate drops
-near the hardware, when tuning interrupt coalescing for minimum latency isn't
-enough.  Are ring buffer size and napi weight our only choices?  Or is there an
-alternate approach to drain the ring buffer more quickly?
+kerneloops.org also picked up a series of warnings in __netif_schedule:
+ http://www.kerneloops.org/search.php?search=__netif_schedule
 
-And what are your thoughts regarding the creation of a napi instance priority
-scheme?  I understand your arguments for not disabling napi entirely, but it
-doesn't speak to prioritization.  I can still see a benefit to instructing the
-kernel to serve a interface first handling high priority traffic.
+afaics Dave is on top of most of them; just wanted to mention it here
+in case some got missed...
 
-thanks for your input!
-
-Best
-Neil
 
 -- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
