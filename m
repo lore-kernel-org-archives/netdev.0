@@ -1,202 +1,42 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc@tvcablenet.be>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 09:59:24 +0200
-Message-ID: <4886E4DC.9030002@tvcablenet.be>
-References: <bug-11144-10286@http.bugzilla.kernel.org/> <20080722034850.dbbc5566.akpm@linux-foundation.org> <4886E49D.6010700@tvcablenet.be>
+Date: Wed, 23 Jul 2008 01:05:22 -0700
+Message-ID: <20080723010522.389a948f.akpm@linux-foundation.org>
+References: <bug-11144-10286@http.bugzilla.kernel.org/>
+	<20080722034850.dbbc5566.akpm@linux-foundation.org>
+	<4886E49D.6010700@tvcablenet.be>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040100060002080903040409"
-Cc: bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yergi.telenet-ops.be ([195.130.132.36]:60627 "EHLO
-	yergi.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbYGWH76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 03:59:58 -0400
-In-Reply-To: <4886E49D.6010700@tvcablenet.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------040100060002080903040409
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8bit
-
-François Valenduc a écrit :
-> Andrew Morton a écrit :
->> (switched to email.  Please respond via emailed reply-to-all, not via 
->> the
->> bugzilla web interface).
->>
->> On Tue, 22 Jul 2008 03:21:33 -0700 (PDT) 
->> bugme-daemon@bugzilla.kernel.org wrote:
->>
->>  
->>> http://bugzilla.kernel.org/show_bug.cgi?id=11144
->>>
->>>            Summary: dhcp doesn't work with iwl4965
->>>            Product: Networking
->>>            Version: 2.5
->>>      KernelVersion: 2.6.26-git7
->>>           Platform: All
->>>         OS/Version: Linux
->>>               Tree: Mainline
->>>             Status: NEW
->>>           Severity: normal
->>>           Priority: P1
->>>          Component: Wireless
->>>         AssignedTo: networking_wireless@kernel-bugs.osdl.org
->>>         ReportedBy: francois.valenduc@tvcablenet.be
->>>
->>>
->>> Latest working kernel version: 2.6.26-git6
->>> Earliest failing kernel version: 2.6.26-git7
->>>     
->>
->> A very fresh regression.
->>
->>  
->>> Distribution: Gentoo
->>> Hardware Environment: Packard Bell MB86, iwl4965
->>> Software Environment: dhcpcd
->>> Problem Description: I can't get an IP address via DHCP with my 
->>> wireless connection. I have an Intel
->>> Wireless 4965 card and I use WPA personal with AES encryption. After a
->>> git-bisect run, it seems the first bad commit is the following:
->>>
->>> commit 175f9c1bba9b825d22b142d183c9e175488b260c
->>> Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
->>> Date:   Sun Jul 20 00:08:47 2008 -0700
->>>
->>>     net_sched: Add size table for qdiscs
->>>
->>>     Add size table functions for qdiscs and calculate packet size in
->>>     qdisc_enqueue().
->>>
->>>     Based on patch by Patrick McHardy
->>>      http://marc.info/?l=linux-netdev&m=115201979221729&w=2
->>>
->>>
->>>     
->>
->> A whole pile of networking patches went into mainline about 12 hours
->> ago, one of which might have fixed this.  Can you please test
->> 2.6.26-git10 once it has appeared and let us know the result?
->>
->>
->> Thanks.
->>
->>
->>   
->
-> The problem still occurs with 2.6.26-git-10. But if I use a static 
-> address instead of DHCP, the connection work. DHCP also work with my 
-> ethernet card (a Marvell yukon which use the sky2 driver). But DHCP 
-> doesn't work with my wireless connection using the iwl4965 driver. As 
-> I said, my router offer several time a correct IP adress but it is not 
-> accepted by my computer. I don't use traffic shaping (see my iptables 
-> rules). Furthermore, the problem still occurs if I disable iptables.
-> Does anybody have an idea to solve the problem ?
->
-> Thanks for your help,
-> François
->
-> P.S: why don't you want to use the bugzilla interface ?
->
-I forgot to add the rules for iptables.
-
-
---------------040100060002080903040409
-Content-Type: text/plain;
- name="iptables"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="iptables"
+Cc: bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: =?ISO-8859-1?Q?Fran=E7ois?= Valenduc
+	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4886E49D.6010700-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-# Generated by iptables-save v1.3.8 on Sun May  4 17:48:03 2008
-*filter
-:INPUT ACCEPT [5:952]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [1192099:595387635]
+On Wed, 23 Jul 2008 09:58:21 +0200 Fran__ois Valenduc <francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org> wrote:
 
-# accept all from localhost
--A INPUT -s 127.0.0.1 -j ACCEPT
+> P.S: why don't you want to use the bugzilla interface ?
 
-# accept all previously established connections
--A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+Depends on the subsystem.  ACPI is 100% bugzilla-based, net people 
+prefer email, others are in-between.
 
-# ssh
--A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
+Plus for recently-occurring bugs it's best to knock them over via email
+without getting into bugzilla bureaucracy.  bugzilla is more
+appropriate to longer-term bugs.
 
-#web
--A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT
-
-# ftp
--A INPUT -p tcp -m state --state NEW -m tcp --dport 20:21 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 30000 -j ACCEPT
-
-# Windows / Samba
--A INPUT -p tcp -m state --state NEW -m tcp --dport 137:139 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 137:139 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 426 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 445 -j ACCEPT
-#swat
--A INPUT -p tcp -m state --state NEW -m tcp --dport 902 -j ACCEPT
-
-#aMule
--A INPUT -p tcp -m state --state NEW -m tcp --dport 4662 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 4672 -j ACCEPT
-
-#XDMCP
--A INPUT -p udp -m state --state NEW -m udp --dport 177 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 6000 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 41272 -j ACCEPT
-
-#NFS server
--A INPUT -p tcp -m state --state NEW -m tcp --dport 111 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 111 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 2049 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 2049 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 4001 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 4001 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 4002 -j ACCEPT
--A INPUT -p udp -m state --state NEW -m udp --dport 4002 -j ACCEPT
-
-#VNC server
--A INPUT -p tcp -m state --state NEW -m tcp --dport 5900:5901 -j ACCEPT
-
-#CUPS server
--A INPUT -p tcp -m state --state NEW -m tcp --dport 631 -j ACCEPT
-
-#distcc
--A INPUT -p tcp -m state --state NEW -m tcp --dport 3632 -j ACCEPT
-
-#rsync
--A INPUT -p tcp -m state --state NEW -m tcp --dport 873 -j ACCEPT
-
-#git
--A INPUT -p tcp -m state --state NEW -m tcp --dport 9418 -j ACCEPT
-
-#ping
--A INPUT -p icmp -j ACCEPT
-
-#IPSec
--A INPUT -p udp --dport 500 -m state --state NEW -j ACCEPT
--A OUTPUT -p udp --dport 500 -m state --state NEW -j ACCEPT
-
--A INPUT -p esp -j ACCEPT
--A OUTPUT -p esp -j ACCEPT
-
--A INPUT -p ah -j ACCEPT
--A OUTPUT -p ah -j ACCEPT
-
-#reject everything else
--A INPUT -j REJECT --reject-with icmp-port-unreachable
-
-COMMIT
+And when the bug affects multiple subsystems, multiple
+developers and we don't even know which subsystem introduced it, it is
+much better to perform the diagnosis and repair via email.
 
 
---------------040100060002080903040409--
+I make a judgement call on each report.  Been doing it for a while,
+don't get too many complaints ;)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
