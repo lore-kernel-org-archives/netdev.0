@@ -1,86 +1,46 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: delayed ack timer, slow start and LRO
-Date: Wed, 23 Jul 2008 15:01:44 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0807231439390.13775@wrl-59.cs.helsinki.fi>
-References: <488659A6.5030703@vmware.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 1/2] ipmr: delete redundant variable
+Date: Wed, 23 Jul 2008 14:05:39 +0200
+Message-ID: <200807231405.39515.netdev@axxeo.de>
+References: <48868D54.6050701@cn.fujitsu.com> <200807231003.05848.netdev@axxeo.de> <4886FB56.20905@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: jean-pascal billaud <billaud@vmware.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47046 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782AbYGWMBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 08:01:48 -0400
-In-Reply-To: <488659A6.5030703@vmware.com>
+Received: from mail.axxeo.de ([82.100.226.146]:49494 "EHLO mail.axxeo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750978AbYGWMFt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 08:05:49 -0400
+In-Reply-To: <4886FB56.20905@cn.fujitsu.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Jul 2008, jean-pascal billaud wrote:
+Hi Wand Chen,
 
-Some corrections to assumptions below...
+Wang Chen schrieb:
+> But "accessing entry of table by index" is always allowed,
+> right?
+> If the complier makes such pointer which spills a register with
+> the multiply/shift, the simple code as following is bug too:
+> i = table[100].field;
+> But it shouldn't, right :)
 
-> I have a question related to the interaction between the delayed ack
-> timer, slow start and LRO.
-> 
-> If the sender is doing a slow start, it is going to send one packet. The
-> receiver's delayed ack timer is going to
-> kick in and when it expires it will send a ack.
->
-> Then the sender is going to send 2 packets now. LRO will aggregates them
-> and the receiver's delayed ack timer is going
-> to kick in, hoping another packet will arrives which is not going to be
-> the case. When the timer expires it is going to
-> send a ack.
+I'm NOT telling you, that your transformation is introducing a BUG.
+It is semantically perfectly equivalent.
 
-What makes you think so? ...please see conditions in 
-__tcp_ack_snd_check(). ...and like somebody else mentioned, there are 
-quickacks in the picture as well (aka. Delayed ACK After Slow-Start, 
-DAASS).
+I'm trying to tell you, that it might not led to the same or better 
+performance and might thus be not worth it.
 
-> The sender is now going to send 4 packets. LRO will aggregate them and
-> the receiver's delayed ack timer is going to
-> kick in, hoping another packet will arrives which is not going to be the
-> case. When the timer expires it is going to
-> send a ack.
-
-Likewise, though in here tcp_max_burst would prevent as large growth as 
-without lro (in other slow-starts than the initial one).
-
-> The sender is now going to send ... So I am under the impression that
-> due to the fact that LRO is aggregating packets,
-> the delayed ack timer will kick in every single time.
-> 
-> So how is this fixed in linux ? I believe that ABC implementation will
-> fix this issue even if I am not completely sure
-> about that ?
-
-ABC is nowadays disable by default because it was found to annoy small
-segment sending folks enough for them to periodically to come up 
-complaining with that "discovery" on netdev... :-) ...ABC is not 
-that necessary in Linux anyway because Linux' segment based counting is 
-not vulnerable to same kind of problems that byte-based approach would
-be. Faster window growth during slow-start could be done without ABC 
-though nobody has yet stepped in to do that (though I just got an idea 
-while writing how to do that cleanly :-)).
-
-> Also as LRO adds some latency, it seems possible to me that the sender
-> retransmission timer will expires before the
-> delayed ack timer expires.
-
-In theory yes, but in reality that shouldn't happen since RTT is 
-calculated so that it would include the delayed ACK delays.
-
-> In this case, how is this gonna work ? Is it
-> possible that the sender will stay stuck in
-> its slow start trying to retransmit endlessly the same n packets ?
-
-It wouldn't anyway, because receiver would ACK out-of-order (a duplicate 
-below window) segments immediately. ...And we would resort FRTO in between 
-too and RTO would be declared spurious and TCP would continue sending 
-new data.
+But please check the generated assembly yourself on a CISC and RISC
+machine to get an idea of the effects. It will be a nice learning 
+experience I enjoyed myself already.
 
 
--- 
- i.
+Best Regards
+
+Ingo Oeser
