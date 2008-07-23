@@ -1,51 +1,53 @@
-From: Peter Palfrader <peter@palfrader.org>
-Subject: Re: 2.6.25.6: warn_on_slowpath in tcp_input.c
-Date: Wed, 23 Jul 2008 11:03:40 +0200
-Message-ID: <20080723090340.GQ18443@anguilla.noreply.org>
-References: <20080630230954.GS16698@anguilla.noreply.org> <396556a20806301656ydc44e3ey6deb229ab69904@mail.gmail.com> <20080701073833.GT16698@anguilla.noreply.org> <Pine.LNX.4.64.0807171744130.13775@wrl-59.cs.helsinki.fi>
+From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
+	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
+Date: Wed, 23 Jul 2008 11:17:27 +0200
+Message-ID: <4886F727.6010301@tvcablenet.be>
+References: <bug-11144-10286@http.bugzilla.kernel.org/>	<20080722034850.dbbc5566.akpm@linux-foundation.org>	<4886E49D.6010700@tvcablenet.be> <20080723010522.389a948f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Adam Langley <agl@imperialviolet.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-15?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anguilla.debian.or.at ([86.59.118.152]:43434 "EHLO
-	anguilla.debian.or.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752468AbYGWJDl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 05:03:41 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0807171744130.13775@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080723010522.389a948f.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jul 2008, Ilpo J=E4rvinen wrote:
-> > > > I've had 13 or so of them since upgrading the machine to a 2.6.=
-25 kernel
-> > > > 20 days ago.
-> > > >
-> > > > Linux saens 2.6.25.6-dl380 #2 SMP Tue Jun 10 17:54:44 CEST 2008=
- i686 GNU/Linux
->=20
-> Thanks for the report, I've been away for a while, thus the late resp=
-onse.
-> Please update to get this relevant fix and some other TCP fixes (if y=
-ou=20
-> haven't yet):
->=20
->  releases/2.6.25.7/tcp-fix-skb-vs-fack_count-out-of-sync-condition.pa=
-tch
->=20
-> ...If you still get them afterwards, please do rereport (and include =
-me=20
-> as recipient :-)).
-
-Running 2.6.25.11 since a couple of days ago now.  Looking good, thanks=
-=2E
-
---=20
-                           |  .''`.  ** Debian GNU/Linux **
-      Peter Palfrader      | : :' :      The  universal
- http://www.palfrader.org/ | `. `'      Operating System
-                           |   `-    http://www.debian.org/
+Andrew Morton a =E9crit :
+> On Wed, 23 Jul 2008 09:58:21 +0200 Fran__ois Valenduc <francois.valen=
+duc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org> wrote:
+>
+>  =20
+>> P.S: why don't you want to use the bugzilla interface ?
+>>    =20
+>
+> Depends on the subsystem.  ACPI is 100% bugzilla-based, net people=20
+> prefer email, others are in-between.
+>
+> Plus for recently-occurring bugs it's best to knock them over via ema=
+il
+> without getting into bugzilla bureaucracy.  bugzilla is more
+> appropriate to longer-term bugs.
+>
+> And when the bug affects multiple subsystems, multiple
+> developers and we don't even know which subsystem introduced it, it i=
+s
+> much better to perform the diagnosis and repair via email.
+>
+>
+> I make a judgement call on each report.  Been doing it for a while,
+> don't get too many complaints ;)
+>
+>
+>  =20
+OK, thanks for the explanation. But do you have more ideas about the=20
+problem ?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
