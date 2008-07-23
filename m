@@ -1,42 +1,73 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Wed, 23 Jul 2008 01:05:22 -0700
-Message-ID: <20080723010522.389a948f.akpm@linux-foundation.org>
-References: <bug-11144-10286@http.bugzilla.kernel.org/>
-	<20080722034850.dbbc5566.akpm@linux-foundation.org>
-	<4886E49D.6010700@tvcablenet.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: The proper way of delaying tx in a driver
+Date: Wed, 23 Jul 2008 01:11:34 -0700 (PDT)
+Message-ID: <20080723.011134.256015233.davem@davemloft.net>
+References: <1216795043.11027.311.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: =?ISO-8859-1?Q?Fran=E7ois?= Valenduc
-	<francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4886E49D.6010700-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45404
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750709AbYGWILe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 04:11:34 -0400
+In-Reply-To: <1216795043.11027.311.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Jul 2008 09:58:21 +0200 Fran__ois Valenduc <francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org> wrote:
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 23 Jul 2008 16:37:23 +1000
 
-> P.S: why don't you want to use the bugzilla interface ?
+> Drivers like tg3 seem to be at least -somewhat- careful, and only do
+> those things when netif_running(). However, unless I missed something,
+> this is true from just before the driver open() is called, that is, too
+> early for closing the race.
+> 
+> So the question is, what is the proper approach ?
+> 
+> I'm happy to help fixing tg3, sungem and emac at least as I'm somewhat
+> familiar with those 3 drivers once we decide what is the right sequence
+> of operations here.
 
-Depends on the subsystem.  ACPI is 100% bugzilla-based, net people 
-prefer email, others are in-between.
+The other problematic case is netif_device_attach(), which many
+drivers use for resume.  It triggers the same WARN_ON() case as
+well.
 
-Plus for recently-occurring bugs it's best to knock them over via email
-without getting into bugzilla bureaucracy.  bugzilla is more
-appropriate to longer-term bugs.
+I'm going to attack this as follows:
 
-And when the bug affects multiple subsystems, multiple
-developers and we don't even know which subsystem introduced it, it is
-much better to perform the diagnosis and repair via email.
+1) Make running netif_schedule() on the builtin' qdiscs such
+   as noop_qdisc and noqueue_qdisc a NOP and not WARN any more.
 
+2) Come up with a "netif_freeze_tx()" or similar to give these
+   drivers what they want.
 
-I make a judgement call on each report.  Been doing it for a while,
-don't get too many complaints ;)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The truth is that neither netif_stop_queue() nor netif_carrier_off()
+stop ->hard_start_xmit() execution immediately.
+
+Taking the TX lock(s) and doing netif_stop_queue() comes close, but
+it is also not a full solution.
+
+netif_stop_queue() just sets a bit, but a cpu could already be in
+the ->hard_start_xmit() handler.
+
+netif_carrier_off() defers the qdisc reset it does into the link_watch
+work queue, so it's effect is not immediate either.
+
+To me the most effective queue stopper would be a sequence of three
+operations:
+
+1) Set netdev_queue->qdisc to &noop_qdisc
+
+2) Lock the previous qdisc and call ->reset() on it
+
+3) Grab and release TX lock
+
+That guarentees nobody is inside of ->hard_start_xmit() and that
+no future packets are pending for the device.
+
+At least for non-LLTX driver.  For LLTX ones, oh well, too bad, they
+have to find their own ways to ensure such things.  It's deprecated
+for a reason :)
+
