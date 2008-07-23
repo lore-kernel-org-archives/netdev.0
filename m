@@ -1,45 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: sleeping in irq context in match()
-Date: Wed, 23 Jul 2008 20:14:44 +0100
-Message-ID: <20080723191443.GT10471@solarflare.com>
-References: <20080723115706.38060204@infradead.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [RFC] napi: adding an administrative state & priority
+Date: Wed, 23 Jul 2008 15:27:13 -0400
+Message-ID: <20080723192548.GA14654@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alex Davis <alex14641@yahoo.com>, netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+Cc: davem@davemloft.net, jgarzik@pobox.com, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.mbr-roch.zen.net.uk ([212.23.3.142]:58348 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752649AbYGWTOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 15:14:51 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:4154 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752649AbYGWT1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2008 15:27:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20080723115706.38060204@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> Hi,
-> 
-> the backtrace below is popping up in kerneloops.org stats pretty
-> quickly; I don't know if it's been discussed here before but
-> just wanted to mention it in case it hasn't been..
-> (it's rank 13 right now, out of nowhere)
-> 
-> http://www.kerneloops.org/searchweek.php?search=match  for more info
-> 
-> 
-> __might_sleep
-> mutex_lock_nested
-> rtnl_lock
-> *match
-[...]
+I was looking at our napi code recently, and two ideas struck me that I thought
+would be nice to integrate into the napi infrastructure, but I thought I gather
+some opinions on them before I went to the trouble to implement them:
 
-Looking at the "more info", I see that that function is in xt_ipisforif,
-which is an out-of-tree module.  The author appears to be
-Alex Davis <alex14641@yahoo.com>.
+1) An administrative state for napi, specifically administratively disabled
+state, on a per-interface basis.  When napi was administratively disabled the
+interface would behave as though napi had never been configured on it.  I.E.
+netif_rx_schedule would call directly into dev->poll with a budget of 1, so as
+to behave like a legacy interrupt handler.   setting of this administrative
+state can be handled through sysfs
 
-Ben.
+2) A priority value attached to napi_struct.  Much in the same way that a napi
+instances weight constrains how much work will be done by a driver in a given
+napi poll, a priority can be assigned to a napi_struct such that its selection
+in net_rx_action will be prioritized over other interfaces.  Like above, we can
+handle the assignment of priorities on a per napi instance basis through sysfs.
+
+My reasoning for these features is common in that I've had occasion to observe
+some workloads where incomming data that is highly sensitive to loss and
+latency, gets lost near the hardware.  Most often this happens because the
+latency from the time of interrupt to the time of serving in dev->poll is
+sufficient to overrun a hardware buffer, or the devices ring buffer.  While ring
+buffers can be extended, I'm personally loathe to simply try out run the problem
+by adding ring-buffer space.  It would be nice if we had a way to drain the
+overrunning queue faster, rather than just making it longer.
+
+I think this is also an adventageous set of ideas, in that it would allow us to
+make better use of interrupt coalescing features on the hardware.  Currently
+changing interrupt coalescing on the hardware can effectively reduce or increase
+the interrupt volume seen from a given NIC in a system.  Its performance impact
+is clouded however since the interrupt is deferred until such time as the napi
+poll routine is run, which could be some time, dependent on what else is going
+on in the system.  While reasons to do this might be suspect in some situations,
+I think it would be helpful to have a way to disable napi on an interface so
+effects of hardware adjustments can be more clearly seen
+
+So, there are my thoughts, please feel free to pick them to shreds.
+
+Thanks & Regards
+Neil
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
