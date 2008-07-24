@@ -1,64 +1,64 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
-Date: Thu, 24 Jul 2008 19:22:57 +0300
-Message-ID: <200807241922.57361.opurdila@ixiacom.com>
-References: <E1KM0DG-0001vY-00@gondolin.me.apana.org.au> <200807241634.31614.opurdila@ixiacom.com> <20080724150116.GA8692@gondor.apana.org.au>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: list pmtudisc initizlisation for ipv4 sctp socket
+Date: Thu, 24 Jul 2008 12:30:48 -0400
+Message-ID: <4888AE38.7020208@hp.com>
+References: <4888A3C9.3010203@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: linux-sctp@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:4698 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751950AbYGXQZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 12:25:24 -0400
-In-Reply-To: <20080724150116.GA8692@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:44868 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600AbYGXQau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 12:30:50 -0400
+In-Reply-To: <4888A3C9.3010203@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 24 July 2008, Herbert Xu wrote:
+Pavel Emelyanov wrote:
+> I'm not sure whether this was done deliberately, but the
+> sctp_v4_create_accept_sk doesn't set the newinet->pmtudisc
+> like it is done in both cases (ipv4 and v6) for tcp sockets
+> and for sctp over ipv6 socket.
+> 
+> This loss is painless, I suppose, since the whole socket is
+> zeroed by default and thus this field is automatically set
+> to IP_PMTUDISC_DONT.
+> 
+> Restore this setting logic for sctp over ipv4 socket.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> 
+> ---
+> 
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index a6e0818..b05c739 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -626,6 +626,11 @@ static struct sock *sctp_v4_create_accept_sk(struct sock *sk,
+>  	newinet->mc_index = 0;
+>  	newinet->mc_list = NULL;
+>  
+> +	if (ipv4_config.no_pmtu_disc)
+> +		newinet->pmtudisc = IP_PMTUDISC_DONT;
+> +	else
+> +		newinet->pmtudisc = IP_PMTUDISC_WANT;
+> +
+>  	sk_refcnt_debug_inc(newsk);
+>  
+>  	if (newsk->sk_prot->init(newsk)) {
 
-> > From what I understand, the shinfo remains shared, thus there is no need
-> > to do the copy here.
->
-> No pskb_copy does a full copy on the head portion of the packet
-> which is where your cmsg is.
->
-> > > Also what about pskb_expand_head?
-> >
-> > I think this is only touching the skb header, not the shinfo. Thus we
-> > should be safe?
->
-> But you're freeing the cmsg in skb_release_data which is called
-> by pskb_expand_head.  This can't possibly work.
+Hi Pavel
 
-Right, I've missed the fact that skb_shinfo is stored in the header part. 
+We already inherit the settings from the parent socket here:
 
-> Do we need to make it so generic? If we do then can you please
-> come up with other uses for it too.  For example, find out what
-> existing fields can be better suited by storing them as a cmsg.
-> Only then can we design this properly.
+        newinet->daddr = asoc->peer.primary_addr.v4.sin_addr.s_addr;
+        newinet->pmtudisc = inet->pmtudisc;
+        newinet->id = asoc->next_tsn ^ jiffies;
 
-It looks like we can switch a few members from the skb to cmsg: secmark, 
-priority, tstamp, thus saving some space in the skb, but we will have a 
-performance overhead for accessing these since we now have to search for them 
-in the cmesg list.
+So NACK.
 
-So, the more I think about this the more I am inclined to think that we don't 
-really need it. For our hw timestamp usecases, the reason of this patch, we 
-can get away by adding these new fields in the skb:
-
-u16 flags; /* request / signal presence of RX/TX hw stamps, TX scheduling, TX 	
-		    embed hw timestamp in packet */
-u8 hwstamp[6];
-
-and of course the mechanism of enabling hw stamps requests on per skb, with 
-msghdr.msg_control stuff. 
-
-Would that be acceptable (with proper CONFIG_HW_TSTAMPS of course)?
-
-Thanks,
-tavi
+-vlad
