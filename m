@@ -1,54 +1,68 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [build failure] hp-plus.c: (.text+0xd7c1a): undefined reference
- to `ei_close'
-Date: Thu, 24 Jul 2008 12:25:48 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0807241224040.3283@shark.he.net>
-References: <20080721.233512.128618365.anemo@mba.ocn.ne.jp>
- <20080721191519.GA15843@elte.hu> <20080721214258.787a67ca@lxorguk.ukuu.org.uk>
- <20080722072334.GA25241@elte.hu> <48865899.3030209@garzik.org>
- <20080723104520.GA20672@elte.hu> <20080724052603.GA8744@elte.hu>
- <20080724100615.764bac36@lxorguk.ukuu.org.uk> <4888D631.8040401@garzik.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
+	pointer dereference
+Date: Thu, 24 Jul 2008 14:21:49 -0500
+Message-ID: <1216927309.15519.253.camel@calx>
+References: <20080724060448.GA10203@elte.hu>
+	 <200807242256.09107.nickpiggin@yahoo.com.au>
+	 <20080724130422.GB7426@gondor.apana.org.au>
+	 <200807242313.47041.nickpiggin@yahoo.com.au>
+	 <1216906342.12021.0.camel@penberg-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Ingo Molnar <mingo@elte.hu>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>, w@1wt.eu,
+	davidn@davidnewall.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:38124 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752873AbYGXTZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 15:25:51 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 12:25:48 -0700
-In-Reply-To: <4888D631.8040401@garzik.org>
+Received: from waste.org ([66.93.16.53]:49674 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754830AbYGXT0H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 15:26:07 -0400
+In-Reply-To: <1216906342.12021.0.camel@penberg-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Jul 2008, Jeff Garzik wrote:
 
-> Alan Cox wrote:
-> > On Thu, 24 Jul 2008 07:26:03 +0200
-> > Ingo Molnar <mingo@elte.hu> wrote:
-> > 
-> > > not sure it's known but despite all the fixes i still get:
-> > 
-> > I'll have a look at this next week or possibly the week after. The
-> > original patches worked but they spent 3 months going round in circles
-> > and I've completely given up even trying to work out what happened or why
-> > all the previous updates I sent were ignored.
-> 
-> My apologies.  FWIW, from my point of view the same patch(es) kept getting
-> fixed and updated and going around in circles, so I kept waiting.  Since it
-> was was a net-next issue (until now), I lowered the priority and waited to let
-> you guys (you, Andrew, Randy mainly) sort things out.
+On Thu, 2008-07-24 at 16:32 +0300, Pekka Enberg wrote:
+> On Thu, Jul 24, 2008 at 10:56:08PM +1000, Nick Piggin wrote:
+> > > > OTOH, skb allocation uses kmalloc don't they? So you could stil=
+l use
+> > > > SLOB ksize for that I guess.
+>=20
+> On Thursday 24 July 2008 23:04, Herbert Xu wrote:
+> > > Yes I was referring to the data portion which is kmalloc'ed.
+> > > That is also why I'm interested in ksize because a priori we
+> > > don't know exactly how big it's going to be.  However, we do
+> > > know that statistically 1500 will dominate.
+> > >
+> > > I'm not interested in ksize for kmem_cache at all.  So in fact
+> > > we could have something simpler that's based on kmalloc's roundin=
+g
+> > > algorithm instead.
+>=20
+> =EF=BB=BFOn Thu, 2008-07-24 at 23:13 +1000, Nick Piggin wrote:
+> > Yes you could definitely have a function that returns allocated
+> > bytes for a given kmalloc size. Should be about as fast or faster
+> > than extracting the size from the kaddr...
+>=20
+> Yup, makes sense.
 
-Randy got frustrated and gave up on this particular issue & patch(es).
-This one has gone on far too long...
+On the other hand, I can imagine useful allocator changes where this
+would not be a constant of requested size. For instance, imagine we had
+a classless bucket allocator, but with a heuristic to try a larger
+bucket when it wasn't cheap/possible to allocate a right-sized object
+(because of memory pressure, etc.) and larger ones were available.
+This sort of thing is a pretty small change for SLAB/SLUB.
 
-> So far the only remaining patch I have outstanding and needing to be applied
-> is from Atsushi-san via Ingo (message id <20080723104520.GA20672@elte.hu>)...
-> is that the last of it?
+--=20
+Mathematics is the supreme nostalgia of our time.
 
--- 
-~Randy
