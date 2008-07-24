@@ -1,70 +1,55 @@
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
-Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL pointer dereference
-Date: Thu, 24 Jul 2008 15:44:14 +0300
-Message-ID: <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com>
-References: <20080724060448.GA10203@elte.hu>
-	 <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>
-	 <20080724.022259.113079007.davem@davemloft.net>
-	 <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>
-	 <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Ingo Molnar" <mingo@elte.hu>,
-	"David Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	w@1wt.eu, davidn@davidnewall.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
-	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	"Dave Jones" <davej@redhat.com>
-To: "Patrick McHardy" <kaber@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
+Date: Thu, 24 Jul 2008 20:46:30 +0800
+Message-ID: <E1KM0DG-0001vY-00@gondolin.me.apana.org.au>
+References: <1216850464-30000-2-git-send-email-opurdila@ixiacom.com>
+Cc: netdev@vger.kernel.org, opurdila@ixiacom.com
+To: opurdila@ixiacom.com (Octavian Purdila)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:55983 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751836AbYGXMoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 08:44:15 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2862555rvb.1
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 05:44:14 -0700 (PDT)
-In-Reply-To: <48886FA6.6050908@trash.net>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:56154 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751950AbYGXMqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 08:46:33 -0400
+In-Reply-To: <1216850464-30000-2-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2008 at 3:03 PM, Patrick McHardy <kaber@trash.net> wrote:
-> Ingo Molnar wrote:
->>
->> * Ingo Molnar <mingo@elte.hu> wrote:
->>
->>> here's a new type of crash a -tip testbox triggered today:
->>>
->>> BUG: unable to handle kernel NULL pointer dereference at 0000000000000000
->>> IP: [<0000000000000000>] 0x0
->>> PGD 0 Oops: 0010 [1] PREEMPT CPU 0 Pid: 5331, comm: ssh Not tainted
->>> 2.6.26 #21613
->>> RIP: 0010:[<0000000000000000>]  [<0000000000000000>] 0x0
->>> RSP: 0018:ffff88003b959a70  EFLAGS: 00010217
->>> RAX: ffff88003b9ba91c RBX: ffff88003b9baac0 RCX: 0000000000000002
->>> RDX: ffff88003b9baac0 RSI: 0000000000000014 RDI: ffff88003b9ba3d8
->>> RBP: ffff88003b959a98 R08: ffff88003e434130 R09: ffff88003b9598b8
->>> R10: 0000000000002000 R11: 00000000d85507ac R12: ffff88003b9ba3d8
->>> R13: 0000000000000002 R14: ffff88003e06a020 R15: 0000000000000000
->>> FS:  00007fb2b7806780(0000) GS:ffffffff80c1c180(0000)
->>> knlGS:0000000000000000
->>> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->>> CR2: 0000000000000000 CR3: 000000003b9e8000 CR4: 00000000000006a0
->>> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->>> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->>> Process ssh (pid: 5331, threadinfo ffff88003b958000, task
->>> ffff88003b99a000)
->>> Stack:  ffffffff80777f25 ffff88003b959a98 ffffffff80c24170
->>> ffff88003b959b28
->>>  0000000000000004 ffff88003b959ae8 ffffffff80733107 ffff88003b959ab8
->>>  ffff88003b9ba3d8 ffffffff80c1ed60 0000000000000004 ffff88003b9ba3d8
->>> Call Trace:
->>>  [<ffffffff80777f25>] ? ipv4_confirm+0x8d/0x122
->>>  [<ffffffff80733107>] nf_iterate+0x43/0xa5
->
-> Does reverting 31d8519c fix this?
+Octavian Purdila <opurdila@ixiacom.com> wrote:
+> This patch introduces per skb control messages that can be used to
+> directly exchange information between the application and the
+> hardware, at a per packet level. Examples of usecases are: RX/TX
+> hardware timestamps, TX scheduling (request hardware to send packets
+> at a future time).
 
-Hmm, why do you think it's related? It looks like elem->hook() is a
-NULL pointer but my patch shouldn't make any difference here...
+Putting it in the share info area makes its life-cycle management
+difficult.  This is also a major change to how we store skb control
+data.
+
+> @@ -567,6 +612,8 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>        skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
+>        skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
+>        skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+> +
+> +       skb_shinfo(new)->cmsg = skb_shinfo(old)->cmsg;
+> }
+> 
+> /**
+> @@ -610,7 +657,8 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+>                BUG();
+> 
+>        copy_skb_header(n, skb);
+> -       return n;
+> +
+> +       return skb_cmsg_copy(n, gfp_mask);
+
+What about the other callers of copy_skb_header, like pskb_copy?
+In fact why isn't this in copy_skb_header?
+
+Also what about pskb_expand_head?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
