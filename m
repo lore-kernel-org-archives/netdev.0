@@ -1,60 +1,64 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Thu, 24 Jul 2008 12:19:47 +0200
-Message-ID: <48885743.8030505@trash.net>
-References: <4887550B.2070704@tvcablenet.be> <4887555A.30605@trash.net>	 <48875B8C.2090800@trash.net>	 <20080723.142147.61941255.davem@davemloft.net>	 <48884451.1090703@trash.net> <1ba2fa240807240317g15f6ba84h91b513cce75975e9@mail.gmail.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
+Date: Thu, 24 Jul 2008 20:38:35 +1000
+Message-ID: <200807242038.36693.nickpiggin@yahoo.com.au>
+References: <1216890648.7257.258.camel@twins> <20080724.023210.229338550.davem@davemloft.net> <1216894136.7257.266.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jussi.kivilinna-E01nCVcF24I@public.gmane.org
-To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1ba2fa240807240317g15f6ba84h91b513cce75975e9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	Larry.Finger@lwfinger.net, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, mingo@redhat.com,
+	paulmck@linux.vnet.ibm.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752795AbYGXKi4@vger.kernel.org>
+In-Reply-To: <1216894136.7257.266.camel@twins>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tomas Winkler wrote:
-> On Thu, Jul 24, 2008 at 11:58 AM, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org> wrote:
->> David Miller wrote:
->>> From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
->>> Date: Wed, 23 Jul 2008 18:25:48 +0200
->>>
->>>> We can't fit them into the cb together, I don't see a way to
->>>> shrink ieee80211_tx_info.
->>>>
->>>> Maybe one of the wireless folks can suggest something? Is it
->>>> really necessary to pass the full struct ieee80211_tx_info
->>>> through the qdisc layer, or could the struct be split? It
->>>> needs to find a way to co-exist peacefully with qdiscs'
->>>> skb->cb usage.
->>> This is another area that got mangled up in the ->select_queue()
->>> conversion of the WME bits, but in another aspect this problem
->>> existed beforehand as well.
->>>
->>> Specifically, when RX packets get requeued out to transmit in
->>> the code in net/mac80211/rx.c that resends packets back out the
->>> wireless device by setting a bit in the SKB CB then calling
->>> dev_queue_xmit().
->>>
->>> That's completely illegal :-)
->> It seems its doing even more illegal things that were also
->> present previously. The ieee80211_master_start_xmit function
->> expects to get a valid IEEE80211_SKB_CB, which means it
->> expects it to survive through the entire qdisc layer. I'm
->> not sure how packets get to the master device from the
->> subifs though, so I might be wrong.
->>
-> Isn't this time to make 802.11 native?
+On Thursday 24 July 2008 20:08, Peter Zijlstra wrote:
+> On Thu, 2008-07-24 at 02:32 -0700, David Miller wrote:
+> > From: Peter Zijlstra <peterz@infradead.org>
+> > Date: Thu, 24 Jul 2008 11:27:05 +0200
+> >
+> > > Well, not only lockdep, taking a very large number of locks is
+> > > expensive as well.
+> >
+> > Right now it would be on the order of 16 or 32 for
+> > real hardware.
+> >
+> > Much less than the scheduler currently takes on some
+> > of my systems, so currently you are the pot calling the
+> > kettle black. :-)
+>
+> One nit, and then I'll let this issue rest :-)
+>
+> The scheduler has a long lock dependancy chain (nr_cpu_ids rq locks),
+> but it never takes all of them at the same time. Any one code path will
+> at most hold two rq locks.
 
+Aside from lockdep, is there a particular problem with taking 64k locks
+at once? (in a very slow path, of course) I don't think it causes a
+problem with preempt_count, does it cause issues with -rt kernel?
 
-You mean by making these things real skb members? I hope you're
-not talking about the entire 48 bytes? :)
+Hey, something kind of cool (and OT) I've just thought of that we can
+do with ticket locks is to take tickets for 2 (or 64K) nested locks,
+and then wait for them both (all), so the cost is N*lock + longest spin,
+rather than N*lock + N*avg spin.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That would mean even at the worst case of a huge amount of contention
+on all 64K locks, it should only take a couple of ms to take all of
+them (assuming max spin time isn't ridiculous).
+
+Probably not the kind of feature we want to expose widely, but for
+really special things like the scheduler, it might be a neat hack to
+save a few cycles ;) Traditional implementations would just have
+#define spin_lock_async	      spin_lock
+#define spin_lock_async_wait  do {} while (0)
+
+Sorry it's offtopic, but if I didn't post it, I'd forget to. Might be
+a fun quick hack for someone.
