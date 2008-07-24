@@ -1,137 +1,50 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [Patch 1/1 net-next] S2io: fix statistics flush after a MTU change
-Date: Thu, 24 Jul 2008 13:45:46 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7703EFA5C9@nekter>
-References: <48863498.3020902@linux.vnet.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Thu, 24 Jul 2008 19:45:53 +0200
+Message-ID: <20080724174552.GA2513@ami.dom.local>
+References: <200807222142.23710.denys@visp.net.lb> <20080723232456.GA5835@ami.dom.local> <200807240256.36098.denys@visp.net.lb> <200807241756.43595.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rastapur Santosh" <santosh.rastapur@neterion.com>,
-	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	"Jay Vosburgh" <fubar@us.ibm.com>
-To: <jeff@garzik.org>, "Breno Leitao" <leitao@linux.vnet.ibm.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:49864 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751414AbYGXRps convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 13:45:48 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <48863498.3020902@linux.vnet.ibm.com>
+Received: from ik-out-1112.google.com ([66.249.90.180]:30143 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbYGXRqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 13:46:13 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so2249166ika.5
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 10:46:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200807241756.43595.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
+On Thu, Jul 24, 2008 at 05:56:43PM +0300, denys@visp.net.lb wrote:
+> Nothing yet. Still waiting, in 6 hours i will have "peak time".
+> But yesterday with same settings(without patch) it crashed 3 times.
 
-The patch looks good. Please accept.
+OK, so let's better wait to be sure of something here.
 
-Thanks,
-Ram
+Jarek P.
 
-> -----Original Message-----
-> From: Breno Leitao [mailto:leitao@linux.vnet.ibm.com]
-> Sent: Tuesday, July 22, 2008 12:27 PM
-> To: netdev@vger.kernel.org
-> Cc: jeff@garzik.org; ram.vepa@neterion.com; Rastapur Santosh;
-Sivakumar
-> Subramani; Sreenivasa Honnur; Jay Vosburgh
-> Subject: [Patch 1/1 net-next] S2io: fix statistics flush after a MTU
-> change
+(Btw., could try in the meantime to do something to shorten your lines?
+It's not the most popular format on kernel lists...) 
+
+> It is Core2Duo E6750 CPU, clocksource is TSC.
+> TSC synchronization is always passed. HPET is available, so in case... i can try it too.
+> It was crashing with nmi_watchdog=1(at least it brings crash message) and without it (hard lockup).
+> Fishy point is ifb, but i have few hundreds of NAS servers with ifb + htb 
+> (but sure not 300-400 Mbps like on this host) and i check weekly log on all of them - none of them crashed.
 > 
-> On s2io driver, when you change the interface MTU, it invokes a card
-> reset, which flush some statistics.  This patch solves this problem,
-and
-> also set the net_device->stats as the default statistics structure,
-> instead of s2io_nic->stats.
+> So it is or hardware specific (but it is crashing always in same point), 
+> even maybe memory corruption, it is not a server-grade equipment, but it crashes always in same place, same way.
+> I have running MCE, so if there is thermal events - it must catch it.
+> But sure there is large list of errata for this hardware :-)
 > 
-> To do that, s2io_nic->stats turned into a staging area, where is saved
-> statistics of the last hardware statistics query. So, the difference
-> between the current hardware statistics and s2io_nic->stats, is the
-> value that should be summed up, in order to get the correct statistics
-> value, even after a reset.
 > 
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> On Thursday 24 July 2008, denys@visp.net.lb wrote:
+> > I dont have any problem to restart :-)
+> > Build system and restart (over kexec) is automated..
+> > Rebooting now.
 > 
-> ----
 > 
-> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-> index 9dae40c..f92108e 100644
-> --- a/drivers/net/s2io.c
-> +++ b/drivers/net/s2io.c
-> @@ -3139,7 +3139,7 @@ static void tx_intr_handler(struct fifo_info
-> *fifo_data)
->  		pkt_cnt++;
-> 
->  		/* Updating the statistics block */
-> -		nic->stats.tx_bytes += skb->len;
-> +		nic->dev->stats.tx_bytes += skb->len;
->  		nic->mac_control.stats_info->sw_stat.mem_freed += skb-
-> >truesize;
->  		dev_kfree_skb_irq(skb);
-> 
-> @@ -4892,25 +4892,42 @@ static struct net_device_stats
-> *s2io_get_stats(struct net_device *dev)
->  	/* Configure Stats for immediate updt */
->  	s2io_updt_stats(sp);
-> 
-> +	/* Using sp->stats as a staging area, because reset (due to mtu
-> +	   change, for example) will clear some hardware counters */
-> +	dev->stats.tx_packets +=
-> +		le32_to_cpu(mac_control->stats_info->tmac_frms) -
-> +		sp->stats.tx_packets;
->  	sp->stats.tx_packets =
->  		le32_to_cpu(mac_control->stats_info->tmac_frms);
-> +	dev->stats.tx_errors +=
-> +		le32_to_cpu(mac_control->stats_info->tmac_any_err_frms)
--
-> +		sp->stats.tx_errors;
->  	sp->stats.tx_errors =
->  		le32_to_cpu(mac_control->stats_info->tmac_any_err_frms);
-> +	dev->stats.rx_errors +=
-> +		le64_to_cpu(mac_control->stats_info->rmac_drop_frms) -
-> +		sp->stats.rx_errors;
->  	sp->stats.rx_errors =
->  		le64_to_cpu(mac_control->stats_info->rmac_drop_frms);
-> +	dev->stats.multicast =
-> +		le32_to_cpu(mac_control->stats_info->rmac_vld_mcst_frms)
--
-> +		sp->stats.multicast;
->  	sp->stats.multicast =
->
-le32_to_cpu(mac_control->stats_info->rmac_vld_mcst_frms);
-> +	dev->stats.rx_length_errors =
-> +		le64_to_cpu(mac_control->stats_info->rmac_long_frms) -
-> +		sp->stats.rx_length_errors;
->  	sp->stats.rx_length_errors =
->  		le64_to_cpu(mac_control->stats_info->rmac_long_frms);
-> 
->  	/* collect per-ring rx_packets and rx_bytes */
-> -	sp->stats.rx_packets = sp->stats.rx_bytes = 0;
-> +	dev->stats.rx_packets = dev->stats.rx_bytes = 0;
->  	for (i = 0; i < config->rx_ring_num; i++) {
-> -		sp->stats.rx_packets +=
-mac_control->rings[i].rx_packets;
-> -		sp->stats.rx_bytes += mac_control->rings[i].rx_bytes;
-> +		dev->stats.rx_packets +=
-mac_control->rings[i].rx_packets;
-> +		dev->stats.rx_bytes += mac_control->rings[i].rx_bytes;
->  	}
-> 
-> -	return (&sp->stats);
-> +	return (&dev->stats);
->  }
-> 
->  /**
-> @@ -7413,7 +7430,7 @@ static int rx_osm_handler(struct ring_info
-> *ring_data, struct RxD_t * rxdp)
->  		if (err_mask != 0x5) {
->  			DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%x\n",
->  				dev->name, err_mask);
-> -			sp->stats.rx_crc_errors++;
-> +			dev->stats.rx_crc_errors++;
->  			sp->mac_control.stats_info->sw_stat.mem_freed
->  				+= skb->truesize;
->  			dev_kfree_skb(skb);
