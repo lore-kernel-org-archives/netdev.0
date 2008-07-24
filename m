@@ -1,62 +1,49 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330
-	__netif_schedule+0x2c/0x98()
-Date: Thu, 24 Jul 2008 09:00:23 +0200
-Message-ID: <1216882823.7257.229.camel@twins>
-References: <1216806614.7257.152.camel@twins>
-	 <20080723101352.GD4561@ff.dom.local> <1216810696.7257.175.camel@twins>
-	 <20080723.131441.200166513.davem@davemloft.net>
+From: Marek Kierdelewicz <marek@piasta.pl>
+Subject: Re: TUN/TAP hacking
+Date: Thu, 24 Jul 2008 08:50:06 +0200
+Message-ID: <20080724085006.1163d122@catlap>
+References: <20080723235514.GA8992@zenon.in.qult.net>
+	<4887E818.4020305@isomerica.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080723.131441.200166513.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ignacy Gawedzki <lkml@qult.net>
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from psyche.piasta.pl ([83.175.144.5]:60165 "EHLO psyche.piasta.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750737AbYGXHRn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 03:17:43 -0400
+In-Reply-To: <4887E818.4020305@isomerica.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-23 at 13:14 -0700, David Miller wrote:
-> From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-> Date: Wed, 23 Jul 2008 12:58:16 +0200
-> 
-> > So I guess my question is, is netif_tx_lock() here to stay, or is the
-> > right fix to convert all those drivers to use __netif_tx_lock() which
-> > locks only a single queue?
-> 
-> It's staying.
-> 
-> It's trying to block all potential calls into the ->hard_start_xmit()
-> method of the driver, and the only reliable way to do that is to take
-> all the TX queue locks.  And in one form or another, we're going to
-> have this "grab/release all the TX queue locks" construct.
-> 
-> I find it interesting that this cannot be simply described to lockdep
-> :-)
+Hi Ignacy & netdev,
 
-If you think its OK to take USHORT_MAX locks at once, I'm afraid we'll
-have to agree to disagree :-/
+> I thought I'd be able to use the TAP interfaces to create some sort
+> of a network emulator.  For a start I just "bridged" two tap
+> interfaces, much in the same way as the example of br_select.c from
+> http://vtun.sf.net , assigned both interfaces different IPv4
+> addresses (both with a /32 prefix),
 
-Thing is, lockdep wants to be able to describe the locking hierarchy
-with classes, and each class needs to be in static storage for various
-reasons.
+As far as I understand you're trying to bridge two interfaces of the
+same host. It's no good for a test network, because local traffic
+(from/to the same host) will always be forwarded locally (via lo?) and
+will never reach any ethX or tapX interface (not without kernel
+hacking). There's another way... You can use QEMU[1]/KQEMU[2]/KVM[3] for
+guest system virtualization with options that create tapX interfaces
+on host and ethX on guests. Then you can bridge taps the way you want
+(even with eths on your host system) as described in [4][5]. For guest
+system I'd recommend openwrt kamikaze[6]. It's small in terms of system
+image size and memory consumption so you can build a complex virtual
+network of 10+ hosts using only 200MB of disk space and 320MB of ram.
 
-So if you make a locking hierarchy that is USHORT_MAX deep, you need at
-least that amount of static classes.
+[1] http://bellard.org/qemu/
+[2] http://bellard.org/qemu/kqemu-doc.html
+[3] http://kvm.qumranet.com/kvmwiki
+[4] http://www.fedoraforum.org/forum/showpost.php?p=530775&postcount=1
+[5] http://calamari.reverse-dns.net:980/cgi-bin/moin.cgi/bridge
+[6] http://openwrt.org/
 
-Also, you'll run into the fact that lockdep will only track like 48 held
-locks, after that it self terminates.
-
-I'm aware of only 2 sites in the kernel that break this limit. The
-down-side of stretching this limit is that deep lock chains come with
-costs (esp so on -rt), so I'm not particularly eager to grow this - it
-might give the impresssion its a good idea to have very long lock
-chains.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Marek Kierdelewicz
