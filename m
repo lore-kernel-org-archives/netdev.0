@@ -1,80 +1,577 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [regression] nf_iterate(), BUG: unable to handle kernel NULL
-	pointer dereference
-Date: Thu, 24 Jul 2008 13:56:25 +0200
-Message-ID: <20080724115625.GA23994@elte.hu>
-References: <20080724060448.GA10203@elte.hu> <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au> <20080724.022259.113079007.davem@davemloft.net> <20080724093411.GA12001@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	Dave Jones <davej@redhat.com>
-To: David Miller <davem@davemloft.net>
+From: Julius Volz <juliusv@google.com>
+Subject: [PATCH] IPVS: Move userspace definitions to include/linux/ip_vs.h
+Date: Thu, 24 Jul 2008 13:58:36 +0200
+Message-ID: <1216900716-4448-1-git-send-email-juliusv@google.com>
+References: <f4845fc0807240446k224215cn7aee7f57a0fa9100@mail.gmail.com>
+Cc: davem@davemloft.net, kaber@trash.net, horms@verge.net.au,
+	vbusam@google.com, Julius Volz <juliusv@google.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:36852 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756719AbYGXL53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 07:57:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20080724093411.GA12001@elte.hu>
+Received: from smtp-out.google.com ([216.239.33.17]:63100 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751760AbYGXL7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 07:59:00 -0400
+In-Reply-To: <f4845fc0807240446k224215cn7aee7f57a0fa9100@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Current versions of ipvsadm include "/usr/src/linux/include/net/ip_vs.h"
+directly. This file also contains kernel-only definitions. Normally, public
+definitions should live in include/linux, so this patch moves the
+definitions shared with userspace to a new file, "include/linux/ip_vs.h".
 
-here's a new type of crash a -tip testbox triggered today:
+This also removes the unused NFC_IPVS_PROPERTY bitmask, which was once
+used to point into skb->nfcache.
 
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000000
-IP: [<0000000000000000>] 0x0
-PGD 0 
-Oops: 0010 [1] PREEMPT 
-CPU 0 
-Pid: 5331, comm: ssh Not tainted 2.6.26 #21613
-RIP: 0010:[<0000000000000000>]  [<0000000000000000>] 0x0
-RSP: 0018:ffff88003b959a70  EFLAGS: 00010217
-RAX: ffff88003b9ba91c RBX: ffff88003b9baac0 RCX: 0000000000000002
-RDX: ffff88003b9baac0 RSI: 0000000000000014 RDI: ffff88003b9ba3d8
-RBP: ffff88003b959a98 R08: ffff88003e434130 R09: ffff88003b9598b8
-R10: 0000000000002000 R11: 00000000d85507ac R12: ffff88003b9ba3d8
-R13: 0000000000000002 R14: ffff88003e06a020 R15: 0000000000000000
-FS:  00007fb2b7806780(0000) GS:ffffffff80c1c180(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000000000000 CR3: 000000003b9e8000 CR4: 00000000000006a0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process ssh (pid: 5331, threadinfo ffff88003b958000, task ffff88003b99a000)
-Stack:  ffffffff80777f25 ffff88003b959a98 ffffffff80c24170 ffff88003b959b28
- 0000000000000004 ffff88003b959ae8 ffffffff80733107 ffff88003b959ab8
- ffff88003b9ba3d8 ffffffff80c1ed60 0000000000000004 ffff88003b9ba3d8
-Call Trace:
- [<ffffffff80777f25>] ? ipv4_confirm+0x8d/0x122
- [<ffffffff80733107>] nf_iterate+0x43/0xa5
- [<ffffffff8074bbb2>] ? ip_finish_output+0x0/0x62
- [<ffffffff807331cd>] nf_hook_slow+0x64/0xcb
- [<ffffffff8074bbb2>] ? ip_finish_output+0x0/0x62
- [<ffffffff8074b63b>] nf_hook_thresh+0x1e/0x20
- [<ffffffff8074bd44>] ip_output+0xb3/0xc9
- [<ffffffff8074a27e>] dst_output+0xb/0xd
- [<ffffffff8074b6ef>] ip_local_out+0x1e/0x22
- [<ffffffff8074c75c>] ip_queue_xmit+0x2a6/0x321
- [<ffffffff80241961>] ? sub_preempt_count+0x2d/0x40
- [<ffffffff8028f239>] ? slob_alloc+0x11b/0x248
- [<ffffffff8075b85a>] tcp_transmit_skb+0x5ec/0x61b
- [<ffffffff807122b6>] ? kmalloc+0xc/0xe
- [<ffffffff8075d7ae>] tcp_connect+0x2a4/0x344
- [<ffffffff80760cf1>] tcp_v4_connect+0x3cd/0x425
- [<ffffffff8076bc7d>] inet_stream_connect+0x9a/0x24d
- [<ffffffff80292988>] ? fget_light+0x38/0x85
- [<ffffffff8070c60c>] sys_connect+0x68/0x8b
- [<ffffffff8025dfab>] ? up_read+0x9/0xb
- [<ffffffff8023727c>] ? do_page_fault+0x55f/0x92f
- [<ffffffff8022479a>] system_call_fastpath+0x16/0x1b
+To make old ipvsadms still compile with this, the old header file includes
+the new one.
 
-with this config:
+Thanks to Dave Miller and Horms for noting/adding the missing Kbuild entry
+for the new header file.
 
-  http://redhat.com/~mingo/misc/config-Thu_Jul_24_13_23_34_CEST_2008.bad
+Signed-off-by: Julius Volz <juliusv@google.com>
+---
+ include/linux/Kbuild  |    1 +
+ include/linux/ip_vs.h |  245 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/net/ip_vs.h   |  253 ++-----------------------------------------------
+ 3 files changed, 254 insertions(+), 245 deletions(-)
+ create mode 100644 include/linux/ip_vs.h
 
-i'll try a bisection.
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index 71d70d1..3273039 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -97,6 +97,7 @@ header-y += ioctl.h
+ header-y += ip6_tunnel.h
+ header-y += ipmi_msgdefs.h
+ header-y += ipsec.h
++header-y += ip_vs.h
+ header-y += ipx.h
+ header-y += irda.h
+ header-y += iso_fs.h
+diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
+new file mode 100644
+index 0000000..ec6eb49
+--- /dev/null
++++ b/include/linux/ip_vs.h
+@@ -0,0 +1,245 @@
++/*
++ *      IP Virtual Server
++ *      data structure and functionality definitions
++ */
++
++#ifndef _IP_VS_H
++#define _IP_VS_H
++
++#include <linux/types.h>	/* For __beXX types in userland */
++
++#define IP_VS_VERSION_CODE	0x010201
++#define NVERSION(version)			\
++	(version >> 16) & 0xFF,			\
++	(version >> 8) & 0xFF,			\
++	version & 0xFF
++
++/*
++ *      Virtual Service Flags
++ */
++#define IP_VS_SVC_F_PERSISTENT	0x0001		/* persistent port */
++#define IP_VS_SVC_F_HASHED	0x0002		/* hashed entry */
++
++/*
++ *      Destination Server Flags
++ */
++#define IP_VS_DEST_F_AVAILABLE	0x0001		/* server is available */
++#define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
++
++/*
++ *      IPVS sync daemon states
++ */
++#define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
++#define IP_VS_STATE_MASTER	0x0001		/* started as master */
++#define IP_VS_STATE_BACKUP	0x0002		/* started as backup */
++
++/*
++ *      IPVS socket options
++ */
++#define IP_VS_BASE_CTL		(64+1024+64)		/* base */
++
++#define IP_VS_SO_SET_NONE	IP_VS_BASE_CTL		/* just peek */
++#define IP_VS_SO_SET_INSERT	(IP_VS_BASE_CTL+1)
++#define IP_VS_SO_SET_ADD	(IP_VS_BASE_CTL+2)
++#define IP_VS_SO_SET_EDIT	(IP_VS_BASE_CTL+3)
++#define IP_VS_SO_SET_DEL	(IP_VS_BASE_CTL+4)
++#define IP_VS_SO_SET_FLUSH	(IP_VS_BASE_CTL+5)
++#define IP_VS_SO_SET_LIST	(IP_VS_BASE_CTL+6)
++#define IP_VS_SO_SET_ADDDEST	(IP_VS_BASE_CTL+7)
++#define IP_VS_SO_SET_DELDEST	(IP_VS_BASE_CTL+8)
++#define IP_VS_SO_SET_EDITDEST	(IP_VS_BASE_CTL+9)
++#define IP_VS_SO_SET_TIMEOUT	(IP_VS_BASE_CTL+10)
++#define IP_VS_SO_SET_STARTDAEMON (IP_VS_BASE_CTL+11)
++#define IP_VS_SO_SET_STOPDAEMON (IP_VS_BASE_CTL+12)
++#define IP_VS_SO_SET_RESTORE    (IP_VS_BASE_CTL+13)
++#define IP_VS_SO_SET_SAVE       (IP_VS_BASE_CTL+14)
++#define IP_VS_SO_SET_ZERO	(IP_VS_BASE_CTL+15)
++#define IP_VS_SO_SET_MAX	IP_VS_SO_SET_ZERO
++
++#define IP_VS_SO_GET_VERSION	IP_VS_BASE_CTL
++#define IP_VS_SO_GET_INFO	(IP_VS_BASE_CTL+1)
++#define IP_VS_SO_GET_SERVICES	(IP_VS_BASE_CTL+2)
++#define IP_VS_SO_GET_SERVICE	(IP_VS_BASE_CTL+3)
++#define IP_VS_SO_GET_DESTS	(IP_VS_BASE_CTL+4)
++#define IP_VS_SO_GET_DEST	(IP_VS_BASE_CTL+5)	/* not used now */
++#define IP_VS_SO_GET_TIMEOUT	(IP_VS_BASE_CTL+6)
++#define IP_VS_SO_GET_DAEMON	(IP_VS_BASE_CTL+7)
++#define IP_VS_SO_GET_MAX	IP_VS_SO_GET_DAEMON
++
++
++/*
++ *      IPVS Connection Flags
++ */
++#define IP_VS_CONN_F_FWD_MASK	0x0007		/* mask for the fwd methods */
++#define IP_VS_CONN_F_MASQ	0x0000		/* masquerading/NAT */
++#define IP_VS_CONN_F_LOCALNODE	0x0001		/* local node */
++#define IP_VS_CONN_F_TUNNEL	0x0002		/* tunneling */
++#define IP_VS_CONN_F_DROUTE	0x0003		/* direct routing */
++#define IP_VS_CONN_F_BYPASS	0x0004		/* cache bypass */
++#define IP_VS_CONN_F_SYNC	0x0020		/* entry created by sync */
++#define IP_VS_CONN_F_HASHED	0x0040		/* hashed entry */
++#define IP_VS_CONN_F_NOOUTPUT	0x0080		/* no output packets */
++#define IP_VS_CONN_F_INACTIVE	0x0100		/* not established */
++#define IP_VS_CONN_F_OUT_SEQ	0x0200		/* must do output seq adjust */
++#define IP_VS_CONN_F_IN_SEQ	0x0400		/* must do input seq adjust */
++#define IP_VS_CONN_F_SEQ_MASK	0x0600		/* in/out sequence mask */
++#define IP_VS_CONN_F_NO_CPORT	0x0800		/* no client port set yet */
++#define IP_VS_CONN_F_TEMPLATE	0x1000		/* template, not connection */
++
++#define IP_VS_SCHEDNAME_MAXLEN	16
++#define IP_VS_IFNAME_MAXLEN	16
++
++
++/*
++ *	The struct ip_vs_service_user and struct ip_vs_dest_user are
++ *	used to set IPVS rules through setsockopt.
++ */
++struct ip_vs_service_user {
++	/* virtual service addresses */
++	u_int16_t		protocol;
++	__be32			addr;		/* virtual ip address */
++	__be16			port;
++	u_int32_t		fwmark;		/* firwall mark of service */
++
++	/* virtual service options */
++	char			sched_name[IP_VS_SCHEDNAME_MAXLEN];
++	unsigned		flags;		/* virtual service flags */
++	unsigned		timeout;	/* persistent timeout in sec */
++	__be32			netmask;	/* persistent netmask */
++};
++
++
++struct ip_vs_dest_user {
++	/* destination server address */
++	__be32			addr;
++	__be16			port;
++
++	/* real server options */
++	unsigned		conn_flags;	/* connection flags */
++	int			weight;		/* destination weight */
++
++	/* thresholds for active connections */
++	u_int32_t		u_threshold;	/* upper threshold */
++	u_int32_t		l_threshold;	/* lower threshold */
++};
++
++
++/*
++ *	IPVS statistics object (for user space)
++ */
++struct ip_vs_stats_user
++{
++	__u32                   conns;          /* connections scheduled */
++	__u32                   inpkts;         /* incoming packets */
++	__u32                   outpkts;        /* outgoing packets */
++	__u64                   inbytes;        /* incoming bytes */
++	__u64                   outbytes;       /* outgoing bytes */
++
++	__u32			cps;		/* current connection rate */
++	__u32			inpps;		/* current in packet rate */
++	__u32			outpps;		/* current out packet rate */
++	__u32			inbps;		/* current in byte rate */
++	__u32			outbps;		/* current out byte rate */
++};
++
++
++/* The argument to IP_VS_SO_GET_INFO */
++struct ip_vs_getinfo {
++	/* version number */
++	unsigned int		version;
++
++	/* size of connection hash table */
++	unsigned int		size;
++
++	/* number of virtual services */
++	unsigned int		num_services;
++};
++
++
++/* The argument to IP_VS_SO_GET_SERVICE */
++struct ip_vs_service_entry {
++	/* which service: user fills in these */
++	u_int16_t		protocol;
++	__be32			addr;		/* virtual address */
++	__be16			port;
++	u_int32_t		fwmark;		/* firwall mark of service */
++
++	/* service options */
++	char			sched_name[IP_VS_SCHEDNAME_MAXLEN];
++	unsigned		flags;          /* virtual service flags */
++	unsigned		timeout;	/* persistent timeout */
++	__be32			netmask;	/* persistent netmask */
++
++	/* number of real servers */
++	unsigned int		num_dests;
++
++	/* statistics */
++	struct ip_vs_stats_user stats;
++};
++
++
++struct ip_vs_dest_entry {
++	__be32			addr;		/* destination address */
++	__be16			port;
++	unsigned		conn_flags;	/* connection flags */
++	int			weight;		/* destination weight */
++
++	u_int32_t		u_threshold;	/* upper threshold */
++	u_int32_t		l_threshold;	/* lower threshold */
++
++	u_int32_t		activeconns;	/* active connections */
++	u_int32_t		inactconns;	/* inactive connections */
++	u_int32_t		persistconns;	/* persistent connections */
++
++	/* statistics */
++	struct ip_vs_stats_user stats;
++};
++
++
++/* The argument to IP_VS_SO_GET_DESTS */
++struct ip_vs_get_dests {
++	/* which service: user fills in these */
++	u_int16_t		protocol;
++	__be32			addr;		/* virtual address */
++	__be16			port;
++	u_int32_t		fwmark;		/* firwall mark of service */
++
++	/* number of real servers */
++	unsigned int		num_dests;
++
++	/* the real servers */
++	struct ip_vs_dest_entry	entrytable[0];
++};
++
++
++/* The argument to IP_VS_SO_GET_SERVICES */
++struct ip_vs_get_services {
++	/* number of virtual services */
++	unsigned int		num_services;
++
++	/* service table */
++	struct ip_vs_service_entry entrytable[0];
++};
++
++
++/* The argument to IP_VS_SO_GET_TIMEOUT */
++struct ip_vs_timeout_user {
++	int			tcp_timeout;
++	int			tcp_fin_timeout;
++	int			udp_timeout;
++};
++
++
++/* The argument to IP_VS_SO_GET_DAEMON */
++struct ip_vs_daemon_user {
++	/* sync daemon state (master/backup) */
++	int			state;
++
++	/* multicast interface name */
++	char			mcast_ifn[IP_VS_IFNAME_MAXLEN];
++
++	/* SyncID we belong to */
++	int			syncid;
++};
++
++#endif	/* _IP_VS_H */
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 9a51eba..cbb59eb 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -3,254 +3,17 @@
+  *      data structure and functionality definitions
+  */
+ 
+-#ifndef _IP_VS_H
+-#define _IP_VS_H
+-
+-#include <asm/types.h>		/* For __uXX types */
+-#include <linux/types.h>	/* For __beXX types in userland */
+-
+-#include <linux/sysctl.h>	/* For ctl_path */
+-
+-#define IP_VS_VERSION_CODE	0x010201
+-#define NVERSION(version)			\
+-	(version >> 16) & 0xFF,			\
+-	(version >> 8) & 0xFF,			\
+-	version & 0xFF
+-
+-/*
+- *      Virtual Service Flags
+- */
+-#define IP_VS_SVC_F_PERSISTENT	0x0001		/* persistent port */
+-#define IP_VS_SVC_F_HASHED	0x0002		/* hashed entry */
+-
+-/*
+- *      Destination Server Flags
+- */
+-#define IP_VS_DEST_F_AVAILABLE	0x0001		/* server is available */
+-#define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
+-
+-/*
+- *      IPVS sync daemon states
+- */
+-#define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
+-#define IP_VS_STATE_MASTER	0x0001		/* started as master */
+-#define IP_VS_STATE_BACKUP	0x0002		/* started as backup */
+-
+-/*
+- *      IPVS socket options
+- */
+-#define IP_VS_BASE_CTL		(64+1024+64)		/* base */
+-
+-#define IP_VS_SO_SET_NONE	IP_VS_BASE_CTL		/* just peek */
+-#define IP_VS_SO_SET_INSERT	(IP_VS_BASE_CTL+1)
+-#define IP_VS_SO_SET_ADD	(IP_VS_BASE_CTL+2)
+-#define IP_VS_SO_SET_EDIT	(IP_VS_BASE_CTL+3)
+-#define IP_VS_SO_SET_DEL	(IP_VS_BASE_CTL+4)
+-#define IP_VS_SO_SET_FLUSH	(IP_VS_BASE_CTL+5)
+-#define IP_VS_SO_SET_LIST	(IP_VS_BASE_CTL+6)
+-#define IP_VS_SO_SET_ADDDEST	(IP_VS_BASE_CTL+7)
+-#define IP_VS_SO_SET_DELDEST	(IP_VS_BASE_CTL+8)
+-#define IP_VS_SO_SET_EDITDEST	(IP_VS_BASE_CTL+9)
+-#define IP_VS_SO_SET_TIMEOUT	(IP_VS_BASE_CTL+10)
+-#define IP_VS_SO_SET_STARTDAEMON (IP_VS_BASE_CTL+11)
+-#define IP_VS_SO_SET_STOPDAEMON (IP_VS_BASE_CTL+12)
+-#define IP_VS_SO_SET_RESTORE    (IP_VS_BASE_CTL+13)
+-#define IP_VS_SO_SET_SAVE       (IP_VS_BASE_CTL+14)
+-#define IP_VS_SO_SET_ZERO	(IP_VS_BASE_CTL+15)
+-#define IP_VS_SO_SET_MAX	IP_VS_SO_SET_ZERO
+-
+-#define IP_VS_SO_GET_VERSION	IP_VS_BASE_CTL
+-#define IP_VS_SO_GET_INFO	(IP_VS_BASE_CTL+1)
+-#define IP_VS_SO_GET_SERVICES	(IP_VS_BASE_CTL+2)
+-#define IP_VS_SO_GET_SERVICE	(IP_VS_BASE_CTL+3)
+-#define IP_VS_SO_GET_DESTS	(IP_VS_BASE_CTL+4)
+-#define IP_VS_SO_GET_DEST	(IP_VS_BASE_CTL+5)	/* not used now */
+-#define IP_VS_SO_GET_TIMEOUT	(IP_VS_BASE_CTL+6)
+-#define IP_VS_SO_GET_DAEMON	(IP_VS_BASE_CTL+7)
+-#define IP_VS_SO_GET_MAX	IP_VS_SO_GET_DAEMON
+-
+-
+-/*
+- *      IPVS Connection Flags
+- */
+-#define IP_VS_CONN_F_FWD_MASK	0x0007		/* mask for the fwd methods */
+-#define IP_VS_CONN_F_MASQ	0x0000		/* masquerading/NAT */
+-#define IP_VS_CONN_F_LOCALNODE	0x0001		/* local node */
+-#define IP_VS_CONN_F_TUNNEL	0x0002		/* tunneling */
+-#define IP_VS_CONN_F_DROUTE	0x0003		/* direct routing */
+-#define IP_VS_CONN_F_BYPASS	0x0004		/* cache bypass */
+-#define IP_VS_CONN_F_SYNC	0x0020		/* entry created by sync */
+-#define IP_VS_CONN_F_HASHED	0x0040		/* hashed entry */
+-#define IP_VS_CONN_F_NOOUTPUT	0x0080		/* no output packets */
+-#define IP_VS_CONN_F_INACTIVE	0x0100		/* not established */
+-#define IP_VS_CONN_F_OUT_SEQ	0x0200		/* must do output seq adjust */
+-#define IP_VS_CONN_F_IN_SEQ	0x0400		/* must do input seq adjust */
+-#define IP_VS_CONN_F_SEQ_MASK	0x0600		/* in/out sequence mask */
+-#define IP_VS_CONN_F_NO_CPORT	0x0800		/* no client port set yet */
+-#define IP_VS_CONN_F_TEMPLATE	0x1000		/* template, not connection */
+-
+-/* Move it to better place one day, for now keep it unique */
+-#define NFC_IPVS_PROPERTY	0x10000
+-
+-#define IP_VS_SCHEDNAME_MAXLEN	16
+-#define IP_VS_IFNAME_MAXLEN	16
+-
+-
+-/*
+- *	The struct ip_vs_service_user and struct ip_vs_dest_user are
+- *	used to set IPVS rules through setsockopt.
+- */
+-struct ip_vs_service_user {
+-	/* virtual service addresses */
+-	u_int16_t		protocol;
+-	__be32			addr;		/* virtual ip address */
+-	__be16			port;
+-	u_int32_t		fwmark;		/* firwall mark of service */
+-
+-	/* virtual service options */
+-	char			sched_name[IP_VS_SCHEDNAME_MAXLEN];
+-	unsigned		flags;		/* virtual service flags */
+-	unsigned		timeout;	/* persistent timeout in sec */
+-	__be32			netmask;	/* persistent netmask */
+-};
+-
+-
+-struct ip_vs_dest_user {
+-	/* destination server address */
+-	__be32			addr;
+-	__be16			port;
+-
+-	/* real server options */
+-	unsigned		conn_flags;	/* connection flags */
+-	int			weight;		/* destination weight */
+-
+-	/* thresholds for active connections */
+-	u_int32_t		u_threshold;	/* upper threshold */
+-	u_int32_t		l_threshold;	/* lower threshold */
+-};
+-
+-
+-/*
+- *	IPVS statistics object (for user space)
+- */
+-struct ip_vs_stats_user
+-{
+-	__u32                   conns;          /* connections scheduled */
+-	__u32                   inpkts;         /* incoming packets */
+-	__u32                   outpkts;        /* outgoing packets */
+-	__u64                   inbytes;        /* incoming bytes */
+-	__u64                   outbytes;       /* outgoing bytes */
+-
+-	__u32			cps;		/* current connection rate */
+-	__u32			inpps;		/* current in packet rate */
+-	__u32			outpps;		/* current out packet rate */
+-	__u32			inbps;		/* current in byte rate */
+-	__u32			outbps;		/* current out byte rate */
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_INFO */
+-struct ip_vs_getinfo {
+-	/* version number */
+-	unsigned int		version;
+-
+-	/* size of connection hash table */
+-	unsigned int		size;
+-
+-	/* number of virtual services */
+-	unsigned int		num_services;
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_SERVICE */
+-struct ip_vs_service_entry {
+-	/* which service: user fills in these */
+-	u_int16_t		protocol;
+-	__be32			addr;		/* virtual address */
+-	__be16			port;
+-	u_int32_t		fwmark;		/* firwall mark of service */
+-
+-	/* service options */
+-	char			sched_name[IP_VS_SCHEDNAME_MAXLEN];
+-	unsigned		flags;          /* virtual service flags */
+-	unsigned		timeout;	/* persistent timeout */
+-	__be32			netmask;	/* persistent netmask */
+-
+-	/* number of real servers */
+-	unsigned int		num_dests;
+-
+-	/* statistics */
+-	struct ip_vs_stats_user stats;
+-};
+-
+-
+-struct ip_vs_dest_entry {
+-	__be32			addr;		/* destination address */
+-	__be16			port;
+-	unsigned		conn_flags;	/* connection flags */
+-	int			weight;		/* destination weight */
+-
+-	u_int32_t		u_threshold;	/* upper threshold */
+-	u_int32_t		l_threshold;	/* lower threshold */
+-
+-	u_int32_t		activeconns;	/* active connections */
+-	u_int32_t		inactconns;	/* inactive connections */
+-	u_int32_t		persistconns;	/* persistent connections */
+-
+-	/* statistics */
+-	struct ip_vs_stats_user stats;
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_DESTS */
+-struct ip_vs_get_dests {
+-	/* which service: user fills in these */
+-	u_int16_t		protocol;
+-	__be32			addr;		/* virtual address */
+-	__be16			port;
+-	u_int32_t		fwmark;		/* firwall mark of service */
+-
+-	/* number of real servers */
+-	unsigned int		num_dests;
+-
+-	/* the real servers */
+-	struct ip_vs_dest_entry	entrytable[0];
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_SERVICES */
+-struct ip_vs_get_services {
+-	/* number of virtual services */
+-	unsigned int		num_services;
+-
+-	/* service table */
+-	struct ip_vs_service_entry entrytable[0];
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_TIMEOUT */
+-struct ip_vs_timeout_user {
+-	int			tcp_timeout;
+-	int			tcp_fin_timeout;
+-	int			udp_timeout;
+-};
+-
+-
+-/* The argument to IP_VS_SO_GET_DAEMON */
+-struct ip_vs_daemon_user {
+-	/* sync daemon state (master/backup) */
+-	int			state;
+-
+-	/* multicast interface name */
+-	char			mcast_ifn[IP_VS_IFNAME_MAXLEN];
+-
+-	/* SyncID we belong to */
+-	int			syncid;
+-};
++#ifndef _NET_IP_VS_H
++#define _NET_IP_VS_H
+ 
++#include <linux/ip_vs.h>                /* definitions shared with userland */
+ 
++/* old ipvsadm versions still include this file directly */
+ #ifdef __KERNEL__
+ 
++#include <asm/types.h>                  /* for __uXX types */
++
++#include <linux/sysctl.h>               /* for ctl_path */
+ #include <linux/list.h>                 /* for struct list_head */
+ #include <linux/spinlock.h>             /* for struct rwlock_t */
+ #include <asm/atomic.h>                 /* for struct atomic_t */
+@@ -981,4 +744,4 @@ static inline __wsum ip_vs_check_diff2(__be16 old, __be16 new, __wsum oldsum)
+ 
+ #endif /* __KERNEL__ */
+ 
+-#endif	/* _IP_VS_H */
++#endif	/* _NET_IP_VS_H */
+-- 
+1.5.4.5
 
-	Ingo
