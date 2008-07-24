@@ -1,52 +1,43 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH 4/4] sky2: Adapt sky2 to use reworked PCI PM
-Date: Thu, 24 Jul 2008 13:52:18 -0700
-Message-ID: <200807241352.18947.jbarnes@virtuousgeek.org>
-References: <200807191436.40726.rjw@sisk.pl> <20080720190742.84258d7e.akpm@linux-foundation.org> <200807242250.51119.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
+ pointer dereference
+Date: Thu, 24 Jul 2008 13:58:10 -0700 (PDT)
+Message-ID: <20080724.135810.235355036.davem@davemloft.net>
+References: <1216906476.12021.4.camel@penberg-laptop>
+	<20080724115127.6cfbb616.akpm@linux-foundation.org>
+	<1216925744.12392.1.camel@penberg-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754782AbYGXUwm@vger.kernel.org>
-In-Reply-To: <200807242250.51119.rjw@sisk.pl>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, kaber@trash.net, mingo@elte.hu,
+	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi, davej@redhat.com,
+	clip2@gmx.de, vegard.nossum@gmail.com
+To: penberg@cs.helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56182
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751301AbYGXU6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 16:58:10 -0400
+In-Reply-To: <1216925744.12392.1.camel@penberg-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 24, 2008 1:50 pm Rafael J. Wysocki wrote:
-> [Sorry for the delayed response, I'm at OLS.]
->
-> On Monday, 21 of July 2008, Andrew Morton wrote:
-> > On Sat, 19 Jul 2008 14:42:51 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> 
-wrote:
-> > > Adapt the sky2 driver to use the reworked PCI PM.
-> >
-> > I fixed the rejects in "[PATCH 3/4] tg3: Adapt tg3 to use reworked PCI
-> > PM code" but this patch has too many for me to want to fix them.
-> >
-> > As usual, please at least take a look at what's in linux-next before
-> > going and bypassing all that queued work.
->
-> Sorry for that.
->
-> Appended is a version of the patch applying to the current mainline on top
-> of patches 1/4 - 3/4 without rejects.
->
-> BTW, the sky2's WOL is broken on my test box because of commit
-> db99b98885e717454feef1c6868b27d3f23c2e7c ("sky2: put PHY in sleep when
-> down") that causes the box to hang solid in sky2_suspend() and
-> sky2_shutdown() after WOL has been enabled with 'ethtool -s eth0 wol g'.
->
-> This has already been reported to Stephen and Jeff.
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Date: Thu, 24 Jul 2008 21:55:44 +0300
 
-Btw, I just asked Linus to pull the 2/4 part of this patchset, so the rest 
-should be able to go upstream soon.
+> On Thu, 2008-07-24 at 11:51 -0700, Andrew Morton wrote:
+> > Sure.  Or Patrick can do so and it can be merged via the net tree.
+> > 
+> > Ingo, did this patch actually fix something over there?
+> 
+> Apparently it didn't but it did fix Dieter's problem:
+> 
+> http://lkml.org/lkml/2008/7/24/337
+> 
+> Dieter, can we add a Tested-by tag from you to this patch?
 
-Thanks,
-Jesse
+Patrick will toss it my way, and it'll get integrated
+via net-2.6 as a result.
