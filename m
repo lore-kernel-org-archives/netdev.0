@@ -1,54 +1,167 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 10/30] mm: system wide ALLOC_NO_WATERMARK
-Date: Thu, 24 Jul 2008 16:00:52 +0200
-Message-ID: <20080724141529.992297913@chello.nl>
+Subject: [PATCH 26/30] nfs: remove mempools
+Date: Thu, 24 Jul 2008 16:01:08 +0200
+Message-ID: <20080724141531.178291263@chello.nl>
 References: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54685 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbYGXOmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:32 -0400
-Content-Disposition: inline; filename=global-ALLOC_NO_WATERMARKS.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756425AbYGXOmk@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-no-mempool.patch
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The reserve is proportionally distributed over all (!highmem) zones in the
-system. So we need to allow an emergency allocation access to all zones. In
-order to do that we need to break out of any mempolicy boundaries we might
-have.
-
-In my opinion that does not break mempolicies as those are user oriented
-and not system oriented. That is, system allocations are not guaranteed to be
-within mempolicy boundaries. For instance IRQs don't even have a mempolicy.
-
-So breaking out of mempolicy boundaries for 'rare' emergency allocations,
-which are always system allocations (as opposed to user) is ok.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/page_alloc.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: linux-2.6/mm/page_alloc.c
+Index: linux-2.6/fs/nfs/read.c
 ===================================================================
---- linux-2.6.orig/mm/page_alloc.c
-+++ linux-2.6/mm/page_alloc.c
-@@ -1533,6 +1533,11 @@ restart:
- rebalance:
- 	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
-+		/*
-+		 * break out of mempolicy boundaries
-+		 */
-+		zonelist = node_zonelist(numa_node_id(), gfp_mask);
-+
- 		/* go through the zonelist yet again, ignoring mins */
- 		page = get_page_from_freelist(gfp_mask, nodemask, order,
- 				zonelist, high_zoneidx, ALLOC_NO_WATERMARKS);
+--- linux-2.6.orig/fs/nfs/read.c
++++ linux-2.6/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
+ 
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
+ 
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -62,7 +59,7 @@ static void nfs_readdata_free(struct nfs
+ {
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
+ }
+ 
+ void nfs_readdata_release(void *data)
+@@ -614,16 +611,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	return 0;
+ }
+ 
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6/fs/nfs/write.c
+===================================================================
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -28,9 +28,6 @@
+ 
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
+ /*
+  * Local function declarations
+  */
+@@ -45,12 +42,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commitdata_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -63,12 +58,12 @@ void nfs_commit_free(struct nfs_write_da
+ {
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -79,7 +74,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -91,7 +86,7 @@ static void nfs_writedata_free(struct nf
+ {
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_writedata_release(void *data)
+@@ -1552,16 +1547,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1587,8 +1572,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 -- 
-
