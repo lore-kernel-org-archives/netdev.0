@@ -1,40 +1,33 @@
-From: David Miller <davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
 Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
-Date: Thu, 24 Jul 2008 15:17:33 -0700 (PDT)
-Message-ID: <20080724.151733.215864673.davem@davemloft.net>
-References: <200807250049.46939.opurdila@ixiacom.com>
-	<20080724.145600.30988015.davem@davemloft.net>
-	<200807250112.03379.opurdila@ixiacom.com>
+Date: Fri, 25 Jul 2008 01:35:52 +0300
+Message-ID: <200807250135.53241.opurdila@ixiacom.com>
+References: <200807241922.57361.opurdila@ixiacom.com> <20080724.145600.30988015.davem@davemloft.net> <20080724145811.2d2b9ec6@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: opurdila@ixiacom.com
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42152
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751287AbYGXWRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 18:17:33 -0400
-In-Reply-To: <200807250112.03379.opurdila@ixiacom.com>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1269 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750857AbYGXWiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 18:38:20 -0400
+In-Reply-To: <20080724145811.2d2b9ec6@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Fri, 25 Jul 2008 01:12:03 +0300
+On Friday 25 July 2008, Stephen Hemminger wrote:
 
-> On Friday 25 July 2008, David Miller wrote:
-> 
-> > We have a timestamp in the SKB already, why don't you simply override
-> > it when your feature is enable and set a single flag bit that
-> > indicates you used a HW timestamp to set that timestamp?
-> 
-> I thought of something similar, but I am not sure if I can to so, as it seems 
-> that the skb->tstamp requires current gettimeofday semantics at least in 
-> netfilter's ipt_time module.
+> How hard would it be to add PLL support to use same kind of timestamp.
+> Enlist the help of some NTP/clock experts to help.
 
-Can your timestamp format at least be converted to
-gettimeofday() format?
+Let me see if I got this correctly: modify the hardware so that the CPU is 
+synchronized with the NIC timestamping unit. If so, I will agree that this is 
+the cleanest possible solution. 
 
-I thought we had a ton of accessor functions that code uses to access
-the timestamp?  You should be able to do your translation in those
-routines.
+Thanks,
+tavi
