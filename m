@@ -1,35 +1,64 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: bunch of warnings in __netif_schedule
-Date: Wed, 23 Jul 2008 19:27:52 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290577410E@orsmsx414.amr.corp.intel.com>
-References: <20080723120938.36c42453@infradead.org>
+From: =?ISO-8859-1?Q?Dan_No=E9?= <dpn@isomerica.net>
+Subject: Re: TUN/TAP hacking
+Date: Wed, 23 Jul 2008 22:25:28 -0400
+Message-ID: <4887E818.4020305@isomerica.net>
+References: <20080723235514.GA8992@zenon.in.qult.net>
+Reply-To: dpn@isomerica.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Arjan van de Ven" <arjan@infradead.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ignacy Gawedzki <lkml@qult.net>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49197 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751025AbYGXC2Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 22:28:25 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080723120938.36c42453@infradead.org>
+Received: from colobus.isomerica.net ([216.93.242.10]:43091 "EHLO
+	colobus.isomerica.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025AbYGXCga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 22:36:30 -0400
+In-Reply-To: <20080723235514.GA8992@zenon.in.qult.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi,
+Ignacy Gawedzki wrote:
+> I need some advice from network stack experts, so I hope this is the =
+right
+> place to ask.
 
-> kerneloops.org also picked up a series of warnings in
-__netif_schedule:
-> http://www.kerneloops.org/search.php?search=__netif_schedule
+The Linux kernel networking folks hang out at netdev
+(netdev@vger.kernel.org).  I've CC'd them...
 
-> afaics Dave is on top of most of them; just wanted to mention it here
-> in case some got missed...
+> I thought I'd be able to use the TAP interfaces to create some sort o=
+f a
+> network emulator.  For a start I just "bridged" two tap interfaces, m=
+uch in
+> the same way as the example of br_select.c from http://vtun.sf.net , =
+assigned
+> both interfaces different IPv4 addresses (both with a /32 prefix), se=
+t them up
+> and tried to transmit a UDP packet from one address to the other thro=
+ugh the
+> bridge.  Both logs from my bridge program and tcpdump tell me that th=
+e packets
+> are flowing as expected, but somehow the destination process doesn't =
+get the
+> packets (despite all correct bind, etc).
+>=20
+> Is it simply that the stack inconditionally drops any packet with the=
+ same
+> source (IP and/or MAC) address as some local interface?
+>=20
+> As ARP resolution seems not to work either (I had to put permanent en=
+tries in
+> the neighbor table), I suppose this is the case indeed.
+>=20
+> Could anyone confirm that? (please CC me, I've not subscribed)
+>=20
+> Thanks,
+>=20
+> Ignacy
+>=20
 
 
-Dave's committed a fix to remove the warning today, commit id
-5b3ab1dbd401b36ba2f9bfee2d2dae252fd62cd8 in net-2.6.
-
-Cheers,
--PJ Waskiewicz
+--=20
+                    /--------------- - -  -  -   -   -
+                    |  Dan No=E9
+                    |  http://isomerica.net/~dpn/
