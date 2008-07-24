@@ -1,42 +1,54 @@
-From: denys@visp.net.lb
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Thu, 24 Jul 2008 17:56:43 +0300
-Message-ID: <200807241756.43595.denys@visp.net.lb>
-References: <200807222142.23710.denys@visp.net.lb> <20080723232456.GA5835@ami.dom.local> <200807240256.36098.denys@visp.net.lb>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
+Date: Thu, 24 Jul 2008 23:01:16 +0800
+Message-ID: <20080724150116.GA8692@gondor.apana.org.au>
+References: <E1KM0DG-0001vY-00@gondolin.me.apana.org.au> <200807241634.31614.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: denys@visp.net.lb
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:38465 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751439AbYGXO45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:56:57 -0400
-In-Reply-To: <200807240256.36098.denys@visp.net.lb>
+Received: from rhun.apana.org.au ([64.62.148.172]:51006 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750979AbYGXPBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 11:01:19 -0400
 Content-Disposition: inline
+In-Reply-To: <200807241634.31614.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nothing yet. Still waiting, in 6 hours i will have "peak time".
-But yesterday with same settings(without patch) it crashed 3 times.
+On Thu, Jul 24, 2008 at 04:34:31PM +0300, Octavian Purdila wrote:
+>
+> > What about the other callers of copy_skb_header, like pskb_copy?
+> 
+> From what I understand, the shinfo remains shared, thus there is no need to do 
+> the copy here.
 
-It is Core2Duo E6750 CPU, clocksource is TSC.
-TSC synchronization is always passed. HPET is available, so in case... i can try it too.
-It was crashing with nmi_watchdog=1(at least it brings crash message) and without it (hard lockup).
-Fishy point is ifb, but i have few hundreds of NAS servers with ifb + htb 
-(but sure not 300-400 Mbps like on this host) and i check weekly log on all of them - none of them crashed.
+No pskb_copy does a full copy on the head portion of the packet
+which is where your cmsg is.
 
-So it is or hardware specific (but it is crashing always in same point), 
-even maybe memory corruption, it is not a server-grade equipment, but it crashes always in same place, same way.
-I have running MCE, so if there is thermal events - it must catch it.
-But sure there is large list of errata for this hardware :-)
+> > Also what about pskb_expand_head?
+> >
+> 
+> I think this is only touching the skb header, not the shinfo. Thus we should 
+> be safe?
 
+But you're freeing the cmsg in skb_release_data which is called
+by pskb_expand_head.  This can't possibly work.
 
-On Thursday 24 July 2008, denys@visp.net.lb wrote:
-> I dont have any problem to restart :-)
-> Build system and restart (over kexec) is automated..
-> Rebooting now.
+> BTW: I have a dilemma with regard to fully copied skbs: should we copy the 
+> cmsg queue as well, or should we just prune it in the copy? I don't see a 
+> real usecase for doing the copy at this point, but since these is at core 
+> level, maybe it is a good idea to be conservative and do the copying?
 
+Do we need to make it so generic? If we do then can you please
+come up with other uses for it too.  For example, find out what
+existing fields can be better suited by storing them as a cmsg.
+Only then can we design this properly.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
