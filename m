@@ -1,64 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [TCP] Probable bug in icsk_probes_out handling ?
-Date: Thu, 24 Jul 2008 07:22:00 +0200
-Message-ID: <48881178.3080901@cosmosbay.com>
-References: <48873397.5040409@cosmosbay.com> <20080723.163444.165532483.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [build failure] hp-plus.c: (.text+0xd7c1a): undefined
+	reference to `ei_close'
+Date: Thu, 24 Jul 2008 07:26:03 +0200
+Message-ID: <20080724052603.GA8744@elte.hu>
+References: <20080721.233512.128618365.anemo@mba.ocn.ne.jp> <20080721191519.GA15843@elte.hu> <20080721214258.787a67ca@lxorguk.ukuu.org.uk> <20080722072334.GA25241@elte.hu> <48865899.3030209@garzik.org> <20080723104520.GA20672@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.orange.fr ([80.12.242.48]:21568 "EHLO smtp21.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752614AbYGXFWx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 01:22:53 -0400
-In-Reply-To: <20080723.163444.165532483.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 23 Jul 2008 15:35:19 +0200
->=20
->> Apparently, we can in some situations reset TCP connections in a cou=
-ple of seconds when some frames are lost.
->=20
-> I think it is some optimization that went in between 2.2.x and 2.4.x
-> which took things a little bit too far.
->=20
-> Please try this patch:
-
-Yes, this patch solves the problem.=20
-I tried a similar patch yesterday but was not sure about its validity.
-Thanks a lot David.
-=20
->=20
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 1f5e604..75efd24 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3292,6 +3292,7 @@ static int tcp_ack(struct sock *sk, struct sk_b=
-uff *skb, int flag)
->  	 * log. Something worked...
->  	 */
->  	sk->sk_err_soft =3D 0;
-> +	icsk->icsk_probes_out =3D 0;
->  	tp->rcv_tstamp =3D tcp_time_stamp;
->  	prior_packets =3D tp->packets_out;
->  	if (!prior_packets)
-> @@ -3324,8 +3325,6 @@ static int tcp_ack(struct sock *sk, struct sk_b=
-uff *skb, int flag)
->  	return 1;
-> =20
->  no_queue:
-> -	icsk->icsk_probes_out =3D 0;
-> -
->  	/* If this ack opens up a zero window, clear backoff.  It was
->  	 * being used to time the probes, and is probably far higher than
->  	 * it needs to be for normal retransmission.
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Atsushi Nemoto <anemo@mba.ocn.ne.jp>, jgarzik@redhat.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753052AbYGXF06@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080723104520.GA20672@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+not sure it's known but despite all the fixes i still get:
 
+ drivers/built-in.o: In function `ne_drv_resume':
+ ne.c:(.text+0x146ba4): undefined reference to `NS8390_init'
+ drivers/built-in.o: In function `ne_block_output':
+ ne.c:(.text+0x146e00): undefined reference to `NS8390_init'
+ drivers/built-in.o: In function `hpp_close':
+ hp-plus.c:(.text+0x148c3b): undefined reference to `ei_close'
+ drivers/built-in.o: In function `hpp_open':
+ hp-plus.c:(.text+0x148c77): undefined reference to `ei_interrupt'
+ hp-plus.c:(.text+0x148ce7): undefined reference to `ei_open'
+ drivers/built-in.o: In function `ne_probe1':
+ ne.c:(.init.text+0xb532): undefined reference to `NS8390_init'
+ drivers/built-in.o: In function `hpp_probe1':
+ hp-plus.c:(.init.text+0xc033): undefined reference to `ei_poll'
+ drivers/built-in.o: In function `hp_plus_probe':
+ (.init.text+0xc134): undefined reference to `__alloc_ei_netdev'
+ make: *** [.tmp_vmlinux1] Error 1
 
+with this config and latest -git (v2.6.26-6371-g338b9bb):
+
+ http://redhat.com/~mingo/misc/config-Thu_Jul_24_07_13_29_CEST_2008.bad
+
+	Ingo
