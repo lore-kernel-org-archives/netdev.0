@@ -1,54 +1,45 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [PATCH 2/2] xen-netfront: call netif_start_queue() on xennet_open()
-Date: Thu, 24 Jul 2008 08:45:59 -0700
-Message-ID: <4888A3B7.8060901@goop.org>
-References: <1216912546-6971-1-git-send-email-ehabkost@redhat.com> <1216912546-6971-2-git-send-email-ehabkost@redhat.com>
+From: "=?ISO-8859-1?Q?C=E9dric_Augonnet?=" <cedric.augonnet@gmail.com>
+Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
+Date: Thu, 24 Jul 2008 17:57:16 +0200
+Message-ID: <f56c1ba00807240857xd5b2e84q9c3fc9642fd68dc@mail.gmail.com>
+References: <200807241534.m6OFYBmc029095@post.webmailer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	NetDev <netdev@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>
-To: Eduardo Habkost <ehabkost@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
+	"Mario Limonciello" <Mario_Limonciello@dell.com>,
+	kernel@vger.kernel.org, netdev@vger.kernel.org,
+	c4p7n1@capitanio.org
+To: "martin capitanio" <martin@capitanio.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:44067 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751386AbYGXPqC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 11:46:02 -0400
-In-Reply-To: <1216912546-6971-2-git-send-email-ehabkost@redhat.com>
+Received: from py-out-1112.google.com ([64.233.166.183]:36551 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbYGXP5R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 11:57:17 -0400
+Received: by py-out-1112.google.com with SMTP id p76so2150029pyb.10
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 08:57:16 -0700 (PDT)
+In-Reply-To: <200807241534.m6OFYBmc029095@post.webmailer.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eduardo Habkost wrote:
-> xen-netfront was waking the queue before calling netif_start_queue(),
-> triggering the BUG_ON() on __netif_schedule().
->
-> Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
->   
-Ok,
-Acked-by: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+Hi all,
 
-but Ingo, do you want to pick this up?  You're gathering a collection of 
-these patches anyway, or should we kick it over to Dave/Jeff?
+>        case RTL_GIGA_MAC_VER_04:
+>                rtl8169sb_hw_phy_config(ioaddr);
+>                break;
+> +       case RTL_GIGA_MAC_VER_13:
+> +       case RTL_GIGA_MAC_VER_16:
+> +               rtl8101_hw_phy_config(ioaddr);
 
-    J
+Should not there be a "break;" here or is it intended to go through
+the next case as well?
 
-> ---
->  drivers/net/xen-netfront.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 902bbe7..c749bdb 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -329,7 +329,7 @@ static int xennet_open(struct net_device *dev)
->  	}
->  	spin_unlock_bh(&np->rx_lock);
->  
-> -	xennet_maybe_wake_tx(dev);
-> +	netif_start_queue(dev);
->  
->  	return 0;
->  }
->   
+>        case RTL_GIGA_MAC_VER_18:
+>                rtl8168cp_hw_phy_config(ioaddr);
+>                break;
 
+Perhaps i missed something obvious, sorry if that's the case ...
+
+Cheers,
+C=E9dric
