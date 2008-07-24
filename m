@@ -1,49 +1,58 @@
-From: Marek Kierdelewicz <marek@piasta.pl>
-Subject: Re: TUN/TAP hacking
-Date: Thu, 24 Jul 2008 08:50:06 +0200
-Message-ID: <20080724085006.1163d122@catlap>
-References: <20080723235514.GA8992@zenon.in.qult.net>
-	<4887E818.4020305@isomerica.net>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: Re: bug: mutex_lock() in interrupt conntext via phy_stop() in
+	gianfar
+Date: Thu, 24 Jul 2008 09:27:39 +0200
+Message-ID: <20080724072739.GA10563@Chamillionaire.breakpoint.cc>
+References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc> <1216681028.7559.993.camel@localhost.localdomain> <1216851168.11027.343.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ignacy Gawedzki <lkml@qult.net>
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Nate Case <ncase@xes-inc.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Vitaly Bordug <vbordug@ru.mvista.com>,
+	Li Yang <leoli@freescale.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from psyche.piasta.pl ([83.175.144.5]:60165 "EHLO psyche.piasta.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750737AbYGXHRn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 03:17:43 -0400
-In-Reply-To: <4887E818.4020305@isomerica.net>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:55162 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750736AbYGXH1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 03:27:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1216851168.11027.343.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ignacy & netdev,
+* Benjamin Herrenschmidt | 2008-07-24 08:12:48 [+1000]:
 
-> I thought I'd be able to use the TAP interfaces to create some sort
-> of a network emulator.  For a start I just "bridged" two tap
-> interfaces, much in the same way as the example of br_select.c from
-> http://vtun.sf.net , assigned both interfaces different IPv4
-> addresses (both with a /32 prefix),
+>On Mon, 2008-07-21 at 17:57 -0500, Nate Case wrote:
+>> On Fri, 2008-07-18 at 14:10 +0200, Sebastian Siewior wrote:
+>> > Commit 35b5f6b1a aka [PHYLIB: Locking fixes for PHY I/O potentially sleeping]
+>> > changed the phydev->lock from spinlock into a mutex. Now, the following
+>> > code path got triggered while NFS was unavailable:
+>> > 
+>> [snip]
+>> > |[  194.864733] BUG: sleeping function called from invalid context at /home/bigeasy/git/linux-2.6-powerpc/kernel/mutex.c:87
+>> > |[  194.875529] in_atomic():1, irqs_disabled():0
+>> > |[  194.879805] Call Trace:
+>> > |[  194.882250] [c0383d90] [c0006dd8] show_stack+0x48/0x184 (unreliable)
+>> > |[  194.888649] [c0383db0] [c001e938] __might_sleep+0xe0/0xf4
+>> > |[  194.894069] [c0383dc0] [c025a43c] mutex_lock+0x24/0x3c
+>> > |[  194.899234] [c0383de0] [c019005c] phy_stop+0x20/0x70
+>> > |[  194.904234] [c0383df0] [c018d4ec] stop_gfar+0x28/0xf4
+>> > |[  194.909305] [c0383e10] [c018e8c4] gfar_timeout+0x30/0x60
+>> > |[  194.914638] [c0383e20] [c01fe7c0] dev_watchdog+0xa8/0x144
+>> 
+>> Hmm..  I'm not sure what the best solution is to this.  Make the
+>> stop_gfar() call happen in a workqueue, and make a similar change to
+>> ucc_geth, fec_mpc52xx, and fs_enet? Modify phy_stop() to do the work in
+>> a workqueue conditionally if in interrupt context?  Between these two
+>> I'd lean toward the latter.
+>> 
+>> Does anyone have any better ideas?
+>
+>Move the reset task to a workqueue.
+Done in [1] Ben.
 
-As far as I understand you're trying to bridge two interfaces of the
-same host. It's no good for a test network, because local traffic
-(from/to the same host) will always be forwarded locally (via lo?) and
-will never reach any ethX or tapX interface (not without kernel
-hacking). There's another way... You can use QEMU[1]/KQEMU[2]/KVM[3] for
-guest system virtualization with options that create tapX interfaces
-on host and ethX on guests. Then you can bridge taps the way you want
-(even with eths on your host system) as described in [4][5]. For guest
-system I'd recommend openwrt kamikaze[6]. It's small in terms of system
-image size and memory consumption so you can build a complex virtual
-network of 10+ hosts using only 200MB of disk space and 320MB of ram.
+[1] http://marc.info/?l=linux-netdev&m=121684347609062&w=2
+>Cheers,
+>Ben.
 
-[1] http://bellard.org/qemu/
-[2] http://bellard.org/qemu/kqemu-doc.html
-[3] http://kvm.qumranet.com/kvmwiki
-[4] http://www.fedoraforum.org/forum/showpost.php?p=530775&postcount=1
-[5] http://calamari.reverse-dns.net:980/cgi-bin/moin.cgi/bridge
-[6] http://openwrt.org/
-
-Cheers,
-Marek Kierdelewicz
+Sebastian
