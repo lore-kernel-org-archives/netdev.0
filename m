@@ -1,60 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Current Git: BUG: unable to handle kernel paging
-	request at 0000000001a40ca0
-Date: Thu, 24 Jul 2008 15:51:43 +0200
-Message-ID: <488888EF.4090005@trash.net>
-References: <488750AA.20707@gmx.de>	
-	<19f34abd0807231046o4b194409w7d0e28a7cd745afa@mail.gmail.com>	
-	<48877200.9040608@gmx.de> <4887A860.6070607@gmx.de>	
-	<19f34abd0807231500m3d780d90i39626023e0685369@mail.gmail.com>	
-	<48882687.7020508@gmx.de>
-	<84144f020807240649ra4ef475x9f19f1474678ea2f@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/4] tun: Allow GSO using virtio_net_hdr
+Date: Thu, 24 Jul 2008 22:20:44 +0800
+Message-ID: <20080724142044.GA8266@gondor.apana.org.au>
+References: <200806260028.07883.rusty@rustcorp.com.au> <200806260029.40267.rusty@rustcorp.com.au> <200806260030.38293.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vegard Nossum <vegard.nossum@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dieter Ries <clip2@gmx.de>,
-	e1000-devel@lists.sourceforge.net, jeffrey.t.kirsher@intel.com,
-	Ingo Molnar <mingo@elte.hu>, jgarzik@pobox.com
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <84144f020807240649ra4ef475x9f19f1474678ea2f@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Max Krasnyansky <maxk@qualcomm.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, markmc@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:46172 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751149AbYGXOU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:20:57 -0400
+Content-Disposition: inline
+In-Reply-To: <200806260030.38293.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pekka Enberg wrote:
-> On Thu, Jul 24, 2008 at 9:51 AM, Dieter Ries <clip2@gmx.de> wrote:
->> I think I managed to catch one of those:
->>
->> general protection fault: 0000 [1] SMP
->> CPU 0
->> Modules linked in:
->> Pid: 0, comm: swapper Not tainted 2.6.26-06373-gcaf076e #49
->> RIP: 0010:[<ffffffff805e08f9>]  [<ffffffff805e08f9>]
->> nf_nat_move_storage+0x21/0x7a
->> ...
->> Call Trace:
->>  <IRQ>  [<ffffffff8059d3c4>] __nf_ct_ext_add+0x15f/0x1f7
->>  [<ffffffff805e762c>] nf_nat_fn+0x84/0x152
->>  [<ffffffff805e77d8>] nf_nat_in+0x2f/0x71
-> Dieter, can you please try this patch:
+On Thu, Jun 26, 2008 at 12:30:37AM +1000, Rusty Russell wrote:
+> Add a IFF_VNET_HDR flag.  This uses the same ABI as virtio_net (ie. prepending
+> struct virtio_net_hdr to packets) to indicate GSO and checksum information.
 > 
-> http://lkml.org/lkml/2008/7/24/186
-> 
-> Patrick, it looks like this could be the same bug Ingo is hitting?
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Yes, that most likely the same underlying problem.
+I just noticed that we still allocate a linear skb even when GSO
+is enabled.  Please fix this by allocating page frags where
+necessary.  Otherwise GSO is only going to work before memory
+fragmentation sets in.
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+IIRC I'd sent out a patch to the virt mailing list with code
+that did this.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
