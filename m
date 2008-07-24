@@ -1,60 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Move userspace definitions to
-	include/linux/ip_vs.h
-Date: Thu, 24 Jul 2008 10:20:59 +1000
-Message-ID: <20080724002057.GA3032@verge.net.au>
-References: <20080722003755.GA7962@verge.net.au> <20080723.164215.101337333.davem@davemloft.net>
+From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH] skge: resolve tx multiqueue bug
+Date: Thu, 24 Jul 2008 09:01:32 +0800
+Message-ID: <4887D46C.80304@cn.fujitsu.com>
+References: <20080723101827.GA2236@gentoox2.trippelsdorf.de>	<20080723140347.GA2245@gentoox2.trippelsdorf.de>	<48874C6A.1020604@cn.fujitsu.com> <20080723.153000.172383135.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	juliusv@google.com, kaber@trash.net, vbusam@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41098 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206AbYGXAVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 20:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20080723.164215.101337333.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org, ag-CnKWz401HL/3u/SXJKErtNrkRsMOXBsj@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080723.153000.172383135.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 23, 2008 at 04:42:15PM -0700, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Tue, 22 Jul 2008 10:37:57 +1000
+David Miller said the following on 2008-7-24 6:30:
+> From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> Date: Wed, 23 Jul 2008 23:21:14 +0800
 > 
-> > From: Julius Volz <juliusv@google.com>
-> > 
-> > Current versions of ipvsadm include "/usr/src/linux/include/net/ip_vs.h"
-> > directly. This file also contains kernel-only definitions. Normally, public
-> > definitions should live in include/linux, so this patch moves the
-> > definitions shared with userspace to a new file, "include/linux/ip_vs.h".
-> > 
-> > To make old ipvsadms still compile with this, the old header file includes
-> > the new one.
-> > 
-> > The motivation for this cleanup is the planned Netlink interface for IPVS.
-> > 
-> > Signed-off-by: Julius Volz <juliusv@google.com>
-> > Acked-by: Simon Horman <horms@verge.net.au>
+>> Markus Trippelsdorf said the following on 2008-7-23 22:03:
+>>> On Wed, Jul 23, 2008 at 12:18:27PM +0200, Markus Trippelsdorf wrote:
+>>>> On Wed, Jul 23, 2008 at 04:50:13PM +0800, Wang Chen wrote:
+>>>>> Markus Trippelsdorf said the following on 2008-7-23 13:40:
+>>>>>> On Tue, Jul 22, 2008 at 11:54:26AM +0200, Alessandro Guido wrote:
+>>>>>>> Got a WARNING this morning (2.6.26-05752-g93ded9b) and I think it's related.
+>>>>>> Same thing here (latest git):
+>>>>>>
+>>>>>> skge eth1: enabling interface
+>>>>>> skge eth1: disabling interface
+>>>>>> ------------[ cut here ]------------
+>>>>>> WARNING: at net/core/dev.c:1344 __netif_schedule+0x24/0x6d()
+>>>>>> Pid: 1904, comm: ip Not tainted 2.6.26-06077-gc010b2f #33
+>>>>>>  [<ffffffff8020b3eb>] system_call_after_swapgs+0x7b/0x80
+>>>> ...
+>>>>>> ---[ end trace 92936ef183e09876 ]---
+>>>>>> skge eth1: enabling interface
+>>>>>> skge eth1: Link is up at 100 Mbps, full duplex, flow control both
+>>>>>>
+>>>>> Markus, please try this.
+>>>>>
+>>>>> - Add netif_start_queue() in ->open()
+>>>>> - netif_carrier_*() is enough, remove netif_*_queue()
+>>>> Unfortunately, your patch does not fix this. I still get the same warning.
+>>>>
+>>> This patch works for me:
+>> Your patch works for me too. So I think it's better than mine. :)
+>>
+>> Tested-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+>>
+>> Dave, since Markus and me tested this patch, would you please apply it?
 > 
-> Userland exported headers need to have an entry in include/linux/Kbuild
+> I can't, it's whitespace damaged.  All the tabs are turned into spaces,
+> also there is no signoff from Markus.
 > 
-> Since this linux/ip_vs.h file is new, a new entry needs to be added there.
 
-Thanks, I wasn't aware of that.
+OK. So let it be, since you removed the warning from __netif_schedule().
+I will wait for your netif_tx_{free,unfreeze}() :)
 
-Julius, I think this is the bit we are missing:
-
-Index: net-next-2.6/include/linux/Kbuild
-===================================================================
---- net-next-2.6.orig/include/linux/Kbuild	2008-07-24 10:15:52.000000000 +1000
-+++ net-next-2.6/include/linux/Kbuild	2008-07-24 10:19:08.000000000 +1000
-@@ -97,6 +97,7 @@ header-y += ioctl.h
- header-y += ip6_tunnel.h
- header-y += ipmi_msgdefs.h
- header-y += ipsec.h
-+header-y += ip_vs.h
- header-y += ipx.h
- header-y += irda.h
- header-y += iso_fs.h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
