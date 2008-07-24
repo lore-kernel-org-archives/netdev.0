@@ -1,193 +1,74 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
-Date: Thu, 24 Jul 2008 23:09:05 +0200
-Message-ID: <20080724210905.GB27489@electric-eye.fr.zoreil.com>
-References: <200807241554.m6OFsaL1005401@post.webmailer.de>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
+ pointer dereference
+Date: Thu, 24 Jul 2008 14:13:42 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0807241407410.8109@nehalem.linux-foundation.org>
+References: <20080724060448.GA10203@elte.hu>  <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>  <20080724.022259.113079007.davem@davemloft.net>  <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>  <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net>
+ <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com> <48887A71.5010209@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mario Limonciello <Mario_Limonciello@Dell.com>,
-	kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: c4p7n1@capitanio.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58270 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751117AbYGXVJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 17:09:18 -0400
-Content-Disposition: inline
-In-Reply-To: <200807241554.m6OFsaL1005401@post.webmailer.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753457AbYGXVUE@vger.kernel.org>
+In-Reply-To: <48887A71.5010209@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-c4p7n1@capitanio.org <c4p7n1@capitanio.org> :
-[...]
-> It only remains other (cosmetic?) not-linux-only issue: the *E chip-sets have
-> a built in 100Mb/s transceiver
+
+
+On Thu, 24 Jul 2008, Patrick McHardy wrote:
 > 
-> http://www.realtek.com.tw/products/productsView.aspx?Langid=1&PNid=14&PFid=7&Level=5&Conn=4&ProdID=19
-> 
-> but the driver advertises 1G:
-> 
-> Settings for eth0:
-> 	Supported ports: [ TP ]
-> 	Supported link modes:   10baseT/Half 10baseT/Full 
-> 	                        100baseT/Half 100baseT/Full 
-> 	                        1000baseT/Full 
+> To fix this I think we need a __krealloc() that doesn't
+> free the old memory, especially since it must not be
+> freed immediately because it may still be used in a RCU
+> read side (see the last part in the patch attached to
+> this mail (based on a kernel without your patch)).
 
-Ahem.
+Hmm. Don't you need to fix some of the ordering of the initialization too?
 
-Can you give the completely untested patch below a try (say, against
-2.6.26 or more) ?
+If there are possible readers that happen in parallel with changing this 
+thing, don't you need to protect the update of "ext->len" against the 
+actual changes? And the readers should probably have a read barrier 
+between checking "len" and actually looking at the values? Finally, why do 
+the "ct->ext" dereference thing, when we know it has to be equal to "new"?
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index a3e3895..1a8a21f 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -406,13 +406,15 @@ struct rtl8169_private {
- 	struct vlan_group *vlgrp;
- #endif
- 	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
--	void (*get_settings)(struct net_device *, struct ethtool_cmd *);
-+	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
- 	void (*phy_reset_enable)(void __iomem *);
- 	void (*hw_start)(struct net_device *);
- 	unsigned int (*phy_reset_pending)(void __iomem *);
- 	unsigned int (*link_ok)(void __iomem *);
- 	struct delayed_work task;
- 	unsigned features;
-+
-+	struct mii_if_info mii;
- };
+ie something like this on the writing side (in _addition_ to both the 
+patches already seen), but I didn't do the reading side (ie there are no 
+"smp_rmb()"'s on the reading side)
+
+And no, I don't know the code, so I don't know who/what can read those 
+things with RCU, so maybe there is some reason why the actual data doesn't 
+need protecting. But I somehow doubt it.
+
+		Linus
+
+---
+ net/netfilter/nf_conntrack_extend.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 3469bc7..135e095 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -115,10 +115,11 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 		ct->ext = new;
+ 	}
  
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -482,6 +484,23 @@ static int mdio_read(void __iomem *ioaddr, int reg_addr)
- 	return value;
+-	ct->ext->offset[id] = newoff;
+-	ct->ext->len = newlen;
+-	memset((void *)ct->ext + newoff, 0, newlen - newoff);
+-	return (void *)ct->ext + newoff;
++	new->offset[id] = newoff;
++	memset((void *)new + newoff, 0, newlen - newoff);
++	smp_wmb();
++	new->len = newlen;
++	return (void *)new + newoff;
  }
+ EXPORT_SYMBOL(__nf_ct_ext_add);
  
-+static void rtl_mdio_write(struct net_device *dev, int phy_id, int location,
-+			   int val)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	mdio_write(ioaddr, location, val);
-+}
-+
-+static int rtl_mdio_read(struct net_device *dev, int phy_id, int location)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	return mdio_read(ioaddr, location);
-+}
-+
- static void rtl8169_irq_mask_and_ack(void __iomem *ioaddr)
- {
- 	RTL_W16(IntrMask, 0x0000);
-@@ -850,7 +869,7 @@ static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
- 
- #endif
- 
--static void rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -867,65 +886,29 @@ static void rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- 	cmd->speed = SPEED_1000;
- 	cmd->duplex = DUPLEX_FULL; /* Always set */
-+
-+	return 0;
- }
- 
--static void rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	void __iomem *ioaddr = tp->mmio_addr;
--	u8 status;
--
--	cmd->supported = SUPPORTED_10baseT_Half |
--			 SUPPORTED_10baseT_Full |
--			 SUPPORTED_100baseT_Half |
--			 SUPPORTED_100baseT_Full |
--			 SUPPORTED_1000baseT_Full |
--			 SUPPORTED_Autoneg |
--			 SUPPORTED_TP;
--
--	cmd->autoneg = 1;
--	cmd->advertising = ADVERTISED_TP | ADVERTISED_Autoneg;
--
--	if (tp->phy_auto_nego_reg & ADVERTISE_10HALF)
--		cmd->advertising |= ADVERTISED_10baseT_Half;
--	if (tp->phy_auto_nego_reg & ADVERTISE_10FULL)
--		cmd->advertising |= ADVERTISED_10baseT_Full;
--	if (tp->phy_auto_nego_reg & ADVERTISE_100HALF)
--		cmd->advertising |= ADVERTISED_100baseT_Half;
--	if (tp->phy_auto_nego_reg & ADVERTISE_100FULL)
--		cmd->advertising |= ADVERTISED_100baseT_Full;
--	if (tp->phy_1000_ctrl_reg & ADVERTISE_1000FULL)
--		cmd->advertising |= ADVERTISED_1000baseT_Full;
--
--	status = RTL_R8(PHYstatus);
--
--	if (status & _1000bpsF)
--		cmd->speed = SPEED_1000;
--	else if (status & _100bps)
--		cmd->speed = SPEED_100;
--	else if (status & _10bps)
--		cmd->speed = SPEED_10;
--
--	if (status & TxFlowCtrl)
--		cmd->advertising |= ADVERTISED_Asym_Pause;
--	if (status & RxFlowCtrl)
--		cmd->advertising |= ADVERTISED_Pause;
--
--	cmd->duplex = ((status & _1000bpsF) || (status & FullDup)) ?
--		      DUPLEX_FULL : DUPLEX_HALF;
-+
-+	return mii_ethtool_gset(&tp->mii, cmd);
- }
- 
- static int rtl8169_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	unsigned long flags;
-+	int rc;
- 
- 	spin_lock_irqsave(&tp->lock, flags);
- 
--	tp->get_settings(dev, cmd);
-+	rc = tp->get_settings(dev, cmd);
- 
- 	spin_unlock_irqrestore(&tp->lock, flags);
--	return 0;
-+	return rc;
- }
- 
- static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-@@ -1578,6 +1561,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent->driver_data;
- 	const unsigned int region = cfg->region;
- 	struct rtl8169_private *tp;
-+	struct mii_if_info *mii;
- 	struct net_device *dev;
- 	void __iomem *ioaddr;
- 	unsigned int i;
-@@ -1602,6 +1586,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->pci_dev = pdev;
- 	tp->msg_enable = netif_msg_init(debug.msg_enable, R8169_MSG_DEFAULT);
- 
-+	mii = &tp->mii;
-+	mii->dev = dev;
-+	mii->mdio_read = rtl_mdio_read;
-+	mii->mdio_write = rtl_mdio_write;
-+	mii->phy_id_mask = 0x1f;
-+	mii->reg_num_mask = 0x1f;
-+
- 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
- 	rc = pci_enable_device(pdev);
- 	if (rc < 0) {
--- 
-Ueimor
