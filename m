@@ -1,53 +1,75 @@
 From: Pekka Enberg <penberg@cs.helsinki.fi>
 Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
 	pointer dereference
-Date: Thu, 24 Jul 2008 16:32:22 +0300
-Message-ID: <1216906342.12021.0.camel@penberg-laptop>
+Date: Thu, 24 Jul 2008 16:34:36 +0300
+Message-ID: <1216906476.12021.4.camel@penberg-laptop>
 References: <20080724060448.GA10203@elte.hu>
-	 <200807242256.09107.nickpiggin@yahoo.com.au>
-	 <20080724130422.GB7426@gondor.apana.org.au>
-	 <200807242313.47041.nickpiggin@yahoo.com.au>
+	 <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>
+	 <20080724.022259.113079007.davem@davemloft.net>
+	 <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>
+	 <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net>
+	 <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com>
+	 <48887A71.5010209@trash.net> <1216905812.5897.6.camel@penberg-laptop>
+	 <48888434.3030207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>, w@1wt.eu,
-	davidn@davidnewall.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
-	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	Dave Jones <davej@redhat.com>, Matt Mackall <mpm@selenic.com>,
-	Christoph Lameter <cl@linux-foundation.org>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43743 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41384 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756104AbYGXNc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 09:32:26 -0400
-In-Reply-To: <200807242313.47041.nickpiggin@yahoo.com.au>
+	with ESMTP id S1751680AbYGXNek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 09:34:40 -0400
+In-Reply-To: <48888434.3030207@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2008 at 10:56:08PM +1000, Nick Piggin wrote:
-> > > OTOH, skb allocation uses kmalloc don't they? So you could still =
-use
-> > > SLOB ksize for that I guess.
+On Thu, 2008-07-24 at 15:31 +0200, Patrick McHardy wrote:
+> Pekka Enberg wrote:
+> > On Thu, 2008-07-24 at 14:49 +0200, Patrick McHardy wrote:
+> >> Pekka Enberg wrote:
+> >>> Hmm, why do you think it's related? It looks like elem->hook() is a
+> >>> NULL pointer but my patch shouldn't make any difference here...
+> >> No, its already in ipv4_confirm, so its most likely helper->help()
+> >> thats NULL, which is contained in an extension.
+> >>
+> >> The reason why I think its this patch is (quoting from an old
+> >> email that I never got a response to):
+> > 
+> > Oh, I'm really sorry about that.
+> 
+> No problem :)
+> 
+> >> ---
+> >> Your patch introduced a use-after-free and double-free.
+> >> krealloc() frees the old pointer, but it is still used
+> >> for the ->move operations, then freed again.
+> >>
+> >> To fix this I think we need a __krealloc() that doesn't
+> >> free the old memory, especially since it must not be
+> >> freed immediately because it may still be used in a RCU
+> >> read side (see the last part in the patch attached to
+> >> this mail (based on a kernel without your patch)).
+> > 
+> > Agreed. Something like this, perhaps?
+> > 
+> > [PATCH] netfilter: fix double-free and use-after free
+> > 
+> > As suggested by Patrick McHardy, introduce a __krealloc() that doesn't
+> > free the original buffer to fix a double-free and use-after-free bug
+> > introduced by me in netfilter that uses RCU.
+> > 
+> > Reported-by: Patrick McHardy <kaber@trash.net>
+> > Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+> 
+> Looks good to me, thanks.
 
-On Thursday 24 July 2008 23:04, Herbert Xu wrote:
-> > Yes I was referring to the data portion which is kmalloc'ed.
-> > That is also why I'm interested in ksize because a priori we
-> > don't know exactly how big it's going to be.  However, we do
-> > know that statistically 1500 will dominate.
-> >
-> > I'm not interested in ksize for kmem_cache at all.  So in fact
-> > we could have something simpler that's based on kmalloc's rounding
-> > algorithm instead.
-
-=EF=BB=BFOn Thu, 2008-07-24 at 23:13 +1000, Nick Piggin wrote:
-> Yes you could definitely have a function that returns allocated
-> bytes for a given kmalloc size. Should be about as fast or faster
-> than extracting the size from the kaddr...
-
-Yup, makes sense.
+Ingo, can you please test this? Andrew, I'm at OLS so can you pick up
+the patch in your tree?
 
