@@ -1,35 +1,47 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
-Date: Thu, 24 Jul 2008 15:01:56 +0200
-Message-ID: <20080724130156.GA21489@1wt.eu>
-References: <20080724060448.GA10203@elte.hu> <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au> <20080724.022259.113079007.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL pointer dereference
+Date: Thu, 24 Jul 2008 21:04:23 +0800
+Message-ID: <20080724130422.GB7426@gondor.apana.org.au>
+References: <20080724060448.GA10203@elte.hu> <84144f020807240540vbe7ef50uee2cacabe8016546@mail.gmail.com> <20080724125004.GA7426@gondor.apana.org.au> <200807242256.09107.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, mingo@elte.hu, davidn@davidnewall.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi
-To: David Miller <davem@davemloft.net>
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>, w@1wt.eu,
+	davidn@davidnewall.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>, Matt Mackall <mpm@selenic.com>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1967 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751479AbYGXNDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 09:03:25 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:39061 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751880AbYGXNFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 09:05:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20080724.022259.113079007.davem@davemloft.net>
+In-Reply-To: <200807242256.09107.nickpiggin@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2008 at 02:22:59AM -0700, David Miller wrote:
-> 
-> BTW, if someone can contact the Fedora folks, specifically whoever
-> added that syncookies enable to /etc/sysctl.conf, and let them know
-> that they've set our TCP stack back by 10 years by disabling SACK
-> and timestamps, I'd really appreciate it.
+On Thu, Jul 24, 2008 at 10:56:08PM +1000, Nick Piggin wrote:
+>
+> OTOH, skb allocation uses kmalloc don't they? So you could still use
+> SLOB ksize for that I guess.
 
-But syn cookies should not trigger unless the syn backlog is full, right ?
-Anyway, it would also explain why Ingo's running no default MSS (though
-it should be correctly negociated by syn cookies).
+Yes I was referring to the data portion which is kmalloc'ed.
+That is also why I'm interested in ksize because a priori we
+don't know exactly how big it's going to be.  However, we do
+know that statistically 1500 will dominate.
 
-willy
+I'm not interested in ksize for kmem_cache at all.  So in fact
+we could have something simpler that's based on kmalloc's rounding
+algorithm instead.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
