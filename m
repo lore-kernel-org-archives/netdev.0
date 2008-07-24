@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Linux-ATM-General] [PATCH] firmware: convert Ambassador ATM
- driver to request_firmware()
-Date: Wed, 23 Jul 2008 20:29:31 -0700 (PDT)
-Message-ID: <20080723.202931.96993435.davem@davemloft.net>
-References: <1214853492.10393.350.camel@pmac.infradead.org>
-	<200807092037.m69Kbmc0030545@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] Re: SFQ depth limit
+Date: Wed, 23 Jul 2008 21:34:43 -0700 (PDT)
+Message-ID: <20080723.213443.37820788.davem@davemloft.net>
+References: <200806282202.59581.denys@visp.net.lb>
+	<20080629191113.GA8817@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, dwmw2@infradead.org
-To: chas@cmf.nrl.navy.mil
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45329
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42981
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751025AbYGXD3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 23:29:31 -0400
-In-Reply-To: <200807092037.m69Kbmc0030545@cmf.nrl.navy.mil>
+	by vger.kernel.org with ESMTP id S1752240AbYGXEen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 00:34:43 -0400
+In-Reply-To: <20080629191113.GA8817@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Date: Wed, 09 Jul 2008 16:37:48 -0400
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 29 Jun 2008 21:11:13 +0200
 
-> dave, please apply to net-next.  thanks! 
+> sch_sfq: dump a real number of flows
 > 
-> Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-> Date:   Wed Jul 9 12:39:08 2008 -0400
+> Dump the "flows" number according to the number of active flows
+> instead of repeating the "limit".
 > 
->     atm: [fore200e] use MODULE_FIRMWARE() and other suggested cleanups
->     
->     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+> 
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Applied, thanks Chas.
+Looks reasonable, applied, thanks Jarek.
