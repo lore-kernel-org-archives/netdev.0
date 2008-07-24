@@ -1,110 +1,107 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 14/30] net: wrap sk->sk_backlog_rcv()
-Date: Thu, 24 Jul 2008 16:00:56 +0200
-Message-ID: <20080724141530.266634139@chello.nl>
-References: <20080724140042.408642539@chello.nl>
+Subject: [PATCH 00/30] Swap over NFS -v18
+Date: Thu, 24 Jul 2008 16:00:42 +0200
+Message-ID: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54689 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756272AbYGXOmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:38 -0400
-Content-Disposition: inline; filename=net-backlog.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:46465 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756645AbYGXOmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
-generic sk_backlog_rcv behaviour.
+Latest version of the swap over nfs work.
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/net/sock.h   |    5 +++++
- include/net/tcp.h    |    2 +-
- net/core/sock.c      |    4 ++--
- net/ipv4/tcp.c       |    2 +-
- net/ipv4/tcp_timer.c |    2 +-
- 5 files changed, 10 insertions(+), 5 deletions(-)
+Patches are against: v2.6.26-rc8-mm1
 
-Index: linux-2.6/include/net/sock.h
-===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -482,6 +482,11 @@ static inline void sk_add_backlog(struct
- 	skb->next = NULL;
- }
- 
-+static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
-+{
-+	return sk->sk_backlog_rcv(sk, skb);
-+}
-+
- #define sk_wait_event(__sk, __timeo, __condition)			\
- 	({	int __rc;						\
- 		release_sock(__sk);					\
-Index: linux-2.6/net/core/sock.c
-===================================================================
---- linux-2.6.orig/net/core/sock.c
-+++ linux-2.6/net/core/sock.c
-@@ -326,7 +326,7 @@ int sk_receive_skb(struct sock *sk, stru
- 		 */
- 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
- 
--		rc = sk->sk_backlog_rcv(sk, skb);
-+		rc = sk_backlog_rcv(sk, skb);
- 
- 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
- 	} else
-@@ -1373,7 +1373,7 @@ static void __release_sock(struct sock *
- 			struct sk_buff *next = skb->next;
- 
- 			skb->next = NULL;
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 			/*
- 			 * We are in process context here with softirqs
-Index: linux-2.6/net/ipv4/tcp.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp.c
-+++ linux-2.6/net/ipv4/tcp.c
-@@ -1161,7 +1161,7 @@ static void tcp_prequeue_process(struct 
- 	 * necessary */
- 	local_bh_disable();
- 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--		sk->sk_backlog_rcv(sk, skb);
-+		sk_backlog_rcv(sk, skb);
- 	local_bh_enable();
- 
- 	/* Clear memory counter. */
-Index: linux-2.6/net/ipv4/tcp_timer.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp_timer.c
-+++ linux-2.6/net/ipv4/tcp_timer.c
-@@ -203,7 +203,7 @@ static void tcp_delack_timer(unsigned lo
- 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
- 
- 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 		tp->ucopy.memory = 0;
- 	}
-Index: linux-2.6/include/net/tcp.h
-===================================================================
---- linux-2.6.orig/include/net/tcp.h
-+++ linux-2.6/include/net/tcp.h
-@@ -893,7 +893,7 @@ static inline int tcp_prequeue(struct so
- 			BUG_ON(sock_owned_by_user(sk));
- 
- 			while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
--				sk->sk_backlog_rcv(sk, skb1);
-+				sk_backlog_rcv(sk, skb1);
- 				NET_INC_STATS_BH(LINUX_MIB_TCPPREQUEUEDROPPED);
- 			}
- 
+I still need to write some more comments in the reservation code.
 
--- 
+Pekka, it uses ksize(), please have a look.
+
+This version also deals with network namespaces.
+Two things where I could do with some suggestsion:
+
+  - currently the sysctl code uses current->nrproxy.net_ns to obtain
+    the current network namespace
+
+  - the ipv6 route cache code has some initialization order issues
+
+Thanks,
+
+Peter - who hopes we can someday merge this - Zijlstra
+
+--
+ Documentation/filesystems/Locking |   22 +
+ Documentation/filesystems/vfs.txt |   18 +
+ Documentation/network-swap.txt    |  270 +++++++++++++++++
+ drivers/net/bnx2.c                |    8
+ drivers/net/e1000/e1000_main.c    |    8
+ drivers/net/e1000e/netdev.c       |    7
+ drivers/net/igb/igb_main.c        |    8
+ drivers/net/ixgbe/ixgbe_main.c    |   10
+ drivers/net/sky2.c                |   16 -
+ fs/Kconfig                        |   17 +
+ fs/nfs/file.c                     |   24 +
+ fs/nfs/inode.c                    |    6
+ fs/nfs/internal.h                 |    7
+ fs/nfs/pagelist.c                 |    8
+ fs/nfs/read.c                     |   21 -
+ fs/nfs/write.c                    |  175 +++++++----
+ include/linux/buffer_head.h       |    2
+ include/linux/fs.h                |    9
+ include/linux/gfp.h               |    3
+ include/linux/mm.h                |   25 +
+ include/linux/mm_types.h          |    2
+ include/linux/mmzone.h            |    6
+ include/linux/nfs_fs.h            |    2
+ include/linux/pagemap.h           |    5
+ include/linux/reserve.h           |  146 +++++++++
+ include/linux/sched.h             |    7
+ include/linux/skbuff.h            |   46 ++
+ include/linux/slab.h              |   24 -
+ include/linux/slub_def.h          |    8
+ include/linux/sunrpc/xprt.h       |    5
+ include/linux/swap.h              |    4
+ include/net/inet_frag.h           |    7
+ include/net/netns/ipv6.h          |    4
+ include/net/sock.h                |   63 +++-
+ include/net/tcp.h                 |    2
+ kernel/softirq.c                  |    3
+ mm/Makefile                       |    2
+ mm/internal.h                     |   10
+ mm/page_alloc.c                   |  207 +++++++++----
+ mm/page_io.c                      |   52 +++
+ mm/reserve.c                      |  594 ++++++++++++++++++++++++++++++++++++++
+ mm/slab.c                         |  135 ++++++++
+ mm/slub.c                         |  159 ++++++++--
+ mm/swap_state.c                   |    4
+ mm/swapfile.c                     |   51 +++
+ mm/vmstat.c                       |    6
+ net/Kconfig                       |    3
+ net/core/dev.c                    |   59 +++
+ net/core/filter.c                 |    3
+ net/core/skbuff.c                 |  147 +++++++--
+ net/core/sock.c                   |  129 ++++++++
+ net/ipv4/inet_fragment.c          |    3
+ net/ipv4/ip_fragment.c            |   89 +++++
+ net/ipv4/route.c                  |   72 ++++
+ net/ipv4/tcp.c                    |    5
+ net/ipv4/tcp_input.c              |   12
+ net/ipv4/tcp_output.c             |   12
+ net/ipv4/tcp_timer.c              |    2
+ net/ipv6/af_inet6.c               |   20 +
+ net/ipv6/reassembly.c             |   88 +++++
+ net/ipv6/route.c                  |   66 ++++
+ net/ipv6/tcp_ipv6.c               |   17 -
+ net/netfilter/core.c              |    3
+ net/sctp/ulpevent.c               |    2
+ net/sunrpc/sched.c                |    9
+ net/sunrpc/xprtsock.c             |   73 ++++
+ security/selinux/avc.c            |    2
+ 67 files changed, 2720 insertions(+), 314 deletions(-)
+
 
