@@ -1,58 +1,61 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: Re: bug: mutex_lock() in interrupt conntext via phy_stop() in
-	gianfar
-Date: Thu, 24 Jul 2008 09:27:39 +0200
-Message-ID: <20080724072739.GA10563@Chamillionaire.breakpoint.cc>
-References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc> <1216681028.7559.993.camel@localhost.localdomain> <1216851168.11027.343.camel@pasglop>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
+Date: Thu, 24 Jul 2008 09:33:14 +0200
+Message-ID: <20080724073313.GA16604@1wt.eu>
+References: <20080721184616.GA8442@elte.hu> <20080722112133.GA6575@elte.hu> <4885E482.5020502@davidnewall.com> <20080722135723.GA23077@elte.hu> <4885F496.3010305@davidnewall.com> <20080722153443.GB18757@elte.hu> <20080722211256.GB29189@1wt.eu> <20080723082643.GA992@elte.hu> <20080724060448.GA10203@elte.hu> <20080724063242.GA9051@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Nate Case <ncase@xes-inc.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Vitaly Bordug <vbordug@ru.mvista.com>,
-	Li Yang <leoli@freescale.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Newall <davidn@davidnewall.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:55162 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750736AbYGXH1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 03:27:48 -0400
+Received: from 1wt.eu ([62.212.114.60]:1940 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750883AbYGXHem (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 03:34:42 -0400
 Content-Disposition: inline
-In-Reply-To: <1216851168.11027.343.camel@pasglop>
+In-Reply-To: <20080724063242.GA9051@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Benjamin Herrenschmidt | 2008-07-24 08:12:48 [+1000]:
+On Thu, Jul 24, 2008 at 08:32:42AM +0200, Ingo Molnar wrote:
+> 
+> here's a longer log from the server, with sequences, flags, etc:
 
->On Mon, 2008-07-21 at 17:57 -0500, Nate Case wrote:
->> On Fri, 2008-07-18 at 14:10 +0200, Sebastian Siewior wrote:
->> > Commit 35b5f6b1a aka [PHYLIB: Locking fixes for PHY I/O potentially sleeping]
->> > changed the phydev->lock from spinlock into a mutex. Now, the following
->> > code path got triggered while NFS was unavailable:
->> > 
->> [snip]
->> > |[  194.864733] BUG: sleeping function called from invalid context at /home/bigeasy/git/linux-2.6-powerpc/kernel/mutex.c:87
->> > |[  194.875529] in_atomic():1, irqs_disabled():0
->> > |[  194.879805] Call Trace:
->> > |[  194.882250] [c0383d90] [c0006dd8] show_stack+0x48/0x184 (unreliable)
->> > |[  194.888649] [c0383db0] [c001e938] __might_sleep+0xe0/0xf4
->> > |[  194.894069] [c0383dc0] [c025a43c] mutex_lock+0x24/0x3c
->> > |[  194.899234] [c0383de0] [c019005c] phy_stop+0x20/0x70
->> > |[  194.904234] [c0383df0] [c018d4ec] stop_gfar+0x28/0xf4
->> > |[  194.909305] [c0383e10] [c018e8c4] gfar_timeout+0x30/0x60
->> > |[  194.914638] [c0383e20] [c01fe7c0] dev_watchdog+0xa8/0x144
->> 
->> Hmm..  I'm not sure what the best solution is to this.  Make the
->> stop_gfar() call happen in a workqueue, and make a similar change to
->> ucc_geth, fec_mpc52xx, and fs_enet? Modify phy_stop() to do the work in
->> a workqueue conditionally if in interrupt context?  Between these two
->> I'd lean toward the latter.
->> 
->> Does anyone have any better ideas?
->
->Move the reset task to a workqueue.
-Done in [1] Ben.
+good. The sequence numbers from dione to phoenix are bouncing back and
+forth because a big data chunk was lost, so dione is alternatively
+sending and old segment (retransmit) which, when ACKed, allows it to
+slide the window forward and send one more chunk from the window tip.
 
-[1] http://marc.info/?l=linux-netdev&m=121684347609062&w=2
->Cheers,
->Ben.
+> 08:06:47.809947 IP (tos 0x0, ttl 64, id 13998, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234555110:234555646(536) ack 2272574194 win 5840
+> 08:06:47.809974 IP (tos 0x0, ttl 64, id 27389, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x9900 (correct), 2272574194:2272574194(0) ack 234555646 win 65535
+> 08:06:47.810051 IP (tos 0x0, ttl 64, id 13999, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234620645:234621181(536) ack 2272574194 win 5840
+> 08:06:47.810065 IP (tos 0x0, ttl 64, id 27390, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x9900 (correct), 2272574194:2272574194(0) ack 234555646 win 65535
+> 08:08:47.829813 IP (tos 0x0, ttl 64, id 14000, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234555646:234556182(536) ack 2272574194 win 5840
+> 08:08:47.829909 IP (tos 0x0, ttl 64, id 27391, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x96e8 (correct), 2272574194:2272574194(0) ack 234556182 win 65535
+> 08:08:47.830009 IP (tos 0x0, ttl 64, id 14001, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234621181:234621717(536) ack 2272574194 win 5840
+(...)
+> 08:30:48.049167 IP (tos 0x0, ttl 64, id 14022, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234561256:234561792(536) ack 2272574194 win 5840
+> 08:30:48.049223 IP (tos 0x0, ttl 64, id 27413, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
+> 08:30:48.049341 IP (tos 0x0, ttl 64, id 14023, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234626648:234627184(536) ack 2272574194 win 5840
+> 08:30:48.049348 IP (tos 0x0, ttl 64, id 14024, offset 0, flags [DF], proto TCP (6), length 183) dione.39201 > phoenix.distcc: . 234627184:234627327(143) ack 2272574194 win 5840
 
-Sebastian
+here it looks like dione believes it does not have the chunk starting
+at 234561792. Maybe it moved its window too far ? It only sends the
+tip of the window.
+
+> 08:30:48.049354 IP (tos 0x0, ttl 64, id 27414, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
+> 08:30:48.049359 IP (tos 0x0, ttl 64, id 27415, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
+
+And phoenix insists on getting what is missing from the window.
+
+So dione is wrong here.
+
+Regards,
+Willy
+
