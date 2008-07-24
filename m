@@ -1,75 +1,90 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
-	pointer dereference
-Date: Thu, 24 Jul 2008 16:34:36 +0300
-Message-ID: <1216906476.12021.4.camel@penberg-laptop>
-References: <20080724060448.GA10203@elte.hu>
-	 <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>
-	 <20080724.022259.113079007.davem@davemloft.net>
-	 <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>
-	 <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net>
-	 <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com>
-	 <48887A71.5010209@trash.net> <1216905812.5897.6.camel@penberg-laptop>
-	 <48888434.3030207@trash.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
+Date: Thu, 24 Jul 2008 16:34:31 +0300
+Message-ID: <200807241634.31614.opurdila@ixiacom.com>
+References: <E1KM0DG-0001vY-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	Dave Jones <davej@redhat.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41384 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751680AbYGXNek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 09:34:40 -0400
-In-Reply-To: <48888434.3030207@trash.net>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3903 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751680AbYGXNhC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 09:37:02 -0400
+In-Reply-To: <E1KM0DG-0001vY-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-07-24 at 15:31 +0200, Patrick McHardy wrote:
-> Pekka Enberg wrote:
-> > On Thu, 2008-07-24 at 14:49 +0200, Patrick McHardy wrote:
-> >> Pekka Enberg wrote:
-> >>> Hmm, why do you think it's related? It looks like elem->hook() is a
-> >>> NULL pointer but my patch shouldn't make any difference here...
-> >> No, its already in ipv4_confirm, so its most likely helper->help()
-> >> thats NULL, which is contained in an extension.
-> >>
-> >> The reason why I think its this patch is (quoting from an old
-> >> email that I never got a response to):
-> > 
-> > Oh, I'm really sorry about that.
-> 
-> No problem :)
-> 
-> >> ---
-> >> Your patch introduced a use-after-free and double-free.
-> >> krealloc() frees the old pointer, but it is still used
-> >> for the ->move operations, then freed again.
-> >>
-> >> To fix this I think we need a __krealloc() that doesn't
-> >> free the old memory, especially since it must not be
-> >> freed immediately because it may still be used in a RCU
-> >> read side (see the last part in the patch attached to
-> >> this mail (based on a kernel without your patch)).
-> > 
-> > Agreed. Something like this, perhaps?
-> > 
-> > [PATCH] netfilter: fix double-free and use-after free
-> > 
-> > As suggested by Patrick McHardy, introduce a __krealloc() that doesn't
-> > free the original buffer to fix a double-free and use-after-free bug
-> > introduced by me in netfilter that uses RCU.
-> > 
-> > Reported-by: Patrick McHardy <kaber@trash.net>
-> > Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-> 
-> Looks good to me, thanks.
+On Thursday 24 July 2008, Herbert Xu wrote:
 
-Ingo, can you please test this? Andrew, I'm at OLS so can you pick up
-the patch in your tree?
+Hi Herbert,
 
+Thanks for taking the time for the review. 
+
+>
+> Putting it in the share info area makes its life-cycle management
+> difficult.  This is also a major change to how we store skb control
+> data.
+>
+
+Initially I tried putting the new member directly into the skb, but then I
+run into issues with cloned packets, since I needed a reference
+counter to know when to delete the cmsg queue.
+
+I've noticed that the shared info already has a reference counter and I've 
+though that taking advantage of it would be better then doing it myself. 
+
+The shinfo seems to be the right place also because the cmsg queue can not be 
+modified once the skb has been pushed into the network stack. It sort of is 
+like data, only with special meaning.
+
+Is this approach wrong? Or is there a better way of doing it?
+
+> > @@ -567,6 +612,8 @@ static void copy_skb_header(struct sk_buff *new,
+> > const struct sk_buff *old) skb_shinfo(new)->gso_size =
+> > skb_shinfo(old)->gso_size;
+> >        skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
+> >        skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+> > +
+> > +       skb_shinfo(new)->cmsg = skb_shinfo(old)->cmsg;
+> > }
+> >
+> > /**
+> > @@ -610,7 +657,8 @@ struct sk_buff *skb_copy(const struct sk_buff *skb,
+> > gfp_t gfp_mask) BUG();
+> >
+> >        copy_skb_header(n, skb);
+> > -       return n;
+> > +
+> > +       return skb_cmsg_copy(n, gfp_mask);
+>
+> What about the other callers of copy_skb_header, like pskb_copy?
+
+>From what I understand, the shinfo remains shared, thus there is no need to do 
+the copy here.
+
+> In fact why isn't this in copy_skb_header?
+>
+
+In copy_skb_header we do a pointer copy. This should be enough for packets 
+that are cloned or partially cloned.
+
+The only problem is when we do a full copy of the packet, where shinfo should 
+be also copied. skb_cmsg_copy is called only in these cases.
+
+> Also what about pskb_expand_head?
+>
+
+I think this is only touching the skb header, not the shinfo. Thus we should 
+be safe?
+
+BTW: I have a dilemma with regard to fully copied skbs: should we copy the 
+cmsg queue as well, or should we just prune it in the copy? I don't see a 
+real usecase for doing the copy at this point, but since these is at core 
+level, maybe it is a good idea to be conservative and do the copying?
+
+Thanks,
+tavi
