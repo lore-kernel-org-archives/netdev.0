@@ -1,304 +1,248 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 15/30] net: packet split receive api
-Date: Thu, 24 Jul 2008 16:00:57 +0200
-Message-ID: <20080724141530.344513717@chello.nl>
+Subject: [PATCH 06/30] mm: kmem_alloc_estimate()
+Date: Thu, 24 Jul 2008 16:00:48 +0200
+Message-ID: <20080724141529.716339226@chello.nl>
 References: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:46435 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbYGXOmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:15 -0400
-Content-Disposition: inline; filename=net-ps_rx.patch
+Received: from casper.infradead.org ([85.118.1.10]:54677 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752899AbYGXOmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:18 -0400
+Content-Disposition: inline; filename=mm-kmem_estimate_pages.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add some packet-split receive hooks.
+Provide a method to get the upper bound on the pages needed to allocate
+a given number of objects from a given kmem_cache.
 
-For one this allows to do NUMA node affine page allocs. Later on these hooks
-will be extended to do emergency reserve allocations for fragments.
+This lays the foundation for a generic reserve framework as presented in
+a later patch in this series. This framework needs to convert object demand
+(kmalloc() bytes, kmem_cache_alloc() objects) to pages.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- drivers/net/bnx2.c             |    8 +++-----
- drivers/net/e1000/e1000_main.c |    8 ++------
- drivers/net/e1000e/netdev.c    |    7 ++-----
- drivers/net/igb/igb_main.c     |    8 ++------
- drivers/net/ixgbe/ixgbe_main.c |   10 +++-------
- drivers/net/sky2.c             |   16 ++++++----------
- include/linux/skbuff.h         |   23 +++++++++++++++++++++++
- net/core/skbuff.c              |   20 ++++++++++++++++++++
- 8 files changed, 61 insertions(+), 39 deletions(-)
+ include/linux/slab.h |    4 ++
+ mm/slab.c            |   75 +++++++++++++++++++++++++++++++++++++++++++
+ mm/slub.c            |   87 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 166 insertions(+)
 
-Index: linux-2.6/drivers/net/e1000/e1000_main.c
+Index: linux-2.6/include/linux/slab.h
 ===================================================================
---- linux-2.6.orig/drivers/net/e1000/e1000_main.c
-+++ linux-2.6/drivers/net/e1000/e1000_main.c
-@@ -4492,12 +4492,8 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
- 			pci_unmap_page(pdev, ps_page_dma->ps_page_dma[j],
- 					PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 			ps_page_dma->ps_page_dma[j] = 0;
--			skb_fill_page_desc(skb, j, ps_page->ps_page[j], 0,
--			                   length);
-+			skb_add_rx_frag(skb, j, ps_page->ps_page[j], 0, length);
- 			ps_page->ps_page[j] = NULL;
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 		}
+--- linux-2.6.orig/include/linux/slab.h
++++ linux-2.6/include/linux/slab.h
+@@ -65,6 +65,8 @@ void kmem_cache_free(struct kmem_cache *
+ unsigned int kmem_cache_size(struct kmem_cache *);
+ const char *kmem_cache_name(struct kmem_cache *);
+ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
++unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
++			gfp_t flags, int objects);
  
- 		/* strip the ethernet crc, problem is we're using pages now so
-@@ -4705,7 +4701,7 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
- 			if (j < adapter->rx_ps_pages) {
- 				if (likely(!ps_page->ps_page[j])) {
- 					ps_page->ps_page[j] =
--						alloc_page(GFP_ATOMIC);
-+						netdev_alloc_page(netdev);
- 					if (unlikely(!ps_page->ps_page[j])) {
- 						adapter->alloc_rx_buff_failed++;
- 						goto no_buffers;
-Index: linux-2.6/include/linux/skbuff.h
+ /*
+  * Please use this macro to create slab caches. Simply specify the
+@@ -99,6 +101,8 @@ int kmem_ptr_validate(struct kmem_cache 
+ void * __must_check krealloc(const void *, size_t, gfp_t);
+ void kfree(const void *);
+ size_t ksize(const void *);
++unsigned kmalloc_estimate_fixed(size_t, gfp_t, int);
++unsigned kmalloc_estimate_variable(gfp_t, size_t);
+ 
+ /*
+  * Allocator specific definitions. These are mainly used to establish optimized
+Index: linux-2.6/mm/slub.c
 ===================================================================
---- linux-2.6.orig/include/linux/skbuff.h
-+++ linux-2.6/include/linux/skbuff.h
-@@ -824,6 +824,9 @@ static inline void skb_fill_page_desc(st
- 	skb_shinfo(skb)->nr_frags = i + 1;
+--- linux-2.6.orig/mm/slub.c
++++ linux-2.6/mm/slub.c
+@@ -2412,6 +2412,42 @@ const char *kmem_cache_name(struct kmem_
  }
+ EXPORT_SYMBOL(kmem_cache_name);
  
-+extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
-+			    int off, int size);
-+
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
- #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-@@ -1238,6 +1241,26 @@ static inline struct sk_buff *netdev_all
- 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
- }
- 
-+extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
-+
-+/**
-+ *	netdev_alloc_page - allocate a page for ps-rx on a specific device
-+ *	@dev: network device to receive on
++/*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @objects objects from @cachep.
 + *
-+ * 	Allocate a new page node local to the specified device.
-+ *
-+ * 	%NULL is returned if there is no free memory.
++ * We should use s->min_objects because those are the least efficient.
 + */
-+static inline struct page *netdev_alloc_page(struct net_device *dev)
++unsigned kmem_alloc_estimate(struct kmem_cache *s, gfp_t flags, int objects)
 +{
-+	return __netdev_alloc_page(dev, GFP_ATOMIC);
++	unsigned long pages;
++	struct kmem_cache_order_objects x;
++
++	if (WARN_ON(!s) || WARN_ON(!oo_objects(s->min)))
++		return 0;
++
++	x = s->min;
++	pages = DIV_ROUND_UP(objects, oo_objects(x)) << oo_order(x);
++
++	/*
++	 * Account the possible additional overhead if the slab holds more that
++	 * one object. Use s->max_objects because that's the worst case.
++	 */
++	x = s->oo;
++	if (oo_objects(x) > 1) {
++		/*
++		 * Account the possible additional overhead if per cpu slabs
++		 * are currently empty and have to be allocated. This is very
++		 * unlikely but a possible scenario immediately after
++		 * kmem_cache_shrink.
++		 */
++		pages += num_online_cpus() << oo_order(x);
++	}
++
++	return pages;
 +}
++EXPORT_SYMBOL_GPL(kmem_alloc_estimate);
 +
-+static inline void netdev_free_page(struct net_device *dev, struct page *page)
-+{
-+	__free_page(page);
-+}
-+
- /**
-  *	skb_clone_writable - is the header of a clone writable
-  *	@skb: buffer to check
-Index: linux-2.6/net/core/skbuff.c
-===================================================================
---- linux-2.6.orig/net/core/skbuff.c
-+++ linux-2.6/net/core/skbuff.c
-@@ -263,6 +263,26 @@ struct sk_buff *__netdev_alloc_skb(struc
- 	return skb;
- }
- 
-+struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
-+{
-+	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
-+	struct page *page;
-+
-+	page = alloc_pages_node(node, gfp_mask, 0);
-+	return page;
-+}
-+EXPORT_SYMBOL(__netdev_alloc_page);
-+
-+void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
-+		int size)
-+{
-+	skb_fill_page_desc(skb, i, page, off, size);
-+	skb->len += size;
-+	skb->data_len += size;
-+	skb->truesize += size;
-+}
-+EXPORT_SYMBOL(skb_add_rx_frag);
-+
- /**
-  *	dev_alloc_skb - allocate an skbuff for receiving
-  *	@length: length to allocate
-Index: linux-2.6/drivers/net/sky2.c
-===================================================================
---- linux-2.6.orig/drivers/net/sky2.c
-+++ linux-2.6/drivers/net/sky2.c
-@@ -1343,7 +1343,7 @@ static struct sk_buff *sky2_rx_alloc(str
- 	}
- 
- 	for (i = 0; i < sky2->rx_nfrags; i++) {
--		struct page *page = alloc_page(GFP_ATOMIC);
-+		struct page *page = netdev_alloc_page(sky2->netdev);
- 
- 		if (!page)
- 			goto free_partial;
-@@ -2217,8 +2217,8 @@ static struct sk_buff *receive_copy(stru
- }
- 
- /* Adjust length of skb with fragments to match received data */
--static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
--			  unsigned int length)
-+static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
-+			  unsigned int hdr_space, unsigned int length)
+ static void list_slab_objects(struct kmem_cache *s, struct page *page,
+ 							const char *text)
  {
- 	int i, num_frags;
- 	unsigned int size;
-@@ -2235,15 +2235,11 @@ static void skb_put_frags(struct sk_buff
+@@ -2789,6 +2825,57 @@ void kfree(const void *x)
+ EXPORT_SYMBOL(kfree);
  
- 		if (length == 0) {
- 			/* don't need this page */
--			__free_page(frag->page);
-+			netdev_free_page(sky2->netdev, frag->page);
- 			--skb_shinfo(skb)->nr_frags;
- 		} else {
- 			size = min(length, (unsigned) PAGE_SIZE);
--
--			frag->size = size;
--			skb->data_len += size;
--			skb->truesize += size;
--			skb->len += size;
-+			skb_add_rx_frag(skb, i, frag->page, 0, size);
- 			length -= size;
- 		}
- 	}
-@@ -2270,7 +2266,7 @@ static struct sk_buff *receive_new(struc
- 	sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space);
- 
- 	if (skb_shinfo(skb)->nr_frags)
--		skb_put_frags(skb, hdr_space, length);
-+		skb_put_frags(sky2, skb, hdr_space, length);
- 	else
- 		skb_put(skb, length);
- 	return skb;
-Index: linux-2.6/drivers/net/bnx2.c
+ /*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @count objects of @size bytes from kmalloc given @flags.
++ */
++unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
++{
++	struct kmem_cache *s = get_slab(size, flags);
++	if (!s)
++		return 0;
++
++	return kmem_alloc_estimate(s, flags, count);
++
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
++
++/*
++ * Calculate the upper bound of pages requires to sequentially allocate @bytes
++ * from kmalloc in an unspecified number of allocations of nonuniform size.
++ */
++unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
++{
++	int i;
++	unsigned long pages;
++
++	/*
++	 * multiply by two, in order to account the worst case slack space
++	 * due to the power-of-two allocation sizes.
++	 */
++	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
++
++	/*
++	 * add the kmem_cache overhead of each possible kmalloc cache
++	 */
++	for (i = 1; i < PAGE_SHIFT; i++) {
++		struct kmem_cache *s;
++
++#ifdef CONFIG_ZONE_DMA
++		if (unlikely(flags & SLUB_DMA))
++			s = dma_kmalloc_cache(i, flags);
++		else
++#endif
++			s = &kmalloc_caches[i];
++
++		if (s)
++			pages += kmem_alloc_estimate(s, flags, 0);
++	}
++
++	return pages;
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
++
++/*
+  * kmem_cache_shrink removes empty slabs from the partial lists and sorts
+  * the remaining slabs by the number of items in use. The slabs with the
+  * most items in use come first. New allocations will then fill those up
+Index: linux-2.6/mm/slab.c
 ===================================================================
---- linux-2.6.orig/drivers/net/bnx2.c
-+++ linux-2.6/drivers/net/bnx2.c
-@@ -2466,7 +2466,7 @@ bnx2_alloc_rx_page(struct bnx2 *bp, stru
- 	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
- 	struct rx_bd *rxbd =
- 		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
--	struct page *page = alloc_page(GFP_ATOMIC);
-+	struct page *page = netdev_alloc_page(bp->dev);
+--- linux-2.6.orig/mm/slab.c
++++ linux-2.6/mm/slab.c
+@@ -3854,6 +3854,81 @@ const char *kmem_cache_name(struct kmem_
+ EXPORT_SYMBOL_GPL(kmem_cache_name);
  
- 	if (!page)
- 		return -ENOMEM;
-@@ -2491,7 +2491,7 @@ bnx2_free_rx_page(struct bnx2 *bp, struc
- 	pci_unmap_page(bp->pdev, pci_unmap_addr(rx_pg, mapping), PAGE_SIZE,
- 		       PCI_DMA_FROMDEVICE);
- 
--	__free_page(page);
-+	netdev_free_page(bp->dev, page);
- 	rx_pg->page = NULL;
- }
- 
-@@ -2816,9 +2816,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2
- 			}
- 
- 			frag_size -= frag_len;
--			skb->data_len += frag_len;
--			skb->truesize += frag_len;
--			skb->len += frag_len;
-+			skb_add_rx_frag(skb, i, rx_pg->page, 0, frag_len);
- 
- 			pg_prod = NEXT_RX_BD(pg_prod);
- 			pg_cons = RX_PG_RING_IDX(NEXT_RX_BD(pg_cons));
-Index: linux-2.6/drivers/net/e1000e/netdev.c
-===================================================================
---- linux-2.6.orig/drivers/net/e1000e/netdev.c
-+++ linux-2.6/drivers/net/e1000e/netdev.c
-@@ -257,7 +257,7 @@ static void e1000_alloc_rx_buffers_ps(st
- 				continue;
- 			}
- 			if (!ps_page->page) {
--				ps_page->page = alloc_page(GFP_ATOMIC);
-+				ps_page->page = netdev_alloc_page(netdev);
- 				if (!ps_page->page) {
- 					adapter->alloc_rx_buff_failed++;
- 					goto no_buffers;
-@@ -816,11 +816,8 @@ static bool e1000_clean_rx_irq_ps(struct
- 			pci_unmap_page(pdev, ps_page->dma, PAGE_SIZE,
- 				       PCI_DMA_FROMDEVICE);
- 			ps_page->dma = 0;
--			skb_fill_page_desc(skb, j, ps_page->page, 0, length);
-+			skb_add_rx_frag(skb, j, ps_page->page, 0, length);
- 			ps_page->page = NULL;
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 		}
- 
- copydone:
-Index: linux-2.6/drivers/net/igb/igb_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/igb/igb_main.c
-+++ linux-2.6/drivers/net/igb/igb_main.c
-@@ -3526,13 +3526,9 @@ static bool igb_clean_rx_irq_adv(struct 
- 			pci_unmap_page(pdev, buffer_info->page_dma,
- 				PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 			buffer_info->page_dma = 0;
--			skb_fill_page_desc(skb, j, buffer_info->page,
--						0, length);
-+			skb_add_rx_frag(skb, j, buffer_info->page, 0, length);
- 			buffer_info->page = NULL;
- 
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 			rx_desc->wb.upper.status_error = 0;
- 			if (staterr & E1000_RXD_STAT_EOP)
- 				break;
-@@ -3634,7 +3630,7 @@ static void igb_alloc_rx_buffers_adv(str
- 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
- 
- 		if (adapter->rx_ps_hdr_size && !buffer_info->page) {
--			buffer_info->page = alloc_page(GFP_ATOMIC);
-+			buffer_info->page = netdev_alloc_page(netdev);
- 			if (!buffer_info->page) {
- 				adapter->alloc_rx_buff_failed++;
- 				goto no_buffers;
-Index: linux-2.6/drivers/net/ixgbe/ixgbe_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/ixgbe/ixgbe_main.c
-+++ linux-2.6/drivers/net/ixgbe/ixgbe_main.c
-@@ -486,7 +486,7 @@ static void ixgbe_alloc_rx_buffers(struc
- 
- 		if (!rx_buffer_info->page &&
- 				(adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)) {
--			rx_buffer_info->page = alloc_page(GFP_ATOMIC);
-+			rx_buffer_info->page = netdev_alloc_page(netdev);
- 			if (!rx_buffer_info->page) {
- 				adapter->alloc_rx_page_failed++;
- 				goto no_buffers;
-@@ -607,13 +607,9 @@ static bool ixgbe_clean_rx_irq(struct ix
- 			pci_unmap_page(pdev, rx_buffer_info->page_dma,
- 				       PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 			rx_buffer_info->page_dma = 0;
--			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
--					   rx_buffer_info->page, 0, upper_len);
-+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
-+					rx_buffer_info->page, 0, upper_len);
- 			rx_buffer_info->page = NULL;
--
--			skb->len += upper_len;
--			skb->data_len += upper_len;
--			skb->truesize += upper_len;
- 		}
- 
- 		i++;
+ /*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @objects objects from @cachep.
++ */
++unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
++		gfp_t flags, int objects)
++{
++	/*
++	 * (1) memory for objects,
++	 */
++	unsigned nr_slabs = DIV_ROUND_UP(objects, cachep->num);
++	unsigned nr_pages = nr_slabs << cachep->gfporder;
++
++	/*
++	 * (2) memory for each per-cpu queue (nr_cpu_ids),
++	 * (3) memory for each per-node alien queues (nr_cpu_ids), and
++	 * (4) some amount of memory for the slab management structures
++	 *
++	 * XXX: truely account these
++	 */
++	nr_pages += 1 + ilog2(nr_pages);
++
++	return nr_pages;
++}
++
++/*
++ * Calculate the upper bound of pages required to sequentially allocate
++ * @count objects of @size bytes from kmalloc given @flags.
++ */
++unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
++{
++	struct kmem_cache *s = kmem_find_general_cachep(size, flags);
++	if (!s)
++		return 0;
++
++	return kmem_alloc_estimate(s, flags, count);
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
++
++/*
++ * Calculate the upper bound of pages requires to sequentially allocate @bytes
++ * from kmalloc in an unspecified number of allocations of nonuniform size.
++ */
++unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
++{
++	unsigned long pages;
++	struct cache_sizes *csizep = malloc_sizes;
++
++	/*
++	 * multiply by two, in order to account the worst case slack space
++	 * due to the power-of-two allocation sizes.
++	 */
++	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
++
++	/*
++	 * add the kmem_cache overhead of each possible kmalloc cache
++	 */
++	for (csizep = malloc_sizes; csizep->cs_cachep; csizep++) {
++		struct kmem_cache *s;
++
++#ifdef CONFIG_ZONE_DMA
++		if (unlikely(flags & __GFP_DMA))
++			s = csizep->cs_dmacachep;
++		else
++#endif
++			s = csizep->cs_cachep;
++
++		if (s)
++			pages += kmem_alloc_estimate(s, flags, 0);
++	}
++
++	return pages;
++}
++EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
++
++/*
+  * This initializes kmem_list3 or resizes various caches for all nodes.
+  */
+ static int alloc_kmemlist(struct kmem_cache *cachep)
 
 -- 
 
