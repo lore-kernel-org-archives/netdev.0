@@ -1,64 +1,54 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: recent -git: BUG in free_thread_xstate
-Date: Wed, 23 Jul 2008 18:53:55 -0500
-Message-ID: <1216857235.15519.189.camel@calx>
-References: <19f34abd0807231307y191c0ad7tfab4cda57ee88eb@mail.gmail.com>
-	 <20080723203109.GH14380@linux-os.sc.intel.com>
-	 <19f34abd0807231352j1ba1414am84ee9683df9b5657@mail.gmail.com>
-	 <b647ffbd0807231422w546e59e9p8362ee798b169a25@mail.gmail.com>
-	 <b647ffbd0807231435h73740808p76143d3d4457b597@mail.gmail.com>
-	 <19f34abd0807231445h79fac5cbwecd0563b74bc18ad@mail.gmail.com>
-	 <b647ffbd0807231501va30f6d4kee49d1daa30227fc@mail.gmail.com>
-	 <19f34abd0807231505w1a25c2bak329a622f3a287e97@mail.gmail.com>
-	 <19f34abd0807231545u5bc8b55fm768527a02268f111@mail.gmail.com>
-	 <19f34abd0807231550h4ba88a9qa27b1c9e5afc80cb@mail.gmail.com>
-	 <19f34abd0807231620q6d870bc0k74d176c9e5253ff3@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Traffic control cgroups subsystem
+Date: Thu, 24 Jul 2008 02:17:53 +0200
+Message-ID: <4887CA31.7070308@trash.net>
+References: <Pine.LNX.4.64.0807221041210.1091@ranjit.corp.google.com>	 <20080723150536.ded38b22.akpm@linux-foundation.org>	 <4887B1F0.3000407@trash.net> <166fe7950807231654ib5759e1kae54887f0918d3fb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Adamushko <dmitry.adamushko@gmail.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Suresh Siddha <suresh.b.siddha@intel.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Vegard Nossum <vegard.nossum@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	lizf@cn.fujitsu.com, menage@google.com
+To: Ranjit Manomohan <ranjitm@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:52692 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756649AbYGXAHr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2008 20:07:47 -0400
-In-Reply-To: <19f34abd0807231620q6d870bc0k74d176c9e5253ff3@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:50134 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755546AbYGXASE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 20:18:04 -0400
+In-Reply-To: <166fe7950807231654ib5759e1kae54887f0918d3fb@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ranjit Manomohan wrote:
+> On Wed, Jul 23, 2008 at 3:34 PM, Patrick McHardy <kaber@trash.net> wrote:
+>>
+>> It is by the flow_change() function, but special casing the
+>> CGROUP_CLASSID is not acceptable anyway. There should be no
+>> need for that, a simple linear mapping to classids is done
+>> by default in mapping mode, the sk_cgroup_classid simply
+>> shouldn't include qdisc IDs.
+> 
+> I did not want to special case it but I want an identity mapping not a
+> linear one.  For some reason a baseclass of X:0 is not allowed
 
-On Thu, 2008-07-24 at 01:20 +0200, Vegard Nossum wrote:
-> >> +extern void warn_on_slowpath(const char *file, int line);
+An ID of X:0 identifies a qdisc, not a class, which is why this
+isn't accepted.
 
-Mmm, fun.
+> and
+> there does not seem to be a clean way to get a 1-1 mapping (tc.classid
+> -> X:tc.classid). I would have to workaround it by using a baseclass
+> of the form X:Y and then subtracting Y from the value written to
+> tc.classid which seemed very non intuitive.
+> 
+> Any particular reason for this restriction? Am I missing any other
+> technique of getting a 1-1 mapping using the flow classifier?
 
-> >>  [<c013496f>] warn_on_slowpath+0x4f/0x70
-> >>  [<c0198041>] ? check_bytes_and_report+0x21/0xc0
-> >>  [<c04a8544>] ? __kfree_skb+0x34/0x80
-> >>  [<c0198041>] ? check_bytes_and_report+0x21/0xc0
-> >>  [<c01983ef>] ? check_object+0xdf/0x1f0
-> >>  [<c0198041>] ? check_bytes_and_report+0x21/0xc0
-> >>  [<c04a8544>] ? __kfree_skb+0x34/0x80
-> >>  [<c01983ef>] ? check_object+0xdf/0x1f0
-> >>  [<c04bbafc>] ? find_skb+0x3c/0x80
-> >>  [<c04a9f7e>] skb_copy_and_csum_dev+0xee/0x100
-> >>  [<c03539d7>] rtl8139_start_xmit+0x57/0x130
-> >>  [<c019a84b>] ? __kmalloc_track_caller+0x8b/0x120
-> >>  [<c04bba6e>] netpoll_send_skb+0x14e/0x1a0
-> >>  [<c04bbf54>] netpoll_send_udp+0x1e4/0x210
+My suggestion to replace your classifier by cls_flow was wrong, sorry.
 
-Trying to warn_on from inside a network driver from inside netpoll may
-cause trouble.
-
--- 
-Mathematics is the supreme nostalgia of our time.
-
+You can't do classification that don't use linear mappings or hash
+distribution, but we really should support that. We should keep your
+classifier (with the change to use skb->sk), but please extend it by
+the standard classifier features like ematches, actions and policers
+(see flow_classify() for a simple example). Adding the cgroup to
+cls_flow still makes sense, but as regular key without the baseclass
+modification.
