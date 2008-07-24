@@ -1,47 +1,134 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 22/30] netfilter: NF_QUEUE vs emergency skbs
-Date: Thu, 24 Jul 2008 16:01:04 +0200
-Message-ID: <20080724141530.869877395@chello.nl>
+Subject: [PATCH 25/30] mm: methods for teaching filesystems about PG_swapcache pages
+Date: Thu, 24 Jul 2008 16:01:07 +0200
+Message-ID: <20080724141531.103301119@chello.nl>
 References: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54679 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752946AbYGXOmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:18 -0400
-Content-Disposition: inline; filename=emergency-nf_queue.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:46441 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753062AbYGXOmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:19 -0400
+Content-Disposition: inline; filename=mm-page_file_methods.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid memory getting stuck waiting for userspace, drop all emergency packets.
-This of course requires the regular storage route to not include an NF_QUEUE
-target ;-)
+In order to teach filesystems to handle swap cache pages, three new page
+functions are introduced:
+
+  pgoff_t page_file_index(struct page *);
+  loff_t page_file_offset(struct page *);
+  struct address_space *page_file_mapping(struct page *);
+
+page_file_index() - gives the offset of this page in the file in
+PAGE_CACHE_SIZE blocks. Like page->index is for mapped pages, this function
+also gives the correct index for PG_swapcache pages.
+
+page_file_offset() - uses page_file_index(), so that it will give the expected
+result, even for PG_swapcache pages.
+
+page_file_mapping() - gives the mapping backing the actual page; that is for
+swap cache pages it will give swap_file->f_mapping.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- net/netfilter/core.c |    3 +++
- 1 file changed, 3 insertions(+)
+ include/linux/mm.h      |   25 +++++++++++++++++++++++++
+ include/linux/pagemap.h |    5 +++++
+ mm/swapfile.c           |   19 +++++++++++++++++++
+ 3 files changed, 49 insertions(+)
 
-Index: linux-2.6/net/netfilter/core.c
+Index: linux-2.6/include/linux/mm.h
 ===================================================================
---- linux-2.6.orig/net/netfilter/core.c
-+++ linux-2.6/net/netfilter/core.c
-@@ -176,9 +176,12 @@ next_hook:
- 		ret = 1;
- 		goto unlock;
- 	} else if (verdict == NF_DROP) {
-+drop:
- 		kfree_skb(skb);
- 		ret = -EPERM;
- 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
-+		if (skb_emergency(*pskb))
-+			goto drop;
- 		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
- 			      verdict >> NF_VERDICT_BITS))
- 			goto next_hook;
+--- linux-2.6.orig/include/linux/mm.h
++++ linux-2.6/include/linux/mm.h
+@@ -598,6 +598,17 @@ static inline struct address_space *page
+ 	return mapping;
+ }
+ 
++extern struct address_space *__page_file_mapping(struct page *);
++
++static inline
++struct address_space *page_file_mapping(struct page *page)
++{
++	if (unlikely(PageSwapCache(page)))
++		return __page_file_mapping(page);
++
++	return page->mapping;
++}
++
+ static inline int PageAnon(struct page *page)
+ {
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+@@ -614,6 +625,20 @@ static inline pgoff_t page_index(struct 
+ 	return page->index;
+ }
+ 
++extern pgoff_t __page_file_index(struct page *page);
++
++/*
++ * Return the file index of the page. Regular pagecache pages use ->index
++ * whereas swapcache pages use swp_offset(->private)
++ */
++static inline pgoff_t page_file_index(struct page *page)
++{
++	if (unlikely(PageSwapCache(page)))
++		return __page_file_index(page);
++
++	return page->index;
++}
++
+ /*
+  * The atomic page->_mapcount, like _count, starts from -1:
+  * so that transitions both from it and to it can be tracked,
+Index: linux-2.6/include/linux/pagemap.h
+===================================================================
+--- linux-2.6.orig/include/linux/pagemap.h
++++ linux-2.6/include/linux/pagemap.h
+@@ -148,6 +148,11 @@ static inline loff_t page_offset(struct 
+ 	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
+ }
+ 
++static inline loff_t page_file_offset(struct page *page)
++{
++	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
++}
++
+ static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
+ 					unsigned long address)
+ {
+Index: linux-2.6/mm/swapfile.c
+===================================================================
+--- linux-2.6.orig/mm/swapfile.c
++++ linux-2.6/mm/swapfile.c
+@@ -1828,6 +1828,25 @@ struct swap_info_struct *page_swap_info(
+ }
+ 
+ /*
++ * out-of-line __page_file_ methods to avoid include hell.
++ */
++
++struct address_space *__page_file_mapping(struct page *page)
++{
++	VM_BUG_ON(!PageSwapCache(page));
++	return page_swap_info(page)->swap_file->f_mapping;
++}
++EXPORT_SYMBOL_GPL(__page_file_mapping);
++
++pgoff_t __page_file_index(struct page *page)
++{
++	swp_entry_t swap = { .val = page_private(page) };
++	VM_BUG_ON(!PageSwapCache(page));
++	return swp_offset(swap);
++}
++EXPORT_SYMBOL_GPL(__page_file_index);
++
++/*
+  * swap_lock prevents swap_map being freed. Don't grab an extra
+  * reference on the swaphandle, it doesn't matter if it becomes unused.
+  */
 
 -- 
 
