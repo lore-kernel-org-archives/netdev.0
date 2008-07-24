@@ -1,64 +1,46 @@
-From: =?ISO-8859-1?Q?Dan_No=E9?= <dpn@isomerica.net>
-Subject: Re: TUN/TAP hacking
-Date: Wed, 23 Jul 2008 22:25:28 -0400
-Message-ID: <4887E818.4020305@isomerica.net>
-References: <20080723235514.GA8992@zenon.in.qult.net>
-Reply-To: dpn@isomerica.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] napi: adding an administrative state & priority
+Date: Wed, 23 Jul 2008 20:01:47 -0700 (PDT)
+Message-ID: <20080723.200147.156146319.davem@davemloft.net>
+References: <20080723192548.GA14654@hmsreliant.think-freely.org>
+	<20080723.141158.99031196.davem@davemloft.net>
+	<20080724012115.GA17150@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ignacy Gawedzki <lkml@qult.net>, linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colobus.isomerica.net ([216.93.242.10]:43091 "EHLO
-	colobus.isomerica.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbYGXCga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 22:36:30 -0400
-In-Reply-To: <20080723235514.GA8992@zenon.in.qult.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36871
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751190AbYGXDBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 23:01:47 -0400
+In-Reply-To: <20080724012115.GA17150@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ignacy Gawedzki wrote:
-> I need some advice from network stack experts, so I hope this is the =
-right
-> place to ask.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 23 Jul 2008 21:21:15 -0400
 
-The Linux kernel networking folks hang out at netdev
-(netdev@vger.kernel.org).  I've CC'd them...
+> And what are your thoughts regarding the creation of a napi instance priority
+> scheme?  I understand your arguments for not disabling napi entirely, but it
+> doesn't speak to prioritization.  I can still see a benefit to instructing the
+> kernel to serve a interface first handling high priority traffic.
 
-> I thought I'd be able to use the TAP interfaces to create some sort o=
-f a
-> network emulator.  For a start I just "bridged" two tap interfaces, m=
-uch in
-> the same way as the example of br_select.c from http://vtun.sf.net , =
-assigned
-> both interfaces different IPv4 addresses (both with a /32 prefix), se=
-t them up
-> and tried to transmit a UDP packet from one address to the other thro=
-ugh the
-> bridge.  Both logs from my bridge program and tcpdump tell me that th=
-e packets
-> are flowing as expected, but somehow the destination process doesn't =
-get the
-> packets (despite all correct bind, etc).
->=20
-> Is it simply that the stack inconditionally drops any packet with the=
- same
-> source (IP and/or MAC) address as some local interface?
->=20
-> As ARP resolution seems not to work either (I had to put permanent en=
-tries in
-> the neighbor table), I suppose this is the case indeed.
->=20
-> Could anyone confirm that? (please CC me, I've not subscribed)
->=20
-> Thanks,
->=20
-> Ignacy
->=20
+The weight assigned to each NAPI instance to some extent already
+behaves much like a priority.
 
+We could also do something like, knowing how many NAPI contexts
+are scheduled, create a total work budget for an entire pass.
 
---=20
-                    /--------------- - -  -  -   -   -
-                    |  Dan No=E9
-                    |  http://isomerica.net/~dpn/
+Each "weight" (you say "priority") assigned to the NAPI context
+determines how big a slice of the pie that NAPI context gets.
+
+But, two points:
+
+1) True prioritization is the antithesis of what NAPI is trying
+   to achieve.  It wants fairness and to avoid starvation.
+
+2) %99.999999 of the time only a single NAPI context is scheduled
+   on a cpu at a time, making this whole idea quite moot in my
+   opinion :-)
