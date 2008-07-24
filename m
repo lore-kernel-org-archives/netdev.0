@@ -1,44 +1,42 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
-Date: Thu, 24 Jul 2008 10:35:26 +0200
-Message-ID: <20080724083526.GA10297@elte.hu>
-References: <20080722112133.GA6575@elte.hu> <4885E482.5020502@davidnewall.com> <20080722135723.GA23077@elte.hu> <4885F496.3010305@davidnewall.com> <20080722153443.GB18757@elte.hu> <20080722211256.GB29189@1wt.eu> <20080723082643.GA992@elte.hu> <20080724060448.GA10203@elte.hu> <20080724063242.GA9051@elte.hu> <20080724073313.GA16604@1wt.eu>
+Date: Thu, 24 Jul 2008 01:36:49 -0700 (PDT)
+Message-ID: <20080724.013649.22662901.davem@davemloft.net>
+References: <20080724063242.GA9051@elte.hu>
+	<E1KLvds-0001Mc-00@gondolin.me.apana.org.au>
+	<20080724082730.GA29046@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	David Newall <davidn@davidnewall.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefanr@s5r6.in-berlin.de, rjw@sisk.pl
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:53471 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbYGXIgR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 04:36:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080724073313.GA16604@1wt.eu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37867
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751288AbYGXIgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 04:36:49 -0400
+In-Reply-To: <20080724082730.GA29046@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 24 Jul 2008 10:27:30 +0200
 
-* Willy Tarreau <w@1wt.eu> wrote:
-
-> > 08:30:48.049354 IP (tos 0x0, ttl 64, id 27414, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
-> > 08:30:48.049359 IP (tos 0x0, ttl 64, id 27415, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
+> * Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
-> And phoenix insists on getting what is missing from the window.
+> > BTW any reason why you appear to have SACK off?
 > 
-> So dione is wrong here.
+> default distro setup, Fedora 9 and Fedora 8. No extra tweaking that i'm 
+> aware of.
 
-hm, but dione has been running the same 2.6.24.7-92.fc8 kernel for a 
-long time:
+It's probably a side effect of their turning on syncookies in /etc/sysctl.conf :-/
 
-/var/log/yum.log-20080528:May 27 23:44:36 Installed: kernel - 2.6.24.7-92.fc8.x86_64
+I thought we added code that would allow enabling those options
+even with syncookies enabled?  There is code in net/ipv4/syncookies.c
+function cookie_check_timestamp() to handle this.
 
-and has 6 days uptime at the moment and no trouble communicating with 
-any other buildbox - except the [only] one running latest -git.
-
-	Ingo
+Of course this is a recent addition, so if either side doesn't
+have that change.
