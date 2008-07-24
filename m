@@ -1,48 +1,70 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [build failure] hp-plus.c: (.text+0xd7c1a): undefined reference
- to `ei_close'
-Date: Thu, 24 Jul 2008 20:54:41 +0100
-Message-ID: <20080724205441.3465f4d4@lxorguk.ukuu.org.uk>
-References: <20080721.233512.128618365.anemo@mba.ocn.ne.jp>
-	<20080721191519.GA15843@elte.hu>
-	<20080721214258.787a67ca@lxorguk.ukuu.org.uk>
-	<20080722072334.GA25241@elte.hu>
-	<48865899.3030209@garzik.org>
-	<20080723104520.GA20672@elte.hu>
-	<20080724052603.GA8744@elte.hu>
-	<20080724100615.764bac36@lxorguk.ukuu.org.uk>
-	<4888D631.8040401@garzik.org>
+From: "martin capitanio" <martin@capitanio.org>
+Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
+Date: Thu, 24 Jul 2008 22:23:46 +0200 (MEST)
+Message-ID: <200807242023.m6OKNkwL013279@post.webmailer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kernel@vger.kernel.org, netdev@vger.kernel.org,
+	c4p7n1@capitanio.org
+To: "=?iso-8859-1?q?=43=e9=64=72=69=63=20=41=75=67=6f=6e=6e=65=74?="
+	<cedric.augonnet@gmail.com>,
+	"Francois Romieu" <romieu@fr.zoreil.com>,
+	"Mario Limonciello" <Mario_Limonciello@dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:43938 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751610AbYGXUMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 16:12:46 -0400
-In-Reply-To: <4888D631.8040401@garzik.org>
+Received: from em-p00-ob.rzone.de ([81.169.146.224]:60682 "EHLO
+	em-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752858AbYGXUXu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 16:23:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> My apologies.  FWIW, from my point of view the same patch(es) kept 
-> getting fixed and updated and going around in circles, so I kept 
-> waiting.  Since it was was a net-next issue (until now), I lowered the 
-> priority and waited to let you guys (you, Andrew, Randy mainly) sort 
-> things out.
-> 
-> So far the only remaining patch I have outstanding and needing to be 
-> applied is from Atsushi-san via Ingo (message id 
-> <20080723104520.GA20672@elte.hu>)...  is that the last of it?
+----- original message --------
 
-I've got a reference tree that I will regenerate and diff against the
-upstream GIT tree to check. It looks like some of the ei_ to eip_ changes
-have gone for a walk.
+Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
+Sent: Thu, 24 Jul 2008
+=46rom: C=E9dric Augonnet<cedric.augonnet@gmail.com>
 
-Its on my TODO list and now IT821x is working again the panic mode stuff
-is over I hope
+> Hi all,
+>=20
+> >        case RTL_GIGA_MAC_VER_04:
+> >                rtl8169sb_hw_phy_config(ioaddr);
+> >                break;
+> > +       case RTL_GIGA_MAC_VER_13:
+> > +       case RTL_GIGA_MAC_VER_16:
+> > +               rtl8101_hw_phy_config(ioaddr);
+>=20
+> Should not there be a "break;" here or is it intended to go through
+> the next case as well?
 
-Alan
+Good question. If you can read c code and are willing to spend your tim=
+e,
+the answer may be buried here:
+
+LINUX driver for kernel 2.6.X and 2.4.X (Support x86 and x64)
+ftp://152.104.238.19/cn/nic/r8101-1.007.00.tar.bz2
+
+>=20
+> >        case RTL_GIGA_MAC_VER_18:
+> >                rtl8168cp_hw_phy_config(ioaddr);
+> >                break;
+>=20
+> Perhaps i missed something obvious, sorry if that's the case ...
+
+No, there is nothing obvious, even in the Hsinchu Science Park ;-)
+
+static void rtl8168cp_hw_phy_config(void __iomem *ioaddr)
+{
+	struct phy_reg phy_reg_init[] =3D {
+		{ 0x1f, 0x0000 },
+		{ 0x1d, 0x0f00 },
+		{ 0x1f, 0x0002 },
+		{ 0x0c, 0x1ec8 },
+		{ 0x1f, 0x0000 }
+	};
+
+	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+}
+
+        Martin Capitanio
+
