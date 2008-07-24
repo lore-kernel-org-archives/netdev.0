@@ -1,77 +1,53 @@
-From: Ignacy Gawedzki <lkml@qult.net>
-Subject: Re: TUN/TAP hacking
-Date: Thu, 24 Jul 2008 10:34:47 +0200
-Message-ID: <20080724083447.GA24392@zenon.in.qult.net>
-References: <20080723235514.GA8992@zenon.in.qult.net> <4887E818.4020305@isomerica.net> <20080724085006.1163d122@catlap>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330
+ __netif_schedule+0x2c/0x98()
+Date: Thu, 24 Jul 2008 02:20:40 -0700 (PDT)
+Message-ID: <20080724.022040.23129457.davem@davemloft.net>
+References: <20080723114914.GF4561@ff.dom.local>
+	<20080723.131607.79681752.davem@davemloft.net>
+	<1216890648.7257.258.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: Marek Kierdelewicz <marek@piasta.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qult.net ([82.238.217.46]:33451 "EHLO slartibartfast.qult.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750710AbYGXJP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 05:15:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20080724085006.1163d122@catlap>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1216890648.7257.258.camel@twins>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 24, 2008 at 08:50:06AM +0200, thus spake Marek Kierdelewicz=
-:
-> Hi Ignacy & netdev,
->=20
-> > I thought I'd be able to use the TAP interfaces to create some sort
-> > of a network emulator.  For a start I just "bridged" two tap
-> > interfaces, much in the same way as the example of br_select.c from
-> > http://vtun.sf.net , assigned both interfaces different IPv4
-> > addresses (both with a /32 prefix),
->=20
-> As far as I understand you're trying to bridge two interfaces of the
-> same host. It's no good for a test network, because local traffic
-> (from/to the same host) will always be forwarded locally (via lo?) an=
-d
-> will never reach any ethX or tapX interface (not without kernel
-> hacking).
+From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Date: Thu, 24 Jul 2008 11:10:48 +0200
 
-Well... surely this would happen without a little hack as you say.  Her=
-e I
-thought that I could use multiple routing tables + ip rules + iptables,=
- but
-I'm not 100% convinced that locally generated packets could be marked w=
-ith
-iptables and directed by ip rules to the correct routing table (which w=
-ould
-make no mention of the destination address as a local interface).  I ma=
-de a
-few tests with ping (using -I to specify the outgoing interface), but A=
-RP
-resolution failed and I see no way to force the destination stack reply=
- to
-echo-requests using a specific routing table (as I intended to do for n=
-ormal
-applications).
+> Ok, then how about something like this, the idea is to wrap the per tx
+> lock with a read lock of the device and let the netif_tx_lock() be the
+> write side, therefore excluding all device locks, but not incure the
+> cacheline bouncing on the read side by using per-cpu counters like rcu
+> does.
+> 
+> This of course requires that netif_tx_lock() is rare, otherwise stuff
+> will go bounce anyway...
+> 
+> Probably missed a few details,.. but I think the below ought to show the
+> idea...
 
->           There's another way... You can use QEMU[1]/KQEMU[2]/KVM[3] =
-for
-> guest system virtualization with options that create tapX interfaces
-> on host and ethX on guests. Then you can bridge taps the way you want
-> (even with eths on your host system) as described in [4][5]. For gues=
-t
-> system I'd recommend openwrt kamikaze[6]. It's small in terms of syst=
-em
-> image size and memory consumption so you can build a complex virtual
-> network of 10+ hosts using only 200MB of disk space and 320MB of ram.
+Thanks for the effort, but I don't think we can seriously consider
+this.
 
-Yeah, I also thought about that one, but if I could avoid the additiona=
-l
-overhead, it would be better.
+This lock is taken for every packet transmitted by the system, adding
+another memory reference (the RCU deref) and a counter bump is just
+not something we can just add to placate lockdep.  We going through
+all of this effort to seperate the TX locking into individual
+queues, it would be silly to go back and make it more expensive.
 
-> Cheers,
-> Marek Kierdelewicz
-
-Dzi=EAki anyway. =3D)
-
---=20
-NO CARRIER
+I have other ideas which I've expanded upon in other emails.  They
+involve creating a netif_tx_freeze() interface and getting the drivers
+to start using it.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
