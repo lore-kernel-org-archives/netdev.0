@@ -1,54 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Traffic control cgroups subsystem
-Date: Thu, 24 Jul 2008 02:17:53 +0200
-Message-ID: <4887CA31.7070308@trash.net>
-References: <Pine.LNX.4.64.0807221041210.1091@ranjit.corp.google.com>	 <20080723150536.ded38b22.akpm@linux-foundation.org>	 <4887B1F0.3000407@trash.net> <166fe7950807231654ib5759e1kae54887f0918d3fb@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: Move userspace definitions to
+	include/linux/ip_vs.h
+Date: Thu, 24 Jul 2008 10:20:59 +1000
+Message-ID: <20080724002057.GA3032@verge.net.au>
+References: <20080722003755.GA7962@verge.net.au> <20080723.164215.101337333.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	lizf@cn.fujitsu.com, menage@google.com
-To: Ranjit Manomohan <ranjitm@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	juliusv@google.com, kaber@trash.net, vbusam@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50134 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755546AbYGXASE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 20:18:04 -0400
-In-Reply-To: <166fe7950807231654ib5759e1kae54887f0918d3fb@mail.gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:41098 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206AbYGXAVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2008 20:21:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20080723.164215.101337333.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ranjit Manomohan wrote:
-> On Wed, Jul 23, 2008 at 3:34 PM, Patrick McHardy <kaber@trash.net> wrote:
->>
->> It is by the flow_change() function, but special casing the
->> CGROUP_CLASSID is not acceptable anyway. There should be no
->> need for that, a simple linear mapping to classids is done
->> by default in mapping mode, the sk_cgroup_classid simply
->> shouldn't include qdisc IDs.
+On Wed, Jul 23, 2008 at 04:42:15PM -0700, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Tue, 22 Jul 2008 10:37:57 +1000
 > 
-> I did not want to special case it but I want an identity mapping not a
-> linear one.  For some reason a baseclass of X:0 is not allowed
-
-An ID of X:0 identifies a qdisc, not a class, which is why this
-isn't accepted.
-
-> and
-> there does not seem to be a clean way to get a 1-1 mapping (tc.classid
-> -> X:tc.classid). I would have to workaround it by using a baseclass
-> of the form X:Y and then subtracting Y from the value written to
-> tc.classid which seemed very non intuitive.
+> > From: Julius Volz <juliusv@google.com>
+> > 
+> > Current versions of ipvsadm include "/usr/src/linux/include/net/ip_vs.h"
+> > directly. This file also contains kernel-only definitions. Normally, public
+> > definitions should live in include/linux, so this patch moves the
+> > definitions shared with userspace to a new file, "include/linux/ip_vs.h".
+> > 
+> > To make old ipvsadms still compile with this, the old header file includes
+> > the new one.
+> > 
+> > The motivation for this cleanup is the planned Netlink interface for IPVS.
+> > 
+> > Signed-off-by: Julius Volz <juliusv@google.com>
+> > Acked-by: Simon Horman <horms@verge.net.au>
 > 
-> Any particular reason for this restriction? Am I missing any other
-> technique of getting a 1-1 mapping using the flow classifier?
+> Userland exported headers need to have an entry in include/linux/Kbuild
+> 
+> Since this linux/ip_vs.h file is new, a new entry needs to be added there.
 
-My suggestion to replace your classifier by cls_flow was wrong, sorry.
+Thanks, I wasn't aware of that.
 
-You can't do classification that don't use linear mappings or hash
-distribution, but we really should support that. We should keep your
-classifier (with the change to use skb->sk), but please extend it by
-the standard classifier features like ematches, actions and policers
-(see flow_classify() for a simple example). Adding the cgroup to
-cls_flow still makes sense, but as regular key without the baseclass
-modification.
+Julius, I think this is the bit we are missing:
+
+Index: net-next-2.6/include/linux/Kbuild
+===================================================================
+--- net-next-2.6.orig/include/linux/Kbuild	2008-07-24 10:15:52.000000000 +1000
++++ net-next-2.6/include/linux/Kbuild	2008-07-24 10:19:08.000000000 +1000
+@@ -97,6 +97,7 @@ header-y += ioctl.h
+ header-y += ip6_tunnel.h
+ header-y += ipmi_msgdefs.h
+ header-y += ipsec.h
++header-y += ip_vs.h
+ header-y += ipx.h
+ header-y += irda.h
+ header-y += iso_fs.h
