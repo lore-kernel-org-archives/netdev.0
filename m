@@ -1,55 +1,64 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: mv643xx_eth: pull request for for-2.6.27 branch
-Date: Thu, 24 Jul 2008 07:21:40 +0200
-Message-ID: <20080724052140.GA19392@xi.wantstofly.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [TCP] Probable bug in icsk_probes_out handling ?
+Date: Thu, 24 Jul 2008 07:22:00 +0200
+Message-ID: <48881178.3080901@cosmosbay.com>
+References: <48873397.5040409@cosmosbay.com> <20080723.163444.165532483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dale@farnsworth.org, netdev@vger.kernel.org, nico@cam.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:58779 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517AbYGXFVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 01:21:42 -0400
-Content-Disposition: inline
+Received: from smtp21.orange.fr ([80.12.242.48]:21568 "EHLO smtp21.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752614AbYGXFWx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 01:22:53 -0400
+In-Reply-To: <20080723.163444.165532483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series consists of the patches posted so far that should be
-good to go in for 2.6.27 and should be the last batch before -rc1: the
-three interface TX hang fixes, revamping the link up/down handling to
-fix a couple more PHYless cases (which as a side-effect will require
-specifying speed/duplex explicitly in the platform data) and to no
-longer do MII accesses from interrupt context, enabling TX checksumming
-on VLANed packets, and some more assorted minor changes.
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 23 Jul 2008 15:35:19 +0200
+>=20
+>> Apparently, we can in some situations reset TCP connections in a cou=
+ple of seconds when some frames are lost.
+>=20
+> I think it is some optimization that went in between 2.2.x and 2.4.x
+> which took things a little bit too far.
+>=20
+> Please try this patch:
+
+Yes, this patch solves the problem.=20
+I tried a similar patch yesterday but was not sure about its validity.
+Thanks a lot David.
+=20
+>=20
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 1f5e604..75efd24 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3292,6 +3292,7 @@ static int tcp_ack(struct sock *sk, struct sk_b=
+uff *skb, int flag)
+>  	 * log. Something worked...
+>  	 */
+>  	sk->sk_err_soft =3D 0;
+> +	icsk->icsk_probes_out =3D 0;
+>  	tp->rcv_tstamp =3D tcp_time_stamp;
+>  	prior_packets =3D tp->packets_out;
+>  	if (!prior_packets)
+> @@ -3324,8 +3325,6 @@ static int tcp_ack(struct sock *sk, struct sk_b=
+uff *skb, int flag)
+>  	return 1;
+> =20
+>  no_queue:
+> -	icsk->icsk_probes_out =3D 0;
+> -
+>  	/* If this ack opens up a zero window, clear backoff.  It was
+>  	 * being used to time the probes, and is probably far higher than
+>  	 * it needs to be for normal retransmission.
 
 
-The following changes since commit c010b2f76c3032e48097a6eef291d8593d5d79a6:
-  Linus Torvalds (1):
-        Merge git://git.kernel.org/.../davem/net-2.6
 
-are available in the git repository at:
 
-  git://git.marvell.com/mv643xx_eth.git for-2.6.27
-
-Lennert Buytenhek (12):
-      mv643xx_eth: fix TX hang erratum workaround
-      mv643xx_eth: prevent breakage when link goes down during transmit
-      mv643xx_eth: fix transmit-reclaim-in-napi-poll
-      mv643xx_eth: don't fiddle with maximum receive packet size setting
-      mv643xx_eth: also check TX_IN_PROGRESS when disabling transmit path
-      mv643xx_eth: use longer DMA bursts
-      mv643xx_eth: use symbolic MII register addresses and values
-      mv643xx_eth: print driver version on init
-      mv643xx_eth: use auto phy polling for configuring (R)(G)MII interface
-      mv643xx_eth: print message on link status change
-      mv643xx_eth: enable hardware TX checksumming with vlan tags
-      mv643xx_eth: bump version to 1.2
-
- arch/arm/mach-kirkwood/rd88f6281-setup.c     |    3 +
- arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |    3 +
- arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |    3 +
- arch/arm/mach-orion5x/wnr854t-setup.c        |    3 +
- arch/arm/mach-orion5x/wrt350n-v2-setup.c     |    3 +
- drivers/net/mv643xx_eth.c                    |  358 +++++++++++++++++---------
- 6 files changed, 251 insertions(+), 122 deletions(-)
