@@ -1,61 +1,235 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
-Date: Thu, 24 Jul 2008 09:33:14 +0200
-Message-ID: <20080724073313.GA16604@1wt.eu>
-References: <20080721184616.GA8442@elte.hu> <20080722112133.GA6575@elte.hu> <4885E482.5020502@davidnewall.com> <20080722135723.GA23077@elte.hu> <4885F496.3010305@davidnewall.com> <20080722153443.GB18757@elte.hu> <20080722211256.GB29189@1wt.eu> <20080723082643.GA992@elte.hu> <20080724060448.GA10203@elte.hu> <20080724063242.GA9051@elte.hu>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] ipmr: delete redundant variable
+Date: Thu, 24 Jul 2008 15:37:21 +0800
+Message-ID: <48883131.9070805@cn.fujitsu.com>
+References: <48868D54.6050701@cn.fujitsu.com> <200807231003.05848.netdev@axxeo.de> <4886FB56.20905@cn.fujitsu.com> <200807231405.39515.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	David Newall <davidn@davidnewall.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Ingo Molnar <mingo@elte.hu>
+	NETDEV <netdev@vger.kernel.org>
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1940 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883AbYGXHem (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 03:34:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20080724063242.GA9051@elte.hu>
+Received: from cn.fujitsu.com ([222.73.24.84]:60598 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750878AbYGXHi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 03:38:59 -0400
+In-Reply-To: <200807231405.39515.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2008 at 08:32:42AM +0200, Ingo Molnar wrote:
+Ingo Oeser said the following on 2008-7-23 20:05:
+> But please check the generated assembly yourself on a CISC and RISC
+> machine to get an idea of the effects. It will be a nice learning 
+> experience I enjoyed myself already.
 > 
-> here's a longer log from the server, with sequences, flags, etc:
 
-good. The sequence numbers from dione to phoenix are bouncing back and
-forth because a big data chunk was lost, so dione is alternatively
-sending and old segment (retransmit) which, when ACKed, allows it to
-slide the window forward and send one more chunk from the window tip.
+I did the experiment.
 
-> 08:06:47.809947 IP (tos 0x0, ttl 64, id 13998, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234555110:234555646(536) ack 2272574194 win 5840
-> 08:06:47.809974 IP (tos 0x0, ttl 64, id 27389, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x9900 (correct), 2272574194:2272574194(0) ack 234555646 win 65535
-> 08:06:47.810051 IP (tos 0x0, ttl 64, id 13999, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234620645:234621181(536) ack 2272574194 win 5840
-> 08:06:47.810065 IP (tos 0x0, ttl 64, id 27390, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x9900 (correct), 2272574194:2272574194(0) ack 234555646 win 65535
-> 08:08:47.829813 IP (tos 0x0, ttl 64, id 14000, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234555646:234556182(536) ack 2272574194 win 5840
-> 08:08:47.829909 IP (tos 0x0, ttl 64, id 27391, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x96e8 (correct), 2272574194:2272574194(0) ack 234556182 win 65535
-> 08:08:47.830009 IP (tos 0x0, ttl 64, id 14001, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234621181:234621717(536) ack 2272574194 win 5840
-(...)
-> 08:30:48.049167 IP (tos 0x0, ttl 64, id 14022, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234561256:234561792(536) ack 2272574194 win 5840
-> 08:30:48.049223 IP (tos 0x0, ttl 64, id 27413, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
-> 08:30:48.049341 IP (tos 0x0, ttl 64, id 14023, offset 0, flags [DF], proto TCP (6), length 576) dione.39201 > phoenix.distcc: . 234626648:234627184(536) ack 2272574194 win 5840
-> 08:30:48.049348 IP (tos 0x0, ttl 64, id 14024, offset 0, flags [DF], proto TCP (6), length 183) dione.39201 > phoenix.distcc: . 234627184:234627327(143) ack 2272574194 win 5840
+I used the following C code to compare which approach is better and get
+a result that two are same on performance.
 
-here it looks like dione believes it does not have the chunk starting
-at 234561792. Maybe it moved its window too far ? It only sends the
-tip of the window.
+----main.c
+#define maxvif 32
 
-> 08:30:48.049354 IP (tos 0x0, ttl 64, id 27414, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
-> 08:30:48.049359 IP (tos 0x0, ttl 64, id 27415, offset 0, flags [DF], proto TCP (6), length 40) phoenix.distcc > dione.39201: ., cksum 0x80fe (correct), 2272574194:2272574194(0) ack 234561792 win 65535
+struct vif {
+	int *dev;
+	unsigned long bytes_in, bytyes_out;
+	unsigned long pkt_in, pkt_out;
+	unsigned long rate_limit;
+	unsigned char threshhold;
+	unsigned short flags;
+	int	local, remote;
+	int	link;
+};
 
-And phoenix insists on getting what is missing from the window.
+struct vif vif_table[maxvif];
 
-So dione is wrong here.
+int main()
+{
+	struct vif *v;
+	int ct;
 
-Regards,
-Willy
+	v = &vif_table[0];
+	for (ct = 0; ct < maxvif; ct++, v++)
+		if(v->link==1)
+			break;
+	return 0;
+}
+---
+
+---main2.c
+#define maxvif 32
+
+struct vif {
+	int *dev;
+	unsigned long bytes_in, bytyes_out;
+	unsigned long pkt_in, pkt_out;
+	unsigned long rate_limit;
+	unsigned char threshhold;
+	unsigned short flags;
+	int	local, remote;
+	int	link;
+};
+
+struct vif vif_table[maxvif];
+
+int main()
+{
+	struct vif *v;
+	int ct;
+
+	v = &vif_table[0];
+	for (ct = 0; ct < maxvif; ct++)
+		if(vif_table[ct].link==1)
+			break;
+	return 0;
+}
+---
+
+Use gcc -S -O2 to compile:
+---x86 asm main.s
+	.file	"main.c"
+	.text
+	.p2align 4,,15
+.globl main
+	.type	main, @function
+main:
+	leal	4(%esp), %ecx
+	andl	$-16, %esp
+	pushl	-4(%ecx)
+	movl	$vif_table, %eax
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ecx
+	jmp	.L2
+	.p2align 4,,7
+.L8:
+	cmpl	$vif_table+1240, %eax
+	je	.L3
+	addl	$40, %eax
+.L2:
+	cmpl	$1, 36(%eax)
+	jne	.L8
+.L3:
+	popl	%ecx
+	xorl	%eax, %eax
+	popl	%ebp
+	leal	-4(%ecx), %esp
+	ret
+	.size	main, .-main
+	.comm	vif_table,1280,32
+	.ident	"GCC: (GNU) 4.1.2 20070115 (prerelease) (SUSE Linux)"
+	.section	.note.GNU-stack,"",@progbits
+---
+
+---x86 asm main2.s
+	.file	"main2.c"
+	.text
+	.p2align 4,,15
+.globl main
+	.type	main, @function
+main:
+	leal	4(%esp), %ecx
+	andl	$-16, %esp
+	pushl	-4(%ecx)
+	xorl	%eax, %eax
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ecx
+	jmp	.L2
+	.p2align 4,,7
+.L8:
+	addl	$40, %eax
+	cmpl	$1280, %eax
+	je	.L3
+.L2:
+	cmpl	$1, vif_table+36(%eax)
+	jne	.L8
+.L3:
+	popl	%ecx
+	xorl	%eax, %eax
+	popl	%ebp
+	leal	-4(%ecx), %esp
+	ret
+	.size	main, .-main
+	.comm	vif_table,1280,32
+	.ident	"GCC: (GNU) 4.1.2 20070115 (prerelease) (SUSE Linux)"
+	.section	.note.GNU-stack,"",@progbits
+---
+
+In loop area, main.s and main2.s have the following difference:
+main.s :
+	cmpl	$vif_table+1240, %eax
+	cmpl	$1, 36(%eax)
+main2.s:
+	cmpl	$1280, %eax
+	cmpl	$1, vif_table+36(%eax)
+The difference can't cause different performance.
+
+OK. Here is the asm on SPARC(not cross compile)
+---main.s
+                       	.global main                
+
+			main:
+/* 000000	  21 */		sethi	%hi(vif_table),%o5
+/* 0x0004	  22 */		or	%g0,0,%o4
+/* 0x0008	  21 */		add	%o5,%lo(vif_table),%o3
+/* 0x000c	  23 */		ld	[%o3+36],%o5
+
+			.L900000106:
+/* 0x0010	  23 */		cmp	%o5,1
+/* 0x0014	     */		be,pn	%icc,.L77000028
+/* 0x0018	  22 */		add	%o4,1,%o4
+
+			.L77000025:
+/* 0x001c	  22 */		add	%o3,40,%o3
+/* 0x0020	     */		cmp	%o4,32
+/* 0x0024	     */		bl,a,pt	%icc,.L900000106
+/* 0x0028	  23 */		ld	[%o3+36],%o5
+
+			.L77000028:
+/* 0x002c	  22 */		retl	! Result =  %o0
+/* 0x0030	     */		or	%g0,0,%o0
+/* 0x0034	   0 */		.type	main,2
+/* 0x0034	   0 */		.size	main,(.-main)
+/* 0x0034	   0 */		.global	__fsr_init_value
+/* 0x0034	     */		 __fsr_init_value=0
+---
+
+---main2.s
+                       	.global main   
+
+			main:
+/* 000000	  22 */		sethi	%hi(vif_table+36),%o5
+/* 0x0004	     */		or	%g0,0,%o3
+/* 0x0008	     */		add	%o5,%lo(vif_table+36),%o4
+/* 0x000c	  23 */		ld	[%o5+%lo(vif_table+36)],%o5
+
+			.L900000106:
+/* 0x0010	  23 */		cmp	%o5,1
+/* 0x0014	     */		be,pn	%icc,.L77000028
+/* 0x0018	  22 */		add	%o4,40,%o4
+
+			.L77000025:
+/* 0x001c	  22 */		add	%o3,1,%o3
+/* 0x0020	     */		cmp	%o3,32
+/* 0x0024	     */		bl,a,pt	%icc,.L900000106
+/* 0x0028	  23 */		ld	[%o4],%o5
+
+			.L77000028:
+/* 0x002c	  22 */		retl	! Result =  %o0
+/* 0x0030	     */		or	%g0,0,%o0
+/* 0x0034	   0 */		.type	main,2
+/* 0x0034	   0 */		.size	main,(.-main)
+/* 0x0034	   0 */		.global	__fsr_init_value
+/* 0x0034	     */		 __fsr_init_value=0
+---
+
+In loop area, they are both ptr+sizeof(struct).
+
+Now, we can get a conclusion that current compiler can do optimize the index accessing.
+:)
+
+Ingo, if you have any different opinion, it will be appreciated that you can share. :)
 
