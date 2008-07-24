@@ -1,50 +1,84 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Thu, 24 Jul 2008 19:45:53 +0200
-Message-ID: <20080724174552.GA2513@ami.dom.local>
-References: <200807222142.23710.denys@visp.net.lb> <20080723232456.GA5835@ami.dom.local> <200807240256.36098.denys@visp.net.lb> <200807241756.43595.denys@visp.net.lb>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
+	pointer dereference
+Date: Thu, 24 Jul 2008 12:47:19 -0500
+Message-ID: <1216921639.15519.239.camel@calx>
+References: <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>
+	 <20080724.022259.113079007.davem@davemloft.net>
+	 <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>
+	 <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net>
+	 <20080724122203.GA7187@gondor.apana.org.au>
+	 <84144f020807240540vbe7ef50uee2cacabe8016546@mail.gmail.com>
+	 <20080724125004.GA7426@gondor.apana.org.au>
+	 <1216905109.15519.200.camel@calx>
+	 <20080724143706.GA8461@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: denys@visp.net.lb
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>, w@1wt.eu,
+	davidn@davidnewall.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.180]:30143 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbYGXRqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 13:46:13 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so2249166ika.5
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 10:46:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200807241756.43595.denys@visp.net.lb>
+Received: from waste.org ([66.93.16.53]:55070 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751414AbYGXRvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 13:51:45 -0400
+In-Reply-To: <20080724143706.GA8461@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2008 at 05:56:43PM +0300, denys@visp.net.lb wrote:
-> Nothing yet. Still waiting, in 6 hours i will have "peak time".
-> But yesterday with same settings(without patch) it crashed 3 times.
 
-OK, so let's better wait to be sure of something here.
+On Thu, 2008-07-24 at 22:37 +0800, Herbert Xu wrote:
+> On Thu, Jul 24, 2008 at 08:11:49AM -0500, Matt Mackall wrote:
+> >
+> > You don't honestly expect people to correctly code to such a standard,
+> > do you? People will assume that ksize never fails, they will be wrong,
+> > and computers will die.
+> 
+> If we follow this argument then most of our interfaces would be
+> broken.
 
-Jarek P.
+Let's try this again: did you know that ksize could fail depending on
+kernel configuration? Most of us would answer no. That suggests the API
+is bad. This ranks 12 on Rusty's spectrum of user-friendly APIs:
 
-(Btw., could try in the meantime to do something to shorten your lines?
-It's not the most popular format on kernel lists...) 
+http://ozlabs.org/~rusty/ols-2003-keynote/img51.html
 
-> It is Core2Duo E6750 CPU, clocksource is TSC.
-> TSC synchronization is always passed. HPET is available, so in case... i can try it too.
-> It was crashing with nmi_watchdog=1(at least it brings crash message) and without it (hard lockup).
-> Fishy point is ifb, but i have few hundreds of NAS servers with ifb + htb 
-> (but sure not 300-400 Mbps like on this host) and i check weekly log on all of them - none of them crashed.
+> > >  You're taking
+> > > away an entire interface just because an underlying implementation
+> > > that's used by a very small proportion of users doesn't do the
+> > > right thing.
+> > 
+> > Umm, no. There were very few users to being with, so it was actually a
+> > fairly large proportion. And that suggested the interface was a bad
+> > idea.
 > 
-> So it is or hardware specific (but it is crashing always in same point), 
-> even maybe memory corruption, it is not a server-grade equipment, but it crashes always in same place, same way.
-> I have running MCE, so if there is thermal events - it must catch it.
-> But sure there is large list of errata for this hardware :-)
-> 
-> 
-> On Thursday 24 July 2008, denys@visp.net.lb wrote:
-> > I dont have any problem to restart :-)
-> > Build system and restart (over kexec) is automated..
-> > Rebooting now.
-> 
-> 
+> Huh? I'm talking about users of the kernel.  A very small proportion
+> of those use SLOB.
+
+Ahh. I see what you're saying. You may be right about that, or you may
+be wrong: I don't know which of the millions of mass market embedded
+Linux devices out there are using it.
+
+And of course I argue that SLOB did do the right thing, which was only
+allowing ksize on kmalloced objects. It's an accident of implementation
+that kmalloc and kmem_cache_alloc use the same underlying allocator. It
+has not been true at all points in the past, it's not true for some
+users in the present, and it may not be true for most users in the
+future. Thus, it's a bad idea to try to use ksize on something that
+wasn't kmalloced.
+
+If you have an argument for reintroducing ksize based on an actual use
+case, let's please move on to (or back to) it so that we can have some
+substance to this discussion.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
+
