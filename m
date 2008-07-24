@@ -1,129 +1,90 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 21/30] netvm: prevent a stream specific deadlock
-Date: Thu, 24 Jul 2008 16:01:03 +0200
-Message-ID: <20080724141530.796049109@chello.nl>
+Subject: [PATCH 07/30] mm: allow PF_MEMALLOC from softirq context
+Date: Thu, 24 Jul 2008 16:00:49 +0200
+Message-ID: <20080724141529.785703247@chello.nl>
 References: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54687 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756155AbYGXOmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:36 -0400
-Content-Disposition: inline; filename=netvm-tcp-deadlock.patch
+Received: from bombadil.infradead.org ([18.85.46.34]:46475 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753643AbYGXOm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:56 -0400
+Content-Disposition: inline; filename=mm-PF_MEMALLOC-softirq.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It could happen that all !SOCK_MEMALLOC sockets have buffered so much data
-that we're over the global rmem limit. This will prevent SOCK_MEMALLOC buffers
-from receiving data, which will prevent userspace from running, which is needed
-to reduce the buffered data.
+Allow PF_MEMALLOC to be set in softirq context. 
 
-Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+This is needed to allow network softirq packet processing to make use of
+PF_MEMALLOC.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/net/sock.h   |    7 ++++---
- net/core/sock.c      |    2 +-
- net/ipv4/tcp_input.c |   12 ++++++------
- net/sctp/ulpevent.c  |    2 +-
- 4 files changed, 12 insertions(+), 11 deletions(-)
+ include/linux/sched.h |    7 +++++++
+ kernel/softirq.c      |    3 +++
+ mm/page_alloc.c       |    7 ++++---
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/include/net/sock.h
+Index: linux-2.6/mm/page_alloc.c
 ===================================================================
---- linux-2.6.orig/include/net/sock.h
-+++ linux-2.6/include/net/sock.h
-@@ -788,12 +788,13 @@ static inline int sk_wmem_schedule(struc
- 		__sk_mem_schedule(sk, size, SK_MEM_SEND);
+--- linux-2.6.orig/mm/page_alloc.c
++++ linux-2.6/mm/page_alloc.c
+@@ -1449,9 +1449,10 @@ int gfp_to_alloc_flags(gfp_t gfp_mask)
+ 		alloc_flags |= ALLOC_HARDER;
+ 
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_interrupt() &&
+-		    ((p->flags & PF_MEMALLOC) ||
+-		     unlikely(test_thread_flag(TIF_MEMDIE))))
++		if (!in_irq() && (p->flags & PF_MEMALLOC))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_interrupt() &&
++				unlikely(test_thread_flag(TIF_MEMDIE)))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 	}
+ 
+Index: linux-2.6/kernel/softirq.c
+===================================================================
+--- linux-2.6.orig/kernel/softirq.c
++++ linux-2.6/kernel/softirq.c
+@@ -213,6 +213,8 @@ asmlinkage void __do_softirq(void)
+ 	__u32 pending;
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	int cpu;
++	unsigned long pflags = current->flags;
++	current->flags &= ~PF_MEMALLOC;
+ 
+ 	pending = local_softirq_pending();
+ 	account_system_vtime(current);
+@@ -251,6 +253,7 @@ restart:
+ 
+ 	account_system_vtime(current);
+ 	_local_bh_enable();
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
  }
  
--static inline int sk_rmem_schedule(struct sock *sk, int size)
-+static inline int sk_rmem_schedule(struct sock *sk, struct sk_buff *skb)
- {
- 	if (!sk_has_account(sk))
- 		return 1;
--	return size <= sk->sk_forward_alloc ||
--		__sk_mem_schedule(sk, size, SK_MEM_RECV);
-+	return skb->truesize <= sk->sk_forward_alloc ||
-+		__sk_mem_schedule(sk, skb->truesize, SK_MEM_RECV) ||
-+		skb_emergency(skb);
- }
- 
- static inline void sk_mem_reclaim(struct sock *sk)
-Index: linux-2.6/net/core/sock.c
+ #ifndef __ARCH_HAS_DO_SOFTIRQ
+Index: linux-2.6/include/linux/sched.h
 ===================================================================
---- linux-2.6.orig/net/core/sock.c
-+++ linux-2.6/net/core/sock.c
-@@ -383,7 +383,7 @@ int sock_queue_rcv_skb(struct sock *sk, 
- 	if (err)
- 		goto out;
+--- linux-2.6.orig/include/linux/sched.h
++++ linux-2.6/include/linux/sched.h
+@@ -1533,6 +1533,13 @@ static inline void put_task_struct(struc
+ #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
+ #define used_math() tsk_used_math(current)
  
--	if (!sk_rmem_schedule(sk, skb->truesize)) {
-+	if (!sk_rmem_schedule(sk, skb)) {
- 		err = -ENOBUFS;
- 		goto out;
- 	}
-Index: linux-2.6/net/ipv4/tcp_input.c
-===================================================================
---- linux-2.6.orig/net/ipv4/tcp_input.c
-+++ linux-2.6/net/ipv4/tcp_input.c
-@@ -3877,19 +3877,19 @@ static void tcp_ofo_queue(struct sock *s
- static int tcp_prune_ofo_queue(struct sock *sk);
- static int tcp_prune_queue(struct sock *sk);
- 
--static inline int tcp_try_rmem_schedule(struct sock *sk, unsigned int size)
-+static inline int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb)
- {
- 	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
--	    !sk_rmem_schedule(sk, size)) {
-+	    !sk_rmem_schedule(sk, skb)) {
- 
- 		if (tcp_prune_queue(sk) < 0)
- 			return -1;
- 
--		if (!sk_rmem_schedule(sk, size)) {
-+		if (!sk_rmem_schedule(sk, skb)) {
- 			if (!tcp_prune_ofo_queue(sk))
- 				return -1;
- 
--			if (!sk_rmem_schedule(sk, size))
-+			if (!sk_rmem_schedule(sk, skb))
- 				return -1;
- 		}
- 	}
-@@ -3945,7 +3945,7 @@ static void tcp_data_queue(struct sock *
- 		if (eaten <= 0) {
- queue_and_out:
- 			if (eaten < 0 &&
--			    tcp_try_rmem_schedule(sk, skb->truesize))
-+			    tcp_try_rmem_schedule(sk, skb))
- 				goto drop;
- 
- 			skb_set_owner_r(skb, sk);
-@@ -4016,7 +4016,7 @@ drop:
- 
- 	TCP_ECN_check_ce(tp, skb);
- 
--	if (tcp_try_rmem_schedule(sk, skb->truesize))
-+	if (tcp_try_rmem_schedule(sk, skb))
- 		goto drop;
- 
- 	/* Disable header prediction. */
-Index: linux-2.6/net/sctp/ulpevent.c
-===================================================================
---- linux-2.6.orig/net/sctp/ulpevent.c
-+++ linux-2.6/net/sctp/ulpevent.c
-@@ -701,7 +701,7 @@ struct sctp_ulpevent *sctp_ulpevent_make
- 	if (rx_count >= asoc->base.sk->sk_rcvbuf) {
- 
- 		if ((asoc->base.sk->sk_userlocks & SOCK_RCVBUF_LOCK) ||
--		    (!sk_rmem_schedule(asoc->base.sk, chunk->skb->truesize)))
-+		    (!sk_rmem_schedule(asoc->base.sk, chunk->skb)))
- 			goto fail;
- 	}
- 
++static inline void tsk_restore_flags(struct task_struct *p,
++				     unsigned long pflags, unsigned long mask)
++{
++	p->flags &= ~mask;
++	p->flags |= pflags & mask;
++}
++
+ #ifdef CONFIG_SMP
+ extern int set_cpus_allowed_ptr(struct task_struct *p,
+ 				const cpumask_t *new_mask);
 
 -- 
 
