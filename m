@@ -1,44 +1,39 @@
-From: Nick Piggin <nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
-Date: Thu, 24 Jul 2008 21:06:51 +1000
-Message-ID: <200807242106.52672.nickpiggin@yahoo.com.au>
-References: <1216890648.7257.258.camel@twins> <200807242038.36693.nickpiggin@yahoo.com.au> <E1KLyUI-0006ZS-Cg@pomaz-ex.szeredi.hu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
+Date: Thu, 24 Jul 2008 19:12:31 +0800
+Message-ID: <20080724111231.GA6485@gondor.apana.org.au>
+References: <20080724060448.GA10203@elte.hu> <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au> <20080724092517.GA31358@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <E1KLyUI-0006ZS-Cg-8f8m9JG5TPIdUIPVzhDTVZP2KDSNp7ea@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: w@1wt.eu, davem@davemloft.net, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:52894 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752072AbYGXLNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 07:13:23 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080724092517.GA31358@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 24 July 2008 20:55, Miklos Szeredi wrote:
-> On Thu, 24 Jul 2008, Nick Piggin wrote:
-> > Hey, something kind of cool (and OT) I've just thought of that we can
-> > do with ticket locks is to take tickets for 2 (or 64K) nested locks,
-> > and then wait for them both (all), so the cost is N*lock + longest spin,
-> > rather than N*lock + N*avg spin.
+On Thu, Jul 24, 2008 at 11:25:18AM +0200, Ingo Molnar wrote:
 >
-> Isn't this deadlocky?
->
-> E.g. one task takes ticket x=1, then other task comes in and takes x=2
-> and y=1, then first task takes y=2.  Then neither can actually
-> complete both locks.
+> without rebooting the kernel, right? And then if the bug comes back 
+> again we've nailed it down to the area you suspect, correct?
 
-Oh duh of course you still need mutual exclusion from the first lock
-to order the subsequent :P
+Yes, except that you'll have to reestablish those connections
+to make the new setting take effect.  In either case please
+verify with tcpdump to make sure that both sides are proposing
+sack at the start of the connection.  Alternatively see whether
+sacks are generated in case of packet loss.
 
-So yeah it only works for N > 2 locks, and you have to spin_lock the
-first one... so unsuitable for scheduler.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
