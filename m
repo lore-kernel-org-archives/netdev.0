@@ -1,37 +1,55 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC][PATCH 1/3] net: per skb control messages
-Date: Fri, 25 Jul 2008 02:26:38 +0300
-Message-ID: <200807250226.38996.opurdila@ixiacom.com>
-References: <200807250112.03379.opurdila@ixiacom.com> <200807250214.11298.opurdila@ixiacom.com> <20080724.161859.193696763.davem@davemloft.net>
+From: Ranjit Manomohan <ranjitm@google.com>
+Subject: [PATCH 0/0] Traffic control cgroups subsystem
+Date: Thu, 24 Jul 2008 16:33:38 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0807241628270.30437@ranjit.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lizf@cn.fujitsu.com, menage@google.com, kaber@trash.net,
+	akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:3799 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756400AbYGXX3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 19:29:07 -0400
-In-Reply-To: <20080724.161859.193696763.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.33.17]:57157 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756027AbYGXXeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 19:34:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 25 July 2008, David Miller wrote:
+[Take 4] incorporated additional comments from Patrick McHardy
 
-> > Sure but the problem is that the NIC hw timestamp is not synced with
-> > the CPU time. In that case I think that the netfilter rules which
-> > are looking at the timestamp will be messed up.
->
-> Right, but you can maintain a suitable "delta" between the two.
+This patch provides a simple resource controller (cgroup_tc) based on the
+cgroups infrastructure to manage network traffic. The cgroup_tc resource
+controller can be used to schedule and shape traffic belonging to the task(s)
+in a particular cgroup.
 
-OK, I think I got the idea now:
-- use a bit in the timestamp to specify that this is a hw timestamp
-- use a new net_device method to convert a hw timestamp to a gettimeofday 
-timestamp
+The implementation consists of two parts:
 
-This is great, thanks a lot !
+1) A resource controller (cgroup_tc) that is used to associate packets from
+   a particular task belonging to a cgroup with a traffic control class id (
+   tc_classid). This tc_classid is propagated to all sockets created by tasks
+   in the cgroup and will be used for classifying packets at the link layer.
 
-tavi
+2) A new traffic control classifier (cls_cgroup) that can classify packets
+   based on the tc_classid field in the socket to specific destination classes.
+
+An example of the use of this resource controller would be to limit
+the traffic from all tasks from a file_server cgroup to 100Mbps. We could
+achieve this by doing:
+
+# make a cgroup of file transfer processes and assign it a arbitrary unique
+# classid of 0x1234 - this will be used later to direct packets.
+mkdir -p /dev/cgroup
+mount -t cgroup tc -otc /dev/cgroup
+mkdir /dev/cgroup/file_transfer
+echo 0x1234 > /dev/cgroup/file_transfer/tc.classid
+echo $PID_OF_FILE_XFER_PROCESS > /dev/cgroup/file_transfer/tasks
+
+# Now create a HTB class that rate limits traffic to 100mbits and attach
+# a filter to direct all traffic from cgroup file_transfer to this new class.
+tc qdisc add dev eth0 root handle 1: htb
+tc class add dev eth0 parent 1: classid 1:10 htb rate 100mbit ceil 100mbit
+tc filter add dev eth0 parent 1: handle 800 protocol ip prio 1 cgroup value 0x1234 classid 1:10
+
+Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+
+---
