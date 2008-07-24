@@ -1,54 +1,46 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
-Date: Thu, 24 Jul 2008 10:58:57 +0200
-Message-ID: <48884451.1090703@trash.net>
-References: <4887550B.2070704@tvcablenet.be>	<4887555A.30605@trash.net>	<48875B8C.2090800@trash.net> <20080723.142147.61941255.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jussi.kivilinna-E01nCVcF24I@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080723.142147.61941255.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [TCP bug, regression] stuck distcc connections in latest -git
+Date: Thu, 24 Jul 2008 17:05:19 +0800
+Message-ID: <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>
+References: <20080724060448.GA10203@elte.hu>
+Cc: w@1wt.eu, davem@davemloft.net, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefanr@s5r6.in-berlin.de, rjw@sisk.pl, ilpo.jarvinen@helsinki.fi
+To: mingo@elte.hu (Ingo Molnar)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:60488 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751302AbYGXJGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 05:06:05 -0400
+In-Reply-To: <20080724060448.GA10203@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Date: Wed, 23 Jul 2008 18:25:48 +0200
+Ingo Molnar <mingo@elte.hu> wrote:
+>
+> the client (running 2.6.24) does periodic 120 seconds retransmits:
 > 
->> We can't fit them into the cb together, I don't see a way to
->> shrink ieee80211_tx_info.
->>
->> Maybe one of the wireless folks can suggest something? Is it
->> really necessary to pass the full struct ieee80211_tx_info
->> through the qdisc layer, or could the struct be split? It
->> needs to find a way to co-exist peacefully with qdiscs'
->> skb->cb usage.
-> 
-> This is another area that got mangled up in the ->select_queue()
-> conversion of the WME bits, but in another aspect this problem
-> existed beforehand as well.
-> 
-> Specifically, when RX packets get requeued out to transmit in
-> the code in net/mac80211/rx.c that resends packets back out the
-> wireless device by setting a bit in the SKB CB then calling
-> dev_queue_xmit().
-> 
-> That's completely illegal :-)
+> 07:40:48.255452 IP dione.39201 > phoenix.distcc: . 1608:2144(536) ack 1 win 584007:40:48.255547 IP phoenix.distcc > dione.39201: . ack 2144 win 65535
+> 07:40:48.255564 IP dione.39201 > phoenix.distcc: . 67143:67679(536) ack 1 win 5840
+> 07:40:48.255648 IP phoenix.distcc > dione.39201: . ack 2144 win 65535
+> 07:42:48.255440 IP dione.39201 > phoenix.distcc: . 2144:2680(536) ack 1 win 5840
+> 07:42:48.255559 IP phoenix.distcc > dione.39201: . ack 2680 win 65535
+> 07:42:48.255570 IP dione.39201 > phoenix.distcc: . 67679:68215(536) ack 1 win 5840
+> 07:42:48.255659 IP phoenix.distcc > dione.39201: . ack 2680 win 65535
+> 07:44:48.255436 IP dione.39201 > phoenix.distcc: . 2680:3216(536) ack 1 win 584007:44:48.255570 IP phoenix.distcc > dione.39201: . ack 3216 win 65535
+> 07:44:48.255585 IP dione.39201 > phoenix.distcc: . 68215:68751(536) ack 1 win 5840
+> 07:44:48.255669 IP phoenix.distcc > dione.39201: . ack 3216 win 65535
 
-It seems its doing even more illegal things that were also
-present previously. The ieee80211_master_start_xmit function
-expects to get a valid IEEE80211_SKB_CB, which means it
-expects it to survive through the entire qdisc layer. I'm
-not sure how packets get to the master device from the
-subifs though, so I might be wrong.
+OK, something's seriously screwed up on dione's kernel.  Could
+you please disable syncookies (which should enable SACK for you)
+and see if the problem goes away?
 
+I think our Reno code may have been broken.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
