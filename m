@@ -1,64 +1,69 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
-Date: Thu, 24 Jul 2008 20:38:35 +1000
-Message-ID: <200807242038.36693.nickpiggin@yahoo.com.au>
-References: <1216890648.7257.258.camel@twins> <20080724.023210.229338550.davem@davemloft.net> <1216894136.7257.266.camel@twins>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: sch_sfq: revert "dump a real number of flows"
+	patch
+Date: Thu, 24 Jul 2008 10:53:52 +0000
+Message-ID: <20080724105352.GB3946@ff.dom.local>
+References: <200806282202.59581.denys@visp.net.lb> <20080629191113.GA8817@ami.dom.local> <20080723.213443.37820788.davem@davemloft.net> <48884133.8070301@trash.net> <20080724094908.GA3946@ff.dom.local> <488851FB.4080407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	Larry.Finger@lwfinger.net, kaber@trash.net,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, mingo@redhat.com,
-	paulmck@linux.vnet.ibm.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752795AbYGXKi4@vger.kernel.org>
-In-Reply-To: <1216894136.7257.266.camel@twins>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, denys@visp.net.lb,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.189]:21108 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309AbYGXKsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 06:48:46 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1044920nfc.21
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2008 03:48:44 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <488851FB.4080407@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 24 July 2008 20:08, Peter Zijlstra wrote:
-> On Thu, 2008-07-24 at 02:32 -0700, David Miller wrote:
-> > From: Peter Zijlstra <peterz@infradead.org>
-> > Date: Thu, 24 Jul 2008 11:27:05 +0200
-> >
-> > > Well, not only lockdep, taking a very large number of locks is
-> > > expensive as well.
-> >
-> > Right now it would be on the order of 16 or 32 for
-> > real hardware.
-> >
-> > Much less than the scheduler currently takes on some
-> > of my systems, so currently you are the pot calling the
-> > kettle black. :-)
->
-> One nit, and then I'll let this issue rest :-)
->
-> The scheduler has a long lock dependancy chain (nr_cpu_ids rq locks),
-> but it never takes all of them at the same time. Any one code path will
-> at most hold two rq locks.
+On Thu, Jul 24, 2008 at 11:57:15AM +0200, Patrick McHardy wrote:
+...
+> IIRC the ESFQ for SFQ patches even use
+> "flows" in ->init, so it might make things a bit more ugly if we
+> ever merge those patches.
 
-Aside from lockdep, is there a particular problem with taking 64k locks
-at once? (in a very slow path, of course) I don't think it causes a
-problem with preempt_count, does it cause issues with -rt kernel?
+This argument looks right to me.
 
-Hey, something kind of cool (and OT) I've just thought of that we can
-do with ticket locks is to take tickets for 2 (or 64K) nested locks,
-and then wait for them both (all), so the cost is N*lock + longest spin,
-rather than N*lock + N*avg spin.
+David, please, apply this reverting patch.
 
-That would mean even at the worst case of a huge amount of contention
-on all 64K locks, it should only take a couple of ms to take all of
-them (assuming max spin time isn't ridiculous).
+Thanks,
+Jarek P.
 
-Probably not the kind of feature we want to expose widely, but for
-really special things like the scheduler, it might be a neat hack to
-save a few cycles ;) Traditional implementations would just have
-#define spin_lock_async	      spin_lock
-#define spin_lock_async_wait  do {} while (0)
+-------------------->
 
-Sorry it's offtopic, but if I didn't post it, I'd forget to. Might be
-a fun quick hack for someone.
+pkt_sched: sch_sfq: revert "dump a real number of flows" patch
+
+Patrick McHardy <kaber@trash.net> noticed that since "flows" could be
+used by sfq in the future as a parameter, we shouldn't currently
+change it's meaning. This patch reverts my previous patch:
+commit f867e6af94239a04ec23aeec2fcda5aa58e41db7
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+diff -Nurp net-2.6-/net/sched/sch_sfq.c net-2.6+/net/sched/sch_sfq.c
+--- net-2.6-/net/sched/sch_sfq.c	2008-07-24 10:26:08.000000000 +0000
++++ net-2.6+/net/sched/sch_sfq.c	2008-07-21 09:32:53.000000000 +0000
+@@ -536,14 +536,7 @@ static int sfq_dump(struct Qdisc *sch, s
+ 
+ 	opt.limit = q->limit;
+ 	opt.divisor = SFQ_HASH_DIVISOR;
+-	opt.flows = 0;
+-	if (q->tail != SFQ_DEPTH) {
+-		unsigned int i;
+-
+-		for (i = 0; i < SFQ_HASH_DIVISOR; i++)
+-			if (q->ht[i] != SFQ_DEPTH)
+-				opt.flows++;
+-	}
++	opt.flows = q->limit;
+ 
+ 	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+ 
