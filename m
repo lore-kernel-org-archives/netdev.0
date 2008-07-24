@@ -1,121 +1,48 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 4/4] sky2: Adapt sky2 to use reworked PCI PM
-Date: Thu, 24 Jul 2008 16:50:16 -0700
-Message-ID: <20080724165016.7be588e9@speedy>
-References: <200807191436.40726.rjw@sisk.pl>
-	<20080720190742.84258d7e.akpm@linux-foundation.org>
-	<200807242250.51119.rjw@sisk.pl>
-	<200807241352.18947.jbarnes@virtuousgeek.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 3/4] tun: Allow GSO using virtio_net_hdr
+Date: Fri, 25 Jul 2008 09:54:18 +1000
+Message-ID: <200807250954.19120.rusty@rustcorp.com.au>
+References: <200806260028.07883.rusty@rustcorp.com.au> <200806260030.38293.rusty@rustcorp.com.au> <20080724142044.GA8266@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Cc: Max Krasnyansky <maxk@qualcomm.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, markmc@redhat.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:54065 "EHLO mail.vyatta.com"
+Received: from ozlabs.org ([203.10.76.45]:54550 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755495AbYGXXuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 19:50:18 -0400
-In-Reply-To: <200807241352.18947.jbarnes@virtuousgeek.org>
+	id S1751884AbYGXXz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 19:55:27 -0400
+In-Reply-To: <20080724142044.GA8266@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Jul 2008 13:52:18 -0700
-Jesse Barnes <jbarnes@virtuousgeek.org> wrote:
-
-> On Thursday, July 24, 2008 1:50 pm Rafael J. Wysocki wrote:
-> > [Sorry for the delayed response, I'm at OLS.]
+On Friday 25 July 2008 00:20:44 Herbert Xu wrote:
+> On Thu, Jun 26, 2008 at 12:30:37AM +1000, Rusty Russell wrote:
+> > Add a IFF_VNET_HDR flag.  This uses the same ABI as virtio_net (ie.
+> > prepending struct virtio_net_hdr to packets) to indicate GSO and checksum
+> > information.
 > >
-> > On Monday, 21 of July 2008, Andrew Morton wrote:
-> > > On Sat, 19 Jul 2008 14:42:51 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> 
-> wrote:
-> > > > Adapt the sky2 driver to use the reworked PCI PM.
-> > >
-> > > I fixed the rejects in "[PATCH 3/4] tg3: Adapt tg3 to use reworked PCI
-> > > PM code" but this patch has too many for me to want to fix them.
-> > >
-> > > As usual, please at least take a look at what's in linux-next before
-> > > going and bypassing all that queued work.
-> >
-> > Sorry for that.
-> >
-> > Appended is a version of the patch applying to the current mainline on top
-> > of patches 1/4 - 3/4 without rejects.
-> >
-> > BTW, the sky2's WOL is broken on my test box because of commit
-> > db99b98885e717454feef1c6868b27d3f23c2e7c ("sky2: put PHY in sleep when
-> > down") that causes the box to hang solid in sky2_suspend() and
-> > sky2_shutdown() after WOL has been enabled with 'ethtool -s eth0 wol g'.
-> >
-> > This has already been reported to Stephen and Jeff.
-> 
-> Btw, I just asked Linus to pull the 2/4 part of this patchset, so the rest 
-> should be able to go upstream soon.
-> 
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>
+> I just noticed that we still allocate a linear skb even when GSO
+> is enabled.  Please fix this by allocating page frags where
+> necessary.  Otherwise GSO is only going to work before memory
+> fragmentation sets in.
+>
+> IIRC I'd sent out a patch to the virt mailing list with code
+> that did this.
+>
 > Thanks,
-> Jesse
 
+Hi Herbert,
 
-Does this fix your WOL issue?
+   Thanks for the reminder.  I have this code in the virtio_net patches which 
+Linus failed to pull.  Will just need to share it with the tun code (maybe a 
+skb_alloc_large() helper).
 
-When doing wake on lan and resume, the PHY may need to get more
-power up bits tweaked.
-
---- a/drivers/net/sky2.c	2008-07-24 15:35:33.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-07-24 15:43:44.000000000 -0700
-@@ -698,6 +698,7 @@ static const u32 coma_mode[] = { PCI_Y2_
- static void sky2_phy_power_up(struct sky2_hw *hw, unsigned port)
- {
- 	u32 reg1;
-+	u16 ctrl;
- 
- 	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-@@ -709,6 +710,33 @@ static void sky2_phy_power_up(struct sky
- 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
- 	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	sky2_pci_read32(hw, PCI_DEV_REG1);
-+
-+	if (hw->chip_id != CHIP_ID_YUKON_EC) {
-+		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-+			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-+			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+
-+			/* turn on GII power */
-+			ctrl &= ~PHY_M_PC_POW_D_ENA;
-+			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+		}
-+	}
-+
-+	if (hw->flags & SKY2_HW_NEWER_PHY) {
-+		/* select page 2 to access MAC control register */
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
-+
-+		ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+		/* allow GMII Power Down */
-+		ctrl |= PHY_M_MAC_GMIF_PUP;
-+		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+
-+		/* set page register back to 0 */
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-+	}
-+
-+	/* force phy reset and clear power down */
-+	gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_RESET);
- }
- 
- static void sky2_phy_power_down(struct sky2_hw *hw, unsigned port)
-@@ -731,6 +759,9 @@ static void sky2_phy_power_down(struct s
- 		ctrl &= ~PHY_M_MAC_GMIF_PUP;
- 		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
- 
-+		/* this register change must be followed by a software reset */
-+		gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_RESET);
-+
- 		/* set page register back to 0 */
- 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
- 	}
+Cheers,
+Rusty.
