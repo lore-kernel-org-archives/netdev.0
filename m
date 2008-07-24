@@ -1,177 +1,187 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 04/30] mm: slub: trivial cleanups
-Date: Thu, 24 Jul 2008 16:00:46 +0200
-Message-ID: <20080724141529.560025894@chello.nl>
+Subject: [PATCH 28/30] nfs: disable data cache revalidation for swapfiles
+Date: Thu, 24 Jul 2008 16:01:10 +0200
+Message-ID: <20080724141531.326208810@chello.nl>
 References: <20080724140042.408642539@chello.nl>
 To: Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org, trond.myklebust@fy
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54702 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:54704 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbYGXOmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:51 -0400
-Content-Disposition: inline; filename=cleanup-slub.patch
+	with ESMTP id S1756685AbYGXOmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 10:42:53 -0400
+Content-Disposition: inline; filename=nfs-swapper.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some cleanups....
+Do as Trond suggested:
+  http://lkml.org/lkml/2006/8/25/348
+
+Disable NFS data cache revalidation on swap files since it doesn't really 
+make sense to have other clients change the file while you are using it.
+
+Thereby we can stop setting PG_private on swap pages, since there ought to
+be no further races with invalidate_inode_pages2() to deal with.
+
+And since we cannot set PG_private we cannot use page->private (which is
+already used by PG_swapcache pages anyway) to store the nfs_page. Thus
+augment the new nfs_page_find_request logic.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- include/linux/slub_def.h |    7 ++++++-
- mm/slub.c                |   40 ++++++++++++++++++----------------------
- 2 files changed, 24 insertions(+), 23 deletions(-)
+ fs/nfs/inode.c |    6 ++++
+ fs/nfs/write.c |   71 ++++++++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 64 insertions(+), 13 deletions(-)
 
-Index: linux-2.6/mm/slub.c
+Index: linux-2.6/fs/nfs/inode.c
 ===================================================================
---- linux-2.6.orig/mm/slub.c
-+++ linux-2.6/mm/slub.c
-@@ -27,7 +27,7 @@
- /*
-  * Lock order:
-  *   1. slab_lock(page)
-- *   2. slab->list_lock
-+ *   2. node->list_lock
-  *
-  *   The slab_lock protects operations on the object of a particular
-  *   slab and its metadata in the page struct. If the slab lock
-@@ -163,11 +163,11 @@ static struct notifier_block slab_notifi
- #endif
+--- linux-2.6.orig/fs/nfs/inode.c
++++ linux-2.6/fs/nfs/inode.c
+@@ -824,6 +824,12 @@ int nfs_revalidate_mapping_nolock(struct
+ 	struct nfs_inode *nfsi = NFS_I(inode);
+ 	int ret = 0;
  
- static enum {
--	DOWN,		/* No slab functionality available */
-+	DOWN = 0,	/* No slab functionality available */
- 	PARTIAL,	/* kmem_cache_open() works but kmalloc does not */
- 	UP,		/* Everything works but does not show up in sysfs */
- 	SYSFS		/* Sysfs up */
--} slab_state = DOWN;
-+} slab_state;
- 
- /* A list of all slab caches on the system */
- static DECLARE_RWSEM(slub_lock);
-@@ -288,21 +288,22 @@ static inline int slab_index(void *p, st
- static inline struct kmem_cache_order_objects oo_make(int order,
- 						unsigned long size)
- {
--	struct kmem_cache_order_objects x = {
--		(order << 16) + (PAGE_SIZE << order) / size
--	};
-+	struct kmem_cache_order_objects x;
++	/*
++	 * swapfiles are not supposed to be shared.
++	 */
++	if (IS_SWAPFILE(inode))
++		goto out;
 +
-+	x.order = order;
-+	x.objects = (PAGE_SIZE << order) / size;
- 
- 	return x;
- }
- 
- static inline int oo_order(struct kmem_cache_order_objects x)
- {
--	return x.x >> 16;
-+	return x.order;
- }
- 
- static inline int oo_objects(struct kmem_cache_order_objects x)
- {
--	return x.x & ((1 << 16) - 1);
-+	return x.objects;
- }
- 
- #ifdef CONFIG_SLUB_DEBUG
-@@ -1076,8 +1077,7 @@ static struct page *allocate_slab(struct
- 
- 	flags |= s->allocflags;
- 
--	page = alloc_slab_page(flags | __GFP_NOWARN | __GFP_NORETRY, node,
--									oo);
-+	page = alloc_slab_page(flags | __GFP_NOWARN | __GFP_NORETRY, node, oo);
- 	if (unlikely(!page)) {
- 		oo = s->min;
- 		/*
-@@ -1099,8 +1099,7 @@ static struct page *allocate_slab(struct
- 	return page;
- }
- 
--static void setup_object(struct kmem_cache *s, struct page *page,
--				void *object)
-+static void setup_object(struct kmem_cache *s, struct page *page, void *object)
- {
- 	setup_object_debug(s, page, object);
- 	if (unlikely(s->ctor))
-@@ -1157,8 +1156,7 @@ static void __free_slab(struct kmem_cach
- 		void *p;
- 
- 		slab_pad_check(s, page);
--		for_each_object(p, s, page_address(page),
--						page->objects)
-+		for_each_object(p, s, page_address(page), page->objects)
- 			check_object(s, page, p, 0);
- 		__ClearPageSlubDebug(page);
- 	}
-@@ -1224,8 +1222,7 @@ static __always_inline int slab_trylock(
- /*
-  * Management of partially allocated slabs
-  */
--static void add_partial(struct kmem_cache_node *n,
--				struct page *page, int tail)
-+static void add_partial(struct kmem_cache_node *n, struct page *page, int tail)
- {
- 	spin_lock(&n->list_lock);
- 	n->nr_partial++;
-@@ -1251,8 +1248,8 @@ static void remove_partial(struct kmem_c
-  *
-  * Must hold list_lock.
-  */
--static inline int lock_and_freeze_slab(struct kmem_cache_node *n,
--							struct page *page)
-+static inline
-+int lock_and_freeze_slab(struct kmem_cache_node *n, struct page *page)
- {
- 	if (slab_trylock(page)) {
- 		list_del(&page->lru);
-@@ -1799,11 +1796,11 @@ static int slub_nomerge;
-  * slub_max_order specifies the order where we begin to stop considering the
-  * number of objects in a slab as critical. If we reach slub_max_order then
-  * we try to keep the page order as low as possible. So we accept more waste
-- * of space in favor of a small page order.
-+ * of space in favour of a small page order.
-  *
-  * Higher order allocations also allow the placement of more objects in a
-  * slab and thereby reduce object handling overhead. If the user has
-- * requested a higher mininum order then we start with that one instead of
-+ * requested a higher minimum order then we start with that one instead of
-  * the smallest order which will fit the object.
-  */
- static inline int slab_order(int size, int min_objects,
-@@ -1816,8 +1813,7 @@ static inline int slab_order(int size, i
- 	if ((PAGE_SIZE << min_order) / size > 65535)
- 		return get_order(size * 65535) - 1;
- 
--	for (order = max(min_order,
--				fls(min_objects * size - 1) - PAGE_SHIFT);
-+	for (order = max(min_order, fls(min_objects * size - 1) - PAGE_SHIFT);
- 			order <= max_order; order++) {
- 
- 		unsigned long slab_size = PAGE_SIZE << order;
-Index: linux-2.6/include/linux/slub_def.h
+ 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
+ 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
+ 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
+Index: linux-2.6/fs/nfs/write.c
 ===================================================================
---- linux-2.6.orig/include/linux/slub_def.h
-+++ linux-2.6/include/linux/slub_def.h
-@@ -60,7 +60,12 @@ struct kmem_cache_node {
-  * given order would contain.
-  */
- struct kmem_cache_order_objects {
--	unsigned long x;
-+	union {
-+		u32 x;
-+		struct {
-+			u16 order, objects;
-+		};
-+	};
- };
+--- linux-2.6.orig/fs/nfs/write.c
++++ linux-2.6/fs/nfs/write.c
+@@ -101,25 +101,62 @@ static void nfs_context_set_write_error(
+ 	set_bit(NFS_CONTEXT_ERROR_WRITE, &ctx->flags);
+ }
  
- /*
+-static struct nfs_page *nfs_page_find_request_locked(struct page *page)
++static struct nfs_page *
++__nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page, int get)
+ {
+ 	struct nfs_page *req = NULL;
+ 
+-	if (PagePrivate(page)) {
++	if (PagePrivate(page))
+ 		req = (struct nfs_page *)page_private(page);
+-		if (req != NULL)
+-			kref_get(&req->wb_kref);
+-	}
++	else if (unlikely(PageSwapCache(page)))
++		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
++
++	if (get && req)
++		kref_get(&req->wb_kref);
++
+ 	return req;
+ }
+ 
++static inline struct nfs_page *
++nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
++{
++	return __nfs_page_find_request_locked(nfsi, page, 1);
++}
++
++static int __nfs_page_has_request(struct page *page)
++{
++	struct inode *inode = page_file_mapping(page)->host;
++	struct nfs_page *req = NULL;
++
++	spin_lock(&inode->i_lock);
++	req = __nfs_page_find_request_locked(NFS_I(inode), page, 0);
++	spin_unlock(&inode->i_lock);
++
++	/*
++	 * hole here plugged by the caller holding onto PG_locked
++	 */
++
++	return req != NULL;
++}
++
++static inline int nfs_page_has_request(struct page *page)
++{
++	if (PagePrivate(page))
++		return 1;
++
++	if (unlikely(PageSwapCache(page)))
++		return __nfs_page_has_request(page);
++
++	return 0;
++}
++
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+ 	struct inode *inode = page_file_mapping(page)->host;
+ 	struct nfs_page *req = NULL;
+ 
+ 	spin_lock(&inode->i_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 	spin_unlock(&inode->i_lock);
+ 	return req;
+ }
+@@ -220,7 +257,7 @@ static int nfs_page_async_flush(struct n
+ 
+ 	spin_lock(&inode->i_lock);
+ 	for(;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req == NULL) {
+ 			spin_unlock(&inode->i_lock);
+ 			return 0;
+@@ -343,8 +380,14 @@ static int nfs_inode_add_request(struct 
+ 		if (nfs_have_delegation(inode, FMODE_WRITE))
+ 			nfsi->change_attr++;
+ 	}
+-	SetPagePrivate(req->wb_page);
+-	set_page_private(req->wb_page, (unsigned long)req);
++	/*
++	 * Swap-space should not get truncated. Hence no need to plug the race
++	 * with invalidate/truncate.
++	 */
++	if (likely(!PageSwapCache(req->wb_page))) {
++		SetPagePrivate(req->wb_page);
++		set_page_private(req->wb_page, (unsigned long)req);
++	}
+ 	nfsi->npages++;
+ 	kref_get(&req->wb_kref);
+ 	radix_tree_tag_set(&nfsi->nfs_page_tree, req->wb_index,
+@@ -366,8 +409,10 @@ static void nfs_inode_remove_request(str
+ 	BUG_ON (!NFS_WBACK_BUSY(req));
+ 
+ 	spin_lock(&inode->i_lock);
+-	set_page_private(req->wb_page, 0);
+-	ClearPagePrivate(req->wb_page);
++	if (likely(!PageSwapCache(req->wb_page))) {
++		set_page_private(req->wb_page, 0);
++		ClearPagePrivate(req->wb_page);
++	}
+ 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
+ 	nfsi->npages--;
+ 	if (!nfsi->npages) {
+@@ -571,7 +616,7 @@ static struct nfs_page *nfs_try_to_updat
+ 	spin_lock(&inode->i_lock);
+ 
+ 	for (;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 		if (req == NULL)
+ 			goto out_unlock;
+ 
+@@ -1482,7 +1527,7 @@ int nfs_wb_page_cancel(struct inode *ino
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
++	if (!nfs_page_has_request(page))
+ 		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, FLUSH_INVALIDATE);
+ out:
 
 -- 
 
