@@ -1,138 +1,77 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330
-	__netif_schedule+0x2c/0x98()
-Date: Thu, 24 Jul 2008 11:10:48 +0200
-Message-ID: <1216890648.7257.258.camel@twins>
-References: <1216810696.7257.175.camel@twins>
-	 <20080723113519.GE4561@ff.dom.local> <20080723114914.GF4561@ff.dom.local>
-	 <20080723.131607.79681752.davem@davemloft.net>
+From: Ignacy Gawedzki <lkml@qult.net>
+Subject: Re: TUN/TAP hacking
+Date: Thu, 24 Jul 2008 10:34:47 +0200
+Message-ID: <20080724083447.GA24392@zenon.in.qult.net>
+References: <20080723235514.GA8992@zenon.in.qult.net> <4887E818.4020305@isomerica.net> <20080724085006.1163d122@catlap>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Nick Piggin <nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org>,
-	Paul E McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080723.131607.79681752.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Marek Kierdelewicz <marek@piasta.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qult.net ([82.238.217.46]:33451 "EHLO slartibartfast.qult.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710AbYGXJP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2008 05:15:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20080724085006.1163d122@catlap>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-23 at 13:16 -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Wed, 23 Jul 2008 11:49:14 +0000
-> 
-> > On Wed, Jul 23, 2008 at 11:35:19AM +0000, Jarek Poplawski wrote:
-> > > On Wed, Jul 23, 2008 at 12:58:16PM +0200, Peter Zijlstra wrote:
-> > ...
-> > > > When I look at the mac802.11 code in ieee80211_tx_pending() it looks
-> > > > like it can do with just one lock at a time, instead of all - but I
-> > > > might be missing some obvious details.
-> > > > 
-> > > > So I guess my question is, is netif_tx_lock() here to stay, or is the
-> > > > right fix to convert all those drivers to use __netif_tx_lock() which
-> > > > locks only a single queue?
-> > > > 
-> > > 
-> > > It's a new thing mainly for new hardware/drivers, and just after
-> > > conversion (older drivers effectively use __netif_tx_lock()), so it'll
-> > > probably stay for some time until something better is found. David,
-> > > will tell the rest, I hope.
-> > 
-> > ...And, of course, these new drivers should also lock a single queue
-> > where possible.
-> 
-> It isn't going away.
-> 
-> There will always be a need for a "stop all the TX queues" operation.
+On Thu, Jul 24, 2008 at 08:50:06AM +0200, thus spake Marek Kierdelewicz=
+:
+> Hi Ignacy & netdev,
+>=20
+> > I thought I'd be able to use the TAP interfaces to create some sort
+> > of a network emulator.  For a start I just "bridged" two tap
+> > interfaces, much in the same way as the example of br_select.c from
+> > http://vtun.sf.net , assigned both interfaces different IPv4
+> > addresses (both with a /32 prefix),
+>=20
+> As far as I understand you're trying to bridge two interfaces of the
+> same host. It's no good for a test network, because local traffic
+> (from/to the same host) will always be forwarded locally (via lo?) an=
+d
+> will never reach any ethX or tapX interface (not without kernel
+> hacking).
 
-Ok, then how about something like this, the idea is to wrap the per tx
-lock with a read lock of the device and let the netif_tx_lock() be the
-write side, therefore excluding all device locks, but not incure the
-cacheline bouncing on the read side by using per-cpu counters like rcu
-does.
+Well... surely this would happen without a little hack as you say.  Her=
+e I
+thought that I could use multiple routing tables + ip rules + iptables,=
+ but
+I'm not 100% convinced that locally generated packets could be marked w=
+ith
+iptables and directed by ip rules to the correct routing table (which w=
+ould
+make no mention of the destination address as a local interface).  I ma=
+de a
+few tests with ping (using -I to specify the outgoing interface), but A=
+RP
+resolution failed and I see no way to force the destination stack reply=
+ to
+echo-requests using a specific routing table (as I intended to do for n=
+ormal
+applications).
 
-This of course requires that netif_tx_lock() is rare, otherwise stuff
-will go bounce anyway...
+>           There's another way... You can use QEMU[1]/KQEMU[2]/KVM[3] =
+for
+> guest system virtualization with options that create tapX interfaces
+> on host and ethX on guests. Then you can bridge taps the way you want
+> (even with eths on your host system) as described in [4][5]. For gues=
+t
+> system I'd recommend openwrt kamikaze[6]. It's small in terms of syst=
+em
+> image size and memory consumption so you can build a complex virtual
+> network of 10+ hosts using only 200MB of disk space and 320MB of ram.
 
-Probably missed a few details,.. but I think the below ought to show the
-idea...
+Yeah, I also thought about that one, but if I could avoid the additiona=
+l
+overhead, it would be better.
 
-struct tx_lock {
-	int busy;
-	spinlock_t lock;
-	unsigned long *counters;
-};
+> Cheers,
+> Marek Kierdelewicz
 
+Dzi=EAki anyway. =3D)
 
-int tx_lock_init(struct tx_lock *txl)
-{
-	txl->busy = 0;
-	spin_lock_init(&txl->lock);
-	txl->counters = alloc_percpu(unsigned long);
-
-	if (!txl->counters)
-		return -ENOMEM;
-
-	return 0;
-}
-
-void __netif_tx_lock(struct netdev_queue *txq, cpu)
-{
-	struct net_device *dev = txq->dev;
-
-	if (rcu_dereference(dev->tx_lock.busy)) {
-		spin_lock(&dev->tx_lock.lock);
-		(*percpu_ptr(dev->tx_lock.counters, cpu))++;
-		spin_unlock(&dev->tx_lock.lock);
-	} else
-		(*percpu_ptr(dev->tx_lock.counters, cpu))++;
-
-	spin_lock(&txq->_xmit_lock);
-	txq->xmit_lock_owner = cpu;
-}
-
-void __netif_tx_unlock(struct netdev_queue *txq)
-{
-	struct net_device *dev = txq->dev;
-
-	(*percpu_ptr(dev->tx_lock.counters, txq->xmit_lock_owner))--;
-	txq->xmit_lock_owner = -1;
-	spin_unlock(&txq->xmit_lock);
-}
-
-unsigned long tx_lock_read_counters(struct tx_lock *txl)
-{
-	int i;
-	unsigned long counter = 0;
-
-	/* can use online - the inc/dec are matched per cpu */
-	for_each_online_cpu(i)
-		counter += *percpu_ptr(txl->counters, i);
-
-	return counter;
-}
-
-void netif_tx_lock(struct net_device *dev)
-{
-	spin_lock(&dev->tx_lock.lock);
-	rcu_assign_pointer(dev->tx_lock.busy, 1);
-
-	while (tx_lock_read_counters(&dev->tx_lock)
-		cpu_relax();
-}
-
-void netif_tx_unlock(struct net_device *dev)
-{
-	rcu_assign_pointer(dev->tx_lock.busy, 0);
-	smp_wmb(); /* because rcu_assign_pointer is broken */
-	spin_unlock(&dev->tx_lock.lock);
-}
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+NO CARRIER
