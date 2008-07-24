@@ -1,33 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: SFQ depth limit
-Date: Wed, 23 Jul 2008 21:34:43 -0700 (PDT)
-Message-ID: <20080723.213443.37820788.davem@davemloft.net>
-References: <200806282202.59581.denys@visp.net.lb>
-	<20080629191113.GA8817@ami.dom.local>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: mv643xx_eth: pull request for for-2.6.27 branch
+Date: Thu, 24 Jul 2008 07:21:40 +0200
+Message-ID: <20080724052140.GA19392@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dale@farnsworth.org, netdev@vger.kernel.org, nico@cam.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42981
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752240AbYGXEen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 00:34:43 -0400
-In-Reply-To: <20080629191113.GA8817@ami.dom.local>
+Received: from xi.wantstofly.org ([83.160.184.112]:58779 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752517AbYGXFVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 01:21:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 29 Jun 2008 21:11:13 +0200
+This patch series consists of the patches posted so far that should be
+good to go in for 2.6.27 and should be the last batch before -rc1: the
+three interface TX hang fixes, revamping the link up/down handling to
+fix a couple more PHYless cases (which as a side-effect will require
+specifying speed/duplex explicitly in the platform data) and to no
+longer do MII accesses from interrupt context, enabling TX checksumming
+on VLANed packets, and some more assorted minor changes.
 
-> sch_sfq: dump a real number of flows
-> 
-> Dump the "flows" number according to the number of active flows
-> instead of repeating the "limit".
-> 
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Looks reasonable, applied, thanks Jarek.
+The following changes since commit c010b2f76c3032e48097a6eef291d8593d5d79a6:
+  Linus Torvalds (1):
+        Merge git://git.kernel.org/.../davem/net-2.6
+
+are available in the git repository at:
+
+  git://git.marvell.com/mv643xx_eth.git for-2.6.27
+
+Lennert Buytenhek (12):
+      mv643xx_eth: fix TX hang erratum workaround
+      mv643xx_eth: prevent breakage when link goes down during transmit
+      mv643xx_eth: fix transmit-reclaim-in-napi-poll
+      mv643xx_eth: don't fiddle with maximum receive packet size setting
+      mv643xx_eth: also check TX_IN_PROGRESS when disabling transmit path
+      mv643xx_eth: use longer DMA bursts
+      mv643xx_eth: use symbolic MII register addresses and values
+      mv643xx_eth: print driver version on init
+      mv643xx_eth: use auto phy polling for configuring (R)(G)MII interface
+      mv643xx_eth: print message on link status change
+      mv643xx_eth: enable hardware TX checksumming with vlan tags
+      mv643xx_eth: bump version to 1.2
+
+ arch/arm/mach-kirkwood/rd88f6281-setup.c     |    3 +
+ arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |    3 +
+ arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |    3 +
+ arch/arm/mach-orion5x/wnr854t-setup.c        |    3 +
+ arch/arm/mach-orion5x/wrt350n-v2-setup.c     |    3 +
+ drivers/net/mv643xx_eth.c                    |  358 +++++++++++++++++---------
+ 6 files changed, 251 insertions(+), 122 deletions(-)
