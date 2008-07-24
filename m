@@ -1,64 +1,48 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
-	pointer dereference
-Date: Thu, 24 Jul 2008 21:35:32 +0200
-Message-ID: <20080724193532.GC1694@elte.hu>
-References: <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu> <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net> <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com> <48887A71.5010209@trash.net> <1216905812.5897.6.camel@penberg-laptop> <48888434.3030207@trash.net> <1216906476.12021.4.camel@penberg-laptop> <20080724115127.6cfbb616.akpm@linux-foundation.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [build failure] hp-plus.c: (.text+0xd7c1a): undefined reference
+ to `ei_close'
+Date: Thu, 24 Jul 2008 20:54:41 +0100
+Message-ID: <20080724205441.3465f4d4@lxorguk.ukuu.org.uk>
+References: <20080721.233512.128618365.anemo@mba.ocn.ne.jp>
+	<20080721191519.GA15843@elte.hu>
+	<20080721214258.787a67ca@lxorguk.ukuu.org.uk>
+	<20080722072334.GA25241@elte.hu>
+	<48865899.3030209@garzik.org>
+	<20080723104520.GA20672@elte.hu>
+	<20080724052603.GA8744@elte.hu>
+	<20080724100615.764bac36@lxorguk.ukuu.org.uk>
+	<4888D631.8040401@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
-	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	Dave Jones <davej@redhat.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:46442 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750930AbYGXThB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2008 15:37:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20080724115127.6cfbb616.akpm@linux-foundation.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:43938 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751610AbYGXUMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2008 16:12:46 -0400
+In-Reply-To: <4888D631.8040401@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Andrew Morton <akpm@linux-foundation.org> wrote:
-
-> On Thu, 24 Jul 2008 16:34:36 +0300 Pekka Enberg <penberg@cs.helsinki.fi> wrote:
+> My apologies.  FWIW, from my point of view the same patch(es) kept 
+> getting fixed and updated and going around in circles, so I kept 
+> waiting.  Since it was was a net-next issue (until now), I lowered the 
+> priority and waited to let you guys (you, Andrew, Randy mainly) sort 
+> things out.
 > 
-> > > >> Your patch introduced a use-after-free and double-free.
-> > > >> krealloc() frees the old pointer, but it is still used
-> > > >> for the ->move operations, then freed again.
-> > > >>
-> > > >> To fix this I think we need a __krealloc() that doesn't
-> > > >> free the old memory, especially since it must not be
-> > > >> freed immediately because it may still be used in a RCU
-> > > >> read side (see the last part in the patch attached to
-> > > >> this mail (based on a kernel without your patch)).
-> > > > 
-> > > > Agreed. Something like this, perhaps?
-> > > > 
-> > > > [PATCH] netfilter: fix double-free and use-after free
-> > > > 
-> > > > As suggested by Patrick McHardy, introduce a __krealloc() that doesn't
-> > > > free the original buffer to fix a double-free and use-after-free bug
-> > > > introduced by me in netfilter that uses RCU.
-> > > > 
-> > > > Reported-by: Patrick McHardy <kaber@trash.net>
-> > > > Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-> > > 
-> > > Looks good to me, thanks.
-> > 
-> > Ingo, can you please test this? Andrew, I'm at OLS so can you pick up
-> > the patch in your tree?
-> 
-> Sure.  Or Patrick can do so and it can be merged via the net tree.
-> 
-> Ingo, did this patch actually fix something over there?
+> So far the only remaining patch I have outstanding and needing to be 
+> applied is from Atsushi-san via Ingo (message id 
+> <20080723104520.GA20672@elte.hu>)...  is that the last of it?
 
-not that i know of. I'll do some re-tests tomorrow to make sure.
+I've got a reference tree that I will regenerate and diff against the
+upstream GIT tree to check. It looks like some of the ei_ to eip_ changes
+have gone for a walk.
 
-	Ingo
+Its on my TODO list and now IT821x is working again the panic mode stuff
+is over I hope
+
+Alan
