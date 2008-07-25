@@ -1,74 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 v2.6.26
-Date: Fri, 25 Jul 2008 14:10:54 -0700
-Message-ID: <20080725141054.7e814236@extreme>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/3] net: convert BUG_TRAP to generic WARN_ON
+Date: Sat, 26 Jul 2008 00:19:42 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0807260003200.11441@wrl-59.cs.helsinki.fi>
+References: <1216990020-2716-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <E1KMPJS-0005Dh-00@gondolin.me.apana.org.au> <20080725.132105.175832134.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:57406 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751507AbYGYVK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 17:10:56 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44536 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750991AbYGYVTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 17:19:46 -0400
+In-Reply-To: <20080725.132105.175832134.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New version of iproute2 utilities that includes bug fixes and
-support for all the new features in kernel 2.6.26.
+On Fri, 25 Jul 2008, David Miller wrote:
 
-Source: (note old developer.osdl.org address works as well)
-	http://devresources.linux-foundation.org/dev/iproute2/download/iproute2-2.6.26.tar.bz2
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 25 Jul 2008 23:34:34 +0800
+> 
+> > Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> > >
+> > > diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+> > > index a75807b..ee1bbf9 100644
+> > > --- a/net/ipv4/ipcomp.c
+> > > +++ b/net/ipv4/ipcomp.c
+> > > @@ -293,7 +293,7 @@ static void ipcomp_free_tfms(struct crypto_comp **tfms)
+> > >                        break;
+> > >        }
+> > > 
+> > > -       BUG_TRAP(pos);
+> > > +       WARN_ON(!pos);
+> > 
+> > Sorry I've just moved this to net/xfrm/xfrm_ipcomp.c.  BTW,
+> > please also remove rtnetlink.h from ipcomp.c since that's only
+> > included for this macro.
+> 
+> This is my fault, I didn't push before going to bed last night.
+> Otherwise Ilpo would have seen this sooner.
+> 
+> I've just taken care of this.
 
-Git tree:
-	git://git.kernel.org/pub/scm/network/iproute2/iproute2.git
+Thanks! I thought Herbert patch was related but since I couldn't find it 
+in your tree I assumed that you volunteer to fix it like you usually do 
+with the other people too who are hit by a merge conflicts due to some 
+very recent merges. Afterwards I realized that I could have just
+included his patch locally but honestly it was after I made and sent
+that one out... :-)
 
-Changelog:
+I anyway intend to drop as many linux/rtnetlink.h includes as possible in 
+the modified files in a later series but since it requires more care than 
+the plain conversion it takes some more time to validate, and extra 
+includes won't hurt that much anyway.
 
-Andreas Henriksson (3):
-      Fix typos (syntax error) in ip(8) manpage.
-      document promote_secondaries
-      Add routel and routef man page.
-
-Benjamin Thery (1):
-      iproute2: add support for IFLA_NET_NS_PID in ip link
-
-Bertrand Jacquin (1):
-      netem: fix cross-compiling failure
-
-Daniel Silverstone (1):
-      Avoid infinite loop in ip addr flush.
-
-Herbert Xu (1):
-      xfrm: Allow replay setting
-
-Patrick McHardy (1):
-      tc: don't set protococol field on filter delete
-
-Rafael Almeida (1):
-      Fixed installation when changing DESTDIR
-
-Stephen Hemminger (12):
-      Fix bad hash calculation because of signed address
-      Change formatting of u32 back to default
-      Use inet_pton to read ipv4 addresses
-      ematch related bugfix and cleanup
-      Update to 2.6.26-rc6 headers
-      use correct hz for rto,ato
-      Neighbor cache timer is in user hz
-      timers are in user hz
-      Fix array out of bounds problem
-      Add warning message when MAX_FIELDS reached
-      Update headers to 2.6.26
-      Update snapshot
-
-Varun Chandramohan (1):
-      Display Correct Error For Addrlabel Info
-
-Yu Zhiguo (1):
-      Fix generic_proc_open() of command 'nstat' and 'rtacct'
-
-jamal (2):
-      Expose the filter protocol
-      Infrastructure for pretty printing
-
+-- 
+ i.
