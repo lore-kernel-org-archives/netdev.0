@@ -1,77 +1,52 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 5/7] dccp: Pulling 12 bytes is necessary but not sufficient
-Date: Fri, 25 Jul 2008 15:29:57 +0100
-Message-ID: <20080725142957.GB7422@gerrit.erg.abdn.ac.uk>
-References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk> <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
+Subject: v2 [PATCH 6/7] dccp: Fix incorrect length check for ICMPv4 packets
+Date: Fri, 25 Jul 2008 15:30:33 +0100
+Message-ID: <20080725143033.GC7422@gerrit.erg.abdn.ac.uk>
+References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk> <20080725142834.GA7422@gerrit.erg.abdn.ac.uk> <20080725142957.GB7422@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40378 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40415 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751206AbYGYOaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 10:30:03 -0400
+	id S1751213AbYGYOak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 10:30:40 -0400
 Content-Disposition: inline
-In-Reply-To: <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20080725142957.GB7422@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug in testing the minimum header length and encapsulates
-the fixed test into a routine for further use.
+Unlike TCP, which only needs 8 octets of original packet data, DCCP requires
+minimally 12 or 16 bytes for ICMP-payload sequence number checks.
 
-In TCP, it is safe to use pskb_may_pull(skb, sizeof(struct tcphdr)) and then
-assume that all header fields can be accessed.
+This patch replaces the insufficient length constant of 8 with a dynamic
+value, using the routine introduced previously.
 
-DCCP however has a dynamic header length:
-
- * the minimum header length is 12 bytes (required by Step 1 in RFC 4340, 8.5);
- * but if the `X' bit is set within this base header, then the minimum
-   required length is 16 bytes (__dccp_basic_hdr_len() computes that);
- * so that accessing P.seqno in Step 6 of RFC 4340, 8.5 will fail.
-
-Hence we need to first test whether 12 bytes are available, and only then can
-dereference the X-bit to see if (likely) 4 more bytes need to be read.
-
-Many thanks to David Miller who pointed this problem out.
-
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- include/linux/dccp.h |   12 ++++++++++++
- net/dccp/ipv4.c      |    5 ++---
- 2 files changed, 14 insertions(+), 3 deletions(-)
+ net/dccp/ipv4.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -302,6 +302,18 @@ static inline unsigned int dccp_basic_hdr_len(const struct sk_buff *skb)
- 	return __dccp_basic_hdr_len(dh);
- }
- 
-+/*
-+ * RFC 4340, 8.5. Step 1 says that 12 bytes is too short. However, to do Step 6
-+ * we need at least __dccp_basic_hdr_len() (up to 16 bytes) to access P.seqno.
-+ */
-+static inline bool dccp_skb_too_short(struct sk_buff *skb, const u32 offset)
-+{
-+	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
-+
-+	return !(pskb_may_pull(skb, offset + sizeof(*dh)) &&
-+		 pskb_may_pull(skb, offset + __dccp_basic_hdr_len(dh)));
-+}
-+
- static inline __u64 dccp_hdr_seq(const struct dccp_hdr *dh)
- {
- 	__u64 seq_nr =  ntohs(dh->dccph_seq);
 --- a/net/dccp/ipv4.c
 +++ b/net/dccp/ipv4.c
-@@ -706,9 +706,8 @@ int dccp_invalid_packet(struct sk_buff *skb)
- 	if (skb->pkt_type != PACKET_HOST)
- 		return 1;
+@@ -196,8 +196,8 @@ static inline void dccp_do_pmtu_discovery(struct sock *sk,
+ static void dccp_v4_err(struct sk_buff *skb, u32 info)
+ {
+ 	const struct iphdr *iph = (struct iphdr *)skb->data;
+-	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data +
+-							(iph->ihl << 2));
++	const u8 offset = (iph->ihl << 2);
++	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
+ 	struct dccp_sock *dp;
+ 	struct inet_sock *inet;
+ 	const int type = icmp_hdr(skb)->type;
+@@ -207,7 +207,7 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
+ 	int err;
+ 	struct net *net = dev_net(skb->dev);
  
--	/* If the packet is shorter than 12 bytes, drop packet and return */
--	if (!pskb_may_pull(skb, sizeof(struct dccp_hdr))) {
--		DCCP_WARN("pskb_may_pull failed\n");
-+	if (dccp_skb_too_short(skb, 0)) {
-+		DCCP_WARN("Packet too short (%u)\n", skb->len);
- 		return 1;
+-	if (skb->len < (iph->ihl << 2) + 8) {
++	if (dccp_skb_too_short(skb, offset)) {
+ 		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 		return;
  	}
- 
