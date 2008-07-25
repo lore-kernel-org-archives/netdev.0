@@ -1,151 +1,134 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/6] dccp: Allow to distinguish original and retransmitted packets
-Date: Fri, 25 Jul 2008 10:02:53 +0100
-Message-ID: <1216976578-17767-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/6] dccp: Bug-Fix - AWL was never updated
+Date: Fri, 25 Jul 2008 10:02:54 +0100
+Message-ID: <1216976578-17767-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_icmp_payload_bug_fixes>
  <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1216976578-17767-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52429 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52428 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754137AbYGYJDe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 05:03:34 -0400
-In-Reply-To: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754381AbYGYJDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 05:03:41 -0400
+In-Reply-To: <1216976578-17767-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows the sender to distinguish original and retransmitted packets.
-That is in particular needed for the retransmission of Request packets, since
- * the first packet uses ISS (generated in net/dccp/ipv?.c), and sets GSS = ISS;
- * all retransmitted packets use GSS' = GSS + 1, so that the n-th retransmitted
-   packet has sequence number ISS + n (mod 48).
+This patch was triggered by finding the  following message in the syslog:
+ "kernel: dccp_check_seqno: DCCP: Step 6 failed for DATAACK packet, [...]
+  P.ackno exists or LAWL(82947089) <= P.ackno(82948208)
+                                   <= S.AWH(82948728), sending SYNC..."
 
-To add this support, the patch reorganises existing code in such a manner that
- * icsk_retransmits == 0     for the original packet and
- * icsk_retransmits = n > 0  for the n-th retransmitted packet
-at the time dccp_transmit_skb() is called via dccp_retransmit_skb().
+Note the difference between AWH and AWL: it is 1639 packets - the Sequence
+Window was actually just 100. A closer look at the trace showed that
+LAWL = AWL = 82947089 equalled the ISS on the Response.
 
-This patch is thanks to Wei Yongjun, who pointed this problem out, and to
-Arnaldo for further discussion.
+The cause of the bug was that AWL was only ever set on the first packet - the
+DCCP-Request sent by dccp_v{4,6}_connect().
 
-Further changes:
-----------------
- * exploits that, since sk_send_head always contains the original skb (enqueued
-   by dccp_entail()), skb_cloned() never evaluated to true;
- * removed the `skb' argument from dccp_retransmit_skb(), since sk_send_head
-   is used for all retransmissions (the exception is client-Acks in PARTOPEN
-   state, but these are not put onto the sk_send_head);
- * updated documentation.
+The fix is to continually update AWL/AWH with each new packet (as GSS=AWH).
+
+
+Notes:
+------
+icsk_retransmits is used to distinguish original and retransmitted packets
+(introduced in previous patch).
+
+AWL/AWH are now updated to enforce more stringent checks on the
+initial sequence numbers when connecting:
+
+ * AWL is initialised to ISS and remains at this value;
+ * AWH is always set to GSS (via dccp_update_gss());
+ * so on the first Request: AWL =      AWH = ISS,
+   and on the n-th Request: AWL = ISS, AWH = ISS + n.
+
+As a consequence, only Response packets that refer to Requests sent by this
+host will pass, all others are discarded. This is the intention and in effect
+implements the initial adjustments for AWL as specified in RFC 4340, 7.5.1.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/dccp.h   |    2 +-
- net/dccp/output.c |   20 ++++++++++++++++----
- net/dccp/timer.c  |   20 ++++----------------
- 3 files changed, 21 insertions(+), 21 deletions(-)
+ net/dccp/output.c |   33 +++++++++++++++------------------
+ 1 files changed, 15 insertions(+), 18 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -226,7 +226,7 @@ static inline void dccp_csum_outgoing(struct sk_buff *skb)
- 
- extern void dccp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
- 
--extern int  dccp_retransmit_skb(struct sock *sk, struct sk_buff *skb);
-+extern int  dccp_retransmit_skb(struct sock *sk);
- 
- extern void dccp_send_ack(struct sock *sk);
- extern void dccp_reqsk_send_ack(struct sk_buff *sk, struct request_sock *rsk);
 --- a/net/dccp/output.c
 +++ b/net/dccp/output.c
-@@ -284,14 +284,26 @@ void dccp_write_xmit(struct sock *sk, int block)
- 	}
- }
- 
--int dccp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+/**
-+ * dccp_retransmit_skb  -  Retransmit Request, Close, or CloseReq packets
-+ * There are only four retransmittable packet types in DCCP:
-+ * - Request  in client-REQUEST  state (sec. 8.1.1),
-+ * - CloseReq in server-CLOSEREQ state (sec. 8.3),
-+ * - Close    in   node-CLOSING  state (sec. 8.3),
-+ * - Acks in client-PARTOPEN state (sec. 8.1.5, handled by dccp_delack_timer()).
-+ * This function expects sk->sk_send_head to contain the original skb.
-+ */
-+int dccp_retransmit_skb(struct sock *sk)
- {
-+	BUG_TRAP(sk->sk_send_head != NULL);
-+
- 	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk) != 0)
- 		return -EHOSTUNREACH; /* Routing failure or similar. */
- 
--	return dccp_transmit_skb(sk, (skb_cloned(skb) ?
--				      pskb_copy(skb, GFP_ATOMIC):
--				      skb_clone(skb, GFP_ATOMIC)));
-+	/* this count is used to distinguish original and retransmitted skb */
-+	inet_csk(sk)->icsk_retransmits++;
-+
-+	return dccp_transmit_skb(sk, skb_clone(sk->sk_send_head, GFP_ATOMIC));
- }
- 
- struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -99,21 +99,11 @@ static void dccp_retransmit_timer(struct sock *sk)
- 	}
- 
- 	/*
--	 * sk->sk_send_head has to have one skb with
--	 * DCCP_SKB_CB(skb)->dccpd_type set to one of the retransmittable DCCP
--	 * packet types. The only packets eligible for retransmission are:
--	 *	-- Requests in client-REQUEST  state (sec. 8.1.1)
--	 *	-- Acks     in client-PARTOPEN state (sec. 8.1.5)
--	 *	-- CloseReq in server-CLOSEREQ state (sec. 8.3)
--	 *	-- Close    in   node-CLOSING  state (sec. 8.3)                */
--	BUG_TRAP(sk->sk_send_head != NULL);
+@@ -53,8 +53,11 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 					  dccp_packet_hdr_len(dcb->dccpd_type);
+ 		int err, set_ack = 1;
+ 		u64 ackno = dp->dccps_gsr;
 -
+-		dccp_inc_seqno(&dp->dccps_gss);
++		/*
++		 * Increment GSS here already in case the option code needs it.
++		 * Update GSS for real only if option processing below succeeds.
++		 */
++		dcb->dccpd_seq = ADD48(dp->dccps_gss, 1);
+ 
+ 		switch (dcb->dccpd_type) {
+ 		case DCCP_PKT_DATA:
+@@ -66,6 +69,9 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 		case DCCP_PKT_REQUEST:
+ 			set_ack = 0;
++			/* Use ISS on the first (non-retransmitted) Request. */
++			if (icsk->icsk_retransmits == 0)
++				dcb->dccpd_seq = dp->dccps_iss;
+ 			/* fall through */
+ 
+ 		case DCCP_PKT_SYNC:
+@@ -84,8 +90,6 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 			break;
+ 		}
+ 
+-		dcb->dccpd_seq = dp->dccps_gss;
+-
+ 		if (dccp_insert_options(sk, skb)) {
+ 			kfree_skb(skb);
+ 			return -EPROTO;
+@@ -103,7 +107,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		/* XXX For now we're using only 48 bits sequence numbers */
+ 		dh->dccph_x	= 1;
+ 
+-		dp->dccps_awh = dp->dccps_gss;
++		dccp_update_gss(sk, dcb->dccpd_seq);
+ 		dccp_hdr_set_seq(dh, dp->dccps_gss);
+ 		if (set_ack)
+ 			dccp_hdr_set_ack(dccp_hdr_ack_bits(skb), ackno);
+@@ -112,6 +116,11 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		case DCCP_PKT_REQUEST:
+ 			dccp_hdr_request(skb)->dccph_req_service =
+ 							dp->dccps_service;
++			/*
++			 * Limit Ack window to ISS <= P.ackno <= GSS, so that
++			 * only Responses to Requests we sent are considered.
++			 */
++			dp->dccps_awl = dp->dccps_iss;
+ 			break;
+ 		case DCCP_PKT_RESET:
+ 			dccp_hdr_reset(skb)->dccph_reset_code =
+@@ -449,19 +458,7 @@ static inline void dccp_connect_init(struct sock *sk)
+ 
+ 	dccp_sync_mss(sk, dst_mtu(dst));
+ 
 -	/*
- 	 * More than than 4MSL (8 minutes) has passed, a RESET(aborted) was
- 	 * sent, no need to retransmit, this sock is dead.
- 	 */
- 	if (dccp_write_timeout(sk))
--		goto out;
-+		return;
+-	 * SWL and AWL are initially adjusted so that they are not less than
+-	 * the initial Sequence Numbers received and sent, respectively:
+-	 *	SWL := max(GSR + 1 - floor(W/4), ISR),
+-	 *	AWL := max(GSS - W' + 1, ISS).
+-	 * These adjustments MUST be applied only at the beginning of the
+-	 * connection.
+-	 */
+-	dccp_update_gss(sk, dp->dccps_iss);
+-	dccp_set_seqno(&dp->dccps_awl, max48(dp->dccps_awl, dp->dccps_iss));
+-
+-	/* S.GAR - greatest valid acknowledgement number received on a non-Sync;
+-	 *         initialized to S.ISS (sec. 8.5)                            */
++	/* Initialise GAR as per 8.5; AWL/AWH are set in dccp_transmit_skb() */
+ 	dp->dccps_gar = dp->dccps_iss;
  
- 	/*
- 	 * We want to know the number of packets retransmitted, not the
-@@ -122,30 +112,28 @@ static void dccp_retransmit_timer(struct sock *sk)
- 	if (icsk->icsk_retransmits == 0)
- 		DCCP_INC_STATS_BH(DCCP_MIB_TIMEOUTS);
- 
--	if (dccp_retransmit_skb(sk, sk->sk_send_head) < 0) {
-+	if (dccp_retransmit_skb(sk) != 0) {
- 		/*
- 		 * Retransmission failed because of local congestion,
- 		 * do not backoff.
- 		 */
--		if (icsk->icsk_retransmits == 0)
-+		if (--icsk->icsk_retransmits == 0)
- 			icsk->icsk_retransmits = 1;
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 					  min(icsk->icsk_rto,
- 					      TCP_RESOURCE_PROBE_INTERVAL),
- 					  DCCP_RTO_MAX);
--		goto out;
-+		return;
- 	}
- 
- backoff:
- 	icsk->icsk_backoff++;
--	icsk->icsk_retransmits++;
- 
- 	icsk->icsk_rto = min(icsk->icsk_rto << 1, DCCP_RTO_MAX);
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto,
- 				  DCCP_RTO_MAX);
- 	if (icsk->icsk_retransmits > sysctl_dccp_retries1)
- 		__sk_dst_reset(sk);
--out:;
- }
- 
- static void dccp_write_timer(unsigned long data)
+ 	icsk->icsk_retransmits = 0;
