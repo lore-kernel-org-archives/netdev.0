@@ -1,59 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet
- length for qdiscs
-Date: Fri, 25 Jul 2008 03:57:12 -0700 (PDT)
-Message-ID: <20080725.035712.33516738.davem@davemloft.net>
-References: <20080719233506.12596.59935.stgit@fate.lan>
-	<20080725105748.GB10399@ff.dom.local>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 30/30] nfs: fix various memory recursions possible with
+	swap over NFS.
+Date: Fri, 25 Jul 2008 12:57:52 +0200
+Message-ID: <1216983472.7257.365.camel@twins>
+References: <20080724140042.408642539@chello.nl>
+	 <20080724141531.486682621@chello.nl>
+	 <20080725194517.86BB.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Neil Brown <neilb@suse.de>
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52513
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751500AbYGYK5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 06:57:13 -0400
-In-Reply-To: <20080725105748.GB10399@ff.dom.local>
+Received: from viefep32-int.chello.at ([62.179.121.50]:45974 "EHLO
+	viefep32-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649AbYGYK5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 06:57:45 -0400
+In-Reply-To: <20080725194517.86BB.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 25 Jul 2008 10:57:48 +0000
-
-> On 20-07-2008 01:35, Jussi Kivilinna wrote:
-> > Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-> ...
-> > diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> > index 1afe3ee..f1d2f8e 100644
-> > --- a/net/sched/sch_cbq.c
-> > +++ b/net/sched/sch_cbq.c
-> > @@ -370,7 +370,6 @@ static int
-> >  cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-> >  {
-> >  	struct cbq_sched_data *q = qdisc_priv(sch);
-> > -	int len = skb->len;
-> >  	int uninitialized_var(ret);
-> >  	struct cbq_class *cl = cbq_classify(skb, sch, &ret);
-> >  
-> > @@ -391,7 +390,7 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-> >  	if (ret == NET_XMIT_SUCCESS) {
-> >  		sch->q.qlen++;
-> >  		sch->bstats.packets++;
-> > -		sch->bstats.bytes+=len;
-> > +		sch->bstats.bytes += qdisc_pkt_len(skb);
+On Fri, 2008-07-25 at 19:46 +0900, KOSAKI Motohiro wrote:
+> > GFP_NOFS is not enough, since swap traffic is IO, hence fall back to GFP_NOIO.
 > 
-> Alas I didn't manage to read this earlier, but this type of changes
-> here and elsewhere in this patch looks wrong to me: we shouldn't
-> use skb pointer after ->enqueue().
+> this comment imply turn on GFP_NOIO, but the code is s/NOFS/NOIO/. why?
 
-It should be OK here, we have the root qdisc locked, so nobody
-can remove it from the queue and if we got NET_XMIT_SUCCESS that
-thing must not have been freed.
+Does the misunderstanding stem from the use of 'enough'?
 
-And anyways, we can't know the qdisc_pkt_len() until the enqueue
-fucntion has been called.
+GFP_NOFS is _more_ permissive than GFP_NOIO in that it will initiate IO,
+just not of any filesystem data.
 
-Even TCP depends upon that NET_XMIT_* return value having some real
-meaning, remember the HTB bug we tracked down last week? :-)
+The problem is that previuosly NOFS was correct because that avoids
+recursion into the NFS code, it now is not, because also IO (swap) can
+lead to this recursion.
+
+Therefore we must tighten the restriction and use NOIO.
+
+> >  struct nfs_write_data *nfs_commitdata_alloc(void)
+> >  {
+> > -	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+> > +	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOIO);
+> 
+> 
+> 
+> 
+
