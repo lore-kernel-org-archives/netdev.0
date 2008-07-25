@@ -1,53 +1,44 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH 1/2] ipmr: delete redundant variable
-Date: Fri, 25 Jul 2008 19:36:42 +0200
-Message-ID: <200807251936.42504.netdev@axxeo.de>
-References: <48868D54.6050701@cn.fujitsu.com> <200807231405.39515.netdev@axxeo.de> <48883131.9070805@cn.fujitsu.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet
+	length for qdiscs
+Date: Fri, 25 Jul 2008 19:46:44 +0200
+Message-ID: <20080725174644.GA3005@ami.dom.local>
+References: <20080719233506.12596.59935.stgit@fate.lan> <20080725105748.GB10399@ff.dom.local> <20080725.035712.33516738.davem@davemloft.net> <20080725113757.GC10399@ff.dom.local> <20080725152932.93641c4o5qk1sx0g@hayate.ip6> <20080725125414.GB25369@ff.dom.local> <20080725161503.67994cpfp4jouz7k@hayate.ip6>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:35547 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751423AbYGYRgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 13:36:55 -0400
-In-Reply-To: <48883131.9070805@cn.fujitsu.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:37603 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbYGYRqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 13:46:38 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so20537ugf.16
+        for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 10:46:35 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080725161503.67994cpfp4jouz7k@hayate.ip6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Wang Chen,
+On Fri, Jul 25, 2008 at 04:15:03PM +0300, Jussi Kivilinna wrote:
+> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+...
+>> Is it's really needed? Actually, if it's only for stats, I really
+>> can't see the reason why not to get this info old way - before
+>> enqueing? (And this could be not enough if we want packets count
+>> like in htb.)
+>>
+>
+> qdisc_enqueue recalculates packet size if inner qdisc has size table  
+> set, so qdisc_pkt_len might return different length after qdisc_enqueue 
+> than what it was before.
 
-Wang Chen schrieb:
-> Ingo Oeser said the following on 2008-7-23 20:05:
-> > But please check the generated assembly yourself on a CISC and RISC
-> > machine to get an idea of the effects. It will be a nice learning 
-> > experience I enjoyed myself already.
-> > 
-> 
-> I did the experiment.
-[..]
-> In loop area, they are both ptr+sizeof(struct).
-> 
-> Now, we can get a conclusion that current compiler can do optimize the index accessing.
-> :)
-> 
-> Ingo, if you have any different opinion, it will be appreciated that you can share. :)
+The question is how much does it matter for statistics. Packets' size
+(and number) can change many times in many places. Does it mean all
+these places should count the same or "real" size? But, if it's really
+necessary here, IMHO, it should be done "clean" way, like additional
+parameter(s) to qdisc_enqueue(), because in cases like NET_XMIT_CN we
+don't even know what happened with an skb.
 
-Great! Compilers improved a lot here :-)
-
-Many thanks for doing this experiment. 
-
-Now you and others can anyone who is is questioning
-this fact to your experiment and take it as a reference for similiar changes.
-
-That is a great help for the community, I think!
-
-
-Best Regards
-
-Ingo Oeser
+Jarek P.
