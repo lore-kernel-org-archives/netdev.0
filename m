@@ -1,89 +1,60 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
-Date: Fri, 25 Jul 2008 16:20:59 +0100
-Message-ID: <20080725152059.GA4656@gerrit.erg.abdn.ac.uk>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Fri, 25 Jul 2008 17:34:26 +0200
+Message-ID: <200807251734.27743.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807251500.05527.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807251613230.11302@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"=?iso-8859-15?q?D=E2niel?= Fraga" <fragabr@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43902 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751398AbYGYPVG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 11:21:06 -0400
-Received: from gerrit.erg.abdn.ac.uk (Debian-exim@gerrit.erg.abdn.ac.uk [139.133.204.176])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id m6PFKxSg020499
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 16:21:01 +0100 (BST)
-Received: from gerrit by gerrit.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <gerrit@gerrit.erg.abdn.ac.uk>)
-	id 1KMP6J-0001Jd-Vd
-	for netdev@vger.kernel.org; Fri, 25 Jul 2008 16:21:00 +0100
+Received: from rs02.intra2net.com ([81.169.173.116]:39566 "EHLO
+	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807AbYGYPec convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 11:34:32 -0400
+In-Reply-To: <Pine.LNX.4.64.0807251613230.11302@wrl-59.cs.helsinki.fi>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I wonder if the two pieces of code as marked by the patch below still
-serve a purpose. 
+Ilpo,
 
->From grepping through the net/ code it seems they are both redundant.
+On Friday, 25. July 2008 16:06:04 Ilpo J=E4rvinen wrote:
+> I guess the patch below would be enough in itself to create the desir=
+ed
+> effect (though "desired" is hardly a negative enough word to describe=
+ a
+> workaround of this kind).=20
 
-This is on the basis that
+Yeah, the result feels good enough for me. Here's the latest tcpdump
+before I run out of good filenames for the dumps:
+http://www.intra2net.com/de/download/tcpdump/tcp_frto_combined_patch.ta=
+r.bz2
 
- * the v6 counterparts of these handlers ({tcp,sctp}_v6_err) do not have
-   this payload-length check;
+> Ie., in the worst case 6.8% of your link's capacity was wasted during=
+ the
+> transfer due to inefficiency cause by that middlebox, not counting th=
+e
+> under-utilization that occurs both because of a small window or a wai=
+t for
+> RTOs, not bad result at all... :-D
 
- * icmp_unreach() in net/ipv4/icmp.c already has this test:
+IIRC our outbound box does traffic shaping, so some percents are to be=20
+accounted to packets being dropped to slow down the connection a bit=20
+if they come (in) too fast.
 
-	/* Checkin full IP header plus 8 bytes of protocol to
-	 * avoid additional coding at protocol handlers.
-	 */
-        if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
-                goto out;
- 
- * a similar test is implemented by icmpv6_notify() in net/ipv6/icmp.c;
+Anyway, we now just have to flip a coin if this gets into the kernel
+or not :-) I really hope this could save someone from doing
+the same debug session all over again...
 
- * this type of test seems to be absent in all of the following handlers:
-   - tcp_v6_err()		- sctp_v6_err() 
-   - __udp4_lib_err()		- __udp6_lib_err()
-   - ah4_err()			- ah6_err()
-   - esp4_err()			- esp6_err()
-   - xfrm_tunnel_err()		- xfrm6_tunnel_err()
-   - tunnel4_err()		- tunnel6_err()		- tunnel64_err()
-   - ipip_err()			- ipip6_err()
-   - ip4ip6_err()		- ip6ip6_err() 
-   - ipcomp4_err()		- ipcomp6_err()
+Thanks for the hard work you put into debugging this.
 
----------------------------------------------------------------------------
- The following two are the exceptions in question.
- The question is whether there is a reason for the code marked below.
----------------------------------------------------------------------------
-
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -344,11 +344,6 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
- 	int err;
- 	struct net *net = dev_net(skb->dev);
- 
--	if (skb->len < (iph->ihl << 2) + 8) {
--		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
--		return;
--	}
--
- 	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
- 			iph->saddr, th->source, inet_iif(skb));
- 	if (!sk) {
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -534,11 +534,6 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
- 	sk_buff_data_t saveip, savesctp;
- 	int err;
- 
--	if (skb->len < ihlen + 8) {
--		ICMP_INC_STATS_BH(&init_net, ICMP_MIB_INERRORS);
--		return;
--	}
--
- 	/* Fix up skb to look at the embedded net header. */
- 	saveip = skb->network_header;
- 	savesctp = skb->transport_header;
-
+Thomas
