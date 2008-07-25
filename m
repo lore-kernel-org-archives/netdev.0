@@ -1,40 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] net: convert BUG_TRAP to generic WARN_ON
-Date: Fri, 25 Jul 2008 23:34:34 +0800
-Message-ID: <E1KMPJS-0005Dh-00@gondolin.me.apana.org.au>
-References: <1216990020-2716-2-git-send-email-ilpo.jarvinen@helsinki.fi>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi
-To: ilpo.jarvinen@helsinki.fi (Ilpo J??rvinen)
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [RESEND] [iproute2/tc] add generic size table for
+ qdiscs
+Date: Fri, 25 Jul 2008 08:53:04 -0700
+Message-ID: <20080725085304.6bfb5303@extreme>
+References: <20080725131909.14497.2315.stgit@fate.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51649 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752490AbYGYPer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 11:34:47 -0400
-In-Reply-To: <1216990020-2716-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45064 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751160AbYGYPxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 11:53:24 -0400
+In-Reply-To: <20080725131909.14497.2315.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
->
-> diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-> index a75807b..ee1bbf9 100644
-> --- a/net/ipv4/ipcomp.c
-> +++ b/net/ipv4/ipcomp.c
-> @@ -293,7 +293,7 @@ static void ipcomp_free_tfms(struct crypto_comp **tfms)
->                        break;
->        }
+On Fri, 25 Jul 2008 16:19:09 +0300
+Jussi Kivilinna <jussi.kivilinna@mbnet.fi> wrote:
+
+> Patch adds generic size table that is similiar to rate table, with
+> difference that size table stores link layer packet size.
 > 
-> -       BUG_TRAP(pos);
-> +       WARN_ON(!pos);
+> Based on patch by Patrick McHardy
+>  http://marc.info/?l=linux-netdev&m=115201979221729&w=2
+> 
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-Sorry I've just moved this to net/xfrm/xfrm_ipcomp.c.  BTW,
-please also remove rtnetlink.h from ipcomp.c since that's only
-included for this macro.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+No need to resend. I always hold iproute2 patches until any kernel
+components are accepted upstream.
