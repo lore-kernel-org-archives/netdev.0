@@ -1,134 +1,65 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/6] dccp: Bug-Fix - AWL was never updated
-Date: Fri, 25 Jul 2008 10:02:54 +0100
-Message-ID: <1216976578-17767-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/6] dccp: Add check for sequence number in ICMPv6 message
+Date: Fri, 25 Jul 2008 10:02:56 +0100
+Message-ID: <1216976578-17767-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_icmp_payload_bug_fixes>
  <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1216976578-17767-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1216976578-17767-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1216976578-17767-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+	Wei Yongjun <yjwei@cn.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52428 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52429 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754381AbYGYJDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 05:03:41 -0400
-In-Reply-To: <1216976578-17767-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754100AbYGYJDb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 05:03:31 -0400
+In-Reply-To: <1216976578-17767-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch was triggered by finding the  following message in the syslog:
- "kernel: dccp_check_seqno: DCCP: Step 6 failed for DATAACK packet, [...]
-  P.ackno exists or LAWL(82947089) <= P.ackno(82948208)
-                                   <= S.AWH(82948728), sending SYNC..."
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-Note the difference between AWH and AWL: it is 1639 packets - the Sequence
-Window was actually just 100. A closer look at the trace showed that
-LAWL = AWL = 82947089 equalled the ISS on the Response.
+This adds a sequence number check for ICMPv6 DCCP error packets, in the same
+manner as it has been done for ICMPv4 in the previous patch.
 
-The cause of the bug was that AWL was only ever set on the first packet - the
-DCCP-Request sent by dccp_v{4,6}_connect().
-
-The fix is to continually update AWL/AWH with each new packet (as GSS=AWH).
-
-
-Notes:
-------
-icsk_retransmits is used to distinguish original and retransmitted packets
-(introduced in previous patch).
-
-AWL/AWH are now updated to enforce more stringent checks on the
-initial sequence numbers when connecting:
-
- * AWL is initialised to ISS and remains at this value;
- * AWH is always set to GSS (via dccp_update_gss());
- * so on the first Request: AWL =      AWH = ISS,
-   and on the n-th Request: AWL = ISS, AWH = ISS + n.
-
-As a consequence, only Response packets that refer to Requests sent by this
-host will pass, all others are discarded. This is the intention and in effect
-implements the initial adjustments for AWL as specified in RFC 4340, 7.5.1.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/output.c |   33 +++++++++++++++------------------
- 1 files changed, 15 insertions(+), 18 deletions(-)
+ net/dccp/ipv6.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -53,8 +53,11 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 					  dccp_packet_hdr_len(dcb->dccpd_type);
- 		int err, set_ack = 1;
- 		u64 ackno = dp->dccps_gsr;
--
--		dccp_inc_seqno(&dp->dccps_gss);
-+		/*
-+		 * Increment GSS here already in case the option code needs it.
-+		 * Update GSS for real only if option processing below succeeds.
-+		 */
-+		dcb->dccpd_seq = ADD48(dp->dccps_gss, 1);
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -89,6 +89,7 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ {
+ 	struct ipv6hdr *hdr = (struct ipv6hdr *)skb->data;
+ 	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
++	struct dccp_sock *dp;
+ 	struct ipv6_pinfo *np;
+ 	struct sock *sk;
+ 	int err;
+@@ -116,6 +117,14 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (sk->sk_state == DCCP_CLOSED)
+ 		goto out;
  
- 		switch (dcb->dccpd_type) {
- 		case DCCP_PKT_DATA:
-@@ -66,6 +69,9 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
++	dp = dccp_sk(sk);
++	seq = dccp_hdr_seq(dh);
++	if ((1 << sk->sk_state) & ~(DCCPF_REQUESTING | DCCPF_LISTEN) &&
++	    !between48(seq, dp->dccps_awl, dp->dccps_awh)) {
++		NET_INC_STATS_BH(net, LINUX_MIB_OUTOFWINDOWICMPS);
++		goto out;
++	}
++
+ 	np = inet6_sk(sk);
  
- 		case DCCP_PKT_REQUEST:
- 			set_ack = 0;
-+			/* Use ISS on the first (non-retransmitted) Request. */
-+			if (icsk->icsk_retransmits == 0)
-+				dcb->dccpd_seq = dp->dccps_iss;
- 			/* fall through */
+ 	if (type == ICMPV6_PKT_TOOBIG) {
+@@ -168,7 +177,6 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
- 		case DCCP_PKT_SYNC:
-@@ -84,8 +90,6 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 			break;
- 		}
+ 	icmpv6_err_convert(type, code, &err);
  
--		dcb->dccpd_seq = dp->dccps_gss;
--
- 		if (dccp_insert_options(sk, skb)) {
- 			kfree_skb(skb);
- 			return -EPROTO;
-@@ -103,7 +107,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 		/* XXX For now we're using only 48 bits sequence numbers */
- 		dh->dccph_x	= 1;
- 
--		dp->dccps_awh = dp->dccps_gss;
-+		dccp_update_gss(sk, dcb->dccpd_seq);
- 		dccp_hdr_set_seq(dh, dp->dccps_gss);
- 		if (set_ack)
- 			dccp_hdr_set_ack(dccp_hdr_ack_bits(skb), ackno);
-@@ -112,6 +116,11 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 		case DCCP_PKT_REQUEST:
- 			dccp_hdr_request(skb)->dccph_req_service =
- 							dp->dccps_service;
-+			/*
-+			 * Limit Ack window to ISS <= P.ackno <= GSS, so that
-+			 * only Responses to Requests we sent are considered.
-+			 */
-+			dp->dccps_awl = dp->dccps_iss;
- 			break;
- 		case DCCP_PKT_RESET:
- 			dccp_hdr_reset(skb)->dccph_reset_code =
-@@ -449,19 +458,7 @@ static inline void dccp_connect_init(struct sock *sk)
- 
- 	dccp_sync_mss(sk, dst_mtu(dst));
- 
--	/*
--	 * SWL and AWL are initially adjusted so that they are not less than
--	 * the initial Sequence Numbers received and sent, respectively:
--	 *	SWL := max(GSR + 1 - floor(W/4), ISR),
--	 *	AWL := max(GSS - W' + 1, ISS).
--	 * These adjustments MUST be applied only at the beginning of the
--	 * connection.
--	 */
--	dccp_update_gss(sk, dp->dccps_iss);
--	dccp_set_seqno(&dp->dccps_awl, max48(dp->dccps_awl, dp->dccps_iss));
--
--	/* S.GAR - greatest valid acknowledgement number received on a non-Sync;
--	 *         initialized to S.ISS (sec. 8.5)                            */
-+	/* Initialise GAR as per 8.5; AWL/AWH are set in dccp_transmit_skb() */
- 	dp->dccps_gar = dp->dccps_iss;
- 
- 	icsk->icsk_retransmits = 0;
+-	seq = dccp_hdr_seq(dh);
+ 	/* Might be for an request_sock */
+ 	switch (sk->sk_state) {
+ 		struct request_sock *req, **prev;
