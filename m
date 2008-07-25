@@ -1,32 +1,28 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] blackfin_mac: unneeded assignment
-Date: Fri, 25 Jul 2008 11:46:46 -0700
-Message-ID: <20080725114646.35f99145@extreme>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
+Date: Fri, 25 Jul 2008 20:50:46 +0200
+Message-ID: <20080725185046.GA29799@electric-eye.fr.zoreil.com>
+References: <200807251343.m6PDhsHs006002@post.webmailer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cooloney@kernel.org, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: c4p7n1@capitanio.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:50177 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750878AbYGYSqu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 14:46:50 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49875 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751778AbYGYSu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 14:50:58 -0400
+Content-Disposition: inline
+In-Reply-To: <200807251343.m6PDhsHs006002@post.webmailer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb->dev is set by eth_type_trans already.
+c4p7n1@capitanio.org <c4p7n1@capitanio.org> :
+[...]
+> It's a foreign language and my outside view may be completely wrong,
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+The communication with Realtek has not halted in 2007.
 
-
---- a/drivers/net/bfin_mac.c	2008-07-25 10:19:53.000000000 -0700
-+++ b/drivers/net/bfin_mac.c	2008-07-25 10:20:53.000000000 -0700
-@@ -691,7 +691,6 @@ static void bfin_mac_rx(struct net_devic
- 					 (unsigned long)skb->tail);
- 
- 	dev->last_rx = jiffies;
--	skb->dev = dev;
- 	skb->protocol = eth_type_trans(skb, dev);
- #if defined(BFIN_MAC_CSUM_OFFLOAD)
- 	skb->csum = current_rx_ptr->status.ip_payload_csum;
+-- 
+Ueimor
