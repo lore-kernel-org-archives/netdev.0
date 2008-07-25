@@ -1,49 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet
-	length for   qdiscs
-Date: Fri, 25 Jul 2008 10:57:48 +0000
-Message-ID: <20080725105748.GB10399@ff.dom.local>
-References: <20080719233506.12596.59935.stgit@fate.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipsec: ipcomp - Decompress into frags if necessary
+Date: Fri, 25 Jul 2008 03:55:01 -0700 (PDT)
+Message-ID: <20080725.035501.47770769.davem@davemloft.net>
+References: <20080725074328.GB16747@gondor.apana.org.au>
+	<20080725.025801.229691344.davem@davemloft.net>
+	<20080725104603.GA17974@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pupilla@hotmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:53497 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbYGYKwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 06:52:43 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so672031ugf.16
-        for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 03:52:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080719233506.12596.59935.stgit@fate.lan>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60372
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbYGYKzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 06:55:03 -0400
+In-Reply-To: <20080725104603.GA17974@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20-07-2008 01:35, Jussi Kivilinna wrote:
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-...
-> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> index 1afe3ee..f1d2f8e 100644
-> --- a/net/sched/sch_cbq.c
-> +++ b/net/sched/sch_cbq.c
-> @@ -370,7 +370,6 @@ static int
->  cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  {
->  	struct cbq_sched_data *q = qdisc_priv(sch);
-> -	int len = skb->len;
->  	int uninitialized_var(ret);
->  	struct cbq_class *cl = cbq_classify(skb, sch, &ret);
->  
-> @@ -391,7 +390,7 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  	if (ret == NET_XMIT_SUCCESS) {
->  		sch->q.qlen++;
->  		sch->bstats.packets++;
-> -		sch->bstats.bytes+=len;
-> +		sch->bstats.bytes += qdisc_pkt_len(skb);
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 25 Jul 2008 18:46:03 +0800
 
-Alas I didn't manage to read this earlier, but this type of changes
-here and elsewhere in this patch looks wrong to me: we shouldn't
-use skb pointer after ->enqueue().
+> On Fri, Jul 25, 2008 at 02:58:01AM -0700, David Miller wrote:
+> > So perhaps it wants a WARN_ON :-)
+> 
+> There is one :)
 
-Jarek P.
+Indeed, I even read that thing as I was composing my original
+reply, hehe.
