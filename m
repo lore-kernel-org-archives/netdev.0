@@ -1,37 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.26: [<c0133cc1>] __alloc_pages_internal+0x331/0x343
-Date: Fri, 25 Jul 2008 22:19:53 +0800
-Message-ID: <20080725141953.GA19418@gondor.apana.org.au>
-References: <BAY103-DAV74E605DFBE7CC22EEA732B2870@phx.gbl> <E1KMO85-00052z-00@gondolin.me.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: v2 [net-2.6 PATCH 0-4/7] dccp: Revised ICMP bug fixes
+Date: Fri, 25 Jul 2008 15:28:34 +0100
+Message-ID: <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
+References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35269 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751303AbYGYOT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 10:19:59 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40303 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751239AbYGYO2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 10:28:42 -0400
 Content-Disposition: inline
-In-Reply-To: <E1KMO85-00052z-00@gondolin.me.apana.org.au>
+In-Reply-To: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 25, 2008 at 10:18:45PM +0800, Herbert Xu wrote:
-> 
-> Pick one of these:
-> 
-> 1) You have less RAM;
-> 2) Your memory fragmentation has deteriorated;
-> 3) Most likely: you were just lucky :)
+Hi Dave,
 
-Actually even more likely, someone has sent you a huge packet
-which triggered this (> 32K if I remember your trace correctly).
+this patch set addresses the two bugs you pointed out in the first revision.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+And that was very good, because the same problem loomed in another corner: the
+normal DCCP input receive path did the same unchecked de-referencing.
+This is documented in patch #5, and increases the number of bugs fixed by
+this changeset.
+
+Patches 1..4 have not changed, they can be viewed online at
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-2.6.git;a=summary
+
+These patches are new or revised:
+---------------------------------
+Patch #5: Fixes minimum-required length check for DCCP packet input path.
+Patch #6: Fixes minimum-required length check for ICMPv4 embedded DCCP datagrams
+Patch #7: Same as patch #5, but for ICMPv6.
+
+I have tested these on two different architectures.
+
+
+As per the first revision, this changeset can be pulled both from
+
+	git://eden-feed.erg.abdn.ac.uk/net-2.6		(subtree `master')
+
+and from 	
+
+   	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	(subtree `master')
+
+
+Thanks a lot for pointing out the bugs,
+Gerrit       
