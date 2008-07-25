@@ -1,44 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net: convert BUG_TRAP to generic WARN_ON
-Date: Fri, 25 Jul 2008 13:21:05 -0700 (PDT)
-Message-ID: <20080725.132105.175832134.davem@davemloft.net>
-References: <1216990020-2716-2-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<E1KMPJS-0005Dh-00@gondolin.me.apana.org.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [0/3] POHMELFS high performance network filesystem. IPv6 support, documentation update.
+Date: Sat, 26 Jul 2008 00:35:13 +0400
+Message-ID: <20080725203512.GA10873@2ka.mipt.ru>
+References: <20080725190134.GA30685@2ka.mipt.ru> <20080725194033.GA16133@shareable.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51588
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751223AbYGYUVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 16:21:06 -0400
-In-Reply-To: <E1KMPJS-0005Dh-00@gondolin.me.apana.org.au>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:41136 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751739AbYGYUfP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 16:35:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20080725194033.GA16133@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 25 Jul 2008 23:34:34 +0800
+Hi Jamie.
 
-> Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> >
-> > diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-> > index a75807b..ee1bbf9 100644
-> > --- a/net/ipv4/ipcomp.c
-> > +++ b/net/ipv4/ipcomp.c
-> > @@ -293,7 +293,7 @@ static void ipcomp_free_tfms(struct crypto_comp **tfms)
-> >                        break;
-> >        }
-> > 
-> > -       BUG_TRAP(pos);
-> > +       WARN_ON(!pos);
+On Fri, Jul 25, 2008 at 08:40:34PM +0100, Jamie Lokier (jamie@shareable.org) wrote:
+> Consider this:
 > 
-> Sorry I've just moved this to net/xfrm/xfrm_ipcomp.c.  BTW,
-> please also remove rtnetlink.h from ipcomp.c since that's only
-> included for this macro.
+>    1. Client A reads FILE, and registers its interest in FILE.
+>          (Contents are not interesting, e.g. 'Hello_sister')
+>    2. Client B does "echo Some_message > /mnt/file".
+>        - Truncates the file, sending truncate message to server.
+>        - "Writing happes during writeback"...?
+>    3. Client B sends a message by back-channel to client A (e.g. ssh command).
+>    4. Client A reads FILE again.
+> 
+> Does client A always see 'Some_message' when it reads the file in step 4?
+> That's what I'd call coherence.
 
-This is my fault, I didn't push before going to bed last night.
-Otherwise Ilpo would have seen this sooner.
+If 4. happens after writeback of the client B, then it will see the new
+content, otherwise it will see empty page. There are no locks (even
+implicit like what is expected in POSIX in exactly this case) in
+POHMELFS so far.
 
-I've just taken care of this.
+> For that, the first truncate or write operation on client B must wait
+> until a synchronous invalidate request goes to the server, then the
+> server sends to all interested clients (A) and waits for a reply, then
+> reply to B, and only then can B return from the open()/write() system call.
+> 
+> And when client A reads the file in step 4, it must send a synchronous
+> message to the server which must ask B to write the delayed writeback
+> data immediately, and until then, the reply to A will be delayed.
+> 
+> Is that right?
+
+It _can_ be done that way. But I'm still thinking on how the really
+scalable locking (this is a locking mechanism, just implicit) should be
+implemented. It is possible to send a message on every write_begin,
+which will invalidate appropriate message and every _read_ from that
+area will require all writers to flush theirs data. It will be kind of
+ME(O)SI cache coherency CPU protocol. It is simple task in current
+design, but I'm not yet convinced myself that this is a really scalable
+approach. So, there are no locks in POHMELFS _yet_.
+
+-- 
+	Evgeniy Polyakov
