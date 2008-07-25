@@ -1,42 +1,37 @@
-From: Nate Case <ncase@xes-inc.com>
-Subject: Re: [PATCH / RFC] net: don't grab a mutex within a timer context
-	in gianfar
-Date: Fri, 25 Jul 2008 09:16:00 -0500
-Message-ID: <1216995360.7559.1022.camel@localhost.localdomain>
-References: <20080718121008.GA28871@Chamillionaire.breakpoint.cc>
-	<1216681028.7559.993.camel@localhost.localdomain>
-	<20080722205911.GA29840@Chamillionaire.breakpoint.cc>
-	<20080723200337.GA5122@Chamillionaire.breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Li Yang <leoli@freescale.com>, Jeff Garzik <jgarzik@pobox.com>
-To: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20080723200337.GA5122@Chamillionaire.breakpoint.cc>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.26: [<c0133cc1>] __alloc_pages_internal+0x331/0x343
+Date: Fri, 25 Jul 2008 22:18:45 +0800
+Message-ID: <E1KMO85-00052z-00@gondolin.me.apana.org.au>
+References: <BAY103-DAV74E605DFBE7CC22EEA732B2870@phx.gbl>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: pupilla@hotmail.com (Marco Berizzi)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:35263 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751160AbYGYOSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 10:18:52 -0400
+In-Reply-To: <BAY103-DAV74E605DFBE7CC22EEA732B2870@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-23 at 22:03 +0200, Sebastian Siewior wrote:
-> I moved it into a workqueue, this is what tg3 does.
-> I would convert the other three drivers unless $dude suggests a better
-> method or somebody else takes care....
+Marco Berizzi <pupilla@hotmail.com> wrote:
 > 
->  drivers/net/gianfar.c |   22 ++++++++++++++++++----
->  drivers/net/gianfar.h |    2 ++
->  2 files changed, 20 insertions(+), 4 deletions(-)
+> Thanks for the reply.
+> I got a similar error today also with 2.6.25.10
+> after 20 days uptime.
+> This box is running 2.6.25 since april 22: I have
+> never seen these errors.
 
-This looks good to me.
+Pick one of these:
 
+1) You have less RAM;
+2) Your memory fragmentation has deteriorated;
+3) Most likely: you were just lucky :)
+
+Cheers,
 -- 
-Nate Case <ncase@xes-inc.com>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
