@@ -1,48 +1,59 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.25: WARNING: at net/ipv4/tcp_input.c:2539 tcp_ack+0xdd7/0x22f0()
-Date: Fri, 25 Jul 2008 15:56:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0807251553180.11302@wrl-59.cs.helsinki.fi>
-References: <ecb4efd10806231553w8758655xcf861e5e191809ec@mail.gmail.com>
- <Pine.LNX.4.64.0807251550490.11302@wrl-59.cs.helsinki.fi>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Fri, 25 Jul 2008 15:00:03 +0200
+Message-ID: <200807251500.05527.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807181602.42338.thomas.jarosch@intra2net.com> <Pine.LNX.4.64.0807231821170.13775@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-695446208-1216990567=:11302"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Clem Taylor <clem.taylor@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40897 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbYGYM4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 08:56:09 -0400
-In-Reply-To: <Pine.LNX.4.64.0807251550490.11302@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"=?iso-8859-15?q?D=E2niel?= Fraga" <fragabr@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0807231821170.13775@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Ilpo,
 
----696208474-695446208-1216990567=:11302
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+On Friday, 25. July 2008 12:00:29 Ilpo J=E4rvinen wrote:
+> [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
 
-On Fri, 25 Jul 2008, Ilpo Järvinen wrote:
+The latest patch works quite good. I accidentally had your
+previous patch applied, too, which gave even better results.
+Though I don't know enough about the gory details of FRTO
+if this effectivly disables it...
 
-> On Mon, 23 Jun 2008, Clem Taylor wrote:
-> 
-> > My kernel is tainted with both the vmware and nvidia drivers, but I
-> > thought someone might still care about this.
-> >
-> > The system is 2.6.25 x86_64 SMP (with preeempt and tickless).
-> >
-> > [841839.294985] ------------[ cut here ]------------
-> > [841839.294985] WARNING: at net/ipv4/tcp_input.c:2539 tcp_ack+0xdd7/0x22f0()
-> 
-> Please upgrade to at least 2.6.25.7 or 2.6.26, if this still shows up with 
-> it, then rereport (ccing me of course :-)).
+Here are two fresh tcpdumps, one with the last patch only
+and one which also includes your previous patch:
+http://www.intra2net.com/de/download/tcpdump/tcp_frto_highmark_patch.ta=
+r.bz2
 
-...And, it's not deadly condition but any means anyway, but I'm trying to 
-root all these minor miscounts out too, but due to rarity of the remaining 
-bugs, it's getting harder and harder.
+> ...
+> This is probably due to some broken middlebox but that's purely
+> speculation since the details of the not named ISP's (you can
+> find some hint in Patrick's blog though ;-)) equipment are not
+> available to us.
 
--- 
- i.
----696208474-695446208-1216990567=:11302--
+LOL, this reminds me about the post on kernel.org from 2007-03-01:
+"Kudos ... to Hewlett Packard for building a machine that can take the =
+beating=20
+of an unnamed shipping company and keep on ticking".=20
+
+Just think of "unnamed" while looking at the images of the broken serve=
+r ;-)
+
+Have a nice weekend,
+Thomas
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
