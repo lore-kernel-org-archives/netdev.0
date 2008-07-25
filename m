@@ -1,166 +1,83 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: reduce memory footprint of sctp_chunk structure
-Date: Fri, 25 Jul 2008 12:44:09 -0400
-Message-ID: <20080725164409.GD12725@hmsreliant.think-freely.org>
-References: <20080725121130.GB12725@hmsreliant.think-freely.org> <4889CF25.30405@hp.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: Kernel WARNING: at net/core/dev.c:1330 __netif_schedule+0x2c/0x98()
+Date: Fri, 25 Jul 2008 19:04:36 +0200
+Message-ID: <200807251904.37302.netdev@axxeo.de>
+References: <1216806614.7257.152.camel@twins> <1216810696.7257.175.camel@twins> <20080723.131441.200166513.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: peterz@infradead.org, jarkao2@gmail.com, Larry.Finger@lwfinger.net,
+	kaber@trash.net, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	mingo@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3441 "EHLO ra.tuxdriver.com"
+Received: from mail.axxeo.de ([82.100.226.146]:44648 "EHLO mail.axxeo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016AbYGYQou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 12:44:50 -0400
+	id S1751286AbYGYRHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 13:07:08 -0400
+In-Reply-To: <20080723.131441.200166513.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4889CF25.30405@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 25, 2008 at 09:03:33AM -0400, Vlad Yasevich wrote:
-> Hi Neil
+Hi David,
+
+David Miller schrieb:
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed, 23 Jul 2008 12:58:16 +0200
 > 
-> A few small nits.
+> > So I guess my question is, is netif_tx_lock() here to stay, or is the
+> > right fix to convert all those drivers to use __netif_tx_lock() which
+> > locks only a single queue?
 > 
-No problem, New patch attached.
+> It's staying.
+> 
+> It's trying to block all potential calls into the ->hard_start_xmit()
+> method of the driver, and the only reliable way to do that is to take
+> all the TX queue locks.  And in one form or another, we're going to
+> have this "grab/release all the TX queue locks" construct.
+> 
+> I find it interesting that this cannot be simply described to lockdep
+> :-)
 
-sctp_chunks should be put on a diet.  This is some of the low hanging fruit that
-we can strip out.  Changes all the __s8/__u8 flags to bitfields.  Saves 12 bytes
-per chunk.
+I'm sure as hell, I miss sth. but can't it be done by this pseudo-code:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+netif_tx_lock(device)
+{
+	mutex_lock(device->queue_entry_mutex);
+	foreach_queue_entries(queue, device->queues)
+	{
+		spin_lock(queue->tx_lock);
+		set_noop_tx_handler(queue);
+		spin_unlock(queue->tx_lock);
+	}
+	mutex_unlock(device->queue_entry_mutex);
+}
+
+netif_tx_unlock(device)
+{
+	mutex_lock(device->queue_entry_mutex);
+	foreach_queue_entries(queue, device->queues)
+	{
+		spin_lock(queue->tx_lock);
+		set_useful_tx_handler(queue);
+		spin_unlock(queue->tx_lock);
+	}
+	mutex_unlock(device->queue_entry_mutex);
+}
+
+Then protect use of the queues by queue->tx_lock in transmit path.
+The first setup of the queue doesn't need to be protected, since no-one
+knows the device. The final cleanup of the device doesn't need to be
+protected either, because netif_tx_lock() and netif_tx_unlock() should
+not be called after entering the final cleanup.
+
+Some VM locking works this way...
 
 
- include/net/sctp/structs.h |   31 +++++++++++++++++--------------
- net/sctp/output.c          |    2 +-
- net/sctp/outqueue.c        |   14 +++++++-------
- net/sctp/sm_make_chunk.c   |    2 +-
- 4 files changed, 26 insertions(+), 23 deletions(-)
+Best Regards
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 7f25195..1f9ae90 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -731,20 +731,23 @@ struct sctp_chunk {
- 	 */
- 	struct sk_buff *auth_chunk;
- 
--	__u8 rtt_in_progress;	/* Is this chunk used for RTT calculation? */
--	__u8 resent;		/* Has this chunk ever been retransmitted. */
--	__u8 has_tsn;		/* Does this chunk have a TSN yet? */
--	__u8 has_ssn;		/* Does this chunk have a SSN yet? */
--	__u8 singleton;		/* Was this the only chunk in the packet? */
--	__u8 end_of_packet;	/* Was this the last chunk in the packet? */
--	__u8 ecn_ce_done;	/* Have we processed the ECN CE bit? */
--	__u8 pdiscard;		/* Discard the whole packet now? */
--	__u8 tsn_gap_acked;	/* Is this chunk acked by a GAP ACK? */
--	__s8 fast_retransmit;	 /* Is this chunk fast retransmitted? */
--	__u8 tsn_missing_report; /* Data chunk missing counter. */
--	__u8 data_accepted; 	/* At least 1 chunk in this packet accepted */
--	__u8 auth;		/* IN: was auth'ed | OUT: needs auth */
--	__u8 has_asconf;	/* IN: have seen an asconf before */
-+#define SCTP_CAN_FRTX 0x0
-+#define SCTP_NEED_FRTX 0x1
-+#define SCTP_DONT_FRTX 0x2
-+	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
-+		resent:1,		/* Has this chunk ever been resent. */
-+		has_tsn:1,		/* Does this chunk have a TSN yet? */
-+		has_ssn:1,		/* Does this chunk have a SSN yet? */
-+		singleton:1,		/* Only chunk in the packet? */
-+		end_of_packet:1,	/* Last chunk in the packet? */
-+		ecn_ce_done:1,		/* Have we processed the ECN CE bit? */
-+		pdiscard:1,		/* Discard the whole packet now? */
-+		tsn_gap_acked:1,	/* Is this chunk acked by a GAP ACK? */
-+		tsn_missing_report:1,	/* Data chunk missing counter. */
-+		data_accepted:1,	/* At least 1 chunk accepted */
-+		auth:1,			/* IN: was auth'ed | OUT: needs auth */
-+		has_asconf:1,		/* IN: have seen an asconf before */
-+		fast_retransmit:2;	/* Is this chunk fast retransmitted? */
- };
- 
- void sctp_chunk_hold(struct sctp_chunk *);
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 7e7e612..548b567 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -709,7 +709,7 @@ static sctp_xmit_t sctp_packet_append_data(struct sctp_packet *packet,
- 	 *    When a Fast Retransmit is being performed the sender SHOULD
- 	 *    ignore the value of cwnd and SHOULD NOT delay retransmission.
- 	 */
--	if (chunk->fast_retransmit <= 0)
-+	if (chunk->fast_retransmit != SCTP_CAN_FRTX)
- 		if (transport->flight_size >= transport->cwnd) {
- 			retval = SCTP_XMIT_RWND_FULL;
- 			goto finish;
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index ace6770..34405f0 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -418,7 +418,7 @@ void sctp_retransmit_mark(struct sctp_outq *q,
- 		 * be added to the retransmit queue.
- 		 */
- 		if ((reason == SCTP_RTXR_FAST_RTX  &&
--			    (chunk->fast_retransmit > 0)) ||
-+			    (chunk->fast_retransmit == SCTP_NEED_FRTX)) ||
- 		    (reason != SCTP_RTXR_FAST_RTX  && !chunk->tsn_gap_acked)) {
- 			/* If this chunk was sent less then 1 rto ago, do not
- 			 * retransmit this chunk, but give the peer time
-@@ -648,8 +648,8 @@ static int sctp_outq_flush_rtx(struct sctp_outq *q, struct sctp_packet *pkt,
- 			/* Mark the chunk as ineligible for fast retransmit
- 			 * after it is retransmitted.
- 			 */
--			if (chunk->fast_retransmit > 0)
--				chunk->fast_retransmit = -1;
-+			if (chunk->fast_retransmit == SCTP_NEED_FRTX)
-+				chunk->fast_retransmit = SCTP_DONT_FRTX;
- 
- 			/* Force start T3-rtx timer when fast retransmitting
- 			 * the earliest outstanding TSN
-@@ -678,8 +678,8 @@ static int sctp_outq_flush_rtx(struct sctp_outq *q, struct sctp_packet *pkt,
- 	 */
- 	if (rtx_timeout || fast_rtx) {
- 		list_for_each_entry(chunk1, lqueue, transmitted_list) {
--			if (chunk1->fast_retransmit > 0)
--				chunk1->fast_retransmit = -1;
-+			if (chunk1->fast_retransmit == SCTP_NEED_FRTX)
-+				chunk1->fast_retransmit = SCTP_DONT_FRTX;
- 		}
- 	}
- 
-@@ -1635,7 +1635,7 @@ static void sctp_mark_missing(struct sctp_outq *q,
- 		 * chunk if it has NOT been fast retransmitted or marked for
- 		 * fast retransmit already.
- 		 */
--		if (!chunk->fast_retransmit &&
-+		if (!(chunk->fast_retransmit == SCTP_NEED_FRTX) &&
- 		    !chunk->tsn_gap_acked &&
- 		    TSN_lt(tsn, highest_new_tsn_in_sack)) {
- 
-@@ -1660,7 +1660,7 @@ static void sctp_mark_missing(struct sctp_outq *q,
- 		 */
- 
- 		if (chunk->tsn_missing_report >= 3) {
--			chunk->fast_retransmit = 1;
-+			chunk->fast_retransmit = SCTP_NEED_FRTX;
- 			do_fast_retransmit = 1;
- 		}
- 	}
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 3b55ad1..c9264dc 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1195,7 +1195,7 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
- 	 */
- 	retval->tsn_missing_report = 0;
- 	retval->tsn_gap_acked = 0;
--	retval->fast_retransmit = 0;
-+	retval->fast_retransmit = SCTP_CAN_FRTX;
- 
- 	/* If this is a fragmented message, track all fragments
- 	 * of the message (for SEND_FAILED).
-
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+Ingo Oeser
