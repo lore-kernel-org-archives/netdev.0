@@ -1,60 +1,78 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: arp monitor chicken and egg problem
-Date: Fri, 25 Jul 2008 01:09:48 -0400
-Message-ID: <4889601C.6030302@nortel.com>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [build error] ERROR: "NS8390_init" [drivers/net/ne.ko] undefined!
+Date: Fri, 25 Jul 2008 13:48:51 +0800
+Message-ID: <48896943.7090902@cn.fujitsu.com>
+References: <4889437A.5060907@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
+Cc: "David S. Miller" <davem@davemloft.net>,
+	torvalds@linux-foundation.org, NETDEV <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	Alan Cox <alan@redhat.com>
+To: Jeff Garzik <jgarzik@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kn.nortel.com ([47.140.192.55]:37431 "EHLO
-	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbYGYFrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 01:47:15 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:65084 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753AbYGYFu2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 01:50:28 -0400
+In-Reply-To: <4889437A.5060907@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've recently run into an interesting chicken-and-egg problem with 
-bonding, arp monitoring, and DHCP.
+Jeff
 
-We have a blade-based system with a pair of disk server blades, a pair 
-of network switch blades, and a bunch of app blades.
+commit "net 8390p: fix interface usage"(f0084a36d4d7) fixed some drivers which
+use wrong API of NS8390p.
+But ne.c seems didn't be fixed completely.
+I've got the following build err:
+---
+Kernel: arch/x86/boot/bzImage is ready  (#21)
+  Building modules, stage 2.
+  MODPOST 423 modules
+ERROR: "NS8390_init" [drivers/net/ne.ko] undefined!
+WARNING: modpost: Found 2 section mismatch(es).
+To see full details build your kernel with:
+'make CONFIG_DEBUG_SECTION_MISMATCH=y'
+make[1]: *** [__modpost] Error 1
+make: *** [modules] Error 2
+---
 
-The disk server blades act as DHCP servers to all the other blades.  The 
-switch blades boot from flash, but then obtain their IP address and 
-other config info from the server blades via DHCP a bonded link.
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Alan Cox <alan@redhat.com>
+---
+diff --git a/drivers/net/ne.c b/drivers/net/ne.c
+index 2fec612..4a8a4b1 100644
+--- a/drivers/net/ne.c
++++ b/drivers/net/ne.c
+@@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_device *dev, unsigned long ioaddr)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = eip_poll;
+ #endif
+-	NS8390_init(dev, 0);
++	NS8390p_init(dev, 0);
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret)
+@@ -794,7 +794,7 @@ retry:
+ 		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
+ 			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
+ 			ne_reset_8390(dev);
+-			NS8390_init(dev,1);
++			NS8390p_init(dev,1);
+ 			break;
+ 		}
+ 
+@@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform_device *pdev)
+ 
+ 	if (netif_running(dev)) {
+ 		ne_reset_8390(dev);
+-		NS8390_init(dev, 1);
++		NS8390p_init(dev, 1);
+ 		netif_device_attach(dev);
+ 	}
+ 	return 0;
 
-We would like to use something other than simple carrier sense because 
-the firmware on the switch cards has the nasty habit of bringing up 
-carrier way before the switches are actually ready to handle traffic.
 
-We've run into the following scenario:
 
-1) server blade is up, switch blades are down
-2) switch blades start to boot, carrier comes up (detected on server)
-3) switch blades issue DHCP request
-4) server blade attempts to reply to request, but has no active link 
-because arp monitoring hasn't received a reply yet
-5) several hundred ms later, arp monitoring notices we received a packet 
-(the DHCP request) and brings the link up
-6) several hundred ms after that, arp monitoring notices we haven't 
-received any arp responses, and brings the link down
-7) several hundred ms after this, the switch blade issues another DHCP 
-request (jump to step 4)
-
-There are other sources of packets on the system, and eventually the 
-timing is such that the DHCP request arrives during the window that the 
-link is up, and the system comes up.
-
-I've been asked to consider a hack to attempt sending a packet out 
-any/all (not sure yet) links with carrier signal if we've failed to find 
-a suitable active link.  I suppose we could also set the DHCP retry 
-interval to be smaller than the bonding arp interval.
-
-Both of these options seem fairly hackish, so can anyone suggest a 
-better way to handle the above scenario?
-
-Thanks,
-
-Chris
