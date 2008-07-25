@@ -1,67 +1,74 @@
-From: denys@visp.net.lb
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Sat, 26 Jul 2008 00:09:52 +0300
-Message-ID: <200807260009.52838.denys@visp.net.lb>
-References: <200807222142.23710.denys@visp.net.lb> <200807240256.36098.denys@visp.net.lb> <20080725073628.GA10399@ff.dom.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 v2.6.26
+Date: Fri, 25 Jul 2008 14:10:54 -0700
+Message-ID: <20080725141054.7e814236@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:58112 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbYGYVKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 17:10:12 -0400
-In-Reply-To: <20080725073628.GA10399@ff.dom.local>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:57406 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751507AbYGYVK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 17:10:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I will try to explain all details, maybe anything matter
+New version of iproute2 utilities that includes bug fixes and
+support for all the new features in kernel 2.6.26.
 
-around 150-300 megs passing
-Core 2 Duo E6750
-3 ifb's
-29 htb classes (summary)
-26 qdiscs (sfq and bfifo)
-NAT is running (465-700K connections)
-maximum bfifo qdisc size is 600Kbyte
-mostly all filters u32 (one is police mtu)
-quantum is 1514, one is 1515
-Load is low (below 30-35)% by mpstat
+Source: (note old developer.osdl.org address works as well)
+	http://devresources.linux-foundation.org/dev/iproute2/download/iproute2-2.6.26.tar.bz2
 
-The only error i have in dmesg (a LOT of this messages, different ip port, )
-[162014.265116] UDP: short packet: From 200.122.35.205:64599 8409/1480 to 
-213.254.233.9:6073
-[162014.373110] UDP: short packet: From 200.122.35.205:52015 10698/1480 to 
-213.254.233.9:4855
+Git tree:
+	git://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
-[162088.232099] UDP: bad checksum. From 96.234.33.9:1077 to 
-213.254.233.9:49520 ulen 111
+Changelog:
 
+Andreas Henriksson (3):
+      Fix typos (syntax error) in ip(8) manpage.
+      document promote_secondaries
+      Add routel and routef man page.
 
-I run time-warp-test from Ingo Molnar - nothing, no warps.
+Benjamin Thery (1):
+      iproute2: add support for IFLA_NET_NS_PID in ip link
 
-If required - i can send all rules to private e-mail.
+Bertrand Jacquin (1):
+      netem: fix cross-compiling failure
 
-I will apply patch after 30-60 minutes (off peak time). Thanks for help a lot!
+Daniel Silverstone (1):
+      Avoid infinite loop in ip addr flush.
 
-On Friday 25 July 2008, Jarek Poplawski wrote:
-> Hi Denys,
->
-> In case this is still working after hrtimer -> timer change here is
-> another patch for testing: to check if limiting hrtimers scheduling
-> could matter here. Btw. could you write what is the approximate
-> number of htb qdiscs and classes working on each device of this box
-> (including ifbs)?
->
-> Thanks,
-> Jarek P.
->
-> (This patch should be applided to 2.6.26 or .25 after reverting
-> the previous debugging patch.)
->
-> ---
->
+Herbert Xu (1):
+      xfrm: Allow replay setting
+
+Patrick McHardy (1):
+      tc: don't set protococol field on filter delete
+
+Rafael Almeida (1):
+      Fixed installation when changing DESTDIR
+
+Stephen Hemminger (12):
+      Fix bad hash calculation because of signed address
+      Change formatting of u32 back to default
+      Use inet_pton to read ipv4 addresses
+      ematch related bugfix and cleanup
+      Update to 2.6.26-rc6 headers
+      use correct hz for rto,ato
+      Neighbor cache timer is in user hz
+      timers are in user hz
+      Fix array out of bounds problem
+      Add warning message when MAX_FIELDS reached
+      Update headers to 2.6.26
+      Update snapshot
+
+Varun Chandramohan (1):
+      Display Correct Error For Addrlabel Info
+
+Yu Zhiguo (1):
+      Fix generic_proc_open() of command 'nstat' and 'rtacct'
+
+jamal (2):
+      Expose the filter protocol
+      Infrastructure for pretty printing
+
