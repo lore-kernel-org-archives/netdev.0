@@ -1,41 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11160] New: sky2 Oops on ifconfig eth0 down
- on linux-2.6.26-git11
-Date: Fri, 25 Jul 2008 01:29:39 -0700 (PDT)
-Message-ID: <20080725.012939.247842088.davem@davemloft.net>
-References: <bug-11160-10286@http.bugzilla.kernel.org/>
-	<20080725012754.c130a09e.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	jkarlson@cc.hut.fi
-To: akpm@linux-foundation.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [net-2.6 PATCH 0/6] dccp: ICMP bug fixes by Wei Yongjun
+Date: Fri, 25 Jul 2008 10:02:52 +0100
+Message-ID: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <dccp_icmp_payload_bug_fixes>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37788
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbYGYI3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 04:29:40 -0400
-In-Reply-To: <20080725012754.c130a09e.akpm@linux-foundation.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52394 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751819AbYGYJDP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 05:03:15 -0400
+In-Reply-To: <dccp_icmp_payload_bug_fixes>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 25 Jul 2008 01:27:54 -0700
+Hi Dave, 
 
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Fri, 25 Jul 2008 01:19:16 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-> 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=11160
-> > 
-> >            Summary: sky2 Oops on ifconfig eth0 down on linux-2.6.26-git11
-> 
-> (it's a warning, not an oops)
- ...
-> I think this is known about and is being worked on.
+can you please have a look at this set of ICMP/DCCP bug fixes by Wei Yongjun,
+augmented by two inter-related test tree patches that solve a related bug.
 
-Yes, in fact we don't warn for this case any more in Linus's
-tree, so you can safely close this.
+Patch #1: Provides a way to distinguish original from retransmitted packets.
+Patch #2: Fixes a bug - AWL was never updated. Needed by the third patch.
+Patch #3: Corrects ICMPv4 sequence number check to use AWL/H instead of SWL/H.
+Patch #4: Implements check from patch #3 for ICMPv6.
+Patch #5: Fixes an insufficient-length check for 
+
+All patches have been compile-tested, the first two have been in the test
+tree for over at least one month.
+
+Can you please consider pulling from
+
+	git://eden-feed.erg.abdn.ac.uk/net-2.6		(subtree `master')
+
+At your discretion, as none of the bugs is severe,
+
+   	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	(subtree `master')
+
+contains the same set of patches. Both trees have been freshly cloned today.	
