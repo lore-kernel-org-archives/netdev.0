@@ -1,73 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Fri, 25 Jul 2008 07:36:28 +0000
-Message-ID: <20080725073628.GA10399@ff.dom.local>
-References: <200807222142.23710.denys@visp.net.lb> <20080723222631.GA2397@ami.dom.local> <20080723232456.GA5835@ami.dom.local> <200807240256.36098.denys@visp.net.lb>
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch 2.6.26-git] net/usb/Kconfig: fix broken ordering
+Date: Fri, 25 Jul 2008 00:36:57 -0700
+Message-ID: <200807250036.58156.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: denys@visp.net.lb
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Greg KH <greg@kroah.com>
+To: Network development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:4783 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbYGYHbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 03:31:21 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1213052nfc.21
-        for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 00:31:19 -0700 (PDT)
+Received: from smtp122.sbc.mail.sp1.yahoo.com ([69.147.64.95]:42432 "HELO
+	smtp122.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751275AbYGYHhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 03:37:00 -0400
 Content-Disposition: inline
-In-Reply-To: <200807240256.36098.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Denys,
+From: David Brownell <dbrownell@users.sourceforge.net>
 
-In case this is still working after hrtimer -> timer change here is
-another patch for testing: to check if limiting hrtimers scheduling
-could matter here. Btw. could you write what is the approximate
-number of htb qdiscs and classes working on each device of this box
-(including ifbs)?
+Move the Kconfig for the new "Option" driver so it's not in the
+middle of the usbnet-based drivers, so the dependency displays
+in the Kconfig user interfaces don't get trashed.
 
-Thanks,
-Jarek P.
-
-(This patch should be applided to 2.6.26 or .25 after reverting
-the previous debugging patch.)
-
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 ---
+ drivers/net/usb/Kconfig |   21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
- net/sched/sch_htb.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 30c999c..ff9e965 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -162,6 +162,7 @@ struct htb_sched {
+--- a/drivers/net/usb/Kconfig	2008-07-24 23:16:11.000000000 -0700
++++ b/drivers/net/usb/Kconfig	2008-07-24 23:17:22.000000000 -0700
+@@ -154,17 +154,6 @@ config USB_NET_AX8817X
+ 	  This driver creates an interface named "ethX", where X depends on
+ 	  what other networking devices you have in use.
  
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
-+	psched_time_t next_watchdog;
- 	struct qdisc_watchdog watchdog;
+-config USB_HSO
+-	tristate "Option USB High Speed Mobile Devices"
+-	depends on USB && RFKILL
+-	default n
+-	help
+-	  Choose this option if you have an Option HSDPA/HSUPA card.
+-	  These cards support downlink speeds of 7.2Mbps or greater.
+-
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called hso.
+-
+ config USB_NET_CDCETHER
+ 	tristate "CDC Ethernet support (smart devices such as cable modems)"
+ 	depends on USB_USBNET
+@@ -344,5 +333,15 @@ config USB_NET_ZAURUS
+ 	  really need this non-conformant variant of CDC Ethernet (or in
+ 	  some cases CDC MDLM) protocol, not "g_ether".
  
- 	/* non shaped skbs; let them go directly thru */
-@@ -920,7 +921,11 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- 		}
- 	}
- 	sch->qstats.overlimits++;
--	qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	if (q->next_watchdog < q->now || next_event <=
-+	     q->next_watchdog - PSCHED_TICKS_PER_SEC / HZ) {
-+		qdisc_watchdog_schedule(&q->watchdog, next_event);
-+		q->next_watchdog = next_event;
-+	}
- fin:
- 	return skb;
- }
-@@ -973,6 +978,7 @@ static void htb_reset(struct Qdisc *sch)
- 		}
- 	}
- 	qdisc_watchdog_cancel(&q->watchdog);
-+	q->next_watchdog = 0;
- 	__skb_queue_purge(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	memset(q->row, 0, sizeof(q->row));
++config USB_HSO
++	tristate "Option USB High Speed Mobile Devices"
++	depends on USB && RFKILL
++	default n
++	help
++	  Choose this option if you have an Option HSDPA/HSUPA card.
++	  These cards support downlink speeds of 7.2Mbps or greater.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called hso.
+ 
+ endmenu
