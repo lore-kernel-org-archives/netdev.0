@@ -1,100 +1,79 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [RFC 2/2] TCP: Add TCP-AO support
-Date: Fri, 25 Jul 2008 14:34:00 -0700
-Message-ID: <396556a20807251434n300ca24bw833f51dc0a332676@mail.gmail.com>
-References: <396556a20807181816qdb50221nc0aa259d3fb3395d@mail.gmail.com>
-	 <20080719.102838.76205933.yoshfuji@linux-ipv6.org>
-	 <396556a20807181922t32c05b86l335de10bd1106ab2@mail.gmail.com>
-	 <20080719.120721.88812679.yoshfuji@linux-ipv6.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: hrtimers lockups Re: NMI lockup, 2.6.26 release
+Date: Sat, 26 Jul 2008 00:31:22 +0200
+Message-ID: <20080725223121.GD3107@ami.dom.local>
+References: <200807222142.23710.denys@visp.net.lb> <200807240256.36098.denys@visp.net.lb> <20080725073628.GA10399@ff.dom.local> <200807260009.52838.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: "=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:2631 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbYGYVeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 17:34:01 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so3622073rvb.1
-        for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 14:34:00 -0700 (PDT)
-In-Reply-To: <20080719.120721.88812679.yoshfuji@linux-ipv6.org>
+Received: from ik-out-1112.google.com ([66.249.90.179]:38584 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbYGYW3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 18:29:05 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so2878501ika.5
+        for <netdev@vger.kernel.org>; Fri, 25 Jul 2008 15:29:03 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200807260009.52838.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC83LzE4IFlPU0hJRlVKSSBIaWRlYWtpIC8g5ZCJ6Jek6Iux5piOIDx5b3NoZnVqaUBsaW51
-eC1pcHY2Lm9yZz46Cj4gSWYgd2UgY2FuIGRvIGluY3JlbWVudGFsIGFwcHJvYWNoLCBldmVuIGlm
-IHdlIHN1cHBvciB1cHRvIDIga2V5cywKPiBJJ2Qgc3VnZ2VzdCBzb21ldGhpbmcgbGlrZSB0aGlz
-OgoKSSd2ZSBiZWVuIHdvcmtpbmcgc29tZSBtb3JlIG9uIHRoaXMgcGF0Y2guIFBsZWFzZSB0YWtl
-IGEgbG9vayBhdCB0aGUKbmV3IGRlc2NyaXB0aW9uIGFuZCBzZWUgd2hhdCB5b3UgdGhpbmsuIChU
-aGUgY29kZSBpdHNlbGYgaGFzbid0IGJlZW4KdGVzdGVkIGVub3VnaCB5ZXQgdG8gcG9zdCk6Cgot
-LS1zdGFydC0tLQoKVGhlIHVzZXJsYW5kIGludGVyZmFjZSBoYXMgY2hhbmdlZCBhIGxvdCBmcm9t
-IHRoZSBsYXN0IHNwaW4gb2YgdGhlc2UgcGF0Y2hlcy4KVGhpcyB0aW1lIHdlIHN1cHBvcnQgdGhl
-IGZ1bGwgbnVtYmVyIG9mIGRpZmZlcmVudCBwb3NzaWJsZSBrZXlzOiAyNTYgUlgga2V5cwphbmQg
-YSBUWCBrZXkuIChZb3UgY2FuIG9ubHkgaGF2ZSBhIHNpbmdsZSBUWCBrZXkgYXQgYSB0aW1lLikK
-ClNvY2tldHMgZWl0aGVyIGhhdmUgbm8ga2V5cywgYSBrZXlzZXQsIG9yIGEgbWFwcGluZyBmcm9t
-IElQIGFkZHJlc3MgdG8gYQprZXlzZXQuIExpc3RlbmluZyBzb2NrZXRzLCBmb3IgZXhhbXBsZSwg
-d291bGQgcHJvYmFibHkgaGF2ZSB0aGUgbWFwcGluZyBzbyB0aGF0CnRoZXkgY2FuIGhhdmUgYSBk
-aWZmZXJlbnQga2V5IGZvciBlYWNoIGF1dGhvcmlzZWQgaG9zdC4gQ29ubmVjdGVkIHNvY2tldHMg
-YXJlCm9ubHkgZXZlciB0YWxraW5nIHRvIGEgc2luZ2xlIGhvc3QsIHNvIGRvaW5nIGFuIElQIGxv
-b2t1cCBvbiBlYWNoIHBhY2tldCBpcyBhCndhc3RlIGFuZCB0aGUga2V5c2V0IGlzIHBvaW50ZWQg
-dG8gZGlyZWN0bHkgZnJvbSB0aGUgdGNwX3NvY2suIChBY3R1YWxseSwgdGhlCnR3byBwb3NzaWJs
-ZSBwb2ludGVyczogdG8gdGhlIGtleXNldCBhbmQgdG8gdGhlIElQIG1hcHBpbmcsIGFyZSBhIHVu
-aW9uIGFuZCB0aGUKTFNCIGRlbm90ZXMgd2hpY2ggdHlwZSBvZiBwb2ludGVyIGl0IGlzLikKCkFs
-bCB0aGUgbWFwcGluZ3MgKGZyb20gSVAgYWRkcmVzcyBhbmQgZnJvbSBrZXludW0pIGFyZSBpbXBs
-ZW1lbnRlZCBhcyBSQiB0cmVlcy4KCktleXMsIGluIGEgZ2l2ZW4ga2V5c2V0LCBhcmUgbnVtYmVy
-ZWQgMC4uMjU2LiBLZXlzIDAuLjI1NSBhcmUgdXN1YWxseSBSWCBrZXlzLgpXaGVuIGFuIGluYm91
-bmQgcGFja2V0IGhhcyBhIGtleWlkIG9mIG4sIGtleSBudW1iZXIgbiBpcyBsb29rZWQgdXAgdG8g
-dmVyaWZ5Cml0LiBZb3UgY2FuIGFsc28gc2V0IHRoZSBUWCBrZXkgbnVtYmVyIHRvIGJlIGluIDAu
-LjI1NSBpZiB5b3Ugd2lzaC4KCkdlbmVyYWxseSBob3dldmVyLCB0aGUgVFgga2V5IG51bWJlciB3
-aWxsIGJlIDI1NiBhbmQgeW91IHNldCB0aGUKdHhfa2V5aWQgdG8gZGV0ZXJtaW5lIHRoZSBrZXlp
-ZCBhZHZlcnRpc2VkIG9uIHRoZSB3aXJlIGZvciB0aGVzZSBrZXlzLiBTaW5jZQp0aGUga2V5aWQg
-b24gdGhlIHdpcmUgaXMgb25seSA4LWJpdHMsIG5vIGluYm91bmQgcGFja2V0IGNhbiBtYXRjaCBh
-Z2FpbnN0IHRoaXMKa2V5LiBTaW5jZSB0aGUgbWFwcGluZyBpcyBhIHRyZWUsIGl0J3MgZWZmaWNp
-ZW50IHRvIGhhdmUgb25seSBrZXkgbnVtYmVycyAwLAoxLCAyNTYuCgpUaGUgZXhwZWN0ZWQgc2Vx
-dWVuY2Ugb2Ygb3BlcmF0aW9ucyB3b3VsZCBiZToKICAqIEFkZCBhIGhvc3QsIHNldHRpbmcgdGhl
-IFRYIGtleSBudW0sIE1BQyBmdW5jdGlvbiBldGMKICAqIEFkZCBuIGtleXMgdG8gdGhhdCBob3N0
-CiAgKiBBZGQgYW5vdGhlciBob3N0IGV0YwoKVGhlbiwgd2hlbiByb3RhdGluZyB0aGUga2V5czsK
-ICAqIFNldCBrZXkgMjU2LiBUaGlzIGNoYW5nZXMgdGhlIFRYIGtleSBpbW1lZGlhdGVseS4KCi8q
-IE5ldyBzZXRzb2Nrb3B0cyAqLwovKiBUYWtlcyBhIHRjcF9hdXRoX29wX2hvc3QgKi8KI2RlZmlu
-ZSBUQ1BfQVVUSF9IT1NUX0FERAkxNQkvKiBUQ1AgQXV0aCBvcHRpb246IGFkZCBob3N0ICovCi8q
-IFRha2VzIGEgc29ja2FkZHIgKi8KI2RlZmluZSBUQ1BfQVVUSF9IT1NUX0RFTAkxNgkvKiBUQ1Ag
-QXV0aCBvcHRpb246IHJlbW92ZSBob3N0ICovCi8qIFRha2VzIGEgdGNwX2F1dGhfb3Bfa2V5ICov
-CiNkZWZpbmUgVENQX0FVVEhfS0VZX1NFVAkxNwkvKiBUQ1AgQXV0aCBvcHRpb246IHNldCBrZXkg
-Ki8KCi8qIE1BQyBmdW5jdGlvbnMgKi8KI2RlZmluZSBUQ1BfQVVUSF9LRVlFRF9NRDVfMTI4CQkw
-CiNkZWZpbmUgVENQX0FVVEhfSE1BQ19NRDVfOTYJCTEKI2RlZmluZSBUQ1BfQVVUSF9ITUFDX1NI
-QTFfOTYJCTIKCiNkZWZpbmUgVENQX0FVVEhfTUFYX01BQwkJMgoKLyogdGNwYV9mbGFncyAqLwoj
-ZGVmaW5lIFRDUF9BVVRIX1JGQzIzODUJCSgxIDw8IDApCiNkZWZpbmUgVENQX0FVVEhfT1BUSU9O
-U19FWENMVURFCSgxIDw8IDEpCiNkZWZpbmUgVENQX0FVVEhfUFNFVURPSEVBREVSX0VYQ0xVREUJ
-KDEgPDwgMikKI2RlZmluZSBUQ1BfQVVUSF9QT1JUX05VTVNfRVhDTFVERQkoMSA8PCAzKQojZGVm
-aW5lIFRDUF9BVVRIX0xBVENICQkJKDEgPDwgNCkKCi8qIHN0cnVjdCB0Y3BfYXV0aF9vcF9ob3N0
-IC0gY29uZmlndXJpbmcgYSBuZXcga2V5c2V0IGZvciBUQ1AgQXV0aAogKiBAdGNwYV9hZGRyIC0g
-dGhlIGFkZHJlc3Mgb2YgdGhlIGhvc3QsIG9yIDAgZm9yIHRoZSBkZWZhdWx0IGtleXNldAogKiBA
-dGNwYV9mbGFncyAtIHNlZSBUQ1BfQVVUSF8qIGFib3ZlCiAqIEB0Y3BhX21hY2Z1bmMgLSB0aGUg
-TUFDIGFsZ29yaXRobSwgc2VlIFRDUF9BVVRIXyogYWJvdmUKICogQHRjcGFfdHhrZXkgLSB0aGUg
-a2V5bnVtIHRvIHRyYW5zbWl0IHdpdGgKICovCnN0cnVjdCB0Y3BfYXV0aF9vcF9ob3N0IHsKCXN0
-cnVjdCBfX2tlcm5lbF9zb2NrYWRkcl9zdG9yYWdlCXRjcGFoX2FkZHI7CglfX3UzMgkJCQkJdGNw
-YWhfZmxhZ3M7CglfX3U4CQkJCQl0Y3BhaF9tYWNmdW5jOwoJX191OAkJCQkJdGNwYWhfcmVzZXJ2
-ZWQ7CglfX3UxNgkJCQkJdGNwYWhfdHhrZXk7Cn07CgovKiBzdHJ1Y3QgdGNwX2F1dGhfb3Bfa2V5
-IC0gYWRkLCBkZWxldGUgb3IgcmVwbGFjZSBhIGtleQogKiBAdGNwYWtfYWRkciAtIHRoZSBhZGRy
-ZXNzIG9mIHRoZSBob3N0IHRvIHdoaWNoIHRoaXMga2V5IGFwcGxpZXMKICogQHRjcGFrX2tleW51
-bSAtIHRoZSBudW1iZXIgb2YgdGhpcyBrZXkuCiAqIEB0Y3Bha190eF9rZXlpZCAtIHRoZSBrZXlp
-ZCBvZiB0aGlzIGtleSBvbiB0aGUgd2lyZSB3aGVuIHRyYW5zbWl0dGVkCiAqIEB0Y3Bha19rZXls
-ZW4gLSBsZW5ndGggb2YgdGhlIGtleSwgaW4gYnl0ZXMKICogQHRjcGFrX2tleSAtIHRoZSBrZXkg
-ZGF0YSBmb2xsb3dzIHRoaXMgc3RydWN0dXJlCiAqLwpzdHJ1Y3QgdGNwX2F1dGhfb3Bfa2V5IHsK
-CXN0cnVjdCBfX2tlcm5lbF9zb2NrYWRkcl9zdG9yYWdlCXRjcGFrX2FkZHI7CglfX3UxNgkJCQkJ
-dGNwYWtfa2V5bnVtOwoJX191OAkJCQkJdGNwYWtfdHhfa2V5aWQ7CglfX3U4CQkJCQl0Y3Bha19r
-ZXlsZW47CglfX3U4CQkJCQl0Y3Bha19yZXNlcnZlZFs0XTsKCV9fdTgJCQkJCXRjcGFrX2tleVsw
-XTsKfTsKLS0tCgogaW5jbHVkZS9saW51eC90Y3AuaCAgICAgIHwgICA2OCArKysrLQogaW5jbHVk
-ZS9uZXQvdGNwLmggICAgICAgIHwgIDE5MSArKysrKysrKystLS0tLQogbmV0L2lwdjQvS2NvbmZp
-ZyAgICAgICAgIHwgICAgMgogbmV0L2lwdjQvdGNwLmMgICAgICAgICAgIHwgIDQ0NyArKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKystLQogbmV0L2lwdjQvdGNwX2lucHV0LmMgICAgIHwgICAx
-MyArCiBuZXQvaXB2NC90Y3BfaXB2NC5jICAgICAgfCAgNjQ5ICsrKysrKysrKysrKysrKysrKysr
-KysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0KIG5ldC9pcHY0L3RjcF9taW5pc29ja3MuYyB8ICAg
-NDQgKy0tCiBuZXQvaXB2NC90Y3Bfb3V0cHV0LmMgICAgfCAgIDY3ICsrKy0tCiBuZXQvaXB2Ni90
-Y3BfaXB2Ni5jICAgICAgfCAgMjc2ICsrKysrKysrKysrLS0tLS0tLS0tCiA5IGZpbGVzIGNoYW5n
-ZWQsIDEyMTAgaW5zZXJ0aW9ucygrKSwgNTQ3IGRlbGV0aW9ucygtKQoKCgpBR0wKCgotLSAKQWRh
-bSBMYW5nbGV5IGFnbEBpbXBlcmlhbHZpb2xldC5vcmcgaHR0cDovL3d3dy5pbXBlcmlhbHZpb2xl
-dC5vcmcK
+Hi,
+
+This netdev thread describes lockups breaking in hrtimers code:
+
+http://marc.info/?l=linux-netdev&m=121675217927170&w=2
+
+Very similar reports from Denys Fedoryshchenko could be found in
+netdev archives a few kernel versions before.
+
+It looks like replacing hrtimers with timers in sch_htb code removes
+problems. I hope, Thomas or somebody from linux-kernel could give
+some clue on this.
+
+Thanks,
+Jarek P.
+
+Denys, read below:
+
+On Sat, Jul 26, 2008 at 12:09:52AM +0300, denys@visp.net.lb wrote:
+> I will try to explain all details, maybe anything matter
+> 
+> around 150-300 megs passing
+> Core 2 Duo E6750
+> 3 ifb's
+> 29 htb classes (summary)
+> 26 qdiscs (sfq and bfifo)
+> NAT is running (465-700K connections)
+> maximum bfifo qdisc size is 600Kbyte
+> mostly all filters u32 (one is police mtu)
+> quantum is 1514, one is 1515
+> Load is low (below 30-35)% by mpstat
+> 
+> The only error i have in dmesg (a LOT of this messages, different ip port, )
+> [162014.265116] UDP: short packet: From 200.122.35.205:64599 8409/1480 to 
+> 213.254.233.9:6073
+> [162014.373110] UDP: short packet: From 200.122.35.205:52015 10698/1480 to 
+> 213.254.233.9:4855
+> 
+> [162088.232099] UDP: bad checksum. From 96.234.33.9:1077 to 
+> 213.254.233.9:49520 ulen 111
+> 
+> 
+> I run time-warp-test from Ingo Molnar - nothing, no warps.
+> 
+> If required - i can send all rules to private e-mail.
+> 
+> I will apply patch after 30-60 minutes (off peak time). Thanks for help a lot!
+
+You are very helpful too! But, I think we will need some help from
+hrtimers/hardware gurus. IMHO, since it works with timers, the bug
+doesn't seem to belong to "netdev". I can't see any obvious
+possibility of "abusing" hrtimers with e.g. too big number of hrtimers
+with your config (1 hrtimer per qdisc). So, I'm not very optimistic
+about this new patch, but even if it works it looks like something
+else is wrong. That's why I added some CC to this.
+
+Jarek P.
