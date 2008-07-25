@@ -1,31 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv2 0/2] IPVS: Add Generic Netlink configuration interface
-Date: Sat, 26 Jul 2008 01:29:56 +0200
-Message-ID: <20080725232956.GF20815@postel.suug.ch>
-References: <1216645375-20410-1-git-send-email-juliusv@google.com> <20080722003403.GC9041@verge.net.au> <4886665E.5060209@google.com> <4887A4FE.8080706@google.com> <20080725055806.GA5118@verge.net.au> <f4845fc0807251536l16cd6166gc62be740a14df93a@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Fri, 25 Jul 2008 16:55:39 -0700 (PDT)
+Message-ID: <20080725.165539.91586849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, Vince Busam <vbusam@google.com>,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	davem@davemloft.net
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f4845fc0807251536l16cd6166gc62be740a14df93a@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42026
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752915AbYGYXzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 19:55:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Julius Volz <juliusv@google.com> 2008-07-26 00:36
-> On Fri, Jul 25, 2008 at 7:58 AM, Simon Horman <horms@verge.net.au> wrote:
-> > BUG: unable to handle kernel paging request at 44e30116
-> > IP: [<c01e8b34>] ctrl_dumpfamily+0xa4/0xbc
 
-> Thanks for reporting. I'm not in expert in interpreting these dumps,
-> but it seems like there is no IPVS code in the trace, only the Generic
-> Netlink functions? Thomas, is this correct?
+A fix for a lockdep problem reported by Ingo, and a cure
+for order-5 page allocations that can be triggered by
+IPCOMP decompression from Herbert Xu.
 
-Yes, the crash happens in ctrl_dumpfamily() which is not related
-to the ipvs interface at all. I'm not familar with the new ipvadm
-tool yet and whether it dumps the controller table but even if
-does, this smells like a ipvs dump is being continued by calling
-the wrong cb function. I have a similar report which may be related.
+Please pull, thanks a lot!
+
+The following changes since commit f867e6af94239a04ec23aeec2fcda5aa58e41db7:
+  Jarek Poplawski (1):
+        pkt_sched: sch_sfq: dump a real number of flows
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+David S. Miller (1):
+      pkt_sched: Fix locking in shutdown_scheduler_queue()
+
+Herbert Xu (2):
+      ipsec: ipcomp - Merge IPComp implementations
+      ipsec: ipcomp - Decompress into frags if necessary
+
+ include/net/ipcomp.h    |    6 +
+ net/ipv4/Kconfig        |    4 +-
+ net/ipv4/ipcomp.c       |  315 +-------------------------------------
+ net/ipv6/Kconfig        |    4 +-
+ net/ipv6/ipcomp6.c      |  298 +-----------------------------------
+ net/sched/sch_generic.c |    4 +-
+ net/xfrm/Kconfig        |    6 +
+ net/xfrm/Makefile       |    1 +
+ net/xfrm/xfrm_ipcomp.c  |  385 +++++++++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 415 insertions(+), 608 deletions(-)
+ create mode 100644 net/xfrm/xfrm_ipcomp.c
