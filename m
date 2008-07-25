@@ -1,61 +1,49 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH 11/30] mm: __GFP_MEMALLOC
-Date: Fri, 25 Jul 2008 18:39:43 +0900
-Message-ID: <20080725183835.86AC.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-References: <20080725180305.86A9.KOSAKI.MOTOHIRO@jp.fujitsu.com> <1216978535.7257.356.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/6] dccp: Fix incorrect length check for ICMPv4 packets
+Date: Fri, 25 Jul 2008 02:51:45 -0700 (PDT)
+Message-ID: <20080725.025145.51942248.davem@davemloft.net>
+References: <1216976578-17767-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1216976578-17767-5-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1216976578-17767-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Neil Brown <neilb@suse.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org, yjwei@cn.fujitsu.com
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:46003 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756682AbYGYJlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 05:41:47 -0400
-In-Reply-To: <1216978535.7257.356.camel@twins>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53892
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753002AbYGYJvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 05:51:45 -0400
+In-Reply-To: <1216976578-17767-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Fri, 2008-07-25 at 18:29 +0900, KOSAKI Motohiro wrote:
-> > Hi Peter,
-> > 
-> > > __GFP_MEMALLOC will allow the allocation to disregard the watermarks, 
-> > > much like PF_MEMALLOC.
-> > > 
-> > > It allows one to pass along the memalloc state in object related allocation
-> > > flags as opposed to task related flags, such as sk->sk_allocation.
-> > 
-> > Is this properly name?
-> > page alloc is always "mem alloc".
-> > 
-> > you wrote comment as "Use emergency reserves" and 
-> > this flag works to turn on ALLOC_NO_WATERMARKS.
-> > 
-> > then, __GFP_NO_WATERMARK or __GFP_EMERGENCY are better?
-> 
-> We've been through this pick a better name thing several times :-/
-> 
-> Yes I agree, __GFP_MEMALLOC is a misnomer, however its consistent with
-> PF_MEMALLOC and __GFP_NOMEMALLOC - of which people know the semantics.
-> 
-> Creating a new name with similar semantics can only serve to confuse.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Fri, 25 Jul 2008 10:02:57 +0100
 
-Ah, understand.
-Thanks.
+> --- a/net/dccp/ipv4.c
+> +++ b/net/dccp/ipv4.c
+> @@ -207,7 +207,7 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
+>  	int err;
+>  	struct net *net = dev_net(skb->dev);
+>  
+> -	if (skb->len < (iph->ihl << 2) + 8) {
+> +	if (skb->len < (iph->ihl << 2) + __dccp_basic_hdr_len(dh)) {
+>  		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+>  		return;
+>  	}
 
-Agreed to __GFP_MEMALLOC.
+You can't dereference "dh" before you know there is even
+space past offset "iph->ihl << 2".  Yet that is what doing
+an unconditional __dccp_basic_hdr_len() call here is going
+to do.
 
-> 
-> So unless enough people think its worth renaming all of them, I think
-> we're better off with this name.
+The ipv6 patch has the same bug.
 
+The test probably needs to be something like:
 
+	if (skb->len < (iph->ihl << 2) + sizeof(*dh) ||
+	    skb->len < (iph->ihl << 2) + __dccp_basic_hdr_len(dh))
 
+in order to make the tests safely.
