@@ -1,50 +1,87 @@
-From: Marco Berizzi <pupilla@hotmail.com>
-Subject: RE: 2.6.26: [<c0133cc1>] __alloc_pages_internal+0x331/0x343
-Date: Fri, 25 Jul 2008 21:19:15 +0200
-Message-ID: <BAY103-W2394C864310066EAA69D95B2860@phx.gbl>
-References: <BAY103-DAV74E605DFBE7CC22EEA732B2870@phx.gbl>
- <E1KMO85-00052z-00@gondolin.me.apana.org.au>
- <20080725141953.GA19418@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: eliminate refcounting in backlog queue
+Date: Fri, 25 Jul 2008 12:32:12 -0700
+Message-ID: <20080725123212.393314a9@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s22.bay0.hotmail.com ([65.54.246.222]:49055 "EHLO
-	bay0-omc3-s22.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751373AbYGYTTQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2008 15:19:16 -0400
-In-Reply-To: <20080725141953.GA19418@gondor.apana.org.au>
+Received: from mail.vyatta.com ([216.93.170.194]:52508 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751028AbYGYTcO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2008 15:32:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Avoid the overhead of atomic increment/decrement on each received packet.
+This helps performance of non-NAPI devices (like loopback).
+Use cleanup function to walk queue on each cpu and clean out any
+left over packets.
 
-Herbert Xu wrote:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> On Fri, Jul 25, 2008 at 10:18:45PM +0800, Herbert Xu wrote:
->>
->> Pick one of these:
->>
->> 1) You have less RAM;
->> 2) Your memory fragmentation has deteriorated;
->> 3) Most likely: you were just lucky :)
->
-> Actually even more likely, someone
-
-This happened when I started the upgrade from 2.6.25.x to
-2.6.26 of my ipsec gateways: it take me few days to do: so,
-for a week I have both 2.6.25 and 2.6.26 running.
-
-> has sent you a huge packet
-> which triggered this (> 32K if I remember your trace correctly).
-
-this huge packet come from an ipsec tunnel? If yes
-linux 2.6.26 is sending this huge packets: this error
-happened also on systems where there are only ipsec
-tunnels to other linux boxes.
-_________________________________________________________________
-News, entertainment and everything you care about at Live.com. Get it now!
-http://www.live.com/getstarted.aspx
+--- a/net/core/dev.c	2008-07-25 11:27:07.000000000 -0700
++++ b/net/core/dev.c	2008-07-25 11:43:55.000000000 -0700
+@@ -1909,7 +1909,6 @@ int netif_rx(struct sk_buff *skb)
+ 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
+ 		if (queue->input_pkt_queue.qlen) {
+ enqueue:
+-			dev_hold(skb->dev);
+ 			__skb_queue_tail(&queue->input_pkt_queue, skb);
+ 			local_irq_restore(flags);
+ 			return NET_RX_SUCCESS;
+@@ -2270,6 +2269,20 @@ out:
+ 	return ret;
+ }
+ 
++/* Network device is going away, flush any packets still pending  */
++static void flush_backlog(void *arg)
++{
++	struct net_device *dev = arg;
++	struct softnet_data *queue = &__get_cpu_var(softnet_data);
++	struct sk_buff *skb, *tmp;
++
++	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
++		if (skb->dev == dev) {
++			__skb_unlink(skb, &queue->input_pkt_queue);
++			kfree_skb(skb);
++		}
++}
++
+ static int process_backlog(struct napi_struct *napi, int quota)
+ {
+ 	int work = 0;
+@@ -2279,7 +2292,6 @@ static int process_backlog(struct napi_s
+ 	napi->weight = weight_p;
+ 	do {
+ 		struct sk_buff *skb;
+-		struct net_device *dev;
+ 
+ 		local_irq_disable();
+ 		skb = __skb_dequeue(&queue->input_pkt_queue);
+@@ -2288,14 +2300,9 @@ static int process_backlog(struct napi_s
+ 			local_irq_enable();
+ 			break;
+ 		}
+-
+ 		local_irq_enable();
+ 
+-		dev = skb->dev;
+-
+ 		netif_receive_skb(skb);
+-
+-		dev_put(dev);
+ 	} while (++work < quota && jiffies == start_time);
+ 
+ 	return work;
+@@ -4165,6 +4172,8 @@ void netdev_run_todo(void)
+ 
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 
++		on_each_cpu(flush_backlog, dev, 1);
++
+ 		netdev_wait_allrefs(dev);
+ 
+ 		/* paranoia */
