@@ -1,53 +1,44 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: [PATCH] netns: fix ip_rt_frag_needed rt_is_expired
-Date: Sat, 26 Jul 2008 20:37:32 +0400
-Message-ID: <1217090252.6549.4.camel@iris.sw.ru>
-References: <Pine.LNX.4.64.0807261345400.6643@blonde.site>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
+	pointer dereference
+Date: Sat, 26 Jul 2008 19:34:50 +0200
+Message-ID: <20080726173450.GA2242@elte.hu>
+References: <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net> <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com> <48887A71.5010209@trash.net> <1216905812.5897.6.camel@penberg-laptop> <48888434.3030207@trash.net> <1216906476.12021.4.camel@penberg-laptop> <20080724115127.6cfbb616.akpm@linux-foundation.org> <20080724193532.GC1694@elte.hu> <488B4C1D.3020506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hugh Dickins <hugh@veritas.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
+	Dave Jones <davej@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:7201 "EHLO relay.sw.ru"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:46309 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751946AbYGZQlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jul 2008 12:41:15 -0400
-In-Reply-To: <Pine.LNX.4.64.0807261345400.6643@blonde.site>
+	id S1753445AbYGZRgS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2008 13:36:18 -0400
+Content-Disposition: inline
+In-Reply-To: <488B4C1D.3020506@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Denis V. Lunev <den@openvz.org>
 
-Thanks for founding this issue...
+* Patrick McHardy <kaber@trash.net> wrote:
 
-On Sat, 2008-07-26 at 13:48 +0100, Hugh Dickins wrote:
-> Running recent kernels, and using a particular vpn gateway, I've been
-> having to edit my mails down to get them accepted by the smtp server.
-> 
-> Git bisect led to commit e84f84f276473dcc673f360e8ff3203148bdf0e2 -
-> netns: place rt_genid into struct net.  The conversion from a != test
-> to rt_is_expired() put one negative too many: and now my mail works.
-> 
-> Signed-off-by: Hugh Dickins <hugh@veritas.com>
-> ---
-> Ingo was having strange distcc problems, might this help him too?
-> 
->  net/ipv4/route.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- 2.6.26-git/net/ipv4/route.c	2008-07-26 12:31:50.000000000 +0100
-> +++ linux/net/ipv4/route.c	2008-07-26 13:10:04.000000000 +0100
-> @@ -1502,7 +1502,7 @@ unsigned short ip_rt_frag_needed(struct 
->  				    rth->fl.iif != 0 ||
->  				    dst_metric_locked(&rth->u.dst, RTAX_MTU) ||
->  				    !net_eq(dev_net(rth->u.dst.dev), net) ||
-> -				    !rt_is_expired(rth))
-> +				    rt_is_expired(rth))
->  					continue;
->  
->  				if (new_mtu < 68 || new_mtu >= old_mtu) {
+> Ingo Molnar wrote:
+>> * Andrew Morton <akpm@linux-foundation.org> wrote:
+>>
+>>> Ingo, did this patch actually fix something over there?
+>>
+>> not that i know of. I'll do some re-tests tomorrow to make sure.
+>
+> I managed to reproduce the bug you reported, but it reliably goes away 
+> if I add Pekka's patch. Did you get a chance to retest already?
 
+not yet - please consider it fixed, i'll let you know if something 
+similar to that occurs.
+
+	Ingo
