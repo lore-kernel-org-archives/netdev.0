@@ -1,51 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Fri, 25 Jul 2008 16:55:39 -0700 (PDT)
-Message-ID: <20080725.165539.91586849.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
+Date: Fri, 25 Jul 2008 22:15:33 -0400
+Message-ID: <488A88C5.1070105@hp.com>
+References: <20080725152059.GA4656@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42026
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915AbYGYXzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 19:55:40 -0400
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:4718 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071AbYGZCPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2008 22:15:38 -0400
+In-Reply-To: <20080725152059.GA4656@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Gerrit Renker wrote:
+> I wonder if the two pieces of code as marked by the patch below still
+> serve a purpose. 
+> 
+> From grepping through the net/ code it seems they are both redundant.
+> 
+> This is on the basis that
+> 
+>  * the v6 counterparts of these handlers ({tcp,sctp}_v6_err) do not have
+>    this payload-length check;
+> 
+>  * icmp_unreach() in net/ipv4/icmp.c already has this test:
+> 
+> 	/* Checkin full IP header plus 8 bytes of protocol to
+> 	 * avoid additional coding at protocol handlers.
+> 	 */
+>         if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
+>                 goto out;
+>  
+>  * a similar test is implemented by icmpv6_notify() in net/ipv6/icmp.c;
+> 
+>  * this type of test seems to be absent in all of the following handlers:
+>    - tcp_v6_err()		- sctp_v6_err() 
+>    - __udp4_lib_err()		- __udp6_lib_err()
+>    - ah4_err()			- ah6_err()
+>    - esp4_err()			- esp6_err()
+>    - xfrm_tunnel_err()		- xfrm6_tunnel_err()
+>    - tunnel4_err()		- tunnel6_err()		- tunnel64_err()
+>    - ipip_err()			- ipip6_err()
+>    - ip4ip6_err()		- ip6ip6_err() 
+>    - ipcomp4_err()		- ipcomp6_err()
+> 
+> ---------------------------------------------------------------------------
+>  The following two are the exceptions in question.
+>  The question is whether there is a reason for the code marked below.
+> ---------------------------------------------------------------------------
+> 
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -344,11 +344,6 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
+>  	int err;
+>  	struct net *net = dev_net(skb->dev);
+>  
+> -	if (skb->len < (iph->ihl << 2) + 8) {
+> -		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+> -		return;
+> -	}
+> -
+>  	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
+>  			iph->saddr, th->source, inet_iif(skb));
+>  	if (!sk) {
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -534,11 +534,6 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
+>  	sk_buff_data_t saveip, savesctp;
+>  	int err;
+>  
+> -	if (skb->len < ihlen + 8) {
+> -		ICMP_INC_STATS_BH(&init_net, ICMP_MIB_INERRORS);
+> -		return;
+> -	}
+> -
+>  	/* Fix up skb to look at the embedded net header. */
+>  	saveip = skb->network_header;
+>  	savesctp = skb->transport_header;
 
-A fix for a lockdep problem reported by Ingo, and a cure
-for order-5 page allocations that can be triggered by
-IPCOMP decompression from Herbert Xu.
+This one looks useless.  Thanks for noticing.  I'll remove it.
 
-Please pull, thanks a lot!
+-vlad
 
-The following changes since commit f867e6af94239a04ec23aeec2fcda5aa58e41db7:
-  Jarek Poplawski (1):
-        pkt_sched: sch_sfq: dump a real number of flows
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (1):
-      pkt_sched: Fix locking in shutdown_scheduler_queue()
-
-Herbert Xu (2):
-      ipsec: ipcomp - Merge IPComp implementations
-      ipsec: ipcomp - Decompress into frags if necessary
-
- include/net/ipcomp.h    |    6 +
- net/ipv4/Kconfig        |    4 +-
- net/ipv4/ipcomp.c       |  315 +-------------------------------------
- net/ipv6/Kconfig        |    4 +-
- net/ipv6/ipcomp6.c      |  298 +-----------------------------------
- net/sched/sch_generic.c |    4 +-
- net/xfrm/Kconfig        |    6 +
- net/xfrm/Makefile       |    1 +
- net/xfrm/xfrm_ipcomp.c  |  385 +++++++++++++++++++++++++++++++++++++++++++++++
- 9 files changed, 415 insertions(+), 608 deletions(-)
- create mode 100644 net/xfrm/xfrm_ipcomp.c
