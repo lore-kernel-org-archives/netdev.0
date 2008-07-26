@@ -1,51 +1,44 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [pull-request] [net-2.6 PATCH 0/6] dccp: Revised ICMP / length
-	fixes
-Date: Sat, 26 Jul 2008 12:22:33 +0100
-Message-ID: <20080726112232.GA5582@gerrit.erg.abdn.ac.uk>
-References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk> <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
+From: Hugh Dickins <hugh@veritas.com>
+Subject: [PATCH] netns: fix ip_rt_frag_needed rt_is_expired
+Date: Sat, 26 Jul 2008 13:48:57 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0807261345400.6643@blonde.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Denis V. Lunev" <den@openvz.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44072 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751786AbYGZLWo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jul 2008 07:22:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
+Received: from extu-mxob-1.symantec.com ([216.10.194.28]:41444 "EHLO
+	extu-mxob-1.symantec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbYGZMuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 08:50:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Running recent kernels, and using a particular vpn gateway, I've been
+having to edit my mails down to get them accepted by the smtp server.
 
-this is an update on yesterday's submission, which was unnecessarily complex.
+Git bisect led to commit e84f84f276473dcc673f360e8ff3203148bdf0e2 -
+netns: place rt_genid into struct net.  The conversion from a != test
+to rt_is_expired() put one negative too many: and now my mail works.
 
-I have checked the whole set again and looked through dccp_invalid_packet()
-in net/dccp/ipv4.c. There is no need for additional protection: the routine
-makes sure that the skb is long enough for the Data Offset (header length),
-which is more than the __dccp_basic_hdr_len().      
-      
-The ICMPv4/6 packet length checks now in effect use the two-stage test you
-suggested, to ensure that the ICMP payload is long enough to access the
-first 12 bytes that __dccp_basic_hdr_len() dereferences.
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+---
+Ingo was having strange distcc problems, might this help him too?
 
-Please let me know if individual patches should be resubmitted again.
-I have not done this to reduce noise; in any case the changes are also online:
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-2.6.git;a=log
+ net/ipv4/route.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Patch #1: Implements support to distinguish original from retransmitted packets.
-Patch #2: Fixes a bug - AWL was never updated. Used by the third patch.
-Patch #3: Corrects ICMPv4 sequence number check to use AWL/H instead of SWL/H.
-Patch #4: Implements the check from patch #3 for ICMPv6.
-Patch #5: Fixes minimum-required length check for ICMPv4 embedded DCCP datagrams
-Patch #6: Same as patch #5, but for ICMPv6.
-
-
-These patches apply to net-2.6 (BUG_TRAP conversion) and can be pulled from
-
-      git://eden-feed.erg.abdn.ac.uk/net-2.6		(subtree `master')
-
-If necessary, I can prepare an upload for net-next-2.6 later.
-
-Gerrit
+--- 2.6.26-git/net/ipv4/route.c	2008-07-26 12:31:50.000000000 +0100
++++ linux/net/ipv4/route.c	2008-07-26 13:10:04.000000000 +0100
+@@ -1502,7 +1502,7 @@ unsigned short ip_rt_frag_needed(struct 
+ 				    rth->fl.iif != 0 ||
+ 				    dst_metric_locked(&rth->u.dst, RTAX_MTU) ||
+ 				    !net_eq(dev_net(rth->u.dst.dev), net) ||
+-				    !rt_is_expired(rth))
++				    rt_is_expired(rth))
+ 					continue;
+ 
+ 				if (new_mtu < 68 || new_mtu >= old_mtu) {
