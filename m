@@ -1,60 +1,45 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Kernel WARNING: at net/core/dev.c:1330
-	__netif_schedule+0x2c/0x98()
-Date: Sat, 26 Jul 2008 15:18:38 +0200
-Message-ID: <20080726131838.GA2873@ami.dom.local>
-References: <20080725193416.GB3107@ami.dom.local> <1217014575.4758.7.camel@johannes.berg> <20080725200137.GC3107@ami.dom.local> <20080726.021846.236624483.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet length
+ for qdiscs
+Date: Sat, 26 Jul 2008 15:21:42 +0200
+Message-ID: <488B24E6.4020003@trash.net>
+References: <20080725105748.GB10399@ff.dom.local>	<20080725.035712.33516738.davem@davemloft.net>	<20080725113757.GC10399@ff.dom.local> <20080725.044928.261427957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-BkyiQQGWkgE@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20080726.021846.236624483.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, jussi.kivilinna@mbnet.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:63592 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbYGZNVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 09:21:46 -0400
+In-Reply-To: <20080725.044928.261427957.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 26, 2008 at 02:18:46AM -0700, David Miller wrote:
-...
-> I think there might be an easier way, but we may have
-> to modify the state bits a little.
+David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Fri, 25 Jul 2008 11:37:57 +0000
 > 
-> Every call into ->hard_start_xmit() is made like this:
+>> On Fri, Jul 25, 2008 at 03:57:12AM -0700, David Miller wrote:
+>>> Even TCP depends upon that NET_XMIT_* return value having some real
+>>> meaning, remember the HTB bug we tracked down last week? :-)
+>> Do you mean this bug you've forgotten to fix yet?
 > 
-> 1. lock TX queue
-> 2. check TX queue stopped
-> 3. call ->hard_start_xmit() if not stopped
+> I have not forgotten, it is in TODO list. :)
 > 
-> This means that we can in fact do something like:
-> 
-> 	unsigned int i;
-> 
-> 	for (i = 0; i < dev->num_tx_queues; i++) {
-> 		struct netdev_queue *txq;
-> 
-> 		txq = netdev_get_tx_queue(dev, i);
-> 		spin_lock_bh(&txq->_xmit_lock);
-> 		netif_tx_freeze_queue(txq);
-> 		spin_unlock_bh(&txq->_xmit_lock);
-> 	}
-> 
-> netif_tx_freeze_queue() just sets a new bit we add.
-> 
-> Then we go to the ->hard_start_xmit() call sites and check this new
-> "frozen" bit as well as the existing "stopped" bit.
-> 
-> When we unfreeze each queue later, we see if it is stopped, and if not
-> we schedule it's qdisc for packet processing.
+> I want to also inquire with Patrick about whether he is going to
+> perform the audit in this area which he said he wanted to do :-)
 
-I guess some additional synchronization will be added yet to prevent
-parallel freeze and especially unfreeze.
+I'm a bit backlogged, so it will take some more time.
 
-Jarek P.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Well, we have patch which fixes the problem for the tester, so we
+> could just merge that and at least have HTB fixed.  But we know there
+> are other instances of the same return value propagation problem and
+> Patrick's audit is sure to turn up other similar turds...
+
+The other problem that affects all qdiscs supporting actions is
+TC_ACT_QUEUED/TC_ACT_STOLEN getting mapped to NET_XMIT_SUCCESS
+even though the packet is not queued, corrupting upper qdiscs'
+qlen counters.
