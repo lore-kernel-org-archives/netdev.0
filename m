@@ -1,43 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: sch_sfq: revert "dump a real number of
-	flows" patch
-Date: Sat, 26 Jul 2008 12:58:26 +0200
-Message-ID: <20080726105826.GB2524@ami.dom.local>
-References: <20080724094908.GA3946@ff.dom.local> <488851FB.4080407@trash.net> <20080724105352.GB3946@ff.dom.local> <20080726.022927.258834159.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [pull-request] [net-2.6 PATCH 0/6] dccp: Revised ICMP / length
+	fixes
+Date: Sat, 26 Jul 2008 12:22:33 +0100
+Message-ID: <20080726112232.GA5582@gerrit.erg.abdn.ac.uk>
+References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk> <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, denys@visp.net.lb, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:13799 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487AbYGZK6e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 06:58:34 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so56319ugf.16
-        for <netdev@vger.kernel.org>; Sat, 26 Jul 2008 03:58:32 -0700 (PDT)
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44072 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751786AbYGZLWo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2008 07:22:44 -0400
 Content-Disposition: inline
-In-Reply-To: <20080726.022927.258834159.davem@davemloft.net>
+In-Reply-To: <20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 26, 2008 at 02:29:27AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 24 Jul 2008 10:53:52 +0000
-> 
-> > On Thu, Jul 24, 2008 at 11:57:15AM +0200, Patrick McHardy wrote:
-> > ...
-> > > IIRC the ESFQ for SFQ patches even use
-> > > "flows" in ->init, so it might make things a bit more ugly if we
-> > > ever merge those patches.
-> > 
-> > This argument looks right to me.
-> > 
-> > David, please, apply this reverting patch.
-> 
-> I've reverted the changeset using "git revert".
-> 
+Hi Dave,
 
-Is it legal now? (I've seen this in Linus' tree already...)
+this is an update on yesterday's submission, which was unnecessarily complex.
 
-Thanks,
-Jarek P.
+I have checked the whole set again and looked through dccp_invalid_packet()
+in net/dccp/ipv4.c. There is no need for additional protection: the routine
+makes sure that the skb is long enough for the Data Offset (header length),
+which is more than the __dccp_basic_hdr_len().      
+      
+The ICMPv4/6 packet length checks now in effect use the two-stage test you
+suggested, to ensure that the ICMP payload is long enough to access the
+first 12 bytes that __dccp_basic_hdr_len() dereferences.
+
+Please let me know if individual patches should be resubmitted again.
+I have not done this to reduce noise; in any case the changes are also online:
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-2.6.git;a=log
+
+Patch #1: Implements support to distinguish original from retransmitted packets.
+Patch #2: Fixes a bug - AWL was never updated. Used by the third patch.
+Patch #3: Corrects ICMPv4 sequence number check to use AWL/H instead of SWL/H.
+Patch #4: Implements the check from patch #3 for ICMPv6.
+Patch #5: Fixes minimum-required length check for ICMPv4 embedded DCCP datagrams
+Patch #6: Same as patch #5, but for ICMPv6.
+
+
+These patches apply to net-2.6 (BUG_TRAP conversion) and can be pulled from
+
+      git://eden-feed.erg.abdn.ac.uk/net-2.6		(subtree `master')
+
+If necessary, I can prepare an upload for net-next-2.6 later.
+
+Gerrit
