@@ -1,53 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [regression] nf_iterate(), BUG: unable to handle kernel NULL
- pointer dereference
-Date: Sat, 26 Jul 2008 15:47:17 +0200
-Message-ID: <488B2AE5.9070106@trash.net>
-References: <20080724060448.GA10203@elte.hu>  <E1KLwlD-0001Ub-00@gondolin.me.apana.org.au>  <20080724.022259.113079007.davem@davemloft.net>  <20080724093411.GA12001@elte.hu> <20080724115625.GA23994@elte.hu>  <20080724115957.GA25701@elte.hu> <48886FA6.6050908@trash.net> <84144f020807240544q507e1b7cv220d1afbae0ee0f0@mail.gmail.com> <48887A71.5010209@trash.net> <alpine.LFD.1.10.0807241407410.8109@nehalem.linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet
+	length for qdiscs
+Date: Sat, 26 Jul 2008 16:18:44 +0200
+Message-ID: <20080726141844.GB2873@ami.dom.local>
+References: <20080725105748.GB10399@ff.dom.local> <20080725.035712.33516738.davem@davemloft.net> <20080725113757.GC10399@ff.dom.local> <20080725.044928.261427957.davem@davemloft.net> <488B24E6.4020003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, w@1wt.eu, davidn@davidnewall.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
-	rjw@sisk.pl, ilpo.jarvinen@helsinki.fi,
-	Dave Jones <davej@redhat.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64131 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbYGZNrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 09:47:21 -0400
-In-Reply-To: <alpine.LFD.1.10.0807241407410.8109@nehalem.linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:34467 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886AbYGZORV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 10:17:21 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so63261ugf.16
+        for <netdev@vger.kernel.org>; Sat, 26 Jul 2008 07:17:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <488B24E6.4020003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds wrote:
-> 
-> On Thu, 24 Jul 2008, Patrick McHardy wrote:
->> To fix this I think we need a __krealloc() that doesn't
->> free the old memory, especially since it must not be
->> freed immediately because it may still be used in a RCU
->> read side (see the last part in the patch attached to
->> this mail (based on a kernel without your patch)).
-> 
-> Hmm. Don't you need to fix some of the ordering of the initialization too?
-> 
-> If there are possible readers that happen in parallel with changing this 
-> thing, don't you need to protect the update of "ext->len" against the 
-> actual changes? And the readers should probably have a read barrier 
-> between checking "len" and actually looking at the values?
+On Sat, Jul 26, 2008 at 03:21:42PM +0200, Patrick McHardy wrote:
+> David Miller wrote:
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Fri, 25 Jul 2008 11:37:57 +0000
+>>
+>>> On Fri, Jul 25, 2008 at 03:57:12AM -0700, David Miller wrote:
+>>>> Even TCP depends upon that NET_XMIT_* return value having some real
+>>>> meaning, remember the HTB bug we tracked down last week? :-)
+>>> Do you mean this bug you've forgotten to fix yet?
+>>
+>> I have not forgotten, it is in TODO list. :)
+>>
+>> I want to also inquire with Patrick about whether he is going to
+>> perform the audit in this area which he said he wanted to do :-)
+>
+> I'm a bit backlogged, so it will take some more time.
+>
+>> Well, we have patch which fixes the problem for the tester, so we
+>> could just merge that and at least have HTB fixed.  But we know there
+>> are other instances of the same return value propagation problem and
+>> Patrick's audit is sure to turn up other similar turds...
 
-Extensions can only be added while the conntrack is "unconfirmed",
-meaning its not in the hash tables yet and the reference is exclusive.
-The reason why we need RCU at all is that the extension areas
-might already visible and contained in RCU protected lists.
+My proposal (as before) is to apply this patch now (it could hit more
+people than we know), but I would do small changes yet:
+- to do htb_activate() if (cl->un.leaf.q->q.qlen),
+- to skip bstats.packets and .bytes updating for anything but
+  NET_XMIT_SUCCESS,
+so, both things just like in sch_hfsc.
 
-> Finally, why do 
-> the "ct->ext" dereference thing, when we know it has to be equal to "new"?
+> The other problem that affects all qdiscs supporting actions is
+> TC_ACT_QUEUED/TC_ACT_STOLEN getting mapped to NET_XMIT_SUCCESS
+> even though the packet is not queued, corrupting upper qdiscs'
+> qlen counters.
 
-Thats a relict of the old code, which allocated "new" conditionally.
-I've taken that part from your patch without the smb_wmb(), which
-shouldn't be necessary.
+Why can't we (temporarily) simply check such cl->un.leaf.q->q.qlen
+before and after enqueing?
+
+Jarek P.
