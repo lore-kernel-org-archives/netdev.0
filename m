@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not)
- redundant?
-Date: Fri, 25 Jul 2008 21:38:57 -0700 (PDT)
-Message-ID: <20080725.213857.160776686.davem@davemloft.net>
-References: <20080725152059.GA4656@gerrit.erg.abdn.ac.uk>
-	<488A88C5.1070105@hp.com>
+Subject: Re: [PATCH 2/3] net: convert BUG_TRAP to generic WARN_ON
+Date: Fri, 25 Jul 2008 21:40:00 -0700 (PDT)
+Message-ID: <20080725.214000.202135581.davem@davemloft.net>
+References: <E1KMPJS-0005Dh-00@gondolin.me.apana.org.au>
+	<20080725.132105.175832134.davem@davemloft.net>
+	<Pine.LNX.4.64.0807260003200.11441@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54160
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54164
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750729AbYGZEi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2008 00:38:58 -0400
-In-Reply-To: <488A88C5.1070105@hp.com>
+	by vger.kernel.org with ESMTP id S1751028AbYGZEkA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2008 00:40:00 -0400
+In-Reply-To: <Pine.LNX.4.64.0807260003200.11441@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri, 25 Jul 2008 22:15:33 -0400
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 26 Jul 2008 00:19:42 +0300 (EEST)
 
-> Gerrit Renker wrote:
-> >  * icmp_unreach() in net/ipv4/icmp.c already has this test:
-> > 
-> > 	/* Checkin full IP header plus 8 bytes of protocol to
-> > 	 * avoid additional coding at protocol handlers.
-> > 	 */
-> >         if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
-> >                 goto out;
+> Thanks! I thought Herbert patch was related but since I couldn't find=
+ it=20
+> in your tree I assumed that you volunteer to fix it like you usually =
+do=20
+> with the other people too who are hit by a merge conflicts due to som=
+e=20
+> very recent merges. Afterwards I realized that I could have just
+> included his patch locally but honestly it was after I made and sent
+> that one out... :-)
 
-I just noticed that this won't bump the ICMP MIB counter.
-
-The ICMP code will only bump the counter if the IP header isn't there,
-or has a bogus header length.
-
-But it is clear in the callers that the intention is (or was) to bump
-the counter if the 8 bytes of post IP header bits are not there.
+No worries :)
