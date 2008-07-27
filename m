@@ -1,34 +1,25 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
-Date: Sun, 27 Jul 2008 12:51:21 +0800
-Message-ID: <20080727045121.GA419@gondor.apana.org.au>
-References: <20080726.003617.265743493.davem@davemloft.net> <E1KMyB1-00006Y-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gerrit@erg.abdn.ac.uk, vladislav.yasevich@hp.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH 0/3] Blackfin EMAC Driver updates for 2.6.27
+Date: Sun, 27 Jul 2008 14:13:52 +0800
+Message-ID: <1217139235-19018-1-git-send-email-cooloney@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51545 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753015AbYG0Eva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 00:51:30 -0400
-Content-Disposition: inline
-In-Reply-To: <E1KMyB1-00006Y-00@gondolin.me.apana.org.au>
+Received: from ti-out-0910.google.com ([209.85.142.185]:33825 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750753AbYG0GOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 02:14:12 -0400
+Received: by ti-out-0910.google.com with SMTP id b6so2056579tic.23
+        for <netdev@vger.kernel.org>; Sat, 26 Jul 2008 23:14:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 27, 2008 at 12:48:11PM +0800, Herbert Xu wrote:
-> David Miller <davem@davemloft.net> wrote:
-> >
-> > What if the lower protocol doesn't have a header that it
-> > at least 8 bytes? :-)
-> 
-> When such a protocol enters our tree then we can undo this patch :)
 
-OK I take that back as IPComp is only 4 bytes long :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hi Jeff,
+
+Please take a look at these Blackfin EMAC driver updates for 2.6.27
+
+Thanks
+-Bryan
+
