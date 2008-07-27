@@ -1,46 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Fix ipcomp warnings...
-Date: Sun, 27 Jul 2008 04:00:36 -0700 (PDT)
-Message-ID: <20080727.040036.107691966.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]: Fix ipcomp warnings...
+Date: Sun, 27 Jul 2008 19:39:19 +0800
+Message-ID: <20080727113919.GA2473@gondor.apana.org.au>
+References: <20080727.040036.107691966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60918
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751030AbYG0LAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 07:00:37 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:45076 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757409AbYG0LjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 07:39:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20080727.040036.107691966.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpIZXJiZXJ0IGp1c3QgRllJLCBJIGNoZWNrZWQgdGhlIGZvbGxvd2luZyBpbnRvIG5ldC0yLjYN
-Cg0KaXBjb21wOiBGaXggd2FybmluZ3MgYWZ0ZXIgaXBjb21wIGNvbnNvbGlkYXRpb24uDQoNCm5l
-dC9pcHY0L2lwY29tcC5jOiBJbiBmdW5jdGlvbiDigJhpcGNvbXA0X2luaXRfc3RhdGXigJk6DQpu
-ZXQvaXB2NC9pcGNvbXAuYzoxMDk6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSDigJhjYWxnX2Rl
-c2PigJkNCm5ldC9pcHY0L2lwY29tcC5jOjEwODogd2FybmluZzogdW51c2VkIHZhcmlhYmxlIOKA
-mGlwY2TigJkNCm5ldC9pcHY0L2lwY29tcC5jOjEwNzogd2FybmluZzog4oCYZXJy4oCZIG1heSBi
-ZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbg0KbmV0L2lwdjYvaXBjb21wNi5j
-OiBJbiBmdW5jdGlvbiDigJhpcGNvbXA2X2luaXRfc3RhdGXigJk6DQpuZXQvaXB2Ni9pcGNvbXA2
-LmM6MTM5OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUg4oCYY2FsZ19kZXNj4oCZDQpuZXQvaXB2
-Ni9pcGNvbXA2LmM6MTM4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUg4oCYaXBjZOKAmQ0KbmV0
-L2lwdjYvaXBjb21wNi5jOjEzNzogd2FybmluZzog4oCYZXJy4oCZIG1heSBiZSB1c2VkIHVuaW5p
-dGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbg0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxs
-ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBuZXQvaXB2NC9pcGNvbXAuYyAgfCAgICA0
-ICstLS0NCiBuZXQvaXB2Ni9pcGNvbXA2LmMgfCAgICA0ICstLS0NCiAyIGZpbGVzIGNoYW5nZWQs
-IDIgaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL25ldC9pcHY0
-L2lwY29tcC5jIGIvbmV0L2lwdjQvaXBjb21wLmMNCmluZGV4IGE0MmI2NGQuLjM4Y2NiNmQgMTAw
-NjQ0DQotLS0gYS9uZXQvaXB2NC9pcGNvbXAuYw0KKysrIGIvbmV0L2lwdjQvaXBjb21wLmMNCkBA
-IC0xMDQsOSArMTA0LDcgQEAgb3V0Og0KIA0KIHN0YXRpYyBpbnQgaXBjb21wNF9pbml0X3N0YXRl
-KHN0cnVjdCB4ZnJtX3N0YXRlICp4KQ0KIHsNCi0JaW50IGVycjsNCi0Jc3RydWN0IGlwY29tcF9k
-YXRhICppcGNkOw0KLQlzdHJ1Y3QgeGZybV9hbGdvX2Rlc2MgKmNhbGdfZGVzYzsNCisJaW50IGVy
-ciA9IC1FSU5WQUw7DQogDQogCXgtPnByb3BzLmhlYWRlcl9sZW4gPSAwOw0KIAlzd2l0Y2ggKHgt
-PnByb3BzLm1vZGUpIHsNCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9pcGNvbXA2LmMgYi9uZXQvaXB2
-Ni9pcGNvbXA2LmMNCmluZGV4IDBjZmNlYTQuLjQ1NDVlNDMgMTAwNjQ0DQotLS0gYS9uZXQvaXB2
-Ni9pcGNvbXA2LmMNCisrKyBiL25ldC9pcHY2L2lwY29tcDYuYw0KQEAgLTEzNCw5ICsxMzQsNyBA
-QCBvdXQ6DQogDQogc3RhdGljIGludCBpcGNvbXA2X2luaXRfc3RhdGUoc3RydWN0IHhmcm1fc3Rh
-dGUgKngpDQogew0KLQlpbnQgZXJyOw0KLQlzdHJ1Y3QgaXBjb21wX2RhdGEgKmlwY2Q7DQotCXN0
-cnVjdCB4ZnJtX2FsZ29fZGVzYyAqY2FsZ19kZXNjOw0KKwlpbnQgZXJyID0gLUVJTlZBTDsNCiAN
-CiAJeC0+cHJvcHMuaGVhZGVyX2xlbiA9IDA7DQogCXN3aXRjaCAoeC0+cHJvcHMubW9kZSkgew0K
-LS0gDQoxLjYuMC5yYzAuMTQuZzk1ZjgNCg0K
+On Sun, Jul 27, 2008 at 04:00:36AM -0700, David Miller wrote:
+> 
+> Herbert just FYI, I checked the following into net-2.6
+
+Thanks Dave! I think when I tested this somehow the kernel decided
+to do a total rebuild so the warnings slipped through.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
