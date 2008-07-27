@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [pull-request] [net-2.6 PATCH 0/6] dccp: Revised ICMP / length
- fixes
-Date: Sun, 27 Jul 2008 05:03:07 -0700 (PDT)
-Message-ID: <20080727.050307.213455767.davem@davemloft.net>
-References: <1216976578-17767-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20080725142834.GA7422@gerrit.erg.abdn.ac.uk>
-	<20080726112232.GA5582@gerrit.erg.abdn.ac.uk>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH 1/3] Blackfin EMAC Driver: add proper __devinit/__devexit markings
+Date: Sun, 27 Jul 2008 09:03:27 -0400
+Message-ID: <8bd0f97a0807270603s2d3ac6f7q3735b2ac6e31a22c@mail.gmail.com>
+References: <1217139235-19018-1-git-send-email-cooloney@kernel.org>
+	 <1217139235-19018-2-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36044
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751194AbYG0MDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 08:03:07 -0400
-In-Reply-To: <20080726112232.GA5582@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: "Bryan Wu" <cooloney@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757214AbYG0NDl@vger.kernel.org>
+In-Reply-To: <1217139235-19018-2-git-send-email-cooloney@kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat, 26 Jul 2008 12:22:33 +0100
+On Sun, Jul 27, 2008 at 2:13 AM, Bryan Wu wrote:
+> From: Mike Frysinger <vapier.adi@gmail.com>
+>
+> Signed-off-by: Mike Frysinger <vapier.adi@gmail.com>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> ---
+>  drivers/net/bfin_mac.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+> index 4144343..e18a7ee 100644
+> --- a/drivers/net/bfin_mac.c
+> +++ b/drivers/net/bfin_mac.c
+> @@ -614,7 +614,7 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+>         * Is skb->data always 16-bit aligned?
+>         * Do we need to memcpy((char *)(tail->packet + 2), skb->data, len)?
+>         */
+> -       if ((((unsigned int)(skb->data)) & 0x02) == 2) {
+> +       if ((((unsigned int)(skb->data)) & 0x01) == 0) {
+>                /* move skb->data to current_tx_ptr payload */
+>                data = (unsigned int)(skb->data) - 2;
+>                *((unsigned short *)data) = (unsigned short)(skb->len);
 
-> Patch #1: Implements support to distinguish original from retransmitted packets.
-> Patch #2: Fixes a bug - AWL was never updated. Used by the third patch.
-> Patch #3: Corrects ICMPv4 sequence number check to use AWL/H instead of SWL/H.
-> Patch #4: Implements the check from patch #3 for ICMPv6.
-> Patch #5: Fixes minimum-required length check for ICMPv4 embedded DCCP datagrams
-> Patch #6: Same as patch #5, but for ICMPv6.
-> 
-> 
-> These patches apply to net-2.6 (BUG_TRAP conversion) and can be pulled from
-> 
->       git://eden-feed.erg.abdn.ac.uk/net-2.6		(subtree `master')
-
-Pulled, thanks Gerrit.
-
-> If necessary, I can prepare an upload for net-next-2.6 later.
-
-net-next-2.6 can be ignored for at least another week or so.
+i think this unrelated hunk slipped in
+-mike
