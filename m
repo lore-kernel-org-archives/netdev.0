@@ -1,125 +1,129 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/7] dccp tfrc: Receiver history initialisation routine
-Date: Mon, 28 Jul 2008 19:14:00 +0100
-Message-ID: <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/7] dccp tfrc: Perform early loss detection
+Date: Mon, 28 Jul 2008 19:14:01 +0100
+Message-ID: <1217268843-19667-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_updates_ecn_and_rfc3448bis>
  <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58295 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757442AbYG1SOX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 14:14:23 -0400
-In-Reply-To: <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1757468AbYG1SO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 14:14:26 -0400
+In-Reply-To: <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch
- 1) separates history allocation and initialisation, to facilitate early
-    loss detection (implemented by a subsequent patch);
+This enables the TFRC code to begin loss detection (as soon as the module
+is loaded), using the latest updates from rfc3448bis-06, 6.3.1:
 
- 2) removes duplication by using the existing tfrc_rx_hist_purge() if the
-    allocation fails. This is now possible, since the initialisation routine
- 3) zeroes out the entire history before using it.
+ * when the first data packet(s) are lost or marked, set
+ * X_target = s/(2*R) => f(p) = s/(R * X_target) = 2,
+ * corresponding to a loss rate of ~ 20.64%.
+
+The handle_loss() function is now called right at the begin of rx_packet_recv()
+and thus no longer protected against duplicates: hence a call to rx_duplicate()
+has been added.  Such a call makes sense now, as the previous patch initialises
+the first entry with a sequence number of GSR.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c              |    2 +-
- net/dccp/ccids/lib/packet_history.c |   52 ++++++++++++++++++++---------------
- net/dccp/ccids/lib/packet_history.h |    2 +-
- 3 files changed, 32 insertions(+), 24 deletions(-)
+ net/dccp/ccids/ccid3.c              |   48 ++++++++++++++++++++++++++++------
+ net/dccp/ccids/lib/packet_history.c |    3 ++
+ 2 files changed, 42 insertions(+), 9 deletions(-)
 
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -153,7 +153,7 @@ extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
- 				struct sock *sk);
- extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
- 				   const struct sk_buff *skb);
--extern int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h);
-+extern int  tfrc_rx_hist_init(struct tfrc_rx_hist *h, struct sock *sk);
- extern void tfrc_rx_hist_purge(struct tfrc_rx_hist *h);
- 
- #endif /* _DCCP_PKT_HIST_ */
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -352,28 +352,6 @@ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
- }
- EXPORT_SYMBOL_GPL(tfrc_rx_handle_loss);
- 
--int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
--{
--	int i;
--
--	for (i = 0; i <= TFRC_NDUPACK; i++) {
--		h->ring[i] = kmem_cache_alloc(tfrc_rx_hist_slab, GFP_ATOMIC);
--		if (h->ring[i] == NULL)
--			goto out_free;
--	}
--
--	h->loss_count = h->loss_start = 0;
--	return 0;
--
--out_free:
--	while (i-- != 0) {
--		kmem_cache_free(tfrc_rx_hist_slab, h->ring[i]);
--		h->ring[i] = NULL;
--	}
--	return -ENOBUFS;
--}
--EXPORT_SYMBOL_GPL(tfrc_rx_hist_alloc);
--
- void tfrc_rx_hist_purge(struct tfrc_rx_hist *h)
- {
- 	int i;
-@@ -386,6 +364,36 @@ void tfrc_rx_hist_purge(struct tfrc_rx_hist *h)
- }
- EXPORT_SYMBOL_GPL(tfrc_rx_hist_purge);
- 
-+static int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
-+{
-+	int i;
-+
-+	memset(h, 0, sizeof(*h));
-+
-+	for (i = 0; i <= TFRC_NDUPACK; i++) {
-+		h->ring[i] = kmem_cache_alloc(tfrc_rx_hist_slab, GFP_ATOMIC);
-+		if (h->ring[i] == NULL) {
-+			tfrc_rx_hist_purge(h);
-+			return -ENOBUFS;
-+		}
-+	}
-+	return 0;
-+}
-+
-+int tfrc_rx_hist_init(struct tfrc_rx_hist *h, struct sock *sk)
-+{
-+	if (tfrc_rx_hist_alloc(h))
-+		return -ENOBUFS;
-+	/*
-+	 * Initialise first entry with GSR to start loss detection as early as
-+	 * possible. Code using this must not use any other fields. The entry
-+	 * will be overwritten once the CCID updates its received packets.
-+	 */
-+	tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno = dccp_sk(sk)->dccps_gsr;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tfrc_rx_hist_init);
-+
- /**
-  * tfrc_rx_hist_rtt_last_s - reference entry to compute RTT samples against
-  */
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -766,7 +766,7 @@ static int ccid3_hc_rx_init(struct ccid *ccid, struct sock *sk)
+@@ -577,6 +577,28 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
+ 		hcrx->p_inverse = ~0U;   /* see RFC 4342, 8.5 */
+ 		break;
+ 	case CCID3_FBACK_PARAM_CHANGE:
++		if (unlikely(hcrx->state == TFRC_RSTATE_NO_DATA)) {
++			/*
++			 * rfc3448bis-06, 6.3.1: First packet(s) lost or marked
++			 * FIXME: in rfc3448bis the receiver returns X_recv=0
++			 * here as it normally would in the first feedback packet.
++			 * However this is not possible yet, since the code still
++			 * uses RFC 3448, i.e.
++			 *    If (p > 0)
++			 *      Calculate X_calc using the TCP throughput equation.
++			 *      X = max(min(X_calc, 2*X_recv), s/t_mbi);
++			 * would bring X down to s/t_mbi. That is why we return
++			 * X_recv according to rfc3448bis-06 for the moment.
++			 */
++			u32 rtt = hcrx->rtt ? : DCCP_FALLBACK_RTT, s = hcrx->s;
++
++			if (s == 0) {
++				DCCP_WARN("No sample for s, using fallback\n");
++				s = TCP_MIN_RCVMSS;
++			}
++			hcrx->x_recv = scaled_div32(s, 2 * rtt);
++			break;
++		}
+ 		/*
+ 		 * When parameters change (new loss or p > p_prev), we do not
+ 		 * have a reliable estimate for R_m of [RFC 3448, 6.2] and so
+@@ -650,6 +672,14 @@ static u32 ccid3_first_li(struct sock *sk)
+ 	u32 x_recv, p, delta;
+ 	u64 fval;
  
- 	hcrx->state = TFRC_RSTATE_NO_DATA;
- 	tfrc_lh_init(&hcrx->li_hist);
--	return tfrc_rx_hist_alloc(&hcrx->hist);
-+	return tfrc_rx_hist_init(&hcrx->hist, sk);
- }
++	/*
++	 * rfc3448bis-06, 6.3.1: First data packet(s) are marked or lost. Set p
++	 * to give the equivalent of X_target = s/(2*R). Thus fval = 2 and so p
++	 * is about 20.64%. This yields an interval length of 4.84 (rounded up).
++	 */
++	if (unlikely(hcrx->state == TFRC_RSTATE_NO_DATA))
++		return 5;
++
+ 	if (hcrx->rtt == 0) {
+ 		DCCP_WARN("No RTT estimate available, using fallback RTT\n");
+ 		hcrx->rtt = DCCP_FALLBACK_RTT;
+@@ -683,6 +713,15 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	const u64 ndp = dccp_sk(sk)->dccps_options_received.dccpor_ndp;
+ 	const bool is_data_packet = dccp_data_packet(skb);
  
- static void ccid3_hc_rx_exit(struct sock *sk)
++	/*
++	 * Perform loss detection and handle pending losses
++	 */
++	if (tfrc_rx_handle_loss(&hcrx->hist, &hcrx->li_hist,
++				skb, ndp, ccid3_first_li, sk)) {
++		do_feedback = CCID3_FBACK_PARAM_CHANGE;
++		goto done_receiving;
++	}
++
+ 	if (unlikely(hcrx->state == TFRC_RSTATE_NO_DATA)) {
+ 		if (is_data_packet) {
+ 			const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
+@@ -710,15 +749,6 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 		hcrx->bytes_recv += payload;
+ 	}
+ 
+-	/*
+-	 * Perform loss detection and handle pending losses
+-	 */
+-	if (tfrc_rx_handle_loss(&hcrx->hist, &hcrx->li_hist,
+-				skb, ndp, ccid3_first_li, sk)) {
+-		do_feedback = CCID3_FBACK_PARAM_CHANGE;
+-		goto done_receiving;
+-	}
+-
+ 	if (tfrc_rx_hist_loss_pending(&hcrx->hist))
+ 		return; /* done receiving */
+ 
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -335,6 +335,9 @@ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ {
+ 	int is_new_loss = 0;
+ 
++	if (tfrc_rx_hist_duplicate(h, skb))
++		return 0;
++
+ 	if (h->loss_count == 0) {
+ 		__do_track_loss(h, skb, ndp);
+ 	} else if (h->loss_count == 1) {
