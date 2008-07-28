@@ -1,96 +1,125 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/7] dccp ccid-3: Runtime verification of timer resolution
-Date: Mon, 28 Jul 2008 19:13:57 +0100
-Message-ID: <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/7] dccp tfrc: Receiver history initialisation routine
+Date: Mon, 28 Jul 2008 19:14:00 +0100
+Message-ID: <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_updates_ecn_and_rfc3448bis>
  <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58295 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756822AbYG1SOU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 14:14:20 -0400
-In-Reply-To: <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1757442AbYG1SOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 14:14:23 -0400
+In-Reply-To: <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This prevents module loading when the timer resolution is too low
-(e.g. when using jiffies as a clocksource or when disabling high
-resolution timers on sparc64).
+This patch
+ 1) separates history allocation and initialisation, to facilitate early
+    loss detection (implemented by a subsequent patch);
 
-Rationale:
-----------
-The DCCP base time resolution is 10 microseconds (RFC 4340, 13.1...3). Using a
-timer with a lower resolution than that was found to trigger the following bug
-warnings/problems on high-speed networks (e.g. local loopback):
-
- * small RTT samples are rounded down to 0
-  (in some cases, even negative RTT samples occurred);
- * the CCID-3 feedback timer complains that the feedback interval is 0,
-   since the coarse-grained resolution rounds RTT-wise intervals down.
-
-The following syslog messages were observed with a low resolution:
-  11:24:00 kernel: BUG: delta (0) <= 0 at ccid3_hc_rx_send_feedback()
-  11:26:12 kernel: BUG: delta (0) <= 0 at ccid3_hc_rx_send_feedback()
-  11:26:30 kernel: dccp_sample_rtt: unusable RTT sample 0, using min
-  11:26:30 last message repeated 5 times
+ 2) removes duplication by using the existing tfrc_rx_hist_purge() if the
+    allocation fails. This is now possible, since the initialisation routine
+ 3) zeroes out the entire history before using it.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c |   13 +++++++++++++
- net/dccp/dccp.h        |    5 ++++-
- net/dccp/timer.c       |    3 +--
- 3 files changed, 18 insertions(+), 3 deletions(-)
+ net/dccp/ccids/ccid3.c              |    2 +-
+ net/dccp/ccids/lib/packet_history.c |   52 ++++++++++++++++++++---------------
+ net/dccp/ccids/lib/packet_history.h |    2 +-
+ 3 files changed, 32 insertions(+), 24 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -86,10 +86,13 @@ extern void dccp_time_wait(struct sock *sk, int state, int timeo);
-  */
- #define DCCP_RTO_MAX ((unsigned)(64 * HZ))
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -153,7 +153,7 @@ extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ 				struct sock *sk);
+ extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
+ 				   const struct sk_buff *skb);
+-extern int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h);
++extern int  tfrc_rx_hist_init(struct tfrc_rx_hist *h, struct sock *sk);
+ extern void tfrc_rx_hist_purge(struct tfrc_rx_hist *h);
  
-+/* DCCP base time resolution - 10 microseconds (RFC 4340, 13.1 ... 13.3) */
-+#define DCCP_TIME_RESOLUTION	10
+ #endif /* _DCCP_PKT_HIST_ */
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -352,28 +352,6 @@ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_handle_loss);
+ 
+-int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
+-{
+-	int i;
+-
+-	for (i = 0; i <= TFRC_NDUPACK; i++) {
+-		h->ring[i] = kmem_cache_alloc(tfrc_rx_hist_slab, GFP_ATOMIC);
+-		if (h->ring[i] == NULL)
+-			goto out_free;
+-	}
+-
+-	h->loss_count = h->loss_start = 0;
+-	return 0;
+-
+-out_free:
+-	while (i-- != 0) {
+-		kmem_cache_free(tfrc_rx_hist_slab, h->ring[i]);
+-		h->ring[i] = NULL;
+-	}
+-	return -ENOBUFS;
+-}
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_alloc);
+-
+ void tfrc_rx_hist_purge(struct tfrc_rx_hist *h)
+ {
+ 	int i;
+@@ -386,6 +364,36 @@ void tfrc_rx_hist_purge(struct tfrc_rx_hist *h)
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_purge);
+ 
++static int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
++{
++	int i;
 +
- /*
-  * RTT sampling: sanity bounds and fallback RTT value from RFC 4340, section 3.4
++	memset(h, 0, sizeof(*h));
++
++	for (i = 0; i <= TFRC_NDUPACK; i++) {
++		h->ring[i] = kmem_cache_alloc(tfrc_rx_hist_slab, GFP_ATOMIC);
++		if (h->ring[i] == NULL) {
++			tfrc_rx_hist_purge(h);
++			return -ENOBUFS;
++		}
++	}
++	return 0;
++}
++
++int tfrc_rx_hist_init(struct tfrc_rx_hist *h, struct sock *sk)
++{
++	if (tfrc_rx_hist_alloc(h))
++		return -ENOBUFS;
++	/*
++	 * Initialise first entry with GSR to start loss detection as early as
++	 * possible. Code using this must not use any other fields. The entry
++	 * will be overwritten once the CCID updates its received packets.
++	 */
++	tfrc_rx_hist_loss_prev(h)->tfrchrx_seqno = dccp_sk(sk)->dccps_gsr;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(tfrc_rx_hist_init);
++
+ /**
+  * tfrc_rx_hist_rtt_last_s - reference entry to compute RTT samples against
   */
--#define DCCP_SANE_RTT_MIN	100
-+#define DCCP_SANE_RTT_MIN	(10 * DCCP_TIME_RESOLUTION)
- #define DCCP_FALLBACK_RTT	(USEC_PER_SEC / 5)
- #define DCCP_SANE_RTT_MAX	(3 * USEC_PER_SEC)
- 
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -869,6 +869,19 @@ MODULE_PARM_DESC(ccid3_debug, "Enable debug messages");
+@@ -766,7 +766,7 @@ static int ccid3_hc_rx_init(struct ccid *ccid, struct sock *sk)
  
- static __init int ccid3_module_init(void)
- {
-+	struct timespec tp;
-+
-+	/*
-+	 * Without a fine-grained clock resolution, RTTs/X_recv are not sampled
-+	 * correctly and feedback is sent either too early or too late.
-+	 */
-+	hrtimer_get_res(CLOCK_MONOTONIC, &tp);
-+	if (tp.tv_sec || tp.tv_nsec > DCCP_TIME_RESOLUTION * NSEC_PER_USEC) {
-+		printk(KERN_ERR "%s: Timer too coarse (%ld usec), need %u-usec"
-+		       " resolution - check your clocksource.\n", __func__,
-+		       tp.tv_nsec/NSEC_PER_USEC, DCCP_TIME_RESOLUTION);
-+		return -ESOCKTNOSUPPORT;
-+	}
- 	return ccid_register(&ccid3);
+ 	hcrx->state = TFRC_RSTATE_NO_DATA;
+ 	tfrc_lh_init(&hcrx->li_hist);
+-	return tfrc_rx_hist_alloc(&hcrx->hist);
++	return tfrc_rx_hist_init(&hcrx->hist, sk);
  }
- module_init(ccid3_module_init);
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -281,8 +281,7 @@ u32 dccp_timestamp(void)
- {
- 	s64 delta = ktime_us_delta(ktime_get_real(), dccp_timestamp_seed);
  
--	do_div(delta, 10);
--	return delta;
-+	return div_u64(delta, DCCP_TIME_RESOLUTION);
- }
- EXPORT_SYMBOL_GPL(dccp_timestamp);
- 
+ static void ccid3_hc_rx_exit(struct sock *sk)
