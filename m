@@ -1,50 +1,54 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not)	redundant?
-Date: Mon, 28 Jul 2008 14:09:55 -0400
-Message-ID: <488E0B73.8070701@hp.com>
-References: <20080727045121.GA419@gondor.apana.org.au> <20080728112527.GB7589@gerrit.erg.abdn.ac.uk> <488DC63A.3070309@hp.com> <20080728170846.GB3762@gerrit.erg.abdn.ac.uk> <488E0192.9030406@hp.com> <20080728174432.GA15892@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 7/7] dccp ccid-3: Replace lazy BUG_ON with condition
+Date: Mon, 28 Jul 2008 19:14:03 +0100
+Message-ID: <1217268843-19667-8-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <ccid3_updates_ecn_and_rfc3448bis>
+ <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-7-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:36220 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511AbYG1SJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 14:09:58 -0400
-In-Reply-To: <20080728174432.GA15892@gerrit.erg.abdn.ac.uk>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58295 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753250AbYG1SOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 14:14:17 -0400
+In-Reply-To: <1217268843-19667-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gerrit Renker wrote:
-> | > In TCP, the 8 bytes happen to be enough for doing sequence number checks. Other
-> | > protocols have different header lengths and semantics. Thus doing the checks
-> | > at the transport layer makes more sense than in the ICMP handler.
-> | > 
-> | > RFC 1122 is almost 20 years old, from a time before IPcomp, SCTP, or DCCP.
-> | 
-> | So the suggestion really is then to remove the length check icmp_unreach()?
-> | 
-> Yes, but there are a large number of handlers in which the check is absent
-> (TCPv4, SCTPv4 and DCCP are exceptions). This would need to be added.
-> 
-> The ipv6/icmp.c code agrees with your suggestion of using 8 bytes as
-> lower bound.
-> 
-> I did not want to jump to the conclusion of writing a patch, since there are
-> more complex uses of ICMP (such as in a nested tunnel, perhaps with IPsec).
-> This needs to be understood.
-> 
+The BUG_ON(w_tot == 0) only holds if there is no more than 1 loss interval in
+the loss history. If there is only a single loss interval, the calc_i_mean()
+routine need in fact not be called (RFC 3448, 6.3.1).
 
-Well, simply from the ICMP protocol perspective the 8 byte lower bound is all
-that's required.  Each tunnel decapsulation point would have to provide it's own
-additional validation on top of the 8 byte, but everyone should be guaranteed at
-least 8 bytes for IPv4 ICMP errors.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/lib/loss_interval.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-The IPv6 checks are much different.  The MUST requirement is to provide as much
-data as possible upto IPv6 min mtu.  So, the IPv6 icmp code should probably look
-to see if min(payload_len, min_mtu) is provided.
-
--vlad
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -67,7 +67,10 @@ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
+ 	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
+ 	int i, k = tfrc_lh_length(lh) - 1; /* k is as in rfc3448bis, 5.4 */
+ 
+-	for (i=0; i <= k; i++) {
++	if (k <= 0)
++		return;
++
++	for (i = 0; i <= k; i++) {
+ 		i_i = tfrc_lh_get_interval(lh, i);
+ 
+ 		if (i < k) {
+@@ -78,7 +81,6 @@ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
+ 			i_tot1 += i_i * tfrc_lh_weights[i-1];
+ 	}
+ 
+-	BUG_ON(w_tot == 0);
+ 	lh->i_mean = max(i_tot0, i_tot1) / w_tot;
+ }
+ 
