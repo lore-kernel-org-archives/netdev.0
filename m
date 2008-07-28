@@ -1,54 +1,56 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 7/7] dccp ccid-3: Replace lazy BUG_ON with condition
-Date: Mon, 28 Jul 2008 19:14:03 +0100
-Message-ID: <1217268843-19667-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [RFC/RFT] [PATCH 0/7] dccp: CCID-3 updates
+Date: Mon, 28 Jul 2008 19:13:56 +0100
+Message-ID: <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_updates_ecn_and_rfc3448bis>
- <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217268843-19667-7-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58295 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753250AbYG1SOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 14:14:17 -0400
-In-Reply-To: <1217268843-19667-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1752538AbYG1SOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 14:14:16 -0400
+In-Reply-To: <ccid3_updates_ecn_and_rfc3448bis>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BUG_ON(w_tot == 0) only holds if there is no more than 1 loss interval in
-the loss history. If there is only a single loss interval, the calc_i_mean()
-routine need in fact not be called (RFC 3448, 6.3.1).
+This and the following changesets are updates for the CCID-3 code in the DCCP
+test tree. They have been in my development tree for a while and seem to be
+stable. Review and comments would be appreciated.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/lib/loss_interval.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Purpose:
+--------
+ 1. general updates;
+ 2. update the CCID-3 code to support ECN (this is not supported yet);
+ 3. update the CCID-3 code with regard to rfc3448bis-06, which is soon to
+    become an RFC. This work is ongoing and takes time.
 
---- a/net/dccp/ccids/lib/loss_interval.c
-+++ b/net/dccp/ccids/lib/loss_interval.c
-@@ -67,7 +67,10 @@ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
- 	u32 i_i, i_tot0 = 0, i_tot1 = 0, w_tot = 0;
- 	int i, k = tfrc_lh_length(lh) - 1; /* k is as in rfc3448bis, 5.4 */
- 
--	for (i=0; i <= k; i++) {
-+	if (k <= 0)
-+		return;
-+
-+	for (i = 0; i <= k; i++) {
- 		i_i = tfrc_lh_get_interval(lh, i);
- 
- 		if (i < k) {
-@@ -78,7 +81,6 @@ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
- 			i_tot1 += i_i * tfrc_lh_weights[i-1];
- 	}
- 
--	BUG_ON(w_tot == 0);
- 	lh->i_mean = max(i_tot0, i_tot1) / w_tot;
- }
- 
+Patch #1: Checks if timer resolution is too coarse when loading the module and
+          refuses to load when under the minimum resolution. This avoids
+	  triggering bugs messages such as negative RTT samples.
+Patch #2: Simplifies the CCID-3 TX state machine by using a Boolean flag.
+Patch #3: Suppresses unavoidable "below resolution" warning for CCID-3 loss
+          rate p (which decays towards 0, past the minimum resolution).
+Patch #4: Modifies the TFRC initialisation routine to support early loss
+          detection (the first-seen sequence number is set to GSR).
+Patch #5: Adds early loss detection as enabled by patch #4. 
+Patch #6: Simplifies updating the average TFRC loss interval I_mean. 
+Patch #7: Replaces a lazy BUG_ON with a conditional. 
+
+
+The test tree is available via
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp		(subtree `dccp')
+
+There is also a web view available.
+
+
+CCID-4 Notes:
+-------------
+All changes have been ported to the CCID-4 tree as well and are on
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp		(subtree `ccid4')
+
+The following patches became obsolete as a result of this:	
+	[CCID-3/4] Share TFRC sender states via tfrc_ccids
+	[CCID-3/4] Share ccid3_tx_state_name function via tfrc_ccids
