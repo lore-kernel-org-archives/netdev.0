@@ -1,66 +1,92 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH] IPv6:Fix the return value of Set Hop-by-Hop options header
- with NULL data pointer
-Date: Mon, 28 Jul 2008 10:56:35 +0800
-Message-ID: <488D3563.9080607@cn.fujitsu.com>
+From: Jaswinder Singh <jaswinder@infradead.org>
+Subject: Re: [PATCH] typhoon: use request_firmware
+Date: Mon, 28 Jul 2008 08:46:49 +0530
+Message-ID: <1217215009.2970.7.camel@jaswinder.satnam>
+References: <1217170232.3537.6.camel@jaswinder.satnam>
+	 <1217209400.22789.47.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
+	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Woodhouse <dwmw2@infradead.org>
+To: David Dillow <dave@thedillows.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56945 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754903AbYG1C5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jul 2008 22:57:08 -0400
+Received: from casper.infradead.org ([85.118.1.10]:50793 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002AbYG1DS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 23:18:28 -0400
+In-Reply-To: <1217209400.22789.47.camel@obelisk.thedillows.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ingnore prev one.
+Hello Dave,
 
-When Set Hop-by-Hop options header with NULL data 
-pointer and optlen is not zero use setsockopt(),
-the kernel successfully return 0 instead of 
-return error EINVAL or EFAULT.
+On Sun, 2008-07-27 at 21:43 -0400, David Dillow wrote:
 
-This patch fix the problem.
+> >  MODULE_LICENSE("GPL");
+> > +MODULE_LICENSE("3com/typhoon.bin");
+>=20
+> Uhm, MODULE_FIRMWARE()?
+>=20
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
----
- ipv6_sockglue.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Sorry, Fixed. Thanks.
 
-diff --git a/ipv6_sockglue.c b/ipv6_sockglue.c
-index ea33b26..2cabac9 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -346,6 +346,8 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		 */
- 		if (optlen == 0)
- 			optval = NULL;
-+		else if (optval == NULL)
-+			goto e_inval;
- 		else if (optlen < sizeof(struct ipv6_opt_hdr) ||
- 			 optlen & 0x7 || optlen > 8 * 255)
- 			goto e_inval;
--- 
-1.5.3.8 
+> > @@ -1368,8 +1371,14 @@ typhoon_download_firmware(struct typhoon *tp=
+)
+> >  	int i;
+> >  	int err;
+> > =20
+> > +	err =3D request_firmware(&fw, fw_name, &tp->pdev->dev);
+> > +	if (err) {
+> > +		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
+> > +		       tp->name, fw_name);
+> > +		return err;
+> > +	}
+> >  	err =3D -EINVAL;
+> > -	fHdr =3D (struct typhoon_file_header *) typhoon_firmware_image;
+> > +	fHdr =3D (struct typhoon_file_header *) fw->data;
+> >  	image_data =3D (u8 *) fHdr;
+> > =20
+> >  	if(memcmp(fHdr->tag, "TYPHOON", 8)) {
+> > @@ -1494,6 +1503,7 @@ err_out_irq:
+> >  	pci_free_consistent(pdev, PAGE_SIZE, dpage, dpage_dma);
+> > =20
+> >  err_out:
+> > +	release_firmware(fw);
+> >  	return err;
+> >  }
+>=20
+> It is not quite this simple. By not loading the firmware on device
+> probe, you have opened the door to a broken resume, and the driver wi=
+ll
+> now try to sleep in an atomic context, when typhoon_tx_timeout() is
+> called at the very least.
+>=20
 
--- 
-Regards
-Yang Hongyang
- 
-A new email address of FJWAN is launched from Apr.1 2007.
-The updated address is: yanghy@cn.fujitsu.com
---------------------------------------------------
-Yang Hongyang
-Development Dept.I
-Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
-8/F., Civil Defense Building, No.189 Guangzhou Road,
-Nanjing, 210029, China
-TEL: +86+25-86630566-812
-FUJITSU INTERNAL: 79955-812
-FAX: +86+25-83317685
-EMAIL: yanghy@cn.fujitsu.com
---------------------------------------------------
-This communication is for use by the intended recipient(s) only and may contain information that is privileged, confidential and exempt from disclosure under applicable law. If you are not an intended recipient of this communication, you are hereby notified that any dissemination, distribution or copying hereof is strictly prohibited.  If you have received this communication in error, please notify me by reply e-mail, permanently delete this communication from your system, and destroy any hard copies you may have printed
+I just added the request_firmware support and
+replaced =EF=BB=BFtyphoon_firmware_image with =EF=BB=BFfw->data.
+I do not think this will make any difference in rest of driver.
+
+If you like to change the driver then it should be in another patch.
+
+David Woodhouse, any comments.
+
+> I've said that I was thinking about doing the conversion myself, and =
+I
+> think the firmware loader makes some sense for new drivers. But the m=
+ore
+> I think about converting old -- fairly static -- drivers such as
+> typhoon, I wonder "what's the point?" We don't save memory, we add co=
+de,
+> and we add failure points that weren't there before. Where's the upsi=
+de?
+>=20
+
+=EF=BB=BFDavid Woodhouse, any comments.
+
+Thank you,
+
+Jaswinder Singh.
+
