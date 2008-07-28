@@ -1,76 +1,71 @@
-From: Brandon Philips <brandon@ifup.org>
-Subject: Re: ethtool: Expand ethtool_cmd.speed to 32 bits
-Date: Mon, 28 Jul 2008 10:11:48 -0700
-Message-ID: <20080728171148.GJ5378@potty.ifup.org>
-References: <487D1C4C.9080103@hp.com> <20080715.152758.193724361.davem@davemloft.net> <20080716064709.GA2424@potty.ifup.org> <20080715.154303.193684908.davem@davemloft.net>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 12/30] mm: memory reserve management
+Date: Mon, 28 Jul 2008 19:13:43 +0200
+Message-ID: <1217265223.18049.22.camel@twins>
+References: <20080724140042.408642539@chello.nl>
+	 <20080724141530.127530749@chello.nl>
+	 <1217239564.7813.36.camel@penberg-laptop>  <1217263769.15724.32.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org, jgarzik@pobox.com
-To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Neil Brown <neilb@suse.de>, cl@linux-foundation.org
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:61112 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945AbYG1RMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:12:05 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so1453885ywe.1
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 10:12:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080715.154303.193684908.davem@davemloft.net>
+Received: from viefep18-int.chello.at ([213.46.255.22]:62097 "EHLO
+	viefep15-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752972AbYG1RNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:13:52 -0400
+Received: from edge01.upc.biz ([192.168.13.236]) by viefep15-int.chello.at
+          (InterMail vM.7.08.02.00 201-2186-121-20061213) with ESMTP
+          id <20080728171350.KEZN14014.viefep15-int.chello.at@edge01.upc.biz>
+          for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:13:50 +0200
+In-Reply-To: <1217263769.15724.32.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15:43 Tue 15 Jul 2008, David Miller wrote:
-> From: Brandon Philips <brandon@ifup.org>
-> Date: Tue, 15 Jul 2008 23:47:09 -0700
+On Mon, 2008-07-28 at 11:49 -0500, Matt Mackall wrote:
+> On Mon, 2008-07-28 at 13:06 +0300, Pekka Enberg wrote:
+> > We're trying to get rid of kfree() so I'd __kfree_reserve() could to
+> > mm/sl?b.c. Matt, thoughts?
 > 
-> > On 15:27 Tue 15 Jul 2008, David Miller wrote:
-> > > From: Rick Jones <rick.jones2@hp.com>
-> > > Date: Tue, 15 Jul 2008 14:53:16 -0700
-> > > 
-> > > > Brandon Philips wrote:
-> > > > > Introduce the speed_hi field to ethtool_cmd, using the reserved space,
-> > > > > to expand the speed field to 2^32 Megabits/second.
-> > > > > 
-> > > > > Making this field expansion now gives us plenty of time to fix up the
-> > > > > user-space pieces that use SIOCETHTOOL before hardware faster than 64
-> > > > > Gb/s is available.
-> > > > > 
-> > > > > Signed-off-by: Brandon Philips <bphilips@suse.de>
-> > > > > 
-> > > > > ---
-> > > > >  include/linux/ethtool.h |   17 ++++++++++++++++-
-> > > > >  1 file changed, 16 insertions(+), 1 deletion(-)
-> > > > > 
-> > > > > Index: linux-2.6/include/linux/ethtool.h
-> > > > > ===================================================================
-> > > > > --- linux-2.6.orig/include/linux/ethtool.h
-> > > > > +++ linux-2.6/include/linux/ethtool.h
-> > > > > @@ -27,9 +27,24 @@ struct ethtool_cmd {
-> > > > >  	__u8	autoneg;	/* Enable or disable autonegotiation */
-> > > > >  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
-> > > > >  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
-> > > > > -	__u32	reserved[4];
-> > > > > +	__u16	speed_hi;
-> > > > > +	__u16	reserved2;
-> > > > > +	__u32	reserved[3];
-> > > > >  };
-> > > > 
-> > > > I certainly agree with the concept of preparing for faster NICs.  Are 
-> > > > bits in that structure sufficiently precious to go the split route, or 
-> > > > would it be cleaner to just grab a contiguous 32 bits from the structure?
-> > > 
-> > > That's less space we can use to make similar expansions.
-> > > 
-> > > And we have to keep the existing u16 chunk there anyways, because existing
-> > > applications are only going to provide that part.
-> > 
-> > Agreed.  Can this be queued for 2.6.27 then?
+> I think you mean ksize there. My big issue is that we need to make it
+> clear that ksize pairs -only- with kmalloc and that
+> ksize(kmem_cache_alloc(...)) is a categorical error. Preferably, we do
+> this by giving it a distinct name, like kmalloc_size(). We can stick an
+> underbar in front of it to suggest you ought not be using it too.
+
+Right, both make sense, so _kmalloc_size() has my vote.
+
+> > > +	/*
+> > > +	 * ksize gives the full allocated size vs the requested size we
+> > used to
+> > > +	 * charge; however since we round up to the nearest power of two,
+> > this
+> > > +	 * should all work nicely.
+> > > +	 */
 > 
-> Jeff?
+> SLOB doesn't do this, of course. But does that matter? I think you want
+> to charge the actual allocation size to the reserve in all cases, no?
+> That probably means calling ksize() on both alloc and free.
 
-Has this been merged somewhere?  I just checked net-2.6 and net-next and
-didn't see it.
+Like said, I still need to do all the SLOB reservation stuff. That
+includes coming up with upper bound fragmentation loss.
 
-Thanks,
+For SL[UA]B I use roundup_power_of_two for kmalloc sizes. Thus with the
+above ksize(), if we did p=kmalloc(x), then we'd account
+roundup_power_of_two(x), and that should be equal to
+roundup_power_of_two(ksize(p)), as ksize will always be smaller or equal
+to the roundup.
 
-	Brandon
+I'm guessing the power of two upper bound is good for SLOB too -
+although I haven't tried proving it wrong or tighetening it.
+
+Only the kmem_cache_* reservation stuff would need some extra attention
+with SLOB.
+
