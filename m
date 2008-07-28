@@ -1,92 +1,110 @@
-From: Jaswinder Singh <jaswinder@infradead.org>
-Subject: Re: [PATCH] typhoon: use request_firmware
-Date: Mon, 28 Jul 2008 08:46:49 +0530
-Message-ID: <1217215009.2970.7.camel@jaswinder.satnam>
-References: <1217170232.3537.6.camel@jaswinder.satnam>
-	 <1217209400.22789.47.camel@obelisk.thedillows.org>
+From: Peter Mallett <zl2bau@xnet.co.nz>
+Subject: Re: baycom_ser_fdx - fixed under 2.6
+Date: Mon, 28 Jul 2008 15:44:22 +1200
+Message-ID: <488D4096.5000906@xnet.co.nz>
+References: <alpine.DEB.1.10.0807191042050.21295@tombstone.paradise.gen.nz> <4885A8F6.7090109@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
-	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Woodhouse <dwmw2@infradead.org>
-To: David Dillow <dave@thedillows.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50793 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbYG1DS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 23:18:28 -0400
-In-Reply-To: <1217209400.22789.47.camel@obelisk.thedillows.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Robb <ender@paradise.gen.nz>, linux-hams@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pidoux <f6bvp@free.fr>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4885A8F6.7090109@free.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Dave,
+Pidoux wrote:
+> Hi,
+>
+> This is a trivial but very important bug fix. Thanks David.
+> It was probably not submitted to the right destination and thus never 
+> applied.
+>
+> This bug may have discouraged more than one radioamateur wishing to 
+> experiment baycom style modems under Linux.
+> Fortunately you have done a very good historical search.
+>
+> I rebuilt the patch against 2.6.26 kernel (the only source I have here 
+> on my laptop at my remote location during vacation).
+>
+> I Cc: to David Miller and Ralf Baechle DL5RB maintainers of Linux net 
+> devices drivers and Linux AX25 drivers, respectively.
+>
+> 73 de Bernard, f6bvp
+>
+>
+> --- a/drivers/net/hamradio/hdlcdrv.c    2008-07-22 10:40:20.000000000 
+> +0200
+> +++ b/drivers/net/hamradio/hdlcdrv.c    2008-07-22 10:42:13.000000000 
+> +0200
+> @@ -88,6 +88,7 @@
+>  static inline void append_crc_ccitt(unsigned char *buffer, int len)
+>  {
+>       unsigned int crc = crc_ccitt(0xffff, buffer, len) ^ 0xffff;
+> +    buffer += len;
+>      *buffer++ = crc;
+>      *buffer++ = crc >> 8;
+>  }
+>
+>
+>
+> David Robb wrote :
+>> So it seems that I might be the only person in the world who's still 
+>> attempting to use a Baycom bp-1 pocket modem under Linux, but oh well..
+>>
+>> As a number of people noticed back in about 2005 (and some even 
+>> earlier), the baycom_ser_fdx driver hasn't worked under Linux 2.6 for 
+>> a few years (possibly ever).
+>>
+>> Various people poked around 
+>> (http://osdir.com/ml/hams/2005-05/msg00022.html) and determined that 
+>> there was some kind of packet corruption going on, and that the CRC 
+>> was mangled.
+>>
+>> Well, after bashing my head against it a few times over the last few 
+>> months (I guess I was bored), and finally thinking that it mightn't 
+>> be in the baycom_ser_fdx driver that the problem actually was, I 
+>> tracked it down to the hdlcdrv code instead...
+>>
+>> Someone called Micah actually figured this out in 2004, and submitted 
+>> a patch, but it never made it into the kernel (at least in my 
+>> 2.6.25.7 it's still broken):
+>>
+>> http://linux.derkeiler.com/Mailing-Lists/Kernel/2004-11/2929.html
+>>
+>> The CRC's overwriting some of the packet...
+>>
+>> So anyway, applying the patch listed at that URL (1 line! Just one 
+>> little line!) my BP-1 now works again under 2.6.25.
+>>
+>> Perhaps I'm strange for wanting this working in these days of high 
+>> speed links, but hey... it seems sad to have broken code and no 
+>> support where there used to be a functional device.
+>>
+>> Anyway, share and enjoy.
+>>
+>> --David ZL3UDR
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-On Sun, 2008-07-27 at 21:43 -0400, David Dillow wrote:
+Hi,
 
-> >  MODULE_LICENSE("GPL");
-> > +MODULE_LICENSE("3com/typhoon.bin");
->=20
-> Uhm, MODULE_FIRMWARE()?
->=20
+    The Baycom MoDem problem is one I have battled for quite a while here.
 
-Sorry, Fixed. Thanks.
+How do I apply this patch to my Ubuntu 2.6.20-17-generic kernel.
 
-> > @@ -1368,8 +1371,14 @@ typhoon_download_firmware(struct typhoon *tp=
-)
-> >  	int i;
-> >  	int err;
-> > =20
-> > +	err =3D request_firmware(&fw, fw_name, &tp->pdev->dev);
-> > +	if (err) {
-> > +		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
-> > +		       tp->name, fw_name);
-> > +		return err;
-> > +	}
-> >  	err =3D -EINVAL;
-> > -	fHdr =3D (struct typhoon_file_header *) typhoon_firmware_image;
-> > +	fHdr =3D (struct typhoon_file_header *) fw->data;
-> >  	image_data =3D (u8 *) fHdr;
-> > =20
-> >  	if(memcmp(fHdr->tag, "TYPHOON", 8)) {
-> > @@ -1494,6 +1503,7 @@ err_out_irq:
-> >  	pci_free_consistent(pdev, PAGE_SIZE, dpage, dpage_dma);
-> > =20
-> >  err_out:
-> > +	release_firmware(fw);
-> >  	return err;
-> >  }
->=20
-> It is not quite this simple. By not loading the firmware on device
-> probe, you have opened the door to a broken resume, and the driver wi=
-ll
-> now try to sleep in an atomic context, when typhoon_tx_timeout() is
-> called at the very least.
->=20
+I have the linux-source-2.6.20-2.6.20 source so which file do I apply 
+the patch too ?
 
-I just added the request_firmware support and
-replaced =EF=BB=BFtyphoon_firmware_image with =EF=BB=BFfw->data.
-I do not think this will make any difference in rest of driver.
+Then I need to recompile it ?
 
-If you like to change the driver then it should be in another patch.
+Would this bug also affect the SCC Baycom card ?
 
-David Woodhouse, any comments.
-
-> I've said that I was thinking about doing the conversion myself, and =
-I
-> think the firmware loader makes some sense for new drivers. But the m=
-ore
-> I think about converting old -- fairly static -- drivers such as
-> typhoon, I wonder "what's the point?" We don't save memory, we add co=
-de,
-> and we add failure points that weren't there before. Where's the upsi=
-de?
->=20
-
-=EF=BB=BFDavid Woodhouse, any comments.
-
-Thank you,
-
-Jaswinder Singh.
+Regards ..... Peter
 
