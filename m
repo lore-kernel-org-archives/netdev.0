@@ -1,65 +1,66 @@
-From: "Robert P. J. Day" <rpjday@crashcourse.ca>
-Subject: [PATCH] NETWORKING:  Make "networking" one-click deselectable.
-Date: Mon, 28 Jul 2008 15:14:03 -0400 (EDT)
-Message-ID: <alpine.LFD.1.10.0807281511540.15186@localhost.localdomain>
+From: "martin capitanio" <martin@capitanio.org>
+Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
+Date: Mon, 28 Jul 2008 22:58:14 +0200 (MEST)
+Message-ID: <200807282058.m6SKwE8o026003@post.webmailer.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Mario Limonciello" <Mario_Limonciello@Dell.com>,
+	"Edward Hsu" <edward_hsu@realtek.com.tw>, netdev@vger.kernel.org
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from astoria.ccjclearline.com ([64.235.106.9]:37078 "EHLO
-	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbYG1TPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 15:15:39 -0400
+Received: from cg-p00-ob.rzone.de ([81.169.146.193]:58023 "EHLO
+	cg-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755880AbYG1U6X convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 16:58:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> [...]
+> > The pci entry just confuse people, the correct message were something
+> like
+> > Realtek Semiconductor Co., Ltd. RTL81xxx Ethernet controller
+> 
+> 10ec:8136 covers the 8101 and the 8102, as expected.
+Then RTL8101(E)/8102(E) ?
+I get here RTL8101E but the real hardware is RTL8102E
+The website claims RTL8139  and what ever. If that's not the case ...
+> 
+> > Everything depending on this information may break, right?
+> > drivers/net/r8169.c:166:{
+> PCI_DEVICE(PCI_VENDOR_ID_REALTEK,0x8136),0,0,RTL_CFG_2 },
+> 
+> I do not get it. Where do you see a breakage ?
+Sorry misunderstanding. See above.
+> 
+> [...]
+> > Checking the web for the differences btw RTL8102E and RTL8101E:
+> > the RTL8102E claims to support receive-side scaling, is this implemented
+> > somewhere in linux (aka NAPI?) ?
+> 
+> 1. RSS is available with Linux.
+> 2. RSS is not related in any way or shape with NAPI.
+> 3. RSS is not implemented in Realtek's driver yet.
+Thanks. I found it.
+> 
+> > Can miss-detecting have a bad side-effects?
+> 
+> Some users have been turned into giant walking mushrooms.
+I meant RTL8101E/RTL8102E have the same pci id but different features.
+> 
+> Not sure if they were comestible or not though.
+If you kill their hardware, be sure they were not ;-)
+> 
+> > RTL8102E offers an option for non-EEPROM (=OTP) design. Can the driver
+> > break the hardware ?
+> 
+> The driver is not supposed to break the hardware.
+True, just that you know about that possibility. (_One Time Programming_)
+> What does ethtool report for this device ? Does it still claim gigabit
+> to be supported ?
+Works correct,  as expected 10/100M.
 
-Use a menuconfig directive to make all of networking support one-click
-deselectable from the top-level menu.
+Nice to know somebody cares! (Rest in pm)
+Thanks for your work,
+        Martin
 
-Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
-
----
-
-  not sure if i already sent this in, but it effectively duplicates
-what you can already do from the submenu anyway, so might as well move
-it up one level.
-
-diff --git a/net/Kconfig b/net/Kconfig
-index b986687..7612cc8 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -2,9 +2,7 @@
- # Network configuration
- #
-
--menu "Networking"
--
--config NET
-+menuconfig NET
- 	bool "Networking support"
- 	---help---
- 	  Unless you really know what you are doing, you should say Y here.
-@@ -22,7 +20,6 @@ config NET
- 	  recommended to read the NET-HOWTO, available from
- 	  <http://www.tldp.org/docs.html#howto>.
-
--# Make sure that all config symbols are dependent on NET
- if NET
-
- menu "Networking options"
-@@ -252,5 +249,3 @@ source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
-
- endif   # if NET
--endmenu # Networking
--
-
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry:
-    Have classroom, will lecture.
-
-http://crashcourse.ca                          Waterloo, Ontario, CANADA
-========================================================================
