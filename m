@@ -1,77 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch inside] kernel crash, RTL8101E [10ec:8136]
-Date: Mon, 28 Jul 2008 20:40:48 +0200
-Message-ID: <20080728184048.GA21552@electric-eye.fr.zoreil.com>
-References: <200807271904.m6RJ4G2Y013513@post.webmailer.de>
+From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Subject: [PATCH] NETWORKING:  Make "networking" one-click deselectable.
+Date: Mon, 28 Jul 2008 15:14:03 -0400 (EDT)
+Message-ID: <alpine.LFD.1.10.0807281511540.15186@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mario Limonciello <Mario_Limonciello@Dell.com>,
-	Edward Hsu <edward_hsu@realtek.com.tw>, netdev@vger.kernel.org
-To: c4p7n1@capitanio.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57321 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755600AbYG1SlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 14:41:03 -0400
-Content-Disposition: inline
-In-Reply-To: <200807271904.m6RJ4G2Y013513@post.webmailer.de>
+Received: from astoria.ccjclearline.com ([64.235.106.9]:37078 "EHLO
+	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbYG1TPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 15:15:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-(removed Linus from the Cc:)
+Use a menuconfig directive to make all of networking support one-click
+deselectable from the top-level menu.
 
-c4p7n1@capitanio.org <c4p7n1@capitanio.org> :
-[...]
-> Boiling hot Sunday. So I decided to spend some time for digging to this issue.
-> I see some parts that may not behave as intended. Could someone take a care?  
-> 
-> Fist I thought that the pci system and the subsystem disagrees about the
-> chip-set:
-[...]
-> Subsystem: Toshiba America Info Systems Unknown device [1179:ff64]
-> means Realtek RTL8102E Family PCI-E Fast Ethernet NIC (NDIS 6.0)
-> [Toshiba America Information Systems] 1179:ff64 rev 02
-[...]
-> The pci entry just confuse people, the correct message were something like
-> Realtek Semiconductor Co., Ltd. RTL81xxx Ethernet controller
+Signed-off-by: Robert P. J. Day <rpjday@crashcourse.ca>
 
-10ec:8136 covers the 8101 and the 8102, as expected.
+---
 
-> Everything depending on this information may break, right?
-> drivers/net/r8169.c:166:{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,0x8136),0,0,RTL_CFG_2 },
+  not sure if i already sent this in, but it effectively duplicates
+what you can already do from the submenu anyway, so might as well move
+it up one level.
 
-I do not get it. Where do you see a breakage ?
+diff --git a/net/Kconfig b/net/Kconfig
+index b986687..7612cc8 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -2,9 +2,7 @@
+ # Network configuration
+ #
 
-[...]
-> Checking the web for the differences btw RTL8102E and RTL8101E:
-> the RTL8102E claims to support receive-side scaling, is this implemented
-> somewhere in linux (aka NAPI?) ?
+-menu "Networking"
+-
+-config NET
++menuconfig NET
+ 	bool "Networking support"
+ 	---help---
+ 	  Unless you really know what you are doing, you should say Y here.
+@@ -22,7 +20,6 @@ config NET
+ 	  recommended to read the NET-HOWTO, available from
+ 	  <http://www.tldp.org/docs.html#howto>.
 
-1. RSS is available with Linux.
-2. RSS is not related in any way or shape with NAPI.
-3. RSS is not implemented in Realtek's driver yet.
+-# Make sure that all config symbols are dependent on NET
+ if NET
 
-> Can miss-detecting have a bad side-effects?
+ menu "Networking options"
+@@ -252,5 +249,3 @@ source "net/rfkill/Kconfig"
+ source "net/9p/Kconfig"
 
-Some users have been turned into giant walking mushrooms.
+ endif   # if NET
+-endmenu # Networking
+-
 
-Not sure if they were comestible or not though.
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry:
+    Have classroom, will lecture.
 
-> RTL8102E offers an option for non-EEPROM (=OTP) design. Can the driver
-> break the hardware ?
-
-The driver is not supposed to break the hardware.
-
-[...]
-> > Can you give the completely untested patch below a try (say, against
-> > 2.6.26 or more) ?
-> This works.
-
-Thanks.
-
-What does ethtool report for this device ? Does it still claim gigabit
-to be supported ?
-
--- 
-Ueimor
+http://crashcourse.ca                          Waterloo, Ontario, CANADA
+========================================================================
