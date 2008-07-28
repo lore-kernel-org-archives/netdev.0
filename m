@@ -1,78 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] syncookies: free reqsk on xfrm_lookup error
-Date: Mon, 28 Jul 2008 02:03:55 +0200
-Message-ID: <1217203435-18351-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Glenn Griffin <ggriffin.kernel@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Sun, 27 Jul 2008 18:09:13 -0700 (PDT)
+Message-ID: <20080727.180913.220698662.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41330 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750843AbYG0Xzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 19:55:43 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45234
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758240AbYG1BJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2008 21:09:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cookie_v6_check() did not call reqsk_free() if xfrm_lookup() fails,
-leaking the request sock.
 
-Compile tested only.
+Some ipcomp warnings fixes and various DCCP bug fixes via
+Gerrit Renker and co.
 
-Cc: Glenn Griffin <ggriffin.kernel@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv6/syncookies.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
+Sorry for the two merge changesets with your tree.  I did
+one at the beginning several days ago, then we both merged
+Al's sysctl fix, and I wanted to make sure that worked out
+properly.
 
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index a46badd..ec394cf 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -199,10 +199,8 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	ireq6 = inet6_rsk(req);
- 	treq = tcp_rsk(req);
- 
--	if (security_inet_conn_request(sk, skb, req)) {
--		reqsk_free(req);
--		goto out;
--	}
-+	if (security_inet_conn_request(sk, skb, req))
-+		goto out_free;
- 
- 	req->mss = mss;
- 	ireq->rmt_port = th->source;
-@@ -255,14 +253,13 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
- 		fl.fl_ip_sport = inet_sk(sk)->sport;
- 		security_req_classify_flow(req, &fl);
--		if (ip6_dst_lookup(sk, &dst, &fl)) {
--			reqsk_free(req);
--			goto out;
--		}
-+		if (ip6_dst_lookup(sk, &dst, &fl))
-+			goto out_free;
-+
- 		if (final_p)
- 			ipv6_addr_copy(&fl.fl6_dst, final_p);
- 		if ((xfrm_lookup(&dst, &fl, sk, 0)) < 0)
--			goto out;
-+			goto out_free;
- 	}
- 
- 	req->window_clamp = tp->window_clamp ? :dst_metric(dst, RTAX_WINDOW);
-@@ -273,7 +270,10 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	ireq->rcv_wscale = rcv_wscale;
- 
- 	ret = get_cookie_sock(sk, skb, req, dst);
--
--out:	return ret;
-+out:
-+	return ret;
-+out_free:
-+	reqsk_free(req);
-+	return NULL;
- }
- 
--- 
-1.5.4.5
+Please pull, thanks!
 
+The following changes since commit c9272c4f9fbe2087beb3392f526dc5b19efaa56b:
+  Linus Torvalds (1):
+        Merge branch 'hotfixes' of git://git.linux-nfs.org/projects/trondmy/nfs-2.6
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Al Viro (1):
+      net: missing bits of net-namespace / sysctl
+
+David S. Miller (4):
+      ipcomp: Fix warnings after ipcomp consolidation.
+      Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.6
+      Merge branch 'master' of git://eden-feed.erg.abdn.ac.uk/net-2.6
+      Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.6
+
+Gerrit Renker (2):
+      dccp: Allow to distinguish original and retransmitted packets
+      dccp: Bug-Fix - AWL was never updated
+
+Wei Yongjun (4):
+      dccp: Fix sequence number check for ICMPv4 packets
+      dccp: Add check for sequence number in ICMPv6 message
+      dccp: Fix incorrect length check for ICMPv4 packets
+      dccp: Add check for truncated ICMPv6 DCCP error packets
+
+ net/dccp/dccp.h    |    2 +-
+ net/dccp/ipv4.c    |    9 ++++---
+ net/dccp/ipv6.c    |   16 ++++++++++++++-
+ net/dccp/output.c  |   53 ++++++++++++++++++++++++++++++---------------------
+ net/dccp/timer.c   |   20 +++---------------
+ net/ipv4/ipcomp.c  |    4 +--
+ net/ipv6/ipcomp6.c |    4 +--
+ 7 files changed, 58 insertions(+), 50 deletions(-)
