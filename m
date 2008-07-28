@@ -1,66 +1,62 @@
-From: Andreas Arnez <arnez@vnet.ibm.com>
-Subject: ksoftirqd doesn't really become active
-Date: Mon, 28 Jul 2008 19:20:24 +0200
-Message-ID: <877ib60vtz.fsf@vnet.ibm.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
+Date: Mon, 28 Jul 2008 13:27:46 -0400
+Message-ID: <488E0192.9030406@hp.com>
+References: <20080727045121.GA419@gondor.apana.org.au> <20080728112527.GB7589@gerrit.erg.abdn.ac.uk> <488DC63A.3070309@hp.com> <20080728170846.GB3762@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:4315 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760599AbYG1RUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:20:42 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m6SHKPws177626
-	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 17:20:25 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6SHKP6n1913056
-	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:25 +0200
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6SHKOEm032572
-	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:24 +0200
-Received: from heureka (dyn-9-152-220-54.boeblingen.de.ibm.com [9.152.220.54])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id m6SHKOmb032569
-	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:24 +0200
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:22673 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760059AbYG1R1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:27:50 -0400
+In-Reply-To: <20080728170846.GB3762@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While testing with arpflood, I stumbled across what looks like a
-general flaw in the softirq processing: softirqs were keeping one CPU
-busy; only 1% of this CPU capacity was left to other applications.
-But still ksoftirqd didn't get scheduled much, most of the time
-softirqs were processed in the context of irq_exit.  Hence the
-scheduler didn't really influence the balancing between softirq
-processing and other tasks, as probably intended.  This looks like a
-general flaw which should affect every platform in one way or the
-other.
+Gerrit Renker wrote:
+> | >  * only TCP/SCTP seem to have a proper per-protocol "payload too short" test;
+> | 
+> | Hm..  In the standard case, these do seem to be redundant since 8 bytes are required
+> | by ICMP spec.
+> | 
+> | >  * for DCCP, the work is actually doubled since 
+> | >    - first the ICMP handler tests for minimally 8 bytes, 
+> | >    - then the DCCP error handler tests for required minimum of 12 bytes.
+> | 
+> | DCCP and any other protocol that requires more error data should check for it in
+> | its own handler.  8 bytes should be guaranteed to such handler.
+> | 
+> | What am I missing?
+> | 
+> As per last message, please disregard the patch suggestion made at the
+> beginning of the thread.
+> 
+> In TCP, the 8 bytes happen to be enough for doing sequence number checks. Other
+> protocols have different header lengths and semantics. Thus doing the checks
+> at the transport layer makes more sense than in the ICMP handler.
+> 
+> RFC 1122 is almost 20 years old, from a time before IPcomp, SCTP, or DCCP.
 
-Here's what seems to happen: an arp storm leads to the NAPI activating
-softirqs all the time.  After 10 softirqs in a row the softirq
-processing is suspended and ksoftirqd is woken up.  Now the scheduler
-influences the remaining time until the next interrupt, after which 10
-softirqs are processed in the context of irq_exit again.
+So the suggestion really is then to remove the length check icmp_unreach()?
 
-Let
-  s = average time spent on processing 10 softirqs;
-  t = average time distance between hardirqs
+Because as it stands right now, the protocol error handler will not be invoked
+if we don't have the iphdr + 8 bytes worth of data.  That's is actually a requirement
+from the ICMP rfc 792.
 
-If hardirqs come in regularly, then this CPU spends
-ca. s/(t+t*int(s/t)) of its time on softirq processing in irq_exit
-context:
+Seems that not including those 8 bytes is a violation of that spec.  So, icmp_unreach()
+should keep current code and jump to out_err upon failure.
 
-                    s
-   _________________/\________________
-  /                                   \
-  |=============|=============|=======>-----|
-  \_____________/
-         t
+Each upper layer protocol that requires additional space, should validate the existence
+of that additional space and handle it appropriately.
 
-Once s approaches or exceeds t, the CPU is at least 50% busy
-processing softirqs, regardless of the scheduler's decisions.
+It doesn't matter that IPcomp header is only 4 bytes.  ICMP error requires ihlen + 8 bytes and 
+at least that much should be provided  Otherwise, it a malformed ICMP packet.
 
-What are useful ways to increase the scheduler's influence?  One way
-might be to suspend softirq processing in irq_exit context as long as
-ksoftirqd feels responsible.  I made a test with a quick hack, and
-this looks promising.  Are there other suggestions?  Or should the
-whole issue be dealt with in a completely different way?
+-vlad
+
