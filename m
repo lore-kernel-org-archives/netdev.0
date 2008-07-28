@@ -1,42 +1,76 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
-Date: Mon, 28 Jul 2008 18:08:46 +0100
-Message-ID: <20080728170846.GB3762@gerrit.erg.abdn.ac.uk>
-References: <20080727045121.GA419@gondor.apana.org.au> <20080728112527.GB7589@gerrit.erg.abdn.ac.uk> <488DC63A.3070309@hp.com>
+From: Brandon Philips <brandon@ifup.org>
+Subject: Re: ethtool: Expand ethtool_cmd.speed to 32 bits
+Date: Mon, 28 Jul 2008 10:11:48 -0700
+Message-ID: <20080728171148.GJ5378@potty.ifup.org>
+References: <487D1C4C.9080103@hp.com> <20080715.152758.193724361.davem@davemloft.net> <20080716064709.GA2424@potty.ifup.org> <20080715.154303.193684908.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org, jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54336 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760165AbYG1RJj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 13:09:39 -0400
+Received: from yw-out-2324.google.com ([74.125.46.28]:61112 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751945AbYG1RMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:12:05 -0400
+Received: by yw-out-2324.google.com with SMTP id 9so1453885ywe.1
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 10:12:04 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <488DC63A.3070309@hp.com>
+In-Reply-To: <20080715.154303.193684908.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| >  * only TCP/SCTP seem to have a proper per-protocol "payload too short" test;
-| 
-| Hm..  In the standard case, these do seem to be redundant since 8 bytes are required
-| by ICMP spec.
-| 
-| >  * for DCCP, the work is actually doubled since 
-| >    - first the ICMP handler tests for minimally 8 bytes, 
-| >    - then the DCCP error handler tests for required minimum of 12 bytes.
-| 
-| DCCP and any other protocol that requires more error data should check for it in
-| its own handler.  8 bytes should be guaranteed to such handler.
-| 
-| What am I missing?
-| 
-As per last message, please disregard the patch suggestion made at the
-beginning of the thread.
+On 15:43 Tue 15 Jul 2008, David Miller wrote:
+> From: Brandon Philips <brandon@ifup.org>
+> Date: Tue, 15 Jul 2008 23:47:09 -0700
+> 
+> > On 15:27 Tue 15 Jul 2008, David Miller wrote:
+> > > From: Rick Jones <rick.jones2@hp.com>
+> > > Date: Tue, 15 Jul 2008 14:53:16 -0700
+> > > 
+> > > > Brandon Philips wrote:
+> > > > > Introduce the speed_hi field to ethtool_cmd, using the reserved space,
+> > > > > to expand the speed field to 2^32 Megabits/second.
+> > > > > 
+> > > > > Making this field expansion now gives us plenty of time to fix up the
+> > > > > user-space pieces that use SIOCETHTOOL before hardware faster than 64
+> > > > > Gb/s is available.
+> > > > > 
+> > > > > Signed-off-by: Brandon Philips <bphilips@suse.de>
+> > > > > 
+> > > > > ---
+> > > > >  include/linux/ethtool.h |   17 ++++++++++++++++-
+> > > > >  1 file changed, 16 insertions(+), 1 deletion(-)
+> > > > > 
+> > > > > Index: linux-2.6/include/linux/ethtool.h
+> > > > > ===================================================================
+> > > > > --- linux-2.6.orig/include/linux/ethtool.h
+> > > > > +++ linux-2.6/include/linux/ethtool.h
+> > > > > @@ -27,9 +27,24 @@ struct ethtool_cmd {
+> > > > >  	__u8	autoneg;	/* Enable or disable autonegotiation */
+> > > > >  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+> > > > >  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+> > > > > -	__u32	reserved[4];
+> > > > > +	__u16	speed_hi;
+> > > > > +	__u16	reserved2;
+> > > > > +	__u32	reserved[3];
+> > > > >  };
+> > > > 
+> > > > I certainly agree with the concept of preparing for faster NICs.  Are 
+> > > > bits in that structure sufficiently precious to go the split route, or 
+> > > > would it be cleaner to just grab a contiguous 32 bits from the structure?
+> > > 
+> > > That's less space we can use to make similar expansions.
+> > > 
+> > > And we have to keep the existing u16 chunk there anyways, because existing
+> > > applications are only going to provide that part.
+> > 
+> > Agreed.  Can this be queued for 2.6.27 then?
+> 
+> Jeff?
 
-In TCP, the 8 bytes happen to be enough for doing sequence number checks. Other
-protocols have different header lengths and semantics. Thus doing the checks
-at the transport layer makes more sense than in the ICMP handler.
+Has this been merged somewhere?  I just checked net-2.6 and net-next and
+didn't see it.
 
-RFC 1122 is almost 20 years old, from a time before IPcomp, SCTP, or DCCP.
+Thanks,
+
+	Brandon
