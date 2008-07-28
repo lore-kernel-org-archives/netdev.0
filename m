@@ -1,68 +1,47 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH] typhoon: use request_firmware
-Date: Sun, 27 Jul 2008 21:43:20 -0400
-Message-ID: <1217209400.22789.47.camel@obelisk.thedillows.org>
-References: <1217170232.3537.6.camel@jaswinder.satnam>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH] IPv6:Fix the return value of Set Hop-by-Hop options header
+ with NULL data pointer
+Date: Mon, 28 Jul 2008 10:46:03 +0800
+Message-ID: <488D32EB.4@cn.fujitsu.com>
+References: <20080722212927.937523165@vyatta.com> <20080722212951.706497135@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
-	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Woodhouse <dwmw2@infradead.org>
-To: Jaswinder Singh <jaswinder@infradead.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:59943 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751323AbYG1BnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jul 2008 21:43:23 -0400
-In-Reply-To: <1217170232.3537.6.camel@jaswinder.satnam>
+Received: from cn.fujitsu.com ([222.73.24.84]:61642 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750728AbYG1Cuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jul 2008 22:50:46 -0400
+In-Reply-To: <20080722212951.706497135@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2008-07-27 at 20:20 +0530, Jaswinder Singh wrote:
-> --- a/drivers/net/typhoon.c
-> +++ b/drivers/net/typhoon.c
+When Set Hop-by-Hop options header with NULL data 
+pointer and optlen is not zero use setsockopt(),
+the kernel successfully return 0 instead of 
+return error EINVAL or EFAULT.
 
->  MODULE_LICENSE("GPL");
-> +MODULE_LICENSE("3com/typhoon.bin");
+This patch fix the problem.
 
-Uhm, MODULE_FIRMWARE()?
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+---
+ ipv6_sockglue.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-> @@ -1368,8 +1371,14 @@ typhoon_download_firmware(struct typhoon *tp)
->  	int i;
->  	int err;
->  
-> +	err = request_firmware(&fw, fw_name, &tp->pdev->dev);
-> +	if (err) {
-> +		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
-> +		       tp->name, fw_name);
-> +		return err;
-> +	}
->  	err = -EINVAL;
-> -	fHdr = (struct typhoon_file_header *) typhoon_firmware_image;
-> +	fHdr = (struct typhoon_file_header *) fw->data;
->  	image_data = (u8 *) fHdr;
->  
->  	if(memcmp(fHdr->tag, "TYPHOON", 8)) {
-> @@ -1494,6 +1503,7 @@ err_out_irq:
->  	pci_free_consistent(pdev, PAGE_SIZE, dpage, dpage_dma);
->  
->  err_out:
-> +	release_firmware(fw);
->  	return err;
->  }
-
-It is not quite this simple. By not loading the firmware on device
-probe, you have opened the door to a broken resume, and the driver will
-now try to sleep in an atomic context, when typhoon_tx_timeout() is
-called at the very least.
-
-I've said that I was thinking about doing the conversion myself, and I
-think the firmware loader makes some sense for new drivers. But the more
-I think about converting old -- fairly static -- drivers such as
-typhoon, I wonder "what's the point?" We don't save memory, we add code,
-and we add failure points that weren't there before. Where's the upside?
-
-Dave
-
+diff --git a/ipv6_sockglue.c b/ipv6_sockglue.c
+index ea33b26..2cabac9 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -346,6 +346,8 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		 */
+ 		if (optlen == 0)
+ 			optval = NULL;
++		else if (optval == NULL)
++			goto e_inval;
+ 		else if (optlen < sizeof(struct ipv6_opt_hdr) ||
+ 			 optlen & 0x7 || optlen > 8 * 255)
+ 			goto e_inval;
+-- 
+1.5.3.8
