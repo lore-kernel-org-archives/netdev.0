@@ -1,68 +1,66 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 12/30] mm: memory reserve management
-Date: Mon, 28 Jul 2008 19:13:46 +0200
-Message-ID: <1217265226.18049.24.camel@twins>
-References: <20080724140042.408642539@chello.nl>
-	 <20080724141530.127530749@chello.nl>
-	 <1217239564.7813.36.camel@penberg-laptop>  <1217240224.6331.32.camel@twins>
-	 <1217240994.7813.53.camel@penberg-laptop>  <1217241541.6331.42.camel@twins>
-	 <1217264374.15724.42.camel@calx>
+From: Andreas Arnez <arnez@vnet.ibm.com>
+Subject: ksoftirqd doesn't really become active
+Date: Mon, 28 Jul 2008 19:20:24 +0200
+Message-ID: <877ib60vtz.fsf@vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Neil Brown <neilb@suse.de>, cl@linux-foundation.org
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([213.46.255.22]:20219 "EHLO
-	viefep17-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758552AbYG1RN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:13:59 -0400
-Received: from edge04.upc.biz ([192.168.13.239]) by viefep17-int.chello.at
-          (InterMail vM.7.08.02.00 201-2186-121-20061213) with ESMTP
-          id <20080728171357.GQTB24448.viefep17-int.chello.at@edge04.upc.biz>
-          for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:13:57 +0200
-In-Reply-To: <1217264374.15724.42.camel@calx>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:4315 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760599AbYG1RUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 13:20:42 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id m6SHKPws177626
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 17:20:25 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6SHKP6n1913056
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:25 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6SHKOEm032572
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:24 +0200
+Received: from heureka (dyn-9-152-220-54.boeblingen.de.ibm.com [9.152.220.54])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id m6SHKOmb032569
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 19:20:24 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-07-28 at 11:59 -0500, Matt Mackall wrote:
-> On Mon, 2008-07-28 at 12:39 +0200, Peter Zijlstra wrote:
-> > Also, you might have noticed, I still need to do everything SLOB. T=
-he
-> > last time I rewrote all this code I was still hoping Linux would 's=
-oon'
-> > have a single slab allocator, but evidently we're still going with =
-3 for
-> > now.. :-/
-> >
-> > So I guess I can no longer hide behind that and will have to bite t=
-he
-> > bullet and write the SLOB bits..
->=20
-> =EF=BB=BFI haven't seen the rest of this thread, but I presume this i=
-s part of
-> your OOM-avoidance for network I/O framework?
+While testing with arpflood, I stumbled across what looks like a
+general flaw in the softirq processing: softirqs were keeping one CPU
+busy; only 1% of this CPU capacity was left to other applications.
+But still ksoftirqd didn't get scheduled much, most of the time
+softirqs were processed in the context of irq_exit.  Hence the
+scheduler didn't really influence the balancing between softirq
+processing and other tasks, as probably intended.  This looks like a
+general flaw which should affect every platform in one way or the
+other.
 
-Yes indeed.
+Here's what seems to happen: an arp storm leads to the NAPI activating
+softirqs all the time.  After 10 softirqs in a row the softirq
+processing is suspended and ksoftirqd is woken up.  Now the scheduler
+influences the remaining time until the next interrupt, after which 10
+softirqs are processed in the context of irq_exit again.
 
-> SLOB can be pretty easily expanded to handle a notion of independent
-> allocation arenas as there are only a couple global variables to swit=
-ch
-> between. =EF=BB=BFkfree will also return allocations to the page list=
- (and
-> therefore arena) from whence they came. That may make it pretty simpl=
-e
-> to create and prepopulate reserve pools.
+Let
+  s = average time spent on processing 10 softirqs;
+  t = average time distance between hardirqs
 
-Right - currently we let all the reserves sit on the free page list. Th=
-e
-advantage there is that it also helps the anti-frag stuff, due to havin=
-g
-larger free lists.
+If hardirqs come in regularly, then this CPU spends
+ca. s/(t+t*int(s/t)) of its time on softirq processing in irq_exit
+context:
 
+                    s
+   _________________/\________________
+  /                                   \
+  |=============|=============|=======>-----|
+  \_____________/
+         t
+
+Once s approaches or exceeds t, the CPU is at least 50% busy
+processing softirqs, regardless of the scheduler's decisions.
+
+What are useful ways to increase the scheduler's influence?  One way
+might be to suspend softirq processing in irq_exit context as long as
+ksoftirqd feels responsible.  I made a test with a quick hack, and
+this looks promising.  Are there other suggestions?  Or should the
+whole issue be dealt with in a completely different way?
