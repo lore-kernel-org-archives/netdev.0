@@ -1,113 +1,158 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 12/30] mm: memory reserve management
-Date: Mon, 28 Jul 2008 13:06:03 +0300
-Message-ID: <1217239564.7813.36.camel@penberg-laptop>
-References: <20080724140042.408642539@chello.nl>
-	 <20080724141530.127530749@chello.nl>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 2/3] Blackfin EMAC Driver: enable TXDWA new feature for new silicon (rev > 0.2)
+Date: Mon, 28 Jul 2008 12:05:36 +0200
+Message-ID: <200807281205.36854.netdev@axxeo.de>
+References: <1217139235-19018-1-git-send-email-cooloney@kernel.org> <1217139235-19018-3-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Neil Brown <neilb@suse.de>, mpm@selenic.com,
-	cl@linux-foundation.org
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43669 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbYG1KGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 06:06:06 -0400
-In-Reply-To: <20080724141530.127530749@chello.nl>
+Received: from mail.axxeo.de ([82.100.226.146]:39138 "EHLO mail.axxeo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753051AbYG1KH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 06:07:27 -0400
+In-Reply-To: <1217139235-19018-3-git-send-email-cooloney@kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peter,
+Hi Bryan,
 
-On Thu, 2008-07-24 at 16:00 +0200, Peter Zijlstra wrote:
-> +/*
-> + * alloc wrappers
-> + */
-> +
+you duplicate a lot of clever code here. 
+Would you mind refactoring this part in a follow-up patch?
 
-=EF=BB=BFHmm, I'm not sure I like the use of __kmalloc_track_caller() (=
-even
-though you do add the wrappers for SLUB). The functions really are SLAB
-internals so I'd prefer to see kmalloc_reserve() moved to the
-allocators.
-
-> +void *___kmalloc_reserve(size_t size, gfp_t flags, int node, void *i=
-p,
-> +			 struct mem_reserve *res, int *emerg)
-> +{
-
-This function could use some comments...
-
-> +	void *obj;
-> +	gfp_t gfp;
-> +
-> +	gfp =3D flags | __GFP_NOMEMALLOC | __GFP_NOWARN;
-> +	obj =3D __kmalloc_node_track_caller(size, gfp, node, ip);
-> +
-> +	if (obj || !(gfp_to_alloc_flags(flags) & ALLOC_NO_WATERMARKS))
-> +		goto out;
-> +
-> +	if (res && !mem_reserve_kmalloc_charge(res, size)) {
-> +		if (!(flags & __GFP_WAIT))
-> +			goto out;
-> +
-> +		wait_event(res->waitqueue,
-> +				mem_reserve_kmalloc_charge(res, size));
-> +
-> +		obj =3D __kmalloc_node_track_caller(size, gfp, node, ip);
-> +		if (obj) {
-> +			mem_reserve_kmalloc_charge(res, -size);
-
-Why do we discharge here?
-
-> +			goto out;
+Bryan Wu schrieb:
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> ---
+>  drivers/net/bfin_mac.c |  103 ++++++++++++++++++++++++++++++++++++------------
+>  1 files changed, 77 insertions(+), 26 deletions(-)
+> 
+> diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+> index e18a7ee..57ebe6d 100644
+> --- a/drivers/net/bfin_mac.c
+> +++ b/drivers/net/bfin_mac.c
+> @@ -606,36 +606,87 @@ adjust_head:
+>  static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+>  				struct net_device *dev)
+>  {
+> -	unsigned int data;
+> +	u16 *data;
+>  
+>  	current_tx_ptr->skb = skb;
+>  
+> -	/*
+> -	 * Is skb->data always 16-bit aligned?
+> -	 * Do we need to memcpy((char *)(tail->packet + 2), skb->data, len)?
+> -	 */
+> -	if ((((unsigned int)(skb->data)) & 0x01) == 0) {
+> -		/* move skb->data to current_tx_ptr payload */
+> -		data = (unsigned int)(skb->data) - 2;
+> -		*((unsigned short *)data) = (unsigned short)(skb->len);
+> -		current_tx_ptr->desc_a.start_addr = (unsigned long)data;
+> -		/* this is important! */
+> -		blackfin_dcache_flush_range(data, (data + (skb->len)) + 2);
+> -
+> +	if (ANOMALY_05000285) {
+> +		/*
+> +		 * TXDWA feature is not avaible to older revision < 0.3 silicon
+> +		 * of BF537
+> +		 *
+> +		 * Only if data buffer is ODD WORD alignment, we do not
+> +		 * need to memcpy
+> +		 */
+> +		u32 data_align = (u32)(skb->data) & 0x3;
+> +		if (data_align == 0x2) {
+> +			/* move skb->data to current_tx_ptr payload */
+> +			data = (u16 *)(skb->data) - 1;
+> +			*data = (u16)(skb->len);
+> +			current_tx_ptr->desc_a.start_addr = (u32)data;
+> +			/* this is important! */
+> +			blackfin_dcache_flush_range((u32)data,
+> +					(u32)((u8 *)data + skb->len + 4));
+> +		} else {
+> +			*((u16 *)(current_tx_ptr->packet)) = (u16)(skb->len);
+> +			memcpy((u8 *)(current_tx_ptr->packet + 2), skb->data,
+> +				skb->len);
+> +			current_tx_ptr->desc_a.start_addr =
+> +				(u32)current_tx_ptr->packet;
+> +			if (current_tx_ptr->status.status_word != 0)
+> +				current_tx_ptr->status.status_word = 0;
+> +			blackfin_dcache_flush_range(
+> +				(u32)current_tx_ptr->packet,
+> +				(u32)(current_tx_ptr->packet + skb->len + 2));
 > +		}
+>  	} else {
+> -		*((unsigned short *)(current_tx_ptr->packet)) =
+> -		    (unsigned short)(skb->len);
+> -		memcpy((char *)(current_tx_ptr->packet + 2), skb->data,
+> -		       (skb->len));
+> -		current_tx_ptr->desc_a.start_addr =
+> -		    (unsigned long)current_tx_ptr->packet;
+> -		if (current_tx_ptr->status.status_word != 0)
+> -			current_tx_ptr->status.status_word = 0;
+> -		blackfin_dcache_flush_range((unsigned int)current_tx_ptr->
+> -					    packet,
+> -					    (unsigned int)(current_tx_ptr->
+> -							   packet + skb->len) +
+> -					    2);
+> +		/*
+> +		 * TXDWA feature is avaible to revision < 0.3 silicon of
+> +		 * BF537 and always avaible to BF52x
+> +		 */
+> +		u32 data_align = (u32)(skb->data) & 0x3;
+> +		if (data_align == 0x0) {
 
-If the allocation fails, we try again (but nothing has changed, right?)=
-=2E
-Why?
+This condition seems to be the only part dependend on "ANOMALY_05000285".
 
-> +	}
+> +			u16 sysctl = bfin_read_EMAC_SYSCTL();
+> +			sysctl |= TXDWA;
+> +			bfin_write_EMAC_SYSCTL(sysctl);
 > +
-> +	obj =3D __kmalloc_node_track_caller(size, flags, node, ip);
-> +	WARN_ON(!obj);
-
-Why don't we discharge from the reserve here if !obj?
-
-> +	if (emerg)
-> +		*emerg |=3D 1;
+> +			/* move skb->data to current_tx_ptr payload */
+> +			data = (u16 *)(skb->data) - 2;
+> +			*data = (u16)(skb->len);
+> +			current_tx_ptr->desc_a.start_addr = (u32)data;
+> +			/* this is important! */
+> +			blackfin_dcache_flush_range(
+> +					(u32)data,
+> +					(u32)((u8 *)data + skb->len + 4));
+> +		} else if (data_align == 0x2) {
+> +			u16 sysctl = bfin_read_EMAC_SYSCTL();
+> +			sysctl &= ~TXDWA;
+> +			bfin_write_EMAC_SYSCTL(sysctl);
 > +
-> +out:
-> +	return obj;
-> +}
+> +			/* move skb->data to current_tx_ptr payload */
+> +			data = (u16 *)(skb->data) - 1;
+> +			*data = (u16)(skb->len);
+> +			current_tx_ptr->desc_a.start_addr = (u32)data;
+> +			/* this is important! */
+> +			blackfin_dcache_flush_range(
+> +					(u32)data,
+> +					(u32)((u8 *)data + skb->len + 4));
+> +		} else {
+> +			u16 sysctl = bfin_read_EMAC_SYSCTL();
+> +			sysctl &= ~TXDWA;
+> +			bfin_write_EMAC_SYSCTL(sysctl);
 > +
-> +void __kfree_reserve(void *obj, struct mem_reserve *res, int emerg)
+> +			*((u16 *)(current_tx_ptr->packet)) = (u16)(skb->len);
+> +			memcpy((u8 *)(current_tx_ptr->packet + 2), skb->data,
+> +				skb->len);
+> +			current_tx_ptr->desc_a.start_addr =
+> +				(u32)current_tx_ptr->packet;
+> +			if (current_tx_ptr->status.status_word != 0)
+> +				current_tx_ptr->status.status_word = 0;
+> +			blackfin_dcache_flush_range(
+> +				(u32)current_tx_ptr->packet,
+> +				(u32)(current_tx_ptr->packet + skb->len + 2));
+> +		}
+>  	}
+>  
+>  	/* enable this packet's dma */
 
-I don't see 'emerg' used anywhere.
+Best Regards
 
-> +{
-> +	size_t size =3D ksize(obj);
-> +
-> +	kfree(obj);
-
-We're trying to get rid of kfree() so I'd __kfree_reserve() could to
-mm/sl?b.c. Matt, thoughts?
-
-> +	/*
-> +	 * ksize gives the full allocated size vs the requested size we use=
-d to
-> +	 * charge; however since we round up to the nearest power of two, t=
-his
-> +	 * should all work nicely.
-> +	 */
-> +	mem_reserve_kmalloc_charge(res, -size);
-> +}
->=20
-
+Ingo Oeser
