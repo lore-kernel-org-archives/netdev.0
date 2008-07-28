@@ -1,163 +1,148 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/7] dccp ccid-3: Simplified handling of TX states
-Date: Mon, 28 Jul 2008 19:13:58 +0100
-Message-ID: <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 6/7] dccp tfrc: Return type of update_i_mean is void
+Date: Mon, 28 Jul 2008 19:14:02 +0100
+Message-ID: <1217268843-19667-7-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_updates_ecn_and_rfc3448bis>
  <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217268843-19667-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58295 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757366AbYG1SOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 14:14:30 -0400
-In-Reply-To: <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756382AbYG1SO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 14:14:27 -0400
+In-Reply-To: <1217268843-19667-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since CCIDs are only used during the established phase of a connection,
-they have very little internal state; this specifically reduces to:
+This changes the return type of tfrc_lh_update_i_mean() to void, since that
+function returns always `false'. This is due to
 
- * "no packet sent" if and only if s == 0, for the TX packet size s;
+ 	len = dccp_delta_seqno(cur->li_seqno, DCCP_SKB_CB(skb)->dccpd_seq) + 1;
 
- * when the first packet has been sent (i.e. `s' > 0), the question is whether
-   or not feedback has been received:
-   - if a feedback packet is received, "feedback = yes" is set,
-   - if the nofeedback timer expires,  "feedback = no"  is set.
+ 	if (len - (s64)cur->li_length <= 0)	/* duplicate or reordered */
+		return 0;
 
-Thus the CCID only needs to remember state about whether or not feedback
-has been received. This is now implemented using a boolean flag, which is
-toggled when a feedback packet arrives or the nofeedback timer expires.
+which means that update_i_mean can only increase the length of the open loss
+interval I_0, and hence the value of I_tot0 (RFC 3448, 5.4). Consequently the
+test `i_mean < old_i_mean' at the end of the function always evaluates to false.
+
+There is no known way by which a loss interval can suddenly become shorter,
+therefore the return type of the function is changed to void. (That is, under
+the given circumstances step (3) in RFC 3448, 6.1 will not occur.)
+
+Further changes:
+----------------
+ * the function is now called from tfrc_rx_handle_loss, which is equivalent
+   to the previous way of calling from rx_packet_recv (it was called whenever
+   there was no new or pending loss, now  it is also updated when there is
+   a pending loss - this increases the accuracy a bit);
+ * added a FIXME to possibly consider NDP counting as per RFC 4342 (this is
+   not implemented yet).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c |   41 ++++++-----------------------------------
- net/dccp/ccids/ccid3.h |   11 ++---------
- 2 files changed, 8 insertions(+), 44 deletions(-)
+ net/dccp/ccids/ccid3.c              |    8 --------
+ net/dccp/ccids/lib/loss_interval.c  |   20 +++++++++++---------
+ net/dccp/ccids/lib/loss_interval.h  |    2 +-
+ net/dccp/ccids/lib/packet_history.c |    5 +++++
+ 4 files changed, 17 insertions(+), 18 deletions(-)
 
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -70,13 +70,6 @@ enum ccid3_options {
- 	TFRC_OPT_RECEIVE_RATE	 = 194,
- };
+--- a/net/dccp/ccids/lib/loss_interval.h
++++ b/net/dccp/ccids/lib/loss_interval.h
+@@ -69,7 +69,7 @@ struct tfrc_rx_hist;
  
--/* TFRC sender states */
--enum ccid3_hc_tx_states {
--	TFRC_SSTATE_NO_SENT = 1,
--	TFRC_SSTATE_NO_FBACK,
--	TFRC_SSTATE_FBACK,
--};
+ extern int  tfrc_lh_interval_add(struct tfrc_loss_hist *, struct tfrc_rx_hist *,
+ 				 u32 (*first_li)(struct sock *), struct sock *);
+-extern u8   tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *);
++extern void tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *);
+ extern void tfrc_lh_cleanup(struct tfrc_loss_hist *lh);
+ 
+ #endif /* _DCCP_LI_HIST_ */
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -84,21 +84,26 @@ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
+ 
+ /**
+  * tfrc_lh_update_i_mean  -  Update the `open' loss interval I_0
+- * For recomputing p: returns `true' if p > p_prev  <=>  1/p < 1/p_prev
++ * This updates I_mean as the sequence numbers increase. As a consequence, the
++ * open loss interval I_0 increases, hence p = W_tot/max(I_tot0, I_tot1)
++ * decreases, and thus there is no need to send renewed feedback.
+  */
+-u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
++void tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
+ {
+ 	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh);
+-	u32 old_i_mean = lh->i_mean;
+ 	s64 len;
+ 
+ 	if (cur == NULL)			/* not initialised */
+-		return 0;
++		return;
++
++	/* FIXME: should probably also count non-data packets (RFC 4342, 6.1) */
++	if (!dccp_data_packet(skb))
++		return;
+ 
+ 	len = dccp_delta_seqno(cur->li_seqno, DCCP_SKB_CB(skb)->dccpd_seq) + 1;
+ 
+ 	if (len - (s64)cur->li_length <= 0)	/* duplicate or reordered */
+-		return 0;
++		return;
+ 
+ 	if (SUB16(dccp_hdr(skb)->dccph_ccval, cur->li_ccval) > 4)
+ 		/*
+@@ -112,14 +117,11 @@ u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
+ 		cur->li_is_closed = 1;
+ 
+ 	if (tfrc_lh_length(lh) == 1)		/* due to RFC 3448, 6.3.1 */
+-		return 0;
++		return;
+ 
+ 	cur->li_length = len;
+ 	tfrc_lh_calc_i_mean(lh);
 -
- /** struct ccid3_hc_tx_sock - CCID3 sender half-connection socket
-  *
-  * @x - Current sending rate in 64 * bytes per second
-@@ -87,7 +80,7 @@ enum ccid3_hc_tx_states {
-  * @s - Packet size in bytes
-  * @t_rto - Nofeedback Timer setting in usecs
-  * @t_ipi - Interpacket (send) interval (RFC 3448, 4.6) in usecs
-- * @state - Sender state, one of %ccid3_hc_tx_states
-+ * @feedback - Whether feedback has been received or not
-  * @last_win_count - Last window counter sent
-  * @t_last_win_count - Timestamp of earliest packet with
-  *                     last_win_count value sent
-@@ -105,7 +98,7 @@ struct ccid3_hc_tx_sock {
- 	u32				t_rto;
- 	u32				t_ipi;
- 	u16				s;
--	enum ccid3_hc_tx_states		state:8;
-+	bool				feedback:1;
- 	u8				last_win_count;
- 	ktime_t				t_last_win_count;
- 	struct timer_list		no_feedback_timer;
+-	return (lh->i_mean < old_i_mean);
+ }
+-EXPORT_SYMBOL_GPL(tfrc_lh_update_i_mean);
+ 
+ /* Determine if `new_loss' does begin a new loss interval [RFC 4342, 10.2] */
+ static inline u8 tfrc_lh_is_new_loss(struct tfrc_loss_interval *cur,
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -49,31 +49,6 @@ static int ccid3_debug;
- /*
-  *	Transmitter Half-Connection Routines
-  */
--#ifdef CONFIG_IP_DCCP_CCID3_DEBUG
--static const char *ccid3_tx_state_name(enum ccid3_hc_tx_states state)
--{
--	static char *ccid3_state_names[] = {
--	[TFRC_SSTATE_NO_SENT]  = "NO_SENT",
--	[TFRC_SSTATE_NO_FBACK] = "NO_FBACK",
--	[TFRC_SSTATE_FBACK]    = "FBACK",
--	};
+@@ -767,15 +767,7 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		if (sample != 0)
+ 			hcrx->rtt = tfrc_ewma(hcrx->rtt, sample, 9);
 -
--	return ccid3_state_names[state];
--}
--#endif
--
--static void ccid3_hc_tx_set_state(struct sock *sk,
--				  enum ccid3_hc_tx_states state)
--{
--	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
--	enum ccid3_hc_tx_states oldstate = hctx->state;
--
--	ccid3_pr_debug("%s(%p) %-8.8s -> %s\n",
--		       dccp_role(sk), sk, ccid3_tx_state_name(oldstate),
--		       ccid3_tx_state_name(state));
--	WARN_ON(state == oldstate);
--	hctx->state = state;
--}
- 
- /*
-  * Compute the initial sending rate X_init in the manner of RFC 3390:
-@@ -206,16 +181,15 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
- 		goto restart_timer;
+-	} else if (tfrc_lh_update_i_mean(&hcrx->li_hist, skb)) {
+-		/*
+-		 * Step (3) of [RFC 3448, 6.1]: Recompute I_mean and, if I_mean
+-		 * has decreased (resp. p has increased), send feedback now.
+-		 */
+-		do_feedback = CCID3_FBACK_PARAM_CHANGE;
  	}
- 
--	ccid3_pr_debug("%s(%p, state=%s) - entry \n", dccp_role(sk), sk,
--		       ccid3_tx_state_name(hctx->state));
-+	ccid3_pr_debug("%s(%p) entry with%s feedback\n", dccp_role(sk), sk,
-+		       hctx->feedback ? "" : "out");
- 
- 	/* Ignore and do not restart after leaving the established state */
- 	if ((1 << sk->sk_state) & ~(DCCPF_OPEN | DCCPF_PARTOPEN))
- 		goto out;
- 
- 	/* Reset feedback state to "no feedback received" */
--	if (hctx->state == TFRC_SSTATE_FBACK)
--		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_NO_FBACK);
-+	hctx->feedback = false;
- 
- 	/*
- 	 * Determine new allowed sending rate X as per draft rfc3448bis-00, 4.4
-@@ -290,7 +264,7 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 	if (unlikely(skb->len == 0))
- 		return -EBADMSG;
- 
--	if (hctx->state == TFRC_SSTATE_NO_SENT) {
-+	if (hctx->s == 0) {
- 		sk_reset_timer(sk, &hctx->no_feedback_timer, (jiffies +
- 				usecs_to_jiffies(TFRC_INITIAL_TIMEOUT)));
- 		hctx->last_win_count   = 0;
-@@ -324,8 +298,6 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 		}
- 		ccid3_update_send_interval(hctx);
- 
--		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_NO_FBACK);
 -
- 	} else {
- 		delay = ktime_us_delta(hctx->t_nom, now);
- 		ccid3_pr_debug("delay=%ld\n", (long)delay);
-@@ -396,8 +368,8 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
  	/*
- 	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
+ 	 * Check if the periodic once-per-RTT feedback is due; RFC 4342, 10.3
  	 */
--	if (hctx->state == TFRC_SSTATE_NO_FBACK) {
--		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_FBACK);
-+	if (!hctx->feedback) {
-+		hctx->feedback = true;
- 
- 		if (hctx->t_rto == 0) {
- 			/*
-@@ -502,7 +474,6 @@ static int ccid3_hc_tx_init(struct ccid *ccid, struct sock *sk)
- {
- 	struct ccid3_hc_tx_sock *hctx = ccid_priv(ccid);
- 
--	hctx->state = TFRC_SSTATE_NO_SENT;
- 	hctx->hist  = NULL;
- 	setup_timer(&hctx->no_feedback_timer,
- 		    ccid3_hc_tx_no_feedback_timer, (unsigned long)sk);
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -351,6 +351,11 @@ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+ 		is_new_loss = tfrc_lh_interval_add(lh, h, calc_first_li, sk);
+ 		__three_after_loss(h);
+ 	}
++
++	/* RFC 3448, 6.1: update I_0, whose growth implies p <= p_prev */
++	if (!is_new_loss)
++		tfrc_lh_update_i_mean(lh, skb);
++
+ 	return is_new_loss;
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_handle_loss);
