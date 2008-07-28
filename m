@@ -1,77 +1,65 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: net/usb/mcs7830: new device IDs
-Date: Mon, 28 Jul 2008 23:37:19 +0200
-Message-ID: <200807282337.19911.arnd@arndb.de>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: [net-2.6 - patch 1/1] ipv6 : Fix useless proc net sockstat6 removal
+Date: Mon, 28 Jul 2008 23:41:38 +0200
+Message-ID: <488E3D12.7010708@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Viktor Horvath <ViktorHorvath@gmx.net>,
-	Robbert Wethmar <robbert@wethmar.nl>,
-	Bart van der Klip <bklip@xs4all.nl>
-To: David Brownell <dbrownell@users.sourceforge.net>
+Content-Type: multipart/mixed;
+ boundary="------------090208050103030707040704"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:53679 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755718AbYG1Vhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 17:37:48 -0400
-Content-Disposition: inline
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:64520 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753521AbYG1VmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 17:42:01 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate8.de.ibm.com (8.13.8/8.13.8) with ESMTP id m6SLfleC453604
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 21:41:47 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m6SLflC53481700
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 23:41:47 +0200
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m6SLflCX017583
+	for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 23:41:47 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds USB device IDs for MosChip 7730 and Sitecom LN030
-to the mcs7830 driver. The IDs have been reported to work without
-further modifications.
+This is a multi-part message in MIME format.
+--------------090208050103030707040704
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Viktor Horvath <ViktorHorvath@gmx.net>
-Cc: Robbert Wethmar <robbert@wethmar.nl>
-Cc: Bart van der Klip <bklip@xs4all.nl>
 
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -46,6 +46,10 @@
+
+--------------090208050103030707040704
+Content-Type: text/plain;
+ name="fix-remove-proc-sockstat6.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fix-remove-proc-sockstat6.patch"
+
+Subject: ipv6 : Fix useless proc net sockstat6 removal
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+
+This call is no longer needed, sockstat6 is per namespace so it is
+removed at the namespace subsystem destruction.
+
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+---
+ net/ipv6/proc.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+Index: net-2.6/net/ipv6/proc.c
+===================================================================
+--- net-2.6.orig/net/ipv6/proc.c
++++ net-2.6/net/ipv6/proc.c
+@@ -286,7 +286,6 @@ proc_net_fail:
  
- #define MCS7830_VENDOR_ID	0x9710
- #define MCS7830_PRODUCT_ID	0x7830
-+#define MCS7730_PRODUCT_ID	0x7730
-+
-+#define SITECOM_VENDOR_ID	0x0DF6
-+#define LN_030_PRODUCT_ID	0x0021
- 
- #define MCS7830_MII_ADVERTISE	(ADVERTISE_PAUSE_CAP | ADVERTISE_100FULL | \
- 				 ADVERTISE_100HALF | ADVERTISE_10FULL | \
-@@ -491,7 +495,16 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- }
- 
- static const struct driver_info moschip_info = {
--	.description	= "MOSCHIP 7830 usb-NET adapter",
-+	.description	= "MOSCHIP 7830/7730 usb-NET adapter",
-+	.bind		= mcs7830_bind,
-+	.rx_fixup	= mcs7830_rx_fixup,
-+	.flags		= FLAG_ETHER,
-+	.in		= 1,
-+	.out		= 2,
-+};
-+
-+static const struct driver_info sitecom_info = {
-+	.description    = "Sitecom LN-30 usb-NET adapter",
- 	.bind		= mcs7830_bind,
- 	.rx_fixup	= mcs7830_rx_fixup,
- 	.flags		= FLAG_ETHER,
-@@ -504,6 +517,14 @@ static const struct usb_device_id products[] = {
- 		USB_DEVICE(MCS7830_VENDOR_ID, MCS7830_PRODUCT_ID),
- 		.driver_info = (unsigned long) &moschip_info,
- 	},
-+	{
-+		USB_DEVICE(MCS7830_VENDOR_ID, MCS7730_PRODUCT_ID),
-+		.driver_info = (unsigned long) &moschip_info,
-+	},
-+	{
-+		USB_DEVICE(SITECOM_VENDOR_ID, LN_030_PRODUCT_ID),
-+		.driver_info = (unsigned long) &sitecom_info,
-+	},
- 	{},
- };
- MODULE_DEVICE_TABLE(usb, products);
+ void ipv6_misc_proc_exit(void)
+ {
+-	proc_net_remove(&init_net, "sockstat6");
+ 	proc_net_remove(&init_net, "dev_snmp6");
+ 	proc_net_remove(&init_net, "snmp6");
+ 	unregister_pernet_subsys(&ipv6_proc_ops);
+
+--------------090208050103030707040704--
