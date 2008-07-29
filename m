@@ -1,38 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: incoming interface + ifb0
-Date: Tue, 29 Jul 2008 12:48:23 +0000
-Message-ID: <20080729124823.GA26788@ff.dom.local>
-References: <200807291322.10084.denys@visp.net.lb>
+From: Komuro <komurojun-mbn@nifty.com>
+Subject: RE: NETDEV WATCHDOG: wifi0: transmit timed out
+Date: Tue, 29 Jul 2008 21:53:15 +0900
+Message-ID: <20080729215315.5a505fe7.komurojun-mbn@nifty.com>
+References: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:59518 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbYG2MnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 08:43:10 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so142996ugf.16
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 05:43:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200807291322.10084.denys@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758556AbYG2M5u@vger.kernel.org>
+In-Reply-To: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 29-07-2008 12:22, Denys Fedoryshchenko wrote:
-> Sorry that i am asking in kernel maillist, probably it is wrong. Maybe right place is lartc only, but probably kernel lacking something too :-)
-> 
-> Question is:
-> I have plenty pppX interfaces. I want to shape traffic coming over this interfaces.
-> Before i was doing over m_ipt and MARK, then redirect to ifb0 and there was doing filter by fwmark.
-> But m_ipt seems needs serious rewrite, and plus it is not very clean way to do (performance wise).
-> 
-> Alternative way is to shape on outgoing interface, but it is not clean, in case if there is multiple outgoing interfaces. 
-> I tried to filter on ifb by ematch - rt_iif, dev - no luck. by route fromif - no luck. Is there some way i miss?
+Hi,
 
-I didn't use this nor checked enough, so I can be wrong, but
-since ingress with ifb0 is in prerouting, you probably can't use
-rt_iif. You shouldn't filter at ifb on "dev" neither - it's "ifb"
-at the moment. You need to match skb->iif with something (flow?).
+Please try to comment out the "WARN_ON_ONCE"
+at net/sched/sched_generic.c.
 
-Jarek P.
+
+--- linux-2.6.27-rc1/net/sched/sch_generic.c.orig	2008-07-29 21:45:36.000000000 +0900
++++ linux-2.6.27-rc1/net/sched/sch_generic.c	2008-07-29 21:45:54.000000000 +0900
+@@ -216,7 +216,6 @@ static void dev_watchdog(unsigned long a
+ 				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
+ 				       dev->name, netdev_drivername(dev, drivername, 64));
+ 				dev->tx_timeout(dev);
+-				WARN_ON_ONCE(1);
+ 			}
+ 			if (!mod_timer(&dev->watchdog_timer,
+ 				       round_jiffies(jiffies +
+
+
+
+>I should'nt be posting this, due to
+>having  tainted modules(madwifi), but
+>I figured I might as well:(below)
+>
+>[ 5000.986044] NETDEV WATCHDOG: wifi0: transmit timed out
+>[ 5000.991959] ------------[ cut here ]------------
+>[ 5000.991964] WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0x95/0xe7()
+
+Best Regards
+Komuro
