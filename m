@@ -1,53 +1,54 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: sendfile() behavior while troubleshooting netdevice
-Date: Tue, 29 Jul 2008 08:32:34 -0500
-Message-ID: <488F1BF2.8090009@bellsouth.net>
-References: <20080728190707.329d247b@osprey.hogchain.net> <20080729062804.GA7009@2ka.mipt.ru>
-Reply-To: jacliburn@bellsouth.net
+From: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+Subject: [PATCH] fix ne driver link error
+Date: Tue, 29 Jul 2008 22:29:25 +0900
+Message-ID: <20080729222925.37232c47.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian@jeffray.co.uk
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: yoichi_yuasa@tripeaks.co.jp, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.226]:53894 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbYG2Nci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 09:32:38 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so4266120wri.5
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 06:32:37 -0700 (PDT)
-In-Reply-To: <20080729062804.GA7009@2ka.mipt.ru>
+Received: from mfo30.po.2iij.NET ([210.128.50.51]:12645 "EHLO
+	mfo30.po.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753511AbYG2Nie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 09:38:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> Hi Jay.
-> 
-> On Mon, Jul 28, 2008 at 07:07:07PM -0500, Jay Cliburn (jacliburn@bellsouth.net) wrote:
->> sendfile() + TSO + atl1 driver == corrupted file at the receiver
-> 
-> ...
-> 
->> The hosts:
->> server, petrel,  r8169, 192.168.1.6,   2.6.20-1.2320.fc5
->> client, sparrow, e100,  192.168.1.195, 2.6.25.6-27.fc8
-> 
-> ...
-> 
->> [jcliburn@sparrow ~]$ ./sfcli 192.168.1.6 testfile
->> connected...
->> file size is 1600 bytes
->> received 1592 bytes
->> error: expected 1600, received 1592
-> 
-> I.e. trouble also happens with r8169 driver?
-> 
+The ne driver is required 8390p.
 
-I think you may be right, Evgeniy.  I thought I had tested things using 
-e100 as the server side, but apparently I didn't.  If I run the server 
-from the e100 host, it works flawlessly every time.  (But of course, the 
-NIC doesn't support TSO, either.)
+drivers/built-in.o: In function `ne_probe1':
+ne.c:(.init.text+0x25c8): undefined reference to `NS8390_init'
 
-More testing tonight...
+Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 
-Thanks.
+diff -pruN -X /home/yuasa/Memo/dontdiff linux-orig/drivers/net/ne.c linux/drivers/net/ne.c
+--- linux-orig/drivers/net/ne.c	2008-07-25 16:43:41.905549705 +0900
++++ linux/drivers/net/ne.c	2008-07-26 17:18:44.150322098 +0900
+@@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_d
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = eip_poll;
+ #endif
+-	NS8390_init(dev, 0);
++	NS8390p_init(dev, 0);
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret)
+@@ -794,7 +794,7 @@ retry:
+ 		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
+ 			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
+ 			ne_reset_8390(dev);
+-			NS8390_init(dev,1);
++			NS8390p_init(dev,1);
+ 			break;
+ 		}
+ 
+@@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform
+ 
+ 	if (netif_running(dev)) {
+ 		ne_reset_8390(dev);
+-		NS8390_init(dev, 1);
++		NS8390p_init(dev, 1);
+ 		netif_device_attach(dev);
+ 	}
+ 	return 0;
