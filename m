@@ -1,54 +1,45 @@
-From: cpusoft <cpusoft@gmail.com>
-Subject: where change events in epoll_wait(), and who notify an epoll event?
-Date: Tue, 29 Jul 2008 09:54:35 +0800
-Message-ID: <15da71430807281854v3e7c2536hd4e709a9a5dc7bb6@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
+Date: Tue, 29 Jul 2008 09:56:49 +0800
+Message-ID: <20080729015649.GA15441@gondor.apana.org.au>
+References: <20080727045121.GA419@gondor.apana.org.au> <20080728112527.GB7589@gerrit.erg.abdn.ac.uk> <488DC63A.3070309@hp.com> <20080728170846.GB3762@gerrit.erg.abdn.ac.uk> <488E0192.9030406@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.231]:19845 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbYG2Byg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 21:54:36 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so4111540wri.5
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 18:54:35 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:36979 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752845AbYG2B5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 21:57:07 -0400
 Content-Disposition: inline
+In-Reply-To: <488E0192.9030406@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi, group
+On Mon, Jul 28, 2008 at 01:27:46PM -0400, Vlad Yasevich wrote:
+> 
+> So the suggestion really is then to remove the length check icmp_unreach()?
 
-i have question in epoll functions.
-as we know, user can use poll_wait() as follows:
-for(;;) {
- nfds = epoll_wait(kdpfd, events, maxevents, -1);
- for(n = 0; n < nfds; ++n) {
-     do_my_function(events[n].data.fd);
- }
-}
-that means we can get the new events from the parameter events from
-epoll_wait().
+Yes.
 
-Then i search the kernel, and find the new events comes from
-ep_send_events() finally , through sys_poll_wait() and ep_poll().
-the ep_send_evnets() shows as follows:
+> Because as it stands right now, the protocol error handler will not be invoked
+> if we don't have the iphdr + 8 bytes worth of data.  That's is actually a requirement
+> from the ICMP rfc 792.
 
-static int ep_send_events(struct eventpoll *ep, struct epoll_event
-                                      __user *events, int maxevents)
-{
-       ....
-       //in here,  revents = POLLIN | POLLRDNORM;
-       revents = epi->ffd.file->f_op->poll(epi->ffd.file, NULL);
+That requirement only makes sense if the original packet has at
+least 8 bytes of payload.  Since the RFC doesn't talk about
+padding in case it doesn't have 8 byte, the behaviour in that
+case is clearly undefined.
 
-      // i wonder where changes the epi->event.events??
-       revents &= epi->event.events;
-}
+As far as Linux is concerned, we've never done padding if there
+is less than 8 bytes of payload.  So as such we must be prepared
+to deal with that on the input side as well.
 
-So, the revents comes from epi->event.events.
-
-But, i wonder where changes the epi->event.events? and who notify the
-epoll event ?
-i find nothing from lxr.linux.no by search "event.evnets" as keyword.
-
-Can anybody help me?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
