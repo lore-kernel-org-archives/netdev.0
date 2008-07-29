@@ -1,30 +1,62 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 04/30] mm: slub: trivial cleanups
-Date: Wed, 30 Jul 2008 01:15:36 +0300
-Message-ID: <488F9688.5090002@cs.helsinki.fi>
-References: <20080724140042.408642539@chello.nl> <20080724141529.560025894@chello.nl>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: mv643xx_eth: pull request for for-2.6.27 branch
+Date: Tue, 29 Jul 2008 18:23:25 -0400
+Message-ID: <488F985D.1050203@garzik.org>
+References: <20080724052140.GA19392@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Neil Brown <neilb@suse.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: dale@farnsworth.org, netdev@vger.kernel.org, nico@cam.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46839 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbYG2WSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 18:18:39 -0400
-In-Reply-To: <20080724141529.560025894@chello.nl>
+Received: from srv5.dvmed.net ([207.36.208.214]:57184 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751372AbYG2WXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 18:23:31 -0400
+In-Reply-To: <20080724052140.GA19392@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Zijlstra wrote:
-> Some cleanups....
+Lennert Buytenhek wrote:
+> This patch series consists of the patches posted so far that should be
+> good to go in for 2.6.27 and should be the last batch before -rc1: the
+> three interface TX hang fixes, revamping the link up/down handling to
+> fix a couple more PHYless cases (which as a side-effect will require
+> specifying speed/duplex explicitly in the platform data) and to no
+> longer do MII accesses from interrupt context, enabling TX checksumming
+> on VLANed packets, and some more assorted minor changes.
 > 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> 
+> The following changes since commit c010b2f76c3032e48097a6eef291d8593d5d79a6:
+>   Linus Torvalds (1):
+>         Merge git://git.kernel.org/.../davem/net-2.6
+> 
+> are available in the git repository at:
+> 
+>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
+> 
+> Lennert Buytenhek (12):
+>       mv643xx_eth: fix TX hang erratum workaround
+>       mv643xx_eth: prevent breakage when link goes down during transmit
+>       mv643xx_eth: fix transmit-reclaim-in-napi-poll
+>       mv643xx_eth: don't fiddle with maximum receive packet size setting
+>       mv643xx_eth: also check TX_IN_PROGRESS when disabling transmit path
+>       mv643xx_eth: use longer DMA bursts
+>       mv643xx_eth: use symbolic MII register addresses and values
+>       mv643xx_eth: print driver version on init
+>       mv643xx_eth: use auto phy polling for configuring (R)(G)MII interface
+>       mv643xx_eth: print message on link status change
+>       mv643xx_eth: enable hardware TX checksumming with vlan tags
+>       mv643xx_eth: bump version to 1.2
+> 
+>  arch/arm/mach-kirkwood/rd88f6281-setup.c     |    3 +
+>  arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |    3 +
+>  arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |    3 +
+>  arch/arm/mach-orion5x/wnr854t-setup.c        |    3 +
+>  arch/arm/mach-orion5x/wrt350n-v2-setup.c     |    3 +
+>  drivers/net/mv643xx_eth.c                    |  358 +++++++++++++++++---------
+>  6 files changed, 251 insertions(+), 122 deletions(-)
 
-Applied, thanks!
+pulled
+
+
