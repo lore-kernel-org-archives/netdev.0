@@ -1,231 +1,168 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/7] dccp tfrc: Let dccp_tfrc_lib do the sampling work
-Date: Tue, 29 Jul 2008 11:05:46 +0100
-Message-ID: <1217325952-12337-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/7] dccp tfrc: Increase number of RTT samples
+Date: Tue, 29 Jul 2008 11:05:50 +0100
+Message-ID: <1217325952-12337-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_ccid-3_second_set_of_updates>
  <1217325952-12337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217325952-12337-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217325952-12337-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217325952-12337-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217325952-12337-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:52489 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756025AbYG2KGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 06:06:04 -0400
-In-Reply-To: <1217325952-12337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756101AbYG2KGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 06:06:01 -0400
+In-Reply-To: <1217325952-12337-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This migrates more TFRC-related code into the dccp_tfrc_lib:
- * sampling of the packet size `s' (which is only needed until the first
-   loss interval is computed (ccid3_first_li));
- * updating the byte-counter `bytes_recvd' in between sending feedbacks.
+This improves the receiver RTT sampling algorithm so that it tries harder to get
+as many RTT samples as possible, using several optimisations.
 
-The result is a better separation of CCID-3 specific and TFRC specific
-code, which aids future integration with ECN and e.g. CCID-4.
+Applicability and background
+----------------------------
+The algorithm uses timestamps and differences of the CCval window counter to
+guess the RTT, using concepts presented in RFC 4340, 8.1.
 
-Further changes:
-----------------
- * replaced magic number of 536 with equivalent constant TCP_MIN_RCVMSS;
-   (this constant is also used when no estimate for `s' is available).
+There exist 4 cases for the CCVal difference:
+ * == 0: less than RTT/4 passed since last packet -- unusable sample;
+ *  > 4: (much) more than 1 RTT has passed since last packet -- also unusable;
+ * == 4: "perfect" sample (exactly one RTT has passed since last packet);
+ * 1..3: sub-optimal sample (between RTT/4 and 3*RTT/4 has passed).
+
+In the last case the algorithm so far tried to optimise by storing away the
+candidate and then re-trying next time. This had the following problems:
+ * a large number of samples is needed to smooth out the given inaccuracies;
+ * the sender may not be sending enough packets to warrant a "next time";
+ * hence it is better to use suboptimal samples whenever possible.
+As a consequence, the algorithm now stores away the current sample only if the
+difference is 0.
+
+A realistic example to illustrate the failure of the (previous) algorithm is MP3
+streaming, where packets are sent at a rate of less than one packet per RTT.
+Which means that suitable samples may be absent for a very long time.
+
+The effectiveness of using suboptimal samples (with a delta between 1 and 4) was
+confirmed by instrumenting the algorithm with counters. The results of two 20
+second test runs were:
+ * With the old algorithm and a total of 38442 function calls, only 394 of these
+   calls resulted in usable RTT samples (about 1%), 378 out of these were
+   "perfect" samples, and 28013 (unused) samples had a delta of 1..3.
+ * With the new algorithm and a total of 37057 function calls, 1702 usable RTT
+   samples were retrieved (about 4.6%), 5 out of these were "perfect" samples.
+This means an almost five-fold increase in the number of samples.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c              |   38 +++++++---------------------------
- net/dccp/ccids/ccid3.h              |    4 ---
- net/dccp/ccids/lib/packet_history.c |   10 +++++++++
- net/dccp/ccids/lib/packet_history.h |   16 ++++++++++++++
- net/dccp/proto.c                    |    2 +-
- 5 files changed, 35 insertions(+), 35 deletions(-)
+ net/dccp/ccids/lib/packet_history.c |   83 ++++++++++-------------------------
+ 1 files changed, 24 insertions(+), 59 deletions(-)
 
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -91,12 +91,16 @@ struct tfrc_rx_hist_entry {
-  * @loss_count:		Number of entries in circular history
-  * @loss_start:		Movable index (for loss detection)
-  * @rtt_sample_prev:	Used during RTT sampling, points to candidate entry
-+ * @packet_size:	Packet size in bytes (as per RFC 3448, 3.1)
-+ * @bytes_recvd:	Number of bytes received since last sending feedback
-  */
- struct tfrc_rx_hist {
- 	struct tfrc_rx_hist_entry *ring[TFRC_NDUPACK + 1];
- 	u8			  loss_count:2,
- 				  loss_start:2;
- #define rtt_sample_prev		  loss_start
-+	u32			  packet_size,
-+				  bytes_recvd;
- };
- 
- /**
-@@ -140,6 +144,18 @@ static inline bool tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
- 	return h->loss_count > 0;
- }
- 
-+/*
-+ * Accessor functions to retrieve parameters sampled by the RX history
-+ */
-+static inline u32 tfrc_rx_hist_packet_size(const struct tfrc_rx_hist *h)
-+{
-+	if (h->packet_size == 0) {
-+		DCCP_WARN("No sample for s, using fallback\n");
-+		return TCP_MIN_RCVMSS;
-+	}
-+	return h->packet_size;
-+}
-+
- extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
- 				    const struct sk_buff *skb, const u64 ndp);
- 
 --- a/net/dccp/ccids/lib/packet_history.c
 +++ b/net/dccp/ccids/lib/packet_history.c
-@@ -352,6 +352,16 @@ int tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
- 		__three_after_loss(h);
- 	}
+@@ -428,31 +428,16 @@ int tfrc_rx_hist_init(struct tfrc_rx_hist *h, struct sock *sk)
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_init);
  
-+	/*
-+	 * Update moving-average of `s' and the sum of received payload bytes.
-+	 */
-+	if (dccp_data_packet(skb)) {
-+		const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
-+
-+		h->packet_size = tfrc_ewma(h->packet_size, payload, 9);
-+		h->bytes_recvd += payload;
-+	}
-+
- 	/* RFC 3448, 6.1: update I_0, whose growth implies p <= p_prev */
- 	if (!is_new_loss)
- 		tfrc_lh_update_i_mean(lh, skb);
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -124,25 +124,21 @@ enum ccid3_hc_rx_states {
-  *
-  *  @last_counter  -  Tracks window counter (RFC 4342, 8.1)
-  *  @state  -  Receiver state, one of %ccid3_hc_rx_states
-- *  @bytes_recv  -  Total sum of DCCP payload bytes
-  *  @x_recv  -  Receiver estimate of send rate (RFC 3448, sec. 4.3)
-  *  @rtt  -  Receiver estimate of RTT
-  *  @tstamp_last_feedback  -  Time at which last feedback was sent
-  *  @hist  -  Packet history (loss detection + RTT sampling)
-  *  @li_hist  -  Loss Interval database
-- *  @s  -  Received packet size in bytes
-  *  @p_inverse  -  Inverse of Loss Event Rate (RFC 4342, sec. 8.5)
+ /**
+- * tfrc_rx_hist_rtt_last_s - reference entry to compute RTT samples against
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_rtt_last_s(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[0];
+-}
+-
+-/**
+- * tfrc_rx_hist_rtt_prev_s: previously suitable (wrt rtt_last_s) RTT-sampling entry
+- */
+-static inline struct tfrc_rx_hist_entry *
+-			tfrc_rx_hist_rtt_prev_s(const struct tfrc_rx_hist *h)
+-{
+-	return h->ring[h->rtt_sample_prev];
+-}
+-
+-/**
+  * tfrc_rx_hist_sample_rtt  -  Sample RTT from timestamp / CCVal
+- * Based on ideas presented in RFC 4342, 8.1. Returns 0 if it was not able
+- * to compute a sample with given data - calling function should check this.
++ * Based on ideas presented in RFC 4342, 8.1. This function expects that no loss
++ * is pending and uses the following history entries (via rtt_sample_prev):
++ * - h->ring[0]  contains the most recent history entry prior to @skb;
++ * - h->ring[1]  is an unused `dummy' entry when the current difference is 0;
   */
- struct ccid3_hc_rx_sock {
- 	u8				last_counter:4;
- 	enum ccid3_hc_rx_states		state:8;
--	u32				bytes_recv;
- 	u32				x_recv;
- 	u32				rtt;
- 	ktime_t				tstamp_last_feedback;
- 	struct tfrc_rx_hist		hist;
- 	struct tfrc_loss_hist		li_hist;
--	u16				s;
- #define p_inverse			li_hist.i_mean
- };
- 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -590,12 +590,9 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 			 * would bring X down to s/t_mbi. That is why we return
- 			 * X_recv according to rfc3448bis-06 for the moment.
- 			 */
--			u32 rtt = hcrx->rtt ? : DCCP_FALLBACK_RTT, s = hcrx->s;
-+			u32 rtt = hcrx->rtt ? : DCCP_FALLBACK_RTT,
-+			    s	= tfrc_rx_hist_packet_size(&hcrx->hist);
- 
--			if (s == 0) {
--				DCCP_WARN("No sample for s, using fallback\n");
--				s = TCP_MIN_RCVMSS;
--			}
- 			hcrx->x_recv = scaled_div32(s, 2 * rtt);
- 			break;
- 		}
-@@ -617,7 +614,7 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 		if (delta <= 0)
- 			DCCP_BUG("delta (%ld) <= 0", (long)delta);
- 		else
--			hcrx->x_recv = scaled_div32(hcrx->bytes_recv, delta);
-+			hcrx->x_recv = scaled_div32(hcrx->hist.bytes_recvd, delta);
- 		break;
- 	default:
- 		return;
-@@ -628,7 +625,7 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 
- 	hcrx->tstamp_last_feedback = now;
- 	hcrx->last_counter	   = dccp_hdr(skb)->dccph_ccval;
--	hcrx->bytes_recv	   = 0;
-+	hcrx->hist.bytes_recvd	   = 0;
- 
- 	dp->dccps_hc_rx_insert_options = 1;
- 	dccp_send_ack(sk);
-@@ -669,7 +666,8 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- static u32 ccid3_first_li(struct sock *sk)
+ void tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h, const struct sk_buff *skb)
  {
- 	struct ccid3_hc_rx_sock *hcrx = ccid3_hc_rx_sk(sk);
--	u32 x_recv, p, delta;
-+	u32 x_recv, p, delta,
-+	    s = tfrc_rx_hist_packet_size(&hcrx->hist);
- 	u64 fval;
+-	u32 sample = 0, delta_v;
++	struct tfrc_rx_hist_entry *last = h->ring[0];
++	u32 sample, delta_v;
  
  	/*
-@@ -686,7 +684,7 @@ static u32 ccid3_first_li(struct sock *sk)
- 	}
+ 	 * When not to sample:
+@@ -466,47 +451,27 @@ void tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h, const struct sk_buff *skb)
+ 	    tfrc_rx_hist_loss_pending(h))
+ 		return;
  
- 	delta = ktime_to_us(net_timedelta(hcrx->tstamp_last_feedback));
--	x_recv = scaled_div32(hcrx->bytes_recv, delta);
-+	x_recv = scaled_div32(hcrx->hist.bytes_recvd, delta);
- 	if (x_recv == 0) {		/* would also trigger divide-by-zero */
- 		DCCP_WARN("X_recv==0\n");
- 		if (hcrx->x_recv == 0) {
-@@ -696,8 +694,7 @@ static u32 ccid3_first_li(struct sock *sk)
- 		x_recv = hcrx->x_recv;
- 	}
- 
--	fval = scaled_div(hcrx->s, hcrx->rtt);
--	fval = scaled_div32(fval, x_recv);
-+	fval = scaled_div32(scaled_div(s, hcrx->rtt), x_recv);
- 	p = tfrc_calc_x_reverse_lookup(fval);
- 
- 	ccid3_pr_debug("%s(%p), receive rate=%u bytes/s, implied "
-@@ -724,31 +721,12 @@ static void ccid3_hc_rx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	if (unlikely(hcrx->state == TFRC_RSTATE_NO_DATA)) {
- 		if (is_data_packet) {
--			const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
- 			do_feedback = CCID3_FBACK_INITIAL;
- 			ccid3_hc_rx_set_state(sk, TFRC_RSTATE_DATA);
--			hcrx->s = payload;
--			/*
--			 * Not necessary to update bytes_recv here,
--			 * since X_recv = 0 for the first feedback packet (cf.
--			 * RFC 3448, 6.3) -- gerrit
--			 */
- 		}
- 		goto update_records;
- 	}
- 
--	if (tfrc_rx_hist_duplicate(&hcrx->hist, skb))
--		return; /* done receiving */
+-	delta_v = SUB16(dccp_hdr(skb)->dccph_ccval,
+-			tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
 -
--	if (is_data_packet) {
--		const u32 payload = skb->len - dccp_hdr(skb)->dccph_doff * 4;
--		/*
--		 * Update moving-average of s and the sum of received payload bytes
--		 */
--		hcrx->s = tfrc_ewma(hcrx->s, payload, 9);
--		hcrx->bytes_recv += payload;
+-	if (delta_v < 1 || delta_v > 4) {	/* unsuitable CCVal delta */
+-		if (h->rtt_sample_prev == 2) {	/* previous candidate stored */
+-			sample = SUB16(tfrc_rx_hist_rtt_prev_s(h)->tfrchrx_ccval,
+-				       tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
+-			if (sample)
+-				sample = 4 / sample *
+-				         ktime_us_delta(tfrc_rx_hist_rtt_prev_s(h)->tfrchrx_tstamp,
+-							tfrc_rx_hist_rtt_last_s(h)->tfrchrx_tstamp);
+-			else    /*
+-				 * FIXME: This condition is in principle not
+-				 * possible but occurs when CCID is used for
+-				 * two-way data traffic. I have tried to trace
+-				 * it, but the cause does not seem to be here.
+-				 */
+-				DCCP_BUG("please report to dccp@vger.kernel.org"
+-					 " => prev = %u, last = %u",
+-					 tfrc_rx_hist_rtt_prev_s(h)->tfrchrx_ccval,
+-					 tfrc_rx_hist_rtt_last_s(h)->tfrchrx_ccval);
+-		} else if (delta_v < 1) {
+-			h->rtt_sample_prev = 1;
+-			goto keep_ref_for_next_time;
+-		}
+-
+-	} else if (delta_v == 4) /* optimal match */
+-		sample = ktime_to_us(net_timedelta(tfrc_rx_hist_rtt_last_s(h)->tfrchrx_tstamp));
+-	else {			 /* suboptimal match */
+-		h->rtt_sample_prev = 2;
+-		goto keep_ref_for_next_time;
 -	}
--
- 	if (tfrc_rx_hist_loss_pending(&hcrx->hist))
- 		return; /* done receiving */
++	h->rtt_sample_prev = 0;		/* reset previous candidate */
  
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -185,7 +185,7 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
- 	sk->sk_state		= DCCP_CLOSED;
- 	sk->sk_write_space	= dccp_write_space;
- 	icsk->icsk_sync_mss	= dccp_sync_mss;
--	dp->dccps_mss_cache	= 536;
-+	dp->dccps_mss_cache	= TCP_MIN_RCVMSS;
- 	dp->dccps_rate_last	= jiffies;
- 	dp->dccps_role		= DCCP_ROLE_UNDEFINED;
- 	dp->dccps_service	= DCCP_SERVICE_CODE_IS_ABSENT;
+-	if (unlikely(sample > DCCP_SANE_RTT_MAX)) {
+-		DCCP_WARN("RTT sample %u too large, using max\n", sample);
+-		sample = DCCP_SANE_RTT_MAX;
++	delta_v = SUB16(dccp_hdr(skb)->dccph_ccval, last->tfrchrx_ccval);
++	if (delta_v == 0) {		/* less than RTT/4 difference */
++		h->rtt_sample_prev = 1;
++		return;
+ 	}
++	sample = dccp_sane_rtt(ktime_to_us(net_timedelta(last->tfrchrx_tstamp)));
+ 
+-	h->rtt_sample_prev = 0;	       /* use current entry as next reference */
+-keep_ref_for_next_time:
++	if (delta_v <= 4)		/* between RTT/4 and RTT */
++		sample *= 4 / delta_v;
++	else if (!(sample < h->rtt_estimate && sample > h->rtt_estimate/2))
++		/*
++		* Optimisation: CCVal difference is greater than 1 RTT, yet the
++		* sample is less than the local RTT estimate; which means that
++		* the RTT estimate is too high.
++		* To avoid noise, it is not done if the sample is below RTT/2.
++		*/
++		return;
+ 
+-	h->rtt_estimate = tfrc_ewma(h->rtt_estimate, sample, 9);
++	/* Use a lower weight than usual to increase responsiveness */
++	h->rtt_estimate = tfrc_ewma(h->rtt_estimate, sample, 5);
+ }
+ EXPORT_SYMBOL_GPL(tfrc_rx_hist_sample_rtt);
