@@ -1,100 +1,54 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH] typhoon: use request_firmware
-Date: Mon, 28 Jul 2008 21:38:18 -0400
-Message-ID: <1217295498.28682.16.camel@obelisk.thedillows.org>
-References: <1217170232.3537.6.camel@jaswinder.satnam>
-	 <1217209400.22789.47.camel@obelisk.thedillows.org>
-	 <1217215009.2970.7.camel@jaswinder.satnam>
-	 <1217248585.22789.58.camel@obelisk.thedillows.org>
-	 <1217253260.17632.6.camel@jaswinder.satnam>
+From: cpusoft <cpusoft@gmail.com>
+Subject: where change events in epoll_wait(), and who notify an epoll event?
+Date: Tue, 29 Jul 2008 09:54:35 +0800
+Message-ID: <15da71430807281854v3e7c2536hd4e709a9a5dc7bb6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
-	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Woodhouse <dwmw2@infradead.org>
-To: Jaswinder Singh <jaswinder@infradead.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:45824 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752062AbYG2BiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2008 21:38:21 -0400
-In-Reply-To: <1217253260.17632.6.camel@jaswinder.satnam>
+Received: from wr-out-0506.google.com ([64.233.184.231]:19845 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbYG2Byg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 21:54:36 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so4111540wri.5
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2008 18:54:35 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-07-28 at 19:24 +0530, Jaswinder Singh wrote:
-> Here is patch for typhoon.c :
+hi, group
 
-It's getting better, as it's not obviously broken now.
+i have question in epoll functions.
+as we know, user can use poll_wait() as follows:
+for(;;) {
+ nfds = epoll_wait(kdpfd, events, maxevents, -1);
+ for(n = 0; n < nfds; ++n) {
+     do_my_function(events[n].data.fd);
+ }
+}
+that means we can get the new events from the parameter events from
+epoll_wait().
 
-> +MODULE_FIRMWARE("3com/typhoon.bin");
+Then i search the kernel, and find the new events comes from
+ep_send_events() finally , through sys_poll_wait() and ep_poll().
+the ep_send_evnets() shows as follows:
 
-Minor nit, but perhaps #define the name, so you don't have to keep this
-and the string in typhoon_init_firmware() in sync.
+static int ep_send_events(struct eventpoll *ep, struct epoll_event
+                                      __user *events, int maxevents)
+{
+       ....
+       //in here,  revents = POLLIN | POLLRDNORM;
+       revents = epi->ffd.file->f_op->poll(epi->ffd.file, NULL);
 
-> @@ -307,6 +308,9 @@ struct typhoon {
->  	/* unused stuff (future use) */
->  	int			capabilities;
->  	struct transmit_ring 	txHiRing;
-> +
-> +	/* firmware */
-> +	u8			*tp_fw_image;
->  };
+      // i wonder where changes the epi->event.events??
+       revents &= epi->event.events;
+}
 
-Now you keep one copy per NIC, which doubles the memory usage. Just use
-static struct firmware *typhoon_fw;
+So, the revents comes from epi->event.events.
 
-> +static int typhoon_init_firmware(struct typhoon *tp)
-> +{
-> +	const struct firmware *fw;
-> +	const char fw_name[] = "3com/typhoon.bin";
+But, i wonder where changes the epi->event.events? and who notify the
+epoll event ?
+i find nothing from lxr.linux.no by search "event.evnets" as keyword.
 
-If you use the #define and the global static, you can get rid of the
-above. Just use the define in place of fw_name below:
-
-> +	err = request_firmware(&fw, fw_name, &tp->pdev->dev);
-> +	if (err) {
-> +		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
-> +		       tp->name, fw_name);
-> +		return err;
-> +	}
-> +	tp->tp_fw_image = vmalloc(fw->size);
-> +	if (!tp->tp_fw_image) {
-> +		err = -ENOMEM;
-> +		printk(KERN_ERR "%s: \"%s\" Failed %d\n",
-> +		       tp->name, fw_name, err);
-> +		goto out;
-> +	}
-
-Then you can get rid of the double allocation and memcpy. Just put the
-call to release_firmware() in typhoon_cleanup().
-
-> @@ -2102,6 +2132,10 @@ typhoon_open(struct net_device *dev)
->  	if(err < 0)
->  		goto out_sleep;
->  
-> +	err = typhoon_init_firmware(tp);
-> +	if (err)
-> +		goto out_irq;
-> +
-
-This should move to either typhoon_init() or typhoon_init_one(). Putting
-it in typhoon_init() means we waste memory when the module is loaded if
-there is no typhoon NIC; putting it in typhoon_init_one() means it needs
-protection from threaded probing, should that ever be put back in. Given
-that most modern distros don't do probing by blinding loading modules,
-typhoon_init() seems a safe bet.
-
-> @@ -2155,6 +2189,9 @@ typhoon_close(struct net_device *dev)
-
-> +	if (tp->tp_fw_image)
-> +		vfree(tp->tp_fw_image);
-> +
-
-This goes away and is replaced by a release_firmware() in
-typhoon_cleanup() if you do the above.
-
-Dave
-
+Can anybody help me?
