@@ -1,70 +1,85 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/6] dccp ccid-3: Implement rfc3448bis change to initial-rate computation
-Date: Tue, 29 Jul 2008 15:06:08 +0100
-Message-ID: <1217340373-12620-2-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_ccid3_sender_side_updates_last_batch>
- <1217340373-12620-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: dccp@vger.kernel.org
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [RFC][PATCH 1/1] net: support for hardware timestamping
+Date: Tue, 29 Jul 2008 16:52:43 +0200
+Message-ID: <1217343163.30512.34.camel@ecld0pohly>
+References: <1217290080-4251-1-git-send-email-opurdila@ixiacom.com>
+	 <1217290080-4251-2-git-send-email-opurdila@ixiacom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36141 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757099AbYG2OG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 10:06:28 -0400
-In-Reply-To: <1217340373-12620-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mga11.intel.com ([192.55.52.93]:38654 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751442AbYG2Oyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 10:54:31 -0400
+In-Reply-To: <1217290080-4251-2-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch updates CCID-3 with regard to the latest rfc3448bis-06:
- * in the first revisions of the draft, MSS was used for the RFC 3390 window;
- * then (from revision #1 to revision #2), it used the packet size `s';
- * now, in this revision (and apparently final), the value is back to MSS.
+On Tue, 2008-07-29 at 03:08 +0300, Octavian Purdila wrote:
+> New socket option and socket control message are added as well
+> (SO_TIMESTAMPHW and SCM_TIMESTAMPHW).
 
-This change has an implication for the case when no RTT sample is available,
-at the time of sending the first packet:
- * with RTT sample, 2*MSS/RTT <= initial_rate <= 4*MSS/RTT;
- * without RTT sample, the initial rate is one packet (s bytes) per second
-   (sec. 4.2), but using s instead of MSS here creates an imbalance, since
-   this would further reduce the initial sending rate.
+How is a network driver notified that it is expected to do hardware time
+stamping? The connection between the socket option and the driver isn't
+quite clear to me (which might very well be due to my lack of experience
+in this area - please bear with me...). Is the driver expected to check
+the socket flags whenever it gets a chance?
 
-Hence the patch uses MSS (called MPS in RFC 4340) in all places.
+IMHO it would be necessary to attach this configuration change not just
+to a socket, but also to a message which is then routed to the right
+device driver.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid3.c |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+A simple on/off flag is not sufficient, either: for example, the Intel
+82576 chip only has one RX register that is locked until read by the
+driver. When time stamping all incoming packets, relevant time stamps
+may get lost under high load. The hardware can be configured to only
+time stamp packets of interest, which helps considerably. Here are some
+generally useful modes:
+      * PTP v1/2 Sync via UDP
+      * PTP v1/2 DelayRequest via UDP
+      * PTP v2 Sync via L2 (802.AS)
+      * PTP v2 DelayRequest via L2 (802.AS)
+      * all packets
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -53,18 +53,16 @@ static int ccid3_debug;
- /*
-  * Compute the initial sending rate X_init in the manner of RFC 3390:
-  *
-- *	X_init  =  min(4 * s, max(2 * s, 4380 bytes)) / RTT
-+ *	X_init  =  min(4 * MPS, max(2 * MPS, 4380 bytes)) / RTT
-  *
-- * Note that RFC 3390 uses MSS, RFC 4342 refers to RFC 3390, and rfc3448bis
-- * (rev-02) clarifies the use of RFC 3390 with regard to the above formula.
-  * For consistency with other parts of the code, X_init is scaled by 2^6.
-  */
- static inline u64 rfc3390_initial_rate(struct sock *sk)
- {
--	const struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
--	const __u32 w_init = clamp_t(__u32, 4380U, 2 * hctx->s, 4 * hctx->s);
-+	const u32 mps = dccp_sk(sk)->dccps_mss_cache,
-+	       w_init = clamp(4380U, 2 * mps, 4 * mps);
- 
--	return scaled_div(w_init << 6, hctx->rtt);
-+	return scaled_div(w_init << 6, ccid3_hc_tx_sk(sk)->rtt);
- }
- 
- /**
-@@ -293,7 +291,7 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 			 * - set sending rate X_pps = 1pps as per RFC 3448, 4.2.
- 			 */
- 			hctx->rtt = DCCP_FALLBACK_RTT;
--			hctx->x   = hctx->s;
-+			hctx->x	  = dp->dccps_mss_cache;
- 			hctx->x <<= 6;
- 		}
- 		ccid3_update_send_interval(hctx);
+The docs can be found here, in case anyone is interested:
+http://sourceforge.net/project/showfiles.php?group_id=42302
+
+It would be nice if the user space PTP could choose which packets are
+time stamped (depending whether it is master or slave it needs either
+Sync or DelayRequest, and it may use UDP or Ethernet). It may also be
+important to know for the application whether the hardware is really
+capable of delivering what it is asked for.
+
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 299ec4b..f19ed43 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -199,7 +199,8 @@ typedef unsigned char *sk_buff_data_t;
+>   *	@next: Next buffer in list
+>   *	@prev: Previous buffer in list
+>   *	@sk: Socket we are owned by
+> - *	@tstamp: Time we arrived
+> + *	@tstamp: Time we arrived; representation might be hardware specific, do
+> + *	        not access directly but via skb_get_tstamp
+
+Given that the semantic of the "tstamp" member has changed and any
+existing code which still accesses it directly is broken, should the
+member perhaps be renamed to trigger compiler errors in such a case?
+Just a thought.
+
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
+The email footer below is automatically added to comply with company
+policy; this particular email is not confidental and does not have a
+limited set of recipients. Therefore it can be redistributed and
+discussed without restrictions.
+
