@@ -1,37 +1,38 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC/RFT] [PATCH 0/6] dccp ccid-3: Last batch of test-tree updates (sender side)
-Date: Tue, 29 Jul 2008 15:06:07 +0100
-Message-ID: <1217340373-12620-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/6] dccp ccid-3: Dependency without effect
+Date: Tue, 29 Jul 2008 15:06:10 +0100
+Message-ID: <1217340373-12620-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_ccid3_sender_side_updates_last_batch>
-Cc: netdev@vger.kernel.org
+ <1217340373-12620-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217340373-12620-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1217340373-12620-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36141 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756227AbYG2OGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 10:06:25 -0400
-In-Reply-To: <dccp_ccid3_sender_side_updates_last_batch>
+	id S1756491AbYG2OG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 10:06:26 -0400
+In-Reply-To: <1217340373-12620-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the third and last patch set containing updates for CCID-3. While
-the first two focused on the receiver side, this set contains updates
-for the sender side. Review and comments are welcome.
+This removes a menu-item dependency which is without effect since the
+enclosing menu "DCCP CCIDs Configuration (EXPERIMENTAL)" already has
+this dependency.
 
-Patch #1: Implements rfc3448bis changes to computing the initial sending rate.
-Patch #2: Adds support/choice for measuring the packet size `s' wrt. rfc3448bis.
-Patch #3: Removes an unused Kconfig statement. 
-Patch #4: Simplifies computations for checking the range of t_ipi. 
-Patch #5: Implements Oscillation-Reduction as per rfc3448bis, 4.5 
-Patch #6: Use sysfs to change debug parameters when module is loaded. 
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/Kconfig |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-
-The now-updated test tree is available via
-
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp		(subtree `dccp')
-
-All changes have been ported to the CCID-4 tree as well and are on
-
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp		(subtree `ccid4')
-
-There is also a web view available. Changes have been tested for both CCID-3/4.
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -98,7 +98,6 @@ endchoice
+ config IP_DCCP_CCID3_RTO
+ 	  int "Use higher bound for nofeedback timer"
+ 	  default 100
+-	  depends on EXPERIMENTAL
+ 	  ---help---
+ 	    Use higher lower bound for nofeedback timer expiration.
+ 
