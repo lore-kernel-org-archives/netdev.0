@@ -1,42 +1,78 @@
-From: Chris Larson <clarson@mvista.com>
-Subject: MV643xx Ethernet Driver Issue on a Motorola PrPMC-275 board.
-Date: Tue, 29 Jul 2008 10:49:09 -0700
-Message-ID: <488F5815.9020402@mvista.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Patch] fix ia64 build failure when CONFIG_SFC=m
+Date: Tue, 29 Jul 2008 18:48:41 +0100
+Message-ID: <20080729174839.GG10471@solarflare.com>
+References: <20080729013650.GH9663@sgi.com> <57C9024A16AD2D4C97DC78E552063EA3080BA318@orsmsx505.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:33343 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751811AbYG2Rsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 13:48:41 -0400
-Received: from [10.50.1.118] (unknown [10.50.1.118])
-	by hermes.mvista.com (Postfix) with ESMTP id 21905182B0
-	for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 10:48:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "jgarzik@redhat.com" <jgarzik@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"matthew@wil.cx" <matthew@wil.cx>, Robin Holt <holt@sgi.com>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: "Luck, Tony" <tony.luck@intel.com>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA3080BA318@orsmsx505.amr.corp.intel.com>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greetings,
+Luck, Tony wrote:
+> > CONFIG_SFC=m uses topology_core_siblings() which, for ia64, expects
+> > cpu_core_map to be exported.  It is not.  This patch exports the needed
+> > symbol.
+> 
+> Ben,
+> 
+> Before I rush to apply this (or one of the other identical patches that
+> I've received) ... I'd like to ponder on whether this is the right thing
+> to do.
+> 
+> Looking at the code in drivers/net/sfc/efx.c I see that you are using
+> this to compute the number of RX queues based on the number of packages
+> with the git commit comment saying:
+> 
+>     Using multiple cores in the same package to handle received traffic
+>     does not appear to provide a performance benefit.  Therefore use CPU
+>     topology information to count CPU packages and use that as the default
+>     number of RX queues and interrupts.  We rely on interrupt balancing to
+>     spread the interrupts across packages.
+> 
+> I have some questions on this:
+> 
+> 1) Did you measure on FSB based systems? ... It's kind of sad that the extra
+> cores are not helping and I wonder why. Do AMD and QPI based systems have
+> this same limitation?
 
-I was wondering if anyone had any advice on an issue a customer of ours 
-is running into.  When they run a series of bandwidth tests, slowly 
-increasing the bandwidth & # of tcp connections to roughly 30Mbit at 
-4000 connections, their machine panics.  An address passed to 
-dma_unmap_single is beyond lowmem, as though it was corrupted in some 
-fashion.  The address is the data pointer in the ethernet dma 
-descriptors, it pulls a descriptor out of the ring in the packet receipt 
-functions and at that point the address is wrong.  Nowhere in the driver 
-is a descriptor set up with that address, yet the datasheet on the 
-mv643xx doesn't seem to indicate that the dma engine ever writes to the 
-descriptors themselves, only to the data they point to (as you'd 
-expect).  Does anyone have any ideas on this?  I'm afraid that I'm a bit 
-out of my depth on this issue.  The architecture is ppc.
+This heuristic has been in the out-of-tree driver for some time, mostly
+based on experience with Intel x86 systems but apparently resulting in good
+performance on both Intel and AMD multi-core systems tested here.  We do not
+have any IA64 multi-core systems.  I think a single core in each package can
+generally saturate the memory bus and this is why spreading the load wider
+is not useful.
 
-Thanks.
+> 2) Should Linux have an API to give you a useful number of threads, rather
+> than make you dig through the topology data structures? At some point cpumask_t
+> data structure is going to be too big for the kernel stack.
+
+Since that's all we want to know, it would certainly simplify this driver
+and might be useful to others that implement RSS.
+
+> 3) Does interrupt balancing always do the right thing to spread your interrupts
+> across packages?
+
+No, if we want to be sure then we do interrupt pinning afterwards.
+
+> 4) In a hotplug system would you want to adjust the number of threads if cpus
+> were added or removed?
+
+That would make sense, but I don't think it can be done without disrupting
+network traffic.
+
+Ben.
+
 -- 
-Chris Larson
-clarson at kergoth dot com
-clarson at mvista dot com
-Software Engineer
-MontaVista Software, Inc.
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
