@@ -1,44 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: incoming interface + ifb0
-Date: Tue, 29 Jul 2008 20:31:28 +0200
-Message-ID: <20080729183128.GA2556@ami.dom.local>
-References: <20080729124823.GA26788@ff.dom.local> <200807291626.36572.denys@visp.net.lb>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH 1/7] dccp ccid-3: Runtime verification of timer resolution
+Date: Wed, 30 Jul 2008 06:52:57 +1200
+Message-ID: <5640c7e00807291152p3262ac21h5b9f1dc2c655f855@mail.gmail.com>
+References: <1217268843-19667-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:41411 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbYG2Sb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 14:31:59 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so185527ugf.16
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 11:31:58 -0700 (PDT)
+Received: from wr-out-0506.google.com ([64.233.184.231]:10259 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753810AbYG2Sw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 14:52:59 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so6995wri.5
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 11:52:58 -0700 (PDT)
+In-Reply-To: <1217268843-19667-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Content-Disposition: inline
-In-Reply-To: <200807291626.36572.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 29, 2008 at 04:26:36PM +0300, Denys Fedoryshchenko wrote:
-> On Tuesday 29 July 2008, Jarek Poplawski wrote:
-> 
-> > I didn't use this nor checked enough, so I can be wrong, but
-> > since ingress with ifb0 is in prerouting, you probably can't use
-> > rt_iif. You shouldn't filter at ifb on "dev" neither - it's "ifb"
-> > at the moment. You need to match skb->iif with something (flow?).
-> Yes
-> I want to create on outgoing device or ifb(preffered) - tree of flows.
-> Cause each interface = customer - i need to classify customers by flows.
-> 
-> Since customer can have multiple/spoofed ip's - i cannot filter by ip for now.
-> So iif only my choice seems.
-> 
-> Maybe if i do redirect on outgoing to ifb on outgoing device it will work?
+On Tue, Jul 29, 2008 at 6:13 AM, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+>
+> This prevents module loading when the timer resolution is too low
+> (e.g. when using jiffies as a clocksource or when disabling high
+> resolution timers on sparc64).
+>
+> Rationale:
+> ----------
+> The DCCP base time resolution is 10 microseconds (RFC 4340, 13.1...3). Using a
+> timer with a lower resolution than that was found to trigger the following bug
+> warnings/problems on high-speed networks (e.g. local loopback):
+>
+>  * small RTT samples are rounded down to 0
+>  (in some cases, even negative RTT samples occurred);
+>  * the CCID-3 feedback timer complains that the feedback interval is 0,
+>   since the coarse-grained resolution rounds RTT-wise intervals down.
+>
+> The following syslog messages were observed with a low resolution:
+>  11:24:00 kernel: BUG: delta (0) <= 0 at ccid3_hc_rx_send_feedback()
+>  11:26:12 kernel: BUG: delta (0) <= 0 at ccid3_hc_rx_send_feedback()
+>  11:26:30 kernel: dccp_sample_rtt: unusable RTT sample 0, using min
+>  11:26:30 last message repeated 5 times
+>
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-I doubt you can do something like this - or I miss something. IMHO,
-you could try with this flow filter on ifb as a replacement for ipt
-+ fw. Otherwise, if you can schedule on outgoing devs, you can use
-e.g.  cls_route. On the other hand ppp usually enables controlling
-of clients, so maybe you should better try to use this more.
+I don't think this is the right direction to head. I think it is
+acceptable to have not perfect performance if HR timers aren't loaded
+(and I'm sure ways could be made to improve this) but to disable CCID3
+altogether is quite drastic. Where will CCID3 be used - think embedded
+multimedia home devices. These may not have HR timers....
 
-Jarek P.
+So I disagree with this one.
+
+Ian
