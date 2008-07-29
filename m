@@ -1,38 +1,45 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [RFC] [PATCH 6/7] pcmcia: use pcmcia_loop_config in net pcmcia
- drivers
-Date: Tue, 29 Jul 2008 15:21:16 -0500
-Message-ID: <488F7BBC.1000300@lwfinger.net>
-References: <20080729071539.GB27385@comet.dominikbrodowski.net> <20080729072111.GI27385@comet.dominikbrodowski.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NETDEV WATCHDOG: wifi0: transmit timed out
+Date: Tue, 29 Jul 2008 13:47:06 -0700 (PDT)
+Message-ID: <20080729.134706.249036102.davem@davemloft.net>
+References: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
+	<20080729215315.5a505fe7.komurojun-mbn@nifty.com>
+	<20080729065859.2bcc65ed@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-pcmcia@lists.infradead.org, Jeff Garzik <jgarzik@pobox.com>,
+Cc: komurojun-mbn@nifty.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Dominik Brodowski <linux@dominikbrodowski.net>
+To: arjan@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:50350 "EHLO
-	mtiwmhc11.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752136AbYG2UV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 16:21:26 -0400
-In-Reply-To: <20080729072111.GI27385@comet.dominikbrodowski.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52098
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752479AbYG2UrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 16:47:10 -0400
+In-Reply-To: <20080729065859.2bcc65ed@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dominik Brodowski wrote:
-> Use the config loop helper in (some) net pcmcia drivers.
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Tue, 29 Jul 2008 06:58:59 -0700
+
+> On Tue, 29 Jul 2008 21:53:15 +0900
+> Komuro <komurojun-mbn@nifty.com> wrote:
 > 
-> CC: Jeff Garzik <jgarzik@pobox.com>
-> CC: <netdev@vger.kernel.org>
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> ---
->  drivers/net/pcmcia/axnet_cs.c    |   71 ++++++++++++++-------------------
->  drivers/net/pcmcia/pcnet_cs.c    |   79 ++++++++++++++++++--------------------
->  drivers/net/pcmcia/smc91c92_cs.c |   46 ++++++----------------
->  3 files changed, 80 insertions(+), 116 deletions(-)
+> > Hi,
+> > 
+> > Please try to comment out the "WARN_ON_ONCE"
+> > at net/sched/sched_generic.c.
+> > 
+> 
+> "I have a hardware failure so I'll comment out the message that says
+> so, and then I won't have a failure". Yeah that'll work well.
 
-ACK for pcnet_cs.c by Larry Finger <Larry.Finger@lwfinger.net>.
+Yes, this is indeed a recidulious suggestion, to hide the problem
+instead of trying to figure out what it might actually be.
 
-Tested with 2.6.27-rc1.
+Komuro has a serious problem accepting the fact that this condition is
+in fact an abnormal error should should be logged, and he keeps
+pushing to get this WARN_ON() removed over and over again.
 
-Larry
+I'm just ignoring him at this point.
