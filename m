@@ -1,138 +1,69 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 4/4] sky2: Adapt sky2 to use reworked PCI PM
-Date: Wed, 30 Jul 2008 00:31:23 +0200
-Message-ID: <200807300031.24071.rjw@sisk.pl>
-References: <200807191436.40726.rjw@sisk.pl> <200807241352.18947.jbarnes@virtuousgeek.org> <20080724165016.7be588e9@speedy>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH 5/7] dccp tfrc: Increase number of RTT samples
+Date: Wed, 30 Jul 2008 10:39:02 +1200
+Message-ID: <5640c7e00807291539o4a116aebta34dea1dc8eb3081@mail.gmail.com>
+References: <1217325952-12337-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217325952-12337-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217325952-12337-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217325952-12337-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217325952-12337-5-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1217325952-12337-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:44470 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751612AbYG2W2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 18:28:32 -0400
-In-Reply-To: <20080724165016.7be588e9@speedy>
+Received: from wr-out-0506.google.com ([64.233.184.233]:21961 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754893AbYG2WjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 18:39:05 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so89828wri.5
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 15:39:04 -0700 (PDT)
+In-Reply-To: <1217325952-12337-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, 25 of July 2008, Stephen Hemminger wrote:
-> On Thu, 24 Jul 2008 13:52:18 -0700
-> Jesse Barnes <jbarnes@virtuousgeek.org> wrote:
-> 
-> > On Thursday, July 24, 2008 1:50 pm Rafael J. Wysocki wrote:
-> > > [Sorry for the delayed response, I'm at OLS.]
-> > >
-> > > On Monday, 21 of July 2008, Andrew Morton wrote:
-> > > > On Sat, 19 Jul 2008 14:42:51 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> 
-> > wrote:
-> > > > > Adapt the sky2 driver to use the reworked PCI PM.
-> > > >
-> > > > I fixed the rejects in "[PATCH 3/4] tg3: Adapt tg3 to use reworked PCI
-> > > > PM code" but this patch has too many for me to want to fix them.
-> > > >
-> > > > As usual, please at least take a look at what's in linux-next before
-> > > > going and bypassing all that queued work.
-> > >
-> > > Sorry for that.
-> > >
-> > > Appended is a version of the patch applying to the current mainline on top
-> > > of patches 1/4 - 3/4 without rejects.
-> > >
-> > > BTW, the sky2's WOL is broken on my test box because of commit
-> > > db99b98885e717454feef1c6868b27d3f23c2e7c ("sky2: put PHY in sleep when
-> > > down") that causes the box to hang solid in sky2_suspend() and
-> > > sky2_shutdown() after WOL has been enabled with 'ethtool -s eth0 wol g'.
-> > >
-> > > This has already been reported to Stephen and Jeff.
-> > 
-> > Btw, I just asked Linus to pull the 2/4 part of this patchset, so the rest 
-> > should be able to go upstream soon.
-> > 
-> > Thanks,
-> > Jesse
-> 
-> 
-> Does this fix your WOL issue?
+On Tue, Jul 29, 2008 at 10:05 PM, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> This improves the receiver RTT sampling algorithm so that it tries harder to get
+> as many RTT samples as possible, using several optimisations.
+>
+> Applicability and background
+> ----------------------------
+> The algorithm uses timestamps and differences of the CCval window counter to
+> guess the RTT, using concepts presented in RFC 4340, 8.1.
+>
+> There exist 4 cases for the CCVal difference:
+>  * == 0: less than RTT/4 passed since last packet -- unusable sample;
+>  *  > 4: (much) more than 1 RTT has passed since last packet -- also unusable;
+>  * == 4: "perfect" sample (exactly one RTT has passed since last packet);
+>  * 1..3: sub-optimal sample (between RTT/4 and 3*RTT/4 has passed).
+>
+> In the last case the algorithm so far tried to optimise by storing away the
+> candidate and then re-trying next time. This had the following problems:
+>  * a large number of samples is needed to smooth out the given inaccuracies;
+>  * the sender may not be sending enough packets to warrant a "next time";
+>  * hence it is better to use suboptimal samples whenever possible.
+> As a consequence, the algorithm now stores away the current sample only if the
+> difference is 0.
+>
+> A realistic example to illustrate the failure of the (previous) algorithm is MP3
+> streaming, where packets are sent at a rate of less than one packet per RTT.
+> Which means that suitable samples may be absent for a very long time.
+>
+> The effectiveness of using suboptimal samples (with a delta between 1 and 4) was
+> confirmed by instrumenting the algorithm with counters. The results of two 20
+> second test runs were:
+>  * With the old algorithm and a total of 38442 function calls, only 394 of these
+>   calls resulted in usable RTT samples (about 1%), 378 out of these were
+>   "perfect" samples, and 28013 (unused) samples had a delta of 1..3.
+>  * With the new algorithm and a total of 37057 function calls, 1702 usable RTT
+>   samples were retrieved (about 4.6%), 5 out of these were "perfect" samples.
+> This means an almost five-fold increase in the number of samples.
+>
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Yes, the patch below fixes the issue in which the system hanged during
-hibernation/power off after 'ethtool -s eth0 wol g' had been used.  This
-actually is a regression fix, so please push it upstream ASAP.
+Great work. This should make a real improvement.
 
-However, even with this patch applied, the card doesn't work after a resume
-from hibernation (even if the system was woken up using it ;-)).  ISTR that it
-worked with vanilla 2.6.26, will verify tomorrow.
-
-[As a side note, my patch 4/4 is still necessary so that the device's
-/sys/devices/.../power/wakeup file is updated in accordance with the current
-WOL setting and so that the callbacks provided by the PCI core are used
-for accessing the standard PCI PM registers of the device.]
-
-
-> When doing wake on lan and resume, the PHY may need to get more
-> power up bits tweaked.
-> 
-> --- a/drivers/net/sky2.c	2008-07-24 15:35:33.000000000 -0700
-> +++ b/drivers/net/sky2.c	2008-07-24 15:43:44.000000000 -0700
-> @@ -698,6 +698,7 @@ static const u32 coma_mode[] = { PCI_Y2_
->  static void sky2_phy_power_up(struct sky2_hw *hw, unsigned port)
->  {
->  	u32 reg1;
-> +	u16 ctrl;
->  
->  	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-> @@ -709,6 +710,33 @@ static void sky2_phy_power_up(struct sky
->  	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
->  	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  	sky2_pci_read32(hw, PCI_DEV_REG1);
-> +
-> +	if (hw->chip_id != CHIP_ID_YUKON_EC) {
-> +		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-> +			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-> +			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-> +
-> +			/* turn on GII power */
-> +			ctrl &= ~PHY_M_PC_POW_D_ENA;
-> +			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-> +		}
-> +	}
-> +
-> +	if (hw->flags & SKY2_HW_NEWER_PHY) {
-> +		/* select page 2 to access MAC control register */
-> +		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
-> +
-> +		ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-> +		/* allow GMII Power Down */
-> +		ctrl |= PHY_M_MAC_GMIF_PUP;
-> +		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-> +
-> +		/* set page register back to 0 */
-> +		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-> +	}
-> +
-> +	/* force phy reset and clear power down */
-> +	gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_RESET);
->  }
->  
->  static void sky2_phy_power_down(struct sky2_hw *hw, unsigned port)
-> @@ -731,6 +759,9 @@ static void sky2_phy_power_down(struct s
->  		ctrl &= ~PHY_M_MAC_GMIF_PUP;
->  		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
->  
-> +		/* this register change must be followed by a software reset */
-> +		gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_RESET);
-> +
->  		/* set page register back to 0 */
->  		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
->  	}
-> 
-> 
-
-
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
