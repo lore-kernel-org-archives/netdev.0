@@ -1,30 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] forcedeth bug fix: realtek phy 8211c errata
-Date: Tue, 29 Jul 2008 17:49:31 -0400
-Message-ID: <488F906B.5020102@pobox.com>
-References: <488A2A11.4080000@nvidia.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/3] Blackfin EMAC Driver: add proper __devinit/__devexit
+ markings
+Date: Tue, 29 Jul 2008 17:49:42 -0400
+Message-ID: <488F9076.9060005@garzik.org>
+References: <1217169905-7055-1-git-send-email-cooloney@kernel.org> <1217169905-7055-2-git-send-email-cooloney@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Frysinger <vapier.adi@gmail.com>
+To: Bryan Wu <cooloney@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56415 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56419 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753257AbYG2Vtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 17:49:41 -0400
-In-Reply-To: <488A2A11.4080000@nvidia.com>
+	id S1754668AbYG2Vtq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 17:49:46 -0400
+In-Reply-To: <1217169905-7055-2-git-send-email-cooloney@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ayaz Abdulla wrote:
-> This patch adds support for the realtek 8211c phy. The driver must 
-> perform a hardware reset of the phy due to an errata where the phy could 
-> not detect the link.
+Bryan Wu wrote:
+> From: Mike Frysinger <vapier.adi@gmail.com>
 > 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Signed-off-by: Mike Frysinger <vapier.adi@gmail.com>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
+> ---
+>  drivers/net/bfin_mac.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+>
 
-applied
+applied 1-3
 
 
