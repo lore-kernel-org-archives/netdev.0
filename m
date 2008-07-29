@@ -1,152 +1,291 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [RFC] [PATCH 1/7] pcmcia: add pcmcia_loop_config() helper
-Date: Tue, 29 Jul 2008 09:15:39 +0200
-Message-ID: <20080729071539.GB27385@comet.dominikbrodowski.net>
+Subject: [RFC] [PATCH 6/7] pcmcia: use pcmcia_loop_config in net pcmcia
+	drivers
+Date: Tue, 29 Jul 2008 09:21:11 +0200
+Message-ID: <20080729072111.GI27385@comet.dominikbrodowski.net>
+References: <20080729071539.GB27385@comet.dominikbrodowski.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	linux-ide@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	linux-bluetooth@vger.kernel.org,
-	"James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
-	linux-scsi@vger.kernel.org, Karsten Keil <kkeil@suse.de>,
-	isdn4linux@listserv.isdn4linux.de, Jeff Garzik <jgarzik@pobox.com>,
-	netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
-	linux-parport@lists.infradead.org,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Ed Okerson <eokerson@quicknet.net>,
-	linux-serial@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 To: linux-pcmcia@lists.infradead.org
-Return-path: <linux-serial-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isilmar.linta.de ([213.133.102.198]:43261 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752765AbYG2HWK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 03:22:10 -0400
 Content-Disposition: inline
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080729071539.GB27385@comet.dominikbrodowski.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By calling pcmcia_loop_config(), a pcmcia driver can iterate over all
-available configuration options. During a driver's probe() phase, one
-doesn't need to use pcmcia_get_{first,next}_tuple, pcmcia_get_tuple_data
-and pcmcia_parse_tuple directly in most if not all cases.
+Use the config loop helper in (some) net pcmcia drivers.
 
+CC: Jeff Garzik <jgarzik@pobox.com>
+CC: <netdev@vger.kernel.org>
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- Documentation/pcmcia/driver-changes.txt |    6 +++
- drivers/pcmcia/pcmcia_resource.c        |   57 +++++++++++++++++++++++++++++++
- include/pcmcia/cistpl.h                 |    6 +++
- 3 files changed, 69 insertions(+), 0 deletions(-)
+ drivers/net/pcmcia/axnet_cs.c    |   71 ++++++++++++++-------------------
+ drivers/net/pcmcia/pcnet_cs.c    |   79 ++++++++++++++++++--------------------
+ drivers/net/pcmcia/smc91c92_cs.c |   46 ++++++----------------
+ 3 files changed, 80 insertions(+), 116 deletions(-)
 
-By calling pcmcia_loop_config(), a pcmcia driver can iterate over all
-available configuration options. During a driver's probe() phase, one
-doesn't need to use pcmcia_get_{first,next}_tuple, pcmcia_get_tuple_data
-and pcmcia_parse_tuple directly in most if not all cases.
-
-Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
----
- Documentation/pcmcia/driver-changes.txt |    6 +++
- drivers/pcmcia/pcmcia_resource.c        |   63 +++++++++++++++++++++++++++++++
- include/pcmcia/cistpl.h                 |    6 +++
- 3 files changed, 75 insertions(+), 0 deletions(-)
-
-diff --git a/Documentation/pcmcia/driver-changes.txt b/Documentation/pcmcia/driver-changes.txt
-index 96f155e..44085c1 100644
---- a/Documentation/pcmcia/driver-changes.txt
-+++ b/Documentation/pcmcia/driver-changes.txt
-@@ -1,5 +1,11 @@
- This file details changes in 2.6 which affect PCMCIA card driver authors:
- 
-+* New configuration loop helper (as of 2.6.28)
-+   By calling pcmcia_loop_config(), a driver can iterate over all available
-+   configuration options. During a driver's probe() phase, one doesn't need
-+   to use pcmcia_get_{first,next}_tuple, pcmcia_get_tuple_data and
-+   pcmcia_parse_tuple directly in most if not all cases.  
-+
- * New release helper (as of 2.6.17)
-    Instead of calling pcmcia_release_{configuration,io,irq,win}, all that's
-    necessary now is calling pcmcia_disable_device. As there is no valid
-diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index 4884a18..0fa48aa 100644
---- a/drivers/pcmcia/pcmcia_resource.c
-+++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -909,3 +909,66 @@ void pcmcia_disable_device(struct pcmcia_device *p_dev) {
- 		pcmcia_release_window(p_dev->win);
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index 3f682d4..04ece0b 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -284,58 +284,47 @@ static int try_io_port(struct pcmcia_device *link)
+     }
  }
- EXPORT_SYMBOL(pcmcia_disable_device);
-+
-+
-+/**
-+ * pcmcia_loop_config() - loop over configuration options
-+ * @p_dev:	the struct pcmcia_device which we need to loop for.
-+ * @conf_check:	function to call for each configuration option.
-+ *		It gets passed the struct pcmcia_device, the CIS data
-+ *		describing the configuration option, and private data
-+ *		being passed to pcmcia_loop_config()
-+ * @priv_data:	private data to be passed to the conf_check function.
-+ *
-+ * pcmcia_loop_config() loops over all configuration options, and calls
-+ * the driver-specific conf_check() for each one, checking whether
-+ * it is a valid one.
-+ */
-+
-+struct pcmcia_cfg_mem {
-+	tuple_t tuple;
-+	cisparse_t parse;
-+	u8 buf[256];
-+};
-+
-+int pcmcia_loop_config(struct pcmcia_device *p_dev,
-+		       int	(*conf_check)	(struct pcmcia_device *p_dev,
-+						 cistpl_cftable_entry_t *cfg,
-+						 void *priv_data),
-+		       void *priv_data)
+ 
++static int axnet_configcheck(struct pcmcia_device *p_dev,
++			     cistpl_cftable_entry_t *cfg,
++			     void *priv_data)
 +{
-+	struct pcmcia_cfg_mem *cfg_mem;
-+	tuple_t *tuple;
-+	int ret = -ENODEV;
++	int i;
++	cistpl_io_t *io = &cfg->io;
 +
-+	cfg_mem = kzalloc(sizeof(struct pcmcia_cfg_mem), GFP_KERNEL);
-+	if (cfg_mem == NULL)
-+		return -ENOMEM;
++	if (cfg->index == 0 || cfg->io.nwin == 0)
++		return -ENODEV;
 +
-+	tuple = &cfg_mem->tuple;
-+	tuple->TupleData = cfg_mem->buf;
-+	tuple->TupleDataMax = 255;
-+	tuple->TupleOffset = 0;
-+	tuple->DesiredTuple = CISTPL_CFTABLE_ENTRY;
-+	tuple->Attributes = 0;
++	p_dev->conf.ConfigIndex = 0x05;
++	/* For multifunction cards, by convention, we configure the
++	   network function with window 0, and serial with window 1 */
++	if (io->nwin > 1) {
++		i = (io->win[1].len > io->win[0].len);
++		p_dev->io.BasePort2 = io->win[1-i].base;
++		p_dev->io.NumPorts2 = io->win[1-i].len;
++	} else {
++		i = p_dev->io.NumPorts2 = 0;
++	}
++	p_dev->io.BasePort1 = io->win[i].base;
++	p_dev->io.NumPorts1 = io->win[i].len;
++	p_dev->io.IOAddrLines = io->flags & CISTPL_IO_LINES_MASK;
++	if (p_dev->io.NumPorts1 + p_dev->io.NumPorts2 >= 32)
++		return try_io_port(p_dev);
 +
-+	ret = pcmcia_get_first_tuple(p_dev, tuple);
-+	while (!ret) {
-+		if (pcmcia_get_tuple_data(p_dev, tuple))
-+			goto next_entry;
++	return -ENODEV;
++}
 +
-+		if (pcmcia_parse_tuple(p_dev, tuple, &cfg_mem->parse))
-+			goto next_entry;
+ static int axnet_config(struct pcmcia_device *link)
+ {
+     struct net_device *dev = link->priv;
+     axnet_dev_t *info = PRIV(dev);
+-    tuple_t tuple;
+-    cisparse_t parse;
+     int i, j, last_ret, last_fn;
+-    u_short buf[64];
+     DECLARE_MAC_BUF(mac);
+ 
+     DEBUG(0, "axnet_config(0x%p)\n", link);
+ 
+-    tuple.Attributes = 0;
+-    tuple.TupleData = (cisdata_t *)buf;
+-    tuple.TupleDataMax = sizeof(buf);
+-    tuple.TupleOffset = 0;
+-
+     /* don't trust the CIS on this; Linksys got it wrong */
+     link->conf.Present = 0x63;
+-
+-    tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
+-    tuple.Attributes = 0;
+-    CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &tuple));
+-    while (last_ret == CS_SUCCESS) {
+-	cistpl_cftable_entry_t *cfg = &(parse.cftable_entry);
+-	cistpl_io_t *io = &(parse.cftable_entry.io);
+-	
+-	if (pcmcia_get_tuple_data(link, &tuple) != 0 ||
+-		pcmcia_parse_tuple(link, &tuple, &parse) != 0 ||
+-		cfg->index == 0 || cfg->io.nwin == 0)
+-	    goto next_entry;
+-	
+-	link->conf.ConfigIndex = 0x05;
+-	/* For multifunction cards, by convention, we configure the
+-	   network function with window 0, and serial with window 1 */
+-	if (io->nwin > 1) {
+-	    i = (io->win[1].len > io->win[0].len);
+-	    link->io.BasePort2 = io->win[1-i].base;
+-	    link->io.NumPorts2 = io->win[1-i].len;
+-	} else {
+-	    i = link->io.NumPorts2 = 0;
+-	}
+-	link->io.BasePort1 = io->win[i].base;
+-	link->io.NumPorts1 = io->win[i].len;
+-	link->io.IOAddrLines = io->flags & CISTPL_IO_LINES_MASK;
+-	if (link->io.NumPorts1 + link->io.NumPorts2 >= 32) {
+-	    last_ret = try_io_port(link);
+-	    if (last_ret == CS_SUCCESS) break;
+-	}
+-    next_entry:
+-	last_ret = pcmcia_get_next_tuple(link, &tuple);
+-    }
++    last_ret = pcmcia_loop_config(link, axnet_configcheck, NULL);
+     if (last_ret != CS_SUCCESS) {
+ 	cs_error(link, RequestIO, last_ret);
+ 	goto failed;
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index 2d4c4ad..7a9eeca 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -512,58 +512,53 @@ static int try_io_port(struct pcmcia_device *link)
+     }
+ }
+ 
++static int pcnet_confcheck(struct pcmcia_device *p_dev,
++			   cistpl_cftable_entry_t *cfg,
++			   void *priv_data)
++{
++	int *has_shmem = priv_data;
++	int i;
++	cistpl_io_t *io = &cfg->io;
 +
-+		ret = conf_check(p_dev, &cfg_mem->parse.cftable_entry,
-+				 priv_data);
-+		if (!ret)
-+			break;
++	if (cfg->index == 0 || cfg->io.nwin == 0)
++		return -EINVAL;
 +
-+	next_entry:
-+		ret = pcmcia_get_next_tuple(p_dev, tuple);
++	p_dev->conf.ConfigIndex = cfg->index;
++
++	/* For multifunction cards, by convention, we configure the
++	   network function with window 0, and serial with window 1 */
++	if (io->nwin > 1) {
++		i = (io->win[1].len > io->win[0].len);
++		p_dev->io.BasePort2 = io->win[1-i].base;
++		p_dev->io.NumPorts2 = io->win[1-i].len;
++	} else {
++		i = p_dev->io.NumPorts2 = 0;
 +	}
 +
-+	return ret;
-+}
-+EXPORT_SYMBOL(pcmcia_loop_config);
-diff --git a/include/pcmcia/cistpl.h b/include/pcmcia/cistpl.h
-index 552a332..9830b34 100644
---- a/include/pcmcia/cistpl.h
-+++ b/include/pcmcia/cistpl.h
-@@ -607,4 +607,10 @@ int pccard_validate_cis(struct pcmcia_socket *s, unsigned int function, unsigned
- #define pcmcia_validate_cis(p_dev, info) \
- 		pccard_validate_cis(p_dev->socket, p_dev->func, info)
- 
-+int pcmcia_loop_config(struct pcmcia_device *p_dev,
-+		       int	(*conf_check)	(struct pcmcia_device *p_dev,
-+						 cistpl_cftable_entry_t *cf,
-+						 void *priv_data),
-+		       void *priv_data);
++	*has_shmem = ((cfg->mem.nwin == 1) &&
++		      (cfg->mem.win[0].len >= 0x4000));
++	p_dev->io.BasePort1 = io->win[i].base;
++	p_dev->io.NumPorts1 = io->win[i].len;
++	p_dev->io.IOAddrLines = io->flags & CISTPL_IO_LINES_MASK;
++	if (p_dev->io.NumPorts1 + p_dev->io.NumPorts2 >= 32)
++		return try_io_port(p_dev);
 +
- #endif /* LINUX_CISTPL_H */
++	return 0;
++}
++
+ static int pcnet_config(struct pcmcia_device *link)
+ {
+     struct net_device *dev = link->priv;
+     pcnet_dev_t *info = PRIV(dev);
+-    tuple_t tuple;
+-    cisparse_t parse;
+-    int i, last_ret, last_fn, start_pg, stop_pg, cm_offset;
++    int last_ret, last_fn, start_pg, stop_pg, cm_offset;
+     int has_shmem = 0;
+-    u_short buf[64];
+     hw_info_t *local_hw_info;
+     DECLARE_MAC_BUF(mac);
+ 
+     DEBUG(0, "pcnet_config(0x%p)\n", link);
+ 
+-    tuple.TupleData = (cisdata_t *)buf;
+-    tuple.TupleDataMax = sizeof(buf);
+-    tuple.TupleOffset = 0;
+-    tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
+-    tuple.Attributes = 0;
+-    CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &tuple));
+-    while (last_ret == CS_SUCCESS) {
+-	cistpl_cftable_entry_t *cfg = &(parse.cftable_entry);
+-	cistpl_io_t *io = &(parse.cftable_entry.io);
+-
+-	if (pcmcia_get_tuple_data(link, &tuple) != 0 ||
+-			pcmcia_parse_tuple(link, &tuple, &parse) != 0 ||
+-			cfg->index == 0 || cfg->io.nwin == 0)
+-		goto next_entry;
+-
+-	link->conf.ConfigIndex = cfg->index;
+-	/* For multifunction cards, by convention, we configure the
+-	   network function with window 0, and serial with window 1 */
+-	if (io->nwin > 1) {
+-	    i = (io->win[1].len > io->win[0].len);
+-	    link->io.BasePort2 = io->win[1-i].base;
+-	    link->io.NumPorts2 = io->win[1-i].len;
+-	} else {
+-	    i = link->io.NumPorts2 = 0;
+-	}
+-	has_shmem = ((cfg->mem.nwin == 1) &&
+-		     (cfg->mem.win[0].len >= 0x4000));
+-	link->io.BasePort1 = io->win[i].base;
+-	link->io.NumPorts1 = io->win[i].len;
+-	link->io.IOAddrLines = io->flags & CISTPL_IO_LINES_MASK;
+-	if (link->io.NumPorts1 + link->io.NumPorts2 >= 32) {
+-	    last_ret = try_io_port(link);
+-	    if (last_ret == CS_SUCCESS) break;
+-	}
+-    next_entry:
+-	last_ret = pcmcia_get_next_tuple(link, &tuple);
+-    }
+-    if (last_ret != CS_SUCCESS) {
++    last_ret = pcmcia_loop_config(link, pcnet_confcheck, &has_shmem);
++    if (last_ret) {
+ 	cs_error(link, RequestIO, last_ret);
+ 	goto failed;
+     }
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 250eb19..9edd2d6 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -660,46 +660,26 @@ static int mot_setup(struct pcmcia_device *link)
+ 
+ /*====================================================================*/
+ 
++static int smc_configcheck(struct pcmcia_device *p_dev,
++			   cistpl_cftable_entry_t *cf,
++			   void *priv_data)
++{
++	p_dev->conf.ConfigIndex = cf->index;
++	p_dev->io.BasePort1 = cf->io.win[0].base;
++	p_dev->io.IOAddrLines = cf->io.flags & CISTPL_IO_LINES_MASK;
++	return pcmcia_request_io(p_dev, &p_dev->io);
++}
++
+ static int smc_config(struct pcmcia_device *link)
+ {
+     struct net_device *dev = link->priv;
+-    struct smc_cfg_mem *cfg_mem;
+-    tuple_t *tuple;
+-    cisparse_t *parse;
+-    cistpl_cftable_entry_t *cf;
+-    u_char *buf;
+     int i;
+ 
+-    cfg_mem = kmalloc(sizeof(struct smc_cfg_mem), GFP_KERNEL);
+-    if (!cfg_mem)
+-	return CS_OUT_OF_RESOURCE;
+-
+-    tuple = &cfg_mem->tuple;
+-    parse = &cfg_mem->parse;
+-    cf = &parse->cftable_entry;
+-    buf = cfg_mem->buf;
+-
+-    tuple->Attributes = tuple->TupleOffset = 0;
+-    tuple->TupleData = (cisdata_t *)buf;
+-    tuple->TupleDataMax = 255;
+-    tuple->DesiredTuple = CISTPL_CFTABLE_ENTRY;
+-
+     link->io.NumPorts1 = 16;
+-    i = first_tuple(link, tuple, parse);
+-    while (i != CS_NO_MORE_ITEMS) {
+-	if (i == CS_SUCCESS) {
+-	    link->conf.ConfigIndex = cf->index;
+-	    link->io.BasePort1 = cf->io.win[0].base;
+-	    link->io.IOAddrLines = cf->io.flags & CISTPL_IO_LINES_MASK;
+-	    i = pcmcia_request_io(link, &link->io);
+-	    if (i == CS_SUCCESS) break;
+-	}
+-	i = next_tuple(link, tuple, parse);
+-    }
+-    if (i == CS_SUCCESS)
+-	dev->base_addr = link->io.BasePort1;
++    i = pcmcia_loop_config(link, smc_configcheck, NULL);
++    if (!i)
++	    dev->base_addr = link->io.BasePort1;
+ 
+-    kfree(cfg_mem);
+     return i;
+ }
+ 
 -- 
 1.5.4.3
 
