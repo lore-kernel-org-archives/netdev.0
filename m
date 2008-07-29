@@ -1,43 +1,34 @@
-From: Komuro <komurojun-mbn@nifty.com>
-Subject: RE: NETDEV WATCHDOG: wifi0: transmit timed out
-Date: Tue, 29 Jul 2008 21:53:15 +0900
-Message-ID: <20080729215315.5a505fe7.komurojun-mbn@nifty.com>
-References: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: where change events in epoll_wait(), and who notify an epoll event?
+Date: Tue, 29 Jul 2008 17:10:23 +0400
+Message-ID: <20080729131023.GA26846@2ka.mipt.ru>
+References: <15da71430807281854v3e7c2536hd4e709a9a5dc7bb6@mail.gmail.com> <20080729063909.GB7009@2ka.mipt.ru> <15da71430807290538l6f702303hfa57665314c89ff1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758556AbYG2M5u@vger.kernel.org>
-In-Reply-To: <20080525112308.03a5fda7.komurojun-mbn@nifty.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: cpusoft <cpusoft@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.80.65]:58083 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753154AbYG2NKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 09:10:20 -0400
+Content-Disposition: inline
+In-Reply-To: <15da71430807290538l6f702303hfa57665314c89ff1@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi.
 
-Please try to comment out the "WARN_ON_ONCE"
-at net/sched/sched_generic.c.
+On Tue, Jul 29, 2008 at 08:38:28PM +0800, cpusoft (cpusoft@gmail.com) wrote:
+> thanks alot. however, i still  wonder who call the driever's
+> wake_up(&private_wait_queue_head)?
 
+Driver itself. For example from interrupt. In network it is softirq
+context via netif_receive_skb(), which in turn will call network
+protocol receiving function (for example ip_rcv), which in turn will
+call transport layer function (like udp_rcv), which will locate a
+socket, queue skb there and call sk->sk_data_ready() callback, which is
+a wake_up(&private_wait_queue_head) for the sockets.
 
---- linux-2.6.27-rc1/net/sched/sch_generic.c.orig	2008-07-29 21:45:36.000000000 +0900
-+++ linux-2.6.27-rc1/net/sched/sch_generic.c	2008-07-29 21:45:54.000000000 +0900
-@@ -216,7 +216,6 @@ static void dev_watchdog(unsigned long a
- 				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit timed out\n",
- 				       dev->name, netdev_drivername(dev, drivername, 64));
- 				dev->tx_timeout(dev);
--				WARN_ON_ONCE(1);
- 			}
- 			if (!mod_timer(&dev->watchdog_timer,
- 				       round_jiffies(jiffies +
-
-
-
->I should'nt be posting this, due to
->having  tainted modules(madwifi), but
->I figured I might as well:(below)
->
->[ 5000.986044] NETDEV WATCHDOG: wifi0: transmit timed out
->[ 5000.991959] ------------[ cut here ]------------
->[ 5000.991964] WARNING: at net/sched/sch_generic.c:222 dev_watchdog+0x95/0xe7()
-
-Best Regards
-Komuro
+-- 
+	Evgeniy Polyakov
