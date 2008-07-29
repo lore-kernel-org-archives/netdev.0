@@ -1,45 +1,53 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: incoming interface + ifb0
-Date: Tue, 29 Jul 2008 16:26:36 +0300
-Message-ID: <200807291626.36572.denys@visp.net.lb>
-References: <20080729124823.GA26788@ff.dom.local>
+From: "J. K. Cliburn" <jcliburn@gmail.com>
+Subject: Re: sendfile() behavior while troubleshooting netdevice
+Date: Tue, 29 Jul 2008 08:32:34 -0500
+Message-ID: <488F1BF2.8090009@bellsouth.net>
+References: <20080728190707.329d247b@osprey.hogchain.net> <20080729062804.GA7009@2ka.mipt.ru>
+Reply-To: jacliburn@bellsouth.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org, ian@jeffray.co.uk
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:43942 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536AbYG2N07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 09:26:59 -0400
-In-Reply-To: <20080729124823.GA26788@ff.dom.local>
-Content-Disposition: inline
+Received: from wr-out-0506.google.com ([64.233.184.226]:53894 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbYG2Nci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 09:32:38 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so4266120wri.5
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 06:32:37 -0700 (PDT)
+In-Reply-To: <20080729062804.GA7009@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 29 July 2008, Jarek Poplawski wrote:
+Evgeniy Polyakov wrote:
+> Hi Jay.
+> 
+> On Mon, Jul 28, 2008 at 07:07:07PM -0500, Jay Cliburn (jacliburn@bellsouth.net) wrote:
+>> sendfile() + TSO + atl1 driver == corrupted file at the receiver
+> 
+> ...
+> 
+>> The hosts:
+>> server, petrel,  r8169, 192.168.1.6,   2.6.20-1.2320.fc5
+>> client, sparrow, e100,  192.168.1.195, 2.6.25.6-27.fc8
+> 
+> ...
+> 
+>> [jcliburn@sparrow ~]$ ./sfcli 192.168.1.6 testfile
+>> connected...
+>> file size is 1600 bytes
+>> received 1592 bytes
+>> error: expected 1600, received 1592
+> 
+> I.e. trouble also happens with r8169 driver?
+> 
 
-> I didn't use this nor checked enough, so I can be wrong, but
-> since ingress with ifb0 is in prerouting, you probably can't use
-> rt_iif. You shouldn't filter at ifb on "dev" neither - it's "ifb"
-> at the moment. You need to match skb->iif with something (flow?).
-Yes
-I want to create on outgoing device or ifb(preffered) - tree of flows.
-Cause each interface = customer - i need to classify customers by flows.
+I think you may be right, Evgeniy.  I thought I had tested things using 
+e100 as the server side, but apparently I didn't.  If I run the server 
+from the e100 host, it works flawlessly every time.  (But of course, the 
+NIC doesn't support TSO, either.)
 
-Since customer can have multiple/spoofed ip's - i cannot filter by ip for now.
-So iif only my choice seems.
+More testing tonight...
 
-Maybe if i do redirect on outgoing to ifb on outgoing device it will work?
-
-
->
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+Thanks.
