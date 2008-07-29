@@ -1,4213 +1,2983 @@
-From: Karen Xie <kxie@chelsio.com>
-Subject: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Tue, 29 Jul 2008 17:19:46 -0700
-Message-ID: <200807300019.m6U0JkdY012558@localhost.localdomain>
-Cc: jgarzik@pobox.com, davem@davemloft.net, michaelc@cs.wisc.edu,
-	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
-	dm@chelsio.com, leedom@chelsio.com
-To: netdev@vger.kernel.org, open-iscsi@googlegroups.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2008-07-29
+Date: Tue, 29 Jul 2008 17:34:47 -0400
+Message-ID: <20080729213447.GB7443@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:7968 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489AbYG3AOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 20:14:04 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:3151 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752330AbYG3AYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 20:24:14 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cxgb3i iSCSI driver
+Dave,
 
-Signed-off-by: Karen Xie <kxie@chelsio.com>
+A rather large set of patches to fix some of the problems that have been
+festering in Linus's tree for the last week or so...I apologize for my
+absence while I dallied in sunny Ottawa...
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
 ---
 
- drivers/scsi/cxgb3i/Kconfig          |    6 
- drivers/scsi/cxgb3i/Makefile         |    5 
- drivers/scsi/cxgb3i/cxgb3i.h         |  155 +++
- drivers/scsi/cxgb3i/cxgb3i_init.c    |  109 ++
- drivers/scsi/cxgb3i/cxgb3i_iscsi.c   |  800 ++++++++++++++
- drivers/scsi/cxgb3i/cxgb3i_offload.c | 2001 ++++++++++++++++++++++++++++++++++
- drivers/scsi/cxgb3i/cxgb3i_offload.h |  242 ++++
- drivers/scsi/cxgb3i/cxgb3i_ulp2.c    |  692 ++++++++++++
- drivers/scsi/cxgb3i/cxgb3i_ulp2.h    |  106 ++
- 9 files changed, 4116 insertions(+), 0 deletions(-)
- create mode 100644 drivers/scsi/cxgb3i/Kconfig
- create mode 100644 drivers/scsi/cxgb3i/Makefile
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i.h
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_init.c
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_iscsi.c
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_offload.c
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_offload.h
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_ulp2.c
- create mode 100644 drivers/scsi/cxgb3i/cxgb3i_ulp2.h
+Individual patches are available here:
 
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
-diff --git a/drivers/scsi/cxgb3i/Kconfig b/drivers/scsi/cxgb3i/Kconfig
-new file mode 100644
-index 0000000..2762814
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/Kconfig
-@@ -0,0 +1,6 @@
-+config SCSI_CXGB3_ISCSI
-+	tristate "Chelsio S3xx iSCSI support"
-+	select CHELSIO_T3
-+	select SCSI_ISCSI_ATTRS
-+	---help---
-+	This driver supports iSCSI offload for the Chelsio S3 series devices.
-diff --git a/drivers/scsi/cxgb3i/Makefile b/drivers/scsi/cxgb3i/Makefile
-new file mode 100644
-index 0000000..8c8a894
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/Makefile
-@@ -0,0 +1,5 @@
-+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/cxgb3
-+
-+cxgb3i-y := cxgb3i_init.o cxgb3i_iscsi.o cxgb3i_ulp2.o cxgb3i_offload.o
-+
-+obj-$(CONFIG_SCSI_CXGB3_ISCSI) += cxgb3i.o
-diff --git a/drivers/scsi/cxgb3i/cxgb3i.h b/drivers/scsi/cxgb3i/cxgb3i.h
-new file mode 100644
-index 0000000..3c44c3c
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i.h
-@@ -0,0 +1,155 @@
-+/*
-+ * cxgb3i.h: Chelsio S3xx iSCSI driver.
-+ *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie@chelsio.com)
-+ */
-+
-+#ifndef __CXGB3I_H__
-+#define __CXGB3I_H__
-+
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/scatterlist.h>
-+
-+/* from cxgb3 LLD */
-+#include "common.h"
-+#include "t3_cpl.h"
-+#include "t3cdev.h"
-+#include "cxgb3_ctl_defs.h"
-+#include "cxgb3_offload.h"
-+#include "firmware_exports.h"
-+#include "cxgb3i_offload.h"
-+
-+#define CXGB3I_SCSI_QDEPTH_DFLT	128
-+#define ISCSI_PDU_HEADER_MAX	(56 + 256) /* bhs + digests + ahs */
-+
-+struct cxgb3i_adapter;
-+struct cxgb3i_hba;
-+struct cxgb3i_endpoint;
-+
-+/**
-+ * struct cxgb3i_tag_format - cxgb3i ulp tag for steering pdu payload
-+ *
-+ * @rsvd_bits:	# of bits used by h/w
-+ * @rsvd_shift:	shift left
-+ * @rsvd_mask:  bit mask
-+ *
-+ */
-+struct cxgb3i_tag_format {
-+	unsigned char idx_bits;
-+	unsigned char age_bits;
-+	unsigned char rsvd_bits;
-+	unsigned char rsvd_shift;
-+	u32 rsvd_mask;
-+};
-+
-+/**
-+ * struct cxgb3i_ddp_info - cxgb3i direct data placement for pdu payload
-+ *
-+ * @llimit:	lower bound of the page pod memory
-+ * @ulimit:	upper bound of the page pod memory
-+ * @nppods:	# of page pod entries
-+ * @idx_last:	page pod entry last used
-+ * @map_lock:	lock to synchonize access to the page pod map
-+ * @map:	page pod map
-+ */
-+struct cxgb3i_ddp_info {
-+	unsigned int llimit;
-+	unsigned int ulimit;
-+	unsigned int nppods;
-+	unsigned int idx_last;
-+	spinlock_t map_lock;
-+	u8 *map;
-+};
-+
-+struct cxgb3i_hba {
-+	struct cxgb3i_adapter *snic;
-+	struct net_device *ndev;
-+	struct Scsi_Host *shost;
-+
-+	rwlock_t cconn_rwlock;
-+	struct list_head cconn_list;
-+};
-+
-+struct cxgb3i_adapter {
-+	struct list_head list_head;
-+	spinlock_t lock;
-+	struct t3cdev *tdev;
-+	struct pci_dev *pdev;
-+	unsigned char hba_cnt;
-+	struct cxgb3i_hba *hba[MAX_NPORTS];
-+
-+	unsigned int tx_max_size;
-+	unsigned int rx_max_size;
-+
-+	struct cxgb3i_tag_format tag_format;
-+	struct cxgb3i_ddp_info ddp;
-+};
-+
-+struct cxgb3i_conn {
-+	struct list_head list_head;
-+
-+	struct cxgb3i_endpoint *cep;
-+	struct iscsi_conn *conn;
-+	struct cxgb3i_hba *hba;
-+};
-+
-+struct cxgb3i_endpoint {
-+	struct s3_conn *c3cn;
-+	struct cxgb3i_hba *hba;
-+	struct cxgb3i_conn *cconn;
-+};
-+
-+int cxgb3i_iscsi_init(void);
-+void cxgb3i_iscsi_cleanup(void);
-+
-+struct cxgb3i_adapter *cxgb3i_adapter_find_by_tdev(struct t3cdev *);
-+struct cxgb3i_adapter *cxgb3i_adapter_add(struct t3cdev *);
-+void cxgb3i_adapter_remove(struct cxgb3i_adapter *);
-+int cxgb3i_adapter_ulp_init(struct cxgb3i_adapter *);
-+void cxgb3i_adapter_ulp_cleanup(struct cxgb3i_adapter *);
-+
-+struct cxgb3i_hba *cxgb3i_hba_find_by_netdev(struct net_device *);
-+struct cxgb3i_hba *cxgb3i_hba_host_add(struct cxgb3i_adapter *,
-+				       struct net_device *);
-+void cxgb3i_hba_host_remove(struct cxgb3i_hba *);
-+
-+void cxgb3i_hba_conn_add(struct cxgb3i_conn *, struct cxgb3i_hba *);
-+void cxgb3i_hba_conn_remove(struct cxgb3i_conn *);
-+
-+int cxgb3i_ulp2_init(void);
-+void cxgb3i_ulp2_cleanup(void);
-+int cxgb3i_conn_ulp_setup(struct cxgb3i_conn *, int, int);
-+
-+void cxgb3i_ddp_tag_release(struct cxgb3i_adapter *, u32,
-+			    struct scatterlist *, unsigned int);
-+u32 cxgb3i_ddp_tag_reserve(struct cxgb3i_adapter *, unsigned int,
-+			   u32, unsigned int, struct scatterlist *,
-+			   unsigned int);
-+static inline void cxgb3i_parse_tag(struct cxgb3i_tag_format *format,
-+				    u32 tag, u32 *rsvd_bits, u32 *sw_bits)
-+{
-+	if (rsvd_bits)
-+		*rsvd_bits = (tag >> format->rsvd_shift) & format->rsvd_mask;
-+	if (sw_bits) {
-+		*sw_bits = (tag >> (format->rsvd_shift + format->rsvd_bits))
-+		    << format->rsvd_shift;
-+		*sw_bits |= tag & ((1 << format->rsvd_shift) - 1);
-+	}
-+}
-+
-+int cxgb3i_conn_ulp2_xmit(struct iscsi_conn *);
-+
-+void cxgb3i_display_byte_string(char *, unsigned char *, int, int);
-+
-+#endif
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_init.c b/drivers/scsi/cxgb3i/cxgb3i_init.c
-new file mode 100644
-index 0000000..1c91bb0
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_init.c
-@@ -0,0 +1,109 @@
-+/* cxgb3i_init.c: Chelsio S3xx iSCSI driver.
-+ *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie@chelsio.com)
-+ */
-+
-+#include "cxgb3i.h"
-+
-+#define DRV_MODULE_NAME         "cxgb3i"
-+#define DRV_MODULE_VERSION      "1.0.0"
-+#define DRV_MODULE_RELDATE      "May 1, 2008"
-+
-+static char version[] =
-+    "Chelsio S3xx iSCSI Driver " DRV_MODULE_NAME
-+    " v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
-+
-+MODULE_AUTHOR("Karen Xie <kxie@chelsio.com>");
-+MODULE_DESCRIPTION("Chelsio S3xx iSCSI Driver");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_MODULE_VERSION);
-+
-+static void open_s3_dev(struct t3cdev *);
-+static void close_s3_dev(struct t3cdev *);
-+cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS];
-+struct cxgb3_client t3c_client = {
-+	.name = "iscsi_cxgb3",
-+	.handlers = cxgb3i_cpl_handlers,
-+	.add = open_s3_dev,
-+	.remove = close_s3_dev,
-+};
-+
-+/**
-+ * open_s3_dev - register with cxgb3 LLD
-+ * @t3dev	cxgb3 adapter instance
-+ */
-+static void open_s3_dev(struct t3cdev *t3dev)
-+{
-+	static int vers_printed;
-+
-+	if (!vers_printed) {
-+		printk(KERN_INFO "%s", version);
-+		vers_printed = 1;
-+	}
-+
-+	cxgb3i_log_debug("open cxgb3 %s.\n", t3dev->name);
-+
-+	cxgb3i_sdev_add(t3dev, &t3c_client);
-+	cxgb3i_adapter_add(t3dev);
-+}
-+
-+/**
-+ * close_s3_dev - de-register with cxgb3 LLD
-+ * @t3dev	cxgb3 adapter instance
-+ */
-+static void close_s3_dev(struct t3cdev *t3dev)
-+{
-+	struct cxgb3i_adapter *snic = cxgb3i_adapter_find_by_tdev(t3dev);
-+	cxgb3i_log_debug("close cxgb3 %s.\n", t3dev->name);
-+	if (snic)
-+		cxgb3i_adapter_remove(snic);
-+	cxgb3i_sdev_remove(t3dev);
-+}
-+
-+/**
-+ * cxgb3i_init_module - module init entry point
-+ *
-+ * initialize any driver wide global data structures and register itself
-+ *	with the cxgb3 module
-+ */
-+static int __init cxgb3i_init_module(void)
-+{
-+	int err;
-+
-+	err = cxgb3i_sdev_init(cxgb3i_cpl_handlers);
-+	if (err < 0)
-+		return err;
-+
-+	err = cxgb3i_iscsi_init();
-+	if (err < 0)
-+		return err;
-+
-+	err = cxgb3i_ulp2_init();
-+	if (err < 0)
-+		return err;
-+
-+	cxgb3_register_client(&t3c_client);
-+	return 0;
-+}
-+
-+/**
-+ * cxgb3i_exit_module - module cleanup/exit entry point
-+ *
-+ * go through the driver hba list and for each hba, release any resource held.
-+ *	and unregisters iscsi transport and the cxgb3 module
-+ */
-+static void __exit cxgb3i_exit_module(void)
-+{
-+	cxgb3_unregister_client(&t3c_client);
-+	cxgb3i_ulp2_cleanup();
-+	cxgb3i_iscsi_cleanup();
-+}
-+
-+module_init(cxgb3i_init_module);
-+module_exit(cxgb3i_exit_module);
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_iscsi.c b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
-new file mode 100644
-index 0000000..ed3d340
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
-@@ -0,0 +1,800 @@
-+/* cxgb3i_iscsi.c: Chelsio S3xx iSCSI driver.
-+ *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie@chelsio.com)
-+ */
-+
-+#include <net/tcp.h>
-+#include <scsi/scsi_cmnd.h>
-+#include <scsi/scsi_device.h>
-+#include <scsi/scsi_eh.h>
-+#include <scsi/scsi_host.h>
-+#include <scsi/scsi.h>
-+#include <scsi/iscsi_proto.h>
-+#include <scsi/libiscsi.h>
-+#include <scsi/scsi_transport_iscsi.h>
-+#include <linux/crypto.h>
-+#include "../iscsi_tcp.h"
-+
-+#include "cxgb3i.h"
-+
-+static struct scsi_transport_template *cxgb3i_scsi_transport;
-+static struct scsi_host_template cxgb3i_host_template;
-+static struct iscsi_transport cxgb3i_iscsi_transport;
-+
-+static LIST_HEAD(cxgb3i_snic_list);
-+static DEFINE_RWLOCK(cxgb3i_snic_rwlock);
-+
-+/**
-+ * cxgb3i_adapter_add - initialize a s3 adapter structure and any h/w settings
-+ *	necessary
-+ * @snic:	pointer to adapter instance
-+ */
-+struct cxgb3i_adapter *cxgb3i_adapter_add(struct t3cdev *t3dev)
-+{
-+	struct cxgb3i_adapter *snic;
-+	struct adapter *adapter = tdev2adap(t3dev);
-+	int i;
-+
-+	snic = kzalloc(sizeof(*snic), GFP_KERNEL);
-+	if (!snic) {
-+		cxgb3i_log_debug("cxgb3 %s, OOM.\n", t3dev->name);
-+		return NULL;
-+	}
-+
-+	spin_lock_init(&snic->lock);
-+	snic->tdev = t3dev;
-+	snic->pdev = adapter->pdev;
-+
-+	if (cxgb3i_adapter_ulp_init(snic))
-+		goto free_snic;
-+
-+	for_each_port(adapter, i) {
-+		snic->hba[i] = cxgb3i_hba_host_add(snic, adapter->port[i]);
-+		if (!snic->hba[i])
-+			goto ulp_cleanup;
-+	}
-+	snic->hba_cnt = adapter->params.nports;
-+
-+	/* add to the list */
-+	write_lock(&cxgb3i_snic_rwlock);
-+	list_add_tail(&snic->list_head, &cxgb3i_snic_list);
-+	write_unlock(&cxgb3i_snic_rwlock);
-+
-+	return snic;
-+
-+ulp_cleanup:
-+	cxgb3i_adapter_ulp_cleanup(snic);
-+free_snic:
-+	kfree(snic);
-+	return NULL;
-+}
-+
-+/**
-+ * cxgb3i_snic_cleanup - release all the resources held and cleanup any h/w
-+ *	settings necessary
-+ * @snic:	pointer to adapter instance
-+ */
-+void cxgb3i_adapter_remove(struct cxgb3i_adapter *snic)
-+{
-+	int i;
-+
-+	/* remove from the list */
-+	write_lock(&cxgb3i_snic_rwlock);
-+	list_del(&snic->list_head);
-+	write_unlock(&cxgb3i_snic_rwlock);
-+
-+	for (i = 0; i < snic->hba_cnt; i++) {
-+		if (snic->hba[i]) {
-+			cxgb3i_hba_host_remove(snic->hba[i]);
-+			snic->hba[i] = NULL;
-+		}
-+	}
-+
-+	/* release ddp resources */
-+	cxgb3i_adapter_ulp_cleanup(snic);
-+	kfree(snic);
-+}
-+
-+struct cxgb3i_adapter *cxgb3i_adapter_find_by_tdev(struct t3cdev *t3dev)
-+{
-+	struct cxgb3i_adapter *snic;
-+
-+	read_lock(&cxgb3i_snic_rwlock);
-+	list_for_each_entry(snic, &cxgb3i_snic_list, list_head) {
-+		if (snic->tdev == t3dev) {
-+			read_unlock(&cxgb3i_snic_rwlock);
-+			return snic;
-+		}
-+	}
-+	read_unlock(&cxgb3i_snic_rwlock);
-+
-+	return NULL;
-+}
-+
-+struct cxgb3i_hba *cxgb3i_hba_find_by_netdev(struct net_device *ndev)
-+{
-+	struct cxgb3i_adapter *snic;
-+	int i;
-+
-+	read_lock(&cxgb3i_snic_rwlock);
-+	list_for_each_entry(snic, &cxgb3i_snic_list, list_head) {
-+		for (i = 0; i < snic->hba_cnt; i++) {
-+			if (snic->hba[i]->ndev == ndev) {
-+				read_unlock(&cxgb3i_snic_rwlock);
-+				return (snic->hba[i]);
-+			}
-+		}
-+	}
-+	read_unlock(&cxgb3i_snic_rwlock);
-+	return NULL;
-+}
-+
-+void cxgb3i_hba_conn_add(struct cxgb3i_conn *cconn, struct cxgb3i_hba *hba)
-+{
-+	cconn->hba = hba;
-+	write_lock(&hba->cconn_rwlock);
-+	list_add_tail(&cconn->list_head, &hba->cconn_list);
-+	write_unlock(&hba->cconn_rwlock);
-+}
-+
-+void cxgb3i_hba_conn_remove(struct cxgb3i_conn *cconn)
-+{
-+	struct cxgb3i_hba *hba = cconn->hba;
-+
-+	if (hba) {
-+		write_lock(&hba->cconn_rwlock);
-+		list_del(&cconn->list_head);
-+		write_unlock(&hba->cconn_rwlock);
-+	}
-+}
-+
-+struct cxgb3i_hba *cxgb3i_hba_host_add(struct cxgb3i_adapter *snic,
-+				       struct net_device *ndev)
-+{
-+	struct cxgb3i_hba *hba;
-+	struct Scsi_Host *shost;
-+	int err;
-+
-+	shost = iscsi_host_alloc(&cxgb3i_host_template,
-+				 sizeof(struct cxgb3i_hba),
-+				 CXGB3I_SCSI_QDEPTH_DFLT);
-+	if (!shost) {
-+		cxgb3i_log_info("iscsi_host_alloc failed.\n");
-+		return NULL;
-+	}
-+
-+	shost->transportt = cxgb3i_scsi_transport;
-+	shost->max_lun = 512;
-+	shost->max_id = 0;
-+	shost->max_channel = 0;
-+	shost->max_cmd_len = 16;
-+
-+	hba = iscsi_host_priv(shost);
-+	INIT_LIST_HEAD(&hba->cconn_list);
-+	rwlock_init(&hba->cconn_rwlock);
-+	hba->snic = snic;
-+	hba->ndev = ndev;
-+	hba->shost = shost;
-+
-+	pci_dev_get(snic->pdev);
-+	err = iscsi_host_add(shost, &snic->pdev->dev);
+---
+
+The following changes since commit 281c7413ed914623d3245299a4761b6b27ab9fdb:
+  David S. Miller (1):
+        Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.6
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Andrew Morton (1):
+      drivers/net/wireless/iwlwifi/iwl-led.c: printk fix
+
+Bob Copeland (2):
+      ath5k: use positive logic for HP laptop LEDs
+      ath5k: fix recursive locking in ath5k_beacon_update
+
+Brian Cavagnolo (1):
+      libertas: check bounds and only use decimal for sysfs persistent features.
+
+Denis V. Lunev (2):
+      iwlwifi: compilation error when CONFIG_IWLWIFI_DEBUG is not set
+      iwlwifi: small compile warnings without CONFIG_IWLWIFI_DEBUG
+
+Harvey Harrison (1):
+      mac80211: fix sparse integer as NULL pointer warning
+
+Henrique de Moraes Holschuh (5):
+      rfkill: document rfkill_force_state as required (v2)
+      rfkill: fix led-trigger unregister order in error unwind
+      rfkill: document the rfkill struct locking (v2)
+      rfkill: mutex fixes
+      rfkill: yet more minor kernel-doc fixes
+
+Ivo van Doorn (6):
+      rt2x00: Remove duplicate declaration
+      rt2x00: Fix EIFS timing value
+      rt2x00: Fix QOS sequence counting
+      rt2x00: Fix memleak when RTS/CTS fails
+      rt2x00: Force full register config after start()
+      rt2x00: Clear queue entry flags during initialization
+
+Iwo Mergler (3):
+      rt2x00: Support for large vendor requests
+      rt2x00: Large vendor requests for rt73usb firmware upload and beacons
+      rt2x00: Fix the beacon length bug
+
+Jeremy Fitzhardinge (1):
+      mac80211: return correct error return from ieee80211_wep_init
+
+Jiri Slaby (6):
+      Ath5k: fix memory corruption
+      Ath5k: kill tasklets on shutdown
+      Ath5k: flush work
+      Ath5k: fix dma operation
+      Ath5k: suspend/resume fixes
+      mac80211: tx, use dev_kfree_skb_any for beacon_get
+
+Johannes Berg (4):
+      mac80211: remove IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE flag
+      mac80211: partially fix skb->cb use
+      nl80211: fix dump callbacks
+      mac80211: fix cfg80211 hooks for master interface
+
+Julia Lawall (2):
+      drivers/net/wireless/ipw2100.c: Release mutex in error handling code
+      b43legacy: Release mutex in error handling code
+
+Larry Finger (2):
+      rtl8187: Fix for TX sequence number problem
+      rtl8187: Improve wireless statistics for RTL8187B
+
+Luis Carlos Cobo (1):
+      mac80211: fix mesh beaconing
+
+Pavel Roskin (1):
+      ath5k: don't enable MSI, we cannot handle it yet
+
+Rami Rosen (2):
+      iwl-3945: add #ifdef CONFIG_IWL3945_LEDS to avoid compile warning.
+      mac80211: append CONFIG_ to MAC80211_VERBOSE_PS_DEBUG in net/mac80211/tx.c.
+
+Vegard Nossum (1):
+      PS3: gelic: use unsigned long for irqflags
+
+ Documentation/rfkill.txt                    |   20 ++-
+ drivers/net/ps3_gelic_wireless.c            |   12 +-
+ drivers/net/wireless/ath5k/base.c           |   99 ++++++----
+ drivers/net/wireless/ath5k/base.h           |    2 +-
+ drivers/net/wireless/ath5k/hw.c             |    4 +
+ drivers/net/wireless/b43/main.c             |    3 +-
+ drivers/net/wireless/b43/xmit.c             |    2 +-
+ drivers/net/wireless/b43legacy/main.c       |    5 +-
+ drivers/net/wireless/b43legacy/xmit.c       |    2 +-
+ drivers/net/wireless/ipw2100.c              |    3 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.c     |    2 +
+ drivers/net/wireless/iwlwifi/iwl-core.c     |    3 +-
+ drivers/net/wireless/iwlwifi/iwl-debug.h    |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-led.c      |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-scan.c     |    2 +
+ drivers/net/wireless/iwlwifi/iwl-tx.c       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |    5 +-
+ drivers/net/wireless/libertas/persistcfg.c  |   30 ++--
+ drivers/net/wireless/mac80211_hwsim.c       |    2 +-
+ drivers/net/wireless/rt2x00/rt2500usb.c     |   13 ++-
+ drivers/net/wireless/rt2x00/rt2x00.h        |    6 +-
+ drivers/net/wireless/rt2x00/rt2x00config.c  |    2 +-
+ drivers/net/wireless/rt2x00/rt2x00dev.c     |    7 +-
+ drivers/net/wireless/rt2x00/rt2x00lib.h     |    7 -
+ drivers/net/wireless/rt2x00/rt2x00mac.c     |   29 ++--
+ drivers/net/wireless/rt2x00/rt2x00queue.c   |   36 ++++-
+ drivers/net/wireless/rt2x00/rt2x00queue.h   |    2 +
+ drivers/net/wireless/rt2x00/rt2x00usb.c     |   32 +++
+ drivers/net/wireless/rt2x00/rt2x00usb.h     |   22 ++-
+ drivers/net/wireless/rt2x00/rt61pci.c       |    4 +-
+ drivers/net/wireless/rt2x00/rt73usb.c       |   56 +++----
+ drivers/net/wireless/rtl8187.h              |   11 +-
+ drivers/net/wireless/rtl8187_dev.c          |   93 ++++++---
+ drivers/net/wireless/zd1211rw/zd_mac.c      |    1 -
+ include/linux/rfkill.h                      |    8 +-
+ include/linux/skbuff.h                      |    5 +-
+ include/net/mac80211.h                      |    7 -
+ net/core/skbuff.c                           |    3 +
+ net/mac80211/cfg.c                          |  103 +++++++++--
+ net/mac80211/main.c                         |   12 +-
+ net/mac80211/mlme.c                         |    9 +-
+ net/mac80211/tx.c                           |   55 +++---
+ net/mac80211/wep.c                          |    4 +-
+ net/mac80211/wme.c                          |    3 +
+ net/rfkill/rfkill.c                         |   62 ++++---
+ net/wireless/nl80211.c                      |  277 +++++++++++++++------------
+ 46 files changed, 674 insertions(+), 405 deletions(-)
+
+diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
+index 0843ed0..28b6ec8 100644
+--- a/Documentation/rfkill.txt
++++ b/Documentation/rfkill.txt
+@@ -390,9 +390,10 @@ rfkill lines are inactive, it must return RFKILL_STATE_SOFT_BLOCKED if its soft
+ rfkill input line is active.  Only if none of the rfkill input lines are
+ active, will it return RFKILL_STATE_UNBLOCKED.
+ 
+-If it doesn't implement the get_state() hook, it must make sure that its calls
+-to rfkill_force_state() are enough to keep the status always up-to-date, and it
+-must do a rfkill_force_state() on resume from sleep.
++Since the device has a hardware rfkill line, it IS subject to state changes
++external to rfkill.  Therefore, the driver must make sure that it calls
++rfkill_force_state() to keep the status always up-to-date, and it must do a
++rfkill_force_state() on resume from sleep.
+ 
+ Every time the driver gets a notification from the card that one of its rfkill
+ lines changed state (polling might be needed on badly designed cards that don't
+@@ -422,13 +423,24 @@ of the hardware is unknown), or read-write (where the hardware can be queried
+ about its current state).
+ 
+ The rfkill class will call the get_state hook of a device every time it needs
+-to know the *real* current state of the hardware.  This can happen often.
++to know the *real* current state of the hardware.  This can happen often, but
++it does not do any polling, so it is not enough on hardware that is subject
++to state changes outside of the rfkill subsystem.
++
++Therefore, calling rfkill_force_state() when a state change happens is
++mandatory when the device has a hardware rfkill line, or when something else
++like the firmware could cause its state to be changed without going through the
++rfkill class.
+ 
+ Some hardware provides events when its status changes.  In these cases, it is
+ best for the driver to not provide a get_state hook, and instead register the
+ rfkill class *already* with the correct status, and keep it updated using
+ rfkill_force_state() when it gets an event from the hardware.
+ 
++rfkill_force_state() must be used on the device resume handlers to update the
++rfkill status, should there be any chance of the device status changing during
++the sleep.
++
+ There is no provision for a statically-allocated rfkill struct.  You must
+ use rfkill_allocate() to allocate one.
+ 
+diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ps3_gelic_wireless.c
+index 6b2dee0..a834b52 100644
+--- a/drivers/net/ps3_gelic_wireless.c
++++ b/drivers/net/ps3_gelic_wireless.c
+@@ -1024,7 +1024,7 @@ static int gelic_wl_set_encode(struct net_device *netdev,
+ 	struct gelic_wl_info *wl = port_wl(netdev_priv(netdev));
+ 	struct iw_point *enc = &data->encoding;
+ 	__u16 flags;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	int key_index, index_specified;
+ 	int ret = 0;
+ 
+@@ -1097,7 +1097,7 @@ static int gelic_wl_get_encode(struct net_device *netdev,
+ {
+ 	struct gelic_wl_info *wl = port_wl(netdev_priv(netdev));
+ 	struct iw_point *enc = &data->encoding;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	unsigned int key_index, index_specified;
+ 	int ret = 0;
+ 
+@@ -1215,7 +1215,7 @@ static int gelic_wl_set_encodeext(struct net_device *netdev,
+ 	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
+ 	__u16 alg;
+ 	__u16 flags;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	int key_index;
+ 	int ret = 0;
+ 
+@@ -1303,7 +1303,7 @@ static int gelic_wl_get_encodeext(struct net_device *netdev,
+ 	struct gelic_wl_info *wl = port_wl(netdev_priv(netdev));
+ 	struct iw_point *enc = &data->encoding;
+ 	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	int key_index;
+ 	int ret = 0;
+ 	int max_key_len;
+@@ -1426,7 +1426,7 @@ static int gelic_wl_priv_set_psk(struct net_device *net_dev,
+ {
+ 	struct gelic_wl_info *wl = port_wl(netdev_priv(net_dev));
+ 	unsigned int len;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	int ret = 0;
+ 
+ 	pr_debug("%s:<- len=%d\n", __func__, data->data.length);
+@@ -1467,7 +1467,7 @@ static int gelic_wl_priv_get_psk(struct net_device *net_dev,
+ {
+ 	struct gelic_wl_info *wl = port_wl(netdev_priv(net_dev));
+ 	char *p;
+-	unsigned int irqflag;
++	unsigned long irqflag;
+ 	unsigned int i;
+ 
+ 	pr_debug("%s:<-\n", __func__);
+diff --git a/drivers/net/wireless/ath5k/base.c b/drivers/net/wireless/ath5k/base.c
+index d9769c5..ff3fad7 100644
+--- a/drivers/net/wireless/ath5k/base.c
++++ b/drivers/net/wireless/ath5k/base.c
+@@ -43,7 +43,9 @@
+ #include <linux/version.h>
+ #include <linux/module.h>
+ #include <linux/delay.h>
++#include <linux/hardirq.h>
+ #include <linux/if.h>
++#include <linux/io.h>
+ #include <linux/netdevice.h>
+ #include <linux/cache.h>
+ #include <linux/pci.h>
+@@ -471,9 +473,6 @@ ath5k_pci_probe(struct pci_dev *pdev,
+ 	/* Set private data */
+ 	pci_set_drvdata(pdev, hw);
+ 
+-	/* Enable msi for devices that support it */
+-	pci_enable_msi(pdev);
+-
+ 	/* Setup interrupt handler */
+ 	ret = request_irq(pdev->irq, ath5k_intr, IRQF_SHARED, "ath", sc);
+ 	if (ret) {
+@@ -551,7 +550,6 @@ err_ah:
+ err_irq:
+ 	free_irq(pdev->irq, sc);
+ err_free:
+-	pci_disable_msi(pdev);
+ 	ieee80211_free_hw(hw);
+ err_map:
+ 	pci_iounmap(pdev, mem);
+@@ -573,7 +571,6 @@ ath5k_pci_remove(struct pci_dev *pdev)
+ 	ath5k_detach(pdev, hw);
+ 	ath5k_hw_detach(sc->ah);
+ 	free_irq(pdev->irq, sc);
+-	pci_disable_msi(pdev);
+ 	pci_iounmap(pdev, sc->iobase);
+ 	pci_release_region(pdev, 0);
+ 	pci_disable_device(pdev);
+@@ -590,6 +587,9 @@ ath5k_pci_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	ath5k_led_off(sc);
+ 
+ 	ath5k_stop_hw(sc);
++
++	free_irq(pdev->irq, sc);
++	pci_disable_msi(pdev);
+ 	pci_save_state(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+@@ -605,15 +605,12 @@ ath5k_pci_resume(struct pci_dev *pdev)
+ 	struct ath5k_hw *ah = sc->ah;
+ 	int i, err;
+ 
+-	err = pci_set_power_state(pdev, PCI_D0);
+-	if (err)
+-		return err;
++	pci_restore_state(pdev);
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+ 		return err;
+ 
+-	pci_restore_state(pdev);
+ 	/*
+ 	 * Suspend/Resume resets the PCI configuration space, so we have to
+ 	 * re-disable the RETRY_TIMEOUT register (0x41) to keep
+@@ -621,7 +618,17 @@ ath5k_pci_resume(struct pci_dev *pdev)
+ 	 */
+ 	pci_write_config_byte(pdev, 0x41, 0);
+ 
+-	ath5k_init(sc);
++	pci_enable_msi(pdev);
++
++	err = request_irq(pdev->irq, ath5k_intr, IRQF_SHARED, "ath", sc);
 +	if (err) {
-+		cxgb3i_log_info("iscsi_host_add failed.\n");
-+		goto pci_dev_put;
++		ATH5K_ERR(sc, "request_irq failed\n");
++		goto err_msi;
 +	}
 +
-+	cxgb3i_log_debug("shost 0x%p, hba 0x%p, no %u.\n",
-+			 shost, hba, shost->host_no);
-+
-+	return hba;
-+
-+pci_dev_put:
-+	pci_dev_put(snic->pdev);
-+	scsi_host_put(shost);
-+	return NULL;
-+}
-+
-+void cxgb3i_hba_host_remove(struct cxgb3i_hba *hba)
-+{
-+	if (hba->shost) {
-+		cxgb3i_log_debug("shost 0x%p, hba 0x%p, no %u.\n",
-+				 hba->shost, hba, hba->shost->host_no);
-+		iscsi_host_remove(hba->shost);
-+		pci_dev_put(hba->snic->pdev);
-+		/* cleanup connections ? */
-+		iscsi_host_free(hba->shost);
-+	}
-+}
-+
-+/**
-+ * cxgb3i_ep_connect - establish TCP connection to target portal
-+ * @dst_addr:		target IP address
-+ * @non_blocking:	blocking or non-blocking call
-+ *
-+ * Initiates a TCP/IP connection to the dst_addr
-+ */
-+static struct iscsi_endpoint *cxgb3i_ep_connect(struct sockaddr *dst_addr,
-+						int non_blocking)
-+{
-+	struct iscsi_endpoint *ep;
-+	struct cxgb3i_endpoint *cep;
-+	struct cxgb3i_hba *hba;
-+	struct s3_conn *c3cn;
-+	int err;
-+
-+	c3cn = cxgb3i_c3cn_create();
-+	if (!c3cn) {
-+		cxgb3i_log_info("ep connect OOM.\n");
-+		return NULL;
-+	}
-+
-+	err = cxgb3i_c3cn_connect(c3cn, (struct sockaddr_in *)dst_addr);
-+	if (err < 0) {
-+		cxgb3i_log_info("ep connect failed.\n");
-+		goto release_conn;
-+	}
-+	hba = cxgb3i_hba_find_by_netdev(c3cn->dst_cache->dev);
-+	if (!hba) {
-+		cxgb3i_log_info("NOT going through cxgbi device.\n");
-+		goto release_conn;
-+	}
-+
-+	ep = iscsi_create_endpoint(sizeof(*cep));
-+	if (!ep) {
-+		cxgb3i_log_info("iscsi alloc ep, OOM.\n");
-+		goto release_conn;
-+	}
-+	cep = ep->dd_data;
-+	cep->c3cn = c3cn;
-+	cep->hba = hba;
-+
-+	cxgb3i_log_debug("iscsi_ep 0x%p, cxgb_ep 0x%p, hba 0x%p, c3cn 0x%p.\n",
-+			  ep, cep, hba, c3cn);
-+	return ep;
-+
-+release_conn:
-+	c3cn_release(c3cn);
-+	return NULL;
-+}
-+
-+/**
-+ * cxgb3i_ep_poll - polls for TCP connection establishement
-+ * @ep:		TCP connection (endpoint) handle
-+ * @timeout_ms:	timeout value in milli secs
-+ *
-+ * polls for TCP connect request to complete
-+ */
-+static int cxgb3i_ep_poll(struct iscsi_endpoint *ep, int timeout_ms)
-+{
-+	cxgb3i_log_debug("iscsi_ep 0x%p, timeout_ms %d.\n", ep, timeout_ms);
-+	return 1;
-+}
-+
-+/**
-+ * cxgb3i_ep_disconnect - teardown TCP connection
-+ * @ep:		TCP connection (endpoint) handle
-+ *
-+ * teardown TCP connection
-+ */
-+static void cxgb3i_ep_disconnect(struct iscsi_endpoint *ep)
-+{
-+	struct cxgb3i_endpoint *cep = (struct cxgb3i_endpoint *)ep->dd_data;
-+	struct cxgb3i_conn *cconn = cep->cconn;
-+
-+	cxgb3i_log_debug("ep 0x%p, cep 0x%p.\n", ep, cep);
-+
-+	if (cconn && cconn->conn) {
-+		struct iscsi_conn *conn = cconn->conn;
-+		struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+		write_lock_bh(&cep->c3cn->callback_lock);
-+		cep->c3cn->user_data = NULL;
-+		set_bit(ISCSI_SUSPEND_BIT, &conn->suspend_rx);
-+		cconn->cep = NULL;
-+		tcp_conn->sock = NULL;
-+		write_unlock_bh(&cep->c3cn->callback_lock);
-+	}
-+
-+	c3cn_release(cep->c3cn);
-+	iscsi_destroy_endpoint(ep);
-+}
-+
-+/**
-+ * cxgb3i_session_create - create a new iscsi session
-+ * @cmds_max:		max # of commands
-+ * @qdepth:		scsi queue depth
-+ * @initial_cmdsn:	initial iscsi CMDSN for this session
-+ * @host_no:		pointer to return host no
-+ *
-+ * Creates a new iSCSI session
-+ */
-+static struct iscsi_cls_session *cxgb3i_session_create(struct iscsi_endpoint
-+						       *ep, uint16_t cmds_max,
-+						       uint16_t qdepth,
-+						       uint32_t initial_cmdsn,
-+						       uint32_t *host_no)
-+{
-+	struct cxgb3i_endpoint *cep;
-+	struct cxgb3i_hba *hba;
-+	struct Scsi_Host *shost;
-+	struct iscsi_cls_session *cls_session;
-+	struct iscsi_session *session;
-+	int i;
-+
-+	if (!ep) {
-+		cxgb3i_log_error("%s, missing endpoint.\n", __func__);
-+		return NULL;
-+	}
-+
-+	cep = (struct cxgb3i_endpoint *)ep->dd_data;
-+	hba = cep->hba;
-+	shost = hba->shost;
-+	cxgb3i_log_debug("ep 0x%p, cep 0x%p, hba 0x%p.\n", ep, cep, hba);
-+	BUG_ON(hba != iscsi_host_priv(shost));
-+
-+	*host_no = shost->host_no;
-+
-+	cls_session = iscsi_session_setup(&cxgb3i_iscsi_transport, shost,
-+					  cmds_max,
-+					  sizeof(struct iscsi_tcp_task),
-+					  initial_cmdsn, ISCSI_MAX_TARGET);
-+	if (!cls_session)
-+		return NULL;
-+
-+	session = cls_session->dd_data;
-+
-+	for (i = 0; i < session->cmds_max; i++) {
-+		struct iscsi_task *task = session->cmds[i];
-+		struct iscsi_tcp_task *tcp_task = task->dd_data;
-+
-+		task->hdr = &tcp_task->hdr.cmd_hdr;
-+		task->hdr_max = sizeof(tcp_task->hdr) - ISCSI_DIGEST_SIZE;
-+	}
-+
-+	if (iscsi_r2tpool_alloc(session))
-+		goto remove_session;
-+
-+	return cls_session;
-+
-+remove_session:
-+	iscsi_session_teardown(cls_session);
-+	return NULL;
-+}
-+
-+/**
-+ * cxgb3i_session_destroy - destroys iscsi session
-+ * @cls_session:	pointer to iscsi cls session
-+ *
-+ * Destroys an iSCSI session instance and releases its all resources held
-+ */
-+static void cxgb3i_session_destroy(struct iscsi_cls_session *cls_session)
-+{
-+	cxgb3i_log_debug("sess 0x%p.\n", cls_session);
-+	iscsi_r2tpool_free(cls_session->dd_data);
-+	iscsi_session_teardown(cls_session);
-+}
-+
-+/**
-+ * cxgb3i_conn_create - create iscsi connection instance
-+ * @cls_session:	pointer to iscsi cls session
-+ * @cid:		iscsi cid
-+ *
-+ * Creates a new iSCSI connection instance for a given session
-+ */
-+static struct iscsi_cls_conn *cxgb3i_conn_create(struct iscsi_cls_session
-+						 *cls_session, uint32_t cid)
-+{
-+	struct iscsi_cls_conn *cls_conn;
-+	struct iscsi_conn *conn;
-+	struct iscsi_tcp_conn *tcp_conn;
-+	struct cxgb3i_conn *cconn;
-+
-+	cxgb3i_log_debug("sess 0x%p, cid %u.\n", cls_session, cid);
-+
-+	cls_conn = iscsi_conn_setup(cls_session,
-+				    sizeof(*tcp_conn) + sizeof(*cconn), cid);
-+	if (!cls_conn)
-+		return NULL;
-+	conn = cls_conn->dd_data;
-+
-+	conn->max_xmit_dlength = conn->max_recv_dlength = 16224 - 56 - 256;
-+
-+	tcp_conn = conn->dd_data;
-+	tcp_conn->iscsi_conn = conn;
-+
-+	cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	cconn->conn = conn;
-+
-+	return cls_conn;
-+}
-+
-+/**
-+ * cxgb3i_conn_bind - binds iscsi sess, conn and endpoint together
-+ * @cls_session:	pointer to iscsi cls session
-+ * @cls_conn:		pointer to iscsi cls conn
-+ * @transport_eph:	64-bit EP handle
-+ * @is_leading:		leading connection on this session?
-+ *
-+ * Binds together an iSCSI session, an iSCSI connection and a
-+ *	TCP connection. This routine returns error code if the TCP
-+ *	connection does not belong on the device iSCSI sess/conn is bound
-+ */
-+
-+static int cxgb3i_conn_bind(struct iscsi_cls_session *cls_session,
-+			    struct iscsi_cls_conn *cls_conn,
-+			    uint64_t transport_eph, int is_leading)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgb3i_conn *cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	struct iscsi_endpoint *ep;
-+	struct cxgb3i_endpoint *cep;
-+	struct s3_conn *c3cn;
-+	int err;
-+
-+	ep = iscsi_lookup_endpoint(transport_eph);
-+	if (!ep)
-+		return -EINVAL;
-+
-+	cxgb3i_log_debug("ep 0x%p, cls sess 0x%p, cls conn 0x%p.\n",
-+			 ep, cls_session, cls_conn);
-+
-+	err = iscsi_conn_bind(cls_session, cls_conn, is_leading);
++	err = ath5k_init(sc);
 +	if (err)
-+		return -EINVAL;
-+
-+	cep = (struct cxgb3i_endpoint *)ep->dd_data;
-+	c3cn = cep->c3cn;
-+
-+	read_lock(&c3cn->callback_lock);
-+	tcp_conn->sock = (struct socket *)c3cn;
-+	c3cn->user_data = conn;
-+	read_unlock(&c3cn->callback_lock);
-+
-+	cconn->hba = cep->hba;
-+	cconn->cep = cep;
-+	cep->cconn = cconn;
-+
-+	conn->max_recv_dlength = cconn->hba->snic->rx_max_size - ISCSI_PDU_HEADER_MAX;
-+	conn->max_xmit_dlength = cconn->hba->snic->tx_max_size - ISCSI_PDU_HEADER_MAX;
-+
-+	spin_lock_bh(&conn->session->lock);
-+	sprintf(conn->portal_address, NIPQUAD_FMT,
-+		NIPQUAD(c3cn->daddr.sin_addr.s_addr));
-+	conn->portal_port = ntohs(c3cn->daddr.sin_port);
-+	spin_unlock_bh(&conn->session->lock);
-+
-+	iscsi_tcp_hdr_recv_prep(tcp_conn);
-+
-+	return 0;
-+}
-+
-+/**
-+ * cxgb3i_conn_flush - flush tx
-+ * @conn:	pointer to iscsi conn
-+ */
-+static int cxgb3i_conn_flush(struct iscsi_conn *conn)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct iscsi_segment *segment = &tcp_conn->out.segment;
-+
-+	if (segment->total_copied < segment->total_size)
-+		return cxgb3i_conn_ulp2_xmit(conn);
-+	return 0;
-+}
-+
-+/**
-+ * cxgb3i_conn_get_param - return iscsi connection parameter to caller
-+ * @cls_conn:	pointer to iscsi cls conn
-+ * @param:	parameter type identifier
-+ * @buf:	buffer pointer
-+ *
-+ * returns iSCSI connection parameters
-+ */
-+static int cxgb3i_conn_get_param(struct iscsi_cls_conn *cls_conn,
-+				 enum iscsi_param param, char *buf)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+	int len;
-+
-+	cxgb3i_log_debug("cls_conn 0x%p, param %d.\n", cls_conn, param);
-+
-+	switch (param) {
-+	case ISCSI_PARAM_CONN_PORT:
-+		spin_lock_bh(&conn->session->lock);
-+		len = sprintf(buf, "%hu\n", conn->portal_port);
-+		spin_unlock_bh(&conn->session->lock);
-+		break;
-+	case ISCSI_PARAM_CONN_ADDRESS:
-+		spin_lock_bh(&conn->session->lock);
-+		len = sprintf(buf, "%s\n", conn->portal_address);
-+		spin_unlock_bh(&conn->session->lock);
-+		break;
-+	default:
-+		return iscsi_conn_get_param(cls_conn, param, buf);
-+	}
-+
-+	return len;
-+}
-+
-+static int cxgb3i_conn_set_param(struct iscsi_cls_conn *cls_conn,
-+				 enum iscsi_param param, char *buf, int buflen)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+	struct iscsi_session *session = conn->session;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgb3i_conn *cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	int value, err = 0;
-+
-+	switch (param) {
-+	case ISCSI_PARAM_HDRDGST_EN:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && conn->hdrdgst_en)
-+			cxgb3i_conn_ulp_setup(cconn, conn->hdrdgst_en,
-+					      conn->datadgst_en);
-+		break;
-+	case ISCSI_PARAM_DATADGST_EN:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && conn->datadgst_en)
-+			cxgb3i_conn_ulp_setup(cconn, conn->hdrdgst_en,
-+					      conn->datadgst_en);
-+		break;
-+	case ISCSI_PARAM_MAX_R2T:
-+		sscanf(buf, "%d", &value);
-+		if (value <= 0 || !is_power_of_2(value))
-+			return -EINVAL;
-+		if (session->max_r2t == value)
-+			break;
-+		iscsi_r2tpool_free(session);
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && iscsi_r2tpool_alloc(session))
-+			return -ENOMEM;
-+	case ISCSI_PARAM_MAX_RECV_DLENGTH:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		cxgb3i_log_debug("MAX_RECV %u.\n", conn->max_recv_dlength);
-+		break;
-+	case ISCSI_PARAM_MAX_XMIT_DLENGTH:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		cxgb3i_log_debug("MAX_XMIT %u.\n", conn->max_xmit_dlength);
-+		break;
-+	default:
-+		return iscsi_set_param(cls_conn, param, buf, buflen);
-+	}
++		goto err_irq;
+ 	ath5k_led_enable(sc);
+ 
+ 	/*
+@@ -635,6 +642,12 @@ ath5k_pci_resume(struct pci_dev *pdev)
+ 		ath5k_hw_reset_key(ah, i);
+ 
+ 	return 0;
++err_irq:
++	free_irq(pdev->irq, sc);
++err_msi:
++	pci_disable_msi(pdev);
++	pci_disable_device(pdev);
 +	return err;
-+}
-+
-+/**
-+ * cxgb3i_host_get_param - returns host (adapter) related parameters
-+ * @shost:	scsi host pointer
-+ * @param:	parameter type identifier
-+ * @buf:	buffer pointer
-+ */
-+static int cxgb3i_host_get_param(struct Scsi_Host *shost,
-+				 enum iscsi_host_param param, char *buf)
-+{
-+	struct cxgb3i_hba *hba = iscsi_host_priv(shost);
-+	int i;
-+	int len = 0;
-+
-+	switch (param) {
-+	case ISCSI_HOST_PARAM_HWADDRESS:
-+		for (i = 0; i < 6; i++)
-+			len +=
-+			    sprintf(buf + len, "%02x.",
-+				    hba->ndev->dev_addr[i]);
-+		len--;
-+		buf[len] = '\0';
-+		break;
-+	case ISCSI_HOST_PARAM_NETDEV_NAME:
-+		len = sprintf(buf, "%s\n", hba->ndev->name);
-+		break;
-+	default:
-+		return iscsi_host_get_param(shost, param, buf);
-+	}
-+	return len;
-+}
-+
-+/**
-+ * cxgb3i_conn_get_stats - returns iSCSI stats
-+ * @cls_conn:	pointer to iscsi cls conn
-+ * @stats:	pointer to iscsi statistic struct
-+ */
-+static void cxgb3i_conn_get_stats(struct iscsi_cls_conn *cls_conn,
-+				  struct iscsi_stats *stats)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+
-+	stats->txdata_octets = conn->txdata_octets;
-+	stats->rxdata_octets = conn->rxdata_octets;
-+	stats->scsicmd_pdus = conn->scsicmd_pdus_cnt;
-+	stats->dataout_pdus = conn->dataout_pdus_cnt;
-+	stats->scsirsp_pdus = conn->scsirsp_pdus_cnt;
-+	stats->datain_pdus = conn->datain_pdus_cnt;
-+	stats->r2t_pdus = conn->r2t_pdus_cnt;
-+	stats->tmfcmd_pdus = conn->tmfcmd_pdus_cnt;
-+	stats->tmfrsp_pdus = conn->tmfrsp_pdus_cnt;
-+	stats->digest_err = 0;
-+	stats->timeout_err = 0;
-+	stats->custom_length = 1;
-+	strcpy(stats->custom[0].desc, "eh_abort_cnt");
-+	stats->custom[0].value = conn->eh_abort_cnt;
-+}
-+
-+static inline u32 tag_base(struct cxgb3i_tag_format *format,
-+			   unsigned int idx, unsigned int age)
-+{
-+	u32 sw_bits = idx | (age << format->idx_bits);
-+	u32 tag = sw_bits >> format->rsvd_shift;
-+	tag <<= format->rsvd_bits + format->rsvd_shift;
-+	tag |= sw_bits & ((1 << format->rsvd_shift) - 1);
-+	return tag;
-+}
-+
-+static void cxgb3i_parse_itt(struct iscsi_conn *conn, itt_t itt,
-+			     int *idx, int *age)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgb3i_conn *cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	struct cxgb3i_adapter *snic = cconn->hba->snic;
-+	u32 sw_bits;
-+
-+	cxgb3i_parse_tag(&snic->tag_format, itt, NULL, &sw_bits);
-+	if (idx)
-+		*idx = sw_bits & ISCSI_ITT_MASK;
-+	if (age)
-+		*age = (sw_bits >> snic->tag_format.idx_bits) & ISCSI_AGE_MASK;
-+}
-+
-+static int cxgb3i_reserve_itt(struct iscsi_task *task, itt_t *hdr_itt)
-+{
-+	struct scsi_cmnd *sc = task->sc;
-+	struct iscsi_conn *conn = task->conn;
-+	struct iscsi_session *sess = conn->session;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgb3i_conn *cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	struct cxgb3i_adapter *snic = cconn->hba->snic;
-+	u32 sw_tag = tag_base(&snic->tag_format, task->itt, sess->age);
-+	u32 tag = RESERVED_ITT;
-+
-+	if (sc && (sc->sc_data_direction == DMA_FROM_DEVICE)) {
-+		struct s3_conn *c3cn =
-+			(struct s3_conn *)(tcp_conn->sock);
-+		tag =
-+		    cxgb3i_ddp_tag_reserve(snic, c3cn->tid, sw_tag,
-+					   scsi_out(sc)->length,
-+					   scsi_out(sc)->table.sgl,
-+					   scsi_out(sc)->table.nents);
-+	}
-+	if (tag == RESERVED_ITT)
-+		tag = sw_tag | (snic->tag_format.rsvd_mask <<
-+				snic->tag_format.rsvd_shift);
-+	*hdr_itt = htonl(tag);
-+	return 0;
-+}
-+
-+static void cxgb3i_release_itt(struct iscsi_task *task, itt_t hdr_itt)
-+{
-+	struct scsi_cmnd *sc = task->sc;
-+	struct iscsi_conn *conn = task->conn;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgb3i_conn *cconn = (struct cxgb3i_conn *)(tcp_conn + 1);
-+	struct cxgb3i_adapter *snic = cconn->hba->snic;
-+
-+	hdr_itt = ntohl(hdr_itt);
-+	if (sc && (sc->sc_data_direction == DMA_FROM_DEVICE))
-+		cxgb3i_ddp_tag_release(snic, hdr_itt,
-+				       scsi_out(sc)->table.sgl,
-+				       scsi_out(sc)->table.nents);
-+}
-+
-+/**
-+ * cxgb3i_host_template -- Scsi_Host_Template structure
-+ *	used when registering with the scsi mid layer
-+ */
-+static struct scsi_host_template cxgb3i_host_template = {
-+	.module = THIS_MODULE,
-+	.name = "Chelsio S3xx iSCSI Initiator",
-+	.proc_name = "cxgb3i",
-+	.queuecommand = iscsi_queuecommand,
-+	.change_queue_depth = iscsi_change_queue_depth,
-+	.can_queue = 128 * (ISCSI_DEF_XMIT_CMDS_MAX - 1),
-+	.sg_tablesize = SG_ALL,
-+	.max_sectors = 0xFFFF,
-+	.cmd_per_lun = ISCSI_DEF_CMD_PER_LUN,
-+	.eh_abort_handler = iscsi_eh_abort,
-+	.eh_device_reset_handler = iscsi_eh_device_reset,
-+	.eh_target_reset_handler = iscsi_eh_target_reset,
-+	.use_clustering = DISABLE_CLUSTERING,
-+	.slave_alloc = iscsi_slave_alloc,
-+	.this_id = -1,
-+};
-+
-+static struct iscsi_transport cxgb3i_iscsi_transport = {
-+	.owner = THIS_MODULE,
-+	.name = "cxgb3i",
-+	.caps = CAP_RECOVERY_L0 | CAP_MULTI_R2T | CAP_HDRDGST
-+	    | CAP_DATADGST | CAP_DIGEST_OFFLOAD,
-+	.param_mask = ISCSI_MAX_RECV_DLENGTH |
-+	    ISCSI_MAX_XMIT_DLENGTH |
-+	    ISCSI_HDRDGST_EN |
-+	    ISCSI_DATADGST_EN |
-+	    ISCSI_INITIAL_R2T_EN |
-+	    ISCSI_MAX_R2T |
-+	    ISCSI_IMM_DATA_EN |
-+	    ISCSI_FIRST_BURST |
-+	    ISCSI_MAX_BURST |
-+	    ISCSI_PDU_INORDER_EN |
-+	    ISCSI_DATASEQ_INORDER_EN |
-+	    ISCSI_ERL |
-+	    ISCSI_CONN_PORT |
-+	    ISCSI_CONN_ADDRESS |
-+	    ISCSI_EXP_STATSN |
-+	    ISCSI_PERSISTENT_PORT |
-+	    ISCSI_PERSISTENT_ADDRESS |
-+	    ISCSI_TARGET_NAME | ISCSI_TPGT |
-+	    ISCSI_USERNAME | ISCSI_PASSWORD |
-+	    ISCSI_USERNAME_IN | ISCSI_PASSWORD_IN |
-+	    ISCSI_FAST_ABORT | ISCSI_ABORT_TMO |
-+	    ISCSI_LU_RESET_TMO |
-+	    ISCSI_PING_TMO | ISCSI_RECV_TMO |
-+	    ISCSI_IFACE_NAME | ISCSI_INITIATOR_NAME,
-+	.host_param_mask = ISCSI_HOST_HWADDRESS | ISCSI_HOST_IPADDRESS |
-+	    ISCSI_HOST_INITIATOR_NAME | ISCSI_HOST_NETDEV_NAME,
-+	.get_host_param = cxgb3i_host_get_param,
-+	/* session management */
-+	.create_session = cxgb3i_session_create,
-+	.destroy_session = cxgb3i_session_destroy,
-+	.get_session_param = iscsi_session_get_param,
-+	/* connection management */
-+	.create_conn = cxgb3i_conn_create,
-+	.bind_conn = cxgb3i_conn_bind,
-+	.destroy_conn = iscsi_conn_teardown,
-+	.start_conn = iscsi_conn_start,
-+	.stop_conn = iscsi_conn_stop,
-+	.flush_conn = cxgb3i_conn_flush,
-+	.get_conn_param = cxgb3i_conn_get_param,
-+	.set_param = cxgb3i_conn_set_param,
-+	.get_stats = cxgb3i_conn_get_stats,
-+	/* pdu xmit req. from user space */
-+	.send_pdu = iscsi_conn_send_pdu,
-+	/* task */
-+	.init_task = iscsi_tcp_task_init,
-+	.xmit_task = iscsi_tcp_task_xmit,
-+	.cleanup_task = iscsi_tcp_cleanup_task,
-+	.parse_itt = cxgb3i_parse_itt,
-+	.reserve_itt = cxgb3i_reserve_itt,
-+	.release_itt = cxgb3i_release_itt,
-+	/* TCP connect/disconnect */
-+	.ep_connect = cxgb3i_ep_connect,
-+	.ep_poll = cxgb3i_ep_poll,
-+	.ep_disconnect = cxgb3i_ep_disconnect,
-+	/* Error recovery timeout call */
-+	.session_recovery_timedout = iscsi_session_recovery_timedout,
-+};
-+
-+int cxgb3i_iscsi_init(void)
-+{
-+	cxgb3i_scsi_transport =
-+	    iscsi_register_transport(&cxgb3i_iscsi_transport);
-+	if (!cxgb3i_scsi_transport) {
-+		cxgb3i_log_error("Could not register cxgb3i transport.\n");
-+		return -ENODEV;
-+	}
-+	cxgb3i_log_debug("cxgb3i transport 0x%p.\n", cxgb3i_scsi_transport);
-+	return 0;
-+}
-+
-+void cxgb3i_iscsi_cleanup(void)
-+{
-+	if (cxgb3i_scsi_transport) {
-+		cxgb3i_log_debug("cxgb3i transport 0x%p.\n",
-+				 cxgb3i_scsi_transport);
-+		iscsi_unregister_transport(&cxgb3i_iscsi_transport);
-+		cxgb3i_scsi_transport = NULL;
-+	}
-+}
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.c b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-new file mode 100644
-index 0000000..d4d8b85
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-@@ -0,0 +1,2001 @@
-+/*
-+ * Copyright (C) 2003-2008 Chelsio Communications.  All rights reserved.
-+ *
-+ * Written by Dimitris Michailidis (dm@chelsio.com)
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
-+
-+#include <linux/if_vlan.h>
-+#include <linux/version.h>
-+
-+#include "cxgb3_defs.h"
-+#include "cxgb3_ctl_defs.h"
-+#include "firmware_exports.h"
-+#include "cxgb3i_offload.h"
-+#include "cxgb3i_ulp2.h"
-+
-+static int rcv_win = 256 * 1024;
-+module_param(rcv_win, int, 0644);
-+MODULE_PARM_DESC(rcv_win, "TCP receive window in bytes (default=256KB)");
-+
-+static int snd_win = 32 * 1024;
-+module_param(snd_win, int, 0644);
-+MODULE_PARM_DESC(snd_win, "TCP send window in bytes (default=32KB)");
-+
-+static int rx_credit_thres = 10 * 1024;
-+module_param(rx_credit_thres, int, 0644);
-+MODULE_PARM_DESC(snd_win, "RX credits return threshold in bytes (default=10KB)");
-+
-+static unsigned int max_connect = 8 * 1024;
-+module_param(max_connect, uint, 0644);
-+MODULE_PARM_DESC(max_connect, "Max. # of connections (default=8092)");
-+
-+static unsigned int sport_base = 20000;
-+module_param(sport_base, uint, 0644);
-+MODULE_PARM_DESC(sport_start, "starting port number (default=20000)");
-+
-+#ifdef __DEBUG_C3CN_CONN__
-+#define c3cn_conn_debug         cxgb3i_log_debug
-+#else
-+#define c3cn_conn_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_C3CN_TX__
-+#define c3cn_tx_debug         cxgb3i_log_debug
-+#else
-+#define c3cn_tx_debug(fmt...)
-+#endif
-+
-+/* minimal port allocation management scheme */
-+spinlock_t sport_map_lock;
-+unsigned int sport_map_next = 0;
-+unsigned char *sport_map = NULL;
-+
-+/*
-+ * Find a free source port in our allocation map.  We use a very simple rotor
-+ * scheme to look for the next free port.
-+ *
-+ * If a source port has been specified make sure that it doesn't collide with
-+ * our normal source port allocation map.  If it's outside the range of our
-+ * allocation scheme just let them use it.
-+ */
-+static int c3cn_get_port(struct s3_conn *c3cn)
-+{
-+	unsigned int start;
-+
-+	if (!sport_map)
-+		goto error_out;
-+
-+	if (c3cn->saddr.sin_port != 0) {
-+		int sport = ntohs(c3cn->saddr.sin_port) - sport_base;
-+		int err = 0;
-+
-+		if (sport < 0 || sport >= max_connect)
-+			return 0;
-+		spin_lock(&sport_map_lock);
-+		err = __test_and_set_bit(sport, sport_map);
-+		spin_unlock(&sport_map_lock);
-+		return (err ? -EADDRINUSE : 0);
-+	}
-+
-+	spin_lock(&sport_map_lock);
-+	start = sport_map_next;
-+	do {
-+		unsigned int new = sport_map_next;
-+		if (++sport_map_next >= max_connect)
-+			sport_map_next = 0;
-+		if (!(__test_and_set_bit(new, sport_map))) {
-+			spin_unlock(&sport_map_lock);
-+			c3cn->saddr.sin_port = htons(sport_base + new);
-+			return 0;
-+		}
-+	} while (sport_map_next != start);
-+	spin_unlock(&sport_map_lock);
-+
-+error_out:
-+	return -EADDRNOTAVAIL;
-+}
-+
-+/*
-+ * Deallocate a source port from the allocation map.  If the source port is
-+ * outside our allocation range just return -- the caller is responsible for
-+ * keeping track of their port usage outside of our allocation map.
-+ */
-+static void c3cn_put_port(struct s3_conn *c3cn)
-+{
-+	int old = ntohs(c3cn->saddr.sin_port) - sport_base;
-+	c3cn->saddr.sin_port = 0;
-+
-+	if (old < 0 || old >= max_connect)
-+		return;
-+
-+	spin_lock(&sport_map_lock);
-+	__clear_bit(old, sport_map);
-+	spin_unlock(&sport_map_lock);
-+}
-+
-+static inline unsigned int c3cn_in_state(const struct s3_conn *c3cn,
-+                                         unsigned int states)
-+{
-+	return (states & c3cn->state);
-+}
-+
-+static void c3cn_set_state(struct s3_conn *c3cn, int state)
-+{
-+	c3cn_conn_debug("c3cn 0x%p state -> 0x%x.\n", c3cn, state);
-+	if (state == C3CN_STATE_CLOSE)
-+		c3cn_put_port(c3cn);
-+	c3cn->state = state;
-+}
-+
-+
-+void c3cn_reset_timer(struct s3_conn *c3cn, struct timer_list* timer,
-+		      unsigned long expires)
-+{
-+	if (!mod_timer(timer, expires))
-+		c3cn_hold(c3cn);
-+}
-+
-+typedef int (cxgb3_cpl_handler_decl) (struct t3cdev *,
-+				      struct sk_buff *, void *);
-+
-+static cxgb3_cpl_handler_decl do_act_establish;
-+static cxgb3_cpl_handler_decl do_act_open_rpl;
-+static cxgb3_cpl_handler_decl do_wr_ack;
-+static cxgb3_cpl_handler_decl do_peer_close;
-+static cxgb3_cpl_handler_decl do_abort_req;
-+static cxgb3_cpl_handler_decl do_abort_rpl;
-+static cxgb3_cpl_handler_decl do_close_con_rpl;
-+static cxgb3_cpl_handler_decl do_iscsi_hdr;
-+
-+/*
-+ * Protocol functions for our connections.
-+ */
-+static int c3cn_destroy(struct s3_conn *);
-+static void process_deferq(struct work_struct *);
-+
-+static LIST_HEAD(cxgb3_list);
-+static DEFINE_MUTEX(cxgb3_list_lock);
-+
-+/*
-+ * For ULP connections HW may inserts digest bytes into the pdu. This array
-+ * contains the compensating extra lengths for ULP packets.  It is indexed by
-+ * a packet's ULP submode.
-+ */
-+static const unsigned int cxgb3_ulp_extra_len[] = { 0, 4, 4, 8 };
-+
-+/*
-+ * Return the length of any HW additions that will be made to a Tx packet.
-+ * Such additions can happen for some types of ULP packets.
-+ */
-+static inline unsigned int ulp_extra_len(const struct sk_buff *skb)
-+{
-+	return cxgb3_ulp_extra_len[skb_ulp_mode(skb) & 3];
-+}
-+
-+/*
-+ * Size of WRs in bytes.  Note that we assume all devices we are handling have
-+ * the same WR size.
-+ */
-+static unsigned int wrlen __read_mostly;
-+
-+/*
-+ * The number of WRs needed for an skb depends on the number of page fragments
-+ * in the skb and whether it has any payload in its main body.  This maps the
-+ * length of the gather list represented by an skb into the # of necessary WRs.
-+ */
-+static unsigned int skb_wrs[MAX_SKB_FRAGS + 2] __read_mostly;
-+
-+static void s3_init_wr_tab(unsigned int wr_len)
-+{
-+	int i;
-+
-+	if (skb_wrs[1])		/* already initialized */
-+		return;
-+
-+	for (i = 1; i < ARRAY_SIZE(skb_wrs); i++) {
-+		int sgl_len = (3 * i) / 2 + (i & 1);
-+
-+		sgl_len += 3;
-+		skb_wrs[i] = (sgl_len <= wr_len
-+			      ? 1 : 1 + (sgl_len - 2) / (wr_len - 1));
-+	}
-+
-+	wrlen = wr_len * 8;
-+}
-+
-+/*
-+ * Initialization/cleanup cxgb3 API operations.
-+ */
-+/*
-+ * large memory chunk allocation/release
-+ */
-+void *cxgb3i_alloc_big_mem(unsigned int size)
-+{
-+	void *p = kmalloc(size, GFP_KERNEL);
-+	if (!p)
-+		p = vmalloc(size);
-+	if (p)
-+		memset(p, 0, size);
-+	return p;
-+}
-+
-+void cxgb3i_free_big_mem(void *addr)
-+{
-+	unsigned long p = (unsigned long)addr;
-+	if (p >= VMALLOC_START && p < VMALLOC_END)
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
-+void cxgb3i_sdev_cleanup(cxgb3_cpl_handler_func *cpl_handlers)
-+{
-+	memset(cpl_handlers, 0, NUM_CPL_CMDS*(sizeof(*cpl_handlers)));
-+	if (sport_map)
-+		cxgb3i_free_big_mem(sport_map);
-+}
-+
-+int cxgb3i_sdev_init(cxgb3_cpl_handler_func *cpl_handlers)
-+{
-+	cpl_handlers[CPL_ACT_ESTABLISH] = do_act_establish;
-+	cpl_handlers[CPL_ACT_OPEN_RPL] = do_act_open_rpl;
-+	cpl_handlers[CPL_PEER_CLOSE] = do_peer_close;
-+	cpl_handlers[CPL_ABORT_REQ_RSS] = do_abort_req;
-+	cpl_handlers[CPL_ABORT_RPL_RSS] = do_abort_rpl;
-+	cpl_handlers[CPL_CLOSE_CON_RPL] = do_close_con_rpl;
-+	cpl_handlers[CPL_TX_DMA_ACK] = do_wr_ack;
-+	cpl_handlers[CPL_ISCSI_HDR] = do_iscsi_hdr;
-+
-+	sport_map = cxgb3i_alloc_big_mem((max_connect + 7)/8);
-+	if (!sport_map)
-+		return -ENOMEM;
-+	return 0;
-+}
-+
-+void cxgb3i_sdev_add(struct t3cdev *cdev, struct cxgb3_client *client)
-+{
-+	struct cxgb3i_sdev_data *cdata;
-+	struct adap_ports *ports;
-+	struct ofld_page_info rx_page_info;
-+	unsigned int wr_len;
-+	int i;
-+
-+	cdata = kzalloc(sizeof *cdata, GFP_KERNEL);
-+	if (!cdata)
-+		return;
-+	ports = kzalloc(sizeof *ports, GFP_KERNEL);
-+	if (!ports)
-+		goto free_ports;
-+	cdata->ports = ports;
-+
-+	if (cdev->ctl(cdev, GET_WR_LEN, &wr_len) < 0 ||
-+	    cdev->ctl(cdev, GET_PORTS, cdata->ports) < 0 ||
-+	    cdev->ctl(cdev, GET_RX_PAGE_INFO, &rx_page_info) < 0)
-+		goto free_ports;
-+
-+	s3_init_wr_tab(wr_len);
-+
-+	INIT_LIST_HEAD(&cdata->list);
-+	cdata->cdev = cdev;
-+	cdata->client = client;
-+	cdata->rx_page_size = rx_page_info.page_size;
-+	skb_queue_head_init(&cdata->deferq);
-+	INIT_WORK(&cdata->deferq_task, process_deferq);
-+
-+	for (i = 0; i < ports->nports; i++)
-+		NDEV2CDATA(ports->lldevs[i]) = cdata;
-+
-+	mutex_lock(&cxgb3_list_lock);
-+	list_add_tail(&cdata->list, &cxgb3_list);
-+	mutex_unlock(&cxgb3_list_lock);
-+
-+	return;
-+
-+free_ports:
-+	kfree(ports);
-+	kfree(cdata);
-+}
-+
-+void cxgb3i_sdev_remove(struct t3cdev *cdev)
-+{
-+	struct cxgb3i_sdev_data *cdata = CXGB3_SDEV_DATA(cdev);
-+	struct adap_ports *ports = cdata->ports;
-+	int i;
-+
-+	for (i = 0; i < ports->nports; i++)
-+		NDEV2CDATA(ports->lldevs[i]) = NULL;
-+
-+	mutex_lock(&cxgb3_list_lock);
-+	list_del(&cdata->list);
-+	mutex_unlock(&cxgb3_list_lock);
-+
-+	kfree(ports);
-+	kfree(cdata);
-+}
-+
-+/*
-+ * Return TRUE if the specified net device is for a port on one of our
-+ * registered adapters.
-+ */
-+static int is_cxgb3_dev(struct net_device *dev)
-+{
-+	struct cxgb3i_sdev_data *cdata;
-+
-+	mutex_lock(&cxgb3_list_lock);
-+	list_for_each_entry(cdata, &cxgb3_list, list) {
-+		struct adap_ports *ports = cdata->ports;
-+		int i;
-+
-+		for (i = 0; i < ports->nports; i++)
-+			if (dev == ports->lldevs[i]) {
-+				mutex_unlock(&cxgb3_list_lock);
-+				return 1;
-+			}
-+	}
-+	mutex_unlock(&cxgb3_list_lock);
-+	return 0;
-+}
-+
-+/*
-+ * Primary cxgb3 API operations.
-+ * =============================
-+ */
-+
-+static int s3_push_frames(struct s3_conn *, int);
-+static int s3_send_reset(struct s3_conn *, int, struct sk_buff *);
-+
-+struct s3_conn * cxgb3i_c3cn_create(void)
-+{
-+	struct s3_conn *c3cn;
-+
-+	c3cn = kzalloc(sizeof(*c3cn), GFP_KERNEL);
-+	if (c3cn == NULL)
-+		return NULL;
-+
-+	c3cn->flags = 0;
-+	spin_lock_init(&c3cn->lock);
-+	atomic_set(&c3cn->refcnt, 1);
-+	skb_queue_head_init(&c3cn->receive_queue);
-+	skb_queue_head_init(&c3cn->write_queue);
-+	setup_timer(&c3cn->retry_timer, NULL, (unsigned long)c3cn);
-+	rwlock_init(&c3cn->callback_lock);
-+
-+	return c3cn;
-+}
-+
-+static void mk_close_req(struct s3_conn *);
-+static inline void s3_purge_write_queue(struct s3_conn *);
-+
-+/*
-+ * Release a connection's local port if the connection is bound.
-+ */
-+static inline void release_port(struct s3_conn *c3cn)
-+{
-+	c3cn_conn_debug("c3cn 0x%p, port %u.\n", c3cn, c3cn->saddr.sin_port);
-+	if (c3cn->saddr.sin_port)
-+		c3cn_put_port(c3cn);
-+}
-+
-+static void c3cn_done(struct s3_conn *c3cn)
-+{
-+	c3cn_conn_debug("c3cn 0x%p.\n", c3cn);
-+
-+	c3cn_set_state(c3cn, C3CN_STATE_CLOSE);
-+	c3cn->shutdown = C3CN_SHUTDOWN_MASK;
-+
-+	cxgb3i_conn_closing(c3cn);
-+}
-+
-+void c3cn_close(struct s3_conn *c3cn)
-+{
-+	int data_lost, old_state;
-+
-+	c3cn_conn_debug("c3cn 0x%p, state 0x%x, flag 0x%lx.\n",
-+			 c3cn, c3cn->state, c3cn->flags);
-+
-+	dst_confirm(c3cn->dst_cache);
-+
-+	spin_lock_bh(&c3cn->lock);
-+	c3cn->shutdown |= C3CN_SHUTDOWN_MASK;
-+
-+	/*
-+	 * We need to flush the receive buffs.  We do this only on the
-+	 * descriptor close, not protocol-sourced closes, because the
-+	 * reader process may not have drained the data yet!  Make a note
-+	 * of whether any received data will be lost so we can decide whether
-+	 * to FIN or RST.
-+	 */
-+	data_lost = skb_queue_len(&c3cn->receive_queue);
-+	__skb_queue_purge(&c3cn->receive_queue);
-+
-+	if (c3cn->state == C3CN_STATE_CLOSE)	/* Nothing if we are already closed */
-+		;
-+	else if (data_lost || c3cn->state == C3CN_STATE_SYN_SENT) {
-+		/* Unread data was tossed, zap the connection. */
-+		s3_send_reset(c3cn, CPL_ABORT_SEND_RST, NULL);
-+		release_port(c3cn);
+ }
+ #endif /* CONFIG_PM */
+ 
+@@ -1224,7 +1237,7 @@ ath5k_txbuf_setup(struct ath5k_softc *sc, struct ath5k_buf *bf)
+ 
+ 	pktlen = skb->len;
+ 
+-	if (!(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT)) {
++	if (info->control.hw_key) {
+ 		keyidx = info->control.hw_key->hw_key_idx;
+ 		pktlen += info->control.icv_len;
+ 	}
+@@ -1249,6 +1262,7 @@ ath5k_txbuf_setup(struct ath5k_softc *sc, struct ath5k_buf *bf)
+ 
+ 	txq->link = &ds->ds_link;
+ 	ath5k_hw_tx_start(ah, txq->qnum);
++	mmiowb();
+ 	spin_unlock_bh(&txq->lock);
+ 
+ 	return 0;
+@@ -1583,7 +1597,6 @@ ath5k_rx_stop(struct ath5k_softc *sc)
+ 	ath5k_hw_stop_pcu_recv(ah);	/* disable PCU */
+ 	ath5k_hw_set_rx_filter(ah, 0);	/* clear recv filter */
+ 	ath5k_hw_stop_rx_dma(ah);	/* disable DMA engine */
+-	mdelay(3);			/* 3ms is long enough for 1 frame */
+ 
+ 	ath5k_debug_printrxbuffs(sc, ah);
+ 
+@@ -1682,31 +1695,44 @@ ath5k_tasklet_rx(unsigned long data)
+ 	struct ath5k_rx_status rs = {};
+ 	struct sk_buff *skb;
+ 	struct ath5k_softc *sc = (void *)data;
+-	struct ath5k_buf *bf;
++	struct ath5k_buf *bf, *bf_last;
+ 	struct ath5k_desc *ds;
+ 	int ret;
+ 	int hdrlen;
+ 	int pad;
+ 
+ 	spin_lock(&sc->rxbuflock);
++	if (list_empty(&sc->rxbuf)) {
++		ATH5K_WARN(sc, "empty rx buf pool\n");
 +		goto unlock;
-+	} else if (c3cn->state == C3CN_STATE_ESTABLISHED) {
-+		c3cn_set_state(c3cn, C3CN_STATE_CLOSING);
-+		mk_close_req(c3cn);
 +	}
-+
-+unlock:
-+	old_state = c3cn->state;
-+	c3cn_hold(c3cn); /* must last past the potential destroy() */
-+
-+	spin_unlock_bh(&c3cn->lock); /* Final release in connection's lifetime. */
-+
-+	/*
-+	 * There are no more user references at this point.  Grab the
-+	 * connection lock and finish the close.
-+	 */
-+	local_bh_disable();
-+	spin_lock(&c3cn->lock);
-+
-+	/*
-+	 * Because the connection was orphaned before the spin_lock()
-+	 * either the backlog or a BH may have already destroyed it.
-+	 * Bail out if so.
-+	 */
-+	if (old_state != C3CN_STATE_CLOSE && c3cn->state == C3CN_STATE_CLOSE)
-+		goto out;
-+
-+	if (c3cn->state == C3CN_STATE_CLOSE)
-+		c3cn_destroy(c3cn);
-+
-+out:
-+	spin_unlock(&c3cn->lock);
-+	local_bh_enable();
-+	c3cn_put(c3cn);
-+}
-+
-+/*
-+ * Destroy connection.  Purge the write queue and drop a reference on the
-+ * connection.
-+ */
-+static int c3cn_destroy(struct s3_conn *c3cn)
-+{
-+	c3cn_conn_debug("c3cn 0x%p.\n", c3cn);
-+
-+	s3_purge_write_queue(c3cn);
-+	c3cn_put(c3cn);
-+	return 0;
-+}
-+
-+/*
-+ * Local utility routines used to implement primary cxgb3 API operations.
-+ * ======================================================================
-+ */
-+
-+static int s3_connect(struct s3_conn *);
-+static u32 s3_send_rx_credits(struct s3_conn *, u32, u32, int);
-+static void mk_act_open_req(struct s3_conn *, struct sk_buff *,
-+			    unsigned int, const struct l2t_entry *);
-+static void skb_entail(struct s3_conn *, struct sk_buff *, int);
-+
-+static inline void reset_wr_list(struct s3_conn *c3cn)
-+{
-+	c3cn->wr_pending_head = NULL;
-+}
-+
-+/*
-+ * Add a WR to a connections's list of pending WRs.  This is a singly-linked
-+ * list of sk_buffs operating as a FIFO.  The head is kept in wr_pending_head
-+ * and the tail in wr_pending_tail.
-+ */
-+static inline void enqueue_wr(struct s3_conn *c3cn,
-+			      struct sk_buff *skb)
-+{
-+	skb->sp = NULL;
-+
-+	/*
-+	 * We want to take an extra reference since both us and the driver
-+	 * need to free the packet before it's really freed.  We know there's
-+	 * just one user currently so we use atomic_set rather than skb_get
-+	 * to avoid the atomic op.
-+	 */
-+	atomic_set(&skb->users, 2);
-+
-+	if (!c3cn->wr_pending_head)
-+		c3cn->wr_pending_head = skb;
-+	else
-+		c3cn->wr_pending_tail->sp = (void *)skb;
-+	c3cn->wr_pending_tail = skb;
-+}
-+
-+/*
-+ * The next two functions calculate the option 0 value for a connection.
-+ */
-+static inline int compute_wscale(int win)
-+{
-+	int wscale = 0; 
-+	while (wscale < 14 && (65535<<wscale) < win)
-+		wscale++;
-+	return wscale;
-+}
-+
-+static inline unsigned int calc_opt0h(struct s3_conn *c3cn)
-+{
-+	int wscale = compute_wscale(rcv_win);
-+	return (V_KEEP_ALIVE(1) |
-+		F_TCAM_BYPASS |
-+		V_WND_SCALE(wscale) |
-+		V_MSS_IDX(c3cn->mss_idx));
-+}
-+
-+static inline unsigned int calc_opt0l(struct s3_conn *c3cn)
-+{
-+	return (V_ULP_MODE(ULP_MODE_ISCSI) |
-+		V_RCV_BUFSIZ(rcv_win>>10));	
-+}
-+
-+static inline void make_tx_data_wr(struct s3_conn *c3cn,
-+				   struct sk_buff *skb, int len)
-+{
-+	struct tx_data_wr *req;
-+
-+	skb_reset_transport_header(skb);
-+	req = (struct tx_data_wr *)__skb_push(skb, sizeof(*req));
-+	req->wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_TX_DATA));
-+	req->wr_lo = htonl(V_WR_TID(c3cn->tid));
-+	req->sndseq = htonl(c3cn->snd_nxt);
-+	/* len includes the length of any HW ULP additions */
-+	req->len = htonl(len);
-+	req->param = htonl(V_TX_PORT(c3cn->l2t->smt_idx));
-+	/* V_TX_ULP_SUBMODE sets both the mode and submode */
-+	req->flags = htonl(V_TX_ULP_SUBMODE(skb_ulp_mode(skb)) |
-+			   V_TX_SHOVE((skb_peek(&c3cn->write_queue) ? 0 : 1)));
-+
-+	if (!c3cn_flag(c3cn, C3CN_TX_DATA_SENT)) {
-+
-+		req->flags |= htonl(V_TX_ACK_PAGES(2) | F_TX_INIT |
-+				    V_TX_CPU_IDX(c3cn->qset));
-+
-+		/* Sendbuffer is in units of 32KB.
++	bf_last = list_entry(sc->rxbuf.prev, struct ath5k_buf, list);
+ 	do {
+ 		rxs.flag = 0;
+ 
+-		if (unlikely(list_empty(&sc->rxbuf))) {
+-			ATH5K_WARN(sc, "empty rx buf pool\n");
+-			break;
+-		}
+ 		bf = list_first_entry(&sc->rxbuf, struct ath5k_buf, list);
+ 		BUG_ON(bf->skb == NULL);
+ 		skb = bf->skb;
+ 		ds = bf->desc;
+ 
+-		/* TODO only one segment */
+-		pci_dma_sync_single_for_cpu(sc->pdev, sc->desc_daddr,
+-				sc->desc_len, PCI_DMA_FROMDEVICE);
+-
+-		if (unlikely(ds->ds_link == bf->daddr)) /* this is the end */
+-			break;
++		/*
++		 * last buffer must not be freed to ensure proper hardware
++		 * function. When the hardware finishes also a packet next to
++		 * it, we are sure, it doesn't use it anymore and we can go on.
 +		 */
-+		req->param |= htonl(V_TX_SNDBUF(snd_win >> 15));
-+		c3cn_set_flag(c3cn, C3CN_TX_DATA_SENT);
-+	}
-+}
-+
-+static struct rtable *find_route(__be32 saddr, __be32 daddr,
-+				 __be16 sport, __be16 dport)
-+{
-+	struct rtable *rt;
-+	struct flowi fl = {
-+		.oif = 0,
-+		.nl_u = {
-+			 .ip4_u = {
-+				   .daddr = daddr,
-+				   .saddr = saddr,
-+				   .tos = 0 } },
-+		.proto = IPPROTO_TCP,
-+		.uli_u = {
-+			  .ports = {
-+				    .sport = sport,
-+				    .dport = dport } } };
-+
-+	if (ip_route_output_flow(&init_net, &rt, &fl, NULL, 0))
-+		return NULL;
-+	return rt;
-+}
-+
-+int cxgb3i_c3cn_connect(struct s3_conn *c3cn, struct sockaddr_in *usin)
-+{
-+	struct rtable *rt;
-+	int err;
-+
-+	if (usin->sin_family != AF_INET)
-+		return -EAFNOSUPPORT;
-+
-+	/* get a source port if one hasn't been provided */
-+	err = c3cn_get_port(c3cn);
-+	if (err)
-+		return err;
-+	c3cn_conn_debug("c3cn 0x%p get port %u.\n", c3cn, ntohs(c3cn->saddr.sin_port));
-+
-+	c3cn->daddr.sin_port = usin->sin_port;
-+	c3cn->daddr.sin_addr.s_addr = usin->sin_addr.s_addr;
-+
-+	rt = find_route(c3cn->saddr.sin_addr.s_addr,
-+			c3cn->daddr.sin_addr.s_addr,
-+			c3cn->saddr.sin_port,
-+			c3cn->daddr.sin_port);
-+	if (rt == NULL) {
-+		c3cn_conn_debug("NO route to 0x%x, port %u.\n", 
-+				c3cn->daddr.sin_addr.s_addr,
-+				ntohs(c3cn->daddr.sin_port));
-+		return -ENETUNREACH;
-+	}
-+
-+	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
-+		c3cn_conn_debug("multi-cast route to 0x%x, port %u.\n", 
-+				c3cn->daddr.sin_addr.s_addr,
-+				ntohs(c3cn->daddr.sin_port));
-+		ip_rt_put(rt);
-+		return -ENETUNREACH;
-+	}
-+
-+	if (!c3cn->saddr.sin_addr.s_addr)
-+		c3cn->saddr.sin_addr.s_addr = rt->rt_src;
-+
-+	c3cn_conn_debug("c3cn 0x%p -> SYN_SENT.\n", c3cn);
-+	c3cn_set_state(c3cn, C3CN_STATE_SYN_SENT);
-+
-+	/* now commit destination to connection */
-+	c3cn->dst_cache = &rt->u.dst;
-+
-+	if (s3_connect(c3cn))
-+		return 0;
-+	/*
-+	 * If we get here, we don't have an offload connection so simply
-+	 * return a failure.
-+	 */
-+	err = -ENOTSUPP;
-+
-+	/*
-+	 * This trashes the connection and releases the local port,
-+	 * if necessary.
-+	 */
-+	c3cn_conn_debug("c3cn 0x%p -> CLOSE.\n", c3cn);
-+	c3cn_set_state(c3cn, C3CN_STATE_CLOSE);
-+	ip_rt_put(rt);
-+	c3cn_put_port(c3cn);
-+	c3cn->daddr.sin_port = 0;
-+	return err;
-+}
-+
-+/*
-+ * Set of states for which we should return RX credits.
-+ */
-+#define CREDIT_RETURN_STATE (C3CN_STATE_ESTABLISHED)
-+
-+/*
-+ * Called after some received data has been read.  It returns RX credits
-+ * to the HW for the amount of data processed.
-+ */
-+void cxgb3i_c3cn_rx_credits(struct s3_conn *c3cn, int copied)
-+{
-+	struct t3cdev *cdev;
-+	int must_send;
-+	u32 credits, dack = 0;
-+
-+	if (!c3cn_in_state(c3cn, CREDIT_RETURN_STATE))
-+		return;
-+
-+	credits = c3cn->copied_seq - c3cn->rcv_wup;
-+	if (unlikely(!credits))
-+		return;
-+
-+	cdev = c3cn->cdev;
-+
-+	if (unlikely(rx_credit_thres == 0))
-+		return;
-+
-+	dack = F_RX_DACK_CHANGE | V_RX_DACK_MODE(1);
-+
-+	/*
-+	 * For coalescing to work effectively ensure the receive window has
-+	 * at least 16KB left.
-+	 */
-+	must_send = credits + 16384 >= rcv_win;
-+
-+	if (must_send || credits >= rx_credit_thres)
-+		c3cn->rcv_wup += s3_send_rx_credits(c3cn, credits, dack, must_send);
-+}
-+
-+/*
-+ * Generic ARP failure handler that discards the buffer.
-+ */
-+static void arp_failure_discard(struct t3cdev *cdev, struct sk_buff *skb)
-+{
-+	kfree_skb(skb);
-+}
-+
-+/*
-+ * Prepends TX_DATA_WR or CPL_CLOSE_CON_REQ headers to buffers waiting in a
-+ * connection's send queue and sends them on to T3.  Must be called with the
-+ * connection's lock held.  Returns the amount of send buffer space that was
-+ * freed as a result of sending queued data to T3.
-+ */
-+static int s3_push_frames(struct s3_conn *c3cn, int req_completion)
-+{
-+	int total_size = 0;
-+	struct sk_buff *skb;
-+	struct t3cdev *cdev;
-+	struct cxgb3i_sdev_data *cdata;
-+
-+	if (unlikely(c3cn_in_state(c3cn, C3CN_STATE_SYN_SENT | C3CN_STATE_CLOSE)))
-+		return 0;
-+
-+	/*
-+	 * We shouldn't really be called at all after an abort but check just
-+	 * in case.
-+	 */
-+	if (unlikely(c3cn_flag(c3cn, C3CN_ABORT_SHUTDOWN)))
-+		return 0;
-+
-+	cdev = c3cn->cdev;
-+	cdata = CXGB3_SDEV_DATA(cdev);
-+
-+	while (c3cn->wr_avail
-+	       && (skb = skb_peek(&c3cn->write_queue)) != NULL
-+	       && !c3cn_flag(c3cn, C3CN_TX_WAIT_IDLE)) {
-+
-+		int len = skb->len;	/* length before skb_push */
-+		int frags = skb_shinfo(skb)->nr_frags + (len != skb->data_len);
-+		int wrs_needed = skb_wrs[frags];
-+
-+		if (wrs_needed > 1 && len + sizeof(struct tx_data_wr) <= wrlen)
-+			wrs_needed = 1;
-+
-+		WARN_ON(frags >= ARRAY_SIZE(skb_wrs) || wrs_needed < 1);
-+		if (c3cn->wr_avail < wrs_needed)
-+			break;
-+
-+		__skb_unlink(skb, &c3cn->write_queue);
-+		skb->priority = CPL_PRIORITY_DATA;
-+		skb->csum = wrs_needed;	/* remember this until the WR_ACK */
-+		c3cn->wr_avail -= wrs_needed;
-+		c3cn->wr_unacked += wrs_needed;
-+		enqueue_wr(c3cn, skb);
-+
-+		if (likely(CXGB3_SKB_CB(skb)->flags & C3CB_FLAG_NEED_HDR)) {
-+			len += ulp_extra_len(skb);
-+			make_tx_data_wr(c3cn, skb, len);
-+			c3cn->snd_nxt += len;
-+			if ((req_completion
-+			     && c3cn->wr_unacked == wrs_needed)
-+			    || (CXGB3_SKB_CB(skb)->flags & C3CB_FLAG_COMPL)
-+			    || c3cn->wr_unacked >= c3cn->wr_max / 2) {
-+				struct work_request_hdr *wr = cplhdr(skb);
-+
-+				wr->wr_hi |= htonl(F_WR_COMPL);
-+				c3cn->wr_unacked = 0;
-+			}
-+			CXGB3_SKB_CB(skb)->flags &= ~C3CB_FLAG_NEED_HDR;
-+		} else if (skb->data[0] == FW_WROPCODE_OFLD_CLOSE_CON)
-+			c3cn_set_flag(c3cn, C3CN_CLOSE_CON_REQUESTED);
-+
-+		total_size += skb->truesize;
-+		set_arp_failure_handler(skb, arp_failure_discard);
-+		l2t_send(cdev, skb, c3cn->l2t);
-+	}
-+	return total_size;
-+}
-+
-+/*
-+ * Handle an ARP failure for a CPL_ABORT_REQ.  Change it into a no RST variant
-+ * and send it along.
-+ */
-+static void abort_arp_failure(struct t3cdev *cdev, struct sk_buff *skb)
-+{
-+	struct cpl_abort_req *req = cplhdr(skb);
-+
-+	req->cmd = CPL_ABORT_NO_RST;
-+	cxgb3_ofld_send(cdev, skb);
-+}
-+
-+/*
-+ * Send an ABORT_REQ message.  Cannot fail.  This routine makes sure we do
-+ * not send multiple ABORT_REQs for the same connection and also that we do
-+ * not try to send a message after the connection has closed.  Returns 1 if
-+ * an ABORT_REQ wasn't generated after all, 0 otherwise.
-+ */
-+static int s3_send_reset(struct s3_conn *c3cn, int mode,
-+			 struct sk_buff *skb)
-+{
-+	struct cpl_abort_req *req;
-+	unsigned int tid = c3cn->tid;
-+
-+	if (unlikely(c3cn_flag(c3cn, C3CN_ABORT_SHUTDOWN) || !c3cn->cdev)) {
-+		if (skb)
-+			__kfree_skb(skb);
-+		return 1;
-+	}
-+
-+	c3cn_conn_debug("c3cn 0x%p, mode %d.\n", c3cn, mode);
-+
-+	c3cn_set_flag(c3cn, C3CN_ABORT_RPL_PENDING);
-+	c3cn_set_flag(c3cn, C3CN_ABORT_SHUTDOWN);
-+
-+	/* Purge the send queue so we don't send anything after an abort. */
-+	s3_purge_write_queue(c3cn);
-+
-+	if (!skb)
-+		skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
-+	skb->priority = CPL_PRIORITY_DATA;
-+	set_arp_failure_handler(skb, abort_arp_failure);
-+
-+	req = (struct cpl_abort_req *)skb_put(skb, sizeof(*req));
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_REQ));
-+	req->wr.wr_lo = htonl(V_WR_TID(tid));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, tid));
-+	req->rsvd0 = htonl(c3cn->snd_nxt);
-+	req->rsvd1 = !c3cn_flag(c3cn, C3CN_TX_DATA_SENT);
-+	req->cmd = mode;
-+
-+	l2t_send(c3cn->cdev, skb, c3cn->l2t);
-+	return 0;
-+}
-+
-+/*
-+ * Add a list of skbs to a connection send queue.  This interface is intended
-+ * for use by in-kernel ULPs.  The skbs must comply with the max size limit of
-+ * the device and have a headroom of at least TX_HEADER_LEN bytes.
-+ */
-+int cxgb3i_c3cn_send_pdus(struct s3_conn *c3cn, struct sk_buff *skb, int flags)
-+{
-+	struct sk_buff *next;
-+	int err, copied = 0;
-+
-+	spin_lock_bh(&c3cn->lock);
-+
-+	if (!c3cn_in_state(c3cn, C3CN_STATE_ESTABLISHED)) {
-+		err = -EAGAIN;
-+		goto out_err;
-+	}
-+
-+	err = -EPIPE;
-+	if (c3cn->err || (c3cn->shutdown & C3CN_SEND_SHUTDOWN))
-+		goto out_err;
-+
-+	while (skb) {
-+		if (unlikely(skb_headroom(skb) < TX_HEADER_LEN)) {
-+			c3cn_tx_debug("c3cn 0x%p, skb head.\n", c3cn);
-+			err = -EINVAL;
-+			goto out_err;
++		if (bf_last == bf)
++			bf->flags |= 1;
++		if (bf->flags) {
++			struct ath5k_buf *bf_next = list_entry(bf->list.next,
++					struct ath5k_buf, list);
++			ret = sc->ah->ah_proc_rx_desc(sc->ah, bf_next->desc,
++					&rs);
++			if (ret)
++				break;
++			bf->flags &= ~1;
++			/* skip the overwritten one (even status is martian) */
++			goto next;
 +		}
-+
-+		next = skb->next;
-+		skb->next = NULL;
-+		skb_entail(c3cn, skb, C3CB_FLAG_NO_APPEND | C3CB_FLAG_NEED_HDR);
-+		copied += skb->len;
-+		c3cn->write_seq += skb->len + ulp_extra_len(skb);
-+		skb = next;
-+	}
-+done:
-+	if (likely(skb_queue_len(&c3cn->write_queue)))
-+		s3_push_frames(c3cn, 1);
-+	spin_unlock_bh(&c3cn->lock);
-+	return copied;
-+
-+out_err:
-+	if (copied == 0 && err == -EPIPE)
-+		copied = c3cn->err ? c3cn->err : -EPIPE;
-+	goto done;
-+}
-+
-+/*
-+ * Low-level utility routines for primary API functions.
-+ * =====================================================
-+ */
-+/* routines to implement CPL message processing */
-+static void c3cn_act_establish(struct s3_conn *, struct sk_buff *);
-+static void active_open_failed(struct s3_conn *, struct sk_buff *);
-+static void wr_ack(struct s3_conn *, struct sk_buff *);
-+static void do_peer_fin(struct s3_conn *, struct sk_buff *);
-+static void process_abort_req(struct s3_conn *, struct sk_buff *);
-+static void process_abort_rpl(struct s3_conn *, struct sk_buff *);
-+static void process_close_con_rpl(struct s3_conn *, struct sk_buff *);
-+static void process_rx_iscsi_hdr(struct s3_conn *, struct sk_buff *);
-+
-+static struct sk_buff *__get_cpl_reply_skb(struct sk_buff *, size_t, gfp_t);
-+
-+static int act_open(struct s3_conn *, struct net_device *);
-+static void fail_act_open(struct s3_conn *, int);
-+static void init_offload_conn(struct s3_conn *, struct t3cdev *,
-+			      struct dst_entry *);
-+
-+/*
-+ * Insert a connection into the TID table and take an extra reference.
-+ */
-+static inline void c3cn_insert_tid(struct cxgb3i_sdev_data *cdata,
-+				   struct s3_conn *c3cn,
-+				   unsigned int tid)
-+{
-+	c3cn_hold(c3cn);
-+	cxgb3_insert_tid(cdata->cdev, cdata->client, c3cn, tid);
-+}
-+
-+static inline void free_atid(struct t3cdev *cdev, unsigned int tid)
-+{
-+	struct s3_conn *c3cn = cxgb3_free_atid(cdev, tid);
-+	if (c3cn)
-+		c3cn_put(c3cn);
-+}
-+
-+/*
-+ * This function is intended for allocations of small control messages.
-+ * Such messages go as immediate data and usually the pakets are freed
-+ * immediately.  We maintain a cache of one small sk_buff and use it whenever
-+ * it is available (has a user count of 1).  Otherwise we get a fresh buffer.
-+ */
-+#define CTRL_SKB_LEN 120
-+
-+static struct sk_buff *alloc_ctrl_skb(const struct s3_conn *c3cn,
-+				      int len)
-+{
-+	struct sk_buff *skb = c3cn->ctrl_skb_cache;
-+
-+	if (likely(skb && !skb_shared(skb) && !skb_cloned(skb))) {
-+		__skb_trim(skb, 0);
-+		atomic_set(&skb->users, 2);
-+	} else if (likely(!in_atomic()))
-+		skb = alloc_skb(len, GFP_ATOMIC | __GFP_NOFAIL);
-+	else
-+		skb = alloc_skb(len, GFP_ATOMIC);
-+	return skb;
-+}
-+
-+/**
-+ * cxgb3_egress_dev - return the cxgb3 egress device or NULL if the egress
-+ *     device isn't one of our ports.
-+ *
-+ * @root_dev: the root device anchoring the search
-+ * @c3cn: the connection used to determine egress port in bonding mode
-+ * @context: in bonding mode, indicates a connection set up or failover
-+ *
-+ * Given a root network device it returns the physical egress device that is a
-+ * descendant of the root device.  The root device may be either a physical
-+ * device, in which case it is the device returned, or a virtual device, such
-+ * as a VLAN or bonding device.  In case of a bonding device the search
-+ * considers the decisions of the bonding device given its mode to locate the
-+ * correct egress device.
-+ */
-+static struct net_device *cxgb3_egress_dev(struct net_device *root_dev,
-+					   struct s3_conn *c3cn,
-+					   int context)
-+{
-+	while (root_dev) {
-+		if (root_dev->priv_flags & IFF_802_1Q_VLAN)
-+			root_dev = vlan_dev_info(root_dev)->real_dev;
-+		else if (is_cxgb3_dev(root_dev))
-+			return root_dev;
-+		else
-+			return NULL;
-+	}
-+	return NULL;
-+}
-+
-+/*
-+ * Return TRUE if we're able to establish an offload connection; otherwise
-+ * return FALSE.
-+ */
-+static int s3_connect(struct s3_conn *c3cn)
-+{
-+	struct net_device *dev = cxgb3_egress_dev(c3cn->dst_cache->dev,
-+						  c3cn, 0);
-+	if (dev == NULL) {
-+		c3cn_conn_debug("c3cn 0x%p, egress dev NULL.\n", c3cn);
-+		return 0;
-+	}
-+	return act_open(c3cn, dev) == 0;
-+}
-+
-+/*
-+ * Handle an ARP failure for an active open.
-+ */
-+static void act_open_req_arp_failure(struct t3cdev *dev, struct sk_buff *skb)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)skb->sk;
-+
-+	c3cn_hold(c3cn);
-+	spin_lock(&c3cn->lock);
-+	if (c3cn->state == C3CN_STATE_SYN_SENT) {
-+		fail_act_open(c3cn, EHOSTUNREACH);
-+		__kfree_skb(skb);
-+	}
-+	spin_unlock(&c3cn->lock);
-+	c3cn_put(c3cn);
-+}
-+
-+/*
-+ * Send an active open request.
-+ */
-+static int act_open(struct s3_conn *c3cn, struct net_device *dev)
-+{
-+	struct cxgb3i_sdev_data *cdata = NDEV2CDATA(dev);
-+	struct t3cdev *cdev = cdata->cdev;
-+	struct dst_entry *dst = c3cn->dst_cache;
-+	struct sk_buff *skb;
-+
-+	c3cn_conn_debug("c3cn 0x%p.\n", c3cn);
-+	/*
-+	 * Initialize connection data.  Note that the flags and ULP mode are
-+	 * initialized higher up ...
-+	 */
-+	c3cn->dev = dev;
-+	c3cn->cdev = cdev;
-+	c3cn->tid = cxgb3_alloc_atid(cdev, cdata->client, c3cn);
-+	if (c3cn->tid < 0)
-+		goto out_err;
-+	c3cn->qset = 0;
-+	c3cn->l2t = t3_l2t_get(cdev, dst->neighbour, dev);
-+	if (!c3cn->l2t)
-+		goto free_tid;
-+
-+	skb = alloc_skb(sizeof(struct cpl_act_open_req),
-+			GFP_KERNEL | __GFP_NOFAIL);
-+	skb->sk = (struct sock *)c3cn;
-+	set_arp_failure_handler(skb, act_open_req_arp_failure);
-+
-+	c3cn_hold(c3cn);
-+
-+	init_offload_conn(c3cn, cdev, dst);
-+	c3cn->err = 0;
-+	c3cn_reset_flag(c3cn, C3CN_DONE);
-+
-+	mk_act_open_req(c3cn, skb, c3cn->tid, c3cn->l2t);
-+	l2t_send(cdev, skb, c3cn->l2t);
-+	return 0;
-+
-+free_tid:
-+	free_atid(cdev, c3cn->tid);
-+	c3cn->tid = 0;
-+out_err:
-+	return -1;
-+}
-+
-+/*
-+ * Close a connection by sending a CPL_CLOSE_CON_REQ message.  Cannot fail
-+ * under any circumstances.  We take the easy way out and always queue the
-+ * message to the write_queue.  We can optimize the case where the queue is
-+ * already empty though the optimization is probably not worth it.
-+ */
-+static void mk_close_req(struct s3_conn *c3cn)
-+{
-+	struct sk_buff *skb;
-+	struct cpl_close_con_req *req;
-+	unsigned int tid = c3cn->tid;
-+
-+	c3cn_conn_debug("c3cn 0x%p.\n", c3cn);
-+
-+	skb = alloc_skb(sizeof(struct cpl_close_con_req),
-+			GFP_KERNEL | __GFP_NOFAIL);
-+	req = (struct cpl_close_con_req *)__skb_put(skb, sizeof(*req));
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_CLOSE_CON));
-+	req->wr.wr_lo = htonl(V_WR_TID(tid));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, tid));
-+	req->rsvd = htonl(c3cn->write_seq);
-+
-+	skb_entail(c3cn, skb, C3CB_FLAG_NO_APPEND);
-+	if (c3cn->state != C3CN_STATE_SYN_SENT)
-+		s3_push_frames(c3cn, 1);
-+}
-+
-+static void skb_entail(struct s3_conn *c3cn, struct sk_buff *skb,
-+		       int flags)
-+{
-+	CXGB3_SKB_CB(skb)->seq = c3cn->write_seq;
-+	CXGB3_SKB_CB(skb)->flags = flags;
-+	__skb_queue_tail(&c3cn->write_queue, skb);
-+}
-+
-+/*
-+ * Send RX credits through an RX_DATA_ACK CPL message.  If nofail is 0 we are
-+ * permitted to return without sending the message in case we cannot allocate
-+ * an sk_buff.  Returns the number of credits sent.
-+ */
-+static u32 s3_send_rx_credits(struct s3_conn *c3cn, u32 credits, u32 dack,
-+			      int nofail)
-+{
-+	struct sk_buff *skb;
-+	struct cpl_rx_data_ack *req;
-+
-+	skb = (nofail ? alloc_ctrl_skb(c3cn, sizeof(*req))
-+	       : alloc_skb(sizeof(*req), GFP_ATOMIC));
-+	if (!skb)
-+		return 0;
-+
-+	req = (struct cpl_rx_data_ack *)__skb_put(skb, sizeof(*req));
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_RX_DATA_ACK, c3cn->tid));
-+	req->credit_dack = htonl(dack | V_RX_CREDITS(credits));
-+	skb->priority = CPL_PRIORITY_ACK;
-+	cxgb3_ofld_send(c3cn->cdev, skb);
-+	return credits;
-+}
-+
-+static void mk_act_open_req(struct s3_conn *c3cn, struct sk_buff *skb,
-+			    unsigned int atid, const struct l2t_entry *e)
-+{
-+	struct cpl_act_open_req *req;
-+
-+	c3cn_conn_debug("c3cn 0x%p, atid 0x%x.\n", c3cn, atid);
-+
-+	skb->priority = CPL_PRIORITY_SETUP;
-+	req = (struct cpl_act_open_req *)__skb_put(skb, sizeof(*req));
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, atid));
-+	req->local_port = c3cn->saddr.sin_port;
-+	req->peer_port = c3cn->daddr.sin_port;
-+	req->local_ip = c3cn->saddr.sin_addr.s_addr;
-+	req->peer_ip = c3cn->daddr.sin_addr.s_addr;
-+	req->opt0h = htonl(calc_opt0h(c3cn) | V_L2T_IDX(e->idx) |
-+			   V_TX_CHANNEL(e->smt_idx));
-+	req->opt0l = htonl(calc_opt0l(c3cn));
-+	req->params = 0;
-+}
-+
-+static inline void s3_purge_write_queue(struct s3_conn *c3cn)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb = __skb_dequeue(&c3cn->write_queue))) {
-+		__kfree_skb(skb);
-+	}
-+}
-+
-+/*
-+ * Definitions and declarations for CPL handler functions.
-+ * =======================================================
-+ */
-+
-+/*
-+ * Similar to process_cpl_msg() but takes an extra connection reference around
-+ * the call to the handler.  Should be used if the handler may drop a
-+ * connection reference.
-+ */
-+static inline void process_cpl_msg_ref(void (*fn) (struct s3_conn *,
-+						   struct sk_buff *),
-+				       struct s3_conn *c3cn,
-+				       struct sk_buff *skb)
-+{
-+	c3cn_hold(c3cn);
-+	process_cpl_msg(fn, c3cn, skb);
-+	c3cn_put(c3cn);
-+}
-+
-+/*
-+ * Return whether a failed active open has allocated a TID
-+ */
-+static inline int act_open_has_tid(int status)
-+{
-+	return status != CPL_ERR_TCAM_FULL && status != CPL_ERR_CONN_EXIST &&
-+	    status != CPL_ERR_ARP_MISS;
-+}
-+
-+/*
-+ * Returns true if a connection cannot accept new Rx data.
-+ */
-+static inline int c3cn_no_receive(const struct s3_conn *c3cn)
-+{
-+	return (c3cn->shutdown & C3CN_RCV_SHUTDOWN);
-+}
-+
-+/*
-+ * A helper function that aborts a connection and increments the given MIB
-+ * counter.  The supplied skb is used to generate the ABORT_REQ message if
-+ * possible.  Must be called with softirqs disabled.
-+ */
-+static inline void abort_conn(struct s3_conn *c3cn,
-+			      struct sk_buff *skb)
-+{
-+	struct sk_buff *abort_skb;
-+
-+	abort_skb = __get_cpl_reply_skb(skb, sizeof(struct cpl_abort_req),
-+					GFP_ATOMIC);
-+	if (abort_skb)
-+		s3_send_reset(c3cn, CPL_ABORT_SEND_RST, abort_skb);
-+}
-+
-+/*
-+ * Returns whether an ABORT_REQ_RSS message is a negative advice.
-+ */
-+static inline int is_neg_adv_abort(unsigned int status)
-+{
-+	return (status == CPL_ERR_RTX_NEG_ADVICE
-+		|| status == CPL_ERR_PERSIST_NEG_ADVICE);
-+}
-+
-+/*
-+ * CPL handler functions.
-+ * ======================
-+ */
-+
-+/*
-+ * Process a CPL_ACT_ESTABLISH message.
-+ */
-+static int do_act_establish(struct t3cdev *cdev, struct sk_buff *skb,
-+			    void *ctx)
-+{
-+	struct cpl_act_establish *req = cplhdr(skb);
-+	unsigned int tid = GET_TID(req);
-+	unsigned int atid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+	struct cxgb3i_sdev_data *cdata = CXGB3_SDEV_DATA(cdev);
-+
-+	c3cn_conn_debug("c3cn 0x%p, tid 0x%x.\n", c3cn, tid);
-+	/*
-+	 * It's OK if the TID is currently in use, the owning connection may
-+	 * have backlogged its last CPL message(s).  Just take it away.
-+	 */
-+	c3cn->tid = tid;
-+	c3cn_insert_tid(cdata, c3cn, tid);
-+	free_atid(cdev, atid);
-+
-+	c3cn->qset = G_QNUM(ntohl(skb->csum));
-+
-+	process_cpl_msg(c3cn_act_establish, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process an ACT_OPEN_RPL CPL message.
-+ */
-+static int do_act_open_rpl(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+	struct cpl_act_open_rpl *rpl = cplhdr(skb);
-+
-+	c3cn_conn_debug("c3cn 0x%p, status 0x%x.\n", c3cn, rpl->status);
-+
-+	if (act_open_has_tid(rpl->status))
-+		cxgb3_queue_tid_release(cdev, GET_TID(rpl));
-+
-+	process_cpl_msg_ref(active_open_failed, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handler RX_ISCSI_HDR CPL messages.
-+ */
-+static int do_iscsi_hdr(struct t3cdev *t3dev, struct sk_buff *skb, void *ctx)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+	process_cpl_msg(process_rx_iscsi_hdr, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handler for TX_DATA_ACK CPL messages.
-+ */
-+static int do_wr_ack(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+
-+	process_cpl_msg(wr_ack, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handler for PEER_CLOSE CPL messages.
-+ */
-+static int do_peer_close(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+
-+	c3cn_conn_debug("c3cn 0x%p, state 0x%x, flag 0x%lx.\n",
-+			 c3cn, c3cn->state, c3cn->flags);
-+	process_cpl_msg_ref(do_peer_fin, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handle an ABORT_REQ_RSS CPL message.
-+ */
-+static int do_abort_req(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	const struct cpl_abort_req_rss *req = cplhdr(skb);
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+
-+	if (is_neg_adv_abort(req->status)) {
-+		__kfree_skb(skb);
-+		return 0;
-+	}
-+
-+	c3cn_conn_debug("c3cn 0x%p, state 0x%x, flag 0x%lx.\n",
-+			 c3cn, c3cn->state, c3cn->flags);
-+
-+	process_cpl_msg_ref(process_abort_req, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handle an ABORT_RPL_RSS CPL message.
-+ */
-+static int do_abort_rpl(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cpl_abort_rpl_rss *rpl = cplhdr(skb);
-+	struct s3_conn *c3cn;
-+
-+	/*
-+	 * Ignore replies to post-close aborts indicating that the abort was
-+	 * requested too late.  These connections are terminated when we get
-+	 * PEER_CLOSE or CLOSE_CON_RPL and by the time the abort_rpl_rss
-+	 * arrives the TID is either no longer used or it has been recycled.
-+	 */
-+	if (rpl->status == CPL_ERR_ABORT_FAILED) {
-+discard:
-+		__kfree_skb(skb);
-+		return 0;
-+	}
-+
-+	c3cn = (struct s3_conn *)ctx;
-+	c3cn_conn_debug("c3cn 0x%p, state 0x%x, flag 0x%lx.\n",
-+			 c3cn, c3cn->state, c3cn->flags);
-+
-+	/*
-+	 * Sometimes we've already closed the connection, e.g., a post-close
-+	 * abort races with ABORT_REQ_RSS, the latter frees the connection
-+	 * expecting the ABORT_REQ will fail with CPL_ERR_ABORT_FAILED,
-+	 * but FW turns the ABORT_REQ into a regular one and so we get
-+	 * ABORT_RPL_RSS with status 0 and no connection.  Only on T3A.
-+	 */
-+	if (!c3cn)
-+		goto discard;
-+
-+	process_cpl_msg_ref(process_abort_rpl, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Handler for CLOSE_CON_RPL CPL messages.
-+ */
-+static int do_close_con_rpl(struct t3cdev *cdev, struct sk_buff *skb,
-+			    void *ctx)
-+{
-+	struct s3_conn *c3cn = (struct s3_conn *)ctx;
-+
-+	c3cn_conn_debug("c3cn 0x%p, state 0x%x, flag 0x%lx.\n",
-+			 c3cn, c3cn->state, c3cn->flags);
-+
-+	process_cpl_msg_ref(process_close_con_rpl, c3cn, skb);
-+	return 0;
-+}
-+
-+/*
-+ * Definitions and declarations for CPL message processing.
-+ * ========================================================
-+ */
-+
-+static void make_established(struct s3_conn *, u32, unsigned int);
-+static void t3_release_offload_resources(struct s3_conn *);
-+static void act_open_retry_timer(unsigned long);
-+static void mk_act_open_req(struct s3_conn *, struct sk_buff *,
-+			    unsigned int, const struct l2t_entry *);
-+static int act_open_rpl_status_to_errno(int);
-+static void handle_excess_rx(struct s3_conn *, struct sk_buff *);
-+static int abort_status_to_errno(struct s3_conn *, int, int *);
-+static void send_abort_rpl(struct sk_buff *, struct t3cdev *, int);
-+static struct sk_buff *get_cpl_reply_skb(struct sk_buff *, size_t, gfp_t);
-+static void t3_defer_reply(struct sk_buff *, struct t3cdev *, defer_handler_t);
-+static void send_deferred_abort_rpl(struct t3cdev *, struct sk_buff *);
-+
-+/*
-+ * Dequeue and return the first unacknowledged's WR on a connections's pending
-+ * list.
-+ */
-+static inline struct sk_buff *dequeue_wr(struct s3_conn *c3cn)
-+{
-+	struct sk_buff *skb = c3cn->wr_pending_head;
-+
-+	if (likely(skb)) {
-+		/* Don't bother clearing the tail */
-+		c3cn->wr_pending_head = (struct sk_buff *)skb->sp;
-+		skb->sp = NULL;
-+	}
-+	return skb;
-+}
-+
-+/*
-+ * Return the first pending WR without removing it from the list.
-+ */
-+static inline struct sk_buff *peek_wr(const struct s3_conn *c3cn)
-+{
-+	return c3cn->wr_pending_head;
-+}
-+
-+static inline void free_wr_skb(struct sk_buff *skb)
-+{
-+	kfree_skb(skb);
-+}
-+
-+static void purge_wr_queue(struct s3_conn *c3cn)
-+{
-+	struct sk_buff *skb;
-+	while ((skb = dequeue_wr(c3cn)) != NULL)
-+		free_wr_skb(skb);
-+}
-+
-+static inline void set_abort_rpl_wr(struct sk_buff *skb, unsigned int tid,
-+				    int cmd)
-+{
-+	struct cpl_abort_rpl *rpl = cplhdr(skb);
-+
-+	rpl->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_RPL));
-+	rpl->wr.wr_lo = htonl(V_WR_TID(tid));
-+	OPCODE_TID(rpl) = htonl(MK_OPCODE_TID(CPL_ABORT_RPL, tid));
-+	rpl->cmd = cmd;
-+}
-+
-+/*
-+ * CPL message processing ...
-+ * ==========================
-+ */
-+
-+/*
-+ * Updates connection state from an active establish CPL message.  Runs with
-+ * the connection lock held.
-+ */
-+static void c3cn_act_establish(struct s3_conn *c3cn,
-+			       struct sk_buff *skb)
-+{
-+	struct cpl_act_establish *req = cplhdr(skb);
-+	u32 rcv_isn = ntohl(req->rcv_isn);	/* real RCV_ISN + 1 */
-+
-+	if (unlikely(c3cn->state != C3CN_STATE_SYN_SENT))
-+		printk(KERN_ERR "TID %u expected SYN_SENT, found %d\n",
-+		       c3cn->tid, c3cn->state);
-+
-+	c3cn->copied_seq = c3cn->rcv_wup = c3cn->rcv_nxt = rcv_isn;
-+	make_established(c3cn, ntohl(req->snd_isn), ntohs(req->tcp_opt));
-+
-+	__kfree_skb(skb);
-+
-+	if (s3_push_frames(c3cn, 1))
-+		cxgb3i_conn_tx_open(c3cn);
-+}
-+
-+/*
-+ * Handle active open failures.
-+ */
-+static void active_open_failed(struct s3_conn *c3cn,
-+			       struct sk_buff *skb)
-+{
-+	struct cpl_act_open_rpl *rpl = cplhdr(skb);
-+
-+	if (rpl->status == CPL_ERR_CONN_EXIST &&
-+	    c3cn->retry_timer.function != act_open_retry_timer) {
-+		c3cn->retry_timer.function = act_open_retry_timer;
-+		c3cn_reset_timer(c3cn, &c3cn->retry_timer,
-+				 jiffies + HZ / 2);
-+	} else
-+		fail_act_open(c3cn, act_open_rpl_status_to_errno(rpl->status));
-+	__kfree_skb(skb);
-+}
-+
-+/*
-+ * Process received pdu for a connection.
-+ */
-+static void process_rx_iscsi_hdr(struct s3_conn *c3cn,
-+				 struct sk_buff *skb)
-+{
-+	struct cpl_iscsi_hdr *hdr_cpl = cplhdr(skb);
-+	struct cpl_iscsi_hdr_norss data_cpl;
-+	struct cpl_rx_data_ddp_norss ddp_cpl;
-+	unsigned int hdr_len, data_len, status;
-+	unsigned int len;
-+	int err;
-+
-+	if (unlikely(c3cn_no_receive(c3cn))) {
-+		handle_excess_rx(c3cn, skb);
-+		return;
-+	}
-+
-+	CXGB3_SKB_CB(skb)->seq = ntohl(hdr_cpl->seq);
-+	CXGB3_SKB_CB(skb)->flags = 0;
-+
-+	skb_reset_transport_header(skb);
-+	__skb_pull(skb, sizeof(struct cpl_iscsi_hdr));
-+
-+	len = hdr_len = ntohs(hdr_cpl->len);
-+	/* msg coalesce is off or not enough data received */
-+	if (skb->len <= hdr_len) {
-+		printk(KERN_ERR "%s: TID %u, ISCSI_HDR, skb len %u < %u.\n",
-+		       c3cn->cdev->name, c3cn->tid, skb->len, hdr_len);
-+		goto abort_conn;
-+	}
-+
-+	err = skb_copy_bits(skb, skb->len - sizeof(ddp_cpl), &ddp_cpl,
-+			    sizeof(ddp_cpl));
-+	if (err < 0)
-+		goto abort_conn;
-+
-+	skb_ulp_mode(skb) = ULP2_FLAG_DATA_READY;
-+	skb_ulp_pdulen(skb) = ntohs(ddp_cpl.len);
-+	skb_ulp_ddigest(skb) = ntohl(ddp_cpl.ulp_crc);
-+	status = ntohl(ddp_cpl.ddp_status);
-+
-+	if (status & (1 << RX_DDP_STATUS_HCRC_SHIFT))
-+		skb_ulp_mode(skb) |= ULP2_FLAG_HCRC_ERROR;
-+	if (status & (1 << RX_DDP_STATUS_DCRC_SHIFT))
-+		skb_ulp_mode(skb) |= ULP2_FLAG_DCRC_ERROR;
-+	if (status & (1 << RX_DDP_STATUS_PAD_SHIFT))
-+		skb_ulp_mode(skb) |= ULP2_FLAG_PAD_ERROR;
-+
-+	if (skb->len > (hdr_len + sizeof(ddp_cpl))) {
-+		err = skb_copy_bits(skb, hdr_len, &data_cpl, sizeof(data_cpl));
-+		if (err < 0)
-+			goto abort_conn;
-+		data_len = ntohs(data_cpl.len);
-+		len += sizeof(data_cpl) + data_len;
-+	} else if (status & (1 << RX_DDP_STATUS_DDP_SHIFT))
-+		skb_ulp_mode(skb) |= ULP2_FLAG_DATA_DDPED;
-+
-+	c3cn->rcv_nxt = ntohl(ddp_cpl.seq) + skb_ulp_pdulen(skb);
-+	__pskb_trim(skb, len);
-+	__skb_queue_tail(&c3cn->receive_queue, skb);
-+	cxgb3i_conn_pdu_ready(c3cn);
-+
-+	return;
-+
-+abort_conn:
-+	s3_send_reset(c3cn, CPL_ABORT_SEND_RST, NULL);
-+	__kfree_skb(skb);
-+}
-+
-+/*
-+ * Process an acknowledgment of WR completion.  Advance snd_una and send the
-+ * next batch of work requests from the write queue.
-+ */
-+static void wr_ack(struct s3_conn *c3cn, struct sk_buff *skb)
-+{
-+	struct cpl_wr_ack *hdr = cplhdr(skb);
-+	unsigned int credits = ntohs(hdr->credits);
-+	u32 snd_una = ntohl(hdr->snd_una);
-+
-+	c3cn->wr_avail += credits;
-+	if (c3cn->wr_unacked > c3cn->wr_max - c3cn->wr_avail)
-+		c3cn->wr_unacked = c3cn->wr_max - c3cn->wr_avail;
-+
-+	while (credits) {
-+		struct sk_buff *p = peek_wr(c3cn);
-+
-+		if (unlikely(!p)) {
-+			printk(KERN_ERR "%u WR_ACK credits for TID %u with "
-+			       "nothing pending, state %u\n",
-+			       credits, c3cn->tid, c3cn->state);
-+			break;
-+		}
-+		if (unlikely(credits < p->csum)) {
-+			p->csum -= credits;
-+			break;
-+		} else {
-+			dequeue_wr(c3cn);
-+			credits -= p->csum;
-+			free_wr_skb(p);
-+		}
-+	}
-+
-+	if (unlikely(before(snd_una, c3cn->snd_una))) {
-+		goto out_free;
-+	}
-+
-+	if (c3cn->snd_una != snd_una) {
-+		c3cn->snd_una = snd_una;
-+		dst_confirm(c3cn->dst_cache);
-+		if (c3cn->snd_una == c3cn->snd_nxt)
-+			c3cn_reset_flag(c3cn, C3CN_TX_WAIT_IDLE);
-+	}
-+
-+	if (skb_queue_len(&c3cn->write_queue) && s3_push_frames(c3cn, 0))
-+		cxgb3i_conn_tx_open(c3cn);
-+out_free:
-+	__kfree_skb(skb);
-+}
-+
-+/*
-+ * Handle a peer FIN.
-+ */
-+static void do_peer_fin(struct s3_conn *c3cn, struct sk_buff *skb)
-+{
-+	int keep = 0;
-+
-+	if (c3cn_flag(c3cn, C3CN_ABORT_RPL_PENDING))
-+		goto out;
-+
-+	c3cn->shutdown |= C3CN_RCV_SHUTDOWN;
-+	c3cn_set_flag(c3cn, C3CN_DONE);
-+
-+	switch (c3cn->state) {
-+	case C3CN_STATE_ESTABLISHED:
-+		break;
-+	case C3CN_STATE_CLOSING:
-+		t3_release_offload_resources(c3cn);
-+		c3cn_done(c3cn);
-+		break;
-+	default:
-+		printk(KERN_ERR
-+		       "%s: TID %u received PEER_CLOSE in bad state %d\n",
-+		       c3cn->cdev->name, c3cn->tid, c3cn->state);
-+	}
-+	
-+	cxgb3i_conn_closing(c3cn);
-+out:
-+	if (!keep)
-+		__kfree_skb(skb);
-+}
-+
-+/*
-+ * Process abort requests.  If we are waiting for an ABORT_RPL we ignore this
-+ * request except that we need to reply to it.
-+ */
-+static void process_abort_req(struct s3_conn *c3cn,
-+			      struct sk_buff *skb)
-+{
-+	int rst_status = CPL_ABORT_NO_RST;
-+	const struct cpl_abort_req_rss *req = cplhdr(skb);
-+
-+	if (!c3cn_flag(c3cn, C3CN_ABORT_REQ_RCVD)) {
-+		c3cn_set_flag(c3cn, C3CN_ABORT_REQ_RCVD);
-+		c3cn_set_flag(c3cn, C3CN_ABORT_SHUTDOWN);
-+		__kfree_skb(skb);
-+		return;
-+	}
-+	c3cn_reset_flag(c3cn, C3CN_ABORT_REQ_RCVD);
-+
-+	/*
-+	 * Three cases to consider:
-+	 * a) We haven't sent an abort_req; close the connection.
-+	 * b) We have sent a post-close abort_req that will get to TP too late
-+	 *    and will generate a CPL_ERR_ABORT_FAILED reply.  The reply will
-+	 *    be ignored and the connection should be closed now.
-+	 * c) We have sent a regular abort_req that will get to TP too late.
-+	 *    That will generate an abort_rpl with status 0, wait for it.
-+	 */
-+	send_abort_rpl(skb, c3cn->cdev, rst_status);
-+
-+	if (!c3cn_flag(c3cn, C3CN_ABORT_RPL_PENDING)) {
-+		c3cn->err =
-+		    abort_status_to_errno(c3cn, req->status, &rst_status);
-+
-+		t3_release_offload_resources(c3cn);
-+		c3cn_done(c3cn);
-+	}
-+}
-+
-+/*
-+ * Process abort replies.  We only process these messages if we anticipate
-+ * them as the coordination between SW and HW in this area is somewhat lacking
-+ * and sometimes we get ABORT_RPLs after we are done with the connection that
-+ * originated the ABORT_REQ.
-+ */
-+static void process_abort_rpl(struct s3_conn *c3cn,
-+			      struct sk_buff *skb)
-+{
-+	if (c3cn_flag(c3cn, C3CN_ABORT_RPL_PENDING)) {
-+		if (!c3cn_flag(c3cn, C3CN_ABORT_RPL_RCVD))
-+			c3cn_set_flag(c3cn, C3CN_ABORT_RPL_RCVD);
-+		else {
-+			c3cn_reset_flag(c3cn, C3CN_ABORT_RPL_RCVD);
-+			c3cn_reset_flag(c3cn, C3CN_ABORT_RPL_PENDING);
-+			BUG_ON(c3cn_flag(c3cn, C3CN_ABORT_REQ_RCVD));
-+			t3_release_offload_resources(c3cn);
-+			c3cn_done(c3cn);
-+		}
-+	}
-+	__kfree_skb(skb);
-+}
-+
-+/*
-+ * Process a peer ACK to our FIN.
-+ */
-+static void process_close_con_rpl(struct s3_conn *c3cn,
-+				  struct sk_buff *skb)
-+{
-+	struct cpl_close_con_rpl *rpl = cplhdr(skb);
-+
-+	c3cn->snd_una = ntohl(rpl->snd_nxt) - 1;	/* exclude FIN */
-+
-+	if (c3cn_flag(c3cn, C3CN_ABORT_RPL_PENDING))
-+		goto out;
-+
-+	if (c3cn->state == C3CN_STATE_CLOSING) {
-+		t3_release_offload_resources(c3cn);
-+		c3cn_done(c3cn);
-+	} else 
-+		printk(KERN_ERR
-+		       "%s: TID %u received CLOSE_CON_RPL in bad state %d\n",
-+		       c3cn->cdev->name, c3cn->tid, c3cn->state);
-+out:
-+	kfree_skb(skb);
-+}
-+
-+/*
-+ * Random utility functions for CPL message processing ...
-+ * =======================================================
-+ */
-+
-+/**
-+ *	find_best_mtu - find the entry in the MTU table closest to an MTU
-+ *	@d: TOM state
-+ *	@mtu: the target MTU
-+ *
-+ *	Returns the index of the value in the MTU table that is closest to but
-+ *	does not exceed the target MTU.
-+ */
-+static unsigned int find_best_mtu(const struct t3c_data *d, unsigned short mtu)
-+{
-+	int i = 0;
-+
-+	while (i < d->nmtus - 1 && d->mtus[i + 1] <= mtu)
-+		++i;
-+	return i;
-+}
-+
-+static unsigned int select_mss(struct s3_conn *c3cn, unsigned int pmtu)
-+{
-+	unsigned int idx;
-+	struct dst_entry *dst = c3cn->dst_cache;
-+	struct t3cdev *cdev = c3cn->cdev;
-+	const struct t3c_data *td = T3C_DATA(cdev);
-+	u16 advmss = dst_metric(dst, RTAX_ADVMSS);
-+
-+	if (advmss > pmtu - 40)
-+		advmss = pmtu - 40;
-+	if (advmss < td->mtus[0] - 40)
-+		advmss = td->mtus[0] - 40;
-+	idx = find_best_mtu(td, advmss + 40);
-+	return idx;
-+}
-+
-+static void fail_act_open(struct s3_conn *c3cn, int errno)
-+{
-+	c3cn->err = errno;
-+	t3_release_offload_resources(c3cn);
-+	c3cn_done(c3cn);
-+}
-+
-+/*
-+ * Assign offload parameters to some connection fields.
-+ */
-+static void init_offload_conn(struct s3_conn *c3cn,
-+			      struct t3cdev *cdev,
-+			      struct dst_entry *dst)
-+{
-+	BUG_ON(c3cn->cdev != cdev);
-+	c3cn->wr_max = c3cn->wr_avail = T3C_DATA(cdev)->max_wrs;
-+	c3cn->wr_unacked = 0;
-+	c3cn->mss_idx = select_mss(c3cn, dst_mtu(dst));
-+
-+	c3cn->ctrl_skb_cache = alloc_skb(CTRL_SKB_LEN, gfp_any());
-+	reset_wr_list(c3cn);
-+}
-+
-+static void act_open_retry_timer(unsigned long data)
-+{
-+	struct sk_buff *skb;
-+	struct s3_conn *c3cn = (struct s3_conn *)data;
-+
-+	spin_lock(&c3cn->lock);
-+	skb = alloc_skb(sizeof(struct cpl_act_open_req), GFP_ATOMIC);
-+	if (!skb)
-+		fail_act_open(c3cn, ENOMEM);
+ 
+ 		ret = sc->ah->ah_proc_rx_desc(sc->ah, ds, &rs);
+ 		if (unlikely(ret == -EINPROGRESS))
+@@ -1752,8 +1778,6 @@ ath5k_tasklet_rx(unsigned long data)
+ 				goto next;
+ 		}
+ accept:
+-		pci_dma_sync_single_for_cpu(sc->pdev, bf->skbaddr,
+-				rs.rs_datalen, PCI_DMA_FROMDEVICE);
+ 		pci_unmap_single(sc->pdev, bf->skbaddr, sc->rxbufsize,
+ 				PCI_DMA_FROMDEVICE);
+ 		bf->skb = NULL;
+@@ -1816,6 +1840,7 @@ accept:
+ next:
+ 		list_move_tail(&bf->list, &sc->rxbuf);
+ 	} while (ath5k_rxbuf_setup(sc, bf) == 0);
++unlock:
+ 	spin_unlock(&sc->rxbuflock);
+ }
+ 
+@@ -1840,9 +1865,6 @@ ath5k_tx_processq(struct ath5k_softc *sc, struct ath5k_txq *txq)
+ 	list_for_each_entry_safe(bf, bf0, &txq->q, list) {
+ 		ds = bf->desc;
+ 
+-		/* TODO only one segment */
+-		pci_dma_sync_single_for_cpu(sc->pdev, sc->desc_daddr,
+-				sc->desc_len, PCI_DMA_FROMDEVICE);
+ 		ret = sc->ah->ah_proc_tx_desc(sc->ah, ds, &ts);
+ 		if (unlikely(ret == -EINPROGRESS))
+ 			break;
+@@ -2015,8 +2037,6 @@ ath5k_beacon_send(struct ath5k_softc *sc)
+ 		ATH5K_WARN(sc, "beacon queue %u didn't stop?\n", sc->bhalq);
+ 		/* NB: hw still stops DMA, so proceed */
+ 	}
+-	pci_dma_sync_single_for_cpu(sc->pdev, bf->skbaddr, bf->skb->len,
+-			PCI_DMA_TODEVICE);
+ 
+ 	ath5k_hw_put_tx_buf(ah, sc->bhalq, bf->daddr);
+ 	ath5k_hw_tx_start(ah, sc->bhalq);
+@@ -2240,6 +2260,7 @@ ath5k_init(struct ath5k_softc *sc)
+ 
+ 	ret = 0;
+ done:
++	mmiowb();
+ 	mutex_unlock(&sc->lock);
+ 	return ret;
+ }
+@@ -2272,6 +2293,7 @@ ath5k_stop_locked(struct ath5k_softc *sc)
+ 	if (!test_bit(ATH_STAT_INVALID, sc->status)) {
+ 		ath5k_led_off(sc);
+ 		ath5k_hw_set_intr(ah, 0);
++		synchronize_irq(sc->pdev->irq);
+ 	}
+ 	ath5k_txq_cleanup(sc);
+ 	if (!test_bit(ATH_STAT_INVALID, sc->status)) {
+@@ -2321,9 +2343,13 @@ ath5k_stop_hw(struct ath5k_softc *sc)
+ 		}
+ 	}
+ 	ath5k_txbuf_free(sc, sc->bbuf);
++	mmiowb();
+ 	mutex_unlock(&sc->lock);
+ 
+ 	del_timer_sync(&sc->calib_tim);
++	tasklet_kill(&sc->rxtq);
++	tasklet_kill(&sc->txtq);
++	tasklet_kill(&sc->restq);
+ 
+ 	return ret;
+ }
+@@ -2550,8 +2576,6 @@ ath5k_init_leds(struct ath5k_softc *sc)
+ 	struct pci_dev *pdev = sc->pdev;
+ 	char name[ATH5K_LED_MAX_NAME_LEN + 1];
+ 
+-	sc->led_on = 0;  /* active low */
+-
+ 	/*
+ 	 * Auto-enable soft led processing for IBM cards and for
+ 	 * 5211 minipci cards.
+@@ -2560,11 +2584,13 @@ ath5k_init_leds(struct ath5k_softc *sc)
+ 	    pdev->device == PCI_DEVICE_ID_ATHEROS_AR5211) {
+ 		__set_bit(ATH_STAT_LEDSOFT, sc->status);
+ 		sc->led_pin = 0;
++		sc->led_on = 0;  /* active low */
+ 	}
+ 	/* Enable softled on PIN1 on HP Compaq nc6xx, nc4000 & nx5000 laptops */
+ 	if (pdev->subsystem_vendor == PCI_VENDOR_ID_COMPAQ) {
+ 		__set_bit(ATH_STAT_LEDSOFT, sc->status);
+ 		sc->led_pin = 1;
++		sc->led_on = 1;  /* active high */
+ 	}
+ 	if (!test_bit(ATH_STAT_LEDSOFT, sc->status))
+ 		goto out;
+@@ -2783,6 +2809,7 @@ ath5k_config_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 		/* XXX: assoc id is set to 0 for now, mac80211 doesn't have
+ 		 * a clean way of letting us retrieve this yet. */
+ 		ath5k_hw_set_associd(ah, ah->ah_bssid, 0);
++		mmiowb();
+ 	}
+ 
+ 	if (conf->changed & IEEE80211_IFCC_BEACON &&
+@@ -2971,6 +2998,7 @@ ath5k_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 	}
+ 
+ unlock:
++	mmiowb();
+ 	mutex_unlock(&sc->lock);
+ 	return ret;
+ }
+@@ -3032,8 +3060,6 @@ ath5k_beacon_update(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 
+ 	ath5k_debug_dump_skb(sc, skb, "BC  ", 1);
+ 
+-	mutex_lock(&sc->lock);
+-
+ 	if (sc->opmode != IEEE80211_IF_TYPE_IBSS) {
+ 		ret = -EIO;
+ 		goto end;
+@@ -3044,11 +3070,12 @@ ath5k_beacon_update(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 	ret = ath5k_beacon_setup(sc, sc->bbuf);
+ 	if (ret)
+ 		sc->bbuf->skb = NULL;
+-	else
 +	else {
-+		skb->sk = (struct sock *)c3cn;
-+		set_arp_failure_handler(skb, act_open_req_arp_failure);
-+		mk_act_open_req(c3cn, skb, c3cn->tid, c3cn->l2t);
-+		l2t_send(c3cn->cdev, skb, c3cn->l2t);
+ 		ath5k_beacon_config(sc);
++		mmiowb();
 +	}
-+	spin_unlock(&c3cn->lock);
-+	c3cn_put(c3cn);
-+}
-+
-+/*
-+ * Convert an ACT_OPEN_RPL status to a Linux errno.
-+ */
-+static int act_open_rpl_status_to_errno(int status)
-+{
-+	switch (status) {
-+	case CPL_ERR_CONN_RESET:
-+		return ECONNREFUSED;
-+	case CPL_ERR_ARP_MISS:
-+		return EHOSTUNREACH;
-+	case CPL_ERR_CONN_TIMEDOUT:
-+		return ETIMEDOUT;
-+	case CPL_ERR_TCAM_FULL:
-+		return ENOMEM;
-+	case CPL_ERR_CONN_EXIST:
-+		printk(KERN_ERR "ACTIVE_OPEN_RPL: 4-tuple in use\n");
-+		return EADDRINUSE;
-+	default:
-+		return EIO;
-+	}
-+}
-+
-+/*
-+ * Convert the status code of an ABORT_REQ into a Linux error code.  Also
-+ * indicate whether RST should be sent in response.
-+ */
-+static int abort_status_to_errno(struct s3_conn *c3cn,
-+				 int abort_reason, int *need_rst)
-+{
-+	switch (abort_reason) {
-+	case CPL_ERR_BAD_SYN: /* fall through */
-+	case CPL_ERR_CONN_RESET:
-+		return c3cn->state == C3CN_STATE_CLOSING ? EPIPE : ECONNRESET;
-+	case CPL_ERR_XMIT_TIMEDOUT:
-+	case CPL_ERR_PERSIST_TIMEDOUT:
-+	case CPL_ERR_FINWAIT2_TIMEDOUT:
-+	case CPL_ERR_KEEPALIVE_TIMEDOUT:
-+		return ETIMEDOUT;
-+	default:
-+		return EIO;
-+	}
-+}
-+
-+static void send_abort_rpl(struct sk_buff *skb, struct t3cdev *cdev,
-+			   int rst_status)
-+{
-+	struct sk_buff *reply_skb;
-+	struct cpl_abort_req_rss *req = cplhdr(skb);
-+
-+	reply_skb = get_cpl_reply_skb(skb, sizeof(struct cpl_abort_rpl),
-+				      gfp_any());
-+	if (!reply_skb) {
-+		/* Defer the reply.  Stick rst_status into req->cmd. */
-+		req->status = rst_status;
-+		t3_defer_reply(skb, cdev, send_deferred_abort_rpl);
-+		return;
-+	}
-+
-+	reply_skb->priority = CPL_PRIORITY_DATA;
-+	set_abort_rpl_wr(reply_skb, GET_TID(req), rst_status);
-+	kfree_skb(skb);
-+	cxgb3_ofld_send(cdev, reply_skb);
-+}
-+
-+/*
-+ * Returns an sk_buff for a reply CPL message of size len.  If the input
-+ * sk_buff has no other users it is trimmed and reused, otherwise a new buffer
-+ * is allocated.  The input skb must be of size at least len.  Note that this
-+ * operation does not destroy the original skb data even if it decides to reuse
-+ * the buffer.
-+ */
-+static struct sk_buff *get_cpl_reply_skb(struct sk_buff *skb, size_t len,
-+					 gfp_t gfp)
-+{
-+	if (likely(!skb_cloned(skb))) {
-+		BUG_ON(skb->len < len);
-+		__skb_trim(skb, len);
-+		skb_get(skb);
-+	} else {
-+		skb = alloc_skb(len, gfp);
-+		if (skb)
-+			__skb_put(skb, len);
-+	}
-+	return skb;
-+}
-+
-+/*
-+ * Add an skb to the deferred skb queue for processing from process context.
-+ */
-+static void t3_defer_reply(struct sk_buff *skb, struct t3cdev *cdev,
-+			   defer_handler_t handler)
-+{
-+	struct cxgb3i_sdev_data *cdata = CXGB3_SDEV_DATA(cdev);
-+
-+	DEFERRED_SKB_CB(skb)->handler = handler;
-+	spin_lock_bh(&cdata->deferq.lock);
-+	__skb_queue_tail(&cdata->deferq, skb);
-+	if (skb_queue_len(&cdata->deferq) == 1)
-+		schedule_work(&cdata->deferq_task);
-+	spin_unlock_bh(&cdata->deferq.lock);
-+}
-+
-+/*
-+ * Process the defer queue.
-+ */
-+static void process_deferq(struct work_struct *task_param)
-+{
-+	struct sk_buff *skb;
-+	struct cxgb3i_sdev_data *cdata = container_of(task_param,
-+						     struct cxgb3i_sdev_data,
-+						     deferq_task);
-+
-+	spin_lock_bh(&cdata->deferq.lock);
-+	while ((skb = __skb_dequeue(&cdata->deferq)) != NULL) {
-+		spin_unlock_bh(&cdata->deferq.lock);
-+		DEFERRED_SKB_CB(skb)->handler(cdata->cdev, skb);
-+		spin_lock_bh(&cdata->deferq.lock);
-+	}
-+	spin_unlock_bh(&cdata->deferq.lock);
-+}
-+
-+static void send_deferred_abort_rpl(struct t3cdev *cdev, struct sk_buff *skb)
-+{
-+	struct sk_buff *reply_skb;
-+	struct cpl_abort_req_rss *req = cplhdr(skb);
-+
-+	reply_skb = alloc_skb(sizeof(struct cpl_abort_rpl),
-+			      GFP_KERNEL | __GFP_NOFAIL);
-+	reply_skb->priority = CPL_PRIORITY_DATA;
-+	__skb_put(reply_skb, sizeof(struct cpl_abort_rpl));
-+	set_abort_rpl_wr(reply_skb, GET_TID(req), req->status);
-+	cxgb3_ofld_send(cdev, reply_skb);
-+	kfree_skb(skb);
-+}
-+
-+/*
-+ * Release resources held by an offload connection (TID, L2T entry, etc.)
-+ */
-+static void t3_release_offload_resources(struct s3_conn *c3cn)
-+{
-+	struct t3cdev *cdev = c3cn->cdev;
-+	unsigned int tid = c3cn->tid;
-+
-+	if (!cdev)
-+		return;
-+
-+	c3cn->qset = 0;
-+
-+	kfree_skb(c3cn->ctrl_skb_cache);
-+	c3cn->ctrl_skb_cache = NULL;
-+
-+	if (c3cn->wr_avail != c3cn->wr_max) {
-+		purge_wr_queue(c3cn);
-+		reset_wr_list(c3cn);
-+	}
-+
-+	if (c3cn->l2t) {
-+		l2t_release(L2DATA(cdev), c3cn->l2t);
-+		c3cn->l2t = NULL;
-+	}
-+
-+	if (c3cn->state == C3CN_STATE_SYN_SENT) /* we have ATID */
-+		free_atid(cdev, tid);
-+	else {		/* we have TID */
-+		cxgb3_remove_tid(cdev, (void *)c3cn, tid);
-+		c3cn_put(c3cn);
-+	}
-+
-+	c3cn->cdev = NULL;
-+}
-+
-+/*
-+ * Handles Rx data that arrives in a state where the connection isn't
-+ * accepting new data.
-+ */
-+static void handle_excess_rx(struct s3_conn *c3cn, struct sk_buff *skb)
-+{
-+	if (!c3cn_flag(c3cn, C3CN_ABORT_SHUTDOWN))
-+		abort_conn(c3cn, skb);
-+
-+	kfree_skb(skb);
-+}
-+
-+/*
-+ * Like get_cpl_reply_skb() but the returned buffer starts out empty.
-+ */
-+static struct sk_buff *__get_cpl_reply_skb(struct sk_buff *skb, size_t len,
-+					   gfp_t gfp)
-+{
-+	if (likely(!skb_cloned(skb) && !skb->data_len)) {
-+		__skb_trim(skb, 0);
-+		skb_get(skb);
-+	} else
-+		skb = alloc_skb(len, gfp);
-+	return skb;
-+}
-+
-+/*
-+ * Completes some final bits of initialization for just established connections
-+ * and changes their state to C3CN_STATE_ESTABLISHED.
-+ *
-+ * snd_isn here is the ISN after the SYN, i.e., the true ISN + 1.
-+ */
-+static void make_established(struct s3_conn *c3cn, u32 snd_isn,
-+			     unsigned int opt)
-+{
-+	c3cn->write_seq = c3cn->snd_nxt = c3cn->snd_una = snd_isn;
+ 
+ end:
+-	mutex_unlock(&sc->lock);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/wireless/ath5k/base.h b/drivers/net/wireless/ath5k/base.h
+index 47f414b..d7e03e6 100644
+--- a/drivers/net/wireless/ath5k/base.h
++++ b/drivers/net/wireless/ath5k/base.h
+@@ -56,7 +56,7 @@
+ 
+ struct ath5k_buf {
+ 	struct list_head	list;
+-	unsigned int		flags;	/* tx descriptor flags */
++	unsigned int		flags;	/* rx descriptor flags */
+ 	struct ath5k_desc	*desc;	/* virtual addr of desc */
+ 	dma_addr_t		daddr;	/* physical addr of desc */
+ 	struct sk_buff		*skb;	/* skbuff for buf */
+diff --git a/drivers/net/wireless/ath5k/hw.c b/drivers/net/wireless/ath5k/hw.c
+index c6d12c5..7ca87a5 100644
+--- a/drivers/net/wireless/ath5k/hw.c
++++ b/drivers/net/wireless/ath5k/hw.c
+@@ -1440,6 +1440,7 @@ int ath5k_hw_stop_tx_dma(struct ath5k_hw *ah, unsigned int queue)
+ 
+ 		/* Stop queue */
+ 		ath5k_hw_reg_write(ah, tx_queue, AR5K_CR);
++		ath5k_hw_reg_read(ah, AR5K_CR);
+ 	} else {
+ 		/*
+ 		 * Schedule TX disable and wait until queue is empty
+@@ -1456,6 +1457,8 @@ int ath5k_hw_stop_tx_dma(struct ath5k_hw *ah, unsigned int queue)
+ 
+ 		/* Clear register */
+ 		ath5k_hw_reg_write(ah, 0, AR5K_QCU_TXD);
++		if (pending)
++			return -EBUSY;
+ 	}
+ 
+ 	/* TODO: Check for success else return error */
+@@ -1716,6 +1719,7 @@ enum ath5k_int ath5k_hw_set_intr(struct ath5k_hw *ah, enum ath5k_int new_mask)
+ 
+ 	/* ..re-enable interrupts */
+ 	ath5k_hw_reg_write(ah, AR5K_IER_ENABLE, AR5K_IER);
++	ath5k_hw_reg_read(ah, AR5K_IER);
+ 
+ 	return old_mask;
+ }
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index e78319a..3bf3a86 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -4645,8 +4645,7 @@ static int b43_wireless_init(struct ssb_device *dev)
+ 	}
+ 
+ 	/* fill hw info */
+-	hw->flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+-		    IEEE80211_HW_RX_INCLUDES_FCS |
++	hw->flags = IEEE80211_HW_RX_INCLUDES_FCS |
+ 		    IEEE80211_HW_SIGNAL_DBM |
+ 		    IEEE80211_HW_NOISE_DBM;
+ 
+diff --git a/drivers/net/wireless/b43/xmit.c b/drivers/net/wireless/b43/xmit.c
+index 8d54502..9dda816 100644
+--- a/drivers/net/wireless/b43/xmit.c
++++ b/drivers/net/wireless/b43/xmit.c
+@@ -192,7 +192,7 @@ int b43_generate_txhdr(struct b43_wldev *dev,
+ 	const struct b43_phy *phy = &dev->phy;
+ 	const struct ieee80211_hdr *wlhdr =
+ 	    (const struct ieee80211_hdr *)fragment_data;
+-	int use_encryption = (!(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT));
++	int use_encryption = !!info->control.hw_key;
+ 	__le16 fctl = wlhdr->frame_control;
+ 	struct ieee80211_rate *fbrate;
+ 	u8 rate, rate_fb;
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index a1b8bf3..2541c81 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -3702,8 +3702,7 @@ static int b43legacy_wireless_init(struct ssb_device *dev)
+ 	}
+ 
+ 	/* fill hw info */
+-	hw->flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+-		    IEEE80211_HW_RX_INCLUDES_FCS |
++	hw->flags = IEEE80211_HW_RX_INCLUDES_FCS |
+ 		    IEEE80211_HW_SIGNAL_DBM |
+ 		    IEEE80211_HW_NOISE_DBM;
+ 	hw->queues = 1; /* FIXME: hardware has more queues */
+@@ -3846,10 +3845,10 @@ static int b43legacy_resume(struct ssb_device *dev)
+ 			goto out;
+ 		}
+ 	}
+-	mutex_unlock(&wl->mutex);
+ 
+ 	b43legacydbg(wl, "Device resumed.\n");
+ out:
++	mutex_unlock(&wl->mutex);
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/wireless/b43legacy/xmit.c b/drivers/net/wireless/b43legacy/xmit.c
+index e969ed8..68e1f8c 100644
+--- a/drivers/net/wireless/b43legacy/xmit.c
++++ b/drivers/net/wireless/b43legacy/xmit.c
+@@ -192,7 +192,7 @@ static int generate_txhdr_fw3(struct b43legacy_wldev *dev,
+ 			       u16 cookie)
+ {
+ 	const struct ieee80211_hdr *wlhdr;
+-	int use_encryption = (!(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT));
++	int use_encryption = !!info->control.hw_key;
+ 	u16 fctl;
+ 	u8 rate;
+ 	struct ieee80211_rate *rate_fb;
+diff --git a/drivers/net/wireless/ipw2100.c b/drivers/net/wireless/ipw2100.c
+index 5bf9e00..c6f886e 100644
+--- a/drivers/net/wireless/ipw2100.c
++++ b/drivers/net/wireless/ipw2100.c
+@@ -6442,6 +6442,7 @@ static int ipw2100_resume(struct pci_dev *pci_dev)
+ 	if (err) {
+ 		printk(KERN_ERR "%s: pci_enable_device failed on resume\n",
+ 		       dev->name);
++		mutex_unlock(&priv->action_mutex);
+ 		return err;
+ 	}
+ 	pci_restore_state(pci_dev);
+@@ -7146,7 +7147,7 @@ static int ipw2100_wx_get_rate(struct net_device *dev,
+ 	err = ipw2100_get_ordinal(priv, IPW_ORD_CURRENT_TX_RATE, &val, &len);
+ 	if (err) {
+ 		IPW_DEBUG_WX("failed querying ordinals.\n");
+-		return err;
++		goto done;
+ 	}
+ 
+ 	switch (val & TX_RATE_MASK) {
+diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wireless/iwlwifi/iwl-3945.c
+index c2a7678..a51e0ea 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-3945.c
++++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
+@@ -630,7 +630,9 @@ static void iwl3945_pass_packet_to_mac80211(struct iwl3945_priv *priv,
+ 				   struct ieee80211_rx_status *stats)
+ {
+ 	struct iwl3945_rx_packet *pkt = (struct iwl3945_rx_packet *)rxb->skb->data;
++#ifdef CONFIG_IWL3945_LEDS
+ 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)IWL_RX_DATA(pkt);
++#endif
+ 	struct iwl3945_rx_frame_hdr *rx_hdr = IWL_RX_HDR(pkt);
+ 	struct iwl3945_rx_frame_end *rx_end = IWL_RX_END(pkt);
+ 	short len = le16_to_cpu(rx_hdr->len);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
+index a44188b..e3427c2 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.c
++++ b/drivers/net/wireless/iwlwifi/iwl-core.c
+@@ -818,8 +818,7 @@ int iwl_setup_mac(struct iwl_priv *priv)
+ 	hw->rate_control_algorithm = "iwl-4965-rs";
+ 
+ 	/* Tell mac80211 our characteristics */
+-	hw->flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+-		    IEEE80211_HW_SIGNAL_DBM |
++	hw->flags = IEEE80211_HW_SIGNAL_DBM |
+ 		    IEEE80211_HW_NOISE_DBM;
+ 	/* Default value; 4 EDCA QOS priorities */
+ 	hw->queues = 4;
+diff --git a/drivers/net/wireless/iwlwifi/iwl-debug.h b/drivers/net/wireless/iwlwifi/iwl-debug.h
+index 5838480..d6d729e 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-debug.h
++++ b/drivers/net/wireless/iwlwifi/iwl-debug.h
+@@ -68,12 +68,8 @@ void iwl_dbgfs_unregister(struct iwl_priv *priv);
+ #endif
+ 
+ #else
+-static inline void IWL_DEBUG(int level, const char *fmt, ...)
+-{
+-}
+-static inline void IWL_DEBUG_LIMIT(int level, const char *fmt, ...)
+-{
+-}
++#define IWL_DEBUG(level, fmt, args...)
++#define IWL_DEBUG_LIMIT(level, fmt, args...)
+ #endif				/* CONFIG_IWLWIFI_DEBUG */
+ 
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-led.c b/drivers/net/wireless/iwlwifi/iwl-led.c
+index 899d7a2..61250e6 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-led.c
++++ b/drivers/net/wireless/iwlwifi/iwl-led.c
+@@ -268,7 +268,9 @@ static int iwl_get_blink_rate(struct iwl_priv *priv)
+ 	if (tpt < 0) /* wrapparound */
+ 		tpt = -tpt;
+ 
+-	IWL_DEBUG_LED("tpt %lld current_tpt %lld\n", tpt, current_tpt);
++	IWL_DEBUG_LED("tpt %lld current_tpt %llu\n",
++		(long long)tpt,
++		(unsigned long long)current_tpt);
+ 	priv->led_tpt = current_tpt;
+ 
+ 	if (!priv->allow_blinking)
+diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
+index efc750d..5a00ac2 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-scan.c
++++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
+@@ -270,6 +270,7 @@ static void iwl_rx_scan_results_notif(struct iwl_priv *priv,
+ static void iwl_rx_scan_complete_notif(struct iwl_priv *priv,
+ 				       struct iwl_rx_mem_buffer *rxb)
+ {
++#ifdef CONFIG_IWLWIFI_DEBUG
+ 	struct iwl_rx_packet *pkt = (struct iwl_rx_packet *)rxb->skb->data;
+ 	struct iwl_scancomplete_notification *scan_notif = (void *)pkt->u.raw;
+ 
+@@ -277,6 +278,7 @@ static void iwl_rx_scan_complete_notif(struct iwl_priv *priv,
+ 		       scan_notif->scanned_channels,
+ 		       scan_notif->tsf_low,
+ 		       scan_notif->tsf_high, scan_notif->status);
++#endif
+ 
+ 	/* The HW is no longer scanning */
+ 	clear_bit(STATUS_SCAN_HW, &priv->status);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
+index 9b50b10..f72cd0b 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-tx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
+@@ -906,7 +906,7 @@ int iwl_tx_skb(struct iwl_priv *priv, struct sk_buff *skb)
+ 	 * first entry */
+ 	iwl_hw_txq_attach_buf_to_tfd(priv, tfd, txcmd_phys, len);
+ 
+-	if (!(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT))
++	if (info->control.hw_key)
+ 		iwl_tx_cmd_build_hwcrypto(priv, info, tx_cmd, skb, sta_id);
+ 
+ 	/* Set up TFD's 2nd entry to point directly to remainder of skb,
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index 4a22d3f..7c82ecf 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -2667,7 +2667,7 @@ static int iwl3945_tx_skb(struct iwl3945_priv *priv, struct sk_buff *skb)
+ 	 * first entry */
+ 	iwl3945_hw_txq_attach_buf_to_tfd(priv, tfd, txcmd_phys, len);
+ 
+-	if (!(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT))
++	if (info->control.hw_key)
+ 		iwl3945_build_tx_cmd_hwcrypto(priv, info, out_cmd, skb, 0);
+ 
+ 	/* Set up TFD's 2nd entry to point directly to remainder of skb,
+@@ -7899,8 +7899,7 @@ static int iwl3945_pci_probe(struct pci_dev *pdev, const struct pci_device_id *e
+ 	priv->ibss_beacon = NULL;
+ 
+ 	/* Tell mac80211 our characteristics */
+-	hw->flags = IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+-		    IEEE80211_HW_SIGNAL_DBM |
++	hw->flags = IEEE80211_HW_SIGNAL_DBM |
+ 		    IEEE80211_HW_NOISE_DBM;
+ 
+ 	/* 4 EDCA QOS priorities */
+diff --git a/drivers/net/wireless/libertas/persistcfg.c b/drivers/net/wireless/libertas/persistcfg.c
+index 6d0ff8d..3309a9c 100644
+--- a/drivers/net/wireless/libertas/persistcfg.c
++++ b/drivers/net/wireless/libertas/persistcfg.c
+@@ -48,7 +48,7 @@ static ssize_t bootflag_get(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	return snprintf(buf, 12, "0x%x\n", le32_to_cpu(defs.bootflag));
++	return snprintf(buf, 12, "%d\n", le32_to_cpu(defs.bootflag));
+ }
+ 
+ /**
+@@ -63,8 +63,8 @@ static ssize_t bootflag_set(struct device *dev, struct device_attribute *attr,
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%x", &datum);
+-	if (ret != 1)
++	ret = sscanf(buf, "%d", &datum);
++	if ((ret != 1) || (datum > 1))
+ 		return -EINVAL;
+ 
+ 	*((__le32 *)&cmd.data[0]) = cpu_to_le32(!!datum);
+@@ -91,7 +91,7 @@ static ssize_t boottime_get(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	return snprintf(buf, 12, "0x%x\n", defs.boottime);
++	return snprintf(buf, 12, "%d\n", defs.boottime);
+ }
+ 
+ /**
+@@ -106,8 +106,8 @@ static ssize_t boottime_set(struct device *dev,
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%x", &datum);
+-	if (ret != 1)
++	ret = sscanf(buf, "%d", &datum);
++	if ((ret != 1) || (datum > 255))
+ 		return -EINVAL;
+ 
+ 	/* A too small boot time will result in the device booting into
+@@ -143,7 +143,7 @@ static ssize_t channel_get(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	return snprintf(buf, 12, "0x%x\n", le16_to_cpu(defs.channel));
++	return snprintf(buf, 12, "%d\n", le16_to_cpu(defs.channel));
+ }
+ 
+ /**
+@@ -154,11 +154,11 @@ static ssize_t channel_set(struct device *dev, struct device_attribute *attr,
+ {
+ 	struct lbs_private *priv = to_net_dev(dev)->priv;
+ 	struct cmd_ds_mesh_config cmd;
+-	uint16_t datum;
++	uint32_t datum;
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%hx", &datum);
++	ret = sscanf(buf, "%d", &datum);
+ 	if (ret != 1 || datum < 1 || datum > 11)
+ 		return -EINVAL;
+ 
+@@ -274,8 +274,8 @@ static ssize_t protocol_id_set(struct device *dev,
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%x", &datum);
+-	if (ret != 1)
++	ret = sscanf(buf, "%d", &datum);
++	if ((ret != 1) || (datum > 255))
+ 		return -EINVAL;
+ 
+ 	/* fetch all other Information Element parameters */
+@@ -328,8 +328,8 @@ static ssize_t metric_id_set(struct device *dev, struct device_attribute *attr,
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%x", &datum);
+-	if (ret != 1)
++	ret = sscanf(buf, "%d", &datum);
++	if ((ret != 1) || (datum > 255))
+ 		return -EINVAL;
+ 
+ 	/* fetch all other Information Element parameters */
+@@ -382,8 +382,8 @@ static ssize_t capability_set(struct device *dev, struct device_attribute *attr,
+ 	int ret;
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	ret = sscanf(buf, "%x", &datum);
+-	if (ret != 1)
++	ret = sscanf(buf, "%d", &datum);
++	if ((ret != 1) || (datum > 255))
+ 		return -EINVAL;
+ 
+ 	/* fetch all other Information Element parameters */
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index 5816230..248d31a 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -500,7 +500,7 @@ failed_hw:
+ 	device_unregister(data->dev);
+ failed_drvdata:
+ 	ieee80211_free_hw(hw);
+-	hwsim_radios[i] = 0;
++	hwsim_radios[i] = NULL;
+ failed:
+ 	mac80211_hwsim_free();
+ 	return err;
+diff --git a/drivers/net/wireless/rt2x00/rt2500usb.c b/drivers/net/wireless/rt2x00/rt2500usb.c
+index 3558cb2..3078417 100644
+--- a/drivers/net/wireless/rt2x00/rt2500usb.c
++++ b/drivers/net/wireless/rt2x00/rt2500usb.c
+@@ -1121,6 +1121,7 @@ static void rt2500usb_write_beacon(struct queue_entry *entry)
+ 	int pipe = usb_sndbulkpipe(usb_dev, 1);
+ 	int length;
+ 	u16 reg;
++	u32 word, len;
+ 
+ 	/*
+ 	 * Add the descriptor in front of the skb.
+@@ -1130,6 +1131,17 @@ static void rt2500usb_write_beacon(struct queue_entry *entry)
+ 	skbdesc->desc = entry->skb->data;
+ 
+ 	/*
++	 * Adjust the beacon databyte count. The current number is
++	 * calculated before this function gets called, but falsely
++	 * assumes that the descriptor was already present in the SKB.
++	 */
++	rt2x00_desc_read(skbdesc->desc, 0, &word);
++	len  = rt2x00_get_field32(word, TXD_W0_DATABYTE_COUNT);
++	len += skbdesc->desc_len;
++	rt2x00_set_field32(&word, TXD_W0_DATABYTE_COUNT, len);
++	rt2x00_desc_write(skbdesc->desc, 0, word);
 +
 +	/*
-+	 * Causes the first RX_DATA_ACK to supply any Rx credits we couldn't
-+	 * pass through opt0.
+ 	 * Disable beaconing while we are reloading the beacon data,
+ 	 * otherwise we might be sending out invalid data.
+ 	 */
+@@ -1650,7 +1662,6 @@ static void rt2500usb_probe_hw_mode(struct rt2x00_dev *rt2x00dev)
+ 	 * Initialize all hw fields.
+ 	 */
+ 	rt2x00dev->hw->flags =
+-	    IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+ 	    IEEE80211_HW_RX_INCLUDES_FCS |
+ 	    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
+ 	    IEEE80211_HW_SIGNAL_DBM;
+diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
+index 07b03b3..db2dc97 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00.h
++++ b/drivers/net/wireless/rt2x00/rt2x00.h
+@@ -108,7 +108,10 @@
+ #define SHORT_PIFS		( SIFS + SHORT_SLOT_TIME )
+ #define DIFS			( PIFS + SLOT_TIME )
+ #define SHORT_DIFS		( SHORT_PIFS + SHORT_SLOT_TIME )
+-#define EIFS			( SIFS + (8 * (IEEE80211_HEADER + ACK_SIZE)) )
++#define EIFS			( SIFS + DIFS + \
++				  (8 * (IEEE80211_HEADER + ACK_SIZE)) )
++#define SHORT_EIFS		( SIFS + SHORT_DIFS + \
++				  (8 * (IEEE80211_HEADER + ACK_SIZE)) )
+ 
+ /*
+  * Chipset identification
+@@ -597,6 +600,7 @@ enum rt2x00_flags {
+ 	DEVICE_STARTED_SUSPEND,
+ 	DEVICE_ENABLED_RADIO,
+ 	DEVICE_DISABLED_RADIO_HW,
++	DEVICE_DIRTY_CONFIG,
+ 
+ 	/*
+ 	 * Driver features
+diff --git a/drivers/net/wireless/rt2x00/rt2x00config.c b/drivers/net/wireless/rt2x00/rt2x00config.c
+index f20ca71..3f89516 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00config.c
++++ b/drivers/net/wireless/rt2x00/rt2x00config.c
+@@ -271,7 +271,7 @@ config:
+ 		libconf.sifs = SIFS;
+ 		libconf.pifs = short_slot_time ? SHORT_PIFS : PIFS;
+ 		libconf.difs = short_slot_time ? SHORT_DIFS : DIFS;
+-		libconf.eifs = EIFS;
++		libconf.eifs = short_slot_time ? SHORT_EIFS : EIFS;
+ 	}
+ 
+ 	libconf.conf = conf;
+diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+index 8c93eb8..f42283a 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00dev.c
++++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+@@ -1013,6 +1013,7 @@ int rt2x00lib_start(struct rt2x00_dev *rt2x00dev)
+ 	rt2x00dev->intf_associated = 0;
+ 
+ 	__set_bit(DEVICE_STARTED, &rt2x00dev->flags);
++	__set_bit(DEVICE_DIRTY_CONFIG, &rt2x00dev->flags);
+ 
+ 	return 0;
+ }
+@@ -1237,9 +1238,9 @@ int rt2x00lib_resume(struct rt2x00_dev *rt2x00dev)
+ 	/*
+ 	 * Reconfigure device.
+ 	 */
+-	rt2x00lib_config(rt2x00dev, &rt2x00dev->hw->conf, 1);
+-	if (!rt2x00dev->hw->conf.radio_enabled)
+-		rt2x00lib_disable_radio(rt2x00dev);
++	retval = rt2x00mac_config(rt2x00dev->hw, &rt2x00dev->hw->conf);
++	if (retval)
++		goto exit;
+ 
+ 	/*
+ 	 * Iterator over each active interface to
+diff --git a/drivers/net/wireless/rt2x00/rt2x00lib.h b/drivers/net/wireless/rt2x00/rt2x00lib.h
+index f2c9b0e..c5fb3a7 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00lib.h
++++ b/drivers/net/wireless/rt2x00/rt2x00lib.h
+@@ -125,13 +125,6 @@ void rt2x00queue_unmap_skb(struct rt2x00_dev *rt2x00dev, struct sk_buff *skb);
+ void rt2x00queue_free_skb(struct rt2x00_dev *rt2x00dev, struct sk_buff *skb);
+ 
+ /**
+- * rt2x00queue_free_skb - free a skb
+- * @rt2x00dev: Pointer to &struct rt2x00_dev.
+- * @skb: The skb to free.
+- */
+-void rt2x00queue_free_skb(struct rt2x00_dev *rt2x00dev, struct sk_buff *skb);
+-
+-/**
+  * rt2x00queue_write_tx_frame - Write TX frame to hardware
+  * @queue: Queue over which the frame should be send
+  * @skb: The skb to send
+diff --git a/drivers/net/wireless/rt2x00/rt2x00mac.c b/drivers/net/wireless/rt2x00/rt2x00mac.c
+index f1dcbaa..c3ee4ec 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00mac.c
++++ b/drivers/net/wireless/rt2x00/rt2x00mac.c
+@@ -63,7 +63,7 @@ static int rt2x00mac_tx_rts_cts(struct rt2x00_dev *rt2x00dev,
+ 	 */
+ 	memcpy(skb->cb, frag_skb->cb, sizeof(skb->cb));
+ 	rts_info = IEEE80211_SKB_CB(skb);
+-	rts_info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
++	rts_info->control.hw_key = NULL;
+ 	rts_info->flags &= ~IEEE80211_TX_CTL_USE_RTS_CTS;
+ 	rts_info->flags &= ~IEEE80211_TX_CTL_USE_CTS_PROTECT;
+ 	rts_info->flags &= ~IEEE80211_TX_CTL_REQ_TX_STATUS;
+@@ -83,6 +83,7 @@ static int rt2x00mac_tx_rts_cts(struct rt2x00_dev *rt2x00dev,
+ 				  (struct ieee80211_rts *)(skb->data));
+ 
+ 	if (rt2x00queue_write_tx_frame(queue, skb)) {
++		dev_kfree_skb_any(skb);
+ 		WARNING(rt2x00dev, "Failed to send RTS/CTS frame.\n");
+ 		return NETDEV_TX_BUSY;
+ 	}
+@@ -96,7 +97,6 @@ int rt2x00mac_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 	struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(skb);
+ 	struct ieee80211_hdr *ieee80211hdr = (struct ieee80211_hdr *)skb->data;
+ 	enum data_queue_qid qid = skb_get_queue_mapping(skb);
+-	struct rt2x00_intf *intf = vif_to_intf(tx_info->control.vif);
+ 	struct data_queue *queue;
+ 	u16 frame_control;
+ 
+@@ -152,18 +152,6 @@ int rt2x00mac_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	/*
+-	 * XXX: This is as wrong as the old mac80211 code was,
+-	 *	due to beacons not getting sequence numbers assigned
+-	 *	properly.
+-	 */
+-	if (tx_info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
+-		if (tx_info->flags & IEEE80211_TX_CTL_FIRST_FRAGMENT)
+-			intf->seqno += 0x10;
+-		ieee80211hdr->seq_ctrl &= cpu_to_le16(IEEE80211_SCTL_FRAG);
+-		ieee80211hdr->seq_ctrl |= cpu_to_le16(intf->seqno);
+-	}
+-
+ 	if (rt2x00queue_write_tx_frame(queue, skb)) {
+ 		ieee80211_stop_queue(rt2x00dev->hw, qid);
+ 		return NETDEV_TX_BUSY;
+@@ -322,6 +310,7 @@ EXPORT_SYMBOL_GPL(rt2x00mac_remove_interface);
+ int rt2x00mac_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ {
+ 	struct rt2x00_dev *rt2x00dev = hw->priv;
++	int force_reconfig;
+ 
+ 	/*
+ 	 * Mac80211 might be calling this function while we are trying
+@@ -341,7 +330,17 @@ int rt2x00mac_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
+ 			rt2x00lib_toggle_rx(rt2x00dev, STATE_RADIO_RX_OFF);
+ 	}
+ 
+-	rt2x00lib_config(rt2x00dev, conf, 0);
++	/*
++	 * When the DEVICE_DIRTY_CONFIG flag is set, the device has recently
++	 * been started and the configuration must be forced upon the hardware.
++	 * Otherwise registers will not be intialized correctly and could
++	 * result in non-working hardware because essential registers aren't
++	 * initialized.
 +	 */
-+	if (rcv_win > (M_RCV_BUFSIZ << 10))
-+		c3cn->rcv_wup -= rcv_win - (M_RCV_BUFSIZ << 10);
++	force_reconfig =
++	    __test_and_clear_bit(DEVICE_DIRTY_CONFIG, &rt2x00dev->flags);
 +
-+	dst_confirm(c3cn->dst_cache);
++	rt2x00lib_config(rt2x00dev, conf, force_reconfig);
+ 
+ 	/*
+ 	 * Reenable RX only if the radio should be on.
+diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.c b/drivers/net/wireless/rt2x00/rt2x00queue.c
+index 7f44203..3b27f6a 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00queue.c
++++ b/drivers/net/wireless/rt2x00/rt2x00queue.c
+@@ -120,6 +120,7 @@ static void rt2x00queue_create_tx_descriptor(struct queue_entry *entry,
+ {
+ 	struct rt2x00_dev *rt2x00dev = entry->queue->rt2x00dev;
+ 	struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(entry->skb);
++	struct rt2x00_intf *intf = vif_to_intf(tx_info->control.vif);
+ 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)entry->skb->data;
+ 	struct ieee80211_rate *rate =
+ 	    ieee80211_get_tx_rate(rt2x00dev->hw, tx_info);
+@@ -200,6 +201,31 @@ static void rt2x00queue_create_tx_descriptor(struct queue_entry *entry,
+ 	}
+ 
+ 	/*
++	 * Hardware should insert sequence counter.
++	 * FIXME: We insert a software sequence counter first for
++	 * hardware that doesn't support hardware sequence counting.
++	 *
++	 * This is wrong because beacons are not getting sequence
++	 * numbers assigned properly.
++	 *
++	 * A secondary problem exists for drivers that cannot toggle
++	 * sequence counting per-frame, since those will override the
++	 * sequence counter given by mac80211.
++	 */
++	if (tx_info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
++		spin_lock(&intf->lock);
 +
-+	smp_mb();
-+	c3cn_set_state(c3cn, C3CN_STATE_ESTABLISHED);
-+}
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.h b/drivers/scsi/cxgb3i/cxgb3i_offload.h
-new file mode 100644
-index 0000000..98d5c7d
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_offload.h
-@@ -0,0 +1,242 @@
-+/*
-+ * Copyright (C) 2003-2008 Chelsio Communications.  All rights reserved.
-+ *
-+ * Written by Dimitris Michailidis (dm@chelsio.com)
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
-+ */
++		if (test_bit(ENTRY_TXD_FIRST_FRAGMENT, &txdesc->flags))
++			intf->seqno += 0x10;
++		hdr->seq_ctrl &= cpu_to_le16(IEEE80211_SCTL_FRAG);
++		hdr->seq_ctrl |= cpu_to_le16(intf->seqno);
 +
-+#ifndef _CXGB3I_OFFLOAD_H
-+#define _CXGB3I_OFFLOAD_H
++		spin_unlock(&intf->lock);
 +
-+#include <linux/skbuff.h>
-+#include <net/tcp.h>
-+
-+#include "t3cdev.h"
-+#include "cxgb3_offload.h"
-+
-+#define cxgb3i_log_error(fmt...) printk(KERN_ERR "cxgb3i: ERR! " fmt)
-+#define cxgb3i_log_warn(fmt...)	 printk(KERN_WARNING "cxgb3i: WARN! " fmt)
-+#define cxgb3i_log_info(fmt...)  printk(KERN_INFO "cxgb3i: " fmt)
-+
-+#ifdef __DEBUG_CXGB3I__
-+#define cxgb3i_log_debug(fmt, args...) \
-+        printk(KERN_ERR "cxgb3i: %s - " fmt, __func__ , ## args)
-+#else
-+#define cxgb3i_log_debug(fmt...)
-+#endif
-+
-+/*
-+ * Data structure to keep track of cxgb3 connection.
-+ */
-+struct s3_conn {
-+	struct net_device *dev;
-+	struct t3cdev *cdev;
-+	unsigned long flags;
-+	int tid;
-+	int qset;
-+	int mss_idx;
-+	struct l2t_entry *l2t;
-+	int wr_max;
-+	int wr_avail;
-+	int wr_unacked;
-+	struct sk_buff *wr_pending_head;
-+	struct sk_buff *wr_pending_tail;
-+	struct sk_buff *ctrl_skb_cache;
-+
-+	spinlock_t lock;
-+	atomic_t refcnt;
-+	volatile unsigned int state;
-+	struct sockaddr_in saddr;
-+	struct sockaddr_in daddr;
-+	struct dst_entry *dst_cache;
-+	unsigned char shutdown;
-+	struct sk_buff_head receive_queue;
-+	struct sk_buff_head write_queue;
-+	struct timer_list retry_timer;
-+	int err;
-+	rwlock_t callback_lock;
-+	void *user_data;
-+
-+	u32 rcv_nxt;		/* What we want to receive next		*/
-+	u32 copied_seq;		/* Head of yet unread data		*/
-+	u32 rcv_wup;		/* rcv_nxt on last window update sent	*/
-+	u32 snd_nxt;		/* Next sequence we send		*/
-+	u32 snd_una;		/* First byte we want an ack for	*/
-+
-+	u32 write_seq;		/* Tail(+1) of data held in send buffer */
-+};
-+
-+/* Flags in c3cn->shutdown */
-+#define C3CN_SHUTDOWN_MASK	3
-+#define C3CN_RCV_SHUTDOWN	1
-+#define C3CN_SEND_SHUTDOWN	2
-+
-+/*
-+ * connection state bitmap
-+ */
-+#define C3CN_STATE_CLOSE	0x1
-+#define C3CN_STATE_SYN_SENT	0x2
-+#define C3CN_STATE_ESTABLISHED	0x4
-+#define C3CN_STATE_CLOSING	0x8
-+#define C3CN_STATE_ABORING	0x10
-+
-+#define C3CN_STATE_MASK		0xFF
-+#define C3CN_NEED_CLOSE		0x100
-+
-+/*
-+ * Connection flags -- many to track some close related events.
-+ */
-+enum c3cn_flags {
-+	C3CN_ABORT_RPL_RCVD,	/* received one ABORT_RPL_RSS message */
-+	C3CN_ABORT_REQ_RCVD,	/* received one ABORT_REQ_RSS message */
-+	C3CN_TX_WAIT_IDLE,	/* suspend Tx until in-flight data is ACKed */
-+	C3CN_ABORT_SHUTDOWN,	/* shouldn't send more abort requests */
-+	C3CN_ABORT_RPL_PENDING,	/* expecting an abort reply */
-+	C3CN_CLOSE_CON_REQUESTED,	/* we've sent a close_conn_req */
-+	C3CN_TX_DATA_SENT,	/* already sent a TX_DATA WR */
-+
-+	C3CN_DONE,
-+};
-+
-+static inline void c3cn_set_flag(struct s3_conn *c3cn,
-+				 enum c3cn_flags flag)
-+{
-+	__set_bit(flag, &c3cn->flags);
-+}
-+
-+static inline void c3cn_reset_flag(struct s3_conn *c3cn,
-+				   enum c3cn_flags flag)
-+{
-+	__clear_bit(flag, &c3cn->flags);
-+}
-+
-+static inline int c3cn_flag(struct s3_conn *c3cn, enum c3cn_flags flag)
-+{
-+	if (c3cn == NULL)
-+		return 0;
-+	return test_bit(flag, &c3cn->flags);
-+}
-+
-+/*
-+ * Per adapter data.  Linked off of each Ethernet device port on the adapter.
-+ * Also available via the t3cdev structure since we have pointers to our port
-+ * net_device's there ...
-+ */
-+struct cxgb3i_sdev_data {
-+	struct list_head list;
-+	struct t3cdev *cdev;
-+	struct cxgb3_client *client;
-+	struct adap_ports *ports;
-+	unsigned int rx_page_size;
-+	struct sk_buff_head deferq;
-+	struct work_struct deferq_task;
-+};
-+#define NDEV2CDATA(ndev) (*(struct cxgb3i_sdev_data **)&(ndev)->ec_ptr)
-+#define CXGB3_SDEV_DATA(cdev) NDEV2CDATA((cdev)->lldev)
-+
-+static inline void c3cn_hold(struct s3_conn *c3cn)
-+{
-+	atomic_inc(&c3cn->refcnt);
-+}
-+
-+static inline void c3cn_put(struct s3_conn *c3cn)
-+{
-+	if (atomic_dec_and_test(&c3cn->refcnt))
-+		kfree(c3cn);
-+}
-+
-+void c3cn_close(struct s3_conn *);
-+static inline void c3cn_release(struct s3_conn *c3cn)
-+{
-+	c3cn_close(c3cn);
-+	c3cn_put(c3cn);
-+}
-+
-+/*
-+ * Primary API routines.
-+ */
-+
-+int cxgb3i_sdev_init(cxgb3_cpl_handler_func *);
-+void cxgb3i_sdev_add(struct t3cdev *, struct cxgb3_client *);
-+void cxgb3i_sdev_remove(struct t3cdev *);
-+
-+struct s3_conn *cxgb3i_c3cn_create(void);
-+int cxgb3i_c3cn_connect(struct s3_conn *, struct sockaddr_in *);
-+void cxgb3i_c3cn_rx_credits(struct s3_conn *, int);
-+int cxgb3i_c3cn_send_pdus(struct s3_conn *, struct sk_buff *, int);
-+
-+/*
-+ * Definitions for sk_buff state and ULP mode management.
-+ */
-+
-+struct cxgb3_skb_cb {
-+	__u8 flags;		
-+	__u8 ulp_mode;		/* ULP mode/submode of sk_buff */
-+	__u32 seq;		/* sequence number */
-+	__u32 ddigest;		/* ULP rx_data_ddp selected field */
-+	__u32 pdulen;		/* ULP rx_data_ddp selected field */
-+	__u8 ulp_data[16];	/* scratch area for ULP */
-+};
-+
-+#define CXGB3_SKB_CB(skb)	((struct cxgb3_skb_cb *)&((skb)->cb[0]))
-+
-+#define skb_ulp_mode(skb)	(CXGB3_SKB_CB(skb)->ulp_mode)
-+#define skb_ulp_ddigest(skb)	(CXGB3_SKB_CB(skb)->ddigest)
-+#define skb_ulp_pdulen(skb)	(CXGB3_SKB_CB(skb)->pdulen)
-+#define skb_ulp_data(skb)	(CXGB3_SKB_CB(skb)->ulp_data)
-+
-+enum {
-+	C3CB_FLAG_NEED_HDR = 1 << 0,	/* packet needs a TX_DATA_WR header */
-+	C3CB_FLAG_NO_APPEND = 1 << 1,	/* don't grow this skb */
-+	C3CB_FLAG_BARRIER = 1 << 2,	/* set TX_WAIT_IDLE after sending */
-+	C3CB_FLAG_COMPL = 1 << 4,	/* request WR completion */
-+};
-+
-+/*
-+ * Definitions for managing deferred CPL replies from process context.
-+ */
-+
-+typedef void (*defer_handler_t) (struct t3cdev *, struct sk_buff *);
-+
-+struct deferred_skb_cb {
-+	defer_handler_t handler;
-+	struct t3cdev *cdev;
-+};
-+
-+#define DEFERRED_SKB_CB(skb) ((struct deferred_skb_cb *)(skb)->cb)
-+
-+/*
-+ * Top-level CPL message processing used by most CPL messages that
-+ * pertain to connections.
-+ */
-+static inline void process_cpl_msg(void (*fn)(struct s3_conn *,
-+					      struct sk_buff *),
-+				   struct s3_conn *c3cn,
-+				   struct sk_buff *skb)
-+{
-+	spin_lock(&c3cn->lock);
-+	fn(c3cn, skb);
-+	spin_unlock(&c3cn->lock);
-+}
-+
-+/*
-+ * Opaque version of structure the SGE stores at skb->head of TX_DATA packets
-+ * and for which we must reserve space.
-+ */
-+struct sge_opaque_hdr {
-+	void *dev;
-+	dma_addr_t addr[MAX_SKB_FRAGS + 1];
-+};
-+
-+/* for TX: a skb must have a headroom of at least TX_HEADER_LEN bytes */
-+#define TX_HEADER_LEN \
-+		(sizeof(struct tx_data_wr) + sizeof(struct sge_opaque_hdr))
-+
-+void *cxgb3i_alloc_big_mem(unsigned int);
-+void cxgb3i_free_big_mem(void *);
-+
-+#endif /* _CXGB3_OFFLOAD_H */
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_ulp2.c b/drivers/scsi/cxgb3i/cxgb3i_ulp2.c
-new file mode 100644
-index 0000000..313bb90
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_ulp2.c
-@@ -0,0 +1,692 @@
-+/*
-+ * cxgb3i_ddp.c: Chelsio S3xx iSCSI driver.
-+ *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie@chelsio.com)
-+ */
-+
-+#include <linux/skbuff.h>
-+#include <scsi/scsi_cmnd.h>
-+#include <scsi/scsi_host.h>
-+#include <linux/crypto.h>
-+#include "../iscsi_tcp.h"
-+
-+#include "cxgb3i.h"
-+#include "cxgb3i_ulp2.h"
-+
-+#ifdef __DEBUG_CXGB3I_RX__
-+#define cxgb3i_rx_debug		cxgb3i_log_debug
-+#else
-+#define cxgb3i_rx_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB3I_TX__
-+#define cxgb3i_tx_debug		cxgb3i_log_debug
-+#else
-+#define cxgb3i_tx_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB3I_TAG__
-+#define cxgb3i_tag_debug	cxgb3i_log_debug
-+#else
-+#define cxgb3i_tag_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB3I_DDP__
-+#define cxgb3i_ddp_debug	cxgb3i_log_debug
-+#else
-+#define cxgb3i_ddp_debug(fmt...)
-+#endif
-+
-+static struct page *pad_page;
-+
-+#define ULP2_PGIDX_MAX		4
-+#define ULP2_4K_PAGE_SHIFT	12
-+#define ULP2_4K_PAGE_MASK	(~((1UL << ULP2_4K_PAGE_SHIFT) - 1))
-+static unsigned char ddp_page_order[ULP2_PGIDX_MAX];
-+static unsigned long ddp_page_size[ULP2_PGIDX_MAX];
-+static unsigned char ddp_page_shift[ULP2_PGIDX_MAX];
-+static unsigned char sw_tag_idx_bits;
-+static unsigned char sw_tag_age_bits;
-+
-+static void cxgb3i_ddp_page_init(void)
-+{
-+	int i;
-+	unsigned long n = PAGE_SIZE >> ULP2_4K_PAGE_SHIFT;
-+
-+	if (PAGE_SIZE & (~ULP2_4K_PAGE_MASK)) {
-+		cxgb3i_log_warn("PAGE_SIZE 0x%lx is not multiple of 4K, "
-+				"ddp disabled.\n", PAGE_SIZE);
-+		return;
-+	}
-+	n = __ilog2_u32(n);
-+	for (i = 0; i < ULP2_PGIDX_MAX; i++, n++) {
-+		ddp_page_order[i] = n;
-+		ddp_page_shift[i] = ULP2_4K_PAGE_SHIFT + n;
-+		ddp_page_size[i] = 1 << ddp_page_shift[i];
-+		cxgb3i_log_debug("%d, order %u, shift %u, size 0x%lx.\n", i,
-+				 ddp_page_order[i], ddp_page_shift[i],
-+				 ddp_page_size[i]);
++		__set_bit(ENTRY_TXD_GENERATE_SEQ, &txdesc->flags);
 +	}
 +
-+	sw_tag_idx_bits = (__ilog2_u32(ISCSI_ITT_MASK)) + 1;
-+	sw_tag_age_bits = (__ilog2_u32(ISCSI_AGE_MASK)) + 1;
-+}
++	/*
+ 	 * PLCP setup
+ 	 * Length calculation depends on OFDM/CCK rate.
+ 	 */
+@@ -466,9 +492,12 @@ void rt2x00queue_init_rx(struct rt2x00_dev *rt2x00dev)
+ 	if (!rt2x00dev->ops->lib->init_rxentry)
+ 		return;
+ 
+-	for (i = 0; i < queue->limit; i++)
++	for (i = 0; i < queue->limit; i++) {
++		queue->entries[i].flags = 0;
 +
-+static inline void ulp_mem_io_set_hdr(struct sk_buff *skb, unsigned int addr)
-+{
-+	struct ulp_mem_io *req = (struct ulp_mem_io *)skb->head;
-+	req->wr.wr_lo = 0;
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_BYPASS));
-+	req->cmd_lock_addr = htonl(V_ULP_MEMIO_ADDR(addr >> 5) |
-+				   V_ULPTX_CMD(ULP_MEM_WRITE));
-+	req->len = htonl(V_ULP_MEMIO_DATA_LEN(PPOD_SIZE >> 5) |
-+			 V_ULPTX_NFLITS((PPOD_SIZE >> 3) + 1));
-+}
+ 		rt2x00dev->ops->lib->init_rxentry(rt2x00dev,
+ 						  &queue->entries[i]);
++	}
+ }
+ 
+ void rt2x00queue_init_tx(struct rt2x00_dev *rt2x00dev)
+@@ -482,9 +511,12 @@ void rt2x00queue_init_tx(struct rt2x00_dev *rt2x00dev)
+ 		if (!rt2x00dev->ops->lib->init_txentry)
+ 			continue;
+ 
+-		for (i = 0; i < queue->limit; i++)
++		for (i = 0; i < queue->limit; i++) {
++			queue->entries[i].flags = 0;
 +
-+static int set_ddp_map(struct cxgb3i_adapter *snic, struct pagepod_hdr *hdr,
-+		       unsigned int idx, unsigned int npods,
-+		       struct scatterlist *sgl, unsigned int sgcnt)
-+{
-+	struct cxgb3i_ddp_info *ddp = &snic->ddp;
-+	struct scatterlist *sg = sgl;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ddp->llimit;
-+	int i;
-+
-+	for (i = 0; i < npods; i++, pm_addr += PPOD_SIZE) {
-+		struct sk_buff *skb;
-+		struct pagepod *ppod;
-+		int j, k;
-+		skb =
-+		    alloc_skb(sizeof(struct ulp_mem_io) + PPOD_SIZE,
-+			      GFP_ATOMIC);
-+		if (!skb)
-+			return -ENOMEM;
-+		skb_put(skb, sizeof(struct ulp_mem_io) + PPOD_SIZE);
-+
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		ppod =
-+		    (struct pagepod *)(skb->head + sizeof(struct ulp_mem_io));
-+		memcpy(&(ppod->hdr), hdr, sizeof(struct pagepod));
-+		for (j = 0, k = i * 4; j < 5; j++, k++) {
-+			if (k < sgcnt) {
-+				ppod->addr[j] = cpu_to_be64(sg_dma_address(sg));
-+				if (j < 4)
-+					sg = sg_next(sg);
-+			} else
-+				ppod->addr[j] = 0UL;
+ 			rt2x00dev->ops->lib->init_txentry(rt2x00dev,
+ 							  &queue->entries[i]);
 +		}
-+
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(snic->tdev, skb);
-+	}
-+	return 0;
-+}
-+
-+static int clear_ddp_map(struct cxgb3i_adapter *snic, unsigned int idx,
-+			 unsigned int npods)
+ 	}
+ }
+ 
+diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.h b/drivers/net/wireless/rt2x00/rt2x00queue.h
+index 8945945..a4a8c57 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00queue.h
++++ b/drivers/net/wireless/rt2x00/rt2x00queue.h
+@@ -199,6 +199,7 @@ struct txdone_entry_desc {
+  * @ENTRY_TXD_RTS_FRAME: This frame is a RTS frame.
+  * @ENTRY_TXD_CTS_FRAME: This frame is a CTS-to-self frame.
+  * @ENTRY_TXD_OFDM_RATE: This frame is send out with an OFDM rate.
++ * @ENTRY_TXD_GENERATE_SEQ: This frame requires sequence counter.
+  * @ENTRY_TXD_FIRST_FRAGMENT: This is the first frame.
+  * @ENTRY_TXD_MORE_FRAG: This frame is followed by another fragment.
+  * @ENTRY_TXD_REQ_TIMESTAMP: Require timestamp to be inserted.
+@@ -210,6 +211,7 @@ enum txentry_desc_flags {
+ 	ENTRY_TXD_RTS_FRAME,
+ 	ENTRY_TXD_CTS_FRAME,
+ 	ENTRY_TXD_OFDM_RATE,
++	ENTRY_TXD_GENERATE_SEQ,
+ 	ENTRY_TXD_FIRST_FRAGMENT,
+ 	ENTRY_TXD_MORE_FRAG,
+ 	ENTRY_TXD_REQ_TIMESTAMP,
+diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.c b/drivers/net/wireless/rt2x00/rt2x00usb.c
+index 83862e7..933e6cc 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00usb.c
++++ b/drivers/net/wireless/rt2x00/rt2x00usb.c
+@@ -122,6 +122,38 @@ int rt2x00usb_vendor_request_buff(struct rt2x00_dev *rt2x00dev,
+ }
+ EXPORT_SYMBOL_GPL(rt2x00usb_vendor_request_buff);
+ 
++int rt2x00usb_vendor_request_large_buff(struct rt2x00_dev *rt2x00dev,
++					const u8 request, const u8 requesttype,
++					const u16 offset, void *buffer,
++					const u16 buffer_length,
++					const int timeout)
 +{
-+	struct cxgb3i_ddp_info *ddp = &snic->ddp;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ddp->llimit;
-+	int i;
++	int status = 0;
++	unsigned char *tb;
++	u16 off, len, bsize;
 +
-+	for (i = 0; i < npods; i++, pm_addr += PPOD_SIZE) {
-+		struct sk_buff *skb;
-+		skb =
-+		    alloc_skb(sizeof(struct ulp_mem_io) + PPOD_SIZE,
-+			      GFP_ATOMIC);
-+		if (!skb)
-+			return -ENOMEM;
-+		skb_put(skb, sizeof(struct ulp_mem_io) + PPOD_SIZE);
-+		memset((skb->head + sizeof(struct ulp_mem_io)), 0, PPOD_SIZE);
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(snic->tdev, skb);
++	mutex_lock(&rt2x00dev->usb_cache_mutex);
++
++	tb  = buffer;
++	off = offset;
++	len = buffer_length;
++	while (len && !status) {
++		bsize = min_t(u16, CSR_CACHE_SIZE, len);
++		status = rt2x00usb_vendor_req_buff_lock(rt2x00dev, request,
++							requesttype, off, tb,
++							bsize, timeout);
++
++		tb  += bsize;
++		len -= bsize;
++		off += bsize;
 +	}
-+	return 0;
++
++	mutex_unlock(&rt2x00dev->usb_cache_mutex);
++
++	return status;
 +}
++EXPORT_SYMBOL_GPL(rt2x00usb_vendor_request_large_buff);
 +
-+static int cxgb3i_ddp_sgl_check(struct scatterlist *sgl, unsigned int sgcnt)
-+{
-+	struct scatterlist *sg;
-+	int i;
+ /*
+  * TX data handlers.
+  */
+diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.h b/drivers/net/wireless/rt2x00/rt2x00usb.h
+index aad794a..ee3875f 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00usb.h
++++ b/drivers/net/wireless/rt2x00/rt2x00usb.h
+@@ -70,8 +70,7 @@
+ /*
+  * Cache size
+  */
+-#define CSR_CACHE_SIZE			8
+-#define CSR_CACHE_SIZE_FIRMWARE		64
++#define CSR_CACHE_SIZE			64
+ 
+ /*
+  * USB request types.
+@@ -172,6 +171,25 @@ int rt2x00usb_vendor_req_buff_lock(struct rt2x00_dev *rt2x00dev,
+ 				   const u16 buffer_length, const int timeout);
+ 
+ /**
++ * rt2x00usb_vendor_request_large_buff - Send register command to device (buffered)
++ * @rt2x00dev: Pointer to &struct rt2x00_dev
++ * @request: USB vendor command (See &enum rt2x00usb_vendor_request)
++ * @requesttype: Request type &USB_VENDOR_REQUEST_*
++ * @offset: Register start offset to perform action on
++ * @buffer: Buffer where information will be read/written to by device
++ * @buffer_length: Size of &buffer
++ * @timeout: Operation timeout
++ *
++ * This function is used to transfer register data in blocks larger
++ * then CSR_CACHE_SIZE. Use for firmware upload, keys and beacons.
++ */
++int rt2x00usb_vendor_request_large_buff(struct rt2x00_dev *rt2x00dev,
++					const u8 request, const u8 requesttype,
++					const u16 offset, void *buffer,
++					const u16 buffer_length,
++					const int timeout);
 +
-+	/* make sure the sgl is fit for ddp:
-+	 *      each has the same page size, and
-+	 *      first & last page do not need to be used completely, and
-+	 *      the rest of page must be used completely
++/**
+  * rt2x00usb_vendor_request_sw - Send single register command to device
+  * @rt2x00dev: Pointer to &struct rt2x00_dev
+  * @request: USB vendor command (See &enum rt2x00usb_vendor_request)
+diff --git a/drivers/net/wireless/rt2x00/rt61pci.c b/drivers/net/wireless/rt2x00/rt61pci.c
+index f7c1f92..fbe2a65 100644
+--- a/drivers/net/wireless/rt2x00/rt61pci.c
++++ b/drivers/net/wireless/rt2x00/rt61pci.c
+@@ -1544,7 +1544,8 @@ static void rt61pci_write_tx_desc(struct rt2x00_dev *rt2x00dev,
+ 	rt2x00_set_field32(&word, TXD_W1_CWMIN, txdesc->cw_min);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMAX, txdesc->cw_max);
+ 	rt2x00_set_field32(&word, TXD_W1_IV_OFFSET, IEEE80211_HEADER);
+-	rt2x00_set_field32(&word, TXD_W1_HW_SEQUENCE, 1);
++	rt2x00_set_field32(&word, TXD_W1_HW_SEQUENCE,
++			   test_bit(ENTRY_TXD_GENERATE_SEQ, &txdesc->flags));
+ 	rt2x00_set_field32(&word, TXD_W1_BUFFER_COUNT, 1);
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+@@ -2278,7 +2279,6 @@ static void rt61pci_probe_hw_mode(struct rt2x00_dev *rt2x00dev)
+ 	 * Initialize all hw fields.
+ 	 */
+ 	rt2x00dev->hw->flags =
+-	    IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+ 	    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
+ 	    IEEE80211_HW_SIGNAL_DBM;
+ 	rt2x00dev->hw->extra_tx_headroom = 0;
+diff --git a/drivers/net/wireless/rt2x00/rt73usb.c b/drivers/net/wireless/rt2x00/rt73usb.c
+index d383735..9761eaa 100644
+--- a/drivers/net/wireless/rt2x00/rt73usb.c
++++ b/drivers/net/wireless/rt2x00/rt73usb.c
+@@ -890,9 +890,6 @@ static int rt73usb_load_firmware(struct rt2x00_dev *rt2x00dev, const void *data,
+ 	unsigned int i;
+ 	int status;
+ 	u32 reg;
+-	const char *ptr = data;
+-	char *cache;
+-	int buflen;
+ 
+ 	/*
+ 	 * Wait for stable hardware.
+@@ -911,31 +908,12 @@ static int rt73usb_load_firmware(struct rt2x00_dev *rt2x00dev, const void *data,
+ 
+ 	/*
+ 	 * Write firmware to device.
+-	 * We setup a seperate cache for this action,
+-	 * since we are going to write larger chunks of data
+-	 * then normally used cache size.
+ 	 */
+-	cache = kmalloc(CSR_CACHE_SIZE_FIRMWARE, GFP_KERNEL);
+-	if (!cache) {
+-		ERROR(rt2x00dev, "Failed to allocate firmware cache.\n");
+-		return -ENOMEM;
+-	}
+-
+-	for (i = 0; i < len; i += CSR_CACHE_SIZE_FIRMWARE) {
+-		buflen = min_t(int, len - i, CSR_CACHE_SIZE_FIRMWARE);
+-
+-		memcpy(cache, ptr, buflen);
+-
+-		rt2x00usb_vendor_request(rt2x00dev, USB_MULTI_WRITE,
+-					 USB_VENDOR_REQUEST_OUT,
+-					 FIRMWARE_IMAGE_BASE + i, 0,
+-					 cache, buflen,
+-					 REGISTER_TIMEOUT32(buflen));
+-
+-		ptr += buflen;
+-	}
+-
+-	kfree(cache);
++	rt2x00usb_vendor_request_large_buff(rt2x00dev, USB_MULTI_WRITE,
++					    USB_VENDOR_REQUEST_OUT,
++					    FIRMWARE_IMAGE_BASE,
++					    data, len,
++					    REGISTER_TIMEOUT32(len));
+ 
+ 	/*
+ 	 * Send firmware request to device to load firmware,
+@@ -1303,7 +1281,8 @@ static void rt73usb_write_tx_desc(struct rt2x00_dev *rt2x00dev,
+ 	rt2x00_set_field32(&word, TXD_W1_CWMIN, txdesc->cw_min);
+ 	rt2x00_set_field32(&word, TXD_W1_CWMAX, txdesc->cw_max);
+ 	rt2x00_set_field32(&word, TXD_W1_IV_OFFSET, IEEE80211_HEADER);
+-	rt2x00_set_field32(&word, TXD_W1_HW_SEQUENCE, 1);
++	rt2x00_set_field32(&word, TXD_W1_HW_SEQUENCE,
++			   test_bit(ENTRY_TXD_GENERATE_SEQ, &txdesc->flags));
+ 	rt2x00_desc_write(txd, 1, word);
+ 
+ 	rt2x00_desc_read(txd, 2, &word);
+@@ -1352,6 +1331,7 @@ static void rt73usb_write_beacon(struct queue_entry *entry)
+ 	struct skb_frame_desc *skbdesc = get_skb_frame_desc(entry->skb);
+ 	unsigned int beacon_base;
+ 	u32 reg;
++	u32 word, len;
+ 
+ 	/*
+ 	 * Add the descriptor in front of the skb.
+@@ -1361,6 +1341,17 @@ static void rt73usb_write_beacon(struct queue_entry *entry)
+ 	skbdesc->desc = entry->skb->data;
+ 
+ 	/*
++	 * Adjust the beacon databyte count. The current number is
++	 * calculated before this function gets called, but falsely
++	 * assumes that the descriptor was already present in the SKB.
 +	 */
-+	for_each_sg(sgl, sg, sgcnt, i) {
-+		if ((i && sg->offset) ||
-+		    ((i != sgcnt - 1) &&
-+		     (sg->length + sg->offset) != PAGE_SIZE))
++	rt2x00_desc_read(skbdesc->desc, 0, &word);
++	len  = rt2x00_get_field32(word, TXD_W0_DATABYTE_COUNT);
++	len += skbdesc->desc_len;
++	rt2x00_set_field32(&word, TXD_W0_DATABYTE_COUNT, len);
++	rt2x00_desc_write(skbdesc->desc, 0, word);
++
++	/*
+ 	 * Disable beaconing while we are reloading the beacon data,
+ 	 * otherwise we might be sending out invalid data.
+ 	 */
+@@ -1374,10 +1365,10 @@ static void rt73usb_write_beacon(struct queue_entry *entry)
+ 	 * Write entire beacon with descriptor to register.
+ 	 */
+ 	beacon_base = HW_BEACON_OFFSET(entry->entry_idx);
+-	rt2x00usb_vendor_request(rt2x00dev, USB_MULTI_WRITE,
+-				 USB_VENDOR_REQUEST_OUT, beacon_base, 0,
+-				 entry->skb->data, entry->skb->len,
+-				 REGISTER_TIMEOUT32(entry->skb->len));
++	rt2x00usb_vendor_request_large_buff(rt2x00dev, USB_MULTI_WRITE,
++					    USB_VENDOR_REQUEST_OUT, beacon_base,
++					    entry->skb->data, entry->skb->len,
++					    REGISTER_TIMEOUT32(entry->skb->len));
+ 
+ 	/*
+ 	 * Clean up the beacon skb.
+@@ -1871,7 +1862,6 @@ static void rt73usb_probe_hw_mode(struct rt2x00_dev *rt2x00dev)
+ 	 * Initialize all hw fields.
+ 	 */
+ 	rt2x00dev->hw->flags =
+-	    IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+ 	    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
+ 	    IEEE80211_HW_SIGNAL_DBM;
+ 	rt2x00dev->hw->extra_tx_headroom = TXD_DESC_SIZE;
+diff --git a/drivers/net/wireless/rtl8187.h b/drivers/net/wireless/rtl8187.h
+index 3afb49f..1b0d750 100644
+--- a/drivers/net/wireless/rtl8187.h
++++ b/drivers/net/wireless/rtl8187.h
+@@ -47,11 +47,13 @@ struct rtl8187_rx_hdr {
+ struct rtl8187b_rx_hdr {
+ 	__le32 flags;
+ 	__le64 mac_time;
+-	u8 noise;
+-	u8 signal;
++	u8 sq;
++	u8 rssi;
+ 	u8 agc;
+-	u8 reserved;
+-	__le32 unused;
++	u8 flags2;
++	__le16 snr_long2end;
++	s8 pwdb_g12;
++	u8 fot;
+ } __attribute__((packed));
+ 
+ /* {rtl8187,rtl8187b}_tx_info is in skb */
+@@ -100,6 +102,7 @@ struct rtl8187_priv {
+ 	struct usb_device *udev;
+ 	u32 rx_conf;
+ 	u16 txpwr_base;
++	u16 seqno;
+ 	u8 asic_rev;
+ 	u8 is_rtl8187b;
+ 	enum {
+diff --git a/drivers/net/wireless/rtl8187_dev.c b/drivers/net/wireless/rtl8187_dev.c
+index d3067b1..177988e 100644
+--- a/drivers/net/wireless/rtl8187_dev.c
++++ b/drivers/net/wireless/rtl8187_dev.c
+@@ -169,6 +169,7 @@ static int rtl8187_tx(struct ieee80211_hw *dev, struct sk_buff *skb)
+ {
+ 	struct rtl8187_priv *priv = dev->priv;
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
++	struct ieee80211_hdr *ieee80211hdr = (struct ieee80211_hdr *)skb->data;
+ 	unsigned int ep;
+ 	void *buf;
+ 	struct urb *urb;
+@@ -234,6 +235,20 @@ static int rtl8187_tx(struct ieee80211_hw *dev, struct sk_buff *skb)
+ 			ep = epmap[skb_get_queue_mapping(skb)];
+ 	}
+ 
++	/* FIXME: The sequence that follows is needed for this driver to
++	 * work with mac80211 since "mac80211: fix TX sequence numbers".
++	 * As with the temporary code in rt2x00, changes will be needed
++	 * to get proper sequence numbers on beacons. In addition, this
++	 * patch places the sequence number in the hardware state, which
++	 * limits us to a single virtual state.
++	 */
++	if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
++		if (info->flags & IEEE80211_TX_CTL_FIRST_FRAGMENT)
++			priv->seqno += 0x10;
++		ieee80211hdr->seq_ctrl &= cpu_to_le16(IEEE80211_SCTL_FRAG);
++		ieee80211hdr->seq_ctrl |= cpu_to_le16(priv->seqno);
++	}
++
+ 	info->driver_data[0] = dev;
+ 	info->driver_data[1] = urb;
+ 
+@@ -257,6 +272,7 @@ static void rtl8187_rx_cb(struct urb *urb)
+ 	struct ieee80211_rx_status rx_status = { 0 };
+ 	int rate, signal;
+ 	u32 flags;
++	u32 quality;
+ 
+ 	spin_lock(&priv->rx_queue.lock);
+ 	if (skb->next)
+@@ -280,44 +296,57 @@ static void rtl8187_rx_cb(struct urb *urb)
+ 		flags = le32_to_cpu(hdr->flags);
+ 		signal = hdr->signal & 0x7f;
+ 		rx_status.antenna = (hdr->signal >> 7) & 1;
+-		rx_status.signal = signal;
+ 		rx_status.noise = hdr->noise;
+ 		rx_status.mactime = le64_to_cpu(hdr->mac_time);
+-		priv->signal = signal;
+ 		priv->quality = signal;
++		rx_status.qual = priv->quality;
+ 		priv->noise = hdr->noise;
++		rate = (flags >> 20) & 0xF;
++		if (rate > 3) { /* OFDM rate */
++			if (signal > 90)
++				signal = 90;
++			else if (signal < 25)
++				signal = 25;
++			signal = 90 - signal;
++		} else {	/* CCK rate */
++			if (signal > 95)
++				signal = 95;
++			else if (signal < 30)
++				signal = 30;
++			signal = 95 - signal;
++		}
++		rx_status.signal = signal;
++		priv->signal = signal;
+ 	} else {
+ 		struct rtl8187b_rx_hdr *hdr =
+ 			(typeof(hdr))(skb_tail_pointer(skb) - sizeof(*hdr));
++		/* The Realtek datasheet for the RTL8187B shows that the RX
++		 * header contains the following quantities: signal quality,
++		 * RSSI, AGC, the received power in dB, and the measured SNR.
++		 * In testing, none of these quantities show qualitative
++		 * agreement with AP signal strength, except for the AGC,
++		 * which is inversely proportional to the strength of the
++		 * signal. In the following, the quality and signal strength
++		 * are derived from the AGC. The arbitrary scaling constants
++		 * are chosen to make the results close to the values obtained
++		 * for a BCM4312 using b43 as the driver. The noise is ignored
++		 * for now.
++		 */
+ 		flags = le32_to_cpu(hdr->flags);
+-		signal = hdr->agc >> 1;
+-		rx_status.antenna = (hdr->signal >> 7) & 1;
+-		rx_status.signal = 64 - min(hdr->noise, (u8)64);
+-		rx_status.noise = hdr->noise;
++		quality = 170 - hdr->agc;
++		if (quality > 100)
++			quality = 100;
++		signal = 14 - hdr->agc / 2;
++		rx_status.qual = quality;
++		priv->quality = quality;
++		rx_status.signal = signal;
++		priv->signal = signal;
++		rx_status.antenna = (hdr->rssi >> 7) & 1;
+ 		rx_status.mactime = le64_to_cpu(hdr->mac_time);
+-		priv->signal = hdr->signal;
+-		priv->quality = hdr->agc >> 1;
+-		priv->noise = hdr->noise;
++		rate = (flags >> 20) & 0xF;
+ 	}
+ 
+ 	skb_trim(skb, flags & 0x0FFF);
+-	rate = (flags >> 20) & 0xF;
+-	if (rate > 3) {	/* OFDM rate */
+-		if (signal > 90)
+-			signal = 90;
+-		else if (signal < 25)
+-			signal = 25;
+-		signal = 90 - signal;
+-	} else {	/* CCK rate */
+-		if (signal > 95)
+-			signal = 95;
+-		else if (signal < 30)
+-			signal = 30;
+-		signal = 95 - signal;
+-	}
+-
+-	rx_status.qual = priv->quality;
+-	rx_status.signal = signal;
+ 	rx_status.rate_idx = rate;
+ 	rx_status.freq = dev->conf.channel->center_freq;
+ 	rx_status.band = dev->conf.channel->band;
+@@ -1015,9 +1044,7 @@ static int __devinit rtl8187_probe(struct usb_interface *intf,
+ 
+ 	priv->mode = IEEE80211_IF_TYPE_MNTR;
+ 	dev->flags = IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
+-		     IEEE80211_HW_RX_INCLUDES_FCS |
+-		     IEEE80211_HW_SIGNAL_UNSPEC;
+-	dev->max_signal = 65;
++		     IEEE80211_HW_RX_INCLUDES_FCS;
+ 
+ 	eeprom.data = dev;
+ 	eeprom.register_read = rtl8187_eeprom_register_read;
+@@ -1132,10 +1159,16 @@ static int __devinit rtl8187_probe(struct usb_interface *intf,
+ 		(*channel++).hw_value = txpwr >> 8;
+ 	}
+ 
+-	if (priv->is_rtl8187b)
++	if (priv->is_rtl8187b) {
+ 		printk(KERN_WARNING "rtl8187: 8187B chip detected. Support "
+ 			"is EXPERIMENTAL, and could damage your\n"
+ 			"         hardware, use at your own risk\n");
++		dev->flags |= IEEE80211_HW_SIGNAL_DBM;
++	} else {
++		dev->flags |= IEEE80211_HW_SIGNAL_UNSPEC;
++		dev->max_signal = 65;
++	}
++
+ 	if ((id->driver_info == DEVICE_RTL8187) && priv->is_rtl8187b)
+ 		printk(KERN_INFO "rtl8187: inconsistency between id with OEM"
+ 		       " info!\n");
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index fcc532b..4d7b98b 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -935,7 +935,6 @@ struct ieee80211_hw *zd_mac_alloc_hw(struct usb_interface *intf)
+ 	hw->wiphy->bands[IEEE80211_BAND_2GHZ] = &mac->band;
+ 
+ 	hw->flags = IEEE80211_HW_RX_INCLUDES_FCS |
+-		    IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE |
+ 		    IEEE80211_HW_SIGNAL_DB;
+ 
+ 	hw->max_signal = 100;
+diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
+index c5f6e54..741d1a6 100644
+--- a/include/linux/rfkill.h
++++ b/include/linux/rfkill.h
+@@ -68,7 +68,8 @@ enum rfkill_state {
+  * @user_claim_unsupported: Whether the hardware supports exclusive
+  *	RF-kill control by userspace. Set this before registering.
+  * @user_claim: Set when the switch is controlled exlusively by userspace.
+- * @mutex: Guards switch state transitions
++ * @mutex: Guards switch state transitions.  It serializes callbacks
++ *	and also protects the state.
+  * @data: Pointer to the RF button drivers private data which will be
+  *	passed along when toggling radio state.
+  * @toggle_radio(): Mandatory handler to control state of the radio.
+@@ -89,12 +90,13 @@ struct rfkill {
+ 	const char *name;
+ 	enum rfkill_type type;
+ 
+-	enum rfkill_state state;
+ 	bool user_claim_unsupported;
+ 	bool user_claim;
+ 
++	/* the mutex serializes callbacks and also protects
++	 * the state */
+ 	struct mutex mutex;
+-
++	enum rfkill_state state;
+ 	void *data;
+ 	int (*toggle_radio)(void *data, enum rfkill_state state);
+ 	int (*get_state)(void *data, enum rfkill_state *state);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7ea44f6..a640385 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -316,7 +316,10 @@ struct sk_buff {
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	__u8			ndisc_nodetype:2;
+ #endif
+-	/* 14 bit hole */
++#if defined(CONFIG_MAC80211) || defined(CONFIG_MAC80211_MODULE)
++	__u8			do_not_encrypt:1;
++#endif
++	/* 0/13/14 bit hole */
+ 
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 4dd3d93..b527210 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -206,8 +206,6 @@ struct ieee80211_bss_conf {
+  * These flags are used with the @flags member of &ieee80211_tx_info.
+  *
+  * @IEEE80211_TX_CTL_REQ_TX_STATUS: request TX status callback for this frame.
+- * @IEEE80211_TX_CTL_DO_NOT_ENCRYPT: send this frame without encryption;
+- *	e.g., for EAPOL frame
+  * @IEEE80211_TX_CTL_USE_RTS_CTS: use RTS-CTS before sending frame
+  * @IEEE80211_TX_CTL_USE_CTS_PROTECT: use CTS protection for the frame (e.g.,
+  *	for combined 802.11g / 802.11b networks)
+@@ -220,7 +218,6 @@ struct ieee80211_bss_conf {
+  * @IEEE80211_TX_CTL_SHORT_PREAMBLE: TBD
+  * @IEEE80211_TX_CTL_LONG_RETRY_LIMIT: this frame should be send using the
+  *	through set_retry_limit configured long retry value
+- * @IEEE80211_TX_CTL_EAPOL_FRAME: internal to mac80211
+  * @IEEE80211_TX_CTL_SEND_AFTER_DTIM: send this frame after DTIM beacon
+  * @IEEE80211_TX_CTL_AMPDU: this frame should be sent as part of an A-MPDU
+  * @IEEE80211_TX_CTL_OFDM_HT: this frame can be sent in HT OFDM rates. number
+@@ -253,7 +250,6 @@ struct ieee80211_bss_conf {
+  */
+ enum mac80211_tx_control_flags {
+ 	IEEE80211_TX_CTL_REQ_TX_STATUS		= BIT(0),
+-	IEEE80211_TX_CTL_DO_NOT_ENCRYPT		= BIT(1),
+ 	IEEE80211_TX_CTL_USE_RTS_CTS		= BIT(2),
+ 	IEEE80211_TX_CTL_USE_CTS_PROTECT	= BIT(3),
+ 	IEEE80211_TX_CTL_NO_ACK			= BIT(4),
+@@ -263,7 +259,6 @@ enum mac80211_tx_control_flags {
+ 	IEEE80211_TX_CTL_FIRST_FRAGMENT		= BIT(8),
+ 	IEEE80211_TX_CTL_SHORT_PREAMBLE		= BIT(9),
+ 	IEEE80211_TX_CTL_LONG_RETRY_LIMIT	= BIT(10),
+-	IEEE80211_TX_CTL_EAPOL_FRAME		= BIT(11),
+ 	IEEE80211_TX_CTL_SEND_AFTER_DTIM	= BIT(12),
+ 	IEEE80211_TX_CTL_AMPDU			= BIT(13),
+ 	IEEE80211_TX_CTL_OFDM_HT		= BIT(14),
+@@ -323,7 +318,6 @@ struct ieee80211_tx_info {
+ 			struct ieee80211_vif *vif;
+ 			struct ieee80211_key_conf *hw_key;
+ 			unsigned long jiffies;
+-			int ifindex;
+ 			u16 aid;
+ 			s8 rts_cts_rate_idx, alt_retry_rate_idx;
+ 			u8 retry_limit;
+@@ -746,7 +740,6 @@ enum ieee80211_tkip_key_type {
+  * 	Measurement, Channel Switch, Quieting, TPC
+  */
+ enum ieee80211_hw_flags {
+-	IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE		= 1<<0,
+ 	IEEE80211_HW_RX_INCLUDES_FCS			= 1<<1,
+ 	IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING	= 1<<2,
+ 	IEEE80211_HW_2GHZ_SHORT_SLOT_INCAPABLE		= 1<<3,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4e0c922..8464017 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -485,6 +485,9 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ 	C(head);
+ 	C(data);
+ 	C(truesize);
++#if defined(CONFIG_MAC80211) || defined(CONFIG_MAC80211_MODULE)
++	C(do_not_encrypt);
++#endif
+ 	atomic_set(&n->users, 1);
+ 
+ 	atomic_inc(&(skb_shinfo(skb)->dataref));
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 8e7ba0e..297c257 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -81,6 +81,7 @@ static int ieee80211_change_iface(struct wiphy *wiphy, int ifindex,
+ 				  enum nl80211_iftype type, u32 *flags,
+ 				  struct vif_params *params)
+ {
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct net_device *dev;
+ 	enum ieee80211_if_types itype;
+ 	struct ieee80211_sub_if_data *sdata;
+@@ -95,6 +96,9 @@ static int ieee80211_change_iface(struct wiphy *wiphy, int ifindex,
+ 	if (itype == IEEE80211_IF_TYPE_INVALID)
+ 		return -EINVAL;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+ 	ret = ieee80211_if_change_type(sdata, itype);
+@@ -117,12 +121,16 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+ 			     u8 key_idx, u8 *mac_addr,
+ 			     struct key_params *params)
+ {
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct ieee80211_sub_if_data *sdata;
+ 	struct sta_info *sta = NULL;
+ 	enum ieee80211_key_alg alg;
+ 	struct ieee80211_key *key;
+ 	int err;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+ 	switch (params->cipher) {
+@@ -167,10 +175,14 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
+ 			     u8 key_idx, u8 *mac_addr)
+ {
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct ieee80211_sub_if_data *sdata;
+ 	struct sta_info *sta;
+ 	int ret;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+ 	rcu_read_lock();
+@@ -211,7 +223,8 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
+ 			     void (*callback)(void *cookie,
+ 					      struct key_params *params))
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct sta_info *sta = NULL;
+ 	u8 seq[6] = {0};
+ 	struct key_params params;
+@@ -220,6 +233,11 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
+ 	u16 iv16;
+ 	int err = -ENOENT;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	rcu_read_lock();
+ 
+ 	if (mac_addr) {
+@@ -293,8 +311,12 @@ static int ieee80211_config_default_key(struct wiphy *wiphy,
+ 					struct net_device *dev,
+ 					u8 key_idx)
+ {
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct ieee80211_sub_if_data *sdata;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	rcu_read_lock();
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+@@ -475,9 +497,15 @@ static int ieee80211_config_beacon(struct ieee80211_sub_if_data *sdata,
+ static int ieee80211_add_beacon(struct wiphy *wiphy, struct net_device *dev,
+ 				struct beacon_parameters *params)
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct beacon_data *old;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_AP)
+ 		return -EINVAL;
+ 
+@@ -492,9 +520,15 @@ static int ieee80211_add_beacon(struct wiphy *wiphy, struct net_device *dev,
+ static int ieee80211_set_beacon(struct wiphy *wiphy, struct net_device *dev,
+ 				struct beacon_parameters *params)
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct beacon_data *old;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_AP)
+ 		return -EINVAL;
+ 
+@@ -508,9 +542,15 @@ static int ieee80211_set_beacon(struct wiphy *wiphy, struct net_device *dev,
+ 
+ static int ieee80211_del_beacon(struct wiphy *wiphy, struct net_device *dev)
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct beacon_data *old;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_AP)
+ 		return -EINVAL;
+ 
+@@ -646,11 +686,14 @@ static void sta_apply_parameters(struct ieee80211_local *local,
+ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
+ 				 u8 *mac, struct station_parameters *params)
+ {
+-	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct sta_info *sta;
+ 	struct ieee80211_sub_if_data *sdata;
+ 	int err;
+ 
++	if (dev == local->mdev || params->vlan == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	/* Prevent a race with changing the rate control algorithm */
+ 	if (!netif_running(dev))
+ 		return -ENETDOWN;
+@@ -701,10 +744,15 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
+ static int ieee80211_del_station(struct wiphy *wiphy, struct net_device *dev,
+ 				 u8 *mac)
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	struct ieee80211_local *local = sdata->local;
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct sta_info *sta;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (mac) {
+ 		rcu_read_lock();
+ 
+@@ -730,10 +778,13 @@ static int ieee80211_change_station(struct wiphy *wiphy,
+ 				    u8 *mac,
+ 				    struct station_parameters *params)
+ {
+-	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	struct sta_info *sta;
+ 	struct ieee80211_sub_if_data *vlansdata;
+ 
++	if (dev == local->mdev || params->vlan == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	rcu_read_lock();
+ 
+ 	/* XXX: get sta belonging to dev */
+@@ -752,7 +803,7 @@ static int ieee80211_change_station(struct wiphy *wiphy,
+ 			return -EINVAL;
+ 		}
+ 
+-		sta->sdata = IEEE80211_DEV_TO_SUB_IF(params->vlan);
++		sta->sdata = vlansdata;
+ 		ieee80211_send_layer2_update(sta);
+ 	}
+ 
+@@ -767,15 +818,20 @@ static int ieee80211_change_station(struct wiphy *wiphy,
+ static int ieee80211_add_mpath(struct wiphy *wiphy, struct net_device *dev,
+ 				 u8 *dst, u8 *next_hop)
+ {
+-	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct mesh_path *mpath;
+ 	struct sta_info *sta;
+ 	int err;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	if (!netif_running(dev))
+ 		return -ENETDOWN;
+ 
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_MESH_POINT)
+ 		return -ENOTSUPP;
+ 
+@@ -817,14 +873,19 @@ static int ieee80211_change_mpath(struct wiphy *wiphy,
+ 				    struct net_device *dev,
+ 				    u8 *dst, u8 *next_hop)
+ {
+-	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct mesh_path *mpath;
+ 	struct sta_info *sta;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
+ 	if (!netif_running(dev))
+ 		return -ENETDOWN;
+ 
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_MESH_POINT)
+ 		return -ENOTSUPP;
+ 
+@@ -891,9 +952,15 @@ static int ieee80211_get_mpath(struct wiphy *wiphy, struct net_device *dev,
+ 			       u8 *dst, u8 *next_hop, struct mpath_info *pinfo)
+ 
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct mesh_path *mpath;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_MESH_POINT)
+ 		return -ENOTSUPP;
+ 
+@@ -913,9 +980,15 @@ static int ieee80211_dump_mpath(struct wiphy *wiphy, struct net_device *dev,
+ 				 int idx, u8 *dst, u8 *next_hop,
+ 				 struct mpath_info *pinfo)
+ {
+-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_local *local = wiphy_priv(wiphy);
++	struct ieee80211_sub_if_data *sdata;
+ 	struct mesh_path *mpath;
+ 
++	if (dev == local->mdev)
++		return -EOPNOTSUPP;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
+ 	if (sdata->vif.type != IEEE80211_IF_TYPE_MESH_POINT)
+ 		return -ENOTSUPP;
+ 
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index f1a83d4..a4c5b90 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -1233,18 +1233,12 @@ static void ieee80211_tasklet_handler(unsigned long data)
+ /* Remove added headers (e.g., QoS control), encryption header/MIC, etc. to
+  * make a prepared TX frame (one that has been given to hw) to look like brand
+  * new IEEE 802.11 frame that is ready to go through TX processing again.
+- * Also, tx_packet_data in cb is restored from tx_control. */
++ */
+ static void ieee80211_remove_tx_extra(struct ieee80211_local *local,
+ 				      struct ieee80211_key *key,
+ 				      struct sk_buff *skb)
+ {
+ 	int hdrlen, iv_len, mic_len;
+-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+-
+-	info->flags &=	IEEE80211_TX_CTL_REQ_TX_STATUS |
+-			IEEE80211_TX_CTL_DO_NOT_ENCRYPT |
+-			IEEE80211_TX_CTL_REQUEUE |
+-			IEEE80211_TX_CTL_EAPOL_FRAME;
+ 
+ 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+ 
+@@ -1731,8 +1725,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
+ 	result = ieee80211_wep_init(local);
+ 
+ 	if (result < 0) {
+-		printk(KERN_DEBUG "%s: Failed to initialize wep\n",
+-		       wiphy_name(local->hw.wiphy));
++		printk(KERN_DEBUG "%s: Failed to initialize wep: %d\n",
++		       wiphy_name(local->hw.wiphy), result);
+ 		goto fail_wep;
+ 	}
+ 
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index d7c371e..acb0413 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -606,7 +606,6 @@ void ieee80211_sta_tx(struct net_device *dev, struct sk_buff *skb,
+ 		      int encrypt)
+ {
+ 	struct ieee80211_sub_if_data *sdata;
+-	struct ieee80211_tx_info *info;
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 	skb->dev = sdata->local->mdev;
+@@ -614,11 +613,8 @@ void ieee80211_sta_tx(struct net_device *dev, struct sk_buff *skb,
+ 	skb_set_network_header(skb, 0);
+ 	skb_set_transport_header(skb, 0);
+ 
+-	info = IEEE80211_SKB_CB(skb);
+-	memset(info, 0, sizeof(struct ieee80211_tx_info));
+-	info->control.ifindex = sdata->dev->ifindex;
+-	if (!encrypt)
+-		info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
++	skb->iif = sdata->dev->ifindex;
++	skb->do_not_encrypt = !encrypt;
+ 
+ 	dev_queue_xmit(skb);
+ }
+@@ -3303,6 +3299,7 @@ void ieee80211_start_mesh(struct net_device *dev)
+ 	ifsta = &sdata->u.sta;
+ 	ifsta->state = IEEE80211_MESH_UP;
+ 	ieee80211_sta_timer((unsigned long)sdata);
++	ieee80211_if_config(sdata, IEEE80211_IFCC_BEACON);
+ }
+ #endif
+ 
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 0fbadd8..69019e9 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -305,7 +305,7 @@ static void purge_old_ps_buffers(struct ieee80211_local *local)
+ 	rcu_read_unlock();
+ 
+ 	local->total_ps_buffered = total;
+-#ifdef MAC80211_VERBOSE_PS_DEBUG
++#ifdef CONFIG_MAC80211_VERBOSE_PS_DEBUG
+ 	printk(KERN_DEBUG "%s: PS buffers full - purged %d frames\n",
+ 	       wiphy_name(local->hw.wiphy), purged);
+ #endif
+@@ -342,7 +342,7 @@ ieee80211_tx_h_multicast_ps_buf(struct ieee80211_tx_data *tx)
+ 			purge_old_ps_buffers(tx->local);
+ 		if (skb_queue_len(&tx->sdata->bss->ps_bc_buf) >=
+ 		    AP_MAX_BC_BUFFER) {
+-#ifdef MAC80211_VERBOSE_PS_DEBUG
++#ifdef CONFIG_MAC80211_VERBOSE_PS_DEBUG
+ 			if (net_ratelimit()) {
+ 				printk(KERN_DEBUG "%s: BC TX buffer full - "
+ 				       "dropping the oldest frame\n",
+@@ -389,7 +389,7 @@ ieee80211_tx_h_unicast_ps_buf(struct ieee80211_tx_data *tx)
+ 			purge_old_ps_buffers(tx->local);
+ 		if (skb_queue_len(&sta->ps_tx_buf) >= STA_MAX_TX_BUFFER) {
+ 			struct sk_buff *old = skb_dequeue(&sta->ps_tx_buf);
+-#ifdef MAC80211_VERBOSE_PS_DEBUG
++#ifdef CONFIG_MAC80211_VERBOSE_PS_DEBUG
+ 			if (net_ratelimit()) {
+ 				printk(KERN_DEBUG "%s: STA %s TX "
+ 				       "buffer full - dropping oldest frame\n",
+@@ -439,14 +439,14 @@ ieee80211_tx_h_select_key(struct ieee80211_tx_data *tx)
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx->skb);
+ 	u16 fc = tx->fc;
+ 
+-	if (unlikely(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT))
++	if (unlikely(tx->skb->do_not_encrypt))
+ 		tx->key = NULL;
+ 	else if (tx->sta && (key = rcu_dereference(tx->sta->key)))
+ 		tx->key = key;
+ 	else if ((key = rcu_dereference(tx->sdata->default_key)))
+ 		tx->key = key;
+ 	else if (tx->sdata->drop_unencrypted &&
+-		 !(info->flags & IEEE80211_TX_CTL_EAPOL_FRAME) &&
++		 (tx->skb->protocol != cpu_to_be16(ETH_P_PAE)) &&
+ 		 !(info->flags & IEEE80211_TX_CTL_INJECTED)) {
+ 		I802_DEBUG_INC(tx->local->tx_handlers_drop_unencrypted);
+ 		return TX_DROP;
+@@ -476,7 +476,7 @@ ieee80211_tx_h_select_key(struct ieee80211_tx_data *tx)
+ 	}
+ 
+ 	if (!tx->key || !(tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
+-		info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
++		tx->skb->do_not_encrypt = 1;
+ 
+ 	return TX_CONTINUE;
+ }
+@@ -732,6 +732,7 @@ ieee80211_tx_h_fragment(struct ieee80211_tx_data *tx)
+ 		memcpy(skb_put(frag, copylen), pos, copylen);
+ 		memcpy(frag->cb, first->cb, sizeof(frag->cb));
+ 		skb_copy_queue_mapping(frag, first);
++		frag->do_not_encrypt = first->do_not_encrypt;
+ 
+ 		pos += copylen;
+ 		left -= copylen;
+@@ -852,7 +853,7 @@ __ieee80211_parse_tx_radiotap(struct ieee80211_tx_data *tx,
+ 
+ 	sband = tx->local->hw.wiphy->bands[tx->channel->band];
+ 
+-	info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
++	skb->do_not_encrypt = 1;
+ 	info->flags |= IEEE80211_TX_CTL_INJECTED;
+ 	tx->flags &= ~IEEE80211_TX_FRAGMENTED;
+ 
+@@ -925,8 +926,7 @@ __ieee80211_parse_tx_radiotap(struct ieee80211_tx_data *tx,
+ 				skb_trim(skb, skb->len - FCS_LEN);
+ 			}
+ 			if (*iterator.this_arg & IEEE80211_RADIOTAP_F_WEP)
+-				info->flags &=
+-					~IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
++				tx->skb->do_not_encrypt = 0;
+ 			if (*iterator.this_arg & IEEE80211_RADIOTAP_F_FRAG)
+ 				tx->flags |= IEEE80211_TX_FRAGMENTED;
+ 			break;
+@@ -1042,10 +1042,9 @@ static int ieee80211_tx_prepare(struct ieee80211_tx_data *tx,
+ 				struct sk_buff *skb,
+ 				struct net_device *mdev)
+ {
+-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 	struct net_device *dev;
+ 
+-	dev = dev_get_by_index(&init_net, info->control.ifindex);
++	dev = dev_get_by_index(&init_net, skb->iif);
+ 	if (unlikely(dev && !is_ieee80211_device(dev, mdev))) {
+ 		dev_put(dev);
+ 		dev = NULL;
+@@ -1306,8 +1305,8 @@ int ieee80211_master_start_xmit(struct sk_buff *skb,
+ 	bool may_encrypt;
+ 	int ret;
+ 
+-	if (info->control.ifindex)
+-		odev = dev_get_by_index(&init_net, info->control.ifindex);
++	if (skb->iif)
++		odev = dev_get_by_index(&init_net, skb->iif);
+ 	if (unlikely(odev && !is_ieee80211_device(odev, dev))) {
+ 		dev_put(odev);
+ 		odev = NULL;
+@@ -1321,9 +1320,13 @@ int ieee80211_master_start_xmit(struct sk_buff *skb,
+ 		return 0;
+ 	}
+ 
++	memset(info, 0, sizeof(*info));
++
++	info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
++
+ 	osdata = IEEE80211_DEV_TO_SUB_IF(odev);
+ 
+-	may_encrypt = !(info->flags & IEEE80211_TX_CTL_DO_NOT_ENCRYPT);
++	may_encrypt = !skb->do_not_encrypt;
+ 
+ 	headroom = osdata->local->tx_headroom;
+ 	if (may_encrypt)
+@@ -1348,7 +1351,6 @@ int ieee80211_monitor_start_xmit(struct sk_buff *skb,
+ 				 struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 	struct ieee80211_radiotap_header *prthdr =
+ 		(struct ieee80211_radiotap_header *)skb->data;
+ 	u16 len_rthdr;
+@@ -1371,11 +1373,11 @@ int ieee80211_monitor_start_xmit(struct sk_buff *skb,
+ 	skb->dev = local->mdev;
+ 
+ 	/* needed because we set skb device to master */
+-	info->control.ifindex = dev->ifindex;
++	skb->iif = dev->ifindex;
+ 
+-	info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
+-	/* Interfaces should always request a status report */
+-	info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
++	/* sometimes we do encrypt injected frames, will be fixed
++	 * up in radiotap parser if not wanted */
++	skb->do_not_encrypt = 0;
+ 
+ 	/*
+ 	 * fix up the pointers accounting for the radiotap
+@@ -1419,7 +1421,6 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 			       struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+-	struct ieee80211_tx_info *info;
+ 	struct ieee80211_sub_if_data *sdata;
+ 	int ret = 1, head_need;
+ 	u16 ethertype, hdrlen,  meshhdrlen = 0;
+@@ -1645,14 +1646,7 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	nh_pos += hdrlen;
+ 	h_pos += hdrlen;
+ 
+-	info = IEEE80211_SKB_CB(skb);
+-	memset(info, 0, sizeof(*info));
+-	info->control.ifindex = dev->ifindex;
+-	if (ethertype == ETH_P_PAE)
+-		info->flags |= IEEE80211_TX_CTL_EAPOL_FRAME;
+-
+-	/* Interfaces should always request a status report */
+-	info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
++	skb->iif = dev->ifindex;
+ 
+ 	skb->dev = local->mdev;
+ 	dev->stats.tx_packets++;
+@@ -1922,6 +1916,8 @@ struct sk_buff *ieee80211_beacon_get(struct ieee80211_hw *hw,
+ 
+ 	info = IEEE80211_SKB_CB(skb);
+ 
++	skb->do_not_encrypt = 1;
++
+ 	info->band = band;
+ 	rate_control_get_rate(local->mdev, sband, skb, &rsel);
+ 
+@@ -1931,7 +1927,7 @@ struct sk_buff *ieee80211_beacon_get(struct ieee80211_hw *hw,
+ 			       "no rate found\n",
+ 			       wiphy_name(local->hw.wiphy));
+ 		}
+-		dev_kfree_skb(skb);
++		dev_kfree_skb_any(skb);
+ 		skb = NULL;
+ 		goto out;
+ 	}
+@@ -1940,7 +1936,6 @@ struct sk_buff *ieee80211_beacon_get(struct ieee80211_hw *hw,
+ 	info->tx_rate_idx = rsel.rate_idx;
+ 
+ 	info->flags |= IEEE80211_TX_CTL_NO_ACK;
+-	info->flags |= IEEE80211_TX_CTL_DO_NOT_ENCRYPT;
+ 	info->flags |= IEEE80211_TX_CTL_CLEAR_PS_FILT;
+ 	info->flags |= IEEE80211_TX_CTL_ASSIGN_SEQ;
+ 	if (sdata->bss_conf.use_short_preamble &&
+diff --git a/net/mac80211/wep.c b/net/mac80211/wep.c
+index 872d2fc..5c2bf0a 100644
+--- a/net/mac80211/wep.c
++++ b/net/mac80211/wep.c
+@@ -31,13 +31,13 @@ int ieee80211_wep_init(struct ieee80211_local *local)
+ 	local->wep_tx_tfm = crypto_alloc_blkcipher("ecb(arc4)", 0,
+ 						CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(local->wep_tx_tfm))
+-		return -ENOMEM;
++		return PTR_ERR(local->wep_tx_tfm);
+ 
+ 	local->wep_rx_tfm = crypto_alloc_blkcipher("ecb(arc4)", 0,
+ 						CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(local->wep_rx_tfm)) {
+ 		crypto_free_blkcipher(local->wep_tx_tfm);
+-		return -ENOMEM;
++		return PTR_ERR(local->wep_rx_tfm);
+ 	}
+ 
+ 	return 0;
+diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
+index 07edda0..28437f0 100644
+--- a/net/mac80211/wme.c
++++ b/net/mac80211/wme.c
+@@ -188,6 +188,9 @@ int ieee80211_ht_agg_queue_add(struct ieee80211_local *local,
+ {
+ 	int i;
+ 
++	/* XXX: currently broken due to cb/requeue use */
++	return -EPERM;
++
+ 	/* prepare the filter and save it for the SW queue
+ 	 * matching the received HW queue */
+ 
+diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
+index 7a560b7..c6f2f38 100644
+--- a/net/rfkill/rfkill.c
++++ b/net/rfkill/rfkill.c
+@@ -130,7 +130,6 @@ static void update_rfkill_state(struct rfkill *rfkill)
+ 
+ /**
+  * rfkill_toggle_radio - wrapper for toggle_radio hook
+- *
+  * @rfkill: the rfkill struct to use
+  * @force: calls toggle_radio even if cache says it is not needed,
+  *	and also makes sure notifications of the state will be
+@@ -141,8 +140,8 @@ static void update_rfkill_state(struct rfkill *rfkill)
+  * calls and handling all the red tape such as issuing notifications
+  * if the call is successful.
+  *
+- * Note that @force cannot override a (possibly cached) state of
+- * RFKILL_STATE_HARD_BLOCKED.  Any device making use of
++ * Note that the @force parameter cannot override a (possibly cached)
++ * state of RFKILL_STATE_HARD_BLOCKED.  Any device making use of
+  * RFKILL_STATE_HARD_BLOCKED implements either get_state() or
+  * rfkill_force_state(), so the cache either is bypassed or valid.
+  *
+@@ -150,7 +149,7 @@ static void update_rfkill_state(struct rfkill *rfkill)
+  * even if the radio is in RFKILL_STATE_HARD_BLOCKED state, so as to
+  * give the driver a hint that it should double-BLOCK the transmitter.
+  *
+- * Caller must have aquired rfkill_mutex.
++ * Caller must have acquired rfkill->mutex.
+  */
+ static int rfkill_toggle_radio(struct rfkill *rfkill,
+ 				enum rfkill_state state,
+@@ -200,12 +199,12 @@ static int rfkill_toggle_radio(struct rfkill *rfkill,
+ 
+ /**
+  * rfkill_switch_all - Toggle state of all switches of given type
+- * @type: type of interfaces to be affeceted
++ * @type: type of interfaces to be affected
+  * @state: the new state
+  *
+- * This function toggles state of all switches of given type unless
+- * a specific switch is claimed by userspace in which case it is
+- * left alone.
++ * This function toggles the state of all switches of given type,
++ * unless a specific switch is claimed by userspace (in which case,
++ * that switch is left alone).
+  */
+ void rfkill_switch_all(enum rfkill_type type, enum rfkill_state state)
+ {
+@@ -216,8 +215,11 @@ void rfkill_switch_all(enum rfkill_type type, enum rfkill_state state)
+ 	rfkill_states[type] = state;
+ 
+ 	list_for_each_entry(rfkill, &rfkill_list, node) {
+-		if ((!rfkill->user_claim) && (rfkill->type == type))
++		if ((!rfkill->user_claim) && (rfkill->type == type)) {
++			mutex_lock(&rfkill->mutex);
+ 			rfkill_toggle_radio(rfkill, state, 0);
++			mutex_unlock(&rfkill->mutex);
++		}
+ 	}
+ 
+ 	mutex_unlock(&rfkill_mutex);
+@@ -228,7 +230,7 @@ EXPORT_SYMBOL(rfkill_switch_all);
+  * rfkill_epo - emergency power off all transmitters
+  *
+  * This kicks all rfkill devices to RFKILL_STATE_SOFT_BLOCKED, ignoring
+- * everything in its path but rfkill_mutex.
++ * everything in its path but rfkill_mutex and rfkill->mutex.
+  */
+ void rfkill_epo(void)
+ {
+@@ -236,7 +238,9 @@ void rfkill_epo(void)
+ 
+ 	mutex_lock(&rfkill_mutex);
+ 	list_for_each_entry(rfkill, &rfkill_list, node) {
++		mutex_lock(&rfkill->mutex);
+ 		rfkill_toggle_radio(rfkill, RFKILL_STATE_SOFT_BLOCKED, 1);
++		mutex_unlock(&rfkill->mutex);
+ 	}
+ 	mutex_unlock(&rfkill_mutex);
+ }
+@@ -252,7 +256,12 @@ EXPORT_SYMBOL_GPL(rfkill_epo);
+  * a notification by the firmware/hardware of the current *real*
+  * state of the radio rfkill switch.
+  *
+- * It may not be called from an atomic context.
++ * Devices which are subject to external changes on their rfkill
++ * state (such as those caused by a hardware rfkill line) MUST
++ * have their driver arrange to call rfkill_force_state() as soon
++ * as possible after such a change.
++ *
++ * This function may not be called from an atomic context.
+  */
+ int rfkill_force_state(struct rfkill *rfkill, enum rfkill_state state)
+ {
+@@ -367,6 +376,9 @@ static ssize_t rfkill_claim_store(struct device *dev,
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
++	if (rfkill->user_claim_unsupported)
++		return -EOPNOTSUPP;
++
+ 	/*
+ 	 * Take the global lock to make sure the kernel is not in
+ 	 * the middle of rfkill_switch_all
+@@ -375,19 +387,17 @@ static ssize_t rfkill_claim_store(struct device *dev,
+ 	if (error)
+ 		return error;
+ 
+-	if (rfkill->user_claim_unsupported) {
+-		error = -EOPNOTSUPP;
+-		goto out_unlock;
+-	}
+ 	if (rfkill->user_claim != claim) {
+-		if (!claim)
++		if (!claim) {
++			mutex_lock(&rfkill->mutex);
+ 			rfkill_toggle_radio(rfkill,
+ 					    rfkill_states[rfkill->type],
+ 					    0);
++			mutex_unlock(&rfkill->mutex);
++		}
+ 		rfkill->user_claim = claim;
+ 	}
+ 
+-out_unlock:
+ 	mutex_unlock(&rfkill_mutex);
+ 
+ 	return error ? error : count;
+@@ -516,8 +526,11 @@ static void rfkill_remove_switch(struct rfkill *rfkill)
+ {
+ 	mutex_lock(&rfkill_mutex);
+ 	list_del_init(&rfkill->node);
+-	rfkill_toggle_radio(rfkill, RFKILL_STATE_SOFT_BLOCKED, 1);
+ 	mutex_unlock(&rfkill_mutex);
++
++	mutex_lock(&rfkill->mutex);
++	rfkill_toggle_radio(rfkill, RFKILL_STATE_SOFT_BLOCKED, 1);
++	mutex_unlock(&rfkill->mutex);
+ }
+ 
+ /**
+@@ -526,9 +539,10 @@ static void rfkill_remove_switch(struct rfkill *rfkill)
+  * @type: type of the switch (RFKILL_TYPE_*)
+  *
+  * This function should be called by the network driver when it needs
+- * rfkill structure. Once the structure is allocated the driver shoud
+- * finish its initialization by setting name, private data, enable_radio
++ * rfkill structure.  Once the structure is allocated the driver should
++ * finish its initialization by setting the name, private data, enable_radio
+  * and disable_radio methods and then register it with rfkill_register().
++ *
+  * NOTE: If registration fails the structure shoudl be freed by calling
+  * rfkill_free() otherwise rfkill_unregister() should be used.
+  */
+@@ -560,7 +574,7 @@ EXPORT_SYMBOL(rfkill_allocate);
+  * rfkill_free - Mark rfkill structure for deletion
+  * @rfkill: rfkill structure to be destroyed
+  *
+- * Decrements reference count of rfkill structure so it is destroyed.
++ * Decrements reference count of the rfkill structure so it is destroyed.
+  * Note that rfkill_free() should _not_ be called after rfkill_unregister().
+  */
+ void rfkill_free(struct rfkill *rfkill)
+@@ -585,8 +599,10 @@ static void rfkill_led_trigger_register(struct rfkill *rfkill)
+ static void rfkill_led_trigger_unregister(struct rfkill *rfkill)
+ {
+ #ifdef CONFIG_RFKILL_LEDS
+-	if (rfkill->led_trigger.name)
++	if (rfkill->led_trigger.name) {
+ 		led_trigger_unregister(&rfkill->led_trigger);
++		rfkill->led_trigger.name = NULL;
++	}
+ #endif
+ }
+ 
+@@ -622,8 +638,8 @@ int rfkill_register(struct rfkill *rfkill)
+ 
+ 	error = device_add(dev);
+ 	if (error) {
+-		rfkill_led_trigger_unregister(rfkill);
+ 		rfkill_remove_switch(rfkill);
++		rfkill_led_trigger_unregister(rfkill);
+ 		return error;
+ 	}
+ 
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index b7fefff..59eb2cf 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -29,16 +29,16 @@ static struct genl_family nl80211_fam = {
+ };
+ 
+ /* internal helper: get drv and dev */
+-static int get_drv_dev_by_info_ifindex(struct genl_info *info,
++static int get_drv_dev_by_info_ifindex(struct nlattr **attrs,
+ 				       struct cfg80211_registered_device **drv,
+ 				       struct net_device **dev)
+ {
+ 	int ifindex;
+ 
+-	if (!info->attrs[NL80211_ATTR_IFINDEX])
++	if (!attrs[NL80211_ATTR_IFINDEX])
+ 		return -EINVAL;
+ 
+-	ifindex = nla_get_u32(info->attrs[NL80211_ATTR_IFINDEX]);
++	ifindex = nla_get_u32(attrs[NL80211_ATTR_IFINDEX]);
+ 	*dev = dev_get_by_index(&init_net, ifindex);
+ 	if (!*dev)
+ 		return -ENODEV;
+@@ -291,21 +291,31 @@ static int nl80211_dump_interface(struct sk_buff *skb, struct netlink_callback *
+ 
+ 	mutex_lock(&cfg80211_drv_mutex);
+ 	list_for_each_entry(dev, &cfg80211_drv_list, list) {
+-		if (++wp_idx < wp_start)
++		if (wp_idx < wp_start) {
++			wp_idx++;
+ 			continue;
++		}
+ 		if_idx = 0;
+ 
+ 		mutex_lock(&dev->devlist_mtx);
+ 		list_for_each_entry(wdev, &dev->netdev_list, list) {
+-			if (++if_idx < if_start)
++			if (if_idx < if_start) {
++				if_idx++;
+ 				continue;
++			}
+ 			if (nl80211_send_iface(skb, NETLINK_CB(cb->skb).pid,
+ 					       cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-					       wdev->netdev) < 0)
+-				break;
++					       wdev->netdev) < 0) {
++				mutex_unlock(&dev->devlist_mtx);
++				goto out;
++			}
++			if_idx++;
+ 		}
+ 		mutex_unlock(&dev->devlist_mtx);
++
++		wp_idx++;
+ 	}
++ out:
+ 	mutex_unlock(&cfg80211_drv_mutex);
+ 
+ 	cb->args[0] = wp_idx;
+@@ -321,7 +331,7 @@ static int nl80211_get_interface(struct sk_buff *skb, struct genl_info *info)
+ 	struct net_device *netdev;
+ 	int err;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &dev, &netdev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &dev, &netdev);
+ 	if (err)
+ 		return err;
+ 
+@@ -392,7 +402,7 @@ static int nl80211_set_interface(struct sk_buff *skb, struct genl_info *info)
+ 	} else
+ 		return -EINVAL;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 	ifindex = dev->ifindex;
+@@ -477,7 +487,7 @@ static int nl80211_del_interface(struct sk_buff *skb, struct genl_info *info)
+ 	int ifindex, err;
+ 	struct net_device *dev;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 	ifindex = dev->ifindex;
+@@ -545,7 +555,7 @@ static int nl80211_get_key(struct sk_buff *skb, struct genl_info *info)
+ 	if (info->attrs[NL80211_ATTR_MAC])
+ 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -618,7 +628,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
+ 	if (!info->attrs[NL80211_ATTR_KEY_DEFAULT])
+ 		return -EINVAL;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -699,7 +709,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
+ 		return -EINVAL;
+ 	}
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -735,7 +745,7 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
+ 	if (info->attrs[NL80211_ATTR_MAC])
+ 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -764,7 +774,7 @@ static int nl80211_addset_beacon(struct sk_buff *skb, struct genl_info *info)
+ 	struct beacon_parameters params;
+ 	int haveinfo = 0;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -843,7 +853,7 @@ static int nl80211_del_beacon(struct sk_buff *skb, struct genl_info *info)
+ 	int err;
+ 	struct net_device *dev;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -937,67 +947,78 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
+ }
+ 
+ static int nl80211_dump_station(struct sk_buff *skb,
+-		struct netlink_callback *cb)
++				struct netlink_callback *cb)
+ {
+-	int wp_idx = 0;
+-	int if_idx = 0;
+-	int sta_idx = cb->args[2];
+-	int wp_start = cb->args[0];
+-	int if_start = cb->args[1];
+ 	struct station_info sinfo;
+ 	struct cfg80211_registered_device *dev;
+-	struct wireless_dev *wdev;
++	struct net_device *netdev;
+ 	u8 mac_addr[ETH_ALEN];
++	int ifidx = cb->args[0];
++	int sta_idx = cb->args[1];
+ 	int err;
+-	int exit = 0;
+ 
+-	/* TODO: filter by device */
+-	mutex_lock(&cfg80211_drv_mutex);
+-	list_for_each_entry(dev, &cfg80211_drv_list, list) {
+-		if (exit)
++	if (!ifidx) {
++		err = nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
++				  nl80211_fam.attrbuf, nl80211_fam.maxattr,
++				  nl80211_policy);
++		if (err)
++			return err;
++
++		if (!nl80211_fam.attrbuf[NL80211_ATTR_IFINDEX])
++			return -EINVAL;
++
++		ifidx = nla_get_u32(nl80211_fam.attrbuf[NL80211_ATTR_IFINDEX]);
++		if (!ifidx)
 +			return -EINVAL;
 +	}
 +
-+	return 0;
-+}
++	netdev = dev_get_by_index(&init_net, ifidx);
++	if (!netdev)
++		return -ENODEV;
 +
-+static inline int ddp_find_unused_entries(struct cxgb3i_ddp_info *ddp,
-+					  int start, int max, int count)
-+{
-+	unsigned int i, j;
-+
-+	spin_lock(&ddp->map_lock);
-+	for (i = start; i <= max;) {
-+		for (j = 0; j < count; j++) {
-+			if (ddp->map[i + j])
-+				break;
-+		}
-+		if (j == count) {
-+			memset(&ddp->map[i], 1, count);
-+			spin_unlock(&ddp->map_lock);
-+			return i;
-+		}
-+		i += j + 1;
++	dev = cfg80211_get_dev_from_ifindex(ifidx);
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		goto out_put_netdev;
 +	}
-+	spin_unlock(&ddp->map_lock);
-+	return -EBUSY;
-+}
 +
-+static inline void ddp_unmark_entries(struct cxgb3i_ddp_info *ddp,
-+				      int start, int count)
-+{
-+	spin_lock(&ddp->map_lock);
-+	memset(&ddp->map[start], 0, count);
-+	spin_unlock(&ddp->map_lock);
-+}
-+
-+u32 cxgb3i_ddp_tag_reserve(struct cxgb3i_adapter *snic, unsigned int tid,
-+			   u32 sw_tag, unsigned int xferlen,
-+			   struct scatterlist *sgl, unsigned int sgcnt)
-+{
-+	struct cxgb3i_ddp_info *ddp = &snic->ddp;
-+	struct pagepod_hdr hdr;
-+	unsigned int npods;
-+	int idx = -1, idx_max;
-+	u32 tag;
-+	int err;
-+
-+	if (!ddp || !sgcnt || xferlen < PAGE_SIZE)
-+		return RESERVED_ITT;
-+
-+	err = cxgb3i_ddp_sgl_check(sgl, sgcnt);
-+	if (err < 0)
-+		return RESERVED_ITT;
-+
-+	npods = (sgcnt + PPOD_PAGES_MAX - 1) >> PPOD_PAGES_SHIFT;
-+	idx_max = ddp->nppods - npods + 1;
-+
-+	if (ddp->idx_last == ddp->nppods)
-+		idx = ddp_find_unused_entries(ddp, 0, idx_max, npods);
-+	else {
-+		idx = ddp_find_unused_entries(ddp, ddp->idx_last + 1, idx_max,
-+					      npods);
-+		if ((idx < 0) && (ddp->idx_last >= npods))
-+			idx = ddp_find_unused_entries(ddp, 0,
-+						      ddp->idx_last - npods + 1,
-+						      npods);
++	if (!dev->ops->dump_station) {
++		err = -ENOSYS;
++		goto out_err;
 +	}
-+	if (idx < 0)
-+		return RESERVED_ITT;
 +
-+	if (pci_map_sg(snic->pdev, sgl, sgcnt, PCI_DMA_FROMDEVICE) <= 0)
-+		goto unmark_entries;
++	rtnl_lock();
 +
-+	tag = sw_tag | (idx << snic->tag_format.rsvd_shift);
++	while (1) {
++		err = dev->ops->dump_station(&dev->wiphy, netdev, sta_idx,
++					     mac_addr, &sinfo);
++		if (err == -ENOENT)
+ 			break;
+-		if (++wp_idx < wp_start)
+-			continue;
+-		if_idx = 0;
++		if (err)
++			goto out_err_rtnl;
+ 
+-		mutex_lock(&dev->devlist_mtx);
+-		list_for_each_entry(wdev, &dev->netdev_list, list) {
+-			if (exit)
+-				break;
+-			if (++if_idx < if_start)
+-				continue;
+-			if (!dev->ops->dump_station)
+-				continue;
++		if (nl80211_send_station(skb,
++				NETLINK_CB(cb->skb).pid,
++				cb->nlh->nlmsg_seq, NLM_F_MULTI,
++				netdev, mac_addr,
++				&sinfo) < 0)
++			goto out;
+ 
+-			for (;; ++sta_idx) {
+-				rtnl_lock();
+-				err = dev->ops->dump_station(&dev->wiphy,
+-						wdev->netdev, sta_idx, mac_addr,
+-						&sinfo);
+-				rtnl_unlock();
+-				if (err) {
+-					sta_idx = 0;
+-					break;
+-				}
+-				if (nl80211_send_station(skb,
+-						NETLINK_CB(cb->skb).pid,
+-						cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-						wdev->netdev, mac_addr,
+-						&sinfo) < 0) {
+-					exit = 1;
+-					break;
+-				}
+-			}
+-		}
+-		mutex_unlock(&dev->devlist_mtx);
++		sta_idx++;
+ 	}
+-	mutex_unlock(&cfg80211_drv_mutex);
+ 
+-	cb->args[0] = wp_idx;
+-	cb->args[1] = if_idx;
+-	cb->args[2] = sta_idx;
+ 
+-	return skb->len;
++ out:
++	cb->args[1] = sta_idx;
++	err = skb->len;
++ out_err_rtnl:
++	rtnl_unlock();
++ out_err:
++	cfg80211_put_dev(dev);
++ out_put_netdev:
++	dev_put(netdev);
 +
-+	hdr.rsvd = 0;
-+	hdr.vld_tid = htonl(F_PPOD_VALID | V_PPOD_TID(tid));
-+	hdr.pgsz_tag_clr = htonl(tag);
-+	hdr.maxoffset = htonl(xferlen);
-+	hdr.pgoffset = htonl(sgl->offset);
-+
-+	if (set_ddp_map(snic, &hdr, idx, npods, sgl, sgcnt) < 0)
-+		goto unmap_sgl;
-+
-+	ddp->idx_last = idx;
-+	cxgb3i_tag_debug("tid 0x%x, xfer %u, 0x%x -> ddp tag 0x%x (%u, %u).\n",
-+			 tid, xferlen, sw_tag, tag, idx, npods);
-+	return tag;
-+
-+unmap_sgl:
-+	pci_unmap_sg(snic->pdev, sgl, sgcnt, PCI_DMA_FROMDEVICE);
-+
-+unmark_entries:
-+	ddp_unmark_entries(ddp, idx, npods);
-+	return RESERVED_ITT;
-+}
-+
-+void cxgb3i_ddp_tag_release(struct cxgb3i_adapter *snic, u32 tag,
-+			    struct scatterlist *sgl, unsigned int sgcnt)
-+{
-+	u32 idx = (tag >> snic->tag_format.rsvd_shift) &
-+	    snic->tag_format.rsvd_mask;
-+	unsigned int npods = (sgcnt + PPOD_PAGES_MAX - 1) >> PPOD_PAGES_SHIFT;
-+
-+	if (idx < snic->tag_format.rsvd_mask) {
-+		cxgb3i_tag_debug("ddp tag 0x%x, release idx 0x%x, npods %u.\n",
-+				 tag, idx, npods);
-+		clear_ddp_map(snic, idx, npods);
-+		ddp_unmark_entries(&snic->ddp, idx, npods);
-+		pci_unmap_sg(snic->pdev, sgl, sgcnt, PCI_DMA_FROMDEVICE);
-+	}
-+}
-+
-+int cxgb3i_conn_ulp_setup(struct cxgb3i_conn *cconn, int hcrc, int dcrc)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = cconn->conn->dd_data;
-+	struct s3_conn *c3cn = (struct s3_conn *)(tcp_conn->sock);
-+	struct sk_buff *skb = alloc_skb(sizeof(struct cpl_set_tcb_field),
-+					GFP_KERNEL | __GFP_NOFAIL);
-+	struct cpl_set_tcb_field *req;
-+	u32 submode = (hcrc ? 1 : 0) | (dcrc ? 2 : 0);
-+
-+	/* set up ulp submode and page size */
-+	req = (struct cpl_set_tcb_field *)skb_put(skb, sizeof(*req));
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, c3cn->tid));
-+	req->reply = V_NO_REPLY(1);
-+	req->cpu_idx = 0;
-+	req->word = htons(31);
-+	req->mask = cpu_to_be64(0xFF000000);
-+	/* the connection page size is always the same as ddp-pgsz0 */
-+	req->val = cpu_to_be64(submode << 24);
-+	skb->priority = CPL_PRIORITY_CONTROL;
-+
-+	cxgb3_ofld_send(c3cn->cdev, skb);
-+	return 0;
-+}
-+
-+static int cxgb3i_conn_read_pdu_skb(struct iscsi_conn *conn,
-+				    struct sk_buff *skb)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct iscsi_segment *segment = &tcp_conn->in.segment;
-+	struct iscsi_hdr *hdr = (struct iscsi_hdr *)tcp_conn->in.hdr_buf;
-+	unsigned char *buf = (unsigned char *)hdr;
-+	unsigned int offset = sizeof(struct iscsi_hdr);
-+	int err;
-+
-+	cxgb3i_rx_debug("conn 0x%p, skb 0x%p, len %u, flag 0x%x.\n",
-+			conn, skb, skb->len, skb_ulp_mode(skb));
-+
-+	/* read bhs */
-+	err = skb_copy_bits(skb, 0, buf, sizeof(struct iscsi_hdr));
-+	if (err < 0)
-+		return err;
-+	segment->copied = sizeof(struct iscsi_hdr);
-+	/* read ahs */
-+	if (hdr->hlength) {
-+		unsigned int ahslen = hdr->hlength << 2;
-+		/* Make sure we don't overflow */
-+		if (sizeof(*hdr) + ahslen > sizeof(tcp_conn->in.hdr_buf))
-+			return -ISCSI_ERR_AHSLEN;
-+		err = skb_copy_bits(skb, offset, buf + offset, ahslen);
-+		if (err < 0)
-+			return err;
-+		offset += ahslen;
-+	}
-+	/* header digest */
-+	if (conn->hdrdgst_en)
-+		offset += ISCSI_DIGEST_SIZE;
-+
-+	/* check header digest */
-+	segment->status = (conn->hdrdgst_en &&
-+			   (skb_ulp_mode(skb) & ULP2_FLAG_HCRC_ERROR)) ?
-+	    ISCSI_SEGMENT_DGST_ERR : 0;
-+
-+	hdr->itt = ntohl(hdr->itt);
-+	segment->total_copied = segment->total_size;
-+	tcp_conn->in.hdr = hdr;
-+	err = iscsi_tcp_hdr_dissect(conn, hdr);
-+	if (err)
-+		return err;
-+
-+	if (tcp_conn->in.datalen) {
-+		segment = &tcp_conn->in.segment;
-+		segment->status = (conn->datadgst_en &&
-+				   (skb_ulp_mode(skb) & ULP2_FLAG_DCRC_ERROR)) ?
-+		    ISCSI_SEGMENT_DGST_ERR : 0;
-+		if (skb_ulp_mode(skb) & ULP2_FLAG_DATA_DDPED) {
-+			cxgb3i_ddp_debug("opcode 0x%x, data %u, ddp'ed.\n",
-+					 hdr->opcode & ISCSI_OPCODE_MASK,
-+					 tcp_conn->in.datalen);
-+			segment->total_copied = segment->total_size;
-+		} else {
-+			cxgb3i_ddp_debug("opcode 0x%x, data %u, not ddp'ed.\n",
-+					 hdr->opcode & ISCSI_OPCODE_MASK,
-+					 tcp_conn->in.datalen);
-+			offset += sizeof(struct cpl_iscsi_hdr_norss);
-+		}
-+		while (segment->total_copied < segment->total_size) {
-+			iscsi_tcp_segment_map(segment, 1);
-+			err = skb_copy_bits(skb, offset, segment->data,
-+					    segment->size);
-+			iscsi_tcp_segment_unmap(segment);
-+			if (err)
-+				return err;
-+			segment->total_copied += segment->size;
-+			offset += segment->size;
-+
-+			if (segment->total_copied < segment->total_size)
-+				iscsi_tcp_segment_init_sg(segment,
-+							  sg_next(segment->sg),
-+							  0);
-+		}
-+		err = segment->done(tcp_conn, segment);
-+	}
 +	return err;
-+}
+ }
+ 
+ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
+@@ -1016,7 +1037,7 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1112,7 +1133,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
+ 		params.plink_action =
+ 		    nla_get_u8(info->attrs[NL80211_ATTR_STA_PLINK_ACTION]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1172,7 +1193,7 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
+ 				&params.station_flags))
+ 		return -EINVAL;
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1207,7 +1228,7 @@ static int nl80211_del_station(struct sk_buff *skb, struct genl_info *info)
+ 	if (info->attrs[NL80211_ATTR_MAC])
+ 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1277,68 +1298,78 @@ static int nl80211_send_mpath(struct sk_buff *msg, u32 pid, u32 seq,
+ }
+ 
+ static int nl80211_dump_mpath(struct sk_buff *skb,
+-		struct netlink_callback *cb)
++			      struct netlink_callback *cb)
+ {
+-	int wp_idx = 0;
+-	int if_idx = 0;
+-	int sta_idx = cb->args[2];
+-	int wp_start = cb->args[0];
+-	int if_start = cb->args[1];
+ 	struct mpath_info pinfo;
+ 	struct cfg80211_registered_device *dev;
+-	struct wireless_dev *wdev;
++	struct net_device *netdev;
+ 	u8 dst[ETH_ALEN];
+ 	u8 next_hop[ETH_ALEN];
++	int ifidx = cb->args[0];
++	int path_idx = cb->args[1];
+ 	int err;
+-	int exit = 0;
+ 
+-	/* TODO: filter by device */
+-	mutex_lock(&cfg80211_drv_mutex);
+-	list_for_each_entry(dev, &cfg80211_drv_list, list) {
+-		if (exit)
++	if (!ifidx) {
++		err = nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
++				  nl80211_fam.attrbuf, nl80211_fam.maxattr,
++				  nl80211_policy);
++		if (err)
++			return err;
 +
-+static inline void tx_skb_setmode(struct sk_buff *skb, int hcrc, int dcrc)
-+{
-+	u8 submode = 0;
-+	if (hcrc)
-+		submode |= 1;
-+	if (dcrc)
-+		submode |= 2;
-+	skb_ulp_mode(skb) = (ULP_MODE_ISCSI << 4) | submode;
-+}
++		if (!nl80211_fam.attrbuf[NL80211_ATTR_IFINDEX])
++			return -EINVAL;
 +
-+int cxgb3i_conn_ulp2_xmit(struct iscsi_conn *conn)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct iscsi_segment *hdr_seg = &tcp_conn->out.segment;
-+	struct iscsi_segment *data_seg = &tcp_conn->out.data_segment;
-+	unsigned int hdrlen = hdr_seg->total_size;
-+	unsigned int datalen = data_seg->total_size;
-+	unsigned int padlen = iscsi_padding(datalen);
-+	unsigned int copymax = SKB_MAX_HEAD(TX_HEADER_LEN);
-+	unsigned int copylen;
-+	struct sk_buff *skb;
-+	unsigned char *dst;
-+	int err = -EAGAIN;
-+
-+	if (conn->suspend_tx)
-+		return 0;
-+
-+	if (data_seg->data && ((datalen + padlen) < copymax))
-+		copylen = hdrlen + datalen + padlen;
-+	else
-+		copylen = hdrlen;
-+
-+	/* supports max. 16K pdus, so one skb is enough to hold all the data */
-+	skb = alloc_skb(TX_HEADER_LEN + copylen, GFP_ATOMIC);
-+	if (!skb)
-+		return -EAGAIN;
-+
-+	skb_reserve(skb, TX_HEADER_LEN);
-+	skb_put(skb, copylen);
-+	dst = skb->data;
-+
-+	tx_skb_setmode(skb, conn->hdrdgst_en, datalen ? conn->datadgst_en : 0);
-+
-+	memcpy(dst, hdr_seg->data, hdrlen);
-+	dst += hdrlen;
-+
-+	if (!datalen)
-+		goto send_pdu;
-+
-+	if (data_seg->data) {
-+		/* data is in a linear buffer */
-+		if (copylen > hdrlen) {
-+			/* data fits in the skb's headroom */
-+			memcpy(dst, data_seg->data, datalen);
-+			dst += datalen;
-+			if (padlen)
-+				memset(dst, 0, padlen);
-+		} else {
-+			unsigned int offset = 0;
-+			while (datalen) {
-+				struct page *page =
-+				    alloc_pages(GFP_ATOMIC, 0);
-+				int idx = skb_shinfo(skb)->nr_frags;
-+				skb_frag_t *frag = &skb_shinfo(skb)->frags[idx];
-+
-+				if (!page)
-+					goto free_skb;
-+
-+				frag->page = page;
-+				frag->page_offset = 0;
-+				if (datalen > PAGE_SIZE)
-+					frag->size = PAGE_SIZE;
-+				else
-+					frag->size = datalen;
-+				memcpy(page_address(page),
-+				       data_seg->data + offset, frag->size);
-+
-+				skb_shinfo(skb)->nr_frags++;
-+				datalen -= frag->size;
-+				offset += frag->size;
-+			}
-+		}
-+	} else {
-+		struct scatterlist *sg = data_seg->sg;
-+		unsigned int offset = data_seg->sg_offset;
-+		while (datalen) {
-+			int idx = skb_shinfo(skb)->nr_frags;
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[idx];
-+			struct page *pg = sg_page(sg);
-+
-+			get_page(pg);
-+			frag->page = pg;
-+			frag->page_offset = offset + sg->offset;
-+			frag->size = min(sg->length, datalen);
-+
-+			offset = 0;
-+			skb_shinfo(skb)->nr_frags++;
-+			datalen -= frag->size;
-+			sg = sg_next(sg);
-+		}
++		ifidx = nla_get_u32(nl80211_fam.attrbuf[NL80211_ATTR_IFINDEX]);
++		if (!ifidx)
++			return -EINVAL;
 +	}
 +
-+	if (skb_shinfo(skb)->nr_frags) {
-+		if (padlen) {
-+			int idx = skb_shinfo(skb)->nr_frags;
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[idx];
-+			frag->page = pad_page;
-+			frag->page_offset = 0;
-+			frag->size = padlen;
-+			skb_shinfo(skb)->nr_frags++;
-+		}
-+		datalen = data_seg->total_size + padlen;
-+		skb->data_len += datalen;
-+		skb->truesize += datalen;
-+		skb->len += datalen;
++	netdev = dev_get_by_index(&init_net, ifidx);
++	if (!netdev)
++		return -ENODEV;
++
++	dev = cfg80211_get_dev_from_ifindex(ifidx);
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		goto out_put_netdev;
 +	}
 +
-+send_pdu:
-+	err = cxgb3i_c3cn_send_pdus((struct s3_conn *)tcp_conn->sock,
-+				    skb, MSG_DONTWAIT | MSG_NOSIGNAL);
-+	if (err > 0) {
-+		int pdulen = hdrlen + datalen + padlen;
-+		if (conn->hdrdgst_en)
-+			pdulen += ISCSI_DIGEST_SIZE;
-+		if (datalen && conn->datadgst_en)
-+			pdulen += ISCSI_DIGEST_SIZE;
-+
-+		hdr_seg->total_copied = hdr_seg->total_size;
-+		if (datalen)
-+			data_seg->total_copied = data_seg->total_size;
-+		conn->txdata_octets += pdulen;
-+		return pdulen;
++	if (!dev->ops->dump_mpath) {
++		err = -ENOSYS;
++		goto out_err;
 +	}
 +
-+free_skb:
-+	kfree_skb(skb);
-+	if (err < 0 && err != -EAGAIN) {
-+		cxgb3i_log_error("conn 0x%p, xmit err %d.\n", conn, err);
-+		iscsi_conn_failure(conn, ISCSI_ERR_CONN_FAILED);
-+		return err;
-+	}
-+	return -EAGAIN;
-+}
++	rtnl_lock();
 +
-+int cxgb3i_ulp2_init(void)
-+{
-+	pad_page = alloc_page(GFP_KERNEL);
-+	if (!pad_page)
-+		return -ENOMEM;
-+	memset(page_address(pad_page), 0, PAGE_SIZE);
-+	cxgb3i_ddp_page_init();
-+	return 0;
-+}
++	while (1) {
++		err = dev->ops->dump_mpath(&dev->wiphy, netdev, path_idx,
++					   dst, next_hop, &pinfo);
++		if (err == -ENOENT)
+ 			break;
+-		if (++wp_idx < wp_start)
+-			continue;
+-		if_idx = 0;
++		if (err)
++			goto out_err_rtnl;
+ 
+-		mutex_lock(&dev->devlist_mtx);
+-		list_for_each_entry(wdev, &dev->netdev_list, list) {
+-			if (exit)
+-				break;
+-			if (++if_idx < if_start)
+-				continue;
+-			if (!dev->ops->dump_mpath)
+-				continue;
++		if (nl80211_send_mpath(skb, NETLINK_CB(cb->skb).pid,
++				       cb->nlh->nlmsg_seq, NLM_F_MULTI,
++				       netdev, dst, next_hop,
++				       &pinfo) < 0)
++			goto out;
+ 
+-			for (;; ++sta_idx) {
+-				rtnl_lock();
+-				err = dev->ops->dump_mpath(&dev->wiphy,
+-						wdev->netdev, sta_idx, dst,
+-						next_hop, &pinfo);
+-				rtnl_unlock();
+-				if (err) {
+-					sta_idx = 0;
+-					break;
+-				}
+-				if (nl80211_send_mpath(skb,
+-						NETLINK_CB(cb->skb).pid,
+-						cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-						wdev->netdev, dst, next_hop,
+-						&pinfo) < 0) {
+-					exit = 1;
+-					break;
+-				}
+-			}
+-		}
+-		mutex_unlock(&dev->devlist_mtx);
++		path_idx++;
+ 	}
+-	mutex_unlock(&cfg80211_drv_mutex);
+ 
+-	cb->args[0] = wp_idx;
+-	cb->args[1] = if_idx;
+-	cb->args[2] = sta_idx;
+ 
+-	return skb->len;
++ out:
++	cb->args[1] = path_idx;
++	err = skb->len;
++ out_err_rtnl:
++	rtnl_unlock();
++ out_err:
++	cfg80211_put_dev(dev);
++ out_put_netdev:
++	dev_put(netdev);
 +
-+void cxgb3i_ulp2_cleanup(void)
-+{
-+	if (pad_page) {
-+		__free_page(pad_page);
-+		pad_page = NULL;
-+	}
-+}
-+
-+void cxgb3i_conn_pdu_ready(struct s3_conn *c3cn)
-+{
-+	struct sk_buff *skb;
-+	unsigned int read = 0;
-+	struct iscsi_conn *conn = c3cn->user_data;
-+	int err = 0;
-+
-+	cxgb3i_rx_debug("cn 0x%p.\n", c3cn);
-+
-+	read_lock(&c3cn->callback_lock);
-+	if (unlikely(!conn || conn->suspend_rx)) {
-+		cxgb3i_rx_debug("conn 0x%p, id %d, suspend_rx %d!\n", 
-+				conn, conn ? conn->id : 0xFF,
-+				conn ? conn->suspend_rx : 0xFF);
-+		read_unlock(&c3cn->callback_lock);
-+		return;
-+	}
-+	skb = skb_peek(&c3cn->receive_queue);
-+	while (!err && skb) {
-+		__skb_unlink(skb, &c3cn->receive_queue);
-+		read += skb_ulp_pdulen(skb);
-+		err = cxgb3i_conn_read_pdu_skb(conn, skb);
-+		__kfree_skb(skb);
-+		skb = skb_peek(&c3cn->receive_queue);
-+	}
-+	read_unlock(&c3cn->callback_lock);
-+	if (c3cn) {
-+		c3cn->copied_seq += read;
-+		cxgb3i_c3cn_rx_credits(c3cn, read);
-+	}
-+	conn->rxdata_octets += read;
-+
-+	if (err) {
-+		cxgb3i_log_info("conn 0x%p rx failed err %d.\n", conn, err);
-+		iscsi_conn_failure(conn, ISCSI_ERR_CONN_FAILED);
-+	}
-+}
-+
-+void cxgb3i_conn_tx_open(struct s3_conn *c3cn)
-+{
-+	struct iscsi_conn *conn = (struct iscsi_conn *)c3cn->user_data;
-+	struct iscsi_tcp_conn *tcp_conn;
-+	cxgb3i_tx_debug("cn 0x%p.\n", c3cn);
-+	if (conn) {
-+		cxgb3i_tx_debug("cn 0x%p, cid %d.\n", c3cn, conn->id);
-+		tcp_conn = conn->dd_data;
-+		scsi_queue_work(conn->session->host, &conn->xmitwork);
-+	}
-+}
-+
-+void cxgb3i_conn_closing(struct s3_conn *c3cn)
-+{
-+	struct iscsi_conn *conn;
-+	read_lock(&c3cn->callback_lock);
-+	conn = (struct iscsi_conn *)c3cn->user_data;
-+	if (conn && c3cn->state != C3CN_STATE_ESTABLISHED)
-+		iscsi_conn_failure(conn, ISCSI_ERR_CONN_FAILED);
-+	read_unlock(&c3cn->callback_lock);
-+}
-+
-+int cxgb3i_adapter_ulp_init(struct cxgb3i_adapter *snic)
-+{
-+	struct t3cdev *tdev = snic->tdev;
-+	struct cxgb3i_ddp_info *ddp = &snic->ddp;
-+	struct ulp_iscsi_info uinfo;
-+	unsigned int ppmax, bits, max_bits;
-+	int i, err;
-+
-+	spin_lock_init(&ddp->map_lock);
-+
-+	err = tdev->ctl(tdev, ULP_ISCSI_GET_PARAMS, &uinfo);
-+	if (err < 0) {
-+		cxgb3i_log_error("%s, failed to get iscsi param err=%d.\n",
-+				 tdev->name, err);
-+		return err;
-+	}
-+
-+	ppmax = (uinfo.ulimit - uinfo.llimit + 1) >> PPOD_SIZE_SHIFT;
-+	max_bits = min(PPOD_IDX_MAX_SIZE,
-+		       (32 - sw_tag_idx_bits - sw_tag_age_bits));
-+	bits = __ilog2_u32(ppmax) + 1;
-+	if (bits > max_bits)
-+		bits = max_bits;
-+	ppmax = (1 << bits) - 1;
-+
-+	snic->tx_max_size = uinfo.max_txsz;
-+	snic->rx_max_size = uinfo.max_rxsz;
-+	cxgb3i_log_debug("snic tx %u, rx %u.\n", snic->tx_max_size,
-+			 snic->rx_max_size);
-+	snic->tag_format.idx_bits = sw_tag_idx_bits;
-+	snic->tag_format.age_bits = sw_tag_age_bits;
-+	snic->tag_format.rsvd_bits = bits;
-+	snic->tag_format.rsvd_shift = PPOD_IDX_SHIFT;
-+	snic->tag_format.rsvd_mask = (1 << snic->tag_format.rsvd_bits) - 1;
-+
-+	cxgb3i_log_debug("snic nppods %u, rsvd shift %u, bits %u, mask 0x%x.\n",
-+			 ppmax, snic->tag_format.rsvd_shift,
-+			 snic->tag_format.rsvd_bits,
-+			 snic->tag_format.rsvd_mask);
-+
-+	ddp->map = cxgb3i_alloc_big_mem(ppmax);
-+	if (!ddp->map) {
-+		cxgb3i_log_warn("snic unable to alloc ddp ppod 0x%u, "
-+				"ddp disabled.\n", ppmax);
-+		return 0;
-+	}
-+	ddp->llimit = uinfo.llimit;
-+	ddp->ulimit = uinfo.ulimit;
-+
-+	uinfo.tagmask =
-+	    snic->tag_format.rsvd_mask << snic->tag_format.rsvd_shift;
-+	for (i = 0; i < ULP2_PGIDX_MAX; i++)
-+		uinfo.pgsz_factor[i] = ddp_page_order[i];
-+
-+	err = tdev->ctl(tdev, ULP_ISCSI_SET_PARAMS, &uinfo);
-+	if (err < 0) {
-+		cxgb3i_log_warn("snic unable to set iscsi param err=%d, "
-+				"ddp disabled.\n", err);
-+		goto free_ppod_map;
-+	}
-+
-+	ddp->nppods = ppmax;
-+	ddp->idx_last = ppmax;
-+
-+	tdev->ulp_iscsi = ddp;
-+
-+	return 0;
-+
-+free_ppod_map:
-+	cxgb3i_free_big_mem(ddp->map);
-+	return 0;
-+}
-+
-+void cxgb3i_adapter_ulp_cleanup(struct cxgb3i_adapter *snic)
-+{
-+	u8 *map = snic->ddp.map;
-+	if (map) {
-+		snic->tdev->ulp_iscsi = NULL;
-+		spin_lock(&snic->lock);
-+		snic->ddp.map = NULL;
-+		spin_unlock(&snic->lock);
-+		cxgb3i_free_big_mem(map);
-+	}
-+}
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_ulp2.h b/drivers/scsi/cxgb3i/cxgb3i_ulp2.h
-new file mode 100644
-index 0000000..e3f46dc
---- /dev/null
-+++ b/drivers/scsi/cxgb3i/cxgb3i_ulp2.h
-@@ -0,0 +1,106 @@
-+/*
-+ * cxgb3i_ulp2.h: Chelsio S3xx iSCSI driver.
-+ *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie@chelsio.com)
-+ */
-+
-+#ifndef __CXGB3I_ULP2_H__
-+#define __CXGB3I_ULP2_H__
-+
-+#define ULP2_PDU_PAYLOAD_DFLT	(16224 - ISCSI_PDU_HEADER_MAX)
-+#define PPOD_PAGES_MAX		4
-+#define PPOD_PAGES_SHIFT	2	/* 4 pages per pod */
-+
-+struct pagepod_hdr {
-+	u32 vld_tid;
-+	u32 pgsz_tag_clr;
-+	u32 maxoffset;
-+	u32 pgoffset;
-+	u64 rsvd;
-+};
-+
-+struct pagepod {
-+	struct pagepod_hdr hdr;
-+	u64 addr[PPOD_PAGES_MAX + 1];
-+};
-+
-+#define PPOD_SIZE		sizeof(struct pagepod)	/* 64 */
-+#define PPOD_SIZE_SHIFT		6
-+
-+#define PPOD_COLOR_SHIFT	0
-+#define PPOD_COLOR_SIZE		6
-+#define PPOD_COLOR_MASK		((1 << PPOD_COLOR_SIZE) - 1)
-+
-+#define PPOD_IDX_SHIFT		PPOD_COLOR_SIZE
-+#define PPOD_IDX_MAX_SIZE	24
-+
-+#define S_PPOD_TID    0
-+#define M_PPOD_TID    0xFFFFFF
-+#define V_PPOD_TID(x) ((x) << S_PPOD_TID)
-+
-+#define S_PPOD_VALID    24
-+#define V_PPOD_VALID(x) ((x) << S_PPOD_VALID)
-+#define F_PPOD_VALID    V_PPOD_VALID(1U)
-+
-+#define S_PPOD_COLOR    0
-+#define M_PPOD_COLOR    0x3F
-+#define V_PPOD_COLOR(x) ((x) << S_PPOD_COLOR)
-+
-+#define S_PPOD_TAG    6
-+#define M_PPOD_TAG    0xFFFFFF
-+#define V_PPOD_TAG(x) ((x) << S_PPOD_TAG)
-+
-+#define S_PPOD_PGSZ    30
-+#define M_PPOD_PGSZ    0x3
-+#define V_PPOD_PGSZ(x) ((x) << S_PPOD_PGSZ)
-+
-+struct cpl_iscsi_hdr_norss {
-+	union opcode_tid ot;
-+	u16 pdu_len_ddp;
-+	u16 len;
-+	u32 seq;
-+	u16 urg;
-+	u8 rsvd;
-+	u8 status;
-+};
-+
-+struct cpl_rx_data_ddp_norss {
-+	union opcode_tid ot;
-+	u16 urg;
-+	u16 len;
-+	u32 seq;
-+	u32 nxt_seq;
-+	u32 ulp_crc;
-+	u32 ddp_status;
-+};
-+
-+#define RX_DDP_STATUS_IPP_SHIFT		27	/* invalid pagepod */
-+#define RX_DDP_STATUS_TID_SHIFT		26	/* tid mismatch */
-+#define RX_DDP_STATUS_COLOR_SHIFT	25	/* color mismatch */
-+#define RX_DDP_STATUS_OFFSET_SHIFT	24	/* offset mismatch */
-+#define RX_DDP_STATUS_ULIMIT_SHIFT	23	/* ulimit error */
-+#define RX_DDP_STATUS_TAG_SHIFT		22	/* tag mismatch */
-+#define RX_DDP_STATUS_DCRC_SHIFT	21	/* dcrc error */
-+#define RX_DDP_STATUS_HCRC_SHIFT	20	/* hcrc error */
-+#define RX_DDP_STATUS_PAD_SHIFT		19	/* pad error */
-+#define RX_DDP_STATUS_PPP_SHIFT		18	/* pagepod parity error */
-+#define RX_DDP_STATUS_LLIMIT_SHIFT	17	/* llimit error */
-+#define RX_DDP_STATUS_DDP_SHIFT		16	/* ddp'able */
-+#define RX_DDP_STATUS_PMM_SHIFT		15	/* pagepod mismatch */
-+
-+#define ULP2_FLAG_DATA_READY		0x1
-+#define ULP2_FLAG_DATA_DDPED		0x2
-+#define ULP2_FLAG_HCRC_ERROR		0x10
-+#define ULP2_FLAG_DCRC_ERROR		0x20
-+#define ULP2_FLAG_PAD_ERROR		0x40
-+
-+void cxgb3i_conn_closing(struct s3_conn *);
-+void cxgb3i_conn_pdu_ready(struct s3_conn *c3cn);
-+void cxgb3i_conn_tx_open(struct s3_conn *c3cn);
-+#endif
++	return err;
+ }
+ 
+ static int nl80211_get_mpath(struct sk_buff *skb, struct genl_info *info)
+@@ -1358,7 +1389,7 @@ static int nl80211_get_mpath(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	dst = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1411,7 +1442,7 @@ static int nl80211_set_mpath(struct sk_buff *skb, struct genl_info *info)
+ 	dst = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 	next_hop = nla_data(info->attrs[NL80211_ATTR_MPATH_NEXT_HOP]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1446,7 +1477,7 @@ static int nl80211_new_mpath(struct sk_buff *skb, struct genl_info *info)
+ 	dst = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 	next_hop = nla_data(info->attrs[NL80211_ATTR_MPATH_NEXT_HOP]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+@@ -1475,7 +1506,7 @@ static int nl80211_del_mpath(struct sk_buff *skb, struct genl_info *info)
+ 	if (info->attrs[NL80211_ATTR_MAC])
+ 		dst = nla_data(info->attrs[NL80211_ATTR_MAC]);
+ 
+-	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	err = get_drv_dev_by_info_ifindex(info->attrs, &drv, &dev);
+ 	if (err)
+ 		return err;
+ 
+-- 
+John W. Linville
+linville@tuxdriver.com
