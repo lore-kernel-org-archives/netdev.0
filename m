@@ -1,57 +1,39 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: sendfile() behavior while troubleshooting netdevice
-Date: Mon, 28 Jul 2008 19:52:42 -0500
-Message-ID: <20080728195242.788f73c0@osprey.hogchain.net>
-References: <20080728190707.329d247b@osprey.hogchain.net>
-	<488E63DD.4020406@jeffray.co.uk>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2.6.27] cxgb3: Allow 64KB firmware images.
+Date: Mon, 28 Jul 2008 18:25:28 -0700
+Message-ID: <200807281825.29113.divy@chelsio.com>
+References: <20080726204056.1366.28529.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ian Jeffray <ian@jeffray.co.uk>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, rdreier@cisco.com
+To: "Steve Wise" <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost05.isp.att.net ([204.127.217.105]:42801 "EHLO
-	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914AbYG2Awo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 20:52:44 -0400
-In-Reply-To: <488E63DD.4020406@jeffray.co.uk>
+Received: from stargate.chelsio.com ([12.22.49.110]:3818 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751935AbYG2B04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2008 21:26:56 -0400
+In-Reply-To: <20080726204056.1366.28529.stgit@dell3.ogc.int>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Jul 2008 01:27:09 +0100
-Ian Jeffray <ian@jeffray.co.uk> wrote:
+On Saturday 26 July 2008 01:40:56 pm Steve Wise wrote:
+> Jeff,
+>
+> This small patch is needed to allow loading the 7.0 firmware, which is
+> required for 2.6.27.  Any chance of this making 2.6.27-rc1?
+>
+> Thanks,
+>
+> Steve.
+>
+> ----
+> cxgb3: Allow 64KB firmware images.
+>
+> Starting with FW version 7.0, the driver needs to allow larger images.
+>
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-
-> Because you send() a strlen() amount of data for the filesize,
-> but recv() a sizeof(cfsize) amount of data?   I supect 8 bytes
-> is being sucked up in your first recv().  Try sending a fixed
-> size block for the file size.
-
-Thanks for the reply.  I changed strlen(fsize) to sizeof(fsize) in
-sfserver.c; no difference.
-
-[jcliburn@petrel ~]$ ./sfsrv
-sending file 'testfile' size 1600 bytes
-1600 bytes sent
-sending file 'testfile' size 1600 bytes
-1600 bytes sent
-sending file 'testfile' size 1600 bytes
-1600 bytes sent
-sending file 'testfile' size 1600 bytes
-1600 bytes sent
-
-
-[jcliburn@sparrow ~]$ ./sfcli 192.168.1.6 testfile
-connected...
-file size is 1600 bytes
-received 1592 bytes
-error: expected 1600, received 1592
-[jcliburn@sparrow ~]$ ./sfcli 192.168.1.6 testfile
-connected...
-file size is 1600 bytes
-received 1600 bytes
-[jcliburn@sparrow ~]$ ./sfcli 192.168.1.6 testfile
-connected...
-file size is 1600 bytes
-received 1592 bytes
-error: expected 1600, received 1592
+Acked-by: Divy Le Ray <divy@chelsio.com>
