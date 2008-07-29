@@ -1,129 +1,166 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/6] dccp ccid-3: Simplify computing and range-checking of t_ipi
-Date: Tue, 29 Jul 2008 15:06:11 +0100
-Message-ID: <1217340373-12620-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/6] dccp ccid-3: Measuring the TX packet size s with regard to rfc3448bis-06
+Date: Tue, 29 Jul 2008 15:06:09 +0100
+Message-ID: <1217340373-12620-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_ccid3_sender_side_updates_last_batch>
  <1217340373-12620-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1217340373-12620-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217340373-12620-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1217340373-12620-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36141 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757618AbYG2OGc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 10:06:32 -0400
-In-Reply-To: <1217340373-12620-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1757684AbYG2OGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2008 10:06:34 -0400
+In-Reply-To: <1217340373-12620-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch simplifies the computation of t_ipi, avoiding expensive computations
-to enforce the minimum sending rate.
+rfc3448bis allows three different ways of tracking the packet size `s':
 
-Both RFC 3448 and rfc3448bis (revision #06), as well as RFC 4342 sec 5., require
-at various stages that at least one packet must be sent per t_mbi = 64 seconds.
-This requires frequent divisions of the type X_min = s/t_mbi, which are later
-converted back into an inter-packet-interval t_ipi_max = s/X_min = t_mbi.
+ 1. using the MSS/MPS (at initialisation, 4.2, and in 4.1 (1));
+ 2. using the average of `s' (in 4.1);
+ 3. using the maximum of `s' (in 4.2).
 
-The patch removes the expensive indirection; in the unlikely case of having
-a sending rate less than one packet per 64 seconds, it also re-adjusts X.
+Instead of hard-coding a single interpretation of rfc3448bis, this implements
+a choice of all three alternatives and suggests the first as default, since it
+is the option which is most consistent with other parts of the specification.
 
-The following cases document conformance with RFC 3448 / rfc3448bis-06:
- 1) Time until receiving the first feedback packet:
-   * if the sender has no initial RTT sample then X = s/1 Bps > s/t_mbi;
-   * if the sender has an initial RTT sample or when the first feedback
-     packet is received, X = W_init/R > s/t_mbi.
+The patch further deprecates the update of t_ipi whenever `s' changes. The gains
+of doing this are only small since a change of s takes effect at the next
+instant X is updated:
+ * when the next feedback comes in (within one RTT or less);
+ * when the nofeedback timer expires (within at most 4 RTTs).
 
- 2) Slow-start (p == 0 and feedback packets come in):
-   * RFC 3448  (current code) enforces a minimum of s/R > s/t_mbi;
-   * rfc3448bis (future code) enforces an even higher minimum of W_init/R.
+Further, there are complications caused by updating t_ipi whenever s changes:
+ * if t_ipi had previously been updated to effect oscillation prevention (4.5),
+   then it is impossible to make the same adjustment to t_ipi again, thus
+   counter-acting the algorithm;
+ * s may be updated any time and a modification of t_ipi depends on the current
+   state (e.g. no oscillation prevention is done in the absence of feedback);
+ * in rev-06 of rfc3448bis, there are more possible cases, depending on whether
+   the sender is in slow-start (t_ipi <= R/W_init), or in congestion-avoidance,
+   limited by X_recv or the throughput equation (t_ipi <= t_mbi).
 
- 3) Congestion avoidance with no absence of feedback (p > 0):
-   * when X_calc or X_recv/2 are too low, the minimum of X_min = s/t_mbi
-     is enforced in update_x() when calling update_send_interval();
-   * update_send_interval() is, as before, only called when X changes
-     (i.e. either when increasing or decreasing, not when in equilibrium).
-
- 4) Reduction of X without prior feedback or during slow-start (p == 0):
-   * both RFC 3448 and rfc3448bis here halve X directly;
-   * the associated constraint X >= s/t_mbi is nforced here by send_interval().
-
- 5) Reduction of X when p > 0:
-   * X is modified indirectly via X_recv (RFC 3448) or X_recv_set (rfc3448bis);
-   * in both cases, control goes back to section 4.3 (in either document);
-   * since p > 0, both documents use X = max(min(...), s/t_mbi), which is
-     enforced in this patch by calling send_interval() from update_x().
-
-I think that this analysis is exhaustive. Should I have forgotten a case,
-the worst-case consideration arises when X sinks below s/t_mbi, and is then
-increased back up to this minimum value. Even under this assumption, the
-behaviour is correct, since all lower limits of X in RFC 3448 / rfc3448bis
-are either equal to or greater than s/t_mbi.
-
-Note on the condition X >= s/t_mbi  <==> t_ipi = s/X <= t_mbi: since X is
-scaled by 64, and all time units are in microseconds, the coded condition is:
-
-    t_ipi = s * 64 * 10^6 usec / X <= 64 * 10^6 usec
-
-This simplifies to s / X <= 1 second <==> X * 1 second >= s > 0.
-(An `s' of zero is not allowed by the CCID-3 sender code).
+These side effects may not be desirable. The only case I can think of where such
+an update makes sense is to recompute X_calc when p > 0 and when s changes
+(not done by this patch).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c |   18 ++++++++----------
- 1 files changed, 8 insertions(+), 10 deletions(-)
+ net/dccp/ccids/Kconfig |   25 +++++++++++++++++++++++--
+ net/dccp/ccids/ccid3.c |   27 +++++++++++++++------------
+ 2 files changed, 38 insertions(+), 14 deletions(-)
 
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -63,9 +63,9 @@ config IP_DCCP_CCID3
+ 
+ 	  If in doubt, say M.
+ 
++if IP_DCCP_CCID3
+ config IP_DCCP_CCID3_DEBUG
+ 	  bool "CCID3 debugging messages"
+-	  depends on IP_DCCP_CCID3
+ 	  ---help---
+ 	    Enable CCID3-specific debugging messages.
+ 
+@@ -75,10 +75,30 @@ config IP_DCCP_CCID3_DEBUG
+ 
+ 	    If in doubt, say N.
+ 
++choice
++	  prompt "Select method for measuring the packet size s"
++	  default IP_DCCP_CCID3_MEASURE_S_AS_MPS
++
++config IP_DCCP_CCID3_MEASURE_S_AS_MPS
++	  bool "Always use MPS in place of s"
++	  ---help---
++	    This use is recommended as it is consistent with the initialisation
++	    of X and suggested when s varies (rfc3448bis, (1) in section 4.1).
++config IP_DCCP_CCID3_MEASURE_S_AS_AVG
++	  bool "Use moving average"
++	  ---help---
++	    An alternative way of tracking s, also supported by rfc3448bis.
++	    This used to be the default for CCID-3 in previous kernels.
++config IP_DCCP_CCID3_MEASURE_S_AS_MAX
++	  bool "Track the maximum payload length"
++	  ---help---
++	    An experimental method based on tracking the maximum packet size.
++endchoice
++
+ config IP_DCCP_CCID3_RTO
+ 	  int "Use higher bound for nofeedback timer"
+ 	  default 100
+-	  depends on IP_DCCP_CCID3 && EXPERIMENTAL
++	  depends on EXPERIMENTAL
+ 	  ---help---
+ 	    Use higher lower bound for nofeedback timer expiration.
+ 
+@@ -105,6 +125,7 @@ config IP_DCCP_CCID3_RTO
+ 	    The purpose of the nofeedback timer is to slow DCCP down when there
+ 	    is serious network congestion: experimenting with larger values should
+ 	    therefore not be performed on WANs.
++endif
+ 
+ config IP_DCCP_TFRC_LIB
+ 	tristate
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -66,15 +66,15 @@ static inline u64 rfc3390_initial_rate(struct sock *sk)
+@@ -136,17 +136,18 @@ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
  }
  
- /**
-- * ccid3_update_send_interval  -  Calculate new t_ipi = s / X_inst
-- * This respects the granularity of X_inst (64 * bytes/second).
-+ * ccid3_update_send_interval  -  Calculate new t_ipi = s / X
-+ * This respects the granularity of X (64 * bytes/second) and enforces the
-+ * scaled minimum of s * 64 / t_mbi = `s' bytes/second as per RFC 3448/4342.
+ /*
+- *	Track the mean packet size `s' (cf. RFC 4342, 5.3 and  RFC 3448, 4.1)
+- *	@len: DCCP packet payload size in bytes
++ * ccid3_hc_tx_measure_packet_size  -  Measuring the packet size `s' (sec 4.1)
++ * @new_len: DCCP payload size in bytes (not used by all methods)
   */
- static void ccid3_update_send_interval(struct ccid3_hc_tx_sock *hctx)
+-static inline void ccid3_hc_tx_update_s(struct ccid3_hc_tx_sock *hctx, int len)
++static u32 ccid3_hc_tx_measure_packet_size(struct sock *sk, const u16 new_len)
  {
-+	if (unlikely(hctx->x <= hctx->s))
-+		hctx->x	= hctx->s;
- 	hctx->t_ipi = scaled_div32(((u64)hctx->s) << 6, hctx->x);
+-	const u16 old_s = hctx->s;
 -
--	ccid3_pr_debug("t_ipi=%u, s=%u, X=%u\n", hctx->t_ipi,
--		       hctx->s, (unsigned)(hctx->x >> 6));
+-	hctx->s = tfrc_ewma(hctx->s, len, 9);
+-
+-	if (hctx->s != old_s)
+-		ccid3_update_send_interval(hctx);
++#if   defined(CONFIG_IP_DCCP_CCID3_MEASURE_S_AS_AVG)
++	return tfrc_ewma(ccid3_hc_tx_sk(sk)->s, new_len, 9);
++#elif defined(CONFIG_IP_DCCP_CCID3_MEASURE_S_AS_MAX)
++	return max(ccid3_hc_tx_sk(sk)->s, new_len);
++#else /* CONFIG_IP_DCCP_CCID3_MEASURE_S_AS_MPS	*/
++	return dccp_sk(sk)->dccps_mss_cache;
++#endif
  }
  
- static u32 ccid3_hc_tx_idle_rtt(struct ccid3_hc_tx_sock *hctx, ktime_t now)
-@@ -115,7 +115,6 @@ static void ccid3_hc_tx_update_x(struct sock *sk, ktime_t *stamp)
- 	if (hctx->p > 0) {
+ /*
+@@ -271,8 +272,6 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ 		/* Set t_0 for initial packet */
+ 		hctx->t_nom = now;
  
- 		hctx->x = min(((u64)hctx->x_calc) << 6, min_rate);
--		hctx->x = max(hctx->x, (((u64)hctx->s) << 6) / TFRC_T_MBI);
- 
- 	} else if (ktime_us_delta(now, hctx->t_ld) - (s64)hctx->rtt >= 0) {
- 
-@@ -197,8 +196,9 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
- 	if (hctx->t_rto == 0 || hctx->p == 0) {
- 
- 		/* halve send rate directly */
--		hctx->x = max(hctx->x / 2, (((u64)hctx->s) << 6) / TFRC_T_MBI);
-+		hctx->x /= 2;
- 		ccid3_update_send_interval(hctx);
-+
- 	} else {
+-		hctx->s = skb->len;
+-
  		/*
- 		 *  Modify the cached value of X_recv
-@@ -213,9 +213,7 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
- 		BUG_ON(hctx->p && !hctx->x_calc);
+ 		 * Use initial RTT sample when available: recommended by erratum
+ 		 * to RFC 4342. This implements the initialisation procedure of
+@@ -294,6 +293,9 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ 			hctx->x	  = dp->dccps_mss_cache;
+ 			hctx->x <<= 6;
+ 		}
++
++		/* Compute t_ipi = s / X */
++		hctx->s = ccid3_hc_tx_measure_packet_size(sk, skb->len);
+ 		ccid3_update_send_interval(hctx);
  
- 		if (hctx->x_calc > (hctx->x_recv >> 5))
--			hctx->x_recv =
--				max(hctx->x_recv / 2,
--				    (((__u64)hctx->s) << 6) / (2 * TFRC_T_MBI));
-+			hctx->x_recv /= 2;
- 		else {
- 			hctx->x_recv = hctx->x_calc;
- 			hctx->x_recv <<= 4;
+ 	} else {
+@@ -326,7 +328,8 @@ static void ccid3_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+ {
+ 	struct ccid3_hc_tx_sock *hctx = ccid3_hc_tx_sk(sk);
+ 
+-	ccid3_hc_tx_update_s(hctx, len);
++	/* Changes to s will become effective the next time X is computed */
++	hctx->s = ccid3_hc_tx_measure_packet_size(sk, len);
+ 
+ 	if (tfrc_tx_hist_add(&hctx->hist, dccp_sk(sk)->dccps_gss))
+ 		DCCP_CRIT("packet history - out of memory!");
