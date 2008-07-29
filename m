@@ -1,58 +1,35 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: iproute2 / match / meta bug?
-Date: Tue, 29 Jul 2008 09:11:35 +0300
-Message-ID: <200807290911.35809.denys@visp.net.lb>
-References: <200807290843.29447.denys@visp.net.lb> <488EB07D.50406@trash.net>
+From: Kostya B <bkostya@hotmail.com>
+Subject: __do_softirq execution context
+Date: Tue, 29 Jul 2008 06:12:04 +0000
+Message-ID: <BAY121-W10FA0ADF0B41AF147B9FE2B6820@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="windows-1255"
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:55130 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbYG2GL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 02:11:58 -0400
-In-Reply-To: <488EB07D.50406@trash.net>
-Content-Disposition: inline
+Received: from bay0-omc1-s32.bay0.hotmail.com ([65.54.246.104]:46735 "EHLO
+	bay0-omc1-s32.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751826AbYG2GSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 02:18:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Well, the issue not with ifb0 only. It is just not parsing rules correctly i think:
 
-rich tc # ./tc filter add dev ifb0 protocol all basic match meta\(protocol eq 1234\) classid 1:100
-rich tc # ./tc filter add dev ifb0 protocol all basic match meta\(data_len eq 1234\) classid 1:100
+Hello netdev,
 
-filter parent 1: protocol all pref 49151 basic
-filter parent 1: protocol all pref 49151 basic handle 0x1 flowid 1:100
-  meta(-1 eq 1234)
+Please put your thoughts on the following:
 
-filter parent 1: protocol all pref 49152 basic
-filter parent 1: protocol all pref 49152 basic handle 0x1 flowid 1:100
-  meta(-1 eq 1234)
+__do_softirq could be executed from interrupt, ksoftirqd or event userspace process context. There is a mechanism of limiting userspace employment in that task and waking up the ksoftirqd.
+
+In the case of real-time userspace process, such behavior may yield severe outcomes.
+May be it will better not to employ such process at all.  Just check has_rt_policy() and immediately wakeup ksoftirqd?
 
 
+By now, how network driver poll() could differentiate in which context it runs? Both cases (ksoftirqd and userspace) answer positively on in_interrupt()?
 
-On Tuesday 29 July 2008, Patrick McHardy wrote:
-> Denys Fedoryshchenko wrote:
-> > Kernel 2.6.26, iproute2 latest release. All required modules is loaded.
-> > What did i miss or doing wrong?
-> >
-> > tc filter add dev ifb0 protocol all basic match "meta(rt_iif eq tap0)" classid 1:100 
-> >
-> > tc -s -d filter show dev ifb0
-> > filter parent 1: protocol all pref 49152 basic
-> > filter parent 1: protocol all pref 49152 basic handle 0x1 flowid 1:100
-> >   meta(-1 eq -1)
-> >
-> > Whatever i try - it doesn't work
-> > ./tc filter add dev ifb0 protocol all basic match meta \(rt_iif eq tap0\) classid 1:100
-> >   
-> 
-> You probably need to add support for skb->iif in case the
-> packet didn't went through IPv4.
-> 
+Regards,
+- Kostya
 
-
+_________________________________________________________________
+Explore the seven wonders of the world
+http://search.msn.com/results.aspx?q=7+wonders+world&mkt=en-US&form=QBRE
