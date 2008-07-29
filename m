@@ -1,86 +1,30 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: net/usb/mcs7830: new device IDs
-Date: Mon, 28 Jul 2008 15:03:50 -0700
-Message-ID: <200807281503.50436.david-b@pacbell.net>
-References: <200807282337.19911.arnd@arndb.de>
+From: Peter Mallett <zl2bau@xnet.co.nz>
+Subject: Re: baycom_ser_fdx - fixed under 2.6
+Date: Tue, 29 Jul 2008 12:01:37 +1200
+Message-ID: <488E5DE1.2000602@xnet.co.nz>
+References: <alpine.DEB.1.10.0807191042050.21295@tombstone.paradise.gen.nz> <4885A8F6.7090109@free.fr> <488D4096.5000906@xnet.co.nz> <20080728103242.GN3820@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Viktor Horvath <ViktorHorvath-hi6Y0CQ0nG0@public.gmane.org>,
-	Robbert Wethmar <robbert-OrSUPh62Yq7z+pZb47iToQ@public.gmane.org>,
-	Bart van der Klip <bklip-qWit8jRvyhVmR6Xm/wNWPw@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200807282337.19911.arnd-r2nGTMty4D4@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Pidoux <f6bvp@free.fr>, David Robb <ender@paradise.gen.nz>,
+	linux-hams@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Matti Aarnio <matti.aarnio@zmailer.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from titania.wxnz.net ([58.28.4.13]:49742 "EHLO titania.wxnz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752334AbYG2ABl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2008 20:01:41 -0400
+In-Reply-To: <20080728103242.GN3820@mea-ext.zmailer.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 28 July 2008, Arnd Bergmann wrote:
-> This adds USB device IDs for MosChip 7730 and Sitecom LN030
-> to the mcs7830 driver. The IDs have been reported to work without
-> further modifications.
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Cc: Viktor Horvath <ViktorHorvath-hi6Y0CQ0nG0@public.gmane.org>
-> Cc: Robbert Wethmar <robbert-OrSUPh62Yq7z+pZb47iToQ@public.gmane.org>
-> Cc: Bart van der Klip <bklip-qWit8jRvyhVmR6Xm/wNWPw@public.gmane.org>
+Matti Aarnio wrote:
 
-Acked-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Hi Matti,
 
-> --- a/drivers/net/usb/mcs7830.c
-> +++ b/drivers/net/usb/mcs7830.c
-> @@ -46,6 +46,10 @@
->  
->  #define MCS7830_VENDOR_ID	0x9710
->  #define MCS7830_PRODUCT_ID	0x7830
-> +#define MCS7730_PRODUCT_ID	0x7730
-> +
-> +#define SITECOM_VENDOR_ID	0x0DF6
-> +#define LN_030_PRODUCT_ID	0x0021
->  
->  #define MCS7830_MII_ADVERTISE	(ADVERTISE_PAUSE_CAP | ADVERTISE_100FULL | \
->  				 ADVERTISE_100HALF | ADVERTISE_10FULL | \
-> @@ -491,7 +495,16 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->  }
->  
->  static const struct driver_info moschip_info = {
-> -	.description	= "MOSCHIP 7830 usb-NET adapter",
-> +	.description	= "MOSCHIP 7830/7730 usb-NET adapter",
-> +	.bind		= mcs7830_bind,
-> +	.rx_fixup	= mcs7830_rx_fixup,
-> +	.flags		= FLAG_ETHER,
-> +	.in		= 1,
-> +	.out		= 2,
-> +};
-> +
-> +static const struct driver_info sitecom_info = {
-> +	.description    = "Sitecom LN-30 usb-NET adapter",
->  	.bind		= mcs7830_bind,
->  	.rx_fixup	= mcs7830_rx_fixup,
->  	.flags		= FLAG_ETHER,
-> @@ -504,6 +517,14 @@ static const struct usb_device_id products[] = {
->  		USB_DEVICE(MCS7830_VENDOR_ID, MCS7830_PRODUCT_ID),
->  		.driver_info = (unsigned long) &moschip_info,
->  	},
-> +	{
-> +		USB_DEVICE(MCS7830_VENDOR_ID, MCS7730_PRODUCT_ID),
-> +		.driver_info = (unsigned long) &moschip_info,
-> +	},
-> +	{
-> +		USB_DEVICE(SITECOM_VENDOR_ID, LN_030_PRODUCT_ID),
-> +		.driver_info = (unsigned long) &sitecom_info,
-> +	},
->  	{},
->  };
->  MODULE_DEVICE_TABLE(usb, products);
-> 
+             Thank you for the info, I think I have it sorted out now.
 
+Regards ..... Peter
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
