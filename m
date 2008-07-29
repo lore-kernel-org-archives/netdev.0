@@ -1,45 +1,57 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: "MD5 Hash NOT expected but found" ..
-Date: Tue, 29 Jul 2008 19:40:08 +0300
-Message-ID: <20080729164008.GR3820@mea-ext.zmailer.org>
-References: <20080729160430.GQ3820@mea-ext.zmailer.org> <20080729091615.11595272@extreme>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [Patch] fix ia64 build failure when CONFIG_SFC=m
+Date: Tue, 29 Jul 2008 10:23:53 -0700
+Message-ID: <57C9024A16AD2D4C97DC78E552063EA3080BA318@orsmsx505.amr.corp.intel.com>
+References: <20080729013650.GH9663@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:53770 "EHLO z2.cat.iki.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751435AbYG2QkM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 12:40:12 -0400
-Received: (mea@mea-ext) by mail.zmailer.org id S3541780AbYG2QkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 19:40:08 +0300
-Content-Disposition: inline
-In-Reply-To: <20080729091615.11595272@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "jgarzik@redhat.com" <jgarzik@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"matthew@wil.cx" <matthew@wil.cx>, Robin Holt <holt@sgi.com>
+To: "bhutchings@solarflare.com" <bhutchings@solarflare.com>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <20080729013650.GH9663@sgi.com>
+Content-Language: en-US
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 29, 2008 at 09:16:15AM -0700, Stephen Hemminger wrote:
-> On Tue, 29 Jul 2008 19:04:30 +0300
-> Matti Aarnio <matti.aarnio@zmailer.org> wrote:
-> 
-> > Dmesg reports following on  2.6.26-0.45.rc4.git2.fc10.x86_64
-> > 
-> > MD5 Hash NOT expected but found (207.118.50.124, 4463)->(212.16.98.133, 25)
-> > MD5 Hash NOT expected but found (207.118.50.124, 4463)->(212.16.98.133, 25)
-> > MD5 Hash NOT expected but found (64.91.108.168, 3704)->(212.16.98.133, 25)
-> > MD5 Hash NOT expected but found (64.91.108.168, 3704)->(212.16.98.133, 25)
-...
-> 
-> Somebody is trying to connect with MD5 option.
-> This kernel message is too verbose for production systems.
+> CONFIG_SFC=m uses topology_core_siblings() which, for ia64, expects
+> cpu_core_map to be exported.  It is not.  This patch exports the needed
+> symbol.
 
-Probably yes.  I have seen those kernel messages less frequently than
-once per day on average.   "Rule of Least Confusion" does suggest that
-unless this really reports about something being wrong, it should not
-report it  --  if it is generated because the coder was unsure of what
-will happen, then the kernel needs more pacthing.
+Ben,
 
-Current server uptime is 54 days, which means the kernel may have
-already been patched somehow regarding this.
+Before I rush to apply this (or one of the other identical patches that
+I've received) ... I'd like to ponder on whether this is the right thing
+to do.
 
-/Matti Aarnio
+Looking at the code in drivers/net/sfc/efx.c I see that you are using
+this to compute the number of RX queues based on the number of packages
+with the git commit comment saying:
+
+    Using multiple cores in the same package to handle received traffic
+    does not appear to provide a performance benefit.  Therefore use CPU
+    topology information to count CPU packages and use that as the default
+    number of RX queues and interrupts.  We rely on interrupt balancing to
+    spread the interrupts across packages.
+
+I have some questions on this:
+
+1) Did you measure on FSB based systems? ... It's kind of sad that the extra
+cores are not helping and I wonder why. Do AMD and QPI based systems have
+this same limitation?
+
+2) Should Linux have an API to give you a useful number of threads, rather
+than make you dig through the topology data structures? At some point cpumask_t
+data structure is going to be too big for the kernel stack.
+
+3) Does interrupt balancing always do the right thing to spread your interrupts
+across packages?
+
+4) In a hotplug system would you want to adjust the number of threads if cpus
+were added or removed?
+
+-Tony
