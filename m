@@ -1,98 +1,73 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [RFC][PATCH 1/1] net: support for hardware timestamping
-Date: Tue, 29 Jul 2008 19:30:19 +0200
-Message-ID: <200807291930.20033.netdev@axxeo.de>
-References: <1217290080-4251-1-git-send-email-opurdila@ixiacom.com> <20080729085457.033a9fd2@extreme> <200807291911.10364.opurdila@ixiacom.com>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: [PATCH] MD5: don't warn when an unexpected signature is seen.
+Date: Tue, 29 Jul 2008 10:36:00 -0700
+Message-ID: <396556a20805301217k293e5718h6bbf02bfe069040@europa>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:51349 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752186AbYG2Rah (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 13:30:37 -0400
-In-Reply-To: <200807291911.10364.opurdila@ixiacom.com>
-Content-Disposition: inline
+Received: from wf-out-1314.google.com ([209.85.200.169]:27502 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbYG2Rit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 13:38:49 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so6601335wfd.4
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2008 10:38:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Octavian,
+Currently, connecting to a listening socket with an MD5 signature option, when
+MD5 is not configured on the listening socket, will generate the following
+warning:
+  MD5 Hash NOT expected but found
 
-Octavian Purdila schrieb:
-> On Tuesday 29 July 2008, Stephen Hemminger wrote:
-> >
-> > In my sky2 sample code, I took a different approach:
-> >  1. Why have HW timestamps different than existing timestamps? If you
-> >     just use existing timestamp, no socket API is needed.
-> 
-> I agree that is a much better approach if you are ok with the variance 
-> introduced by synchronizing the HW timestamps with the CPU clock.
+This is rate limited, but too verbose given that it can be induced with an
+unverified SYN packet.
 
-Just convert your hardware specific cookie you have into the nanoseconds
-resolution timstamp in skb->tstamp just before calling netif_rx() 
-or net_receive_skb().  
+This patch removes the warning
 
-These functions will not touch it, as long as they never see a ZERO 
-value there. A ZERO value in tstamp.tv64 means, we have no timestamp.
+Signed-off-by: Adam Langley <agl@imperialviolet.org>
+---
 
-The difference to CPU clock doesn't matter. 
-That compensation can be done by your driver or application at will.
-For mainline, compensation in driver might be preferred.
+ net/ipv4/tcp_ipv4.c |    7 +------
+ net/ipv6/tcp_ipv6.c |    7 -------
+ 2 files changed, 1 insertions(+), 13 deletions(-)
 
-As long as it is montonic increasing and related to time in any way, 
-you could put anything there, I think :-)
-
-The timestamp in nanoseconds will be submitted as CMSG().
-see net/socket.c "put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS, sizeof(ts), &ts);"
-
-Enable it with this code fragment in user space:
-
-	int one = 1;
-	setsockopt(mysok, SOL_SOCKET, SO_TIMESTAMPNS, &one);
-
-In the kernel the call chain is: raw_recvmsg() -> sock_recv_timestamp() -> __sock_recv_timestamp()
-__sock_recv_timestamp() is:
-void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
-    struct sk_buff *skb)
-{
-    ktime_t kt = skb->tstamp;
-
-    if (!sock_flag(sk, SOCK_RCVTSTAMPNS)) {
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check for nanosecond timestamps
-        struct timeval tv;
-        /* Race occurred between timestamp enabling and packet
-           receiving.  Fill in the current time for now. */
-        if (kt.tv64 == 0)
-            kt = ktime_get_real();
-        skb->tstamp = kt;
-        tv = ktime_to_timeval(kt);
-        put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP, sizeof(tv), &tv);
-    } else {
-        struct timespec ts;
-        /* Race occurred between timestamp enabling and packet
-           receiving.  Fill in the current time for now. */
-        if (kt.tv64 == 0)
-            kt = ktime_get_real();
-        skb->tstamp = kt;
-        ts = ktime_to_timespec(kt);
-        put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS, sizeof(ts), &ts);
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Put nanosecond timestamps into CMSG()
-    }
-}
-
-> But if you want to precisely measure one-way delays, and if you have the hw 
-> timestamp units synchronized across the nodes, then you need the hardware 
-> timesetamp. 
-
-Yes, no argument against that. Just your new user space ABI is simply not 
-required for RX timestamps. It works out of the box already.
-
-
-
-Best Regards
-
-Ingo Oeser
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a2b06d0..8cafa92 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1123,13 +1123,8 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
+ 		return 1;
+ 	}
+ 
+-	if (!hash_expected && hash_location) {
+-		LIMIT_NETDEBUG(KERN_INFO "MD5 Hash NOT expected but found "
+-			       "(" NIPQUAD_FMT ", %d)->(" NIPQUAD_FMT ", %d)\n",
+-			       NIPQUAD(iph->saddr), ntohs(th->source),
+-			       NIPQUAD(iph->daddr), ntohs(th->dest));
++	if (!hash_expected && hash_location)
+ 		return 1;
+-	}
+ 
+ 	/* Okay, so this is hash_expected and hash_location -
+ 	 * so we need to calculate the checksum.
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index cff778b..7bb588c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -853,13 +853,6 @@ static int tcp_v6_inbound_md5_hash (struct sock *sk, struct sk_buff *skb)
+ 	if (!hash_expected) {
+ 		if (!hash_location)
+ 			return 0;
+-		if (net_ratelimit()) {
+-			printk(KERN_INFO "MD5 Hash NOT expected but found "
+-			       "(" NIP6_FMT ", %u)->"
+-			       "(" NIP6_FMT ", %u)\n",
+-			       NIP6(ip6h->saddr), ntohs(th->source),
+-			       NIP6(ip6h->daddr), ntohs(th->dest));
+-		}
+ 		return 1;
+ 	}
+ 
