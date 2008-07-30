@@ -1,42 +1,31 @@
 From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: [patch nacked? 2/4] 3c59x: fix PCI resource management
-Date: Thu, 31 Jul 2008 00:10:40 +0200
-Message-ID: <20080730221040.GA29548@bayes.mathematik.tu-chemnitz.de>
-References: <200807301940.m6UJel33012679@imap1.linux-foundation.org>
+Subject: Re: [PATCH] 3c59x: use netdev_alloc_skb
+Date: Thu, 31 Jul 2008 00:12:51 +0200
+Message-ID: <20080730221251.GB29548@bayes.mathematik.tu-chemnitz.de>
+References: <20080725120722.1f2668a1@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, sshtylyov@ru.mvista.com,
-	jgarzik@pobox.com
-To: akpm@linux-foundation.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:49653 "EHLO
-	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbYG3WKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:10:45 -0400
+Received: from john.hrz.tu-chemnitz.de ([134.109.132.2]:52243 "EHLO
+	john.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752842AbYG3WMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:12:53 -0400
 Content-Disposition: inline
-In-Reply-To: <200807301940.m6UJel33012679@imap1.linux-foundation.org>
+In-Reply-To: <20080725120722.1f2668a1@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 30, 2008 at 12:40:47PM -0700, akpm@linux-foundation.org wrote:
-> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+On Fri, Jul 25, 2008 at 12:07:22PM -0700, Stephen Hemminger wrote:
+> Fix possible bug where end of receive buffer could be overwritten.
+> The allocation needs to allow for the reserved space. This would only happen
+> if device received packet greater than Ethernet standard MTU.
 > 
-> The driver wrongly claimed I/O ports at an address returned by pci_iomap()
-> -- even if it was passed an MMIO address.  Fix this by claiming/releasing
-> all PCI resources in the PCI driver probe/remove handlers instead and get
-> rid of the must_free_region flag weirdness (why would Cardbus claim
-> anything for us?).
+> Change this driver to use netdev_alloc_skb rather than setting skb->dev
+> directly. For the initial allocation it doesn't need to be GFP_ATOMIC.
 > 
-> Also, the remove handler was trying to talk to the chip after having
-> disabled its address decoders (at least on x86) -- fix this and get rid of
-> useless VORTEX_PCI() calls.
+> Compile tested only.
 > 
-> While at it, fix some cases of the overly indented code...
-> 
-
-The compile error of that patch should be fixed by git commit
-0da0ead90122578ef6e4afba9ba4bcd3455fd8e8 at least.
-
-I'll take this one and look at it.
-
-Steffen
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
