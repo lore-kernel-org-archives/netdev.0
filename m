@@ -1,63 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.27-rc1]: fix NE2000 linkage error
-Date: Wed, 30 Jul 2008 13:55:32 -0400
-Message-ID: <4890AB14.1030009@garzik.org>
-References: <200807301144.m6UBitOG022822@harpo.it.uu.se>
+From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
+	<francois.valenduc@tvcablenet.be>
+Subject: Re: [Bugme-new] [Bug 11144] New: dhcp doesn't work with iwl4965
+Date: Wed, 30 Jul 2008 20:04:31 +0200
+Message-ID: <4890AD2F.8030502@tvcablenet.be>
+References: <4887550B.2070704@tvcablenet.be> <4887555A.30605@trash.net>	 <48875B8C.2090800@trash.net> <20080723.142147.61941255.davem@davemloft.net>	 <48884451.1090703@trash.net>	 <1ba2fa240807240317g15f6ba84h91b513cce75975e9@mail.gmail.com>	 <48885743.8030505@trash.net>	 <1ba2fa240807240435g36daa80at254144afffc39c32@mail.gmail.com>	 (sfid-20080724_133550_701095_354A4111) <1216899926.13587.51.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Mikael Pettersson <mikpe@it.uu.se>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tomas Winkler <tomasw@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	jussi.kivilinna@mbnet.fi
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34485 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758806AbYG3Rzn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2008 13:55:43 -0400
-In-Reply-To: <200807301144.m6UBitOG022822@harpo.it.uu.se>
+Received: from agave.telenet-ops.be ([195.130.137.77]:41038 "EHLO
+	agave.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751819AbYG3SEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 14:04:36 -0400
+In-Reply-To: <1216899926.13587.51.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mikael Pettersson wrote:
-> Trying to build with CONFIG_NE2000=m fails with:
-> 
->   scripts/mod/modpost   -o /tmp/tmp/linux-2.6.27-rc1/Module.symvers    -S     -s
-> ERROR: "NS8390_init" [drivers/net/ne.ko] undefined!
-> 
-> This is because the split of 8390 into pausing and non-pausing
-> versions was incompletely propagated to ne.c. This fixes it.
-> 
-> Signed-off-by: Mikael Pettersson <mikpe@it.uu.se>
-> ---
-> 
-> --- linux-2.6.27-rc1/drivers/net/ne.c.~1~	2008-07-29 10:40:11.000000000 +0200
-> +++ linux-2.6.27-rc1/drivers/net/ne.c	2008-07-30 13:17:16.000000000 +0200
-> @@ -536,7 +536,7 @@ static int __init ne_probe1(struct net_d
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	dev->poll_controller = eip_poll;
->  #endif
-> -	NS8390_init(dev, 0);
-> +	NS8390p_init(dev, 0);
->  
->  	ret = register_netdev(dev);
->  	if (ret)
-> @@ -794,7 +794,7 @@ retry:
->  		if (time_after(jiffies, dma_start + 2*HZ/100)) {		/* 20ms */
->  			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
->  			ne_reset_8390(dev);
-> -			NS8390_init(dev,1);
-> +			NS8390p_init(dev, 1);
->  			break;
->  		}
->  
-> @@ -855,7 +855,7 @@ static int ne_drv_resume(struct platform
->  
->  	if (netif_running(dev)) {
->  		ne_reset_8390(dev);
-> -		NS8390_init(dev, 1);
-> +		NS8390p_init(dev, 1);
->  		netif_device_attach(dev);
+Johannes Berg a =E9crit :
+> On Thu, 2008-07-24 at 14:35 +0300, Tomas Winkler wrote:
+>
+>  =20
+>>>> Isn't this time to make 802.11 native?
+>>>>        =20
+>>> You mean by making these things real skb members? I hope you're
+>>> not talking about the entire 48 bytes? :)
+>>>      =20
+>> I mean elevating 802.11 header to 802.3 level. Not doing 802.3 ->
+>> 802.11 translation where not needed.
+>>    =20
+>
+>
+> We've discussed that over and over and over and over again, and it's =
+not
+> going to fly since 802.11 throughout assumes that you have a two-addr=
+ess
+> data service to the upper layers.
+>
+> Besides, making it 802.11 native doesn't help with the control
+> information at all.
+>
+> johannes
+>  =20
+It seems the patch you made an available at=20
+http://lkml.org/lkml/2008/7/29/153 solves my problem. DHCP works again=20
+if I apply it on kernel 2.6.27-rc1.
 
-Yep, already got this one, but thanks!
-
-
+=46ran=E7ois
