@@ -1,50 +1,74 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 30 Jul 2008 12:21:24 -0700
-Message-ID: <adabq0fyy8b.fsf@cisco.com>
+Date: Wed, 30 Jul 2008 15:35:35 -0400
+Message-ID: <4890C287.60508@pobox.com>
 References: <200807300019.m6U0JkdY012558@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	jgarzik@pobox.com, davem@davemloft.net, michaelc@cs.wisc.edu,
-	swise@opengridcomputing.com, daisyc@us.ibm.com,
+	davem@davemloft.net, michaelc@cs.wisc.edu,
+	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
 	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
-	dm@chelsio.com, leedom@chelsio.com
+	dm@chelsio.com, leedom@chelsio.com,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 To: Karen Xie <kxie@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:55391 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754491AbYG3TV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:21:29 -0400
-In-Reply-To: <200807300019.m6U0JkdY012558@localhost.localdomain> (Karen Xie's
-	message of "Tue, 29 Jul 2008 17:19:46 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200807300019.m6U0JkdY012558@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > Cxgb3i iSCSI driver
+Karen Xie wrote:
+> Cxgb3i iSCSI driver
+> 
+> Signed-off-by: Karen Xie <kxie@chelsio.com>
+> ---
+> 
+>  drivers/scsi/cxgb3i/Kconfig          |    6 
+>  drivers/scsi/cxgb3i/Makefile         |    5 
+>  drivers/scsi/cxgb3i/cxgb3i.h         |  155 +++
+>  drivers/scsi/cxgb3i/cxgb3i_init.c    |  109 ++
+>  drivers/scsi/cxgb3i/cxgb3i_iscsi.c   |  800 ++++++++++++++
+>  drivers/scsi/cxgb3i/cxgb3i_offload.c | 2001 ++++++++++++++++++++++++++++++++++
+>  drivers/scsi/cxgb3i/cxgb3i_offload.h |  242 ++++
+>  drivers/scsi/cxgb3i/cxgb3i_ulp2.c    |  692 ++++++++++++
+>  drivers/scsi/cxgb3i/cxgb3i_ulp2.h    |  106 ++
+>  9 files changed, 4116 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/scsi/cxgb3i/Kconfig
+>  create mode 100644 drivers/scsi/cxgb3i/Makefile
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i.h
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_init.c
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_iscsi.c
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_offload.c
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_offload.h
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_ulp2.c
+>  create mode 100644 drivers/scsi/cxgb3i/cxgb3i_ulp2.h
 
-I think a little more detail in the changelog would be
-helpful... something like what you had in the 0/1 email (no reason to
-put that nice info in an email that will be discarded rather than in the
-patch that will be merged).  Maybe:
+Comments:
 
-  The cxgb3i driver provides iscsi acceleration (PDU digest offload and
-  payload direct-placement) to the open-iscsi initiator.  It accesses
-  the hardware through the cxgb3 module.
+* SCSI drivers should be submitted via the linux-scsi@vger.kernel.org 
+mailing list.
 
-I didn't read in detail yet but one quick comments:
+* The driver is clean and readable, well done
 
- > --- /dev/null
- > +++ b/drivers/scsi/cxgb3i/Kconfig
- > @@ -0,0 +1,6 @@
- > +config SCSI_CXGB3_ISCSI
- > +	tristate "Chelsio S3xx iSCSI support"
- > +	select CHELSIO_T3
- > +	select SCSI_ISCSI_ATTRS
- > +	---help---
- > +	This driver supports iSCSI offload for the Chelsio S3 series devices.
+* From a networking standpoint, our main concern becomes how this 
+interacts with the networking stack.  In particular, I'm concerned based 
+on reading the source that this driver uses "TCP port stealing" rather 
+than using a totally separate MAC address (and IP).
 
-I don't see any other Kconfig changes that hook this Kconfig file into
-the build?  Also are there sufficient dependencies to avoid broken
-configs here?
+Stealing a TCP port on an IP/interface already assigned is a common 
+solution in this space, but also a flawed one.  Precisely because the 
+kernel and applications are unaware of this "special, magic TCP port" 
+you open the potential for application problems that are very difficult 
+for an admin to diagnose based on observed behavior.
+
+So, additional information on your TCP port usage would be greatly 
+appreciated.  Also, how does this interact with IPv6?  Clearly it 
+interacts with IPv4...
+
+	Jeff
+
+
+
 
