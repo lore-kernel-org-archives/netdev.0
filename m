@@ -1,95 +1,56 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 08/30] mm: serialize access to min_free_kbytes
-Date: Wed, 30 Jul 2008 15:36:00 +0300
-Message-ID: <1217421360.7813.171.camel@penberg-laptop>
-References: <20080724140042.408642539@chello.nl>
-	 <20080724141529.855634756@chello.nl>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH-2.4] via-rhine: fix duplex detection issue
+Date: Wed, 30 Jul 2008 14:41:39 +0200
+Message-ID: <20080730124138.GB2397@1wt.eu>
+References: <20080729220802.GA25729@1wt.eu> <20080730095120.GA15833@core.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Neil Brown <neilb@suse.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Roger Luethi <rl@hellgate.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:37854 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755209AbYG3Mf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 08:35:58 -0400
-In-Reply-To: <20080724141529.855634756@chello.nl>
+Received: from 1wt.eu ([62.212.114.60]:2275 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758606AbYG3Mlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 08:41:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20080730095120.GA15833@core.hellgate.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-07-24 at 16:00 +0200, Peter Zijlstra wrote:
-> plain text document attachment (mm-setup_per_zone_pages_min.patch)
-> There is a small race between the procfs caller and the memory hotplug caller
-> of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
-> another caller. Time to close the gap.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Hi Roger,
 
-Looks good to me.
-
-Reviewed-by: Pekka Enberg <penberg@cs.helsinki.fi>
-
-> ---
->  mm/page_alloc.c |   16 +++++++++++++---
->  1 file changed, 13 insertions(+), 3 deletions(-)
+On Wed, Jul 30, 2008 at 11:51:21AM +0200, Roger Luethi wrote:
+> On Wed, 30 Jul 2008 00:08:02 +0200, Willy Tarreau wrote:
+> > The user that I am suggest using #1, but the maintainer that
+> > I am prefers #2. So I think I'll just go with the patch for
+> > the specific issue, and only consider the backport for my
+> > personal trees the day I have time to spend on this. That way
+> > we get one small patch for one small issue.
+> > 
+> > I'd like to get your opinion on this, and to check with you
+> > if you are basically OK with that change in principle.
 > 
-> Index: linux-2.6/mm/page_alloc.c
-> ===================================================================
-> --- linux-2.6.orig/mm/page_alloc.c
-> +++ linux-2.6/mm/page_alloc.c
-> @@ -118,6 +118,7 @@ static char * const zone_names[MAX_NR_ZO
->  	 "Movable",
->  };
->  
-> +static DEFINE_SPINLOCK(min_free_lock);
->  int min_free_kbytes = 1024;
->  
->  unsigned long __meminitdata nr_kernel_pages;
-> @@ -4333,12 +4334,12 @@ static void setup_per_zone_lowmem_reserv
->  }
->  
->  /**
-> - * setup_per_zone_pages_min - called when min_free_kbytes changes.
-> + * __setup_per_zone_pages_min - called when min_free_kbytes changes.
->   *
->   * Ensures that the pages_{min,low,high} values for each zone are set correctly
->   * with respect to min_free_kbytes.
->   */
-> -void setup_per_zone_pages_min(void)
-> +static void __setup_per_zone_pages_min(void)
->  {
->  	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
->  	unsigned long lowmem_pages = 0;
-> @@ -4433,6 +4434,15 @@ void setup_per_zone_inactive_ratio(void)
->  	}
->  }
->  
-> +void setup_per_zone_pages_min(void)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&min_free_lock, flags);
-> +	__setup_per_zone_pages_min();
-> +	spin_unlock_irqrestore(&min_free_lock, flags);
-> +}
-> +
->  /*
->   * Initialise min_free_kbytes.
->   *
-> @@ -4468,7 +4478,7 @@ static int __init init_per_zone_pages_mi
->  		min_free_kbytes = 128;
->  	if (min_free_kbytes > 65536)
->  		min_free_kbytes = 65536;
-> -	setup_per_zone_pages_min();
-> +	__setup_per_zone_pages_min();
->  	setup_per_zone_lowmem_reserve();
->  	setup_per_zone_inactive_ratio();
->  	return 0;
+> The major changes in 2.6 via-rhine have been in use for quite a while. It's
+> clearly an improvement over the one in 2.4 and every bit as stable. I'm not
+> sure a backport is worth it, though, especially considering that it's
+> incredibly easy to break via-rhine for some odd hardware or use case.
 > 
+> For 2.4, I'd stay with the devil that I know -- i.e. make minimal changes
+> only.
+
+This is exactly the type of information I needed.
+
+> But whatever you decide is fine with me.
+
+Your arguments are more than enough. You know the driver, I don't. Knowing
+that you trust it in its current shape is perfect for me. I'll stay on 2.4
+version.
+
+> I trust that the 2.4
+> maintainer knows what is best for those users. Better than me, anyway.
+
+Hey, I only do what driver authors and maintainers think is reasonable :-)
+
+Thanks very much Roger,
+Willy
 
