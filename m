@@ -1,80 +1,186 @@
 From: akpm@linux-foundation.org
-Subject: [patch 03/11] net: use the common ascii hex helpers
-Date: Wed, 30 Jul 2008 12:37:35 -0700
-Message-ID: <200807301937.m6UJbZ5d012431@imap1.linux-foundation.org>
+Subject: [patch 04/11] net: configure out IGMP support
+Date: Wed, 30 Jul 2008 12:37:36 -0700
+Message-ID: <200807301937.m6UJbafn012434@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	harvey.harrison@gmail.com
+	thomas.petazzoni@free-electrons.com, mpm@selenic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37688 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47148 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753241AbYG3Th7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:37:59 -0400
+	by vger.kernel.org with ESMTP id S1753836AbYG3TiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:38:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+tAdd adds the CONFIG_IGMP option which allows to remove support for the
+Internet Group Management Protocol, used in multicast.  Multicast is not
+necessarly used by applications, particularly on embedded devices.  As
+this is a size-reduction option, it depends on CONFIG_EMBEDDED.  It allows
+to save ~10 kilobytes of kernel code/data:
+
+   text	   data	    bss	    dec	    hex	filename
+1718857	 143672	 221184	2083713	 1fcb81	vmlinux
+1708838	 143640	 221184	2073662	 1fa43e	vmlinux.new
+ -10019     -32       0  -10051   -2743 +/-
+
+This patch has been originally written by Matt Mackall <mpm@selenic.com>,
+and is part of the Linux Tiny project.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Matt Mackall <mpm@selenic.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/skfp/smt.c             |   13 ++++++-------
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    5 ++---
- 2 files changed, 8 insertions(+), 10 deletions(-)
+ include/linux/igmp.h       |   20 ++++++++++++++++++++
+ init/Kconfig               |    8 ++++++++
+ net/ipv4/Makefile          |    3 ++-
+ net/ipv4/af_inet.c         |    2 --
+ net/ipv4/ip_sockglue.c     |    4 ++++
+ net/ipv4/sysctl_net_ipv4.c |    2 ++
+ 6 files changed, 36 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/skfp/smt.c~net-use-the-common-ascii-hex-helpers drivers/net/skfp/smt.c
---- a/drivers/net/skfp/smt.c~net-use-the-common-ascii-hex-helpers
-+++ a/drivers/net/skfp/smt.c
-@@ -19,6 +19,7 @@
- #include "h/smc.h"
- #include "h/smt_p.h"
- #include <linux/bitrev.h>
-+#include <linux/kernel.h>
+diff -puN include/linux/igmp.h~configure-out-igmp-support include/linux/igmp.h
+--- a/include/linux/igmp.h~configure-out-igmp-support
++++ a/include/linux/igmp.h
+@@ -215,6 +215,7 @@ struct ip_mc_list
+ #define IGMPV3_QQIC(value) IGMPV3_EXP(0x80, 4, 3, value)
+ #define IGMPV3_MRC(value) IGMPV3_EXP(0x80, 4, 3, value)
  
- #define KERNEL
- #include "h/smtstate.h"
-@@ -1730,20 +1731,18 @@ void fddi_send_antc(struct s_smc *smc, s
++#ifdef CONFIG_IGMP
+ extern int ip_check_mc(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto);
+ extern int igmp_rcv(struct sk_buff *);
+ extern int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr);
+@@ -235,6 +236,25 @@ extern void ip_mc_down(struct in_device 
+ extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
+ extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
+ extern void ip_mc_rejoin_group(struct ip_mc_list *im);
++#else /* !CONFIG_IGMP */
++#define ip_check_mc(a, b, c, d) (0)
++#define igmp_rcv(a) (0)
++#define ip_mc_join_group(a, b) (0)
++#define ip_mc_leave_group(a, b) (0)
++#define ip_mc_drop_socket(a)
++#define ip_mc_source(a, b, c, d, e) (0)
++#define ip_mc_msfilter(a, b, c) (0)
++#define ip_mc_msfget(a, b, c, d) (0)
++#define ip_mc_gsfget(a, b, c, d) (0)
++#define ip_mc_sf_allow(a, b, c, d) (0)
++#define ip_mc_init_dev(a)
++#define ip_mc_destroy_dev(a)
++#define ip_mc_up(a)
++#define ip_mc_down(a)
++#define ip_mc_dec_group(a)
++#define ip_mc_inc_group(a)
++#define ip_mc_rejoin_group(a)
++#endif /* CONFIG_IGMP */
+ 
+ #endif
+ #endif
+diff -puN init/Kconfig~configure-out-igmp-support init/Kconfig
+--- a/init/Kconfig~configure-out-igmp-support
++++ a/init/Kconfig
+@@ -724,6 +724,14 @@ config SHMEM
+ 	  option replaces shmem and tmpfs with the much simpler ramfs code,
+ 	  which may be appropriate on small systems without swap.
+ 
++config IGMP
++	depends on INET
++	bool "Enable IGMP support" if EMBEDDED && !IP_MULTICAST
++	default y
++	help
++	  Disabling this option removes support for the Internet group
++          management protocol, used for multicast. Saves about 10k.
++
+ config VM_EVENT_COUNTERS
+ 	default y
+ 	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED
+diff -puN net/ipv4/Makefile~configure-out-igmp-support net/ipv4/Makefile
+--- a/net/ipv4/Makefile~configure-out-igmp-support
++++ a/net/ipv4/Makefile
+@@ -9,13 +9,14 @@ obj-y     := route.o inetpeer.o protocol
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+ 	     tcp_minisocks.o tcp_cong.o \
+ 	     datagram.o raw.o udp.o udplite.o \
+-	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
++	     arp.o icmp.o devinet.o af_inet.o \
+ 	     fib_frontend.o fib_semantics.o \
+ 	     inet_fragment.o
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
+ obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
+ obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
++obj-$(CONFIG_IGMP) += igmp.o
+ obj-$(CONFIG_PROC_FS) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+diff -puN net/ipv4/af_inet.c~configure-out-igmp-support net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c~configure-out-igmp-support
++++ a/net/ipv4/af_inet.c
+@@ -115,8 +115,6 @@
+ #include <linux/mroute.h>
  #endif
  
- #ifdef	DEBUG
--#define hextoasc(x)	"0123456789abcdef"[x]
+-extern void ip_mc_drop_socket(struct sock *sk);
 -
- char *addr_to_string(struct fddi_addr *addr)
- {
- 	int	i ;
- 	static char	string[6*3] = "****" ;
- 
- 	for (i = 0 ; i < 6 ; i++) {
--		string[i*3] = hextoasc((addr->a[i]>>4)&0xf) ;
--		string[i*3+1] = hextoasc((addr->a[i])&0xf) ;
--		string[i*3+2] = ':' ;
-+		string[i * 3] = hex_asc_hi(addr->a[i]);
-+		string[i * 3 + 1] = hex_asc_lo(addr->a[i]);
-+		string[i * 3 + 2] = ':';
+ /* The inetsw table contains everything that inet_create needs to
+  * build a new socket.
+  */
+diff -puN net/ipv4/ip_sockglue.c~configure-out-igmp-support net/ipv4/ip_sockglue.c
+--- a/net/ipv4/ip_sockglue.c~configure-out-igmp-support
++++ a/net/ipv4/ip_sockglue.c
+@@ -640,6 +640,7 @@ static int do_ip_setsockopt(struct sock 
+ 			err = ip_mc_leave_group(sk, &mreq);
+ 		break;
  	}
--	string[5*3+2] = 0 ;
--	return(string) ;
-+	string[5 * 3 + 2] = 0;
-+	return(string);
- }
++#ifdef CONFIG_IGMP
+ 	case IP_MSFILTER:
+ 	{
+ 		extern int sysctl_igmp_max_msf;
+@@ -677,6 +678,7 @@ static int do_ip_setsockopt(struct sock 
+ 		kfree(msf);
+ 		break;
+ 	}
++#endif
+ 	case IP_BLOCK_SOURCE:
+ 	case IP_UNBLOCK_SOURCE:
+ 	case IP_ADD_SOURCE_MEMBERSHIP:
+@@ -794,6 +796,7 @@ static int do_ip_setsockopt(struct sock 
+ 				   greqs.gsr_interface);
+ 		break;
+ 	}
++#ifdef CONFIG_IGMP
+ 	case MCAST_MSFILTER:
+ 	{
+ 		extern int sysctl_igmp_max_msf;
+@@ -860,6 +863,7 @@ static int do_ip_setsockopt(struct sock 
+ 		kfree(gsf);
+ 		break;
+ 	}
++#endif
+ 	case IP_ROUTER_ALERT:
+ 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
+ 		break;
+diff -puN net/ipv4/sysctl_net_ipv4.c~configure-out-igmp-support net/ipv4/sysctl_net_ipv4.c
+--- a/net/ipv4/sysctl_net_ipv4.c~configure-out-igmp-support
++++ a/net/ipv4/sysctl_net_ipv4.c
+@@ -412,6 +412,7 @@ static struct ctl_table ipv4_table[] = {
+ 	},
+ 
  #endif
- 
-diff -puN net/ipv4/netfilter/ipt_CLUSTERIP.c~net-use-the-common-ascii-hex-helpers net/ipv4/netfilter/ipt_CLUSTERIP.c
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c~net-use-the-common-ascii-hex-helpers
-+++ a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -475,11 +475,10 @@ static void arp_print(struct arp_payload
- #define HBUFFERLEN 30
- 	char hbuffer[HBUFFERLEN];
- 	int j,k;
--	const char hexbuf[]= "0123456789abcdef";
- 
- 	for (k=0, j=0; k < HBUFFERLEN-3 && j < ETH_ALEN; j++) {
--		hbuffer[k++]=hexbuf[(payload->src_hw[j]>>4)&15];
--		hbuffer[k++]=hexbuf[payload->src_hw[j]&15];
-+		hbuffer[k++] = hex_asc_hi(payload->src_hw[j]);
-+		hbuffer[k++] = hex_asc_lo(payload->src_hw[j]);
- 		hbuffer[k++]=':';
- 	}
- 	hbuffer[--k]='\0';
++#ifdef CONFIG_IGMP
+ 	{
+ 		.ctl_name	= NET_IPV4_IGMP_MAX_MSF,
+ 		.procname	= "igmp_max_msf",
+@@ -420,6 +421,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+ 	},
++#endif
+ 	{
+ 		.ctl_name	= NET_IPV4_INET_PEER_THRESHOLD,
+ 		.procname	= "inet_peer_threshold",
 _
