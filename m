@@ -1,50 +1,32 @@
-From: Miao Xie <miaox@cn.fujitsu.com>
-Subject: [PATCH] IPv6: datagram_send_ctl() should exit immediately when an
- error occured
-Date: Wed, 30 Jul 2008 09:30:43 +0800
-Message-ID: <488FC443.1080905@cn.fujitsu.com>
-Reply-To: miaox@cn.fujitsu.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-07-29
+Date: Tue, 29 Jul 2008 21:51:48 -0700 (PDT)
+Message-ID: <20080729.215148.14128716.davem@davemloft.net>
+References: <20080729213447.GB7443@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Pekka Savola <pekkas@netcore.fi>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: "NETWORKING [IPv4/IPv6]" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62252 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754845AbYG3BdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 21:33:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080729213447.GB7443-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When an error occured, datagram_send_ctl() should exit immediately rather than
-continue to run the for loop. Otherwise, the variable err might be changed and
-the error might be hidden.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 29 Jul 2008 17:34:47 -0400
 
-Fix this bug by using "goto" instead of "break".
+> A rather large set of patches to fix some of the problems that have been
+> festering in Linus's tree for the last week or so...I apologize for my
+> absence while I dallied in sunny Ottawa...
+> 
+> Please let me know if there are problems!
 
-Signed-off-by: Miao Xie <miaox@cn.fujitsu.com>
+Pulled, thanks John.
 
----
- net/ipv6/datagram.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index f7b535d..410046a 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -732,7 +732,7 @@ int datagram_send_ctl(struct net *net,
- 			LIMIT_NETDEBUG(KERN_DEBUG "invalid cmsg type: %d\n",
- 				       cmsg->cmsg_type);
- 			err = -EINVAL;
--			break;
-+			goto exit_f;
- 		}
- 	}
- 
--- 
-1.5.4.rc3
-
-
+I'll push to kernel.org after I do some build testing.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
