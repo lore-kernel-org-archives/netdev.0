@@ -1,42 +1,48 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC] sctp/tcp: Question -- ICMPv4 length check (not) redundant?
-Date: Wed, 30 Jul 2008 08:49:38 -0400
-Message-ID: <48906362.2090902@hp.com>
-References: <488E0192.9030406@hp.com>	<20080728174432.GA15892@gerrit.erg.abdn.ac.uk>	<488E0B73.8070701@hp.com> <20080730.031935.61479223.davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [RFC][PATCH 0/2] net: support for TX timestamps
+Date: Wed, 30 Jul 2008 16:02:08 +0300
+Message-ID: <200807301602.09298.opurdila@ixiacom.com>
+References: <1217291753-5322-1-git-send-email-opurdila@ixiacom.com> <200807301147.09643.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:47459 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754380AbYG3Mto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 08:49:44 -0400
-In-Reply-To: <20080730.031935.61479223.davem@davemloft.net>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:5432 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751214AbYG3NEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 09:04:41 -0400
+In-Reply-To: <200807301147.09643.netdev@axxeo.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 28 Jul 2008 14:09:55 -0400
-> 
->> The IPv6 checks are much different.  The MUST requirement is to provide as much
->> data as possible upto IPv6 min mtu.  So, the IPv6 icmp code should probably look
->> to see if min(payload_len, min_mtu) is provided.
-> 
-> "Be liberal in what you accept..." -Jon Postel
+On Wednesday 30 July 2008, Ingo Oeser wrote:
 
-Yeah, that check is really too strict.
+> > This patches adds TX timestamping support and is main use case is the
+> > Precision Time Protocol (IEEE 1588). Both software and hardware
+> > timestamping can be used.
+>
+> Could you please include an example on how to use
+> this in userspace?
+>
+> A proper place for this would be Documentation/net/
+>
+> At the moment I cannot imagine how to use this and how
+> to correlate the sent packet with the timestamp.
+>
+> That would also be a way to test your implementation and
+> test any changes done later to it. This will avoid future bitrot.
+>
 
-> 
-> Also, do you know any case where 576 bytes won't provide enough
-> quoted packet bytes? :-)
-> 
+Yes, of course. 
 
-Yes, I've seen a case where a full 1280 was needed.  It involved a
-very convoluted packet that had extension headers and then went
-through 2 encapsulations.  This was an extreme test scenario and
-not a real world example.
+I am also planning to add mac/network/transport layer pointers in the 
+sock_extended_err, so that the application can easily "navigate"  the packet 
+in the error queue and map it to the sent packet. 
 
--vlad
+Thanks for the input!
+
+tavi
