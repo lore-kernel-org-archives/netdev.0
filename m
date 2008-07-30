@@ -1,20 +1,27 @@
-From: <baza@bpallc.com>
-Subject: =?windows-1251?B?z+7x7O7y8Og=?=
-Date: Wed, 30 Jul 2008 05:52:37 +0400
-Message-ID: <000501c8f1e6-f18a9500-0b9e15ca@rp.edu.sg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org
+From: Karen Xie <kxie@chelsio.com>
+Subject: [RFC][PATCH 0/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Tue, 29 Jul 2008 17:19:25 -0700
+Message-ID: <200807300019.m6U0JPa1012550@localhost.localdomain>
+Cc: jgarzik@pobox.com, davem@davemloft.net, michaelc@cs.wisc.edu,
+	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
+	dm@chelsio.com, leedom@chelsio.com
+To: netdev@vger.kernel.org, open-iscsi@googlegroups.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-pri.rp.edu.sg ([202.21.159.215]:31261 "EHLO smtp.rp.sg"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754402AbYG2XFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2008 19:05:34 -0400
+Received: from stargate.chelsio.com ([12.22.49.110]:8039 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330AbYG3AKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2008 20:10:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=EA=F0=E0=E8=ED=F1=EA=E0=FF-=FD=EA=F1=EF=EE=F0=F2=ED=EE-=E8=EC=EF=EE=
-=F0=F2=ED=E0=FF-=E1=E0=E7=E0-=E7=E0-2005/2006/2007/2008/=E3=EE=E4=E0 =E4=
-=EB=FF =E2=E4=F3=EC=F7=E8=E2=EE=E3=EE =E0=ED=E0=EB=E8=E7=E0.
-3=C0=CA=C03: xaswertasd@gmail.com
+Hi, everyone,
+
+Please review our new version of the iSCSI Initiator drivers for Chelsio S3 adapters. The cxgb3i driver provides iscsi acceleration (PDU digest offload and payload direct-placement) to the open-iscsi initiator. It accesses the hardware through the cxgb3 module.
+
+netdev list, please review cxgb3i_offload.[ch] which handles the iscsi connection APIs to the adapter.
+
+The cxgb3i driver depends on the changes in Mike Christie's branch.
+
+Thanks.
+Karen
