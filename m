@@ -1,56 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v3] net: sh_eth: Add support of SH7763 to sh_eth
-Date: Wed, 30 Jul 2008 17:22:17 -0400
-Message-ID: <4890DB89.7020701@garzik.org>
-References: <485A3437.4010902@renesas.com> <4864840A.3060003@garzik.org> <48684011.5020201@renesas.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/7] drivers/net/ehea/ehea_main.c: Release mutex in error
+ handling code
+Date: Wed, 30 Jul 2008 17:23:50 -0400
+Message-ID: <4890DBE6.4080408@pobox.com>
+References: <Pine.LNX.4.64.0807210957060.24625@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
-	Linux-sh <linux-sh@vger.kernel.org>,
-	Paul Mundt <lethal@linux-sh.org>
-To: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <48684011.5020201@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: raisch@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:57050 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752491AbYG3VYA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 17:24:00 -0400
+In-Reply-To: <Pine.LNX.4.64.0807210957060.24625@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nobuhiro Iwamatsu wrote:
-> Jeff Garzik wrote:
->> Nobuhiro Iwamatsu wrote:
->>> SH7763 has Ethernet core same as SH7710/SH7712.
->>> Positions of some registry are different, but the basic part is the same.
->>> I add support of ethernet of sh7763 to sh_eth.
->>>
->>> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
->>> ---
->>>  drivers/net/Kconfig  |    4 +-
->>>  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
->>>  drivers/net/sh_eth.h |  425 +++++++++++++++++++++++++++++++++++++-------------
->>>  3 files changed, 482 insertions(+), 149 deletions(-)
->> ACK but failed to apply
+Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Sorry, I checked the patch, and corrected that the patch was able to be applied.
-> Please apply.
+> The mutex is released on a successful return, so it would seem that it
+> should be released on an error return as well.
 > 
-> Best regards,
->  Nobuhiro
+> The semantic patch finds this problem is as follows:
+> (http://www.emn.fr/x-info/coccinelle/)
 > 
-> ------->
+> // <smpl>
+> @@
+> expression l;
+> @@
 > 
-> SH7763 has Ethernet core same as SH7710/SH7712.
-> Positions of some registry are different, but the basic part is the same.
-> I add support of ethernet of sh7763 to sh_eth.
+> mutex_lock(l);
+> ... when != mutex_unlock(l)
+>     when any
+>     when strict
+> (
+> if (...) { ... when != mutex_unlock(l)
+> +   mutex_unlock(l);
+>     return ...;
+> }
+> |
+> mutex_unlock(l);
+> )
+> // </smpl>
 > 
-> Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
-> ---
->  drivers/net/Kconfig  |    4 +-
->  drivers/net/sh_eth.c |  202 ++++++++++++++++++++-----
->  drivers/net/sh_eth.h |  426 +++++++++++++++++++++++++++++++++++++-------------
->  3 files changed, 482 insertions(+), 150 deletions(-)
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 applied
-
 
 
