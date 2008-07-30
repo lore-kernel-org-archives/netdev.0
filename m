@@ -1,56 +1,78 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH-2.4] via-rhine: fix duplex detection issue
-Date: Wed, 30 Jul 2008 14:41:39 +0200
-Message-ID: <20080730124138.GB2397@1wt.eu>
-References: <20080729220802.GA25729@1wt.eu> <20080730095120.GA15833@core.hellgate.ch>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [RFC][PATCH 1/2] net: support for TX timestamps
+Date: Wed, 30 Jul 2008 14:43:33 +0200
+Message-ID: <1217421813.30512.169.camel@ecld0pohly>
+References: <1217291753-5322-1-git-send-email-opurdila@ixiacom.com>
+	 <1217291753-5322-2-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Roger Luethi <rl@hellgate.ch>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2275 "EHLO 1wt.eu"
+Received: from mga02.intel.com ([134.134.136.20]:53379 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758606AbYG3Mlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2008 08:41:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20080730095120.GA15833@core.hellgate.ch>
+	id S1756599AbYG3Mpi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 08:45:38 -0400
+In-Reply-To: <1217291753-5322-2-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Roger,
+On Tue, 2008-07-29 at 03:35 +0300, Octavian Purdila wrote:
+> The actual timestamp will reach userspace as a RX timestamp on the
+> cloned packet. If timestamping is requested and no timestamping is
+> done in the device driver (potentially this may use hardware
+> timestamping), it will be done in software after the device's
+> start_hard_xmit routine.
 
-On Wed, Jul 30, 2008 at 11:51:21AM +0200, Roger Luethi wrote:
-> On Wed, 30 Jul 2008 00:08:02 +0200, Willy Tarreau wrote:
-> > The user that I am suggest using #1, but the maintainer that
-> > I am prefers #2. So I think I'll just go with the patch for
-> > the specific issue, and only consider the backport for my
-> > personal trees the day I have time to spend on this. That way
-> > we get one small patch for one small issue.
-> > 
-> > I'd like to get your opinion on this, and to check with you
-> > if you are basically OK with that change in principle.
-> 
-> The major changes in 2.6 via-rhine have been in use for quite a while. It's
-> clearly an improvement over the one in 2.4 and every bit as stable. I'm not
-> sure a backport is worth it, though, especially considering that it's
-> incredibly easy to break via-rhine for some odd hardware or use case.
-> 
-> For 2.4, I'd stay with the devil that I know -- i.e. make minimal changes
-> only.
+This needs to be augmented to not fall back to software time stamping,
+as discussed in "[RFC][PATCH 1/1] net: support for hardware
+timestamping".
 
-This is exactly the type of information I needed.
+Apart from that the API looks okay. It should be fairly simple to adapt
+PTPd.
 
-> But whatever you decide is fine with me.
+> @@ -1568,6 +1576,8 @@ static int dev_gso_segment(struct sk_buff *skb)
+>  
+>  int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+> +	int rc;
+> +
+>  	if (likely(!skb->next)) {
+>  		if (!list_empty(&ptype_all))
+>  			dev_queue_xmit_nit(skb, dev);
+> @@ -1579,13 +1589,15 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  				goto gso;
+>  		}
+>  
+> -		return dev->hard_start_xmit(skb, dev);
+> +		rc = dev->hard_start_xmit(skb, dev);
+> +		if (likely(!rc))
+> +			net_tx_timestamp(skb);
+> +		return rc;
+>  	}
 
-Your arguments are more than enough. You know the driver, I don't. Knowing
-that you trust it in its current shape is perfect for me. I'll stay on 2.4
-version.
+How do you recognize whether the driver did hardware time stamping? Hmm,
+okay, I think I can answer that myself: if the driver supports hardware
+time stamping, it must clear tstamp in its hard_start_xmit(). Later on
+when it has transmitted the packet, it extracts the corresponding
+hardware time stamp and calls skb_tx_timestamp(). Right? If so, this
+should go into a comment somewhere.
 
-> I trust that the 2.4
-> maintainer knows what is best for those users. Better than me, anyway.
+The implicit assumption here is that drivers do not touch tstamp,
+because otherwise software time stamping might accidentally be disabled
+by a driver. That seems to be the case, at least for in-kernel drivers.
 
-Hey, I only do what driver authors and maintainers think is reasonable :-)
+Is skb->sk always guaranteed to be set in hard_start_xmit?
+skb_tx_timestamp() depends on it. In 2.6.23 the field always seemed to
+be valid, but in 2.6.26 I think I have seen NULL pointers there for PTP
+UDP broadcasts.
 
-Thanks very much Roger,
-Willy
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
 
