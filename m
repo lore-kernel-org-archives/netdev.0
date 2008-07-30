@@ -1,45 +1,99 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [RFC][PATCH 0/2] net: support for TX timestamps
-Date: Wed, 30 Jul 2008 11:47:09 +0200
-Message-ID: <200807301147.09643.netdev@axxeo.de>
-References: <1217291753-5322-1-git-send-email-opurdila@ixiacom.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: INFO: possible recursive locking detected dev_deactivate
+Date: Wed, 30 Jul 2008 02:47:24 -0700
+Message-ID: <20080730024724.519f0662.akpm@linux-foundation.org>
+References: <c4e36d110807290453h7381adb8l8b8785f434e968ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: "Zdenek Kabelac" <zdenek.kabelac@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:36433 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753034AbYG3JrO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2008 05:47:14 -0400
-In-Reply-To: <1217291753-5322-1-git-send-email-opurdila@ixiacom.com>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51708 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753097AbYG3Jry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 05:47:54 -0400
+In-Reply-To: <c4e36d110807290453h7381adb8l8b8785f434e968ac@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Octavian,
 
-Octavian Purdila schrieb:
-> This patches adds TX timestamping support and is main use case is the
-> Precision Time Protocol (IEEE 1588). Both software and hardware
-> timestamping can be used.
+(cc's added)
 
-Could you please include an example on how to use
-this in userspace?
+On Tue, 29 Jul 2008 13:53:39 +0200 "Zdenek Kabelac" <zdenek.kabelac@gmail.com> wrote:
 
-A proper place for this would be Documentation/net/
+> Hi
+> 
+> With kernel from yesterdays' git (08/07/28) (sorry I've already
+> deleted any traces for more precise commit number) - I've just found
+> the bactrace in the log running already today's 2.6.27-rc1.
+> 
+> Happened during the reboot of 2.6.26
+> As usually T61, 2GB, C2D
+> 
+> (wlan0): now unmanaged
+> (wlan0): device state change: 3 -> 1
+> (wlan0): cleaning up...
+> (wlan0): taking down device.
+> 
+> =============================================
+> [ INFO: possible recursive locking detected ]
+> 2.6.26 #47
+> ---------------------------------------------
+> NetworkManager/2623 is trying to acquire lock:
+>  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
+> 
+> but task is already holding lock:
+>  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
+> 
+> other info that might help us debug this:
+> 2 locks held by NetworkManager/2623:
+>  #0:  (rtnl_mutex){--..}, at: [<ffffffff8129ca0a>] rtnetlink_rcv+0x1a/0x40
+>  #1:  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>]
+> dev_deactivate+0x82/0x150
+> 
+> stack backtrace:
+> Pid: 2623, comm: NetworkManager Not tainted 2.6.26 #47
+> 
+> Call Trace:
+>  [<ffffffff81068b4a>] __lock_acquire+0xcea/0x13b0
+>  [<ffffffff810674fd>] ? mark_held_locks+0x4d/0x90
+>  [<ffffffff810657a4>] ? get_lock_stats+0x34/0x70
+>  [<ffffffff812a3cd2>] ? dev_deactivate+0x82/0x150
+>  [<ffffffff810692a6>] lock_acquire+0x96/0xe0
+>  [<ffffffff812a3cd2>] ? dev_deactivate+0x82/0x150
+>  [<ffffffff81315161>] _spin_lock+0x31/0x60
+>  [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
+>  [<ffffffff81292885>] dev_close+0x65/0xc0
+>  [<ffffffffa013a9d9>] ieee80211_stop+0x339/0x4e0 [mac80211]
+>  [<ffffffff81292896>] dev_close+0x76/0xc0
+>  [<ffffffff81292461>] dev_change_flags+0xa1/0x1e0
+>  [<ffffffff8129b774>] do_setlink+0x214/0x3a0
+>  [<ffffffff81318c60>] ? sub_preempt_count+0x80/0x120
+>  [<ffffffff81314e40>] ? _read_unlock+0x30/0x60
+>  [<ffffffff8129bacd>] rtnl_setlink+0x10d/0x150
+>  [<ffffffff8129cbbd>] rtnetlink_rcv_msg+0x18d/0x240
+>  [<ffffffff8129ca30>] ? rtnetlink_rcv_msg+0x0/0x240
+>  [<ffffffff812a77e9>] netlink_rcv_skb+0x89/0xb0
+>  [<ffffffff8129ca19>] rtnetlink_rcv+0x29/0x40
+>  [<ffffffff812a720d>] netlink_unicast+0x2cd/0x2e0
+>  [<ffffffff8128b01e>] ? __alloc_skb+0x6e/0x150
+>  [<ffffffff812a7424>] netlink_sendmsg+0x204/0x300
+>  [<ffffffff81314e5e>] ? _read_unlock+0x4e/0x60
+>  [<ffffffff812827d7>] sock_sendmsg+0x127/0x140
+>  [<ffffffff81057120>] ? autoremove_wake_function+0x0/0x40
+>  [<ffffffff810677ad>] ? trace_hardirqs_on+0xd/0x10
+>  [<ffffffff8106773b>] ? trace_hardirqs_on_caller+0x14b/0x1b0
+>  [<ffffffff812835f7>] ? move_addr_to_kernel+0x57/0x60
+>  [<ffffffff8128c04f>] ? verify_iovec+0x3f/0xe0
+>  [<ffffffff81282979>] sys_sendmsg+0x189/0x320
+>  [<ffffffff812836fd>] ? sys_sendto+0xfd/0x120
+>  [<ffffffff810e1a8c>] ? d_free+0x6c/0x80
+>  [<ffffffff810cec01>] ? __fput+0x171/0x1c0
+>  [<ffffffff8106773b>] ? trace_hardirqs_on_caller+0x14b/0x1b0
+>  [<ffffffff813148d6>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+>  [<ffffffff8100c5bb>] system_call_fastpath+0x16/0x1b
+> 
+> iwl3945 0000:03:00.0: PCI INT A disabled
 
-At the moment I cannot imagine how to use this and how
-to correlate the sent packet with the timestamp.
-
-That would also be a way to test your implementation and
-test any changes done later to it. This will avoid future bitrot.
-
-Many Thanks!
-
-
-Best Regards
-
-Ingo Oeser
