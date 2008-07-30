@@ -1,127 +1,89 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/11] random32: seeding improvement
-Date: Wed, 30 Jul 2008 12:37:33 -0700
-Message-ID: <200807301937.m6UJbXZk012423@imap1.linux-foundation.org>
+Subject: [patch 05/11] atm: fix const assignment/discard warnings in the ATM networking driver
+Date: Wed, 30 Jul 2008 12:37:37 -0700
+Message-ID: <200807301937.m6UJbbHT012437@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	shemminger@linux-foundation.org, ak@suse.de, bboissin@gmail.com,
-	lloyd@randombit.net, mpm@selenic.com, shemminger@vyatta.com,
-	tytso@mit.edu
+	dhowells@redhat.com, chas@cmf.nrl.navy.mil
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54697 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52199 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754496AbYG3Tic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:38:32 -0400
+	by vger.kernel.org with ESMTP id S1754285AbYG3Tib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:38:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: David Howells <dhowells@redhat.com>
 
-The rationale is:
-   * use u32 consistently
-   * no need to do LCG on values from (better) get_random_bytes
-   * use more data from get_random_bytes for secondary seeding
-   * don't reduce state space on srandom32()
-   * enforce state variable initialization restrictions
+Fix const assignment/discard warnings in the ATM networking driver.
 
-Note: the second paper has a version of random32() with even longer period
-and a version of random64() if needed.
+The lane2_assoc_ind() function needed its arguments changing to match changes
+in the lane2_ops struct (patch 61c33e012964ce358b42d2a1e9cd309af5dab02b).
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Jack Lloyd <lloyd@randombit.net>
-Cc: Theodore Ts'o <tytso@mit.edu>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Andi Kleen <ak@suse.de>
-Cc: Benoit Boissinot <bboissin@gmail.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- lib/random32.c |   48 ++++++++++++++++++++++++++---------------------
- 1 file changed, 27 insertions(+), 21 deletions(-)
+ net/atm/mpc.c |   22 +++++++++++++---------
+ 1 file changed, 13 insertions(+), 9 deletions(-)
 
-diff -puN lib/random32.c~random32-seeding-improvement lib/random32.c
---- a/lib/random32.c~random32-seeding-improvement
-+++ a/lib/random32.c
-@@ -56,23 +56,12 @@ static u32 __random32(struct rnd_state *
- 	return (state->s1 ^ state->s2 ^ state->s3);
- }
+diff -puN net/atm/mpc.c~atm-fix-const-assignment-discard-warnings-in-the-atm-networking-driver net/atm/mpc.c
+--- a/net/atm/mpc.c~atm-fix-const-assignment-discard-warnings-in-the-atm-networking-driver
++++ a/net/atm/mpc.c
+@@ -62,11 +62,13 @@ static void MPOA_cache_impos_rcvd(struct
+ static void set_mpc_ctrl_addr_rcvd(struct k_message *mesg, struct mpoa_client *mpc);
+ static void set_mps_mac_addr_rcvd(struct k_message *mesg, struct mpoa_client *mpc);
  
--static void __set_random32(struct rnd_state *state, unsigned long s)
-+/*
-+ * Handle minimum values for seeds
-+ */
-+static inline u32 __seed(u32 x, u32 m)
+-static uint8_t *copy_macs(struct mpoa_client *mpc, uint8_t *router_mac,
+-			  uint8_t *tlvs, uint8_t mps_macs, uint8_t device_type);
++static const uint8_t *copy_macs(struct mpoa_client *mpc,
++				const uint8_t *router_mac,
++				const uint8_t *tlvs, uint8_t mps_macs,
++				uint8_t device_type);
+ static void purge_egress_shortcut(struct atm_vcc *vcc, eg_cache_entry *entry);
+ 
+-static void send_set_mps_ctrl_addr(char *addr, struct mpoa_client *mpc);
++static void send_set_mps_ctrl_addr(const char *addr, struct mpoa_client *mpc);
+ static void mpoad_close(struct atm_vcc *vcc);
+ static int msg_from_mpoad(struct atm_vcc *vcc, struct sk_buff *skb);
+ 
+@@ -351,12 +353,12 @@ static const char *mpoa_device_type_stri
+  * lec sees a TLV it uses the pointer to call this function.
+  *
+  */
+-static void lane2_assoc_ind(struct net_device *dev, uint8_t *mac_addr,
+-			    uint8_t *tlvs, uint32_t sizeoftlvs)
++static void lane2_assoc_ind(struct net_device *dev, const u8 *mac_addr,
++			    const u8 *tlvs, u32 sizeoftlvs)
  {
--	if (s == 0)
--		s = 1;      /* default seed is 1 */
--
--#define LCG(n) (69069 * n)
--	state->s1 = LCG(s);
--	state->s2 = LCG(state->s1);
--	state->s3 = LCG(state->s2);
--
--	/* "warm it up" */
--	__random32(state);
--	__random32(state);
--	__random32(state);
--	__random32(state);
--	__random32(state);
--	__random32(state);
-+	return (x < m) ? x + m : x;
- }
+ 	uint32_t type;
+ 	uint8_t length, mpoa_device_type, number_of_mps_macs;
+-	uint8_t *end_of_tlvs;
++	const uint8_t *end_of_tlvs;
+ 	struct mpoa_client *mpc;
  
- /**
-@@ -107,7 +96,7 @@ void srandom32(u32 entropy)
- 	 */
- 	for_each_possible_cpu (i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state, i);
--		__set_random32(state, state->s1 ^ entropy);
-+		state->s1 = __seed(state->s1 ^ entropy, 1);
- 	}
- }
- EXPORT_SYMBOL(srandom32);
-@@ -122,7 +111,19 @@ static int __init random32_init(void)
- 
- 	for_each_possible_cpu(i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state,i);
--		__set_random32(state, i + jiffies);
-+
-+#define LCG(x)	((x) * 69069)	/* super-duper LCG */
-+		state->s1 = __seed(LCG(i + jiffies), 1);
-+		state->s2 = __seed(LCG(state->s1), 7);
-+		state->s3 = __seed(LCG(state->s2), 15);
-+
-+		/* "warm it up" */
-+		__random32(state);
-+		__random32(state);
-+		__random32(state);
-+		__random32(state);
-+		__random32(state);
-+		__random32(state);
- 	}
- 	return 0;
- }
-@@ -135,13 +136,18 @@ core_initcall(random32_init);
- static int __init random32_reseed(void)
+ 	mpoa_device_type = number_of_mps_macs = 0; /* silence gcc */
+@@ -430,8 +432,10 @@ static void lane2_assoc_ind(struct net_d
+  * plus the possible MAC address(es) to mpc->mps_macs.
+  * For a freshly allocated MPOA client mpc->mps_macs == 0.
+  */
+-static uint8_t *copy_macs(struct mpoa_client *mpc, uint8_t *router_mac,
+-			  uint8_t *tlvs, uint8_t mps_macs, uint8_t device_type)
++static const uint8_t *copy_macs(struct mpoa_client *mpc,
++				const uint8_t *router_mac,
++				const uint8_t *tlvs, uint8_t mps_macs,
++				uint8_t device_type)
  {
- 	int i;
--	unsigned long seed;
- 
- 	for_each_possible_cpu(i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state,i);
-+		u32 seeds[3];
-+
-+		get_random_bytes(&seeds, sizeof(seeds));
-+		state->s1 = __seed(seeds[0], 1);
-+		state->s2 = __seed(seeds[1], 7);
-+		state->s3 = __seed(seeds[2], 15);
- 
--		get_random_bytes(&seed, sizeof(seed));
--		__set_random32(state, seed);
-+		/* mix it in */
-+		__random32(state);
- 	}
- 	return 0;
+ 	int num_macs;
+ 	num_macs = (mps_macs > 1) ? mps_macs : 1;
+@@ -811,7 +815,7 @@ static int atm_mpoa_mpoad_attach (struct
+ 	return arg;
  }
+ 
+-static void send_set_mps_ctrl_addr(char *addr, struct mpoa_client *mpc)
++static void send_set_mps_ctrl_addr(const char *addr, struct mpoa_client *mpc)
+ {
+ 	struct k_message mesg;
+ 
 _
