@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Fix error checking in niu driver
-Date: Tue, 29 Jul 2008 23:59:32 -0700 (PDT)
-Message-ID: <20080729.235932.35123634.davem@davemloft.net>
-References: <jefxps8qm1.fsf@sykes.suse.de>
+Subject: Re: Kernel oops in 2.6.27-rc1 qdisc.
+Date: Wed, 30 Jul 2008 00:04:29 -0700 (PDT)
+Message-ID: <20080730.000429.63188454.davem@davemloft.net>
+References: <200807291923.22803.steven@springl.ukfsn.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: schwab@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52483
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751233AbYG3G7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 02:59:35 -0400
-In-Reply-To: <jefxps8qm1.fsf@sykes.suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: steven@springl.ukfsn.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752560AbYG3HEq@vger.kernel.org>
+In-Reply-To: <200807291923.22803.steven@springl.ukfsn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 29 Jul 2008 20:58:14 +0200
+From: Steven Jan Springl <steven@springl.ukfsn.org>
+Date: Tue, 29 Jul 2008 19:23:22 +0100
 
-> The callers of niu_ethflow_to_class expect zero as error, but it returns
-> -1 instead.
+> Issuing the following command causes a kernel oops:
+> 	tc qdisc add dev eth0 handle ffff: ingress
 > 
-> Signed-off-by: Andreas Schwab <schwab@suse.de>
+> The problem is recreatable.
+> The kernel is 2.6.27-rc1.
+> I am using Debian etch.
+> 
+> The oops is attached.
 
-Applied, thanks Andreas.
+Thanks for the report, I'll fix this.
+
+Please CC: netdev on networking bug reports in the future, thanks.
