@@ -1,186 +1,127 @@
 From: akpm@linux-foundation.org
-Subject: [patch 04/11] net: configure out IGMP support
-Date: Wed, 30 Jul 2008 12:37:36 -0700
-Message-ID: <200807301937.m6UJbafn012434@imap1.linux-foundation.org>
+Subject: [patch 01/11] random32: seeding improvement
+Date: Wed, 30 Jul 2008 12:37:33 -0700
+Message-ID: <200807301937.m6UJbXZk012423@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	thomas.petazzoni@free-electrons.com, mpm@selenic.com
+	shemminger@linux-foundation.org, ak@suse.de, bboissin@gmail.com,
+	lloyd@randombit.net, mpm@selenic.com, shemminger@vyatta.com,
+	tytso@mit.edu
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47148 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54697 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753836AbYG3TiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:38:14 -0400
+	by vger.kernel.org with ESMTP id S1754496AbYG3Tic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:38:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 
-tAdd adds the CONFIG_IGMP option which allows to remove support for the
-Internet Group Management Protocol, used in multicast.  Multicast is not
-necessarly used by applications, particularly on embedded devices.  As
-this is a size-reduction option, it depends on CONFIG_EMBEDDED.  It allows
-to save ~10 kilobytes of kernel code/data:
+The rationale is:
+   * use u32 consistently
+   * no need to do LCG on values from (better) get_random_bytes
+   * use more data from get_random_bytes for secondary seeding
+   * don't reduce state space on srandom32()
+   * enforce state variable initialization restrictions
 
-   text	   data	    bss	    dec	    hex	filename
-1718857	 143672	 221184	2083713	 1fcb81	vmlinux
-1708838	 143640	 221184	2073662	 1fa43e	vmlinux.new
- -10019     -32       0  -10051   -2743 +/-
+Note: the second paper has a version of random32() with even longer period
+and a version of random64() if needed.
 
-This patch has been originally written by Matt Mackall <mpm@selenic.com>,
-and is part of the Linux Tiny project.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jack Lloyd <lloyd@randombit.net>
+Cc: Theodore Ts'o <tytso@mit.edu>
 Cc: Matt Mackall <mpm@selenic.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Andi Kleen <ak@suse.de>
+Cc: Benoit Boissinot <bboissin@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- include/linux/igmp.h       |   20 ++++++++++++++++++++
- init/Kconfig               |    8 ++++++++
- net/ipv4/Makefile          |    3 ++-
- net/ipv4/af_inet.c         |    2 --
- net/ipv4/ip_sockglue.c     |    4 ++++
- net/ipv4/sysctl_net_ipv4.c |    2 ++
- 6 files changed, 36 insertions(+), 3 deletions(-)
+ lib/random32.c |   48 ++++++++++++++++++++++++++---------------------
+ 1 file changed, 27 insertions(+), 21 deletions(-)
 
-diff -puN include/linux/igmp.h~configure-out-igmp-support include/linux/igmp.h
---- a/include/linux/igmp.h~configure-out-igmp-support
-+++ a/include/linux/igmp.h
-@@ -215,6 +215,7 @@ struct ip_mc_list
- #define IGMPV3_QQIC(value) IGMPV3_EXP(0x80, 4, 3, value)
- #define IGMPV3_MRC(value) IGMPV3_EXP(0x80, 4, 3, value)
+diff -puN lib/random32.c~random32-seeding-improvement lib/random32.c
+--- a/lib/random32.c~random32-seeding-improvement
++++ a/lib/random32.c
+@@ -56,23 +56,12 @@ static u32 __random32(struct rnd_state *
+ 	return (state->s1 ^ state->s2 ^ state->s3);
+ }
  
-+#ifdef CONFIG_IGMP
- extern int ip_check_mc(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto);
- extern int igmp_rcv(struct sk_buff *);
- extern int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr);
-@@ -235,6 +236,25 @@ extern void ip_mc_down(struct in_device 
- extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
- extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
- extern void ip_mc_rejoin_group(struct ip_mc_list *im);
-+#else /* !CONFIG_IGMP */
-+#define ip_check_mc(a, b, c, d) (0)
-+#define igmp_rcv(a) (0)
-+#define ip_mc_join_group(a, b) (0)
-+#define ip_mc_leave_group(a, b) (0)
-+#define ip_mc_drop_socket(a)
-+#define ip_mc_source(a, b, c, d, e) (0)
-+#define ip_mc_msfilter(a, b, c) (0)
-+#define ip_mc_msfget(a, b, c, d) (0)
-+#define ip_mc_gsfget(a, b, c, d) (0)
-+#define ip_mc_sf_allow(a, b, c, d) (0)
-+#define ip_mc_init_dev(a)
-+#define ip_mc_destroy_dev(a)
-+#define ip_mc_up(a)
-+#define ip_mc_down(a)
-+#define ip_mc_dec_group(a)
-+#define ip_mc_inc_group(a)
-+#define ip_mc_rejoin_group(a)
-+#endif /* CONFIG_IGMP */
- 
- #endif
- #endif
-diff -puN init/Kconfig~configure-out-igmp-support init/Kconfig
---- a/init/Kconfig~configure-out-igmp-support
-+++ a/init/Kconfig
-@@ -724,6 +724,14 @@ config SHMEM
- 	  option replaces shmem and tmpfs with the much simpler ramfs code,
- 	  which may be appropriate on small systems without swap.
- 
-+config IGMP
-+	depends on INET
-+	bool "Enable IGMP support" if EMBEDDED && !IP_MULTICAST
-+	default y
-+	help
-+	  Disabling this option removes support for the Internet group
-+          management protocol, used for multicast. Saves about 10k.
-+
- config VM_EVENT_COUNTERS
- 	default y
- 	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED
-diff -puN net/ipv4/Makefile~configure-out-igmp-support net/ipv4/Makefile
---- a/net/ipv4/Makefile~configure-out-igmp-support
-+++ a/net/ipv4/Makefile
-@@ -9,13 +9,14 @@ obj-y     := route.o inetpeer.o protocol
- 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
- 	     tcp_minisocks.o tcp_cong.o \
- 	     datagram.o raw.o udp.o udplite.o \
--	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
-+	     arp.o icmp.o devinet.o af_inet.o \
- 	     fib_frontend.o fib_semantics.o \
- 	     inet_fragment.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
- obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
- obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
-+obj-$(CONFIG_IGMP) += igmp.o
- obj-$(CONFIG_PROC_FS) += proc.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
-diff -puN net/ipv4/af_inet.c~configure-out-igmp-support net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c~configure-out-igmp-support
-+++ a/net/ipv4/af_inet.c
-@@ -115,8 +115,6 @@
- #include <linux/mroute.h>
- #endif
- 
--extern void ip_mc_drop_socket(struct sock *sk);
+-static void __set_random32(struct rnd_state *state, unsigned long s)
++/*
++ * Handle minimum values for seeds
++ */
++static inline u32 __seed(u32 x, u32 m)
+ {
+-	if (s == 0)
+-		s = 1;      /* default seed is 1 */
 -
- /* The inetsw table contains everything that inet_create needs to
-  * build a new socket.
-  */
-diff -puN net/ipv4/ip_sockglue.c~configure-out-igmp-support net/ipv4/ip_sockglue.c
---- a/net/ipv4/ip_sockglue.c~configure-out-igmp-support
-+++ a/net/ipv4/ip_sockglue.c
-@@ -640,6 +640,7 @@ static int do_ip_setsockopt(struct sock 
- 			err = ip_mc_leave_group(sk, &mreq);
- 		break;
- 	}
-+#ifdef CONFIG_IGMP
- 	case IP_MSFILTER:
- 	{
- 		extern int sysctl_igmp_max_msf;
-@@ -677,6 +678,7 @@ static int do_ip_setsockopt(struct sock 
- 		kfree(msf);
- 		break;
- 	}
-+#endif
- 	case IP_BLOCK_SOURCE:
- 	case IP_UNBLOCK_SOURCE:
- 	case IP_ADD_SOURCE_MEMBERSHIP:
-@@ -794,6 +796,7 @@ static int do_ip_setsockopt(struct sock 
- 				   greqs.gsr_interface);
- 		break;
- 	}
-+#ifdef CONFIG_IGMP
- 	case MCAST_MSFILTER:
- 	{
- 		extern int sysctl_igmp_max_msf;
-@@ -860,6 +863,7 @@ static int do_ip_setsockopt(struct sock 
- 		kfree(gsf);
- 		break;
- 	}
-+#endif
- 	case IP_ROUTER_ALERT:
- 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
- 		break;
-diff -puN net/ipv4/sysctl_net_ipv4.c~configure-out-igmp-support net/ipv4/sysctl_net_ipv4.c
---- a/net/ipv4/sysctl_net_ipv4.c~configure-out-igmp-support
-+++ a/net/ipv4/sysctl_net_ipv4.c
-@@ -412,6 +412,7 @@ static struct ctl_table ipv4_table[] = {
- 	},
+-#define LCG(n) (69069 * n)
+-	state->s1 = LCG(s);
+-	state->s2 = LCG(state->s1);
+-	state->s3 = LCG(state->s2);
+-
+-	/* "warm it up" */
+-	__random32(state);
+-	__random32(state);
+-	__random32(state);
+-	__random32(state);
+-	__random32(state);
+-	__random32(state);
++	return (x < m) ? x + m : x;
+ }
  
- #endif
-+#ifdef CONFIG_IGMP
- 	{
- 		.ctl_name	= NET_IPV4_IGMP_MAX_MSF,
- 		.procname	= "igmp_max_msf",
-@@ -420,6 +421,7 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
- 	},
-+#endif
- 	{
- 		.ctl_name	= NET_IPV4_INET_PEER_THRESHOLD,
- 		.procname	= "inet_peer_threshold",
+ /**
+@@ -107,7 +96,7 @@ void srandom32(u32 entropy)
+ 	 */
+ 	for_each_possible_cpu (i) {
+ 		struct rnd_state *state = &per_cpu(net_rand_state, i);
+-		__set_random32(state, state->s1 ^ entropy);
++		state->s1 = __seed(state->s1 ^ entropy, 1);
+ 	}
+ }
+ EXPORT_SYMBOL(srandom32);
+@@ -122,7 +111,19 @@ static int __init random32_init(void)
+ 
+ 	for_each_possible_cpu(i) {
+ 		struct rnd_state *state = &per_cpu(net_rand_state,i);
+-		__set_random32(state, i + jiffies);
++
++#define LCG(x)	((x) * 69069)	/* super-duper LCG */
++		state->s1 = __seed(LCG(i + jiffies), 1);
++		state->s2 = __seed(LCG(state->s1), 7);
++		state->s3 = __seed(LCG(state->s2), 15);
++
++		/* "warm it up" */
++		__random32(state);
++		__random32(state);
++		__random32(state);
++		__random32(state);
++		__random32(state);
++		__random32(state);
+ 	}
+ 	return 0;
+ }
+@@ -135,13 +136,18 @@ core_initcall(random32_init);
+ static int __init random32_reseed(void)
+ {
+ 	int i;
+-	unsigned long seed;
+ 
+ 	for_each_possible_cpu(i) {
+ 		struct rnd_state *state = &per_cpu(net_rand_state,i);
++		u32 seeds[3];
++
++		get_random_bytes(&seeds, sizeof(seeds));
++		state->s1 = __seed(seeds[0], 1);
++		state->s2 = __seed(seeds[1], 7);
++		state->s3 = __seed(seeds[2], 15);
+ 
+-		get_random_bytes(&seed, sizeof(seed));
+-		__set_random32(state, seed);
++		/* mix it in */
++		__random32(state);
+ 	}
+ 	return 0;
+ }
 _
