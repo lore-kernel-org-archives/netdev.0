@@ -1,49 +1,42 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Wed, 30 Jul 2008 15:04:54 -0700
-Message-ID: <20080730150454.7612912f.akpm@linux-foundation.org>
-References: <200807301939.m6UJd5lT012610@imap1.linux-foundation.org>
-	<20080730133727.7774de6a@extreme>
-	<20080730224849.59852c68@surf>
-	<20080730140136.42223e3c@extreme>
-	<20080730233551.76fd38a8@surf>
-	<20080730144812.a71156f7.akpm@linux-foundation.org>
-	<20080730235231.71f1b2f9@surf>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [patch nacked? 2/4] 3c59x: fix PCI resource management
+Date: Thu, 31 Jul 2008 00:10:40 +0200
+Message-ID: <20080730221040.GA29548@bayes.mathematik.tu-chemnitz.de>
+References: <200807301940.m6UJel33012679@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, jeff@garzik.org, netdev@vger.kernel.org,
-	davem@davemloft.net, mpm@selenic.com
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, sshtylyov@ru.mvista.com,
+	jgarzik@pobox.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37287 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760004AbYG3WF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:05:56 -0400
-In-Reply-To: <20080730235231.71f1b2f9@surf>
+Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:49653 "EHLO
+	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbYG3WKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:10:45 -0400
+Content-Disposition: inline
+In-Reply-To: <200807301940.m6UJel33012679@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Jul 2008 23:52:31 +0200
-Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
-
-> Oops, sorry. [1] should have been
-> http://free-electrons.com/articles/conferences/elc2008-report#mackall.
+On Wed, Jul 30, 2008 at 12:40:47PM -0700, akpm@linux-foundation.org wrote:
+> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 > 
-> __
-> The graph showed an increase of 28% on the kernel size over the last
-> two and half years. Over the last year, between 2.6.21 and 2.6.25-rc8,
-> the kernel size of the same allnoconfig has increased from 1.06
-> megabytes to 1.21 megabytes, a 14% increase.
+> The driver wrongly claimed I/O ports at an address returned by pci_iomap()
+> -- even if it was passed an MMIO address.  Fix this by claiming/releasing
+> all PCI resources in the PCI driver probe/remove handlers instead and get
+> rid of the must_free_region flag weirdness (why would Cardbus claim
+> anything for us?).
+> 
+> Also, the remove handler was trying to talk to the chip after having
+> disabled its address decoders (at least on x86) -- fix this and get rid of
+> useless VORTEX_PCI() calls.
+> 
+> While at it, fix some cases of the overly indented code...
+> 
 
-OK.
+The compile error of that patch should be fixed by git commit
+0da0ead90122578ef6e4afba9ba4bcd3455fd8e8 at least.
 
-I don't really trust allnoconfig as a way of determining size changes. 
-It can easily be the case that kernel A's allnoconfig happens to pull
-in more stuff than kernel B's allnoconfig.
+I'll take this one and look at it.
 
-So I do think that one should dive into the details and verify that
-particular size changes really are due to unavoidable code bloat,
-rather than being due to some unfortunate Kconfig change.
-
-Tht being said, yes, I'm sure that it's getting bigger, overall.
+Steffen
