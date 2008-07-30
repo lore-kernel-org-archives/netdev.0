@@ -1,99 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: INFO: possible recursive locking detected dev_deactivate
-Date: Wed, 30 Jul 2008 02:47:24 -0700
-Message-ID: <20080730024724.519f0662.akpm@linux-foundation.org>
-References: <c4e36d110807290453h7381adb8l8b8785f434e968ac@mail.gmail.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [PATCH-2.4] via-rhine: fix duplex detection issue
+Date: Wed, 30 Jul 2008 11:51:21 +0200
+Message-ID: <20080730095120.GA15833@core.hellgate.ch>
+References: <20080729220802.GA25729@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "Zdenek Kabelac" <zdenek.kabelac@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51708 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753097AbYG3Jry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 05:47:54 -0400
-In-Reply-To: <c4e36d110807290453h7381adb8l8b8785f434e968ac@mail.gmail.com>
+Received: from mail20.bluewin.ch ([195.186.19.65]:53856 "EHLO
+	mail20.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756533AbYG3J5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 05:57:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20080729220802.GA25729@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 30 Jul 2008 00:08:02 +0200, Willy Tarreau wrote:
+> The user that I am suggest using #1, but the maintainer that
+> I am prefers #2. So I think I'll just go with the patch for
+> the specific issue, and only consider the backport for my
+> personal trees the day I have time to spend on this. That way
+> we get one small patch for one small issue.
+> 
+> I'd like to get your opinion on this, and to check with you
+> if you are basically OK with that change in principle.
 
-(cc's added)
+The major changes in 2.6 via-rhine have been in use for quite a while. It's
+clearly an improvement over the one in 2.4 and every bit as stable. I'm not
+sure a backport is worth it, though, especially considering that it's
+incredibly easy to break via-rhine for some odd hardware or use case.
 
-On Tue, 29 Jul 2008 13:53:39 +0200 "Zdenek Kabelac" <zdenek.kabelac@gmail.com> wrote:
+For 2.4, I'd stay with the devil that I know -- i.e. make minimal changes
+only. But whatever you decide is fine with me. I trust that the 2.4
+maintainer knows what is best for those users. Better than me, anyway.
 
-> Hi
-> 
-> With kernel from yesterdays' git (08/07/28) (sorry I've already
-> deleted any traces for more precise commit number) - I've just found
-> the bactrace in the log running already today's 2.6.27-rc1.
-> 
-> Happened during the reboot of 2.6.26
-> As usually T61, 2GB, C2D
-> 
-> (wlan0): now unmanaged
-> (wlan0): device state change: 3 -> 1
-> (wlan0): cleaning up...
-> (wlan0): taking down device.
-> 
-> =============================================
-> [ INFO: possible recursive locking detected ]
-> 2.6.26 #47
-> ---------------------------------------------
-> NetworkManager/2623 is trying to acquire lock:
->  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
-> 
-> but task is already holding lock:
->  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
-> 
-> other info that might help us debug this:
-> 2 locks held by NetworkManager/2623:
->  #0:  (rtnl_mutex){--..}, at: [<ffffffff8129ca0a>] rtnetlink_rcv+0x1a/0x40
->  #1:  (_xmit_IEEE80211#2){-...}, at: [<ffffffff812a3cd2>]
-> dev_deactivate+0x82/0x150
-> 
-> stack backtrace:
-> Pid: 2623, comm: NetworkManager Not tainted 2.6.26 #47
-> 
-> Call Trace:
->  [<ffffffff81068b4a>] __lock_acquire+0xcea/0x13b0
->  [<ffffffff810674fd>] ? mark_held_locks+0x4d/0x90
->  [<ffffffff810657a4>] ? get_lock_stats+0x34/0x70
->  [<ffffffff812a3cd2>] ? dev_deactivate+0x82/0x150
->  [<ffffffff810692a6>] lock_acquire+0x96/0xe0
->  [<ffffffff812a3cd2>] ? dev_deactivate+0x82/0x150
->  [<ffffffff81315161>] _spin_lock+0x31/0x60
->  [<ffffffff812a3cd2>] dev_deactivate+0x82/0x150
->  [<ffffffff81292885>] dev_close+0x65/0xc0
->  [<ffffffffa013a9d9>] ieee80211_stop+0x339/0x4e0 [mac80211]
->  [<ffffffff81292896>] dev_close+0x76/0xc0
->  [<ffffffff81292461>] dev_change_flags+0xa1/0x1e0
->  [<ffffffff8129b774>] do_setlink+0x214/0x3a0
->  [<ffffffff81318c60>] ? sub_preempt_count+0x80/0x120
->  [<ffffffff81314e40>] ? _read_unlock+0x30/0x60
->  [<ffffffff8129bacd>] rtnl_setlink+0x10d/0x150
->  [<ffffffff8129cbbd>] rtnetlink_rcv_msg+0x18d/0x240
->  [<ffffffff8129ca30>] ? rtnetlink_rcv_msg+0x0/0x240
->  [<ffffffff812a77e9>] netlink_rcv_skb+0x89/0xb0
->  [<ffffffff8129ca19>] rtnetlink_rcv+0x29/0x40
->  [<ffffffff812a720d>] netlink_unicast+0x2cd/0x2e0
->  [<ffffffff8128b01e>] ? __alloc_skb+0x6e/0x150
->  [<ffffffff812a7424>] netlink_sendmsg+0x204/0x300
->  [<ffffffff81314e5e>] ? _read_unlock+0x4e/0x60
->  [<ffffffff812827d7>] sock_sendmsg+0x127/0x140
->  [<ffffffff81057120>] ? autoremove_wake_function+0x0/0x40
->  [<ffffffff810677ad>] ? trace_hardirqs_on+0xd/0x10
->  [<ffffffff8106773b>] ? trace_hardirqs_on_caller+0x14b/0x1b0
->  [<ffffffff812835f7>] ? move_addr_to_kernel+0x57/0x60
->  [<ffffffff8128c04f>] ? verify_iovec+0x3f/0xe0
->  [<ffffffff81282979>] sys_sendmsg+0x189/0x320
->  [<ffffffff812836fd>] ? sys_sendto+0xfd/0x120
->  [<ffffffff810e1a8c>] ? d_free+0x6c/0x80
->  [<ffffffff810cec01>] ? __fput+0x171/0x1c0
->  [<ffffffff8106773b>] ? trace_hardirqs_on_caller+0x14b/0x1b0
->  [<ffffffff813148d6>] ? trace_hardirqs_on_thunk+0x3a/0x3f
->  [<ffffffff8100c5bb>] system_call_fastpath+0x16/0x1b
-> 
-> iwl3945 0000:03:00.0: PCI INT A disabled
-
+Roger
