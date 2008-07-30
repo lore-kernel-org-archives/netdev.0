@@ -1,32 +1,62 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-07-29
-Date: Tue, 29 Jul 2008 21:51:48 -0700 (PDT)
-Message-ID: <20080729.215148.14128716.davem@davemloft.net>
-References: <20080729213447.GB7443@tuxdriver.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] typhoon: use request_firmware
+Date: Wed, 30 Jul 2008 01:25:11 -0400
+Message-ID: <1217395511.31350.6.camel@obelisk.thedillows.org>
+References: <1217170232.3537.6.camel@jaswinder.satnam>
+	 <1217209400.22789.47.camel@obelisk.thedillows.org>
+	 <1217215009.2970.7.camel@jaswinder.satnam>
+	 <1217248585.22789.58.camel@obelisk.thedillows.org>
+	 <1217253260.17632.6.camel@jaswinder.satnam>
+	 <1217295498.28682.16.camel@obelisk.thedillows.org>
+	 <1217347786.2885.11.camel@jaswinder.satnam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080729213447.GB7443-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
+	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Woodhouse <dwmw2@infradead.org>
+To: Jaswinder Singh <jaswinder@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.knology.net ([24.214.63.101]:48332 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751502AbYG3FZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 01:25:16 -0400
+In-Reply-To: <1217347786.2885.11.camel@jaswinder.satnam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 29 Jul 2008 17:34:47 -0400
+On Tue, 2008-07-29 at 21:39 +0530, Jaswinder Singh wrote:
+> On Mon, 2008-07-28 at 21:38 -0400, David Dillow wrote:
+> > This should move to either typhoon_init() or typhoon_init_one(). Pu=
+tting
+> > it in typhoon_init() means we waste memory when the module is loade=
+d if
+> > there is no typhoon NIC; putting it in typhoon_init_one() means it =
+needs
+> > protection from threaded probing, should that ever be put back in. =
+Given
+> > that most modern distros don't do probing by blinding loading modul=
+es,
+> > typhoon_init() seems a safe bet.
+> >=20
+>=20
+> Sorry Dave, I need tp->pdev so =EF=BB=BFtyphoon_init_one() seems bett=
+er.
+> I hope you do not mind this.
 
-> A rather large set of patches to fix some of the problems that have been
-> festering in Linus's tree for the last week or so...I apologize for my
-> absence while I dallied in sunny Ottawa...
-> 
-> Please let me know if there are problems!
+That's fine, and makes sense. However, you need to check if you've
+already loaded it (typhoon_fw !=3D NULL), so you don't leak memory if
+there is more than one NIC. Part of me feels like there should be a
+mutex around loading the firmware, to avoid surprises if PCI probing
+gets multi-threaded again, but a comment to that effect may suffice for
+now.
 
-Pulled, thanks John.
+Also, if not adding a mutex, then this can be folded into
+typhoon_init_one(), rather than living in a separate function.=20
 
-I'll push to kernel.org after I do some build testing.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+All in all, this is getting better, my reservations about the goal
+aside.
+
+Dave
+
