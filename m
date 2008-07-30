@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Wed, 30 Jul 2008 16:21:53 -0700 (PDT)
-Message-ID: <20080730.162153.124485443.davem@davemloft.net>
-References: <1217456666.18911.145.camel@calx>
-	<20080730.153758.91676696.davem@davemloft.net>
-	<1217459102.18911.182.camel@calx>
+Subject: Re: [PATCH] bridge: send correct MTU value in PMTU (revised)
+Date: Wed, 30 Jul 2008 16:28:18 -0700 (PDT)
+Message-ID: <20080730.162818.208421272.davem@davemloft.net>
+References: <20080730133259.576e0041@extreme>
+	<20080730135008.4f98f5ee.akpm@linux-foundation.org>
+	<20080730141017.0000aceb@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com
-To: mpm@selenic.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	simon.wunderlich@s2003.tu-chemnitz.de, siwu@hrz.tu-chemnitz.de
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33108
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51957
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752001AbYG3XVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:21:53 -0400
-In-Reply-To: <1217459102.18911.182.camel@calx>
+	by vger.kernel.org with ESMTP id S1752001AbYG3X2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:28:18 -0400
+In-Reply-To: <20080730141017.0000aceb@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWF0dCBNYWNrYWxsIDxtcG1Ac2VsZW5pYy5jb20+DQpEYXRlOiBXZWQsIDMwIEp1bCAy
-MDA4IDE4OjA1OjAyIC0wNTAwDQoNCj4gT24gV2VkLCAyMDA4LTA3LTMwIGF0IDE1OjM3IC0wNzAw
-LCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+ID4gRnJvbTogTWF0dCBNYWNrYWxsIDxtcG1Ac2VsZW5p
-Yy5jb20+DQo+ID4gRGF0ZTogV2VkLCAzMCBKdWwgMjAwOCAxNzoyNDoyNiAtMDUwMA0KPiA+IA0K
-PiA+ID4gDQo+ID4gPiBPbiBXZWQsIDIwMDgtMDctMzAgYXQgMTQ6MzUgLTA3MDAsIERhdmlkIE1p
-bGxlciB3cm90ZToNCj4gPiA+ID4gVGhpcyBjaGFuZ2UgbWVhbnMgeW91IGNhbid0IGNvbmZpZ3Vy
-ZSBuZWFybHkgYWxsIG9mIHRoZSBmZWF0dXJlcyBvbg0KPiA+ID4gPiB5b3VyIGV0aGVybmV0IGNh
-cmQuICBZb3UgY2FuJ3QgZXZlbiBjb25maWd1cmUgdGhlIGxpbmsgcGFyYW1ldGVycw0KPiA+ID4g
-PiB3aXRob3V0IGV0aHRvb2wgc3VwcG9ydC4NCj4gPiA+IA0KPiA+ID4gV2hpY2ggaXMgYmlnIGZh
-dCBkb24ndC1jYXJlIGZvciB0aGUgdmFzdCBtYWpvcml0eSBvZiB1c2Vycy4g77u/77u/VmFyaW91
-cw0KPiA+ID4gcG9wdWxhciBkaXN0cm9zIGRvbid0IGV2ZW4gaW5zdGFsbCB0aGUgdG9vbCBieSBk
-ZWZhdWx0Lg0KPiA+IA0KPiA+IEFyZSB5b3UgZXZlbiBhd2FyZSB0aGF0IHRoZSBldGh0b29sIGxh
-eWVyIGdldHMgaW52b2tlZCBieSBzaW1wbHkNCj4gPiBlbmFibGluZyBJUCBmb3J3YXJkaW5nIG9y
-IGJyaWRnaW5pbmcsIGluIG9yZGVyIHRvIGRpc2FibGUgTFJPDQo+ID4gb2ZmbG9hZGluZyB3aGlj
-aCBjb25mbGljdHMgd2l0aCBzdWNoIHVzZXM/DQo+IA0KPiBPaCBub2VzLiBIb3cgZXZlciB3aWxs
-IG15IHBvb3Igd2ViY2FtIGdldCBvbiB0aGUgaW50ZXJuZXRzIHdpdGhvdXQgdGhhdC4NCg0KSGF2
-ZSBhbnkgZmlyZXdhbGwgcnVsZXMgaW1wbGVtZW50ZWQgb24gdGhhdCB3ZWJjYW0/DQoNCkl0J3Mg
-b25seSBhIG1hdHRlciBvZiB0aW1lIGJlZm9yZSBvdGhlciBjb3JlIGZhY2lsaXRpZXMgbmVlZA0K
-dG8gdXNlIGV0aHRvb2wgdG8gYWRqdXN0IHRoZSBkZXZpY2UncyBzZXR0aW5ncyBpbiBvbmUgd2F5
-IG9yDQphbm90aGVyLg0KDQpTbyB3aGF0IEkgc2FpZCBpcyBhbnl0aGluZyBidXQgaHlwZXJib2xl
-Lg0K
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 30 Jul 2008 14:10:17 -0700
+
+> a) didn't want you holding onto old version, and it leaking upstream.
+> b) didn't know how to spoof git's attribution
+> c) fake_rtable gets initialized to zero already.
+>    Since it is part of bridge structure and the whole bridge structure
+>    is the private part of the bridge pseudo network device which
+>    is initialized to zero as part of alloc_netdev.
+
+I've applied Stephen's updated version of Simon's patch.
+
+Thanks.
