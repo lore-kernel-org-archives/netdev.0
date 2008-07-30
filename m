@@ -1,156 +1,225 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: [RFC][PATCH 1/1] net: support for hardware timestamping
-Date: Wed, 30 Jul 2008 11:35:52 +0200
-Message-ID: <1217410552.30512.144.camel@ecld0pohly>
-References: <1217290080-4251-1-git-send-email-opurdila@ixiacom.com>
-	 <1217290080-4251-2-git-send-email-opurdila@ixiacom.com>
-	 <1217343163.30512.34.camel@ecld0pohly>
-	 <200807291849.24945.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel oops in 2.6.27-rc1 qdisc.
+Date: Wed, 30 Jul 2008 02:44:07 -0700 (PDT)
+Message-ID: <20080730.024407.193695281.davem@davemloft.net>
+References: <200807291923.22803.steven@springl.ukfsn.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: steven@springl.ukfsn.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27579 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760946AbYG3Jhq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2008 05:37:46 -0400
-In-Reply-To: <200807291849.24945.opurdila@ixiacom.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34339
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759506AbYG3JoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 05:44:08 -0400
+In-Reply-To: <200807291923.22803.steven@springl.ukfsn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-07-29 at 18:49 +0300, Octavian Purdila wrote:
-> > Is the driver expected to check 
-> > the socket flags whenever it gets a chance?
-> >
+From: Steven Jan Springl <steven@springl.ukfsn.org>
+Date: Tue, 29 Jul 2008 19:23:22 +0100
+
+> Issuing the following command causes a kernel oops:
+> 	tc qdisc add dev eth0 handle ffff: ingress
 > 
-> If/when the driver chooses, it will start using hardware timestamps and the 
-> hardware timestamp will always (or when possible) be stored in skb->tstamp.
-
-It's the app which chooses when to enable the feature, so we need a way
-to communicate that.
-
-> > A simple on/off flag is not sufficient, either: for example, the Intel
-> > 82576 chip only has one RX register that is locked until read by the
-> > driver. When time stamping all incoming packets, relevant time stamps
-> > may get lost under high load. The hardware can be configured to only
-> > time stamp packets of interest, which helps considerably. 
+> The problem is recreatable.
+> The kernel is 2.6.27-rc1.
+> I am using Debian etch.
 > 
-> Ok, I see... How about adding a new SIOCSHWTSTAMPFILTER ioctl:
-> 
-> #define HWTSTAMP_FILTER_PTP_L2 0x01
-> #define HWTSTAMP_FILTER_PTP_L4 0x02
-> ...
-> struct hwtstamp_filter {
-> 	char type;
-> };
-> 
-> If needed we could later expand hwtstamp_filter to include ether_types, 
-> ip_types, udp/tcp ports, etc.
+> The oops is attached.
 
-Yes, that'll work. Regarding the design of the ioctl() call and its
-parameter, how do we preserve backwards compatibility as new fields get
-added?
+This will fix it, thanks for your report:
 
-The initial list of defines could be:
+pkt_sched: Fix OOPS on ingress qdisc add.
 
-/** time stamp no incoming packet at all */
-#define HWTSTAMP_FILTER_NONE 0x00
+Bug report from Steven Jan Springl:
 
-/** time stamp any incoming packet */
-#define HWTSTAMP_FILTER_ALL 0x01
+	Issuing the following command causes a kernel oops:
+		tc qdisc add dev eth0 handle ffff: ingress
 
-/** PTP v1, UDP, any kind of event packet */
-#define HWTSTAMP_FILTER_PTP_V1_L4_EVENT 0x02
-/** PTP v1, UDP, Sync packet */
-#define HWTSTAMP_FILTER_PTP_V1_L4_SYNC 0x03
-/** PTP v1, UDP, Delay_req packet */
-#define HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ 0x04
+The problem mostly stems from all of the special case handling of
+ingress qdiscs.
 
-/** PTP v2, UDP, any kind of event packet */
-#define HWTSTAMP_FILTER_PTP_V2_L4_EVENT 0x05
-/** PTP v2, UDP, Sync packet */
-#define HWTSTAMP_FILTER_PTP_V2_L4_SYNC 0x06
-/** PTP v2, UDP, Delay_req packet */
-#define HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ 0x07
+So, to fix this, do the grafting operation the same way we do for TX
+qdiscs.  Which means that dev_activate() and dev_deactivate() now do
+the "qdisc_sleeping <--> qdisc" transitions on dev->rx_queue too.
 
-/** 802.AS1, Ethernet, any kind of event packet */
-#define HWTSTAMP_FILTER_PTP_V2_L2_EVENT 0x08
-/** 802.AS1, Ethernet, Sync packet */
-#define HWTSTAMP_FILTER_PTP_V2_L2_SYNC 0x09
-/** 802.AS1, Ethernet, Delay_req packet */
-#define HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ 0x0A
+Future simplifications are possible now, mainly because it is
+impossible for dev_queue->{qdisc,qdisc_sleeping} to be NULL.  There
+are NULL checks all over to handle the ingress qdisc special case
+that used to exist before this commit.
 
-/** PTP v2/802.AS1, any layer, any kind of event packet */
-#define HWTSTAMP_FILTER_PTP_V2_EVENT 0x0B
-/** PTP v2/802.AS1, any layer, Sync packet */
-#define HWTSTAMP_FILTER_PTP_V2_SYNC 0x0C
-/** PTP v2/802.AS1, any layer, Delay_req packet */
-#define HWTSTAMP_FILTER_PTP_V2_DELAY_REQ 0x0D
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dev.c          |    4 +-
+ net/sched/sch_api.c     |   57 +++++++++++++---------------------------------
+ net/sched/sch_generic.c |    8 ++++--
+ 3 files changed, 23 insertions(+), 46 deletions(-)
 
-The "any event packet" is useful for "dumb" PTP daemons which want to
-avoid reconfiguring the driver as they switch from master to slave or
-vice versa. In V1 there was no mapping to L2, so that is missing from
-the list.
-
-I prefer an enumeration over flags because by design, only valid
-combinations are possible.
-
-> > It may also be 
-> > important to know for the application whether the hardware is really
-> > capable of delivering what it is asked for.
-> >
-> 
-> I am not sure if I understood this, but the ioctl return code should do it, 
-> right?
-
-Correct. The semantic of the call would be that it's a hint to the
-driver what the app wants. It must time stamp the indicated packets, but
-if it is not capable of filtering exactly as requested, then it is free
-to also time stamp additional ones. If it cannot implement the requested
-functionality, EINVAL is returned.
-
-The app is encourage to be as specific as possible. For example, the
-HWTSTAMP_FILTER_PTP_V1_L4_EVENT mode is not supported by the new Intel
-NIC. The daemon has to select either HWTSTAMP_FILTER_PTP_V1_L4_SYNC or
-HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ, as needed.
-
-> > > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > > index 299ec4b..f19ed43 100644
-> > > --- a/include/linux/skbuff.h
-> > > +++ b/include/linux/skbuff.h
-> > > @@ -199,7 +199,8 @@ typedef unsigned char *sk_buff_data_t;
-> > >   *	@next: Next buffer in list
-> > >   *	@prev: Previous buffer in list
-> > >   *	@sk: Socket we are owned by
-> > > - *	@tstamp: Time we arrived
-> > > + *	@tstamp: Time we arrived; representation might be hardware specific,
-> > > do + *	        not access directly but via skb_get_tstamp
-> >
-> > Given that the semantic of the "tstamp" member has changed and any
-> > existing code which still accesses it directly is broken, should the
-> > member perhaps be renamed to trigger compiler errors in such a case?
-> > Just a thought.
-> 
-> I am ok with that, but I don't know if this is an acceptable practice :)
-
-Neither do I. Any comments from the experts? However, if we follow
-Ingo's proposal that change wouldn't be necessary anyway.
-
-> BTW, the TX timestamps patch I've sent yesterday is also very closely related 
-> to PTP, and since you have experience with PTP I am wondering how the 
-> proposed interface looks to you.
-
-See my comments regarding the software time stamping fallback in the
-other mail that I just sent. I'll also have to look at the patch in more
-detail.
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8d13a9b..63d6bcd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2100,7 +2100,7 @@ static int ing_filter(struct sk_buff *skb)
+ 	rxq = &dev->rx_queue;
+ 
+ 	q = rxq->qdisc;
+-	if (q) {
++	if (q != &noop_qdisc) {
+ 		spin_lock(qdisc_lock(q));
+ 		result = qdisc_enqueue_root(skb, q);
+ 		spin_unlock(qdisc_lock(q));
+@@ -2113,7 +2113,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+ 					 struct packet_type **pt_prev,
+ 					 int *ret, struct net_device *orig_dev)
+ {
+-	if (!skb->dev->rx_queue.qdisc)
++	if (skb->dev->rx_queue.qdisc == &noop_qdisc)
+ 		goto out;
+ 
+ 	if (*pt_prev) {
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index b060164..4840aff 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -572,44 +572,21 @@ static u32 qdisc_alloc_handle(struct net_device *dev)
+ static struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
+ 				     struct Qdisc *qdisc)
+ {
++	struct Qdisc *oqdisc = dev_queue->qdisc_sleeping;
+ 	spinlock_t *root_lock;
+-	struct Qdisc *oqdisc;
+-	int ingress;
+-
+-	ingress = 0;
+-	if (qdisc && qdisc->flags&TCQ_F_INGRESS)
+-		ingress = 1;
+-
+-	if (ingress) {
+-		oqdisc = dev_queue->qdisc;
+-	} else {
+-		oqdisc = dev_queue->qdisc_sleeping;
+-	}
+ 
+ 	root_lock = qdisc_root_lock(oqdisc);
+ 	spin_lock_bh(root_lock);
+ 
+-	if (ingress) {
+-		/* Prune old scheduler */
+-		if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1) {
+-			/* delete */
+-			qdisc_reset(oqdisc);
+-			dev_queue->qdisc = NULL;
+-		} else {  /* new */
+-			dev_queue->qdisc = qdisc;
+-		}
++	/* Prune old scheduler */
++	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
++		qdisc_reset(oqdisc);
+ 
+-	} else {
+-		/* Prune old scheduler */
+-		if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
+-			qdisc_reset(oqdisc);
+-
+-		/* ... and graft new one */
+-		if (qdisc == NULL)
+-			qdisc = &noop_qdisc;
+-		dev_queue->qdisc_sleeping = qdisc;
+-		dev_queue->qdisc = &noop_qdisc;
+-	}
++	/* ... and graft new one */
++	if (qdisc == NULL)
++		qdisc = &noop_qdisc;
++	dev_queue->qdisc_sleeping = qdisc;
++	dev_queue->qdisc = &noop_qdisc;
+ 
+ 	spin_unlock_bh(root_lock);
+ 
+@@ -678,7 +655,8 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 
+ 		ingress = 0;
+ 		num_q = dev->num_tx_queues;
+-		if (q && q->flags & TCQ_F_INGRESS) {
++		if ((q && q->flags & TCQ_F_INGRESS) ||
++		    (new && new->flags & TCQ_F_INGRESS)) {
+ 			num_q = 1;
+ 			ingress = 1;
+ 		}
+@@ -692,13 +670,10 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			if (!ingress)
+ 				dev_queue = netdev_get_tx_queue(dev, i);
+ 
+-			if (ingress) {
+-				old = dev_graft_qdisc(dev_queue, q);
+-			} else {
+-				old = dev_graft_qdisc(dev_queue, new);
+-				if (new && i > 0)
+-					atomic_inc(&new->refcnt);
+-			}
++			old = dev_graft_qdisc(dev_queue, new);
++			if (new && i > 0)
++				atomic_inc(&new->refcnt);
++
+ 			notify_and_destroy(skb, n, classid, old, new);
+ 		}
+ 
+@@ -817,7 +792,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 				goto err_out3;
+ 			}
+ 		}
+-		if (parent)
++		if (parent && !(sch->flags & TCQ_F_INGRESS))
+ 			list_add_tail(&sch->list, &dev_queue->qdisc->list);
+ 
+ 		return sch;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index fd2a6ca..345838a 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -596,7 +596,7 @@ static void transition_one_qdisc(struct net_device *dev,
+ 	int *need_watchdog_p = _need_watchdog;
+ 
+ 	rcu_assign_pointer(dev_queue->qdisc, new_qdisc);
+-	if (new_qdisc != &noqueue_qdisc)
++	if (need_watchdog_p && new_qdisc != &noqueue_qdisc)
+ 		*need_watchdog_p = 1;
+ }
+ 
+@@ -619,6 +619,7 @@ void dev_activate(struct net_device *dev)
+ 
+ 	need_watchdog = 0;
+ 	netdev_for_each_tx_queue(dev, transition_one_qdisc, &need_watchdog);
++	transition_one_qdisc(dev, &dev->rx_queue, NULL);
+ 
+ 	if (need_watchdog) {
+ 		dev->trans_start = jiffies;
+@@ -677,6 +678,7 @@ void dev_deactivate(struct net_device *dev)
+ 	bool running;
+ 
+ 	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
++	dev_deactivate_queue(dev, &dev->rx_queue, &noop_qdisc);
+ 
+ 	dev_watchdog_down(dev);
+ 
+@@ -718,7 +720,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
+ void dev_init_scheduler(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
+-	dev_init_scheduler_queue(dev, &dev->rx_queue, NULL);
++	dev_init_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
+ 
+ 	setup_timer(&dev->watchdog_timer, dev_watchdog, (unsigned long)dev);
+ }
+@@ -745,6 +747,6 @@ static void shutdown_scheduler_queue(struct net_device *dev,
+ void dev_shutdown(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
+-	shutdown_scheduler_queue(dev, &dev->rx_queue, NULL);
++	shutdown_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
+ 	WARN_ON(timer_pending(&dev->watchdog_timer));
+ }
 -- 
-Best Regards, Patrick Ohly
-
-The content of this message is my personal opinion only and although
-I am an employee of Intel, the statements I make here in no way
-represent Intel's position on the issue, nor am I authorized to speak
-on behalf of Intel on this matter.
+1.5.6.GIT
 
