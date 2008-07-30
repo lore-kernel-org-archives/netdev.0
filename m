@@ -1,46 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch] fix ia64 build failure when CONFIG_SFC=m
-Date: Wed, 30 Jul 2008 14:35:29 +0100
-Message-ID: <20080730133527.GI10471@solarflare.com>
-References: <20080729013650.GH9663@sgi.com> <57C9024A16AD2D4C97DC78E552063EA3080BA318@orsmsx505.amr.corp.intel.com> <20080729174839.GG10471@solarflare.com> <20080729.140040.72089155.davem@davemloft.net>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [RFC][PATCH 1/2] net: support for TX timestamps
+Date: Wed, 30 Jul 2008 15:34:16 +0200
+Message-ID: <1217424856.30512.180.camel@ecld0pohly>
+References: <1217291753-5322-1-git-send-email-opurdila@ixiacom.com>
+	 <1217291753-5322-2-git-send-email-opurdila@ixiacom.com>
+	 <1217421813.30512.169.camel@ecld0pohly>
+	 <200807301615.52953.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tony.luck@intel.com, jgarzik@redhat.com,
-	linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	netdev@vger.kernel.org, matthew@wil.cx, holt@sgi.com,
-	linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080729.140040.72089155.davem@davemloft.net>
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:42161 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753116AbYG3NgN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 09:36:13 -0400
+In-Reply-To: <200807301615.52953.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 29 Jul 2008 18:48:41 +0100
+On Wed, 2008-07-30 at 16:15 +0300, Octavian Purdila wrote:
+> On Wednesday 30 July 2008, Patrick Ohly wrote:
+> > Is skb->sk always guaranteed to be set in hard_start_xmit?
+> > skb_tx_timestamp() depends on it. In 2.6.23 the field always seemed to
+> > be valid, but in 2.6.26 I think I have seen NULL pointers there for PTP
+> > UDP broadcasts.
 > 
-> > I think a single core in each package can generally saturate the
-> > memory bus and this is why spreading the load wider is not useful.
-> 
-> I disagree, especially for routing and firewall setups.
-> 
-> You want as many cpu threads as possible, even on the same core,
-> doing the routing and firewall lookups through the various
-> datastructures, in parallel.
+> I don't think that skb->sk is guaranteed to be around in hard_start_xmit. But 
+> we should not need it, if we overload the skb->tstamp, right?
 
-So far as I can see, hardly anyone is doing routing at 10G speeds on Linux.
-If they were, the horrible interaction with LRO would presumably have been
-found and fixed earlier.  Besides which, internal benchmarking showed that we
-could route 1500-byte packets bidirectionally at very near line rate using one
-core on each of two multi-core packages.  (I can give more details if you
-want.)  The default can in any case be overridden using the rss_cpus module
-parameter.  If you want to add a core network setting for that, I think we'd
-be happy to use it.
+skb->sk is needed in skb_tx_timestamp() to send the copied skb with the
+time stamp back to the application, isn't it? skb_tx_timestamp() won't
+crash, but it won't be able to do the desired action either. Overloading
+skb->tstamp doesn't help with that.
 
-Ben.
+I don't know where the connection to the originating socket is lost, but
+in linux-2.6 as of one week ago (not 2.6.26, as I said above) the
+skb->sk pointer is indeed NULL for the PTP broadcast packets - I just
+checked again.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
