@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Wed, 30 Jul 2008 14:57:27 -0700 (PDT)
-Message-ID: <20080730.145727.07367670.davem@davemloft.net>
-References: <20080730140136.42223e3c@extreme>
+Date: Wed, 30 Jul 2008 15:04:54 -0700
+Message-ID: <20080730150454.7612912f.akpm@linux-foundation.org>
+References: <200807301939.m6UJd5lT012610@imap1.linux-foundation.org>
+	<20080730133727.7774de6a@extreme>
+	<20080730224849.59852c68@surf>
+	<20080730140136.42223e3c@extreme>
 	<20080730233551.76fd38a8@surf>
 	<20080730144812.a71156f7.akpm@linux-foundation.org>
+	<20080730235231.71f1b2f9@surf>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, shemminger@vyatta.com,
-	jeff@garzik.org, netdev@vger.kernel.org, mpm@selenic.com
-To: akpm@linux-foundation.org
+Cc: shemminger@vyatta.com, jeff@garzik.org, netdev@vger.kernel.org,
+	davem@davemloft.net, mpm@selenic.com
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57421
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753506AbYG3V51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 17:57:27 -0400
-In-Reply-To: <20080730144812.a71156f7.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37287 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760004AbYG3WF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:05:56 -0400
+In-Reply-To: <20080730235231.71f1b2f9@surf>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 30 Jul 2008 14:48:12 -0700
+On Wed, 30 Jul 2008 23:52:31 +0200
+Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
 
-> But I do think we should see some evidence that people are actually
-> using CONFIG_ETHTOOL=n in real setups.
+> Oops, sorry. [1] should have been
+> http://free-electrons.com/articles/conferences/elc2008-report#mackall.
+> 
+> __
+> The graph showed an increase of 28% on the kernel size over the last
+> two and half years. Over the last year, between 2.6.21 and 2.6.25-rc8,
+> the kernel size of the same allnoconfig has increased from 1.06
+> megabytes to 1.21 megabytes, a 14% increase.
 
-Heaven help them if they want to debug any real problems that
-might involve checksumming, TSO, and other offload features.
-Heaven help them if they want to probe the driver or firmware
-version of the card they are using.
+OK.
 
-I'm sure you can find someone who runs with CONFIG_STAND_ON_MY_HEAD=y
-but that doesn't mean that supporting such an option upstream makes
-any sense.
+I don't really trust allnoconfig as a way of determining size changes. 
+It can easily be the case that kernel A's allnoconfig happens to pull
+in more stuff than kernel B's allnoconfig.
 
-We spent years getting rid of the per-driver module parameters to
-configure these things.  And now folks want to remove the common
-infrastructure we created to do it.
+So I do think that one should dive into the details and verify that
+particular size changes really are due to unavoidable code bloat,
+rather than being due to some unfortunate Kconfig change.
 
-6K is peanuts compared to the per-driver code that implements these
-facilities.
+Tht being said, yes, I'm sure that it's getting bigger, overall.
