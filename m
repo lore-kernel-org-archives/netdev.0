@@ -1,36 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] fix ia64 build failure when CONFIG_SFC=m
-Date: Wed, 30 Jul 2008 15:18:26 -0700 (PDT)
-Message-ID: <20080730.151826.58205352.davem@davemloft.net>
-References: <20080729174839.GG10471@solarflare.com>
-	<20080729.140040.72089155.davem@davemloft.net>
-	<20080730133527.GI10471@solarflare.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [patch 12/12] Configure out ethtool support
+Date: Wed, 30 Jul 2008 17:24:26 -0500
+Message-ID: <1217456666.18911.145.camel@calx>
+References: <200807301939.m6UJd5lT012610@imap1.linux-foundation.org>
+	 <20080730.143532.124324888.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tony.luck@intel.com, jgarzik@redhat.com,
-	linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	netdev@vger.kernel.org, matthew@wil.cx, holt@sgi.com,
-	linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60760
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752436AbYG3WS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 18:18:27 -0400
-In-Reply-To: <20080730133527.GI10471@solarflare.com>
+Received: from waste.org ([66.93.16.53]:35376 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752395AbYG3W06 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2008 18:26:58 -0400
+In-Reply-To: <20080730.143532.124324888.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 30 Jul 2008 14:35:29 +0100
 
-> So far as I can see, hardly anyone is doing routing at 10G speeds on Linux.
-> If they were, the horrible interaction with LRO would presumably have been
-> found and fixed earlier.
+On Wed, 2008-07-30 at 14:35 -0700, David Miller wrote:
+> This change means you can't configure nearly all of the features on
+> your ethernet card.  You can't even configure the link parameters
+> without ethtool support.
 
-This assumes a precise intersection between those doing 10G routing
-and their using chips with LRO capable drivers.
+Which is big fat don't-care for the vast majority of users. =EF=BB=BF=EF=
+=BB=BFVarious
+popular distros don't even install the tool by default.
 
-All of the 10G equipment I have here and do testing on use drivers
-that lack LRO support.
+Embedded devices care even less. You'd be fairly hard-pressed to find,
+say, a BluRay player that lets you set the link duplex and checksum
+offloading somewhere deep deep down in the setup menu. And good luck
+trying to do that -over the wire- to a headless device. Unless the
+device is a serious router, you're -never- going to see anyone go to th=
+e
+trouble of exporting such functionality.
+
+--=20
+Mathematics is the supreme nostalgia of our time.
+
