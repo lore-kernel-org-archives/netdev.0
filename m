@@ -1,59 +1,283 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet
-	length for qdiscs
-Date: Wed, 30 Jul 2008 12:19:21 +0000
-Message-ID: <20080730121921.GC6362@ff.dom.local>
-References: <48904EB2.8060402@trash.net> <20080730113727.GB6362@ff.dom.local> <48905326.5050907@trash.net> <20080730.044851.135868050.davem@davemloft.net> <489055E1.1040100@trash.net>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 06/30] mm: kmem_alloc_estimate()
+Date: Wed, 30 Jul 2008 15:21:43 +0300
+Message-ID: <1217420503.7813.170.camel@penberg-laptop>
+References: <20080724140042.408642539@chello.nl>
+	 <20080724141529.716339226@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Neil Brown <neilb@suse.de>, cl@linux-foundation.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:39673 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752852AbYG3MOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 08:14:07 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so245726ugf.16
-        for <netdev@vger.kernel.org>; Wed, 30 Jul 2008 05:14:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <489055E1.1040100@trash.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:51576 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752753AbYG3MVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 08:21:42 -0400
+In-Reply-To: <20080724141529.716339226@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 30, 2008 at 01:52:01PM +0200, Patrick McHardy wrote:
-> David Miller wrote:
->> From: Patrick McHardy <kaber@trash.net>
->> Date: Wed, 30 Jul 2008 13:40:22 +0200
->>
->>> The reason why it translates it at all seems to be to not increase
->>> the drops counter. Within a single qdisc this could be avoided by
->>> other means easily, upper qdiscs would still increase the counter
->>> when we return anything besides NET_XMIT_SUCCESS though.
->>>
->>> This means we need a new NET_XMIT return value to indicate this to
->>> the upper qdiscs. So I'd suggest to introduce NET_XMIT_STOLEN,
->>> return that to upper qdiscs and translate it to NET_XMIT_SUCCESS
->>> in dev_queue_xmit, similar to NET_XMIT_BYPASS.
->>
->> Maybe these NET_XMIT_* values being passed around should be a set of
->> bits.
->>
->> They could be composed of base meanings, combined with specific
->> attributes.
->>
->> So you could say "NET_XMIT_DROP | __NET_XMIT_NO_DROP_COUNT"
->>
->> The attributes get masked out by the top-level ->enqueue() caller,
->> such that the base meanings are the only thing that make their
->> way up into the stack.
->>
->> If it's only about communication within the qdisc tree, let's
->> simply code it that way.
->
-> Thats a good suggestion. I think this should work.
->
+Hi Peter,
 
-Yes, very nice! (I guess I can look at this more...)
+On Thu, 2008-07-24 at 16:00 +0200, Peter Zijlstra wrote:
+> plain text document attachment (mm-kmem_estimate_pages.patch)
+> Provide a method to get the upper bound on the pages needed to allocate
+> a given number of objects from a given kmem_cache.
+> 
+> This lays the foundation for a generic reserve framework as presented in
+> a later patch in this series. This framework needs to convert object demand
+> (kmalloc() bytes, kmem_cache_alloc() objects) to pages.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> ---
+>  include/linux/slab.h |    4 ++
+>  mm/slab.c            |   75 +++++++++++++++++++++++++++++++++++++++++++
+>  mm/slub.c            |   87 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 166 insertions(+)
+> 
+> Index: linux-2.6/include/linux/slab.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/slab.h
+> +++ linux-2.6/include/linux/slab.h
+> @@ -65,6 +65,8 @@ void kmem_cache_free(struct kmem_cache *
+>  unsigned int kmem_cache_size(struct kmem_cache *);
+>  const char *kmem_cache_name(struct kmem_cache *);
+>  int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
+> +unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
+> +			gfp_t flags, int objects);
+>  
+>  /*
+>   * Please use this macro to create slab caches. Simply specify the
+> @@ -99,6 +101,8 @@ int kmem_ptr_validate(struct kmem_cache 
+>  void * __must_check krealloc(const void *, size_t, gfp_t);
+>  void kfree(const void *);
+>  size_t ksize(const void *);
 
-Jarek P.
+Just a nitpick, but:
+
+> +unsigned kmalloc_estimate_fixed(size_t, gfp_t, int);
+
+kmalloc_estimate_objs()?
+
+> +unsigned kmalloc_estimate_variable(gfp_t, size_t);
+
+kmalloc_estimate_bytes()?
+
+>  
+>  /*
+>   * Allocator specific definitions. These are mainly used to establish optimized
+> Index: linux-2.6/mm/slub.c
+> ===================================================================
+> --- linux-2.6.orig/mm/slub.c
+> +++ linux-2.6/mm/slub.c
+> @@ -2412,6 +2412,42 @@ const char *kmem_cache_name(struct kmem_
+>  }
+>  EXPORT_SYMBOL(kmem_cache_name);
+>  
+> +/*
+> + * Calculate the upper bound of pages required to sequentially allocate
+> + * @objects objects from @cachep.
+> + *
+> + * We should use s->min_objects because those are the least efficient.
+> + */
+> +unsigned kmem_alloc_estimate(struct kmem_cache *s, gfp_t flags, int objects)
+> +{
+> +	unsigned long pages;
+> +	struct kmem_cache_order_objects x;
+> +
+> +	if (WARN_ON(!s) || WARN_ON(!oo_objects(s->min)))
+> +		return 0;
+> +
+> +	x = s->min;
+> +	pages = DIV_ROUND_UP(objects, oo_objects(x)) << oo_order(x);
+> +
+> +	/*
+> +	 * Account the possible additional overhead if the slab holds more that
+> +	 * one object. Use s->max_objects because that's the worst case.
+> +	 */
+> +	x = s->oo;
+> +	if (oo_objects(x) > 1) {
+
+Hmm, I'm not sure why slab with just one object is treated separately
+here. Surely you have per-CPU slabs then as well?
+
+> +		/*
+> +		 * Account the possible additional overhead if per cpu slabs
+> +		 * are currently empty and have to be allocated. This is very
+> +		 * unlikely but a possible scenario immediately after
+> +		 * kmem_cache_shrink.
+> +		 */
+> +		pages += num_online_cpus() << oo_order(x);
+
+Isn't this problematic with CPU hotplug? Shouldn't we use
+num_possible_cpus() here?
+
+> +	}
+> +
+> +	return pages;
+> +}
+> +EXPORT_SYMBOL_GPL(kmem_alloc_estimate);
+> +
+>  static void list_slab_objects(struct kmem_cache *s, struct page *page,
+>  							const char *text)
+>  {
+> @@ -2789,6 +2825,57 @@ void kfree(const void *x)
+>  EXPORT_SYMBOL(kfree);
+>  
+>  /*
+> + * Calculate the upper bound of pages required to sequentially allocate
+> + * @count objects of @size bytes from kmalloc given @flags.
+> + */
+> +unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
+> +{
+> +	struct kmem_cache *s = get_slab(size, flags);
+> +	if (!s)
+> +		return 0;
+> +
+> +	return kmem_alloc_estimate(s, flags, count);
+> +
+> +}
+> +EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
+> +
+> +/*
+> + * Calculate the upper bound of pages requires to sequentially allocate @bytes
+> + * from kmalloc in an unspecified number of allocations of nonuniform size.
+> + */
+> +unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
+> +{
+> +	int i;
+> +	unsigned long pages;
+> +
+> +	/*
+> +	 * multiply by two, in order to account the worst case slack space
+> +	 * due to the power-of-two allocation sizes.
+> +	 */
+> +	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
+
+For bytes > PAGE_SIZE this doesn't look right (for SLUB). We do page
+allocator pass-through which means that we'll be grabbing high order
+pages which can be bigger than what 'pages' is here.
+
+> +
+> +	/*
+> +	 * add the kmem_cache overhead of each possible kmalloc cache
+> +	 */
+> +	for (i = 1; i < PAGE_SHIFT; i++) {
+> +		struct kmem_cache *s;
+> +
+> +#ifdef CONFIG_ZONE_DMA
+> +		if (unlikely(flags & SLUB_DMA))
+> +			s = dma_kmalloc_cache(i, flags);
+> +		else
+> +#endif
+> +			s = &kmalloc_caches[i];
+> +
+> +		if (s)
+> +			pages += kmem_alloc_estimate(s, flags, 0);
+> +	}
+> +
+> +	return pages;
+> +}
+> +EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
+> +
+> +/*
+>   * kmem_cache_shrink removes empty slabs from the partial lists and sorts
+>   * the remaining slabs by the number of items in use. The slabs with the
+>   * most items in use come first. New allocations will then fill those up
+> Index: linux-2.6/mm/slab.c
+> ===================================================================
+> --- linux-2.6.orig/mm/slab.c
+> +++ linux-2.6/mm/slab.c
+> @@ -3854,6 +3854,81 @@ const char *kmem_cache_name(struct kmem_
+>  EXPORT_SYMBOL_GPL(kmem_cache_name);
+>  
+>  /*
+> + * Calculate the upper bound of pages required to sequentially allocate
+> + * @objects objects from @cachep.
+> + */
+> +unsigned kmem_alloc_estimate(struct kmem_cache *cachep,
+> +		gfp_t flags, int objects)
+> +{
+> +	/*
+> +	 * (1) memory for objects,
+> +	 */
+> +	unsigned nr_slabs = DIV_ROUND_UP(objects, cachep->num);
+> +	unsigned nr_pages = nr_slabs << cachep->gfporder;
+> +
+> +	/*
+> +	 * (2) memory for each per-cpu queue (nr_cpu_ids),
+> +	 * (3) memory for each per-node alien queues (nr_cpu_ids), and
+> +	 * (4) some amount of memory for the slab management structures
+> +	 *
+> +	 * XXX: truely account these
+
+Heh, yes please. Or add a comment why it doesn't matter.
+
+> +	 */
+> +	nr_pages += 1 + ilog2(nr_pages);
+> +
+> +	return nr_pages;
+> +}
+> +
+> +/*
+> + * Calculate the upper bound of pages required to sequentially allocate
+> + * @count objects of @size bytes from kmalloc given @flags.
+> + */
+> +unsigned kmalloc_estimate_fixed(size_t size, gfp_t flags, int count)
+> +{
+> +	struct kmem_cache *s = kmem_find_general_cachep(size, flags);
+> +	if (!s)
+> +		return 0;
+> +
+> +	return kmem_alloc_estimate(s, flags, count);
+> +}
+> +EXPORT_SYMBOL_GPL(kmalloc_estimate_fixed);
+> +
+> +/*
+> + * Calculate the upper bound of pages requires to sequentially allocate @bytes
+> + * from kmalloc in an unspecified number of allocations of nonuniform size.
+> + */
+> +unsigned kmalloc_estimate_variable(gfp_t flags, size_t bytes)
+> +{
+> +	unsigned long pages;
+> +	struct cache_sizes *csizep = malloc_sizes;
+> +
+> +	/*
+> +	 * multiply by two, in order to account the worst case slack space
+> +	 * due to the power-of-two allocation sizes.
+> +	 */
+> +	pages = DIV_ROUND_UP(2 * bytes, PAGE_SIZE);
+> +
+> +	/*
+> +	 * add the kmem_cache overhead of each possible kmalloc cache
+> +	 */
+> +	for (csizep = malloc_sizes; csizep->cs_cachep; csizep++) {
+> +		struct kmem_cache *s;
+> +
+> +#ifdef CONFIG_ZONE_DMA
+> +		if (unlikely(flags & __GFP_DMA))
+> +			s = csizep->cs_dmacachep;
+> +		else
+> +#endif
+> +			s = csizep->cs_cachep;
+> +
+> +		if (s)
+> +			pages += kmem_alloc_estimate(s, flags, 0);
+> +	}
+> +
+> +	return pages;
+> +}
+> +EXPORT_SYMBOL_GPL(kmalloc_estimate_variable);
+> +
+> +/*
+>   * This initializes kmem_list3 or resizes various caches for all nodes.
+>   */
+>  static int alloc_kmemlist(struct kmem_cache *cachep)
+> 
+
