@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 09/11] irda: replace __FUNCTION__ with __func__
-Date: Wed, 30 Jul 2008 16:42:36 -0700 (PDT)
-Message-ID: <20080730.164236.246400895.davem@davemloft.net>
-References: <200807301937.m6UJbgXw012455@imap1.linux-foundation.org>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [patch nacked? 3/4] Update smc91x driver with ARM Versatile board info
+Date: Thu, 31 Jul 2008 00:41:36 +0100
+Message-ID: <20080730234136.GC12409@flint.arm.linux.org.uk>
+References: <200807301940.m6UJemPm012683@imap1.linux-foundation.org> <20080730224255.GB12409@flint.arm.linux.org.uk> <20080730160858.74053884.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, harvey.harrison@gmail.com,
-	samuel@sortiz.org
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, dsaxena@plexity.net,
+	nico@cam.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40188
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761415AbYG3Xmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:42:36 -0400
-In-Reply-To: <200807301937.m6UJbgXw012455@imap1.linux-foundation.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:34873 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762309AbYG3Xmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:42:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20080730160858.74053884.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Wed, 30 Jul 2008 12:37:42 -0700
-
-> From: Harvey Harrison <harvey.harrison@gmail.com>
+On Wed, Jul 30, 2008 at 04:08:58PM -0700, Andrew Morton wrote:
+> On Wed, 30 Jul 2008 23:42:55 +0100
+> Russell King <rmk@arm.linux.org.uk> wrote:
 > 
-> __FUNCTION__ is gcc-specific, use __func__
+> > Are you aware that smc91x.h _already_ contains a CONFIG_ARCH_VERSATILE
+> > section?
+> > 
 > 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> Cc: Samuel Ortiz <samuel@sortiz.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Are you aware that I don't maintain arm, net drivers or smc91x.h?
+> 
+> Are you aware that smartarse rhetorical questions are exceedingly
+> irritating?
 
-This gets rejects because it conflicts with the down_try()
-changes that went into Linus's tree recently.  Specifically
-this occurs in sir_dev.c
+Sigh.  That's a fucking annoying response to my perfectly legitimate
+question.
+
+Screw you.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
