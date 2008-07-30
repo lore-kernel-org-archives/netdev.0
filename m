@@ -1,172 +1,205 @@
 From: akpm@linux-foundation.org
-Subject: [patch nacked? 2/4] 3c59x: fix PCI resource management
-Date: Wed, 30 Jul 2008 12:40:47 -0700
-Message-ID: <200807301940.m6UJel33012679@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	sshtylyov@ru.mvista.com, jgarzik@pobox.com
+Subject: [patch 1/1] tg3: adapt tg3 to use reworked PCI PM code
+Date: Wed, 30 Jul 2008 12:42:25 -0700
+Message-ID: <200807301942.m6UJgQfG012742@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, rjw@sisk.pl,
+	jbarnes@virtuousgeek.org, shemminger@linux-foundation.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36473 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39476 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752011AbYG3TnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:43:19 -0400
+	by vger.kernel.org with ESMTP id S1751736AbYG3ToJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 15:44:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-The driver wrongly claimed I/O ports at an address returned by pci_iomap()
--- even if it was passed an MMIO address.  Fix this by claiming/releasing
-all PCI resources in the PCI driver probe/remove handlers instead and get
-rid of the must_free_region flag weirdness (why would Cardbus claim
-anything for us?).
+Adapt the tg3 driver to use the reworked PCI PM and make it use the
+exported PCI PM core functions instead of accessing the PCI PM registers
+directly by itself.
 
-Also, the remove handler was trying to talk to the chip after having
-disabled its address decoders (at least on x86) -- fix this and get rid of
-useless VORTEX_PCI() calls.
-
-While at it, fix some cases of the overly indented code...
-
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/3c59x.c |   66 ++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 34 deletions(-)
+ drivers/net/tg3.c |   67 ++++++++++++++++++--------------------------
+ 1 file changed, 28 insertions(+), 39 deletions(-)
 
-diff -puN drivers/net/3c59x.c~3x59x-fix-pci-resource-management drivers/net/3c59x.c
---- a/drivers/net/3c59x.c~3x59x-fix-pci-resource-management
-+++ a/drivers/net/3c59x.c
-@@ -629,7 +629,6 @@ struct vortex_private {
- 		pm_state_valid:1,				/* pci_dev->saved_config_space has sane contents */
- 		open:1,
- 		medialock:1,
--		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region */
- 		large_frames:1;			/* accept large frames */
- 	int drv_flags;
- 	u16 status_enable;
-@@ -962,7 +961,13 @@ static int __devinit vortex_init_one(str
- 	/* wake up and enable device */
- 	rc = pci_enable_device(pdev);
- 	if (rc < 0)
--		goto out;
-+		return rc;
-+
-+	rc = pci_request_regions(pdev, "3c59x");
-+	if (rc < 0) {
-+		pci_disable_device(pdev);
-+		return rc;
-+	}
+diff -puN drivers/net/tg3.c~tg3-adapt-tg3-to-use-reworked-pci-pm-code drivers/net/tg3.c
+--- a/drivers/net/tg3.c~tg3-adapt-tg3-to-use-reworked-pci-pm-code
++++ a/drivers/net/tg3.c
+@@ -1986,8 +1986,6 @@ static void tg3_power_down_phy(struct tg
+ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ {
+ 	u32 misc_host_ctrl;
+-	u16 power_control, power_caps;
+-	int pm = tp->pm_cap;
  
- 	unit = vortex_cards_found;
+ 	/* Make sure register accesses (indirect or otherwise)
+ 	 * will function correctly.
+@@ -1996,18 +1994,10 @@ static int tg3_set_power_state(struct tg
+ 			       TG3PCI_MISC_HOST_CTRL,
+ 			       tp->misc_host_ctrl);
  
-@@ -982,13 +987,13 @@ static int __devinit vortex_init_one(str
- 	rc = vortex_probe1(&pdev->dev, ioaddr, pdev->irq,
- 			   ent->driver_data, unit);
- 	if (rc < 0) {
--		pci_disable_device(pdev);
--		goto out;
-+		pci_release_regions(pdev);
-+		pci_disable_device (pdev);
-+		return rc;
- 	}
+-	pci_read_config_word(tp->pdev,
+-			     pm + PCI_PM_CTRL,
+-			     &power_control);
+-	power_control |= PCI_PM_CTRL_PME_STATUS;
+-	power_control &= ~(PCI_PM_CTRL_STATE_MASK);
+ 	switch (state) {
+ 	case PCI_D0:
+-		power_control |= 0;
+-		pci_write_config_word(tp->pdev,
+-				      pm + PCI_PM_CTRL,
+-				      power_control);
+-		udelay(100);	/* Delay after power state change */
++		pci_enable_wake(tp->pdev, state, false);
++		pci_set_power_state(tp->pdev, PCI_D0);
  
- 	vortex_cards_found++;
+ 		/* Switch out of Vaux if it is a NIC */
+ 		if (tp->tg3_flags2 & TG3_FLG2_IS_NIC)
+@@ -2016,26 +2006,15 @@ static int tg3_set_power_state(struct tg
+ 		return 0;
  
--out:
- 	return rc;
- }
- 
-@@ -1090,11 +1095,6 @@ static int __devinit vortex_probe1(struc
- 
- 	/* PCI-only startup logic */
- 	if (pdev) {
--		/* EISA resources already marked, so only PCI needs to do this here */
--		/* Ignore return value, because Cardbus drivers already allocate for us */
--		if (request_region(dev->base_addr, vci->io_size, print_name) != NULL)
--			vp->must_free_region = 1;
+ 	case PCI_D1:
+-		power_control |= 1;
+-		break;
 -
- 		/* enable bus-mastering if necessary */
- 		if (vci->flags & PCI_USES_MASTER)
- 			pci_set_master(pdev);
-@@ -1126,12 +1126,13 @@ static int __devinit vortex_probe1(struc
- 	vp->mii.reg_num_mask = 0x1f;
+ 	case PCI_D2:
+-		power_control |= 2;
+-		break;
+-
+ 	case PCI_D3hot:
+-		power_control |= 3;
+ 		break;
  
- 	/* Makes sure rings are at least 16 byte aligned. */
--	vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct boom_rx_desc) * RX_RING_SIZE
--					   + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+	vp->rx_ring = pci_alloc_consistent(pdev,
-+					   sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+					   sizeof(struct boom_tx_desc) * TX_RING_SIZE,
- 					   &vp->rx_ring_dma);
- 	retval = -ENOMEM;
- 	if (!vp->rx_ring)
--		goto free_region;
-+		goto free_device;
+ 	default:
+-		printk(KERN_WARNING PFX "%s: Invalid power state (%d) "
+-		       "requested.\n",
+-		       tp->dev->name, state);
++		printk(KERN_ERR PFX "%s: Invalid power state (D%d) requested\n",
++			tp->dev->name, state);
+ 		return -EINVAL;
+ 	}
+-
+-	power_control |= PCI_PM_CTRL_PME_ENABLE;
+-
+ 	misc_host_ctrl = tr32(TG3PCI_MISC_HOST_CTRL);
+ 	tw32(TG3PCI_MISC_HOST_CTRL,
+ 	     misc_host_ctrl | MISC_HOST_CTRL_MASK_PCI_INT);
+@@ -2113,8 +2092,6 @@ static int tg3_set_power_state(struct tg
+ 						     WOL_DRV_WOL |
+ 						     WOL_SET_MAGIC_PKT);
  
- 	vp->tx_ring = (struct boom_tx_desc *)(vp->rx_ring + RX_RING_SIZE);
- 	vp->tx_ring_dma = vp->rx_ring_dma + sizeof(struct boom_rx_desc) * RX_RING_SIZE;
-@@ -1410,13 +1411,11 @@ static int __devinit vortex_probe1(struc
+-	pci_read_config_word(tp->pdev, pm + PCI_PM_PMC, &power_caps);
+-
+ 	if (tp->tg3_flags & TG3_FLAG_WOL_ENABLE) {
+ 		u32 mac_mode;
  
- free_ring:
- 	pci_free_consistent(pdev,
--						sizeof(struct boom_rx_desc) * RX_RING_SIZE
--							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
--						vp->rx_ring,
--						vp->rx_ring_dma);
--free_region:
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vci->io_size);
-+			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+			    vp->rx_ring,
-+			    vp->rx_ring_dma);
-+free_device:
- 	free_netdev(dev);
- 	printk(KERN_ERR PFX "vortex_probe1 fails.  Returns %d\n", retval);
- out:
-@@ -3145,29 +3144,28 @@ static void __devexit vortex_remove_one(
- 	vp = netdev_priv(dev);
+@@ -2147,8 +2124,8 @@ static int tg3_set_power_state(struct tg
+ 		if (!(tp->tg3_flags2 & TG3_FLG2_5750_PLUS))
+ 			tw32(MAC_LED_CTRL, tp->led_ctrl);
  
- 	if (vp->cb_fn_base)
--		pci_iounmap(VORTEX_PCI(vp), vp->cb_fn_base);
-+		pci_iounmap(pdev, vp->cb_fn_base);
+-		if (((power_caps & PCI_PM_CAP_PME_D3cold) &&
+-		     (tp->tg3_flags & TG3_FLAG_WOL_ENABLE)))
++		if (pci_pme_capable(tp->pdev, state) &&
++		     (tp->tg3_flags & TG3_FLAG_WOL_ENABLE))
+ 			mac_mode |= MAC_MODE_MAGIC_PKT_ENABLE;
  
- 	unregister_netdev(dev);
+ 		tw32_f(MAC_MODE, mac_mode);
+@@ -2240,9 +2217,11 @@ static int tg3_set_power_state(struct tg
  
--	if (VORTEX_PCI(vp)) {
--		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
--		if (vp->pm_state_valid)
--			pci_restore_state(VORTEX_PCI(vp));
--		pci_disable_device(VORTEX_PCI(vp));
--	}
-+	pci_set_power_state(pdev, PCI_D0);	/* Go active */
-+	if (vp->pm_state_valid)
-+		pci_restore_state(pdev);
+ 	tg3_write_sig_post_reset(tp, RESET_KIND_SHUTDOWN);
+ 
++	if (tp->tg3_flags & TG3_FLAG_WOL_ENABLE)
++		pci_enable_wake(tp->pdev, state, true);
 +
- 	/* Should really use issue_and_wait() here */
- 	iowrite16(TotalReset | ((vp->drv_flags & EEPROM_RESET) ? 0x04 : 0x14),
- 	     vp->ioaddr + EL3_CMD);
+ 	/* Finally, set the new power state. */
+-	pci_write_config_word(tp->pdev, pm + PCI_PM_CTRL, power_control);
+-	udelay(100);	/* Delay after power state change */
++	pci_set_power_state(tp->pdev, state);
  
--	pci_iounmap(VORTEX_PCI(vp), vp->ioaddr);
-+	pci_iounmap(pdev, vp->ioaddr);
- 
- 	pci_free_consistent(pdev,
--						sizeof(struct boom_rx_desc) * RX_RING_SIZE
--							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
--						vp->rx_ring,
--						vp->rx_ring_dma);
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vp->io_size);
-+			    sizeof(struct boom_rx_desc) * RX_RING_SIZE +
-+			    sizeof(struct boom_tx_desc) * TX_RING_SIZE,
-+			    vp->rx_ring,
-+			    vp->rx_ring_dma);
-+
-+	pci_release_regions(pdev);
-+	pci_disable_device (pdev);
- 	free_netdev(dev);
+ 	return 0;
  }
+@@ -8414,7 +8393,8 @@ static void tg3_get_wol(struct net_devic
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+ 
+-	if (tp->tg3_flags & TG3_FLAG_WOL_CAP)
++	if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
++	    device_can_wakeup(&tp->pdev->dev))
+ 		wol->supported = WAKE_MAGIC;
+ 	else
+ 		wol->supported = 0;
+@@ -8427,18 +8407,22 @@ static void tg3_get_wol(struct net_devic
+ static int tg3_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
++	struct device *dp = &tp->pdev->dev;
+ 
+ 	if (wol->wolopts & ~WAKE_MAGIC)
+ 		return -EINVAL;
+ 	if ((wol->wolopts & WAKE_MAGIC) &&
+-	    !(tp->tg3_flags & TG3_FLAG_WOL_CAP))
++	    !((tp->tg3_flags & TG3_FLAG_WOL_CAP) && device_can_wakeup(dp)))
+ 		return -EINVAL;
+ 
+ 	spin_lock_bh(&tp->lock);
+-	if (wol->wolopts & WAKE_MAGIC)
++	if (wol->wolopts & WAKE_MAGIC) {
+ 		tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
+-	else
++		device_set_wakeup_enable(dp, true);
++	} else {
+ 		tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
++		device_set_wakeup_enable(dp, false);
++	}
+ 	spin_unlock_bh(&tp->lock);
+ 
+ 	return 0;
+@@ -10645,7 +10629,8 @@ static void __devinit tg3_get_eeprom_hw_
+ 		if (val & VCPU_CFGSHDW_ASPM_DBNC)
+ 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
+ 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
+-		    (val & VCPU_CFGSHDW_WOL_MAGPKT))
++		    (val & VCPU_CFGSHDW_WOL_MAGPKT) &&
++		    device_may_wakeup(&tp->pdev->dev))
+ 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
+ 		return;
+ 	}
+@@ -10775,8 +10760,9 @@ static void __devinit tg3_get_eeprom_hw_
+ 		    !(nic_cfg & NIC_SRAM_DATA_CFG_FIBER_WOL))
+ 			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
+ 
+-		if (tp->tg3_flags & TG3_FLAG_WOL_CAP &&
+-		    nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE)
++		if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
++		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE) &&
++		    device_may_wakeup(&tp->pdev->dev))
+ 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
+ 
+ 		if (cfg2 & (1 << 17))
+@@ -13004,6 +12990,7 @@ static int tg3_suspend(struct pci_dev *p
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct tg3 *tp = netdev_priv(dev);
++	pci_power_t target_state;
+ 	int err;
+ 
+ 	/* PCI register 4 needs to be saved whether netif_running() or not.
+@@ -13032,7 +13019,9 @@ static int tg3_suspend(struct pci_dev *p
+ 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
+ 	tg3_full_unlock(tp);
+ 
+-	err = tg3_set_power_state(tp, pci_choose_state(pdev, state));
++	target_state = pdev->pm_cap ? pci_target_state(pdev) : PCI_D3hot;
++
++	err = tg3_set_power_state(tp, target_state);
+ 	if (err) {
+ 		int err2;
  
 _
