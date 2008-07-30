@@ -1,59 +1,35 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 2/3] net_sched: Add accessor function for packet	length
- for qdiscs
-Date: Wed, 30 Jul 2008 12:47:31 +0200
-Message-ID: <489046C3.5030208@trash.net>
-References: <20080725105748.GB10399@ff.dom.local> <20080725.035712.33516738.davem@davemloft.net> <20080725113757.GC10399@ff.dom.local> <20080725.044928.261427957.davem@davemloft.net> <488B24E6.4020003@trash.net> <20080726141844.GB2873@ami.dom.local>
+Subject: Re: [PATCH] ipt_recent: fix race between recent_mt_destroy and proc
+ manipulations
+Date: Wed, 30 Jul 2008 12:52:53 +0200
+Message-ID: <48904805.7050009@trash.net>
+References: <4887A2A6.1010704@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44767 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759485AbYG3Kre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 06:47:34 -0400
-In-Reply-To: <20080726141844.GB2873@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4887A2A6.1010704@openvz.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Sat, Jul 26, 2008 at 03:21:42PM +0200, Patrick McHardy wrote:
->> David Miller wrote:
->>> From: Jarek Poplawski <jarkao2@gmail.com>
->>> Date: Fri, 25 Jul 2008 11:37:57 +0000
->>>
->>>> On Fri, Jul 25, 2008 at 03:57:12AM -0700, David Miller wrote:
->>>>> Even TCP depends upon that NET_XMIT_* return value having some real
->>>>> meaning, remember the HTB bug we tracked down last week? :-)
->>>> Do you mean this bug you've forgotten to fix yet?
->>> I have not forgotten, it is in TODO list. :)
->>>
->>> I want to also inquire with Patrick about whether he is going to
->>> perform the audit in this area which he said he wanted to do :-)
->> I'm a bit backlogged, so it will take some more time.
->>
->>> Well, we have patch which fixes the problem for the tester, so we
->>> could just merge that and at least have HTB fixed.  But we know there
->>> are other instances of the same return value propagation problem and
->>> Patrick's audit is sure to turn up other similar turds...
+Pavel Emelyanov wrote:
+> The thing is that recent_mt_destroy first flushes the entries
+> from table with the recent_table_flush and only *after* this
+> removes the proc file, corresponding to that table.
 > 
-> My proposal (as before) is to apply this patch now (it could hit more
-> people than we know), but I would do small changes yet:
-> - to do htb_activate() if (cl->un.leaf.q->q.qlen),
-> - to skip bstats.packets and .bytes updating for anything but
->   NET_XMIT_SUCCESS,
-> so, both things just like in sch_hfsc.
+> Thus, if we manage to write to this file the '+XXX' command we
+> will leak some entries. If we manage to write there a 'clean'
+> command we'll race in two recent_table_flush flows, since the
+> recent_mt_destroy calls this outside the recent_lock.
 > 
->> The other problem that affects all qdiscs supporting actions is
->> TC_ACT_QUEUED/TC_ACT_STOLEN getting mapped to NET_XMIT_SUCCESS
->> even though the packet is not queued, corrupting upper qdiscs'
->> qlen counters.
-> 
-> Why can't we (temporarily) simply check such cl->un.leaf.q->q.qlen
-> before and after enqueing?
+> The proper solution as I see it is to remove the proc file first
+> and then go on with flushing the table. This flushing becomes
+> safe w/o the lock, since the table is already inaccessible from
+> the outside.
 
-Thats really ugly, why not simply fix it correctly by
-not lying to upper qdiscs?
+Applied, thanks.
