@@ -1,50 +1,47 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [patch 09/11] irda: replace __FUNCTION__ with __func__
-Date: Wed, 30 Jul 2008 16:54:27 -0700
-Message-ID: <1217462067.4338.0.camel@brick>
-References: <200807301937.m6UJbgXw012455@imap1.linux-foundation.org>
-	 <20080730.164236.246400895.davem@davemloft.net>
-	 <20080730165207.b8e62eb5.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Wed, 30 Jul 2008 16:56:21 -0700 (PDT)
+Message-ID: <20080730.165621.211366535.davem@davemloft.net>
+References: <20080730235004.GC21999@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	samuel@sortiz.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:47399 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbYG3Xyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:54:31 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so375373wfd.4
-        for <netdev@vger.kernel.org>; Wed, 30 Jul 2008 16:54:30 -0700 (PDT)
-In-Reply-To: <20080730165207.b8e62eb5.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42751
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752146AbYG3X4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:56:21 -0400
+In-Reply-To: <20080730235004.GC21999@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-30 at 16:52 -0700, Andrew Morton wrote:
-> On Wed, 30 Jul 2008 16:42:36 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Thu, 31 Jul 2008 01:50:04 +0200
+
+Thanks for all the great data and testing.
+
+> Given this, I'm wondering about the following:
 > 
-> > From: akpm@linux-foundation.org
-> > Date: Wed, 30 Jul 2008 12:37:42 -0700
-> > 
-> > > From: Harvey Harrison <harvey.harrison@gmail.com>
-> > > 
-> > > __FUNCTION__ is gcc-specific, use __func__
-> > > 
-> > > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > > Cc: Samuel Ortiz <samuel@sortiz.org>
-> > > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > This gets rejects because it conflicts with the down_try()
-> > changes that went into Linus's tree recently.  Specifically
-> > this occurs in sir_dev.c
-> 
-> urgh, OK, sorry.  I'll hang onto it, see how we get along next time.
+> 1. Considering the drop in CPU utilisation, are there reasons not
+>    to use software GSO on non-hardware-GSO-capable netdevices (apart
+>    from GSO possibly confusing tcpdump/iptables/qdiscs/etc)?
 
-I'll try again at -rc2 time perhaps?  Or I can just regen later tonight
-and resend if you prefer.
+We should probably enable software GSO whenever the device can
+do scatter-gather and checksum offload.
 
-Harvey
+> 2. Why is the number of cycles necessary to send 1 GiB of data so
+>    much higher (~3.5x higher) in 1000 Mb/s mode than in 100 Mb/s mode?
+>    (Is this maybe just because time(1) is inaccurate w.r.t. time spent
+>    in interrupts and such?)
 
+This I have no idea about.
+
+> 3. Why does dev_hard_start_xmit() get sent 64 KiB segments when the
+>    link is in 100 Mb/s mode but gso_segs never grows beyond 3 when
+>    the link is in 1000 Mb/s mode?
+
+Because the link can empty the socket send buffer fast enough such
+that there is often not enough data to coalesce into larger GSO frames.
+At least that's my guess.
