@@ -1,27 +1,69 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 2.6.27-rc1]: fix NE2000 linkage error
-Date: Wed, 30 Jul 2008 15:04:50 +0100
-Message-ID: <20080730150450.3bd7c853@lxorguk.ukuu.org.uk>
-References: <200807301144.m6UBitOG022822@harpo.it.uu.se>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: long/ulong iproute-git fix
+Date: Wed, 30 Jul 2008 17:34:07 +0300
+Message-ID: <200807301734.07598.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mikael Pettersson <mikpe@it.uu.se>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_fvHkIrCYhq1ypsq"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49298 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752741AbYG3OWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 10:22:04 -0400
-In-Reply-To: <200807301144.m6UBitOG022822@harpo.it.uu.se>
+Received: from relay2.globalproof.net ([194.146.153.25]:59519 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753215AbYG3Oed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 10:34:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Jul 2008 13:44:55 +0200 (MEST)
-Mikael Pettersson <mikpe@it.uu.se> wrote:
+--Boundary-00=_fvHkIrCYhq1ypsq
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> Trying to build with CONFIG_NE2000=m fails with:
+This patch fixes bug in Metadata ematch attributes parser
 
-Yes I've sent patches to fix this to Jeff a couple of times.
+strtoul on error return ULONG_MAX, not LONG_MAX
 
-Alan
+Patch attached as file
+
+--Boundary-00=_fvHkIrCYhq1ypsq
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="iproute2-30jul2008-ulong.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="iproute2-30jul2008-ulong.patch"
+
+diff -Naur iproute2/tc/em_meta.c iproute2-patched/tc/em_meta.c
+--- iproute2/tc/em_meta.c	2008-07-30 17:29:57.000000000 +0300
++++ iproute2-patched/tc/em_meta.c	2008-07-30 17:29:15.000000000 +0300
+@@ -262,7 +262,7 @@
+ 	}
+ 
+ 	num = bstrtoul(arg);
+-	if (num != LONG_MAX) {
++	if (num != ULONG_MAX) {
+ 		obj->kind = TCF_META_TYPE_INT << 12;
+ 		obj->kind |= TCF_META_ID_VALUE;
+ 		*dst = (unsigned long) num;
+@@ -320,7 +320,7 @@
+ 			a = bstr_next(a);
+ 
+ 			shift = bstrtoul(a);
+-			if (shift == LONG_MAX) {
++			if (shift == ULONG_MAX) {
+ 				PARSE_ERR(a, "meta: invalid shift, must " \
+ 				    "be numeric");
+ 				return PARSE_FAILURE;
+@@ -338,7 +338,7 @@
+ 			a = bstr_next(a);
+ 
+ 			mask = bstrtoul(a);
+-			if (mask == LONG_MAX) {
++			if (mask == ULONG_MAX) {
+ 				PARSE_ERR(a, "meta: invalid mask, must be " \
+ 				    "numeric");
+ 				return PARSE_FAILURE;
+
+--Boundary-00=_fvHkIrCYhq1ypsq--
