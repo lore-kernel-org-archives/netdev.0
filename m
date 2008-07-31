@@ -1,50 +1,53 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP connection stalls under 2.6.24.7
-Date: Thu, 31 Jul 2008 10:39:56 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0807311035350.4551@wrl-59.cs.helsinki.fi>
-References: <47EA0DAB.7080205@securenet.de> <200807111633.42514.thomas.jarosch@intra2net.com>
- <200807151347.23598.thomas.jarosch@intra2net.com>
- <200807151810.45942.thomas.jarosch@intra2net.com> <20080715153045.12efaea4@tux>
- <55u7m5-i63.ln1@tux.abusar.org.br>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] typhoon: use request_firmware
+Date: Thu, 31 Jul 2008 08:42:53 +0100
+Message-ID: <1217490173.3454.47.camel@pmac.infradead.org>
+References: <1217170232.3537.6.camel@jaswinder.satnam>
+	 <1217209400.22789.47.camel@obelisk.thedillows.org>
+	 <1217215009.2970.7.camel@jaswinder.satnam>
+	 <1217248585.22789.58.camel@obelisk.thedillows.org>
+	 <1217253260.17632.6.camel@jaswinder.satnam>
+	 <1217295498.28682.16.camel@obelisk.thedillows.org>
+	 <1217347786.2885.11.camel@jaswinder.satnam>
+	 <1217395511.31350.6.camel@obelisk.thedillows.org>
+	 <1217400251.2595.3.camel@jaswinder.satnam>
+	 <1217475466.16202.15.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1905046102-1217489996=:4551"
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <55u7m5-i63.ln1@tux.abusar.org.br>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jaswinder Singh <jaswinder@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
+	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>
+To: David Dillow <dave@thedillows.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:48411 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752551AbYGaHm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 03:42:57 -0400
+In-Reply-To: <1217475466.16202.15.camel@obelisk.thedillows.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1905046102-1217489996=:4551
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Thu, 31 Jul 2008, Dâniel Fraga wrote:
-
-> On Tue, 15 Jul 2008 15:30:45 -0300
-> Dâniel Fraga <fragabr@gmail.com> wrote:
+On Wed, 2008-07-30 at 23:37 -0400, David Dillow wrote:
+> request_firmware()'s mutex is protecting against things inside of that
+> subsystem, but offers no protection between the test on typhoon_fw !=
+> NULL and the setting of it inside of the firmware loader. That
+> requires locking at a higher level.
 > 
-> > 	I'm using kernel 2.6.26 and the problem has gone. No stalled
-> > connections anymore. The problem was with 2.6.25 kernel only.
-> 	
-> 	Sorry, I was wrong. In 2.6.26 the problem remains.
-> 
-> 	Everyday my connection stalls to my NNTP server using 2.6.26
-> too. Before I just used a "nmap -sS server" and the connection would
-> come back, but now it doesn't work.
+> Anyways, probing is single threaded and I seem to recall it being
+> unlikely to be made parallel due to the number issues exposed last
+> time, so a minimal comment is fine.
 
-Tcpdumping it would help some... :-) Can you try the suggested patch if it 
-changes any (though would I have a tcpdump showing the problem, I could 
-probably tell right away if the patch would help or not, and also come up 
-with something else if necessary :-)):
+An alternative approach is to make request_firmware() do the duplicate
+avoidance for itself. Since we made fw->data const (as 'fw' itself
+always was), no users should be changing anything in the requested
+firmware. It can be safely reused by generic code.
 
-  http://marc.info/?l=linux-netdev&m=121699478406378&w=2
-
-
+That simplifies the logic in drivers -- they just request what they
+want, as many times as they want it, and don't have to care about the
+potential duplication.
 
 -- 
- i.
----696208474-1905046102-1217489996=:4551--
+dwmw2
+
