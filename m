@@ -1,50 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 20:59:03 +0800
-Message-ID: <20080731125903.GA8773@gondor.apana.org.au>
-References: <20080730235004.GC21999@xi.wantstofly.org> <20080730.165621.211366535.davem@davemloft.net> <20080731004123.GB22826@xi.wantstofly.org> <20080730.181047.39922732.davem@davemloft.net> <20080731014506.GA23402@xi.wantstofly.org> <20080731035410.GA4893@gondor.apana.org.au> <20080731094536.GC23814@xi.wantstofly.org> <20080731105522.GB7601@gondor.apana.org.au> <20080731123731.GB29176@xi.wantstofly.org>
+Date: Thu, 31 Jul 2008 14:19:30 +0100
+Message-ID: <20080731131929.GO10471@solarflare.com>
+References: <20080731101425.GE23814@xi.wantstofly.org> <20080731.031654.44296685.davem@davemloft.net> <20080731122541.GA29176@xi.wantstofly.org> <20080731.053516.185810642.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	akarkare@marvell.com, nico@cam.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: buytenh@wantstofly.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
+	dale@farnsworth.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54303 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751726AbYGaM7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 08:59:15 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:42910 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751157AbYGaNT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 09:19:58 -0400
 Content-Disposition: inline
-In-Reply-To: <20080731123731.GB29176@xi.wantstofly.org>
+In-Reply-To: <20080731.053516.185810642.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2008 at 02:37:31PM +0200, Lennert Buytenhek wrote:
->
-> Like this?
-
-Yes that ought to do the trick.
-
+David Miller wrote:
 > From: Lennert Buytenhek <buytenh@wantstofly.org>
-> Subject: [NET] use software GSO for SG+CSUM capable netdevices
+> Date: Thu, 31 Jul 2008 14:25:41 +0200
 > 
-> If a netdevice does not support hardware GSO, allowing the stack to
-> use GSO anyway and then splitting the GSO skb into MSS-sized pieces
-> as it is handed to the netdevice for transmitting is likely still
-> a win as far as throughput and/or CPU usage are concerned, since it
-> reduces the number of trips through the output path.
+> > At this point things seem to be CPU limited at the sender again.  E.g.
+> > by simply dropping IRQF_SAMPLE_RANDOM from mv643xx_eth.c (the driver
+> > used on the sender), throughput jumps to ~108 MiB/s, and I get:
+>  ...
+> > Putting the 5 * mss_now nagle hack back in doesn't seem to change
+> > the gso_size distribution anymore at this point, and it doesn't
+> > change the numbers much:
+>  ...
+> > The throughput with software GSO off again seems to be about ~93 MiB/s:
 > 
-> This patch enables the use of GSO on any netdevice that supports SG.
-> If a GSO skb is then sent to a netdevice that supports SG but does not
-> support hardware GSO, net/core/dev.c:dev_hard_start_xmit() will take
-> care of doing the necessary GSO segmentation in software.
-> 
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> So I would conclude that at the moment we should just do the software
+> GSO enabling thing (with the recent suggestions made by Herbert) and
+> for the time being the nagle hack isn't something to consider closely.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+You might want to think about providing a way for soft-GSO to generate
+more lightweight structures than skbs.  The overhead for skb allocation
+becomes quite significant beyond 1 Gbit/s, which is why we added the soft-
+TSO implementation in sfc using per-interface pools of header buffers.  I
+would guess niu would benefit from this sort of approach, though it looks
+like all the other 10G NICs do TSO in hardware/firmware.
 
-Thanks,
+Ben.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
