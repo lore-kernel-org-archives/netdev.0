@@ -1,56 +1,71 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Thu, 31 Jul 2008 10:36:31 -0500
-Message-ID: <1217518591.3657.27.camel@calx>
-References: <20080730.145727.07367670.davem@davemloft.net>
-	 <20080730151316.a4d76fe9.akpm@linux-foundation.org>
-	 <1217500776.3454.136.camel@pmac.infradead.org>
-	 <20080731.034737.154058020.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net-sched: add packet length pointer parameter for
+	qdisc_enqueue
+Date: Thu, 31 Jul 2008 17:40:56 +0200
+Message-ID: <20080731154055.GA2532@ami.dom.local>
+References: <20080731070233.GA4769@ff.dom.local> <20080731120457.34626tsepmygd1c0@hayate.ip6> <20080731093612.GB4769@ff.dom.local> <20080731174919.157875i4bpxod3wg@hayate.ip6>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, thomas.petazzoni@free-electrons.com,
-	shemminger@vyatta.com, jeff@garzik.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:60635 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752094AbYGaPja (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2008 11:39:30 -0400
-In-Reply-To: <20080731.034737.154058020.davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.168]:3297 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbYGaPlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 11:41:08 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so397326ugf.16
+        for <netdev@vger.kernel.org>; Thu, 31 Jul 2008 08:41:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080731174919.157875i4bpxod3wg@hayate.ip6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 31, 2008 at 05:49:19PM +0300, Jussi Kivilinna wrote:
+> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+>
+>> On Thu, Jul 31, 2008 at 12:04:57PM +0300, Jussi Kivilinna wrote:
+>>> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+>>>
+>>>> On 30-07-2008 20:55, Jussi Kivilinna wrote:
+>>>>> Pass packet length to caller through pointer so that length is
+>>>>> available to caller even if inner qdisc frees skb.
+>> ...
+>>>> As I've written before, IMHO using an skb after enqueuing should be
+>>>> avoided unless we refcounted it or the returned code is clear enough,
+>>>> so the idea of this patch could be right to me. But, I guess, you are
+>>>> changing here the way it's done: the size is calculated before the
+>>>> current enqueing instead of after the last one.
+>>>
+>>> Doh, you're right. qdisc->enqueue should pass packet length too.
+>>>
+>>>>
+>>>> BTW, since I don't really get this "stab" idea enough, I wonder how
+>>>> it is expected to be used: with a top qdisc, a leaf one or some
+>>>> summing?
+>>>>
+>>>
+>>> With top and/or leaf qdisc, inner stab overrides upper.
+>>
+>> Probably this could be called a bit ugly, but another way could be
+>> simply updating these .bstas.bytes in ->dequeue() with a difference
+>> between calculated and skb->len?
+>>
+>
+> That would work, but HFSC uses packet length in enqueue for something  
+> else too:
+> 	if (cl->qdisc->q.qlen == 1)
+> 		set_active(cl, qdisc_pkt_len(skb));
+>
+> Could this bit be moved to dequeue?
 
-On Thu, 2008-07-31 at 03:47 -0700, David Miller wrote:
-> I especially appreciate that you still haven't accepted the plain fact
-> that CONFIG_ETHTOOL needs to be selected by CONFIG_INET.
+I think, Patrick should look at this.
 
-So far the following features have been mentioned as being critically
-dependent on ethtool:
+On the other hand, it seems reading such an skb after enqueuing with
+NET_XMIT_SUCCESS could be quite safe after a patch I'm currently
+working on, because there will be no more overloading in case of
+TC_ACT_STOLEN etc. More problematic would be keeping stats exactly
+after NET_XMIT_CN, but it's usually skipped now. So maybe it would be
+better to wait with these changes a bit?
 
-- bridging
-- bonding
-- LRO
-- netfilter (really?)
-- IPv6 (really?)
-
-And yet every single one of these is currently a config option, so your
-above statement is still looking awfully dubious. At this point I'd
-suggest that you've painted yourself into a corner where all these
-options must also actually be mandatory, but I'm afraid you might
-secretly want to do that anyway.
-
-> I definitely see the next consequence of the CONFIG_ETHTOOL stuff, and
-> that's a set of ifdef'ola in all the drivers to config out the
-> per-driver ethtool support code.
-
-If someone shows up with such a patch for a Xylinx or ARM SOC device,
-you probably should take it. If the patch is instead for a 10Gb PCIe
-device, I suggest you don't. (At least not until that sort of thing
-becomes standard embedded kit.)
-
--- 
-Mathematics is the supreme nostalgia of our time.
-
+Jarek P.
