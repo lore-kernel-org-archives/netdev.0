@@ -1,43 +1,64 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: TCP connection stalls under 2.6.24.7
-Date: Thu, 31 Jul 2008 11:11:42 -0300
-Message-ID: <20080731111142.1931a960@tux>
-References: <47EA0DAB.7080205@securenet.de>
-	<200807310939.42406.thomas.jarosch@intra2net.com>
-	<20080731094436.12ec99ae@tux>
-	<200807311547.57189.thomas.jarosch@intra2net.com>
+From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH] net-sched: add packet length pointer parameter for
+	qdisc_enqueue
+Date: Thu, 31 Jul 2008 17:49:19 +0300
+Message-ID: <20080731174919.157875i4bpxod3wg@hayate.ip6>
+References: <20080731070233.GA4769@ff.dom.local>
+	<20080731120457.34626tsepmygd1c0@hayate.ip6>
+	<20080731093612.GB4769@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Sven Riedel <sr@securenet.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	David Miller <davem@davemloft.net>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <200807311547.57189.thomas.jarosch@intra2net.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Jarek Poplawski" <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:33767 "EHLO
+	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751852AbYGaOtW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 10:49:22 -0400
+In-Reply-To: <20080731093612.GB4769@ff.dom.local>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 31 Jul 2008 15:47:55 +0200
-Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
+Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
 
-> echo 0 > /proc/sys/net/ipv4/tcp_frto
-	
-	Ok, i'm testing here. If I have any conclusions I'll return.
+> On Thu, Jul 31, 2008 at 12:04:57PM +0300, Jussi Kivilinna wrote:
+>> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+>>
+>>> On 30-07-2008 20:55, Jussi Kivilinna wrote:
+>>>> Pass packet length to caller through pointer so that length is
+>>>> available to caller even if inner qdisc frees skb.
+> ...
+>>> As I've written before, IMHO using an skb after enqueuing should be
+>>> avoided unless we refcounted it or the returned code is clear enough,
+>>> so the idea of this patch could be right to me. But, I guess, you are
+>>> changing here the way it's done: the size is calculated before the
+>>> current enqueing instead of after the last one.
+>>
+>> Doh, you're right. qdisc->enqueue should pass packet length too.
+>>
+>>>
+>>> BTW, since I don't really get this "stab" idea enough, I wonder how
+>>> it is expected to be used: with a top qdisc, a leaf one or some
+>>> summing?
+>>>
+>>
+>> With top and/or leaf qdisc, inner stab overrides upper.
+>
+> Probably this could be called a bit ugly, but another way could be
+> simply updating these .bstas.bytes in ->dequeue() with a difference
+> between calculated and skb->len?
+>
 
-> Nice, so Ilpo can "test" (=bombard) it with big messages ;-)
+That would work, but HFSC uses packet length in enqueue for something  
+else too:
+	if (cl->qdisc->q.qlen == 1)
+		set_active(cl, qdisc_pkt_len(skb));
 
-	ehehe no problem. As long as you post on u-br.teste, you can do
-whatever tests you want ;) 
+Could this bit be moved to dequeue?
 
-	But I'm not completely sure my problem is tcp_frto related,
-since sometimes it just happened when I "sudo" some program... I'll
-keep investigating it. Thanks.
+  - Jussi
 
 
--- 
