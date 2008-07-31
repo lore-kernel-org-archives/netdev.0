@@ -1,195 +1,176 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [patch 4/4] Configure out IGMP support
-Date: Thu, 31 Jul 2008 11:27:07 +0200
-Message-ID: <20080731093221.565015353@free-electrons.com>
+Subject: [patch 3/4] Configure out ethtool support
+Date: Thu, 31 Jul 2008 11:27:06 +0200
+Message-ID: <20080731093221.236840420@free-electrons.com>
 References: <20080731092703.661994657@free-electrons.com>
 Cc: michael@free-electrons.com,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, akpm@linux-foundation.org
+	Matt Mackall <mpm@selenic.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org
 To: linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Content-Disposition: inline; filename=configure-out-igmp-support
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([88.191.46.45]:55002 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbYGaJca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 05:32:30 -0400
+Content-Disposition: inline; filename=configure-out-ethtool-support
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchs adds the CONFIG_IGMP option which allows to remove support
-for the Internet Group Management Protocol, used in
-multicast. Multicast is not necessarly used by applications,
-particularly on embedded devices. As this is a size-reduction option,
-it depends on CONFIG_EMBEDDED. It allows to save ~10 kilobytes of
-kernel code/data:
+This patchs add the CONFIG_ETHTOOL option which allows to remove
+support for ethtool, not necessarly used on embedded systems. As this
+is a size-reduction option, it depends on CONFIG_EMBEDDED. It allows
+to save ~6 kilobytes of kernel code:
 
    text	   data	    bss	    dec	    hex	filename
-1718857	 143672	 221184	2083713	 1fcb81	vmlinux
-1708838	 143640	 221184	2073662	 1fa43e	vmlinux.new
- -10019     -32       0  -10051   -2743 +/-
+1258447	 123592	 212992	1595031	 185697	vmlinux
+1252147	 123592	 212992	1588731	 183dfb	vmlinux.new
+  -6300       0       0   -6300   -189C +/-
+
+Bonding and bridging both depends on Ethtool functionnality, so
+ETHTOOL is selected automatically when either bonding and bridging are
+selected.
+
+Question: should we also remove ethtool-related functions from all
+network drivers ?
 
 This patch has been originally written by Matt Mackall
 <mpm@selenic.com>, and is part of the Linux Tiny project.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Matt Mackall <mpm@selenic.com>
+Cc: jgarzik@pobox.com
 Cc: netdev@vger.kernel.org
 Cc: davem@davemloft.net
 Cc: mpm@selenic.com
 Cc: akpm@linux-foundation.org
 
 ---
- include/linux/igmp.h       |   20 ++++++++++++++++++++
- init/Kconfig               |    8 ++++++++
- net/ipv4/Makefile          |    3 ++-
- net/ipv4/af_inet.c         |    2 --
- net/ipv4/ip_sockglue.c     |    4 ++++
- net/ipv4/sysctl_net_ipv4.c |    2 ++
- 6 files changed, 36 insertions(+), 3 deletions(-)
+ drivers/net/Kconfig     |    1 +
+ include/linux/ethtool.h |   16 ++++++++++++++++
+ init/Kconfig            |    8 ++++++++
+ net/bridge/Kconfig      |    1 +
+ net/core/Makefile       |    3 ++-
+ net/core/dev.c          |    4 ++++
+ 6 files changed, 32 insertions(+), 1 deletion(-)
 
-Index: linuxdev/include/linux/igmp.h
+Index: linuxdev/drivers/net/Kconfig
 ===================================================================
---- linuxdev.orig/include/linux/igmp.h
-+++ linuxdev/include/linux/igmp.h
-@@ -215,6 +215,7 @@
- #define IGMPV3_QQIC(value) IGMPV3_EXP(0x80, 4, 3, value)
- #define IGMPV3_MRC(value) IGMPV3_EXP(0x80, 4, 3, value)
+--- linuxdev.orig/drivers/net/Kconfig
++++ linuxdev/drivers/net/Kconfig
+@@ -61,6 +61,7 @@
+ config BONDING
+ 	tristate "Bonding driver support"
+ 	depends on INET
++	select ETHTOOL
+ 	---help---
+ 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
+ 	  Channels together. This is called 'Etherchannel' by Cisco,
+Index: linuxdev/include/linux/ethtool.h
+===================================================================
+--- linuxdev.orig/include/linux/ethtool.h
++++ linuxdev/include/linux/ethtool.h
+@@ -283,6 +283,7 @@
+ struct net_device;
  
-+#ifdef CONFIG_IGMP
- extern int ip_check_mc(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto);
- extern int igmp_rcv(struct sk_buff *);
- extern int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr);
-@@ -235,6 +236,25 @@
- extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
- extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
- extern void ip_mc_rejoin_group(struct ip_mc_list *im);
-+#else /* !CONFIG_IGMP */
-+#define ip_check_mc(a, b, c, d) (0)
-+#define igmp_rcv(a) (0)
-+#define ip_mc_join_group(a, b) (0)
-+#define ip_mc_leave_group(a, b) (0)
-+#define ip_mc_drop_socket(a)
-+#define ip_mc_source(a, b, c, d, e) (0)
-+#define ip_mc_msfilter(a, b, c) (0)
-+#define ip_mc_msfget(a, b, c, d) (0)
-+#define ip_mc_gsfget(a, b, c, d) (0)
-+#define ip_mc_sf_allow(a, b, c, d) (0)
-+#define ip_mc_init_dev(a)
-+#define ip_mc_destroy_dev(a)
-+#define ip_mc_up(a)
-+#define ip_mc_down(a)
-+#define ip_mc_dec_group(a)
-+#define ip_mc_inc_group(a)
-+#define ip_mc_rejoin_group(a)
-+#endif /* CONFIG_IGMP */
+ /* Some generic methods drivers may use in their ethtool_ops */
++#ifdef CONFIG_ETHTOOL
+ u32 ethtool_op_get_link(struct net_device *dev);
+ u32 ethtool_op_get_tx_csum(struct net_device *dev);
+ int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
+@@ -296,6 +297,21 @@
+ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_flags(struct net_device *dev);
+ int ethtool_op_set_flags(struct net_device *dev, u32 data);
++#else
++static inline u32 ethtool_op_get_link(struct net_device *dev) { return 0; }
++static inline u32 ethtool_op_get_tx_csum(struct net_device *dev) { return 0; }
++static inline int ethtool_op_set_tx_csum(struct net_device *dev, u32 data) { return 0; }
++static inline int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data) { return 0; }
++static inline int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data) { return 0; }
++static inline u32 ethtool_op_get_sg(struct net_device *dev) { return 0; }
++static inline int ethtool_op_set_sg(struct net_device *dev, u32 data) { return 0; }
++static inline u32 ethtool_op_get_tso(struct net_device *dev) { return 0; }
++static inline int ethtool_op_set_tso(struct net_device *dev, u32 data) { return 0; }
++static inline u32 ethtool_op_get_ufo(struct net_device *dev) { return 0; }
++static inline int ethtool_op_set_ufo(struct net_device *dev, u32 data) { return 0; }
++static inline u32 ethtool_op_get_flags(struct net_device *dev) { return 0; }
++static inline int ethtool_op_set_flags(struct net_device *dev, u32 data) { return 0; }
++#endif
  
- #endif
- #endif
+ /**
+  * &ethtool_ops - Alter and report network device settings
 Index: linuxdev/init/Kconfig
 ===================================================================
 --- linuxdev.orig/init/Kconfig
 +++ linuxdev/init/Kconfig
-@@ -748,6 +748,14 @@
- 	  Disabling this option removes support for configuring
- 	  ethernet device features via ethtool. Saves about 6k.
+@@ -740,6 +740,14 @@
+           for filesystems like NFS and for the flock() system
+           call. Disabling this option saves about 11k.
  
-+config IGMP
-+	depends on INET
-+	bool "Enable IGMP support" if EMBEDDED && !IP_MULTICAST
++config ETHTOOL
++	bool "Enable ethtool support" if EMBEDDED
++	depends on NET
 +	default y
 +	help
-+	  Disabling this option removes support for the Internet group
-+          management protocol, used for multicast. Saves about 10k.
++	  Disabling this option removes support for configuring
++	  ethernet device features via ethtool. Saves about 6k.
 +
  config VM_EVENT_COUNTERS
  	default y
  	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED
-Index: linuxdev/net/ipv4/Makefile
+Index: linuxdev/net/bridge/Kconfig
 ===================================================================
---- linuxdev.orig/net/ipv4/Makefile
-+++ linuxdev/net/ipv4/Makefile
-@@ -9,13 +9,14 @@
- 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
- 	     tcp_minisocks.o tcp_cong.o \
- 	     datagram.o raw.o udp.o udplite.o \
--	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
-+	     arp.o icmp.o devinet.o af_inet.o \
- 	     fib_frontend.o fib_semantics.o \
- 	     inet_fragment.o
+--- linuxdev.orig/net/bridge/Kconfig
++++ linuxdev/net/bridge/Kconfig
+@@ -6,6 +6,7 @@
+ 	tristate "802.1d Ethernet Bridging"
+ 	select LLC
+ 	select STP
++	select ETHTOOL
+ 	---help---
+ 	  If you say Y here, then your Linux box will be able to act as an
+ 	  Ethernet bridge, which means that the different Ethernet segments it
+Index: linuxdev/net/core/Makefile
+===================================================================
+--- linuxdev.orig/net/core/Makefile
++++ linuxdev/net/core/Makefile
+@@ -7,10 +7,11 @@
  
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
- obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
- obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
-+obj-$(CONFIG_IGMP) += igmp.o
- obj-$(CONFIG_PROC_FS) += proc.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
-Index: linuxdev/net/ipv4/af_inet.c
-===================================================================
---- linuxdev.orig/net/ipv4/af_inet.c
-+++ linuxdev/net/ipv4/af_inet.c
-@@ -115,8 +115,6 @@
- #include <linux/mroute.h>
- #endif
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
  
--extern void ip_mc_drop_socket(struct sock *sk);
--
- /* The inetsw table contains everything that inet_create needs to
-  * build a new socket.
-  */
-Index: linuxdev/net/ipv4/ip_sockglue.c
-===================================================================
---- linuxdev.orig/net/ipv4/ip_sockglue.c
-+++ linuxdev/net/ipv4/ip_sockglue.c
-@@ -640,6 +640,7 @@
- 			err = ip_mc_leave_group(sk, &mreq);
- 		break;
- 	}
-+#ifdef CONFIG_IGMP
- 	case IP_MSFILTER:
- 	{
- 		extern int sysctl_igmp_max_msf;
-@@ -677,6 +678,7 @@
- 		kfree(msf);
- 		break;
- 	}
-+#endif
- 	case IP_BLOCK_SOURCE:
- 	case IP_UNBLOCK_SOURCE:
- 	case IP_ADD_SOURCE_MEMBERSHIP:
-@@ -794,6 +796,7 @@
- 				   greqs.gsr_interface);
- 		break;
- 	}
-+#ifdef CONFIG_IGMP
- 	case MCAST_MSFILTER:
- 	{
- 		extern int sysctl_igmp_max_msf;
-@@ -860,6 +863,7 @@
- 		kfree(gsf);
- 		break;
- 	}
-+#endif
- 	case IP_ROUTER_ALERT:
- 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
- 		break;
-Index: linuxdev/net/ipv4/sysctl_net_ipv4.c
-===================================================================
---- linuxdev.orig/net/ipv4/sysctl_net_ipv4.c
-+++ linuxdev/net/ipv4/sysctl_net_ipv4.c
-@@ -412,6 +412,7 @@
- 	},
+-obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
++obj-y		     += dev.o dev_mcast.o dst.o netevent.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
  
- #endif
-+#ifdef CONFIG_IGMP
- 	{
- 		.ctl_name	= NET_IPV4_IGMP_MAX_MSF,
- 		.procname	= "igmp_max_msf",
-@@ -420,6 +421,7 @@
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
- 	},
+ obj-$(CONFIG_XFRM) += flow.o
++obj-$(CONFIG_ETHTOOL) += ethtool.o
+ obj-y += net-sysfs.o
+ obj-$(CONFIG_NET_PKTGEN) += pktgen.o
+ obj-$(CONFIG_NETPOLL) += netpoll.o
+Index: linuxdev/net/core/dev.c
+===================================================================
+--- linuxdev.orig/net/core/dev.c
++++ linuxdev/net/core/dev.c
+@@ -3669,6 +3669,7 @@
+ 			return ret;
+ 
+ 		case SIOCETHTOOL:
++#ifdef CONFIG_ETHTOOL
+ 			dev_load(net, ifr.ifr_name);
+ 			rtnl_lock();
+ 			ret = dev_ethtool(net, &ifr);
+@@ -3681,6 +3682,9 @@
+ 					ret = -EFAULT;
+ 			}
+ 			return ret;
++#else
++			return -EINVAL;
 +#endif
- 	{
- 		.ctl_name	= NET_IPV4_INET_PEER_THRESHOLD,
- 		.procname	= "inet_peer_threshold",
+ 
+ 		/*
+ 		 *	These ioctl calls:
 
 -- 
 Thomas Petazzoni, Free Electrons
