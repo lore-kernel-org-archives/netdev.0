@@ -1,47 +1,39 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
-Date: Thu, 31 Jul 2008 17:56:25 +0800
-Message-ID: <48918C49.4070708@cn.fujitsu.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 31 Jul 2008 12:14:25 +0200
+Message-ID: <20080731101425.GE23814@xi.wantstofly.org>
+References: <20080731004123.GB22826@xi.wantstofly.org> <E1KONuu-00017h-00@gondolin.me.apana.org.au> <20080731023652.GA23814@xi.wantstofly.org> <20080731030339.GA4327@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, akarkare@marvell.com,
+	nico@cam.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53713 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752705AbYGaJ6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2008 05:58:11 -0400
+Received: from xi.wantstofly.org ([83.160.184.112]:54340 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750887AbYGaKO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:14:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20080731030339.GA4327@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet6_csk_xmit() has a paramater ipfragok, but never pass to
-ip6_xmit(), always call it with ipfragok = 0.
+On Thu, Jul 31, 2008 at 11:03:39AM +0800, Herbert Xu wrote:
 
-This patch fixed this problem by instead 0 of ipfragok.
+> > The maximum that splice will allow -- PIPE_BUFFERS * PAGE_SIZE.
+> > 
+> > I.e. the writes should be large enough.
+> 
+> Have you looked at the packet dump? Maybe it was being constrained
+> by the receiver/congestion windows.
 
-Compiled test only.
+The receiver seems to advertise a large enough window (700-ish KiB,
+while the RTT is ~ 0.1 ms).  As to the congestion window, I had the
+idea that it's not increasing beyond ~2-3 because the RTT is so low so
+it doesn't need much data to fill the pipe, but I'm not a TCP expert.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/ipv6/inet6_connection_sock.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I've put a tcpdump taken on the receiving end (192.168.42.10) here:
 
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 87801cc..2b5e1fb 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -233,7 +233,7 @@ int inet6_csk_xmit(struct sk_buff *skb, int ipfragok)
- 	/* Restore final destination back after routing done */
- 	ipv6_addr_copy(&fl.fl6_dst, &np->daddr);
- 
--	return ip6_xmit(sk, skb, &fl, np->opt, 0);
-+	return ip6_xmit(sk, skb, &fl, np->opt, ipfragok);
- }
- 
- EXPORT_SYMBOL_GPL(inet6_csk_xmit);
--- 
-1.5.3.8
+	http://www.wantstofly.org/~buytenh/dump.bz2
 
-
-
+I'll be happy to try other things. :-)
