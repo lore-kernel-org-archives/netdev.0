@@ -1,64 +1,58 @@
-From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH] net-sched: add packet length pointer parameter for
-	qdisc_enqueue
-Date: Thu, 31 Jul 2008 17:49:19 +0300
-Message-ID: <20080731174919.157875i4bpxod3wg@hayate.ip6>
-References: <20080731070233.GA4769@ff.dom.local>
-	<20080731120457.34626tsepmygd1c0@hayate.ip6>
-	<20080731093612.GB4769@ff.dom.local>
+From: Ben Collins <ben.collins@canonical.com>
+Subject: Re: [patch 07/11] bluetooth: add quirks for a few hci_usb devices
+Date: Thu, 31 Jul 2008 11:13:41 -0400
+Message-ID: <1217517221.29588.100.camel@cunning>
+References: <200807301937.m6UJbdJk012449@imap1.linux-foundation.org>
+	 <20080730.170008.147267953.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Mario_Limonciello@Dell.com, hidave.darkstar@gmail.com,
+	marcel@holtmann.org, michael.frey@canonical.com,
+	tim.gardner@canonical.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:33767 "EHLO
-	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbYGaOtW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 10:49:22 -0400
-In-Reply-To: <20080731093612.GB4769@ff.dom.local>
-Content-Disposition: inline
+Received: from adelie.canonical.com ([91.189.90.139]:58956 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752320AbYGaPNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 11:13:49 -0400
+In-Reply-To: <20080730.170008.147267953.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+On Wed, 2008-07-30 at 17:00 -0700, David Miller wrote:
+> From: akpm@linux-foundation.org
+> Date: Wed, 30 Jul 2008 12:37:39 -0700
+> 
+> > From: Ben Collins <ben.collins@canonical.com>
+> > 
+> > Preface: The "Broadcom" device is on unreleased hardware, so I can't
+> > disclose the actual model.
+> > 
+> > When the Dell 370 and 410 BT adapters are put into BT radio mode, they
+> > need to be prepared like many other Broadcom adapters.
+> > 
+> > Also, add quirk Broadcom 2046 devices with HCI_RESET.  Reference for this
+> > bug: https://launchpad.net/bugs/249448
+> > 
+> > Signed-off-by: Michael Frey <michael.frey@canonical.com>
+> > Signed-off-by: Mario Limonciello <Mario_Limonciello@Dell.com>
+> > Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> > Signed-off-by: Ben Collins <ben.collins@canonical.com>
+> > Acked-by: Marcel Holtmann <marcel@holtmann.org>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> My understanding is that Michael Frey wrote this patch, and Ben
+> was just submitting it to us from the pile of Ubuntu kernel bits
+> he has.
+> 
+> So I've applied this, marking Michael as the patch author.
+> 
+> Let me know if I got that wrong and I'll fix it up before
+> pushing the change out to the net-2.6 tree.
 
-> On Thu, Jul 31, 2008 at 12:04:57PM +0300, Jussi Kivilinna wrote:
->> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->>
->>> On 30-07-2008 20:55, Jussi Kivilinna wrote:
->>>> Pass packet length to caller through pointer so that length is
->>>> available to caller even if inner qdisc frees skb.
-> ...
->>> As I've written before, IMHO using an skb after enqueuing should be
->>> avoided unless we refcounted it or the returned code is clear enough,
->>> so the idea of this patch could be right to me. But, I guess, you are
->>> changing here the way it's done: the size is calculated before the
->>> current enqueing instead of after the last one.
->>
->> Doh, you're right. qdisc->enqueue should pass packet length too.
->>
->>>
->>> BTW, since I don't really get this "stab" idea enough, I wonder how
->>> it is expected to be used: with a top qdisc, a leaf one or some
->>> summing?
->>>
->>
->> With top and/or leaf qdisc, inner stab overrides upper.
->
-> Probably this could be called a bit ugly, but another way could be
-> simply updating these .bstas.bytes in ->dequeue() with a difference
-> between calculated and skb->len?
->
-
-That would work, but HFSC uses packet length in enqueue for something  
-else too:
-	if (cl->qdisc->q.qlen == 1)
-		set_active(cl, qdisc_pkt_len(skb));
-
-Could this bit be moved to dequeue?
-
-  - Jussi
-
+The patch actually has three authors (one for each device), so I just
+collapsed it into one patch. I'm not concerned about my authorship being
+shown properly, so leaving it as Michael is fine by me :)
 
