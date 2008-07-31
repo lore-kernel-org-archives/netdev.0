@@ -1,36 +1,53 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: MV643xx Ethernet Driver Issue on a Motorola PrPMC-275 board.
-Date: Thu, 31 Jul 2008 01:56:22 +0200
-Message-ID: <20080730235622.GA22826@xi.wantstofly.org>
-References: <488F5815.9020402@mvista.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 07/11] bluetooth: add quirks for a few hci_usb devices
+Date: Wed, 30 Jul 2008 17:00:08 -0700 (PDT)
+Message-ID: <20080730.170008.147267953.davem@davemloft.net>
+References: <200807301937.m6UJbdJk012449@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Chris Larson <clarson@mvista.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben.collins@canonical.com,
+	Mario_Limonciello@Dell.com, hidave.darkstar@gmail.com,
+	marcel@holtmann.org, michael.frey@canonical.com,
+	tim.gardner@canonical.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:37055 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753500AbYG3X4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 19:56:24 -0400
-Content-Disposition: inline
-In-Reply-To: <488F5815.9020402@mvista.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53321
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752296AbYGaAAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 20:00:08 -0400
+In-Reply-To: <200807301937.m6UJbdJk012449@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 29, 2008 at 10:49:09AM -0700, Chris Larson wrote:
+From: akpm@linux-foundation.org
+Date: Wed, 30 Jul 2008 12:37:39 -0700
 
-> I was wondering if anyone had any advice on an issue a customer of ours 
-> is running into.  When they run a series of bandwidth tests, slowly 
-> increasing the bandwidth & # of tcp connections to roughly 30Mbit at 
-> 4000 connections, their machine panics.  An address passed to 
-> dma_unmap_single is beyond lowmem, as though it was corrupted in some 
-> fashion.  The address is the data pointer in the ethernet dma 
-> descriptors, it pulls a descriptor out of the ring in the packet receipt 
-> functions and at that point the address is wrong.  Nowhere in the driver 
-> is a descriptor set up with that address, yet the datasheet on the 
-> mv643xx doesn't seem to indicate that the dma engine ever writes to the 
-> descriptors themselves, only to the data they point to (as you'd 
-> expect).  Does anyone have any ideas on this?  I'm afraid that I'm a bit 
-> out of my depth on this issue.  The architecture is ppc.
+> From: Ben Collins <ben.collins@canonical.com>
+> 
+> Preface: The "Broadcom" device is on unreleased hardware, so I can't
+> disclose the actual model.
+> 
+> When the Dell 370 and 410 BT adapters are put into BT radio mode, they
+> need to be prepared like many other Broadcom adapters.
+> 
+> Also, add quirk Broadcom 2046 devices with HCI_RESET.  Reference for this
+> bug: https://launchpad.net/bugs/249448
+> 
+> Signed-off-by: Michael Frey <michael.frey@canonical.com>
+> Signed-off-by: Mario Limonciello <Mario_Limonciello@Dell.com>
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> Signed-off-by: Ben Collins <ben.collins@canonical.com>
+> Acked-by: Marcel Holtmann <marcel@holtmann.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-I've never seen this happen.  Which kernel version is this on?
+My understanding is that Michael Frey wrote this patch, and Ben
+was just submitting it to us from the pile of Ubuntu kernel bits
+he has.
+
+So I've applied this, marking Michael as the patch author.
+
+Let me know if I got that wrong and I'll fix it up before
+pushing the change out to the net-2.6 tree.
+
+Thanks!
