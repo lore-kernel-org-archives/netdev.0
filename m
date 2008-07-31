@@ -1,38 +1,62 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 19:45:46 +0200
-Message-ID: <20080731174546.GD31160@xi.wantstofly.org>
-References: <20080730235004.GC21999@xi.wantstofly.org> <4891EFB0.4040003@hp.com>
+Subject: Re: MV643xx Ethernet Driver Issue on a Motorola PrPMC-275 board.
+Date: Thu, 31 Jul 2008 19:48:24 +0200
+Message-ID: <20080731174824.GE31160@xi.wantstofly.org>
+References: <488F5815.9020402@mvista.com> <20080730235622.GA22826@xi.wantstofly.org> <4891EBE1.3070606@mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ashish Karkare <akarkare@marvell.com>,
-	Nicolas Pitre <nico@cam.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org
+To: Chris Larson <clarson@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:32829 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:32856 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754996AbYGaRpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 13:45:50 -0400
+	with ESMTP id S1752744AbYGaRs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 13:48:26 -0400
 Content-Disposition: inline
-In-Reply-To: <4891EFB0.4040003@hp.com>
+In-Reply-To: <4891EBE1.3070606@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2008 at 10:00:32AM -0700, Rick Jones wrote:
+On Thu, Jul 31, 2008 at 09:44:17AM -0700, Chris Larson wrote:
 
-> >When using sendfile() to send a GiB worth of zeroes over a single TCP
-> >connection to another host on a 100 Mb/s network, with a vanilla
-> >2.6.27-rc1 kernel, this runs as expected at wire speed, taking the
-> >following amount of CPU time per test:
+> >> was wondering if anyone had any advice on an issue a customer of ours 
+> >>is running into.  When they run a series of bandwidth tests, slowly 
+> >>increasing the bandwidth & # of tcp connections to roughly 30Mbit at 
+> >>4000 connections, their machine panics.  An address passed to 
+> >>dma_unmap_single is beyond lowmem, as though it was corrupted in some 
+> >>fashion.  The address is the data pointer in the ethernet dma 
+> >>descriptors, it pulls a descriptor out of the ring in the packet receipt 
+> >>functions and at that point the address is wrong.  Nowhere in the driver 
+> >>is a descriptor set up with that address, yet the datasheet on the 
+> >>mv643xx doesn't seem to indicate that the dma engine ever writes to the 
+> >>descriptors themselves, only to the data they point to (as you'd 
+> >>expect).  Does anyone have any ideas on this?  I'm afraid that I'm a bit 
+> >>out of my depth on this issue.  The architecture is ppc.
+> >>    
 > >
-> >	sys     0m5.410s
-> >	sys     0m5.380s
-> >	sys     0m5.620s
-> >	sys     0m5.360s
-> 
-> That's output from "time" run against your test program right?  Are 
-> folks confident that will account for all the CPU time consumed on 
-> behalf of that program?
+> >I've never seen this happen.  Which kernel version is this on?
+> >  
+> One of MontaVista's 2.6.10 trees, too heavily modified to be of much use 
+> to you, I'm certain. Most of the recent mv643xx patches are in our tree, 
+> as one of our developers was the old maintainer.
 
-No, but I wasn't drawing absolute conclusions, just comparing runs
-without GSO with runs with GSO.  :-)
+Right.  Well, for what it's worth, I've never seen something like this
+happening, but I've only tested ARM, and I only started looking at
+mv643xx_eth in the ~ 2.6.25 timeframe, so that might not say much.
+
+
+> It doesn't occur in 2.4, not that that's very helpful :)
+
+That would probably be an entirely different driver, wouldn't it? :)
+
+
+> I can try to reproduce with a more recent tree and let you know.
+> Thanks for your time.
+
+If you can reproduce it, I would certainly be interested if you
+could reproduce it on, say, 2.6.25 or later, since those versions
+work for me.
+
+
+thanks,
+Lennert
