@@ -1,59 +1,49 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 1/5] qla3xxx: fix: Remove unused set_multicast function.
-Date: Thu, 31 Jul 2008 13:46:04 -0700
-Message-ID: <12175371683630-git-send-email-ron.mercer@qlogic.com>
+Subject: [PATCH 3/5] qla3xxx: cleanup: Remove some unused defined constants in the header file.
+Date: Thu, 31 Jul 2008 13:46:06 -0700
+Message-ID: <1217537168428-git-send-email-ron.mercer@qlogic.com>
 References: <20080731204514.GA5457@susedev.qlogic.org>
 Cc: netdev@vger.kernel.org, Ron Mercer <ron.mercer@qlogic.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:23911 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752705AbYGaUqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 16:46:09 -0400
+	with ESMTP id S1754690AbYGaUqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 16:46:10 -0400
 In-Reply-To: <20080731204514.GA5457@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This device is one side of a two-function adapter (NIC and iSCSI).
-Promiscuous mode setting/clearing is not allowed from the NIC side.
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qla3xxx.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/qla3xxx.h |    8 --------
+ 1 files changed, 0 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index bccee68..7ddb2b0 100644
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -3730,14 +3730,6 @@ static int ql3xxx_open(struct net_device *ndev)
- 	return (ql_adapter_up(qdev));
- }
+diff --git a/drivers/net/qla3xxx.h b/drivers/net/qla3xxx.h
+index 58a086f..e0655f9 100644
+--- a/drivers/net/qla3xxx.h
++++ b/drivers/net/qla3xxx.h
+@@ -14,19 +14,11 @@
  
--static void ql3xxx_set_multicast_list(struct net_device *ndev)
--{
--	/*
--	 * We are manually parsing the list in the net_device structure.
--	 */
--	return;
--}
--
- static int ql3xxx_set_mac_address(struct net_device *ndev, void *p)
- {
- 	struct ql3_adapter *qdev = (struct ql3_adapter *)netdev_priv(ndev);
-@@ -4007,7 +3999,11 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 	ndev->open = ql3xxx_open;
- 	ndev->hard_start_xmit = ql3xxx_send;
- 	ndev->stop = ql3xxx_close;
--	ndev->set_multicast_list = ql3xxx_set_multicast_list;
-+	/* ndev->set_multicast_list
-+	 * This device is one side of a two-function adapter
-+	 * (NIC and iSCSI).  Promiscuous mode setting/clearing is
-+	 * not allowed from the NIC side.
-+	 */
- 	SET_ETHTOOL_OPS(ndev, &ql3xxx_ethtool_ops);
- 	ndev->set_mac_address = ql3xxx_set_mac_address;
- 	ndev->tx_timeout = ql3xxx_tx_timeout;
+ #define OPCODE_OB_MAC_IOCB_FN0          0x01
+ #define OPCODE_OB_MAC_IOCB_FN2          0x21
+-#define OPCODE_OB_TCP_IOCB_FN0          0x03
+-#define OPCODE_OB_TCP_IOCB_FN2          0x23
+-#define OPCODE_UPDATE_NCB_IOCB_FN0      0x00
+-#define OPCODE_UPDATE_NCB_IOCB_FN2      0x20
+ 
+-#define OPCODE_UPDATE_NCB_IOCB      0xF0
+ #define OPCODE_IB_MAC_IOCB          0xF9
+ #define OPCODE_IB_3032_MAC_IOCB     0x09
+ #define OPCODE_IB_IP_IOCB           0xFA
+ #define OPCODE_IB_3032_IP_IOCB      0x0A
+-#define OPCODE_IB_TCP_IOCB          0xFB
+-#define OPCODE_DUMP_PROTO_IOCB      0xFE
+-#define OPCODE_BUFFER_ALERT_IOCB    0xFB
+ 
+ #define OPCODE_FUNC_ID_MASK                 0x30
+ #define OUTBOUND_MAC_IOCB                   0x01	/* plus function bits */
 -- 
 1.5.0.rc4.16.g9e258
 
