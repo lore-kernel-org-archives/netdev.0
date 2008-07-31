@@ -1,34 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 11:54:10 +0800
-Message-ID: <20080731035410.GA4893@gondor.apana.org.au>
-References: <20080730235004.GC21999@xi.wantstofly.org> <20080730.165621.211366535.davem@davemloft.net> <20080731004123.GB22826@xi.wantstofly.org> <20080730.181047.39922732.davem@davemloft.net> <20080731014506.GA23402@xi.wantstofly.org>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 31 Jul 2008 01:47:38 -0300
+Message-ID: <55u7m5-i63.ln1@tux.abusar.org.br>
+References: <47EA0DAB.7080205@securenet.de>
+	<200807111633.42514.thomas.jarosch@intra2net.com>
+	<200807151347.23598.thomas.jarosch@intra2net.com>
+	<200807151810.45942.thomas.jarosch@intra2net.com>
+	<20080715153045.12efaea4@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	akarkare@marvell.com, nico@cam.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48213 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750910AbYGaDyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 23:54:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20080731014506.GA23402@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 31, 2008 at 03:45:06AM +0200, Lennert Buytenhek wrote:
->
-> +	return (caps & NETIF_F_SG) &&
-> +		 (((type == SKB_GSO_TCPV4 || type == SKB_GSO_UDP) &&
+On Tue, 15 Jul 2008 15:30:45 -0300
+D=E2niel Fraga <fragabr@gmail.com> wrote:
 
-Nobody has written software UFO yet.  Let's just stick TCP for
-now.
+> 	I'm using kernel 2.6.26 and the problem has gone. No stalled
+> connections anymore. The problem was with 2.6.25 kernel only.
+=09
+	Sorry, I was wrong. In 2.6.26 the problem remains.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Everyday my connection stalls to my NNTP server using 2.6.26
+too. Before I just used a "nmap -sS server" and the connection would
+come back, but now it doesn't work.
+
+--=20
+Linux 2.6.26: Rotary Wombat
+http://u-br.net
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
