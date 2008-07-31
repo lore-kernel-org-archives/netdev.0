@@ -1,68 +1,52 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Thu, 31 Jul 2008 11:39:36 +0100
-Message-ID: <1217500776.3454.136.camel@pmac.infradead.org>
-References: <20080730140136.42223e3c@extreme> <20080730233551.76fd38a8@surf>
-	 <20080730144812.a71156f7.akpm@linux-foundation.org>
-	 <20080730.145727.07367670.davem@davemloft.net>
-	 <20080730151316.a4d76fe9.akpm@linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv2] ipv6: Fix ip6_xmit to send fragments if ipfragok is true
+Date: Thu, 31 Jul 2008 18:41:50 +0800
+Message-ID: <20080731104149.GA7601@gondor.apana.org.au>
+References: <489153ED.9030701@cn.fujitsu.com> <20080731082053.GA6463@gondor.apana.org.au> <489181DC.40507@cn.fujitsu.com> <20080731092321.GA6907@gondor.apana.org.au> <48918C11.5010004@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	thomas.petazzoni@free-electrons.com, shemminger@vyatta.com,
-	jeff@garzik.org, netdev@vger.kernel.org, mpm@selenic.com
-To: Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:60302 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbYGaKkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:40:12 -0400
-In-Reply-To: <20080730151316.a4d76fe9.akpm@linux-foundation.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:35668 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751953AbYGaKl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:41:59 -0400
+Content-Disposition: inline
+In-Reply-To: <48918C11.5010004@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-30 at 15:13 -0700, Andrew Morton wrote:
-> On Wed, 30 Jul 2008 14:57:27 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> > I'm sure you can find someone who runs with CONFIG_STAND_ON_MY_HEAD=y
-> > but that doesn't mean that supporting such an option upstream makes
-> > any sense.
+On Thu, Jul 31, 2008 at 05:55:29PM +0800, Wei Yongjun wrote:
+> SCTP used ip6_xmit() to send fragments after received ICMP packet too
+> big message. But while send packet used ip6_xmit, the skb->local_df is
+> not initialized. So when skb if enter ip6_fragment(), the following
+> code will discard the skb.
+> 
+> ip6_fragment(...)
+> {
+>    if (!skb->local_df) {
+>        ...
+>        return -EMSGSIZE;
+>    }
+>    ...
+> }
+> 
+> SCTP do the following step:
+> 1. send packet ip6_xmit(skb, ipfragok=0)
+> 2. received ICMP packet too big message
+> 3. if PMTUD_ENABLE: ip6_xmit(skb, ipfragok=1)
+> 
+> This patch fixed the problem by set local_df if ipfragok is true.
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-That's not entirely consistent with Linus' observations on similar
-topics. He seems to think that if people need certain things and would
-be patching them in anyway, then it makes sense to merge them upstream.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> Well yes, embedded developers do patch the hell out of their kernels
-> and presumably they will always do so.  The idea here is to bring
-> things inwards to reduce the amount of patching which these people
-> need to do.
-
-Distro vendors used to do that too.
-
-We need to be moving towards a situation where people don't _need_ to
-patch the hell out of their kernels to make Linux viable for embedded
-devices. I'm not prepared just assume that 'they will always do so', and
-I'm disappointed to hear Andrew say such a thing. 
-
-We need to do better than that.
-
-In particular, we need not to simultaneously:
- - whine that "embedded" folks never submit their work upstream, and
- - reject it on ideological grounds when they do, citing totally bogus
-   'technical' reasons.
-
-Dave, if you won't take these patches then I will (after review) put
-them in the embedded-2.6 tree with Andrew's sign-off, and ask Linus to
-pull them into 2.6.28 directly from there rather than via your tree.
-I think he'll take them, because it's the right thing to do.
-
-I would prefer not to have to do that; please reconsider your refusal.
-
+Thanks,
 -- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
-
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
