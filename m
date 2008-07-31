@@ -1,49 +1,33 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [patch nacked? 3/4] Update smc91x driver with ARM Versatile
-	board info
-Date: Thu, 31 Jul 2008 11:16:59 +0100
-Message-ID: <1217499419.3454.120.camel@pmac.infradead.org>
-References: <200807301940.m6UJemPm012683@imap1.linux-foundation.org>
-	 <20080730224255.GB12409@flint.arm.linux.org.uk>
+From: Kalle Valo <kalle.valo@nokia.com>
+Subject: Re: [patch 12/12] Configure out ethtool support
+Date: Thu, 31 Jul 2008 13:22:41 +0300
+Message-ID: <873alqwdxq.fsf@nokia.com>
+References: <1217459102.18911.182.camel@calx>
+	<20080730.162153.124485443.davem@davemloft.net>
+	<1217466609.18911.227.camel@calx>
+	<20080730.182309.35986438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	dsaxena@plexity.net, nico@cam.org
-To: Russell King <rmk@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: mpm@selenic.com, akpm@linux-foundation.org, jeff@garzik.org,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:37807 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480AbYGaKRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:17:34 -0400
-In-Reply-To: <20080730224255.GB12409@flint.arm.linux.org.uk>
+Received: from smtp.nokia.com ([192.100.122.230]:65002 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487AbYGaKZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:25:18 -0400
+In-Reply-To: <20080730.182309.35986438.davem@davemloft.net> (ext David Miller's message of "Wed\, 30 Jul 2008 18\:23\:09 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-30 at 23:42 +0100, Russell King wrote:
+David Miller <davem@davemloft.net> writes:
 
-> From: Deepak Saxena <dsaxena@plexity.net>
-> > We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
-> > generic IRQ layer will complain thusly:
-> > 
-> > No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
+> Looking at various kernel boot message logs of N800's posted online,
+> it seems to have netfilter enabled.  The ip_tables module does get
+> loaded.
 
-> smc91x.h _already_ contains a CONFIG_ARCH_VERSATILE section
-
-I think the point here is that there is already a section for this board
-in the driver, so any patch which adds it _again_ is wrong.
-
-It seems to have existing definitions for everything that this patch
-adds, all of which are duplicates except SMC_IRQ_FLAGS, which is defined
-as (0) in this patch but as (-1) in the existing driver.
-
-So this patch should be dropped -- if there's a need to change the
-definition of SMC_IRQ_FLAGS to 0, that's a one-line patch which needs a
-more appropriate comment.
+That's true, netfilter is enabled on N800/N810. We use it to send idle
+traffic timeout events to user space.
 
 -- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
-
-
+Kalle Valo
