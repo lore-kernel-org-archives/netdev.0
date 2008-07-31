@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 03:16:54 -0700 (PDT)
-Message-ID: <20080731.031654.44296685.davem@davemloft.net>
-References: <20080731023652.GA23814@xi.wantstofly.org>
-	<20080731030339.GA4327@gondor.apana.org.au>
-	<20080731101425.GE23814@xi.wantstofly.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [patch nacked? 3/4] Update smc91x driver with ARM Versatile
+	board info
+Date: Thu, 31 Jul 2008 11:16:59 +0100
+Message-ID: <1217499419.3454.120.camel@pmac.infradead.org>
+References: <200807301940.m6UJemPm012683@imap1.linux-foundation.org>
+	 <20080730224255.GB12409@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	akarkare@marvell.com, nico@cam.org
-To: buytenh@wantstofly.org
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
+	dsaxena@plexity.net, nico@cam.org
+To: Russell King <rmk@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33898
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750937AbYGaKQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:16:54 -0400
-In-Reply-To: <20080731101425.GE23814@xi.wantstofly.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:37807 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480AbYGaKRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:17:34 -0400
+In-Reply-To: <20080730224255.GB12409@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Thu, 31 Jul 2008 12:14:25 +0200
+On Wed, 2008-07-30 at 23:42 +0100, Russell King wrote:
 
-> As to the congestion window, I had the idea that it's not increasing
-> beyond ~2-3 because the RTT is so low so it doesn't need much data
-> to fill the pipe, but I'm not a TCP expert.
+> From: Deepak Saxena <dsaxena@plexity.net>
+> > We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+> > generic IRQ layer will complain thusly:
+> > 
+> > No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
 
-Local network 10GB needs a pretty decent congestion window.
+> smc91x.h _already_ contains a CONFIG_ARCH_VERSATILE section
 
-Well, it needs to be at least as big as the largest amount of
-non-retransmitted data in-flight, and you've stated here that
-the receive has grown it's window to 700K.
+I think the point here is that there is already a section for this board
+in the driver, so any patch which adds it _again_ is wrong.
+
+It seems to have existing definitions for everything that this patch
+adds, all of which are duplicates except SMC_IRQ_FLAGS, which is defined
+as (0) in this patch but as (-1) in the existing driver.
+
+So this patch should be dropped -- if there's a need to change the
+definition of SMC_IRQ_FLAGS to 0, that's a one-line patch which needs a
+more appropriate comment.
+
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
+
+
