@@ -1,39 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 21:27:35 +0800
-Message-ID: <20080731132735.GA9085@gondor.apana.org.au>
-References: <20080731101425.GE23814@xi.wantstofly.org> <20080731.031654.44296685.davem@davemloft.net> <20080731122541.GA29176@xi.wantstofly.org> <20080731.053516.185810642.davem@davemloft.net> <20080731131929.GO10471@solarflare.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 31 Jul 2008 15:47:55 +0200
+Message-ID: <200807311547.57189.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <200807310939.42406.thomas.jarosch@intra2net.com> <20080731094436.12ec99ae@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, buytenh@wantstofly.org,
-	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
-	dale@farnsworth.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54363 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750898AbYGaN1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 09:27:47 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	David Miller <davem@davemloft.net>
+To: =?iso-8859-1?q?D=E2niel_Fraga?= <fragabr@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080731094436.12ec99ae@tux>
 Content-Disposition: inline
-In-Reply-To: <20080731131929.GO10471@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 31, 2008 at 02:19:30PM +0100, Ben Hutchings wrote:
+On Thursday, 31. July 2008 14:44:36 D=E2niel Fraga wrote:
+> > Ok. Please try the latest patch Ilpo CC:ed you. Here's a link to th=
+e
+> > post: http://marc.info/?l=3Dlinux-netdev&m=3D121699478406378&w=3D2
 >
-> You might want to think about providing a way for soft-GSO to generate
-> more lightweight structures than skbs.  The overhead for skb allocation
-> becomes quite significant beyond 1 Gbit/s, which is why we added the soft-
-> TSO implementation in sfc using per-interface pools of header buffers.  I
-> would guess niu would benefit from this sort of approach, though it looks
-> like all the other 10G NICs do TSO in hardware/firmware.
+> 	Before I try could this issue be related to some of these
+> kernel parameters?
 
-We could always provide a library that makes it easier for the
-drivers to do TSO in software without allocating skb's.
+If your problem is really FRTO related (that what the patch is for),
+you could try to disable FRTO temporarily:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+echo 0 > /proc/sys/net/ipv4/tcp_frto
+
+> > Where is the NNTP server located? At your provider?
+>
+> 	It's my nntp server:
+>
+> nntp://news.abusar.org
+>
+> 	You can post test messages on grupo "u-br.teste".
+
+Nice, so Ilpo can "test" (=3Dbombard) it with big messages ;-)
+
+Thomas
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
