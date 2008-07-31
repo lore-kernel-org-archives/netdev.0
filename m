@@ -1,43 +1,51 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [patch 3/4] Configure out ethtool support
-Date: Thu, 31 Jul 2008 18:35:46 +0200
-Message-ID: <20080731183546.2b047cee@surf>
-References: <1217500967.3454.140.camel@pmac.infradead.org>
-	<20080731.035121.177567346.davem@davemloft.net>
-	<1217503770.3454.162.camel@pmac.infradead.org>
-	<20080731.043355.143045459.davem@davemloft.net>
-	<1217504801.3454.170.camel@pmac.infradead.org>
-	<20080731155820.GC20212@cs181140183.pp.htv.fi>
+From: Chris Larson <clarson@mvista.com>
+Subject: Re: MV643xx Ethernet Driver Issue on a Motorola PrPMC-275 board.
+Date: Thu, 31 Jul 2008 09:44:17 -0700
+Message-ID: <4891EBE1.3070606@mvista.com>
+References: <488F5815.9020402@mvista.com> <20080730235622.GA22826@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
-	michael@free-electrons.com, mpm@selenic.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20080731155820.GC20212@cs181140183.pp.htv.fi>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:52447 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751374AbYGaQoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 12:44:11 -0400
+In-Reply-To: <20080730235622.GA22826@xi.wantstofly.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le Thu, 31 Jul 2008 18:58:20 +0300,
-Adrian Bunk <bunk@kernel.org> a =C3=A9crit :
+Lennert Buytenhek wrote:
+> On Tue, Jul 29, 2008 at 10:49:09AM -0700, Chris Larson wrote:
+>>  was wondering if anyone had any advice on an issue a customer of ours 
+>> is running into.  When they run a series of bandwidth tests, slowly 
+>> increasing the bandwidth & # of tcp connections to roughly 30Mbit at 
+>> 4000 connections, their machine panics.  An address passed to 
+>> dma_unmap_single is beyond lowmem, as though it was corrupted in some 
+>> fashion.  The address is the data pointer in the ethernet dma 
+>> descriptors, it pulls a descriptor out of the ring in the packet receipt 
+>> functions and at that point the address is wrong.  Nowhere in the driver 
+>> is a descriptor set up with that address, yet the datasheet on the 
+>> mv643xx doesn't seem to indicate that the dma engine ever writes to the 
+>> descriptors themselves, only to the data they point to (as you'd 
+>> expect).  Does anyone have any ideas on this?  I'm afraid that I'm a bit 
+>> out of my depth on this issue.  The architecture is ppc.
+>>     
+>
+> I've never seen this happen.  Which kernel version is this on?
+>   
+One of MontaVista's 2.6.10 trees, too heavily modified to be of much use 
+to you, I'm certain. Most of the recent mv643xx patches are in our tree, 
+as one of our developers was the old maintainer. It doesn't occur in 
+2.4, not that that's very helpful :) I can try to reproduce with a more 
+recent tree and let you know. Thanks for your time.
+-- 
 
-> It might have also made more sense to spend some of the energy used
-> in this discussion instead on checking where the global 24 kB size
-> increase Thomas reported for 2.6.27-rc1 compared to 2.6.26 comes from=
-=2E
+Chris Larson
+clarson at kergoth dot com
+clarson at mvista dot com
+Software Engineer
+MontaVista Software, Inc.
 
-I agree. This is something I'm working on. I hope to have results soon.
-But I *fear* that the results will be: the size growth is 10 bytes
-here, 22 bytes there, 35 bytes here, spread over hundreds of patches.
-Something we can do anything against.
-
-Thomas
---=20
-Thomas Petazzoni, Free Electrons
-Kernel, drivers and embedded Linux development,
-consulting, training and support.
-http://free-electrons.com
