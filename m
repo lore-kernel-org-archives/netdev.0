@@ -1,44 +1,58 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Thu, 31 Jul 2008 09:55:57 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0807310942130.4551@wrl-59.cs.helsinki.fi>
-References: <20080731004123.GB22826@xi.wantstofly.org>
- <E1KONuu-00017h-00@gondolin.me.apana.org.au> <20080731023652.GA23814@xi.wantstofly.org>
- <20080731030339.GA4327@gondor.apana.org.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net-sched: add packet length pointer parameter for
+	qdisc_enqueue
+Date: Thu, 31 Jul 2008 07:02:33 +0000
+Message-ID: <20080731070233.GA4769@ff.dom.local>
+References: <20080730185542.23727.5949.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, akarkare@marvell.com,
-	nico@cam.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:59103 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704AbYGaG4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 02:56:00 -0400
-In-Reply-To: <20080731030339.GA4327@gondor.apana.org.au>
+Received: from fk-out-0910.google.com ([209.85.128.191]:25098 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752885AbYGaG5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 02:57:17 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so329562fkq.5
+        for <netdev@vger.kernel.org>; Wed, 30 Jul 2008 23:57:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080730185542.23727.5949.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 31 Jul 2008, Herbert Xu wrote:
+On 30-07-2008 20:55, Jussi Kivilinna wrote:
+> Pass packet length to caller through pointer so that length is
+> available to caller even if inner qdisc frees skb.
+...
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index b5f40d7..a428b93 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -331,19 +331,22 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
+>  	return qdisc_skb_cb(skb)->pkt_len;
+>  }
+>  
+> -static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+> +static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+> +				unsigned int *pkt_len)
+>  {
+>  #ifdef CONFIG_NET_SCHED
+>  	if (sch->stab)
+>  		qdisc_calculate_pkt_len(skb, sch->stab);
+>  #endif
+> +	if (likely(pkt_len != NULL))
+> +		*pkt_len = qdisc_pkt_len(skb);
+>  	return sch->enqueue(skb, sch);
+>  }
 
-> On Thu, Jul 31, 2008 at 04:36:52AM +0200, Lennert Buytenhek wrote:
-> >
-> > The maximum that splice will allow -- PIPE_BUFFERS * PAGE_SIZE.
-> > 
-> > I.e. the writes should be large enough.
-> 
-> Have you looked at the packet dump?
+As I've written before, IMHO using an skb after enqueuing should be
+avoided unless we refcounted it or the returned code is clear enough,
+so the idea of this patch could be right to me. But, I guess, you are
+changing here the way it's done: the size is calculated before the
+current enqueing instead of after the last one.
 
-...That would be helpful indeed.
+BTW, since I don't really get this "stab" idea enough, I wonder how
+it is expected to be used: with a top qdisc, a leaf one or some
+summing?
 
-> Maybe it was being constrained by the receiver/congestion windows.
-
-The thing that came into my mind is that the link might still be fast 
-enough to make the transfer application limited, can you try setting 
-/proc/sys/net/ipv4/tcp_slow_start_after_idle to zero and retest.
-
--- 
- i.
+Jarek P.
