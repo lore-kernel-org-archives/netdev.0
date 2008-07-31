@@ -1,81 +1,97 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [patch 12/12] Configure out ethtool support
-Date: Thu, 31 Jul 2008 22:17:01 +0400
-Message-ID: <20080731181658.GA5294@2ka.mipt.ru>
-References: <20080730.145727.07367670.davem@davemloft.net> <20080730151316.a4d76fe9.akpm@linux-foundation.org> <1217500776.3454.136.camel@pmac.infradead.org> <20080731.034737.154058020.davem@davemloft.net> <1217518591.3657.27.camel@calx>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] PCI: Limit VPD length for Broadcom 5708S
+Date: Thu, 31 Jul 2008 20:27:31 +0200
+Message-ID: <48920413.6080508@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dwmw2@infradead.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	thomas.petazzoni@free-electrons.com, shemminger@vyatta.com,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: benli@broadcom.com, willy@linux.intel.com, jbarnes@virtuousgeek.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:52145 "EHLO 2ka.mipt.ru"
+Received: from smtp20.orange.fr ([80.12.242.26]:4959 "EHLO smtp20.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752921AbYGaSSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2008 14:18:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1217518591.3657.27.camel@calx>
+	id S1752503AbYGaS1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2008 14:27:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matt.
+While trying to upgrade kernel from 2.6.25 to 2.6.26 on a ProLiant BL460c G1,
+I faced this problem on integrated Broadcom 5708S NIC when trying to UP them.
 
-On Thu, Jul 31, 2008 at 10:36:31AM -0500, Matt Mackall (mpm@selenic.com) wrote:
-> > I especially appreciate that you still haven't accepted the plain fact
-> > that CONFIG_ETHTOOL needs to be selected by CONFIG_INET.
-> 
-> So far the following features have been mentioned as being critically
-> dependent on ethtool:
-> 
-> - bridging
-> - bonding
-> - LRO
-> - netfilter (really?)
-> - IPv6 (really?)
-> 
-> And yet every single one of these is currently a config option, so your
-> above statement is still looking awfully dubious. At this point I'd
-> suggest that you've painted yourself into a corner where all these
-> options must also actually be mandatory, but I'm afraid you might
-> secretly want to do that anyway.
+bnx2: fw sync timeout, reset code = 1030003
 
-Things not are that simple. If your hardware happend to support
-scatter-gather and tx checksumming, and you forgot to add a magic ifdef
-into own embedded build of the driver, then sendfile() performance will
-be awful. Even more: if you hardcoded negotiation bits into the driver
-and happend to plug NIC to the wrong switch, you will have no-to-bad
-performance. Even more: there are quite broken switches, which just
-freeze the port after some tricky packets sent by nic (for example
-several autonegotiation packets). Without ethtool you will not be able
-to reset NIC. You will not be able to debug any hardware trouble and/or
-set needed hardware bits. If embedded folks are so much care about size,
-that they will hardcode all needed parameters for their own network into
-the driver, then they can apply this patch on its own tree and do not
-compile ethtools.
+I noticed that commit 99cb233d60cbe644203f19938c729ea2bb004d70 
+(PCI: Limit VPD read/write lengths for Broadcom 5706, 5708, 5709 rev.A)
+was probably a good candidate to solve the problem.
 
-The only sane way to try to push something like this into the tree is
-obviously turned on by default and with very much all needed config
-options checked first. I agree with other poster, who recommened to put
-a warning into the commented syscalls.
+Apparently, it added PCI quirks for a list of Broadcom NICs, but
+quirk_brcm_570x_limit_vpd() ignores part of them.
+
+I found the following patch useful to restore correct operation on my machine.
+
+Some information about this nic :
+
+03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708S Gigabit Ethernet (rev 12)
+        Subsystem: Hewlett-Packard Company NC373i Integrated Multifunction Gigabit Server Adapter
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr+ Stepping- SERR+ FastB2B-
+        Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+        Latency: 64 (16000ns min), Cache Line Size 10
+        Interrupt: pin A routed to IRQ 222
+        Region 0: Memory at f6000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at d1200000 [disabled] [size=16K]
+        Capabilities: [40] PCI-X non-bridge device.
+                Command: DPERE- ERO- RBC=0 OST=4
+                Status: Bus=3 Dev=0 Func=0 64bit+ 133MHz+ SCD- USC-, DC=simple, DMMRBC=0, DMOST=4, DMCRS=2, RSCEM-
+        Capabilities: [48] Power Management version 2
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable+
+                Address: 00000000feeff00c  Data: 4179
+
+after applying patch :
+
+# hexdump -C "/sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/0000:03:00.0/vpd"
+00000000  82 2f 00 48 50 20 4e 43  33 37 33 69 20 4d 75 6c  |./.HP NC373i Mul|
+00000010  74 69 66 75 6e 63 74 69  6f 6e 20 47 69 67 61 62  |tifunction Gigab|
+00000020  69 74 20 53 65 72 76 65  72 20 41 64 61 70 74 65  |it Server Adapte|
+00000030  72 00 90 4a 00 50 4e 03  4e 2f 41 45 43 03 4e 2f  |r..J.PN.N/AEC.N/|
+00000040  41 53 4e 0a 30 31 32 33  34 35 36 37 38 39 4d 4e  |ASN.0123456789MN|
+00000050  04 31 30 33 43 52 56 26  a2 00 00 00 00 00 00 00  |.103CRV&........|
+00000060  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+00000070  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 78  |...............x|
+00000080
+
+Patch against current Linus tree, should also be sent for linux-2.6.26.2 inclusion.
+
+I have no idea if 5706S and 5709S also needs this truncation of VPD length
+
+Thank you
+
+[PATCH] PCI: Limit VPD length for Broadcom 5708S
+
+BCM5708S wont work correctly unless VPD length truncated to 128
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 0fb3650..59667e5 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -1756,9 +1756,12 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_VIA, 0x324e, quirk_via_cx700_pci_parking_c
+  */
+ static void __devinit quirk_brcm_570x_limit_vpd(struct pci_dev *dev)
+ {
+-	/*  Only disable the VPD capability for 5706, 5708, and 5709 rev. A */
++	/*
++	 * Only disable the VPD capability for 5706, 5708, 5708S and 5709 rev. A
++	 */
+ 	if ((dev->device == PCI_DEVICE_ID_NX2_5706) ||
+ 	    (dev->device == PCI_DEVICE_ID_NX2_5708) ||
++	    (dev->device == PCI_DEVICE_ID_NX2_5708S) ||
+ 	    ((dev->device == PCI_DEVICE_ID_NX2_5709) &&
+ 	     (dev->revision & 0xf0) == 0x0)) {
+ 		if (dev->vpd)
 
 
-I can recommend another major part to be removed with the same approach
-you use with ethtool: netlink. Webcam does not need to install route or
-configure interface, it can do it via dhcp in kernel. Embedded folks can
-also create a simple module, which will do the same with smaller
-overhead. Then you can turn off direct-io and readahead. Webcam does not
-need to have either. One can replace scheduler algorithms with something
-small and trivial. Webcam should only have init and reading software.
-Actually it can do it in init (I personally wrote embedded system, where
-only init existed, which was a trivial shell with dozen of commands).
-You can also trim block layer by half: embedded system should not be
-able to configure device queues at all. Feel free to point to any
-subsystem, and there are lots of such 'non-needed' from the fist view
-things. But when some troubles start or feature needed, or behaviour is
-not expected, uch embedded people start to scream, that everything is so
-bad in Linux and it is not suitable and so on...
-
--- 
-	Evgeniy Polyakov
