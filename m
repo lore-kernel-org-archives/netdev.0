@@ -1,52 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv2] ipv6: Fix ip6_xmit to send fragments if ipfragok is true
-Date: Thu, 31 Jul 2008 18:41:50 +0800
-Message-ID: <20080731104149.GA7601@gondor.apana.org.au>
-References: <489153ED.9030701@cn.fujitsu.com> <20080731082053.GA6463@gondor.apana.org.au> <489181DC.40507@cn.fujitsu.com> <20080731092321.GA6907@gondor.apana.org.au> <48918C11.5010004@cn.fujitsu.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [patch 3/4] Configure out ethtool support
+Date: Thu, 31 Jul 2008 11:42:47 +0100
+Message-ID: <1217500967.3454.140.camel@pmac.infradead.org>
+References: <20080731092703.661994657@free-electrons.com>
+	 <20080731093221.236840420@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
+	michael@free-electrons.com, Matt Mackall <mpm@selenic.com>,
+	jgarzik@pobox.com, netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35668 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751953AbYGaKl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:41:59 -0400
-Content-Disposition: inline
-In-Reply-To: <48918C11.5010004@cn.fujitsu.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:35387 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbYGaKmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:42:51 -0400
+In-Reply-To: <20080731093221.236840420@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2008 at 05:55:29PM +0800, Wei Yongjun wrote:
-> SCTP used ip6_xmit() to send fragments after received ICMP packet too
-> big message. But while send packet used ip6_xmit, the skb->local_df is
-> not initialized. So when skb if enter ip6_fragment(), the following
-> code will discard the skb.
+On Thu, 2008-07-31 at 11:27 +0200, Thomas Petazzoni wrote:
 > 
-> ip6_fragment(...)
-> {
->    if (!skb->local_df) {
->        ...
->        return -EMSGSIZE;
->    }
->    ...
-> }
-> 
-> SCTP do the following step:
-> 1. send packet ip6_xmit(skb, ipfragok=0)
-> 2. received ICMP packet too big message
-> 3. if PMTUD_ENABLE: ip6_xmit(skb, ipfragok=1)
-> 
-> This patch fixed the problem by set local_df if ipfragok is true.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> +#else
+> +static inline u32 ethtool_op_get_link(struct net_device *dev) { return 0; }
+> +static inline u32 ethtool_op_get_tx_csum(struct net_device *dev) { return 0; }
+> +static inline int ethtool_op_set_tx_csum(struct net_device *dev, u32 data) { return 0; }
+> +static inline int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data) { return 0; }
+> +static inline int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data) { return 0; }
+> +static inline u32 ethtool_op_get_sg(struct net_device *dev) { return 0; }
+> +static inline int ethtool_op_set_sg(struct net_device *dev, u32 data) { return 0; }
+> +static inline u32 ethtool_op_get_tso(struct net_device *dev) { return 0; }
+> +static inline int ethtool_op_set_tso(struct net_device *dev, u32 data) { return 0; }
+> +static inline u32 ethtool_op_get_ufo(struct net_device *dev) { return 0; }
+> +static inline int ethtool_op_set_ufo(struct net_device *dev, u32 data) { return 0; }
+> +static inline u32 ethtool_op_get_flags(struct net_device *dev) { return 0; }
+> +static inline int ethtool_op_set_flags(struct net_device *dev, u32 data) { return 0; }
+> +#endif
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+It's alleged that these functions are called from 'core' network code in
+some places, although I can't actually see any evidence of that anywhere
+in Linus' tree except for vlans and bridging.
 
-Thanks,
+If that's actually the case, perhaps it makes sense to add a
+WARN_ON_ONCE() to these empty functions, so that a developer who
+disables CONFIG_ETHTOOL when they shouldn't will see a nasty warning
+about it rather than a silent failure?
+
+Btw, I see you've made bridging 'select ETHTOOL'; did you do the same
+for vlan support?
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
+
+
