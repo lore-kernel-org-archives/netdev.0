@@ -1,38 +1,28 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] skbuff: add missing kernel-doc for do_not_encrypt
-Date: Thu, 31 Jul 2008 11:53:24 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0807311152140.3067@shark.he.net>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH] PCI: Limit VPD length for Broadcom 5708S
+Date: Thu, 31 Jul 2008 12:39:28 -0700
+Message-ID: <200807311239.28769.jbarnes@virtuousgeek.org>
+References: <48920413.6080508@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:36455 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754108AbYGaSxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2008 14:53:30 -0400
-Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 31 Jul 2008 11:53:24 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: benli@broadcom.com, willy@linux.intel.com,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758159AbYGaTjq@vger.kernel.org>
+In-Reply-To: <48920413.6080508@cosmosbay.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Thursday, July 31, 2008 11:27 am Eric Dumazet wrote:
+> While trying to upgrade kernel from 2.6.25 to 2.6.26 on a ProLiant BL460c
+> G1, I faced this problem on integrated Broadcom 5708S NIC when trying to UP
+> them.
 
-Add missing kernel-doc notation to sk_buff:
+Thanks Eric, I applied this to my for-linus branch.  I'll bounce the original 
+over to stable@.
 
-Warning(linux-2.6.27-rc1-git2//include/linux/skbuff.h:345): No description found for parameter 'do_not_encrypt'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/linux/skbuff.h |    1 +
- 1 file changed, 1 insertion(+)
-
---- linux-2.6.27-rc1-git2.orig/include/linux/skbuff.h
-+++ linux-2.6.27-rc1-git2/include/linux/skbuff.h
-@@ -243,6 +243,7 @@ typedef unsigned char *sk_buff_data_t;
-  *	@tc_index: Traffic control index
-  *	@tc_verd: traffic control verdict
-  *	@ndisc_nodetype: router type (from link layer)
-+ *	@do_not_encrypt: set to prevent encryption of this frame
-  *	@dma_cookie: a cookie to one of several possible DMA operations
-  *		done by skb DMA functions
-  *	@secmark: security marking
+Jesse
