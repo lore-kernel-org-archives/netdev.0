@@ -1,56 +1,71 @@
-From: "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 1/1] sunrpc: do not pin sunrpc module in the memory
-Date: Thu, 31 Jul 2008 09:53:56 +0400
-Message-ID: <1217483636-2574-1-git-send-email-den@openvz.org>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Denis V. Lunev" <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] ipv6: Fix ip6_xmit to send fragments if ipfragok is true
+Date: Thu, 31 Jul 2008 13:55:57 +0800
+Message-ID: <489153ED.9030701@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:59626 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751701AbYGaF5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2008 01:57:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Basically, try_module_get here are pretty useless. Any other module using
-this API will pin sunrpc in memory due using exported symbols.
+SCTP used ip6_xmit() to send fragments after received ICMP packet too
+big message. But while send packet used ip6_xmit, the skb->local_df is
+not initialized. So when skb if enter ip6_fragment
+<../cgi-bin/global.cgi?pattern=ip6_fragment&type=reference>(), the following
+code will discard the skb.
 
-Signed-off-by: Denis V. Lunev <den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+ip6_fragment(...)
+{
+    if (!skb->local_df) {
+        ...
+        return -EMSGSIZE;
+    }
+    ...
+}
+
+
+SCTP do the following step:
+1. send packet ip6_xmit(skb, ipfragok=0)
+2. received ICMP packet too big message
+3. if PMTUD_ENABLE: ip6_xmit(skb, ipfragok=1)
+
+This bug come from patch (b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4)
+[IPV6]: Fix reversed local_df test in ip6_fragment
+which commit by Herbert Xu.
+
+This patch fixed the problem.
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- net/sunrpc/xprt.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ net/ipv6/ip6_output.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index 99a52aa..29e401b 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -108,13 +108,10 @@ int xprt_register_transport(struct xprt_class *transport)
- 			goto out;
- 	}
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6407c64..a678c71 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -236,6 +236,10 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 	skb_reset_network_header(skb);
+ 	hdr = ipv6_hdr(skb);
  
--	result = -EINVAL;
--	if (try_module_get(THIS_MODULE)) {
--		list_add_tail(&transport->list, &xprt_list);
--		printk(KERN_INFO "RPC: Registered %s transport module.\n",
--			transport->name);
--		result = 0;
--	}
-+	list_add_tail(&transport->list, &xprt_list);
-+	printk(KERN_INFO "RPC: Registered %s transport module.\n",
-+	       transport->name);
-+	result = 0;
- 
- out:
- 	spin_unlock(&xprt_list_lock);
-@@ -143,7 +140,6 @@ int xprt_unregister_transport(struct xprt_class *transport)
- 				"RPC: Unregistered %s transport module.\n",
- 				transport->name);
- 			list_del_init(&transport->list);
--			module_put(THIS_MODULE);
- 			goto out;
- 		}
- 	}
--- 
-1.5.4.5
++	/* Allow local fragmentation. */
++	if (np && np->pmtudisc < IPV6_PMTUDISC_DO)
++		skb->local_df = 1;
++
+ 	/*
+ 	 *	Fill in the IPv6 header
+ 	 */
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+
+
