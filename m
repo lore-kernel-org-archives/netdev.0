@@ -1,71 +1,70 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net-sched: add packet length pointer parameter for
-	qdisc_enqueue
-Date: Thu, 31 Jul 2008 17:40:56 +0200
-Message-ID: <20080731154055.GA2532@ami.dom.local>
-References: <20080731070233.GA4769@ff.dom.local> <20080731120457.34626tsepmygd1c0@hayate.ip6> <20080731093612.GB4769@ff.dom.local> <20080731174919.157875i4bpxod3wg@hayate.ip6>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: Re: [patch 3/4] Configure out ethtool support
+Date: Thu, 31 Jul 2008 18:58:20 +0300
+Message-ID: <20080731155820.GC20212@cs181140183.pp.htv.fi>
+References: <1217500967.3454.140.camel@pmac.infradead.org> <20080731.035121.177567346.davem@davemloft.net> <1217503770.3454.162.camel@pmac.infradead.org> <20080731.043355.143045459.davem@davemloft.net> <1217504801.3454.170.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	thomas.petazzoni@free-electrons.com, linux-kernel@vger.kernel.org,
+	linux-embedded@vger.kernel.org, michael@free-electrons.com,
+	mpm@selenic.com, jgarzik@pobox.com, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:3297 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986AbYGaPlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 11:41:08 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so397326ugf.16
-        for <netdev@vger.kernel.org>; Thu, 31 Jul 2008 08:41:06 -0700 (PDT)
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:42536 "EHLO smtp5.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752861AbYGaP7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2008 11:59:16 -0400
 Content-Disposition: inline
-In-Reply-To: <20080731174919.157875i4bpxod3wg@hayate.ip6>
+In-Reply-To: <1217504801.3454.170.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2008 at 05:49:19PM +0300, Jussi Kivilinna wrote:
-> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->
->> On Thu, Jul 31, 2008 at 12:04:57PM +0300, Jussi Kivilinna wrote:
->>> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->>>
->>>> On 30-07-2008 20:55, Jussi Kivilinna wrote:
->>>>> Pass packet length to caller through pointer so that length is
->>>>> available to caller even if inner qdisc frees skb.
->> ...
->>>> As I've written before, IMHO using an skb after enqueuing should be
->>>> avoided unless we refcounted it or the returned code is clear enough,
->>>> so the idea of this patch could be right to me. But, I guess, you are
->>>> changing here the way it's done: the size is calculated before the
->>>> current enqueing instead of after the last one.
->>>
->>> Doh, you're right. qdisc->enqueue should pass packet length too.
->>>
->>>>
->>>> BTW, since I don't really get this "stab" idea enough, I wonder how
->>>> it is expected to be used: with a top qdisc, a leaf one or some
->>>> summing?
->>>>
->>>
->>> With top and/or leaf qdisc, inner stab overrides upper.
->>
->> Probably this could be called a bit ugly, but another way could be
->> simply updating these .bstas.bytes in ->dequeue() with a difference
->> between calculated and skb->len?
->>
->
-> That would work, but HFSC uses packet length in enqueue for something  
-> else too:
-> 	if (cl->qdisc->q.qlen == 1)
-> 		set_active(cl, qdisc_pkt_len(skb));
->
-> Could this bit be moved to dequeue?
+On Thu, Jul 31, 2008 at 12:46:41PM +0100, David Woodhouse wrote:
+> On Thu, 2008-07-31 at 04:33 -0700, David Miller wrote:
+> > From: David Woodhouse <dwmw2@infradead.org>
+> > Date: Thu, 31 Jul 2008 12:29:30 +0100
+> > 
+> > > After an offline discussion, I understand that if we can sort out the
+> > > actual technical issues, you'll carry this in the net tree. Thanks.
+> > 
+> > I will, but only because you threatened to bypass me and send them
+> > directly to Linus.  And frankly fighting someone willing to do things
+> > like that is simply not worth my time, so I'll just merge them
+> > blindly.
+> 
+> That doesn't make a lot of sense, Dave. Just because I _submit_ them to
+> Linus, that doesn't mean he automatically takes them.
+> 
+> I only said I'd submit them directly to Linus because I _think_ he'd
+> agree with Andrew and I, and take them despite your objections. And
+> because I think that's the right thing for him to do.
+>...
 
-I think, Patrick should look at this.
+I'm sure we can find simpler and less controversial ways to save 6 kB in 
+the network stack. E.g. Ilpo's past work on making inline functions in 
+the network stack out-of-line had far bigger effects than the patch in 
+this discussion. And as a bonus, his work brings benefits to everyone.
 
-On the other hand, it seems reading such an skb after enqueuing with
-NET_XMIT_SUCCESS could be quite safe after a patch I'm currently
-working on, because there will be no more overloading in case of
-TC_ACT_STOLEN etc. More problematic would be keeping stats exactly
-after NET_XMIT_CN, but it's usually skipped now. So maybe it would be
-better to wait with these changes a bit?
+It might have also made more sense to spend some of the energy used in 
+this discussion instead on checking where the global 24 kB size increase 
+Thomas reported for 2.6.27-rc1 compared to 2.6.26 comes from.
 
-Jarek P.
+It's kinda silly to spend time on creating and arguing about non-trivial 
+patches that might save a few kB for very few people while noone seems 
+to work on reducing the continuous size increase of the kernel that 
+affects everyone...
+
+> dwmw2
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
