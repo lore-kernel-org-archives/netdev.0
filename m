@@ -1,38 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/4] Configure out ethtool support
-Date: Thu, 31 Jul 2008 04:50:15 -0700 (PDT)
-Message-ID: <20080731.045015.110481858.davem@davemloft.net>
-References: <1217503770.3454.162.camel@pmac.infradead.org>
-	<20080731.043355.143045459.davem@davemloft.net>
-	<1217504801.3454.170.camel@pmac.infradead.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 31 Jul 2008 14:25:41 +0200
+Message-ID: <20080731122541.GA29176@xi.wantstofly.org>
+References: <20080731023652.GA23814@xi.wantstofly.org> <20080731030339.GA4327@gondor.apana.org.au> <20080731101425.GE23814@xi.wantstofly.org> <20080731.031654.44296685.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, linux-kernel@vger.kernel.org,
-	linux-embedded@vger.kernel.org, michael@free-electrons.com,
-	mpm@selenic.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: dwmw2@infradead.org
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <1217504801.3454.170.camel@pmac.infradead.org>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	akarkare@marvell.com, nico@cam.org, dale@farnsworth.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:51398 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750902AbYGaMZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 08:25:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20080731.031654.44296685.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 31 Jul 2008 12:46:41 +0100
+On Thu, Jul 31, 2008 at 03:16:54AM -0700, David Miller wrote:
 
-> I only said I'd submit them directly to Linus because I _think_ he'd
-> agree with Andrew and I, and take them despite your objections. And
-> because I think that's the right thing for him to do.
-
-I guess Linus is unable to participate in the discussion, voice his
-opinion, and sort this out with the rest of us unless you submit the
-patches directly to him for inclusion, right?
-
-Can you at least begin to see why your doing that might irritate me?
-
-> > You just let me know when you think they are ready for inclusion.
+> > As to the congestion window, I had the idea that it's not increasing
+> > beyond ~2-3 because the RTT is so low so it doesn't need much data
+> > to fill the pipe, but I'm not a TCP expert.
 > 
-> I'll do that; thanks.
+> Local network 10GB needs a pretty decent congestion window.
+> 
+> Well, it needs to be at least as big as the largest amount of
+> non-retransmitted data in-flight, and you've stated here that
+> the receive has grown it's window to 700K.
 
-No problem.
+As Herbert Xu suspected, these tests were bw limited by the receiver
+(a 2.4 GHz Core 2 Quad, but with a non-PCIe NIC), at ~70 MiB/s.  D'oh.
+
+If I put a (x1) PCIe NIC in the receiver and do not change the sender
+(which is still the same 1.2 GHz ARM box with the puny 16 bit memory
+bus), I get ~95 MiB/s.
+
+At this point things seem to be CPU limited at the sender again.  E.g.
+by simply dropping IRQF_SAMPLE_RANDOM from mv643xx_eth.c (the driver
+used on the sender), throughput jumps to ~108 MiB/s, and I get:
+
+	real    0m9.531s	sys     0m9.350s
+	real    0m9.603s	sys     0m9.460s
+	real    0m9.566s	sys     0m9.380s
+	real    0m9.587s	sys     0m9.370s
+	real    0m9.552s	sys     0m9.350s
+	real    0m9.525s	sys     0m9.330s
+
+Putting the 5 * mss_now nagle hack back in doesn't seem to change
+the gso_size distribution anymore at this point, and it doesn't
+change the numbers much:
+
+	real    0m9.565s	sys     0m9.340s
+	real    0m9.555s	sys     0m9.400s
+	real    0m9.594s	sys     0m9.430s
+	real    0m9.503s	sys     0m9.320s
+	real    0m9.563s	sys     0m9.420s
+	real    0m9.539s	sys     0m9.310s
+
+The throughput with software GSO off again seems to be about ~93 MiB/s:
+
+	real    0m11.327s	sys     0m11.020s
+	real    0m11.160s	sys     0m11.000s
+	real    0m11.517s	sys     0m11.400s
+	real    0m11.116s	sys     0m10.970s
+	real    0m11.513s	sys     0m11.400s
+	real    0m11.151s	sys     0m11.050s
