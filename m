@@ -1,53 +1,56 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] typhoon: use request_firmware
-Date: Thu, 31 Jul 2008 08:42:53 +0100
-Message-ID: <1217490173.3454.47.camel@pmac.infradead.org>
-References: <1217170232.3537.6.camel@jaswinder.satnam>
-	 <1217209400.22789.47.camel@obelisk.thedillows.org>
-	 <1217215009.2970.7.camel@jaswinder.satnam>
-	 <1217248585.22789.58.camel@obelisk.thedillows.org>
-	 <1217253260.17632.6.camel@jaswinder.satnam>
-	 <1217295498.28682.16.camel@obelisk.thedillows.org>
-	 <1217347786.2885.11.camel@jaswinder.satnam>
-	 <1217395511.31350.6.camel@obelisk.thedillows.org>
-	 <1217400251.2595.3.camel@jaswinder.satnam>
-	 <1217475466.16202.15.camel@obelisk.thedillows.org>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [patch nacked? 3/4] Update smc91x driver with ARM Versatile board info
+Date: Thu, 31 Jul 2008 09:15:01 +0100
+Message-ID: <20080731081501.GD12409@flint.arm.linux.org.uk>
+References: <200807301940.m6UJemPm012683@imap1.linux-foundation.org> <20080730224255.GB12409@flint.arm.linux.org.uk> <20080730160858.74053884.akpm@linux-foundation.org> <20080730234136.GC12409@flint.arm.linux.org.uk> <20080730165114.3c3b0fb5.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jaswinder Singh <jaswinder@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, becker@scyld.com,
-	davidpmclean@yahoo.com, Jeff Garzik <jeff@garzik.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Dillow <dave@thedillows.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, dsaxena@plexity.net,
+	nico@cam.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:48411 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551AbYGaHm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 03:42:57 -0400
-In-Reply-To: <1217475466.16202.15.camel@obelisk.thedillows.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:41671 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbYGaIP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 04:15:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20080730165114.3c3b0fb5.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-07-30 at 23:37 -0400, David Dillow wrote:
-> request_firmware()'s mutex is protecting against things inside of that
-> subsystem, but offers no protection between the test on typhoon_fw !=
-> NULL and the setting of it inside of the firmware loader. That
-> requires locking at a higher level.
+On Wed, Jul 30, 2008 at 04:51:14PM -0700, Andrew Morton wrote:
+> On Thu, 31 Jul 2008 00:41:36 +0100
+> Russell King <rmk@arm.linux.org.uk> wrote:
 > 
-> Anyways, probing is single threaded and I seem to recall it being
-> unlikely to be made parallel due to the number issues exposed last
-> time, so a minimal comment is fine.
+> > On Wed, Jul 30, 2008 at 04:08:58PM -0700, Andrew Morton wrote:
+> > > On Wed, 30 Jul 2008 23:42:55 +0100
+> > > Russell King <rmk@arm.linux.org.uk> wrote:
+> > > 
+> > > > Are you aware that smc91x.h _already_ contains a CONFIG_ARCH_VERSATILE
+> > > > section?
+> > > > 
+> > > 
+> > > Are you aware that I don't maintain arm, net drivers or smc91x.h?
+> > > 
+> > > Are you aware that smartarse rhetorical questions are exceedingly
+> > > irritating?
+> > 
+> > Sigh.  That's a fucking annoying response to my perfectly legitimate
+> > question.
+> > 
+> 
+> That is a fake response.  You have no possible interest in what I or
+> Deepak are or are not aware of.  You just chose it as an opportunity
+> to be snooty, arrgoant and condescending.
 
-An alternative approach is to make request_firmware() do the duplicate
-avoidance for itself. Since we made fw->data const (as 'fw' itself
-always was), no users should be changing anything in the requested
-firmware. It can be safely reused by generic code.
+You're the one being extremely stupid here.  I've said why I asked the
+question, you won't accept that, so there's no point discussing it
+anymore.
 
-That simplifies the logic in drivers -- they just request what they
-want, as many times as they want it, and don't have to care about the
-potential duplication.
+So I've nothing more to add here.  Do what you want with the patch.  I
+don't care.
 
 -- 
-dwmw2
-
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
