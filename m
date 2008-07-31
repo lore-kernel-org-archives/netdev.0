@@ -1,71 +1,44 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] ipv6: Fix ip6_xmit to send fragments if ipfragok is true
-Date: Thu, 31 Jul 2008 13:55:57 +0800
-Message-ID: <489153ED.9030701@cn.fujitsu.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 31 Jul 2008 09:55:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0807310942130.4551@wrl-59.cs.helsinki.fi>
+References: <20080731004123.GB22826@xi.wantstofly.org>
+ <E1KONuu-00017h-00@gondolin.me.apana.org.au> <20080731023652.GA23814@xi.wantstofly.org>
+ <20080731030339.GA4327@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, akarkare@marvell.com,
+	nico@cam.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59626 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751701AbYGaF5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2008 01:57:49 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59103 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704AbYGaG4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 02:56:00 -0400
+In-Reply-To: <20080731030339.GA4327@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SCTP used ip6_xmit() to send fragments after received ICMP packet too
-big message. But while send packet used ip6_xmit, the skb->local_df is
-not initialized. So when skb if enter ip6_fragment
-<../cgi-bin/global.cgi?pattern=ip6_fragment&type=reference>(), the following
-code will discard the skb.
+On Thu, 31 Jul 2008, Herbert Xu wrote:
 
-ip6_fragment(...)
-{
-    if (!skb->local_df) {
-        ...
-        return -EMSGSIZE;
-    }
-    ...
-}
+> On Thu, Jul 31, 2008 at 04:36:52AM +0200, Lennert Buytenhek wrote:
+> >
+> > The maximum that splice will allow -- PIPE_BUFFERS * PAGE_SIZE.
+> > 
+> > I.e. the writes should be large enough.
+> 
+> Have you looked at the packet dump?
 
+...That would be helpful indeed.
 
-SCTP do the following step:
-1. send packet ip6_xmit(skb, ipfragok=0)
-2. received ICMP packet too big message
-3. if PMTUD_ENABLE: ip6_xmit(skb, ipfragok=1)
+> Maybe it was being constrained by the receiver/congestion windows.
 
-This bug come from patch (b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4)
-[IPV6]: Fix reversed local_df test in ip6_fragment
-which commit by Herbert Xu.
+The thing that came into my mind is that the link might still be fast 
+enough to make the transfer application limited, can you try setting 
+/proc/sys/net/ipv4/tcp_slow_start_after_idle to zero and retest.
 
-This patch fixed the problem.
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/ipv6/ip6_output.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6407c64..a678c71 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -236,6 +236,10 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
- 	skb_reset_network_header(skb);
- 	hdr = ipv6_hdr(skb);
- 
-+	/* Allow local fragmentation. */
-+	if (np && np->pmtudisc < IPV6_PMTUDISC_DO)
-+		skb->local_df = 1;
-+
- 	/*
- 	 *	Fill in the IPv6 header
- 	 */
-
-
-
-
-
-
+-- 
+ i.
