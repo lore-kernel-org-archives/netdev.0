@@ -1,42 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net-sched: add packet length pointer parameter for	qdisc_enqueue
-Date: Thu, 31 Jul 2008 10:11:24 +0800
-Message-ID: <E1KONdU-00015S-00@gondolin.me.apana.org.au>
-References: <20080730185542.23727.5949.stgit@fate.lan>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: jussi.kivilinna@mbnet.fi (Jussi Kivilinna)
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 31 Jul 2008 10:29:24 +0800
+Message-ID: <E1KONuu-00017h-00@gondolin.me.apana.org.au>
+References: <20080731004123.GB22826@xi.wantstofly.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, akarkare@marvell.com,
+	nico@cam.org
+To: buytenh@wantstofly.org (Lennert Buytenhek)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47034 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:57438 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752680AbYGaCLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 22:11:34 -0400
-In-Reply-To: <20080730185542.23727.5949.stgit@fate.lan>
+	with ESMTP id S1753377AbYGaC3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2008 22:29:36 -0400
+In-Reply-To: <20080731004123.GB22826@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna <jussi.kivilinna@mbnet.fi> wrote:
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
 >
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index b5f40d7..a428b93 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -331,19 +331,22 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
->        return qdisc_skb_cb(skb)->pkt_len;
-> }
+> Index: linux-2.6.27-rc1/net/ipv4/tcp_output.c
+> ===================================================================
+> --- linux-2.6.27-rc1.orig/net/ipv4/tcp_output.c
+> +++ linux-2.6.27-rc1/net/ipv4/tcp_output.c
+> @@ -1544,7 +1544,7 @@ static int tcp_write_xmit(struct sock *s
+>                        break;
 > 
-> -static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-> +static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch,
-> +                               unsigned int *pkt_len)
-> {
-> #ifdef CONFIG_NET_SCHED
->        if (sch->stab)
->                qdisc_calculate_pkt_len(skb, sch->stab);
-> #endif
-> +       if (likely(pkt_len != NULL))
-> +               *pkt_len = qdisc_pkt_len(skb);
+>                if (tso_segs == 1) {
+> -                       if (unlikely(!tcp_nagle_test(tp, skb, mss_now,
+> +                       if (unlikely(!tcp_nagle_test(tp, skb, 5 * mss_now,
+>                                                     (tcp_skb_is_last(sk, skb) ?
+>                                                      nonagle : TCP_NAGLE_PUSH))))
+>                                break;
 
-Icky! Why can't you do this in the caller instead? Calculating
-the packet length isn't related to the act of enqueueing.
+What's the size of your application's write calls?
+
+But yeah we should at least offer something like this patch (with
+5 * mss_now replaced by the TSO aggregation limit) as an option in
+addition to nalge itself for those apps that do small writes.
 
 Cheers,
 -- 
