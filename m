@@ -1,88 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch 3/4] Configure out ethtool support
-Date: Thu, 31 Jul 2008 11:40:05 +0100
-Message-ID: <20080731104004.GN10471@solarflare.com>
-References: <20080731092703.661994657@free-electrons.com> <20080731093221.236840420@free-electrons.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [patch 12/12] Configure out ethtool support
+Date: Thu, 31 Jul 2008 11:39:36 +0100
+Message-ID: <1217500776.3454.136.camel@pmac.infradead.org>
+References: <20080730140136.42223e3c@extreme> <20080730233551.76fd38a8@surf>
+	 <20080730144812.a71156f7.akpm@linux-foundation.org>
+	 <20080730.145727.07367670.davem@davemloft.net>
+	 <20080730151316.a4d76fe9.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
-	michael@free-electrons.com, Matt Mackall <mpm@selenic.com>,
-	jgarzik@pobox.com, netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	thomas.petazzoni@free-electrons.com, shemminger@vyatta.com,
+	jeff@garzik.org, netdev@vger.kernel.org, mpm@selenic.com
+To: Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40669 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751997AbYGaKkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:40:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20080731093221.236840420@free-electrons.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:60302 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779AbYGaKkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 06:40:12 -0400
+In-Reply-To: <20080730151316.a4d76fe9.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Petazzoni wrote:
-[...]
-> --- linuxdev.orig/include/linux/ethtool.h
-> +++ linuxdev/include/linux/ethtool.h
-> @@ -283,6 +283,7 @@
->  struct net_device;
->  
->  /* Some generic methods drivers may use in their ethtool_ops */
-> +#ifdef CONFIG_ETHTOOL
->  u32 ethtool_op_get_link(struct net_device *dev);
->  u32 ethtool_op_get_tx_csum(struct net_device *dev);
->  int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
-> @@ -296,6 +297,21 @@
->  int ethtool_op_set_ufo(struct net_device *dev, u32 data);
->  u32 ethtool_op_get_flags(struct net_device *dev);
->  int ethtool_op_set_flags(struct net_device *dev, u32 data);
-> +#else
-> +static inline u32 ethtool_op_get_link(struct net_device *dev) { return 0; }
-> +static inline u32 ethtool_op_get_tx_csum(struct net_device *dev) { return 0; }
-> +static inline int ethtool_op_set_tx_csum(struct net_device *dev, u32 data) { return 0; }
-> +static inline int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data) { return 0; }
-> +static inline int ethtool_op_set_tx_ipv6_csum(struct net_device *dev, u32 data) { return 0; }
-> +static inline u32 ethtool_op_get_sg(struct net_device *dev) { return 0; }
-> +static inline int ethtool_op_set_sg(struct net_device *dev, u32 data) { return 0; }
-> +static inline u32 ethtool_op_get_tso(struct net_device *dev) { return 0; }
-> +static inline int ethtool_op_set_tso(struct net_device *dev, u32 data) { return 0; }
-> +static inline u32 ethtool_op_get_ufo(struct net_device *dev) { return 0; }
-> +static inline int ethtool_op_set_ufo(struct net_device *dev, u32 data) { return 0; }
-> +static inline u32 ethtool_op_get_flags(struct net_device *dev) { return 0; }
-> +static inline int ethtool_op_set_flags(struct net_device *dev, u32 data) { return 0; }
+On Wed, 2008-07-30 at 15:13 -0700, Andrew Morton wrote:
+> On Wed, 30 Jul 2008 14:57:27 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> > I'm sure you can find someone who runs with CONFIG_STAND_ON_MY_HEAD=y
+> > but that doesn't mean that supporting such an option upstream makes
+> > any sense.
 
-The dummy setter functions should return -EOPNOTSUPP.  The getter functions
-just read device feature flags and could be made inline.  They have no way
-of returning failure.
+That's not entirely consistent with Linus' observations on similar
+topics. He seems to think that if people need certain things and would
+be patching them in anyway, then it makes sense to merge them upstream.
 
-[...]
-> ===================================================================
-> --- linuxdev.orig/net/core/dev.c
-> +++ linuxdev/net/core/dev.c
-> @@ -3669,6 +3669,7 @@
->  			return ret;
->  
->  		case SIOCETHTOOL:
-> +#ifdef CONFIG_ETHTOOL
->  			dev_load(net, ifr.ifr_name);
->  			rtnl_lock();
->  			ret = dev_ethtool(net, &ifr);
-> @@ -3681,6 +3682,9 @@
->  					ret = -EFAULT;
->  			}
->  			return ret;
-> +#else
-> +			return -EINVAL;
-> +#endif
->  
->  		/*
->  		 *	These ioctl calls:
+> Well yes, embedded developers do patch the hell out of their kernels
+> and presumably they will always do so.  The idea here is to bring
+> things inwards to reduce the amount of patching which these people
+> need to do.
 
-You also need to conditionalise dev_disable_lro().
+Distro vendors used to do that too.
 
-Ben.
+We need to be moving towards a situation where people don't _need_ to
+patch the hell out of their kernels to make Linux viable for embedded
+devices. I'm not prepared just assume that 'they will always do so', and
+I'm disappointed to hear Andrew say such a thing. 
+
+We need to do better than that.
+
+In particular, we need not to simultaneously:
+ - whine that "embedded" folks never submit their work upstream, and
+ - reject it on ideological grounds when they do, citing totally bogus
+   'technical' reasons.
+
+Dave, if you won't take these patches then I will (after review) put
+them in the embedded-2.6 tree with Andrew's sign-off, and ask Linus to
+pull them into 2.6.28 directly from there rather than via your tree.
+I think he'll take them, because it's the right thing to do.
+
+I would prefer not to have to do that; please reconsider your refusal.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
+
+
