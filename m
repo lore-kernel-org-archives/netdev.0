@@ -1,33 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
-Date: Thu, 31 Jul 2008 20:48:26 -0700 (PDT)
-Message-ID: <20080731.204826.189988398.davem@davemloft.net>
-References: <48918C49.4070708@cn.fujitsu.com>
+From: "Nobuhiro Iwamatsu" <iwamatsu@nigauri.org>
+Subject: Re: [PATCH] sh_eth Add SH7619 support
+Date: Fri, 1 Aug 2008 12:48:27 +0900
+Message-ID: <29ab51dc0807312048hfa9cd88pb90d1a7520bb3f99@mail.gmail.com>
+References: <878wvhtynu.wl%ysato@users.sourceforge.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yjwei@cn.fujitsu.com
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"Nobuhiro Iwamatsu" <iwamatsu.nobuhiro@renesas.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: "Yoshinori Sato" <ysato@users.sourceforge.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36220
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752628AbYHADs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 23:48:26 -0400
-In-Reply-To: <48918C49.4070708@cn.fujitsu.com>
+Received: from wf-out-1314.google.com ([209.85.200.169]:40835 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752923AbYHADs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2008 23:48:28 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1165486wfd.4
+        for <netdev@vger.kernel.org>; Thu, 31 Jul 2008 20:48:27 -0700 (PDT)
+In-Reply-To: <878wvhtynu.wl%ysato@users.sourceforge.jp>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Thu, 31 Jul 2008 17:56:25 +0800
+Hi, Sato-san.
 
-> inet6_csk_xmit() has a paramater ipfragok, but never pass to
-> ip6_xmit(), always call it with ipfragok = 0.
-> 
-> This patch fixed this problem by instead 0 of ipfragok.
-> 
-> Compiled test only.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+2008/8/1 Yoshinori Sato <ysato@users.sourceforge.jp>:
+> SH7619 have same SH7710 ethernet controler.
+> Add support for sh_eth driver.
+>
+> Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
+>
 
-I would like to see someone do some testing of this patch
-before I apply it.
+<snip>
+
+>
+> diff --git a/drivers/net/sh_eth.h b/drivers/net/sh_eth.h
+> index 45ad1b0..ca3cc5f 100644
+> --- a/drivers/net/sh_eth.h
+> +++ b/drivers/net/sh_eth.h
+> @@ -143,10 +143,11 @@
+>
+
+<snip>
+
+> +
+> +/* CPU endian from/to EDMAC endian */
+> +#if !defined(CONFIG_CPU_SUBTYPE_SH7619)
+> +#define cpu_to_edmac(x) cpu_to_le32(x)
+> +#define edmac_to_cpu(x) le32_to_cpu(x)
+> +#else
+> +#define cpu_to_edmac(x) cpu_to_be32(x)
+> +#define edmac_to_cpu(x) be32_to_cpu(x)
+> +#endif
+> +
+>  #endif
+I think that this depends on an endian not CPU dependence.
+
+Best regards,
+ Nobuhiro
