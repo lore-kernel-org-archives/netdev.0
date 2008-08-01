@@ -1,84 +1,82 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 4/7] netxen: fix cmd ring init
-Date: Fri,  1 Aug 2008 03:14:58 -0700
-Message-ID: <1217585701-13958-5-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 7/7] netxen: update driver version
+Date: Fri,  1 Aug 2008 03:15:01 -0700
+Message-ID: <1217585701-13958-8-git-send-email-dhananjay@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:42819 "EHLO unm84.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:42830 "EHLO unm84.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753190AbYHAKPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753194AbYHAKPG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 1 Aug 2008 06:15:06 -0400
 In-Reply-To: <>
 References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initialize producer and consumer indices during netdev open(), only
-for old firmware/chip.
+Raise driver version to 4.0.6.
+
+Prevent enabling development revisions of the chip between 0x30 to 0x40.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |   22 ++++++++++------------
- 1 files changed, 10 insertions(+), 12 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    4 ++--
+ drivers/net/netxen/netxen_nic_hw.c   |    8 ++++----
+ drivers/net/netxen/netxen_nic_main.c |    7 +++++++
+ 3 files changed, 13 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index de877ff..0ec62da 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -65,8 +65,8 @@
+ 
+ #define _NETXEN_NIC_LINUX_MAJOR 4
+ #define _NETXEN_NIC_LINUX_MINOR 0
+-#define _NETXEN_NIC_LINUX_SUBVERSION 0
+-#define NETXEN_NIC_LINUX_VERSIONID  "4.0.0"
++#define _NETXEN_NIC_LINUX_SUBVERSION 6
++#define NETXEN_NIC_LINUX_VERSIONID  "4.0.6"
+ 
+ #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 16) + ((b) << 8) + (c))
+ 
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index d6d3b20..e304482 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -2206,10 +2206,10 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
+ 	if (adapter->portnum == 0) {
+ 		get_brd_name_by_type(board_info->board_type, brd_name);
+ 
+-		printk("NetXen %s Board S/N %s  Chip id 0x%x\n",
+-				brd_name, serial_num, board_info->chip_id);
+-		printk("NetXen Firmware version %d.%d.%d\n", fw_major,
+-				fw_minor, fw_build);
++		printk(KERN_INFO "NetXen %s Board S/N %s  Chip rev 0x%x\n",
++				brd_name, serial_num, adapter->ahw.revision_id);
++		printk(KERN_INFO "NetXen Firmware version %d.%d.%d\n",
++				fw_major, fw_minor, fw_build);
+ 	}
+ 
+ 	if (NETXEN_VERSION_CODE(fw_major, fw_minor, fw_build) <
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 320d010..311a4bd 100644
+index ecb26f9..e1f6478 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -702,13 +702,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->status   &= ~NETXEN_NETDEV_STATUS;
- 	adapter->rx_csum = 1;
- 	adapter->mc_enabled = 0;
--	if (NX_IS_REVISION_P3(revision_id)) {
-+	if (NX_IS_REVISION_P3(revision_id))
- 		adapter->max_mc_count = 38;
--		adapter->max_rds_rings = 2;
--	} else {
-+	else
- 		adapter->max_mc_count = 16;
--		adapter->max_rds_rings = 3;
--	}
- 
- 	netdev->open		   = netxen_nic_open;
- 	netdev->stop		   = netxen_nic_close;
-@@ -781,10 +778,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		if (adapter->portnum == 0)
- 			first_driver = 1;
+@@ -579,6 +579,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		return -ENODEV;
  	}
--	adapter->crb_addr_cmd_producer = crb_cmd_producer[adapter->portnum];
--	adapter->crb_addr_cmd_consumer = crb_cmd_consumer[adapter->portnum];
--	netxen_nic_update_cmd_producer(adapter, 0);
--	netxen_nic_update_cmd_consumer(adapter, 0);
  
- 	if (first_driver) {
- 		first_boot = adapter->pci_read_normalize(adapter,
-@@ -1055,6 +1048,11 @@ static int netxen_nic_open(struct net_device *netdev)
- 			return -EIO;
- 		}
- 
-+		if (adapter->fw_major < 4)
-+			adapter->max_rds_rings = 3;
-+		else
-+			adapter->max_rds_rings = 2;
++	if (pdev->revision >= NX_P3_A0 && pdev->revision < NX_P3_B1) {
++		printk(KERN_WARNING "NetXen chip revisions between 0x%x-0x%x"
++				"will not be enabled.\n",
++				NX_P3_A0, NX_P3_B1);
++		return -ENODEV;
++	}
 +
- 		err = netxen_alloc_sw_resources(adapter);
- 		if (err) {
- 			printk(KERN_ERR "%s: Error in setting sw resources\n",
-@@ -1076,10 +1074,10 @@ static int netxen_nic_open(struct net_device *netdev)
- 				crb_cmd_producer[adapter->portnum];
- 			adapter->crb_addr_cmd_consumer =
- 				crb_cmd_consumer[adapter->portnum];
--		}
+ 	if ((err = pci_enable_device(pdev)))
+ 		return err;
  
--		netxen_nic_update_cmd_producer(adapter, 0);
--		netxen_nic_update_cmd_consumer(adapter, 0);
-+			netxen_nic_update_cmd_producer(adapter, 0);
-+			netxen_nic_update_cmd_consumer(adapter, 0);
-+		}
- 
- 		for (ctx = 0; ctx < MAX_RCV_CTX; ++ctx) {
- 			for (ring = 0; ring < adapter->max_rds_rings; ring++)
 -- 
 1.5.4.3
 
