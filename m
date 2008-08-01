@@ -1,174 +1,213 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
-Date: Fri, 01 Aug 2008 10:50:17 -0400
-Message-ID: <489322A9.3080906@hp.com>
-References: <48929C5B.5030108@cn.fujitsu.com> <E1KOqf7-0004lB-00@gondolin.me.apana.org.au> <20080801.021825.51896743.davem@davemloft.net> <20080801092548.GA18424@gondor.apana.org.au> <20080801115041.GA19124@gondor.apana.org.au> <20080801131453.GA19851@gondor.apana.org.au>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH] Support for new rtl810x hardware
+Date: Fri, 01 Aug 2008 17:24:42 +0200
+Message-ID: <48932ABA.2000205@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, yjwei@cn.fujitsu.com,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, edward_hsu@realtek.com.tw
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:43442 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbYHAOuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 10:50:22 -0400
-In-Reply-To: <20080801131453.GA19851@gondor.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:40826 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752066AbYHAPZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2008 11:25:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Fri, Aug 01, 2008 at 07:50:41PM +0800, Herbert Xu wrote:
->> So we should be able to simply replace ipfragok with skb->local_df.
->> The only trouble is that SCTP doesn't seem to keep its PMTU setting
->> in the usual spot so we'll need to fix that before this can be done.
-> 
-> OK I think this should work:
-> 
-> sctp: Drop ipfargok in sctp_xmit function
-> 
-> The ipfragok flag controls whether the packet may be fragmented
-> either on the local host on beyond.  The latter is only valid on
-> IPv4.
-> 
-> In fact, we never want to do the latter even on IPv4 when PMTU is
-> enabled.  This is because even though we can't fragment packets
+The support is taken from Realtek's driver r8101 version 1.007.00.
+I tested the patch on RTL8102EL hardware with success.
 
-I think you mean that we can't "re-fragment packets".  The reason
-for that is how SCTP handles sequence numbering,  Instead of numbering
-bytes, it number messages.  Thus once the number is assigned, you can't
-re-fragment it as that would result in different sequence numbers.
+The patch is against r8169 branch of Francois's repository.
 
-> within SCTP due to the prtocol's inherent faults, we can still
-> fragment it at IP layer.  By setting the DF bit we will improve
-> the PMTU process.
-> 
-> RFC 2960 only says that we SHOULD clear the DF bit in this case,
-> so we're compliant even if we set the DF bit.
+The code uses rtl8168_csi_access_enable, rtl8168_tx_performance_tweak
+and rtl8168_ephy_init because the apropriate code in Realtek's driver
+is pretty same. So it could be better to rename these functions
+like rtl_csi_access_enable,... to avoid confusing.
 
-RFC 4960 doesn't mention DF bit anywhere, so that's not an issue.
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-> 
-> Once we make this change, we only need to control the local
-> fragmentation.  There is already a bit in the skb which controls
-> that, local_df.  So this patch sets that instead of using the
-> ipfragok argument.
-> 
-> The only complication is that there isn't a struct sock object
-> per transport, so for IPv4 we have to resort to changing the
-> pmtudisc field for every packet.  This should be safe though
-> as the protocol is single-threaded.
-> 
-> Note that after this patch we can remove ipfragok from the rest
-> of the stack too.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 535a18f..ab1c472 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -524,8 +524,7 @@ static inline void sctp_ssn_skip(struct sctp_stream *stream, __u16 id,
->   */
->  struct sctp_af {
->  	int		(*sctp_xmit)	(struct sk_buff *skb,
-> -					 struct sctp_transport *,
-> -					 int ipfragok);
-> +					 struct sctp_transport *);
->  	int		(*setsockopt)	(struct sock *sk,
->  					 int level,
->  					 int optname,
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index a238d68..11dab07 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -195,8 +195,7 @@ out:
->  }
->  
->  /* Based on tcp_v6_xmit() in tcp_ipv6.c. */
-> -static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport,
-> -			int ipfragok)
-> +static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
->  {
->  	struct sock *sk = skb->sk;
->  	struct ipv6_pinfo *np = inet6_sk(sk);
-> @@ -231,7 +230,10 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport,
->  
->  	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
->  
-> -	return ip6_xmit(sk, skb, &fl, np->opt, ipfragok);
-> +	if (!(tp->param_flags & SPP_PMTUD_ENABLE))
-> +		skb->local_df = 1;
-> +
-> +	return ip6_xmit(sk, skb, &fl, np->opt, 0);
->  }
->  
->  /* Returns the dst cache entry for the given source and destination ip
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 4568464..0dc4a7d 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -586,10 +586,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
->  	SCTP_DEBUG_PRINTK("***sctp_transmit_packet*** skb len %d\n",
->  			  nskb->len);
->  
-> -	if (tp->param_flags & SPP_PMTUD_ENABLE)
-> -		(*tp->af_specific->sctp_xmit)(nskb, tp, packet->ipfragok);
-> -	else
-> -		(*tp->af_specific->sctp_xmit)(nskb, tp, 1);
-> +	nskb->local_df = packet->ipfragok;
-> +	(*tp->af_specific->sctp_xmit)(nskb, tp);
->  
->  out:
->  	packet->size = packet->overhead;
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index a6e0818..80b8efb 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -862,16 +862,25 @@ static int sctp_inet_supported_addrs(const struct sctp_sock *opt,
->  
->  /* Wrapper routine that calls the ip transmit routine. */
->  static inline int sctp_v4_xmit(struct sk_buff *skb,
-> -			       struct sctp_transport *transport, int ipfragok)
-> +			       struct sctp_transport *transport)
->  {
-> +	struct inet_sock *inet = inet_sk(skb->sk);
-> +
->  	SCTP_DEBUG_PRINTK("%s: skb:%p, len:%d, "
->  			  "src:%u.%u.%u.%u, dst:%u.%u.%u.%u\n",
->  			  __func__, skb, skb->len,
->  			  NIPQUAD(skb->rtable->rt_src),
->  			  NIPQUAD(skb->rtable->rt_dst));
->  
-> +	/*
-> +	 * You'd think with a protocol this big they could afford
-> +	 * a struct sock per transport.
-> +	 */
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index dda27bd..83a5104 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -107,7 +107,10 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_20 = 0x14, // 8168C
+ 	RTL_GIGA_MAC_VER_21 = 0x15, // 8168C
+ 	RTL_GIGA_MAC_VER_22 = 0x16, // 8168C
+-	RTL_GIGA_MAC_VER_23 = 0x17  // 8168CP
++	RTL_GIGA_MAC_VER_23 = 0x17, // 8168CP
++	RTL_GIGA_MAC_VER_24 = 0x18, // 8102E
++	RTL_GIGA_MAC_VER_25 = 0x19, // 8102EL
++	RTL_GIGA_MAC_VER_26 = 0x1a  // 8102EL
+ };
 
-Please don't add comments like this.  It does not contribute anything.
+ #define _R(NAME,MAC,MASK) \
+@@ -136,7 +139,10 @@ static const struct {
+ 	_R("RTL8168c/8111c",	RTL_GIGA_MAC_VER_20, 0xff7e1880), // PCI-E
+ 	_R("RTL8168c/8111c",	RTL_GIGA_MAC_VER_21, 0xff7e1880), // PCI-E
+ 	_R("RTL8168c/8111c",	RTL_GIGA_MAC_VER_22, 0xff7e1880), // PCI-E
+-	_R("RTL8168cp/8111cp",	RTL_GIGA_MAC_VER_23, 0xff7e1880)  // PCI-E
++	_R("RTL8168cp/8111cp",	RTL_GIGA_MAC_VER_23, 0xff7e1880), // PCI-E
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_24, 0xff7e1880), // PCI-E
++	_R("RTL8102el",		RTL_GIGA_MAC_VER_25, 0xff7e1880), // PCI-E
++	_R("RTL8102el",		RTL_GIGA_MAC_VER_26, 0xff7e1880), // PCI-E
+ };
+ #undef _R
 
-> +	inet->pmtudisc = transport->param_flags & SPP_PMTUD_ENABLE ?
-> +			 IP_PMTUDISC_DO : IP_PMTUDISC_DONT;
+@@ -823,11 +829,14 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		}
+ 	}
 
-If you insist on doing this, you need to save the old value and restore
-it after ip_queue_xmit(). 
+-	/* The 8100e/8101e do Fast Ethernet only. */
++	/* The 8100e/8101e/8102e(l) do Fast Ethernet only. */
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_13) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_14) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
+-	    (tp->mac_version == RTL_GIGA_MAC_VER_16)) {
++	    (tp->mac_version == RTL_GIGA_MAC_VER_16) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_24) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_25) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_26)) {
+ 		if ((giga_ctrl & (ADVERTISE_1000FULL | ADVERTISE_1000HALF)) &&
+ 		    netif_msg_link(tp)) {
+ 			printk(KERN_INFO "%s: PHY does not support 1000Mbps.\n",
+@@ -1241,6 +1250,12 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		{ 0x7cf00000, 0x34000000,	RTL_GIGA_MAC_VER_13 },
+ 		{ 0x7cf00000, 0x34200000,	RTL_GIGA_MAC_VER_16 },
+ 		{ 0x7c800000, 0x34000000,	RTL_GIGA_MAC_VER_16 },
++		{ 0x7cf00000, 0x34800000,       RTL_GIGA_MAC_VER_24 },
++		{ 0x7cf00000, 0x24800000,       RTL_GIGA_MAC_VER_24 },
++		{ 0x7cf00000, 0x34900000,       RTL_GIGA_MAC_VER_25 },
++		{ 0x7cf00000, 0x24900000,       RTL_GIGA_MAC_VER_25 },
++		{ 0x7c800000, 0x34800000,       RTL_GIGA_MAC_VER_26 },
++		{ 0x7c800000, 0x24800000,       RTL_GIGA_MAC_VER_26 },
+ 		/* FIXME: where did these entries come from ? -- FR */
+ 		{ 0xfc800000, 0x38800000,	RTL_GIGA_MAC_VER_15 },
+ 		{ 0xfc800000, 0x30800000,	RTL_GIGA_MAC_VER_14 },
+@@ -1486,6 +1501,34 @@ static void rtl8168cy_hw_phy_config(void __iomem *ioaddr)
+ 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
 
-The reason is that PMTU discovery change on a specific transport or
-association should not affect the socket, since there could be multiple
-associations on a given socket.  Each association has it's own control.
++static void rtl8102e_hw_phy_config(void __iomem *ioaddr)
++{
++	struct phy_reg phy_reg_init[] = {
++		{ 0x1f, 0x0003 },
++		{ 0x07, 0xa17b },
++		{ 0x04, 0xc066 },
++		{ 0x1f, 0x0000 },
++		{ 0x1f, 0x0000 }
++	};
++		
++	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++	mdio_patch(ioaddr, 0x11, 0x1000);
++	mdio_patch(ioaddr, 0x19, 0x2000);
++	mdio_write(ioaddr, 0x1f, 0x0000);
++}
++
++static void rtl8102el_hw_phy_config(void __iomem *ioaddr)
++{
++       struct phy_reg phy_reg_init[] = {
++               { 0x1f, 0x0000 },
++               { 0x11, 0x15c0 },
++               { 0x19, 0x2080 },
++               { 0x1f, 0x0000 },
++       };
++
++       rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
++
+ static void rtl_hw_phy_config(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -1530,6 +1573,13 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_23:
+ 		rtl8168cy_hw_phy_config(ioaddr);
+ 		break;
++	case RTL_GIGA_MAC_VER_24:
++		rtl8102e_hw_phy_config(ioaddr);
++		break;
++	case RTL_GIGA_MAC_VER_25:
++	case RTL_GIGA_MAC_VER_26:
++		rtl8102el_hw_phy_config(ioaddr);
++		break;
 
-Thanks
--vlad
+ 	default:
+ 		break;
+@@ -2548,6 +2598,54 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	RTL_W16(IntrMask, tp->intr_event);
+ }
 
-> +
->  	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
-> -	return ip_queue_xmit(skb, ipfragok);
-> +	return ip_queue_xmit(skb, 0);
->  }
->  
->  static struct sctp_af sctp_af_inet;
-> 
-> Cheers,
++static void rtl_hw_start_8101e(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	static struct ephy_info e_info_8101e[] = {
++		{ 0x01,	0,	0x6e65 },
++		{ 0x02,	0,	0x091f },
++		{ 0x03,	0,	0xc2f9 },
++		{ 0x06,	0,	0xafb5 },
++		{ 0x07,	0,	0x0e00 },
++		{ 0x19,	0,	0xec80 },
++		{ 0x01,	0,	0x2e65 },
++		{ 0x01,	0,	0x6e65 }
++	};
++	u8 cfg1;
++
++	rtl8168_csi_access_enable(ioaddr);
++
++	rtl8168_tx_performance_tweak(pdev, 0x5000);
++
++	RTL_W8(Config1, 0xdf);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	cfg1 = RTL_R8(Config1);
++	if ((cfg1 & LEDS0) && (cfg1 & LEDS1))
++		RTL_W8(Config1, RTL_R8(Config1) & ~(LEDS0));
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) &
++		~((1 << 15) | (1 << 14) | (1 << 12) | (1 << 11) |
++		  (1 << 10) | (1 <<  9) | (1 <<  8) | (1 <<  7) |
++		  (1 <<  4) | (1 <<  3)));
++
++	rtl8168_ephy_init(ioaddr, e_info_8101e, ARRAY_SIZE(e_info_8101e));
++}
++
++static void rtl_hw_start_8102el(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl8168_csi_access_enable(ioaddr);
++
++	rtl8168_tx_performance_tweak(pdev, 0x5000);
++
++	RTL_W8(Config1, 0x0f);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) &
++		~((1 << 15) | (1 << 14) | (1 << 12) | (1 << 11) |
++		  (1 << 10) | (1 <<  9) | (1 <<  8) | (1 <<  7) |
++		  (1 <<  4) | (1 <<  3)));
++}
++
+ static void rtl_hw_start_8101(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -2564,6 +2662,21 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 		}
+ 	}
 
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_24:
++		rtl_hw_start_8101e(ioaddr, pdev);
++		break;
++
++	case RTL_GIGA_MAC_VER_25:
++		rtl_hw_start_8102el(ioaddr, pdev);
++		rtl8168_ephy_write(ioaddr, 0x03, 0xc2f9);
++		break;
++
++	case RTL_GIGA_MAC_VER_26:
++		rtl_hw_start_8102el(ioaddr, pdev);
++		break;
++	}
++
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
