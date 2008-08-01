@@ -1,111 +1,34 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 8/8] igb: remove 82576 quad adapter
-Date: Fri, 01 Aug 2008 16:11:46 -0700
-Message-ID: <20080801231146.393.58105.stgit@localhost.localdomain>
-References: <20080801231106.393.46174.stgit@localhost.localdomain>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: [PATCH] Support for new rtl810x hardware
+Date: Sat, 02 Aug 2008 01:12:47 +0200
+Message-ID: <4893986F.5090604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+To: netdev@vger.kernel.org, ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58889 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752063AbYHAXLr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2008 19:11:47 -0400
-In-Reply-To: <20080801231106.393.46174.stgit@localhost.localdomain>
+Received: from ik-out-1112.google.com ([66.249.90.179]:60659 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751556AbYHAXMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 19:12:55 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so1324284ika.5
+        for <netdev@vger.kernel.org>; Fri, 01 Aug 2008 16:12:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Ivan Vecera wrote:
 
-removing the 82576 quad adapter as it will not have completed testing by
-the time the kernel has been released.
+> The support is taken from Realtek's driver r8101 version 1.007.00.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+latest versions are:
 
- drivers/net/igb/e1000_82575.c |    1 -
- drivers/net/igb/e1000_hw.h    |    1 -
- drivers/net/igb/igb_ethtool.c |    9 ---------
- drivers/net/igb/igb_main.c    |   11 -----------
- 4 files changed, 0 insertions(+), 22 deletions(-)
+r8101-1.009.00.tar.bz2  (Jul-24-2008)
+r8168-8.008.00.tar.bz2  (Jul-24-2008)
+r8169-6.007.00.tar.bz2  (Jul-24-2008)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 3310705..095b373 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -87,7 +87,6 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	case E1000_DEV_ID_82576:
- 	case E1000_DEV_ID_82576_FIBER:
- 	case E1000_DEV_ID_82576_SERDES:
--	case E1000_DEV_ID_82576_QUAD_COPPER:
- 		mac->type = e1000_82576;
- 		break;
- 	default:
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index aca3b11..68bf61a 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -41,7 +41,6 @@ struct e1000_hw;
- #define E1000_DEV_ID_82576                    0x10C9
- #define E1000_DEV_ID_82576_FIBER              0x10E6
- #define E1000_DEV_ID_82576_SERDES             0x10E7
--#define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
- #define E1000_DEV_ID_82575EB_COPPER           0x10A7
- #define E1000_DEV_ID_82575EB_FIBER_SERDES     0x10A9
- #define E1000_DEV_ID_82575GB_QUAD_COPPER      0x10D6
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 1eeab4f..b84331a 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1749,15 +1749,6 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
- 		/* return success for non excluded adapter ports */
- 		retval = 0;
- 		break;
--	case E1000_DEV_ID_82576_QUAD_COPPER:
--		/* quad port adapters only support WoL on port A */
--		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
--			wol->supported = 0;
--			break;
--		}
--		/* return success for non excluded adapter ports */
--		retval = 0;
--		break;
- 	default:
- 		/* dual port cards only support WoL on port A from now on
- 		 * unless it was enabled in the eeprom for port B
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 8f66e15..4b19abb 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -61,7 +61,6 @@ static struct pci_device_id igb_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
--	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575GB_QUAD_COPPER), board_82575 },
-@@ -1217,16 +1216,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
- 			adapter->eeprom_wol = 0;
- 		break;
--	case E1000_DEV_ID_82576_QUAD_COPPER:
--		/* if quad port adapter, disable WoL on all but port A */
--		if (global_quad_port_a != 0)
--			adapter->eeprom_wol = 0;
--		else
--			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
--		/* Reset for multiple quad port adapters */
--		if (++global_quad_port_a == 4)
--			global_quad_port_a = 0;
--		break;
- 	}
- 
- 	/* initialize the wol settings based on the eeprom settings */
+at: ftp://210.51.181.211/cn/nic/
+
+regards,
+-- 
+so much to do, so little time.
 
