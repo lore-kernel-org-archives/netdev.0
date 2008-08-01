@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 7/8] igb: remove igb_init_managability as it is deprecated
-Date: Fri, 01 Aug 2008 16:11:41 -0700
-Message-ID: <20080801231140.393.8993.stgit@localhost.localdomain>
+Subject: [PATCH 8/8] igb: remove 82576 quad adapter
+Date: Fri, 01 Aug 2008 16:11:46 -0700
+Message-ID: <20080801231146.393.58105.stgit@localhost.localdomain>
 References: <20080801231106.393.46174.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,75 +12,100 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62897 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:58889 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752048AbYHAXLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2008 19:11:41 -0400
+	id S1752063AbYHAXLr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2008 19:11:47 -0400
 In-Reply-To: <20080801231106.393.46174.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-igb_init_managability does not actually perform any function as the two
-registers it attempts to write are both read only on the host.  This patch
-removes the function and all references to it from the driver.
+removing the 82576 quad adapter as it will not have completed testing by
+the time the kernel has been released.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   25 -------------------------
- 1 files changed, 0 insertions(+), 25 deletions(-)
+ drivers/net/igb/e1000_82575.c |    1 -
+ drivers/net/igb/e1000_hw.h    |    1 -
+ drivers/net/igb/igb_ethtool.c |    9 ---------
+ drivers/net/igb/igb_main.c    |   11 -----------
+ 4 files changed, 0 insertions(+), 22 deletions(-)
 
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 3310705..095b373 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -87,7 +87,6 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	case E1000_DEV_ID_82576:
+ 	case E1000_DEV_ID_82576_FIBER:
+ 	case E1000_DEV_ID_82576_SERDES:
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+ 		mac->type = e1000_82576;
+ 		break;
+ 	default:
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index aca3b11..68bf61a 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -41,7 +41,6 @@ struct e1000_hw;
+ #define E1000_DEV_ID_82576                    0x10C9
+ #define E1000_DEV_ID_82576_FIBER              0x10E6
+ #define E1000_DEV_ID_82576_SERDES             0x10E7
+-#define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
+ #define E1000_DEV_ID_82575EB_COPPER           0x10A7
+ #define E1000_DEV_ID_82575EB_FIBER_SERDES     0x10A9
+ #define E1000_DEV_ID_82575GB_QUAD_COPPER      0x10D6
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 1eeab4f..b84331a 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -1749,15 +1749,6 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
+ 		/* return success for non excluded adapter ports */
+ 		retval = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* quad port adapters only support WoL on port A */
+-		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
+-			wol->supported = 0;
+-			break;
+-		}
+-		/* return success for non excluded adapter ports */
+-		retval = 0;
+-		break;
+ 	default:
+ 		/* dual port cards only support WoL on port A from now on
+ 		 * unless it was enabled in the eeprom for port B
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index cfed2b0..8f66e15 100644
+index 8f66e15..4b19abb 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -720,28 +720,6 @@ static void igb_get_hw_control(struct igb_adapter *adapter)
- 			ctrl_ext | E1000_CTRL_EXT_DRV_LOAD);
- }
+@@ -61,7 +61,6 @@ static struct pci_device_id igb_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
+-	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575GB_QUAD_COPPER), board_82575 },
+@@ -1217,16 +1216,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
+ 			adapter->eeprom_wol = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* if quad port adapter, disable WoL on all but port A */
+-		if (global_quad_port_a != 0)
+-			adapter->eeprom_wol = 0;
+-		else
+-			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
+-		/* Reset for multiple quad port adapters */
+-		if (++global_quad_port_a == 4)
+-			global_quad_port_a = 0;
+-		break;
+ 	}
  
--static void igb_init_manageability(struct igb_adapter *adapter)
--{
--	struct e1000_hw *hw = &adapter->hw;
--
--	if (adapter->en_mng_pt) {
--		u32 manc2h = rd32(E1000_MANC2H);
--		u32 manc = rd32(E1000_MANC);
--
--		/* enable receiving management packets to the host */
--		/* this will probably generate destination unreachable messages
--		 * from the host OS, but the packets will be handled on SMBUS */
--		manc |= E1000_MANC_EN_MNG2HOST;
--#define E1000_MNG2HOST_PORT_623 (1 << 5)
--#define E1000_MNG2HOST_PORT_664 (1 << 6)
--		manc2h |= E1000_MNG2HOST_PORT_623;
--		manc2h |= E1000_MNG2HOST_PORT_664;
--		wr32(E1000_MANC2H, manc2h);
--
--		wr32(E1000_MANC, manc);
--	}
--}
--
- /**
-  * igb_configure - configure the hardware for RX and TX
-  * @adapter: private board structure
-@@ -755,7 +733,6 @@ static void igb_configure(struct igb_adapter *adapter)
- 	igb_set_multi(netdev);
- 
- 	igb_restore_vlan(adapter);
--	igb_init_manageability(adapter);
- 
- 	igb_configure_tx(adapter);
- 	igb_setup_rctl(adapter);
-@@ -4524,8 +4501,6 @@ static void igb_io_resume(struct pci_dev *pdev)
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 
--	igb_init_manageability(adapter);
--
- 	if (netif_running(netdev)) {
- 		if (igb_up(adapter)) {
- 			dev_err(&pdev->dev, "igb_up failed after reset\n");
+ 	/* initialize the wol settings based on the eeprom settings */
 
