@@ -1,267 +1,111 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] net_sched: Add qdisc __NET_XMIT_BYPASS flag
-Date: Fri, 1 Aug 2008 10:19:29 +0000
-Message-ID: <20080801101929.GA12735@ff.dom.local>
-References: <20080731171431.GA9464@ami.dom.local> <4892AA16.40706@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 2/7] netxen: add new board types
+Date: Fri,  1 Aug 2008 03:14:56 -0700
+Message-ID: <1217585701-13958-3-git-send-email-dhananjay@netxen.com>
+Cc: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:15098 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752835AbYHAKOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 06:14:14 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so394694nfc.21
-        for <netdev@vger.kernel.org>; Fri, 01 Aug 2008 03:14:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4892AA16.40706@trash.net>
+Received: from [64.209.101.202] ([64.209.101.202]:42824 "EHLO unm84.unminc.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752985AbYHAKPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2008 06:15:05 -0400
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is this additional patch. I hope I got it mostly right...
+Add couple of new board configurations based on NX3031 chip.
 
-BTW, after this patch the only user of NET_XMIT_BYPASS seems to be
-dst_input(), but I can't see where it gets this (even before this
-patch).
-
-Jarek P.
-
------------------->
-
-Subject: net_sched: Add qdisc __NET_XMIT_BYPASS flag
-
-Patrick McHardy <kaber@trash.net> noticed that it would be nice to
-handle NET_XMIT_BYPASS by NET_XMIT_SUCCESS with an internal qdisc flag
-__NET_XMIT_BYPASS and to remove the mapping from dev_queue_xmit().
-
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
+ drivers/net/netxen/netxen_nic.h         |    6 +++++-
+ drivers/net/netxen/netxen_nic_ethtool.c |    2 ++
+ drivers/net/netxen/netxen_nic_hw.c      |    3 +++
+ drivers/net/netxen/netxen_nic_main.c    |    6 ++++++
+ 4 files changed, 16 insertions(+), 1 deletions(-)
 
- (apply on top of [PATCH] net_sched: Add qdisc __NET_XMIT_STOLEN flag)
-
- include/net/sch_generic.h |    6 +++---
- net/core/dev.c            |    1 -
- net/sched/sch_atm.c       |    2 +-
- net/sched/sch_cbq.c       |    4 ++--
- net/sched/sch_dsmark.c    |    2 +-
- net/sched/sch_hfsc.c      |    4 ++--
- net/sched/sch_htb.c       |    6 +++---
- net/sched/sch_netem.c     |    2 +-
- net/sched/sch_prio.c      |    6 +++---
- net/sched/sch_sfq.c       |    6 +++---
- 10 files changed, 19 insertions(+), 20 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index f139009..e41629f 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -331,14 +331,14 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
- 	return qdisc_skb_cb(skb)->pkt_len;
- }
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index ac710c3..22f9042 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -507,6 +507,8 @@ typedef enum {
+ 	NETXEN_BRDTYPE_P3_10000_BASE_T = 0x0027,
+ 	NETXEN_BRDTYPE_P3_XG_LOM = 0x0028,
+ 	NETXEN_BRDTYPE_P3_4_GB_MM = 0x0029,
++	NETXEN_BRDTYPE_P3_10G_SFP_CT = 0x002a,
++	NETXEN_BRDTYPE_P3_10G_SFP_QT = 0x002b,
+ 	NETXEN_BRDTYPE_P3_10G_CX4 = 0x0031,
+ 	NETXEN_BRDTYPE_P3_10G_XFP = 0x0032
  
--#ifdef CONFIG_NET_CLS_ACT
- /* additional qdisc xmit flags */
- enum net_xmit_qdisc_t {
--	__NET_XMIT_STOLEN = NET_XMIT_MASK + 1,
-+	__NET_XMIT_STOLEN = NET_XMIT_MASK + 0x1,
-+	__NET_XMIT_BYPASS = NET_XMIT_MASK + 0x2,
+@@ -1501,7 +1503,9 @@ static const struct netxen_brdinfo netxen_boards[] = {
+ 	{NETXEN_BRDTYPE_P3_10G_SFP_PLUS, 2, "Dual XGb SFP+ LP"},
+ 	{NETXEN_BRDTYPE_P3_10000_BASE_T, 1, "XGB 10G BaseT LP"},
+ 	{NETXEN_BRDTYPE_P3_XG_LOM,  2, "Dual XGb LOM"},
+-	{NETXEN_BRDTYPE_P3_4_GB_MM, 4, "Quad GB - March Madness"},
++	{NETXEN_BRDTYPE_P3_4_GB_MM, 4, "NX3031 Gigabit Ethernet"},
++	{NETXEN_BRDTYPE_P3_10G_SFP_CT, 2, "NX3031 10 Gigabit Ethernet"},
++	{NETXEN_BRDTYPE_P3_10G_SFP_QT, 2, "Quanta Dual XGb SFP+"},
+ 	{NETXEN_BRDTYPE_P3_10G_CX4, 2, "Reference Dual CX4 Option"},
+ 	{NETXEN_BRDTYPE_P3_10G_XFP, 1, "Reference Single XFP Option"}
  };
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index f9b933e..4ad3e08 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -207,6 +207,8 @@ netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 		break;
+ 	case NETXEN_BRDTYPE_P2_SB31_10G:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_PLUS:
++	case NETXEN_BRDTYPE_P3_10G_SFP_CT:
++	case NETXEN_BRDTYPE_P3_10G_SFP_QT:
+ 	case NETXEN_BRDTYPE_P3_10G_XFP:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+ 		ecmd->advertising |= ADVERTISED_FIBRE;
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 008a6e7..d0c6935 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -2016,6 +2016,8 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_10G_CX4_LP:
+ 	case NETXEN_BRDTYPE_P3_IMEZ:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_PLUS:
++	case NETXEN_BRDTYPE_P3_10G_SFP_CT:
++	case NETXEN_BRDTYPE_P3_10G_SFP_QT:
+ 	case NETXEN_BRDTYPE_P3_10G_XFP:
+ 	case NETXEN_BRDTYPE_P3_10000_BASE_T:
  
-+#ifdef CONFIG_NET_CLS_ACT
- #define net_xmit_drop_count(e)	((e) & __NET_XMIT_STOLEN ? 0 : 1)
--
- #else
- #define net_xmit_drop_count(e)	(1)
- #endif
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 69320a5..e670504 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1805,7 +1805,6 @@ gso:
- 
- 		spin_unlock(root_lock);
- 
--		rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
- 		goto out;
+@@ -2034,6 +2036,7 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
+ 	default:
+ 		printk("%s: Unknown(%x)\n", netxen_nic_driver_name,
+ 		       boardinfo->board_type);
++		rv = -ENODEV;
+ 		break;
  	}
  
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 27dd773..43d3725 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -457,7 +457,7 @@ drop: __maybe_unused
- 		return 0;
- 	}
- 	tasklet_schedule(&p->task);
--	return NET_XMIT_BYPASS;
-+	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- }
- 
- /*
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 765ae56..4e261ce 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -230,7 +230,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	    (cl = cbq_class_lookup(q, prio)) != NULL)
- 		return cl;
- 
--	*qerr = NET_XMIT_BYPASS;
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	for (;;) {
- 		int result = 0;
- 		defmap = head->defaults;
-@@ -377,7 +377,7 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	q->rx_class = cl;
- #endif
- 	if (cl == NULL) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 7170275..edd1298 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -268,7 +268,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- drop:
- 	kfree_skb(skb);
- 	sch->qstats.drops++;
--	return NET_XMIT_BYPASS;
-+	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- }
- 
- static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 5cf9ae7..c2b8d9c 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1159,7 +1159,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		if (cl->level == 0)
- 			return cl;
- 
--	*qerr = NET_XMIT_BYPASS;
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	tcf = q->root.filter_list;
- 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
-@@ -1578,7 +1578,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	cl = hfsc_classify(skb, sch, &err);
- 	if (cl == NULL) {
--		if (err == NET_XMIT_BYPASS)
-+		if (err & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return err;
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 538d79b..be35422 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -214,7 +214,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
- 	if ((cl = htb_find(skb->priority, sch)) != NULL && cl->level == 0)
- 		return cl;
- 
--	*qerr = NET_XMIT_BYPASS;
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	tcf = q->filter_list;
- 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
-@@ -567,7 +567,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		}
- #ifdef CONFIG_NET_CLS_ACT
- 	} else if (!cl) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-@@ -612,7 +612,7 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 		}
- #ifdef CONFIG_NET_CLS_ACT
- 	} else if (!cl) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 6cd6f2b..fb0294d 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -176,7 +176,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (count == 0) {
- 		sch->qstats.drops++;
- 		kfree_skb(skb);
--		return NET_XMIT_BYPASS;
-+		return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	}
- 
- 	skb_orphan(skb);
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index adb1a52..eac1976 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -38,7 +38,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	struct tcf_result res;
- 	int err;
- 
--	*qerr = NET_XMIT_BYPASS;
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	if (TC_H_MAJ(skb->priority) != sch->handle) {
- 		err = tc_classify(skb, q->filter_list, &res);
- #ifdef CONFIG_NET_CLS_ACT
-@@ -74,7 +74,7 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- #ifdef CONFIG_NET_CLS_ACT
- 	if (qdisc == NULL) {
- 
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-@@ -103,7 +103,7 @@ prio_requeue(struct sk_buff *skb, struct Qdisc* sch)
- 	qdisc = prio_classify(skb, sch, &ret);
- #ifdef CONFIG_NET_CLS_ACT
- 	if (qdisc == NULL) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 3a456e1..6e041d1 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -171,7 +171,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 	if (!q->filter_list)
- 		return sfq_hash(q, skb) + 1;
- 
--	*qerr = NET_XMIT_BYPASS;
-+	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	result = tc_classify(skb, q->filter_list, &res);
- 	if (result >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
-@@ -285,7 +285,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	hash = sfq_classify(skb, sch, &ret);
- 	if (hash == 0) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
-@@ -339,7 +339,7 @@ sfq_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	hash = sfq_classify(skb, sch, &ret);
- 	if (hash == 0) {
--		if (ret == NET_XMIT_BYPASS)
-+		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
- 		kfree_skb(skb);
- 		return ret;
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 7b8688e..153b391 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -284,6 +284,8 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_10G_CX4_LP:
+ 	case NETXEN_BRDTYPE_P3_IMEZ:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_PLUS:
++	case NETXEN_BRDTYPE_P3_10G_SFP_QT:
++	case NETXEN_BRDTYPE_P3_10G_SFP_CT:
+ 	case NETXEN_BRDTYPE_P3_10G_XFP:
+ 	case NETXEN_BRDTYPE_P3_10000_BASE_T:
+ 		adapter->msix_supported = !!use_msi_x;
+@@ -301,6 +303,10 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_REF_QG:
+ 	case NETXEN_BRDTYPE_P3_4_GB:
+ 	case NETXEN_BRDTYPE_P3_4_GB_MM:
++		adapter->msix_supported = 0;
++		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
++		break;
++
+ 	case NETXEN_BRDTYPE_P2_SB35_4G:
+ 	case NETXEN_BRDTYPE_P2_SB31_2G:
+ 		adapter->msix_supported = 0;
+-- 
+1.5.4.3
+
