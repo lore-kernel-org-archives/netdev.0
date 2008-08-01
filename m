@@ -1,66 +1,74 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH]&[Question] netdevice: Use netdev_priv()
-Date: Fri, 01 Aug 2008 17:50:15 +0800
-Message-ID: <4892DC57.2060101@cn.fujitsu.com>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: [PATCH] raw: restore daddr_cache in raw kernel socket.
+Date: Fri, 01 Aug 2008 19:00:20 +0900
+Message-ID: <4892DEB4.20203@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: NETDEV <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
+To: usagi-users@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56827 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbYHAJwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2008 05:52:20 -0400
+Received: from ns.miraclelinux.com ([219.118.163.66]:34752 "EHLO
+	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191AbYHAKAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 06:00:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave
+Hi all,
 
-This mail is a question mail more than patch mail.
-In your commit "netdev: netdev_priv() can now be sane again.",
-you said netdev_priv() != netdev->priv, because that time,
-netdev->priv = ((char *)dev +((sizeof(struct net_device) +(sizeof(struct net_device_subqueue) *
-		(queue_count - 1)) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST))
-But now, after you do TX multiqueue improvement.
-netdev->priv == netdev_priv() again.
+I created a patch of RAW socket.
 
-That make me think, what the use of netdev->priv?
-We have netdev_priv() and use it flexibly. Why don't kill netdev->priv?
+This patch adds ip6_sk_dst_lookup()/ip6_dst_store() in rawv6_sendmsg().
+so that RAW socket can use "daddr_cache".
 
+When RAW socket sent the packets to same destination,
+it must reduce over-head.
+
+Could you please check the following patch?
+
+Regards,
+Naohiro Ooiwa
+
+
+Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
 ---
->From be26ade29c6a3d0002492f7aab25258cb78ab597 Mon Sep 17 00:00:00 2001
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 1 Aug 2008 16:59:59 +0800
-Subject: [PATCH] netdevice: Use netdev_priv()
+ net/ipv6/raw.c |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
 
-dev->priv is now point to private data again.
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 396f0ea..58c5e25 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -858,7 +858,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		fl.oif = np->mcast_oif;
+ 	security_sk_classify_flow(sk, &fl);
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- net/core/dev.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 63d6bcd..9b73624 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4255,11 +4255,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	dev->num_tx_queues = queue_count;
- 	dev->real_num_tx_queues = queue_count;
- 
--	if (sizeof_priv) {
--		dev->priv = ((char *)dev +
--			     ((sizeof(struct net_device) + NETDEV_ALIGN_CONST)
--			      & ~NETDEV_ALIGN_CONST));
--	}
-+	if (sizeof_priv)
-+		dev->priv = netdev_priv(dev);
- 
- 	dev->gso_max_size = GSO_MAX_SIZE;
- 
+-	err = ip6_dst_lookup(sk, &dst, &fl);
++	err = ip6_sk_dst_lookup(sk, &dst, &fl);
+ 	if (err)
+ 		goto out;
+ 	if (final_p)
+@@ -905,7 +905,17 @@ back_from_confirm:
+ 		release_sock(sk);
+ 	}
+ done:
+-	dst_release(dst);
++	if (dst)
++		ip6_dst_store(sk, dst,
++			      ipv6_addr_equal(&fl.fl6_dst, &np->daddr) ?
++			      &np->daddr : NULL,
++#ifdef CONFIG_IPV6_SUBTREES
++			      ipv6_addr_equal(&fl.fl6_src, &np->saddr) ?
++			      &np->saddr :
++#endif
++			      NULL);
++	else
++		dst_release(dst);
+ out:
+ 	fl6_sock_release(flowlabel);
+ 	return err<0?err:len;
 -- 
-1.5.3.4
-
 
 
