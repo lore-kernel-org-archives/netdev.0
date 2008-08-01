@@ -1,70 +1,56 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: [PATCH 2.6.27-rc1] ixp4xx_eth: fix dma_mapping_error() compile errors
-Date: Fri, 1 Aug 2008 20:01:34 +0200 (MEST)
-Message-ID: <200808011801.m71I1YLM006716@harpo.it.uu.se>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: khc@pm.waw.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aun.it.uu.se ([130.238.12.36]:33862 "EHLO aun.it.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752003AbYHASBo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2008 14:01:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 03/10] fs-enet: remove code associated with
+	!CONFIG_PPC_MERGE
+Date: Fri, 1 Aug 2008 13:57:14 -0500
+Message-ID: <20080801185714.GA26062@ld0162-tx32.am.freescale.net>
+References: <1217609060-6381-1-git-send-email-galak@kernel.crashing.org>
+	<1217609060-6381-2-git-send-email-galak@kernel.crashing.org>
+	<1217609060-6381-3-git-send-email-galak@kernel.crashing.org>
+	<1217609060-6381-4-git-send-email-galak@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1217609060-6381-4-git-send-email-galak@kernel.crashing.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-The arm ixp4xx_eth driver doesn't compile in 2.6.27-rc1:
+On Fri, Aug 01, 2008 at 11:44:13AM -0500, Kumar Gala wrote:
+> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+> index 9a51ec8..e54d003 100644
+> --- a/drivers/net/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/fs_enet/fs_enet-main.c
+> @@ -669,7 +669,6 @@ static int fs_request_irq(struct net_device *dev, int irq, const char *name,
+>  {
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+>  
+> -	(*fep->ops->pre_request_irq)(dev, irq);
+>  	return request_irq(irq, irqf, IRQF_SHARED, name, dev);
+>  }
 
-  CC [M]  drivers/net/arm/ixp4xx_eth.o
-drivers/net/arm/ixp4xx_eth.c: In function 'eth_poll':
-drivers/net/arm/ixp4xx_eth.c:554: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:554: error: too few arguments to function 'dma_mapping_error'
-drivers/net/arm/ixp4xx_eth.c: In function 'eth_xmit':
-drivers/net/arm/ixp4xx_eth.c:701: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:701: error: too few arguments to function 'dma_mapping_error'
-drivers/net/arm/ixp4xx_eth.c: In function 'init_queues':
-drivers/net/arm/ixp4xx_eth.c:886: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:886: error: too few arguments to function 'dma_mapping_error'
-make[3]: *** [drivers/net/arm/ixp4xx_eth.o] Error 1
-make[2]: *** [drivers/net/arm] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
+This makes "fep" an unused variable.  Eliminate this function entirely,
+and call request_irq directly from the caller.
 
-dma_mapping_error() changed in 2.6.27-rc1 to also take a device parameter,
-but nobody bothered updating ixp4xx_eth.c. Fixed by passing the appropriate
-device value in the dma_mapping_error() calls.
+>  
+> @@ -678,7 +677,6 @@ static void fs_free_irq(struct net_device *dev, int irq)
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+>  
+>  	free_irq(irq, dev);
+> -	(*fep->ops->post_free_irq)(dev, irq);
+>  }
 
-Tested on an ixp425 box.
+Likewise.
 
-Signed-off-by: Mikael Pettersson <mikpe@it.uu.se>
----
-
-diff -rupN linux-2.6.27-rc1/drivers/net/arm/ixp4xx_eth.c linux-2.6.27-rc1.arm-ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c
---- linux-2.6.27-rc1/drivers/net/arm/ixp4xx_eth.c	2008-07-29 10:40:10.000000000 +0200
-+++ linux-2.6.27-rc1.arm-ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c	2008-08-01 19:38:35.000000000 +0200
-@@ -551,7 +551,7 @@ static int eth_poll(struct napi_struct *
- 		if ((skb = netdev_alloc_skb(dev, RX_BUFF_SIZE))) {
- 			phys = dma_map_single(&dev->dev, skb->data,
- 					      RX_BUFF_SIZE, DMA_FROM_DEVICE);
--			if (dma_mapping_error(phys)) {
-+			if (dma_mapping_error(&dev->dev, phys)) {
- 				dev_kfree_skb(skb);
- 				skb = NULL;
- 			}
-@@ -698,7 +698,7 @@ static int eth_xmit(struct sk_buff *skb,
- #endif
- 
- 	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
--	if (dma_mapping_error(phys)) {
-+	if (dma_mapping_error(&dev->dev, phys)) {
- #ifdef __ARMEB__
- 		dev_kfree_skb(skb);
- #else
-@@ -883,7 +883,7 @@ static int init_queues(struct port *port
- 		desc->buf_len = MAX_MRU;
- 		desc->data = dma_map_single(&port->netdev->dev, data,
- 					    RX_BUFF_SIZE, DMA_FROM_DEVICE);
--		if (dma_mapping_error(desc->data)) {
-+		if (dma_mapping_error(&port->netdev->dev, desc->data)) {
- 			free_buffer(buff);
- 			return -EIO;
- 		}
+-Scott
