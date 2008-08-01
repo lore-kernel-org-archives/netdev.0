@@ -1,74 +1,29 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: [PATCH] raw: restore daddr_cache in raw kernel socket.
-Date: Fri, 01 Aug 2008 19:00:20 +0900
-Message-ID: <4892DEB4.20203@miraclelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]&[Question] netdevice: Use netdev_priv()
+Date: Fri, 01 Aug 2008 03:08:34 -0700 (PDT)
+Message-ID: <20080801.030834.245436720.davem@davemloft.net>
+References: <4892DC57.2060101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: usagi-users@linux-ipv6.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:34752 "EHLO
-	mail.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbYHAKAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 06:00:22 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43236
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751387AbYHAKIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 06:08:34 -0400
+In-Reply-To: <4892DC57.2060101@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Fri, 01 Aug 2008 17:50:15 +0800
 
-I created a patch of RAW socket.
+> That make me think, what the use of netdev->priv?
+> We have netdev_priv() and use it flexibly. Why don't kill netdev->priv?
 
-This patch adds ip6_sk_dst_lookup()/ip6_dst_store() in rawv6_sendmsg().
-so that RAW socket can use "daddr_cache".
+Way too many old drivers still reference netdev->priv directly.
 
-When RAW socket sent the packets to same destination,
-it must reduce over-head.
-
-Could you please check the following patch?
-
-Regards,
-Naohiro Ooiwa
-
-
-Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
----
- net/ipv6/raw.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 396f0ea..58c5e25 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -858,7 +858,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		fl.oif = np->mcast_oif;
- 	security_sk_classify_flow(sk, &fl);
-
--	err = ip6_dst_lookup(sk, &dst, &fl);
-+	err = ip6_sk_dst_lookup(sk, &dst, &fl);
- 	if (err)
- 		goto out;
- 	if (final_p)
-@@ -905,7 +905,17 @@ back_from_confirm:
- 		release_sock(sk);
- 	}
- done:
--	dst_release(dst);
-+	if (dst)
-+		ip6_dst_store(sk, dst,
-+			      ipv6_addr_equal(&fl.fl6_dst, &np->daddr) ?
-+			      &np->daddr : NULL,
-+#ifdef CONFIG_IPV6_SUBTREES
-+			      ipv6_addr_equal(&fl.fl6_src, &np->saddr) ?
-+			      &np->saddr :
-+#endif
-+			      NULL);
-+	else
-+		dst_release(dst);
- out:
- 	fl6_sock_release(flowlabel);
- 	return err<0?err:len;
--- 
-
-
+Once we convert all of them to netdev_priv(), yes we can kill
+netdev->priv
