@@ -1,196 +1,70 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH 03/10] fs-enet: remove code associated with !CONFIG_PPC_MERGE
-Date: Fri,  1 Aug 2008 11:44:13 -0500
-Message-ID: <1217609060-6381-4-git-send-email-galak@kernel.crashing.org>
-References: <1217609060-6381-1-git-send-email-galak@kernel.crashing.org>
- <1217609060-6381-2-git-send-email-galak@kernel.crashing.org>
- <1217609060-6381-3-git-send-email-galak@kernel.crashing.org>
-Cc: linux-kernel@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756734AbYHAQp4@vger.kernel.org>
-In-Reply-To: <1217609060-6381-3-git-send-email-galak@kernel.crashing.org>
-CC: netdev@vger.kernel.org
-CC: jgarzik@pobox.com
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: [PATCH 2.6.27-rc1] ixp4xx_eth: fix dma_mapping_error() compile errors
+Date: Fri, 1 Aug 2008 20:01:34 +0200 (MEST)
+Message-ID: <200808011801.m71I1YLM006716@harpo.it.uu.se>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: khc@pm.waw.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aun.it.uu.se ([130.238.12.36]:33862 "EHLO aun.it.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752003AbYHASBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2008 14:01:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that arch/ppc is gone we don't need CONFIG_PPC_MERGE anymore remove
-the dead code associated with !CONFIG_PPC_MERGE.
+The arm ixp4xx_eth driver doesn't compile in 2.6.27-rc1:
 
-With this change the pre_request_irq() and post_free_irq() calls became
-nops so they have been removed.
+  CC [M]  drivers/net/arm/ixp4xx_eth.o
+drivers/net/arm/ixp4xx_eth.c: In function 'eth_poll':
+drivers/net/arm/ixp4xx_eth.c:554: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
+drivers/net/arm/ixp4xx_eth.c:554: error: too few arguments to function 'dma_mapping_error'
+drivers/net/arm/ixp4xx_eth.c: In function 'eth_xmit':
+drivers/net/arm/ixp4xx_eth.c:701: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
+drivers/net/arm/ixp4xx_eth.c:701: error: too few arguments to function 'dma_mapping_error'
+drivers/net/arm/ixp4xx_eth.c: In function 'init_queues':
+drivers/net/arm/ixp4xx_eth.c:886: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
+drivers/net/arm/ixp4xx_eth.c:886: error: too few arguments to function 'dma_mapping_error'
+make[3]: *** [drivers/net/arm/ixp4xx_eth.o] Error 1
+make[2]: *** [drivers/net/arm] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+dma_mapping_error() changed in 2.6.27-rc1 to also take a device parameter,
+but nobody bothered updating ixp4xx_eth.c. Fixed by passing the appropriate
+device value in the dma_mapping_error() calls.
+
+Tested on an ixp425 box.
+
+Signed-off-by: Mikael Pettersson <mikpe@it.uu.se>
 ---
- drivers/net/fs_enet/fs_enet-main.c |    2 --
- drivers/net/fs_enet/fs_enet.h      |    2 --
- drivers/net/fs_enet/mac-fcc.c      |   12 ------------
- drivers/net/fs_enet/mac-fec.c      |   30 ------------------------------
- drivers/net/fs_enet/mac-scc.c      |   26 --------------------------
- 5 files changed, 0 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index 9a51ec8..e54d003 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -669,7 +669,6 @@ static int fs_request_irq(struct net_device *dev, int irq, const char *name,
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
+diff -rupN linux-2.6.27-rc1/drivers/net/arm/ixp4xx_eth.c linux-2.6.27-rc1.arm-ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c
+--- linux-2.6.27-rc1/drivers/net/arm/ixp4xx_eth.c	2008-07-29 10:40:10.000000000 +0200
++++ linux-2.6.27-rc1.arm-ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c	2008-08-01 19:38:35.000000000 +0200
+@@ -551,7 +551,7 @@ static int eth_poll(struct napi_struct *
+ 		if ((skb = netdev_alloc_skb(dev, RX_BUFF_SIZE))) {
+ 			phys = dma_map_single(&dev->dev, skb->data,
+ 					      RX_BUFF_SIZE, DMA_FROM_DEVICE);
+-			if (dma_mapping_error(phys)) {
++			if (dma_mapping_error(&dev->dev, phys)) {
+ 				dev_kfree_skb(skb);
+ 				skb = NULL;
+ 			}
+@@ -698,7 +698,7 @@ static int eth_xmit(struct sk_buff *skb,
+ #endif
  
--	(*fep->ops->pre_request_irq)(dev, irq);
- 	return request_irq(irq, irqf, IRQF_SHARED, name, dev);
- }
- 
-@@ -678,7 +677,6 @@ static void fs_free_irq(struct net_device *dev, int irq)
- 	struct fs_enet_private *fep = netdev_priv(dev);
- 
- 	free_irq(irq, dev);
--	(*fep->ops->post_free_irq)(dev, irq);
- }
- 
- static void fs_timeout(struct net_device *dev)
-diff --git a/drivers/net/fs_enet/fs_enet.h b/drivers/net/fs_enet/fs_enet.h
-index db46d2e..85a4bab 100644
---- a/drivers/net/fs_enet/fs_enet.h
-+++ b/drivers/net/fs_enet/fs_enet.h
-@@ -34,8 +34,6 @@ struct fs_ops {
- 	void (*adjust_link)(struct net_device *dev);
- 	void (*restart)(struct net_device *dev);
- 	void (*stop)(struct net_device *dev);
--	void (*pre_request_irq)(struct net_device *dev, int irq);
--	void (*post_free_irq)(struct net_device *dev, int irq);
- 	void (*napi_clear_rx_event)(struct net_device *dev);
- 	void (*napi_enable_rx)(struct net_device *dev);
- 	void (*napi_disable_rx)(struct net_device *dev);
-diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
-index 0a97fc2..b8c40d0 100644
---- a/drivers/net/fs_enet/mac-fcc.c
-+++ b/drivers/net/fs_enet/mac-fcc.c
-@@ -421,16 +421,6 @@ static void stop(struct net_device *dev)
- 	fs_cleanup_bds(dev);
- }
- 
--static void pre_request_irq(struct net_device *dev, int irq)
--{
--	/* nothing */
--}
--
--static void post_free_irq(struct net_device *dev, int irq)
--{
--	/* nothing */
--}
--
- static void napi_clear_rx_event(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
-@@ -540,8 +530,6 @@ const struct fs_ops fs_fcc_ops = {
- 	.set_multicast_list	= set_multicast_list,
- 	.restart		= restart,
- 	.stop			= stop,
--	.pre_request_irq	= pre_request_irq,
--	.post_free_irq		= post_free_irq,
- 	.napi_clear_rx_event	= napi_clear_rx_event,
- 	.napi_enable_rx		= napi_enable_rx,
- 	.napi_disable_rx	= napi_disable_rx,
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 0a7d1c5..14e5753 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -313,11 +313,7 @@ static void restart(struct net_device *dev)
- 	 * Clear any outstanding interrupt.
- 	 */
- 	FW(fecp, ievent, 0xffc0);
--#ifndef CONFIG_PPC_MERGE
--	FW(fecp, ivec, (fep->interrupt / 2) << 29);
--#else
- 	FW(fecp, ivec, (virq_to_hw(fep->interrupt) / 2) << 29);
--#endif
- 
- 	/*
- 	 * adjust to speed (only for DUET & RMII)
-@@ -413,30 +409,6 @@ static void stop(struct net_device *dev)
- 	}
- }
- 
--static void pre_request_irq(struct net_device *dev, int irq)
--{
--#ifndef CONFIG_PPC_MERGE
--	immap_t *immap = fs_enet_immap;
--	u32 siel;
--
--	/* SIU interrupt */
--	if (irq >= SIU_IRQ0 && irq < SIU_LEVEL7) {
--
--		siel = in_be32(&immap->im_siu_conf.sc_siel);
--		if ((irq & 1) == 0)
--			siel |= (0x80000000 >> irq);
--		else
--			siel &= ~(0x80000000 >> (irq & ~1));
--		out_be32(&immap->im_siu_conf.sc_siel, siel);
--	}
--#endif
--}
--
--static void post_free_irq(struct net_device *dev, int irq)
--{
--	/* nothing */
--}
--
- static void napi_clear_rx_event(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
-@@ -529,8 +501,6 @@ const struct fs_ops fs_fec_ops = {
- 	.set_multicast_list	= set_multicast_list,
- 	.restart		= restart,
- 	.stop			= stop,
--	.pre_request_irq	= pre_request_irq,
--	.post_free_irq		= post_free_irq,
- 	.napi_clear_rx_event	= napi_clear_rx_event,
- 	.napi_enable_rx		= napi_enable_rx,
- 	.napi_disable_rx	= napi_disable_rx,
-diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
-index 029b3c7..397608a 100644
---- a/drivers/net/fs_enet/mac-scc.c
-+++ b/drivers/net/fs_enet/mac-scc.c
-@@ -371,30 +371,6 @@ static void stop(struct net_device *dev)
- 	fs_cleanup_bds(dev);
- }
- 
--static void pre_request_irq(struct net_device *dev, int irq)
--{
--#ifndef CONFIG_PPC_MERGE
--	immap_t *immap = fs_enet_immap;
--	u32 siel;
--
--	/* SIU interrupt */
--	if (irq >= SIU_IRQ0 && irq < SIU_LEVEL7) {
--
--		siel = in_be32(&immap->im_siu_conf.sc_siel);
--		if ((irq & 1) == 0)
--			siel |= (0x80000000 >> irq);
--		else
--			siel &= ~(0x80000000 >> (irq & ~1));
--		out_be32(&immap->im_siu_conf.sc_siel, siel);
--	}
--#endif
--}
--
--static void post_free_irq(struct net_device *dev, int irq)
--{
--	/* nothing */
--}
--
- static void napi_clear_rx_event(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
-@@ -488,8 +464,6 @@ const struct fs_ops fs_scc_ops = {
- 	.set_multicast_list	= set_multicast_list,
- 	.restart		= restart,
- 	.stop			= stop,
--	.pre_request_irq	= pre_request_irq,
--	.post_free_irq		= post_free_irq,
- 	.napi_clear_rx_event	= napi_clear_rx_event,
- 	.napi_enable_rx		= napi_enable_rx,
- 	.napi_disable_rx	= napi_disable_rx,
--- 
-1.5.5.1
+ 	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
+-	if (dma_mapping_error(phys)) {
++	if (dma_mapping_error(&dev->dev, phys)) {
+ #ifdef __ARMEB__
+ 		dev_kfree_skb(skb);
+ #else
+@@ -883,7 +883,7 @@ static int init_queues(struct port *port
+ 		desc->buf_len = MAX_MRU;
+ 		desc->data = dma_map_single(&port->netdev->dev, data,
+ 					    RX_BUFF_SIZE, DMA_FROM_DEVICE);
+-		if (dma_mapping_error(desc->data)) {
++		if (dma_mapping_error(&port->netdev->dev, desc->data)) {
+ 			free_buffer(buff);
+ 			return -EIO;
+ 		}
