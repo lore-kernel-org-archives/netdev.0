@@ -1,42 +1,62 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: Kernel WARNING: at net/core/dev.c:1330
 	__netif_schedule+0x2c/0x98()
-Date: Fri, 01 Aug 2008 09:09:24 +0200
-Message-ID: <1217574564.8157.111.camel@twins>
-References: <20080726.173434.48036095.davem@davemloft.net>
-	 <20080727203757.GA2527@ami.dom.local>
-	 <20080731.052932.110299354.davem@davemloft.net>
-	 <20080731.212729.138736823.davem@davemloft.net>
+Date: Fri, 1 Aug 2008 07:41:32 +0000
+Message-ID: <20080801074132.GA5158@ff.dom.local>
+References: <20080731.052932.110299354.davem@davemloft.net> <20080801064810.GA4435@ff.dom.local> <20080801070150.GB4435@ff.dom.local> <20080801.000146.246099981.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-BkyiQQGWkgE@public.gmane.org,
-	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080731.212729.138736823.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, netdev@axxeo.de, peterz@infradead.org,
+	Larry.Finger@lwfinger.net, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, mingo@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ik-out-1112.google.com ([66.249.90.178]:15219 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbYHAHgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 03:36:15 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so946718ika.5
+        for <netdev@vger.kernel.org>; Fri, 01 Aug 2008 00:36:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080801.000146.246099981.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-07-31 at 21:27 -0700, David Miller wrote:
-> From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Date: Thu, 31 Jul 2008 05:29:32 -0700 (PDT)
+On Fri, Aug 01, 2008 at 12:01:46AM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Fri, 1 Aug 2008 07:01:50 +0000
 > 
-> > It's late here, but I'll start testing the following patch on my
-> > multiqueue capable cards after some sleep.
+> > On Fri, Aug 01, 2008 at 06:48:10AM +0000, Jarek Poplawski wrote:
+> > > On Thu, Jul 31, 2008 at 05:29:32AM -0700, David Miller wrote:
+> > ...
+> > > > diff --git a/net/core/dev.c b/net/core/dev.c
+> > > > index 63d6bcd..69320a5 100644
+> > > > --- a/net/core/dev.c
+> > > > +++ b/net/core/dev.c
+> > > > @@ -4200,6 +4200,7 @@ static void netdev_init_queues(struct net_device *dev)
+> > > >  {
+> > > >  	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
+> > > >  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+> > > > +	spin_lock_init(&dev->tx_global_lock);
+> > > 
+> > > This will probably need some lockdep annotations similar to
+> > > _xmit_lock.
+> > 
+> > ...BTW, we probably could also consider some optimization here: the
+> > xmit_lock of the first queue could be treated as special, and only
+> > the owner could do such a freezing. This would save changes of
+> > functionality to non mq devices. On the other hand, it would need
+> > remembering about this special treatment (so, eg. a separate lockdep
+> > initialization than all the others).
 > 
-> As a quick followup, I tested this on a machine where I had
-> a multiqueue interface and could reproduce the lockdep warnings,
-> and the patch makes them go away.
-> 
-> So I've pushed the patch into net-2.6 and will send it to Linus.
+> I think special casing the zero's queue's lock is a bad idea.
+> Having a real top-level synchronizer is a powerful tool and
+> we could use it for other things.
 
-Thanks david!
+Sure, if there is really no problem with lockdep here, there is no
+need for this at all.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for the explanations,
+Jarek P.
