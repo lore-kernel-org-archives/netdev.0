@@ -1,87 +1,59 @@
-From: Chris Larson <clarson@mvista.com>
-Subject: [PATCH 2/2] net: fix missing pneigh entries in the neighbor seq_file code
-Date: Fri,  1 Aug 2008 14:49:49 -0700
-Message-ID: <1217627389-9653-2-git-send-email-clarson@mvista.com>
-References: <1217627389-9653-1-git-send-email-clarson@mvista.com>
-Cc: Chris Larson <clarson@mvista.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 1/8] igb: fix comments
+Date: Fri, 01 Aug 2008 16:11:06 -0700
+Message-ID: <20080801231106.393.46174.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:20633 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760231AbYHAVtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 17:49:35 -0400
-In-Reply-To: <1217627389-9653-1-git-send-email-clarson@mvista.com>
+Received: from mga03.intel.com ([143.182.124.21]:4861 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751367AbYHAXLM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2008 19:11:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When pneigh entries exist, but the user's read buffer isn't sufficient to
-hold them all, one of the pneigh entries will be missing from the results.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In neigh_get_idx_any, the number of elements which neigh_get_idx
-encountered is not correctly subtracted from the position number before
-the call to pneigh_get_idx.  neigh_get_idx reduces the position by 1 for
-each call to neigh_get_next, but it does not reduce it by one for the
-first element (neigh_get_first). The patch alters the neigh_get_idx and
-pneigh_get_idx functions to subtract one from pos, for the first element,
-when pos is non-zero.
+The internal name was used in comments, replaced with silicon part number.
 
-Signed-off-by: Chris Larson <clarson@mvista.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/core/neighbour.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index a57de75..9d92e41 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2281,6 +2281,7 @@ static struct neighbour *neigh_get_idx(struct seq_file *seq, loff_t *pos)
- 	struct neighbour *n = neigh_get_first(seq);
- 
- 	if (n) {
-+		--(*pos);
- 		while (*pos) {
- 			n = neigh_get_next(seq, n, pos);
- 			if (!n)
-@@ -2341,6 +2342,7 @@ static struct pneigh_entry *pneigh_get_idx(struct seq_file *seq, loff_t *pos)
- 	struct pneigh_entry *pn = pneigh_get_first(seq);
- 
- 	if (pn) {
-+		--(*pos);
- 		while (*pos) {
- 			pn = pneigh_get_next(seq, pn, pos);
- 			if (!pn)
-@@ -2354,10 +2356,11 @@ static void *neigh_get_idx_any(struct seq_file *seq, loff_t *pos)
+ drivers/net/igb/e1000_82575.c |    2 +-
+ drivers/net/igb/igb_main.c    |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index e098f23..f3d7be0 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1243,7 +1243,7 @@ out:
+ u32 igb_translate_register_82576(u32 reg)
  {
- 	struct neigh_seq_state *state = seq->private;
- 	void *rc;
-+	loff_t idxpos = *pos;
- 
--	rc = neigh_get_idx(seq, pos);
-+	rc = neigh_get_idx(seq, &idxpos);
- 	if (!rc && !(state->flags & NEIGH_SEQ_NEIGH_ONLY))
--		rc = pneigh_get_idx(seq, pos);
-+		rc = pneigh_get_idx(seq, &idxpos);
- 
- 	return rc;
- }
-@@ -2366,7 +2369,6 @@ void *neigh_seq_start(struct seq_file *seq, loff_t *pos, struct neigh_table *tbl
- 	__acquires(tbl->lock)
- {
- 	struct neigh_seq_state *state = seq->private;
--	loff_t pos_minus_one;
- 
- 	state->tbl = tbl;
- 	state->bucket = 0;
-@@ -2374,8 +2376,7 @@ void *neigh_seq_start(struct seq_file *seq, loff_t *pos, struct neigh_table *tbl
- 
- 	read_lock_bh(&tbl->lock);
- 
--	pos_minus_one = *pos - 1;
--	return *pos ? neigh_get_idx_any(seq, &pos_minus_one) : SEQ_START_TOKEN;
-+	return *pos ? neigh_get_idx_any(seq, pos) : SEQ_START_TOKEN;
- }
- EXPORT_SYMBOL(neigh_seq_start);
- 
--- 
-1.5.5.1.147.g867f
+ 	/*
+-	 * Some of the Kawela registers are located at different
++	 * Some of the 82576 registers are located at different
+ 	 * offsets than they are in older adapters.
+ 	 * Despite the difference in location, the registers
+ 	 * function in the same manner.
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index b602c4d..f23a048 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -311,7 +311,7 @@ static void igb_assign_vector(struct igb_adapter *adapter, int rx_queue,
+ 		array_wr32(E1000_MSIXBM(0), msix_vector, msixbm);
+ 		break;
+ 	case e1000_82576:
+-		/* Kawela uses a table-based method for assigning vectors.
++		/* The 82576 uses a table-based method for assigning vectors.
+ 		   Each queue has a single entry in the table to which we write
+ 		   a vector number along with a "valid" bit.  Sadly, the layout
+ 		   of the table is somewhat counterintuitive. */
 
