@@ -1,56 +1,68 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 03/10] fs-enet: remove code associated with
-	!CONFIG_PPC_MERGE
-Date: Fri, 1 Aug 2008 13:57:14 -0500
-Message-ID: <20080801185714.GA26062@ld0162-tx32.am.freescale.net>
-References: <1217609060-6381-1-git-send-email-galak@kernel.crashing.org>
-	<1217609060-6381-2-git-send-email-galak@kernel.crashing.org>
-	<1217609060-6381-3-git-send-email-galak@kernel.crashing.org>
-	<1217609060-6381-4-git-send-email-galak@kernel.crashing.org>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: _xmit_ETHER lockdep warning. (-git8)
+Date: Fri, 1 Aug 2008 15:29:47 -0400
+Message-ID: <20080801192947.GA26210@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from testure.choralone.org ([194.9.77.134]:40717 "EHLO
+	testure.choralone.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934AbYHAT3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 15:29:16 -0400
+Received: from davej by testure.choralone.org with local (Exim 4.69)
+	(envelope-from <davej@codemonkey.org.uk>)
+	id 1KP0Jv-0001PB-LB
+	for netdev@vger.kernel.org; Fri, 01 Aug 2008 20:29:47 +0100
 Content-Disposition: inline
-In-Reply-To: <1217609060-6381-4-git-send-email-galak@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 01, 2008 at 11:44:13AM -0500, Kumar Gala wrote:
-> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-> index 9a51ec8..e54d003 100644
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -669,7 +669,6 @@ static int fs_request_irq(struct net_device *dev, int irq, const char *name,
->  {
->  	struct fs_enet_private *fep = netdev_priv(dev);
->  
-> -	(*fep->ops->pre_request_irq)(dev, irq);
->  	return request_irq(irq, irqf, IRQF_SHARED, name, dev);
->  }
+A week or so old, but possibly still valid..
 
-This makes "fep" an unused variable.  Eliminate this function entirely,
-and call request_irq directly from the caller.
+https://bugzilla.redhat.com/show_bug.cgi?id=456521
 
->  
-> @@ -678,7 +677,6 @@ static void fs_free_irq(struct net_device *dev, int irq)
->  	struct fs_enet_private *fep = netdev_priv(dev);
->  
->  	free_irq(irq, dev);
-> -	(*fep->ops->post_free_irq)(dev, irq);
->  }
 
-Likewise.
+=============================================
+[ INFO: possible recursive locking detected ]
+2.6.27-0.166.rc0.git8.fc10.x86_64 #1
+---------------------------------------------
+swapper/0 is trying to acquire lock:
+ (_xmit_ETHER){-+..}, at: [<ffffffff812828a3>] dev_watchdog+0x41/0x1a7
 
--Scott
+but task is already holding lock:
+ (_xmit_ETHER){-+..}, at: [<ffffffff812828a3>] dev_watchdog+0x41/0x1a7
+
+other info that might help us debug this:
+1 lock held by swapper/0:
+ #0:  (_xmit_ETHER){-+..}, at: [<ffffffff812828a3>] dev_watchdog+0x41/0x1a7
+
+stack backtrace:
+Pid: 0, comm: swapper Not tainted 2.6.27-0.166.rc0.git8.fc10.x86_64 #1
+
+Call Trace:
+ <IRQ>  [<ffffffff81061b46>] __lock_acquire+0x790/0xaa7
+ [<ffffffff81060d80>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffff812828a3>] ? dev_watchdog+0x41/0x1a7
+ [<ffffffff81061ef3>] lock_acquire+0x96/0xc3
+ [<ffffffff812828a3>] ? dev_watchdog+0x41/0x1a7
+ [<ffffffff812f5eb8>] _spin_lock+0x2b/0x58
+ [<ffffffff812828a3>] dev_watchdog+0x41/0x1a7
+ [<ffffffff81282862>] ? dev_watchdog+0x0/0x1a7
+ [<ffffffff81048ba6>] run_timer_softirq+0x17f/0x1f7
+ [<ffffffff810450eb>] __do_softirq+0x83/0x110
+ [<ffffffff8100dcbc>] call_softirq+0x1c/0x28
+ [<ffffffff8100ef81>] do_softirq+0x52/0xb5
+ [<ffffffff81044c95>] irq_exit+0x53/0xa0
+ [<ffffffff8101d160>] smp_apic_timer_interrupt+0x94/0xad
+ [<ffffffff8100d4c8>] apic_timer_interrupt+0x88/0x90
+ <EOI>  [<ffffffff81022880>] ? native_safe_halt+0x6/0x8
+ [<ffffffff81060d80>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffff81013537>] ? default_idle+0x2f/0x51
+ [<ffffffff81013661>] ? c1e_idle+0x108/0x10f
+ [<ffffffff812f9204>] ? atomic_notifier_call_chain+0x14/0x16
+ [<ffffffff8100b2d6>] ? cpu_idle+0x92/0xeb
+ [<ffffffff812efbef>] ? start_secondary+0x1a1/0x1a3
+
+-- 
+http://www.codemonkey.org.uk
