@@ -1,39 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] raw: restore daddr_cache in raw kernel socket.
-Date: Sat, 02 Aug 2008 08:52:37 +0800
-Message-ID: <E1KP5ML-0006MS-00@gondolin.me.apana.org.au>
-References: <4892DEB4.20203@miraclelinux.com>
-Cc: usagi-users@linux-ipv6.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: nooiwa@miraclelinux.com (Naohiro Ooiwa)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Fri, 01 Aug 2008 18:03:37 -0700 (PDT)
+Message-ID: <20080801.180337.233358413.davem@davemloft.net>
+References: <9929d2390808011640o58453023s623faa8930064505@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, emil.s.tantilov@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37592 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750969AbYHBAwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 20:52:42 -0400
-In-Reply-To: <4892DEB4.20203@miraclelinux.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58331
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751805AbYHBBDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 21:03:38 -0400
+In-Reply-To: <9929d2390808011640o58453023s623faa8930064505@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Naohiro Ooiwa <nooiwa@miraclelinux.com> wrote:
-> 
-> I created a patch of RAW socket.
-> 
-> This patch adds ip6_sk_dst_lookup()/ip6_dst_store() in rawv6_sendmsg().
-> so that RAW socket can use "daddr_cache".
-> 
-> When RAW socket sent the packets to same destination,
-> it must reduce over-head.
-> 
-> Could you please check the following patch?
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Date: Fri, 1 Aug 2008 16:40:04 -0700
 
-Please fix the IPsec issue in this thread first:
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+> IP: [<ffffffff8047b8f3>] __skb_dequeue+0x2d/0x35
+> PGD 0
+> Oops: 0002 [1] SMP
+> CPU 2
+> Modules linked in: igb nfsd lockd exportfs sunrpc pci_slot inet_lro
+> [last unloaded: igb]
+> Pid: 13, comm: events/2 Not tainted 2.6.27-rc1-igb #1
+> RIP: 0010:[<ffffffff8047b8f3>]  [<ffffffff8047b8f3>] __skb_dequeue+0x2d/0x35
+ ...
+>  [<ffffffff8047bad4>] ? pfifo_fast_reset+0x1f/0x4c
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg07339.html
+Looks like two threads are accessing the qdisc SKB lists but one of
+them isn't taking the proper qdisc locks.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I can't see how this can happen currently but I'll try to figure it
+out.
