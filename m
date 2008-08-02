@@ -1,70 +1,276 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [BUG] NULL pointer dereference in skb_dequeue
-Date: Sat, 2 Aug 2008 13:45:26 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
-References: <20080802133719.GB2970@ami.dom.local>
-	<20080802162733.GA10059@ami.dom.local>
-	<20080802.121815.167998262.davem@davemloft.net>
- <20080802.122251.94384264.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Support for new rtl810x hardware
+Date: Sat, 2 Aug 2008 22:02:41 +0200
+Message-ID: <20080802200241.GA20141@electric-eye.fr.zoreil.com>
+References: <4893986F.5090604@gmail.com> <CF18CE2CF7FD4328844F0749BE798A54@cera.cz> <20080802152049.GA10825@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"jarkao2@gmail.com" <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"'Xose Vazquez Perez'" <xose.vazquez@gmail.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>, netdev@vger.kernel.org
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:55686 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752355AbYHBTpa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 15:45:30 -0400
-In-Reply-To: <20080802.122251.94384264.davem@davemloft.net>
-Content-Language: en-US
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59353 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758620AbYHBUDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 16:03:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20080802152049.GA10825@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Still no luck.
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
 
-I was able to reset the interfaces and change the MTU multiple times until eventually the system froze. No trace.
+I have published a new serie at:
 
-Emil
+http://userweb.kernel.org/~romieu/r8169/2.6.27-rc1
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]
-Sent: Saturday, August 02, 2008 12:23 PM
-To: jarkao2@gmail.com
-Cc: Tantilov, Emil S; Kirsher, Jeffrey T; netdev@vger.kernel.org
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+It does not include the 8168 chipsets specific bits which are currently
+in the r8169 branch at git.kernel.org.
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 02 Aug 2008 12:18:15 -0700 (PDT)
+I'd appreciate if you could give the serie a try and tell me if it is
+ok to add your s-o-b to the patch below. It is synched with version
+1.008.00 of Realtek 8101 driver (which exhibits some phy_config
+changes).
 
-> See my other emails, it isn't even necessary anyways.
+I have changed the identifiers back to those used in the previous
+r810[12] support patch that I had pusblished the 2008/07/24 (it helps
+a lot when I have to compare locally). The translation works as:
 
-Sorry, because some idiot took part of the conversation private
-my follow-on fixup patch didn't make it to the list, here it is.
+Your                | Mine                | Realtek's
+--------------------+---------------------+-------------
+0x7cf00000          | ...                 | ...
+0x34800000          |                     |
+RTL_GIGA_MAC_VER_24 | RTL_GIGA_MAC_VER_07 | CFG_METHOD_3
+--------------------+---------------------+-------------
+0x7cf00000          |                     |
+0x24800000          |                     |
+RTL_GIGA_MAC_VER_24 | RTL_GIGA_MAC_VER_07 | CFG_METHOD_3
+--------------------+---------------------+-------------
+0x7cf00000          |                     |
+0x34900000          |                     |
+RTL_GIGA_MAC_VER_25 | RTL_GIGA_MAC_VER_08 | CFG_METHOD_4
+--------------------+---------------------+-------------
+0x7cf00000          |                     |
+0x24900000          |                     |
+RTL_GIGA_MAC_VER_25 | RTL_GIGA_MAC_VER_08 | CFG_METHOD_4
+--------------------+---------------------+-------------
+                    | 0x7cf00000          |
+                    | 0x34a00000          |
+                    | RTL_GIGA_MAC_VER_09 | CFG_METHOD_5
+--------------------+---------------------+-------------
+                    | 0x7cf00000          |
+                    | 0x24a00000          |
+                    | RTL_GIGA_MAC_VER_09 | CFG_METHOD_5
+--------------------+---------------------+-------------
+0x7c800000          |                     |
+0x34800000          |                     |
+RTL_GIGA_MAC_VER_26 | RTL_GIGA_MAC_VER_09 | CFG_METHOD_5
+--------------------+---------------------+-------------
+0x7c800000          |                     |
+0x24800000          |                     |
+RTL_GIGA_MAC_VER_26 | RTL_GIGA_MAC_VER_09 | CFG_METHOD_5
+--------------------+---------------------+-------------
 
-It goes on top of the original patch I sent out:
+The 0x7c800000 mask is more or less reserved for the fallback,
+whence the introduction of the 0x34a00000 identifier.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 69320a5..da7acac 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1796,7 +1796,7 @@ gso:
-        skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
- #endif
-        if (q->enqueue) {
--               spinlock_t *root_lock = qdisc_root_lock(q);
-+               spinlock_t *root_lock = qdisc_lock(q);
+I have not understood under which basis you made a difference
+between 8102e and 8102el. As far as I can tell Realtek's driver
+does not disambiguate either: 0x34a00000 (resp. 0x34800000) and
+0x24a00000 (resp. 0x24800000) both fall under CFG_METHOD_5
+(resp. CFG_METHOD_3). Did I miss something or was is more or
+less arbitrary ?
 
-                spin_lock(root_lock);
+RTL_GIGA_MAC_VER_10 (0x34300000) has been added. It does not
+seem to require a lot of support.
 
-@@ -1995,7 +1995,7 @@ static void net_tx_action(struct softirq_action *h)
-                        smp_mb__before_clear_bit();
-                        clear_bit(__QDISC_STATE_SCHED, &q->state);
-
--                       root_lock = qdisc_root_lock(q);
-+                       root_lock = qdisc_lock(q);
-                        if (spin_trylock(root_lock)) {
-                                qdisc_run(q);
-                                spin_unlock(root_lock);
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 8bf1e75..2c244df 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -96,6 +96,10 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_04 = 0x04, // 8169SB
+ 	RTL_GIGA_MAC_VER_05 = 0x05, // 8110SCd
+ 	RTL_GIGA_MAC_VER_06 = 0x06, // 8110SCe
++	RTL_GIGA_MAC_VER_07 = 0x07, // 8102e
++	RTL_GIGA_MAC_VER_08 = 0x08, // 8102e
++	RTL_GIGA_MAC_VER_09 = 0x09, // 8102e
++	RTL_GIGA_MAC_VER_10 = 0x0a, // 8101e
+ 	RTL_GIGA_MAC_VER_11 = 0x0b, // 8168Bb
+ 	RTL_GIGA_MAC_VER_12 = 0x0c, // 8168Be
+ 	RTL_GIGA_MAC_VER_13 = 0x0d, // 8101Eb
+@@ -122,6 +126,10 @@ static const struct {
+ 	_R("RTL8169sb/8110sb",	RTL_GIGA_MAC_VER_04, 0xff7e1880), // 8169SB
+ 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_05, 0xff7e1880), // 8110SCd
+ 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_06, 0xff7e1880), // 8110SCe
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_07, 0xff7e1880), // PCI-E
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_08, 0xff7e1880), // PCI-E
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_09, 0xff7e1880), // PCI-E
++	_R("RTL8101e",		RTL_GIGA_MAC_VER_10, 0xff7e1880), // PCI-E
+ 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_11, 0xff7e1880), // PCI-E
+ 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_12, 0xff7e1880), // PCI-E
+ 	_R("RTL8101e",		RTL_GIGA_MAC_VER_13, 0xff7e1880), // PCI-E 8139
+@@ -836,8 +844,12 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		}
+ 	}
+ 
+-	/* The 8100e/8101e do Fast Ethernet only. */
+-	if ((tp->mac_version == RTL_GIGA_MAC_VER_13) ||
++	/* The 8100e/8101e/8102e do Fast Ethernet only. */
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_07) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_08) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_09) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_10) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_13) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_14) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_16)) {
+@@ -1211,8 +1223,17 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
+ 
+ 		/* 8101 family. */
++		{ 0x7cf00000, 0x34a00000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7cf00000, 0x24a00000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7cf00000, 0x34900000,	RTL_GIGA_MAC_VER_08 },
++		{ 0x7cf00000, 0x24900000,	RTL_GIGA_MAC_VER_08 },
++		{ 0x7cf00000, 0x34800000,	RTL_GIGA_MAC_VER_07 },
++		{ 0x7cf00000, 0x24800000,	RTL_GIGA_MAC_VER_07 },
+ 		{ 0x7cf00000, 0x34000000,	RTL_GIGA_MAC_VER_13 },
++		{ 0x7cf00000, 0x34300000,	RTL_GIGA_MAC_VER_10 },
+ 		{ 0x7cf00000, 0x34200000,	RTL_GIGA_MAC_VER_16 },
++		{ 0x7c800000, 0x34800000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7c800000, 0x24800000,	RTL_GIGA_MAC_VER_09 },
+ 		{ 0x7c800000, 0x34000000,	RTL_GIGA_MAC_VER_16 },
+ 		/* FIXME: where did these entries come from ? -- FR */
+ 		{ 0xfc800000, 0x38800000,	RTL_GIGA_MAC_VER_15 },
+@@ -1374,6 +1395,22 @@ static void rtl8168cx_hw_phy_config(void __iomem *ioaddr)
+ 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
+ 
++static void rtl8102e_hw_phy_config(void __iomem *ioaddr)
++{
++	struct phy_reg phy_reg_init[] = {
++		{ 0x1f, 0x0003 },
++		{ 0x08, 0x441d },
++		{ 0x01, 0x9100 },
++		{ 0x1f, 0x0000 }
++	};
++
++	mdio_write(ioaddr, 0x1f, 0x0000);
++	mdio_patch(ioaddr, 0x11, 1 << 12);
++	mdio_patch(ioaddr, 0x19, 1 << 13);
++
++	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
++
+ static void rtl_hw_phy_config(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -1391,6 +1428,11 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_04:
+ 		rtl8169sb_hw_phy_config(ioaddr);
+ 		break;
++	case RTL_GIGA_MAC_VER_07:
++	case RTL_GIGA_MAC_VER_08:
++	case RTL_GIGA_MAC_VER_09:
++		rtl8102e_hw_phy_config(ioaddr);
++		break;
+ 	case RTL_GIGA_MAC_VER_18:
+ 		rtl8168cp_hw_phy_config(ioaddr);
+ 		break;
+@@ -2251,6 +2293,70 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	RTL_W16(IntrMask, tp->intr_event);
+ }
+ 
++#define R810X_CPCMD_QUIRK_MASK (\
++	EnableBist | \
++	Mac_dbgo_oe | \
++	Force_half_dup | \
++	Force_half_dup | \
++	Force_txflow_en | \
++	Cxpl_dbg_sel | \
++	ASF | \
++	PktCntrDisable | \
++	PCIDAC | \
++	PCIMulRW)
++
++static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	static struct ephy_info e_info_8102e_1[] = {
++		{ 0x01,	0, 0x6e65 },
++		{ 0x02,	0, 0x091f },
++		{ 0x03,	0, 0xc2f9 },
++		{ 0x06,	0, 0xafb5 },
++		{ 0x07,	0, 0x0e00 },
++		{ 0x19,	0, 0xec80 },
++		{ 0x01,	0, 0x2e65 },
++		{ 0x01,	0, 0x6e65 }
++	};
++	u8 cfg1;
++
++	rtl_csi_access_enable(ioaddr);
++
++	RTL_W8(DBG_REG, FIX_NAK_1);
++
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++
++	RTL_W8(Config1,
++	       LEDS1 | LEDS0 | Speed_down | MEMMAP | IOMAP | VPD | PMEnable);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	cfg1 = RTL_R8(Config1);
++	if ((cfg1 & LEDS0) && (cfg1 & LEDS1))
++		RTL_W8(Config1, cfg1 & ~LEDS0);
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
++
++	rtl_ephy_init(ioaddr, e_info_8102e_1, ARRAY_SIZE(e_info_8102e_1));
++}
++
++static void rtl_hw_start_8102e_2(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_csi_access_enable(ioaddr);
++
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++
++	RTL_W8(Config1, MEMMAP | IOMAP | VPD | PMEnable);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
++}
++
++static void rtl_hw_start_8102e_3(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_hw_start_8102e_2(ioaddr, pdev);
++
++	rtl_ephy_write(ioaddr, 0x03, 0xc2f9);
++}
++
+ static void rtl_hw_start_8101(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -2267,6 +2373,20 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 		}
+ 	}
+ 
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_07:
++		rtl_hw_start_8102e_1(ioaddr, pdev);
++		break;
++
++	case RTL_GIGA_MAC_VER_08:
++		rtl_hw_start_8102e_3(ioaddr, pdev);
++		break;
++
++	case RTL_GIGA_MAC_VER_09:
++		rtl_hw_start_8102e_2(ioaddr, pdev);
++		break;
++	}
++
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+-- 
+Ueimor
