@@ -1,80 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Fri, 01 Aug 2008 18:20:28 -0700 (PDT)
-Message-ID: <20080801.182028.74132050.davem@davemloft.net>
-References: <9929d2390808011640o58453023s623faa8930064505@mail.gmail.com>
-	<20080801.180337.233358413.davem@davemloft.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-01
+Date: Fri, 1 Aug 2008 23:29:46 -0400
+Message-ID: <20080802032946.GA29921@tuxdriver.com>
+References: <20080801205830.GA10071@tuxdriver.com> <1ba2fa240808011443u1a5553fpfca046f047773217@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, emil.s.tantilov@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56777
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751496AbYHBBU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2008 21:20:29 -0400
-In-Reply-To: <20080801.180337.233358413.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1ba2fa240808011443u1a5553fpfca046f047773217-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 01 Aug 2008 18:03:37 -0700 (PDT)
-
-> Looks like two threads are accessing the qdisc SKB lists but one of
-> them isn't taking the proper qdisc locks.
+On Sat, Aug 02, 2008 at 12:43:32AM +0300, Tomas Winkler wrote:
+> On Fri, Aug 1, 2008 at 11:58 PM, John W. Linville
+> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> > Dave,
+> >
+> > Another big batch of wireless fixes for 2.6.27.  The ath5k series is
+> > more than fixes, but I included it because it enables new ath5k
+> > hardware.  (The ath5k.h changes in particular are documentation cleanups
+> > for registers based on info gleaned from the newly posted ath9k driver.)
+> > The others patches are fixes, some more obvious than others. :-)
+> >
+> > Let me know if there are any problems!
 > 
-> I can't see how this can happen currently but I'll try to figure it
-> out.
+> All the iwlwifi patches should go up otherwise the support for 5000 HW
+> will be incomplete.
 
-I see what's going on.
+Then they should have been posted before 2.6.26 was released...
 
-Once we decide on a root qdisc to process, we shouldn't use
-qdisc_root_lock() since that will resample qdisc->dev_queue->qdisc
-which might be different.
-
-This points out a core problem, and I might need to add a
-root_qdisc backpointer to struct Qdisc to make this all work
-out sanely for all cases.
-
-Anyways, please try this patch:
-
-pkt_sched: Use qdisc_lock() on already sampled root qdisc.
-
-Don't use qdisc_root_lock() in these cases as the root
-qdisc could have been changed, and we'd thus lock the
-wrong object.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 9c9cd4d..113b6b0 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -29,7 +29,7 @@
- /* Main transmission queue. */
- 
- /* Modifications to data participating in scheduling must be protected with
-- * qdisc_root_lock(qdisc) spinlock.
-+ * qdisc_lock(qdisc) spinlock.
-  *
-  * The idea is the following:
-  * - enqueue, dequeue are serialized via qdisc root lock
-@@ -126,7 +126,7 @@ static inline int qdisc_restart(struct Qdisc *q)
- 	if (unlikely((skb = dequeue_skb(q)) == NULL))
- 		return 0;
- 
--	root_lock = qdisc_root_lock(q);
-+	root_lock = qdisc_lock(q);
- 
- 	/* And release qdisc */
- 	spin_unlock(root_lock);
-@@ -659,7 +659,7 @@ static bool some_qdisc_is_running(struct net_device *dev, int lock)
- 
- 		dev_queue = netdev_get_tx_queue(dev, i);
- 		q = dev_queue->qdisc;
--		root_lock = qdisc_root_lock(q);
-+		root_lock = qdisc_lock(q);
- 
- 		if (lock)
- 			spin_lock_bh(root_lock);
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
