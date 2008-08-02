@@ -1,64 +1,54 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] sh_eth Add SH7619 support
-Date: Sat, 2 Aug 2008 17:30:22 +1000
-Message-ID: <20080802073021.GA30041@verge.net.au>
-References: <878wvhtynu.wl%ysato@users.sourceforge.jp> <29ab51dc0807312048hfa9cd88pb90d1a7520bb3f99@mail.gmail.com> <871w18ycmr.wl%ysato@users.sourceforge.jp>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-01
+Date: Sat, 2 Aug 2008 12:16:47 +0300
+Message-ID: <1ba2fa240808020216i320e97e6j9510597f5b3daf83@mail.gmail.com>
+References: <20080801205830.GA10071@tuxdriver.com>
+	 <1ba2fa240808011443u1a5553fpfca046f047773217@mail.gmail.com>
+	 <20080802032946.GA29921@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: Yoshinori Sato <ysato@users.sourceforge.jp>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080802032946.GA29921-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <871w18ycmr.wl%ysato@users.sourceforge.jp>
-Sender: linux-sh-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 01, 2008 at 11:32:28AM -0400, Yoshinori Sato wrote:
-> At Fri, 1 Aug 2008 12:48:27 +0900,
-> Nobuhiro Iwamatsu wrote:
-> > 
-> > Hi, Sato-san.
-> > 
-> > 2008/8/1 Yoshinori Sato <ysato@users.sourceforge.jp>:
-> > > SH7619 have same SH7710 ethernet controler.
-> > > Add support for sh_eth driver.
-> > >
-> > > Signed-off-by: Yoshinori Sato <ysato@users.sourceforge.jp>
-> > >
-> > 
-> > <snip>
-> > 
-> > >
-> > > diff --git a/drivers/net/sh_eth.h b/drivers/net/sh_eth.h
-> > > index 45ad1b0..ca3cc5f 100644
-> > > --- a/drivers/net/sh_eth.h
-> > > +++ b/drivers/net/sh_eth.h
-> > > @@ -143,10 +143,11 @@
-> > >
-> > 
-> > <snip>
-> > 
-> > > +
-> > > +/* CPU endian from/to EDMAC endian */
-> > > +#if !defined(CONFIG_CPU_SUBTYPE_SH7619)
-> > > +#define cpu_to_edmac(x) cpu_to_le32(x)
-> > > +#define edmac_to_cpu(x) le32_to_cpu(x)
-> > > +#else
-> > > +#define cpu_to_edmac(x) cpu_to_be32(x)
-> > > +#define edmac_to_cpu(x) be32_to_cpu(x)
-> > > +#endif
-> > > +
-> > >  #endif
-> > I think that this depends on an endian not CPU dependence.
-> 
-> I agree.
-> But I'm no idea.
-> Are you have good idea?
+On Sat, Aug 2, 2008 at 6:29 AM, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Sat, Aug 02, 2008 at 12:43:32AM +0300, Tomas Winkler wrote:
+>> On Fri, Aug 1, 2008 at 11:58 PM, John W. Linville
+>> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>> > Dave,
+>> >
+>> > Another big batch of wireless fixes for 2.6.27.  The ath5k series is
+>> > more than fixes, but I included it because it enables new ath5k
+>> > hardware.  (The ath5k.h changes in particular are documentation cleanups
+>> > for registers based on info gleaned from the newly posted ath9k driver.)
+>> > The others patches are fixes, some more obvious than others. :-)
+>> >
+>> > Let me know if there are any problems!
+>>
+>> All the iwlwifi patches should go up otherwise the support for 5000 HW
+>> will be incomplete.
+>
+> Then they should have been posted before 2.6.26 was released...
 
-Iwamatsu-san,
+Unfortunately I cannot align development progress with kernel
+releases. This cat is not tatural for the driver. But this time all
+the patches that went out after 2.6.26 are bug fixes maybe except
+module renaming patches. There are no new features added all we do is
+cleaning up our bug reports.
+Hope we won't end up with not working driver like in 2.6.26.
+Tomas
 
-what is the difference between CONFIG_CPU_LITTLE_ENDIAN and
-__LITTLE_ENDIAN__ as used in drivers/net/sh_eth.h ?
+> --
+> John W. Linville
+> linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
