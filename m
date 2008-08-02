@@ -1,77 +1,37 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 10/10] drivers/net/xen-netfront.c: Use DIV_ROUND_UP
-Date: Sat, 2 Aug 2008 17:16:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808021715500.20095@ask.diku.dk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Support for new rtl810x hardware
+Date: Sat, 2 Aug 2008 17:20:49 +0200
+Message-ID: <20080802152049.GA10825@electric-eye.fr.zoreil.com>
+References: <4893986F.5090604@gmail.com> <CF18CE2CF7FD4328844F0749BE798A54@cera.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: jeremy@xensource.com, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kerne
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Xose Vazquez Perez'" <xose.vazquez@gmail.com>,
+	netdev@vger.kernel.org
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:37886 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758154AbYHBPQi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Aug 2008 11:16:38 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39109 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751606AbYHBPVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 11:21:10 -0400
+Content-Disposition: inline
+In-Reply-To: <CF18CE2CF7FD4328844F0749BE798A54@cera.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Ivan Vecera <ivecera@redhat.com> :
+> Xose Vazquez Perez wrote:
+> > latest versions are:
+[...]
+> > at: ftp://210.51.181.211/cn/nic/
+> Yes, that's right but for r8101 no new PHY support was added in
+> versions 1.008.00 and 1.009.00.
 
-The kernel.h macro DIV_ROUND_UP performs the computation (((n) + (d) - 1) /
-(d)) but is perhaps more readable.
+There remain some differences in the phy init functions though.
 
-An extract of the semantic patch that makes this change is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+I should have merged / updated your patch this evening. Please refrain
+from posting a new version in the meantime. :o)
 
-// <smpl>
-@haskernel@
-@@
+Thank you.
 
-#include <linux/kernel.h>
-
-@depends on haskernel@
-expression n,d;
-@@
-
-(
-- (n + d - 1) / d
-+ DIV_ROUND_UP(n,d)
-|
-- (n + (d - 1)) / d
-+ DIV_ROUND_UP(n,d)
-)
-
-@depends on haskernel@
-expression n,d;
-@@
-
-- DIV_ROUND_UP((n),d)
-+ DIV_ROUND_UP(n,d)
-
-@depends on haskernel@
-expression n,d;
-@@
-
-- DIV_ROUND_UP(n,(d))
-+ DIV_ROUND_UP(n,d)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/xen-netfront.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -u -p a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -471,7 +471,7 @@ static int xennet_start_xmit(struct sk_b
- 	unsigned int offset = offset_in_page(data);
- 	unsigned int len = skb_headlen(skb);
- 
--	frags += (offset + len + PAGE_SIZE - 1) / PAGE_SIZE;
-+	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
- 	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
- 		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
- 		       frags);
+-- 
+Ueimor
