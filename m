@@ -1,51 +1,79 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Sat, 2 Aug 2008 22:19:44 +0200
-Message-ID: <20080802201944.GA14983@ami.dom.local>
-References: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8ADD@rrsmsx501.amr.corp.intel.com> <20080802133719.GB2970@ami.dom.local> <20080802162733.GA10059@ami.dom.local> <20080802.121815.167998262.davem@davemloft.net>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [BUG] NULL pointer dereference in skb_dequeue
+Date: Sat, 2 Aug 2008 15:46:13 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B45@rrsmsx501.amr.corp.intel.com>
+References: <20080802133719.GB2970@ami.dom.local>
+	<20080802162733.GA10059@ami.dom.local>
+	<20080802.121815.167998262.davem@davemloft.net>
+ <20080802.122251.94384264.davem@davemloft.net>
+ <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"jarkao2@gmail.com" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:2352 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448AbYHBUPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 16:15:15 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so573246nfc.21
-        for <netdev@vger.kernel.org>; Sat, 02 Aug 2008 13:15:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080802.121815.167998262.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:11192 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752027AbYHBVqQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 17:46:16 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 02, 2008 at 12:18:15PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Sat, 2 Aug 2008 18:27:33 +0200
-> 
-> > On Sat, Aug 02, 2008 at 03:37:19PM +0200, Jarek Poplawski wrote:
-> > ...
-> > > I guess this "root lock" has to go back to netdev_queue. Alas, I can't
-> > > test this, so if it's not a big problem maybe you could try this patch
-> > > before David goes back to this? (His patch should be removed before
-> > > using this one.)
-> > 
-> > Actually, this patch was incomplete, sorry. Here is a better one,
-> > I hope. But of course, now, even better is to wait for David's
-> > proposal.
-> 
-> Jarek, we can't put the root lock back into the netdev_queue, it
-> breaks all of the RCU handling of qdisc_destroy() which is fundamental
-> for how all the multiqueue stuff works now.
-> 
-> See my other emails, it isn't even necessary anyways.
+Tantilov, Emil S wrote:
+> Still no luck.
+>
+> I was able to reset the interfaces and change the MTU multiple times
+> until eventually the system froze. No trace.
+>
+> Emil
+>
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, August 02, 2008 12:23 PM
+> To: jarkao2@gmail.com
+> Cc: Tantilov, Emil S; Kirsher, Jeffrey T; netdev@vger.kernel.org
+> Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+>
+> From: David Miller <davem@davemloft.net>
+> Date: Sat, 02 Aug 2008 12:18:15 -0700 (PDT)
+>
+>> See my other emails, it isn't even necessary anyways.
+>
+> Sorry, because some idiot took part of the conversation private
+> my follow-on fixup patch didn't make it to the list, here it is.
+>
+> It goes on top of the original patch I sent out:
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 69320a5..da7acac 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1796,7 +1796,7 @@ gso:
+>         skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
+>  #endif
+>         if (q->enqueue) {
+> -               spinlock_t *root_lock = qdisc_root_lock(q);
+> +               spinlock_t *root_lock = qdisc_lock(q);
+>
+>                 spin_lock(root_lock);
+>
+> @@ -1995,7 +1995,7 @@ static void net_tx_action(struct softirq_action
+>                         *h) smp_mb__before_clear_bit();
+>                         clear_bit(__QDISC_STATE_SCHED, &q->state);
+>
+> -                       root_lock = qdisc_root_lock(q);
+> +                       root_lock = qdisc_lock(q);
+>                         if (spin_trylock(root_lock)) {
+>                                 qdisc_run(q);
+>                                 spin_unlock(root_lock);
 
-My patch was intended to check this "the hard way" since the subtle
-method didn't work. I expected the final fix could be different.
+Disregard my previous emails. This patch seems to fix the panic. I will leave a longer term stress test running to make sure it'stable.
 
-Thanks for the explanations: BTW, I think, the qdisc_root_lock is a
-bit misleading name, if qdisc_lock is also used for taking root lock.
-Of course, this all makes sense, it simply needs more checking.
-
-Jarek P.
+Thanks,
+Emil
