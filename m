@@ -1,16 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 7/10] drivers/net/wan: Use DIV_ROUND_UP
-Date: Sat, 2 Aug 2008 17:15:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808021714220.20095@ask.diku.dk>
+Subject: [PATCH 10/10] drivers/net/xen-netfront.c: Use DIV_ROUND_UP
+Date: Sat, 2 Aug 2008 17:16:36 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0808021715500.20095@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: jeremy@xensource.com, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kerne
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:49392 "EHLO mgw1.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:37886 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752476AbYHBPPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Aug 2008 11:15:07 -0400
+	id S1758154AbYHBPQi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Aug 2008 11:16:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -58,18 +60,18 @@ expression n,d;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wan/sbni.c     |    2 +-
+ drivers/net/xen-netfront.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -u -p a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -856,7 +856,7 @@ prepare_to_send( struct sk_buff  *skb,  
- 		len = SBNI_MIN_LEN;
+diff -u -p a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -471,7 +471,7 @@ static int xennet_start_xmit(struct sk_b
+ 	unsigned int offset = offset_in_page(data);
+ 	unsigned int len = skb_headlen(skb);
  
- 	nl->tx_buf_p	= skb;
--	nl->tx_frameno	= (len + nl->maxframe - 1) / nl->maxframe;
-+	nl->tx_frameno	= DIV_ROUND_UP(len, nl->maxframe);
- 	nl->framelen	= len < nl->maxframe  ?  len  :  nl->maxframe;
- 
- 	outb( inb( dev->base_addr + CSR0 ) | TR_REQ,  dev->base_addr + CSR0 );
+-	frags += (offset + len + PAGE_SIZE - 1) / PAGE_SIZE;
++	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+ 	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
+ 		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
+ 		       frags);
