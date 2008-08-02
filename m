@@ -1,79 +1,80 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [BUG] NULL pointer dereference in skb_dequeue
-Date: Sat, 2 Aug 2008 15:46:13 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B45@rrsmsx501.amr.corp.intel.com>
-References: <20080802133719.GB2970@ami.dom.local>
-	<20080802162733.GA10059@ami.dom.local>
-	<20080802.121815.167998262.davem@davemloft.net>
- <20080802.122251.94384264.davem@davemloft.net>
- <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
+From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+Subject: Fw: dev_queue_xmit() to now non-existing device (text wrapped now)
+Date: Sun, 3 Aug 2008 08:32:48 +0930
+Message-ID: <20080803083248.0b9dc284.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"jarkao2@gmail.com" <jarkao2@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:11192 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752027AbYHBVqQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 17:46:16 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
-Content-Language: en-US
+Received: from smtp1.mail.adnap.net.au ([203.6.132.75]:61508 "EHLO
+	smtp1.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbYHBXC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 19:02:26 -0400
+Received: from 219-90-248-244.ip.adam.com.au ([219.90.248.244] helo=mail.nosense.org)
+	by smtp1.mail.adnap.net.au with esmtp (Exim 4.63 (FreeBSD))
+	(envelope-from <ipng@69706e6720323030352d30312d31340a.nosense.org>)
+	id 1KPQ7E-000Jy7-1q
+	for netdev@vger.kernel.org; Sun, 03 Aug 2008 08:32:24 +0930
+Received: from ubu.nosense.org (localhost.localdomain [127.0.0.1])
+	by mail.nosense.org (Postfix) with SMTP id 740F337B0E
+	for <netdev@vger.kernel.org>; Sun,  3 Aug 2008 08:32:48 +0930 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tantilov, Emil S wrote:
-> Still no luck.
->
-> I was able to reset the interfaces and change the MTU multiple times
-> until eventually the system froze. No trace.
->
-> Emil
->
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, August 02, 2008 12:23 PM
-> To: jarkao2@gmail.com
-> Cc: Tantilov, Emil S; Kirsher, Jeffrey T; netdev@vger.kernel.org
-> Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
->
-> From: David Miller <davem@davemloft.net>
-> Date: Sat, 02 Aug 2008 12:18:15 -0700 (PDT)
->
->> See my other emails, it isn't even necessary anyways.
->
-> Sorry, because some idiot took part of the conversation private
-> my follow-on fixup patch didn't make it to the list, here it is.
->
-> It goes on top of the original patch I sent out:
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 69320a5..da7acac 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1796,7 +1796,7 @@ gso:
->         skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
->  #endif
->         if (q->enqueue) {
-> -               spinlock_t *root_lock = qdisc_root_lock(q);
-> +               spinlock_t *root_lock = qdisc_lock(q);
->
->                 spin_lock(root_lock);
->
-> @@ -1995,7 +1995,7 @@ static void net_tx_action(struct softirq_action
->                         *h) smp_mb__before_clear_bit();
->                         clear_bit(__QDISC_STATE_SCHED, &q->state);
->
-> -                       root_lock = qdisc_root_lock(q);
-> +                       root_lock = qdisc_lock(q);
->                         if (spin_trylock(root_lock)) {
->                                 qdisc_run(q);
->                                 spin_unlock(root_lock);
+A mail client upgrade must have dropped that setting :-|
 
-Disregard my previous emails. This patch seems to fix the panic. I will leave a longer term stress test running to make sure it'stable.
+Begin forwarded message:
 
-Thanks,
-Emil
+Date: Sat, 2 Aug 2008 21:38:28 +0930
+From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+To: netdev@vger.kernel.org
+Subject: dev_queue_xmit() to now non-existing device
+
+
+Hi,
+
+I've been working on a simple request/reply protocol implementation,
+which can queue replies to requests for up to 30 seconds. I've used a
+private SKB queue to hold the pending replies, and kernel timers to
+send them off. This has all been working fine under normal
+circumstances. I've been developing against my Arch Linux 2.6.25 kernel.
+
+I've now been thinking about how to deal with queued SKB replies that
+when dev_queue_xmit() is called for them, the outgoing skb->dev has
+gone, as the network card driver has been removed. With a delay of up
+to 30 seconds, I think the likelyhood of this happening could be fairly
+high, compared to other users of dev_queue_xmit() in the kernel.
+
+My initial thought was that dev_queue_xmit() would check if the
+outgoing device exists when it is called, however, at least in 2.6.25,
+that doesn't seem to be the case. In the source, I can't seem to see a
+check to see if the supplied skb->dev is currently valid.
+
+The other thing I tried was to have a routine called as part of the
+NETDEV_UNREGISTER notifier event that would delete any pending replies
+for the device that has now been removed. I failed at that (with a
+corresponding kernel panic of course), however it might have been
+because I hadn't shutdown any kernel timers that would be servicing the
+outgoing queue. However, thinking about it more, I realised that I'd
+probably need to wait until after the next firing of the kernel timer
+(even if I bring it forward), and that kernel timer function would call
+dev_queue_xmit() for a now non-existing outgoing device anyway. So I
+don't think it really fully solves the problem.
+
+I've looked around the source a fair bit, and can't seem to find an
+examples where this problem has been solved. There seem to be a lot of
+users of dev_queue_xmit(), however they all seem to just assume the
+device the SKB will use exists when it is called. For the examples of
+private SKB queues I've found, none of them seem to have any routines
+that deal with queued SKBs for interfaces that have now disappeared.
+
+Has anybody got any suggestions or pointers to where this problem has
+been solved? 
+
+ps. please CC me, as I'm not subscribed to netdev.
+
+Thanks very much,
+Mark.
+
+
