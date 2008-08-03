@@ -1,57 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add missing extra2 parameter for ip_default_ttl
- sysctl
-Date: Sun, 03 Aug 2008 14:07:51 -0700 (PDT)
-Message-ID: <20080803.140751.57839905.davem@davemloft.net>
-References: <alpine.LNX.1.10.0808032110520.7765@titan.stealer.net>
-	<1217793894.8154.38.camel@iris.sw.ru>
-	<alpine.LNX.1.10.0808032214130.29048@titan.stealer.net>
+From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+Subject: Re: Fw: dev_queue_xmit() to now non-existing device (text wrapped
+ now)
+Date: Mon, 4 Aug 2008 06:41:58 +0930
+Message-ID: <20080804064158.393f9608.ipng@69706e6720323030352d30312d31340a.nosense.org>
+References: <20080803083248.0b9dc284.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: marcin.slusarz@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, den@openvz.org
-To: sven.wegener@stealer.net
+Cc: netdev@vger.kernel.org
+To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33960
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755345AbYHCVHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 17:07:51 -0400
-In-Reply-To: <alpine.LNX.1.10.0808032214130.29048@titan.stealer.net>
+Received: from mistral.mail.adnap.net.au ([203.6.132.90]:53475 "EHLO
+	mistral.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756521AbYHCVLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 17:11:35 -0400
+Received: from 114-30-101-60.ip.adam.com.au ([114.30.101.60] helo=mail.nosense.org)
+	by mistral.mail.adnap.net.au with esmtp (Exim 4.69 (FreeBSD))
+	(envelope-from <ipng@69706e6720323030352d30312d31340a.nosense.org>)
+	id 1KPkxl-000L2i-9p
+	for netdev@vger.kernel.org; Mon, 04 Aug 2008 06:48:01 +0930
+In-Reply-To: <20080803083248.0b9dc284.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Wegener <sven.wegener@stealer.net>
-Date: Sun, 3 Aug 2008 22:18:59 +0200 (CEST)
+On Sun, 3 Aug 2008 08:32:48 +0930
+Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org> wrote:
 
-> Commit 76e6ebfb40a2455c18234dcb0f9df37533215461 acceses the extra2 parameter of
-> the ip_default_ttl ctl_table, but it is never set to a meaningful value. When
-> e84f84f276473dcc673f360e8ff3203148bdf0e2 is applied, we'll oops in
-> rt_cache_invalidate(). Set extra2 to init_net, to avoid that.
+> A mail client upgrade must have dropped that setting :-|
 > 
-> Reported-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> Tested-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-> Acked-by: Denis V. Lunev <den@openvz.org>
+> Begin forwarded message:
+> 
+> Date: Sat, 2 Aug 2008 21:38:28 +0930
+> From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+> To: netdev@vger.kernel.org
+> Subject: dev_queue_xmit() to now non-existing device
+> 
+> 
+> Hi,
+> 
+<snip>
 
-Applied, thanks a lot.
+> Has anybody got any suggestions or pointers to where this problem has
+> been solved? 
+> 
 
-Please provide commit header line text when referencing SHA IDs,
-as the SHA IDs can change when patches are applied to different
-trees.  Here is the actual changelog message I used so you can
-see what I mean:
+I've now discovered dev_hold() and dev_put(), and the requirement
+to use them to register / deregister which interfaces my protocol
+is using. I think has now solved my problem. Sorry for the noise.
 
-    net: Add missing extra2 parameter for ip_default_ttl sysctl
-    
-    Commit 76e6ebfb40a2455c18234dcb0f9df37533215461 ("netns: add namespace
-    parameter to rt_cache_flush") acceses the extra2 parameter of the
-    ip_default_ttl ctl_table, but it is never set to a meaningful
-    value. When e84f84f276473dcc673f360e8ff3203148bdf0e2 ("netns: place
-    rt_genid into struct net") is applied, we'll oops in
-    rt_cache_invalidate(). Set extra2 to init_net, to avoid that.
-    
-    Reported-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-    Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-    Tested-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-    Acked-by: Denis V. Lunev <den@openvz.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Thanks,
+Mark.
+
