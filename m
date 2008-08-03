@@ -1,53 +1,49 @@
-From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
-Subject: Re: Fw: dev_queue_xmit() to now non-existing device (text wrapped
- now)
-Date: Mon, 4 Aug 2008 06:41:58 +0930
-Message-ID: <20080804064158.393f9608.ipng@69706e6720323030352d30312d31340a.nosense.org>
-References: <20080803083248.0b9dc284.ipng@69706e6720323030352d30312d31340a.nosense.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Warning when unloading the nf_conntack module (regression?)
+Date: Sun, 3 Aug 2008 14:37:30 -0700
+Message-ID: <20080803143730.7747e9a8@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mistral.mail.adnap.net.au ([203.6.132.90]:53475 "EHLO
-	mistral.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756521AbYHCVLf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 17:11:35 -0400
-Received: from 114-30-101-60.ip.adam.com.au ([114.30.101.60] helo=mail.nosense.org)
-	by mistral.mail.adnap.net.au with esmtp (Exim 4.69 (FreeBSD))
-	(envelope-from <ipng@69706e6720323030352d30312d31340a.nosense.org>)
-	id 1KPkxl-000L2i-9p
-	for netdev@vger.kernel.org; Mon, 04 Aug 2008 06:48:01 +0930
-In-Reply-To: <20080803083248.0b9dc284.ipng@69706e6720323030352d30312d31340a.nosense.org>
+Received: from casper.infradead.org ([85.118.1.10]:40195 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756079AbYHCVhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 17:37:31 -0400
+Received: from c-71-193-193-226.hsd1.or.comcast.net ([71.193.193.226] helo=localhost.localdomain)
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1KPlFu-0002Ah-VS
+	for netdev@vger.kernel.org; Sun, 03 Aug 2008 21:36:47 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 3 Aug 2008 08:32:48 +0930
-Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org> wrote:
+The warning below started showing up on kerneloops.org in the top 20 and it appears to
+be new in 2.6.27-rc (e.g. a regression)...
 
-> A mail client upgrade must have dropped that setting :-|
-> 
-> Begin forwarded message:
-> 
-> Date: Sat, 2 Aug 2008 21:38:28 +0930
-> From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
-> To: netdev@vger.kernel.org
-> Subject: dev_queue_xmit() to now non-existing device
-> 
-> 
-> Hi,
-> 
-<snip>
+It happens when nf_conntrack is rmmod'd
 
-> Has anybody got any suggestions or pointers to where this problem has
-> been solved? 
-> 
 
-I've now discovered dev_hold() and dev_put(), and the requirement
-to use them to register / deregister which interfaces my protocol
-is using. I think has now solved my problem. Sorry for the noise.
+The reports:
+http://www.kerneloops.org/search.php?search=nf_conntrack_acct_fini
 
-Thanks,
-Mark.
+The warning:
 
+WARNING: at kernel/sysctl.c:1966 unregister_sysctl_table+0xcc/0x103()
+
+Modules : nf_conntrack(-)
+
+Call Trace:
+ [<ffffffff81043bc8>] warn_on_slowpath+0x65/0x98
+ [<ffffffff8104abdf>] unregister_sysctl_table+0xcc/0x103
+ [<ffffffffa0306655>] nf_conntrack_acct_fini+0x15/0x23 [nf_conntrack]
+ [<ffffffffa03018a1>] nf_conntrack_cleanup+0x84/0x86 [nf_conntrack]
+ [<ffffffffa0306944>] nf_conntrack_standalone_fini+0x40/0x42 [nf_conntrack] 
+ [<ffffffff810700d0>] sys_delete_module+0x202/0x263
+ [<ffffffff8101034a>] system_call_fastpath+0x16/0x1b
+
+
+-- 
+If you want to reach me at my work email, use arjan@linux.intel.com
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
