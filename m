@@ -1,32 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
-Date: Sun, 3 Aug 2008 10:01:04 +0800
-Message-ID: <20080803020104.GA32076@gondor.apana.org.au>
-References: <48929C5B.5030108@cn.fujitsu.com> <E1KOqf7-0004lB-00@gondolin.me.apana.org.au> <20080801.021825.51896743.davem@davemloft.net> <20080801092548.GA18424@gondor.apana.org.au> <20080801115041.GA19124@gondor.apana.org.au> <20080801131453.GA19851@gondor.apana.org.au> <489322A9.3080906@hp.com> <20080802003016.GA24295@gondor.apana.org.au> <4894ED25.6040200@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Sat, 02 Aug 2008 19:26:39 -0700 (PDT)
+Message-ID: <20080802.192639.02765648.davem@davemloft.net>
+References: <20080802.122251.94384264.davem@davemloft.net>
+	<EA929A9653AAE14F841771FB1DE5A1365F1FBE8B37@rrsmsx501.amr.corp.intel.com>
+	<EA929A9653AAE14F841771FB1DE5A1365F1FBE8B45@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, yjwei@cn.fujitsu.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, jeffrey.t.kirsher@intel.com,
 	netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+To: emil.s.tantilov@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60858 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750935AbYHCCB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 22:01:28 -0400
-Content-Disposition: inline
-In-Reply-To: <4894ED25.6040200@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47854
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751043AbYHCC0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2008 22:26:39 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B45@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 02, 2008 at 07:26:29PM -0400, Vlad Yasevich wrote:
->
-> OK, I see what you mean.  Let me run some tests with this patch.  I doesn't
-> look like it will cause any issues, but I'd like to verify.
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Date: Sat, 2 Aug 2008 15:46:13 -0600
 
-Thanks Vlad!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Disregard my previous emails. This patch seems to fix the panic. I
+> will leave a longer term stress test running to make sure it'stable.
+
+Thanks for testing, I'll commit the final patch and get it to
+Linus.
+
+Thanks again.
