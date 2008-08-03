@@ -1,71 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: qdisc_root_lock() requires RTNML
-Date: Sat, 02 Aug 2008 23:55:37 -0700 (PDT)
-Message-ID: <20080802.235537.203812172.davem@davemloft.net>
+Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
+Date: Sat, 02 Aug 2008 23:56:40 -0700 (PDT)
+Message-ID: <20080802.235640.250921883.davem@davemloft.net>
+References: <489322A9.3080906@hp.com>
+	<20080802003016.GA24295@gondor.apana.org.au>
+	<4894ED25.6040200@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
+	yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47301
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47306
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751744AbYHCGzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 02:55:37 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id B805DC8C1CF
-	for <netdev@vger.kernel.org>; Sat,  2 Aug 2008 23:55:37 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1752091AbYHCG4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 02:56:40 -0400
+In-Reply-To: <4894ED25.6040200@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Sat, 02 Aug 2008 19:26:29 -0400
 
-Another followup after:
+> Herbert Xu wrote:
+> > On Fri, Aug 01, 2008 at 10:50:17AM -0400, Vlad Yasevich wrote:
+> >>> +	inet->pmtudisc = transport->param_flags & SPP_PMTUD_ENABLE ?
+> >>> +			 IP_PMTUDISC_DO : IP_PMTUDISC_DONT;
+> >> If you insist on doing this, you need to save the old value and restore
+> >> it after ip_queue_xmit(). 
+> >>
+> >> The reason is that PMTU discovery change on a specific transport or
+> >> association should not affect the socket, since there could be multiple
+> >> associations on a given socket.  Each association has it's own control.
+> > 
+> > Yes but they'll all pass through here so it'll get set to the
+> > appropriate value.
+> > 
+> > Cheers,
+> 
+> OK, I see what you mean.  Let me run some tests with this patch.  I doesn't
+> look like it will cause any issues, but I'd like to verify.
 
-http://marc.info/?l=linux-netdev&m=121763401922311&w=2
+Like Herbert said, thanks for doing this testing.
 
-Committed to net-2.6
-
---------------------
-
-pkt_sched: Make sure RTNL is held in qdisc_root_lock().
-
-It is the only legal environment in which this can be
-used.
-
-Add some commentary explaining the situation.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/sch_generic.h |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b5f40d7..c5bb130 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -193,10 +193,22 @@ static inline struct Qdisc *qdisc_root(struct Qdisc *qdisc)
- 	return qdisc->dev_queue->qdisc;
- }
- 
-+/* The qdisc root lock is a mechanism by which to top level
-+ * of a qdisc tree can be locked from any qdisc node in the
-+ * forest.  This allows changing the configuration of some
-+ * aspect of the qdisc tree while blocking out asynchronous
-+ * qdisc access in the packet processing paths.
-+ *
-+ * It is only legal to do this when the root will not change
-+ * on us.  Otherwise we'll potentially lock the wrong qdisc
-+ * root.  This is enforced by holding the RTNL semaphore, which
-+ * all users of this lock accessor must do.
-+ */
- static inline spinlock_t *qdisc_root_lock(struct Qdisc *qdisc)
- {
- 	struct Qdisc *root = qdisc_root(qdisc);
- 
-+	ASSERT_RTNL();
- 	return qdisc_lock(root);
- }
- 
--- 
-1.5.6.GIT
-
-
+Let me know how it goes so I can apply the patch if everything
+is OK.
