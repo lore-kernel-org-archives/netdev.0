@@ -1,48 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
-Date: Sat, 02 Aug 2008 23:56:40 -0700 (PDT)
-Message-ID: <20080802.235640.250921883.davem@davemloft.net>
-References: <489322A9.3080906@hp.com>
-	<20080802003016.GA24295@gondor.apana.org.au>
-	<4894ED25.6040200@hp.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
+Date: Sat, 02 Aug 2008 23:59:07 -0700
+Message-ID: <m1zlnu60uc.fsf@frodo.ebiederm.org>
+References: <m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
+	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
+	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
+	<487D6A24.9070001@gmail.com> <20080717230857.GB28377@suse.de>
+	<48808F79.7080607@gmail.com> <20080718184936.GA21343@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
-	yjwei@cn.fujitsu.com, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47306
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752091AbYHCG4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 02:56:40 -0400
-In-Reply-To: <4894ED25.6040200@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <htejun@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756526AbYHCHDY@vger.kernel.org>
+In-Reply-To: <20080718184936.GA21343@suse.de> (Greg KH's message of "Fri, 18
+	Jul 2008 11:49:36 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Sat, 02 Aug 2008 19:26:29 -0400
+Greg KH <gregkh@suse.de> writes:
 
-> Herbert Xu wrote:
-> > On Fri, Aug 01, 2008 at 10:50:17AM -0400, Vlad Yasevich wrote:
-> >>> +	inet->pmtudisc = transport->param_flags & SPP_PMTUD_ENABLE ?
-> >>> +			 IP_PMTUDISC_DO : IP_PMTUDISC_DONT;
-> >> If you insist on doing this, you need to save the old value and restore
-> >> it after ip_queue_xmit(). 
-> >>
-> >> The reason is that PMTU discovery change on a specific transport or
-> >> association should not affect the socket, since there could be multiple
-> >> associations on a given socket.  Each association has it's own control.
-> > 
-> > Yes but they'll all pass through here so it'll get set to the
-> > appropriate value.
-> > 
-> > Cheers,
-> 
-> OK, I see what you mean.  Let me run some tests with this patch.  I doesn't
-> look like it will cause any issues, but I'd like to verify.
+> I'll add it to my tree, and get it some testing in the next cycle of
+> linux-next until 2.6.27 is out, and then if it's still looking good, go
+> into .28.
 
-Like Herbert said, thanks for doing this testing.
+Greg.  Where are we at with this?
 
-Let me know how it goes so I can apply the patch if everything
-is OK.
+I just looked at your tree and I don't perhaps I'm blind but I don't see
+this patches, and it looks like you at least refreshed your patches
+a day or two ago.
+
+Eric
