@@ -1,50 +1,41 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Sun, 03 Aug 2008 01:23:19 -0700 (PDT)
-Message-ID: <20080803.012319.78025424.davem@davemloft.net>
-References: <20080731105522.GB7601@gondor.apana.org.au>
-	<20080731123731.GB29176@xi.wantstofly.org>
-	<20080731125903.GA8773@gondor.apana.org.au>
+Date: Sun, 3 Aug 2008 16:55:53 +0800
+Message-ID: <20080803085553.GA1512@gondor.apana.org.au>
+References: <20080731.053516.185810642.davem@davemloft.net> <20080731131929.GO10471@solarflare.com> <20080731132735.GA9085@gondor.apana.org.au> <20080803.011945.249059359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, netdev@vger.kernel.org,
-	akarkare@marvell.com, nico@cam.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, buytenh@wantstofly.org,
+	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
+	dale@farnsworth.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45398
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752816AbYHCIXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 04:23:19 -0400
-In-Reply-To: <20080731125903.GA8773@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:55678 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751196AbYHCI4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 04:56:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20080803.011945.249059359.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 31 Jul 2008 20:59:03 +0800
+On Sun, Aug 03, 2008 at 01:19:45AM -0700, David Miller wrote:
+>
+> I would start hacking on this beast but I haven't yet come up with
+> a clean way to share a lot of code with the existing sw GSO engine.
+> That's the key to implementing this properly.
 
-> On Thu, Jul 31, 2008 at 02:37:31PM +0200, Lennert Buytenhek wrote:
-> >
-> > Like this?
-> 
-> Yes that ought to do the trick.
-> 
-> > From: Lennert Buytenhek <buytenh@wantstofly.org>
-> > Subject: [NET] use software GSO for SG+CSUM capable netdevices
-> > 
-> > If a netdevice does not support hardware GSO, allowing the stack to
-> > use GSO anyway and then splitting the GSO skb into MSS-sized pieces
-> > as it is handed to the netdevice for transmitting is likely still
-> > a win as far as throughput and/or CPU usage are concerned, since it
-> > reduces the number of trips through the output path.
-> > 
-> > This patch enables the use of GSO on any netdevice that supports SG.
-> > If a GSO skb is then sent to a netdevice that supports SG but does not
-> > support hardware GSO, net/core/dev.c:dev_hard_start_xmit() will take
-> > care of doing the necessary GSO segmentation in software.
-> > 
-> > Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I think it's doable.  We could refactor the software GSO so that
+it spits out one fragment at a time and the output could either
+be written to some memory provided by the caller or fed through
+a callback.
 
-Applied, thanks everyone!
+BTW, loner term we should start thinking about breaking the 64K
+barrier.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
