@@ -1,39 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 12/15] driver core: Implement tagged directory support for device classes.
-Date: Sat, 02 Aug 2008 23:59:07 -0700
-Message-ID: <m1zlnu60uc.fsf@frodo.ebiederm.org>
-References: <m1mykyh2fu.fsf_-_@frodo.ebiederm.org>
-	<m1hcb6h2d2.fsf_-_@frodo.ebiederm.org> <486DD650.3000804@gmail.com>
-	<m1tzf593ny.fsf@frodo.ebiederm.org> <486E2C3B.6020603@gmail.com>
-	<20080704161200.GA1440@suse.de> <m1lk052ptp.fsf@frodo.ebiederm.org>
-	<487D6A24.9070001@gmail.com> <20080717230857.GB28377@suse.de>
-	<48808F79.7080607@gmail.com> <20080718184936.GA21343@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bad htb_{en,re}queue return codes causing corrupt data in
+ drivers
+Date: Sun, 03 Aug 2008 00:06:43 -0700 (PDT)
+Message-ID: <20080803.000643.88724910.davem@davemloft.net>
+References: <20080717213058.GA28252@orion.carnet.hr>
+	<20080717.144407.37848445.davem@davemloft.net>
+	<20080802122822.GA3222@orion.carnet.hr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <htejun@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756526AbYHCHDY@vger.kernel.org>
-In-Reply-To: <20080718184936.GA21343@suse.de> (Greg KH's message of "Fri, 18
-	Jul 2008 11:49:36 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joy@entuzijast.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46220
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751999AbYHCHGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 03:06:42 -0400
+In-Reply-To: <20080802122822.GA3222@orion.carnet.hr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
+From: Josip Rodin <joy@entuzijast.net>
+Date: Sat, 2 Aug 2008 14:28:22 +0200
 
-> I'll add it to my tree, and get it some testing in the next cycle of
-> linux-next until 2.6.27 is out, and then if it's still looking good, go
-> into .28.
+> On Thu, Jul 17, 2008 at 02:44:07PM -0700, David Miller wrote:
+> > From: Josip Rodin <joy@entuzijast.net>
+> > Date: Thu, 17 Jul 2008 23:30:58 +0200
+> > 
+> > > It looks like the patch fixed my issues - no relevant printk's appeared
+> > > since I've applied it, so apparently there is no more cloned skb splitting
+> > > or corrupted data getting to bnx2.
+> > > 
+> > > I used the latest variant, from Jarek's mail
+> > > <20080714212223.GA4849@ami.dom.local>, on the 2.6.25.6 kernel.
+> > > 
+> > > Thanks all!
+> > > 
+> > > (Now if only someone could make sure this propagates into the stable kernel
+> > > branches, since those were pretty nasty crashes...)
+> > 
+> > We will make sure the fix propagates in some form, thanks for testing.
+> 
+> Hi again, sorry to bother you, but it's been a few weeks now and I can't
+> seem see that fix in any of stable/linux-2.6.2[56].y.git, davem/net-2.6.git,
+> sfr/linux-next.git, so I just wanted to check that it hasn't fallen through
+> the cracks :)
 
-Greg.  Where are we at with this?
+It hasn't, we're doing an audit of the entire packet scheduler layer
+to make sure we fix this bug everywhere it occurs.
 
-I just looked at your tree and I don't perhaps I'm blind but I don't see
-this patches, and it looks like you at least refreshed your patches
-a day or two ago.
-
-Eric
+Thanks for pinging us.
