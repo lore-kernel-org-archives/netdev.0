@@ -1,27 +1,27 @@
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
+From: "Denis V. Lunev" <den@openvz.org>
 Subject: Re: oops in rt_cache_invalidate (2.6.27-rc1-2b12a4c)
-Date: Sun, 3 Aug 2008 21:52:24 +0200
-Message-ID: <20080803195032.GA5392@joi>
-References: <20080803170241.GD5414@joi> <1217789775.8154.34.camel@iris.sw.ru> <alpine.LNX.1.10.0808032110520.7765@titan.stealer.net>
+Date: Mon, 04 Aug 2008 00:04:54 +0400
+Message-ID: <1217793894.8154.38.camel@iris.sw.ru>
+References: <20080803170241.GD5414@joi>
+	 <1217789775.8154.34.camel@iris.sw.ru>
+	 <alpine.LNX.1.10.0808032110520.7765@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <den@openvz.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Marcin Slusarz <marcin.slusarz@gmail.com>,
 	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
 To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:38304 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752983AbYHCTxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 15:53:08 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so859934fgg.17
-        for <netdev@vger.kernel.org>; Sun, 03 Aug 2008 12:53:06 -0700 (PDT)
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:1659 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752761AbYHCUFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Aug 2008 16:05:00 -0400
 In-Reply-To: <alpine.LNX.1.10.0808032110520.7765@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 03, 2008 at 09:24:20PM +0200, Sven Wegener wrote:
+On Sun, 2008-08-03 at 21:24 +0200, Sven Wegener wrote:
 > On Sun, 3 Aug 2008, Denis V. Lunev wrote:
 > 
 > > On Sun, 2008-08-03 at 19:02 +0200, Marcin Slusarz wrote:
@@ -72,17 +72,11 @@ On Sun, Aug 03, 2008 at 09:24:20PM +0200, Sven Wegener wrote:
 > > > It's 2b12a4c524812fb3f6ee590a02e65b95c8c32229 + some unreleated trivial patches.
 > > 
 > > Could you send you .config?
-
-http://www.kadu.net/~joi/kernel/2008.08.03/config
-
+> 
 > No need to, the issue can be triggered by
 > 
 > sysctl net.ipv4.ip_default_ttl=1
-
-Yes, I have this in sysctl.conf:
-$ grep "ip_default_ttl" /etc/sysctl.conf
-net.ipv4.ip_default_ttl = 92
-
+> 
 > when 76e6ebfb40a2455c18234dcb0f9df37533215461 is applied.
 > 
 > ipv4_doint_and_flush and ipv4_doint_and_flush_strategy access the member 
@@ -112,8 +106,10 @@ net.ipv4.ip_default_ttl = 92
 >  	},
 >  	{
 >  		.ctl_name	= NET_IPV4_NO_PMTU_DISC,
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thanks, now it works.
-Tested-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+Acked-by: Denis V. Lunev <den@openvz.org>
 
-Marcin
