@@ -1,41 +1,90 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Sun, 3 Aug 2008 12:08:50 +0200
-Message-ID: <20080803100850.GA3077@ami.dom.local>
-References: <20080802.121815.167998262.davem@davemloft.net> <20080802201944.GA14983@ami.dom.local> <20080803092926.GA2971@ami.dom.local> <20080803.025616.218557268.davem@davemloft.net>
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: Re: [PATCH 11/31]: net: Implement simple sw TX hashing.
+Date: Sun, 03 Aug 2008 14:16:27 +0200
+Message-ID: <4895A19B.5090307@inria.fr>
+References: <20080717.051635.124264554.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:10961 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787AbYHCKIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 06:08:19 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so619367ugf.16
-        for <netdev@vger.kernel.org>; Sun, 03 Aug 2008 03:08:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080803.025616.218557268.davem@davemloft.net>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:55889 "EHLO smtp5-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753531AbYHCMQc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Aug 2008 08:16:32 -0400
+In-Reply-To: <20080717.051635.124264554.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 03, 2008 at 02:56:16AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Sun, 3 Aug 2008 11:29:26 +0200
-> 
-> > After some re-checking one more question: why do you think this
-> > qdisc_root_lock() is safe as sch_tree_lock() (or anywhere else)? It
-> > seems, eg. during deactivation it can get root_lock of qdisc_default,
-> > and proceed with another qdisc?
-> 
-> We hold RTNL at the time.
-> 
-> If it's the default qdisc, that's fine, we'll reset it and free
-> up the packets when the RCU handler of the qdisc_destroy() runs.
-> 
-> That's a case where locking the wrong qdisc is OK.
+David Miller wrote:
+> It just xor hashes over IPv4/IPv6 addresses and ports of transport.
+>
+> The only assumption it makes is that skb_network_header() is set
+> correctly.
+>   
 
-Right! Thanks again,
+Hey David,
 
-Jarek P.
+Sorry for the late reply, I didn't have time to look at multiqueue tx
+details before. I have some curiosity-questions about your hashing.
+
+> +static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
+> +{
+> +	u32 *addr, *ports, hash, ihl;
+> +	u8 ip_proto;
+> +	int alen;
+> +
+> +	switch (skb->protocol) {
+> +	case __constant_htons(ETH_P_IP):
+> +		ip_proto = ip_hdr(skb)->protocol;
+> +		addr = &ip_hdr(skb)->saddr;
+> +		ihl = ip_hdr(skb)->ihl;
+> +		alen = 2;
+> +		break;
+> +	case __constant_htons(ETH_P_IPV6):
+> +		ip_proto = ipv6_hdr(skb)->nexthdr;
+> +		addr = &ipv6_hdr(skb)->saddr.s6_addr32[0];
+> +		ihl = (40 >> 2);
+> +		alen = 8;
+> +		break;
+> +	default:
+> +		return 0;
+> +	}
+>   
+
+What's your plan for other protocols here? Should we add an optional
+tx_hash() method in struct packet_type?
+
+> @@ -1672,6 +1722,8 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>  
+>  	if (dev->select_queue)
+>  		queue_index = dev->select_queue(dev, skb);
+> +	else if (dev->real_num_tx_queues > 1)
+> +		queue_index = simple_tx_hash(dev, skb);
+>   
+
+Some devices might will add some protocol specific hashing (IP and IPv6)
+that could look like what simple_tx_hash() does above, right? But if we
+add some new protocols in sample_tx_hash(), it will be ignored by these
+devices, and we might have to update the hashing in all select_queue()
+methods as well.
+
+So I wonder if we shouldn't change all this into:
+1) simple_tx_hash(skb) returns a big protocol-independent integer (like
+a concatenation or basic xor of IP proto/addr/...). It basically just
+converts the skb header in something flat and proto-independent.
+2.a) if the device provides select_queue(), we pass this integer to it.
+select_queue() either uses the skb headers if it really wants to hash IP
+or IPv6 precisely, or uses our protocol-independent integer and just
+hash it in a dumb way without caring about the protocol hidden behind it.
+2.b) if there's no select_queue(), we hash the big integer depending on
+the number of tx queues
+
+This way, we can easily add some protocol specific hashing to all
+drivers without having to modify select_queue() everywhere. Of course,
+if we don't care about hashing anything but IP/IPv6, it doesn't matter :)
+
+Brice
+
