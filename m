@@ -1,41 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Sun, 3 Aug 2008 11:29:26 +0200
-Message-ID: <20080803092926.GA2971@ami.dom.local>
-References: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8ADD@rrsmsx501.amr.corp.intel.com> <20080802133719.GB2970@ami.dom.local> <20080802162733.GA10059@ami.dom.local> <20080802.121815.167998262.davem@davemloft.net> <20080802201944.GA14983@ami.dom.local>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: bnx2x null pointer dereference
+Date: Sun, 03 Aug 2008 12:36:41 +0300
+Message-ID: <1217756201.547.3.camel@lb-tlvb-eliezer>
+References: <200807311649.53177.bjorn.helgaas@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Justin Chen" <justin.chen@hp.com>,
+	"Bill Hayes" <bill.hayes@hp.com>,
+	"Myron Stowe" <myron.stowe@hp.com>
+To: "Bjorn Helgaas" <bjorn.helgaas@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:45501 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647AbYHCJ3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 05:29:14 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so590525nfc.21
-        for <netdev@vger.kernel.org>; Sun, 03 Aug 2008 02:29:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080802201944.GA14983@ami.dom.local>
+Received: from mms2.broadcom.com ([216.31.210.18]:2691 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752783AbYHCJgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Aug 2008 05:36:52 -0400
+In-Reply-To: <200807311649.53177.bjorn.helgaas@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 02, 2008 at 10:19:44PM +0200, Jarek Poplawski wrote:
-> On Sat, Aug 02, 2008 at 12:18:15PM -0700, David Miller wrote:
-...
-> > Jarek, we can't put the root lock back into the netdev_queue, it
-> > breaks all of the RCU handling of qdisc_destroy() which is fundamental
-> > for how all the multiqueue stuff works now.
-> > 
-> > See my other emails, it isn't even necessary anyways.
-...
-> Thanks for the explanations: BTW, I think, the qdisc_root_lock is a
-> bit misleading name, if qdisc_lock is also used for taking root lock.
-> Of course, this all makes sense, it simply needs more checking.
 
-After some re-checking one more question: why do you think this
-qdisc_root_lock() is safe as sch_tree_lock() (or anywhere else)? It
-seems, eg. during deactivation it can get root_lock of qdisc_default,
-and proceed with another qdisc?
+On Thu, 2008-07-31 at 15:49 -0700, Bjorn Helgaas wrote:
+> The crash below occurred because "params->bp == NULL" in
+> bnx2x_update_mng().  This is with the 1.45.11 driver version
+> on a RHEL 5.2 kernel.
+> 
+> This is on a prototype ia64 box, and I'm told that there's
+> some bnx2x firmware that is missing from the system firmware,
+> so this might be a "we don't care about this problem because
+> users will never see this situation" sort of thing.
+> 
+You are right - the problem is that the data from the board is invalid
+since there is no valid boot-code FW burned on it so the board cannot
+be used
 
-Jarek P.
+> But it is annoying that it crashes the box rather than just
+> causing the driver to ignore the device.
+> 
+And this is also true - so we will fix it soon and submit a patch
+
+> Bjorn
+> 
+Thanks for finding it,
+Eilon
+
+
+
