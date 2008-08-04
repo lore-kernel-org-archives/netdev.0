@@ -1,86 +1,133 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: 2.6.27-rc1-git4 BUG: sched while atomic
-Date: Mon, 4 Aug 2008 09:48:35 -0700
-Message-ID: <20080804094835.da083484.randy.dunlap@oracle.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Eliminate unnecessary forward delay
+Date: Tue, 5 Aug 2008 01:04:39 +0800
+Message-ID: <20080804170439.GA13546@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, mchan@broadcom.com
-To: lkml <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:27985 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753720AbYHDQtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 12:49:49 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:36952 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753273AbYHDREq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 13:04:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Usually (e.g., in 2.6.27-rc1 & earlier), I see lots of these messages for
-some reason:
+Hi:
 
-tg3: eth2: Link is up at 1000 Mbps, full duplex.
-tg3: eth2: Flow control is off for TX and off for RX.
-tg3: eth3: Link is up at 1000 Mbps, full duplex.
-tg3: eth3: Flow control is off for TX and off for RX.
-bnx2: eth1: using MSI
-bnx2: eth1 NIC SerDes Link is Up, 1000 Mbps full duplex
-tg3: eth2: Link is up at 1000 Mbps, full duplex.
-tg3: eth2: Flow control is off for TX and off for RX.
-tg3: eth3: Link is up at 1000 Mbps, full duplex.
-tg3: eth3: Flow control is off for TX and off for RX.
-bnx2: eth1: using MSI
-bnx2: eth1 NIC SerDes Link is Up, 1000 Mbps full duplex
-tg3: eth2: Link is up at 1000 Mbps, full duplex.
-tg3: eth2: Flow control is off for TX and off for RX.
-tg3: eth3: Link is up at 1000 Mbps, full duplex.
-tg3: eth3: Flow control is off for TX and off for RX.
-bnx2: eth1: using MSI
-bnx2: eth1 NIC SerDes Link is Up, 1000 Mbps full duplex
-tg3: eth2: Link is up at 1000 Mbps, full duplex.
-tg3: eth2: Flow control is off for TX and off for RX.
-tg3: eth3: Link is up at 1000 Mbps, full duplex.
-tg3: eth3: Flow control is off for TX and off for RX.
-bnx2: eth1: using MSI
+bridge: Eliminate unnecessary forward delay
 
+When the forward delay is set to zero, we still delay the setting
+of the forwarding state by one or possibly two timers depending
+on whether STP is enabled.  This could either turn out to be
+instantaneous, or horribly slow depending on the load of the
+machine.
 
-In 2.6.27-rc1-git4, I now see this (39 times):
+As there is nothing preventing us from enabling forwarding straight
+away, this patch eliminates this potential delay by executing the
+code directly if the forward delay is zero.
 
-BUG: scheduling while atomic: ifconfig/16971/0x00000100
-Modules linked in: parport_pc lp parport tg3 lpfc cciss ehci_hcd ohci_hcd uhci_hcd
-Pid: 16971, comm: ifconfig Not tainted 2.6.27-rc1-git4 #1
+The effect of this problem is that immediately after the carrier
+comes on a port, the bridge will drop all packets received from
+that port until it enters forwarding mode, thus causing unnecessary
+packet loss.
 
-Call Trace:
- [<ffffffff80283db9>] ? page_add_new_anon_rmap+0x20/0x22
- [<ffffffff802310e9>] __schedule_bug+0x62/0x66
- [<ffffffff80551146>] schedule+0x99/0x759
- [<ffffffff8023dc9f>] ? __mod_timer+0xc1/0xd3
- [<ffffffff8055584a>] ? do_page_fault+0x473/0x7dd
- [<ffffffff80551ce4>] schedule_timeout+0x8d/0xb4
- [<ffffffff8023d99e>] ? process_timeout+0x0/0xb
- [<ffffffff80551cdf>] ? schedule_timeout+0x88/0xb4
- [<ffffffff80551d24>] schedule_timeout_uninterruptible+0x19/0x1b
- [<ffffffff8023dcc5>] msleep+0x14/0x1e
- [<ffffffff80375f2f>] pci_set_power_state+0x1cd/0x292
- [<ffffffff803739fc>] ? pci_bus_write_config_dword+0x64/0x73
- [<ffffffffa00651b6>] tg3_set_power_state+0x58/0x884 [tg3]
- [<ffffffff80552525>] ? __mutex_lock_slowpath+0x1d8/0x1e5
- [<ffffffffa006b57a>] tg3_open+0x46/0x6cc [tg3]
- [<ffffffff80552525>] ? __mutex_lock_slowpath+0x1d8/0x1e5
- [<ffffffff804bdcfe>] dev_open+0x73/0xa8
- [<ffffffff804bbf5e>] dev_change_flags+0xab/0x167
- [<ffffffff804f7094>] devinet_ioctl+0x269/0x5da
- [<ffffffff8026d9da>] ? unlock_page+0x2d/0x32
- [<ffffffff804f7ca8>] inet_ioctl+0x92/0xaa
- [<ffffffff804b2046>] sock_ioctl+0x1d1/0x1fb
- [<ffffffff802a50aa>] vfs_ioctl+0x2a/0x77
- [<ffffffff802a534c>] do_vfs_ioctl+0x255/0x272
- [<ffffffff8055584a>] ? do_page_fault+0x473/0x7dd
- [<ffffffff802a53ab>] sys_ioctl+0x42/0x67
- [<ffffffff8020beeb>] system_call_fastpath+0x16/0x1b
+Note that this patch doesn't fully remove the delay due to the
+link watcher.  We should also check the carrier state when we
+are about to drop an incoming packet because the port is disabled.
+But that's for another patch.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+diff --git a/net/bridge/br_private_stp.h b/net/bridge/br_private_stp.h
+index 8b650f7..c612c02 100644
+--- a/net/bridge/br_private_stp.h
++++ b/net/bridge/br_private_stp.h
+@@ -53,4 +53,7 @@ extern void br_topology_change_detection(struct net_bridge *br);
+ extern void br_send_config_bpdu(struct net_bridge_port *, struct br_config_bpdu *);
+ extern void br_send_tcn_bpdu(struct net_bridge_port *);
+ 
++/* br_stp_timer.c */
++void __br_forward_delay_timer_expired(struct net_bridge_port *p);
++
+ #endif
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index 921bbe5..70e0890 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -375,7 +375,12 @@ static void br_make_forwarding(struct net_bridge_port *p)
+ 			p->state = BR_STATE_LEARNING;
+ 
+ 		br_log_state(p);
+-		mod_timer(&p->forward_delay_timer, jiffies + p->br->forward_delay);	}
++		if (p->br->forward_delay)
++			mod_timer(&p->forward_delay_timer,
++				  jiffies + p->br->forward_delay);
++		else
++			__br_forward_delay_timer_expired(p);
++	}
+ }
+ 
+ /* called under bridge lock */
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index 772a140..c061907 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -82,24 +82,41 @@ static void br_message_age_timer_expired(unsigned long arg)
+ 	spin_unlock(&br->lock);
+ }
+ 
+-static void br_forward_delay_timer_expired(unsigned long arg)
++/* called under bridge lock */
++void __br_forward_delay_timer_expired(struct net_bridge_port *p)
+ {
+-	struct net_bridge_port *p = (struct net_bridge_port *) arg;
+ 	struct net_bridge *br = p->br;
+ 
+ 	pr_debug("%s: %d(%s) forward delay timer\n",
+ 		 br->dev->name, p->port_no, p->dev->name);
+-	spin_lock(&br->lock);
++
+ 	if (p->state == BR_STATE_LISTENING) {
+ 		p->state = BR_STATE_LEARNING;
+-		mod_timer(&p->forward_delay_timer,
+-			  jiffies + br->forward_delay);
+-	} else if (p->state == BR_STATE_LEARNING) {
++		if (br->forward_delay) {
++			mod_timer(&p->forward_delay_timer,
++				  jiffies + br->forward_delay);
++			goto out;
++		}
++		br_log_state(p);
++	}
++
++	if (p->state == BR_STATE_LEARNING) {
+ 		p->state = BR_STATE_FORWARDING;
+ 		if (br_is_designated_for_some_port(br))
+ 			br_topology_change_detection(br);
+ 	}
++
++out:
+ 	br_log_state(p);
++}
++
++static void br_forward_delay_timer_expired(unsigned long arg)
++{
++	struct net_bridge_port *p = (struct net_bridge_port *) arg;
++	struct net_bridge *br = p->br;
++
++	spin_lock(&br->lock);
++	__br_forward_delay_timer_expired(p);
+ 	spin_unlock(&br->lock);
+ }
+ 
 
----
-~Randy
-Linux Plumbers Conference, 17-19 September 2008, Portland, Oregon USA
-http://linuxplumbersconf.org/
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
