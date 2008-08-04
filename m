@@ -1,116 +1,79 @@
-From: "Leandro Oliveira da Silva" <lansoweb@hotmail.com>
-Subject: RES: [Bugme-new] [Bug 11249] New: TC HTB hanging problem
-Date: Mon, 4 Aug 2008 15:44:30 -0300
-Message-ID: <BAY111-DAV13CEE254838554E11B28A0C0780@phx.gbl>
-References: <bug-11249-10286@http.bugzilla.kernel.org/> <20080804105506.8b401320.akpm@linux-foundation.org>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Re: 2.6.27-rc1-git4 BUG: sched while atomic
+Date: Mon, 04 Aug 2008 16:13:14 -0300
+Message-ID: <489754CA.4020705@linux.vnet.ibm.com>
+References: <20080804094835.da083484.randy.dunlap@oracle.com> <20080804101712.659780ef@extreme> <1217859640.6746.2.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <bugme-daemon@bugzilla.kernel.org>
-To: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s14.bay0.hotmail.com ([65.54.246.150]:62471 "EHLO
-	bay0-omc2-s14.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760361AbYHDSup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 14:50:45 -0400
-In-Reply-To: <20080804105506.8b401320.akpm@linux-foundation.org>
-Message-ID: <001201c8f662$214a3b40$63deb1c0$@com>
-Content-Language: pt-br
+Received: from igw1.br.ibm.com ([32.104.18.24]:46925 "EHLO igw1.br.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757528AbYHDTWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 15:22:00 -0400
+Received: from mailhub3.br.ibm.com (mailhub3 [9.18.232.110])
+	by igw1.br.ibm.com (Postfix) with ESMTP id 8F24132C1EC
+	for <netdev@vger.kernel.org>; Mon,  4 Aug 2008 15:53:30 -0300 (BRT)
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.18.232.46])
+	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v8.7) with ESMTP id m74JDOD83350594
+	for <netdev@vger.kernel.org>; Mon, 4 Aug 2008 16:13:24 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m74JDH7u015472
+	for <netdev@vger.kernel.org>; Mon, 4 Aug 2008 16:13:17 -0300
+In-Reply-To: <1217859640.6746.2.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Andrew!
-
-Just to add, 2 weeks ago one of my clients had to reboot the server 3 times
-during the day, so I disabled the qos and it worked fine for 3 days. After
-this days I started the qos again and 10 hours later the server hanged
-again, so it's disabled until now without hanging.
-Another info is that I got other server that was hanging randomly and put
-the users using a router but kept the server on, in the internet and with
-qos running and it doesn't hang in the last 10 days. So I guess it's not the
-qos only, but something with qos and usage by users. I have other client
-with same kernel, same rules running for more than 2 month and with more
-than 4 times the internet usage than the others and it never hanged, so it's
-not only high usage.
-I really don't know what is happening.
-
-Thanks a lot any advice,
-Leandro
-
------Mensagem original-----
-De: Andrew Morton [mailto:akpm@linux-foundation.org] 
-Enviada em: segunda-feira, 4 de agosto de 2008 14:55
-Para: netdev@vger.kernel.org
-Cc: bugme-daemon@bugzilla.kernel.org; lansoweb@hotmail.com
-Assunto: Re: [Bugme-new] [Bug 11249] New: TC HTB hanging problem
-
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Mon,  4 Aug 2008 08:01:05 -0700 (PDT) bugme-daemon@bugzilla.kernel.org
-wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=11249
+Michael Chan wrote:
+> On Mon, 2008-08-04 at 10:17 -0700, Stephen Hemminger wrote:
+>>> In 2.6.27-rc1-git4, I now see this (39 times):
+>>>
+>>> BUG: scheduling while atomic: ifconfig/16971/0x00000100
+>>> Modules linked in: parport_pc lp parport tg3 lpfc cciss ehci_hcd
+>> ohci_hcd uhci_hcd
+>>> Pid: 16971, comm: ifconfig Not tainted 2.6.27-rc1-git4 #1
+>>>
+>>> Call Trace:
+>>>  [<ffffffff80283db9>] ? page_add_new_anon_rmap+0x20/0x22
+>>>  [<ffffffff802310e9>] __schedule_bug+0x62/0x66
+>>>  [<ffffffff80551146>] schedule+0x99/0x759
+>>>  [<ffffffff8023dc9f>] ? __mod_timer+0xc1/0xd3
+>>>  [<ffffffff8055584a>] ? do_page_fault+0x473/0x7dd
+>>>  [<ffffffff80551ce4>] schedule_timeout+0x8d/0xb4
+>>>  [<ffffffff8023d99e>] ? process_timeout+0x0/0xb
+>>>  [<ffffffff80551cdf>] ? schedule_timeout+0x88/0xb4
+>>>  [<ffffffff80551d24>] schedule_timeout_uninterruptible+0x19/0x1b
+>>>  [<ffffffff8023dcc5>] msleep+0x14/0x1e
+>>>  [<ffffffff80375f2f>] pci_set_power_state+0x1cd/0x292
+>>>  [<ffffffff803739fc>] ? pci_bus_write_config_dword+0x64/0x73
+>>>  [<ffffffffa00651b6>] tg3_set_power_state+0x58/0x884 [tg3]
+>>>  [<ffffffff80552525>] ? __mutex_lock_slowpath+0x1d8/0x1e5
+>>>  [<ffffffffa006b57a>] tg3_open+0x46/0x6cc [tg3]
+>>>  [<ffffffff80552525>] ? __mutex_lock_slowpath+0x1d8/0x1e5
+>>>  [<ffffffff804bdcfe>] dev_open+0x73/0xa8
+>>>  [<ffffffff804bbf5e>] dev_change_flags+0xab/0x167
+>>>  [<ffffffff804f7094>] devinet_ioctl+0x269/0x5da
+>>>  [<ffffffff8026d9da>] ? unlock_page+0x2d/0x32
+>>>  [<ffffffff804f7ca8>] inet_ioctl+0x92/0xaa
+>>>  [<ffffffff804b2046>] sock_ioctl+0x1d1/0x1fb
+>>>  [<ffffffff802a50aa>] vfs_ioctl+0x2a/0x77
+>>>  [<ffffffff802a534c>] do_vfs_ioctl+0x255/0x272
+>>>  [<ffffffff8055584a>] ? do_page_fault+0x473/0x7dd
+>>>  [<ffffffff802a53ab>] sys_ioctl+0x42/0x67
+>>>  [<ffffffff8020beeb>] system_call_fastpath+0x16/0x1b
+>> This is a bug.
+>>
 > 
->            Summary: TC HTB hanging problem
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.23 and 2.6.25
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: lansoweb@hotmail.com
+> This was introduced by:
 > 
+> tg3: adapt tg3 to use reworked PCI PM code
 > 
-> Latest working kernel version:
-> Earliest failing kernel version: 2.6.23
-> 
-> Distribution: Mandriva 2007.1 and 2008.0
-> 
-> Hardware Environment:
-> It happens in many different servers
-> 
-> Software Environment:
-> Problem Description:
-> I have close to 200 servers, most with mandriva 2006.0 using kernel
-2.6.15,
-> some with mandriva 2008.0 using kernel 2.6.23 or 2.6.25. In some of them
-> (kernels 2.6.23 and 2.6.25 confirmed) the server hangs at random (some
-servers
-> hang more than once a day, some once a month).
-> The hardware is different from each other and i have about 5 servers with
-> exactly the same configuration (proc, mem, ethernet, so one) and one hangs
-> every day while the others are running fine, all with the same rules for
-> traffic shapping (tc using htb).
-> I think that it is something related to tc because last week i accessed a
-> server and when i type tc del to remove the shapping it hanged. My client
-> restarted the server and about 10 minutes later i did it again with the
-same
-> effect. No kernel panic, no oops, just hangs. 
-> I've read some posts and bugs but i see something related to ethernet
-driver
-> (like sk98lin), but it is happening with several servers with different
-> hardwares.
-> I have some servers with kernel 2.6.15 and, as far as i know, it doesn't
-happen
-> with them, but some of they use a different set of tc rules (a few less
-rules
-> actually) or none at all.
-> I don't use the kernel shippied with mandriva distro, always got kernel
-from
-> kernel.org and compilled myself.
-> 
-> Steps to reproduce:
-> Handly, since it is random, it takes minutes or weeks to happen, but
-always
-> with some change in tc (start or stop).
+> Adapt the tg3 driver to use the reworked PCI PM and make it use the
+> exported PCI PM core functions instead of accessing the PCI PM registers
+> directly by itself.
 
-
+I just reverted this patch on my tree and the problem doesn't happen anymore.
