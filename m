@@ -1,47 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] netdev: debugging option
-Date: Mon, 04 Aug 2008 14:31:28 -0700 (PDT)
-Message-ID: <20080804.143128.47731600.davem@davemloft.net>
-References: <20080719230424.190957a3@extreme>
-	<20080720.000509.20260185.davem@davemloft.net>
-	<20080804093742.395d271e@extreme>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: pull request: wireless-2.6 2008-08-04
+Date: Mon, 04 Aug 2008 23:42:03 +0200
+Message-ID: <1217886123.7819.23.camel@californication>
+References: <20080804193753.GA30345@tuxdriver.com>
+	 <1217882288.7819.19.camel@californication>
+	 <20080804204558.GA5866@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51896
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755074AbYHDVbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 17:31:31 -0400
-In-Reply-To: <20080804093742.395d271e@extreme>
+Received: from senator.holtmann.net ([87.106.208.187]:47592 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763868AbYHDViN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 17:38:13 -0400
+In-Reply-To: <20080804204558.GA5866@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 4 Aug 2008 09:37:42 -0700
+Hi John,
 
-> On Sun, 20 Jul 2008 00:05:09 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Stephen Hemminger <shemminger@vyatta.com>
-> > Date: Sat, 19 Jul 2008 23:04:24 -0700
+> > > Luis R. Rodriguez (4):
+> > >       list.h: Add list_splice_tail() and list_splice_tail_init()
+> > >       list.h: add list_cut_position()
 > > 
-> > So we really need to add some kind of run time enable and also a
-> > filter of some sort, even if it's just on device.
+> > have these two changes got reviewed on LKML? I don't see any ACKs for it
+> > in the commit message.
 > 
-> The sysctl in the patch is default off, so unless it is turned on,
-> the log is quiet
+> Hmmm...no.  I thought the original patches had been copied to
+> linux-kernel, but it looks like that is not the case.
+> 
+> The original patches are archived here:
+> 
+> 	http://marc.info/?l=linux-wireless&m=121783421908441&w=2
+> 
+> 	http://marc.info/?l=linux-wireless&m=121783422008445&w=2
+> 
+> What problems do you see with them?
 
-I get a feeling you think I can just apply your patch now.
+I don't see a problem with these patches, but they should at least be
+reviewed on LKML once. Changes to core kernel infrastructure should not
+be merged silently via subsystem trees without any kind of ACKs.
 
-You can't respond to my gripes more than a week later and expect
-the patch to still be in my inbox ready to apply.  I delete the
-patch from my mailbox as soon as I have major issues with it.
+Regards
 
-If you think your reply means that the patch should be applied you
-need to resubmit it.
+Marcel
 
-Thanks.
+
