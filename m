@@ -1,61 +1,127 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Re: Warning when unloading the nf_conntack module (regression?)
-Date: Sun, 3 Aug 2008 23:46:39 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808032344510.16818@bizon.gios.gov.pl>
-References: <20080803143730.7747e9a8@infradead.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] inet6: Fix paramater issue of inet6_csk_xmit
+Date: Sun, 03 Aug 2008 21:03:08 -0400
+Message-ID: <4896554C.3040404@hp.com>
+References: <48929C5B.5030108@cn.fujitsu.com> <E1KOqf7-0004lB-00@gondolin.me.apana.org.au> <20080801.021825.51896743.davem@davemloft.net> <20080801092548.GA18424@gondor.apana.org.au> <20080801115041.GA19124@gondor.apana.org.au> <20080801131453.GA19851@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-326322370-1217799999=:16818"
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Arjan van de Ven <arjan@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, yjwei@cn.fujitsu.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:58127 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756682AbYHCVrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 17:47:39 -0400
-In-Reply-To: <20080803143730.7747e9a8@infradead.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:24846 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbYHDBDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 21:03:15 -0400
+In-Reply-To: <20080801131453.GA19851@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi Herbert
 
----187430788-326322370-1217799999=:16818
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Herbert Xu wrote:
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 535a18f..ab1c472 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -524,8 +524,7 @@ static inline void sctp_ssn_skip(struct sctp_stream *stream, __u16 id,
+>   */
+>  struct sctp_af {
+>  	int		(*sctp_xmit)	(struct sk_buff *skb,
+> -					 struct sctp_transport *,
+> -					 int ipfragok);
+> +					 struct sctp_transport *);
+>  	int		(*setsockopt)	(struct sock *sk,
+>  					 int level,
+>  					 int optname,
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index a238d68..11dab07 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -195,8 +195,7 @@ out:
+>  }
+>  
+>  /* Based on tcp_v6_xmit() in tcp_ipv6.c. */
+> -static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport,
+> -			int ipfragok)
+> +static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
+>  {
+>  	struct sock *sk = skb->sk;
+>  	struct ipv6_pinfo *np = inet6_sk(sk);
+> @@ -231,7 +230,10 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport,
+>  
+>  	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
+>  
+> -	return ip6_xmit(sk, skb, &fl, np->opt, ipfragok);
+> +	if (!(tp->param_flags & SPP_PMTUD_ENABLE))
+> +		skb->local_df = 1;
+> +
 
+s/tp/transport.  Otherwise, will not compile.
 
+> +	return ip6_xmit(sk, skb, &fl, np->opt, 0);
+>  }
+>  
+>  /* Returns the dst cache entry for the given source and destination ip
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 4568464..0dc4a7d 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -586,10 +586,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>  	SCTP_DEBUG_PRINTK("***sctp_transmit_packet*** skb len %d\n",
+>  			  nskb->len);
+>  
+> -	if (tp->param_flags & SPP_PMTUD_ENABLE)
+> -		(*tp->af_specific->sctp_xmit)(nskb, tp, packet->ipfragok);
+> -	else
+> -		(*tp->af_specific->sctp_xmit)(nskb, tp, 1);
+> +	nskb->local_df = packet->ipfragok;
+> +	(*tp->af_specific->sctp_xmit)(nskb, tp);
+>  
+>  out:
+>  	packet->size = packet->overhead;
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index a6e0818..80b8efb 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -862,16 +862,25 @@ static int sctp_inet_supported_addrs(const struct sctp_sock *opt,
+>  
+>  /* Wrapper routine that calls the ip transmit routine. */
+>  static inline int sctp_v4_xmit(struct sk_buff *skb,
+> -			       struct sctp_transport *transport, int ipfragok)
+> +			       struct sctp_transport *transport)
+>  {
+> +	struct inet_sock *inet = inet_sk(skb->sk);
+> +
+>  	SCTP_DEBUG_PRINTK("%s: skb:%p, len:%d, "
+>  			  "src:%u.%u.%u.%u, dst:%u.%u.%u.%u\n",
+>  			  __func__, skb, skb->len,
+>  			  NIPQUAD(skb->rtable->rt_src),
+>  			  NIPQUAD(skb->rtable->rt_dst));
+>  
+> +	/*
+> +	 * You'd think with a protocol this big they could afford
+> +	 * a struct sock per transport.
+> +	 */
 
-On Sun, 3 Aug 2008, Arjan van de Ven wrote:
+Please change this comment to be descriptive of the code, or just
+remove it.
 
-> The warning below started showing up on kerneloops.org in the top 20 and =
-it appears to
-> be new in 2.6.27-rc (e.g. a regression)...
->
-> It happens when nf_conntrack is rmmod'd
->
->
-> The reports:
-> http://www.kerneloops.org/search.php?search=3Dnf_conntrack_acct_fini
->
-> The warning:
->
-> WARNING: at kernel/sysctl.c:1966 unregister_sysctl_table+0xcc/0x103()
->
-> Modules : nf_conntrack(-)
->
-> Call Trace:
-> [<ffffffff81043bc8>] warn_on_slowpath+0x65/0x98
-> [<ffffffff8104abdf>] unregister_sysctl_table+0xcc/0x103
-> [<ffffffffa0306655>] nf_conntrack_acct_fini+0x15/0x23 [nf_conntrack]
-> [<ffffffffa03018a1>] nf_conntrack_cleanup+0x84/0x86 [nf_conntrack]
-> [<ffffffffa0306944>] nf_conntrack_standalone_fini+0x40/0x42 [nf_conntrack=
-]
-> [<ffffffff810700d0>] sys_delete_module+0x202/0x263
-> [<ffffffff8101034a>] system_call_fastpath+0x16/0x1b
+> +	inet->pmtudisc = transport->param_flags & SPP_PMTUD_ENABLE ?
+> +			 IP_PMTUDISC_DO : IP_PMTUDISC_DONT;
+> +
+>  	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
+> -	return ip_queue_xmit(skb, ipfragok);
+> +	return ip_queue_xmit(skb, 0);
+>  }
+>  
+>  static struct sctp_af sctp_af_inet;
+> 
+> Cheers,
 
-Thanks. It seems I'm the person who introduced it. I'll look at it ASAP.
+Otherwise, all of my tests have passed.
 
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-326322370-1217799999=:16818--
+Thanks
+-vlad
