@@ -1,51 +1,95 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] netdev: debugging option
-Date: Mon, 4 Aug 2008 15:34:44 -0700
-Message-ID: <20080804153444.51f57276@extreme>
-References: <20080719230424.190957a3@extreme>
-	<20080720.000509.20260185.davem@davemloft.net>
-	<20080804093742.395d271e@extreme>
-	<20080804.143128.47731600.davem@davemloft.net>
+From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 1/4] list.h: Add list_splice_tail() and list_splice_tail_init()
+Date: Mon, 4 Aug 2008 15:48:00 -0700
+Message-ID: <1217890080-12073-1-git-send-email-lrodriguez@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:34233 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752009AbYHDWeq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Aug 2008 18:34:46 -0400
-In-Reply-To: <20080804.143128.47731600.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>
+To: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 04 Aug 2008 14:31:28 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+If you are using linked lists for queues list_splice() will not do what
+you would expect even if you use the elements passed reversed. We need
+to handle these differently. We add list_splice_tail() and
+list_splice_tail_init()
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Mon, 4 Aug 2008 09:37:42 -0700
-> 
-> > On Sun, 20 Jul 2008 00:05:09 -0700 (PDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Stephen Hemminger <shemminger@vyatta.com>
-> > > Date: Sat, 19 Jul 2008 23:04:24 -0700
-> > > 
-> > > So we really need to add some kind of run time enable and also a
-> > > filter of some sort, even if it's just on device.
-> > 
-> > The sysctl in the patch is default off, so unless it is turned on,
-> > the log is quiet
-> 
-> I get a feeling you think I can just apply your patch now.
-> 
-> You can't respond to my gripes more than a week later and expect
-> the patch to still be in my inbox ready to apply.  I delete the
-> patch from my mailbox as soon as I have major issues with it.
-> 
+Signed-off-by: Luis R. Rodriguez <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+---
+ include/linux/list.h |   45 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 44 insertions(+), 1 deletions(-)
 
-Okay, I prioritize my mail replies, and this was on the tickler file of
-(things to get back to when the smoke clears).  Just didn't want to let
-it die.
+diff --git a/include/linux/list.h b/include/linux/list.h
+index 453916b..594f67c 100644
+--- a/include/linux/list.h
++++ b/include/linux/list.h
+@@ -229,7 +229,7 @@ static inline void __list_splice(const struct list_head *list,
+ }
+ 
+ /**
+- * list_splice - join two lists
++ * list_splice - join two lists, this is designed for stacks
+  * @list: the new list to add.
+  * @head: the place to add it in the first list.
+  */
+@@ -256,6 +256,49 @@ static inline void list_splice_init(struct list_head *list,
+ 	}
+ }
+ 
++static inline void __list_splice_tail(const struct list_head *list,
++				 struct list_head *head)
++{
++	struct list_head *first = list->next;
++	struct list_head *last = list->prev;
++	struct list_head *current_tail = head->prev;
++
++	current_tail->next = first;
++	last->next = head;
++	head->prev = last;
++	first->prev = current_tail;
++}
++
++/**
++ * list_splice_tail - join two lists, each list being a queue
++ * @list: the new list to add.
++ * @head: the place to add it in the first list.
++ */
++static inline void list_splice_tail(const struct list_head *list,
++				struct list_head *head)
++{
++	if (!list_empty(list))
++		__list_splice_tail(list, head);
++}
++
++/**
++ * list_splice_tail_init - join two lists, each list being a queue, and
++ * 	reinitialise the emptied list.
++ * @list: the new list to add.
++ * @head: the place to add it in the first list.
++ *
++ * The list at @list is reinitialised
++ */
++static inline void list_splice_tail_init(struct list_head *list,
++				    struct list_head *head)
++{
++	if (!list_empty(list)) {
++		__list_splice_tail(list, head);
++		INIT_LIST_HEAD(list);
++	}
++}
++
++
+ /**
+  * list_entry - get the struct for this entry
+  * @ptr:	the &struct list_head pointer.
+-- 
+1.5.6.rc2.15.g457bb.dirty
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
