@@ -1,73 +1,58 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: [PATCH 2/4] list.h: add list_cut_position()
-Date: Mon, 4 Aug 2008 15:48:09 -0700
-Message-ID: <1217890089-12100-1-git-send-email-lrodriguez@atheros.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: pull request: wireless-2.6 2008-08-04
+Date: Mon, 4 Aug 2008 15:45:38 -0700
+Message-ID: <43e72e890808041545y1b1727c1t90db35721a9c9d8d@mail.gmail.com>
+References: <20080804193753.GA30345@tuxdriver.com>
+	 <1217882288.7819.19.camel@californication>
+	 <20080804204558.GA5866@tuxdriver.com>
+	 <1217886123.7819.23.camel@californication>
+	 <20080804215439.GA9658@tuxdriver.com>
+	 <1217889426.7819.26.camel@californication>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	<linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>
-To: <linville@tuxdriver.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linville@tuxdriver.com>,
-	<torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atheros.com ([12.36.123.2]:45867 "EHLO mail.atheros.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755931AbYHDWsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Aug 2008 18:48:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Marcel Holtmann" <marcel@holtmann.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759271AbYHDWxN@vger.kernel.org>
+In-Reply-To: <1217889426.7819.26.camel@californication>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds list_cut_position() which lets you cut a list into
-two lists given a pivot in the list.
+On Mon, Aug 4, 2008 at 3:37 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi John,
+>
+>> > > > > Luis R. Rodriguez (4):
+>> > > > >       list.h: Add list_splice_tail() and list_splice_tail_init()
+>> > > > >       list.h: add list_cut_position()
+>> > > >
+>> > > > have these two changes got reviewed on LKML? I don't see any ACKs for it
+>> > > > in the commit message.
+>> > >
+>> > > Hmmm...no.  I thought the original patches had been copied to
+>> > > linux-kernel, but it looks like that is not the case.
+>> > >
+>> > > The original patches are archived here:
+>> > >
+>> > >   http://marc.info/?l=linux-wireless&m=121783421908441&w=2
+>> > >
+>> > >   http://marc.info/?l=linux-wireless&m=121783422008445&w=2
+>> > >
+>> > > What problems do you see with them?
+>> >
+>> > I don't see a problem with these patches, but they should at least be
+>> > reviewed on LKML once. Changes to core kernel infrastructure should not
+>> > be merged silently via subsystem trees without any kind of ACKs.
+>>
+>> Yes, fine.  That wasn't my intent. :-)  The patches were originally
+>> posted about two weeks ago, too bad that didn't actually go to
+>> linux-kernel. :-(
+>
+> just post them to LKML (or let Luis do it) so they get reviewed. I
+> really don't see an issue with them, but that is only me.
 
-Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
----
- include/linux/list.h |   32 ++++++++++++++++++++++++++++++++
- 1 files changed, 32 insertions(+), 0 deletions(-)
+I'll repost those specific patches and add lkml.
 
-diff --git a/include/linux/list.h b/include/linux/list.h
-index 594f67c..2999b0f 100644
---- a/include/linux/list.h
-+++ b/include/linux/list.h
-@@ -214,6 +214,38 @@ static inline int list_is_singular(const struct list_head *head)
- 	return !list_empty(head) && (head->next == head->prev);
- }
- 
-+static inline void __list_cut_position(struct list_head *list,
-+		struct list_head *head, struct list_head *entry)
-+{
-+	struct list_head *new_first =
-+		(entry->next != head) ? entry->next : head;
-+	list->next = head->next;
-+	list->next->prev = list;
-+	list->prev = entry;
-+	entry->next = list;
-+	head->next = new_first;
-+	new_first->prev = head;
-+}
-+
-+/**
-+ * list_cut_position - cut a list into two
-+ * @list: a new list to add all removed entries
-+ * @head: a list with entries
-+ * @entry: an entry within head, could be the head itself
-+ *	and if so we won't won't cut the list
-+ */
-+static inline void list_cut_position(struct list_head *list,
-+		struct list_head *head, struct list_head *entry)
-+{
-+	BUG_ON(list_empty(head));
-+	if (list_is_singular(head))
-+		BUG_ON(head->next != entry && head != entry);
-+	if (entry == head)
-+		INIT_LIST_HEAD(list);
-+	else
-+		__list_cut_position(list, head, entry);
-+}
-+
- static inline void __list_splice(const struct list_head *list,
- 				 struct list_head *head)
- {
--- 
-1.5.6.rc2.15.g457bb.dirty
-
+  Luis
