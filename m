@@ -1,32 +1,86 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 2.6.27-rc1] ixp4xx_eth: fix dma_mapping_error() compile errors
-Date: Mon, 04 Aug 2008 19:20:43 +0200
-Message-ID: <m3bq08snmc.fsf@maximus.localdomain>
-References: <200808011801.m71I1YLM006716@harpo.it.uu.se>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: bridge: Eliminate unnecessary forward delay
+Date: Mon, 4 Aug 2008 10:27:03 -0700
+Message-ID: <20080804102703.666baedd@extreme>
+References: <20080804170439.GA13546@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mikael Pettersson <mikpe@it.uu.se>, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:58046 "EHLO khc.piap.pl"
+Received: from mail.vyatta.com ([216.93.170.194]:45514 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755466AbYHDRUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Aug 2008 13:20:46 -0400
-In-Reply-To: <200808011801.m71I1YLM006716@harpo.it.uu.se> (Mikael Pettersson's message of "Fri\, 1 Aug 2008 20\:01\:34 +0200 \(MEST\)")
+	id S1753347AbYHDR1E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 13:27:04 -0400
+In-Reply-To: <20080804170439.GA13546@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mikael Pettersson <mikpe@it.uu.se> writes:
+On Tue, 5 Aug 2008 01:04:39 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> dma_mapping_error() changed in 2.6.27-rc1 to also take a device parameter,
-> but nobody bothered updating ixp4xx_eth.c. Fixed by passing the appropriate
-> device value in the dma_mapping_error() calls.
+> Hi:
+> 
+> bridge: Eliminate unnecessary forward delay
+> 
+> When the forward delay is set to zero, we still delay the setting
+> of the forwarding state by one or possibly two timers depending
+> on whether STP is enabled.  This could either turn out to be
+> instantaneous, or horribly slow depending on the load of the
+> machine.
+> 
+> As there is nothing preventing us from enabling forwarding straight
+> away, this patch eliminates this potential delay by executing the
+> code directly if the forward delay is zero.
+> 
+> The effect of this problem is that immediately after the carrier
+> comes on a port, the bridge will drop all packets received from
+> that port until it enters forwarding mode, thus causing unnecessary
+> packet loss.
+> 
+> Note that this patch doesn't fully remove the delay due to the
+> link watcher.  We should also check the carrier state when we
+> are about to drop an incoming packet because the port is disabled.
+> But that's for another patch.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks for fixing it.
+How about this, it is simpler just to do the state change.
 
-Jeff, can you apply this patch? Alternatively I'll take it and
-resend. Thanks.
-
-Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
--- 
-Krzysztof Halasa
+--- a/net/bridge/br_stp.c	2008-08-04 10:20:21.000000000 -0700
++++ b/net/bridge/br_stp.c	2008-08-04 10:26:04.000000000 -0700
+@@ -368,14 +368,26 @@ static void br_make_blocking(struct net_
+ /* called under bridge lock */
+ static void br_make_forwarding(struct net_bridge_port *p)
+ {
+-	if (p->state == BR_STATE_BLOCKING) {
+-		if (p->br->stp_enabled == BR_KERNEL_STP)
+-			p->state = BR_STATE_LISTENING;
+-		else
+-			p->state = BR_STATE_LEARNING;
++	struct net_bridge *br = p->br;
+ 
+-		br_log_state(p);
+-		mod_timer(&p->forward_delay_timer, jiffies + p->br->forward_delay);	}
++	if (p->state != BR_STATE_BLOCKING)
++		return;
++
++	if (br->forward_delay == 0) {
++		p->state = BR_STATE_FORWARDING;
++		if (br_is_designated_for_some_port(br))
++			br_topology_change_detection(br);
++		del_timer(&p->forward_delay_timer);
++	}
++	else if (p->br->stp_enabled == BR_KERNEL_STP)
++		p->state = BR_STATE_LISTENING;
++	else
++		p->state = BR_STATE_LEARNING;
++
++	br_log_state(p);
++
++	if (br->forward_delay != 0)
++		mod_timer(&p->forward_delay_timer, jiffies + br->forward_delay);
+ }
+ 
+ /* called under bridge lock */
