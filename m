@@ -1,49 +1,57 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: bnx2x null pointer dereference
-Date: Mon, 4 Aug 2008 09:18:19 -0600
-Message-ID: <200808040918.19550.bjorn.helgaas@hp.com>
-References: <200807311649.53177.bjorn.helgaas@hp.com> <1217756201.547.3.camel@lb-tlvb-eliezer>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] Interfamily IPSec BEET
+Date: Tue, 5 Aug 2008 00:20:46 +0800
+Message-ID: <20080804162046.GA12969@gondor.apana.org.au>
+References: <200808041619.42562.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Justin Chen" <justin.chen@hp.com>,
-	"Bill Hayes" <bill.hayes@hp.com>,
-	"Myron Stowe" <myron.stowe@hp.com>
-To: "Eilon Greenstein" <eilong@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yoshfuji@wide.ad.jp
+To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:40270 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753238AbYHDPSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 11:18:36 -0400
-In-Reply-To: <1217756201.547.3.camel@lb-tlvb-eliezer>
+Received: from rhun.apana.org.au ([64.62.148.172]:41030 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753931AbYHDQUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 12:20:50 -0400
 Content-Disposition: inline
+In-Reply-To: <200808041619.42562.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 03 August 2008 03:36:41 am Eilon Greenstein wrote:
+On Mon, Aug 04, 2008 at 04:19:42PM +0300, Joakim Koskela wrote:
+> This fixes the ipv4-inner, ipv6-outer mode.  This one is a bit more
+> complex as not only do we need to take into account the difference
+> between ipv4/ipv6 headers when adjusting the sk_buff network header,
+> we also need to reserve extra room for the new ipv6 header.  This
+> extra room, here got by adding it to the props.header_len, is needed
+> to accomodate the new & larger ipv6 header (the kernel is currently
+> panicing because of this).
 > 
-> On Thu, 2008-07-31 at 15:49 -0700, Bjorn Helgaas wrote:
-> > The crash below occurred because "params->bp == NULL" in
-> > bnx2x_update_mng().  This is with the 1.45.11 driver version
-> > on a RHEL 5.2 kernel.
-> > 
-> > This is on a prototype ia64 box, and I'm told that there's
-> > some bnx2x firmware that is missing from the system firmware,
-> > so this might be a "we don't care about this problem because
-> > users will never see this situation" sort of thing.
-> > 
-> You are right - the problem is that the data from the board is invalid
-> since there is no valid boot-code FW burned on it so the board cannot
-> be used
+> The BEET ipv4 pseudo-header construction was also missing from the
+> ipv6 output.
 > 
-> > But it is annoying that it crashes the box rather than just
-> > causing the driver to ignore the device.
-> > 
-> And this is also true - so we will fix it soon and submit a patch
+> Signed-off-by: Joakim Koskela <jookos@gmail.com>
 
-Great!  Thanks for looking into this.  I'd be glad to help test
-the patch when it's ready.
+Thanks for tracking this down Joakim! I'm sorry for not spending
+any time on this earlier.
 
-Bjorn
+> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+> index c6bb4c6..f09fcb9 100644
+> --- a/net/ipv6/esp6.c
+> +++ b/net/ipv6/esp6.c
+> @@ -521,6 +521,10 @@ static int esp6_init_state(struct xfrm_state *x)
+>  			      crypto_aead_ivsize(aead);
+>  	switch (x->props.mode) {
+>  	case XFRM_MODE_BEET:
+> +		x->props.header_len += IPV4_BEET_PHMAXLEN;
+> +		if (x->sel.family == AF_INET)
+> +			x->props.header_len += (sizeof(struct ipv6hdr) - sizeof(struct iphdr));
+
+This is still going to break with the new any family (i.e., v4
+or v6) SA.  So perhaps that should be x->sel.family != AF_INET6.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
