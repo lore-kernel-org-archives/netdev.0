@@ -1,57 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] Interfamily IPSec BEET
-Date: Tue, 5 Aug 2008 00:20:46 +0800
-Message-ID: <20080804162046.GA12969@gondor.apana.org.au>
-References: <200808041619.42562.joakim.koskela@hiit.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] netdev: debugging option
+Date: Mon, 4 Aug 2008 09:37:42 -0700
+Message-ID: <20080804093742.395d271e@extreme>
+References: <20080719011709.GA5947@disturbed>
+	<48821DEF.1040306@candelatech.com>
+	<20080719230424.190957a3@extreme>
+	<20080720.000509.20260185.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yoshfuji@wide.ad.jp
-To: Joakim Koskela <joakim.koskela@hiit.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41030 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753931AbYHDQUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 12:20:50 -0400
-Content-Disposition: inline
-In-Reply-To: <200808041619.42562.joakim.koskela@hiit.fi>
+Received: from mail.vyatta.com ([216.93.170.194]:42859 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758051AbYHDQho (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 12:37:44 -0400
+In-Reply-To: <20080720.000509.20260185.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 04, 2008 at 04:19:42PM +0300, Joakim Koskela wrote:
-> This fixes the ipv4-inner, ipv6-outer mode.  This one is a bit more
-> complex as not only do we need to take into account the difference
-> between ipv4/ipv6 headers when adjusting the sk_buff network header,
-> we also need to reserve extra room for the new ipv6 header.  This
-> extra room, here got by adding it to the props.header_len, is needed
-> to accomodate the new & larger ipv6 header (the kernel is currently
-> panicing because of this).
+On Sun, 20 Jul 2008 00:05:09 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Sat, 19 Jul 2008 23:04:24 -0700
 > 
-> The BEET ipv4 pseudo-header construction was also missing from the
-> ipv6 output.
+> > This adds a debugging option for network devices. It could grow to add other
+> > uses, but for now just add some messages about device reference counting.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Signed-off-by: Joakim Koskela <jookos@gmail.com>
+> I think this is useful but it could use some minor
+> mods before we put it in.
+> 
+> For example, this thing will spam the logs in at least two
+> common cases:
+> 
+> 1) Lots of routing cache replacements
+> 
+> 2) For older drivers using netif_rx() (and therefore, every
+>    current tunnel), every RX packet will trigger a log message
 
-Thanks for tracking this down Joakim! I'm sorry for not spending
-any time on this earlier.
+Fixed by later patch.
 
-> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-> index c6bb4c6..f09fcb9 100644
-> --- a/net/ipv6/esp6.c
-> +++ b/net/ipv6/esp6.c
-> @@ -521,6 +521,10 @@ static int esp6_init_state(struct xfrm_state *x)
->  			      crypto_aead_ivsize(aead);
->  	switch (x->props.mode) {
->  	case XFRM_MODE_BEET:
-> +		x->props.header_len += IPV4_BEET_PHMAXLEN;
-> +		if (x->sel.family == AF_INET)
-> +			x->props.header_len += (sizeof(struct ipv6hdr) - sizeof(struct iphdr));
+> So we really need to add some kind of run time enable and also a
+> filter of some sort, even if it's just on device.
 
-This is still going to break with the new any family (i.e., v4
-or v6) SA.  So perhaps that should be x->sel.family != AF_INET6.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The sysctl in the patch is default off, so unless it is turned on,
+the log is quiet
