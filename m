@@ -1,431 +1,258 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 1/2 respin] net_sched: Add qdisc __NET_XMIT_STOLEN flag
-Date: Mon, 4 Aug 2008 08:55:09 +0000
-Message-ID: <20080804085509.GA12927@ff.dom.local>
+Subject: [PATCH 2/2 respin] net_sched: Add qdisc __NET_XMIT_BYPASS flag
+Date: Mon, 4 Aug 2008 08:57:34 +0000
+Message-ID: <20080804085734.GB12927@ff.dom.local>
 References: <20080801101929.GA12735@ff.dom.local> <20080803.182524.240976246.davem@davemloft.net> <20080804062813.GA4570@ff.dom.local> <20080803.234200.193697269.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kaber@trash.net, jussi.kivilinna@mbnet.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:20973 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752499AbYHDItt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 04:49:49 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so663287nfc.21
-        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 01:49:47 -0700 (PDT)
+Received: from ik-out-1112.google.com ([66.249.90.183]:12333 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbYHDIwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 04:52:11 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so2496813ika.5
+        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 01:52:10 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <20080803.234200.193697269.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 03, 2008 at 11:42:00PM -0700, David Miller wrote:
-...
-> >  enum net_xmit_qdisc_t {
-> > -	__NET_XMIT_STOLEN = NET_XMIT_MASK + 1,
-> > +	__NET_XMIT_STOLEN = 0x0001FFFF,
-> > +	__NET_XMIT_BYPASS = 0x0002FFFF,
-> >  };
-> >  
-> 
-> Please, respin both patches, so that the "NET_XMIT_MASK + 1"
-> construct doesn't ever exist in the tree.
 
-My git went dangling, so it took longer than I expected, sorry.
+Subject: net_sched: Add qdisc __NET_XMIT_BYPASS flag
 
-Jarek P.
+Patrick McHardy <kaber@trash.net> noticed that it would be nice to
+handle NET_XMIT_BYPASS by NET_XMIT_SUCCESS with an internal qdisc flag
+__NET_XMIT_BYPASS and to remove the mapping from dev_queue_xmit().
 
------------------>
-
-Subject: net_sched: Add qdisc __NET_XMIT_STOLEN flag
-
-Patrick McHardy <kaber@trash.net> noticed:
-"The other problem that affects all qdiscs supporting actions is
-TC_ACT_QUEUED/TC_ACT_STOLEN getting mapped to NET_XMIT_SUCCESS
-even though the packet is not queued, corrupting upper qdiscs'
-qlen counters."
-
-and later explained:
-"The reason why it translates it at all seems to be to not increase
-the drops counter. Within a single qdisc this could be avoided by
-other means easily, upper qdiscs would still increase the counter
-when we return anything besides NET_XMIT_SUCCESS though.
-
-This means we need a new NET_XMIT return value to indicate this to
-the upper qdiscs. So I'd suggest to introduce NET_XMIT_STOLEN,
-return that to upper qdiscs and translate it to NET_XMIT_SUCCESS
-in dev_queue_xmit, similar to NET_XMIT_BYPASS."
-
-David Miller <davem@davemloft.net> noticed:
-"Maybe these NET_XMIT_* values being passed around should be a set of
-bits. They could be composed of base meanings, combined with specific
-attributes.
-
-So you could say "NET_XMIT_DROP | __NET_XMIT_NO_DROP_COUNT"
-
-The attributes get masked out by the top-level ->enqueue() caller,
-such that the base meanings are the only thing that make their
-way up into the stack. If it's only about communication within the
-qdisc tree, let's simply code it that way."
-
-This patch is trying to realize these ideas.
+David Miller <davem@davemloft.net> spotted a serious bug in the first
+version of this patch.
 
 
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
 ---
 
- include/linux/netdevice.h |    1 +
- include/net/sch_generic.h |   14 +++++++++++++-
- net/sched/sch_atm.c       |   12 +++++++-----
- net/sched/sch_cbq.c       |   23 +++++++++++++++--------
- net/sched/sch_dsmark.c    |    8 +++++---
- net/sched/sch_hfsc.c      |    8 +++++---
- net/sched/sch_htb.c       |   18 +++++++++++-------
- net/sched/sch_netem.c     |    3 ++-
- net/sched/sch_prio.c      |    8 +++++---
- net/sched/sch_red.c       |    2 +-
- net/sched/sch_sfq.c       |    2 +-
- net/sched/sch_tbf.c       |    3 ++-
- 12 files changed, 68 insertions(+), 34 deletions(-)
+ include/net/sch_generic.h |    6 +++---
+ net/core/dev.c            |    1 -
+ net/sched/sch_atm.c       |    2 +-
+ net/sched/sch_cbq.c       |    4 ++--
+ net/sched/sch_dsmark.c    |    2 +-
+ net/sched/sch_hfsc.c      |    4 ++--
+ net/sched/sch_htb.c       |    6 +++---
+ net/sched/sch_netem.c     |    2 +-
+ net/sched/sch_prio.c      |    6 +++---
+ net/sched/sch_sfq.c       |    6 +++---
+ 10 files changed, 19 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ee583f6..abbf5d5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -64,6 +64,7 @@ struct wireless_dev;
- #define NET_XMIT_BYPASS		4	/* packet does not leave via dequeue;
- 					   (TC use only - dev_queue_xmit
- 					   returns this as NET_XMIT_SUCCESS) */
-+#define NET_XMIT_MASK		0xFFFF	/* qdisc flags in net/sch_generic.h */
- 
- /* Backlog congestion levels */
- #define NET_RX_SUCCESS		0   /* keep 'em coming, baby */
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index c5bb130..f15b045 100644
+index f15b045..a7abfda 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -343,6 +343,18 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
+@@ -343,14 +343,14 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
  	return qdisc_skb_cb(skb)->pkt_len;
  }
  
-+#ifdef CONFIG_NET_CLS_ACT
-+/* additional qdisc xmit flags */
-+enum net_xmit_qdisc_t {
-+	__NET_XMIT_STOLEN = 0x00010000,
-+};
-+
-+#define net_xmit_drop_count(e)	((e) & __NET_XMIT_STOLEN ? 0 : 1)
-+
-+#else
-+#define net_xmit_drop_count(e)	(1)
-+#endif
-+
- static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- #ifdef CONFIG_NET_SCHED
-@@ -355,7 +367,7 @@ static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- static inline int qdisc_enqueue_root(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	qdisc_skb_cb(skb)->pkt_len = skb->len;
--	return qdisc_enqueue(skb, sch);
-+	return qdisc_enqueue(skb, sch) & NET_XMIT_MASK;
- }
+-#ifdef CONFIG_NET_CLS_ACT
+-/* additional qdisc xmit flags */
++/* additional qdisc xmit flags (NET_XMIT_MASK in linux/netdevice.h) */
+ enum net_xmit_qdisc_t {
+ 	__NET_XMIT_STOLEN = 0x00010000,
++	__NET_XMIT_BYPASS = 0x00020000,
+ };
  
- static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
++#ifdef CONFIG_NET_CLS_ACT
+ #define net_xmit_drop_count(e)	((e) & __NET_XMIT_STOLEN ? 0 : 1)
+-
+ #else
+ #define net_xmit_drop_count(e)	(1)
+ #endif
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cbf8009..6b93821 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1805,7 +1805,6 @@ gso:
+ 
+ 		spin_unlock(root_lock);
+ 
+-		rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+ 		goto out;
+ 	}
+ 
 diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 6b517b9..27dd773 100644
+index 27dd773..43d3725 100644
 --- a/net/sched/sch_atm.c
 +++ b/net/sched/sch_atm.c
-@@ -415,7 +415,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
- 			kfree_skb(skb);
--			return NET_XMIT_SUCCESS;
-+			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			kfree_skb(skb);
- 			goto drop;
-@@ -432,9 +432,11 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	ret = qdisc_enqueue(skb, flow->q);
- 	if (ret != 0) {
- drop: __maybe_unused
--		sch->qstats.drops++;
--		if (flow)
--			flow->qstats.drops++;
-+		if (net_xmit_drop_count(ret)) {
-+			sch->qstats.drops++;
-+			if (flow)
-+				flow->qstats.drops++;
-+		}
- 		return ret;
+@@ -457,7 +457,7 @@ drop: __maybe_unused
+ 		return 0;
  	}
- 	sch->bstats.bytes += qdisc_pkt_len(skb);
-@@ -530,7 +532,7 @@ static int atm_tc_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (!ret) {
- 		sch->q.qlen++;
- 		sch->qstats.requeues++;
--	} else {
-+	} else if (net_xmit_drop_count(ret)) {
- 		sch->qstats.drops++;
- 		p->link.qstats.drops++;
- 	}
+ 	tasklet_schedule(&p->task);
+-	return NET_XMIT_BYPASS;
++	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ }
+ 
+ /*
 diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 14954bf..765ae56 100644
+index 765ae56..4e261ce 100644
 --- a/net/sched/sch_cbq.c
 +++ b/net/sched/sch_cbq.c
-@@ -256,7 +256,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		switch (result) {
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
--			*qerr = NET_XMIT_SUCCESS;
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		case TC_ACT_RECLASSIFY:
-@@ -397,9 +397,11 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -230,7 +230,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	    (cl = cbq_class_lookup(q, prio)) != NULL)
+ 		return cl;
+ 
+-	*qerr = NET_XMIT_BYPASS;
++	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	for (;;) {
+ 		int result = 0;
+ 		defmap = head->defaults;
+@@ -377,7 +377,7 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	q->rx_class = cl;
+ #endif
+ 	if (cl == NULL) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
  		return ret;
- 	}
- 
--	sch->qstats.drops++;
--	cbq_mark_toplevel(q, cl);
--	cl->qstats.drops++;
-+	if (net_xmit_drop_count(ret)) {
-+		sch->qstats.drops++;
-+		cbq_mark_toplevel(q, cl);
-+		cl->qstats.drops++;
-+	}
- 	return ret;
- }
- 
-@@ -430,8 +432,10 @@ cbq_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 			cbq_activate_class(cl);
- 		return 0;
- 	}
--	sch->qstats.drops++;
--	cl->qstats.drops++;
-+	if (net_xmit_drop_count(ret)) {
-+		sch->qstats.drops++;
-+		cl->qstats.drops++;
-+	}
- 	return ret;
- }
- 
-@@ -664,13 +668,15 @@ static int cbq_reshape_fail(struct sk_buff *skb, struct Qdisc *child)
- 	q->rx_class = NULL;
- 
- 	if (cl && (cl = cbq_reclassify(skb, cl)) != NULL) {
-+		int ret;
- 
- 		cbq_mark_toplevel(q, cl);
- 
- 		q->rx_class = cl;
- 		cl->q->__parent = sch;
- 
--		if (qdisc_enqueue(skb, cl->q) == 0) {
-+		ret = qdisc_enqueue(skb, cl->q);
-+		if (ret == NET_XMIT_SUCCESS) {
- 			sch->q.qlen++;
- 			sch->bstats.packets++;
- 			sch->bstats.bytes += qdisc_pkt_len(skb);
-@@ -678,7 +684,8 @@ static int cbq_reshape_fail(struct sk_buff *skb, struct Qdisc *child)
- 				cbq_activate_class(cl);
- 			return 0;
- 		}
--		sch->qstats.drops++;
-+		if (net_xmit_drop_count(ret))
-+			sch->qstats.drops++;
- 		return 0;
- 	}
- 
 diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index a935676..7170275 100644
+index 7170275..edd1298 100644
 --- a/net/sched/sch_dsmark.c
 +++ b/net/sched/sch_dsmark.c
-@@ -236,7 +236,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
- 			kfree_skb(skb);
--			return NET_XMIT_SUCCESS;
-+			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+@@ -268,7 +268,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ drop:
+ 	kfree_skb(skb);
+ 	sch->qstats.drops++;
+-	return NET_XMIT_BYPASS;
++	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ }
  
- 		case TC_ACT_SHOT:
- 			goto drop;
-@@ -254,7 +254,8 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	err = qdisc_enqueue(skb, p->q);
- 	if (err != NET_XMIT_SUCCESS) {
--		sch->qstats.drops++;
-+		if (net_xmit_drop_count(err))
-+			sch->qstats.drops++;
- 		return err;
- 	}
- 
-@@ -321,7 +322,8 @@ static int dsmark_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	err = p->q->ops->requeue(skb, p->q);
- 	if (err != NET_XMIT_SUCCESS) {
--		sch->qstats.drops++;
-+		if (net_xmit_drop_count(err))
-+			sch->qstats.drops++;
- 		return err;
- 	}
- 
+ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
 diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 0ae7d19..5cf9ae7 100644
+index 5cf9ae7..c2b8d9c 100644
 --- a/net/sched/sch_hfsc.c
 +++ b/net/sched/sch_hfsc.c
-@@ -1166,7 +1166,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		switch (result) {
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
--			*qerr = NET_XMIT_SUCCESS;
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-@@ -1586,8 +1586,10 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -1159,7 +1159,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		if (cl->level == 0)
+ 			return cl;
  
- 	err = qdisc_enqueue(skb, cl->qdisc);
- 	if (unlikely(err != NET_XMIT_SUCCESS)) {
--		cl->qstats.drops++;
--		sch->qstats.drops++;
-+		if (net_xmit_drop_count(err)) {
-+			cl->qstats.drops++;
-+			sch->qstats.drops++;
-+		}
+-	*qerr = NET_XMIT_BYPASS;
++	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	tcf = q->root.filter_list;
+ 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -1578,7 +1578,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	cl = hfsc_classify(skb, sch, &err);
+ 	if (cl == NULL) {
+-		if (err == NET_XMIT_BYPASS)
++		if (err & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
  		return err;
- 	}
- 
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 75a4095..538d79b 100644
+index 538d79b..be35422 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -221,7 +221,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		switch (result) {
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
--			*qerr = NET_XMIT_SUCCESS;
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			return NULL;
+@@ -214,7 +214,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	if ((cl = htb_find(skb->priority, sch)) != NULL && cl->level == 0)
+ 		return cl;
+ 
+-	*qerr = NET_XMIT_BYPASS;
++	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	tcf = q->filter_list;
+ 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -567,7 +567,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  		}
-@@ -572,9 +572,11 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ #ifdef CONFIG_NET_CLS_ACT
+ 	} else if (!cl) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
  		kfree_skb(skb);
  		return ret;
- #endif
--	} else if (qdisc_enqueue(skb, cl->un.leaf.q) != NET_XMIT_SUCCESS) {
--		sch->qstats.drops++;
--		cl->qstats.drops++;
-+	} else if ((ret = qdisc_enqueue(skb, cl->un.leaf.q)) != NET_XMIT_SUCCESS) {
-+		if (net_xmit_drop_count(ret)) {
-+			sch->qstats.drops++;
-+			cl->qstats.drops++;
-+		}
- 		return NET_XMIT_DROP;
- 	} else {
- 		cl->bstats.packets +=
-@@ -615,10 +617,12 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -612,7 +612,7 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 		}
+ #ifdef CONFIG_NET_CLS_ACT
+ 	} else if (!cl) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
  		kfree_skb(skb);
  		return ret;
- #endif
--	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
-+	} else if ((ret = cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q)) !=
- 		   NET_XMIT_SUCCESS) {
--		sch->qstats.drops++;
--		cl->qstats.drops++;
-+		if (net_xmit_drop_count(ret)) {
-+			sch->qstats.drops++;
-+			cl->qstats.drops++;
-+		}
- 		return NET_XMIT_DROP;
- 	} else
- 		htb_activate(q, cl);
 diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index a590857..6cd6f2b 100644
+index 6cd6f2b..fb0294d 100644
 --- a/net/sched/sch_netem.c
 +++ b/net/sched/sch_netem.c
-@@ -240,8 +240,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		sch->q.qlen++;
- 		sch->bstats.bytes += qdisc_pkt_len(skb);
- 		sch->bstats.packets++;
--	} else
-+	} else if (net_xmit_drop_count(ret)) {
+@@ -176,7 +176,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (count == 0) {
  		sch->qstats.drops++;
-+	}
+ 		kfree_skb(skb);
+-		return NET_XMIT_BYPASS;
++		return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	}
  
- 	pr_debug("netem: enqueue ret %d\n", ret);
- 	return ret;
+ 	skb_orphan(skb);
 diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index f849243..adb1a52 100644
+index adb1a52..eac1976 100644
 --- a/net/sched/sch_prio.c
 +++ b/net/sched/sch_prio.c
-@@ -45,7 +45,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		switch (err) {
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_QUEUED:
--			*qerr = NET_XMIT_SUCCESS;
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-@@ -88,7 +88,8 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		sch->q.qlen++;
- 		return NET_XMIT_SUCCESS;
- 	}
--	sch->qstats.drops++;
-+	if (net_xmit_drop_count(ret))
-+		sch->qstats.drops++;
- 	return ret;
- }
+@@ -38,7 +38,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	struct tcf_result res;
+ 	int err;
  
-@@ -114,7 +115,8 @@ prio_requeue(struct sk_buff *skb, struct Qdisc* sch)
- 		sch->qstats.requeues++;
- 		return 0;
- 	}
--	sch->qstats.drops++;
-+	if (net_xmit_drop_count(ret))
-+		sch->qstats.drops++;
- 	return NET_XMIT_DROP;
- }
+-	*qerr = NET_XMIT_BYPASS;
++	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	if (TC_H_MAJ(skb->priority) != sch->handle) {
+ 		err = tc_classify(skb, q->filter_list, &res);
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -74,7 +74,7 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (qdisc == NULL) {
  
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 3f2d1d7..5da0583 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -97,7 +97,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 		sch->bstats.bytes += qdisc_pkt_len(skb);
- 		sch->bstats.packets++;
- 		sch->q.qlen++;
--	} else {
-+	} else if (net_xmit_drop_count(ret)) {
- 		q->stats.pdrop++;
- 		sch->qstats.drops++;
- 	}
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
+ 		return ret;
+@@ -103,7 +103,7 @@ prio_requeue(struct sk_buff *skb, struct Qdisc* sch)
+ 	qdisc = prio_classify(skb, sch, &ret);
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (qdisc == NULL) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
+ 		return ret;
 diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 8589da6..3a456e1 100644
+index 3a456e1..6e041d1 100644
 --- a/net/sched/sch_sfq.c
 +++ b/net/sched/sch_sfq.c
-@@ -178,7 +178,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		switch (result) {
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_QUEUED:
--			*qerr = NET_XMIT_SUCCESS;
-+			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
- 		case TC_ACT_SHOT:
- 			return 0;
- 		}
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index b296672..7d3b7ff 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -135,7 +135,8 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+@@ -171,7 +171,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	if (!q->filter_list)
+ 		return sfq_hash(q, skb) + 1;
  
- 	ret = qdisc_enqueue(skb, q->qdisc);
- 	if (ret != 0) {
--		sch->qstats.drops++;
-+		if (net_xmit_drop_count(ret))
-+			sch->qstats.drops++;
+-	*qerr = NET_XMIT_BYPASS;
++	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	result = tc_classify(skb, q->filter_list, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -285,7 +285,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	hash = sfq_classify(skb, sch, &ret);
+ 	if (hash == 0) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
  		return ret;
- 	}
+@@ -339,7 +339,7 @@ sfq_requeue(struct sk_buff *skb, struct Qdisc *sch)
  
+ 	hash = sfq_classify(skb, sch, &ret);
+ 	if (hash == 0) {
+-		if (ret == NET_XMIT_BYPASS)
++		if (ret & __NET_XMIT_BYPASS)
+ 			sch->qstats.drops++;
+ 		kfree_skb(skb);
+ 		return ret;
