@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] syncookies: free reqsk on xfrm_lookup error
-Date: Sun, 03 Aug 2008 18:13:58 -0700 (PDT)
-Message-ID: <20080803.181358.61761784.davem@davemloft.net>
-References: <1217203435-18351-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH] IPv6:Fix the return value of Set Hop-by-Hop options
+ header with NULL data pointer
+Date: Sun, 03 Aug 2008 18:16:33 -0700 (PDT)
+Message-ID: <20080803.181633.18908318.davem@davemloft.net>
+References: <488D3563.9080607@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ggriffin.kernel@gmail.com
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org
+To: yanghy@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32817
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52523
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753255AbYHDBN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 21:13:57 -0400
-In-Reply-To: <1217203435-18351-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S1752030AbYHDBQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2008 21:16:33 -0400
+In-Reply-To: <488D3563.9080607@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 28 Jul 2008 02:03:55 +0200
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Date: Mon, 28 Jul 2008 10:56:35 +0800
 
-> cookie_v6_check() did not call reqsk_free() if xfrm_lookup() fails,
-> leaking the request sock.
+> When Set Hop-by-Hop options header with NULL data 
+> pointer and optlen is not zero use setsockopt(),
+> the kernel successfully return 0 instead of 
+> return error EINVAL or EFAULT.
 > 
-> Compile tested only.
+> This patch fix the problem.
 > 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-Looks good, applied, thanks Florian.
+Applied, thanks!
