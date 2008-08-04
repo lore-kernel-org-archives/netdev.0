@@ -1,100 +1,87 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: [PATCH 2/2] Interfamily IPSec BEET
-Date: Mon, 4 Aug 2008 16:19:42 +0300
-Message-ID: <200808041619.42562.joakim.koskela@hiit.fi>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [patch 4/4] Configure out IGMP support
+Date: Mon, 04 Aug 2008 14:53:16 +0100
+Message-ID: <1217857996.3454.622.camel@pmac.infradead.org>
+References: <20080731092703.661994657@free-electrons.com>
+	 <20080731093221.565015353@free-electrons.com>
+	 <1217619715.3454.488.camel@pmac.infradead.org>
+	 <20080804144807.6b2374d9@surf>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, yoshfuji@wide.ad.jp
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:41605 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753255AbYHDNRA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Aug 2008 09:17:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
+	michael@free-electrons.com, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-embedded-owner@vger.kernel.org>
+In-Reply-To: <20080804144807.6b2374d9@surf>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This fixes the ipv4-inner, ipv6-outer mode.  This one is a bit more
-complex as not only do we need to take into account the difference
-between ipv4/ipv6 headers when adjusting the sk_buff network header,
-we also need to reserve extra room for the new ipv6 header.  This
-extra room, here got by adding it to the props.header_len, is needed
-to accomodate the new & larger ipv6 header (the kernel is currently
-panicing because of this).
+On Mon, 2008-08-04 at 14:48 +0200, Thomas Petazzoni wrote:
+> Le Fri, 01 Aug 2008 20:41:55 +0100,
+> David Woodhouse <dwmw2@infradead.org> a =C3=A9crit :
+>=20
+> > The config option probably lives in net/Kconfig, not init/Kconfig.
+>=20
+> Yes, it could. But AFAIK, until now, all CONFIG_EMBEDDED-related
+> options have been put in init/Kconfig. But if it's preferred, I can o=
+f
+> course change the patch to move the config option to net/Kconfig.
 
-The BEET ipv4 pseudo-header construction was also missing from the
-ipv6 output.
+It clearly lives in net/Kconfig.
 
-Signed-off-by: Joakim Koskela <jookos@gmail.com>
+> > And please could you make it clear how this interacts with
+> > IP_MULTICAST?
+> >=20
+> > We already have a CONFIG_IP_MULTICAST option, for which the help te=
+xt
+> > says "For more people, it's safe to say N'. And I think it defaults=
+ to
+> > that too. What more does CONFIG_IGMP remove? It's not made clear by
+> > the help text.
+>=20
+> The interaction of IGMP support with CONFIG_IP_MULTICAST is fairly
+> unclear to me.
+>=20
+> A large portion of igmp.c is already under #ifdef CONFIG_IP_MULTICAST=
+:
+> all the igmp_*() functions, amongst which is igmp_rcv(), referenced i=
+n
+> igmp_protocol in net/ipv4/af_inet.c, which is compiled-out
+> when !CONFIG_IP_MULTICAST.
+>=20
+> All the proc-related code at the end of the file is only conditionnal=
+y
+> compiled on CONFIG_PROC_FS, but seems to in fact be only used if both
+> CONFIG_IP_MULTICAST and CONFIG_PROC_FS are selected:
+> igmp_mc_proc_init() in net/ipv4/ip_output.c is only called when
+> CONFIG_IP_MULTICAST and CONFIG_PROC_FS are selected.
+>=20
+> Besides that, it's unclear to me why the ip_mc_*() functions are usef=
+ul
+> when !CONFIG_IP_MULTICAST, but I'm probably missing something.=20
 
----
- net/ipv6/esp6.c            |    4 ++++
- net/ipv6/xfrm6_mode_beet.c |   28 ++++++++++++++++++++++++++--
- 2 files changed, 30 insertions(+), 2 deletions(-)
+Most of them aren't, as far as I can tell.=20
 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index c6bb4c6..f09fcb9 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -521,6 +521,10 @@ static int esp6_init_state(struct xfrm_state *x)
- 			      crypto_aead_ivsize(aead);
- 	switch (x->props.mode) {
- 	case XFRM_MODE_BEET:
-+		x->props.header_len += IPV4_BEET_PHMAXLEN;
-+		if (x->sel.family == AF_INET)
-+			x->props.header_len += (sizeof(struct ipv6hdr) - sizeof(struct iphdr));
-+		break;
- 	case XFRM_MODE_TRANSPORT:
- 		break;
- 	case XFRM_MODE_TUNNEL:
-diff --git a/net/ipv6/xfrm6_mode_beet.c b/net/ipv6/xfrm6_mode_beet.c
-index d6ce400..dc53623 100644
---- a/net/ipv6/xfrm6_mode_beet.c
-+++ b/net/ipv6/xfrm6_mode_beet.c
-@@ -41,15 +41,39 @@ static int xfrm6_beet_output(struct xfrm_state *x, struct 
-sk_buff *skb)
- {
- 	struct ipv6hdr *top_iph;
- 
--	skb_set_network_header(skb, -x->props.header_len);
-+	int optlen, hdr_len;
-+	struct ip_beet_phdr *ph;
-+	u8 protocol;
-+	struct iphdr *iphv4;
-+
-+	iphv4 = ip_hdr(skb);
-+	hdr_len = 0;
-+	optlen = XFRM_MODE_SKB_CB(skb)->optlen;
-+	if (unlikely(optlen))
-+		hdr_len += IPV4_BEET_PHMAXLEN - (optlen & 4);
-+
-+	skb_set_network_header(skb, IPV4_BEET_PHMAXLEN - x->props.header_len -
-+			            hdr_len);
- 	skb->mac_header = skb->network_header +
- 			  offsetof(struct ipv6hdr, nexthdr);
- 	skb->transport_header = skb->network_header + sizeof(*top_iph);
--	__skb_pull(skb, XFRM_MODE_SKB_CB(skb)->ihl);
-+	ph = (struct ip_beet_phdr *)__skb_pull(skb, 
-XFRM_MODE_SKB_CB(skb)->ihl-hdr_len);
- 
- 	xfrm6_beet_make_header(skb);
- 
- 	top_iph = ipv6_hdr(skb);
-+	if (unlikely(optlen)) {
-+
-+		BUG_ON(optlen < 0);
-+
-+		ph->padlen = 4 - (optlen & 4);
-+		ph->hdrlen = optlen / 8;
-+		ph->nexthdr = top_iph->nexthdr;
-+		if (ph->padlen)
-+			memset(ph + 1, IPOPT_NOP, ph->padlen);
-+
-+		top_iph->nexthdr = IPPROTO_BEETPH;
-+	}
- 
- 	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
- 	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
+> They are used to implement setsockopt-operations related to multicast=
+,
+> hooks for the routing code to handle multicast-related traffic, etc.
+
+I wonder if those options should return errors now, rather than silentl=
+y
+failing but returning zero. Or maybe that _would_ cause a stock build o=
+f
+ntpd to fail? Not that it really matters if it _does_, though.
+
+It sounds like 'CONFIG_IGMP' is a bad name for the option, too -- and
+the help text is similarly misleading. I think you need to work out how
+it all fits together with CONFIG_IP_MULTICAST, fix it up, and resubmit
+it.
+
+--=20
+David Woodhouse                            Open Source Technology Centr=
+e
+David.Woodhouse@intel.com                              Intel Corporatio=
+n
