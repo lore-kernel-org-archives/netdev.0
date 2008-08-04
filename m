@@ -1,45 +1,34 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [patch 4/4] Configure out IGMP support
-Date: Mon, 4 Aug 2008 15:53:38 +0300
-Message-ID: <20080804125338.GG6088@cs181140183.pp.htv.fi>
-References: <20080731092703.661994657@free-electrons.com> <20080731093221.565015353@free-electrons.com> <1217619715.3454.488.camel@pmac.infradead.org> <20080804144807.6b2374d9@surf>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: [PATCH 0/2] Interfamily IPSec BEET
+Date: Mon, 4 Aug 2008 16:19:18 +0300
+Message-ID: <200808041619.18790.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
-	michael@free-electrons.com, Matt Mackall <mpm@selenic.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, yoshfuji@wide.ad.jp
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from creon.otaverkko.fi ([212.68.0.5]:41582 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbYHDNQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 09:16:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20080804144807.6b2374d9@surf>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 04, 2008 at 02:48:07PM +0200, Thomas Petazzoni wrote:
-> Le Fri, 01 Aug 2008 20:41:55 +0100,
-> David Woodhouse <dwmw2@infradead.org> a =C3=A9crit :
->=20
-> > The config option probably lives in net/Kconfig, not init/Kconfig.
->=20
-> Yes, it could. But AFAIK, until now, all CONFIG_EMBEDDED-related
-> options have been put in init/Kconfig.
->...
+Hi again,
 
-No, the vast majority is actually outside of init/Kconfig.
+After finally having taken the time to dig up what the problem really
+is, here are a series of two patches fixing the interfamily modes of
+IPSec BEET, specified in
 
-> Sincerly,
->=20
-> Thomas
+http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-08.txt
 
-cu
-Adrian
+The problems were related to the the difference between ipv4 / ipv6
+header lengths, as well as to the packaging of ipv4 options into the
+pseudo header, when using ipv6 for transport.
 
---=20
+Signed-off-by: Joakim Koskela <jookos@gmail.com>
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+---
