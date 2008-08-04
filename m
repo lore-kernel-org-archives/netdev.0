@@ -1,87 +1,49 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [patch 4/4] Configure out IGMP support
-Date: Mon, 04 Aug 2008 14:53:16 +0100
-Message-ID: <1217857996.3454.622.camel@pmac.infradead.org>
-References: <20080731092703.661994657@free-electrons.com>
-	 <20080731093221.565015353@free-electrons.com>
-	 <1217619715.3454.488.camel@pmac.infradead.org>
-	 <20080804144807.6b2374d9@surf>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Subject: Re: bnx2x null pointer dereference
+Date: Mon, 4 Aug 2008 09:18:19 -0600
+Message-ID: <200808040918.19550.bjorn.helgaas@hp.com>
+References: <200807311649.53177.bjorn.helgaas@hp.com> <1217756201.547.3.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
-	michael@free-electrons.com, Matt Mackall <mpm@selenic.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20080804144807.6b2374d9@surf>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Justin Chen" <justin.chen@hp.com>,
+	"Bill Hayes" <bill.hayes@hp.com>,
+	"Myron Stowe" <myron.stowe@hp.com>
+To: "Eilon Greenstein" <eilong@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:40270 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238AbYHDPSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 11:18:36 -0400
+In-Reply-To: <1217756201.547.3.camel@lb-tlvb-eliezer>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-08-04 at 14:48 +0200, Thomas Petazzoni wrote:
-> Le Fri, 01 Aug 2008 20:41:55 +0100,
-> David Woodhouse <dwmw2@infradead.org> a =C3=A9crit :
->=20
-> > The config option probably lives in net/Kconfig, not init/Kconfig.
->=20
-> Yes, it could. But AFAIK, until now, all CONFIG_EMBEDDED-related
-> options have been put in init/Kconfig. But if it's preferred, I can o=
-f
-> course change the patch to move the config option to net/Kconfig.
+On Sunday 03 August 2008 03:36:41 am Eilon Greenstein wrote:
+> 
+> On Thu, 2008-07-31 at 15:49 -0700, Bjorn Helgaas wrote:
+> > The crash below occurred because "params->bp == NULL" in
+> > bnx2x_update_mng().  This is with the 1.45.11 driver version
+> > on a RHEL 5.2 kernel.
+> > 
+> > This is on a prototype ia64 box, and I'm told that there's
+> > some bnx2x firmware that is missing from the system firmware,
+> > so this might be a "we don't care about this problem because
+> > users will never see this situation" sort of thing.
+> > 
+> You are right - the problem is that the data from the board is invalid
+> since there is no valid boot-code FW burned on it so the board cannot
+> be used
+> 
+> > But it is annoying that it crashes the box rather than just
+> > causing the driver to ignore the device.
+> > 
+> And this is also true - so we will fix it soon and submit a patch
 
-It clearly lives in net/Kconfig.
+Great!  Thanks for looking into this.  I'd be glad to help test
+the patch when it's ready.
 
-> > And please could you make it clear how this interacts with
-> > IP_MULTICAST?
-> >=20
-> > We already have a CONFIG_IP_MULTICAST option, for which the help te=
-xt
-> > says "For more people, it's safe to say N'. And I think it defaults=
- to
-> > that too. What more does CONFIG_IGMP remove? It's not made clear by
-> > the help text.
->=20
-> The interaction of IGMP support with CONFIG_IP_MULTICAST is fairly
-> unclear to me.
->=20
-> A large portion of igmp.c is already under #ifdef CONFIG_IP_MULTICAST=
-:
-> all the igmp_*() functions, amongst which is igmp_rcv(), referenced i=
-n
-> igmp_protocol in net/ipv4/af_inet.c, which is compiled-out
-> when !CONFIG_IP_MULTICAST.
->=20
-> All the proc-related code at the end of the file is only conditionnal=
-y
-> compiled on CONFIG_PROC_FS, but seems to in fact be only used if both
-> CONFIG_IP_MULTICAST and CONFIG_PROC_FS are selected:
-> igmp_mc_proc_init() in net/ipv4/ip_output.c is only called when
-> CONFIG_IP_MULTICAST and CONFIG_PROC_FS are selected.
->=20
-> Besides that, it's unclear to me why the ip_mc_*() functions are usef=
-ul
-> when !CONFIG_IP_MULTICAST, but I'm probably missing something.=20
-
-Most of them aren't, as far as I can tell.=20
-
-> They are used to implement setsockopt-operations related to multicast=
-,
-> hooks for the routing code to handle multicast-related traffic, etc.
-
-I wonder if those options should return errors now, rather than silentl=
-y
-failing but returning zero. Or maybe that _would_ cause a stock build o=
-f
-ntpd to fail? Not that it really matters if it _does_, though.
-
-It sounds like 'CONFIG_IGMP' is a bad name for the option, too -- and
-the help text is similarly misleading. I think you need to work out how
-it all fits together with CONFIG_IP_MULTICAST, fix it up, and resubmit
-it.
-
---=20
-David Woodhouse                            Open Source Technology Centr=
-e
-David.Woodhouse@intel.com                              Intel Corporatio=
-n
+Bjorn
