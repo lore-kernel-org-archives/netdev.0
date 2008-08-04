@@ -1,33 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2008-08-04
-Date: Mon, 04 Aug 2008 15:01:47 -0700 (PDT)
-Message-ID: <20080804.150147.78586437.davem@davemloft.net>
-References: <20080804193753.GA30345@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764166AbYHDWCM@vger.kernel.org>
-In-Reply-To: <20080804193753.GA30345@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 4 Aug 2008 15:37:53 -0400
+Subject: Re: pull request: wireless-2.6 2008-08-04
+Date: Mon, 4 Aug 2008 17:54:39 -0400
+Message-ID: <20080804215439.GA9658@tuxdriver.com>
+References: <20080804193753.GA30345@tuxdriver.com> <1217882288.7819.19.camel@californication> <20080804204558.GA5866@tuxdriver.com> <1217886123.7819.23.camel@californication>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4945 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764647AbYHDWDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 18:03:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1217886123.7819.23.camel@californication>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Another big round of fixes for 2.6.27.  Included is also a renaming
-> patch and some related patches that rename iwl4965 to iwlagn (reflecting
-> that is supports iwl5000 as well).
-> 
-> The other big(ger) thing here is the new ath9k driver.  It is probably
-> still far from perfect, but I'm hearing good reports on its
-> functionality and the Atheros team (and others) have already been quite
-> responsive on comments, etc.  I think it is best to go ahead and get it
-> into 2.6.27.
-> 
-> Please let me know if there are problems!
+On Mon, Aug 04, 2008 at 11:42:03PM +0200, Marcel Holtmann wrote:
 
-I'm holding off on this pull until the list.h changes get so me lkml
-ACKs.
+> > > > Luis R. Rodriguez (4):
+> > > >       list.h: Add list_splice_tail() and list_splice_tail_init()
+> > > >       list.h: add list_cut_position()
+> > > 
+> > > have these two changes got reviewed on LKML? I don't see any ACKs for it
+> > > in the commit message.
+> > 
+> > Hmmm...no.  I thought the original patches had been copied to
+> > linux-kernel, but it looks like that is not the case.
+> > 
+> > The original patches are archived here:
+> > 
+> > 	http://marc.info/?l=linux-wireless&m=121783421908441&w=2
+> > 
+> > 	http://marc.info/?l=linux-wireless&m=121783422008445&w=2
+> > 
+> > What problems do you see with them?
+> 
+> I don't see a problem with these patches, but they should at least be
+> reviewed on LKML once. Changes to core kernel infrastructure should not
+> be merged silently via subsystem trees without any kind of ACKs.
+
+Yes, fine.  That wasn't my intent. :-)  The patches were originally
+posted about two weeks ago, too bad that didn't actually go to
+linux-kernel. :-(
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
