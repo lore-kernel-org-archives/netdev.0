@@ -1,45 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: RES: [Bugme-new] [Bug 11249] New: TC HTB hanging problem
-Date: Mon, 04 Aug 2008 23:59:27 +0200
-Message-ID: <48977BBF.4090705@gmail.com>
-References: <bug-11249-10286@http.bugzilla.kernel.org/> <20080804105506.8b401320.akpm@linux-foundation.org> <BAY111-DAV13CEE254838554E11B28A0C0780@phx.gbl>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [UPDATED PATCH 3/7] igb: fixes 82576 serdes init to correctly support
+	manual flow control changes
+Date: Mon, 04 Aug 2008 14:59:56 -0700
+Message-ID: <20080804215951.16188.61145.stgit@localhost.localdomain>
+References: <20080804215531.16188.73257.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: 'Andrew Morton' <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: Leandro Oliveira da Silva <lansoweb@hotmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.176]:40762 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755527AbYHDV7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 17:59:51 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so2759644ika.5
-        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 14:59:49 -0700 (PDT)
-In-Reply-To: <BAY111-DAV13CEE254838554E11B28A0C0780@phx.gbl>
+Received: from mga02.intel.com ([134.134.136.20]:60193 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751177AbYHDWAC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 18:00:02 -0400
+In-Reply-To: <20080804215531.16188.73257.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Leandro Oliveira da Silva wrote, On 08/04/2008 08:44 PM:
-...
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Just to add, 2 weeks ago one of my clients had to reboot the server 3 times
-> during the day, so I disabled the qos and it worked fine for 3 days. After
-> this days I started the qos again and 10 hours later the server hanged
-> again, so it's disabled until now without hanging.
+This patch changes the PCS configuration for serdes so that the flow
+control options change be set via the ethtool -A option.
 
-Hi,
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-There were a few bugs found for these kernels, but alas not all stable
-versions were fixed. The best thing would be trying eg. 2.6.25.14 or 2.6.26.
+ drivers/net/igb/e1000_82575.c   |    6 ++++++
+ drivers/net/igb/e1000_defines.h |    1 +
+ 2 files changed, 7 insertions(+), 0 deletions(-)
 
-Otherwise you could especially check these two patches:
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index f3d7be0..cd75a2b 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1136,6 +1136,12 @@ static s32 igb_setup_fiber_serdes_link_82575(struct e1000_hw *hw)
+ 		       E1000_PCS_LCTL_FORCE_LINK;     /* Force Link */
+ 		hw_dbg("Configuring Forced Link; PCS_LCTL = 0x%08X\n", reg);
+ 	}
++
++	if (hw->mac.type == e1000_82576) {
++		reg |= E1000_PCS_LCTL_FORCE_FCTRL;
++		igb_force_mac_fc(hw);
++	}
++
+ 	wr32(E1000_PCS_LCTL, reg);
+ 
+ 	return 0;
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index afdba3c..ce70068 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -257,6 +257,7 @@
+ #define E1000_PCS_LCTL_FDV_FULL          8
+ #define E1000_PCS_LCTL_FSD               0x10
+ #define E1000_PCS_LCTL_FORCE_LINK        0x20
++#define E1000_PCS_LCTL_FORCE_FCTRL       0x80
+ #define E1000_PCS_LCTL_AN_ENABLE         0x10000
+ #define E1000_PCS_LCTL_AN_RESTART        0x20000
+ #define E1000_PCS_LCTL_AN_TIMEOUT        0x40000
 
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.25.y.git;a=commit;h=066a3b5b2346febf9a655b444567b7138e3bb939
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.25.y.git;a=commit;h=734bf48fe5276f319464fd30dc4a046a29d2b94a
-
-Alas some HTB (or around) problems are still diagnosed, so this could be not
-enough.
-
-Regards,
-Jarek P.
