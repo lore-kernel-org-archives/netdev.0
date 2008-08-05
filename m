@@ -1,53 +1,55 @@
 From: Robert Olsson <robert@robur.slu.se>
-Subject: [PATCH] pktgen mac count
-Date: Tue, 5 Aug 2008 13:27:52 +0200
-Message-ID: <18584.14648.22535.119913@robur.slu.se>
+Subject: [PATCH] pktgen random flow
+Date: Tue, 5 Aug 2008 13:20:07 +0200
+Message-ID: <18584.14183.573224.16934@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eneas.hunguana@gmail.com,
-	robert@robur.slu.se
+Cc: netdev@vger.kernel.org, robert@robur.slu.se
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from robur.slu.se ([130.238.98.12]:42160 "EHLO robur.slu.se"
+Received: from robur.slu.se ([130.238.98.12]:42163 "EHLO robur.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753953AbYHEL1x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 07:27:53 -0400
+	id S1756267AbYHELa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2008 07:30:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-One more...
+Hello, 
 
-dst_mac_count and src_mac_count patch from Eneas Hunguana
-We have sent one mac address to much.
-
+Random flow generation has not worked. This fixes it.
 
 Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
 Cheers.
-					--ro
+				--ro
 
 
---- a/net/core/pktgen.c	2008-06-09 20:27:19.000000000 +0200
-+++ b/net/core/pktgen.c	2008-07-06 03:06:00.000000000 +0200
-@@ -2143,7 +2143,7 @@
- 			mc = random32() % pkt_dev->src_mac_count;
- 		else {
- 			mc = pkt_dev->cur_src_mac_offset++;
--			if (pkt_dev->cur_src_mac_offset >
-+			if (pkt_dev->cur_src_mac_offset >=
- 			    pkt_dev->src_mac_count)
- 				pkt_dev->cur_src_mac_offset = 0;
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 3284605..755d08f 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2085,15 +2085,19 @@ static inline int f_pick(struct pktgen_dev *pkt_dev)
+ 		if (pkt_dev->flows[flow].count >= pkt_dev->lflow) {
+ 			/* reset time */
+ 			pkt_dev->flows[flow].count = 0;
++			pkt_dev->flows[flow].flags = 0;
+ 			pkt_dev->curfl += 1;
+ 			if (pkt_dev->curfl >= pkt_dev->cflows)
+ 				pkt_dev->curfl = 0; /*reset */
  		}
-@@ -2170,7 +2170,7 @@
+ 	} else {
+ 		flow = random32() % pkt_dev->cflows;
++		pkt_dev->curfl = flow;
  
- 		else {
- 			mc = pkt_dev->cur_dst_mac_offset++;
--			if (pkt_dev->cur_dst_mac_offset >
-+			if (pkt_dev->cur_dst_mac_offset >=
- 			    pkt_dev->dst_mac_count) {
- 				pkt_dev->cur_dst_mac_offset = 0;
- 			}
-
+-		if (pkt_dev->flows[flow].count > pkt_dev->lflow)
+-			pkt_dev->flows[flow].count = 0;
++		if (pkt_dev->flows[flow].count > pkt_dev->lflow) {
++			pkt_dev->flows[flow].count = 0; 
++			pkt_dev->flows[flow].flags = 0;
++		} 
+ 	}
+ 
+ 	return pkt_dev->curfl;
