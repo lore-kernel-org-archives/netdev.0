@@ -1,89 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] tg3: Fix 'scheduling while atomic' errors
-Date: Mon, 04 Aug 2008 23:19:13 -0700 (PDT)
-Message-ID: <20080804.231913.10880937.davem@davemloft.net>
-References: <20080805051348.GA16736@HP-xw6200.broadcom.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 2/2 respin] net_sched: Add qdisc __NET_XMIT_BYPASS flag
+Date: Tue, 5 Aug 2008 06:34:23 +0000
+Message-ID: <20080805063423.GA4407@ff.dom.local>
+References: <20080804062813.GA4570@ff.dom.local> <20080803.234200.193697269.davem@davemloft.net> <20080804085734.GB12927@ff.dom.local> <20080804.231449.199557608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net,
-	rjw@sisk.pl, arekm@maven.pl
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, jussi.kivilinna@mbnet.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59115
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751679AbYHEGTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 02:19:13 -0400
-In-Reply-To: <20080805051348.GA16736@HP-xw6200.broadcom.net>
+Received: from wr-out-0506.google.com ([64.233.184.230]:18662 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbYHEG27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 02:28:59 -0400
+Received: by wr-out-0506.google.com with SMTP id 69so1763094wri.5
+        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 23:28:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080804.231449.199557608.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 4 Aug 2008 22:13:48 -0700
-
-> This patch fixes the 'scheduling while atomic' errors introduced by
-> commit 12dac0756d357325b107fe6ec24921ec38661839.
+On Mon, Aug 04, 2008 at 11:14:49PM -0700, David Miller wrote:
+...
+> After applying this I noticed that dst_input()'s usage of
+> plain NET_XMIT_BYPASS was bogus, and after killing that
+> there are no more references.
 > 
-> The first hunk of the patch removes an unnecessary
-> tg3_set_power_state() call.  The chip will already be in the D0 state
-> either due to a chip reset or through a previous call to
-> tg3_set_power_state().
+> Thus I added the following commit.
 > 
-> The second hunk of the patch moves the tg3_set_power_state() call
-> outside the critical section guarded by tg3_full_lock() and
-> tg3_full_unlock() functions.  The power state of the device is and
-> should be outside the lock's domain and all other tg3_set_power_state()
-> calls support this.
+> commit cc6533e98a7f3cb7fce9d740da49195c7aa523a4
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Mon Aug 4 23:04:08 2008 -0700
 > 
+>     net: Kill plain NET_XMIT_BYPASS.
+>     
+>     dst_input() was doing something completely absurd, looping
+>     on skb->dst->input() if NET_XMIT_BYPASS was seen, but these
+>     functions never return such an error.
+>     
+>     And as a result plain ole' NET_XMIT_BYPASS has no more
+>     references and can be completely killed off.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-Applied, thanks Matt.
-
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 26aa37a..576199b 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -7687,21 +7687,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
->   */
->  static int tg3_init_hw(struct tg3 *tp, int reset_phy)
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index abbf5d5..488c56e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -61,9 +61,6 @@ struct wireless_dev;
+>  #define NET_XMIT_DROP		1	/* skb dropped			*/
+>  #define NET_XMIT_CN		2	/* congestion notification	*/
+>  #define NET_XMIT_POLICED	3	/* skb is shot by police	*/
+> -#define NET_XMIT_BYPASS		4	/* packet does not leave via dequeue;
+> -					   (TC use only - dev_queue_xmit
+> -					   returns this as NET_XMIT_SUCCESS) */
+>  #define NET_XMIT_MASK		0xFFFF	/* qdisc flags in net/sch_generic.h */
+>  
+>  /* Backlog congestion levels */
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index c5c318a..8a8b71e 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -252,17 +252,7 @@ static inline int dst_output(struct sk_buff *skb)
+>  /* Input packet from network to transport.  */
+>  static inline int dst_input(struct sk_buff *skb)
 >  {
 > -	int err;
 > -
-> -	/* Force the chip into D0. */
-> -	err = tg3_set_power_state(tp, PCI_D0);
-> -	if (err)
-> -		goto out;
+> -	for (;;) {
+> -		err = skb->dst->input(skb);
 > -
->  	tg3_switch_clocks(tp);
->  
->  	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
->  
-> -	err = tg3_reset_hw(tp, reset_phy);
-> -
-> -out:
-> -	return err;
-> +	return tg3_reset_hw(tp, reset_phy);
->  }
->  
->  #define TG3_STAT_ADD32(PSTAT, REG) \
-> @@ -8016,13 +8006,11 @@ static int tg3_open(struct net_device *dev)
->  
->  	netif_carrier_off(tp->dev);
->  
-> -	tg3_full_lock(tp, 0);
-> -
->  	err = tg3_set_power_state(tp, PCI_D0);
-> -	if (err) {
-> -		tg3_full_unlock(tp);
-> +	if (err)
->  		return err;
+> -		if (likely(err == 0))
+> -			return err;
+> -		/* Oh, Jamal... Seems, I will not forgive you this mess. :-) */
+> -		if (unlikely(err != NET_XMIT_BYPASS))
+> -			return err;
 > -	}
-> +
-> +	tg3_full_lock(tp, 0);
->  
->  	tg3_disable_ints(tp);
->  	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
-> 
-> 
+> +	return skb->dst->input(skb);
+>  }
+
+NAK! You're not allowed to remove such a great comment!
+
+BTW, I hope you've checked this enough, becouse I've some doubts
+here: this NET_XMIT_BYPASS looks wrong here but maybe it was meant
+to be some NET_RX_ code, like NET_RX_CN_HIGH?
+
+Jarek P.
