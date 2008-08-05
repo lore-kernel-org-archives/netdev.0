@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH take 2] net_sched: Add qdisc __NET_XMIT_BYPASS flag
-Date: Tue, 05 Aug 2008 14:22:55 -0700 (PDT)
-Message-ID: <20080805.142255.05371666.davem@davemloft.net>
-References: <20080804213535.14214iqhxkx3v3so@hayate.ip6>
-	<20080804210333.GA2849@ami.dom.local>
-	<20080805154350.27523juch31xgjcw@hayate.ip6>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8111C transmit timed out
+Date: Tue, 5 Aug 2008 23:42:50 +0200
+Message-ID: <20080805214250.GA23226@electric-eye.fr.zoreil.com>
+References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com> <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: jussi.kivilinna@mbnet.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: John P Poet <jppoet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35135
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765053AbYHEVWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 17:22:55 -0400
-In-Reply-To: <20080805154350.27523juch31xgjcw@hayate.ip6>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39711 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750713AbYHEVmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 17:42:54 -0400
+Content-Disposition: inline
+In-Reply-To: <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-Date: Tue, 05 Aug 2008 15:43:50 +0300
+(please Cc: the maintainer)
 
-> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+John P Poet <jppoet@gmail.com> :
+[...]
+> I just tried applying ALL the patches found here:
 > 
-> > On Mon, Aug 04, 2008 at 09:35:35PM +0300, Jussi Kivilinna wrote:
-> >> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
-> >>
-> >> This seems to also make sure that when returning 'full'
-> >> NET_XMIT_SUCCESS, skb pointer is safe(r?) to use now.
-> >
-> > I guess so... At least theoretically - I was mainly afraid of
-> > redirecting, which isn't fully implemented yet. On the other hand,
-> > outwards of qdiscs there is still no difference.
-> >
+> http://userweb.kernel.org/~romieu/r8169/2.6.27-rc1/20080803.tar.bz2
 > 
-> How about making skb shared before passing into qdisc tree?
-> That would make skb usage safe after qdisc enqueues.
+> against 2.6.26.1.  Worked for a while, I then I got:
 
-That's two extra atomic operations on every transmitted packet,
-no thanks :-)
+Try to add 0002-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch
+from http://userweb.kernel.org/~romieu/r8169/2.6.26/20080717/
+
+It is in 2.6.27-rc1 as 77332894c21165404496c56763d7df6c15c4bb09.
+
+-- 
+Ueimor
