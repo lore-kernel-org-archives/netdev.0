@@ -1,94 +1,69 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: few more fixes for iproute2/m_ipt
-Date: Wed, 6 Aug 2008 00:42:53 +0300
-Message-ID: <200808060042.53503.denys@visp.net.lb>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] AX.25: Fix sysctl registration if !CONFIG_AX25_DAMA_SLAVE
+Date: Tue, 5 Aug 2008 23:37:36 +0100
+Message-ID: <20080805223736.GA16608@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_dlMmITw/x9FeSa5"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:57952 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757757AbYHEVni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 17:43:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Boundary-00=_dlMmITw/x9FeSa5
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	Thomas Osterried <thomas@osterried.de>, jann@linux-mips.org,
+	Hans-Juergen Barthen <dl5di@gmx.de>
+To: "David S. Miller" <davem@davemloft.net>, stable@kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
 Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Comments:
-1)optind according iptables sources have to be set to 0. If it is set to 1, in 
-batch it will mess up things. Also in iptables sources i notice that ->tflags 
-and ->used need to be reset.
+Since 49ffcf8f99e8d33ec8afb450956804af518fd788
+setting struct ctl_table.procname = NULL does no longer work as it used to
+the way the AX.25 code is expecting it to resulting in the AX.25 sysctl
+registration code to break if CONFIG_AX25_DAMA_SLAVE was not set as in some
+distribution kernels.  Kernel releases from 2.6.24 are affected.
 
-2)Since target->t = fw_calloc(1, size); allocated memory in function build_st, 
-it have to be freed at the end, or in batch we will have memory leak. TODO: 
-Probably it must be freed in all "return -1" cases in parse_ipt after 
-build_st. About this i am not sure, up to Stephen.
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-3)lname and new_name was malloc'ed, but not freed
-
-Point 1 fix is critical, since without it m_ipt crashing iproute2 in batch 
-mode.
-
---Boundary-00=_dlMmITw/x9FeSa5
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="m_ipt_fix3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="m_ipt_fix3.patch"
-
-diff -Naur iproute2-original/tc/m_ipt.c iproute2-patched/tc/m_ipt.c
---- iproute2-original/tc/m_ipt.c	2008-08-05 19:15:56.000000000 +0000
-+++ iproute2-patched/tc/m_ipt.c	2008-08-05 21:39:49.000000000 +0000
-@@ -277,6 +277,8 @@
- 		if (!handle) {
- 			fputs(dlerror(), stderr);
- 			printf("\n");
-+			free(l_name);
-+			free(new_name);
- 			return NULL;
- 		}
- 	}
-@@ -292,12 +294,16 @@
- 					fputs(error, stderr);
- 					fprintf(stderr, "\n");
- 					dlclose(handle);
-+					free(l_name);
-+					free(new_name);
- 					return NULL;
- 				}
- 			}
- 		}
- 	}
- 
-+	free(l_name);
-+	free(new_name);
- 	return m;
- }
- 
-@@ -512,8 +518,15 @@
- 	*argc_p = rargc - iargc;
- 	*argv_p = argv;
- 
--	optind = 1;
-+	optind = 0;
- 	free_opts(opts);
-+	/* Clear flags if target will be used again */
-+        m->tflags=0;
-+        m->used=0;
-+	/* Free allocated memory */
-+        if (m->t)
-+            free(m->t);
+diff --git a/net/ax25/sysctl_net_ax25.c b/net/ax25/sysctl_net_ax25.c
+index f597987..f288fc4 100644
+--- a/net/ax25/sysctl_net_ax25.c
++++ b/net/ax25/sysctl_net_ax25.c
+@@ -36,6 +36,7 @@ static struct ctl_path ax25_path[] = {
+ 	{ .procname = "ax25", .ctl_name = NET_AX25, },
+ 	{ }
+ };
 +
+ static const ctl_table ax25_param_table[] = {
+ 	{
+ 		.ctl_name	= NET_AX25_IP_DEFAULT_MODE,
+@@ -167,6 +168,7 @@ static const ctl_table ax25_param_table[] = {
+ 		.extra1		= &min_proto,
+ 		.extra2		= &max_proto
+ 	},
++#ifdef CONFIG_AX25_DAMA_SLAVE
+ 	{
+ 		.ctl_name	= NET_AX25_DAMA_SLAVE_TIMEOUT,
+ 		.procname	= "dama_slave_timeout",
+@@ -177,6 +179,8 @@ static const ctl_table ax25_param_table[] = {
+ 		.extra1		= &min_ds_timeout,
+ 		.extra2		= &max_ds_timeout
+ 	},
++#endif
++
+ 	{ .ctl_name = 0 }	/* that's all, folks! */
+ };
  
- 	return 0;
+@@ -210,16 +214,6 @@ void ax25_register_sysctl(void)
+ 		ax25_table[n].procname     = ax25_dev->dev->name;
+ 		ax25_table[n].mode         = 0555;
  
-
---Boundary-00=_dlMmITw/x9FeSa5--
+-#ifndef CONFIG_AX25_DAMA_SLAVE
+-		/*
+-		 * We do not wish to have a representation of this parameter
+-		 * in /proc/sys/ when configured *not* to include the
+-		 * AX.25 DAMA slave code, do we?
+-		 */
+-
+-		child[AX25_VALUES_DS_TIMEOUT].procname = NULL;
+-#endif
+-
+ 		child[AX25_MAX_VALUES].ctl_name = 0;	/* just in case... */
+ 
+ 		for (k = 0; k < AX25_MAX_VALUES; k++)
