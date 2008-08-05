@@ -1,51 +1,62 @@
-From: "Subbu Seetharaman" <subbus@serverengines.com>
-Subject: [RESEND][PATCH] benet: BladeEngine 10Gb NIC driver
-Date: Tue, 05 Aug 2008 09:22:28 -0700
-Message-ID: <20080805162228.41fc52d1@mailhost.serverengines.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: thousands of classes, e1000 TX unit hang
+Date: Tue, 5 Aug 2008 18:41:03 +0200
+Message-ID: <20080805164103.GB2526@ami.dom.local>
+References: <20080805110453.GA6541@ff.dom.local> <200808051413.58795.denys@visp.net.lb> <20080805122340.GB6541@ff.dom.local> <200808051602.08047.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: jeff@garzik.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:58125 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759323AbYHEQWc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 12:22:32 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:26456 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758259AbYHEQkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 12:40:45 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so87248ugf.16
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2008 09:40:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200808051602.08047.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff,
+On Tue, Aug 05, 2008 at 04:02:05PM +0300, Denys Fedoryshchenko wrote:
+> >
+> > Very interesting. Anyway tbf doesn't use gen estimators, so you could
+> > test if it makes big difference for you.
+> I can prepare provide details with graphs to private email and reasons why i 
+> do that. With TBF i think i cannot use flow classifier, if i am not wrong, i 
+> must attach classful disciplines. I tried to attach just pfifo - and i fail.
 
-The benet driver patch with this Kconfig change is available as one file under under :
+If such config works for you then why bother? I've some doubts, but
+not enough to study some graphics ;)
 
-ftp://ftp.serverengines.com/0001.benet.patch
+> > Actually, gen_kill_estimator was rewritten already, but for some
+> > reason it wasn't merged. Maybe there isn't so much users with such a
+> > number of classes or they don't delete them, anyway this subject isn't
+> > reported often to the list (I remember once). Some workaround could be
+> > probably deleting individual classes (and filters) to give away a lock
+> > and soft interrupts for a while), before deleting the root, but I
+> > didn't test this. BTW, you are using quite long queues (3000), so there
+> > would be interesting to make them less and check if doesn't add to the
+> > problem (with retransmits).
+> >
+> > Jarek P.
+> Well i am first :-) Many people prefer buy Cisco and put static shaper on 
+> their NAS for customer. With iproute2 it is possible to make MUCH better 
+> feeling of using maximum bandwidth, and at same time not feeling it is 
+> reached maximum. Since in some applications i have much more than amount of 
+> flows SFQ can provide (and especially inefficient hashing it uses), i need 
+> flow classifier and a lot of classes.
+> 
+> Many users on my experience dont know much about kernel maillist, and they 
+> didn't got used to report about problems. Now i am collecting some feedbacks 
+> from my friends and trying to reproduce and report here.
 
-Thanks.
+Alas you are the second:
+http://www.mail-archive.com/netdev@vger.kernel.org/msg60101.html 
 
-Subbu
+If you think this gen_kill_estimator() fix will solve your problems
+you can try to upgrade this patch and resend as yours or ours, it's
+not copyrighted. Of course, no guarantee it'll be accepted this time.
 
------ Original Message -----
-From: Jeff Garzik [mailto:jeff@garzik.org]
-To: subbu [mailto:subbus@serverengines.com]
-Cc: 'Randy Dunlap' [mailto:randy.dunlap@oracle.com], 'Bill Fink' [mailto:billfink@mindspring.com], netdev@vger.kernel.org
-Sent: Mon, 07 Jul 2008 06:57:48 -0700
-Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
-
-
-subbu wrote:
-> Thanks Randy and Bill.  I will wait couple more days for any more 
-> comments before sending the updated patch.
-
-Also, if you have a link to a patch that provides everything in one file, that would be useful for me.
-
-	Jeff
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+Jarek P.
