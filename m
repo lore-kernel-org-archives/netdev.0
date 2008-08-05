@@ -1,59 +1,45 @@
-From: "Rami Rosen" <ramirose@gmail.com>
-Subject: [PATCH net-2.6] bridge: fix compile warning in net/bridge/br_netfilter.c
-Date: Tue, 5 Aug 2008 09:45:00 +0300
-Message-ID: <eb3ff54b0808042345j256d28aapbadc22a1ad994ca9@mail.gmail.com>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH 2/2] Interfamily IPSec BEET
+Date: Tue, 5 Aug 2008 10:13:19 +0300
+Message-ID: <200808051013.19873.joakim.koskela@hiit.fi>
+References: <200808041619.42562.joakim.koskela@hiit.fi> <20080804162046.GA12969@gondor.apana.org.au>
+Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_1570_20639054.1217918700249"
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@wide.ad.jp
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:63020 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbYHEGpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 02:45:00 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so3781331wfd.4
-        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 23:45:00 -0700 (PDT)
+Received: from creon.otaverkko.fi ([212.68.0.5]:50171 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753226AbYHEHOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2008 03:14:20 -0400
+In-Reply-To: <20080804162046.GA12969@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_1570_20639054.1217918700249
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Monday 04 August 2008 19:20:46 Herbert Xu wrote:
+> > diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+> > index c6bb4c6..f09fcb9 100644
+> > --- a/net/ipv6/esp6.c
+> > +++ b/net/ipv6/esp6.c
+> > @@ -521,6 +521,10 @@ static int esp6_init_state(struct xfrm_state *x)
+> >  			      crypto_aead_ivsize(aead);
+> >  	switch (x->props.mode) {
+> >  	case XFRM_MODE_BEET:
+> > +		x->props.header_len += IPV4_BEET_PHMAXLEN;
+> > +		if (x->sel.family == AF_INET)
+> > +			x->props.header_len += (sizeof(struct ipv6hdr) - sizeof(struct
+> > iphdr));
+>
+> This is still going to break with the new any family (i.e., v4
+> or v6) SA.  So perhaps that should be x->sel.family != AF_INET6.
+>
+> Cheers,
 
-Hi,
-This patch fixes the following warning due to incompatible pointer assignment:
+Hi, and thanks for checking this out. Didn't think about the any family, 
+thanks for catching that. I'll resubmit this part.
 
-net/bridge/br_netfilter.c: In function 'br_netfilter_rtable_init':
-net/bridge/br_netfilter.c:116: warning: assignment from incompatible
-pointer type
-
-This warning is due to commit 4adf0af6818f3ea52421dc0bae836cfaf20ef72a
-from  July 30
-(send correct MTU value in PMTU (revised)).
-
-
-
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
-------=_Part_1570_20639054.1217918700249
-Content-Type: text/plain; name=patch.txt
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fji5b7wn0
-Content-Disposition: attachment; filename=patch.txt
-
-ZGlmZiAtLWdpdCBhL25ldC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmMgYi9uZXQvYnJpZGdlL2JyX25l
-dGZpbHRlci5jCmluZGV4IDZlMjgwYTguLjZhOWE2Y2QgMTAwNjQ0Ci0tLSBhL25ldC9icmlkZ2Uv
-YnJfbmV0ZmlsdGVyLmMKKysrIGIvbmV0L2JyaWRnZS9icl9uZXRmaWx0ZXIuYwpAQCAtMTEzLDcg
-KzExMyw3IEBAIHZvaWQgYnJfbmV0ZmlsdGVyX3J0YWJsZV9pbml0KHN0cnVjdCBuZXRfYnJpZGdl
-ICpicikKIAlzdHJ1Y3QgcnRhYmxlICpydCA9ICZici0+ZmFrZV9ydGFibGU7CiAKIAlhdG9taWNf
-c2V0KCZydC0+dS5kc3QuX19yZWZjbnQsIDEpOwotCXJ0LT51LmRzdC5kZXYgPSAmYnItPmRldjsK
-KwlydC0+dS5kc3QuZGV2ID0gYnItPmRldjsKIAlydC0+dS5kc3QucGF0aCA9ICZydC0+dS5kc3Q7
-CiAJcnQtPnUuZHN0Lm1ldHJpY3NbUlRBWF9NVFUgLSAxXSA9IDE1MDA7CiAJcnQtPnUuZHN0LmZs
-YWdzCT0gRFNUX05PWEZSTTsK
-------=_Part_1570_20639054.1217918700249--
+br, j
