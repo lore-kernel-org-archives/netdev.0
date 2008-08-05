@@ -1,55 +1,72 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: 2.6.27-rc1-git4 BUG: sched while atomic
-Date: Mon, 4 Aug 2008 17:46:39 -0700
-Message-ID: <20080805004639.GB16130@HP-xw6200.broadcom.net>
-References: <20080804094835.da083484.randy.dunlap@oracle.com>
- <20080804101712.659780ef@extreme> <1217859640.6746.2.camel@HP1>
- <20080804.144020.106451038.davem@davemloft.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH] atl1: deal with hardware rx checksum bug
+Date: Mon, 4 Aug 2008 19:05:10 -0500
+Message-ID: <20080804190510.4029d91d@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, shemminger@vyatta.com, randy.dunlap@oracle.com,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+To: jeff@garzik.org, csnook@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2944 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753377AbYHEAAK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Aug 2008 20:00:10 -0400
-In-Reply-To: <20080804.144020.106451038.davem@davemloft.net>
-Content-Disposition: inline
+Received: from fmailhost05.isp.att.net ([204.127.217.105]:61263 "EHLO
+	fmailhost05.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756269AbYHEAFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 20:05:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm looking into it right now.  Stay tuned.
 
-On Mon, Aug 04, 2008 at 02:40:20PM -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Mon, 04 Aug 2008 07:20:40 -0700
-> 
-> > This was introduced by:
-> > 
-> > tg3: adapt tg3 to use reworked PCI PM code
-> > 
-> > Adapt the tg3 driver to use the reworked PCI PM and make it use the
-> > exported PCI PM core functions instead of accessing the PCI PM registers
-> > directly by itself.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> > 
-> > In the original tg3 code, we used udelay() when switching to D0 state
-> > since we were inside tg3_full_lock().
-> 
-> Right, this change was obviously not tested properly.
-> 
-> I'm likely going to revert unless a really good fix shows up fast.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+The L1 hardware contains a bug that flags a fragmented IP packet
+as having an incorrect TCP/UDP checksum, even though the packet
+is perfectly valid and its checksum is correct.  There's no way to
+distinguish between one of these good packets and a packet that
+actually contains a TCP/UDP checksum error, so all we can do is
+allow the packet to be handed up to the higher layers and let it
+be sorted out there.
 
+Add a comment describing this condition and remove the code that
+currently fails to handle what may or may not be a checksum error.
 
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+---
+ drivers/net/atlx/atl1.c |   19 +++++++++++--------
+ 1 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index f12e3d1..e6a7bb7 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -1790,6 +1790,17 @@ static void atl1_rx_checksum(struct atl1_adapter *adapter,
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
++	/*
++	 * The L1 hardware contains a bug that erroneously sets the
++	 * PACKET_FLAG_ERR and ERR_FLAG_L4_CHKSUM bits whenever a
++	 * fragmented IP packet is received, even though the packet
++	 * is perfectly valid and its checksum is correct. There's
++	 * no way to distinguish between one of these good packets
++	 * and a packet that actually contains a TCP/UDP checksum
++	 * error, so all we can do is allow it to be handed up to
++	 * the higher layers and let it be sorted out there.
++	 */
++
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	if (unlikely(rrd->pkt_flg & PACKET_FLAG_ERR)) {
+@@ -1816,14 +1827,6 @@ static void atl1_rx_checksum(struct atl1_adapter *adapter,
+ 		return;
+ 	}
+ 
+-	/* IPv4, but hardware thinks its checksum is wrong */
+-	if (netif_msg_rx_err(adapter))
+-		dev_printk(KERN_DEBUG, &pdev->dev,
+-			"hw csum wrong, pkt_flag:%x, err_flag:%x\n",
+-			rrd->pkt_flg, rrd->err_flg);
+-	skb->ip_summed = CHECKSUM_COMPLETE;
+-	skb->csum = htons(rrd->xsz.xsum_sz.rx_chksum);
+-	adapter->hw_csum_err++;
+ 	return;
+ }
+ 
+-- 
+1.5.5.1
