@@ -1,55 +1,72 @@
-From: Robert Olsson <robert@robur.slu.se>
-Subject: [PATCH] pktgen random flow
-Date: Tue, 5 Aug 2008 13:20:07 +0200
-Message-ID: <18584.14183.573224.16934@robur.slu.se>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] catch up device stats when multicast > total frames
+Date: Tue, 5 Aug 2008 07:50:18 -0400
+Message-ID: <20080805115018.GB22123@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, robert@robur.slu.se
-To: David Miller <davem@davemloft.net>
+Cc: nhorman@tuxdriver.com, e1000-devel@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, john.ronciak@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from robur.slu.se ([130.238.98.12]:42163 "EHLO robur.slu.se"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4109 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756267AbYHELa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 07:30:56 -0400
+	id S1758931AbYHELuv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2008 07:50:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hey-
+	REcently observed a problem wherein, if a BMC or other IPMI device is
+attached to a NIC, multicast frames can be consumed by the aformentioned device
+without ever being seen by the driver.  Since multicast frames are counted in
+the hardware and the total frame counter is counted in the driver napi routine,
+its possible to have a condition in which the number of received multicast
+frames exceeds the total number of frames.  This patch re-aligns those values on
+receive, so that the total frame count is always at least as large as the
+received frame count.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
-Hello, 
-
-Random flow generation has not worked. This fixes it.
-
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-Cheers.
-				--ro
+ e1000_main.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 3284605..755d08f 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2085,15 +2085,19 @@ static inline int f_pick(struct pktgen_dev *pkt_dev)
- 		if (pkt_dev->flows[flow].count >= pkt_dev->lflow) {
- 			/* reset time */
- 			pkt_dev->flows[flow].count = 0;
-+			pkt_dev->flows[flow].flags = 0;
- 			pkt_dev->curfl += 1;
- 			if (pkt_dev->curfl >= pkt_dev->cflows)
- 				pkt_dev->curfl = 0; /*reset */
- 		}
- 	} else {
- 		flow = random32() % pkt_dev->cflows;
-+		pkt_dev->curfl = flow;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 59579b1..66afee8 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3761,6 +3761,8 @@ e1000_update_stats(struct e1000_adapter *adapter)
+ 	/* Fill out the OS statistics structure */
+ 	adapter->net_stats.multicast = adapter->stats.mprc;
+ 	adapter->net_stats.collisions = adapter->stats.colc;
++	if (adapter->net_stats.rx_packets < adapter->net_stats.multicast)
++		adapter->net_stats.rx_packets = adapter->net_stats.multicast;
  
--		if (pkt_dev->flows[flow].count > pkt_dev->lflow)
--			pkt_dev->flows[flow].count = 0;
-+		if (pkt_dev->flows[flow].count > pkt_dev->lflow) {
-+			pkt_dev->flows[flow].count = 0; 
-+			pkt_dev->flows[flow].flags = 0;
-+		} 
- 	}
+ 	/* Rx Errors */
  
- 	return pkt_dev->curfl;
+@@ -4347,6 +4349,8 @@ next_desc:
+ 		adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
+ 
+ 	adapter->total_rx_packets += total_rx_packets;
++	if (adapter->total_rx_packets < adapter->net_stats.multicast)
++		adapter->total_rx_packets = adapter->net_stats.multicast;
+ 	adapter->total_rx_bytes += total_rx_bytes;
+ 	adapter->net_stats.rx_bytes += total_rx_bytes;
+ 	adapter->net_stats.rx_packets += total_rx_packets;
+@@ -4536,6 +4540,8 @@ next_desc:
+ 		adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
+ 
+ 	adapter->total_rx_packets += total_rx_packets;
++	if (adapter->total_rx_packets < adapter->net_stats.multicast)
++		adapter->total_rx_packets = adapter->net_stats.multicast;
+ 	adapter->total_rx_bytes += total_rx_bytes;
+ 	adapter->net_stats.rx_bytes += total_rx_bytes;
+ 	adapter->net_stats.rx_packets += total_rx_packets;
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
