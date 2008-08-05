@@ -1,85 +1,33 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [patch] tg3: Fix 'scheduling while atomic' errors
-Date: Mon, 4 Aug 2008 22:13:48 -0700
-Message-ID: <20080805051348.GA16736@HP-xw6200.broadcom.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: Warning when unloading the nf_conntack module (regression?)
+Date: Tue, 5 Aug 2008 05:46:04 +0100
+Message-ID: <20080805044604.GA28946@ZenIV.linux.org.uk>
+References: <Pine.LNX.4.64.0808032344510.16818@bizon.gios.gov.pl> <Pine.LNX.4.64.0808042027080.4338@bizon.gios.gov.pl> <Pine.LNX.4.64.0808042039400.4338@bizon.gios.gov.pl> <Pine.LNX.4.64.0808042130570.23688@bizon.gios.gov.pl> <20080804200058.GX28946@ZenIV.linux.org.uk> <20080804203021.GY28946@ZenIV.linux.org.uk> <Pine.LNX.4.64.0808042258370.29400@bizon.gios.gov.pl> <20080804215649.GZ28946@ZenIV.linux.org.uk> <Pine.LNX.4.64.0808050000360.29400@bizon.gios.gov.pl> <Pine.LNX.4.64.0808050301400.29400@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	andy@greyhouse.net
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Krzysztof Oledzki <ole@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2939 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751314AbYHEE1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 00:27:30 -0400
+Received: from zeniv.linux.org.uk ([195.92.253.2]:36394 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638AbYHEEqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 00:46:09 -0400
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0808050301400.29400@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the 'scheduling while atomic' errors introduced by
-commit 12dac0756d357325b107fe6ec24921ec38661839.
+On Tue, Aug 05, 2008 at 03:08:17AM +0200, Krzysztof Oledzki wrote:
+> issue seems to be now solved. However, starting from the
+> 9043476f726802f4b00c96d0c4f418dde48d1304, even with NETFILNER=n, there are 
+> other duplicated entries:
+>
+> # find /proc/sys -type d |sort|uniq -d
+>
+> /proc/sys/net/core
+> /proc/sys/net/ipv4/route
+> /proc/sys/net/ipv6
 
-The first hunk of the patch removes an unnecessary
-tg3_set_power_state() call.  The chip will already be in the D0 state
-either due to a chip reset or through a previous call to
-tg3_set_power_state().
-
-The second hunk of the patch moves the tg3_set_power_state() call
-outside the critical section guarded by tg3_full_lock() and
-tg3_full_unlock() functions.  The power state of the device is and
-should be outside the lock's domain and all other tg3_set_power_state()
-calls support this.
-
-
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 26aa37a..576199b 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -7687,21 +7687,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
-  */
- static int tg3_init_hw(struct tg3 *tp, int reset_phy)
- {
--	int err;
--
--	/* Force the chip into D0. */
--	err = tg3_set_power_state(tp, PCI_D0);
--	if (err)
--		goto out;
--
- 	tg3_switch_clocks(tp);
- 
- 	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
- 
--	err = tg3_reset_hw(tp, reset_phy);
--
--out:
--	return err;
-+	return tg3_reset_hw(tp, reset_phy);
- }
- 
- #define TG3_STAT_ADD32(PSTAT, REG) \
-@@ -8016,13 +8006,11 @@ static int tg3_open(struct net_device *dev)
- 
- 	netif_carrier_off(tp->dev);
- 
--	tg3_full_lock(tp, 0);
--
- 	err = tg3_set_power_state(tp, PCI_D0);
--	if (err) {
--		tg3_full_unlock(tp);
-+	if (err)
- 		return err;
--	}
-+
-+	tg3_full_lock(tp, 0);
- 
- 	tg3_disable_ints(tp);
- 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
-
-
+... dealt with by eeb61f719c00c626115852bbc91189dc3011a844.  Or are you
+seeing those again?
