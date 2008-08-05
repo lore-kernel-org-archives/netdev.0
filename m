@@ -1,59 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: pull request: wireless-2.6 2008-08-04
-Date: Wed, 6 Aug 2008 01:30:41 +1000
-Message-ID: <20080806013041.c0d3845b.sfr@canb.auug.org.au>
-References: <20080804193753.GA30345@tuxdriver.com>
-	<20080804.150147.78586437.davem@davemloft.net>
-	<20080805021710.GA21731@tuxdriver.com>
-	<20080805.012814.215633850.davem@davemloft.net>
-	<20080805232839.95235680.sfr@canb.auug.org.au>
-	<20080805140517.GA7819@tuxdriver.com>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: [RESEND][PATCH] benet: BladeEngine 10Gb NIC driver
+Date: Tue, 05 Aug 2008 09:22:28 -0700
+Message-ID: <20080805162228.41fc52d1@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU="
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:51182 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757481AbYHEP4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 11:56:13 -0400
-In-Reply-To: <20080805140517.GA7819@tuxdriver.com>
+Received: from mail142.messagelabs.com ([216.82.249.99]:58125 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759323AbYHEQWc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 12:22:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Jeff,
 
-Hi John,
+The benet driver patch with this Kconfig change is available as one file under under :
 
-On Tue, 5 Aug 2008 10:05:17 -0400 "John W. Linville" <linville@tuxdriver.co=
-m> wrote:
->
-> FWIW I fixed-up the wireless-2.6 tree to reflect what davem pulled -- a
-> noop, but at least those patches shouldn't pollute -next tomorrow. :-)
+ftp://ftp.serverengines.com/0001.benet.patch
 
-Thanks.  Every bit helps.  I am hoping my toolchain guy can come up with
-a workaround for us.  And you guys can figure out the list.h thing.
+Thanks.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Subbu
 
---Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=
-Content-Type: application/pgp-signature
+----- Original Message -----
+From: Jeff Garzik [mailto:jeff@garzik.org]
+To: subbu [mailto:subbus@serverengines.com]
+Cc: 'Randy Dunlap' [mailto:randy.dunlap@oracle.com], 'Bill Fink' [mailto:billfink@mindspring.com], netdev@vger.kernel.org
+Sent: Mon, 07 Jul 2008 06:57:48 -0700
+Subject: Re: [PATCH 8/8] benet: Kconfig, Makefile, MAINTAINERS
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
 
-iEYEARECAAYFAkiYciEACgkQjjKRsyhoI8xYqwCgkqX2g/MXPwqLJYXixCmbxOWK
-YvQAoJ/FHSMdLuedrmx93XFKljIJP8nH
-=a+w8
------END PGP SIGNATURE-----
+subbu wrote:
+> Thanks Randy and Bill.  I will wait couple more days for any more 
+> comments before sending the updated patch.
 
---Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=--
+Also, if you have a link to a patch that provides everything in one file, that would be useful for me.
+
+	Jeff
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
