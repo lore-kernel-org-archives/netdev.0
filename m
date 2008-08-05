@@ -1,75 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH take 2] net_sched: Add qdisc __NET_XMIT_BYPASS flag
-Date: Tue, 5 Aug 2008 17:50:01 +0200
-Message-ID: <20080805155001.GA2526@ami.dom.local>
-References: <20080731171431.GA9464@ami.dom.local> <4892AA16.40706@trash.net> <20080801101929.GA12735@ff.dom.local> <20080803.182524.240976246.davem@davemloft.net> <20080804062813.GA4570@ff.dom.local> <20080804213535.14214iqhxkx3v3so@hayate.ip6> <20080804210333.GA2849@ami.dom.local> <20080805154350.27523juch31xgjcw@hayate.ip6>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: pull request: wireless-2.6 2008-08-04
+Date: Wed, 6 Aug 2008 01:30:41 +1000
+Message-ID: <20080806013041.c0d3845b.sfr@canb.auug.org.au>
+References: <20080804193753.GA30345@tuxdriver.com>
+	<20080804.150147.78586437.davem@davemloft.net>
+	<20080805021710.GA21731@tuxdriver.com>
+	<20080805.012814.215633850.davem@davemloft.net>
+	<20080805232839.95235680.sfr@canb.auug.org.au>
+	<20080805140517.GA7819@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU="
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:1393 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761077AbYHEPuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 11:50:06 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so939018nfc.21
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2008 08:50:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080805154350.27523juch31xgjcw@hayate.ip6>
+Received: from chilli.pcug.org.au ([203.10.76.44]:51182 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757481AbYHEP4N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2008 11:56:13 -0400
+In-Reply-To: <20080805140517.GA7819@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 05, 2008 at 03:43:50PM +0300, Jussi Kivilinna wrote:
-> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->
->> On Mon, Aug 04, 2008 at 09:35:35PM +0300, Jussi Kivilinna wrote:
->>> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->>>
->>> This seems to also make sure that when returning 'full'
->>> NET_XMIT_SUCCESS, skb pointer is safe(r?) to use now.
->>
->> I guess so... At least theoretically - I was mainly afraid of
->> redirecting, which isn't fully implemented yet. On the other hand,
->> outwards of qdiscs there is still no difference.
->>
->
-> How about making skb shared before passing into qdisc tree?
-> That would make skb usage safe after qdisc enqueues.
+--Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-It's a bit costly (atomics), so there should be a good reason for this.
-It should be first checked if there is real danger. And if it's only
-for more exact stats, I'm not sure it's worth of it.
+Hi John,
 
-Jarek P.
+On Tue, 5 Aug 2008 10:05:17 -0400 "John W. Linville" <linville@tuxdriver.co=
+m> wrote:
+>
+> FWIW I fixed-up the wireless-2.6 tree to reflect what davem pulled -- a
+> noop, but at least those patches shouldn't pollute -next tomorrow. :-)
 
->
-> ---
->
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index c5bb130..9cf06fc 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -352,10 +352,16 @@ static inline int qdisc_enqueue(struct sk_buff  
-> *skb, struct Qdisc *sch)
->         return sch->enqueue(skb, sch);
->  }
->
-> -static inline int qdisc_enqueue_root(struct sk_buff *skb, struct Qdisc *sch)
-> +static inline int qdisc_enqueue_root(struct sk_buff *__skb, struct  
-> Qdisc *sch)
->  {
-> +       struct sk_buff *skb = skb_get(__skb);
-> +       int ret;
-> +
->         qdisc_skb_cb(skb)->pkt_len = skb->len;
-> -       return qdisc_enqueue(skb, sch);
-> +       ret = qdisc_enqueue(skb, sch);
-> +       kfree_skb(skb);
-> +
-> +       return ret;
->  }
->
->  static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct  
-> Qdisc *sch,
->
+Thanks.  Every bit helps.  I am hoping my toolchain guy can come up with
+a workaround for us.  And you guys can figure out the list.h thing.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkiYciEACgkQjjKRsyhoI8xYqwCgkqX2g/MXPwqLJYXixCmbxOWK
+YvQAoJ/FHSMdLuedrmx93XFKljIJP8nH
+=a+w8
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__6_Aug_2008_01_30_41_+1000_TJM__bAHGSzDuJU=--
