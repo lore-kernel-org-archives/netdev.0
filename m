@@ -1,64 +1,112 @@
-From: "Leandro Oliveira da Silva" <lansoweb@hotmail.com>
-Subject: RES: RES: RES: [Bugme-new] [Bug 11249] New: TC HTB hanging problem
-Date: Tue, 5 Aug 2008 16:46:02 -0300
-Message-ID: <BAY111-DAV11AA450D19672BF0DE9F1BC07B0@phx.gbl>
-References: <bug-11249-10286@http.bugzilla.kernel.org/> <20080804105506.8b401320.akpm@linux-foundation.org> <BAY111-DAV13CEE254838554E11B28A0C0780@phx.gbl> <48977BBF.4090705@gmail.com> <000601c8f6f4$a3853b90$ea8fb2b0$@com> <20080805122916.GC6541@ff.dom.local>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: "e100_probe: Error clearing wake event" when booting 2.6.27-rc1
+Date: Tue, 5 Aug 2008 22:03:07 +0200
+Message-ID: <200808052203.07815.rjw@sisk.pl>
+References: <200808051730.27599.alessandro.guido@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <bugme-daemon@bugzilla.kernel.org>
-To: "'Jarek Poplawski'" <jarkao2@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	pm list <linux-pm@lists.linux-foundation.org>
+To: Alessandro Guido <alessandro.guido@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s19.bay0.hotmail.com ([65.54.246.91]:33936 "EHLO
-	bay0-omc1-s19.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756783AbYHETqG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 15:46:06 -0400
-In-Reply-To: <20080805122916.GC6541@ff.dom.local>
-Message-ID: <002101c8f733$e40dc6c0$ac295440$@com>
-Content-Language: pt-br
+Received: from ogre.sisk.pl ([217.79.144.158]:52928 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761394AbYHEUA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2008 16:00:26 -0400
+In-Reply-To: <200808051730.27599.alessandro.guido@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jarek!
+On Tuesday, 5 of August 2008, Alessandro Guido wrote:
+> [please cc me on replies]
+> 
+> I'm getting this error message when booting my laptop.
+> 
+> The commit that causes this is:
+> 
+> commit eb9d0fe40e313c0a74115ef456a2e43a6c8da72f
+> Author: Rafael J. Wysocki <rjw@sisk.pl>
+> Date:   Mon Jul 7 03:34:48 2008 +0200
+> 
+>     PCI ACPI: Rework PCI handling of wake-up
+> 
+> [very long commit message snipped]
+> 
+> Should I ignore that?
 
-Good news. I downloaded the 2.6.26 version to one of my clients, compil=
-ed,
-and before the reboot to put this one as active I ran my script and the
-server hanged. When they restarted the server the kernel 2.6.26 entered=
- and
-I ran the script several times without problem. I guess in my case it w=
-as
-one of the two bugs, but I'm putting this kernel in other 3 servers and
-let's see if they work fine now. I'll send a email on Friday with the
-status.
+The message is harmless, but it exposes the problem that e100_probe() should
+not use pci_enable_wake() for this purpose.
 
-Thanks a lot,
-Leandro
+The appended patch makes it use pci_pme_active() instead.
 
------Mensagem original-----
-De: Jarek Poplawski [mailto:jarkao2@gmail.com]=20
-Enviada em: ter=E7a-feira, 5 de agosto de 2008 09:29
-Para: Leandro Oliveira da Silva
-Cc: 'Andrew Morton'; netdev@vger.kernel.org;
-bugme-daemon@bugzilla.kernel.org
-Assunto: Re: RES: RES: [Bugme-new] [Bug 11249] New: TC HTB hanging prob=
-lem
+Thanks,
+Rafael
 
-On Tue, Aug 05, 2008 at 09:13:15AM -0300, Leandro Oliveira da Silva wro=
-te:
-> Hello Jarek!
->=20
-> Many thanks for your response! Are these two patches already included=
- in
-> 2.6.26 version?
+---
+PCI PM: Export pci_pme_active to drivers
 
-Yes.
+Export pci_pme_active() to drivers, so that they can clear the
+PME_status bit and disable PME# for the device without involving
+ACPI.
 
-> Thanks a lot again,
+Modify the e100 driver to use pci_pme_active() for this purpose.
 
-Not at all... at least until we know if it works!
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/e100.c  |    4 +---
+ drivers/pci/pci.c   |    3 ++-
+ include/linux/pci.h |    1 +
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-Jarek P.
-
+Index: linux-2.6/drivers/pci/pci.c
+===================================================================
+--- linux-2.6.orig/drivers/pci/pci.c
++++ linux-2.6/drivers/pci/pci.c
+@@ -1060,7 +1060,7 @@ bool pci_pme_capable(struct pci_dev *dev
+  * The caller must verify that the device is capable of generating PME# before
+  * calling this function with @enable equal to 'true'.
+  */
+-static void pci_pme_active(struct pci_dev *dev, bool enable)
++void pci_pme_active(struct pci_dev *dev, bool enable)
+ {
+ 	u16 pmcsr;
+ 
+@@ -1945,6 +1945,7 @@ EXPORT_SYMBOL(pci_set_power_state);
+ EXPORT_SYMBOL(pci_save_state);
+ EXPORT_SYMBOL(pci_restore_state);
+ EXPORT_SYMBOL(pci_pme_capable);
++EXPORT_SYMBOL(pci_pme_active);
+ EXPORT_SYMBOL(pci_enable_wake);
+ EXPORT_SYMBOL(pci_target_state);
+ EXPORT_SYMBOL(pci_prepare_to_sleep);
+Index: linux-2.6/include/linux/pci.h
+===================================================================
+--- linux-2.6.orig/include/linux/pci.h
++++ linux-2.6/include/linux/pci.h
+@@ -648,6 +648,7 @@ int pci_restore_state(struct pci_dev *de
+ int pci_set_power_state(struct pci_dev *dev, pci_power_t state);
+ pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state);
+ bool pci_pme_capable(struct pci_dev *dev, pci_power_t state);
++void pci_pme_active(struct pci_dev *dev, bool enable);
+ int pci_enable_wake(struct pci_dev *dev, pci_power_t state, int enable);
+ pci_power_t pci_target_state(struct pci_dev *dev);
+ int pci_prepare_to_sleep(struct pci_dev *dev);
+Index: linux-2.6/drivers/net/e100.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e100.c
++++ linux-2.6/drivers/net/e100.c
+@@ -2738,9 +2738,7 @@ static int __devinit e100_probe(struct p
+ 		nic->flags |= wol_magic;
+ 
+ 	/* ack any pending wake events, disable PME */
+-	err = pci_enable_wake(pdev, 0, 0);
+-	if (err)
+-		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
++	pci_pme_active(pdev, false);
+ 
+ 	strcpy(netdev->name, "eth%d");
+ 	if((err = register_netdev(netdev))) {
