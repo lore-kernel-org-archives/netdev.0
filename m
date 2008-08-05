@@ -1,82 +1,55 @@
-From: "Justin Mattock" <justinmattock@gmail.com>
-Subject: Re: pull request: wireless-2.6 2008-08-04
-Date: Mon, 4 Aug 2008 16:38:52 -0700
-Message-ID: <dd18b0c30808041638qcc67ab8xe5247fa8a1bbd36e@mail.gmail.com>
-References: <20080804193753.GA30345@tuxdriver.com>
-	 <1217882288.7819.19.camel@californication>
-	 <20080804204558.GA5866@tuxdriver.com>
-	 <1217886123.7819.23.camel@californication>
-	 <20080804215439.GA9658@tuxdriver.com>
-	 <1217889426.7819.26.camel@californication>
-	 <43e72e890808041545y1b1727c1t90db35721a9c9d8d@mail.gmail.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: 2.6.27-rc1-git4 BUG: sched while atomic
+Date: Mon, 4 Aug 2008 17:46:39 -0700
+Message-ID: <20080805004639.GB16130@HP-xw6200.broadcom.net>
+References: <20080804094835.da083484.randy.dunlap@oracle.com>
+ <20080804101712.659780ef@extreme> <1217859640.6746.2.camel@HP1>
+ <20080804.144020.106451038.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Marcel Holtmann" <marcel@holtmann.org>,
-	"John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Cc: mchan@broadcom.com, shemminger@vyatta.com, randy.dunlap@oracle.com,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:22116 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753960AbYHDXix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2008 19:38:53 -0400
-Received: by an-out-0708.google.com with SMTP id d40so367823and.103
-        for <netdev@vger.kernel.org>; Mon, 04 Aug 2008 16:38:52 -0700 (PDT)
-In-Reply-To: <43e72e890808041545y1b1727c1t90db35721a9c9d8d@mail.gmail.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:2944 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753377AbYHEAAK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2008 20:00:10 -0400
+In-Reply-To: <20080804.144020.106451038.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 4, 2008 at 3:45 PM, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
-> On Mon, Aug 4, 2008 at 3:37 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
->> Hi John,
->>
->>> > > > > Luis R. Rodriguez (4):
->>> > > > >       list.h: Add list_splice_tail() and list_splice_tail_init()
->>> > > > >       list.h: add list_cut_position()
->>> > > >
->>> > > > have these two changes got reviewed on LKML? I don't see any ACKs for it
->>> > > > in the commit message.
->>> > >
->>> > > Hmmm...no.  I thought the original patches had been copied to
->>> > > linux-kernel, but it looks like that is not the case.
->>> > >
->>> > > The original patches are archived here:
->>> > >
->>> > >   http://marc.info/?l=linux-wireless&m=121783421908441&w=2
->>> > >
->>> > >   http://marc.info/?l=linux-wireless&m=121783422008445&w=2
->>> > >
->>> > > What problems do you see with them?
->>> >
->>> > I don't see a problem with these patches, but they should at least be
->>> > reviewed on LKML once. Changes to core kernel infrastructure should not
->>> > be merged silently via subsystem trees without any kind of ACKs.
->>>
->>> Yes, fine.  That wasn't my intent. :-)  The patches were originally
->>> posted about two weeks ago, too bad that didn't actually go to
->>> linux-kernel. :-(
->>
->> just post them to LKML (or let Luis do it) so they get reviewed. I
->> really don't see an issue with them, but that is only me.
->
-> I'll repost those specific patches and add lkml.
->
->  Luis
+I'm looking into it right now.  Stay tuned.
+
+On Mon, Aug 04, 2008 at 02:40:20PM -0700, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Mon, 04 Aug 2008 07:20:40 -0700
+> 
+> > This was introduced by:
+> > 
+> > tg3: adapt tg3 to use reworked PCI PM code
+> > 
+> > Adapt the tg3 driver to use the reworked PCI PM and make it use the
+> > exported PCI PM core functions instead of accessing the PCI PM registers
+> > directly by itself.
+> > 
+> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > In the original tg3 code, we used udelay() when switching to D0 state
+> > since we were inside tg3_full_lock().
+> 
+> Right, this change was obviously not tested properly.
+> 
+> I'm likely going to revert unless a really good fix shows up fast.
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+> 
 
-I must be honest, I am really excited
-to see ath9k, finally an in kernel module
-for my wireless card.
 
-regards;
-
--- 
-Justin P. Mattock
