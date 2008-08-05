@@ -1,72 +1,59 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] catch up device stats when multicast > total frames
-Date: Tue, 5 Aug 2008 07:50:18 -0400
-Message-ID: <20080805115018.GB22123@hmsreliant.think-freely.org>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: Warning when unloading the nf_conntack module (regression?)
+Date: Tue, 5 Aug 2008 14:10:45 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0808051408350.29400@bizon.gios.gov.pl>
+References: <Pine.LNX.4.64.0808032344510.16818@bizon.gios.gov.pl>
+ <Pine.LNX.4.64.0808042027080.4338@bizon.gios.gov.pl>
+ <Pine.LNX.4.64.0808042039400.4338@bizon.gios.gov.pl>
+ <Pine.LNX.4.64.0808042130570.23688@bizon.gios.gov.pl>
+ <20080804200058.GX28946@ZenIV.linux.org.uk> <20080804203021.GY28946@ZenIV.linux.org.uk>
+ <Pine.LNX.4.64.0808042258370.29400@bizon.gios.gov.pl>
+ <20080804215649.GZ28946@ZenIV.linux.org.uk> <Pine.LNX.4.64.0808050000360.29400@bizon.gios.gov.pl>
+ <Pine.LNX.4.64.0808050301400.29400@bizon.gios.gov.pl>
+ <20080805044604.GA28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nhorman@tuxdriver.com, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, john.ronciak@intel.com
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1672466246-1217938245=:29400"
+Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4109 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758931AbYHELuv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2008 07:50:51 -0400
-Content-Disposition: inline
+Received: from bizon.gios.gov.pl ([212.244.124.8]:52541 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756827AbYHEMKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 08:10:54 -0400
+In-Reply-To: <20080805044604.GA28946@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey-
-	REcently observed a problem wherein, if a BMC or other IPMI device is
-attached to a NIC, multicast frames can be consumed by the aformentioned device
-without ever being seen by the driver.  Since multicast frames are counted in
-the hardware and the total frame counter is counted in the driver napi routine,
-its possible to have a condition in which the number of received multicast
-frames exceeds the total number of frames.  This patch re-aligns those values on
-receive, so that the total frame count is always at least as large as the
-received frame count.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+---187430788-1672466246-1217938245=:29400
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
- e1000_main.c |    6 ++++++
- 1 file changed, 6 insertions(+)
 
+On Tue, 5 Aug 2008, Al Viro wrote:
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 59579b1..66afee8 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3761,6 +3761,8 @@ e1000_update_stats(struct e1000_adapter *adapter)
- 	/* Fill out the OS statistics structure */
- 	adapter->net_stats.multicast = adapter->stats.mprc;
- 	adapter->net_stats.collisions = adapter->stats.colc;
-+	if (adapter->net_stats.rx_packets < adapter->net_stats.multicast)
-+		adapter->net_stats.rx_packets = adapter->net_stats.multicast;
- 
- 	/* Rx Errors */
- 
-@@ -4347,6 +4349,8 @@ next_desc:
- 		adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
- 
- 	adapter->total_rx_packets += total_rx_packets;
-+	if (adapter->total_rx_packets < adapter->net_stats.multicast)
-+		adapter->total_rx_packets = adapter->net_stats.multicast;
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->net_stats.rx_bytes += total_rx_bytes;
- 	adapter->net_stats.rx_packets += total_rx_packets;
-@@ -4536,6 +4540,8 @@ next_desc:
- 		adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
- 
- 	adapter->total_rx_packets += total_rx_packets;
-+	if (adapter->total_rx_packets < adapter->net_stats.multicast)
-+		adapter->total_rx_packets = adapter->net_stats.multicast;
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->net_stats.rx_bytes += total_rx_bytes;
- 	adapter->net_stats.rx_packets += total_rx_packets;
--- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+> On Tue, Aug 05, 2008 at 03:08:17AM +0200, Krzysztof Oledzki wrote:
+>> issue seems to be now solved. However, starting from the
+>> 9043476f726802f4b00c96d0c4f418dde48d1304, even with NETFILNER=3Dn, there=
+ are
+>> other duplicated entries:
+>>
+>> # find /proc/sys -type d |sort|uniq -d
+>>
+>> /proc/sys/net/core
+>> /proc/sys/net/ipv4/route
+>> /proc/sys/net/ipv6
+>
+> ... dealt with by eeb61f719c00c626115852bbc91189dc3011a844.  Or are you
+> seeing those again?
+
+No, probably not. Obviously, I'm in wrong HEAD after git-bisecting. Sorry.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-1672466246-1217938245=:29400--
