@@ -1,33 +1,36 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [BUG] before() integer overflow
-Date: Tue, 5 Aug 2008 10:51:32 -0700
-Message-ID: <OFD6FD9FE8.66BA8559-ON8825749C.00619B98-8825749C.00621A40@us.ibm.com>
-References: <87y73bqt0p.fsf@chdir.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH]&[Question] netdevice: Use netdev_priv()
+Date: Tue, 5 Aug 2008 10:51:49 -0700
+Message-ID: <200808051051.49824.divy@chelsio.com>
+References: <4892E6EC.3040201@cn.fujitsu.com> <4898238F.1050105@cn.fujitsu.com> <20080805.030433.100665376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Nicolas Bareil <nico@chdir.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:33905 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754585AbYHERvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 13:51:53 -0400
-In-Reply-To: <87y73bqt0p.fsf@chdir.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:11050 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758971AbYHERvy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 13:51:54 -0400
+In-Reply-To: <20080805.030433.100665376.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 08/05/2008 10:19:18 AM:
+On Tuesday 05 August 2008 03:04:33 am David Miller wrote:
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+> Date: Tue, 05 Aug 2008 17:55:27 +0800
+>
+> > init_one() of cxgb2 makes several net_device to share one private data.
+> > For this purpose, direct reference is necessary.
+>
+> It should use netdev->ml_priv which is created for this purpose.
+>
+> Every direct netdev->priv usage is a bug.
 
-> 
-> If seq1 = 0xffffff and seq2 = 0 (so seq1 > seq2), the difference is
-> equal to 0xffffff, or -1 as a 32 bits signed number.
+cxgb3 was fixed in this regard, cxgb2 needs the same treatment ...
 
-        In the sequence space, 0xffffffff is before 0 (by 1), so
-before() should return true. In your example, you don't have enough
-f's for it to be -1 as a signed number, so I'm assuming you mean
-8 of them there. If you mean 6 f's, then the result is not -1, but the
-positive number 0xffffff, which returns false.
-
-                                                                +-DLS
-
-
+cheers,
+Divy
