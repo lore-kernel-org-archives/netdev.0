@@ -1,32 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] Interfamily IPSec BEET
-Date: Tue, 5 Aug 2008 16:55:53 +0800
-Message-ID: <20080805085553.GA21094@gondor.apana.org.au>
-References: <200808041619.42562.joakim.koskela@hiit.fi> <200808051013.19873.joakim.koskela@hiit.fi> <20080805072249.GA20340@gondor.apana.org.au> <200808051136.47222.joakim.koskela@hiit.fi>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: [PATCH 1/3] Add (struct sock*) sk parameter for send_ack()
+Date: Tue, 05 Aug 2008 17:22:38 +0800
+Message-ID: <48981BDE.70201@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yoshfuji@wide.ad.jp
-To: Joakim Koskela <joakim.koskela@hiit.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57703 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760028AbYHEJZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 05:25:58 -0400
-Content-Disposition: inline
-In-Reply-To: <200808051136.47222.joakim.koskela@hiit.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761007AbYHEJ0d@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 05, 2008 at 11:36:46AM +0300, Joakim Koskela wrote:
->
-> Sure, thanks. We should probably do the same in ipv4's output as well (only 
-> add the IPV4_BEET_PHMAXLEN if the inner family != ipv6).
+Add (struct sock*) sk parameter for send_ack.
 
-Good point.
+Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+---
+ include/net/request_sock.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks,
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 8d6e991..cac811e 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -33,7 +33,7 @@ struct request_sock_ops {
+ 	struct kmem_cache	*slab;
+ 	int		(*rtx_syn_ack)(struct sock *sk,
+ 				       struct request_sock *req);
+-	void		(*send_ack)(struct sk_buff *skb,
++	void		(*send_ack)(struct sock *sk, struct sk_buff *skb,
+ 				    struct request_sock *req);
+ 	void		(*send_reset)(struct sock *sk,
+ 				      struct sk_buff *skb);
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.3
