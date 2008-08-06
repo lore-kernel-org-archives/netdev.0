@@ -1,52 +1,103 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Tue, 5 Aug 2008 19:57:03 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org>
-References: <20080805.190020.244441681.davem@davemloft.net>
+From: Krzysztof Piotr Oledzki <ole@ans.pl>
+Subject: [PATCH] netfilter: fix two recent sysctl problems
+Date: Wed, 06 Aug 2008 05:08:31 +0200
+Message-ID: <489915af.VNn/ufBuUNr78bc1%ole@ans.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivo van Doorn <IvDoorn@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45232 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752844AbYHFC5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 22:57:07 -0400
-In-Reply-To: <20080805.190020.244441681.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+netfilter: fix two recent sysctl problems
 
+Starting with 9043476f726802f4b00c96d0c4f418dde48d1304 we have two
+netfilter releated problems:
 
-On Tue, 5 Aug 2008, David Miller wrote:
-> 
-> There was going to be the addition of the ath9k wireless driver but
-> there was some fallout that is being worked on right now (linux/list.h
-> changes needed lkml review, ath9k driver triggered some gcc aborts,
-> all kinds of fun stuff :-) so hopefully it will make it in the next
-> pass.  I tried to wait an extra day for it to be resolved, but that
-> was optimistic.
+ - WARNING: at kernel/sysctl.c:1966 unregister_sysctl_table+0xcc/0x103(),
+   caused by wrong order of ini/fini calls
 
-Talking about wireless driver updates - has anybody looked at the RaLink 
-wireless driver?  It's in the newer EeePC's (901 and 1000), and it 
-actually has a driver from the company which the comments make clear is 
-GPLv2 too, no apparent oddness or anything:
+ - net.netfilter is duplicated and has truncated set of records
 
-	http://www.ralinktech.com.tw/data/drivers/2008_0708_RT2860_Linux_STA_v1.7.0.0.tar.bz2
+Thanks to very useful guidelines from Al Viro, this patch fixes both of them.
 
-which admittedly apparently has some trivial problems (with a trivial 
-patch as seen at
+Signed-off-by: Krzysztof Piotr Oledzki <ole@ans.pl>
 
-	http://fedoraforum.org/forum/showthread.php?t=195429
-
-I'd love to have that one working, since I have the hardware, and it's 
-actually reasonable (much more so than the original EeePC, in fact). What 
-channels should I go through? Is anybody working on integrating it 
-already?
-
-(Ivo van Doorn added to Cc, since he seems the go-to guy for the rt2x00 
-driver in the tree, and may have some input).
-
-		Linus
+diff -Nur linux-2.6.27-rc1-orig/net/netfilter/nf_conntrack_core.c linux-2.6.27-rc1/net/netfilter/nf_conntrack_core.c
+--- linux-2.6.27-rc1-orig/net/netfilter/nf_conntrack_core.c	2008-07-29 04:40:31.000000000 +0200
++++ linux-2.6.27-rc1/net/netfilter/nf_conntrack_core.c	2008-08-06 04:06:48.000000000 +0200
+@@ -1032,10 +1032,10 @@
+ 	nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_vmalloc,
+ 			     nf_conntrack_htable_size);
+ 
+-	nf_conntrack_proto_fini();
+-	nf_conntrack_helper_fini();
+-	nf_conntrack_expect_fini();
+ 	nf_conntrack_acct_fini();
++	nf_conntrack_expect_fini();
++	nf_conntrack_helper_fini();
++	nf_conntrack_proto_fini();
+ }
+ 
+ struct hlist_head *nf_ct_alloc_hashtable(unsigned int *sizep, int *vmalloced)
+diff -Nur linux-2.6.27-rc1-orig/net/netfilter/nf_conntrack_standalone.c linux-2.6.27-rc1/net/netfilter/nf_conntrack_standalone.c
+--- linux-2.6.27-rc1-orig/net/netfilter/nf_conntrack_standalone.c	2008-07-29 04:40:31.000000000 +0200
++++ linux-2.6.27-rc1/net/netfilter/nf_conntrack_standalone.c	2008-08-06 04:44:13.000000000 +0200
+@@ -324,6 +324,7 @@
+ static int log_invalid_proto_max = 255;
+ 
+ static struct ctl_table_header *nf_ct_sysctl_header;
++static struct ctl_table_header *nf_ct_netfilter_header;
+ 
+ static ctl_table nf_ct_sysctl_table[] = {
+ 	{
+@@ -384,12 +385,6 @@
+ 
+ static ctl_table nf_ct_netfilter_table[] = {
+ 	{
+-		.ctl_name	= NET_NETFILTER,
+-		.procname	= "netfilter",
+-		.mode		= 0555,
+-		.child		= nf_ct_sysctl_table,
+-	},
+-	{
+ 		.ctl_name	= NET_NF_CONNTRACK_MAX,
+ 		.procname	= "nf_conntrack_max",
+ 		.data		= &nf_conntrack_max,
+@@ -409,18 +404,29 @@
+ 
+ static int nf_conntrack_standalone_init_sysctl(void)
+ {
+-	nf_ct_sysctl_header =
++	nf_ct_netfilter_header =
+ 		register_sysctl_paths(nf_ct_path, nf_ct_netfilter_table);
+-	if (nf_ct_sysctl_header == NULL) {
+-		printk("nf_conntrack: can't register to sysctl.\n");
+-		return -ENOMEM;
+-	}
++	if (!nf_ct_netfilter_header)
++		goto out;
++
++	nf_ct_sysctl_header =
++		 register_sysctl_paths(nf_net_netfilter_sysctl_path,
++					nf_ct_sysctl_table);
++	if (!nf_ct_sysctl_header)
++		goto out_unregister_netfilter;
++
+ 	return 0;
+ 
++out_unregister_netfilter:
++	unregister_sysctl_table(nf_ct_netfilter_header);
++out:
++	printk("nf_conntrack: can't register to sysctl.\n");
++	return -ENOMEM;
+ }
+ 
+ static void nf_conntrack_standalone_fini_sysctl(void)
+ {
++	unregister_sysctl_table(nf_ct_netfilter_header);
+ 	unregister_sysctl_table(nf_ct_sysctl_header);
+ }
+ #else
