@@ -1,92 +1,64 @@
-From: "Nobuhiro Iwamatsu" <iwamatsu@nigauri.org>
-Subject: Re: [PATCH] sh_eth Add SH7619 support
-Date: Wed, 6 Aug 2008 16:38:49 +0900
-Message-ID: <29ab51dc0808060038g429bed14q4f41ef654def2a0@mail.gmail.com>
-References: <878wvhtynu.wl%ysato@users.sourceforge.jp>
-	 <29ab51dc0807312048hfa9cd88pb90d1a7520bb3f99@mail.gmail.com>
-	 <871w18ycmr.wl%ysato@users.sourceforge.jp>
-	 <20080802073021.GA30041@verge.net.au>
-	 <87myjv77nm.wl%ysato@users.sourceforge.jp>
-	 <20080803192335.GB4448@linux-sh.org>
-	 <87tzdzmfno.wl%ysato@users.sourceforge.jp>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [GIT]: Networking
+Date: Wed, 6 Aug 2008 10:21:55 +0200
+Message-ID: <200808061021.56150.IvDoorn@gmail.com>
+References: <20080805.190020.244441681.davem@davemloft.net> <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Paul Mundt" <lethal@linux-sh.org>,
-	"Simon Horman" <horms@verge.net.au>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Nobuhiro Iwamatsu" <iwamatsu.nobuhiro@renesas.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: "Yoshinori Sato" <ysato@users.sourceforge.jp>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <87tzdzmfno.wl%ysato@users.sourceforge.jp>
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:45777 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755787AbYHFH4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 03:56:53 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1078774nfc.21
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 00:56:51 -0700 (PDT)
+In-Reply-To: <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org>
 Content-Disposition: inline
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2008/8/6 Yoshinori Sato <ysato@users.sourceforge.jp>:
-> At Mon, 4 Aug 2008 04:23:35 +0900,
-> Paul Mundt wrote:
->>
->> On Sat, Aug 02, 2008 at 11:34:21AM -0400, Yoshinori Sato wrote:
->> > At Sat, 2 Aug 2008 17:30:22 +1000,
->> > Simon Horman wrote:
->> > > On Fri, Aug 01, 2008 at 11:32:28AM -0400, Yoshinori Sato wrote:
->> > > > > > +/* CPU endian from/to EDMAC endian */
->> > > > > > +#if !defined(CONFIG_CPU_SUBTYPE_SH7619)
->> > > > > > +#define cpu_to_edmac(x) cpu_to_le32(x)
->> > > > > > +#define edmac_to_cpu(x) le32_to_cpu(x)
->> > > > > > +#else
->> > > > > > +#define cpu_to_edmac(x) cpu_to_be32(x)
->> > > > > > +#define edmac_to_cpu(x) be32_to_cpu(x)
->> > > > > > +#endif
->> > > > > > +
->> > > > > >  #endif
->> > > > > I think that this depends on an endian not CPU dependence.
->> > > >
->> > > > I agree.
->> > > > But I'm no idea.
->> > > > Are you have good idea?
->> > >
->> > > Iwamatsu-san,
->> > >
->> > > what is the difference between CONFIG_CPU_LITTLE_ENDIAN and
->> > > __LITTLE_ENDIAN__ as used in drivers/net/sh_eth.h ?
->> >
->> > EDMAC endian is no depend CPU endian.
->> >
->> The cleaner thing to do might just be to introduce a config symbol for
->> specifying whether the EDMAC is in big or little endian mode, depending
->> on how it's wired up in the CPU. Also, you should use a consistent ifdef
->> style. In some cases you only check if 7619 is defined and do your corner
->> cases there, in others (like this one) you check if it is not defined and
->> push its corner cases further down. The latter of which is very error
->> prone.
->>
->> If the EDMAC endianness can be changed within a given subtype (or hooked
->> up externally), then we also need to making the conversion run-time
->> configurable, and we can toss the endian hint in the platform data.
->
-> I think it's best solution.
->
-> example
->
-> struct sh_eth_drvadata drvdata {
->       .phy = 1,
->       .edmac_endian = EDMAC_LITTLE, /* or EDMAC_BIG */
-> };
->
-> static struct platform_device eth_device = {
->  :
->        .dev = {
->                .platform_data = &drvdata,
->        },
->  :
-> };
->
-> It's OK?
-Looks good.
-Please resend patch.
+On Wednesday 06 August 2008, Linus Torvalds wrote:
+> 
+> On Tue, 5 Aug 2008, David Miller wrote:
+> > 
+> > There was going to be the addition of the ath9k wireless driver but
+> > there was some fallout that is being worked on right now (linux/list.h
+> > changes needed lkml review, ath9k driver triggered some gcc aborts,
+> > all kinds of fun stuff :-) so hopefully it will make it in the next
+> > pass.  I tried to wait an extra day for it to be resolved, but that
+> > was optimistic.
+> 
+> Talking about wireless driver updates - has anybody looked at the RaLink 
+> wireless driver?  It's in the newer EeePC's (901 and 1000), and it 
+> actually has a driver from the company which the comments make clear is 
+> GPLv2 too, no apparent oddness or anything:
+> 
+> 	http://www.ralinktech.com.tw/data/drivers/2008_0708_RT2860_Linux_STA_v1.7.0.0.tar.bz2
+> 
+> which admittedly apparently has some trivial problems (with a trivial 
+> patch as seen at
+> 
+> 	http://fedoraforum.org/forum/showthread.php?t=195429
+> 
+> I'd love to have that one working, since I have the hardware, and it's 
+> actually reasonable (much more so than the original EeePC, in fact). What 
+> channels should I go through? Is anybody working on integrating it 
+> already?
 
-Best regards,
- Nobuhiro
+Like the earlier rt2x00 drivers I am rewriting the driver as released by Ralink and
+have put it in the rt2x00lib/mac80211 framework. Most of the code is currently done, and the
+last part should be done this week. After that it is a matter of testing and comparing
+register values with the Ralink driver for the last tweaks.
+
+I doubt the driver will be ready/stable for 2.6.28, but it should be ready for 2.6.29.
+
+Ivo
+
+
