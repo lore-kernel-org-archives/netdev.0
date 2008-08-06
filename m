@@ -1,50 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
 Subject: Re: iproute2 proposal
-Date: Wed, 06 Aug 2008 12:25:48 +0200
-Message-ID: <48997C2C.8050208@trash.net>
-References: <200808060125.38260.denys@visp.net.lb> <200808061304.45392.denys@visp.net.lb> <4899784C.5060405@trash.net> <200808061322.54655.denys@visp.net.lb>
+Date: Wed, 6 Aug 2008 13:38:21 +0300
+Message-ID: <200808061338.21537.denys@visp.net.lb>
+References: <200808060125.38260.denys@visp.net.lb> <200808061322.54655.denys@visp.net.lb> <48997C2C.8050208@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44834 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754181AbYHFKZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 06:25:51 -0400
-In-Reply-To: <200808061322.54655.denys@visp.net.lb>
+Received: from relay2.globalproof.net ([194.146.153.25]:47735 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755052AbYHFKjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 06:39:10 -0400
+In-Reply-To: <48997C2C.8050208@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko wrote:
-> On Wednesday 06 August 2008, Patrick McHardy wrote:
-> 
->> No patch attached ..
-> 
-> Sorry :-) Now must be attached
 
-> +++ iproute2-patched/tc/m_mirred.c	2008-08-06 09:49:39.000000000 +0000
-> @@ -27,6 +27,7 @@
->  #include <linux/tc_act/tc_mirred.h>
->  
->  int mirred_d = 1;
-> +extern int link_cache;
->  
->  static void
->  explain(void)
-> @@ -146,7 +147,10 @@
->  
->  	if (d[0])  {
->  		int idx;
-> -		ll_init_map(&rth);
-> +		if (!link_cache) {
-> + 		    ll_init_map(&rth);
-> +		    link_cache = 1;
-> +		}
+On Wednesday 06 August 2008, Patrick McHardy wrote:
+> It would be nicer to avoid the initialization in ll_init_map() as
+> you did in your first patch and add an explicit ll_invalidate_map()
+> and call it when necessary (ip link add/del/change(?), ip tunnel
+> add/del/change(?)).
 
-It would be nicer to avoid the initialization in ll_init_map() as
-you did in your first patch and add an explicit ll_invalidate_map()
-and call it when necessary (ip link add/del/change(?), ip tunnel
-add/del/change(?)).
+It is more than that. I must also invalidate in monitor mode, since this is 
+very volatile variable. In monitor mode very possible that interfaces can be 
+changed. Also i guess it is not required and better to invalidate 
+in "printing" functions?
+
+If it is ok, i will try to do patch in this way now.
