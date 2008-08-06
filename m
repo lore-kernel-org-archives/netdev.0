@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] (revised) Interfamily IPSec BEET
-Date: Wed, 06 Aug 2008 02:40:31 -0700 (PDT)
-Message-ID: <20080806.024031.78921650.davem@davemloft.net>
-References: <200808051235.47624.joakim.koskela@hiit.fi>
-	<20080805105406.GC21786@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: iproute2/m_ipt fix, opts was not set properly
+Date: Wed, 06 Aug 2008 05:52:52 -0400
+Message-ID: <1218016372.4755.15.camel@localhost>
+References: <200808052224.36773.denys@visp.net.lb>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: joakim.koskela@hiit.fi, netdev@vger.kernel.org, yoshfuji@wide.ad.jp
-To: herbert@gondor.apana.org.au
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53717
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756859AbYHFJkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 05:40:31 -0400
-In-Reply-To: <20080805105406.GC21786@gondor.apana.org.au>
+Received: from an-out-0708.google.com ([209.85.132.241]:26564 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752898AbYHFJw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 05:52:57 -0400
+Received: by an-out-0708.google.com with SMTP id d40so492171and.103
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 02:52:55 -0700 (PDT)
+In-Reply-To: <200808052224.36773.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 5 Aug 2008 18:54:06 +0800
+Denys,
 
-> On Tue, Aug 05, 2008 at 12:35:47PM +0300, Joakim Koskela wrote:
-> > 
-> > Here's a revised version, based on Herbert's comments, of a fix for
-> > the ipv4-inner, ipv6-outer interfamily ipsec beet mode. It fixes the
-> > network header adjustment during interfamily, as well as makes sure
-> > that we reserve enough room for the new ipv6 header if we might have
-> > something else as the inner family. Also, the ipv4 pseudo header
-> > construction was added.
-> > 
-> > Signed-off-by: Joakim Koskela <jookos@gmail.com>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Tue, 2008-05-08 at 22:24 +0300, Denys Fedoryshchenko wrote:
+> Since opts global variable, if it is set to original_opts, it was done in 
+> local context of function, and global variable in result was pointing to 
+> freed memory. 
+> Sure result of that - segfault, it is possible to trigger it 
+> only while processing batch, cause only on next iteration opts was wrong.
 
-Applied.
+Are you sure this fixes any segfault? example, the variant you have
+below just changes a variable name:
+
+-----
+-static void free_opts(struct option *opts)
++static void free_opts(struct option *opts_local)
+ {
+-       if (opts != original_opts) {
+-               free(opts);
++       if (opts_local != original_opts) {
++               free(opts_local);
+                opts = original_opts;
+                global_option_offset = 0;
+        }
+-------
+
+You could respin the patch with comment "change bad smelling name of
+a variable" - and that would be fine by me.
+
+Please CC me on m_ipt or any of the other actions (as i have asked you
+before).
+
+cheers,
+jamal
+
