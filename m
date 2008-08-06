@@ -1,42 +1,75 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 2/2] myri10ge: set 64bits consistent DMA mask
-Date: Wed, 06 Aug 2008 16:15:23 +0200
-Message-ID: <4899B1FB.8070700@myri.com>
-References: <4899B198.1060508@myri.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: [PATCH] correct pointer assignment in free_opts()
+Date: Wed, 6 Aug 2008 17:47:51 +0300
+Message-ID: <200808061747.51671.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:2015 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754844AbYHFOPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2008 10:15:50 -0400
-In-Reply-To: <4899B198.1060508@myri.com>
+Received: from relay2.globalproof.net ([194.146.153.25]:51466 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753040AbYHFOsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 10:48:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set 64bits consistent DMA mask since it improves performance
-in some cases. No need to check the return value since it is
-not required for the driver to work.
 
-Signed-off-by: Brice Goglin <brice@myri.com> 
+Invalid way of pointer assignment in free_opts causing global opts variable
+pointingto freed memory. It was possible to trigger this bug only by batching
+multiple rules with ipt action.
+
+Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
+
 ---
- drivers/net/myri10ge/myri10ge.c |    1 +
- 1 file changed, 1 insertion(+)
-
-Index: linux-2.6/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-2.6.orig/drivers/net/myri10ge/myri10ge.c	2008-07-23 09:18:21.000000000 +0200
-+++ linux-2.6/drivers/net/myri10ge/myri10ge.c	2008-08-04 13:22:14.000000000 +0200
-@@ -3699,6 +3699,7 @@
- 		dev_err(&pdev->dev, "Error %d setting DMA mask\n", status);
- 		goto abort_with_netdev;
+diff -uprN iproute-original/tc/m_ipt.c iproute2-patched2/tc/m_ipt.c
+--- iproute-original/tc/m_ipt.c	2008-08-05 22:15:56.000000000 +0300
++++ iproute2-patched2/tc/m_ipt.c	2008-08-06 16:34:13.000000000 +0300
+@@ -162,11 +162,11 @@ int string_to_number(const char *s, unsi
+ 	return result;
+ }
+ 
+-static void free_opts(struct option *opts)
++static void free_opts(struct option **opts)
+ {
+-	if (opts != original_opts) {
+-		free(opts);
+-		opts = original_opts;
++	if (*opts != original_opts) {
++		free(*opts);
++		*opts = original_opts;
+ 		global_option_offset = 0;
  	}
-+	(void)pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK);
- 	mgp->cmd = dma_alloc_coherent(&pdev->dev, sizeof(*mgp->cmd),
- 				      &mgp->cmd_bus, GFP_KERNEL);
- 	if (mgp->cmd == NULL)
-
-
+ }
+@@ -455,7 +455,7 @@ static int parse_ipt(struct action_util 
+ 		if (matches(argv[optind], "index") == 0) {
+ 			if (get_u32(&index, argv[optind + 1], 10)) {
+ 				fprintf(stderr, "Illegal \"index\"\n");
+-				free_opts(opts);
++				free_opts(&opts);
+ 				return -1;
+ 			}
+ 			iok++;
+@@ -513,7 +513,7 @@ static int parse_ipt(struct action_util 
+ 	*argv_p = argv;
+ 
+ 	optind = 1;
+-	free_opts(opts);
++	free_opts(&opts);
+ 
+ 	return 0;
+ 
+@@ -594,7 +594,7 @@ print_ipt(struct action_util *au,FILE * 
+ 		fprintf(f, " \n");
+ 
+ 	}
+-	free_opts(opts);
++	free_opts(&opts);
+ 
+ 	return 0;
+ }
