@@ -1,44 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: few more fixes for iproute2/m_ipt
-Date: Wed, 06 Aug 2008 09:17:14 -0400
-Message-ID: <1218028634.4755.69.camel@localhost>
-References: <200808060042.53503.denys@visp.net.lb>
-	 <200808061550.42003.denys@visp.net.lb> <1218027312.4755.63.camel@localhost>
-	 <200808061559.07923.denys@visp.net.lb>
-Reply-To: hadi@cyberus.ca
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [GIT]: Networking
+Date: Wed, 6 Aug 2008 09:15:03 -0400
+Message-ID: <20080806131503.GD7036@tuxdriver.com>
+References: <20080805.190020.244441681.davem@davemloft.net> <A0AAD67C-1F54-4D85-A413-91BBBE044452@holtmann.org> <alpine.LFD.1.10.0808052308080.15995@nehalem.linux-foundation.org> <200808061022.02432.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:60717 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbYHFNRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 09:17:17 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so284986yxm.1
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 06:17:17 -0700 (PDT)
-In-Reply-To: <200808061559.07923.denys@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Ivo van Doorn <ivdoorn@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756466AbYHFNcz@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200808061022.02432.IvDoorn@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2008-06-08 at 15:59 +0300, Denys Fedoryshchenko wrote:
+On Wed, Aug 06, 2008 at 10:22:02AM +0200, Ivo van Doorn wrote:
+> On Wednesday 06 August 2008, Linus Torvalds wrote:
 
+> > Well, it's also trying to support both 2.4.x and 2.6 etc. Yeah, that is 
+> > horrid. At the same time, I can't say that the "rewrite it entirely" 
+> > approach of the previous-gen cards has worked very well either, since that 
+> > seems to have just perpetuated the problems. It would be great to try to 
+> > educate them, but I'm not finding even an email address in the sources.
 > 
-> This one?
+> I've send a mail to Ralink with a request if they could step away from the
+> "port the windows driver to linux" idea and get the Linux driver "kernel-ready"
+> early on.
+> That won't solve the problem now, but hopefully it does mean the drivers for
+> the next generation can go into the kernel sooner.
 
-Sure thing Denys. Again - appreciated. 
-Do you know how to use git?
-When you send such patches so that Stephen can apply them, it is nicer
-if you have proper comments and signed offs. If you havent learnt how to
-use it, could be a fun thing to try out.
+The Ralink guys are being educated and AFAICT they are interested in
+better participation.  Time will tell, of course.
 
-I have tested the version of the patch i suggested earlier. I could not
-reproduce the crash but it is very clear from printfs it was a bug.
-If you dont mind please test it as well on your side and then send the
-patch to Stephen with my ACK.
+In the meantime as Ivo indicated he is "on the case" -- I think we
+will see something before too long.
 
-cheers,
-jamal
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
