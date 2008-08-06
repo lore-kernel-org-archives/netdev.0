@@ -1,87 +1,52 @@
-From: Krzysztof Oledzki <ole@ans.pl>
-Subject: Re: [PATCH] AX.25: Fix sysctl registration if !CONFIG_AX25_DAMA_SLAVE
-Date: Wed, 6 Aug 2008 04:35:59 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808060427160.9293@bizon.gios.gov.pl>
-References: <20080805223736.GA16608@linux-mips.org>
- <20080805.184737.158103058.davem@davemloft.net> <20080806015950.GM28946@ZenIV.linux.org.uk>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 5 Aug 2008 19:57:03 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org>
+References: <20080805.190020.244441681.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1886318628-1217990159=:9293"
-Cc: David Miller <davem@davemloft.net>, ralf@linux-mips.org,
-	stable@kernel.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, thomas@osterried.de,
-	jann@linux-mips.org, dl5di@gmx.de
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20080806015950.GM28946@ZenIV.linux.org.uk>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----187430788-1886318628-1217990159=:9293
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45232 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752844AbYHFC5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 22:57:07 -0400
+In-Reply-To: <20080805.190020.244441681.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On Wed, 6 Aug 2008, Al Viro wrote:
+On Tue, 5 Aug 2008, David Miller wrote:
+> 
+> There was going to be the addition of the ath9k wireless driver but
+> there was some fallout that is being worked on right now (linux/list.h
+> changes needed lkml review, ath9k driver triggered some gcc aborts,
+> all kinds of fun stuff :-) so hopefully it will make it in the next
+> pass.  I tried to wait an extra day for it to be resolved, but that
+> was optimistic.
 
-> On Tue, Aug 05, 2008 at 06:47:37PM -0700, David Miller wrote:
->> From: Ralf Baechle <ralf@linux-mips.org>
->> Date: Tue, 5 Aug 2008 23:37:36 +0100
->>
->>> Since 49ffcf8f99e8d33ec8afb450956804af518fd788
->>> setting struct ctl_table.procname =3D NULL does no longer work as it us=
-ed to
->>> the way the AX.25 code is expecting it to resulting in the AX.25 sysctl
->>> registration code to break if CONFIG_AX25_DAMA_SLAVE was not set as in =
-some
->>> distribution kernels.  Kernel releases from 2.6.24 are affected.
->>>
->>> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
->>
->> Applied, and I'll queue it up for -stable too.
->
-> BTW, here's netfilter sysctl one:
+Talking about wireless driver updates - has anybody looked at the RaLink 
+wireless driver?  It's in the newer EeePC's (901 and 1000), and it 
+actually has a driver from the company which the comments make clear is 
+GPLv2 too, no apparent oddness or anything:
 
-Please hold, still working on this.
+	http://www.ralinktech.com.tw/data/drivers/2008_0708_RT2860_Linux_STA_v1.7.0.0.tar.bz2
 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
-> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-> index 292fa28..655d743 100644
-> --- a/net/netfilter/core.c
-> +++ b/net/netfilter/core.c
-> @@ -264,6 +264,12 @@ EXPORT_SYMBOL(proc_net_netfilter);
-> void __init netfilter_init(void)
-> {
-> =09int i, h;
-> +
-> +#ifdef CONFIG_SYSCTL
-> +=09static struct ctl_table empty[1];
-> +=09register_sysctl_paths(nf_net_netfilter_sysctl_path, empty);
-> +#endif
+which admittedly apparently has some trivial problems (with a trivial 
+patch as seen at
 
-I think that instead of adding an empty nf_net_netfilter_sysctl_path=20
-registration, it would be better to fix the order of register/unregister:
+	http://fedoraforum.org/forum/showthread.php?t=195429
 
-@@ -1032,10 +1032,10 @@
-         nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_vmalloc,
-                              nf_conntrack_htable_size);
+I'd love to have that one working, since I have the hardware, and it's 
+actually reasonable (much more so than the original EeePC, in fact). What 
+channels should I go through? Is anybody working on integrating it 
+already?
 
--       nf_conntrack_proto_fini();
--       nf_conntrack_helper_fini();
--       nf_conntrack_expect_fini();
-         nf_conntrack_acct_fini();
-+       nf_conntrack_expect_fini();
-+       nf_conntrack_helper_fini();
-+       nf_conntrack_proto_fini();
-  }
+(Ivo van Doorn added to Cc, since he seems the go-to guy for the rt2x00 
+driver in the tree, and may have some input).
 
-I have a patch ready, only need to make some more tests.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-1886318628-1217990159=:9293--
+		Linus
