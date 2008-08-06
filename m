@@ -1,46 +1,115 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: iproute2/m_ipt fix, opts was not set properly
-Date: Wed, 06 Aug 2008 07:18:16 -0400
-Message-ID: <1218021496.4755.54.camel@localhost>
-References: <200808052224.36773.denys@visp.net.lb>
-	 <1218019350.4755.30.camel@localhost> <1218019945.4755.36.camel@localhost>
-	 <200808061402.01021.denys@visp.net.lb>
-Reply-To: hadi@cyberus.ca
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: few more fixes for iproute2/m_ipt
+Date: Wed, 6 Aug 2008 14:26:36 +0300
+Message-ID: <200808061426.36605.denys@visp.net.lb>
+References: <200808060042.53503.denys@visp.net.lb> <200808061321.19560.denys@visp.net.lb> <1218020686.4755.42.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_spYmIaBi/7/ctdk"
 Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:38243 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764610AbYHFLST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 07:18:19 -0400
-Received: by an-out-0708.google.com with SMTP id d40so497038and.103
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 04:18:18 -0700 (PDT)
-In-Reply-To: <200808061402.01021.denys@visp.net.lb>
+Received: from relay2.globalproof.net ([194.146.153.25]:52468 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760132AbYHFL1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 07:27:25 -0400
+In-Reply-To: <1218020686.4755.42.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-06-08 at 14:02 +0300, Denys Fedoryshchenko wrote:
+--Boundary-00=_spYmIaBi/7/ctdk
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> Does it work on my test batch?
+On Wednesday 06 August 2008, jamal wrote:
+> Ok, thanks - let me take a closer look.
+> Actually i dont doubt that when you batch the optind maybe shaky - I am
+> more worried about other working scenarios that may have depended on it.
+> I will still say put #2 and #3 in separate patch.
+>
+Is it better like this?
 
-I havent tested with your scenario as i am staring at your script
-and trying to construct a simple case. It was just eyeballing.
-The original code was not resetting the  contents "pointed to"
-by opts. So on return from free_opts, nothing has changed really.
+Sure optind is up to you, for me it is not clear yet how it works.
 
-> Your way looks much more clean :-)
-> (I cannot test it properly, since i have modified iproute2 now)
+Just i notice in iptables.c, function do_command where they set optind to zero 
+and in comments /*re-set optind to zero in case do_command gets called second 
+time */
 
-It should work but i will test it. The simple test case i can think of
-is to have two ipt invocations with different parameters (eg mark and
-set tos).
-If you test it, please resubmit with new approach. I will let you know
-my results (as i have a few vacation hours to kill this morning).
 
-cheers,
-jamal
+--Boundary-00=_spYmIaBi/7/ctdk
+Content-Type: text/x-diff;
+  charset="koi8-r";
+  name="01-iproute-memleak_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="01-iproute-memleak_fix.patch"
 
+diff -Naur iproute2-original/tc/m_ipt.c iproute2-patched/tc/m_ipt.c
+--- iproute2-original/tc/m_ipt.c	2008-08-05 19:15:56.000000000 +0000
++++ iproute2-patched/tc/m_ipt.c	2008-08-06 11:13:47.000000000 +0000
+@@ -277,6 +277,8 @@
+ 		if (!handle) {
+ 			fputs(dlerror(), stderr);
+ 			printf("\n");
++			free(l_name);
++			free(new_name);
+ 			return NULL;
+ 		}
+ 	}
+@@ -292,12 +294,16 @@
+ 					fputs(error, stderr);
+ 					fprintf(stderr, "\n");
+ 					dlclose(handle);
++					free(l_name);
++					free(new_name);
+ 					return NULL;
+ 				}
+ 			}
+ 		}
+ 	}
+ 
++	free(l_name);
++	free(new_name);
+ 	return m;
+ }
+ 
+@@ -514,6 +520,13 @@
+ 
+ 	optind = 1;
+ 	free_opts(opts);
++	/* Clear flags if target will be used again */
++        m->tflags=0;
++        m->used=0;
++	/* Free allocated memory */
++        if (m->t)
++            free(m->t);
++
+ 
+ 	return 0;
+ 
+
+--Boundary-00=_spYmIaBi/7/ctdk
+Content-Type: text/x-diff;
+  charset="koi8-r";
+  name="02-iproute-optind_zero.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="02-iproute-optind_zero.patch"
+
+diff -Naur iproute2-patched/tc/m_ipt.c iproute2-patched2/tc/m_ipt.c
+--- iproute2-patched/tc/m_ipt.c	2008-08-06 11:13:47.000000000 +0000
++++ iproute2-patched2/tc/m_ipt.c	2008-08-06 11:14:58.000000000 +0000
+@@ -518,7 +518,7 @@
+ 	*argc_p = rargc - iargc;
+ 	*argv_p = argv;
+ 
+-	optind = 1;
++	optind = 0;
+ 	free_opts(opts);
+ 	/* Clear flags if target will be used again */
+         m->tflags=0;
+
+--Boundary-00=_spYmIaBi/7/ctdk--
