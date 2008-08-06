@@ -1,70 +1,42 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Wed, 6 Aug 2008 21:37:45 +0200 (CEST)
-Message-ID: <25625.84.245.32.19.1218051465.squirrel@secure.greenhost.nl>
-References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com>
-    <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com>
-    <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com>
-    <20080805214250.GA23226@electric-eye.fr.zoreil.com>
-    <loom.20080806T144054-201@post.gmane.org>
-    <20080806181235.GA17174@electric-eye.fr.zoreil.com>
+From: Suresh Siddha <suresh.b.siddha@intel.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Wed, 6 Aug 2008 13:14:02 -0700
+Message-ID: <20080806201401.GA607@linux-os.sc.intel.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <200807301411.01622.wolfgang.walter@stwm.de> <20080806103354.GA31623@gondor.apana.org.au> <200808061933.25631.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"Siddha, Suresh B" <suresh.b.siddha@intel.com>
+To: Wolfgang Walter <wolfgang.walter@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost1.greenhost.nl ([85.17.153.87]:34787 "EHLO
-	smarthost1.samage.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbYHFT77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 15:59:59 -0400
-In-Reply-To: <20080806181235.GA17174@electric-eye.fr.zoreil.com>
+Received: from mga09.intel.com ([134.134.136.24]:21127 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758306AbYHFUOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2008 16:14:04 -0400
+Content-Disposition: inline
+In-Reply-To: <200808061933.25631.wolfgang.walter@stwm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, Aug 06, 2008 at 10:33:25AM -0700, Wolfgang Walter wrote:
+> Hello Herbert,
+> 
+> I think I finally found the problem.
+> 
+> Here a short description again: all our routers with a via C3 using padlock for AES-encryption are
+> crashing with 2.6.26 while they work fine with 2.6.25. Not using padlock
+> (i.e. using the i386 assembler version of AES) they just work fine.
 
-On Wed, August 6, 2008 20:12, Francois Romieu wrote:
-> Indan Zupancic <indan@nul.nu> :
-> [...]
->> I'm running a git version just before 2.6.27-rc2 and while the card
->> worked fine in 2.6.26, after a resume from suspend to ram I now get:
->
-> You cab try to revert the four (4) r8169.c related patches that went
-> in between 2.6.26 and 2.6.27-rc1. I doubt it will make a difference
-> though.
+Both the padlock version or asm version don't use FP/math registers, right?
+It is interesting that you don't see the problem with asm version
+but see the problem with padlock version.
 
-"git log drivers/net/r8169.c" shows only two commits since May 11:
+Does disabling CONFIG_PREEMPT in 2.6.26 change anything? And also,
+can you provide the complete kernel log till the point of failure(oops
+that you sent doesn't have the call trace info)
 
-r8169: avoid thrashing PCI conf space above RTL_GIGA_MAC_VER_06
-
-r8169: multicast register update
-
-Then at May 11 comes:
-
-r8169: remove non-napi code
-
-But I think that was in 2.6.26 already.
-
-Reverting the first two didn't help, so I guess it's messed up
-somewhere else.
-
-Are two patches missing or didn't they touch r8169.c?
-
-I tried manually reverting patch
-
-0004-r8169-new-phy-init-parameters-for-the-8168b.patch
-
-(misread your mail), and it didn't seem applied yet.
-
-> Is a git bisect an option ?
-
-Yes, but it takes quite a lot of time and I'm busy at the moment,
-so I'll wait till rc2 to see if it's fixed then. If it isn't I'll
-start digging.
-
-Greetings,
-
-Indan
-
-
+thanks,
+suresh
