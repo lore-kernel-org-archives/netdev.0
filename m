@@ -1,59 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Tue, 5 Aug 2008 23:18:00 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0808052308080.15995@nehalem.linux-foundation.org>
-References: <20080805.190020.244441681.davem@davemloft.net> <alpine.LFD.1.10.0808051937410.15995@nehalem.linux-foundation.org> <A0AAD67C-1F54-4D85-A413-91BBBE044452@holtmann.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ivo van Doorn <IvDoorn@gmail.com>
-To: Marcel Holtmann <marcel@holtmann.org>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] net/fs_enet: remove redundant messages for performance
+Date: Wed,  6 Aug 2008 15:08:50 +0800
+Message-ID: <1218006530-27173-1-git-send-email-leoli@freescale.com>
+Cc: linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>
+To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57757 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757795AbYHFGSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 02:18:37 -0400
-In-Reply-To: <A0AAD67C-1F54-4D85-A413-91BBBE044452@holtmann.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43726 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753791AbYHFGyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 02:54:10 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id m766s0hg003844
+	for <netdev@vger.kernel.org>; Tue, 5 Aug 2008 23:54:05 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id m766rxmK006486
+	for <netdev@vger.kernel.org>; Wed, 6 Aug 2008 01:54:00 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently when we do a packet flood to the Ethernet port, the console
+reports error every time when a packet is dropped.  This is too
+redundant and cost performance.  Remove message for this type of event.
 
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ drivers/net/fs_enet/mac-fcc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-On Wed, 6 Aug 2008, Marcel Holtmann wrote:
-> 
-> I looked at the driver and got it working. However my 901 seems to have an
-> issue with the antennas. I can do scans, but associating with an access point
-> or even thinking about transmit keeps failing. Even with external antennas
-> this still doesn't work. So either my EeePC is broken or it needs some ACPI
-> magic to enable it. Personally I think mine is broken since the PCIe hotplug
-> stuff works for the wireless card and that seems to be their way of doing the
-> rfkill.
+diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
+index 0a97fc2..1c7ef81 100644
+--- a/drivers/net/fs_enet/mac-fcc.c
++++ b/drivers/net/fs_enet/mac-fcc.c
+@@ -126,7 +126,7 @@ out:
+ #define FCC_NAPI_RX_EVENT_MSK	(FCC_ENET_RXF | FCC_ENET_RXB)
+ #define FCC_RX_EVENT		(FCC_ENET_RXF)
+ #define FCC_TX_EVENT		(FCC_ENET_TXB)
+-#define FCC_ERR_EVENT_MSK	(FCC_ENET_TXE | FCC_ENET_BSY)
++#define FCC_ERR_EVENT_MSK	(FCC_ENET_TXE)
+ 
+ static int setup_data(struct net_device *dev)
+ {
+-- 
+1.5.5.1.248.g4b17
 
-Yeah, the rfkill literally makes the chip go away from the PCI lists, it 
-seems. But your problems can certainly be somehow driver-related, I 
-haven't actually _tested_ that thing at all, I got the machine just as the 
-merge window started, so I've had no time to even play with it.
-
-> The driver itself is painful. It is full of ifdefs and some crazy build magic.
-> The integrated (to some degree optional) WPA code is pretty ugly. It has also
-> a full set of iwpriv commands to do all the settings etc. :(
-
-Well, it's also trying to support both 2.4.x and 2.6 etc. Yeah, that is 
-horrid. At the same time, I can't say that the "rewrite it entirely" 
-approach of the previous-gen cards has worked very well either, since that 
-seems to have just perpetuated the problems. It would be great to try to 
-educate them, but I'm not finding even an email address in the sources.
-
-Oh well. I can't really complain, since just the fact that they bothered 
-to even make sources available still makes them pretty responsible people, 
-even if the sources are pretty dang ugly.
-
-All the capitalization etc makes me think they are all old DOS and Windows 
-programmers. UCHAR and USHORT indeed, along with CamelCase functions. 
-
-I dunno. 
-
-			Linus
