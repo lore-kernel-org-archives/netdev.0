@@ -1,62 +1,87 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: Re: [PATCH] sh_eth Add SH7619 support
-Date: Wed, 6 Aug 2008 11:36:17 +0900
-Message-ID: <20080806023617.GA581@linux-sh.org>
-References: <878wvhtynu.wl%ysato@users.sourceforge.jp> <29ab51dc0807312048hfa9cd88pb90d1a7520bb3f99@mail.gmail.com> <871w18ycmr.wl%ysato@users.sourceforge.jp> <20080802073021.GA30041@verge.net.au> <87myjv77nm.wl%ysato@users.sourceforge.jp> <20080803192335.GB4448@linux-sh.org> <87tzdzmfno.wl%ysato@users.sourceforge.jp>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: [PATCH] AX.25: Fix sysctl registration if !CONFIG_AX25_DAMA_SLAVE
+Date: Wed, 6 Aug 2008 04:35:59 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0808060427160.9293@bizon.gios.gov.pl>
+References: <20080805223736.GA16608@linux-mips.org>
+ <20080805.184737.158103058.davem@davemloft.net> <20080806015950.GM28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: Yoshinori Sato <ysato@users.sourceforge.jp>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87tzdzmfno.wl%ysato@users.sourceforge.jp>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1886318628-1217990159=:9293"
+Cc: David Miller <davem@davemloft.net>, ralf@linux-mips.org,
+	stable@kernel.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, thomas@osterried.de,
+	jann@linux-mips.org, dl5di@gmx.de
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20080806015950.GM28946@ZenIV.linux.org.uk>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 05, 2008 at 03:21:31PM -0400, Yoshinori Sato wrote:
-> At Mon, 4 Aug 2008 04:23:35 +0900,
-> Paul Mundt wrote:
-> > On Sat, Aug 02, 2008 at 11:34:21AM -0400, Yoshinori Sato wrote:
-> > > At Sat, 2 Aug 2008 17:30:22 +1000,
-> > > Simon Horman wrote:
-> > > > what is the difference between CONFIG_CPU_LITTLE_ENDIAN and
-> > > > __LITTLE_ENDIAN__ as used in drivers/net/sh_eth.h ?
-> > > 
-> > > EDMAC endian is no depend CPU endian.
-> > > 
-> > The cleaner thing to do might just be to introduce a config symbol for
-> > specifying whether the EDMAC is in big or little endian mode, depending
-> > on how it's wired up in the CPU. Also, you should use a consistent ifdef
-> > style. In some cases you only check if 7619 is defined and do your corner
-> > cases there, in others (like this one) you check if it is not defined and
-> > push its corner cases further down. The latter of which is very error
-> > prone.
-> > 
-> > If the EDMAC endianness can be changed within a given subtype (or hooked
-> > up externally), then we also need to making the conversion run-time
-> > configurable, and we can toss the endian hint in the platform data.
-> 
-> I think it's best solution.
-> 
-> example
-> 
-> struct sh_eth_drvadata drvdata {
->        .phy = 1,
->        .edmac_endian = EDMAC_LITTLE, /* or EDMAC_BIG */
-> };
-> 
-> static struct platform_device eth_device = {
->  :
->         .dev = {
->                 .platform_data = &drvdata,
->         },
->  :
-> };
-> 
-> It's OK?
-> 
-Looks good to me.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---187430788-1886318628-1217990159=:9293
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+
+
+
+On Wed, 6 Aug 2008, Al Viro wrote:
+
+> On Tue, Aug 05, 2008 at 06:47:37PM -0700, David Miller wrote:
+>> From: Ralf Baechle <ralf@linux-mips.org>
+>> Date: Tue, 5 Aug 2008 23:37:36 +0100
+>>
+>>> Since 49ffcf8f99e8d33ec8afb450956804af518fd788
+>>> setting struct ctl_table.procname =3D NULL does no longer work as it us=
+ed to
+>>> the way the AX.25 code is expecting it to resulting in the AX.25 sysctl
+>>> registration code to break if CONFIG_AX25_DAMA_SLAVE was not set as in =
+some
+>>> distribution kernels.  Kernel releases from 2.6.24 are affected.
+>>>
+>>> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+>>
+>> Applied, and I'll queue it up for -stable too.
+>
+> BTW, here's netfilter sysctl one:
+
+Please hold, still working on this.
+
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> index 292fa28..655d743 100644
+> --- a/net/netfilter/core.c
+> +++ b/net/netfilter/core.c
+> @@ -264,6 +264,12 @@ EXPORT_SYMBOL(proc_net_netfilter);
+> void __init netfilter_init(void)
+> {
+> =09int i, h;
+> +
+> +#ifdef CONFIG_SYSCTL
+> +=09static struct ctl_table empty[1];
+> +=09register_sysctl_paths(nf_net_netfilter_sysctl_path, empty);
+> +#endif
+
+I think that instead of adding an empty nf_net_netfilter_sysctl_path=20
+registration, it would be better to fix the order of register/unregister:
+
+@@ -1032,10 +1032,10 @@
+         nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_vmalloc,
+                              nf_conntrack_htable_size);
+
+-       nf_conntrack_proto_fini();
+-       nf_conntrack_helper_fini();
+-       nf_conntrack_expect_fini();
+         nf_conntrack_acct_fini();
++       nf_conntrack_expect_fini();
++       nf_conntrack_helper_fini();
++       nf_conntrack_proto_fini();
+  }
+
+I have a patch ready, only need to make some more tests.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-1886318628-1217990159=:9293--
