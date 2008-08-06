@@ -1,57 +1,159 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Wed, 6 Aug 2008 16:35:04 +0200
-Message-ID: <200808061635.05292.IvDoorn@gmail.com>
-References: <20080805.190020.244441681.davem@davemloft.net> <200808061022.02432.IvDoorn@gmail.com> <20080806131503.GD7036@tuxdriver.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 1/2] myri10ge: update firmware headers
+Date: Wed, 06 Aug 2008 16:14:43 +0200
+Message-ID: <4899B1D3.9060500@myri.com>
+References: <4899B198.1060508@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:28328 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbYHFOLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 10:11:03 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1138569nfc.21
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 07:09:59 -0700 (PDT)
-In-Reply-To: <20080806131503.GD7036@tuxdriver.com>
-Content-Disposition: inline
+Received: from mailbox2.myri.com ([64.172.73.26]:1996 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750866AbYHFOPK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2008 10:15:10 -0400
+In-Reply-To: <4899B198.1060508@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 06 August 2008, John W. Linville wrote:
-> On Wed, Aug 06, 2008 at 10:22:02AM +0200, Ivo van Doorn wrote:
-> > On Wednesday 06 August 2008, Linus Torvalds wrote:
-> 
-> > > Well, it's also trying to support both 2.4.x and 2.6 etc. Yeah, that is 
-> > > horrid. At the same time, I can't say that the "rewrite it entirely" 
-> > > approach of the previous-gen cards has worked very well either, since that 
-> > > seems to have just perpetuated the problems. It would be great to try to 
-> > > educate them, but I'm not finding even an email address in the sources.
-> > 
-> > I've send a mail to Ralink with a request if they could step away from the
-> > "port the windows driver to linux" idea and get the Linux driver "kernel-ready"
-> > early on.
-> > That won't solve the problem now, but hopefully it does mean the drivers for
-> > the next generation can go into the kernel sooner.
-> 
-> The Ralink guys are being educated and AFAICT they are interested in
-> better participation.  Time will tell, of course.
-> 
-> In the meantime as Ivo indicated he is "on the case" -- I think we
-> will see something before too long.
+Update myri10ge firmware headers.
 
-For the interested, the rt2800pci and rt2800usb code which I am working on can
-be found in the experimental branch of my repository:
-http://git.kernel.org/?p=linux/kernel/git/ivd/rt2x00.git;a=shortlog;h=experimental
-Because the code is incomplete it cannot be tested, but it gives at least an idea
-on what is already done. ;)
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge_mcp.h            |   52 ++++++++++++++++++++++---
+ drivers/net/myri10ge/myri10ge_mcp_gen_header.h |    2 
+ 2 files changed, 48 insertions(+), 6 deletions(-)
 
-Ivo
+Index: linux-2.6/drivers/net/myri10ge/myri10ge_mcp.h
+===================================================================
+--- linux-2.6.orig/drivers/net/myri10ge/myri10ge_mcp.h	2008-05-19 18:13:31.000000000 +0200
++++ linux-2.6/drivers/net/myri10ge/myri10ge_mcp.h	2008-08-04 13:22:07.000000000 +0200
+@@ -101,6 +101,8 @@
+ #define	MXGEFW_ETH_SEND_3	0x2c0000
+ #define	MXGEFW_ETH_RECV_SMALL	0x300000
+ #define	MXGEFW_ETH_RECV_BIG	0x340000
++#define	MXGEFW_ETH_SEND_GO	0x380000
++#define	MXGEFW_ETH_SEND_STOP	0x3C0000
+ 
+ #define	MXGEFW_ETH_SEND(n)		(0x200000 + (((n) & 0x03) * 0x40000))
+ #define	MXGEFW_ETH_SEND_OFFSET(n)	(MXGEFW_ETH_SEND(n) - MXGEFW_ETH_SEND_4)
+@@ -120,6 +122,11 @@
+ 	 * MXGEFW_CMD_RESET is issued */
+ 
+ 	MXGEFW_CMD_SET_INTRQ_DMA,
++	/* data0 = LSW of the host address
++	 * data1 = MSW of the host address
++	 * data2 = slice number if multiple slices are used
++	 */
++
+ 	MXGEFW_CMD_SET_BIG_BUFFER_SIZE,	/* in bytes, power of 2 */
+ 	MXGEFW_CMD_SET_SMALL_BUFFER_SIZE,	/* in bytes */
+ 
+@@ -129,6 +136,8 @@
+ 	MXGEFW_CMD_GET_SEND_OFFSET,
+ 	MXGEFW_CMD_GET_SMALL_RX_OFFSET,
+ 	MXGEFW_CMD_GET_BIG_RX_OFFSET,
++	/* data0 = slice number if multiple slices are used */
++
+ 	MXGEFW_CMD_GET_IRQ_ACK_OFFSET,
+ 	MXGEFW_CMD_GET_IRQ_DEASSERT_OFFSET,
+ 
+@@ -200,7 +209,12 @@
+ 	MXGEFW_CMD_SET_STATS_DMA_V2,
+ 	/* data0, data1 = bus addr,
+ 	 * data2 = sizeof(struct mcp_irq_data) from driver point of view, allows
+-	 * adding new stuff to mcp_irq_data without changing the ABI */
++	 * adding new stuff to mcp_irq_data without changing the ABI
++	 *
++	 * If multiple slices are used, data2 contains both the size of the
++	 * structure (in the lower 16 bits) and the slice number
++	 * (in the upper 16 bits).
++	 */
+ 
+ 	MXGEFW_CMD_UNALIGNED_TEST,
+ 	/* same than DMA_TEST (same args) but abort with UNALIGNED on unaligned
+@@ -222,13 +236,18 @@
+ 	MXGEFW_CMD_GET_MAX_RSS_QUEUES,
+ 	MXGEFW_CMD_ENABLE_RSS_QUEUES,
+ 	/* data0 = number of slices n (0, 1, ..., n-1) to enable
+-	 * data1 = interrupt mode.
+-	 * 0=share one INTx/MSI, 1=use one MSI-X per queue.
++	 * data1 = interrupt mode | use of multiple transmit queues.
++	 * 0=share one INTx/MSI.
++	 * 1=use one MSI-X per queue.
+ 	 * If all queues share one interrupt, the driver must have set
+ 	 * RSS_SHARED_INTERRUPT_DMA before enabling queues.
++	 * 2=enable both receive and send queues.
++	 * Without this bit set, only one send queue (slice 0's send queue)
++	 * is enabled.  The receive queues are always enabled.
+ 	 */
+-#define MXGEFW_SLICE_INTR_MODE_SHARED 0
+-#define MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE 1
++#define MXGEFW_SLICE_INTR_MODE_SHARED          0x0
++#define MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE   0x1
++#define MXGEFW_SLICE_ENABLE_MULTIPLE_TX_QUEUES 0x2
+ 
+ 	MXGEFW_CMD_GET_RSS_SHARED_INTERRUPT_MASK_OFFSET,
+ 	MXGEFW_CMD_SET_RSS_SHARED_INTERRUPT_DMA,
+@@ -250,10 +269,13 @@
+ 	 * 2: TCP_IPV4        (required by RSS)
+ 	 * 3: IPV4 | TCP_IPV4 (required by RSS)
+ 	 * 4: source port
++	 * 5: source port + destination port
+ 	 */
+ #define MXGEFW_RSS_HASH_TYPE_IPV4      0x1
+ #define MXGEFW_RSS_HASH_TYPE_TCP_IPV4  0x2
+ #define MXGEFW_RSS_HASH_TYPE_SRC_PORT  0x4
++#define MXGEFW_RSS_HASH_TYPE_SRC_DST_PORT 0x5
++#define MXGEFW_RSS_HASH_TYPE_MAX 0x5
+ 
+ 	MXGEFW_CMD_GET_MAX_TSO6_HDR_SIZE,
+ 	/* Return data = the max. size of the entire headers of a IPv6 TSO packet.
+@@ -329,6 +351,20 @@
+ 
+ 	MXGEFW_CMD_GET_DCA_OFFSET,
+ 	/* offset of dca control for WDMAs */
++
++	/* VMWare NetQueue commands */
++	MXGEFW_CMD_NETQ_GET_FILTERS_PER_QUEUE,
++	MXGEFW_CMD_NETQ_ADD_FILTER,
++	/* data0 = filter_id << 16 | queue << 8 | type */
++	/* data1 = MS4 of MAC Addr */
++	/* data2 = LS2_MAC << 16 | VLAN_tag */
++	MXGEFW_CMD_NETQ_DEL_FILTER,
++	/* data0 = filter_id */
++	MXGEFW_CMD_NETQ_QUERY1,
++	MXGEFW_CMD_NETQ_QUERY2,
++	MXGEFW_CMD_NETQ_QUERY3,
++	MXGEFW_CMD_NETQ_QUERY4,
++
+ };
+ 
+ enum myri10ge_mcp_cmd_status {
+@@ -381,4 +417,10 @@
+ 	u8 valid;
+ };
+ 
++/* definitions for NETQ filter type */
++#define MXGEFW_NETQ_FILTERTYPE_NONE 0
++#define MXGEFW_NETQ_FILTERTYPE_MACADDR 1
++#define MXGEFW_NETQ_FILTERTYPE_VLAN 2
++#define MXGEFW_NETQ_FILTERTYPE_VLANMACADDR 3
++
+ #endif				/* __MYRI10GE_MCP_H__ */
+Index: linux-2.6/drivers/net/myri10ge/myri10ge_mcp_gen_header.h
+===================================================================
+--- linux-2.6.orig/drivers/net/myri10ge/myri10ge_mcp_gen_header.h	2008-05-19 18:13:31.000000000 +0200
++++ linux-2.6/drivers/net/myri10ge/myri10ge_mcp_gen_header.h	2008-08-04 13:22:07.000000000 +0200
+@@ -35,7 +35,7 @@
+ 	unsigned char mcp_index;
+ 	unsigned char disable_rabbit;
+ 	unsigned char unaligned_tlp;
+-	unsigned char pad1;
++	unsigned char pcie_link_algo;
+ 	unsigned counters_addr;
+ 	unsigned copy_block_info;	/* for small mcps loaded with "lload -d" */
+ 	unsigned short handoff_id_major;	/* must be equal */
+
+
