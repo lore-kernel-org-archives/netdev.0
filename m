@@ -1,63 +1,122 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 4/4] forcedeth: add tx pause limit
-Date: Wed, 06 Aug 2008 12:16:11 -0400
-Message-ID: <4899CE4B.1000606@nvidia.com>
+From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+Subject: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb (Was: Re: [PATCH
+	take 2] net_sched: Add qdisc __NET_XMIT_BYPASS flag)
+Date: Wed, 06 Aug 2008 22:42:48 +0300
+Message-ID: <20080806224248.18266k9ahc5nkk8w@hayate.ip6>
+References: <20080731171431.GA9464@ami.dom.local>
+	<4892AA16.40706@trash.net> <20080801101929.GA12735@ff.dom.local>
+	<20080803.182524.240976246.davem@davemloft.net>
+	<20080804062813.GA4570@ff.dom.local>
+	<20080804213535.14214iqhxkx3v3so@hayate.ip6>
+	<20080804210333.GA2849@ami.dom.local>
+	<20080805154350.27523juch31xgjcw@hayate.ip6>
+	<20080805155001.GA2526@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040001050900060000050101"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: "David Miller" <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:12177 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757108AbYHFT1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 15:27:21 -0400
+Received: from smtp1.dnainternet.fi ([87.94.96.108]:47476 "EHLO
+	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752247AbYHFTmv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 15:42:51 -0400
+In-Reply-To: <20080805155001.GA2526@ami.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040001050900060000050101
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
 
-This patch adds support for limiting the number of tx pause frames to a 
-default of 8. Previously, hardware would send out continuous stream of 
-pause frames.
+>>
+>> How about making skb shared before passing into qdisc tree?
+>> That would make skb usage safe after qdisc enqueues.
+>
+> It's a bit costly (atomics), so there should be a good reason for this.
+> It should be first checked if there is real danger. And if it's only
+> for more exact stats, I'm not sure it's worth of it.
+>
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Ok, I went throught all enqueue (and requeue) functions for any case of
+freeing skb and returning full NET_XMIT_SUCCESS without new flags and
+found only in sch_blackhole (qdisc_drop + return NET_XMIT_SUCCESS).
+This could be fixed by delaying kfree_skb to exit on qdisc_enqueue_root,
+here's (completely untested) patch:
+---
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index a7abfda..ca083c6 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -175,6 +175,7 @@ struct tcf_proto
 
+  struct qdisc_skb_cb {
+         unsigned int            pkt_len;
++       __u8                    delayed_enqueue_free:1;
+         char                    data[];
+  };
 
---------------040001050900060000050101
-Content-Type: text/plain;
- name="patch-forcedeth-txpauselimit"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-txpauselimit"
+@@ -364,10 +365,23 @@ static inline int qdisc_enqueue(struct sk_buff  
+*skb, struct Qdisc *sch)
+         return sch->enqueue(skb, sch);
+  }
 
---- old/drivers/net/forcedeth.c	2008-08-06 12:03:13.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2008-08-06 12:05:05.000000000 -0400
-@@ -249,6 +249,8 @@
- #define NVREG_TX_PAUSEFRAME_ENABLE_V1	0x01800010
- #define NVREG_TX_PAUSEFRAME_ENABLE_V2	0x056003f0
- #define NVREG_TX_PAUSEFRAME_ENABLE_V3	0x09f00880
-+	NvRegTxPauseFrameLimit = 0x174,
-+#define NVREG_TX_PAUSEFRAMELIMIT_ENABLE	0x00010000
- 	NvRegMIIStatus = 0x180,
- #define NVREG_MIISTAT_ERROR		0x0001
- #define NVREG_MIISTAT_LINKCHANGE	0x0008
-@@ -3076,8 +3078,11 @@
- 			u32 pause_enable = NVREG_TX_PAUSEFRAME_ENABLE_V1;
- 			if (np->driver_data & DEV_HAS_PAUSEFRAME_TX_V2)
- 				pause_enable = NVREG_TX_PAUSEFRAME_ENABLE_V2;
--			if (np->driver_data & DEV_HAS_PAUSEFRAME_TX_V3)
-+			if (np->driver_data & DEV_HAS_PAUSEFRAME_TX_V3) {
- 				pause_enable = NVREG_TX_PAUSEFRAME_ENABLE_V3;
-+				/* limit the number of tx pause frames to a default of 8 */
-+				writel(readl(base + NvRegTxPauseFrameLimit)|NVREG_TX_PAUSEFRAMELIMIT_ENABLE, base + NvRegTxPauseFrameLimit);
-+			}
- 			writel(pause_enable,  base + NvRegTxPauseFrame);
- 			writel(regmisc|NVREG_MISC1_PAUSE_TX, base + NvRegMisc1);
- 			np->pause_flags |= NV_PAUSEFRAME_TX_ENABLE;
++static inline void qdisc_delayed_kfree_skb(struct sk_buff *skb)
++{
++       qdisc_skb_cb(skb)->delayed_enqueue_free = 1;
++}
++
+  static inline int qdisc_enqueue_root(struct sk_buff *skb, struct Qdisc *sch)
+  {
++       int ret;
++
++       qdisc_skb_cb(skb)->delayed_enqueue_free = 0;
+         qdisc_skb_cb(skb)->pkt_len = skb->len;
+-       return qdisc_enqueue(skb, sch) & NET_XMIT_MASK;
++       ret = qdisc_enqueue(skb, sch);
++
++       if (ret == NET_XMIT_SUCCESS &&  
+qdisc_skb_cb(skb)->delayed_enqueue_free)
++               kfree_skb(skb);
++
++       return ret & NET_XMIT_MASK;
+  }
 
---------------040001050900060000050101--
+  static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct  
+Qdisc *sch,
+diff --git a/net/sched/sch_blackhole.c b/net/sched/sch_blackhole.c
+index 507fb48..13230bd 100644
+--- a/net/sched/sch_blackhole.c
++++ b/net/sched/sch_blackhole.c
+@@ -19,7 +19,8 @@
+
+  static int blackhole_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+  {
+-       qdisc_drop(skb, sch);
++       qdisc_delayed_kfree_skb(skb);
++       sch->qstats.drops++;
+         return NET_XMIT_SUCCESS;
+  }
+---
+
+If this isn't good way to solve this, qdisc_pkt_len use for stats could be
+fixed with either passing packet length pointer throught qdisc tree or adding
+new qdisc_pkt_len_diff and adding difference in at dequeue as you said  
+(but here
+inner dequeue could return NULL and difference wouldn't be added after all but
+well it is just stats).
+
+As I went throught code I found two cases where skb pointer is used  
+after inner
+enqueue with full NET_XMIT_SUCCESS (other than qdisc_pkt_len for stats): HTB
+uses skb_is_gso(), HFSC uses packet length for set_active(). HTB is trivial
+(for me) to fix while HFSC isn't. Because HFSC part it would be easier for me
+to declare full NET_XMIT_SUCCESS as safe zone for skb pointer.
+
+  - Jussi
+
+PS. I noticed something fishy in HTB; HTB always returns NET_XMIT_DROP if
+qdisc_enqueue doesn't return full NET_XMIT_SUCCESS, shouldn't it return return
+value from qdisc_enqueue. Same in HTB requeue. That can't be right, right?
+
