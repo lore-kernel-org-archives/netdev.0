@@ -1,66 +1,62 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] netxen_nic_hw.c: fix warnings
-Date: Wed, 6 Aug 2008 12:16:53 +1000
-Message-ID: <20080806021653.GA19137@verge.net.au>
-References: <20080805200516.GB17320@orion>
+From: Paul Mundt <lethal@linux-sh.org>
+Subject: Re: [PATCH] sh_eth Add SH7619 support
+Date: Wed, 6 Aug 2008 11:36:17 +0900
+Message-ID: <20080806023617.GA581@linux-sh.org>
+References: <878wvhtynu.wl%ysato@users.sourceforge.jp> <29ab51dc0807312048hfa9cd88pb90d1a7520bb3f99@mail.gmail.com> <871w18ycmr.wl%ysato@users.sourceforge.jp> <20080802073021.GA30041@verge.net.au> <87myjv77nm.wl%ysato@users.sourceforge.jp> <20080803192335.GB4448@linux-sh.org> <87tzdzmfno.wl%ysato@users.sourceforge.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dhananjay@netxen.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Beregalov <a.beregalov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33510 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbYHFCQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2008 22:16:55 -0400
+Cc: Simon Horman <horms@verge.net.au>,
+	Nobuhiro Iwamatsu <iwamatsu@nigauri.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Yoshinori Sato <ysato@users.sourceforge.jp>
+Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080805200516.GB17320@orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87tzdzmfno.wl%ysato@users.sourceforge.jp>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 06, 2008 at 12:05:16AM +0400, Alexander Beregalov wrote:
-> From: Alexander Beregalov <a.beregalov@gmail.com>
+On Tue, Aug 05, 2008 at 03:21:31PM -0400, Yoshinori Sato wrote:
+> At Mon, 4 Aug 2008 04:23:35 +0900,
+> Paul Mundt wrote:
+> > On Sat, Aug 02, 2008 at 11:34:21AM -0400, Yoshinori Sato wrote:
+> > > At Sat, 2 Aug 2008 17:30:22 +1000,
+> > > Simon Horman wrote:
+> > > > what is the difference between CONFIG_CPU_LITTLE_ENDIAN and
+> > > > __LITTLE_ENDIAN__ as used in drivers/net/sh_eth.h ?
+> > > 
+> > > EDMAC endian is no depend CPU endian.
+> > > 
+> > The cleaner thing to do might just be to introduce a config symbol for
+> > specifying whether the EDMAC is in big or little endian mode, depending
+> > on how it's wired up in the CPU. Also, you should use a consistent ifdef
+> > style. In some cases you only check if 7619 is defined and do your corner
+> > cases there, in others (like this one) you check if it is not defined and
+> > push its corner cases further down. The latter of which is very error
+> > prone.
+> > 
+> > If the EDMAC endianness can be changed within a given subtype (or hooked
+> > up externally), then we also need to making the conversion run-time
+> > configurable, and we can toss the endian hint in the platform data.
 > 
-> netxen_nic_hw.c: fix warnings
+> I think it's best solution.
 > 
-> drivers/net/netxen/netxen_nic_hw.c:1414: warning: format '%llx' expects	type 'long long unsigned int', but argument 3 has type 'u64'
-> drivers/net/netxen/netxen_nic_hw.c:1487: warning: format '%llx' expects type 'long long unsigned int', but argument 3 has type 'u64'
-
-This seems to be the agreed work-around for this.
-
-Acked-by: Simon Horman <horms@verge.net.au>
-
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
-> ---
+> example
 > 
->  drivers/net/netxen/netxen_nic_hw.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
+> struct sh_eth_drvadata drvdata {
+>        .phy = 1,
+>        .edmac_endian = EDMAC_LITTLE, /* or EDMAC_BIG */
+> };
 > 
-> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-> index 96a3bc6..06a517b 100644
-> --- a/drivers/net/netxen/netxen_nic_hw.c
-> +++ b/drivers/net/netxen/netxen_nic_hw.c
-> @@ -1411,7 +1411,8 @@ static int netxen_nic_pci_mem_read_direct(struct netxen_adapter *adapter,
->  		(netxen_nic_pci_is_same_window(adapter, off+size-1) == 0)) {
->  		write_unlock_irqrestore(&adapter->adapter_lock, flags);
->  		printk(KERN_ERR "%s out of bound pci memory access. "
-> -			"offset is 0x%llx\n", netxen_nic_driver_name, off);
-> +			"offset is 0x%llx\n", netxen_nic_driver_name,
-> +			(unsigned long long)off);
->  		return -1;
->  	}
->  
-> @@ -1484,7 +1485,8 @@ netxen_nic_pci_mem_write_direct(struct netxen_adapter *adapter, u64 off,
->  		(netxen_nic_pci_is_same_window(adapter, off+size-1) == 0)) {
->  		write_unlock_irqrestore(&adapter->adapter_lock, flags);
->  		printk(KERN_ERR "%s out of bound pci memory access. "
-> -			"offset is 0x%llx\n", netxen_nic_driver_name, off);
-> +			"offset is 0x%llx\n", netxen_nic_driver_name,
-> +			(unsigned long long)off);
->  		return -1;
->  	}
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> static struct platform_device eth_device = {
+>  :
+>         .dev = {
+>                 .platform_data = &drvdata,
+>         },
+>  :
+> };
+> 
+> It's OK?
+> 
+Looks good to me.
