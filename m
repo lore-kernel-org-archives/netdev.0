@@ -1,122 +1,50 @@
-From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-Subject: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb (Was: Re: [PATCH
-	take 2] net_sched: Add qdisc __NET_XMIT_BYPASS flag)
-Date: Wed, 06 Aug 2008 22:42:48 +0300
-Message-ID: <20080806224248.18266k9ahc5nkk8w@hayate.ip6>
-References: <20080731171431.GA9464@ami.dom.local>
-	<4892AA16.40706@trash.net> <20080801101929.GA12735@ff.dom.local>
-	<20080803.182524.240976246.davem@davemloft.net>
-	<20080804062813.GA4570@ff.dom.local>
-	<20080804213535.14214iqhxkx3v3so@hayate.ip6>
-	<20080804210333.GA2849@ami.dom.local>
-	<20080805154350.27523juch31xgjcw@hayate.ip6>
-	<20080805155001.GA2526@ami.dom.local>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8111C transmit timed out
+Date: Wed, 6 Aug 2008 21:50:24 +0200
+Message-ID: <20080806195023.GA15747@electric-eye.fr.zoreil.com>
+References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com> <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com> <20080805214250.GA23226@electric-eye.fr.zoreil.com> <loom.20080806T144054-201@post.gmane.org> <20080806181235.GA17174@electric-eye.fr.zoreil.com> <25625.84.245.32.19.1218051465.squirrel@secure.greenhost.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "David Miller" <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Indan Zupancic <indan@nul.nu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnainternet.fi ([87.94.96.108]:47476 "EHLO
-	smtp1.dnainternet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752247AbYHFTmv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 15:42:51 -0400
-In-Reply-To: <20080805155001.GA2526@ami.dom.local>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:34011 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751796AbYHFTyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 15:54:43 -0400
 Content-Disposition: inline
+In-Reply-To: <25625.84.245.32.19.1218051465.squirrel@secure.greenhost.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+Indan Zupancic <indan@nul.nu> :
+[...]
+> "git log drivers/net/r8169.c" shows only two commits since May 11:
 
->>
->> How about making skb shared before passing into qdisc tree?
->> That would make skb usage safe after qdisc enqueues.
->
-> It's a bit costly (atomics), so there should be a good reason for this.
-> It should be first checked if there is real danger. And if it's only
-> for more exact stats, I'm not sure it's worth of it.
->
+$ git rev-list v2.6.26..v2.6.27-rc1 -- drivers/net/r8169.c 
+77332894c21165404496c56763d7df6c15c4bb09
+f887cce8de019bb32917789379af89ae4c0294ee
+865c652d6be9929927cabdc54b137b7541eb6612
+1087f4f4af302e6e2fa40dd741f306444d90bece
 
-Ok, I went throught all enqueue (and requeue) functions for any case of
-freeing skb and returning full NET_XMIT_SUCCESS without new flags and
-found only in sch_blackhole (qdisc_drop + return NET_XMIT_SUCCESS).
-This could be fixed by delaying kfree_skb to exit on qdisc_enqueue_root,
-here's (completely untested) patch:
----
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a7abfda..ca083c6 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -175,6 +175,7 @@ struct tcf_proto
+> r8169: avoid thrashing PCI conf space above RTL_GIGA_MAC_VER_06
+> 
+> r8169: multicast register update
+> 
+> Then at May 11 comes:
+> 
+> r8169: remove non-napi code
+> 
+> But I think that was in 2.6.26 already.
 
-  struct qdisc_skb_cb {
-         unsigned int            pkt_len;
-+       __u8                    delayed_enqueue_free:1;
-         char                    data[];
-  };
+No. :o)
 
-@@ -364,10 +365,23 @@ static inline int qdisc_enqueue(struct sk_buff  
-*skb, struct Qdisc *sch)
-         return sch->enqueue(skb, sch);
-  }
+[...]
+> Yes, but it takes quite a lot of time and I'm busy at the moment,
+> so I'll wait till rc2 to see if it's fixed then. If it isn't I'll
+> start digging.
 
-+static inline void qdisc_delayed_kfree_skb(struct sk_buff *skb)
-+{
-+       qdisc_skb_cb(skb)->delayed_enqueue_free = 1;
-+}
-+
-  static inline int qdisc_enqueue_root(struct sk_buff *skb, struct Qdisc *sch)
-  {
-+       int ret;
-+
-+       qdisc_skb_cb(skb)->delayed_enqueue_free = 0;
-         qdisc_skb_cb(skb)->pkt_len = skb->len;
--       return qdisc_enqueue(skb, sch) & NET_XMIT_MASK;
-+       ret = qdisc_enqueue(skb, sch);
-+
-+       if (ret == NET_XMIT_SUCCESS &&  
-qdisc_skb_cb(skb)->delayed_enqueue_free)
-+               kfree_skb(skb);
-+
-+       return ret & NET_XMIT_MASK;
-  }
+Ok.
 
-  static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct  
-Qdisc *sch,
-diff --git a/net/sched/sch_blackhole.c b/net/sched/sch_blackhole.c
-index 507fb48..13230bd 100644
---- a/net/sched/sch_blackhole.c
-+++ b/net/sched/sch_blackhole.c
-@@ -19,7 +19,8 @@
-
-  static int blackhole_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-  {
--       qdisc_drop(skb, sch);
-+       qdisc_delayed_kfree_skb(skb);
-+       sch->qstats.drops++;
-         return NET_XMIT_SUCCESS;
-  }
----
-
-If this isn't good way to solve this, qdisc_pkt_len use for stats could be
-fixed with either passing packet length pointer throught qdisc tree or adding
-new qdisc_pkt_len_diff and adding difference in at dequeue as you said  
-(but here
-inner dequeue could return NULL and difference wouldn't be added after all but
-well it is just stats).
-
-As I went throught code I found two cases where skb pointer is used  
-after inner
-enqueue with full NET_XMIT_SUCCESS (other than qdisc_pkt_len for stats): HTB
-uses skb_is_gso(), HFSC uses packet length for set_active(). HTB is trivial
-(for me) to fix while HFSC isn't. Because HFSC part it would be easier for me
-to declare full NET_XMIT_SUCCESS as safe zone for skb pointer.
-
-  - Jussi
-
-PS. I noticed something fishy in HTB; HTB always returns NET_XMIT_DROP if
-qdisc_enqueue doesn't return full NET_XMIT_SUCCESS, shouldn't it return return
-value from qdisc_enqueue. Same in HTB requeue. That can't be right, right?
-
+-- 
+Ueimor
