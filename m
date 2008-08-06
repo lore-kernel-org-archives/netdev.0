@@ -1,9 +1,10 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: few more fixes for iproute2/m_ipt
-Date: Wed, 06 Aug 2008 07:04:46 -0400
-Message-ID: <1218020686.4755.42.camel@localhost>
-References: <200808060042.53503.denys@visp.net.lb>
-	 <1218017085.4755.23.camel@localhost> <200808061321.19560.denys@visp.net.lb>
+Subject: Re: iproute2/m_ipt fix, opts was not set properly
+Date: Wed, 06 Aug 2008 07:18:16 -0400
+Message-ID: <1218021496.4755.54.camel@localhost>
+References: <200808052224.36773.denys@visp.net.lb>
+	 <1218019350.4755.30.camel@localhost> <1218019945.4755.36.camel@localhost>
+	 <200808061402.01021.denys@visp.net.lb>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,34 +13,33 @@ Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	netdev@vger.kernel.org
 To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:33304 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755787AbYHFLEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 07:04:51 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so1708863ywe.1
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 04:04:50 -0700 (PDT)
-In-Reply-To: <200808061321.19560.denys@visp.net.lb>
+Received: from an-out-0708.google.com ([209.85.132.243]:38243 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764610AbYHFLST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 07:18:19 -0400
+Received: by an-out-0708.google.com with SMTP id d40so497038and.103
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 04:18:18 -0700 (PDT)
+In-Reply-To: <200808061402.01021.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-06-08 at 13:21 +0300, Denys Fedoryshchenko wrote:
+On Wed, 2008-06-08 at 14:02 +0300, Denys Fedoryshchenko wrote:
 
-> #1 is validated 100%, because i was not able to run tc in batch mode for my 
-> tasks(2nd or 3rd ipt rule will crash), till i implement those patches. The 
-> batch i gave is short version, full version have around 11k lines. But it 
-> crashes usually max on 2rd or 3nd ipt.
+> Does it work on my test batch?
 
-Ok, thanks - let me take a closer look. 
-Actually i dont doubt that when you batch the optind maybe shaky - I am
-more worried about other working scenarios that may have depended on it.
-I will still say put #2 and #3 in separate patch.
+I havent tested with your scenario as i am staring at your script
+and trying to construct a simple case. It was just eyeballing.
+The original code was not resetting the  contents "pointed to"
+by opts. So on return from free_opts, nothing has changed really.
 
-> Well, i can fix what i can sniff&smell in my daily job, and especially if i 
-> hit a wall because of some code :-) For me it is difficult to inspect the 
-> code, since i am very weak in C, but i will try. 
+> Your way looks much more clean :-)
+> (I cannot test it properly, since i have modified iproute2 now)
 
-I understand it could be frustrating sometimes but given
-your situation you are doing fantastic work. It is highly appreciated.
+It should work but i will test it. The simple test case i can think of
+is to have two ipt invocations with different parameters (eg mark and
+set tos).
+If you test it, please resubmit with new approach. I will let you know
+my results (as i have a few vacation hours to kill this morning).
 
 cheers,
 jamal
