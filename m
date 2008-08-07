@@ -1,31 +1,38 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] myri10ge: update firmware headers
-Date: Thu, 07 Aug 2008 01:56:02 -0400
-Message-ID: <489A8E72.60209@garzik.org>
-References: <4899B198.1060508@myri.com> <4899B1D3.9060500@myri.com>
+Subject: Re: [PATCH] atl1: deal with hardware rx checksum bug
+Date: Thu, 07 Aug 2008 01:56:21 -0400
+Message-ID: <489A8E85.2080008@garzik.org>
+References: <20080804190510.4029d91d@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: csnook@redhat.com, netdev@vger.kernel.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41668 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41682 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750980AbYHGF4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 01:56:06 -0400
-In-Reply-To: <4899B1D3.9060500@myri.com>
+	id S1751555AbYHGF41 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 01:56:27 -0400
+In-Reply-To: <20080804190510.4029d91d@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Update myri10ge firmware headers.
+Jay Cliburn wrote:
+> The L1 hardware contains a bug that flags a fragmented IP packet
+> as having an incorrect TCP/UDP checksum, even though the packet
+> is perfectly valid and its checksum is correct.  There's no way to
+> distinguish between one of these good packets and a packet that
+> actually contains a TCP/UDP checksum error, so all we can do is
+> allow the packet to be handed up to the higher layers and let it
+> be sorted out there.
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> Add a comment describing this condition and remove the code that
+> currently fails to handle what may or may not be a checksum error.
+> 
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 > ---
->  drivers/net/myri10ge/myri10ge_mcp.h            |   52 ++++++++++++++++++++++---
->  drivers/net/myri10ge/myri10ge_mcp_gen_header.h |    2 
->  2 files changed, 48 insertions(+), 6 deletions(-)
+>  drivers/net/atlx/atl1.c |   19 +++++++++++--------
 
-applied 1-2
+applied
 
 
