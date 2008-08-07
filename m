@@ -1,42 +1,34 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: linux-next: Tree for August 6 (8390 et al)
-Date: Thu, 7 Aug 2008 09:20:07 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808070918510.17614@anakin>
-References: <20080806182828.6bfe0a16.sfr@canb.auug.org.au>
- <20080806172148.7fac5999.randy.dunlap@oracle.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/3] gianfar: Magic Packet and suspend/resume support.
+Date: Thu, 07 Aug 2008 03:58:54 -0400
+Message-ID: <489AAB3E.8020507@pobox.com>
+References: <20080625215119.GB11784@loki.buserror.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20080806172148.7fac5999.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:47890 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751282AbYHGH7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 03:59:03 -0400
+In-Reply-To: <20080625215119.GB11784@loki.buserror.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Aug 2008, Randy Dunlap wrote:
-> One randconfig ends with:
-> 
-> drivers/built-in.o: In function `wd_probe1':
-> wd.c:(.init.text+0x6179): undefined reference to `NS8390p_init'
-> make[1]: *** [.tmp_vmlinux1] Error 1
+Scott Wood wrote:
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+>  Documentation/powerpc/booting-without-of.txt |    5 +-
+>  arch/powerpc/sysdev/fsl_soc.c                |    3 +
+>  drivers/net/gianfar.c                        |  118 +++++++++++++++++++++++++-
+>  drivers/net/gianfar.h                        |   12 ++-
+>  drivers/net/gianfar_ethtool.c                |   41 +++++++++-
+>  include/linux/fsl_devices.h                  |    1 +
+>  6 files changed, 172 insertions(+), 8 deletions(-)
 
-drivers/net/Makefile has:
+did this ever get ack'd by Kumar?  I don't have a record of it.
 
-obj-$(CONFIG_WD80x3) += wd.o 8390.o
 
-So either wd_probe1() should call NS8390_init(), or obj-$(CONFIG_WD80x3)
-should link with 8390p.o. Don't know which is the appropriate change
-here (my gut feeling says the latter).
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
