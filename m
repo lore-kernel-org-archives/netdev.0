@@ -1,33 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 4/4] e1000e: remove inapplicable test for ioport
-Date: Thu, 07 Aug 2008 01:56:12 -0400
-Message-ID: <489A8E7C.7040303@garzik.org>
-References: <20080805002030.24137.10360.stgit@localhost.localdomain> <20080805002145.24137.80353.stgit@localhost.localdomain>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: linux-next: Tree for August 6 (8390 et al)
+Date: Thu, 7 Aug 2008 09:20:07 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0808070918510.17614@anakin>
+References: <20080806182828.6bfe0a16.sfr@canb.auug.org.au>
+ <20080806172148.7fac5999.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, Bruce Allan <bruce.w.allan@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60331 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753415AbYHGHAz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 03:00:55 -0400
-In-Reply-To: <20080805002145.24137.80353.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20080806172148.7fac5999.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher wrote:
-> From: Bruce Allan <bruce.w.allan@intel.com>
+On Wed, 6 Aug 2008, Randy Dunlap wrote:
+> One randconfig ends with:
 > 
-> There are currently no devices supported by the e1000e driver which need
-> ioport resources, remove the test for it and all unnecessary code
-> associated with it (struct e1000_adapter elements, local variables, etc.)
-> 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> drivers/built-in.o: In function `wd_probe1':
+> wd.c:(.init.text+0x6179): undefined reference to `NS8390p_init'
+> make[1]: *** [.tmp_vmlinux1] Error 1
 
-applied 1-4
+drivers/net/Makefile has:
 
+obj-$(CONFIG_WD80x3) += wd.o 8390.o
 
+So either wd_probe1() should call NS8390_init(), or obj-$(CONFIG_WD80x3)
+should link with 8390p.o. Don't know which is the appropriate change
+here (my gut feeling says the latter).
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
