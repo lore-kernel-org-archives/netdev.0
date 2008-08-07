@@ -1,47 +1,36 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] e100: Use pci_pme_active to clear PME_Status and disable PME#
-Date: Fri, 8 Aug 2008 00:18:04 +0200
-Message-ID: <200808080018.05887.rjw@sisk.pl>
-References: <200808051730.27599.alessandro.guido@gmail.com> <200808080000.07156.rjw@sisk.pl> <200808080014.25493.rjw@sisk.pl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8111C transmit timed out
+Date: Fri, 8 Aug 2008 00:31:37 +0200
+Message-ID: <20080807223137.GA17407@electric-eye.fr.zoreil.com>
+References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com> <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com> <20080805214250.GA23226@electric-eye.fr.zoreil.com> <2c2a4e250808052221p7d22adf5w7a656e423bff0b26@mail.gmail.com> <20080806190353.GB17174@electric-eye.fr.zoreil.com> <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Alessandro Guido <alessandro.guido@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: John P Poet <jppoet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:37033 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753753AbYHGWPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 18:15:10 -0400
-In-Reply-To: <200808080014.25493.rjw@sisk.pl>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42722 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753664AbYHGWbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 18:31:41 -0400
 Content-Disposition: inline
+In-Reply-To: <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e100: Use pci_pme_active to clear PME_Status and disable PME#
+John P Poet <jppoet@gmail.com> :
+[...]
+> That does not make any difference.
+> 
+> I will say, that the problem seems to be reduced by this patch (or the
+> 0002-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch).
+> 
+> Before, I was getting failures two or three times an hour.  With
+> either of these patches applied, the failure rate has dropped to one
+> every two to four hours.
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+I have updated the kit at http://userweb.kernel.org/~romieu/r8169/2.6.27-rc2
 
----
- drivers/net/e100.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Can you give it a try ?
 
-Index: linux-2.6/drivers/net/e100.c
-===================================================================
---- linux-2.6.orig/drivers/net/e100.c
-+++ linux-2.6/drivers/net/e100.c
-@@ -2738,9 +2738,7 @@ static int __devinit e100_probe(struct p
- 		nic->flags |= wol_magic;
- 
- 	/* ack any pending wake events, disable PME */
--	err = pci_enable_wake(pdev, 0, 0);
--	if (err)
--		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
-+	pci_pme_active(pdev, false);
- 
- 	strcpy(netdev->name, "eth%d");
- 	if((err = register_netdev(netdev))) {
+-- 
+Ueimor
