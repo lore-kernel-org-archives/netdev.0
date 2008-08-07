@@ -1,43 +1,41 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: linux-next: Tree for August 6 (8390 et al)
-Date: Thu, 7 Aug 2008 10:29:31 +0100
-Message-ID: <20080807102931.1bb0607d@lxorguk.ukuu.org.uk>
-References: <20080806182828.6bfe0a16.sfr@canb.auug.org.au>
-	<20080806172148.7fac5999.randy.dunlap@oracle.com>
-	<Pine.LNX.4.64.0808070918510.17614@anakin>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Thu, 7 Aug 2008 12:05:37 +0000
+Message-ID: <20080807120536.GA13299@ff.dom.local>
+References: <20080806224248.18266k9ahc5nkk8w@hayate.ip6> <20080806215258.GA3306@ami.dom.local> <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net> <20080807100910.GA12391@ff.dom.local> <20080807143654.16955ngk5tnp5kzk@hayate.ip6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0808070918510.17614@anakin>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.171]:64314 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755268AbYHGMZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:25:11 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so327791ugf.16
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 05:25:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080807143654.16955ngk5tnp5kzk@hayate.ip6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Aug 2008 09:20:07 +0200 (CEST)
-Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+On Thu, Aug 07, 2008 at 02:36:54PM +0300, Jussi Kivilinna wrote:
+> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+>
+>> There is also some doubt about differences between ->enqueue() and
+>> ->requeue() wrt. kfree_skb() and returning codes: maybe it would be
+>> better (for uniformity) to add similar changes to requeues (and
+>> dev_requeue_skb()) as well?
+>>
+>
+> I think requeue should be changed to return same as enqueue, netem even
+> uses requeue as enqueue replacement for packet reordering. Maybe add
+> new function qdisc_requeue_tree to handle freeing and masking flags and
+> change outside uses of requeue to use it (qdisc_peek_len in hfsc,
+> sch_atm_dequeue, dev_requeue_skb).
 
-> On Wed, 6 Aug 2008, Randy Dunlap wrote:
-> > One randconfig ends with:
-> > 
-> > drivers/built-in.o: In function `wd_probe1':
-> > wd.c:(.init.text+0x6179): undefined reference to `NS8390p_init'
-> > make[1]: *** [.tmp_vmlinux1] Error 1
-> 
-> drivers/net/Makefile has:
-> 
-> obj-$(CONFIG_WD80x3) += wd.o 8390.o
-> 
-> So either wd_probe1() should call NS8390_init(), or obj-$(CONFIG_WD80x3)
-> should link with 8390p.o. Don't know which is the appropriate change
-> here (my gut feeling says the latter).
+Yes, good point again: if ->enqueue() could be mixed with ->requeue()
+there is more than uniformity argument to do the change everywhere.
 
-Safest is the latter. The shared memory interface on the wd is full speed
-8 or 16bit (depending on card/jumpers) but I'm not clear about the NIC.
-Most of the performance hit is on the packet transfer which is private
-methods on this device so using 8390p won't make a big difference on this
-board anyway.
+Jarek P.
