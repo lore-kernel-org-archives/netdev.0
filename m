@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] Add (struct sock*) sk parameter for send_ack()
-Date: Wed, 06 Aug 2008 20:20:38 -0700 (PDT)
-Message-ID: <20080806.202038.93643856.davem@davemloft.net>
-References: <48981BDE.70201@cn.fujitsu.com>
+Subject: Re: sfq dump broken in 2.6.27-rc1
+Date: Wed, 06 Aug 2008 20:22:10 -0700 (PDT)
+Message-ID: <20080806.202210.92821768.davem@davemloft.net>
+References: <20080806180237.4912a677@extreme>
+	<20080806.181327.139395860.davem@davemloft.net>
+	<20080806202029.63f25c81@extreme>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: guijianfeng@cn.fujitsu.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50670
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50673
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753548AbYHGDUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 23:20:38 -0400
-In-Reply-To: <48981BDE.70201@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1752338AbYHGDWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 23:22:09 -0400
+In-Reply-To: <20080806202029.63f25c81@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
-Date: Tue, 05 Aug 2008 17:22:38 +0800
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Wed, 6 Aug 2008 20:20:29 -0700
 
-> Add (struct sock*) sk parameter for send_ack.
-> 
-> Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+> What ever happened to "you broke it, you fix it?"
 
-This patch by itself breaks the build.
+What ever happened to debugging things by reading the
+code and thinking?
 
-Don't submit patches this way.  Every patch applied should
-still leave the tree building.
+By all means, when I'm dealing with a user who doesn't
+know the kernel or networking in particular very well,
+going the bisect route is often the way.
 
-Also, since your OOPS and detailed description only exists
-in the "0/3" email, it won't make it into the commit log
-history where it belongs.
-
-Considering all of this, I'd say you should fix this as
-one big patch with a really nice commit log message.
-
-Thanks.
+But for someone as skilled and knowledgable as you?
+Give me a break :-)
