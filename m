@@ -1,48 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
-Date: Thu, 7 Aug 2008 10:09:10 +0000
-Message-ID: <20080807100910.GA12391@ff.dom.local>
-References: <20080806224248.18266k9ahc5nkk8w@hayate.ip6> <20080806215258.GA3306@ami.dom.local> <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Thu, 7 Aug 2008 14:11:56 +0200
+Message-ID: <200808071411.57977.thomas.jarosch@intra2net.com>
+References: <47EA0DAB.7080205@securenet.de> <Pine.LNX.4.64.0808070950260.3859@wrl-59.cs.helsinki.fi> <200808071450.43552.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.182]:47184 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756875AbYHGMmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:42:15 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so423736ika.5
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 05:42:13 -0700 (PDT)
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	"=?iso-8859-1?q?D=E2niel?= Fraga" <fragabr@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	David Miller <davem@davemloft.net>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <200808071450.43552.denys@visp.net.lb>
 Content-Disposition: inline
-In-Reply-To: <20080806.220911.91192536.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 06, 2008 at 10:09:11PM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 06 Aug 2008 20:26:36 -0700 (PDT)
-> 
-> > 
-> > I still haven't seen anyone suggest creating a __NET_XMIT_KFREE_SKB to
-> > fix this most rediculious problem.
-> > 
-> > I'm still waiting...
-> 
-> Here is what it might look like.  I haven't tried to boot this,
-> but the only non-trivial case was SFQ's congestion drop code.
+On Thursday, 7. August 2008 13:50:42 Denys Fedoryshchenko wrote:
+> By the way, i had also problem with frto with local connections, and it was
+> trivial to reproduce. But because of proprioetary(but i have sources)
+> userspace application and specific way of using it - i didn't report to
+> maillist. But after patch is ready, add me please in cc, i will test it
+> with me too.
+>
+> For me disabling frto helps to solve problem. With frto i have
+> connections "stalling", if there is trasferred large chunks of data over
+> loopback. It is complicated way how it works all - but i can try to explain
+> how everything works, if required.
 
-After some checking it looks mostly OK to me, but one thing: in
-sch_gred gred_drop() calls qdisc_drop(), so now it needs kfree_skb().
-BTW, maybe it would be nicer to add __qdisc_drop() for these new
-things?
+What kernel version are you using?
 
-There is also some doubt about differences between ->enqueue() and
-->requeue() wrt. kfree_skb() and returning codes: maybe it would be
-better (for uniformity) to add similar changes to requeues (and
-dev_requeue_skb()) as well?
+IMHO this could only happen on the loopback interface
+if you are a) using an "old" kernel version like 2.6.24/2.6.25
+or b) there might be a bug hidden somewhere else.
 
-I don't know if it's worth to mention, but now, if somebody really
-uses this sch_blackhole under some upper qdiscs the stats will change.
+Ilpo has sent the "final" patch to linux-netdev
+some minutes ago, give it a try.
 
-Jarek P.
+Thomas
