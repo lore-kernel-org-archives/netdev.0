@@ -1,34 +1,64 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ksoftirqd high cpu load on kernels 2.6.24 to 2.6.27-rc1-mm1
-Date: Thu, 7 Aug 2008 20:58:02 +0200
-Message-ID: <20080807185802.GA16327@electric-eye.fr.zoreil.com>
-References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no> <48975BD3.6040709@shaw.ca> <a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: SO_REUSEPORT?
+Date: Thu, 7 Aug 2008 12:03:59 -0700
+Message-ID: <20080807120359.2d62880a@extreme>
+References: <65634d660808070957j12e1f93rfb577efabc771c9a@mail.gmail.com>
+	<200808072009.34891.rdenis@simphalempin.com>
+	<65634d660808071058k7eb33330tcf3c7a877b7a64d@mail.gmail.com>
+	<489B3C53.1000202@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Hancock <hancockr@shaw.ca>, netdev@vger.kernel.org
-To: Dushan Tcholich <dusanc@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36272 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752629AbYHGS6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 14:58:10 -0400
-Content-Disposition: inline
-In-Reply-To: <a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
+Received: from mail.vyatta.com ([216.93.170.194]:41649 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751245AbYHGTEB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 15:04:01 -0400
+In-Reply-To: <489B3C53.1000202@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dushan Tcholich <dusanc@gmail.com> :
-[...]
-> I googled a little and found out that oprofile is a little above my head.
-> So as I thought that some driver or HW might be responsible for this I
-> tried to disable various onboard HW and found out that if I disable
-> onboard ethernet problem dissapears, so now I've added netdev and
-> maintainer of R8169 driver to cc.
+On Thu, 07 Aug 2008 11:17:55 -0700
+Rick Jones <rick.jones2@hp.com> wrote:
 
-Can you try 2.6.27-rc2 and send the content of /proc/interrupts, dmesg,
-ifconfig as well as a capture of the strange output from top ?
+> Tom Herbert wrote:
+> >>>We are looking at ways to scale TCP listeners.  I think we like is the
+> >>>ability to listen on a port from multiple threads (sockets bound to
+> >>>same port,  INADDR_ANY, and no interface binding) , which is what
+> >>>SO_REUSEPORT would seem to allow.  Has this ever been implemented for
+> >>>Linux or is there a good reason not to have it?
+> >>
+> >>On Linux, SO_REUSEADDR provide most of what SO_REUSEPORT provides on BSD.
+> >>
+> >>In any case, there is absolutely no point in creating multiple TCP listeners.
+> >>Multiple threads can accept() on the same listener - at the same time.
+> >>
+> > 
+> > 
+> > We've been doing that, but then on wakeup it would seem that we're at
+> > the mercy of scheduling-- basically which ever threads wakes up first
+> > will get to process accept queue first.  This seems to bias towards
+> > threads running on the same CPU as the wakeup is called, and   so this
+> > method doesn't give us an even distribution of new connections across
+> > the threads that we'd like.
+> 
+> How would the presence of multiple TCP LISTEN endpoints change that? 
+> You'd then be at the mercy of whatever "scheduling" there was inside the 
+> stack.
+> 
+> If you want to balance the threads, perhaps a dispatch thread, or a 
+> virtual one - each thread knows how many connections it is servicing, 
+> let them know how many the other threads are servicing, and if a thread 
+> has N more connections than the other threads have it not go into 
+> accept() that time around.  Might need some tweaking to handle 
+> pathological starvation cases like all the other threads are hung I 
+> suppose but the basic idea is there.
+> 
+> rick jones
 
-It seems rather benign though.
-
--- 
-Ueimor
+I suspect thread balancing would actually hurt performance!
+You would be better off to have a couple of "hot" threads that are doing
+all the work and stay in cache. If you push the work around to all the
+threads, you have worst case cache behaviour.
