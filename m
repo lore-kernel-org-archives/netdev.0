@@ -1,27 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] WAN: add drivers dslp and sdfe4-cfg
-Date: Thu, 07 Aug 2008 02:28:05 -0400
-Message-ID: <489A95F5.1030101@pobox.com>
-References: <ca0148c30807180216h422c35e6l640fdad458f3587a@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 4/4] e1000e: remove inapplicable test for ioport
+Date: Thu, 07 Aug 2008 01:56:12 -0400
+Message-ID: <489A8E7C.7040303@garzik.org>
+References: <20080805002030.24137.10360.stgit@localhost.localdomain> <20080805002145.24137.80353.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matti Linnanvuori <mattilinn@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, Bruce Allan <bruce.w.allan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60326 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60331 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753334AbYHGHAq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 03:00:46 -0400
-In-Reply-To: <ca0148c30807180216h422c35e6l640fdad458f3587a@mail.gmail.com>
+	id S1753415AbYHGHAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 03:00:55 -0400
+In-Reply-To: <20080805002145.24137.80353.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matti Linnanvuori wrote:
-> The drivers dslp and sdfe4-cfg support G.SHDSL PCI104 card DSLP.
-> The following patch is on top of linux-next July 17:
-> http://groups.google.com/group/pcidriver/web/dslp.patch
+Jeff Kirsher wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> There are currently no devices supported by the e1000e driver which need
+> ioport resources, remove the test for it and all unnecessary code
+> associated with it (struct e1000_adapter elements, local variables, etc.)
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-ditto last email
+applied 1-4
 
 
