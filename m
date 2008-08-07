@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4/route.c: fix build error
-Date: Wed, 06 Aug 2008 18:31:04 -0700 (PDT)
-Message-ID: <20080806.183104.55343544.davem@davemloft.net>
-References: <489269AB.8050706@cn.fujitsu.com>
-	<20080731.205132.203087940.davem@davemloft.net>
-	<4899A173.2050807@teltonika.lt>
+From: "Tobias Koeck" <tobias.koeck@gmail.com>
+Subject: meant hlist_* - Re: hash_list and rcu locking question
+Date: Thu, 7 Aug 2008 03:49:43 +0200
+Message-ID: <379e30200808061849w3a47f981s5ccde245059f595b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, mingo@elte.hu, viro@ZenIV.linux.org.uk,
-	netdev@vger.kernel.org
-To: paulius.zaleckas@teltonika.lt
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38282
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754482AbYHGBbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 21:31:04 -0400
-In-Reply-To: <4899A173.2050807@teltonika.lt>
+Received: from fg-out-1718.google.com ([72.14.220.155]:59881 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755016AbYHGBto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 21:49:44 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so119684fgg.17
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2008 18:49:43 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Date: Wed, 06 Aug 2008 16:04:51 +0300
+I mean the rcu function for the hlist_{head,list} ....
 
-> This function is over ifdef'ed :)
-> 
-> #ifdef CONFIG_SYSCTL
-> /*
->   * We really need to sanitize the damn ipv4 init order, then all
->   * this nonsense will go away.
->   */
-> void __init ip_static_sysctl_init(void)
-> {
-> #ifdef CONFIG_SYSCTL
-> 	register_sysctl_paths(ipv4_route_path, ipv4_route_table);
-> #endif
-> }
-> #endif
+Greetings
+t.
 
-Thanks, I've gotten rid of the inner ones in my tree.
+On Wed, Aug 6, 2008 at 10:54 PM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> Hi Tobias.
+>
+> On Wed, Aug 06, 2008 at 05:56:43PM +0200, Tobias Koeck (tobias.koeck@gmail.com) wrote:
+>> Are the hash_list rcu functions avoiding all locking problems (even
+>> the one with only one CPU)?
+>
+> What is hash list? hlist? Or list in a hash bucket?
+> Does include/linux/rculist.h contain needed bits?
+>
+>> Are there some abstract examples for the use of the hash_{head,list} structures?
+>
+> Sorry, my kernel source tree does not know what is 'hash_head'.
+> What data structure exactly do you mean?
+>
+> --
+>        Evgeniy Polyakov
+>
