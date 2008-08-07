@@ -1,44 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] METH: fix MAC address setup
-Date: Thu, 07 Aug 2008 02:12:21 -0400
-Message-ID: <489A9245.4070105@pobox.com>
-References: <20080730231424.CD5E8DEBB8@solo.franken.de>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] net: trap attempts to modify noop qdisc
+Date: Wed, 6 Aug 2008 23:15:16 -0700
+Message-ID: <20080806231516.659f82c5@extreme>
+References: <20080806202029.63f25c81@extreme>
+	<20080806.202210.92821768.davem@davemloft.net>
+	<20080806230850.41435290@extreme>
+	<20080806.231159.55957179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47944 "EHLO mail.dvmed.net"
+Received: from mail.vyatta.com ([216.93.170.194]:57696 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755120AbYHGGM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 02:12:26 -0400
-In-Reply-To: <20080730231424.CD5E8DEBB8@solo.franken.de>
+	id S1750942AbYHGGPS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 02:15:18 -0400
+In-Reply-To: <20080806.231159.55957179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Bogendoerfer wrote:
-> Setup of the mac filter lost the upper 16bit of the mac address. This
-> bug got unconvered by a patch, which fixed the promiscous handling.
-> 
-> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> ---
-> 
->  drivers/net/meth.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/meth.c b/drivers/net/meth.c
-> index 4cb364e..0a97c26 100644
-> --- a/drivers/net/meth.c
-> +++ b/drivers/net/meth.c
-> @@ -100,7 +100,7 @@ static inline void load_eaddr(struct net_device *dev)
->  	DPRINTK("Loading MAC Address: %s\n", print_mac(mac, dev->dev_addr));
->  	macaddr = 0;
->  	for (i = 0; i < 6; i++)
-> -		macaddr |= dev->dev_addr[i] << ((5 - i) * 8);
-> +		macaddr |= (u64)dev->dev_addr[i] << ((5 - i) * 8);
+On Wed, 06 Aug 2008 23:11:59 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-applied
+> From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> Date: Wed, 6 Aug 2008 23:08:50 -0700
+> 
+> > Since noop qdisc is a singleton, it shouldn't end up with any other
+> > qdisc's on it's list, and it shouldn't be deleted.
+> > 
+> > Dave, this should help you find the bug.
+> 
+> Thanks.
 
+I think the root of your problem (bad pun) is that the new code
+is assuming that changes to the root are done with parent handle of 0,
+but the API is for the parent handle to be TC_H_ROOT (0xFFFFFFFFU).
 
