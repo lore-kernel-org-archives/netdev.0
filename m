@@ -1,62 +1,47 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] ne: Use CONFIG_MACH_TX49XX
-Date: Fri, 08 Aug 2008 00:55:17 +0900 (JST)
-Message-ID: <20080808.005517.96686714.anemo@mba.ocn.ne.jp>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: "e100_probe: Error clearing wake event" when booting 2.6.27-rc1
+Date: Thu, 7 Aug 2008 09:47:37 -0700
+Message-ID: <200808070947.37534.jbarnes@virtuousgeek.org>
+References: <200808051730.27599.alessandro.guido@gmail.com> <200808052203.07815.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:60193 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752002AbYHGQmM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 12:42:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alessandro Guido <alessandro.guido@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	pm list <linux-pm@lists.linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755492AbYHGQr6@vger.kernel.org>
+In-Reply-To: <200808052203.07815.rjw@sisk.pl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After some cleanups in arch/mips area, now MACH_TX49XX is selected for
-both TOSHIBA_RBTX4927 and TOSHIBA_RBTX4938.  Fold these two conditions
-to one.
+On Tuesday, August 5, 2008 1:03 pm Rafael J. Wysocki wrote:
+> On Tuesday, 5 of August 2008, Alessandro Guido wrote:
+> > [please cc me on replies]
+> >
+> > I'm getting this error message when booting my laptop.
+> >
+> > The commit that causes this is:
+> >
+> > commit eb9d0fe40e313c0a74115ef456a2e43a6c8da72f
+> > Author: Rafael J. Wysocki <rjw@sisk.pl>
+> > Date:   Mon Jul 7 03:34:48 2008 +0200
+> >
+> >     PCI ACPI: Rework PCI handling of wake-up
+> >
+> > [very long commit message snipped]
+> >
+> > Should I ignore that?
+>
+> The message is harmless, but it exposes the problem that e100_probe()
+> should not use pci_enable_wake() for this purpose.
+>
+> The appended patch makes it use pci_pme_active() instead.
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- drivers/net/Kconfig |    2 +-
- drivers/net/ne.c    |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+I can take the pci_pme_active bits, but the e100 stuff should go in through 
+Jeff probably.  Care to respin?
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8a03875..b6c1717 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1171,7 +1171,7 @@ config ETH16I
- 
- config NE2000
- 	tristate "NE2000/NE1000 support"
--	depends on NET_ISA || (Q40 && m) || M32R || TOSHIBA_RBTX4927 || TOSHIBA_RBTX4938
-+	depends on NET_ISA || (Q40 && m) || M32R || MACH_TX49XX
- 	select CRC32
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
-diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-index 42443d6..fa3ceca 100644
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -118,7 +118,7 @@ bad_clone_list[] __initdata = {
-     {"E-LAN100", "E-LAN200", {0x00, 0x00, 0x5d}}, /* Broken ne1000 clones */
-     {"PCM-4823", "PCM-4823", {0x00, 0xc0, 0x6c}}, /* Broken Advantech MoBo */
-     {"REALTEK", "RTL8019", {0x00, 0x00, 0xe8}}, /* no-name with Realtek chip */
--#if defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
-+#ifdef CONFIG_MACH_TX49XX
-     {"RBHMA4X00-RTL8019", "RBHMA4X00/RTL8019", {0x00, 0x60, 0x0a}},  /* Toshiba built-in */
- #endif
-     {"LCS-8834", "LCS-8836", {0x04, 0x04, 0x37}}, /* ShinyNet (SET) */
-@@ -142,7 +142,7 @@ bad_clone_list[] __initdata = {
- #if defined(CONFIG_PLAT_MAPPI)
- #  define DCR_VAL 0x4b
- #elif defined(CONFIG_PLAT_OAKS32R)  || \
--   defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
-+   defined(CONFIG_MACH_TX49XX)
- #  define DCR_VAL 0x48		/* 8-bit mode */
- #else
- #  define DCR_VAL 0x49
+Thanks,
+Jesse
