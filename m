@@ -1,36 +1,31 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
-Date: Thu, 7 Aug 2008 10:31:30 +0000
-Message-ID: <20080807103130.GA12654@ff.dom.local>
-References: <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net> <20080807100910.GA12391@ff.dom.local> <20080807.031058.193703340.davem@davemloft.net>
+From: roel kluin <roel.kluin@gmail.com>
+Subject: [PATCH?] atl1e: WAKE_MCAST 2x. 1st WAKE_UCAST?
+Date: Thu, 07 Aug 2008 12:24:42 -0400
+Message-ID: <489B21CA.7010508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:8236 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756593AbYHGNHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 09:07:35 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so331638ugf.16
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 06:07:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080807.031058.193703340.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com, jgarzik@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754462AbYHGNNw@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 07, 2008 at 03:10:58AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 7 Aug 2008 10:09:10 +0000
-...
-> > After some checking it looks mostly OK to me, but one thing: in
-> > sch_gred gred_drop() calls qdisc_drop(), so now it needs kfree_skb().
-> > BTW, maybe it would be nicer to add __qdisc_drop() for these new
-> > things?
-> 
-> qdisc_drop() sets the new __NET_XMIT_KFREE bit, but sch_gred wants to
-> return NET_XMIT_CN, so I OR'd in the __NET_XMIT_KFREE bit there.
+untested, is it right?
+---
+WAKE_MCAST bit tested twice, test WAKE_UCAST first.
 
-Hmm... I'm not sure we're thinking about the same function?
-
-Jarek P.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/atl1e/atl1e_ethtool.c
+index cdc3b85..619c658 100644
+--- a/drivers/net/atl1e/atl1e_ethtool.c
++++ b/drivers/net/atl1e/atl1e_ethtool.c
+@@ -355,7 +355,7 @@ static int atl1e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	struct atl1e_adapter *adapter = netdev_priv(netdev);
+ 
+ 	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
+-			    WAKE_MCAST | WAKE_BCAST | WAKE_MCAST))
++			    WAKE_UCAST | WAKE_MCAST | WAKE_BCAST))
+ 		return -EOPNOTSUPP;
+ 	/* these settings will always override what we currently have */
+ 	adapter->wol = 0;
