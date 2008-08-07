@@ -1,36 +1,82 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: reduce memory footprint of sctp_chunk structure
-Date: Thu, 7 Aug 2008 15:53:15 -0400
-Message-ID: <20080807195315.GA12886@hmsendeavour.rdu.redhat.com>
-References: <20080725121130.GB12725@hmsreliant.think-freely.org> <4889CF25.30405@hp.com> <20080725164409.GD12725@hmsreliant.think-freely.org> <489B49B5.7090708@hp.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Thu, 07 Aug 2008 15:07:49 -0500
+Message-ID: <489B5615.7090902@cs.wisc.edu>
+References: <200807300019.m6U0JkdY012558@localhost.localdomain> <aday73jxdfs.fsf@cisco.com> <200807311752.00911.divy@chelsio.com> <200808071145.03848.divy@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2419 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752579AbYHGTxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 15:53:22 -0400
-Content-Disposition: inline
-In-Reply-To: <489B49B5.7090708@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jgarzik@pobox.com>,
+	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, davem@davemloft.net,
+	Steve Wise <swise@opengridcomputing.com>, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Divy Le Ray <divy@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200808071145.03848.divy@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 07, 2008 at 03:15:01PM -0400, Vlad Yasevich wrote:
-> Hi Neil
+Divy Le Ray wrote:
+> On Thursday 31 July 2008 05:51:59 pm Divy Le Ray wrote:
+>> On Wednesday 30 July 2008 02:35:51 pm Roland Dreier wrote:
+>>>  > * From a networking standpoint, our main concern becomes how this
+>>>  > interacts with the networking stack.  In particular, I'm concerned
+>>>  > based on reading the source that this driver uses "TCP port stealing"
+>>>  > rather than using a totally separate MAC address (and IP).
+>>>  >
+>>>  > Stealing a TCP port on an IP/interface already assigned is a common
+>>>  > solution in this space, but also a flawed one.  Precisely because the
+>>>  > kernel and applications are unaware of this "special, magic TCP port"
+>>>  > you open the potential for application problems that are very
+>>>  > difficult for an admin to diagnose based on observed behavior.
+>>>
+>>> That's true, but using a separate MAC and IP opens up a bunch of other
+>>> operational problems.  I don't think the right answer for iSCSI offload
+>>> is clear yet.
+>>>
+>>>  - R.
+>> Hi Jeff,
+>>
+>> We've considered the approach of having a separate IP/MAC addresses to
+>> manage iSCSI connections. In such a context, the stack would have to be
+>> unaware of this iSCSI specific IP address. The iSCSI driver would then have
+>> to implement at least its own ARP reply mechanism. DHCP too would have to
+>> be managed separately. Most network setting/monitoring tools would also be
+>> unavailable.
+>>
+>> The open-iscsi initiator is not a huge consumer of TCP connections,
+>> allocating a TCP port from the stack would be reasonable in terms of
+>> resources in this context. It is however unclear if it is an acceptable
+>> approach.
+>>
+>> Our current implementation was designed to be the most tolerable one
+>> within the constraints - real or expected - aforementioned.
+>>
 > 
-> A few problem I found once I started testing with the new fast
-> retransmit regression test I just wrote.
-> > 
+> Hi Jeff,
+> 
+> Mike Christie will not merge this code until he has an explicit 
+> acknowledgement from netdev.
+> 
+> As you mentioned, the port stealing approach we've taken has its issues.
+> We consequently analyzed your suggestion to use a different IP/MAC address for 
+> iSCSI and it raises other tough issues (separate ARP and DHCP management, 
+> unavailability of common networking tools).
 
+If the iscsi tools could not have to deal with networking issues that 
+are already handled by other networking tools it would great for the 
+iscsi users so they do not have to learn new tools. Maybe we could 
+somehow hook into the existing network tools so they support these iscsi 
+hbas as well as normal NICs. Would it be possible to have the iscsi hbas 
+export the necessary network interfaces so that existing network tools 
+can manage them?
 
-Cool, thanks for the heads up!
-
--- 
-/***************************************************
- *Neil Horman
- *nhorman@tuxdriver.com
- *gpg keyid: 1024D / 0x92A74FA1
- *http://pgp.mit.edu
- ***************************************************/
+If it comes down to it and your port stealing implementation is not 
+acceptable like how broadcom's was not, I will be ok with doing some 
+special iscsi network tools. Or instead of special iscsi tools, is there 
+something that the RDMA/iWarp guys are using that we can share?
