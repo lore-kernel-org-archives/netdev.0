@@ -1,60 +1,78 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: SO_REUSEPORT?
-Date: Thu, 07 Aug 2008 11:17:55 -0700
-Message-ID: <489B3C53.1000202@hp.com>
-References: <65634d660808070957j12e1f93rfb577efabc771c9a@mail.gmail.com>	<200808072009.34891.rdenis@simphalempin.com> <65634d660808071058k7eb33330tcf3c7a877b7a64d@mail.gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Thu, 7 Aug 2008 11:45:01 -0700
+Message-ID: <200808071145.03848.divy@chelsio.com>
+References: <200807300019.m6U0JkdY012558@localhost.localdomain> <aday73jxdfs.fsf@cisco.com> <200807311752.00911.divy@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:14358 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751429AbYHGSR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 14:17:57 -0400
-In-Reply-To: <65634d660808071058k7eb33330tcf3c7a877b7a64d@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, "Karen Xie" <kxie@chelsio.com>,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	davem@davemloft.net, michaelc@cs.wisc.edu,
+	"Steve Wise" <swise@opengridcomputing.com>, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com,
+	"Dimitrios Michailidis" <dm@chelsio.com>,
+	"Casey Leedom" <leedom@chelsio.com>,
+	"linux-scsi" <linux-scsi@vger.kernel.org>,
+	"LKML" <linux-kernel@vger.kernel.org>
+To: "Roland Dreier" <rdreier@cisco.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200807311752.00911.divy@chelsio.com>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tom Herbert wrote:
->>>We are looking at ways to scale TCP listeners.  I think we like is the
->>>ability to listen on a port from multiple threads (sockets bound to
->>>same port,  INADDR_ANY, and no interface binding) , which is what
->>>SO_REUSEPORT would seem to allow.  Has this ever been implemented for
->>>Linux or is there a good reason not to have it?
->>
->>On Linux, SO_REUSEADDR provide most of what SO_REUSEPORT provides on BSD.
->>
->>In any case, there is absolutely no point in creating multiple TCP listeners.
->>Multiple threads can accept() on the same listener - at the same time.
->>
-> 
-> 
-> We've been doing that, but then on wakeup it would seem that we're at
-> the mercy of scheduling-- basically which ever threads wakes up first
-> will get to process accept queue first.  This seems to bias towards
-> threads running on the same CPU as the wakeup is called, and   so this
-> method doesn't give us an even distribution of new connections across
-> the threads that we'd like.
+On Thursday 31 July 2008 05:51:59 pm Divy Le Ray wrote:
+> On Wednesday 30 July 2008 02:35:51 pm Roland Dreier wrote:
+> >  > * From a networking standpoint, our main concern becomes how this
+> >  > interacts with the networking stack.  In particular, I'm concerned
+> >  > based on reading the source that this driver uses "TCP port stealing"
+> >  > rather than using a totally separate MAC address (and IP).
+> >  >
+> >  > Stealing a TCP port on an IP/interface already assigned is a common
+> >  > solution in this space, but also a flawed one.  Precisely because the
+> >  > kernel and applications are unaware of this "special, magic TCP port"
+> >  > you open the potential for application problems that are very
+> >  > difficult for an admin to diagnose based on observed behavior.
+> >
+> > That's true, but using a separate MAC and IP opens up a bunch of other
+> > operational problems.  I don't think the right answer for iSCSI offload
+> > is clear yet.
+> >
+> >  - R.
+>
+> Hi Jeff,
+>
+> We've considered the approach of having a separate IP/MAC addresses to
+> manage iSCSI connections. In such a context, the stack would have to be
+> unaware of this iSCSI specific IP address. The iSCSI driver would then have
+> to implement at least its own ARP reply mechanism. DHCP too would have to
+> be managed separately. Most network setting/monitoring tools would also be
+> unavailable.
+>
+> The open-iscsi initiator is not a huge consumer of TCP connections,
+> allocating a TCP port from the stack would be reasonable in terms of
+> resources in this context. It is however unclear if it is an acceptable
+> approach.
+>
+> Our current implementation was designed to be the most tolerable one
+> within the constraints - real or expected - aforementioned.
+>
 
-How would the presence of multiple TCP LISTEN endpoints change that? 
-You'd then be at the mercy of whatever "scheduling" there was inside the 
-stack.
+Hi Jeff,
 
-If you want to balance the threads, perhaps a dispatch thread, or a 
-virtual one - each thread knows how many connections it is servicing, 
-let them know how many the other threads are servicing, and if a thread 
-has N more connections than the other threads have it not go into 
-accept() that time around.  Might need some tweaking to handle 
-pathological starvation cases like all the other threads are hung I 
-suppose but the basic idea is there.
+Mike Christie will not merge this code until he has an explicit 
+acknowledgement from netdev.
 
-rick jones
-> 
-> Tom
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As you mentioned, the port stealing approach we've taken has its issues.
+We consequently analyzed your suggestion to use a different IP/MAC address for 
+iSCSI and it raises other tough issues (separate ARP and DHCP management, 
+unavailability of common networking tools).
+On these grounds, we believe our current approach is the most tolerable.
+Would the stack provide a TCP port allocation service, we'd be glad to use it 
+to solve the current concerns.
+The cxgb3i driver is up and running here, its merge is pending our decision.
 
+Cheers,
+Divy
