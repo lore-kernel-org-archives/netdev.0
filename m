@@ -1,33 +1,51 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] PCI PM: Export pci_pme_active to drivers
-Date: Thu, 7 Aug 2008 15:34:10 -0700
-Message-ID: <200808071534.11482.jbarnes@virtuousgeek.org>
-References: <200808051730.27599.alessandro.guido@gmail.com> <200808080000.07156.rjw@sisk.pl> <200808080014.25493.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 07 Aug 2008 15:44:53 -0700 (PDT)
+Message-ID: <20080807.154453.14005681.davem@davemloft.net>
+References: <20080803085553.GA1512@gondor.apana.org.au>
+	<20080806.230741.137564172.davem@davemloft.net>
+	<489B5BC5.3030600@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alessandro Guido <alessandro.guido@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: herbert@gondor.apana.org.au, bhutchings@solarflare.com,
+	buytenh@wantstofly.org, netdev@vger.kernel.org,
+	akarkare@marvell.com, nico@cam.org, dale@farnsworth.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail-108.bluehost.com ([69.89.22.8]:35539 "HELO
-	outbound-mail-108.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752646AbYHGWeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 18:34:18 -0400
-In-Reply-To: <200808080014.25493.rjw@sisk.pl>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58840
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753188AbYHGWox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 18:44:53 -0400
+In-Reply-To: <489B5BC5.3030600@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, August 7, 2008 3:14 pm Rafael J. Wysocki wrote:
-> PCI PM: Export pci_pme_active to drivers
->
-> Export pci_pme_active() to drivers, so that they can clear the
-> PME_status bit and disable PME# for their devices without involving
-> ACPI.
+From: Rick Jones <rick.jones2@hp.com>
+Date: Thu, 07 Aug 2008 13:32:05 -0700
 
-Cool, applied.  Thanks Rafael.
+> David Miller wrote:
+> > So I had this idea.  My goal is to minimize the number of DMA
+> > mappings the driver has to make.
+> > 
+> > We don't touch anything in the original TSO skb.  However we expand
+> > the headroom (if necessary) and in the area in front of skb->data we
+> > build the header areas for the sub-TSO frames, one by one.
+> > 
+> > We give the driver some iterator functions that walk through the
+> > header areas and compute offset/length pairs into the
+> > skb_shared_info() page list.
+> 
+> Is that like Solaris Multi Data Transmit?
 
-Jesse
+No, it's slightly different.
+
+Solaris just accumulates a list of packets and gives them all to the
+device at once.  It doesn't do anything interesting to optimize
+the DMA mappings or anything clever like we'll be doing here.
+
+Here, the TCP stack will be working with TSO frames, which cuts down
+per-packet overhead and whatnot.  Solaris works with just normal MSS
+sized frames when it does it's batching thing.  And that's all it is,
+batching.
+
