@@ -1,74 +1,48 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH] net: trap attempts to modify noop qdisc
-Date: Thu, 7 Aug 2008 10:22:42 -0700
-Message-ID: <20080807102242.7d365eff@extreme>
-References: <20080806230850.41435290@extreme>
-	<20080806.231159.55957179.davem@davemloft.net>
-	<20080806231516.659f82c5@extreme>
-	<20080806.233703.193701199.davem@davemloft.net>
+From: "Tom Herbert" <therbert@google.com>
+Subject: Re: SO_REUSEPORT?
+Date: Thu, 7 Aug 2008 10:58:22 -0700
+Message-ID: <65634d660808071058k7eb33330tcf3c7a877b7a64d@mail.gmail.com>
+References: <65634d660808070957j12e1f93rfb577efabc771c9a@mail.gmail.com>
+	 <200808072009.34891.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:36241 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753312AbYHGRWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 13:22:45 -0400
-In-Reply-To: <20080806.233703.193701199.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:36645 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751429AbYHGR6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 13:58:34 -0400
+Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
+	by smtp-out3.google.com with ESMTP id m77HwO3w022424
+	for <netdev@vger.kernel.org>; Thu, 7 Aug 2008 18:58:24 +0100
+Received: from rv-out-0506.google.com (rvbk40.prod.google.com [10.140.87.40])
+	by zps18.corp.google.com with ESMTP id m77HwNE8025350
+	for <netdev@vger.kernel.org>; Thu, 7 Aug 2008 10:58:23 -0700
+Received: by rv-out-0506.google.com with SMTP id k40so470521rvb.57
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 10:58:23 -0700 (PDT)
+In-Reply-To: <200808072009.34891.rdenis@simphalempin.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 Aug 2008 23:37:03 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+> > We are looking at ways to scale TCP listeners.  I think we like is the
+> > ability to listen on a port from multiple threads (sockets bound to
+> > same port,  INADDR_ANY, and no interface binding) , which is what
+> > SO_REUSEPORT would seem to allow.  Has this ever been implemented for
+> > Linux or is there a good reason not to have it?
+>
+> On Linux, SO_REUSEADDR provide most of what SO_REUSEPORT provides on BSD.
+>
+> In any case, there is absolutely no point in creating multiple TCP listeners.
+> Multiple threads can accept() on the same listener - at the same time.
+>
 
-> From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-> Date: Wed, 6 Aug 2008 23:15:16 -0700
-> 
-> > On Wed, 06 Aug 2008 23:11:59 -0700 (PDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-> > > Date: Wed, 6 Aug 2008 23:08:50 -0700
-> > > 
-> > > > Since noop qdisc is a singleton, it shouldn't end up with any other
-> > > > qdisc's on it's list, and it shouldn't be deleted.
-> > > > 
-> > > > Dave, this should help you find the bug.
-> > > 
-> > > Thanks.
-> > 
-> > I think the root of your problem (bad pun) is that the new code
-> > is assuming that changes to the root are done with parent handle of 0,
-> > but the API is for the parent handle to be TC_H_ROOT (0xFFFFFFFFU).
-> 
-> This is what I just committed to net-2.6, please give it a whirl.
-> 
-> pkt_sched: Fix "parent is root" test in qdisc_create().
-> 
-> As noticed by Stephen Hemminger, the root qdisc is denoted by
-> TC_H_ROOT, not zero.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/sched/sch_api.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index 4840aff..83b23b5 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -792,7 +792,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
->  				goto err_out3;
->  			}
->  		}
-> -		if (parent && !(sch->flags & TCQ_F_INGRESS))
-> +		if ((parent != TC_H_ROOT) && !(sch->flags & TCQ_F_INGRESS))
->  			list_add_tail(&sch->list, &dev_queue->qdisc->list);
->  
->  		return sch;
+We've been doing that, but then on wakeup it would seem that we're at
+the mercy of scheduling-- basically which ever threads wakes up first
+will get to process accept queue first.  This seems to bias towards
+threads running on the same CPU as the wakeup is called, and   so this
+method doesn't give us an even distribution of new connections across
+the threads that we'd like.
 
-Thanks, that fixes it.
-
-You still might want to add a BUG_ON there for anything that is internal qdisc.
+Tom
