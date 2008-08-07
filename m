@@ -1,34 +1,38 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/3] gianfar: Magic Packet and suspend/resume support.
-Date: Thu, 07 Aug 2008 03:58:54 -0400
-Message-ID: <489AAB3E.8020507@pobox.com>
-References: <20080625215119.GB11784@loki.buserror.net>
+Subject: Re: [PATCH 1/5] bonding: refactor mii monitor
+Date: Thu, 07 Aug 2008 04:00:17 -0400
+Message-ID: <489AAB91.2000202@pobox.com>
+References: <12150481222323-git-send-email-fubar@us.ibm.com> <12150481241992-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Scott Wood <scottwood@freescale.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47890 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59661 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282AbYHGH7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 03:59:03 -0400
-In-Reply-To: <20080625215119.GB11784@loki.buserror.net>
+	id S1751971AbYHGIAV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 04:00:21 -0400
+In-Reply-To: <12150481241992-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Wood wrote:
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
+Jay Vosburgh wrote:
+> 	Refactor mii monitor.  As with the previous ARP monitor refactor,
+> the motivation for this is to handle locking rationally (in this case,
+> removing conditional locking) and generally clean up the code.
+> 
+> 	This patch breaks up the monolithic mii monitor into two phases:
+> an inspection phase, followed by an optional commit phase.  The commit phase
+> is the only portion that requires RTNL or makes changes to state, and is
+> only called when inspection finds something to change.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 > ---
->  Documentation/powerpc/booting-without-of.txt |    5 +-
->  arch/powerpc/sysdev/fsl_soc.c                |    3 +
->  drivers/net/gianfar.c                        |  118 +++++++++++++++++++++++++-
->  drivers/net/gianfar.h                        |   12 ++-
->  drivers/net/gianfar_ethtool.c                |   41 +++++++++-
->  include/linux/fsl_devices.h                  |    1 +
->  6 files changed, 172 insertions(+), 8 deletions(-)
+>  drivers/net/bonding/bond_3ad.c  |    1 +
+>  drivers/net/bonding/bond_main.c |  394 +++++++++++++++++----------------------
+>  2 files changed, 173 insertions(+), 222 deletions(-)
 
-did this ever get ack'd by Kumar?  I don't have a record of it.
+applied 1-5
 
 
