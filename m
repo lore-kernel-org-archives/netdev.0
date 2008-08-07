@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sfq dump broken in 2.6.27-rc1
-Date: Wed, 06 Aug 2008 18:13:27 -0700 (PDT)
-Message-ID: <20080806.181327.139395860.davem@davemloft.net>
-References: <20080806180237.4912a677@extreme>
+Subject: Re: [PATCH] net/ipv4/route.c: fix build error
+Date: Wed, 06 Aug 2008 18:31:04 -0700 (PDT)
+Message-ID: <20080806.183104.55343544.davem@davemloft.net>
+References: <489269AB.8050706@cn.fujitsu.com>
+	<20080731.205132.203087940.davem@davemloft.net>
+	<4899A173.2050807@teltonika.lt>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: stephen.hemminger@vyatta.com
+Cc: wangchen@cn.fujitsu.com, mingo@elte.hu, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org
+To: paulius.zaleckas@teltonika.lt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53044
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38282
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755804AbYHGBN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 21:13:26 -0400
-In-Reply-To: <20080806180237.4912a677@extreme>
+	by vger.kernel.org with ESMTP id S1754482AbYHGBbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2008 21:31:04 -0400
+In-Reply-To: <4899A173.2050807@teltonika.lt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Wed, 6 Aug 2008 18:02:37 -0700
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Date: Wed, 06 Aug 2008 16:04:51 +0300
 
-> With only one sfq (on eth0), I am getting multiple results from
-> 'tc qdisc ls'
+> This function is over ifdef'ed :)
 > 
-> # tc qdisc ls
-> qdisc sfq 8001: dev eth0 root limit 127p quantum 1514b 
-> qdisc sfq 8001: dev eth0 root limit 127p quantum 1514b 
-> qdisc sfq 8001: dev eth0 root limit 127p quantum 1514b 
-> qdisc sfq 8001: dev eth0 root limit 127p quantum 1514b 
-> qdisc sfq 8001: dev eth0 root limit 127p quantum 1514b 
-> 
-> Still bisecting, since there is no obvious reason for the sudden borkage.
+> #ifdef CONFIG_SYSCTL
+> /*
+>   * We really need to sanitize the damn ipv4 init order, then all
+>   * this nonsense will go away.
+>   */
+> void __init ip_static_sysctl_init(void)
+> {
+> #ifdef CONFIG_SYSCTL
+> 	register_sysctl_paths(ipv4_route_path, ipv4_route_table);
+> #endif
+> }
+> #endif
 
-Don't bother bisecting, it will take longer than the obvious
-set of debug printk's you could add to net/sched/sch_api.c:tc_dump_qdisc().
-
-Please use a "mindful" approach to debugging this instead of
-a "mindless" one like bisect :-)
+Thanks, I've gotten rid of the inner ones in my tree.
