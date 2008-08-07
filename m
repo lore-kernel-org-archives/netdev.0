@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates
-Date: Thu, 07 Aug 2008 02:19:01 -0700 (PDT)
-Message-ID: <20080807.021901.172722402.davem@davemloft.net>
-References: <20080807085009.GA31681@havoc.gtf.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Thu, 7 Aug 2008 13:50:09 +0200
+Message-ID: <20080807115009.GF7716@xi.wantstofly.org>
+References: <20080731132735.GA9085@gondor.apana.org.au> <20080803.011945.249059359.davem@davemloft.net> <20080803085553.GA1512@gondor.apana.org.au> <20080806.230741.137564172.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
+	dale@farnsworth.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56011
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754031AbYHGMZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:25:04 -0400
-In-Reply-To: <20080807085009.GA31681@havoc.gtf.org>
+Received: from xi.wantstofly.org ([83.160.184.112]:33066 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753035AbYHGMYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:24:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20080806.230741.137564172.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 7 Aug 2008 04:50:09 -0400
+On Wed, Aug 06, 2008 at 11:07:41PM -0700, David Miller wrote:
 
-> Rough summary:
+> > > I would start hacking on this beast but I haven't yet come up with
+> > > a clean way to share a lot of code with the existing sw GSO engine.
+> > > That's the key to implementing this properly.
+> > 
+> > I think it's doable.  We could refactor the software GSO so that
+> > it spits out one fragment at a time and the output could either
+> > be written to some memory provided by the caller or fed through
+> > a callback.
+> > 
+> > BTW, loner term we should start thinking about breaking the 64K
+> > barrier.
 > 
-> * fixes
-> 
-> * additions of the variety where only a few lines are added, to support
->   new hardware (forcedeth, netxen)
-> 
-> * a WAN update that got missed, and IMO should go in for 2.6.27.  This
->   is addressing the complaint about too much stuff still using syncppp,
->   so things get switched more to generic HDLC.  MUCH more typesafe, and
->   links directly with struct net_device, rather than through opaque void
->   pointers and syncppp-specific structs.
-> 
-> * bonding update with core bits previously ack'd by you
-> 
-> * that ethtool.h change increasing speed to 32 bits
-> 
-> Please pull from 'upstream-davem' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
+> So I had this idea.  My goal is to minimize the number of DMA
+> mappings the driver has to make.
 
-I've pulled, but the WAN bits were borderline.  If you couldn't pull
-that WAN stuff in on time, that's just the way it goes sometimes.
+FWIW, this wouldn't make much of a difference in my case..
+
+
+> Another nice aspect of this idea is that we can make the existing GSO
+> code just build this funny "TSO plus hidden headers" SKB, and then do
+> the by-hand unpacking into new SKB chunks that we will let smart
+> drivers do directly into their TX rings.
+
+..but I'm pretty sure that this would.
