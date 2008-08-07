@@ -1,82 +1,48 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Thu, 07 Aug 2008 15:07:49 -0500
-Message-ID: <489B5615.7090902@cs.wisc.edu>
-References: <200807300019.m6U0JkdY012558@localhost.localdomain> <aday73jxdfs.fsf@cisco.com> <200807311752.00911.divy@chelsio.com> <200808071145.03848.divy@chelsio.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: SO_REUSEPORT?
+Date: Thu, 07 Aug 2008 13:14:02 -0700
+Message-ID: <489B578A.9030505@hp.com>
+References: <65634d660808070957j12e1f93rfb577efabc771c9a@mail.gmail.com>	<200808072009.34891.rdenis@simphalempin.com>	<65634d660808071058k7eb33330tcf3c7a877b7a64d@mail.gmail.com>	<489B3C53.1000202@hp.com> <20080807120359.2d62880a@extreme> <65634d660808071243yd7de635i7e780f526161b445@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jgarzik@pobox.com>,
-	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, davem@davemloft.net,
-	Steve Wise <swise@opengridcomputing.com>, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200808071145.03848.divy@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:20671 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752730AbYHGUOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 16:14:06 -0400
+In-Reply-To: <65634d660808071243yd7de635i7e780f526161b445@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> On Thursday 31 July 2008 05:51:59 pm Divy Le Ray wrote:
->> On Wednesday 30 July 2008 02:35:51 pm Roland Dreier wrote:
->>>  > * From a networking standpoint, our main concern becomes how this
->>>  > interacts with the networking stack.  In particular, I'm concerned
->>>  > based on reading the source that this driver uses "TCP port stealing"
->>>  > rather than using a totally separate MAC address (and IP).
->>>  >
->>>  > Stealing a TCP port on an IP/interface already assigned is a common
->>>  > solution in this space, but also a flawed one.  Precisely because the
->>>  > kernel and applications are unaware of this "special, magic TCP port"
->>>  > you open the potential for application problems that are very
->>>  > difficult for an admin to diagnose based on observed behavior.
->>>
->>> That's true, but using a separate MAC and IP opens up a bunch of other
->>> operational problems.  I don't think the right answer for iSCSI offload
->>> is clear yet.
->>>
->>>  - R.
->> Hi Jeff,
->>
->> We've considered the approach of having a separate IP/MAC addresses to
->> manage iSCSI connections. In such a context, the stack would have to be
->> unaware of this iSCSI specific IP address. The iSCSI driver would then have
->> to implement at least its own ARP reply mechanism. DHCP too would have to
->> be managed separately. Most network setting/monitoring tools would also be
->> unavailable.
->>
->> The open-iscsi initiator is not a huge consumer of TCP connections,
->> allocating a TCP port from the stack would be reasonable in terms of
->> resources in this context. It is however unclear if it is an acceptable
->> approach.
->>
->> Our current implementation was designed to be the most tolerable one
->> within the constraints - real or expected - aforementioned.
->>
-> 
-> Hi Jeff,
-> 
-> Mike Christie will not merge this code until he has an explicit 
-> acknowledgement from netdev.
-> 
-> As you mentioned, the port stealing approach we've taken has its issues.
-> We consequently analyzed your suggestion to use a different IP/MAC address for 
-> iSCSI and it raises other tough issues (separate ARP and DHCP management, 
-> unavailability of common networking tools).
+> I'm not sure that's applicable for us since the server application and
+> networking will max out all the CPUs on host anyway; one way or
+> another we need to dispatch the work of incoming connections to
+> threads on different CPUs.  If we do this in user space and do all
+> accepts in one thread, the CPU of that  thread becomes the bottleneck
+> (we're accepting about 40,000 connections per second).  If we have
+> multiple accept threads running on different CPUs, this helps some,
+> but the load is spread unevenly across the CPUs and we still can't get
+> the highest connection rate.  So it seems we're looking for a method
+> that distributes the incoming connection load across CPUs pretty
+> evenly.
 
-If the iscsi tools could not have to deal with networking issues that 
-are already handled by other networking tools it would great for the 
-iscsi users so they do not have to learn new tools. Maybe we could 
-somehow hook into the existing network tools so they support these iscsi 
-hbas as well as normal NICs. Would it be possible to have the iscsi hbas 
-export the necessary network interfaces so that existing network tools 
-can manage them?
+Well, if you _really_ want the load spread, you may need to use a 
+multiqueue (at least inbound if not also later outbound) interface, 
+"know" how the NIC will hash and then have N distinct port numbers each 
+assigned to a LISTEN endpoint.  The old song and dance about making an N 
+CPU system look as much like N single-CPU systems and all that...
 
-If it comes down to it and your port stealing implementation is not 
-acceptable like how broadcom's was not, I will be ok with doing some 
-special iscsi network tools. Or instead of special iscsi tools, is there 
-something that the RDMA/iWarp guys are using that we can share?
+Unless there are NICs you can "tell" where to send the interrupts, which 
+IMO is preferable - I have a preference for the application/scheduler 
+telling "networking" where to work rather than networking (or the NIC) 
+telling the scheduler where to run a thread - the archives of either 
+here or netnews will probalby pull-up stuff were I've talked about 
+Inbound Packet Scheduling (IPS) vs Thread Optimized Packet Scheduling 
+(TOPS) and limitations of simplistic address hashing to pick a 
+queue/processor/whatnot :)
+
+rick jones
