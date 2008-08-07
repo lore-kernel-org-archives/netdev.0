@@ -1,27 +1,30 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: meant hlist_* - Re: hash_list and rcu locking question
-Date: Thu, 7 Aug 2008 07:53:44 +0400
-Message-ID: <20080807035344.GA18861@2ka.mipt.ru>
-References: <379e30200808061849w3a47f981s5ccde245059f595b@mail.gmail.com>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: Re: [PATCH 1/3] Add (struct sock*) sk parameter for send_ack()
+Date: Thu, 07 Aug 2008 12:43:41 +0800
+Message-ID: <489A7D7D.1090004@cn.fujitsu.com>
+References: <48981BDE.70201@cn.fujitsu.com> <20080806.202038.93643856.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
-To: Tobias Koeck <tobias.koeck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:43780 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753324AbYHGDxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2008 23:53:31 -0400
-Content-Disposition: inline
-In-Reply-To: <379e30200808061849w3a47f981s5ccde245059f595b@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:56660 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752765AbYHGEri (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 00:47:38 -0400
+In-Reply-To: <20080806.202038.93643856.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 07, 2008 at 03:49:43AM +0200, Tobias Koeck (tobias.koeck@gmail.com) wrote:
-> I mean the rcu function for the hlist_{head,list} ....
+David Miller wrote:
+> Considering all of this, I'd say you should fix this as
+> one big patch with a really nice commit log message.
+> 
 
-include/linux/rculist.h : hlist_for_each_entry_rcu and friends.
-Does it contain needded calls?
+  OK, I'll repost it later.
 
 -- 
-	Evgeniy Polyakov
+Regards
+Gui Jianfeng
+
