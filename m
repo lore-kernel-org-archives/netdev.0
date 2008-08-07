@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: trap attempts to modify noop qdisc
-Date: Wed, 06 Aug 2008 23:11:59 -0700 (PDT)
-Message-ID: <20080806.231159.55957179.davem@davemloft.net>
-References: <20080806202029.63f25c81@extreme>
-	<20080806.202210.92821768.davem@davemloft.net>
-	<20080806230850.41435290@extreme>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/7] netxen: fix link status, link speed
+Date: Thu, 07 Aug 2008 02:11:57 -0400
+Message-ID: <489A922D.3010906@garzik.org>
+References: <> <1217585701-13958-2-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: stephen.hemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: Dhananjay Phadke <dhananjay@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60380
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753773AbYHGGL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 02:11:58 -0400
-In-Reply-To: <20080806230850.41435290@extreme>
+Received: from srv5.dvmed.net ([207.36.208.214]:47922 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754198AbYHGGL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 02:11:59 -0400
+In-Reply-To: <1217585701-13958-2-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Wed, 6 Aug 2008 23:08:50 -0700
-
-> Since noop qdisc is a singleton, it shouldn't end up with any other
-> qdisc's on it's list, and it shouldn't be deleted.
+Dhananjay Phadke wrote:
+> For NX3031, the phy is managed by firmware, so driver should avoid
+> setting any phy registers.
 > 
-> Dave, this should help you find the bug.
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> ---
+>  drivers/net/netxen/netxen_nic_ethtool.c  |   33 +++++++++++++++++++++--------
+>  drivers/net/netxen/netxen_nic_hdr.h      |    7 ++++++
+>  drivers/net/netxen/netxen_nic_hw.c       |   17 +++++++++++---
+>  drivers/net/netxen/netxen_nic_main.c     |   19 +++++++----------
+>  drivers/net/netxen/netxen_nic_niu.c      |   12 ++++++++++
+>  drivers/net/netxen/netxen_nic_phan_reg.h |    4 +-
+>  6 files changed, 66 insertions(+), 26 deletions(-)
 
-Thanks.
+applied 1-5
+
+
