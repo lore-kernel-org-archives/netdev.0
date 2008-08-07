@@ -1,73 +1,48 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH]net-sched: Fix actions referencing
-Date: Thu, 07 Aug 2008 05:42:57 -0400
-Message-ID: <1218102177.12799.12.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Thu, 7 Aug 2008 10:09:10 +0000
+Message-ID: <20080807100910.GA12391@ff.dom.local>
+References: <20080806224248.18266k9ahc5nkk8w@hayate.ip6> <20080806215258.GA3306@ami.dom.local> <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-wEdJ8d2hHRftx8Eqvdkk"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:50020 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbYHGMlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:41:20 -0400
-Received: by an-out-0708.google.com with SMTP id d40so72012and.103
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 05:41:19 -0700 (PDT)
+Received: from ik-out-1112.google.com ([66.249.90.182]:47184 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756875AbYHGMmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:42:15 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so423736ika.5
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 05:42:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080806.220911.91192536.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 06, 2008 at 10:09:11PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 06 Aug 2008 20:26:36 -0700 (PDT)
+> 
+> > 
+> > I still haven't seen anyone suggest creating a __NET_XMIT_KFREE_SKB to
+> > fix this most rediculious problem.
+> > 
+> > I'm still waiting...
+> 
+> Here is what it might look like.  I haven't tried to boot this,
+> but the only non-trivial case was SFQ's congestion drop code.
 
---=-wEdJ8d2hHRftx8Eqvdkk
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+After some checking it looks mostly OK to me, but one thing: in
+sch_gred gred_drop() calls qdisc_drop(), so now it needs kfree_skb().
+BTW, maybe it would be nicer to add __qdisc_drop() for these new
+things?
 
+There is also some doubt about differences between ->enqueue() and
+->requeue() wrt. kfree_skb() and returning codes: maybe it would be
+better (for uniformity) to add similar changes to requeues (and
+dev_requeue_skb()) as well?
 
-Noticed while exercising Denys' iproute changes.
+I don't know if it's worth to mention, but now, if somebody really
+uses this sch_blackhole under some upper qdiscs the stats will change.
 
-cheers,
-jamal
-
---=-wEdJ8d2hHRftx8Eqvdkk
-Content-Disposition: attachment; filename=act_r
-Content-Type: text/plain; name=act_r; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-net-sched: Fix actions referencing
-
-When an action is added several times with the same exact index
-it gets deleted on every even-numbered attempt.
-This fixes that issue.
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
----
-commit 82ca26fa474171326de9851a2f547c490f8e7276
-tree 04ebfd9dcb15d463a0e49740940f0c8e86916a25
-parent bb7564f1e081c18dae905c8fc871269f4a81ba99
-author Jamal Hadi Salim <hadi@cyberus.ca> Thu, 07 Aug 2008 05:37:51 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Thu, 07 Aug 2008 05:37:51 -0400
-
- net/sched/act_api.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index d308c19..26c7e1f 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -205,10 +205,9 @@ struct tcf_common *tcf_hash_check(u32 index, struct tc_action *a, int bind,
- {
- 	struct tcf_common *p = NULL;
- 	if (index && (p = tcf_hash_lookup(index, hinfo)) != NULL) {
--		if (bind) {
-+		if (bind)
- 			p->tcfc_bindcnt++;
--			p->tcfc_refcnt++;
--		}
-+		p->tcfc_refcnt++;
- 		a->priv = p;
- 	}
- 	return p;
-
---=-wEdJ8d2hHRftx8Eqvdkk--
-
+Jarek P.
