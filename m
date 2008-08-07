@@ -1,41 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
-Date: Thu, 7 Aug 2008 12:05:37 +0000
-Message-ID: <20080807120536.GA13299@ff.dom.local>
-References: <20080806224248.18266k9ahc5nkk8w@hayate.ip6> <20080806215258.GA3306@ami.dom.local> <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net> <20080807100910.GA12391@ff.dom.local> <20080807143654.16955ngk5tnp5kzk@hayate.ip6>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates
+Date: Thu, 07 Aug 2008 02:19:01 -0700 (PDT)
+Message-ID: <20080807.021901.172722402.davem@davemloft.net>
+References: <20080807085009.GA31681@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:64314 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755268AbYHGMZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:25:11 -0400
-Received: by ug-out-1314.google.com with SMTP id h2so327791ugf.16
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 05:25:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080807143654.16955ngk5tnp5kzk@hayate.ip6>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56011
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754031AbYHGMZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 08:25:04 -0400
+In-Reply-To: <20080807085009.GA31681@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 07, 2008 at 02:36:54PM +0300, Jussi Kivilinna wrote:
-> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
->
->> There is also some doubt about differences between ->enqueue() and
->> ->requeue() wrt. kfree_skb() and returning codes: maybe it would be
->> better (for uniformity) to add similar changes to requeues (and
->> dev_requeue_skb()) as well?
->>
->
-> I think requeue should be changed to return same as enqueue, netem even
-> uses requeue as enqueue replacement for packet reordering. Maybe add
-> new function qdisc_requeue_tree to handle freeing and masking flags and
-> change outside uses of requeue to use it (qdisc_peek_len in hfsc,
-> sch_atm_dequeue, dev_requeue_skb).
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 7 Aug 2008 04:50:09 -0400
 
-Yes, good point again: if ->enqueue() could be mixed with ->requeue()
-there is more than uniformity argument to do the change everywhere.
+> Rough summary:
+> 
+> * fixes
+> 
+> * additions of the variety where only a few lines are added, to support
+>   new hardware (forcedeth, netxen)
+> 
+> * a WAN update that got missed, and IMO should go in for 2.6.27.  This
+>   is addressing the complaint about too much stuff still using syncppp,
+>   so things get switched more to generic HDLC.  MUCH more typesafe, and
+>   links directly with struct net_device, rather than through opaque void
+>   pointers and syncppp-specific structs.
+> 
+> * bonding update with core bits previously ack'd by you
+> 
+> * that ethtool.h change increasing speed to 32 bits
+> 
+> Please pull from 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
 
-Jarek P.
+I've pulled, but the WAN bits were borderline.  If you couldn't pull
+that WAN stuff in on time, that's just the way it goes sometimes.
