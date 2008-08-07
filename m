@@ -1,40 +1,23 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] WAN: remove extra help text from HDLC_PPP config option
-Date: Thu, 07 Aug 2008 04:00:27 -0400
-Message-ID: <489AAB9B.1010107@garzik.org>
-References: <m3vdzq4rdg.fsf@maximus.localdomain>
+From: "Aleksey Senin" <aleksey.senin@gmail.com>
+Subject: Is this necessary export ndisc_send_ns
+Date: Thu, 7 Aug 2008 11:01:58 +0300
+Message-ID: <118191fa0808070101h94eb4b5rd94cdc457b1fa8e6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59668 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751971AbYHGIAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 04:00:31 -0400
-In-Reply-To: <m3vdzq4rdg.fsf@maximus.localdomain>
+Received: from rv-out-0506.google.com ([209.85.198.233]:61519 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752204AbYHGIB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 04:01:59 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so351858rvb.1
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 01:01:59 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa wrote:
-> Remove extra help text from HDLC_PPP config option.
->=20
-> Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
->=20
-> diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
-> index d3c2773..8f3ac39 100644
-> --- a/drivers/net/wan/Kconfig
-> +++ b/drivers/net/wan/Kconfig
-> @@ -154,8 +154,6 @@ config HDLC_PPP
->  	help
->  	  Generic HDLC driver supporting PPP over WAN connections.
-> =20
-> -	  It will be replaced by new PPP implementation in Linux 2.6.26.
-> -
->  	  If unsure, say N.
-
-applied
-
-
+Hello, all!
+I'm working on IPv6 support for Ininiband stack and some module need
+to perform network discovery. Is there a way to do it without
+exporting symbol ndisc_send_ns?
