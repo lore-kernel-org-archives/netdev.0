@@ -1,49 +1,36 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 2/3] gianfar: Magic Packet and suspend/resume support.
-Date: Thu, 7 Aug 2008 07:58:57 -0500
-Message-ID: <E4AD279E-CA52-4F8C-BA74-15880AA29511@kernel.crashing.org>
-References: <20080625215119.GB11784@loki.buserror.net>
-	<489AAB3E.8020507@pobox.com>
-Mime-Version: 1.0 (Apple Message framework v926)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
-Content-Transfer-Encoding: 7bit
-Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <489AAB3E.8020507@pobox.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Thu, 7 Aug 2008 10:31:30 +0000
+Message-ID: <20080807103130.GA12654@ff.dom.local>
+References: <20080806.202636.246995904.davem@davemloft.net> <20080806.220911.91192536.davem@davemloft.net> <20080807100910.GA12391@ff.dom.local> <20080807.031058.193703340.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:8236 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756593AbYHGNHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 09:07:35 -0400
+Received: by ug-out-1314.google.com with SMTP id h2so331638ugf.16
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 06:07:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080807.031058.193703340.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 07, 2008 at 03:10:58AM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Thu, 7 Aug 2008 10:09:10 +0000
+...
+> > After some checking it looks mostly OK to me, but one thing: in
+> > sch_gred gred_drop() calls qdisc_drop(), so now it needs kfree_skb().
+> > BTW, maybe it would be nicer to add __qdisc_drop() for these new
+> > things?
+> 
+> qdisc_drop() sets the new __NET_XMIT_KFREE bit, but sch_gred wants to
+> return NET_XMIT_CN, so I OR'd in the __NET_XMIT_KFREE bit there.
 
-On Aug 7, 2008, at 2:58 AM, Jeff Garzik wrote:
+Hmm... I'm not sure we're thinking about the same function?
 
-> Scott Wood wrote:
->> Signed-off-by: Scott Wood <scottwood@freescale.com>
->> ---
->> Documentation/powerpc/booting-without-of.txt |    5 +-
->> arch/powerpc/sysdev/fsl_soc.c                |    3 +
->> drivers/net/gianfar.c                        |  118 ++++++++++++++++ 
->> +++++++++-
->> drivers/net/gianfar.h                        |   12 ++-
->> drivers/net/gianfar_ethtool.c                |   41 +++++++++-
->> include/linux/fsl_devices.h                  |    1 +
->> 6 files changed, 172 insertions(+), 8 deletions(-)
->
-> did this ever get ack'd by Kumar?  I don't have a record of it.
->
-
-A version of this is already in linus's tree.  I just forgot to add  
-your Ack to it (and I apologize for that).
-
-git commit d87eb12785c14de1586e3bad86ca2c0991300339
-
-- k
+Jarek P.
