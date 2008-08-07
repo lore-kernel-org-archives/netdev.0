@@ -1,73 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: using software TSO on non-TSO capable netdevices
-Date: Wed, 06 Aug 2008 23:07:41 -0700 (PDT)
-Message-ID: <20080806.230741.137564172.davem@davemloft.net>
-References: <20080731132735.GA9085@gondor.apana.org.au>
-	<20080803.011945.249059359.davem@davemloft.net>
-	<20080803085553.GA1512@gondor.apana.org.au>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: [PATCH] net: trap attempts to modify noop qdisc
+Date: Wed, 6 Aug 2008 23:08:50 -0700
+Message-ID: <20080806230850.41435290@extreme>
+References: <20080806180237.4912a677@extreme>
+	<20080806.181327.139395860.davem@davemloft.net>
+	<20080806202029.63f25c81@extreme>
+	<20080806.202210.92821768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, buytenh@wantstofly.org,
-	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
-	dale@farnsworth.org
-To: herbert@gondor.apana.org.au
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34890
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751833AbYHGGHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 02:07:41 -0400
-In-Reply-To: <20080803085553.GA1512@gondor.apana.org.au>
+Received: from mail.vyatta.com ([216.93.170.194]:57294 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753169AbYHGGIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 02:08:52 -0400
+In-Reply-To: <20080806.202210.92821768.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 3 Aug 2008 16:55:53 +0800
+Since noop qdisc is a singleton, it shouldn't end up with any other
+qdisc's on it's list, and it shouldn't be deleted.
 
-> On Sun, Aug 03, 2008 at 01:19:45AM -0700, David Miller wrote:
-> >
-> > I would start hacking on this beast but I haven't yet come up with
-> > a clean way to share a lot of code with the existing sw GSO engine.
-> > That's the key to implementing this properly.
-> 
-> I think it's doable.  We could refactor the software GSO so that
-> it spits out one fragment at a time and the output could either
-> be written to some memory provided by the caller or fed through
-> a callback.
-> 
-> BTW, loner term we should start thinking about breaking the 64K
-> barrier.
+Dave, this should help you find the bug.  Any change to root qdisc causes
+this to trigger.  I.e doing:
+  tc qdisc add dev eth0 root pfifo
+causes pfifo to end up on the noop_qdisc->list, which later causes problems.
 
-So I had this idea.  My goal is to minimize the number of DMA
-mappings the driver has to make.
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 4840aff..57b778f 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -792,8 +792,10 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 				goto err_out3;
+ 			}
+ 		}
+-		if (parent && !(sch->flags & TCQ_F_INGRESS))
++		if (parent && !(sch->flags & TCQ_F_INGRESS)) {
++			BUG_ON(dev_queue->qdisc == &noop_qdisc);
+ 			list_add_tail(&sch->list, &dev_queue->qdisc->list);
++		}
+ 
+ 		return sch;
+ 	}
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 7cf83b3..5988863 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -547,6 +547,8 @@ static void __qdisc_destroy(struct rcu_head *head)
+ 
+ void qdisc_destroy(struct Qdisc *qdisc)
+ {
++	BUG_ON(qdisc == &noop_qdisc);
++
+ 	if (qdisc->flags & TCQ_F_BUILTIN ||
+ 	    !atomic_dec_and_test(&qdisc->refcnt))
+ 		return;
+-- 
+1.5.4.3
 
-We don't touch anything in the original TSO skb.  However we expand
-the headroom (if necessary) and in the area in front of skb->data we
-build the header areas for the sub-TSO frames, one by one.
-
-We give the driver some iterator functions that walk through the
-header areas and compute offset/length pairs into the
-skb_shared_info() page list.
-
-So basically the number of DMA mappings to make would be identical
-to the number necessary for TSO capable hardware.  And at the
-top level we can arrange it such that the headroom will be large
-enough already in the cases that matter.
-
-The only fly in the ointment is that the driver has to store these
-DMA mapping cookies away somewhere, because what's going to happen
-is the driver will directly DMA map the skb_shared_info() area pages
-but then slice and adjust DMA addresses as it unpacks the TSO frame
-into the TX ring.
-
-This might be where we get pushed over the edge and have to add a
-dma_addr_t to sk_buff and skb_frag_struct.  And that might not
-be such a bad thing because it will allow other things that
-we've always wanted to do.
-
-Another nice aspect of this idea is that we can make the existing GSO
-code just build this funny "TSO plus hidden headers" SKB, and then do
-the by-hand unpacking into new SKB chunks that we will let smart
-drivers do directly into their TX rings.
-
-Herbert what do you think?
