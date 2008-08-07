@@ -1,47 +1,35 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: "e100_probe: Error clearing wake event" when booting 2.6.27-rc1
-Date: Thu, 7 Aug 2008 09:47:37 -0700
-Message-ID: <200808070947.37534.jbarnes@virtuousgeek.org>
-References: <200808051730.27599.alessandro.guido@gmail.com> <200808052203.07815.rjw@sisk.pl>
+From: "Tom Herbert" <therbert@google.com>
+Subject: SO_REUSEPORT?
+Date: Thu, 7 Aug 2008 09:57:15 -0700
+Message-ID: <65634d660808070957j12e1f93rfb577efabc771c9a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alessandro Guido <alessandro.guido@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755492AbYHGQr6@vger.kernel.org>
-In-Reply-To: <200808052203.07815.rjw@sisk.pl>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:22818 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752636AbYHGQ5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 12:57:19 -0400
+Received: from wpaz24.hot.corp.google.com (wpaz24.hot.corp.google.com [172.24.198.88])
+	by smtp-out.google.com with ESMTP id m77GvGh1018341
+	for <netdev@vger.kernel.org>; Thu, 7 Aug 2008 17:57:16 +0100
+Received: from rv-out-0506.google.com (rvbl9.prod.google.com [10.140.88.9])
+	by wpaz24.hot.corp.google.com with ESMTP id m77Guuo1017249
+	for <netdev@vger.kernel.org>; Thu, 7 Aug 2008 09:57:15 -0700
+Received: by rv-out-0506.google.com with SMTP id l9so465426rvb.47
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 09:57:15 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, August 5, 2008 1:03 pm Rafael J. Wysocki wrote:
-> On Tuesday, 5 of August 2008, Alessandro Guido wrote:
-> > [please cc me on replies]
-> >
-> > I'm getting this error message when booting my laptop.
-> >
-> > The commit that causes this is:
-> >
-> > commit eb9d0fe40e313c0a74115ef456a2e43a6c8da72f
-> > Author: Rafael J. Wysocki <rjw@sisk.pl>
-> > Date:   Mon Jul 7 03:34:48 2008 +0200
-> >
-> >     PCI ACPI: Rework PCI handling of wake-up
-> >
-> > [very long commit message snipped]
-> >
-> > Should I ignore that?
->
-> The message is harmless, but it exposes the problem that e100_probe()
-> should not use pci_enable_wake() for this purpose.
->
-> The appended patch makes it use pci_pme_active() instead.
+Hello,
 
-I can take the pci_pme_active bits, but the e100 stuff should go in through 
-Jeff probably.  Care to respin?
+We are looking at ways to scale TCP listeners.  I think we like is the
+ability to listen on a port from multiple threads (sockets bound to
+same port,  INADDR_ANY, and no interface binding) , which is what
+SO_REUSEPORT would seem to allow.  Has this ever been implemented for
+Linux or is there a good reason not to have it?
 
 Thanks,
-Jesse
+Tom
