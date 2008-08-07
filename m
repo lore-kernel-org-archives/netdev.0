@@ -1,36 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Fri, 8 Aug 2008 00:31:37 +0200
-Message-ID: <20080807223137.GA17407@electric-eye.fr.zoreil.com>
-References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com> <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com> <20080805214250.GA23226@electric-eye.fr.zoreil.com> <2c2a4e250808052221p7d22adf5w7a656e423bff0b26@mail.gmail.com> <20080806190353.GB17174@electric-eye.fr.zoreil.com> <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH] PCI PM: Export pci_pme_active to drivers
+Date: Thu, 7 Aug 2008 15:34:10 -0700
+Message-ID: <200808071534.11482.jbarnes@virtuousgeek.org>
+References: <200808051730.27599.alessandro.guido@gmail.com> <200808080000.07156.rjw@sisk.pl> <200808080014.25493.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: John P Poet <jppoet@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alessandro Guido <alessandro.guido@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	pm list <linux-pm@lists.linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42722 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753664AbYHGWbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 18:31:41 -0400
+Received: from outbound-mail-108.bluehost.com ([69.89.22.8]:35539 "HELO
+	outbound-mail-108.bluehost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752646AbYHGWeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 18:34:18 -0400
+In-Reply-To: <200808080014.25493.rjw@sisk.pl>
 Content-Disposition: inline
-In-Reply-To: <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John P Poet <jppoet@gmail.com> :
-[...]
-> That does not make any difference.
-> 
-> I will say, that the problem seems to be reduced by this patch (or the
-> 0002-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch).
-> 
-> Before, I was getting failures two or three times an hour.  With
-> either of these patches applied, the failure rate has dropped to one
-> every two to four hours.
+On Thursday, August 7, 2008 3:14 pm Rafael J. Wysocki wrote:
+> PCI PM: Export pci_pme_active to drivers
+>
+> Export pci_pme_active() to drivers, so that they can clear the
+> PME_status bit and disable PME# for their devices without involving
+> ACPI.
 
-I have updated the kit at http://userweb.kernel.org/~romieu/r8169/2.6.27-rc2
+Cool, applied.  Thanks Rafael.
 
-Can you give it a try ?
-
--- 
-Ueimor
+Jesse
