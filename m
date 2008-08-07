@@ -1,393 +1,160 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
-Date: Wed, 06 Aug 2008 22:09:11 -0700 (PDT)
-Message-ID: <20080806.220911.91192536.davem@davemloft.net>
-References: <20080806224248.18266k9ahc5nkk8w@hayate.ip6>
-	<20080806215258.GA3306@ami.dom.local>
-	<20080806.202636.246995904.davem@davemloft.net>
+From: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+Subject: [PATCH] Fix kernel panic when calling tcp_v(4/6)_md5_do_lookup
+Date: Thu, 07 Aug 2008 13:12:57 +0800
+Message-ID: <489A8459.1020909@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: jussi.kivilinna@mbnet.fi, kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33710
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751456AbYHGFJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 01:09:10 -0400
-In-Reply-To: <20080806.202636.246995904.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:52923 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752894AbYHGFQn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 01:16:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 06 Aug 2008 20:26:36 -0700 (PDT)
+If the following packet flow happen, kernel will panic.
+MathineA			MathineB
+		SYN
+	---------------------->    
+        	SYN+ACK
+	<----------------------
+		ACK(bad seq)
+	---------------------->
+When a bad seq ACK is received, tcp_v4_md5_do_lookup(skb->sk, ip_hdr(skb)->daddr))
+is finally called by tcp_v4_reqsk_send_ack(), but the first parameter(skb->sk) is 
+NULL at that moment, so kernel panic happens.
+This patch fixes this bug.
 
-> 
-> I still haven't seen anyone suggest creating a __NET_XMIT_KFREE_SKB to
-> fix this most rediculious problem.
-> 
-> I'm still waiting...
+Below is the OOPS output:
 
-Here is what it might look like.  I haven't tried to boot this,
-but the only non-trivial case was SFQ's congestion drop code.
+[  302.812793] IP: [<c05cfaa6>] tcp_v4_md5_do_lookup+0x12/0x42
+[  302.817075] Oops: 0000 [#1] SMP 
+[  302.819815] Modules linked in: ipv6 loop dm_multipath rtc_cmos rtc_core rtc_lib pcspkr pcnet32 mii i2c_piix4 parport_pc i2c_core parport ac button ata_piix libata dm_mod mptspi mptscsih mptbase scsi_transport_spi sd_mod scsi_mod crc_t10dif ext3 jbd mbcache uhci_hcd ohci_hcd ehci_hcd [last unloaded: scsi_wait_scan]
+[  302.849946] 
+[  302.851198] Pid: 0, comm: swapper Not tainted (2.6.27-rc1-guijf #5)
+[  302.855184] EIP: 0060:[<c05cfaa6>] EFLAGS: 00010296 CPU: 0
+[  302.858296] EIP is at tcp_v4_md5_do_lookup+0x12/0x42
+[  302.861027] EAX: 0000001e EBX: 00000000 ECX: 00000046 EDX: 00000046
+[  302.864867] ESI: ceb69e00 EDI: 1467a8c0 EBP: cf75f180 ESP: c0792e54
+[  302.868333]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+[  302.871287] Process swapper (pid: 0, ti=c0792000 task=c0712340 task.ti=c0746000)
+[  302.875592] Stack: c06f413a 00000000 cf75f180 ceb69e00 00000000 c05d0d86 000016d0 ceac5400 
+[  302.883275]        c05d28f8 000016d0 ceb69e00 ceb69e20 681bf6e3 00001000 00000000 0a67a8c0 
+[  302.890971]        ceac5400 c04250a3 c06f413a c0792eb0 c0792edc cf59a620 cf59a620 cf59a634 
+[  302.900140] Call Trace:
+[  302.902392]  [<c05d0d86>] tcp_v4_reqsk_send_ack+0x17/0x35
+[  302.907060]  [<c05d28f8>] tcp_check_req+0x156/0x372
+[  302.910082]  [<c04250a3>] printk+0x14/0x18
+[  302.912868]  [<c05d0aa1>] tcp_v4_do_rcv+0x1d3/0x2bf
+[  302.917423]  [<c05d26be>] tcp_v4_rcv+0x563/0x5b9
+[  302.920453]  [<c05bb20f>] ip_local_deliver_finish+0xe8/0x183
+[  302.923865]  [<c05bb10a>] ip_rcv_finish+0x286/0x2a3
+[  302.928569]  [<c059e438>] dev_alloc_skb+0x11/0x25
+[  302.931563]  [<c05a211f>] netif_receive_skb+0x2d6/0x33a
+[  302.934914]  [<d0917941>] pcnet32_poll+0x333/0x680 [pcnet32]
+[  302.938735]  [<c05a3b48>] net_rx_action+0x5c/0xfe
+[  302.941792]  [<c042856b>] __do_softirq+0x5d/0xc1
+[  302.944788]  [<c042850e>] __do_softirq+0x0/0xc1
+[  302.948999]  [<c040564b>] do_softirq+0x55/0x88
+[  302.951870]  [<c04501b1>] handle_fasteoi_irq+0x0/0xa4
+[  302.954986]  [<c04284da>] irq_exit+0x35/0x69
+[  302.959081]  [<c0405717>] do_IRQ+0x99/0xae
+[  302.961896]  [<c040422b>] common_interrupt+0x23/0x28
+[  302.966279]  [<c040819d>] default_idle+0x2a/0x3d
+[  302.969212]  [<c0402552>] cpu_idle+0xb2/0xd2
+[  302.972169]  =======================
+[  302.974274] Code: fc ff 84 d2 0f 84 df fd ff ff e9 34 fe ff ff 83 c4 0c 5b 5e 5f 5d c3 90 90 57 89 d7 56 53 89 c3 50 68 3a 41 6f c0 e8 e9 55 e5 ff <8b> 93 9c 04 00 00 58 85 d2 59 74 1e 8b 72 10 31 db 31 c9 85 f6 
+[  303.011610] EIP: [<c05cfaa6>] tcp_v4_md5_do_lookup+0x12/0x42 SS:ESP 0068:c0792e54
+[  303.018360] Kernel panic - not syncing: Fatal exception in interrupt
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a7abfda..4bfee1b 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -347,6 +347,7 @@ static inline unsigned int qdisc_pkt_len(struct sk_buff *skb)
- enum net_xmit_qdisc_t {
- 	__NET_XMIT_STOLEN = 0x00010000,
- 	__NET_XMIT_BYPASS = 0x00020000,
-+	__NET_XMIT_KFREE  = 0x00040000,
- };
+
+Signed-off-by: Gui Jianfeng <guijianfeng@cn.fujitsu.com>
+---
+ include/net/request_sock.h |    2 +-
+ net/ipv4/tcp_ipv4.c        |    4 ++--
+ net/ipv4/tcp_minisocks.c   |    2 +-
+ net/ipv6/tcp_ipv6.c        |    8 +++++---
+ 4 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 8d6e991..cac811e 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -33,7 +33,7 @@ struct request_sock_ops {
+ 	struct kmem_cache	*slab;
+ 	int		(*rtx_syn_ack)(struct sock *sk,
+ 				       struct request_sock *req);
+-	void		(*send_ack)(struct sk_buff *skb,
++	void		(*send_ack)(struct sock *sk, struct sk_buff *skb,
+ 				    struct request_sock *req);
+ 	void		(*send_reset)(struct sock *sk,
+ 				      struct sk_buff *skb);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 91a8cfd..44c1e93 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -687,14 +687,14 @@ static void tcp_v4_timewait_ack(struct sock *sk, struct sk_buff *skb)
+ 	inet_twsk_put(tw);
+ }
  
- #ifdef CONFIG_NET_CLS_ACT
-@@ -366,8 +367,15 @@ static inline int qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- static inline int qdisc_enqueue_root(struct sk_buff *skb, struct Qdisc *sch)
+-static void tcp_v4_reqsk_send_ack(struct sk_buff *skb,
++static void tcp_v4_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 				  struct request_sock *req)
  {
-+	int ret;
-+
- 	qdisc_skb_cb(skb)->pkt_len = skb->len;
--	return qdisc_enqueue(skb, sch) & NET_XMIT_MASK;
-+	ret = qdisc_enqueue(skb, sch);
-+
-+	if (unlikely(ret & __NET_XMIT_KFREE))
-+		kfree_skb(skb);
-+
-+	return ret & NET_XMIT_MASK;
+ 	tcp_v4_send_ack(skb, tcp_rsk(req)->snt_isn + 1,
+ 			tcp_rsk(req)->rcv_isn + 1, req->rcv_wnd,
+ 			req->ts_recent,
+ 			0,
+-			tcp_v4_md5_do_lookup(skb->sk, ip_hdr(skb)->daddr));
++			tcp_v4_md5_do_lookup(sk, ip_hdr(skb)->daddr));
  }
  
- static inline int __qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch,
-@@ -470,10 +478,9 @@ static inline unsigned int qdisc_queue_drop(struct Qdisc *sch)
+ /*
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 204c421..6d286f5 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -609,7 +609,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
+ 					  tcp_rsk(req)->rcv_isn + 1, tcp_rsk(req)->rcv_isn + 1 + req->rcv_wnd)) {
+ 		/* Out of window: send ACK and drop. */
+ 		if (!(flg & TCP_FLAG_RST))
+-			req->rsk_ops->send_ack(skb, req);
++			req->rsk_ops->send_ack(sk, skb, req);
+ 		if (paws_reject)
+ 			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
+ 		return NULL;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 78185a4..5b90b36 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -69,7 +69,8 @@
+ #include <linux/scatterlist.h>
  
- static inline int qdisc_drop(struct sk_buff *skb, struct Qdisc *sch)
+ static void	tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb);
+-static void	tcp_v6_reqsk_send_ack(struct sk_buff *skb, struct request_sock *req);
++static void	tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
++				      struct request_sock *req);
+ 
+ static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
+ 
+@@ -1138,10 +1139,11 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
+ 	inet_twsk_put(tw);
+ }
+ 
+-static void tcp_v6_reqsk_send_ack(struct sk_buff *skb, struct request_sock *req)
++static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
++				  struct request_sock *req)
  {
--	kfree_skb(skb);
- 	sch->qstats.drops++;
- 
--	return NET_XMIT_DROP;
-+	return NET_XMIT_DROP | __NET_XMIT_KFREE;
+ 	tcp_v6_send_ack(skb, tcp_rsk(req)->snt_isn + 1, tcp_rsk(req)->rcv_isn + 1, req->rcv_wnd, req->ts_recent,
+-			tcp_v6_md5_do_lookup(skb->sk, &ipv6_hdr(skb)->daddr));
++			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr));
  }
  
- static inline int qdisc_reshape_fail(struct sk_buff *skb, struct Qdisc *sch)
-@@ -488,8 +495,7 @@ static inline int qdisc_reshape_fail(struct sk_buff *skb, struct Qdisc *sch)
  
- drop:
- #endif
--	kfree_skb(skb);
--	return NET_XMIT_DROP;
-+	return NET_XMIT_DROP | __NET_XMIT_KFREE;
- }
- 
- /* Length to Time (L2T) lookup in a qdisc_rate_table, to determine how
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 43d3725..696b4ee 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -414,10 +414,11 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		switch (result) {
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
--			kfree_skb(skb);
--			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			return (NET_XMIT_SUCCESS |
-+				__NET_XMIT_STOLEN |
-+				__NET_XMIT_KFREE);
- 		case TC_ACT_SHOT:
--			kfree_skb(skb);
-+			ret |= __NET_XMIT_KFREE;
- 			goto drop;
- 		case TC_POLICE_RECLASSIFY:
- 			if (flow->excess)
-diff --git a/net/sched/sch_blackhole.c b/net/sched/sch_blackhole.c
-index 507fb48..7018675 100644
---- a/net/sched/sch_blackhole.c
-+++ b/net/sched/sch_blackhole.c
-@@ -20,7 +20,7 @@
- static int blackhole_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	qdisc_drop(skb, sch);
--	return NET_XMIT_SUCCESS;
-+	return NET_XMIT_SUCCESS | __NET_XMIT_KFREE;
- }
- 
- static struct sk_buff *blackhole_dequeue(struct Qdisc *sch)
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 4e261ce..27fc053 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -379,8 +379,7 @@ cbq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (cl == NULL) {
- 		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
--		kfree_skb(skb);
--		return ret;
-+		return ret | __NET_XMIT_KFREE;
- 	}
- 
- #ifdef CONFIG_NET_CLS_ACT
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index edd1298..fbc318b 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -235,8 +235,9 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- #ifdef CONFIG_NET_CLS_ACT
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_STOLEN:
--			kfree_skb(skb);
--			return NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			return (NET_XMIT_SUCCESS |
-+				__NET_XMIT_STOLEN |
-+				__NET_XMIT_KFREE);
- 
- 		case TC_ACT_SHOT:
- 			goto drop;
-@@ -266,9 +267,8 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	return NET_XMIT_SUCCESS;
- 
- drop:
--	kfree_skb(skb);
- 	sch->qstats.drops++;
--	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-+	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS | __NET_XMIT_KFREE;
- }
- 
- static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 7cf83b3..753ee7f 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -291,8 +291,7 @@ EXPORT_SYMBOL(netif_carrier_off);
- 
- static int noop_enqueue(struct sk_buff *skb, struct Qdisc * qdisc)
- {
--	kfree_skb(skb);
--	return NET_XMIT_CN;
-+	return NET_XMIT_CN | __NET_XMIT_KFREE;
- }
- 
- static struct sk_buff *noop_dequeue(struct Qdisc * qdisc)
-diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-index c1ad6b8..70c2f58 100644
---- a/net/sched/sch_gred.c
-+++ b/net/sched/sch_gred.c
-@@ -237,7 +237,7 @@ drop:
- 
- congestion_drop:
- 	qdisc_drop(skb, sch);
--	return NET_XMIT_CN;
-+	return NET_XMIT_CN | __NET_XMIT_KFREE;
- }
- 
- static int gred_requeue(struct sk_buff *skb, struct Qdisc* sch)
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index c2b8d9c..9d2059f 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1580,8 +1580,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (cl == NULL) {
- 		if (err & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
--		kfree_skb(skb);
--		return err;
-+		return err | __NET_XMIT_KFREE;
- 	}
- 
- 	err = qdisc_enqueue(skb, cl->qdisc);
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index be35422..3164500 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -561,16 +561,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 			__skb_queue_tail(&q->direct_queue, skb);
- 			q->direct_pkts++;
- 		} else {
--			kfree_skb(skb);
- 			sch->qstats.drops++;
--			return NET_XMIT_DROP;
-+			return NET_XMIT_DROP | __NET_XMIT_KFREE;
- 		}
- #ifdef CONFIG_NET_CLS_ACT
- 	} else if (!cl) {
- 		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
--		kfree_skb(skb);
--		return ret;
-+		return ret | __NET_XMIT_KFREE;
- #endif
- 	} else if ((ret = qdisc_enqueue(skb, cl->un.leaf.q)) != NET_XMIT_SUCCESS) {
- 		if (net_xmit_drop_count(ret)) {
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index fb0294d..928855d 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -175,8 +175,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	if (count == 0) {
- 		sch->qstats.drops++;
--		kfree_skb(skb);
--		return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-+		return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS | __NET_XMIT_KFREE;
- 	}
- 
- 	skb_orphan(skb);
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index eac1976..3284555 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -76,8 +76,7 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
--		kfree_skb(skb);
--		return ret;
-+		return ret | __NET_XMIT_KFREE;
- 	}
- #endif
- 
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 5da0583..adc71f6 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -105,7 +105,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 
- congestion_drop:
- 	qdisc_drop(skb, sch);
--	return NET_XMIT_CN;
-+	return NET_XMIT_CN | __NET_XMIT_KFREE;
- }
- 
- static int red_requeue(struct sk_buff *skb, struct Qdisc* sch)
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 6e041d1..11b3098 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -232,7 +232,7 @@ static inline void sfq_inc(struct sfq_sched_data *q, sfq_index x)
- 	sfq_link(q, x);
- }
- 
--static unsigned int sfq_drop(struct Qdisc *sch)
-+static struct sk_buff *__sfq_drop(struct Qdisc *sch, int *len_p)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
- 	sfq_index d = q->max_depth;
-@@ -247,12 +247,13 @@ static unsigned int sfq_drop(struct Qdisc *sch)
- 		skb = q->qs[x].prev;
- 		len = qdisc_pkt_len(skb);
- 		__skb_unlink(skb, &q->qs[x]);
--		kfree_skb(skb);
- 		sfq_dec(q, x);
- 		sch->q.qlen--;
- 		sch->qstats.drops++;
- 		sch->qstats.backlog -= len;
--		return len;
-+		if (len_p)
-+			*len_p = len;
-+		return skb;
- 	}
- 
- 	if (d == 1) {
-@@ -263,22 +264,37 @@ static unsigned int sfq_drop(struct Qdisc *sch)
- 		skb = q->qs[d].prev;
- 		len = qdisc_pkt_len(skb);
- 		__skb_unlink(skb, &q->qs[d]);
--		kfree_skb(skb);
- 		sfq_dec(q, d);
- 		sch->q.qlen--;
- 		q->ht[q->hash[d]] = SFQ_DEPTH;
- 		sch->qstats.drops++;
- 		sch->qstats.backlog -= len;
--		return len;
-+		if (len_p)
-+			*len_p = len;
-+		return skb;
- 	}
- 
--	return 0;
-+	if (len_p)
-+		*len_p = 0;
-+	return NULL;
-+}
-+
-+static unsigned int sfq_drop(struct Qdisc *sch)
-+{
-+	struct sk_buff *skb;
-+	int len;
-+
-+	skb = __sfq_drop(sch, &len);
-+	if (skb)
-+		kfree_skb(skb);
-+	return len;
- }
- 
- static int
- sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
-+	struct sk_buff *drop_skb;
- 	unsigned int hash;
- 	sfq_index x;
- 	int ret;
-@@ -287,8 +303,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (hash == 0) {
- 		if (ret & __NET_XMIT_BYPASS)
- 			sch->qstats.drops++;
--		kfree_skb(skb);
--		return ret;
-+		return ret | __NET_XMIT_KFREE;
- 	}
- 	hash--;
- 
-@@ -325,8 +340,13 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		return 0;
- 	}
- 
--	sfq_drop(sch);
--	return NET_XMIT_CN;
-+	drop_skb = __sfq_drop(sch, NULL);
-+	if (drop_skb == skb) {
-+		return NET_XMIT_CN | __NET_XMIT_KFREE;
-+	} else {
-+		kfree_skb(drop_skb);
-+		return NET_XMIT_CN;
-+	}
- }
- 
- static int
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 7d3b7ff..4f84ea6 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -125,12 +125,13 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 
- 	if (qdisc_pkt_len(skb) > q->max_size) {
- 		sch->qstats.drops++;
-+		ret = NET_XMIT_DROP;
- #ifdef CONFIG_NET_CLS_ACT
- 		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
- #endif
--			kfree_skb(skb);
-+			ret |= __NET_XMIT_KFREE;
- 
--		return NET_XMIT_DROP;
-+		return ret;
- 	}
- 
- 	ret = qdisc_enqueue(skb, q->qdisc);
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index 2c35c67..befc919 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -88,9 +88,8 @@ teql_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 		return 0;
- 	}
- 
--	kfree_skb(skb);
- 	sch->qstats.drops++;
--	return NET_XMIT_DROP;
-+	return NET_XMIT_DROP | __NET_XMIT_KFREE;
- }
- 
- static int
+-- 
+1.5.3
+
+
