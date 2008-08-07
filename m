@@ -1,44 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [UPDATED PATCH 7/7] igb: remove 82576 quad adapter
-Date: Thu, 07 Aug 2008 01:58:04 -0400
-Message-ID: <489A8EEC.5010403@garzik.org>
-References: <20080804215531.16188.73257.stgit@localhost.localdomain> <20080804220032.16188.65651.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: using software TSO on non-TSO capable netdevices
+Date: Wed, 06 Aug 2008 23:07:41 -0700 (PDT)
+Message-ID: <20080806.230741.137564172.davem@davemloft.net>
+References: <20080731132735.GA9085@gondor.apana.org.au>
+	<20080803.011945.249059359.davem@davemloft.net>
+	<20080803085553.GA1512@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: bhutchings@solarflare.com, buytenh@wantstofly.org,
+	netdev@vger.kernel.org, akarkare@marvell.com, nico@cam.org,
+	dale@farnsworth.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41703 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750901AbYHGF6H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Aug 2008 01:58:07 -0400
-In-Reply-To: <20080804220032.16188.65651.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34890
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751833AbYHGGHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 02:07:41 -0400
+In-Reply-To: <20080803085553.GA1512@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 3 Aug 2008 16:55:53 +0800
+
+> On Sun, Aug 03, 2008 at 01:19:45AM -0700, David Miller wrote:
+> >
+> > I would start hacking on this beast but I haven't yet come up with
+> > a clean way to share a lot of code with the existing sw GSO engine.
+> > That's the key to implementing this properly.
 > 
-> removing the 82576 quad adapter as it will not have completed testing by
-> the time the kernel has been released.
+> I think it's doable.  We could refactor the software GSO so that
+> it spits out one fragment at a time and the output could either
+> be written to some memory provided by the caller or fed through
+> a callback.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> 
->  drivers/net/igb/e1000_82575.c |    1 -
->  drivers/net/igb/e1000_hw.h    |    1 -
->  drivers/net/igb/igb_ethtool.c |    9 ---------
->  drivers/net/igb/igb_main.c    |   11 -----------
->  4 files changed, 0 insertions(+), 22 deletions(-)
+> BTW, loner term we should start thinking about breaking the 64K
+> barrier.
 
-applied patches 1-6 of 7
+So I had this idea.  My goal is to minimize the number of DMA
+mappings the driver has to make.
 
-Did not apply this patch because we rarely yank code for this reason... 
-typically testing is done in parallel with the open source community. 
-Maybe more explanation is needed, if I'm misunderstanding?
+We don't touch anything in the original TSO skb.  However we expand
+the headroom (if necessary) and in the area in front of skb->data we
+build the header areas for the sub-TSO frames, one by one.
 
+We give the driver some iterator functions that walk through the
+header areas and compute offset/length pairs into the
+skb_shared_info() page list.
 
+So basically the number of DMA mappings to make would be identical
+to the number necessary for TSO capable hardware.  And at the
+top level we can arrange it such that the headroom will be large
+enough already in the cases that matter.
+
+The only fly in the ointment is that the driver has to store these
+DMA mapping cookies away somewhere, because what's going to happen
+is the driver will directly DMA map the skb_shared_info() area pages
+but then slice and adjust DMA addresses as it unpacks the TSO frame
+into the TX ring.
+
+This might be where we get pushed over the edge and have to add a
+dma_addr_t to sk_buff and skb_frag_struct.  And that might not
+be such a bad thing because it will allow other things that
+we've always wanted to do.
+
+Another nice aspect of this idea is that we can make the existing GSO
+code just build this funny "TSO plus hidden headers" SKB, and then do
+the by-hand unpacking into new SKB chunks that we will let smart
+drivers do directly into their TX rings.
+
+Herbert what do you think?
