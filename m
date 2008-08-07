@@ -1,40 +1,27 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] bnx2x: fix logical op
-Date: Thu, 7 Aug 2008 13:53:14 -0700
-Message-ID: <20080807135314.8d87e1a2.randy.dunlap@oracle.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: qdisc and down links (regression)
+Date: Thu, 7 Aug 2008 14:30:36 -0700
+Message-ID: <20080807143036.1ae10482@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>, eilong@broadcom.com,
-	akpm <akpm@linux-foundation.org>
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vgr.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:42364 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752741AbYHGU43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 16:56:29 -0400
+Received: from mail.vyatta.com ([216.93.170.194]:50192 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751284AbYHGVai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2008 17:30:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-cc: eilong@broadcom.com
+Before the mulitqueue changes in 2.6.27-rc it was possible to setup
+queueing disciplines before the link came up (carrier active). This
+no longer works. If link is down, the qdisc is the noop_qdisc and
+any configuration changes don't seem to be shown.
 
-Fix dubious logical operation that was found by sparse:
-linux-next-20080807/drivers/net/bnx2x_main.c:7205:27: warning: dubious: !x & y
+This probably will break ISP's (and other users whose links aren't always
+on) that use traffic shaping.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/bnx2x_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-next-20080807.orig/drivers/net/bnx2x_main.c
-+++ linux-next-20080807/drivers/net/bnx2x_main.c
-@@ -7202,7 +7202,7 @@ static void __devinit bnx2x_link_setting
- 	bp->link_params.req_flow_ctrl = (bp->port.link_config &
- 					 PORT_FEATURE_FLOW_CONTROL_MASK);
- 	if ((bp->link_params.req_flow_ctrl == FLOW_CTRL_AUTO) &&
--	    (!bp->port.supported & SUPPORTED_Autoneg))
-+	    !(bp->port.supported & SUPPORTED_Autoneg))
- 		bp->link_params.req_flow_ctrl = FLOW_CTRL_NONE;
- 
- 	BNX2X_DEV_INFO("req_line_speed %d  req_duplex %d  req_flow_ctrl 0x%x"
+For example, try wondershaper or similar script before boot; all the
+tc commands will fail.
