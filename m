@@ -1,74 +1,73 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Fri, 08 Aug 2008 13:09:47 -0500
-Message-ID: <489C8BEB.8060001@opengridcomputing.com>
-References: <200807300019.m6U0JkdY012558@localhost.localdomain> <aday73jxdfs.fsf@cisco.com> <200807311752.00911.divy@chelsio.com> <200808071145.03848.divy@chelsio.com>
+From: "Vegard Nossum" <vegard.nossum@gmail.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Fri, 8 Aug 2008 20:31:24 +0200
+Message-ID: <19f34abd0808081131p4e83cd79r8b7e0cb8da4f747b@mail.gmail.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de>
+	 <200807301411.01622.wolfgang.walter@stwm.de>
+	 <20080806103354.GA31623@gondor.apana.org.au>
+	 <200808061933.25631.wolfgang.walter@stwm.de>
+	 <20080806201401.GA607@linux-os.sc.intel.com>
+	 <20080806212152.GB607@linux-os.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, Karen Xie <kxie@chelsio.com>,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Divy Le Ray <divy@chelsio.com>, Jeff Garzik <jgarzik@pobox.com>,
-	davem@davemloft.net
+Cc: wolfgang.walter@stwm.de,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ingo Molnar" <mingo@elte.hu>
+To: "Suresh Siddha" <suresh.b.siddha@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([209.198.142.2]:49517 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750954AbYHHSIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 14:08:09 -0400
-In-Reply-To: <200808071145.03848.divy@chelsio.com>
+Received: from py-out-1112.google.com ([64.233.166.177]:39701 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704AbYHHSbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 14:31:25 -0400
+Received: by py-out-1112.google.com with SMTP id p76so630925pyb.10
+        for <netdev@vger.kernel.org>; Fri, 08 Aug 2008 11:31:25 -0700 (PDT)
+In-Reply-To: <20080806212152.GB607@linux-os.sc.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> Hi Jeff,
+On Wed, Aug 6, 2008 at 11:21 PM, Suresh Siddha
+<suresh.b.siddha@intel.com> wrote:
+> BTW, in one of your oops, I see:
 >
-> Mike Christie will not merge this code until he has an explicit 
-> acknowledgement from netdev.
+> note: cron[1207] exited with preempt_count 268435459
 >
-> As you mentioned, the port stealing approach we've taken has its issues.
-> We consequently analyzed your suggestion to use a different IP/MAC address for 
-> iSCSI and it raises other tough issues (separate ARP and DHCP management, 
-> unavailability of common networking tools).
-> On these grounds, we believe our current approach is the most tolerable.
-> Would the stack provide a TCP port allocation service, we'd be glad to use it 
-> to solve the current concerns.
-> The cxgb3i driver is up and running here, its merge is pending our decision.
+> I smell some kind of stack corruption here which is corrupting
+> thread_info (in the above case preempt_count in the thread_info).
 >
-> Cheers,
-> Divy
->   
-Hey Dave/Jeff,
+> Similarly, if the status field(in thread_info) gets corrupted(setting
+> TS_USEDFPU) without proper math state allocated(present in thread_struct),
+> we can end up oops in __switch_to.
+>
+> But you seem to say, reverting recent fpu patches make the problem go away.
+> hmm, just wondering if your test kernel (with fpu patches reverted) is stable
+> enough and don't see other oops/issues?
+>
+> Recently Vegard also noticed some stack corruptions (in network stack) leading
+> to similar problems. Not sure if Vegard has root caused his issue. copying him
+> for his comments.
 
-I think we need some guidance here on how to proceed.   Is the approach 
-currently being reviewed ACKable?  Or is it DOA? If its DOA, then what 
-approach do you recommend?  I believe Jeff's opinion is a separate 
-ipaddr.  But Dave, what do you think?  Lets get some agreement on a high 
-level design here. 
+I don't think this is the same problem. What I see is almost certainly
+a problem with netpoll, netconsole, or the 8139too driver. I see a UDP
+packet in a task_struct.
 
-Possible solutions seen to date include:
+There is also the fact that reverting fpu patches makes it go away
+(for Wolfgang), while for the issue I am seeing, oops in FP code is
+just one out of several different corruptions (sometimes it happens in
+other slabs).
 
-1) reserving a socket to allocate the port.  This has been NAK'd in the 
-past and I assume is still a no go.
+(Sorry for the little late reply.)
 
-2) creating a 4-tuple allocation service so the host stack, the rdma 
-stack, and the iscsi stack can share the same TCP 4-tuple space.  This 
-also has been NAK'd in the past and I assume is still a no go.
+Thanks.
 
-3) the iscsi device allocates its own local ephemeral posts (port 
-stealing) and use the host's ip address for the iscsi offload device.  
-This is the current proposal and you can review the thread for the pros 
-and cons.  IMO it is the least objectionable (and I think we really 
-should be doing #2).
 
-4) the iscsi device will manage its own ip address thus ensuring 4-tuple 
-uniqueness.
+Vegard
 
-Unless you all want to re-open considering #1 or #2, then we're left 
-with 3 or 4.  Which one?
-
-Steve.
+-- 
+"The animistic metaphor of the bug that maliciously sneaked in while
+the programmer was not looking is intellectually dishonest as it
+disguises that the error is the programmer's own creation."
+	-- E. W. Dijkstra, EWD1036
