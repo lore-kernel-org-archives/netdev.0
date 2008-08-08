@@ -1,58 +1,30 @@
-From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: RE: [PATCH?] atl1e: WAKE_MCAST 2x. 1st WAKE_UCAST?
-Date: Fri, 8 Aug 2008 11:12:20 +0800
-Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE61F99BC@SHEXMB-01.global.atheros.com>
-References: <489B21CA.7010508@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: (whitespace only) fix confusing indentation
+Date: Thu, 07 Aug 2008 20:28:02 -0700 (PDT)
+Message-ID: <20080807.202802.193696626.davem@davemloft.net>
+References: <396556a20805301217k293e5718h6bbf02bfe069060@europa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"jacliburn@bellsouth.net" <jacliburn@bellsouth.net>
-To: roel kluin <roel.kluin@gmail.com>,
-	"jgarzik@redhat.com" <jgarzik@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: agl@imperialviolet.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 175.212.DSNET ([203.110.175.212]:12379 "EHLO mail.atheros.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751239AbYHHDMY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 23:12:24 -0400
-In-Reply-To: <489B21CA.7010508@gmail.com>
-Content-Language: zh-CN
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60017
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752202AbYHHD2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 23:28:01 -0400
+In-Reply-To: <396556a20805301217k293e5718h6bbf02bfe069060@europa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, August 08, 2008 12:25 AM
-roel kluin <roel.kluin@gmail.com> wrote
+From: "Adam Langley" <agl@imperialviolet.org>
+Date: Thu, 7 Aug 2008 18:37:12 -0700
 
->
-> untested, is it right?
-> ---
-> WAKE_MCAST bit tested twice, test WAKE_UCAST first.
->
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com> diff --git
-> a/drivers/net/atl1e/atl1e_ethtool.c
-> b/drivers/net/atl1e/atl1e_ethtool.c
-> index cdc3b85..619c658 100644
-> --- a/drivers/net/atl1e/atl1e_ethtool.c
-> +++ b/drivers/net/atl1e/atl1e_ethtool.c
-> @@ -355,7 +355,7 @@ static int atl1e_set_wol(struct
-> net_device *netdev, struct ethtool_wolinfo *wol)
->         struct atl1e_adapter *adapter = netdev_priv(netdev);
->
->         if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
-> -                           WAKE_MCAST | WAKE_BCAST | WAKE_MCAST))
-> +                           WAKE_UCAST | WAKE_MCAST | WAKE_BCAST))
->                 return -EOPNOTSUPP;
->         /* these settings will always override what we
-> currently have */
->         adapter->wol = 0;
->
+> The indentation in part of tcp_minisocks makes it look like one of the if
+> statements is much more important than it actually is.
+> 
+> Signed-off-by: Adam Langley <agl@imperialviolet.org>
 
-Yes, it should be this, thanks!
+Indeed, how awful and confusing.
 
-Acked-by: Jie Yang <jie.yang@atheros.com>
-
-BTW: resend on the comments from Jay Cliburn <jacliburn@bellsouth.net>
-
-Thanks Jay
+Patch applied, thanks Adam.
