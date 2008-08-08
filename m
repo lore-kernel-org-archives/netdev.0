@@ -1,62 +1,44 @@
-From: Wolfgang Walter <wolfgang.walter@stwm.de>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Fri, 8 Aug 2008 21:19:37 +0200
-Message-ID: <200808082119.37778.wolfgang.walter@stwm.de>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Strange tg3 regression with UMP fw. link reporting
+Date: Fri, 08 Aug 2008 08:20:04 -0700
+Message-ID: <1218208804.12081.14.camel@HP1>
+References: <1218180939.24157.332.camel@pasglop>
+ <31233EB5-037E-4615-95C9-7C816E510752@kernel.crashing.org>
+ <1218187111.24157.336.camel@pasglop>
+ <20080808184359.GB23249@HP-xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, viro@zeniv.linux.org.uk,
-	vegard.nossum@gmail.com
-To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	"Segher Boessenkool" <segher@kernel.crashing.org>,
+	"linuxppc-dev list" <linuxppc-dev@ozlabs.org>,
+	netdev <netdev@vger.kernel.org>, "Nathan Lynch" <ntl@pobox.com>
+To: "Matthew Carlson" <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:39682 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750695AbYHHTTj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 15:19:39 -0400
-In-Reply-To: <489C97FB.2030408@zytor.com>
-Content-Disposition: inline
+Received: from mms2.broadcom.com ([216.31.210.18]:3379 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759266AbYHHTVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 15:21:34 -0400
+In-Reply-To: <20080808184359.GB23249@HP-xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 8. August 2008 21:01 schrieb H. Peter Anvin:
-> Suresh Siddha wrote:
-> > I propose to go with wolf's patch which add's kernel_fpu_begin() an=
-d
-> > kernel_fpu_end() around these instructions. This is the correct fix
-> > (unless there is something wrong in my above understanding).
->
-> It's technically overkill, if (and only if!) these instructions don't
-> actually touch the SSE state (most likely they're using the SSE
-> pipeline, and need this stuff to deal with power management issues.)
->
-> However, overkill is a good way to make sure something is dead.
-> Applying the patch will make sure we fix the regression, and we can
-> worry about optimizing this further post-2.6.27.
->
-> 	-hpa
 
-Probably
+On Fri, 2008-08-08 at 11:43 -0700, Matthew Carlson wrote:
+> Segher is right.  The code should be 2.5 milliseconds but is actually
+> much longer.  This fix is actually already in my patch queue and needs
+> to be sent upstream.
+> 
 
-drivers/crypto/padlock-sha.c
-drivers/char/hw_random/via-rng.c
+Matt, I think we can optimize this a little more.  The heart beat event
+is sent every second and the link event is sent whenever the link
+changes.  the spin wait is only needed in rare cases when the link event
+is closer than 2.5 msec from the heart beat event.
 
-needs a fix, too.
+We can save the jiffies time stamp right after sending each event.  Next
+time we need to send a heart beat or a link event, we check the jiffies
+with the stored time stamp.  If they are less than 2.5 msec apart and we
+haven't received the ACK from the previous event yet, we just wait up to
+the remainder.  It should be very rare that we have to wait.
 
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
-Leiter EDV
-Leopoldstra=DFe 15
-80802 M=FCnchen
-Tel: +49 89 38196 276
-=46ax: +49 89 38196 150
-Email: wolfgang.walter@stwm.de
-http://www.studentenwerk-muenchen.de/
+
