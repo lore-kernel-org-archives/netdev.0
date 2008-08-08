@@ -1,625 +1,1433 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v1 5/6] netlabel: Add functionality to set the security
-	attributes of a packet
-Date: Fri, 08 Aug 2008 16:53:29 -0400
-Message-ID: <20080808205329.21077.27446.stgit@flek>
+Subject: [RFC PATCH v1 4/6] netlabel: Add network address selectors to the
+	NetLabel/LSM domain mapping
+Date: Fri, 08 Aug 2008 16:53:17 -0400
+Message-ID: <20080808205317.21077.64273.stgit@flek>
 References: <20080808203542.21077.37084.stgit@flek>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:19380 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758099AbYHHUxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 16:53:44 -0400
 In-Reply-To: <20080808203542.21077.37084.stgit@flek>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch builds upon the new NetLabel address selector functionality by
-providing the NetLabel KAPI and CIPSO engine support needed to enable the
-new packet-based labeling.  The only new addition to the NetLabel KAPI at
-this point is shown below:
-
- * int netlbl_skbuff_setattr(skb, family, secattr)
-
-... and is designed to be called from a Netfilter hook after the packet's
-IP header has been populated such as in the FORWARD or LOCAL_OUT hooks.
-
-This patch also provides the necessary SELinux hooks to support this new
-functionality.  Smack support is not currently included due to uncertainty
-regarding the permissions needed to expand the Smack network access controls.
+This patch extends the NetLabel traffic labeling capabilities to individual
+packets based not only on the LSM domain but the by the destination address
+as well.  The changes here only affect the core NetLabel infrastructre,
+changes to the NetLabel KAPI and individial protocol engines are also
+required but are split out into a different patch to ease review.
 
 Signed-off-by: XXX
 ---
 
- include/net/cipso_ipv4.h            |   16 +++
- include/net/netlabel.h              |    9 +
- net/ipv4/cipso_ipv4.c               |  220 +++++++++++++++++++++++++++++------
- net/netlabel/netlabel_kapi.c        |   57 +++++++++
- security/selinux/hooks.c            |   46 +++++++
- security/selinux/include/netlabel.h |   10 ++
- security/selinux/include/objsec.h   |    1 
- security/selinux/netlabel.c         |   48 +++++++-
- 8 files changed, 367 insertions(+), 40 deletions(-)
+ include/net/netlabel.h             |    5 
+ net/netlabel/netlabel_addrlist.c   |  130 ++++++++++++
+ net/netlabel/netlabel_addrlist.h   |   15 +
+ net/netlabel/netlabel_domainhash.c |  286 +++++++++++++++++++++++----
+ net/netlabel/netlabel_domainhash.h |   38 +++-
+ net/netlabel/netlabel_kapi.c       |    7 +
+ net/netlabel/netlabel_mgmt.c       |  385 +++++++++++++++++++++++++++---------
+ net/netlabel/netlabel_mgmt.h       |   59 +++++-
+ net/netlabel/netlabel_unlabeled.c  |   96 +--------
+ 9 files changed, 799 insertions(+), 222 deletions(-)
 
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index d0416bf..b45ff1c 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -207,6 +207,10 @@ int cipso_v4_sock_setattr(struct sock *sk,
- 			  const struct cipso_v4_doi *doi_def,
- 			  const struct netlbl_lsm_secattr *secattr);
- int cipso_v4_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr);
-+int cipso_v4_skbuff_setattr(struct sk_buff *skb,
-+			    const struct cipso_v4_doi *doi_def,
-+			    const struct netlbl_lsm_secattr *secattr);
-+int cipso_v4_skbuff_delattr(struct sk_buff *skb);
- int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
- 			    struct netlbl_lsm_secattr *secattr);
- int cipso_v4_validate(unsigned char **option);
-@@ -231,6 +235,18 @@ static inline int cipso_v4_sock_getattr(struct sock *sk,
- 	return -ENOSYS;
- }
- 
-+static inline int cipso_v4_skbuff_setattr(struct sk_buff *skb,
-+				      const struct cipso_v4_doi *doi_def,
-+				      const struct netlbl_lsm_secattr *secattr)
-+{
-+	return -ENOSYS;
-+}
-+
-+static inline int cipso_v4_skbuff_delattr(struct sk_buff *skb)
-+{
-+	return -ENOSYS;
-+}
-+
- static inline int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
- 					  struct netlbl_lsm_secattr *secattr)
- {
 diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index 2ca4f48..1d777f7 100644
+index 6b93921..2ca4f48 100644
 --- a/include/net/netlabel.h
 +++ b/include/net/netlabel.h
-@@ -385,6 +385,9 @@ int netlbl_sock_setattr(struct sock *sk,
- 			const struct netlbl_lsm_secattr *secattr);
- int netlbl_sock_getattr(struct sock *sk,
- 			struct netlbl_lsm_secattr *secattr);
-+int netlbl_skbuff_setattr(struct sk_buff *skb,
-+			  u16 family,
-+			  const struct netlbl_lsm_secattr *secattr);
- int netlbl_skbuff_getattr(const struct sk_buff *skb,
- 			  u16 family,
- 			  struct netlbl_lsm_secattr *secattr);
-@@ -464,6 +467,12 @@ static inline int netlbl_sock_getattr(struct sock *sk,
- {
- 	return -ENOSYS;
- }
-+static inline int netlbl_skbuff_setattr(struct sk_buff *skb,
-+				      u16 family,
-+				      const struct netlbl_lsm_secattr *secattr)
-+{
-+	return -ENOSYS;
-+}
- static inline int netlbl_skbuff_getattr(const struct sk_buff *skb,
- 					u16 family,
- 					struct netlbl_lsm_secattr *secattr)
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index cdd0f6d..81a6777 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -1617,48 +1617,27 @@ void cipso_v4_error(struct sk_buff *skb, int error, u32 gateway)
- }
- 
- /**
-- * cipso_v4_sock_setattr - Add a CIPSO option to a socket
-- * @sk: the socket
-+ * cipso_v4_genopt - Generate a CIPSO option
-+ * @buf: the option buffer
-+ * @buf_len: the size of opt_buf
-  * @doi_def: the CIPSO DOI to use
-- * @secattr: the specific security attributes of the socket
-+ * @secattr: the security attributes
-  *
-  * Description:
-- * Set the CIPSO option on the given socket using the DOI definition and
-- * security attributes passed to the function.  This function requires
-- * exclusive access to @sk, which means it either needs to be in the
-- * process of being created or locked.  Returns zero on success and negative
-- * values on failure.
-+ * Generate a CIPSO option using the DOI definition and security attributes
-+ * passed to the function.  Returns the length of the option on success and
-+ * negative values on failure.
-  *
+@@ -72,8 +72,9 @@ struct cipso_v4_doi;
+ /* NetLabel NETLINK protocol version
+  *  1: initial version
+  *  2: added static labels for unlabeled connections
++ *  3: network selectors added to the NetLabel/LSM domain mapping
   */
--int cipso_v4_sock_setattr(struct sock *sk,
--			  const struct cipso_v4_doi *doi_def,
--			  const struct netlbl_lsm_secattr *secattr)
-+static int cipso_v4_genopt(unsigned char *buf, u32 buf_len,
-+			   const struct cipso_v4_doi *doi_def,
-+			   const struct netlbl_lsm_secattr *secattr)
- {
--	int ret_val = -EPERM;
-+	int ret_val;
- 	u32 iter;
--	unsigned char *buf;
--	u32 buf_len = 0;
--	u32 opt_len;
--	struct ip_options *opt = NULL;
--	struct inet_sock *sk_inet;
--	struct inet_connection_sock *sk_conn;
--
--	/* In the case of sock_create_lite(), the sock->sk field is not
--	 * defined yet but it is not a problem as the only users of these
--	 * "lite" PF_INET sockets are functions which do an accept() call
--	 * afterwards so we will label the socket as part of the accept(). */
--	if (sk == NULL)
--		return 0;
+-#define NETLBL_PROTO_VERSION            2
++#define NETLBL_PROTO_VERSION            3
  
--	/* We allocate the maximum CIPSO option size here so we are probably
--	 * being a little wasteful, but it makes our life _much_ easier later
--	 * on and after all we are only talking about 40 bytes. */
--	buf_len = CIPSO_V4_OPT_LEN_MAX;
--	buf = kmalloc(buf_len, GFP_ATOMIC);
--	if (buf == NULL) {
--		ret_val = -ENOMEM;
--		goto socket_setattr_failure;
--	}
-+	if (buf_len <= CIPSO_V4_HDR_LEN)
-+		return -ENOSPC;
+ /* NetLabel NETLINK types/families */
+ #define NETLBL_NLTYPE_NONE              0
+@@ -87,6 +88,8 @@ struct cipso_v4_doi;
+ #define NETLBL_NLTYPE_CIPSOV6_NAME      "NLBL_CIPSOv6"
+ #define NETLBL_NLTYPE_UNLABELED         5
+ #define NETLBL_NLTYPE_UNLABELED_NAME    "NLBL_UNLBL"
++#define NETLBL_NLTYPE_ADDRSELECT        6
++#define NETLBL_NLTYPE_ADDRSELECT_NAME   "NLBL_ADRSEL"
  
- 	/* XXX - This code assumes only one tag per CIPSO option which isn't
- 	 * really a good assumption to make but since we only support the MAC
-@@ -1686,8 +1665,7 @@ int cipso_v4_sock_setattr(struct sock *sk,
- 						   buf_len - CIPSO_V4_HDR_LEN);
- 			break;
- 		default:
--			ret_val = -EPERM;
--			goto socket_setattr_failure;
-+			return -EPERM;
- 		}
+ /*
+  * NetLabel - Kernel API for accessing the network packet label mappings.
+diff --git a/net/netlabel/netlabel_addrlist.c b/net/netlabel/netlabel_addrlist.c
+index dd928aa..d583da7 100644
+--- a/net/netlabel/netlabel_addrlist.c
++++ b/net/netlabel/netlabel_addrlist.c
+@@ -39,6 +39,7 @@
+ #include <linux/ipv6.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <linux/audit.h>
  
- 		iter++;
-@@ -1695,9 +1673,58 @@ int cipso_v4_sock_setattr(struct sock *sk,
- 		 iter < CIPSO_V4_TAG_MAXCNT &&
- 		 doi_def->tags[iter] != CIPSO_V4_TAG_INVALID);
- 	if (ret_val < 0)
--		goto socket_setattr_failure;
-+		return ret_val;
- 	cipso_v4_gentag_hdr(doi_def, buf, ret_val);
--	buf_len = CIPSO_V4_HDR_LEN + ret_val;
-+	return CIPSO_V4_HDR_LEN + ret_val;
-+}
-+
+ #include "netlabel_addrlist.h"
+ 
+@@ -69,6 +70,32 @@ struct netlbl_af4list *netlbl_af4list_search(__be32 addr,
+ 	return NULL;
+ }
+ 
 +/**
-+ * cipso_v4_sock_setattr - Add a CIPSO option to a socket
-+ * @sk: the socket
-+ * @doi_def: the CIPSO DOI to use
-+ * @secattr: the specific security attributes of the socket
++ * netlbl_af4list_search_exact - Search for an exact IPv4 address entry
++ * @addr: IPv4 address
++ * @mask: IPv4 address mask
++ * @head: the list head
 + *
 + * Description:
-+ * Set the CIPSO option on the given socket using the DOI definition and
-+ * security attributes passed to the function.  This function requires
-+ * exclusive access to @sk, which means it either needs to be in the
-+ * process of being created or locked.  Returns zero on success and negative
-+ * values on failure.
++ * Searches the IPv4 address list given by @head.  If an exact match if found
++ * it is returned, otherwise NULL is returned.  The caller is responsible for
++ * calling the rcu_read_[un]lock() functions.
 + *
 + */
-+int cipso_v4_sock_setattr(struct sock *sk,
-+			  const struct cipso_v4_doi *doi_def,
-+			  const struct netlbl_lsm_secattr *secattr)
++struct netlbl_af4list *netlbl_af4list_search_exact(__be32 addr,
++						   __be32 mask,
++						   struct list_head *head)
 +{
-+	int ret_val = -EPERM;
-+	unsigned char *buf = NULL;
-+	u32 buf_len;
-+	u32 opt_len;
-+	struct ip_options *opt = NULL;
-+	struct inet_sock *sk_inet;
-+	struct inet_connection_sock *sk_conn;
++	struct netlbl_af4list *iter;
 +
-+	/* In the case of sock_create_lite(), the sock->sk field is not
-+	 * defined yet but it is not a problem as the only users of these
-+	 * "lite" PF_INET sockets are functions which do an accept() call
-+	 * afterwards so we will label the socket as part of the accept(). */
-+	if (sk == NULL)
-+		return 0;
++	list_for_each_entry_rcu(iter, head, list)
++		if (iter->valid && iter->addr == addr && iter->mask == mask)
++			return iter;
 +
-+	/* We allocate the maximum CIPSO option size here so we are probably
-+	 * being a little wasteful, but it makes our life _much_ easier later
-+	 * on and after all we are only talking about 40 bytes. */
-+	buf_len = CIPSO_V4_OPT_LEN_MAX;
-+	buf = kmalloc(buf_len, GFP_ATOMIC);
-+	if (buf == NULL) {
-+		ret_val = -ENOMEM;
-+		goto socket_setattr_failure;
-+	}
++	return NULL;
++}
 +
-+	ret_val = cipso_v4_genopt(buf, buf_len, doi_def, secattr);
-+	if (ret_val < 0)
-+		goto socket_setattr_failure;
-+	buf_len = ret_val;
++
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ /**
+  * netlbl_af6list_search - Search for a matching IPv6 address entry
+@@ -93,6 +120,33 @@ struct netlbl_af6list *netlbl_af6list_search(const struct in6_addr *addr,
  
- 	/* We can't use ip_options_get() directly because it makes a call to
- 	 * ip_options_get_alloc() which allocates memory with GFP_KERNEL and
-@@ -1806,6 +1833,123 @@ int cipso_v4_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
+ 	return NULL;
+ }
++
++/**
++ * netlbl_af6list_search_exact - Search for an exact IPv6 address entry
++ * @addr: IPv6 address
++ * @mask: IPv6 address mask
++ * @head: the list head
++ *
++ * Description:
++ * Searches the IPv6 address list given by @head.  If an exact match if found
++ * it is returned, otherwise NULL is returned.  The caller is responsible for
++ * calling the rcu_read_[un]lock() functions.
++ *
++ */
++struct netlbl_af6list *netlbl_af6list_search_exact(const struct in6_addr *addr,
++						   const struct in6_addr *mask,
++						   struct list_head *head)
++{
++	struct netlbl_af6list *iter;
++
++	list_for_each_entry_rcu(iter, head, list)
++		if (iter->valid &&
++		    ipv6_addr_equal(&iter->addr, addr) &&
++		    ipv6_addr_equal(&iter->mask, mask))
++			return iter;
++
++	return NULL;
++}
+ #endif /* IPv6 */
+ 
+ /**
+@@ -256,3 +310,79 @@ struct netlbl_af6list *netlbl_af6list_remove(const struct in6_addr *addr,
+ 	return NULL;
+ }
+ #endif /* IPv6 */
++
++/*
++ * Audit Helper Functions
++ */
++
++/**
++ * netlbl_af4list_audit_addr - Audit an IPv4 address
++ * @audit_buf: audit buffer
++ * @src: true if source address, false if destination
++ * @dev: network interface
++ * @addr: IP address
++ * @mask: IP address mask
++ *
++ * Description:
++ * Write the IPv4 address and address mask, if necessary, to @audit_buf.
++ *
++ */
++void netlbl_af4list_audit_addr(struct audit_buffer *audit_buf,
++					int src, const char *dev,
++					__be32 addr, __be32 mask)
++{
++	u32 mask_val = ntohl(mask);
++	char *dir = (src ? "src" : "dst" );
++
++	if (dev != NULL)
++		audit_log_format(audit_buf, " netif=%s", dev);
++	audit_log_format(audit_buf, " %s=" NIPQUAD_FMT, dir, NIPQUAD(addr));
++	if (mask_val != 0xffffffff) {
++		u32 mask_len = 0;
++		while (mask_val > 0) {
++			mask_val <<= 1;
++			mask_len++;
++		}
++		audit_log_format(audit_buf, " %s_prefixlen=%d", dir, mask_len);
++	}
++}
++
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++/**
++ * netlbl_af6list_audit_addr - Audit an IPv6 address
++ * @audit_buf: audit buffer
++ * @src: true if source address, false if destination
++ * @dev: network interface
++ * @addr: IP address
++ * @mask: IP address mask
++ *
++ * Description:
++ * Write the IPv6 address and address mask, if necessary, to @audit_buf.
++ *
++ */
++void netlbl_af6list_audit_addr(struct audit_buffer *audit_buf,
++				 int src,
++				 const char *dev,
++				 const struct in6_addr *addr,
++				 const struct in6_addr *mask)
++{
++	char *dir = (src ? "src" : "dst" );
++
++	if (dev != NULL)
++		audit_log_format(audit_buf, " netif=%s", dev);
++	audit_log_format(audit_buf, " %s=" NIP6_FMT, dir, NIP6(*addr));
++	if (ntohl(mask->s6_addr32[3]) != 0xffffffff) {
++		u32 mask_len = 0;
++		u32 mask_val;
++		int iter = -1;
++		while (ntohl(mask->s6_addr32[++iter]) == 0xffffffff)
++			mask_len += 32;
++		mask_val = ntohl(mask->s6_addr32[iter]);
++		while (mask_val > 0) {
++			mask_val <<= 1;
++			mask_len++;
++		}
++		audit_log_format(audit_buf, " %s_prefixlen=%d", dir, mask_len);
++	}
++}
++#endif /* IPv6 */
+diff --git a/net/netlabel/netlabel_addrlist.h b/net/netlabel/netlabel_addrlist.h
+index d521762..7840f95 100644
+--- a/net/netlabel/netlabel_addrlist.h
++++ b/net/netlabel/netlabel_addrlist.h
+@@ -36,6 +36,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
+ #include <linux/in6.h>
++#include <linux/audit.h>
+ 
+ /* XXX - needs documentation */
+ struct netlbl_af4list {
+@@ -104,6 +105,12 @@ struct netlbl_af4list *netlbl_af4list_remove(__be32 addr, __be32 mask,
+ void netlbl_af4list_remove_entry(struct netlbl_af4list *entry);
+ struct netlbl_af4list *netlbl_af4list_search(__be32 addr,
+ 					     struct list_head *head);
++struct netlbl_af4list *netlbl_af4list_search_exact(__be32 addr,
++						   __be32 mask,
++						   struct list_head *head);
++void netlbl_af4list_audit_addr(struct audit_buffer *audit_buf,
++			       int src, const char *dev,
++			       __be32 addr, __be32 mask);
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 
+@@ -157,6 +164,14 @@ struct netlbl_af6list *netlbl_af6list_remove(const struct in6_addr *addr,
+ void netlbl_af6list_remove_entry(struct netlbl_af6list *entry);
+ struct netlbl_af6list *netlbl_af6list_search(const struct in6_addr *addr,
+ 					     struct list_head *head);
++struct netlbl_af6list *netlbl_af6list_search_exact(const struct in6_addr *addr,
++						   const struct in6_addr *mask,
++						   struct list_head *head);
++void netlbl_af6list_audit_addr(struct audit_buffer *audit_buf,
++			       int src,
++			       const char *dev,
++			       const struct in6_addr *addr,
++			       const struct in6_addr *mask);
+ #endif /* IPV6 */
+ 
+ #endif
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+index 1df4d6c..c27b5de 100644
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -11,7 +11,7 @@
+  */
+ 
+ /*
+- * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ * (c) Copyright Hewlett-Packard Development Company, L.P., 2006, 2008
+  *
+  * This program is free software;  you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -40,6 +40,7 @@
+ #include <asm/bug.h>
+ 
+ #include "netlabel_mgmt.h"
++#include "netlabel_addrlist.h"
+ #include "netlabel_domainhash.h"
+ #include "netlabel_user.h"
+ 
+@@ -72,8 +73,26 @@ static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
+ static void netlbl_domhsh_free_entry(struct rcu_head *entry)
+ {
+ 	struct netlbl_dom_map *ptr;
++	struct netlbl_af4list *iter4;
++	struct netlbl_af4list *tmp4;
++	struct netlbl_af6list *iter6;
++	struct netlbl_af6list *tmp6;
+ 
+ 	ptr = container_of(entry, struct netlbl_dom_map, rcu);
++	if (ptr->type == NETLBL_NLTYPE_ADDRSELECT) {
++		netlbl_af4list_foreach_safe(iter4, tmp4,
++					    &ptr->type_def.addrsel->list4) {
++			netlbl_af4list_remove_entry(iter4);
++			kfree(netlbl_domhsh_addr4_entry(iter4));
++		}
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		netlbl_af6list_foreach_safe(iter6, tmp6,
++					    &ptr->type_def.addrsel->list6) {
++			netlbl_af6list_remove_entry(iter6);
++			kfree(netlbl_domhsh_addr6_entry(iter6));
++		}
++#endif /* IPv6 */
++	}
+ 	kfree(ptr->domain);
+ 	kfree(ptr);
+ }
+@@ -156,6 +175,69 @@ static struct netlbl_dom_map *netlbl_domhsh_search_def(const char *domain)
+ 	return entry;
+ }
+ 
++/**
++ * netlbl_domhsh_audit_add - Generate an audit entry for an add event
++ * @entry: the entry being added
++ * @addr4: the IPv4 address information
++ * @addr6: the IPv6 address information
++ * @result: the result code
++ * @audit_info: NetLabel audit information
++ *
++ * Description:
++ * Generate an audit record for adding a new NetLabel/LSM mapping entry with
++ * the given information.  Caller is responsibile for holding the necessary
++ * locks.
++ *
++ */
++static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
++				    struct netlbl_af4list *addr4,
++				    struct netlbl_af6list *addr6,
++				    int result,
++				    struct netlbl_audit *audit_info)
++{
++	struct audit_buffer *audit_buf;
++	struct cipso_v4_doi *cipsov4 = NULL;
++	u32 type;
++
++	audit_buf = netlbl_audit_start_common(AUDIT_MAC_MAP_ADD, audit_info);
++	if (audit_buf != NULL) {
++		audit_log_format(audit_buf, " nlbl_domain=%s",
++				 entry->domain ? entry->domain : "(default)");
++		if (addr4 != NULL) {
++			struct netlbl_domaddr4_map *map4;
++			map4 = netlbl_domhsh_addr4_entry(addr4);
++			type = map4->type;
++			cipsov4 = map4->type_def.cipsov4;
++			netlbl_af4list_audit_addr(audit_buf, 0, NULL,
++						  addr4->addr, addr4->mask);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		} else if (addr6 != NULL) {
++			struct netlbl_domaddr6_map *map6;
++			map6 = netlbl_domhsh_addr6_entry(addr6);
++			type = map6->type;
++			netlbl_af6list_audit_addr(audit_buf, 0, NULL,
++						  &addr6->addr, &addr6->mask);
++#endif /* IPv6 */
++		} else {
++			type = entry->type;
++			cipsov4 = entry->type_def.cipsov4;
++		}
++		switch (type) {
++		case NETLBL_NLTYPE_UNLABELED:
++			audit_log_format(audit_buf, " nlbl_protocol=unlbl");
++			break;
++		case NETLBL_NLTYPE_CIPSOV4:
++			BUG_ON(cipsov4 == NULL);
++			audit_log_format(audit_buf,
++					 " nlbl_protocol=cipsov4 cipso_doi=%u",
++					 cipsov4->doi);
++			break;
++		}
++		audit_log_format(audit_buf, " res=%u", result == 0 ? 1 : 0);
++		audit_log_end(audit_buf);
++	}
++}
++
+ /*
+  * Domain Hash Table Functions
+  */
+@@ -213,50 +295,104 @@ int __init netlbl_domhsh_init(u32 size)
+ int netlbl_domhsh_add(struct netlbl_dom_map *entry,
+ 		      struct netlbl_audit *audit_info)
+ {
+-	int ret_val;
+-	u32 bkt;
+-	struct audit_buffer *audit_buf;
+-
+-	entry->valid = 1;
+-	INIT_RCU_HEAD(&entry->rcu);
++	int ret_val = 0;
++	struct netlbl_dom_map *entry_old;
++	struct netlbl_af4list *iter4;
++	struct netlbl_af6list *iter6;
+ 
+ 	rcu_read_lock();
++
+ 	spin_lock(&netlbl_domhsh_lock);
+-	if (entry->domain != NULL) {
+-		bkt = netlbl_domhsh_hash(entry->domain);
+-		if (netlbl_domhsh_search(entry->domain) == NULL)
++	if (entry->domain != NULL)
++		entry_old = netlbl_domhsh_search(entry->domain);
++	else
++		entry_old = netlbl_domhsh_search_def(entry->domain);
++	if (entry_old == NULL) {
++		entry->valid = 1;
++		INIT_RCU_HEAD(&entry->rcu);
++
++		if (entry->domain != NULL) {
++			u32 bkt = netlbl_domhsh_hash(entry->domain);
+ 			list_add_tail_rcu(&entry->list,
+ 				    &rcu_dereference(netlbl_domhsh)->tbl[bkt]);
+-		else
+-			ret_val = -EEXIST;
+-	} else {
+-		INIT_LIST_HEAD(&entry->list);
+-		if (rcu_dereference(netlbl_domhsh_def) == NULL)
++		} else {
++			INIT_LIST_HEAD(&entry->list);
+ 			rcu_assign_pointer(netlbl_domhsh_def, entry);
+-		else
+-			ret_val = -EEXIST;
+-	}
+-	spin_unlock(&netlbl_domhsh_lock);
+-	audit_buf = netlbl_audit_start_common(AUDIT_MAC_MAP_ADD, audit_info);
+-	if (audit_buf != NULL) {
+-		audit_log_format(audit_buf,
+-				 " nlbl_domain=%s",
+-				 entry->domain ? entry->domain : "(default)");
+-		switch (entry->type) {
+-		case NETLBL_NLTYPE_UNLABELED:
+-			audit_log_format(audit_buf, " nlbl_protocol=unlbl");
+-			break;
+-		case NETLBL_NLTYPE_CIPSOV4:
+-			audit_log_format(audit_buf,
+-					 " nlbl_protocol=cipsov4 cipso_doi=%u",
+-					 entry->type_def.cipsov4->doi);
+-			break;
+ 		}
+-		audit_log_format(audit_buf, " res=%u", ret_val == 0 ? 1 : 0);
+-		audit_log_end(audit_buf);
+-	}
+-	rcu_read_unlock();
+ 
++		if (entry->type == NETLBL_NLTYPE_ADDRSELECT) {
++			netlbl_af4list_foreach_rcu(iter4,
++					       &entry->type_def.addrsel->list4)
++				netlbl_domhsh_audit_add(entry, iter4, NULL,
++							ret_val, audit_info);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++			netlbl_af6list_foreach_rcu(iter6,
++					       &entry->type_def.addrsel->list6)
++				netlbl_domhsh_audit_add(entry, NULL, iter6,
++							ret_val, audit_info);
++#endif /* IPv6 */
++		} else
++			netlbl_domhsh_audit_add(entry, NULL, NULL,
++						ret_val, audit_info);
++	} else if (entry_old->type == NETLBL_NLTYPE_ADDRSELECT &&
++		   entry->type == NETLBL_NLTYPE_ADDRSELECT) {
++		struct netlbl_af4list *tmp4;
++		struct netlbl_af6list *tmp6;
++		struct list_head *old_list4;
++		struct list_head *old_list6;
++
++		old_list4 = &entry_old->type_def.addrsel->list4;
++		old_list6 = &entry_old->type_def.addrsel->list6;
++
++		/* we only allow the addition of address selectors if all of
++		 * the selectors do not exist in the existing domain map */
++		netlbl_af4list_foreach_rcu(iter4, 
++					   &entry->type_def.addrsel->list4)
++			if (netlbl_af4list_search_exact(iter4->addr,
++							iter4->mask,
++							old_list4)) {
++				ret_val = -EEXIST;
++				goto add_return;
++			}
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		netlbl_af6list_foreach_rcu(iter6,
++					   &entry->type_def.addrsel->list6)
++			if (netlbl_af6list_search_exact(&iter6->addr,
++							&iter6->mask,
++							old_list6)) {
++				ret_val = -EEXIST;
++				goto add_return;
++			}
++#endif /* IPv6 */
++
++		netlbl_af4list_foreach_safe(iter4, tmp4,
++					    &entry->type_def.addrsel->list4) {
++			netlbl_af4list_remove_entry(iter4);
++			iter4->valid = 1;
++			ret_val = netlbl_af4list_add(iter4, old_list4);
++			netlbl_domhsh_audit_add(entry_old, iter4, NULL,
++						ret_val, audit_info);
++			if (ret_val != 0)
++				goto add_return;
++		}
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		netlbl_af6list_foreach_safe(iter6, tmp6,
++					    &entry->type_def.addrsel->list6) {
++			netlbl_af6list_remove_entry(iter6);
++			iter6->valid = 1;
++			ret_val = netlbl_af6list_add(iter6, old_list6);
++			netlbl_domhsh_audit_add(entry_old, NULL, iter6,
++						ret_val, audit_info);
++			if (ret_val != 0)
++				goto add_return;
++		}
++#endif /* IPv6 */
++	} else
++		ret_val = -EINVAL;
++
++add_return:
++	spin_unlock(&netlbl_domhsh_lock);
++	rcu_read_unlock();
+ 	return ret_val;
+ }
+ 
+@@ -309,7 +445,19 @@ int netlbl_domhsh_remove_entry(struct netlbl_dom_map *entry,
+ 		ret_val = -ENOENT;
+ 	spin_unlock(&netlbl_domhsh_lock);
+ 	if (ret_val == 0) {
++		struct netlbl_af4list *iter4;
++		struct netlbl_domaddr4_map *map4;
++
+ 		switch (entry->type) {
++		case NETLBL_NLTYPE_ADDRSELECT:
++			netlbl_af4list_foreach_rcu(iter4,
++					     &entry->type_def.addrsel->list4) {
++				map4 = netlbl_domhsh_addr4_entry(iter4);
++				cipso_v4_doi_putdef(map4->type_def.cipsov4);
++			}
++			/* no need to check the IPv6 list since we currently
++			 * support only unlabeled protocols for IPv6 */
++			break;
+ 		case NETLBL_NLTYPE_CIPSOV4:
+ 			cipso_v4_doi_putdef(entry->type_def.cipsov4);
+ 			break;
+@@ -388,6 +536,70 @@ struct netlbl_dom_map *netlbl_domhsh_getentry(const char *domain)
  }
  
  /**
-+ * cipso_v4_skbuff_setattr - Set the CIPSO option on a packet
-+ * @skb: the packet
-+ * @secattr: the security attributes
++ * netlbl_domhsh_getentry_af4 - Get an entry from the domain hash table
++ * @domain: the domain name to search for
++ * @addr: the IP address to search for
 + *
 + * Description:
-+ * Set the CIPSO option on the given packet based on the security attributes.
-+ * Returns a pointer to the IP header on success and NULL on failure.
++ * Look through the domain hash table searching for an entry to match @domain
++ * and @addr, return a pointer to a copy of the entry or NULL.  The caller is
++ * responsible for ensuring that rcu_read_[un]lock() is called.
 + *
 + */
-+int cipso_v4_skbuff_setattr(struct sk_buff *skb,
-+			    const struct cipso_v4_doi *doi_def,
-+			    const struct netlbl_lsm_secattr *secattr)
++struct netlbl_domaddr4_map *netlbl_domhsh_getentry_af4(const char *domain,
++						       __be32 addr)
 +{
-+	int ret_val;
-+	struct iphdr *iph;
-+	struct ip_options *opt = &IPCB(skb)->opt;
-+	unsigned char buf[CIPSO_V4_OPT_LEN_MAX];
-+	u32 buf_len = CIPSO_V4_OPT_LEN_MAX;
-+	u32 opt_len;
-+	int len_delta;
++	struct netlbl_dom_map *dom_iter;
++	struct netlbl_af4list *addr_iter;
 +
-+	buf_len = cipso_v4_genopt(buf, buf_len, doi_def, secattr);
-+	if (buf_len < 0)
-+		return buf_len;
-+	opt_len = (buf_len + 3) & ~3;
++	dom_iter = netlbl_domhsh_search_def(domain);
++	if (dom_iter == NULL)
++		return NULL;
++	if (dom_iter->type != NETLBL_NLTYPE_ADDRSELECT)
++		return NULL;
 +
-+	/* we overwrite any existing options to ensure that we have enough
-+	 * room for the CIPSO option, the reason is that we _need_ to guarantee
-+	 * that the security label is applied to the packet - we do the same
-+	 * thing when using the socket options and it hasn't caused a problem,
-+	 * if we need to we can always revisit this choice later */
-+
-+	len_delta = opt_len - opt->optlen;
-+	/* if we don't ensure enough headroom we could panic on the skb_push()
-+	 * call below so make sure we have enough, we are also "mangling" the
-+	 * packet so we should probably do a copy-on-write call anyway */
-+	ret_val = skb_cow(skb, skb_headroom(skb) + len_delta);
-+	if (ret_val < 0)
-+		return ret_val;
-+
-+	if (len_delta > 0) {
-+		/* we assume that the header + opt->optlen have already been
-+		 * "pushed" in ip_options_build() or similar */
-+		iph = ip_hdr(skb);
-+		skb_push(skb, len_delta);
-+		memmove((char *)iph - len_delta, iph, iph->ihl << 2);
-+		skb_reset_network_header(skb);
-+		iph = ip_hdr(skb);
-+	} else if (len_delta < 0) {
-+		iph = ip_hdr(skb);
-+		memset(iph + 1, IPOPT_NOP, opt->optlen);
-+	} else
-+		iph = ip_hdr(skb);
-+
-+	if (opt->optlen > 0)
-+		memset(opt, 0, sizeof(*opt));
-+	opt->optlen = opt_len;
-+	opt->cipso = sizeof(struct iphdr);
-+	opt->is_changed = 1;
-+
-+	/* we have to do the following because we are being called from a
-+	 * netfilter hook which means the packet already has had the header
-+	 * fields populated and the checksum calculated - yes this means we
-+	 * are doing more work than needed but we do it to keep the core
-+	 * stack clean and tidy */
-+	memcpy(iph + 1, buf, buf_len);
-+	if (opt_len > buf_len)
-+		memset((char *)(iph + 1) + buf_len, 0, opt_len - buf_len);
-+	if (len_delta != 0) {
-+		iph->ihl = 5 + (opt_len >> 2);
-+		iph->tot_len = htons(skb->len);
-+	}
-+	ip_send_check(iph);
-+
-+	return 0;
++	addr_iter = netlbl_af4list_search(addr,
++					  &dom_iter->type_def.addrsel->list4);
++	if (addr_iter == NULL)
++		return NULL;
++	
++	return netlbl_domhsh_addr4_entry(addr_iter);
 +}
 +
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 +/**
-+ * cipso_v4_skbuff_delattr - Delete any CIPSO options from a packet
-+ * @skb: the packet
++ * netlbl_domhsh_getentry_af6 - Get an entry from the domain hash table
++ * @domain: the domain name to search for
++ * @addr: the IP address to search for
 + *
 + * Description:
-+ * Removes any and all CIPSO options from the given packet.  Returns zero on
-+ * success, negative values on failure.
++ * Look through the domain hash table searching for an entry to match @domain
++ * and @addr, return a pointer to a copy of the entry or NULL.  The caller is
++ * responsible for ensuring that rcu_read_[un]lock() is called.
 + *
 + */
-+int cipso_v4_skbuff_delattr(struct sk_buff *skb)
++struct netlbl_domaddr6_map *netlbl_domhsh_getentry_af6(const char *domain,
++						   const struct in6_addr *addr)
 +{
-+	int ret_val;
-+	struct iphdr *iph;
-+	struct ip_options *opt = &IPCB(skb)->opt;
-+	unsigned char *cipso_ptr;
++	struct netlbl_dom_map *dom_iter;
++	struct netlbl_af6list *addr_iter;
 +
-+	if (opt->cipso == 0)
-+		return 0;
++	dom_iter = netlbl_domhsh_search_def(domain);
++	if (dom_iter == NULL)
++		return NULL;
++	if (dom_iter->type != NETLBL_NLTYPE_ADDRSELECT)
++		return NULL;
 +
-+	/* since we are changing the packet we should make a copy */
-+	ret_val = skb_cow(skb, skb_headroom(skb));
-+	if (ret_val < 0)
-+		return ret_val;
-+
-+	/* the easiest thing to do is just replace the cipso option with noop
-+	 * options since we don't change the size of the packet, although we
-+	 * still need to recalculate the checksum */
-+
-+	iph = ip_hdr(skb);
-+	cipso_ptr = (unsigned char *)iph + opt->cipso;
-+	memset(cipso_ptr, IPOPT_NOOP, cipso_ptr[1]);
-+	opt->cipso = 0;
-+	opt->is_changed = 1;
-+
-+	ip_send_check(iph);
-+
-+	return 0;
++	addr_iter = netlbl_af6list_search(addr,
++					  &dom_iter->type_def.addrsel->list6);
++	if (addr_iter == NULL)
++		return NULL;
++	
++	return netlbl_domhsh_addr6_entry(addr_iter);
 +}
++#endif /* IPv6 */
 +
 +/**
-  * cipso_v4_skbuff_getattr - Get the security attributes from the CIPSO option
-  * @skb: the packet
-  * @secattr: the security attributes
+  * netlbl_domhsh_walk - Iterate through the domain mapping hash table
+  * @skip_bkt: the number of buckets to skip at the start
+  * @skip_chain: the number of entries to skip in the first iterated bucket
+diff --git a/net/netlabel/netlabel_domainhash.h b/net/netlabel/netlabel_domainhash.h
+index afcc41a..bfcb676 100644
+--- a/net/netlabel/netlabel_domainhash.h
++++ b/net/netlabel/netlabel_domainhash.h
+@@ -11,7 +11,7 @@
+  */
+ 
+ /*
+- * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ * (c) Copyright Hewlett-Packard Development Company, L.P., 2006, 2008
+  *
+  * This program is free software;  you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -36,16 +36,43 @@
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
+ 
++#include "netlabel_addrlist.h"
++
+ /* Domain hash table size */
+ /* XXX - currently this number is an uneducated guess */
+ #define NETLBL_DOMHSH_BITSIZE       7
+ 
+-/* Domain mapping definition struct */
++/* Domain mapping definition structures */
++#define netlbl_domhsh_addr4_entry(iter) \
++	container_of(iter, struct netlbl_domaddr4_map, list)
++struct netlbl_domaddr4_map {
++	u32 type;
++	union {
++		struct cipso_v4_doi *cipsov4;
++	} type_def;
++
++	struct netlbl_af4list list;
++};
++#define netlbl_domhsh_addr6_entry(iter) \
++	container_of(iter, struct netlbl_domaddr6_map, list)
++struct netlbl_domaddr6_map {
++	u32 type;
++
++	/* NOTE: no 'type_def' union needed at present since we don't currently
++	 *       support any IPv6 labeling protocols */
++
++	struct netlbl_af6list list;
++};
++struct netlbl_domaddr_map {
++	struct list_head list4;
++	struct list_head list6;
++};
+ struct netlbl_dom_map {
+ 	char *domain;
+ 	u32 type;
+ 	union {
+ 		struct cipso_v4_doi *cipsov4;
++		struct netlbl_domaddr_map *addrsel;
+ 	} type_def;
+ 
+ 	u32 valid;
+@@ -66,9 +93,16 @@ int netlbl_domhsh_remove_entry(struct netlbl_dom_map *entry,
+ int netlbl_domhsh_remove(const char *domain, struct netlbl_audit *audit_info);
+ int netlbl_domhsh_remove_default(struct netlbl_audit *audit_info);
+ struct netlbl_dom_map *netlbl_domhsh_getentry(const char *domain);
++struct netlbl_domaddr4_map *netlbl_domhsh_getentry_af4(const char *domain,
++						       __be32 addr);
+ int netlbl_domhsh_walk(u32 *skip_bkt,
+ 		     u32 *skip_chain,
+ 		     int (*callback) (struct netlbl_dom_map *entry, void *arg),
+ 		     void *cb_arg);
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++struct netlbl_domaddr6_map *netlbl_domhsh_getentry_af6(const char *domain,
++						  const struct in6_addr *addr);
++#endif /* IPv6 */
++
+ #endif
 diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 5d83f4f..976c5b9 100644
+index e77f281..5d83f4f 100644
 --- a/net/netlabel/netlabel_kapi.c
 +++ b/net/netlabel/netlabel_kapi.c
-@@ -500,6 +500,63 @@ int netlbl_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
+@@ -446,7 +446,9 @@ int netlbl_enabled(void)
+  * Attach the correct label to the given socket using the security attributes
+  * specified in @secattr.  This function requires exclusive access to @sk,
+  * which means it either needs to be in the process of being created or locked.
+- * Returns zero on success, negative values on failure.
++ * Returns zero on success, -EDESTADDRREQ if the domain is configured to use
++ * network address selectors (can't blindly label the socket), and negative
++ * values on all other failures.
+  *
+  */
+ int netlbl_sock_setattr(struct sock *sk,
+@@ -460,6 +462,9 @@ int netlbl_sock_setattr(struct sock *sk,
+ 	if (dom_entry == NULL)
+ 		goto socket_setattr_return;
+ 	switch (dom_entry->type) {
++	case NETLBL_NLTYPE_ADDRSELECT:
++		ret_val = -EDESTADDRREQ;
++		break;
+ 	case NETLBL_NLTYPE_CIPSOV4:
+ 		ret_val = cipso_v4_sock_setattr(sk,
+ 						dom_entry->type_def.cipsov4,
+diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+index c4e18c7..a0ea30c 100644
+--- a/net/netlabel/netlabel_mgmt.c
++++ b/net/netlabel/netlabel_mgmt.c
+@@ -32,9 +32,13 @@
+ #include <linux/socket.h>
+ #include <linux/string.h>
+ #include <linux/skbuff.h>
++#include <linux/in.h>
++#include <linux/in6.h>
+ #include <net/sock.h>
+ #include <net/netlink.h>
+ #include <net/genetlink.h>
++#include <net/ip.h>
++#include <net/ipv6.h>
+ #include <net/netlabel.h>
+ #include <net/cipso_ipv4.h>
+ #include <asm/atomic.h>
+@@ -71,80 +75,326 @@ static const struct nla_policy netlbl_mgmt_genl_policy[NLBL_MGMT_A_MAX + 1] = {
+ };
+ 
+ /*
+- * NetLabel Command Handlers
++ * Helper Functions
+  */
+ 
+ /**
+  * netlbl_mgmt_add - Handle an ADD message
+- * @skb: the NETLINK buffer
+  * @info: the Generic NETLINK info block
++ * @audit_info: NetLabel audit information
+  *
+  * Description:
+- * Process a user generated ADD message and add the domains from the message
+- * to the hash table.  See netlabel.h for a description of the message format.
+- * Returns zero on success, negative values on failure.
++ * Helper function for the ADD and ADDDEF messages to add the domain mappings
++ * from the message to the hash table.  See netlabel.h for a description of the
++ * message format.  Returns zero on success, negative values on failure.
+  *
+  */
+-static int netlbl_mgmt_add(struct sk_buff *skb, struct genl_info *info)
++static int netlbl_mgmt_add_common(struct genl_info *info,
++				  struct netlbl_audit *audit_info)
+ {
+ 	int ret_val = -EINVAL;
+ 	struct netlbl_dom_map *entry = NULL;
+-	size_t tmp_size;
++	struct netlbl_domaddr_map *addrmap = NULL;
++	struct cipso_v4_doi *cipsov4 = NULL;
+ 	u32 tmp_val;
+-	struct netlbl_audit audit_info;
+-
+-	if (!info->attrs[NLBL_MGMT_A_DOMAIN] ||
+-	    !info->attrs[NLBL_MGMT_A_PROTOCOL])
+-		goto add_failure;
+-
+-	netlbl_netlink_auditinfo(skb, &audit_info);
+ 
+ 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+ 	if (entry == NULL) {
+ 		ret_val = -ENOMEM;
+ 		goto add_failure;
+ 	}
+-	tmp_size = nla_len(info->attrs[NLBL_MGMT_A_DOMAIN]);
+-	entry->domain = kmalloc(tmp_size, GFP_KERNEL);
+-	if (entry->domain == NULL) {
+-		ret_val = -ENOMEM;
+-		goto add_failure;
+-	}
+ 	entry->type = nla_get_u32(info->attrs[NLBL_MGMT_A_PROTOCOL]);
+-	nla_strlcpy(entry->domain, info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
++	if (info->attrs[NLBL_MGMT_A_DOMAIN]) {
++		size_t tmp_size = nla_len(info->attrs[NLBL_MGMT_A_DOMAIN]);
++		entry->domain = kmalloc(tmp_size, GFP_KERNEL);
++		if (entry->domain == NULL) {
++			ret_val = -ENOMEM;
++			goto add_failure;
++		}
++		nla_strlcpy(entry->domain,
++			    info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
++	}
++
++	/* NOTE: internally we allow/use a entry->type value of
++	 *       NETLBL_NLTYPE_ADDRSELECT but we don't currently allow users
++	 *       to pass that as a protocol value because we need to know the
++	 *       "real" protocol */
+ 
+ 	switch (entry->type) {
+ 	case NETLBL_NLTYPE_UNLABELED:
+-		ret_val = netlbl_domhsh_add(entry, &audit_info);
+ 		break;
+ 	case NETLBL_NLTYPE_CIPSOV4:
+ 		if (!info->attrs[NLBL_MGMT_A_CV4DOI])
+ 			goto add_failure;
+ 
+ 		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CV4DOI]);
+-		entry->type_def.cipsov4 = cipso_v4_doi_getdef(tmp_val);
+-		if (entry->type_def.cipsov4 == NULL)
++		cipsov4 = cipso_v4_doi_getdef(tmp_val);
++		if (cipsov4 == NULL)
+ 			goto add_failure;
+-		ret_val = netlbl_domhsh_add(entry, &audit_info);
+-		if (ret_val != 0)
+-			cipso_v4_doi_putdef(entry->type_def.cipsov4);
++		entry->type_def.cipsov4 = cipsov4;
+ 		break;
+ 	default:
+ 		goto add_failure;
+ 	}
++	if ((info->attrs[NLBL_MGMT_A_IPV4ADDR] &&
++	     info->attrs[NLBL_MGMT_A_IPV4MASK]) ||
++	    (info->attrs[NLBL_MGMT_A_IPV6ADDR] &&
++	     info->attrs[NLBL_MGMT_A_IPV6MASK])) {
++		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
++		if (addrmap == NULL) {
++			ret_val = -ENOMEM;
++			goto add_failure;
++		}
++		INIT_LIST_HEAD(&addrmap->list4);
++		INIT_LIST_HEAD(&addrmap->list6);
++
++		if (info->attrs[NLBL_MGMT_A_IPV4ADDR]) {
++			struct in_addr *addr;
++			struct in_addr *mask;
++			struct netlbl_domaddr4_map *map;
++
++			if (nla_len(info->attrs[NLBL_MGMT_A_IPV4ADDR]) !=
++			    sizeof(struct in_addr)) {
++				ret_val = -EINVAL;
++				goto add_failure;
++			}
++			if (nla_len(info->attrs[NLBL_MGMT_A_IPV4MASK]) !=
++			    sizeof(struct in_addr)) {
++				ret_val = -EINVAL;
++				goto add_failure;
++			}
++			addr = nla_data(info->attrs[NLBL_MGMT_A_IPV4ADDR]);
++			mask = nla_data(info->attrs[NLBL_MGMT_A_IPV4MASK]);
++
++			map = kzalloc(sizeof(*map), GFP_KERNEL);
++			if (map == NULL) {
++				ret_val = -ENOMEM;
++				goto add_failure;
++			}
++			map->list.addr = addr->s_addr & mask->s_addr;
++			map->list.mask = mask->s_addr;
++			map->list.valid = 1;
++			map->type = entry->type;
++			if (cipsov4)
++				map->type_def.cipsov4 = cipsov4;
++
++			ret_val = netlbl_af4list_add(&map->list,
++						     &addrmap->list4);
++			if (ret_val != 0) {
++				/* XXX - cleanup map in case of failure? */
++				goto add_failure;
++			}
++		} else {
++			struct in6_addr *addr;
++			struct in6_addr *mask;
++			struct netlbl_domaddr6_map *map;
++
++			if (nla_len(info->attrs[NLBL_MGMT_A_IPV6ADDR]) !=
++			    sizeof(struct in6_addr)) {
++				ret_val = -EINVAL;
++				goto add_failure;
++			}
++			if (nla_len(info->attrs[NLBL_MGMT_A_IPV6MASK]) !=
++			    sizeof(struct in6_addr)) {
++				ret_val = -EINVAL;
++				goto add_failure;
++			}
++			addr = nla_data(info->attrs[NLBL_MGMT_A_IPV6ADDR]);
++			mask = nla_data(info->attrs[NLBL_MGMT_A_IPV6MASK]);
++
++			map = kzalloc(sizeof(*map), GFP_KERNEL);
++			if (map == NULL) {
++				ret_val = -ENOMEM;
++				goto add_failure;
++			}
++			ipv6_addr_copy(&map->list.addr, addr);
++			map->list.addr.s6_addr32[0] &= mask->s6_addr32[0];
++			map->list.addr.s6_addr32[1] &= mask->s6_addr32[1];
++			map->list.addr.s6_addr32[2] &= mask->s6_addr32[2];
++			map->list.addr.s6_addr32[3] &= mask->s6_addr32[3];
++			ipv6_addr_copy(&map->list.mask, mask);
++			map->list.valid = 1;
++			map->type = entry->type;
++
++			ret_val = netlbl_af6list_add(&map->list,
++						     &addrmap->list6);
++			if (ret_val != 0) {
++				/* XXX - cleanup map in case of failure? */
++				goto add_failure;
++			}
++		}
++
++		entry->type = NETLBL_NLTYPE_ADDRSELECT;
++		entry->type_def.addrsel = addrmap;
++	}
++
++	ret_val = netlbl_domhsh_add(entry, audit_info);
+ 	if (ret_val != 0)
+ 		goto add_failure;
+ 
+ 	return 0;
+ 
+ add_failure:
++	if (cipsov4)
++		cipso_v4_doi_putdef(cipsov4);
+ 	if (entry)
+ 		kfree(entry->domain);
++	kfree(addrmap);
+ 	kfree(entry);
+ 	return ret_val;
  }
  
  /**
-+ * netlbl_skbuff_setattr - Label a packet using the correct protocol
-+ * @skb: the packet
-+ * @family: protocol family
-+ * @secattr: the security attributes
++ * netlbl_mgmt_listentry - List a NetLabel/LSM domain map entry
++ * @skb: the NETLINK buffer
++ * @entry: the map entry
 + *
 + * Description:
-+ * Attach the correct label to the given packet using the security attributes
-+ * specified in @secattr.  Returns zero on success, negative values on failure.
++ * This function is a helper function used by the LISTALL and LISTDEF command
++ * handlers.  The caller is responsibile for ensuring that the RCU read lock
++ * is held.  Returns zero on success, negative values on failure.
 + *
 + */
-+int netlbl_skbuff_setattr(struct sk_buff *skb,
-+			  u16 family,
-+			  const struct netlbl_lsm_secattr *secattr)
++static int netlbl_mgmt_listentry(struct sk_buff *skb,
++				 struct netlbl_dom_map *entry)
 +{
 +	int ret_val;
-+	struct iphdr *hdr4;
-+	struct netlbl_domaddr4_map *af4_entry;
++	struct nlattr *nla_a;
++	struct nlattr *nla_b;
++	struct netlbl_af4list *iter4;
++	struct netlbl_af6list *iter6;
 +
-+	rcu_read_lock();
-+	switch (family) {
-+	case AF_INET:
-+		hdr4 = ip_hdr(skb);
-+		af4_entry = netlbl_domhsh_getentry_af4(secattr->domain,
-+						       hdr4->daddr);
-+		if (af4_entry == NULL)
-+			ret_val = -ENOENT;
-+		switch (af4_entry->type) {
-+		case NETLBL_NLTYPE_CIPSOV4:
-+			ret_val = cipso_v4_skbuff_setattr(skb,
-+						   af4_entry->type_def.cipsov4,
-+						   secattr);
-+			break;
-+		case NETLBL_NLTYPE_UNLABELED:
-+			/* just delete the protocols we support for right now
-+			 * but we could remove other protocols if needed */
-+			ret_val = cipso_v4_skbuff_delattr(skb);
-+			break;
-+		default:
-+			ret_val = -ENOENT;
-+		}
-+		break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case AF_INET6:
-+		/* since we don't support any IPv6 labeling protocols right
-+		 * now we can optimize everything away until we do */
-+		ret_val = 0;
-+		break;
-+#endif /* IPv6 */
-+	default:
-+		ret_val = 0;
++	if (entry->domain != NULL) {
++		ret_val = nla_put_string(skb,
++					 NLBL_MGMT_A_DOMAIN, entry->domain);
++		if (ret_val != 0)
++			return ret_val;
 +	}
-+	rcu_read_unlock();
++
++	switch (entry->type) {
++	case NETLBL_NLTYPE_ADDRSELECT:
++		nla_a = nla_nest_start(skb, NLBL_MGMT_A_SELECTORLIST);
++		if (nla_a == NULL)
++			return -ENOMEM;
++
++		netlbl_af4list_foreach_rcu(iter4,
++					   &entry->type_def.addrsel->list4) {
++			struct netlbl_domaddr4_map *map4;
++			struct in_addr addr_struct;
++
++			nla_b = nla_nest_start(skb, NLBL_MGMT_A_ADDRSELECTOR);
++			if (nla_b == NULL)
++				return -ENOMEM;
++
++			addr_struct.s_addr = iter4->addr;
++			ret_val = nla_put(skb, NLBL_MGMT_A_IPV4ADDR,
++					  sizeof(struct in_addr),
++					  &addr_struct);
++			if (ret_val != 0)
++				return ret_val;
++			addr_struct.s_addr = iter4->mask;
++			ret_val = nla_put(skb, NLBL_MGMT_A_IPV4MASK,
++					  sizeof(struct in_addr),
++					  &addr_struct);
++			if (ret_val != 0)
++				return ret_val;
++			map4 = netlbl_domhsh_addr4_entry(iter4);
++			ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL,
++					      map4->type);
++			if (ret_val != 0)
++				return ret_val;
++			switch(map4->type) {
++			case NETLBL_NLTYPE_CIPSOV4:
++				ret_val = nla_put_u32(skb, NLBL_MGMT_A_CV4DOI,
++						  map4->type_def.cipsov4->doi);
++				if (ret_val != 0)
++					return ret_val;
++				break;
++			}
++
++			nla_nest_end(skb, nla_b);
++		}
++		netlbl_af6list_foreach_rcu(iter6,
++					   &entry->type_def.addrsel->list6) {
++			struct netlbl_domaddr6_map *map6;
++
++			nla_b = nla_nest_start(skb, NLBL_MGMT_A_ADDRSELECTOR);
++			if (nla_b == NULL)
++				return -ENOMEM;
++
++			ret_val = nla_put(skb, NLBL_MGMT_A_IPV6ADDR,
++					  sizeof(struct in6_addr),
++					  &iter6->addr);
++			if (ret_val != 0)
++				return ret_val;
++			ret_val = nla_put(skb, NLBL_MGMT_A_IPV6MASK,
++					  sizeof(struct in6_addr),
++					  &iter6->mask);
++			if (ret_val != 0)
++				return ret_val;
++			map6 = netlbl_domhsh_addr6_entry(iter6);
++			ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL,
++					      map6->type);
++			if (ret_val != 0)
++				return ret_val;
++
++			nla_nest_end(skb, nla_b);
++		}
++
++		nla_nest_end(skb, nla_a);
++		break;
++	case NETLBL_NLTYPE_UNLABELED:
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL, entry->type);
++		break;
++	case NETLBL_NLTYPE_CIPSOV4:
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL, entry->type);
++		if (ret_val != 0)
++			return ret_val;
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_CV4DOI,
++				      entry->type_def.cipsov4->doi);
++		break;
++	}
 +
 +	return ret_val;
 +}
 +
++/*
++ * NetLabel Command Handlers
++ */
++
 +/**
-  * netlbl_skbuff_getattr - Determine the security attributes of a packet
-  * @skb: the packet
-  * @family: protocol family
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 3ae9bec..bbd68bd 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4364,13 +4364,15 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
- 	u32 peer_sid;
- 	struct avc_audit_data ad;
- 	u8 secmark_active;
-+	u8 netlbl_active;
- 	u8 peerlbl_active;
- 
- 	if (!selinux_policycap_netpeer)
- 		return NF_ACCEPT;
- 
- 	secmark_active = selinux_secmark_enabled();
--	peerlbl_active = netlbl_enabled() || selinux_xfrm_enabled();
-+	netlbl_active = netlbl_enabled();
-+	peerlbl_active = netlbl_active || selinux_xfrm_enabled();
- 	if (!secmark_active && !peerlbl_active)
- 		return NF_ACCEPT;
- 
-@@ -4393,6 +4395,14 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
- 				 SECCLASS_PACKET, PACKET__FORWARD_IN, &ad))
- 			return NF_DROP;
- 
-+	if (netlbl_active)
-+		/* we do this in the LOCAL_OUT path and not the POST_ROUTING
-+		 * path because we want to make sure we apply the necessary
-+		 * labeling before IPsec is applied so we can leverage AH
-+		 * protection */
-+		if (selinux_netlbl_skbuff_setsid(skb, family, peer_sid) != 0)
-+			return NF_DROP;
-+
- 	return NF_ACCEPT;
- }
- 
-@@ -4416,6 +4426,33 @@ static unsigned int selinux_ipv6_forward(unsigned int hooknum,
- }
- #endif	/* IPV6 */
- 
-+static unsigned int selinux_ip_output(struct sk_buff *skb,
-+				      u16 family)
++ * netlbl_mgmt_add - Handle an ADD message
++ * @skb: the NETLINK buffer
++ * @info: the Generic NETLINK info block
++ *
++ * Description:
++ * Process a user generated ADD message and add the domains from the message
++ * to the hash table.  See netlabel.h for a description of the message format.
++ * Returns zero on success, negative values on failure.
++ *
++ */
++static int netlbl_mgmt_add(struct sk_buff *skb, struct genl_info *info)
 +{
-+	struct sk_security_struct *sksec;
++	struct netlbl_audit audit_info;
 +
-+	if (!netlbl_enabled())
-+		return NF_ACCEPT;
++	if ((!info->attrs[NLBL_MGMT_A_DOMAIN]) ||
++	    (!info->attrs[NLBL_MGMT_A_PROTOCOL]) ||
++	    (info->attrs[NLBL_MGMT_A_IPV4ADDR] &&
++	     info->attrs[NLBL_MGMT_A_IPV6ADDR]) ||
++	    (info->attrs[NLBL_MGMT_A_IPV4MASK] &&
++	     info->attrs[NLBL_MGMT_A_IPV6MASK]) ||
++	    ((info->attrs[NLBL_MGMT_A_IPV4ADDR] != NULL) ^
++	     (info->attrs[NLBL_MGMT_A_IPV4MASK] != NULL)) ||
++	    ((info->attrs[NLBL_MGMT_A_IPV6ADDR] != NULL) ^
++	     (info->attrs[NLBL_MGMT_A_IPV6MASK] != NULL))) 
++		return -EINVAL;
 +
-+	/* we do this in the LOCAL_OUT path and not the POST_ROUTING path
-+	 * because we want to make sure we apply the necessary labeling
-+	 * before IPsec is applied so we can leverage AH protection */
-+	sksec = skb->sk->sk_security;
-+	if (selinux_netlbl_skbuff_setsid(skb, family, sksec->sid) != 0)
-+		return NF_DROP;
++	netlbl_netlink_auditinfo(skb, &audit_info);
 +
-+	return NF_ACCEPT;
++	return netlbl_mgmt_add_common(info, &audit_info);
 +}
 +
-+static unsigned int selinux_ipv4_output(unsigned int hooknum,
-+					struct sk_buff *skb,
-+					const struct net_device *in,
-+					const struct net_device *out,
-+					int (*okfn)(struct sk_buff *))
-+{
-+	return selinux_ip_output(skb, PF_INET);
-+}
-+
- static int selinux_ip_postroute_iptables_compat(struct sock *sk,
- 						int ifindex,
- 						struct avc_audit_data *ad,
-@@ -5630,6 +5667,13 @@ static struct nf_hook_ops selinux_ipv4_ops[] = {
- 		.pf =		PF_INET,
- 		.hooknum =	NF_INET_FORWARD,
- 		.priority =	NF_IP_PRI_SELINUX_FIRST,
-+	},
-+	{
-+		.hook =		selinux_ipv4_output,
-+		.owner =	THIS_MODULE,
-+		.pf =		PF_INET,
-+		.hooknum =	NF_INET_LOCAL_OUT,
-+		.priority =	NF_IP_PRI_SELINUX_FIRST,
- 	}
- };
++/**
+  * netlbl_mgmt_remove - Handle a REMOVE message
+  * @skb: the NETLINK buffer
+  * @info: the Generic NETLINK info block
+@@ -192,23 +442,9 @@ static int netlbl_mgmt_listall_cb(struct netlbl_dom_map *entry, void *arg)
+ 	if (data == NULL)
+ 		goto listall_cb_failure;
  
-diff --git a/security/selinux/include/netlabel.h b/security/selinux/include/netlabel.h
-index 487a7d8..7711885 100644
---- a/security/selinux/include/netlabel.h
-+++ b/security/selinux/include/netlabel.h
-@@ -46,6 +46,9 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
- 				 u16 family,
- 				 u32 *type,
- 				 u32 *sid);
-+int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
-+				 u16 family,
-+				 u32 sid);
+-	ret_val = nla_put_string(cb_arg->skb,
+-				 NLBL_MGMT_A_DOMAIN,
+-				 entry->domain);
+-	if (ret_val != 0)
+-		goto listall_cb_failure;
+-	ret_val = nla_put_u32(cb_arg->skb, NLBL_MGMT_A_PROTOCOL, entry->type);
++	ret_val = netlbl_mgmt_listentry(cb_arg->skb, entry);
+ 	if (ret_val != 0)
+ 		goto listall_cb_failure;
+-	switch (entry->type) {
+-	case NETLBL_NLTYPE_CIPSOV4:
+-		ret_val = nla_put_u32(cb_arg->skb,
+-				      NLBL_MGMT_A_CV4DOI,
+-				      entry->type_def.cipsov4->doi);
+-		if (ret_val != 0)
+-			goto listall_cb_failure;
+-		break;
+-	}
  
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock);
- int selinux_netlbl_socket_post_create(struct socket *sock);
-@@ -80,6 +83,13 @@ static inline int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
- 	return 0;
- }
- 
-+static inline int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
-+					       u16 family
-+					       u32 sid)
-+{
-+	return 0;
-+}
-+
- static inline void selinux_netlbl_sock_graft(struct sock *sk,
- 					     struct socket *sock)
+ 	cb_arg->seq++;
+ 	return genlmsg_end(cb_arg->skb, data);
+@@ -262,50 +498,22 @@ static int netlbl_mgmt_listall(struct sk_buff *skb,
+  */
+ static int netlbl_mgmt_adddef(struct sk_buff *skb, struct genl_info *info)
  {
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index 91070ab..f46dd1c 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -117,6 +117,7 @@ struct sk_security_struct {
- 		NLBL_UNSET = 0,
- 		NLBL_REQUIRE,
- 		NLBL_LABELED,
-+		NLBL_REQSKB,
- 	} nlbl_state;
- #endif
- };
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 89b4183..49e33e5 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -85,8 +85,15 @@ static int selinux_netlbl_sock_setsid(struct sock *sk, u32 sid)
- 	if (rc != 0)
- 		goto sock_setsid_return;
- 	rc = netlbl_sock_setattr(sk, &secattr);
--	if (rc == 0)
-+	switch (rc) {
-+	case 0:
- 		sksec->nlbl_state = NLBL_LABELED;
-+		break;
-+	case -EDESTADDRREQ:
-+		sksec->nlbl_state = NLBL_REQSKB;
-+		rc = 0;
-+		break;
-+	}
+-	int ret_val = -EINVAL;
+-	struct netlbl_dom_map *entry = NULL;
+-	u32 tmp_val;
+ 	struct netlbl_audit audit_info;
  
- sock_setsid_return:
- 	netlbl_secattr_destroy(&secattr);
-@@ -163,6 +170,45 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
+-	if (!info->attrs[NLBL_MGMT_A_PROTOCOL])
+-		goto adddef_failure;
++	if ((!info->attrs[NLBL_MGMT_A_PROTOCOL]) ||
++	    (info->attrs[NLBL_MGMT_A_IPV4ADDR] &&
++	     info->attrs[NLBL_MGMT_A_IPV6ADDR]) ||
++	    (info->attrs[NLBL_MGMT_A_IPV4MASK] &&
++	     info->attrs[NLBL_MGMT_A_IPV6MASK]) ||
++	    ((info->attrs[NLBL_MGMT_A_IPV4ADDR] != NULL) ^
++	     (info->attrs[NLBL_MGMT_A_IPV4MASK] != NULL)) ||
++	    ((info->attrs[NLBL_MGMT_A_IPV6ADDR] != NULL) ^
++	     (info->attrs[NLBL_MGMT_A_IPV6MASK] != NULL))) 
++		return -EINVAL;
+ 
+ 	netlbl_netlink_auditinfo(skb, &audit_info);
+ 
+-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+-	if (entry == NULL) {
+-		ret_val = -ENOMEM;
+-		goto adddef_failure;
+-	}
+-	entry->type = nla_get_u32(info->attrs[NLBL_MGMT_A_PROTOCOL]);
+-
+-	switch (entry->type) {
+-	case NETLBL_NLTYPE_UNLABELED:
+-		ret_val = netlbl_domhsh_add_default(entry, &audit_info);
+-		break;
+-	case NETLBL_NLTYPE_CIPSOV4:
+-		if (!info->attrs[NLBL_MGMT_A_CV4DOI])
+-			goto adddef_failure;
+-
+-		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CV4DOI]);
+-		entry->type_def.cipsov4 = cipso_v4_doi_getdef(tmp_val);
+-		if (entry->type_def.cipsov4 == NULL)
+-			goto adddef_failure;
+-		ret_val = netlbl_domhsh_add_default(entry, &audit_info);
+-		if (ret_val != 0)
+-			cipso_v4_doi_putdef(entry->type_def.cipsov4);
+-		break;
+-	default:
+-		goto adddef_failure;
+-	}
+-	if (ret_val != 0)
+-		goto adddef_failure;
+-
+-	return 0;
+-
+-adddef_failure:
+-	kfree(entry);
+-	return ret_val;
++	return netlbl_mgmt_add_common(info, &audit_info);
  }
  
  /**
-+ * selinux_netlbl_skbuff_setsid - Set the NetLabel on a packet given a sid
-+ * @skb: the packet
-+ * @family: protocol family
-+ * @sid: the SID
+@@ -359,19 +567,10 @@ static int netlbl_mgmt_listdef(struct sk_buff *skb, struct genl_info *info)
+ 		ret_val = -ENOENT;
+ 		goto listdef_failure_lock;
+ 	}
+-	ret_val = nla_put_u32(ans_skb, NLBL_MGMT_A_PROTOCOL, entry->type);
+-	if (ret_val != 0)
+-		goto listdef_failure_lock;
+-	switch (entry->type) {
+-	case NETLBL_NLTYPE_CIPSOV4:
+-		ret_val = nla_put_u32(ans_skb,
+-				      NLBL_MGMT_A_CV4DOI,
+-				      entry->type_def.cipsov4->doi);
+-		if (ret_val != 0)
+-			goto listdef_failure_lock;
+-		break;
+-	}
++	ret_val = netlbl_mgmt_listentry(ans_skb, entry);
+ 	rcu_read_unlock();
++	if (ret_val != 0)
++		goto listdef_failure;
+ 
+ 	genlmsg_end(ans_skb, data);
+ 	return genlmsg_reply(ans_skb, info);
+diff --git a/net/netlabel/netlabel_mgmt.h b/net/netlabel/netlabel_mgmt.h
+index a43bff1..05d9643 100644
+--- a/net/netlabel/netlabel_mgmt.h
++++ b/net/netlabel/netlabel_mgmt.h
+@@ -45,6 +45,16 @@
+  *     NLBL_MGMT_A_DOMAIN
+  *     NLBL_MGMT_A_PROTOCOL
+  *
++ *   If IPv4 is specified the following attributes are required:
 + *
-+ * Description
-+ * Call the NetLabel mechanism to set the label of a packet using @sid.
-+ * Returns zero on auccess, negative values on failure.
++ *     NLBL_MGMT_A_IPV4ADDR
++ *     NLBL_MGMT_A_IPV4MASK
 + *
-+ */
-+int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
-+				 u16 family,
-+				 u32 sid)
-+{
-+	int rc;
-+	struct netlbl_lsm_secattr secattr;
-+	struct sock *sk;
-+
-+	/* if this is a locally generated packet check to see if it is already
-+	 * being labeled by it's parent socket, if it is just exit */
-+	sk = skb->sk;
-+	if (sk != NULL) {
-+		struct sk_security_struct *sksec = sk->sk_security;
-+		if (sksec->nlbl_state != NLBL_REQSKB)
-+			return 0;
-+	}
-+
-+	netlbl_secattr_init(&secattr);
-+	rc = security_netlbl_sid_to_secattr(sid, &secattr);
-+	if (rc != 0)
-+		goto skbuff_setsid_return;
-+	rc = netlbl_skbuff_setattr(skb, family, &secattr);
-+
-+skbuff_setsid_return:
-+	netlbl_secattr_destroy(&secattr);
-+	return rc;
-+}
-+
-+/**
-  * selinux_netlbl_sock_graft - Netlabel the new socket
-  * @sk: the new connection
-  * @sock: the new socket
++ *   If IPv6 is specified the following attributes are required:
++ *
++ *     NLBL_MGMT_A_IPV6ADDR
++ *     NLBL_MGMT_A_IPV6MASK
++ *
+  *   If using NETLBL_NLTYPE_CIPSOV4 the following attributes are required:
+  *
+  *     NLBL_MGMT_A_CV4DOI
+@@ -68,13 +78,24 @@
+  *   Required attributes:
+  *
+  *     NLBL_MGMT_A_DOMAIN
++ *
++ *   If the IP address selectors are not used the following attribute is
++ *   required:
++ *
+  *     NLBL_MGMT_A_PROTOCOL
+  *
+- *   If using NETLBL_NLTYPE_CIPSOV4 the following attributes are required:
++ *   If the IP address selectors are used then the following attritbute is
++ *   required:
++ *
++ *     NLBL_MGMT_A_SELECTORLIST
++ *
++ *   If the mapping is using the NETLBL_NLTYPE_CIPSOV4 type then the following
++ *   attributes are required:
+  *
+  *     NLBL_MGMT_A_CV4DOI
+  *
+- *   If using NETLBL_NLTYPE_UNLABELED no other attributes are required.
++ *   If the mapping is using the NETLBL_NLTYPE_UNLABELED type no other
++ *   attributes are required.
+  *
+  * o ADDDEF:
+  *   Sent by an application to set the default domain mapping for the NetLabel
+@@ -100,15 +121,23 @@
+  *   application there is no payload.  On success the kernel should send a
+  *   response using the following format.
+  *
+- *   Required attributes:
++ *   If the IP address selectors are not used the following attribute is
++ *   required:
+  *
+  *     NLBL_MGMT_A_PROTOCOL
+  *
+- *   If using NETLBL_NLTYPE_CIPSOV4 the following attributes are required:
++ *   If the IP address selectors are used then the following attritbute is
++ *   required:
++ *
++ *     NLBL_MGMT_A_SELECTORLIST
++ *
++ *   If the mapping is using the NETLBL_NLTYPE_CIPSOV4 type then the following
++ *   attributes are required:
+  *
+  *     NLBL_MGMT_A_CV4DOI
+  *
+- *   If using NETLBL_NLTYPE_UNLABELED no other attributes are required.
++ *   If the mapping is using the NETLBL_NLTYPE_UNLABELED type no other
++ *   attributes are required.
+  *
+  * o PROTOCOLS:
+  *   Sent by an application to request a list of configured NetLabel protocols
+@@ -162,6 +191,26 @@ enum {
+ 	NLBL_MGMT_A_CV4DOI,
+ 	/* (NLA_U32)
+ 	 * the CIPSOv4 DOI value */
++	NLBL_MGMT_A_IPV6ADDR,
++	/* (NLA_BINARY, struct in6_addr)
++	 * an IPv6 address */
++	NLBL_MGMT_A_IPV6MASK,
++	/* (NLA_BINARY, struct in6_addr)
++	 * an IPv6 address mask */
++	NLBL_MGMT_A_IPV4ADDR,
++	/* (NLA_BINARY, struct in_addr)
++	 * an IPv4 address */
++	NLBL_MGMT_A_IPV4MASK,
++	/* (NLA_BINARY, struct in_addr)
++	 * and IPv4 address mask */
++	NLBL_MGMT_A_ADDRSELECTOR,
++	/* (NLA_NESTED)
++	 * an IP address selector, must contain an address, mask, and protocol
++	 * attribute plus any protocol specific attributes */
++	NLBL_MGMT_A_SELECTORLIST,
++	/* (NLA_NESTED)
++	 * the selector list, there must be at least one
++	 * NLBL_MGMT_A_ADDRSELECTOR attribute */
+ 	__NLBL_MGMT_A_MAX,
+ };
+ #define NLBL_MGMT_A_MAX (__NLBL_MGMT_A_MAX - 1)
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index c2ca224..b3cf829 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -146,76 +146,6 @@ static const struct nla_policy netlbl_unlabel_genl_policy[NLBL_UNLABEL_A_MAX + 1
+ };
+ 
+ /*
+- * Audit Helper Functions
+- */
+-
+-/**
+- * netlbl_unlabel_audit_addr4 - Audit an IPv4 address
+- * @audit_buf: audit buffer
+- * @dev: network interface
+- * @addr: IP address
+- * @mask: IP address mask
+- *
+- * Description:
+- * Write the IPv4 address and address mask, if necessary, to @audit_buf.
+- *
+- */
+-static void netlbl_unlabel_audit_addr4(struct audit_buffer *audit_buf,
+-				     const char *dev,
+-				     __be32 addr, __be32 mask)
+-{
+-	u32 mask_val = ntohl(mask);
+-
+-	if (dev != NULL)
+-		audit_log_format(audit_buf, " netif=%s", dev);
+-	audit_log_format(audit_buf, " src=" NIPQUAD_FMT, NIPQUAD(addr));
+-	if (mask_val != 0xffffffff) {
+-		u32 mask_len = 0;
+-		while (mask_val > 0) {
+-			mask_val <<= 1;
+-			mask_len++;
+-		}
+-		audit_log_format(audit_buf, " src_prefixlen=%d", mask_len);
+-	}
+-}
+-
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-/**
+- * netlbl_unlabel_audit_addr6 - Audit an IPv6 address
+- * @audit_buf: audit buffer
+- * @dev: network interface
+- * @addr: IP address
+- * @mask: IP address mask
+- *
+- * Description:
+- * Write the IPv6 address and address mask, if necessary, to @audit_buf.
+- *
+- */
+-static void netlbl_unlabel_audit_addr6(struct audit_buffer *audit_buf,
+-				     const char *dev,
+-				     const struct in6_addr *addr,
+-				     const struct in6_addr *mask)
+-{
+-	if (dev != NULL)
+-		audit_log_format(audit_buf, " netif=%s", dev);
+-	audit_log_format(audit_buf, " src=" NIP6_FMT, NIP6(*addr));
+-	if (ntohl(mask->s6_addr32[3]) != 0xffffffff) {
+-		u32 mask_len = 0;
+-		u32 mask_val;
+-		int iter = -1;
+-		while (ntohl(mask->s6_addr32[++iter]) == 0xffffffff)
+-			mask_len += 32;
+-		mask_val = ntohl(mask->s6_addr32[iter]);
+-		while (mask_val > 0) {
+-			mask_val <<= 1;
+-			mask_len++;
+-		}
+-		audit_log_format(audit_buf, " src_prefixlen=%d", mask_len);
+-	}
+-}
+-#endif /* IPv6 */
+-
+-/*
+  * Unlabeled Connection Hash Table Functions
+  */
+ 
+@@ -567,10 +497,10 @@ static int netlbl_unlhsh_add(struct net *net,
+ 		mask4 = (struct in_addr *)mask;
+ 		ret_val = netlbl_unlhsh_add_addr4(iface, addr4, mask4, secid);
+ 		if (audit_buf != NULL)
+-			netlbl_unlabel_audit_addr4(audit_buf,
+-						   dev_name,
+-						   addr4->s_addr,
+-						   mask4->s_addr);
++			netlbl_af4list_audit_addr(audit_buf, 1,
++						  dev_name,
++						  addr4->s_addr,
++						  mask4->s_addr);
+ 		break;
+ 	}
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+@@ -581,9 +511,9 @@ static int netlbl_unlhsh_add(struct net *net,
+ 		mask6 = (struct in6_addr *)mask;
+ 		ret_val = netlbl_unlhsh_add_addr6(iface, addr6, mask6, secid);
+ 		if (audit_buf != NULL)
+-			netlbl_unlabel_audit_addr6(audit_buf,
+-						   dev_name,
+-						   addr6, mask6);
++			netlbl_af6list_audit_addr(audit_buf, 1,
++						  dev_name,
++						  addr6, mask6);
+ 		break;
+ 	}
+ #endif /* IPv6 */
+@@ -648,9 +578,9 @@ static int netlbl_unlhsh_remove_addr4(struct net *net,
+ 					      audit_info);
+ 	if (audit_buf != NULL) {
+ 		dev = dev_get_by_index(net, iface->ifindex);
+-		netlbl_unlabel_audit_addr4(audit_buf,
+-					   (dev != NULL ? dev->name : NULL),
+-					   addr->s_addr, mask->s_addr);
++		netlbl_af4list_audit_addr(audit_buf, 1,
++					  (dev != NULL ? dev->name : NULL),
++					  addr->s_addr, mask->s_addr);
+ 		if (dev != NULL)
+ 			dev_put(dev);
+ 		if (entry && security_secid_to_secctx(entry->secid,
+@@ -708,9 +638,9 @@ static int netlbl_unlhsh_remove_addr6(struct net *net,
+ 					      audit_info);
+ 	if (audit_buf != NULL) {
+ 		dev = dev_get_by_index(net, iface->ifindex);
+-		netlbl_unlabel_audit_addr6(audit_buf,
+-					   (dev != NULL ? dev->name : NULL),
+-					   addr, mask);
++		netlbl_af6list_audit_addr(audit_buf, 1,
++					  (dev != NULL ? dev->name : NULL),
++					  addr, mask);
+ 		if (dev != NULL)
+ 			dev_put(dev);
+ 		if (entry && security_secid_to_secctx(entry->secid,
 
