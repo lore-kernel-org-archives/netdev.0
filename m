@@ -1,83 +1,53 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: OOPS, ip -f inet6 route get fec0::1, linux-2.6.26,	ip6_route_output,
- rt6_fill_node+0x175
-Date: Fri, 08 Aug 2008 00:57:11 -0400
-Message-ID: <489BD227.6000209@hp.com>
-References: <9F6ACAE02B6DD040A1E259977622CFDB033590C3@oslexcp1.eu.tandberg.int> <20080807203748.GA5196@martell.zuzino.mipt.ru>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH] IPv6:fix the return interface index when get it while no
+ message is received
+Date: Fri, 08 Aug 2008 13:59:54 +0800
+Message-ID: <489BE0DA.80306@cn.fujitsu.com>
+References: <489BCB1A.5040100@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030209010905020208020707"
-Cc: John Gumb <john.gumb@tandberg.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:36559 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbYHHE5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 00:57:43 -0400
-In-Reply-To: <20080807203748.GA5196@martell.zuzino.mipt.ru>
+Received: from cn.fujitsu.com ([222.73.24.84]:58921 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752484AbYHHGAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 02:00:34 -0400
+In-Reply-To: <489BCB1A.5040100@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030209010905020208020707
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Alexey Dobriyan wrote:
-> On Thu, Aug 07, 2008 at 07:00:56PM +0200, John Gumb wrote:
->> Scenario: no ipv6 default route set.
+Yang Hongyang wrote:
+> when I use getsockopt(sk, IPPROTO_IPV6, IPV6_2292PKTOPTIONS,(char *)incmsg, &cnt)
+> to get receiving interface index while no message is received,
 > 
->> # ip -f inet6 route get fec0::1
->>
->> BUG: unable to handle kernel NULL pointer dereference at 00000000
->> IP: [<c0369b85>] rt6_fill_node+0x175/0x3b0
->> EIP is at rt6_fill_node+0x175/0x3b0
-> 
-> 0xffffffff80424dd3 is in rt6_fill_node (net/ipv6/route.c:2191).
-> 2186                    } else
-> 2187    #endif
-> 2188                            NLA_PUT_U32(skb, RTA_IIF, iif);
-> 2189            } else if (dst) {
-> 2190                    struct in6_addr saddr_buf;
-> 2191      ====>         if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
-> 					       ^^^^^^^^^^^^^^^^^^^^^^^^
-> 					       		NULL
-> 
-> 2192                                           dst, 0, &saddr_buf) == 0)
-> 2193                            NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
-> 2194            }
+> What interface index should be returned?
 
-The commit that changed this can't be reverted easily, but the patch 
-below works for me.
+When get receiving interface index while no message is received,
+the bounded device's index of the socket should be returned?
 
-Fix NULL de-reference in rt6_fill_node() when there's no IPv6 input 
-device present in the dst entry.
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
-
-
---------------030209010905020208020707
-Content-Type: text/x-patch;
- name="idev.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="idev.patch"
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5a3e87e..303a245 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2188,7 +2188,8 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
- 			NLA_PUT_U32(skb, RTA_IIF, iif);
- 	} else if (dst) {
- 		struct in6_addr saddr_buf;
--		if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
-+		struct inet6_dev *idev = ip6_dst_idev(&rt->u.dst);
-+		if (ipv6_dev_get_saddr(idev ? idev->dev : NULL,
- 				       dst, 0, &saddr_buf) == 0)
- 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
- 	}
-
---------------030209010905020208020707--
+--- a/ipv6_sockglue.c
++++ b/ipv6_sockglue.c
+@@ -911,7 +911,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		} else {
+ 			if (np->rxopt.bits.rxinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+ 				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
+ 			}
+@@ -921,7 +921,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			}
+ 			if (np->rxopt.bits.rxoinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+ 				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
+ 			}
+-- 
+1.5.3.8
