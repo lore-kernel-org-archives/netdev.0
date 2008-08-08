@@ -1,73 +1,67 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Fri, 8 Aug 2008 20:31:24 +0200
-Message-ID: <19f34abd0808081131p4e83cd79r8b7e0cb8da4f747b@mail.gmail.com>
-References: <200807171653.59177.wolfgang.walter@stwm.de>
-	 <200807301411.01622.wolfgang.walter@stwm.de>
-	 <20080806103354.GA31623@gondor.apana.org.au>
-	 <200808061933.25631.wolfgang.walter@stwm.de>
-	 <20080806201401.GA607@linux-os.sc.intel.com>
-	 <20080806212152.GB607@linux-os.sc.intel.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] uninline atl1e_setup_mac_ctrl()
+Date: Fri, 8 Aug 2008 21:33:34 +0300
+Message-ID: <20080808183334.GZ14495@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: wolfgang.walter@stwm.de,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ingo Molnar" <mingo@elte.hu>
-To: "Suresh Siddha" <suresh.b.siddha@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jie Yang <jie.yang@atheros.com>, jgarzik@pobox.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:39701 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbYHHSbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 14:31:25 -0400
-Received: by py-out-1112.google.com with SMTP id p76so630925pyb.10
-        for <netdev@vger.kernel.org>; Fri, 08 Aug 2008 11:31:25 -0700 (PDT)
-In-Reply-To: <20080806212152.GB607@linux-os.sc.intel.com>
+Received: from smtp5.pp.htv.fi ([213.243.153.39]:41483 "EHLO smtp5.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752968AbYHHSfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 14:35:09 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 6, 2008 at 11:21 PM, Suresh Siddha
-<suresh.b.siddha@intel.com> wrote:
-> BTW, in one of your oops, I see:
->
-> note: cron[1207] exited with preempt_count 268435459
->
-> I smell some kind of stack corruption here which is corrupting
-> thread_info (in the above case preempt_count in the thread_info).
->
-> Similarly, if the status field(in thread_info) gets corrupted(setting
-> TS_USEDFPU) without proper math state allocated(present in thread_struct),
-> we can end up oops in __switch_to.
->
-> But you seem to say, reverting recent fpu patches make the problem go away.
-> hmm, just wondering if your test kernel (with fpu patches reverted) is stable
-> enough and don't see other oops/issues?
->
-> Recently Vegard also noticed some stack corruptions (in network stack) leading
-> to similar problems. Not sure if Vegard has root caused his issue. copying him
-> for his comments.
+There doesn't seem to be a compelling reason why atl1e_setup_mac_ctrl() 
+is marked as "inline":
 
-I don't think this is the same problem. What I see is almost certainly
-a problem with netpoll, netconsole, or the 8139too driver. I see a UDP
-packet in a task_struct.
+It's not used in any place where speed would matter much, and as long as 
+it has only one caller non-ancient gcc versions anyway inline it 
+automatically.
 
-There is also the fact that reverting fpu patches makes it go away
-(for Wolfgang), while for the issue I am seeing, oops in FP code is
-just one out of several different corruptions (sometimes it happens in
-other slabs).
+This patch fixes the following compile error with gcc 3.4:
 
-(Sorry for the little late reply.)
+<--  snip  -->
 
-Thanks.
+...
+  CC      drivers/net/atl1e/atl1e_main.o
+atl1e_main.c: In function `atl1e_check_link':
+atl1e_main.c:50: sorry, unimplemented: inlining failed in call to 
+atl1e_main.c:196: sorry, unimplemented: called from here
+make[4]: *** [drivers/net/atl1e/atl1e_main.o] Error 1
 
+<--  snip  -->
 
-Vegard
+Reported-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+---
+9b6daf38d2e48b275573fc54e7d2a498fac277cf 
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 35264c2..82d7be1 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -47,7 +47,7 @@ MODULE_DESCRIPTION("Atheros 1000M Ethernet Network Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+-static inline void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter);
++static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter);
+ 
+ static const u16
+ atl1e_rx_page_vld_regs[AT_MAX_RECEIVE_QUEUE][AT_PAGE_NUM_PER_QUEUE] =
+@@ -1037,7 +1037,7 @@ static inline void atl1e_configure_dma(struct atl1e_adapter *adapter)
+ 	return;
+ }
+ 
+-static inline void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
++static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
+ {
+ 	u32 value;
+ 	struct atl1e_hw *hw = &adapter->hw;
+
