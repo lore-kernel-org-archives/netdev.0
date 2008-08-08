@@ -1,58 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Bluetooth driver updates for 2.6.27
-Date: Fri, 08 Aug 2008 02:15:32 +0200
-Message-ID: <1218154532.7819.52.camel@californication>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: Code query: tcp_request_sock deallocation
+Date: Thu, 7 Aug 2008 18:19:32 -0700
+Message-ID: <396556a20808071819r39e22ffdg23b6fb10cfa501da@mail.gmail.com>
+References: <396556a20808071607o7157932bt373d4b9a5e1bbedb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:36568 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753379AbYHHALd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 20:11:33 -0400
+Received: from rv-out-0506.google.com ([209.85.198.238]:23853 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbYHHBTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 21:19:33 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so773259rvb.1
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 18:19:33 -0700 (PDT)
+In-Reply-To: <396556a20808071607o7157932bt373d4b9a5e1bbedb@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Thu, Aug 7, 2008 at 4:07 PM, Adam Langley <agl@imperialviolet.org> wrote:
+> Other code paths in that function (like goto embryonic_reset) end up
+> removing it from the queue and freeing it immediately (with
+> inet_csk_reqsk_queue_drop).
 
-these are some pending driver updates for the 2.6.27 kernel. The BNEP
-update is adding parameters to control the header compression. This is
-required to pass the Bluetooth qualification since otherwise Linux is
-too smart (yes qualification requires to disable it). The other two
-update the Bluetooth driver parameters and brings the quirk list of the
-btusb driver in sync with the hci_usb.
+It's ok, I found it. What got me was that I put a BUG() in the
+destructor and it didn't get called. Turns out that accepting a socket
+doesn't call the destructor. Then I spent another hour verifying that
+no memory leaks because of that.
 
-Oliver is working on the SCO support for the btusb driver and once he
-finishes it and we were able to test it, then it is time to actually
-remove the hci_usb in favor of btusb.
-
-Regards
-
-Marcel
+I feel it probably should call the destructor, however.
 
 
-Please pull from
+AGL
 
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-
-This will update the following files:
-
- drivers/bluetooth/bcm203x.c |    9 +--
- drivers/bluetooth/bfusb.c   |   10 +---
- drivers/bluetooth/bpa10x.c  |   10 +---
- drivers/bluetooth/btusb.c   |  163 ++++++++++++++++++++++++++++++++++++++++++-
- drivers/bluetooth/hci_usb.c |    8 +--
- net/bluetooth/bnep/core.c   |   15 +++-
- 6 files changed, 179 insertions(+), 36 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann (3):
-    [Bluetooth] Add parameters to control BNEP header compression
-    [Bluetooth] Removal of unnecessary ignore module parameter
-    [Bluetooth] Add full quirk implementation for btusb driver
-
-
-
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
