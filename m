@@ -1,79 +1,111 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6:fix the return interface index when get it while
- no message is received
-Date: Fri, 08 Aug 2008 10:58:04 -0400
-Message-ID: <489C5EFC.6030006@hp.com>
-References: <489BCB1A.5040100@cn.fujitsu.com>	<489BE0DA.80306@cn.fujitsu.com> <20080807.230334.239030482.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: possible recursive locking in udp4_lib_rcv
+Date: Fri, 8 Aug 2008 23:01:08 +0800
+Message-ID: <20080808150108.GA21048@gondor.apana.org.au>
+References: <20080807234613.GA9598@google.com> <E1KRSxN-0005Ng-00@gondolin.me.apana.org.au> <20080808143741.GA20777@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: yanghy@cn.fujitsu.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, haoki@redhat.com
+To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:34663 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbYHHO6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 10:58:08 -0400
-In-Reply-To: <20080807.230334.239030482.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:34523 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751694AbYHHPBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 11:01:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20080808143741.GA20777@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Yang Hongyang <yanghy@cn.fujitsu.com>
-> Date: Fri, 08 Aug 2008 13:59:54 +0800
-> 
->> Yang Hongyang wrote:
->>> when I use getsockopt(sk, IPPROTO_IPV6, IPV6_2292PKTOPTIONS,(char *)incmsg, &cnt)
->>> to get receiving interface index while no message is received,
->>>
->>> What interface index should be returned?
->> When get receiving interface index while no message is received,
->> the bounded device's index of the socket should be returned?
->>
->> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
-> 
-> To me it seems to be an undefined operation.
-> 
-> One cannot expect something valid from this socket option until a
-> packet really is received on the socket.
+On Fri, Aug 08, 2008 at 10:37:41PM +0800, Herbert Xu wrote:
+>
+> Never mind, I see the reason why it's there.  What we should do
+> is drop the lock when we hit an encapsulated socket since they
+> don't need it at all.
 
-Here is what 2292 has to say:
+Here is the patch:
 
->   The corresponding receive option
-> 
->        getsockopt(fd, IPPROTO_IPV6, IPV6_PKTOPTIONS, &buf, &len);
-> 
->    returns a buffer with one or more ancillary data objects for all the
->    optional receive information that the application has previously
->    specified that it wants to receive.  The fourth argument points to
->    the buffer that is filled in by the call.  The fifth argument is a
->    pointer to a value-result integer: when the function is called the
->    integer specifies the size of the buffer pointed to by the fourth
->    argument, and on return this integer contains the actual number of
->    bytes that were returned.  The application processes this buffer
->    exactly as if the buffer were returned by recvmsg() as control
->    information.
+udp: Drop socket lock for encapsulated packets
 
+The socket lock is there to protect the normal UDP receive path.
+Encapsulation UDP sockets don't need that protection.  In fact
+the locking is deadly for them as they may contain another UDP
+packet within, possibly with the same addresses.
 
-So, there return value should be any sticky options set.
+Also the nested bit was copied from TCP.  TCP needs it because
+of accept(2) spawning sockets.  This simply doesn't apply to UDP
+so I've removed it.
 
-In the case of PKTINFO, the interface should be either 0 or the one
-set by the sticky option.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The address should be should be from the options or IN6ADDR_ANY.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 383d173..8e42fbb 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -989,7 +989,9 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 		    up->encap_rcv != NULL) {
+ 			int ret;
+ 
++			bh_unlock_sock(sk);
+ 			ret = (*up->encap_rcv)(sk, skb);
++			bh_lock_sock(sk);
+ 			if (ret <= 0) {
+ 				UDP_INC_STATS_BH(sock_net(sk),
+ 						 UDP_MIB_INDATAGRAMS,
+@@ -1092,7 +1094,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 			if (skb1) {
+ 				int ret = 0;
+ 
+-				bh_lock_sock_nested(sk);
++				bh_lock_sock(sk);
+ 				if (!sock_owned_by_user(sk))
+ 					ret = udp_queue_rcv_skb(sk, skb1);
+ 				else
+@@ -1194,7 +1196,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 
+ 	if (sk != NULL) {
+ 		int ret = 0;
+-		bh_lock_sock_nested(sk);
++		bh_lock_sock(sk);
+ 		if (!sock_owned_by_user(sk))
+ 			ret = udp_queue_rcv_skb(sk, skb);
+ 		else
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index d1477b3..a6aecf7 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -379,7 +379,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 					uh->source, saddr, dif))) {
+ 		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
+ 		if (buff) {
+-			bh_lock_sock_nested(sk2);
++			bh_lock_sock(sk2);
+ 			if (!sock_owned_by_user(sk2))
+ 				udpv6_queue_rcv_skb(sk2, buff);
+ 			else
+@@ -387,7 +387,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 			bh_unlock_sock(sk2);
+ 		}
+ 	}
+-	bh_lock_sock_nested(sk);
++	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		udpv6_queue_rcv_skb(sk, skb);
+ 	else
+@@ -508,7 +508,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 
+ 	/* deliver */
+ 
+-	bh_lock_sock_nested(sk);
++	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		udpv6_queue_rcv_skb(sk, skb);
+ 	else
 
-This is all for RFC2292 style.
-
-For RFC 3542 style,  there what should be done:
-
-   Issuing getsockopt() for the above options will return the sticky
-   option value i.e., the value set with setsockopt().  If no sticky
-   option value has been set getsockopt() will return the following
-   values:
-
-   -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
-      structure with ipi6_addr being in6addr_any and ipi6_ifindex being
-      zero.
-
--vlad
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
