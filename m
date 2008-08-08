@@ -1,7 +1,8 @@
 From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: [00/04] HSO driver bugfixes and updates
-Date: Fri, 8 Aug 2008 12:00:23 -0700
-Message-ID: <20080808190023.GA2953@kroah.com>
+Subject: [02/04] hso: fix refcounting on the ttyHSx devices
+Date: Fri, 8 Aug 2008 12:01:41 -0700
+Message-ID: <20080808190141.GC2953@kroah.com>
+References: <20080808190023.GA2953@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -14,23 +15,38 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5
 To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <20080808190023.GA2953-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+From: Olivier Blin <blino-4qZELD6FgxhWk0Htik3J/w@public.gmane.org>
 
-Here are 4 patches against 2.6.27-rc2 for the drivers/net/usb/hso.c
-driver.
 
-The first 2 fix problems that people have been having with the driver
-The last 2 are just good things to have based on code reviews from Arjan
-and Andrew.
+The references on ttyHSx devices were not decremented correctly when
+the tty was closed. The helper freeing the serial devices was never
+called because of that, and the module left some dangling sysfs
+devices after being unloaded.
 
-Please apply them to your tree(s) and push them upward.
+Signed-off-by: Olivier Blin <blino-4qZELD6FgxhWk0Htik3J/w@public.gmane.org>
+Cc: Jari Tenhunen <jari.tenhunen-X3B1VOXEql0@public.gmane.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
 
-thanks,
+---
+ drivers/net/usb/hso.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-greg k-h
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -1103,8 +1103,8 @@ static void hso_serial_close(struct tty_
+ 	/* reset the rts and dtr */
+ 	/* do the actual close */
+ 	serial->open_count--;
++	kref_put(&serial->parent->ref, hso_serial_ref_free);
+ 	if (serial->open_count <= 0) {
+-		kref_put(&serial->parent->ref, hso_serial_ref_free);
+ 		serial->open_count = 0;
+ 		if (serial->tty) {
+ 			serial->tty->driver_data = NULL;
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
