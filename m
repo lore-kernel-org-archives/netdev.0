@@ -1,33 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6#ath9k 2008-08-07
-Date: Thu, 07 Aug 2008 19:41:55 -0700 (PDT)
-Message-ID: <20080807.194155.136073681.davem@davemloft.net>
-References: <20080807143834.GB27762@tuxdriver.com>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: [PATCH?] atl1e: WAKE_MCAST 2x. 1st WAKE_UCAST?
+Date: Fri, 8 Aug 2008 11:12:20 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE61F99BC@SHEXMB-01.global.atheros.com>
+References: <489B21CA.7010508@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080807143834.GB27762-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"jacliburn@bellsouth.net" <jacliburn@bellsouth.net>
+To: roel kluin <roel.kluin@gmail.com>,
+	"jgarzik@redhat.com" <jgarzik@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 175.212.DSNET ([203.110.175.212]:12379 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751239AbYHHDMY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 23:12:24 -0400
+In-Reply-To: <489B21CA.7010508@gmail.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 7 Aug 2008 10:38:34 -0400
+On Friday, August 08, 2008 12:25 AM
+roel kluin <roel.kluin@gmail.com> wrote
 
-> I know we all want to see ath9k merged ASAP.  Since I'll be unavailable
-> this weekend, I have created a branch that includes Luis's revamped
-> list.h patches, the original ath9k patches, Adrian's ath9k gcc bug
-> work-around patch, and another cleanup series from Sujith on top.
-> 
-> Hopefully no further problems will reveal themselves with the list.h
-> stuff.  Please pull at your leisure, or if a problem arises I'll work to
-> resolve it on Monday.
+>
+> untested, is it right?
+> ---
+> WAKE_MCAST bit tested twice, test WAKE_UCAST first.
+>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com> diff --git
+> a/drivers/net/atl1e/atl1e_ethtool.c
+> b/drivers/net/atl1e/atl1e_ethtool.c
+> index cdc3b85..619c658 100644
+> --- a/drivers/net/atl1e/atl1e_ethtool.c
+> +++ b/drivers/net/atl1e/atl1e_ethtool.c
+> @@ -355,7 +355,7 @@ static int atl1e_set_wol(struct
+> net_device *netdev, struct ethtool_wolinfo *wol)
+>         struct atl1e_adapter *adapter = netdev_priv(netdev);
+>
+>         if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
+> -                           WAKE_MCAST | WAKE_BCAST | WAKE_MCAST))
+> +                           WAKE_UCAST | WAKE_MCAST | WAKE_BCAST))
+>                 return -EOPNOTSUPP;
+>         /* these settings will always override what we
+> currently have */
+>         adapter->wol = 0;
+>
 
-Looks good, pulled and pushed out to kernel.org, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, it should be this, thanks!
+
+Acked-by: Jie Yang <jie.yang@atheros.com>
+
+BTW: resend on the comments from Jay Cliburn <jacliburn@bellsouth.net>
+
+Thanks Jay
