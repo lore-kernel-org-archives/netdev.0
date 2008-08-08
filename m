@@ -1,81 +1,109 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] ixgbe: add cx4 device ID
-Date: Fri, 08 Aug 2008 16:24:19 -0700
-Message-ID: <20080808232419.17754.78857.stgit@localhost.localdomain>
+Subject: [UPDATED PATCH] igb: remove 82576 quad adapter
+Date: Fri, 08 Aug 2008 16:51:26 -0700
+Message-ID: <20080808235126.19264.39654.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	akpm@linux-foundation.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15338 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5637 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752821AbYHHXYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 19:24:23 -0400
+	id S1753245AbYHHXv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 19:51:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This is a simple device ID add for adapters that support
-CX4 (copper infiniband style cable) connectors for 10GbE.
+Disable support for device 8086:10E8.  Currently the result of loading the
+driver with the device present causes system instability.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82598.c |    1 +
- drivers/net/ixgbe/ixgbe_main.c  |    4 +++-
- drivers/net/ixgbe/ixgbe_type.h  |    1 +
- 3 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/igb/e1000_82575.c |    1 -
+ drivers/net/igb/e1000_hw.h    |    1 -
+ drivers/net/igb/igb_ethtool.c |    9 ---------
+ drivers/net/igb/igb_main.c    |   11 -----------
+ 4 files changed, 0 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 2f38e84..f96358b 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -190,6 +190,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82598(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_82598AF_DUAL_PORT:
- 	case IXGBE_DEV_ID_82598AF_SINGLE_PORT:
- 	case IXGBE_DEV_ID_82598EB_CX4:
-+	case IXGBE_DEV_ID_82598_CX4_DUAL_PORT:
- 		media_type = ixgbe_media_type_fiber;
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index bb823ac..f5e2e72 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -87,7 +87,6 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	case E1000_DEV_ID_82576:
+ 	case E1000_DEV_ID_82576_FIBER:
+ 	case E1000_DEV_ID_82576_SERDES:
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+ 		mac->type = e1000_82576;
  		break;
- 	case IXGBE_DEV_ID_82598AT_DUAL_PORT:
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e5f3da8..34bca16 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -48,7 +48,7 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
- 	"Intel(R) 10 Gigabit PCI Express Network Driver";
+ 	default:
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index a65ccc3..99504a6 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -41,7 +41,6 @@ struct e1000_hw;
+ #define E1000_DEV_ID_82576                    0x10C9
+ #define E1000_DEV_ID_82576_FIBER              0x10E6
+ #define E1000_DEV_ID_82576_SERDES             0x10E7
+-#define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
+ #define E1000_DEV_ID_82575EB_COPPER           0x10A7
+ #define E1000_DEV_ID_82575EB_FIBER_SERDES     0x10A9
+ #define E1000_DEV_ID_82575GB_QUAD_COPPER      0x10D6
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 11aee13..6c0a8c2 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -1746,15 +1746,6 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
+ 		/* return success for non excluded adapter ports */
+ 		retval = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* quad port adapters only support WoL on port A */
+-		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
+-			wol->supported = 0;
+-			break;
+-		}
+-		/* return success for non excluded adapter ports */
+-		retval = 0;
+-		break;
+ 	default:
+ 		/* dual port cards only support WoL on port A from now on
+ 		 * unless it was enabled in the eeprom for port B
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 8f66e15..4b19abb 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -61,7 +61,6 @@ static struct pci_device_id igb_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
+-	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575GB_QUAD_COPPER), board_82575 },
+@@ -1217,16 +1216,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
+ 			adapter->eeprom_wol = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* if quad port adapter, disable WoL on all but port A */
+-		if (global_quad_port_a != 0)
+-			adapter->eeprom_wol = 0;
+-		else
+-			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
+-		/* Reset for multiple quad port adapters */
+-		if (++global_quad_port_a == 4)
+-			global_quad_port_a = 0;
+-		break;
+ 	}
  
--#define DRV_VERSION "1.3.18-k2"
-+#define DRV_VERSION "1.3.18-k4"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static const char ixgbe_copyright[] =
- 	 "Copyright (c) 1999-2007 Intel Corporation.";
-@@ -72,6 +72,8 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
- 	 board_82598 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_CX4),
- 	 board_82598 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_CX4_DUAL_PORT),
-+	 board_82598 },
- 
- 	/* required last entry */
- 	{0, }
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 1ad7cb9..c0282a2 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -39,6 +39,7 @@
- #define IXGBE_DEV_ID_82598AF_SINGLE_PORT 0x10C7
- #define IXGBE_DEV_ID_82598AT_DUAL_PORT   0x10C8
- #define IXGBE_DEV_ID_82598EB_CX4         0x10DD
-+#define IXGBE_DEV_ID_82598_CX4_DUAL_PORT 0x10EC
- 
- /* General Registers */
- #define IXGBE_CTRL      0x00000
+ 	/* initialize the wol settings based on the eeprom settings */
 
