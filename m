@@ -1,37 +1,83 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth driver updates for 2.6.27
-Date: Fri, 8 Aug 2008 06:50:53 +0200
-Message-ID: <3D4DB054-93E1-4544-A81C-54A0A742C227@holtmann.org>
-References: <1218154532.7819.52.camel@californication> <20080807.203215.180763795.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v928.1)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: OOPS, ip -f inet6 route get fec0::1, linux-2.6.26,	ip6_route_output,
+ rt6_fill_node+0x175
+Date: Fri, 08 Aug 2008 00:57:11 -0400
+Message-ID: <489BD227.6000209@hp.com>
+References: <9F6ACAE02B6DD040A1E259977622CFDB033590C3@oslexcp1.eu.tandberg.int> <20080807203748.GA5196@martell.zuzino.mipt.ru>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030209010905020208020707"
+Cc: John Gumb <john.gumb@tandberg.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:45704 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048AbYHHEu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 00:50:57 -0400
-In-Reply-To: <20080807.203215.180763795.davem@davemloft.net>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:36559 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365AbYHHE5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 00:57:43 -0400
+In-Reply-To: <20080807203748.GA5196@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This is a multi-part message in MIME format.
+--------------030209010905020208020707
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
->> Please pull from
+Alexey Dobriyan wrote:
+> On Thu, Aug 07, 2008 at 07:00:56PM +0200, John Gumb wrote:
+>> Scenario: no ipv6 default route set.
+> 
+>> # ip -f inet6 route get fec0::1
 >>
->>    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/ 
->> bluetooth-2.6.git
->
-> I assume you wanted me to pull the 'master' branch.  Please specify
-> this explicitly in the future to avoid any possible confusion.
+>> BUG: unable to handle kernel NULL pointer dereference at 00000000
+>> IP: [<c0369b85>] rt6_fill_node+0x175/0x3b0
+>> EIP is at rt6_fill_node+0x175/0x3b0
+> 
+> 0xffffffff80424dd3 is in rt6_fill_node (net/ipv6/route.c:2191).
+> 2186                    } else
+> 2187    #endif
+> 2188                            NLA_PUT_U32(skb, RTA_IIF, iif);
+> 2189            } else if (dst) {
+> 2190                    struct in6_addr saddr_buf;
+> 2191      ====>         if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
+> 					       ^^^^^^^^^^^^^^^^^^^^^^^^
+> 					       		NULL
+> 
+> 2192                                           dst, 0, &saddr_buf) == 0)
+> 2193                            NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+> 2194            }
 
-my usage of the bluetooth-2.6 tree is still simple and so it only has  
-a master branch at the moment. Fixed my summary script to also note  
-the branch for future requests.
+The commit that changed this can't be reverted easily, but the patch 
+below works for me.
 
-Regards
+Fix NULL de-reference in rt6_fill_node() when there's no IPv6 input 
+device present in the dst entry.
 
-Marcel
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
+
+
+--------------030209010905020208020707
+Content-Type: text/x-patch;
+ name="idev.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="idev.patch"
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5a3e87e..303a245 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2188,7 +2188,8 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
+ 			NLA_PUT_U32(skb, RTA_IIF, iif);
+ 	} else if (dst) {
+ 		struct in6_addr saddr_buf;
+-		if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
++		struct inet6_dev *idev = ip6_dst_idev(&rt->u.dst);
++		if (ipv6_dev_get_saddr(idev ? idev->dev : NULL,
+ 				       dst, 0, &saddr_buf) == 0)
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
+
+--------------030209010905020208020707--
