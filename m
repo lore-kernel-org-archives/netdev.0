@@ -1,50 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Strange tg3 regression with UMP fw. link reporting
-Date: Fri, 8 Aug 2008 11:21:30 +0200
-Message-ID: <200808081121.30795.arnd@arndb.de>
-References: <1218180939.24157.332.camel@pasglop> <31233EB5-037E-4615-95C9-7C816E510752@kernel.crashing.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP connection stalls under 2.6.24.7
+Date: Fri, 8 Aug 2008 12:56:50 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808081005440.4378@wrl-59.cs.helsinki.fi>
+References: <47EA0DAB.7080205@securenet.de> <200808071450.43552.denys@visp.net.lb>
+ <Pine.LNX.4.64.0808071454580.4551@wrl-59.cs.helsinki.fi>
+ <200808071523.04586.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	benh@kernel.crashing.org, Nathan Lynch <ntl@pobox.com>,
-	mcarlson@broadcom.com, Michael Chan <mchan@broadcom.com>,
-	netdev <netdev@vger.kernel.org>
-To: linuxppc-dev@ozlabs.org
+Content-Type: MULTIPART/MIXED; boundary="-696208474-928389113-1218180059=:4378"
+Cc: "=?ISO-8859-1?Q?D=E2niel_Fraga?=" <fragabr@gmail.com>,
+	Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Sven Riedel <sr@securenet.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	David Miller <davem@davemloft.net>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:64101 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298AbYHHJWW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 05:22:22 -0400
-In-Reply-To: <31233EB5-037E-4615-95C9-7C816E510752@kernel.crashing.org>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48830 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969AbYHHJ4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 05:56:53 -0400
+In-Reply-To: <200808071523.04586.denys@visp.net.lb>
+Content-ID: <Pine.LNX.4.64.0808081256330.4551@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 08 August 2008, Segher Boessenkool wrote:
-> > I don't know yet for sure what happens, but a quick look at the com=
-mit
-> > seems to show that the driver synchronously spin-waits for up to 2.=
-5ms
->=20
-> That's what the comment says, but the code says 2.5 _seconds_:
->=20
-> + =A0 =A0 =A0 /* Wait for up to 2.5 milliseconds */
-> + =A0 =A0 =A0 for (i =3D 0; i < 250000; i++) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!(tr32(GRC_RX_CPU_EVENT) & GRC_RX_C=
-PU_DRIVER_EVENT))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 udelay(10);
-> + =A0 =A0 =A0 }
->=20
-> (not that milliseconds wouldn't be bad already...)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It can potentially be even much longer, because each udelay will wait
-for *more* than 10 microseconds, and tr32() is an mmio read that takes
-additional time, possibly in the order of microseconds as well.
+---696208474-928389113-1218180059=:4378
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0808081256331.4551@wrl-59.cs.helsinki.fi>
 
-The correct way to implement a timeout like this would be to use
-time_before() in the condition, aside from better not doing a busy-loop
-in the first place.
+On Thu, 7 Aug 2008, Denys Fedoryshchenko wrote:
 
-	Arnd <><
+> On Thursday 07 August 2008, Ilpo Järvinen wrote:
+> >
+> > I could have still looked to it :-), I can mostly decide anything TCP
+> > congestion control related based on solely a tcpdump, and I can even read
+> > tcpdump -n -r logfile output if you want to fully hide any payloads (as
+> > long as the lines are not split to a mess in an email :-)) though then
+> > plotting them is not as easy for me (I could hack my tool someday though
+> > to handle that as well).
+>
+> I will try my best to reproduce it and report (sure on latest stable kernel).
+> On pre and git a bit more difficult but i will try also.
+
+I thought it was "trivial to reproduce"... :-) Perhaps it was then just 
+related to pre-2.6.25.7 kernels?
+
+-- 
+ i.
+---696208474-928389113-1218180059=:4378--
