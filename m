@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth driver updates for 2.6.27
-Date: Thu, 07 Aug 2008 20:32:15 -0700 (PDT)
-Message-ID: <20080807.203215.180763795.davem@davemloft.net>
-References: <1218154532.7819.52.camel@californication>
+Subject: Re: [PATCH -next] bnx2x: fix logical op
+Date: Thu, 07 Aug 2008 20:33:33 -0700 (PDT)
+Message-ID: <20080807.203333.140488055.davem@davemloft.net>
+References: <20080807135314.8d87e1a2.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, eilong@broadcom.com,
+	akpm@linux-foundation.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60386
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60391
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751857AbYHHDcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 23:32:14 -0400
-In-Reply-To: <1218154532.7819.52.camel@californication>
+	by vger.kernel.org with ESMTP id S1753378AbYHHDdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 23:33:32 -0400
+In-Reply-To: <20080807135314.8d87e1a2.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Fri, 08 Aug 2008 02:15:32 +0200
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 7 Aug 2008 13:53:14 -0700
 
-> Please pull from
+> Fix dubious logical operation that was found by sparse:
+> linux-next-20080807/drivers/net/bnx2x_main.c:7205:27: warning: dubious: !x & y
 > 
->     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-I assume you wanted me to pull the 'master' branch.  Please specify
-this explicitly in the future to avoid any possible confusion.
-
-Pulled and pushed back out to kernel.org, thanks!
+Looks obviously correct to me, applied, thanks Randy!
