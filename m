@@ -1,190 +1,71 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: [PATCH] tcp: (whitespace only) fix confusing indentation
-Date: Thu, 7 Aug 2008 18:37:12 -0700
-Message-ID: <396556a20805301217k293e5718h6bbf02bfe069060@europa>
+From: David Miller <davem@davemloft.net>
+Subject: Re: qdisc and down links (regression)
+Date: Thu, 07 Aug 2008 18:50:24 -0700 (PDT)
+Message-ID: <20080807.185024.155026077.davem@davemloft.net>
+References: <20080807143036.1ae10482@extreme>
+	<20080807.154735.148985698.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, linux-kernel@vgr.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.174]:39457 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752166AbYHHBlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 21:41:16 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1220812wfd.4
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2008 18:41:15 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52359
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752778AbYHHBuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2008 21:50:23 -0400
+In-Reply-To: <20080807.154735.148985698.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The indentation in part of tcp_minisocks makes it look like one of the if
-statements is much more important than it actually is.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 07 Aug 2008 15:47:35 -0700 (PDT)
 
-Signed-off-by: Adam Langley <agl@imperialviolet.org>
----
+> From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> Date: Thu, 7 Aug 2008 14:30:36 -0700
+> 
+> > Before the mulitqueue changes in 2.6.27-rc it was possible to setup
+> > queueing disciplines before the link came up (carrier active). This
+> > no longer works. If link is down, the qdisc is the noop_qdisc and
+> > any configuration changes don't seem to be shown.
+> 
+> I'll see why this happens, it wasn't an intentional change.
 
- net/ipv4/tcp_minisocks.c |  138 +++++++++++++++++++++++-----------------------
- 1 files changed, 68 insertions(+), 70 deletions(-)
+This should fix it, let me know if it doesn't:
 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 6d286f5..f976fc5 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -618,89 +618,87 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
- 	/* In sequence, PAWS is OK. */
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 83b23b5..ba1d121 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -189,7 +189,7 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
  
- 	if (tmp_opt.saw_tstamp && !after(TCP_SKB_CB(skb)->seq, tcp_rsk(req)->rcv_isn + 1))
--			req->ts_recent = tmp_opt.rcv_tsval;
-+		req->ts_recent = tmp_opt.rcv_tsval;
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-		struct Qdisc *q, *txq_root = txq->qdisc;
++		struct Qdisc *q, *txq_root = txq->qdisc_sleeping;
  
--		if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn) {
--			/* Truncate SYN, it is out of window starting
--			   at tcp_rsk(req)->rcv_isn + 1. */
--			flg &= ~TCP_FLAG_SYN;
--		}
-+	if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn) {
-+		/* Truncate SYN, it is out of window starting
-+		   at tcp_rsk(req)->rcv_isn + 1. */
-+		flg &= ~TCP_FLAG_SYN;
-+	}
- 
--		/* RFC793: "second check the RST bit" and
--		 *	   "fourth, check the SYN bit"
--		 */
--		if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN)) {
--			TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_ATTEMPTFAILS);
--			goto embryonic_reset;
--		}
-+	/* RFC793: "second check the RST bit" and
-+	 *	   "fourth, check the SYN bit"
-+	 */
-+	if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN)) {
-+		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_ATTEMPTFAILS);
-+		goto embryonic_reset;
-+	}
- 
--		/* ACK sequence verified above, just make sure ACK is
--		 * set.  If ACK not set, just silently drop the packet.
--		 */
--		if (!(flg & TCP_FLAG_ACK))
--			return NULL;
--
--		/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
--		if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
--		    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
--			inet_rsk(req)->acked = 1;
--			return NULL;
--		}
-+	/* ACK sequence verified above, just make sure ACK is
-+	 * set.  If ACK not set, just silently drop the packet.
-+	 */
-+	if (!(flg & TCP_FLAG_ACK))
-+		return NULL;
- 
--		/* OK, ACK is valid, create big socket and
--		 * feed this segment to it. It will repeat all
--		 * the tests. THIS SEGMENT MUST MOVE SOCKET TO
--		 * ESTABLISHED STATE. If it will be dropped after
--		 * socket is created, wait for troubles.
--		 */
--		child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb,
--								 req, NULL);
--		if (child == NULL)
--			goto listen_overflow;
-+	/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
-+	if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
-+	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
-+		inet_rsk(req)->acked = 1;
-+		return NULL;
-+	}
-+
-+	/* OK, ACK is valid, create big socket and
-+	 * feed this segment to it. It will repeat all
-+	 * the tests. THIS SEGMENT MUST MOVE SOCKET TO
-+	 * ESTABLISHED STATE. If it will be dropped after
-+	 * socket is created, wait for troubles.
-+	 */
-+	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL);
-+	if (child == NULL)
-+		goto listen_overflow;
- #ifdef CONFIG_TCP_MD5SIG
--		else {
--			/* Copy over the MD5 key from the original socket */
--			struct tcp_md5sig_key *key;
--			struct tcp_sock *tp = tcp_sk(sk);
--			key = tp->af_specific->md5_lookup(sk, child);
--			if (key != NULL) {
--				/*
--				 * We're using one, so create a matching key on the
--				 * newsk structure. If we fail to get memory then we
--				 * end up not copying the key across. Shucks.
--				 */
--				char *newkey = kmemdup(key->key, key->keylen,
--						       GFP_ATOMIC);
--				if (newkey) {
--					if (!tcp_alloc_md5sig_pool())
--						BUG();
--					tp->af_specific->md5_add(child, child,
--								 newkey,
--								 key->keylen);
--				}
-+	else {
-+		/* Copy over the MD5 key from the original socket */
-+		struct tcp_md5sig_key *key;
-+		struct tcp_sock *tp = tcp_sk(sk);
-+		key = tp->af_specific->md5_lookup(sk, child);
-+		if (key != NULL) {
-+			/*
-+			 * We're using one, so create a matching key on the
-+			 * newsk structure. If we fail to get memory then we
-+			 * end up not copying the key across. Shucks.
-+			 */
-+			char *newkey = kmemdup(key->key, key->keylen,
-+					       GFP_ATOMIC);
-+			if (newkey) {
-+				if (!tcp_alloc_md5sig_pool())
-+					BUG();
-+				tp->af_specific->md5_add(child, child, newkey,
-+							 key->keylen);
+ 		if (!(txq_root->flags & TCQ_F_BUILTIN) &&
+ 		    txq_root->handle == handle)
+@@ -793,7 +793,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
  			}
  		}
-+	}
- #endif
+ 		if ((parent != TC_H_ROOT) && !(sch->flags & TCQ_F_INGRESS))
+-			list_add_tail(&sch->list, &dev_queue->qdisc->list);
++			list_add_tail(&sch->list, &dev_queue->qdisc_sleeping->list);
  
--		inet_csk_reqsk_queue_unlink(sk, req, prev);
--		inet_csk_reqsk_queue_removed(sk, req);
-+	inet_csk_reqsk_queue_unlink(sk, req, prev);
-+	inet_csk_reqsk_queue_removed(sk, req);
+ 		return sch;
+ 	}
+@@ -1236,11 +1236,11 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 		q_idx = 0;
  
--		inet_csk_reqsk_queue_add(sk, req, child);
--		return child;
-+	inet_csk_reqsk_queue_add(sk, req, child);
-+	return child;
+ 		dev_queue = netdev_get_tx_queue(dev, 0);
+-		if (tc_dump_qdisc_root(dev_queue->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
++		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
+ 			goto done;
  
--	listen_overflow:
--		if (!sysctl_tcp_abort_on_overflow) {
--			inet_rsk(req)->acked = 1;
--			return NULL;
--		}
-+listen_overflow:
-+	if (!sysctl_tcp_abort_on_overflow) {
-+		inet_rsk(req)->acked = 1;
-+		return NULL;
-+	}
+ 		dev_queue = &dev->rx_queue;
+-		if (tc_dump_qdisc_root(dev_queue->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
++		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
+ 			goto done;
  
--	embryonic_reset:
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_EMBRYONICRSTS);
--		if (!(flg & TCP_FLAG_RST))
--			req->rsk_ops->send_reset(sk, skb);
-+embryonic_reset:
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_EMBRYONICRSTS);
-+	if (!(flg & TCP_FLAG_RST))
-+		req->rsk_ops->send_reset(sk, skb);
- 
--		inet_csk_reqsk_queue_drop(sk, req, prev);
--		return NULL;
-+	inet_csk_reqsk_queue_drop(sk, req, prev);
-+	return NULL;
- }
- 
- /*
+ cont:
