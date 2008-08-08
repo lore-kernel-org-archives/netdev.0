@@ -1,45 +1,49 @@
-From: Nathan Lynch <ntl@pobox.com>
-Subject: Re: Strange tg3 regression with UMP fw. link reporting
-Date: Fri, 8 Aug 2008 16:25:58 -0500
-Message-ID: <20080808212558.GL6967@localdomain>
-References: <1218180939.24157.332.camel@pasglop>
- <31233EB5-037E-4615-95C9-7C816E510752@kernel.crashing.org>
- <1218187111.24157.336.camel@pasglop>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: qdisc and down links (regression)
+Date: Fri, 8 Aug 2008 14:32:01 -0700
+Message-ID: <20080808143201.009caf54@extreme>
+References: <20080807143036.1ae10482@extreme>
+ <20080807.154735.148985698.davem@davemloft.net>
+ <20080807.185024.155026077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	mcarlson@broadcom.com, linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vgr.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-sasl-fastnet.sasl.smtp.pobox.com ([207.106.133.19]:54127 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661AbYHHV0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 17:26:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1218187111.24157.336.camel@pasglop>
+Received: from mail.vyatta.com ([216.93.170.194]:35324 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755040AbYHHVcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 17:32:04 -0400
+In-Reply-To: <20080807.185024.155026077.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt wrote:
-> On Fri, 2008-08-08 at 10:58 +0200, Segher Boessenkool wrote:
-> > > I don't know yet for sure what happens, but a quick look at the commit
-> > > seems to show that the driver synchronously spin-waits for up to 2.5ms
-> > 
-> > That's what the comment says, but the code says 2.5 _seconds_:
-> > 
-> > +       /* Wait for up to 2.5 milliseconds */
-> > +       for (i = 0; i < 250000; i++) {
-> > +               if (!(tr32(GRC_RX_CPU_EVENT) & GRC_RX_CPU_DRIVER_EVENT))
-> > +                       break;
-> > +               udelay(10);
-> > +       }
-> > 
-> > (not that milliseconds wouldn't be bad already...)
-> 
-> Right, indeed. I think we have a good candidate for the problem :-)
+On Thu, 07 Aug 2008 18:50:24 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-I put a printk in tg3_wait_for_event_ack and I can confirm that it's
-timing out frequently (every few seconds) on my system.  Changing the
-number of loop iterations to 250 alleviates the problem.
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 07 Aug 2008 15:47:35 -0700 (PDT)
+> 
+> > From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+> > Date: Thu, 7 Aug 2008 14:30:36 -0700
+> > 
+> > > Before the mulitqueue changes in 2.6.27-rc it was possible to setup
+> > > queueing disciplines before the link came up (carrier active). This
+> > > no longer works. If link is down, the qdisc is the noop_qdisc and
+> > > any configuration changes don't seem to be shown.
+> > 
+> > I'll see why this happens, it wasn't an intentional change.
+> 
+> This should fix it, let me know if it doesn't:
+
+It fixes it for qdisc but not for ingress filters
+
+# tc qdisc add dev eth0 handle ffff: ingress
+# tc filter add dev eth0 parent ffff: protocol ip \
+   prio 50 u32 match ip src 0.0.0.0/0 police rate 800kbit burst 10k drop flowid :1
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
+
+Another problem is that the ingress qdisc can no longer be deleted
+successfully.
