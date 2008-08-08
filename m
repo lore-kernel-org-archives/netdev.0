@@ -1,165 +1,36 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: qdisc and down links (regression)
-Date: Fri, 8 Aug 2008 16:12:52 -0700
-Message-ID: <20080808161252.457a94e7@extreme>
-References: <20080807.154735.148985698.davem@davemloft.net>
-	<20080807.185024.155026077.davem@davemloft.net>
-	<20080808143201.009caf54@extreme>
-	<20080808.161122.56668452.davem@davemloft.net>
+From: Suresh Siddha <suresh.b.siddha@intel.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Fri, 8 Aug 2008 16:15:08 -0700
+Message-ID: <20080808231508.GB13158@linux-os.sc.intel.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <200808082109.47284.wolfgang.walter@stwm.de> <20080808193252.GD607@linux-os.sc.intel.com> <200808090110.42391.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Siddha, Suresh B" <suresh.b.siddha@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Wolfgang Walter <wolfgang.walter@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:40445 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:46234 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756413AbYHHXMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 19:12:54 -0400
-In-Reply-To: <20080808.161122.56668452.davem@davemloft.net>
+	id S1753533AbYHHXPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 19:15:09 -0400
+Content-Disposition: inline
+In-Reply-To: <200808090110.42391.wolfgang.walter@stwm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the wondershaper script that I used for testing only.
----------------------------------------------------------------
-#!/bin/bash
-# Wonder Shaper
-# please read the README before filling out these values 
-#
-# Set the following values to somewhat less than your actual download
-# and uplink speed. In kilobits. Also set the device that is to be shaped.
+On Fri, Aug 08, 2008 at 04:10:42PM -0700, Wolfgang Walter wrote:
+> By the way, if padlock is used from userspace, could this be aproblem, too? I
+> mean not via the kernel crypto layer but directly. I think these extensions
+> are not restricted to a privileged user.
 
-DOWNLINK=800
-UPLINK=220
-DEV=eth0
+No. Userspace will not have any such issue. Kernel is special, as it
+has to preserve the user-space context and also use these instructions
+for its own kernel purpose.
 
-# low priority OUTGOING traffic - you can leave this blank if you want
-# low priority source netmasks
-NOPRIOHOSTSRC=
+It is ok to get a spurious DNA from userland.
 
-# low priority destination netmasks
-NOPRIOHOSTDST=
-
-# low priority source ports
-NOPRIOPORTSRC=
-
-# low priority destination ports
-NOPRIOPORTDST=
-
-if [ "$1" = "status" ]
-then
-	tc -s qdisc ls dev $DEV
-	tc -s class ls dev $DEV
-	exit
-fi
-
-
-# clean existing down- and uplink qdiscs, hide errors
-tc qdisc del dev $DEV root    2> /dev/null > /dev/null
-tc qdisc del dev $DEV ingress 2> /dev/null > /dev/null
-
-if [ "$1" = "stop" ] 
-then 
-	exit
-fi
-
-
-###### uplink
-
-# install root HTB, point default traffic to 1:20:
-
-tc qdisc add dev $DEV root handle 1: htb default 20
-
-# shape everything at $UPLINK speed - this prevents huge queues in your
-# DSL modem which destroy latency:
-
-tc class add dev $DEV parent 1: classid 1:1 htb rate ${UPLINK}kbit burst 6k
-
-# high prio class 1:10:
-
-tc class add dev $DEV parent 1:1 classid 1:10 htb rate ${UPLINK}kbit \
-   burst 6k prio 1
-
-# bulk & default class 1:20 - gets slightly less traffic, 
-# and a lower priority:
-
-tc class add dev $DEV parent 1:1 classid 1:20 htb rate $[9*$UPLINK/10]kbit \
-   burst 6k prio 2
-
-tc class add dev $DEV parent 1:1 classid 1:30 htb rate $[8*$UPLINK/10]kbit \
-   burst 6k prio 2
-
-# all get Stochastic Fairness:
-tc qdisc add dev $DEV parent 1:10 handle 10: sfq perturb 10
-tc qdisc add dev $DEV parent 1:20 handle 20: sfq perturb 10
-tc qdisc add dev $DEV parent 1:30 handle 30: sfq perturb 10
-
-# TOS Minimum Delay (ssh, NOT scp) in 1:10:
-
-tc filter add dev $DEV parent 1:0 protocol ip prio 10 u32 \
-      match ip tos 0x10 0xff  flowid 1:10
-
-# ICMP (ip protocol 1) in the interactive class 1:10 so we 
-# can do measurements & impress our friends:
-tc filter add dev $DEV parent 1:0 protocol ip prio 10 u32 \
-        match ip protocol 1 0xff flowid 1:10
-
-# To speed up downloads while an upload is going on, put ACK packets in
-# the interactive class:
-
-tc filter add dev $DEV parent 1: protocol ip prio 10 u32 \
-   match ip protocol 6 0xff \
-   match u8 0x05 0x0f at 0 \
-   match u16 0x0000 0xffc0 at 2 \
-   match u8 0x10 0xff at 33 \
-   flowid 1:10
-
-# rest is 'non-interactive' ie 'bulk' and ends up in 1:20
-
-# some traffic however suffers a worse fate
-for a in $NOPRIOPORTDST
-do
-	tc filter add dev $DEV parent 1: protocol ip prio 14 u32 \
-	   match ip dport $a 0xffff flowid 1:30
-done
-
-for a in $NOPRIOPORTSRC
-do
- 	tc filter add dev $DEV parent 1: protocol ip prio 15 u32 \
-	   match ip sport $a 0xffff flowid 1:30
-done
-
-for a in $NOPRIOHOSTSRC
-do
- 	tc filter add dev $DEV parent 1: protocol ip prio 16 u32 \
-	   match ip src $a flowid 1:30
-done
-
-for a in $NOPRIOHOSTDST
-do
- 	tc filter add dev $DEV parent 1: protocol ip prio 17 u32 \
-	   match ip dst $a flowid 1:30
-done
-
-# rest is 'non-interactive' ie 'bulk' and ends up in 1:20
-
-tc filter add dev $DEV parent 1: protocol ip prio 18 u32 \
-   match ip dst 0.0.0.0/0 flowid 1:20
-
-
-########## downlink #############
-# slow downloads down to somewhat less than the real speed  to prevent 
-# queuing at our ISP. Tune to see how high you can set it.
-# ISPs tend to have *huge* queues to make sure big downloads are fast
-#
-# attach ingress policer:
-
-tc qdisc add dev $DEV handle ffff: ingress
-
-# filter *everything* to it (0.0.0.0/0), drop everything that's
-# coming in too fast:
-
-tc filter add dev $DEV parent ffff: protocol ip prio 50 u32 match ip src \
-   0.0.0.0/0 police rate ${DOWNLINK}kbit burst 10k drop flowid :1
-
-
+thanks,
+suresh
