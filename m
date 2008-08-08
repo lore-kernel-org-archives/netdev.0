@@ -1,72 +1,40 @@
-From: Julien Brunel <brunel@diku.dk>
-Subject: [PATCH] net/rxrpc: Use an IS_ERR test rather than a NULL test
-Date: Fri, 8 Aug 2008 13:55:21 +0200
-Message-ID: <200808081355.21787.brunel@diku.dk>
+From: juliusv@google.com (Julius Volz)
+Subject: Re: [PATCHv3 0/2] IPVS: Add Generic Netlink configuration interface
+Date: Fri, 8 Aug 2008 14:06:43 +0200
+Message-ID: <20080808120642.GB32458@google.com>
+References: <1218120219-1117-1-git-send-email-juliusv@google.com> <20080808022607.GB6094@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:36246 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754600AbYHHLz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 07:55:28 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	tgraf@suug.ch, vbusam@google.com
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20080808022607.GB6094@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julien Brunel <brunel@diku.dk>
+On Fri, Aug 08, 2008 at 12:26:09PM +1000, Simon Horman wrote:
+> these patches seem fine to me, however I am still seeing an oops
+> when using the new ipvsadm. Are we sure that this bug is in generic
+> code?
+> 
+> # ipvsadm -A -t 10.4.0.132:80
+> # ipvsadm -C
+> BUG: unable to handle kernel NULL pointer dereference at 00000028
+> IP: [<c021f034>] ip_vs_genl_set_cmd+0x254/0x494
+> *pde = 00000000 
+> Oops: 0000 [#1] 
 
-In case of error, the function rxrpc_get_transport returns an ERR
-pointer, but never returns a NULL pointer. So after a call to this
-function, a NULL test should be replaced by an IS_ERR test.
+Ah, that made me find a bug where svc wasn't initialized to NULL at the
+beginning of ip_vs_genl_set_cmd(). I'm not sure though if that was the
+problem or if it still is some general genl issue. I just posted a newer
+version version in response to my earlier post, could you give it a try?
 
-A simplified version of the semantic patch that makes this change is
-as follows: 
-(http://www.emn.fr/x-info/coccinelle/)
+Best with this updated ipvsadm:
+http://www-user.tu-chemnitz.de/~volz/ipvsadm-1.25-nl-3.tar.gz
+(later also at http://sixpak.org/vince/google/ipvsadm/)
 
-// <smpl>
-@correct_null_test@
-expression x,E;
-statement S1, S2;
-@@
-x =  rxrpc_get_transport(...)
-<... when != x = E
-if (
-(
-- x@p2 != NULL
-+ ! IS_ERR ( x )
-|
-- x@p2 == NULL
-+ IS_ERR( x )
-)
- )
-S1
-else S2
-...>
-? x = E;
-// </smpl>
-
-Signed-off-by:  Julien Brunel <brunel@diku.dk>
-Signed-off-by:  Julia Lawall <julia@diku.dk>
-
----
- net/rxrpc/ar-accept.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -u -p a/net/rxrpc/ar-accept.c b/net/rxrpc/ar-accept.c
---- a/net/rxrpc/ar-accept.c
-+++ b/net/rxrpc/ar-accept.c
-@@ -100,7 +100,7 @@ static int rxrpc_accept_incoming_call(st
- 
- 	trans = rxrpc_get_transport(local, peer, GFP_NOIO);
- 	rxrpc_put_peer(peer);
--	if (!trans) {
-+	if (IS_ERR(trans)) {
- 		_debug("no trans");
- 		ret = -EBUSY;
- 		goto error;
+Thanks,
+Julius
