@@ -1,7 +1,7 @@
 From: Greg KH <greg@kroah.com>
-Subject: [01/04] hso: fix oops in read/write callbacks
-Date: Fri, 8 Aug 2008 12:01:11 -0700
-Message-ID: <20080808190111.GB2953@kroah.com>
+Subject: [04/04] USB: HSO: minor fixes due to code review
+Date: Fri, 8 Aug 2008 12:02:57 -0700
+Message-ID: <20080808190257.GE2953@kroah.com>
 References: <20080808190023.GA2953@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,49 +14,120 @@ Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:36328 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:36347 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754460AbYHHTFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 15:05:19 -0400
+	with ESMTP id S1759601AbYHHTF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 15:05:27 -0400
 Content-Disposition: inline
 In-Reply-To: <20080808190023.GA2953@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Greg Kroah-Hartman <gregkh@suse.de>
 
-From: Olivier Blin <blino@mandriva.com>
+Fix up problems in hso.c driver as pointed out by Andrew.
 
-The tty may be closed already when the read/write callbacks are called.
-This patch checks that the ttys still exist before waking them up.
-
-Signed-off-by: Olivier Blin <blino@mandriva.com>
-Acked-by: Alan Cox <alan@redhat.com>
-Cc: Jari Tenhunen <jari.tenhunen@iki.fi>
+Cc: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- drivers/net/usb/hso.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/usb/hso.c |   43 ++++++++++++++++++++++++-------------------
+ 1 file changed, 24 insertions(+), 19 deletions(-)
 
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -1467,7 +1467,8 @@ static void hso_std_serial_write_bulk_ca
- 		return;
- 	}
- 	hso_put_activity(serial->parent);
--	tty_wakeup(serial->tty);
-+	if (serial->tty)
-+		tty_wakeup(serial->tty);
- 	hso_kick_transmit(serial);
+@@ -102,8 +102,12 @@
  
- 	D1(" ");
-@@ -1538,7 +1539,8 @@ static void ctrl_callback(struct urb *ur
- 			clear_bit(HSO_SERIAL_FLAG_RX_SENT, &serial->flags);
- 	} else {
- 		hso_put_activity(serial->parent);
--		tty_wakeup(serial->tty);
-+		if (serial->tty)
-+			tty_wakeup(serial->tty);
- 		/* response to a write command */
- 		hso_kick_transmit(serial);
- 	}
+ #define MAX_RX_URBS			2
+ 
+-#define get_serial_by_tty(x)	\
+-	(x ? (struct hso_serial *)x->driver_data : NULL)
++static inline struct hso_serial *get_serial_by_tty(struct tty_struct *tty)
++{
++	if (tty)
++		return tty->driver_data;
++	return NULL;
++}
+ 
+ /*****************************************************************************/
+ /* Debugging functions                                                       */
+@@ -294,24 +298,25 @@ static int hso_get_activity(struct hso_d
+ 
+ /* #define DEBUG */
+ 
+-#define dev2net(x) (x->port_data.dev_net)
+-#define dev2ser(x) (x->port_data.dev_serial)
++static inline struct hso_net *dev2net(struct hso_device *hso_dev)
++{
++	return hso_dev->port_data.dev_net;
++}
++
++static inline struct hso_serial *dev2ser(struct hso_device *hso_dev)
++{
++	return hso_dev->port_data.dev_serial;
++}
+ 
+ /* Debugging functions */
+ #ifdef DEBUG
+ static void dbg_dump(int line_count, const char *func_name, unsigned char *buf,
+ 		     unsigned int len)
+ {
+-	u8 i = 0;
+-
+-	printk(KERN_DEBUG "[%d:%s]: len %d", line_count, func_name, len);
++	static char name[255];
+ 
+-	for (i = 0; i < len; i++) {
+-		if (!(i % 16))
+-			printk("\n    0x%03x:  ", i);
+-		printk("%02x ", (unsigned char)buf[i]);
+-	}
+-	printk("\n");
++	sprintf(name, "hso[%d:%s]", line_count, func_name);
++	print_hex_dump_bytes(name, DUMP_PREFIX_NONE, buf, len);
+ }
+ 
+ #define DUMP(buf_, len_)	\
+@@ -528,13 +533,12 @@ static struct hso_serial *get_serial_by_
+ 
+ static struct hso_serial *get_serial_by_index(unsigned index)
+ {
+-	struct hso_serial *serial;
++	struct hso_serial *serial = NULL;
+ 	unsigned long flags;
+ 
+-	if (!serial_table[index])
+-		return NULL;
+ 	spin_lock_irqsave(&serial_table_lock, flags);
+-	serial = dev2ser(serial_table[index]);
++	if (serial_table[index])
++		serial = dev2ser(serial_table[index]);
+ 	spin_unlock_irqrestore(&serial_table_lock, flags);
+ 
+ 	return serial;
+@@ -561,6 +565,7 @@ static int get_free_serial_index(void)
+ static void set_serial_by_index(unsigned index, struct hso_serial *serial)
+ {
+ 	unsigned long flags;
++
+ 	spin_lock_irqsave(&serial_table_lock, flags);
+ 	if (serial)
+ 		serial_table[index] = serial->parent;
+@@ -569,7 +574,7 @@ static void set_serial_by_index(unsigned
+ 	spin_unlock_irqrestore(&serial_table_lock, flags);
+ }
+ 
+-/* log a meaningfull explanation of an USB status */
++/* log a meaningful explanation of an USB status */
+ static void log_usb_status(int status, const char *function)
+ {
+ 	char *explanation;
+@@ -2654,7 +2659,7 @@ static void hso_free_interface(struct us
+ 			hso_stop_net_device(network_table[i]);
+ 			cancel_work_sync(&network_table[i]->async_put_intf);
+ 			cancel_work_sync(&network_table[i]->async_get_intf);
+-			if(rfk)
++			if (rfk)
+ 				rfkill_unregister(rfk);
+ 			hso_free_net_device(network_table[i]);
+ 		}
