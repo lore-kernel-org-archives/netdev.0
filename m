@@ -1,80 +1,20 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 7/7] netxen: update driver version
-Date: Fri,  8 Aug 2008 00:08:45 -0700
-Message-ID: <1218179325-32493-8-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 0/7] netxen: more NX3031 bug fixes
+Date: Fri,  8 Aug 2008 00:08:38 -0700
+Message-ID: <1218179325-32493-1-git-send-email-dhananjay@netxen.com>
 Cc: jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:60722 "EHLO unm84.unminc.com"
+Received: from [64.209.101.202] ([64.209.101.202]:60717 "EHLO unm84.unminc.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752384AbYHHHIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752376AbYHHHIr (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 8 Aug 2008 03:08:47 -0400
 In-Reply-To: <>
 References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Raise driver version to 4.0.11.
+Contains one patch from earlier series and 5 new fixes / cleanup
+patches.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic.h      |    4 ++--
- drivers/net/netxen/netxen_nic_hw.c   |    8 ++++----
- drivers/net/netxen/netxen_nic_main.c |    7 +++++++
- 3 files changed, 13 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 2cf6e41..ab871df 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -66,8 +66,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 0
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.0"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 11
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.11"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 16) + ((b) << 8) + (c))
- 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index f5db48b..84978f8 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -2208,10 +2208,10 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
- 	if (adapter->portnum == 0) {
- 		get_brd_name_by_type(board_info->board_type, brd_name);
- 
--		printk("NetXen %s Board S/N %s  Chip id 0x%x\n",
--				brd_name, serial_num, board_info->chip_id);
--		printk("NetXen Firmware version %d.%d.%d\n", fw_major,
--				fw_minor, fw_build);
-+		printk(KERN_INFO "NetXen %s Board S/N %s  Chip rev 0x%x\n",
-+				brd_name, serial_num, adapter->ahw.revision_id);
-+		printk(KERN_INFO "NetXen Firmware version %d.%d.%d\n",
-+				fw_major, fw_minor, fw_build);
- 	}
- 
- 	if (NETXEN_VERSION_CODE(fw_major, fw_minor, fw_build) <
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index ee56511..3e264fe 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -531,6 +531,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		return -ENODEV;
- 	}
- 
-+	if (pdev->revision >= NX_P3_A0 && pdev->revision < NX_P3_B1) {
-+		printk(KERN_WARNING "NetXen chip revisions between 0x%x-0x%x"
-+				"will not be enabled.\n",
-+				NX_P3_A0, NX_P3_B1);
-+		return -ENODEV;
-+	}
-+
- 	if ((err = pci_enable_device(pdev)))
- 		return err;
- 
--- 
-1.5.4.3
 
