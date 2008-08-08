@@ -1,35 +1,35 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: [02/04] hso: fix refcounting on the ttyHSx devices
-Date: Fri, 8 Aug 2008 12:01:41 -0700
-Message-ID: <20080808190141.GC2953@kroah.com>
+From: Greg KH <greg@kroah.com>
+Subject: [03/04] USB: HSO: make tty_operations const
+Date: Fri, 8 Aug 2008 12:02:14 -0700
+Message-ID: <20080808190214.GD2953@kroah.com>
 References: <20080808190023.GA2953@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jari Tenhunen <jari.tenhunen-X3B1VOXEql0@public.gmane.org>,
-	Olivier Blin <blino-4qZELD6FgxhWk0Htik3J/w@public.gmane.org>,
-	Andrew Bird <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
-	Paul Rolland <rol-fjEKYshTNZ1eoWH0uzbU5w@public.gmane.org>,
-	Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Jari Tenhunen <jari.tenhunen@iki.fi>,
+	Olivier Blin <blino@mandriva.com>,
+	Andrew Bird <ajb@spheresystems.co.uk>,
+	Paul Rolland <rol@witbe.net>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:36341 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759512AbYHHTFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 15:05:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20080808190023.GA2953-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080808190023.GA2953@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Olivier Blin <blino-4qZELD6FgxhWk0Htik3J/w@public.gmane.org>
+From: Greg Kroah-Hartman <gregkh@suse.de>
 
+As recommended by Arjan.
 
-The references on ttyHSx devices were not decremented correctly when
-the tty was closed. The helper freeing the serial devices was never
-called because of that, and the module left some dangling sysfs
-devices after being unloaded.
-
-Signed-off-by: Olivier Blin <blino-4qZELD6FgxhWk0Htik3J/w@public.gmane.org>
-Cc: Jari Tenhunen <jari.tenhunen-X3B1VOXEql0@public.gmane.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+Cc: Arjan van de Ven <arjan@infradead.org>
+Cc: Andrew Bird <ajb@spheresystems.co.uk>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
  drivers/net/usb/hso.c |    2 +-
@@ -37,17 +37,12 @@ Signed-off-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
 
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -1103,8 +1103,8 @@ static void hso_serial_close(struct tty_
- 	/* reset the rts and dtr */
- 	/* do the actual close */
- 	serial->open_count--;
-+	kref_put(&serial->parent->ref, hso_serial_ref_free);
- 	if (serial->open_count <= 0) {
--		kref_put(&serial->parent->ref, hso_serial_ref_free);
- 		serial->open_count = 0;
- 		if (serial->tty) {
- 			serial->tty->driver_data = NULL;
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+@@ -2725,7 +2725,7 @@ static int hso_mux_submit_intr_urb(struc
+ }
+ 
+ /* operations setup of the serial interface */
+-static struct tty_operations hso_serial_ops = {
++static const struct tty_operations hso_serial_ops = {
+ 	.open = hso_serial_open,
+ 	.close = hso_serial_close,
+ 	.write = hso_serial_write,
