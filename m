@@ -1,54 +1,89 @@
-From: Jonathan Cameron <jic23@cam.ac.uk>
-Subject: Re: [PATCH 2.6.27-rc1] smc91x.c smc_drv_remove bug
-Date: Fri, 08 Aug 2008 13:25:03 +0100
-Message-ID: <489C3B1F.9010808@cam.ac.uk>
-References: <4892123C.2060007@cam.ac.uk>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH]:net-sched: Fix actions flushing
+Date: Fri, 08 Aug 2008 09:37:22 -0400
+Message-ID: <1218202642.4688.51.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: nico@cam.org, jgarzik@pobox.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-bfM0dGg7HC3yTRXuKSVV"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppsw-7.csi.cam.ac.uk ([131.111.8.137]:41784 "EHLO
-	ppsw-7.csi.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659AbYHHMZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 08:25:06 -0400
-In-Reply-To: <4892123C.2060007@cam.ac.uk>
+Received: from yx-out-2324.google.com ([74.125.44.29]:6875 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753502AbYHHNha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 09:37:30 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so232176yxm.1
+        for <netdev@vger.kernel.org>; Fri, 08 Aug 2008 06:37:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
 
-Guessing Nicolas is away at the mo (or this one passed him by).
-Would be good to get this trivial bug fix sorted out.
+--=-bfM0dGg7HC3yTRXuKSVV
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Thanks,
+Caught by regression testing which i havent run in a loong time.
 
---
-Jonathan Cameron
-> From: Jonathan Cameron
-> 
-> Trivial bug fix for typo in smc91x.c that results in null pointer dereference
-> 
-> Signed-of-by: Jonathan Cameron
-> 
-> --
-> Could just have submitted this as a bug report, but as it's a trivial patch
-> this seemed easier. Clearly this will be irrelevant if people have moved board
-> configs to using resource names, but for now... Not been involved with net drivers
-> before so sorry if I've sent it to the wrong people!
-> 
-> /drivers/net/smc91x.c	2008-07-31 12:02:47.000000000 +0100
-> +++ b/drivers/net/smc91x.c	2008-07-31 20:06:19.000000000 +0100
-> @@ -2255,7 +2255,7 @@ static int smc_drv_remove(struct platfor
->  
->  	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-regs");
->  	if (!res)
-> -		platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->  	release_mem_region(res->start, SMC_IO_EXTENT);
->  
->  	free_netdev(ndev);
-> 
-> 
+cheers,
+jamal
+
+--=-bfM0dGg7HC3yTRXuKSVV
+Content-Disposition: attachment; filename=act_f1
+Content-Type: text/plain; name=act_f1; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+net-sched: Fix actions flushing
+
+Flushing of actions has been broken since we changed
+the semantics of netlink parsed tb[X] to mean X is an attribute type.
+This makes the flushing work.
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 4e13e943acd2aa262e1e10c7779518d3ca18cae3
+tree 0d95c9b83575fb39538ad4db13adf6bc5aa09105
+parent 8dd4c21ea0029bb6a9c838254460f9b1ca677531
+author Jamal Hadi Salim <hadi@cyberus.ca> Fri, 08 Aug 2008 09:20:29 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Fri, 08 Aug 2008 09:20:29 -0400
+
+ net/sched/act_api.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 26c7e1f..88b5733 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -790,6 +790,8 @@ static int tca_action_flush(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
+ 	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
+ 	if (err < 0)
+ 		goto nla_put_failure;
++	if (err == 0)
++		goto noflush_out;
+ 
+ 	nla_nest_end(skb, nest);
+ 
+@@ -807,6 +809,7 @@ nla_put_failure:
+ nlmsg_failure:
+ 	module_put(a->ops->owner);
+ err_out:
++noflush_out:
+ 	kfree_skb(skb);
+ 	kfree(a);
+ 	return err;
+@@ -824,8 +827,10 @@ tca_action_gd(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int event)
+ 		return ret;
+ 
+ 	if (event == RTM_DELACTION && n->nlmsg_flags&NLM_F_ROOT) {
+-		if (tb[0] != NULL && tb[1] == NULL)
+-			return tca_action_flush(tb[0], n, pid);
++		if (tb[1] != NULL)
++			return tca_action_flush(tb[1], n, pid);
++		else
++			return -EINVAL;
+ 	}
+ 
+ 	for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {
+
+--=-bfM0dGg7HC3yTRXuKSVV--
 
