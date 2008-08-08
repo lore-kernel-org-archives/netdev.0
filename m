@@ -1,67 +1,154 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] uninline atl1e_setup_mac_ctrl()
-Date: Fri, 8 Aug 2008 21:33:34 +0300
-Message-ID: <20080808183334.GZ14495@cs181140183.pp.htv.fi>
+From: Suresh Siddha <suresh.b.siddha@intel.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Fri, 8 Aug 2008 11:53:57 -0700
+Message-ID: <20080808185356.GC607@linux-os.sc.intel.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jie Yang <jie.yang@atheros.com>, jgarzik@pobox.com,
-	Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Siddha, Suresh B" <suresh.b.siddha@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, viro@ZenIV.linux.org.uk,
+	hpa@zytor.com, vegard.nossum@gmail.com
+To: Wolfgang Walter <wolfgang.walter@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.pp.htv.fi ([213.243.153.39]:41483 "EHLO smtp5.pp.htv.fi"
+Received: from mga03.intel.com ([143.182.124.21]:49884 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752968AbYHHSfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 14:35:09 -0400
+	id S1753231AbYHHSx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2008 14:53:59 -0400
 Content-Disposition: inline
+In-Reply-To: <200808081236.55172.wolfgang.walter@stwm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There doesn't seem to be a compelling reason why atl1e_setup_mac_ctrl() 
-is marked as "inline":
+On Fri, Aug 08, 2008 at 03:36:54AM -0700, Wolfgang Walter wrote:
+> Am Donnerstag, 7. August 2008 18:23 schrieb Wolfgang Walter:
+> > But yesterday I tried the following patch on top of a vanilla 2.6.26:
+> >
+> > =======================================================
+> > diff -ur ../linux-2.6.26/drivers/crypto/padlock-aes.c
+> > ./drivers/crypto/padlock-aes.c ---
+> > ../linux-2.6.26/drivers/crypto/padlock-aes.c  2008-07-15 11:29:32.000000000
+> > +0200 +++ ./drivers/crypto/padlock-aes.c      2008-08-07 17:46:55.000000000
+> > +0200 @@ -16,6 +16,7 @@
+> >  #include <linux/interrupt.h>
+> >  #include <linux/kernel.h>
+> >  #include <asm/byteorder.h>
+> > +#include <asm/i387.h>
+> >  #include "padlock.h"
+> >
+> >  /* Control word. */
+> > @@ -144,9 +145,11 @@
+> >  static inline void padlock_xcrypt(const u8 *input, u8 *output, void *key,
+> >                                 void *control_word)
+> >  {
+> > +     kernel_fpu_begin();
+> >       asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"       /* rep xcryptecb */
+> >
+> >                     : "+S"(input), "+D"(output)
+> >                     : "d"(control_word), "b"(key), "c"(1));
+> >
+> > +     kernel_fpu_end();
+> >  }
+> >
+> >  static void aes_crypt_copy(const u8 *in, u8 *out, u32 *key, struct cword
+> > *cword) @@ -179,6 +182,7 @@
+> >               return;
+> >       }
+> >
+> > +     kernel_fpu_begin();
+> >       asm volatile ("test $1, %%cl;"
+> >                     "je 1f;"
+> >                     "lea -1(%%ecx), %%eax;"
+> > @@ -190,15 +194,18 @@
+> >
+> >                     : "+S"(input), "+D"(output)
+> >                     : "d"(control_word), "b"(key), "c"(count)
+> >                     : "ax");
+> >
+> > +     kernel_fpu_end();
+> >  }
+> >
+> >  static inline u8 *padlock_xcrypt_cbc(const u8 *input, u8 *output, void
+> > *key, u8 *iv, void *control_word, u32 count)
+> >  {
+> >       /* rep xcryptcbc */
+> > +     kernel_fpu_begin();
+> >       asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"
+> >
+> >                     : "+S" (input), "+D" (output), "+a" (iv)
+> >                     : "d" (control_word), "b" (key), "c" (count));
+> >
+> > +     kernel_fpu_end();
+> >       return iv;
+> >  }
+> >
+> > =============================================================
+> >
+> > I found that kernel_fpu_begin(); kernel_fpu_begin(); is used with
+> > MMX and/or SSE:
+> >
+> > include/asm/xor_32.h
+> > drivers/md/raid6mmx.c
+> > drivers/md/raid6sse1.c
+> > drivers/md/raid6sse2.c
+> >
+> >
+> > With this change I its a little bit more stable, I needed more then 5
+> > minutes to crash the kernel (repeated it several times). If I read
+> > the code correctly this disables preemption for the time the padlock cmd
+> > is executing.
+> 
+> Forget that - I booted the wrong kernel.
+> 
+> I now really test this modification and it seems to be stable. The router now
+> runs for 45 minutes without oops.
 
-It's not used in any place where speed would matter much, and as long as 
-it has only one caller non-ancient gcc versions anyway inline it 
-automatically.
+Ok. Thanks. I think I can explain the failure:
 
-This patch fixes the following compile error with gcc 3.4:
+These padlock instructions though don't use/touch SSE registers, but it behaves
+similar to other SSE instructions. For example, it might cause DNA faults
+when cr0.ts is set. While this is a spurious DNA trap, it might cause
+problems with the recent fpu code changes.
 
-<--  snip  -->
+This is the code sequence  that is probably causing this problem:
 
-...
-  CC      drivers/net/atl1e/atl1e_main.o
-atl1e_main.c: In function `atl1e_check_link':
-atl1e_main.c:50: sorry, unimplemented: inlining failed in call to 
-atl1e_main.c:196: sorry, unimplemented: called from here
-make[4]: *** [drivers/net/atl1e/atl1e_main.o] Error 1
+a) new app is getting exec'd and it is somewhere in between
+   start_thread() and flush_old_exec() in the load_xyz_binary()
 
-<--  snip  -->
+b) At pont "a", task's fpu state (like TS_USEDFPU, used_math() etc) is
+   cleared.
 
-Reported-by: Adrian Bunk <bunk@kernel.org>
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+c) Now we get an interrupt/softirq which starts using these encrypt/decrypt
+   routines in the network stack. This generates a math fault (as
+   cr0.ts is '1') which sets TS_USEDFPU and restores the math that is
+   in the task's xstate.
 
----
-9b6daf38d2e48b275573fc54e7d2a498fac277cf 
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 35264c2..82d7be1 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -47,7 +47,7 @@ MODULE_DESCRIPTION("Atheros 1000M Ethernet Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
--static inline void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter);
-+static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter);
- 
- static const u16
- atl1e_rx_page_vld_regs[AT_MAX_RECEIVE_QUEUE][AT_PAGE_NUM_PER_QUEUE] =
-@@ -1037,7 +1037,7 @@ static inline void atl1e_configure_dma(struct atl1e_adapter *adapter)
- 	return;
- }
- 
--static inline void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
-+static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
- {
- 	u32 value;
- 	struct atl1e_hw *hw = &adapter->hw;
+d) Return to exec code path, which does start_thread() which does
+   free_thread_xstate() and sets xstate pointer to NULL while
+   the TS_USEDFPU is still set.
 
+e) At the next context switch from the new exec'd task to another task,
+   we have a scenarios where TS_USEDFPU is set but xstate pointer is null.
+   This can cause an oops during unlazy_fpu() in __switch_to()
+
+Now:
+
+1) This should happen with or with out pre-emption. Viro also encountered
+   similar problem with out CONFIG_PREEMPT.
+
+2) kernel_fpu_begin() and kernel_fpu_end() will fix this problem, because
+   kernel_fpu_begin() will manually do a clts() and won't run in to the
+   situation of setting TS_USEDFPU in step "c" above.
+
+3) This was working before the fpu changes, because its a spurious
+   math fault  which doesn't corrupt any fpu/sse registers and the task's
+   math state was always in an allocated state.
+
+I propose to go with wolf's patch which add's kernel_fpu_begin() and
+kernel_fpu_end() around these instructions. This is the correct fix
+(unless there is something wrong in my above understanding).
+
+thanks,
+suresh
