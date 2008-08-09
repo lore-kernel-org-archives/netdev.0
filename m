@@ -1,43 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: possible recursive locking in udp4_lib_rcv
-Date: Sat, 09 Aug 2008 00:36:50 -0700 (PDT)
-Message-ID: <20080809.003650.78513833.davem@davemloft.net>
-References: <20080808143741.GA20777@gondor.apana.org.au>
-	<20080808150108.GA21048@gondor.apana.org.au>
-	<489D13F9.4000805@redhat.com>
+From: Paul Rolland <rol@as2917.net>
+Subject: Re: [02/04] hso: fix refcounting on the ttyHSx devices
+Date: Sat, 9 Aug 2008 10:39:57 +0200
+Message-ID: <20080809103957.5580bf6c@tux.DEF.witbe.net>
+References: <20080808190023.GA2953@kroah.com>
+	<20080808190141.GC2953@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, m.s.tsirkin@gmail.com,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: haoki@redhat.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Jari Tenhunen <jari.tenhunen@iki.fi>,
+	Olivier Blin <blino@mandriva.com>,
+	Andrew Bird <ajb@spheresystems.co.uk>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Andrew Morton <akpm@linux-foundation.org>, rol@witbe.net
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45897
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753576AbYHIHgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 03:36:49 -0400
-In-Reply-To: <489D13F9.4000805@redhat.com>
+Received: from smtp.witbe.net ([81.88.96.48]:39452 "EHLO smtp.witbe.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752242AbYHIIsl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Aug 2008 04:48:41 -0400
+In-Reply-To: <20080808190141.GC2953@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hideo AOKI <haoki@redhat.com>
-Date: Fri, 08 Aug 2008 23:50:17 -0400
+Hello,
 
-> Hello Herbert,
+This single patch fixes the problem of the left-over /dev/ttyHSx when
+unplugging the Icon device from the USB port. Everything else I'm using is
+still working correctly as far as I can see, so you can add a :
+
+Tested-By: Paul Rolland <rol@as2917.net>
+
+Thanks for that,
+Regards,
+Paul
+
+On Fri, 8 Aug 2008 12:01:41 -0700
+Greg KH <greg@kroah.com> wrote:
+
+> From: Olivier Blin <blino@mandriva.com>
 > 
-> Herbert Xu wrote:
-> > On Fri, Aug 08, 2008 at 10:37:41PM +0800, Herbert Xu wrote:
-> >> Never mind, I see the reason why it's there.  What we should do
-> >> is drop the lock when we hit an encapsulated socket since they
-> >> don't need it at all.
-> > 
-> > Here is the patch:
-> > 
-> > udp: Drop socket lock for encapsulated packets
 > 
-> Thank very much for fixing the bug.
+> The references on ttyHSx devices were not decremented correctly when
+> the tty was closed. The helper freeing the serial devices was never
+> called because of that, and the module left some dangling sysfs
+> devices after being unloaded.
+> 
+> Signed-off-by: Olivier Blin <blino@mandriva.com>
+> Cc: Jari Tenhunen <jari.tenhunen@iki.fi>
+> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> 
+> ---
+>  drivers/net/usb/hso.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -1103,8 +1103,8 @@ static void hso_serial_close(struct tty_
+>  	/* reset the rts and dtr */
+>  	/* do the actual close */
+>  	serial->open_count--;
+> +	kref_put(&serial->parent->ref, hso_serial_ref_free);
+>  	if (serial->open_count <= 0) {
+> -		kref_put(&serial->parent->ref, hso_serial_ref_free);
+>  		serial->open_count = 0;
+>  		if (serial->tty) {
+>  			serial->tty->driver_data = NULL;
+> 
 
-Indeed, thanks Herbert.
 
-Applied to net-2.6, and queued up for -stable.
+-- 
+Paul Rolland                                E-Mail : rol(at)witbe.net
+CTO - Witbe.net SA                          Tel. +33 (0)1 47 67 77 77
+Les Collines de l'Arche                     Fax. +33 (0)1 47 67 77 99
+F-92057 Paris La Defense                    RIPE : PR12-RIPE
+
+Please no HTML, I'm not a browser - Pas d'HTML, je ne suis pas un navigateur 
+"Some people dream of success... while others wake up and work hard at it" 
+
+"I worry about my child and the Internet all the time, even though she's too 
+young to have logged on yet. Here's what I worry about. I worry that 10 or 15 
+years from now, she will come to me and say 'Daddy, where were you when they 
+took freedom of the press away from the Internet?'"
+--Mike Godwin, Electronic Frontier Foundation 
