@@ -1,7 +1,7 @@
 From: Wolfgang Walter <wolfgang.walter@stwm.de>
 Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Sat, 9 Aug 2008 17:14:35 +0200
-Message-ID: <200808091714.35341.wolfgang.walter@stwm.de>
+Date: Sat, 9 Aug 2008 17:57:32 +0200
+Message-ID: <200808091757.32999.wolfgang.walter@stwm.de>
 References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -15,10 +15,10 @@ Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
 	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:32825 "EHLO
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:57257 "EHLO
 	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753095AbYHIPOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 11:14:37 -0400
+	by vger.kernel.org with ESMTP id S1753389AbYHIP5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 11:57:35 -0400
 In-Reply-To: <20080809143727.GA30499@gondor.apana.org.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -44,11 +44,51 @@ py
 > fact that it wasn't designed to be nested.
 >=20
 
-You mean the dynamic fpu allocation patch or the proposed patch for pad=
-lock=20
-code?=20
 
-Thanks,
+I don't exactly understand this. You think that
+
+kernel_fpu_begin();
+XCRYPT....
+kernel_fpu_end();
+
+is a problem and wasn't before?
+
+Say we have a software crypt-alg which uses optimized memcpy implemente=
+d with=20
+SSE instructions. These are protected with kernel_fpu_begin();=20
+kernel_fpu_end();
+
+So we have also code
+
+kernel_fpu_begin();
+SSE....
+kernel_fpu_end();
+
+in crypto called under same circumstances.
+
+If XCRYPT may be interrupted and the interrupt code again uses this opt=
+imized=20
+memcpy implementation and so nesting kernel_fpu_begin then why should t=
+his=20
+not happen with the other alg.
+
+How could any kernel code use MMX/SSE/FPU when the interrupt case isn't=
+=20
+handled?
+
+
+Or is your argument that its lazy allocation itself is the problem: thi=
+s=20
+nesting could always happen and was a bug but only with lazy allocation=
+ it is=20
+dangerous (as it may cause a spurious math fault in the race window).
+
+If this were right than any kernel code executing SSE may trigger now a=
+ oops=20
+in __switch_to() under some special circumstances.
+
+
+Regards,
 --=20
 Wolfgang Walter
 Studentenwerk M=FCnchen
