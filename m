@@ -1,39 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Sat, 9 Aug 2008 11:20:56 +0800
-Message-ID: <20080809032055.GA27212@gondor.apana.org.au>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <200808090354.03568.wolfgang.walter@stwm.de> <20080809021649.GA26784@gondor.apana.org.au> <200808090509.53679.wolfgang.walter@stwm.de>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
+ with fpu state changes
+Date: Fri, 08 Aug 2008 20:30:49 -0700
+Message-ID: <489D0F69.9050307@zytor.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <489C97FB.2030408@zytor.com> <20080809014925.GA26529@gondor.apana.org.au> <200808090443.00597.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Suresh Siddha <suresh.b.siddha@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
+	Ingo Molnar <mingo@elte.hu>, viro@zeniv.linux.org.uk,
+	vegard.nossum@gmail.com
 To: Wolfgang Walter <wolfgang.walter@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33880 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752894AbYHIDVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 23:21:07 -0400
-Content-Disposition: inline
-In-Reply-To: <200808090509.53679.wolfgang.walter@stwm.de>
+Received: from terminus.zytor.com ([198.137.202.10]:33423 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752894AbYHIDh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 23:37:29 -0400
+In-Reply-To: <200808090443.00597.wolfgang.walter@stwm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 09, 2008 at 05:09:53AM +0200, Wolfgang Walter wrote:
+Wolfgang Walter wrote:
 > 
-> I'll run that test on a unpatched 2.6.25 instead a unpatched 2.6.26 as latter 
-> will crash. If you want I can use my 2.6.26 where I reverted the FPU state 
-> changes (see one of my earlier mails for the patch), of course.
+> These FPU changes are already in 2.6.26. Undoing them, would that be accepted 
+> for 2.6.26 stable?
+> 
+> Maybe the following solution would be possible: if a processor with padlock is 
+> detected the memory for xstate is always allocated when the thread is created 
+> instead "lazy"?
+> 
 
-2.6.25 should be fine as not much has changed in the padlock.
+That will effectively happen, so it doesn't really matter.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The true optimization would be to recognize that the state doesn't have 
+to be saved, and track when we did so, and so on and so forth.
+
+VIA really did their customers a disservice tying this to CR0.TS.
+
+	-hpa
