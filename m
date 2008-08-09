@@ -1,51 +1,51 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv3 0/2] IPVS: Add Generic Netlink configuration interface
-Date: Sun, 10 Aug 2008 00:23:33 +1000
-Message-ID: <20080809142331.GA3497@verge.net.au>
-References: <1218120219-1117-1-git-send-email-juliusv@google.com> <20080808022607.GB6094@verge.net.au> <20080808120642.GB32458@google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Sat, 9 Aug 2008 22:29:18 +0800
+Message-ID: <20080809142918.GA30387@gondor.apana.org.au>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809003829.GA25926@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
+	austin zhang <austin_zhang@linux.intel.com>
+To: Suresh Siddha <suresh.b.siddha@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60158 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752323AbYHIOXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 10:23:35 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:49882 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751946AbYHIO3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 10:29:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20080808120642.GB32458@google.com>
+In-Reply-To: <20080809003829.GA25926@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 08, 2008 at 02:06:43PM +0200, Julius Volz wrote:
-> On Fri, Aug 08, 2008 at 12:26:09PM +1000, Simon Horman wrote:
-> > these patches seem fine to me, however I am still seeing an oops
-> > when using the new ipvsadm. Are we sure that this bug is in generic
-> > code?
-> > 
-> > # ipvsadm -A -t 10.4.0.132:80
-> > # ipvsadm -C
-> > BUG: unable to handle kernel NULL pointer dereference at 00000028
-> > IP: [<c021f034>] ip_vs_genl_set_cmd+0x254/0x494
-> > *pde = 00000000 
-> > Oops: 0000 [#1] 
-> 
-> Ah, that made me find a bug where svc wasn't initialized to NULL at the
-> beginning of ip_vs_genl_set_cmd(). I'm not sure though if that was the
-> problem or if it still is some general genl issue. I just posted a newer
-> version version in response to my earlier post, could you give it a try?
-> 
-> Best with this updated ipvsadm:
-> http://www-user.tu-chemnitz.de/~volz/ipvsadm-1.25-nl-3.tar.gz
-> (later also at http://sixpak.org/vince/google/ipvsadm/)
+On Sat, Aug 09, 2008 at 08:38:30AM +0800, Herbert Xu wrote:
+>
+> If there is a significant degradation I suggest that we back out
+> the FPU changes.  Making your competitor's processor go slow is
+> not a nice thing to do, especially when you've just released a
+> processor in the same space.
 
-Hi Julius,
+OK I take that back, Intel (and AMD) processors are equally affected
+by this.  For a start, the newly added Intel crc32c driver suffers
+from exactly the same problem since the instruction used is also
+SSE.
 
-your latest patch does resolve the problem that I was seeing
-with ipvsadm-1.25-nl-2. ipvsadm-1.25-nl-3 also works :-)
+According to
 
-I'd like to try and stress it out a bit more.
-I will try and get to that tomorrow or on Monday.
+	http://softwarecommunity.intel.com/articles/eng/3788.htm
 
+the Intel AES instructions are also SSE so they too will suffer
+from this.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
