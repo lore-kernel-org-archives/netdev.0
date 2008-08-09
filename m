@@ -1,59 +1,51 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Sat, 09 Aug 2008 09:04:41 -0500
-Message-ID: <489DA3F9.1080703@opengridcomputing.com>
-References: <200808071145.03848.divy@chelsio.com>	<489C8BEB.8060001@opengridcomputing.com>	<489CC58D.4010606@pobox.com> <20080809.002840.167363463.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv3 0/2] IPVS: Add Generic Netlink configuration interface
+Date: Sun, 10 Aug 2008 00:23:33 +1000
+Message-ID: <20080809142331.GA3497@verge.net.au>
+References: <1218120219-1117-1-git-send-email-juliusv@google.com> <20080808022607.GB6094@verge.net.au> <20080808120642.GB32458@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, divy@chelsio.com, rdreier@cisco.com,
-	kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	tgraf@suug.ch, vbusam@google.com
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([209.198.142.2]:44530 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752174AbYHIOEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 10:04:46 -0400
-In-Reply-To: <20080809.002840.167363463.davem@davemloft.net>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60158 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752323AbYHIOXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 10:23:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20080808120642.GB32458@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Fri, 08 Aug 2008 18:15:41 -0400
->
->   
->> * security updates for TCP problems mean that a single IP address can be 
->> PARTIALLY SECURE, because security updates for kernel TCP stack and 
->> h/w's firmware are inevitably updated separately (even if distributed 
->> and compiled together).  Yay, we are introducing a wonderful new 
->> security problem here.
->>
->> * from a security, network scanner and packet classifier point of view, 
->> a single IP address no longer behaves like Linux.  It behaves like 
->> Linux... sometime.  Depending on whether it is a magic TCP port or not.
->>     
->
-> I agree with everything Jeff has stated.
->
-> Also, I find it ironic that the port abduction is being asked for in
-> order to be "compatible with existing tools" yet in fact this stuff
-> breaks everything.  You can't netfilter this traffic, you can't apply
-> qdiscs to it, you can't execut TC actions on them, you can't do
-> segmentation offload on them, you can't look for the usual TCP MIB
-> statistics on the connection, etc. etc. etc.
->
-> It is broken from every possible angle.
->   
+On Fri, Aug 08, 2008 at 02:06:43PM +0200, Julius Volz wrote:
+> On Fri, Aug 08, 2008 at 12:26:09PM +1000, Simon Horman wrote:
+> > these patches seem fine to me, however I am still seeing an oops
+> > when using the new ipvsadm. Are we sure that this bug is in generic
+> > code?
+> > 
+> > # ipvsadm -A -t 10.4.0.132:80
+> > # ipvsadm -C
+> > BUG: unable to handle kernel NULL pointer dereference at 00000028
+> > IP: [<c021f034>] ip_vs_genl_set_cmd+0x254/0x494
+> > *pde = 00000000 
+> > Oops: 0000 [#1] 
+> 
+> Ah, that made me find a bug where svc wasn't initialized to NULL at the
+> beginning of ip_vs_genl_set_cmd(). I'm not sure though if that was the
+> problem or if it still is some general genl issue. I just posted a newer
+> version version in response to my earlier post, could you give it a try?
+> 
+> Best with this updated ipvsadm:
+> http://www-user.tu-chemnitz.de/~volz/ipvsadm-1.25-nl-3.tar.gz
+> (later also at http://sixpak.org/vince/google/ipvsadm/)
 
-I think a lot of these _could_ be implemented and integrated with the 
-standard tools.
+Hi Julius,
 
+your latest patch does resolve the problem that I was seeing
+with ipvsadm-1.25-nl-2. ipvsadm-1.25-nl-3 also works :-)
 
-
-
+I'd like to try and stress it out a bit more.
+I will try and get to that tomorrow or on Monday.
 
