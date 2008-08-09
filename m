@@ -1,85 +1,143 @@
-From: Paul Rolland <rol@as2917.net>
-Subject: Re: [02/04] hso: fix refcounting on the ttyHSx devices
-Date: Sat, 9 Aug 2008 10:39:57 +0200
-Message-ID: <20080809103957.5580bf6c@tux.DEF.witbe.net>
-References: <20080808190023.GA2953@kroah.com>
-	<20080808190141.GC2953@kroah.com>
+From: Wolfgang Walter <wolfgang.walter@stwm.de>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Sat, 9 Aug 2008 12:50:42 +0200
+Message-ID: <200808091250.43184.wolfgang.walter@stwm.de>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <200808090443.00597.wolfgang.walter@stwm.de> <489D0F69.9050307@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Jari Tenhunen <jari.tenhunen@iki.fi>,
-	Olivier Blin <blino@mandriva.com>,
-	Andrew Bird <ajb@spheresystems.co.uk>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Andrew Morton <akpm@linux-foundation.org>, rol@witbe.net
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Suresh Siddha <suresh.b.siddha@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, viro@zeniv.linux.org.uk,
+	vegard.nossum@gmail.com
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.witbe.net ([81.88.96.48]:39452 "EHLO smtp.witbe.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752242AbYHIIsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Aug 2008 04:48:41 -0400
-In-Reply-To: <20080808190141.GC2953@kroah.com>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:53810 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751352AbYHIKuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 06:50:46 -0400
+In-Reply-To: <489D0F69.9050307@zytor.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Saturday 09 August 2008, H. Peter Anvin wrote:
+> Wolfgang Walter wrote:
+> >=20
+> > These FPU changes are already in 2.6.26. Undoing them, would that b=
+e=20
+accepted=20
+> > for 2.6.26 stable?
+> >=20
+> > Maybe the following solution would be possible: if a processor with=
+=20
+padlock is=20
+> > detected the memory for xstate is always allocated when the thread =
+is=20
+created=20
+> > instead "lazy"?
+> >=20
+>=20
+> That will effectively happen, so it doesn't really matter.
 
-This single patch fixes the problem of the left-over /dev/ttyHSx when
-unplugging the Icon device from the USB port. Everything else I'm using is
-still working correctly as far as I can see, so you can add a :
+With the patch? I don't think so:
 
-Tested-By: Paul Rolland <rol@as2917.net>
+With the patch the following changes compared with 2.6.25:
 
-Thanks for that,
+* processes which do not use FPU/SSE will not start saving and loading =
+there=20
+xstate any more (and will not allocate xstate memory) if kernel is usin=
+g=20
+padlock with the crypto-framework. Its similar to other places where th=
+e=20
+kernel uses MMX/SSE and protects them with kernel_fpu_begin();=20
+kernel_fpu_end(); isn't it?
+
+* if user space uses FPU/SSE its xstate will be saved though it is not =
+really=20
+necessary.
+
+* the crypto-framework using padlock can not be preempted any more whil=
+e=20
+executing padlock-opcodes.
+
+This is what Hebert fears.
+
+
+
+What I'm not really understand - and Suresh probably could tell us - if=
+ with=20
+2.6.25 and earlier the following could happen:
+
+1) a process is using FPU/SSE so it has a saved xstate BUT its not load=
+ed=20
+because of lazy loading of FPU state (didn't use FPU/SSE for some time)=
+=2E
+
+2) padlock usage by kernel without kernel_fpu_begin() kernel_fpu_end() =
+sets=20
+TS_USEDFPU of this task but its not loaded
+
+3) in __switch_to() the process then saves its FPU/SSE state overwritin=
+g its=20
+real xstate.
+
+If I understand Suresh explanations correctly this could not happen.
+
+The problem only exists at task creation time: a race between initialis=
+ing=20
+TS_USEDFPU, used_math()) and setting the xstate pointer to NULL.
+
+So wouldn't this help:
+
+* a flag TS_INITIALISING is set for this task bevor used_math and TS_US=
+EDFPU=20
+is set
+* then math-state of the new task is initialisied including setting xst=
+ate to=20
+NULL
+* then the flag is cleared
+* math_state_restore() in trap_32.c does nothing if this flag is set.
+
+Another possibility would be to use xstate for tracking if math has eve=
+r be=20
+used by this task and made TS_USEDFPU only valid if xtate !=3D NULL
+
+Both would only reestablish 2.6.25 behaviour.
+
+
+But even if one or both would work its no solution for 2.6.26 (and prob=
+ably=20
+2.6.27). My trust in 2.6.26 increased enough to use it on desktops and =
+I=20
+would be a little bit nervous with such changes :-).
+
+>=20
+> The true optimization would be to recognize that the state doesn't ha=
+ve=20
+> to be saved, and track when we did so, and so on and so forth.
+
+Yes that would be perfect. But fixing the race between math-state=20
+initialisation and setting xtsate to NULL would be good enough. With ip=
+sec=20
+traffic some tasks would save and restore unecessarily its xstate (as i=
+t is=20
+the case with 2.6.25 and earlier).
+
+There is no way to know if it was the kernel who caused a math fault?
+
+>=20
+> VIA really did their customers a disservice tying this to CR0.TS.
+>=20
+> 	-hpa
+>=20
+>=20
+
+
 Regards,
-Paul
-
-On Fri, 8 Aug 2008 12:01:41 -0700
-Greg KH <greg@kroah.com> wrote:
-
-> From: Olivier Blin <blino@mandriva.com>
-> 
-> 
-> The references on ttyHSx devices were not decremented correctly when
-> the tty was closed. The helper freeing the serial devices was never
-> called because of that, and the module left some dangling sysfs
-> devices after being unloaded.
-> 
-> Signed-off-by: Olivier Blin <blino@mandriva.com>
-> Cc: Jari Tenhunen <jari.tenhunen@iki.fi>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> 
-> ---
->  drivers/net/usb/hso.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -1103,8 +1103,8 @@ static void hso_serial_close(struct tty_
->  	/* reset the rts and dtr */
->  	/* do the actual close */
->  	serial->open_count--;
-> +	kref_put(&serial->parent->ref, hso_serial_ref_free);
->  	if (serial->open_count <= 0) {
-> -		kref_put(&serial->parent->ref, hso_serial_ref_free);
->  		serial->open_count = 0;
->  		if (serial->tty) {
->  			serial->tty->driver_data = NULL;
-> 
-
-
--- 
-Paul Rolland                                E-Mail : rol(at)witbe.net
-CTO - Witbe.net SA                          Tel. +33 (0)1 47 67 77 77
-Les Collines de l'Arche                     Fax. +33 (0)1 47 67 77 99
-F-92057 Paris La Defense                    RIPE : PR12-RIPE
-
-Please no HTML, I'm not a browser - Pas d'HTML, je ne suis pas un navigateur 
-"Some people dream of success... while others wake up and work hard at it" 
-
-"I worry about my child and the Internet all the time, even though she's too 
-young to have logged on yet. Here's what I worry about. I worry that 10 or 15 
-years from now, she will come to me and say 'Daddy, where were you when they 
-took freedom of the press away from the Internet?'"
---Mike Godwin, Electronic Frontier Foundation 
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
