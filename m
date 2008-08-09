@@ -1,47 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 7/7] e1000e: remove unnecessary snippet missed in prior
-	check_options update
-Date: Fri, 08 Aug 2008 18:36:16 -0700
-Message-ID: <20080809013616.23913.20271.stgit@localhost.localdomain>
-References: <20080809013544.23913.47157.stgit@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Sat, 9 Aug 2008 09:49:25 +0800
+Message-ID: <20080809014925.GA26529@gondor.apana.org.au>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org, Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, viro@ZenIV.linux.org.uk,
+	vegard.nossum@gmail.com
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2924 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756544AbYHIBgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2008 21:36:18 -0400
-In-Reply-To: <20080809013544.23913.47157.stgit@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:45262 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751852AbYHIBth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 21:49:37 -0400
+Content-Disposition: inline
+In-Reply-To: <489C97FB.2030408@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Fri, Aug 08, 2008 at 12:01:15PM -0700, H. Peter Anvin wrote:
+>
+> It's technically overkill, if (and only if!) these instructions don't 
+> actually touch the SSE state (most likely they're using the SSE 
+> pipeline, and need this stuff to deal with power management issues.)
 
-The removal of this bit of code was missed in an earlier patch submittal.
+Yes the PadLock uses the SSE pipeline, but doesn't touch any
+of the state.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> However, overkill is a good way to make sure something is dead. 
+> Applying the patch will make sure we fix the regression, and we can 
+> worry about optimizing this further post-2.6.27.
 
- drivers/net/e1000e/param.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Do we really need the FPU changes right now? I'd prefer for that
+to be backed out until a proper solution is found.  Disabling
+preemption around crypto is really bad for scheduling latency.
 
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index b0499f2..ed912e0 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -324,8 +324,6 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 				adapter->itr = 20000;
- 				break;
- 			default:
--				e1000_validate_option(&adapter->itr, &opt,
--					adapter);
- 				/*
- 				 * Save the setting, because the dynamic bits
- 				 * change itr.
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
