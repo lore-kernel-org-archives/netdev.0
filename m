@@ -1,133 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: qdisc and down links (regression)
-Date: Fri, 08 Aug 2008 23:24:27 -0700 (PDT)
-Message-ID: <20080808.232427.227852834.davem@davemloft.net>
-References: <20080807.154735.148985698.davem@davemloft.net>
-	<20080807.185024.155026077.davem@davemloft.net>
-	<20080808143201.009caf54@extreme>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sat, 09 Aug 2008 00:28:40 -0700 (PDT)
+Message-ID: <20080809.002840.167363463.davem@davemloft.net>
+References: <200808071145.03848.divy@chelsio.com>
+	<489C8BEB.8060001@opengridcomputing.com>
+	<489CC58D.4010606@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vgr.kernel.org
-To: stephen.hemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35688
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751283AbYHIGY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 02:24:27 -0400
-In-Reply-To: <20080808143201.009caf54@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: swise@opengridcomputing.com, divy@chelsio.com, rdreier@cisco.com,
+	kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <489CC58D.4010606@pobox.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Fri, 8 Aug 2008 14:32:01 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Fri, 08 Aug 2008 18:15:41 -0400
 
-> It fixes it for qdisc but not for ingress filters
+> * security updates for TCP problems mean that a single IP address can be 
+> PARTIALLY SECURE, because security updates for kernel TCP stack and 
+> h/w's firmware are inevitably updated separately (even if distributed 
+> and compiled together).  Yay, we are introducing a wonderful new 
+> security problem here.
 > 
-> # tc qdisc add dev eth0 handle ffff: ingress
-> # tc filter add dev eth0 parent ffff: protocol ip \
->    prio 50 u32 match ip src 0.0.0.0/0 police rate 800kbit burst 10k drop flowid :1
-> RTNETLINK answers: Invalid argument
-> We have an error talking to the kernel
-> 
-> Another problem is that the ingress qdisc can no longer be deleted
-> successfully.
+> * from a security, network scanner and packet classifier point of view, 
+> a single IP address no longer behaves like Linux.  It behaves like 
+> Linux... sometime.  Depending on whether it is a magic TCP port or not.
 
-These problems should be fixed by the following patch which
-I've just pushed to net-2.6:
+I agree with everything Jeff has stated.
 
-pkt_sched: Fix ingress deletion and filter attachment.
+Also, I find it ironic that the port abduction is being asked for in
+order to be "compatible with existing tools" yet in fact this stuff
+breaks everything.  You can't netfilter this traffic, you can't apply
+qdiscs to it, you can't execut TC actions on them, you can't do
+segmentation offload on them, you can't look for the usual TCP MIB
+statistics on the connection, etc. etc. etc.
 
-Based upon bug reports by Stephen Hemminger.
-
-We still had some cases using ->qdisc instead of ->qdisc_sleeping.
-
-Also, qdisc_lookup() should return ingress qdiscs.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sched/sch_api.c |   36 +++++++++++++++++++++++-------------
- 1 files changed, 23 insertions(+), 13 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index ba1d121..bbf149d 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -183,6 +183,21 @@ EXPORT_SYMBOL(unregister_qdisc);
-    (root qdisc, all its children, children of children etc.)
-  */
- 
-+struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
-+{
-+	struct Qdisc *q;
-+
-+	if (!(root->flags & TCQ_F_BUILTIN) &&
-+	    root->handle == handle)
-+		return root;
-+
-+	list_for_each_entry(q, &root->list, list) {
-+		if (q->handle == handle)
-+			return q;
-+	}
-+	return NULL;
-+}
-+
- struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
- {
- 	unsigned int i;
-@@ -191,16 +206,11 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
- 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
- 		struct Qdisc *q, *txq_root = txq->qdisc_sleeping;
- 
--		if (!(txq_root->flags & TCQ_F_BUILTIN) &&
--		    txq_root->handle == handle)
--			return txq_root;
--
--		list_for_each_entry(q, &txq_root->list, list) {
--			if (q->handle == handle)
--				return q;
--		}
-+		q = qdisc_match_from_root(txq_root, handle);
-+		if (q)
-+			return q;
- 	}
--	return NULL;
-+	return qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
- }
- 
- static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
-@@ -908,7 +918,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 					return -ENOENT;
- 				q = qdisc_leaf(p, clid);
- 			} else { /* ingress */
--				q = dev->rx_queue.qdisc;
-+				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
- 			struct netdev_queue *dev_queue;
-@@ -978,7 +988,7 @@ replay:
- 					return -ENOENT;
- 				q = qdisc_leaf(p, clid);
- 			} else { /*ingress */
--				q = dev->rx_queue.qdisc;
-+				q = dev->rx_queue.qdisc_sleeping;
- 			}
- 		} else {
- 			struct netdev_queue *dev_queue;
-@@ -1529,11 +1539,11 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	t = 0;
- 
- 	dev_queue = netdev_get_tx_queue(dev, 0);
--	if (tc_dump_tclass_root(dev_queue->qdisc, skb, tcm, cb, &t, s_t) < 0)
-+	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
- 		goto done;
- 
- 	dev_queue = &dev->rx_queue;
--	if (tc_dump_tclass_root(dev_queue->qdisc, skb, tcm, cb, &t, s_t) < 0)
-+	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
- 		goto done;
- 
- done:
--- 
-1.5.6.5.GIT
-
+It is broken from every possible angle.
