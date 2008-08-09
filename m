@@ -1,101 +1,42 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v1 2/6] netlabel: Replace protocol/NetLabel linking with refrerence counts
-Date: Fri, 8 Aug 2008 22:11:32 -0400
-Message-ID: <200808082211.32951.paul.moore@hp.com>
-References: <20080808203542.21077.37084.stgit@flek> <20080808205301.21077.66315.stgit@flek> <20080808223716.GM6760@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Sat, 9 Aug 2008 10:16:49 +0800
+Message-ID: <20080809021649.GA26784@gondor.apana.org.au>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809003829.GA25926@gondor.apana.org.au> <200808090354.03568.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080808223716.GM6760@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
+To: Wolfgang Walter <wolfgang.walter@stwm.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:45406 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753330AbYHICQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 22:16:59 -0400
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200808090354.03568.wolfgang.walter@stwm.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 08 August 2008 6:37:16 pm Paul E. McKenney wrote:
-> On Fri, Aug 08, 2008 at 04:53:01PM -0400, Paul Moore wrote:
-> >  struct cipso_v4_doi *cipso_v4_doi_getdef(u32 doi)
-> >  {
-> > -	return cipso_v4_doi_search(doi);
-> > +	struct cipso_v4_doi *doi_def;
-> > +
-> > +	rcu_read_lock();
-> > +	doi_def = cipso_v4_doi_search(doi);
-> > +	if (doi_def)
->
-> Suppose that the doi_def element is removed by some other CPU at
-> this point.  The reference-count check would pass (so that the
-> deletion function would decline to error out with -EBUSY), and the
-> removal would proceed normally.  (Right?)
->
-> So we then acquire the reference count on an element that will be
-> freed after an RCU grace period, despite the fact that the reference
-> count might still be held at that point.
->
-> Or am I missing something?  (Wouldn't be a surprise, as it is not
-> like I am familiar with this code.)
+On Sat, Aug 09, 2008 at 03:54:03AM +0200, Wolfgang Walter wrote:
+> On Saturday 09 August 2008, Herbert Xu wrote:
+> > 
+> > Someone please test this with tcrypt mode=200 with and without
+> > the patch.
+> 
+> I'll do that. Where do I find tcrypt?
 
-Hi Paul,
+It's part of the kernel.  Just make sure you've got CRYPTO_TEST
+enabled as a module.
 
-Thanks for taking a look, your point sounds reasonable to me.
-
-> If I am correct, the usual resolution is to combine the reference
-> count and the "valid" flag, so that a zero reference counter implies
-> "not valid", allowing the atomic_inc() below to become
-> atomic_inc_not_zero(), allowing you to simply return NULL should the
-> race with removal be detected.  There are other approaches as well...
-
-Combining the valid and refcount fields seems reasonable to me.  I took 
-your advice and made the following changes (as well as they other 
-changes to replace the valid check with atomic_read(refcount) > 0) ...
-
-struct cipso_v4_doi *cipso_v4_doi_getdef(u32 doi)
-{
-	struct cipso_v4_doi *doi_def;
-
-	rcu_read_lock();
-	doi_def = cipso_v4_doi_search(doi);
-	if (doi_def == NULL)
-		goto doi_getdef_return;
-	if (!atomic_inc_not_zero(&doi_def->refcount))
-		doi_def = NULL;
-
-doi_getdef_return:
-	rcu_read_unlock();
-	return doi_def;
-}
-
-int cipso_v4_doi_remove(u32 doi,
-			struct netlbl_audit *audit_info,
-			void (*callback) (struct rcu_head * head))
-{
-	struct cipso_v4_doi *doi_def;
-
-	spin_lock(&cipso_v4_doi_list_lock);
-	doi_def = cipso_v4_doi_search(doi);
-	if (doi_def == NULL) {
-		spin_unlock(&cipso_v4_doi_list_lock);
-		return -ENOENT;
-	}
-	if (!atomic_dec_and_test(&doi_def->refcount)) {
-		spin_unlock(&cipso_v4_doi_list_lock);
-		return -EBUSY;
-	}
-	list_del_rcu(&doi_def->list);
-	spin_unlock(&cipso_v4_doi_list_lock);
-
-	cipso_v4_cache_invalidate();
-	call_rcu(&doi_def->rcu, callback);
-
-	return 0;
-}
-
-Does that look better?
-
+Thanks,
 -- 
-paul moore
-linux @ hp
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
