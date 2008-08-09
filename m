@@ -1,50 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] sky2: Fix suspend/hibernation/shutdown regression with WOL enabled
-Date: Sat, 9 Aug 2008 23:32:28 +0200
-Message-ID: <200808092332.29596.rjw@sisk.pl>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Sun, 10 Aug 2008 00:32:40 +0200
+Message-ID: <20080809223240.GA3085@ami.dom.local>
+References: <EA929A9653AAE14F841771FB1DE5A1365F1FBE8B45@rrsmsx501.amr.corp.intel.com> <20080802.192639.02765648.davem@davemloft.net> <EA929A9653AAE14F841771FB1DE5A1365F1FDE30F1@rrsmsx501.amr.corp.intel.com> <20080809.002956.58270696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:46917 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751659AbYHIVaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Aug 2008 17:30:04 -0400
+Received: from fg-out-1718.google.com ([72.14.220.152]:41324 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbYHIWbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 18:31:16 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so789993fgg.17
+        for <netdev@vger.kernel.org>; Sat, 09 Aug 2008 15:31:15 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080809.002956.58270696.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sky2: Fix suspend/hibernation/shutdown regression with WOL enabled
+On Sat, Aug 09, 2008 at 12:29:56AM -0700, David Miller wrote:
+> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> Date: Fri, 8 Aug 2008 13:38:32 -0600
+> 
+> > I ran into similar panic again. This time on driver reload while
+> > passing traffic.
+> 
+> Thanks.  I think I know what's going on here but coming up
+> with a fix will take a little bit longer than usual.
 
-On my test box with the Asus M3A32-MVP main board there is a
-regression from 2.6.26 related to suspend, hibernation and
-shutdown.  Namely, if Wake-on-LAN is enabled with
-'ethtool -s eth0 wol g', the box hangs solid during all of these
-operations, while executing either sky2_suspend(), or
-sky2_shutdown().  This patch fixes it for me.
+I guess you're thinking about something bigger, but here is a little,
+maybe unrelated idea, which I think looks reasonable: after changing
+the qdiscs, we should care more about pending activities on the "real"
+one instead of the noop.
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Jarek P.
 ---
- drivers/net/sky2.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Index: linux-2.6/drivers/net/sky2.c
-===================================================================
---- linux-2.6.orig/drivers/net/sky2.c
-+++ linux-2.6/drivers/net/sky2.c
-@@ -665,7 +665,8 @@ static void sky2_phy_power_down(struct s
- 		    GM_GPCR_FL_PASS | GM_GPCR_SPEED_100 | GM_GPCR_AU_ALL_DIS);
+ net/sched/sch_generic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 7cf83b3..7bce88d 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -658,7 +658,7 @@ static bool some_qdisc_is_running(struct net_device *dev, int lock)
+ 		int val;
  
- 	if (hw->chip_id != CHIP_ID_YUKON_EC) {
--		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-+		if (hw->chip_id == CHIP_ID_YUKON_EC_U
-+		    && hw->chip_rev != CHIP_REV_YU_EC_U_B0) {
- 			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
+ 		dev_queue = netdev_get_tx_queue(dev, i);
+-		q = dev_queue->qdisc;
++		q = dev_queue->qdisc_sleeping;
+ 		root_lock = qdisc_lock(q);
  
- 			/* enable Power Down */
+ 		if (lock)
