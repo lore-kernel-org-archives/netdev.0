@@ -1,52 +1,101 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
- with fpu state changes
-Date: Fri, 08 Aug 2008 18:59:08 -0700
-Message-ID: <489CF9EC.5050109@zytor.com>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080809014925.GA26529@gondor.apana.org.au>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v1 2/6] netlabel: Replace protocol/NetLabel linking with refrerence counts
+Date: Fri, 8 Aug 2008 22:11:32 -0400
+Message-ID: <200808082211.32951.paul.moore@hp.com>
+References: <20080808203542.21077.37084.stgit@flek> <20080808205301.21077.66315.stgit@flek> <20080808223716.GM6760@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, viro@ZenIV.linux.org.uk,
-	vegard.nossum@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:59488 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754192AbYHICEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2008 22:04:15 -0400
-In-Reply-To: <20080809014925.GA26529@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080808223716.GM6760@linux.vnet.ibm.com>
+Content-Disposition: inline
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Aug 08, 2008 at 12:01:15PM -0700, H. Peter Anvin wrote:
->> It's technically overkill, if (and only if!) these instructions don't 
->> actually touch the SSE state (most likely they're using the SSE 
->> pipeline, and need this stuff to deal with power management issues.)
-> 
-> Yes the PadLock uses the SSE pipeline, but doesn't touch any
-> of the state.
+On Friday 08 August 2008 6:37:16 pm Paul E. McKenney wrote:
+> On Fri, Aug 08, 2008 at 04:53:01PM -0400, Paul Moore wrote:
+> >  struct cipso_v4_doi *cipso_v4_doi_getdef(u32 doi)
+> >  {
+> > -	return cipso_v4_doi_search(doi);
+> > +	struct cipso_v4_doi *doi_def;
+> > +
+> > +	rcu_read_lock();
+> > +	doi_def = cipso_v4_doi_search(doi);
+> > +	if (doi_def)
+>
+> Suppose that the doi_def element is removed by some other CPU at
+> this point.  The reference-count check would pass (so that the
+> deletion function would decline to error out with -EBUSY), and the
+> removal would proceed normally.  (Right?)
+>
+> So we then acquire the reference count on an element that will be
+> freed after an RCU grace period, despite the fact that the reference
+> count might still be held at that point.
+>
+> Or am I missing something?  (Wouldn't be a surprise, as it is not
+> like I am familiar with this code.)
 
-And yet it requires all the settings that goes along with holding the 
-SSE state.  Really crap design, unfortunately.
+Hi Paul,
 
->> However, overkill is a good way to make sure something is dead. 
->> Applying the patch will make sure we fix the regression, and we can 
->> worry about optimizing this further post-2.6.27.
-> 
-> Do we really need the FPU changes right now? I'd prefer for that
-> to be backed out until a proper solution is found.  Disabling
-> preemption around crypto is really bad for scheduling latency.
+Thanks for taking a look, your point sounds reasonable to me.
 
-I hate to say it, but given the relative marketshare, we should disable 
-Padlock instead.
+> If I am correct, the usual resolution is to combine the reference
+> count and the "valid" flag, so that a zero reference counter implies
+> "not valid", allowing the atomic_inc() below to become
+> atomic_inc_not_zero(), allowing you to simply return NULL should the
+> race with removal be detected.  There are other approaches as well...
 
-This is part of the pain of being a minority architecture.
+Combining the valid and refcount fields seems reasonable to me.  I took 
+your advice and made the following changes (as well as they other 
+changes to replace the valid check with atomic_read(refcount) > 0) ...
 
-	-hpa
+struct cipso_v4_doi *cipso_v4_doi_getdef(u32 doi)
+{
+	struct cipso_v4_doi *doi_def;
 
+	rcu_read_lock();
+	doi_def = cipso_v4_doi_search(doi);
+	if (doi_def == NULL)
+		goto doi_getdef_return;
+	if (!atomic_inc_not_zero(&doi_def->refcount))
+		doi_def = NULL;
+
+doi_getdef_return:
+	rcu_read_unlock();
+	return doi_def;
+}
+
+int cipso_v4_doi_remove(u32 doi,
+			struct netlbl_audit *audit_info,
+			void (*callback) (struct rcu_head * head))
+{
+	struct cipso_v4_doi *doi_def;
+
+	spin_lock(&cipso_v4_doi_list_lock);
+	doi_def = cipso_v4_doi_search(doi);
+	if (doi_def == NULL) {
+		spin_unlock(&cipso_v4_doi_list_lock);
+		return -ENOENT;
+	}
+	if (!atomic_dec_and_test(&doi_def->refcount)) {
+		spin_unlock(&cipso_v4_doi_list_lock);
+		return -EBUSY;
+	}
+	list_del_rcu(&doi_def->list);
+	spin_unlock(&cipso_v4_doi_list_lock);
+
+	cipso_v4_cache_invalidate();
+	call_rcu(&doi_def->rcu, callback);
+
+	return 0;
+}
+
+Does that look better?
+
+-- 
+paul moore
+linux @ hp
