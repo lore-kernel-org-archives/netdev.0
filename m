@@ -1,61 +1,47 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: [PATCH 2/2] myri10ge: use ioremap_wc
-Date: Sun, 10 Aug 2008 15:38:44 +0300
-Message-ID: <20080810123844.GG2486@deprecation.cyrius.com>
-References: <488447E7.2060505@myri.com> <48844831.9040102@myri.com> <20080810112500.GA8060@deprecation.cyrius.com> <489ED823.6000005@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sun, 10 Aug 2008 08:49:32 -0400
+Message-ID: <489EE3DC.9060202@pobox.com>
+References: <200807300019.m6U0JkdY012558@localhost.localdomain>	<aday73jxdfs.fsf@cisco.com>	<200807311752.00911.divy@chelsio.com>	<200808071145.03848.divy@chelsio.com>	<489C8BEB.8060001@opengridcomputing.com>	<489CC58D.4010606@pobox.com>	<adazlnlzc60.fsf@cisco.com> <20080810101935.5c8e8e9a@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
-To: Brice Goglin <brice@myri.com>
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <rdreier@cisco.com>,
+	Steve Wise <swise@opengridcomputing.com>, davem@davemloft.net,
+	Divy Le Ray <divy@chelsio.com>, Karen Xie <kxie@chelsio.com>,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:3964 "EHLO sorrow.cyrius.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:40609 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753421AbYHJMmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Aug 2008 08:42:08 -0400
-Content-Disposition: inline
-In-Reply-To: <489ED823.6000005@myri.com>
+	id S1753447AbYHJMtu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Aug 2008 08:49:50 -0400
+In-Reply-To: <20080810101935.5c8e8e9a@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Brice Goglin <brice@myri.com> [2008-08-10 13:59]:
-> > This change leads to a compilation failure on (at least) arm:
-> >
-> >   CC [M]  drivers/net/myri10ge/myri10ge.o
-> > drivers/net/myri10ge/myri10ge.c: In function =E2=80=98myri10ge_prob=
-e=E2=80=99:
-> > drivers/net/myri10ge/myri10ge.c:3725: error: implicit declaration o=
-f function =E2=80=98ioremap_wc=E2=80=99
-> > drivers/net/myri10ge/myri10ge.c:3725: warning: assignment makes poi=
-nter from integer without a cast
-> > make[3]: *** [drivers/net/myri10ge/myri10ge.o] Error 1
->=20
-> Isn't arm's asm/io.h supposed to get
-> #ifndef ARCH_HAS_IOREMAP_WC
-> #define ioremap_wc ioremap_nocache
-> #endif
-> from asm-generic/iomap.h since ARCH_HAS_IOREMAP_WC isn't defined on a=
-rm ?
+Alan Cox wrote:
+>>  - It doesn't work in theory, because the suggestion (I guess) is that
+>>    the iSCSI HBA has its own MAC and IP and behaves like a separate
+> 
+> The iSCSI HBA is its own system - that is the root of the problem.
 
-arch/arm/include/asm/io.h doesn't include asm-generic/iomap.h.  When I
-add this includes, myri10ge compiles.
+Indeed.
 
-Russell, any comments on the change below?
+Just like with TOE, from the net stack's point of view, an iSCSI HBA is 
+essentially a wholly asynchronous remote system [with a really fast 
+communication bus like PCI Express].
 
-diff --git a/arch/arm/include/asm/io.h b/arch/arm/include/asm/io.h
-index 94a95d7..eb71224 100644
---- a/arch/arm/include/asm/io.h
-+++ b/arch/arm/include/asm/io.h
-@@ -26,6 +26,7 @@
- #include <linux/types.h>
- #include <asm/byteorder.h>
- #include <asm/memory.h>
-+#include <asm-generic/iomap.h>
-=20
- /*
-  * ISA I/O bus memory addresses are 1:1 with the physical address.
+As such, the task becomes updating the net stack such that 
+formerly-private resources are now shared with an independent, external 
+system...  with all the complexity, additional failure modes, and 
+additional security complications that come along with that.
 
---=20
-Martin Michlmayr
-http://www.cyrius.com/
+	Jeff
+
+
