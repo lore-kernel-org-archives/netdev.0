@@ -1,37 +1,40 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Sat, 09 Aug 2008 22:14:11 -0700
-Message-ID: <adavdy9zc2k.fsf@cisco.com>
-References: <200808071145.03848.divy@chelsio.com>
-	<489C8BEB.8060001@opengridcomputing.com> <489CC58D.4010606@pobox.com>
-	<20080809.002840.167363463.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Sun, 10 Aug 2008 13:30:48 +0800
+Message-ID: <20080810053048.GA3171@gondor.apana.org.au>
+References: <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809003829.GA25926@gondor.apana.org.au> <20080809142918.GA30387@gondor.apana.org.au> <20080809143259.GA30451@gondor.apana.org.au> <20080809175247.GD13158@linux-os.sc.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
-	kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080809.002840.167363463.davem@davemloft.net> (David Miller's
-	message of "Sat, 09 Aug 2008 00:28:40 -0700 (PDT)")
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
+	austin zhang <austin_zhang@linux.intel.com>
+To: Suresh Siddha <suresh.b.siddha@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:48373 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750831AbYHJFbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 01:31:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20080809175247.GD13158@linux-os.sc.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > Also, I find it ironic that the port abduction is being asked for in
- > order to be "compatible with existing tools" yet in fact this stuff
- > breaks everything.  You can't netfilter this traffic, you can't apply
- > qdiscs to it, you can't execut TC actions on them, you can't do
- > segmentation offload on them, you can't look for the usual TCP MIB
- > statistics on the connection, etc. etc. etc.
+On Sat, Aug 09, 2008 at 10:52:48AM -0700, Suresh Siddha wrote:
+>
+> > Actually I was mistaken, Intel has done the right thing by not
+> > generating a fault on crc32c with TS set.
+> 
+> Yes, the documentation seems to says so. But I am double checking
+> with experts inside, to make sure we got the SDM right.
 
-We already support offloads that break other features, eg large receive
-offload breaks forwarding.  We deal with it.
-
-I'm sure if we thought about it we could come up with clean ways to fix
-some of the issues you raise, and just disable the offload if someone
-wanted to use a feature we can't support.
-
- - R.
+Thanks for checking this!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
