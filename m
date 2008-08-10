@@ -1,164 +1,120 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
-Date: Sat, 9 Aug 2008 21:31:01 -0700
-Message-ID: <20080809213101.0927a808.akpm@linux-foundation.org>
-References: <bug-11297-10286@http.bugzilla.kernel.org/>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sat, 09 Aug 2008 22:12:07 -0700
+Message-ID: <adazlnlzc60.fsf@cisco.com>
+References: <200807300019.m6U0JkdY012558@localhost.localdomain>
+	<aday73jxdfs.fsf@cisco.com> <200807311752.00911.divy@chelsio.com>
+	<200808071145.03848.divy@chelsio.com>
+	<489C8BEB.8060001@opengridcomputing.com> <489CC58D.4010606@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	brian.haley@hp.com
-To: parag.warudkar@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Wise <swise@opengridcomputing.com>, davem@davemloft.net,
+	Divy Le Ray <divy@chelsio.com>, Karen Xie <kxie@chelsio.com>,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39809 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750739AbYHJEbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 00:31:08 -0400
-In-Reply-To: <bug-11297-10286@http.bugzilla.kernel.org/>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:8053 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774AbYHJFML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 01:12:11 -0400
+In-Reply-To: <489CC58D.4010606@pobox.com> (Jeff Garzik's message of "Fri, 08
+	Aug 2008 18:15:41 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  9 Aug 2008 17:26:17 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+ > * however, giving the user the ability to co-manage IP addresses means
+ > hacking up the kernel TCP code and userland tools for this new
+ > concept, something that I think DaveM would rightly be a bit reluctant
+ > to do? You are essentially adding a bunch of special case code
+ > whenever TCP ports are used:
+ > 
+ > 	if (port in list of "magic" TCP ports with special,
+ > 	    hardware-specific behavior)
+ > 		...
+ > 	else
+ > 		do what we've been doing for decades
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=11297
-> 
->            Summary: OOPS in rt6_fill_node
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.27-rc2
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: parag.warudkar@gmail.com
-> 
-> 
-> Latest working kernel version: 2.6.26-rc4
-> Earliest failing kernel version: 2.6.26
+I think you're arguing against something that no one is actually
+pushing.  What I'm sure Chelsio and probably other iSCSI offload vendors
+would like is a way to make iSCSI (and other) offloads not steal magic
+ports but actually hook into the normal infrastructure so that the
+offloaded connections show up in netstat, etc.  Having this solution
+would be nice not just for TCP offload but also for things like in-band
+system management, which currently lead to the same hard-to-diagnose
+issues when someone hits the stolen port.  And it also would seem to
+help "classifier NICs" (Sun Neptune, Solarflare, etc) where some traffic
+might be steered to a userspace TCP stack.
 
-Can you please confirm the version numbers here?  2.6.26-rc4 was OK,
-but 2.6.26 and 2.6.27-rc2 are busted?
+I don't think the proposal of just using a separate MAC and IP for the
+iSCSI HBA really works, for two reasons:
 
-Brian had a patch but apparently things still aren't right (see the
-full bugzilla report for details).
+ - It doesn't work in theory, because the suggestion (I guess) is that
+   the iSCSI HBA has its own MAC and IP and behaves like a separate
+   system.  But this means that to start with the HBA needs its own ARP,
+   ICMP, routing, etc interface, which means we need some (probably new)
+   interface to configure all of this.  And then it doesn't work in lots
+   of networks; for example the ethernet jack in my office doesn't work
+   without 802.1x authentication, and putting all of that in an iSCSI
+   HBA's firmware clearly is crazy (not to mention creating the
+   interface to pass 802.1x credentials into the kernel to pass to the
+   HBA).
 
+ - It doesn't work in practice because most of the existing NICs that
+   are capable of iSCSI offload, eg Chelsio and Broadcom as well as 3 or
+   4 other vendors, don't handle ARP, ICMP, etc in the device -- they
+   need the host system to do it.  Which means that either we have a
+   separate ARP/ICMP stack for offload adapters (obviously untenable) or
+   a separate implemention in each driver (even more untenable), or we
+   use the normal stack for the adapter, which seems to force us into
+   creating a normal netdev for the iSCSI offload interface, which in
+   turn seems to force us to figure out a way for offload adapters to
+   coexist with the host stack (assuming of course that we care about
+   iSCSI HBAs and/or stuff like NFS/RDMA).
 
-> Distribution: NA
-> Hardware Environment: x86
-> Software Environment: ip
-> Problem Description: 
-> 
-> $ ip -f inet6 route get fec0::1
-> 
-> Produces this oops -
-> BUG: unable to handle kernel NULL pointer dereference at 00000000
-> 
-> IP: [<c0369b85>] rt6_fill_node+0x175/0x3b0
-> 
-> *pdpt = 0000000036466001 *pde = 0000000000000000
-> 
-> Oops: 0000 [#1] SMP
-> 
-> Modules linked in: pcnet32 smsc47m192 i2c_i801 i2c_dev i2c_core r8169
-> coretemp i
-> t87 hwmon_vid lcm e1000e
-> 
-> Pid: 3033, comm: ip Not tainted (2.6.26.2 #1)
-> 
-> EIP: 0060:[<c0369b85>] EFLAGS: 00010246 CPU: 1
-> 
-> EIP is at rt6_fill_node+0x175/0x3b0
-> 
-> EAX: 00000000 EBX: f7115bbc ECX: 00000000 EDX: f7115c60
-> 
-> ESI: f7c1f100 EDI: f7548f00 EBP: f7115bdc ESP: f7115ba4
-> 
->  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> 
-> Process ip (pid: 3033, ti=f7114000 task=f64cbc50 task.ti=f7114000)
-> 
-> Stack: f7115bbc 00000000 f7115c54 f7115bc0 f7115c60 f6d75078 00000000
-> f7115bdc  
->        c036a5f0 c036b360 00000000 f75487a0 00000000 f7548f00 f7115c9c
-> c036c30e  
->        f7115c70 00000000 00000018 00000bd9 489b2024 00000000 00000000
-> 00000000  
-> Call Trace:
-> 
->  [<c036a5f0>] ? ip6_route_output+0x50/0xa0
-> 
->  [<c036b360>] ? ip6_pol_route_output+0x0/0x20
-> 
->  [<c036c30e>] ? inet6_rtm_getroute+0x16e/0x200
-> 
->  [<c036c1a0>] ? inet6_rtm_getroute+0x0/0x200
-> 
->  [<c030ef19>] ? rtnetlink_rcv_msg+0x1b9/0x1f0
-> 
->  [<c030ed60>] ? rtnetlink_rcv_msg+0x0/0x1f0
-> 
->  [<c031426d>] ? netlink_rcv_skb+0x8d/0xb0
-> 
->  [<c030ed57>] ? rtnetlink_rcv+0x17/0x20
-> 
->  [<c031402d>] ? netlink_unicast+0x23d/0x270
-> 
->  [<c030162a>] ? memcpy_fromiovec+0x4a/0x70
-> 
->  [<c0314811>] ? netlink_sendmsg+0x1c1/0x290
-> 
->  [<c02fa165>] ? sock_sendmsg+0xc5/0xf0
-> 
->  [<c01363a0>] ? autoremove_wake_function+0x0/0x50
-> 
->  [<c01363a0>] ? autoremove_wake_function+0x0/0x50
-> 
->  [<c02fa165>] ? sock_sendmsg+0xc5/0xf0
-> 
->  [<c0217f37>] ? copy_from_user+0x37/0x70
-> 
->  [<c03018ec>] ? verify_iovec+0x2c/0x90
-> 
->  [<c02fa29a>] ? sys_sendmsg+0x10a/0x220
-> 
->  [<c015ab08>] ? __inc_zone_page_state+0x18/0x20
-> 
->  [<c01642ed>] ? __page_set_anon_rmap+0x2d/0x40
-> 
->  [<c0164325>] ? page_add_new_anon_rmap+0x25/0x30
-> 
->  [<c015eda6>] ? handle_mm_fault+0x606/0x750
-> 
->  [<c0160f5e>] ? vma_adjust+0xfe/0x410
-> 
->  [<c0113156>] ? do_page_fault+0x126/0x830
-> 
->  [<c02fb343>] ? sys_socketcall+0x233/0x260
-> 
->  [<c0102f39>] ? sysenter_past_esp+0x6a/0x91
-> 
->  =======================
-> 
-> Code: 62 01 00 00 c6 43 01 80 8b 45 0c 85 c0 0f 85 13 02 00 00 8b 45 d8
-> 85 c0 74
->  3c 8b 86 88 00 00 00 8d 5d e0 31 c9 89 1c 24 8b 55 d8 <8b> 00 e8 d4 e3
-> ff ff 85
->  c0 75 20 b9 10 00 00 00 ba 07 00 00 00
-> 
-> EIP: [<c0369b85>] rt6_fill_node+0x175/0x3b0 SS:ESP 0068:f7115ba4
-> 
-> ---[ end trace e9f2563374550ae8 ]---
-> 
-> 
-> Steps to reproduce:
-> $ ip -f inet6 route get fec0::1
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+A long time ago, DaveM pointed me at the paper "TCP offload is a dumb
+idea whose time has come" (<http://www.usenix.org/events/hotos03/tech/full_papers/mogul/mogul_html/index.html>)
+which is an interesting paper that argues that this time really is
+different, and OS developers need to figure out how transport offload
+fits in.  As a side note, funnily enough back in the thread where DaveM
+mentioned that paper, Alan Cox said "Take a look at who holds the
+official internet land speed record. Its not a TOE using system" but at
+least as of now the current record for IPv4
+(http://www.internet2.edu/lsr/) *is* held by a TOE.
+
+I think there are two ways to proceed:
+
+ - Start trying to figure out the best way to support the iSCSI offload
+   hardware that's out there.  I don't know the perfect answer but I'm
+   sure we can figure something out if we make an honest effort.
+
+ - Ignore the issue and let users of iSCSI offload hardware (and iWARP
+   and NFS/RDMA etc) stick to hacky out-of-tree solutions.  This pays
+   off if stuff like the Intel CRC32C instruction plus faster CPUs (or
+   "multithreaded" NICs that use multicore better) makes offload
+   irrelevant.  However this ignores the fundamental 3X memory bandwidth
+   cost of not doing direct placement in the NIC, and risks us being in
+   a "well Solaris has support" situation down the road.
+
+To be honest I think the best thing to do is just to get support for
+these iSCSI offload adapters upstream in whatever form we can all agree
+on, so that we can see a) whether anyone cares and b) if someone does
+care, whether there's some better way to do things.
+
+ > ISTR Roland(?) pointing out code that already does a bit of this in
+ > the IB space...  but the point is
+
+Not me... and I don't think that there would be anything like this for
+InfiniBand, since IB is a completely different animal that has nothing
+to do with TCP/IP.  You may be thinking of iWARP (RDMA over TCP/IP), but
+actually the current Linux iWARP support completely punts on the issue
+of coexisting with the native stack (basically because of a lack of
+interest in solving the problems from the netdev side of things), which
+leads to nasty issues that show up when things happen to collide.  So
+far people seem to be coping by using nasty out-of-tree hacks.
+
+ - R.
