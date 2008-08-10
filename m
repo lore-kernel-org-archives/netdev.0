@@ -1,81 +1,57 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] sky2: Fix suspend/hibernation/shutdown regression with WOL enabled (rev. 2)
-Date: Sun, 10 Aug 2008 19:30:28 +0200
-Message-ID: <200808101930.29574.rjw@sisk.pl>
-References: <200808092332.29596.rjw@sisk.pl> <20080809235711.12c2f331@extreme> <200808101414.35626.rjw@sisk.pl>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sun, 10 Aug 2008 12:57:20 -0500
+Message-ID: <489F2C00.3080608@opengridcomputing.com>
+References: <489CC58D.4010606@pobox.com>	<20080809.002840.167363463.davem@davemloft.net>	<adavdy9zc2k.fsf@cisco.com> <20080809.224725.130946315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:50256 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752001AbYHJR16 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Aug 2008 13:27:58 -0400
-In-Reply-To: <200808101414.35626.rjw@sisk.pl>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rdreier@cisco.com, jgarzik@pobox.com, divy@chelsio.com,
+	kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080809.224725.130946315.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sunday, 10 of August 2008, Rafael J. Wysocki wrote:
-> On Sunday, 10 of August 2008, Stephen Hemminger wrote:
-> > On Sat, 9 Aug 2008 23:32:28 +0200
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > 
-[--snip--]
-> > 
-> > The problem is not unique to your chip version,
-> 
-> Well, that's the part I wasn't sure of.
-> 
-> > so patching out the power down is not the correct solution.
-> 
-> Sure.
+David Miller wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Sat, 09 Aug 2008 22:14:11 -0700
+>
+>   
+>>  > Also, I find it ironic that the port abduction is being asked for in
+>>  > order to be "compatible with existing tools" yet in fact this stuff
+>>  > breaks everything.  You can't netfilter this traffic, you can't apply
+>>  > qdiscs to it, you can't execut TC actions on them, you can't do
+>>  > segmentation offload on them, you can't look for the usual TCP MIB
+>>  > statistics on the connection, etc. etc. etc.
+>>
+>> We already support offloads that break other features, eg large receive
+>> offload breaks forwarding.  We deal with it.
+>>     
+>
+> We turn it off.  If I want to shape or filter one of these iSCSI
+> connections can we turn it off?
+>
+>   
+Sure.
 
-But, shouldn't we switch to page 2 before selecting PHY_MARV_PHY_CTRL?  Things
-work correctly if this is done (patch below).
+Seems to me we _could_ architect this all so that these devices would 
+have to support a method for the management/admin tools to tweak, and if 
+nothing else kill, offload connections if policy rules change and the 
+existing connections aren't implementing the policy.  IE: if the offload 
+connection doesn't support whatever security or other facilities that 
+the admin requires, then the admin should have the ability to disable 
+that device.  And of course, some devices will allow doing things like 
+netfilter, qos, tweaking vlan tags, etc even on active connection,  if 
+the OS infrastructure is there to hook it all up.
 
-Thanks,
-Rafael
+BTW:  I think all these offload devices provide MIBs and could be pulled 
+in to the normal management tools.
 
 
----
-On my test box with the Asus M3A32-MVP main board there is a
-regression from 2.6.26 related to suspend, hibernation and
-shutdown.  Namely, if Wake-on-LAN is enabled with
-'ethtool -s eth0 wol g', the box hangs solid during all of these
-operations, while executing either sky2_suspend(), or
-sky2_shutdown().  This patch fixes it for me.
-
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
- drivers/net/sky2.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-Index: linux-2.6/drivers/net/sky2.c
-===================================================================
---- linux-2.6.orig/drivers/net/sky2.c
-+++ linux-2.6/drivers/net/sky2.c
-@@ -666,11 +666,16 @@ static void sky2_phy_power_down(struct s
- 
- 	if (hw->chip_id != CHIP_ID_YUKON_EC) {
- 		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
--			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+			/* select page 2 to access MAC control register */
-+			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
- 
-+			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
- 			/* enable Power Down */
- 			ctrl |= PHY_M_PC_POW_D_ENA;
- 			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+
-+			/* set page register back to 0 */
-+			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
- 		}
- 
- 		/* set IEEE compatible Power Down Mode (dev. #4.99) */
+Steve.
