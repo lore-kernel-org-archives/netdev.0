@@ -1,52 +1,54 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Sun, 10 Aug 2008 10:19:35 +0100
-Message-ID: <20080810101935.5c8e8e9a@lxorguk.ukuu.org.uk>
-References: <200807300019.m6U0JkdY012558@localhost.localdomain>
-	<aday73jxdfs.fsf@cisco.com>
-	<200807311752.00911.divy@chelsio.com>
-	<200808071145.03848.divy@chelsio.com>
-	<489C8BEB.8060001@opengridcomputing.com>
-	<489CC58D.4010606@pobox.com>
-	<adazlnlzc60.fsf@cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Steve Wise <swise@opengridcomputing.com>, davem@davemloft.net,
-	Divy Le Ray <divy@chelsio.com>, Karen Xie <kxie@chelsio.com>,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <adazlnlzc60.fsf@cisco.com>
-Sender: linux-scsi-owner@vger.kernel.org
+From: sven.wegener@stealer.net
+Subject: [PATCH] ipvs: A couple of fixes and cleanups
+Date: Sun, 10 Aug 2008 11:07:30 +0000
+Message-ID: <1218366459-23971-1-git-send-email-sven.wegener@stealer.net>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->  - It doesn't work in theory, because the suggestion (I guess) is that
->    the iSCSI HBA has its own MAC and IP and behaves like a separate
+Hi guys,
 
-The iSCSI HBA is its own system - that is the root of the problem.
+here come a couple of fixes and cleanups for IPVS. Worth mentioning are the two
+possible deadlock fixes. One introduced by my last sync daemon work, which
+hasn't hit any stable kernel yet. The other one is in the estimator code and
+goes back to at leat since we started working with git for the kernel. The
+latter I think qualifies for -stable.
 
->    system.  But this means that to start with the HBA needs its own ARP,
->    ICMP, routing, etc interface, which means we need some (probably new)
->    interface to configure all of this.  And then it doesn't work in lots
+I've pushed the changes (8123b42..2e45552) based on davem's net tree here
 
-Its another system so surely SNMP ;)
+	git://git.stealer.net/linux-2.6.git stealer/ipvs/for-davem
 
-More seriously I do think iSCSI is actually a subtly special case of TOE.
-Most TOE disintegrates under carefully chosen "malicious" workloads
-because of the way it is optimised, and the lack of security integration
-ranges can be very very dangeorus. A pure iSCSI connection is generally
-private, single purpose and really is the classic application of "pigs fly
-given enough thrust" - which is the only way to make the pig in question
-(iSCSI) work properly.
+Sven Wegener (9):
+      ipvs: Fix possible deadlock in sync code
+      ipvs: Fix possible deadlock in estimator code
+      ipvs: Use ARRAY_SIZE()
+      ipvs: Use list_empty() instead of open-coding the same functionality
+      ipvs: Initialize schedulers' struct list_head at compile time
+      ipvs: Annotate init functions with __init
+      ipvs: Mark net_vs_ctl_path const
+      ipvs: Embed estimator object into stats object
+      ipvs: No need to zero out ip_vs_stats during initialization
 
-
-
+ include/net/ip_vs.h         |   26 ++++++++--
+ net/ipv4/ipvs/ip_vs_app.c   |    2 +-
+ net/ipv4/ipvs/ip_vs_conn.c  |    2 +-
+ net/ipv4/ipvs/ip_vs_ctl.c   |   12 ++--
+ net/ipv4/ipvs/ip_vs_dh.c    |    2 +-
+ net/ipv4/ipvs/ip_vs_est.c   |  116 ++++++++++++++----------------------------
+ net/ipv4/ipvs/ip_vs_lblc.c  |    2 +-
+ net/ipv4/ipvs/ip_vs_lblcr.c |    2 +-
+ net/ipv4/ipvs/ip_vs_lc.c    |    2 +-
+ net/ipv4/ipvs/ip_vs_nq.c    |    2 +-
+ net/ipv4/ipvs/ip_vs_proto.c |    2 +-
+ net/ipv4/ipvs/ip_vs_rr.c    |    2 +-
+ net/ipv4/ipvs/ip_vs_sched.c |    4 +-
+ net/ipv4/ipvs/ip_vs_sed.c   |    2 +-
+ net/ipv4/ipvs/ip_vs_sh.c    |    2 +-
+ net/ipv4/ipvs/ip_vs_sync.c  |    4 +-
+ net/ipv4/ipvs/ip_vs_wlc.c   |    2 +-
+ net/ipv4/ipvs/ip_vs_wrr.c   |    2 +-
+ 18 files changed, 84 insertions(+), 104 deletions(-)
 
 
