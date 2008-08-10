@@ -1,39 +1,48 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
- with fpu state changes
-Date: Sat, 09 Aug 2008 22:41:48 -0700
-Message-ID: <489E7F9C.9000708@zytor.com>
-References: <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809003829.GA25926@gondor.apana.org.au> <20080809142918.GA30387@gondor.apana.org.au> <20080809143259.GA30451@gondor.apana.org.au> <20080809175247.GD13158@linux-os.sc.intel.com> <20080810053048.GA3171@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	austin zhang <austin_zhang@linux.intel.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:32828 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958AbYHJFsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 01:48:33 -0400
-In-Reply-To: <20080810053048.GA3171@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sun, 10 Aug 2008 14:24:27 +0800
+Message-ID: <E1KS4Lr-0000ts-00@gondolin.me.apana.org.au>
+References: <adazlnlzc60.fsf@cisco.com>
+Cc: jgarzik@pobox.com, swise@opengridcomputing.com,
+	davem@davemloft.net, divy@chelsio.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rdreier@cisco.com (Roland Dreier)
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <adazlnlzc60.fsf@cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Sat, Aug 09, 2008 at 10:52:48AM -0700, Suresh Siddha wrote:
->>> Actually I was mistaken, Intel has done the right thing by not
->>> generating a fault on crc32c with TS set.
->> Yes, the documentation seems to says so. But I am double checking
->> with experts inside, to make sure we got the SDM right.
+Roland Dreier <rdreier@cisco.com> wrote:
+>
+> I think there are two ways to proceed:
 > 
-> Thanks for checking this!
+> - Start trying to figure out the best way to support the iSCSI offload
+>   hardware that's out there.  I don't know the perfect answer but I'm
+>   sure we can figure something out if we make an honest effort.
+> 
+> - Ignore the issue and let users of iSCSI offload hardware (and iWARP
+>   and NFS/RDMA etc) stick to hacky out-of-tree solutions.  This pays
+>   off if stuff like the Intel CRC32C instruction plus faster CPUs (or
+>   "multithreaded" NICs that use multicore better) makes offload
+>   irrelevant.  However this ignores the fundamental 3X memory bandwidth
+>   cost of not doing direct placement in the NIC, and risks us being in
+>   a "well Solaris has support" situation down the road.
 
-Indeed :)
+We've been here many times before.  This is just the smae old TOE
+debate all over again.  The fact with TOE is that history has shown
+that Dave's decision has been spot on.
 
-	-hpa
+So you're going to have to come up with some really convincing
+evidence that shows we are all wrong and these TOE-like hardware
+offload solutions is the only way to go.  You can start by collecting
+solid benchmark numbers that we can all reproduce and look into.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
