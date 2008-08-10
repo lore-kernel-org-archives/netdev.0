@@ -1,33 +1,42 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Sun, 10 Aug 2008 08:29:37 +0800
-Message-ID: <20080810002937.GA1461@gondor.apana.org.au>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au> <489DC05E.2080901@zytor.com>
+Date: Sun, 10 Aug 2008 09:40:37 +0800
+Message-ID: <20080810014037.GA1859@gondor.apana.org.au>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080806201401.GA607@linux-os.sc.intel.com> <200808071823.02364.wolfgang.walter@stwm.de> <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au> <20080809175940.GE13158@linux-os.sc.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
 	Wolfgang Walter <wolfgang.walter@stwm.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Ingo Molnar <mingo@elte.hu>,
 	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>,
 	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
+To: Suresh Siddha <suresh.b.siddha@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:56779 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:60828 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752761AbYHJA37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 20:29:59 -0400
+	with ESMTP id S1752380AbYHJBkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2008 21:40:52 -0400
 Content-Disposition: inline
-In-Reply-To: <489DC05E.2080901@zytor.com>
+In-Reply-To: <20080809175940.GE13158@linux-os.sc.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 09, 2008 at 09:05:50AM -0700, H. Peter Anvin wrote:
+On Sat, Aug 09, 2008 at 10:59:40AM -0700, Suresh Siddha wrote:
 >
-> We're invoking this code from interrupt handlers?
+> 0. CPU's TS flag is set
+> 
+> 1. kernel using FPU in some optimized copy  routine and while doing
+> kernel_fpu_begin() takes an interrupt just before doing clts()
+> 
+> 2. Takes an interrupt and ipsec uses padlock instruction. And we
+> take a DNA fault as TS flag is still set.
 
-In softirq context, yes.
+Right, we could've fixed this by doing the clts before checking
+TS_USEDFPU in kernel_fpu_begin.  However, I admit that taking a
+fault in the general case for the PadLock is stupid anyway so we
+should definitely fix this in the ways that you suggested.
 
 Cheers,
 -- 
