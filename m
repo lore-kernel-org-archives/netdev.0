@@ -1,57 +1,90 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Sun, 10 Aug 2008 12:57:20 -0500
-Message-ID: <489F2C00.3080608@opengridcomputing.com>
-References: <489CC58D.4010606@pobox.com>	<20080809.002840.167363463.davem@davemloft.net>	<adavdy9zc2k.fsf@cisco.com> <20080809.224725.130946315.davem@davemloft.net>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: [PATCH 6/9] ipvs: Annotate init functions with __init
+Date: Sun, 10 Aug 2008 20:32:11 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0808102029200.12259@titan.stealer.net>
+References: <1218366459-23971-1-git-send-email-sven.wegener@stealer.net> <1218366459-23971-7-git-send-email-sven.wegener@stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jgarzik@pobox.com, divy@chelsio.com,
-	kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080809.224725.130946315.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1218366459-23971-7-git-send-email-sven.wegener@stealer.net>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Sat, 09 Aug 2008 22:14:11 -0700
->
->   
->>  > Also, I find it ironic that the port abduction is being asked for in
->>  > order to be "compatible with existing tools" yet in fact this stuff
->>  > breaks everything.  You can't netfilter this traffic, you can't apply
->>  > qdiscs to it, you can't execut TC actions on them, you can't do
->>  > segmentation offload on them, you can't look for the usual TCP MIB
->>  > statistics on the connection, etc. etc. etc.
->>
->> We already support offloads that break other features, eg large receive
->> offload breaks forwarding.  We deal with it.
->>     
->
-> We turn it off.  If I want to shape or filter one of these iSCSI
-> connections can we turn it off?
->
->   
-Sure.
+Being able to discard these functions saves a couple of bytes at runtime. The
+cleanup functions can't be annotated with __exit as they are also called from
+init functions.
 
-Seems to me we _could_ architect this all so that these devices would 
-have to support a method for the management/admin tools to tweak, and if 
-nothing else kill, offload connections if policy rules change and the 
-existing connections aren't implementing the policy.  IE: if the offload 
-connection doesn't support whatever security or other facilities that 
-the admin requires, then the admin should have the ability to disable 
-that device.  And of course, some devices will allow doing things like 
-netfilter, qos, tweaking vlan tags, etc even on active connection,  if 
-the OS infrastructure is there to hook it all up.
+Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+---
+ net/ipv4/ipvs/ip_vs_app.c   |    2 +-
+ net/ipv4/ipvs/ip_vs_conn.c  |    2 +-
+ net/ipv4/ipvs/ip_vs_ctl.c   |    2 +-
+ net/ipv4/ipvs/ip_vs_proto.c |    4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-BTW:  I think all these offload devices provide MIBs and could be pulled 
-in to the normal management tools.
+There's one more, register_ip_vs_protocol() is also only used during 
+initialization.
 
-
-Steve.
+diff --git a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
+index 1f1897a..201b8ea 100644
+--- a/net/ipv4/ipvs/ip_vs_app.c
++++ b/net/ipv4/ipvs/ip_vs_app.c
+@@ -608,7 +608,7 @@ int ip_vs_skb_replace(struct sk_buff *skb, gfp_t pri,
+ }
+ 
+ 
+-int ip_vs_app_init(void)
++int __init ip_vs_app_init(void)
+ {
+ 	/* we will replace it with proc_net_ipvs_create() soon */
+ 	proc_net_fops_create(&init_net, "ip_vs_app", 0, &ip_vs_app_fops);
+diff --git a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+index f8bdae4..44a6872 100644
+--- a/net/ipv4/ipvs/ip_vs_conn.c
++++ b/net/ipv4/ipvs/ip_vs_conn.c
+@@ -965,7 +965,7 @@ static void ip_vs_conn_flush(void)
+ }
+ 
+ 
+-int ip_vs_conn_init(void)
++int __init ip_vs_conn_init(void)
+ {
+ 	int idx;
+ 
+diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+index 9a5ace0..df13333 100644
+--- a/net/ipv4/ipvs/ip_vs_ctl.c
++++ b/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -2306,7 +2306,7 @@ static struct nf_sockopt_ops ip_vs_sockopts = {
+ };
+ 
+ 
+-int ip_vs_control_init(void)
++int __init ip_vs_control_init(void)
+ {
+ 	int ret;
+ 	int idx;
+diff --git a/net/ipv4/ipvs/ip_vs_proto.c b/net/ipv4/ipvs/ip_vs_proto.c
+index 876714f..6099a88 100644
+--- a/net/ipv4/ipvs/ip_vs_proto.c
++++ b/net/ipv4/ipvs/ip_vs_proto.c
+@@ -43,7 +43,7 @@ static struct ip_vs_protocol *ip_vs_proto_table[IP_VS_PROTO_TAB_SIZE];
+ /*
+  *	register an ipvs protocol
+  */
+-static int __used register_ip_vs_protocol(struct ip_vs_protocol *pp)
++static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
+ {
+ 	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
+ 
+@@ -190,7 +190,7 @@ ip_vs_tcpudp_debug_packet(struct ip_vs_protocol *pp,
+ }
+ 
+ 
+-int ip_vs_protocol_init(void)
++int __init ip_vs_protocol_init(void)
+ {
+ 	char protocols[64];
+ #define REGISTER_PROTOCOL(p)			\
