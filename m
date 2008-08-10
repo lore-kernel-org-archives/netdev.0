@@ -1,64 +1,61 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] sky2: Fix suspend/hibernation/shutdown regression with WOL enabled
-Date: Sun, 10 Aug 2008 14:14:34 +0200
-Message-ID: <200808101414.35626.rjw@sisk.pl>
-References: <200808092332.29596.rjw@sisk.pl> <20080809235711.12c2f331@extreme>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: [PATCH 2/2] myri10ge: use ioremap_wc
+Date: Sun, 10 Aug 2008 15:38:44 +0300
+Message-ID: <20080810123844.GG2486@deprecation.cyrius.com>
+References: <488447E7.2060505@myri.com> <48844831.9040102@myri.com> <20080810112500.GA8060@deprecation.cyrius.com> <489ED823.6000005@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:49263 "EHLO ogre.sisk.pl"
+Received: from sorrow.cyrius.com ([65.19.161.204]:3964 "EHLO sorrow.cyrius.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752908AbYHJMMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Aug 2008 08:12:14 -0400
-In-Reply-To: <20080809235711.12c2f331@extreme>
+	id S1753421AbYHJMmI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Aug 2008 08:42:08 -0400
 Content-Disposition: inline
+In-Reply-To: <489ED823.6000005@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 10 of August 2008, Stephen Hemminger wrote:
-> On Sat, 9 Aug 2008 23:32:28 +0200
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
-> > sky2: Fix suspend/hibernation/shutdown regression with WOL enabled
-> > 
-> > On my test box with the Asus M3A32-MVP main board there is a
-> > regression from 2.6.26 related to suspend, hibernation and
-> > shutdown.  Namely, if Wake-on-LAN is enabled with
-> > 'ethtool -s eth0 wol g', the box hangs solid during all of these
-> > operations, while executing either sky2_suspend(), or
-> > sky2_shutdown().  This patch fixes it for me.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > ---
-> >  drivers/net/sky2.c |    3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > Index: linux-2.6/drivers/net/sky2.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/sky2.c
-> > +++ linux-2.6/drivers/net/sky2.c
-> > @@ -665,7 +665,8 @@ static void sky2_phy_power_down(struct s
-> >  		    GM_GPCR_FL_PASS | GM_GPCR_SPEED_100 | GM_GPCR_AU_ALL_DIS);
-> >  
-> >  	if (hw->chip_id != CHIP_ID_YUKON_EC) {
-> > -		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-> > +		if (hw->chip_id == CHIP_ID_YUKON_EC_U
-> > +		    && hw->chip_rev != CHIP_REV_YU_EC_U_B0) {
-> >  			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-> >  
-> >  			/* enable Power Down */
-> 
-> The problem is not unique to your chip version,
+* Brice Goglin <brice@myri.com> [2008-08-10 13:59]:
+> > This change leads to a compilation failure on (at least) arm:
+> >
+> >   CC [M]  drivers/net/myri10ge/myri10ge.o
+> > drivers/net/myri10ge/myri10ge.c: In function =E2=80=98myri10ge_prob=
+e=E2=80=99:
+> > drivers/net/myri10ge/myri10ge.c:3725: error: implicit declaration o=
+f function =E2=80=98ioremap_wc=E2=80=99
+> > drivers/net/myri10ge/myri10ge.c:3725: warning: assignment makes poi=
+nter from integer without a cast
+> > make[3]: *** [drivers/net/myri10ge/myri10ge.o] Error 1
+>=20
+> Isn't arm's asm/io.h supposed to get
+> #ifndef ARCH_HAS_IOREMAP_WC
+> #define ioremap_wc ioremap_nocache
+> #endif
+> from asm-generic/iomap.h since ARCH_HAS_IOREMAP_WC isn't defined on a=
+rm ?
 
-Well, that's the part I wasn't sure of.
+arch/arm/include/asm/io.h doesn't include asm-generic/iomap.h.  When I
+add this includes, myri10ge compiles.
 
-> so patching out the power down is not the correct solution.
+Russell, any comments on the change below?
 
-Sure.
+diff --git a/arch/arm/include/asm/io.h b/arch/arm/include/asm/io.h
+index 94a95d7..eb71224 100644
+--- a/arch/arm/include/asm/io.h
++++ b/arch/arm/include/asm/io.h
+@@ -26,6 +26,7 @@
+ #include <linux/types.h>
+ #include <asm/byteorder.h>
+ #include <asm/memory.h>
++#include <asm-generic/iomap.h>
+=20
+ /*
+  * ISA I/O bus memory addresses are 1:1 with the physical address.
+
+--=20
+Martin Michlmayr
+http://www.cyrius.com/
