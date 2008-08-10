@@ -1,37 +1,52 @@
-From: Elad Lahav <elad_lahav@users.sourceforge.net>
-Subject: Re: Performance degradration 2.6.25->2.6.26
-Date: Sun, 10 Aug 2008 05:05:28 -0400
-Message-ID: <489EAF58.7030404@users.sourceforge.net>
-References: <489C0F2C.9040101@users.sourceforge.net>
-	<alpine.WNT.1.10.0808080906590.5428@jbrandeb-MOBL1.amr.corp.intel.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Sun, 10 Aug 2008 10:19:35 +0100
+Message-ID: <20080810101935.5c8e8e9a@lxorguk.ukuu.org.uk>
+References: <200807300019.m6U0JkdY012558@localhost.localdomain>
+	<aday73jxdfs.fsf@cisco.com>
+	<200807311752.00911.divy@chelsio.com>
+	<200808071145.03848.divy@chelsio.com>
+	<489C8BEB.8060001@opengridcomputing.com>
+	<489CC58D.4010606@pobox.com>
+	<adazlnlzc60.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.WNT.1.10.0808080906590.5428@jbrandeb-MOBL1.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Steve Wise <swise@opengridcomputing.com>, davem@davemloft.net,
+	Divy Le Ray <divy@chelsio.com>, Karen Xie <kxie@chelsio.com>,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <adazlnlzc60.fsf@cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By the way, using the 2.6.25 driver under the 2.6.26 kernel does not fix 
-the problem, so changes to the driver code are clearly not the culprit.
+>  - It doesn't work in theory, because the suggestion (I guess) is that
+>    the iSCSI HBA has its own MAC and IP and behaves like a separate
 
-> e1000 shortlog between those two kernels shows no real changes that could 
-> effect performance besides the irq_sem fix.
+The iSCSI HBA is its own system - that is the root of the problem.
 
-Elad
+>    system.  But this means that to start with the HBA needs its own ARP,
+>    ICMP, routing, etc interface, which means we need some (probably new)
+>    interface to configure all of this.  And then it doesn't work in lots
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+Its another system so surely SNMP ;)
+
+More seriously I do think iSCSI is actually a subtly special case of TOE.
+Most TOE disintegrates under carefully chosen "malicious" workloads
+because of the way it is optimised, and the lack of security integration
+ranges can be very very dangeorus. A pure iSCSI connection is generally
+private, single purpose and really is the classic application of "pigs fly
+given enough thrust" - which is the only way to make the pig in question
+(iSCSI) work properly.
+
+
+
+
+
