@@ -1,47 +1,45 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: LRO restructuring?
-Date: Mon, 11 Aug 2008 09:30:33 -0400
-Message-ID: <48A03EF9.9090602@myri.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: csum offload and af_packet
+Date: Mon, 11 Aug 2008 23:50:25 +1000
+Message-ID: <200808112350.25514.rusty@rustcorp.com.au>
+References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Brice Goglin <brice@myri.com>
+Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1935 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751511AbYHKNbp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2008 09:31:45 -0400
+Received: from ozlabs.org ([203.10.76.45]:33013 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751411AbYHKNyU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 09:54:20 -0400
+In-Reply-To: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Monday 11 August 2008 19:51:39 Herbert Xu wrote:
+> Rusty Russell <rusty@rustcorp.com.au> wrote:
+> > add an "else if (skb->ip_summed == CHECKSUM_PARTIAL)" case...
+>
+> If you're going to hack the guest kernel, then you might as well
+> fix the guest DHCP client.  However, we should default checksum
+> offload to off until we know that the client is capable of handling
+> it (to handle guests that haven't been fixed).
 
-You mentioned in the recent "Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI
-initiator" thread that you were planning to restructure LRO to
-preserve headers so as to make forwarding possible without totally
-disabling LRO.
+I think this is deeper than that.  This case is actually unusual, in that the 
+packet really does arrive with a partial csum.  But usually, we're exposing 
+an internal detail of our stack at this point.  Seems like we shouldn't if we 
+know the user can't deal with it.  dhcpd just makes this case less academic.
 
-For lro_receive_frags() based LRO, it would be ideal to locate the
-header in place in the frag via the mac_hdr argument to the
-get_frag_header() callback.  Eg, I'm hoping that neither the driver
-nor the LRO module will need to allocate extra memory per frame and
-copy the headers to it in the common case when forwarding is
-not enabled.  That would add quite a bit of overhead.
+> One easy way of doing this is to hook up the rx checksum offload
+> option in the guest with the tx offload option in the host.  In
+> other words, when rx offload is enabled in the guest we enable
+> tx offload in the host, and disable it vice versa.
 
-With respect to hardware LRO and headers:  Would it be possible
-to notify the driver via some sort of callback whether the headers
-are required?  I think most hardware LRO implementations are going
-to collapse the headers, and having the option to fallback to software
-LRO for forwarding might be needed for those devices which will throw
-away the intermediate headers.
+We can trivially disable it in the guest or host; that's not the problem.  We 
+can even disable csum offload just for UDP in the host.  But should we 
+really?
 
-Last, have you considered simply allowing "inexact" forwarding, where
-the ingress NIC is doing LRO and the egress nic is doing TSO?  You
-loose exact framing information (eg, what you emit might not be framed
-exactly as you receive it), but you can still do filtering, and the
-host overhead is very low.
-
-Thanks,
-
-Drew
+Rusty.
