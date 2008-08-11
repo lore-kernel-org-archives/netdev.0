@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 14:09:18 -0700 (PDT)
-Message-ID: <20080811.140918.213422266.davem@davemloft.net>
-References: <adavdy9zc2k.fsf@cisco.com>
-	<20080809.224725.130946315.davem@davemloft.net>
-	<adabpzzzg81.fsf@cisco.com>
+Date: Mon, 11 Aug 2008 14:12:54 -0700 (PDT)
+Message-ID: <20080811.141254.165409473.davem@davemloft.net>
+References: <adazlnlzc60.fsf@cisco.com>
+	<20080809.224637.69833549.davem@davemloft.net>
+	<48A08145.6060703@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
-	kxie@chelsio.com, netdev@vger.kernel.org,
+Cc: rdreier@cisco.com, jgarzik@pobox.com, swise@opengridcomputing.com,
+	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
 	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
 	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
 	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: rdreier@cisco.com
+To: rick.jones2@hp.com
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <adabpzzzg81.fsf@cisco.com>
+In-Reply-To: <48A08145.6060703@hp.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 11 Aug 2008 09:09:02 -0700
+From: Rick Jones <rick.jones2@hp.com>
+Date: Mon, 11 Aug 2008 11:13:25 -0700
 
->  > We turn it off.  If I want to shape or filter one of these iSCSI
->  > connections can we turn it off?
+> David Miller wrote:
+> > And I even wonder, these days, if you probably get %90 or more of the
+> > gain these "optimized" iSCSI connections obtain from things like LRO.
+> > And since LRO can be done entirely in software (although stateless
+> > HW assistence helps), it is even a NIC agnostic performance improvement.
 > 
-> That seems like a reasonable idea to me -- the standard thing to do when
-> a NIC offload conflicts with something else is to turn off the offload
-> and fall back to software.
+> Probably depends on whether or not the iSCSI offload solutions are doing 
+> zero-copy receive into the filecache?
 
-But as Herbert says, we can make LRO such that turning it off
-isn't necessary.
-
-Can we shape the iSCSI offload traffic without turning it off?
+That's a data placement issue, which also can be solved with
+stateless offloading.
