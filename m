@@ -1,39 +1,37 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: [PATCH diagnostic] Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
-Date: Mon, 11 Aug 2008 11:22:21 -0700 (PDT)
-Message-ID: <173065.89301.qm@web82104.mail.mud.yahoo.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: [PATCH] bonding: add more ethtool support
+Date: Mon, 11 Aug 2008 11:34:16 -0700
+Message-ID: <20080811113416.178e7446@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	linux-kernel@vger.kernel.org, Yinghai Lu <yhlu.kernel@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82104.mail.mud.yahoo.com ([209.191.84.217]:39339 "HELO
-	web82104.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752974AbYHKSWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 14:22:22 -0400
+Received: from mail.vyatta.com ([216.93.170.194]:44120 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850AbYHKSeS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 14:34:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch allows reporting the link, checksum, and feature settings
+of bonded device by using generic hooks.
 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> > Well, I was hoping to see something interesting.  I ran it with parameters
-> > "debug initcall_debug", and it locked up at the same place.  I let it for
-> > 15 minutes, in case of some delayed reaction.  Nada.
-> 
-> Interesting.  The causes could be:
-> 
-> o    Scheduling-clock interrupts aren't happening, as Ingo suggested.
-
-Does anyone have a short answer to this question:  Were the changes between
-2.6.25 and 2.6.26 so major that interrupts are NOW being used that were not
-being used before?
-
-Again, I don't even pretend to understand the kernel's inner workings, but
-2.6.25 _did_ work on this hardware... and with HPET enabled.
-
-
-DW
+--- a/drivers/net/bonding/bond_main.c	2008-08-11 11:22:42.000000000 -0700
++++ b/drivers/net/bonding/bond_main.c	2008-08-11 11:26:07.000000000 -0700
+@@ -4493,6 +4493,12 @@ static void bond_ethtool_get_drvinfo(str
+ 
+ static const struct ethtool_ops bond_ethtool_ops = {
+ 	.get_drvinfo		= bond_ethtool_get_drvinfo,
++	.get_link		= ethtool_op_get_link,
++	.get_tx_csum		= ethtool_op_get_tx_csum,
++	.get_sg			= ethtool_op_get_sg,
++	.get_tso		= ethtool_op_get_tso,
++	.get_ufo		= ethtool_op_get_ufo,
++	.get_flags		= ethtool_op_get_flags,
+ };
+ 
+ /*
