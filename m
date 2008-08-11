@@ -1,53 +1,50 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
- with fpu state changes
-Date: Mon, 11 Aug 2008 12:24:59 -0700
-Message-ID: <48A0920B.30306@zytor.com>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au> <200808091757.32999.wolfgang.walter@stwm.de> <489DC15D.9070308@zytor.com> <20080809185224.GH13158@linux-os.sc.intel.com> <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH diagnostic] Re: HPET regression in 2.6.26 versus 2.6.25
+	-- RCU problem
+Date: Mon, 11 Aug 2008 12:27:40 -0700
+Message-ID: <20080811192740.GM6762@linux.vnet.ibm.com>
+References: <173065.89301.qm@web82104.mail.mud.yahoo.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	linux-kernel@vger.kernel.org, Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: David Witbrodt <dawitbro@sbcglobal.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:54579 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755480AbYHKTbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 15:31:49 -0400
-In-Reply-To: <20080811192203.GC12788@elte.hu>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:52624 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753100AbYHKTfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 15:35:17 -0400
+Content-Disposition: inline
+In-Reply-To: <173065.89301.qm@web82104.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Suresh Siddha <suresh.b.siddha@intel.com> wrote:
+On Mon, Aug 11, 2008 at 11:22:21AM -0700, David Witbrodt wrote:
 > 
->> Reported-and-bisected-by: Wolfgang Walter <wolfgang.walter@stwm.de>
->> Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
 > 
-> no fundamental objection to the x86 bits.
+> > > Well, I was hoping to see something interesting.  I ran it with parameters
+> > > "debug initcall_debug", and it locked up at the same place.  I let it for
+> > > 15 minutes, in case of some delayed reaction.  Nada.
+> > 
+> > Interesting.  The causes could be:
+> > 
+> > o    Scheduling-clock interrupts aren't happening, as Ingo suggested.
 > 
-> shouldnt this:
-> 
-> +       if (!in_interrupt())
-> +               return 0;
-> 
-> just be eliminated and the cr0/TS save/restore be made unconditional?  
-> irq-assymetric APIs are not nice in general.
-> 
-> Reading/setting cr0 isnt _that_ slow. (or if it is, by how much does it 
-> slow things down, exactly?)
-> 
+> Does anyone have a short answer to this question:  Were the changes between
+> 2.6.25 and 2.6.26 so major that interrupts are NOW being used that were not
+> being used before?
 
-Setting it is relatively slow.  I think that's part of the reason for 
-special instructions to muck with the TS flag.
+Not that I am aware of, but I must defer to others who know more about
+Linux's timer interrupts than do I.
 
-Reading it might be slow on obsolete processors.
+							Thanx, Paul
 
-	-hpa
+> Again, I don't even pretend to understand the kernel's inner workings, but
+> 2.6.25 _did_ work on this hardware... and with HPET enabled.
+> 
+> 
+> DW
