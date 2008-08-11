@@ -1,90 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Add BH protection for qdisc_stab_lock.
-Date: Mon, 11 Aug 2008 23:42:39 +0200
-Message-ID: <20080811214239.GB15293@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Mon, 11 Aug 2008 14:44:21 -0700 (PDT)
+Message-ID: <20080811.144421.234396007.davem@davemloft.net>
+References: <Pine.LNX.4.64.0808071422360.4551@wrl-59.cs.helsinki.fi>
+	<20080808004231.10dd7356.billfink@mindspring.com>
+	<Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:19326 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316AbYHKVlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 17:41:53 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1136475fgg.17
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 14:41:50 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: billfink@mindspring.com, fragabr@gmail.com,
+	thomas.jarosch@intra2net.com, netdev@vger.kernel.org,
+	kaber@trash.net, sr@securenet.de, netfilter-devel@vger.kernel.org,
+	kadlec@blackhole.kfki.hu
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 8 Aug 2008 13:32:14 +0300 (EEST)
 
-pkt_sched: Add BH protection for qdisc_stab_lock.
+> On Fri, 8 Aug 2008, Bill Fink wrote:
+> > A question then arises is if the bogus scenario has a TCP signature
+> > that could be used to print a warning message for the unsuspecting
+> > user so they could then take necessary corrective action.
+>=20
+> Probably yes, but I need to add some state. I could probably also mak=
+e it=20
+> to switch per flow to more robust approach on-demand when enough evid=
+ence=20
+> is gathered. ...I think I'll add 1-bit history counter per flow so th=
+at=20
+> it's possible to do print the warning and switch when there's third R=
+TO in=20
+> a single window (while two first were found spurious). IMHO it's unli=
+kely=20
+> enough that there will be three latency spikes (each longer than the=20
+> previous) within a single window to make the decision, I wouldn't tru=
+st=20
+> two enough because hand-overs can take time and have non-trivial effe=
+cts.
 
-Since qdisc_stab_lock is used in qdisc_put_stab(), which is called in
-BH context from __qdisc_destroy() RCU callback, softirq safe locking
-is needed.
+Trying to come up with a signature for this bogus stuff is both time
+consuming and having a risk of false positives.  And I really question
+whether this thing is worth it.
 
+The sane thing to do in this case is to declare the box inoperative
+and that it needs to be fixed to avoid this behavior.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
- net/sched/sch_api.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bbf149d..c25465e 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -331,7 +331,7 @@ static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt)
- 	if (!s || tsize != s->tsize || (!tab && tsize > 0))
- 		return ERR_PTR(-EINVAL);
- 
--	spin_lock(&qdisc_stab_lock);
-+	spin_lock_bh(&qdisc_stab_lock);
- 
- 	list_for_each_entry(stab, &qdisc_stab_list, list) {
- 		if (memcmp(&stab->szopts, s, sizeof(*s)))
-@@ -339,11 +339,11 @@ static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt)
- 		if (tsize > 0 && memcmp(stab->data, tab, tsize * sizeof(u16)))
- 			continue;
- 		stab->refcnt++;
--		spin_unlock(&qdisc_stab_lock);
-+		spin_unlock_bh(&qdisc_stab_lock);
- 		return stab;
- 	}
- 
--	spin_unlock(&qdisc_stab_lock);
-+	spin_unlock_bh(&qdisc_stab_lock);
- 
- 	stab = kmalloc(sizeof(*stab) + tsize * sizeof(u16), GFP_KERNEL);
- 	if (!stab)
-@@ -354,9 +354,9 @@ static struct qdisc_size_table *qdisc_get_stab(struct nlattr *opt)
- 	if (tsize > 0)
- 		memcpy(stab->data, tab, tsize * sizeof(u16));
- 
--	spin_lock(&qdisc_stab_lock);
-+	spin_lock_bh(&qdisc_stab_lock);
- 	list_add_tail(&stab->list, &qdisc_stab_list);
--	spin_unlock(&qdisc_stab_lock);
-+	spin_unlock_bh(&qdisc_stab_lock);
- 
- 	return stab;
- }
-@@ -366,14 +366,14 @@ void qdisc_put_stab(struct qdisc_size_table *tab)
- 	if (!tab)
- 		return;
- 
--	spin_lock(&qdisc_stab_lock);
-+	spin_lock_bh(&qdisc_stab_lock);
- 
- 	if (--tab->refcnt == 0) {
- 		list_del(&tab->list);
- 		kfree(tab);
- 	}
- 
--	spin_unlock(&qdisc_stab_lock);
-+	spin_unlock_bh(&qdisc_stab_lock);
- }
- EXPORT_SYMBOL(qdisc_put_stab);
- 
+Any reasonable congestion control scheme is going to run into problems
+trying to react to the packet patterns this thing creates.  It is
+therefore not really limited to FRTO so it really shouldn't be treated
+like an FRTO problem even though it shows up more pronounced when
+=46RTO is enabled.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
