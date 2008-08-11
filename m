@@ -1,74 +1,66 @@
-From: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 11:50:32 -0500
-Message-ID: <48A06DD8.80703@cs.wisc.edu>
-References: <200807300019.m6U0JkdY012558@localhost.localdomain>	 <aday73jxdfs.fsf@cisco.com>	<200807311752.00911.divy@chelsio.com>	 <200808071145.03848.divy@chelsio.com>	 <489C8BEB.8060001@opengridcomputing.com>	<489CC58D.4010606@pobox.com>	 <adazlnlzc60.fsf@cisco.com> <20080810101935.5c8e8e9a@lxorguk.ukuu.org.uk>	 <489EE3DC.9060202@pobox.com> <1218380086.3418.21.camel@localhost.localdomain>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: "Vegard Nossum" <vegard.nossum@gmail.com>
+Subject: latest -git: kernel hangs when pulling the plug on 8139too
+Date: Mon, 11 Aug 2008 18:49:13 +0200
+Message-ID: <19f34abd0808110949n5d7d363es66325b87a8fb0fd1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, daisyc-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, wenxiong-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, bhua-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, Dimitrios Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, linux-scsi <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
-Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1218380086.3418.21.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753735AbYHKQzu@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-James Bottomley wrote:
-> On Sun, 2008-08-10 at 08:49 -0400, Jeff Garzik wrote:
->> Alan Cox wrote:
->>>>  - It doesn't work in theory, because the suggestion (I guess) is that
->>>>    the iSCSI HBA has its own MAC and IP and behaves like a separate
->>> The iSCSI HBA is its own system - that is the root of the problem.
->> Indeed.
->>
->> Just like with TOE, from the net stack's point of view, an iSCSI HBA is 
->> essentially a wholly asynchronous remote system [with a really fast 
->> communication bus like PCI Express].
->>
->> As such, the task becomes updating the net stack such that 
->> formerly-private resources are now shared with an independent, external 
->> system...  with all the complexity, additional failure modes, and 
->> additional security complications that come along with that.
-> 
-> What's wrong with making it configurable identically to current software
-> iSCSI?  i.e. plumb the thing into the current iscsi transport class so
-> that we use the standard daemon for creating and binding sessions?
-> Then, only once the session is bound do you let your iSCSI TOE stack
-> take over.
-> 
-> That way the connection appears to the network as completely normal,
-> because it has an open socket associated with it; and, since the
-> transport class has done the connection login, it even looks like a
-> normal iSCSI connection to the usual tools.  iSCSI would manage
-> connection and authentication, so your TOE stack can be simply around
-> the block acceleration piece (i.e. you'd need to get the iscsi daemon to
-> do relogin and things).
+I am experiencing a system hang as soon as pull the cable out of eth0.
+Kernel version is unmodified latest -git
+(v2.6.27-rc2/796aadeb1b2db9b5d463946766c5bbfd7717158c) and my network
+driver is 8139too (for both eth0 and eth1).
+
+I am running netconsole on eth0 (the interface which I disconnect).
+
+A bit of serial console (ttyS0) output:
+
+Linux version 2.6.27-rc2-00325-g796aade (vegardno@ben.ifi.uio.no) (gcc
+version 4.1.2 20071124 (Red Hat 4.1.2-42)) #2 SMP PREEMPT Mon Aug 11
+18:29:29 CEST 2008
+...
+Kernel command line: ro root=/dev/VolGroup00/LogVol00 rhgb
+console=tty0 console=ttyS0,115200 ignore_loglevel debug initcall_debug
+nmi_watchdog=1 panic=30 sysrq_always_enabled
+netconsole=@192.168.0.172/,@192.168.0.11/ 3
+...
+calling  rtl8139_init_module+0x0/0x20
+8139too Fast Ethernet driver 0.9.28
+8139too 0000:02:01.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+eth0: RealTek RTL8139 at 0xf881ac00, 00:10:a7:09:48:52, IRQ 18
+eth0:  Identified 8139 chip type 'RTL-8139C'
+8139too 0000:02:05.0: PCI INT A -> GSI 21 (level, low) -> IRQ 21
+eth1: RealTek RTL8139 at 0xf881c000, 00:16:ec:ee:ad:b9, IRQ 21
+eth1:  Identified 8139 chip type 'RTL-8100B/8139D'
+initcall rtl8139_init_module+0x0/0x20 returned 0 after 37 msecs
+...
+eth0: link down
+[hangs here; num lock + scroll lock flashing]
+[reboots automatically, probably due to NMI watchdog?]
+
+There is no detailed crash output on either tty0 or ttyS0. Keyboard
+sysrq does not work.
+
+Is it expected that pulling the plug on an interface running
+netconsole should hang the machine? Is there anything I can do to help
+narrow down the problem? I'd like to avoid a bisect (esp. since I
+don't know the latest good version), but it is a possible solution.
+
+Thanks,
 
 
-This is what Chelsio and broadcom do today more or less. Chelsio did the 
-socket trick you are proposing. Broadcom went with a different hack. But 
-in the end both hook into the iscsi transport class (the current iscsi 
-transport class works for this today), userspace daemon and tools, so 
-that the iscsi daemon handles iscsi login, iscsi authentication and all 
-other iscsi operations, like it does for software iscsi.
+Vegard
 
-
-> 
-> I would assume net will require some indicator that the opened
-> connection has been subsumed, so it knows not to try to manage it, but
-> other than that I don't see it will need any alteration.  The usual
-> tools, like netfilter could even use this information to know the limits
-> of their management.
-> 
-> If this model works, we can use it for TOE acceleration of individual
-> applications (rather than the entire TCP stack) on an as needed basis.
-> 
-> This is like the port stealing proposal, but since the iSCSI daemon is
-> responsible for maintaining the session, the port isn't completely
-> stolen, just switched to accelerator mode when doing the iSCSI offload.
-> 
+-- 
+"The animistic metaphor of the bug that maliciously sneaked in while
+the programmer was not looking is intellectually dishonest as it
+disguises that the error is the programmer's own creation."
+	-- E. W. Dijkstra, EWD1036
