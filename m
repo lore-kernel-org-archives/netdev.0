@@ -1,84 +1,88 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [PATCH] net, wd.c: fix undefined reference to `NS8390p_init'
-Date: Mon, 11 Aug 2008 11:11:05 +0200
-Message-ID: <20080811091105.GA8141@elte.hu>
-References: <20080806182828.6bfe0a16.sfr@canb.auug.org.au> <20080806172148.7fac5999.randy.dunlap@oracle.com> <Pine.LNX.4.64.0808070918510.17614@anakin> <20080807102931.1bb0607d@lxorguk.ukuu.org.uk>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: A couple of fixes and cleanups
+Date: Mon, 11 Aug 2008 19:31:28 +1000
+Message-ID: <20080811093126.GA11051@verge.net.au>
+References: <1218366459-23971-1-git-send-email-sven.wegener@stealer.net> <alpine.LNX.1.10.0808102032180.12259@titan.stealer.net> <20080811005016.GC19825@verge.net.au> <alpine.LNX.1.10.0808110821200.12259@titan.stealer.net> <20080811065647.GD1792@verge.net.au> <alpine.LNX.1.10.0808111016500.12259@titan.stealer.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-next-owner@vger.kernel.org>
+Cc: wensong@linux-vs.org, ja@ssi.bg, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Sven Wegener <sven.wegener@stealer.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:55440 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbYHKJba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 05:31:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20080807102931.1bb0607d@lxorguk.ukuu.org.uk>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <alpine.LNX.1.10.0808111016500.12259@titan.stealer.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-* Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-
-> On Thu, 7 Aug 2008 09:20:07 +0200 (CEST)
-> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+On Mon, Aug 11, 2008 at 10:19:09AM +0200, Sven Wegener wrote:
+> On Mon, 11 Aug 2008, Simon Horman wrote:
 > 
-> > On Wed, 6 Aug 2008, Randy Dunlap wrote:
-> > > One randconfig ends with:
+> > On Mon, Aug 11, 2008 at 08:43:54AM +0200, Sven Wegener wrote:
+> > > On Mon, 11 Aug 2008, Simon Horman wrote:
 > > > 
-> > > drivers/built-in.o: In function `wd_probe1':
-> > > wd.c:(.init.text+0x6179): undefined reference to `NS8390p_init'
-> > > make[1]: *** [.tmp_vmlinux1] Error 1
+> > > > On Sun, Aug 10, 2008 at 08:35:48PM +0200, Sven Wegener wrote:
+> > > > > On Sun, 10 Aug 2008, sven.wegener@stealer.net wrote:
+> > > > > 
+> > > > > > Hi guys,
+> > > > > > 
+> > > > > > here come a couple of fixes and cleanups for IPVS. Worth mentioning are the two
+> > > > > > possible deadlock fixes. One introduced by my last sync daemon work, which
+> > > > > > hasn't hit any stable kernel yet. The other one is in the estimator code and
+> > > > > > goes back to at leat since we started working with git for the kernel. The
+> > > > > > latter I think qualifies for -stable.
+> > > > > > 
+> > > > > > I've pushed the changes (8123b42..2e45552) based on davem's net tree here
+> > > > > > 
+> > > > > > 	git://git.stealer.net/linux-2.6.git stealer/ipvs/for-davem
+> > > > > 
+> > > > > I've included the register_ip_vs_protocol() annotation. Changes are now 
+> > > > > 8123b42..7ead17b. Diffstat has changed slightly, but is probably not worth 
+> > > > > posting again.
+> > > > 
+> > > > Hi Sven,
+> > > > 
+> > > > all these changes seem fine to me.
+> > > > 
+> > > > Acked-by: Simon Horman <horms@verge.net.au>
+> > > > 
+> > > > With regards to ip_vs_zero_stats(), it uses
+> > > > 
+> > > >    memset(stats, 0, (char *)&stats->lock - (char *)stats);
+> > > > 
+> > > > to clear stats and then calls ip_vs_zero_estimator(), which uses
+> > > > 
+> > > >    est->last_conns = 0;
+> > > >    est->last_inpkts = 0;
+> > > >    ...
+> > > > 
+> > > > to clear stats->est.
+> > > > 
+> > > > I wonder if it would be cleaner to either clear
+> > > > stats->... directly in ip_vs_zero_stats(), or use
+> > > > memset in ip_vs_zero_estimator()?
+> > > 
+> > > Yeah, I wondered about the same. memset is probably simpler, but direct 
+> > > assignment makes it more obvious what is changed. Thinking about it, I'd 
+> > > prefer direct assignment, when not setting a complete structure to zero 
+> > > and there are not more than a handful lines needed to do it with direct 
+> > > assignment. But I'm fine with either way here. If we prefer the memset 
+> > > way, we should add a comment to both structures, saying that nobody should 
+> > > add anything non-statistic before the member we use to get the size.
 > > 
-> > drivers/net/Makefile has:
+> > To be honest I prefer direct assignment too. I think it is less fragile
+> > as the structures can be re-ordered without effecting how clear works.
+> > I'll post a (trivial) patch shortly.
 > > 
-> > obj-$(CONFIG_WD80x3) += wd.o 8390.o
+> > > Also the estimator and statistics structures can be optimized to avoid 
+> > > some padding. I'll include these changes and resend.
 > > 
-> > So either wd_probe1() should call NS8390_init(), or obj-$(CONFIG_WD80x3)
-> > should link with 8390p.o. Don't know which is the appropriate change
-> > here (my gut feeling says the latter).
+> > Great.
 > 
-> Safest is the latter. The shared memory interface on the wd is full 
-> speed 8 or 16bit (depending on card/jumpers) but I'm not clear about 
-> the NIC. Most of the performance hit is on the packet transfer which 
-> is private methods on this device so using 8390p won't make a big 
-> difference on this board anyway.
+> Sadly the layout of the stats structure is shared with user space, so this 
+> can't be changed easily without breaking ABI.
 
-Alan, Jeff, i triggered this too with latest -git, please pick up the 
-fix below if you dont have it already.
-
-	Ingo
-
------------------->
->From c03cb1727bb4c5433436bfb0fab59fdcc00749c3 Mon Sep 17 00:00:00 2001
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 11 Aug 2008 11:11:42 +0200
-Subject: [PATCH] net, wd.c: fix undefined reference to `NS8390p_init'
-
-fix:
-
-  drivers/built-in.o: In function `wd_probe1':
-  wd.c:(.init.text+0xb247): undefined reference to `NS8390p_init'
-
-that triggers with:
-
-  http://redhat.com/~mingo/misc/config-Mon_Aug_11_10_40_46_CEST_2008.bad
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- drivers/net/Makefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7629c90..dc6dbf6 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -106,7 +106,7 @@ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
- 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
- endif
- obj-$(CONFIG_68360_ENET) += 68360enet.o
--obj-$(CONFIG_WD80x3) += wd.o 8390.o
-+obj-$(CONFIG_WD80x3) += wd.o 8390p.o
- obj-$(CONFIG_EL2) += 3c503.o 8390p.o
- obj-$(CONFIG_NE2000) += ne.o 8390p.o
- obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
+un-Great :-(
