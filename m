@@ -1,58 +1,53 @@
-From: John Gumb <john.gumb@tandberg.com>
-Subject: Re: OOPS, ip -f inet6 route get fec0::1,
-	linux-2.6.26,	ip6_route_output, rt6_fill_node+0x175
-Date: Mon, 11 Aug 2008 08:41:27 +0100
-Message-ID: <1218440487.32543.7.camel@ukdev-lin-jag>
-References: <9F6ACAE02B6DD040A1E259977622CFDB033590C3@oslexcp1.eu.tandberg.int>
-	 <20080807203748.GA5196@martell.zuzino.mipt.ru>  <489BD227.6000209@hp.com>
-Reply-To: john.gumb@tandberg.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/9][RFC] KVM virtio_net performance
+Date: Mon, 11 Aug 2008 17:44:27 +1000
+Message-ID: <200808111744.27915.rusty@rustcorp.com.au>
+References: <1216899979-32532-1-git-send-email-markmc@redhat.com> <4888EC61.8050208@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751637AbYHKHln@vger.kernel.org>
-In-Reply-To: <489BD227.6000209@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:58084 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750868AbYHKHpi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 03:45:38 -0400
+In-Reply-To: <4888EC61.8050208@codemonkey.ws>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-looks good to me.
+On Friday 25 July 2008 06:56:01 you wrote:
+> I'm still seeing the same problem I saw with my patch series.  Namely,
+> dhclient fails to get a DHCP address.
 
-thanks people.
+This is, from one point of view, a dhclient bug.  It opens a packet socket, 
+and we'd tell it that the checksum is incomplete via auxdata, but it doesn't 
+have auxdata.
 
-John
-On Fri, 2008-08-08 at 00:57 -0400, Brian Haley wrote:
-> Alexey Dobriyan wrote:
-> > On Thu, Aug 07, 2008 at 07:00:56PM +0200, John Gumb wrote:
-> >> Scenario: no ipv6 default route set.
-> > 
-> >> # ip -f inet6 route get fec0::1
-> >>
-> >> BUG: unable to handle kernel NULL pointer dereference at 00000000
-> >> IP: [<c0369b85>] rt6_fill_node+0x175/0x3b0
-> >> EIP is at rt6_fill_node+0x175/0x3b0
-> > 
-> > 0xffffffff80424dd3 is in rt6_fill_node (net/ipv6/route.c:2191).
-> > 2186                    } else
-> > 2187    #endif
-> > 2188                            NLA_PUT_U32(skb, RTA_IIF, iif);
-> > 2189            } else if (dst) {
-> > 2190                    struct in6_addr saddr_buf;
-> > 2191      ====>         if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
-> > 					       ^^^^^^^^^^^^^^^^^^^^^^^^
-> > 					       		NULL
-> > 
-> > 2192                                           dst, 0, &saddr_buf) == 0)
-> > 2193                            NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
-> > 2194            }
-> 
-> The commit that changed this can't be reverted easily, but the patch 
-> below works for me.
-> 
-> Fix NULL de-reference in rt6_fill_node() when there's no IPv6 input 
-> device present in the dst entry.
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> 
-> 
+On the other hand, perhaps we should copy the packet and checksum it in this 
+case?  Not many devices input packets with partial csums, so dhclient doesn't 
+normally hit this.  Xen might though?
+
+ie, in net/packet/af_packet.c's packet_recvmsg():
+
+	if (pkt_sk(sk)->auxdata) {
+		struct tpacket_auxdata aux;
+
+		aux.tp_status = TP_STATUS_USER;
+		if (skb->ip_summed == CHECKSUM_PARTIAL)
+			aux.tp_status |= TP_STATUS_CSUMNOTREADY;
+		aux.tp_len = PACKET_SKB_CB(skb)->origlen;
+		aux.tp_snaplen = skb->len;
+		aux.tp_mac = 0;
+		aux.tp_net = skb_network_offset(skb);
+		aux.tp_vlan_tci = skb->vlan_tci;
+
+		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
+	}
+
+add an "else if (skb->ip_summed == CHECKSUM_PARTIAL)" case...
+
+Rusty.
