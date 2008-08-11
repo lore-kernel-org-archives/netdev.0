@@ -1,70 +1,47 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
-Date: Mon, 11 Aug 2008 12:05:53 -0700 (PDT)
-Message-ID: <714971.85255.qm@web82102.mail.mud.yahoo.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
+	with fpu state changes
+Date: Mon, 11 Aug 2008 21:22:03 +0200
+Message-ID: <20080811192203.GC12788@elte.hu>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au> <200808091757.32999.wolfgang.walter@stwm.de> <489DC15D.9070308@zytor.com> <20080809185224.GH13158@linux-os.sc.intel.com> <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Suresh Siddha <suresh.b.siddha@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82102.mail.mud.yahoo.com ([209.191.84.215]:43830 "HELO
-	web82102.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751760AbYHKTFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 15:05:54 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:34371 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751760AbYHKTW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 15:22:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080811190131.GL13158@linux-os.sc.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+* Suresh Siddha <suresh.b.siddha@intel.com> wrote:
 
+> Reported-and-bisected-by: Wolfgang Walter <wolfgang.walter@stwm.de>
+> Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
 
-> > Just to recap (not sure if you saw the earlier posts in the thread, going
-> > back to Monday a week ago):
-> >
-> > - kernel 2.6.25 worked for me without error
-> 
-> does hpet work at 2.6.25? or it is not enabled by default for the
-> famous chipset?
+no fundamental objection to the x86 bits.
 
-Yes, 2.6.25 works perfectly.
+shouldnt this:
 
-I first discovered the problem (about 10 days ago) when compiling
-my first 2.6.26 kernel, after Debian uploaded their first 2.6.26 kernel
-sources (about 14 days ago).  My method is to begin with my previous 
-working .config, and update it using 'make oldconfig'.  The output of 
++       if (!in_interrupt())
++               return 0;
 
-  egrep "HPET|RCU|PREEMPT" .config
+just be eliminated and the cr0/TS save/restore be made unconditional?  
+irq-assymetric APIs are not nice in general.
 
-for several kernels, including my custom 2.6.25 and custom 2.6.26 kernels,
-was posted in a message cc'd to you on Saturday, but you can see it here
-if you no longer have it:
- 
-http://www.uwsg.indiana.edu/hypermail/linux/kernel/0808.1/0720.html
+Reading/setting cr0 isnt _that_ slow. (or if it is, by how much does it 
+slow things down, exactly?)
 
-
-Your commit changes that produced my troubles were to e820_64.c and 
-setup_64.c (in arch/x86/kernel).  These mostly had to do with adding
-calls to insert_resource() where there had been none.
-
-On one of my machines, this change causes no problem.  (That is also
-true on your own machines, and the machines of everyone else on LKML.)
-On my two machines which lock up because of the commit, the kernel dies
-in inet_init().  The chain of calls is:
-
-  inet_init() -->  inet_register_protosw() --> synchronize_net()
-  --> synchronize_rcu()
-
-Since inet_register_protosw() touches RCU features, like list_add_rcu(),
-before calling synchronize_net(), I first guessed that the problem was
-here.  Gut none of this seems to have any direct connection to the 
-insert_resource() calls, or to HPET.
-
-[Of course, since I am not a kernel programmer, I should not even be
-guessing in the first place....  I really wish I could give more help.]
-
-
-Thanks,
-Dave W.
+	Ingo
