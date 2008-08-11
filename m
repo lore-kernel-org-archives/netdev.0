@@ -1,48 +1,114 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
-Date: Sun, 10 Aug 2008 20:30:31 -0400
-Message-ID: <489F8827.4030904@hp.com>
-References: <bug-11297-10286@http.bugzilla.kernel.org/> <20080809213101.0927a808.akpm@linux-foundation.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: A couple of fixes and cleanups
+Date: Mon, 11 Aug 2008 10:50:17 +1000
+Message-ID: <20080811005016.GC19825@verge.net.au>
+References: <1218366459-23971-1-git-send-email-sven.wegener@stealer.net> <alpine.LNX.1.10.0808102032180.12259@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: parag.warudkar@gmail.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: wensong@linux-vs.org, ja@ssi.bg, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:24668 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752734AbYHKAbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 20:31:05 -0400
-In-Reply-To: <20080809213101.0927a808.akpm@linux-foundation.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:33090 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752879AbYHKAuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2008 20:50:19 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.1.10.0808102032180.12259@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> Can you please confirm the version numbers here?  2.6.26-rc4 was OK,
-> but 2.6.26 and 2.6.27-rc2 are busted?
+On Sun, Aug 10, 2008 at 08:35:48PM +0200, Sven Wegener wrote:
+> On Sun, 10 Aug 2008, sven.wegener@stealer.net wrote:
+> 
+> > Hi guys,
+> > 
+> > here come a couple of fixes and cleanups for IPVS. Worth mentioning are the two
+> > possible deadlock fixes. One introduced by my last sync daemon work, which
+> > hasn't hit any stable kernel yet. The other one is in the estimator code and
+> > goes back to at leat since we started working with git for the kernel. The
+> > latter I think qualifies for -stable.
+> > 
+> > I've pushed the changes (8123b42..2e45552) based on davem's net tree here
+> > 
+> > 	git://git.stealer.net/linux-2.6.git stealer/ipvs/for-davem
+> 
+> I've included the register_ip_vs_protocol() annotation. Changes are now 
+> 8123b42..7ead17b. Diffstat has changed slightly, but is probably not worth 
+> posting again.
 
-This commit would have broken this, which git-whatchanged shows as being 
-in 2.6.24-rc4:
+Hi Sven,
 
-commit 5e5f3f0f801321078c897a5de0b4b4304f234da0
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Mon Mar 3 21:44:34 2008 +0900
+all these changes seem fine to me.
 
-     [IPV6] ADDRCONF: Convert ipv6_get_saddr() to ipv6_dev_get_saddr().
+Acked-by: Simon Horman <horms@verge.net.au>
 
-     Since most users of ipv6_get_saddr() pass non-NULL as
-     dst argument, use ipv6_dev_get_saddr() directly.
+With regards to ip_vs_zero_stats(), it uses
 
-     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+   memset(stats, 0, (char *)&stats->lock - (char *)stats);
 
-Most people have default IPv6 routes, which is probably why it hasn't 
-been seen.
+to clear stats and then calls ip_vs_zero_estimator(), which uses
 
-> Brian had a patch but apparently things still aren't right (see the
-> full bugzilla report for details).
+   est->last_conns = 0;
+   est->last_inpkts = 0;
+   ...
 
-John sent me email off-line saying the patch fixed the problem, but he'd 
-do more testing over the weekend.
+to clear stats->est.
 
--Brian
+I wonder if it would be cleaner to either clear
+stats->... directly in ip_vs_zero_stats(), or use
+memset in ip_vs_zero_estimator()?
+
+Something like this...
+
+----------------------------------------------------------------
+
+ipvs: Use memset to clear estimator
+
+This makes the code in ip_vs_zero_estimator() a lot closer
+to the style of its parent, ip_vs_zero_stats().
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+Index: net-2.6/include/net/ip_vs.h
+===================================================================
+--- net-2.6.orig/include/net/ip_vs.h	2008-08-11 10:43:23.000000000 +1000
++++ net-2.6/include/net/ip_vs.h	2008-08-11 10:43:23.000000000 +1000
+@@ -143,8 +143,6 @@ struct ip_vs_seq {
+  *	IPVS statistics objects
+  */
+ struct ip_vs_estimator {
+-	struct list_head	list;
+-
+ 	u32			last_conns;
+ 	u32			last_inpkts;
+ 	u32			last_outpkts;
+@@ -156,6 +154,8 @@ struct ip_vs_estimator {
+ 	u32			outpps;
+ 	u32			inbps;
+ 	u32			outbps;
++
++	struct list_head	list;
+ };
+ 
+ struct ip_vs_stats
+Index: net-2.6/net/ipv4/ipvs/ip_vs_est.c
+===================================================================
+--- net-2.6.orig/net/ipv4/ipvs/ip_vs_est.c	2008-08-11 10:43:23.000000000 +1000
++++ net-2.6/net/ipv4/ipvs/ip_vs_est.c	2008-08-11 10:43:23.000000000 +1000
+@@ -149,14 +149,5 @@ void ip_vs_zero_estimator(struct ip_vs_s
+ 	struct ip_vs_estimator *est = &stats->est;
+ 
+ 	/* set counters zero, caller must hold the stats->lock lock */
+-	est->last_conns = 0;
+-	est->last_inpkts = 0;
+-	est->last_outpkts = 0;
+-	est->last_inbytes = 0;
+-	est->last_outbytes = 0;
+-	est->cps = 0;
+-	est->inpps = 0;
+-	est->outpps = 0;
+-	est->inbps = 0;
+-	est->outbps = 0;
++	memset(est, 0, (char *)&est->list - (char *)est);
+ }
