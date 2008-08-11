@@ -1,53 +1,72 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/9][RFC] KVM virtio_net performance
-Date: Mon, 11 Aug 2008 17:44:27 +1000
-Message-ID: <200808111744.27915.rusty@rustcorp.com.au>
-References: <1216899979-32532-1-git-send-email-markmc@redhat.com> <4888EC61.8050208@codemonkey.ws>
+From: "Dushan Tcholich" <dusanc@gmail.com>
+Subject: Re: ksoftirqd high cpu load on kernels 2.6.24 to 2.6.27-rc1-mm1
+Date: Mon, 11 Aug 2008 09:53:54 +0200
+Message-ID: <a08621850808110053j5cbf23e6xdf52c9e7440abf19@mail.gmail.com>
+References: <fa.wTMiBcGRgw2fBtdHwtX7y0lkc8s@ifi.uio.no>
+	 <48975BD3.6040709@shaw.ca>
+	 <a08621850808041337k1d1deb6fk78098d9fcd4930dd@mail.gmail.com>
+	 <20080807185802.GA16327@electric-eye.fr.zoreil.com>
+	 <a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Anthony Liguori <anthony@codemonkey.ws>
+Cc: "Robert Hancock" <hancockr@shaw.ca>, netdev@vger.kernel.org
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58084 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750868AbYHKHpi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2008 03:45:38 -0400
-In-Reply-To: <4888EC61.8050208@codemonkey.ws>
+Received: from rv-out-0506.google.com ([209.85.198.226]:39968 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893AbYHKHxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 03:53:54 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2136918rvb.1
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 00:53:54 -0700 (PDT)
+In-Reply-To: <a08621850808101200n220afd2dve58abe67830b7a4f@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 25 July 2008 06:56:01 you wrote:
-> I'm still seeing the same problem I saw with my patch series.  Namely,
-> dhclient fails to get a DHCP address.
+Hi
 
-This is, from one point of view, a dhclient bug.  It opens a packet socket, 
-and we'd tell it that the checksum is incomplete via auxdata, but it doesn't 
-have auxdata.
+On Sun, Aug 10, 2008 at 9:00 PM, Dushan Tcholich <dusanc@gmail.com> wrote:
+> Hi
+> Sorry for answering this late, but I was short on time and couldn't
+> get reiser4 to work with 2.6.27-rc2
+>
+> On Thu, Aug 7, 2008 at 8:58 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+>> Dushan Tcholich <dusanc@gmail.com> :
+>> [...]
+>>> I googled a little and found out that oprofile is a little above my head.
+>>> So as I thought that some driver or HW might be responsible for this I
+>>> tried to disable various onboard HW and found out that if I disable
+>>> onboard ethernet problem dissapears, so now I've added netdev and
+>>> maintainer of R8169 driver to cc.
+>>
+>> Can you try 2.6.27-rc2 and send the content of /proc/interrupts, dmesg,
+>> ifconfig as well as a capture of the strange output from top ?
+>>
 
-On the other hand, perhaps we should copy the packet and checksum it in this 
-case?  Not many devices input packets with partial csums, so dhclient doesn't 
-normally hit this.  Xen might though?
+I tried some more kernels and I had the same problem with 2.6.23.17
+and 2.6.27-rc1-mm1, but I couldn't reproduce it with kernel from
+sysresccd 1.0.1 http://www.sysresccd.org/ which is a patched version
+of 2.6.24 i think .7 when I booted it to change fs.
+Could it be that something in userspace is creating this?
 
-ie, in net/packet/af_packet.c's packet_recvmsg():
-
-	if (pkt_sk(sk)->auxdata) {
-		struct tpacket_auxdata aux;
-
-		aux.tp_status = TP_STATUS_USER;
-		if (skb->ip_summed == CHECKSUM_PARTIAL)
-			aux.tp_status |= TP_STATUS_CSUMNOTREADY;
-		aux.tp_len = PACKET_SKB_CB(skb)->origlen;
-		aux.tp_snaplen = skb->len;
-		aux.tp_mac = 0;
-		aux.tp_net = skb_network_offset(skb);
-		aux.tp_vlan_tci = skb->vlan_tci;
-
-		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
-	}
-
-add an "else if (skb->ip_summed == CHECKSUM_PARTIAL)" case...
-
-Rusty.
+> I've copied my root to ext3 partition and with vanilla 2.6.27-rc2 I got:
+> -With my .config problem is still here
+> -With only rtl8169 removed from config there is no problem
+>
+>> It seems rather benign though.
+>>
+> Well I wouldn't agree from power managment standpoint :). This nic is
+> in a lot of laptops.
+> 8% of 2.13GHz Core2Duo CPU is a lot :)
+>
+> Btw. should LKML be removed from cc?
+> If you need any more help please ask.
+> I hope I'm not harrasing you too much :)
+>> --
+>> Ueimor
+>>
+> Have a nice day
+> Dushan
+>
+...
