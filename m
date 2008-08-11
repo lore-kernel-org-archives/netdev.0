@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 14:08:38 -0700 (PDT)
-Message-ID: <20080811.140838.202229941.davem@davemloft.net>
-References: <adazlnlzc60.fsf@cisco.com>
-	<20080809.224637.69833549.davem@davemloft.net>
-	<adafxpbzga0.fsf@cisco.com>
+Date: Mon, 11 Aug 2008 14:09:18 -0700 (PDT)
+Message-ID: <20080811.140918.213422266.davem@davemloft.net>
+References: <adavdy9zc2k.fsf@cisco.com>
+	<20080809.224725.130946315.davem@davemloft.net>
+	<adabpzzzg81.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,19 +16,21 @@ Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
 	linux-kernel@vger.kernel.org
 To: rdreier@cisco.com
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <adafxpbzga0.fsf@cisco.com>
+In-Reply-To: <adabpzzzg81.fsf@cisco.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 11 Aug 2008 09:07:51 -0700
+Date: Mon, 11 Aug 2008 09:09:02 -0700
 
-> Yes, that's the question -- are stateless offloads (plus CRC32C in the
-> CPU etc) going to give good enough performance that the whole TCP
-> offload exercise is pointless?
+>  > We turn it off.  If I want to shape or filter one of these iSCSI
+>  > connections can we turn it off?
+> 
+> That seems like a reasonable idea to me -- the standard thing to do when
+> a NIC offload conflicts with something else is to turn off the offload
+> and fall back to software.
 
-This is by definition true, over time.  And this has stedfastly proven
-itself, over and over again.
+But as Herbert says, we can make LRO such that turning it off
+isn't necessary.
 
-That's why we call stateful offloads a point in time solution.
-They are constantly being obsoleted by time.
+Can we shape the iSCSI offload traffic without turning it off?
