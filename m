@@ -1,62 +1,64 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v2 1/7] selinux: Fix a problem in
-	security_netlbl_sid_to_secattr()
-Date: Mon, 11 Aug 2008 18:23:56 -0400
-Message-ID: <20080811222356.22551.77379.stgit@flek.lan>
-References: <20080811212640.22551.17728.stgit@flek.lan>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH alternative] pkt_sched: Move qdisc_put_stab() from BH
+	context.
+Date: Tue, 12 Aug 2008 00:25:11 +0200
+Message-ID: <20080811222511.GC15293@ami.dom.local>
+References: <20080811214239.GB15293@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080811212640.22551.17728.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.184]:19946 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430AbYHKWYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 18:24:06 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so1968848fkq.5
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 15:24:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080811214239.GB15293@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently when SELinux fails to allocate memory in
-security_netlbl_sid_to_secattr() the NetLabel LSM domain field is set to
-NULL which triggers the default NetLabel LSM domain mapping which may not
-always be the desired mapping.  This patch fixes this by returning an error
-when the kernel is unable to allocate memory.  This could result in more
-failures on a system with heavy memory pressure but it is the "correct"
-thing to do.
+On Mon, Aug 11, 2008 at 11:42:39PM +0200, Jarek Poplawski wrote:
+> 
+> pkt_sched: Add BH protection for qdisc_stab_lock.
 
-Signed-off-by: XXX
+...Or instead of this:
+-------------> (alternative version)
+
+pkt_sched: Move qdisc_put_stab() from BH context.
+
+Since qdisc_stab_lock is used in qdisc_put_stab(), which is called in
+BH context from __qdisc_destroy() RCU callback, softirq safe locking
+should be used. Alternatively we can move this to qdisc_destroy(). 
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
 ---
+(Apply on top of: pkt_sched: Destroy gen estimator under rtnl_lock().)
 
- security/selinux/ss/services.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-index b52f923..5b7ecc1 100644
---- a/security/selinux/ss/services.c
-+++ b/security/selinux/ss/services.c
-@@ -2788,7 +2788,7 @@ netlbl_secattr_to_sid_return_cleanup:
-  */
- int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+diff -Nurp a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2008-08-12 00:04:22.000000000 +0200
++++ b/net/sched/sch_generic.c	2008-08-12 00:08:24.000000000 +0200
+@@ -525,9 +525,6 @@ static void __qdisc_destroy(struct rcu_h
  {
--	int rc = -ENOENT;
-+	int rc;
- 	struct context *ctx;
+ 	struct Qdisc *qdisc = container_of(head, struct Qdisc, q_rcu);
  
- 	if (!ss_initialized)
-@@ -2796,10 +2796,16 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+-#ifdef CONFIG_NET_SCHED
+-	qdisc_put_stab(qdisc->stab);
+-#endif
+ 	dev_put(qdisc_dev(qdisc));
  
- 	read_lock(&policy_rwlock);
- 	ctx = sidtab_search(&sidtab, sid);
--	if (ctx == NULL)
-+	if (ctx == NULL) {
-+		rc = -ENOENT;
- 		goto netlbl_sid_to_secattr_failure;
-+	}
- 	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
- 				  GFP_ATOMIC);
-+	if (secattr->domain == NULL) {
-+		rc = -ENOMEM;
-+		goto netlbl_sid_to_secattr_failure;
-+	}
- 	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
- 	mls_export_netlbl_lvl(ctx, secattr);
- 	rc = mls_export_netlbl_cat(ctx, secattr);
-
+ 	kfree_skb(qdisc->gso_skb);
+@@ -548,6 +545,9 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 	if (qdisc->parent)
+ 		list_del(&qdisc->list);
+ 
++#ifdef CONFIG_NET_SCHED
++	qdisc_put_stab(qdisc->stab);
++#endif
+ 	gen_kill_estimator(&qdisc->bstats, &qdisc->rate_est);
+ 	if (ops->reset)
+ 		ops->reset(qdisc);
