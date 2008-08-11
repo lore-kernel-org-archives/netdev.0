@@ -1,11 +1,11 @@
 From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 14:37:59 -0700
-Message-ID: <adaljz3xmfc.fsf@cisco.com>
-References: <adavdy9zc2k.fsf@cisco.com>
-	<20080809.224725.130946315.davem@davemloft.net>
-	<adabpzzzg81.fsf@cisco.com>
-	<20080811.140918.213422266.davem@davemloft.net>
+Date: Mon, 11 Aug 2008 14:39:47 -0700
+Message-ID: <adahc9rxmcc.fsf@cisco.com>
+References: <adazlnlzc60.fsf@cisco.com>
+	<20080809.224637.69833549.davem@davemloft.net>
+	<adafxpbzga0.fsf@cisco.com>
+	<20080811.140838.202229941.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
@@ -15,25 +15,19 @@ Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
 	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:21545 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751933AbYHKViF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 17:38:05 -0400
-In-Reply-To: <20080811.140918.213422266.davem@davemloft.net> (David Miller's
-	message of "Mon, 11 Aug 2008 14:09:18 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080811.140838.202229941.davem@davemloft.net> (David Miller's
+	message of "Mon, 11 Aug 2008 14:08:38 -0700 (PDT)")
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > But as Herbert says, we can make LRO such that turning it off
- > isn't necessary.
+ > > Yes, that's the question -- are stateless offloads (plus CRC32C in the
+ > > CPU etc) going to give good enough performance that the whole TCP
+ > > offload exercise is pointless?
  > 
- > Can we shape the iSCSI offload traffic without turning it off?
+ > This is by definition true, over time.  And this has stedfastly proven
+ > itself, over and over again.
 
-Sure... the same way we can ask the HW vendors to keep old headers
-around when aggregating for LRO, we can ask HW vendors for hooks for
-shaping iSCSI traffic.  And the Chelsio TCP speed record seems to show
-that they already have pretty sophisticated queueing/shaping in their
-current HW.
+By the definition of what?
 
  - R.
