@@ -1,42 +1,62 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: tbench regression on each kernel release from 2.6.22 -> 2.6.28
-Date: Mon, 11 Aug 2008 15:11:17 -0700
-Message-ID: <48A0B905.20603@hp.com>
-References: <48A086B6.2000901@linux-foundation.org>	<20080811.141501.01468546.davem@davemloft.net>	<48A0B037.501@linux-foundation.org>	<20080811.145047.105665450.davem@davemloft.net> <48A0B571.7010903@intel.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [RFC PATCH v2 1/7] selinux: Fix a problem in
+	security_netlbl_sid_to_secattr()
+Date: Mon, 11 Aug 2008 18:23:56 -0400
+Message-ID: <20080811222356.22551.77379.stgit@flek.lan>
+References: <20080811212640.22551.17728.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, cl@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:48550 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758389AbYHKWLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 18:11:20 -0400
-In-Reply-To: <48A0B571.7010903@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20080811212640.22551.17728.stgit@flek.lan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> David Miller wrote:
-> 
->>From: Christoph Lameter <cl@linux-foundation.org>
->>Date: Mon, 11 Aug 2008 16:33:43 -0500
->>
->>
->>>Maybe what we are seeing is general bloat in kernel execution paths
->>>due to the growth in complexity?
->>
->>It could be, and any kind of analysis into this would be great.
-> 
-> 
-> perhaps Rick Jones who maintains netperf could enlighten us on some historic
-> numbers? he usually seems to be happy to prop up new netperf numbers :)
+Currently when SELinux fails to allocate memory in
+security_netlbl_sid_to_secattr() the NetLabel LSM domain field is set to
+NULL which triggers the default NetLabel LSM domain mapping which may not
+always be the desired mapping.  This patch fixes this by returning an error
+when the kernel is unable to allocate memory.  This could result in more
+failures on a system with heavy memory pressure but it is the "correct"
+thing to do.
 
-While this is an excellent opening to talk about how netperf 
-top-of-trunk can now emit keyword=value results easier (ostensibly) to 
-put into a database then the regular or even CSV output formats, I 
-cannot fully exploit it by pointing at a database of results :(
+Signed-off-by: XXX
+---
 
-rick jones
+ security/selinux/ss/services.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
+index b52f923..5b7ecc1 100644
+--- a/security/selinux/ss/services.c
++++ b/security/selinux/ss/services.c
+@@ -2788,7 +2788,7 @@ netlbl_secattr_to_sid_return_cleanup:
+  */
+ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+ {
+-	int rc = -ENOENT;
++	int rc;
+ 	struct context *ctx;
+ 
+ 	if (!ss_initialized)
+@@ -2796,10 +2796,16 @@ int security_netlbl_sid_to_secattr(u32 sid, struct netlbl_lsm_secattr *secattr)
+ 
+ 	read_lock(&policy_rwlock);
+ 	ctx = sidtab_search(&sidtab, sid);
+-	if (ctx == NULL)
++	if (ctx == NULL) {
++		rc = -ENOENT;
+ 		goto netlbl_sid_to_secattr_failure;
++	}
+ 	secattr->domain = kstrdup(policydb.p_type_val_to_name[ctx->type - 1],
+ 				  GFP_ATOMIC);
++	if (secattr->domain == NULL) {
++		rc = -ENOMEM;
++		goto netlbl_sid_to_secattr_failure;
++	}
+ 	secattr->flags |= NETLBL_SECATTR_DOMAIN_CPY;
+ 	mls_export_netlbl_lvl(ctx, secattr);
+ 	rc = mls_export_netlbl_cat(ctx, secattr);
+
