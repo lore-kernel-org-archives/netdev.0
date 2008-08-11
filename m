@@ -1,73 +1,70 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: [NET]: remove unnecessary #include
-Date: Mon, 11 Aug 2008 08:34:41 +0200
-Message-ID: <200808110834.42768.florian.fainelli@telecomint.eu>
-References: <20080811125623.03D5.WEIYI.HUANG@gmail.com>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: Re: [PATCH] ipvs: A couple of fixes and cleanups
+Date: Mon, 11 Aug 2008 08:43:54 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0808110821200.12259@titan.stealer.net>
+References: <1218366459-23971-1-git-send-email-sven.wegener@stealer.net> <alpine.LNX.1.10.0808102032180.12259@titan.stealer.net> <20080811005016.GC19825@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, jgarzik@pobox.com, jgarzik@redhat.com,
-	netdev@vger.kernel.org
-To: Huang Weiyi <weiyi.huang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:58229 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbYHKGff convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 02:35:35 -0400
-In-Reply-To: <20080811125623.03D5.WEIYI.HUANG@gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: wensong@linux-vs.org, ja@ssi.bg, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080811005016.GC19825@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Huang,
+On Mon, 11 Aug 2008, Simon Horman wrote:
 
-Le Monday 11 August 2008 06:56:44 Huang Weiyi, vous avez =E9crit=A0:
-> The drivers below do not use LINUX_VERSION_CODE nor KERNEL_VERSION.
->   drivers/net/acenic.c
->   drivers/net/bnx2x_link.c
->   drivers/net/bnx2x_main.c
->   drivers/net/cpmac.c
->   drivers/net/gianfar_sysfs.c
->   drivers/net/ipg.h
->   drivers/net/ppp_mppe.c
->   drivers/net/pppol2tp.c
->   drivers/net/r6040.c
+> On Sun, Aug 10, 2008 at 08:35:48PM +0200, Sven Wegener wrote:
+> > On Sun, 10 Aug 2008, sven.wegener@stealer.net wrote:
+> > 
+> > > Hi guys,
+> > > 
+> > > here come a couple of fixes and cleanups for IPVS. Worth mentioning are the two
+> > > possible deadlock fixes. One introduced by my last sync daemon work, which
+> > > hasn't hit any stable kernel yet. The other one is in the estimator code and
+> > > goes back to at leat since we started working with git for the kernel. The
+> > > latter I think qualifies for -stable.
+> > > 
+> > > I've pushed the changes (8123b42..2e45552) based on davem's net tree here
+> > > 
+> > > 	git://git.stealer.net/linux-2.6.git stealer/ipvs/for-davem
+> > 
+> > I've included the register_ip_vs_protocol() annotation. Changes are now 
+> > 8123b42..7ead17b. Diffstat has changed slightly, but is probably not worth 
+> > posting again.
+> 
+> Hi Sven,
+> 
+> all these changes seem fine to me.
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
+> 
+> With regards to ip_vs_zero_stats(), it uses
+> 
+>    memset(stats, 0, (char *)&stats->lock - (char *)stats);
+> 
+> to clear stats and then calls ip_vs_zero_estimator(), which uses
+> 
+>    est->last_conns = 0;
+>    est->last_inpkts = 0;
+>    ...
+> 
+> to clear stats->est.
+> 
+> I wonder if it would be cleaner to either clear
+> stats->... directly in ip_vs_zero_stats(), or use
+> memset in ip_vs_zero_estimator()?
 
-The r6040 driver can have more include files removed. Patch attached be=
-low.
---
-=46rom: Florian Fainelli
-Subject: [PATCH] r6040: remove unused includes
+Yeah, I wondered about the same. memset is probably simpler, but direct 
+assignment makes it more obvious what is changed. Thinking about it, I'd 
+prefer direct assignment, when not setting a complete structure to zero 
+and there are not more than a handful lines needed to do it with direct 
+assignment. But I'm fine with either way here. If we prefer the memset 
+way, we should add a comment to both structures, saying that nobody should 
+add anything non-statistic before the member we use to get the size.
 
-This patch removes all unused includes.
+Also the estimator and statistics structures can be optimized to avoid 
+some padding. I'll include these changes and resend.
 
-Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
---
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 6531ff5..d453987 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -24,13 +24,9 @@
-=20
- #include <linux/kernel.h>
- #include <linux/module.h>
--#include <linux/version.h>
--#include <linux/moduleparam.h>
--#include <linux/string.h>
- #include <linux/timer.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
--#include <linux/slab.h>
- #include <linux/interrupt.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-@@ -45,9 +41,6 @@
- #include <linux/bitops.h>
- #include <linux/io.h>
- #include <linux/irq.h>
--#include <linux/uaccess.h>
--
--#include <asm/processor.h>
-=20
- #define DRV_NAME	"r6040"
- #define DRV_VERSION	"0.18"
+Sven
