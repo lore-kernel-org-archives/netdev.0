@@ -1,34 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 11:13:25 -0700
-Message-ID: <48A08145.6060703@hp.com>
-References: <489C8BEB.8060001@opengridcomputing.com>	<489CC58D.4010606@pobox.com> <adazlnlzc60.fsf@cisco.com> <20080809.224637.69833549.davem@davemloft.net>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: [PATCH diagnostic] Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
+Date: Mon, 11 Aug 2008 11:22:21 -0700 (PDT)
+Message-ID: <173065.89301.qm@web82104.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jgarzik@pobox.com, swise@opengridcomputing.com,
-	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	linux-kernel@vger.kernel.org, Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:48372 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753347AbYHKSNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 14:13:33 -0400
-In-Reply-To: <20080809.224637.69833549.davem@davemloft.net>
+Received: from web82104.mail.mud.yahoo.com ([209.191.84.217]:39339 "HELO
+	web82104.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752974AbYHKSWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 14:22:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> And I even wonder, these days, if you probably get %90 or more of the
-> gain these "optimized" iSCSI connections obtain from things like LRO.
-> And since LRO can be done entirely in software (although stateless
-> HW assistence helps), it is even a NIC agnostic performance improvement.
 
-Probably depends on whether or not the iSCSI offload solutions are doing 
-zero-copy receive into the filecache?
 
-rick jones
+> > Well, I was hoping to see something interesting.  I ran it with parameters
+> > "debug initcall_debug", and it locked up at the same place.  I let it for
+> > 15 minutes, in case of some delayed reaction.  Nada.
+> 
+> Interesting.  The causes could be:
+> 
+> o    Scheduling-clock interrupts aren't happening, as Ingo suggested.
+
+Does anyone have a short answer to this question:  Were the changes between
+2.6.25 and 2.6.26 so major that interrupts are NOW being used that were not
+being used before?
+
+Again, I don't even pretend to understand the kernel's inner workings, but
+2.6.25 _did_ work on this hardware... and with HPET enabled.
+
+
+DW
