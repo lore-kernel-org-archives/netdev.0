@@ -1,40 +1,118 @@
-From: Suresh Siddha <suresh.b.siddha@intel.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Mon, 11 Aug 2008 15:57:09 -0700
-Message-ID: <20080811225709.GO13158@linux-os.sc.intel.com>
-References: <200808081236.55172.wolfgang.walter@stwm.de> <20080808185356.GC607@linux-os.sc.intel.com> <489C97FB.2030408@zytor.com> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809003829.GA25926@gondor.apana.org.au> <20080809142918.GA30387@gondor.apana.org.au> <20080809143259.GA30451@gondor.apana.org.au> <20080809175247.GD13158@linux-os.sc.intel.com> <20080810053048.GA3171@gondor.apana.org.au> <489E7F9C.9000708@zytor.com>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr schedulers
+Date: Tue, 12 Aug 2008 00:57:21 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"Siddha, Suresh B" <suresh.b.siddha@intel.com>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	austin zhang <austin_zhang@linux.intel.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3696 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752036AbYHKW5L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2008 18:57:11 -0400
-Content-Disposition: inline
-In-Reply-To: <489E7F9C.9000708@zytor.com>
+Received: from smtp1.stealer.net ([88.198.224.204]:35737 "EHLO
+	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225AbYHKW5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 18:57:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 09, 2008 at 10:41:48PM -0700, H. Peter Anvin wrote:
-> Herbert Xu wrote:
-> > On Sat, Aug 09, 2008 at 10:52:48AM -0700, Suresh Siddha wrote:
-> >>> Actually I was mistaken, Intel has done the right thing by not
-> >>> generating a fault on crc32c with TS set.
-> >> Yes, the documentation seems to says so. But I am double checking
-> >> with experts inside, to make sure we got the SDM right.
+Both schedulers have a race condition that happens in the following 
+situation:
 
-I got confirmation that crc32 instructions don't generate DNA when cr0.TS bit
-is set. So no changes required for Austin's patches in this context.
+We have an entry in our table that already has expired according to it's 
+last use time. Then we need to schedule a new connection that uses this 
+entry.
 
-thanks,
-suresh
+CPU 1                           CPU 2
+
+ip_vs_lblc_schedule()
+  ip_vs_lblc_get()
+    lock table for read
+    find entry
+    unlock table
+                                ip_vs_lblc_check_expire()
+                                  lock table for write
+                                  kfree() expired entry
+                                  unlock table
+    return invalid entry
+
+Problem is that we assign the last use time outside of our critical 
+region. We can make hitting this race more difficult, if not impossible, 
+if we assign the last use time while still holding the lock for reading. 
+That gives us six minutes during which it's save to use the entry, which 
+should be enough for our use case, as we're going to use it immediately 
+and don't keep a long reference to it.
+
+We're holding the lock for reading and not for writing. The last use time 
+is an unsigned long, so the assignment should be atomic by itself. And we 
+don't care, if some other user sets it to a slightly different value. The 
+read_unlock() implies a barrier so that other CPUs see the new last use 
+time during cleanup, even if we're just using a read lock.
+
+Other solutions would be: 1) protect the whole ip_vs_lblc_schedule() with 
+write_lock()ing the lock, 2) add reference counting for the entries, 3) 
+protect each entry with it's own lock. And all are bad for performance.
+
+Comments? Ideas?
+
+---
+ net/ipv4/ipvs/ip_vs_lblc.c  |    4 +++-
+ net/ipv4/ipvs/ip_vs_lblcr.c |    4 +++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
+index 0efa3db..65f8414 100644
+--- a/net/ipv4/ipvs/ip_vs_lblc.c
++++ b/net/ipv4/ipvs/ip_vs_lblc.c
+@@ -144,6 +144,8 @@ ip_vs_lblc_new(__be32 daddr, struct ip_vs_dest *dest)
+ 	atomic_inc(&dest->refcnt);
+ 	en->dest = dest;
+ 
++	en->lastuse = jiffies;
++
+ 	return en;
+ }
+ 
+@@ -214,6 +216,7 @@ ip_vs_lblc_get(struct ip_vs_lblc_table *tbl, __be32 addr)
+ 	list_for_each_entry(en, &tbl->bucket[hash], list) {
+ 		if (en->addr == addr) {
+ 			/* HIT */
++			en->lastuse = jiffies;
+ 			read_unlock(&tbl->lock);
+ 			return en;
+ 		}
+@@ -519,7 +522,6 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 			en->dest = dest;
+ 		}
+ 	}
+-	en->lastuse = jiffies;
+ 
+ 	IP_VS_DBG(6, "LBLC: destination IP address %u.%u.%u.%u "
+ 		  "--> server %u.%u.%u.%u:%d\n",
+diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
+index 8e3bbeb..3e8cec7 100644
+--- a/net/ipv4/ipvs/ip_vs_lblcr.c
++++ b/net/ipv4/ipvs/ip_vs_lblcr.c
+@@ -328,6 +328,8 @@ static inline struct ip_vs_lblcr_entry *ip_vs_lblcr_new(__be32 daddr)
+ 	INIT_LIST_HEAD(&en->list);
+ 	en->addr = daddr;
+ 
++	en->lastuse = jiffies;
++
+ 	/* initilize its dest set */
+ 	atomic_set(&(en->set.size), 0);
+ 	en->set.list = NULL;
+@@ -399,6 +401,7 @@ ip_vs_lblcr_get(struct ip_vs_lblcr_table *tbl, __be32 addr)
+ 	list_for_each_entry(en, &tbl->bucket[hash], list) {
+ 		if (en->addr == addr) {
+ 			/* HIT */
++			en->lastuse = jiffies;
+ 			read_unlock(&tbl->lock);
+ 			return en;
+ 		}
+@@ -708,7 +711,6 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 				ip_vs_dest_set_erase(&en->set, m);
+ 		}
+ 	}
+-	en->lastuse = jiffies;
+ 
+ 	IP_VS_DBG(6, "LBLCR: destination IP address %u.%u.%u.%u "
+ 		  "--> server %u.%u.%u.%u:%d\n",
