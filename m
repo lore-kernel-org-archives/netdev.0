@@ -1,36 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/9][RFC] KVM virtio_net performance
-Date: Mon, 11 Aug 2008 17:51:39 +0800
-Message-ID: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
-References: <200808111744.27915.rusty@rustcorp.com.au>
-Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
-To: rusty@rustcorp.com.au (Rusty Russell)
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Mon, 11 Aug 2008 10:01:26 +0000
+Message-ID: <20080811100126.GA6401@ff.dom.local>
+References: <20080810190458.GA7279@ami.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50412 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751234AbYHKJvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 05:51:50 -0400
-In-Reply-To: <200808111744.27915.rusty@rustcorp.com.au>
+Received: from fk-out-0910.google.com ([209.85.128.186]:40645 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbYHKKBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 06:01:35 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so1723085fkq.5
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 03:01:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080810190458.GA7279@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell <rusty@rustcorp.com.au> wrote:
->
-> add an "else if (skb->ip_summed == CHECKSUM_PARTIAL)" case...
+On 10-08-2008 21:04, Jarek Poplawski wrote:
+...
+> Hmm.. Actually, it's completely unreasonable. Let's forget this.
 
-If you're going to hack the guest kernel, then you might as well
-fix the guest DHCP client.  However, we should default checksum
-offload to off until we know that the client is capable of handling
-it (to handle guests that haven't been fixed).
+But accidentally it might even sometimes work here...
 
-One easy way of doing this is to hook up the rx checksum offload
-option in the guest with the tx offload option in the host.  In
-other words, when rx offload is enabled in the guest we enable
-tx offload in the host, and disable it vice versa.
+Currently, the most suspicious place to me seems to be
+__netif_schedule(). Is it legal to store RCU protected pointers out of
+rcu_read_lock() sections?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jarek P.
