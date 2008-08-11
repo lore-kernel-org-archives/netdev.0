@@ -1,45 +1,93 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: csum offload and af_packet
-Date: Mon, 11 Aug 2008 23:50:25 +1000
-Message-ID: <200808112350.25514.rusty@rustcorp.com.au>
-References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: [PATCH diagnostic] Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
+Date: Mon, 11 Aug 2008 09:04:12 -0700 (PDT)
+Message-ID: <433343.88181.qm@web82107.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:33013 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751411AbYHKNyU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2008 09:54:20 -0400
-In-Reply-To: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	linux-kernel@vger.kernel.org, Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754863AbYHKQE1@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 11 August 2008 19:51:39 Herbert Xu wrote:
-> Rusty Russell <rusty@rustcorp.com.au> wrote:
-> > add an "else if (skb->ip_summed == CHECKSUM_PARTIAL)" case...
->
-> If you're going to hack the guest kernel, then you might as well
-> fix the guest DHCP client.  However, we should default checksum
-> offload to off until we know that the client is capable of handling
-> it (to handle guests that haven't been fixed).
 
-I think this is deeper than that.  This case is actually unusual, in that the 
-packet really does arrive with a partial csum.  But usually, we're exposing 
-an internal detail of our stack at this point.  Seems like we shouldn't if we 
-know the user can't deal with it.  dhcpd just makes this case less academic.
+I didn't check my email yesterday -- sorry about that, but sometimes life
+intervenes -- so I'm a bit late replying.
 
-> One easy way of doing this is to hook up the rx checksum offload
-> option in the guest with the tx offload option in the host.  In
-> other words, when rx offload is enabled in the guest we enable
-> tx offload in the host, and disable it vice versa.
+Also, I see several messages relevant to this thread in my inbox:  I have
+decided to address each in order, so that I don't mix something up and do
+something foolish.
 
-We can trivially disable it in the guest or host; that's not the problem.  We 
-can even disable csum offload just for UDP in the host.  But should we 
-really?
 
-Rusty.
+
+> And here is the patch.  It is still a bit raw, so the results should
+> be viewed with some suspicion.  It adds a default-off kernel parameter
+> CONFIG_RCU_CPU_STALL which must be enabled.
+
+Thanks for the patch.  I had a problem applying the patch because I
+have not yet transitioned my email system from my old machine to my new
+3-system home network setup.  (I used to share a data partition between
+Windows and Linux so that my archives would stay in sync; my new setup
+will allow keeping the POP downloads on one machine, and sharing the
+archives via IMAP, but even since May I still haven't gotten around to 
+it.)
+
+My ISP's webmail interface altered the whitespace, and I'm so new to
+git that I couldn't figure out how to keep it from rejecting the
+patch.  I had updated Linus' git tree to 2.6.27-rc2, and when I saw
+that your patch was against something in 2.6.27-rc1 I thought this
+might be the problem.  Visually inspecting the files, I saw that the
+lines matched perfectly, other than whitespace, so I just gave up and
+applied the patches manually.
+
+I ran 'make menuconfig', but nothing about your new feature was asked.
+Then I realized that I had changed the .config to CONFIG_PREEMPT because
+of an experiment you had my try a few days ago.  When I disabled that,
+I was able to see the new option and enable it.
+
+The kernel built fine, so I installed and rebooted...
+
+
+> Rather than exponential backoff, it backs off to once per 30 seconds.
+> My feeling upon thinking on it was that if you have stalled RCU grace
+> periods for that long, a few extra printk() messages are probably the
+> least of your worries...
+
+Well, I was hoping to see something interesting.  I ran it with parameters
+"debug initcall_debug", and it locked up at the same place.  I let it for
+15 minutes, in case of some delayed reaction.  Nada.
+
+The output was nearly identical to what I posted last Tuesday (see
+http://www.uwsg.indiana.edu/hypermail/linux/kernel/0808.0/2224.html).
+Here are the last few lines:
+==================================
+[snip]
+calling pci_bios_assign_resources+0x0/0x8b
+pci 0000:00:01.0: PCI bridge, secondary bus 0000:01
+pci 0000:00:01.0:   IO window: 0xe000-0xefff
+pci 0000:00:01.0:   MEM window: 0xfdd00000-0xfdefffff
+pci 0000:00:01.0:   PREFETCH window: 0x000000d8000000-0x000000dfffffff
+pci 0000:00:14.4: PCI bridge, secondary bus 0000:02
+pci 0000:00:14.4:   IO window: 0xd000-0xdfff
+pci 0000:00:14.4:   MEM window: 0xfdc00000-0xfdcfffff
+pci 0000:00:14.4:   PREFETCH window: 0x000000fdf00000-0x000000fdffffff
+initcall pci_bios_assign_resources returned 0 after 285702 msecs
+calling inet_init+0x0/0x250
+NET: Registered protocol family 2
+===== END OUTPUT =================
+
+The only difference in the output was trivial:  "285696 msecs" became
+"285702 msecs".  None of the printk()'s from your driver were executed.
+
+(As I mentioned on Tuesday, that number of milliseconds is WAY off, and
+it still bothers me.  The total time from the GRUB screen disappearing
+to the last line printed is < 5 secs (maybe < 3 secs), not 285 secs!)
+
+Moving on to the other LKML messages....
+
+Thanks,
+Dave W.
