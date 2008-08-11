@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: LRO restructuring?
-Date: Mon, 11 Aug 2008 14:03:51 -0700 (PDT)
-Message-ID: <20080811.140351.54834488.davem@davemloft.net>
-References: <48A03EF9.9090602@myri.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Mon, 11 Aug 2008 14:08:38 -0700 (PDT)
+Message-ID: <20080811.140838.202229941.davem@davemloft.net>
+References: <adazlnlzc60.fsf@cisco.com>
+	<20080809.224637.69833549.davem@davemloft.net>
+	<adafxpbzga0.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org, brice@myri.com
-To: gallatin@myri.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50815
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753100AbYHKVDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 17:03:51 -0400
-In-Reply-To: <48A03EF9.9090602@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jgarzik@pobox.com, swise@opengridcomputing.com, divy@chelsio.com,
+	kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rdreier@cisco.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <adafxpbzga0.fsf@cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Mon, 11 Aug 2008 09:30:33 -0400
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 11 Aug 2008 09:07:51 -0700
 
-> Last, have you considered simply allowing "inexact" forwarding, where
-> the ingress NIC is doing LRO and the egress nic is doing TSO?  You
-> loose exact framing information (eg, what you emit might not be framed
-> exactly as you receive it), but you can still do filtering, and the
-> host overhead is very low.
+> Yes, that's the question -- are stateless offloads (plus CRC32C in the
+> CPU etc) going to give good enough performance that the whole TCP
+> offload exercise is pointless?
 
-Intermediate nodes are not supposed to change the transport layer
-checksum if at all possible, especially on routers.
+This is by definition true, over time.  And this has stedfastly proven
+itself, over and over again.
 
-Otherwise it is much more difficult to diagnose checksum errors,
-and figure out what caused such an error.
-
-When the router doesn't modify the checksum, we know it's an end-node.
-Even a firewall only "adjusts" checksums based upon packet
-modifications for NAT and such, which will preserve end-node created
-errors.
-
-So no this isn't really an option.
-
-This is why Herbert wants to preserve the original headers,
-we're not supposed to change them.
+That's why we call stateful offloads a point in time solution.
+They are constantly being obsoleted by time.
