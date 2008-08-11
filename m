@@ -1,167 +1,181 @@
-From: Subrata Modak <subrata-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 0/0] Traffic control cgroups subsystem
-Date: Mon, 11 Aug 2008 16:14:31 +0530
-Message-ID: <1218451472.5010.32.camel@subratamodak.linux.ibm.com>
-References: <Pine.LNX.4.64.0807241628270.30437@ranjit.corp.google.com>
-	<bb33bcf20807241648s7685c91akfd6c50c23242f031@mail.gmail.com>
-	<1217934045.15385.1.camel@subratamodak.linux.ibm.com>
-	<166fe7950808051106m3fd9751aw32f8d577cf24d1e9@mail.gmail.com>
-Reply-To: subrata-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+From: Eugene Teo <eugeneteo@kernel.sg>
+Subject: Re: OOPS, ip -f inet6 route get fec0::1, linux-2.6.26,
+	ip6_route_output, rt6_fill_node+0x175
+Date: Mon, 11 Aug 2008 19:03:35 +0800
+Message-ID: <20080811110335.GA29407@kernel.sg>
+References: <9F6ACAE02B6DD040A1E259977622CFDB033590C3@oslexcp1.eu.tandberg.int> <20080807203748.GA5196@martell.zuzino.mipt.ru> <489BD227.6000209@hp.com>
+Reply-To: Eugene Teo <eugeneteo@kernel.sg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ltp-list <ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Sudhir <sudhirkumarmalik-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, menage-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	Balbir Singh <balbir-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Ranjit Manomohan <ranjitm-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <166fe7950808051106m3fd9751aw32f8d577cf24d1e9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ltp-list>,
-	<mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ltp-list>
-List-Post: <mailto:ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ltp-list>,
-	<mailto:ltp-list-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: ltp-list-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	John Gumb <john.gumb@tandberg.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753363AbYHKLEh@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <489BD227.6000209@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2008-08-05 at 11:06 -0700, Ranjit Manomohan wrote:
-> On Tue, Aug 5, 2008 at 4:00 AM, Subrata Modak
-> <subrata-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org> wrote:
-> >
-> > On Fri, 2008-07-25 at 05:18 +0530, Subrata Modak wrote:
-> >> Hi Ranjit,
-> >>
-> >> Good to see these Traffic control patches for the Linux kernel. Let me
-> >> take this opportunity to convey that we have:
-> >>
-> >> 1) CPU & Memory controller test cases (the corresponding features are
-> >> already in mainline kernel),
-> >> 2) The I/O bandwidth controller test cases (corresponding
-> >> infrastructure proposed by Andrea, but still not in any kernel tree)
-> >>
-> >> in LTP (http://ltp.sourceforge.net/).
-> >>
-> >> Could you kindly let me know if you have developed similar test cases
-> >> for your Traffic control features, and, if they can be contributed to
-> >> LTP under GPL.
-> >
-> > Ranjit,
-> >
-> > Would you like to tell us something on the test cases for this ?
-> 
-> Subrata,
->   We have some internal test cases but not under LTP. Let me take a
-> look at the existing LTP infrastructure and see if these can be ported
-> over.
+Hi,
 
-Thanks Ranjit. Let me say that any test cases that returns 0 on PASS, or
-some non-zero on failure can be easily integrated under LTP. If you
-would like to give me those test cases, i can try integrating them and
-send you across the results.
+<quote sender="Brian Haley">
+> Alexey Dobriyan wrote:
+>> On Thu, Aug 07, 2008 at 07:00:56PM +0200, John Gumb wrote:
+[...]
+> The commit that changed this can't be reverted easily, but the patch  
+> below works for me.
+>
+> Fix NULL de-reference in rt6_fill_node() when there's no IPv6 input  
+> device present in the dst entry.
+>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Regards--
-Subrata
+I think it's better to use a helper routine like ipv6_get_saddr to make
+sure that both dst and rt6i_idev arguments are checked for NULL.
 
-> 
-> -Thanks,
-> Ranjit
-> 
-> 
-> >
-> > Regards--
-> > Subrata
-> >
-> >>
-> >> Regards--
-> >> Subrata
-> >>
-> >> On Fri, Jul 25, 2008 at 5:03 AM, Ranjit Manomohan <ranjitm-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> >> wrote:
-> >>         [Take 4] incorporated additional comments from Patrick McHardy
-> >>
-> >>         This patch provides a simple resource controller (cgroup_tc)
-> >>         based on the
-> >>         cgroups infrastructure to manage network traffic. The
-> >>         cgroup_tc resource
-> >>         controller can be used to schedule and shape traffic belonging
-> >>         to the task(s)
-> >>         in a particular cgroup.
-> >>
-> >>         The implementation consists of two parts:
-> >>
-> >>         1) A resource controller (cgroup_tc) that is used to associate
-> >>         packets from
-> >>           a particular task belonging to a cgroup with a traffic
-> >>         control class id (
-> >>           tc_classid). This tc_classid is propagated to all sockets
-> >>         created by tasks
-> >>           in the cgroup and will be used for classifying packets at
-> >>         the link layer.
-> >>
-> >>         2) A new traffic control classifier (cls_cgroup) that can
-> >>         classify packets
-> >>           based on the tc_classid field in the socket to specific
-> >>         destination classes.
-> >>
-> >>         An example of the use of this resource controller would be to
-> >>         limit
-> >>         the traffic from all tasks from a file_server cgroup to
-> >>         100Mbps. We could
-> >>         achieve this by doing:
-> >>
-> >>         # make a cgroup of file transfer processes and assign it a
-> >>         arbitrary unique
-> >>         # classid of 0x1234 - this will be used later to direct
-> >>         packets.
-> >>         mkdir -p /dev/cgroup
-> >>         mount -t cgroup tc -otc /dev/cgroup
-> >>         mkdir /dev/cgroup/file_transfer
-> >>         echo 0x1234 > /dev/cgroup/file_transfer/tc.classid
-> >>         echo $PID_OF_FILE_XFER_PROCESS
-> >>         > /dev/cgroup/file_transfer/tasks
-> >>
-> >>         # Now create a HTB class that rate limits traffic to 100mbits
-> >>         and attach
-> >>         # a filter to direct all traffic from cgroup file_transfer to
-> >>         this new class.
-> >>         tc qdisc add dev eth0 root handle 1: htb
-> >>         tc class add dev eth0 parent 1: classid 1:10 htb rate 100mbit
-> >>         ceil 100mbit
-> >>         tc filter add dev eth0 parent 1: handle 800 protocol ip prio 1
-> >>         cgroup value 0x1234 classid 1:10
-> >>
-> >>         Signed-off-by: Ranjit Manomohan <ranjitm-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> >>
-> >>         ---
-> >>         --
-> >>         To unsubscribe from this list: send the line "unsubscribe
-> >>         linux-kernel" in
-> >>         the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> >>         More majordomo info at
-> >>          http://vger.kernel.org/majordomo-info.html
-> >>         Please read the FAQ at  http://www.tux.org/lkml/
-> >>
-> >>
-> >>
-> >> --
-> >> Regards & Thanks--
-> >> Subrata
-> >> -------------------------------------------------------------------------
-> >> This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-> >> Build the coolest Linux based applications with Moblin SDK & win great prizes
-> >> Grand prize is a trip for two to an Open Source event anywhere in the world
-> >> http://moblin-contest.org/redirect.php?banner_id=100&url=/
-> >> _______________________________________________ Ltp-list mailing list Ltp-list-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org https://lists.sourceforge.net/lists/listinfo/ltp-list
-> >
-> >
+I have compiled, and tested the patch.
 
+Thanks,
+Eugene
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+---
+Fix NULL pointer dereference in rt6_fill_node().
+
+# ip -f inet6 route get fec0::1
+
+BUG: unable to handle kernel NULL pointer dereference at 00000000
+IP: [<c0369b85>] rt6_fill_node+0x175/0x3b0
+EIP is at rt6_fill_node+0x175/0x3b0
+
+Cc: Stable <stable@kernel.org>
+Signed-off-by: Eugene Teo <eugeneteo@kernel.sg>
+---
+ include/net/addrconf.h  |    4 ++++
+ include/net/ip6_fib.h   |    2 +-
+ net/ipv6/addrconf.c     |    8 ++++++++
+ net/ipv6/fib6_rules.c   |    3 +--
+ net/ipv6/ip6_output.c   |    3 +--
+ net/ipv6/route.c        |    3 +--
+ net/ipv6/xfrm6_policy.c |    3 +--
+ net/sctp/ipv6.c         |    3 +--
+ 8 files changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 06b2814..c43ad8e 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -80,6 +80,10 @@ extern struct inet6_ifaddr      *ipv6_get_ifaddr(struct net *net,
+ 						 struct net_device *dev,
+ 						 int strict);
+ 
++extern int			ipv6_get_saddr(struct dst_entry *dst,
++					       const struct in6_addr *daddr,
++					       unsigned int srcprefs,
++					       struct in6_addr *saddr);
+ extern int			ipv6_dev_get_saddr(struct net_device *dev, 
+ 					       const struct in6_addr *daddr,
+ 					       unsigned int srcprefs,
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 7c5c0f7..73f7f6b 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -118,7 +118,7 @@ struct rt6_info
+ 
+ static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
+ {
+-	return ((struct rt6_info *)dst)->rt6i_idev;
++	return dst ? ((struct rt6_info *)dst)->rt6i_idev : NULL;
+ }
+ 
+ struct fib6_walker_t
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a7842c5..55647bd 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1239,6 +1239,14 @@ try_nextdev:
+ 	return 0;
+ }
+ 
++int ipv6_get_saddr(struct dst_entry *dst, const struct in6_addr *daddr,
++		    unsigned int srcprefs, struct in6_addr *saddr)
++{
++	struct inet6_dev *idev = ip6_dst_idev(dst);
++	return ipv6_dev_get_saddr(idev ? idev->dev : NULL, daddr, srcprefs, saddr);
++
++}
++EXPORT_SYMBOL(ipv6_get_saddr);
+ EXPORT_SYMBOL(ipv6_dev_get_saddr);
+ 
+ int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 8d05527..27c859c 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -93,8 +93,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 			if (flags & RT6_LOOKUP_F_SRCPREF_COA)
+ 				srcprefs |= IPV6_PREFER_SRC_COA;
+ 
+-			if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
+-					       &flp->fl6_dst, srcprefs,
++			if (ipv6_get_saddr(&rt->u.dst, &flp->fl6_dst, srcprefs,
+ 					       &saddr))
+ 				goto again;
+ 			if (!ipv6_prefix_equal(&saddr, &r->src.addr,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a4402de..fc5f4f4 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -934,8 +934,7 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 		goto out_err_release;
+ 
+ 	if (ipv6_addr_any(&fl->fl6_src)) {
+-		err = ipv6_dev_get_saddr(ip6_dst_idev(*dst)->dev,
+-					 &fl->fl6_dst,
++		err = ipv6_get_saddr(*dst, &fl->fl6_dst,
+ 					 sk ? inet6_sk(sk)->srcprefs : 0,
+ 					 &fl->fl6_src);
+ 		if (err)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5a3e87e..950d709 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2188,8 +2188,7 @@ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
+ 			NLA_PUT_U32(skb, RTA_IIF, iif);
+ 	} else if (dst) {
+ 		struct in6_addr saddr_buf;
+-		if (ipv6_dev_get_saddr(ip6_dst_idev(&rt->u.dst)->dev,
+-				       dst, 0, &saddr_buf) == 0)
++		if (ipv6_get_saddr(&rt->u.dst, dst, 0, &saddr_buf) == 0)
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
+ 
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 8f1e054..ad582bd 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -57,8 +57,7 @@ static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
+ 	if (IS_ERR(dst))
+ 		return -EHOSTUNREACH;
+ 
+-	ipv6_dev_get_saddr(ip6_dst_idev(dst)->dev,
+-			   (struct in6_addr *)&daddr->a6, 0,
++	ipv6_get_saddr(dst, (struct in6_addr *)&daddr->a6, 0,
+ 			   (struct in6_addr *)&saddr->a6);
+ 	dst_release(dst);
+ 	return 0;
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 483a01d..0fa9411 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -319,8 +319,7 @@ static void sctp_v6_get_saddr(struct sctp_sock *sk,
+ 			  __func__, asoc, dst, NIP6(daddr->v6.sin6_addr));
+ 
+ 	if (!asoc) {
+-		ipv6_dev_get_saddr(dst ? ip6_dst_idev(dst)->dev : NULL,
+-				   &daddr->v6.sin6_addr,
++		ipv6_get_saddr(dst, &daddr->v6.sin6_addr,
+ 				   inet6_sk(&sk->inet.sk)->srcprefs,
+ 				   &saddr->v6.sin6_addr);
+ 		SCTP_DEBUG_PRINTK("saddr from ipv6_get_saddr: " NIP6_FMT "\n",
