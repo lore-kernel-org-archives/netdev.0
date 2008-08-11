@@ -1,72 +1,53 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: latest -git: kernel hangs when pulling the plug on 8139too
-Date: Mon, 11 Aug 2008 23:27:39 +0400
-Message-ID: <20080811192739.GB5791@martell.zuzino.mipt.ru>
-References: <19f34abd0808110949n5d7d363es66325b87a8fb0fd1@mail.gmail.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
+ with fpu state changes
+Date: Mon, 11 Aug 2008 12:24:59 -0700
+Message-ID: <48A0920B.30306@zytor.com>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080808231121.GA13158@linux-os.sc.intel.com> <20080809143727.GA30499@gondor.apana.org.au> <200808091757.32999.wolfgang.walter@stwm.de> <489DC15D.9070308@zytor.com> <20080809185224.GH13158@linux-os.sc.intel.com> <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Vegard Nossum <vegard.nossum@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:34335 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbYHKT1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 15:27:21 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so3915961mue.1
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 12:27:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <19f34abd0808110949n5d7d363es66325b87a8fb0fd1@mail.gmail.com>
+Received: from terminus.zytor.com ([198.137.202.10]:54579 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755480AbYHKTbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 15:31:49 -0400
+In-Reply-To: <20080811192203.GC12788@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 06:49:13PM +0200, Vegard Nossum wrote:
-> I am experiencing a system hang as soon as pull the cable out of eth0.
-> Kernel version is unmodified latest -git
-> (v2.6.27-rc2/796aadeb1b2db9b5d463946766c5bbfd7717158c) and my network
-> driver is 8139too (for both eth0 and eth1).
+Ingo Molnar wrote:
+> * Suresh Siddha <suresh.b.siddha@intel.com> wrote:
 > 
-> I am running netconsole on eth0 (the interface which I disconnect).
+>> Reported-and-bisected-by: Wolfgang Walter <wolfgang.walter@stwm.de>
+>> Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
 > 
-> A bit of serial console (ttyS0) output:
+> no fundamental objection to the x86 bits.
 > 
-> Linux version 2.6.27-rc2-00325-g796aade (vegardno@ben.ifi.uio.no) (gcc
-> version 4.1.2 20071124 (Red Hat 4.1.2-42)) #2 SMP PREEMPT Mon Aug 11
-> 18:29:29 CEST 2008
-> ...
-> Kernel command line: ro root=/dev/VolGroup00/LogVol00 rhgb
-> console=tty0 console=ttyS0,115200 ignore_loglevel debug initcall_debug
-> nmi_watchdog=1 panic=30 sysrq_always_enabled
-> netconsole=@192.168.0.172/,@192.168.0.11/ 3
-> ...
-> calling  rtl8139_init_module+0x0/0x20
-> 8139too Fast Ethernet driver 0.9.28
-> 8139too 0000:02:01.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> eth0: RealTek RTL8139 at 0xf881ac00, 00:10:a7:09:48:52, IRQ 18
-> eth0:  Identified 8139 chip type 'RTL-8139C'
-> 8139too 0000:02:05.0: PCI INT A -> GSI 21 (level, low) -> IRQ 21
-> eth1: RealTek RTL8139 at 0xf881c000, 00:16:ec:ee:ad:b9, IRQ 21
-> eth1:  Identified 8139 chip type 'RTL-8100B/8139D'
-> initcall rtl8139_init_module+0x0/0x20 returned 0 after 37 msecs
-> ...
-> eth0: link down
-> [hangs here; num lock + scroll lock flashing]
-> [reboots automatically, probably due to NMI watchdog?]
+> shouldnt this:
 > 
-> There is no detailed crash output on either tty0 or ttyS0. Keyboard
-> sysrq does not work.
+> +       if (!in_interrupt())
+> +               return 0;
 > 
-> Is it expected that pulling the plug on an interface running
-> netconsole should hang the machine?
+> just be eliminated and the cr0/TS save/restore be made unconditional?  
+> irq-assymetric APIs are not nice in general.
+> 
+> Reading/setting cr0 isnt _that_ slow. (or if it is, by how much does it 
+> slow things down, exactly?)
+> 
 
-Of course, no!
+Setting it is relatively slow.  I think that's part of the reason for 
+special instructions to muck with the TS flag.
 
-> Is there anything I can do to help narrow down the problem?
+Reading it might be slow on obsolete processors.
 
-I have two realteks and one of them showed very similar symptoms:
-cable unplug and immediate panic without anything. If this is a same
-bug, it's pretty old.
-
-> I'd like to avoid a bisect (esp. since I don't know the latest good
-> version), but it is a possible solution.
-
+	-hpa
