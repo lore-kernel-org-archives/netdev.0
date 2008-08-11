@@ -1,28 +1,43 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v2 0/7] Labeled networking patches for 2.6.28
-Date: Mon, 11 Aug 2008 18:57:42 -0400
-Message-ID: <200808111857.42859.paul.moore@hp.com>
-References: <20080811212640.22551.17728.stgit@flek.lan>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Mon, 11 Aug 2008 18:20:07 -0500
+Message-ID: <48A0C927.8020501@opengridcomputing.com>
+References: <adavdy9zc2k.fsf@cisco.com>	<20080809.224725.130946315.davem@davemloft.net>	<adabpzzzg81.fsf@cisco.com> <20080811.140918.213422266.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080811212640.22551.17728.stgit@flek.lan>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: rdreier@cisco.com, jgarzik@pobox.com, divy@chelsio.com,
+	kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080811.140918.213422266.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 11 August 2008 6:23:49 pm Paul Moore wrote:
-> [NOTE: in the process of writing the examples below I found a bug in
-> the 'netlabelctl cipsov4 del ...' operation, I'm looking into it
-> right now but in the meantime only add :) ]
+David Miller wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Mon, 11 Aug 2008 09:09:02 -0700
+>
+>   
+>>  > We turn it off.  If I want to shape or filter one of these iSCSI
+>>  > connections can we turn it off?
+>>
+>> That seems like a reasonable idea to me -- the standard thing to do when
+>> a NIC offload conflicts with something else is to turn off the offload
+>> and fall back to software.
+>>     
+>
+> But as Herbert says, we can make LRO such that turning it off
+> isn't necessary.
+>
+> Can we shape the iSCSI offload traffic without turning it off?
+>   
 
-I made some stupid mistakes in netlbl_cipsov4_remove() which should now 
-be fixed in the git tree.
+With Chelsio's product you can do this.  Maybe Divy can provide details?
 
--- 
-paul moore
-linux @ hp
+
+
