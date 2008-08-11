@@ -1,66 +1,41 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Mon, 11 Aug 2008 16:26:57 -0700
-Message-ID: <20080811232657.GQ6762@linux.vnet.ibm.com>
-References: <20080810190458.GA7279@ami.dom.local> <20080811100126.GA6401@ff.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
+Date: Mon, 11 Aug 2008 19:44:42 -0400
+Message-ID: <48A0CEEA.9080104@hp.com>
+References: <20080809213101.0927a808.akpm@linux-foundation.org>	<489F8827.4030904@hp.com>	<82e4877d0808101805t55a6ec5ft6c9b171ac1c7c3ab@mail.gmail.com> <20080811.143212.172434871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, emil.s.tantilov@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: parag.warudkar@gmail.com, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:38795 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676AbYHKX06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 19:26:58 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m7BNQvgJ022011
-	for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 19:26:58 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7BNQvCm145716
-	for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 17:26:57 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7BNQumo027311
-	for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 17:26:57 -0600
-Content-Disposition: inline
-In-Reply-To: <20080811100126.GA6401@ff.dom.local>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:1545 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733AbYHKXop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 19:44:45 -0400
+In-Reply-To: <20080811.143212.172434871.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 10:01:26AM +0000, Jarek Poplawski wrote:
-> On 10-08-2008 21:04, Jarek Poplawski wrote:
-> ...
-> > Hmm.. Actually, it's completely unreasonable. Let's forget this.
+David Miller wrote:
+> From: "Parag Warudkar" <parag.warudkar@gmail.com>
+> Date: Sun, 10 Aug 2008 21:05:07 -0400
 > 
-> But accidentally it might even sometimes work here...
+>> On Sun, Aug 10, 2008 at 8:30 PM, Brian Haley <brian.haley@hp.com> wrote:
+>>
+>>> John sent me email off-line saying the patch fixed the problem, but he'd do
+>>> more testing over the weekend.
+>> I did test the patch and it now spits out "EOF on netlink" like
+>> mentioned in bugzilla, which is not consistent with earlier behavior
+>> which was to output -
+>> unreachable fec0::1 dev lo  table unspec  proto none  src ::1  metric
+>> -1  error -101 hoplimit 255 .
 > 
-> Currently, the most suspicious place to me seems to be
-> __netif_schedule(). Is it legal to store RCU protected pointers out of
-> rcu_read_lock() sections?
+> We need to resolve this, Brian?
 
-Yes, but:
+I don't see "EOF on netlink" on 2.6.27-rc2.  I can dig-up a 2.6.24 
+kernel, I'm just wondering if that EOF happens when the IPv6 module 
+isn't loaded or something?
 
-1.	You need to use one of the update-side primitives to do the
-	store: rcu_assign_pointer(), list_add_rcu(), etc.
-
-2.	There has to be some way for multiple updaters to coordinate,
-	for example:
-
-	a.	Only a single task is permitted to update.
-
-	b.	Locking is used to coordinate among multiple updaters
-		(so that only one such updater may proceed at a given
-		time).
-
-	c.	Atomic operations are used to coordinate multiple
-		updaters.  Here be dragons, go for (a) or (b)
-		instead unless you have an extremely good reason
-		-and- you have both a proof of correctness and
-		a totally brutal and malign test suite.
-
-The main reason to update RCU-protected pointers within rcu_read_lock()
-regions is when sharing code between RCU readers and updaters, or when
-an RCU reader can see the need to do an update.
-
-							Thanx, Paul
+-Brian
