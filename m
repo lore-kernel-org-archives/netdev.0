@@ -1,45 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Tue, 12 Aug 2008 08:39:38 +0800
-Message-ID: <20080812003938.GC18230@gondor.apana.org.au>
-References: <20080809143727.GA30499@gondor.apana.org.au> <200808091757.32999.wolfgang.walter@stwm.de> <489DC15D.9070308@zytor.com> <20080809185224.GH13158@linux-os.sc.intel.com> <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu> <48A0920B.30306@zytor.com> <20080811201901.GN13158@linux-os.sc.intel.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
+Date: Mon, 11 Aug 2008 20:41:11 -0400
+Message-ID: <48A0DC27.7030208@hp.com>
+References: <20080809213101.0927a808.akpm@linux-foundation.org>	 <489F8827.4030904@hp.com>	 <82e4877d0808101805t55a6ec5ft6c9b171ac1c7c3ab@mail.gmail.com>	 <20080811.143212.172434871.davem@davemloft.net>	 <48A0CEEA.9080104@hp.com> <82e4877d0808111701k8cf8b5p60623a65eb6bda95@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@elte.hu>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Suresh Siddha <suresh.b.siddha@intel.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Parag Warudkar <parag.warudkar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43045 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751932AbYHLAkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:40:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20080811201901.GN13158@linux-os.sc.intel.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:40452 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753775AbYHLAlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:41:14 -0400
+In-Reply-To: <82e4877d0808111701k8cf8b5p60623a65eb6bda95@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 01:19:01PM -0700, Suresh Siddha wrote:
-.
-> we can't unconditionally do clts() in the process context. We have
-> to disable pre-emption to avoid interactions with context switch and
-> lazy restore. So there will be RT latency issues aswell.
+Parag Warudkar wrote:
+> 
+> What output do you see with your patch?
 
-Yes disabling preemption is the real killer.
+# ip -f inet6 route get fec0::1
+unreachable fec0::1 dev lo  table unspec  proto none  src 
+2001:1890:1109:a10:218:feff:fe7f:49c8  metric -1  error -101 hoplimit 255
 
-This is just a quick band-aid.  Longer term we should add a task
-flag that indicates the task is currently doing kernel FPU which
-will tell the scheduler to clear TS the next time it's run.  That
-way we won't need to disable preemtion or pollute the user task's
-FPU used state.
+And if I down eth0 I get:
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+# ip -f inet6 route get fec0::1
+unreachable fec0::1 dev lo  table unspec  proto none  src ::1  metric -1 
+  error -101 hoplimit 255
+
+This is 2.6.27-rc2, like I said, I"m building a 2.6.24 kernel now.
+
+-Brian
