@@ -1,54 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Tue, 12 Aug 2008 20:52:37 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
- <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
- <20080812.011822.155249871.davem@davemloft.net> <20080812144309.7d62fd86@tux>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Tue, 12 Aug 2008 20:09:27 +0200
+Message-ID: <20080812180927.GA3180@ami.dom.local>
+References: <20080810190458.GA7279@ami.dom.local> <20080811100126.GA6401@ff.dom.local> <20080811232657.GQ6762@linux.vnet.ibm.com> <20080812063622.GA5066@ff.dom.local> <20080812134224.GC6909@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1560383134-1218563557=:16105"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080812144309.7d62fd86@tux>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, emil.s.tantilov@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:30550 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbYHLSJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 14:09:37 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so908995nfc.21
+        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 11:09:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080812134224.GC6909@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1560383134-1218563557=:16105
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Tue, 12 Aug 2008, Dâniel Fraga wrote:
-
-> On Tue, 12 Aug 2008 01:18:22 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+On Tue, Aug 12, 2008 at 06:42:24AM -0700, Paul E. McKenney wrote:
+> On Tue, Aug 12, 2008 at 06:36:22AM +0000, Jarek Poplawski wrote:
+...
+> > >From net/sched/sch_generic.c:
+> > 
+> > void __qdisc_run(struct Qdisc *q)
+> > {
+> >         unsigned long start_time = jiffies;
+> > 
+> >         while (qdisc_restart(q)) {
+> >                 /*
+> >                  * Postpone processing if
+> >                  * 1. another process needs the CPU;
+> >                  * 2. we've been doing it for too long.
+> >                  */
+> >                 if (need_resched() || jiffies != start_time) {
+> >                         __netif_schedule(q);
+> > 
+> > This function is run from dev_queue_xmit() (net/core/dev.c) under
+> > rcu_read_lock_bh(), and this "q" pointer is passed here for later use
+> > (reading) by softirq run net_tx_action(). Alas in net/ RCU primitives
+> > are probably omitted in a few places...
 > 
-> > We had the same situation with ECN and window scaling, and my proposal
-> > is the same as how we handled those situations involving broken
-> > middleware boxes.
+> If I understand this code, one way to handle it would be to increment
+> q->refcnt before passing to netif_schedule(), then decrementing it
+> (within an RCU read-side critical section) in the softirq handler.
 > 
-> 	Sorry for my ignorance (I'm just an user), but if the problem
-> is not with Linux, why this problem appeared just on 2.6.25 kernel? I
-> mean, with 2.6.24 and before I never had stalled connections. Just a
-> coincidence? Or something has changed in 2.6.25 which caused this?
+> There are probably other ways to handle this as well.
 
-I still propose that you tcpdump it, then I can tell you (I know
-enough about Thomas' case but yours has a large number of
-unknowns)... :-) I don't know why 2.6.24 didn't suffer from the
-problem as FRTO was enabled already in it. The command you need
-to create dump.log file:
+I understand this similarly (but I'm still trying to find out what's
+wrong with reading this again in a separate read-side section).
 
-# tcpdump -w dump.log -i <iface> host <peerip>
+David gave some additional explanations (which BTW don't look to me
+like very "orthodox" RCU) in this thread:
+http://marc.info/?l=linux-netdev&m=121851847805942&w=2
 
-...you need root rights (or sudo) to do the capturing.
-
-
--- 
- i.
----696208474-1560383134-1218563557=:16105--
+Thanks,
+Jarek P.
