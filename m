@@ -1,52 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 17:22:24 -0700 (PDT)
-Message-ID: <20080811.172224.12017598.davem@davemloft.net>
-References: <adabpzzzg81.fsf@cisco.com>
-	<20080811.140918.213422266.davem@davemloft.net>
-	<48A0C927.8020501@opengridcomputing.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: csum offload and af_packet
+Date: Tue, 12 Aug 2008 08:32:44 +0800
+Message-ID: <20080812003244.GA18230@gondor.apana.org.au>
+References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au> <200808112350.25514.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jgarzik@pobox.com, divy@chelsio.com,
-	kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: swise@opengridcomputing.com
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36395
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752989AbYHLAWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:22:24 -0400
-In-Reply-To: <48A0C927.8020501@opengridcomputing.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:43033 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753632AbYHLAiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:38:13 -0400
+Content-Disposition: inline
+In-Reply-To: <200808112350.25514.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Mon, 11 Aug 2008 18:20:07 -0500
+On Mon, Aug 11, 2008 at 11:50:25PM +1000, Rusty Russell wrote:
+>
+> I think this is deeper than that.  This case is actually unusual, in that the 
+> packet really does arrive with a partial csum.  But usually, we're exposing 
+> an internal detail of our stack at this point.  Seems like we shouldn't if we 
+> know the user can't deal with it.  dhcpd just makes this case less academic.
 
-> David Miller wrote:
-> > From: Roland Dreier <rdreier@cisco.com>
-> > Date: Mon, 11 Aug 2008 09:09:02 -0700
-> >
-> >   
-> >>  > We turn it off.  If I want to shape or filter one of these iSCSI
-> >>  > connections can we turn it off?
-> >>
-> >> That seems like a reasonable idea to me -- the standard thing to do when
-> >> a NIC offload conflicts with something else is to turn off the offload
-> >> and fall back to software.
-> >>     
-> >
-> > But as Herbert says, we can make LRO such that turning it off
-> > isn't necessary.
-> >
-> > Can we shape the iSCSI offload traffic without turning it off?
-> >   
-> 
-> With Chelsio's product you can do this.  Maybe Divy can provide details?
+I disagree.  If you're using AF_PACKET you're asking to see the
+bare details.  If you want to see the censored version you can
+always go through the IP stack.
 
-When I say shape I mean apply any packet scheduler, any netfilter
-module, and any other feature we support.
+> We can trivially disable it in the guest or host; that's not the problem.  We 
+> can even disable csum offload just for UDP in the host.  But should we 
+> really?
+
+It's not about disabling it, it's about enabling it dynamically
+once guest user-space is sure that *it* can handle this.
+
+Cheers,`
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
