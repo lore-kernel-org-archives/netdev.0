@@ -1,55 +1,116 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Tue, 12 Aug 2008 09:46:17 +0200
-Message-ID: <200808120946.19459.thomas.jarosch@intra2net.com>
-References: <Pine.LNX.4.64.0808071422360.4551@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi> <20080811.144421.234396007.davem@davemloft.net>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 12/30] mm: memory reserve management
+Date: Tue, 12 Aug 2008 17:46:14 +1000
+Message-ID: <18593.16326.701825.625469@notabene.brown>
+References: <20080724140042.408642539@chello.nl>
+	<20080724141530.127530749@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, billfink@mindspring.com,
-	fragabr@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	sr@securenet.de, netfilter-devel@vger.kernel.org,
-	kadlec@blackhole.kfki.hu
-To: David Miller <davem@davemloft.net>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re01.intra2net.com ([82.165.28.202]:41640 "EHLO
-	re01.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbYHLHqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 03:46:23 -0400
-In-Reply-To: <20080811.144421.234396007.davem@davemloft.net>
-Content-Disposition: inline
+Received: from ns.suse.de ([195.135.220.2]:36548 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751466AbYHLHq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2008 03:46:27 -0400
+In-Reply-To: message from Peter Zijlstra on Thursday July 24
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, 11. August 2008 23:44:21 David Miller wrote:
-> Trying to come up with a signature for this bogus stuff is both time
-> consuming and having a risk of false positives.  And I really question
-> whether this thing is worth it.
->
-> The sane thing to do in this case is to declare the box inoperative
-> and that it needs to be fixed to avoid this behavior.
->
-> Any reasonable congestion control scheme is going to run into problems
-> trying to react to the packet patterns this thing creates.  It is
-> therefore not really limited to FRTO so it really shouldn't be treated
-> like an FRTO problem even though it shows up more pronounced when
-> FRTO is enabled.
+On Thursday July 24, a.p.zijlstra@chello.nl wrote:
+> Generic reserve management code. 
+> 
+> It provides methods to reserve and charge. Upon this, generic alloc/free style
+> reserve pools could be build, which could fully replace mempool_t
+> functionality.
 
-David, I agree with you, though I'm not sure about the end user experience:
+More comments on this patch .....
 
-The kernel is an early adopter of FRTO and will be bitten by bugs of other
-TCP implementations like we've experienced. I guess most affected users
-just see stalled or slow connections and won't have the time or knowledge
-to debug this. A proper warning could help them and the kernel
-developers to get this issue solved as quickly as possible.
+> +void *___kmalloc_reserve(size_t size, gfp_t flags, int node, void *ip,
+> +			 struct mem_reserve *res, int *emerg);
+> +
+> +static inline
+> +void *__kmalloc_reserve(size_t size, gfp_t flags, int node, void *ip,
+> +			struct mem_reserve *res, int *emerg)
+> +{
+> +	void *obj;
+> +
+> +	obj = __kmalloc_node_track_caller(size,
+> +			flags | __GFP_NOMEMALLOC | __GFP_NOWARN, node, ip);
+> +	if (!obj)
+> +		obj = ___kmalloc_reserve(size, flags, node, ip, res, emerg);
+> +
+> +	return obj;
+> +}
+> +
+> +#define kmalloc_reserve(size, gfp, node, res, emerg) 			\
+> +	__kmalloc_reserve(size, gfp, node, 				\
+> +			  __builtin_return_address(0), res, emerg)
+> +
+.....
+> +/*
+> + * alloc wrappers
+> + */
+> +
+> +void *___kmalloc_reserve(size_t size, gfp_t flags, int node, void *ip,
+> +			 struct mem_reserve *res, int *emerg)
+> +{
+> +	void *obj;
+> +	gfp_t gfp;
+> +
+> +	gfp = flags | __GFP_NOMEMALLOC | __GFP_NOWARN;
+> +	obj = __kmalloc_node_track_caller(size, gfp, node, ip);
+> +
+> +	if (obj || !(gfp_to_alloc_flags(flags) & ALLOC_NO_WATERMARKS))
+> +		goto out;
+> +
+> +	if (res && !mem_reserve_kmalloc_charge(res, size)) {
+> +		if (!(flags & __GFP_WAIT))
+> +			goto out;
+> +
+> +		wait_event(res->waitqueue,
+> +				mem_reserve_kmalloc_charge(res, size));
+> +
+> +		obj = __kmalloc_node_track_caller(size, gfp, node, ip);
+> +		if (obj) {
+> +			mem_reserve_kmalloc_charge(res, -size);
+> +			goto out;
+> +		}
+> +	}
+> +
+> +	obj = __kmalloc_node_track_caller(size, flags, node, ip);
+> +	WARN_ON(!obj);
+> +	if (emerg)
+> +		*emerg |= 1;
+> +
+> +out:
+> +	return obj;
+> +}
 
-We called the hotline of the ISP several times and they always claimed
-sending big mails with Outlook/Windows works, so it must be linux's fault.
-That view of things is totally biased, but it's something I want to make sure
-people can't get away with easily :-)
+Two comments to be precise.
 
-So, if it's possible to detect broken middleware boxes without
-spending too much time on it, that would really be nice.
+1/ __kmalloc_reserve attempts a __GFP_NOMEMALLOC allocation, and then
+   if that fails, ___kmalloc_reserve immediately tries again.
+   Is that pointless?  Should the second one be removed?
 
-Thomas
+2/ mem_reserve_kmalloc_charge appears to assume that the 'mem_reserve'
+   has been 'connected' and so is active.
+   While callers probably only set GFP_MEMALLOC in cases where the
+   mem_reserve is connected, ALLOC_NO_WATERMARKS could get via
+   PF_MEMALLOC so we could end up calling mem_reserve_kmalloc_charge
+   when the mem_reserve is not connected.
+   That seems to be 'odd' at least.
+   It might even be 'wrong' as mem_reserve_connect doesn't add the
+   usage of the child to the parent - only the ->pages and ->limit.
+
+   What is your position on this?  Mine is "still slightly confused".
+
+NeilBrown
+
+  
