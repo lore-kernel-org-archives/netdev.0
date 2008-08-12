@@ -1,71 +1,39 @@
-From: Divy Le Ray <divy@chelsio.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Tue, 12 Aug 2008 14:57:09 -0700
-Message-ID: <200808121457.11356.divy@chelsio.com>
-References: <48A08145.6060703@hp.com> <adad4kfxm9v.fsf@cisco.com> <20080811.145313.178992274.davem@davemloft.net>
+Date: Tue, 12 Aug 2008 15:01:40 -0700 (PDT)
+Message-ID: <20080812.150140.200481459.davem@davemloft.net>
+References: <adad4kfxm9v.fsf@cisco.com>
+	<20080811.145313.178992274.davem@davemloft.net>
+	<200808121457.11356.divy@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: rdreier@cisco.com, rick.jones2@hp.com, jgarzik@pobox.com,
-	"Steve Wise" <swise@opengridcomputing.com>,
-	"Karen Xie" <kxie@chelsio.com>, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	"Dimitrios Michailidis" <dm@chelsio.com>,
-	"Casey Leedom" <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+	swise@opengridcomputing.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080811.145313.178992274.davem@davemloft.net>
-Content-Disposition: inline
+In-Reply-To: <200808121457.11356.divy@chelsio.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 11 August 2008 02:53:13 pm David Miller wrote:
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Mon, 11 Aug 2008 14:41:16 -0700
->
-> >  > > Probably depends on whether or not the iSCSI offload solutions are
-> >  > > doing zero-copy receive into the filecache?
-> >  >
-> >  > That's a data placement issue, which also can be solved with
-> >  > stateless offloading.
-> >
-> > How can you place iSCSI data properly with only stateless offloads?
->
-> By teaching the stateless offload how to parse the iSCSI headers
-> on the flow and place the data into pages at the correct offsets
-> such that you can place the pages hanging off of the SKB directly
-> into the page cache.
+From: Divy Le Ray <divy@chelsio.com>
+Date: Tue, 12 Aug 2008 14:57:09 -0700
 
-Hi Dave,
+> iSCSI PDUs might spawn over multiple TCP segments, it is unclear to me how to 
+> do placement without keeping some state of the transactions.
 
-iSCSI PDUs might spawn over multiple TCP segments, it is unclear to me how to 
-do placement without keeping some state of the transactions.
+You keep a flow table with buffer IDs and offsets.
 
-In any case, such a stateless solution is not yet designed, whereas 
-accelerated iSCSI is available now, from us and other companies.
-The accelerated iSCSI streams benefit from the performance TOE provides, 
-outlined in the following third party papers:
-http://www.chelsio.com/assetlibrary/pdf/redhat-chelsio-toe-final_v2.pdf
-http://www.chelsio.com/assetlibrary/pdf/RMDS6BNTChelsioRHEL5.pdf
+The S2IO guys did something similar for one of their initial LRO
+impelementations.
 
-iSCSI is primarily targeted to the data center, where the SW stack's traffic 
-shaping features might be redundant with specialized equipment. It should 
-however be possible to integrate security features on a per offoaded 
-connection basis, and TOEs - at least ours :) - are capable of rate control 
-and traffic shaping.
+It's still strictly stateless, and best-effort.  Entries can fall out
+of the flow cache which makes upcoming data use new buffers and
+offsets.
 
-While CPU and - to a far lesser extent - memory performance improves, so does 
-ethernet's. 40G, 100G are not too far ahead. It is not obvious at all that 
-TOE is a point of time solution, especially for heavy load traffic as in a 
-storage environment. It is quite the opposite actually.
-
-There is room for co-existence of the SW managed traffic and accelerated 
-traffic. As our submission shows, enabling accelerated iSCSI is not intrusive 
-code wise to the stack. The port stealing issue is solved if we can grab a 
-port from the stack.
-
-Cheers,
-Divy
+But these are the kinds of tricks you hardware folks should be
+more than adequately able to design, rather than me. :-)
