@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Tue, 12 Aug 2008 15:01:40 -0700 (PDT)
-Message-ID: <20080812.150140.200481459.davem@davemloft.net>
+Date: Tue, 12 Aug 2008 15:02:46 -0700 (PDT)
+Message-ID: <20080812.150246.42068558.davem@davemloft.net>
 References: <adad4kfxm9v.fsf@cisco.com>
 	<20080811.145313.178992274.davem@davemloft.net>
 	<200808121457.11356.divy@chelsio.com>
@@ -15,25 +15,27 @@ Cc: rdreier@cisco.com, rick.jones2@hp.com, jgarzik@pobox.com,
 	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
 	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
 To: divy@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47303
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751835AbYHLWCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 18:02:45 -0400
 In-Reply-To: <200808121457.11356.divy@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 Date: Tue, 12 Aug 2008 14:57:09 -0700
 
-> iSCSI PDUs might spawn over multiple TCP segments, it is unclear to me how to 
-> do placement without keeping some state of the transactions.
+> In any case, such a stateless solution is not yet designed, whereas 
+> accelerated iSCSI is available now, from us and other companies.
 
-You keep a flow table with buffer IDs and offsets.
+So, WHAT?!
 
-The S2IO guys did something similar for one of their initial LRO
-impelementations.
+There are TOE pieces of crap out there too.
 
-It's still strictly stateless, and best-effort.  Entries can fall out
-of the flow cache which makes upcoming data use new buffers and
-offsets.
+It's strictly not our problem.
 
-But these are the kinds of tricks you hardware folks should be
-more than adequately able to design, rather than me. :-)
+Like Herbert said, this is the TOE discussion all over again.
+The results will be the same, and as per our decisions wrt.
+TOE, history speaks for itself.
