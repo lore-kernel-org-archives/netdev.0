@@ -1,75 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Tue, 12 Aug 2008 05:20:48 +0000
-Message-ID: <20080812052048.GA4291@ff.dom.local>
-References: <20080811205357.GA15293@ami.dom.local> <20080811.181235.141399855.davem@davemloft.net>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 05/30] mm: slb: add knowledge of reserve pages
+Date: Tue, 12 Aug 2008 15:35:14 +1000
+Message-ID: <18593.8466.965002.476705@notabene.brown>
+References: <20080724140042.408642539@chello.nl>
+	<20080724141529.635920366@chello.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:49050 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807AbYHLFVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 01:21:01 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1240373fgg.17
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 22:21:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080811.181235.141399855.davem@davemloft.net>
+Received: from ns.suse.de ([195.135.220.2]:54184 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750878AbYHLFfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2008 01:35:25 -0400
+In-Reply-To: message from Peter Zijlstra on Thursday July 24
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 06:12:35PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 11 Aug 2008 22:53:57 +0200
-> 
-> > pkt_sched: Destroy gen estimators under rtnl_lock().
-> > 
-> > gen_kill_estimator() requires rtnl_lock() protection, and since it is
-> > called in qdisc ->destroy() too, this has to go back from RCU callback
-> > to qdisc_destroy().
-> > 
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> 
-> We can't do this.  And at a minimum, the final ->reset() must
-> occur in the RCU callback, otherwise asynchronous threads of
-> execution could queue packets into this dying qdisc and
-> such packets would leak forever.
+On Thursday July 24, a.p.zijlstra@chello.nl wrote:
+> Restrict objects from reserve slabs (ALLOC_NO_WATERMARKS) to allocation
+> contexts that are entitled to it. This is done to ensure reserve pages don't
+> leak out and get consumed.
 
-Could you explain this more? I've thought this synchronize_rcu() is
-just to prevent this (and what these comments talk about?):
+This looks good (we are still missing slob though, aren't we :-( )
 
-void dev_deactivate(struct net_device *dev)
-{
-        bool running;
+> @@ -1526,7 +1540,7 @@ load_freelist:
+>  	object = c->page->freelist;
+>  	if (unlikely(!object))
+>  		goto another_slab;
+> -	if (unlikely(SLABDEBUG && PageSlubDebug(c->page)))
+> +	if (unlikely(PageSlubDebug(c->page) || c->reserve))
+>  		goto debug;
 
-        netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
-        dev_deactivate_queue(dev, &dev->rx_queue, &noop_qdisc);
+This looks suspiciously like debugging code that you have left in.
+Is it??
 
-        dev_watchdog_down(dev);
+> @@ -265,7 +267,8 @@ struct array_cache {
+>  	unsigned int avail;
+>  	unsigned int limit;
+>  	unsigned int batchcount;
+> -	unsigned int touched;
+> +	unsigned int touched:1,
+> +		     reserve:1;
 
-        /* Wait for outstanding qdisc-less dev_queue_xmit calls. */
-        synchronize_rcu();
+This sort of thing always worries me.
+It is a per-cpu data structure so you won't get SMP races corrupting
+fields.  But you do get read-modify-write in place of simple updates.
+I guess it's not a problem..  But it worries me :-)
 
-        do {
-                while (some_qdisc_is_running(dev, 0))
-                        yield();
 
-                /*
-                 * Double-check inside queue lock to ensure that all effects
-                 * of the queue run are visible when we return.
-                 */
-                running = some_qdisc_is_running(dev, 1);
-
-                /*
-                 * The running flag should never be set at this point because
-                 * we've already set dev->qdisc to noop_qdisc *inside* the same
-                 * pair of spin locks.  That is, if any qdisc_run starts after
-                 * our initial test it should see the noop_qdisc and then
-                 * clear the RUNNING bit before dropping the queue lock.  So
-                 * if it is set here then we've found a bug.
-                 */
-        } while (WARN_ON_ONCE(running));
-}
-
-Jarek P.
+NeilBrown
