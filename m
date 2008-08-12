@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: csum offload and af_packet
-Date: Mon, 11 Aug 2008 17:51:54 -0700 (PDT)
-Message-ID: <20080811.175154.168708843.davem@davemloft.net>
-References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au>
-	<200808112350.25514.rusty@rustcorp.com.au>
-	<20080812003244.GA18230@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Tue, 12 Aug 2008 08:52:15 +0800
+Message-ID: <20080812005215.GB18547@gondor.apana.org.au>
+References: <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu> <48A0920B.30306@zytor.com> <20080811201901.GN13158@linux-os.sc.intel.com> <20080812003938.GC18230@gondor.apana.org.au> <48A0DC6D.8040409@zytor.com> <20080812004641.GB18444@gondor.apana.org.au> <48A0DDEC.704@zytor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, anthony@codemonkey.ws,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Wolfgang Walter <wolfgang.walter@stwm.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751283AbYHLAvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:51:53 -0400
-In-Reply-To: <20080812003244.GA18230@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:37527 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751283AbYHLAwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:52:36 -0400
+Content-Disposition: inline
+In-Reply-To: <48A0DDEC.704@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 12 Aug 2008 08:32:44 +0800
-
-> On Mon, Aug 11, 2008 at 11:50:25PM +1000, Rusty Russell wrote:
-> >
-> > I think this is deeper than that.  This case is actually unusual, in that the 
-> > packet really does arrive with a partial csum.  But usually, we're exposing 
-> > an internal detail of our stack at this point.  Seems like we shouldn't if we 
-> > know the user can't deal with it.  dhcpd just makes this case less academic.
+On Mon, Aug 11, 2008 at 05:48:44PM -0700, H. Peter Anvin wrote:
+>
+> >Sorry, the kernel TS state is what I meant.  I'm definitely not
+> >advocating the saving of the kernel FPU state.  This is only for
+> >things like the VIA (which also exists for other processors, see
+> >the xor SSE stuff in include/asm-x86).
 > 
-> I disagree.  If you're using AF_PACKET you're asking to see the
-> bare details.  If you want to see the censored version you can
-> always go through the IP stack.
+> No, there you are actually using the FPU state (which includes the SSE 
+> state.)
 
-Unfortunately the censored version doesn't allow you to get at the
-link level headers, which is what at least some of these applications
-want.
+Right, well at least VIA could still use this and it wouldn't
+hurt others that much.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
