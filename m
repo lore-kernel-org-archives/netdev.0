@@ -1,49 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
-Date: Mon, 11 Aug 2008 18:40:26 -0700 (PDT)
-Message-ID: <20080811.184026.02436525.davem@davemloft.net>
-References: <48A0DC27.7030208@hp.com>
-	<28fa9c5e0808111810l63220abbgf9e747bad3a7fe44@mail.gmail.com>
-	<28fa9c5e0808111828w2a9f1133y75c785f70b683ff2@mail.gmail.com>
+From: Eugene Teo <eugeneteo@kernel.sg>
+Subject: Re: OOPS, ip -f inet6 route get fec0::1, linux-2.6.26, ip6_route_output,
+ rt6_fill_node+0x175
+Date: Tue, 12 Aug 2008 09:40:57 +0800
+Message-ID: <48A0EA29.8010209@kernel.sg>
+References: <20080807203748.GA5196@martell.zuzino.mipt.ru>	<489BD227.6000209@hp.com>	<489FFAF8.3000909@redhat.com> <20080811.135003.105171324.davem@davemloft.net> <48A0D5B4.9050908@kernel.sg> <48A0DC37.7080209@kernel.sg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, parag.warudkar@gmail.com,
-	akpm@linux-foundation.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
-To: eugeneteo@kernel.sg
+Cc: brian.haley@hp.com, adobriyan@gmail.com, john.gumb@tandberg.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	parag.warudkar@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58288
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751207AbYHLBkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:40:25 -0400
-In-Reply-To: <28fa9c5e0808111828w2a9f1133y75c785f70b683ff2@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:59523 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750722AbYHLBls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 21:41:48 -0400
+In-Reply-To: <48A0DC37.7080209@kernel.sg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eugene Teo" <eugeneteo@kernel.sg>
-Date: Tue, 12 Aug 2008 09:28:05 +0800
-
-> On Tue, Aug 12, 2008 at 9:10 AM, Eugene Teo <eugeneteo@kernel.sg> wrote:
-> > On Tue, Aug 12, 2008 at 8:41 AM, Brian Haley <brian.haley@hp.com> wrote:
-> >> Parag Warudkar wrote:
-> >>>
-> >>> What output do you see with your patch?
-> >>
-> >> # ip -f inet6 route get fec0::1
-> >> unreachable fec0::1 dev lo  table unspec  proto none  src
-> >> 2001:1890:1109:a10:218:feff:fe7f:49c8  metric -1  error -101 hoplimit 255
-> >
-> > Hmm, I tried it on an older kernel that doesn't have Yoshfuji-san's
-> > ipv6_get_saddr() changes,
-> > and it should display the output with the loopback MAC address instead
-> > of ethX MAC address.
-> > Correct me if I am wrong.
+Eugene Teo wrote:
+> Eugene Teo wrote:
+>> David Miller wrote:
+>>> From: Eugene Teo <eteo@redhat.com>
+>>> Date: Mon, 11 Aug 2008 16:40:24 +0800
+> [...]
+>> With the patch I posted, this is the behaviour I get:
+>>
+>> $ ip -f inet6 route get fec0::1
+>> unreachable fec0::1 dev lo  table unspec  proto none  src
+>> fe80::214:4fff:fe0f:7332  metric -1  error -101 hoplimit 255
 > 
-> Evidence of me still sleepy. Not the MAC address but the ipv6 address...
+> Ok, so there's a mistake in my patch. It should return the loopback MAC
 
-Hmmm... from what I understand so far based upon Parag's most
-recent reply, Brian's patch should be OK.
+s/MAC/ipv6/
 
-Does everyone else agree?
+> address instead. I'm wondering if the fix should be related to
+> initialising rt6i_idev in addrconf_init routine like in the upstream
+> commit: c62dba9011b93fd88fde929848582b2a98309878. The code changed quite
+> a lot.
 
+So I checked, it's initialised in ip6_route_init().
+
+Eugene
