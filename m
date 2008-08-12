@@ -1,61 +1,102 @@
-From: Suresh Siddha <suresh.b.siddha@intel.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Tue, 12 Aug 2008 11:28:11 -0700
-Message-ID: <20080812182811.GA646@linux-os.sc.intel.com>
-References: <200807171653.59177.wolfgang.walter@stwm.de> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <200808121343.22892.wolfgang.walter@stwm.de> <20080812120213.GA22992@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"Siddha, Suresh B" <suresh.b.siddha@intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Manuel Lauss <mano@roarinelk.homelinux.net>
+Subject: [PATCH] smc91x: allow platform data to configure LEDs.
+Date: Tue, 12 Aug 2008 20:49:23 +0200
+Message-ID: <1218566963-14943-1-git-send-email-mano@roarinelk.homelinux.net>
+Cc: Manuel Lauss <mano@roarinelk.homelinux.net>
+To: Nicolas Pitre <nico@cam.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56974 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751368AbYHLS2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2008 14:28:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20080812120213.GA22992@gondor.apana.org.au>
+Received: from fnoeppeil48.netpark.at ([217.175.205.176]:60420 "EHLO
+	roarinelk.homelinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087AbYHLStZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 14:49:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 05:02:13AM -0700, Herbert Xu wrote:
-> On Tue, Aug 12, 2008 at 01:43:22PM +0200, Wolfgang Walter wrote:
-> >
-> > * Works fine, machine is up since 61 minutes.
-> 
-> Thanks a lot for testing this Wolfgang!
+Add another field to smc91x_platdata to configure LEDs.
 
-Thanks indeed.
+Signed-off-by: Manuel Lauss <mano@roarinelk.homelinux.net>
+---
+ drivers/net/smc91x.c   |    7 ++++++-
+ drivers/net/smc91x.h   |    5 ++++-
+ include/linux/smc91x.h |   17 +++++++++++++++++
+ 3 files changed, 27 insertions(+), 2 deletions(-)
 
-> > * Performance:
-> >
-> > Routing performance over esp-tunnels seems unchanged here compared to 2.6.25
-> > (this was also the case with the "kernel_fpu_begin" patch).
-> >
-> > tcrypt mode=200 shows exactly the same performance penalty compared to 2.6.25
-> > as the "kernel_fpu_begin" patch.
-> 
-> That's not surprising since tcrypt runs with BH off so it'll
-> do pretty much the same thing as before.
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index 2040965..a591508 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -1520,7 +1520,7 @@ smc_open(struct net_device *dev)
+ 	/* Setup the default Register Modes */
+ 	lp->tcr_cur_mode = TCR_DEFAULT;
+ 	lp->rcr_cur_mode = RCR_DEFAULT;
+-	lp->rpc_cur_mode = RPC_DEFAULT;
++	lp->rpc_cur_mode = lp->cfg.rpc;
+ 
+ 	/*
+ 	 * If we are not using a MII interface, we need to
+@@ -2150,11 +2150,16 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	if (pd) {
+ 		memcpy(&lp->cfg, pd, sizeof(lp->cfg));
+ 		lp->io_shift = SMC91X_IO_SHIFT(lp->cfg.flags);
++		if (!lp->cfg.rpc)
++			lp->cfg.rpc = RPC_DEFAULT;
++		else
++			lp->cfg.rpc |= RPC_DEFAULT_NET;	/* speed/duplex */
+ 	} else {
+ 		lp->cfg.flags |= (SMC_CAN_USE_8BIT)  ? SMC91X_USE_8BIT  : 0;
+ 		lp->cfg.flags |= (SMC_CAN_USE_16BIT) ? SMC91X_USE_16BIT : 0;
+ 		lp->cfg.flags |= (SMC_CAN_USE_32BIT) ? SMC91X_USE_32BIT : 0;
+ 		lp->cfg.flags |= (nowait) ? SMC91X_NOWAIT : 0;
++		lp->cfg.rpc = RPC_DEFAULT;
+ 	}
+ 
+ 	ndev->dma = (unsigned char)-1;
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 997e7f1..5672a82 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -794,7 +794,10 @@ smc_pxa_dma_irq(int dma, void *dummy)
+ #define RPC_LSB_DEFAULT RPC_LED_FD
+ #endif
+ 
+-#define RPC_DEFAULT (RPC_ANEG | (RPC_LSA_DEFAULT << RPC_LSXA_SHFT) | (RPC_LSB_DEFAULT << RPC_LSXB_SHFT) | RPC_SPEED | RPC_DPLX)
++#define RPC_DEFAULT_NET	(RPC_ANEG | RPC_SPEED | RPC_DPLX)
++#define RPC_DEFAULT	(RPC_DEFAULT_NET			| \
++			 (RPC_LSA_DEFAULT << RPC_LSXA_SHFT)	| \
++			 (RPC_LSB_DEFAULT << RPC_LSXB_SHFT))
+ 
+ 
+ /* Bank 0 0x0C is reserved */
+diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
+index 3827b92..c6732f2 100644
+--- a/include/linux/smc91x.h
++++ b/include/linux/smc91x.h
+@@ -16,8 +16,25 @@
+ 
+ #define SMC91X_USE_DMA		(1 << 6)
+ 
++#define SMC91X_RPC_LED_100_10	(0x00)	/* LED = 10/100Mbps link detect */
++#define SMC91X_RPC_LED_RES	(0x01)	/* LED = Reserved */
++#define SMC91X_RPC_LED_10	(0x02)	/* LED = 10Mbps link detect */
++#define SMC91X_RPC_LED_FD	(0x03)	/* LED = Full Duplex Mode */
++#define SMC91X_RPC_LED_TX_RX	(0x04)	/* LED = TX or RX packet occurred */
++#define SMC91X_RPC_LED_100	(0x05)	/* LED = 100Mbps link dectect */
++#define SMC91X_RPC_LED_TX	(0x06)	/* LED = TX packet occurred */
++#define SMC91X_RPC_LED_RX	(0x07)	/* LED = RX packet occurred */
++
++#define RPC_LSXA_SHFT	5	/* Bits to shift LS2A,LS1A,LS0A to lsb */
++#define RPC_LSXB_SHFT	2	/* Bits to get LS2B,LS1B,LS0B to lsb */
++
++/* LED macros */
++#define SMC91X_RPC_LSA(x)	((x) << RPC_LSXA_SHFT)
++#define SMC91X_RPC_LSB(x)	((x) << RPC_LSXB_SHFT)
++
+ struct smc91x_platdata {
+ 	unsigned long flags;
++	unsigned long rpc;
+ };
+ 
+ #endif /* __SMC91X_H__ */
+-- 
+1.5.6.4
 
-Ok. In the real world usage, where we use these instructions both from
-process and softirq context, we will probably not see much penality,
-as the process context's first access will always endup doing full fp restore
-(and also we kick in the context switch FP optimization, which will
-proactively restore fp state if we touch FPU in 5 consecutive task slices).
-
-> This also shows that
-> reading CR0 doesn't impose any extra overhead compared to what
-> was done in kernel_fpu_begin.
-
-As there are no further objections, Herbert/Ingo not sure who among you
-will push this patch to Linus tree and  2.6.26 -stable tree aswell.
-
-thanks,
-suresh
