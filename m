@@ -1,65 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr
-	schedulers
-Date: Tue, 12 Aug 2008 12:10:57 +1000
-Message-ID: <20080812021053.GD22142@verge.net.au>
-References: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: csum offload and af_packet
+Date: Tue, 12 Aug 2008 12:27:43 +1000
+Message-ID: <200808121227.43732.rusty@rustcorp.com.au>
+References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au> <200808112350.25514.rusty@rustcorp.com.au> <20080812003244.GA18230@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Sven Wegener <sven.wegener@stealer.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:48258 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751466AbYHLC17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 22:27:59 -0400
+In-Reply-To: <20080812003244.GA18230@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 12:57:21AM +0200, Sven Wegener wrote:
-> Both schedulers have a race condition that happens in the following 
-> situation:
-> 
-> We have an entry in our table that already has expired according to it's 
-> last use time. Then we need to schedule a new connection that uses this 
-> entry.
-> 
-> CPU 1                           CPU 2
-> 
-> ip_vs_lblc_schedule()
->   ip_vs_lblc_get()
->     lock table for read
->     find entry
->     unlock table
->                                 ip_vs_lblc_check_expire()
->                                   lock table for write
->                                   kfree() expired entry
->                                   unlock table
->     return invalid entry
-> 
-> Problem is that we assign the last use time outside of our critical 
-> region. We can make hitting this race more difficult, if not impossible, 
-> if we assign the last use time while still holding the lock for reading. 
-> That gives us six minutes during which it's save to use the entry, which 
-> should be enough for our use case, as we're going to use it immediately 
-> and don't keep a long reference to it.
-> 
-> We're holding the lock for reading and not for writing. The last use time 
-> is an unsigned long, so the assignment should be atomic by itself. And we 
-> don't care, if some other user sets it to a slightly different value. The 
-> read_unlock() implies a barrier so that other CPUs see the new last use 
-> time during cleanup, even if we're just using a read lock.
-> 
-> Other solutions would be: 1) protect the whole ip_vs_lblc_schedule() with 
-> write_lock()ing the lock, 2) add reference counting for the entries, 3) 
-> protect each entry with it's own lock. And all are bad for performance.
-> 
-> Comments? Ideas?
+On Tuesday 12 August 2008 10:32:44 Herbert Xu wrote:
+> On Mon, Aug 11, 2008 at 11:50:25PM +1000, Rusty Russell wrote:
+> > I think this is deeper than that.  This case is actually unusual, in that
+> > the packet really does arrive with a partial csum.  But usually, we're
+> > exposing an internal detail of our stack at this point.  Seems like we
+> > shouldn't if we know the user can't deal with it.  dhcpd just makes this
+> > case less academic.
+>
+> I disagree.  If you're using AF_PACKET you're asking to see the
+> bare details.  If you want to see the censored version you can
+> always go through the IP stack.
 
-Is there a pathological case here if sysctl_ip_vs_lblc_expiration is
-set to be very short and we happen to hit ip_vs_lblc_full_check()?
+Then should we insist the user set PACKET_AUXDATA?  Even then, the format of 
+that cmsg will have to be enhanced as we change kernel internals.  Which is 
+probably why you *don't* get to see the bare details: you get a flag 
+saying "oh, I know the checksum is bad".  Without the csum_start/csum_offset 
+fields you can't even calculate what it will be.
 
-To be honest I think that I like the reference count approach best,
-as it seems safe and simple. Is it really going to be horrible
-for performance?
+The dhcp client thing is a symptom which can be fixed, but are we doing the 
+right thing?  (Tho for lguest this is a new problem with the current kernel, 
+so fixing it now means it really wouldn't be a problem).
 
-If so, I wonder if a workable solution would be to provide a more fine-grained
-lock on tbl. Something like the way that ct_read_lock/unlock() works.
+> > We can trivially disable it in the guest or host; that's not the problem.
+> >  We can even disable csum offload just for UDP in the host.  But should
+> > we really?
+>
+> It's not about disabling it, it's about enabling it dynamically
+> once guest user-space is sure that *it* can handle this.
+
+Oh, I see.  I'd have to think harder; I'm not sure if we have all the pieces 
+at the moment for virtio or would need a boutique mechanism for this (usually 
+the host doesn't change the features it offers, even if device resets).  May 
+be easier to suppress csum offload for dhcp packets in the host...
+
+Rusty.
