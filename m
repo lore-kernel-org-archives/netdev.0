@@ -1,43 +1,71 @@
-From: John Patrick Poet <john@blueskytours.com>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Tue, 12 Aug 2008 15:44:04 -0600
-Message-ID: <200808121544.04932.john@blueskytours.com>
-References: <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <ec7e30370808112242y4be0ba5fy6d3567e0dc49b6fd@mail.gmail.com> <20080812201847.GA1582@electric-eye.fr.zoreil.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Tue, 12 Aug 2008 14:57:09 -0700
+Message-ID: <200808121457.11356.divy@chelsio.com>
+References: <48A08145.6060703@hp.com> <adad4kfxm9v.fsf@cisco.com> <20080811.145313.178992274.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Madsen <david.madsen@gmail.com>,
-	John P Poet <jppoet@gmail.com>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat1.blueskytours.com ([65.121.119.145]:30148 "HELO
-	volcano.blueskytours.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with SMTP id S1751116AbYHLVuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 17:50:46 -0400
-In-Reply-To: <20080812201847.GA1582@electric-eye.fr.zoreil.com>
+Cc: rdreier@cisco.com, rick.jones2@hp.com, jgarzik@pobox.com,
+	"Steve Wise" <swise@opengridcomputing.com>,
+	"Karen Xie" <kxie@chelsio.com>, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	"Dimitrios Michailidis" <dm@chelsio.com>,
+	"Casey Leedom" <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080811.145313.178992274.davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 12 August 2008 02:18:47 pm Francois Romieu wrote:
-> David Madsen <david.madsen@gmail.com> :
-> [...]
+On Monday 11 August 2008 02:53:13 pm David Miller wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Mon, 11 Aug 2008 14:41:16 -0700
 >
-> > I also have a Realtek GigE card that was quite stable running on
-> > 2.6.24.  I recently updated my kernel briefly to 2.6.25.10 then
-> > ultimately to 2.6.26.2 and started seeing similar timeouts in both
-> > kernel versions.
+> >  > > Probably depends on whether or not the iSCSI offload solutions are
+> >  > > doing zero-copy receive into the filecache?
+> >  >
+> >  > That's a data placement issue, which also can be solved with
+> >  > stateless offloading.
+> >
+> > How can you place iSCSI data properly with only stateless offloads?
 >
-> Please note that the kernel complains more loudly about the watchdog
-> than it used to. Does it allow traffic to flow afterwards ?
+> By teaching the stateless offload how to parse the iSCSI headers
+> on the flow and place the data into pages at the correct offsets
+> such that you can place the pages hanging off of the SKB directly
+> into the page cache.
 
-When one of these "hick-ups" happen while I am streaming video from my Myth 
-backend to my Myth frontend, it kills the playback, and I have to re-start 
-it.  It takes 5 to 10 seconds before I can re-start the playback, but it does 
-work without having to take any special action on my part.
+Hi Dave,
 
-So, to answer your question, yes traffic does flow afterwards.
+iSCSI PDUs might spawn over multiple TCP segments, it is unclear to me how to 
+do placement without keeping some state of the transactions.
 
-John
+In any case, such a stateless solution is not yet designed, whereas 
+accelerated iSCSI is available now, from us and other companies.
+The accelerated iSCSI streams benefit from the performance TOE provides, 
+outlined in the following third party papers:
+http://www.chelsio.com/assetlibrary/pdf/redhat-chelsio-toe-final_v2.pdf
+http://www.chelsio.com/assetlibrary/pdf/RMDS6BNTChelsioRHEL5.pdf
 
+iSCSI is primarily targeted to the data center, where the SW stack's traffic 
+shaping features might be redundant with specialized equipment. It should 
+however be possible to integrate security features on a per offoaded 
+connection basis, and TOEs - at least ours :) - are capable of rate control 
+and traffic shaping.
+
+While CPU and - to a far lesser extent - memory performance improves, so does 
+ethernet's. 40G, 100G are not too far ahead. It is not obvious at all that 
+TOE is a point of time solution, especially for heavy load traffic as in a 
+storage environment. It is quite the opposite actually.
+
+There is room for co-existence of the SW managed traffic and accelerated 
+traffic. As our submission shows, enabling accelerated iSCSI is not intrusive 
+code wise to the stack. The port stealing issue is solved if we can grab a 
+port from the stack.
+
+Cheers,
+Divy
