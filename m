@@ -1,33 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Tue, 12 Aug 2008 10:38:17 +0000
-Message-ID: <20080812103817.GA6794@ff.dom.local>
-References: <20080812052048.GA4291@ff.dom.local> <20080811.224047.154563272.davem@davemloft.net> <20080812070005.GB5066@ff.dom.local> <20080812.011510.20845920.davem@davemloft.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: NMI lockup, 2.6.26 release
+Date: Tue, 12 Aug 2008 14:31:40 +0300
+Message-ID: <200808121431.40852.denys@visp.net.lb>
+References: <200807222142.23710.denys@visp.net.lb> <200808021555.10733.denys@visp.net.lb> <20080802130740.GA2970@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:18642 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbYHLKic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 06:38:32 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1308535fgg.17
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 03:38:29 -0700 (PDT)
+Received: from relay2.globalproof.net ([194.146.153.25]:46052 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbYHLLck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 07:32:40 -0400
+In-Reply-To: <20080802130740.GA2970@ami.dom.local>
 Content-Disposition: inline
-In-Reply-To: <20080812.011510.20845920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 01:15:10AM -0700, David Miller wrote:
-...
-> The synchronization object is the qdisc.  So we can't resample the
-> qdisc after scheduling it, because then the qdisc attached to the
-> netdev_queue can change and we'd be holding the root lock for
-> the wrong qdisc object.
+On Saturday 02 August 2008, Jarek Poplawski wrote:
+> On Sat, Aug 02, 2008 at 03:55:10PM +0300, Denys Fedoryshchenko wrote:
+> > Sorry for long delay, i had to make sure that old change "fixed" the
+> > problem.
+> >
+> > Now i am running second patch, it will take also around up to one week to
+> > make sure, that it is also make (or doesn't make) any changes, because
+> > sometimes it takes 3-4 days till crash happen.
+>
+> OK, don't hurry!
+>
+> Cheers,
+> Jarek P.
 
-If you mean net_tx_action() this looks like we would get a root lock
-of a current qdisc, just like seen in dev_queue_xmit() at the moment,
-so I'm still looking for a clue, what could be wrong with this...
-
-Jarek P.
+With second patch it works fine, 9 days uptime now
