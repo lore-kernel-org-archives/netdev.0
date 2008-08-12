@@ -1,43 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: csum offload and af_packet
-Date: Tue, 12 Aug 2008 08:32:44 +0800
-Message-ID: <20080812003244.GA18230@gondor.apana.org.au>
-References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au> <200808112350.25514.rusty@rustcorp.com.au>
+From: Wolfgang Walter <wolfgang.walter@stwm.de>
+Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
+Date: Tue, 12 Aug 2008 02:38:40 +0200
+Message-ID: <200808120238.41237.wolfgang.walter@stwm.de>
+References: <200807171653.59177.wolfgang.walter@stwm.de> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
+To: Suresh Siddha <suresh.b.siddha@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43033 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753632AbYHLAiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:38:13 -0400
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:33444 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753822AbYHLAin (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:38:43 -0400
+In-Reply-To: <20080811190131.GL13158@linux-os.sc.intel.com>
 Content-Disposition: inline
-In-Reply-To: <200808112350.25514.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 11:50:25PM +1000, Rusty Russell wrote:
->
-> I think this is deeper than that.  This case is actually unusual, in that the 
-> packet really does arrive with a partial csum.  But usually, we're exposing 
-> an internal detail of our stack at this point.  Seems like we shouldn't if we 
-> know the user can't deal with it.  dhcpd just makes this case less academic.
+On Monday 11 August 2008, Suresh Siddha wrote:
+> On Sat, Aug 09, 2008 at 08:05:21PM -0700, Herbert Xu wrote:
+> > > void irq_ts_restore(int TS_state)
+> > > {
+> > >       if (!in_interrupt())
+> > >               return 0;
+> >=20
+> > This check isn't necessary.
+> >=20
+> > >
+> > >       if (TS_state)
+> > >               stts();
+> > > }
+> >=20
+> > But yes this scheme looks good to me.
+>=20
+> Appended the complete patch. Wolf, can you please help test this agai=
+n
+> and check the perf aswell.
 
-I disagree.  If you're using AF_PACKET you're asking to see the
-bare details.  If you want to see the censored version you can
-always go through the IP stack.
+Yes, I'll test that tomorrow.
 
-> We can trivially disable it in the guest or host; that's not the problem.  We 
-> can even disable csum offload just for UDP in the host.  But should we 
-> really?
-
-It's not about disabling it, it's about enabling it dynamically
-once guest user-space is sure that *it* can handle this.
-
-Cheers,`
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
+Leiter EDV
+Leopoldstra=DFe 15
+80802 M=FCnchen
+Tel: +49 89 38196-276
+=46ax: +49 89 38196-144
+wolfgang.walter@stwm.de
+http://www.studentenwerk-muenchen.de/
