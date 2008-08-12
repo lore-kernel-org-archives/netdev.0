@@ -1,7 +1,8 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 1/2] net: skb_copy_datagram_from_iovec()
-Date: Tue, 12 Aug 2008 16:24:56 +1000
-Message-ID: <200808121624.56948.rusty@rustcorp.com.au>
+Subject: [PATCH 2/2] tun: fallback if skb_alloc() fails on big packets
+Date: Tue, 12 Aug 2008 16:25:53 +1000
+Message-ID: <200808121625.53703.rusty@rustcorp.com.au>
+References: <200808121624.56948.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
@@ -10,135 +11,109 @@ Cc: Max Krasnyansky <maxk@qualcomm.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:56446 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:56474 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751305AbYHLGZL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2008 02:25:11 -0400
+	id S1751347AbYHLG0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2008 02:26:08 -0400
+In-Reply-To: <200808121624.56948.rusty@rustcorp.com.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's an skb_copy_datagram_iovec() to copy out of a paged skb, but
-nothing the other way around (because we don't do that).
+skb_alloc produces linear packets (using kmalloc()).  That can fail,
+so should we fall back to making paged skbs.
 
-We want to allocate big skbs in tun.c, so let's add the function.
-It's a carbon copy of skb_copy_datagram_iovec() with enough changes to
-be annoying.
+My original version of this patch always allocate paged skbs for big
+packets.  But that made performance drop from 8.4 seconds to 8.8
+seconds on 1G lguest->Host TCP xmit.  So now we only do that as a
+fallback.
 
 Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- include/linux/skbuff.h |    4 ++
- net/core/datagram.c    |   87 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 91 insertions(+)
 
-diff -r fcbf6d08c910 include/linux/skbuff.h
---- a/include/linux/skbuff.h	Wed Aug 06 11:30:36 2008 +1000
-+++ b/include/linux/skbuff.h	Wed Aug 06 16:13:41 2008 +1000
-@@ -1452,6 +1452,10 @@ extern int	       skb_copy_and_csum_data
- extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
- 							int hlen,
- 							struct iovec *iov);
-+extern int	       skb_copy_datagram_from_iovec(struct sk_buff *skb,
-+						    int offset,
-+						    struct iovec *from,
-+						    int len);
- extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
- extern int	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
- 					 unsigned int flags);
-diff -r fcbf6d08c910 net/core/datagram.c
---- a/net/core/datagram.c	Wed Aug 06 11:30:36 2008 +1000
-+++ b/net/core/datagram.c	Wed Aug 06 16:13:41 2008 +1000
-@@ -339,6 +339,93 @@ fault:
- 	return -EFAULT;
+diff -r ffcd4a3f63a8 drivers/net/tun.c
+--- a/drivers/net/tun.c	Wed Aug 06 16:19:36 2008 +1000
++++ b/drivers/net/tun.c	Thu Aug 07 06:56:19 2008 +1000
+@@ -358,6 +358,66 @@ static unsigned int tun_chr_poll(struct 
+ 	return mask;
  }
  
-+/**
-+ *	skb_copy_datagram_from_iovec - Copy a datagram from an iovec.
-+ *	@skb: buffer to copy
-+ *	@offset: offset in the buffer to start copying to
-+ *	@from: io vector to copy to
-+ *	@len: amount of data to copy to buffer from iovec
-+ *
-+ *	Returns 0 or -EFAULT.
-+ *	Note: the iovec is modified during the copy.
-+ */
-+int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
-+				 struct iovec *from, int len)
++/* prepad is the amount to reserve at front.  len is length after that.
++ * linear is a hint as to how much to copy (usually headers). */
++static struct sk_buff *tun_alloc_skb(size_t prepad, size_t len, size_t linear,
++				     gfp_t gfp)
 +{
-+	int start = skb_headlen(skb);
-+	int i, copy = start - offset;
++	struct sk_buff *skb;
++	unsigned int i;
 +
-+	/* Copy header. */
-+	if (copy > 0) {
-+		if (copy > len)
-+			copy = len;
-+		if (memcpy_fromiovec(skb->data + offset, from, copy))
-+			goto fault;
-+		if ((len -= copy) == 0)
-+			return 0;
-+		offset += copy;
++	skb = alloc_skb(prepad + len, gfp|__GFP_NOWARN);
++	if (skb) {
++		skb_reserve(skb, prepad);
++		skb_put(skb, len); 
++		return skb;
 +	}
 +
-+	/* Copy paged appendix. Hmm... why does this look so complicated? */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		int end;
++	/* Under a page?  Don't bother with paged skb. */
++	if (prepad + len < PAGE_SIZE)
++		return NULL;
 +
-+		WARN_ON(start > offset + len);
++	/* Start with a normal skb, and add pages. */
++	skb = alloc_skb(prepad + linear, gfp);
++	if (!skb)
++		return NULL;
 +
-+		end = start + skb_shinfo(skb)->frags[i].size;
-+		if ((copy = end - offset) > 0) {
-+			int err;
-+			u8  *vaddr;
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			struct page *page = frag->page;
++	skb_reserve(skb, prepad);
++	skb_put(skb, linear); 
 +
-+			if (copy > len)
-+				copy = len;
-+			vaddr = kmap(page);
-+			err = memcpy_fromiovec(vaddr + frag->page_offset +
-+					       offset - start, from, copy);
-+			kunmap(page);
-+			if (err)
-+				goto fault;
++	len -= linear;
 +
-+			if (!(len -= copy))
-+				return 0;
-+			offset += copy;
++	for (i = 0; i < MAX_SKB_FRAGS; i++) {
++		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
++
++		f->page = alloc_page(gfp|__GFP_ZERO);
++		if (!f->page)
++			break;
++
++		f->page_offset = 0;
++		f->size = PAGE_SIZE;
++
++		skb->data_len += PAGE_SIZE;
++		skb->len += PAGE_SIZE;
++		skb->truesize += PAGE_SIZE;
++		skb_shinfo(skb)->nr_frags++;
++
++		if (len < PAGE_SIZE) {
++			len = 0;
++			break;
 +		}
-+		start = end;
++		len -= PAGE_SIZE;
 +	}
 +
-+	if (skb_shinfo(skb)->frag_list) {
-+		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+
-+		for (; list; list = list->next) {
-+			int end;
-+
-+			WARN_ON(start > offset + len);
-+
-+			end = start + list->len;
-+			if ((copy = end - offset) > 0) {
-+				if (copy > len)
-+					copy = len;
-+				if (skb_copy_datagram_from_iovec(list,
-+								 offset - start,
-+								 from, copy))
-+					goto fault;
-+				if ((len -= copy) == 0)
-+					return 0;
-+				offset += copy;
-+			}
-+			start = end;
-+		}
++	/* Too large, or alloc fail? */
++	if (unlikely(len)) {
++		kfree_skb(skb);
++		skb = NULL;
 +	}
-+	if (!len)
-+		return 0;
 +
-+fault:
-+	return -EFAULT;
++	return skb;
 +}
-+EXPORT_SYMBOL(skb_copy_datagram_from_iovec);
 +
- static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
- 				      u8 __user *to, int len,
- 				      __wsum *csump)
+ /* Get packet from user space buffer */
+ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv, size_t count)
+ {
+@@ -391,14 +451,12 @@ static __inline__ ssize_t tun_get_user(s
+ 			return -EINVAL;
+ 	}
+ 
+-	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
++	if (!(skb = tun_alloc_skb(align, len, gso.hdr_len, GFP_KERNEL))) {
+ 		tun->dev->stats.rx_dropped++;
+ 		return -ENOMEM;
+ 	}
+ 
+-	if (align)
+-		skb_reserve(skb, align);
+-	if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
++	if (skb_copy_datagram_from_iovec(skb, 0, iv, len)) {
+ 		tun->dev->stats.rx_dropped++;
+ 		kfree_skb(skb);
+ 		return -EFAULT;
