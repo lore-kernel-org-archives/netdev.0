@@ -1,50 +1,39 @@
-From: "Eugene Teo" <eugeneteo@kernel.sg>
-Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
-Date: Tue, 12 Aug 2008 09:28:05 +0800
-Message-ID: <28fa9c5e0808111828w2a9f1133y75c785f70b683ff2@mail.gmail.com>
-References: <20080809213101.0927a808.akpm@linux-foundation.org>
-	 <489F8827.4030904@hp.com>
-	 <82e4877d0808101805t55a6ec5ft6c9b171ac1c7c3ab@mail.gmail.com>
-	 <20080811.143212.172434871.davem@davemloft.net>
-	 <48A0CEEA.9080104@hp.com>
-	 <82e4877d0808111701k8cf8b5p60623a65eb6bda95@mail.gmail.com>
-	 <48A0DC27.7030208@hp.com>
-	 <28fa9c5e0808111810l63220abbgf9e747bad3a7fe44@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: LRO restructuring?
+Date: Mon, 11 Aug 2008 18:30:11 -0700
+Message-ID: <48A0E7A3.6030200@hp.com>
+References: <48A03EF9.9090602@myri.com>	<20080812005033.GA18547@gondor.apana.org.au>	<20080811.175434.215224347.davem@davemloft.net> <20080812010004.GD18547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Parag Warudkar" <parag.warudkar@gmail.com>,
-	"David Miller" <davem@davemloft.net>, akpm@linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: "Brian Haley" <brian.haley@hp.com>
+Cc: David Miller <davem@davemloft.net>, gallatin@myri.com,
+	netdev@vger.kernel.org, brice@myri.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from po-out-1718.google.com ([72.14.252.152]:12210 "EHLO
-	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983AbYHLB2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:28:07 -0400
-Received: by po-out-1718.google.com with SMTP id c31so4004461poi.1
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 18:28:06 -0700 (PDT)
-In-Reply-To: <28fa9c5e0808111810l63220abbgf9e747bad3a7fe44@mail.gmail.com>
-Content-Disposition: inline
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:26974 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbYHLBaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:30:14 -0400
+In-Reply-To: <20080812010004.GD18547@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 9:10 AM, Eugene Teo <eugeneteo@kernel.sg> wrote:
-> On Tue, Aug 12, 2008 at 8:41 AM, Brian Haley <brian.haley@hp.com> wrote:
->> Parag Warudkar wrote:
->>>
->>> What output do you see with your patch?
->>
->> # ip -f inet6 route get fec0::1
->> unreachable fec0::1 dev lo  table unspec  proto none  src
->> 2001:1890:1109:a10:218:feff:fe7f:49c8  metric -1  error -101 hoplimit 255
->
-> Hmm, I tried it on an older kernel that doesn't have Yoshfuji-san's
-> ipv6_get_saddr() changes,
-> and it should display the output with the loopback MAC address instead
-> of ethX MAC address.
-> Correct me if I am wrong.
+Herbert Xu wrote:
+> On Mon, Aug 11, 2008 at 05:54:34PM -0700, David Miller wrote:
+> 
+>>And the checksums :-)  As an intermediate node we don't want
+>>to touch the checksum.
+> 
+> 
+> Yeah if it wasn't verified then we must store this as well.
 
-Evidence of me still sleepy. Not the MAC address but the ipv6 address...
+Even if it was verified I think you want to keep the checksums from the 
+header.   Since an intermediate device isn't supposed to be peeking at 
+the TCP part anyway, it wouldn't do to drop the segment ourselves, pass 
+it along to be dropped by the ultimate reciever.  And if there is 
+something amis in the verification or the regeneration, we don't want to 
+  introduce silent data corruption.
 
-Eugene
+Likely that also goes for the IP header checksum...
+
+rick jones
