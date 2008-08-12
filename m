@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Mon, 11 Aug 2008 18:10:19 -0700 (PDT)
-Message-ID: <20080811.181019.190669302.davem@davemloft.net>
-References: <alpine.LNX.1.10.0808112318510.12259@titan.stealer.net>
+From: "Eugene Teo" <eugeneteo@kernel.sg>
+Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
+Date: Tue, 12 Aug 2008 09:10:36 +0800
+Message-ID: <28fa9c5e0808111810l63220abbgf9e747bad3a7fe44@mail.gmail.com>
+References: <20080809213101.0927a808.akpm@linux-foundation.org>
+	 <489F8827.4030904@hp.com>
+	 <82e4877d0808101805t55a6ec5ft6c9b171ac1c7c3ab@mail.gmail.com>
+	 <20080811.143212.172434871.davem@davemloft.net>
+	 <48A0CEEA.9080104@hp.com>
+	 <82e4877d0808111701k8cf8b5p60623a65eb6bda95@mail.gmail.com>
+	 <48A0DC27.7030208@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	horms@verge.net.au
-To: sven.wegener@stealer.net
+Cc: "Parag Warudkar" <parag.warudkar@gmail.com>,
+	"David Miller" <davem@davemloft.net>, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: "Brian Haley" <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59585
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750975AbYHLBKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:10:18 -0400
-In-Reply-To: <alpine.LNX.1.10.0808112318510.12259@titan.stealer.net>
+Received: from po-out-1718.google.com ([72.14.252.158]:3857 "EHLO
+	po-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762AbYHLBKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:10:36 -0400
+Received: by po-out-1718.google.com with SMTP id c31so3991577poi.1
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 18:10:36 -0700 (PDT)
+In-Reply-To: <48A0DC27.7030208@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Wegener <sven.wegener@stealer.net>
-Date: Mon, 11 Aug 2008 23:46:50 +0200 (CEST)
+On Tue, Aug 12, 2008 at 8:41 AM, Brian Haley <brian.haley@hp.com> wrote:
+> Parag Warudkar wrote:
+>>
+>> What output do you see with your patch?
+>
+> # ip -f inet6 route get fec0::1
+> unreachable fec0::1 dev lo  table unspec  proto none  src
+> 2001:1890:1109:a10:218:feff:fe7f:49c8  metric -1  error -101 hoplimit 255
 
-> I have a couple of updates for IPVS pending. The patches have been
-> posted to the mailing-list and acked by Simon Horman, so I thought it's
-> ok to send you a pull request for them, if that's ok with you.
-> 
-> Mostly trivial cleanups. Two potential deadlock fixes, one introduced by
-> my last sync daemon changes and one in the estimator code, which is
-> going back for years. The other estimator change is the biggest one. If
-> you have an issue with something, just holler and I'll get on it. I'll
-> append an overall diff as it's not that big.
+Hmm, I tried it on an older kernel that doesn't have Yoshfuji-san's
+ipv6_get_saddr() changes,
+and it should display the output with the loopback MAC address instead
+of ethX MAC address.
+Correct me if I am wrong.
 
-Pulled, thanks a lot Sven.
+Thanks,
+Eugene
