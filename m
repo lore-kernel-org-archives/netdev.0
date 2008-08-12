@@ -1,106 +1,134 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
-Date: Tue, 12 Aug 2008 06:42:24 -0700
-Message-ID: <20080812134224.GC6909@linux.vnet.ibm.com>
-References: <20080810190458.GA7279@ami.dom.local> <20080811100126.GA6401@ff.dom.local> <20080811232657.GQ6762@linux.vnet.ibm.com> <20080812063622.GA5066@ff.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
+Date: Tue, 12 Aug 2008 08:17:07 -0700 (PDT)
+Message-ID: <962464.9576.qm@web82108.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, emil.s.tantilov@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:49798 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753943AbYHLNm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 09:42:26 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e32.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m7CDZtW7030849
-	for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 09:35:55 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7CDgOe1142408
-	for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 07:42:24 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7CDgOWM021983
-	for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 07:42:24 -0600
-Content-Disposition: inline
-In-Reply-To: <20080812063622.GA5066@ff.dom.local>
+Received: from web82108.mail.mud.yahoo.com ([209.191.84.221]:42139 "HELO
+	web82108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752191AbYHLPRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 11:17:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 06:36:22AM +0000, Jarek Poplawski wrote:
-> On Mon, Aug 11, 2008 at 04:26:57PM -0700, Paul E. McKenney wrote:
-> > On Mon, Aug 11, 2008 at 10:01:26AM +0000, Jarek Poplawski wrote:
-> > > On 10-08-2008 21:04, Jarek Poplawski wrote:
-> > > ...
-> > > > Hmm.. Actually, it's completely unreasonable. Let's forget this.
-> > > 
-> > > But accidentally it might even sometimes work here...
-> > > 
-> > > Currently, the most suspicious place to me seems to be
-> > > __netif_schedule(). Is it legal to store RCU protected pointers out of
-> > > rcu_read_lock() sections?
-> > 
-> > Yes, but:
-> > 
-> > 1.	You need to use one of the update-side primitives to do the
-> > 	store: rcu_assign_pointer(), list_add_rcu(), etc.
-> > 
-> > 2.	There has to be some way for multiple updaters to coordinate,
-> > 	for example:
-> > 
-> > 	a.	Only a single task is permitted to update.
-> > 
-> > 	b.	Locking is used to coordinate among multiple updaters
-> > 		(so that only one such updater may proceed at a given
-> > 		time).
-> > 
-> > 	c.	Atomic operations are used to coordinate multiple
-> > 		updaters.  Here be dragons, go for (a) or (b)
-> > 		instead unless you have an extremely good reason
-> > 		-and- you have both a proof of correctness and
-> > 		a totally brutal and malign test suite.
-> > 
-> > The main reason to update RCU-protected pointers within rcu_read_lock()
-> > regions is when sharing code between RCU readers and updaters, or when
-> > an RCU reader can see the need to do an update.
-> 
-> Sure, but I'm concerned here with pure RCU reading:
-> 
-> >From net/sched/sch_generic.c:
-> 
-> void __qdisc_run(struct Qdisc *q)
-> {
->         unsigned long start_time = jiffies;
-> 
->         while (qdisc_restart(q)) {
->                 /*
->                  * Postpone processing if
->                  * 1. another process needs the CPU;
->                  * 2. we've been doing it for too long.
->                  */
->                 if (need_resched() || jiffies != start_time) {
->                         __netif_schedule(q);
-> 
-> This function is run from dev_queue_xmit() (net/core/dev.c) under
-> rcu_read_lock_bh(), and this "q" pointer is passed here for later use
-> (reading) by softirq run net_tx_action(). Alas in net/ RCU primitives
-> are probably omitted in a few places...
+BRAIN DAMAGE CONTROL:  the problem is only on my hardware, so no one 
+on LKML can play with this hardware directly.  That makes _me_ the weak 
+link.
 
-If I understand this code, one way to handle it would be to increment
-q->refcnt before passing to netif_schedule(), then decrementing it
-(within an RCU read-side critical section) in the softirq handler.
+1.  Can someone comment on whether I correctly identified the commit #
+causing the issue for me.  Here is the 'git bisect' data from my first
+post:
 
-There are probably other ways to handle this as well.
+2.6.25, good
+2.6.26-rc4, bad
+10c993a6b5418cb1026775765ba4c70ffb70853d, bad
+334d094504c2fe1c44211ecb49146ae6bca8c321, bad
+eddeb0e2d863e3941d8768e70cb50c6120e61fa0, bad
+77ad386e596c6b0930cc2e09e3cce485e3ee7f72, bad
+ede1389f8ab4f3a1343e567133fa9720a054a3aa, bad
+c048fdfe6178e082be918d4062c86d9764979112, bad
+f73920cd63d316008738427a0df2caab6cc88ad7, bad
+04aaa7ba096c707a8df337b29303f1a5a65f0462, good
+8fa6878ffc6366f490e99a1ab31127fb599657c9, good
+1180e01de50c0c7683c6648251f32957bc2d7850, good
+1e934dda0c77c8ad13fdda02074f2cfcea118a56, bad
+322850af8d93735f67b8ebf84bb1350639be3f34, good
+3def3d6ddf43dbe20c00c3cbc38dfacc8586998f, bad
+700efc1b9f6afe34caae231b87d129ad8ffb559f, good
 
-							Thanx, Paul
+I concluded that 3def3d... was causing the problem for me, but I didn't
+actually pipe or redirect the output message from 'git bisect' when it
+stated that.  Does that conclusion look OK?
 
-> Thanks for the explanation,
-> Jarek P.
-> 
->                         break;
->                 }
->         }
-> 
->         clear_bit(__QDISC_STATE_RUNNING, &q->state);
-> }
+
+
+2.  I have not tried different versions of gcc.  I did not think of
+doing so because (a) I use the same version of gcc on all 3 machines,
+(b) the kernel builds without error on all 3 machines, and (c) the
+kernel runs on 1 machine ("desktop") but freezes on the other 2 
+[which share the same mboard model as each other, but are different 
+from the "desktop" mboard].  If gcc was bad, wouldn't the kernels
+freeze on all the machines; and wouldn't the Debian BTS be full of
+reports about kernel freezes with the recently released 2.6.26 line?
+
+$ gcc -v
+Using built-in specs.
+Target: x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Debian 4.3.1-8'
+--with-bugurl=file:///usr/share/doc/gcc-4.3/README.Bugs
+--enable-languages=c,c++,fortran,objc,obj-c++ --prefix=/usr
+--enable-shared --with-system-zlib --libexecdir=/usr/lib
+--without-included-gettext --enable-threads=posix --enable-nls
+--with-gxx-include-dir=/usr/include/c++/4.3 --program-suffix=-4.3
+--enable-clocale=gnu --enable-libstdcxx-debug --enable-objc-gc
+--enable-mpfr --enable-cld --enable-checking=release
+--build=x86_64-linux-gnu --host=x86_64-linux-gnu
+--target=x86_64-linux-gnu
+Thread model: posix
+gcc version 4.3.1 (Debian 4.3.1-8) 
+
+
+3.  I keep wanting to play with source code, but I keep repressing the
+urge because I _know_ that I do not know what I'm doing.  I keep seeing
+code that I want to alter, test, or otherwise play with.  For example:
+
+A)  The commit above touches arch/x86/kernel/e820_64.c (now e820.c) in the
+e820_reserve_resources() function this way:
+
+@@ -245,21 +244,7 @@ 
+         res->start = e820.map[i].addr;
+         res->end = res->start + e820.map[i].size - 1;
+         res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+-        request_resource(&iomem_resource, res);
+-        if (e820.map[i].type == E820_RAM) {
+-            /*
+-             * We don't know which RAM region contains kernel data,
+-             * so we try it repeatedly and let the resource manager
+-             * test it.
+-             */
+-            request_resource(res, code_resource);
+-            request_resource(res, data_resource);
+-            request_resource(res, bss_resource);
+-#ifdef CONFIG_KEXEC
+-            if (crashk_res.start != crashk_res.end)
+-                request_resource(res, &crashk_res);
+-#endif
+-        }
++        insert_resource(&iomem_resource, res);
+     }
+ }
+
+I keep wondering whether my hardware needed something with the 
+if(e820...) block that was removed (that the rest of the world does
+not need).
+
+
+B)  Since the commit mostly involved changes that add insert_resource()
+calls, I look that that function in kernel/resource.c, and saw this
+section:
+
+    for (next = first; ; next = next->sibling) {
+        /* Partial overlap? Bad, and unfixable */
+        if (next->start < new->start || next->end > new->end)
+            goto out;
+        if (!next->sibling)
+            break;
+        if (next->sibling->start > new->end)
+            break;
+    }
+
+Maybe the "partial overlap" is something that should never occur, and
+occurs so rarely that most folks are never bitten.  Except me?
+
+
+Chanting, "Every day, and in every way, I'm getting better and better..."
+Dave W.
