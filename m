@@ -1,45 +1,46 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem
- with fpu state changes
-Date: Mon, 11 Aug 2008 17:48:44 -0700
-Message-ID: <48A0DDEC.704@zytor.com>
-References: <489DC15D.9070308@zytor.com> <20080809185224.GH13158@linux-os.sc.intel.com> <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu> <48A0920B.30306@zytor.com> <20080811201901.GN13158@linux-os.sc.intel.com> <20080812003938.GC18230@gondor.apana.org.au> <48A0DC6D.8040409@zytor.com> <20080812004641.GB18444@gondor.apana.org.au>
+From: "Pravin Bathija" <pbathija@amcc.com>
+Subject: RE: [Qdisc] Prioritizing traffic per vlan using qdisc.
+Date: Mon, 11 Aug 2008 17:56:58 -0700
+Message-ID: <9D1E2BDCB5C57B46B56E6D80843439EB0598FBD2@SDCEXCHANGE01.ad.amcc.com>
+References: <9D1E2BDCB5C57B46B56E6D80843439EB0598FBC9@SDCEXCHANGE01.ad.amcc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:57582 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbYHLAz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:55:26 -0400
-In-Reply-To: <20080812004641.GB18444@gondor.apana.org.au>
+Received: from sdcmail02-ext1.amcc.com ([198.137.200.73]:50343 "EHLO
+	sdcmail02.amcc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbYHLA4o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:56:44 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <9D1E2BDCB5C57B46B56E6D80843439EB0598FBC9@SDCEXCHANGE01.ad.amcc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Mon, Aug 11, 2008 at 05:42:21PM -0700, H. Peter Anvin wrote:
->> That's not sufficient, though, because you have to track all the state 
->> and how it relates to everything.  You now have to track both the 
->> userspace FPU state and the potential kernel FPU state.  The VIA 
->> instructions are special (in the short bus to school sense) in that they 
->> use a mechanism intended to protect specific state to protect -- exactly 
->> nothing.
-> 
-> Sorry, the kernel TS state is what I meant.  I'm definitely not
-> advocating the saving of the kernel FPU state.  This is only for
-> things like the VIA (which also exists for other processors, see
-> the xor SSE stuff in include/asm-x86).
 
-No, there you are actually using the FPU state (which includes the SSE 
-state.)
+For example if I create 3 vlans on interface 0 :  eth0.1, eth0.2 and
+eth0.3 I want to assign them priorities of 1, 2 and 3 respectively (1
+being the highest and 3 the lowest)
 
-	-hpa
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Pravin Bathija
+Sent: Monday, August 11, 2008 5:48 PM
+To: netdev@vger.kernel.org
+Subject: [Qdisc] Prioritizing traffic per vlan using qdisc.
+
+Using Linux 2.6.23 I want to create multiple Vlans for voice, data,
+video etc. The requirement is to prioritize each vlan on the ingress and
+egress. I am looking at qdisc to do this however without success. Could
+you please advise is there is a way to do this using qdisc tc(traffic
+control) commands. If not - is there another way to do this in Linux ?
+Any help would be greatly appreciated.
+
+Thanks,
+Pravin
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of a message to majordomo@vger.kernel.org More majordomo info at
+http://vger.kernel.org/majordomo-info.html
