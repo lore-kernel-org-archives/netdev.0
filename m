@@ -1,119 +1,89 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/2] tun: fallback if skb_alloc() fails on big packets
-Date: Tue, 12 Aug 2008 16:25:53 +1000
-Message-ID: <200808121625.53703.rusty@rustcorp.com.au>
-References: <200808121624.56948.rusty@rustcorp.com.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] NULL pointer dereference in skb_dequeue
+Date: Tue, 12 Aug 2008 06:36:22 +0000
+Message-ID: <20080812063622.GA5066@ff.dom.local>
+References: <20080810190458.GA7279@ami.dom.local> <20080811100126.GA6401@ff.dom.local> <20080811232657.GQ6762@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Max Krasnyansky <maxk@qualcomm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, emil.s.tantilov@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:56474 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751347AbYHLG0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2008 02:26:08 -0400
-In-Reply-To: <200808121624.56948.rusty@rustcorp.com.au>
+Received: from fg-out-1718.google.com ([72.14.220.155]:7038 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbYHLGgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 02:36:32 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1255452fgg.17
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 23:36:30 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080811232657.GQ6762@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb_alloc produces linear packets (using kmalloc()).  That can fail,
-so should we fall back to making paged skbs.
+On Mon, Aug 11, 2008 at 04:26:57PM -0700, Paul E. McKenney wrote:
+> On Mon, Aug 11, 2008 at 10:01:26AM +0000, Jarek Poplawski wrote:
+> > On 10-08-2008 21:04, Jarek Poplawski wrote:
+> > ...
+> > > Hmm.. Actually, it's completely unreasonable. Let's forget this.
+> > 
+> > But accidentally it might even sometimes work here...
+> > 
+> > Currently, the most suspicious place to me seems to be
+> > __netif_schedule(). Is it legal to store RCU protected pointers out of
+> > rcu_read_lock() sections?
+> 
+> Yes, but:
+> 
+> 1.	You need to use one of the update-side primitives to do the
+> 	store: rcu_assign_pointer(), list_add_rcu(), etc.
+> 
+> 2.	There has to be some way for multiple updaters to coordinate,
+> 	for example:
+> 
+> 	a.	Only a single task is permitted to update.
+> 
+> 	b.	Locking is used to coordinate among multiple updaters
+> 		(so that only one such updater may proceed at a given
+> 		time).
+> 
+> 	c.	Atomic operations are used to coordinate multiple
+> 		updaters.  Here be dragons, go for (a) or (b)
+> 		instead unless you have an extremely good reason
+> 		-and- you have both a proof of correctness and
+> 		a totally brutal and malign test suite.
+> 
+> The main reason to update RCU-protected pointers within rcu_read_lock()
+> regions is when sharing code between RCU readers and updaters, or when
+> an RCU reader can see the need to do an update.
 
-My original version of this patch always allocate paged skbs for big
-packets.  But that made performance drop from 8.4 seconds to 8.8
-seconds on 1G lguest->Host TCP xmit.  So now we only do that as a
-fallback.
+Sure, but I'm concerned here with pure RCU reading:
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>From net/sched/sch_generic.c:
 
-diff -r ffcd4a3f63a8 drivers/net/tun.c
---- a/drivers/net/tun.c	Wed Aug 06 16:19:36 2008 +1000
-+++ b/drivers/net/tun.c	Thu Aug 07 06:56:19 2008 +1000
-@@ -358,6 +358,66 @@ static unsigned int tun_chr_poll(struct 
- 	return mask;
- }
- 
-+/* prepad is the amount to reserve at front.  len is length after that.
-+ * linear is a hint as to how much to copy (usually headers). */
-+static struct sk_buff *tun_alloc_skb(size_t prepad, size_t len, size_t linear,
-+				     gfp_t gfp)
-+{
-+	struct sk_buff *skb;
-+	unsigned int i;
-+
-+	skb = alloc_skb(prepad + len, gfp|__GFP_NOWARN);
-+	if (skb) {
-+		skb_reserve(skb, prepad);
-+		skb_put(skb, len); 
-+		return skb;
-+	}
-+
-+	/* Under a page?  Don't bother with paged skb. */
-+	if (prepad + len < PAGE_SIZE)
-+		return NULL;
-+
-+	/* Start with a normal skb, and add pages. */
-+	skb = alloc_skb(prepad + linear, gfp);
-+	if (!skb)
-+		return NULL;
-+
-+	skb_reserve(skb, prepad);
-+	skb_put(skb, linear); 
-+
-+	len -= linear;
-+
-+	for (i = 0; i < MAX_SKB_FRAGS; i++) {
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+
-+		f->page = alloc_page(gfp|__GFP_ZERO);
-+		if (!f->page)
-+			break;
-+
-+		f->page_offset = 0;
-+		f->size = PAGE_SIZE;
-+
-+		skb->data_len += PAGE_SIZE;
-+		skb->len += PAGE_SIZE;
-+		skb->truesize += PAGE_SIZE;
-+		skb_shinfo(skb)->nr_frags++;
-+
-+		if (len < PAGE_SIZE) {
-+			len = 0;
-+			break;
-+		}
-+		len -= PAGE_SIZE;
-+	}
-+
-+	/* Too large, or alloc fail? */
-+	if (unlikely(len)) {
-+		kfree_skb(skb);
-+		skb = NULL;
-+	}
-+
-+	return skb;
-+}
-+
- /* Get packet from user space buffer */
- static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv, size_t count)
- {
-@@ -391,14 +451,12 @@ static __inline__ ssize_t tun_get_user(s
- 			return -EINVAL;
- 	}
- 
--	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
-+	if (!(skb = tun_alloc_skb(align, len, gso.hdr_len, GFP_KERNEL))) {
- 		tun->dev->stats.rx_dropped++;
- 		return -ENOMEM;
- 	}
- 
--	if (align)
--		skb_reserve(skb, align);
--	if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
-+	if (skb_copy_datagram_from_iovec(skb, 0, iv, len)) {
- 		tun->dev->stats.rx_dropped++;
- 		kfree_skb(skb);
- 		return -EFAULT;
+void __qdisc_run(struct Qdisc *q)
+{
+        unsigned long start_time = jiffies;
+
+        while (qdisc_restart(q)) {
+                /*
+                 * Postpone processing if
+                 * 1. another process needs the CPU;
+                 * 2. we've been doing it for too long.
+                 */
+                if (need_resched() || jiffies != start_time) {
+                        __netif_schedule(q);
+
+This function is run from dev_queue_xmit() (net/core/dev.c) under
+rcu_read_lock_bh(), and this "q" pointer is passed here for later use
+(reading) by softirq run net_tx_action(). Alas in net/ RCU primitives
+are probably omitted in a few places...
+
+Thanks for the explanation,
+Jarek P.
+
+                        break;
+                }
+        }
+
+        clear_bit(__QDISC_STATE_RUNNING, &q->state);
+}
