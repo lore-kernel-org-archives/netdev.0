@@ -1,71 +1,75 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [PATCH 02/30] mm: gfp_to_alloc_flags()
-Date: Tue, 12 Aug 2008 15:01:36 +1000
-Message-ID: <18593.6448.132048.150818@notabene.brown>
-References: <20080724140042.408642539@chello.nl>
-	<20080724141529.408041430@chello.nl>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Tue, 12 Aug 2008 05:20:48 +0000
+Message-ID: <20080812052048.GA4291@ff.dom.local>
+References: <20080811205357.GA15293@ami.dom.local> <20080811.181235.141399855.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:52352 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750849AbYHLFBw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2008 01:01:52 -0400
-In-Reply-To: message from Peter Zijlstra on Thursday July 24
+Received: from fg-out-1718.google.com ([72.14.220.158]:49050 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807AbYHLFVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 01:21:01 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1240373fgg.17
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 22:21:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080811.181235.141399855.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday July 24, a.p.zijlstra@chello.nl wrote:
-> Factor out the gfp to alloc_flags mapping so it can be used in other places.
+On Mon, Aug 11, 2008 at 06:12:35PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 11 Aug 2008 22:53:57 +0200
 > 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> ---
->  mm/internal.h   |   10 +++++
->  mm/page_alloc.c |   95 +++++++++++++++++++++++++++++++-------------------------
->  2 files changed, 64 insertions(+), 41 deletions(-)
-
-This patch all looks "obviously correct" and a nice factorisation of
-code, except the last little bit:
-
-> @@ -1618,6 +1627,10 @@ nofail_alloc:
->  	if (!wait)
->  		goto nopage;
->  
-> +	/* Avoid recursion of direct reclaim */
-> +	if (p->flags & PF_MEMALLOC)
-> +		goto nopage;
-> +
->  	cond_resched();
->  
->  	/* We now go into synchronous reclaim */
+> > pkt_sched: Destroy gen estimators under rtnl_lock().
+> > 
+> > gen_kill_estimator() requires rtnl_lock() protection, and since it is
+> > called in qdisc ->destroy() too, this has to go back from RCU callback
+> > to qdisc_destroy().
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > 
-> -- 
+> We can't do this.  And at a minimum, the final ->reset() must
+> occur in the RCU callback, otherwise asynchronous threads of
+> execution could queue packets into this dying qdisc and
+> such packets would leak forever.
 
-I don't remember seeing it before (though my memory is imperfect) and
-it doesn't seem to fit with the rest of the patch (except spatially).
+Could you explain this more? I've thought this synchronize_rcu() is
+just to prevent this (and what these comments talk about?):
 
-There is a test above for PF_MEMALLOC which will result in a "goto"
-somewhere else unless "in_interrupt()".
-There is immediately above a test for "!wait".
-So the only way this test can fire is when in_interrupt and wait.
-But if that happens, then the
-	might_sleep_if(wait)
-at the top should have thrown a warning...  It really shouldn't happen.
+void dev_deactivate(struct net_device *dev)
+{
+        bool running;
 
-So it looks like it is useless code:  there is already protection
-against recursion in this case.
+        netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
+        dev_deactivate_queue(dev, &dev->rx_queue, &noop_qdisc);
 
-Did I miss something?
-If I did, maybe more text in the changelog entry (or the comment)
-would help.
+        dev_watchdog_down(dev);
 
-Thanks,
-NeilBrown
+        /* Wait for outstanding qdisc-less dev_queue_xmit calls. */
+        synchronize_rcu();
+
+        do {
+                while (some_qdisc_is_running(dev, 0))
+                        yield();
+
+                /*
+                 * Double-check inside queue lock to ensure that all effects
+                 * of the queue run are visible when we return.
+                 */
+                running = some_qdisc_is_running(dev, 1);
+
+                /*
+                 * The running flag should never be set at this point because
+                 * we've already set dev->qdisc to noop_qdisc *inside* the same
+                 * pair of spin locks.  That is, if any qdisc_run starts after
+                 * our initial test it should see the noop_qdisc and then
+                 * clear the RUNNING bit before dropping the queue lock.  So
+                 * if it is set here then we've found a bug.
+                 */
+        } while (WARN_ON_ONCE(running));
+}
+
+Jarek P.
