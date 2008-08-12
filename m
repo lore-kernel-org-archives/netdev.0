@@ -1,47 +1,39 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Mon, 11 Aug 2008 16:45:03 -0700
-Message-ID: <200808111645.04677.divy@chelsio.com>
-References: <adavdy9zc2k.fsf@cisco.com> <20080811.140918.213422266.davem@davemloft.net> <48A0C927.8020501@opengridcomputing.com>
+From: "Parag Warudkar" <parag.warudkar@gmail.com>
+Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
+Date: Mon, 11 Aug 2008 20:01:57 -0400
+Message-ID: <82e4877d0808111701k8cf8b5p60623a65eb6bda95@mail.gmail.com>
+References: <20080809213101.0927a808.akpm@linux-foundation.org>
+	 <489F8827.4030904@hp.com>
+	 <82e4877d0808101805t55a6ec5ft6c9b171ac1c7c3ab@mail.gmail.com>
+	 <20080811.143212.172434871.davem@davemloft.net>
+	 <48A0CEEA.9080104@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, rdreier@cisco.com,
-	jgarzik@pobox.com, "Karen Xie" <kxie@chelsio.com>,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, "Dimitrios Michailidis" <dm@chelsio.com>,
-	"Casey Leedom" <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Steve Wise" <swise@opengridcomputing.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <48A0C927.8020501@opengridcomputing.com>
+Cc: "David Miller" <davem@davemloft.net>, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: "Brian Haley" <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.224]:18000 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913AbYHLAB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:01:58 -0400
+Received: by wx-out-0506.google.com with SMTP id h29so1421739wxd.4
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2008 17:01:57 -0700 (PDT)
+In-Reply-To: <48A0CEEA.9080104@hp.com>
 Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 11 August 2008 04:20:07 pm Steve Wise wrote:
-> David Miller wrote:
-> > From: Roland Dreier <rdreier@cisco.com>
-> > Date: Mon, 11 Aug 2008 09:09:02 -0700
-> >
-> >>  > We turn it off.  If I want to shape or filter one of these iSCSI
-> >>  > connections can we turn it off?
-> >>
-> >> That seems like a reasonable idea to me -- the standard thing to do when
-> >> a NIC offload conflicts with something else is to turn off the offload
-> >> and fall back to software.
-> >
-> > But as Herbert says, we can make LRO such that turning it off
-> > isn't necessary.
-> >
-> > Can we shape the iSCSI offload traffic without turning it off?
->
-> With Chelsio's product you can do this.  Maybe Divy can provide details?
+On Mon, Aug 11, 2008 at 7:44 PM, Brian Haley <brian.haley@hp.com> wrote:
 
-The T3 adapter is capable of performing rate control and pacing based on RTT 
-on a per-connection basis.
+> I don't see "EOF on netlink" on 2.6.27-rc2.  I can dig-up a 2.6.24 kernel,
+> I'm just wondering if that EOF happens when the IPv6 module isn't loaded or
+> something?
 
-Cheers,
-Divy
+With ipv6 not loaded it returns not supported or something similar -
+correct of course.
+
+What output do you see with your patch?
+
+Parag
