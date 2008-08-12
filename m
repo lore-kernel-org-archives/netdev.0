@@ -1,37 +1,38 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: LRO restructuring?
-Date: Tue, 12 Aug 2008 07:50:58 -0400
-Message-ID: <48A17922.4050103@myri.com>
-References: <48A03EF9.9090602@myri.com> <20080811.140351.54834488.davem@davemloft.net>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: Need help with MCS7830 driver and 802.1q VLAN Tagging
+Date: Tue, 12 Aug 2008 14:01:40 +0200
+Message-ID: <20080812120140.GC22681@torres.zugschlus.de>
+References: <20080807153617.GA4001@torres.zugschlus.de> <20080807170635.GC10471@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org, brice@myri.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1922 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752172AbYHLLvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2008 07:51:35 -0400
-In-Reply-To: <20080811.140351.54834488.davem@davemloft.net>
+Received: from torres.zugschlus.de ([85.214.68.41]:39149 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439AbYHLMBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 08:01:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20080807170635.GC10471@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Mon, 11 Aug 2008 09:30:33 -0400
-> 
->> Last, have you considered simply allowing "inexact" forwarding, where
->> the ingress NIC is doing LRO and the egress nic is doing TSO?  You
->> loose exact framing information (eg, what you emit might not be framed
->> exactly as you receive it), but you can still do filtering, and the
->> host overhead is very low.
-> 
-> Intermediate nodes are not supposed to change the transport layer
-> checksum if at all possible, especially on routers.
+Hi Ben,
 
-Indeed.  Nor should they change lengths, or anything else.
-Everything about this "inexact" forwarding is illegal as
-hell.  However, you have to admit that it is an interesting hack :)
+On Thu, Aug 07, 2008 at 06:06:36PM +0100, Ben Hutchings wrote:
+> This could be a general problem with USB Ethernet drivers, as usbnet.c
+> doesn't seem to take account of VLAN header overhead.
+> 
+> Does the following help?
 
-Drew
+thanks for your quick answer. It'll be until next week when I'll be
+near a VLAN-able setup and the MCS device again, but I'll report back.
+
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
