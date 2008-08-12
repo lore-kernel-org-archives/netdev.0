@@ -1,80 +1,280 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Tue, 12 Aug 2008 12:40:34 +0000
-Message-ID: <20080812124034.GA7666@ff.dom.local>
-References: <200807222142.23710.denys@visp.net.lb> <200808021555.10733.denys@visp.net.lb> <20080802130740.GA2970@ami.dom.local> <200808121431.40852.denys@visp.net.lb>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: Re: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr
+ schedulers
+Date: Tue, 12 Aug 2008 15:07:48 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0808121007130.12259@titan.stealer.net>
+References: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net> <20080812021053.GD22142@verge.net.au> <alpine.LNX.1.10.0808120606200.12259@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:58275 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbYHLMkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 08:40:42 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1336121fgg.17
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 05:40:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808121431.40852.denys@visp.net.lb>
+Received: from smtp1.stealer.net ([88.198.224.204]:52372 "EHLO
+	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754107AbYHLNIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 09:08:02 -0400
+In-Reply-To: <alpine.LNX.1.10.0808120606200.12259@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 02:31:40PM +0300, Denys Fedoryshchenko wrote:
-...
-> With second patch it works fine, 9 days uptime now
+On Tue, 12 Aug 2008, Sven Wegener wrote:
 
-Great! I didn't expect it would be so easy with this strange problem.
-So, it looks like hrtimers could break probably after some
-overscheduling. The only problem with this is to find some reasonable
-limit which is both safe and doesn't harm resolution too much for
-others.
+> On Tue, 12 Aug 2008, Simon Horman wrote:
+> 
+> > On Tue, Aug 12, 2008 at 12:57:21AM +0200, Sven Wegener wrote:
+> > > Both schedulers have a race condition that happens in the following 
+> > > situation:
+> > > 
+> > > We have an entry in our table that already has expired according to it's 
+> > > last use time. Then we need to schedule a new connection that uses this 
+> > > entry.
+> > > 
+> > > CPU 1                           CPU 2
+> > > 
+> > > ip_vs_lblc_schedule()
+> > >   ip_vs_lblc_get()
+> > >     lock table for read
+> > >     find entry
+> > >     unlock table
+> > >                                 ip_vs_lblc_check_expire()
+> > >                                   lock table for write
+> > >                                   kfree() expired entry
+> > >                                   unlock table
+> > >     return invalid entry
+> > > 
+> > > Problem is that we assign the last use time outside of our critical 
+> > > region. We can make hitting this race more difficult, if not impossible, 
+> > > if we assign the last use time while still holding the lock for reading. 
+> > > That gives us six minutes during which it's save to use the entry, which 
+> > > should be enough for our use case, as we're going to use it immediately 
+> > > and don't keep a long reference to it.
+> > > 
+> > > We're holding the lock for reading and not for writing. The last use time 
+> > > is an unsigned long, so the assignment should be atomic by itself. And we 
+> > > don't care, if some other user sets it to a slightly different value. The 
+> > > read_unlock() implies a barrier so that other CPUs see the new last use 
+> > > time during cleanup, even if we're just using a read lock.
+> > > 
+> > > Other solutions would be: 1) protect the whole ip_vs_lblc_schedule() with 
+> > > write_lock()ing the lock, 2) add reference counting for the entries, 3) 
+> > > protect each entry with it's own lock. And all are bad for performance.
+> > > 
+> > > Comments? Ideas?
+> > 
+> > Is there a pathological case here if sysctl_ip_vs_lblc_expiration is
+> > set to be very short and we happen to hit ip_vs_lblc_full_check()?
+> 
+> Yes.
+> 
+> > To be honest I think that I like the reference count approach best,
+> > as it seems safe and simple. Is it really going to be horrible
+> > for performance?
+> 
+> Probably not, I guess the sentence was a bit pessimistic.
+> 
+> > If so, I wonder if a workable solution would be to provide a more fine-grained
+> > lock on tbl. Something like the way that ct_read_lock/unlock() works.
+> 
+> Also possible. But I guess I was thinking too complicated last night. What 
+> I was after with the "protect the whole ip_vs_lblc_schedule() with 
+> write_lock()ing the lock" was also to simply prevent someone adding 
+> duplicate entries. If we just extend the read_lock() region to cover the 
+> whole usage of the entry and do an additional duplicate check during 
+> inserting the entry under write_lock(), we fix the issue and also fix the 
+> race that someone may add duplicate entries. We have a bit overhead, 
+> because we unlock/lock and also there is a chance of doing one or more 
+> useless __ip_vs_wlc_schedule(), but in the end this should work. More 
+> fine-grained locking could help to lower the impact.
 
-IMHO this second patch with 1 jiffie watchdog resolution looks
-reasonable and should be acceptable, but it would be nice to check if
-we can go lower. Here is "the same" patch with only change in
-resolution (1/10 of jiffie). If there are any problems with testing
-this please let me know. (It should be applied after reverting
-patch #2.)
+I wondered if this whole thing can ever be totally race condition free, 
+without changing how destinations are purged from the trash. Initial 
+version of the patch below. Basically it pushes the locking up into 
+ip_vs_lblc_schedule() and rearranges the code to be safe that we have a 
+valid destination.
 
-Thanks,
-Jarek P.
-
-(testing patch #3)
----
-
- net/sched/sch_htb.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 30c999c..ff9e965 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -162,6 +162,7 @@ struct htb_sched {
+diff --git a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
+index 7a6a319..67f7b04 100644
+--- a/net/ipv4/ipvs/ip_vs_lblc.c
++++ b/net/ipv4/ipvs/ip_vs_lblc.c
+@@ -123,31 +123,6 @@ static ctl_table vs_vars_table[] = {
  
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
-+	psched_time_t next_watchdog;
- 	struct qdisc_watchdog watchdog;
+ static struct ctl_table_header * sysctl_header;
  
- 	/* non shaped skbs; let them go directly thru */
-@@ -920,7 +921,11 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
- 		}
- 	}
- 	sch->qstats.overlimits++;
--	qdisc_watchdog_schedule(&q->watchdog, next_event);
-+	if (q->next_watchdog < q->now || next_event <=
-+	     q->next_watchdog - PSCHED_TICKS_PER_SEC / (10 * HZ)) {
-+		qdisc_watchdog_schedule(&q->watchdog, next_event);
-+		q->next_watchdog = next_event;
-+	}
- fin:
- 	return skb;
+-/*
+- *      new/free a ip_vs_lblc_entry, which is a mapping of a destionation
+- *      IP address to a server.
+- */
+-static inline struct ip_vs_lblc_entry *
+-ip_vs_lblc_new(__be32 daddr, struct ip_vs_dest *dest)
+-{
+-	struct ip_vs_lblc_entry *en;
+-
+-	en = kmalloc(sizeof(struct ip_vs_lblc_entry), GFP_ATOMIC);
+-	if (en == NULL) {
+-		IP_VS_ERR("ip_vs_lblc_new(): no memory\n");
+-		return NULL;
+-	}
+-
+-	INIT_LIST_HEAD(&en->list);
+-	en->addr = daddr;
+-
+-	atomic_inc(&dest->refcnt);
+-	en->dest = dest;
+-
+-	return en;
+-}
+-
+-
+ static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
+ {
+ 	list_del(&en->list);
+@@ -189,10 +164,8 @@ ip_vs_lblc_hash(struct ip_vs_lblc_table *tbl, struct ip_vs_lblc_entry *en)
+ 	 */
+ 	hash = ip_vs_lblc_hashkey(en->addr);
+ 
+-	write_lock(&tbl->lock);
+ 	list_add(&en->list, &tbl->bucket[hash]);
+ 	atomic_inc(&tbl->entries);
+-	write_unlock(&tbl->lock);
+ 
+ 	return 1;
  }
-@@ -973,6 +978,7 @@ static void htb_reset(struct Qdisc *sch)
+@@ -209,23 +182,54 @@ ip_vs_lblc_get(struct ip_vs_lblc_table *tbl, __be32 addr)
+ 
+ 	hash = ip_vs_lblc_hashkey(addr);
+ 
+-	read_lock(&tbl->lock);
+-
+ 	list_for_each_entry(en, &tbl->bucket[hash], list) {
+ 		if (en->addr == addr) {
+ 			/* HIT */
+-			read_unlock(&tbl->lock);
+ 			return en;
  		}
  	}
- 	qdisc_watchdog_cancel(&q->watchdog);
-+	q->next_watchdog = 0;
- 	__skb_queue_purge(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	memset(q->row, 0, sizeof(q->row));
+ 
+-	read_unlock(&tbl->lock);
+-
+ 	return NULL;
+ }
+ 
+ 
+ /*
++ *      new/free a ip_vs_lblc_entry, which is a mapping of a destionation
++ *      IP address to a server.
++ */
++static inline struct ip_vs_lblc_entry *
++ip_vs_lblc_new(struct ip_vs_lblc_table *tbl, __be32 daddr,
++	       struct ip_vs_dest *dest)
++{
++	struct ip_vs_lblc_entry *en;
++
++	en = ip_vs_lblc_get(tbl, daddr);
++	if (!en) {
++		en = kmalloc(sizeof(*en), GFP_ATOMIC);
++		if (!en) {
++			IP_VS_ERR("ip_vs_lblc_new(): no memory\n");
++			return NULL;
++		}
++
++		INIT_LIST_HEAD(&en->list);
++		en->addr = daddr;
++		en->lastuse = jiffies;
++
++		atomic_inc(&dest->refcnt);
++		en->dest = dest;
++
++		ip_vs_lblc_hash(tbl, en);
++	} else if (en->dest != dest) {
++		atomic_dec(&en->dest->refcnt);
++		atomic_inc(&dest->refcnt);
++		en->dest = dest;
++	}
++
++	return en;
++}
++
++
++/*
+  *      Flush all the entries of the specified table.
+  */
+ static void ip_vs_lblc_flush(struct ip_vs_lblc_table *tbl)
+@@ -484,7 +488,7 @@ is_overloaded(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+ static struct ip_vs_dest *
+ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ {
+-	struct ip_vs_dest *dest;
++	struct ip_vs_dest *dest = NULL;
+ 	struct ip_vs_lblc_table *tbl;
+ 	struct ip_vs_lblc_entry *en;
+ 	struct iphdr *iph = ip_hdr(skb);
+@@ -492,38 +496,43 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	IP_VS_DBG(6, "ip_vs_lblc_schedule(): Scheduling...\n");
+ 
+ 	tbl = (struct ip_vs_lblc_table *)svc->sched_data;
++	/* First look in our cache */
++	read_lock(&tbl->lock);
+ 	en = ip_vs_lblc_get(tbl, iph->daddr);
+-	if (en == NULL) {
+-		dest = __ip_vs_wlc_schedule(svc, iph);
+-		if (dest == NULL) {
+-			IP_VS_DBG(1, "no destination available\n");
+-			return NULL;
+-		}
+-		en = ip_vs_lblc_new(iph->daddr, dest);
+-		if (en == NULL) {
+-			return NULL;
+-		}
+-		ip_vs_lblc_hash(tbl, en);
+-	} else {
++	if (en) {
+ 		dest = en->dest;
+-		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE)
+-		    || atomic_read(&dest->weight) <= 0
+-		    || is_overloaded(dest, svc)) {
+-			dest = __ip_vs_wlc_schedule(svc, iph);
+-			if (dest == NULL) {
+-				IP_VS_DBG(1, "no destination available\n");
+-				return NULL;
+-			}
+-			atomic_dec(&en->dest->refcnt);
+-			atomic_inc(&dest->refcnt);
+-			en->dest = dest;
+-		}
++		en->lastuse = jiffies;
++
++		/*
++		 * If the destination is not available, i.e. it's in the trash,
++		 * ignore it, as it may be removed from under our feet
++		 */
++
++		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE))
++			dest = NULL;
+ 	}
+-	en->lastuse = jiffies;
++	read_unlock(&tbl->lock);
++
++	/* If the destination has a weight and is not overloaded, use it */
++	if (dest && atomic_read(&dest->weight) > 0 && !is_overloaded(dest, svc))
++		goto out;
++
++	/* No cache entry or it is invalid, time to schedule */
++	dest = __ip_vs_wlc_schedule(svc, iph);
++	if (!dest) {
++		IP_VS_DBG(1, "no destination available\n");
++		return NULL;
++	}
++
++	/* If we fail to create a cache entry, we'll just use the valid dest */
++	write_lock(&tbl->lock);
++	ip_vs_lblc_new(tbl, iph->daddr, dest);
++	write_unlock(&tbl->lock);
+ 
++out:
+ 	IP_VS_DBG(6, "LBLC: destination IP address %u.%u.%u.%u "
+ 		  "--> server %u.%u.%u.%u:%d\n",
+-		  NIPQUAD(en->addr),
++		  NIPQUAD(iph->daddr),
+ 		  NIPQUAD(dest->addr),
+ 		  ntohs(dest->port));
+ 
