@@ -1,56 +1,90 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: csum offload and af_packet
-Date: Tue, 12 Aug 2008 12:27:43 +1000
-Message-ID: <200808121227.43732.rusty@rustcorp.com.au>
-References: <E1KSU3v-00037r-00@gondolin.me.apana.org.au> <200808112350.25514.rusty@rustcorp.com.au> <20080812003244.GA18230@gondor.apana.org.au>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: Fix suspend/hibernation/shutdown regression with
+ WOL enabled (rev. 2)
+Date: Mon, 11 Aug 2008 19:57:33 -0700
+Message-ID: <20080811195733.35e9de14@extreme>
+References: <200808092332.29596.rjw@sisk.pl>
+	<20080809235711.12c2f331@extreme>
+	<200808101414.35626.rjw@sisk.pl>
+	<200808101930.29574.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: anthony@codemonkey.ws, netdev@vger.kernel.org, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48258 "EHLO ozlabs.org"
+Received: from mail.vyatta.com ([216.93.170.194]:41771 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751466AbYHLC17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2008 22:27:59 -0400
-In-Reply-To: <20080812003244.GA18230@gondor.apana.org.au>
-Content-Disposition: inline
+	id S1750911AbYHLC5f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2008 22:57:35 -0400
+In-Reply-To: <200808101930.29574.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 12 August 2008 10:32:44 Herbert Xu wrote:
-> On Mon, Aug 11, 2008 at 11:50:25PM +1000, Rusty Russell wrote:
-> > I think this is deeper than that.  This case is actually unusual, in that
-> > the packet really does arrive with a partial csum.  But usually, we're
-> > exposing an internal detail of our stack at this point.  Seems like we
-> > shouldn't if we know the user can't deal with it.  dhcpd just makes this
-> > case less academic.
->
-> I disagree.  If you're using AF_PACKET you're asking to see the
-> bare details.  If you want to see the censored version you can
-> always go through the IP stack.
+On Sun, 10 Aug 2008 19:30:28 +0200
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-Then should we insist the user set PACKET_AUXDATA?  Even then, the format of 
-that cmsg will have to be enhanced as we change kernel internals.  Which is 
-probably why you *don't* get to see the bare details: you get a flag 
-saying "oh, I know the checksum is bad".  Without the csum_start/csum_offset 
-fields you can't even calculate what it will be.
+> On Sunday, 10 of August 2008, Rafael J. Wysocki wrote:
+> > On Sunday, 10 of August 2008, Stephen Hemminger wrote:
+> > > On Sat, 9 Aug 2008 23:32:28 +0200
+> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > > 
+> [--snip--]
+> > > 
+> > > The problem is not unique to your chip version,
+> > 
+> > Well, that's the part I wasn't sure of.
+> > 
+> > > so patching out the power down is not the correct solution.
+> > 
+> > Sure.
+> 
+> But, shouldn't we switch to page 2 before selecting PHY_MARV_PHY_CTRL?  Things
+> work correctly if this is done (patch below).
+> 
+> Thanks,
+> Rafael
+> 
+> 
+> ---
+> On my test box with the Asus M3A32-MVP main board there is a
+> regression from 2.6.26 related to suspend, hibernation and
+> shutdown.  Namely, if Wake-on-LAN is enabled with
+> 'ethtool -s eth0 wol g', the box hangs solid during all of these
+> operations, while executing either sky2_suspend(), or
+> sky2_shutdown().  This patch fixes it for me.
+> 
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> ---
+>  drivers/net/sky2.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> Index: linux-2.6/drivers/net/sky2.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/sky2.c
+> +++ linux-2.6/drivers/net/sky2.c
+> @@ -666,11 +666,16 @@ static void sky2_phy_power_down(struct s
+>  
+>  	if (hw->chip_id != CHIP_ID_YUKON_EC) {
+>  		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
+> -			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
+> +			/* select page 2 to access MAC control register */
+> +			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
+>  
+> +			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
+>  			/* enable Power Down */
+>  			ctrl |= PHY_M_PC_POW_D_ENA;
+>  			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
+> +
+> +			/* set page register back to 0 */
+> +			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
+>  		}
+>  
+>  		/* set IEEE compatible Power Down Mode (dev. #4.99) */
 
-The dhcp client thing is a symptom which can be fixed, but are we doing the 
-right thing?  (Tho for lguest this is a new problem with the current kernel, 
-so fixing it now means it really wouldn't be a problem).
+Yes, that's better.
 
-> > We can trivially disable it in the guest or host; that's not the problem.
-> >  We can even disable csum offload just for UDP in the host.  But should
-> > we really?
->
-> It's not about disabling it, it's about enabling it dynamically
-> once guest user-space is sure that *it* can handle this.
-
-Oh, I see.  I'd have to think harder; I'm not sure if we have all the pieces 
-at the moment for virtio or would need a boutique mechanism for this (usually 
-the host doesn't change the features it offers, even if device resets).  May 
-be easier to suppress csum offload for dhcp packets in the host...
-
-Rusty.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
