@@ -1,45 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel oops with 2.6.26, padlock and ipsec: probably problem with fpu state changes
-Date: Tue, 12 Aug 2008 08:52:15 +0800
-Message-ID: <20080812005215.GB18547@gondor.apana.org.au>
-References: <20080809193724.GJ13158@linux-os.sc.intel.com> <20080810030521.GA2332@gondor.apana.org.au> <20080811190131.GL13158@linux-os.sc.intel.com> <20080811192203.GC12788@elte.hu> <48A0920B.30306@zytor.com> <20080811201901.GN13158@linux-os.sc.intel.com> <20080812003938.GC18230@gondor.apana.org.au> <48A0DC6D.8040409@zytor.com> <20080812004641.GB18444@gondor.apana.org.au> <48A0DDEC.704@zytor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: LRO restructuring?
+Date: Mon, 11 Aug 2008 17:54:34 -0700 (PDT)
+Message-ID: <20080811.175434.215224347.davem@davemloft.net>
+References: <48A03EF9.9090602@myri.com>
+	<20080812005033.GA18547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Wolfgang Walter <wolfgang.walter@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@ZenIV.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gallatin@myri.com, netdev@vger.kernel.org, brice@myri.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37527 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751283AbYHLAwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:52:36 -0400
-Content-Disposition: inline
-In-Reply-To: <48A0DDEC.704@zytor.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44062
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751667AbYHLAyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 20:54:33 -0400
+In-Reply-To: <20080812005033.GA18547@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 05:48:44PM -0700, H. Peter Anvin wrote:
->
-> >Sorry, the kernel TS state is what I meant.  I'm definitely not
-> >advocating the saving of the kernel FPU state.  This is only for
-> >things like the VIA (which also exists for other processors, see
-> >the xor SSE stuff in include/asm-x86).
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 12 Aug 2008 08:50:33 +0800
+
+> On Mon, Aug 11, 2008 at 09:30:33AM -0400, Andrew Gallatin wrote:
+> >
+> > For lro_receive_frags() based LRO, it would be ideal to locate the
+> > header in place in the frag via the mac_hdr argument to the
+> > get_frag_header() callback.  Eg, I'm hoping that neither the driver
+> > nor the LRO module will need to allocate extra memory per frame and
+> > copy the headers to it in the common case when forwarding is
+> > not enabled.  That would add quite a bit of overhead.
 > 
-> No, there you are actually using the FPU state (which includes the SSE 
-> state.)
+> You don't have to save the whole thing, just save enough so we
+> can easily/exactly reconstruct it on output, i.e., save the lengths.
 
-Right, well at least VIA could still use this and it wouldn't
-hurt others that much.
+And the checksums :-)  As an intermediate node we don't want
+to touch the checksum.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The length and the checksum is two u16 values, which would be
+able to fit in a single 32-bit descriptor or something like
+that.
