@@ -1,42 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: LRO restructuring?
-Date: Tue, 12 Aug 2008 09:53:21 +0800
-Message-ID: <20080812015321.GA19011@gondor.apana.org.au>
-References: <20080811.175434.215224347.davem@davemloft.net> <20080812010004.GD18547@gondor.apana.org.au> <48A0E7A3.6030200@hp.com> <20080811.183913.09225669.davem@davemloft.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [Bugme-new] [Bug 11297] New: OOPS in rt6_fill_node
+Date: Mon, 11 Aug 2008 22:06:37 -0400
+Message-ID: <48A0F02D.7030800@hp.com>
+References: <48A0DC27.7030208@hp.com>	<28fa9c5e0808111810l63220abbgf9e747bad3a7fe44@mail.gmail.com>	<28fa9c5e0808111828w2a9f1133y75c785f70b683ff2@mail.gmail.com> <20080811.184026.02436525.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, gallatin@myri.com, netdev@vger.kernel.org,
-	brice@myri.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eugeneteo@kernel.sg, parag.warudkar@gmail.com,
+	akpm@linux-foundation.org, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34162 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750852AbYHLBx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 21:53:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20080811.183913.09225669.davem@davemloft.net>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:40723 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbYHLCGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2008 22:06:41 -0400
+In-Reply-To: <20080811.184026.02436525.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 06:39:13PM -0700, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Mon, 11 Aug 2008 18:30:11 -0700
+David Miller wrote:
+> Hmmm... from what I understand so far based upon Parag's most
+> recent reply, Brian's patch should be OK.
 > 
-> > Even if it was verified I think you want to keep the checksums from the 
-> > header.   Since an intermediate device isn't supposed to be peeking at 
-> > the TCP part anyway, it wouldn't do to drop the segment ourselves, pass 
-> > it along to be dropped by the ultimate reciever.  And if there is 
-> > something amis in the verification or the regeneration, we don't want to 
-> >   introduce silent data corruption.
+> Does everyone else agree?
 
-Well I wasn't suggesting that it be dropped, but simply skip LRO
-if the inbound packet fails the checksum check.
+Just an fyi I think part of the confusion was the output I posted:
 
-But yeah, it's only two bytes so we might as well always have it.
+# ip -f inet6 route get fec0::1
+unreachable fec0::1 dev lo  table unspec  proto none  src
+2001:1890:1109:a10:218:feff:fe7f:49c8  metric -1  error -101 hoplimit 255
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On my system I have a global address on eth0, so that's printed in my 
+output.  Others don't have a global, so see ::1, which is expected.  I 
+see the same behavior on my Debian Lenny 2.6.18 box as 2.6.27, so my 
+patch doesn't seem to have changed anything.
+
+-Brian
