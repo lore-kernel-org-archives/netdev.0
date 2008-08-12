@@ -1,51 +1,57 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: [PATCH] Don't take the mdio_lock in atl1e_probe
-Date: Tue, 12 Aug 2008 07:13:14 -0600
-Message-ID: <20080812131314.GZ8618@parisc-linux.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: ath9k build failure
+Date: Tue, 12 Aug 2008 09:21:48 -0400
+Message-ID: <20080812132148.GC27672@tuxdriver.com>
+References: <20080811162040.ed7b8ab7.sfr@canb.auug.org.au> <20080811164657.GE6128@tesla> <20080812133354.2eadf82d.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: xiong.huang@atheros.com, jie.yang@atheros.com
+Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	Sujith Manoharan <Sujith.Manoharan@Atheros.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:53424 "EHLO
-	mail.parisc-linux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbYHLNNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 09:13:15 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:2561 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752155AbYHLNcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2008 09:32:45 -0400
 Content-Disposition: inline
+In-Reply-To: <20080812133354.2eadf82d.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 12, 2008 at 01:33:54PM +1000, Stephen Rothwell wrote:
+> Hi Luis,
+> 
+> On Mon, 11 Aug 2008 09:46:57 -0700 "Luis R. Rodriguez" <lrodriguez@atheros.com> wrote:
+> >
+> > On Sun, Aug 10, 2008 at 11:20:40PM -0700, Stephen Rothwell wrote:
+> > > 
+> > > Today's linux-next build (powerpc allyesconfig) failed like this:
+> > > 
+> > > drivers/net/wireless/ath9k/hw.c: In function 'ath9k_hw_spur_mitigate':
+> > > drivers/net/wireless/ath9k/hw.c:4925: internal compiler error: in expand_expr_real_1, at expr.c:9199
+> > > 
+> > > This is a driver that is in Linus' tree and has no patches in the
+> > > linux-next tree.
+> > > 
+> > > The original work around talked about applying the patch twice, so I
+> > > applied the below patch.
+> > 
+> > this is also in wireless-testing. I also see this in linux-2.6
+> > under b08cbcd4546445740c2a04291204b56f8baf7be2. Not sure how this didn't
+> > get through linux-next.
+> 
+> That is only the first application of the patch, my patch is a fix of a
+> second instance of the same code.  See Adrian's post.
 
-Lockdep warns about the mdio_lock taken with interrupts enabled then later
-taken from interrupt context.  Initially, I considered changing these
-to spin_lock_irq/spin_unlock_irq, but then I looked at atl1e_phy_init()
-and saw that it calls msleep().  Sleeping while holding a spinlock is
-not allowed either.
+My bad...I'll fix it up w/ the next batch of fixes...
 
-In the probe path, we haven't registered the interrupt handler, so
-it can't poke at this card yet.  It's before we call register_netdev(),
-so I don't think any other threads can reach this card either.  If I'm
-right, we don't need a spinlock at all.
-
-Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
-
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 82d7be1..ba22a51 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -2389,9 +2389,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
- 	}
- 
- 	/* Init GPHY as early as possible due to power saving issue  */
--	spin_lock(&adapter->mdio_lock);
- 	atl1e_phy_init(&adapter->hw);
--	spin_unlock(&adapter->mdio_lock);
- 	/* reset the controller to
- 	 * put the device in a known good starting state */
- 	err = atl1e_reset_hw(&adapter->hw);
-
+John
 -- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+John W. Linville
+linville@tuxdriver.com
