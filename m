@@ -1,106 +1,139 @@
-From: "Vegard Nossum" <vegard.nossum@gmail.com>
-Subject: Re: latest -git: kernel hangs when pulling the plug on 8139too
-Date: Tue, 12 Aug 2008 19:20:24 +0200
-Message-ID: <19f34abd0808121020l4a0552a0v3d48b181d980d600@mail.gmail.com>
-References: <19f34abd0808110949n5d7d363es66325b87a8fb0fd1@mail.gmail.com>
-	 <20080811192739.GB5791@martell.zuzino.mipt.ru>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- RCU problem
+Date: Tue, 12 Aug 2008 10:29:13 -0700 (PDT)
+Message-ID: <151835.36545.qm@web82108.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Alexey Dobriyan" <adobriyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ray Lee <ray-lk@madrabbit.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:27908 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772AbYHLRUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 13:20:25 -0400
-Received: by py-out-1112.google.com with SMTP id p76so1563459pyb.10
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 10:20:24 -0700 (PDT)
-In-Reply-To: <20080811192739.GB5791@martell.zuzino.mipt.ru>
-Content-Disposition: inline
+Received: from web82108.mail.mud.yahoo.com ([209.191.84.221]:41748 "HELO
+	web82108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750779AbYHLR3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 13:29:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2008 at 9:27 PM, Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> On Mon, Aug 11, 2008 at 06:49:13PM +0200, Vegard Nossum wrote:
->> I am experiencing a system hang as soon as pull the cable out of eth0.
->> Kernel version is unmodified latest -git
->> (v2.6.27-rc2/796aadeb1b2db9b5d463946766c5bbfd7717158c) and my network
->> driver is 8139too (for both eth0 and eth1).
->>
->> I am running netconsole on eth0 (the interface which I disconnect).
->>
->> A bit of serial console (ttyS0) output:
->>
->> Linux version 2.6.27-rc2-00325-g796aade (vegardno@ben.ifi.uio.no) (gcc
->> version 4.1.2 20071124 (Red Hat 4.1.2-42)) #2 SMP PREEMPT Mon Aug 11
->> 18:29:29 CEST 2008
->> ...
->> Kernel command line: ro root=/dev/VolGroup00/LogVol00 rhgb
->> console=tty0 console=ttyS0,115200 ignore_loglevel debug initcall_debug
->> nmi_watchdog=1 panic=30 sysrq_always_enabled
->> netconsole=@192.168.0.172/,@192.168.0.11/ 3
->> ...
->> calling  rtl8139_init_module+0x0/0x20
->> 8139too Fast Ethernet driver 0.9.28
->> 8139too 0000:02:01.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
->> eth0: RealTek RTL8139 at 0xf881ac00, 00:10:a7:09:48:52, IRQ 18
->> eth0:  Identified 8139 chip type 'RTL-8139C'
->> 8139too 0000:02:05.0: PCI INT A -> GSI 21 (level, low) -> IRQ 21
->> eth1: RealTek RTL8139 at 0xf881c000, 00:16:ec:ee:ad:b9, IRQ 21
->> eth1:  Identified 8139 chip type 'RTL-8100B/8139D'
->> initcall rtl8139_init_module+0x0/0x20 returned 0 after 37 msecs
->> ...
->> eth0: link down
->> [hangs here; num lock + scroll lock flashing]
->> [reboots automatically, probably due to NMI watchdog?]
->>
->> There is no detailed crash output on either tty0 or ttyS0. Keyboard
->> sysrq does not work.
->>
->> Is it expected that pulling the plug on an interface running
->> netconsole should hang the machine?
->
-> Of course, no!
-
-I meant: "Is this a known problem?" I guess it came out wrong. :-)
-
->
->> Is there anything I can do to help narrow down the problem?
->
-> I have two realteks and one of them showed very similar symptoms:
-> cable unplug and immediate panic without anything. If this is a same
-> bug, it's pretty old.
-
-Now I've tried to use kdump to catch the panic, but it doesn't help :-(
-
-At boot, I have this:
-
-    Reserving 64MB of memory at 16MB for crashkernel (System RAM: 1023MB)
-
-Loading the dump-capture kernel succeeds:
-
-    # build/sbin/kexec -p --initrd=/boot/initrd-2.6.23.8-34.fc7.img
---append="ro root=/dev/VolGroup00/LogVol00 rhgb console=tty0
-console=ttyS0,115200 nmi_watchdog=1 panic=30 sysrq_always_enabled
-maxcpus=1 irqpoll reset_devices 3" /boot/testing/bzImage
-
-...but after pulling the cable and seeing the keyboard blink for five
-seconds, the CPU resets without running the new kernel (i.e. it
-reboots and I see the BIOS messages, etc.).
-
-Maybe I did something wrong? (Though I don't think so.)
-
-I will try to replace some printk()s to early_printk() (allows me to
-maybe capture some messages on ttyS0 without trying to send anything
-over netconsole).
 
 
-Vegard
+> > BRAIN DAMAGE CONTROL:  the problem is only on my hardware, so no one
+> > on LKML can play with this hardware directly.  That makes _me_ the weak
+> > link.
+> 
+> Heh. Can I offer a suggestion here? You're trying to do two things at
+> once -- finding where the problem is, and also trying to understand
+> the problem at the same time. Speaking just for myself, I try to
+> either do one of those or the other, but not both at the same time
+> :-). Since you bisected it (seems like a good log when I view the
+> commit history, but I'm no git expert), let's just work with that.
 
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+I having nothing but gratitude for anyone who has any suggestions
+whatsoever!
+
+I do _want_ to do both of those things... but you are right that no
+one should try to do them both at the same time.  BTW, the bisect data
+was from my first post (trying to _find_ the problem) about 8 days ago.
+Since that time, I have been _assuming_ I located the cause problem,
+and had not thought about it again... until today.
+
+Unfortunately, this kernel stuff can get very deep.  Just finding the
+commit, where "before" works and "after" does not, doesn't necessarily
+seem to mean that the commit is the problem.  It could also mean that
+the problem was already present, and the commit exposed it.  So for me,
+or anyone, to be going over that commit with a fine-toothed comb could
+either be exactly what's needed or a complete waste of time!
+
+
+> > 1.  Can someone comment on whether I correctly identified the commit #
+> > causing the issue for me.  Here is the 'git bisect' data from my first
+> > post:
+> >
+> > 2.6.25, good
+> > 2.6.26-rc4, bad
+> > 10c993a6b5418cb1026775765ba4c70ffb70853d, bad
+[...]
+> > 3def3d6ddf43dbe20c00c3cbc38dfacc8586998f, bad
+> > 700efc1b9f6afe34caae231b87d129ad8ffb559f, good
+> >
+> > I concluded that 3def3d... was causing the problem for me, but I didn't
+> > actually pipe or redirect the output message from 'git bisect' when it
+> > stated that.  Does that conclusion look OK?
+> 
+> Git should have printed out "is first bad commit" Did you see
+> that? If not, you stopped the process too soon. Viewing the history
+> with gitk, though, it seems you fingered the right commit. Which leads
+> to the next step...
+
+It _did_ print that message.  My meaning here was that I did not have
+the presence of mind to record that output in any way.  I have a memory
+that the output indicated "3d...", but that could be a false memory.
+(Thus the reference to brain damage.)
+
+What I _was_ careful to record was the list posted above.  I used a
+text editor to take notes after each stage of the bisecting process,
+but I failed to actually take that last note on the finally output.  That
+list documents all of iterations in the process, and I concluded that it
+was identifying commit #3def..., and I just wanted to make sure everyone
+agreed with that.
+
+
+> > 2.  I have not tried different versions of gcc.
+> 
+> Which is not this :-).
+
+  Just making sure... but thanks!
+
+
+> > 3.  I keep wanting to play with source code,
+> 
+> Or this :-).
+
+I thought so....
+
+Since this _feels_ like my problem alone, then it _feels_ like I
+should have to be the one to fix it.  I hate having to throw my arms
+up and admit I am unable to do something about it....
+
+
+> Can you try reverting that commit against the top of the latest tree,
+> and see if the revert applies correctly? If it does, compile and boot
+> and see if it works.
+
+OK, I can give it a try.  I probably would have tried it already but I 
+noticed that the file(s) touched by the commit had been merged with one
+or more other files in the meantime, so I decided to leave it alone.  But
+now that I think about it, what is the worst that can happen?  The kernel
+will fail to build?  It will build, but it won't run?  That's happening
+already, so I have nothing to lose.
+
+Thanks!
+
+
+> If it does, it'll be Yinghai's job to figure out
+> what went wrong, not yours (unless you're a real gluton for
+> punishment, and happen to know what was going on in Yinghai's head
+> when he decided that it was safe to make those changes).
+
+Well, it's his job only if his commit broke something.
+
+Is 2.6.2[67] broken on your machine?  Or on anyone's machine on LKML?
+These kernels even work on one of my machines!  So it's not clear that
+Yinghai's commit is to blame:  maybe it is, maybe it isn't.  All that
+we know is that commit triggered the problem, and we don't even know
+whether the problem will affect a lot of hardware or just mine!
+
+Anyway, I think you were really just trying to be nice, and I thank you
+for it.  I do feel marginally better.  ;)
+
+I'll really feel better if the reverting experiment works.
+
+
+Thanks,
+Dave W.
