@@ -1,594 +1,1288 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 03/25] bnx2x: Statistics
-Date: Wed, 13 Aug 2008 17:12:31 +0300
-Message-ID: <1218636751.547.77.camel@lb-tlvb-eliezer>
+Subject: [PATCH 04/25] bnx2x: FW Internal Memory structure
+Date: Wed, 13 Aug 2008 17:12:43 +0300
+Message-ID: <1218636763.547.79.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Yitchak Gertner" <gertner@broadcom.com>
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4188 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752790AbYHMOM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 10:12:56 -0400
+	id S1754365AbYHMONQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 10:13:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Statistics
-- Making sure that each drop is accounted for in the driver statistics
-- Clearing the FW statistics when driver is loaded to prevent
-  inconsistency with HW statistics
-- Once error is detected (bnx2x_panic_dump), stop the statistics  
-  before other actions (currently it is stopped last and can corrupt 
-  the data) - Adding HW checksum error counter to the statistics
-- Removing unused variable stats_ticks
-- Using macros instead of magic numbers to indicate which statistics are
-  shared per port and which are per function
+FW Internal Memory structure
+The FW uses data structures on the chip internal memory to aggregate the
+connections when TPA is enabled. The driver was clearing the wrong offsets
+and therefore one function could cause another function to loose packets.
+Changing the initialization of the chip internal memory to clear only the
+relevant memory for each function which is being loaded
 
-Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h         |   11 ++-
- drivers/net/bnx2x_fw_defs.h |    6 +
- drivers/net/bnx2x_main.c    |  228 ++++++++++++++++++++++++++-----------------
- drivers/net/bnx2x_reg.h     |    3 +
- 4 files changed, 154 insertions(+), 94 deletions(-)
- mode change 100644 => 100755 drivers/net/bnx2x_main.c
+ drivers/net/bnx2x_init_values.h |  533 ++++++++++++++++++---------------------
+ drivers/net/bnx2x_main.c        |  100 ++++----
+ 2 files changed, 299 insertions(+), 334 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index dc54602..9cbf0e8 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -258,8 +258,7 @@ struct bnx2x_fastpath {
+diff --git a/drivers/net/bnx2x_init_values.h b/drivers/net/bnx2x_init_values.h
+index 6301905..9755bf6 100644
+--- a/drivers/net/bnx2x_init_values.h
++++ b/drivers/net/bnx2x_init_values.h
+@@ -901,31 +901,28 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3760, 0x4},
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1e20, 0x42},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3738, 0x9},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3000, 0x400},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b68, 0x2},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x3738 + 0x24, 0x10293},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c00, 0x2},
++	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x4b68 + 0x8, 0x20278},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3180, 0x42},
+-	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x2c00 + 0x8, 0x20278},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b10, 0x2},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5000, 0x400},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b68, 0x2},
++	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x2830, 0x2027a},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4000, 0x2},
+-	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x4b68 + 0x8, 0x2027a},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x4000 + 0x8, 0x20294},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b10, 0x2},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b68, 0x2},
+-	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x2830, 0x2027c},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x6b68 + 0x8, 0x20296},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b10, 0x2},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x74c0, 0x20298},
+ 	{OP_WR, USEM_REG_FAST_MEMORY + 0x10800, 0x1000000},
+-	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c00, 0x10027e},
++	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c00, 0x10027c},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x10c00, 0x10029a},
+ 	{OP_WR, USEM_REG_FAST_MEMORY + 0x10800, 0x0},
+-	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c40, 0x10028e},
++	{OP_SW_E1, USEM_REG_FAST_MEMORY + 0x10c40, 0x10028c},
+ 	{OP_SW_E1H, USEM_REG_FAST_MEMORY + 0x10c40, 0x1002aa},
+ 	{OP_ZP_E1, USEM_REG_INT_TABLE, 0xc20000},
+ 	{OP_ZP_E1H, USEM_REG_INT_TABLE, 0xc40000},
+-	{OP_WR_64_E1, USEM_REG_INT_TABLE + 0x368, 0x13029e},
++	{OP_WR_64_E1, USEM_REG_INT_TABLE + 0x368, 0x13029c},
+ 	{OP_WR_64_E1H, USEM_REG_INT_TABLE + 0x368, 0x1302ba},
+ 	{OP_ZP_E1, USEM_REG_PRAM, 0x311c0000},
+ 	{OP_ZP_E1H, USEM_REG_PRAM, 0x31070000},
+@@ -933,11 +930,11 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZP_E1H, USEM_REG_PRAM + 0x8000, 0x330e0c42},
+ 	{OP_ZP_E1, USEM_REG_PRAM + 0x10000, 0x38561919},
+ 	{OP_ZP_E1H, USEM_REG_PRAM + 0x10000, 0x389b1906},
+-	{OP_WR_64_E1, USEM_REG_PRAM + 0x17fe0, 0x500402a0},
++	{OP_WR_64_E1, USEM_REG_PRAM + 0x17fe0, 0x5004029e},
+ 	{OP_ZP_E1H, USEM_REG_PRAM + 0x18000, 0x132272d},
+ 	{OP_WR_64_E1H, USEM_REG_PRAM + 0x18250, 0x4fb602bc},
+-#define USEM_COMMON_END         790
+-#define USEM_PORT0_START        790
++#define USEM_COMMON_END         787
++#define USEM_PORT0_START        787
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1400, 0xa0},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9000, 0xa0},
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1900, 0xa},
+@@ -950,44 +947,27 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3288, 0x96},
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x5440, 0x72},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5000, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3000, 0x20},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b78, 0x52},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5100, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3100, 0x20},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e08, 0xc},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5200, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3200, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5300, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3300, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5400, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3400, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5500, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3500, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5600, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3600, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5700, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3700, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5800, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3800, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5900, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3900, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5a00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3a00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5b00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3b00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5c00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3c00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5d00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3d00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5e00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3e00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5f00, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3f00, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6b78, 0x52},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c10, 0x2},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6e08, 0xc},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4b78, 0x52},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e08, 0xc},
+-#define USEM_PORT0_END          838
+-#define USEM_PORT1_START        838
++#define USEM_PORT0_END          818
++#define USEM_PORT1_START        818
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1680, 0xa0},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x9280, 0xa0},
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x1928, 0xa},
+@@ -1000,76 +980,59 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x34e0, 0x96},
+ 	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x5608, 0x72},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5080, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3080, 0x20},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4cc0, 0x52},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5180, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3180, 0x20},
++	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e38, 0xc},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5280, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3280, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5380, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3380, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5480, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3480, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5580, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3580, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5680, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3680, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5780, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3780, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5880, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3880, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5980, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3980, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5a80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3a80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5b80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3b80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5c80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3c80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5d80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3d80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5e80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3e80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x5f80, 0x20},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x3f80, 0x20},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6cc0, 0x52},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x2c20, 0x2},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x6e38, 0xc},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4cc0, 0x52},
+-	{OP_ZR_E1, USEM_REG_FAST_MEMORY + 0x4e38, 0xc},
+-#define USEM_PORT1_END          886
+-#define USEM_FUNC0_START        886
++#define USEM_PORT1_END          849
++#define USEM_FUNC0_START        849
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3000, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4010, 0x2},
+-#define USEM_FUNC0_END          888
+-#define USEM_FUNC1_START        888
++#define USEM_FUNC0_END          851
++#define USEM_FUNC1_START        851
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3010, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4020, 0x2},
+-#define USEM_FUNC1_END          890
+-#define USEM_FUNC2_START        890
++#define USEM_FUNC1_END          853
++#define USEM_FUNC2_START        853
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3020, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4030, 0x2},
+-#define USEM_FUNC2_END          892
+-#define USEM_FUNC3_START        892
++#define USEM_FUNC2_END          855
++#define USEM_FUNC3_START        855
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3030, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4040, 0x2},
+-#define USEM_FUNC3_END          894
+-#define USEM_FUNC4_START        894
++#define USEM_FUNC3_END          857
++#define USEM_FUNC4_START        857
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3040, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4050, 0x2},
+-#define USEM_FUNC4_END          896
+-#define USEM_FUNC5_START        896
++#define USEM_FUNC4_END          859
++#define USEM_FUNC5_START        859
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3050, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4060, 0x2},
+-#define USEM_FUNC5_END          898
+-#define USEM_FUNC6_START        898
++#define USEM_FUNC5_END          861
++#define USEM_FUNC6_START        861
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3060, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4070, 0x2},
+-#define USEM_FUNC6_END          900
+-#define USEM_FUNC7_START        900
++#define USEM_FUNC6_END          863
++#define USEM_FUNC7_START        863
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x3070, 0x4},
+ 	{OP_ZR_E1H, USEM_REG_FAST_MEMORY + 0x4080, 0x2},
+-#define USEM_FUNC7_END          902
+-#define CSEM_COMMON_START       902
++#define USEM_FUNC7_END          865
++#define CSEM_COMMON_START       865
+ 	{OP_RD, CSEM_REG_MSG_NUM_FIC0, 0x0},
+ 	{OP_RD, CSEM_REG_MSG_NUM_FIC1, 0x0},
+ 	{OP_RD, CSEM_REG_MSG_NUM_FOC0, 0x0},
+@@ -1128,29 +1091,29 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x11e8, 0x0},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x25c0, 0x240},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3000, 0xc0},
+-	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x2ec8, 0x802a2},
++	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x2ec8, 0x802a0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x4070, 0x80},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x5280, 0x4},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6280, 0x240},
+ 	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x6b88, 0x2002be},
+ 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x10800, 0x13fffff},
+-	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c00, 0x1002aa},
++	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c00, 0x1002a8},
+ 	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x10c00, 0x1002de},
+ 	{OP_WR, CSEM_REG_FAST_MEMORY + 0x10800, 0x0},
+-	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c40, 0x1002ba},
++	{OP_SW_E1, CSEM_REG_FAST_MEMORY + 0x10c40, 0x1002b8},
+ 	{OP_SW_E1H, CSEM_REG_FAST_MEMORY + 0x10c40, 0x1002ee},
+ 	{OP_ZP_E1, CSEM_REG_INT_TABLE, 0x6e0000},
+ 	{OP_ZP_E1H, CSEM_REG_INT_TABLE, 0x6f0000},
+-	{OP_WR_64_E1, CSEM_REG_INT_TABLE + 0x380, 0x1002ca},
++	{OP_WR_64_E1, CSEM_REG_INT_TABLE + 0x380, 0x1002c8},
+ 	{OP_WR_64_E1H, CSEM_REG_INT_TABLE + 0x380, 0x1002fe},
+ 	{OP_ZP_E1, CSEM_REG_PRAM, 0x32580000},
+ 	{OP_ZP_E1H, CSEM_REG_PRAM, 0x31fa0000},
+ 	{OP_ZP_E1, CSEM_REG_PRAM + 0x8000, 0x18270c96},
+ 	{OP_ZP_E1H, CSEM_REG_PRAM + 0x8000, 0x19040c7f},
+-	{OP_WR_64_E1, CSEM_REG_PRAM + 0xb210, 0x682402cc},
++	{OP_WR_64_E1, CSEM_REG_PRAM + 0xb210, 0x682402ca},
+ 	{OP_WR_64_E1H, CSEM_REG_PRAM + 0xb430, 0x67e00300},
+-#define CSEM_COMMON_END         981
+-#define CSEM_PORT0_START        981
++#define CSEM_COMMON_END         944
++#define CSEM_PORT0_START        944
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1400, 0xa0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8000, 0xa0},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1900, 0x10},
+@@ -1163,8 +1126,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6040, 0x30},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x3040, 0x6},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x2410, 0x30},
+-#define CSEM_PORT0_END          993
+-#define CSEM_PORT1_START        993
++#define CSEM_PORT0_END          956
++#define CSEM_PORT1_START        956
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1680, 0xa0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x8280, 0xa0},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x1940, 0x10},
+@@ -1177,43 +1140,43 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x6100, 0x30},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x3058, 0x6},
+ 	{OP_ZR_E1, CSEM_REG_FAST_MEMORY + 0x24d0, 0x30},
+-#define CSEM_PORT1_END          1005
+-#define CSEM_FUNC0_START        1005
++#define CSEM_PORT1_END          968
++#define CSEM_FUNC0_START        968
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1148, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3300, 0x2},
+-#define CSEM_FUNC0_END          1007
+-#define CSEM_FUNC1_START        1007
++#define CSEM_FUNC0_END          970
++#define CSEM_FUNC1_START        970
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x114c, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3308, 0x2},
+-#define CSEM_FUNC1_END          1009
+-#define CSEM_FUNC2_START        1009
++#define CSEM_FUNC1_END          972
++#define CSEM_FUNC2_START        972
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1150, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3310, 0x2},
+-#define CSEM_FUNC2_END          1011
+-#define CSEM_FUNC3_START        1011
++#define CSEM_FUNC2_END          974
++#define CSEM_FUNC3_START        974
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1154, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3318, 0x2},
+-#define CSEM_FUNC3_END          1013
+-#define CSEM_FUNC4_START        1013
++#define CSEM_FUNC3_END          976
++#define CSEM_FUNC4_START        976
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1158, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3320, 0x2},
+-#define CSEM_FUNC4_END          1015
+-#define CSEM_FUNC5_START        1015
++#define CSEM_FUNC4_END          978
++#define CSEM_FUNC5_START        978
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x115c, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3328, 0x2},
+-#define CSEM_FUNC5_END          1017
+-#define CSEM_FUNC6_START        1017
++#define CSEM_FUNC5_END          980
++#define CSEM_FUNC6_START        980
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1160, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3330, 0x2},
+-#define CSEM_FUNC6_END          1019
+-#define CSEM_FUNC7_START        1019
++#define CSEM_FUNC6_END          982
++#define CSEM_FUNC7_START        982
+ 	{OP_WR_E1H, CSEM_REG_FAST_MEMORY + 0x1164, 0x0},
+ 	{OP_ZR_E1H, CSEM_REG_FAST_MEMORY + 0x3338, 0x2},
+-#define CSEM_FUNC7_END          1021
+-#define XPB_COMMON_START        1021
++#define CSEM_FUNC7_END          984
++#define XPB_COMMON_START        984
+ 	{OP_WR, GRCBASE_XPB + PB_REG_CONTROL, 0x20},
+-#define XPB_COMMON_END          1022
+-#define DQ_COMMON_START         1022
++#define XPB_COMMON_END          985
++#define DQ_COMMON_START         985
+ 	{OP_WR, DORQ_REG_MODE_ACT, 0x2},
+ 	{OP_WR, DORQ_REG_NORM_CID_OFST, 0x3},
+ 	{OP_WR, DORQ_REG_OUTST_REQ, 0x4},
+@@ -1232,8 +1195,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR, DORQ_REG_DQ_FIFO_AFULL_TH, 0x76c},
+ 	{OP_WR, DORQ_REG_REGN, 0x7c1004},
+ 	{OP_WR, DORQ_REG_IF_EN, 0xf},
+-#define DQ_COMMON_END           1040
+-#define TIMERS_COMMON_START     1040
++#define DQ_COMMON_END           1003
++#define TIMERS_COMMON_START     1003
+ 	{OP_ZR, TM_REG_CLIN_PRIOR0_CLIENT, 0x2},
+ 	{OP_WR, TM_REG_LIN_SETCLR_FIFO_ALFULL_THR, 0x1c},
+ 	{OP_WR, TM_REG_CFC_AC_CRDCNT_VAL, 0x1},
+@@ -1256,14 +1219,14 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR, TM_REG_EN_CL0_INPUT, 0x1},
+ 	{OP_WR, TM_REG_EN_CL1_INPUT, 0x1},
+ 	{OP_WR, TM_REG_EN_CL2_INPUT, 0x1},
+-#define TIMERS_COMMON_END       1062
+-#define TIMERS_PORT0_START      1062
++#define TIMERS_COMMON_END       1025
++#define TIMERS_PORT0_START      1025
+ 	{OP_ZR, TM_REG_LIN0_PHY_ADDR, 0x2},
+-#define TIMERS_PORT0_END        1063
+-#define TIMERS_PORT1_START      1063
++#define TIMERS_PORT0_END        1026
++#define TIMERS_PORT1_START      1026
+ 	{OP_ZR, TM_REG_LIN1_PHY_ADDR, 0x2},
+-#define TIMERS_PORT1_END        1064
+-#define XSDM_COMMON_START       1064
++#define TIMERS_PORT1_END        1027
++#define XSDM_COMMON_START       1027
+ 	{OP_WR_E1, XSDM_REG_CFC_RSP_START_ADDR, 0x614},
+ 	{OP_WR_E1H, XSDM_REG_CFC_RSP_START_ADDR, 0x424},
+ 	{OP_WR_E1, XSDM_REG_CMP_COUNTER_START_ADDR, 0x600},
+@@ -1311,8 +1274,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_ASIC, XSDM_REG_TIMER_TICK, 0x3e8},
+ 	{OP_WR_EMUL, XSDM_REG_TIMER_TICK, 0x1},
+ 	{OP_WR_FPGA, XSDM_REG_TIMER_TICK, 0xa},
+-#define XSDM_COMMON_END         1111
+-#define QM_COMMON_START         1111
++#define XSDM_COMMON_END         1074
++#define QM_COMMON_START         1074
+ 	{OP_WR, QM_REG_ACTCTRINITVAL_0, 0x6},
+ 	{OP_WR, QM_REG_ACTCTRINITVAL_1, 0x5},
+ 	{OP_WR, QM_REG_ACTCTRINITVAL_2, 0xa},
+@@ -1613,8 +1576,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_6, 0x5},
+ 	{OP_WR_E1H, QM_REG_PQ2PCIFUNC_7, 0x7},
+ 	{OP_WR, QM_REG_CMINTEN, 0xff},
+-#define QM_COMMON_END           1411
+-#define PBF_COMMON_START        1411
++#define QM_COMMON_END           1374
++#define PBF_COMMON_START        1374
+ 	{OP_WR, PBF_REG_INIT, 0x1},
+ 	{OP_WR, PBF_REG_INIT_P4, 0x1},
+ 	{OP_WR, PBF_REG_MAC_LB_ENABLE, 0x1},
+@@ -1622,20 +1585,20 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR, PBF_REG_INIT_P4, 0x0},
+ 	{OP_WR, PBF_REG_INIT, 0x0},
+ 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P4, 0x0},
+-#define PBF_COMMON_END          1418
+-#define PBF_PORT0_START         1418
++#define PBF_COMMON_END          1381
++#define PBF_PORT0_START         1381
+ 	{OP_WR, PBF_REG_INIT_P0, 0x1},
+ 	{OP_WR, PBF_REG_MAC_IF0_ENABLE, 0x1},
+ 	{OP_WR, PBF_REG_INIT_P0, 0x0},
+ 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P0, 0x0},
+-#define PBF_PORT0_END           1422
+-#define PBF_PORT1_START         1422
++#define PBF_PORT0_END           1385
++#define PBF_PORT1_START         1385
+ 	{OP_WR, PBF_REG_INIT_P1, 0x1},
+ 	{OP_WR, PBF_REG_MAC_IF1_ENABLE, 0x1},
+ 	{OP_WR, PBF_REG_INIT_P1, 0x0},
+ 	{OP_WR, PBF_REG_DISABLE_NEW_TASK_PROC_P1, 0x0},
+-#define PBF_PORT1_END           1426
+-#define XCM_COMMON_START        1426
++#define PBF_PORT1_END           1389
++#define XCM_COMMON_START        1389
+ 	{OP_WR, XCM_REG_XX_OVFL_EVNT_ID, 0x32},
+ 	{OP_WR, XCM_REG_XQM_XCM_HDR_P, 0x3150020},
+ 	{OP_WR, XCM_REG_XQM_XCM_HDR_S, 0x3150020},
+@@ -1670,7 +1633,7 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1, XCM_REG_XX_MSG_NUM, 0x1f},
+ 	{OP_WR_E1H, XCM_REG_XX_MSG_NUM, 0x20},
+ 	{OP_ZR, XCM_REG_XX_TABLE, 0x12},
+-	{OP_SW_E1, XCM_REG_XX_DESCR_TABLE, 0x1f02ce},
++	{OP_SW_E1, XCM_REG_XX_DESCR_TABLE, 0x1f02cc},
+ 	{OP_SW_E1H, XCM_REG_XX_DESCR_TABLE, 0x1f0302},
+ 	{OP_WR, XCM_REG_N_SM_CTX_LD_0, 0xf},
+ 	{OP_WR, XCM_REG_N_SM_CTX_LD_1, 0x7},
+@@ -1700,8 +1663,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR, XCM_REG_CDU_SM_WR_IFEN, 0x1},
+ 	{OP_WR, XCM_REG_CDU_SM_RD_IFEN, 0x1},
+ 	{OP_WR, XCM_REG_XCM_CFC_IFEN, 0x1},
+-#define XCM_COMMON_END          1490
+-#define XCM_PORT0_START         1490
++#define XCM_COMMON_END          1453
++#define XCM_PORT0_START         1453
+ 	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
+ 	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
+ 	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
+@@ -1710,8 +1673,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD10, 0x2},
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
+-#define XCM_PORT0_END           1498
+-#define XCM_PORT1_START         1498
++#define XCM_PORT0_END           1461
++#define XCM_PORT1_START         1461
+ 	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
+ 	{OP_WR_E1, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
+ 	{OP_WR_E1, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
+@@ -1720,8 +1683,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_CMD11, 0x2},
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
+ 	{OP_WR_E1, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
+-#define XCM_PORT1_END           1506
+-#define XCM_FUNC0_START         1506
++#define XCM_PORT1_END           1469
++#define XCM_FUNC0_START         1469
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
+@@ -1731,8 +1694,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
+-#define XCM_FUNC0_END           1515
+-#define XCM_FUNC1_START         1515
++#define XCM_FUNC0_END           1478
++#define XCM_FUNC1_START         1478
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
+@@ -1742,8 +1705,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
+-#define XCM_FUNC1_END           1524
+-#define XCM_FUNC2_START         1524
++#define XCM_FUNC1_END           1487
++#define XCM_FUNC2_START         1487
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
+@@ -1753,8 +1716,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
+-#define XCM_FUNC2_END           1533
+-#define XCM_FUNC3_START         1533
++#define XCM_FUNC2_END           1496
++#define XCM_FUNC3_START         1496
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
+@@ -1764,8 +1727,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
+-#define XCM_FUNC3_END           1542
+-#define XCM_FUNC4_START         1542
++#define XCM_FUNC3_END           1505
++#define XCM_FUNC4_START         1505
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
+@@ -1775,8 +1738,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
+-#define XCM_FUNC4_END           1551
+-#define XCM_FUNC5_START         1551
++#define XCM_FUNC4_END           1514
++#define XCM_FUNC5_START         1514
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
+@@ -1786,8 +1749,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
+-#define XCM_FUNC5_END           1560
+-#define XCM_FUNC6_START         1560
++#define XCM_FUNC5_END           1523
++#define XCM_FUNC6_START         1523
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_0, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_0, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 0x0},
+@@ -1797,8 +1760,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL00, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL10, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_0, 0x0},
+-#define XCM_FUNC6_END           1569
+-#define XCM_FUNC7_START         1569
++#define XCM_FUNC6_END           1532
++#define XCM_FUNC7_START         1532
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_TMR_VAL_1, 0xc8},
+ 	{OP_WR_E1H, XCM_REG_GLB_DEL_ACK_MAX_CNT_1, 0x2},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD01, 0x0},
+@@ -1808,8 +1771,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL01, 0xff},
+ 	{OP_WR_E1H, XCM_REG_WU_DA_CNT_UPD_VAL11, 0xff},
+ 	{OP_WR_E1H, XCM_REG_PHYS_QNUM3_1, 0x0},
+-#define XCM_FUNC7_END           1578
+-#define XSEM_COMMON_START       1578
++#define XCM_FUNC7_END           1541
++#define XSEM_COMMON_START       1541
+ 	{OP_RD, XSEM_REG_MSG_NUM_FIC0, 0x0},
+ 	{OP_RD, XSEM_REG_MSG_NUM_FIC1, 0x0},
+ 	{OP_RD, XSEM_REG_MSG_NUM_FOC0, 0x0},
+@@ -1876,9 +1839,9 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x9000, 0x2},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3368, 0x0},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x21a8, 0x86},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3370, 0x202ed},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3370, 0x202eb},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2000, 0x20},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3b90, 0x402ef},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3b90, 0x402ed},
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x23c8, 0x0},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1518, 0x1},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x23d0, 0x20321},
+@@ -1886,29 +1849,29 @@ static const struct raw_op init_ops[] = {
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2498, 0x40323},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1838, 0x0},
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x2ac8, 0x0},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1820, 0x202f3},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1820, 0x202f1},
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x2ab8, 0x0},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4ac0, 0x2},
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0x3010, 0x1},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4b00, 0x4},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x4040, 0x10},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1f50, 0x202f5},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x1f50, 0x202f3},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x4000, 0x100327},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6ac0, 0x2},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6b00, 0x4},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x83b0, 0x20337},
+ 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x0},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c00, 0x1002f7},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c00, 0x1002f5},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c00, 0x100339},
+ 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x1000000},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c40, 0x80307},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c40, 0x80305},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c40, 0x80349},
+ 	{OP_WR, XSEM_REG_FAST_MEMORY + 0x10800, 0x2000000},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c60, 0x8030f},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x10c60, 0x8030d},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x10c60, 0x80351},
+ 	{OP_ZP_E1, XSEM_REG_INT_TABLE, 0xa90000},
+ 	{OP_ZP_E1H, XSEM_REG_INT_TABLE, 0xac0000},
+-	{OP_WR_64_E1, XSEM_REG_INT_TABLE + 0x368, 0x130317},
++	{OP_WR_64_E1, XSEM_REG_INT_TABLE + 0x368, 0x130315},
+ 	{OP_WR_64_E1H, XSEM_REG_INT_TABLE + 0x368, 0x130359},
+ 	{OP_ZP_E1, XSEM_REG_PRAM, 0x344e0000},
+ 	{OP_ZP_E1H, XSEM_REG_PRAM, 0x34620000},
+@@ -1918,10 +1881,10 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZP_E1H, XSEM_REG_PRAM + 0x10000, 0x3e971b22},
+ 	{OP_ZP_E1, XSEM_REG_PRAM + 0x18000, 0x1dd02ad2},
+ 	{OP_ZP_E1H, XSEM_REG_PRAM + 0x18000, 0x21542ac8},
+-	{OP_WR_64_E1, XSEM_REG_PRAM + 0x1c0d0, 0x47e60319},
++	{OP_WR_64_E1, XSEM_REG_PRAM + 0x1c0d0, 0x47e60317},
+ 	{OP_WR_64_E1H, XSEM_REG_PRAM + 0x1c8d0, 0x46e6035b},
+-#define XSEM_COMMON_END         1688
+-#define XSEM_PORT0_START        1688
++#define XSEM_COMMON_END         1651
++#define XSEM_PORT0_START        1651
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3ba0, 0x10},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xc000, 0xfc},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3c20, 0x1c},
+@@ -1934,7 +1897,7 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x26e8, 0x1c},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3b58, 0x0},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x27c8, 0x1c},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d10, 0x10031b},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d10, 0x100319},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa000, 0x28},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1500, 0x0},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa140, 0xc},
+@@ -1950,12 +1913,12 @@ static const struct raw_op init_ops[] = {
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x6ac8, 0x2035d},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x50b8, 0x1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6b10, 0x42},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ac8, 0x2032b},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ac8, 0x20329},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6d20, 0x4},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4b10, 0x42},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4d20, 0x4},
+-#define XSEM_PORT0_END          1720
+-#define XSEM_PORT1_START        1720
++#define XSEM_PORT0_END          1683
++#define XSEM_PORT1_START        1683
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3be0, 0x10},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xc3f0, 0xfc},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x3c90, 0x1c},
+@@ -1968,7 +1931,7 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2758, 0x1c},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x3b5c, 0x0},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x2838, 0x1c},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d50, 0x10032d},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x3d50, 0x10032b},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa0a0, 0x28},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x1504, 0x0},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0xa170, 0xc},
+@@ -1984,65 +1947,65 @@ static const struct raw_op init_ops[] = {
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x6ad0, 0x2035f},
+ 	{OP_WR_E1, XSEM_REG_FAST_MEMORY + 0x50bc, 0x1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6c18, 0x42},
+-	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ad0, 0x2033d},
++	{OP_SW_E1, XSEM_REG_FAST_MEMORY + 0x4ad0, 0x2033b},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x6d30, 0x4},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4c18, 0x42},
+ 	{OP_ZR_E1, XSEM_REG_FAST_MEMORY + 0x4d30, 0x4},
+-#define XSEM_PORT1_END          1752
+-#define XSEM_FUNC0_START        1752
++#define XSEM_PORT1_END          1715
++#define XSEM_FUNC0_START        1715
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e0, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x28b8, 0x100361},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5048, 0xe},
+-#define XSEM_FUNC0_END          1755
+-#define XSEM_FUNC1_START        1755
++#define XSEM_FUNC0_END          1718
++#define XSEM_FUNC1_START        1718
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e4, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x28f8, 0x100371},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5080, 0xe},
+-#define XSEM_FUNC1_END          1758
+-#define XSEM_FUNC2_START        1758
++#define XSEM_FUNC1_END          1721
++#define XSEM_FUNC2_START        1721
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7e8, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2938, 0x100381},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x50b8, 0xe},
+-#define XSEM_FUNC2_END          1761
+-#define XSEM_FUNC3_START        1761
++#define XSEM_FUNC2_END          1724
++#define XSEM_FUNC3_START        1724
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7ec, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2978, 0x100391},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x50f0, 0xe},
+-#define XSEM_FUNC3_END          1764
+-#define XSEM_FUNC4_START        1764
++#define XSEM_FUNC3_END          1727
++#define XSEM_FUNC4_START        1727
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f0, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x29b8, 0x1003a1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5128, 0xe},
+-#define XSEM_FUNC4_END          1767
+-#define XSEM_FUNC5_START        1767
++#define XSEM_FUNC4_END          1730
++#define XSEM_FUNC5_START        1730
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f4, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x29f8, 0x1003b1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5160, 0xe},
+-#define XSEM_FUNC5_END          1770
+-#define XSEM_FUNC6_START        1770
++#define XSEM_FUNC5_END          1733
++#define XSEM_FUNC6_START        1733
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7f8, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2a38, 0x1003c1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x5198, 0xe},
+-#define XSEM_FUNC6_END          1773
+-#define XSEM_FUNC7_START        1773
++#define XSEM_FUNC6_END          1736
++#define XSEM_FUNC7_START        1736
+ 	{OP_WR_E1H, XSEM_REG_FAST_MEMORY + 0xc7fc, 0x0},
+ 	{OP_SW_E1H, XSEM_REG_FAST_MEMORY + 0x2a78, 0x1003d1},
+ 	{OP_ZR_E1H, XSEM_REG_FAST_MEMORY + 0x51d0, 0xe},
+-#define XSEM_FUNC7_END          1776
+-#define CDU_COMMON_START        1776
++#define XSEM_FUNC7_END          1739
++#define CDU_COMMON_START        1739
+ 	{OP_WR, CDU_REG_CDU_CONTROL0, 0x1},
+ 	{OP_WR_E1H, CDU_REG_MF_MODE, 0x1},
+ 	{OP_WR, CDU_REG_CDU_CHK_MASK0, 0x3d000},
+ 	{OP_WR, CDU_REG_CDU_CHK_MASK1, 0x3d},
+-	{OP_WB_E1, CDU_REG_L1TT, 0x200033f},
++	{OP_WB_E1, CDU_REG_L1TT, 0x200033d},
+ 	{OP_WB_E1H, CDU_REG_L1TT, 0x20003e1},
+-	{OP_WB_E1, CDU_REG_MATT, 0x20053f},
++	{OP_WB_E1, CDU_REG_MATT, 0x20053d},
+ 	{OP_WB_E1H, CDU_REG_MATT, 0x2805e1},
+ 	{OP_ZR_E1, CDU_REG_MATT + 0x80, 0x2},
+-	{OP_WB_E1, CDU_REG_MATT + 0x88, 0x6055f},
++	{OP_WB_E1, CDU_REG_MATT + 0x88, 0x6055d},
+ 	{OP_ZR, CDU_REG_MATT + 0xa0, 0x18},
+-#define CDU_COMMON_END          1787
+-#define DMAE_COMMON_START       1787
++#define CDU_COMMON_END          1750
++#define DMAE_COMMON_START       1750
+ 	{OP_ZR, DMAE_REG_CMD_MEM, 0xe0},
+ 	{OP_WR, DMAE_REG_CRC16C_INIT, 0x0},
+ 	{OP_WR, DMAE_REG_CRC16T10_INIT, 0x1},
+@@ -2050,24 +2013,24 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, DMAE_REG_PXP_REQ_INIT_CRD, 0x2},
+ 	{OP_WR, DMAE_REG_PCI_IFEN, 0x1},
+ 	{OP_WR, DMAE_REG_GRC_IFEN, 0x1},
+-#define DMAE_COMMON_END         1794
+-#define PXP_COMMON_START        1794
+-	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x400, 0x50565},
++#define DMAE_COMMON_END         1757
++#define PXP_COMMON_START        1757
++	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x400, 0x50563},
+ 	{OP_WB_E1H, PXP_REG_HST_INBOUND_INT + 0x400, 0x50609},
+-	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x420, 0x5056a},
++	{OP_WB_E1, PXP_REG_HST_INBOUND_INT + 0x420, 0x50568},
+ 	{OP_WB_E1H, PXP_REG_HST_INBOUND_INT, 0x5060e},
+-	{OP_WB_E1, PXP_REG_HST_INBOUND_INT, 0x5056f},
+-#define PXP_COMMON_END          1799
+-#define CFC_COMMON_START        1799
++	{OP_WB_E1, PXP_REG_HST_INBOUND_INT, 0x5056d},
++#define PXP_COMMON_END          1762
++#define CFC_COMMON_START        1762
+ 	{OP_ZR_E1H, CFC_REG_LINK_LIST, 0x100},
+ 	{OP_WR, CFC_REG_CONTROL0, 0x10},
+ 	{OP_WR, CFC_REG_DISABLE_ON_ERROR, 0x3fff},
+ 	{OP_WR, CFC_REG_LCREQ_WEIGHTS, 0x84924a},
+-#define CFC_COMMON_END          1803
+-#define HC_COMMON_START         1803
++#define CFC_COMMON_END          1766
++#define HC_COMMON_START         1766
+ 	{OP_ZR_E1, HC_REG_USTORM_ADDR_FOR_COALESCE, 0x4},
+-#define HC_COMMON_END           1804
+-#define HC_PORT0_START          1804
++#define HC_COMMON_END           1767
++#define HC_PORT0_START          1767
+ 	{OP_WR_E1, HC_REG_CONFIG_0, 0x1080},
+ 	{OP_ZR_E1, HC_REG_UC_RAM_ADDR_0, 0x2},
+ 	{OP_WR_E1, HC_REG_ATTN_NUM_P0, 0x10},
+@@ -2086,8 +2049,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
+-#define HC_PORT0_END            1822
+-#define HC_PORT1_START          1822
++#define HC_PORT0_END            1785
++#define HC_PORT1_START          1785
+ 	{OP_WR_E1, HC_REG_CONFIG_1, 0x1080},
+ 	{OP_ZR_E1, HC_REG_UC_RAM_ADDR_1, 0x2},
+ 	{OP_WR_E1, HC_REG_ATTN_NUM_P1, 0x10},
+@@ -2106,8 +2069,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
+ 	{OP_ZR_E1, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
+-#define HC_PORT1_END            1840
+-#define HC_FUNC0_START          1840
++#define HC_PORT1_END            1803
++#define HC_FUNC0_START          1803
+ 	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x0},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
+@@ -2123,8 +2086,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
+-#define HC_FUNC0_END            1855
+-#define HC_FUNC1_START          1855
++#define HC_FUNC0_END            1818
++#define HC_FUNC1_START          1818
+ 	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x1},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
+@@ -2140,8 +2103,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
+-#define HC_FUNC1_END            1870
+-#define HC_FUNC2_START          1870
++#define HC_FUNC1_END            1833
++#define HC_FUNC2_START          1833
+ 	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x2},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
+@@ -2157,8 +2120,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
+-#define HC_FUNC2_END            1885
+-#define HC_FUNC3_START          1885
++#define HC_FUNC2_END            1848
++#define HC_FUNC3_START          1848
+ 	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x3},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
+@@ -2174,8 +2137,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
+-#define HC_FUNC3_END            1900
+-#define HC_FUNC4_START          1900
++#define HC_FUNC3_END            1863
++#define HC_FUNC4_START          1863
+ 	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x4},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
+@@ -2191,8 +2154,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
+-#define HC_FUNC4_END            1915
+-#define HC_FUNC5_START          1915
++#define HC_FUNC4_END            1878
++#define HC_FUNC5_START          1878
+ 	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x5},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
+@@ -2208,8 +2171,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
+-#define HC_FUNC5_END            1930
+-#define HC_FUNC6_START          1930
++#define HC_FUNC5_END            1893
++#define HC_FUNC6_START          1893
+ 	{OP_WR_E1H, HC_REG_CONFIG_0, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P0, 0x6},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P0, 0x10},
+@@ -2225,8 +2188,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x120, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x370, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x5c0, 0x4a},
+-#define HC_FUNC6_END            1945
+-#define HC_FUNC7_START          1945
++#define HC_FUNC6_END            1908
++#define HC_FUNC7_START          1908
+ 	{OP_WR_E1H, HC_REG_CONFIG_1, 0x1080},
+ 	{OP_WR_E1H, HC_REG_FUNC_NUM_P1, 0x7},
+ 	{OP_WR_E1H, HC_REG_ATTN_NUM_P1, 0x10},
+@@ -2242,8 +2205,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x248, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x498, 0x4a},
+ 	{OP_ZR_E1H, HC_REG_STATISTIC_COUNTERS + 0x6e8, 0x4a},
+-#define HC_FUNC7_END            1960
+-#define PXP2_COMMON_START       1960
++#define HC_FUNC7_END            1923
++#define PXP2_COMMON_START       1923
+ 	{OP_WR_E1, PXP2_REG_PGL_CONTROL0, 0xe38340},
+ 	{OP_WR_E1H, PXP2_REG_RQ_DRAM_ALIGN, 0x1},
+ 	{OP_WR, PXP2_REG_PGL_CONTROL1, 0x3c10},
+@@ -2361,8 +2324,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, PXP2_REG_RQ_ILT_MODE, 0x1},
+ 	{OP_WR, PXP2_REG_RQ_RBC_DONE, 0x1},
+ 	{OP_WR_E1H, PXP2_REG_PGL_CONTROL0, 0xe38340},
+-#define PXP2_COMMON_END         2077
+-#define MISC_AEU_COMMON_START   2077
++#define PXP2_COMMON_END         2040
++#define MISC_AEU_COMMON_START   2040
+ 	{OP_ZR, MISC_REG_AEU_GENERAL_ATTN_0, 0x16},
+ 	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_NIG_0, 0x55540000},
+ 	{OP_WR_E1H, MISC_REG_AEU_ENABLE2_NIG_0, 0x55555555},
+@@ -2382,8 +2345,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1H, MISC_REG_AEU_ENABLE4_PXP_1, 0x0},
+ 	{OP_WR_E1H, MISC_REG_AEU_CLR_LATCH_SIGNAL, 0xc00},
+ 	{OP_WR_E1H, MISC_REG_AEU_GENERAL_MASK, 0x3},
+-#define MISC_AEU_COMMON_END     2096
+-#define MISC_AEU_PORT0_START    2096
++#define MISC_AEU_COMMON_END     2059
++#define MISC_AEU_PORT0_START    2059
+ 	{OP_WR_E1, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0, 0xbf5c0000},
+ 	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0, 0xff5c0000},
+ 	{OP_WR_E1, MISC_REG_AEU_ENABLE2_FUNC_0_OUT_0, 0xfff51fef},
+@@ -2416,8 +2379,8 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1, MISC_REG_AEU_INVERTER_1_FUNC_0, 0x0},
+ 	{OP_ZR_E1, MISC_REG_AEU_INVERTER_2_FUNC_0, 0x3},
+ 	{OP_WR_E1, MISC_REG_AEU_MASK_ATTN_FUNC_0, 0x7},
+-#define MISC_AEU_PORT0_END      2128
+-#define MISC_AEU_PORT1_START    2128
++#define MISC_AEU_PORT0_END      2091
++#define MISC_AEU_PORT1_START    2091
+ 	{OP_WR_E1, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0, 0xbf5c0000},
+ 	{OP_WR_E1H, MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0, 0xff5c0000},
+ 	{OP_WR_E1, MISC_REG_AEU_ENABLE2_FUNC_1_OUT_0, 0xfff51fef},
+@@ -2450,7 +2413,7 @@ static const struct raw_op init_ops[] = {
+ 	{OP_WR_E1, MISC_REG_AEU_INVERTER_1_FUNC_1, 0x0},
+ 	{OP_ZR_E1, MISC_REG_AEU_INVERTER_2_FUNC_1, 0x3},
+ 	{OP_WR_E1, MISC_REG_AEU_MASK_ATTN_FUNC_1, 0x7},
+-#define MISC_AEU_PORT1_END      2160
++#define MISC_AEU_PORT1_END      2123
  
- 	unsigned long		tx_pkt,
- 				rx_pkt,
--				rx_calls,
--				rx_alloc_failed;
-+				rx_calls;
- 	/* TPA related */
- 	struct sw_rx_bd		tpa_pool[ETH_MAX_AGGREGATION_QUEUES_E1H];
- 	u8			tpa_state[ETH_MAX_AGGREGATION_QUEUES_E1H];
-@@ -655,6 +654,8 @@ struct bnx2x_eth_stats {
- 
- 	u32 brb_drop_hi;
- 	u32 brb_drop_lo;
-+	u32 brb_truncate_hi;
-+	u32 brb_truncate_lo;
- 
- 	u32 jabber_packets_received;
- 
-@@ -671,6 +672,9 @@ struct bnx2x_eth_stats {
- 	u32 mac_discard;
- 
- 	u32 driver_xoff;
-+	u32 rx_err_discard_pkt;
-+	u32 rx_skb_alloc_failed;
-+	u32 hw_csum_err;
  };
  
- #define STATS_OFFSET32(stat_name) \
-@@ -844,7 +848,6 @@ struct bnx2x {
- 	u16			rx_ticks_int;
- 	u16			rx_ticks;
+@@ -2560,103 +2523,92 @@ static const u32 init_data_e1[] = {
+ 	0x00049c00, 0x00051f80, 0x0005a300, 0x00062680, 0x0006aa00, 0x00072d80,
+ 	0x0007b100, 0x00083480, 0x0008b800, 0x00093b80, 0x0009bf00, 0x000a4280,
+ 	0x000ac600, 0x000b4980, 0x000bcd00, 0x000c5080, 0x000cd400, 0x000d5780,
+-	0x000ddb00, 0x00001900, 0x00000028, 0x00000000, 0x00100000, 0x00000000,
+-	0x00000000, 0xffffffff, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++	0x000ddb00, 0x00001900, 0x00100000, 0x00000000, 0x00000000, 0xffffffff,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+-	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x00000000, 0x00007ff8,
+-	0x00000000, 0x00001500, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+-	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++	0x40000000, 0x40000000, 0x00000000, 0x00007ff8, 0x00000000, 0x00001500,
++	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
++	0xffffffff, 0xffffffff, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+-	0x00000000, 0x00007ff8, 0x00000000, 0x00003500, 0x00001000, 0x00002080,
+-	0x00003100, 0x00004180, 0x00005200, 0x00006280, 0x00007300, 0x00008380,
+-	0x00009400, 0x0000a480, 0x0000b500, 0x0000c580, 0x0000d600, 0x0000e680,
+-	0x0000f700, 0x00010780, 0x00011800, 0x00012880, 0x00013900, 0x00014980,
+-	0x00015a00, 0x00016a80, 0x00017b00, 0x00018b80, 0x00019c00, 0x0001ac80,
+-	0x0001bd00, 0x0001cd80, 0x0001de00, 0x0001ee80, 0x0001ff00, 0x00000000,
+-	0x00010001, 0x00000604, 0xccccccc1, 0xffffffff, 0xffffffff, 0xcccc0201,
+-	0xcccccccc, 0x00000000, 0xffffffff, 0x40000000, 0x40000000, 0x40000000,
++	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x00000000, 0x00007ff8,
++	0x00000000, 0x00003500, 0x00001000, 0x00002080, 0x00003100, 0x00004180,
++	0x00005200, 0x00006280, 0x00007300, 0x00008380, 0x00009400, 0x0000a480,
++	0x0000b500, 0x0000c580, 0x0000d600, 0x0000e680, 0x0000f700, 0x00010780,
++	0x00011800, 0x00012880, 0x00013900, 0x00014980, 0x00015a00, 0x00016a80,
++	0x00017b00, 0x00018b80, 0x00019c00, 0x0001ac80, 0x0001bd00, 0x0001cd80,
++	0x0001de00, 0x0001ee80, 0x0001ff00, 0x00000000, 0x00010001, 0x00000604,
++	0xccccccc1, 0xffffffff, 0xffffffff, 0xcccc0201, 0xcccccccc, 0x00000000,
++	0xffffffff, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+ 	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
+-	0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x00000000,
+-	0x00007ff8, 0x00000000, 0x00003500, 0x0000ffff, 0x00000000, 0x0000ffff,
++	0x40000000, 0x40000000, 0x40000000, 0x00000000, 0x00007ff8, 0x00000000,
++	0x00003500, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
+ 	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
++	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x00100000,
+ 	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
+-	0x00000000, 0x00100000, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
+ 	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
+-	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff,
+-	0x00000000, 0x00100000, 0x00000000, 0xfffffff3, 0x320fffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1,
+-	0x30efffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0001cf3c,
+-	0xcdcdcdcd, 0xfffffff6, 0x305fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0x0c30c305,
+-	0xc30c30c3, 0xcf300014, 0xf3cf3cf3, 0x0004cf3c, 0xcdcdcdcd, 0xfffffff2,
+-	0x304fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0008cf3c,
+-	0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xfffffff7, 0x31efffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5,
+-	0x302fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0040cf3c,
+-	0xcdcdcdcd, 0xfffffff3, 0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0x0c30c30c,
++	0x00000000, 0x0000ffff, 0x00000000, 0x0000ffff, 0x00000000, 0x00100000,
++	0x00000000, 0xfffffff3, 0x320fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1, 0x30efffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xfffffff6,
+ 	0x305fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0002cf3c,
+ 	0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0x0c30c305, 0xc30c30c3, 0xcf300014,
+ 	0xf3cf3cf3, 0x0004cf3c, 0xcdcdcdcd, 0xfffffff2, 0x304fffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xfffffffa,
+ 	0x302fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0010cf3c,
+-	0xcdcdcdcd, 0xfffffff7, 0x30efffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5, 0x304fffff, 0x0c30c30c,
++	0xcdcdcdcd, 0xfffffff7, 0x31efffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5, 0x302fffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xfffffff3,
+-	0x31efffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0000cf3c,
++	0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0000cf3c,
+ 	0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+ 	0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xfffffff6, 0x305fffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xfffff406,
+ 	0x1cbfffff, 0x0c30c305, 0xc30c30c3, 0xcf300014, 0xf3cf3cf3, 0x0004cf3c,
+ 	0xcdcdcdcd, 0xfffffff2, 0x304fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+ 	0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffff97,
+-	0x056fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 0x0020cf3c,
+-	0xcdcdcdcd, 0xfffffff5, 0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xfffffff3, 0x320fffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xfffffff7,
++	0x30efffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0020cf3c,
++	0xcdcdcdcd, 0xfffffff5, 0x304fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xfffffff3, 0x31efffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1,
+ 	0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0001cf3c,
+ 	0xcdcdcdcd, 0xfffffff6, 0x305fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+ 	0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0x0c30c305,
+ 	0xc30c30c3, 0xcf300014, 0xf3cf3cf3, 0x0004cf3c, 0xcdcdcdcd, 0xfffffff2,
+ 	0x304fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0008cf3c,
+-	0xcdcdcdcd, 0xffffff8a, 0x042fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000,
+-	0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffff97, 0x05cfffff, 0x0c30c30c,
++	0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffff97, 0x056fffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5,
+ 	0x310fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0040cf3c,
+-	0xcdcdcdcd, 0xfffffff3, 0x300fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+-	0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1, 0x300fffff, 0x0c30c30c,
++	0xcdcdcdcd, 0xfffffff3, 0x320fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xfffffff6,
+ 	0x305fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0002cf3c,
+ 	0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0x0c30c305, 0xc30c30c3, 0xcf300014,
+ 	0xf3cf3cf3, 0x0004cf3c, 0xcdcdcdcd, 0xfffffff2, 0x304fffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xfffffffa,
+-	0x302fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0010cf3c,
+-	0xcdcdcdcd, 0xffffff97, 0x040fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000,
+-	0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5, 0x300fffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xffffffff,
+-	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0000cf3c,
+-	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
+-	0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xffffffff,
+-	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0004cf3c,
+-	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
+-	0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffffff,
+-	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0020cf3c,
+-	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
++	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xffffff8a,
++	0x042fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 0x0010cf3c,
++	0xcdcdcdcd, 0xffffff97, 0x05cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000,
++	0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xfffffff5, 0x310fffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xfffffff3,
++	0x300fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0000cf3c,
++	0xcdcdcdcd, 0xfffffff1, 0x300fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xfffffff6, 0x305fffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xfffff406,
++	0x1cbfffff, 0x0c30c305, 0xc30c30c3, 0xcf300014, 0xf3cf3cf3, 0x0004cf3c,
++	0xcdcdcdcd, 0xfffffff2, 0x304fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
++	0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffff97,
++	0x040fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 0x0020cf3c,
++	0xcdcdcdcd, 0xfffffff5, 0x300fffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf300,
+ 	0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
+ 	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0000cf3c, 0xcdcdcdcd, 0xffffffff,
+ 	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0001cf3c,
+@@ -2678,16 +2630,27 @@ static const u32 init_data_e1[] = {
+ 	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0010cf3c,
+ 	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
+ 	0xf3cf3cf3, 0x0020cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
+-	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0x00100000,
+-	0x00070100, 0x00028170, 0x000b8198, 0x00020250, 0x00010270, 0x000f0280,
+-	0x00010370, 0x00080000, 0x00080080, 0x00028100, 0x000b8128, 0x000201e0,
+-	0x00010200, 0x00070210, 0x00020280, 0x000f0000, 0x000800f0, 0x00028170,
+-	0x000b8198, 0x00020250, 0x00010270, 0x000b8280, 0x00080338, 0x00100000,
+-	0x00080100, 0x00028180, 0x000b81a8, 0x00020260, 0x00018280, 0x000e8298,
+-	0x00080380, 0x00028000, 0x000b8028, 0x000200e0, 0x00010100, 0x00008110,
+-	0x00000118, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x00002000,
+-	0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x00002000, 0xcccccccc,
+-	0xcccccccc, 0xcccccccc, 0xcccccccc, 0x00002000
++	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0xffffffff,
++	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0000cf3c,
++	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
++	0xf3cf3cf3, 0x0001cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0002cf3c, 0xcdcdcdcd, 0xffffffff,
++	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0004cf3c,
++	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
++	0xf3cf3cf3, 0x0008cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c,
++	0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0010cf3c, 0xcdcdcdcd, 0xffffffff,
++	0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 0x0020cf3c,
++	0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0x0c30c30c, 0xc30c30c3, 0xcf3cf3cc,
++	0xf3cf3cf3, 0x0040cf3c, 0xcdcdcdcd, 0x00100000, 0x00070100, 0x00028170,
++	0x000b8198, 0x00020250, 0x00010270, 0x000f0280, 0x00010370, 0x00080000,
++	0x00080080, 0x00028100, 0x000b8128, 0x000201e0, 0x00010200, 0x00070210,
++	0x00020280, 0x000f0000, 0x000800f0, 0x00028170, 0x000b8198, 0x00020250,
++	0x00010270, 0x000b8280, 0x00080338, 0x00100000, 0x00080100, 0x00028180,
++	0x000b81a8, 0x00020260, 0x00018280, 0x000e8298, 0x00080380, 0x00028000,
++	0x000b8028, 0x000200e0, 0x00010100, 0x00008110, 0x00000118, 0xcccccccc,
++	0xcccccccc, 0xcccccccc, 0xcccccccc, 0x00002000, 0xcccccccc, 0xcccccccc,
++	0xcccccccc, 0xcccccccc, 0x00002000, 0xcccccccc, 0xcccccccc, 0xcccccccc,
++	0xcccccccc, 0x00002000
+ };
  
--	u32			stats_ticks;
- 	u32			lin_cnt;
- 
- 	int			state;
-@@ -984,7 +987,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
- #define PCICFG_LINK_SPEED_SHIFT		16
- 
- 
--#define BNX2X_NUM_STATS			39
-+#define BNX2X_NUM_STATS			42
- #define BNX2X_NUM_TESTS			8
- 
- #define BNX2X_MAC_LOOPBACK		0
-diff --git a/drivers/net/bnx2x_fw_defs.h b/drivers/net/bnx2x_fw_defs.h
-index e3da7f6..6e35761 100644
---- a/drivers/net/bnx2x_fw_defs.h
-+++ b/drivers/net/bnx2x_fw_defs.h
-@@ -79,6 +79,9 @@
- #define TSTORM_MAC_FILTER_CONFIG_OFFSET(function) \
- 	(IS_E1H_OFFSET? (0x3008 + (function * 0x38)) : (0x1508 + \
- 	(function * 0x38)))
-+#define TSTORM_PER_COUNTER_ID_STATS_OFFSET(port, stats_counter_id) \
-+	(IS_E1H_OFFSET ? (0x2010 + (port * 0x5b0) + (stats_counter_id * \
-+	0x50)) : (0x4000 + (port * 0x3f0) + (stats_counter_id * 0x38)))
- #define TSTORM_RX_PRODS_OFFSET(port, client_id) \
- 	(IS_E1H_OFFSET? (0x3350 + (port * 0x3e8) + (client_id * 0x28)) : \
- 	(0x9c0 + (port * 0x2f8) + (client_id * 0x28)))
-@@ -157,6 +160,9 @@
- 	(IS_E1H_OFFSET? 0x2ac8 : 0xffffffff)
- #define XSTORM_HC_BTR_OFFSET(port) \
- 	(IS_E1H_OFFSET? (0xa144 + (port * 0x30)) : (0x1454 + (port * 0x18)))
-+#define XSTORM_PER_COUNTER_ID_STATS_OFFSET(port, stats_counter_id) \
-+	(IS_E1H_OFFSET ? (0xc000 + (port * 0x3f0) + (stats_counter_id * \
-+	0x38)) : (0x3378 + (port * 0x3f0) + (stats_counter_id * 0x38)))
- #define XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(function) \
- 	(IS_E1H_OFFSET? (0x2528 + (function * 0x70)) : (0x3c20 + \
- 	(function * 0x70)))
+ static const u32 init_data_e1h[] = {
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-old mode 100644
-new mode 100755
-index b9d376d..ac46228
+index ac46228..6115161 100755
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -501,6 +501,9 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 	int i;
- 	u16 j, start, end;
+@@ -2975,37 +2975,6 @@ static inline long bnx2x_hilo(u32 *hiref)
+  * Init service functions
+  */
  
-+	bp->stats_state = STATS_STATE_DISABLED;
-+	DP(BNX2X_MSG_STATS, "stats_state - DISABLED\n");
+-static void bnx2x_storm_stats_init(struct bnx2x *bp)
+-{
+-	int func = BP_FUNC(bp);
+-
+-	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(func), 1);
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
+-
+-	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(func), 1);
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
+-
+-	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(func), 0);
+-	REG_WR(bp, BAR_CSTRORM_INTMEM +
+-	       CSTORM_STATS_FLAGS_OFFSET(func) + 4, 0);
+-
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
+-	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+-	REG_WR(bp, BAR_XSTRORM_INTMEM +
+-	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
+-	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
+-
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
+-	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
+-	REG_WR(bp, BAR_TSTRORM_INTMEM +
+-	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
+-	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
+-}
+-
+ static void bnx2x_storm_stats_post(struct bnx2x *bp)
+ {
+ 	if (!bp->stats_pending) {
+@@ -4632,13 +4601,35 @@ static void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
+ 		bnx2x_set_client_config(bp);
+ }
+ 
+-static void bnx2x_init_internal(struct bnx2x *bp)
++static void bnx2x_init_internal_common(struct bnx2x *bp)
++{
++	int i;
 +
- 	BNX2X_ERR("begin crash dump -----------------\n");
- 
- 	for_each_queue(bp, i) {
-@@ -511,17 +514,20 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
- 			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
- 			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
--		BNX2X_ERR("          rx_comp_prod(%x)  rx_comp_cons(%x)"
--			  "  *rx_cons_sb(%x)  *rx_bd_cons_sb(%x)"
--			  "  rx_sge_prod(%x)  last_max_sge(%x)\n",
--			  fp->rx_comp_prod, fp->rx_comp_cons,
--			  le16_to_cpu(*fp->rx_cons_sb),
--			  le16_to_cpu(*fp->rx_bd_cons_sb),
--			  fp->rx_sge_prod, fp->last_max_sge);
--		BNX2X_ERR("          fp_c_idx(%x)  fp_u_idx(%x)"
--			  "  bd data(%x,%x)  rx_alloc_failed(%lx)\n",
--			  fp->fp_c_idx, fp->fp_u_idx, hw_prods->packets_prod,
--			  hw_prods->bds_prod, fp->rx_alloc_failed);
-+		BNX2X_ERR("          rx_bd_prod(%x)  rx_bd_cons(%x)"
-+			  "  *rx_bd_cons_sb(%x)  rx_comp_prod(%x)"
-+			  "  rx_comp_cons(%x)  *rx_cons_sb(%x)\n",
-+			  fp->rx_bd_prod, fp->rx_bd_cons,
-+			  le16_to_cpu(*fp->rx_bd_cons_sb), fp->rx_comp_prod,
-+			  fp->rx_comp_cons, le16_to_cpu(*fp->rx_cons_sb));
-+		BNX2X_ERR("          rx_sge_prod(%x)  last_max_sge(%x)"
-+			  "  fp_c_idx(%x)  *sb_c_idx(%x)  fp_u_idx(%x)"
-+			  "  *sb_u_idx(%x)  bd data(%x,%x)\n",
-+			  fp->rx_sge_prod, fp->last_max_sge, fp->fp_c_idx,
-+			  fp->status_blk->c_status_block.status_block_index,
-+			  fp->fp_u_idx,
-+			  fp->status_blk->u_status_block.status_block_index,
-+			  hw_prods->packets_prod, hw_prods->bds_prod);
- 
- 		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
- 		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
-@@ -580,9 +586,6 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 	bnx2x_fw_dump(bp);
- 	bnx2x_mc_assert(bp);
- 	BNX2X_ERR("end crash dump -----------------\n");
--
--	bp->stats_state = STATS_STATE_DISABLED;
--	DP(BNX2X_MSG_STATS, "stats_state - DISABLED\n");
- }
- 
- static void bnx2x_int_enable(struct bnx2x *bp)
-@@ -1259,7 +1262,7 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 		   where we are and drop the whole packet */
- 		err = bnx2x_alloc_rx_sge(bp, fp, sge_idx);
- 		if (unlikely(err)) {
--			fp->rx_alloc_failed++;
-+			bp->eth_stats.rx_skb_alloc_failed++;
- 			return err;
- 		}
- 
-@@ -1295,14 +1298,13 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	pci_unmap_single(bp->pdev, pci_unmap_addr(rx_buf, mapping),
- 			 bp->rx_buf_use_size, PCI_DMA_FROMDEVICE);
- 
--	/* if alloc failed drop the packet and keep the buffer in the bin */
- 	if (likely(new_skb)) {
-+		/* fix ip xsum and give it to the stack */
-+		/* (no need to map the new skb) */
- 
- 		prefetch(skb);
- 		prefetch(((char *)(skb)) + 128);
- 
--		/* else fix ip xsum and give it to the stack */
--		/* (no need to map the new skb) */
- #ifdef BNX2X_STOP_ON_ERROR
- 		if (pad + len > bp->rx_buf_size) {
- 			BNX2X_ERR("skb_put is about to fail...  "
-@@ -1351,9 +1353,10 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 		fp->tpa_pool[queue].skb = new_skb;
- 
- 	} else {
-+		/* else drop the packet and keep the buffer in the bin */
- 		DP(NETIF_MSG_RX_STATUS,
- 		   "Failed to allocate new skb - dropping packet!\n");
--		fp->rx_alloc_failed++;
-+		bp->eth_stats.rx_skb_alloc_failed++;
- 	}
- 
- 	fp->tpa_state[queue] = BNX2X_TPA_STOP;
-@@ -1504,7 +1507,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 				DP(NETIF_MSG_RX_ERR,
- 				   "ERROR  flags %x  rx packet %u\n",
- 				   cqe_fp_flags, sw_comp_cons);
--				/* TBD make sure MC counts this as a drop */
-+				bp->eth_stats.rx_err_discard_pkt++;
- 				goto reuse_rx;
- 			}
- 
-@@ -1521,7 +1524,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 					DP(NETIF_MSG_RX_ERR,
- 					   "ERROR  packet dropped "
- 					   "because of alloc failure\n");
--					fp->rx_alloc_failed++;
-+					bp->eth_stats.rx_skb_alloc_failed++;
- 					goto reuse_rx;
- 				}
- 
-@@ -1547,7 +1550,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 				DP(NETIF_MSG_RX_ERR,
- 				   "ERROR  packet dropped because "
- 				   "of alloc failure\n");
--				fp->rx_alloc_failed++;
-+				bp->eth_stats.rx_skb_alloc_failed++;
- reuse_rx:
- 				bnx2x_reuse_rx_skb(fp, skb, bd_cons, bd_prod);
- 				goto next_rx;
-@@ -1556,10 +1559,12 @@ reuse_rx:
- 			skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 			skb->ip_summed = CHECKSUM_NONE;
--			if (bp->rx_csum)
-+			if (bp->rx_csum) {
- 				if (likely(BNX2X_RX_CSUM_OK(cqe)))
- 					skb->ip_summed = CHECKSUM_UNNECESSARY;
--
-+				else
-+					bp->eth_stats.hw_csum_err++;
-+			}
- 		}
- 
- #ifdef BCM_VLAN
-@@ -3039,6 +3044,8 @@ static void bnx2x_stats_init(struct bnx2x *bp)
- 	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
- 	bp->port.old_nig_stats.brb_discard =
- 			REG_RD(bp, NIG_REG_STAT0_BRB_DISCARD + port*0x38);
-+	bp->port.old_nig_stats.brb_truncate =
-+			REG_RD(bp, NIG_REG_STAT0_BRB_TRUNCATE + port*0x38);
- 	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT0 + port*0x50,
- 		    &(bp->port.old_nig_stats.egress_mac_pkt0_lo), 2);
- 	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT1 + port*0x50,
-@@ -3458,8 +3465,7 @@ static void bnx2x_bmac_stats_update(struct bnx2x *bp)
- 	UPDATE_STAT64(rx_stat_grovr, rx_stat_dot3statsframestoolong);
- 	UPDATE_STAT64(rx_stat_grfrg, rx_stat_etherstatsfragments);
- 	UPDATE_STAT64(rx_stat_grjbr, rx_stat_etherstatsjabbers);
--	UPDATE_STAT64(rx_stat_grxpf, rx_stat_bmac_xpf);
--	UPDATE_STAT64(rx_stat_grxcf, rx_stat_bmac_xcf);
-+	UPDATE_STAT64(rx_stat_grxcf, rx_stat_maccontrolframesreceived);
- 	UPDATE_STAT64(rx_stat_grxpf, rx_stat_xoffstateentered);
- 	UPDATE_STAT64(rx_stat_grxpf, rx_stat_xoffpauseframesreceived);
- 	UPDATE_STAT64(tx_stat_gtxpf, tx_stat_outxoffsent);
-@@ -3543,6 +3549,8 @@ static int bnx2x_hw_stats_update(struct bnx2x *bp)
- 
- 	ADD_EXTEND_64(pstats->brb_drop_hi, pstats->brb_drop_lo,
- 		      new->brb_discard - old->brb_discard);
-+	ADD_EXTEND_64(estats->brb_truncate_hi, estats->brb_truncate_lo,
-+		      new->brb_truncate - old->brb_truncate);
- 
- 	UPDATE_STAT64_NIG(egress_mac_pkt0,
- 					etherstatspkts1024octetsto1522octets);
-@@ -3720,8 +3728,7 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
- 	nstats->rx_length_errors =
- 				estats->rx_stat_etherstatsundersizepkts_lo +
- 				estats->jabber_packets_received;
--	nstats->rx_over_errors = estats->brb_drop_lo +
--				 estats->brb_truncate_discard;
-+	nstats->rx_over_errors = estats->brb_drop_lo + estats->brb_truncate_lo;
- 	nstats->rx_crc_errors = estats->rx_stat_dot3statsfcserrors_lo;
- 	nstats->rx_frame_errors = estats->rx_stat_dot3statsalignmenterrors_lo;
- 	nstats->rx_fifo_errors = old_tclient->no_buff_discard;
-@@ -4201,6 +4208,7 @@ static void bnx2x_init_def_sb(struct bnx2x *bp,
- 			 XSTORM_DEF_SB_HC_DISABLE_OFFSET(func, index), 1);
- 
- 	bp->stats_pending = 0;
-+	bp->set_mac_pending = 0;
- 
- 	bnx2x_ack_sb(bp, sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
- }
-@@ -4370,13 +4378,13 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 		fp->rx_sge_prod = ring_prod;
- 
- 		/* Allocate BDs and initialize BD ring */
--		fp->rx_comp_cons = fp->rx_alloc_failed = 0;
-+		fp->rx_comp_cons = 0;
- 		cqe_ring_prod = ring_prod = 0;
- 		for (i = 0; i < bp->rx_ring_size; i++) {
- 			if (bnx2x_alloc_rx_skb(bp, fp, ring_prod) < 0) {
- 				BNX2X_ERR("was only able to allocate "
- 					  "%d rx skbs\n", i);
--				fp->rx_alloc_failed++;
-+				bp->eth_stats.rx_skb_alloc_failed++;
- 				break;
- 			}
- 			ring_prod = NEXT_RX_IDX(ring_prod);
-@@ -4542,7 +4550,7 @@ static void bnx2x_set_client_config(struct bnx2x *bp)
++	/* Zero this manually as its initialization is
++	   currently missing in the initTool */
++	for (i = 0; i < (USTORM_AGG_DATA_SIZE >> 2); i++)
++		REG_WR(bp, BAR_USTRORM_INTMEM +
++		       USTORM_AGG_DATA_OFFSET + i * 4, 0);
++}
++
++static void bnx2x_init_internal_port(struct bnx2x *bp)
++{
++	int port = BP_PORT(bp);
++
++	REG_WR(bp, BAR_USTRORM_INTMEM + USTORM_HC_BTR_OFFSET(port), BNX2X_BTR);
++	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_HC_BTR_OFFSET(port), BNX2X_BTR);
++	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_HC_BTR_OFFSET(port), BNX2X_BTR);
++	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_HC_BTR_OFFSET(port), BNX2X_BTR);
++}
++
++static void bnx2x_init_internal_func(struct bnx2x *bp)
+ {
+ 	struct tstorm_eth_function_common_config tstorm_config = {0};
+ 	struct stats_indication_flags stats_flags = {0};
+ 	int port = BP_PORT(bp);
+ 	int func = BP_FUNC(bp);
  	int i;
++	u16 max_agg_size;
  
- 	tstorm_client.mtu = bp->dev->mtu + ETH_OVREHEAD;
--	tstorm_client.statistics_counter_id = 0;
-+	tstorm_client.statistics_counter_id = BP_CL_ID(bp);
- 	tstorm_client.config_flags =
- 				TSTORM_ETH_CLIENT_CONFIG_STATSITICS_ENABLE;
- #ifdef BCM_VLAN
-@@ -4649,25 +4657,50 @@ static void bnx2x_init_internal(struct bnx2x *bp)
+ 	if (is_multi(bp)) {
+ 		tstorm_config.config_flags = MULTI_FLAGS;
+@@ -4651,9 +4642,6 @@ static void bnx2x_init_internal(struct bnx2x *bp)
+ 	       TSTORM_FUNCTION_COMMON_CONFIG_OFFSET(func),
+ 	       (*(u32 *)&tstorm_config));
+ 
+-/*	DP(NETIF_MSG_IFUP, "tstorm_config: 0x%08x\n",
+-	   (*(u32 *)&tstorm_config)); */
+-
  	bp->rx_mode = BNX2X_RX_MODE_NONE; /* no rx until link is up */
  	bnx2x_set_storm_rx_mode(bp);
  
-+	/* reset xstorm per client statistics */
-+	for (i = 0; i < sizeof(struct xstorm_per_client_stats) / 4; i++) {
-+		REG_WR(bp, BAR_XSTRORM_INTMEM +
-+		       XSTORM_PER_COUNTER_ID_STATS_OFFSET(port, BP_CL_ID(bp)) +
-+		       i*4, 0);
-+	}
-+	/* reset tstorm per client statistics */
-+	for (i = 0; i < sizeof(struct tstorm_per_client_stats) / 4; i++) {
-+		REG_WR(bp, BAR_TSTRORM_INTMEM +
-+		       TSTORM_PER_COUNTER_ID_STATS_OFFSET(port, BP_CL_ID(bp)) +
-+		       i*4, 0);
-+	}
-+
-+	/* Init statistics related context */
- 	stats_flags.collect_eth = 1;
- 
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port),
-+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(func),
- 	       ((u32 *)&stats_flags)[0]);
--	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(port) + 4,
-+	REG_WR(bp, BAR_XSTRORM_INTMEM + XSTORM_STATS_FLAGS_OFFSET(func) + 4,
- 	       ((u32 *)&stats_flags)[1]);
- 
--	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port),
-+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(func),
- 	       ((u32 *)&stats_flags)[0]);
--	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(port) + 4,
-+	REG_WR(bp, BAR_TSTRORM_INTMEM + TSTORM_STATS_FLAGS_OFFSET(func) + 4,
- 	       ((u32 *)&stats_flags)[1]);
- 
--	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port),
-+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(func),
- 	       ((u32 *)&stats_flags)[0]);
--	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(port) + 4,
-+	REG_WR(bp, BAR_CSTRORM_INTMEM + CSTORM_STATS_FLAGS_OFFSET(func) + 4,
- 	       ((u32 *)&stats_flags)[1]);
- 
--/*	DP(NETIF_MSG_IFUP, "stats_flags: 0x%08x 0x%08x\n",
--	   ((u32 *)&stats_flags)[0], ((u32 *)&stats_flags)[1]); */
-+	REG_WR(bp, BAR_XSTRORM_INTMEM +
-+	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
-+	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
-+	REG_WR(bp, BAR_XSTRORM_INTMEM +
-+	       XSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
-+	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
-+
-+	REG_WR(bp, BAR_TSTRORM_INTMEM +
-+	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func),
-+	       U64_LO(bnx2x_sp_mapping(bp, fw_stats)));
-+	REG_WR(bp, BAR_TSTRORM_INTMEM +
-+	       TSTORM_ETH_STATS_QUERY_ADDR_OFFSET(func) + 4,
-+	       U64_HI(bnx2x_sp_mapping(bp, fw_stats)));
- 
- 	if (CHIP_IS_E1H(bp)) {
- 		REG_WR8(bp, BAR_XSTRORM_INTMEM + XSTORM_FUNCTION_MODE_OFFSET,
-@@ -7386,8 +7419,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 	bp->tx_ticks = 50;
- 	bp->rx_ticks = 25;
- 
--	bp->stats_ticks = 1000000 & 0xffff00;
--
- 	bp->timer_interval = (CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ);
- 	bp->current_interval = (poll ? poll : bp->timer_interval);
- 
-@@ -8137,7 +8168,6 @@ static int bnx2x_get_coalesce(struct net_device *dev,
- 
- 	coal->rx_coalesce_usecs = bp->rx_ticks;
- 	coal->tx_coalesce_usecs = bp->tx_ticks;
--	coal->stats_block_coalesce_usecs = bp->stats_ticks;
- 
- 	return 0;
- }
-@@ -8155,11 +8185,6 @@ static int bnx2x_set_coalesce(struct net_device *dev,
- 	if (bp->tx_ticks > 0x3000)
- 		bp->tx_ticks = 0x3000;
- 
--	bp->stats_ticks = coal->stats_block_coalesce_usecs;
--	if (bp->stats_ticks > 0xffff00)
--		bp->stats_ticks = 0xffff00;
--	bp->stats_ticks &= 0xffff00;
--
- 	if (netif_running(dev))
- 		bnx2x_update_coalesce(bp);
- 
-@@ -8836,76 +8861,99 @@ static const struct {
- 	long offset;
- 	int size;
- 	u32 flags;
--	char string[ETH_GSTRING_LEN];
-+#define STATS_FLAGS_PORT		1
-+#define STATS_FLAGS_FUNC		2
-+	u8 string[ETH_GSTRING_LEN];
- } bnx2x_stats_arr[BNX2X_NUM_STATS] = {
--/* 1 */	{ STATS_OFFSET32(valid_bytes_received_hi),     8, 1, "rx_bytes" },
--	{ STATS_OFFSET32(error_bytes_received_hi),     8, 1, "rx_error_bytes" },
--	{ STATS_OFFSET32(total_bytes_transmitted_hi),  8, 1, "tx_bytes" },
--	{ STATS_OFFSET32(tx_stat_ifhcoutbadoctets_hi), 8, 0, "tx_error_bytes" },
-+/* 1 */	{ STATS_OFFSET32(valid_bytes_received_hi),
-+				8, STATS_FLAGS_FUNC, "rx_bytes" },
-+	{ STATS_OFFSET32(error_bytes_received_hi),
-+				8, STATS_FLAGS_FUNC, "rx_error_bytes" },
-+	{ STATS_OFFSET32(total_bytes_transmitted_hi),
-+				8, STATS_FLAGS_FUNC, "tx_bytes" },
-+	{ STATS_OFFSET32(tx_stat_ifhcoutbadoctets_hi),
-+				8, STATS_FLAGS_PORT, "tx_error_bytes" },
- 	{ STATS_OFFSET32(total_unicast_packets_received_hi),
--						8, 1, "rx_ucast_packets" },
-+				8, STATS_FLAGS_FUNC, "rx_ucast_packets" },
- 	{ STATS_OFFSET32(total_multicast_packets_received_hi),
--						8, 1, "rx_mcast_packets" },
-+				8, STATS_FLAGS_FUNC, "rx_mcast_packets" },
- 	{ STATS_OFFSET32(total_broadcast_packets_received_hi),
--						8, 1, "rx_bcast_packets" },
-+				8, STATS_FLAGS_FUNC, "rx_bcast_packets" },
- 	{ STATS_OFFSET32(total_unicast_packets_transmitted_hi),
--						8, 1, "tx_packets" },
-+				8, STATS_FLAGS_FUNC, "tx_packets" },
- 	{ STATS_OFFSET32(tx_stat_dot3statsinternalmactransmiterrors_hi),
--						8, 0, "tx_mac_errors" },
-+				8, STATS_FLAGS_PORT, "tx_mac_errors" },
- /* 10 */{ STATS_OFFSET32(rx_stat_dot3statscarriersenseerrors_hi),
--						8, 0, "tx_carrier_errors" },
-+				8, STATS_FLAGS_PORT, "tx_carrier_errors" },
- 	{ STATS_OFFSET32(rx_stat_dot3statsfcserrors_hi),
--						8, 0, "rx_crc_errors" },
-+				8, STATS_FLAGS_PORT, "rx_crc_errors" },
- 	{ STATS_OFFSET32(rx_stat_dot3statsalignmenterrors_hi),
--						8, 0, "rx_align_errors" },
-+				8, STATS_FLAGS_PORT, "rx_align_errors" },
- 	{ STATS_OFFSET32(tx_stat_dot3statssinglecollisionframes_hi),
--						8, 0, "tx_single_collisions" },
-+				8, STATS_FLAGS_PORT, "tx_single_collisions" },
- 	{ STATS_OFFSET32(tx_stat_dot3statsmultiplecollisionframes_hi),
--						8, 0, "tx_multi_collisions" },
-+				8, STATS_FLAGS_PORT, "tx_multi_collisions" },
- 	{ STATS_OFFSET32(tx_stat_dot3statsdeferredtransmissions_hi),
--						8, 0, "tx_deferred" },
-+				8, STATS_FLAGS_PORT, "tx_deferred" },
- 	{ STATS_OFFSET32(tx_stat_dot3statsexcessivecollisions_hi),
--						8, 0, "tx_excess_collisions" },
-+				8, STATS_FLAGS_PORT, "tx_excess_collisions" },
- 	{ STATS_OFFSET32(tx_stat_dot3statslatecollisions_hi),
--						8, 0, "tx_late_collisions" },
-+				8, STATS_FLAGS_PORT, "tx_late_collisions" },
- 	{ STATS_OFFSET32(tx_stat_etherstatscollisions_hi),
--						8, 0, "tx_total_collisions" },
-+				8, STATS_FLAGS_PORT, "tx_total_collisions" },
- 	{ STATS_OFFSET32(rx_stat_etherstatsfragments_hi),
--						8, 0, "rx_fragments" },
--/* 20 */{ STATS_OFFSET32(rx_stat_etherstatsjabbers_hi), 8, 0, "rx_jabbers" },
-+				8, STATS_FLAGS_PORT, "rx_fragments" },
-+/* 20 */{ STATS_OFFSET32(rx_stat_etherstatsjabbers_hi),
-+				8, STATS_FLAGS_PORT, "rx_jabbers" },
- 	{ STATS_OFFSET32(rx_stat_etherstatsundersizepkts_hi),
--						8, 0, "rx_undersize_packets" },
-+				8, STATS_FLAGS_PORT, "rx_undersize_packets" },
- 	{ STATS_OFFSET32(jabber_packets_received),
--						4, 1, "rx_oversize_packets" },
-+				4, STATS_FLAGS_FUNC, "rx_oversize_packets" },
- 	{ STATS_OFFSET32(tx_stat_etherstatspkts64octets_hi),
--						8, 0, "tx_64_byte_packets" },
-+				8, STATS_FLAGS_PORT, "tx_64_byte_packets" },
- 	{ STATS_OFFSET32(tx_stat_etherstatspkts65octetsto127octets_hi),
--					8, 0, "tx_65_to_127_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_65_to_127_byte_packets" },
- 	{ STATS_OFFSET32(tx_stat_etherstatspkts128octetsto255octets_hi),
--					8, 0, "tx_128_to_255_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_128_to_255_byte_packets" },
- 	{ STATS_OFFSET32(tx_stat_etherstatspkts256octetsto511octets_hi),
--					8, 0, "tx_256_to_511_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_256_to_511_byte_packets" },
- 	{ STATS_OFFSET32(tx_stat_etherstatspkts512octetsto1023octets_hi),
--					8, 0, "tx_512_to_1023_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_512_to_1023_byte_packets" },
- 	{ STATS_OFFSET32(etherstatspkts1024octetsto1522octets_hi),
--					8, 0, "tx_1024_to_1522_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_1024_to_1522_byte_packets" },
- 	{ STATS_OFFSET32(etherstatspktsover1522octets_hi),
--					8, 0, "tx_1523_to_9022_byte_packets" },
-+			8, STATS_FLAGS_PORT, "tx_1523_to_9022_byte_packets" },
- /* 30 */{ STATS_OFFSET32(rx_stat_xonpauseframesreceived_hi),
--						8, 0, "rx_xon_frames" },
-+				8, STATS_FLAGS_PORT, "rx_xon_frames" },
- 	{ STATS_OFFSET32(rx_stat_xoffpauseframesreceived_hi),
--						8, 0, "rx_xoff_frames" },
--	{ STATS_OFFSET32(tx_stat_outxonsent_hi),  8, 0, "tx_xon_frames" },
--	{ STATS_OFFSET32(tx_stat_outxoffsent_hi), 8, 0, "tx_xoff_frames" },
-+				8, STATS_FLAGS_PORT, "rx_xoff_frames" },
-+	{ STATS_OFFSET32(tx_stat_outxonsent_hi),
-+				8, STATS_FLAGS_PORT, "tx_xon_frames" },
-+	{ STATS_OFFSET32(tx_stat_outxoffsent_hi),
-+				8, STATS_FLAGS_PORT, "tx_xoff_frames" },
- 	{ STATS_OFFSET32(rx_stat_maccontrolframesreceived_hi),
--						8, 0, "rx_mac_ctrl_frames" },
--	{ STATS_OFFSET32(mac_filter_discard),   4, 1, "rx_filtered_packets" },
--	{ STATS_OFFSET32(no_buff_discard),      4, 1, "rx_discards" },
--	{ STATS_OFFSET32(xxoverflow_discard),   4, 1, "rx_fw_discards" },
--	{ STATS_OFFSET32(brb_drop_hi),          8, 1, "brb_discard" },
--/* 39 */{ STATS_OFFSET32(brb_truncate_discard), 8, 1, "brb_truncate" }
-+				8, STATS_FLAGS_PORT, "rx_mac_ctrl_frames" },
-+	{ STATS_OFFSET32(mac_filter_discard),
-+				4, STATS_FLAGS_PORT, "rx_filtered_packets" },
-+	{ STATS_OFFSET32(no_buff_discard),
-+				4, STATS_FLAGS_FUNC, "rx_discards" },
-+	{ STATS_OFFSET32(xxoverflow_discard),
-+				4, STATS_FLAGS_PORT, "rx_fw_discards" },
-+	{ STATS_OFFSET32(brb_drop_hi),
-+				8, STATS_FLAGS_PORT, "brb_discard" },
-+	{ STATS_OFFSET32(brb_truncate_hi),
-+				8, STATS_FLAGS_PORT, "brb_truncate" },
-+/* 40 */{ STATS_OFFSET32(rx_err_discard_pkt),
-+				4, STATS_FLAGS_FUNC, "rx_phy_ip_err_discards"},
-+	{ STATS_OFFSET32(rx_skb_alloc_failed),
-+				4, STATS_FLAGS_FUNC, "rx_skb_alloc_discard" },
-+/* 42 */{ STATS_OFFSET32(hw_csum_err),
-+				4, STATS_FLAGS_FUNC, "rx_csum_offload_errors" }
- };
- 
-+#define IS_NOT_E1HMF_STAT(bp, i) \
-+		(IS_E1HMF(bp) && (bnx2x_stats_arr[i].flags & STATS_FLAGS_PORT))
-+
- static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
-@@ -8914,7 +8962,7 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- 	switch (stringset) {
- 	case ETH_SS_STATS:
- 		for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
--			if (IS_E1HMF(bp) && (!bnx2x_stats_arr[i].flags))
-+			if (IS_NOT_E1HMF_STAT(bp, i))
- 				continue;
- 			strcpy(buf + j*ETH_GSTRING_LEN,
- 			       bnx2x_stats_arr[i].string);
-@@ -8934,7 +8982,7 @@ static int bnx2x_get_stats_count(struct net_device *dev)
- 	int i, num_stats = 0;
- 
- 	for (i = 0; i < BNX2X_NUM_STATS; i++) {
--		if (IS_E1HMF(bp) && (!bnx2x_stats_arr[i].flags))
-+		if (IS_NOT_E1HMF_STAT(bp, i))
- 			continue;
- 		num_stats++;
+@@ -4716,15 +4704,12 @@ static void bnx2x_init_internal(struct bnx2x *bp)
+ 			 bp->e1hov);
  	}
-@@ -8949,7 +8997,7 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
- 	int i, j;
  
- 	for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
--		if (IS_E1HMF(bp) && (!bnx2x_stats_arr[i].flags))
-+		if (IS_NOT_E1HMF_STAT(bp, i))
- 			continue;
+-	/* Zero this manualy as its initialization is
+-	   currently missing in the initTool */
+-	for (i = 0; i < USTORM_AGG_DATA_SIZE >> 2; i++)
+-		REG_WR(bp, BAR_USTRORM_INTMEM +
+-		       USTORM_AGG_DATA_OFFSET + 4*i, 0);
+-
++	/* Init CQ ring mapping and aggregation size */
++	max_agg_size = min((u32)(bp->rx_buf_use_size +
++				 8*BCM_PAGE_SIZE*PAGES_PER_SGE),
++			   (u32)0xffff);
+ 	for_each_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+-		u16 max_agg_size;
  
- 		if (bnx2x_stats_arr[i].size == 0) {
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index 15c9a99..40c3a77 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -1727,6 +1727,9 @@
- /* [R 32] Rx statistics : In user packets discarded due to BRB backpressure
-    for port0 */
- #define NIG_REG_STAT0_BRB_DISCARD				 0x105f0
-+/* [R 32] Rx statistics : In user packets truncated due to BRB backpressure
-+   for port0 */
-+#define NIG_REG_STAT0_BRB_TRUNCATE				 0x105f8
- /* [WB_R 36] Tx statistics : Number of packets from emac0 or bmac0 that
-    between 1024 and 1522 bytes for port0 */
- #define NIG_REG_STAT0_EGRESS_MAC_PKT0				 0x10750
+ 		REG_WR(bp, BAR_USTRORM_INTMEM +
+ 		       USTORM_CQE_PAGE_BASE_OFFSET(port, FP_CL_ID(fp)),
+@@ -4733,16 +4718,34 @@ static void bnx2x_init_internal(struct bnx2x *bp)
+ 		       USTORM_CQE_PAGE_BASE_OFFSET(port, FP_CL_ID(fp)) + 4,
+ 		       U64_HI(fp->rx_comp_mapping));
+ 
+-		max_agg_size = min((u32)(bp->rx_buf_use_size +
+-					 8*BCM_PAGE_SIZE*PAGES_PER_SGE),
+-				   (u32)0xffff);
+ 		REG_WR16(bp, BAR_USTRORM_INTMEM +
+ 			 USTORM_MAX_AGG_SIZE_OFFSET(port, FP_CL_ID(fp)),
+ 			 max_agg_size);
+ 	}
+ }
+ 
+-static void bnx2x_nic_init(struct bnx2x *bp)
++static void bnx2x_init_internal(struct bnx2x *bp, u32 load_code)
++{
++	switch (load_code) {
++	case FW_MSG_CODE_DRV_LOAD_COMMON:
++		bnx2x_init_internal_common(bp);
++		/* no break */
++
++	case FW_MSG_CODE_DRV_LOAD_PORT:
++		bnx2x_init_internal_port(bp);
++		/* no break */
++
++	case FW_MSG_CODE_DRV_LOAD_FUNCTION:
++		bnx2x_init_internal_func(bp);
++		break;
++
++	default:
++		BNX2X_ERR("Unknown load_code (0x%x) from MCP\n", load_code);
++		break;
++	}
++}
++
++static void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
+ {
+ 	int i;
+ 
+@@ -4768,8 +4771,7 @@ static void bnx2x_nic_init(struct bnx2x *bp)
+ 	bnx2x_init_tx_ring(bp);
+ 	bnx2x_init_sp_ring(bp);
+ 	bnx2x_init_context(bp);
+-	bnx2x_init_internal(bp);
+-	bnx2x_storm_stats_init(bp);
++	bnx2x_init_internal(bp, load_code);
+ 	bnx2x_init_ind_table(bp);
+ 	bnx2x_int_enable(bp);
+ }
+@@ -6325,7 +6327,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	atomic_set(&bp->intr_sem, 0);
+ 
+ 	/* Setup NIC internals and enable interrupts */
+-	bnx2x_nic_init(bp);
++	bnx2x_nic_init(bp, load_code);
+ 
+ 	/* Send LOAD_DONE command to MCP */
+ 	if (!BP_NOMCP(bp)) {
 -- 
 1.5.3.2
 
