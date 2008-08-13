@@ -1,114 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Wed, 13 Aug 2008 10:27:01 +0000
-Message-ID: <20080813102701.GD5367@ff.dom.local>
-References: <20080813061317.GA4251@ff.dom.local> <20080812.231633.193696650.davem@davemloft.net> <20080813065302.GB4251@ff.dom.local> <20080813.022549.203848195.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Wed, 13 Aug 2008 03:29:46 -0700 (PDT)
+Message-ID: <20080813.032946.114949936.davem@davemloft.net>
+References: <20080813095324.GA15055@ben.ifi.uio.no>
+	<20080813095942.GA9145@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.185]:52607 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752588AbYHMK1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:27:10 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so5019059mue.1
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 03:27:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080813.022549.203848195.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49077
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751309AbYHMK3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:29:45 -0400
+In-Reply-To: <20080813095942.GA9145@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 02:25:49AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Wed, 13 Aug 2008 06:53:03 +0000
-> 
-> > Otherwise, I think you would better send some code example with these
-> > flags, so we could be sure there is no misunderstanding around this.
-> 
-> Here it my concrete proposal for a fix.
-> 
-> pkt_sched: Fix queue quiescence testing in dev_deactivate().
-> 
-> Based upon discussions with Jarek P. and Herbert Xu.
-> 
-> First, we're testing the wrong qdisc.  We just reset the device
-> queue qdiscs to &noop_qdisc and checking it's state is completely
-> pointless here.
-> 
-> We want to wait until the previous qdisc that was sitting at
-> the ->qdisc pointer is not busy any more.  And that would be
-> ->qdisc_sleeping.
-> 
-> Because of how we propagate the samples qdisc pointer down into
-> qdisc_run and friends via per-cpu ->output_queue and netif_schedule,
-> we have to wait also for the __QDISC_STATE_SCHED bit to clear as
-> well.
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Wed, 13 Aug 2008 13:59:43 +0400
 
-Of course, checking this needs more time, but it looks like it could
-work, only two little doubts:
-
-- in net_tx_action() we can hit a place just after clear_bit() where
-none of these bits is set. Of course, hitting this 2 times in a row
-seems to be very unprobable, yet possible, and a lock isn't helpful
-here, so probably some change around this would make this nicer.
-
-- isn't there possible some longer ping-pong between qdic_run() and
-net_tx_action() when dev_requeue_skb() would get it back to
-__netif_schedule() and so on (with NETDEV_TX_BUSY)?
-
-Otherwise, this patch looks OK to me.
-
-Jarek P.
-
-
+> On Wed, Aug 13, 2008 at 11:53:24AM +0200, Vegard Nossum wrote:
+> > I encountered a hard-to-debug deadlock when I pulled out the plug of my
+> > RealTek 8139 which was also running netconsole: The driver wants to print
+> > a "link down" message. However, this triggers netconsole, which wants to
+> > print the message using the same device. Here is a backtrace:
+> > 
+> >  [<c05916b6>] _spin_lock_irqsave+0x76/0x90
+> >  [<c035b255>] rtl8139_start_xmit+0x65/0x130 <-- spin_lock(&tp->lock)
+> >  [<c04c5e28>] netpoll_send_skb+0x158/0x1a0
+> >  [<c04c62fb>] netpoll_send_udp+0x1db/0x1f0
+> >  [<c037c70c>] write_msg+0x8c/0xc0
+> >  [<c0135883>] __call_console_drivers+0x53/0x60
+> >  [<c01358db>] _call_console_drivers+0x4b/0x90
+> >  [<c0135a25>] release_console_sem+0xc5/0x1f0
+> >  [<c0135f0b>] vprintk+0x1ab/0x3e0
+> >  [<c013615b>] printk+0x1b/0x20
+> >  [<c0349736>] mii_check_media+0x196/0x1e0
+> >  [<c03597f4>] rtl_check_media+0x24/0x30
+> >  [<c035a0ea>] rtl8139_interrupt+0x42a/0x4a0 <-- spin_lock(&tp->lock)
+> >  [<c01716d8>] handle_IRQ_event+0x28/0x70
+> >  [<c0172d9b>] handle_fasteoi_irq+0x6b/0xe0
+> >  [<c0107128>] do_IRQ+0x48/0xa0
+> > 
+> > The least invasive fix is to detect that we're trying to re-enter the
+> > driver code. We provide a netdev_busy() function which can be used to
+> > determine whether a deadlock can occur if we try to transmit another
+> > packet.
+> > 
+> > Note that this may lead to lost messages if the driver is active on
+> > another CPU while we try to use the same device for netconsole.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 7cf83b3..4685746 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -647,7 +647,7 @@ static void dev_deactivate_queue(struct net_device *dev,
->  	}
->  }
->  
-> -static bool some_qdisc_is_running(struct net_device *dev, int lock)
-> +static bool some_qdisc_is_busy(struct net_device *dev, int lock)
->  {
->  	unsigned int i;
->  
-> @@ -658,13 +658,14 @@ static bool some_qdisc_is_running(struct net_device *dev, int lock)
->  		int val;
->  
->  		dev_queue = netdev_get_tx_queue(dev, i);
-> -		q = dev_queue->qdisc;
-> +		q = dev_queue->qdisc_sleeping;
->  		root_lock = qdisc_lock(q);
->  
->  		if (lock)
->  			spin_lock_bh(root_lock);
->  
-> -		val = test_bit(__QDISC_STATE_RUNNING, &q->state);
-> +		val = (test_bit(__QDISC_STATE_RUNNING, &q->state) ||
-> +		       test_bit(__QDISC_STATE_SCHED, &q->state));
->  
->  		if (lock)
->  			spin_unlock_bh(root_lock);
-> @@ -689,14 +690,14 @@ void dev_deactivate(struct net_device *dev)
->  
->  	/* Wait for outstanding qdisc_run calls. */
->  	do {
-> -		while (some_qdisc_is_running(dev, 0))
-> +		while (some_qdisc_is_busy(dev, 0))
->  			yield();
->  
->  		/*
->  		 * Double-check inside queue lock to ensure that all effects
->  		 * of the queue run are visible when we return.
->  		 */
-> -		running = some_qdisc_is_running(dev, 1);
-> +		running = some_qdisc_is_busy(dev, 1);
->  
->  		/*
->  		 * The running flag should never be set at this point because
+> This sucks.
+
+It's also the wrong fix.
+
+As a quicker and more palatable solution, print your link status
+message in some kind of deferred context where you can have the
+lock not held or similar.
