@@ -1,42 +1,42 @@
-From: "Park Ji-In" <tisphie@gmail.com>
-Subject: [PATCH] rearrange structure xfrm_userpolicy_type in linux/xfrm.h
-Date: Wed, 13 Aug 2008 16:56:32 +0900
-Message-ID: <c4ee36230808130056s7d01ebaeh677593ef7c099985@mail.gmail.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Wed, 13 Aug 2008 10:00:28 +0200
+Message-ID: <200808131000.29788.thomas.jarosch@intra2net.com>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi> <200808120946.19459.thomas.jarosch@intra2net.com> <20080812.011822.155249871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:30315 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487AbYHMH4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 03:56:33 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so1134355yxm.1
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 00:56:32 -0700 (PDT)
+Cc: ilpo.jarvinen@helsinki.fi, billfink@mindspring.com,
+	fragabr@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
+	sr@securenet.de, netfilter-devel@vger.kernel.org,
+	kadlec@blackhole.kfki.hu
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080812.011822.155249871.davem@davemloft.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-struct xfrm_userpolicy_type in linux/xfrm.h is something strange,
-It seems that to align 4byte, but it's size in x86 with gcc is 6byte.
-rearrange to fit in 4byte structure
+On Tuesday, 12. August 2008 10:18:22 David Miller wrote:
+> From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+> Date: Tue, 12 Aug 2008 09:46:17 +0200
+>
+> > David, I agree with you, though I'm not sure about the end user
+> > experience:
+>
+> We had the same situation with ECN and window scaling, and my proposal
+> is the same as how we handled those situations involving broken
+> middleware boxes.
 
-Signed-off-by: Park Jiin <tisphie@gmail.com>
+Yes, that is true. IMHO there's a slight difference with FRTO trouble
+compared to ECN/window scaling issues:
 
----
+ECN trouble -> No access at all
+Broken window scaling -> Large transfers don't work
+MTU issues -> No access at all / large transfers don't work
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index fb0c215..95c7f1d 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -254,8 +254,8 @@ enum xfrm_ae_ftype_t {
+FRTO problems -> Hard to spot as they only happen when packet loss occurs.
+Though I guess Ilpo knows best if there's an "easy" way to detect this or not.
 
- struct xfrm_userpolicy_type {
-        __u8            type;
--       __u16           reserved1;
--       __u8            reserved2;
-+       __u8            reserved1;
-+       __u16           reserved2;
- };
-
- /* Netlink message attributes.  */
+Thomas
