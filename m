@@ -1,72 +1,94 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 14:27:50 -0700
-Message-ID: <ada3al8k3l5.fsf@cisco.com>
-References: <48A08145.6060703@hp.com>
-	<20080811.141254.165409473.davem@davemloft.net>
-	<adad4kfxm9v.fsf@cisco.com>
-	<20080811.145313.178992274.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Wed, 13 Aug 2008 14:34:59 -0700
+Message-ID: <20080813143459.1fb1c5c5@extreme>
+References: <48A23137.2010107@myri.com>
+	<20080812.181549.229367205.davem@davemloft.net>
+	<48A30834.4090802@myri.com>
+	<18595.15208.734736.864386@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, jgarzik@pobox.com, swise@opengridcomputing.com,
-	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080811.145313.178992274.davem@davemloft.net> (David Miller's
-	message of "Mon, 11 Aug 2008 14:53:13 -0700 (PDT)")
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Gallatin <gallatin@myri.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Robert.Olsson@data.slu.se
+To: Robert Olsson <robert@robur.slu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:56768 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751655AbYHMVfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 17:35:02 -0400
+In-Reply-To: <18595.15208.734736.864386@robur.slu.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > > How can you place iSCSI data properly with only stateless offloads?
+On Wed, 13 Aug 2008 21:52:08 +0200
+Robert Olsson <robert@robur.slu.se> wrote:
 
- > By teaching the stateless offload how to parse the iSCSI headers
- > on the flow and place the data into pages at the correct offsets
- > such that you can place the pages hanging off of the SKB directly
- > into the page cache.
+> 
+> Andrew Gallatin writes:
+>  > 
+>  > Excellent!  This completely fixes the increased CPU
+>  > utilization I observed on both 10GbE and 1GbE interfaces,
+>  > and CPU utilization is now reduced back to 2.6.26 levels.
+> 
+> 
+>  > > Robert, this could explain some of the things in the
+>  > > multiqueue testing profile you sent me a week or so
+>  > > ago.
+> 
+> I've just rerun the virtual 10g router experiment with the current
+> git including the pkt_sched patch. The full experiment is below. In this 
+> case the profile looks the same as before. No improvement due to this
+> patch here.
+> 
+> In this case we have not any old numbers to compare with as we're 
+> testing new functionality. I'm not to unhappy about the performance 
+> and there must be some functions the in profile... 
+> 
+> Virtual IP forwarding experiment. We're splitting an incoming flow
+> load (10g) among 4 CPU's and keep the incoming flows per-CPU including
+> TX and also skb clearing 
+> 
+> 
+> Network flow load into (eth0) 10G 82598. Total 295+293+293+220 kpps 
+> 4 * (4096 concurrent flows at 30 pkts)
+> 
+> eth0   1500   0 3996889      0   1280      0      19      0      0      0 BMRU
+> eth1   1500   0       1      0      0      0 3998236      0      0      0 BMRU
+> 
+> I've configured RSS with ixgbe so all 4 CPU's are used and hacked driver 
+> so skb gets tagged with incoming CPU. The 2:nd col in softnet_stat is used 
+> to verify tagging and affinity is correct until hard_xmit and even for TX-skb 
+> cleaning to avoid all cache misses and true per-CPU forwarding. The ixgbe driver
+> 1.3.31.5 from Intel's site is needed for RSS etc and bit modified for this test.
+> 
+> softnet_stat
+> 000f3236 001e63f8 00000872 00000000 00000000 00000000 00000000 00000000 00000000
+> 000f52df 001ea58c 000008b8 00000000 00000000 00000000 00000000 00000000 00000000
+> 000f3d90 001e7af8 00000a3b 00000000 00000000 00000000 00000000 00000000 00000000
+> 000f4174 001e82c2 00000a17 00000000 00000000 00000000 00000000 00000000 00000000
+> 
+> eth0 (incoming)
+> 214:          4          0          0       6623   PCI-MSI-edge      eth0:v3-Rx
+> 215:          0          5       6635          0   PCI-MSI-edge      eth0:v2-Rx
+> 216:          0       7152          5          0   PCI-MSI-edge      eth0:v1-Rx
+> 217:       7115          0          0          5   PCI-MSI-edge      eth0:v0-Rx
+> 
+> eth1 (outgoing)
+> 201:          3          0          0       3738   PCI-MSI-edge      eth1:v7-Tx
+> 202:          0          4       3743          0   PCI-MSI-edge      eth1:v6-Tx
+> 203:          0       3743          4          0   PCI-MSI-edge      eth1:v5-Tx
+> 204:       3746          0          0          6   PCI-MSI-edge      eth1:v4-Tx
+> 
+> CPU: AMD64 processors, speed 3000 MHz (estimated)
+> Counted CPU_CLK_UNHALTED events (Cycles outside of halt state) with a unit mask of 0x00 (No unit mask) count 3000
+> samples  %        image name               app name                 symbol name
+> 407896    8.7211  vmlinux                  vmlinux                  cache_alloc_refill
+> 339524    7.2592  vmlinux                  vmlinux                  __qdisc_run
+> 243352    5.2030  vmlinux                  vmlinux                  dev_queue_xmit
+> 227855    4.8717  vmlinux                  vmlinux                  kfree
+> 214975    4.5963  vmlinux                  vmlinux                  __alloc_skb
+> 172008    3.6776  vmlinux                  vmlinux                  cache_flusharray
 
-I don't see how this could work.  First, it seems that you have to let
-the adapter know which connections are iSCSI connections so that it
-knows when to try and parse iSCSI headers.  So you're already not
-totally stateless.  Then, since (AFAIK -- I'm not an expert on iSCSI and
-especially I'm not an expert on what common practice is for current
-implementations) the iSCSI PDUs can start at any offset in the TCP
-stream, I don't see how a stateless adapter can even find the PDU
-headers to parse -- there's not any way that I know of to recognize
-where a PDU boundary is without keeping track of the lengths of all the
-PDUs that go by (ie you need per-connection state).
-
-Even if the adapter could find the PDUs, I don't see how it could come
-up with the correct offset to place the data -- PDUs with response data
-just carry an opaque tag assigned by the iSCSI initiator.  Finally, if
-there are ways around all of those difficulties, we would still have to
-do major surgery to our block layer to cope with read requests that
-complete into random pages, rather than using a scatter list passed into
-the low-level driver.
-
-
-But I think all this argument is missing the point anyway.  The real
-issue is not hand-waving about what someone might build someday, but how
-we want to support iSCSI offload with the existing Chelsio, Broadcom,
-etc adapters.  The answer might be, "we don't," but I disagree with that
-choice because:
-
- a. "No upstream support" really ends up being "enterprise distros and
-    customers end up using hacky out-of-tree drivers and blaming us."
-
- b. It sends a bad message to vendors who put a lot of effort into
-    writing a clean, mergable driver and responding to review if the
-    answer is, "Sorry, your hardware is wrong so no driver for you."
-
-Maybe the answer is that we just add the iSCSI HBA drivers with no help
-from the networking stack, and ignore the port collision problem.  For
-iSCSI initiators, it's really not an issue: for a 4-tuple to collide,
-someone would have to use both offloaded and non-offloaded connections
-to the same target and be unlucky in the source port chosen.  It would
-be nice to be able to discuss solutions to port collisions, but it may
-be that this is too emotional an issue for that to be possible.
-
- - R.
+I see you are still using the SLAB allocator. Does the SLUB change the numbers?
