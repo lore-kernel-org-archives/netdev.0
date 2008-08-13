@@ -1,27 +1,36 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 11:57:52 +1000
-Message-ID: <E1KT5cW-0007si-00@gondolin.me.apana.org.au>
-References: <200808121521.10101.divy@chelsio.com>
-Cc: davem@davemloft.net, rdreier@cisco.com, rick.jones2@hp.com,
-	jgarzik@pobox.com, swise@opengridcomputing.com, kxie@chelsio.com,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
-	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
-To: divy@chelsio.com (Divy Le Ray)
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200808121521.10101.divy@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: LRO restructuring?
+Date: Wed, 13 Aug 2008 12:14:15 +1000
+Message-ID: <E1KT5sN-0007uF-00@gondolin.me.apana.org.au>
+References: <48A17922.4050103@myri.com>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, brice@myri.com
+To: gallatin@myri.com (Andrew Gallatin)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:36736 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751858AbYHMCOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 22:14:18 -0400
+In-Reply-To: <48A17922.4050103@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray <divy@chelsio.com> wrote:
+Andrew Gallatin <gallatin@myri.com> wrote:
 >
-> Herbert requested some benchmark numbers, I consequently obliged.
+> Indeed.  Nor should they change lengths, or anything else.
+> Everything about this "inexact" forwarding is illegal as
+> hell.  However, you have to admit that it is an interesting hack :)
 
-Have you posted a hardware-accelerated iSCSI vs. LRO comparison?
+Solutions like this have been deployed.  For instance, many satellite
+networks use transparent TCP proxies to mitigate the effect of large
+latencies on older TCP stacks that don't have modern congestion
+control algorithms.
 
-Thanks,
+Surprisingly there are actually very few problems.  The biggest
+one (apart from scalability) is with non-TCP traffic masquerading
+as TCP such as Cisco's VPN solution.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
