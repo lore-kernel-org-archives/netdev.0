@@ -1,36 +1,79 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: csum offload and af_packet
-Date: Wed, 13 Aug 2008 13:26:22 +0200
-Message-ID: <48A2C4DE.20005@trash.net>
-References: <20080812005839.GC18547@gondor.apana.org.au> <200808121817.19662.netdev@axxeo.de> <20080812233753.GA29155@gondor.apana.org.au> <20080812.175532.137434164.davem@davemloft.net> <20080813010935.GA29815@gondor.apana.org.au>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- experimental revert for 2.6.27 failed
+Date: Wed, 13 Aug 2008 05:03:19 -0700 (PDT)
+Message-ID: <108777.49875.qm@web82104.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@axxeo.de,
-	rusty@rustcorp.com.au, anthony@codemonkey.ws,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: Yinghai Lu <yhlu.kernel@gmail.com>, Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39638 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369AbYHML03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 07:26:29 -0400
-In-Reply-To: <20080813010935.GA29815@gondor.apana.org.au>
+Received: from web82104.mail.mud.yahoo.com ([209.191.84.217]:36535 "HELO
+	web82104.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752099AbYHMMDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 08:03:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Tue, Aug 12, 2008 at 05:55:32PM -0700, David Miller wrote:
->
->   
->> I kind of hope that libpcap/tcpdump has been taught about auxdata
->> by now, has it? :-/
->>     
->
-> Unfortunately no.  This also means that if we do do this in AF_PACKET,
-> then running a packet dump on a fast outbound interface may become more
-> expensive.
 
-Actually the current CVS version understands auxdata and uses it to
-reconstruct VLAN headers. CVS seems to be broken though, I can send
-you a tarball with the current version if you want.
+
+> please try attached patch with 2.6.27-rc3
+
+Thx for the patch... and for providing it as an attachment.  My email
+situation is less than optimal, and I am stuck using my ISP's web 
+interface for the present.
+
+I used 'git apply --check <patchfilename>' first, and got no errors, so
+I applied it, built, installed, and rebooted.
+
+The kernel froze in the same way as the others.
+
+
+BTW, I saw a new last line of output -- which may or may not be
+relevant -- but I thought I should mention it since I had never seen 
+it before:
+
+With the patched 2.6.27-rc3 kernel, I thought I saw some different 
+output during the boot.  The messages were from pnp_system_init(), and 
+had to do with not being able to use iomem ranges.  I rebooted one of 
+my 2.6.26 kernels (with HPET enabled so it would freeze) so I could
+compare the messages, and found that I was wrong:  the messages were not
+new, and are probably normal.
+
+However, each time one of these 2.6.2[67] kernels locks up, the last 
+line on the screen is the (now familiar) inet_init() message:
+
+NET: Registered protocol family 2
+
+
+When I booted the older 2.6.26 kernel, I saw something I haven't seen
+before:
+
+Clocksource tsc unstable (delta = 4398046170281 ns)
+
+
+Now, I have experienced aggravating TSC messages at boot ever since I built
+my first AMD dual-core machine last year.  I researched the issue, I found
+that I could use "notsc" to suppress the messages.  I have GRUB
+automatically add the "notsc" parameter for my everyday-usage kernels, but
+I have intentionally NOT been using "notsc" for any of the freezing kernels
+about which I have been reporting information here.  (I have tried "notsc"
+before as an experiment, but it does not prevent freezing.)
+
+Getting a TSC message when not using "notsc" is no surprise.  I only mention
+it because this is the first time I have seen that message as the last 
+output line during a freeze.
+
+Beware:  this TSC output happened just now with an older 2.6.26 kernel, not
+with the patched 2.6.27-rc3 kernel... so it has nothing to do with the new
+patch.  That time "delta" is ridiculous:  4398 seconds.  Total time from
+GRUB to freeze is < 3 seconds.  It reminds me of info I posted before about
+the pci_bios_assign_resources() initcall falsely reporting a return in 
+285000+ msecs.
+
+
+Thanks,
+Dave W.
