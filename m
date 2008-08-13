@@ -1,46 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 15:08:31 -0700 (PDT)
-Message-ID: <20080813.150831.193391799.davem@davemloft.net>
-References: <adad4kfxm9v.fsf@cisco.com>
-	<20080811.145313.178992274.davem@davemloft.net>
-	<ada3al8k3l5.fsf@cisco.com>
+Subject: Re: Question on how to select specific tx queues for tx multiqueue
+ in 2.6.27
+Date: Wed, 13 Aug 2008 15:11:02 -0700 (PDT)
+Message-ID: <20080813.151102.203389904.davem@davemloft.net>
+References: <80769D7B14936844A23C0C43D9FBCF0F13E0F8FF@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, jgarzik@pobox.com, swise@opengridcomputing.com,
-	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rdreier@cisco.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <ada3al8k3l5.fsf@cisco.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@osdl.org
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48630
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751654AbYHMWLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 18:11:01 -0400
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F13E0F8FF@orsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Wed, 13 Aug 2008 14:27:50 -0700
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Wed, 13 Aug 2008 14:35:55 -0700
 
-> I don't see how this could work.  First, it seems that you have to let
-> the adapter know which connections are iSCSI connections so that it
-> knows when to try and parse iSCSI headers.
+> At this point it appears 2.6.27 broke something that used to work in
+> 2.6.2[3456], what should we do at this point to get multiqueue tx
+> back to having the same user space configuration that worked before?
 
-It always starts from offset zero for never seen before connections.
+You can write a qdisc that does these things if you wish.
+I'm happy to accept patches.  The previous stuff was totally
+a joke so there is no reason that I have to spend the time to
+replace it since I make the TX multiqueue stuff actually useful.
 
-> So you're already not totally stateless.
-
-Yes, we are.
-
-> Then, since (AFAIK -- I'm not an expert on iSCSI and
-> especially I'm not an expert on what common practice is for current
-> implementations) the iSCSI PDUs can start at any offset in the TCP
-> stream, I don't see how a stateless adapter can even find the PDU
-> headers to parse -- there's not any way that I know of to recognize
-> where a PDU boundary is without keeping track of the lengths of all the
-> PDUs that go by (ie you need per-connection state).
-
-Like I said, you retain a "flow cache" (say it a million times, "flow
-cache") that remembers the current parameters and the buffers
-currently assigned to that flow and what offset within those buffers.
+On the front end we will have a simply ethtool interface that can
+select from a small fixed set of hashing algorithms.  Two that will
+definitely be there is the current hash function and one based upon
+smp_processor_id().
