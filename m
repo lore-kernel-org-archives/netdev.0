@@ -1,103 +1,86 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 11/25] bnx2x: Delay in while loops
-Date: Wed, 13 Aug 2008 17:14:12 +0300
-Message-ID: <1218636853.547.87.camel@lb-tlvb-eliezer>
+Subject: [PATCH 08/25] bnx2x: Memory allocation
+Date: Wed, 13 Aug 2008 17:13:47 +0300
+Message-ID: <1218636827.547.84.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Yitchak Gertner" <gertner@broadcom.com>
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1375 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1047 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756288AbYHMOOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 10:14:36 -0400
+	id S1753502AbYHMOOT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 10:14:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Delay in while loops
-The delay in the loop should be after the change. This has very little
-effect (can save one delay) but it is the right thing to do
+Memory allocation
+- The CQE ring was allocated to the max size even for a chip that does 
+  not support it. Fixed to allocate according to the chip type to save 
+  memory
+- The rx_page_ring was not freed on driver unload
 
-Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   25 +++++++++++--------------
- 1 files changed, 11 insertions(+), 14 deletions(-)
+ drivers/net/bnx2x_main.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index b2886db..ea6fcf3 100755
+index c8b6178..b8cdce2 100755
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -235,17 +235,16 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
- 	while (*wb_comp != DMAE_COMP_VAL) {
- 		DP(BNX2X_MSG_OFF, "wb_comp 0x%08x\n", *wb_comp);
+@@ -4252,7 +4252,9 @@ static inline void bnx2x_free_tpa_pool(struct bnx2x *bp,
+ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ {
+ 	int func = BP_FUNC(bp);
+-	u16 ring_prod, cqe_ring_prod = 0;
++	int max_agg_queues = CHIP_IS_E1(bp) ? ETH_MAX_AGGREGATION_QUEUES_E1 :
++					      ETH_MAX_AGGREGATION_QUEUES_E1H;
++	u16 ring_prod, cqe_ring_prod;
+ 	int i, j;
  
--		/* adjust delay for emulation/FPGA */
--		if (CHIP_REV_IS_SLOW(bp))
--			msleep(100);
--		else
--			udelay(5);
--
- 		if (!cnt) {
- 			BNX2X_ERR("dmae timeout!\n");
- 			break;
+ 	bp->rx_buf_use_size = bp->dev->mtu;
+@@ -4266,9 +4268,9 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 		   bp->dev->mtu + ETH_OVREHEAD);
+ 
+ 		for_each_queue(bp, j) {
+-			for (i = 0; i < ETH_MAX_AGGREGATION_QUEUES_E1H; i++) {
+-				struct bnx2x_fastpath *fp = &bp->fp[j];
++			struct bnx2x_fastpath *fp = &bp->fp[j];
+ 
++			for (i = 0; i < max_agg_queues; i++) {
+ 				fp->tpa_pool[i].skb =
+ 				   netdev_alloc_skb(bp->dev, bp->rx_buf_size);
+ 				if (!fp->tpa_pool[i].skb) {
+@@ -4348,8 +4350,7 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 				BNX2X_ERR("disabling TPA for queue[%d]\n", j);
+ 				/* Cleanup already allocated elements */
+ 				bnx2x_free_rx_sge_range(bp, fp, ring_prod);
+-				bnx2x_free_tpa_pool(bp, fp,
+-					      ETH_MAX_AGGREGATION_QUEUES_E1H);
++				bnx2x_free_tpa_pool(bp, fp, max_agg_queues);
+ 				fp->disable_tpa = 1;
+ 				ring_prod = 0;
+ 				break;
+@@ -5772,6 +5773,7 @@ static void bnx2x_free_mem(struct bnx2x *bp)
+ 			       NUM_RCQ_BD);
+ 
+ 		/* SGE ring */
++		BNX2X_FREE(bnx2x_fp(bp, i, rx_page_ring));
+ 		BNX2X_PCI_FREE(bnx2x_fp(bp, i, rx_sge_ring),
+ 			       bnx2x_fp(bp, i, rx_sge_mapping),
+ 			       BCM_PAGE_SIZE * NUM_RX_SGE_PAGES);
+@@ -5949,7 +5951,8 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
+ 			dev_kfree_skb(skb);
  		}
- 		cnt--;
-+		/* adjust delay for emulation/FPGA */
-+		if (CHIP_REV_IS_SLOW(bp))
-+			msleep(100);
-+		else
-+			udelay(5);
+ 		if (!fp->disable_tpa)
+-			bnx2x_free_tpa_pool(bp, fp,
++			bnx2x_free_tpa_pool(bp, fp, CHIP_IS_E1(bp) ?
++					    ETH_MAX_AGGREGATION_QUEUES_E1 :
+ 					    ETH_MAX_AGGREGATION_QUEUES_E1H);
  	}
- 
- 	mutex_unlock(&bp->dmae_mutex);
-@@ -308,17 +307,16 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
- 
- 	while (*wb_comp != DMAE_COMP_VAL) {
- 
--		/* adjust delay for emulation/FPGA */
--		if (CHIP_REV_IS_SLOW(bp))
--			msleep(100);
--		else
--			udelay(5);
--
- 		if (!cnt) {
- 			BNX2X_ERR("dmae timeout!\n");
- 			break;
- 		}
- 		cnt--;
-+		/* adjust delay for emulation/FPGA */
-+		if (CHIP_REV_IS_SLOW(bp))
-+			msleep(100);
-+		else
-+			udelay(5);
- 	}
- 	DP(BNX2X_MSG_OFF, "data [0x%08x 0x%08x 0x%08x 0x%08x]\n",
- 	   bp->slowpath->wb_data[0], bp->slowpath->wb_data[1],
-@@ -3094,12 +3092,12 @@ static int bnx2x_stats_comp(struct bnx2x *bp)
- 
- 	might_sleep();
- 	while (*stats_comp != DMAE_COMP_VAL) {
--		msleep(1);
- 		if (!cnt) {
- 			BNX2X_ERR("timeout waiting for stats finished\n");
- 			break;
- 		}
- 		cnt--;
-+		msleep(1);
- 	}
- 	return 1;
  }
-@@ -6483,7 +6481,6 @@ static int bnx2x_stop_leading(struct bnx2x *bp)
- 	   so there is not much to do if this times out
- 	 */
- 	while (dsb_sp_prod_idx == *bp->dsb_sp_prod) {
--		msleep(1);
- 		if (!cnt) {
- 			DP(NETIF_MSG_IFDOWN, "timeout waiting for port del "
- 			   "dsb_sp_prod 0x%x != dsb_sp_prod_idx 0x%x\n",
 -- 
 1.5.3.2
 
