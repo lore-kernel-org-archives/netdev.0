@@ -1,43 +1,60 @@
-From: gerrit@erg.abdn.ac.uk
-Subject: Re: [PATCH] dccp: change L/R must have at least one byte in the
-     dccpsf_val field
-Date: Wed, 13 Aug 2008 16:04:03 +0100 (BST)
-Message-ID: <44269.148.187.160.35.1218639843.squirrel@148.187.160.35>
-References: <20080813125532.GD12888@ghostprotocols.net>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Wed, 13 Aug 2008 11:06:11 -0400
+Message-ID: <48A2F863.7040402@myri.com>
+References: <48A23137.2010107@myri.com> <20080812.180535.99302127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Gerrit Renker" <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org
-To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47198 "EHLO erg.abdn.ac.uk"
+Received: from mailbox2.myri.com ([64.172.73.26]:1917 "EHLO myri.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752662AbYHMPEa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 11:04:30 -0400
-In-Reply-To: <20080813125532.GD12888@ghostprotocols.net>
+	id S1754548AbYHMPGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 11:06:15 -0400
+In-Reply-To: <20080812.180535.99302127.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> dccp: change L/R must have at least one byte in the dccpsf_val field
->
-> Thanks to Eugene Teo for reporting this problem.
->
-> Signed-off-by: Eugene Teo <eugenete@kernel.sg>
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+David Miller wrote:
+> From: Andrew Gallatin <gallatin@myri.com>
+> Date: Tue, 12 Aug 2008 20:56:23 -0400
+> 
+>> According to oprofile, the system is spending a lot of
+>> time in __qdisc_run() when sending on the 1GbE forcedeth
+>> interface:
+> 
+> What does the profile look like beforehand?
 
-Dave, can you please apply -- this patch is for mainline only.
+The qdisc stuff is gone, and nearly everything is in the
+noise.  Beforehand, we're at ~15% CPU.  Here is the
+first page or so from opreport -l from immediately
+prior:
 
-The dccp_setsockopt_change() function has been fully removed in the
-test tree (
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=f1b8d02c7cb03e22037e1590d04f9ec8ab2423eb),
-due to problems it caused.
+7566      6.4373  vmlinux                  _raw_spin_lock
+5894      5.0147  oprofiled                (no symbols)
+4136      3.5190  ehci_hcd                 (no symbols)
+3965      3.3735  vmlinux                  handle_IRQ_event
+3333      2.8358  vmlinux                  tcp_ack
+2952      2.5116  vmlinux                  __copy_skb_header
+2869      2.4410  vmlinux                  default_idle
+2702      2.2989  vmlinux                  nv_rx_process_optimized
+2511      2.1364  vmlinux                  nv_start_xmit_optimized
+2310      1.9654  vmlinux                  sk_run_filter
+2157      1.8352  vmlinux                  kmem_cache_alloc
+2139      1.8199  vmlinux                  IRQ0x69_interrupt
+1797      1.5289  vmlinux                  nv_nic_irq_optimized
+1796      1.5281  vmlinux                  kmem_cache_free
+1784      1.5179  vmlinux                  kfree
+1690      1.4379  vmlinux                  _raw_spin_unlock
+1594      1.3562  vmlinux                  tcp_sendpage
+1578      1.3426  vmlinux                  __tcp_push_pending_frames
+1576      1.3409  vmlinux                  packet_rcv_spkt
+1560      1.3273  vmlinux                  __inet_lookup_established
+1558      1.3256  vmlinux                  nv_tx_done_optimized
 
-Will be in contact regarding this soon.
+[ On this system, forcedeth shares an irq with ehci_hcd,
+so that's why that is so high.]
 
-Gerrit
-
-
-
+Drew
