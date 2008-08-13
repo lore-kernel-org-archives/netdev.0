@@ -1,45 +1,86 @@
-From: Jean-Christophe Dubois <jcd@tribudubois.net>
-Subject: [PATCH] remove unnecessary variable in xfrm_output_resume()
-Date: Wed, 13 Aug 2008 07:48:01 +0200
-Message-ID: <200808130748.02368.jcd@tribudubois.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch] ipvs: rename __ip_vs_wlc_schedule in lblc and lblcr
+	schedulers
+Date: Wed, 13 Aug 2008 15:49:58 +1000
+Message-ID: <20080813054956.GA30294@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g19.free.fr ([212.27.42.27]:58544 "EHLO smtp1-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486AbYHMFsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 01:48:05 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Sven Wegener <sven.wegener@stealer.net>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Small fix removing an unnecessary intermediate variable.
+For the sake of clarity, rename __ip_vs_wlc_schedule() in lblc.c to
+__ip_vs_lblc_schedule() and the version in lblcr.c to __ip_vs_lblc_schedule().
 
-Signed-off-by: Jean-Christophe DUBOIS  <jcd@tribudubois.net>
----
+I guess the original name stuck from a copy and paste.
 
-diff -Naur linux-2.6.26.2.org/net/xfrm/xfrm_output.c linux-2.6.26.2/net/xfrm/xfrm_output.c
---- linux-2.6.26.2.org/net/xfrm/xfrm_output.c   2008-08-12 00:37:29.000000000 +0200
-+++ linux-2.6.26.2/net/xfrm/xfrm_output.c       2008-08-12 00:40:40.000000000 +0200
-@@ -112,16 +112,13 @@
- int xfrm_output_resume(struct sk_buff *skb, int err)
+Cc: Sven Wegener <sven.wegener@stealer.net>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+Index: stealer-2.6/net/ipv4/ipvs/ip_vs_lblc.c
+===================================================================
+--- stealer-2.6.orig/net/ipv4/ipvs/ip_vs_lblc.c	2008-08-13 15:44:01.000000000 +1000
++++ stealer-2.6/net/ipv4/ipvs/ip_vs_lblc.c	2008-08-13 15:44:31.000000000 +1000
+@@ -395,7 +395,7 @@ static int ip_vs_lblc_update_svc(struct 
+ 
+ 
+ static inline struct ip_vs_dest *
+-__ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
++__ip_vs_lblc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
  {
-        while (likely((err = xfrm_output_one(skb, err)) == 0)) {
--               struct xfrm_state *x;
--
-                nf_reset(skb);
-
-                err = skb->dst->ops->local_out(skb);
-                if (unlikely(err != 1))
-                        goto out;
-
--               x = skb->dst->xfrm;
--               if (!x)
-+               if (!skb->dst->xfrm)
-                        return dst_output(skb);
-
-                err = nf_hook(skb->dst->ops->family,
+ 	struct ip_vs_dest *dest, *least;
+ 	int loh, doh;
+@@ -494,7 +494,7 @@ ip_vs_lblc_schedule(struct ip_vs_service
+ 	tbl = (struct ip_vs_lblc_table *)svc->sched_data;
+ 	en = ip_vs_lblc_get(tbl, iph->daddr);
+ 	if (en == NULL) {
+-		dest = __ip_vs_wlc_schedule(svc, iph);
++		dest = __ip_vs_lblc_schedule(svc, iph);
+ 		if (dest == NULL) {
+ 			IP_VS_DBG(1, "no destination available\n");
+ 			return NULL;
+@@ -509,7 +509,7 @@ ip_vs_lblc_schedule(struct ip_vs_service
+ 		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE)
+ 		    || atomic_read(&dest->weight) <= 0
+ 		    || is_overloaded(dest, svc)) {
+-			dest = __ip_vs_wlc_schedule(svc, iph);
++			dest = __ip_vs_lblc_schedule(svc, iph);
+ 			if (dest == NULL) {
+ 				IP_VS_DBG(1, "no destination available\n");
+ 				return NULL;
+Index: stealer-2.6/net/ipv4/ipvs/ip_vs_lblcr.c
+===================================================================
+--- stealer-2.6.orig/net/ipv4/ipvs/ip_vs_lblcr.c	2008-08-13 15:44:01.000000000 +1000
++++ stealer-2.6/net/ipv4/ipvs/ip_vs_lblcr.c	2008-08-13 15:44:44.000000000 +1000
+@@ -579,7 +579,7 @@ static int ip_vs_lblcr_update_svc(struct
+ 
+ 
+ static inline struct ip_vs_dest *
+-__ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
++__ip_vs_lblcr_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+ {
+ 	struct ip_vs_dest *dest, *least;
+ 	int loh, doh;
+@@ -679,7 +679,7 @@ ip_vs_lblcr_schedule(struct ip_vs_servic
+ 	tbl = (struct ip_vs_lblcr_table *)svc->sched_data;
+ 	en = ip_vs_lblcr_get(tbl, iph->daddr);
+ 	if (en == NULL) {
+-		dest = __ip_vs_wlc_schedule(svc, iph);
++		dest = __ip_vs_lblcr_schedule(svc, iph);
+ 		if (dest == NULL) {
+ 			IP_VS_DBG(1, "no destination available\n");
+ 			return NULL;
+@@ -693,7 +693,7 @@ ip_vs_lblcr_schedule(struct ip_vs_servic
+ 	} else {
+ 		dest = ip_vs_dest_set_min(&en->set);
+ 		if (!dest || is_overloaded(dest, svc)) {
+-			dest = __ip_vs_wlc_schedule(svc, iph);
++			dest = __ip_vs_lblcr_schedule(svc, iph);
+ 			if (dest == NULL) {
+ 				IP_VS_DBG(1, "no destination available\n");
+ 				return NULL;
