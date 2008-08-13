@@ -1,46 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Fix oops in htb_delete.
-Date: Wed, 13 Aug 2008 22:13:00 +0200
-Message-ID: <20080813201259.GA4350@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Wed, 13 Aug 2008 13:27:50 -0700 (PDT)
+Message-ID: <20080813.132750.16161628.davem@davemloft.net>
+References: <48A23137.2010107@myri.com>
+	<20080812.181549.229367205.davem@davemloft.net>
+	<48A30834.4090802@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, robert@robur.slu.se
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.186]:39858 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbYHMUMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:12:52 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so187309mue.1
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 13:12:50 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52299
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752758AbYHMU1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:27:48 -0400
+In-Reply-To: <48A30834.4090802@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pkt_sched: Fix oops in htb_delete.
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Wed, 13 Aug 2008 12:13:40 -0400
 
-Recent changes introduced a bug in htb_delete(): cl->parent->children
-counter update misses checking cl->parent for NULL, which is used for
-root classes, so deleting them causes an oops.
+> David Miller wrote:
+> > From: Andrew Gallatin <gallatin@myri.com>
+> > Date: Tue, 12 Aug 2008 20:56:23 -0400
+> > 
+> >>      pkt_sched: Schedule qdiscs instead of netdev_queue.
+> > 
+> > While I'm waiting for your beforehand profile data,
+> > here is a stab in the dark patch which might fix
+> > the problem.
+> > 
+> > Robert, this could explain some of the things in the
+> > multiqueue testing profile you sent me a week or so
+> > ago.
+> > 
+> > Let me know how well it works:
+> 
+> Excellent!  This completely fixes the increased CPU
+> utilization I observed on both 10GbE and 1GbE interfaces,
+> and CPU utilization is now reduced back to 2.6.26 levels.
+> 
+> Oprofile now is nearly identical to what it was prior to
+> 37437bb2e1ae8af470dfcd5b4ff454110894ccaf:
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Thanks for testing and providing those profiles.
 
----
-
- net/sched/sch_htb.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index be35422..6febd24 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1279,7 +1279,8 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
- 
- 	/* delete from hash and active; remainder in destroy_class */
- 	qdisc_class_hash_remove(&q->clhash, &cl->common);
--	cl->parent->children--;
-+	if (cl->parent)
-+		cl->parent->children--;
- 
- 	if (cl->prio_activity)
- 		htb_deactivate(q, cl);
+I'll get this fix to Linus soon.
