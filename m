@@ -1,54 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Wed, 13 Aug 2008 21:34:10 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
- <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
- <20080812.011822.155249871.davem@davemloft.net> <20080812144309.7d62fd86@tux>
- <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi> <20080813145310.0c1e534c@tux>
+From: Vladislav Bolkhovitin <vst@vlnb.net>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 22:35:34 +0400
+Message-ID: <48A32976.7060504@vlnb.net>
+References: <adad4kfxm9v.fsf@cisco.com> <200808121457.11356.divy@chelsio.com> <20080812.150246.42068558.davem@davemloft.net> <200808121521.10101.divy@chelsio.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1465421246-1218652450=:18807"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080813145310.0c1e534c@tux>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: open-iscsi@googlegroups.com, rdreier@cisco.com, rick.jones2@hp.com,
+	jgarzik@pobox.com, Steve Wise <swise@opengridcomputing.com>,
+	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200808121521.10101.divy@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1465421246-1218652450=:18807
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 13 Aug 2008, Dâniel Fraga wrote:
-
-> On Tue, 12 Aug 2008 20:52:37 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+Divy Le Ray wrote:
+> On Tuesday 12 August 2008 03:02:46 pm David Miller wrote:
+>> From: Divy Le Ray <divy@chelsio.com>
+>> Date: Tue, 12 Aug 2008 14:57:09 -0700
+>>
+>>> In any case, such a stateless solution is not yet designed, whereas
+>>> accelerated iSCSI is available now, from us and other companies.
+>> So, WHAT?!
+>>
+>> There are TOE pieces of crap out there too.
 > 
-> > I still propose that you tcpdump it, then I can tell you (I know
-> > enough about Thomas' case but yours has a large number of
-> > unknowns)... :-) I don't know why 2.6.24 didn't suffer from the
-> > problem as FRTO was enabled already in it. The command you need
-> > to create dump.log file:
-> > 
-> > # tcpdump -w dump.log -i <iface> host <peerip>
-> > 
-> > ...you need root rights (or sudo) to do the capturing.
-> 
-> 	Ok, but the problem is that the bug doesn't happen
-> frequently... yesterday I waited for it to happen and nothing
-> happened :). I'll keep watching it... if I can get the dump, I send it.
+> Well, there is demand for accerated iscsi out there, which is the driving 
+> reason of our driver submission. 
 
-Ok, thanks for your efforts... These are often hard to reproduce because
-some not that likely pattern needs to happen and such things is often not
-easily controllable (if it is at all possible to influence the 
-likelyhoods).
+I'm, as an iSCSI target developer, strongly voting for hardware iSCSI 
+offload. Having possibility of the direct data placement is a *HUGE* 
+performance gain.
 
--- 
- i.
----696208474-1465421246-1218652450=:18807--
+For example, according to measurements done by one iSCSI-SCST user in 
+system with iSCSI initiator and iSCSI target (with iSCSI-SCST 
+(http://scst.sourceforge.net/target_iscsi.html) running), both with 
+identical modern high speed hardware and 10GbE cards, the _INITIATOR_ is 
+the bottleneck for READs (data transfers from target to initiator). This 
+is because the target sends data in a zero-copy manner, so its CPU is 
+capable to deal with the load, but on the initiator there are additional 
+data copies from skb's to page cache and from page cache to application. 
+As the result, in the measurements initiator got near 100% CPU load and 
+only ~500MB/s throughput. Target had ~30% CPU load. For the opposite 
+direction (WRITEs), where there is no the application data copy on the 
+target, throughput was ~800MB/s with also near 100% CPU load, but in 
+this case on the target. The initiator ran Linux with open-iscsi. The 
+test was with real backstorage: target ran BLOCKIO (direct BIOs to/from 
+backstorage) with 3ware card. Locally on the target the backstorage was 
+able to provide 900+MB/s for READs and about 1GB/s for WRITEs. The 
+commands queue in both cases was sufficiently big to eliminate the link 
+and processing latencies (20-30 outstanding commands).
+
+Vlad
+
