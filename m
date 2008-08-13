@@ -1,70 +1,69 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Multicast socket behaviour?
-Date: Wed, 13 Aug 2008 09:12:16 -0700
-Message-ID: <OFB63F1889.F6ECCEEF-ON882574A4.0056055F-882574A4.00590247@us.ibm.com>
-References: <loom.20080813T082132-707@post.gmane.org>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Wed, 13 Aug 2008 12:13:40 -0400
+Message-ID: <48A30834.4090802@myri.com>
+References: <48A23137.2010107@myri.com> <20080812.181549.229367205.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Daniel Ng <daniel_ng11@lycos.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, robert@robur.slu.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:35086 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbYHMQM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 12:12:27 -0400
-In-Reply-To: <loom.20080813T082132-707@post.gmane.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1965 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752912AbYHMQVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 12:21:17 -0400
+In-Reply-To: <20080812.181549.229367205.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 08/13/2008 01:21:58 AM:
+David Miller wrote:
+> From: Andrew Gallatin <gallatin@myri.com>
+> Date: Tue, 12 Aug 2008 20:56:23 -0400
+> 
+>>      pkt_sched: Schedule qdiscs instead of netdev_queue.
+> 
+> While I'm waiting for your beforehand profile data,
+> here is a stab in the dark patch which might fix
+> the problem.
+> 
+> Robert, this could explain some of the things in the
+> multiqueue testing profile you sent me a week or so
+> ago.
+> 
+> Let me know how well it works:
 
-> Hi,
-> 
-> The below C code registers the socket with the multicast group 
-'HELLO_GROUP':
-> 
->     mreq.imr_multiaddr.s_addr=inet_addr(HELLO_GROUP);
->     mreq.imr_address.s_addr=htonl(INADDR_ANY);
-> 
->     mreq.imr_ifindex = if_nametoindex("ppp1");
-> 
->     if (setsockopt(fd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&mreq,sizeof(mreq)) < 
-0) {
->         perror("setsockopt");
->         exit(1);
->     }
-> 
-> I understand that if 'INADDR_ANY' is used, it is up to the kernel to 
-decide 
-> what action to take.
+Excellent!  This completely fixes the increased CPU
+utilization I observed on both 10GbE and 1GbE interfaces,
+and CPU utilization is now reduced back to 2.6.26 levels.
 
-Daniel,
-        Neil has already pointed you to a fuller description for your
-question about joining on multiple interfaces, but just
-to be clear, the code above has specified the interface, so there is
-no choice for the kernel. The code above will always join on "ppp1"
-You can specify the interface by address (imr_address), by index
-(imr_ifindex, as above), or not at all.
-        In the unlikely event that you wanted the kernel to
-pick which interface you join the group on, you would need
-both imr_address==INADDR_ANY and imr_ifindex==0.
-        The sockets API has never included a "join on all
-interfaces" mechanism. If you're looking for traffic from
-a particular set of machines, you only need to join on a
-single interface that includes that set. Joining on another
-interface for the same set will give you duplicate traffic.
-The same group number on a different interface is either an
-entirely different set (from a different multicast routing
-domain), or the same one (resulting in duplicate traffic). If
-you want both of two sets, you need to join each separately. If you
-only want one, you only need to join on one of them, and joining
-on both would be bad.
-        So, if you followed all that, the conclusion is that
-it usually doesn't make sense for an app in a single multicast
-routing domain to want to join on multiple interfaces, and if
-you have multiple routing domains, joining each separately is
-appropriate, especially since some of the interfaces may be
-in the same routing domain even if some are not.
+Oprofile now is nearly identical to what it was prior to
+37437bb2e1ae8af470dfcd5b4ff454110894ccaf:
 
-                                                                +-DLS
+8363      6.5081  vmlinux                  _raw_spin_lock
+5612      4.3672  oprofiled                (no symbols)
+4420      3.4396  ehci_hcd                 (no symbols)
+4325      3.3657  vmlinux                  handle_IRQ_event
+3688      2.8700  vmlinux                  default_idle
+3164      2.4622  vmlinux                  nv_start_xmit_optimized
+3092      2.4062  vmlinux                  sk_run_filter
+3072      2.3906  vmlinux                  tcp_ack
+2969      2.3105  vmlinux                  __copy_skb_header
+2453      1.9089  vmlinux                  kmem_cache_free
+2400      1.8677  vmlinux                  IRQ0x69_interrupt
+2295      1.7860  vmlinux                  nv_rx_process_optimized
+2092      1.6280  vmlinux                  kmem_cache_alloc
+2072      1.6124  vmlinux                  kfree
+2049      1.5945  vmlinux                  packet_rcv_spkt
+1984      1.5439  vmlinux                  __tcp_push_pending_frames
+1942      1.5113  vmlinux                  nv_nic_irq_optimized
+1933      1.5043  vmlinux                  _raw_spin_unlock
+1637      1.2739  vmlinux                  nv_tx_done_optimized
+1630      1.2685  vmlinux                  eth_type_trans
+1517      1.1805  vmlinux                  __qdisc_run
 
+
+
+Thank you,
+
+Drew
