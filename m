@@ -1,63 +1,38 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] tipc: Use the appropriate swab helper rather than an
-	internal helper
-Date: Tue, 12 Aug 2008 21:23:59 -0700
-Message-ID: <1218601440.30194.108.camel@brick>
-References: <1218587234.30194.93.camel@brick>
-	 <20080812205422.4273d598.akpm@linux-foundation.org>
-	 <1218600348.30194.105.camel@brick>
-	 <20080812212017.febf1392.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	per.liden@ericsson.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Wed, 13 Aug 2008 14:30:19 +1000
+Message-ID: <E1KT803-00086Y-00@gondolin.me.apana.org.au>
+References: <20080812.011510.20845920.davem@davemloft.net>
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:34899 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbYHMEX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 00:23:59 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so1094826yxm.1
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 21:23:58 -0700 (PDT)
-In-Reply-To: <20080812212017.febf1392.akpm@linux-foundation.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:58151 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750957AbYHMEaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 00:30:25 -0400
+In-Reply-To: <20080812.011510.20845920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-08-12 at 21:20 -0700, Andrew Morton wrote:
-> On Tue, 12 Aug 2008 21:05:47 -0700 Harvey Harrison <harvey.harrison@gmail.com> wrote:
-> 
-> > ___generally means I am an internal implementation detail, don't use
-> > me.
-> > 
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > ---
-> > Sorry for breaking the build Andrew, my testing has been with all the __constant
-> > versions in-tree removed.
-> > 
-> >  net/tipc/subscr.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-> > index 0326d30..f5da05d 100644
-> > --- a/net/tipc/subscr.c
-> > +++ b/net/tipc/subscr.c
-> > @@ -85,7 +85,7 @@ static struct top_srv topsrv = { 0 };
-> >  
-> >  static u32 htohl(u32 in, int swap)
-> >  {
-> > -	return swap ? (u32)___constant_swab32(in) : in;
-> > +	return swap ? (u32)swab32(in) : in;
-> >  }
-> 
-> yes, that's what I did too, only I dropped the
-> seems-to-me-to-be-unneeded (u32) cast.
+David Miller <davem@davemloft.net> wrote:
+>
+> The qdisc pointer traverses to the softirq handler, which can be run
+> in a process context (via ksoftirqd), and this pointer gets there
+> via the per-cpu ->output_queue.
 
-I made the mistake of folding this bit into the series that removes all
-users of the __constant_ helpers as I forgot it was a build breaker.
-That's why I wasn't seeing it here.
+Here are two possible solutions:
 
-Harvey
+1) The active way: smp_call_function and forcibly remove the qdiscs
+in question from each output_queue.
 
+2) The passive way: Make dev_deactive call yield() until no qdisc's
+are on an output_queue.  This assumes there is some sort of dead
+flag detection on the output_queue side so it doesn't keep going
+forever.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
