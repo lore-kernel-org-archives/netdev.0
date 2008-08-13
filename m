@@ -1,220 +1,79 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- experimental revert for 2.6.27 failed
-Date: Tue, 12 Aug 2008 17:00:10 -0700 (PDT)
-Message-ID: <940473.79639.qm@web82108.mail.mud.yahoo.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH diagnostic] Prevent console flood when one CPU sees another
+	AWOL via RCU
+Date: Tue, 12 Aug 2008 17:25:03 -0700
+Message-ID: <20080813002503.GA25397@linux.vnet.ibm.com>
+References: <630464.55583.qm@web82105.mail.mud.yahoo.com> <20080810151520.GG8125@linux.vnet.ibm.com> <20080811013538.GA3958@linux.vnet.ibm.com> <20080811113817.GF6925@elte.hu> <20080811131727.GL8125@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+Cc: David Witbrodt <dawitbro@sbcglobal.net>,
 	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Yinghai Lu <yhlu.kernel@gmail.com>,
+	linux-kernel@vger.kernel.org, Yinghai Lu <yhlu.kernel@gmail.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82108.mail.mud.yahoo.com ([209.191.84.221]:39692 "HELO
-	web82108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752626AbYHMAAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 20:00:13 -0400
+Received: from e32.co.us.ibm.com ([32.97.110.150]:55361 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752155AbYHMAZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 20:25:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20080811131727.GL8125@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SUMMARY
+On Mon, Aug 11, 2008 at 06:17:28AM -0700, Paul E. McKenney wrote:
+> On Mon, Aug 11, 2008 at 01:38:17PM +0200, Ingo Molnar wrote:
+> > 
+> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > 
+> > > And here is the patch.  It is still a bit raw, so the results should 
+> > > be viewed with some suspicion.  It adds a default-off kernel parameter 
+> > > CONFIG_RCU_CPU_STALL which must be enabled.
+> > > 
+> > > Rather than exponential backoff, it backs off to once per 30 seconds. 
+> > > My feeling upon thinking on it was that if you have stalled RCU grace 
+> > > periods for that long, a few extra printk() messages are probably the 
+> > > least of your worries...
+> > 
+> > while this wont debug problems were timer irqs are genuinely stuck for 
+> > long periods of time, it should find problems with RCU completion logic 
+> > itself in the presence of correct timer irqs - and the lack of any 
+> > messages from this debug option should point the finger more firmly in 
+> > the direction of stalled timer irqs.
+> > 
+> > So i find this debug feature rather useful and have applied it to 
+> > tip/core/rcu (and cleaned it up a bit). I renamed the config option to 
+> > CONFIG_DEBUG_RCU_STALL to make it more in line with usual debug option 
+> > names. Lets see whether -tip testing finds any false positives.
+> 
+> Sounds good!
+> 
+> For whatever it is worth, this diagnostic can also locate latency issues
+> in non-CONFIG_PREEMPT kernels, even when those problems are outside of
+> preempt_disable() regions.  Latency tracer is of course a better tool
+> for things -inside- of preempt_disable() regions.
 
-1.  Ran 'git remote update', then built kernels for origin/master
-(Linus' linux-2.6 tree) and tip/master.  Both froze.
+One small change needed to keep from flooding the console when one
+CPU notices that another is AWOL.  Unless I am missing something subtle.
+Otherwise the cleanups look good!
 
-2.  Attempted a revert against tip/master, but the files involved
-changed quite a bit.  I _was_ able to build the kernel successfully,
-but it froze.  There have simply been too many changes since Feb. 22
-for my naive approach to work.
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
 
-3.  When the revert failed, I panicked:  I thought that I might
-truly have made a mistake with the original 'git bisect' process
-I carried out.  After retracing the last few iterations of the
-process -- building and checking the last 3 kernels -- I found
-that the information I posted here WAS correct:  the problem
-commit # was the one I had found the first time.
+ rcuclassic.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-4.  To see if I am totally incompetent, I used git to checkout the
-version of the sources at the problem commit, and then reverted
-those changes (same method used in step 2).  The kernel built
-and ran just fine:  no freeze, no need for "hpet=disabled".
-
-
-DETAILS
-
-Here is some git output showing the changes I made.  My approach was
-extremely naive, but since I have very little or no understanding of
-the code itself, no other approach was possible for me:
-
-====== BEGIN git OUTPUT ==========
-
-$ git show
-commit e10eb6518a3a08598344d477137cbdd25e85571d
-Merge: b4141ac... 45fc3c4...
-Author: Ingo Molnar <mingo@elte.hu>
-Date:   Tue Aug 12 19:43:39 2008 +0200
-
-    Merge branch 'linus'
-
-$ git diff
-diff --git a/arch/x86/kernel/e820.c b/arch/x86/kernel/e820.c
-index 9af8907..131d6f7 100644
---- a/arch/x86/kernel/e820.c
-+++ b/arch/x86/kernel/e820.c
-@@ -1267,7 +1267,9 @@ static inline const char *e820_type_to_string(int e820_type)
- /*
-  * Mark e820 reserved areas as busy for the resource manager.
-  */
--void __init e820_reserve_resources(void)
-+/* void __init e820_reserve_resources(void) */
-+void __init e820_reserve_resources(struct resource *code_resource,
-+        struct resource *data_resource, struct resource *bss_resource)
- {
-     int i;
-     struct resource *res;
-@@ -1287,7 +1289,22 @@ void __init e820_reserve_resources(void)
-         res->end = end;
+diff --git a/kernel/rcuclassic.c b/kernel/rcuclassic.c
+index 56b8712..dab2676 100644
+--- a/kernel/rcuclassic.c
++++ b/kernel/rcuclassic.c
+@@ -308,6 +308,7 @@ static void print_other_cpu_stall(struct rcu_ctrlblk *rcp)
+ 		spin_unlock(&rcp->lock);
+ 		return;
+ 	}
++	rcp->gp_check = get_seconds() + 30;
+ 	spin_unlock(&rcp->lock);
  
-         res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
--        insert_resource(&iomem_resource, res);
-+        request_resource(&iomem_resource, res);
-+        if (e820.map[i].type == E820_RAM) {
-+            /*
-+             * We don't know which RAM region contains kernel data,
-+             * so we try it repeatedly and let the resource manager
-+             * test it.
-+             */
-+            request_resource(res, code_resource);
-+            request_resource(res, data_resource);
-+            request_resource(res, bss_resource);
-+#ifdef CONFIG_KEXEC
-+            if (crashk_res.start != crashk_res.end)
-+                request_resource(res, &crashk_res);
-+#endif
-+        }
-+        /* insert_resource(&iomem_resource, res); */
-         res++;
-     }
- 
-diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-index 59f07e1..5972d13 100644
---- a/arch/x86/kernel/setup.c
-+++ b/arch/x86/kernel/setup.c
-@@ -517,7 +517,7 @@ static void __init reserve_crashkernel(void)
- 
-     crashk_res.start = crash_base;
-     crashk_res.end   = crash_base + crash_size - 1;
--    insert_resource(&iomem_resource, &crashk_res);
-+    /* insert_resource(&iomem_resource, &crashk_res); */
- }
- #else
- static void __init reserve_crashkernel(void)
-@@ -700,9 +700,9 @@ void __init setup_arch(char **cmdline_p)
- #endif
- 
-     /* after parse_early_param, so could debug it */
--    insert_resource(&iomem_resource, &code_resource);
--    insert_resource(&iomem_resource, &data_resource);
--    insert_resource(&iomem_resource, &bss_resource);
-+    /* insert_resource(&iomem_resource, &code_resource); */
-+    /* insert_resource(&iomem_resource, &data_resource); */
-+    /* insert_resource(&iomem_resource, &bss_resource); */
- 
-     if (efi_enabled)
-         efi_init();
-@@ -865,7 +865,7 @@ void __init setup_arch(char **cmdline_p)
- 
-     kvm_guest_init();
- 
--    e820_reserve_resources();
-+    e820_reserve_resources(&code_resource, &data_resource, &bss_resource);
-     e820_mark_nosave_regions(max_low_pfn);
- 
- #ifdef CONFIG_X86_32
-diff --git a/include/asm-x86/e820.h b/include/asm-x86/e820.h
-index f52daf1..57f0c67 100644
---- a/include/asm-x86/e820.h
-+++ b/include/asm-x86/e820.h
-@@ -47,6 +47,8 @@
- /* reserved RAM used by kernel itself */
- #define E820_RESERVED_KERN        128
- 
-+#include <linux/ioport.h>
-+
- #ifndef __ASSEMBLY__
- struct e820entry {
-     __u64 addr;    /* start of memory segment */
-@@ -120,7 +122,8 @@ extern void e820_register_active_regions(int nid, unsigned long start_pfn,
-                      unsigned long end_pfn);
- extern u64 e820_hole_size(u64 start, u64 end);
- extern void finish_e820_parsing(void);
--extern void e820_reserve_resources(void);
-+extern void e820_reserve_resources(struct resource *code_resource,
-+        struct resource *data_resource, struct resource *bss_resource);
- extern void setup_memory_map(void);
- extern char *default_machine_specific_memory_setup(void);
- extern char *machine_specific_memory_setup(void);
-====== END git OUTPUT ==========
-
-
-The #include of linux/ioport.h was not part of the problem commit, but
-the changes since Feb. 22 were such that I was forced to add that line
-myself to make it possible to build.
-
-In many cases the lines near the changes in this attempted revert were
-quite different from those in the diff from the problem commit, so there
-was very little chance for me to succeed, I suspect.
-
-
-For my own peace of mind, I went back to the bisecting to verify that the
-commit I have previously identified was really correct.  Results:
-
-==========
-$ git checkout 1e934dda0c77c8ad13fdda02074f2cfcea118a56
-Previous HEAD position was e10eb65... Merge branch 'linus'
-Checking out files: 100% (17901/17901), done.
-HEAD is now at 1e934dd... x86: insert_resorce for lapic addr after e820_reserve_resources
-
-$ git bisect start
-$ git bisect bad
-$ git checkout 322850af8d93735f67b8ebf84bb1350639be3f34
-Previous HEAD position was 1e934dd... x86: insert_resorce for lapic addr after e820_reserve_resources
-HEAD is now at 322850a... x86: make amd quad core 8 socket system not be clustered_box, #2
-
-$ git bisect good
-Bisecting: 1 revisions left to test after this
-[3def3d6ddf43dbe20c00c3cbc38dfacc8586998f] x86: clean up e820_reserve_resources on 64-bit
-
-$ git bisect bad
-Bisecting: 0 revisions left to test after this
-[700efc1b9f6afe34caae231b87d129ad8ffb559f] x86: introduce kernel/head32.c
-dawitbro@fileserver:~/sandbox/git-kernel/linux-2.6$ git bisect good
-3def3d6ddf43dbe20c00c3cbc38dfacc8586998f is first bad commit
-commit 3def3d6ddf43dbe20c00c3cbc38dfacc8586998f
-Author: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Date:   Fri Feb 22 17:07:16 2008 -0800
-
-    x86: clean up e820_reserve_resources on 64-bit
-    
-    e820_resource_resources could use insert_resource instead of request_resource
-    also move code_resource, data_resource, bss_resource, and crashk_res
-    out of e820_reserve_resources.
-    
-    Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
-:040000 040000 79fea1b27a7affdf269cd55f633d495d1cac9513 abcad2c76947ba30fa0c94e0a9dcabd5d8666d28 M    arch
-:040000 040000 5d0b70980ad3692c9fa75ab67a3a43f1aa7807ce a5714997f2337541581dee96f19b7fe86c7941dc M    include
-==========
-
-I cannot describe how much relief I felt upon seeing that.
-
-Since my main goal was to troubleshoot the Debian 2.6.26 stock kernel, my
-next experiments will be to see if I can get a reversion to work against
-any version in the 2.6.26-rc* line, and hopefully the 2.6.26 release 
-itself.
-
-
-DW
+ 	/* OK, time to rat on our buddy... */
