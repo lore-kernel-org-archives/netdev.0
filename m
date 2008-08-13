@@ -1,47 +1,53 @@
 From: Jean-Christophe Dubois <jcd@tribudubois.net>
-Subject: Re: [PATCH] remove unnecessary variable in xfrm_output_resume()
-Date: Wed, 13 Aug 2008 20:50:21 +0200
-Message-ID: <200808132050.23072.jcd@tribudubois.net>
-References: <200808120812.26363.jcd@tribudubois.net> <20080813.023814.141037459.davem@davemloft.net>
+Subject: [PATCH] remove unnecessary variable in xfrm_output_resume() 2nd try
+Date: Wed, 13 Aug 2008 20:52:55 +0200
+Message-ID: <200808132052.55983.jcd@tribudubois.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g19.free.fr ([212.27.42.35]:41679 "EHLO smtp5-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751786AbYHMSu1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 14:50:27 -0400
-In-Reply-To: <20080813.023814.141037459.davem@davemloft.net>
+Received: from postfix1-g20.free.fr ([212.27.60.42]:60160 "EHLO
+	postfix1-g20.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164AbYHMSyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 14:54:01 -0400
+Received: from smtp7-g19.free.fr (smtp7-g19.free.fr [212.27.42.64])
+	by postfix1-g20.free.fr (Postfix) with ESMTP id 64C76295076E
+	for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 20:54:00 +0200 (CEST)
+Received: from smtp7-g19.free.fr (localhost [127.0.0.1])
+	by smtp7-g19.free.fr (Postfix) with ESMTP id CD681B0229
+	for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 20:52:58 +0200 (CEST)
+Received: from lancelot.dubois.etowns.net (lns-bzn-51f-81-56-146-209.adsl.proxad.net [81.56.146.209])
+	by smtp7-g19.free.fr (Postfix) with ESMTP id B224FB0243
+	for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 20:52:57 +0200 (CEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Wednesday 13 August 2008 11:38:14 David Miller, vous avez =E9crit=A0=
-:
-> From: Jean-Christophe Dubois <jcd@tribudubois.net>
-> Date: Tue, 12 Aug 2008 08:12:24 +0200
->
-> > Small fix removing an unnecessary intermediate variable.
-> >
-> > Signed-off-by: Jean-Christophe DUBOIS  <jcd@tribudubois.net>
->
-> Your patch is whitespace mangled by your email client, the tab
-> characters have been corrupted into spaces, therefore your patch
-> will not apply.
->
-> Please fix this up and resubmit.
+Small fix removing an unnecessary intermediate variable.
 
-Sorry, I'll resubmit.
+Signed-off-by: Jean-Christophe DUBOIS  <jcd@tribudubois.net>
+---
 
-JC
-
->
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+diff -Naur linux-2.6.26.2.org/net/xfrm/xfrm_output.c linux-2.6.26.2/net/xfrm/xfrm_output.c
+--- linux-2.6.26.2.org/net/xfrm/xfrm_output.c	2008-08-12 00:37:29.000000000 +0200
++++ linux-2.6.26.2/net/xfrm/xfrm_output.c	2008-08-12 00:40:40.000000000 +0200
+@@ -112,16 +112,13 @@
+ int xfrm_output_resume(struct sk_buff *skb, int err)
+ {
+ 	while (likely((err = xfrm_output_one(skb, err)) == 0)) {
+-		struct xfrm_state *x;
+-
+ 		nf_reset(skb);
+ 
+ 		err = skb->dst->ops->local_out(skb);
+ 		if (unlikely(err != 1))
+ 			goto out;
+ 
+-		x = skb->dst->xfrm;
+-		if (!x)
++		if (!skb->dst->xfrm)
+ 			return dst_output(skb);
+ 
+ 		err = nf_hook(skb->dst->ops->family,
