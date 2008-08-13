@@ -1,27 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: CPU utilization increased in 2.6.27rc
-Date: Tue, 12 Aug 2008 18:05:35 -0700 (PDT)
-Message-ID: <20080812.180535.99302127.davem@davemloft.net>
-References: <48A23137.2010107@myri.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: csum offload and af_packet
+Date: Wed, 13 Aug 2008 11:09:35 +1000
+Message-ID: <20080813010935.GA29815@gondor.apana.org.au>
+References: <20080812005839.GC18547@gondor.apana.org.au> <200808121817.19662.netdev@axxeo.de> <20080812233753.GA29155@gondor.apana.org.au> <20080812.175532.137434164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gallatin@myri.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@axxeo.de, rusty@rustcorp.com.au, anthony@codemonkey.ws,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751880AbYHMBFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 21:05:33 -0400
-In-Reply-To: <48A23137.2010107@myri.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:56544 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752742AbYHMBJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 21:09:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20080812.175532.137434164.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Tue, 12 Aug 2008 20:56:23 -0400
+On Tue, Aug 12, 2008 at 05:55:32PM -0700, David Miller wrote:
+> 
+> The whole point of the auxdata thing was that if your tool is smart
+> you can get the notification that the checksum is going to be HW
+> computed and therefore keep capturing at a very low cost.
+> 
+> But for a stupid AF_PACKET user, like dhclient currently is, there is
+> no harm in COW'ing the packet header area and calculating the checksum
+> for them in this case.
 
-> According to oprofile, the system is spending a lot of
-> time in __qdisc_run() when sending on the 1GbE forcedeth
-> interface:
+Right I'm not against adding this to AF_PACKET.
 
-What does the profile look like beforehand?
+It's just that the virtualisation problem that started all this
+is just as easily resolved by user-space.  In fact the dhcp-client
+code in RHEL/Fedora has been patched to do exactly this a long time
+ago.
+
+> I kind of hope that libpcap/tcpdump has been taught about auxdata
+> by now, has it? :-/
+
+Unfortunately no.  This also means that if we do do this in AF_PACKET,
+then running a packet dump on a fast outbound interface may become more
+expensive.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
