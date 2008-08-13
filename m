@@ -1,86 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch] ipvs: rename __ip_vs_wlc_schedule in lblc and lblcr
-	schedulers
-Date: Wed, 13 Aug 2008 15:49:58 +1000
-Message-ID: <20080813054956.GA30294@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] remove unnecessary variable in xfrm_output_resume()
+Date: Tue, 12 Aug 2008 22:53:06 -0700 (PDT)
+Message-ID: <20080812.225306.93454653.davem@davemloft.net>
+References: <200808130748.02368.jcd@tribudubois.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sven Wegener <sven.wegener@stealer.net>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jcd@tribudubois.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41094
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751848AbYHMFxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 01:53:05 -0400
+In-Reply-To: <200808130748.02368.jcd@tribudubois.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For the sake of clarity, rename __ip_vs_wlc_schedule() in lblc.c to
-__ip_vs_lblc_schedule() and the version in lblcr.c to __ip_vs_lblc_schedule().
+From: Jean-Christophe Dubois <jcd@tribudubois.net>
+Date: Wed, 13 Aug 2008 07:48:01 +0200
 
-I guess the original name stuck from a copy and paste.
+> Small fix removing an unnecessary intermediate variable.
+> 
+> Signed-off-by: Jean-Christophe DUBOIS  <jcd@tribudubois.net>
 
-Cc: Sven Wegener <sven.wegener@stealer.net>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+I saw your first submission of this patch, you don't need
+to send it again.
 
-Index: stealer-2.6/net/ipv4/ipvs/ip_vs_lblc.c
-===================================================================
---- stealer-2.6.orig/net/ipv4/ipvs/ip_vs_lblc.c	2008-08-13 15:44:01.000000000 +1000
-+++ stealer-2.6/net/ipv4/ipvs/ip_vs_lblc.c	2008-08-13 15:44:31.000000000 +1000
-@@ -395,7 +395,7 @@ static int ip_vs_lblc_update_svc(struct 
- 
- 
- static inline struct ip_vs_dest *
--__ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
-+__ip_vs_lblc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
-@@ -494,7 +494,7 @@ ip_vs_lblc_schedule(struct ip_vs_service
- 	tbl = (struct ip_vs_lblc_table *)svc->sched_data;
- 	en = ip_vs_lblc_get(tbl, iph->daddr);
- 	if (en == NULL) {
--		dest = __ip_vs_wlc_schedule(svc, iph);
-+		dest = __ip_vs_lblc_schedule(svc, iph);
- 		if (dest == NULL) {
- 			IP_VS_DBG(1, "no destination available\n");
- 			return NULL;
-@@ -509,7 +509,7 @@ ip_vs_lblc_schedule(struct ip_vs_service
- 		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE)
- 		    || atomic_read(&dest->weight) <= 0
- 		    || is_overloaded(dest, svc)) {
--			dest = __ip_vs_wlc_schedule(svc, iph);
-+			dest = __ip_vs_lblc_schedule(svc, iph);
- 			if (dest == NULL) {
- 				IP_VS_DBG(1, "no destination available\n");
- 				return NULL;
-Index: stealer-2.6/net/ipv4/ipvs/ip_vs_lblcr.c
-===================================================================
---- stealer-2.6.orig/net/ipv4/ipvs/ip_vs_lblcr.c	2008-08-13 15:44:01.000000000 +1000
-+++ stealer-2.6/net/ipv4/ipvs/ip_vs_lblcr.c	2008-08-13 15:44:44.000000000 +1000
-@@ -579,7 +579,7 @@ static int ip_vs_lblcr_update_svc(struct
- 
- 
- static inline struct ip_vs_dest *
--__ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
-+__ip_vs_lblcr_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
-@@ -679,7 +679,7 @@ ip_vs_lblcr_schedule(struct ip_vs_servic
- 	tbl = (struct ip_vs_lblcr_table *)svc->sched_data;
- 	en = ip_vs_lblcr_get(tbl, iph->daddr);
- 	if (en == NULL) {
--		dest = __ip_vs_wlc_schedule(svc, iph);
-+		dest = __ip_vs_lblcr_schedule(svc, iph);
- 		if (dest == NULL) {
- 			IP_VS_DBG(1, "no destination available\n");
- 			return NULL;
-@@ -693,7 +693,7 @@ ip_vs_lblcr_schedule(struct ip_vs_servic
- 	} else {
- 		dest = ip_vs_dest_set_min(&en->set);
- 		if (!dest || is_overloaded(dest, svc)) {
--			dest = __ip_vs_wlc_schedule(svc, iph);
-+			dest = __ip_vs_lblcr_schedule(svc, iph);
- 			if (dest == NULL) {
- 				IP_VS_DBG(1, "no destination available\n");
- 				return NULL;
+It's in my backlog, and I have to clear out some more
+pressing bugs before I get to these more trivial patches.
