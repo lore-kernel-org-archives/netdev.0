@@ -1,41 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: csum offload and af_packet
-Date: Wed, 13 Aug 2008 11:21:29 +1000
-Message-ID: <20080813012129.GA29996@gondor.apana.org.au>
-References: <20080812233753.GA29155@gondor.apana.org.au> <20080812.175532.137434164.davem@davemloft.net> <20080813010935.GA29815@gondor.apana.org.au> <20080812.181731.249504809.davem@davemloft.net>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: [PATCH] Don't take the mdio_lock in atl1e_probe
+Date: Wed, 13 Aug 2008 09:21:47 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A3EE61FA2BD@SHEXMB-01.global.atheros.com>
+References: <20080812131314.GZ8618@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@axxeo.de, rusty@rustcorp.com.au, anthony@codemonkey.ws,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matthew Wilcox <matthew@wil.cx>,
+	Xiong Huang <Xiong.Huang@Atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41860 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753666AbYHMBVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 21:21:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20080812.181731.249504809.davem@davemloft.net>
+Received: from 175.212.dsnet ([203.110.175.212]:32443 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753753AbYHMBVv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 21:21:51 -0400
+In-Reply-To: <20080812131314.GZ8618@parisc-linux.org>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2008 at 06:17:31PM -0700, David Miller wrote:
+ On Tuesday, August 12, 2008 9:13 PM
+Matthew Wilcox <matthew@wil.cx> wrote
+> Lockdep warns about the mdio_lock taken with interrupts
+> enabled then later taken from interrupt context.  Initially,
+> I considered changing these to spin_lock_irq/spin_unlock_irq,
+> but then I looked at atl1e_phy_init() and saw that it calls
+> msleep().  Sleeping while holding a spinlock is not allowed either.
 >
-> It seems pointless for us to add features like mmap() support and
-> auxdata if the most important client library and tool users of these
-> features never take it up.
+> In the probe path, we haven't registered the interrupt
+> handler, so it can't poke at this card yet.  It's before we
+> call register_netdev(), so I don't think any other threads
+> can reach this card either.  If I'm right, we don't need a
+> spinlock at all.
+>
+> Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+>
+> diff --git a/drivers/net/atl1e/atl1e_main.c
+> b/drivers/net/atl1e/atl1e_main.c index 82d7be1..ba22a51 100644
+> --- a/drivers/net/atl1e/atl1e_main.c
+> +++ b/drivers/net/atl1e/atl1e_main.c
+> @@ -2389,9 +2389,7 @@ static int __devinit atl1e_probe(struct
+> pci_dev *pdev,
+>         }
+>
+>         /* Init GPHY as early as possible due to power saving
+> issue  */
+> -       spin_lock(&adapter->mdio_lock);
+>         atl1e_phy_init(&adapter->hw);
+> -       spin_unlock(&adapter->mdio_lock);
+>         /* reset the controller to
+>          * put the device in a known good starting state */
+>         err = atl1e_reset_hw(&adapter->hw);
+>
 
-Well auxdata at least is used by dhcp-common and therefore dhcp-client
-and dhcp-server.
+Ok.
+Thanks Matthew Wilcox
 
-> libpcap and tcpdump have been notoriously difficult in this area.
-
-Yes the disconnect between the kernel community and the rest is
-large.  The only successful examples seems to be where the user-
-space code is maintained by a kernel developer, e.g., iproute.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Acked-by: Jie Yang <jie.yang@atheros.com>
