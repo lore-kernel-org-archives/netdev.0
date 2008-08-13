@@ -1,64 +1,47 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr
- schedulers
-Date: Wed, 13 Aug 2008 12:36:59 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808131119560.12259@titan.stealer.net>
-References: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net> <20080812021053.GD22142@verge.net.au> <alpine.LNX.1.10.0808120606200.12259@titan.stealer.net> <alpine.LNX.1.10.0808121007130.12259@titan.stealer.net> <20080813054247.GA21168@verge.net.au>
- <alpine.LNX.1.10.0808130842540.12259@titan.stealer.net> <20080813071221.GB4872@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Wed, 13 Aug 2008 03:37:49 -0700 (PDT)
+Message-ID: <20080813.033749.165504341.davem@davemloft.net>
+References: <20080813095324.GA15055@ben.ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: vegard.nossum@gmail.com, vegardno@ifi.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.stealer.net ([88.198.224.204]:60061 "EHLO
-	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309AbYHMKhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:37:11 -0400
-In-Reply-To: <20080813071221.GB4872@verge.net.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34472
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751951AbYHMKhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:37:48 -0400
+In-Reply-To: <20080813095324.GA15055@ben.ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Aug 2008, Simon Horman wrote:
+From: Vegard Nossum <vegardno@ifi.uio.no>
+Date: Wed, 13 Aug 2008 11:53:24 +0200
 
-> On Wed, Aug 13, 2008 at 08:59:32AM +0200, Sven Wegener wrote:
-> > On Wed, 13 Aug 2008, Simon Horman wrote:
-> > 
-> > > On Tue, Aug 12, 2008 at 03:07:48PM +0200, Sven Wegener wrote:
-> > > > 
-> > > > +
-> > > > +		/*
-> > > > +		 * If the destination is not available, i.e. it's in the trash,
-> > > > +		 * ignore it, as it may be removed from under our feet
-> > > > +		 */
-> > > > +
-> > > > +		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE))
-> > > > +			dest = NULL;
-> > > >  	}
-> > > > -	en->lastuse = jiffies;
-> > > 
-> > > At this point we know that dest exists and is not in the trash.
-> > > We know that dest can't disapear given that its not already
-> > > in the trash and our caller holds a read lock on __ip_vs_svc_lock.
-> > > So dest will be safe until after ip_vs_lblc_schedule() returns.
-> > > 
-> > > Dest seems ok :-)
-> > > 
-> > > Ok, that seems complex but non-racy to me :-)
-> > > 
-> > > Perhaps a longer comment would be in order.
-> > 
-> > Yeah, that's the point where we prevent the race with the trash purging. 
-> > We could change the purging of destinations from the trash to be under 
-> > __ip_vs_svc_lock write locked, then we know that all destinations, even 
-> > the ones in the trash are valid. Might make more sense than duplicating 
-> > this logic in other schedulers.
+> [PATCH] netconsole: avoid deadlock on printk from driver code
 > 
-> That sounds like a good way to simplify things.
+> I encountered a hard-to-debug deadlock when I pulled out the plug of my
+> RealTek 8139 which was also running netconsole: The driver wants to print
+> a "link down" message. However, this triggers netconsole, which wants to
+> print the message using the same device. Here is a backtrace:
 
-Looking at the code it doesn't seem that simple. We lock __ip_vs_svc_lock 
-for writing and then wait for all current users of the service to go away. 
-But it's still possible that we clean up destinations from other services. 
-And when we restrict it to only clean up the destinations that match our 
-service, we have a chance of leaving destinations in the trash for good.
+See my other reply, this is absolutely the wrong way to go about
+this.
 
-Sven
+You only have two sane options:
+
+1) Defer the link status printk message into a deferred context,
+   such as a workqueue, so that you can do it outside of the
+   lock.
+
+2) Do your locking differently so that the link status handling
+   locking does not bisect the locking used for packet transmit
+   in ->hard_start_xmit().
+
+#2 is the reason why most other drivers don't have this silly
+bug, they don't hold TX path locks when handling link status
+and printing out such messages.
