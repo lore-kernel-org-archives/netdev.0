@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: change L/R must have at least one byte in the
- dccpsf_val field
-Date: Wed, 13 Aug 2008 13:49:04 -0700 (PDT)
-Message-ID: <20080813.134904.123902363.davem@davemloft.net>
-References: <20080813125532.GD12888@ghostprotocols.net>
-	<44269.148.187.160.35.1218639843.squirrel@148.187.160.35>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [UPDATED PATCH] e1000e: add support for new 82574L part
+Date: Wed, 13 Aug 2008 13:53:48 -0700
+Message-ID: <9929d2390808131353h7e738f39j9e4654be0d7f0bad@mail.gmail.com>
+References: <20080813073017.20184.2881.stgit@localhost.localdomain>
+	 <20080813152947.GB8621@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, netdev@vger.kernel.org, dccp@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: "jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"Bruce Allan" <bruce.w.allan@intel.com>
+To: "Arthur Jones" <ajones@riverbed.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35917
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752242AbYHMUtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:49:03 -0400
-In-Reply-To: <44269.148.187.160.35.1218639843.squirrel@148.187.160.35>
+Received: from yx-out-2324.google.com ([74.125.44.29]:31337 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbYHMUxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:53:50 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so101985yxm.1
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 13:53:49 -0700 (PDT)
+In-Reply-To: <20080813152947.GB8621@ajones-laptop.nbttech.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gerrit@erg.abdn.ac.uk
-Date: Wed, 13 Aug 2008 16:04:03 +0100 (BST)
+On Wed, Aug 13, 2008 at 8:29 AM, Arthur Jones <ajones@riverbed.com> wrote:
+> Hi Jeff,  This patch doesn't apply for me as
+> it seems to be tab -> space mangled...
+>
+> Arthur
+>
 
-> > dccp: change L/R must have at least one byte in the dccpsf_val field
-> >
-> > Thanks to Eugene Teo for reporting this problem.
-> >
-> > Signed-off-by: Eugene Teo <eugenete@kernel.sg>
-> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> 
-> Dave, can you please apply -- this patch is for mainline only.
+I apologize, working on a resolution so that the patch does not get
+munged during transport.
 
-Applied and I'll queue this up for -stable too, thanks everyone.
+-- 
+Cheers,
+Jeff
