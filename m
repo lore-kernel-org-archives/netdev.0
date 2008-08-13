@@ -1,31 +1,49 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv3 0/2] IPVS: Add Generic Netlink configuration interface
-Date: Thu, 14 Aug 2008 09:09:29 +1000
-Message-ID: <20080813230927.GB10749@verge.net.au>
-References: <1218120219-1117-1-git-send-email-juliusv@google.com> <20080808022607.GB6094@verge.net.au> <20080808120642.GB32458@google.com> <20080809142331.GA3497@verge.net.au> <f4845fc0808130900o550511dn2ec425bb2c911738@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 16:12:37 -0700 (PDT)
+Message-ID: <20080813.161237.10205799.davem@davemloft.net>
+References: <ada3al8k3l5.fsf@cisco.com>
+	<20080813.150831.193391799.davem@davemloft.net>
+	<adatzdoiklo.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f4845fc0808130900o550511dn2ec425bb2c911738@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, jgarzik@pobox.com, swise@opengridcomputing.com,
+	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rdreier@cisco.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <adatzdoiklo.fsf@cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 13, 2008 at 06:00:41PM +0200, Julius Volz wrote:
-> On Sat, Aug 9, 2008 at 4:23 PM, Simon Horman <horms@verge.net.au> wrote:
-> > Hi Julius,
-> >
-> > your latest patch does resolve the problem that I was seeing
-> > with ipvsadm-1.25-nl-2. ipvsadm-1.25-nl-3 also works :-)
-> >
-> > I'd like to try and stress it out a bit more.
-> > I will try and get to that tomorrow or on Monday.
-> 
-> Hi, you were probably occupied by the other IPVS patches. Is there any
-> news on this?
+From: Roland Dreier <rdreier@cisco.com>
+Date: Wed, 13 Aug 2008 16:03:15 -0700
 
-Sorry Julius, I got side-tracked. I'll get onto this today, one way or another.
+> OK, I admit you could make something work -- add hooks for the low-level
+> driver to ask the iSCSI initiator where PDU boundaries are so it can
+> resync when something is evicted from the flow cache, have the initiator
+> format its tags in a special way to encode placement data, etc, etc.
+> The scheme does bring to mind Alan's earlier comment about pigs and
+> propulsion, though.
+
+There would need to be _NO_ hooks into the iSCSI initiator at all.
+
+The card would land the block I/O data onto the necessary page boundaries
+and the iSCSI code would just be able to thus use the pages directly
+and as-is.
+
+It would look perfectly like normal TCP receive traffic.  No hooks,
+no special cases, nothing like that.
+
+> In any case, as I said in the part of my email that you snipped, the
+> real issue is not designing hypothetical hardware, but deciding how to
+> support the Chelsio, Broadcom, etc hardware that exists today.
+
+The same like we support TOE hardware that exists today.  That is, we
+don't.
+
+
