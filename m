@@ -1,72 +1,60 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: [RESEND][PATCH 2.6.27-rc3] ixp4xx_eth: fix dma_mapping_error() compile errors
-Date: Wed, 13 Aug 2008 21:08:14 +0200 (MEST)
-Message-ID: <200808131908.m7DJ8EAp013777@harpo.it.uu.se>
-Cc: khc@pm.waw.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jeff@garzik.org
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 15:29:55 -0400
+Message-ID: <48A33633.20800@pobox.com>
+References: <adad4kfxm9v.fsf@cisco.com> <200808121457.11356.divy@chelsio.com> <20080812.150246.42068558.davem@davemloft.net> <200808121521.10101.divy@chelsio.com> <48A32976.7060504@vlnb.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, open-iscsi@googlegroups.com,
+	rdreier@cisco.com, rick.jones2@hp.com,
+	Steve Wise <swise@opengridcomputing.com>,
+	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vladislav Bolkhovitin <vst@vlnb.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aun.it.uu.se ([130.238.12.36]:62656 "EHLO aun.it.uu.se"
+Received: from srv5.dvmed.net ([207.36.208.214]:58767 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768AbYHMTJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 15:09:31 -0400
+	id S1752464AbYHMTaQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 15:30:16 -0400
+In-Reply-To: <48A32976.7060504@vlnb.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The arm ixp4xx_eth driver doesn't compile in 2.6.27-rc1:
+Vladislav Bolkhovitin wrote:
+> Divy Le Ray wrote:
+>> On Tuesday 12 August 2008 03:02:46 pm David Miller wrote:
+>>> From: Divy Le Ray <divy@chelsio.com>
+>>> Date: Tue, 12 Aug 2008 14:57:09 -0700
+>>>
+>>>> In any case, such a stateless solution is not yet designed, whereas
+>>>> accelerated iSCSI is available now, from us and other companies.
+>>> So, WHAT?!
+>>>
+>>> There are TOE pieces of crap out there too.
+>>
+>> Well, there is demand for accerated iscsi out there, which is the 
+>> driving reason of our driver submission. 
+> 
+> I'm, as an iSCSI target developer, strongly voting for hardware iSCSI 
+> offload. Having possibility of the direct data placement is a *HUGE* 
+> performance gain.
 
-  CC [M]  drivers/net/arm/ixp4xx_eth.o
-drivers/net/arm/ixp4xx_eth.c: In function 'eth_poll':
-drivers/net/arm/ixp4xx_eth.c:554: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:554: error: too few arguments to function 'dma_mapping_error'
-drivers/net/arm/ixp4xx_eth.c: In function 'eth_xmit':
-drivers/net/arm/ixp4xx_eth.c:701: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:701: error: too few arguments to function 'dma_mapping_error'
-drivers/net/arm/ixp4xx_eth.c: In function 'init_queues':
-drivers/net/arm/ixp4xx_eth.c:886: warning: passing argument 1 of 'dma_mapping_error' makes pointer from integer without a cast
-drivers/net/arm/ixp4xx_eth.c:886: error: too few arguments to function 'dma_mapping_error'
-make[3]: *** [drivers/net/arm/ixp4xx_eth.o] Error 1
-make[2]: *** [drivers/net/arm] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
+Well, two responses here:
 
-dma_mapping_error() changed in 2.6.27-rc1 to also take a device parameter,
-but nobody bothered updating ixp4xx_eth.c. Fixed by passing the appropriate
-device value in the dma_mapping_error() calls.
+* no one is arguing against hardware iSCSI offload.  Rather, it is a 
+problem with a specific implementation, one that falsely assumes two 
+independent TCP stacks can co-exist peacefully on the same IP address 
+and MAC.
 
-Tested on an ixp425 box.
+* direct data placement is possible without offloading the entire TCP 
+stack onto a firmware/chip.
 
-Signed-off-by: Mikael Pettersson <mikpe@it.uu.se>
-Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
----
-First posted 2008-08-01. The bug is still present in 2.6.27-rc3.
+There is plenty of room for hardware iSCSI offload...
 
-diff -rupN linux-2.6.27-rc3/drivers/net/arm/ixp4xx_eth.c linux-2.6.27-rc3.ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c
---- linux-2.6.27-rc3/drivers/net/arm/ixp4xx_eth.c	2008-08-13 18:19:49.000000000 +0200
-+++ linux-2.6.27-rc3.ixp4xx_eth-dma_mapping_error-fix/drivers/net/arm/ixp4xx_eth.c	2008-08-13 19:16:36.000000000 +0200
-@@ -551,7 +551,7 @@ static int eth_poll(struct napi_struct *
- 		if ((skb = netdev_alloc_skb(dev, RX_BUFF_SIZE))) {
- 			phys = dma_map_single(&dev->dev, skb->data,
- 					      RX_BUFF_SIZE, DMA_FROM_DEVICE);
--			if (dma_mapping_error(phys)) {
-+			if (dma_mapping_error(&dev->dev, phys)) {
- 				dev_kfree_skb(skb);
- 				skb = NULL;
- 			}
-@@ -698,7 +698,7 @@ static int eth_xmit(struct sk_buff *skb,
- #endif
- 
- 	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
--	if (dma_mapping_error(phys)) {
-+	if (dma_mapping_error(&dev->dev, phys)) {
- #ifdef __ARMEB__
- 		dev_kfree_skb(skb);
- #else
-@@ -883,7 +883,7 @@ static int init_queues(struct port *port
- 		desc->buf_len = MAX_MRU;
- 		desc->data = dma_map_single(&port->netdev->dev, data,
- 					    RX_BUFF_SIZE, DMA_FROM_DEVICE);
--		if (dma_mapping_error(desc->data)) {
-+		if (dma_mapping_error(&port->netdev->dev, desc->data)) {
- 			free_buffer(buff);
- 			return -EIO;
- 		}
+	Jeff
+
+
