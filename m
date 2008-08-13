@@ -1,34 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Wed, 13 Aug 2008 02:30:56 -0700 (PDT)
-Message-ID: <20080813.023056.198536297.davem@davemloft.net>
-References: <E1KT803-00086Y-00@gondolin.me.apana.org.au>
-	<20080812.221103.91087925.davem@davemloft.net>
-	<20080813053118.GA31785@gondor.apana.org.au>
+Subject: Re: [PATCH] tipc: Use the appropriate swab helper rather than an
+ internal helper
+Date: Wed, 13 Aug 2008 02:32:31 -0700 (PDT)
+Message-ID: <20080813.023231.110118129.davem@davemloft.net>
+References: <20080812205422.4273d598.akpm@linux-foundation.org>
+	<1218600348.30194.105.camel@brick>
+	<20080812212017.febf1392.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: harvey.harrison@gmail.com, mingo@elte.hu, hpa@zytor.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	per.liden@ericsson.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44546
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44551
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751767AbYHMJaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 05:30:55 -0400
-In-Reply-To: <20080813053118.GA31785@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751860AbYHMJca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 05:32:30 -0400
+In-Reply-To: <20080812212017.febf1392.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 13 Aug 2008 15:31:18 +1000
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 12 Aug 2008 21:20:17 -0700
 
-> On Tue, Aug 12, 2008 at 10:11:03PM -0700, David Miller wrote:
-> > Hmmm... maybe we have to sample __QDISC_STATE_SCHED too.
+> On Tue, 12 Aug 2008 21:05:47 -0700 Harvey Harrison <harvey.harrison@gmail.com> wrote:
 > 
-> You need this too for the ones which aren't running but sitting
-> on output_queue.  Either you'll have to forcibly remove them as
-> I outlined earlier, or just wait for them to expire naturally.
+> > ___generally means I am an internal implementation detail, don't use
+> > me.
+> > 
+> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> > ---
+> > Sorry for breaking the build Andrew, my testing has been with all the __constant
+> > versions in-tree removed.
+> > 
+> >  net/tipc/subscr.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+> > index 0326d30..f5da05d 100644
+> > --- a/net/tipc/subscr.c
+> > +++ b/net/tipc/subscr.c
+> > @@ -85,7 +85,7 @@ static struct top_srv topsrv = { 0 };
+> >  
+> >  static u32 htohl(u32 in, int swap)
+> >  {
+> > -	return swap ? (u32)___constant_swab32(in) : in;
+> > +	return swap ? (u32)swab32(in) : in;
+> >  }
 > 
-> The latter would seem more suitable since we're waiting anyway.
+> yes, that's what I did too, only I dropped the
+> seems-to-me-to-be-unneeded (u32) cast.
 
-This is what I do in the patch I just posted.
+I've applied Andrew's patch.
