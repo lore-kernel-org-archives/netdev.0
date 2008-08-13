@@ -1,60 +1,86 @@
-From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 22:35:34 +0400
-Message-ID: <48A32976.7060504@vlnb.net>
-References: <adad4kfxm9v.fsf@cisco.com> <200808121457.11356.divy@chelsio.com> <20080812.150246.42068558.davem@davemloft.net> <200808121521.10101.divy@chelsio.com>
+From: Sebastian Siewior <bigeasy@linutronix.de>
+Subject: [PATCH / RFC] net: fix locking in ibm_newemac
+Date: Wed, 13 Aug 2008 20:29:57 +0200
+Message-ID: <20080813182957.GA12612@www.tglx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: open-iscsi@googlegroups.com, rdreier@cisco.com, rick.jones2@hp.com,
-	jgarzik@pobox.com, Steve Wise <swise@opengridcomputing.com>,
-	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200808121521.10101.divy@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.tglx.de ([62.245.132.106]:58705 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751952AbYHMSge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 14:36:34 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> On Tuesday 12 August 2008 03:02:46 pm David Miller wrote:
->> From: Divy Le Ray <divy@chelsio.com>
->> Date: Tue, 12 Aug 2008 14:57:09 -0700
->>
->>> In any case, such a stateless solution is not yet designed, whereas
->>> accelerated iSCSI is available now, from us and other companies.
->> So, WHAT?!
->>
->> There are TOE pieces of crap out there too.
-> 
-> Well, there is demand for accerated iscsi out there, which is the driving 
-> reason of our driver submission. 
+|PPC 4xx OCP EMAC driver, version 3.54
+|MAL v2 /plb/mcmal, 2 TX channels, 2 RX channels
+|RGMII /plb/opb/emac-rgmii@ef600b00 initialized with MDIO support
+|/plb/opb/emac-rgmii@ef600b00: input 0 in RGMII mode
+|BUG: spinlock bad magic on CPU#0, swapper/1
+| lock: cf81632c, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+|Call Trace:
+|[cf82bc70] [c00071c4] show_stack+0x34/0x194 (unreliable)
+|[cf82bca0] [c0136d5c] spin_bug+0x8c/0xd0
+|[cf82bcc0] [c0136f64] _raw_spin_lock+0x94/0x16c
+|[cf82bcf0] [c023b528] _spin_lock_bh+0x20/0x34
+|[cf82bd10] [c01d04a8] dev_mc_add+0x2c/0x84
+|[cf82bd30] [c0166f80] emac_configure+0x2a8/0x55c
+|[cf82bd60] [c02418bc] emac_probe+0xc24/0x105c
+|[cf82be40] [c01bb504] of_platform_device_probe+0x58/0x80
+|[cf82be60] [c016057c] driver_probe_device+0xb8/0x1ec
+|[cf82be80] [c0160734] __driver_attach+0x84/0x88
+|[cf82bea0] [c015fa4c] bus_for_each_dev+0x5c/0x98
+|[cf82bed0] [c0160384] driver_attach+0x24/0x34
+|[cf82bee0] [c01600b4] bus_add_driver+0x1d8/0x24c
+|[cf82bf00] [c0160944] driver_register+0x5c/0x158
+|[cf82bf20] [c01bb3dc] of_register_driver+0x54/0x70
+|[cf82bf30] [c030ba8c] emac_init+0x1c8/0x208
+|[cf82bf60] [c02f4184] kernel_init+0x84/0x27c
+|[cf82bff0] [c000e594] kernel_thread+0x44/0x60
 
-I'm, as an iSCSI target developer, strongly voting for hardware iSCSI 
-offload. Having possibility of the direct data placement is a *HUGE* 
-performance gain.
+The fix is to defer phy init until netdevice is registered / initialized.
 
-For example, according to measurements done by one iSCSI-SCST user in 
-system with iSCSI initiator and iSCSI target (with iSCSI-SCST 
-(http://scst.sourceforge.net/target_iscsi.html) running), both with 
-identical modern high speed hardware and 10GbE cards, the _INITIATOR_ is 
-the bottleneck for READs (data transfers from target to initiator). This 
-is because the target sends data in a zero-copy manner, so its CPU is 
-capable to deal with the load, but on the initiator there are additional 
-data copies from skb's to page cache and from page cache to application. 
-As the result, in the measurements initiator got near 100% CPU load and 
-only ~500MB/s throughput. Target had ~30% CPU load. For the opposite 
-direction (WRITEs), where there is no the application data copy on the 
-target, throughput was ~800MB/s with also near 100% CPU load, but in 
-this case on the target. The initiator ran Linux with open-iscsi. The 
-test was with real backstorage: target ran BLOCKIO (direct BIOs to/from 
-backstorage) with 3ware card. Locally on the target the backstorage was 
-able to provide 900+MB/s for READs and about 1GB/s for WRITEs. The 
-commands queue in both cases was sufficiently big to eliminate the link 
-and processing latencies (20-30 outstanding commands).
+Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
+---
+Noticed with spinlock debug enabled & 40x/kilauea_defconfig on a kilaue
+board. With this patch, the board boots via NFS root, no problems were
+noticed so far
 
-Vlad
+ drivers/net/ibm_newemac/core.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index babc79a..c4130e1 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -2751,11 +2751,6 @@ static int __devinit emac_probe(struct of_device *ofdev,
+ 	dev->stop_timeout = STOP_TIMEOUT_100;
+ 	INIT_DELAYED_WORK(&dev->link_work, emac_link_timer);
+ 
+-	/* Find PHY if any */
+-	err = emac_init_phy(dev);
+-	if (err != 0)
+-		goto err_detach_tah;
+-
+ 	/* Fill in the driver function table */
+ 	ndev->open = &emac_open;
+ 	if (dev->tah_dev)
+@@ -2785,6 +2780,11 @@ static int __devinit emac_probe(struct of_device *ofdev,
+ 		goto err_detach_tah;
+ 	}
+ 
++	/* Find PHY if any */
++	err = emac_init_phy(dev);
++	if (err != 0)
++		goto err_detach_tah;
++
+ 	/* Set our drvdata last as we don't want them visible until we are
+ 	 * fully initialized
+ 	 */
+-- 
+1.5.5.2
 
