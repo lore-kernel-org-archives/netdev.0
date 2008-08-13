@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 13:13:24 -0700 (PDT)
-Message-ID: <20080813.131324.32902022.davem@davemloft.net>
-References: <200808121521.10101.divy@chelsio.com>
-	<48A32976.7060504@vlnb.net>
-	<48A33633.20800@pobox.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Fix oops in htb_delete.
+Date: Wed, 13 Aug 2008 22:13:00 +0200
+Message-ID: <20080813201259.GA4350@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vst@vlnb.net, open-iscsi@googlegroups.com, rdreier@cisco.com,
-	rick.jones2@hp.com, swise@opengridcomputing.com, kxie@chelsio.com,
-	netdev@vger.kernel.org, michaelc@cs.wisc.edu, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com, dm@chelsio.com,
-	leedom@chelsio.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <48A33633.20800@pobox.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mu-out-0910.google.com ([209.85.134.186]:39858 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbYHMUMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:12:52 -0400
+Received: by mu-out-0910.google.com with SMTP id w8so187309mue.1
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 13:12:50 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Wed, 13 Aug 2008 15:29:55 -0400
+pkt_sched: Fix oops in htb_delete.
 
-> * direct data placement is possible without offloading the entire TCP 
-> stack onto a firmware/chip.
+Recent changes introduced a bug in htb_delete(): cl->parent->children
+counter update misses checking cl->parent for NULL, which is used for
+root classes, so deleting them causes an oops.
 
-I've even described in this thread how that's possible.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ net/sched/sch_htb.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index be35422..6febd24 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1279,7 +1279,8 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 
+ 	/* delete from hash and active; remainder in destroy_class */
+ 	qdisc_class_hash_remove(&q->clhash, &cl->common);
+-	cl->parent->children--;
++	if (cl->parent)
++		cl->parent->children--;
+ 
+ 	if (cl->prio_activity)
+ 		htb_deactivate(q, cl);
