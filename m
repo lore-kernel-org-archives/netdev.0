@@ -1,39 +1,32 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [UPDATED PATCH] e1000e: add support for new 82574L part
-Date: Wed, 13 Aug 2008 13:53:48 -0700
-Message-ID: <9929d2390808131353h7e738f39j9e4654be0d7f0bad@mail.gmail.com>
-References: <20080813073017.20184.2881.stgit@localhost.localdomain>
-	 <20080813152947.GB8621@ajones-laptop.nbttech.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Wed, 13 Aug 2008 16:58:02 -0400
+Message-ID: <48A34ADA.4020707@myri.com>
+References: <48A23137.2010107@myri.com>	<20080812.181549.229367205.davem@davemloft.net>	<48A30834.4090802@myri.com> <20080813.132750.16161628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"Bruce Allan" <bruce.w.allan@intel.com>
-To: "Arthur Jones" <ajones@riverbed.com>
+Cc: netdev@vger.kernel.org, robert@robur.slu.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:31337 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835AbYHMUxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:53:50 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so101985yxm.1
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 13:53:49 -0700 (PDT)
-In-Reply-To: <20080813152947.GB8621@ajones-laptop.nbttech.com>
-Content-Disposition: inline
+Received: from mailbox2.myri.com ([64.172.73.26]:1804 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751286AbYHMVFj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 17:05:39 -0400
+In-Reply-To: <20080813.132750.16161628.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 8:29 AM, Arthur Jones <ajones@riverbed.com> wrote:
-> Hi Jeff,  This patch doesn't apply for me as
-> it seems to be tab -> space mangled...
->
-> Arthur
->
+David Miller wrote:
 
-I apologize, working on a resolution so that the patch does not get
-munged during transport.
+> 
+> Thanks for testing and providing those profiles.
+> 
+> I'll get this fix to Linus soon.
 
--- 
-Cheers,
-Jeff
+No problem.  Thanks for the excellent multi-queue tx work.
+
+FWIW, I tripped over this when testing a myri10ge patch
+for multi-queue tx...
+
+Drew
