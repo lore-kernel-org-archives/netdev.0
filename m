@@ -1,45 +1,49 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- experimental revert for 2.6.27 failed
-Date: Wed, 13 Aug 2008 10:06:10 -0700 (PDT)
-Message-ID: <868545.24711.qm@web82108.mail.mud.yahoo.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Wed, 13 Aug 2008 14:53:10 -0300
+Message-ID: <20080813145310.0c1e534c@tux>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+	<20080811.144421.234396007.davem@davemloft.net>
+	<200808120946.19459.thomas.jarosch@intra2net.com>
+	<20080812.011822.155249871.davem@davemloft.net>
+	<20080812144309.7d62fd86@tux>
+	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82108.mail.mud.yahoo.com ([209.191.84.221]:32522 "HELO
-	web82108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752166AbYHMRGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 13:06:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Tue, 12 Aug 2008 20:52:37 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+
+> I still propose that you tcpdump it, then I can tell you (I know
+> enough about Thomas' case but yours has a large number of
+> unknowns)... :-) I don't know why 2.6.24 didn't suffer from the
+> problem as FRTO was enabled already in it. The command you need
+> to create dump.log file:
+>=20
+> # tcpdump -w dump.log -i <iface> host <peerip>
+>=20
+> ...you need root rights (or sudo) to do the capturing.
+
+	Ok, but the problem is that the bug doesn't happen
+frequently... yesterday I waited for it to happen and nothing
+happened :). I'll keep watching it... if I can get the dump, I send it.
+Thanks.
 
 
-
-
-> that patch revert to use request_resource, so there is some other problem
-
-I agree.  I have already begun to bisect to find where the other problem,
-which prevents reverting, might have been introduced.  Unfortunately, I'm
-on my way to work as soon as I hit the "Send" button on this msg, so I
-will be offline for the next 8 hours.
-
-
-> could apply with
-> cat revert_*.;patch | patch -p1
-
-I assumed I should use 'git' to apply the patch.  Using 'git apply' worked
-perfectly, though -- 'git status' reported that the files had changed, and
-I looked over the files to see if the changes were what were intended by
-the patch.  Also, the kernel built without errors.
-
-I'll check it again when I get home, just to be sure, but I think it applied
-just fine.
-
-
-Thanks,
-Dave W.
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
