@@ -1,193 +1,43 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH] netlabel: Remove unneeded in-kernel API functions
-Date: Wed, 13 Aug 2008 10:55:26 -0400
-Message-ID: <20080813145526.10579.84270.stgit@flek.lan>
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [PATCH] dccp: change L/R must have at least one byte in the
+     dccpsf_val field
+Date: Wed, 13 Aug 2008 16:04:03 +0100 (BST)
+Message-ID: <44269.148.187.160.35.1218639843.squirrel@148.187.160.35>
+References: <20080813125532.GD12888@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: ramirose@gmail.com, casey@schaufler-ca.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Gerrit Renker" <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: "Arnaldo Carvalho de Melo" <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:18377 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbYHMOzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 10:55:42 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47198 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752662AbYHMPEa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 11:04:30 -0400
+In-Reply-To: <20080813125532.GD12888@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After some discussions with the Smack folks, well just Casey, I now have a
-better idea of what Smack wants out of NetLabel in the future so I think it
-is now safe to do some API "pruning".  If another LSM comes along that
-needs this functionality we can always add it back in, but I don't see any
-LSMs on the horizon which might make use of these functions.
+> dccp: change L/R must have at least one byte in the dccpsf_val field
+>
+> Thanks to Eugene Teo for reporting this problem.
+>
+> Signed-off-by: Eugene Teo <eugenete@kernel.sg>
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Thanks to Rami Rosen who suggested removing netlbl_cfg_cipsov4_del() back
-in February 2008.
+Dave, can you please apply -- this patch is for mainline only.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
+The dccp_setsockopt_change() function has been fully removed in the
+test tree (
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=f1b8d02c7cb03e22037e1590d04f9ec8ab2423eb),
+due to problems it caused.
 
- include/net/netlabel.h       |   13 -------
- net/netlabel/netlabel_kapi.c |   80 +++++++++++-------------------------------
- 2 files changed, 21 insertions(+), 72 deletions(-)
+Will be in contact regarding this soon.
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index e4d2d6b..5303749 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -352,12 +352,9 @@ static inline void netlbl_secattr_free(struct netlbl_lsm_secattr *secattr)
- int netlbl_cfg_map_del(const char *domain, struct netlbl_audit *audit_info);
- int netlbl_cfg_unlbl_add_map(const char *domain,
- 			     struct netlbl_audit *audit_info);
--int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--			   struct netlbl_audit *audit_info);
- int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 			       const char *domain,
- 			       struct netlbl_audit *audit_info);
--int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info);
- 
- /*
-  * LSM security attribute operations
-@@ -404,22 +401,12 @@ static inline int netlbl_cfg_unlbl_add_map(const char *domain,
- {
- 	return -ENOSYS;
- }
--static inline int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--					 struct netlbl_audit *audit_info)
--{
--	return -ENOSYS;
--}
- static inline int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 					     const char *domain,
- 					     struct netlbl_audit *audit_info)
- {
- 	return -ENOSYS;
- }
--static inline int netlbl_cfg_cipsov4_del(u32 doi,
--					 struct netlbl_audit *audit_info)
--{
--	return -ENOSYS;
--}
- static inline int netlbl_secattr_catmap_walk(
- 	                              struct netlbl_lsm_secattr_catmap *catmap,
- 				      u32 offset)
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 39793a1..2a2b8fa 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -104,49 +104,6 @@ cfg_unlbl_add_map_failure:
- }
- 
- /**
-- * netlbl_cfg_cipsov4_add - Add a new CIPSOv4 DOI definition
-- * @doi_def: the DOI definition
-- * @audit_info: NetLabel audit information
-- *
-- * Description:
-- * Add a new CIPSOv4 DOI definition to the NetLabel subsystem.  Returns zero on
-- * success, negative values on failure.
-- *
-- */
--int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
--			   struct netlbl_audit *audit_info)
--{
--	int ret_val;
--	const char *type_str;
--	struct audit_buffer *audit_buf;
--
--	ret_val = cipso_v4_doi_add(doi_def);
--
--	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
--					      audit_info);
--	if (audit_buf != NULL) {
--		switch (doi_def->type) {
--		case CIPSO_V4_MAP_STD:
--			type_str = "std";
--			break;
--		case CIPSO_V4_MAP_PASS:
--			type_str = "pass";
--			break;
--		default:
--			type_str = "(unknown)";
--		}
--		audit_log_format(audit_buf,
--				 " cipso_doi=%u cipso_type=%s res=%u",
--				 doi_def->doi,
--				 type_str,
--				 ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
--	}
--
--	return ret_val;
--}
--
--/**
-  * netlbl_cfg_cipsov4_add_map - Add a new CIPSOv4 DOI definition and mapping
-  * @doi_def: the DOI definition
-  * @domain: the domain mapping to add
-@@ -165,6 +122,8 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- {
- 	int ret_val = -ENOMEM;
- 	struct netlbl_dom_map *entry;
-+	const char *type_str;
-+	struct audit_buffer *audit_buf;
- 
- 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
- 	if (entry == NULL)
-@@ -182,7 +141,7 @@ int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
- 	 * domain mapping for it. */
- 
- 	rcu_read_lock();
--	ret_val = netlbl_cfg_cipsov4_add(doi_def, audit_info);
-+	ret_val = cipso_v4_doi_add(doi_def);
- 	if (ret_val != 0)
- 		goto cfg_cipsov4_add_map_failure_unlock;
- 	ret_val = netlbl_domhsh_add(entry, audit_info);
-@@ -196,6 +155,24 @@ cfg_cipsov4_add_map_failure_remove_doi:
- 	cipso_v4_doi_remove(doi_def->doi, audit_info, netlbl_cipsov4_doi_free);
- cfg_cipsov4_add_map_failure_unlock:
- 	rcu_read_unlock();
-+	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
-+					      audit_info);
-+	if (audit_buf != NULL) {
-+		switch (doi_def->type) {
-+		case CIPSO_V4_MAP_STD:
-+			type_str = "std";
-+			break;
-+		case CIPSO_V4_MAP_PASS:
-+			type_str = "pass";
-+			break;
-+		default:
-+			type_str = "(unknown)";
-+		}
-+		audit_log_format(audit_buf,
-+				 " cipso_doi=%u cipso_type=%s res=%u",
-+				 doi_def->doi, type_str, ret_val == 0 ? 1 : 0);
-+		audit_log_end(audit_buf);
-+	}
- cfg_cipsov4_add_map_failure:
- 	if (entry != NULL)
- 		kfree(entry->domain);
-@@ -203,21 +180,6 @@ cfg_cipsov4_add_map_failure:
- 	return ret_val;
- }
- 
--/**
-- * netlbl_cfg_cipsov4_del - Removean existing CIPSOv4 DOI definition
-- * @doi: the CIPSO DOI value
-- * @audit_info: NetLabel audit information
-- *
-- * Description:
-- * Removes an existing CIPSOv4 DOI definition from the NetLabel subsystem.
-- * Returns zero on success, negative values on failure.
-- *
-- */
--int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info)
--{
--	return cipso_v4_doi_remove(doi, audit_info, netlbl_cipsov4_doi_free);
--}
--
- /*
-  * Security Attribute Functions
-  */
+Gerrit
+
+
 
