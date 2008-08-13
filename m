@@ -1,41 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Wed, 13 Aug 2008 10:50:52 +0000
-Message-ID: <20080813105052.GA6838@ff.dom.local>
-References: <20080813061317.GA4251@ff.dom.local> <20080812.231633.193696650.davem@davemloft.net> <20080813065302.GB4251@ff.dom.local> <20080813.022549.203848195.davem@davemloft.net> <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Wed, 13 Aug 2008 03:56:28 -0700 (PDT)
+Message-ID: <20080813.035628.169565636.davem@davemloft.net>
+References: <20080813095942.GA9145@martell.zuzino.mipt.ru>
+	<20080813.032946.114949936.davem@davemloft.net>
+	<19f34abd0808130344h65e793eare83c0f41cb1cfb8a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com
+To: vegard.nossum@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:39988 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbYHMKvB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:51:01 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1636734fgg.17
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 03:50:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080813104238.GA11374@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50232
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751951AbYHMK41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 06:56:27 -0400
+In-Reply-To: <19f34abd0808130344h65e793eare83c0f41cb1cfb8a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 08:42:38PM +1000, Herbert Xu wrote:
-> On Wed, Aug 13, 2008 at 10:27:01AM +0000, Jarek Poplawski wrote:
-> > 
-> > - in net_tx_action() we can hit a place just after clear_bit() where
-> > none of these bits is set. Of course, hitting this 2 times in a row
-> > seems to be very unprobable, yet possible, and a lock isn't helpful
-> > here, so probably some change around this would make this nicer.
-> >
-> > - isn't there possible some longer ping-pong between qdic_run() and
-> > net_tx_action() when dev_requeue_skb() would get it back to
-> > __netif_schedule() and so on (with NETDEV_TX_BUSY)?
-> 
-> Good point.  I think we should add an aliveness check in both
-> net_tx_action and qdisc_run.  In fact the net_tx_action problem
-> existed previously as well.  But it is pretty darn unlikely.
+From: "Vegard Nossum" <vegard.nossum@gmail.com>
+Date: Wed, 13 Aug 2008 12:44:46 +0200
 
-Yes, it seems qdisc_reset() doesn't have to help with this, so
-probably there is needed some requeue counter or something...
+> There must also be no BUG()s, WARN()s, other debugging facilities
+> (spinlock debugging, lockdep, irqtrace, etc.) triggering which may
+> call printk() inside the protected section. Can we really ensure this?
+> For all drivers supporting netconsole?
 
-Jarek P.
+For all drivers supporting netconsole?  Well yes, there will be some
+bugs somewhere in some driver wrt. netconsole.  But that's life
+and why we will constantly have something to fix in the kernel isn't
+it?
+
+But one thing is for sure, your deliriously dirty ->busy thing is
+emphatically not the answer.
+
+BTW, it seems the main reason this driver is susceptible to this
+problem is that it doesn't handle link status events in it's
+NAPI poll handler.  If it did that, you would have never seen
+this deadlock.
+
+The netpoll layer prevents recursion into the NAPI ->poll() handler.
+
+Most drivers manage link state either in their NAPI ->poll() handler
+or a periodic timer that samples the link state.  Both schemes
+avoid this very issue.
+
