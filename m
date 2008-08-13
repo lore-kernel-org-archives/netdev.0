@@ -1,44 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: CPU utilization increased in 2.6.27rc
-Date: Wed, 13 Aug 2008 15:06:25 -0700
-Message-ID: <20080813150625.30405c5f@extreme>
-References: <48A23137.2010107@myri.com>
-	<20080812.181549.229367205.davem@davemloft.net>
-	<48A30834.4090802@myri.com>
-	<18595.15208.734736.864386@robur.slu.se>
-	<20080813143459.1fb1c5c5@extreme>
-	<18595.22699.600206.82767@robur.slu.se>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Question on how to select specific tx queues for tx multiqueue in
+ 2.6.27
+Date: Wed, 13 Aug 2008 15:06:35 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F13E0F9F5@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Andrew Gallatin <gallatin@myri.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Robert Olsson <robert@robur.slu.se>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:58426 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:63669 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752133AbYHMWG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 18:06:27 -0400
-In-Reply-To: <18595.22699.600206.82767@robur.slu.se>
+	id S1752133AbYHMWHK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 18:07:10 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Aug 2008 23:56:59 +0200
-Robert Olsson <robert@robur.slu.se> wrote:
+Is there a way in 2.6.27 to specify queue that a specific traffic type goes to in user space?  Using the multiqueue implementation in 2.6.26 it was possible to setup a multiqueue prio qdisc on the device and then target traffic to specific bands via tc which in turn would place the traffic on specific queues.  Below are the two use cases that are currently failing.
 
-> 
-> Stephen Hemminger writes:
->  > 
->  > I see you are still using the SLAB allocator. Does the SLUB change the numbers?
-> 
->  Correct. I did try SLUB a couple month ago but got less performance
->  but there have been some SLUB patches since. Have you experimented?
-> 
->  Cheers
-> 					--ro
-> 
->   
-Not yet, but there was a movement to kill SLAB. If SLAB is still faster than
-Christoph probably wants to know (and fix the problem).  The problem is that
-one way flows might still be moving memory between CPU's
+Case 1:  Filter arp traffic to a specific queue based on the ethertype being ETH_P_ARP
+Current issue: all traffic is routed to queue 0
+
+Case 2:  Filter ip traffic to a specific queue based on source/destination port number or ip address.
+Current issue: traffic is routed to queue based on hash value determined by simple_tx_hash
+
+At this point it appears 2.6.27 broke something that used to work in 2.6.2[3456], what should we do at this point to get multiqueue tx back to having the same user space configuration that worked before?
+
+I would be glad to help provide more detail and/or testing of patches.
+
+Thanks,
+Alex
