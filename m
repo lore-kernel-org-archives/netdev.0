@@ -1,34 +1,46 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Question on how to select specific tx queues for tx multiqueue in
- 2.6.27
-Date: Wed, 13 Aug 2008 15:06:35 -0700
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F13E0F9F5@orsmsx501.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 15:08:31 -0700 (PDT)
+Message-ID: <20080813.150831.193391799.davem@davemloft.net>
+References: <adad4kfxm9v.fsf@cisco.com>
+	<20080811.145313.178992274.davem@davemloft.net>
+	<ada3al8k3l5.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63669 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752133AbYHMWHK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 18:07:10 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, jgarzik@pobox.com, swise@opengridcomputing.com,
+	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rdreier@cisco.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <ada3al8k3l5.fsf@cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Is there a way in 2.6.27 to specify queue that a specific traffic type goes to in user space?  Using the multiqueue implementation in 2.6.26 it was possible to setup a multiqueue prio qdisc on the device and then target traffic to specific bands via tc which in turn would place the traffic on specific queues.  Below are the two use cases that are currently failing.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Wed, 13 Aug 2008 14:27:50 -0700
 
-Case 1:  Filter arp traffic to a specific queue based on the ethertype being ETH_P_ARP
-Current issue: all traffic is routed to queue 0
+> I don't see how this could work.  First, it seems that you have to let
+> the adapter know which connections are iSCSI connections so that it
+> knows when to try and parse iSCSI headers.
 
-Case 2:  Filter ip traffic to a specific queue based on source/destination port number or ip address.
-Current issue: traffic is routed to queue based on hash value determined by simple_tx_hash
+It always starts from offset zero for never seen before connections.
 
-At this point it appears 2.6.27 broke something that used to work in 2.6.2[3456], what should we do at this point to get multiqueue tx back to having the same user space configuration that worked before?
+> So you're already not totally stateless.
 
-I would be glad to help provide more detail and/or testing of patches.
+Yes, we are.
 
-Thanks,
-Alex
+> Then, since (AFAIK -- I'm not an expert on iSCSI and
+> especially I'm not an expert on what common practice is for current
+> implementations) the iSCSI PDUs can start at any offset in the TCP
+> stream, I don't see how a stateless adapter can even find the PDU
+> headers to parse -- there's not any way that I know of to recognize
+> where a PDU boundary is without keeping track of the lengths of all the
+> PDUs that go by (ie you need per-connection state).
+
+Like I said, you retain a "flow cache" (say it a million times, "flow
+cache") that remembers the current parameters and the buffers
+currently assigned to that flow and what offset within those buffers.
