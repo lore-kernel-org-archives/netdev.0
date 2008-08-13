@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH take 2] pkt_sched: Protect gen estimators under
- est_lock.
-Date: Wed, 13 Aug 2008 15:20:42 -0700 (PDT)
-Message-ID: <20080813.152042.220622907.davem@davemloft.net>
-References: <20080811205357.GA15293@ami.dom.local>
-	<20080812220218.GA12387@ami.dom.local>
+From: Robert Olsson <robert@robur.slu.se>
+Subject: Re: CPU utilization increased in 2.6.27rc
+Date: Thu, 14 Aug 2008 00:21:45 +0200
+Message-ID: <18595.24185.248507.604291@robur.slu.se>
+References: <48A23137.2010107@myri.com>
+	<20080812.181549.229367205.davem@davemloft.net>
+	<48A30834.4090802@myri.com>
+	<18595.15208.734736.864386@robur.slu.se>
+	<20080813143459.1fb1c5c5@extreme>
+	<18595.22699.600206.82767@robur.slu.se>
+	<20080813150625.30405c5f@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Andrew Gallatin <gallatin@myri.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54178
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751654AbYHMWUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 18:20:40 -0400
-In-Reply-To: <20080812220218.GA12387@ami.dom.local>
+Received: from robur.slu.se ([130.238.98.12]:44217 "EHLO robur.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753331AbYHMWVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 18:21:46 -0400
+In-Reply-To: <20080813150625.30405c5f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 13 Aug 2008 00:02:18 +0200
 
-> pkt_sched: Protect gen estimators under est_lock.
-> 
-> gen_kill_estimator() required rtnl_lock() protection, but since it is
-> moved to an RCU callback __qdisc_destroy() let's use est_lock instead.
-> 
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Looks good, applied, thanks Jarek.
+ > Not yet, but there was a movement to kill SLAB. If SLAB is still faster than
+ > Christoph probably wants to know (and fix the problem).  The problem is that
+ > one way flows might still be moving memory between CPU's
+
+ How does this happen? (Assuming affinity is setup correct of course)
+
+ Cheers
+					--ro
