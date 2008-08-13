@@ -1,110 +1,150 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- experimental revert for 2.6.27 failed
-Date: Tue, 12 Aug 2008 20:40:19 -0700
-Message-ID: <86802c440808122040h61c44469ia685ad9607cd975b@mail.gmail.com>
-References: <305173.54014.qm@web82101.mail.mud.yahoo.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 19/22] x86: use the new byteorder headers
+Date: Tue, 12 Aug 2008 20:54:22 -0700
+Message-ID: <20080812205422.4273d598.akpm@linux-foundation.org>
+References: <1218587234.30194.93.camel@brick>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_93910_17906086.1218598819285"
-Cc: linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"Peter Zijlstra" <peterz@infradead.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: "David Witbrodt" <dawitbro@sbcglobal.net>,
-	"Ingo Molnar" <mingo@elte.hu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	per.liden@ericsson.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:2425 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754267AbYHMDkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 23:40:20 -0400
-Received: by wr-out-0506.google.com with SMTP id 69so2244332wri.5
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2008 20:40:19 -0700 (PDT)
-In-Reply-To: <305173.54014.qm@web82101.mail.mud.yahoo.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35880 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753359AbYHMDzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2008 23:55:08 -0400
+In-Reply-To: <1218587234.30194.93.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_93910_17906086.1218598819285
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Tue, 12 Aug 2008 17:27:14 -0700 Harvey Harrison <harvey.harrison@gmail.com> wrote:
 
-please try attached patch with 2.6.27-rc3
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---
+> The prerequisite patches have landed in Linus' tree now.
+> 
+>  include/asm-x86/byteorder.h |   69 +++++++++++++++++--------------------------
+>  1 files changed, 27 insertions(+), 42 deletions(-)
+> 
+> diff --git a/include/asm-x86/byteorder.h b/include/asm-x86/byteorder.h
+> index e02ae2d..7187b3a 100644
+> --- a/include/asm-x86/byteorder.h
+> +++ b/include/asm-x86/byteorder.h
+> @@ -4,26 +4,33 @@
+>  #include <asm/types.h>
+>  #include <linux/compiler.h>
+>  
+> -#ifdef __GNUC__
+> +#define __LITTLE_ENDIAN
+>  
+> -#ifdef __i386__
+> -
+> -static inline __attribute_const__ __u32 ___arch__swab32(__u32 x)
+> +static inline __attribute_const__ __u32 __arch_swab32(__u32 val)
+>  {
+> -#ifdef CONFIG_X86_BSWAP
+> -	asm("bswap %0" : "=r" (x) : "0" (x));
+> -#else
+> +#ifdef __i386__
+> +# ifdef CONFIG_X86_BSWAP
+> +	asm("bswap %0" : "=r" (val) : "0" (val));
+> +# else
+>  	asm("xchgb %b0,%h0\n\t"	/* swap lower bytes	*/
+>  	    "rorl $16,%0\n\t"	/* swap words		*/
+>  	    "xchgb %b0,%h0"	/* swap higher bytes	*/
+> -	    : "=q" (x)
+> -	    : "0" (x));
+> +	    : "=q" (val)
+> +	    : "0" (val));
+> +# endif
+> +
+> +#else /* __i386__ */
+> +	asm("bswapl %0"
+> +	    : "=r" (val)
+> +	    : "0" (val));
+>  #endif
+> -	return x;
+> +	return val;
+>  }
+> +#define __arch_swab32 __arch_swab32
+>  
+> -static inline __attribute_const__ __u64 ___arch__swab64(__u64 val)
+> +static inline __attribute_const__ __u64 __arch_swab64(__u64 val)
+>  {
+> +#ifdef __i386__
+>  	union {
+>  		struct {
+>  			__u32 a;
+> @@ -32,50 +39,28 @@ static inline __attribute_const__ __u64 ___arch__swab64(__u64 val)
+>  		__u64 u;
+>  	} v;
+>  	v.u = val;
+> -#ifdef CONFIG_X86_BSWAP
+> +# ifdef CONFIG_X86_BSWAP
+>  	asm("bswapl %0 ; bswapl %1 ; xchgl %0,%1"
+>  	    : "=r" (v.s.a), "=r" (v.s.b)
+>  	    : "0" (v.s.a), "1" (v.s.b));
+> -#else
+> +# else
+>  	v.s.a = ___arch__swab32(v.s.a);
+>  	v.s.b = ___arch__swab32(v.s.b);
+>  	asm("xchgl %0,%1"
+>  	    : "=r" (v.s.a), "=r" (v.s.b)
+>  	    : "0" (v.s.a), "1" (v.s.b));
+> -#endif
+> +# endif
+>  	return v.u;
+> -}
+>  
+>  #else /* __i386__ */
+> -
+> -static inline __attribute_const__ __u64 ___arch__swab64(__u64 x)
+> -{
+>  	asm("bswapq %0"
+> -	    : "=r" (x)
+> -	    : "0" (x));
+> -	return x;
+> -}
+> -
+> -static inline __attribute_const__ __u32 ___arch__swab32(__u32 x)
+> -{
+> -	asm("bswapl %0"
+> -	    : "=r" (x)
+> -	    : "0" (x));
+> -	return x;
+> -}
+> -
+> +	    : "=r" (val)
+> +	    : "0" (val));
+> +	return val;
+>  #endif
+> +}
+> +#define __arch_swab64 __arch_swab64
+>  
+> -/* Do not define swab16.  Gcc is smart enough to recognize "C" version and
+> -   convert it into rotation or exhange.  */
+> -
+> -#define __arch__swab64(x) ___arch__swab64(x)
+> -#define __arch__swab32(x) ___arch__swab32(x)
+> -
+> -#define __BYTEORDER_HAS_U64__
+> -
+> -#endif /* __GNUC__ */
+> -
+> -#include <linux/byteorder/little_endian.h>
+> +#include <linux/byteorder.h>
+>  
+>  #endif /* _ASM_X86_BYTEORDER_H */
 
-Thanks
+net/tipc/subscr.c: In function 'htohl':
+net/tipc/subscr.c:88: error: implicit declaration of function '___constant_swab32'
 
-Yinghai Lu
+That's just a basic i386 allmodconfig.  How come you're not seeing this?
 
-------=_Part_93910_17906086.1218598819285
-Content-Type: text/x-patch; name=revert_back_to_request.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fjte7fhr0
-Content-Disposition: attachment; filename=revert_back_to_request.patch
+Heaven alone knows what tipc thinks it's doing poking into this sort of
+thing.  Could you please take a look and teach it some manners?
 
-W1BBVENIXSB4ODY6IHJldmVydCBiYWNrIHRvIHVzZSByZXF1ZXN0X3Jlc291cmNlIHRvIHJlc2Vy
-dmUga2VybmVsIHJlcwoKU2lnbmVkLW9mZi1ieTogWWluZ2hhaSBMdSA8eWhsdS5rZXJuZWxAZ21h
-aWwuY29tPgoKLS0tCiBhcmNoL3g4Ni9rZXJuZWwvZTgyMC5jICB8ICAgMTcgKysrKysrKysrKysr
-KysrLS0KIGFyY2gveDg2L2tlcm5lbC9zZXR1cC5jIHwgICAyMiArKysrKysrKysrKysrKystLS0t
-LS0tCiBpbmNsdWRlL2FzbS14ODYvZTgyMC5oICB8ICAgIDMgKystCiAzIGZpbGVzIGNoYW5nZWQs
-IDMyIGluc2VydGlvbnMoKyksIDEwIGRlbGV0aW9ucygtKQoKSW5kZXg6IGxpbnV4LTIuNi9hcmNo
-L3g4Ni9rZXJuZWwvZTgyMC5jCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmlnL2FyY2gveDg2
-L2tlcm5lbC9lODIwLmMKKysrIGxpbnV4LTIuNi9hcmNoL3g4Ni9rZXJuZWwvZTgyMC5jCkBAIC0x
-MjY3LDcgKzEyNjcsNyBAQCBzdGF0aWMgaW5saW5lIGNvbnN0IGNoYXIgKmU4MjBfdHlwZV90b19z
-CiAvKgogICogTWFyayBlODIwIHJlc2VydmVkIGFyZWFzIGFzIGJ1c3kgZm9yIHRoZSByZXNvdXJj
-ZSBtYW5hZ2VyLgogICovCi12b2lkIF9faW5pdCBlODIwX3Jlc2VydmVfcmVzb3VyY2VzKHZvaWQp
-Cit2b2lkIF9faW5pdCBlODIwX3Jlc2VydmVfcmVzb3VyY2VzKHN0cnVjdCByZXNvdXJjZSAqKnJl
-c19rZXJuZWwsIGludCBucl9yZXNfaykKIHsKIAlpbnQgaTsKIAlzdHJ1Y3QgcmVzb3VyY2UgKnJl
-czsKQEAgLTEyODcsNyArMTI4NywyMCBAQCB2b2lkIF9faW5pdCBlODIwX3Jlc2VydmVfcmVzb3Vy
-Y2VzKHZvaWQpCiAJCXJlcy0+ZW5kID0gZW5kOwogCiAJCXJlcy0+ZmxhZ3MgPSBJT1JFU09VUkNF
-X01FTSB8IElPUkVTT1VSQ0VfQlVTWTsKLQkJaW5zZXJ0X3Jlc291cmNlKCZpb21lbV9yZXNvdXJj
-ZSwgcmVzKTsKKwkJcmVxdWVzdF9yZXNvdXJjZSgmaW9tZW1fcmVzb3VyY2UsIHJlcyk7CisJCWlm
-IChlODIwLm1hcFtpXS50eXBlID09IEU4MjBfUkFNKSB7CisJCQlpbnQgajsKKwkJCS8qCisJCQkq
-IFdlIGRvbid0IGtub3cgd2hpY2ggUkFNIHJlZ2lvbiBjb250YWlucyBrZXJuZWwgZGF0YSwKKwkJ
-CSogc28gd2UgdHJ5IGl0IHJlcGVhdGVkbHkgYW5kIGxldCB0aGUgcmVzb3VyY2UgbWFuYWdlcgor
-CQkJKiB0ZXN0IGl0LgorCQkJKi8KKwkJCWZvciAoaiA9IDA7IGogPCBucl9yZXNfazsgaisrKSB7
-CisJCQkJaWYgKCFyZXNfa2VybmVsW2pdKQorCQkJCQljb250aW51ZTsKKwkJCQlyZXF1ZXN0X3Jl
-c291cmNlKHJlcywgcmVzX2tlcm5lbFtqXSk7CisJCQl9CisJCX0KIAkJcmVzKys7CiAJfQogCklu
-ZGV4OiBsaW51eC0yLjYvYXJjaC94ODYva2VybmVsL3NldHVwLmMKPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGlu
-dXgtMi42Lm9yaWcvYXJjaC94ODYva2VybmVsL3NldHVwLmMKKysrIGxpbnV4LTIuNi9hcmNoL3g4
-Ni9rZXJuZWwvc2V0dXAuYwpAQCAtNDM3LDYgKzQzNyw3IEBAIHN0YXRpYyB2b2lkIF9faW5pdCBy
-ZXNlcnZlX2Vhcmx5X3NldHVwX2QKICAqIC0tLS0tLS0tLSBDcmFzaGtlcm5lbCByZXNlcnZhdGlv
-biAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAqLwogCitzdGF0aWMgc3RydWN0IHJl
-c291cmNlICpjcmFzaGtfcmVzX3B0cjsKICNpZmRlZiBDT05GSUdfS0VYRUMKIAogLyoqCkBAIC01
-MTcsNyArNTE4LDcgQEAgc3RhdGljIHZvaWQgX19pbml0IHJlc2VydmVfY3Jhc2hrZXJuZWwodgog
-CiAJY3Jhc2hrX3Jlcy5zdGFydCA9IGNyYXNoX2Jhc2U7CiAJY3Jhc2hrX3Jlcy5lbmQgICA9IGNy
-YXNoX2Jhc2UgKyBjcmFzaF9zaXplIC0gMTsKLQlpbnNlcnRfcmVzb3VyY2UoJmlvbWVtX3Jlc291
-cmNlLCAmY3Jhc2hrX3Jlcyk7CisJY3Jhc2hrX3Jlc19wdHIgPSAmY3Jhc2hrX3JlczsKIH0KICNl
-bHNlCiBzdGF0aWMgdm9pZCBfX2luaXQgcmVzZXJ2ZV9jcmFzaGtlcm5lbCh2b2lkKQpAQCAtNTkz
-LDYgKzU5NCw5IEBAIHN0cnVjdCB4ODZfcXVpcmtzICp4ODZfcXVpcmtzIF9faW5pdGRhdGEKIAog
-dm9pZCBfX2luaXQgc2V0dXBfYXJjaChjaGFyICoqY21kbGluZV9wKQogeworCXN0cnVjdCByZXNv
-dXJjZSAqcmVzX2tlcm5lbFs0XTsKKwlpbnQgbnVtX3JlczsKKwogI2lmZGVmIENPTkZJR19YODZf
-MzIKIAltZW1jcHkoJmJvb3RfY3B1X2RhdGEsICZuZXdfY3B1X2RhdGEsIHNpemVvZihuZXdfY3B1
-X2RhdGEpKTsKIAl2aXN3c19lYXJseV9kZXRlY3QoKTsKQEAgLTY5OSwxMSArNzAzLDYgQEAgdm9p
-ZCBfX2luaXQgc2V0dXBfYXJjaChjaGFyICoqY21kbGluZV9wKQogCXByb2JlX3JvbXMoKTsKICNl
-bmRpZgogCi0JLyogYWZ0ZXIgcGFyc2VfZWFybHlfcGFyYW0sIHNvIGNvdWxkIGRlYnVnIGl0ICov
-Ci0JaW5zZXJ0X3Jlc291cmNlKCZpb21lbV9yZXNvdXJjZSwgJmNvZGVfcmVzb3VyY2UpOwotCWlu
-c2VydF9yZXNvdXJjZSgmaW9tZW1fcmVzb3VyY2UsICZkYXRhX3Jlc291cmNlKTsKLQlpbnNlcnRf
-cmVzb3VyY2UoJmlvbWVtX3Jlc291cmNlLCAmYnNzX3Jlc291cmNlKTsKLQogCWlmIChlZmlfZW5h
-YmxlZCkKIAkJZWZpX2luaXQoKTsKIApAQCAtODY1LDcgKzg2NCwxNiBAQCB2b2lkIF9faW5pdCBz
-ZXR1cF9hcmNoKGNoYXIgKipjbWRsaW5lX3ApCiAKIAlrdm1fZ3Vlc3RfaW5pdCgpOwogCi0JZTgy
-MF9yZXNlcnZlX3Jlc291cmNlcygpOworCXJlc19rZXJuZWxbMF0gPSAmY29kZV9yZXNvdXJjZTsK
-KwlyZXNfa2VybmVsWzFdID0gJmRhdGFfcmVzb3VyY2U7CisJcmVzX2tlcm5lbFsyXSA9ICZic3Nf
-cmVzb3VyY2U7CisJbnVtX3JlcyA9IDM7CisJaWYgKGNyYXNoa19yZXNfcHRyKSB7CisJCXJlc19r
-ZXJuZWxbbnVtX3Jlc10gPSBjcmFzaGtfcmVzX3B0cjsKKwkJbnVtX3JlcysrOworCX0KKwllODIw
-X3Jlc2VydmVfcmVzb3VyY2VzKHJlc19rZXJuZWwsIG51bV9yZXMpOworCiAJZTgyMF9tYXJrX25v
-c2F2ZV9yZWdpb25zKG1heF9sb3dfcGZuKTsKIAogI2lmZGVmIENPTkZJR19YODZfMzIKSW5kZXg6
-IGxpbnV4LTIuNi9pbmNsdWRlL2FzbS14ODYvZTgyMC5oCj09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4LTIu
-Ni5vcmlnL2luY2x1ZGUvYXNtLXg4Ni9lODIwLmgKKysrIGxpbnV4LTIuNi9pbmNsdWRlL2FzbS14
-ODYvZTgyMC5oCkBAIC0xMjAsNyArMTIwLDggQEAgZXh0ZXJuIHZvaWQgZTgyMF9yZWdpc3Rlcl9h
-Y3RpdmVfcmVnaW9ucwogCQkJCQkgdW5zaWduZWQgbG9uZyBlbmRfcGZuKTsKIGV4dGVybiB1NjQg
-ZTgyMF9ob2xlX3NpemUodTY0IHN0YXJ0LCB1NjQgZW5kKTsKIGV4dGVybiB2b2lkIGZpbmlzaF9l
-ODIwX3BhcnNpbmcodm9pZCk7Ci1leHRlcm4gdm9pZCBlODIwX3Jlc2VydmVfcmVzb3VyY2VzKHZv
-aWQpOworc3RydWN0IHJlc291cmNlOworZXh0ZXJuIHZvaWQgZTgyMF9yZXNlcnZlX3Jlc291cmNl
-cyhzdHJ1Y3QgcmVzb3VyY2UgKipyZXMsIGludCBudW0pOwogZXh0ZXJuIHZvaWQgc2V0dXBfbWVt
-b3J5X21hcCh2b2lkKTsKIGV4dGVybiBjaGFyICpkZWZhdWx0X21hY2hpbmVfc3BlY2lmaWNfbWVt
-b3J5X3NldHVwKHZvaWQpOwogZXh0ZXJuIGNoYXIgKm1hY2hpbmVfc3BlY2lmaWNfbWVtb3J5X3Nl
-dHVwKHZvaWQpOwo=
-------=_Part_93910_17906086.1218598819285--
+Thanks.
