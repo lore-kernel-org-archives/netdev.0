@@ -1,42 +1,70 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- experimental revert for 2.6.27 failed
-Date: Wed, 13 Aug 2008 09:05:05 -0700
-Message-ID: <86802c440808130905s360c9695jef64b6ed7746899@mail.gmail.com>
-References: <108777.49875.qm@web82104.mail.mud.yahoo.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Multicast socket behaviour?
+Date: Wed, 13 Aug 2008 09:12:16 -0700
+Message-ID: <OFB63F1889.F6ECCEEF-ON882574A4.0056055F-882574A4.00590247@us.ibm.com>
+References: <loom.20080813T082132-707@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Ingo Molnar" <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"Peter Zijlstra" <peterz@infradead.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: "David Witbrodt" <dawitbro@sbcglobal.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Daniel Ng <daniel_ng11@lycos.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hs-out-0708.google.com ([64.233.178.251]:18273 "EHLO
-	hs-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751748AbYHMQFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 12:05:06 -0400
-Received: by hs-out-0708.google.com with SMTP id 4so30640hsl.5
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 09:05:05 -0700 (PDT)
-In-Reply-To: <108777.49875.qm@web82104.mail.mud.yahoo.com>
-Content-Disposition: inline
+Received: from e32.co.us.ibm.com ([32.97.110.150]:35086 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbYHMQM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 12:12:27 -0400
+In-Reply-To: <loom.20080813T082132-707@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 5:03 AM, David Witbrodt <dawitbro@sbcglobal.net> wrote:
->
->
->> please try attached patch with 2.6.27-rc3
->
-> Thx for the patch... and for providing it as an attachment.  My email
-> situation is less than optimal, and I am stuck using my ISP's web
-> interface for the present.
->
-> I used 'git apply --check <patchfilename>' first, and got no errors, so
-> I applied it, built, installed, and rebooted.
+netdev-owner@vger.kernel.org wrote on 08/13/2008 01:21:58 AM:
 
-could apply with
-cat revert_*.;patch | patch -p1
+> Hi,
+> 
+> The below C code registers the socket with the multicast group 
+'HELLO_GROUP':
+> 
+>     mreq.imr_multiaddr.s_addr=inet_addr(HELLO_GROUP);
+>     mreq.imr_address.s_addr=htonl(INADDR_ANY);
+> 
+>     mreq.imr_ifindex = if_nametoindex("ppp1");
+> 
+>     if (setsockopt(fd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&mreq,sizeof(mreq)) < 
+0) {
+>         perror("setsockopt");
+>         exit(1);
+>     }
+> 
+> I understand that if 'INADDR_ANY' is used, it is up to the kernel to 
+decide 
+> what action to take.
 
-YH
+Daniel,
+        Neil has already pointed you to a fuller description for your
+question about joining on multiple interfaces, but just
+to be clear, the code above has specified the interface, so there is
+no choice for the kernel. The code above will always join on "ppp1"
+You can specify the interface by address (imr_address), by index
+(imr_ifindex, as above), or not at all.
+        In the unlikely event that you wanted the kernel to
+pick which interface you join the group on, you would need
+both imr_address==INADDR_ANY and imr_ifindex==0.
+        The sockets API has never included a "join on all
+interfaces" mechanism. If you're looking for traffic from
+a particular set of machines, you only need to join on a
+single interface that includes that set. Joining on another
+interface for the same set will give you duplicate traffic.
+The same group number on a different interface is either an
+entirely different set (from a different multicast routing
+domain), or the same one (resulting in duplicate traffic). If
+you want both of two sets, you need to join each separately. If you
+only want one, you only need to join on one of them, and joining
+on both would be bad.
+        So, if you followed all that, the conclusion is that
+it usually doesn't make sense for an app in a single multicast
+routing domain to want to join on multiple interfaces, and if
+you have multiple routing domains, joining each separately is
+appropriate, especially since some of the interfaces may be
+in the same routing domain even if some are not.
+
+                                                                +-DLS
+
