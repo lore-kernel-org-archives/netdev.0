@@ -1,38 +1,40 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: CPU utilization increased in 2.6.27rc
-Date: Wed, 13 Aug 2008 22:03:35 +0200
-Message-ID: <87tzdoznqg.fsf@basil.nowhere.org>
-References: <48A23137.2010107@myri.com>
-	<20080812.181549.229367205.davem@davemloft.net>
-	<48A30834.4090802@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 13:23:19 -0700 (PDT)
+Message-ID: <20080813.132319.175666454.davem@davemloft.net>
+References: <20080812.150246.42068558.davem@davemloft.net>
+	<200808121521.10101.divy@chelsio.com>
+	<48A32976.7060504@vlnb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	robert@robur.slu.se
-To: Andrew Gallatin <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:35903 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbYHMUDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 16:03:38 -0400
-In-Reply-To: <48A30834.4090802@myri.com> (Andrew Gallatin's message of "Wed, 13 Aug 2008 12:13:40 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: open-iscsi@googlegroups.com, rdreier@cisco.com, rick.jones2@hp.com,
+	jgarzik@pobox.com, swise@opengridcomputing.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, michaelc@cs.wisc.edu, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com, dm@chelsio.com,
+	leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: vst@vlnb.net
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <48A32976.7060504@vlnb.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Gallatin <gallatin@myri.com> writes:
->
-> 8363      6.5081  vmlinux                  _raw_spin_lock
-> 5612      4.3672  oprofiled                (no symbols)
-> 4420      3.4396  ehci_hcd                 (no symbols)
-> 4325      3.3657  vmlinux                  handle_IRQ_event
-> 3688      2.8700  vmlinux                  default_idle
-> 3164      2.4622  vmlinux                  nv_start_xmit_optimized
-> 3092      2.4062  vmlinux                  sk_run_filter
-                                             ^^^^^^^^^^^^^
+From: Vladislav Bolkhovitin <vst@vlnb.net>
+Date: Wed, 13 Aug 2008 22:35:34 +0400
 
-Looks like you have one of those nasty dhcpcds running that
-always open a raw socket and intercept everything using a filter?
-I always hoped those would disappear eventually and just
-bind to the proper protocol, but they seem to refuse dying.
+> This is because the target sends data in a zero-copy manner, so its
+> CPU is capable to deal with the load, but on the initiator there are
+> additional data copies from skb's to page cache and from page cache
+> to application.
 
--Andi
+If you've actually been reading at all what I've been saying in this
+thread you'll see that I've described a method to do this copy
+avoidance in a completely stateless manner.
+
+You don't need to implement a TCP stack in the card in order to do
+data placement optimizations.  They can be done completely stateless.
+
+Also, large portions of the cpu overhead are transactional costs,
+which are significantly reduced by existing technologies such as
+LRO.
