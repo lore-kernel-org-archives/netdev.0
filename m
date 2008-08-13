@@ -1,7 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 17/25] bnx2x: Pause settings
-Date: Wed, 13 Aug 2008 17:15:37 +0300
-Message-ID: <1218636937.547.93.camel@lb-tlvb-eliezer>
+Subject: [PATCH 16/25] bnx2x: Link order with external PHY
+Date: Wed, 13 Aug 2008 17:15:26 +0300
+Message-ID: <1218636926.547.92.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -11,579 +11,598 @@ To: "David Miller" <davem@davemloft.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:1973 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753057AbYHMOPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 10:15:52 -0400
+	id S1756631AbYHMOPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2008 10:15:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pause settings
-- 1G pause was not working due to missing write to the emac block
-  (TX_MODE_FLOW_EN)
-- The flow control should use the negotiated result (after autoneg) so 
-  we should save both the requested autoneg and the result
-- The HW credits with flow control at 1G speed were not optimized and 
-  caused low throughput
-- It is recommended to turn off flow control if the MTU is bigger than 
-  5000B due to internal buffers size
+Link order with external PHY
+When external PHY exists (second chip with the PHY to translate to
+another physical medium) the link with the eternal PHY and the network
+should be established before setting the link between the 5771x and the
+PHY. This is the right order and it is important when using autoneg -
+the link to the network should use the autoneg and the link between the
+two chips should be forced to the network result.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_link.c |  202 ++++++++++++++++++++++++++--------------------
- drivers/net/bnx2x_link.h |    4 +-
- drivers/net/bnx2x_main.c |    9 ++-
- drivers/net/bnx2x_reg.h  |    4 +-
- 4 files changed, 128 insertions(+), 91 deletions(-)
+ drivers/net/bnx2x_link.c |  380 ++++++++++++++++++++++++++--------------------
+ drivers/net/bnx2x_reg.h  |    2 +
+ 2 files changed, 216 insertions(+), 166 deletions(-)
+ mode change 100644 => 100755 drivers/net/bnx2x_link.c
+ mode change 100644 => 100755 drivers/net/bnx2x_reg.h
 
 diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 3b63c8c..36fa356 100755
+old mode 100644
+new mode 100755
+index ff2743d..3b63c8c
 --- a/drivers/net/bnx2x_link.c
 +++ b/drivers/net/bnx2x_link.c
-@@ -38,7 +38,6 @@
- #define ETH_MAX_JUMBO_PACKET_SIZE	9600
- #define MDIO_ACCESS_TIMEOUT		1000
- #define BMAC_CONTROL_RX_ENABLE	2
--#define MAX_MTU_SIZE		5000
+@@ -1690,7 +1690,11 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
  
- /***********************************************************/
- /*                       Shortcut definitions              */
-@@ -298,11 +297,13 @@ static u8 bnx2x_emac_enable(struct link_params *params,
- 				    EMAC_RX_MODE_FLOW_EN);
+ 		vars->link_status |= LINK_STATUS_SERDES_LINK;
  
- 		bnx2x_bits_dis(bp,  emac_base + EMAC_REG_EMAC_TX_MODE,
--			       EMAC_TX_MODE_EXT_PAUSE_EN);
-+			     (EMAC_TX_MODE_EXT_PAUSE_EN |
-+			      EMAC_TX_MODE_FLOW_EN));
- 		if (vars->flow_ctrl & FLOW_CTRL_TX)
- 			bnx2x_bits_en(bp, emac_base +
- 				    EMAC_REG_EMAC_TX_MODE,
--				      EMAC_TX_MODE_EXT_PAUSE_EN);
-+				   (EMAC_TX_MODE_EXT_PAUSE_EN |
-+				    EMAC_TX_MODE_FLOW_EN));
- 	}
+-		if (params->req_line_speed == SPEED_AUTO_NEG) {
++		if ((params->req_line_speed == SPEED_AUTO_NEG) &&
++		    ((XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
++		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) ||
++		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
++		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705))) {
+ 			vars->autoneg = AUTO_NEG_ENABLED;
  
- 	/* KEEP_VLAN_TAG, promiscuous */
-@@ -591,9 +592,9 @@ void bnx2x_link_status_update(struct link_params *params,
- 			vars->flow_ctrl &= ~FLOW_CTRL_RX;
+ 			if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
+@@ -1716,7 +1720,7 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
+ 		DP(NETIF_MSG_LINK, "phy link down\n");
  
- 		if (vars->phy_flags & PHY_XGXS_FLAG) {
--			if (params->req_line_speed &&
--			    ((params->req_line_speed == SPEED_10) ||
--			     (params->req_line_speed == SPEED_100))) {
-+			if (vars->line_speed &&
-+			    ((vars->line_speed == SPEED_10) ||
-+			     (vars->line_speed == SPEED_100))) {
- 				vars->phy_flags |= PHY_SGMII_FLAG;
- 			} else {
- 				vars->phy_flags &= ~PHY_SGMII_FLAG;
-@@ -670,7 +671,6 @@ static u8 bnx2x_pbf_update(struct link_params *params, u32 flow_ctrl,
- 	u8 port = params->port;
- 	u32 init_crd, crd;
- 	u32 count = 1000;
--	u32 pause = 0;
- 
- 	/* disable port */
- 	REG_WR(bp, PBF_REG_DISABLE_NEW_TASK_PROC_P0 + port*4, 0x1);
-@@ -693,33 +693,25 @@ static u8 bnx2x_pbf_update(struct link_params *params, u32 flow_ctrl,
- 		return -EINVAL;
- 	}
- 
--	if (flow_ctrl & FLOW_CTRL_RX)
--		pause = 1;
--	REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + port*4, pause);
--	if (pause) {
-+	if (flow_ctrl & FLOW_CTRL_RX ||
-+	    line_speed == SPEED_10 ||
-+	    line_speed == SPEED_100 ||
-+	    line_speed == SPEED_1000 ||
-+	    line_speed == SPEED_2500) {
-+		REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + port*4, 1);
- 		/* update threshold */
- 		REG_WR(bp, PBF_REG_P0_ARB_THRSH + port*4, 0);
- 		/* update init credit */
--		init_crd = 778;		/* (800-18-4) */
-+		init_crd = 778; 	/* (800-18-4) */
- 
- 	} else {
- 		u32 thresh = (ETH_MAX_JUMBO_PACKET_SIZE +
- 			      ETH_OVREHEAD)/16;
--
-+		REG_WR(bp, PBF_REG_P0_PAUSE_ENABLE + port*4, 0);
- 		/* update threshold */
- 		REG_WR(bp, PBF_REG_P0_ARB_THRSH + port*4, thresh);
- 		/* update init credit */
- 		switch (line_speed) {
--		case SPEED_10:
--		case SPEED_100:
--		case SPEED_1000:
--			init_crd = thresh + 55 - 22;
--			break;
--
--		case SPEED_2500:
--			init_crd = thresh + 138 - 22;
--			break;
--
- 		case SPEED_10000:
- 			init_crd = thresh + 553 - 22;
- 			break;
-@@ -1114,7 +1106,7 @@ static void bnx2x_set_autoneg(struct link_params *params,
- 			      MDIO_COMBO_IEEE0_MII_CONTROL, &reg_val);
- 
- 	/* CL37 Autoneg Enabled */
--	if (params->req_line_speed == SPEED_AUTO_NEG)
-+	if (vars->line_speed == SPEED_AUTO_NEG)
- 		reg_val |= MDIO_COMBO_IEEO_MII_CONTROL_AN_EN;
- 	else /* CL37 Autoneg Disabled */
- 		reg_val &= ~(MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
-@@ -1132,7 +1124,7 @@ static void bnx2x_set_autoneg(struct link_params *params,
- 			      MDIO_REG_BANK_SERDES_DIGITAL,
- 			      MDIO_SERDES_DIGITAL_A_1000X_CONTROL1, &reg_val);
- 	reg_val &= ~MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_SIGNAL_DETECT_EN;
--	if (params->req_line_speed == SPEED_AUTO_NEG)
-+	if (vars->line_speed == SPEED_AUTO_NEG)
- 		reg_val |= MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET;
- 	else
- 		reg_val &= ~MDIO_SERDES_DIGITAL_A_1000X_CONTROL1_AUTODET;
-@@ -1148,7 +1140,7 @@ static void bnx2x_set_autoneg(struct link_params *params,
- 			      MDIO_REG_BANK_BAM_NEXT_PAGE,
- 			      MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL,
- 			  &reg_val);
--	if (params->req_line_speed == SPEED_AUTO_NEG) {
-+	if (vars->line_speed == SPEED_AUTO_NEG) {
- 		/* Enable BAM aneg Mode and TetonII aneg Mode */
- 		reg_val |= (MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_BAM_MODE |
- 			    MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL_TETON_AN);
-@@ -1164,7 +1156,7 @@ static void bnx2x_set_autoneg(struct link_params *params,
- 			      reg_val);
- 
- 	/* Enable Clause 73 Aneg */
--	if ((params->req_line_speed == SPEED_AUTO_NEG) &&
-+	if ((vars->line_speed == SPEED_AUTO_NEG) &&
- 	    (SUPPORT_CL73)) {
- 		/* Enable BAM Station Manager */
- 
-@@ -1226,7 +1218,8 @@ static void bnx2x_set_autoneg(struct link_params *params,
+ 		vars->phy_link_up = 0;
+-		vars->line_speed = 0;
++
+ 		vars->duplex = DUPLEX_FULL;
+ 		vars->flow_ctrl = FLOW_CTRL_NONE;
+ 		vars->autoneg = AUTO_NEG_DISABLED;
+@@ -2302,6 +2306,65 @@ static void bnx2x_ext_phy_set_pause(struct link_params *params,
+ 		       MDIO_AN_REG_ADV_PAUSE, val);
  }
  
- /* program SerDes, forced speed */
--static void bnx2x_program_serdes(struct link_params *params)
-+static void bnx2x_program_serdes(struct link_params *params,
-+			       struct link_vars *vars)
- {
- 	struct bnx2x *bp = params->bp;
- 	u16 reg_val;
-@@ -1248,28 +1241,35 @@ static void bnx2x_program_serdes(struct link_params *params)
- 
- 	/* program speed
- 	   - needed only if the speed is greater than 1G (2.5G or 10G) */
--	if (!((params->req_line_speed == SPEED_1000) ||
--	      (params->req_line_speed == SPEED_100) ||
--	      (params->req_line_speed == SPEED_10))) {
--		CL45_RD_OVER_CL22(bp, params->port,
-+	CL45_RD_OVER_CL22(bp, params->port,
- 				      params->phy_addr,
- 				      MDIO_REG_BANK_SERDES_DIGITAL,
- 				      MDIO_SERDES_DIGITAL_MISC1, &reg_val);
--		/* clearing the speed value before setting the right speed */
--		reg_val &= ~MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_MASK;
-+	/* clearing the speed value before setting the right speed */
-+	DP(NETIF_MSG_LINK, "MDIO_REG_BANK_SERDES_DIGITAL = 0x%x\n", reg_val);
 +
-+	reg_val &= ~(MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_MASK |
-+		     MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_SEL);
-+
-+	if (!((vars->line_speed == SPEED_1000) ||
-+	      (vars->line_speed == SPEED_100) ||
-+	      (vars->line_speed == SPEED_10))) {
-+
- 		reg_val |= (MDIO_SERDES_DIGITAL_MISC1_REFCLK_SEL_156_25M |
- 			    MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_SEL);
--		if (params->req_line_speed == SPEED_10000)
-+		if (vars->line_speed == SPEED_10000)
- 			reg_val |=
- 				MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_10G_CX4;
--		if (params->req_line_speed == SPEED_13000)
-+		if (vars->line_speed == SPEED_13000)
- 			reg_val |=
- 				MDIO_SERDES_DIGITAL_MISC1_FORCE_SPEED_13G;
--		CL45_WR_OVER_CL22(bp, params->port,
-+	}
-+
-+	CL45_WR_OVER_CL22(bp, params->port,
- 				      params->phy_addr,
- 				      MDIO_REG_BANK_SERDES_DIGITAL,
- 				      MDIO_SERDES_DIGITAL_MISC1, reg_val);
--	}
-+
- }
- 
- static void bnx2x_set_brcm_cl37_advertisment(struct link_params *params)
-@@ -1295,48 +1295,49 @@ static void bnx2x_set_brcm_cl37_advertisment(struct link_params *params)
- 			      MDIO_OVER_1G_UP3, 0);
- }
- 
--static void bnx2x_set_ieee_aneg_advertisment(struct link_params *params,
--					   u32 *ieee_fc)
-+static void bnx2x_calc_ieee_aneg_adv(struct link_params *params, u32 *ieee_fc)
- {
--	struct bnx2x *bp = params->bp;
--	/* for AN, we are always publishing full duplex */
--	u16 an_adv = MDIO_COMBO_IEEE0_AUTO_NEG_ADV_FULL_DUPLEX;
--
-+	*ieee_fc = MDIO_COMBO_IEEE0_AUTO_NEG_ADV_FULL_DUPLEX;
- 	/* resolve pause mode and advertisement
- 	 * Please refer to Table 28B-3 of the 802.3ab-1999 spec */
- 
- 	switch (params->req_flow_ctrl) {
- 	case FLOW_CTRL_AUTO:
--		if (params->mtu <= MAX_MTU_SIZE) {
--			an_adv |=
-+		if (params->req_fc_auto_adv == FLOW_CTRL_BOTH) {
-+			*ieee_fc |=
- 			     MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH;
- 		} else {
--			an_adv |=
-+			*ieee_fc |=
- 		       MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC;
- 		}
- 		break;
- 	case FLOW_CTRL_TX:
--		an_adv |=
-+		*ieee_fc |=
- 		       MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC;
- 		break;
- 
- 	case FLOW_CTRL_RX:
- 	case FLOW_CTRL_BOTH:
--		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH;
-+		*ieee_fc |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH;
- 		break;
- 
- 	case FLOW_CTRL_NONE:
- 	default:
--		an_adv |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE;
-+		*ieee_fc |= MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE;
- 		break;
- 	}
-+}
- 
--	*ieee_fc = an_adv;
-+static void bnx2x_set_ieee_aneg_advertisment(struct link_params *params,
-+					   u32 ieee_fc)
++static void bnx2x_init_internal_phy(struct link_params *params,
++				struct link_vars *vars)
 +{
 +	struct bnx2x *bp = params->bp;
-+	/* for AN, we are always publishing full duplex */
- 
- 	CL45_WR_OVER_CL22(bp, params->port,
- 			      params->phy_addr,
- 			      MDIO_REG_BANK_COMBO_IEEE0,
--			      MDIO_COMBO_IEEE0_AUTO_NEG_ADV, an_adv);
-+			      MDIO_COMBO_IEEE0_AUTO_NEG_ADV, (u16)ieee_fc);
- }
- 
- static void bnx2x_restart_autoneg(struct link_params *params)
-@@ -1382,7 +1383,8 @@ static void bnx2x_restart_autoneg(struct link_params *params)
- 	}
- }
- 
--static void bnx2x_initialize_sgmii_process(struct link_params *params)
-+static void bnx2x_initialize_sgmii_process(struct link_params *params,
-+					 struct link_vars *vars)
- {
- 	struct bnx2x *bp = params->bp;
- 	u16 control1;
-@@ -1406,7 +1408,7 @@ static void bnx2x_initialize_sgmii_process(struct link_params *params)
- 			      control1);
- 
- 	/* if forced speed */
--	if (!(params->req_line_speed == SPEED_AUTO_NEG)) {
-+	if (!(vars->line_speed == SPEED_AUTO_NEG)) {
- 		/* set speed, disable autoneg */
- 		u16 mii_control;
- 
-@@ -1419,7 +1421,7 @@ static void bnx2x_initialize_sgmii_process(struct link_params *params)
- 				 MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_MASK|
- 				 MDIO_COMBO_IEEO_MII_CONTROL_FULL_DUPLEX);
- 
--		switch (params->req_line_speed) {
-+		switch (vars->line_speed) {
- 		case SPEED_100:
- 			mii_control |=
- 				MDIO_COMBO_IEEO_MII_CONTROL_MAN_SGMII_SP_100;
-@@ -1433,8 +1435,8 @@ static void bnx2x_initialize_sgmii_process(struct link_params *params)
- 			break;
- 		default:
- 			/* invalid speed for SGMII */
--			DP(NETIF_MSG_LINK, "Invalid req_line_speed 0x%x\n",
--				  params->req_line_speed);
-+			DP(NETIF_MSG_LINK, "Invalid line_speed 0x%x\n",
-+				  vars->line_speed);
- 			break;
- 		}
- 
-@@ -1460,20 +1462,20 @@ static void bnx2x_initialize_sgmii_process(struct link_params *params)
-  */
- 
- static void bnx2x_pause_resolve(struct link_vars *vars, u32 pause_result)
--{
--	switch (pause_result) {			/* ASYM P ASYM P */
--	case 0xb:				/*   1  0   1  1 */
-+{						/*  LD	    LP	 */
-+	switch (pause_result) { 		/* ASYM P ASYM P */
-+	case 0xb:       			/*   1  0   1  1 */
- 		vars->flow_ctrl = FLOW_CTRL_TX;
- 		break;
- 
--	case 0xe:				/*   1  1   1  0 */
-+	case 0xe:       			/*   1  1   1  0 */
- 		vars->flow_ctrl = FLOW_CTRL_RX;
- 		break;
- 
--	case 0x5:				/*   0  1   0  1 */
--	case 0x7:				/*   0  1   1  1 */
--	case 0xd:				/*   1  1   0  1 */
--	case 0xf:				/*   1  1   1  1 */
-+	case 0x5:       			/*   0  1   0  1 */
-+	case 0x7:       			/*   0  1   1  1 */
-+	case 0xd:       			/*   1  1   0  1 */
-+	case 0xf:       			/*   1  1   1  1 */
- 		vars->flow_ctrl = FLOW_CTRL_BOTH;
- 		break;
- 
-@@ -1487,8 +1489,8 @@ static u8 bnx2x_ext_phy_resove_fc(struct link_params *params,
- {
- 	struct bnx2x *bp = params->bp;
- 	u8 ext_phy_addr;
--	u16 ld_pause;	/* local */
--	u16 lp_pause;	/* link partner */
-+	u16 ld_pause;   /* local */
-+	u16 lp_pause;   /* link partner */
- 	u16 an_complete; /* AN complete */
- 	u16 pause_result;
- 	u8 ret = 0;
-@@ -1531,6 +1533,28 @@ static u8 bnx2x_ext_phy_resove_fc(struct link_params *params,
- 		DP(NETIF_MSG_LINK, "Ext PHY pause result 0x%x \n",
- 		   pause_result);
- 		bnx2x_pause_resolve(vars, pause_result);
-+		if (vars->flow_ctrl == FLOW_CTRL_NONE &&
-+		     ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073) {
-+			bnx2x_cl45_read(bp, port,
-+				      ext_phy_type,
-+				      ext_phy_addr,
-+				      MDIO_AN_DEVAD,
-+				      MDIO_AN_REG_CL37_FC_LD, &ld_pause);
++	u8 port = params->port;
++	if (!(vars->phy_flags & PHY_SGMII_FLAG)) {
++		u16 bank, rx_eq;
 +
-+			bnx2x_cl45_read(bp, port,
-+				      ext_phy_type,
-+				      ext_phy_addr,
-+				      MDIO_AN_DEVAD,
-+				      MDIO_AN_REG_CL37_FC_LP, &lp_pause);
-+			pause_result = (ld_pause &
-+				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH) >> 5;
-+			pause_result |= (lp_pause &
-+				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH) >> 7;
++		rx_eq = ((params->serdes_config &
++			  PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_MASK) >>
++			 PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_SHIFT);
 +
-+			bnx2x_pause_resolve(vars, pause_result);
-+			DP(NETIF_MSG_LINK, "Ext PHY CL37 pause result 0x%x \n",
-+				 pause_result);
++		DP(NETIF_MSG_LINK, "setting rx eq to 0x%x\n", rx_eq);
++		for (bank = MDIO_REG_BANK_RX0; bank <= MDIO_REG_BANK_RX_ALL;
++		      bank += (MDIO_REG_BANK_RX1-MDIO_REG_BANK_RX0)) {
++			CL45_WR_OVER_CL22(bp, port,
++					      params->phy_addr,
++					      bank ,
++					      MDIO_RX0_RX_EQ_BOOST,
++					      ((rx_eq &
++				MDIO_RX0_RX_EQ_BOOST_EQUALIZER_CTRL_MASK) |
++				MDIO_RX0_RX_EQ_BOOST_OFFSET_CTRL));
 +		}
- 	}
- 	return ret;
- }
-@@ -1573,13 +1597,10 @@ static void bnx2x_flow_ctrl_resolve(struct link_params *params,
- 		   (bnx2x_ext_phy_resove_fc(params, vars))) {
- 		return;
- 	} else {
--		vars->flow_ctrl = params->req_flow_ctrl;
--		if (vars->flow_ctrl == FLOW_CTRL_AUTO) {
--			if (params->mtu <= MAX_MTU_SIZE)
--				vars->flow_ctrl = FLOW_CTRL_BOTH;
--			else
--				vars->flow_ctrl = FLOW_CTRL_TX;
--		}
-+		if (params->req_flow_ctrl == FLOW_CTRL_AUTO)
-+			vars->flow_ctrl = params->req_fc_auto_adv;
-+		else
-+			vars->flow_ctrl = params->req_flow_ctrl;
- 	}
- 	DP(NETIF_MSG_LINK, "flow_ctrl 0x%x\n", vars->flow_ctrl);
- }
-@@ -1709,12 +1730,12 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
- 
- 		}
- 		if (vars->flow_ctrl & FLOW_CTRL_TX)
--		       vars->link_status |=
--			LINK_STATUS_TX_FLOW_CONTROL_ENABLED;
-+			vars->link_status |=
-+				LINK_STATUS_TX_FLOW_CONTROL_ENABLED;
- 
- 		if (vars->flow_ctrl & FLOW_CTRL_RX)
--		       vars->link_status |=
--			LINK_STATUS_RX_FLOW_CONTROL_ENABLED;
-+			vars->link_status |=
-+				LINK_STATUS_RX_FLOW_CONTROL_ENABLED;
- 
- 	} else { /* link_down */
- 		DP(NETIF_MSG_LINK, "phy link down\n");
-@@ -2286,13 +2307,16 @@ static void bnx2x_ext_phy_set_pause(struct link_params *params,
- 		      MDIO_AN_REG_ADV_PAUSE, &val);
- 
- 	val &= ~MDIO_AN_REG_ADV_PAUSE_BOTH;
 +
- 	/* Please refer to Table 28B-3 of 802.3ab-1999 spec. */
- 
--	if (vars->ieee_fc &
-+	if ((vars->ieee_fc &
-+	    MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC) ==
- 	    MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_ASYMMETRIC) {
- 		val |=  MDIO_AN_REG_ADV_PAUSE_ASYMMETRIC;
- 	}
--	if (vars->ieee_fc &
-+	if ((vars->ieee_fc &
-+	    MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH) ==
- 	    MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH) {
- 		val |=
- 		 MDIO_AN_REG_ADV_PAUSE_PAUSE;
-@@ -2339,7 +2363,7 @@ static void bnx2x_init_internal_phy(struct link_params *params,
- 			bnx2x_set_autoneg(params, vars);
- 
- 			/* program speed and duplex */
--			bnx2x_program_serdes(params);
-+			bnx2x_program_serdes(params, vars);
- 
- 		} else { /* AN_mode */
- 			DP(NETIF_MSG_LINK, "not SGMII, AN\n");
-@@ -2349,7 +2373,7 @@ static void bnx2x_init_internal_phy(struct link_params *params,
- 
- 			/* program duplex & pause advertisement (for aneg) */
- 			bnx2x_set_ieee_aneg_advertisment(params,
--						       &vars->ieee_fc);
-+						       vars->ieee_fc);
- 
- 			/* enable autoneg */
- 			bnx2x_set_autoneg(params, vars);
-@@ -2361,7 +2385,7 @@ static void bnx2x_init_internal_phy(struct link_params *params,
- 	} else { /* SGMII mode */
- 		DP(NETIF_MSG_LINK, "SGMII\n");
- 
--		bnx2x_initialize_sgmii_process(params);
-+		bnx2x_initialize_sgmii_process(params, vars);
- 	}
- }
- 
-@@ -2481,7 +2505,7 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 					       ext_phy_type,
- 					       ext_phy_addr,
- 					       MDIO_AN_DEVAD,
--					       MDIO_AN_REG_CL37_FD,
-+					       MDIO_AN_REG_CL37_FC_LP,
- 					       0x0020);
- 				/* Enable CL37 AN */
- 				bnx2x_cl45_write(bp, params->port,
-@@ -2657,13 +2681,13 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 				       ext_phy_type,
- 				       ext_phy_addr,
- 				       MDIO_AN_DEVAD,
--				       MDIO_AN_REG_CL37_CL73, 0x040c);
-+				       MDIO_AN_REG_CL37_FC_LD, 0x040c);
- 			/* Add support for CL37 (passive mode) II */
- 			bnx2x_cl45_write(bp, params->port,
- 				       ext_phy_type,
- 				       ext_phy_addr,
- 				       MDIO_AN_DEVAD,
--				       MDIO_AN_REG_CL37_FD, 0x20);
-+				       MDIO_AN_REG_CL37_FC_LD, 0x20);
- 			/* Add support for CL37 (passive mode) III */
- 			bnx2x_cl45_write(bp, params->port,
- 				       ext_phy_type,
-@@ -2785,7 +2809,7 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 
- 
- static u8 bnx2x_ext_phy_is_link_up(struct link_params *params,
--				  struct link_vars *vars)
-+				 struct link_vars *vars)
++		/* forced speed requested? */
++		if (vars->line_speed != SPEED_AUTO_NEG) {
++			DP(NETIF_MSG_LINK, "not SGMII, no AN\n");
++
++			/* disable autoneg */
++			bnx2x_set_autoneg(params, vars);
++
++			/* program speed and duplex */
++			bnx2x_program_serdes(params);
++
++		} else { /* AN_mode */
++			DP(NETIF_MSG_LINK, "not SGMII, AN\n");
++
++			/* AN enabled */
++			bnx2x_set_brcm_cl37_advertisment(params);
++
++			/* program duplex & pause advertisement (for aneg) */
++			bnx2x_set_ieee_aneg_advertisment(params,
++						       &vars->ieee_fc);
++
++			/* enable autoneg */
++			bnx2x_set_autoneg(params, vars);
++
++			/* enable and restart AN */
++			bnx2x_restart_autoneg(params);
++		}
++
++	} else { /* SGMII mode */
++		DP(NETIF_MSG_LINK, "SGMII\n");
++
++		bnx2x_initialize_sgmii_process(params);
++	}
++}
++
+ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
  {
  	struct bnx2x *bp = params->bp;
- 	u32 ext_phy_type;
-@@ -2826,6 +2850,8 @@ static u8 bnx2x_ext_phy_is_link_up(struct link_params *params,
- 				      MDIO_PMA_REG_RX_SD, &rx_sd);
- 			DP(NETIF_MSG_LINK, "8705 rx_sd 0x%x\n", rx_sd);
- 			ext_phy_link_up = (rx_sd & 0x1);
-+			if (ext_phy_link_up)
-+				vars->line_speed = SPEED_10000;
+@@ -2343,7 +2406,6 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 
+ 		switch (ext_phy_type) {
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+-			DP(NETIF_MSG_LINK, "XGXS Direct\n");
  			break;
  
- 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
-@@ -3734,7 +3760,7 @@ static u8 bnx2x_link_initialize(struct link_params *params,
- 	   req_line_speed*/
- 	vars->line_speed = params->req_line_speed;
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+@@ -2701,10 +2763,7 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 		}
  
--	bnx2x_set_ieee_aneg_advertisment(params, &vars->ieee_fc);
-+	bnx2x_calc_ieee_aneg_adv(params, &vars->ieee_fc);
- 
- 	/* init ext phy and enable link state int */
- 	non_ext_phy = ((ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) ||
-diff --git a/drivers/net/bnx2x_link.h b/drivers/net/bnx2x_link.h
-index 714d37a..b222552 100644
---- a/drivers/net/bnx2x_link.h
-+++ b/drivers/net/bnx2x_link.h
-@@ -58,11 +58,13 @@ struct link_params {
- 
- 	u16 req_duplex;
- 	u16 req_flow_ctrl;
-+	u16 req_fc_auto_adv; /* Should be set to TX / BOTH when
-+	req_flow_ctrl is set to AUTO */
- 	u16 req_line_speed; /* Also determine AutoNeg */
- 
- 	/* Device parameters */
- 	u8 mac_addr[6];
--	u16 mtu;
+ 	} else { /* SerDes */
+-/*		ext_phy_addr = ((bp->ext_phy_config &
+-				 PORT_HW_CFG_SERDES_EXT_PHY_ADDR_MASK) >>
+-				PORT_HW_CFG_SERDES_EXT_PHY_ADDR_SHIFT);
+-*/
 +
+ 		ext_phy_type = SERDES_EXT_PHY_TYPE(params->ext_phy_config);
+ 		switch (ext_phy_type) {
+ 		case PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT:
+@@ -2810,6 +2869,13 @@ static u8 bnx2x_ext_phy_is_link_up(struct link_params *params,
+ 			 */
+ 			ext_phy_link_up = ((rx_sd & pcs_status & 0x1) ||
+ 					   (val2 & (1<<1)));
++			if (ext_phy_link_up) {
++				if (val2 & (1<<1))
++					vars->line_speed = SPEED_1000;
++				else
++					vars->line_speed = SPEED_10000;
++			}
++
+ 			/* clear LASI indication*/
+ 			bnx2x_cl45_read(bp, params->port, ext_phy_type,
+ 				      ext_phy_addr,
+@@ -3006,6 +3072,7 @@ static u8 bnx2x_ext_phy_is_link_up(struct link_params *params,
+ 					      MDIO_AN_DEVAD,
+ 					      MDIO_AN_REG_MASTER_STATUS,
+ 					      &val2);
++				vars->line_speed = SPEED_10000;
+ 				DP(NETIF_MSG_LINK,
+ 					 "SFX7101 AN status 0x%x->Master=%x\n",
+ 					  val2,
+@@ -3181,7 +3248,8 @@ static u8 bnx2x_format_ver(u32 num, u8 *str, u16 len)
+ }
  
  
- 	/* shmem parameters */
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index d29f227..a37549b 100755
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -1946,7 +1946,14 @@ static u8 bnx2x_initial_phy_init(struct bnx2x *bp)
- 		u8 rc;
+-static void bnx2x_turn_on_sf(struct bnx2x *bp, u8 port, u8 ext_phy_addr)
++static void bnx2x_turn_on_ef(struct bnx2x *bp, u8 port, u8 ext_phy_addr,
++			   u32 ext_phy_type)
+ {
+ 	u32 cnt = 0;
+ 	u16 ctrl = 0;
+@@ -3205,7 +3273,7 @@ static void bnx2x_turn_on_sf(struct bnx2x *bp, u8 port, u8 ext_phy_addr)
+ 	for (cnt = 0; cnt < 1000; cnt++) {
+ 		msleep(1);
+ 		bnx2x_cl45_read(bp, port,
+-			      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
++			      ext_phy_type,
+ 			      ext_phy_addr,
+ 			      MDIO_PMA_DEVAD,
+ 			      MDIO_PMA_REG_CTRL,
+@@ -3253,7 +3321,8 @@ u8 bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
  
- 		/* Initialize link parameters structure variables */
--		bp->link_params.mtu = bp->dev->mtu;
-+		/* It is recommended to turn off RX FC for jumbo frames
-+		   for better performance */
-+		if (IS_E1HMF(bp))
-+			bp->link_params.req_fc_auto_adv = FLOW_CTRL_BOTH;
-+		else if (bp->dev->mtu > 5000)
-+			bp->link_params.req_fc_auto_adv = FLOW_CTRL_TX;
-+		else
-+			bp->link_params.req_fc_auto_adv = FLOW_CTRL_BOTH;
+ 		/* Take ext phy out of reset */
+ 		if (!driver_loaded)
+-			bnx2x_turn_on_sf(bp, params->port, ext_phy_addr);
++			bnx2x_turn_on_ef(bp, params->port, ext_phy_addr,
++				       ext_phy_type);
  
- 		bnx2x_acquire_phy_lock(bp);
- 		rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+ 		/*  wait for 1ms */
+ 		msleep(1);
+@@ -3281,6 +3350,11 @@ u8 bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072:
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073:
+ 	{
++		/* Take ext phy out of reset */
++		if (!driver_loaded)
++			bnx2x_turn_on_ef(bp, params->port, ext_phy_addr,
++				       ext_phy_type);
++
+ 		bnx2x_cl45_read(bp, params->port, ext_phy_type,
+ 			      ext_phy_addr,
+ 			      MDIO_PMA_DEVAD,
+@@ -3622,7 +3696,8 @@ static u8 bnx2x_link_initialize(struct link_params *params,
+ 	struct bnx2x *bp = params->bp;
+ 	u8 port = params->port;
+ 	u8 rc = 0;
+-
++	u8 non_ext_phy;
++	u32 ext_phy_type = XGXS_EXT_PHY_TYPE(params->ext_phy_config);
+ 	/* Activate the external PHY */
+ 	bnx2x_ext_phy_reset(params, vars);
+ 
+@@ -3644,10 +3719,6 @@ static u8 bnx2x_link_initialize(struct link_params *params,
+ 		bnx2x_set_swap_lanes(params);
+ 	}
+ 
+-	/* Set Parallel Detect */
+-	if (params->req_line_speed == SPEED_AUTO_NEG)
+-		bnx2x_set_parallel_detection(params, vars->phy_flags);
+-
+ 	if (vars->phy_flags & PHY_XGXS_FLAG) {
+ 		if (params->req_line_speed &&
+ 		    ((params->req_line_speed == SPEED_100) ||
+@@ -3657,68 +3728,33 @@ static u8 bnx2x_link_initialize(struct link_params *params,
+ 			vars->phy_flags &= ~PHY_SGMII_FLAG;
+ 		}
+ 	}
++	/* In case of external phy existance, the line speed would be the
++	 line speed linked up by the external phy. In case it is direct only,
++	  then the line_speed during initialization will be equal to the
++	   req_line_speed*/
++	vars->line_speed = params->req_line_speed;
+ 
+-	if (!(vars->phy_flags & PHY_SGMII_FLAG)) {
+-		u16 bank, rx_eq;
+-
+-		rx_eq = ((params->serdes_config &
+-			  PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_MASK) >>
+-			 PORT_HW_CFG_SERDES_RX_DRV_EQUALIZER_SHIFT);
+-
+-		DP(NETIF_MSG_LINK, "setting rx eq to 0x%x\n", rx_eq);
+-		for (bank = MDIO_REG_BANK_RX0; bank <= MDIO_REG_BANK_RX_ALL;
+-		      bank += (MDIO_REG_BANK_RX1-MDIO_REG_BANK_RX0)) {
+-			CL45_WR_OVER_CL22(bp, port,
+-					      params->phy_addr,
+-					      bank ,
+-					      MDIO_RX0_RX_EQ_BOOST,
+-					      ((rx_eq &
+-				MDIO_RX0_RX_EQ_BOOST_EQUALIZER_CTRL_MASK) |
+-				MDIO_RX0_RX_EQ_BOOST_OFFSET_CTRL));
+-		}
+-
+-		/* forced speed requested? */
+-		if (params->req_line_speed != SPEED_AUTO_NEG) {
+-			DP(NETIF_MSG_LINK, "not SGMII, no AN\n");
+-
+-			/* disable autoneg */
+-			bnx2x_set_autoneg(params, vars);
+-
+-			/* program speed and duplex */
+-			bnx2x_program_serdes(params);
+-			vars->ieee_fc =
+-				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE;
+-
+-		} else { /* AN_mode */
+-			DP(NETIF_MSG_LINK, "not SGMII, AN\n");
+-
+-			/* AN enabled */
+-			bnx2x_set_brcm_cl37_advertisment(params);
+-
+-			/* program duplex & pause advertisement (for aneg) */
+-			bnx2x_set_ieee_aneg_advertisment(params,
+-						       &vars->ieee_fc);
+-
+-			/* enable autoneg */
+-			bnx2x_set_autoneg(params, vars);
+-
+-			/* enable and restart AN */
+-			bnx2x_restart_autoneg(params);
+-		}
++	bnx2x_set_ieee_aneg_advertisment(params, &vars->ieee_fc);
+ 
+-	} else { /* SGMII mode */
+-		DP(NETIF_MSG_LINK, "SGMII\n");
+-
+-		bnx2x_initialize_sgmii_process(params);
++	/* init ext phy and enable link state int */
++	non_ext_phy = ((ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) ||
++		       (params->loopback_mode == LOOPBACK_XGXS_10) ||
++		       (params->loopback_mode == LOOPBACK_EXT_PHY));
++
++	if (non_ext_phy ||
++	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705)) {
++		if (params->req_line_speed == SPEED_AUTO_NEG)
++			bnx2x_set_parallel_detection(params, vars->phy_flags);
++		bnx2x_init_internal_phy(params, vars);
+ 	}
+ 
+-	/* init ext phy and enable link state int */
+-	rc |= bnx2x_ext_phy_init(params, vars);
++	if (!non_ext_phy)
++		rc |= bnx2x_ext_phy_init(params, vars);
+ 
+ 	bnx2x_bits_dis(bp, NIG_REG_STATUS_INTERRUPT_PORT0 + port*4,
+-		       (NIG_STATUS_XGXS0_LINK10G |
+-			NIG_STATUS_XGXS0_LINK_STATUS |
+-			NIG_STATUS_SERDES0_LINK_STATUS));
++		     (NIG_STATUS_XGXS0_LINK10G |
++		      NIG_STATUS_XGXS0_LINK_STATUS |
++		      NIG_STATUS_SERDES0_LINK_STATUS));
+ 
+ 	return rc;
+ 
+@@ -3734,6 +3770,13 @@ u8 bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
+ 	DP(NETIF_MSG_LINK, "req_speed = %d, req_flowctrl=%d\n",
+ 		  params->req_line_speed, params->req_flow_ctrl);
+ 	vars->link_status = 0;
++	vars->phy_link_up = 0;
++	vars->link_up = 0;
++	vars->line_speed = 0;
++	vars->duplex = DUPLEX_FULL;
++	vars->flow_ctrl = FLOW_CTRL_NONE;
++	vars->mac_type = MAC_TYPE_NONE;
++
+ 	if (params->switch_cfg ==  SWITCH_CFG_1G)
+ 		vars->phy_flags = PHY_SERDES_FLAG;
+ 	else
+@@ -3894,6 +3937,7 @@ u8 bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
+ 		}
+ 
+ 		bnx2x_link_initialize(params, vars);
++		msleep(30);
+ 		bnx2x_link_int_enable(params);
+ 	}
+ 	return 0;
+@@ -3949,33 +3993,13 @@ u8 bnx2x_link_reset(struct link_params *params, struct link_vars *vars)
+ 				       MISC_REGISTERS_GPIO_OUTPUT_LOW);
+ 
+ 			DP(NETIF_MSG_LINK, "reset external PHY\n");
+-		} else {
+-
+-			u8 ext_phy_addr = ((ext_phy_config &
+-					 PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
+-					 PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
+-
+-			/* SW reset */
+-			bnx2x_cl45_write(bp, port, ext_phy_type, ext_phy_addr,
+-				       MDIO_PMA_DEVAD,
+-				       MDIO_PMA_REG_CTRL,
+-				       1<<15);
+-
+-			/* Set Low Power Mode */
+-			bnx2x_cl45_write(bp, port, ext_phy_type, ext_phy_addr,
+-				  MDIO_PMA_DEVAD,
+-				  MDIO_PMA_REG_CTRL,
+-				  1<<11);
+-
+-
+-			if (ext_phy_type ==
+-			    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073) {
+-				DP(NETIF_MSG_LINK, "Setting 8073 port %d into"
++		} else if (ext_phy_type ==
++			   PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073) {
++				DP(NETIF_MSG_LINK, "Setting 8073 port %d into "
+ 					 "low power mode\n",
+ 					 port);
+ 				bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_2,
+ 					MISC_REGISTERS_GPIO_OUTPUT_LOW);
+-			}
+ 		}
+ 	}
+ 	/* reset the SerDes/XGXS */
+@@ -3995,6 +4019,73 @@ u8 bnx2x_link_reset(struct link_params *params, struct link_vars *vars)
+ 	return 0;
+ }
+ 
++static u8 bnx2x_update_link_down(struct link_params *params,
++			       struct link_vars *vars)
++{
++	struct bnx2x *bp = params->bp;
++	u8 port = params->port;
++	DP(NETIF_MSG_LINK, "Port %x: Link is down\n", port);
++	bnx2x_set_led(bp, port, LED_MODE_OFF,
++		    0, params->hw_led_mode,
++		    params->chip_id);
++
++	/* indicate no mac active */
++	vars->mac_type = MAC_TYPE_NONE;
++
++	/* update shared memory */
++	vars->link_status = 0;
++	vars->line_speed = 0;
++	bnx2x_update_mng(params, vars->link_status);
++
++	/* activate nig drain */
++	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
++
++	/* reset BigMac */
++	bnx2x_bmac_rx_disable(bp, params->port);
++	REG_WR(bp, GRCBASE_MISC +
++		   MISC_REGISTERS_RESET_REG_2_CLEAR,
++		   (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
++	return 0;
++}
++
++static u8 bnx2x_update_link_up(struct link_params *params,
++			     struct link_vars *vars,
++			     u8 link_10g, u32 gp_status)
++{
++	struct bnx2x *bp = params->bp;
++	u8 port = params->port;
++	u8 rc = 0;
++	vars->link_status |= LINK_STATUS_LINK_UP;
++	if (link_10g) {
++		bnx2x_bmac_enable(params, vars, 0);
++		bnx2x_set_led(bp, port, LED_MODE_OPER,
++			    SPEED_10000, params->hw_led_mode,
++			    params->chip_id);
++
++	} else {
++		bnx2x_emac_enable(params, vars, 0);
++		rc = bnx2x_emac_program(params, vars->line_speed,
++				      vars->duplex);
++
++		/* AN complete? */
++		if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
++			if (!(vars->phy_flags &
++			      PHY_SGMII_FLAG))
++				bnx2x_set_sgmii_tx_driver(params);
++		}
++	}
++
++	/* PBF - link up */
++	rc |= bnx2x_pbf_update(params, vars->flow_ctrl,
++			      vars->line_speed);
++
++	/* disable drain */
++	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 0);
++
++	/* update shared memory */
++	bnx2x_update_mng(params, vars->link_status);
++	return rc;
++}
+ /* This function should called upon link interrupt */
+ /* In case vars->link_up, driver needs to
+ 	1. Update the pbf
+@@ -4012,10 +4103,10 @@ u8 bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ {
+ 	struct bnx2x *bp = params->bp;
+ 	u8 port = params->port;
+-	u16 i;
+ 	u16 gp_status;
+-	u16 link_10g;
+-	u8 rc = 0;
++	u8 link_10g;
++	u8 ext_phy_link_up, rc = 0;
++	u32 ext_phy_type;
+ 
+ 	DP(NETIF_MSG_LINK, "port %x, XGXS?%x, int_status 0x%x\n",
+ 	 port,
+@@ -4031,15 +4122,16 @@ u8 bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 	  REG_RD(bp, NIG_REG_XGXS0_STATUS_LINK10G + port*0x68),
+ 	  REG_RD(bp, NIG_REG_XGXS0_STATUS_LINK_STATUS + port*0x68));
+ 
++	ext_phy_type = XGXS_EXT_PHY_TYPE(params->ext_phy_config);
+ 
+-	/* avoid fast toggling */
+-	for (i = 0; i < 10; i++) {
+-		msleep(10);
+-		CL45_RD_OVER_CL22(bp, port, params->phy_addr,
+-				      MDIO_REG_BANK_GP_STATUS,
+-				      MDIO_GP_STATUS_TOP_AN_STATUS1,
+-				      &gp_status);
+-	}
++	/* Check external link change only for non-direct */
++	ext_phy_link_up = bnx2x_ext_phy_is_link_up(params, vars);
++
++	/* Read gp_status */
++	CL45_RD_OVER_CL22(bp, port, params->phy_addr,
++			      MDIO_REG_BANK_GP_STATUS,
++			      MDIO_GP_STATUS_TOP_AN_STATUS1,
++			      &gp_status);
+ 
+ 	rc = bnx2x_link_settings_status(params, vars, gp_status);
+ 	if (rc != 0)
+@@ -4055,69 +4147,25 @@ u8 bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 
+ 	bnx2x_link_int_ack(params, vars, link_10g);
+ 
+-	/* link is up only if both local phy and external phy are up */
+-	vars->link_up = (vars->phy_link_up &&
+-			   bnx2x_ext_phy_is_link_up(params, vars));
+-
+-	if (!vars->phy_link_up &&
+-	    REG_RD(bp, NIG_REG_EMAC0_STATUS_MISC_MI_INT + port*0x18)) {
+-		bnx2x_ext_phy_is_link_up(params, vars); /* Clear interrupt */
+-	}
+-
+-	if (vars->link_up) {
+-		vars->link_status |= LINK_STATUS_LINK_UP;
+-		if (link_10g) {
+-			bnx2x_bmac_enable(params, vars, 0);
+-			bnx2x_set_led(bp, port, LED_MODE_OPER,
+-				    SPEED_10000, params->hw_led_mode,
+-				    params->chip_id);
+-
+-		} else {
+-			bnx2x_emac_enable(params, vars, 0);
+-			rc = bnx2x_emac_program(params, vars->line_speed,
+-					      vars->duplex);
+-
+-			/* AN complete? */
+-			if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
+-				if (!(vars->phy_flags &
+-				      PHY_SGMII_FLAG))
+-					bnx2x_set_sgmii_tx_driver(params);
+-			}
+-		}
+-
+-		/* PBF - link up */
+-		rc |= bnx2x_pbf_update(params, vars->flow_ctrl,
+-				      vars->line_speed);
++	/* In case external phy link is up, and internal link is down
++	( not initialized yet probably after link initialization, it needs
++	to be initialized.
++	Note that after link down-up as result of cable plug,
++	the xgxs link would probably become up again without the need to
++	initialize it*/
+ 
+-		/* disable drain */
+-		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 0);
++	if ((ext_phy_type != PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT) &&
++	    (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) &&
++	    (ext_phy_link_up && !vars->phy_link_up))
++		bnx2x_init_internal_phy(params, vars);
+ 
+-		/* update shared memory */
+-		bnx2x_update_mng(params, vars->link_status);
+-
+-	} else { /* link down */
+-		DP(NETIF_MSG_LINK, "Port %x: Link is down\n", params->port);
+-		bnx2x_set_led(bp, port, LED_MODE_OFF,
+-			    0, params->hw_led_mode,
+-			    params->chip_id);
+-
+-		/* indicate no mac active */
+-		vars->mac_type = MAC_TYPE_NONE;
+-
+-		/* update shared memory */
+-		vars->link_status = 0;
+-		bnx2x_update_mng(params, vars->link_status);
+-
+-		/* activate nig drain */
+-		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
+-
+-		/* reset BigMac */
+-		bnx2x_bmac_rx_disable(bp, params->port);
+-		REG_WR(bp, GRCBASE_MISC +
+-			   MISC_REGISTERS_RESET_REG_2_CLEAR,
+-			   (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
++	/* link is up only if both local phy and external phy are up */
++	vars->link_up = (ext_phy_link_up && vars->phy_link_up);
+ 
+-	}
++	if (vars->link_up)
++		rc = bnx2x_update_link_up(params, vars, link_10g, gp_status);
++	else
++		rc = bnx2x_update_link_down(params, vars);
+ 
+ 	return rc;
+ }
+@@ -4508,7 +4556,7 @@ u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
+ 		/* Take ext phy out of reset */
+ 		if (!driver_loaded)
+-			bnx2x_turn_on_sf(bp, port, ext_phy_addr);
++			bnx2x_turn_on_ef(bp, port, ext_phy_addr, ext_phy_type);
+ 		rc = bnx2x_sfx7101_flash_download(bp, port, ext_phy_addr,
+ 						data, size);
+ 		if (!driver_loaded)
 diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index 58fbeb1..5029d1e 100755
+old mode 100644
+new mode 100755
+index a85ff20..58fbeb1
 --- a/drivers/net/bnx2x_reg.h
 +++ b/drivers/net/bnx2x_reg.h
-@@ -4966,6 +4966,7 @@
- #define EMAC_RX_MODE_PROMISCUOUS				 (1L<<8)
- #define EMAC_RX_MTU_SIZE_JUMBO_ENA				 (1L<<31)
- #define EMAC_TX_MODE_EXT_PAUSE_EN				 (1L<<3)
-+#define EMAC_TX_MODE_FLOW_EN					 (1L<<4)
- #define MISC_REGISTERS_GPIO_0					 0
- #define MISC_REGISTERS_GPIO_1					 1
- #define MISC_REGISTERS_GPIO_2					 2
-@@ -5615,7 +5616,8 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_AN_REG_LINK_STATUS 	0x8304
- #define MDIO_AN_REG_CL37_CL73		0x8370
- #define MDIO_AN_REG_CL37_AN		0xffe0
--#define MDIO_AN_REG_CL37_FD		0xffe4
-+#define MDIO_AN_REG_CL37_FC_LD		0xffe4
-+#define MDIO_AN_REG_CL37_FC_LP		0xffe5
- 
- 
- #define IGU_FUNC_BASE			0x0400
+@@ -5559,6 +5559,8 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_PMA_REG_GEN_CTRL		0xca10
+ #define MDIO_PMA_REG_GEN_CTRL_ROM_RESET_INTERNAL_MP	0x0188
+ #define MDIO_PMA_REG_GEN_CTRL_ROM_MICRO_RESET		0x018a
++#define MDIO_PMA_REG_M8051_MSGIN_REG	0xca12
++#define MDIO_PMA_REG_M8051_MSGOUT_REG	0xca13
+ #define MDIO_PMA_REG_ROM_VER1		0xca19
+ #define MDIO_PMA_REG_ROM_VER2		0xca1a
+ #define MDIO_PMA_REG_EDC_FFE_MAIN	0xca1b
 -- 
 1.5.3.2
 
