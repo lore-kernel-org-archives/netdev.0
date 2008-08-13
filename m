@@ -1,116 +1,43 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH] ipvs: Create init functions for estimator code
-Date: Thu, 14 Aug 2008 00:47:16 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808140045230.12259@titan.stealer.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 16:03:15 -0700
+Message-ID: <adatzdoiklo.fsf@cisco.com>
+References: <adad4kfxm9v.fsf@cisco.com>
+	<20080811.145313.178992274.davem@davemloft.net>
+	<ada3al8k3l5.fsf@cisco.com>
+	<20080813.150831.193391799.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rick.jones2@hp.com, jgarzik@pobox.com, swise@opengridcomputing.com,
+	divy@chelsio.com, kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, michaelc@cs.wisc.edu,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	dm@chelsio.com, leedom@chelsio.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:41109 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754268AbYHMXDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 19:03:17 -0400
+In-Reply-To: <20080813.150831.193391799.davem@davemloft.net> (David Miller's
+	message of "Wed, 13 Aug 2008 15:08:31 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 8ab19ea36c5c5340ff598e4d15fc084eb65671dc ("ipvs: Fix possible deadlock
-in estimator code") fixed a deadlock condition, but that condition can only
-happen during unload of IPVS, because during normal operation there is at least
-our global stats structure in the estimator list. The mod_timer() and
-del_timer_sync() calls are actually initialization and cleanup code in
-disguise. Let's make it explicit and move them to their own init and cleanup
-function.
+ > Like I said, you retain a "flow cache" (say it a million times, "flow
+ > cache") that remembers the current parameters and the buffers
+ > currently assigned to that flow and what offset within those buffers.
 
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
----
- include/net/ip_vs.h        |    2 ++
- net/ipv4/ipvs/ip_vs_core.c |    8 ++++++--
- net/ipv4/ipvs/ip_vs_est.c  |   18 +++++++++++-------
- 3 files changed, 19 insertions(+), 9 deletions(-)
+OK, I admit you could make something work -- add hooks for the low-level
+driver to ask the iSCSI initiator where PDU boundaries are so it can
+resync when something is evicted from the flow cache, have the initiator
+format its tags in a special way to encode placement data, etc, etc.
+The scheme does bring to mind Alan's earlier comment about pigs and
+propulsion, though.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 7312c3d..a25ad24 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -683,6 +683,8 @@ extern void ip_vs_sync_conn(struct ip_vs_conn *cp);
- /*
-  *      IPVS rate estimator prototypes (from ip_vs_est.c)
-  */
-+extern int ip_vs_estimator_init(void);
-+extern void ip_vs_estimator_cleanup(void);
- extern void ip_vs_new_estimator(struct ip_vs_stats *stats);
- extern void ip_vs_kill_estimator(struct ip_vs_stats *stats);
- extern void ip_vs_zero_estimator(struct ip_vs_stats *stats);
-diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index a7879ea..9fbf0a6 100644
---- a/net/ipv4/ipvs/ip_vs_core.c
-+++ b/net/ipv4/ipvs/ip_vs_core.c
-@@ -1070,10 +1070,12 @@ static int __init ip_vs_init(void)
- {
- 	int ret;
- 
-+	ip_vs_estimator_init();
-+
- 	ret = ip_vs_control_init();
- 	if (ret < 0) {
- 		IP_VS_ERR("can't setup control.\n");
--		goto cleanup_nothing;
-+		goto cleanup_estimator;
- 	}
- 
- 	ip_vs_protocol_init();
-@@ -1106,7 +1108,8 @@ static int __init ip_vs_init(void)
-   cleanup_protocol:
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
--  cleanup_nothing:
-+  cleanup_estimator:
-+	ip_vs_estimator_cleanup();
- 	return ret;
- }
- 
-@@ -1117,6 +1120,7 @@ static void __exit ip_vs_cleanup(void)
- 	ip_vs_app_cleanup();
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
-+	ip_vs_estimator_cleanup();
- 	IP_VS_INFO("ipvs unloaded.\n");
- }
- 
-diff --git a/net/ipv4/ipvs/ip_vs_est.c b/net/ipv4/ipvs/ip_vs_est.c
-index 5a20f93..4fb620e 100644
---- a/net/ipv4/ipvs/ip_vs_est.c
-+++ b/net/ipv4/ipvs/ip_vs_est.c
-@@ -124,8 +124,6 @@ void ip_vs_new_estimator(struct ip_vs_stats *stats)
- 	est->outbps = stats->outbps<<5;
- 
- 	spin_lock_bh(&est_lock);
--	if (list_empty(&est_list))
--		mod_timer(&est_timer, jiffies + 2 * HZ);
- 	list_add(&est->list, &est_list);
- 	spin_unlock_bh(&est_lock);
- }
-@@ -136,11 +134,6 @@ void ip_vs_kill_estimator(struct ip_vs_stats *stats)
- 
- 	spin_lock_bh(&est_lock);
- 	list_del(&est->list);
--	while (list_empty(&est_list) && try_to_del_timer_sync(&est_timer) < 0) {
--		spin_unlock_bh(&est_lock);
--		cpu_relax();
--		spin_lock_bh(&est_lock);
--	}
- 	spin_unlock_bh(&est_lock);
- }
- 
-@@ -160,3 +153,14 @@ void ip_vs_zero_estimator(struct ip_vs_stats *stats)
- 	est->inbps = 0;
- 	est->outbps = 0;
- }
-+
-+int __init ip_vs_estimator_init(void)
-+{
-+	mod_timer(&est_timer, jiffies + 2 * HZ);
-+	return 0;
-+}
-+
-+void ip_vs_estimator_cleanup(void)
-+{
-+	del_timer_sync(&est_timer);
-+}
+In any case, as I said in the part of my email that you snipped, the
+real issue is not designing hypothetical hardware, but deciding how to
+support the Chelsio, Broadcom, etc hardware that exists today.
+
+ - R.
