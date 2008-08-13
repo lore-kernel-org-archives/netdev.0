@@ -1,69 +1,84 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: CPU utilization increased in 2.6.27rc
-Date: Wed, 13 Aug 2008 12:13:40 -0400
-Message-ID: <48A30834.4090802@myri.com>
-References: <48A23137.2010107@myri.com> <20080812.181549.229367205.davem@davemloft.net>
+From: "Pravin Bathija" <pbathija@amcc.com>
+Subject: RE: [Qdisc] Prioritizing traffic per vlan using qdisc.
+Date: Wed, 13 Aug 2008 10:05:03 -0700
+Message-ID: <9D1E2BDCB5C57B46B56E6D80843439EB05990123@SDCEXCHANGE01.ad.amcc.com>
+References: <20080811181712.462cb2cf@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, robert@robur.slu.se
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1965 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752912AbYHMQVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2008 12:21:17 -0400
-In-Reply-To: <20080812.181549.229367205.davem@davemloft.net>
+Received: from sdcmail02-ext1.amcc.com ([198.137.200.73]:36321 "EHLO
+	sdcmail02.amcc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757216AbYHMRFD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 13:05:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20080811181712.462cb2cf@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Tue, 12 Aug 2008 20:56:23 -0400
+ 
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:stephen.hemminger@vyatta.com] 
+Sent: Monday, August 11, 2008 6:17 PM
+To: Pravin Bathija
+Cc: netdev@vger.kernel.org
+Subject: Re: [Qdisc] Prioritizing traffic per vlan using qdisc.
+
+On Mon, 11 Aug 2008 17:48:22 -0700
+"Pravin Bathija" <pbathija@amcc.com> wrote:
+
+> Using Linux 2.6.23 I want to create multiple Vlans for voice, data, 
+> video etc. The requirement is to prioritize each vlan on the ingress 
+> and egress. I am looking at qdisc to do this however without success. 
+> Could you please advise is there is a way to do this using qdisc 
+> tc(traffic
+> control) commands. If not - is there another way to do this in Linux ?
+> Any help would be greatly appreciated.
 > 
->>      pkt_sched: Schedule qdiscs instead of netdev_queue.
+> Thanks,
+> Pravin
 > 
-> While I'm waiting for your beforehand profile data,
-> here is a stab in the dark patch which might fix
-> the problem.
-> 
-> Robert, this could explain some of the things in the
-> multiqueue testing profile you sent me a week or so
-> ago.
-> 
-> Let me know how well it works:
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in 
+> the body of a message to majordomo@vger.kernel.org More majordomo info
 
-Excellent!  This completely fixes the increased CPU
-utilization I observed on both 10GbE and 1GbE interfaces,
-and CPU utilization is now reduced back to 2.6.26 levels.
+> at  http://vger.kernel.org/majordomo-info.html
 
-Oprofile now is nearly identical to what it was prior to
-37437bb2e1ae8af470dfcd5b4ff454110894ccaf:
+> For 2.6.25, an addition to the tc meta match to allow matching on vlan
+tag was added.  Using this it is possible to use meta match to>  convert
+tag -> flowid then use the flowid with a priority (or htb) queue.
 
-8363      6.5081  vmlinux                  _raw_spin_lock
-5612      4.3672  oprofiled                (no symbols)
-4420      3.4396  ehci_hcd                 (no symbols)
-4325      3.3657  vmlinux                  handle_IRQ_event
-3688      2.8700  vmlinux                  default_idle
-3164      2.4622  vmlinux                  nv_start_xmit_optimized
-3092      2.4062  vmlinux                  sk_run_filter
-3072      2.3906  vmlinux                  tcp_ack
-2969      2.3105  vmlinux                  __copy_skb_header
-2453      1.9089  vmlinux                  kmem_cache_free
-2400      1.8677  vmlinux                  IRQ0x69_interrupt
-2295      1.7860  vmlinux                  nv_rx_process_optimized
-2092      1.6280  vmlinux                  kmem_cache_alloc
-2072      1.6124  vmlinux                  kfree
-2049      1.5945  vmlinux                  packet_rcv_spkt
-1984      1.5439  vmlinux                  __tcp_push_pending_frames
-1942      1.5113  vmlinux                  nv_nic_irq_optimized
-1933      1.5043  vmlinux                  _raw_spin_unlock
-1637      1.2739  vmlinux                  nv_tx_done_optimized
-1630      1.2685  vmlinux                  eth_type_trans
-1517      1.1805  vmlinux                  __qdisc_run
+Thanks for your input Stephen. So here is the problem: I created 3 vlans
+on "eth1" interface with the following ips
+eth1.4: 192.152.0.11
+eth1.5: 192.154.0.11
+eth1.6: 192.156.0.11
+Now I created an ingress qdisc on eth1 and defined filters in the
+following way. The filter configuration below  gives priority to packets
+received from subnet 192.152.0.0 then 192.154.0.0 and finally
+192.156.0.0 
+tc qdisc add dev eth1 ingress 
+tc filter add dev eth1 parent ffff: protocol ip prio 1 u32 match ip src
+192.152.0.0/24 flowid :1 
+tc filter add dev eth1 parent ffff: protocol ip prio 2 u32 match ip src
+192.154.0.0/24 flowid :2
+tc filter add dev eth1 parent ffff: protocol ip prio 3 u32 match ip src
+192.156.0.0/24 flowid :3
+
+# tc qdisc show eth1
+qdisc ingress ffff: parent ffff:fff1 ---------------- 
+When I send concurrent traffic to these 3 interfaces using "ttcp" all of
+the above complete reception of data at the same time. With the above
+filter I would expect flowid :1 to complete receiving data before
+others. I also notice that when I run the following command "tc filter
+show dev eth1" it does not list any filters. My linux kernel is compiled
+with CONFIG_NET_SCHED. 
+Am I missing something here ? Please advise.
 
 
 
-Thank you,
 
-Drew
