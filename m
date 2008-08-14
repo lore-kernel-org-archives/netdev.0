@@ -1,59 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/4] bnx2: Use proper CONFIG_VLAN_8021Q to compile the
- VLAN code.
-Date: Thu, 14 Aug 2008 15:22:57 -0700
-Message-ID: <1218752579-20506-3-git-send-email-mchan@broadcom.com>
-References: <1218752579-20506-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Thu, 14 Aug 2008 15:23:00 -0700 (PDT)
+Message-ID: <20080814.152300.127682912.davem@davemloft.net>
+References: <48A08145.6060703@hp.com>
+	<20080811.141254.165409473.davem@davemloft.net>
+	<48A49985.10704@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>,
-	"Matt Carlson" <mcarlson@broadcom.com>
-To: davem@davemloft.net
+Cc: rick.jones2@hp.com, rdreier@cisco.com, jgarzik@pobox.com,
+	swise@opengridcomputing.com, divy@chelsio.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, dm@chelsio.com, lee@jasper.es
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2655 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752222AbYHNWTU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 18:19:20 -0400
-In-Reply-To: <1218752579-20506-1-git-send-email-mchan@broadcom.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56900
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751714AbYHNWW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:22:58 -0400
+In-Reply-To: <48A49985.10704@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/bnx2.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Thu, 14 Aug 2008 16:45:57 -0400
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 0623ceb..a2a010e 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -35,7 +35,7 @@
- #include <linux/time.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
--#ifdef NETIF_F_HW_VLAN_TX
-+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- #include <linux/if_vlan.h>
- #define BCM_VLAN 1
- #endif
-@@ -5963,10 +5963,12 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vlan_tag_flags |= TX_BD_FLAGS_TCP_UDP_CKSUM;
- 	}
- 
-+#ifdef BCM_VLAN
- 	if (bp->vlgrp && vlan_tx_tag_present(skb)) {
- 		vlan_tag_flags |=
- 			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
- 	}
-+#endif
- 	if ((mss = skb_shinfo(skb)->gso_size)) {
- 		u32 tcp_opt_len, ip_tcp_len;
- 		struct iphdr *iph;
--- 
-1.5.6.GIT
+> Speaking of stateless data placement.  Assume you have a page or set
+> of pages allocated by a network driver which contain exactly the data
+> a block driver is interested in to fulfill a read request (eg, the NIC
+> understands the protocol just well enough to split headers).  Is it
+> possible in the block driver to simply replace the pages that are
+> attached to the buf with pages allocated by the network driver?
+> 
+> It was my impression that the pages associated with a buf are in
+> fairly magical states and that you cannot replace them.
 
-
+This, if true, would be quite easy to rectify.
