@@ -1,52 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.27] myri10ge: myri10ge_fw_name also overrides the
- rss firmware
-Date: Thu, 14 Aug 2008 04:28:53 -0400
-Message-ID: <48A3ECC5.3050006@garzik.org>
-References: <48A33090.2060208@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [NET]: remove unnecessary #include
+Date: Thu, 14 Aug 2008 04:28:27 -0400
+Message-ID: <48A3ECAB.1080403@pobox.com>
+References: <20080811125623.03D5.WEIYI.HUANG@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: romieu@fr.zoreil.com, jgarzik@redhat.com, netdev@vger.kernel.org
+To: Huang Weiyi <weiyi.huang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41413 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41399 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754294AbYHNI24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 04:28:56 -0400
-In-Reply-To: <48A33090.2060208@myri.com>
+	id S1753240AbYHNI2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 04:28:35 -0400
+In-Reply-To: <20080811125623.03D5.WEIYI.HUANG@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> When myri10ge_fw_name is given, use it to override the rss firmware
-> name as well.
+Huang Weiyi wrote:
+> The drivers below do not use LINUX_VERSION_CODE nor KERNEL_VERSION.
+>   drivers/net/acenic.c
+>   drivers/net/bnx2x_link.c
+>   drivers/net/bnx2x_main.c
+>   drivers/net/cpmac.c
+>   drivers/net/gianfar_sysfs.c
+>   drivers/net/ipg.h
+>   drivers/net/ppp_mppe.c
+>   drivers/net/pppol2tp.c
+>   drivers/net/r6040.c
+>   drivers/net/sh_eth.c
+>   drivers/net/sky2.c
+>   drivers/net/tehuti.h
+>   drivers/net/typhoon.c
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
-> ---
->  drivers/net/myri10ge/myri10ge.c |    6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
+> This patch removes the said #include.
 > 
-> Index: linux-2.6/drivers/net/myri10ge/myri10ge.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/myri10ge/myri10ge.c	2008-08-12 16:43:26.000000000 +0200
-> +++ linux-2.6/drivers/net/myri10ge/myri10ge.c	2008-08-12 16:43:53.000000000 +0200
-> @@ -3548,7 +3548,11 @@
->  
->  	/* try to load the slice aware rss firmware */
->  	old_fw = mgp->fw_name;
-> -	if (old_fw == myri10ge_fw_aligned)
-> +	if (myri10ge_fw_name != NULL) {
-> +		dev_info(&mgp->pdev->dev, "overriding rss firmware to %s\n",
-> +			 myri10ge_fw_name);
-> +		mgp->fw_name = myri10ge_fw_name;
-> +	} else if (old_fw == myri10ge_fw_aligned)
->  		mgp->fw_name = myri10ge_fw_rss_aligned;
->  	else
->  		mgp->fw_name = myri10ge_fw_rss_unaligned;
-> 
-> 
-> --
+> Signed-off-by: Huang Weiyi <hwy@cn.fujitsu.com>
 
 applied
 
