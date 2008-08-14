@@ -1,94 +1,64 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- why Yinghai's revert may have failed
-Date: Thu, 14 Aug 2008 05:20:43 -0700 (PDT)
-Message-ID: <990549.89300.qm@web82101.mail.mud.yahoo.com>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver code
+Date: Thu, 14 Aug 2008 16:28:37 +0300
+Message-ID: <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
+References: <20080813095324.GA15055@ben.ifi.uio.no>
+	 <20080813.033749.165504341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82101.mail.mud.yahoo.com ([209.191.84.214]:23866 "HELO
-	web82101.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752171AbYHNMUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 08:20:44 -0400
+Received: from yx-out-2324.google.com ([74.125.44.29]:26822 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752980AbYHNN2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 09:28:39 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so331054yxm.1
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 06:28:38 -0700 (PDT)
+In-Reply-To: <20080813.033749.165504341.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
+On Wed, Aug 13, 2008 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
+> From: Vegard Nossum <vegardno@ifi.uio.no>
+> Date: Wed, 13 Aug 2008 11:53:24 +0200
+>
+>> [PATCH] netconsole: avoid deadlock on printk from driver code
+>>
+>> I encountered a hard-to-debug deadlock when I pulled out the plug of my
+>> RealTek 8139 which was also running netconsole: The driver wants to print
+>> a "link down" message. However, this triggers netconsole, which wants to
+>> print the message using the same device. Here is a backtrace:
+>
+> See my other reply, this is absolutely the wrong way to go about
+> this.
+>
+> You only have two sane options:
+>
+> 1) Defer the link status printk message into a deferred context,
+>   such as a workqueue, so that you can do it outside of the
+>   lock.
 
-> > I used 'git apply --check ' first, and got no errors, so
-> > I applied it, built, installed, and rebooted.
-> 
-> that patch revert to use request_resource, so there is some other problem
-> 
-> YH
+It's not just the link status. We have assert() and debugging printks
+there under tp->lock as well which can also trigger the deadlock
+condition.
 
-I finished experimenting last night with trying to find the last commit
-in the gittree that would let me revert the problem successfully...
-and I got completely raped.
+On Wed, Aug 13, 2008 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
+> 2) Do your locking differently so that the link status handling
+>   locking does not bisect the locking used for packet transmit
+>   in ->hard_start_xmit().
+>
+> #2 is the reason why most other drivers don't have this silly
+> bug, they don't hold TX path locks when handling link status
+> and printing out such messages.
 
-The bisecting took me all the way back to the first commit introducing
-the problem on these motherboards:  3def3d6d...
+Yeah, that works for the link status case, but not for things like the
+printks in rtl8139_tx_interrupt()... Hmm.
 
-Considering these 3 consecutive commits (according to 'git log')from late
-Feb. 2008, between kernel versions 2.6.25 and 2.6.26-rc1:
----------------------------------------------------------
-
-700efc1b...:  the last kernel I can build and run just fine.
-
-3def3d6d...:  this one builds, but locks up in inet_init() once the sequence
-of function calls reaches synchronize_rcu().  Reverting here works, but is
-trivial and silly, just reproducing 700efc1b...
-
-1e934dda...:  attempting to revert the changes from 3def3d6d... (just one
-commit before!) already fails.
----------------------------------------------------------
-
-This last commit has an effect on my machine that prevents attempts to
-revert 3def3d6d... from working as intended.  This may explain why
-Yinghai's patch providing the revert for 2.6.27-rc3 did not work.
-(Hopefully none of the other changes between Feb. and Aug. would also keep
-the revert from working, but I wouldn't bet my life on it....)
-
-The 3d... and 1e... commits are quite small, touching only 4 files total,
-and both commits involve calls to insert_resource().  Something on my 2
-problem machines is behaving badly in this area.
-
-Reminder:  disabling HPET with "hpet=disable" allows any kernel with the
-lockup problem to boot just fine.
-
-Further note: Before my first LKML post about this problem, I had also 
-tried turning off all CONFIG_HPET* features that I could reach via 
-'make menuconfig', but that did not work and I still had to use 
-"hpet=disable" to get the kernel to boot.
-
-
-SUGGESTION
-
-When my kernels lock up, it is always a chain of calls beginning with
-inet_init() and ending up here (in net/core/dev.c):
-
-void synchronize_net(void)
-{
-    might_sleep();
-    synchronize_rcu();
-}
-
-If anyone wants to print diagnostic info before my kernel locks up, this 
-would be a really good place to do it (so that it doesn't scroll away
-before I can write it down):
-
-void synchronize_net(void)
-{
-    might_sleep();
-    /* Insert printk's or diagnostic function here */
-    synchronize_rcu();
-}
-
-
-Thanks,
-Dave W.
+                             Pekka
