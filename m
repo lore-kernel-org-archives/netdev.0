@@ -1,38 +1,34 @@
-From: "Park Ji-In" <tisphie@gmail.com>
-Subject: Re: [PATCH] rearrange structure xfrm_userpolicy_type in linux/xfrm.h
-Date: Thu, 14 Aug 2008 14:47:24 +0900
-Message-ID: <c4ee36230808132247o73a6e186i6cfb50a1731cfe03@mail.gmail.com>
-References: <c4ee36230808130056s7d01ebaeh677593ef7c099985@mail.gmail.com>
-	 <20080813.013949.193697827.davem@davemloft.net>
+From: Sebastian Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH / RFC] net: fix locking in ibm_newemac
+Date: Thu, 14 Aug 2008 09:33:19 +0200
+Message-ID: <20080814073319.GA8716@Chamillionaire.breakpoint.cc>
+References: <20080813182957.GA12612@www.tglx.de> <1218685554.8041.172.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Sebastian Siewior <bigeasy@linutronix.de>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Valentine Barshak <vbarshak@ru.mvista.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:47288 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbYHNFr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 01:47:26 -0400
-Received: by gxk9 with SMTP id 9so1968214gxk.13
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2008 22:47:25 -0700 (PDT)
-In-Reply-To: <20080813.013949.193697827.davem@davemloft.net>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:50198 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751908AbYHNHd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 03:33:28 -0400
 Content-Disposition: inline
+In-Reply-To: <1218685554.8041.172.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/8/13 David Miller <davem@davemloft.net>:
-> From: "Park Ji-In" <tisphie@gmail.com>
-> Date: Wed, 13 Aug 2008 16:56:32 +0900
->
->> struct xfrm_userpolicy_type in linux/xfrm.h is something strange,
->> It seems that to align 4byte, but it's size in x86 with gcc is 6byte.
->> rearrange to fit in 4byte structure
->>
->> Signed-off-by: Park Jiin <tisphie@gmail.com>
->
-> You can't change this structure as it's exported to userspace and
-> therefore part of many already compiled userland binaries out there.
->
+* Benjamin Herrenschmidt | 2008-08-14 13:45:54 [+1000]:
 
-Oh. that's the problem what I missed.
+>> The fix is to defer phy init until netdevice is registered / initialized.
+>
+>I think it's better instead to take the dev_mc_add() statement
+>out of emac_configure().
+I looked yesterday into that code and I saw that dev_mc_add() was called
+by the network core itself. Now I'm sure it was definitly too late for
+writing patches :)
+
+>What about this patch instead, does it fix it for you ?
+yep it does.
+
+Sebastian
