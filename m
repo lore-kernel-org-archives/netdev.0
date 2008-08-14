@@ -1,101 +1,132 @@
 From: Vladislav Bolkhovitin <vst@vlnb.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Thu, 14 Aug 2008 22:24:11 +0400
-Message-ID: <48A4784B.7030500@vlnb.net>
-References: <adad4kfxm9v.fsf@cisco.com> <200808121457.11356.divy@chelsio.com> <20080812.150246.42068558.davem@davemloft.net> <200808121521.10101.divy@chelsio.com> <48A32976.7060504@vlnb.net> <48A33633.20800@pobox.com>
+Date: Thu, 14 Aug 2008 22:27:49 +0400
+Message-ID: <48A47925.3000409@vlnb.net>
+References: <20080812.150246.42068558.davem@davemloft.net>	<200808121521.10101.divy@chelsio.com>	<48A32976.7060504@vlnb.net> <20080813.132319.175666454.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, open-iscsi@googlegroups.com,
-	rdreier@cisco.com, rick.jones2@hp.com,
-	Steve Wise <swise@opengridcomputing.com>,
-	Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>, linux-scsi@vger.kernel.org,
+Content-Type: multipart/mixed;
+ boundary="------------040202000802050103050507"
+Cc: open-iscsi@googlegroups.com, rdreier@cisco.com, rick.jones2@hp.com,
+	jgarzik@pobox.com, swise@opengridcomputing.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, michaelc@cs.wisc.edu, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com, dm@chelsio.com,
+	leedom@chelsio.com, linux-scsi@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-relay-04.mailcluster.net ([77.221.130.216]:48639 "EHLO
-	mail-relay-02.mailcluster.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752105AbYHNSYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 14:24:07 -0400
-In-Reply-To: <48A33633.20800@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080813.132319.175666454.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Vladislav Bolkhovitin wrote:
->> Divy Le Ray wrote:
->>> On Tuesday 12 August 2008 03:02:46 pm David Miller wrote:
->>>> From: Divy Le Ray <divy@chelsio.com>
->>>> Date: Tue, 12 Aug 2008 14:57:09 -0700
->>>>
->>>>> In any case, such a stateless solution is not yet designed, whereas
->>>>> accelerated iSCSI is available now, from us and other companies.
->>>> So, WHAT?!
->>>>
->>>> There are TOE pieces of crap out there too.
->>> Well, there is demand for accerated iscsi out there, which is the 
->>> driving reason of our driver submission. 
->> I'm, as an iSCSI target developer, strongly voting for hardware iSCSI 
->> offload. Having possibility of the direct data placement is a *HUGE* 
->> performance gain.
+This is a multi-part message in MIME format.
+--------------040202000802050103050507
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+David Miller wrote:
+> From: Vladislav Bolkhovitin <vst@vlnb.net>
+> Date: Wed, 13 Aug 2008 22:35:34 +0400
 > 
-> Well, two responses here:
+>> This is because the target sends data in a zero-copy manner, so its
+>> CPU is capable to deal with the load, but on the initiator there are
+>> additional data copies from skb's to page cache and from page cache
+>> to application.
 > 
-> * no one is arguing against hardware iSCSI offload.  Rather, it is a 
-> problem with a specific implementation, one that falsely assumes two 
-> independent TCP stacks can co-exist peacefully on the same IP address 
-> and MAC.
+> If you've actually been reading at all what I've been saying in this
+> thread you'll see that I've described a method to do this copy
+> avoidance in a completely stateless manner.
 > 
-> * direct data placement is possible without offloading the entire TCP 
-> stack onto a firmware/chip.
-> 
-> There is plenty of room for hardware iSCSI offload...
+> You don't need to implement a TCP stack in the card in order to do
+> data placement optimizations.  They can be done completely stateless.
 
-Sure, nobody is arguing against that. My points are:
+Sure, I read what you wrote before writing (although, frankly, didn't 
+get the idea). But I don't think that overall it would be as efficient 
+as full hardware offload. See my reply to Jeff Garzik about that.
 
-1. All those are things not for near future. I don't think it can be 
-implemented earlier than in a year time, but there is a huge demand for 
-high speed and low CPU overhead iSCSI _now_. Nobody's satisfied by the 
-fact that with the latest high end hardware he can saturate 10GbE link 
-on only less than 50%(!). Additionally, for me, as an iSCSI target 
-developer, it looks especially annoying that hardware requirements for 
-_clients_ (initiators) are significantly higher than for _server_ 
-(target). This situation for me looks as a nonsense.
+> Also, large portions of the cpu overhead are transactional costs,
+> which are significantly reduced by existing technologies such as
+> LRO.
 
-2. I believe, that iSCSI/TCP pair is sufficiently heavy weighted 
-protocol to be completely offloaded to hardware. All partial offloads 
-will never make it comparably efficient. It still would consume a lot of 
-CPU. For example, consider digests. Even if they computed by new CRC32C 
-instruction, the computation still would need a chunk of CPU power. I 
-think, at least as much as to copy the computed block to new location. 
-Can we save it? Sure, with hardware offload. The additional CPU load can 
-be acceptable if only data are transferred and there are no other 
-activities, but in real life this is quite rare. Consider, for instance, 
-a VPS server, like VMware. It always lacks CPU power and 30% CPU load 
-during data transfers makes a huge difference. Another example is a 
-target doing some processing of transferred data, like encryption or 
-de-duplication.
+The test used Myricom Myri-10G cards (myri10ge driver), which support 
+LRO. And from ethtool -S output I conclude it was enabled. Just in case, 
+I attached it, so you can recheck me.
 
-Note, I'm not advocating this particular cxgb3 driver. I have not 
-examined it closely enough and don't have sufficient knowledge about the 
-hardware to judge it. But I'm advocating the concept of full offload 
-HBAs, because they provide a real gain, which IMHO can't be reached by 
-any partial offloads.
-
-Actually, in the Fibre Channel world from the very beginning the entire 
-FC protocol has been implemented on hardware and everybody have been 
-happy with that. Now FCoE is coming, which means that Linux kernel is 
-going to have implemented in software a big chunk of FC protocol. Then, 
-hopefully, nobody would declare all existing FC cards as a crap and 
-force FC vendors redesign their hardware to use Linux FC implementation 
-and make partial offloads for it? ;) Instead, several implementations 
-would live in a peace. The situation is the same with iSCSI. What we 
-need is only to find an acceptable way for two TCP implementations to 
-coexist. Then iSCSI on 10GbE hardware would have good chances to 
-outperform 8Gbps FC in both performance and CPU efficiency.
+Thus, apparently, LRO doesn't make a fundamental difference. Maybe this 
+particular implementation isn't too efficient, I don't know. I don't 
+have enough information for that.
 
 Vlad
 
+
+--------------040202000802050103050507
+Content-Type: text/plain;
+ name="ethtool_initiator.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ethtool_initiator.txt"
+
+NIC statistics:
+     rx_packets: 471090527
+     tx_packets: 175404246
+     rx_bytes: 683684492944
+     tx_bytes: 636200696592
+     rx_errors: 0
+     tx_errors: 0
+     rx_dropped: 0
+     tx_dropped: 0
+     multicast: 0
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_fifo_errors: 0
+     rx_missed_errors: 0
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     rx_skbs: 0
+     alloc_order: 0
+     builtin_fw: 0
+     napi: 1
+     tx_boundary: 4096
+     WC: 2
+     irq: 1268
+     MSI: 1
+     MSIX: 0
+     read_dma_bw_MBs: 1575
+     write_dma_bw_MBs: 1375
+     read_write_dma_bw_MBs: 2406
+     serial_number: 320283
+     watchdog_resets: 0
+     link_changes: 2
+     link_up: 1
+     dropped_link_overflow: 0
+     dropped_link_error_or_filtered: 0
+     dropped_pause: 0
+     dropped_bad_phy: 0
+     dropped_bad_crc32: 0
+     dropped_unicast_filtered: 0
+     dropped_multicast_filtered: 0
+     dropped_runt: 0
+     dropped_overrun: 0
+     dropped_no_small_buffer: 0
+     dropped_no_big_buffer: 479
+     ----------- slice ---------: 0
+     tx_pkt_start: 176354843
+     tx_pkt_done: 176354843
+     tx_req: 474673372
+     tx_done: 474673372
+     rx_small_cnt: 19592127
+     rx_big_cnt: 462319631
+     wake_queue: 0
+     stop_queue: 0
+     tx_linearized: 0
+     LRO aggregated: 481899984
+     LRO flushed: 43071334
+     LRO avg aggr: 11
+     LRO no_desc: 0
+
+--------------040202000802050103050507--
