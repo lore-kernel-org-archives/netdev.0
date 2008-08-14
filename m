@@ -1,58 +1,35 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH 1/2] netns: fix NULL-dereference in dev_net()
-Date: Thu, 14 Aug 2008 15:27:25 -0400
-Message-ID: <48A4871D.1030708@hp.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c
+	(157)
+Date: Thu, 14 Aug 2008 15:29:20 -0400
+Message-ID: <20080814192920.GG23859@fieldses.org>
+References: <20080814152421.GA8056@janus>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090305040401090306060302"
-Cc: netdev@vger.kernel.org, containers <containers@lists.osdl.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:47979 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753765AbYHNT12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 15:27:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux NFS mailing list <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Frank van Maarseveen <frankvm-4Pb0d7uU5bpBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080814152421.GA8056@janus>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090305040401090306060302
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, Aug 14, 2008 at 05:24:21PM +0200, Frank van Maarseveen wrote:
+> There are not many reports of this but it seems related to stopping the
+> NFS server. I'm seeing them occasionally on system shutdown right after
+> 
+> 	nfsd: last server has exited 
+> 	nfsd: unexporting all filesystems 
+> 
+> kernels: 2.6.25, 2.6.26
 
-Change dev_net() to handle a NULL argument - return &init_net instead.
+A couple minutes with grep wasn't enough for me to figure out what
+sk_forward_alloc was or why this assertion should be failing, so I'm
+cc'ing netdev in hopes they might have some hints!
 
--Brian
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-
-
---------------090305040401090306060302
-Content-Type: text/x-patch;
- name="dev_net1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dev_net1.patch"
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 488c56e..baf6517 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -781,10 +781,10 @@ static inline
- struct net *dev_net(const struct net_device *dev)
- {
- #ifdef CONFIG_NET_NS
--	return dev->nd_net;
--#else
--	return &init_net;
-+	if (dev)
-+		return dev->nd_net;
- #endif
-+	return &init_net;
- }
- 
- static inline
-
-
---------------090305040401090306060302--
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
