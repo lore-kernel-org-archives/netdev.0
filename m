@@ -1,63 +1,53 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Fix unlocking in tc_ctl_tfilter()
-Date: Fri, 15 Aug 2008 01:27:09 +0200
-Message-ID: <20080814232708.GB2517@ami.dom.local>
-References: <20080814224129.GA2517@ami.dom.local> <200808150156.49541.denys@visp.net.lb>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 3/3] Adapt the e100 driver to the reworked PCI PM
+Date: Thu, 14 Aug 2008 16:56:54 -0700
+Message-ID: <9929d2390808141656g1896657fm6802c520b036cacc@mail.gmail.com>
+References: <200808142335.56644.rjw@sisk.pl> <200808142340.25574.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Jesse Barnes" <jbarnes@virtuousgeek.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"pm list" <linux-pm@lists.linux-foundation.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Stephen Hemminger" <stephen.hemminger@vyatta.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:52103 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751272AbYHNX1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 19:27:14 -0400
-Received: by ug-out-1314.google.com with SMTP id m2so69645uge.1
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 16:27:13 -0700 (PDT)
+Received: from wf-out-1314.google.com ([209.85.200.173]:4949 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbYHNX44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 19:56:56 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so1031205wfd.4
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 16:56:54 -0700 (PDT)
+In-Reply-To: <200808142340.25574.rjw@sisk.pl>
 Content-Disposition: inline
-In-Reply-To: <200808150156.49541.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 15, 2008 at 01:56:49AM +0300, Denys Fedoryshchenko wrote:
-> Aug 15 01:54:49 194.146.153.146 [   57.428359]
-> Aug 15 01:54:49 194.146.153.146 [   57.428449] 
-> =============================================
-> Aug 15 01:54:49 194.146.153.146 [   57.428692] [ INFO: possible recursive 
-> locking detected ]
-> Aug 15 01:54:49 194.146.153.146 [   57.429018] 2.6.27-rc3-git2-build-0030 #7
-...
+On Thu, Aug 14, 2008 at 2:40 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> [Note: I have no hardware to test this patch, but it seems pretty
+> straightforward.]
+>
+> Adapt the e100 driver to the reworked PCI PM
+>
+> * Use device_set_wakeup_enable() and friends as needed
+> * Use pci_pme_active() to clear PME_Status and disable PME#
+> * Use the observation that it is sufficient to call pci_enable_wake()
+>  once, unless it fails
+>
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> ---
+>  drivers/net/e100.c |   20 +++++++++++---------
+>  1 file changed, 11 insertions(+), 9 deletions(-)
+>
 
-I hope this is it... otherwise I'll be back "tomorrow".
+We have tested the patch in our labs and systems wake from S5 just fine.
 
-Thanks again,
-Jarek P.
-------------------->
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-pkt_sched: Fix unlocking in tc_ctl_tfilter()
-
-Fix a bug with spin_lock_bh() inserted instead of spin_unlock_bh() by
-some recent patch. 
-
-
-Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
- net/sched/cls_api.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index d2b6f54..5cafdd4 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -280,7 +280,7 @@ replay:
- 		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
- 			spin_lock_bh(root_lock);
- 			*back = tp->next;
--			spin_lock_bh(root_lock);
-+			spin_unlock_bh(root_lock);
- 
- 			tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
- 			tcf_destroy(tp);
+-- 
+Cheers,
+Jeff
