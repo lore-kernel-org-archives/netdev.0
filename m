@@ -1,105 +1,146 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 14 Aug 2008 08:17:23 +0000
-Message-ID: <20080814081723.GB6797@ff.dom.local>
-References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipv4: Disable route secret interval on zero interval
+Date: Thu, 14 Aug 2008 18:27:02 +1000
+Message-ID: <20080814082702.GA32676@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:61615 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001AbYHNIRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:17:31 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so311901fgg.17
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 01:17:29 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:53388 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752534AbYHNI1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:27:05 -0400
 Content-Disposition: inline
-In-Reply-To: <20080813.151918.61294677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 03:19:18PM -0700, David Miller wrote:
-...
-> Ok, so what I'm going to do is check in my patch and then try
-> to figure out how to resolve this "both bits clear" scenerio.
+Hi:
 
-Here is my proposal again...
+ipv4: Disable route secret interval on zero interval
 
-Jarek P.
+Let me first state that disabling the route cache hash rebuild
+should not be done without extensive analysis on the risk profile
+and careful deliberation.
 
------------> (resend with changelog fixed only)
+However, there are times when this can be done safely or for
+testing.  For example, when you have mechanisms for ensuring
+that offending parties do not exist in your network.
 
-net: Change handling of the __QDISC_STATE_SCHED flag in net_tx_action().
+This patch lets the user disable the rebuild if the interval is
+set to zero.  This also incidentally fixes a divide-by-zero error
+with name-spaces.
 
-Change handling of the __QDISC_STATE_SCHED flag in net_tx_action() to
-enable proper control in dev_deactivate(). Now, if this flag is seen
-as unset under root_lock means a qdisc can't be netif_scheduled.
+In addition, this patch makes the effect of an interval change
+immediate rather than it taking effect at the next rebuild as
+is currently the case.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
- net/core/dev.c |   34 +++++++++++++++++++---------------
- 1 files changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 600bb23..f67581b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1339,19 +1339,23 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 16fc6f4..cca921e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2914,6 +2914,68 @@ static int ipv4_sysctl_rtcache_flush_strategy(ctl_table *table,
+ 	return 0;
  }
  
- 
--void __netif_schedule(struct Qdisc *q)
-+static inline void __netif_reschedule(struct Qdisc *q)
- {
--	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state)) {
--		struct softnet_data *sd;
--		unsigned long flags;
-+	struct softnet_data *sd;
-+	unsigned long flags;
- 
--		local_irq_save(flags);
--		sd = &__get_cpu_var(softnet_data);
--		q->next_sched = sd->output_queue;
--		sd->output_queue = q;
--		raise_softirq_irqoff(NET_TX_SOFTIRQ);
--		local_irq_restore(flags);
--	}
-+	local_irq_save(flags);
-+	sd = &__get_cpu_var(softnet_data);
-+	q->next_sched = sd->output_queue;
-+	sd->output_queue = q;
-+	raise_softirq_irqoff(NET_TX_SOFTIRQ);
-+	local_irq_restore(flags);
++static void rt_secret_reschedule(int old)
++{
++	struct net *net;
++	int new = ip_rt_secret_interval;
++	int diff = new - old;
++
++	if (!diff)
++		return;
++
++	rtnl_lock();
++	for_each_net(net) {
++		int deleted = del_timer_sync(&net->ipv4.rt_secret_timer);
++
++		if (!new)
++			continue;
++
++		if (deleted) {
++			long time = net->ipv4.rt_secret_timer.expires - jiffies;
++
++			if (time <= 0 || (time += diff) <= 0)
++				time = 0;
++
++			net->ipv4.rt_secret_timer.expires = time;
++		} else
++			net->ipv4.rt_secret_timer.expires = new;
++
++		net->ipv4.rt_secret_timer.expires += jiffies;
++		add_timer(&net->ipv4.rt_secret_timer);
++	}
++	rtnl_unlock();
 +}
 +
-+void __netif_schedule(struct Qdisc *q)
++static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
++					  struct file *filp,
++					  void __user *buffer, size_t *lenp,
++					  loff_t *ppos)
 +{
-+	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state))
-+		__netif_reschedule(q);
++	int old = ip_rt_secret_interval;
++	int ret = proc_dointvec_jiffies(ctl, write, filp, buffer, lenp, ppos);
++
++	rt_secret_reschedule(old);
++
++	return ret;
++}
++
++static int ipv4_sysctl_rt_secret_interval_strategy(ctl_table *table,
++						   int __user *name,
++						   int nlen,
++						   void __user *oldval,
++						   size_t __user *oldlenp,
++						   void __user *newval,
++						   size_t newlen)
++{
++	int old = ip_rt_secret_interval;
++	int ret = sysctl_jiffies(table, name, nlen, oldval, oldlenp, newval,
++				 newlen);
++
++	rt_secret_reschedule(old);
++
++	return ret;
++}
++
+ static ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_ROUTE_GC_THRESH,
+@@ -3048,8 +3110,8 @@ static ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_secret_interval,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec_jiffies,
+-		.strategy	= &sysctl_jiffies,
++		.proc_handler	= &ipv4_sysctl_rt_secret_interval,
++		.strategy	= &ipv4_sysctl_rt_secret_interval_strategy,
+ 	},
+ 	{ .ctl_name = 0 }
+ };
+@@ -3126,10 +3188,12 @@ static __net_init int rt_secret_timer_init(struct net *net)
+ 	net->ipv4.rt_secret_timer.data = (unsigned long)net;
+ 	init_timer_deferrable(&net->ipv4.rt_secret_timer);
+ 
+-	net->ipv4.rt_secret_timer.expires =
+-		jiffies + net_random() % ip_rt_secret_interval +
+-		ip_rt_secret_interval;
+-	add_timer(&net->ipv4.rt_secret_timer);
++	if (ip_rt_secret_interval) {
++		net->ipv4.rt_secret_timer.expires =
++			jiffies + net_random() % ip_rt_secret_interval +
++			ip_rt_secret_interval;
++		add_timer(&net->ipv4.rt_secret_timer);
++	}
+ 	return 0;
  }
- EXPORT_SYMBOL(__netif_schedule);
  
-@@ -1974,15 +1978,15 @@ static void net_tx_action(struct softirq_action *h)
- 
- 			head = head->next_sched;
- 
--			smp_mb__before_clear_bit();
--			clear_bit(__QDISC_STATE_SCHED, &q->state);
--
- 			root_lock = qdisc_lock(q);
- 			if (spin_trylock(root_lock)) {
-+				smp_mb__before_clear_bit();
-+				clear_bit(__QDISC_STATE_SCHED,
-+					  &q->state);
- 				qdisc_run(q);
- 				spin_unlock(root_lock);
- 			} else {
--				__netif_schedule(q);
-+				__netif_reschedule(q);
- 			}
- 		}
- 	}
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
