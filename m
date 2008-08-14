@@ -1,54 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for
- iptables nat routing
-Date: Thu, 14 Aug 2008 15:00:55 -0700 (PDT)
-Message-ID: <20080814.150055.201449155.davem@davemloft.net>
-References: <1218679700.23510.8.camel@2710p.home>
-	<20080813.192101.221940876.davem@davemloft.net>
-	<48A41139.9080509@trash.net>
+From: "Adam Langley" <agl@imperialviolet.org>
+Subject: Re: [RFC] tcp: Add (limited) SYNACK payload support
+Date: Thu, 14 Aug 2008 15:01:52 -0700
+Message-ID: <396556a20808141501q7c32620rdccc2d0e81578854@mail.gmail.com>
+References: <396556a20805301217k293e5718h6bbf02bfe069070@europa>
+	 <20080813.210251.47504019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: alex.williamson@hp.com, akpm@linux-foundation.org,
-	buytenh@marvell.com, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42819
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755851AbYHNWAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:00:54 -0400
-In-Reply-To: <48A41139.9080509@trash.net>
+Received: from rv-out-0506.google.com ([209.85.198.226]:38428 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818AbYHNWBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:01:53 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so620363rvb.1
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 15:01:53 -0700 (PDT)
+In-Reply-To: <20080813.210251.47504019.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 14 Aug 2008 13:04:25 +0200
+On Wed, Aug 13, 2008 at 9:02 PM, David Miller <davem@davemloft.net> wrote:
+> This looks mostly fine to me.  I would even advocate not using a config
+> option for this.
 
-> David Miller wrote:
-> > Patrick I wonder if there a case where iptables NAT will COW the packet
-> > when it really doesn't need to.
-> 
-> I don't think so, its using skb_make_writable everywhere, which checks
-> for skb_clone_writable, which should usually avoid COWing local TCP
-> packets. It would also be unlikely to have that much of a performance
-> impact (1MB/s -> 34kb/s).
+Thanks David. I'm still in discussions with the IETF on this one, I
+might resubmit a shaved down version of this at some point in the
+future.
 
-I think he is NAT'ing locally generated traffic, look at the bugzilla
-entry.
 
-He has two cases of the same wget transfer, one is direct and another
-uses a 127.0.0.1:XXXX URL that does the transfer over an SSH tunnel.
-Normally they go roughly at the same rate.
+Cheers
 
-Then he adds iptables NAT entries that redirect the first transfer
-case over the SSH tunnel addr/port.  And it is this case that degrades
-in performance with the GSO changeset.
+AGL
 
-So it is locally generated TCP traffic, NAT'd to another port and IP
-address (specifically, redirected to 127.0.0.1:8888).
 
-Perhaps the problem has something to do with the fact that as far as
-TCP is concerned, the destination device can do SG and CSUM and thus
-GSO.  But then iptables NATs this traffic to loopback.  I think that
-is what leads to some kind of slowpath.
+-- 
+Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
