@@ -1,35 +1,49 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 0/2] netns: fix for NULL-dereference in ipv6 code
-Date: Thu, 14 Aug 2008 16:17:07 -0400
-Message-ID: <48A492C3.7080502@hp.com>
-References: <48A48717.4020609@hp.com>
+From: "Denis V. Lunev" <den@parallels.com>
+Subject: Re: [PATCH 2/2] netns: Add network namespace argument in
+	rt6_fill_node() and ipv6_dev_get_saddr()
+Date: Fri, 15 Aug 2008 00:18:44 +0400
+Message-ID: <1218745124.16589.73.camel@iris.sw.ru>
+References: <48A48722.3050509@hp.com>  <48A48FC9.4020805@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	containers <containers@lists.osdl.org>
-To: Brian Haley <brian.haley@hp.com>
+Cc: Brian Haley <brian.haley@hp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	containers <containers@lists.osdl.org>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:16119 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbYHNURK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 16:17:10 -0400
-In-Reply-To: <48A48717.4020609@hp.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:45492 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753324AbYHNUST (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 16:18:19 -0400
+In-Reply-To: <48A48FC9.4020805@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley wrote:
-> Hi,
+On Thu, 2008-08-14 at 16:04 -0400, Vlad Yasevich wrote:
+> Hi Brian
 > 
-> When fixing the NULL-dereference of the idev in rt6_fill_node(), I
-> noticed that dev_net() doesn't handle a NULL argument either.  These two
-> patches fix that, as well as add a network namespace argument to
-> rt6_fill_node() and ipv6_dev_get_saddr().
+> Brian Haley wrote:
+> > ---
+> > 
+> > diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> > index 483a01d..e0945d4 100644
+> > --- a/net/sctp/ipv6.c
+> > +++ b/net/sctp/ipv6.c
+> > @@ -319,7 +319,8 @@ static void sctp_v6_get_saddr(struct sctp_sock *sk,
+> >  			  __func__, asoc, dst, NIP6(daddr->v6.sin6_addr));
+> >  
+> >  	if (!asoc) {
+> > -		ipv6_dev_get_saddr(dst ? ip6_dst_idev(dst)->dev : NULL,
+> > +		ipv6_dev_get_saddr(NULL,
+> > +				   dst ? ip6_dst_idev(dst)->dev : NULL,
+> >  				   &daddr->v6.sin6_addr,
+> >  				   inet6_sk(&sk->inet.sk)->srcprefs,
+> >  				   &saddr->v6.sin6_addr);
+> 
+> 
+> I think this needs to use sock_net(sctp_opt2s(sk)) instead of NULL.
 
-Brian
+this looks safe to me
 
-What is the reason that dev_net() would need to handle a NULL arg?
-
-I think a NULL pointer in dev_net is a bug if Network Namespaces are used.
-
--vlad
