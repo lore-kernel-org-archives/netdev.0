@@ -1,39 +1,50 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [RFC] tcp: Add (limited) SYNACK payload support
-Date: Thu, 14 Aug 2008 15:01:52 -0700
-Message-ID: <396556a20808141501q7c32620rdccc2d0e81578854@mail.gmail.com>
-References: <396556a20805301217k293e5718h6bbf02bfe069070@europa>
-	 <20080813.210251.47504019.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Thu, 14 Aug 2008 15:13:31 -0700 (PDT)
+Message-ID: <20080814.151331.114224935.davem@davemloft.net>
+References: <20080813095324.GA15055@ben.ifi.uio.no>
+	<20080813.033749.165504341.davem@davemloft.net>
+	<84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: penberg@cs.helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:38428 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbYHNWBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:01:53 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so620363rvb.1
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 15:01:53 -0700 (PDT)
-In-Reply-To: <20080813.210251.47504019.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45948
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751396AbYHNWN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:13:29 -0400
+In-Reply-To: <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2008 at 9:02 PM, David Miller <davem@davemloft.net> wrote:
-> This looks mostly fine to me.  I would even advocate not using a config
-> option for this.
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Date: Thu, 14 Aug 2008 16:28:37 +0300
 
-Thanks David. I'm still in discussions with the IETF on this one, I
-might resubmit a shaved down version of this at some point in the
-future.
+> On Wed, Aug 13, 2008 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
+> > 2) Do your locking differently so that the link status handling
+> >   locking does not bisect the locking used for packet transmit
+> >   in ->hard_start_xmit().
+> >
+> > #2 is the reason why most other drivers don't have this silly
+> > bug, they don't hold TX path locks when handling link status
+> > and printing out such messages.
+> 
+> Yeah, that works for the link status case, but not for things like the
+> printks in rtl8139_tx_interrupt()... Hmm.
 
+Note that netconsole specifically does trylock on the netdev
+xmit lock specifically to handle this case.
 
-Cheers
+If you could command the TX path solely under this generic lock
+already provided by the generic networking, you could avoid this
+deadlock as well.
 
-AGL
-
-
--- 
-Adam Langley agl@imperialviolet.org http://www.imperialviolet.org
+This is yet another reason many other drivers don't get hit by
+this problem.  The solution is built into netpoll but it only
+works if you use the provided generic locking mechanisms to
+mutex the driver's TX path.
