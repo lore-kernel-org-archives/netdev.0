@@ -1,80 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] sky2: Fix suspend/hibernation/shutdown regression with
- WOL enabled (rev. 2)
-Date: Thu, 14 Aug 2008 04:29:07 -0400
-Message-ID: <48A3ECD3.3080001@garzik.org>
-References: <200808092332.29596.rjw@sisk.pl> <20080809235711.12c2f331@extreme> <200808101414.35626.rjw@sisk.pl> <200808101930.29574.rjw@sisk.pl>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 14 Aug 2008 08:31:27 +0000
+Message-ID: <20080814083127.GA12217@ff.dom.local>
+References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net> <20080814075907.GA6797@ff.dom.local> <20080814081632.GB32475@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41429 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757510AbYHNI3N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 04:29:13 -0400
-In-Reply-To: <200808101930.29574.rjw@sisk.pl>
+Received: from ik-out-1112.google.com ([66.249.90.183]:32523 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752315AbYHNIbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:31:34 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so387130ika.5
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 01:31:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080814081632.GB32475@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki wrote:
-> On Sunday, 10 of August 2008, Rafael J. Wysocki wrote:
->> On Sunday, 10 of August 2008, Stephen Hemminger wrote:
->>> On Sat, 9 Aug 2008 23:32:28 +0200
->>> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
->>>
-> [--snip--]
->>> The problem is not unique to your chip version,
->> Well, that's the part I wasn't sure of.
->>
->>> so patching out the power down is not the correct solution.
->> Sure.
+On Thu, Aug 14, 2008 at 06:16:32PM +1000, Herbert Xu wrote:
+> On Thu, Aug 14, 2008 at 07:59:07AM +0000, Jarek Poplawski wrote:
+> > 
+> > net: Change handling of the __QDISC_STATE_SCHED flag in net_tx_action().
+> > 
+> > Change handling of the __QDISC_STATE_SCHED flag in net_tx_action() to
+> > enable proper control in dev_deactivate_queue(). Now, if this flag is
+> > seen as unset under root_lock means a qdisc can't be netif_scheduled.
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > 
-> But, shouldn't we switch to page 2 before selecting PHY_MARV_PHY_CTRL?  Things
-> work correctly if this is done (patch below).
+> Well this probably works in practice but at least on paper it
+> is vulnerable to live-lock if the net_tx_action side always gets
+> to the trylock stage and loses to the waiting side.
 > 
-> Thanks,
-> Rafael
-> 
-> 
-> ---
-> On my test box with the Asus M3A32-MVP main board there is a
-> regression from 2.6.26 related to suspend, hibernation and
-> shutdown.  Namely, if Wake-on-LAN is enabled with
-> 'ethtool -s eth0 wol g', the box hangs solid during all of these
-> operations, while executing either sky2_suspend(), or
-> sky2_shutdown().  This patch fixes it for me.
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> ---
->  drivers/net/sky2.c |    7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> Index: linux-2.6/drivers/net/sky2.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/sky2.c
-> +++ linux-2.6/drivers/net/sky2.c
-> @@ -666,11 +666,16 @@ static void sky2_phy_power_down(struct s
->  
->  	if (hw->chip_id != CHIP_ID_YUKON_EC) {
->  		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-> -			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-> +			/* select page 2 to access MAC control register */
-> +			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 2);
->  
-> +			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
->  			/* enable Power Down */
->  			ctrl |= PHY_M_PC_POW_D_ENA;
->  			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-> +
-> +			/* set page register back to 0 */
-> +			gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
->  		}
+> An aliveness flag would be the safest.
 
-applied
+I'm not sure of your point... This patch is only to fix my yesterday's
+doubt #1, and it doesn't introduce, I hope, any new live-lock
+vulnerabity. So, if you mean doubt #2, there is needed a separate
+patch, but I'm not sure there is a need to add a flag. I've thougt
+about a counter in a Qdisc for consecutive requeues with
+netif_schedule, so we could break after some limit. Of course, your
+idea could be simpler and better, but if I could only see some code...
 
-
+Cheers,
+Jarek P.
