@@ -1,114 +1,204 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [PATCHv3 2/2] IPVS: Add genetlink interface implementation
-Date: Thu, 14 Aug 2008 15:32:31 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808141508370.12259@titan.stealer.net>
-References: <1218120219-1117-1-git-send-email-juliusv@google.com> <1218120219-1117-3-git-send-email-juliusv@google.com> <20080808112937.GA32458@google.com> <alpine.LNX.1.10.0808132326310.12259@titan.stealer.net> <20080814093201.GA8046@google.com>
- <alpine.LNX.1.10.0808141144240.12259@titan.stealer.net> <20080814102719.GB8046@google.com> <20080814120843.GC8046@google.com>
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Thu, 14 Aug 2008 16:44:32 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808141643200.3164@sbz-30.cs.Helsinki.FI>
+References: <20080813095324.GA15055@ben.ifi.uio.no>
+ <20080813.033749.165504341.davem@davemloft.net>
+ <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	horms@verge.net.au, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080814120843.GC8046@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:53628 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbYHNNoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 09:44:34 -0400
+In-Reply-To: <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Aug 2008, Julius Volz wrote:
-
-> On Thu, Aug 14, 2008 at 12:27:19PM +0200, Julius Volz wrote:
-> > On Thu, Aug 14, 2008 at 12:04:50PM +0200, Sven Wegener wrote:
-> > > On Thu, 14 Aug 2008, Julius Volz wrote:
-> > > 
-> > > > On Wed, Aug 13, 2008 at 11:51:06PM +0200, Sven Wegener wrote:
-> > > > > On Fri, 8 Aug 2008, Julius Volz wrote:
-> > > > > > +static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
-> > > > > > +{
-> > > > > > +	struct sk_buff *msg;
-> > > > > > +	void *reply;
-> > > > > > +	int ret, cmd, reply_cmd;
-> > > > > > +
-> > > > > > +	mutex_lock(&__ip_vs_mutex);
-> > > > > > +
-> > > > > > +	cmd = info->genlhdr->cmd;
-> > > > > > +
-> > > > > > +	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > > > > > +	if (!msg) {
-> > > > > > +		ret = -ENOMEM;
-> > > > > > +		goto out_err;
-> > > > > 
-> > > > > Here you want out...
-> > > > > 
-> > > > > > +	}
-> > > > > > +
-> > > > > > +	if (cmd == IPVS_CMD_GET_SERVICE)
-> > > > > > +		reply_cmd = IPVS_CMD_NEW_SERVICE;
-> > > > > > +	else if (cmd == IPVS_CMD_GET_INFO)
-> > > > > > +		reply_cmd = IPVS_CMD_SET_INFO;
-> > > > > > +	else if (cmd == IPVS_CMD_GET_CONFIG)
-> > > > > > +		reply_cmd = IPVS_CMD_SET_CONFIG;
-> > > > > > +	else {
-> > > > > > +		IP_VS_ERR("unknown Generic Netlink command\n");
-> > > > > > +		ret = -EINVAL;
-> > > > > > +		goto out;
-> > > > > 
-> > > > > ..and here you want out_error, to not leak msg.
-> > > > 
-> > > > Ouch, thanks! Fixed this and locked the mutex later. I also removed the
-> > > > "if (msg)" from out_err, as it becomes unneeded now. Here's the updated
-> > > > patch:
-> > > 
-> > > You missed the static on the register and unregister functions down at the 
-> > > bottom. :) Also see my comments to your change regarding the above issue 
-> > > down here.
-> > 
-> > Hrm, yes!
-> > 
-> > > > +static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
-> > > > +{
-> > > > +	struct sk_buff *msg;
-> > > > +	void *reply;
-> > > > +	int ret, cmd, reply_cmd;
-> > > > +
-> > > > +	cmd = info->genlhdr->cmd;
-> > > > +
-> > > > +	if (cmd == IPVS_CMD_GET_SERVICE)
-> > > > +		reply_cmd = IPVS_CMD_NEW_SERVICE;
-> > > > +	else if (cmd == IPVS_CMD_GET_INFO)
-> > > > +		reply_cmd = IPVS_CMD_SET_INFO;
-> > > > +	else if (cmd == IPVS_CMD_GET_CONFIG)
-> > > > +		reply_cmd = IPVS_CMD_SET_CONFIG;
-> > > > +	else {
-> > > > +		IP_VS_ERR("unknown Generic Netlink command\n");
-> > > > +		ret = -EINVAL;
-> > > > +		goto out;
-> > > > +	}
-> > > > +
-> > > > +	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > > > +	if (!msg) {
-> > > > +		ret = -ENOMEM;
-> > > > +		goto out;
-> > > > +	}
-> > > > +
-> > > > +	reply = genlmsg_put_reply(msg, info, &ip_vs_genl_family, 0, reply_cmd);
-> > > > +	if (reply == NULL)
-> > > > +		goto nla_put_failure;
-> > > 
-> > > These gotos now unlock a not locked mutex down in the error path.
-> > 
-> > What did they put into my water supply :-/ Thanks!
+On Thu, 14 Aug 2008, Pekka Enberg wrote:
+> > See my other reply, this is absolutely the wrong way to go about
+> > this.
+> >
+> > You only have two sane options:
+> >
+> > 1) Defer the link status printk message into a deferred context,
+> >   such as a workqueue, so that you can do it outside of the
+> >   lock.
 > 
-> Ok, fixed this up. The mutex is not completely moved down to make the
-> code look a bit nicer (nla_put_failure assumes locked mutex). There
-> should not be much concurrency anyways since this mutex only locks the
-> userspace interface, which is mainly used by ipvsadm.
+> It's not just the link status. We have assert() and debugging printks
+> there under tp->lock as well which can also trigger the deadlock
+> condition.
+> 
+> On Wed, Aug 13, 2008 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
+> > 2) Do your locking differently so that the link status handling
+> >   locking does not bisect the locking used for packet transmit
+> >   in ->hard_start_xmit().
+> >
+> > #2 is the reason why most other drivers don't have this silly
+> > bug, they don't hold TX path locks when handling link status
+> > and printing out such messages.
+> 
+> Yeah, that works for the link status case, but not for things like the
+> printks in rtl8139_tx_interrupt()... Hmm.
 
-True, it was just a hint for an optimization. Looks good to me.
+...so I guess something like the following (totally untested) patch could 
+work.
 
-Acked-by: Sven Wegener <sven.wegener@stealer.net>
+		Pekka
 
-Should we get this into 2.6.27? It's a new interface, currently unused, so 
-the chance of breaking anything is marginal.
+Subject: [PATCH] 8139too: avoid deadlock with netconsole
+From: Pekka Enberg <penberg@cs.helsinki.fi>
 
-Sven
+As explained by Vegard Nossum, the 8139too driver can deadlock with netconsole:
+
+  I encountered a hard-to-debug deadlock when I pulled out the plug of my
+  RealTek 8139 which was also running netconsole: The driver wants to print a
+  "link down" message. However, this triggers netconsole, which wants to print
+  the message using the same device. Here is a backtrace:
+
+     [<c05916b6>] _spin_lock_irqsave+0x76/0x90
+     [<c035b255>] rtl8139_start_xmit+0x65/0x130 <-- spin_lock(&tp->lock)
+     [<c04c5e28>] netpoll_send_skb+0x158/0x1a0
+     [<c04c62fb>] netpoll_send_udp+0x1db/0x1f0
+     [<c037c70c>] write_msg+0x8c/0xc0
+     [<c0135883>] __call_console_drivers+0x53/0x60
+     [<c01358db>] _call_console_drivers+0x4b/0x90
+     [<c0135a25>] release_console_sem+0xc5/0x1f0
+     [<c0135f0b>] vprintk+0x1ab/0x3e0
+     [<c013615b>] printk+0x1b/0x20
+     [<c0349736>] mii_check_media+0x196/0x1e0
+     [<c03597f4>] rtl_check_media+0x24/0x30
+     [<c035a0ea>] rtl8139_interrupt+0x42a/0x4a0 <-- spin_lock(&tp->lock)
+     [<c01716d8>] handle_IRQ_event+0x28/0x70
+     [<c0172d9b>] handle_fasteoi_irq+0x6b/0xe0
+     [<c0107128>] do_IRQ+0x48/0xa0
+
+To avoid the deadlock, use a separate ->tx_lock for the TX paths and make sure
+we never call printk() while holding that lock.
+
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+---
+ drivers/net/8139too.c |   34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
+
+Index: linux-2.6/drivers/net/8139too.c
+===================================================================
+--- linux-2.6.orig/drivers/net/8139too.c	2008-08-14 16:29:32.000000000 +0300
++++ linux-2.6/drivers/net/8139too.c	2008-08-14 16:41:10.000000000 +0300
+@@ -598,6 +598,7 @@
+ 
+ 	spinlock_t		lock;
+ 	spinlock_t		rx_lock;
++	spinlock_t		tx_lock;
+ 
+ 	chip_t			chipset;
+ 	u32			rx_config;
+@@ -1009,6 +1010,7 @@
+ 		(debug < 0 ? RTL8139_DEF_MSG_ENABLE : ((1 << debug) - 1));
+ 	spin_lock_init (&tp->lock);
+ 	spin_lock_init (&tp->rx_lock);
++	spin_lock_init (&tp->tx_lock);
+ 	INIT_DELAYED_WORK(&tp->thread, rtl8139_thread);
+ 	tp->mii.dev = dev;
+ 	tp->mii.mdio_read = mdio_read;
+@@ -1675,9 +1677,9 @@
+ 	RTL_W16 (IntrMask, 0x0000);
+ 
+ 	/* Stop a shared interrupt from scavenging while we are. */
+-	spin_lock_irq(&tp->lock);
++	spin_lock_irq(&tp->tx_lock);
+ 	rtl8139_tx_clear (tp);
+-	spin_unlock_irq(&tp->lock);
++	spin_unlock_irq(&tp->tx_lock);
+ 
+ 	/* ...and finally, reset everything */
+ 	if (netif_running(dev)) {
+@@ -1721,7 +1723,7 @@
+ 		return 0;
+ 	}
+ 
+-	spin_lock_irqsave(&tp->lock, flags);
++	spin_lock_irqsave(&tp->tx_lock, flags);
+ 	RTL_W32_F (TxStatus0 + (entry * sizeof (u32)),
+ 		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
+ 
+@@ -1732,7 +1734,7 @@
+ 
+ 	if ((tp->cur_tx - NUM_TX_DESC) == tp->dirty_tx)
+ 		netif_stop_queue (dev);
+-	spin_unlock_irqrestore(&tp->lock, flags);
++	spin_unlock_irqrestore(&tp->tx_lock, flags);
+ 
+ 	if (netif_msg_tx_queued(tp))
+ 		printk (KERN_DEBUG "%s: Queued Tx packet size %u to slot %d.\n",
+@@ -1746,11 +1748,15 @@
+ 				  struct rtl8139_private *tp,
+ 				  void __iomem *ioaddr)
+ {
+-	unsigned long dirty_tx, tx_left;
++	unsigned long dirty_tx, old_dirty_tx, tx_left;
++	int error;
+ 
+ 	assert (dev != NULL);
+ 	assert (ioaddr != NULL);
+ 
++	spin_lock(&tp->tx_lock);
++retry:
++	error = 0;
+ 	dirty_tx = tp->dirty_tx;
+ 	tx_left = tp->cur_tx - dirty_tx;
+ 	while (tx_left > 0) {
+@@ -1766,8 +1772,7 @@
+ 		if (txstatus & (TxOutOfWindow | TxAborted)) {
+ 			/* There was an major error, log it. */
+ 			if (netif_msg_tx_err(tp))
+-				printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
+-					dev->name, txstatus);
++				error = 1;
+ 			dev->stats.tx_errors++;
+ 			if (txstatus & TxAborted) {
+ 				dev->stats.tx_aborted_errors++;
+@@ -1793,12 +1798,19 @@
+ 
+ 		dirty_tx++;
+ 		tx_left--;
++		if (error) {
++			spin_unlock(&tp->tx_lock);
++			printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
++				dev->name, txstatus);
++			spin_lock(&tp->tx_lock);
++			goto retry;
++		}
+ 	}
+ 
+ #ifndef RTL8139_NDEBUG
+ 	if (tp->cur_tx - dirty_tx > NUM_TX_DESC) {
+-		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
+-		        dev->name, dirty_tx, tp->cur_tx);
++		error = 1;
++		old_dirty_tx = dirty_tx;
+ 		dirty_tx += NUM_TX_DESC;
+ 	}
+ #endif /* RTL8139_NDEBUG */
+@@ -1809,6 +1821,10 @@
+ 		mb();
+ 		netif_wake_queue (dev);
+ 	}
++	spin_unlock(&tp->tx_lock);
++	if (error)
++		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
++		        dev->name, old_dirty_tx, tp->cur_tx);
+ }
+ 
+ 
