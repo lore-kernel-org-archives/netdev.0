@@ -1,52 +1,82 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for
- iptables nat routing
-Date: Thu, 14 Aug 2008 13:04:25 +0200
-Message-ID: <48A41139.9080509@trash.net>
-References: <bug-11316-10286@http.bugzilla.kernel.org/>	<20080812221204.46afb4a6.akpm@linux-foundation.org>	<1218679700.23510.8.camel@2710p.home> <20080813.192101.221940876.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 14 Aug 2008 11:24:33 +0000
+Message-ID: <20080814112433.GA12476@ff.dom.local>
+References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alex.williamson@hp.com, akpm@linux-foundation.org,
-	buytenh@marvell.com, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36143 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752450AbYHNLE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 07:04:28 -0400
-In-Reply-To: <20080813.192101.221940876.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.153]:46035 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752294AbYHNLYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 07:24:46 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so359718fgg.17
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 04:24:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080813.151918.61294677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Alex Williamson <alex.williamson@hp.com>
-> Date: Wed, 13 Aug 2008 20:08:20 -0600
-> 
->> git bisect traced the problem back to this changeset:
->>
->>         commit e5a4a72d4f88f4389e9340d383ca67031d1b8536
->>         Author: Lennert Buytenhek <buytenh@marvell.com>
->>         Date:   Sun Aug 3 01:23:10 2008 -0700
->>         
->>             net: use software GSO for SG+CSUM capable netdevices
->>
->> I've verified that I can toggle the slowness by reverting this patch on
->> top of 8d0968ab (current head).  The problem is readily reproducible
->> using Ubuntu Hardy in a KVM VM with upstream, defconfig kernel.
-> 
-> Patrick I wonder if there a case where iptables NAT will COW the packet
-> when it really doesn't need to.
+On Wed, Aug 13, 2008 at 03:19:18PM -0700, David Miller wrote:
+...
+> Ok, so what I'm going to do is check in my patch and then try
+> to figure out how to resolve this "both bits clear" scenerio.
 
-I don't think so, its using skb_make_writable everywhere, which checks
-for skb_clone_writable, which should usually avoid COWing local TCP
-packets. It would also be unlikely to have that much of a performance
-impact (1MB/s -> 34kb/s).
+BTW, here is my older doubt revisited, where I hope to be re-considered/
+re-convinced, if possible...
 
-> 
-> It seems, if anything, using GSO should make things go a little bit
-> faster not slower... Hmmm...
+Thanks,
+Jarek P.
 
-Alex, could you post a tcpdump from both loopback and the outgoing
-device from the machine you're doing NAT on?
+---------------->
+
+pkt_sched: Destroy qdiscs under rtnl_lock again.
+
+We don't need to trigger __qdisc_destroy() as an RCU callback because
+the use of qdisc isn't controlled by RCU alone: after querying RCU
+with synchronize_rcu() in dev_deactivate() we additionaly wait in a
+loop checking some flags. After the loop is done there could be no
+outstanding use of the qdisc, so call_rcu() doesn't make any sense.
+
+On the other hand, current calling Qdisc's ->destroy() from a softirq
+context without locking (rtnl) can break various things like:
+qdisc_put_rtab(), tcf_destroy_chain() (e.g. u32_destroy()), and
+probably more.
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ net/sched/sch_generic.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 4685746..e7379d2 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -518,12 +518,8 @@ void qdisc_reset(struct Qdisc *qdisc)
+ }
+ EXPORT_SYMBOL(qdisc_reset);
+ 
+-/* this is the rcu callback function to clean up a qdisc when there
+- * are no further references to it */
+-
+-static void __qdisc_destroy(struct rcu_head *head)
++static void __qdisc_destroy(struct Qdisc *qdisc)
+ {
+-	struct Qdisc *qdisc = container_of(head, struct Qdisc, q_rcu);
+ 	const struct Qdisc_ops  *ops = qdisc->ops;
+ 
+ #ifdef CONFIG_NET_SCHED
+@@ -554,7 +550,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 	if (qdisc->parent)
+ 		list_del(&qdisc->list);
+ 
+-	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
++	__qdisc_destroy(qdisc);
+ }
+ EXPORT_SYMBOL(qdisc_destroy);
+ 
