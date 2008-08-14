@@ -1,31 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Thu, 14 Aug 2008 17:25:08 -0700 (PDT)
-Message-ID: <20080814.172508.15803616.davem@davemloft.net>
-References: <20080815001250.GC15825@verge.net.au>
+From: ACCOUNT VERIFICATION TEAM <catbells@hcinet.net>
+Subject: DEAR: WEBMAIL ACCOUNT OWNER
+Date: Thu, 14 Aug 2008 18:27:06 +0000
+Message-ID: <20080814182706.JILG29093.invictus@[192.168.1.30]>
+Reply-To: couryhno@mail2webmaster.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	sven.wegener@stealer.net, juliusv@google.com, wensong@linux-vs.org,
-	ja@ssi.bg
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080815001250.GC15825@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: support@webmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from invictus.bright.net ([209.143.0.12]:39422 "EHLO
+	invictus.bright.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123AbYHOA0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 20:26:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Fri, 15 Aug 2008 10:12:52 +1000
+DEAR: WEBMAIL ACCOUNT OWNER
 
-> Julius, Sven and I would particularly like Julius' two changes to go
-> in. They add a new interface which is currently unused and thus the
-> likelihood of breakage seems low.
+To complete your Webmail Account Verification process, you are to reply this message and enter your password in the space provided (            ), you  are required to do this before the next 48hrs of receipt of this e-mail, oryour Webmail Account will be de-activated and erased from our database.
 
-Actually these are the two changes that should not go in at this
-time.  This netlink stuff is a new feature, therefore not appropriate
-to merge outside of the merge window.
+Your account can also be verified at:
+Thank you for using our Webmail Service.
+ACCOUNT VERIFICATION TEAM
 
-Bug fixes only now, please.
-
-Thanks.
