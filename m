@@ -1,116 +1,111 @@
-From: juliusv@google.com (Julius Volz)
-Subject: Re: [PATCHv3 2/2] IPVS: Add genetlink interface implementation
-Date: Thu, 14 Aug 2008 12:27:19 +0200
-Message-ID: <20080814102719.GB8046@google.com>
-References: <1218120219-1117-1-git-send-email-juliusv@google.com> <1218120219-1117-3-git-send-email-juliusv@google.com> <20080808112937.GA32458@google.com> <alpine.LNX.1.10.0808132326310.12259@titan.stealer.net> <20080814093201.GA8046@google.com> <alpine.LNX.1.10.0808141144240.12259@titan.stealer.net>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- revert for 2.6.26-rc1 failed
+Date: Thu, 14 Aug 2008 03:36:35 -0700
+Message-ID: <86802c440808140336k3558dfbew308ac7d7bdb23c@mail.gmail.com>
+References: <737832.54450.qm@web82101.mail.mud.yahoo.com>
+	 <20080814060433.684c4fe5.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	horms@verge.net.au, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: Sven Wegener <sven.wegener@stealer.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David Witbrodt" <dawitbro@sbcglobal.net>,
+	linux-kernel@vger.kernel.org, "Ingo Molnar" <mingo@elte.hu>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: "Bill Fink" <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:19954 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754090AbYHNK1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 06:27:52 -0400
+Received: from yx-out-2324.google.com ([74.125.44.29]:32090 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752029AbYHNKgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 06:36:36 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so285902yxm.1
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 03:36:35 -0700 (PDT)
+In-Reply-To: <20080814060433.684c4fe5.billfink@mindspring.com>
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.1.10.0808141144240.12259@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2008 at 12:04:50PM +0200, Sven Wegener wrote:
-> On Thu, 14 Aug 2008, Julius Volz wrote:
-> 
-> > On Wed, Aug 13, 2008 at 11:51:06PM +0200, Sven Wegener wrote:
-> > > On Fri, 8 Aug 2008, Julius Volz wrote:
-> > > > +static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
-> > > > +{
-> > > > +	struct sk_buff *msg;
-> > > > +	void *reply;
-> > > > +	int ret, cmd, reply_cmd;
-> > > > +
-> > > > +	mutex_lock(&__ip_vs_mutex);
-> > > > +
-> > > > +	cmd = info->genlhdr->cmd;
-> > > > +
-> > > > +	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > > > +	if (!msg) {
-> > > > +		ret = -ENOMEM;
-> > > > +		goto out_err;
-> > > 
-> > > Here you want out...
-> > > 
-> > > > +	}
-> > > > +
-> > > > +	if (cmd == IPVS_CMD_GET_SERVICE)
-> > > > +		reply_cmd = IPVS_CMD_NEW_SERVICE;
-> > > > +	else if (cmd == IPVS_CMD_GET_INFO)
-> > > > +		reply_cmd = IPVS_CMD_SET_INFO;
-> > > > +	else if (cmd == IPVS_CMD_GET_CONFIG)
-> > > > +		reply_cmd = IPVS_CMD_SET_CONFIG;
-> > > > +	else {
-> > > > +		IP_VS_ERR("unknown Generic Netlink command\n");
-> > > > +		ret = -EINVAL;
-> > > > +		goto out;
-> > > 
-> > > ..and here you want out_error, to not leak msg.
-> > 
-> > Ouch, thanks! Fixed this and locked the mutex later. I also removed the
-> > "if (msg)" from out_err, as it becomes unneeded now. Here's the updated
-> > patch:
-> 
-> You missed the static on the register and unregister functions down at the 
-> bottom. :) Also see my comments to your change regarding the above issue 
-> down here.
+On Thu, Aug 14, 2008 at 3:04 AM, Bill Fink <billfink@mindspring.com> wrote:
+> Hi David,
+>
+> On Wed, 13 Aug 2008, David Witbrodt wrote:
+>
+>> [Yinghai, please note that I did not request a patch to revert the
+>> problem commit.  I was merely experimenting -- on my own time, so
+>> you folks would not have to bother -- to see if I could make it
+>> work.  I should have made that more clear!  Having said that, I am
+>> glad to test changes of any kind on my machine:  reverts, code for
+>> debugging or info, experiments, etc.]
+>
+> I'm not sure Yinghai's revert patch is completely equivalent to
+> a revert of the original problematic commit, by a side-by-side
+> comparison of the original commit with his recent revert patch,
+> but then I don't really know that code at all.
+>
+> In the original code there was a section (in e820_reserve_resources()):
+>
+> #ifdef CONFIG_KEXEC
+>                   if (crashk_res.start != crashk_res.end)
+>                           request_resource(res, &crashk_res);
+> #endif
+>
+> If you don't have CONFIG_KEXEC defined in your .config, which is
+> probably the case, then you would never request a crashk_res resource.
+> But in the code after the original commit, it unconditionally calls
+> (in reserve_crashkernel()):
+>
+>           crashk_res.start = crash_base;
+>           crashk_res.end   = crash_base + crash_size - 1;
+>           insert_resource(&iomem_resource, &crashk_res);
+>
+> And after Yinghai's revert patch it still does (in reserve_crashkernel()):
+>
+>        crashk_res.start = crash_base;
+>        crashk_res.end   = crash_base + crash_size - 1;
+>        crashk_res_ptr = &crashk_res;
+>
+> and (in setup_arch()):
+>
+>        num_res = 3;
+>        if (crashk_res_ptr) {
+>                res_kernel[num_res] = crashk_res_ptr;
+>                num_res++;
+>        }
+>        e820_reserve_resources(res_kernel, num_res);
+>
+> then (in e820_reserve_resources()):
+>
+>                        for (j = 0; j < nr_res_k; j++) {
+>                                if (!res_kernel[j])
+>                                        continue;
+>                                request_resource(res, res_kernel[j]);
+>                        }
+>
+> which for j == 3 is:
+>
+>        request_resource(res, &crashk_res);
+>
+> Now it would appear that the new:
+>
+>        insert_resource(&iomem_resource, &crashk_res);
+>
+> or new:
+>
+>        request_resource(res, &crashk_res);
+>
+> should be noops.  But if for any reason crash_size is not zero,
+> then there could be a difference.  I have no idea if this is at all
+> significant, but I thought I'd point it out just in case.
 
-Hrm, yes!
+why oops ?
+if not valid crash kernel size etc is input, crashk_res_ptr will be null
 
-> > +static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
-> > +{
-> > +	struct sk_buff *msg;
-> > +	void *reply;
-> > +	int ret, cmd, reply_cmd;
-> > +
-> > +	cmd = info->genlhdr->cmd;
-> > +
-> > +	if (cmd == IPVS_CMD_GET_SERVICE)
-> > +		reply_cmd = IPVS_CMD_NEW_SERVICE;
-> > +	else if (cmd == IPVS_CMD_GET_INFO)
-> > +		reply_cmd = IPVS_CMD_SET_INFO;
-> > +	else if (cmd == IPVS_CMD_GET_CONFIG)
-> > +		reply_cmd = IPVS_CMD_SET_CONFIG;
-> > +	else {
-> > +		IP_VS_ERR("unknown Generic Netlink command\n");
-> > +		ret = -EINVAL;
-> > +		goto out;
-> > +	}
-> > +
-> > +	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > +	if (!msg) {
-> > +		ret = -ENOMEM;
-> > +		goto out;
-> > +	}
-> > +
-> > +	reply = genlmsg_put_reply(msg, info, &ip_vs_genl_family, 0, reply_cmd);
-> > +	if (reply == NULL)
-> > +		goto nla_put_failure;
-> 
-> These gotos now unlock a not locked mutex down in the error path.
+>        if (crashk_res_ptr) {
+>                res_kernel[num_res] = crashk_res_ptr;
+>                num_res++;
+>        }
 
-What did they put into my water supply :-/ Thanks!
+it that is not appended to res_kernel...
 
-> 
-> > +
-> > +	mutex_lock(&__ip_vs_mutex);
-> 
-> Is there a reason not using mutex_lock_interruptible() like the sockopt 
-> interface does? I wondered in your earlier patch, but didn't really 
-> bother.
-
-Not an expert here. I saw mutex_lock_interruptible() being used in the
-old sockopt interface, but returning -ERESTARTSYS on interruption. Can I
-do something similar to this from a genetlink function or what is the
-right way? I was unsure, so I stuck to mutex_lock()...
-
-Julius
+YH
