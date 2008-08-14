@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] bnx2: VLAN fixes.
-Date: Thu, 14 Aug 2008 15:31:20 -0700 (PDT)
-Message-ID: <20080814.153120.73160492.davem@davemloft.net>
-References: <1218752579-20506-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH v2] netns: Add network namespace argument to
+ rt6_fill_node() and ipv6_dev_get_saddr()
+Date: Thu, 14 Aug 2008 15:33:40 -0700 (PDT)
+Message-ID: <20080814.153340.241442105.davem@davemloft.net>
+References: <48A4A5C4.4080109@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: yoshfuji@linux-ipv6.org, containers@lists.osdl.org,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48359
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48363
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751433AbYHNWbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:31:19 -0400
-In-Reply-To: <1218752579-20506-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1751019AbYHNWdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 18:33:38 -0400
+In-Reply-To: <48A4A5C4.4080109@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 14 Aug 2008 15:22:55 -0700
+From: Brian Haley <brian.haley@hp.com>
+Date: Thu, 14 Aug 2008 17:38:12 -0400
 
+> ipv6_dev_get_saddr() blindly de-references dst_dev to get the network
+> namespace, but some callers might pass NULL.  Change callers to pass a
+> namespace pointer instead.
 > 
-> Please review these VLAN fixes for bnx2.  Thanks.
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Applied and pushed out to kernel.org, thanks!
+This looks tons better than your first attempt :-)
+
+Applied, thanks Brian.
