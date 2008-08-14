@@ -1,33 +1,33 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/1] tun: TUNGETIFF interface to query name and flags
-Date: Thu, 14 Aug 2008 11:58:57 +1000
-Message-ID: <200808141158.57879.rusty@rustcorp.com.au>
-References: <1218637816.29159.31.camel@muff>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Only call init_service, update_service and
+	done_service for schedulers if defined
+Date: Thu, 14 Aug 2008 14:45:46 +1000
+Message-ID: <20080814044544.GB13993@verge.net.au>
+References: <alpine.LNX.1.10.0808140034210.12259@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Max Krasnyansky <maxk@qualcomm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>
-To: Mark McLoughlin <markmc@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	wensong@linux-vs.org, ja@ssi.bg
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:32839 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752253AbYHNEO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 00:14:56 -0400
-In-Reply-To: <1218637816.29159.31.camel@muff>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60341 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751983AbYHNEpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 00:45:49 -0400
 Content-Disposition: inline
+In-Reply-To: <alpine.LNX.1.10.0808140034210.12259@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 14 August 2008 00:30:16 Mark McLoughlin wrote:
-> A very simple approach is attached; I did consider doing a TUNGETFLAGS
-> that would return tun->flags, but I think it's nicer to have a companion
-> to TUNGETIFF since it also allows one to query the interface name from
-> the file descriptor.
+On Thu, Aug 14, 2008 at 12:42:55AM +0200, Sven Wegener wrote:
+> There are schedulers that only schedule based on data available in the service
+> or destination structures and they don't need any persistent storage or
+> initialization routine. These schedulers currently provide dummy functions for
+> the init_service, update_service and/or done_service functions. For the
+> init_service and done_service cases we already have code that only calls these
+> functions, if the scheduler provides them. Do the same for the update_service
+> case and remove the dummy functions from all schedulers.
 
-This seems really sensible to me.
+Hi Sven,
 
-If Max acks it, I'd say Dave should merge it.
-Rusty.
+I'm fine with this change, but it doesn't apply against net-2.6.
