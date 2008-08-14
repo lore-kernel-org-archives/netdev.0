@@ -1,59 +1,140 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Thu, 14 Aug 2008 16:45:57 -0400
-Message-ID: <48A49985.10704@myri.com>
-References: <adazlnlzc60.fsf@cisco.com> <20080809.224637.69833549.davem@davemloft.net> <48A08145.6060703@hp.com> <20080811.141254.165409473.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH 1/3] Adapt the skge driver to the reworked PCI PM
+Date: Thu, 14 Aug 2008 23:37:26 +0200
+Message-ID: <200808142337.27915.rjw@sisk.pl>
+References: <200808142335.56644.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, rdreier@cisco.com, jgarzik@pobox.com,
-	swise@opengridcomputing.com, divy@chelsio.com, kxie@chelsio.com,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
-	bhua@us.ibm.com, dm@chelsio.com, lee@jasper.es
-To: David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:2009 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753618AbYHNUrp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 16:47:45 -0400
-In-Reply-To: <20080811.141254.165409473.davem@davemloft.net>
+Received: from ogre.sisk.pl ([217.79.144.158]:56448 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751019AbYHNVh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 17:37:58 -0400
+In-Reply-To: <200808142335.56644.rjw@sisk.pl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
- > From: Rick Jones <rick.jones2@hp.com>
- > Date: Mon, 11 Aug 2008 11:13:25 -0700
- >
- >> David Miller wrote:
- >>> And I even wonder, these days, if you probably get %90 or more of the
- >>> gain these "optimized" iSCSI connections obtain from things like LRO.
- >>> And since LRO can be done entirely in software (although stateless
- >>> HW assistence helps), it is even a NIC agnostic performance 
-improvement.
- >> Probably depends on whether or not the iSCSI offload solutions are doing
- >> zero-copy receive into the filecache?
- >
- > That's a data placement issue, which also can be solved with
- > stateless offloading.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Speaking of stateless data placement.  Assume you have a page or set
-of pages allocated by a network driver which contain exactly the data
-a block driver is interested in to fulfill a read request (eg, the NIC
-understands the protocol just well enough to split headers).  Is it
-possible in the block driver to simply replace the pages that are
-attached to the buf with pages allocated by the network driver?
+Adapt the skge driver to the reworked PCI PM
 
-It was my impression that the pages associated with a buf are in
-fairly magical states and that you cannot replace them.  Rather,
-you actually need to register them with the NIC, so the NIC can
-receive into them rather than into an anonymously allocated page.
-At this point, the NIC needs to be smart enough to match the block
-read requests with the correct buffer, and you need some kind of
-side channel between the network driver and the block driver to
-pass the DMA address of the buf's pages and associated read request
-tag.
+* Use device_set_wakeup_enable() and friends as needed
+* Remove an open-coded reference to the standard PCI PM registers
+* Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
+  ->suspend() and ->resume() callbacks
+* Use the observation that it is sufficient to call pci_enable_wake()
+  once, unless it fails
 
-Is this true?
+Tested on Asus L5D (Yukon-Lite rev 7).
 
-Drew
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/skge.c |   38 +++++++++++---------------------------
+ 1 file changed, 11 insertions(+), 27 deletions(-)
+
+Index: linux-next/drivers/net/skge.c
+===================================================================
+--- linux-next.orig/drivers/net/skge.c
++++ linux-next/drivers/net/skge.c
+@@ -149,24 +149,6 @@ static u32 wol_supported(const struct sk
+ 	return WAKE_MAGIC | WAKE_PHY;
+ }
+ 
+-static u32 pci_wake_enabled(struct pci_dev *dev)
+-{
+-	int pm = pci_find_capability(dev, PCI_CAP_ID_PM);
+-	u16 value;
+-
+-	/* If device doesn't support PM Capabilities, but request is to disable
+-	 * wake events, it's a nop; otherwise fail */
+-	if (!pm)
+-		return 0;
+-
+-	pci_read_config_word(dev, pm + PCI_PM_PMC, &value);
+-
+-	value &= PCI_PM_CAP_PME_MASK;
+-	value >>= ffs(PCI_PM_CAP_PME_MASK) - 1;   /* First bit of mask */
+-
+-	return value != 0;
+-}
+-
+ static void skge_wol_init(struct skge_port *skge)
+ {
+ 	struct skge_hw *hw = skge->hw;
+@@ -254,10 +236,14 @@ static int skge_set_wol(struct net_devic
+ 	struct skge_port *skge = netdev_priv(dev);
+ 	struct skge_hw *hw = skge->hw;
+ 
+-	if (wol->wolopts & ~wol_supported(hw))
++	if ((wol->wolopts & ~wol_supported(hw))
++	    || !device_can_wakeup(&hw->pdev->dev))
+ 		return -EOPNOTSUPP;
+ 
+ 	skge->wol = wol->wolopts;
++
++	device_set_wakeup_enable(&hw->pdev->dev, skge->wol);
++
+ 	return 0;
+ }
+ 
+@@ -3842,7 +3828,7 @@ static struct net_device *skge_devinit(s
+ 	skge->speed = -1;
+ 	skge->advertising = skge_supported_modes(hw);
+ 
+-	if (pci_wake_enabled(hw->pdev))
++	if (device_may_wakeup(&hw->pdev->dev))
+ 		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+ 
+ 	hw->dev[port] = dev;
+@@ -4068,8 +4054,8 @@ static int skge_suspend(struct pci_dev *
+ 	}
+ 
+ 	skge_write32(hw, B0_IMSK, 0);
+-	pci_enable_wake(pdev, pci_choose_state(pdev, state), wol);
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++
++	pci_prepare_to_sleep(pdev);
+ 
+ 	return 0;
+ }
+@@ -4082,7 +4068,7 @@ static int skge_resume(struct pci_dev *p
+ 	if (!hw)
+ 		return 0;
+ 
+-	err = pci_set_power_state(pdev, PCI_D0);
++	err = pci_back_from_sleep(pdev);
+ 	if (err)
+ 		goto out;
+ 
+@@ -4090,8 +4076,6 @@ static int skge_resume(struct pci_dev *p
+ 	if (err)
+ 		goto out;
+ 
+-	pci_enable_wake(pdev, PCI_D0, 0);
+-
+ 	err = skge_reset(hw);
+ 	if (err)
+ 		goto out;
+@@ -4132,8 +4116,8 @@ static void skge_shutdown(struct pci_dev
+ 		wol |= skge->wol;
+ 	}
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, wol);
+-	pci_enable_wake(pdev, PCI_D3cold, wol);
++	if (pci_enable_wake(pdev, PCI_D3cold, wol))
++		pci_enable_wake(pdev, PCI_D3hot, wol);
+ 
+ 	pci_disable_device(pdev);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+
