@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 19:07:06 -0700 (PDT)
-Message-ID: <20080813.190706.251724821.davem@davemloft.net>
-References: <48A389DB.9050002@opengridcomputing.com>
-	<20080813.183755.72334968.davem@davemloft.net>
-	<48A390F4.5080101@opengridcomputing.com>
+Date: Wed, 13 Aug 2008 19:09:05 -0700 (PDT)
+Message-ID: <20080813.190905.31828583.davem@davemloft.net>
+References: <adatzdoiklo.fsf@cisco.com>
+	<20080813.161237.10205799.davem@davemloft.net>
+	<48A389DB.9050002@opengridcomputing.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,27 +16,20 @@ Cc: rdreier@cisco.com, rick.jones2@hp.com, jgarzik@pobox.com,
 	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
 To: tom@opengridcomputing.com
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <48A390F4.5080101@opengridcomputing.com>
+In-Reply-To: <48A389DB.9050002@opengridcomputing.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Tom Tucker <tom@opengridcomputing.com>
-Date: Wed, 13 Aug 2008 20:57:08 -0500
+Date: Wed, 13 Aug 2008 20:26:51 -0500
 
-> I'm not trying to be pedantic here but let me try and restate what I 
-> think you said above:
-> 
-> - The "header" traverses the real networking stack
-> - The "payload" is placed either by by the hardware if possible or by 
-> the native stack if on the exception path
-> - The "header" may aggregate multiple  PDU (RSO)
-> - Data ready indications are controlled entirely by the software/real 
-> networking stack
+> Is there any chance your could discuss exactly how a stateless adapter 
+> can determine if a network segment
+> is in-order, next expected, minus productive ack, paws compliant, etc... 
+> without TCP state?
 
-SKB's can be paged, in fact many devices already work by chopping
-up lists of pages that the driver gives to the card.  NIU is one
-of several examples.
+If you're getting packets out of order, data placement optimizations
+are the least of your concerns.
 
-The only difference between what a device like NIU is doing now and
-what I propose is smart determination of at what offset and into
-which buffers to do the demarcation.
+In fact this is exactly where we want all of the advanced loss
+handling algorithms of the Linux TCP stack to get engaged.
