@@ -1,39 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 14 Aug 2008 18:33:36 +1000
-Message-ID: <20080814083336.GA452@gondor.apana.org.au>
-References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net> <20080814075907.GA6797@ff.dom.local> <20080814081632.GB32475@gondor.apana.org.au> <20080814083127.GA12217@ff.dom.local>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: AX88796: Fix locking in ethtool support
+Date: Thu, 14 Aug 2008 04:44:38 -0400
+Message-ID: <48A3F076.8080206@garzik.org>
+References: <20080807162109.360877609@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53193 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752471AbYHNIdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:33:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20080814083127.GA12217@ff.dom.local>
+Received: from srv5.dvmed.net ([207.36.208.214]:52765 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752471AbYHNIom (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 04:44:42 -0400
+In-Reply-To: <20080807162109.360877609@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2008 at 08:31:27AM +0000, Jarek Poplawski wrote:
->
-> I'm not sure of your point... This patch is only to fix my yesterday's
-> doubt #1, and it doesn't introduce, I hope, any new live-lock
-> vulnerabity. So, if you mean doubt #2, there is needed a separate
-> patch, but I'm not sure there is a need to add a flag. I've thougt
-> about a counter in a Qdisc for consecutive requeues with
-> netif_schedule, so we could break after some limit. Of course, your
-> idea could be simpler and better, but if I could only see some code...
+Ben Dooks wrote:
+> Fix a pair of nasty locking problems in the ax88796 driver
+> spotted by a sparse check:
+> 
+> warning: context imbalance in 'ax_get_settings' - wrong count at exit
+> warning: context imbalance in 'ax_set_settings' - wrong count at exit
+> 
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+> 
+> Index: linux-2.6.27-rc2-quilt1/drivers/net/ax88796.c
+> ===================================================================
+> --- linux-2.6.27-rc2-quilt1.orig/drivers/net/ax88796.c	2008-08-07 17:15:01.000000000 +0100
+> +++ linux-2.6.27-rc2-quilt1/drivers/net/ax88796.c	2008-08-07 17:17:45.000000000 +0100
+> @@ -554,7 +554,7 @@ static int ax_get_settings(struct net_de
+>  
+>  	spin_lock_irqsave(&ax->mii_lock, flags);
+>  	mii_ethtool_gset(&ax->mii, cmd);
+> -	spin_lock_irqsave(&ax->mii_lock, flags);
+> +	spin_unlock_irqrestore(&ax->mii_lock, flags);
+>  
+>  	return 0;
+>  }
+> @@ -567,7 +567,7 @@ static int ax_set_settings(struct net_de
+>  
+>  	spin_lock_irqsave(&ax->mii_lock, flags);
+>  	rc = mii_ethtool_sset(&ax->mii, cmd);
+> -	spin_lock_irqsave(&ax->mii_lock, flags);
+> +	spin_unlock_irqrestore(&ax->mii_lock, flags);
 
-What I mean is the extremely unlikely scenario of net_tx_action
-always failing on trylock because dev_deactivate has grabbed the
-lock to check whether net_tx_action has completed.
+applied
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
