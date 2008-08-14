@@ -1,41 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 14 Aug 2008 08:44:29 +0000
-Message-ID: <20080814084429.GB12217@ff.dom.local>
-References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net> <20080814075907.GA6797@ff.dom.local> <20080814081632.GB32475@gondor.apana.org.au> <20080814083127.GA12217@ff.dom.local> <20080814083336.GA452@gondor.apana.org.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ne: Use CONFIG_MACH_TX49XX
+Date: Thu, 14 Aug 2008 04:44:53 -0400
+Message-ID: <48A3F085.9060603@garzik.org>
+References: <20080808.005517.96686714.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:64869 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740AbYHNIom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:44:42 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so319684fgg.17
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 01:44:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080814083336.GA452@gondor.apana.org.au>
+Received: from srv5.dvmed.net ([207.36.208.214]:36253 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752315AbYHNIo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 04:44:57 -0400
+In-Reply-To: <20080808.005517.96686714.anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2008 at 06:33:36PM +1000, Herbert Xu wrote:
-> On Thu, Aug 14, 2008 at 08:31:27AM +0000, Jarek Poplawski wrote:
-> >
-> > I'm not sure of your point... This patch is only to fix my yesterday's
-> > doubt #1, and it doesn't introduce, I hope, any new live-lock
-> > vulnerabity. So, if you mean doubt #2, there is needed a separate
-> > patch, but I'm not sure there is a need to add a flag. I've thougt
-> > about a counter in a Qdisc for consecutive requeues with
-> > netif_schedule, so we could break after some limit. Of course, your
-> > idea could be simpler and better, but if I could only see some code...
+Atsushi Nemoto wrote:
+> After some cleanups in arch/mips area, now MACH_TX49XX is selected for
+> both TOSHIBA_RBTX4927 and TOSHIBA_RBTX4938.  Fold these two conditions
+> to one.
 > 
-> What I mean is the extremely unlikely scenario of net_tx_action
-> always failing on trylock because dev_deactivate has grabbed the
-> lock to check whether net_tx_action has completed.
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> ---
+>  drivers/net/Kconfig |    2 +-
+>  drivers/net/ne.c    |    4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 8a03875..b6c1717 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -1171,7 +1171,7 @@ config ETH16I
+>  
+>  config NE2000
+>  	tristate "NE2000/NE1000 support"
+> -	depends on NET_ISA || (Q40 && m) || M32R || TOSHIBA_RBTX4927 || TOSHIBA_RBTX4938
+> +	depends on NET_ISA || (Q40 && m) || M32R || MACH_TX49XX
+>  	select CRC32
+>  	---help---
+>  	  If you have a network (Ethernet) card of this type, say Y and read
+> diff --git a/drivers/net/ne.c b/drivers/net/ne.c
+> index 42443d6..fa3ceca 100644
+> --- a/drivers/net/ne.c
+> +++ b/drivers/net/ne.c
+> @@ -118,7 +118,7 @@ bad_clone_list[] __initdata = {
+>      {"E-LAN100", "E-LAN200", {0x00, 0x00, 0x5d}}, /* Broken ne1000 clones */
+>      {"PCM-4823", "PCM-4823", {0x00, 0xc0, 0x6c}}, /* Broken Advantech MoBo */
+>      {"REALTEK", "RTL8019", {0x00, 0x00, 0xe8}}, /* no-name with Realtek chip */
+> -#if defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
+> +#ifdef CONFIG_MACH_TX49XX
+>      {"RBHMA4X00-RTL8019", "RBHMA4X00/RTL8019", {0x00, 0x60, 0x0a}},  /* Toshiba built-in */
+>  #endif
+>      {"LCS-8834", "LCS-8836", {0x04, 0x04, 0x37}}, /* ShinyNet (SET) */
+> @@ -142,7 +142,7 @@ bad_clone_list[] __initdata = {
+>  #if defined(CONFIG_PLAT_MAPPI)
+>  #  define DCR_VAL 0x4b
 
-Of course! I got it myself after responding and re-reading, sorry. So,
-this is yet another doubt, but I still wonder why you don't attach
-any code... (I'm currently trying to re-think this.)
+applied
 
-Jarek P.
+
