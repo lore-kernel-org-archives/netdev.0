@@ -1,84 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ixgbe: add cx4 device ID
-Date: Thu, 14 Aug 2008 04:46:32 -0400
-Message-ID: <48A3F0E8.1010300@garzik.org>
-References: <20080808232419.17754.78857.stgit@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 14 Aug 2008 08:52:50 +0000
+Message-ID: <20080814085250.GC12217@ff.dom.local>
+References: <20080813102701.GD5367@ff.dom.local> <20080813104238.GA11374@gondor.apana.org.au> <20080813105052.GA6838@ff.dom.local> <20080813.151918.61294677.davem@davemloft.net> <20080814075907.GA6797@ff.dom.local> <20080814081632.GB32475@gondor.apana.org.au> <20080814083127.GA12217@ff.dom.local> <20080814083336.GA452@gondor.apana.org.au> <20080814084429.GB12217@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36304 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758281AbYHNIqf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2008 04:46:35 -0400
-In-Reply-To: <20080808232419.17754.78857.stgit@localhost.localdomain>
+Received: from fk-out-0910.google.com ([209.85.128.185]:20128 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298AbYHNIw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 04:52:56 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so363892fkq.5
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 01:52:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080814084429.GB12217@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Thu, Aug 14, 2008 at 08:44:29AM +0000, Jarek Poplawski wrote:
+> On Thu, Aug 14, 2008 at 06:33:36PM +1000, Herbert Xu wrote:
+> > On Thu, Aug 14, 2008 at 08:31:27AM +0000, Jarek Poplawski wrote:
+> > >
+> > > I'm not sure of your point... This patch is only to fix my yesterday's
+> > > doubt #1, and it doesn't introduce, I hope, any new live-lock
+> > > vulnerabity. So, if you mean doubt #2, there is needed a separate
+> > > patch, but I'm not sure there is a need to add a flag. I've thougt
+> > > about a counter in a Qdisc for consecutive requeues with
+> > > netif_schedule, so we could break after some limit. Of course, your
+> > > idea could be simpler and better, but if I could only see some code...
+> > 
+> > What I mean is the extremely unlikely scenario of net_tx_action
+> > always failing on trylock because dev_deactivate has grabbed the
+> > lock to check whether net_tx_action has completed.
 > 
-> This is a simple device ID add for adapters that support
-> CX4 (copper infiniband style cable) connectors for 10GbE.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> 
->  drivers/net/ixgbe/ixgbe_82598.c |    1 +
->  drivers/net/ixgbe/ixgbe_main.c  |    4 +++-
->  drivers/net/ixgbe/ixgbe_type.h  |    1 +
->  3 files changed, 5 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-> index 2f38e84..f96358b 100644
-> --- a/drivers/net/ixgbe/ixgbe_82598.c
-> +++ b/drivers/net/ixgbe/ixgbe_82598.c
-> @@ -190,6 +190,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82598(struct ixgbe_hw *hw)
->  	case IXGBE_DEV_ID_82598AF_DUAL_PORT:
->  	case IXGBE_DEV_ID_82598AF_SINGLE_PORT:
->  	case IXGBE_DEV_ID_82598EB_CX4:
-> +	case IXGBE_DEV_ID_82598_CX4_DUAL_PORT:
->  		media_type = ixgbe_media_type_fiber;
->  		break;
->  	case IXGBE_DEV_ID_82598AT_DUAL_PORT:
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index e5f3da8..34bca16 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -48,7 +48,7 @@ char ixgbe_driver_name[] = "ixgbe";
->  static const char ixgbe_driver_string[] =
->  	"Intel(R) 10 Gigabit PCI Express Network Driver";
->  
-> -#define DRV_VERSION "1.3.18-k2"
-> +#define DRV_VERSION "1.3.18-k4"
->  const char ixgbe_driver_version[] = DRV_VERSION;
->  static const char ixgbe_copyright[] =
->  	 "Copyright (c) 1999-2007 Intel Corporation.";
-> @@ -72,6 +72,8 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
->  	 board_82598 },
->  	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_CX4),
->  	 board_82598 },
-> +	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_CX4_DUAL_PORT),
-> +	 board_82598 },
->  
->  	/* required last entry */
->  	{0, }
-> diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-> index 1ad7cb9..c0282a2 100644
-> --- a/drivers/net/ixgbe/ixgbe_type.h
-> +++ b/drivers/net/ixgbe/ixgbe_type.h
-> @@ -39,6 +39,7 @@
->  #define IXGBE_DEV_ID_82598AF_SINGLE_PORT 0x10C7
->  #define IXGBE_DEV_ID_82598AT_DUAL_PORT   0x10C8
->  #define IXGBE_DEV_ID_82598EB_CX4         0x10DD
-> +#define IXGBE_DEV_ID_82598_CX4_DUAL_PORT 0x10EC
->  
+> Of course! I got it myself after responding and re-reading, sorry. So,
+> this is yet another doubt, but I still wonder why you don't attach
+> any code... (I'm currently trying to re-think this.)
 
-applied
+On the other hand... such a flag would be probably for one thing only.
+And if we would have a "netif_scheduled_without_xmitting" counter this
+could probably make 2 in 1?
 
-
+Jarek P.
