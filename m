@@ -1,76 +1,50 @@
-From: Tom Tucker <tom@opengridcomputing.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
-Date: Wed, 13 Aug 2008 20:26:51 -0500
-Message-ID: <48A389DB.9050002@opengridcomputing.com>
-References: <ada3al8k3l5.fsf@cisco.com>	<20080813.150831.193391799.davem@davemloft.net>	<adatzdoiklo.fsf@cisco.com> <20080813.161237.10205799.davem@davemloft.net>
+Date: Wed, 13 Aug 2008 19:05:21 -0700 (PDT)
+Message-ID: <20080813.190521.224523380.davem@davemloft.net>
+References: <48A389DB.9050002@opengridcomputing.com>
+	<20080813.183755.72334968.davem@davemloft.net>
+	<48A38FEF.6090500@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, rick.jones2@hp.com, jgarzik@pobox.com,
-	swise@opengridcomputing.com, divy@chelsio.com, kxie@chelsio.com,
+Cc: tom@opengridcomputing.com, rdreier@cisco.com, rick.jones2@hp.com,
+	jgarzik@pobox.com, divy@chelsio.com, kxie@chelsio.com,
 	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
 	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
 	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
 	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080813.161237.10205799.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: swise@opengridcomputing.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44281
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751164AbYHNCFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 22:05:19 -0400
+In-Reply-To: <48A38FEF.6090500@opengridcomputing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Wed, 13 Aug 2008 16:03:15 -0700
->
->   
->> OK, I admit you could make something work -- add hooks for the low-level
->> driver to ask the iSCSI initiator where PDU boundaries are so it can
->> resync when something is evicted from the flow cache, have the initiator
->> format its tags in a special way to encode placement data, etc, etc.
->> The scheme does bring to mind Alan's earlier comment about pigs and
->> propulsion, though.
->>     
->
-> There would need to be _NO_ hooks into the iSCSI initiator at all.
->
-> The card would land the block I/O data onto the necessary page boundaries
-> and the iSCSI code would just be able to thus use the pages directly
-> and as-is.
->
-> It would look perfectly like normal TCP receive traffic.  No hooks,
-> no special cases, nothing like that.
->
->   
->> In any case, as I said in the part of my email that you snipped, the
->> real issue is not designing hypothetical hardware, but deciding how to
->> support the Chelsio, Broadcom, etc hardware that exists today.
->>     
->
-> The same like we support TOE hardware that exists today.  That is, we
-> don't.
->
->   
-Is there any chance your could discuss exactly how a stateless adapter 
-can determine if a network segment
-is in-order, next expected, minus productive ack, paws compliant, etc... 
-without TCP state?
+From: Steve Wise <swise@opengridcomputing.com>
+Date: Wed, 13 Aug 2008 20:52:47 -0500
 
-I get how you can optimize "flows", but "flows" are a fancy name for a 
-key (typically the four-tuple) that looks into a TCAM  to get the 
-"information" necessary to do header prediction.
+> How do you envision programming such a device?
 
-Can you explain how this "information" somehow doesn't qualify as 
-"state". Doesn't the next expected sequence number at the very least 
-need to be updated? una? etc...?
+There should be no special programming.
 
-Could you also include the "non-state-full" information necessary to do 
-iSCSI header digest validation, data placement, and marker removal? 
+> It will need TCP and iSCSI state to have any chance of doing useful
+> and productive placement of data.
 
-Thanks,
-Tom
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
+The card can see the entire TCP stream, it doesn't need anything
+more than that.  It can parse every packet header, see what kind
+of data transfer is being requested or responded to, etc.
 
+Look, I'm not going to design this whole friggin' thing for you guys.
+
+I've stated clearly what the base requirement is, which is that the
+packet is fully processed by the networking stack and that the card
+merely does data placement optimizations that the stack can completely
+ignore if it wants to.
+
+You have an entire engine in there that can interpret an iSCSI
+transport stream, you have the logic to do these kinds of things,
+and it can be done without managing the connection on the card.
