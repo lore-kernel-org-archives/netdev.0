@@ -1,42 +1,33 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCHv3 0/2] IPVS: Add Generic Netlink configuration interface
-Date: Thu, 14 Aug 2008 14:12:42 +1000
-Message-ID: <20080814041240.GA778@verge.net.au>
-References: <1218120219-1117-1-git-send-email-juliusv@google.com> <20080808022607.GB6094@verge.net.au> <20080808120642.GB32458@google.com> <20080809142331.GA3497@verge.net.au> <f4845fc0808130900o550511dn2ec425bb2c911738@mail.gmail.com> <20080813230927.GB10749@verge.net.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/1] tun: TUNGETIFF interface to query name and flags
+Date: Thu, 14 Aug 2008 11:58:57 +1000
+Message-ID: <200808141158.57879.rusty@rustcorp.com.au>
+References: <1218637816.29159.31.camel@muff>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julius.volz@gmail.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	tgraf@suug.ch, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Max Krasnyansky <maxk@qualcomm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:35937 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848AbYHNEMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 00:12:45 -0400
+Received: from ozlabs.org ([203.10.76.45]:32839 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752253AbYHNEO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2008 00:14:56 -0400
+In-Reply-To: <1218637816.29159.31.camel@muff>
 Content-Disposition: inline
-In-Reply-To: <20080813230927.GB10749@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2008 at 09:09:29AM +1000, Simon Horman wrote:
-> On Wed, Aug 13, 2008 at 06:00:41PM +0200, Julius Volz wrote:
-> > On Sat, Aug 9, 2008 at 4:23 PM, Simon Horman <horms@verge.net.au> wrote:
-> > > Hi Julius,
-> > >
-> > > your latest patch does resolve the problem that I was seeing
-> > > with ipvsadm-1.25-nl-2. ipvsadm-1.25-nl-3 also works :-)
-> > >
-> > > I'd like to try and stress it out a bit more.
-> > > I will try and get to that tomorrow or on Monday.
-> > 
-> > Hi, you were probably occupied by the other IPVS patches. Is there any
-> > news on this?
-> 
-> Sorry Julius, I got side-tracked. I'll get onto this today, one way or another.
+On Thursday 14 August 2008 00:30:16 Mark McLoughlin wrote:
+> A very simple approach is attached; I did consider doing a TUNGETFLAGS
+> that would return tun->flags, but I think it's nicer to have a companion
+> to TUNGETIFF since it also allows one to query the interface name from
+> the file descriptor.
 
-Hi Julius,
+This seems really sensible to me.
 
-I tried to stress this code a bit more and nothing fell off.
-I'm pretty happy with them, though Sven's comment about error checking
-needs attention.
+If Max acks it, I'd say Dave should merge it.
+Rusty.
