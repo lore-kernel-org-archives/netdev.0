@@ -1,46 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for
- iptables nat routing
-Date: Wed, 13 Aug 2008 19:21:01 -0700 (PDT)
-Message-ID: <20080813.192101.221940876.davem@davemloft.net>
-References: <bug-11316-10286@http.bugzilla.kernel.org/>
-	<20080812221204.46afb4a6.akpm@linux-foundation.org>
-	<1218679700.23510.8.camel@2710p.home>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [RFC][PATCH 1/1] cxgb3i: cxgb3 iSCSI initiator
+Date: Wed, 13 Aug 2008 21:44:33 -0500
+Message-ID: <48A39C11.4010506@opengridcomputing.com>
+References: <48A389DB.9050002@opengridcomputing.com>	<20080813.183755.72334968.davem@davemloft.net>	<48A38FEF.6090500@opengridcomputing.com> <20080813.190521.224523380.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, buytenh@marvell.com,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	kaber@trash.net
-To: alex.williamson@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50888
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751386AbYHNCU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2008 22:20:59 -0400
-In-Reply-To: <1218679700.23510.8.camel@2710p.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tom@opengridcomputing.com, rdreier@cisco.com, rick.jones2@hp.com,
+	jgarzik@pobox.com, divy@chelsio.com, kxie@chelsio.com,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	michaelc@cs.wisc.edu, daisyc@us.ibm.com, wenxiong@us.ibm.com,
+	bhua@us.ibm.com, dm@chelsio.com, leedom@chelsio.com,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080813.190521.224523380.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Wed, 13 Aug 2008 20:08:20 -0600
+David Miller wrote:
+> I've stated clearly what the base requirement is, which is that the
+> packet is fully processed by the networking stack and that the card
+> merely does data placement optimizations that the stack can completely
+> ignore if it wants to.
+>
+> You have an entire engine in there that can interpret an iSCSI
+> transport stream, you have the logic to do these kinds of things,
+> and it can be done without managing the connection on the card.
+>   
 
-> git bisect traced the problem back to this changeset:
-> 
->         commit e5a4a72d4f88f4389e9340d383ca67031d1b8536
->         Author: Lennert Buytenhek <buytenh@marvell.com>
->         Date:   Sun Aug 3 01:23:10 2008 -0700
->         
->             net: use software GSO for SG+CSUM capable netdevices
-> 
-> I've verified that I can toggle the slowness by reverting this patch on
-> top of 8d0968ab (current head).  The problem is readily reproducible
-> using Ubuntu Hardy in a KVM VM with upstream, defconfig kernel.
+Thanks for finally stating it clearly.
 
-Patrick I wonder if there a case where iptables NAT will COW the packet
-when it really doesn't need to.
-
-It seems, if anything, using GSO should make things go a little bit
-faster not slower... Hmmm...
-
-Anyways, if we can't figure this one out soon we can easily revert.
