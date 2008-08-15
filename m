@@ -1,71 +1,62 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 2/3] Adapt the sky2 driver to the reworked PCI PM
-Date: Fri, 15 Aug 2008 15:07:10 +0200
-Message-ID: <200808151507.11580.rjw@sisk.pl>
-References: <200808142335.56644.rjw@sisk.pl> <20080814152318.625f8609@extreme> <200808151501.58315.rjw@sisk.pl>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- question about NMI
+	watchdog
+Date: Fri, 15 Aug 2008 15:26:46 +0200
+Message-ID: <20080815132646.GF30597@elte.hu>
+References: <445817.22956.qm@web82101.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: multipart/mixed; boundary="zhXaljGHf11kAtnf"
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: David Witbrodt <dawitbro@sbcglobal.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:59571 "EHLO ogre.sisk.pl"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:50153 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753016AbYHONDv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2008 09:03:51 -0400
-In-Reply-To: <200808151501.58315.rjw@sisk.pl>
+	id S1753764AbYHON1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2008 09:27:12 -0400
 Content-Disposition: inline
+In-Reply-To: <445817.22956.qm@web82101.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, 15 of August 2008, Rafael J. Wysocki wrote:
-> On Friday, 15 of August 2008, Stephen Hemminger wrote:
-> > On Thu, 14 Aug 2008 23:38:17 +0200
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > 
-> > > Adapt the sky2 driver to the reworked PCI PM
-> > > 
-> > > * Use device_set_wakeup_enable() and friends as needed
-> > > * Remove an open-coded reference to the standard PCI PM registers
-> > > * Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
-> > >   ->suspend() and ->resume() callbacks
-> > > * Use the observation that it is sufficient to call pci_enable_wake()
-> > >   once, unless it fails
-> > > 
-> > > Tested on Asus M3A32-MVP (Yukon-2 EC Ultra rev 3).
-> > > 
-> > > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > > ---
-> > >  drivers/net/sky2.c |   34 ++++++++++------------------------
-> > >  1 file changed, 10 insertions(+), 24 deletions(-)
-> > > 
-> > > Index: linux-2.6/drivers/net/sky2.c
-> > > ===================================================================
-> > > --- linux-2.6.orig/drivers/net/sky2.c
-> > > +++ linux-2.6/drivers/net/sky2.c
-> > > @@ -3035,7 +3035,8 @@ static int sky2_set_wol(struct net_devic
-> > >  	struct sky2_port *sky2 = netdev_priv(dev);
-> > >  	struct sky2_hw *hw = sky2->hw;
-> > >  
-> > > -	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
-> > > +	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
-> > > +	    || !device_can_wakeup(&hw->pdev->dev))
-> > >  		return -EOPNOTSUPP;
-> > >  
-> > 
-> > There was a regression in earlier releases caused because some BIOS's
-> > are wrong, and device can wakeup.
-> 
-> device_can_wakeup() returns 'true' if the device is capable of generating PME#
-> from at least one low power state (this is determined on the basis of the
-> contents of the device's PCI PM registers - please have a look at
-> drivers/pci/pci_pm_init() for details) or if ACPI tells us it can wake up.
 
-drivers/pci/pci.c:pci_pm_init(), sorry.
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+
+* David Witbrodt <dawitbro@sbcglobal.net> wrote:
+
+> Quick question: a quick browse of 'Documentation/nmi_watchdog.txt' 
+> suggests that I should use "nmi_watchdog=1", since I have SMP (CPU = 
+> Athlon 64 X2, with CONFIG_SMP=y).  Should I follow your suggestion 
+> later, or follow the recommendation of the 'nmi_watchdog.txt' doc?
+
+you could try both, starting with nmi_watchdog=2 - and trying 
+nmi_watchdog=1 if that doesnt work. The problem with nmi_watchdog=1 is 
+that it disables high-res timers. (because it has to - it piggy-backs on 
+the back of a periodic timer interrupt)
+
+you might even want to test the NMI watchdog with an intentional 
+user-space hard lockup - with the attached lockupcli.c program. 
+(Warning: if you run it as root it will really lock up your box hard. 
+Run it from a VGA text mode console to see any console messages.)
+
+	Ingo
+
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="lockupcli.c"
+
+
+main ()
+{
+	iopl(3);
+	for (;;) asm("cli");
+}
+
+
+--zhXaljGHf11kAtnf--
