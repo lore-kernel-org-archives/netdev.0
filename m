@@ -1,29 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tun: fallback if skb_alloc() fails on big packets
-Date: Fri, 15 Aug 2008 15:15:31 -0700 (PDT)
-Message-ID: <20080815.151531.139141076.davem@davemloft.net>
-References: <20080812101409.GA22114@gondor.apana.org.au>
-	<200808131324.56071.rusty@rustcorp.com.au>
-	<48A5C643.8020506@qualcomm.com>
+Subject: Re: linux-next: Tree for August 15 (bnx2) [resend/lost]
+Date: Fri, 15 Aug 2008 15:17:15 -0700 (PDT)
+Message-ID: <20080815.151715.111675039.davem@davemloft.net>
+References: <20080815184032.3acd8032.sfr@canb.auug.org.au>
+	<20080815084116.340ac526.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: maxk@qualcomm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49689
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751352AbYHOWPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 18:15:31 -0400
-In-Reply-To: <48A5C643.8020506@qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, mchan@broadcom.com, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20080815084116.340ac526.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Max Krasnyansky <maxk@qualcomm.com>
-Date: Fri, 15 Aug 2008 11:09:07 -0700
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Fri, 15 Aug 2008 08:41:16 -0700
 
-> TUN changes look good to me. Ack.
+> When VLAN is not enabled, bnx2 build fails with:
+> 
+> drivers/net/bnx2.c: In function 'bnx2_rx_int':
+> drivers/net/bnx2.c:2959: error: dereferencing pointer to incomplete type
+> drivers/net/bnx2.c:2960: error: dereferencing pointer to incomplete type
+> make[2]: *** [drivers/net/bnx2.o] Error 1
 
-I've applied Rusty's patch.  I have no suggestions on how to handle
-his situation better :)
+Does this fix it for you?
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index d454810..2486a65 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -35,8 +35,8 @@
+ #include <linux/time.h>
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ #include <linux/if_vlan.h>
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ #define BCM_VLAN 1
+ #endif
+ #include <net/ip.h>
