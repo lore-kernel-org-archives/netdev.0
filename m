@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: skb_copy_datagram_from_iovec()
-Date: Fri, 15 Aug 2008 15:14:00 -0700 (PDT)
-Message-ID: <20080815.151400.217147910.davem@davemloft.net>
-References: <200808121624.56948.rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/2] tun: fallback if skb_alloc() fails on big packets
+Date: Fri, 15 Aug 2008 15:15:31 -0700 (PDT)
+Message-ID: <20080815.151531.139141076.davem@davemloft.net>
+References: <20080812101409.GA22114@gondor.apana.org.au>
+	<200808131324.56071.rusty@rustcorp.com.au>
+	<48A5C643.8020506@qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maxk@qualcomm.com,
-	herbert@gondor.apana.org.au
-To: rusty@rustcorp.com.au
+Cc: rusty@rustcorp.com.au, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: maxk@qualcomm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49685
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49689
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751307AbYHOWOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 18:14:01 -0400
-In-Reply-To: <200808121624.56948.rusty@rustcorp.com.au>
+	by vger.kernel.org with ESMTP id S1751352AbYHOWPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 18:15:31 -0400
+In-Reply-To: <48A5C643.8020506@qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Tue, 12 Aug 2008 16:24:56 +1000
+From: Max Krasnyansky <maxk@qualcomm.com>
+Date: Fri, 15 Aug 2008 11:09:07 -0700
 
-> There's an skb_copy_datagram_iovec() to copy out of a paged skb, but
-> nothing the other way around (because we don't do that).
-> 
-> We want to allocate big skbs in tun.c, so let's add the function.
-> It's a carbon copy of skb_copy_datagram_iovec() with enough changes to
-> be annoying.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> TUN changes look good to me. Ack.
 
-Applied.
+I've applied Rusty's patch.  I have no suggestions on how to handle
+his situation better :)
