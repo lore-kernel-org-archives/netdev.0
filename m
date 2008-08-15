@@ -1,67 +1,42 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr
- schedulers
-Date: Fri, 15 Aug 2008 08:03:32 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808150801560.12259@titan.stealer.net>
-References: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net> <20080812021053.GD22142@verge.net.au> <alpine.LNX.1.10.0808120606200.12259@titan.stealer.net> <alpine.LNX.1.10.0808121007130.12259@titan.stealer.net> <20080813054247.GA21168@verge.net.au>
- <alpine.LNX.1.10.0808130842540.12259@titan.stealer.net> <20080813071221.GB4872@verge.net.au> <alpine.LNX.1.10.0808131119560.12259@titan.stealer.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.1.10.0808131119560.12259@titan.stealer.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 3/3] qeth: preallocated header account offset
+Date: Fri, 15 Aug 2008 08:03:00 +0200
+Message-ID: <20080815060352.948003000@de.ibm.com>
+References: <20080815060257.501264000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:33621 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbYHOGED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 02:04:03 -0400
+Content-Disposition: inline; filename=602-qeth-prealloc-offset.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Aug 2008, Sven Wegener wrote:
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-> On Wed, 13 Aug 2008, Simon Horman wrote:
-> 
-> > On Wed, Aug 13, 2008 at 08:59:32AM +0200, Sven Wegener wrote:
-> > > On Wed, 13 Aug 2008, Simon Horman wrote:
-> > > 
-> > > > On Tue, Aug 12, 2008 at 03:07:48PM +0200, Sven Wegener wrote:
-> > > > > 
-> > > > > +
-> > > > > +		/*
-> > > > > +		 * If the destination is not available, i.e. it's in the trash,
-> > > > > +		 * ignore it, as it may be removed from under our feet
-> > > > > +		 */
-> > > > > +
-> > > > > +		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE))
-> > > > > +			dest = NULL;
-> > > > >  	}
-> > > > > -	en->lastuse = jiffies;
-> > > > 
-> > > > At this point we know that dest exists and is not in the trash.
-> > > > We know that dest can't disapear given that its not already
-> > > > in the trash and our caller holds a read lock on __ip_vs_svc_lock.
-> > > > So dest will be safe until after ip_vs_lblc_schedule() returns.
-> > > > 
-> > > > Dest seems ok :-)
-> > > > 
-> > > > Ok, that seems complex but non-racy to me :-)
-> > > > 
-> > > > Perhaps a longer comment would be in order.
-> > > 
-> > > Yeah, that's the point where we prevent the race with the trash purging. 
-> > > We could change the purging of destinations from the trash to be under 
-> > > __ip_vs_svc_lock write locked, then we know that all destinations, even 
-> > > the ones in the trash are valid. Might make more sense than duplicating 
-> > > this logic in other schedulers.
-> > 
-> > That sounds like a good way to simplify things.
-> 
-> Looking at the code it doesn't seem that simple. We lock __ip_vs_svc_lock 
-> for writing and then wait for all current users of the service to go away. 
-> But it's still possible that we clean up destinations from other services. 
-> And when we restrict it to only clean up the destinations that match our 
-> service, we have a chance of leaving destinations in the trash for good.
+When a preallocated header qdio buffer is filled we have to account
+the offset for the data length.
 
-Still thinking about it, I'm against doing it globally. It's too much 
-hassle and in the end we still need to check for IP_VS_DEST_F_AVAILABLE in 
-the schedulers, because destinations in the trash shouldn't be used for 
-further connections.
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-Sven
+ drivers/s390/net/qeth_core_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: git_linus/drivers/s390/net/qeth_core_main.c
+===================================================================
+--- git_linus.orig/drivers/s390/net/qeth_core_main.c	2008-08-15 07:51:59.000000000 +0200
++++ git_linus/drivers/s390/net/qeth_core_main.c	2008-08-15 07:52:18.000000000 +0200
+@@ -3024,7 +3024,7 @@
+ 	struct qdio_buffer *buffer, int is_tso, int *next_element_to_fill,
+ 	int offset)
+ {
+-	int length = skb->len;
++	int length = skb->len - offset;
+ 	int length_here;
+ 	int element;
+ 	char *data;
+
+-- 
