@@ -1,70 +1,59 @@
-From: Jonathan Day <imipak@yahoo.com>
-Subject: Re: Multicast Routing Kernel option?
-Date: Fri, 15 Aug 2008 01:41:51 -0700 (PDT)
-Message-ID: <124178.76775.qm@web31502.mail.mud.yahoo.com>
-References: <loom.20080815T073349-129@post.gmane.org>
-Reply-To: imipak@yahoo.com
+From: "=?UNKNOWN?B?rqenQ6FCq0+xS6FCqLOzdKFCpnel/qFCssSkQKtPqve/xLjqoq+iuKKxorUtoq+is6KwLQ==?=
+	=?UNKNOWN?B?orSisqKyoUFXZWQsIDIw?= Aug 2008 05:18:31 -0200"
+	<ou.spring@yahoo.com.tw>
+Subject: =?UNKNOWN?B?tXW0wavmu92ye6r3qNOpUMLg?=
+Date: Fri, 15 Aug 2008 09:06:53 +0000 (UTC)
+Message-ID: <XQKQVJHATFLTIAHAGRTDSL.DEOXKYou.spring@yahoo.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, Daniel Ng <daniel_ng11@lycos.com>
+Content-Type: multipart/alternative;
+ boundary="Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)"
+To: net@vertexgrp.com.tw
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web31502.mail.mud.yahoo.com ([68.142.198.131]:23310 "HELO
-	web31502.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753555AbYHOIsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 04:48:33 -0400
-In-Reply-To: <loom.20080815T073349-129@post.gmane.org>
+Received: from [202.108.48.18] ([202.108.48.18]:49191 "EHLO
+	v240.tf-sunlight.com.cn" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753378AbYHOJGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 05:06:42 -0400
+Received: from 202.108.48.18 ([221.126.140.63]) by v240.tf-sunlight.com.cn
+ (Sun Java System Messaging Server 6.2-3.04 (built Jul 15 2005))
+ with SMTP id <0K5M00F1PRXX4KF0@v240.tf-sunlight.com.cn> for
+ netdev@vger.kernel.org; Fri, 15 Aug 2008 15:11:23 +0800 (CST)
+Date: Wed, 20 Aug 2008 11:18:31 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Personally, I'd suggest using pimd rather than routed - partly because routed uses a largely discontinued protocol, but also because pimd was developed up to a more recent point in time, so is more likely to play nicely with newer Linux kernels.
 
-As for the rest of my reply - it's been a while since I poked into those specific kernel internals. (I still think the headers need cleaning up.) Anything below, therefore, should be taken with either a pinch of salt or a pint of your favourite virtual beer. A keg of each of the 1000+ real ales from around the world are stored as microdots in each pixel of this email.
+--Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)
+Content-type: text/plain
+Content-transfer-encoding: quoted-printable
 
-As best as I understand it, Linux can either be set up to route multicast traffic or act as a multicast client, but doesn't like to do both. Not quite sure on the reasoning for that, as an output is an output and it can't make that much difference at that level of abstraction is a physical device or a logical device going into userspace.
+=ADt=B3d=A4H.=A5=F8=B7~=A5D.=A5=F8=B7~=B6U=B4=DA=A1=A3=B2=C4=A4@=ABO=AA=F7=
+=BF=C4=B8=EA=A1=A4=AAA=B0=C8=B9q=B8=DC:=A2=AF=A2=B8=A2=B1=A2=B5-=A2=AF=A2=B3=
+=A2=B0-=A2=B4=A2=B2=A2=B2=A1AWed, 20 Aug 2008 01:17:31 -0600
 
-Multicast routing support does require some things that clients don't need. You need multicast routing tables, for example, as a simple upstream pointer for the multicast network isn't going to be good enough. A client only needs to care about the multicast group version being supported, group membership and (for IGMPv3) any special inclusion or exclusion rules per group. Routers need kernel-level packet forwarding and optionally support to link things like QoS functions (eg: RSVP) into that packet forwarding mechanism.
+=A5=BB=A4=BD=A5q=B8g=ACF=A9=B2=A6X=AAk=A5=DF=AE=D7=A1A=A5=BF=AC=A3=B8g=C0=E7=
+=A1C
+=A8=F3=A7U=A6U=A6=E6=A6U=B7~=B8=EA=AA=F7=B6g=C2=E0=A4W=AA=BA=B0=DD=C3D=A1A=
+=B5L=AA=F9=C2e=AD=AD=A8=EE=A1B=B5L=BF=FA=B2=F8=B0=AA=A7Q=C0=A3=BA^=A1A
+=ACO=AD=D3=A4H=A1B=A4=BD=A5q/=A4u=BCt/=BE=F7=BE=B9=BF=C4=B8=EA=A1B=A5=CD=B7=
+N=A4H=BB=DD=C1{=AE=C9=B6g=C2=E0=AE=C9=AA=BA=A6n=A5=EB=A6=F1=A1C
+=A6X=AAk=A8=B3=B3t=A1B=C2=B2=B3=E6=A7C=AE=A7=A1B=C1=D9=B4=DA=BCu=A9=CA=A1A=
+=C5w=AA=EF=AC=A2=B8=DF=A1I
 
-Multicast routers (mrouted, pimd, pimdd, multicast-enabled gated, and a few others) do not actually do the packet forwarding themselves. At least, not usually. They could, I guess, but context switches are expensive (think 20ms from kernel to user, and same in reverse) so offloading trivial operations to the kernel and reserving the computationally-expensive stuff for userspace actually makes more sense.
+=B8g=C0=E7=B6=B5=A5=D8=A1G
+1.=A8T=A8=AE=AD=C9=B4=DA=A1A=B3t=AB=D7=A7=D6=A1B=A4=A3=A5=B2=AFd=A8=AE 
+2.=C6p=A5=DB=A1B=A6W=BF=F6
+3.=A9=D0=AB=CE=A4G=ADL=BB=B4=C3P=AD=C9
 
-(This is not theoretically true of RNICs, which can place data anywhere in memory, so can bypass context switches entirely. It's also not theoretically true of memory with built-in NIC support - such memory does exist. However, nobody uses such memory, and no RNIC I know of has any offloaded IGMP capabilities or direct registering of applications. Therefore, theory doesn't apply in this case and therefore packets are kernel-processed.)
+=B1=CF=AB=E6=A4=A3=B1=CF=BDa=B1M=BDu(=B2=C4=A4@=ABO=AA=F7=BF=C4=B8=EA)=A2=AF=
+=A2=B8=A2=B1=A2=B5-=A2=AF=A2=B3=A2=B0-=A2=B4=A2=B2=A2=B2
+1.=B3o=ACO=A4@=AB=CA=B5=BD=B7N=B6l=A5=F3=A1A=ADY=A6=B3=A5o=C2Z=A1A=A6b=A6=B9=
+=ADP=A4W=BAp=B7N
+2.=ADY=A4=A3=B7Q=A6A=A6=B8=A6=AC=A8=EC=BD=D0=A8=D3=B9q=A1A=B0=A8=A4W=AC=B0=
+=B1z=B3B=B2z
+3.=A4w=B8g=B9=C5=B4f=B9L=AB=DC=A6h=A5=F8=B7~=A1B=A4=BD=A5q=A1B=A6=D1=C1=F3=
+=A1A=C0=F2=B1o=B3\=A6h=BA=F4=A4=CD=A6n=B5=FB
 
-Enabling multicast routing provides you with the option of including the kernel components of the PIMv1 or PIMv2 protocols. As far as I understand it, PIMv1 has been deployed more and the software is more mature, but PIMv2 has explicit support for specific common and corner cases, so should perform better under just about any condition.
+=A5=F8=B7~=B5u=A4=A4=AA=F8=B4=C1=A9P=C2=E0=AA=F7=A1BL/C=A1B=AD=EC=AE=C6=A1=
+B=BE=F7=BE=B9=B3]=B3=C6=A1B=A9=D0=A6a=B2=A3=B5=A5
 
-Finally, there is the question of what you want to use multicasting for and over what type of network. Infiniband multicasting is different from IETF's UDP-based IP multicasting, although frankly I can't see why you couldn't use the same algorithms for routing. Linux' multicasting options deal with IP multicasting, not other forms, as far as I know.
-
-If you are going to be running standard multimedia fare over the network and be unicasting only for routing traffic and occasional remote admining, you would obviously want to configure other kernel options accordingly. On the other hand, if you're wanting to use SRM (scalable, reliable multicasting) or a derivative, then unicast traffic for repairs will be unpredictable and non-uniform. They too must be routed and to prevent their inclusion disrupting the multicast streams, you would need different kernel options to retain efficiency.
-
-Then, even if you are using IP multicast and have sorted everything else out, think about whether it's over IPv4 or IPv6. They use different group membership protocols and different routing mechanisms.
-
-After that, sit down with a nice cuppa tea or a beer and relax, safe in the knowledge that protocol gurus are busy rewriting the specs, obsoleting all that careful thought and work you have just done.
-
---- On Fri, 8/15/08, Daniel Ng <daniel_ng11@lycos.com> wrote:
-
-> From: Daniel Ng <daniel_ng11@lycos.com>
-> Subject: Multicast Routing Kernel option?
-> To: netdev@vger.kernel.org
-> Date: Friday, August 15, 2008, 12:37 AM
-> Hi,
-> 
-> Would someone please tell me in general terms what the
-> Multicast Routing 
-> kernel option does?
-> 
-> I'm considering using mrouted (DVMRP) for now. I
-> understand that mrouted does 
-> the actual routing of multicast packets. If that is the
-> case, what does the 
-> Multicast Routing kernel option provide?
-> 
-> Cheers,
-> Daniel
-> 
-> --
-> To unsubscribe from this list: send the line
-> "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at 
-> http://vger.kernel.org/majordomo-info.html
-
-
-      
+--Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)--
