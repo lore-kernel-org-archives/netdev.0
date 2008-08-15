@@ -1,51 +1,78 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- question about NMI watchdog
-Date: Fri, 15 Aug 2008 05:49:17 -0700 (PDT)
-Message-ID: <445817.22956.qm@web82101.mail.mud.yahoo.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH 2/3] Adapt the sky2 driver to the reworked PCI PM
+Date: Fri, 15 Aug 2008 15:01:57 +0200
+Message-ID: <200808151501.58315.rjw@sisk.pl>
+References: <200808142335.56644.rjw@sisk.pl> <200808142338.18361.rjw@sisk.pl> <20080814152318.625f8609@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82101.mail.mud.yahoo.com ([209.191.84.214]:27753 "HELO
-	web82101.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753557AbYHOMtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 08:49:18 -0400
+Received: from ogre.sisk.pl ([217.79.144.158]:59543 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753535AbYHOM7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2008 08:59:16 -0400
+In-Reply-To: <20080814152318.625f8609@extreme>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> > I found something very interesting about the commit that first causes 
-> > the lockup (3def3d6d...), and the very next commit (1e934dda...) -- if 
-> > I checkout 1e94... and try to revert the changes made in 3def..., the 
-> > kernel freezes in spite of the revert.
+On Friday, 15 of August 2008, Stephen Hemminger wrote:
+> On Thu, 14 Aug 2008 23:38:17 +0200
+> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> 
+> > Adapt the sky2 driver to the reworked PCI PM
 > > 
-> > Because of this, I would conclude that your patch for 2.6.27-rc3 was 
-> > doomed before you began, and we should look more carefully at the 
-> > commits from February instead of trying to revert at the 2.6.27 HEAD.
+> > * Use device_set_wakeup_enable() and friends as needed
+> > * Remove an open-coded reference to the standard PCI PM registers
+> > * Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
+> >   ->suspend() and ->resume() callbacks
+> > * Use the observation that it is sufficient to call pci_enable_wake()
+> >   once, unless it fails
+> > 
+> > Tested on Asus M3A32-MVP (Yukon-2 EC Ultra rev 3).
+> > 
+> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> > ---
+> >  drivers/net/sky2.c |   34 ++++++++++------------------------
+> >  1 file changed, 10 insertions(+), 24 deletions(-)
+> > 
+> > Index: linux-2.6/drivers/net/sky2.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/sky2.c
+> > +++ linux-2.6/drivers/net/sky2.c
+> > @@ -3035,7 +3035,8 @@ static int sky2_set_wol(struct net_devic
+> >  	struct sky2_port *sky2 = netdev_priv(dev);
+> >  	struct sky2_hw *hw = sky2->hw;
+> >  
+> > -	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
+> > +	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
+> > +	    || !device_can_wakeup(&hw->pdev->dev))
+> >  		return -EOPNOTSUPP;
+> >  
 > 
-> i'm still wondering whether we could try to figure out something about 
-> the nature of the hard lockup itself.
-> 
-> Have you tried to activate the NMI watchdog? It _usually_ works fine if 
-> you use a boot option along the lines of:
-> 
->    "lapic nmi_watchdog=2 idle=poll"
+> There was a regression in earlier releases caused because some BIOS's
+> are wrong, and device can wakeup.
 
-I have to go to work for a few hours right now, but will try this out when
-I get home.  (Actually, I'm late for work as I type this... but I have my
-priorities straight!  ;)
+device_can_wakeup() returns 'true' if the device is capable of generating PME#
+from at least one low power state (this is determined on the basis of the
+contents of the device's PCI PM registers - please have a look at
+drivers/pci/pci_pm_init() for details) or if ACPI tells us it can wake up.
+IOW, the BIOSes opinion doesn't matter if we find that the device is capable of
+generating PME#, so the regression must have been related to something else.
+I'm very interested in the details, if available.
 
-Quick question:  a quick browse of 'Documentation/nmi_watchdog.txt' suggests
-that I should use "nmi_watchdog=1", since I have SMP (CPU = Athlon 64 X2,
-with CONFIG_SMP=y).  Should I follow your suggestion later, or follow the
-recommendation of the 'nmi_watchdog.txt' doc?
+Of course, since we rely on the ability of the device to generate PME# and
+device_can_wakeup() returning 'false' means that the device cannot generate
+PME# from any state, it's reasonable to check it IMO.
 
-
-Much thanks,
-Dave W.
+Thanks,
+Rafael
