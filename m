@@ -1,90 +1,67 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/3] Adapt the sky2 driver to the reworked PCI PM
-Date: Fri, 15 Aug 2008 09:15:21 -0700
-Message-ID: <20080815091521.3f721d68@extreme>
-References: <200808142335.56644.rjw@sisk.pl>
-	<20080814152318.625f8609@extreme>
-	<200808151501.58315.rjw@sisk.pl>
-	<200808151532.14327.rjw@sisk.pl>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: 2.6.27-rc3-git2
+Date: Fri, 15 Aug 2008 19:24:07 +0300
+Message-ID: <200808151924.09132.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:35957 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754350AbYHOQPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2008 12:15:24 -0400
-In-Reply-To: <200808151532.14327.rjw@sisk.pl>
+Received: from relay2.globalproof.net ([194.146.153.25]:51151 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753571AbYHOQZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 12:25:17 -0400
+Received: from [195.69.208.252] (unknown [195.69.208.252])
+	by relay2.globalproof.net (Postfix) with ESMTP id 8522A1303F0
+	for <netdev@vger.kernel.org>; Fri, 15 Aug 2008 19:25:14 +0300 (EEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 15 Aug 2008 15:32:13 +0200
-"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+Just i notice warning while checking syslog.
+Posting here, if it's matter.
 
-> On Friday, 15 of August 2008, Rafael J. Wysocki wrote:
-> > On Friday, 15 of August 2008, Stephen Hemminger wrote:
-> > > On Thu, 14 Aug 2008 23:38:17 +0200
-> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > 
-> > > > Adapt the sky2 driver to the reworked PCI PM
-> > > > 
-> > > > * Use device_set_wakeup_enable() and friends as needed
-> > > > * Remove an open-coded reference to the standard PCI PM registers
-> > > > * Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
-> > > >   ->suspend() and ->resume() callbacks
-> > > > * Use the observation that it is sufficient to call pci_enable_wake()
-> > > >   once, unless it fails
-> > > > 
-> > > > Tested on Asus M3A32-MVP (Yukon-2 EC Ultra rev 3).
-> > > > 
-> > > > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > > > ---
-> > > >  drivers/net/sky2.c |   34 ++++++++++------------------------
-> > > >  1 file changed, 10 insertions(+), 24 deletions(-)
-> > > > 
-> > > > Index: linux-2.6/drivers/net/sky2.c
-> > > > ===================================================================
-> > > > --- linux-2.6.orig/drivers/net/sky2.c
-> > > > +++ linux-2.6/drivers/net/sky2.c
-> > > > @@ -3035,7 +3035,8 @@ static int sky2_set_wol(struct net_devic
-> > > >  	struct sky2_port *sky2 = netdev_priv(dev);
-> > > >  	struct sky2_hw *hw = sky2->hw;
-> > > >  
-> > > > -	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
-> > > > +	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
-> > > > +	    || !device_can_wakeup(&hw->pdev->dev))
-> > > >  		return -EOPNOTSUPP;
-> > > >  
-> > > 
-> > > There was a regression in earlier releases caused because some BIOS's
-> > > are wrong, and device can wakeup.
-> > 
-> > device_can_wakeup() returns 'true' if the device is capable of generating PME#
-> > from at least one low power state (this is determined on the basis of the
-> > contents of the device's PCI PM registers - please have a look at
-> > drivers/pci/pci_pm_init() for details) or if ACPI tells us it can wake up.
-> > IOW, the BIOSes opinion doesn't matter if we find that the device is capable of
-> > generating PME#, so the regression must have been related to something else.
-> > I'm very interested in the details, if available.
-> > 
-> > Of course, since we rely on the ability of the device to generate PME# and
-> > device_can_wakeup() returning 'false' means that the device cannot generate
-> > PME# from any state, it's reasonable to check it IMO.
-> 
-> BTW, if device_can_wakeup(&pdev->dev) returns 'false',
-> pci_enable_wake(pdev, state, true) will fail for any 'state', so the wake-up
-> won't work regardless of the change above.
-> 
-> Thanks,
-> Rafael
-
-Okay, the problem was false positives from ACPI. It looks like this won't make
-the problem any worse.
+Aug 15 13:17:36  [11769.573462] ------------[ cut here ]------------
+Aug 15 13:17:36  [11769.573462] WARNING: at kernel/softirq.c:136 local_bh_enable_ip+0x35/0xaa()
+Aug 15 13:17:36  [11769.573462] Modules linked in: coretemp hwmon i2c_i801 i2c_core nf_nat_ftp nf_conntrack_ftp softdog nf_nat_pptp nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_pr
+oto_gre netconsole configfs hangcheck_timer act_mirred sch_ing
+Aug 15 13:17:36  [11769.573462] Pid: 2395, comm: sh Not tainted 2.6.27-rc3-git2-build-0030 #9
+Aug 15 13:17:36  [11769.573462]  [<c02ba45b>] ? printk+0xf/0x14
+Aug 15 13:17:36  [11769.573462]  [<c0121be8>] warn_on_slowpath+0x41/0x65
+Aug 15 13:17:36  [11769.573462]  [<c013c7d8>] ? trace_hardirqs_off+0xb/0xd
+Aug 15 13:17:36  [11769.573462]  [<c013c7d8>] ? trace_hardirqs_off+0xb/0xd
+Aug 15 13:17:36  [11769.573462]  [<c013c7d8>] ? trace_hardirqs_off+0xb/0xd
+Aug 15 13:17:36  [11769.573462]  [<c016540f>] ? kmem_cache_free+0x91/0xa4
+Aug 15 13:17:36  [11769.573462]  [<c025bfc4>] ? __kfree_skb+0x63/0x66
+Aug 15 13:17:36  [11769.573462]  [<c013c7d8>] ? trace_hardirqs_off+0xb/0xd
+Aug 15 13:17:36  [11769.573462]  [<c01647d6>] ? __kmalloc_track_caller+0x98/0xd2
+Aug 15 13:17:36  [11769.573462]  [<c025d16a>] ? __netdev_alloc_skb+0x17/0x35
+Aug 15 13:17:36  [11769.573462]  [<f89ea2b8>] ? destroy_conntrack+0xcd/0xf1 [nf_conntrack]
+Aug 15 13:17:36  [11769.573462]  [<c0125fdc>] local_bh_enable_ip+0x35/0xaa
+Aug 15 13:17:36  [11769.573462]  [<c02bc800>] _spin_unlock_bh+0x25/0x28
+Aug 15 13:17:36  [11769.573462]  [<f89ea2b8>] destroy_conntrack+0xcd/0xf1 [nf_conntrack]
+Aug 15 13:17:36  [11769.573462]  [<c027680a>] nf_conntrack_destroy+0x34/0x4d
+Aug 15 13:17:36  [11769.573462]  [<c025c7fa>] skb_release_all+0x50/0x8d
+Aug 15 13:17:36  [11769.573462]  [<c025bf6c>] __kfree_skb+0xb/0x66
+Aug 15 13:17:36  [11769.573462]  [<c026c173>] zap_completion_queue+0x66/0x71
+Aug 15 13:17:36  [11769.573462]  [<c026c49b>] netpoll_poll+0x31d/0x336
+Aug 15 13:17:36  [11769.573462]  [<c01647d6>] ? __kmalloc_track_caller+0x98/0xd2
+Aug 15 13:17:36  [11769.573462]  [<c026c4e0>] ? find_skb+0x2c/0x6d
+Aug 15 13:17:36  [11769.573462]  [<c026c5dd>] netpoll_send_skb+0xbc/0x159
+Aug 15 13:17:36  [11769.573462]  [<c026c84b>] netpoll_send_udp+0x1d1/0x1da
+Aug 15 13:17:36  [11769.573462]  [<f8a64146>] write_msg+0x7f/0xb9 [netconsole]
+Aug 15 13:17:36  [11769.573462]  [<f8a640c7>] ? write_msg+0x0/0xb9 [netconsole]
+Aug 15 13:17:36  [11769.573462]  [<c0121e6f>] __call_console_drivers+0x56/0x63
+Aug 15 13:17:36  [11769.573462]  [<c0121ed3>] _call_console_drivers+0x57/0x5b
+Aug 15 13:17:36  [11769.573462]  [<c012223b>] release_console_sem+0x113/0x1aa
+Aug 15 13:17:36  [11769.573462]  [<c012271d>] vprintk+0x2b5/0x2e1
+Aug 15 13:17:36  [11769.573462]  [<c02ba45b>] printk+0xf/0x14
+Aug 15 13:17:36  [11769.573462]  [<f89e6092>] softdog_release+0x2c/0x63 [softdog]
+Aug 15 13:17:36  [11769.573462]  [<c0167db8>] __fput+0x99/0x136
+Aug 15 13:17:36  [11769.573462]  [<c0167e6c>] fput+0x17/0x19
+Aug 15 13:17:36  [11769.573462]  [<c016593b>] filp_close+0x47/0x51
+Aug 15 13:17:36  [11769.573462]  [<c01659b8>] sys_close+0x73/0xad
+Aug 15 13:17:36  [11769.573462]  [<c0103861>] sysenter_do_call+0x12/0x35
+Aug 15 13:17:36  [11769.573462]  [<c02b007b>] ? enable_nonboot_cpus+0xf/0x8d
+Aug 15 13:17:36  [11769.573462]  =======================
