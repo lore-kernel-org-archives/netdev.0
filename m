@@ -1,82 +1,60 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- retried 2.6.27-rc3
-	patch (and patch method)
-Date: Fri, 15 Aug 2008 11:07:33 +0200
-Message-ID: <20080815090733.GA22209@elte.hu>
-References: <110640.60391.qm@web82108.mail.mud.yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for	iptables nat routing
+Date: Fri, 15 Aug 2008 20:32:35 +1000
+Message-ID: <20080815103235.GA31963@gondor.apana.org.au>
+References: <E1KTrAo-0001YG-00@gondolin.me.apana.org.au> <1218778238.23510.22.camel@2710p.home> <20080815073343.GA20644@gondor.apana.org.au> <20080815081442.GA20971@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: David Witbrodt <dawitbro@sbcglobal.net>
+Cc: kaber@trash.net, davem@davemloft.net, akpm@linux-foundation.org,
+	buytenh@marvell.com, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Alex Williamson <alex.williamson@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:59219 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753761AbYHOJIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2008 05:08:00 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:54418 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751865AbYHOKct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 06:32:49 -0400
 Content-Disposition: inline
-In-Reply-To: <110640.60391.qm@web82108.mail.mud.yahoo.com>
+In-Reply-To: <20080815081442.GA20971@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* David Witbrodt <dawitbro@sbcglobal.net> wrote:
-
-> I found something very interesting about the commit that first causes 
-> the lockup (3def3d6d...), and the very next commit (1e934dda...) -- if 
-> I checkout 1e94... and try to revert the changes made in 3def..., the 
-> kernel freezes in spite of the revert.
+On Fri, Aug 15, 2008 at 06:14:42PM +1000, Herbert Xu wrote:
 > 
-> Because of this, I would conclude that your patch for 2.6.27-rc3 was 
-> doomed before you began, and we should look more carefully at the 
-> commits from February instead of trying to revert at the 2.6.27 HEAD.
+> It's OK, I can reproduce it now.
 
-i'm still wondering whether we could try to figure out something about 
-the nature of the hard lockup itself.
+This fixes it for me.
 
-Have you tried to activate the NMI watchdog? It _usually_ works fine if 
-you use a boot option along the lines of:
+loopback: Enable TSO
 
-   "lapic nmi_watchdog=2 idle=poll"
+This patch enables TSO since the loopback device is naturally
+capable of handling packets of any size.  This also means that
+we won't enable GSO on lo which is good until GSO is fixed to
+preserve netfilter state as netfilter treats loopback packets
+in a special way.
 
-The best test would be to first boot the broken kernel with also 
-hpet=disable and the above options, and check in /proc/interrupts 
-whether the NMI count is increasing. If the NMI watchdog is working, you 
-should see a steady trickle of NMI irqs:
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
- rhea:~> while sleep 1; do grep NMI /proc/interrupts ; done
- NMI:       4395   Non-maskable interrupts
- NMI:       4396   Non-maskable interrupts
- NMI:       4397   Non-maskable interrupts
- NMI:       4398   Non-maskable interrupts
- ^C
+I'll work on the netfilter state preservation next.
 
-if it does not work, you'll see:
-
- pluto:~> while sleep 1; do grep NMI /proc/interrupts ; done
- NMI:          0   Non-maskable interrupts
- NMI:          0   Non-maskable interrupts
- NMI:          0   Non-maskable interrupts
- NMI:          0   Non-maskable interrupts
- ^C
-
-NOTE: the NMI watchdog disables high-res timers so it might change your 
-test enough to make the lockup go away. Hopefully it wont :-)
-
-So, in the ideal situation, your test of the NMI watchdog will show a 
-steady trickle of watchdog NMI. Then i'd suggest to remove the 
-hpet=disable, to provoke the lockup. Hopefully it occurs, _and_ after 
-the hard lockup has happened, you should see a nice stack backtrace 
-printed out by the NMI watchdog. That gives us the exact location of 
-lockup.
-
-One theory is that the changed resource allocations are buggy in certain 
-circumstances and cause us to stomp over key kernel data structures. We 
-could for example overwrite a networking lock - that's why you lock up 
-in the networking code. hpet=disable deactivates those resource 
-allocations and works around the symptoms of the bug.
-
-	Ingo
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 49f6bc0..c11e621 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -234,9 +231,7 @@ static void loopback_setup(struct net_device *dev)
+ 	dev->type		= ARPHRD_LOOPBACK;	/* 0x0001*/
+ 	dev->flags		= IFF_LOOPBACK;
+ 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
+-#ifdef LOOPBACK_TSO
+ 		| NETIF_F_TSO
+-#endif
+ 		| NETIF_F_NO_CSUM
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
