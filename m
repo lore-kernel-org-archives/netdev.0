@@ -1,40 +1,30 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Fri, 15 Aug 2008 08:09:12 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808150803570.12259@titan.stealer.net>
-References: <20080815001250.GC15825@verge.net.au> <20080814.172508.15803616.davem@davemloft.net> <20080815010235.GD15825@verge.net.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, juliusv@google.com, wensong@linux-vs.org,
-	ja@ssi.bg
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080815010235.GD15825@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression	for	iptables nat routing
+Date: Fri, 15 Aug 2008 16:17:35 +1000
+Message-ID: <E1KTscx-0001sA-00@gondolin.me.apana.org.au>
+References: <1218779373.23510.25.camel@2710p.home>
+Cc: herbert@gondor.apana.org.au, kaber@trash.net, davem@davemloft.net,
+	akpm@linux-foundation.org, buytenh@marvell.com,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: alex.williamson@hp.com (Alex Williamson)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:42251 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750920AbYHOGRr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 02:17:47 -0400
+In-Reply-To: <1218779373.23510.25.camel@2710p.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 15 Aug 2008, Simon Horman wrote:
-
-> On Thu, Aug 14, 2008 at 05:25:08PM -0700, David Miller wrote:
-> > From: Simon Horman <horms@verge.net.au>
-> > Date: Fri, 15 Aug 2008 10:12:52 +1000
-> > 
-> > > Julius, Sven and I would particularly like Julius' two changes to go
-> > > in. They add a new interface which is currently unused and thus the
-> > > likelihood of breakage seems low.
-> > 
-> > Actually these are the two changes that should not go in at this
-> > time.  This netlink stuff is a new feature, therefore not appropriate
-> > to merge outside of the merge window.
-> > 
-> > Bug fixes only now, please.
+Alex Williamson <alex.williamson@hp.com> wrote:
 > 
-> thanks for the clarification. In that case I believe that
-> all of these changes can wait.
+> Nope, that doesn't fix it.  NAT'd throughput remains about the same.
 
-We should get something cooked up for -next, so that we can push these 
-changes this way into wider testing. Having a place for -next might be 
-good in general, not for this case only.
+Please take the raw packet dump on lo then.
 
-Sven
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
