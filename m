@@ -1,69 +1,118 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
-Date: Fri, 15 Aug 2008 10:06:39 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
- <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
- <20080812.011822.155249871.davem@davemloft.net> <20080812144309.7d62fd86@tux>
- <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi> <20080813145310.0c1e534c@tux>
- <Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi> <20080815013407.4a594288@tux>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- revert for
+ 2.6.26-rc1 failed
+Date: Fri, 15 Aug 2008 03:17:36 -0400
+Message-ID: <20080815031736.2f48ab7a.billfink@mindspring.com>
+References: <737832.54450.qm@web82101.mail.mud.yahoo.com>
+	<20080814060433.684c4fe5.billfink@mindspring.com>
+	<86802c440808140336k3558dfbew308ac7d7bdb23c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1842071017-1218783999=:23522"
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20080815013407.4a594288@tux>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Witbrodt" <dawitbro@sbcglobal.net>,
+	linux-kernel@vger.kernel.org, "Ingo Molnar" <mingo@elte.hu>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:35211
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751924AbYHOHRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 03:17:44 -0400
+In-Reply-To: <86802c440808140336k3558dfbew308ac7d7bdb23c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, 14 Aug 2008, Yinghai Lu wrote:
 
----696208474-1842071017-1218783999=:23522
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Fri, 15 Aug 2008, Dâniel Fraga wrote:
-
-> On Wed, 13 Aug 2008 21:34:10 +0300 (EEST)
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+> On Thu, Aug 14, 2008 at 3:04 AM, Bill Fink <billfink@mindspring.com> wrote:
+> > Hi David,
+> >
+> > On Wed, 13 Aug 2008, David Witbrodt wrote:
+> >
+> >> [Yinghai, please note that I did not request a patch to revert the
+> >> problem commit.  I was merely experimenting -- on my own time, so
+> >> you folks would not have to bother -- to see if I could make it
+> >> work.  I should have made that more clear!  Having said that, I am
+> >> glad to test changes of any kind on my machine:  reverts, code for
+> >> debugging or info, experiments, etc.]
+> >
+> > I'm not sure Yinghai's revert patch is completely equivalent to
+> > a revert of the original problematic commit, by a side-by-side
+> > comparison of the original commit with his recent revert patch,
+> > but then I don't really know that code at all.
+> >
+> > In the original code there was a section (in e820_reserve_resources()):
+> >
+> > #ifdef CONFIG_KEXEC
+> >                   if (crashk_res.start != crashk_res.end)
+> >                           request_resource(res, &crashk_res);
+> > #endif
+> >
+> > If you don't have CONFIG_KEXEC defined in your .config, which is
+> > probably the case, then you would never request a crashk_res resource.
+> > But in the code after the original commit, it unconditionally calls
+> > (in reserve_crashkernel()):
+> >
+> >           crashk_res.start = crash_base;
+> >           crashk_res.end   = crash_base + crash_size - 1;
+> >           insert_resource(&iomem_resource, &crashk_res);
+> >
+> > And after Yinghai's revert patch it still does (in reserve_crashkernel()):
+> >
+> >        crashk_res.start = crash_base;
+> >        crashk_res.end   = crash_base + crash_size - 1;
+> >        crashk_res_ptr = &crashk_res;
+> >
+> > and (in setup_arch()):
+> >
+> >        num_res = 3;
+> >        if (crashk_res_ptr) {
+> >                res_kernel[num_res] = crashk_res_ptr;
+> >                num_res++;
+> >        }
+> >        e820_reserve_resources(res_kernel, num_res);
+> >
+> > then (in e820_reserve_resources()):
+> >
+> >                        for (j = 0; j < nr_res_k; j++) {
+> >                                if (!res_kernel[j])
+> >                                        continue;
+> >                                request_resource(res, res_kernel[j]);
+> >                        }
+> >
+> > which for j == 3 is:
+> >
+> >        request_resource(res, &crashk_res);
+> >
+> > Now it would appear that the new:
+> >
+> >        insert_resource(&iomem_resource, &crashk_res);
+> >
+> > or new:
+> >
+> >        request_resource(res, &crashk_res);
+> >
+> > should be noops.  But if for any reason crash_size is not zero,
+> > then there could be a difference.  I have no idea if this is at all
+> > significant, but I thought I'd point it out just in case.
 > 
-> > Ok, thanks for your efforts... These are often hard to reproduce because
-> > some not that likely pattern needs to happen and such things is often not
-> > easily controllable (if it is at all possible to influence the 
-> > likelyhoods).
+> why oops ?
+> if not valid crash kernel size etc is input, crashk_res_ptr will be null
 > 
-> 	Hi Ilpo, I don't know if the dumps are correct, but I did when
-> the connection was stalled.
+> >        if (crashk_res_ptr) {
+> >                res_kernel[num_res] = crashk_res_ptr;
+> >                num_res++;
+> >        }
+> 
+> it that is not appended to res_kernel...
 
-I would be better to have tcpdump running at least a bit back (2-3 windows 
-back is long enough for me), but obviously that might not be possible 
-option because it occurs so rarely. ...It should be possible to have 
-tcpdump restarted once in a while to avoid a one huge log if you'd just 
-keep running tcpdump from beginning.
+You're right.  Looking just at the diffs, I didn't realize that all
+of reserve_crashkernel() is inside "#ifdef CONFIG_KEXEC" and thus
+crashk_res_ptr is probably null in David's kernel.  Unless of course,
+in the unlikey event that the memory location for crashk_res_ptr was
+being corrupted somehow.
 
-> The problem is, when I dumped "eth0", the connection suddenly come back 
-> alive again...
-
-The situation (or some of those I did debug with other people) are such 
-that they may indeed resolve themself, though I'm also interested why the 
-slow part occurred.
-
-> so, I don't know if it's useless or not:
-
-What do you mean by "come back alive"...? ...In eth0 log I found this 
-connection 189.38.18.122.995 > 192.168.0.2.35477, the ip matches with 
-abusar's. But I'm not sure if the connection in the tunnel is the 
-interesting one, since it's going to/from port 119 but the ip addresses 
-(10.195.195.2 and 10.195.195.1) don't tell anything to me, I guess you 
-know their meaning (ie., if 10.195.195.2 is the one with which the 
-connection stalls)? ...You're probably right that this wasn't very useful 
-log, the longest "stall" I find is only 1.111328 seconds long (and it 
-might be due to some processing that is made by 10.195.195.2).
-
--- 
- i.
----696208474-1842071017-1218783999=:23522--
+						-Bill
