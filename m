@@ -1,30 +1,36 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for iptables nat routing
-Date: Fri, 15 Aug 2008 14:34:50 +1000
-Message-ID: <E1KTr1W-0001WZ-00@gondolin.me.apana.org.au>
-References: <20080813.192101.221940876.davem@davemloft.net>
-Cc: alex.williamson@hp.com, akpm@linux-foundation.org,
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for	iptables nat routing
+Date: Fri, 15 Aug 2008 14:44:26 +1000
+Message-ID: <E1KTrAo-0001YG-00@gondolin.me.apana.org.au>
+References: <1218726484.23510.20.camel@2710p.home>
+Cc: kaber@trash.net, davem@davemloft.net, akpm@linux-foundation.org,
 	buytenh@marvell.com, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, kaber@trash.net
-To: davem@davemloft.net (David Miller)
+	bugme-daemon@bugzilla.kernel.org
+To: alex.williamson@hp.com (Alex Williamson)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33925 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:35523 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750928AbYHOEfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 00:35:03 -0400
-In-Reply-To: <20080813.192101.221940876.davem@davemloft.net>
+	with ESMTP id S1750791AbYHOEoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 00:44:38 -0400
+In-Reply-To: <1218726484.23510.20.camel@2710p.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
->
-> Patrick I wonder if there a case where iptables NAT will COW the packet
-> when it really doesn't need to.
+Alex Williamson <alex.williamson@hp.com> wrote:
+> 
+> Attached, let me know if you want more options, this is just -vv -n.
+> The NAT'ing system is at 10.0.2.15 and the ssh tunnel target is
+> 192.168.1.60.  Thanks,
 
-This doesn't make sense.  He's downloading from a remote host, so
-GSO shouldn't even come into play.
+Right, the underlying TCP connection is going well, but the NATed
+connection is getting checksum errors.  Please send us the raw
+packet dump on lo (tcpdump -s 1600 -w file) so we can see what's
+wrong.
 
-Cheers,
+Actually, I think know what's going on but a raw packet dump should
+confirm whether we're getting a partial checksum.
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
