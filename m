@@ -1,33 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for	iptables nat routing
-Date: Fri, 15 Aug 2008 17:33:43 +1000
-Message-ID: <20080815073343.GA20644@gondor.apana.org.au>
-References: <E1KTrAo-0001YG-00@gondolin.me.apana.org.au> <1218778238.23510.22.camel@2710p.home>
+From: Daniel Ng <daniel_ng11@lycos.com>
+Subject: Multicast Routing Kernel option?
+Date: Fri, 15 Aug 2008 07:37:59 +0000 (UTC)
+Message-ID: <loom.20080815T073349-129@post.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, davem@davemloft.net, akpm@linux-foundation.org,
-	buytenh@marvell.com, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41282 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751866AbYHOHd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 03:33:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1218778238.23510.22.camel@2710p.home>
+Received: from main.gmane.org ([80.91.229.2]:54613 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752284AbYHOHiq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2008 03:38:46 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1KTtsw-0003qZ-7H
+	for netdev@vger.kernel.org; Fri, 15 Aug 2008 07:38:41 +0000
+Received: from CPE-124-190-96-129.vic.bigpond.net.au ([124.190.96.129])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2008 07:38:10 +0000
+Received: from daniel_ng11 by CPE-124-190-96-129.vic.bigpond.net.au with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2008 07:38:10 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2008 at 11:30:37PM -0600, Alex Williamson wrote:
->
-> Here it is.  Thanks,
+Hi,
 
-Can you also post all your netfilter rules (filter + NAT) please?
+Would someone please tell me in general terms what the Multicast Routing 
+kernel option does?
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm considering using mrouted (DVMRP) for now. I understand that mrouted does 
+the actual routing of multicast packets. If that is the case, what does the 
+Multicast Routing kernel option provide?
+
+Cheers,
+Daniel
+
