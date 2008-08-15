@@ -1,36 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Please pull updates for IPVS
-Date: Fri, 15 Aug 2008 14:18:41 -0700 (PDT)
-Message-ID: <20080815.141841.268348002.davem@davemloft.net>
-References: <20080814.172508.15803616.davem@davemloft.net>
-	<20080815010235.GD15825@verge.net.au>
-	<f4845fc0808150431l778618dcjf848774c38d86470@mail.gmail.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Fri, 15 Aug 2008 18:35:11 -0300
+Message-ID: <20080815183511.1c81be23@tux>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+	<20080811.144421.234396007.davem@davemloft.net>
+	<200808120946.19459.thomas.jarosch@intra2net.com>
+	<20080812.011822.155249871.davem@davemloft.net>
+	<20080812144309.7d62fd86@tux>
+	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
+	<20080813145310.0c1e534c@tux>
+	<Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
+	<20080815013407.4a594288@tux>
+	<Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, sven.wegener@stealer.net,
-	wensong@linux-vs.org, ja@ssi.bg
-To: juliusv@google.com
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0808150431l778618dcjf848774c38d86470@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Julius Volz" <juliusv@google.com>
-Date: Fri, 15 Aug 2008 13:31:59 +0200
+On Fri, 15 Aug 2008 10:06:39 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-> On Fri, Aug 15, 2008 at 3:02 AM, Simon Horman <horms@verge.net.au> wrote:
-> > thanks for the clarification. In that case I believe that
-> > all of these changes can wait.
-> 
-> Ok, how does the process work? Do I send the patches again at a later
-> point or will they be pulled from your tree then?
+> I would be better to have tcpdump running at least a bit back (2-3 wi=
+ndows=20
+> back is long enough for me), but obviously that might not be possible=
+=20
+> option because it occurs so rarely. ...It should be possible to have=20
+> tcpdump restarted once in a while to avoid a one huge log if you'd ju=
+st=20
+> keep running tcpdump from beginning.
 
-Simon can maintain a tree if he wants, and your feature patches can
-go into there.
+	Ok.
 
-Later when I start accepting net-next-2.6 stuff, I can pull things in
-from him.
+> What do you mean by "come back alive"...? ...In eth0 log I found this=
+=20
 
-Or Sven can maintain such a GIT tree, whoever wants to do it.
+	I mean, it isn't stalled anymore. When it stalls, fetchnews
+stops and stay stalled forever. When it come back alive, it resumes
+(but it will only do that if I do something to restore the connection).
+
+> connection 189.38.18.122.995 > 192.168.0.2.35477, the ip matches with=
+=20
+> abusar's. But I'm not sure if the connection in the tunnel is the=20
+> interesting one, since it's going to/from port 119 but the ip address=
+es=20
+> (10.195.195.2 and 10.195.195.1) don't tell anything to me, I guess yo=
+u=20
+> know their meaning (ie., if 10.195.195.2 is the one with which the=20
+> connection stalls)? ...You're probably right that this wasn't very us=
+eful=20
+> log, the longest "stall" I find is only 1.111328 seconds long (and it=
+=20
+> might be due to some processing that is made by 10.195.195.2).
+
+	Ok:
+
+10.195.195.1 is my local VPN IP (tun1)
+
+10.195.195.2 is the remote VPN IP (on the server)
+
+192.168.0.2 is my local IP (eth0)
+
+189.38.18.122 is the server's IP
+
+	Should I use tcpdump on the server too or is it sufficient to
+use on my client machine?
+
+	Thank you very much again.
+
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
