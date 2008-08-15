@@ -1,47 +1,51 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for August 15 (bnx2) [resend/lost]
-Date: Fri, 15 Aug 2008 18:41:17 -0500 (CDT)
-Message-ID: <21849002.1218843677714.JavaMail.oracle@acsmt301.oracle.com>
-References: <20080815184032.3acd8032.sfr@canb.auug.org.au>
-	<20080815084116.340ac526.randy.dunlap@oracle.com> <20080815.151715.111675039.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bridge: show offload settings
+Date: Fri, 15 Aug 2008 16:50:51 -0700
+Message-ID: <20080815165051.25463705@extreme>
+References: <20080815100259.12c8175a@extreme>
+	<20080815.145118.198768799.davem@davemloft.net>
+	<10558.1218841183@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20080815.151715.111675039.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([216.93.170.194]:59876 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750922AbYHOXux (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2008 19:50:53 -0400
+In-Reply-To: <10558.1218841183@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---- Original Message ---
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Fri, 15 Aug 2008 08:41:16 -0700
-> 
-> > When VLAN is not enabled, bnx2 build fails with:
-> > 
-> > drivers/net/bnx2.c: In function 'bnx2_rx_int':
-> > drivers/net/bnx2.c:2959: error: dereferencing pointer to incomplete type
-> > drivers/net/bnx2.c:2960: error: dereferencing pointer to incomplete type
-> > make[2]: *** [drivers/net/bnx2.o] Error 1
-> 
-> Does this fix it for you?
+Here is the correct patch to add more offload settings for bridge.
+Earlier was the bonding one (sorry).
 
-Yes, it does.  Thanks.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index d454810..2486a65 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -35,8 +35,8 @@
->  #include <linux/time.h>
->  #include <linux/ethtool.h>
->  #include <linux/mii.h>
-> -#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
->  #include <linux/if_vlan.h>
-> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
->  #define BCM_VLAN 1
->  #endif
->  #include <net/ip.h>
+
+--- a/net/bridge/br_device.c	2008-08-14 12:14:57.000000000 -0700
++++ b/net/bridge/br_device.c	2008-08-14 12:18:10.000000000 -0700
+@@ -148,11 +148,16 @@ static int br_set_tx_csum(struct net_dev
+ }
+ 
+ static struct ethtool_ops br_ethtool_ops = {
+-	.get_drvinfo = br_getinfo,
+-	.get_link = ethtool_op_get_link,
+-	.set_sg = br_set_sg,
+-	.set_tx_csum = br_set_tx_csum,
+-	.set_tso = br_set_tso,
++	.get_drvinfo    = br_getinfo,
++	.get_link	= ethtool_op_get_link,
++	.get_tx_csum	= ethtool_op_get_tx_csum,
++	.set_tx_csum 	= br_set_tx_csum,
++	.get_sg		= ethtool_op_get_sg,
++	.set_sg		= br_set_sg,
++	.get_tso	= ethtool_op_get_tso,
++	.set_tso	= br_set_tso,
++	.get_ufo	= ethtool_op_get_ufo,
++	.get_flags	= ethtool_op_get_flags,
+ };
+ 
+ void br_dev_setup(struct net_device *dev)
