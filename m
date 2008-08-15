@@ -1,59 +1,82 @@
-From: "=?UNKNOWN?B?rqenQ6FCq0+xS6FCqLOzdKFCpnel/qFCssSkQKtPqve/xLjqoq+iuKKxorUtoq+is6KwLQ==?=
-	=?UNKNOWN?B?orSisqKyoUFXZWQsIDIw?= Aug 2008 05:18:31 -0200"
-	<ou.spring@yahoo.com.tw>
-Subject: =?UNKNOWN?B?tXW0wavmu92ye6r3qNOpUMLg?=
-Date: Fri, 15 Aug 2008 09:06:53 +0000 (UTC)
-Message-ID: <XQKQVJHATFLTIAHAGRTDSL.DEOXKYou.spring@yahoo.com.tw>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- retried 2.6.27-rc3
+	patch (and patch method)
+Date: Fri, 15 Aug 2008 11:07:33 +0200
+Message-ID: <20080815090733.GA22209@elte.hu>
+References: <110640.60391.qm@web82108.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
- boundary="Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)"
-To: net@vertexgrp.com.tw
+Content-Type: text/plain; charset=us-ascii
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: David Witbrodt <dawitbro@sbcglobal.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [202.108.48.18] ([202.108.48.18]:49191 "EHLO
-	v240.tf-sunlight.com.cn" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753378AbYHOJGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 05:06:42 -0400
-Received: from 202.108.48.18 ([221.126.140.63]) by v240.tf-sunlight.com.cn
- (Sun Java System Messaging Server 6.2-3.04 (built Jul 15 2005))
- with SMTP id <0K5M00F1PRXX4KF0@v240.tf-sunlight.com.cn> for
- netdev@vger.kernel.org; Fri, 15 Aug 2008 15:11:23 +0800 (CST)
-Date: Wed, 20 Aug 2008 11:18:31 +0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:59219 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753761AbYHOJIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2008 05:08:00 -0400
+Content-Disposition: inline
+In-Reply-To: <110640.60391.qm@web82108.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)
-Content-type: text/plain
-Content-transfer-encoding: quoted-printable
+* David Witbrodt <dawitbro@sbcglobal.net> wrote:
 
-=ADt=B3d=A4H.=A5=F8=B7~=A5D.=A5=F8=B7~=B6U=B4=DA=A1=A3=B2=C4=A4@=ABO=AA=F7=
-=BF=C4=B8=EA=A1=A4=AAA=B0=C8=B9q=B8=DC:=A2=AF=A2=B8=A2=B1=A2=B5-=A2=AF=A2=B3=
-=A2=B0-=A2=B4=A2=B2=A2=B2=A1AWed, 20 Aug 2008 01:17:31 -0600
+> I found something very interesting about the commit that first causes 
+> the lockup (3def3d6d...), and the very next commit (1e934dda...) -- if 
+> I checkout 1e94... and try to revert the changes made in 3def..., the 
+> kernel freezes in spite of the revert.
+> 
+> Because of this, I would conclude that your patch for 2.6.27-rc3 was 
+> doomed before you began, and we should look more carefully at the 
+> commits from February instead of trying to revert at the 2.6.27 HEAD.
 
-=A5=BB=A4=BD=A5q=B8g=ACF=A9=B2=A6X=AAk=A5=DF=AE=D7=A1A=A5=BF=AC=A3=B8g=C0=E7=
-=A1C
-=A8=F3=A7U=A6U=A6=E6=A6U=B7~=B8=EA=AA=F7=B6g=C2=E0=A4W=AA=BA=B0=DD=C3D=A1A=
-=B5L=AA=F9=C2e=AD=AD=A8=EE=A1B=B5L=BF=FA=B2=F8=B0=AA=A7Q=C0=A3=BA^=A1A
-=ACO=AD=D3=A4H=A1B=A4=BD=A5q/=A4u=BCt/=BE=F7=BE=B9=BF=C4=B8=EA=A1B=A5=CD=B7=
-N=A4H=BB=DD=C1{=AE=C9=B6g=C2=E0=AE=C9=AA=BA=A6n=A5=EB=A6=F1=A1C
-=A6X=AAk=A8=B3=B3t=A1B=C2=B2=B3=E6=A7C=AE=A7=A1B=C1=D9=B4=DA=BCu=A9=CA=A1A=
-=C5w=AA=EF=AC=A2=B8=DF=A1I
+i'm still wondering whether we could try to figure out something about 
+the nature of the hard lockup itself.
 
-=B8g=C0=E7=B6=B5=A5=D8=A1G
-1.=A8T=A8=AE=AD=C9=B4=DA=A1A=B3t=AB=D7=A7=D6=A1B=A4=A3=A5=B2=AFd=A8=AE 
-2.=C6p=A5=DB=A1B=A6W=BF=F6
-3.=A9=D0=AB=CE=A4G=ADL=BB=B4=C3P=AD=C9
+Have you tried to activate the NMI watchdog? It _usually_ works fine if 
+you use a boot option along the lines of:
 
-=B1=CF=AB=E6=A4=A3=B1=CF=BDa=B1M=BDu(=B2=C4=A4@=ABO=AA=F7=BF=C4=B8=EA)=A2=AF=
-=A2=B8=A2=B1=A2=B5-=A2=AF=A2=B3=A2=B0-=A2=B4=A2=B2=A2=B2
-1.=B3o=ACO=A4@=AB=CA=B5=BD=B7N=B6l=A5=F3=A1A=ADY=A6=B3=A5o=C2Z=A1A=A6b=A6=B9=
-=ADP=A4W=BAp=B7N
-2.=ADY=A4=A3=B7Q=A6A=A6=B8=A6=AC=A8=EC=BD=D0=A8=D3=B9q=A1A=B0=A8=A4W=AC=B0=
-=B1z=B3B=B2z
-3.=A4w=B8g=B9=C5=B4f=B9L=AB=DC=A6h=A5=F8=B7~=A1B=A4=BD=A5q=A1B=A6=D1=C1=F3=
-=A1A=C0=F2=B1o=B3\=A6h=BA=F4=A4=CD=A6n=B5=FB
+   "lapic nmi_watchdog=2 idle=poll"
 
-=A5=F8=B7~=B5u=A4=A4=AA=F8=B4=C1=A9P=C2=E0=AA=F7=A1BL/C=A1B=AD=EC=AE=C6=A1=
-B=BE=F7=BE=B9=B3]=B3=C6=A1B=A9=D0=A6a=B2=A3=B5=A5
+The best test would be to first boot the broken kernel with also 
+hpet=disable and the above options, and check in /proc/interrupts 
+whether the NMI count is increasing. If the NMI watchdog is working, you 
+should see a steady trickle of NMI irqs:
 
---Boundary_(ID_B75tLF5H1r9UMqm/KD/u2A)--
+ rhea:~> while sleep 1; do grep NMI /proc/interrupts ; done
+ NMI:       4395   Non-maskable interrupts
+ NMI:       4396   Non-maskable interrupts
+ NMI:       4397   Non-maskable interrupts
+ NMI:       4398   Non-maskable interrupts
+ ^C
+
+if it does not work, you'll see:
+
+ pluto:~> while sleep 1; do grep NMI /proc/interrupts ; done
+ NMI:          0   Non-maskable interrupts
+ NMI:          0   Non-maskable interrupts
+ NMI:          0   Non-maskable interrupts
+ NMI:          0   Non-maskable interrupts
+ ^C
+
+NOTE: the NMI watchdog disables high-res timers so it might change your 
+test enough to make the lockup go away. Hopefully it wont :-)
+
+So, in the ideal situation, your test of the NMI watchdog will show a 
+steady trickle of watchdog NMI. Then i'd suggest to remove the 
+hpet=disable, to provoke the lockup. Hopefully it occurs, _and_ after 
+the hard lockup has happened, you should see a nice stack backtrace 
+printed out by the NMI watchdog. That gives us the exact location of 
+lockup.
+
+One theory is that the changed resource allocations are buggy in certain 
+circumstances and cause us to stomp over key kernel data structures. We 
+could for example overwrite a networking lock - that's why you lock up 
+in the networking code. hpet=disable deactivates those resource 
+allocations and works around the symptoms of the bug.
+
+	Ingo
