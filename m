@@ -1,42 +1,40 @@
 From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH 1/1] tun: TUNGETIFF interface to query name and flags
-Date: Fri, 15 Aug 2008 11:00:19 -0700
-Message-ID: <48A5C433.7030002@qualcomm.com>
-References: <1218637816.29159.31.camel@muff> <200808141158.57879.rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/2] tun: fallback if skb_alloc() fails on big packets
+Date: Fri, 15 Aug 2008 11:09:07 -0700
+Message-ID: <48A5C643.8020506@qualcomm.com>
+References: <200808121624.56948.rusty@rustcorp.com.au> <200808121625.53703.rusty@rustcorp.com.au> <20080812101409.GA22114@gondor.apana.org.au> <200808131324.56071.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:34721 "EHLO
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:26407 "EHLO
 	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755126AbYHOSAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 14:00:21 -0400
-In-Reply-To: <200808141158.57879.rusty@rustcorp.com.au>
+	with ESMTP id S1752588AbYHOSJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 14:09:08 -0400
+In-Reply-To: <200808131324.56071.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for the delay guys. Was trying to get QEMU USB changes out and was not
-paying attention to the other stuff :)
-
 Rusty Russell wrote:
-> On Thursday 14 August 2008 00:30:16 Mark McLoughlin wrote:
->> A very simple approach is attached; I did consider doing a TUNGETFLAGS
->> that would return tun->flags, but I think it's nicer to have a companion
->> to TUNGETIFF since it also allows one to query the interface name from
->> the file descriptor.
+> On Tuesday 12 August 2008 20:14:09 Herbert Xu wrote:
+>> On Tue, Aug 12, 2008 at 04:25:53PM +1000, Rusty Russell wrote:
+>>> skb_alloc produces linear packets (using kmalloc()).  That can fail,
+>>> so should we fall back to making paged skbs.
+>> I'm not sure that this is really a good idea.  If anything then
+>> tries to expand the head of this skb, they may fail and be forced
+>> to drop the packet.
 > 
-> This seems really sensible to me.
-> 
-> If Max acks it, I'd say Dave should merge it.
+> Yes, but it's no worse than now.  virtio_net keeps a cache of allocated pages, 
+> but that's more code; and if I'm going to generalize that I really should 
+> create a shrinker callback, which produces locking issues.
 
-Makes perfect sense to me.
-Definitely Ack. It has zero impact on existing user and I'd be ok if this goes
- in during .27-rc series.
+I agree with Rusty. It's no worse than what we have now (ie flat by default)
+and improves the case were large GSO would otherwise cause packet drops.
+
+TUN changes look good to me. Ack.
+I did not get a chance to read through the new skb_copy_datagram_from_iovec()
+code. At first glance looks good.
 
 Max
-
-
