@@ -1,33 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Fix unlocking in tc_ctl_tfilter()
-Date: Thu, 14 Aug 2008 17:01:25 -0700 (PDT)
-Message-ID: <20080814.170125.62607985.davem@davemloft.net>
-References: <20080814224129.GA2517@ami.dom.local>
-	<200808150156.49541.denys@visp.net.lb>
-	<20080814232708.GB2517@ami.dom.local>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT] Please pull updates for IPVS
+Date: Fri, 15 Aug 2008 10:12:52 +1000
+Message-ID: <20080815001250.GC15825@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Sven Wegener <sven.wegener@stealer.net>,
+	Julius Volz <juliusv@google.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57483
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754741AbYHOABZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 20:01:25 -0400
-In-Reply-To: <20080814232708.GB2517@ami.dom.local>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60607 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbYHOAMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2008 20:12:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 15 Aug 2008 01:27:09 +0200
+Hi Dave,
 
-> pkt_sched: Fix unlocking in tc_ctl_tfilter()
-> 
-> Fix a bug with spin_lock_bh() inserted instead of spin_unlock_bh() by
-> some recent patch. 
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+I have pulled together the handful of unmerged but agreed to
+IPVS patches that are floating around.
 
-Excellent find, applied, thanks!
+Julius, Sven and I would particularly like Julius' two changes to go
+in. They add a new interface which is currently unused and thus the
+likelihood of breakage seems low.
+
+The other changes are clean ups.
+
+
+
+The following changes since commit 0eb8b1fe9238ca4c1797e4c105d5790abda1726f:
+  Michael Chan (1):
+        bnx2: Update version to 1.8.0.
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-2.6.git master
+
+Julius Volz (2):
+      IPVS: Add genetlink interface definitions to ip_vs.h
+      IPVS: Add genetlink interface implementation
+
+Simon Horman (1):
+      ipvs: rename __ip_vs_wlc_schedule in lblc and lblcr schedulers
+
+Sven Wegener (2):
+      ipvs: Only call init_service, update_service and done_service for schedulers if defined
+      ipvs: Create init functions for estimator code
+
+ include/linux/ip_vs.h       |  160 ++++++++
+ include/net/ip_vs.h         |    2 +
+ net/ipv4/ipvs/ip_vs_core.c  |    8 +-
+ net/ipv4/ipvs/ip_vs_ctl.c   |  896 ++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/ipvs/ip_vs_est.c   |   18 +-
+ net/ipv4/ipvs/ip_vs_lblc.c  |   13 +-
+ net/ipv4/ipvs/ip_vs_lblcr.c |   13 +-
+ net/ipv4/ipvs/ip_vs_lc.c    |   21 -
+ net/ipv4/ipvs/ip_vs_nq.c    |   24 --
+ net/ipv4/ipvs/ip_vs_rr.c    |    7 -
+ net/ipv4/ipvs/ip_vs_sed.c   |   24 --
+ net/ipv4/ipvs/ip_vs_wlc.c   |   24 --
+ 12 files changed, 1072 insertions(+), 138 deletions(-)
