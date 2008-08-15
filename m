@@ -1,64 +1,32 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Fri, 15 Aug 2008 01:34:07 -0300
-Message-ID: <20080815013407.4a594288@tux>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
-	<20080811.144421.234396007.davem@davemloft.net>
-	<200808120946.19459.thomas.jarosch@intra2net.com>
-	<20080812.011822.155249871.davem@davemloft.net>
-	<20080812144309.7d62fd86@tux>
-	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
-	<20080813145310.0c1e534c@tux>
-	<Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for iptables nat routing
+Date: Fri, 15 Aug 2008 14:34:50 +1000
+Message-ID: <E1KTr1W-0001WZ-00@gondolin.me.apana.org.au>
+References: <20080813.192101.221940876.davem@davemloft.net>
+Cc: alex.williamson@hp.com, akpm@linux-foundation.org,
+	buytenh@marvell.com, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, kaber@trash.net
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:56027 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827AbYHOEeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 00:34:13 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so585247yxm.1
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2008 21:34:12 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:33925 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750928AbYHOEfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 00:35:03 -0400
+In-Reply-To: <20080813.192101.221940876.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Aug 2008 21:34:10 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+David Miller <davem@davemloft.net> wrote:
+>
+> Patrick I wonder if there a case where iptables NAT will COW the packet
+> when it really doesn't need to.
 
-> Ok, thanks for your efforts... These are often hard to reproduce beca=
-use
-> some not that likely pattern needs to happen and such things is often=
- not
-> easily controllable (if it is at all possible to influence the=20
-> likelyhoods).
+This doesn't make sense.  He's downloading from a remote host, so
+GSO shouldn't even come into play.
 
-	Hi Ilpo, I don't know if the dumps are correct, but I did when
-the connection was stalled. The problem is, when I dumped "eth0", the
-connection suddenly come back alive again... so, I don't know if it's
-useless or not:
-
-	For tun1 interface (which I use for my vpn):
-
-http://www.abusar.org/dump-tun1.log
-
-	local loopback interface:
-
-http://www.abusar.org/dump-lo.log
-
-	eth0, if it matters:
-
-http://www.abusar.org/dump-eth0.log
-
-	Thanks.
-
-
-
---=20
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
