@@ -1,44 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: NMI lockup, 2.6.26 release
-Date: Fri, 15 Aug 2008 16:16:06 +0200
-Message-ID: <20080815141606.GA2916@ami.dom.local>
-References: <200807222142.23710.denys@visp.net.lb> <200808131102.34988.denys@visp.net.lb> <20080813084931.GC5367@ff.dom.local> <200808151614.00255.denys@visp.net.lb>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression
+	for	iptables nat routing
+Date: Fri, 15 Aug 2008 09:34:47 -0600
+Message-ID: <1218814487.23510.28.camel@2710p.home>
+References: <E1KTrAo-0001YG-00@gondolin.me.apana.org.au>
+	 <1218778238.23510.22.camel@2710p.home>
+	 <20080815073343.GA20644@gondor.apana.org.au>
+	 <20080815081442.GA20971@gondor.apana.org.au>
+	 <20080815103235.GA31963@gondor.apana.org.au>
+	 <20080815105318.GA5590@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, davem@davemloft.net, akpm@linux-foundation.org,
+	buytenh@marvell.com, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.181]:36895 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751680AbYHOOOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 10:14:18 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so1007732ika.5
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2008 07:14:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808151614.00255.denys@visp.net.lb>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:43228 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758851AbYHOPey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 11:34:54 -0400
+In-Reply-To: <20080815105318.GA5590@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 15, 2008 at 04:13:59PM +0300, Denys Fedoryshchenko wrote:
-...
-> After patching issue with locking, i apply 2.6.27-rc3 with those(locking, not 
-> testing patch which limits resolution) patches on shaper who was crashing on 
-> load. Without your patch it was crashing like before on 2.6.27-rc3 too (NMI 
-> watchdog issuing panic, and machine not rebooting) after few hours of 
-> running.
+On Fri, 2008-08-15 at 20:53 +1000, Herbert Xu wrote:
+> On Fri, Aug 15, 2008 at 08:32:35PM +1000, Herbert Xu wrote:
+> > 
+> > I'll work on the netfilter state preservation next.
 > 
-> Sadly i will not be able to test on this machine anymore, because i lost 
-> access to it and had to change network structure. 
-> 
-> I will try to bring it locally to my office and simulate crash by generating 
-> traffic, but most probably it will not work. Seems your patch is required for 
-> mainline, but now i can test it only in theory, because another machine 
-> running as shaper now, running HPET, not TSC (it is AMD Opteron).
+> Here it is:
 
-Since this bug looks so rare, probably hardware dependent, it looks
-like fixing this can wait until it bothers somebody again. The most
-important, some workaround has been found, and we can go back to
-to improve this.
+Confirmed, these patches solve the problem.  Thanks Herbert.
 
-Thanks,
-Jarek P.
+-- 
+Alex Williamson                             HP Open Source & Linux Org.
+
