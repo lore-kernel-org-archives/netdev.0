@@ -1,81 +1,46 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Fri, 15 Aug 2008 23:54:24 +0300
-Message-ID: <200808152354.24486.denys@visp.net.lb>
-References: <20080815190905.M56388@visp.net.lb> <48A5E42B.8060903@gmail.com> <200808152336.05424.denys@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for
+ iptables nat routing
+Date: Fri, 15 Aug 2008 13:58:51 -0700 (PDT)
+Message-ID: <20080815.135851.231414180.davem@davemloft.net>
+References: <20080815073343.GA20644@gondor.apana.org.au>
+	<20080815081442.GA20971@gondor.apana.org.au>
+	<20080815103235.GA31963@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: alex.williamson@hp.com, kaber@trash.net, akpm@linux-foundation.org,
+	buytenh@marvell.com, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:56192 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbYHOUzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 16:55:31 -0400
-In-Reply-To: <200808152336.05424.denys@visp.net.lb>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39019
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751454AbYHOU6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 16:58:51 -0400
+In-Reply-To: <20080815103235.GA31963@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Btw, it can happen on deletion also. At that moment there was 600 sessions 
-established(and non-stop logging in/off), and it is difficult to tell, what 
-was happening at that moment...
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 15 Aug 2008 20:32:35 +1000
 
-On Friday 15 August 2008, Denys Fedoryshchenko wrote:
-> On Friday 15 August 2008, Jarek Poplawski wrote:
-> > Denys Fedoryshchenko wrote, On 08/15/2008 09:09 PM:
-> > > Aug 15 21:59:54 192.168.20.66 [ 1123.800035] BUG: unable to handle
-> > > kernel Aug 15 21:59:54 192.168.20.66 NULL pointer dereference
-> > > Aug 15 21:59:54 192.168.20.66 at 00000004
-> > > Aug 15 21:59:54 192.168.20.66 [ 1123.800035] IP:
-> > > Aug 15 21:59:54 192.168.20.66 [<c0272579>] qdisc_dequeue_head+0x29/0x3d
-> >
-> > Could you add some details like:
-> > - device(eth, ppp, ifb...), net driver(s) on that device,
-> > - types of filters, actions on the path to this tbf queue,
-> > - were there any config changes done around the time when this happened?
-> >
-> > Thanks,
-> > Jarek P.
->
-> TBF on ppp
-> Probably multiple ppp interfaces coming up. (but tbf applied on each
-> separately)
->
-> Rules, qdiscs and filters looks like this:
->
->     echo "qdisc del dev $2 root"
->     echo "qdisc add dev $2 root handle 1: prio"
->     echo "qdisc add dev $2 parent 1:1 handle 2: est 1sec 8sec tbf buffer
-> ${burst} latency 500ms rate ${rate}bit peakrate ${peakrate}bit mtu 1512"
-> #    echo "Bypass code"
-> # !!!!!!!!!!!!!!!!!!WRONG!!!!!!!!!!!!
->     echo "qdisc add dev $2 parent 1:1 handle 3: tbf buffer ${burst}kb
-> latency 500ms rate 1024000"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 194.146.153.24/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 194.146.153.26/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 194.146.153.6/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 194.146.153.19/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 2.2.2.102/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 2.2.2.105/32 flowid 3:1"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 5 u32 match ip src
-> 2.2.2.106/32 flowid 3:1"
-> #TEMP BYPASS CODE
-> #    echo "Final rule"
->     echo "filter add dev $2 parent 1:0 protocol ip prio 10 u32 match ip dst
-> 0.0.0.0/0 flowid 2:1"
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> loopback: Enable TSO
+> 
+> This patch enables TSO since the loopback device is naturally
+> capable of handling packets of any size.  This also means that
+> we won't enable GSO on lo which is good until GSO is fixed to
+> preserve netfilter state as netfilter treats loopback packets
+> in a special way.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+This, effectively, "enables" LRO on loopback.
 
+And sure it's pretty obscure to shape, NAT, and end up forwarding
+loopback received packets, but do you want to be the user trying to do
+something like that and trying to find this particular patch which is
+causing it to not work? :-)
+
+I really don't know whether it's worth worrying about, I just wanted
+to mention it.
