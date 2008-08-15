@@ -1,51 +1,67 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression
-	for	iptables nat routing
-Date: Thu, 14 Aug 2008 23:49:33 -0600
-Message-ID: <1218779373.23510.25.camel@2710p.home>
-References: <1218726484.23510.20.camel@2710p.home>
-	 <E1KTrAo-0001YG-00@gondolin.me.apana.org.au>
-	 <20080815053548.GA6366@gondor.apana.org.au>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: Re: [RFC,PATCH] ipvs: Fix race condition in lblb and lblcr
+ schedulers
+Date: Fri, 15 Aug 2008 08:03:32 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0808150801560.12259@titan.stealer.net>
+References: <alpine.LNX.1.10.0808112202270.12259@titan.stealer.net> <20080812021053.GD22142@verge.net.au> <alpine.LNX.1.10.0808120606200.12259@titan.stealer.net> <alpine.LNX.1.10.0808121007130.12259@titan.stealer.net> <20080813054247.GA21168@verge.net.au>
+ <alpine.LNX.1.10.0808130842540.12259@titan.stealer.net> <20080813071221.GB4872@verge.net.au> <alpine.LNX.1.10.0808131119560.12259@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, davem@davemloft.net, akpm@linux-foundation.org,
-	buytenh@marvell.com, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:5361 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbYHOFuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 01:50:15 -0400
-In-Reply-To: <20080815053548.GA6366@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.1.10.0808131119560.12259@titan.stealer.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-08-15 at 15:35 +1000, Herbert Xu wrote:
-> On Fri, Aug 15, 2008 at 02:44:26PM +1000, Herbert Xu wrote:
+On Wed, 13 Aug 2008, Sven Wegener wrote:
+
+> On Wed, 13 Aug 2008, Simon Horman wrote:
+> 
+> > On Wed, Aug 13, 2008 at 08:59:32AM +0200, Sven Wegener wrote:
+> > > On Wed, 13 Aug 2008, Simon Horman wrote:
+> > > 
+> > > > On Tue, Aug 12, 2008 at 03:07:48PM +0200, Sven Wegener wrote:
+> > > > > 
+> > > > > +
+> > > > > +		/*
+> > > > > +		 * If the destination is not available, i.e. it's in the trash,
+> > > > > +		 * ignore it, as it may be removed from under our feet
+> > > > > +		 */
+> > > > > +
+> > > > > +		if (!(dest->flags & IP_VS_DEST_F_AVAILABLE))
+> > > > > +			dest = NULL;
+> > > > >  	}
+> > > > > -	en->lastuse = jiffies;
+> > > > 
+> > > > At this point we know that dest exists and is not in the trash.
+> > > > We know that dest can't disapear given that its not already
+> > > > in the trash and our caller holds a read lock on __ip_vs_svc_lock.
+> > > > So dest will be safe until after ip_vs_lblc_schedule() returns.
+> > > > 
+> > > > Dest seems ok :-)
+> > > > 
+> > > > Ok, that seems complex but non-racy to me :-)
+> > > > 
+> > > > Perhaps a longer comment would be in order.
+> > > 
+> > > Yeah, that's the point where we prevent the race with the trash purging. 
+> > > We could change the purging of destinations from the trash to be under 
+> > > __ip_vs_svc_lock write locked, then we know that all destinations, even 
+> > > the ones in the trash are valid. Might make more sense than duplicating 
+> > > this logic in other schedulers.
 > > 
-> > Actually, I think know what's going on but a raw packet dump should
-> > confirm whether we're getting a partial checksum.
+> > That sounds like a good way to simplify things.
 > 
-> Nevermind, I think I've found the problem.
-> 
-> loopback: Drop obsolete ip_summed setting
-> 
-> Now that the network stack can handle inbound packets with partial
-> checksums, we should no longer clobber the ip_summed field in the
-> loopback driver.  This is because CHECKSUM_UNNECESSARY implies that
-> the checksum field is actually valid which is not true for loopback
-> packets since it's only partial (and thus complemented).
-> 
-> This allows packets from lo to then be SNATed to an external source
-> while still preserving the checksum's validity.
+> Looking at the code it doesn't seem that simple. We lock __ip_vs_svc_lock 
+> for writing and then wait for all current users of the service to go away. 
+> But it's still possible that we clean up destinations from other services. 
+> And when we restrict it to only clean up the destinations that match our 
+> service, we have a chance of leaving destinations in the trash for good.
 
-Nope, that doesn't fix it.  NAT'd throughput remains about the same.
-Thanks,
+Still thinking about it, I'm against doing it globally. It's too much 
+hassle and in the end we still need to check for IP_VS_DEST_F_AVAILABLE in 
+the schedulers, because destinations in the trash shouldn't be used for 
+further connections.
 
-	Alex
-
--- 
-Alex Williamson                             HP Open Source & Linux Org.
-
+Sven
