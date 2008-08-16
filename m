@@ -1,101 +1,54 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Sat, 16 Aug 2008 21:47:32 +0200
-Message-ID: <20080816193956.GB24083@ami.dom.local>
-References: <20080815190905.M56388@visp.net.lb> <200808162115.16346.denys@visp.net.lb> <20080816185241.GA24083@ami.dom.local> <200808162222.56318.denys@visp.net.lb>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH 1/2] netns: fix NULL-dereference in dev_net()
+Date: Sat, 16 Aug 2008 23:30:09 +0200
+Message-ID: <48A746E1.90703@fr.ibm.com>
+References: <48A4871D.1030708@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	containers <containers@lists.osdl.org>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:45138 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbYHPTo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 15:44:28 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so60289ugf.37
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 12:44:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808162222.56318.denys@visp.net.lb>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:23781 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500AbYHPVa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 17:30:26 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id m7GLUF6N093744
+	for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 21:30:15 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7GLUFXP3829928
+	for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 23:30:15 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7GLUEKl015401
+	for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 23:30:15 +0200
+In-Reply-To: <48A4871D.1030708@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 16, 2008 at 10:22:56PM +0300, Denys Fedoryshchenko wrote:
-> > These patches shouldn't change so much. I meant: was this last patch
-> > (with previous one ie. take #3) tested the same as earlier take #3
-> > alone? (There were warnings only, no oopses.)
-> Yes, sure with take #3 also.
+Brian Haley wrote:
+> Change dev_net() to handle a NULL argument - return &init_net instead.
 > 
-> Warnings disappeared, but kernel paniced, and it is really looks like another 
-> bug. I will try also to enable more debug options at night (after 2-3 hours, 
-> when traffic is low), including intensive memory debugging, maybe i can catch 
-> some memory poisoning.
+> -Brian
+> 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-I only wanted to be sure if the reason(s) of this first oops was found
-before looking for the next problem. They could be connected yet.
-Anyway, I'm currently most interested in this patch below, so I could
-know the better base for next fixes.
+Did you fall into the case where the argument was NULL ?
 
-Jarek P. 
+If it is the case, I think it is not the proper way to handle that. 
+IMHO, this is the symptom the code which calls this function has a 
+problem with the network namespace and it should be changed to be 
+correct. eg, the code is assuming the network device is never null and 
+so the network namespace can be retrieved from it, a correct fix may be 
+to pass the network namespace as parameter of the function.
 
-> 
-> >
-> > BTW, here is a patch with another way of fixing this. I would be glad
-> > if you could try this too. The previous patch should be reverted, so
-> > we need only: "take #3", this one and these two you mentioned above.
-> >
-> > Jarek P.
-> >
-> > ---
-> >
-> >  include/linux/netdevice.h |    1 +
-> >  include/net/sch_generic.h |    5 ++++-
-> >  net/core/dev.c            |    1 +
-> >  3 files changed, 6 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 488c56e..7041c2c 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -445,6 +445,7 @@ struct netdev_queue {
-> >  	struct net_device	*dev;
-> >  	struct Qdisc		*qdisc;
-> >  	unsigned long		state;
-> > +	spinlock_t		qdisc_lock;
-> >  	spinlock_t		_xmit_lock;
-> >  	int			xmit_lock_owner;
-> >  	struct Qdisc		*qdisc_sleeping;
-> > diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> > index a7abfda..f84e96c 100644
-> > --- a/include/net/sch_generic.h
-> > +++ b/include/net/sch_generic.h
-> > @@ -185,7 +185,10 @@ static inline struct qdisc_skb_cb *qdisc_skb_cb(struct
-> > sk_buff *skb)
-> >
-> >  static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
-> >  {
-> > -	return &qdisc->q.lock;
-> > +	if (unlikely(qdisc->flags & TCQ_F_BUILTIN))
-> > +		return &qdisc->q.lock;
-> > +
-> > +	return &qdisc->dev_queue->qdisc_lock;
-> >  }
-> >
-> >  static inline struct Qdisc *qdisc_root(struct Qdisc *qdisc)
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 600bb23..9ec20e0 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -3859,6 +3859,7 @@ static void __netdev_init_queue_locks_one(struct
-> > net_device *dev, void *_unused)
-> >  {
-> >  	spin_lock_init(&dev_queue->_xmit_lock);
-> > +	spin_lock_init(&dev_queue->qdisc_lock);
-> >  	netdev_set_xmit_lockdep_class(&dev_queue->_xmit_lock, dev->type);
-> >  	dev_queue->xmit_lock_owner = -1;
-> >  }
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Returning &init_net if the network device is null will gracefully avoid 
+the kernel oopsing but will lead to some inconsistent behaviour and 
+confusion with what is happening with the namespace.
+
+IMO, we should be radical and let the kernel oopsing, giving us only one 
+action which is to fix asap the bug correctly.
+
+Thanks.
+   -- Daniel
