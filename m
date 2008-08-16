@@ -1,53 +1,43 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Fri, 15 Aug 2008 20:57:59 -0300
-Message-ID: <20080815205759.12f64aad@tux>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
-	<20080811.144421.234396007.davem@davemloft.net>
-	<200808120946.19459.thomas.jarosch@intra2net.com>
-	<20080812.011822.155249871.davem@davemloft.net>
-	<20080812144309.7d62fd86@tux>
-	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
-	<20080813145310.0c1e534c@tux>
-	<Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
-	<20080815013407.4a594288@tux>
-	<Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
-	<20080815183511.1c81be23@tux>
-	<Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 11316] New: severe performance regression for iptables nat routing
+Date: Sat, 16 Aug 2008 10:25:36 +1000
+Message-ID: <20080816002536.GA11019@gondor.apana.org.au>
+References: <20080815073343.GA20644@gondor.apana.org.au> <20080815081442.GA20971@gondor.apana.org.au> <20080815103235.GA31963@gondor.apana.org.au> <20080815.135851.231414180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: alex.williamson@hp.com, kaber@trash.net, akpm@linux-foundation.org,
+	buytenh@marvell.com, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:26743 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958AbYHOX6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 19:58:08 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so893179yxm.1
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2008 16:58:07 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:33336 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752093AbYHPA0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2008 20:26:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20080815.135851.231414180.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 16 Aug 2008 01:06:55 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Fri, Aug 15, 2008 at 01:58:51PM -0700, David Miller wrote:
+> 
+> This, effectively, "enables" LRO on loopback.
+> 
+> And sure it's pretty obscure to shape, NAT, and end up forwarding
+> loopback received packets, but do you want to be the user trying to do
+> something like that and trying to find this particular patch which is
+> causing it to not work? :-)
+> 
+> I really don't know whether it's worth worrying about, I just wanted
+> to mention it.
 
-> You might have mentioned it but I would like you to confirm which ker=
-nel=20
-> version the server is running (at least 2.6.25.7 or 2.6.26 is new eno=
-ugh=20
-> to have all bug fixes)?
+Well the same code path is also used by Xen and virtio (apart
+from the netfilter bits which caused this particular bug), so
+we should be pretty safe here.
 
-	Yes, 2.6.26.=20
-
-	Thank you very much for your excellent explanation. You helped
-a lot. I'll try to do my "home work" and as soon as I have the data,
-I'll return.
-
-
---=20
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
