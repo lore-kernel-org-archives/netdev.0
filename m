@@ -1,85 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Sat, 16 Aug 2008 20:52:41 +0200
-Message-ID: <20080816185241.GA24083@ami.dom.local>
-References: <20080815190905.M56388@visp.net.lb> <200808161828.49068.denys@visp.net.lb> <20080816155943.GD7519@ami.dom.local> <200808162115.16346.denys@visp.net.lb>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Sat, 16 Aug 2008 22:18:50 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+ <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
+ <20080812.011822.155249871.davem@davemloft.net> <20080812144309.7d62fd86@tux>
+ <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi> <20080813145310.0c1e534c@tux>
+ <Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi> <20080815013407.4a594288@tux>
+ <Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi> <20080815183511.1c81be23@tux>
+ <Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi> <20080815231538.7999c017@tux>
+ <Pine.LNX.4.64.0808161002500.7264@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: MULTIPART/Mixed; boundary="-696208474-170825244-1218870627=:7264"
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "=?ISO-8859-1?Q?D=E2niel_Fraga?=" <fragabr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:41214 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794AbYHPSuB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 14:50:01 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so57560ugf.37
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 11:49:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808162115.16346.denys@visp.net.lb>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57126 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbYHPTSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 15:18:53 -0400
+In-Reply-To: <Pine.LNX.4.64.0808161002500.7264@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0808162210391.7443@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 16, 2008 at 09:15:16PM +0300, Denys Fedoryshchenko wrote:
-> Yes, i did apply fix for another problem.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-170825244-1218870627=:7264
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0808162210392.7443@wrl-59.cs.helsinki.fi>
+
+On Sat, 16 Aug 2008, Ilpo Järvinen wrote:
+
+> On Fri, 15 Aug 2008, Dâniel Fraga wrote:
 > 
-> Other patches applied:
-> [PATCH] pkt_sched: Fix unlocking in tc_ctl_tfilter()
-> [PATCH] pkt_sched: Add lockdep annotation for qdisc locks
+> > with mail or nntp, interesting no?). All the other services (http,
+> > ssh, ftp always work fine).
+> >
+> > 	But the file is small. I don't know if it will help.
+> > 
+> > 	If not, no problem, just tell me and I'll try harder next time.
+> 
+> This seems to be a valid sample, thanks. I'll return once I have figured 
+> something out (it might be that our state machine is somehow broken since 
+> there's traffic in both ways (rexmitted), yet neither party seems to be 
+> very willing to make progress).
 
-These patches shouldn't change so much. I meant: was this last patch
-(with previous one ie. take #3) tested the same as earlier take #3
-alone? (There were warnings only, no oopses.)
+Some thoughts, nothing very earth-shattering yet...
 
-BTW, here is a patch with another way of fixing this. I would be glad
-if you could try this too. The previous patch should be reverted, so
-we need only: "take #3", this one and these two you mentioned above.
+It seems that the server (port 995) never leaves SYN-RECV state because it 
+keeps retransmitting SYNACKs. While the other end (the client) is doing 
+it's best to ACK them (correctly) and it also tries to send some data 
+which never gets through and retransmissions are attempted for it (those 
+packets also contain a ACK seqno that should be enough to end the 
+SYN-RECV but for some reason that never happens). Eventually the 
+connection is RSTed.
 
-Jarek P.
+I'll look through 2.6.24..25 history once I have some time to see if 
+there are some clues about the cause. I'm also having a problem in 
+figurin out why would the frto patch you tested solve this issue (unless 
+there are two issues in the picture).
 
----
-
- include/linux/netdevice.h |    1 +
- include/net/sch_generic.h |    5 ++++-
- net/core/dev.c            |    1 +
- 3 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 488c56e..7041c2c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -445,6 +445,7 @@ struct netdev_queue {
- 	struct net_device	*dev;
- 	struct Qdisc		*qdisc;
- 	unsigned long		state;
-+	spinlock_t		qdisc_lock;
- 	spinlock_t		_xmit_lock;
- 	int			xmit_lock_owner;
- 	struct Qdisc		*qdisc_sleeping;
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a7abfda..f84e96c 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -185,7 +185,10 @@ static inline struct qdisc_skb_cb *qdisc_skb_cb(struct sk_buff *skb)
- 
- static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
- {
--	return &qdisc->q.lock;
-+	if (unlikely(qdisc->flags & TCQ_F_BUILTIN))
-+		return &qdisc->q.lock;
-+
-+	return &qdisc->dev_queue->qdisc_lock;
- }
- 
- static inline struct Qdisc *qdisc_root(struct Qdisc *qdisc)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 600bb23..9ec20e0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3859,6 +3859,7 @@ static void __netdev_init_queue_locks_one(struct net_device *dev,
- 					  void *_unused)
- {
- 	spin_lock_init(&dev_queue->_xmit_lock);
-+	spin_lock_init(&dev_queue->qdisc_lock);
- 	netdev_set_xmit_lockdep_class(&dev_queue->_xmit_lock, dev->type);
- 	dev_queue->xmit_lock_owner = -1;
- }
+-- 
+ i.
+---696208474-170825244-1218870627=:7264--
