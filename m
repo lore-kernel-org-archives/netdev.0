@@ -1,8 +1,8 @@
 From: Denys Fedoryshchenko <denys@visp.net.lb>
 Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Sat, 16 Aug 2008 13:03:55 +0300
-Message-ID: <200808161303.55411.denys@visp.net.lb>
-References: <20080815190905.M56388@visp.net.lb> <20080816085536.GA1737@ami.dom.local> <20080816091332.GA3467@ami.dom.local>
+Date: Sat, 16 Aug 2008 13:05:46 +0300
+Message-ID: <200808161305.46768.denys@visp.net.lb>
+References: <20080815190905.M56388@visp.net.lb> <20080816091332.GA3467@ami.dom.local> <200808161303.55411.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -10,30 +10,26 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:54202 "EHLO
+Received: from relay2.globalproof.net ([194.146.153.25]:54216 "EHLO
 	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751864AbYHPKFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 06:05:04 -0400
-In-Reply-To: <20080816091332.GA3467@ami.dom.local>
+	with ESMTP id S1752475AbYHPKGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 06:06:54 -0400
+In-Reply-To: <200808161303.55411.denys@visp.net.lb>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I tried patch on less loaded pppoe
-Aug 16 13:02:00 194.146.153.146 pppd[1940]: peer from calling number 
-00:1E:68:0A:B8:0B authorized
+Sorry, one more without wrapping
+
+Aug 16 13:02:00 194.146.153.146 pppd[1940]: peer from calling number 00:1E:68:0A:B8:0B authorized
 Aug 16 13:02:00 194.146.153.146 pppd[1940]: local  IP address 172.16.131.1
 Aug 16 13:02:00 194.146.153.146 pppd[1940]: remote IP address 172.16.131.4
 Aug 16 13:02:00 194.146.153.146 ppp: User toni18 on interface ppp0 logged in
 Aug 16 13:02:00 194.146.153.146 ppp: ip 172.16.131.4 = toni18
-Aug 16 13:02:00 194.146.153.146 ppp: Shaper TX/RX set 56000/128000 on if ppp0 
-for toni18
-Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper DOWN for interface ppp0 will 
-be set  bit/s with burstsize  and burstspeed 
-Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper RX for interface ppp0 will 
-be set 128000 bit/s with burstsize 2048000 and burstspeed 640000
-Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper TX for interface ppp0 will 
-be set 56000 bit/s with burstsize 2048000 and burstspeed 280000
+Aug 16 13:02:00 194.146.153.146 ppp: Shaper TX/RX set 56000/128000 on if ppp0 for toni18
+Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper DOWN for interface ppp0 will be set  bit/s with burstsize  and burstspeed 
+Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper RX for interface ppp0 will be set 128000 bit/s with burstsize 2048000 and burstspeed 640000
+Aug 16 13:02:00 194.146.153.146 pppshaper: Shaper TX for interface ppp0 will be set 56000 bit/s with burstsize 2048000 and burstspeed 280000
 Aug 16 13:02:01 194.146.153.146 [   81.476254] BUG: unable to handle kernel 
 Aug 16 13:02:01 194.146.153.146 paging request
 Aug 16 13:02:01 194.146.153.146 at 00002d30
@@ -138,19 +134,13 @@ Aug 16 13:02:01 194.146.153.146 ohci_hcd
 Aug 16 13:02:01 194.146.153.146 usbcore
 Aug 16 13:02:01 194.146.153.146 
 Aug 16 13:02:01 194.146.153.146 [   81.480253] 
-Aug 16 13:02:01 194.146.153.146 [   81.480253] Pid: 1998, comm: modprobe Not 
-tainted (2.6.27-rc3-git2-build-0031 #13)
-Aug 16 13:02:01 194.146.153.146 [   81.480253] EIP: 0060:[<c01643bd>] EFLAGS: 
-00010002 CPU: 1
+Aug 16 13:02:01 194.146.153.146 [   81.480253] Pid: 1998, comm: modprobe Not tainted (2.6.27-rc3-git2-build-0031 #13)
+Aug 16 13:02:01 194.146.153.146 [   81.480253] EIP: 0060:[<c01643bd>] EFLAGS: 00010002 CPU: 1
 Aug 16 13:02:01 194.146.153.146 [   81.480253] EIP is at kfree+0x67/0xc8
-Aug 16 13:02:01 194.146.153.146 [   81.480253] EAX: 00000001 EBX: f72e4380 
-ECX: 00000000 EDX: 00002c90
-Aug 16 13:02:01 194.146.153.146 [   81.480253] ESI: c1e44744 EDI: 063d5210 
-EBP: c0861fa4 ESP: c0861f8c
-Aug 16 13:02:01 194.146.153.146 [   81.480253]  DS: 007b ES: 007b FS: 00d8 GS: 
-0000 SS: 0068
-Aug 16 13:02:01 194.146.153.146 [   81.480253] Process modprobe (pid: 1998, 
-ti=c0861000 task=f6ce55a0 task.ti=f6d0b000)
+Aug 16 13:02:01 194.146.153.146 [   81.480253] EAX: 00000001 EBX: f72e4380 ECX: 00000000 EDX: 00002c90
+Aug 16 13:02:01 194.146.153.146 [   81.480253] ESI: c1e44744 EDI: 063d5210 EBP: c0861fa4 ESP: c0861f8c
+Aug 16 13:02:01 194.146.153.146 [   81.480253]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Aug 16 13:02:01 194.146.153.146 [   81.480253] Process modprobe (pid: 1998, ti=c0861000 task=f6ce55a0 task.ti=f6d0b000)
 Aug 16 13:02:01 194.146.153.146 
 Aug 16 13:02:01 194.146.153.146 [   81.480253] Stack: 
 Aug 16 13:02:01 194.146.153.146 c026e926 
@@ -286,12 +276,9 @@ Aug 16 13:02:01 194.146.153.146
 Aug 16 13:02:01 194.146.153.146 [   81.480253] EIP: [<c01643bd>] 
 Aug 16 13:02:01 194.146.153.146 kfree+0x67/0xc8
 Aug 16 13:02:01 194.146.153.146 SS:ESP 0068:c0861f8c
-Aug 16 13:02:01 194.146.153.146 [   81.480253] Kernel panic - not syncing: 
-Fatal exception in interrupt
-Aug 16 13:02:01 194.146.153.146 [   81.480253] ------------[ cut 
-here ]------------
-Aug 16 13:02:01 194.146.153.146 [   81.480253] WARNING: at kernel/smp.c:328 
-smp_call_function_mask+0x28/0x181()
+Aug 16 13:02:01 194.146.153.146 [   81.480253] Kernel panic - not syncing: Fatal exception in interrupt
+Aug 16 13:02:01 194.146.153.146 [   81.480253] ------------[ cut here ]------------
+Aug 16 13:02:01 194.146.153.146 [   81.480253] WARNING: at kernel/smp.c:328 smp_call_function_mask+0x28/0x181()
 Aug 16 13:02:01 194.146.153.146 [   81.480253] Modules linked in:
 Aug 16 13:02:01 194.146.153.146 sch_prio
 Aug 16 13:02:01 194.146.153.146 netconsole
@@ -385,8 +372,7 @@ Aug 16 13:02:01 194.146.153.146 ehci_hcd
 Aug 16 13:02:01 194.146.153.146 ohci_hcd
 Aug 16 13:02:01 194.146.153.146 usbcore
 Aug 16 13:02:01 194.146.153.146 
-Aug 16 13:02:01 194.146.153.146 [   81.480253] Pid: 1998, comm: modprobe 
-Tainted: G      D   2.6.27-rc3-git2-build-0031 #13
+Aug 16 13:02:01 194.146.153.146 [   81.480253] Pid: 1998, comm: modprobe Tainted: G      D   2.6.27-rc3-git2-build-0031 #13
 Aug 16 13:02:01 194.146.153.146 [   81.480253]  [<c02bb7e7>] 
 Aug 16 13:02:01 194.146.153.146 ? 
 Aug 16 13:02:01 194.146.153.146 printk+0xf/0x18
@@ -423,12 +409,10 @@ Aug 16 13:02:01 194.146.153.146 ?
 Aug 16 13:02:01 194.146.153.146 stop_this_cpu+0x0/0x3b
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<f89a0225>] 
 Aug 16 13:02:01 194.146.153.146 ? 
-Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0x2c6/0x631 
-[via_velocity]
+Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0x2c6/0x631 [via_velocity]
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<f89a0020>] 
 Aug 16 13:02:01 194.146.153.146 ? 
-Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0xc1/0x631 
-[via_velocity]
+Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0xc1/0x631 [via_velocity]
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<c0160020>] 
 Aug 16 13:02:01 194.146.153.146 ? 
 Aug 16 13:02:01 194.146.153.146 shmem_truncate_range+0x3f8/0x610
@@ -491,12 +475,9 @@ Aug 16 13:02:01 194.146.153.146 ]  [<c012007b>]
 Aug 16 13:02:01 194.146.153.146 ? 
 Aug 16 13:02:01 194.146.153.146 sys_unshare+0xbf/0x258
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  =======================
-Aug 16 13:02:01 194.146.153.146 [   81.480254] ---[ end trace 
-bc171cacb91df283 ]---
-Aug 16 13:02:01 194.146.153.146 [   81.480254] ------------[ cut 
-here ]------------
-Aug 16 13:02:01 194.146.153.146 [   81.480254] WARNING: at kernel/smp.c:217 
-smp_call_function_single+0x2d/0x9d()
+Aug 16 13:02:01 194.146.153.146 [   81.480254] ---[ end trace bc171cacb91df283 ]---
+Aug 16 13:02:01 194.146.153.146 [   81.480254] ------------[ cut here ]------------
+Aug 16 13:02:01 194.146.153.146 [   81.480254] WARNING: at kernel/smp.c:217 smp_call_function_single+0x2d/0x9d()
 Aug 16 13:02:01 194.146.153.146 [   81.480254] Modules linked in:
 Aug 16 13:02:01 194.146.153.146 sch_prio
 Aug 16 13:02:01 194.146.153.146 netconsole
@@ -590,8 +571,7 @@ Aug 16 13:02:01 194.146.153.146 ehci_hcd
 Aug 16 13:02:01 194.146.153.146 ohci_hcd
 Aug 16 13:02:01 194.146.153.146 usbcore
 Aug 16 13:02:01 194.146.153.146 
-Aug 16 13:02:01 194.146.153.146 [   81.480254] Pid: 1998, comm: modprobe 
-Tainted: G      D W 2.6.27-rc3-git2-build-0031 #13
+Aug 16 13:02:01 194.146.153.146 [   81.480254] Pid: 1998, comm: modprobe Tainted: G      D W 2.6.27-rc3-git2-build-0031 #13
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<c02bb7e7>] 
 Aug 16 13:02:01 194.146.153.146 ? 
 Aug 16 13:02:01 194.146.153.146 printk+0xf/0x18
@@ -630,12 +610,10 @@ Aug 16 13:02:01 194.146.153.146 ?
 Aug 16 13:02:01 194.146.153.146 stop_this_cpu+0x0/0x3b
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<f89a0225>] 
 Aug 16 13:02:01 194.146.153.146 ? 
-Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0x2c6/0x631 
-[via_velocity]
+Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0x2c6/0x631 [via_velocity]
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<f89a0020>] 
 Aug 16 13:02:01 194.146.153.146 ? 
-Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0xc1/0x631 
-[via_velocity]
+Aug 16 13:02:01 194.146.153.146 velocity_init_registers+0xc1/0x631 [via_velocity]
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<c014321f>] 
 Aug 16 13:02:01 194.146.153.146 smp_call_function+0x12/0x14
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<c010efaf>] 
@@ -694,14 +672,5 @@ Aug 16 13:02:01 194.146.153.146 [   81.480254]  [<c012007b>]
 Aug 16 13:02:01 194.146.153.146 ? 
 Aug 16 13:02:01 194.146.153.146 sys_unshare+0xbf/0x258
 Aug 16 13:02:01 194.146.153.146 [   81.480254]  =======================
-Aug 16 13:02:01 194.146.153.146 [   81.480254] ---[ end trace 
-bc171cacb91df283 ]---
+Aug 16 13:02:01 194.146.153.146 [   81.480254] ---[ end trace bc171cacb91df283 ]---
 Aug 16 13:02:01 194.146.153.146 [   81.480254] Rebooting in 5 seconds..
-
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
