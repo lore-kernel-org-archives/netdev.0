@@ -1,19 +1,19 @@
 From: Yinghai Lu <yhlu.kernel@gmail.com>
-Subject: [PATCH] net: forcedeth call restore mac addr in nv_shutdown patch
-Date: Sat, 16 Aug 2008 20:30:04 -0700
-Message-ID: <1218943804-6198-1-git-send-email-yhlu.kernel@gmail.com>
+Subject: [PATCH] net: forcedeth call restore mac addr in nv_shutdown path -v2
+Date: Sat, 16 Aug 2008 20:34:59 -0700
+Message-ID: <1218944099-8705-1-git-send-email-yhlu.kernel@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
 	Yinghai Lu <yhlu.kernel@gmail.com>
 To: Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:24679 "EHLO
+Received: from wa-out-1112.google.com ([209.85.146.176]:28041 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbYHQDaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 23:30:55 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so968616waf.23
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 20:30:54 -0700 (PDT)
+	with ESMTP id S1752629AbYHQDfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 23:35:50 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so969428waf.23
+        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 20:35:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -40,8 +40,8 @@ it turns out need to restore mac addr in nv_shutdown.
 Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
 
 ---
- drivers/net/forcedeth.c |   17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/forcedeth.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
 Index: linux-2.6/drivers/net/forcedeth.c
 ===================================================================
@@ -87,12 +87,7 @@ Index: linux-2.6/drivers/net/forcedeth.c
  
  	/* restore any phy related changes */
  	nv_restore_phy(dev);
-@@ -5970,11 +5978,12 @@ static int nv_resume(struct pci_dev *pde
- static void nv_shutdown(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
--	struct fe_priv *np = netdev_priv(dev);
- 
+@@ -5975,6 +5983,8 @@ static void nv_shutdown(struct pci_dev *
  	if (netif_running(dev))
  		nv_close(dev);
  
