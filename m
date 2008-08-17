@@ -1,85 +1,46 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Sun, 17 Aug 2008 15:18:40 +0300
-Message-ID: <200808171518.40703.denys@visp.net.lb>
-References: <20080815190905.M56388@visp.net.lb> <20080817105534.GD2907@ami.dom.local> <200808171506.06292.denys@visp.net.lb>
+Date: Sun, 17 Aug 2008 14:38:25 +0200
+Message-ID: <20080817123825.GE2907@ami.dom.local>
+References: <20080815190905.M56388@visp.net.lb> <200808171301.56002.denys@visp.net.lb> <20080817105534.GD2907@ami.dom.local> <200808171506.06292.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:46093 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752580AbYHQMTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 08:19:50 -0400
-In-Reply-To: <200808171506.06292.denys@visp.net.lb>
+Received: from ik-out-1112.google.com ([66.249.90.180]:21560 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751481AbYHQMhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 08:37:21 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so1853454ika.5
+        for <netdev@vger.kernel.org>; Sun, 17 Aug 2008 05:37:20 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200808171506.06292.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch applied. Got:
-
-[   56.081296]
-[   56.081296] =========================
-[   56.081296] [ BUG: held lock freed! ]
-[   56.081296] -------------------------
-[   56.081296] tc/1973 is freeing memory f6ca2800-f6ca29ff, with a lock still held there!
-[   56.081296]  (&list->lock#5){-...}, at: [<c026fc46>] notify_and_destroy+0x34/0x4a
-[   56.081296] 2 locks held by tc/1973:
-[   56.081296]  #0:  (rtnl_mutex){--..}, at: [<c026999e>] rtnl_lock+0xf/0x11
-[   56.082296]  #1:  (&list->lock#5){-...}, at: [<c026fc46>] notify_and_destroy+0x34/0x4a
-[   56.082296]
-[   56.082296] stack backtrace:
-[   56.082296] Pid: 1973, comm: tc Not tainted 2.6.27-rc3-git3-build-0031 #9
-[   56.082296]  [<c02bb92b>] ? printk+0xf/0x14
-[   56.082296]  [<c013dbe7>] debug_check_no_locks_freed+0xce/0xff
-[   56.082296]  [<c01643da>] kfree+0x78/0xc8
-[   56.082296]  [<c026e8f2>] ? qdisc_destroy+0xa7/0xab
-[   56.082296]  [<c026e8f2>] qdisc_destroy+0xa7/0xab
-[   56.082296]  [<c026fc4d>] notify_and_destroy+0x3b/0x4a
-[   56.082296]  [<c026fd9a>] qdisc_graft+0x13e/0x1c9
-[   56.082296]  [<c0270876>] tc_modify_qdisc+0x354/0x3ed
-[   56.082296]  [<c013d974>] ? mark_held_locks+0x53/0x6a
-[   56.082296]  [<c013db17>] ? trace_hardirqs_on+0xb/0xd
-[   56.082296]  [<c013daeb>] ? trace_hardirqs_on_caller+0xe1/0x102
-[   56.082296]  [<c0270522>] ? tc_modify_qdisc+0x0/0x3ed
-[   56.082296]  [<c0269b5e>] rtnetlink_rcv_msg+0x198/0x1b2
-[   56.082296]  [<c02699c6>] ? rtnetlink_rcv_msg+0x0/0x1b2
-[   56.082296]  [<c0275b77>] netlink_rcv_skb+0x30/0x75
-[   56.082296]  [<c02699be>] rtnetlink_rcv+0x1e/0x26
-[   56.082296]  [<c027570e>] netlink_unicast+0x1a9/0x20a
-[   56.082296]  [<c0275991>] netlink_sendmsg+0x222/0x22f
-[   56.082296]  [<c0256fd1>] sock_sendmsg+0xca/0xe1
-[   56.082296]  [<c0132359>] ? autoremove_wake_function+0x0/0x33
-[   56.082296]  [<c014c6c7>] ? unlock_page+0x48/0x4b
-[   56.082296]  [<c0157c64>] ? __do_fault+0x286/0x2be
-[   56.082296]  [<c025d641>] ? verify_iovec+0x40/0x6f
-[   56.082296]  [<c0257127>] sys_sendmsg+0x13f/0x192
-[   56.082296]  [<c0135539>] ? up_read+0x16/0x29
-[   56.082296]  [<c01142c5>] ? do_page_fault+0x2e5/0x624
-[   56.082296]  [<c016fb47>] ? user_path_at+0x4a/0x67
-[   56.082296]  [<c016fb47>] ? user_path_at+0x4a/0x67
-[   56.082296]  [<c0257f57>] sys_socketcall+0x14b/0x180
-[   56.082296]  [<c01dd5e0>] ? trace_hardirqs_on_thunk+0xc/0x10
-[   56.082296]  [<c0103861>] sysenter_do_call+0x12/0x35
-[   56.082296]  =======================
-
-On Sunday 17 August 2008, Denys Fedoryshchenko wrote:
-> Seems stable (without this patch yet) on normal shaper, and
-> crashing on new version of shaper (it is doing very intensive
+On Sun, Aug 17, 2008 at 03:06:06PM +0300, Denys Fedoryshchenko wrote:
+> Seems stable (without this patch yet) on normal shaper, and 
+> crashing on new version of shaper (it is doing very intensive 
 > classes creation/destroy).
->
+> 
 > I'm not sure if it is same bug, i will try to test on regular shaper
 > more things.
->
-> I will try to apply last patch also and test on another pppoe
+> 
+> I will try to apply last patch also and test on another pppoe 
 > server.
->
->
+
+Denys, I would like to be sure: do you mean here the last patch
+attached below? So, the alternative shaper works with previous
+patches, but not this one? If so, than no need to test this patch
+anymore, only confirm this, please.
+
+Jarek P.
+
+> 
+> 
 > Here is panic i got when i try to run alternative shaper.
->
+> 
 > Aug 17 15:01:54 192.168.20.66 [ 7222.089634] BUG: unable to handle kernel
 > Aug 17 15:01:54 192.168.20.66 paging request
 > Aug 17 15:01:54 192.168.20.66 at 50639a62
@@ -166,16 +127,14 @@ On Sunday 17 August 2008, Denys Fedoryshchenko wrote:
 > Aug 17 15:01:54 192.168.20.66 usbcore
 > Aug 17 15:01:54 192.168.20.66
 > Aug 17 15:01:54 192.168.20.66 [ 7222.089634]
-> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] Pid: 4, comm: ksoftirqd/0 Not
-> tainted (2.6.27-rc3-git3-build-0031 #7) Aug 17 15:01:54 192.168.20.66 [
-> 7222.089634] EIP: 0060:[<c025fd4e>] EFLAGS: 00010206 CPU: 0 Aug 17 15:01:54
-> 192.168.20.66 [ 7222.089634] EIP is at net_tx_action+0x78/0xd8 Aug 17
-> 15:01:54 192.168.20.66 [ 7222.089634] EAX: 01deb6a8 EBX: 506399ee ECX:
-> 00000002 EDX: 00000001 Aug 17 15:01:54 192.168.20.66 [ 7222.089634] ESI:
-> f6429224 EDI: f6429238 EBP: c0861fd4 ESP: c0861fc4 Aug 17 15:01:54
-> 192.168.20.66 [ 7222.089634]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] Process ksoftirqd/0 (pid: 4,
-> ti=c0861000 task=f78399b0 task.ti=f7841000) Aug 17 15:01:54 192.168.20.66
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] Pid: 4, comm: ksoftirqd/0 Not tainted (2.6.27-rc3-git3-build-0031 #7)
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] EIP: 0060:[<c025fd4e>] EFLAGS: 00010206 CPU: 0
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] EIP is at net_tx_action+0x78/0xd8
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] EAX: 01deb6a8 EBX: 506399ee ECX: 00000002 EDX: 00000001
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] ESI: f6429224 EDI: f6429238 EBP: c0861fd4 ESP: c0861fc4
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> Aug 17 15:01:54 192.168.20.66 [ 7222.089634] Process ksoftirqd/0 (pid: 4, ti=c0861000 task=f78399b0 task.ti=f7841000)
+> Aug 17 15:01:54 192.168.20.66
 > Aug 17 15:01:54 192.168.20.66 [ 7222.089634] Stack:
 > Aug 17 15:01:54 192.168.20.66 506399ee
 > Aug 17 15:01:54 192.168.20.66 c039ea88
@@ -291,22 +250,22 @@ On Sunday 17 August 2008, Denys Fedoryshchenko wrote:
 > Aug 17 15:01:54 192.168.20.66 [ 7222.089634] EIP: [<c025fd4e>]
 > Aug 17 15:01:54 192.168.20.66 net_tx_action+0x78/0xd8
 > Aug 17 15:01:54 192.168.20.66 SS:ESP 0068:c0861fc4
-> Aug 17 15:01:54 192.168.20.66 [ 7222.094000] Kernel panic - not syncing:
-> Fatal exception in interrupt Aug 17 15:01:54 192.168.20.66 [ 7222.094626]
-> Rebooting in 5 seconds..
->
+> Aug 17 15:01:54 192.168.20.66 [ 7222.094000] Kernel panic - not syncing: Fatal exception in interrupt
+> Aug 17 15:01:54 192.168.20.66 [ 7222.094626] Rebooting in 5 seconds..
+> 
+> 
 > On Sunday 17 August 2008, Jarek Poplawski wrote:
 > > On Sun, Aug 17, 2008 at 01:01:55PM +0300, Denys Fedoryshchenko wrote:
 > > > Ok, now things finally organized.
 > > > fixing patch #1 was missing.
 > > >
-> > > Rebooting system to this kernel. But strange thing, without fixing
-> > > patch #1 it didn't crash for whole night, and 1-3 hours now (with same
-> > > options as before).
+> > > Rebooting system to this kernel. But strange thing, without fixing patch
+> > > #1 it didn't crash for whole night, and 1-3 hours now (with same options
+> > > as before).
 > > >
 > > > Let's test now complete set of patches. I will keep around 2 hours on
-> > > most loaded pppoe NAS, then distribute to 2-3 servers more if it
-> > > doesn't crash.
+> > > most loaded pppoe NAS, then distribute to 2-3 servers more if it doesn't
+> > > crash.
 > >
 > > BTW, after you complete this testing (no hurry) I would be glad if you
 > > could try one more patch which I send earlier to the list. IMHO, it's
@@ -376,10 +335,5 @@ On Sunday 17 August 2008, Denys Fedoryshchenko wrote:
 > > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > > the body of a message to majordomo@vger.kernel.org
 > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+> 
+> 
