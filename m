@@ -1,67 +1,48 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH] ibm_newemac: Don't call dev_mc_add() before device is
-	registered
-Date: Mon, 18 Aug 2008 07:29:23 +1000
-Message-ID: <1219008563.28339.15.camel@pasglop>
-Reply-To: benh@kernel.crashing.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Sun, 17 Aug 2008 14:34:44 -0700 (PDT)
+Message-ID: <20080817.143444.252525600.davem@davemloft.net>
+References: <20080813.151918.61294677.davem@davemloft.net>
+	<20080814112433.GA12476@ff.dom.local>
+	<48A82ADE.5010903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	Sebastian Siewior <bigeasy@linutronix.de>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33625 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751483AbYHQV35 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Aug 2008 17:29:57 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37628
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751663AbYHQVeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 17:34:44 -0400
+In-Reply-To: <48A82ADE.5010903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We must not call dev_mc_add() from within our HW configure which happens
-before we initialize and register the netdev. Do it in open() instead.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 17 Aug 2008 15:42:54 +0200
 
-Thanks to Sebastian Siewior for tracking it down. 
+> Jarek Poplawski wrote, On 08/14/2008 01:24 PM:
+> 
+> > On Wed, Aug 13, 2008 at 03:19:18PM -0700, David Miller wrote:
+> > ...
+> >> Ok, so what I'm going to do is check in my patch and then try
+> >> to figure out how to resolve this "both bits clear" scenerio.
+> > 
+> > BTW, here is my older doubt revisited, where I hope to be re-considered/
+> > re-convinced, if possible...
+> 
+> 
+> After problems while testing this by Denys in another thread
+> I withdraw this patch.
 
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
+Well, I knew it was completely wrong from the beginning, sorry
+to say :-)
 
-This fixes an uninitialized spinlock warning (and possibly more).
+This stuff can't be done outside of RCU, period.  I moved all of this
+work into RCU for a reason, I really meant it, and none of the reasons
+for that move have changed :-)
 
-Please apply.
-
-Cheers,
-Ben.
-
-Index: linux-work/drivers/net/ibm_newemac/core.c
-===================================================================
---- linux-work.orig/drivers/net/ibm_newemac/core.c	2008-08-14 13:36:10.000000000 +1000
-+++ linux-work/drivers/net/ibm_newemac/core.c	2008-08-14 13:42:10.000000000 +1000
-@@ -663,9 +663,6 @@ static int emac_configure(struct emac_in
- 	if (emac_phy_gpcs(dev->phy.mode))
- 		emac_mii_reset_phy(&dev->phy);
- 
--	/* Required for Pause packet support in EMAC */
--	dev_mc_add(ndev, default_mcast_addr, sizeof(default_mcast_addr), 1);
--
- 	return 0;
- }
- 
-@@ -1150,6 +1147,9 @@ static int emac_open(struct net_device *
- 	} else
- 		netif_carrier_on(dev->ndev);
- 
-+	/* Required for Pause packet support in EMAC */
-+	dev_mc_add(ndev, default_mcast_addr, sizeof(default_mcast_addr), 1);
-+
- 	emac_configure(dev);
- 	mal_poll_add(dev->mal, &dev->commac);
- 	mal_enable_tx_channel(dev->mal, dev->mal_tx_chan);
-
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
-
+If we want to do it under RTNL we have to do something like schedule a
+workqueue from the RCU handler and then take the RTNL there.
