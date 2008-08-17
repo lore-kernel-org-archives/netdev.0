@@ -1,87 +1,72 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Mon, 18 Aug 2008 00:32:50 +0200
-Message-ID: <20080817223250.GC2546@ami.dom.local>
-References: <20080815190905.M56388@visp.net.lb> <200808172236.17857.denys@visp.net.lb> <20080817214752.GA2546@ami.dom.local> <200808180121.40998.denys@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Sun, 17 Aug 2008 15:32:18 -0700 (PDT)
+Message-ID: <20080817.153218.178334822.davem@davemloft.net>
+References: <48A82ADE.5010903@gmail.com>
+	<20080817.143444.252525600.davem@davemloft.net>
+	<20080817222207.GB2546@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:30977 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbYHQWb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 18:31:59 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so131748ugf.37
-        for <netdev@vger.kernel.org>; Sun, 17 Aug 2008 15:31:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808180121.40998.denys@visp.net.lb>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50590
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751855AbYHQWcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 18:32:18 -0400
+In-Reply-To: <20080817222207.GB2546@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2008 at 01:21:40AM +0300, Denys Fedoryshchenko wrote:
-> Short testing - TBF is working fine. No warnings, no oops, nothing yet. 
-> Before - intensive changes was causing oops easily. I will test for 1 day 
-> more with TBF.
-> 
-> P.S. New shaper (based on flow classifier + HTB classes, instead of prio+tbf) 
-> crashing very fast on loaded server. Probably it is another bug.
-> Here is message:
-> http://www.nuclearcat.com/files/crash-newshaper.txt
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 18 Aug 2008 00:22:07 +0200
 
-I'll try to look at this "tomorrow".
+> Actually, I've only asked you to withdraw this patch for now, but I'm
+> still not convinced you're right. You should better show me first the
+> place where this can make a difference. (I think this test broke for
+> some other non RCU reason.) So, maybe you're right, but I've to check
+> this more.
 
-Thanks,
-Jarek P.
+It _might_ be ok once we are done sorting out the synchronization
+sequence dev_deactivate() uses.  But we aren't there yet.
 
-> 
-> On Monday 18 August 2008, Jarek Poplawski wrote:
-> > On Sun, Aug 17, 2008 at 10:36:17PM +0300, Denys Fedoryshchenko wrote:
-> > > I am lost in patches :-)
-> > > When you will be back, let me know if order and set of patches is
-> > > correct. Here is what i am using:
-> > >
-> > > http://www.nuclearcat.com/patches/00-prevfixes1.patch
-> > > http://www.nuclearcat.com/patches/00-prevfixes2.patch
-> > > http://www.nuclearcat.com/patches/01-take3.patch
-> > > http://www.nuclearcat.com/patches/02-fix1.patch
-> > > http://www.nuclearcat.com/patches/03-fix_patch_2.patch
-> > >
-> > > And thanks for your help!
-> > > I cannot take risk and put to wide production, since it is crashing
-> > > sometimes, but i guess in few days we can make it ready for production.
-> >
-> > OK, so please try to test with all these patches above plus one new
-> > patch below.
-> >
-> > Thanks,
-> > Jarek P.
-> >
-> > (04-fix_patch_3.patch)
-> > ---
-> >
-> >  net/sched/sch_api.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> > index c25465e..c8dc72e 100644
-> > --- a/net/sched/sch_api.c
-> > +++ b/net/sched/sch_api.c
-> > @@ -638,9 +638,9 @@ static void notify_and_destroy(struct sk_buff *skb,
-> > struct nlmsghdr *n, u32 clid qdisc_notify(skb, n, clid, old, new);
-> >
-> >  	if (old) {
-> > -		spin_lock_bh(&old->q.lock);
-> > +		sch_tree_lock(old);
-> >  		qdisc_destroy(old);
-> > -		spin_unlock_bh(&old->q.lock);
-> > +		sch_tree_unlock(old);
-> >  	}
-> >  }
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+> BTW, I guess you've seen this other thread: "panic 2.6.27-rc3-git2,
+> qdisc_dequeue_head" where Denys and I fight with this new locking.
+> Alas, it looks to me as a real mess, and I currently try with this
+> previous idea of netdev_queue->qdisc_lock, which you didn't like too.
+> But, after looking at the current bugs shown by debugging I really 
+> think we'll have bugs here all the time without simplifying this.
+> I think my concept should work soon, but if you don't agree with
+> this at all we can stop and wait for better ideas.
+
+I can't even follow your flurry of patches, and neither can the
+tester :-)  I deleted the entire thread to be honest, hoping you
+would come back with a simple analysis once you've worked things
+out with the tester.
+
+What is the real problem besides the correct notify_and_destroy()
+issue you discovered?
+
+The locking we have now is very simple:
+
+1) Only under RTNL can qdisc roots change.
+
+2) Therefore, sch_tree_lock() and tcf_tree_lock() are fully valid
+   and lock the entire qdisc tree state, if and only if used under
+   RTNL lock.
+
+3) Before modifying a qdisc, we dev_deactivate(), which synchronizes
+   with asynchronous TX/RX packet handling contexts.
+
+4) The qdisc root and all children are protected by the root qdiscs
+   lock, which is taken when asynchonous contexts need to blocked
+   while modifying some root or inner qdisc's state.
+
+Yes, of course, if you apply a hammer and add a bit lock at the
+top of all of this it will fix whatever bugs remain, but as you
+know I don't think that's the solution.
+
+The only substance I've seen is that you've found a violation of #4 in
+notify_and_destroy(), so great let's test the fix for that.
