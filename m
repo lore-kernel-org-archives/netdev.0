@@ -1,159 +1,58 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
-Date: Sun, 17 Aug 2008 21:34:19 +0200
-Message-ID: <200808172134.20230.rjw@sisk.pl>
-References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <86802c440808171216s1d87c4e3t965b3a93bf4b87f4@mail.gmail.com> <200808172129.02135.rjw@sisk.pl>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
+Date: Sun, 17 Aug 2008 22:36:17 +0300
+Message-ID: <200808172236.17857.denys@visp.net.lb>
+References: <20080815190905.M56388@visp.net.lb> <200808171603.22151.denys@visp.net.lb> <20080817133608.GA3584@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@redhat.com>, "Ingo Molnar" <mingo@elte.hu>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:41229 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751124AbYHQTbB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Aug 2008 15:31:01 -0400
-In-Reply-To: <200808172129.02135.rjw@sisk.pl>
+Received: from relay2.globalproof.net ([194.146.153.25]:48786 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080AbYHQTh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 15:37:29 -0400
+In-Reply-To: <20080817133608.GA3584@ami.dom.local>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 17 of August 2008, Rafael J. Wysocki wrote:
-> On Sunday, 17 of August 2008, Yinghai Lu wrote:
-> > On Sun, Aug 17, 2008 at 9:55 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > > On Sunday, 17 of August 2008, Rafael J. Wysocki wrote:
-> > >> On Sunday, 17 of August 2008, Yinghai Lu wrote:
-> > >> > after
-> > >> >
-> > >> > | commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
-> > >> > | Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> > >> > | Date:   Sun May 18 15:02:37 2008 +0200
-> > >> > |
-> > >> > |    [netdrvr] forcedeth: setup wake-on-lan before shutting down
-> > >> > |
-> > >> > |    When hibernating in 'shutdown' mode, after saving the image the suspend hook
-> > >> > |    is not called again.
-> > >> > |    However, if the device is in promiscous mode, wake-on-lan will not work.
-> > >> > |    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
-> > >> > |
-> > >> > |    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> > >> > |    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-> > >> >
-> > >> > my servers with nvidia mcp55 nic doesn't work with msi in second kernel by kexec
-> > >> >
-> > >> > after remove pci_set_power_state(, PCI_D3hot) that nic/msi will work again.
-> > >> >
-> > >> > check with e1000 is using pci_choose_state in _shutdown.
-> > >
-> > > This is wrong.
-> > >
-> > >> > So change that pci_choose_state(pdev, ...), and it works.
-> > >>
-> > >> Well, this doesn't look like a good solution to me, because you're putting
-> > >> PMSG_SUSPEND in there, which is not correct for shutdown.  The right thing to
-> > >> do would be to avoid changing the device power state if nv_shutdown() is
-> > >> used for kexec or to rework the initialization of the adapter to handle the
-> > >> case when it's initially in D3.
-> > >>
-> > >> Does it help if you just remove the pci_set_power_state(pdev, PCI_D3hot)
-> > >> altogether?
-> > >
-> > > Ah, sorry.  I see it does.
-> > >
-> > > Actually, I think you can use pci_prepare_to_sleep() instead of
-> > > pci_enable_wake() / pci_set_power_state() combo.  It wasn't designed for this
-> > > purpose, but should work nevertheless.
-> > >
-> > > Can you please check if the appended patch works instead of your one?
-> > >
-> > > Rafael
-> > >
-> > > ---
-> > > Fix the problem that boxes with NVidia MCP55 don't work with MSI
-> > > in a kexeced kernel.
-> > >
-> > > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > > ---
-> > >  drivers/net/forcedeth.c |    4 +---
-> > >  1 file changed, 1 insertion(+), 3 deletions(-)
-> > >
-> > > Index: linux-2.6/drivers/net/forcedeth.c
-> > > ===================================================================
-> > > --- linux-2.6.orig/drivers/net/forcedeth.c
-> > > +++ linux-2.6/drivers/net/forcedeth.c
-> > > @@ -5975,10 +5975,8 @@ static void nv_shutdown(struct pci_dev *
-> > >        if (netif_running(dev))
-> > >                nv_close(dev);
-> > >
-> > > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> > >        pci_disable_device(pdev);
-> > > -       pci_set_power_state(pdev, PCI_D3hot);
-> > > +       pci_prepare_to_sleep(pdev);
-> > >  }
-> > >  #else
-> > >  #define nv_suspend NULL
-> > >
-> > >
-> > 
-> > your patch doesn't work...  it seems that silicon has problem with D3Hot
-> 
-> Okay, so perhaps it's better to do something like this:
-> 
-> ---
->  drivers/net/forcedeth.c |    8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> Index: linux-2.6/drivers/net/forcedeth.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/forcedeth.c
-> +++ linux-2.6/drivers/net/forcedeth.c
-> @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
->  	if (netif_running(dev))
->  		nv_close(dev);
->  
-> -	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> -	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
->  	pci_disable_device(pdev);
-> -	pci_set_power_state(pdev, PCI_D3hot);
-> +	if (system_state == SYS_POWER_OFF) {
+I am lost in patches :-)
+When you will be back, let me know if order and set of patches is correct.
+Here is what i am using:
 
-Sorry, it should be SYSTEM_POWER_OFF here.  Corrected patch is appended.
+http://www.nuclearcat.com/patches/00-prevfixes1.patch
+http://www.nuclearcat.com/patches/00-prevfixes2.patch
+http://www.nuclearcat.com/patches/01-take3.patch
+http://www.nuclearcat.com/patches/02-fix1.patch
+http://www.nuclearcat.com/patches/03-fix_patch_2.patch
 
-> +		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> +			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> +		pci_set_power_state(pdev, PCI_D3hot);
-> +	}
->  }
->  #else
->  #define nv_suspend NULL
-> --
+And thanks for your help!
+I cannot take risk and put to wide production, since it is crashing sometimes, 
+but i guess in few days we can make it ready for production.
 
----
- drivers/net/forcedeth.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+On Sunday 17 August 2008, Jarek Poplawski wrote:
+> On Sun, Aug 17, 2008 at 04:03:22PM +0300, Denys Fedoryshchenko wrote:
+> > All patches applied.
+> > On normal shaper i got just this warning mentioned before.
+> > On alternative shaper (it is not using TBF anymore, it is using flow
+> > classifier and many HTB classes) - it is panicing.
+> >
+> > After applying all rules, most probably it is happened when some traffic
+> > passed over there. I can't be absolutely sure in that, but it looks like
+> > at that time there is no actions by iproute2/tc done. Just traffic.
+> >
+> > This is same PC where WARNING appeared which i mention in previous mail.
+> > So maybe it is result of that warning, no idea...
+>
+> BTW, I'll have to have a break for today, so I'll be able to respond
+> only tomorrow. Your testing is very valuable and this all needs
+> rethinking, but as before, I doubt current -rc is good choice for
+> production.
+>
+> Cheers,
+> Jarek P.
 
-Index: linux-2.6/drivers/net/forcedeth.c
-===================================================================
---- linux-2.6.orig/drivers/net/forcedeth.c
-+++ linux-2.6/drivers/net/forcedeth.c
-@@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
- 	if (netif_running(dev))
- 		nv_close(dev);
- 
--	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
--	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, PCI_D3hot);
-+	if (system_state == SYSTEM_POWER_OFF) {
-+		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-+			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
- }
- #else
- #define nv_suspend NULL
+
