@@ -1,189 +1,65 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
-Date: Sun, 17 Aug 2008 23:47:35 +0200
-Message-ID: <200808172347.36582.rjw@sisk.pl>
-References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808172134.20230.rjw@sisk.pl> <86802c440808171358y55361a52pa6d0aacf44a1875f@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
+Date: Sun, 17 Aug 2008 23:47:52 +0200
+Message-ID: <20080817214752.GA2546@ami.dom.local>
+References: <20080815190905.M56388@visp.net.lb> <200808171603.22151.denys@visp.net.lb> <20080817133608.GA3584@ami.dom.local> <200808172236.17857.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@redhat.com>, "Ingo Molnar" <mingo@elte.hu>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-To: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:41655 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750886AbYHQVo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Aug 2008 17:44:28 -0400
-In-Reply-To: <86802c440808171358y55361a52pa6d0aacf44a1875f@mail.gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.188]:20999 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493AbYHQVrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 17:47:21 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1053806nfc.21
+        for <netdev@vger.kernel.org>; Sun, 17 Aug 2008 14:47:19 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200808172236.17857.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, 17 of August 2008, Yinghai Lu wrote:
-> On Sun, Aug 17, 2008 at 12:34 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > On Sunday, 17 of August 2008, Rafael J. Wysocki wrote:
-> >> On Sunday, 17 of August 2008, Yinghai Lu wrote:
-> >> > On Sun, Aug 17, 2008 at 9:55 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> >> > > On Sunday, 17 of August 2008, Rafael J. Wysocki wrote:
-> >> > >> On Sunday, 17 of August 2008, Yinghai Lu wrote:
-> >> > >> > after
-> >> > >> >
-> >> > >> > | commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
-> >> > >> > | Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> >> > >> > | Date:   Sun May 18 15:02:37 2008 +0200
-> >> > >> > |
-> >> > >> > |    [netdrvr] forcedeth: setup wake-on-lan before shutting down
-> >> > >> > |
-> >> > >> > |    When hibernating in 'shutdown' mode, after saving the image the suspend hook
-> >> > >> > |    is not called again.
-> >> > >> > |    However, if the device is in promiscous mode, wake-on-lan will not work.
-> >> > >> > |    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
-> >> > >> > |
-> >> > >> > |    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> >> > >> > |    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-> >> > >> >
-> >> > >> > my servers with nvidia mcp55 nic doesn't work with msi in second kernel by kexec
-> >> > >> >
-> >> > >> > after remove pci_set_power_state(, PCI_D3hot) that nic/msi will work again.
-> >> > >> >
-> >> > >> > check with e1000 is using pci_choose_state in _shutdown.
-> >> > >
-> >> > > This is wrong.
-> >> > >
-> >> > >> > So change that pci_choose_state(pdev, ...), and it works.
-> >> > >>
-> >> > >> Well, this doesn't look like a good solution to me, because you're putting
-> >> > >> PMSG_SUSPEND in there, which is not correct for shutdown.  The right thing to
-> >> > >> do would be to avoid changing the device power state if nv_shutdown() is
-> >> > >> used for kexec or to rework the initialization of the adapter to handle the
-> >> > >> case when it's initially in D3.
-> >> > >>
-> >> > >> Does it help if you just remove the pci_set_power_state(pdev, PCI_D3hot)
-> >> > >> altogether?
-> >> > >
-> >> > > Ah, sorry.  I see it does.
-> >> > >
-> >> > > Actually, I think you can use pci_prepare_to_sleep() instead of
-> >> > > pci_enable_wake() / pci_set_power_state() combo.  It wasn't designed for this
-> >> > > purpose, but should work nevertheless.
-> >> > >
-> >> > > Can you please check if the appended patch works instead of your one?
-> >> > >
-> >> > > Rafael
-> >> > >
-> >> > > ---
-> >> > > Fix the problem that boxes with NVidia MCP55 don't work with MSI
-> >> > > in a kexeced kernel.
-> >> > >
-> >> > > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> >> > > ---
-> >> > >  drivers/net/forcedeth.c |    4 +---
-> >> > >  1 file changed, 1 insertion(+), 3 deletions(-)
-> >> > >
-> >> > > Index: linux-2.6/drivers/net/forcedeth.c
-> >> > > ===================================================================
-> >> > > --- linux-2.6.orig/drivers/net/forcedeth.c
-> >> > > +++ linux-2.6/drivers/net/forcedeth.c
-> >> > > @@ -5975,10 +5975,8 @@ static void nv_shutdown(struct pci_dev *
-> >> > >        if (netif_running(dev))
-> >> > >                nv_close(dev);
-> >> > >
-> >> > > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> >> > > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> >> > >        pci_disable_device(pdev);
-> >> > > -       pci_set_power_state(pdev, PCI_D3hot);
-> >> > > +       pci_prepare_to_sleep(pdev);
-> >> > >  }
-> >> > >  #else
-> >> > >  #define nv_suspend NULL
-> >> > >
-> >> > >
-> >> >
-> >> > your patch doesn't work...  it seems that silicon has problem with D3Hot
-> >>
-> >> Okay, so perhaps it's better to do something like this:
-> >>
-> >> ---
-> >>  drivers/net/forcedeth.c |    8 +++++---
-> >>  1 file changed, 5 insertions(+), 3 deletions(-)
-> >>
-> >> Index: linux-2.6/drivers/net/forcedeth.c
-> >> ===================================================================
-> >> --- linux-2.6.orig/drivers/net/forcedeth.c
-> >> +++ linux-2.6/drivers/net/forcedeth.c
-> >> @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
-> >>       if (netif_running(dev))
-> >>               nv_close(dev);
-> >>
-> >> -     pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> >> -     pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> >>       pci_disable_device(pdev);
-> >> -     pci_set_power_state(pdev, PCI_D3hot);
-> >> +     if (system_state == SYS_POWER_OFF) {
-> >
-> > Sorry, it should be SYSTEM_POWER_OFF here.  Corrected patch is appended.
-> >
-> >> +             if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> >> +                     pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> >> +             pci_set_power_state(pdev, PCI_D3hot);
-> >> +     }
-> >>  }
-> >>  #else
-> >>  #define nv_suspend NULL
-> >> --
-> >
-> > ---
-> >  drivers/net/forcedeth.c |    8 +++++---
-> >  1 file changed, 5 insertions(+), 3 deletions(-)
-> >
-> > Index: linux-2.6/drivers/net/forcedeth.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/forcedeth.c
-> > +++ linux-2.6/drivers/net/forcedeth.c
-> > @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
-> >        if (netif_running(dev))
-> >                nv_close(dev);
-> >
-> > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> >        pci_disable_device(pdev);
-> > -       pci_set_power_state(pdev, PCI_D3hot);
-> > +       if (system_state == SYSTEM_POWER_OFF) {
-> > +               if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> > +                       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > +               pci_set_power_state(pdev, PCI_D3hot);
-> > +       }
-> >  }
-> >  #else
-> >  #define nv_suspend NULL
-> >
+On Sun, Aug 17, 2008 at 10:36:17PM +0300, Denys Fedoryshchenko wrote:
+> I am lost in patches :-)
+> When you will be back, let me know if order and set of patches is correct.
+> Here is what i am using:
 > 
-> why not like e1000 to
-> pci_set_power_state(pdev, pci_choose_state(pdev, PMSG_SUSPEND));
+> http://www.nuclearcat.com/patches/00-prevfixes1.patch
+> http://www.nuclearcat.com/patches/00-prevfixes2.patch
+> http://www.nuclearcat.com/patches/01-take3.patch
+> http://www.nuclearcat.com/patches/02-fix1.patch
+> http://www.nuclearcat.com/patches/03-fix_patch_2.patch
 > 
-> pci_choose_state would check if platform support those state...
+> And thanks for your help!
+> I cannot take risk and put to wide production, since it is crashing sometimes, 
+> but i guess in few days we can make it ready for production.
+> 
 
-... but ->shutdown() only involves the platform in the
-'system_state == SYSTEM_POWER_OFF' case!
-
-In fact, using pci_choose_state() in ->shutdown() is a very convoluted way of
-checking the 'system_state' value, and not a 100% reliable one. :-)
-
-Namely, the fact that pci_choose_state() returns you D0 instead of D3hot for
-'system_state != SYSTEM_POWER_OFF' is a pure coincidence (accidentally, there
-is an ACPI handle for the device, but there need not be one) and you should
-not rely on that in general.  Generally speaking, pci_choose_state() is not to
-be used outside of the drivers' ->suspend() routines.
-
-[Yes, this means e1000 will have to be fixed, as I said before.]
-
-Apart from this, pci_choose_state() is broken and will shortly be deprecated.
-Moreover, in future all direct references to PMSG_SUSPEND from the drivers
-will be removed.
+OK, so please try to test with all these patches above plus one new
+patch below.
 
 Thanks,
-Rafael
+Jarek P.
+
+(04-fix_patch_3.patch)
+---
+
+ net/sched/sch_api.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c25465e..c8dc72e 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -638,9 +638,9 @@ static void notify_and_destroy(struct sk_buff *skb, struct nlmsghdr *n, u32 clid
+ 		qdisc_notify(skb, n, clid, old, new);
+ 
+ 	if (old) {
+-		spin_lock_bh(&old->q.lock);
++		sch_tree_lock(old);
+ 		qdisc_destroy(old);
+-		spin_unlock_bh(&old->q.lock);
++		sch_tree_unlock(old);
+ 	}
+ }
+ 
