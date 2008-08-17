@@ -1,62 +1,43 @@
-From: Yinghai Lu <yhlu.kernel@gmail.com>
-Subject: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
-Date: Sat, 16 Aug 2008 23:25:33 -0700
-Message-ID: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Yinghai Lu <yhlu.kernel@gmail.com>
-To: Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
+Date: Sun, 17 Aug 2008 12:02:13 +0300
+Message-ID: <200808171202.13422.denys@visp.net.lb>
+References: <20080815190905.M56388@visp.net.lb> <200808162222.56318.denys@visp.net.lb> <20080816193956.GB24083@ami.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:43835 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbYHQG0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 02:26:22 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so995105waf.23
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 23:26:21 -0700 (PDT)
+Received: from relay2.globalproof.net ([194.146.153.25]:58472 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbYHQJDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 05:03:22 -0400
+In-Reply-To: <20080816193956.GB24083@ami.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-after
+Is it was a fix? Because for now it is running fine from night (but i have 
+enabled some minor debug options in kernel). No crash or warning yet.
 
-| commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
-| Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-| Date:   Sun May 18 15:02:37 2008 +0200
-|
-|    [netdrvr] forcedeth: setup wake-on-lan before shutting down
-|
-|    When hibernating in 'shutdown' mode, after saving the image the suspend hook
-|    is not called again.
-|    However, if the device is in promiscous mode, wake-on-lan will not work.
-|    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
-|
-|    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-|    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+I disable now debug as it was before and testing more.
 
-my servers with nvidia mcp55 nic doesn't work with msi in second kernel by kexec
+On Saturday 16 August 2008, Jarek Poplawski wrote:
+> > >  	spin_lock_init(&dev_queue->_xmit_lock);
+> > > +	spin_lock_init(&dev_queue->qdisc_lock);
+> > >  	netdev_set_xmit_lockdep_class(&dev_queue->_xmit_lock, dev->type);
+> > >  	dev_queue->xmit_lock_owner = -1;
+> > >  }
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-after remove pci_set_power_state(, PCI_D3hot) that nic/msi will work again.
 
-check with e1000 is using pci_choose_state in _shutdown.
-
-So change that pci_choose_state(pdev, ...), and it works.
-
-Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
-
----
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6/drivers/net/forcedeth.c
-===================================================================
---- linux-2.6.orig/drivers/net/forcedeth.c
-+++ linux-2.6/drivers/net/forcedeth.c
-@@ -5988,7 +5988,7 @@ static void nv_shutdown(struct pci_dev *
- 	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
- 	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, PCI_D3hot);
-+	pci_set_power_state(pdev, pci_choose_state(pdev, PMSG_SUSPEND));
- }
- #else
- #define nv_suspend NULL
