@@ -1,7 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/6] r8169: Tx performance tweak helper
-Date: Sun, 17 Aug 2008 18:26:02 +0200
-Message-ID: <20080817162602.GC18690@electric-eye.fr.zoreil.com>
+Subject: [PATCH 3/6] r8169: use pci_find_capability for the PCI-E features
+Date: Sun, 17 Aug 2008 18:27:23 +0200
+Message-ID: <20080817162723.GD18690@electric-eye.fr.zoreil.com>
 References: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
 	Ivan Vecera <ivecera@redhat.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41308 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41319 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752346AbYHQQ1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:27:11 -0400
+	by vger.kernel.org with ESMTP id S1751682AbYHQQ2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:28:19 -0400
 Content-Disposition: inline
 In-Reply-To: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -21,47 +21,89 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/r8169.c |   32 ++++++++++++++++++++++++--------
+ 1 files changed, 24 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index dac2677..26fa6e0 100644
+index 26fa6e0..ae149a9 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -2054,12 +2054,20 @@ static void rtl_hw_start_8169(struct net_device *dev)
+@@ -61,6 +61,7 @@ static const int multicast_filter_limit = 32;
+ /* MAC address length */
+ #define MAC_ADDR_LEN	6
+ 
++#define MAX_READ_REQUEST_SHIFT	12
+ #define RX_FIFO_THRESH	7	/* 7 means NO threshold, Rx buffer level before first PCI xfer. */
+ #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+@@ -412,6 +413,7 @@ struct rtl8169_private {
+ 	void (*hw_start)(struct net_device *);
+ 	unsigned int (*phy_reset_pending)(void __iomem *);
+ 	unsigned int (*link_ok)(void __iomem *);
++	int pcie_cap;
+ 	struct delayed_work task;
+ 	unsigned features;
+ 
+@@ -1663,6 +1665,10 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_free_res_4;
+ 	}
+ 
++	tp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
++	if (!tp->pcie_cap && netif_msg_probe(tp))
++		dev_info(&pdev->dev, "no PCI Express capability\n");
++
+ 	/* Unneeded ? Don't mess with Mrs. Murphy. */
+ 	rtl8169_irq_mask_and_ack(ioaddr);
+ 
+@@ -2054,13 +2060,19 @@ static void rtl_hw_start_8169(struct net_device *dev)
  	RTL_W16(IntrMask, tp->intr_event);
  }
  
-+static void rtl_tx_performance_tweak(struct pci_dev *pdev, u8 force)
-+{
-+	u8 ctl;
-+
-+	pci_read_config_byte(pdev, 0x69, &ctl);
-+	ctl = (ctl & ~0x70) | force;
-+	pci_write_config_byte(pdev, 0x69, ctl);
-+}
-+
- static void rtl_hw_start_8168(struct net_device *dev)
+-static void rtl_tx_performance_tweak(struct pci_dev *pdev, u8 force)
++static void rtl_tx_performance_tweak(struct pci_dev *pdev, u16 force)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	struct pci_dev *pdev = tp->pci_dev;
 -	u8 ctl;
++	struct net_device *dev = pci_get_drvdata(pdev);
++	struct rtl8169_private *tp = netdev_priv(dev);
++	int cap = tp->pcie_cap;
++
++	if (cap) {
++		u16 ctl;
  
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+-	pci_read_config_byte(pdev, 0x69, &ctl);
+-	ctl = (ctl & ~0x70) | force;
+-	pci_write_config_byte(pdev, 0x69, ctl);
++		pci_read_config_word(pdev, cap + PCI_EXP_DEVCTL, &ctl);
++		ctl = (ctl & ~PCI_EXP_DEVCTL_READRQ) | force;
++		pci_write_config_word(pdev, cap + PCI_EXP_DEVCTL, ctl);
++	}
+ }
  
-@@ -2073,10 +2081,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ static void rtl_hw_start_8168(struct net_device *dev)
+@@ -2081,7 +2093,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
  
  	RTL_W16(CPlusCmd, tp->cp_cmd);
  
--	/* Tx performance tweak. */
--	pci_read_config_byte(pdev, 0x69, &ctl);
--	ctl = (ctl & ~0x70) | 0x50;
--	pci_write_config_byte(pdev, 0x69, ctl);
-+	rtl_tx_performance_tweak(pdev, 0x50);
+-	rtl_tx_performance_tweak(pdev, 0x50);
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
  
  	RTL_W16(IntrMitigate, 0x5151);
  
+@@ -2116,8 +2128,12 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_13) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_16)) {
+-		pci_write_config_word(pdev, 0x68, 0x00);
+-		pci_write_config_word(pdev, 0x69, 0x08);
++		int cap = tp->pcie_cap;
++
++		if (cap) {
++			pci_write_config_word(pdev, cap + PCI_EXP_DEVCTL,
++					      PCI_EXP_DEVCTL_NOSNOOP_EN);
++		}
+ 	}
+ 
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
 -- 
 1.5.3.3
 
