@@ -1,298 +1,74 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: panic 2.6.27-rc3-git2, qdisc_dequeue_head
-Date: Sun, 17 Aug 2008 16:03:22 +0300
-Message-ID: <200808171603.22151.denys@visp.net.lb>
-References: <20080815190905.M56388@visp.net.lb> <20080817123825.GE2907@ami.dom.local> <200808171550.01154.denys@visp.net.lb>
+Date: Sun, 17 Aug 2008 15:16:35 +0200
+Message-ID: <20080817131635.GA3535@ami.dom.local>
+References: <20080815190905.M56388@visp.net.lb> <200808171506.06292.denys@visp.net.lb> <20080817123825.GE2907@ami.dom.local> <200808171550.01154.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:35877 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbYHQNEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 09:04:31 -0400
-In-Reply-To: <200808171550.01154.denys@visp.net.lb>
+Received: from nf-out-0910.google.com ([64.233.182.186]:48237 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752501AbYHQNPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 09:15:16 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1015091nfc.21
+        for <netdev@vger.kernel.org>; Sun, 17 Aug 2008 06:15:15 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200808171550.01154.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All patches applied.
-On normal shaper i got just this warning mentioned before.
-On alternative shaper (it is not using TBF anymore, it is using flow 
-classifier and many HTB classes) - it is panicing. 
+On Sun, Aug 17, 2008 at 03:50:01PM +0300, Denys Fedoryshchenko wrote:
+> On Sunday 17 August 2008, Jarek Poplawski wrote:
+> 
+> > Denys, I would like to be sure: do you mean here the last patch
+> > attached below? So, the alternative shaper works with previous
+> > patches, but not this one? If so, than no need to test this patch
+> > anymore, only confirm this, please.
+> No.
+> Alternative shaper didn't work without applying latest patch (just i had old 
+> kernel, and i decide just to try alternative shaper).
+> 
+> Latest warning with all patches applied. I will test alternative shaper with 
+> all patches applied now.
+> 
 
-After applying all rules, most probably it is happened when some traffic 
-passed over there. I can't be absolutely sure in that, but it looks like at 
-that time there is no actions by iproute2/tc done. Just traffic.
+I think it would be better to test first only with patches:
+take #3, patch #1, patch #2 (and of these 2 from earlier thread).
 
-This is same PC where WARNING appeared which i mention in previous mail. So 
-maybe it is result of that warning, no idea... 
+This last patch, let's call it patch #4, can wait.
 
-Here is latest panic (alternative shaper):
-Aug 17 15:58:49 194.146.153.146 [ 2495.110453] BUG: unable to handle kernel
-Aug 17 15:58:49 194.146.153.146 NULL pointer dereference
-Aug 17 15:58:49 194.146.153.146 at 0000000c
-Aug 17 15:58:49 194.146.153.146 [ 2495.110453] IP:
-Aug 17 15:58:49 194.146.153.146 [<c01e065e>] _raw_spin_trylock+0x6/0x3a
-Aug 17 15:58:49 194.146.153.146 [ 2495.110453] *pde = 00000000
-Aug 17 15:58:49 194.146.153.146
-Aug 17 15:58:49 194.146.153.146 [ 2495.110453] Oops: 0000 [#1]
-Aug 17 15:58:49 194.146.153.146 SMP
-Aug 17 15:58:49 194.146.153.146
-Aug 17 15:58:49 194.146.153.146 [ 2495.110453] Modules linked in:
-Aug 17 15:58:49 194.146.153.146 cls_flow
-Aug 17 15:58:49 194.146.153.146 act_police
-Aug 17 15:58:49 194.146.153.146 sch_ingress
-Aug 17 15:58:49 194.146.153.146 sch_prio
-Aug 17 15:58:49 194.146.153.146 netconsole
-Aug 17 15:58:49 194.146.153.146 configfs
-Aug 17 15:58:49 194.146.153.146 cls_u32
-Aug 17 15:58:49 194.146.153.146 em_meta
-Aug 17 15:58:49 194.146.153.146 cls_basic
-Aug 17 15:58:49 194.146.153.146 xt_dscp
-Aug 17 15:58:49 194.146.153.146 xt_DSCP
-Aug 17 15:58:49 194.146.153.146 ipt_REJECT
-Aug 17 15:58:49 194.146.153.146 ts_bm
-Aug 17 15:58:49 194.146.153.146 xt_string
-Aug 17 15:58:49 194.146.153.146 ipt_ttl
-Aug 17 15:58:49 194.146.153.146 ifb
-Aug 17 15:58:49 194.146.153.146 cls_fw
-Aug 17 15:58:49 194.146.153.146 sch_tbf
-Aug 17 15:58:49 194.146.153.146 sch_htb
-Aug 17 15:58:49 194.146.153.146 act_ipt
-Aug 17 15:58:49 194.146.153.146 act_mirred
-Aug 17 15:58:49 194.146.153.146 xt_MARK
-Aug 17 15:58:49 194.146.153.146 pppoe
-Aug 17 15:58:49 194.146.153.146 pppox
-Aug 17 15:58:49 194.146.153.146 ppp_generic
-Aug 17 15:58:49 194.146.153.146 slhc
-Aug 17 15:58:49 194.146.153.146 ipt_MASQUERADE
-Aug 17 15:58:49 194.146.153.146 xt_TCPMSS
-Aug 17 15:58:49 194.146.153.146 xt_mark
-Aug 17 15:58:49 194.146.153.146 xt_tcpudp
-Aug 17 15:58:49 194.146.153.146 iptable_mangle
-Aug 17 15:58:49 194.146.153.146 iptable_nat
-Aug 17 15:58:49 194.146.153.146 nf_nat
-Aug 17 15:58:49 194.146.153.146 nf_conntrack_ipv4Aug 17 15:58:49 
-194.146.153.146 iptable_filter
-Aug 17 15:58:49 194.146.153.146 ip_tables
-Aug 17 15:58:49 194.146.153.146 x_tables
-Aug 17 15:58:49 194.146.153.146 8021q
-Aug 17 15:58:49 194.146.153.146 garp
-Aug 17 15:58:49 194.146.153.146 stp
-Aug 17 15:58:49 194.146.153.146 llc
-Aug 17 15:58:49 194.146.153.146 tun
-Aug 17 15:58:49 194.146.153.146 loop
-Aug 17 15:58:49 194.146.153.146 tulip
-Aug 17 15:58:50 194.146.153.146 r8169
-Aug 17 15:58:50 194.146.153.146 sky2
-Aug 17 15:58:50 194.146.153.146 via_velocity
-Aug 17 15:58:50 194.146.153.146 via_rhine
-Aug 17 15:58:50 194.146.153.146 sis900
-Aug 17 15:58:50 194.146.153.146 ne2k_pci
-Aug 17 15:58:50 194.146.153.146 8390
-Aug 17 15:58:50 194.146.153.146 skge
-Aug 17 15:58:50 194.146.153.146 tg3
-Aug 17 15:58:50 194.146.153.146 libphy
-Aug 17 15:58:50 194.146.153.146 8139too
-Aug 17 15:58:50 194.146.153.146 e1000
-Aug 17 15:58:50 194.146.153.146 e100
-Aug 17 15:58:50 194.146.153.146 mtdblock
-Aug 17 15:58:50 194.146.153.146 mtd_blkdevs
-Aug 17 15:58:50 194.146.153.146 aic79xx
-Aug 17 15:58:50 194.146.153.146 mptsas
-Aug 17 15:58:50 194.146.153.146 scsi_transport_sas
-Aug 17 15:58:50 194.146.153.146 mptspi
-Aug 17 15:58:50 194.146.153.146 scsi_transport_spi
-Aug 17 15:58:50 194.146.153.146 mptscsih
-Aug 17 15:58:50 194.146.153.146 mptbase
-Aug 17 15:58:50 194.146.153.146 sata_via
-Aug 17 15:58:50 194.146.153.146 sata_uliAug 17 15:58:50 194.146.153.146 libata
-Aug 17 15:58:50 194.146.153.146 dock
-Aug 17 15:58:50 194.146.153.146 usbhid
-Aug 17 15:58:50 194.146.153.146 uhci_hcd
-Aug 17 15:58:50 194.146.153.146 ehci_hcd
-Aug 17 15:58:50 194.146.153.146 ohci_hcd
-Aug 17 15:58:50 194.146.153.146 usbcore
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] Pid: 0, comm: swapper Not 
-tainted (2.6.27-rc3-git3-build-0031 #9)
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] EIP: 0060:[<c01e065e>] EFLAGS: 
-00010246 CPU: 0
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] EIP is at 
-_raw_spin_trylock+0x6/0x3a
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] EAX: 0000000c EBX: 0000000c 
-ECX: c01295d1 EDX: 0000000c
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] ESI: f6c0b024 EDI: 0000000c 
-EBP: c0861fb0 ESP: c0861fac
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  DS: 007b ES: 007b FS: 00d8 GS: 
-0000 SS: 0068
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] Process swapper (pid: 0, 
-ti=c0861000 task=c03833b4 task.ti=c03a9000)
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] Stack:
-Aug 17 15:58:50 194.146.153.146 0000000c
-Aug 17 15:58:50 194.146.153.146 c0861fbc
-Aug 17 15:58:50 194.146.153.146 c02bdae3
-Aug 17 15:58:50 194.146.153.146 f6c0b000
-Aug 17 15:58:50 194.146.153.146 c0861fd4
-Aug 17 15:58:50 194.146.153.146 c025fd72
-Aug 17 15:58:50 194.146.153.146 00000000
-Aug 17 15:58:50 194.146.153.146 c039ea88
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]
-Aug 17 15:58:50 194.146.153.146 c085a554
-Aug 17 15:58:50 194.146.153.146 00000001
-Aug 17 15:58:50 194.146.153.146 c0861ff8
-Aug 17 15:58:50 194.146.153.146 c012626bAug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 net_tx_action+0x9c/0xd8
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c012626b>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 __do_softirq+0x7b/0xf4
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c01261f0>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 __do_softirq+0x0/0xf4
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c01060b3>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 do_softirq+0x65/0xb6
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c014a264>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 handle_edge_irq+0x0/0x109
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c0125e90>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 irq_exit+0x44/0x79
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c0106038>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 do_IRQ+0xae/0xc4
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c0104288>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 common_interrupt+0x28/0x30
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c013007b>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 task_session_nr_ns+0x6/0x30
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c0108d8a>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 mwait_idle+0x39/0x43
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c01029ee>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 cpu_idle+0xbf/0xe1
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c02b1156>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 rest_init+0x4e/0x50
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  =======================
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] Code:Aug 17 15:58:50 
-194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 f8
-Aug 17 15:58:50 194.146.153.146 e8
-Aug 17 15:58:50 194.146.153.146 2c
-Aug 17 15:58:50 194.146.153.146 b5
-Aug 17 15:58:50 194.146.153.146 04
-Aug 17 15:58:50 194.146.153.146 00
-Aug 17 15:58:50 194.146.153.146 eb
-Aug 17 15:58:50 194.146.153.146 07
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 d8
-Aug 17 15:58:50 194.146.153.146 e8
-Aug 17 15:58:50 194.146.153.146 83
-Aug 17 15:58:50 194.146.153.146 b8
-Aug 17 15:58:50 194.146.153.146 04
-Aug 17 15:58:50 194.146.153.146 00
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 f0
-Aug 17 15:58:50 194.146.153.146 5e
-Aug 17 15:58:50 194.146.153.146 5f
-Aug 17 15:58:50 194.146.153.146 5b
-Aug 17 15:58:50 194.146.153.146 5e
-Aug 17 15:58:50 194.146.153.146 5f
-Aug 17 15:58:50 194.146.153.146 5d
-Aug 17 15:58:50 194.146.153.146 c3
-Aug 17 15:58:50 194.146.153.146 55
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 c2
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 e5
-Aug 17 15:58:50 194.146.153.146 53
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 8b
-Aug 17 15:58:50 194.146.153.146 02
-Aug 17 15:58:50 194.146.153.146 38
-Aug 17 15:58:50 194.146.153.146 e0
-Aug 17 15:58:50 194.146.153.146 75
-Aug 17 15:58:50 194.146.153.146 0a
-Aug 17 15:58:50 194.146.153.146 66
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 c3
-Aug 17 15:58:50 194.146.153.146 fe
-Aug 17 15:58:50 194.146.153.146 c7
-Aug 17 15:58:50 194.146.153.146 f0
-Aug 17 15:58:50 194.146.153.146 66
-Aug 17 15:58:50 194.146.153.146 0f
-Aug 17 15:58:50 194.146.153.146 b1
-Aug 17 15:58:50 194.146.153.146 1a
-Aug 17 15:58:50 194.146.153.146 0f
-Aug 17 15:58:50 194.146.153.146 94
-Aug 17 15:58:50 194.146.153.146 c3
-Aug 17 15:58:50 194.146.153.146 0f
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] EIP: [<c01e065e>]
-Aug 17 15:58:50 194.146.153.146 _raw_spin_trylock+0x6/0x3a
-Aug 17 15:58:50 194.146.153.146 SS:ESP 0068:c0861fac
-Aug 17 15:58:50 194.146.153.146 [ 2495.117172] Kernel panic - not syncing: 
-Fatal exception in interrupt
-Aug 17 15:58:50 194.146.153.146 [ 2495.117264] Rebooting in 5 seconds..
+If there are oopses please try to add to them this one:
 
-Aug 17 15:58:50 194.146.153.146 f3
-Aug 17 15:58:50 194.146.153.146 ff
-Aug 17 15:58:50 194.146.153.146 85
-Aug 17 15:58:50 194.146.153.146 c0
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 c6
-Aug 17 15:58:50 194.146.153.146 74
-Aug 17 15:58:50 194.146.153.146 0d
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 03
-Aug 17 15:58:50 194.146.153.146 89
-Aug 17 15:58:50 194.146.153.146 da
+Jarek P.
 
-Aug 17 15:58:50 194.146.153.146 c085d700
-Aug 17 15:58:50 194.146.153.146 c085d700
-Aug 17 15:58:50 194.146.153.146 00000009
-Aug 17 15:58:50 194.146.153.146 00000000
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]
-Aug 17 15:58:50 194.146.153.146 c03a9f44
-Aug 17 15:58:50 194.146.153.146 c03a9000
-Aug 17 15:58:50 194.146.153.146 c01261f0
-Aug 17 15:58:50 194.146.153.146 c03a9f54
-Aug 17 15:58:50 194.146.153.146 c01060b3
-Aug 17 15:58:50 194.146.153.146
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453] Call Trace:
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c02bdae3>]
-Aug 17 15:58:50 194.146.153.146 ?
-Aug 17 15:58:50 194.146.153.146 __lock_text_start+0xb/0x38
-Aug 17 15:58:50 194.146.153.146 [ 2495.110453]  [<c025fd72>]
+--- (patch #5)
 
-Aug 17 15:58:50 194.146.153.146 sata_svw
-Aug 17 15:58:50 194.146.153.146 sata_sis
-Aug 17 15:58:50 194.146.153.146 sata_sil24
-Aug 17 15:58:50 194.146.153.146 sata_sil
-Aug 17 15:58:50 194.146.153.146 sata_mv
-Aug 17 15:58:50 194.146.153.146 ahci
-Aug 17 15:58:50 194.146.153.146 pata_via
-Aug 17 15:58:50 194.146.153.146 pata_sis
-Aug 17 15:58:50 194.146.153.146 pata_serverworks
-Aug 17 15:58:50 194.146.153.146 pata_oldpiix
-Aug 17 15:58:50 194.146.153.146 pata_mpiix
-Aug 17 15:58:50 194.146.153.146 pata_marvell
-Aug 17 15:58:50 194.146.153.146 pata_ali
-Aug 17 15:58:50 194.146.153.146 ata_generic
-Aug 17 15:58:50 194.146.153.146 ata_piix
+ net/sched/sch_api.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Aug 17 15:58:49 194.146.153.146 nf_conntrack
-Aug 17 15:58:49 194.146.153.146 rtc_cmos
-Aug 17 15:58:49 194.146.153.146 rtc_core
-Aug 17 15:58:49 194.146.153.146 rtc_lib
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c25465e..5fdd1e2 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -694,6 +694,9 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 
+ 		err = -EINVAL;
+ 
++		if (dev->flags & IFF_UP)
++			dev_deactivate(dev);
++
+ 		if (cops) {
+ 			unsigned long cl = cops->get(parent, classid);
+ 			if (cl) {
+@@ -703,6 +706,9 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 		}
+ 		if (!err)
+ 			notify_and_destroy(skb, n, classid, old, new);
++
++		if (dev->flags & IFF_UP)
++			dev_activate(dev);
+ 	}
+ 	return err;
+ }
