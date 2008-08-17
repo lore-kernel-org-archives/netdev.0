@@ -1,19 +1,19 @@
 From: Yinghai Lu <yhlu.kernel@gmail.com>
-Subject: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot
-Date: Sat, 16 Aug 2008 23:22:53 -0700
-Message-ID: <1218954173-12628-1-git-send-email-yhlu.kernel@gmail.com>
+Subject: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
+Date: Sat, 16 Aug 2008 23:25:33 -0700
+Message-ID: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
 	Yinghai Lu <yhlu.kernel@gmail.com>
 To: Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:44562 "EHLO
+Received: from wa-out-1112.google.com ([209.85.146.179]:43835 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751603AbYHQGXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 02:23:42 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so994682waf.23
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 23:23:42 -0700 (PDT)
+	with ESMTP id S1751331AbYHQG0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 02:26:22 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so995105waf.23
+        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 23:26:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -33,7 +33,7 @@ after
 |    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
 |    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-my servers with nvidia mcp55 will nic doesn't work with msi.
+my servers with nvidia mcp55 nic doesn't work with msi in second kernel by kexec
 
 after remove pci_set_power_state(, PCI_D3hot) that nic/msi will work again.
 
