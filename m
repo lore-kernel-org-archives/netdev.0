@@ -1,7 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 4/6] r8169: add 8168/8101 registers description
-Date: Sun, 17 Aug 2008 18:28:13 +0200
-Message-ID: <20080817162813.GE18690@electric-eye.fr.zoreil.com>
+Subject: [PATCH 6/6] r8169: additional 8101 and 8102 support
+Date: Sun, 17 Aug 2008 18:30:40 +0200
+Message-ID: <20080817163040.GG18690@electric-eye.fr.zoreil.com>
 References: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,108 +9,208 @@ Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
 	Ivan Vecera <ivecera@redhat.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41331 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39685 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751486AbYHQQa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:30:28 -0400
+	by vger.kernel.org with ESMTP id S1752202AbYHQQbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:31:47 -0400
 Content-Disposition: inline
 In-Reply-To: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |   47 +++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 43 insertions(+), 4 deletions(-)
+ drivers/net/r8169.c |  124 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 122 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index ae149a9..600540e 100644
+index f4ad9ff..bbaf8a5 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -197,9 +197,6 @@ enum rtl_registers {
- 	Config5		= 0x56,
- 	MultiIntr	= 0x5c,
- 	PHYAR		= 0x60,
--	TBICSR		= 0x64,
--	TBI_ANAR	= 0x68,
--	TBI_LPAR	= 0x6a,
- 	PHYstatus	= 0x6c,
- 	RxMaxSize	= 0xda,
- 	CPlusCmd	= 0xe0,
-@@ -213,6 +210,32 @@ enum rtl_registers {
- 	FuncForceEvent	= 0xfc,
- };
+@@ -96,6 +96,10 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_04 = 0x04, // 8169SB
+ 	RTL_GIGA_MAC_VER_05 = 0x05, // 8110SCd
+ 	RTL_GIGA_MAC_VER_06 = 0x06, // 8110SCe
++	RTL_GIGA_MAC_VER_07 = 0x07, // 8102e
++	RTL_GIGA_MAC_VER_08 = 0x08, // 8102e
++	RTL_GIGA_MAC_VER_09 = 0x09, // 8102e
++	RTL_GIGA_MAC_VER_10 = 0x0a, // 8101e
+ 	RTL_GIGA_MAC_VER_11 = 0x0b, // 8168Bb
+ 	RTL_GIGA_MAC_VER_12 = 0x0c, // 8168Be
+ 	RTL_GIGA_MAC_VER_13 = 0x0d, // 8101Eb
+@@ -122,6 +126,10 @@ static const struct {
+ 	_R("RTL8169sb/8110sb",	RTL_GIGA_MAC_VER_04, 0xff7e1880), // 8169SB
+ 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_05, 0xff7e1880), // 8110SCd
+ 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_06, 0xff7e1880), // 8110SCe
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_07, 0xff7e1880), // PCI-E
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_08, 0xff7e1880), // PCI-E
++	_R("RTL8102e",		RTL_GIGA_MAC_VER_09, 0xff7e1880), // PCI-E
++	_R("RTL8101e",		RTL_GIGA_MAC_VER_10, 0xff7e1880), // PCI-E
+ 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_11, 0xff7e1880), // PCI-E
+ 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_12, 0xff7e1880), // PCI-E
+ 	_R("RTL8101e",		RTL_GIGA_MAC_VER_13, 0xff7e1880), // PCI-E 8139
+@@ -837,8 +845,12 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		}
+ 	}
  
-+enum rtl8110_registers {
-+	TBICSR			= 0x64,
-+	TBI_ANAR		= 0x68,
-+	TBI_LPAR		= 0x6a,
-+};
+-	/* The 8100e/8101e do Fast Ethernet only. */
+-	if ((tp->mac_version == RTL_GIGA_MAC_VER_13) ||
++	/* The 8100e/8101e/8102e do Fast Ethernet only. */
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_07) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_08) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_09) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_10) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_13) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_14) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_16)) {
+@@ -1212,8 +1224,17 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
+ 
+ 		/* 8101 family. */
++		{ 0x7cf00000, 0x34a00000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7cf00000, 0x24a00000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7cf00000, 0x34900000,	RTL_GIGA_MAC_VER_08 },
++		{ 0x7cf00000, 0x24900000,	RTL_GIGA_MAC_VER_08 },
++		{ 0x7cf00000, 0x34800000,	RTL_GIGA_MAC_VER_07 },
++		{ 0x7cf00000, 0x24800000,	RTL_GIGA_MAC_VER_07 },
+ 		{ 0x7cf00000, 0x34000000,	RTL_GIGA_MAC_VER_13 },
++		{ 0x7cf00000, 0x34300000,	RTL_GIGA_MAC_VER_10 },
+ 		{ 0x7cf00000, 0x34200000,	RTL_GIGA_MAC_VER_16 },
++		{ 0x7c800000, 0x34800000,	RTL_GIGA_MAC_VER_09 },
++		{ 0x7c800000, 0x24800000,	RTL_GIGA_MAC_VER_09 },
+ 		{ 0x7c800000, 0x34000000,	RTL_GIGA_MAC_VER_16 },
+ 		/* FIXME: where did these entries come from ? -- FR */
+ 		{ 0xfc800000, 0x38800000,	RTL_GIGA_MAC_VER_15 },
+@@ -1375,6 +1396,22 @@ static void rtl8168cx_hw_phy_config(void __iomem *ioaddr)
+ 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
+ 
++static void rtl8102e_hw_phy_config(void __iomem *ioaddr)
++{
++	struct phy_reg phy_reg_init[] = {
++		{ 0x1f, 0x0003 },
++		{ 0x08, 0x441d },
++		{ 0x01, 0x9100 },
++		{ 0x1f, 0x0000 }
++	};
 +
-+enum rtl8168_8101_registers {
-+	CSIDR			= 0x64,
-+	CSIAR			= 0x68,
-+#define	CSIAR_FLAG			0x80000000
-+#define	CSIAR_WRITE_CMD			0x80000000
-+#define	CSIAR_BYTE_ENABLE		0x0f
-+#define	CSIAR_BYTE_ENABLE_SHIFT		12
-+#define	CSIAR_ADDR_MASK			0x0fff
++	mdio_write(ioaddr, 0x1f, 0x0000);
++	mdio_patch(ioaddr, 0x11, 1 << 12);
++	mdio_patch(ioaddr, 0x19, 1 << 13);
 +
-+	EPHYAR			= 0x80,
-+#define	EPHYAR_FLAG			0x80000000
-+#define	EPHYAR_WRITE_CMD		0x80000000
-+#define	EPHYAR_REG_MASK			0x1f
-+#define	EPHYAR_REG_SHIFT		16
-+#define	EPHYAR_DATA_MASK		0xffff
-+	DBG_REG			= 0xd1,
-+#define	FIX_NAK_1			(1 << 4)
-+#define	FIX_NAK_2			(1 << 3)
-+};
++	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++}
 +
- enum rtl_register_content {
- 	/* InterruptStatusBits */
- 	SYSErr		= 0x8000,
-@@ -266,7 +289,13 @@ enum rtl_register_content {
- 	TxDMAShift = 8,	/* DMA burst value (0-7) is shift this many bits */
+ static void rtl_hw_phy_config(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -1392,6 +1429,11 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_04:
+ 		rtl8169sb_hw_phy_config(ioaddr);
+ 		break;
++	case RTL_GIGA_MAC_VER_07:
++	case RTL_GIGA_MAC_VER_08:
++	case RTL_GIGA_MAC_VER_09:
++		rtl8102e_hw_phy_config(ioaddr);
++		break;
+ 	case RTL_GIGA_MAC_VER_18:
+ 		rtl8168cp_hw_phy_config(ioaddr);
+ 		break;
+@@ -2255,6 +2297,70 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	RTL_W16(IntrMask, tp->intr_event);
+ }
  
- 	/* Config1 register p.24 */
-+	LEDS1		= (1 << 7),
-+	LEDS0		= (1 << 6),
- 	MSIEnable	= (1 << 5),	/* Enable Message Signaled Interrupt */
-+	Speed_down	= (1 << 4),
-+	MEMMAP		= (1 << 3),
-+	IOMAP		= (1 << 2),
-+	VPD		= (1 << 1),
- 	PMEnable	= (1 << 0),	/* Power Management Enable */
++#define R810X_CPCMD_QUIRK_MASK (\
++	EnableBist | \
++	Mac_dbgo_oe | \
++	Force_half_dup | \
++	Force_half_dup | \
++	Force_txflow_en | \
++	Cxpl_dbg_sel | \
++	ASF | \
++	PktCntrDisable | \
++	PCIDAC | \
++	PCIMulRW)
++
++static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	static struct ephy_info e_info_8102e_1[] = {
++		{ 0x01,	0, 0x6e65 },
++		{ 0x02,	0, 0x091f },
++		{ 0x03,	0, 0xc2f9 },
++		{ 0x06,	0, 0xafb5 },
++		{ 0x07,	0, 0x0e00 },
++		{ 0x19,	0, 0xec80 },
++		{ 0x01,	0, 0x2e65 },
++		{ 0x01,	0, 0x6e65 }
++	};
++	u8 cfg1;
++
++	rtl_csi_access_enable(ioaddr);
++
++	RTL_W8(DBG_REG, FIX_NAK_1);
++
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++
++	RTL_W8(Config1,
++	       LEDS1 | LEDS0 | Speed_down | MEMMAP | IOMAP | VPD | PMEnable);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	cfg1 = RTL_R8(Config1);
++	if ((cfg1 & LEDS0) && (cfg1 & LEDS1))
++		RTL_W8(Config1, cfg1 & ~LEDS0);
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
++
++	rtl_ephy_init(ioaddr, e_info_8102e_1, ARRAY_SIZE(e_info_8102e_1));
++}
++
++static void rtl_hw_start_8102e_2(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_csi_access_enable(ioaddr);
++
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++
++	RTL_W8(Config1, MEMMAP | IOMAP | VPD | PMEnable);
++	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
++
++	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
++}
++
++static void rtl_hw_start_8102e_3(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	rtl_hw_start_8102e_2(ioaddr, pdev);
++
++	rtl_ephy_write(ioaddr, 0x03, 0xc2f9);
++}
++
+ static void rtl_hw_start_8101(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -2271,6 +2377,20 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 		}
+ 	}
  
- 	/* Config2 register p. 25 */
-@@ -276,6 +305,7 @@ enum rtl_register_content {
- 	/* Config3 register p.25 */
- 	MagicPacket	= (1 << 5),	/* Wake up when receives a Magic Packet */
- 	LinkUp		= (1 << 4),	/* Wake up when the cable connection is re-established */
-+	Beacon_en	= (1 << 0),	/* 8168 only. Reserved in the 8168b */
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_07:
++		rtl_hw_start_8102e_1(ioaddr, pdev);
++		break;
++
++	case RTL_GIGA_MAC_VER_08:
++		rtl_hw_start_8102e_3(ioaddr, pdev);
++		break;
++
++	case RTL_GIGA_MAC_VER_09:
++		rtl_hw_start_8102e_2(ioaddr, pdev);
++		break;
++	}
++
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
  
- 	/* Config5 register p.27 */
- 	BWF		= (1 << 6),	/* Accept Broadcast wakeup frame */
-@@ -293,7 +323,16 @@ enum rtl_register_content {
- 	TBINwComplete	= 0x01000000,
- 
- 	/* CPlusCmd p.31 */
--	PktCntrDisable	= (1 << 7),	// 8168
-+	EnableBist	= (1 << 15),	// 8168 8101
-+	Mac_dbgo_oe	= (1 << 14),	// 8168 8101
-+	Normal_mode	= (1 << 13),	// unused
-+	Force_half_dup	= (1 << 12),	// 8168 8101
-+	Force_rxflow_en	= (1 << 11),	// 8168 8101
-+	Force_txflow_en	= (1 << 10),	// 8168 8101
-+	Cxpl_dbg_sel	= (1 << 9),	// 8168 8101
-+	ASF		= (1 << 8),	// 8168 8101
-+	PktCntrDisable	= (1 << 7),	// 8168 8101
-+	Mac_dbgo_sel	= 0x001c,	// 8168
- 	RxVlan		= (1 << 6),
- 	RxChkSum	= (1 << 5),
- 	PCIDAC		= (1 << 4),
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
 -- 
 1.5.3.3
 
