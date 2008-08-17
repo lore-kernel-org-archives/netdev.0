@@ -1,65 +1,71 @@
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Subject: [NET] removed unused #include <version.h>
-Date: Sun, 17 Aug 2008 07:51:20 +0800
-Message-ID: <20080817072712.1632.WEIYI.HUANG@gmail.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Sat, 16 Aug 2008 21:36:15 -0300
+Message-ID: <20080816213615.689ddf8f@tux>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+	<20080811.144421.234396007.davem@davemloft.net>
+	<200808120946.19459.thomas.jarosch@intra2net.com>
+	<20080812.011822.155249871.davem@davemloft.net>
+	<20080812144309.7d62fd86@tux>
+	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
+	<20080813145310.0c1e534c@tux>
+	<Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
+	<20080815013407.4a594288@tux>
+	<Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
+	<20080815183511.1c81be23@tux>
+	<Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi>
+	<20080815231538.7999c017@tux>
+	<Pine.LNX.4.64.0808161002500.7264@wrl-59.cs.helsinki.fi>
+	<Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com, jgarzik@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.187]:14173 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754805AbYHPXvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 19:51:32 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so623856tic.23
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 16:51:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The drivers below do not use LINUX_VERSION_CODE nor KERNEL_VERSION.
-  drivers/net/myri10ge/myri10ge.c
-  drivers/net/netxen/netxen_nic_ethtool.c
-  drivers/net/tokenring/lanstreamer.c
+On Sat, 16 Aug 2008 22:18:50 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-This patch removes the said #include <version.h>.
+> I'll look through 2.6.24..25 history once I have some time to see if=20
+> there are some clues about the cause. I'm also having a problem in=20
+> figurin out why would the frto patch you tested solve this issue (unl=
+ess=20
+> there are two issues in the picture).
 
-Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+	Ok, surely some patch between .24 and .25 caused this. Or it's
+some bug that only "appeared" in .25 :)
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index f1de38f..f88e290 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -56,7 +56,6 @@
- #include <linux/ethtool.h>
- #include <linux/firmware.h>
- #include <linux/delay.h>
--#include <linux/version.h>
- #include <linux/timer.h>
- #include <linux/vmalloc.h>
- #include <linux/crc32.h>
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 4ad3e08..b974ca0 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -38,7 +38,6 @@
- #include <asm/io.h>
- #include <linux/netdevice.h>
- #include <linux/ethtool.h>
--#include <linux/version.h>
- 
- #include "netxen_nic.h"
- #include "netxen_nic_hw.h"
-diff --git a/drivers/net/tokenring/lanstreamer.c b/drivers/net/tokenring/lanstreamer.c
-index 47d84cd..59d1673 100644
---- a/drivers/net/tokenring/lanstreamer.c
-+++ b/drivers/net/tokenring/lanstreamer.c
-@@ -119,7 +119,6 @@
- #include <linux/pci.h>
- #include <linux/dma-mapping.h>
- #include <linux/spinlock.h>
--#include <linux/version.h>
- #include <linux/bitops.h>
- #include <linux/jiffies.h>
- 
+	In fact, the frto patch helped, but not prevented the problem.
+I mean, it seems that with the frto patch, the problem doesn't happen
+frequently. And if I disable frto, the problem doesn't occur either.
 
+	But, maybe, we could be talking about another bug, completely
+unrelated to frto... I don't know. i'm just guessing ;). Anyway, we
+talk about stalled connections ;)
+
+	What I know is:
+
+1) what you wrote is right: 2.6.24 is fine, 2.6.25 and 2.6.26 not
+
+2) nmap -sS <server> seems to reset the connection (it's my workaround
+until now ;). Maybe the ping probe help in some way? I don't know.
+
+	I want to help you as much as I can. So, ask anything you need.
+
+	Thanks!
+
+
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
