@@ -1,8 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/6] r8169: get ethtool settings through the generic mii
-	helper
-Date: Sun, 17 Aug 2008 18:24:44 +0200
-Message-ID: <20080817162444.GB18690@electric-eye.fr.zoreil.com>
+Subject: [PATCH 2/6] r8169: Tx performance tweak helper
+Date: Sun, 17 Aug 2008 18:26:02 +0200
+Message-ID: <20080817162602.GC18690@electric-eye.fr.zoreil.com>
 References: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,234 +9,59 @@ Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
 	Ivan Vecera <ivecera@redhat.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41303 "EHLO
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41308 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751682AbYHQQ04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:26:56 -0400
+	by vger.kernel.org with ESMTP id S1752346AbYHQQ1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:27:11 -0400
 Content-Disposition: inline
 In-Reply-To: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It avoids to report unsupported link capabilities with
-the fast-ethernet only 8101/8102.
-
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Tested-by: Martin Capitanio <martin@capitanio.org>
-Fixed-by: Ivan Vecera <ivecera@redhat.com>
 Cc: Edward Hsu <edward_hsu@realtek.com.tw>
 ---
- drivers/net/r8169.c |   99 +++++++++++++++++++++++---------------------------
- 1 files changed, 46 insertions(+), 53 deletions(-)
+ drivers/net/r8169.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index a3e3895..dac2677 100644
+index dac2677..26fa6e0 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -370,8 +370,9 @@ struct ring_info {
- };
- 
- enum features {
--	RTL_FEATURE_WOL	= (1 << 0),
--	RTL_FEATURE_MSI	= (1 << 1),
-+	RTL_FEATURE_WOL		= (1 << 0),
-+	RTL_FEATURE_MSI		= (1 << 1),
-+	RTL_FEATURE_GMII	= (1 << 2),
- };
- 
- struct rtl8169_private {
-@@ -406,13 +407,15 @@ struct rtl8169_private {
- 	struct vlan_group *vlgrp;
- #endif
- 	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
--	void (*get_settings)(struct net_device *, struct ethtool_cmd *);
-+	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
- 	void (*phy_reset_enable)(void __iomem *);
- 	void (*hw_start)(struct net_device *);
- 	unsigned int (*phy_reset_pending)(void __iomem *);
- 	unsigned int (*link_ok)(void __iomem *);
- 	struct delayed_work task;
- 	unsigned features;
-+
-+	struct mii_if_info mii;
- };
- 
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -482,6 +485,23 @@ static int mdio_read(void __iomem *ioaddr, int reg_addr)
- 	return value;
+@@ -2054,12 +2054,20 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 	RTL_W16(IntrMask, tp->intr_event);
  }
  
-+static void rtl_mdio_write(struct net_device *dev, int phy_id, int location,
-+			   int val)
++static void rtl_tx_performance_tweak(struct pci_dev *pdev, u8 force)
 +{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
++	u8 ctl;
 +
-+	mdio_write(ioaddr, location, val);
++	pci_read_config_byte(pdev, 0x69, &ctl);
++	ctl = (ctl & ~0x70) | force;
++	pci_write_config_byte(pdev, 0x69, ctl);
 +}
 +
-+static int rtl_mdio_read(struct net_device *dev, int phy_id, int location)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	return mdio_read(ioaddr, location);
-+}
-+
- static void rtl8169_irq_mask_and_ack(void __iomem *ioaddr)
- {
- 	RTL_W16(IntrMask, 0x0000);
-@@ -850,7 +870,7 @@ static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
- 
- #endif
- 
--static void rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
+ static void rtl_hw_start_8168(struct net_device *dev)
  {
  	struct rtl8169_private *tp = netdev_priv(dev);
  	void __iomem *ioaddr = tp->mmio_addr;
-@@ -867,65 +887,29 @@ static void rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct pci_dev *pdev = tp->pci_dev;
+-	u8 ctl;
  
- 	cmd->speed = SPEED_1000;
- 	cmd->duplex = DUPLEX_FULL; /* Always set */
-+
-+	return 0;
- }
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
  
--static void rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int rtl8169_gset_xmii(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	void __iomem *ioaddr = tp->mmio_addr;
--	u8 status;
--
--	cmd->supported = SUPPORTED_10baseT_Half |
--			 SUPPORTED_10baseT_Full |
--			 SUPPORTED_100baseT_Half |
--			 SUPPORTED_100baseT_Full |
--			 SUPPORTED_1000baseT_Full |
--			 SUPPORTED_Autoneg |
--			 SUPPORTED_TP;
--
--	cmd->autoneg = 1;
--	cmd->advertising = ADVERTISED_TP | ADVERTISED_Autoneg;
--
--	if (tp->phy_auto_nego_reg & ADVERTISE_10HALF)
--		cmd->advertising |= ADVERTISED_10baseT_Half;
--	if (tp->phy_auto_nego_reg & ADVERTISE_10FULL)
--		cmd->advertising |= ADVERTISED_10baseT_Full;
--	if (tp->phy_auto_nego_reg & ADVERTISE_100HALF)
--		cmd->advertising |= ADVERTISED_100baseT_Half;
--	if (tp->phy_auto_nego_reg & ADVERTISE_100FULL)
--		cmd->advertising |= ADVERTISED_100baseT_Full;
--	if (tp->phy_1000_ctrl_reg & ADVERTISE_1000FULL)
--		cmd->advertising |= ADVERTISED_1000baseT_Full;
--
--	status = RTL_R8(PHYstatus);
--
--	if (status & _1000bpsF)
--		cmd->speed = SPEED_1000;
--	else if (status & _100bps)
--		cmd->speed = SPEED_100;
--	else if (status & _10bps)
--		cmd->speed = SPEED_10;
--
--	if (status & TxFlowCtrl)
--		cmd->advertising |= ADVERTISED_Asym_Pause;
--	if (status & RxFlowCtrl)
--		cmd->advertising |= ADVERTISED_Pause;
--
--	cmd->duplex = ((status & _1000bpsF) || (status & FullDup)) ?
--		      DUPLEX_FULL : DUPLEX_HALF;
-+
-+	return mii_ethtool_gset(&tp->mii, cmd);
- }
+@@ -2073,10 +2081,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
  
- static int rtl8169_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	unsigned long flags;
-+	int rc;
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
  
- 	spin_lock_irqsave(&tp->lock, flags);
+-	/* Tx performance tweak. */
+-	pci_read_config_byte(pdev, 0x69, &ctl);
+-	ctl = (ctl & ~0x70) | 0x50;
+-	pci_write_config_byte(pdev, 0x69, ctl);
++	rtl_tx_performance_tweak(pdev, 0x50);
  
--	tp->get_settings(dev, cmd);
-+	rc = tp->get_settings(dev, cmd);
+ 	RTL_W16(IntrMitigate, 0x5151);
  
- 	spin_unlock_irqrestore(&tp->lock, flags);
--	return 0;
-+	return rc;
- }
- 
- static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-@@ -1513,7 +1497,7 @@ static const struct rtl_cfg_info {
- 	unsigned int align;
- 	u16 intr_event;
- 	u16 napi_event;
--	unsigned msi;
-+	unsigned features;
- } rtl_cfg_infos [] = {
- 	[RTL_CFG_0] = {
- 		.hw_start	= rtl_hw_start_8169,
-@@ -1522,7 +1506,7 @@ static const struct rtl_cfg_info {
- 		.intr_event	= SYSErr | LinkChg | RxOverflow |
- 				  RxFIFOOver | TxErr | TxOK | RxOK | RxErr,
- 		.napi_event	= RxFIFOOver | TxErr | TxOK | RxOK | RxOverflow,
--		.msi		= 0
-+		.features	= RTL_FEATURE_GMII
- 	},
- 	[RTL_CFG_1] = {
- 		.hw_start	= rtl_hw_start_8168,
-@@ -1531,7 +1515,7 @@ static const struct rtl_cfg_info {
- 		.intr_event	= SYSErr | LinkChg | RxOverflow |
- 				  TxErr | TxOK | RxOK | RxErr,
- 		.napi_event	= TxErr | TxOK | RxOK | RxOverflow,
--		.msi		= RTL_FEATURE_MSI
-+		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI
- 	},
- 	[RTL_CFG_2] = {
- 		.hw_start	= rtl_hw_start_8101,
-@@ -1540,7 +1524,7 @@ static const struct rtl_cfg_info {
- 		.intr_event	= SYSErr | LinkChg | RxOverflow | PCSTimeout |
- 				  RxFIFOOver | TxErr | TxOK | RxOK | RxErr,
- 		.napi_event	= RxFIFOOver | TxErr | TxOK | RxOK | RxOverflow,
--		.msi		= RTL_FEATURE_MSI
-+		.features	= RTL_FEATURE_MSI
- 	}
- };
- 
-@@ -1552,7 +1536,7 @@ static unsigned rtl_try_msi(struct pci_dev *pdev, void __iomem *ioaddr,
- 	u8 cfg2;
- 
- 	cfg2 = RTL_R8(Config2) & ~MSIEnable;
--	if (cfg->msi) {
-+	if (cfg->features & RTL_FEATURE_MSI) {
- 		if (pci_enable_msi(pdev)) {
- 			dev_info(&pdev->dev, "no MSI. Back to INTx.\n");
- 		} else {
-@@ -1578,6 +1562,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent->driver_data;
- 	const unsigned int region = cfg->region;
- 	struct rtl8169_private *tp;
-+	struct mii_if_info *mii;
- 	struct net_device *dev;
- 	void __iomem *ioaddr;
- 	unsigned int i;
-@@ -1602,6 +1587,14 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->pci_dev = pdev;
- 	tp->msg_enable = netif_msg_init(debug.msg_enable, R8169_MSG_DEFAULT);
- 
-+	mii = &tp->mii;
-+	mii->dev = dev;
-+	mii->mdio_read = rtl_mdio_read;
-+	mii->mdio_write = rtl_mdio_write;
-+	mii->phy_id_mask = 0x1f;
-+	mii->reg_num_mask = 0x1f;
-+	mii->supports_gmii = !!(cfg->features & RTL_FEATURE_GMII);
-+
- 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
- 	rc = pci_enable_device(pdev);
- 	if (rc < 0) {
 -- 
 1.5.3.3
 
