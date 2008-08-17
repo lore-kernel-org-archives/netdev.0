@@ -1,216 +1,97 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 6/6] r8169: additional 8101 and 8102 support
-Date: Sun, 17 Aug 2008 18:30:40 +0200
-Message-ID: <20080817163040.GG18690@electric-eye.fr.zoreil.com>
-References: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
+Date: Sun, 17 Aug 2008 18:55:57 +0200
+Message-ID: <200808171855.58384.rjw@sisk.pl>
+References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808171502.02946.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: jeff@garzik.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Yinghai Lu <yhlu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39685 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752202AbYHQQbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 12:31:47 -0400
+Received: from ogre.sisk.pl ([217.79.144.158]:40656 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751961AbYHQQwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Aug 2008 12:52:49 -0400
+In-Reply-To: <200808171502.02946.rjw@sisk.pl>
 Content-Disposition: inline
-In-Reply-To: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
----
- drivers/net/r8169.c |  124 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 122 insertions(+), 2 deletions(-)
+On Sunday, 17 of August 2008, Rafael J. Wysocki wrote:
+> On Sunday, 17 of August 2008, Yinghai Lu wrote:
+> > after
+> > 
+> > | commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
+> > | Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+> > | Date:   Sun May 18 15:02:37 2008 +0200
+> > |
+> > |    [netdrvr] forcedeth: setup wake-on-lan before shutting down
+> > |
+> > |    When hibernating in 'shutdown' mode, after saving the image the suspend hook
+> > |    is not called again.
+> > |    However, if the device is in promiscous mode, wake-on-lan will not work.
+> > |    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
+> > |
+> > |    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+> > |    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+> > 
+> > my servers with nvidia mcp55 nic doesn't work with msi in second kernel by kexec
+> > 
+> > after remove pci_set_power_state(, PCI_D3hot) that nic/msi will work again.
+> > 
+> > check with e1000 is using pci_choose_state in _shutdown.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index f4ad9ff..bbaf8a5 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -96,6 +96,10 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_04 = 0x04, // 8169SB
- 	RTL_GIGA_MAC_VER_05 = 0x05, // 8110SCd
- 	RTL_GIGA_MAC_VER_06 = 0x06, // 8110SCe
-+	RTL_GIGA_MAC_VER_07 = 0x07, // 8102e
-+	RTL_GIGA_MAC_VER_08 = 0x08, // 8102e
-+	RTL_GIGA_MAC_VER_09 = 0x09, // 8102e
-+	RTL_GIGA_MAC_VER_10 = 0x0a, // 8101e
- 	RTL_GIGA_MAC_VER_11 = 0x0b, // 8168Bb
- 	RTL_GIGA_MAC_VER_12 = 0x0c, // 8168Be
- 	RTL_GIGA_MAC_VER_13 = 0x0d, // 8101Eb
-@@ -122,6 +126,10 @@ static const struct {
- 	_R("RTL8169sb/8110sb",	RTL_GIGA_MAC_VER_04, 0xff7e1880), // 8169SB
- 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_05, 0xff7e1880), // 8110SCd
- 	_R("RTL8169sc/8110sc",	RTL_GIGA_MAC_VER_06, 0xff7e1880), // 8110SCe
-+	_R("RTL8102e",		RTL_GIGA_MAC_VER_07, 0xff7e1880), // PCI-E
-+	_R("RTL8102e",		RTL_GIGA_MAC_VER_08, 0xff7e1880), // PCI-E
-+	_R("RTL8102e",		RTL_GIGA_MAC_VER_09, 0xff7e1880), // PCI-E
-+	_R("RTL8101e",		RTL_GIGA_MAC_VER_10, 0xff7e1880), // PCI-E
- 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_11, 0xff7e1880), // PCI-E
- 	_R("RTL8168b/8111b",	RTL_GIGA_MAC_VER_12, 0xff7e1880), // PCI-E
- 	_R("RTL8101e",		RTL_GIGA_MAC_VER_13, 0xff7e1880), // PCI-E 8139
-@@ -837,8 +845,12 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		}
- 	}
+This is wrong.
+
+> > So change that pci_choose_state(pdev, ...), and it works.
+> 
+> Well, this doesn't look like a good solution to me, because you're putting
+> PMSG_SUSPEND in there, which is not correct for shutdown.  The right thing to
+> do would be to avoid changing the device power state if nv_shutdown() is
+> used for kexec or to rework the initialization of the adapter to handle the
+> case when it's initially in D3.
+> 
+> Does it help if you just remove the pci_set_power_state(pdev, PCI_D3hot)
+> altogether?
+
+Ah, sorry.  I see it does.
+
+Actually, I think you can use pci_prepare_to_sleep() instead of
+pci_enable_wake() / pci_set_power_state() combo.  It wasn't designed for this
+purpose, but should work nevertheless.
+
+Can you please check if the appended patch works instead of your one?
+
+Rafael
+
+---
+Fix the problem that boxes with NVidia MCP55 don't work with MSI
+in a kexeced kernel.
+
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/forcedeth.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+Index: linux-2.6/drivers/net/forcedeth.c
+===================================================================
+--- linux-2.6.orig/drivers/net/forcedeth.c
++++ linux-2.6/drivers/net/forcedeth.c
+@@ -5975,10 +5975,8 @@ static void nv_shutdown(struct pci_dev *
+ 	if (netif_running(dev))
+ 		nv_close(dev);
  
--	/* The 8100e/8101e do Fast Ethernet only. */
--	if ((tp->mac_version == RTL_GIGA_MAC_VER_13) ||
-+	/* The 8100e/8101e/8102e do Fast Ethernet only. */
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_07) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_08) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_09) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_10) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_13) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_14) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_15) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_16)) {
-@@ -1212,8 +1224,17 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
- 
- 		/* 8101 family. */
-+		{ 0x7cf00000, 0x34a00000,	RTL_GIGA_MAC_VER_09 },
-+		{ 0x7cf00000, 0x24a00000,	RTL_GIGA_MAC_VER_09 },
-+		{ 0x7cf00000, 0x34900000,	RTL_GIGA_MAC_VER_08 },
-+		{ 0x7cf00000, 0x24900000,	RTL_GIGA_MAC_VER_08 },
-+		{ 0x7cf00000, 0x34800000,	RTL_GIGA_MAC_VER_07 },
-+		{ 0x7cf00000, 0x24800000,	RTL_GIGA_MAC_VER_07 },
- 		{ 0x7cf00000, 0x34000000,	RTL_GIGA_MAC_VER_13 },
-+		{ 0x7cf00000, 0x34300000,	RTL_GIGA_MAC_VER_10 },
- 		{ 0x7cf00000, 0x34200000,	RTL_GIGA_MAC_VER_16 },
-+		{ 0x7c800000, 0x34800000,	RTL_GIGA_MAC_VER_09 },
-+		{ 0x7c800000, 0x24800000,	RTL_GIGA_MAC_VER_09 },
- 		{ 0x7c800000, 0x34000000,	RTL_GIGA_MAC_VER_16 },
- 		/* FIXME: where did these entries come from ? -- FR */
- 		{ 0xfc800000, 0x38800000,	RTL_GIGA_MAC_VER_15 },
-@@ -1375,6 +1396,22 @@ static void rtl8168cx_hw_phy_config(void __iomem *ioaddr)
- 	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+-	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+-	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
+ 	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, PCI_D3hot);
++	pci_prepare_to_sleep(pdev);
  }
- 
-+static void rtl8102e_hw_phy_config(void __iomem *ioaddr)
-+{
-+	struct phy_reg phy_reg_init[] = {
-+		{ 0x1f, 0x0003 },
-+		{ 0x08, 0x441d },
-+		{ 0x01, 0x9100 },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	mdio_write(ioaddr, 0x1f, 0x0000);
-+	mdio_patch(ioaddr, 0x11, 1 << 12);
-+	mdio_patch(ioaddr, 0x19, 1 << 13);
-+
-+	rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+}
-+
- static void rtl_hw_phy_config(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -1392,6 +1429,11 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_04:
- 		rtl8169sb_hw_phy_config(ioaddr);
- 		break;
-+	case RTL_GIGA_MAC_VER_07:
-+	case RTL_GIGA_MAC_VER_08:
-+	case RTL_GIGA_MAC_VER_09:
-+		rtl8102e_hw_phy_config(ioaddr);
-+		break;
- 	case RTL_GIGA_MAC_VER_18:
- 		rtl8168cp_hw_phy_config(ioaddr);
- 		break;
-@@ -2255,6 +2297,70 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 	RTL_W16(IntrMask, tp->intr_event);
- }
- 
-+#define R810X_CPCMD_QUIRK_MASK (\
-+	EnableBist | \
-+	Mac_dbgo_oe | \
-+	Force_half_dup | \
-+	Force_half_dup | \
-+	Force_txflow_en | \
-+	Cxpl_dbg_sel | \
-+	ASF | \
-+	PktCntrDisable | \
-+	PCIDAC | \
-+	PCIMulRW)
-+
-+static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	static struct ephy_info e_info_8102e_1[] = {
-+		{ 0x01,	0, 0x6e65 },
-+		{ 0x02,	0, 0x091f },
-+		{ 0x03,	0, 0xc2f9 },
-+		{ 0x06,	0, 0xafb5 },
-+		{ 0x07,	0, 0x0e00 },
-+		{ 0x19,	0, 0xec80 },
-+		{ 0x01,	0, 0x2e65 },
-+		{ 0x01,	0, 0x6e65 }
-+	};
-+	u8 cfg1;
-+
-+	rtl_csi_access_enable(ioaddr);
-+
-+	RTL_W8(DBG_REG, FIX_NAK_1);
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	RTL_W8(Config1,
-+	       LEDS1 | LEDS0 | Speed_down | MEMMAP | IOMAP | VPD | PMEnable);
-+	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
-+
-+	cfg1 = RTL_R8(Config1);
-+	if ((cfg1 & LEDS0) && (cfg1 & LEDS1))
-+		RTL_W8(Config1, cfg1 & ~LEDS0);
-+
-+	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
-+
-+	rtl_ephy_init(ioaddr, e_info_8102e_1, ARRAY_SIZE(e_info_8102e_1));
-+}
-+
-+static void rtl_hw_start_8102e_2(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	rtl_csi_access_enable(ioaddr);
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	RTL_W8(Config1, MEMMAP | IOMAP | VPD | PMEnable);
-+	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
-+
-+	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
-+}
-+
-+static void rtl_hw_start_8102e_3(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	rtl_hw_start_8102e_2(ioaddr, pdev);
-+
-+	rtl_ephy_write(ioaddr, 0x03, 0xc2f9);
-+}
-+
- static void rtl_hw_start_8101(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -2271,6 +2377,20 @@ static void rtl_hw_start_8101(struct net_device *dev)
- 		}
- 	}
- 
-+	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_07:
-+		rtl_hw_start_8102e_1(ioaddr, pdev);
-+		break;
-+
-+	case RTL_GIGA_MAC_VER_08:
-+		rtl_hw_start_8102e_3(ioaddr, pdev);
-+		break;
-+
-+	case RTL_GIGA_MAC_VER_09:
-+		rtl_hw_start_8102e_2(ioaddr, pdev);
-+		break;
-+	}
-+
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
- 
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
--- 
-1.5.3.3
+ #else
+ #define nv_suspend NULL
 
