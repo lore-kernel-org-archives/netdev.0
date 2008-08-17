@@ -1,71 +1,103 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Sat, 16 Aug 2008 21:36:15 -0300
-Message-ID: <20080816213615.689ddf8f@tux>
-References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
-	<20080811.144421.234396007.davem@davemloft.net>
-	<200808120946.19459.thomas.jarosch@intra2net.com>
-	<20080812.011822.155249871.davem@davemloft.net>
-	<20080812144309.7d62fd86@tux>
-	<Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi>
-	<20080813145310.0c1e534c@tux>
-	<Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi>
-	<20080815013407.4a594288@tux>
-	<Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi>
-	<20080815183511.1c81be23@tux>
-	<Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi>
-	<20080815231538.7999c017@tux>
-	<Pine.LNX.4.64.0808161002500.7264@wrl-59.cs.helsinki.fi>
-	<Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yinghai Lu <yhlu.kernel@gmail.com>
+Subject: [PATCH] net: forcedeth call restore mac addr in nv_shutdown patch
+Date: Sat, 16 Aug 2008 20:30:04 -0700
+Message-ID: <1218943804-6198-1-git-send-email-yhlu.kernel@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>
+To: Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.182]:24679 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbYHQDaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2008 23:30:55 -0400
+Received: by wa-out-1112.google.com with SMTP id j37so968616waf.23
+        for <netdev@vger.kernel.org>; Sat, 16 Aug 2008 20:30:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 16 Aug 2008 22:18:50 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+after
 
-> I'll look through 2.6.24..25 history once I have some time to see if=20
-> there are some clues about the cause. I'm also having a problem in=20
-> figurin out why would the frto patch you tested solve this issue (unl=
-ess=20
-> there are two issues in the picture).
+| commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
+| Author: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+| Date:   Sun May 18 15:02:37 2008 +0200
+|
+|    [netdrvr] forcedeth: setup wake-on-lan before shutting down
+|
+|    When hibernating in 'shutdown' mode, after saving the image the suspend hook
+|    is not called again.
+|    However, if the device is in promiscous mode, wake-on-lan will not work.
+|    This adds a shutdown hook to setup wake-on-lan before the final shutdown.
+|
+|    Signed-off-by: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+|    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-	Ok, surely some patch between .24 and .25 caused this. Or it's
-some bug that only "appeared" in .25 :)
+my servers with nvidia ck804 and mcp55 will reverse mac address with kexec.
 
-	In fact, the frto patch helped, but not prevented the problem.
-I mean, it seems that with the frto patch, the problem doesn't happen
-frequently. And if I disable frto, the problem doesn't occur either.
+it turns out need to restore mac addr in nv_shutdown.
 
-	But, maybe, we could be talking about another bug, completely
-unrelated to frto... I don't know. i'm just guessing ;). Anyway, we
-talk about stalled connections ;)
+Signed-off-by: Yinghai Lu <yhlu.kernel@gmail.com>
 
-	What I know is:
+---
+ drivers/net/forcedeth.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-1) what you wrote is right: 2.6.24 is fine, 2.6.25 and 2.6.26 not
-
-2) nmap -sS <server> seems to reset the connection (it's my workaround
-until now ;). Maybe the ping probe help in some way? I don't know.
-
-	I want to help you as much as I can. So, ask anything you need.
-
-	Thanks!
-
-
---=20
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Index: linux-2.6/drivers/net/forcedeth.c
+===================================================================
+--- linux-2.6.orig/drivers/net/forcedeth.c
++++ linux-2.6/drivers/net/forcedeth.c
+@@ -5643,6 +5643,7 @@ static int __devinit nv_probe(struct pci
+ 		dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
+ 		dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
+ 		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
++		printk(KERN_DEBUG "nv_probe: set workarund bit for reversed mac addr\n");
+ 	}
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+@@ -5890,14 +5891,12 @@ static void nv_restore_phy(struct net_de
+ 	}
+ }
+ 
+-static void __devexit nv_remove(struct pci_dev *pci_dev)
++static void nv_restore_mac_addr(struct pci_dev *pci_dev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pci_dev);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 
+-	unregister_netdev(dev);
+-
+ 	/* special op: write back the misordered MAC address - otherwise
+ 	 * the next nv_probe would see a wrong address.
+ 	 */
+@@ -5905,6 +5904,15 @@ static void __devexit nv_remove(struct p
+ 	writel(np->orig_mac[1], base + NvRegMacAddrB);
+ 	writel(readl(base + NvRegTransmitPoll) & ~NVREG_TRANSMITPOLL_MAC_ADDR_REV,
+ 	       base + NvRegTransmitPoll);
++}
++
++static void __devexit nv_remove(struct pci_dev *pci_dev)
++{
++	struct net_device *dev = pci_get_drvdata(pci_dev);
++
++	unregister_netdev(dev);
++
++	nv_restore_mac_addr(pci_dev);
+ 
+ 	/* restore any phy related changes */
+ 	nv_restore_phy(dev);
+@@ -5970,11 +5978,12 @@ static int nv_resume(struct pci_dev *pde
+ static void nv_shutdown(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct fe_priv *np = netdev_priv(dev);
+ 
+ 	if (netif_running(dev))
+ 		nv_close(dev);
+ 
++	nv_restore_mac_addr(pdev);
++
+ 	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+ 	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
+ 	pci_disable_device(pdev);
