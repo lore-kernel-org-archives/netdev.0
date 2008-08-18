@@ -1,69 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
-Date: Mon, 18 Aug 2008 12:58:05 +0000
-Message-ID: <20080818125805.GA7938@ff.dom.local>
-References: <20080818091011.GC5434@ff.dom.local> <20080818112022.GA7158@ff.dom.local> <20080818113531.GB7158@ff.dom.local> <200808181545.30146.denys@visp.net.lb>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] IPv6:fix the return interface index when get it while
+ no message is received
+Date: Mon, 18 Aug 2008 09:31:07 -0400
+Message-ID: <48A9799B.4040409@hp.com>
+References: <48A911AD.7060102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:35658 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752494AbYHRM6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 08:58:12 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so187700ugf.37
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 05:58:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200808181545.30146.denys@visp.net.lb>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:46734 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115AbYHRNbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 09:31:20 -0400
+In-Reply-To: <48A911AD.7060102@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2008 at 03:45:29PM +0300, Denys Fedoryshchenko wrote:
-> Patch applied, got another warning.
-
-I hope I'll figure this out before evening. Probably it's safer
-to stop testing for a while.
-
-Thanks,
-Jarek P.
-
+Yang Hongyang wrote:
+> When get receiving interface index while no message is received,
+> the bounded device's index of the socket should be returned.
 > 
-> [  413.646102]
-> [  413.646102] =========================
-> [  413.646102] [ BUG: held lock freed! ]
-> [  413.646102] -------------------------
-> [  413.646102] pppd/4105 is freeing memory f6fe6e00-f6fe6eff, with a lock 
-> still held there!
-> [  413.646102]  (&qdisc_rx_lock){-+..}, at: [<c026e3ab>] 
-> shutdown_scheduler_queue+0x1c/0x2e
-> [  413.646102] 3 locks held by pppd/4105:
-> [  413.646102]  #0:  (all_ppp_mutex){--..}, at: [<f8a671ae>] 
-> ppp_shutdown_interface+0x17/0xb0 [ppp_generic]
-> [  413.646102]  #1:  (rtnl_mutex){--..}, at: [<c026967a>] rtnl_lock+0xf/0x11
-> [  413.647102]  #2:  (&qdisc_rx_lock){-+..}, at: [<c026e3ab>] 
-> shutdown_scheduler_queue+0x1c/0x2e
-> [  413.647102]
-> [  413.647102] stack backtrace:
-> [  413.647102] Pid: 4105, comm: pppd Not tainted 
-> 2.6.27-rc3-build-0031-12578-g96d2031-dirty #32
-> [  413.647102]  [<c02ba6f7>] ? printk+0xf/0x18
-> [  413.647102]  [<c013db8f>] debug_check_no_locks_freed+0xce/0xff
-> [  413.647102]  [<c01643ce>] kfree+0x78/0xc8
-> [  413.647102]  [<c026e38b>] ? qdisc_destroy+0x8c/0x90
-> [  413.647102]  [<c026e38b>] qdisc_destroy+0x8c/0x90
-> [  413.647102]  [<c026e3b2>] shutdown_scheduler_queue+0x23/0x2e
-> [  413.647102]  [<c026e3fa>] dev_shutdown+0x3d/0x59
-> [  413.647102]  [<c0262240>] rollback_registered+0x128/0x1b1
-> [  413.647102]  [<c02622fb>] unregister_netdevice+0x32/0x6e
-> [  413.647102]  [<c0262349>] unregister_netdev+0x12/0x1a
-> [  413.647102]  [<f8a671f3>] ppp_shutdown_interface+0x5c/0xb0 [ppp_generic]
-> [  413.647102]  [<f8a6742c>] ppp_release+0x2c/0x5a [ppp_generic]
-> [  413.647102]  [<c0167db8>] __fput+0x99/0x136
-> [  413.647102]  [<c0167e6c>] fput+0x17/0x19
-> [  413.647102]  [<c016593b>] filp_close+0x47/0x51
-> [  413.647102]  [<c01659b8>] sys_close+0x73/0xad
-> [  413.647102]  [<c0103861>] sysenter_do_call+0x12/0x35
-> [  413.647102]  =======================
+> RFC 3542:
+>    Issuing getsockopt() for the above options will return the sticky
+>    option value i.e., the value set with setsockopt().  If no sticky
+>    option value has been set getsockopt() will return the following
+>    values:
 > 
-> On Monday 18 August 2008, Jarek Poplawski wrote:
+>    -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
+>       structure with ipi6_addr being in6addr_any and ipi6_ifindex being
+>       zero.
+> 
+> 
+> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+> 
+> ---
+>  ipv6_sockglue.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 2cabac9..e4f8d29 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -911,7 +911,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+>  		} else {
+>  			if (np->rxopt.bits.rxinfo) {
+>  				struct in6_pktinfo src_info;
+> -				src_info.ipi6_ifindex = np->mcast_oif;
+> +				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+>  				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+>  				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
+>  			}
+> @@ -921,7 +921,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+>  			}
+>  			if (np->rxopt.bits.rxoinfo) {
+>  				struct in6_pktinfo src_info;
+> -				src_info.ipi6_ifindex = np->mcast_oif;
+> +				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+>  				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+>  				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
+>  			}
+
+
+I don't think that's correct at all.  The code path shows here is when there are no received
+options and no sticky options set.  In such case, we shouldn't be returning multicast or
+bound interfaces.  We should be returning 0.
+
+Additionally the address returned is completely bogus as well.  We are returning the
+address our peer instead of the one of our own addresses.
+
+-vlad
+
+
