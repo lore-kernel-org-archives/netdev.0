@@ -1,69 +1,73 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Sun, 17 Aug 2008 23:38:01 -0700 (PDT)
-Message-ID: <20080817.233801.264840897.davem@davemloft.net>
-References: <20080818013633.GA31653@gondor.apana.org.au>
-	<20080817.184921.08829673.davem@davemloft.net>
-	<20080818062747.GA2732@ff.dom.local>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Sun, 17 Aug 2008 23:52:37 -0700 (PDT)
+Message-ID: <20080817.235237.24119245.davem@davemloft.net>
+References: <20080806.220911.91192536.davem@davemloft.net>
+	<20080807100910.GA12391@ff.dom.local>
+	<20080807143654.16955ngk5tnp5kzk@hayate.ip6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: jussi.kivilinna@mbnet.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55606
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44675
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751083AbYHRGiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 02:38:03 -0400
-In-Reply-To: <20080818062747.GA2732@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1750885AbYHRGwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 02:52:37 -0400
+In-Reply-To: <20080807143654.16955ngk5tnp5kzk@hayate.ip6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 18 Aug 2008 06:27:47 +0000
+From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+Date: Thu, 07 Aug 2008 14:36:54 +0300
 
-> But, there is probably something other to bother here. I didn't get
-> the final version of this patch nor I can see this on the list, but
-> in your git there is this change to "goto out_kfree_skb", which
-> seems to skip rcu_read_unlock_bh().
+> Quoting "Jarek Poplawski" <jarkao2@gmail.com>:
+> 
+> > There is also some doubt about differences between ->enqueue() and
+> > ->requeue() wrt. kfree_skb() and returning codes: maybe it would be
+> > better (for uniformity) to add similar changes to requeues (and
+> > dev_requeue_skb()) as well?
+> >
+> 
+> I think requeue should be changed to return same as enqueue, netem even
+> uses requeue as enqueue replacement for packet reordering. Maybe add
+> new function qdisc_requeue_tree to handle freeing and masking flags and
+> change outside uses of requeue to use it (qdisc_peek_len in hfsc,
+> sch_atm_dequeue, dev_requeue_skb).
 
-That's a bug I added when I implemented Herber't suggestion
-to just drop the packet.  Good spotting.
+Yes, I in fact stumbled through this stuff while working on
+the HTB/TBF ->enqueue() fixes.
 
-I've just pushed the following fix, thanks!
+It's not going to be easy to cure this completely and we'll
+have to work in stages.
 
-pkt_sched: Fix missed RCU unlock in dev_queue_xmit()
+What I'll do tonight is first make a simple set of fixes,
+like fixing these things to use the proper NET_XMIT_*
+values instead of constant "0" and stuff like that.
 
-Noticed by Jarek Poplawski.
+Next I'll do the real ->requeue() return value audit.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/dev.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
+As an aside I still think we really don't need ->requeue(),
+once we pull a packet out of ->enqueue() it's out of the
+packet scheduler's realm and we can definitely hold onto it
+as the next packet to give to the device.  This netem code
+is really an abuse of this ->requeue() callback.  It was
+never meant to be used like that.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 819f017..8d13380 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1805,14 +1805,12 @@ gso:
- 		spin_lock(root_lock);
- 
- 		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
--			spin_unlock(root_lock);
-+			kfree_skb(skb);
- 			rc = NET_XMIT_DROP;
--			goto out_kfree_skb;
-+		} else {
-+			rc = qdisc_enqueue_root(skb, q);
-+			qdisc_run(q);
- 		}
--
--		rc = qdisc_enqueue_root(skb, q);
--		qdisc_run(q);
--
- 		spin_unlock(root_lock);
- 
- 		goto out;
--- 
-1.5.6.5.GIT
+In fact, as I look at how TBF and NETEM want to use ->requeue() they
+could just the same implement it using my suggested alternative for
+->requeue() which is just an SKB list ala gso_list hung off of the
+qdisc.
 
+They all just want to "insert to front" when they call ->requeue(),
+nothing more.
+
+In the TBF case, it wants to defer the send to some time in the
+future.  But that would work in my scheme as well as it would now.
+TBF's ->enqueue() would return NULL yet stick the packet into
+the qdisc->skb_list, the watchdog is schedules will run the queue
+when it fires.
+
+So, in short, the more I think about it the more I think we can
+certainly kill off ->requeue() and all of it's resulting complexity.
