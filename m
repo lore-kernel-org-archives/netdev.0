@@ -1,68 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH]: Kill qdisc rcu freeing...
-Date: Mon, 18 Aug 2008 12:07:25 +0000
-Message-ID: <20080818120725.GB7393@ff.dom.local>
-References: <20080817.223435.193704624.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Fix race conditions in lblc scheduler
+Date: Mon, 18 Aug 2008 22:20:21 +1000
+Message-ID: <20080818122018.GA11508@verge.net.au>
+References: <alpine.LNX.1.10.0808180050440.12259@titan.stealer.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	wensong@linux-vs.org, ja@ssi.bg
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:41068 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752156AbYHRMHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 08:07:33 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1123877nfc.21
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 05:07:31 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:60322 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159AbYHRMUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 08:20:24 -0400
 Content-Disposition: inline
-In-Reply-To: <20080817.223435.193704624.davem@davemloft.net>
+In-Reply-To: <alpine.LNX.1.10.0808180050440.12259@titan.stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 17, 2008 at 10:34:35PM -0700, David Miller wrote:
-> 
-> Ok, I flipped the switch.  I've checked in the following to
-> net-2.6 and it seems to pass a bunch of smoke tests I just
-> did (flood pings while adding and deleting various qdisc
-> setups, etc.)
-> 
-> Jarek, I think we can possibly now revert that locking change
-> you had to make because destroy was outside of RTNL?
+On Mon, Aug 18, 2008 at 12:52:08AM +0200, Sven Wegener wrote:
+> We can't access the cache entry outside of our critical read-locked region,
+> because someone may free that entry. And we also need to check in the critical
+> region wether the destination is still available, i.e. it's not in the trash.
+> If we drop our reference counter, the destination can be purged from the trash
+> at any time. Our caller only guarantees that no destination is moved to the
+> trash, while we are scheduling. Also there is no need for our own rwlock,
+> there is already one in the service structure for use in the schedulers.
 
-Yes, I think there are these two patches only to revert:
+Hi Sven,
 
-----------
-commit d4766692e72422f3b0f0e9ac6773d92baad07d51
-Author: Jarek Poplawski <jarkao2@gmail.com>
-Date:   Wed Aug 13 15:20:24 2008 -0700
-
-    pkt_sched: Protect gen estimators under est_lock.
-
-----------
-
-commit 1cfa26661a85549063e369e2b40275eeaa7b923c
-Author: Jarek Poplawski <jarkao2@gmail.com>
-Date:   Mon Aug 11 18:11:06 2008 -0700
-
-    pkt_sched: Add BH protection for qdisc_stab_lock.
-
-----------
-
-I guess, I don't need to send any patches, but let me know if I'm
-wrong.
-
-Thanks,
-Jarek P.
-
-> 
-> pkt_sched: No longer destroy qdiscs from RCU.
-> 
-> We can now kill them synchronously with all of the
-> previous dev_deactivate() cures.
-> 
-> This makes netdev destruction and shutdown saner as
-> the qdiscs hold references to the device.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-...
+I need to look over these changes with a fresh set of eyes in the morning
+- sorry that I didn't do that earlier today.  I am very much in favour of
+the changes that we made last week, and this patch at least looks a lot
+like the changes we discussed.  Do you think these should be pushed
+into 2.6.27? Or perhaps even stable? They are real races, right?
