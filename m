@@ -1,183 +1,61 @@
-From: Subrata Modak <subrata@linux.vnet.ibm.com>
-Subject: Re: [LTP] [PATCH 0/0] Traffic control cgroups subsystem
-Date: Mon, 18 Aug 2008 18:05:17 +0530
-Message-ID: <1219062917.4941.34.camel@subratamodak.linux.ibm.com>
-References: <Pine.LNX.4.64.0807241628270.30437@ranjit.corp.google.com>
-	 <bb33bcf20807241648s7685c91akfd6c50c23242f031@mail.gmail.com>
-	 <1217934045.15385.1.camel@subratamodak.linux.ibm.com>
-	 <166fe7950808051106m3fd9751aw32f8d577cf24d1e9@mail.gmail.com>
-	 <1218451472.5010.32.camel@subratamodak.linux.ibm.com>
-Reply-To: subrata@linux.vnet.ibm.com
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
+Date: Mon, 18 Aug 2008 15:45:29 +0300
+Message-ID: <200808181545.30146.denys@visp.net.lb>
+References: <20080818091011.GC5434@ff.dom.local> <20080818112022.GA7158@ff.dom.local> <20080818113531.GB7158@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ltp-list <ltp-list@lists.sourceforge.net>,
-	Sudhir <sudhirkumarmalik@in.ibm.com>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, menage@google.com, kaber@trash.net,
-	Balbir Singh <balbir@linux.vnet.ibm.com>
-To: Ranjit Manomohan <ranjitm@google.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:53449 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbYHRMfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 08:35:25 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m7ICZNn0023123
-	for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 08:35:23 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7ICZMeP135948
-	for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 06:35:22 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7ICZLjx013099
-	for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 06:35:22 -0600
-In-Reply-To: <1218451472.5010.32.camel@subratamodak.linux.ibm.com>
+Received: from relay2.globalproof.net ([194.146.153.25]:38944 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188AbYHRMql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 08:46:41 -0400
+In-Reply-To: <20080818113531.GB7158@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ranjit,
+Patch applied, got another warning.
 
-> > >
-> > > On Fri, 2008-07-25 at 05:18 +0530, Subrata Modak wrote:
-> > >> Hi Ranjit,
-> > >>
-> > >> Good to see these Traffic control patches for the Linux kernel. Let me
-> > >> take this opportunity to convey that we have:
-> > >>
-> > >> 1) CPU & Memory controller test cases (the corresponding features are
-> > >> already in mainline kernel),
-> > >> 2) The I/O bandwidth controller test cases (corresponding
-> > >> infrastructure proposed by Andrea, but still not in any kernel tree)
-> > >>
-> > >> in LTP (http://ltp.sourceforge.net/).
-> > >>
-> > >> Could you kindly let me know if you have developed similar test cases
-> > >> for your Traffic control features, and, if they can be contributed to
-> > >> LTP under GPL.
-> > >
-> > > Ranjit,
-> > >
-> > > Would you like to tell us something on the test cases for this ?
-> > 
-> > Subrata,
-> >   We have some internal test cases but not under LTP. Let me take a
-> > look at the existing LTP infrastructure and see if these can be ported
-> > over.
-> 
-> Thanks Ranjit. Let me say that any test cases that returns 0 on PASS, or
-> some non-zero on failure can be easily integrated under LTP. If you
-> would like to give me those test cases, i can try integrating them and
-> send you across the results.
+[  413.646102]
+[  413.646102] =========================
+[  413.646102] [ BUG: held lock freed! ]
+[  413.646102] -------------------------
+[  413.646102] pppd/4105 is freeing memory f6fe6e00-f6fe6eff, with a lock 
+still held there!
+[  413.646102]  (&qdisc_rx_lock){-+..}, at: [<c026e3ab>] 
+shutdown_scheduler_queue+0x1c/0x2e
+[  413.646102] 3 locks held by pppd/4105:
+[  413.646102]  #0:  (all_ppp_mutex){--..}, at: [<f8a671ae>] 
+ppp_shutdown_interface+0x17/0xb0 [ppp_generic]
+[  413.646102]  #1:  (rtnl_mutex){--..}, at: [<c026967a>] rtnl_lock+0xf/0x11
+[  413.647102]  #2:  (&qdisc_rx_lock){-+..}, at: [<c026e3ab>] 
+shutdown_scheduler_queue+0x1c/0x2e
+[  413.647102]
+[  413.647102] stack backtrace:
+[  413.647102] Pid: 4105, comm: pppd Not tainted 
+2.6.27-rc3-build-0031-12578-g96d2031-dirty #32
+[  413.647102]  [<c02ba6f7>] ? printk+0xf/0x18
+[  413.647102]  [<c013db8f>] debug_check_no_locks_freed+0xce/0xff
+[  413.647102]  [<c01643ce>] kfree+0x78/0xc8
+[  413.647102]  [<c026e38b>] ? qdisc_destroy+0x8c/0x90
+[  413.647102]  [<c026e38b>] qdisc_destroy+0x8c/0x90
+[  413.647102]  [<c026e3b2>] shutdown_scheduler_queue+0x23/0x2e
+[  413.647102]  [<c026e3fa>] dev_shutdown+0x3d/0x59
+[  413.647102]  [<c0262240>] rollback_registered+0x128/0x1b1
+[  413.647102]  [<c02622fb>] unregister_netdevice+0x32/0x6e
+[  413.647102]  [<c0262349>] unregister_netdev+0x12/0x1a
+[  413.647102]  [<f8a671f3>] ppp_shutdown_interface+0x5c/0xb0 [ppp_generic]
+[  413.647102]  [<f8a6742c>] ppp_release+0x2c/0x5a [ppp_generic]
+[  413.647102]  [<c0167db8>] __fput+0x99/0x136
+[  413.647102]  [<c0167e6c>] fput+0x17/0x19
+[  413.647102]  [<c016593b>] filp_close+0x47/0x51
+[  413.647102]  [<c01659b8>] sys_close+0x73/0xad
+[  413.647102]  [<c0103861>] sysenter_do_call+0x12/0x35
+[  413.647102]  =======================
 
-Did you find time to humbly look into this ?
-
-Regards--
-Subrata
-
-> 
-> Regards--
-> Subrata
-> 
-> > 
-> > -Thanks,
-> > Ranjit
-> > 
-> > 
-> > >
-> > > Regards--
-> > > Subrata
-> > >
-> > >>
-> > >> Regards--
-> > >> Subrata
-> > >>
-> > >> On Fri, Jul 25, 2008 at 5:03 AM, Ranjit Manomohan <ranjitm@google.com>
-> > >> wrote:
-> > >>         [Take 4] incorporated additional comments from Patrick McHardy
-> > >>
-> > >>         This patch provides a simple resource controller (cgroup_tc)
-> > >>         based on the
-> > >>         cgroups infrastructure to manage network traffic. The
-> > >>         cgroup_tc resource
-> > >>         controller can be used to schedule and shape traffic belonging
-> > >>         to the task(s)
-> > >>         in a particular cgroup.
-> > >>
-> > >>         The implementation consists of two parts:
-> > >>
-> > >>         1) A resource controller (cgroup_tc) that is used to associate
-> > >>         packets from
-> > >>           a particular task belonging to a cgroup with a traffic
-> > >>         control class id (
-> > >>           tc_classid). This tc_classid is propagated to all sockets
-> > >>         created by tasks
-> > >>           in the cgroup and will be used for classifying packets at
-> > >>         the link layer.
-> > >>
-> > >>         2) A new traffic control classifier (cls_cgroup) that can
-> > >>         classify packets
-> > >>           based on the tc_classid field in the socket to specific
-> > >>         destination classes.
-> > >>
-> > >>         An example of the use of this resource controller would be to
-> > >>         limit
-> > >>         the traffic from all tasks from a file_server cgroup to
-> > >>         100Mbps. We could
-> > >>         achieve this by doing:
-> > >>
-> > >>         # make a cgroup of file transfer processes and assign it a
-> > >>         arbitrary unique
-> > >>         # classid of 0x1234 - this will be used later to direct
-> > >>         packets.
-> > >>         mkdir -p /dev/cgroup
-> > >>         mount -t cgroup tc -otc /dev/cgroup
-> > >>         mkdir /dev/cgroup/file_transfer
-> > >>         echo 0x1234 > /dev/cgroup/file_transfer/tc.classid
-> > >>         echo $PID_OF_FILE_XFER_PROCESS
-> > >>         > /dev/cgroup/file_transfer/tasks
-> > >>
-> > >>         # Now create a HTB class that rate limits traffic to 100mbits
-> > >>         and attach
-> > >>         # a filter to direct all traffic from cgroup file_transfer to
-> > >>         this new class.
-> > >>         tc qdisc add dev eth0 root handle 1: htb
-> > >>         tc class add dev eth0 parent 1: classid 1:10 htb rate 100mbit
-> > >>         ceil 100mbit
-> > >>         tc filter add dev eth0 parent 1: handle 800 protocol ip prio 1
-> > >>         cgroup value 0x1234 classid 1:10
-> > >>
-> > >>         Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
-> > >>
-> > >>         ---
-> > >>         --
-> > >>         To unsubscribe from this list: send the line "unsubscribe
-> > >>         linux-kernel" in
-> > >>         the body of a message to majordomo@vger.kernel.org
-> > >>         More majordomo info at
-> > >>          http://vger.kernel.org/majordomo-info.html
-> > >>         Please read the FAQ at  http://www.tux.org/lkml/
-> > >>
-> > >>
-> > >>
-> > >> --
-> > >> Regards & Thanks--
-> > >> Subrata
-> > >> -------------------------------------------------------------------------
-> > >> This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-> > >> Build the coolest Linux based applications with Moblin SDK & win great prizes
-> > >> Grand prize is a trip for two to an Open Source event anywhere in the world
-> > >> http://moblin-contest.org/redirect.php?banner_id=100&url=/
-> > >> _______________________________________________ Ltp-list mailing list Ltp-list@lists.sourceforge.net https://lists.sourceforge.net/lists/listinfo/ltp-list
-> > >
-> > >
-> 
-> 
-> -------------------------------------------------------------------------
-> This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-> Build the coolest Linux based applications with Moblin SDK & win great prizes
-> Grand prize is a trip for two to an Open Source event anywhere in the world
-> http://moblin-contest.org/redirect.php?banner_id=100&url=/
-> _______________________________________________
-> Ltp-list mailing list
-> Ltp-list@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/ltp-list
-
+On Monday 18 August 2008, Jarek Poplawski wrote:
