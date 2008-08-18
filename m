@@ -1,132 +1,172 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Mon, 18 Aug 2008 06:27:47 +0000
-Message-ID: <20080818062747.GA2732@ff.dom.local>
-References: <20080818012516.GB31337@gondor.apana.org.au> <20080817.183505.163224950.davem@davemloft.net> <20080818013633.GA31653@gondor.apana.org.au> <20080817.184921.08829673.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: Fix queueing return values...
+Date: Sun, 17 Aug 2008 23:32:11 -0700 (PDT)
+Message-ID: <20080817.233211.84493222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.178]:12937 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbYHRG1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 02:27:55 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so2176692ika.5
-        for <netdev@vger.kernel.org>; Sun, 17 Aug 2008 23:27:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080817.184921.08829673.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42045
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750885AbYHRGcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 02:32:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 17, 2008 at 06:49:21PM -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Mon, 18 Aug 2008 11:36:33 +1000
-> 
-> > On Sun, Aug 17, 2008 at 06:35:05PM -0700, David Miller wrote:
-> > > I think I see another way out of this:
-> > > 
-> > > 1) Add __QDISC_STATE_DEACTIVATE.
-> > > 
-> > > 2) Set it right before dev_deactivate() swaps resets the qdisc
-> > >    pointer.
-> > > 
-> > > 3) Test it in dev_queue_xmit() et al. once the qdisc root lock is
-> > >    acquired, and drop lock and resample ->qdisc if
-> > >    __QDISC_STATE_DEACTIVATE is set.
-> > 
-> > Yep this sounds good to me.
-> 
-> Here it is as a patch below.
-> 
-> The test being added to __netif_schedule() is just a reminder that
-> we have to address the "both bits clear" case somehow, likely with
-> Jarko's patch which I unintentionally reimplemented :)
 
-You shouldn't bother with this at all. I'm really pleased if I
-sometimes think similarly to you, and this wasn't the most complex
-idea to found, btw.
+I'm trying to make some further progress on this because it
+has been sitting for too long.
 
-But, there is probably something other to bother here. I didn't get
-the final version of this patch nor I can see this on the list, but
-in your git there is this change to "goto out_kfree_skb", which
-seems to skip rcu_read_unlock_bh().
+What I want to do at this point is fix the most obvious
+problems in order to fix those crashes that were reported,
+and do it in such a way that an easy 2.6.26-stable backport
+is there too.
 
-Otherwise, hmm.. I'm half asleep yet, and only after 1 coffee, so
-maybe I'll change my mind soon, but now I've some doubts about these
-last changes.
+After a first pass, just trying to sort out the worst cases,
+I came up with TBF and HTB that needed immediate fixes.
 
-Jarek P.
+HTB's case has been discussed to death before, and my current
+fix is greatly simplified from my original patch.  I misread
+the logic and only that inner code block to the ->enqueue()
+and ->requeue() calls need to ensure proper return value
+propagation.  I moved all kinds of things around for no good
+reason in my original patch.
 
-> 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index a7abfda..757ab08 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -27,6 +27,7 @@ enum qdisc_state_t
->  {
->  	__QDISC_STATE_RUNNING,
->  	__QDISC_STATE_SCHED,
-> +	__QDISC_STATE_DEACTIVATED,
->  };
->  
->  struct qdisc_size_table {
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 600bb23..b88f669 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1341,6 +1341,9 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
->  
->  void __netif_schedule(struct Qdisc *q)
->  {
-> +	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
-> +		return;
-> +
->  	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state)) {
->  		struct softnet_data *sd;
->  		unsigned long flags;
-> @@ -1790,6 +1793,8 @@ gso:
->  	rcu_read_lock_bh();
->  
->  	txq = dev_pick_tx(dev, skb);
-> +
-> +resample_qdisc:
->  	q = rcu_dereference(txq->qdisc);
->  
->  #ifdef CONFIG_NET_CLS_ACT
-> @@ -1800,6 +1805,11 @@ gso:
->  
->  		spin_lock(root_lock);
->  
-> +		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-> +			spin_unlock(root_lock);
-> +			goto resample_qdisc;
-> +		}
-> +
->  		rc = qdisc_enqueue_root(skb, q);
->  		qdisc_run(q);
->  
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 4685746..ff1c455 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -597,6 +597,9 @@ static void transition_one_qdisc(struct net_device *dev,
->  	struct Qdisc *new_qdisc = dev_queue->qdisc_sleeping;
->  	int *need_watchdog_p = _need_watchdog;
->  
-> +	if (!(new_qdisc->flags & TCQ_F_BUILTIN))
-> +		clear_bit(__QDISC_STATE_DEACTIVATED, &new_qdisc->state);
-> +
->  	rcu_assign_pointer(dev_queue->qdisc, new_qdisc);
->  	if (need_watchdog_p && new_qdisc != &noqueue_qdisc)
->  		*need_watchdog_p = 1;
-> @@ -640,6 +643,9 @@ static void dev_deactivate_queue(struct net_device *dev,
->  	if (qdisc) {
->  		spin_lock_bh(qdisc_lock(qdisc));
->  
-> +		if (!(qdisc->flags & TCQ_F_BUILTIN))
-> +			set_bit(__QDISC_STATE_DEACTIVATED, &qdisc->state);
-> +
->  		dev_queue->qdisc = qdisc_default;
->  		qdisc_reset(qdisc);
->  
+TBF is just a case of an improperly open-coded implementation
+of qdisc_reshape_fail() which corrupts the return value.
+
+First the net-2.6 version then the version intended for
+2.6.26-stable submission:
+
+-------------------- net-2.6 --------------------
+pkt_sched: Fix return value corruption in HTB and TBF.
+
+Packet schedulers should only return NET_XMIT_DROP iff
+the packet really was dropped.  If the packet does reach
+the device after we return NET_XMIT_DROP then TCP can
+crash because it depends upon the enqueue path return
+values being accurate.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 6febd24..0df0df2 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -577,7 +577,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 			sch->qstats.drops++;
+ 			cl->qstats.drops++;
+ 		}
+-		return NET_XMIT_DROP;
++		return ret;
+ 	} else {
+ 		cl->bstats.packets +=
+ 			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+@@ -623,7 +623,7 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 			sch->qstats.drops++;
+ 			cl->qstats.drops++;
+ 		}
+-		return NET_XMIT_DROP;
++		return ret;
+ 	} else
+ 		htb_activate(q, cl);
+ 
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 7d3b7ff..94c6159 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -123,15 +123,8 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (qdisc_pkt_len(skb) > q->max_size) {
+-		sch->qstats.drops++;
+-#ifdef CONFIG_NET_CLS_ACT
+-		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+-#endif
+-			kfree_skb(skb);
+-
+-		return NET_XMIT_DROP;
+-	}
++	if (qdisc_pkt_len(skb) > q->max_size)
++		return qdisc_reshape_fail(skb, sch);
+ 
+ 	ret = qdisc_enqueue(skb, q->qdisc);
+ 	if (ret != 0) {
+
+-------------------- 2.6.26-stable --------------------
+pkt_sched: Fix return value corruption in HTB and TBF.
+
+Packet schedulers should only return NET_XMIT_DROP iff
+the packet really was dropped.  If the packet does reach
+the device after we return NET_XMIT_DROP then TCP can
+crash because it depends upon the enqueue path return
+values being accurate.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 3fb58f4..51c3f68 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -595,11 +595,13 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		kfree_skb(skb);
+ 		return ret;
+ #endif
+-	} else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) !=
++	} else if ((ret = cl->un.leaf.q->enqueue(skb, cl->un.leaf.q)) !=
+ 		   NET_XMIT_SUCCESS) {
+-		sch->qstats.drops++;
+-		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
++		if (ret == NET_XMIT_DROP) {
++			sch->qstats.drops++;
++			cl->qstats.drops++;
++		}
++		return ret;
+ 	} else {
+ 		cl->bstats.packets +=
+ 			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+@@ -639,11 +641,13 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 		kfree_skb(skb);
+ 		return ret;
+ #endif
+-	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
++	} else if ((ret = cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q)) !=
+ 		   NET_XMIT_SUCCESS) {
+-		sch->qstats.drops++;
+-		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
++		if (ret == NET_XMIT_DROP) {
++			sch->qstats.drops++;
++			cl->qstats.drops++;
++		}
++		return ret;
+ 	} else
+ 		htb_activate(q, cl);
+ 
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 0b7d78f..fc6f8f3 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -123,15 +123,8 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (skb->len > q->max_size) {
+-		sch->qstats.drops++;
+-#ifdef CONFIG_NET_CLS_ACT
+-		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+-#endif
+-			kfree_skb(skb);
+-
+-		return NET_XMIT_DROP;
+-	}
++	if (skb->len > q->max_size)
++		return qdisc_reshape_fail(skb, sch);
+ 
+ 	if ((ret = q->qdisc->enqueue(skb, q->qdisc)) != 0) {
+ 		sch->qstats.drops++;
+--------------------
