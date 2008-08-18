@@ -1,62 +1,52 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [PATCH] ipvs: Fix race conditions in lblcr scheduler
-Date: Tue, 19 Aug 2008 01:42:41 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808190140180.12259@titan.stealer.net>
-References: <alpine.LNX.1.10.0808180052160.12259@titan.stealer.net> <20080818233243.GC7785@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Mon, 18 Aug 2008 16:47:48 -0700 (PDT)
+Message-ID: <20080818.164748.86676462.davem@davemloft.net>
+References: <20080817.184921.08829673.davem@davemloft.net>
+	<20080818212946.GB3366@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080818233243.GC7785@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35944
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753390AbYHRXrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 19:47:49 -0400
+In-Reply-To: <20080818212946.GB3366@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Aug 2008, Simon Horman wrote:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 18 Aug 2008 23:29:46 +0200
 
-> On Mon, Aug 18, 2008 at 12:53:05AM +0200, Sven Wegener wrote:
-> > We can't access the cache entry outside of our critical read-locked region,
-> > because someone may free that entry. Also getting an entry under read lock,
-> > then locking for write and trying to delete that entry looks fishy, but should
-> > be no problem here, because we're only comparing a pointer. Also there is no
-> > need for our own rwlock, there is already one in the service structure for use
-> > in the schedulers.
+> Two little doubts below:
 > 
-> Hi Sven,
-> 
-> this looks good to me. Just a few minor comments inline.
-> 
-> > Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> > ---
-> >  net/ipv4/ipvs/ip_vs_lblcr.c |  229 +++++++++++++++++++++----------------------
-> >  1 files changed, 114 insertions(+), 115 deletions(-)
-> > 
-> > diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
-> > index f1c8450..96bfdc2 100644
-> > --- a/net/ipv4/ipvs/ip_vs_lblcr.c
-> > +++ b/net/ipv4/ipvs/ip_vs_lblcr.c
-> > @@ -106,7 +106,7 @@ ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
-> >  			return NULL;
-> >  	}
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 600bb23..b88f669 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -1341,6 +1341,9 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 > >  
-> > -	e = kmalloc(sizeof(struct ip_vs_dest_list), GFP_ATOMIC);
-> > +	e = kmalloc(sizeof(*e), GFP_ATOMIC);
+> >  void __netif_schedule(struct Qdisc *q)
+> >  {
+> > +	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
+> > +		return;
+> > +
 > 
-> I think that I prefer using struct ip_vs_dest_list rather than *e.
-> Ditto for *tbl below.
+> Why I can't see this code in net-2.6? BTW, I guess it should be now
+> moved to the current __netif_reschedule()? 
 
-Actually, it's part of CodingStyle to use *e.
+I deleted it, it's unnecessary with your "both bits clear" fix
+which I also added.
 
-> > +out:
-> >  	IP_VS_DBG(6, "LBLCR: destination IP address %u.%u.%u.%u "
-> >  		  "--> server %u.%u.%u.%u:%d\n",
-> > -		  NIPQUAD(en->addr),
-> > +		  NIPQUAD(iph->addr),
-> 
-> Minor problem, this should be iph->daddr
+> OK, we now have this kfree_skb() with NET_XMIT_DROP here, but how is it
+> better than qdisc_enque_root() on noop_qdisc? Or how can we have here
+> anything else under both rcu lock and spin_lock() while this
+> __QDISC_STATE_DEACTIVATED bit is set?
 
-Good catch, I've updated my patch locally. Let's get a consensus on the 
-sizeof issue and I'll repost.
+Both operations are equivalent, the choice is arbitrary in my
+opinion.  It's not like the user can even see this in noop_qdisc's
+stats or something like that.
 
-Sven
