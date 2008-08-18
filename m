@@ -1,43 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: csum offload and af_packet
-Date: Sun, 17 Aug 2008 16:08:25 -0700 (PDT)
-Message-ID: <20080817.160825.22400712.davem@davemloft.net>
-References: <20080812.175532.137434164.davem@davemloft.net>
-	<20080813010935.GA29815@gondor.apana.org.au>
-	<48A2C4DE.20005@trash.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-17
+Date: Sun, 17 Aug 2008 19:23:05 -0500
+Message-ID: <48A8C0E9.6030300@lwfinger.net>
+References: <20080817185605.GC30679@tuxdriver.com> <20080817.151251.204370966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@axxeo.de,
-	rusty@rustcorp.com.au, anthony@codemonkey.ws,
-	netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54317
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751493AbYHQXIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 19:08:25 -0400
-In-Reply-To: <48A2C4DE.20005@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080817.151251.204370966.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 13 Aug 2008 13:26:22 +0200
+David Miller wrote:
+> Their commit messages reference SHA IDs but do not give a commit
+> header line text reference as well.
+> 
+>       p54: Fix regression due to commit b19fa1f
 
-> Actually the current CVS version understands auxdata and uses it to
-> reconstruct VLAN headers. CVS seems to be broken though, I can send
-> you a tarball with the current version if you want.
+John,
 
-At first I thought you were saying that the code in their current
-CVS is broken, but now I understand that CVS itself is broken for
-this project.
+This commit message should fix the above patch:
+=============
 
-That's rediculious.
+From: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
 
-I'll see if I can put some time together to try and put some trees
-together, please send me what you have Patrick, thanks.
+Commit b19fa1f, entitled "net: Delete NETDEVICES_MULTIQUEUE kconfig
+option" breaks p54pci and p54usb.
 
-If I'm successful I'll put GIT trees up on kernel.org for tcpdump
-and libpcap which we can hack on.
+Additionally, the old logic always tx'ed cts frames (if enabled)
+with a short preamble when [rate > 3]. (i.e. with any 802.11g rate).
+Of course this isn't that bad, but it's still wrong!
 
-Thanks guys.
+Signed-off-by: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>         [2.6.25.x, 2.6.26.x]
+---
+
+Larry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
