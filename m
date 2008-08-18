@@ -1,54 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_prio: Use return value from inner qdisc requeue
-Date: Sun, 17 Aug 2008 22:45:29 -0700 (PDT)
-Message-ID: <20080817.224529.236814631.davem@davemloft.net>
-References: <20080807221014.32639.89849.stgit@fate.lan>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH] IPv6:fix the return interface index when get it while no
+ message is received
+Date: Mon, 18 Aug 2008 14:07:41 +0800
+Message-ID: <48A911AD.7060102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jussi.kivilinna@mbnet.fi
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50037
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750829AbYHRFp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 01:45:29 -0400
-In-Reply-To: <20080807221014.32639.89849.stgit@fate.lan>
+Received: from cn.fujitsu.com ([222.73.24.84]:52481 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750829AbYHRGIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Aug 2008 02:08:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Date: Fri, 08 Aug 2008 01:10:14 +0300
+When get receiving interface index while no message is received,
+the bounded device's index of the socket should be returned.
 
-> Use return value from inner qdisc requeue when value returned isn't
-> NET_XMIT_SUCCESS, instead of always returning NET_XMIT_DROP.
-> 
-> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+RFC 3542:
+   Issuing getsockopt() for the above options will return the sticky
+   option value i.e., the value set with setsockopt().  If no sticky
+   option value has been set getsockopt() will return the following
+   values:
 
-Applied, thanks Jussi.
+   -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
+      structure with ipi6_addr being in6addr_any and ipi6_ifindex being
+      zero.
 
-I added the following followon patch afterwards:
 
-sch_prio: Use NET_XMIT_SUCCESS instead of "0" constant.
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_prio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ ipv6_sockglue.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 7cdc3e6..a6697c6 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -113,7 +113,7 @@ prio_requeue(struct sk_buff *skb, struct Qdisc* sch)
- 	if ((ret = qdisc->ops->requeue(skb, qdisc)) == NET_XMIT_SUCCESS) {
- 		sch->q.qlen++;
- 		sch->qstats.requeues++;
--		return 0;
-+		return NET_XMIT_SUCCESS;
- 	}
- 	if (net_xmit_drop_count(ret))
- 		sch->qstats.drops++;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 2cabac9..e4f8d29 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -911,7 +911,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		} else {
+ 			if (np->rxopt.bits.rxinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+ 				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
+ 			}
+@@ -921,7 +921,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			}
+ 			if (np->rxopt.bits.rxoinfo) {
+ 				struct in6_pktinfo src_info;
+-				src_info.ipi6_ifindex = np->mcast_oif;
++				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
+ 				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
+ 				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
+ 			}
 -- 
-1.5.6.5.GIT
-
+1.5.3.8
