@@ -1,79 +1,35 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: tbench regression on each kernel release from 2.6.22 -> 2.6.28
-Date: Mon, 18 Aug 2008 10:05:14 +0800
-Message-ID: <1219025114.25933.6.camel@ymzhang>
-References: <48A086B6.2000901@linux-foundation.org>
-	 <20080811.141501.01468546.davem@davemloft.net>
-	 <Pine.LNX.4.64.0808121058550.4551@wrl-59.cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: csum offload and af_packet
+Date: Sun, 17 Aug 2008 19:12:24 -0700 (PDT)
+Message-ID: <20080817.191224.118214583.davem@davemloft.net>
+References: <48A2C4DE.20005@trash.net>
+	<20080817.160825.22400712.davem@davemloft.net>
+	<48A8CCBF.3020408@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, cl@linux-foundation.org,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@axxeo.de,
+	rusty@rustcorp.com.au, anthony@codemonkey.ws,
+	netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:11477 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750943AbYHRCGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 22:06:07 -0400
-In-Reply-To: <Pine.LNX.4.64.0808121058550.4551@wrl-59.cs.helsinki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53295
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750943AbYHRCMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 22:12:24 -0400
+In-Reply-To: <48A8CCBF.3020408@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 18 Aug 2008 03:13:35 +0200
 
-On Tue, 2008-08-12 at 11:13 +0300, Ilpo J=E4rvinen wrote:=20
-> On Mon, 11 Aug 2008, David Miller wrote:
->=20
-> > From: Christoph Lameter <cl@linux-foundation.org>
-> > Date: Mon, 11 Aug 2008 13:36:38 -0500
-> >=20
-> > > It seems that the network stack becomes slower over time? Here is=
- a list of
-> > > tbench results with various kernel versions:
-> > >=20
-> > > 2.6.22		3207.77 mb/sec
-> > > 2.6.24		3185.66
-> > > 2.6.25		2848.83
-> > > 2.6.26		2706.09
-> > > 2.6.27(rc2)	2571.03
-> > >=20
-> > > And linux-next is:
-> > >=20
-> > > 2.6.28(l-next)	2568.74
-> > >=20
-> > > It shows that there is still have work to be done on linux-next. =
-Too close to
-> > > upstream in performance.
-> > >=20
-> > > Note the KT event between 2.6.24 and 2.6.25. Why is that?
-> >=20
-> > Isn't that when some major scheduler changes went in?  I'm not blam=
-ing
-> > the scheduler, but rather I'm making the point that there are other
-> > subsystems in the kernel that the networking interacts with that
-> > influences performance at such a low level.
->=20
-> ...IIRC, somebody in the past did even bisect his (probably netperf)=20
-> 2.6.24-25 regression to some scheduler change (obviously it might or =
-might=20
-> not be related to this case of yours)...
-I did find much regression with netperf TCP-RR-1/UDP-RR-1/UDP-RR-512. I=
- start
-1 serve and 1 client while binding them to a different logical processo=
-r in
-different physical cpu.
+> the linux support looks a lot cleaner in general
 
-Comparing with 2.6.22, the regression of TCP-RR-1 on 16-core tigerton i=
-s:
-2.6.23		6%
-2.6.24		6%
-2.6.25		9.7%
-2.6.26		14.5%
-2.6.27-rc1	22%
+I totally disagree after having looked at this thing.
 
-Other regressions on other machines are similar.
-
-yanmin
+The number of ifdefs has doubled in pcap-linux.c since the last
+official release, it's quite a mess.  It's still handling all sorts of
+obscure bugs we had back in 2.0.x as well.
 
 
