@@ -1,43 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: ath5k text
-Date: Mon, 18 Aug 2008 00:05:13 -0700 (PDT)
-Message-ID: <20080818.000513.224752343.davem@davemloft.net>
-References: <20080817185605.GC30679@tuxdriver.com>
-	<20080817.151251.204370966.davem@davemloft.net>
-	<48A91E12.1060901@gmail.com>
+From: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] netns: Add network namespace argument in
+	rt6_fill_node() and ipv6_dev_get_saddr()
+Date: Mon, 18 Aug 2008 09:21:08 +0200
+Message-ID: <48A922E4.1050304@fr.ibm.com>
+References: <48A48722.3050509@hp.com> <48A758F0.60009@fr.ibm.com>
+	<20080817.153526.109132408.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-53cgGKa3i4734X6bwOH/f4/+3M+ant7aZ+vKCSbpVNE@public.gmane.org
-To: jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48A91E12.1060901-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, brian.haley-VXdhtT5mjnY@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20080817.153526.109132408.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 18 Aug 2008 09:00:34 +0200
-
-> On 08/18/2008 12:12 AM, David Miller wrote:
-> > Their commit messages reference SHA IDs but do not give a commit
-> > header line text reference as well.
-> > 
-> >       ath5k: Don't fiddle with MSI on suspend/resume.
+David Miller wrote:
+> From: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+> Date: Sun, 17 Aug 2008 00:47:12 +0200
 > 
-> John, this is it (even if I don't understand the purpose):
+>> The approach looks correct except with the network namespace passed as 
+>> parameter, it must never be NULL.
+> 
+> You're reviewing the patches that Brian retracted, we added a different
+> version of these fixes in the end.
 
-The purpose is that when patches are backported or moved to
-other GIT trees, the SHA ID is going to be different.
+Yes thanks, I received the emails delayed, so I saw the first version 
+and no reply to them, neither the V2.
+The second version is much better.
+Thanks Brian for fixing this :)
 
-So when you reference just the SHA ID it is not enough
-infomration to universally find the commit you are referring
-to.
-
-Do you understand "the purpose" now? :-)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   -- Daniel
