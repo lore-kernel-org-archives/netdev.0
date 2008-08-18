@@ -1,48 +1,90 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [PATCH] ipvs: Fix race conditions in lblc scheduler
-Date: Mon, 18 Aug 2008 17:47:53 +0200 (CEST)
-Message-ID: <alpine.LNX.1.10.0808181507070.12259@titan.stealer.net>
-References: <alpine.LNX.1.10.0808180050440.12259@titan.stealer.net> <20080818122018.GA11508@verge.net.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
+Date: Mon, 18 Aug 2008 17:55:32 +0200
+Message-ID: <20080818155532.GA2981@ami.dom.local>
+References: <200808181545.30146.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080818122018.GA11508@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.153]:11840 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751369AbYHRPyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 11:54:50 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1680717fgg.17
+        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 08:54:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200808181545.30146.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Aug 2008, Simon Horman wrote:
+Denys Fedoryshchenko wrote, On 08/18/2008 02:45 PM:
 
-> On Mon, Aug 18, 2008 at 12:52:08AM +0200, Sven Wegener wrote:
-> > We can't access the cache entry outside of our critical read-locked region,
-> > because someone may free that entry. And we also need to check in the critical
-> > region wether the destination is still available, i.e. it's not in the trash.
-> > If we drop our reference counter, the destination can be purged from the trash
-> > at any time. Our caller only guarantees that no destination is moved to the
-> > trash, while we are scheduling. Also there is no need for our own rwlock,
-> > there is already one in the service structure for use in the schedulers.
+> Patch applied, got another warning.
 > 
-> I need to look over these changes with a fresh set of eyes in the morning
-> - sorry that I didn't do that earlier today.  I am very much in favour of
-> the changes that we made last week, and this patch at least looks a lot
-> like the changes we discussed.  Do you think these should be pushed
-> into 2.6.27? Or perhaps even stable? They are real races, right?
+> [  413.646102]
+> [  413.646102] =========================
+> [  413.646102] [ BUG: held lock freed! ]
+> [  413.646102] -------------------------
+> [  413.646102] pppd/4105 is freeing memory f6fe6e00-f6fe6eff, with a lock 
+> still held there!
+> [  413.646102]  (&qdisc_rx_lock){-+..}, at: [<c026e3ab>] 
+> shutdown_scheduler_queue+0x1c/0x2e
+...
 
-The lblc patch is nearly identical to the last one posted. The lblcr is 
-new, but follows the same logic.
+Alas I can't find anything better for this than the previous patch
+named "03-fix_patch_2.patch" in your repository. I attach it below
+for any case (apply after all you currently had - there will be a
+little offset warning while patching). Alternatively, you can wait
+for David's opinion.
 
-They are real races, but are quite unlikely to hit. The lblc and lblcr are 
-rarely used schedulers, because they only make sense in fwmark-based 
-configurations. The chance of them causing major issues is unlikely, 
-because for one you need to catch a destination that is in the trash and 
-someone needs to purge it at the same time, which is only possible if that 
-someone from user space is moving another destination to the trash and 
-then the destination also needs to have all references dropped to be 
-purgeable. And the other race is that removing a cache entry races with 
-someone accessing that cache entry. For the normal expire time removal it 
-means that someone has to access an entry, which hasn't been used for a 
-long time. In the end I think it's not urgent to get them in.
+Jarek P.
 
-Sven
+---
+
+ include/linux/netdevice.h |    1 +
+ include/net/sch_generic.h |    5 ++++-
+ net/core/dev.c            |    1 +
+ 3 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 488c56e..7041c2c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -445,6 +445,7 @@ struct netdev_queue {
+ 	struct net_device	*dev;
+ 	struct Qdisc		*qdisc;
+ 	unsigned long		state;
++	spinlock_t		qdisc_lock;
+ 	spinlock_t		_xmit_lock;
+ 	int			xmit_lock_owner;
+ 	struct Qdisc		*qdisc_sleeping;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index a7abfda..f84e96c 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -185,7 +185,10 @@ static inline struct qdisc_skb_cb *qdisc_skb_cb(struct sk_buff *skb)
+ 
+ static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
+ {
+-	return &qdisc->q.lock;
++	if (unlikely(qdisc->flags & TCQ_F_BUILTIN))
++		return &qdisc->q.lock;
++
++	return &qdisc->dev_queue->qdisc_lock;
+ }
+ 
+ static inline struct Qdisc *qdisc_root(struct Qdisc *qdisc)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 600bb23..9ec20e0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3859,6 +3859,7 @@ static void __netdev_init_queue_locks_one(struct net_device *dev,
+ 					  void *_unused)
+ {
+ 	spin_lock_init(&dev_queue->_xmit_lock);
++	spin_lock_init(&dev_queue->qdisc_lock);
+ 	netdev_set_xmit_lockdep_class(&dev_queue->_xmit_lock, dev->type);
+ 	dev_queue->xmit_lock_owner = -1;
+ }
