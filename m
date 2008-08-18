@@ -1,7 +1,7 @@
 From: "Yinghai Lu" <yhlu.kernel@gmail.com>
 Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
-Date: Mon, 18 Aug 2008 15:36:43 -0700
-Message-ID: <86802c440808181536j2c214cc3k47e73fd147b4fee1@mail.gmail.com>
+Date: Mon, 18 Aug 2008 15:37:27 -0700
+Message-ID: <86802c440808181537y7399ba98x67dc5040aa80c7ee@mail.gmail.com>
 References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com>
 	 <200808181222.49576.rjw@sisk.pl>
 	 <86802c440808181450y5e908b6eo3e6d54bfca6f2d8f@mail.gmail.com>
@@ -17,12 +17,12 @@ Cc: "Jeff Garzik" <jgarzik@redhat.com>, "Ingo Molnar" <mingo@elte.hu>,
 	"Simon Arlott" <simon@fire.lp0.eu>
 To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:44857 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544AbYHRWgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 18:36:44 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2185360rvb.1
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 15:36:43 -0700 (PDT)
+Received: from mail-gx0-f16.google.com ([209.85.217.16]:32981 "EHLO
+	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbYHRWh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 18:37:29 -0400
+Received: by gxk9 with SMTP id 9so4372009gxk.13
+        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 15:37:28 -0700 (PDT)
 In-Reply-To: <200808190008.54743.rjw@sisk.pl>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
