@@ -1,40 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Linux Device Driver for Xilinx LL TEMAC 10/100/1000 Ethernet NIC
-Date: Mon, 18 Aug 2008 15:36:51 +0100
-Message-ID: <20080818143649.GD7908@solarflare.com>
-References: <48A7B01C.2070403@dlasys.net> <20080818123056.GA7908@solarflare.com>
+From: Christof Schmitt <christof.schmitt@de.ibm.com>
+Subject: Re: [PATCH] Remove duplicated unlikely() in IS_ERR()
+Date: Mon, 18 Aug 2008 11:21:05 -0400
+Message-ID: <20080818152105.GA8883@schmichrtp.de.ibm.com>
+References: <48A52D69.1040501@miraclelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-embedded <linuxppc-embedded@ozlabs.org>,
+Cc: dedekind@infradead.org, yoshfuji@linux-ipv6.org,
+	linux-mtd@lists.infradead.org, linux-s390@vger.kernel.org,
 	netdev@vger.kernel.org
-To: "David H. Lynch Jr." <dhlii@dlasys.net>
+To: Hirofumi Nakagawa <hnakagawa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:41935 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753022AbYHROgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 10:36:53 -0400
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:2277 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbYHRPV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 11:21:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20080818123056.GA7908@solarflare.com>
+In-Reply-To: <48A52D69.1040501@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I wrote:
-> > +static struct net_device_stats *
-> > +temac_get_stats(struct net_device *ndev)
-> > +{
-> > +    return netdev_priv(ndev);
+On Fri, Aug 15, 2008 at 04:16:57PM +0900, Hirofumi Nakagawa wrote:
+> Hi
+> Some drivers have duplicated unlikely() macros.
+> IS_ERR() already has unlikely() in itself.
+> This patch cleans up such pointless codes although there is no real
+> effect on the kernel's behaviour.
 > 
-> Not even the right type.  Do you read your compiler warnings?
+> Thanks,
+> Hirofumi Nakagawa
+> 
+> Signed-off-by: Hirofumi Nakagawa <hnakagawa@miraclelinux.com>
+> ---
+>  drivers/s390/scsi/zfcp_fsf.c |   32 ++++++++++++++++----------------
+>  fs/ubifs/find.c              |    4 ++--
+>  fs/ubifs/gc.c                |    8 ++++----
+>  fs/ubifs/tnc.c               |    4 ++--
+>  fs/ubifs/xattr.c             |    2 +-
+>  net/ipv6/af_inet6.c          |    2 +-
+>  6 files changed, 26 insertions(+), 26 deletions(-)
 
-Sorry, I now see that this is correct, though it's very fragile - it will
-silently break if struct temac_local is reordered.
+Thanks for spotting and fixing this. Could you split the zfcp changes
+in a seperate patch? I will pick up the zfcp patch for a series of
+fixes that i have pending here.
 
-struct net_device includes a stats buffer which you should be able to use
-instead of adding your own in struct temac_local.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Christof
