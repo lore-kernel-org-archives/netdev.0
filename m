@@ -1,61 +1,32 @@
-From: Stephen Neuendorffer <stephen.neuendorffer@xilinx.com>
-Subject: RE: [PATCH] Linux Device Driver for Xilinx LL TEMAC 10/100/1000 EthernetNIC
-Date: Mon, 18 Aug 2008 10:01:41 -0700
-Message-ID: <20080818170334.E5B99153006F@mail59-wa4.bigfish.com>
-References: <48A7B01C.2070403@dlasys.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
+Date: Mon, 18 Aug 2008 21:05:18 +0300
+Message-ID: <200808182105.19263.denys@visp.net.lb>
+References: <20080818155532.GA2981@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "David H. Lynch Jr." <dhlii@dlasys.net>,
-	"linuxppc-embedded" <linuxppc-embedded@ozlabs.org>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:4880 "EHLO
-	WA4EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730AbYHRRDh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 13:03:37 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <48A7B01C.2070403@dlasys.net>
+Received: from relay2.globalproof.net ([194.146.153.25]:42605 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbYHRSGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 14:06:33 -0400
+In-Reply-To: <20080818155532.GA2981@ami.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> +static struct platform_driver temac_device_driver = {
-> +	.probe		= temac_device_probe,
-> +	.remove		= __devexit_p(temac_device_remove),
-> +	.suspend	= NULL,
-> +	.resume		= NULL,
-> +	.driver		= {
-> +		.name	= DRV_NAME,
-> +		.owner	= THIS_MODULE,
-> +	},
-> +};
-
-I understand you're probably still using arch/ppc, but you'll need to
-implement the of bindings as well.  This can be done relatively easily
-in parallel with a platform_device binding. (and you can probably get
-alot of the code out of the xilinx LLTEMAC driver.
-
-> diff --git a/include/linux/xilinx_devices.h
-b/include/linux/xilinx_devices.h
-> index 41ad421..79ca491 100755
-> --- a/include/linux/xilinx_devices.h
-> +++ b/include/linux/xilinx_devices.h
-> @@ -94,7 +94,7 @@ struct xtemac_platform_data {
->  #define XTEMAC_DMA_SGDMA	3	/* scatter gather DMA */
->  #endif
-> 
-> -#if defined(CONFIG_XILINX_LLTEMAC)
-> +#if defined(CONFIG_XILINX_LLTEMAC) || defined(CONFIG_XPS_LLTEMAC)
->  /* LLTEMAC platform data */
->  struct xlltemac_platform_data {
->  	u8 tx_csum;
-
-You probably want to generate patches against mainline in the future...
-
-Steve
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
-
+> Alas I can't find anything better for this than the previous patch
+> named "03-fix_patch_2.patch" in your repository. I attach it below
+> for any case (apply after all you currently had - there will be a
+> little offset warning while patching). Alternatively, you can wait
+> for David's opinion.
+>
+> Jarek P.
+>
+Tested 1 hour, peak time, alternative and regular shaper - no warning, no 
+oops, no panic. Seems all fine for now. I will do more intensive tests 
+tomorrow, including backbone units.
