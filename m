@@ -1,52 +1,53 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
-Date: Mon, 18 Aug 2008 09:47:27 +0000
-Message-ID: <20080818094727.GA6388@ff.dom.local>
-References: <20080818.013954.187452037.davem@davemloft.net> <20080818091011.GC5434@ff.dom.local> <20080818.023105.01989851.davem@davemloft.net>
+Date: Mon, 18 Aug 2008 03:10:03 -0700 (PDT)
+Message-ID: <20080818.031003.115715822.davem@davemloft.net>
+References: <20080818091011.GC5434@ff.dom.local>
+	<20080818.023105.01989851.davem@davemloft.net>
+	<20080818094727.GA6388@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:8266 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbYHRJrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 05:47:33 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so2110083fkq.5
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 02:47:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080818.023105.01989851.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57440
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751453AbYHRKKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 06:10:03 -0400
+In-Reply-To: <20080818094727.GA6388@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2008 at 02:31:05AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 18 Aug 2008 09:10:12 +0000
-> 
-> > Yes, this was one of the reasons, but not the only one, and my oldbie
-> > version of this fix could be found here as "02-fix1.patch":
-> > 
-> > http://permalink.gmane.org/gmane.linux.network/103039
-> 
-> This is what I get for failing to be able to follow that
-> flurry of patches :)  I'll apply your version in the
-> end, thanks.
-> 
-> > It's a bit different, because I think wd->qdisc can probably
-> > point to the noop_qdisc (if it's the root qdisc).
-> 
-> noop_qdisc does not use the watchdogs as far as I can see.
-> 
-> But, if we are in dev_deactivate() state, root qdisc can
-> be &noop_qdisc and scheduling that is fine and just a nop.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 18 Aug 2008 09:47:27 +0000
 
-Maybe I wrote this wrong. wd->qdisc stores qdisc from the
-qdisc_watchdog_init() time, and this could be &noop_qdisc.
-So qdisc_root() would schedule wrong qdisc later. BTW, my
-version would probably do the same for root qdisc, but in
-these tests there was a problem with leafs.
+> Maybe I wrote this wrong. wd->qdisc stores qdisc from the
+> qdisc_watchdog_init() time, and this could be &noop_qdisc.
+> So qdisc_root() would schedule wrong qdisc later. BTW, my
+> version would probably do the same for root qdisc, but in
+> these tests there was a problem with leafs.
 
-And of course, scheduling &noop_qdisc isn't bad, until we
-sometimes schedule something else too.
+qdisc_watchdog_init() is only invoked by:
 
-Jarek P.
+net/sched/sch_cbq.c:	qdisc_watchdog_init(&q->watchdog, sch);
+net/sched/sch_hfsc.c:	qdisc_watchdog_init(&q->watchdog, sch);
+net/sched/sch_htb.c:	qdisc_watchdog_init(&q->watchdog, sch);
+net/sched/sch_netem.c:	qdisc_watchdog_init(&q->watchdog, sch);
+net/sched/sch_tbf.c:	qdisc_watchdog_init(&q->watchdog, sch);
+
+These "q" things are the scheduler private structs, and 'sch' of the
+qdisc type indicated by the source file the code in question resides
+:-)
+
+This watchdog is different from the TX timeout watchdog which is
+implemented in net/sch/sch_generic.c, which you may be confusing this
+qdisc_watchdog_init() one with.
+
+The watchdog we are discussing here is purely for qdiscs where time
+based events modify qdisc state (such as making new quotas available
+for a flow, thus making certain packets eligible for scheduling that
+were not beforehand)
+
+So really, it cannot be &noop_qdisc as far as I can see.
+:-)
