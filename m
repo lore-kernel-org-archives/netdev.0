@@ -1,46 +1,34 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-08-17
-Date: Sun, 17 Aug 2008 19:23:05 -0500
-Message-ID: <48A8C0E9.6030300@lwfinger.net>
-References: <20080817185605.GC30679@tuxdriver.com> <20080817.151251.204370966.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: csum offload and af_packet
+Date: Mon, 18 Aug 2008 11:10:18 +1000
+Message-ID: <20080818011018.GA31337@gondor.apana.org.au>
+References: <20080812.175532.137434164.davem@davemloft.net> <20080813010935.GA29815@gondor.apana.org.au> <48A2C4DE.20005@trash.net> <20080817.160825.22400712.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080817.151251.204370966.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@axxeo.de, rusty@rustcorp.com.au,
+	anthony@codemonkey.ws, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:39070 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750858AbYHRBKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2008 21:10:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20080817.160825.22400712.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Their commit messages reference SHA IDs but do not give a commit
-> header line text reference as well.
+On Sun, Aug 17, 2008 at 04:08:25PM -0700, David Miller wrote:
+>
+> I'll see if I can put some time together to try and put some trees
+> together, please send me what you have Patrick, thanks.
 > 
->       p54: Fix regression due to commit b19fa1f
+> If I'm successful I'll put GIT trees up on kernel.org for tcpdump
+> and libpcap which we can hack on.
 
-John,
-
-This commit message should fix the above patch:
-=============
-
-From: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
-
-Commit b19fa1f, entitled "net: Delete NETDEVICES_MULTIQUEUE kconfig
-option" breaks p54pci and p54usb.
-
-Additionally, the old logic always tx'ed cts frames (if enabled)
-with a short preamble when [rate > 3]. (i.e. with any 802.11g rate).
-Of course this isn't that bad, but it's still wrong!
-
-Signed-off-by: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>         [2.6.25.x, 2.6.26.x]
----
-
-Larry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That's awesome! Thanks Dave!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
