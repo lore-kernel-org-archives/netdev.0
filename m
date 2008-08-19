@@ -1,85 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
-Date: Mon, 18 Aug 2008 21:08:06 -0700 (PDT)
-Message-ID: <20080818.210806.00895939.davem@davemloft.net>
-References: <20080818104355.GB6548@ff.dom.local>
-	<20080818110625.GA6910@ff.dom.local>
-	<20080818.205153.07023796.davem@davemloft.net>
+Subject: Re: net-2.6 [BUG-FIX] [PATCH 1/1] dccp: Fix panic in
+ retransmission mechanism
+Date: Mon, 18 Aug 2008 21:14:57 -0700 (PDT)
+Message-ID: <20080818.211457.193683740.davem@davemloft.net>
+References: <20080804104632.GC3482@gerrit.erg.abdn.ac.uk>
+	<48A9027B.6090109@cn.fujitsu.com>
+	<20080818160029.GA30056@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, denys@visp.net.lb
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, yjwei@cn.fujitsu.com
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42612
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55758
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750937AbYHSEIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 00:08:06 -0400
-In-Reply-To: <20080818.205153.07023796.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751103AbYHSEO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 00:14:58 -0400
+In-Reply-To: <20080818160029.GA30056@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 18 Aug 2008 20:51:53 -0700 (PDT)
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Mon, 18 Aug 2008 18:00:29 +0200
 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 18 Aug 2008 11:06:25 +0000
+> can you please consider this net-2.6 bug fix - this fixes a panic()
+> triggered for some packet exchanges.
 > 
-> > On Mon, Aug 18, 2008 at 10:43:56AM +0000, Jarek Poplawski wrote:
-> > ...
-> > > Sooory!!! Forget this all: it looks like your patch is damn right!
-> > 
-> > So, I guess, you could merge this patch to net-2.6, so Denys could
-> > test this all later without additional patching?!
-> 
-> Here is the final patch I put into net-2.6, thanks.
-> 
-> pkt_sched: Never schedule non-root qdiscs.
+> ----------------------------> Patch <-----------------------------------
+> dccp: Fix panic caused by too early termination of retransmission mechanism
 
-Sorry, I posted the wrong patch, which ommitted the sch_cbq.c
-part, here is the correct one:
-
-pkt_sched: Never schedule non-root qdiscs.
-
-Based upon initial discovery and patch by Jarek Poplawski.
-
-The qdisc watchdogs can be attached to any qdisc, not just the root,
-so make sure we schedule the correct one.
-
-CBQ has a similar bug.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sched/sch_api.c |    2 +-
- net/sched/sch_cbq.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c8dc72e..98c0084 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -426,7 +426,7 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
- 
- 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
- 	smp_wmb();
--	__netif_schedule(wd->qdisc);
-+	__netif_schedule(qdisc_root(wd->qdisc));
- 
- 	return HRTIMER_NORESTART;
- }
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 4e261ce..47ef492 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -654,7 +654,7 @@ static enum hrtimer_restart cbq_undelay(struct hrtimer *timer)
- 	}
- 
- 	sch->flags &= ~TCQ_F_THROTTLED;
--	__netif_schedule(sch);
-+	__netif_schedule(qdisc_root(sch));
- 	return HRTIMER_NORESTART;
- }
- 
--- 
-1.5.6.5.GIT
-
+Applied, thanks Gerrit.
