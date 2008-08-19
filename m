@@ -1,87 +1,50 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- connection between HPET and lockups found
-Date: Tue, 19 Aug 2008 05:49:23 -0700 (PDT)
-Message-ID: <452065.84245.qm@web82105.mail.mud.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754720AbYHSMth@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Tue, 19 Aug 2008 22:50:48 +1000
+Message-ID: <E1KVQfg-0001Qf-00@gondolin.me.apana.org.au>
+References: <20080817.235237.24119245.davem@davemloft.net>
+Cc: jussi.kivilinna@mbnet.fi, jarkao2@gmail.com, kaber@trash.net,
+	netdev@vger.kernel.org
+To: davem@davemloft.net (David Miller)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:45420 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753167AbYHSMu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 08:50:59 -0400
+In-Reply-To: <20080817.235237.24119245.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+David Miller <davem@davemloft.net> wrote:
+> 
+> In fact, as I look at how TBF and NETEM want to use ->requeue() they
+> could just the same implement it using my suggested alternative for
+> ->requeue() which is just an SKB list ala gso_list hung off of the
+> qdisc.
 
+For TBF at least its requeue is actually a bit more sophisticated.
+For example, if you hang a prio qdisc off a TBF, then when the
+packet is requeued into the prio, the next time TBF dequeues it,
+it may get a different packet (of a higher priority).
 
-> Just to make sure: on a working kernel, do you get the HPET messages? 
-> I.e. does the hpet truly work in that case?
+If you stick it to a list without requeueing, then packets of a
+higher priority won't be able to jump the queue anymore.
 
-On the "fileserver", where 2.6.25 works but 2.6.26 locks up, the HPET
-_does_ work on a working kernel:
+It might be possible to rewrite TBF to not use requeueing, after
+all HTB does it all without requeueing.  However as it stands,
+TBF does need it.
 
-$ uname -r
-2.6.26.revert1
+I haven't followed this thread closely so what is the main problem
+with requeueing (apart from being abused by things like LLTX drivers
+and/or NETEM, nothing other than qdiscs like TBF should use it)?
 
-$ dmesg | grep -i hpet
-ACPI: HPET 77FE80C0, 0038 (r1 RS690  AWRDACPI 42302E31 AWRD       98)
-ACPI: HPET id: 0x10b9a201 base: 0xfed00000
-hpet clockevent registered
-hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0, 0
-hpet0: 4 32-bit timers, 14318180 Hz
-hpet_resources: 0xfed00000 is busy
+Another possibility would to replace requeue by a peek+force_dequeue
+interface, where you can peek at the next packet, and you could then
+dequeue that particular packet if you're satisfied.
 
-
-What I didn't realize is that the "desktop" machine, where 2.6.26 has
-always "worked", does NOT have a working HPET after all, even though 
-I have enabled all HPET options in .config:
-
-$ uname -r
-2.6.26.080801.desktop.uvesafb
-
-$ dmesg | grep -i hpet
-$ 
-
-
-This means I misunderstood my situation on "desktop".  I believed HPET
-was working on all of my machines, but now I am not certain that it 
-ever worked on "desktop" since I built it (May 2007).  The question 
-never arose before, and because I enabled the HPET option in .config,
-I just assumed that HPET was working.  (Duh...)  I failed to look into
-this until now.
-
-At any rate, my subject line is still accurate:  there _is_ an HPET
-regression on "fileserver" (and "webserver"), since it worked on
-2.6.25 kernels but causes lockups on 2.6.2[67] kernels.
-
-(I don't know what is going on with "desktop":  does the motherboard
-lack HPET, or does the Linux kernel not support the HPET hardware on 
-the motherboard?)
-
-BTW:  the 'dmesg' output above is the same on "desktop" with 2.6.25
-and 2.6.26 -- I just checked to be sure.  For "fileserver", I checked
-an old 2.6.25 kernel just now, and the output is identical.
-
-
-Another experiment:  I just tried this...
-
-static __init int hpet_insert_resource(void)
-{
--     if (!hpet_res)
-+     /* if (!hpet_res) */
-         return 1;
-
--    return insert_resource(&iomem_resource, hpet_res);
-+    /* return insert_resource(&iomem_resource, hpet_res); */
-}
-
-... and the lock up still occurs.  So, the memory is allocated but
-the resource info is not inserted into the tree.  Whether the
-dynamic memory for hpet_res is being damaged or not has no bearing
-on the lockups, it would seem.  Looks like I was barking up the
-wrong tree....
-
-
-Dave W.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
