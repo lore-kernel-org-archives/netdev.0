@@ -1,42 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
 Subject: Re: [GIT]: Networking
-Date: Tue, 19 Aug 2008 14:40:15 -0700 (PDT)
-Message-ID: <20080819.144015.40311904.davem@davemloft.net>
-References: <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
-	<20080819.142735.179034162.davem@davemloft.net>
-	<alpine.LFD.1.10.0808191432040.3324@nehalem.linux-foundation.org>
+Date: Wed, 20 Aug 2008 00:39:08 +0300
+Message-ID: <200808200039.08948.denys@visp.net.lb>
+References: <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org> <20080819.140458.236030589.davem@davemloft.net> <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45177
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752708AbYHSVkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:40:15 -0400
-In-Reply-To: <alpine.LFD.1.10.0808191432040.3324@nehalem.linux-foundation.org>
+Received: from relay2.globalproof.net ([194.146.153.25]:40022 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754821AbYHSVkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:40:22 -0400
+In-Reply-To: <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 19 Aug 2008 14:33:03 -0700 (PDT)
+> Oh, I'm sure that enabling TSO speeds things up, but apparently it also
+> basically enables a code-path that hasn't been enabled since at least
+> 2.6.23, no?
+Well i report about performance regression before too, seems related case,
+but my report was unclear.
 
-> Dammit, all I ask is that you 
-> 
->  - admit that you have a problem
->  - work on fixing it.
-> 
-> Stop the incessant excuses already.
+And the bug was terrible for me, it was causing very bad performance on 
+REDIRECT and loopback transfers. I am testing also recent net-2.6 with this 
+loopback changes, it seems improve things for me much. So it is really 
+important bugfix for me too.
 
-I happily consider this example as inappropriate, sure.
-
-But I think you're throwing the baby out with the bath water, the
-majority of that pull contained legitimate real bug regression fixes.
-That's why some other developers are coming out of the woods and
-defending me, they don't have to do that, but they do it because they
-feel I'm being slighted at least a little bit.
-
-I don't know what to say, because I spent most of my sunny weekend
-working on bug fixes as well as integrating other people's work.
+There is always chances that some fix will cause regression, i will try to 
+test this changes on intensive real-life workloads to make sure all fine.
