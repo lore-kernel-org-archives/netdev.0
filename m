@@ -1,36 +1,42 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: Need help with MCS7830 driver and 802.1q VLAN Tagging
-Date: Tue, 19 Aug 2008 15:47:59 +0200
-Message-ID: <20080819134759.GA28901@torres.zugschlus.de>
-References: <20080807153617.GA4001@torres.zugschlus.de> <20080807170635.GC10471@solarflare.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: frv must provide ioremap_wc
+Date: Tue, 19 Aug 2008 16:48:01 +0300
+Message-ID: <20080819134801.GI8852@cs181140183.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Brice Goglin <brice@myri.com>,
+	netdev@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.68.41]:36508 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756356AbYHSNsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 09:48:00 -0400
-Received: from mh by torres.zugschlus.de with local (Exim 4.69)
-	(envelope-from <mh+netdev@zugschlus.de>)
-	id 1KVRZ1-0007XM-AY
-	for netdev@vger.kernel.org; Tue, 19 Aug 2008 15:47:59 +0200
+Received: from smtp6.pp.htv.fi ([213.243.153.40]:39717 "EHLO smtp6.pp.htv.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756418AbYHSNsN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 09:48:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20080807170635.GC10471@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 07, 2008 at 06:06:36PM +0100, Ben Hutchings wrote:
-> Does the following help?
+<--  snip  -->
 
-Unfortunately, no. I apologize for taking so long to test. I am now
-back at my orkplace and can test on shorter notice.
+...
+  CC      drivers/net/myri10ge/myri10ge.o
+myri10ge.c: In function 'myri10ge_probe':
+myri10ge.c:3725: error: implicit declaration of function 'ioremap_wc'
+...
+make[4]: *** [drivers/net/myri10ge/myri10ge.o] Error 1
 
-Greetings
-Marc
+<--  snip  -->
+
+http://kerneltrap.org/mailarchive/linux-netdev/2008/8/11/2889824/thread 
+contains a discussion of the same problem on ARM.
+
+cu
+Adrian
 
 -- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
