@@ -1,121 +1,57 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] Linux Device Driver for Xilinx LL TEMAC 10/100/1000 EthernetNIC
-Date: Tue, 19 Aug 2008 15:42:04 -0600
-Message-ID: <20080819214207.084C115A8055@mail165-dub.bigfish.com>
-References: <48AA938C.4060309@dlasys.net> <20080819201445.F39181468062@mail206-wa4.bigfish.com> <48AB2E58.2050307@dlasys.net> <20080819205148.82EAC50060@mail88-dub.bigfish.com> <48AB38AF.6010007@dlasys.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 19 Aug 2008 14:46:46 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808191440440.3324@nehalem.linux-foundation.org>
+References: <20080819.140458.236030589.davem@davemloft.net> <200808192315.48718.rjw@sisk.pl> <alpine.LFD.1.10.0808191425050.3324@nehalem.linux-foundation.org> <20080819.143556.245692295.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <linuxppc-embedded@ozlabs.org>, <netdev@vger.kernel.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Stephen Neuendorffer" <stephenn@xilinx.com>
-To: "David H. Lynch Jr." <dhlii@dlasys.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: rjw@sisk.pl, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-dub.frontbridge.com ([213.199.154.16]:35120 "EHLO
-	IE1EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753266AbYHSVmL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:42:11 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <48AB38AF.6010007@dlasys.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38982 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752725AbYHSVrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:47:08 -0400
+In-Reply-To: <20080819.143556.245692295.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I screwed up and forgot to copy all on this previously.
 
-> -----Original Message-----
-> From: David H. Lynch Jr. [mailto:dhlii@dlasys.net]
-> Sent: Tuesday, August 19, 2008 3:19 PM
-> To: John Linn
-> Subject: Re: [PATCH] Linux Device Driver for Xilinx LL TEMAC
-10/100/1000 EthernetNIC
+
+On Tue, 19 Aug 2008, David Miller wrote:
 > 
-> John Linn wrote:
-> >>     Stephen wants OF support -which is fine,  but I can not test
-that.
-> >>
-> >
-> > I definitely agree with Stephen that OF support is needed since
-arch/ppc
-> > has gone away. We aren't doing any new work on arch/ppc.
-> >
-> > Are you not planning to move to arch/powerpc anytime soon?  I could
-help
-> > you with that transition which would be better in the long run.  I'd
-> > rather do that than do testing for you as I think it would be more
-> > productive, but I've been wrong before.
-> >
-> 
-> We will move to powerpc, but not in the time-frame I am hoping for
-this
-> driver.
-> In the context of Linux and Pico, "we" means me, and there is no time
-to
-> do the work anytime soon.
-> 
+> That change was made under the pretext that it was tested heavily and
+> that if we hit any problem whatsoever with it that we couldn't fix
+> quickly it would be reverted.
 
-<snip>
+David, I will say this one more time:
 
-What about you getting all the review & testing done and then we
-(Xilinx) will add the OF support to the driver? 
+ - as long as you concentrate on individual commits, you're missing the 
+   big picture.
 
-I doubt the powerpc mainline will take the driver without OF support. In
-fact, we had to remove the platform bus support from the last driver
-that we put into mainline for arch/powerpc.
+you can _always_ make excuses for individual commits. That's not my point. 
+Or rather, it actually verry much _is_ my point. If you have the mindset 
+that you're looking for excuses why any individual commit is ok to merge, 
+then you don't end up with a coupld of individual commits any more: you 
+end up with a LOT OF CHURN.
 
-> 
-> >> I would like
-> >>     one and only one tag that can be used end-end.
-> >>
-> >>     Is there something xilinx will object to ? Prefer ? ....
-> >>
-> >>
-> > xilinx_<device name>, (xilinx_lltemac or xilinx_ps2) is what we use
-for
-> > file names. The device tree does use "xlnx" to identify xilinx
-devices,
-> > but I don't think that should dictate file names.
-> >
-> > We have a driver in out GIT tree that is not flat (as most know) for
-the
-> > LL TEMAC and we are working on creating flat drivers for future
-devices.
-> > Ideally this new driver would be a replacement for our driver.
-> >
-> 
-> Give me a name and I will go with it. the xps_lltemac name came from
-> Yoshio,
-> It is not in stone.
-> 
-> If I name the module "xilinx_lltemac" and go with xilinx_lltemac.c for
-> the file name,
-> is that going to cause problems with xilinx ?
-> 
-> I will use whatever you recomend.
+It's not the individual commits. You're looking at the individual trees, 
+and you're missing the forest. The problem isn't the individual trees. The 
+problem is that there's a metric sh*tload of individual trees, what we in 
+the tree industry call a 'forest'. You're not seeing it.
 
-xilinx_lltemac is the preferred. 
+And btw, don't get me wrong - you're not the only problem spot. During the 
+-rc's leading up to 2.6.26, drivers/merdia was actually a _bigger_ 
+problem. I happen to care less about that (the same way I care less about 
+some odd-ball architectures), but I have to admit that drivers/media was a 
+total disaster last time around.
 
-I don't think using xilinx_lltemac should cause problems.  Our Xilinx
-Git tree has a xilinx_lltemac subdir that contains the non-flat driver
-but that should be ok with your xilinx_lltemac.c file in the net
-directory.
+So if it makes you feel any better, others have been even worse.  But this 
+networking problem ha been going on for quite a while.
 
-> 
-> --
-> Dave Lynch 					  	    DLA Systems
-> Software Development:
-Embedded Linux
-> 717.627.3770 	       dhlii@dlasys.net 	  http://www.dlasys.net
-> fax: 1.253.369.9244 			           Cell: 1.717.587.7774
-> Over 25 years' experience in platforms, languages, and technologies
-too numerous to list.
-> 
-> "Any intelligent fool can make things bigger and more complex... It
-takes a touch of genius - and a
-> lot of courage to move in the opposite direction."
-> Albert Einstein
-> 
+So the problem here really is that you seem overly eager to make excuses 
+for individual patches. And if they _stayed_ "individual" it would all be 
+good. But they don't seem to.
 
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
-
+			Linus
