@@ -1,33 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlabel: Remove unneeded in-kernel API functions
-Date: Tue, 19 Aug 2008 13:17:03 -0700 (PDT)
-Message-ID: <20080819.131703.181831524.davem@davemloft.net>
-References: <20080813145526.10579.84270.stgit@flek.lan>
-	<200808191310.36061.paul.moore@hp.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Tue, 19 Aug 2008 22:21:49 +0200
+Message-ID: <20080819202149.GB2533@ami.dom.local>
+References: <E1KVQfg-0001Qf-00@gondolin.me.apana.org.au> <48AAC884.30802@trash.net> <20080819134230.GA6043@gondor.apana.org.au> <200808192310.52457.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ramirose@gmail.com, casey@schaufler-ca.com
-To: paul.moore@hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
+	netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57716
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757841AbYHSURE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:17:04 -0400
-In-Reply-To: <200808191310.36061.paul.moore@hp.com>
+Received: from gv-out-0910.google.com ([216.239.58.190]:31038 "EHLO
+	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753275AbYHSUTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:19:47 -0400
+Received: by gv-out-0910.google.com with SMTP id e6so63492gvc.37
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 13:19:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200808192310.52457.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Tue, 19 Aug 2008 13:10:35 -0400
-
-> I didn't see this get pulled into your latest 2.6.27 push but I think 
-> it's a good candidate for 2.6.27, it's dead code removal.  If you 
-> disagree, no problem, just let me know so I can throw it on my patchset 
-> for 2.6.28.
-
-Linus seems to think I'm already merging too much stuff:
-
-	http://marc.info/?l=linux-kernel&m=121916548518920&w=2
-
-So yeah, I think this cleanup can wait for 2.6.28
+On Tue, Aug 19, 2008 at 11:10:52PM +0300, Denys Fedoryshchenko wrote:
+> Just want to report, latest net-2.6 works fine for me (intensive classes 
+> creation/deletion, tbf, flow classifier, htb, pfifo) , no crashes, no 
+> warnings.
+> 
+> I will test also after few days on backbone router and probably router with 
+> hfsc.
+> 
+> Thanks for great code and support :-)
+ 
+Thanks for great reporting and testing Denys,
+Jarek P.
