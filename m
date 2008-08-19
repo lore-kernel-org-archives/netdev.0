@@ -1,91 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Tue, 19 Aug 2008 18:48:31 +0200
-Message-ID: <20080819164830.GA2533@ami.dom.local>
-References: <20080819.040200.155911269.davem@davemloft.net>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [r8169] patch for RTL8102 (5 new MAC/PHY)
+Date: Tue, 19 Aug 2008 18:48:39 +0200
+Message-ID: <48AAF967.4000902@redhat.com>
+References: <1f9da0830808190642yacb2aacv6517e2bb86a3706@mail.gmail.com> <1f9da0830808190645o4ecf48b1i6f4d873db3c83e39@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?=3F=3F=3F=3F=3F=3F_=3F=3F=3F=3F=3F?= <leo@yuriev.ru>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:10519 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756502AbYHSQsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 12:48:07 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so528366ugf.37
-        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 09:48:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080819.040200.155911269.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:43757 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755806AbYHSQst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 12:48:49 -0400
+In-Reply-To: <1f9da0830808190645o4ecf48b1i6f4d873db3c83e39@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 08/19/2008 01:02 PM:
+> Actual difference from the current r8169.c is in detection and "magic"
+> handle of the 5 new versions of RTL's MACs and corresponded PHY.
+The support for RTL8102 was added 2 days ago. See Francois's git tree
+in r8169-fixes branch.
+http://git.kernel.org/?p=linux/kernel/git/romieu/netdev-2.6.git;a=shortlog;h=r8169-fixes
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Tue, 19 Aug 2008 20:58:15 +1000
-> 
->> On Tue, Aug 19, 2008 at 08:55:51PM +1000, Herbert Xu wrote:
->>> On Tue, Aug 19, 2008 at 03:54:06AM -0700, David Miller wrote:
->>>> Every qdisc_run() will invoke __netif_schedule() so it is
->>>> a fast path I think :-)
->>> Argh, I meant __netif_reschedule which shouldn't be the fast path.
->> Nevermind, both paths call __netif_reschedule :)
->>
+> 2) simple: by RTL8169 datasheet 'rx-missed' counter is 24-bits width,
+> but not 32;
+interesting :-)
 
-I can miss something, but probably it's needed in __netif_reschedule()
-yet. Here is a scenario:
+> 4) workaround: RTL8102 seems (sure) not have "rx-missed" (PCI-reg
+> 0x4C) counter. So we should not account dev->stats.rx_missed_errors
+> like RTL8169;
+It seems (according Realtek's r8101 and r8168 drivers) that not only
+RTL810x class but also RTL8168 class hardware don't have rx-missed. r8168
+doesn't contain anything regarding RxMissed and r8101's RxMissed stuff
+is commented out.
 
-cpu1				cpu2
-dev_deactivate()
-dev_deactivate_queue()
-qdisc_reset()
-				qdisc_run()
-				qdisc_watchdog_schedule()
-				(or hrtimer_restart in cbq)
-while (some_qdisc_is_busy())
-return (qdisc not busy)
-				hrtimer triggered
-				__netif_schedule()
-qdisc_destroy()			qdisc_run()
-		
-Jarek P.
-
->> OK, how about just moving it to the else clause in net_tx_action?
-> 
-> I just checked the following into net-2.6
-> 
-> pkt_sched: Prevent livelock in TX queue running.
-> 
-> If dev_deactivate() is trying to quiesce the queue, it
-> is theoretically possible for another cpu to livelock
-> trying to process that queue.  This happens because
-> dev_deactivate() grabs the queue spinlock as it checks
-> the queue state, whereas net_tx_action() does a trylock
-> and reschedules the qdisc if it hits the lock.
-> 
-> This breaks the livelock by adding a check on
-> __QDISC_STATE_DEACTIVATED to net_tx_action() when
-> the trylock fails.
-> 
-> Based upon feedback from Herbert Xu and Jarek Poplawski.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/core/dev.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 8d13380..60c51f7 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1990,7 +1990,9 @@ static void net_tx_action(struct softirq_action *h)
->  				qdisc_run(q);
->  				spin_unlock(root_lock);
->  			} else {
-> -				__netif_reschedule(q);
-> +				if (!test_bit(__QDISC_STATE_DEACTIVATED,
-> +					      &q->state))
-> +					__netif_reschedule(q);
->  			}
->  		}
->  	}
+Ivan
