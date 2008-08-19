@@ -1,119 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] forcedeth: Fix kexec regression
-Date: Tue, 19 Aug 2008 22:49:46 +0200
-Message-ID: <200808192249.48316.rjw@sisk.pl>
-References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808192045.54779.rjw@sisk.pl> <20080819133757.ce60f364.akpm@linux-foundation.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 19 Aug 2008 13:47:59 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808191341150.3324@nehalem.linux-foundation.org>
+References: <20080819.041706.261399060.davem@davemloft.net> <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org> <20080819.131454.223684377.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@redhat.com, davem@davemloft.net, yhlu.kernel@gmail.com,
-	mingo@elte.hu, ebiederm@xmission.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jbarnes@virtuousgeek.org, simon@fire.lp0.eu
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:54837 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752593AbYHSUqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2008 16:46:43 -0400
-In-Reply-To: <20080819133757.ce60f364.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39968 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753410AbYHSUsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:48:03 -0400
+In-Reply-To: <20080819.131454.223684377.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, 19 of August 2008, Andrew Morton wrote:
-> On Tue, 19 Aug 2008 20:45:53 +0200
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> > 
-> > forcedeth: Fix kexec regression
-> > 
-> > Fix regression tracked as
-> > http://bugzilla.kernel.org/show_bug.cgi?id=11361 and
-> > caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
-> > ("[netdrvr] forcedeth: setup wake-on-lan before shutting down")
-> > that makes network adapters integrated into the NVidia
-> > MCP55 chipsets fail to work in kexeced kernels.  The problem appears
-> > to be that if the adapter is put into D3_hot during ->shutdown(),
-> > it cannot be brought back into D0 after kexec (ref.
-> > http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore,
-> > only put forcedeth into D3 during ->shutdown() if the system is to be
-> > powered off.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > Tested-by: Yinghai Lu <yhlu.kernel@gmail.com>
-> > ---
-> >  drivers/net/forcedeth.c |    8 +++++---
-> >  1 file changed, 5 insertions(+), 3 deletions(-)
-> > 
-> > Index: linux-2.6/drivers/net/forcedeth.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/forcedeth.c
-> > +++ linux-2.6/drivers/net/forcedeth.c
-> > @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
-> >  	if (netif_running(dev))
-> >  		nv_close(dev);
-> >  
-> > -	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > -	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> >  	pci_disable_device(pdev);
-> > -	pci_set_power_state(pdev, PCI_D3hot);
-> > +	if (system_state == SYSTEM_POWER_OFF) {
-> > +		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> > +			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > +		pci_set_power_state(pdev, PCI_D3hot);
-> > +	}
-> >  }
-> >  #else
-> >  #define nv_suspend NULL
-> 
-> hm, I wonder if this has any relation to
-> forcedeth-add-pci_enable_device-to-nv_resume.patch:
 
-There may be a connection, but we need a confirmation that kexec works on the
-affected boxes with MSI disabled.  However, the $subject patch makes sense
-even if that's the case IMO.
 
-Anyway, the patch below fixes things for Simon only if MSI are disabled.
+On Tue, 19 Aug 2008, David Miller wrote:
+> 
+> The BT bits were the only part I really considered borderline,
+> and I was going to push back on Marcel.
 
-> From: Simon Arlott <simon@fire.lp0.eu>
-> 
-> My NIC stops working after resuming from standby, it's not receiving any
-> interrupts.
-> 
-> Commit 25d90810ff49d2a63475776f24c74c6bb49b045f ([netdrvr] forcedeth:
-> reorder suspend/resume code) introduces pci_disable_device to nv_suspend,
-> but there's no corresponding pci_enable_device in nv_resume - so I added
-> one (copied from e1000).  This results in interrupts being re-enabled
-> after suspend.
-> 
-> However, the NIC (10de:0373) still doesn't work after resume.
-> 
-> Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-> Cc: Jeff Garzik <jgarzik@redhat.com>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |    7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff -puN drivers/net/forcedeth.c~forcedeth-add-pci_enable_device-to-nv_resume drivers/net/forcedeth.c
-> --- a/drivers/net/forcedeth.c~forcedeth-add-pci_enable_device-to-nv_resume
-> +++ a/drivers/net/forcedeth.c
-> @@ -5960,6 +5960,13 @@ static int nv_resume(struct pci_dev *pde
->  
->  	pci_set_power_state(pdev, PCI_D0);
->  	pci_restore_state(pdev);
-> +	rc = pci_enable_device(pdev);
-> +	if (rc) {
-> +		printk(KERN_ERR "forcedeth: Cannot enable PCI device from suspend\n");
-> +		return rc;
-> +	}
-> +	pci_set_master(pdev);
-> +
->  	/* ack any pending wake events, disable PME */
->  	pci_enable_wake(pdev, PCI_D0, 0);
->  
-> _
+I really don't see the e1000 and netxen updates as being critical either. 
+Sure, they look like driver improvement, but "improvement" is not what the 
+-rc3+ series is about. 
+
+Same goes for all the loopback changes. They look like cleanups or feature 
+enables.
+
+IOW, it all looks like good commits, but quite a _lot_ of that queue looks 
+like good commits that should happen during the merge window, not during 
+the stabilization phase.
+
+And this is by no means unique to _this_ pull request. It's been a very 
+clear pattern for a long time now. The networking area tends to be one of 
+the absolutely *most* active ones during the post-rc1 phase.
+
+[ Yeah, in all fairness some architectures also do that, but at least I 
+  feel like I _really_ don't need to care when I get a diffstat that only 
+  touches arch/sh/* or something like that. ]
+
+> But to be honest, I haven't seen bluetooth updates from him
+> for such a long time I felt that being strict here would just
+> exacerbate the problem.
+
+I pointed out the BT ones as standing out (they were larger than some of 
+the other patches too), but I really don't think this was in any way 
+limited to BT in any shape, form or color. Quite frankly, looking through 
+the thing, my gut feel is that about _half_ the commits over-all should 
+probably have been in the queue for the next release.
+
+		Linus
