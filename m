@@ -1,27 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Fix race conditions in lblcr scheduler
-Date: Tue, 19 Aug 2008 17:41:06 +1000
-Message-ID: <20080819074103.GB4387@verge.net.au>
-References: <alpine.LNX.1.10.0808180052160.12259@titan.stealer.net> <20080818233243.GC7785@verge.net.au> <alpine.LNX.1.10.0808190140180.12259@titan.stealer.net> <20080819004129.GC23626@verge.net.au> <alpine.LNX.1.10.0808190814580.12259@titan.stealer.net>
+From: Li Yewang <lyw@cn.fujitsu.com>
+Subject: [PATCH][iproute2/ss]distinguish the inet and inet6 domain when loading
+ the tcp_diag module
+Date: Tue, 19 Aug 2008 15:39:56 +0800
+Message-ID: <48AA78CC.9030201@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
-To: Sven Wegener <sven.wegener@stealer.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.1.10.0808190814580.12259@titan.stealer.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'Netdev'" <netdev@vger.kernel.org>
+To: shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60967 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752062AbYHSHmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 03:42:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 19, 2008 at 08:16:19AM +0200, Sven Wegener wrote:
-> We can't access the cache entry outside of our critical read-locked region,
-> because someone may free that entry. Also getting an entry under read lock,
-> then locking for write and trying to delete that entry looks fishy, but should
-> be no problem here, because we're only comparing a pointer. Also there is no
-> need for our own rwlock, there is already one in the service structure for use
-> in the schedulers.
-> 
-> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+When load the tcp_diag module, and use "ss -f inet" command to show the socket 
+information of inet domain. But this command also shows the information of inet6 
+domain, but not only inet domain. and "ss -f inet6", "ss -4", "ss -6" have the
+same problem.
 
-Thanks, applied to lvs-2.6
+
+Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 38eed29..dea90b6 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1503,6 +1503,7 @@ static int tcp_show_netlink(struct filter *f, FILE 
+*dump_fp, int socktype)
+  		h = (struct nlmsghdr*)buf;
+  		while (NLMSG_OK(h, status)) {
+  			int err;
++			struct inet_diag_msg *r = NLMSG_DATA(h);
+
+  			if (/*h->nlmsg_pid != rth->local.nl_pid ||*/
+  			    h->nlmsg_seq != 123456)
+@@ -1521,6 +1522,10 @@ static int tcp_show_netlink(struct filter *f, FILE 
+*dump_fp, int socktype)
+  				return 0;
+  			}
+  			if (!dump_fp) {
++				if (!(f->families & (1<<r->idiag_family))) {
++					h = NLMSG_NEXT(h, status);
++					continue;
++				}
+  				err = tcp_show_sock(h, NULL);
+  				if (err < 0)
+  					return err;
+
