@@ -1,61 +1,56 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT]: Networking
-Date: Tue, 19 Aug 2008 14:21:57 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
-References: <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org> <20080819.131454.223684377.davem@davemloft.net> <alpine.LFD.1.10.0808191341150.3324@nehalem.linux-foundation.org> <20080819.140458.236030589.davem@davemloft.net>
+Date: Tue, 19 Aug 2008 14:27:35 -0700 (PDT)
+Message-ID: <20080819.142735.179034162.davem@davemloft.net>
+References: <alpine.LFD.1.10.0808191341150.3324@nehalem.linux-foundation.org>
+	<20080819.140458.236030589.davem@davemloft.net>
+	<alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55720 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756023AbYHSVWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:22:00 -0400
-In-Reply-To: <20080819.140458.236030589.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32891
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758785AbYHSV1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:27:35 -0400
+In-Reply-To: <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 19 Aug 2008 14:21:57 -0700 (PDT)
 
-
-On Tue, 19 Aug 2008, David Miller wrote:
 > 
-> Those fix a performance regression reported by a real user.
+> 
+> On Tue, 19 Aug 2008, David Miller wrote:
+> > 
+> > Those fix a performance regression reported by a real user.
+> 
+> Since when?
 
-Since when?
+Check the regression list entry you were pointed to in another
+reply.
 
-The thing is, I can do a 
+But I'll save you some time and I'll explain the problem for you.
 
-	gitk v2.6.24.. drivers/net/loopback.c
+We enabled GSO segmentation offload, which is a software variant of
+TSO we've had in the tree for ages, when a card can do scatter-gather
+and checksumming offloading in HW.  We do this because Lennert
+Buytenhek validated with many tests that this consistently decreases
+cpu utilization.
 
-as well as anybody else, and TSO has not been enabled for loopback at 
-least since 2.6.24. Going back to 2.6.23 (which has more changes that I 
-won't comment on), it looks like that LOOPBACK_TSO thing you removed was 
-there back then too.
+However, a user reported that if they NAT'd a remote destination port
+using netfilter to a loopback addr:port, then there was a performance
+degradation.
 
-So the performance regression if it happened must have been due to 
-something else, no?
+Herbert discovered the cause, which was multi-fold.  And smashing the
+SKB checksum and not indicating TSO capability in loopback was the end
+cause.
 
-Oh, I'm sure that enabling TSO speeds things up, but apparently it also 
-basically enables a code-path that hasn't been enabled since at least 
-2.6.23, no?
-
-Really, David. Was the performance regression due to something else, and 
-then by enabling LOOPBACK_TSO it hid the problem? Or what? The thing is, 
--rc3 is _not_ the point to apparently change something that hasn't been 
-changed in about a year (I didn't go any further back in history). 
-
-So what's going on? Do you seriously think it's a good point in time to 
-enable TSO for loopback after a long time of apparently _not_ being 
-enabled? 
-
-It smells like excuses to me. Was this really a "must be in 2.6.27" thing?
-
-And no, it wouldn't bother me if this was a rare thing. Again, let me 
-repeat: the problem is not any of the individual commits _per_se_. The 
-problem is that the network layer stands out. And not in a good way. It 
-stands out as being a layer that gets a _lot_ of churn late in the -rc 
-game.
-
-			Linus
+Loopback should enable TSO for other reasons, not just to fix this
+bug.  If loopback says it can do TSO then the TSO packet gets passed
+straight through to the receive side, and our entire stack has been
+able to handle that for years.
