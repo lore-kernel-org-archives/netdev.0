@@ -1,77 +1,51 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- connection between
-	HPET and lockups found
-Date: Tue, 19 Aug 2008 15:08:07 +0200
-Message-ID: <20080819130807.GB20210@elte.hu>
-References: <452065.84245.qm@web82105.mail.mud.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
+Date: Tue, 19 Aug 2008 15:08:57 +0200
+Message-ID: <48AAC5E9.7050809@trash.net>
+References: <E1KVQfg-0001Qf-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: David Witbrodt <dawitbro@sbcglobal.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:42298 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753373AbYHSNIm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2008 09:08:42 -0400
-Content-Disposition: inline
-In-Reply-To: <452065.84245.qm@web82105.mail.mud.yahoo.com>
+Received: from stinky.trash.net ([213.144.137.162]:55182 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753639AbYHSNJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 09:09:00 -0400
+In-Reply-To: <E1KVQfg-0001Qf-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* David Witbrodt <dawitbro@sbcglobal.net> wrote:
-
-> > Just to make sure: on a working kernel, do you get the HPET 
-> > messages? I.e. does the hpet truly work in that case?
+Herbert Xu wrote:
+> David Miller <davem@davemloft.net> wrote:
+>> In fact, as I look at how TBF and NETEM want to use ->requeue() they
+>> could just the same implement it using my suggested alternative for
+>> ->requeue() which is just an SKB list ala gso_list hung off of the
+>> qdisc.
 > 
-> On the "fileserver", where 2.6.25 works but 2.6.26 locks up, the HPET 
-> _does_ work on a working kernel:
+> For TBF at least its requeue is actually a bit more sophisticated.
+> For example, if you hang a prio qdisc off a TBF, then when the
+> packet is requeued into the prio, the next time TBF dequeues it,
+> it may get a different packet (of a higher priority).
 > 
-> $ uname -r
-> 2.6.26.revert1
+> If you stick it to a list without requeueing, then packets of a
+> higher priority won't be able to jump the queue anymore.
 > 
-> $ dmesg | grep -i hpet
-> ACPI: HPET 77FE80C0, 0038 (r1 RS690  AWRDACPI 42302E31 AWRD       98)
-> ACPI: HPET id: 0x10b9a201 base: 0xfed00000
-> hpet clockevent registered
-> hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0, 0
-> hpet0: 4 32-bit timers, 14318180 Hz
-> hpet_resources: 0xfed00000 is busy
+> It might be possible to rewrite TBF to not use requeueing, after
+> all HTB does it all without requeueing.  However as it stands,
+> TBF does need it.
+> 
+> I haven't followed this thread closely so what is the main problem
+> with requeueing (apart from being abused by things like LLTX drivers
+> and/or NETEM, nothing other than qdiscs like TBF should use it)?
+> 
+> Another possibility would to replace requeue by a peek+force_dequeue
+> interface, where you can peek at the next packet, and you could then
+> dequeue that particular packet if you're satisfied.
 
-btw., you might also want to look into drivers/char/hpet.c and 
-instrument that a bit. In particular the ioremap()s done there will show 
-exactly how the hpet is mapped.
-
-In particular this bit:
-
-                if (hpet_is_known(hdp)) {
-                        printk(KERN_DEBUG "%s: 0x%lx is busy\n",
-                                __func__, hdp->hd_phys_address);
-                        iounmap(hdp->hd_address);
-                        return AE_ALREADY_EXISTS;
-                }
-
-
-suggests that you've got multiple hpets listed by the BIOS?
-
-> What I didn't realize is that the "desktop" machine, where 2.6.26 has 
-> always "worked", does NOT have a working HPET after all, even though I 
-> have enabled all HPET options in .config:
-
-that's OK - you've still got a regression.
-
-> (I don't know what is going on with "desktop": does the motherboard 
-> lack HPET, or does the Linux kernel not support the HPET hardware on 
-> the motherboard?)
-
-Whether the system has a hpet listed in the BIOS data structures can be 
-seen in acpidump [in the pmtools package]
-
-Even if the BIOS does not list it, the system might have hpet in the 
-chipset - hpet=force can be tried to force-enable it.
-
-	Ingo
+That would be fine for TBF since it only needs to check whether
+the current packet exceeds the limit and reschedule otherwise.
+HFSC OTOH really needs to know the length of the next packet for
+calculating the deadline.
