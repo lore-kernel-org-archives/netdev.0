@@ -1,50 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Tue, 19 Aug 2008 01:48:38 -0700 (PDT)
-Message-ID: <20080819.014838.69433564.davem@davemloft.net>
-References: <20080819082355.GA28869@gondor.apana.org.au>
-	<20080819.013205.72459707.davem@davemloft.net>
-	<20080819084147.GH4376@ff.dom.local>
+Subject: Re: network card with inline crypto engine?
+Date: Tue, 19 Aug 2008 01:50:36 -0700 (PDT)
+Message-ID: <20080819.015036.223405950.davem@davemloft.net>
+References: <804fd2027cd558087a3db013b9ec80af@91.121.53.53>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org
+To: jcd@tribudubois.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36007
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46377
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752599AbYHSIsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 04:48:38 -0400
-In-Reply-To: <20080819084147.GH4376@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1751562AbYHSIuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 04:50:37 -0400
+In-Reply-To: <804fd2027cd558087a3db013b9ec80af@91.121.53.53>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 19 Aug 2008 08:41:48 +0000
+From: Jean-Christophe DUBOIS <jcd@tribudubois.net>
+Date: Tue, 19 Aug 2008 10:16:56 +0200
 
-> On Tue, Aug 19, 2008 at 01:32:05AM -0700, David Miller wrote:
-> > Jarek may have a point about the u32 classifier.  So we
-> > should think about it.
-> > 
-> > The hash tables and tp_u_common objects are shared, and
-> > it does non-atomic refcounting during destruction, see
-> > u32_destroy().
-> > 
-> > However, this all might be OK because all of this management
-> > is performed only under the RTNL semaphore.
-> 
-> Sure, this all should be write protected. I'm concerned only about
-> the read side here.
+> Is there in the linux tree a "reference" implementation for a network card
+> with inline crypto engine that would be used for IPSEC among other things.
 
-If reference count hits zero, nobody can reference the object.
-Reference counts only change under RTNL, which is my point.
+Not really.
 
-The old qdisc object is taken away from global visibility inside of
-the cops->graft() call done by qdisc_graft().  This handler already
-must do whatever locking is necessary while removing the qdisc from
-visibility from the packet path.
-
-And by virtue of that, the old qdisc and anything it references will
-no longer be visible to the packet processing path after cops->graft()
-returns.
+Once there was an attempt to support the crypto offload some
+older 3com networking cards have, but that never went anywhere
+and the hooks that were added by that code to the IPSEC stack
+were never in a clean and usable state so never were merged.
