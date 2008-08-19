@@ -1,57 +1,47 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] misdn: fix multistatement if block missing braces
-Date: Tue, 19 Aug 2008 09:51:39 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808190946270.4551@wrl-59.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
+Date: Tue, 19 Aug 2008 06:59:58 +0000
+Message-ID: <20080819065958.GB4376@ff.dom.local>
+References: <200808181404.56131.denys@visp.net.lb> <20080818112022.GA7158@ff.dom.local> <20080818113531.GB7158@ff.dom.local> <20080818.205427.140031432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1374640394-1219128699=:4551"
-Cc: Jeff Garzik <jeff@garzik.org>, Netdev <netdev@vger.kernel.org>
-To: kkeil@suse.de
+Content-Type: text/plain; charset=us-ascii
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58966 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1749667AbYHSGvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 02:51:42 -0400
+Received: from nf-out-0910.google.com ([64.233.182.189]:52352 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbYHSHAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 03:00:03 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so1367527nfc.21
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 00:00:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080818.205427.140031432.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Mon, Aug 18, 2008 at 08:54:27PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 18 Aug 2008 11:35:31 +0000
+> 
+> > pkt_sched: Add lockdep annotation for qdisc locks
+> > 
+> > Qdisc locks are initialized in the same function, qdisc_alloc(), so
+> > lockdep can't distinguish tx qdisc lock from rx and reports "possible
+> > recursive locking detected" when both these locks are taken eg. while
+> > using act_mirred with ifb. This looks like a false positive. Anyway,
+> > after this patch these locks will be reported more exactly.
+> > 
+> > Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> 
+> Applied, thanks Jarek.
+> 
+> I suspect we need to apply this lock annotation to the locks
+> in the static qdiscs &noop_qdisc and &noqueue_qdisc.
+> 
 
----696208474-1374640394-1219128699=:4551
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+I guess, we currently don't need this. At least ingress checks and
+skipps acting for &noop_qdisc. I'd prefer to see some lockdep warning
+first, or maybe you could show some scenario?
 
-
-...Once again these show up though not causing any harm in
-this case (yet).
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- drivers/isdn/mISDN/dsp_cmx.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
-index e92b1ba..7fecad2 100644
---- a/drivers/isdn/mISDN/dsp_cmx.c
-+++ b/drivers/isdn/mISDN/dsp_cmx.c
-@@ -1855,7 +1855,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_buff *skb)
- 		/* in case of hardware (echo) */
- 		if (dsp->pcm_slot_tx >= 0)
- 			return;
--		if (dsp->echo)
-+		if (dsp->echo) {
- 			nskb = skb_clone(skb, GFP_ATOMIC);
- 			if (nskb) {
- 				hh = mISDN_HEAD_P(nskb);
-@@ -1864,6 +1864,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_buff *skb)
- 				skb_queue_tail(&dsp->sendq, nskb);
- 				schedule_work(&dsp->workq);
- 			}
-+		}
- 		return;
- 	}
- 	/* in case of hardware conference */
--- 
-1.5.2.2
-
----696208474-1374640394-1219128699=:4551--
+Jarek P.
