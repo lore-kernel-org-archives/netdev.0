@@ -1,44 +1,45 @@
-From: Marc Haber <mh+linux-kernel@zugschlus.de>
-Subject: Re: 2.6.26/tg3 ping roundtrip times > 2000 ms on local network
-Date: Wed, 20 Aug 2008 00:14:39 +0200
-Message-ID: <20080819221439.GA19106@torres.zugschlus.de>
-References: <20080819172019.GA5823@torres.zugschlus.de> <20080819.132040.188336475.davem@davemloft.net> <1219166962.13090.12.camel@HP1>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Wed, 20 Aug 2008 08:23:29 +1000
+Message-ID: <20080819222329.GA10297@gondor.apana.org.au>
+References: <20080819.040200.155911269.davem@davemloft.net> <20080819164830.GA2533@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	"mh+linux-kernel@zugschlus.de" <mh+linux-kernel@zugschlus.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	mcarlson@broadcom.com
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.68.41]:51602 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752AbYHSWOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 18:14:41 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:39617 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753164AbYHSWXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 18:23:36 -0400
 Content-Disposition: inline
-In-Reply-To: <1219166962.13090.12.camel@HP1>
+In-Reply-To: <20080819164830.GA2533@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 19, 2008 at 10:29:22AM -0700, Michael Chan wrote:
-> It has been fixed a few days ago in the net-2.6 tree:
+On Tue, Aug 19, 2008 at 06:48:31PM +0200, Jarek Poplawski wrote:
 > 
-> tg3: Fix firmware event timeouts
+> I can miss something, but probably it's needed in __netif_reschedule()
+
+No this is a genuine bug.  However, it's also an old bug :) Even
+with the locking and RCU barrier it could have occured.
+
+> yet. Here is a scenario:
 > 
-> and it should be in Linus' tree very soon.  This reminds us to send the
-> same patch to -stable.
+> cpu1				cpu2
+> dev_deactivate()
+> dev_deactivate_queue()
+> qdisc_reset()
+> 				qdisc_run()
+> 				qdisc_watchdog_schedule()
+> 				(or hrtimer_restart in cbq)
 
-Not having much clue about git, can you send me the patch to try
-locally?
+We should add an aliveness check before scheduling the timer.  This
+is the slow path so adding a check shouldn't hurt.
 
-I am not even sure to have a network issue here.
-
-Greetings
-Marc
-
+Thanks,
 -- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
