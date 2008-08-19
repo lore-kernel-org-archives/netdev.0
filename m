@@ -1,46 +1,26 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] forcedeth: fix checksum flag
-Date: Tue, 19 Aug 2008 22:58:42 +1000
-Message-ID: <E1KVQnK-0001Re-00@gondolin.me.apana.org.au>
-References: <20080818145442.659ab3a3.akpm@linux-foundation.org>
-Cc: aabdulla@nvidia.com, jgarzik@pobox.com, manfred@colorfullife.com,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org (Andrew Morton)
+Subject: Re: [PATCH 8/9]: sch_hfsc: Use ->requeue queue instead of ops.
+Date: Tue, 19 Aug 2008 23:03:41 +1000
+Message-ID: <E1KVQs9-0001Sm-00@gondolin.me.apana.org.au>
+References: <20080818.222917.10471071.davem@davemloft.net>
+Cc: kaber@trash.net, netdev@vger.kernel.org, jarkao2@gmail.com
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48771 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:58526 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753342AbYHSM7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 08:59:19 -0400
-In-Reply-To: <20080818145442.659ab3a3.akpm@linux-foundation.org>
+	with ESMTP id S1753678AbYHSNDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 09:03:47 -0400
+In-Reply-To: <20080818.222917.10471071.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
->
->> --- old/drivers/net/forcedeth.c       2008-08-14 18:37:11.000000000 -0400
->> +++ new/drivers/net/forcedeth.c       2008-08-14 18:37:05.000000000 -0400
->> @@ -5522,7 +5522,7 @@
->>       if (id->driver_data & DEV_HAS_CHECKSUM) {
->>               np->rx_csum = 1;
->>               np->txrxctl_bits |= NVREG_TXRXCTL_RXCHECK;
->> -             dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
->> +             dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
->>               dev->features |= NETIF_F_TSO;
->>       }
->>  
->> @@ -5835,7 +5835,7 @@
->>  
->>       dev_printk(KERN_INFO, &pci_dev->dev, "%s%s%s%s%s%s%s%s%s%sdesc-v%u\n",
->>                  dev->features & NETIF_F_HIGHDMA ? "highdma " : "",
->> -                dev->features & (NETIF_F_HW_CSUM | NETIF_F_SG) ?
->> +                dev->features & (NETIF_F_IP_CSUM | NETIF_F_SG) ?
->>                       "csum " : "",
->>                  dev->features & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX) ?
->>                       "vlan " : "",
+David Miller <davem@davemloft.net> wrote:
 > 
-> Is this fix needed in 2.6.25.x and 2.6.26.x?
+> Maybe we can simply add a "bool peek" argument or some flags to
+> ->dequeue() instead.
 
-Yep it's needed for all kernels.
+Yeah a peek + the forced dequeue of a specific skb should be
+sufficient to replace requeue.
 
 Cheers,
 -- 
