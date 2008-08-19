@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
-Date: Mon, 18 Aug 2008 16:56:38 -0700 (PDT)
-Message-ID: <20080818.165638.169012226.davem@davemloft.net>
-References: <20080818113531.GB7158@ff.dom.local>
-	<200808181545.30146.denys@visp.net.lb>
-	<20080818125805.GA7938@ff.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Tue, 19 Aug 2008 10:05:51 +1000
+Message-ID: <20080819000551.GA26699@gondor.apana.org.au>
+References: <20080817.153218.178334822.davem@davemloft.net> <20080818201236.GA3366@ami.dom.local> <20080818.165411.255925269.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53484
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753307AbYHRX4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 19:56:39 -0400
-In-Reply-To: <20080818125805.GA7938@ff.dom.local>
+Received: from rhun.apana.org.au ([64.62.148.172]:49527 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752700AbYHSAF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 20:05:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20080818.165411.255925269.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 18 Aug 2008 12:58:05 +0000
-
-> On Mon, Aug 18, 2008 at 03:45:29PM +0300, Denys Fedoryshchenko wrote:
-> > Patch applied, got another warning.
+On Mon, Aug 18, 2008 at 04:54:11PM -0700, David Miller wrote:
 > 
-> I hope I'll figure this out before evening. Probably it's safer
-> to stop testing for a while.
+> Yep, and that's the lock debugging thing which is triggering now.
+> Likely what I'll do is simply reinstate RCU but only for the freeing
+> of the memory, nothing more.
+> 
+> This keeps everything doing destruction under RTNL as desired,
+> yet fixes the "we're holding lock that's being freed" problem.
 
-We have to put the kfree() of the qdisc back into an RCU handler,
-that's all.
+Is this the problem with dev_shutdown freeing the qdisc while
+holding its lock?
 
-I'll cook up a patch for that.
+Couldn't we just drop the lock before calling qdisc_destroy?
+
+dev_shutdown can only be called after dev_deactivate, as such
+all qdisc users should have disappeared by now (and if they
+haven't, our waiting loop in dev_deactivate didn't work and
+we should fix that).
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
