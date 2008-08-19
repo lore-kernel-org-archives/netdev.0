@@ -1,39 +1,55 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [r8169] patch for RTL8102 (5 new MAC/PHY)
-Date: Tue, 19 Aug 2008 18:48:39 +0200
-Message-ID: <48AAF967.4000902@redhat.com>
-References: <1f9da0830808190642yacb2aacv6517e2bb86a3706@mail.gmail.com> <1f9da0830808190645o4ecf48b1i6f4d873db3c83e39@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 19 Aug 2008 10:03:07 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
+References: <20080819.041706.261399060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?=3F=3F=3F=3F=3F=3F_=3F=3F=3F=3F=3F?= <leo@yuriev.ru>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43757 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755806AbYHSQst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2008 12:48:49 -0400
-In-Reply-To: <1f9da0830808190645o4ecf48b1i6f4d873db3c83e39@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33223 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752751AbYHSRDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 13:03:38 -0400
+In-Reply-To: <20080819.041706.261399060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Actual difference from the current r8169.c is in detection and "magic"
-> handle of the 5 new versions of RTL's MACs and corresponded PHY.
-The support for RTL8102 was added 2 days ago. See Francois's git tree
-in r8169-fixes branch.
-http://git.kernel.org/?p=linux/kernel/git/romieu/netdev-2.6.git;a=shortlog;h=r8169-fixes
 
-> 2) simple: by RTL8169 datasheet 'rx-missed' counter is 24-bits width,
-> but not 32;
-interesting :-)
 
-> 4) workaround: RTL8102 seems (sure) not have "rx-missed" (PCI-reg
-> 0x4C) counter. So we should not account dev->stats.rx_missed_errors
-> like RTL8169;
-It seems (according Realtek's r8101 and r8168 drivers) that not only
-RTL810x class but also RTL8168 class hardware don't have rx-missed. r8168
-doesn't contain anything regarding RxMissed and r8101's RxMissed stuff
-is commented out.
+On Tue, 19 Aug 2008, David Miller wrote:
+>
+>  114 files changed, 1533 insertions(+), 898 deletions(-)
 
-Ivan
+David, this absolutely _has_ to stop.
+
+We're after -rc3. Your network merges continue to be too f*cking large, 
+and this has been going on for many months now. If you cannot throttle 
+people, I will have to throttle you and stop pulling things.
+
+I'm going to take this, but really - this isn't just new drivers or 
+something like that that you've used as an excuse for big pulls before, 
+this is a _lot_ of changes to existing code.
+
+Tell your people to look at the regression list, and if it's not there, 
+they should stop.
+
+I realize that this problem is partly because when I see the pull requests 
+from you, I effectively see a combined pull from multiple different 
+sources, and in that sense it's not quite as big. But the networking pulls 
+have _consistently_ had the problem that they keep on being big not just 
+after -rc3, but after -rc4 and on, and I get the distinct feeling that 
+you're not moving the pain downwards, and aren't telling the people under 
+you to keep it clean and minimal and regressions only.
+
+For example, those BT updates looked in no way like regression fixes. So 
+what the f*ck were they doing there? And why do you think all those driver 
+updates cannot cause new regressions? 
+
+If it's not a regression fix, it shouldn't be there. It should be in the 
+queue for the next version. Why is that apparently so hard for the network 
+people?
+
+		Linus
