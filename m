@@ -1,48 +1,64 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] s2io: reindented misleading for loop
-Date: Tue, 19 Aug 2008 10:36:01 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808191034490.4551@wrl-59.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Tue, 19 Aug 2008 07:35:58 +0000
+Message-ID: <20080819073558.GD4376@ff.dom.local>
+References: <20080818.165411.255925269.davem@davemloft.net> <20080819000551.GA26699@gondor.apana.org.au> <20080818.171124.192743795.davem@davemloft.net> <20080818.210701.80578862.davem@davemloft.net> <20080819064609.GA4376@ff.dom.local> <20080819072316.GA4878@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2067999932-1219131361=:4551"
-Cc: Netdev <netdev@vger.kernel.org>
-To: ram.vepa@neterion.com, Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46177 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454AbYHSHgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 03:36:03 -0400
+Received: from ug-out-1314.google.com ([66.249.92.172]:41047 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752480AbYHSHgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 03:36:11 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so407382ugf.37
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 00:36:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080819072316.GA4878@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, Aug 19, 2008 at 05:23:16PM +1000, Herbert Xu wrote:
+> On Tue, Aug 19, 2008 at 06:46:09AM +0000, Jarek Poplawski wrote:
+> >
+> > Actually, I, and earlier Herbert, have written about destroying root
+> > qdiscs without sch_tree_lock(). I don't know how Herbert, but I'd
+> > prefer to leave here this lock for child qdiscs: they can remove some
+> > common structures, so this needs more checking, and even if they don't
+> > do this currently, there is no need to remove this possibility here.
+> > Similarly, I'm not sure if removing BH protection is really needed
+> > here.
+> 
+> Qdiscs can die in two ways, when the underlying device dies or
+> when the user removes/replaces the qdisc.  In the first case the
+> we're being called from dev_shutdown so all users of the qdisc
+> should have ceased or dev_deactivate is buggy.  The other case
+> is again divided into two subcases.  First of all if we're removing
+> the root qdisc then again dev_deactivate gets called and the same
+> reasoning applies.
 
----696208474-2067999932-1219131361=:4551
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+This case is quite clear.
 
+> 
+> If we're removing a non-root qdisc, then we will first grab the
+> root qdisc's lock, kill the child, and release the root lock.  By
+> convention, any user of a child qdisc must have acquired the root
+> qdisc's lock because the child is only reachable through the root.
+> Therefore once we have released the root qdisc lock after killing
+> the child, we're guaranteed that no further references to that
+> child can be made.
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- drivers/net/s2io.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+By convention, there was always this comment that destroy is under
+sch_tree_lock(), so it was legal to depend on this. I'm not afraid
+of somebody using such an under destroy qdisc - it's about a code
+inside this qdisc could refer to not destroyed part.
 
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index a2b0730..243db33 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -8175,8 +8175,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 		    break;
- 	}
- 	if (sp->config.multiq) {
--	for (i = 0; i < sp->config.tx_fifo_num; i++)
--		mac_control->fifos[i].multiq = config->multiq;
-+		for (i = 0; i < sp->config.tx_fifo_num; i++)
-+			mac_control->fifos[i].multiq = config->multiq;
- 		DBG_PRINT(ERR_DBG, "%s: Multiqueue support enabled\n",
- 			dev->name);
- 	} else
--- 
-1.5.2.2
+> If for whatever reason the code does not reflect the reasoning
+> above, please feel free to fix the code :)
 
----696208474-2067999932-1219131361=:4551--
+Sure, I'll try to look for such problems.
+
+Cheers,
+Jarek P.
