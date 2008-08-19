@@ -1,138 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Tue, 19 Aug 2008 06:46:09 +0000
-Message-ID: <20080819064609.GA4376@ff.dom.local>
-References: <20080818.165411.255925269.davem@davemloft.net> <20080819000551.GA26699@gondor.apana.org.au> <20080818.171124.192743795.davem@davemloft.net> <20080818.210701.80578862.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] misdn: fix multistatement if block missing braces
+Date: Tue, 19 Aug 2008 09:51:39 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808190946270.4551@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1374640394-1219128699=:4551"
+Cc: Jeff Garzik <jeff@garzik.org>, Netdev <netdev@vger.kernel.org>
+To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.180]:48389 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752277AbYHSGqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 02:46:16 -0400
-Received: by ik-out-1112.google.com with SMTP id c28so2605437ika.5
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2008 23:46:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080818.210701.80578862.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58966 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667AbYHSGvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 02:51:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2008 at 09:07:01PM -0700, David Miller wrote:
-...
-> pkt_sched: Don't hold qdisc lock over qdisc_destroy().
-> 
-> Based upon reports by Denys Fedoryshchenko, and feedback
-> and help from Jarek Poplawski and Herbert Xu.
-> 
-> We always either:
-> 
-> 1) Never made an external reference to this qdisc.
-> 
-> or
-> 
-> 2) Did a dev_deactivate() which purged all asynchronous
->    references.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-3) Read below, please...
+---696208474-1374640394-1219128699=:4551
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> 
-> So do not lock the qdisc when we call qdisc_destroy(),
-> it's illegal anyways as when we drop the lock this is
-> free'd memory.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/sched/sch_api.c     |   13 ++-----------
->  net/sched/sch_generic.c |    6 ------
->  2 files changed, 2 insertions(+), 17 deletions(-)
-> 
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index 7d7070b..d91a233 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -638,11 +638,8 @@ static void notify_and_destroy(struct sk_buff *skb, struct nlmsghdr *n, u32 clid
->  	if (new || old)
->  		qdisc_notify(skb, n, clid, old, new);
->  
-> -	if (old) {
-> -		sch_tree_lock(old);
-> +	if (old)
->  		qdisc_destroy(old);
-> -		sch_tree_unlock(old);
-> -	}
->  }
 
-Actually, I, and earlier Herbert, have written about destroying root
-qdiscs without sch_tree_lock(). I don't know how Herbert, but I'd
-prefer to leave here this lock for child qdiscs: they can remove some
-common structures, so this needs more checking, and even if they don't
-do this currently, there is no need to remove this possibility here.
-Similarly, I'm not sure if removing BH protection is really needed
-here.
+...Once again these show up though not causing any harm in
+this case (yet).
 
-And, btw., this is neither 1) nor 2) case according to the changelog,
-I guess.
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ drivers/isdn/mISDN/dsp_cmx.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
->  
->  /* Graft qdisc "new" to class "classid" of qdisc "parent" or
-> @@ -1092,16 +1089,10 @@ create_n_graft:
->  
->  graft:
->  	if (1) {
-> -		spinlock_t *root_lock;
-> -
->  		err = qdisc_graft(dev, p, skb, n, clid, q, NULL);
->  		if (err) {
-> -			if (q) {
-> -				root_lock = qdisc_root_lock(q);
-> -				spin_lock_bh(root_lock);
-> +			if (q)
->  				qdisc_destroy(q);
-> -				spin_unlock_bh(root_lock);
-> -			}
+diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
+index e92b1ba..7fecad2 100644
+--- a/drivers/isdn/mISDN/dsp_cmx.c
++++ b/drivers/isdn/mISDN/dsp_cmx.c
+@@ -1855,7 +1855,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_buff *skb)
+ 		/* in case of hardware (echo) */
+ 		if (dsp->pcm_slot_tx >= 0)
+ 			return;
+-		if (dsp->echo)
++		if (dsp->echo) {
+ 			nskb = skb_clone(skb, GFP_ATOMIC);
+ 			if (nskb) {
+ 				hh = mISDN_HEAD_P(nskb);
+@@ -1864,6 +1864,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_buff *skb)
+ 				skb_queue_tail(&dsp->sendq, nskb);
+ 				schedule_work(&dsp->workq);
+ 			}
++		}
+ 		return;
+ 	}
+ 	/* in case of hardware conference */
+-- 
+1.5.2.2
 
-Probably, as above.
-
->  			return err;
->  		}
->  	}
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 6f96b7b..c3ed4d4 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -518,8 +518,6 @@ void qdisc_reset(struct Qdisc *qdisc)
->  }
->  EXPORT_SYMBOL(qdisc_reset);
->  
-> -/* Under qdisc_lock(qdisc) and BH! */
-> -
-
-??
-+ /* Under BH for all, and qdisc_lock(qdisc) for child qdiscs only */
-
-Jarek P.
-
->  void qdisc_destroy(struct Qdisc *qdisc)
->  {
->  	const struct Qdisc_ops  *ops = qdisc->ops;
-> @@ -712,14 +710,10 @@ static void shutdown_scheduler_queue(struct net_device *dev,
->  	struct Qdisc *qdisc_default = _qdisc_default;
->  
->  	if (qdisc) {
-> -		spinlock_t *root_lock = qdisc_lock(qdisc);
-> -
->  		dev_queue->qdisc = qdisc_default;
->  		dev_queue->qdisc_sleeping = qdisc_default;
->  
-> -		spin_lock_bh(root_lock);
->  		qdisc_destroy(qdisc);
-> -		spin_unlock_bh(root_lock);
->  	}
->  }
->  
-> -- 
-> 1.5.6.5.GIT
-> 
+---696208474-1374640394-1219128699=:4551--
