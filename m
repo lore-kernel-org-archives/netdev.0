@@ -1,66 +1,107 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Fix race conditions in lblcr scheduler
-Date: Tue, 19 Aug 2008 10:41:30 +1000
-Message-ID: <20080819004129.GC23626@verge.net.au>
-References: <alpine.LNX.1.10.0808180052160.12259@titan.stealer.net> <20080818233243.GC7785@verge.net.au> <alpine.LNX.1.10.0808190140180.12259@titan.stealer.net>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: tbench regression on each kernel release from 2.6.22 -> 2.6.28
+Date: Tue, 19 Aug 2008 08:56:07 +0800
+Message-ID: <1219107367.8781.3.camel@ymzhang>
+References: <48A086B6.2000901@linux-foundation.org>
+	 <20080811.141501.01468546.davem@davemloft.net>
+	 <Pine.LNX.4.64.0808121058550.4551@wrl-59.cs.helsinki.fi>
+	 <1219025114.25933.6.camel@ymzhang>
+	 <Pine.LNX.4.64.0808181044470.23854@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
-To: Sven Wegener <sven.wegener@stealer.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.1.10.0808190140180.12259@titan.stealer.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, cl@linux-foundation.org,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.21]:28655 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754959AbYHSA5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2008 20:57:21 -0400
+In-Reply-To: <Pine.LNX.4.64.0808181044470.23854@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 19, 2008 at 01:42:41AM +0200, Sven Wegener wrote:
-> On Tue, 19 Aug 2008, Simon Horman wrote:
-> 
-> > On Mon, Aug 18, 2008 at 12:53:05AM +0200, Sven Wegener wrote:
-> > > We can't access the cache entry outside of our critical read-locked region,
-> > > because someone may free that entry. Also getting an entry under read lock,
-> > > then locking for write and trying to delete that entry looks fishy, but should
-> > > be no problem here, because we're only comparing a pointer. Also there is no
-> > > need for our own rwlock, there is already one in the service structure for use
-> > > in the schedulers.
-> > 
-> > Hi Sven,
-> > 
-> > this looks good to me. Just a few minor comments inline.
-> > 
-> > > Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> > > ---
-> > >  net/ipv4/ipvs/ip_vs_lblcr.c |  229 +++++++++++++++++++++----------------------
-> > >  1 files changed, 114 insertions(+), 115 deletions(-)
-> > > 
-> > > diff --git a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
-> > > index f1c8450..96bfdc2 100644
-> > > --- a/net/ipv4/ipvs/ip_vs_lblcr.c
-> > > +++ b/net/ipv4/ipvs/ip_vs_lblcr.c
-> > > @@ -106,7 +106,7 @@ ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
-> > >  			return NULL;
-> > >  	}
-> > >  
-> > > -	e = kmalloc(sizeof(struct ip_vs_dest_list), GFP_ATOMIC);
-> > > +	e = kmalloc(sizeof(*e), GFP_ATOMIC);
-> > 
-> > I think that I prefer using struct ip_vs_dest_list rather than *e.
-> > Ditto for *tbl below.
-> 
-> Actually, it's part of CodingStyle to use *e.
-> 
-> > > +out:
-> > >  	IP_VS_DBG(6, "LBLCR: destination IP address %u.%u.%u.%u "
-> > >  		  "--> server %u.%u.%u.%u:%d\n",
-> > > -		  NIPQUAD(en->addr),
-> > > +		  NIPQUAD(iph->addr),
-> > 
-> > Minor problem, this should be iph->daddr
-> 
-> Good catch, I've updated my patch locally. Let's get a consensus on the 
-> sizeof issue and I'll repost.
 
-I'm happy with sizeof(*ptr) now. So I think that the lblc patch is ready
-and this one just needs the minor daddr fix.
+On Mon, 2008-08-18 at 10:53 +0300, Ilpo J=E4rvinen wrote:
+> On Mon, 18 Aug 2008, Zhang, Yanmin wrote:
+>=20
+> >=20
+> > On Tue, 2008-08-12 at 11:13 +0300, Ilpo J=E4rvinen wrote:=20
+> > > On Mon, 11 Aug 2008, David Miller wrote:
+> > >=20
+> > > > From: Christoph Lameter <cl@linux-foundation.org>
+> > > > Date: Mon, 11 Aug 2008 13:36:38 -0500
+> > > >=20
+> > > > > It seems that the network stack becomes slower over time? Her=
+e is a list of
+> > > > > tbench results with various kernel versions:
+> > > > >=20
+> > > > > 2.6.22		3207.77 mb/sec
+> > > > > 2.6.24		3185.66
+> > > > > 2.6.25		2848.83
+> > > > > 2.6.26		2706.09
+> > > > > 2.6.27(rc2)	2571.03
+> > > > >=20
+> > > > > And linux-next is:
+> > > > >=20
+> > > > > 2.6.28(l-next)	2568.74
+> > > > >=20
+> > > > > It shows that there is still have work to be done on linux-ne=
+xt. Too close to
+> > > > > upstream in performance.
+> > > > >=20
+> > > > > Note the KT event between 2.6.24 and 2.6.25. Why is that?
+> > > >=20
+> > > > Isn't that when some major scheduler changes went in?  I'm not =
+blaming
+> > > > the scheduler, but rather I'm making the point that there are o=
+ther
+> > > > subsystems in the kernel that the networking interacts with tha=
+t
+> > > > influences performance at such a low level.
+> > >=20
+> > > ...IIRC, somebody in the past did even bisect his (probably netpe=
+rf)=20
+> > > 2.6.24-25 regression to some scheduler change (obviously it might=
+ or might=20
+> > > not be related to this case of yours)...
+> > I did find much regression with netperf TCP-RR-1/UDP-RR-1/UDP-RR-51=
+2. I start
+> > 1 serve and 1 client while binding them to a different logical proc=
+essor in
+> > different physical cpu.
+> >=20
+> > Comparing with 2.6.22, the regression of TCP-RR-1 on 16-core tigert=
+on is:
+> > 2.6.23		6%
+> > 2.6.24		6%
+> > 2.6.25		9.7%
+> > 2.6.26		14.5%
+> > 2.6.27-rc1	22%
+> >=20
+> > Other regressions on other machines are similar.
+>=20
+> I btw reorganized tcp_sock for 2.6.26, it shouldn't cause this but it=
+'s=20
+> not always obvious what even a small change in field ordering does fo=
+r=20
+> performance (it's b79eeeb9e48457579cb742cd02e162fcd673c4a3 in case yo=
+u=20
+> want to check that).
+>=20
+> Also, there was this 83f36f3f35f4f83fa346bfff58a5deabc78370e5 fix to=20
+> current -rcs but I guess it might not be that significant in your cas=
+e=20
+> (but I don't know well enough :-)).
+I reverted the patch against 2.6.27-rc1 and did a quick testing with ne=
+tperf TCP-RR-1
+and didn't find improvement. So your patch is good.
+Mostly, I suspect process scheduler causes the regression. It seems whe=
+n there are=20
+only 1 or 2 tasks running on the cpu, the performance isn't good. My ne=
+tperf testing
+is just one example.
+
 
