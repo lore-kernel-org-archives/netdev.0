@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 19 Aug 2008 13:14:54 -0700 (PDT)
-Message-ID: <20080819.131454.223684377.davem@davemloft.net>
-References: <20080819.041706.261399060.davem@davemloft.net>
-	<alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
+Subject: Re: [PATCH] netlabel: Remove unneeded in-kernel API functions
+Date: Tue, 19 Aug 2008 13:17:03 -0700 (PDT)
+Message-ID: <20080819.131703.181831524.davem@davemloft.net>
+References: <20080813145526.10579.84270.stgit@flek.lan>
+	<200808191310.36061.paul.moore@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, ramirose@gmail.com, casey@schaufler-ca.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57697
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57716
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753953AbYHSUOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:14:54 -0400
-In-Reply-To: <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1757841AbYHSURE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:17:04 -0400
+In-Reply-To: <200808191310.36061.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 19 Aug 2008 10:03:07 -0700 (PDT)
+From: Paul Moore <paul.moore@hp.com>
+Date: Tue, 19 Aug 2008 13:10:35 -0400
 
-> For example, those BT updates looked in no way like regression fixes. So 
-> what the f*ck were they doing there? And why do you think all those driver 
-> updates cannot cause new regressions? 
+> I didn't see this get pulled into your latest 2.6.27 push but I think 
+> it's a good candidate for 2.6.27, it's dead code removal.  If you 
+> disagree, no problem, just let me know so I can throw it on my patchset 
+> for 2.6.28.
 
-The BT bits were the only part I really considered borderline,
-and I was going to push back on Marcel.
+Linus seems to think I'm already merging too much stuff:
 
-But to be honest, I haven't seen bluetooth updates from him
-for such a long time I felt that being strict here would just
-exacerbate the problem.
+	http://marc.info/?l=linux-kernel&m=121916548518920&w=2
 
-Guess I was wrong.
+So yeah, I think this cleanup can wait for 2.6.28
