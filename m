@@ -1,32 +1,36 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: qdisc_enqueue, NET_XMIT_SUCCESS and kfree_skb
-Date: Tue, 19 Aug 2008 23:10:52 +0300
-Message-ID: <200808192310.52457.denys@visp.net.lb>
-References: <E1KVQfg-0001Qf-00@gondolin.me.apana.org.au> <48AAC884.30802@trash.net> <20080819134230.GA6043@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT]: Networking
+Date: Tue, 19 Aug 2008 13:14:54 -0700 (PDT)
+Message-ID: <20080819.131454.223684377.davem@davemloft.net>
+References: <20080819.041706.261399060.davem@davemloft.net>
+	<alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	jarkao2@gmail.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:57652 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752888AbYHSUMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:12:10 -0400
-In-Reply-To: <20080819134230.GA6043@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57697
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753953AbYHSUOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 16:14:54 -0400
+In-Reply-To: <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just want to report, latest net-2.6 works fine for me (intensive classes 
-creation/deletion, tbf, flow classifier, htb, pfifo) , no crashes, no 
-warnings.
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 19 Aug 2008 10:03:07 -0700 (PDT)
 
-I will test also after few days on backbone router and probably router with 
-hfsc.
+> For example, those BT updates looked in no way like regression fixes. So 
+> what the f*ck were they doing there? And why do you think all those driver 
+> updates cannot cause new regressions? 
 
-Thanks for great code and support :-)
+The BT bits were the only part I really considered borderline,
+and I was going to push back on Marcel.
 
+But to be honest, I haven't seen bluetooth updates from him
+for such a long time I felt that being strict here would just
+exacerbate the problem.
+
+Guess I was wrong.
