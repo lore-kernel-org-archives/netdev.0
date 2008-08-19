@@ -1,52 +1,51 @@
-From: Artem Bityutskiy <dedekind@infradead.org>
-Subject: Re: [PATCH] Remove duplicated unlikely() in IS_ERR()
-Date: Tue, 19 Aug 2008 17:57:38 +0300
-Message-ID: <1219157858.18027.44.camel@sauron>
-References: <48A52D69.1040501@miraclelinux.com>
-	 <1219125321.18027.9.camel@sauron>
-Reply-To: dedekind@infradead.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] ipv6: protocol for address routes
+Date: Tue, 19 Aug 2008 08:54:41 -0700
+Message-ID: <20080819085441.7b0184d1@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, christof.schmitt@de.ibm.com,
-	netdev@vger.kernel.org, linux-mtd@lists.infradead.org,
-	linux-s390@vger.kernel.org
-To: Hirofumi Nakagawa <hnakagawa@miraclelinux.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:26035 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbYHSPAO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 11:00:14 -0400
-In-Reply-To: <1219125321.18027.9.camel@sauron>
+Received: from mail.vyatta.com ([216.93.170.194]:41741 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752713AbYHSPym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 11:54:42 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 505454F4632
+	for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 08:54:42 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id HKGFKMs9DTh2 for <netdev@vger.kernel.org>;
+	Tue, 19 Aug 2008 08:54:42 -0700 (PDT)
+Received: from speedy (unknown [10.3.0.149])
+	by mail.vyatta.com (Postfix) with ESMTP id 156AD4F4631
+	for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 08:54:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-08-19 at 08:55 +0300, Artem Bityutskiy wrote:
-> On Fri, 2008-08-15 at 16:16 +0900, Hirofumi Nakagawa wrote:
-> > Hi
-> > Some drivers have duplicated unlikely() macros.
-> > IS_ERR() already has unlikely() in itself.
-> > This patch cleans up such pointless codes although there is no real
-> > effect on the kernel's behaviour.
-> >=20
-> > Thanks,
-> > Hirofumi Nakagawa
-> >=20
-> > Signed-off-by: Hirofumi Nakagawa <hnakagawa@miraclelinux.com>
-> > ---
->=20
-> Hmm, after thinking a bit I am not sure this is the right way to go.
-> Indeed, we try to avoid likly()/unlikely(), unless this is really
-> hot-path. Some kernel developers even think these hints should never
-> be used. So I'd say, the right thing would bo to remove unlikely()
-> from IS_ERR() macro instead.
+This fixes a problem spotted with zebra, but not sure if it is necessary a kernel problem.
+With IPV6 when an address is added to an interface, Zebra creates a duplicate RIB
+entry, one as a connected route, and other as a kernel route.
 
-OK, after some googling I tend to thing having unlikely() in IS_ERR() i=
-s
-OK, so I take your patch. Thanks.=20
+When an address is added to an interface the RTN_NEWADDR message causes Zebra
+to create a connected route. In IPV4 when an address is added to an interface a RTN_NEWROUTE
+message is set to user space with the protocol RTPROT_KERNEL. Zebra ignores these messages,
+because it already has the connected route.
 
---=20
-Best regards,
-Artem Bityutskiy (=D0=91=D0=B8=D1=82=D1=8E=D1=86=D0=BA=D0=B8=D0=B9 =D0=90=
-=D1=80=D1=82=D1=91=D0=BC)
+The problem is that route created in IPV6 has route protocol == RTPROT_BOOT.
+Was this a design decision or a bug? This fixes it. Same patch applies to both
+net-2.6 and stable.
 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/net/ipv6/addrconf.c	2008-08-18 21:58:51.000000000 -0700
++++ b/net/ipv6/addrconf.c	2008-08-18 22:00:26.000000000 -0700
+@@ -1688,6 +1688,7 @@ addrconf_prefix_route(struct in6_addr *p
+ 		.fc_dst_len = plen,
+ 		.fc_flags = RTF_UP | flags,
+ 		.fc_nlinfo.nl_net = dev_net(dev),
++		.fc_protocol = RTPROT_KERNEL,
+ 	};
+ 
+ 	ipv6_addr_copy(&cfg.fc_dst, pfx);
