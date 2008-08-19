@@ -1,47 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH]: Schedule correct qdisc in watchdog.
-Date: Tue, 19 Aug 2008 06:59:58 +0000
-Message-ID: <20080819065958.GB4376@ff.dom.local>
-References: <200808181404.56131.denys@visp.net.lb> <20080818112022.GA7158@ff.dom.local> <20080818113531.GB7158@ff.dom.local> <20080818.205427.140031432.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Tue, 19 Aug 2008 00:03:07 -0700 (PDT)
+Message-ID: <20080819.000307.71415459.davem@davemloft.net>
+References: <20080818.171124.192743795.davem@davemloft.net>
+	<20080818.210701.80578862.davem@davemloft.net>
+	<20080819064609.GA4376@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:52352 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbYHSHAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 03:00:03 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so1367527nfc.21
-        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 00:00:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080818.205427.140031432.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56799
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbYHSHDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 03:03:08 -0400
+In-Reply-To: <20080819064609.GA4376@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2008 at 08:54:27PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 18 Aug 2008 11:35:31 +0000
-> 
-> > pkt_sched: Add lockdep annotation for qdisc locks
-> > 
-> > Qdisc locks are initialized in the same function, qdisc_alloc(), so
-> > lockdep can't distinguish tx qdisc lock from rx and reports "possible
-> > recursive locking detected" when both these locks are taken eg. while
-> > using act_mirred with ifb. This looks like a false positive. Anyway,
-> > after this patch these locks will be reported more exactly.
-> > 
-> > Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> 
-> Applied, thanks Jarek.
-> 
-> I suspect we need to apply this lock annotation to the locks
-> in the static qdiscs &noop_qdisc and &noqueue_qdisc.
-> 
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 19 Aug 2008 06:46:09 +0000
 
-I guess, we currently don't need this. At least ingress checks and
-skipps acting for &noop_qdisc. I'd prefer to see some lockdep warning
-first, or maybe you could show some scenario?
+> Actually, I, and earlier Herbert, have written about destroying root
+> qdiscs without sch_tree_lock(). I don't know how Herbert, but I'd
+> prefer to leave here this lock for child qdiscs: they can remove some
+> common structures, so this needs more checking, and even if they don't
+> do this currently, there is no need to remove this possibility here.
+> Similarly, I'm not sure if removing BH protection is really needed
+> here.
 
-Jarek P.
+Well you don't really know if this happens or not for sure
+do you? :-)
+
+Why don't you go make sure of this and report back what you
+find?  I see no reason to account for something that cannot
+happen.
+
+It's better to have a consistent rule for qdisc_destroy()
+rather than a bunch of special cases that are hard to audit.
