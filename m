@@ -1,53 +1,49 @@
-From: Bastian Bloessl <basti@b-bl.de>
-Subject: Re: [PATCH 5/9]: sch_netem: Use requeue list instead of ops->requeue()
-Date: Tue, 19 Aug 2008 19:36:09 +0200
-Message-ID: <48AB0489.8060107@b-bl.de>
-References: <20080818.013702.111675433.davem@davemloft.net>
+From: "=?KOI8-R?B?7MXPzsnEIODS2MXX?=" <leo@yuriev.ru>
+Subject: Re: [r8169] patch for RTL8102 (5 new MAC/PHY)
+Date: Tue, 19 Aug 2008 22:04:09 +0400
+Message-ID: <1f9da0830808191104y3a7b0aan59c9655dc67264b4@mail.gmail.com>
+References: <1f9da0830808190642yacb2aacv6517e2bb86a3706@mail.gmail.com>
+	 <1f9da0830808190645o4ecf48b1i6f4d873db3c83e39@mail.gmail.com>
+	 <48AAF967.4000902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: "Ivan Vecera" <ivecera@redhat.com>,
+	"Francois Romieu" <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wp035.webpack.hosteurope.de ([80.237.132.42]:51471 "EHLO
-	wp035.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753952AbYHSR7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 13:59:37 -0400
-In-Reply-To: <20080818.013702.111675433.davem@davemloft.net>
+Received: from mail-gx0-f29.google.com ([209.85.217.29]:42580 "EHLO
+	mail-gx0-f29.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608AbYHSSEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 14:04:11 -0400
+Received: by gxk10 with SMTP id 10so7255339gxk.13
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2008 11:04:10 -0700 (PDT)
+In-Reply-To: <48AAF967.4000902@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> sch_netem: Use requeue list instead of ops->requeue()
-> 
-> This code just wants to make this packet the "front" one, and that's
-> just as simply done by queueing to the ->requeue list.
-> 
+2008/8/19 Ivan Vecera <ivecera@redhat.com>:
+> The support for RTL8102 was added 2 days ago. See Francois's git tree
+> in r8169-fixes branch.
+> http://git.kernel.org/?p=linux/kernel/git/romieu/netdev-2.6.git;a=shortlog;h=r8169-fixes
+Oh, yes :)
 
-Hi,
-I think that might make some difference.
-Suppose we have an upper qdisc that dequeues from netem and
-puts the packet in it's requeue-list. But after that another
-packet could arrive that should be send earlier (delay
-distribution, reordering).
-As far as I understand it the requeued packet would now
-be send before the other.
+>> 2) simple: by RTL8169 datasheet 'rx-missed' counter is 24-bits width,
+>> but not 32;
+> interesting :-)
 
-> --- a/net/sched/sch_netem.c
-> +++ b/net/sched/sch_netem.c
-> @@ -233,7 +233,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		 */
->  		cb->time_to_send = psched_get_time();
->  		q->counter = 0;
-> -		ret = q->qdisc->ops->requeue(skb, q->qdisc);
-> +		__skb_queue_tail(&q->qdisc->requeue, skb);
+http://wiki.osdev.org/RTL8169, seek bottom of page for the link to
+http://www.magnesium.net/~wpaul/rt/RTL8110S_8169S_DataSheet_1.3.pdf,
+Datasheet for the RTL8169S and RTL8110S chpsets.
 
-I think this should be __skb_queue_head() because in it's
-requeue-list netem has packets that it doesn't want to send yet. So
-their time_to_send is likely to be in the future. But reordered
-packets have current time as time_to_send.
+So, on page #15, can see:
 
-Or did I get it wrong?
+004Ch-004Fh R/W MPC
+Missed Packet Counter: This 24-bit counter indicates the number of
+packets discarded due to Rx FIFO overflow. After a s/w reset, MPC
+is cleared. Only the lower 3 bytes are valid.
+When any value is written to MPC, it will be reset.
 
-Regards
-Bastian Bloessl
+--
+Leo Yuriev
