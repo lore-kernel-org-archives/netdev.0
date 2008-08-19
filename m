@@ -1,221 +1,79 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] netlabel: Remove unneeded in-kernel API functions
-Date: Tue, 19 Aug 2008 13:10:35 -0400
-Message-ID: <200808191310.36061.paul.moore@hp.com>
-References: <20080813145526.10579.84270.stgit@flek.lan>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] net: forcedeth use pci_choose_state instead of PCI_D3hot - v2
+Date: Tue, 19 Aug 2008 19:58:44 +0200
+Message-ID: <200808191958.45886.rjw@sisk.pl>
+References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808190008.54743.rjw@sisk.pl> <48A9FAD8.9000503@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ramirose@gmail.com, casey@schaufler-ca.com
-To: davem@davemloft.net
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Jeff Garzik <jgarzik@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:32338 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751819AbYHSRLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 13:11:02 -0400
-In-Reply-To: <20080813145526.10579.84270.stgit@flek.lan>
+Received: from ogre.sisk.pl ([217.79.144.158]:53820 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752913AbYHSRzc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 13:55:32 -0400
+In-Reply-To: <48A9FAD8.9000503@simon.arlott.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 13 August 2008 10:55:26 am Paul Moore wrote:
-> After some discussions with the Smack folks, well just Casey, I now
-> have a better idea of what Smack wants out of NetLabel in the future
-> so I think it is now safe to do some API "pruning".  If another LSM
-> comes along that needs this functionality we can always add it back
-> in, but I don't see any LSMs on the horizon which might make use of
-> these functions.
->
-> Thanks to Rami Rosen who suggested removing netlbl_cfg_cipsov4_del()
-> back in February 2008.
+On Tuesday, 19 of August 2008, Simon Arlott wrote:
+> On 18/08/08 23:08, Rafael J. Wysocki wrote:
+> > On Monday, 18 of August 2008, Yinghai Lu wrote:
+> >> On Mon, Aug 18, 2008 at 3:22 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> >> 
+> >> >> > >  drivers/net/forcedeth.c |    8 +++++---
+> >> >> > >  1 file changed, 5 insertions(+), 3 deletions(-)
+> >> >> > >
+> >> >> > > Index: linux-2.6/drivers/net/forcedeth.c
+> >> >> > > ===================================================================
+> >> >> > > --- linux-2.6.orig/drivers/net/forcedeth.c
+> >> >> > > +++ linux-2.6/drivers/net/forcedeth.c
+> >> >> > > @@ -5975,10 +5975,12 @@ static void nv_shutdown(struct pci_dev *
+> >> >> > >        if (netif_running(dev))
+> >> >> > >                nv_close(dev);
+> >> >> > >
+> >> >> > > -       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+> >> >> > > -       pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
+> >> >> > >        pci_disable_device(pdev);
+> >> >> > > -       pci_set_power_state(pdev, PCI_D3hot);
+> >> >> > > +       if (system_state == SYSTEM_POWER_OFF) {
+> >> >> > > +               if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
+> >> >> > > +                       pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+> >> >> > > +               pci_set_power_state(pdev, PCI_D3hot);
+> >> >> > > +       }
+> >> >> > >  }
+> >> >> > >  #else
+> >> >> > >  #define nv_suspend NULL
+> >> >> > >
+> >> >> >
+> >> 
+> >> > Does the last patch work for you BTW?
+> >> >
+> >> 
+> >> it works.
+> > 
+> > OK, thanks for testing.
+> > 
+> > I think we can use it as a quick fix for 2.6.27.  Do you agree?
+> > 
+> > Still, it would be helpful to verify if this is the same MSI issue reported by
+> > Simon.
+> 
+> I tried to test that patch but even without it standby/resume has stopped working:
 
-Hi Dave,
+Which kernel is this?
 
-I didn't see this get pulled into your latest 2.6.27 push but I think 
-it's a good candidate for 2.6.27, it's dead code removal.  If you 
-disagree, no problem, just let me know so I can throw it on my patchset 
-for 2.6.28.
+> http://img89.imageshack.us/img89/1861/1005552wb5.jpg (standby, tainted)
+> http://img89.imageshack.us/img89/5409/1005561ys2.jpg (resume)
+> http://img503.imageshack.us/img503/8720/1005571bc0.jpg (resume)
+> http://img135.imageshack.us/img135/5048/1005572be3.jpg (standby)
 
-Thanks.
-
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
-> ---
->
->  include/net/netlabel.h       |   13 -------
->  net/netlabel/netlabel_kapi.c |   80
-> +++++++++++------------------------------- 2 files changed, 21
-> insertions(+), 72 deletions(-)
->
-> diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-> index e4d2d6b..5303749 100644
-> --- a/include/net/netlabel.h
-> +++ b/include/net/netlabel.h
-> @@ -352,12 +352,9 @@ static inline void netlbl_secattr_free(struct
-> netlbl_lsm_secattr *secattr) int netlbl_cfg_map_del(const char
-> *domain, struct netlbl_audit *audit_info); int
-> netlbl_cfg_unlbl_add_map(const char *domain,
->  			     struct netlbl_audit *audit_info);
-> -int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
-> -			   struct netlbl_audit *audit_info);
->  int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi *doi_def,
->  			       const char *domain,
->  			       struct netlbl_audit *audit_info);
-> -int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit
-> *audit_info);
->
->  /*
->   * LSM security attribute operations
-> @@ -404,22 +401,12 @@ static inline int
-> netlbl_cfg_unlbl_add_map(const char *domain, {
->  	return -ENOSYS;
->  }
-> -static inline int netlbl_cfg_cipsov4_add(struct cipso_v4_doi
-> *doi_def, -					 struct netlbl_audit *audit_info)
-> -{
-> -	return -ENOSYS;
-> -}
->  static inline int netlbl_cfg_cipsov4_add_map(struct cipso_v4_doi
-> *doi_def, const char *domain,
->  					     struct netlbl_audit *audit_info)
->  {
->  	return -ENOSYS;
->  }
-> -static inline int netlbl_cfg_cipsov4_del(u32 doi,
-> -					 struct netlbl_audit *audit_info)
-> -{
-> -	return -ENOSYS;
-> -}
->  static inline int netlbl_secattr_catmap_walk(
->  	                              struct netlbl_lsm_secattr_catmap
-> *catmap, u32 offset)
-> diff --git a/net/netlabel/netlabel_kapi.c
-> b/net/netlabel/netlabel_kapi.c index 39793a1..2a2b8fa 100644
-> --- a/net/netlabel/netlabel_kapi.c
-> +++ b/net/netlabel/netlabel_kapi.c
-> @@ -104,49 +104,6 @@ cfg_unlbl_add_map_failure:
->  }
->
->  /**
-> - * netlbl_cfg_cipsov4_add - Add a new CIPSOv4 DOI definition
-> - * @doi_def: the DOI definition
-> - * @audit_info: NetLabel audit information
-> - *
-> - * Description:
-> - * Add a new CIPSOv4 DOI definition to the NetLabel subsystem. 
-> Returns zero on - * success, negative values on failure.
-> - *
-> - */
-> -int netlbl_cfg_cipsov4_add(struct cipso_v4_doi *doi_def,
-> -			   struct netlbl_audit *audit_info)
-> -{
-> -	int ret_val;
-> -	const char *type_str;
-> -	struct audit_buffer *audit_buf;
-> -
-> -	ret_val = cipso_v4_doi_add(doi_def);
-> -
-> -	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
-> -					      audit_info);
-> -	if (audit_buf != NULL) {
-> -		switch (doi_def->type) {
-> -		case CIPSO_V4_MAP_STD:
-> -			type_str = "std";
-> -			break;
-> -		case CIPSO_V4_MAP_PASS:
-> -			type_str = "pass";
-> -			break;
-> -		default:
-> -			type_str = "(unknown)";
-> -		}
-> -		audit_log_format(audit_buf,
-> -				 " cipso_doi=%u cipso_type=%s res=%u",
-> -				 doi_def->doi,
-> -				 type_str,
-> -				 ret_val == 0 ? 1 : 0);
-> -		audit_log_end(audit_buf);
-> -	}
-> -
-> -	return ret_val;
-> -}
-> -
-> -/**
->   * netlbl_cfg_cipsov4_add_map - Add a new CIPSOv4 DOI definition and
-> mapping * @doi_def: the DOI definition
->   * @domain: the domain mapping to add
-> @@ -165,6 +122,8 @@ int netlbl_cfg_cipsov4_add_map(struct
-> cipso_v4_doi *doi_def, {
->  	int ret_val = -ENOMEM;
->  	struct netlbl_dom_map *entry;
-> +	const char *type_str;
-> +	struct audit_buffer *audit_buf;
->
->  	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
->  	if (entry == NULL)
-> @@ -182,7 +141,7 @@ int netlbl_cfg_cipsov4_add_map(struct
-> cipso_v4_doi *doi_def, * domain mapping for it. */
->
->  	rcu_read_lock();
-> -	ret_val = netlbl_cfg_cipsov4_add(doi_def, audit_info);
-> +	ret_val = cipso_v4_doi_add(doi_def);
->  	if (ret_val != 0)
->  		goto cfg_cipsov4_add_map_failure_unlock;
->  	ret_val = netlbl_domhsh_add(entry, audit_info);
-> @@ -196,6 +155,24 @@ cfg_cipsov4_add_map_failure_remove_doi:
->  	cipso_v4_doi_remove(doi_def->doi, audit_info,
-> netlbl_cipsov4_doi_free); cfg_cipsov4_add_map_failure_unlock:
->  	rcu_read_unlock();
-> +	audit_buf = netlbl_audit_start_common(AUDIT_MAC_CIPSOV4_ADD,
-> +					      audit_info);
-> +	if (audit_buf != NULL) {
-> +		switch (doi_def->type) {
-> +		case CIPSO_V4_MAP_STD:
-> +			type_str = "std";
-> +			break;
-> +		case CIPSO_V4_MAP_PASS:
-> +			type_str = "pass";
-> +			break;
-> +		default:
-> +			type_str = "(unknown)";
-> +		}
-> +		audit_log_format(audit_buf,
-> +				 " cipso_doi=%u cipso_type=%s res=%u",
-> +				 doi_def->doi, type_str, ret_val == 0 ? 1 : 0);
-> +		audit_log_end(audit_buf);
-> +	}
->  cfg_cipsov4_add_map_failure:
->  	if (entry != NULL)
->  		kfree(entry->domain);
-> @@ -203,21 +180,6 @@ cfg_cipsov4_add_map_failure:
->  	return ret_val;
->  }
->
-> -/**
-> - * netlbl_cfg_cipsov4_del - Removean existing CIPSOv4 DOI definition
-> - * @doi: the CIPSO DOI value
-> - * @audit_info: NetLabel audit information
-> - *
-> - * Description:
-> - * Removes an existing CIPSOv4 DOI definition from the NetLabel
-> subsystem. - * Returns zero on success, negative values on failure.
-> - *
-> - */
-> -int netlbl_cfg_cipsov4_del(u32 doi, struct netlbl_audit *audit_info)
-> -{
-> -	return cipso_v4_doi_remove(doi, audit_info,
-> netlbl_cipsov4_doi_free); -}
-> -
->  /*
->   * Security Attribute Functions
->   */
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-paul moore
-linux @ hp
+Rafael
