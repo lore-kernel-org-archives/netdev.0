@@ -1,19 +1,19 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Tue, 19 Aug 2008 14:46:46 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0808191440440.3324@nehalem.linux-foundation.org>
-References: <20080819.140458.236030589.davem@davemloft.net> <200808192315.48718.rjw@sisk.pl> <alpine.LFD.1.10.0808191425050.3324@nehalem.linux-foundation.org> <20080819.143556.245692295.davem@davemloft.net>
+Date: Tue, 19 Aug 2008 14:50:36 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808191446560.3324@nehalem.linux-foundation.org>
+References: <alpine.LFD.1.10.0808191411390.3324@nehalem.linux-foundation.org> <20080819.142735.179034162.davem@davemloft.net> <alpine.LFD.1.10.0808191432040.3324@nehalem.linux-foundation.org> <20080819.144015.40311904.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rjw@sisk.pl, akpm@linux-foundation.org, netdev@vger.kernel.org,
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38982 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52152 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYHSVrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:47:08 -0400
-In-Reply-To: <20080819.143556.245692295.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1759620AbYHSVuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 17:50:39 -0400
+In-Reply-To: <20080819.144015.40311904.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,37 +21,39 @@ List-ID: <netdev.vger.kernel.org>
 
 On Tue, 19 Aug 2008, David Miller wrote:
 > 
-> That change was made under the pretext that it was tested heavily and
-> that if we hit any problem whatsoever with it that we couldn't fix
-> quickly it would be reverted.
+> But I think you're throwing the baby out with the bath water, the
+> majority of that pull contained legitimate real bug regression fixes.
 
-David, I will say this one more time:
+.. and notice how I 
 
- - as long as you concentrate on individual commits, you're missing the 
-   big picture.
+ (a) took it
 
-you can _always_ make excuses for individual commits. That's not my point. 
-Or rather, it actually verry much _is_ my point. If you have the mindset 
-that you're looking for excuses why any individual commit is ok to merge, 
-then you don't end up with a coupld of individual commits any more: you 
-end up with a LOT OF CHURN.
+and
 
-It's not the individual commits. You're looking at the individual trees, 
-and you're missing the forest. The problem isn't the individual trees. The 
-problem is that there's a metric sh*tload of individual trees, what we in 
-the tree industry call a 'forest'. You're not seeing it.
+ (b) am asking for you to be more careful?
 
-And btw, don't get me wrong - you're not the only problem spot. During the 
--rc's leading up to 2.6.26, drivers/merdia was actually a _bigger_ 
-problem. I happen to care less about that (the same way I care less about 
-some odd-ball architectures), but I have to admit that drivers/media was a 
-total disaster last time around.
+In other words, I would be a lot happier if you didn't say "majority". I 
+would be a ton happioer if you could HONESTLY say that every single one 
+was a regression.
 
-So if it makes you feel any better, others have been even worse.  But this 
-networking problem ha been going on for quite a while.
+And the thing is, you cannot. Some of the ones I pointed you to were 
+actually regressions due to _other_ patches you had much too happily sent 
+me after the merge window had already closed).
 
-So the problem here really is that you seem overly eager to make excuses 
-for individual patches. And if they _stayed_ "individual" it would all be 
-good. But they don't seem to.
+> That's why some other developers are coming out of the woods and
+> defending me, they don't have to do that, but they do it because they
+> feel I'm being slighted at least a little bit.
+
+Umm. The only defending I have seen was a F*CKING DISGRACE, since nobody 
+apparently had the balls to stand up and admit that the whole problem 
+happened after -rc1 in the first place!
+
+In other words, the "defense" was just making excuses for EXACTLY the 
+behaviour I'm trying to tell you shouldn't have happened in the first 
+place.
+
+Please. You're still making excuses for this, even after I pointed out 
+that ALL of the problems with the whole loopback driver thing happened 
+after the merge window. 
 
 			Linus
