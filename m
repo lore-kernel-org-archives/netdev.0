@@ -1,67 +1,39 @@
-From: adobriyan@gmail.com
-Subject: [PATCH] nf_conntrack_sip: fix by making helper pointers thread-local
-Date: Thu, 21 Aug 2008 00:09:00 +0400
-Message-ID: <20080820200900.GA32237@x200.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH] netxen: enable msi-x for quad-gig boards
+Date: Wed, 20 Aug 2008 13:52:48 -0700
+Message-ID: <1219265568-28298-1-git-send-email-dhananjay@netxen.com>
+Cc: jeff@garzik.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [64.209.101.202] ([64.209.101.202]:47491 "EHLO unm84.unminc.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753295AbYHTUwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 16:52:49 -0400
+In-Reply-To: <>
+References: <>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick, do I read correctly that ->help hook can run concurrently with itself?
+NX3031 firmware now supports MSI-X interrupts on Quad GbE boards.
 
-If yes, apply this patch to fix potential crashes and all sorts of
-nasties.
-
-
-
-[PATCH] nf_conntrack_sip: de-static helper pointers
-
-Helper's ->help hook can run concurrently with itself, so iterating over
-SIP helpers with static pointer won't work reliably.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- net/netfilter/nf_conntrack_sip.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1193,7 +1193,6 @@ static const struct sip_handler sip_handlers[] = {
- static int process_sip_response(struct sk_buff *skb,
- 				const char **dptr, unsigned int *datalen)
- {
--	static const struct sip_handler *handler;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	unsigned int matchoff, matchlen;
-@@ -1214,6 +1213,8 @@ static int process_sip_response(struct sk_buff *skb,
- 	dataoff = matchoff + matchlen + 1;
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 32bb47a..59d6521 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -241,7 +241,7 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_REF_QG:
+ 	case NETXEN_BRDTYPE_P3_4_GB:
+ 	case NETXEN_BRDTYPE_P3_4_GB_MM:
+-		adapter->msix_supported = 0;
++		adapter->msix_supported = !!use_msi_x;
+ 		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
+ 		break;
  
- 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
-+		const struct sip_handler *handler;
-+
- 		handler = &sip_handlers[i];
- 		if (handler->response == NULL)
- 			continue;
-@@ -1228,13 +1229,14 @@ static int process_sip_response(struct sk_buff *skb,
- static int process_sip_request(struct sk_buff *skb,
- 			       const char **dptr, unsigned int *datalen)
- {
--	static const struct sip_handler *handler;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	unsigned int matchoff, matchlen;
- 	unsigned int cseq, i;
- 
- 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
-+		const struct sip_handler *handler;
-+
- 		handler = &sip_handlers[i];
- 		if (handler->request == NULL)
- 			continue;
+-- 
+1.5.4.3
 
