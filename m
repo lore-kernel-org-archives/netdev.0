@@ -1,98 +1,74 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH] dccp: Reponsed with Reset when packet is received with
-	invalid option
-Date: Wed, 20 Aug 2008 11:01:16 -0300
-Message-ID: <20080820140116.GL8075@ghostprotocols.net>
-References: <48AB7147.2010003@cn.fujitsu.com>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
+Date: Wed, 20 Aug 2008 07:08:42 -0700 (PDT)
+Message-ID: <705656.38463.qm@web82108.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	DCCP Mailing List <dccp@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: Yinghai Lu <yhlu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52789 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751028AbYHTOFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 10:05:08 -0400
-Content-Disposition: inline
-In-Reply-To: <48AB7147.2010003@cn.fujitsu.com>
+Received: from web82108.mail.mud.yahoo.com ([209.191.84.221]:44417 "HELO
+	web82108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751101AbYHTOIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 10:08:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Aug 20, 2008 at 09:20:07AM +0800, Wei Yongjun escreveu:
-> RFC4340 said that if a packet is received with invalid option(such as Mandatory
-> Option as the last byte of the option list), endpoint should reponsed with
-> Reset. In LISTIN state and RESPOND state, the endpoint reponsed with reset
-> correctly, but in REQUEST state and OPEN state, the endpoint just ignored
-> the packet. The packet sequence is as the following:
->
-> Case 1:
->
->  Endpoint A                           Endpoint B
->  (CLOSED)                             (CLOSED)
->
->               <----------------       REQUEST
->
->  RESPONSE     ----------------->      (*1)
->  (with invalid option)
->               <----------------       RESET
->                                       (with Reset Code 5, "Option Error")
->
->  (*1) it just be ignored currently, no reset is sent
->
-> Case 2:
->
->  Endpoint A                           Endpoint B
->  (OPEN)                               (OPEN)
->
->  DATA-ACK     ----------------->      (*2)
->  (with invalid option)
->               <----------------       RESET
->                                       (with Reset Code 5, "Option Error")
->
->  (*2) it just be ignored currently, no reset is sent
->
-> This patch fixed the problem by reponsed with Reset instead of ignore packet.
->
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-God catch! Please also keep netdev@vger.kernel.org on the CC list.
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > This is true if he reverted just the 3def3d6d... commit, but if he
+> > also reverts the similar, and immediately following, 1e934dda...
+> > commit, then his 2.6.26 kernel runs fine.
+> 
+> interesting,
+> 
+> David, can you try only comment out
+> 
+> late_initcall(lapic_insert_resource);
 
-> ---
-> net/dccp/input.c |    4 ++--
-> 1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/dccp/input.c b/net/dccp/input.c
-> index dab4cc9..df0e671 100644
-> --- a/net/dccp/input.c
-> +++ b/net/dccp/input.c
-> @@ -370,7 +370,7 @@ int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
-> 		goto discard;
->
-> 	if (dccp_parse_options(sk, NULL, skb))
-> -		goto discard;
-> +		return 1;
->
-> 	dccp_handle_ackvec_processing(sk, skb);
-> 	dccp_deliver_input_to_ccids(sk, skb);
-> @@ -631,7 +631,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
->
-> 	/*  Step 8: Process options */
-> 	if (dccp_parse_options(sk, NULL, skb))
-> -		goto discard;
-> +		return 1;
->
-> 	/*
-> 	 *  Step 9: Process Reset
-> -- 
-> 1.5.3.8
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Results with v2.6.27-rc3:  hangs in the same way, at the same place;
+works with "hpet=disable".
+
+
+I wondered whether changes since before v2.6.26-rc1 might interfere
+with your intention here, so I checked out 1e934dda... and tried
+again.
+
+Results with 1e934dda...:  hangs, just like above.
+
+
+Bill is right:  reverting the changes in 3def3d6d alone will not work 
+on my hardware unless I also revert 1e934dda.
+
+I have not (yet) attempted to bring those reverts forward to v2.6.27*
+because I have been trying to identify the breakage that 3def3d6d
+causes (and because I don't know the right git-fu to apply to my branch
+to apply the post-v2.6.26 commits :(  ).
+
+
+The other user who reported problems said that reverting3def3d6d alone
+worked for him.  (I have asked him for more info on his blog, hoping he 
+can tell us more... if there is more for him to tell.)  His kernel was 
+NOT hanging in the same place as mine:
+
+- mine hangs in inet_init(), after a series of calls that ends with
+the hang at synchronize_rcu().
+
+- his hangs (somewhere) inide_scan_pcibus().
+[http://www.uwsg.indiana.edu/hypermail/linux/kernel/0805.2/1082.html]
+
+He has a bug report (http://marc.info/?l=linux-kernel&m=121107133101187&w=2)
+which lists his hardware as "Abit F-190HD motherboard with a Q6600 CPU".
+
+My hardware -- 2 machines with the same regression -- is quite different:
+
+"fileserver":  ECS AMD690GM-M2 mboard with AMD Athlon X2 4850e
+"webserver":  ECS AMD690GM-M2 mboard with AMD Athlon 64 X2 3600+
+
+
+Thanks,
+Dave W.
