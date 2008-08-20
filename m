@@ -1,59 +1,74 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] forcedeth: Fix kexec regression
-Date: Wed, 20 Aug 2008 15:12:11 +0200
-Message-ID: <200808201512.12583.rjw@sisk.pl>
-References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808192045.54779.rjw@sisk.pl> <m1od3ow4oi.fsf@frodo.ebiederm.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] IPv6:fix the return interface index when get it while
+ no message is received
+Date: Wed, 20 Aug 2008 09:10:34 -0400
+Message-ID: <48AC17CA.8010306@hp.com>
+References: <48A911AD.7060102@cn.fujitsu.com>	<48A9799B.4040409@hp.com> <20080818.223857.125980599.davem@davemloft.net> <48AA6800.1020506@cn.fujitsu.com> <48AACC71.5090701@hp.com> <48AB87DE.1010205@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	"Yinghai Lu" <yhlu.kernel@gmail.com>,
-	"Ingo Molnar" <mingo@elte.hu>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	"Jesse Barnes" <jbarnes@virtuousgeek.org>,
-	"Simon Arlott" <simon@fire.lp0.eu>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756753AbYHTNJY@vger.kernel.org>
-In-Reply-To: <m1od3ow4oi.fsf@frodo.ebiederm.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:23179 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbYHTNKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 09:10:38 -0400
+In-Reply-To: <48AB87DE.1010205@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, 20 of August 2008, Eric W. Biederman wrote:
-> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+Yang Hongyang wrote:
+> Vlad Yasevich wrote:
+>> Yang Hongyang wrote:
+>>> David Miller wrote:
+>>>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>>> Date: Mon, 18 Aug 2008 09:31:07 -0400
+>>>>
+>>>>> I don't think that's correct at all.  The code path shows here is
+>>>>> when there are no received options and no sticky options set.  In
+>>>>> such case, we shouldn't be returning multicast or bound interfaces.
+>>>>> We should be returning 0.
+>>> I use setsockopt() to set the bounded interface of the socket, and 
+>>> then I get receiving interface index while no message is received through
+>>> the above socket,shoudn't the bounded interface be returned?
+>> One of the problems is that we don't seem to support the sticky IPV6_PKTINFO
+>> option as specified in rfc3542.
+>>
+>> The setting of SO_BINDTODEVICE should not impact the return of the sticky option
+>> values when they are not set.  A return of 0 in the sticky options means that
+>> that value has not been specified.  If you return anything else, you give
+>> the illusion that a sticky option was set.
+>>
+>>>>> Additionally the address returned is completely bogus as well. We
+>>>>> are returning the address our peer instead of the one of our own
+>>>>> addresses.
+>>> If message is received,the address returned is what the received
+>>> message refered to, otherwise the address returned is what I used setsockopt()
+>>> to set before.
+>> We are returning np->daddr, which is the peer address.
+>>
+>> The expected value is "destination of the received packet".  In the worst case,
+>> it should be the locally bound address.  In the correct case, it should be the
+>> address set in the sticky options if such is set.  It really should be 0::0, if there
+>> are no sticky options and no packets have been received.
 > 
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> >
-> > forcedeth: Fix kexec regression
-> >
-> > Fix regression tracked as
-> > http://bugzilla.kernel.org/show_bug.cgi?id=11361 and
-> > caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
-> > ("[netdrvr] forcedeth: setup wake-on-lan before shutting down")
-> > that makes network adapters integrated into the NVidia
-> > MCP55 chipsets fail to work in kexeced kernels.  The problem appears
-> > to be that if the adapter is put into D3_hot during ->shutdown(),
-> > it cannot be brought back into D0 after kexec (ref.
-> > http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore,
-> > only put forcedeth into D3 during ->shutdown() if the system is to be
-> > powered off.
+> Since here we do not recive any packet,we should return 
+> src_info.ipi6_ifindex=0 and src_info.ipi6_addr=0::0,right?
+
+That's what I've done in other implementations.
+
+-vlad
+
 > 
-> Any chance we can fix this by teaching the forcedeth driver to
-> bring a card out of PCI_D3hot?
+>> -vlad
+>>
+>>>> Yang, please fix this up, thank you.
+>>>>
+>>>>
+>>> Seems that I misunderstood the RFC?
+> 
+> 
+> 
 
-Maybe, but that's not what I'm able to do at the moment. :-)
-
-Yinghai Lu thinks that the hardware has a problem with that, though.
-
-> The kexec on panic guys are going to need that and it is just generally
-> more robust all of the way around than a special case in shutdown
-> based on system_state.
-
-Actually, system_state == SYSTEM_POWER_OFF is a special case already, since
-it is the only case in which ACPI gets involved.
-
-Thanks,
-Rafael
