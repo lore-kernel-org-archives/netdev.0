@@ -1,39 +1,47 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: enable msi-x for quad-gig boards
-Date: Wed, 20 Aug 2008 13:52:48 -0700
-Message-ID: <1219265568-28298-1-git-send-email-dhananjay@netxen.com>
-Cc: jeff@garzik.org
-To: netdev@vger.kernel.org
+From: adobriyan@gmail.com
+Subject: [PATCH] nf_conntrack_gre: more locking around keymap list
+Date: Thu, 21 Aug 2008 00:54:51 +0400
+Message-ID: <20080820205451.GA16405@x200.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.209.101.202] ([64.209.101.202]:47491 "EHLO unm84.unminc.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753295AbYHTUwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 16:52:49 -0400
-In-Reply-To: <>
-References: <>
+Received: from yx-out-2324.google.com ([74.125.44.30]:28979 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752406AbYHTUxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 16:53:32 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so295745yxm.1
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 13:53:32 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NX3031 firmware now supports MSI-X interrupts on Quad GbE boards.
+gre_keymap_list should be protected in all places.
+(unless I'm misreading something)
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 32bb47a..59d6521 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -241,7 +241,7 @@ static void netxen_check_options(struct netxen_adapter *adapter)
- 	case NETXEN_BRDTYPE_P3_REF_QG:
- 	case NETXEN_BRDTYPE_P3_4_GB:
- 	case NETXEN_BRDTYPE_P3_4_GB_MM:
--		adapter->msix_supported = 0;
-+		adapter->msix_supported = !!use_msi_x;
- 		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
- 		break;
- 
--- 
-1.5.4.3
+ net/netfilter/nf_conntrack_proto_gre.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -97,10 +97,14 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ 	kmp = &help->help.ct_pptp_info.keymap[dir];
+ 	if (*kmp) {
+ 		/* check whether it's a retransmission */
++		read_lock_bh(&nf_ct_gre_lock);
+ 		list_for_each_entry(km, &gre_keymap_list, list) {
+-			if (gre_key_cmpfn(km, t) && km == *kmp)
++			if (gre_key_cmpfn(km, t) && km == *kmp) {
++				read_unlock_bh(&nf_ct_gre_lock);
+ 				return 0;
++			}
+ 		}
++		read_unlock_bh(&nf_ct_gre_lock);
+ 		pr_debug("trying to override keymap_%s for ct %p\n",
+ 			 dir == IP_CT_DIR_REPLY ? "reply" : "orig", ct);
+ 		return -EEXIST;
 
