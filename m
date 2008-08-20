@@ -1,39 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 19 Aug 2008 19:51:15 -0700 (PDT)
-Message-ID: <20080819.195115.49989151.davem@davemloft.net>
-References: <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
-	<20080819.142150.129314008.davem@davemloft.net>
-	<1219199116.26429.19.camel@jdub.homelinux.org>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [PATCH] IPv6:fix the return interface index when get it while
+ no message is received
+Date: Wed, 20 Aug 2008 10:56:30 +0800
+Message-ID: <48AB87DE.1010205@cn.fujitsu.com>
+References: <48A911AD.7060102@cn.fujitsu.com>	<48A9799B.4040409@hp.com> <20080818.223857.125980599.davem@davemloft.net> <48AA6800.1020506@cn.fujitsu.com> <48AACC71.5090701@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, marcel@holtmann.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jwboyer@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53429
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751288AbYHTCvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 22:51:15 -0400
-In-Reply-To: <1219199116.26429.19.camel@jdub.homelinux.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:55518 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751288AbYHTC5I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 22:57:08 -0400
+In-Reply-To: <48AACC71.5090701@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josh Boyer <jwboyer@gmail.com>
-Date: Tue, 19 Aug 2008 22:25:15 -0400
+Vlad Yasevich wrote:
+> Yang Hongyang wrote:
+>> David Miller wrote:
+>>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>> Date: Mon, 18 Aug 2008 09:31:07 -0400
+>>>
+>>>> I don't think that's correct at all.  The code path shows here is
+>>>> when there are no received options and no sticky options set.  In
+>>>> such case, we shouldn't be returning multicast or bound interfaces.
+>>>> We should be returning 0.
+>> I use setsockopt() to set the bounded interface of the socket, and 
+>> then I get receiving interface index while no message is received through
+>> the above socket,shoudn't the bounded interface be returned?
+> 
+> One of the problems is that we don't seem to support the sticky IPV6_PKTINFO
+> option as specified in rfc3542.
+> 
+> The setting of SO_BINDTODEVICE should not impact the return of the sticky option
+> values when they are not set.  A return of 0 in the sticky options means that
+> that value has not been specified.  If you return anything else, you give
+> the illusion that a sticky option was set.
+> 
+>>>> Additionally the address returned is completely bogus as well. We
+>>>> are returning the address our peer instead of the one of our own
+>>>> addresses.
+>> If message is received,the address returned is what the received
+>> message refered to, otherwise the address returned is what I used setsockopt()
+>> to set before.
+> 
+> We are returning np->daddr, which is the peer address.
+> 
+> The expected value is "destination of the received packet".  In the worst case,
+> it should be the locally bound address.  In the correct case, it should be the
+> address set in the sticky options if such is set.  It really should be 0::0, if there
+> are no sticky options and no packets have been received.
 
-> So, not to add fuel to a fire that seems to be calming down, but what is
-> so wrong with having that feeling?  If the core people are spending 3
-> months doing nothing but fixing bugs, the I consider that to _be_ the
-> best work from the best people.
+Since here we do not recive any packet,we should return 
+src_info.ipi6_ifindex=0 and src_info.ipi6_addr=0::0,right?
 
-All work and no play makes Dave a dull boy, that's the
-problem. :-)
+> 
+> -vlad
+> 
+>>> Yang, please fix this up, thank you.
+>>>
+>>>
+>> Seems that I misunderstood the RFC?
 
-I don't care how much someone claims they enjoy bug fixing
-and gathering up other people's patches, you will go out
-of your mind or become bored to death if you don't get to
-spend real time implementing something significant from
-time to time.
+
+
