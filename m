@@ -1,111 +1,59 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [Patch RFC 09/10 v2] mlx4_en: en_resources
-Date: Wed, 20 Aug 2008 16:01:17 +0300
-Message-ID: <48AC159D.8050405@mellanox.co.il>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] forcedeth: Fix kexec regression
+Date: Wed, 20 Aug 2008 15:12:11 +0200
+Message-ID: <200808201512.12583.rjw@sisk.pl>
+References: <1218954333-12819-1-git-send-email-yhlu.kernel@gmail.com> <200808192045.54779.rjw@sisk.pl> <m1od3ow4oi.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Liran Liss <liranl@mellanox.co.il>,
-	tziporet@mellanox.co.il, Roland Dreier <rdreier@cisco.com>
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:43950 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754302AbYHTNCT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 09:02:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Jeff Garzik" <jgarzik@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"Yinghai Lu" <yhlu.kernel@gmail.com>,
+	"Ingo Molnar" <mingo@elte.hu>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	"Jesse Barnes" <jbarnes@virtuousgeek.org>,
+	"Simon Arlott" <simon@fire.lp0.eu>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756753AbYHTNJY@vger.kernel.org>
+In-Reply-To: <m1od3ow4oi.fsf@frodo.ebiederm.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 18 Aug 2008 11:47:58 +0300
-Subject: [PATCH] mlx4_en: en_resources
+On Wednesday, 20 of August 2008, Eric W. Biederman wrote:
+> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+> 
+> > From: Rafael J. Wysocki <rjw@sisk.pl>
+> >
+> > forcedeth: Fix kexec regression
+> >
+> > Fix regression tracked as
+> > http://bugzilla.kernel.org/show_bug.cgi?id=11361 and
+> > caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2
+> > ("[netdrvr] forcedeth: setup wake-on-lan before shutting down")
+> > that makes network adapters integrated into the NVidia
+> > MCP55 chipsets fail to work in kexeced kernels.  The problem appears
+> > to be that if the adapter is put into D3_hot during ->shutdown(),
+> > it cannot be brought back into D0 after kexec (ref.
+> > http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore,
+> > only put forcedeth into D3 during ->shutdown() if the system is to be
+> > powered off.
+> 
+> Any chance we can fix this by teaching the forcedeth driver to
+> bring a card out of PCI_D3hot?
 
-This file includes some helper functions to assist in resources
-allocation and bringing them to required state.
+Maybe, but that's not what I'm able to do at the moment. :-)
 
-Signed-off-by: Liran Liss <liranl@mellanox.co.il>
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/en_resources.c |   66 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 66 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/mlx4/en_resources.c
+Yinghai Lu thinks that the hardware has a problem with that, though.
 
-diff --git a/drivers/net/mlx4/en_resources.c b/drivers/net/mlx4/en_resources.c
-new file mode 100644
-index 0000000..e87716a
---- /dev/null
-+++ b/drivers/net/mlx4/en_resources.c
-@@ -0,0 +1,66 @@
-+/*
-+ * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <linux/mlx4/qp.h>
-+
-+#include "mlx4_en.h"
-+
-+void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
-+			     int is_tx, int rss, int qpn, int cqn, int srqn,
-+			     struct mlx4_qp_context *context)
-+{
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+
-+	memset(context, 0, sizeof *context);
-+	context->flags = cpu_to_be32(7 << 16 | rss << 13);
-+	context->pd = cpu_to_be32(mdev->priv_pdn);
-+	context->mtu_msgmax = 0xff;
-+	context->rq_size_stride = 0;
-+	if (is_tx)
-+		context->sq_size_stride = ilog2(size) << 3 | (ilog2(stride) - 4);
-+	else
-+		context->sq_size_stride = 1;
-+	context->usr_page = cpu_to_be32(mdev->priv_uar.index);
-+	context->local_qpn = cpu_to_be32(qpn);
-+	context->pri_path.ackto = 1 & 0x07;
-+	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
-+	context->pri_path.counter_index = 0xff;
-+	context->cqn_send = cpu_to_be32(cqn);
-+	context->cqn_recv = cpu_to_be32(cqn);
-+	context->db_rec_addr = cpu_to_be64(priv->res.db.dma << 2);
-+	if (!rss)
-+		context->srqn = cpu_to_be32(MLX4_EN_USE_SRQ | srqn);
-+}
-+
-+
-+
--- 
-1.5.4
+> The kexec on panic guys are going to need that and it is just generally
+> more robust all of the way around than a special case in shutdown
+> based on system_state.
 
+Actually, system_state == SYSTEM_POWER_OFF is a special case already, since
+it is the only case in which ACPI gets involved.
 
-
-
-
+Thanks,
+Rafael
