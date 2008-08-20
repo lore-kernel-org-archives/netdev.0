@@ -1,69 +1,80 @@
-From: Marcel Holtmann <marcel@holtmann.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 17:40:13 +0200
-Message-ID: <1219246813.7591.347.camel@violet.holtmann.net>
-References: <20080819.041706.261399060.davem@davemloft.net>
-	 <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
-	 <1219170451.7591.175.camel@violet.holtmann.net>
-	 <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
-	 <1219203753.7591.205.camel@violet.holtmann.net>
-	 <20080820143734.GB20632@tuxdriver.com>
-	 <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
+Date: Wed, 20 Aug 2008 09:09:11 -0700 (PDT)
+Message-ID: <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
+References: <20080819.041706.261399060.davem@davemloft.net>  <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>  <1219170451.7591.175.camel@violet.holtmann.net>  <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
+ <1219203753.7591.205.camel@violet.holtmann.net>  <20080820143734.GB20632@tuxdriver.com>  <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org> <1219246813.7591.347.camel@violet.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "John W. Linville" <linville@tuxdriver.com>,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:47101 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250AbYHTPkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 11:40:08 -0400
-In-Reply-To: <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:57224 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759067AbYHTQJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 12:09:35 -0400
+In-Reply-To: <1219246813.7591.347.camel@violet.holtmann.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
 
-> > > again, my current understanding was that updates to the documentation
-> > > that would help people to navigate and understand the kernel better and
-> > > make it easier for them to do bug reports etc. are always welcome and
-> > > should be pushed immediately. Same goes for new drivers that would
-> > > enable people to use their hardware.
-> > 
-> > This is my (current) understanding as well.  If that is not the case,
-> > then someone should clarify.
+
+On Wed, 20 Aug 2008, Marcel Holtmann wrote:
 > 
-> Guys, which part of "it wasn't any individual commit" didn' you 
-> understand?
-> 
-> Why are you concentrating on one documentation commit that I didn't even 
-> point to?
-> 
-> But that said - no, I don't think there is any reason to even push 
-> documentation commits, unless there is a real and pressing reason (ie the 
-> documentation is really important or will really matter from a future 
-> merge standpoint). I generally won't complain about them, but I also don't 
-> see the point.
-> 
-> I'd _much_ rather see you guys queue it up for future merges. 
+> John was just pointing out (like myself before) that a lot of people are
+> under the impression that documentation updates and new drivers should
+> not be queued up and merged as soon as possible.
 
-John was just pointing out (like myself before) that a lot of people are
-under the impression that documentation updates and new drivers should
-not be queued up and merged as soon as possible.
+I think (and hey, I'm flexible, and we can discuss this) that the rules 
+should be:
 
-I am really fine either way. Queuing them up is not a problem and you
-made your point that you don't wanna see them after -rc1. That is fair
-enough, but it really needs to be spelled our here since the overall
-consensus is different. I will not send any of these do Dave anymore
-after the merge window.
+ - by default, the answer should always be "don't push anything after the 
+   merge window unless it fixes a regression or a nasty bug".
 
-Regards
+   Here "nasty bug" is something that is a problem in practice, and not 
+   something theoretical that people haven't really reported.
 
-Marcel
+ - but as a special case, we relax that for totally new drivers (and that 
+   includes things like just adding a new PCI or USB ID's to old drivers), 
+   because (a) it can't really regress and (b) support for a specific 
+   piece of hardware can often be critical.
 
+With regard to that second case, I'd like to note that obviously even a 
+totally new driver _can_ regress, in the sense that it can cause build 
+errors, or problems that simply wouldn't have happened without that 
+driver. So the "cannot regress" obviously isn't strictly true, but I 
+think everybody understands what I really mean.
 
+It should also be noted that the "new driver" exception should only be an 
+issue for things that _matter_.
+
+For example, a machine without networking support (or without suppoort for 
+a some other really core driver that provides basic functionality) is 
+practically useless. But a machine without support for some particular 
+webcam or support for some special keys on a particular keyboard? That 
+really doesn't matter, and might as well wait for the next release.
+
+So the "merge drivers early" is for drivers that reasonably _matter_ in 
+the sense that it allows people to test Linux AT ALL on the platform. It 
+shouldn't be "any possible random driver".
+
+IOW, think about the drivers a bit like a distro would think about 
+backporting drivers to a stable kernel. Which ones are really needed? 
+
+Also, note that "new driver" really should be that. If it's an older 
+driver, and you need to touch _any_ old code to add a new PCI ID or 
+something, the whole argument about it not breaking falls away. Don't do 
+it. I think, for example, that the SCSI people seem to be a bit too eager 
+sometimes to update their drivers for new revisions of cards, and they do 
+it to old drivers.
+
+And finally - the rules should be guidelines. It really isn't always 
+black-and-white, but most of the time the simple question of "could this 
+_possibly_ be just queued for the next release without hurting anything" 
+should be the basic one. If the answer is "yes", then wait.
+
+			Linus
