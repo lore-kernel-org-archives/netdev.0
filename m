@@ -1,69 +1,101 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: CONFIG_KMOD breakage in next kernel
-Date: Wed, 20 Aug 2008 20:44:49 +0200
-Message-ID: <1219257889.3502.13.camel@johannes.berg>
-References: <s5h3akzwtki.wl%tiwai@suse.de>
-	 <1219252617.7591.350.camel@violet.holtmann.net>
+From: "Paolo Ciarrocchi" <paolo.ciarrocchi@gmail.com>
+Subject: Re: [GIT]: Networking
+Date: Wed, 20 Aug 2008 20:50:42 +0200
+Message-ID: <4d8e3fd30808201150j75a7d72bme81551305d3a68b9@mail.gmail.com>
+References: <20080819.041706.261399060.davem@davemloft.net>
+	 <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
+	 <1219170451.7591.175.camel@violet.holtmann.net>
+	 <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
+	 <1219203753.7591.205.camel@violet.holtmann.net>
+	 <20080820143734.GB20632@tuxdriver.com>
+	 <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
+	 <1219246813.7591.347.camel@violet.holtmann.net>
+	 <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
+	 <1219253600.7591.352.camel@violet.holtmann.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-JUz9NAurQ+0t9jJ9Kemi"
-Cc: Takashi Iwai <tiwai@suse.de>, linux-next@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	video4linux-list@redhat.com
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1219252617.7591.350.camel@violet.holtmann.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"Marcel Holtmann" <marcel@holtmann.org>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.169]:41988 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752126AbYHTSun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 14:50:43 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so707806wfd.4
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 11:50:42 -0700 (PDT)
+In-Reply-To: <1219253600.7591.352.camel@violet.holtmann.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, Aug 20, 2008 at 7:33 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi Linus,
+>
+>> > John was just pointing out (like myself before) that a lot of people are
+>> > under the impression that documentation updates and new drivers should
+>> > not be queued up and merged as soon as possible.
+>>
+>> I think (and hey, I'm flexible, and we can discuss this) that the rules
+>> should be:
+>>
+>>  - by default, the answer should always be "don't push anything after the
+>>    merge window unless it fixes a regression or a nasty bug".
+>>
+>>    Here "nasty bug" is something that is a problem in practice, and not
+>>    something theoretical that people haven't really reported.
+>>
+>>  - but as a special case, we relax that for totally new drivers (and that
+>>    includes things like just adding a new PCI or USB ID's to old drivers),
+>>    because (a) it can't really regress and (b) support for a specific
+>>    piece of hardware can often be critical.
+>>
+>> With regard to that second case, I'd like to note that obviously even a
+>> totally new driver _can_ regress, in the sense that it can cause build
+>> errors, or problems that simply wouldn't have happened without that
+>> driver. So the "cannot regress" obviously isn't strictly true, but I
+>> think everybody understands what I really mean.
+>>
+>> It should also be noted that the "new driver" exception should only be an
+>> issue for things that _matter_.
+>>
+>> For example, a machine without networking support (or without suppoort for
+>> a some other really core driver that provides basic functionality) is
+>> practically useless. But a machine without support for some particular
+>> webcam or support for some special keys on a particular keyboard? That
+>> really doesn't matter, and might as well wait for the next release.
+>>
+>> So the "merge drivers early" is for drivers that reasonably _matter_ in
+>> the sense that it allows people to test Linux AT ALL on the platform. It
+>> shouldn't be "any possible random driver".
+>>
+>> IOW, think about the drivers a bit like a distro would think about
+>> backporting drivers to a stable kernel. Which ones are really needed?
+>>
+>> Also, note that "new driver" really should be that. If it's an older
+>> driver, and you need to touch _any_ old code to add a new PCI ID or
+>> something, the whole argument about it not breaking falls away. Don't do
+>> it. I think, for example, that the SCSI people seem to be a bit too eager
+>> sometimes to update their drivers for new revisions of cards, and they do
+>> it to old drivers.
+>>
+>> And finally - the rules should be guidelines. It really isn't always
+>> black-and-white, but most of the time the simple question of "could this
+>> _possibly_ be just queued for the next release without hurting anything"
+>> should be the basic one. If the answer is "yes", then wait.
+>
+> I am perfectly fine with these rules. You only had to spell them out :)
+
+I wonder whether if it would be a good idea to periodically send out an email
+with the basic rules to be followed in each phase of the project.
 
 
---=-JUz9NAurQ+0t9jJ9Kemi
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2008-08-20 at 19:16 +0200, Marcel Holtmann wrote:
-> Hi guys,
->=20
-> > I found that CONFIG_KMOD was already removed in linux-next tree.
-> > This seems to result in many breakages.  For example, I cannot mount a
-> > FAT device automatically because of failure of automatic loading of
-> > nls modules.
-> >=20
-> > My particular problem would be fixed by the patch below, but I found
-> > CONFIG_KMOD is still referred in many places.
->=20
-> I am happy to fix the net/bluetooth/ part, you someone has to put out a
-> guideline how this should be fixed.
-
-Bluetooth was already part of http://lkml.org/lkml/2008/7/9/144
-
-Basically, I got rid of CONFIG_KMOD, always enabling it when
-CONFIG_MODULES is defined and making it a dummy no-op inline when not.
-
-johannes
-
---=-JUz9NAurQ+0t9jJ9Kemi
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJIrGYeAAoJEKVg1VMiehFYT5QP/1Q3lUrurxSO2lEmWPa8eCiU
-3WbXzKXQRrseZh2O1fJd/rrhxEjvmNntlTfXTra+3L0jox1uV12D2t+6LQMiuS4g
-2+mf0yJlEiTeCvEWb3ts8xA8/ryE/yuL/LdF3nvz1lLspju1S9h/4X9fnqT5lIVC
-p788yhXDRUOjJoIl4eEtuw/KIAxkPKnyp1Xo3WBGBAMw3vBvXwyHbFzvitWsaKdd
-KFGQGISY3l1dkazIKcfUApbZBegYtJEpTeLoHnZRzJH5bWGkIoe/iCjZylyBXTY+
-LvwLyoYRwHz2wT8wbJ4Vmz1eYanS4yIBDsE1ZSguuQUaYGyrGaHUtXCShMvTYYUP
-vo1cif1jt/66A3mgNWcnEu+ZmAMAmP4mz/O8ltUDsHwjVxIRk681zV/8UtO8Q/sW
-22fAlvPiFfRQhoCjfJLBJKZNfeQfNWGynPu5eVk5WvQlPIE9wvVcw5HYf8OoAsog
-82F+8Np9Fh2zHWxtzae6SsQhUrvQVJmUT1gasY3z7rOgFCF53Mo6pNiX1x574zQ4
-hUXnZWyguBDnXOMSc1PnXirpgfZ/GVo+E/fCnFJ8QRFsBbx7JNLLkNDt7K9QNRNc
-R+fMJUXik8cB4ERKY4uGOTMxbBsmAOwEvPk7XY9mdxDe0LCRDRHDdNS6ki+t8aat
-PxyoRvxb8pavE9Svj83V
-=1Fjh
------END PGP SIGNATURE-----
-
---=-JUz9NAurQ+0t9jJ9Kemi--
+regards,
+-- 
+Paolo
+http://paolo.ciarrocchi.googlepages.com/
