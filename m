@@ -1,50 +1,52 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [Patch RFC 01/10 v2] mlx4_en: mlx4_en header file
-Date: Wed, 20 Aug 2008 09:46:00 -0700
-Message-ID: <adabpznprcn.fsf@cisco.com>
-References: <48AC1556.20801@mellanox.co.il>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [GIT]: Networking
+Date: Wed, 20 Aug 2008 18:46:05 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0808201842350.18947@twin.jikos.cz>
+References: <20080819.041706.261399060.davem@davemloft.net>
+ <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
+ <1219170451.7591.175.camel@violet.holtmann.net>
+ <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
+ <1219203753.7591.205.camel@violet.holtmann.net>  <20080820143734.GB20632@tuxdriver.com>
+  <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
+ <1219246813.7591.347.camel@violet.holtmann.net>
+ <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Liran Liss <liranl@mellanox.co.il>, tziporet@mellanox.co.il
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:58636 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753384AbYHTQqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 12:46:04 -0400
-In-Reply-To: <48AC1556.20801@mellanox.co.il> (Yevgeny Petrilin's message of
-	"Wed, 20 Aug 2008 16:00:06 +0300")
+Received: from twin.jikos.cz ([213.151.79.26]:49792 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752838AbYHTQqi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 12:46:38 -0400
+In-Reply-To: <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > +enum {
- > +	MLX4_EN_FLAG_MSI_X      = 1 << 1,
- > +	MLX4_EN_FLAG_HIGH_DMA   = 1 << 2,
- > +	MLX4_EN_FLAG_FW_RUNNING = 1 << 3
- > +};
+On Wed, 20 Aug 2008, Linus Torvalds wrote:
 
-I can't find anywhere that any of these flags are used?
+>  - but as a special case, we relax that for totally new drivers (and that 
+>    includes things like just adding a new PCI or USB ID's to old drivers), 
+>    because (a) it can't really regress 
 
- > +#ifdef MLX4_EN_PREFETCH
- > +	#define PREFETCH(x)	prefetch(x)
- > +#else
- > +	#define PREFETCH(x)	do {} while (0)
- > +#endif
+It in fact depends on your definition of regression really :)
 
-Probably better to figure out if you want to prefetch or not rather than
-having this compile-time option.  Probably not, given that HW
-prefetchers keep getting better.
+If we merge a buggy driver that hangs the user's machine when loaded, well 
+... before the driver has been merged, the machine had been booting well, 
+just some hardware was not functioning at all. After this late driver 
+merge, the driver gets autoloaded upon boot and crashes the machine. Users 
+will probably see this as a regression.
 
- > +#define ROUNDUP_LOG2(x)		ilog2(roundup_pow_of_two(x))
+This doesn't mean that I am against merging new drivers as aggressively as 
+possible, I just wanted to point out that it might bring actual 
+regressions to users.
 
-<linux/log2.h> calls this order_base_2()
+-- 
+Jiri Kosina
+SUSE Labs
 
- > +#define XNOR(x, y)		(!(x) == !(y))
-
-I think I said this before, but given that you only use this once, it
-would be clearer to just open-code it there.
-
-
-
- - R.
