@@ -1,65 +1,68 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: 2.6.26/tg3 ping roundtrip times > 2000 ms on local network
-Date: Wed, 20 Aug 2008 07:11:50 -0700
-Message-ID: <1219241510.10902.12.camel@HP1>
-References: <20080819172019.GA5823@torres.zugschlus.de>
- <20080819.132040.188336475.davem@davemloft.net>
- <1219166962.13090.12.camel@HP1>
- <20080819221439.GA19106@torres.zugschlus.de>
- <20080819223025.GA11221@xw6200.broadcom.net>
- <20080820174752.GB18419@torres.zugschlus.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: CONFIG_KMOD breakage in next kernel
+Date: Wed, 20 Aug 2008 20:16:05 +0200
+Message-ID: <1219256165.3502.10.camel@johannes.berg>
+References: <s5h3akzwtki.wl%tiwai@suse.de>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-vOsB7XUG031uSQfMjjeo"
+Cc: linux-next@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	video4linux-list@redhat.com
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <s5h3akzwtki.wl%tiwai@suse.de>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-vOsB7XUG031uSQfMjjeo
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Marc Haber" <mh+linux-kernel@zugschlus.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3653 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751258AbYHTSMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 14:12:50 -0400
-In-Reply-To: <20080820174752.GB18419@torres.zugschlus.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+> I found that CONFIG_KMOD was already removed in linux-next tree.
+> This seems to result in many breakages.  For example, I cannot mount a
+> FAT device automatically because of failure of automatic loading of
+> nls modules.
+
+This is odd. I had posted a long series of patches removing all of the
+users I had found (similar grep like the one you used), see
+http://lkml.org/lkml/2008/7/9/150 for the whole thread.
 
 
-On Wed, 2008-08-20 at 10:47 -0700, Marc Haber wrote:
-> On Tue, Aug 19, 2008 at 03:30:25PM -0700, Matt Carlson wrote:
-> > Can you try the attached patch?  The patch reduces the delay back to
-> > what it should have been.  If this helps, then it means you are being
-> > bitten by the same bug the upstream patch fixed.
-> 
-> It looks like the issue is fixed now. Thanks for your help.
-> 
-> Will this fix be in 2.6.26.3 and/or 2.6.27?
+For some reason, only seven of those eleven patches ended up in the
+kernel, you had taken the alsa one and Rusty posted only six of them.
 
-It was just submitted to -stable so it should appear 2.6.26.3 or .4.
-And definitely it will be fixed in 2.6.27.
+I'd hope that the patches posted at the URL above still apply, and I
+sure intended the series to go in as posted with the removal of
+CONFIG_KMOD coming last.
 
-> 
-> Now I need to understand why the other, nearly[1] identical box didn't
-> need the patch to function properly.
+johannes
 
-It depends on whether you have ASF enabled or not and what version of
-ASF you have.  ASF is management firmware running inside the NIC.  When
-the tg3 driver loads, it will show ASF[1] in dmesg if ASF is enabled.
+--=-vOsB7XUG031uSQfMjjeo
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-> 
-> Greetings
-> Marc
-> 
-> [1] only difference is that the working box has two e1000 interfaces
-> on a PCI card in addition to the two tg3 interfaces on board (all four
-> of them being in use)
-> 
-> --
-> -----------------------------------------------------------------------------
-> Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-> Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-> Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
-> 
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
+iQIcBAABAgAGBQJIrF9hAAoJEKVg1VMiehFYJkkP/2WYDHyk2Z2u1CACt/pU0x/m
+gijNKGSaUi8ewe5Z14NGH5Fz5Gmx+OozdxKu6ZHvi9dzld97+57gjwYIpqcrIDTK
+2J3zFo6ZnVcpwJUpu1kbbEFQ9rXq3HH88P70eb2j2dPk1ysEO8G5t+awSpnfSHqI
+8PEOv2VnJn1xg9H0eWZcC6uKHyYDa+ArVwfVCtLzyeB8GLPUNvB1Th7iTiWB+5Gi
+qq4DZM+2k06aSe04HhRyVudWCxNDJu9KepVXo0OyhqpdUA9/M7BcTvLCSHl2CQnF
+LPxOb73wnrvEi8jTdo8v2ExefFiDKWx03EO4eaq/MpRGxCHS+jKVlACIEIPDni1M
+jJf4/t9u9A71HaXkX9OXpy+pRmn35b24QOiFRTscGxCgZF2UMPZfgvZRZykgSN9p
+SmfMesZI6QAffIe0DOIZSoldnRCxC2F/0qypgfm7mSiNURd+aIrZCcBpwfEQahCx
+HyknYwJsdhoM5zxRMtdrkarehWy+LehtQL0Z7xJ9SeSP0JB3HDyEpZDxeDlzU8dt
+wyo3vLr/+HMvObiNnZToT4VR35742RQrP/hyArlm6JmnYERcFDzVRMVwr9uaGfCU
+D2g4gXiR2Zu2ddMp8dSoBg+f2rMd+N6qKeN+J+Lsyja6mIVWc+RuGmIG4SXiCMd0
+11XLourY1XfWfY3IiKaF
+=9vFx
+-----END PGP SIGNATURE-----
 
+--=-vOsB7XUG031uSQfMjjeo--
