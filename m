@@ -1,46 +1,188 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
- with the same regression
-Date: Wed, 20 Aug 2008 03:51:30 -0400
-Message-ID: <20080820035130.38426b00.billfink@mindspring.com>
-References: <109483.89278.qm@web82104.mail.mud.yahoo.com>
-	<86802c440808192221s3ada5443qc3b9d8e26f252d03@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Wed, 20 Aug 2008 10:57:44 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808201053100.20621@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+ <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
+ <20080812.011822.155249871.davem@davemloft.net> <20080812144309.7d62fd86@tux>
+ <Pine.LNX.4.64.0808122044450.16105@wrl-59.cs.helsinki.fi> <20080813145310.0c1e534c@tux>
+ <Pine.LNX.4.64.0808132108480.18807@wrl-59.cs.helsinki.fi> <20080815013407.4a594288@tux>
+ <Pine.LNX.4.64.0808150939270.23522@wrl-59.cs.helsinki.fi> <20080815183511.1c81be23@tux>
+ <Pine.LNX.4.64.0808160039230.6911@wrl-59.cs.helsinki.fi> <20080815231538.7999c017@tux>
+ <Pine.LNX.4.64.0808161002500.7264@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0808162210390.7443@wrl-59.cs.helsinki.fi> <20080816213615.689ddf8f@tux>
+ <Pine.LNX.4.64.0808181042290.23854@wrl-59.cs.helsinki.fi> <20080819213417.45133573@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Witbrodt" <dawitbro@sbcglobal.net>,
-	"Ingo Molnar" <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"Peter Zijlstra" <peterz@infradead.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:34935 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1749667AbYHTHvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 03:51:44 -0400
-In-Reply-To: <86802c440808192221s3ada5443qc3b9d8e26f252d03@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1316780446-1219219064=:20621"
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>, sr@securenet.de,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "=?ISO-8859-1?Q?D=E2niel?= Fraga" <fragabr@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080819213417.45133573@tux>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2008, Yinghai Lu wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Tue, Aug 19, 2008 at 9:51 PM, David Witbrodt <dawitbro@sbcglobal.net> wrote:
-> > While reading drivers/char/hpet.c and looking at the functions
-> > used there, I discovered request_region(), and realized that it
-> > would be difficult to compare the entire iomem_resource tree to
-> > a dummy tree only containing resources added by insert_resource()
-> > and request_resource().  It might be simpler to have my tiny
-> > e820_reserve_resources() replacement add each resource to 3 trees
-> > -- the real iomem_resource tree, and 2 dummy trees -- which could
-> > then be compared for differences just before the kernel locks up.
+---696208474-1316780446-1219219064=:20621
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 19 Aug 2008, Dâniel Fraga wrote:
+
+> On Tue, 19 Aug 2008 13:38:35 +0300 (EEST)
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 > 
-> with reverting patch that change insert_resource to request_resource...
-> 2.6.26 or 2.6.27-rcX still hange somewhere.
+> > Perhaps, though it's not at all clear how it could do that...
+> 
+> 	I was thinking here of of some specific configuration I use.
+> For example, I always used the wonder shaper htb script:
+> 
+> http://lartc.org/howto/lartc.cookbook.ultimate-tc.html#AEN2241
+> 
+> 	Could HTB mess with frto or cause this problem? Would it be
+> useful to disable completely HTB and use just the default scheduler?
+> 
+> > Do you have net namespaces enabled CONFIG_NET_NS in .config?
+> 
+> 	I couldn't find this specific option:
+> 
+> fraga@tux /usr/src/linux$ grep CONFIG_NET_NS .config
+> fraga@tux /usr/src/linux$ 
+> 
+> 	But I have those:
+> 
+> fraga@tux /usr/src/linux$ grep CONFIG_NET_ .config
+> # CONFIG_NET_KEY is not set
+> # CONFIG_NET_IPIP is not set
+> # CONFIG_NET_IPGRE is not set
+> CONFIG_NET_SCHED=y
+> # CONFIG_NET_SCH_CBQ is not set
+> CONFIG_NET_SCH_HTB=m
+> # CONFIG_NET_SCH_HFSC is not set
+> CONFIG_NET_SCH_PRIO=m
+> CONFIG_NET_SCH_RED=m
+> CONFIG_NET_SCH_SFQ=m
+> # CONFIG_NET_SCH_TEQL is not set
+> CONFIG_NET_SCH_TBF=m
+> CONFIG_NET_SCH_GRED=m
+> CONFIG_NET_SCH_DSMARK=m
+> # CONFIG_NET_SCH_NETEM is not set
+> CONFIG_NET_SCH_INGRESS=m
+> CONFIG_NET_CLS=y
+> # CONFIG_NET_CLS_BASIC is not set
+> CONFIG_NET_CLS_TCINDEX=m
+> CONFIG_NET_CLS_ROUTE4=m
+> CONFIG_NET_CLS_ROUTE=y
+> CONFIG_NET_CLS_FW=m
+> CONFIG_NET_CLS_U32=m
+> CONFIG_NET_CLS_RSVP=m
+> # CONFIG_NET_CLS_RSVP6 is not set
+> # CONFIG_NET_CLS_FLOW is not set
+> # CONFIG_NET_EMATCH is not set
+> CONFIG_NET_CLS_ACT=y
+> CONFIG_NET_ACT_POLICE=y
+> # CONFIG_NET_ACT_GACT is not set
+> # CONFIG_NET_ACT_MIRRED is not set
+> # CONFIG_NET_ACT_IPT is not set
+> # CONFIG_NET_ACT_NAT is not set
+> # CONFIG_NET_ACT_PEDIT is not set
+> # CONFIG_NET_ACT_SIMP is not set
+> # CONFIG_NET_CLS_IND is not set
+> CONFIG_NET_SCH_FIFO=y
+> # CONFIG_NET_PKTGEN is not set
+> # CONFIG_NET_9P is not set
+> # CONFIG_NET_SB1000 is not set
+> CONFIG_NET_ETHERNET=y
+> # CONFIG_NET_VENDOR_3COM is not set
+> # CONFIG_NET_TULIP is not set
+> CONFIG_NET_PCI=y
+> # CONFIG_NET_POCKET is not set
+> # CONFIG_NET_FC is not set
+> # CONFIG_NET_POLL_CONTROLLER is not set
+> 
+> 	And that:
+> 
+> fraga@tux /usr/src/linux$ grep NAMESPACE .config
+> CONFIG_NAMESPACES=y
+> 
+> 	but this one, I think, isn't related to what you asked me.
+> 
+> > Any netfilter (iptables) rules on server which could cause those packets 
+> > to not reach TCP layer?
+> 
+> 	Here are the complete rules:
+> 
+> # Generated by iptables-save v1.3.8 on Tue Aug 19 21:28:12 2008
+> *filter
+> :INPUT DROP [627:34387]
+> :FORWARD DROP [0:0]
+> :OUTPUT ACCEPT [58771289:83128359870]
+> :DROP_INPUT - [0:0]
+> :FLDR - [0:0]
+> :LDR - [0:0]
+> -A INPUT -i lo -j ACCEPT 
+> -A INPUT -j DROP_INPUT 
+> -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT 
+> -A INPUT -p tcp -m multiport --dports 80,21,25,53,119,443,873,993,995
+> -A INPUT -s 192.168.102.1 -p tcp -m tcp --dport 3493 -j ACCEPT 
+> -A INPUT -p tcp -m tcp --dport 22 -j ACCEPT 
+> -A INPUT -p udp -m udp --dport 53 -j ACCEPT 
+> -A INPUT -p tcp -m tcp --dport 113 -j REJECT --reject-with tcp-reset 
+> -A INPUT -p udp -m udp --dport 1194:1196 -j ACCEPT 
+> -A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT 
+> -A INPUT -j LDR 
+> -A FORWARD -j FLDR 
+> -A DROP_INPUT -s 216.201.112.111 -m comment --comment "deborahsafe Spam" -j DROP 
+> -A DROP_INPUT -s 200.49.247.241 -p tcp -m tcp --dport 22 -j DROP 
+> -A DROP_INPUT -s 189.70.204.3 -p tcp -m tcp --dport 21 -j DROP 
+> -A DROP_INPUT -s 189.70.204.3 -p tcp -m tcp --dport 21 -j DROP 
+> -A DROP_INPUT -s 189.70.204.3 -p tcp -m tcp --dport 21 -j DROP 
+> -A FLDR -j LOG --log-prefix "DROP [FORWARD]: " --log-level 6 --log-ip-options 
+> -A FLDR -j DROP 
+> -A LDR -j LOG --log-prefix "DROP [INPUT]: " --log-level 6 --log-ip-options 
+> -A LDR -j DROP 
+> COMMIT
+> # Completed on Tue Aug 19 21:28:13 2008
+> 
+> 	As you can see, it's a preetty simple set of rules, nothing exotic here.
+> 
+> > MIBs might give some clue why those segments didn't get accepted. Most 
+> > interesting ones are PAWSEstab, TCPAbortOnSyn and InErrs. One can use 
+> > /bin/cut to read those from the one-line files if one wants to (however,
+> > I attached a script which transposes them to get them somewhat 
+> > human-readable). Also having the /proc/net/tcp output from the server 
+> > while stalling would be (have been) useful to reveal state info (but I 
+> > should have remembered to ask you to run it on both of them :-)). 
+> 
+>  Ok ;) No problem, when I get the problem, I'll provide you the 
+>  requested information.
 
-This is true if he reverted just the 3def3d6d... commit, but if he
-also reverts the similar, and immediately following, 1e934dda...
-commit, then his 2.6.26 kernel runs fine.
+It would be nice to "watch" them for a while (take snapshots with 
+timestamps) during the event, so that it's easy to see increments.
 
-						-Bill
+> > Also, I wonder what that [|tcp] hides, e.g., "<nop,nop,timestamp 
+> > 15980976 70381399,nop,nop,[|tcp]>" in tcpdump (and that was for an ACK 
+> > which doesn't make too much sense to me there). It occurs because 
+> > snaplen which was given for tcpdump is small enough to make TCP header 
+> > partial.
+> 
+> 	Hmmm, I don't know. This is complex to me, but I'll apply your script.
+
+Try giving -s<number> among tcpdump parameters, where number is at least 
+100 or so.
+
+Also, it is very useful to have full set of logs about it to see what 
+corresponds to what, so that also the tcpdump and /proc/net/tcp from both 
+ends would be included (one started during the problem is better than 
+nothing but if you can get it from earlier point too it would be quite 
+nice).
+
+I'll comment the rest of this mail later on...
+
+-- 
+ i.
+---696208474-1316780446-1219219064=:20621--
