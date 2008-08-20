@@ -1,50 +1,58 @@
 From: Marcel Holtmann <marcel@holtmann.org>
 Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 05:43:52 +0200
-Message-ID: <1219203832.7591.207.camel@violet.holtmann.net>
-References: <20080819.041706.261399060.davem@davemloft.net>
-	 <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
-	 <20080819.131454.223684377.davem@davemloft.net>
+Date: Wed, 20 Aug 2008 06:20:13 +0200
+Message-ID: <1219206013.7591.227.camel@violet.holtmann.net>
+References: <20080819.140458.236030589.davem@davemloft.net>
+	 <200808192315.48718.rjw@sisk.pl>
+	 <alpine.LFD.1.10.0808191425050.3324@nehalem.linux-foundation.org>
+	 <20080819.143556.245692295.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: torvalds@linux-foundation.org, rjw@sisk.pl,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:42626 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:35057 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753765AbYHTDnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2008 23:43:49 -0400
-In-Reply-To: <20080819.131454.223684377.davem@davemloft.net>
+	with ESMTP id S1750783AbYHTEUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 00:20:11 -0400
+In-Reply-To: <20080819.143556.245692295.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hi guys,
 
-> > For example, those BT updates looked in no way like regression fixes. So 
-> > what the f*ck were they doing there? And why do you think all those driver 
-> > updates cannot cause new regressions? 
-> 
-> The BT bits were the only part I really considered borderline,
-> and I was going to push back on Marcel.
-> 
-> But to be honest, I haven't seen bluetooth updates from him
-> for such a long time I felt that being strict here would just
-> exacerbate the problem.
-> 
-> Guess I was wrong.
+> And then there is the Bluetooth SCO change which I agree was
+> borderline and I should have pushed back on.
 
-as I explained to Linus, my current assumption was that documentation
-updates and new driver stuff should go in quickly. You will not get any
-of these from me anymore. Next time you only get the one regression fix
-and all my queued up stuff in the next merge window.
+so this is the statement, I sent Dave to explain why that change was in
+there:
 
-Don't hold back if you think that a patch is not acceptable. Really, I
-am using GIT for everything. Merging is no problem for me. I also do
-backports in my -mh patch for the latest stable kernel. So there is no
-extra work for me. It is just sending you a new email with another tree
-to pull from :)
+---
+For the btusb driver this adds the promised SCO support. The btusb
+driver is a new driver and will eventually replace hci_usb. Adding SCO
+support was the last missing piece. All distributions are using the
+hci_usb driver at the moment and you can only select one of them. So
+this can't introduce any regression. With this change the distributions
+are now able to select the new driver if they really want to.
+---
+
+Was this absolutely needed after -rc3. Of course not. No questions asked
+about it. So why did it ended up in there?
+
+Almost everybody is using the hci_usb driver and that one has issues
+that are beyond fixable. So the btusb is its replacement and with this
+change it became a real alternate solution. For me this is a new driver
+that would allow people to use it in case hci_usb gives them a hard time
+and falls over again. And fixing hci_usb is not an option. A lot of
+people tried it and they failed. I think the last one was Pavel a month
+ago. This is why I re-wrote the whole beast from scratch.
+
+So that is my excuse why I thought this would be good choice to push it
+to Dave. No more excuses and no new drivers after the merge window. At
+least not from me.
 
 Regards
 
