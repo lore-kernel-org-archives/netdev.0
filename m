@@ -1,68 +1,91 @@
-From: Santiago Leon <santil@us.ibm.com>
-Subject: [PATCH] ibmveth: fix bad UDP checksums
-Date: Wed, 20 Aug 2008 13:09:19 -0600
-Message-ID: <20080820190826.24896.41095.62294@soporte.mitelefono.ec>
-Cc: Santiago Leon <santil@us.ibm.com>, netdev@vger.kernel.org
-To: jeff@garzik.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: r8169 MTU greater than 1500 causes corruption for other controllers
+Date: Wed, 20 Aug 2008 22:21:11 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808202053510.24321@wrl-59.cs.helsinki.fi>
+References: <20080820170951.GA1771@tophat.atxconsulting.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Timothy J Fontaine <tjfontaine@atxconsulting.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:44023 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753610AbYHTTJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 15:09:39 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m7KJ9b4K007947
-	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 15:09:37 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7KJ9LhY209234
-	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 13:09:28 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7KJ9KZF028528
-	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 13:09:21 -0600
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39321 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752857AbYHTTVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 15:21:14 -0400
+In-Reply-To: <20080820170951.GA1771@tophat.atxconsulting.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a ibmveth bug where bad UDP checksums are being transmitted 
-when checksum offloading is enabled.
-The hypervisor does checksum offloading only on TCP packets, so ibmveth calls 
-skb_checksum_help() for any other protocol.  The bug happens because 
-the packet is being modified after the DMA map, so we would need a memory 
-barrier before making the hypervisor call.  Reordering the code so that the 
-DMA map happens after skb_checksum_help() has the additional advantage of 
-fixing a DMA map leak if skb_checksum_help() where to fail.
+On Wed, 20 Aug 2008, Timothy J Fontaine wrote:
 
-Please consider applying.
+> Setting the MTU to greater than 1500 causes the host system to run out
+> of SW-IOMMU space for the transfer. This results in corruption for other
+> controllers like my AAR-2410SA or IDE controller.
+> 
+> Host system:
+>  ASUS P5M2 w/ Intel Core 2 Duo 6320
+>  Linux version 2.6.24-19-server (buildd@king) (gcc version 4.2.3 (Ubuntu 4.2.3-2ubuntu7)) #1 SMP Fri Jul 11 21:50:43 UTC 2008
+>  r8169 chipset pci card
+> 
+> Connected via Cross-Over cable to:
+>  SuperMicro 6014Hi
+>  Onboard Intel 82546GB e1000 chipset
+>  Running latest VMware ESXi or Vanilla 2.6.26
+> 
+> Initially I presumed the issue was with my aacraid because of the
+> trace[1], so I built a vanilla 2.6.26.2 and hit the same bug. I have
+> another system running 2.6.20 and the same card working so I tried
+> 2.6.22 and had no problem. However, 2.6.23 failed. I sifted through the
+> ChangeLog for 2.6.23 and narrowed the field to some potential problem
+> commits regarding aacraid. I then proceeded to do a git bisect and found
+> commit b449655ff52ff8a29c66c5fc3fc03617e61182ee[2] which had nothing to
+> do with aacraid. Instead, the commit deals with large packets so I reset
+> the MTU to 1500 and retried on 2.6.24 and found that there was no
+> corruption, I then proceeded to try with various different size MTU only
+> to find that an MTU greater than 1500 triggers the corruption.
 
-Signed-off-by: Santiago Leon <santil@us.ibm.com>
----
+Hmm, there was no explanation why the tp->rx_buf_sz to pkt_size change
+was made in that commit (I have no idea whether those sizes have to match 
+to other places that use tp->rx_buf_sz)... Below is a patch to revert 
+that part of the change fully though it could be enough to change just 
+pci_unmap_single arg (but that would probably need also 
+rtl8169_mark_to_asic arg to be changed to match pkt_size).
 
- ibmveth.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> Below you'll find a list of files referenced from REPORTING-BUGS that
+> are meant to be helpful, including the lspci and module information,
+> they can all be reached from the toplevel directory index
 
---- a/drivers/net/ibmveth.c	2008-08-19 07:31:29.000000000 -0400
-+++ b/drivers/net/ibmveth.c	2008-08-19 07:46:24.000000000 -0400
-@@ -904,8 +904,6 @@ static int ibmveth_start_xmit(struct sk_
- 	unsigned long data_dma_addr;
+Thanks for the detailed report btw... :-)
+
+-- 
+ i.
+
+----
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index a3e3895..44961ef 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2720,7 +2720,7 @@ static inline bool rtl8169_try_rx_copy(struct sk_buff **sk_buff,
+ 	if (!skb)
+ 		goto out;
  
- 	desc.fields.flags_len = IBMVETH_BUF_VALID | skb->len;
--	data_dma_addr = dma_map_single(&adapter->vdev->dev, skb->data,
--				       skb->len, DMA_TO_DEVICE);
+-	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, pkt_size,
++	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, tp->rx_buf_sz,
+ 				    PCI_DMA_FROMDEVICE);
+ 	skb_reserve(skb, NET_IP_ALIGN);
+ 	skb_copy_from_linear_data(*sk_buff, skb->data, pkt_size);
+@@ -2789,10 +2789,10 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
  
- 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
- 	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
-@@ -924,6 +922,8 @@ static int ibmveth_start_xmit(struct sk_
- 		buf[1] = 0;
- 	}
- 
-+	data_dma_addr = dma_map_single(&adapter->vdev->dev, skb->data,
-+				       skb->len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(&adapter->vdev->dev, data_dma_addr)) {
- 		if (!firmware_has_feature(FW_FEATURE_CMO))
- 			ibmveth_error_printk("tx: unable to map xmit buffer\n");
-@@ -932,6 +932,7 @@ static int ibmveth_start_xmit(struct sk_
- 		desc.fields.address = adapter->bounce_buffer_dma;
- 		tx_map_failed++;
- 		used_bounce = 1;
-+		wmb();
- 	} else
- 		desc.fields.address = data_dma_addr;
- 
+ 			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
+ 				pci_dma_sync_single_for_device(pdev, addr,
+-					pkt_size, PCI_DMA_FROMDEVICE);
++					tp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+ 			} else {
+-				pci_unmap_single(pdev, addr, pkt_size,
++				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
+ 						 PCI_DMA_FROMDEVICE);
+ 				tp->Rx_skbuff[entry] = NULL;
+ 			}
