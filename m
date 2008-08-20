@@ -1,61 +1,57 @@
-From: Marcel Holtmann <marcel@holtmann.org>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 06:20:13 +0200
-Message-ID: <1219206013.7591.227.camel@violet.holtmann.net>
-References: <20080819.140458.236030589.davem@davemloft.net>
-	 <200808192315.48718.rjw@sisk.pl>
-	 <alpine.LFD.1.10.0808191425050.3324@nehalem.linux-foundation.org>
-	 <20080819.143556.245692295.davem@davemloft.net>
+Date: Wed, 20 Aug 2008 06:20:29 +0200
+Message-ID: <20080820042029.GA31789@1wt.eu>
+References: <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org> <20080819.142150.129314008.davem@davemloft.net> <1219199116.26429.19.camel@jdub.homelinux.org> <20080819.195115.49989151.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, rjw@sisk.pl,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jwboyer@gmail.com, torvalds@linux-foundation.org,
+	marcel@holtmann.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35057 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783AbYHTEUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 00:20:11 -0400
-In-Reply-To: <20080819.143556.245692295.davem@davemloft.net>
+Received: from 1wt.eu ([62.212.114.60]:1100 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750897AbYHTEVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 00:21:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20080819.195115.49989151.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys,
+On Tue, Aug 19, 2008 at 07:51:15PM -0700, David Miller wrote:
+> From: Josh Boyer <jwboyer@gmail.com>
+> Date: Tue, 19 Aug 2008 22:25:15 -0400
+> 
+> > So, not to add fuel to a fire that seems to be calming down, but what is
+> > so wrong with having that feeling?  If the core people are spending 3
+> > months doing nothing but fixing bugs, the I consider that to _be_ the
+> > best work from the best people.
+> 
+> All work and no play makes Dave a dull boy, that's the
+> problem. :-)
+> 
+> I don't care how much someone claims they enjoy bug fixing
+> and gathering up other people's patches, you will go out
+> of your mind or become bored to death if you don't get to
+> spend real time implementing something significant from
+> time to time.
 
-> And then there is the Bluetooth SCO change which I agree was
-> borderline and I should have pushed back on.
+That's true and I would also add that it's very common for bugs to
+be discovered and fixed while implementing new features. However,
+it's so convenient to manage several branches with git that it should
+not be a problem to "play" in one branch and push all the stuff during
+the merge window only. One of the problems with networking is that you
+need a lot of testers. I don't think it's too hard for them to pull
+from your development tree. And if it is, maybe you can incite them
+from time to time by releasing snapshots as plain patches.
 
-so this is the statement, I sent Dave to explain why that change was in
-there:
+BTW, it also helps testers a lot to be able to play with topic trees
+provided as patches against last release, because they generally can
+apply them to stable kernels without the fear of losing their data.
+I'm sure that many people already run stable kernels with not-yet-merged
+patches on top of them and are happy that way.
 
----
-For the btusb driver this adds the promised SCO support. The btusb
-driver is a new driver and will eventually replace hci_usb. Adding SCO
-support was the last missing piece. All distributions are using the
-hci_usb driver at the moment and you can only select one of them. So
-this can't introduce any regression. With this change the distributions
-are now able to select the new driver if they really want to.
----
-
-Was this absolutely needed after -rc3. Of course not. No questions asked
-about it. So why did it ended up in there?
-
-Almost everybody is using the hci_usb driver and that one has issues
-that are beyond fixable. So the btusb is its replacement and with this
-change it became a real alternate solution. For me this is a new driver
-that would allow people to use it in case hci_usb gives them a hard time
-and falls over again. And fixing hci_usb is not an option. A lot of
-people tried it and they failed. I think the last one was Pavel a month
-ago. This is why I re-wrote the whole beast from scratch.
-
-So that is my excuse why I thought this would be good choice to push it
-to Dave. No more excuses and no new drivers after the merge window. At
-least not from me.
-
-Regards
-
-Marcel
-
+Regards,
+Willy
 
