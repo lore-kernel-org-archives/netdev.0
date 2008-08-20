@@ -1,182 +1,203 @@
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
- code
-Date: Wed, 20 Aug 2008 20:54:01 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808202051550.3501@melkki.cs.Helsinki.FI>
-References: <20080813.033749.165504341.davem@davemloft.net>
- <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
- <Pine.LNX.4.64.0808141643200.3164@sbz-30.cs.Helsinki.FI>
- <20080814.151502.251134900.davem@davemloft.net>
+From: "Ranjit Manomohan" <ranjitm@google.com>
+Subject: Re: Some question about your TC cgroups controller !!
+Date: Wed, 20 Aug 2008 10:56:15 -0700
+Message-ID: <166fe7950808201056g6bf649a8g4f2c6a30f8742ada@mail.gmail.com>
+References: <79f401c9028e$635a1770$8310fe81@etri.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, adobriyan@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: "=?EUC-KR?B?waS8usDO?=" <sijung@etri.re.kr>,
+	"=?EUC-KR?B?sK21v8Dn?=" <djkang@etri.re.kr>,
+	netdev@vger.kernel.org, Containers@lists.linux-foundation.org
+To: "Kim, Chei-Yol" <gauri@etri.re.kr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54272 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbYHTRyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 13:54:05 -0400
-In-Reply-To: <20080814.151502.251134900.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:12925 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267AbYHTR4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 13:56:35 -0400
+Received: from zps76.corp.google.com (zps76.corp.google.com [172.25.146.76])
+	by smtp-out.google.com with ESMTP id m7KHuGqJ022022
+	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 18:56:17 +0100
+Received: from rv-out-0708.google.com (rvfb17.prod.google.com [10.140.179.17])
+	by zps76.corp.google.com with ESMTP id m7KHtltR019679
+	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 10:56:16 -0700
+Received: by rv-out-0708.google.com with SMTP id b17so725508rvf.44
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 10:56:15 -0700 (PDT)
+In-Reply-To: <79f401c9028e$635a1770$8310fe81@etri.info>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Aug 2008, David Miller wrote:
-> From: Pekka J Enberg <penberg@cs.helsinki.fi>
-> Date: Thu, 14 Aug 2008 16:44:32 +0300 (EEST)
-> 
-> > @@ -598,6 +598,7 @@
-> >  
-> >  	spinlock_t		lock;
-> >  	spinlock_t		rx_lock;
-> > +	spinlock_t		tx_lock;
-> >  
-> >  	chip_t			chipset;
-> >  	u32			rx_config;
-> 
-> Why create a special purpose lock when the generic networking
-> already is taking a lock for you to proect the TX path?
+On Tue, Aug 19, 2008 at 11:31 PM, Kim, Chei-Yol <gauri@etri.re.kr> wrote:
+> Hello !!
+> I'm Chei-yol Kim, I work for ETRI(www.etri.re.kr) in Korea.
+> I have very interested in cgroup, their controllers and especially network
+> controller.
+> Before about a week ago, I send below mail to container mailing list.
+> If you don't mind, I hope hear your opion about that.
+> I  think your TC cgroup idea is very good and efficient way of network
+> controller.
+> Can I ask your plan of TC cgroup patch? What is the future work of the TC
+> cgroup?
 
-Heh, no reason, just my ignorance of the networking layer... Does this 
-look more like it?
+If there are no objections to the current implementation, I have the
+following set of patches planned:
 
-		Pekka
+1) Supporting ingress packet classification based on cgroups
+2) Supporting firewall functionality based on this (e.g. drop a packet
+at port 80 if not in the right cgroup)
 
-Subject: [PATCH] 8139too: avoid deadlock with netconsole
-From: Pekka Enberg <penberg@cs.helsinki.fi>
+> If you think your patch has a problem, What is it?
 
-As explained by Vegard Nossum, the 8139too driver can deadlock with netconsole:
+As you pointed out the split logic in configuration of this
+functionality (partially in cgroups and the rest with the tc tools) is
+something that I wanted to avoid. However when you look at the rich
+feature set provided by the linux networking stack to support traffic
+shaping and firewalls it becomes very tedious to duplicate all
+possible configuration options with cgroups. Hence the compromise in
+terms of user configuration complexity. We could always come up with
+simple utilities or scripts to make this easier if it becomes a
+serious concern.
 
-  I encountered a hard-to-debug deadlock when I pulled out the plug of my
-  RealTek 8139 which was also running netconsole: The driver wants to print a
-  "link down" message. However, this triggers netconsole, which wants to print
-  the message using the same device. Here is a backtrace:
+-Thanks,
+Ranjit
 
-     [<c05916b6>] _spin_lock_irqsave+0x76/0x90
-     [<c035b255>] rtl8139_start_xmit+0x65/0x130 <-- spin_lock(&tp->lock)
-     [<c04c5e28>] netpoll_send_skb+0x158/0x1a0
-     [<c04c62fb>] netpoll_send_udp+0x1db/0x1f0
-     [<c037c70c>] write_msg+0x8c/0xc0
-     [<c0135883>] __call_console_drivers+0x53/0x60
-     [<c01358db>] _call_console_drivers+0x4b/0x90
-     [<c0135a25>] release_console_sem+0xc5/0x1f0
-     [<c0135f0b>] vprintk+0x1ab/0x3e0
-     [<c013615b>] printk+0x1b/0x20
-     [<c0349736>] mii_check_media+0x196/0x1e0
-     [<c03597f4>] rtl_check_media+0x24/0x30
-     [<c035a0ea>] rtl8139_interrupt+0x42a/0x4a0 <-- spin_lock(&tp->lock)
-     [<c01716d8>] handle_IRQ_event+0x28/0x70
-     [<c0172d9b>] handle_fasteoi_irq+0x6b/0xe0
-     [<c0107128>] do_IRQ+0x48/0xa0
 
-To avoid the deadlock, use netif_tx_lock() for the TX paths and make sure we
-never call printk() while holding that lock as suggested by David Miller.
-
-Cc: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
----
- drivers/net/8139too.c |   35 +++++++++++++++++++++++++++--------
- 1 file changed, 27 insertions(+), 8 deletions(-)
-
-Index: linux-2.6/drivers/net/8139too.c
-===================================================================
---- linux-2.6.orig/drivers/net/8139too.c
-+++ linux-2.6/drivers/net/8139too.c
-@@ -1675,9 +1675,11 @@ static void rtl8139_tx_timeout_task (str
- 	RTL_W16 (IntrMask, 0x0000);
- 
- 	/* Stop a shared interrupt from scavenging while we are. */
--	spin_lock_irq(&tp->lock);
-+	local_irq_disable();
-+	netif_tx_lock(dev);
- 	rtl8139_tx_clear (tp);
--	spin_unlock_irq(&tp->lock);
-+	netif_tx_unlock(dev);
-+	local_irq_enable();
- 
- 	/* ...and finally, reset everything */
- 	if (netif_running(dev)) {
-@@ -1721,7 +1723,8 @@ static int rtl8139_start_xmit (struct sk
- 		return 0;
- 	}
- 
--	spin_lock_irqsave(&tp->lock, flags);
-+	local_irq_save(flags);
-+	netif_tx_lock(dev);
- 	RTL_W32_F (TxStatus0 + (entry * sizeof (u32)),
- 		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
- 
-@@ -1732,7 +1735,8 @@ static int rtl8139_start_xmit (struct sk
- 
- 	if ((tp->cur_tx - NUM_TX_DESC) == tp->dirty_tx)
- 		netif_stop_queue (dev);
--	spin_unlock_irqrestore(&tp->lock, flags);
-+	netif_tx_unlock(dev);
-+	local_irq_restore(flags);
- 
- 	if (netif_msg_tx_queued(tp))
- 		printk (KERN_DEBUG "%s: Queued Tx packet size %u to slot %d.\n",
-@@ -1747,10 +1751,15 @@ static void rtl8139_tx_interrupt (struct
- 				  void __iomem *ioaddr)
- {
- 	unsigned long dirty_tx, tx_left;
-+	unsigned long old_dirty_tx = 0;
-+	int error;
- 
- 	assert (dev != NULL);
- 	assert (ioaddr != NULL);
- 
-+	netif_tx_lock(dev);
-+retry:
-+	error = 0;
- 	dirty_tx = tp->dirty_tx;
- 	tx_left = tp->cur_tx - dirty_tx;
- 	while (tx_left > 0) {
-@@ -1766,8 +1775,7 @@ static void rtl8139_tx_interrupt (struct
- 		if (txstatus & (TxOutOfWindow | TxAborted)) {
- 			/* There was an major error, log it. */
- 			if (netif_msg_tx_err(tp))
--				printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
--					dev->name, txstatus);
-+				error = 1;
- 			dev->stats.tx_errors++;
- 			if (txstatus & TxAborted) {
- 				dev->stats.tx_aborted_errors++;
-@@ -1793,12 +1801,19 @@ static void rtl8139_tx_interrupt (struct
- 
- 		dirty_tx++;
- 		tx_left--;
-+		if (error) {
-+			netif_tx_unlock(dev);
-+			printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
-+				dev->name, txstatus);
-+			netif_tx_lock(dev);
-+			goto retry;
-+		}
- 	}
- 
- #ifndef RTL8139_NDEBUG
- 	if (tp->cur_tx - dirty_tx > NUM_TX_DESC) {
--		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
--		        dev->name, dirty_tx, tp->cur_tx);
-+		error = 1;
-+		old_dirty_tx = dirty_tx;
- 		dirty_tx += NUM_TX_DESC;
- 	}
- #endif /* RTL8139_NDEBUG */
-@@ -1809,6 +1824,10 @@ static void rtl8139_tx_interrupt (struct
- 		mb();
- 		netif_wake_queue (dev);
- 	}
-+	netif_tx_unlock(dev);
-+	if (error)
-+		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
-+		        dev->name, old_dirty_tx, tp->cur_tx);
- }
- 
- 
+>
+> I'm sorry for many question.
+> But If you share your thinking, it'll be great pleasure to me.
+>
+> I expect your answer and thank for reading this mail.
+>
+> - Kim, Chei-yol
+>
+>
+>
+> -----Original Message-----
+> From: containers-bounces@lists.linux-foundation.org
+> [mailto:containers-bounces@lists.linux-foundation.org] On Behalf Of Kim,
+> Chei-Yol
+> Sent: Wednesday, August 13, 2008 6:05 PM
+> To: Containers@lists.linux-foundation.org
+> Subject: Opinion about cgroup network controller
+>
+>
+>
+> I'm interested in cgroup network controller.
+>
+>
+>
+> As I know, currently announced network controllers are two.
+>
+>
+>
+> One is Andrea's network throttle and the other is Ranjit's TC(Traffic
+> Control) cgroups subsystem(http://lkml.org/lkml/2008/7/22/361).
+>
+>
+>
+> Two implementations is totally different each other.
+>
+>
+>
+>
+>
+>
+>
+> Network throttle is quite same mechanism to io_throttle. so it just can
+> limit socket's rate.
+>
+>
+>
+> The most important drawback of it is that it can't support work-conserving
+> mode.
+>
+>
+>
+> If it were capable of work-conserving mode, it could guarantee the minimum
+> network rate.
+>
+>
+>
+> this point is very important.
+>
+>
+>
+>
+>
+>
+>
+> The other, ranjit's implementation is to let TC recognize the cgroup so that
+> administrator can
+>
+>
+>
+> adopt different rate or polish to each cgroups. TC is not easy to use
+> without much knowledge.
+>
+>
+>
+> Because of the using TC mechanism, user have to configure cgroup and TC
+> together. This is not same
+>
+>
+>
+> to other controller configuration. Other controllers are controlled by value
+> in the cgroup file. But
+>
+>
+>
+> ranjit's implementation have to control rate by tc configuration. This
+> difference is not good to user.
+>
+>
+>
+>
+>
+>
+>
+> As the result of this looking, the controller which can resolve these
+> problems would be needed now.
+>
+>
+>
+> This could support work-conserving mode and easy to use and configured like
+> other controllers.
+>
+>
+>
+>
+>
+>
+>
+> What do you think about this?
+>
+>
+>
+>
+>
+>
+>
+> I hope many comments.
+>
+>
+>
+>
+>
+>
+>
+> -       Chei-yol
+>
+>
+>
+> _______________________________________________
+>
+> Containers mailing list
+>
+> Containers@lists.linux-foundation.org
+>
+> https://lists.linux-foundation.org/mailman/listinfo/containers
+>
+>
+>
+>
