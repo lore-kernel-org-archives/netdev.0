@@ -1,93 +1,86 @@
 From: Julius Volz <juliusv@google.com>
-Subject: [PATCH RFC 17/24] IPVS: Make proc/net files output IPv6 entries correctly
-Date: Wed, 20 Aug 2008 18:15:24 +0200
-Message-ID: <1219248931-15064-18-git-send-email-juliusv@google.com>
+Subject: [PATCH RFC 24/24] IPVS: Add notes about IPv6 changes
+Date: Wed, 20 Aug 2008 18:15:31 +0200
+Message-ID: <1219248931-15064-25-git-send-email-juliusv@google.com>
 References: <1219248931-15064-1-git-send-email-juliusv@google.com>
 Cc: horms@verge.net.au, kaber@trash.net, vbusam@google.com,
 	Julius Volz <juliusv@google.com>
 To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:51616 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499AbYHTQQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 12:16:08 -0400
 In-Reply-To: <1219248931-15064-1-git-send-email-juliusv@google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for IPv6 entry output to ip_vs_conn_seq_show() and
-ip_vs_conn_sync_seq_show() proc/net file handlers.
+Add notes about the IPv6 changes to header comments in relevant files.
 
-Signed-off-by: Vince Busam <vbusam@google.com>
+Signed-off-by: Julius Volz <juliusv@google.com>
 
- 1 files changed, 35 insertions(+), 10 deletions(-)
+ 5 files changed, 5 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
-index 5e013c9..f0b848d 100644
+index 011d455..aa6f43b 100644
 --- a/net/ipv4/ipvs/ip_vs_conn.c
 +++ b/net/ipv4/ipvs/ip_vs_conn.c
-@@ -815,14 +815,26 @@ static int ip_vs_conn_seq_show(struct seq_file *seq, void *v)
- 	else {
- 		const struct ip_vs_conn *cp = v;
+@@ -19,6 +19,7 @@
+  * and others. Many code here is taken from IP MASQ code of kernel 2.2.
+  *
+  * Changes:
++ * 	Julius Volz			add first IPv6 support
+  *
+  */
  
--		seq_printf(seq,
--			"%-3s %08X %04X %08X %04X %08X %04X %-11s %7lu\n",
-+		if (cp->af == AF_INET)
-+			seq_printf(seq,
-+				"%-3s %08X %04X %08X %04X %08X %04X %-11s %7lu\n",
- 				ip_vs_proto_name(cp->protocol),
--				ntohl(cp->caddr), ntohs(cp->cport),
--				ntohl(cp->vaddr), ntohs(cp->vport),
--				ntohl(cp->daddr), ntohs(cp->dport),
-+				ntohl(cp->caddr.ip), ntohs(cp->cport),
-+				ntohl(cp->vaddr.ip), ntohs(cp->vport),
-+				ntohl(cp->daddr.ip), ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
- 				(cp->timer.expires-jiffies)/HZ);
-+#ifdef CONFIG_IP_VS_IPV6
-+		else
-+			seq_printf(seq,
-+				"%-3s " NIP6_FMT " %04X " NIP6_FMT " %04X " NIP6_FMT " %04X %-11s %7lu\n",
-+				ip_vs_proto_name(cp->protocol),
-+				NIP6(cp->caddr.in6), ntohs(cp->cport),
-+				NIP6(cp->vaddr.in6), ntohs(cp->vport),
-+				NIP6(cp->daddr.in6), ntohs(cp->dport),
-+				ip_vs_state_name(cp->protocol, cp->state),
-+				(cp->timer.expires-jiffies)/HZ);
-+#endif
- 	}
- 	return 0;
- }
-@@ -864,15 +876,28 @@ static int ip_vs_conn_sync_seq_show(struct seq_file *seq, void *v)
- 	else {
- 		const struct ip_vs_conn *cp = v;
+diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+index 0f9a0a2..5bb53c0 100644
+--- a/net/ipv4/ipvs/ip_vs_core.c
++++ b/net/ipv4/ipvs/ip_vs_core.c
+@@ -21,6 +21,7 @@
+  * Changes:
+  *	Paul `Rusty' Russell		properly handle non-linear skbs
+  *	Harald Welte			don't use nfcache
++ * 	Julius Volz			add first IPv6 support
+  *
+  */
  
--		seq_printf(seq,
--			"%-3s %08X %04X %08X %04X %08X %04X %-11s %-6s %7lu\n",
-+		if (cp->af == AF_INET)
-+			seq_printf(seq,
-+				"%-3s %08X %04X %08X %04X %08X %04X %-11s %-6s %7lu\n",
- 				ip_vs_proto_name(cp->protocol),
--				ntohl(cp->caddr), ntohs(cp->cport),
--				ntohl(cp->vaddr), ntohs(cp->vport),
--				ntohl(cp->daddr), ntohs(cp->dport),
-+				ntohl(cp->caddr.ip), ntohs(cp->cport),
-+				ntohl(cp->vaddr.ip), ntohs(cp->vport),
-+				ntohl(cp->daddr.ip), ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
- 				ip_vs_origin_name(cp->flags),
- 				(cp->timer.expires-jiffies)/HZ);
-+#ifdef CONFIG_IP_VS_IPV6
-+		else
-+			seq_printf(seq,
-+				"%-3s " NIP6_FMT " %04X " NIP6_FMT " %04X " NIP6_FMT " %04X %-11s %-6s %7lu\n",
-+				ip_vs_proto_name(cp->protocol),
-+				NIP6(cp->caddr.in6), ntohs(cp->cport),
-+				NIP6(cp->vaddr.in6), ntohs(cp->vport),
-+				NIP6(cp->daddr.in6), ntohs(cp->dport),
-+				ip_vs_state_name(cp->protocol, cp->state),
-+				ip_vs_origin_name(cp->flags),
-+				(cp->timer.expires-jiffies)/HZ);
-+#endif
- 	}
- 	return 0;
- }
+diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+index ba4d7c2..ec5e855 100644
+--- a/net/ipv4/ipvs/ip_vs_ctl.c
++++ b/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -15,6 +15,7 @@
+  *              2 of the License, or (at your option) any later version.
+  *
+  * Changes:
++ * 	Julius Volz, Vince Busam	add first IPv6 support
+  *
+  */
+ 
+diff --git a/net/ipv4/ipvs/ip_vs_proto.c b/net/ipv4/ipvs/ip_vs_proto.c
+index 301b779..5c4b8f9 100644
+--- a/net/ipv4/ipvs/ip_vs_proto.c
++++ b/net/ipv4/ipvs/ip_vs_proto.c
+@@ -10,6 +10,7 @@
+  *              2 of the License, or (at your option) any later version.
+  *
+  * Changes:
++ * 	Julius Volz			add first IPv6 support
+  *
+  */
+ 
+diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
+index 15c59aa..e1a3fde 100644
+--- a/net/ipv4/ipvs/ip_vs_xmit.c
++++ b/net/ipv4/ipvs/ip_vs_xmit.c
+@@ -10,6 +10,7 @@
+  *              2 of the License, or (at your option) any later version.
+  *
+  * Changes:
++ * 	Julius Volz			add first IPv6 support
+  *
+  */
+ 
 -- 
 1.5.4.5
 
