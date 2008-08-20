@@ -1,52 +1,82 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 18:46:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0808201842350.18947@twin.jikos.cz>
-References: <20080819.041706.261399060.davem@davemloft.net>
- <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
- <1219170451.7591.175.camel@violet.holtmann.net>
- <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
- <1219203753.7591.205.camel@violet.holtmann.net>  <20080820143734.GB20632@tuxdriver.com>
-  <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
- <1219246813.7591.347.camel@violet.holtmann.net>
- <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
+From: Timothy J Fontaine <tjfontaine@atxconsulting.com>
+Subject: r8169 MTU greater than 1500 causes corruption for other controllers
+Date: Wed, 20 Aug 2008 13:09:51 -0400
+Message-ID: <20080820170951.GA1771@tophat.atxconsulting.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from twin.jikos.cz ([213.151.79.26]:49792 "EHLO twin.jikos.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752838AbYHTQqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 12:46:38 -0400
-In-Reply-To: <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756317AbYHTRKe@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Aug 2008, Linus Torvalds wrote:
 
->  - but as a special case, we relax that for totally new drivers (and that 
->    includes things like just adding a new PCI or USB ID's to old drivers), 
->    because (a) it can't really regress 
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It in fact depends on your definition of regression really :)
+Setting the MTU to greater than 1500 causes the host system to run out
+of SW-IOMMU space for the transfer. This results in corruption for other
+controllers like my AAR-2410SA or IDE controller.
 
-If we merge a buggy driver that hangs the user's machine when loaded, well 
-... before the driver has been merged, the machine had been booting well, 
-just some hardware was not functioning at all. After this late driver 
-merge, the driver gets autoloaded upon boot and crashes the machine. Users 
-will probably see this as a regression.
+Host system:
+ ASUS P5M2 w/ Intel Core 2 Duo 6320
+ Linux version 2.6.24-19-server (buildd@king) (gcc version 4.2.3 (Ubuntu 4.2.3-2ubuntu7)) #1 SMP Fri Jul 11 21:50:43 UTC 2008
+ r8169 chipset pci card
 
-This doesn't mean that I am against merging new drivers as aggressively as 
-possible, I just wanted to point out that it might bring actual 
-regressions to users.
+Connected via Cross-Over cable to:
+ SuperMicro 6014Hi
+ Onboard Intel 82546GB e1000 chipset
+ Running latest VMware ESXi or Vanilla 2.6.26
 
--- 
-Jiri Kosina
-SUSE Labs
+Initially I presumed the issue was with my aacraid because of the
+trace[1], so I built a vanilla 2.6.26.2 and hit the same bug. I have
+another system running 2.6.20 and the same card working so I tried
+2.6.22 and had no problem. However, 2.6.23 failed. I sifted through the
+ChangeLog for 2.6.23 and narrowed the field to some potential problem
+commits regarding aacraid. I then proceeded to do a git bisect and found
+commit b449655ff52ff8a29c66c5fc3fc03617e61182ee[2] which had nothing to
+do with aacraid. Instead, the commit deals with large packets so I reset
+the MTU to 1500 and retried on 2.6.24 and found that there was no
+corruption, I then proceeded to try with various different size MTU only
+to find that an MTU greater than 1500 triggers the corruption.
 
+After initially encountering the bug with VMware ESXi I booted into a
+vanilla 2.6.26 live cd and mounted an nfs share from the host with the
+r8169 card and used dd_rescue to generate large files and transfers on
+the host to expose the bug.
+
+[1] http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/oops_trace.txt
+[2] http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=b449655ff52ff8a29c66c5fc3fc03617e61182ee
+
+Below you'll find a list of files referenced from REPORTING-BUGS that
+are meant to be helpful, including the lspci and module information,
+they can all be reached from the toplevel directory index
+
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/
+
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/cpuinfo
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/iomem
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/ioports
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/lspci
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/modules
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/oops_trace.txt
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/scsi
+http://tophat.atxconsulting.com/~tjfontaine/r8169_bug_report/ver_linux
+
+--2fHTh5uZTiUOsy+g
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkisT98ACgkQfTP/nQJGQG2QbgCgriQuZdr/hjcamxatxVmdH31q
+79gAn20/kObzdFm9OVTS4BTG4XuaThtd
+=8gbB
+-----END PGP SIGNATURE-----
+
+--2fHTh5uZTiUOsy+g--
