@@ -1,101 +1,68 @@
-From: "Paolo Ciarrocchi" <paolo.ciarrocchi@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 20:50:42 +0200
-Message-ID: <4d8e3fd30808201150j75a7d72bme81551305d3a68b9@mail.gmail.com>
-References: <20080819.041706.261399060.davem@davemloft.net>
-	 <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>
-	 <1219170451.7591.175.camel@violet.holtmann.net>
-	 <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
-	 <1219203753.7591.205.camel@violet.holtmann.net>
-	 <20080820143734.GB20632@tuxdriver.com>
-	 <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org>
-	 <1219246813.7591.347.camel@violet.holtmann.net>
-	 <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
-	 <1219253600.7591.352.camel@violet.holtmann.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"Marcel Holtmann" <marcel@holtmann.org>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
+From: Santiago Leon <santil@us.ibm.com>
+Subject: [PATCH] ibmveth: fix bad UDP checksums
+Date: Wed, 20 Aug 2008 13:09:19 -0600
+Message-ID: <20080820190826.24896.41095.62294@soporte.mitelefono.ec>
+Cc: Santiago Leon <santil@us.ibm.com>, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:41988 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbYHTSun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 14:50:43 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so707806wfd.4
-        for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 11:50:42 -0700 (PDT)
-In-Reply-To: <1219253600.7591.352.camel@violet.holtmann.net>
-Content-Disposition: inline
+Received: from e36.co.us.ibm.com ([32.97.110.154]:44023 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753610AbYHTTJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 15:09:39 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id m7KJ9b4K007947
+	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 15:09:37 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7KJ9LhY209234
+	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 13:09:28 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7KJ9KZF028528
+	for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 13:09:21 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 20, 2008 at 7:33 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hi Linus,
->
->> > John was just pointing out (like myself before) that a lot of people are
->> > under the impression that documentation updates and new drivers should
->> > not be queued up and merged as soon as possible.
->>
->> I think (and hey, I'm flexible, and we can discuss this) that the rules
->> should be:
->>
->>  - by default, the answer should always be "don't push anything after the
->>    merge window unless it fixes a regression or a nasty bug".
->>
->>    Here "nasty bug" is something that is a problem in practice, and not
->>    something theoretical that people haven't really reported.
->>
->>  - but as a special case, we relax that for totally new drivers (and that
->>    includes things like just adding a new PCI or USB ID's to old drivers),
->>    because (a) it can't really regress and (b) support for a specific
->>    piece of hardware can often be critical.
->>
->> With regard to that second case, I'd like to note that obviously even a
->> totally new driver _can_ regress, in the sense that it can cause build
->> errors, or problems that simply wouldn't have happened without that
->> driver. So the "cannot regress" obviously isn't strictly true, but I
->> think everybody understands what I really mean.
->>
->> It should also be noted that the "new driver" exception should only be an
->> issue for things that _matter_.
->>
->> For example, a machine without networking support (or without suppoort for
->> a some other really core driver that provides basic functionality) is
->> practically useless. But a machine without support for some particular
->> webcam or support for some special keys on a particular keyboard? That
->> really doesn't matter, and might as well wait for the next release.
->>
->> So the "merge drivers early" is for drivers that reasonably _matter_ in
->> the sense that it allows people to test Linux AT ALL on the platform. It
->> shouldn't be "any possible random driver".
->>
->> IOW, think about the drivers a bit like a distro would think about
->> backporting drivers to a stable kernel. Which ones are really needed?
->>
->> Also, note that "new driver" really should be that. If it's an older
->> driver, and you need to touch _any_ old code to add a new PCI ID or
->> something, the whole argument about it not breaking falls away. Don't do
->> it. I think, for example, that the SCSI people seem to be a bit too eager
->> sometimes to update their drivers for new revisions of cards, and they do
->> it to old drivers.
->>
->> And finally - the rules should be guidelines. It really isn't always
->> black-and-white, but most of the time the simple question of "could this
->> _possibly_ be just queued for the next release without hurting anything"
->> should be the basic one. If the answer is "yes", then wait.
->
-> I am perfectly fine with these rules. You only had to spell them out :)
+This patch fixes a ibmveth bug where bad UDP checksums are being transmitted 
+when checksum offloading is enabled.
+The hypervisor does checksum offloading only on TCP packets, so ibmveth calls 
+skb_checksum_help() for any other protocol.  The bug happens because 
+the packet is being modified after the DMA map, so we would need a memory 
+barrier before making the hypervisor call.  Reordering the code so that the 
+DMA map happens after skb_checksum_help() has the additional advantage of 
+fixing a DMA map leak if skb_checksum_help() where to fail.
 
-I wonder whether if it would be a good idea to periodically send out an email
-with the basic rules to be followed in each phase of the project.
+Please consider applying.
 
+Signed-off-by: Santiago Leon <santil@us.ibm.com>
+---
 
-regards,
--- 
-Paolo
-http://paolo.ciarrocchi.googlepages.com/
+ ibmveth.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ibmveth.c	2008-08-19 07:31:29.000000000 -0400
++++ b/drivers/net/ibmveth.c	2008-08-19 07:46:24.000000000 -0400
+@@ -904,8 +904,6 @@ static int ibmveth_start_xmit(struct sk_
+ 	unsigned long data_dma_addr;
+ 
+ 	desc.fields.flags_len = IBMVETH_BUF_VALID | skb->len;
+-	data_dma_addr = dma_map_single(&adapter->vdev->dev, skb->data,
+-				       skb->len, DMA_TO_DEVICE);
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
+@@ -924,6 +922,8 @@ static int ibmveth_start_xmit(struct sk_
+ 		buf[1] = 0;
+ 	}
+ 
++	data_dma_addr = dma_map_single(&adapter->vdev->dev, skb->data,
++				       skb->len, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&adapter->vdev->dev, data_dma_addr)) {
+ 		if (!firmware_has_feature(FW_FEATURE_CMO))
+ 			ibmveth_error_printk("tx: unable to map xmit buffer\n");
+@@ -932,6 +932,7 @@ static int ibmveth_start_xmit(struct sk_
+ 		desc.fields.address = adapter->bounce_buffer_dma;
+ 		tx_map_failed++;
+ 		used_bounce = 1;
++		wmb();
+ 	} else
+ 		desc.fields.address = data_dma_addr;
+ 
