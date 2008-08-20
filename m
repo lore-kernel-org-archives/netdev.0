@@ -1,62 +1,82 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 2/5] drivers/net/skfp/ess.c: fix compile warnings
-Date: Wed, 20 Aug 2008 16:34:35 -0700
-Message-ID: <200808202334.m7KNYZMk005029@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, tiwai@suse.de
+Subject: [patch 01/12] forcedeth: power down phy when interface is down
+Date: Wed, 20 Aug 2008 16:51:56 -0700
+Message-ID: <200808202351.m7KNpvJ2005998@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	eswierk@arastra.com, aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55320 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38235 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755616AbYHTXgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:36:44 -0400
+	by vger.kernel.org with ESMTP id S1754867AbYHTXwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:52:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Takashi Iwai <tiwai@suse.de>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-  CC [M]  drivers/net/skfp/ess.o
-drivers/net/skfp/ess.c: In function 'ess_send_response':
-drivers/net/skfp/ess.c:513: warning: cast from pointer to integer of different size
-drivers/net/skfp/ess.c: In function 'ess_send_alc_req':
-drivers/net/skfp/ess.c:609: warning: cast from pointer to integer of different size
-drivers/net/skfp/ess.c:639: warning: cast from pointer to integer of different size
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
+Without the patch, ifconfig down leaves the physical link up, which confuses
+datacenter users who expect the link lights both on the NIC and the switch to
+go out when they bring an interface down.
+
+Furthermore, even though the phy is powered on, autonegotiation stops working,
+so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
+interface goes down, and become gigabit when it comes up again.
+
+Ayaz said:
+
+  I would not include this patch until further testing is performed.  NVIDIA
+  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
+  have adverse affects on certain phys.
+
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/skfp/ess.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/skfp/ess.c~drivers-net-skfp-essc-fix-compile-warnings drivers/net/skfp/ess.c
---- a/drivers/net/skfp/ess.c~drivers-net-skfp-essc-fix-compile-warnings
-+++ a/drivers/net/skfp/ess.c
-@@ -510,7 +510,7 @@ static void ess_send_response(struct s_s
- 	chg->path.para.p_type = SMT_P320B ;
- 	chg->path.para.p_len = sizeof(struct smt_p_320b) - PARA_LEN ;
- 	chg->path.mib_index = SBAPATHINDEX ;
--	chg->path.path_pad = (u_short)NULL ;
-+	chg->path.path_pad = 0;
- 	chg->path.path_index = PRIMARY_RING ;
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1446,9 +1446,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
  
- 	/* set P320F */
-@@ -606,7 +606,7 @@ static void ess_send_alc_req(struct s_sm
- 	req->path.para.p_type = SMT_P320B ;
- 	req->path.para.p_len = sizeof(struct smt_p_320b) - PARA_LEN ;
- 	req->path.mib_index = SBAPATHINDEX ;
--	req->path.path_pad = (u_short)NULL ;
-+	req->path.path_pad = 0;
- 	req->path.path_index = PRIMARY_RING ;
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -5210,6 +5210,10 @@ static int nv_open(struct net_device *de
  
- 	/* set P0017 */
-@@ -636,7 +636,7 @@ static void ess_send_alc_req(struct s_sm
- 	/* set P19 */
- 	req->a_addr.para.p_type = SMT_P0019 ;
- 	req->a_addr.para.p_len = sizeof(struct smt_p_0019) - PARA_LEN ;
--	req->a_addr.sba_pad = (u_short)NULL ;
-+	req->a_addr.sba_pad = 0;
- 	req->a_addr.alloc_addr = null_addr ;
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
  
- 	/* set P1A */
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5403,6 +5407,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
 _
