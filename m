@@ -1,60 +1,91 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [patch] ipvsadm: use strtoul to convert ip addresses from hex
-Date: Wed, 20 Aug 2008 12:30:41 +0200
-Message-ID: <f4845fc0808200330lc1cad87ya94eb73da9b4c175@mail.gmail.com>
-References: <20080820054415.GA31393@verge.net.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
+Date: Wed, 20 Aug 2008 11:56:56 +0000
+Message-ID: <20080820115656.GA7078@ff.dom.local>
+References: <20080819.040200.155911269.davem@davemloft.net> <20080819164830.GA2533@ami.dom.local> <20080819222329.GA10297@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Vince Busam" <vbusam@google.com>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, wensong@linux-vs.org
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080820054415.GA31393@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ik-out-1112.google.com ([66.249.90.181]:49767 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753321AbYHTL5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 07:57:03 -0400
+Received: by ik-out-1112.google.com with SMTP id c28so353038ika.5
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2008 04:57:02 -0700 (PDT)
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080819222329.GA10297@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 20, 2008 at 7:44 AM, Simon Horman <horms@verge.net.au> wrote:
-> The ip addresses that come out of /proc/net/ip_vs_conn as integers
-> are in hex not decimal.
->
-> Without this change most IP addresses reported as integers end up being
-> 0.0.0.0.
->
-> This change is against the development code ipvsadm-1.25-nl-4 from
-> http://sixpak.org/vince/google/ipvsadm/ . It is not relevant to
-> ipvsadm-1.24, the current released version.
->
-> Signed-off-by: Simon Horman <horms@verge.net.au>
->
-> Index: ipvsadm-1.25-nl-4/ipvsadm.c
-> ===================================================================
-> --- ipvsadm-1.25-nl-4.orig/ipvsadm.c    2008-08-20 15:16:18.000000000 +1000
-> +++ ipvsadm-1.25-nl-4/ipvsadm.c 2008-08-20 15:16:39.000000000 +1000
-> @@ -1212,9 +1212,9 @@ static void print_conn(char *buf, unsign
->                inet_pton(AF_INET, temp2, &vaddr.ip);
->                inet_pton(AF_INET, temp3, &daddr.ip);
->        } else {
-> -               caddr.ip = (__u32) htonl(atoi(temp1));
-> -               vaddr.ip = (__u32) htonl(atoi(temp2));
-> -               daddr.ip = (__u32) htonl(atoi(temp3));
-> +               caddr.ip = (__u32) htonl(strtoul(temp1, NULL, 16));
-> +               vaddr.ip = (__u32) htonl(strtoul(temp2, NULL, 16));
-> +               daddr.ip = (__u32) htonl(strtoul(temp3, NULL, 16));
->        }
->
->        if (!(cname = addrport_to_anyname(af, &caddr, cport, proto, format)))
+On Wed, Aug 20, 2008 at 08:23:29AM +1000, Herbert Xu wrote:
+> On Tue, Aug 19, 2008 at 06:48:31PM +0200, Jarek Poplawski wrote:
+> > 
+> > I can miss something, but probably it's needed in __netif_reschedule()
+> 
+> No this is a genuine bug.  However, it's also an old bug :) Even
+> with the locking and RCU barrier it could have occured.
+> 
+> > yet. Here is a scenario:
+> > 
+> > cpu1				cpu2
+> > dev_deactivate()
+> > dev_deactivate_queue()
+> > qdisc_reset()
+> > 				qdisc_run()
+> > 				qdisc_watchdog_schedule()
+> > 				(or hrtimer_restart in cbq)
+> 
+> We should add an aliveness check before scheduling the timer.  This
+> is the slow path so adding a check shouldn't hurt.
 
-Thanks for this fix! I'm sure Vince will release a new version with
-this once there is sunlight in his timezone :)
+Thanks,
+Jarek P.
 
-Do you think it'll make sense to host the new ipvsadm on
-linuxvirtualserver.org (marked as experimental, of course) when the
-Netlink patches go in? This seems more open than hosting it on our
-private servers...
+--------------->
 
-Julius
+pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
 
--- 
-Google Switzerland GmbH
+dev_deactivate() can skip rescheduling of a qdisc by qdisc_watchdog()
+or other timer calling netif_schedule() after dev_queue_deactivate().
+We prevent this checking aliveness before scheduling the timer.
+
+With feedback from Herbert Xu <herbert@gondor.apana.org.au>
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ net/sched/sch_api.c |    3 +++
+ net/sched/sch_cbq.c |    3 +++
+ 2 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index ef0efec..6f2bc7f 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -444,6 +444,9 @@ void qdisc_watchdog_schedule(struct qdisc_watchdog *wd, psched_time_t expires)
+ {
+ 	ktime_t time;
+ 
++	if (test_bit(__QDISC_STATE_DEACTIVATED, &qdisc_root(wd->qdisc)->state))
++		return;
++
+ 	wd->qdisc->flags |= TCQ_F_THROTTLED;
+ 	time = ktime_set(0, 0);
+ 	time = ktime_add_ns(time, PSCHED_US2NS(expires));
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 47ef492..c04d335 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -521,6 +521,9 @@ static void cbq_ovl_delay(struct cbq_class *cl)
+ 	struct cbq_sched_data *q = qdisc_priv(cl->qdisc);
+ 	psched_tdiff_t delay = cl->undertime - q->now;
+ 
++	if (test_bit(__QDISC_STATE_DEACTIVATED, &qdisc_root(cl->qdisc)->state))
++		return;
++
+ 	if (!cl->delayed) {
+ 		psched_time_t sched = q->now;
+ 		ktime_t expires;
