@@ -1,66 +1,60 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
-	with the same regression
-Date: Wed, 20 Aug 2008 11:36:17 +0200
-Message-ID: <20080820093617.GA27681@elte.hu>
-References: <109483.89278.qm@web82104.mail.mud.yahoo.com> <86802c440808192221s3ada5443qc3b9d8e26f252d03@mail.gmail.com> <20080820035130.38426b00.billfink@mindspring.com> <86802c440808200102n6487ae17ud790991b8ea30d16@mail.gmail.com> <20080820091513.GA23865@elte.hu> <86802c440808200231h27ab9121ofe68c86c2a80535e@mail.gmail.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [patch] ipvsadm: use strtoul to convert ip addresses from hex
+Date: Wed, 20 Aug 2008 12:30:41 +0200
+Message-ID: <f4845fc0808200330lc1cad87ya94eb73da9b4c175@mail.gmail.com>
+References: <20080820054415.GA31393@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	David Witbrodt <dawitbro@sbcglobal.net>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:52116 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753200AbYHTJhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 05:37:16 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Vince Busam" <vbusam@google.com>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, wensong@linux-vs.org
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080820054415.GA31393@verge.net.au>
 Content-Disposition: inline
-In-Reply-To: <86802c440808200231h27ab9121ofe68c86c2a80535e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Aug 20, 2008 at 7:44 AM, Simon Horman <horms@verge.net.au> wrote:
+> The ip addresses that come out of /proc/net/ip_vs_conn as integers
+> are in hex not decimal.
+>
+> Without this change most IP addresses reported as integers end up being
+> 0.0.0.0.
+>
+> This change is against the development code ipvsadm-1.25-nl-4 from
+> http://sixpak.org/vince/google/ipvsadm/ . It is not relevant to
+> ipvsadm-1.24, the current released version.
+>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+>
+> Index: ipvsadm-1.25-nl-4/ipvsadm.c
+> ===================================================================
+> --- ipvsadm-1.25-nl-4.orig/ipvsadm.c    2008-08-20 15:16:18.000000000 +1000
+> +++ ipvsadm-1.25-nl-4/ipvsadm.c 2008-08-20 15:16:39.000000000 +1000
+> @@ -1212,9 +1212,9 @@ static void print_conn(char *buf, unsign
+>                inet_pton(AF_INET, temp2, &vaddr.ip);
+>                inet_pton(AF_INET, temp3, &daddr.ip);
+>        } else {
+> -               caddr.ip = (__u32) htonl(atoi(temp1));
+> -               vaddr.ip = (__u32) htonl(atoi(temp2));
+> -               daddr.ip = (__u32) htonl(atoi(temp3));
+> +               caddr.ip = (__u32) htonl(strtoul(temp1, NULL, 16));
+> +               vaddr.ip = (__u32) htonl(strtoul(temp2, NULL, 16));
+> +               daddr.ip = (__u32) htonl(strtoul(temp3, NULL, 16));
+>        }
+>
+>        if (!(cname = addrport_to_anyname(af, &caddr, cport, proto, format)))
 
-* Yinghai Lu <yhlu.kernel@gmail.com> wrote:
+Thanks for this fix! I'm sure Vince will release a new version with
+this once there is sunlight in his timezone :)
 
-> On Wed, Aug 20, 2008 at 2:15 AM, Ingo Molnar <mingo@elte.hu> wrote:
-> >
-> > * Yinghai Lu <yhlu.kernel@gmail.com> wrote:
-> >
-> >> > This is true if he reverted just the 3def3d6d... commit, but if he
-> >> > also reverts the similar, and immediately following, 1e934dda...
-> >> > commit, then his 2.6.26 kernel runs fine.
-> >>
-> >> interesting,
-> >>
-> >> David, can you try only comment out
-> >>
-> >> late_initcall(lapic_insert_resource);
-> >
-> > i.e. the patch below?
-> >
-> > what's your theory, what could be the reason for David's lockups?
-> 
-> could be insert_resource related.
-> 1. revert patch that change back insert_resource doesn't work
-> 2. insert_resource for lapic address moved to late after ....
-> 
-> need to add debug printout for insert_resource/request_resource to 
-> make sure thing going well
+Do you think it'll make sense to host the new ipvsadm on
+linuxvirtualserver.org (marked as experimental, of course) when the
+Netlink patches go in? This seems more open than hosting it on our
+private servers...
 
-but what can happen if it does not "go well"? The resource list is 
-basically there to make sure we dont overlap resources. But is there a 
-real danger here for any overlap?
+Julius
 
-And insert_resource() differs from request_resource() in that 
-insert_resource() allows "complete overlap". David has done printks of 
-all resources in this thread - can you see anything suspicious in there?
-
-and what's the connection to your e820 patches?
-
-	Ingo
+-- 
+Google Switzerland GmbH
