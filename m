@@ -1,111 +1,101 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.27? 1/5] drivers/net/skfp/pmf.c: Use offsetof() macro
-Date: Wed, 20 Aug 2008 16:34:34 -0700
-Message-ID: <200808202334.m7KNYYl3005026@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, tiwai@suse.de,
-	alan@redhat.com
+Subject: [patch for 2.6.27? 3/5] igb: remove 82576 quad adapter
+Date: Wed, 20 Aug 2008 16:34:36 -0700
+Message-ID: <200808202334.m7KNYa5I005032@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48928 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47168 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754680AbYHTXfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:35:25 -0400
+	by vger.kernel.org with ESMTP id S1755504AbYHTXfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:35:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Takashi Iwai <tiwai@suse.de>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Self-baked macros cause bunch of compile warnings like below:
+Disable support for device 8086:10E8.  Currently the result of loading the
+driver with the device present causes system instability.
 
-  CC [M]  drivers/net/skfp/pmf.o
-  CC      net/ipv4/fib_semantics.o
-drivers/net/skfp/pmf.c:86: warning: cast from pointer to integer of different size
-drivers/net/skfp/pmf.c:87: warning: cast from pointer to integer of different size
-...
-
-Use the standard offsetof() macro instead.
-
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
-Acked-by: Alan Cox <alan@redhat.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/skfp/pmf.c |   29 +++++++++++------------------
- 1 file changed, 11 insertions(+), 18 deletions(-)
+ drivers/net/igb/e1000_82575.c |    1 -
+ drivers/net/igb/e1000_hw.h    |    1 -
+ drivers/net/igb/igb_ethtool.c |    9 ---------
+ drivers/net/igb/igb_main.c    |   11 -----------
+ 4 files changed, 22 deletions(-)
 
-diff -puN drivers/net/skfp/pmf.c~drivers-net-skfp-pmfc-use-offsetof-macro drivers/net/skfp/pmf.c
---- a/drivers/net/skfp/pmf.c~drivers-net-skfp-pmfc-use-offsetof-macro
-+++ a/drivers/net/skfp/pmf.c
-@@ -44,17 +44,10 @@ static SMbuf *smt_build_pmf_response(str
- 				     int set, int local);
- static int port_to_mib(struct s_smc *smc, int p);
+diff -puN drivers/net/igb/e1000_82575.c~igb-remove-82576-quad-adapter drivers/net/igb/e1000_82575.c
+--- a/drivers/net/igb/e1000_82575.c~igb-remove-82576-quad-adapter
++++ a/drivers/net/igb/e1000_82575.c
+@@ -87,7 +87,6 @@ static s32 igb_get_invariants_82575(stru
+ 	case E1000_DEV_ID_82576:
+ 	case E1000_DEV_ID_82576_FIBER:
+ 	case E1000_DEV_ID_82576_SERDES:
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+ 		mac->type = e1000_82576;
+ 		break;
+ 	default:
+diff -puN drivers/net/igb/e1000_hw.h~igb-remove-82576-quad-adapter drivers/net/igb/e1000_hw.h
+--- a/drivers/net/igb/e1000_hw.h~igb-remove-82576-quad-adapter
++++ a/drivers/net/igb/e1000_hw.h
+@@ -41,7 +41,6 @@ struct e1000_hw;
+ #define E1000_DEV_ID_82576                    0x10C9
+ #define E1000_DEV_ID_82576_FIBER              0x10E6
+ #define E1000_DEV_ID_82576_SERDES             0x10E7
+-#define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
+ #define E1000_DEV_ID_82575EB_COPPER           0x10A7
+ #define E1000_DEV_ID_82575EB_FIBER_SERDES     0x10A9
+ #define E1000_DEV_ID_82575GB_QUAD_COPPER      0x10D6
+diff -puN drivers/net/igb/igb_ethtool.c~igb-remove-82576-quad-adapter drivers/net/igb/igb_ethtool.c
+--- a/drivers/net/igb/igb_ethtool.c~igb-remove-82576-quad-adapter
++++ a/drivers/net/igb/igb_ethtool.c
+@@ -1746,15 +1746,6 @@ static int igb_wol_exclusion(struct igb_
+ 		/* return success for non excluded adapter ports */
+ 		retval = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* quad port adapters only support WoL on port A */
+-		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
+-			wol->supported = 0;
+-			break;
+-		}
+-		/* return success for non excluded adapter ports */
+-		retval = 0;
+-		break;
+ 	default:
+ 		/* dual port cards only support WoL on port A from now on
+ 		 * unless it was enabled in the eeprom for port B
+diff -puN drivers/net/igb/igb_main.c~igb-remove-82576-quad-adapter drivers/net/igb/igb_main.c
+--- a/drivers/net/igb/igb_main.c~igb-remove-82576-quad-adapter
++++ a/drivers/net/igb/igb_main.c
+@@ -61,7 +61,6 @@ static struct pci_device_id igb_pci_tbl[
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
+-	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575GB_QUAD_COPPER), board_82575 },
+@@ -1217,16 +1216,6 @@ static int __devinit igb_probe(struct pc
+ 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
+ 			adapter->eeprom_wol = 0;
+ 		break;
+-	case E1000_DEV_ID_82576_QUAD_COPPER:
+-		/* if quad port adapter, disable WoL on all but port A */
+-		if (global_quad_port_a != 0)
+-			adapter->eeprom_wol = 0;
+-		else
+-			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
+-		/* Reset for multiple quad port adapters */
+-		if (++global_quad_port_a == 4)
+-			global_quad_port_a = 0;
+-		break;
+ 	}
  
--#define MOFFSS(e)	((int)&(((struct fddi_mib *)0)->e))
--#define MOFFSA(e)	((int) (((struct fddi_mib *)0)->e))
--
--#define MOFFMS(e)	((int)&(((struct fddi_mib_m *)0)->e))
--#define MOFFMA(e)	((int) (((struct fddi_mib_m *)0)->e))
--
--#define MOFFAS(e)	((int)&(((struct fddi_mib_a *)0)->e))
--#define MOFFAA(e)	((int) (((struct fddi_mib_a *)0)->e))
--
--#define MOFFPS(e)	((int)&(((struct fddi_mib_p *)0)->e))
--#define MOFFPA(e)	((int) (((struct fddi_mib_p *)0)->e))
-+#define MOFFSS(e)	offsetof(struct fddi_mib, e)
-+#define MOFFMS(e)	offsetof(struct fddi_mib_m, e)
-+#define MOFFAS(e)	offsetof(struct fddi_mib_a, e)
-+#define MOFFPS(e)	offsetof(struct fddi_mib_p, e)
- 
- 
- #define AC_G	0x01		/* Get */
-@@ -87,8 +80,8 @@ static const struct s_p_tab {
- 	{ SMT_P100D,AC_G,	MOFFSS(fddiSMTOpVersionId),	"S"	} ,
- 	{ SMT_P100E,AC_G,	MOFFSS(fddiSMTHiVersionId),	"S"	} ,
- 	{ SMT_P100F,AC_G,	MOFFSS(fddiSMTLoVersionId),	"S"	} ,
--	{ SMT_P1010,AC_G,	MOFFSA(fddiSMTManufacturerData), "D" } ,
--	{ SMT_P1011,AC_GR,	MOFFSA(fddiSMTUserData),	"D"	} ,
-+	{ SMT_P1010,AC_G,	MOFFSS(fddiSMTManufacturerData), "D" } ,
-+	{ SMT_P1011,AC_GR,	MOFFSS(fddiSMTUserData),	"D"	} ,
- 	{ SMT_P1012,AC_G,	MOFFSS(fddiSMTMIBVersionId),	"S"	} ,
- 
- 	/* StationConfigGrp */
-@@ -103,7 +96,7 @@ static const struct s_p_tab {
- 	{ SMT_P101D,AC_GR,	MOFFSS(fddiSMTTT_Notify),	"wS"	} ,
- 	{ SMT_P101E,AC_GR,	MOFFSS(fddiSMTStatRptPolicy),	"bB"	} ,
- 	{ SMT_P101F,AC_GR,	MOFFSS(fddiSMTTrace_MaxExpiration),"lL"	} ,
--	{ SMT_P1020,AC_G,	MOFFSA(fddiSMTPORTIndexes),	"II"	} ,
-+	{ SMT_P1020,AC_G,	MOFFSS(fddiSMTPORTIndexes),	"II"	} ,
- 	{ SMT_P1021,AC_G,	MOFFSS(fddiSMTMACIndexes),	"I"	} ,
- 	{ SMT_P1022,AC_G,	MOFFSS(fddiSMTBypassPresent),	"F"	} ,
- 
-@@ -117,8 +110,8 @@ static const struct s_p_tab {
- 
- 	/* MIBOperationGrp */
- 	{ SMT_P1032,AC_GROUP	} ,
--	{ SMT_P1033,AC_G,	MOFFSA(fddiSMTTimeStamp),"P"		} ,
--	{ SMT_P1034,AC_G,	MOFFSA(fddiSMTTransitionTimeStamp),"P"	} ,
-+	{ SMT_P1033,AC_G,	MOFFSS(fddiSMTTimeStamp),"P"		} ,
-+	{ SMT_P1034,AC_G,	MOFFSS(fddiSMTTransitionTimeStamp),"P"	} ,
- 	/* NOTE : SMT_P1035 is already swapped ! SMT_P_SETCOUNT */
- 	{ SMT_P1035,AC_G,	MOFFSS(fddiSMTSetCount),"4P"		} ,
- 	{ SMT_P1036,AC_G,	MOFFSS(fddiSMTLastSetStationId),"8"	} ,
-@@ -129,7 +122,7 @@ static const struct s_p_tab {
- 	 * PRIVATE EXTENSIONS
- 	 * only accessible locally to get/set passwd
- 	 */
--	{ SMT_P10F0,AC_GR,	MOFFSA(fddiPRPMFPasswd),	"8"	} ,
-+	{ SMT_P10F0,AC_GR,	MOFFSS(fddiPRPMFPasswd),	"8"	} ,
- 	{ SMT_P10F1,AC_GR,	MOFFSS(fddiPRPMFStation),	"8"	} ,
- #ifdef	ESS
- 	{ SMT_P10F2,AC_GR,	MOFFSS(fddiESSPayload),		"lL"	} ,
-@@ -245,7 +238,7 @@ static const struct s_p_tab {
- 	{ SMT_P400E,AC_GR,	MOFFPS(fddiPORTConnectionPolicies),"bB"	} ,
- 	{ SMT_P400F,AC_G,	MOFFPS(fddiPORTMacIndicated),	"2"	} ,
- 	{ SMT_P4010,AC_G,	MOFFPS(fddiPORTCurrentPath),	"E"	} ,
--	{ SMT_P4011,AC_GR,	MOFFPA(fddiPORTRequestedPaths),	"l4"	} ,
-+	{ SMT_P4011,AC_GR,	MOFFPS(fddiPORTRequestedPaths),	"l4"	} ,
- 	{ SMT_P4012,AC_G,	MOFFPS(fddiPORTMACPlacement),	"S"	} ,
- 	{ SMT_P4013,AC_G,	MOFFPS(fddiPORTAvailablePaths),	"B"	} ,
- 	{ SMT_P4016,AC_G,	MOFFPS(fddiPORTPMDClass),	"E"	} ,
+ 	/* initialize the wol settings based on the eeprom settings */
 _
