@@ -1,45 +1,45 @@
-From: adobriyan@gmail.com
-Subject: [PATCH] nf_conntrack_gre: nf_ct_gre_keymap_flush() fixlet
-Date: Thu, 21 Aug 2008 00:56:46 +0400
-Message-ID: <20080820205646.GB16405@x200.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Wed, 20 Aug 2008 13:58:32 -0700 (PDT)
+Message-ID: <20080820.135832.93663823.davem@davemloft.net>
+References: <Pine.LNX.4.64.0808141643200.3164@sbz-30.cs.Helsinki.FI>
+	<20080814.151502.251134900.davem@davemloft.net>
+	<Pine.LNX.4.64.0808202051550.3501@melkki.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: penberg@cs.helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41134
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751442AbYHTU6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 16:58:33 -0400
+In-Reply-To: <Pine.LNX.4.64.0808202051550.3501@melkki.cs.Helsinki.FI>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It does "kfree(list_head)" which looks wrong because entity that was
-allocated is definitely not list_head.
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Date: Wed, 20 Aug 2008 20:54:01 +0300 (EEST)
 
-However, this all works because list_head is first item in
-struct nf_ct_gre_keymap.
+> @@ -1721,7 +1723,8 @@ static int rtl8139_start_xmit (struct sk
+>  		return 0;
+>  	}
+>  
+> -	spin_lock_irqsave(&tp->lock, flags);
+> +	local_irq_save(flags);
+> +	netif_tx_lock(dev);
+>  	RTL_W32_F (TxStatus0 + (entry * sizeof (u32)),
+>  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+The generic networking takes the TX lock for you, you don't
+need to take it explicitly here.
 
- net/netfilter/nf_conntrack_proto_gre.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+You also cannot depend upon IRQ disabled locking, the generic
+TX lock is only softirq safe, not hard IRQ safe.
 
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -45,12 +45,12 @@ static LIST_HEAD(gre_keymap_list);
- 
- void nf_ct_gre_keymap_flush(void)
- {
--	struct list_head *pos, *n;
-+	struct nf_ct_gre_keymap *km, *tmp;
- 
- 	write_lock_bh(&nf_ct_gre_lock);
--	list_for_each_safe(pos, n, &gre_keymap_list) {
--		list_del(pos);
--		kfree(pos);
-+	list_for_each_entry_safe(km, tmp, &gre_keymap_list, list) {
-+		list_del(&km->list);
-+		kfree(km);
- 	}
- 	write_unlock_bh(&nf_ct_gre_lock);
- }
-
+This means you have to move TX descriptor reclaim into a
+soft IRQ context, such as NAPI ->poll().
