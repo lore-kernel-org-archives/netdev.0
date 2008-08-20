@@ -1,74 +1,98 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6:fix the return interface index when get it while
- no message is received
-Date: Wed, 20 Aug 2008 09:10:34 -0400
-Message-ID: <48AC17CA.8010306@hp.com>
-References: <48A911AD.7060102@cn.fujitsu.com>	<48A9799B.4040409@hp.com> <20080818.223857.125980599.davem@davemloft.net> <48AA6800.1020506@cn.fujitsu.com> <48AACC71.5090701@hp.com> <48AB87DE.1010205@cn.fujitsu.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] dccp: Reponsed with Reset when packet is received with
+	invalid option
+Date: Wed, 20 Aug 2008 11:01:16 -0300
+Message-ID: <20080820140116.GL8075@ghostprotocols.net>
+References: <48AB7147.2010003@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Yang Hongyang <yanghy@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	DCCP Mailing List <dccp@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:23179 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752945AbYHTNKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 09:10:38 -0400
-In-Reply-To: <48AB87DE.1010205@cn.fujitsu.com>
+Received: from mx1.redhat.com ([66.187.233.31]:52789 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751028AbYHTOFI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 10:05:08 -0400
+Content-Disposition: inline
+In-Reply-To: <48AB7147.2010003@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yang Hongyang wrote:
-> Vlad Yasevich wrote:
->> Yang Hongyang wrote:
->>> David Miller wrote:
->>>> From: Vlad Yasevich <vladislav.yasevich@hp.com>
->>>> Date: Mon, 18 Aug 2008 09:31:07 -0400
->>>>
->>>>> I don't think that's correct at all.  The code path shows here is
->>>>> when there are no received options and no sticky options set.  In
->>>>> such case, we shouldn't be returning multicast or bound interfaces.
->>>>> We should be returning 0.
->>> I use setsockopt() to set the bounded interface of the socket, and 
->>> then I get receiving interface index while no message is received through
->>> the above socket,shoudn't the bounded interface be returned?
->> One of the problems is that we don't seem to support the sticky IPV6_PKTINFO
->> option as specified in rfc3542.
->>
->> The setting of SO_BINDTODEVICE should not impact the return of the sticky option
->> values when they are not set.  A return of 0 in the sticky options means that
->> that value has not been specified.  If you return anything else, you give
->> the illusion that a sticky option was set.
->>
->>>>> Additionally the address returned is completely bogus as well. We
->>>>> are returning the address our peer instead of the one of our own
->>>>> addresses.
->>> If message is received,the address returned is what the received
->>> message refered to, otherwise the address returned is what I used setsockopt()
->>> to set before.
->> We are returning np->daddr, which is the peer address.
->>
->> The expected value is "destination of the received packet".  In the worst case,
->> it should be the locally bound address.  In the correct case, it should be the
->> address set in the sticky options if such is set.  It really should be 0::0, if there
->> are no sticky options and no packets have been received.
-> 
-> Since here we do not recive any packet,we should return 
-> src_info.ipi6_ifindex=0 and src_info.ipi6_addr=0::0,right?
+Em Wed, Aug 20, 2008 at 09:20:07AM +0800, Wei Yongjun escreveu:
+> RFC4340 said that if a packet is received with invalid option(such as Mandatory
+> Option as the last byte of the option list), endpoint should reponsed with
+> Reset. In LISTIN state and RESPOND state, the endpoint reponsed with reset
+> correctly, but in REQUEST state and OPEN state, the endpoint just ignored
+> the packet. The packet sequence is as the following:
+>
+> Case 1:
+>
+>  Endpoint A                           Endpoint B
+>  (CLOSED)                             (CLOSED)
+>
+>               <----------------       REQUEST
+>
+>  RESPONSE     ----------------->      (*1)
+>  (with invalid option)
+>               <----------------       RESET
+>                                       (with Reset Code 5, "Option Error")
+>
+>  (*1) it just be ignored currently, no reset is sent
+>
+> Case 2:
+>
+>  Endpoint A                           Endpoint B
+>  (OPEN)                               (OPEN)
+>
+>  DATA-ACK     ----------------->      (*2)
+>  (with invalid option)
+>               <----------------       RESET
+>                                       (with Reset Code 5, "Option Error")
+>
+>  (*2) it just be ignored currently, no reset is sent
+>
+> This patch fixed the problem by reponsed with Reset instead of ignore packet.
+>
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-That's what I've done in other implementations.
+God catch! Please also keep netdev@vger.kernel.org on the CC list.
 
--vlad
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-> 
->> -vlad
->>
->>>> Yang, please fix this up, thank you.
->>>>
->>>>
->>> Seems that I misunderstood the RFC?
-> 
-> 
-> 
-
+> ---
+> net/dccp/input.c |    4 ++--
+> 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/dccp/input.c b/net/dccp/input.c
+> index dab4cc9..df0e671 100644
+> --- a/net/dccp/input.c
+> +++ b/net/dccp/input.c
+> @@ -370,7 +370,7 @@ int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
+> 		goto discard;
+>
+> 	if (dccp_parse_options(sk, NULL, skb))
+> -		goto discard;
+> +		return 1;
+>
+> 	dccp_handle_ackvec_processing(sk, skb);
+> 	dccp_deliver_input_to_ccids(sk, skb);
+> @@ -631,7 +631,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+>
+> 	/*  Step 8: Process options */
+> 	if (dccp_parse_options(sk, NULL, skb))
+> -		goto discard;
+> +		return 1;
+>
+> 	/*
+> 	 *  Step 9: Process Reset
+> -- 
+> 1.5.3.8
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe dccp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
