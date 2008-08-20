@@ -1,80 +1,78 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Wed, 20 Aug 2008 09:09:11 -0700 (PDT)
-Message-ID: <alpine.LFD.1.10.0808200853410.3324@nehalem.linux-foundation.org>
-References: <20080819.041706.261399060.davem@davemloft.net>  <alpine.LFD.1.10.0808190952000.3324@nehalem.linux-foundation.org>  <1219170451.7591.175.camel@violet.holtmann.net>  <alpine.LFD.1.10.0808191348540.3324@nehalem.linux-foundation.org>
- <1219203753.7591.205.camel@violet.holtmann.net>  <20080820143734.GB20632@tuxdriver.com>  <alpine.LFD.1.10.0808200826530.3324@nehalem.linux-foundation.org> <1219246813.7591.347.camel@violet.holtmann.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] hso.c hso_net_open bugfix
+Date: Wed, 20 Aug 2008 19:12:20 +0300
+Message-ID: <48AC4264.7030304@teltonika.lt>
+References: <48ABF311.2070405@option.com> <48AC2B32.1010505@teltonika.lt> <48AC2EA8.1050503@option.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux USB kernel mailing list
+	<public-public-linux-usb-u79uwXL29TY76Z2rM5mHXA-z5DuStaUktnZ+VzJOa5vwg@lo.gmane.org>,
+	Greg Kroah-Hartman
+	<public-public-gregkh-l3A5Bk7waGM-z5DuStaUktnZ+VzJOa5vwg@lo.gmane.org>,
+	netdev <netdev@vger.kernel.org>
+To: Denis Joseph Barrow
+	<public-D.Barow-x9gZzRpC1QbQT0dZR+AlfA@lo.gmane.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57224 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759067AbYHTQJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 12:09:35 -0400
-In-Reply-To: <1219246813.7591.347.camel@violet.holtmann.net>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:33418 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759332AbYHTQMf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 12:12:35 -0400
+In-Reply-To: <48AC2EA8.1050503@option.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Wed, 20 Aug 2008, Marcel Holtmann wrote:
+Denis Joseph Barrow wrote:
 > 
-> John was just pointing out (like myself before) that a lot of people are
-> under the impression that documentation updates and new drivers should
-> not be queued up and merged as soon as possible.
+> 
+> Hi Paulus & others,
+> Sorry I nearly completely agree with you the code can be left as is
+> However netdev_priv check is superflous from my understanding of the code,
+> admittedly if they changed the netdev_priv function the check might
+> become valid.
 
-I think (and hey, I'm flexible, and we can discuss this) that the rules 
-should be:
+I agree with you that odev checks in hso_net_open and hso_net_tx_timeout
+are pointless and should be removed.
 
- - by default, the answer should always be "don't push anything after the 
-   merge window unless it fixes a regression or a nasty bug".
+Please add netdev@vger.kernel.org mailing list also.
 
-   Here "nasty bug" is something that is a problem in practice, and not 
-   something theoretical that people haven't really reported.
-
- - but as a special case, we relax that for totally new drivers (and that 
-   includes things like just adding a new PCI or USB ID's to old drivers), 
-   because (a) it can't really regress and (b) support for a specific 
-   piece of hardware can often be critical.
-
-With regard to that second case, I'd like to note that obviously even a 
-totally new driver _can_ regress, in the sense that it can cause build 
-errors, or problems that simply wouldn't have happened without that 
-driver. So the "cannot regress" obviously isn't strictly true, but I 
-think everybody understands what I really mean.
-
-It should also be noted that the "new driver" exception should only be an 
-issue for things that _matter_.
-
-For example, a machine without networking support (or without suppoort for 
-a some other really core driver that provides basic functionality) is 
-practically useless. But a machine without support for some particular 
-webcam or support for some special keys on a particular keyboard? That 
-really doesn't matter, and might as well wait for the next release.
-
-So the "merge drivers early" is for drivers that reasonably _matter_ in 
-the sense that it allows people to test Linux AT ALL on the platform. It 
-shouldn't be "any possible random driver".
-
-IOW, think about the drivers a bit like a distro would think about 
-backporting drivers to a stable kernel. Which ones are really needed? 
-
-Also, note that "new driver" really should be that. If it's an older 
-driver, and you need to touch _any_ old code to add a new PCI ID or 
-something, the whole argument about it not breaking falls away. Don't do 
-it. I think, for example, that the SCSI people seem to be a bit too eager 
-sometimes to update their drivers for new revisions of cards, and they do 
-it to old drivers.
-
-And finally - the rules should be guidelines. It really isn't always 
-black-and-white, but most of the time the simple question of "could this 
-_possibly_ be just queued for the next release without hurting anything" 
-should be the basic one. If the answer is "yes", then wait.
-
-			Linus
+> Admittedly dev_open would crash if dev!=NULL so I agree with you it
+> must be checked further up the stack.
+> 
+> 
+> Paulius Zaleckas wrote:
+>>
+>> Denis Joseph Barrow wrote:
+>>> netdev_priv will return a non NULL pointer even if the net_device
+>>> is NULL & cause a crash without this fix.
+>> Wrong. If net_device will be NULL hso_net_open won't get called.
+>>
+>>> Signed-off-by: Denis Joseph Barrow
+>>> <D.Barow-x9gZzRpC1QbQT0dZR+AlfA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
+>>> ---
+>>> Index: linux-2.6.27-rc3.patch/drivers/net/usb/hso.c
+>>> ===================================================================
+>>> --- linux-2.6.27-rc3.patch.orig/drivers/net/usb/hso.c    2008-08-20
+>>> 12:12:28.000000000 +0200
+>>> +++ linux-2.6.27-rc3.patch/drivers/net/usb/hso.c    2008-08-20
+>>> 12:26:35.000000000 +0200
+>>> @@ -611,14 +611,12 @@
+>>>  /* called when net interface is brought up by ifconfig */
+>>>  static int hso_net_open(struct net_device *net)
+>>>  {
+>>> -    struct hso_net *odev = netdev_priv(net);
+>>> +    struct hso_net *odev;
+>>>      unsigned long flags = 0;
+>>>  
+>>> -    if (!odev) {
+>>> -        dev_err(&net->dev, "No net device !\n");
+>>> +    if (!net)
+>>>          return -ENODEV;
+>>> -    }
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
