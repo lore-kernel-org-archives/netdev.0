@@ -1,21 +1,21 @@
 From: akpm@linux-foundation.org
-Subject: [patch 05/12] skty2: adapt to the reworked PCI PM
-Date: Wed, 20 Aug 2008 16:52:02 -0700
-Message-ID: <200808202352.m7KNq2qP006044@imap1.linux-foundation.org>
+Subject: [patch 04/12] skge: adapt skge to use reworked PCI PM
+Date: Wed, 20 Aug 2008 16:52:00 -0700
+Message-ID: <200808202352.m7KNq1ft006034@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, rjw@sisk.pl,
-	jbarnes@virtuousgeek.org, stephen.hemminger@vyatta.com
+	jbarnes@virtuousgeek.org, shemminger@linux-foundation.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48819 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58478 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756151AbYHTXx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:53:27 -0400
+	by vger.kernel.org with ESMTP id S1755456AbYHTXx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:53:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Adapt the sky2 driver to the reworked PCI PM
+Adapt the skge driver to the reworked PCI PM
 
 * Use device_set_wakeup_enable() and friends as needed
 * Remove an open-coded reference to the standard PCI PM registers
@@ -24,97 +24,83 @@ Adapt the sky2 driver to the reworked PCI PM
 * Use the observation that it is sufficient to call pci_enable_wake()
   once, unless it fails
 
-Tested on Asus M3A32-MVP (Yukon-2 EC Ultra rev 3).
+Tested on Asus L5D (Yukon-Lite rev 7).
 
 Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
 Cc: Jeff Garzik <jeff@garzik.org>
 Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/sky2.c |   34 ++++++++++------------------------
- 1 file changed, 10 insertions(+), 24 deletions(-)
+ drivers/net/skge.c |   38 +++++++++++---------------------------
+ 1 file changed, 11 insertions(+), 27 deletions(-)
 
-diff -puN drivers/net/sky2.c~skty2-adapt-to-the-reworked-pci-pm drivers/net/sky2.c
---- a/drivers/net/sky2.c~skty2-adapt-to-the-reworked-pci-pm
-+++ a/drivers/net/sky2.c
-@@ -3034,7 +3034,8 @@ static int sky2_set_wol(struct net_devic
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct sky2_hw *hw = sky2->hw;
+diff -puN drivers/net/skge.c~skge-adapt-skge-to-use-reworked-pci-pm drivers/net/skge.c
+--- a/drivers/net/skge.c~skge-adapt-skge-to-use-reworked-pci-pm
++++ a/drivers/net/skge.c
+@@ -149,24 +149,6 @@ static u32 wol_supported(const struct sk
+ 	return WAKE_MAGIC | WAKE_PHY;
+ }
  
--	if (wol->wolopts & ~sky2_wol_supported(sky2->hw))
-+	if ((wol->wolopts & ~sky2_wol_supported(sky2->hw))
+-static u32 pci_wake_enabled(struct pci_dev *dev)
+-{
+-	int pm = pci_find_capability(dev, PCI_CAP_ID_PM);
+-	u16 value;
+-
+-	/* If device doesn't support PM Capabilities, but request is to disable
+-	 * wake events, it's a nop; otherwise fail */
+-	if (!pm)
+-		return 0;
+-
+-	pci_read_config_word(dev, pm + PCI_PM_PMC, &value);
+-
+-	value &= PCI_PM_CAP_PME_MASK;
+-	value >>= ffs(PCI_PM_CAP_PME_MASK) - 1;   /* First bit of mask */
+-
+-	return value != 0;
+-}
+-
+ static void skge_wol_init(struct skge_port *skge)
+ {
+ 	struct skge_hw *hw = skge->hw;
+@@ -254,10 +236,14 @@ static int skge_set_wol(struct net_devic
+ 	struct skge_port *skge = netdev_priv(dev);
+ 	struct skge_hw *hw = skge->hw;
+ 
+-	if (wol->wolopts & ~wol_supported(hw))
++	if ((wol->wolopts & ~wol_supported(hw))
 +	    || !device_can_wakeup(&hw->pdev->dev))
  		return -EOPNOTSUPP;
  
- 	sky2->wol = wol->wolopts;
-@@ -3045,6 +3046,8 @@ static int sky2_set_wol(struct net_devic
- 		sky2_write32(hw, B0_CTST, sky2->wol
- 			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
- 
-+	device_set_wakeup_enable(&hw->pdev->dev, sky2->wol);
+ 	skge->wol = wol->wolopts;
 +
- 	if (!netif_running(dev))
- 		sky2_wol_init(sky2);
++	device_set_wakeup_enable(&hw->pdev->dev, skge->wol);
++
  	return 0;
-@@ -4166,18 +4169,6 @@ static int __devinit sky2_test_msi(struc
- 	return err;
  }
  
--static int __devinit pci_wake_enabled(struct pci_dev *dev)
--{
--	int pm  = pci_find_capability(dev, PCI_CAP_ID_PM);
--	u16 value;
--
--	if (!pm)
--		return 0;
--	if (pci_read_config_word(dev, pm + PCI_PM_CTRL, &value))
--		return 0;
--	return value & PCI_PM_CTRL_PME_ENABLE;
--}
--
- /* This driver supports yukon2 chipset only */
- static const char *sky2_name(u8 chipid, char *buf, int sz)
- {
-@@ -4238,7 +4229,7 @@ static int __devinit sky2_probe(struct p
- 		}
+@@ -3842,7 +3828,7 @@ static struct net_device *skge_devinit(s
+ 	skge->speed = -1;
+ 	skge->advertising = skge_supported_modes(hw);
+ 
+-	if (pci_wake_enabled(hw->pdev))
++	if (device_may_wakeup(&hw->pdev->dev))
+ 		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+ 
+ 	hw->dev[port] = dev;
+@@ -4068,8 +4054,8 @@ static int skge_suspend(struct pci_dev *
  	}
  
--	wol_default = pci_wake_enabled(pdev) ? WAKE_MAGIC : 0;
-+	wol_default = device_may_wakeup(&pdev->dev) ? WAKE_MAGIC : 0;
- 
- 	err = -ENOMEM;
- 	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
-@@ -4403,7 +4394,7 @@ static void __devexit sky2_remove(struct
- static int sky2_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct sky2_hw *hw = pci_get_drvdata(pdev);
--	int i, wol = 0;
-+	int i;
- 
- 	if (!hw)
- 		return 0;
-@@ -4421,8 +4412,6 @@ static int sky2_suspend(struct pci_dev *
- 
- 		if (sky2->wol)
- 			sky2_wol_init(sky2);
--
--		wol |= sky2->wol;
- 	}
- 
- 	sky2_write32(hw, B0_IMSK, 0);
-@@ -4430,8 +4419,7 @@ static int sky2_suspend(struct pci_dev *
- 	sky2_power_aux(hw);
- 
- 	pci_save_state(pdev);
+ 	skge_write32(hw, B0_IMSK, 0);
 -	pci_enable_wake(pdev, pci_choose_state(pdev, state), wol);
 -	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++
 +	pci_prepare_to_sleep(pdev);
  
  	return 0;
  }
-@@ -4444,7 +4432,7 @@ static int sky2_resume(struct pci_dev *p
+@@ -4082,7 +4068,7 @@ static int skge_resume(struct pci_dev *p
  	if (!hw)
  		return 0;
  
@@ -123,18 +109,18 @@ diff -puN drivers/net/sky2.c~skty2-adapt-to-the-reworked-pci-pm drivers/net/sky2
  	if (err)
  		goto out;
  
-@@ -4452,8 +4440,6 @@ static int sky2_resume(struct pci_dev *p
+@@ -4090,8 +4076,6 @@ static int skge_resume(struct pci_dev *p
  	if (err)
  		goto out;
  
 -	pci_enable_wake(pdev, PCI_D0, 0);
 -
- 	/* Re-enable all clocks */
- 	if (hw->chip_id == CHIP_ID_YUKON_EX ||
- 	    hw->chip_id == CHIP_ID_YUKON_EC_U ||
-@@ -4512,8 +4498,8 @@ static void sky2_shutdown(struct pci_dev
- 	if (wol)
- 		sky2_power_aux(hw);
+ 	err = skge_reset(hw);
+ 	if (err)
+ 		goto out;
+@@ -4132,8 +4116,8 @@ static void skge_shutdown(struct pci_dev
+ 		wol |= skge->wol;
+ 	}
  
 -	pci_enable_wake(pdev, PCI_D3hot, wol);
 -	pci_enable_wake(pdev, PCI_D3cold, wol);
