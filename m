@@ -1,47 +1,182 @@
-From: Marc Haber <mh+linux-kernel@zugschlus.de>
-Subject: Re: 2.6.26/tg3 ping roundtrip times > 2000 ms on local network
-Date: Wed, 20 Aug 2008 19:47:52 +0200
-Message-ID: <20080820174752.GB18419@torres.zugschlus.de>
-References: <20080819172019.GA5823@torres.zugschlus.de> <20080819.132040.188336475.davem@davemloft.net> <1219166962.13090.12.camel@HP1> <20080819221439.GA19106@torres.zugschlus.de> <20080819223025.GA11221@xw6200.broadcom.net>
+From: Pekka J Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [RFC][PATCH] netconsole: avoid deadlock on printk from driver
+ code
+Date: Wed, 20 Aug 2008 20:54:01 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808202051550.3501@melkki.cs.Helsinki.FI>
+References: <20080813.033749.165504341.davem@davemloft.net>
+ <84144f020808140628m31d6d099t1fecdb1701c0bbdc@mail.gmail.com>
+ <Pine.LNX.4.64.0808141643200.3164@sbz-30.cs.Helsinki.FI>
+ <20080814.151502.251134900.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Marc Haber <mh+linux-kernel@zugschlus.de>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vegard.nossum@gmail.com, vegardno@ifi.uio.no,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, adobriyan@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.68.41]:55513 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750882AbYHTRr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 13:47:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20080819223025.GA11221@xw6200.broadcom.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54272 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbYHTRyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 13:54:05 -0400
+In-Reply-To: <20080814.151502.251134900.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 19, 2008 at 03:30:25PM -0700, Matt Carlson wrote:
-> Can you try the attached patch?  The patch reduces the delay back to
-> what it should have been.  If this helps, then it means you are being
-> bitten by the same bug the upstream patch fixed.
+On Thu, 14 Aug 2008, David Miller wrote:
+> From: Pekka J Enberg <penberg@cs.helsinki.fi>
+> Date: Thu, 14 Aug 2008 16:44:32 +0300 (EEST)
+> 
+> > @@ -598,6 +598,7 @@
+> >  
+> >  	spinlock_t		lock;
+> >  	spinlock_t		rx_lock;
+> > +	spinlock_t		tx_lock;
+> >  
+> >  	chip_t			chipset;
+> >  	u32			rx_config;
+> 
+> Why create a special purpose lock when the generic networking
+> already is taking a lock for you to proect the TX path?
 
-It looks like the issue is fixed now. Thanks for your help.
+Heh, no reason, just my ignorance of the networking layer... Does this 
+look more like it?
 
-Will this fix be in 2.6.26.3 and/or 2.6.27?
+		Pekka
 
-Now I need to understand why the other, nearly[1] identical box didn't
-need the patch to function properly.
+Subject: [PATCH] 8139too: avoid deadlock with netconsole
+From: Pekka Enberg <penberg@cs.helsinki.fi>
 
-Greetings
-Marc
+As explained by Vegard Nossum, the 8139too driver can deadlock with netconsole:
 
-[1] only difference is that the working box has two e1000 interfaces
-on a PCI card in addition to the two tg3 interfaces on board (all four
-of them being in use)
+  I encountered a hard-to-debug deadlock when I pulled out the plug of my
+  RealTek 8139 which was also running netconsole: The driver wants to print a
+  "link down" message. However, this triggers netconsole, which wants to print
+  the message using the same device. Here is a backtrace:
 
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+     [<c05916b6>] _spin_lock_irqsave+0x76/0x90
+     [<c035b255>] rtl8139_start_xmit+0x65/0x130 <-- spin_lock(&tp->lock)
+     [<c04c5e28>] netpoll_send_skb+0x158/0x1a0
+     [<c04c62fb>] netpoll_send_udp+0x1db/0x1f0
+     [<c037c70c>] write_msg+0x8c/0xc0
+     [<c0135883>] __call_console_drivers+0x53/0x60
+     [<c01358db>] _call_console_drivers+0x4b/0x90
+     [<c0135a25>] release_console_sem+0xc5/0x1f0
+     [<c0135f0b>] vprintk+0x1ab/0x3e0
+     [<c013615b>] printk+0x1b/0x20
+     [<c0349736>] mii_check_media+0x196/0x1e0
+     [<c03597f4>] rtl_check_media+0x24/0x30
+     [<c035a0ea>] rtl8139_interrupt+0x42a/0x4a0 <-- spin_lock(&tp->lock)
+     [<c01716d8>] handle_IRQ_event+0x28/0x70
+     [<c0172d9b>] handle_fasteoi_irq+0x6b/0xe0
+     [<c0107128>] do_IRQ+0x48/0xa0
+
+To avoid the deadlock, use netif_tx_lock() for the TX paths and make sure we
+never call printk() while holding that lock as suggested by David Miller.
+
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+---
+ drivers/net/8139too.c |   35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
+
+Index: linux-2.6/drivers/net/8139too.c
+===================================================================
+--- linux-2.6.orig/drivers/net/8139too.c
++++ linux-2.6/drivers/net/8139too.c
+@@ -1675,9 +1675,11 @@ static void rtl8139_tx_timeout_task (str
+ 	RTL_W16 (IntrMask, 0x0000);
+ 
+ 	/* Stop a shared interrupt from scavenging while we are. */
+-	spin_lock_irq(&tp->lock);
++	local_irq_disable();
++	netif_tx_lock(dev);
+ 	rtl8139_tx_clear (tp);
+-	spin_unlock_irq(&tp->lock);
++	netif_tx_unlock(dev);
++	local_irq_enable();
+ 
+ 	/* ...and finally, reset everything */
+ 	if (netif_running(dev)) {
+@@ -1721,7 +1723,8 @@ static int rtl8139_start_xmit (struct sk
+ 		return 0;
+ 	}
+ 
+-	spin_lock_irqsave(&tp->lock, flags);
++	local_irq_save(flags);
++	netif_tx_lock(dev);
+ 	RTL_W32_F (TxStatus0 + (entry * sizeof (u32)),
+ 		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
+ 
+@@ -1732,7 +1735,8 @@ static int rtl8139_start_xmit (struct sk
+ 
+ 	if ((tp->cur_tx - NUM_TX_DESC) == tp->dirty_tx)
+ 		netif_stop_queue (dev);
+-	spin_unlock_irqrestore(&tp->lock, flags);
++	netif_tx_unlock(dev);
++	local_irq_restore(flags);
+ 
+ 	if (netif_msg_tx_queued(tp))
+ 		printk (KERN_DEBUG "%s: Queued Tx packet size %u to slot %d.\n",
+@@ -1747,10 +1751,15 @@ static void rtl8139_tx_interrupt (struct
+ 				  void __iomem *ioaddr)
+ {
+ 	unsigned long dirty_tx, tx_left;
++	unsigned long old_dirty_tx = 0;
++	int error;
+ 
+ 	assert (dev != NULL);
+ 	assert (ioaddr != NULL);
+ 
++	netif_tx_lock(dev);
++retry:
++	error = 0;
+ 	dirty_tx = tp->dirty_tx;
+ 	tx_left = tp->cur_tx - dirty_tx;
+ 	while (tx_left > 0) {
+@@ -1766,8 +1775,7 @@ static void rtl8139_tx_interrupt (struct
+ 		if (txstatus & (TxOutOfWindow | TxAborted)) {
+ 			/* There was an major error, log it. */
+ 			if (netif_msg_tx_err(tp))
+-				printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
+-					dev->name, txstatus);
++				error = 1;
+ 			dev->stats.tx_errors++;
+ 			if (txstatus & TxAborted) {
+ 				dev->stats.tx_aborted_errors++;
+@@ -1793,12 +1801,19 @@ static void rtl8139_tx_interrupt (struct
+ 
+ 		dirty_tx++;
+ 		tx_left--;
++		if (error) {
++			netif_tx_unlock(dev);
++			printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
++				dev->name, txstatus);
++			netif_tx_lock(dev);
++			goto retry;
++		}
+ 	}
+ 
+ #ifndef RTL8139_NDEBUG
+ 	if (tp->cur_tx - dirty_tx > NUM_TX_DESC) {
+-		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
+-		        dev->name, dirty_tx, tp->cur_tx);
++		error = 1;
++		old_dirty_tx = dirty_tx;
+ 		dirty_tx += NUM_TX_DESC;
+ 	}
+ #endif /* RTL8139_NDEBUG */
+@@ -1809,6 +1824,10 @@ static void rtl8139_tx_interrupt (struct
+ 		mb();
+ 		netif_wake_queue (dev);
+ 	}
++	netif_tx_unlock(dev);
++	if (error)
++		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
++		        dev->name, old_dirty_tx, tp->cur_tx);
+ }
+ 
+ 
