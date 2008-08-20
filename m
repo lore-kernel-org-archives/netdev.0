@@ -1,139 +1,106 @@
 From: <gregkh@suse.de>
-Subject: patch kobject-cleanup-kobject_rename-and-config_sysfs.patch added to gregkh-2.6 tree
-Date: Tue, 19 Aug 2008 18:48:08 -0700
-Message-ID: <12191968881412@kroah.org>
-References: <m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
+Subject: patch sysfs-implement-__sysfs_get_dentry.patch added to gregkh-2.6 tree
+Date: Tue, 19 Aug 2008 19:16:05 -0700
+Message-ID: <12191985653962@kroah.org>
+References: <m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
 To: gregkh@suse.de, akpm@linux-foundation.org, benjamin.thery@bull.net,
 	containers@lists.osdl.org, dlezcano@fr.ibm.com,
 	ebiederm@xmission.com, htejun@gmail.com, netdev@vger.kernel.org,
 	tj
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:53827 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:55314 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751355AbYHTBwS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2008 21:52:18 -0400
-In-Reply-To: <m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
+	id S1751928AbYHTCUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2008 22:20:55 -0400
+In-Reply-To: <m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 This is a note to let you know that I've just added the patch titled
 
-    Subject: kobject: Cleanup kobject_rename and !CONFIG_SYSFS
+    Subject: sysfs: Implement __sysfs_get_dentry
 
 to my gregkh-2.6 tree.  Its filename is
 
-    kobject-cleanup-kobject_rename-and-config_sysfs.patch
+    sysfs-implement-__sysfs_get_dentry.patch
 
 This tree can be found at 
     http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
->From ebiederm@xmission.com Thu Jul  3 18:11:54 2008
+>From ebiederm@xmission.com Thu Jul  3 18:11:48 2008
 From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 03 Jul 2008 18:05:28 -0700
-Subject: kobject: Cleanup kobject_rename and !CONFIG_SYSFS
-To: ebiederm@xmission.com (Eric W. Biederman)
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>, linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>, Linux Containers <containers@lists.osdl.org>, Benjamin Thery <benjamin.thery@bull.net>, <netdev@vger.kernel.org>
-Message-ID: <m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
+Date: Thu, 03 Jul 2008 18:09:04 -0700
+Subject: sysfs: Implement __sysfs_get_dentry
+To: Greg Kroah-Hartman <gregkh@suse.de>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Tejun Heo <htejun@gmail.com>, Daniel Lezcano <dlezcano@fr.ibm.com>, linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>, Linux Containers <containers@lists.osdl.org>, Benjamin Thery <benjamin.thery@bull.net>, <netdev@vger.kernel.org>
+Message-ID: <m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
+
+From: Eric W. Biederman <ebiederm@xmission.com>
 
 
-
-It finally dawned on me what the clean fix to sysfs_rename_dir
-calling kobject_set_name is.  Move the work into kobject_rename
-where it belongs.  The callers serialize us anyway so this is
-safe.
+This function is similar but much simpler to sysfs_get_dentry
+returns a sysfs dentry if one curently exists.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 Acked-by: Tejun Heo <tj@kernel.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- fs/sysfs/dir.c        |    6 +-----
- include/linux/sysfs.h |    4 +---
- lib/kobject.c         |   17 +++++++++++++++--
- 3 files changed, 17 insertions(+), 10 deletions(-)
+ fs/sysfs/dir.c |   39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
 --- a/fs/sysfs/dir.c
 +++ b/fs/sysfs/dir.c
-@@ -830,16 +830,12 @@ int sysfs_rename_dir(struct kobject * ko
- 	if (!new_dentry)
- 		goto out_unlock;
- 
--	/* rename kobject and sysfs_dirent */
-+	/* rename sysfs_dirent */
- 	error = -ENOMEM;
- 	new_name = dup_name = kstrdup(new_name, GFP_KERNEL);
- 	if (!new_name)
- 		goto out_unlock;
- 
--	error = kobject_set_name(kobj, "%s", new_name);
--	if (error)
--		goto out_unlock;
--
- 	dup_name = sd->s_name;
- 	sd->s_name = new_name;
- 
---- a/include/linux/sysfs.h
-+++ b/include/linux/sysfs.h
-@@ -20,8 +20,6 @@
- struct kobject;
- struct module;
- 
--extern int kobject_set_name(struct kobject *kobj, const char *name, ...)
--			    __attribute__((format(printf, 2, 3)));
- /* FIXME
-  * The *owner field is no longer used, but leave around
-  * until the tree gets cleaned up fully.
-@@ -149,7 +147,7 @@ static inline void sysfs_remove_dir(stru
- 
- static inline int sysfs_rename_dir(struct kobject *kobj, const char *new_name)
- {
--	return kobject_set_name(kobj, "%s", new_name);
-+	return 0;
+@@ -795,6 +795,45 @@ void sysfs_remove_dir(struct kobject * k
+ 	__sysfs_remove_dir(sd);
  }
  
- static inline int sysfs_move_dir(struct kobject *kobj,
---- a/lib/kobject.c
-+++ b/lib/kobject.c
-@@ -447,6 +447,7 @@ int kobject_rename(struct kobject *kobj,
- {
- 	int error = 0;
- 	const char *devpath = NULL;
-+	const char *dup_name = NULL, *name;
- 	char *devpath_string = NULL;
- 	char *envp[2];
- 
-@@ -470,15 +471,27 @@ int kobject_rename(struct kobject *kobj,
- 	envp[0] = devpath_string;
- 	envp[1] = NULL;
- 
-+	name = dup_name = kstrdup(new_name, GFP_KERNEL);
-+	if (!name) {
-+		error = -ENOMEM;
-+		goto out;
++/**
++ *	__sysfs_get_dentry - get dentry for the given sysfs_dirent
++ *	@sb: superblock of the dentry to return
++ *	@sd: sysfs_dirent of interest
++ *
++ *	Get dentry for @sd.  Only return a dentry if one currently
++ *	exists.
++ *
++ *	LOCKING:
++ *	Kernel thread context (may sleep)
++ *
++ *	RETURNS:
++ *	Pointer to found dentry on success, NULL on failure.
++ */
++static struct dentry *__sysfs_get_dentry(struct super_block *sb,
++					 struct sysfs_dirent *sd)
++{
++	struct inode *inode;
++	struct dentry *dentry = NULL;
++
++	inode = ilookup5_nowait(sysfs_sb, sd->s_ino, sysfs_ilookup_test, sd);
++	if (inode && !(inode->i_state & I_NEW)) {
++		struct dentry *alias;
++		spin_lock(&dcache_lock);
++		list_for_each_entry(alias, &inode->i_dentry, d_alias) {
++			if (!IS_ROOT(alias) && d_unhashed(alias))
++				continue;
++			if (alias->d_sb != sb)
++				continue;
++			dentry = alias;
++			dget_locked(dentry);
++			break;
++		}
++		spin_unlock(&dcache_lock);
 +	}
++	iput(inode);
++	return dentry;
++}
 +
- 	error = sysfs_rename_dir(kobj, new_name);
-+	if (error)
-+		goto out;
-+
-+	/* Install the new kobject name */
-+	dup_name = kobj->name;
-+	kobj->name = name;
- 
- 	/* This function is mostly/only used for network interface.
- 	 * Some hotplug package track interfaces by their name and
- 	 * therefore want to know when the name is changed by the user. */
--	if (!error)
--		kobject_uevent_env(kobj, KOBJ_MOVE, envp);
-+	kobject_uevent_env(kobj, KOBJ_MOVE, envp);
- 
- out:
-+	kfree(dup_name);
- 	kfree(devpath_string);
- 	kfree(devpath);
- 	kobject_put(kobj);
+ int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
+ {
+ 	struct sysfs_dirent *sd = kobj->sd;
 
 
 Patches currently in gregkh-2.6 which might be from gregkh@suse.de are
@@ -230,7 +197,6 @@ usb.current/usb-fix-pxa27x_udc-usb-speed-handling.patch
 usb.current/usb-isp1760-fixed-trivial-math-in-comment.patch
 usb.current/usb-serial-option-support-hsdpa-modem-a2502.patch
 HOWTO
-driver-core/put_device-might_sleep.patch
 driver-core/sysfs-crash-debugging.patch
 driver-core/warn-when-statically-allocated-kobjects-are-used.patch
 driver-core/usb-gadget-make-gadget_core.ko.patch
@@ -264,6 +230,12 @@ driver-core/device-create-usb-convert-device_create_drvdata-to-device_create.pat
 driver-core/device-create-video-convert-device_create_drvdata-to-device_create.patch
 driver-core/kobject-fix-kobject_rename-and-config_sysfs.patch
 driver-core/kobject-cleanup-kobject_rename-and-config_sysfs.patch
+driver-core/sysfs-implement-__sysfs_get_dentry.patch
+driver-core/sysfs-introduce-sysfs_sd_setattr-and-fix-sysfs_chmod.patch
+driver-core/sysfs-sysfs_get_dentry-add-a-sb-parameter.patch
+driver-core/sysfs-rename-support-multiple-superblocks.patch
+driver-core/sysfs-support-for-preventing-unmounts.patch
+driver-core/sysfs-sysfs_chmod_file-handle-multiple-superblocks.patch
 driver-core/driver-core-convert-to-new-device-api-to-allow-names-longer-than-20-chars.patch
 driver-core/driver-core-lguest-convert-to-new-device-api-to-allow-names-longer-than-20-chars.patch
 driver-core/driver-core-prepare-for-removal-of-20-char-limit-from-struct-device.patch
