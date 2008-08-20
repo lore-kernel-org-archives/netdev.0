@@ -1,2502 +1,1858 @@
 From: akpm@linux-foundation.org
-Subject: [patch 09/12] the overdue eepro100 removal
-Date: Wed, 20 Aug 2008 16:52:05 -0700
-Message-ID: <200808202352.m7KNq51x006056@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@kernel.org
+Subject: [patch 07/12] cassini: use request_firmware
+Date: Wed, 20 Aug 2008 16:52:04 -0700
+Message-ID: <200808202352.m7KNq42b006050@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	jaswinder@infradead.org, dwmw2@infradead.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53004 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34624 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756141AbYHTXyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:54:40 -0400
+	by vger.kernel.org with ESMTP id S1756216AbYHTXyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:54:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <bunk@kernel.org>
+From: Jaswinder Singh <jaswinder@infradead.org>
 
-The overdue eepro100 removal.
+Firmware blob looks like this...
+        __le16 load_address
+        unsigned char data[]
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+[akpm@linux-foundation.org: include vmalloc.h]
+Signed-off-by: Jaswinder Singh <jaswinder@infradead.org>
+Cc: David Woodhouse <dwmw2@infradead.org>
 Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- Documentation/feature-removal-schedule.txt |    7 
- MAINTAINERS                                |    5 
- drivers/net/Kconfig                        |   13 
- drivers/net/Makefile                       |    1 
- drivers/net/eepro100.c                     | 2401 -------------------
- 5 files changed, 2427 deletions(-)
+ drivers/net/cassini.c         |   54 +
+ drivers/net/cassini.h         | 1522 --------------------------------
+ firmware/Makefile             |    1 
+ firmware/WHENCE               |   10 
+ firmware/sun/cassini.bin.ihex |  143 +++
+ 5 files changed, 207 insertions(+), 1523 deletions(-)
 
-diff -puN Documentation/feature-removal-schedule.txt~the-overdue-eepro100-removal Documentation/feature-removal-schedule.txt
---- a/Documentation/feature-removal-schedule.txt~the-overdue-eepro100-removal
-+++ a/Documentation/feature-removal-schedule.txt
-@@ -126,13 +126,6 @@ Who:	Christoph Hellwig <hch@lst.de>
+diff -puN drivers/net/cassini.c~cassini-use-request_firmware drivers/net/cassini.c
+--- a/drivers/net/cassini.c~cassini-use-request_firmware
++++ a/drivers/net/cassini.c
+@@ -74,6 +74,7 @@
+ #include <linux/slab.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
++#include <linux/vmalloc.h>
+ #include <linux/ioport.h>
+ #include <linux/pci.h>
+ #include <linux/mm.h>
+@@ -91,6 +92,7 @@
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ #include <linux/mutex.h>
++#include <linux/firmware.h>
  
- ---------------------------
+ #include <net/checksum.h>
  
--What:   eepro100 network driver
--When:   January 2007
--Why:    replaced by the e100 driver
--Who:    Adrian Bunk <bunk@stusta.de>
--
-----------------------------
--
- What:	Unused EXPORT_SYMBOL/EXPORT_SYMBOL_GPL exports
- 	(temporary transition config option provided until then)
- 	The transition config option will also be removed at the same time.
-diff -puN MAINTAINERS~the-overdue-eepro100-removal MAINTAINERS
---- a/MAINTAINERS~the-overdue-eepro100-removal
-+++ a/MAINTAINERS
-@@ -1573,11 +1573,6 @@ L:	acpi4asus-user@lists.sourceforge.net
- W:	http://sourceforge.net/projects/acpi4asus
- S:	Maintained
+@@ -197,6 +199,7 @@ static int link_mode;
+ MODULE_AUTHOR("Adrian Sun (asun@darksunrising.com)");
+ MODULE_DESCRIPTION("Sun Cassini(+) ethernet driver");
+ MODULE_LICENSE("GPL");
++MODULE_FIRMWARE("sun/cassini.bin");
+ module_param(cassini_debug, int, 0);
+ MODULE_PARM_DESC(cassini_debug, "Cassini bitmapped debugging message enable value");
+ module_param(link_mode, int, 0);
+@@ -812,9 +815,44 @@ static int cas_reset_mii_phy(struct cas 
+ 	return (limit <= 0);
+ }
  
--EEPRO100 NETWORK DRIVER
--P:	Andrey V. Savochkin
--M:	saw@saw.sw.com.sg
--S:	Maintained
--
- EFS FILESYSTEM
- W:	http://aeschi.ch.eu.org/efs/
- S:	Orphan
-diff -puN drivers/net/Kconfig~the-overdue-eepro100-removal drivers/net/Kconfig
---- a/drivers/net/Kconfig~the-overdue-eepro100-removal
-+++ a/drivers/net/Kconfig
-@@ -1402,19 +1402,6 @@ config TC35815
- 	depends on NET_PCI && PCI && MIPS
- 	select PHYLIB
++static int cas_saturn_firmware_init(struct cas *cp)
++{
++	const struct firmware *fw;
++	const char fw_name[] = "sun/cassini.bin";
++	int err;
++
++	if (PHY_NS_DP83065 != cp->phy_id)
++		return 0;
++
++	err = request_firmware(&fw, fw_name, &cp->pdev->dev);
++	if (err) {
++		printk(KERN_ERR "cassini: Failed to load firmware \"%s\"\n",
++		       fw_name);
++		return err;
++	}
++	if (fw->size < 2) {
++		printk(KERN_ERR "cassini: bogus length %zu in \"%s\"\n",
++		       fw->size, fw_name);
++		err = -EINVAL;
++		goto out;
++	}
++	cp->fw_load_addr= fw->data[1] << 8 | fw->data[0];
++	cp->fw_size = fw->size - 2;
++	cp->fw_data = vmalloc(cp->fw_size);
++	if (!cp->fw_data) {
++		err = -ENOMEM;
++		printk(KERN_ERR "cassini: \"%s\" Failed %d\n", fw_name, err);
++		goto out;
++	}
++	memcpy(cp->fw_data, &fw->data[2], cp->fw_size);
++out:
++	release_firmware(fw);
++	return err;
++}
++
+ static void cas_saturn_firmware_load(struct cas *cp)
+ {
+-	cas_saturn_patch_t *patch = cas_saturn_patch;
++	int i;
  
--config EEPRO100
--	tristate "EtherExpressPro/100 support (eepro100, original Becker driver)"
--	depends on NET_PCI && PCI
--	select MII
--	help
--	  If you have an Intel EtherExpress PRO/100 PCI network (Ethernet)
--	  card, say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+ 	cas_phy_powerdown(cp);
+ 
+@@ -833,11 +871,9 @@ static void cas_saturn_firmware_load(str
+ 
+ 	/* download new firmware */
+ 	cas_phy_write(cp, DP83065_MII_MEM, 0x1);
+-	cas_phy_write(cp, DP83065_MII_REGE, patch->addr);
+-	while (patch->addr) {
+-		cas_phy_write(cp, DP83065_MII_REGD, patch->val);
+-		patch++;
+-	}
++	cas_phy_write(cp, DP83065_MII_REGE, cp->fw_load_addr);
++	for (i = 0; i < cp->fw_size; i++)
++		cas_phy_write(cp, DP83065_MII_REGD, cp->fw_data[i]);
+ 
+ 	/* enable firmware */
+ 	cas_phy_write(cp, DP83065_MII_REGE, 0x8ff8);
+@@ -5108,6 +5144,9 @@ static int __devinit cas_init_one(struct
+ 	cas_reset(cp, 0);
+ 	if (cas_check_invariants(cp))
+ 		goto err_out_iounmap;
++	if (cp->cas_flags & CAS_FLAG_SATURN)
++		if (cas_saturn_firmware_init(cp))
++			goto err_out_iounmap;
+ 
+ 	cp->init_block = (struct cas_init_block *)
+ 		pci_alloc_consistent(pdev, sizeof(struct cas_init_block),
+@@ -5217,6 +5256,9 @@ static void __devexit cas_remove_one(str
+ 	cp = netdev_priv(dev);
+ 	unregister_netdev(dev);
+ 
++	if (cp->fw_data)
++		vfree(cp->fw_data);
++
+ 	mutex_lock(&cp->pm_mutex);
+ 	flush_scheduled_work();
+ 	if (cp->hw_running)
+diff -puN drivers/net/cassini.h~cassini-use-request_firmware drivers/net/cassini.h
+--- a/drivers/net/cassini.h~cassini-use-request_firmware
++++ a/drivers/net/cassini.h
+@@ -2514,1523 +2514,6 @@ static cas_hp_inst_t cas_prog_null[] = {
+ #define CAS_HP_FIRMWARE               cas_prog_null
+ #endif
+ 
+-/* firmware patch for NS_DP83065 */
+-typedef struct cas_saturn_patch {
+-	u16 addr;
+-	u16 val;
+-} cas_saturn_patch_t;
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called eepro100.
--
--
- config E100
- 	tristate "Intel(R) PRO/100+ support"
- 	depends on NET_PCI && PCI
-diff -puN drivers/net/Makefile~the-overdue-eepro100-removal drivers/net/Makefile
---- a/drivers/net/Makefile~the-overdue-eepro100-removal
-+++ a/drivers/net/Makefile
-@@ -50,7 +50,6 @@ obj-$(CONFIG_VORTEX) += 3c59x.o
- obj-$(CONFIG_TYPHOON) += typhoon.o
- obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
- obj-$(CONFIG_PCNET32) += pcnet32.o
--obj-$(CONFIG_EEPRO100) += eepro100.o
- obj-$(CONFIG_E100) += e100.o
- obj-$(CONFIG_TLAN) += tlan.o
- obj-$(CONFIG_EPIC100) += epic100.o
-diff -puN drivers/net/eepro100.c~the-overdue-eepro100-removal /dev/null
---- a/drivers/net/eepro100.c
-+++ /dev/null
-@@ -1,2401 +0,0 @@
--/* drivers/net/eepro100.c: An Intel i82557-559 Ethernet driver for Linux. */
--/*
--	Written 1996-1999 by Donald Becker.
--
--	The driver also contains updates by different kernel developers
--	(see incomplete list below).
--	Current maintainer is Andrey V. Savochkin <saw@saw.sw.com.sg>.
--	Please use this email address and linux-kernel mailing list for bug reports.
--
--	This software may be used and distributed according to the terms
--	of the GNU General Public License, incorporated herein by reference.
--
--	This driver is for the Intel EtherExpress Pro100 (Speedo3) design.
--	It should work with all i82557/558/559 boards.
--
--	Version history:
--	1998 Apr - 2000 Feb  Andrey V. Savochkin <saw@saw.sw.com.sg>
--		Serious fixes for multicast filter list setting, TX timeout routine;
--		RX ring refilling logic;  other stuff
--	2000 Feb  Jeff Garzik <jgarzik@pobox.com>
--		Convert to new PCI driver interface
--	2000 Mar 24  Dragan Stancevic <visitor@valinux.com>
--		Disabled FC and ER, to avoid lockups when when we get FCP interrupts.
--	2000 Jul 17 Goutham Rao <goutham.rao@intel.com>
--		PCI DMA API fixes, adding pci_dma_sync_single calls where neccesary
--	2000 Aug 31 David Mosberger <davidm@hpl.hp.com>
--		rx_align support: enables rx DMA without causing unaligned accesses.
--*/
--
--static const char * const version =
--"eepro100.c:v1.09j-t 9/29/99 Donald Becker\n"
--"eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others\n";
--
--/* A few user-configurable values that apply to all boards.
--   First set is undocumented and spelled per Intel recommendations. */
--
--static int congenb /* = 0 */; /* Enable congestion control in the DP83840. */
--static int txfifo = 8;		/* Tx FIFO threshold in 4 byte units, 0-15 */
--static int rxfifo = 8;		/* Rx FIFO threshold, default 32 bytes. */
--/* Tx/Rx DMA burst length, 0-127, 0 == no preemption, tx==128 -> disabled. */
--static int txdmacount = 128;
--static int rxdmacount /* = 0 */;
--
--#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || defined(__mips__) || \
--	defined(__arm__)
--  /* align rx buffers to 2 bytes so that IP header is aligned */
--# define rx_align(skb)		skb_reserve((skb), 2)
--# define RxFD_ALIGNMENT		__attribute__ ((aligned (2), packed))
+-#if 1
+-cas_saturn_patch_t cas_saturn_patch[] = {
+-{0x8200,    0x007e}, {0x8201,    0x0082}, {0x8202,    0x0009},
+-{0x8203,    0x0000}, {0x8204,    0x0000}, {0x8205,    0x0000},
+-{0x8206,    0x0000}, {0x8207,    0x0000}, {0x8208,    0x0000},
+-{0x8209,    0x008e}, {0x820a,    0x008e}, {0x820b,    0x00ff},
+-{0x820c,    0x00ce}, {0x820d,    0x0082}, {0x820e,    0x0025},
+-{0x820f,    0x00ff}, {0x8210,    0x0001}, {0x8211,    0x000f},
+-{0x8212,    0x00ce}, {0x8213,    0x0084}, {0x8214,    0x0026},
+-{0x8215,    0x00ff}, {0x8216,    0x0001}, {0x8217,    0x0011},
+-{0x8218,    0x00ce}, {0x8219,    0x0085}, {0x821a,    0x003d},
+-{0x821b,    0x00df}, {0x821c,    0x00e5}, {0x821d,    0x0086},
+-{0x821e,    0x0039}, {0x821f,    0x00b7}, {0x8220,    0x008f},
+-{0x8221,    0x00f8}, {0x8222,    0x007e}, {0x8223,    0x00c3},
+-{0x8224,    0x00c2}, {0x8225,    0x0096}, {0x8226,    0x0047},
+-{0x8227,    0x0084}, {0x8228,    0x00f3}, {0x8229,    0x008a},
+-{0x822a,    0x0000}, {0x822b,    0x0097}, {0x822c,    0x0047},
+-{0x822d,    0x00ce}, {0x822e,    0x0082}, {0x822f,    0x0033},
+-{0x8230,    0x00ff}, {0x8231,    0x0001}, {0x8232,    0x000f},
+-{0x8233,    0x0096}, {0x8234,    0x0046}, {0x8235,    0x0084},
+-{0x8236,    0x000c}, {0x8237,    0x0081}, {0x8238,    0x0004},
+-{0x8239,    0x0027}, {0x823a,    0x000b}, {0x823b,    0x0096},
+-{0x823c,    0x0046}, {0x823d,    0x0084}, {0x823e,    0x000c},
+-{0x823f,    0x0081}, {0x8240,    0x0008}, {0x8241,    0x0027},
+-{0x8242,    0x0057}, {0x8243,    0x007e}, {0x8244,    0x0084},
+-{0x8245,    0x0025}, {0x8246,    0x0096}, {0x8247,    0x0047},
+-{0x8248,    0x0084}, {0x8249,    0x00f3}, {0x824a,    0x008a},
+-{0x824b,    0x0004}, {0x824c,    0x0097}, {0x824d,    0x0047},
+-{0x824e,    0x00ce}, {0x824f,    0x0082}, {0x8250,    0x0054},
+-{0x8251,    0x00ff}, {0x8252,    0x0001}, {0x8253,    0x000f},
+-{0x8254,    0x0096}, {0x8255,    0x0046}, {0x8256,    0x0084},
+-{0x8257,    0x000c}, {0x8258,    0x0081}, {0x8259,    0x0004},
+-{0x825a,    0x0026}, {0x825b,    0x0038}, {0x825c,    0x00b6},
+-{0x825d,    0x0012}, {0x825e,    0x0020}, {0x825f,    0x0084},
+-{0x8260,    0x0020}, {0x8261,    0x0026}, {0x8262,    0x0003},
+-{0x8263,    0x007e}, {0x8264,    0x0084}, {0x8265,    0x0025},
+-{0x8266,    0x0096}, {0x8267,    0x007b}, {0x8268,    0x00d6},
+-{0x8269,    0x007c}, {0x826a,    0x00fe}, {0x826b,    0x008f},
+-{0x826c,    0x0056}, {0x826d,    0x00bd}, {0x826e,    0x00f7},
+-{0x826f,    0x00b6}, {0x8270,    0x00fe}, {0x8271,    0x008f},
+-{0x8272,    0x004e}, {0x8273,    0x00bd}, {0x8274,    0x00ec},
+-{0x8275,    0x008e}, {0x8276,    0x00bd}, {0x8277,    0x00fa},
+-{0x8278,    0x00f7}, {0x8279,    0x00bd}, {0x827a,    0x00f7},
+-{0x827b,    0x0028}, {0x827c,    0x00ce}, {0x827d,    0x0082},
+-{0x827e,    0x0082}, {0x827f,    0x00ff}, {0x8280,    0x0001},
+-{0x8281,    0x000f}, {0x8282,    0x0096}, {0x8283,    0x0046},
+-{0x8284,    0x0084}, {0x8285,    0x000c}, {0x8286,    0x0081},
+-{0x8287,    0x0004}, {0x8288,    0x0026}, {0x8289,    0x000a},
+-{0x828a,    0x00b6}, {0x828b,    0x0012}, {0x828c,    0x0020},
+-{0x828d,    0x0084}, {0x828e,    0x0020}, {0x828f,    0x0027},
+-{0x8290,    0x00b5}, {0x8291,    0x007e}, {0x8292,    0x0084},
+-{0x8293,    0x0025}, {0x8294,    0x00bd}, {0x8295,    0x00f7},
+-{0x8296,    0x001f}, {0x8297,    0x007e}, {0x8298,    0x0084},
+-{0x8299,    0x001f}, {0x829a,    0x0096}, {0x829b,    0x0047},
+-{0x829c,    0x0084}, {0x829d,    0x00f3}, {0x829e,    0x008a},
+-{0x829f,    0x0008}, {0x82a0,    0x0097}, {0x82a1,    0x0047},
+-{0x82a2,    0x00de}, {0x82a3,    0x00e1}, {0x82a4,    0x00ad},
+-{0x82a5,    0x0000}, {0x82a6,    0x00ce}, {0x82a7,    0x0082},
+-{0x82a8,    0x00af}, {0x82a9,    0x00ff}, {0x82aa,    0x0001},
+-{0x82ab,    0x000f}, {0x82ac,    0x007e}, {0x82ad,    0x0084},
+-{0x82ae,    0x0025}, {0x82af,    0x0096}, {0x82b0,    0x0041},
+-{0x82b1,    0x0085}, {0x82b2,    0x0010}, {0x82b3,    0x0026},
+-{0x82b4,    0x0006}, {0x82b5,    0x0096}, {0x82b6,    0x0023},
+-{0x82b7,    0x0085}, {0x82b8,    0x0040}, {0x82b9,    0x0027},
+-{0x82ba,    0x0006}, {0x82bb,    0x00bd}, {0x82bc,    0x00ed},
+-{0x82bd,    0x0000}, {0x82be,    0x007e}, {0x82bf,    0x0083},
+-{0x82c0,    0x00a2}, {0x82c1,    0x00de}, {0x82c2,    0x0042},
+-{0x82c3,    0x00bd}, {0x82c4,    0x00eb}, {0x82c5,    0x008e},
+-{0x82c6,    0x0096}, {0x82c7,    0x0024}, {0x82c8,    0x0084},
+-{0x82c9,    0x0008}, {0x82ca,    0x0027}, {0x82cb,    0x0003},
+-{0x82cc,    0x007e}, {0x82cd,    0x0083}, {0x82ce,    0x00df},
+-{0x82cf,    0x0096}, {0x82d0,    0x007b}, {0x82d1,    0x00d6},
+-{0x82d2,    0x007c}, {0x82d3,    0x00fe}, {0x82d4,    0x008f},
+-{0x82d5,    0x0056}, {0x82d6,    0x00bd}, {0x82d7,    0x00f7},
+-{0x82d8,    0x00b6}, {0x82d9,    0x00fe}, {0x82da,    0x008f},
+-{0x82db,    0x0050}, {0x82dc,    0x00bd}, {0x82dd,    0x00ec},
+-{0x82de,    0x008e}, {0x82df,    0x00bd}, {0x82e0,    0x00fa},
+-{0x82e1,    0x00f7}, {0x82e2,    0x0086}, {0x82e3,    0x0011},
+-{0x82e4,    0x00c6}, {0x82e5,    0x0049}, {0x82e6,    0x00bd},
+-{0x82e7,    0x00e4}, {0x82e8,    0x0012}, {0x82e9,    0x00ce},
+-{0x82ea,    0x0082}, {0x82eb,    0x00ef}, {0x82ec,    0x00ff},
+-{0x82ed,    0x0001}, {0x82ee,    0x000f}, {0x82ef,    0x0096},
+-{0x82f0,    0x0046}, {0x82f1,    0x0084}, {0x82f2,    0x000c},
+-{0x82f3,    0x0081}, {0x82f4,    0x0000}, {0x82f5,    0x0027},
+-{0x82f6,    0x0017}, {0x82f7,    0x00c6}, {0x82f8,    0x0049},
+-{0x82f9,    0x00bd}, {0x82fa,    0x00e4}, {0x82fb,    0x0091},
+-{0x82fc,    0x0024}, {0x82fd,    0x000d}, {0x82fe,    0x00b6},
+-{0x82ff,    0x0012}, {0x8300,    0x0020}, {0x8301,    0x0085},
+-{0x8302,    0x0020}, {0x8303,    0x0026}, {0x8304,    0x000c},
+-{0x8305,    0x00ce}, {0x8306,    0x0082}, {0x8307,    0x00c1},
+-{0x8308,    0x00ff}, {0x8309,    0x0001}, {0x830a,    0x000f},
+-{0x830b,    0x007e}, {0x830c,    0x0084}, {0x830d,    0x0025},
+-{0x830e,    0x007e}, {0x830f,    0x0084}, {0x8310,    0x0016},
+-{0x8311,    0x00fe}, {0x8312,    0x008f}, {0x8313,    0x0052},
+-{0x8314,    0x00bd}, {0x8315,    0x00ec}, {0x8316,    0x008e},
+-{0x8317,    0x00bd}, {0x8318,    0x00fa}, {0x8319,    0x00f7},
+-{0x831a,    0x0086}, {0x831b,    0x006a}, {0x831c,    0x00c6},
+-{0x831d,    0x0049}, {0x831e,    0x00bd}, {0x831f,    0x00e4},
+-{0x8320,    0x0012}, {0x8321,    0x00ce}, {0x8322,    0x0083},
+-{0x8323,    0x0027}, {0x8324,    0x00ff}, {0x8325,    0x0001},
+-{0x8326,    0x000f}, {0x8327,    0x0096}, {0x8328,    0x0046},
+-{0x8329,    0x0084}, {0x832a,    0x000c}, {0x832b,    0x0081},
+-{0x832c,    0x0000}, {0x832d,    0x0027}, {0x832e,    0x000a},
+-{0x832f,    0x00c6}, {0x8330,    0x0049}, {0x8331,    0x00bd},
+-{0x8332,    0x00e4}, {0x8333,    0x0091}, {0x8334,    0x0025},
+-{0x8335,    0x0006}, {0x8336,    0x007e}, {0x8337,    0x0084},
+-{0x8338,    0x0025}, {0x8339,    0x007e}, {0x833a,    0x0084},
+-{0x833b,    0x0016}, {0x833c,    0x00b6}, {0x833d,    0x0018},
+-{0x833e,    0x0070}, {0x833f,    0x00bb}, {0x8340,    0x0019},
+-{0x8341,    0x0070}, {0x8342,    0x002a}, {0x8343,    0x0004},
+-{0x8344,    0x0081}, {0x8345,    0x00af}, {0x8346,    0x002e},
+-{0x8347,    0x0019}, {0x8348,    0x0096}, {0x8349,    0x007b},
+-{0x834a,    0x00f6}, {0x834b,    0x0020}, {0x834c,    0x0007},
+-{0x834d,    0x00fa}, {0x834e,    0x0020}, {0x834f,    0x0027},
+-{0x8350,    0x00c4}, {0x8351,    0x0038}, {0x8352,    0x0081},
+-{0x8353,    0x0038}, {0x8354,    0x0027}, {0x8355,    0x000b},
+-{0x8356,    0x00f6}, {0x8357,    0x0020}, {0x8358,    0x0007},
+-{0x8359,    0x00fa}, {0x835a,    0x0020}, {0x835b,    0x0027},
+-{0x835c,    0x00cb}, {0x835d,    0x0008}, {0x835e,    0x007e},
+-{0x835f,    0x0082}, {0x8360,    0x00d3}, {0x8361,    0x00bd},
+-{0x8362,    0x00f7}, {0x8363,    0x0066}, {0x8364,    0x0086},
+-{0x8365,    0x0074}, {0x8366,    0x00c6}, {0x8367,    0x0049},
+-{0x8368,    0x00bd}, {0x8369,    0x00e4}, {0x836a,    0x0012},
+-{0x836b,    0x00ce}, {0x836c,    0x0083}, {0x836d,    0x0071},
+-{0x836e,    0x00ff}, {0x836f,    0x0001}, {0x8370,    0x000f},
+-{0x8371,    0x0096}, {0x8372,    0x0046}, {0x8373,    0x0084},
+-{0x8374,    0x000c}, {0x8375,    0x0081}, {0x8376,    0x0008},
+-{0x8377,    0x0026}, {0x8378,    0x000a}, {0x8379,    0x00c6},
+-{0x837a,    0x0049}, {0x837b,    0x00bd}, {0x837c,    0x00e4},
+-{0x837d,    0x0091}, {0x837e,    0x0025}, {0x837f,    0x0006},
+-{0x8380,    0x007e}, {0x8381,    0x0084}, {0x8382,    0x0025},
+-{0x8383,    0x007e}, {0x8384,    0x0084}, {0x8385,    0x0016},
+-{0x8386,    0x00bd}, {0x8387,    0x00f7}, {0x8388,    0x003e},
+-{0x8389,    0x0026}, {0x838a,    0x000e}, {0x838b,    0x00bd},
+-{0x838c,    0x00e5}, {0x838d,    0x0009}, {0x838e,    0x0026},
+-{0x838f,    0x0006}, {0x8390,    0x00ce}, {0x8391,    0x0082},
+-{0x8392,    0x00c1}, {0x8393,    0x00ff}, {0x8394,    0x0001},
+-{0x8395,    0x000f}, {0x8396,    0x007e}, {0x8397,    0x0084},
+-{0x8398,    0x0025}, {0x8399,    0x00fe}, {0x839a,    0x008f},
+-{0x839b,    0x0054}, {0x839c,    0x00bd}, {0x839d,    0x00ec},
+-{0x839e,    0x008e}, {0x839f,    0x00bd}, {0x83a0,    0x00fa},
+-{0x83a1,    0x00f7}, {0x83a2,    0x00bd}, {0x83a3,    0x00f7},
+-{0x83a4,    0x0033}, {0x83a5,    0x0086}, {0x83a6,    0x000f},
+-{0x83a7,    0x00c6}, {0x83a8,    0x0051}, {0x83a9,    0x00bd},
+-{0x83aa,    0x00e4}, {0x83ab,    0x0012}, {0x83ac,    0x00ce},
+-{0x83ad,    0x0083}, {0x83ae,    0x00b2}, {0x83af,    0x00ff},
+-{0x83b0,    0x0001}, {0x83b1,    0x000f}, {0x83b2,    0x0096},
+-{0x83b3,    0x0046}, {0x83b4,    0x0084}, {0x83b5,    0x000c},
+-{0x83b6,    0x0081}, {0x83b7,    0x0008}, {0x83b8,    0x0026},
+-{0x83b9,    0x005c}, {0x83ba,    0x00b6}, {0x83bb,    0x0012},
+-{0x83bc,    0x0020}, {0x83bd,    0x0084}, {0x83be,    0x003f},
+-{0x83bf,    0x0081}, {0x83c0,    0x003a}, {0x83c1,    0x0027},
+-{0x83c2,    0x001c}, {0x83c3,    0x0096}, {0x83c4,    0x0023},
+-{0x83c5,    0x0085}, {0x83c6,    0x0040}, {0x83c7,    0x0027},
+-{0x83c8,    0x0003}, {0x83c9,    0x007e}, {0x83ca,    0x0084},
+-{0x83cb,    0x0025}, {0x83cc,    0x00c6}, {0x83cd,    0x0051},
+-{0x83ce,    0x00bd}, {0x83cf,    0x00e4}, {0x83d0,    0x0091},
+-{0x83d1,    0x0025}, {0x83d2,    0x0003}, {0x83d3,    0x007e},
+-{0x83d4,    0x0084}, {0x83d5,    0x0025}, {0x83d6,    0x00ce},
+-{0x83d7,    0x0082}, {0x83d8,    0x00c1}, {0x83d9,    0x00ff},
+-{0x83da,    0x0001}, {0x83db,    0x000f}, {0x83dc,    0x007e},
+-{0x83dd,    0x0084}, {0x83de,    0x0025}, {0x83df,    0x00bd},
+-{0x83e0,    0x00f8}, {0x83e1,    0x0037}, {0x83e2,    0x007c},
+-{0x83e3,    0x0000}, {0x83e4,    0x007a}, {0x83e5,    0x00ce},
+-{0x83e6,    0x0083}, {0x83e7,    0x00ee}, {0x83e8,    0x00ff},
+-{0x83e9,    0x0001}, {0x83ea,    0x000f}, {0x83eb,    0x007e},
+-{0x83ec,    0x0084}, {0x83ed,    0x0025}, {0x83ee,    0x0096},
+-{0x83ef,    0x0046}, {0x83f0,    0x0084}, {0x83f1,    0x000c},
+-{0x83f2,    0x0081}, {0x83f3,    0x0008}, {0x83f4,    0x0026},
+-{0x83f5,    0x0020}, {0x83f6,    0x0096}, {0x83f7,    0x0024},
+-{0x83f8,    0x0084}, {0x83f9,    0x0008}, {0x83fa,    0x0026},
+-{0x83fb,    0x0029}, {0x83fc,    0x00b6}, {0x83fd,    0x0018},
+-{0x83fe,    0x0082}, {0x83ff,    0x00bb}, {0x8400,    0x0019},
+-{0x8401,    0x0082}, {0x8402,    0x00b1}, {0x8403,    0x0001},
+-{0x8404,    0x003b}, {0x8405,    0x0022}, {0x8406,    0x0009},
+-{0x8407,    0x00b6}, {0x8408,    0x0012}, {0x8409,    0x0020},
+-{0x840a,    0x0084}, {0x840b,    0x0037}, {0x840c,    0x0081},
+-{0x840d,    0x0032}, {0x840e,    0x0027}, {0x840f,    0x0015},
+-{0x8410,    0x00bd}, {0x8411,    0x00f8}, {0x8412,    0x0044},
+-{0x8413,    0x007e}, {0x8414,    0x0082}, {0x8415,    0x00c1},
+-{0x8416,    0x00bd}, {0x8417,    0x00f7}, {0x8418,    0x001f},
+-{0x8419,    0x00bd}, {0x841a,    0x00f8}, {0x841b,    0x0044},
+-{0x841c,    0x00bd}, {0x841d,    0x00fc}, {0x841e,    0x0029},
+-{0x841f,    0x00ce}, {0x8420,    0x0082}, {0x8421,    0x0025},
+-{0x8422,    0x00ff}, {0x8423,    0x0001}, {0x8424,    0x000f},
+-{0x8425,    0x0039}, {0x8426,    0x0096}, {0x8427,    0x0047},
+-{0x8428,    0x0084}, {0x8429,    0x00fc}, {0x842a,    0x008a},
+-{0x842b,    0x0000}, {0x842c,    0x0097}, {0x842d,    0x0047},
+-{0x842e,    0x00ce}, {0x842f,    0x0084}, {0x8430,    0x0034},
+-{0x8431,    0x00ff}, {0x8432,    0x0001}, {0x8433,    0x0011},
+-{0x8434,    0x0096}, {0x8435,    0x0046}, {0x8436,    0x0084},
+-{0x8437,    0x0003}, {0x8438,    0x0081}, {0x8439,    0x0002},
+-{0x843a,    0x0027}, {0x843b,    0x0003}, {0x843c,    0x007e},
+-{0x843d,    0x0085}, {0x843e,    0x001e}, {0x843f,    0x0096},
+-{0x8440,    0x0047}, {0x8441,    0x0084}, {0x8442,    0x00fc},
+-{0x8443,    0x008a}, {0x8444,    0x0002}, {0x8445,    0x0097},
+-{0x8446,    0x0047}, {0x8447,    0x00de}, {0x8448,    0x00e1},
+-{0x8449,    0x00ad}, {0x844a,    0x0000}, {0x844b,    0x0086},
+-{0x844c,    0x0001}, {0x844d,    0x00b7}, {0x844e,    0x0012},
+-{0x844f,    0x0051}, {0x8450,    0x00bd}, {0x8451,    0x00f7},
+-{0x8452,    0x0014}, {0x8453,    0x00b6}, {0x8454,    0x0010},
+-{0x8455,    0x0031}, {0x8456,    0x0084}, {0x8457,    0x00fd},
+-{0x8458,    0x00b7}, {0x8459,    0x0010}, {0x845a,    0x0031},
+-{0x845b,    0x00bd}, {0x845c,    0x00f8}, {0x845d,    0x001e},
+-{0x845e,    0x0096}, {0x845f,    0x0081}, {0x8460,    0x00d6},
+-{0x8461,    0x0082}, {0x8462,    0x00fe}, {0x8463,    0x008f},
+-{0x8464,    0x005a}, {0x8465,    0x00bd}, {0x8466,    0x00f7},
+-{0x8467,    0x00b6}, {0x8468,    0x00fe}, {0x8469,    0x008f},
+-{0x846a,    0x005c}, {0x846b,    0x00bd}, {0x846c,    0x00ec},
+-{0x846d,    0x008e}, {0x846e,    0x00bd}, {0x846f,    0x00fa},
+-{0x8470,    0x00f7}, {0x8471,    0x0086}, {0x8472,    0x0008},
+-{0x8473,    0x00d6}, {0x8474,    0x0000}, {0x8475,    0x00c5},
+-{0x8476,    0x0010}, {0x8477,    0x0026}, {0x8478,    0x0002},
+-{0x8479,    0x008b}, {0x847a,    0x0020}, {0x847b,    0x00c6},
+-{0x847c,    0x0051}, {0x847d,    0x00bd}, {0x847e,    0x00e4},
+-{0x847f,    0x0012}, {0x8480,    0x00ce}, {0x8481,    0x0084},
+-{0x8482,    0x0086}, {0x8483,    0x00ff}, {0x8484,    0x0001},
+-{0x8485,    0x0011}, {0x8486,    0x0096}, {0x8487,    0x0046},
+-{0x8488,    0x0084}, {0x8489,    0x0003}, {0x848a,    0x0081},
+-{0x848b,    0x0002}, {0x848c,    0x0027}, {0x848d,    0x0003},
+-{0x848e,    0x007e}, {0x848f,    0x0085}, {0x8490,    0x000f},
+-{0x8491,    0x00c6}, {0x8492,    0x0051}, {0x8493,    0x00bd},
+-{0x8494,    0x00e4}, {0x8495,    0x0091}, {0x8496,    0x0025},
+-{0x8497,    0x0003}, {0x8498,    0x007e}, {0x8499,    0x0085},
+-{0x849a,    0x001e}, {0x849b,    0x0096}, {0x849c,    0x0044},
+-{0x849d,    0x0085}, {0x849e,    0x0010}, {0x849f,    0x0026},
+-{0x84a0,    0x000a}, {0x84a1,    0x00b6}, {0x84a2,    0x0012},
+-{0x84a3,    0x0050}, {0x84a4,    0x00ba}, {0x84a5,    0x0001},
+-{0x84a6,    0x003c}, {0x84a7,    0x0085}, {0x84a8,    0x0010},
+-{0x84a9,    0x0027}, {0x84aa,    0x00a8}, {0x84ab,    0x00bd},
+-{0x84ac,    0x00f7}, {0x84ad,    0x0066}, {0x84ae,    0x00ce},
+-{0x84af,    0x0084}, {0x84b0,    0x00b7}, {0x84b1,    0x00ff},
+-{0x84b2,    0x0001}, {0x84b3,    0x0011}, {0x84b4,    0x007e},
+-{0x84b5,    0x0085}, {0x84b6,    0x001e}, {0x84b7,    0x0096},
+-{0x84b8,    0x0046}, {0x84b9,    0x0084}, {0x84ba,    0x0003},
+-{0x84bb,    0x0081}, {0x84bc,    0x0002}, {0x84bd,    0x0026},
+-{0x84be,    0x0050}, {0x84bf,    0x00b6}, {0x84c0,    0x0012},
+-{0x84c1,    0x0030}, {0x84c2,    0x0084}, {0x84c3,    0x0003},
+-{0x84c4,    0x0081}, {0x84c5,    0x0001}, {0x84c6,    0x0027},
+-{0x84c7,    0x0003}, {0x84c8,    0x007e}, {0x84c9,    0x0085},
+-{0x84ca,    0x001e}, {0x84cb,    0x0096}, {0x84cc,    0x0044},
+-{0x84cd,    0x0085}, {0x84ce,    0x0010}, {0x84cf,    0x0026},
+-{0x84d0,    0x0013}, {0x84d1,    0x00b6}, {0x84d2,    0x0012},
+-{0x84d3,    0x0050}, {0x84d4,    0x00ba}, {0x84d5,    0x0001},
+-{0x84d6,    0x003c}, {0x84d7,    0x0085}, {0x84d8,    0x0010},
+-{0x84d9,    0x0026}, {0x84da,    0x0009}, {0x84db,    0x00ce},
+-{0x84dc,    0x0084}, {0x84dd,    0x0053}, {0x84de,    0x00ff},
+-{0x84df,    0x0001}, {0x84e0,    0x0011}, {0x84e1,    0x007e},
+-{0x84e2,    0x0085}, {0x84e3,    0x001e}, {0x84e4,    0x00b6},
+-{0x84e5,    0x0010}, {0x84e6,    0x0031}, {0x84e7,    0x008a},
+-{0x84e8,    0x0002}, {0x84e9,    0x00b7}, {0x84ea,    0x0010},
+-{0x84eb,    0x0031}, {0x84ec,    0x00bd}, {0x84ed,    0x0085},
+-{0x84ee,    0x001f}, {0x84ef,    0x00bd}, {0x84f0,    0x00f8},
+-{0x84f1,    0x0037}, {0x84f2,    0x007c}, {0x84f3,    0x0000},
+-{0x84f4,    0x0080}, {0x84f5,    0x00ce}, {0x84f6,    0x0084},
+-{0x84f7,    0x00fe}, {0x84f8,    0x00ff}, {0x84f9,    0x0001},
+-{0x84fa,    0x0011}, {0x84fb,    0x007e}, {0x84fc,    0x0085},
+-{0x84fd,    0x001e}, {0x84fe,    0x0096}, {0x84ff,    0x0046},
+-{0x8500,    0x0084}, {0x8501,    0x0003}, {0x8502,    0x0081},
+-{0x8503,    0x0002}, {0x8504,    0x0026}, {0x8505,    0x0009},
+-{0x8506,    0x00b6}, {0x8507,    0x0012}, {0x8508,    0x0030},
+-{0x8509,    0x0084}, {0x850a,    0x0003}, {0x850b,    0x0081},
+-{0x850c,    0x0001}, {0x850d,    0x0027}, {0x850e,    0x000f},
+-{0x850f,    0x00bd}, {0x8510,    0x00f8}, {0x8511,    0x0044},
+-{0x8512,    0x00bd}, {0x8513,    0x00f7}, {0x8514,    0x000b},
+-{0x8515,    0x00bd}, {0x8516,    0x00fc}, {0x8517,    0x0029},
+-{0x8518,    0x00ce}, {0x8519,    0x0084}, {0x851a,    0x0026},
+-{0x851b,    0x00ff}, {0x851c,    0x0001}, {0x851d,    0x0011},
+-{0x851e,    0x0039}, {0x851f,    0x00d6}, {0x8520,    0x0022},
+-{0x8521,    0x00c4}, {0x8522,    0x000f}, {0x8523,    0x00b6},
+-{0x8524,    0x0012}, {0x8525,    0x0030}, {0x8526,    0x00ba},
+-{0x8527,    0x0012}, {0x8528,    0x0032}, {0x8529,    0x0084},
+-{0x852a,    0x0004}, {0x852b,    0x0027}, {0x852c,    0x000d},
+-{0x852d,    0x0096}, {0x852e,    0x0022}, {0x852f,    0x0085},
+-{0x8530,    0x0004}, {0x8531,    0x0027}, {0x8532,    0x0005},
+-{0x8533,    0x00ca}, {0x8534,    0x0010}, {0x8535,    0x007e},
+-{0x8536,    0x0085}, {0x8537,    0x003a}, {0x8538,    0x00ca},
+-{0x8539,    0x0020}, {0x853a,    0x00d7}, {0x853b,    0x0022},
+-{0x853c,    0x0039}, {0x853d,    0x0086}, {0x853e,    0x0000},
+-{0x853f,    0x0097}, {0x8540,    0x0083}, {0x8541,    0x0018},
+-{0x8542,    0x00ce}, {0x8543,    0x001c}, {0x8544,    0x0000},
+-{0x8545,    0x00bd}, {0x8546,    0x00eb}, {0x8547,    0x0046},
+-{0x8548,    0x0096}, {0x8549,    0x0057}, {0x854a,    0x0085},
+-{0x854b,    0x0001}, {0x854c,    0x0027}, {0x854d,    0x0002},
+-{0x854e,    0x004f}, {0x854f,    0x0039}, {0x8550,    0x0085},
+-{0x8551,    0x0002}, {0x8552,    0x0027}, {0x8553,    0x0001},
+-{0x8554,    0x0039}, {0x8555,    0x007f}, {0x8556,    0x008f},
+-{0x8557,    0x007d}, {0x8558,    0x0086}, {0x8559,    0x0004},
+-{0x855a,    0x00b7}, {0x855b,    0x0012}, {0x855c,    0x0004},
+-{0x855d,    0x0086}, {0x855e,    0x0008}, {0x855f,    0x00b7},
+-{0x8560,    0x0012}, {0x8561,    0x0007}, {0x8562,    0x0086},
+-{0x8563,    0x0010}, {0x8564,    0x00b7}, {0x8565,    0x0012},
+-{0x8566,    0x000c}, {0x8567,    0x0086}, {0x8568,    0x0007},
+-{0x8569,    0x00b7}, {0x856a,    0x0012}, {0x856b,    0x0006},
+-{0x856c,    0x00b6}, {0x856d,    0x008f}, {0x856e,    0x007d},
+-{0x856f,    0x00b7}, {0x8570,    0x0012}, {0x8571,    0x0070},
+-{0x8572,    0x0086}, {0x8573,    0x0001}, {0x8574,    0x00ba},
+-{0x8575,    0x0012}, {0x8576,    0x0004}, {0x8577,    0x00b7},
+-{0x8578,    0x0012}, {0x8579,    0x0004}, {0x857a,    0x0001},
+-{0x857b,    0x0001}, {0x857c,    0x0001}, {0x857d,    0x0001},
+-{0x857e,    0x0001}, {0x857f,    0x0001}, {0x8580,    0x00b6},
+-{0x8581,    0x0012}, {0x8582,    0x0004}, {0x8583,    0x0084},
+-{0x8584,    0x00fe}, {0x8585,    0x008a}, {0x8586,    0x0002},
+-{0x8587,    0x00b7}, {0x8588,    0x0012}, {0x8589,    0x0004},
+-{0x858a,    0x0001}, {0x858b,    0x0001}, {0x858c,    0x0001},
+-{0x858d,    0x0001}, {0x858e,    0x0001}, {0x858f,    0x0001},
+-{0x8590,    0x0086}, {0x8591,    0x00fd}, {0x8592,    0x00b4},
+-{0x8593,    0x0012}, {0x8594,    0x0004}, {0x8595,    0x00b7},
+-{0x8596,    0x0012}, {0x8597,    0x0004}, {0x8598,    0x00b6},
+-{0x8599,    0x0012}, {0x859a,    0x0000}, {0x859b,    0x0084},
+-{0x859c,    0x0008}, {0x859d,    0x0081}, {0x859e,    0x0008},
+-{0x859f,    0x0027}, {0x85a0,    0x0016}, {0x85a1,    0x00b6},
+-{0x85a2,    0x008f}, {0x85a3,    0x007d}, {0x85a4,    0x0081},
+-{0x85a5,    0x000c}, {0x85a6,    0x0027}, {0x85a7,    0x0008},
+-{0x85a8,    0x008b}, {0x85a9,    0x0004}, {0x85aa,    0x00b7},
+-{0x85ab,    0x008f}, {0x85ac,    0x007d}, {0x85ad,    0x007e},
+-{0x85ae,    0x0085}, {0x85af,    0x006c}, {0x85b0,    0x0086},
+-{0x85b1,    0x0003}, {0x85b2,    0x0097}, {0x85b3,    0x0040},
+-{0x85b4,    0x007e}, {0x85b5,    0x0089}, {0x85b6,    0x006e},
+-{0x85b7,    0x0086}, {0x85b8,    0x0007}, {0x85b9,    0x00b7},
+-{0x85ba,    0x0012}, {0x85bb,    0x0006}, {0x85bc,    0x005f},
+-{0x85bd,    0x00f7}, {0x85be,    0x008f}, {0x85bf,    0x0082},
+-{0x85c0,    0x005f}, {0x85c1,    0x00f7}, {0x85c2,    0x008f},
+-{0x85c3,    0x007f}, {0x85c4,    0x00f7}, {0x85c5,    0x008f},
+-{0x85c6,    0x0070}, {0x85c7,    0x00f7}, {0x85c8,    0x008f},
+-{0x85c9,    0x0071}, {0x85ca,    0x00f7}, {0x85cb,    0x008f},
+-{0x85cc,    0x0072}, {0x85cd,    0x00f7}, {0x85ce,    0x008f},
+-{0x85cf,    0x0073}, {0x85d0,    0x00f7}, {0x85d1,    0x008f},
+-{0x85d2,    0x0074}, {0x85d3,    0x00f7}, {0x85d4,    0x008f},
+-{0x85d5,    0x0075}, {0x85d6,    0x00f7}, {0x85d7,    0x008f},
+-{0x85d8,    0x0076}, {0x85d9,    0x00f7}, {0x85da,    0x008f},
+-{0x85db,    0x0077}, {0x85dc,    0x00f7}, {0x85dd,    0x008f},
+-{0x85de,    0x0078}, {0x85df,    0x00f7}, {0x85e0,    0x008f},
+-{0x85e1,    0x0079}, {0x85e2,    0x00f7}, {0x85e3,    0x008f},
+-{0x85e4,    0x007a}, {0x85e5,    0x00f7}, {0x85e6,    0x008f},
+-{0x85e7,    0x007b}, {0x85e8,    0x00b6}, {0x85e9,    0x0012},
+-{0x85ea,    0x0004}, {0x85eb,    0x008a}, {0x85ec,    0x0010},
+-{0x85ed,    0x00b7}, {0x85ee,    0x0012}, {0x85ef,    0x0004},
+-{0x85f0,    0x0086}, {0x85f1,    0x00e4}, {0x85f2,    0x00b7},
+-{0x85f3,    0x0012}, {0x85f4,    0x0070}, {0x85f5,    0x00b7},
+-{0x85f6,    0x0012}, {0x85f7,    0x0007}, {0x85f8,    0x00f7},
+-{0x85f9,    0x0012}, {0x85fa,    0x0005}, {0x85fb,    0x00f7},
+-{0x85fc,    0x0012}, {0x85fd,    0x0009}, {0x85fe,    0x0086},
+-{0x85ff,    0x0008}, {0x8600,    0x00ba}, {0x8601,    0x0012},
+-{0x8602,    0x0004}, {0x8603,    0x00b7}, {0x8604,    0x0012},
+-{0x8605,    0x0004}, {0x8606,    0x0086}, {0x8607,    0x00f7},
+-{0x8608,    0x00b4}, {0x8609,    0x0012}, {0x860a,    0x0004},
+-{0x860b,    0x00b7}, {0x860c,    0x0012}, {0x860d,    0x0004},
+-{0x860e,    0x0001}, {0x860f,    0x0001}, {0x8610,    0x0001},
+-{0x8611,    0x0001}, {0x8612,    0x0001}, {0x8613,    0x0001},
+-{0x8614,    0x00b6}, {0x8615,    0x0012}, {0x8616,    0x0008},
+-{0x8617,    0x0027}, {0x8618,    0x007f}, {0x8619,    0x0081},
+-{0x861a,    0x0080}, {0x861b,    0x0026}, {0x861c,    0x000b},
+-{0x861d,    0x0086}, {0x861e,    0x0008}, {0x861f,    0x00ce},
+-{0x8620,    0x008f}, {0x8621,    0x0079}, {0x8622,    0x00bd},
+-{0x8623,    0x0089}, {0x8624,    0x007b}, {0x8625,    0x007e},
+-{0x8626,    0x0086}, {0x8627,    0x008e}, {0x8628,    0x0081},
+-{0x8629,    0x0040}, {0x862a,    0x0026}, {0x862b,    0x000b},
+-{0x862c,    0x0086}, {0x862d,    0x0004}, {0x862e,    0x00ce},
+-{0x862f,    0x008f}, {0x8630,    0x0076}, {0x8631,    0x00bd},
+-{0x8632,    0x0089}, {0x8633,    0x007b}, {0x8634,    0x007e},
+-{0x8635,    0x0086}, {0x8636,    0x008e}, {0x8637,    0x0081},
+-{0x8638,    0x0020}, {0x8639,    0x0026}, {0x863a,    0x000b},
+-{0x863b,    0x0086}, {0x863c,    0x0002}, {0x863d,    0x00ce},
+-{0x863e,    0x008f}, {0x863f,    0x0073}, {0x8640,    0x00bd},
+-{0x8641,    0x0089}, {0x8642,    0x007b}, {0x8643,    0x007e},
+-{0x8644,    0x0086}, {0x8645,    0x008e}, {0x8646,    0x0081},
+-{0x8647,    0x0010}, {0x8648,    0x0026}, {0x8649,    0x000b},
+-{0x864a,    0x0086}, {0x864b,    0x0001}, {0x864c,    0x00ce},
+-{0x864d,    0x008f}, {0x864e,    0x0070}, {0x864f,    0x00bd},
+-{0x8650,    0x0089}, {0x8651,    0x007b}, {0x8652,    0x007e},
+-{0x8653,    0x0086}, {0x8654,    0x008e}, {0x8655,    0x0081},
+-{0x8656,    0x0008}, {0x8657,    0x0026}, {0x8658,    0x000b},
+-{0x8659,    0x0086}, {0x865a,    0x0008}, {0x865b,    0x00ce},
+-{0x865c,    0x008f}, {0x865d,    0x0079}, {0x865e,    0x00bd},
+-{0x865f,    0x0089}, {0x8660,    0x007f}, {0x8661,    0x007e},
+-{0x8662,    0x0086}, {0x8663,    0x008e}, {0x8664,    0x0081},
+-{0x8665,    0x0004}, {0x8666,    0x0026}, {0x8667,    0x000b},
+-{0x8668,    0x0086}, {0x8669,    0x0004}, {0x866a,    0x00ce},
+-{0x866b,    0x008f}, {0x866c,    0x0076}, {0x866d,    0x00bd},
+-{0x866e,    0x0089}, {0x866f,    0x007f}, {0x8670,    0x007e},
+-{0x8671,    0x0086}, {0x8672,    0x008e}, {0x8673,    0x0081},
+-{0x8674,    0x0002}, {0x8675,    0x0026}, {0x8676,    0x000b},
+-{0x8677,    0x008a}, {0x8678,    0x0002}, {0x8679,    0x00ce},
+-{0x867a,    0x008f}, {0x867b,    0x0073}, {0x867c,    0x00bd},
+-{0x867d,    0x0089}, {0x867e,    0x007f}, {0x867f,    0x007e},
+-{0x8680,    0x0086}, {0x8681,    0x008e}, {0x8682,    0x0081},
+-{0x8683,    0x0001}, {0x8684,    0x0026}, {0x8685,    0x0008},
+-{0x8686,    0x0086}, {0x8687,    0x0001}, {0x8688,    0x00ce},
+-{0x8689,    0x008f}, {0x868a,    0x0070}, {0x868b,    0x00bd},
+-{0x868c,    0x0089}, {0x868d,    0x007f}, {0x868e,    0x00b6},
+-{0x868f,    0x008f}, {0x8690,    0x007f}, {0x8691,    0x0081},
+-{0x8692,    0x000f}, {0x8693,    0x0026}, {0x8694,    0x0003},
+-{0x8695,    0x007e}, {0x8696,    0x0087}, {0x8697,    0x0047},
+-{0x8698,    0x00b6}, {0x8699,    0x0012}, {0x869a,    0x0009},
+-{0x869b,    0x0084}, {0x869c,    0x0003}, {0x869d,    0x0081},
+-{0x869e,    0x0003}, {0x869f,    0x0027}, {0x86a0,    0x0006},
+-{0x86a1,    0x007c}, {0x86a2,    0x0012}, {0x86a3,    0x0009},
+-{0x86a4,    0x007e}, {0x86a5,    0x0085}, {0x86a6,    0x00fe},
+-{0x86a7,    0x00b6}, {0x86a8,    0x0012}, {0x86a9,    0x0006},
+-{0x86aa,    0x0084}, {0x86ab,    0x0007}, {0x86ac,    0x0081},
+-{0x86ad,    0x0007}, {0x86ae,    0x0027}, {0x86af,    0x0008},
+-{0x86b0,    0x008b}, {0x86b1,    0x0001}, {0x86b2,    0x00b7},
+-{0x86b3,    0x0012}, {0x86b4,    0x0006}, {0x86b5,    0x007e},
+-{0x86b6,    0x0086}, {0x86b7,    0x00d5}, {0x86b8,    0x00b6},
+-{0x86b9,    0x008f}, {0x86ba,    0x0082}, {0x86bb,    0x0026},
+-{0x86bc,    0x000a}, {0x86bd,    0x007c}, {0x86be,    0x008f},
+-{0x86bf,    0x0082}, {0x86c0,    0x004f}, {0x86c1,    0x00b7},
+-{0x86c2,    0x0012}, {0x86c3,    0x0006}, {0x86c4,    0x007e},
+-{0x86c5,    0x0085}, {0x86c6,    0x00c0}, {0x86c7,    0x00b6},
+-{0x86c8,    0x0012}, {0x86c9,    0x0006}, {0x86ca,    0x0084},
+-{0x86cb,    0x003f}, {0x86cc,    0x0081}, {0x86cd,    0x003f},
+-{0x86ce,    0x0027}, {0x86cf,    0x0010}, {0x86d0,    0x008b},
+-{0x86d1,    0x0008}, {0x86d2,    0x00b7}, {0x86d3,    0x0012},
+-{0x86d4,    0x0006}, {0x86d5,    0x00b6}, {0x86d6,    0x0012},
+-{0x86d7,    0x0009}, {0x86d8,    0x0084}, {0x86d9,    0x00fc},
+-{0x86da,    0x00b7}, {0x86db,    0x0012}, {0x86dc,    0x0009},
+-{0x86dd,    0x007e}, {0x86de,    0x0085}, {0x86df,    0x00fe},
+-{0x86e0,    0x00ce}, {0x86e1,    0x008f}, {0x86e2,    0x0070},
+-{0x86e3,    0x0018}, {0x86e4,    0x00ce}, {0x86e5,    0x008f},
+-{0x86e6,    0x0084}, {0x86e7,    0x00c6}, {0x86e8,    0x000c},
+-{0x86e9,    0x00bd}, {0x86ea,    0x0089}, {0x86eb,    0x006f},
+-{0x86ec,    0x00ce}, {0x86ed,    0x008f}, {0x86ee,    0x0084},
+-{0x86ef,    0x0018}, {0x86f0,    0x00ce}, {0x86f1,    0x008f},
+-{0x86f2,    0x0070}, {0x86f3,    0x00c6}, {0x86f4,    0x000c},
+-{0x86f5,    0x00bd}, {0x86f6,    0x0089}, {0x86f7,    0x006f},
+-{0x86f8,    0x00d6}, {0x86f9,    0x0083}, {0x86fa,    0x00c1},
+-{0x86fb,    0x004f}, {0x86fc,    0x002d}, {0x86fd,    0x0003},
+-{0x86fe,    0x007e}, {0x86ff,    0x0087}, {0x8700,    0x0040},
+-{0x8701,    0x00b6}, {0x8702,    0x008f}, {0x8703,    0x007f},
+-{0x8704,    0x0081}, {0x8705,    0x0007}, {0x8706,    0x0027},
+-{0x8707,    0x000f}, {0x8708,    0x0081}, {0x8709,    0x000b},
+-{0x870a,    0x0027}, {0x870b,    0x0015}, {0x870c,    0x0081},
+-{0x870d,    0x000d}, {0x870e,    0x0027}, {0x870f,    0x001b},
+-{0x8710,    0x0081}, {0x8711,    0x000e}, {0x8712,    0x0027},
+-{0x8713,    0x0021}, {0x8714,    0x007e}, {0x8715,    0x0087},
+-{0x8716,    0x0040}, {0x8717,    0x00f7}, {0x8718,    0x008f},
+-{0x8719,    0x007b}, {0x871a,    0x0086}, {0x871b,    0x0002},
+-{0x871c,    0x00b7}, {0x871d,    0x008f}, {0x871e,    0x007a},
+-{0x871f,    0x0020}, {0x8720,    0x001c}, {0x8721,    0x00f7},
+-{0x8722,    0x008f}, {0x8723,    0x0078}, {0x8724,    0x0086},
+-{0x8725,    0x0002}, {0x8726,    0x00b7}, {0x8727,    0x008f},
+-{0x8728,    0x0077}, {0x8729,    0x0020}, {0x872a,    0x0012},
+-{0x872b,    0x00f7}, {0x872c,    0x008f}, {0x872d,    0x0075},
+-{0x872e,    0x0086}, {0x872f,    0x0002}, {0x8730,    0x00b7},
+-{0x8731,    0x008f}, {0x8732,    0x0074}, {0x8733,    0x0020},
+-{0x8734,    0x0008}, {0x8735,    0x00f7}, {0x8736,    0x008f},
+-{0x8737,    0x0072}, {0x8738,    0x0086}, {0x8739,    0x0002},
+-{0x873a,    0x00b7}, {0x873b,    0x008f}, {0x873c,    0x0071},
+-{0x873d,    0x007e}, {0x873e,    0x0087}, {0x873f,    0x0047},
+-{0x8740,    0x0086}, {0x8741,    0x0004}, {0x8742,    0x0097},
+-{0x8743,    0x0040}, {0x8744,    0x007e}, {0x8745,    0x0089},
+-{0x8746,    0x006e}, {0x8747,    0x00ce}, {0x8748,    0x008f},
+-{0x8749,    0x0072}, {0x874a,    0x00bd}, {0x874b,    0x0089},
+-{0x874c,    0x00f7}, {0x874d,    0x00ce}, {0x874e,    0x008f},
+-{0x874f,    0x0075}, {0x8750,    0x00bd}, {0x8751,    0x0089},
+-{0x8752,    0x00f7}, {0x8753,    0x00ce}, {0x8754,    0x008f},
+-{0x8755,    0x0078}, {0x8756,    0x00bd}, {0x8757,    0x0089},
+-{0x8758,    0x00f7}, {0x8759,    0x00ce}, {0x875a,    0x008f},
+-{0x875b,    0x007b}, {0x875c,    0x00bd}, {0x875d,    0x0089},
+-{0x875e,    0x00f7}, {0x875f,    0x004f}, {0x8760,    0x00b7},
+-{0x8761,    0x008f}, {0x8762,    0x007d}, {0x8763,    0x00b7},
+-{0x8764,    0x008f}, {0x8765,    0x0081}, {0x8766,    0x00b6},
+-{0x8767,    0x008f}, {0x8768,    0x0072}, {0x8769,    0x0027},
+-{0x876a,    0x0047}, {0x876b,    0x007c}, {0x876c,    0x008f},
+-{0x876d,    0x007d}, {0x876e,    0x00b6}, {0x876f,    0x008f},
+-{0x8770,    0x0075}, {0x8771,    0x0027}, {0x8772,    0x003f},
+-{0x8773,    0x007c}, {0x8774,    0x008f}, {0x8775,    0x007d},
+-{0x8776,    0x00b6}, {0x8777,    0x008f}, {0x8778,    0x0078},
+-{0x8779,    0x0027}, {0x877a,    0x0037}, {0x877b,    0x007c},
+-{0x877c,    0x008f}, {0x877d,    0x007d}, {0x877e,    0x00b6},
+-{0x877f,    0x008f}, {0x8780,    0x007b}, {0x8781,    0x0027},
+-{0x8782,    0x002f}, {0x8783,    0x007f}, {0x8784,    0x008f},
+-{0x8785,    0x007d}, {0x8786,    0x007c}, {0x8787,    0x008f},
+-{0x8788,    0x0081}, {0x8789,    0x007a}, {0x878a,    0x008f},
+-{0x878b,    0x0072}, {0x878c,    0x0027}, {0x878d,    0x001b},
+-{0x878e,    0x007c}, {0x878f,    0x008f}, {0x8790,    0x007d},
+-{0x8791,    0x007a}, {0x8792,    0x008f}, {0x8793,    0x0075},
+-{0x8794,    0x0027}, {0x8795,    0x0016}, {0x8796,    0x007c},
+-{0x8797,    0x008f}, {0x8798,    0x007d}, {0x8799,    0x007a},
+-{0x879a,    0x008f}, {0x879b,    0x0078}, {0x879c,    0x0027},
+-{0x879d,    0x0011}, {0x879e,    0x007c}, {0x879f,    0x008f},
+-{0x87a0,    0x007d}, {0x87a1,    0x007a}, {0x87a2,    0x008f},
+-{0x87a3,    0x007b}, {0x87a4,    0x0027}, {0x87a5,    0x000c},
+-{0x87a6,    0x007e}, {0x87a7,    0x0087}, {0x87a8,    0x0083},
+-{0x87a9,    0x007a}, {0x87aa,    0x008f}, {0x87ab,    0x0075},
+-{0x87ac,    0x007a}, {0x87ad,    0x008f}, {0x87ae,    0x0078},
+-{0x87af,    0x007a}, {0x87b0,    0x008f}, {0x87b1,    0x007b},
+-{0x87b2,    0x00ce}, {0x87b3,    0x00c1}, {0x87b4,    0x00fc},
+-{0x87b5,    0x00f6}, {0x87b6,    0x008f}, {0x87b7,    0x007d},
+-{0x87b8,    0x003a}, {0x87b9,    0x00a6}, {0x87ba,    0x0000},
+-{0x87bb,    0x00b7}, {0x87bc,    0x0012}, {0x87bd,    0x0070},
+-{0x87be,    0x00b6}, {0x87bf,    0x008f}, {0x87c0,    0x0072},
+-{0x87c1,    0x0026}, {0x87c2,    0x0003}, {0x87c3,    0x007e},
+-{0x87c4,    0x0087}, {0x87c5,    0x00fa}, {0x87c6,    0x00b6},
+-{0x87c7,    0x008f}, {0x87c8,    0x0075}, {0x87c9,    0x0026},
+-{0x87ca,    0x000a}, {0x87cb,    0x0018}, {0x87cc,    0x00ce},
+-{0x87cd,    0x008f}, {0x87ce,    0x0073}, {0x87cf,    0x00bd},
+-{0x87d0,    0x0089}, {0x87d1,    0x00d5}, {0x87d2,    0x007e},
+-{0x87d3,    0x0087}, {0x87d4,    0x00fa}, {0x87d5,    0x00b6},
+-{0x87d6,    0x008f}, {0x87d7,    0x0078}, {0x87d8,    0x0026},
+-{0x87d9,    0x000a}, {0x87da,    0x0018}, {0x87db,    0x00ce},
+-{0x87dc,    0x008f}, {0x87dd,    0x0076}, {0x87de,    0x00bd},
+-{0x87df,    0x0089}, {0x87e0,    0x00d5}, {0x87e1,    0x007e},
+-{0x87e2,    0x0087}, {0x87e3,    0x00fa}, {0x87e4,    0x00b6},
+-{0x87e5,    0x008f}, {0x87e6,    0x007b}, {0x87e7,    0x0026},
+-{0x87e8,    0x000a}, {0x87e9,    0x0018}, {0x87ea,    0x00ce},
+-{0x87eb,    0x008f}, {0x87ec,    0x0079}, {0x87ed,    0x00bd},
+-{0x87ee,    0x0089}, {0x87ef,    0x00d5}, {0x87f0,    0x007e},
+-{0x87f1,    0x0087}, {0x87f2,    0x00fa}, {0x87f3,    0x0086},
+-{0x87f4,    0x0005}, {0x87f5,    0x0097}, {0x87f6,    0x0040},
+-{0x87f7,    0x007e}, {0x87f8,    0x0089}, {0x87f9,    0x0000},
+-{0x87fa,    0x00b6}, {0x87fb,    0x008f}, {0x87fc,    0x0075},
+-{0x87fd,    0x0081}, {0x87fe,    0x0007}, {0x87ff,    0x002e},
+-{0x8800,    0x00f2}, {0x8801,    0x00f6}, {0x8802,    0x0012},
+-{0x8803,    0x0006}, {0x8804,    0x00c4}, {0x8805,    0x00f8},
+-{0x8806,    0x001b}, {0x8807,    0x00b7}, {0x8808,    0x0012},
+-{0x8809,    0x0006}, {0x880a,    0x00b6}, {0x880b,    0x008f},
+-{0x880c,    0x0078}, {0x880d,    0x0081}, {0x880e,    0x0007},
+-{0x880f,    0x002e}, {0x8810,    0x00e2}, {0x8811,    0x0048},
+-{0x8812,    0x0048}, {0x8813,    0x0048}, {0x8814,    0x00f6},
+-{0x8815,    0x0012}, {0x8816,    0x0006}, {0x8817,    0x00c4},
+-{0x8818,    0x00c7}, {0x8819,    0x001b}, {0x881a,    0x00b7},
+-{0x881b,    0x0012}, {0x881c,    0x0006}, {0x881d,    0x00b6},
+-{0x881e,    0x008f}, {0x881f,    0x007b}, {0x8820,    0x0081},
+-{0x8821,    0x0007}, {0x8822,    0x002e}, {0x8823,    0x00cf},
+-{0x8824,    0x00f6}, {0x8825,    0x0012}, {0x8826,    0x0005},
+-{0x8827,    0x00c4}, {0x8828,    0x00f8}, {0x8829,    0x001b},
+-{0x882a,    0x00b7}, {0x882b,    0x0012}, {0x882c,    0x0005},
+-{0x882d,    0x0086}, {0x882e,    0x0000}, {0x882f,    0x00f6},
+-{0x8830,    0x008f}, {0x8831,    0x0071}, {0x8832,    0x00bd},
+-{0x8833,    0x0089}, {0x8834,    0x0094}, {0x8835,    0x0086},
+-{0x8836,    0x0001}, {0x8837,    0x00f6}, {0x8838,    0x008f},
+-{0x8839,    0x0074}, {0x883a,    0x00bd}, {0x883b,    0x0089},
+-{0x883c,    0x0094}, {0x883d,    0x0086}, {0x883e,    0x0002},
+-{0x883f,    0x00f6}, {0x8840,    0x008f}, {0x8841,    0x0077},
+-{0x8842,    0x00bd}, {0x8843,    0x0089}, {0x8844,    0x0094},
+-{0x8845,    0x0086}, {0x8846,    0x0003}, {0x8847,    0x00f6},
+-{0x8848,    0x008f}, {0x8849,    0x007a}, {0x884a,    0x00bd},
+-{0x884b,    0x0089}, {0x884c,    0x0094}, {0x884d,    0x00ce},
+-{0x884e,    0x008f}, {0x884f,    0x0070}, {0x8850,    0x00a6},
+-{0x8851,    0x0001}, {0x8852,    0x0081}, {0x8853,    0x0001},
+-{0x8854,    0x0027}, {0x8855,    0x0007}, {0x8856,    0x0081},
+-{0x8857,    0x0003}, {0x8858,    0x0027}, {0x8859,    0x0003},
+-{0x885a,    0x007e}, {0x885b,    0x0088}, {0x885c,    0x0066},
+-{0x885d,    0x00a6}, {0x885e,    0x0000}, {0x885f,    0x00b8},
+-{0x8860,    0x008f}, {0x8861,    0x0081}, {0x8862,    0x0084},
+-{0x8863,    0x0001}, {0x8864,    0x0026}, {0x8865,    0x000b},
+-{0x8866,    0x008c}, {0x8867,    0x008f}, {0x8868,    0x0079},
+-{0x8869,    0x002c}, {0x886a,    0x000e}, {0x886b,    0x0008},
+-{0x886c,    0x0008}, {0x886d,    0x0008}, {0x886e,    0x007e},
+-{0x886f,    0x0088}, {0x8870,    0x0050}, {0x8871,    0x00b6},
+-{0x8872,    0x0012}, {0x8873,    0x0004}, {0x8874,    0x008a},
+-{0x8875,    0x0040}, {0x8876,    0x00b7}, {0x8877,    0x0012},
+-{0x8878,    0x0004}, {0x8879,    0x00b6}, {0x887a,    0x0012},
+-{0x887b,    0x0004}, {0x887c,    0x0084}, {0x887d,    0x00fb},
+-{0x887e,    0x0084}, {0x887f,    0x00ef}, {0x8880,    0x00b7},
+-{0x8881,    0x0012}, {0x8882,    0x0004}, {0x8883,    0x00b6},
+-{0x8884,    0x0012}, {0x8885,    0x0007}, {0x8886,    0x0036},
+-{0x8887,    0x00b6}, {0x8888,    0x008f}, {0x8889,    0x007c},
+-{0x888a,    0x0048}, {0x888b,    0x0048}, {0x888c,    0x00b7},
+-{0x888d,    0x0012}, {0x888e,    0x0007}, {0x888f,    0x0086},
+-{0x8890,    0x0001}, {0x8891,    0x00ba}, {0x8892,    0x0012},
+-{0x8893,    0x0004}, {0x8894,    0x00b7}, {0x8895,    0x0012},
+-{0x8896,    0x0004}, {0x8897,    0x0001}, {0x8898,    0x0001},
+-{0x8899,    0x0001}, {0x889a,    0x0001}, {0x889b,    0x0001},
+-{0x889c,    0x0001}, {0x889d,    0x0086}, {0x889e,    0x00fe},
+-{0x889f,    0x00b4}, {0x88a0,    0x0012}, {0x88a1,    0x0004},
+-{0x88a2,    0x00b7}, {0x88a3,    0x0012}, {0x88a4,    0x0004},
+-{0x88a5,    0x0086}, {0x88a6,    0x0002}, {0x88a7,    0x00ba},
+-{0x88a8,    0x0012}, {0x88a9,    0x0004}, {0x88aa,    0x00b7},
+-{0x88ab,    0x0012}, {0x88ac,    0x0004}, {0x88ad,    0x0086},
+-{0x88ae,    0x00fd}, {0x88af,    0x00b4}, {0x88b0,    0x0012},
+-{0x88b1,    0x0004}, {0x88b2,    0x00b7}, {0x88b3,    0x0012},
+-{0x88b4,    0x0004}, {0x88b5,    0x0032}, {0x88b6,    0x00b7},
+-{0x88b7,    0x0012}, {0x88b8,    0x0007}, {0x88b9,    0x00b6},
+-{0x88ba,    0x0012}, {0x88bb,    0x0000}, {0x88bc,    0x0084},
+-{0x88bd,    0x0008}, {0x88be,    0x0081}, {0x88bf,    0x0008},
+-{0x88c0,    0x0027}, {0x88c1,    0x000f}, {0x88c2,    0x007c},
+-{0x88c3,    0x0082}, {0x88c4,    0x0008}, {0x88c5,    0x0026},
+-{0x88c6,    0x0007}, {0x88c7,    0x0086}, {0x88c8,    0x0076},
+-{0x88c9,    0x0097}, {0x88ca,    0x0040}, {0x88cb,    0x007e},
+-{0x88cc,    0x0089}, {0x88cd,    0x006e}, {0x88ce,    0x007e},
+-{0x88cf,    0x0086}, {0x88d0,    0x00ec}, {0x88d1,    0x00b6},
+-{0x88d2,    0x008f}, {0x88d3,    0x007f}, {0x88d4,    0x0081},
+-{0x88d5,    0x000f}, {0x88d6,    0x0027}, {0x88d7,    0x003c},
+-{0x88d8,    0x00bd}, {0x88d9,    0x00e6}, {0x88da,    0x00c7},
+-{0x88db,    0x00b7}, {0x88dc,    0x0012}, {0x88dd,    0x000d},
+-{0x88de,    0x00bd}, {0x88df,    0x00e6}, {0x88e0,    0x00cb},
+-{0x88e1,    0x00b6}, {0x88e2,    0x0012}, {0x88e3,    0x0004},
+-{0x88e4,    0x008a}, {0x88e5,    0x0020}, {0x88e6,    0x00b7},
+-{0x88e7,    0x0012}, {0x88e8,    0x0004}, {0x88e9,    0x00ce},
+-{0x88ea,    0x00ff}, {0x88eb,    0x00ff}, {0x88ec,    0x00b6},
+-{0x88ed,    0x0012}, {0x88ee,    0x0000}, {0x88ef,    0x0081},
+-{0x88f0,    0x000c}, {0x88f1,    0x0026}, {0x88f2,    0x0005},
+-{0x88f3,    0x0009}, {0x88f4,    0x0026}, {0x88f5,    0x00f6},
+-{0x88f6,    0x0027}, {0x88f7,    0x001c}, {0x88f8,    0x00b6},
+-{0x88f9,    0x0012}, {0x88fa,    0x0004}, {0x88fb,    0x0084},
+-{0x88fc,    0x00df}, {0x88fd,    0x00b7}, {0x88fe,    0x0012},
+-{0x88ff,    0x0004}, {0x8900,    0x0096}, {0x8901,    0x0083},
+-{0x8902,    0x0081}, {0x8903,    0x0007}, {0x8904,    0x002c},
+-{0x8905,    0x0005}, {0x8906,    0x007c}, {0x8907,    0x0000},
+-{0x8908,    0x0083}, {0x8909,    0x0020}, {0x890a,    0x0006},
+-{0x890b,    0x0096}, {0x890c,    0x0083}, {0x890d,    0x008b},
+-{0x890e,    0x0008}, {0x890f,    0x0097}, {0x8910,    0x0083},
+-{0x8911,    0x007e}, {0x8912,    0x0085}, {0x8913,    0x0041},
+-{0x8914,    0x007f}, {0x8915,    0x008f}, {0x8916,    0x007e},
+-{0x8917,    0x0086}, {0x8918,    0x0080}, {0x8919,    0x00b7},
+-{0x891a,    0x0012}, {0x891b,    0x000c}, {0x891c,    0x0086},
+-{0x891d,    0x0001}, {0x891e,    0x00b7}, {0x891f,    0x008f},
+-{0x8920,    0x007d}, {0x8921,    0x00b6}, {0x8922,    0x0012},
+-{0x8923,    0x000c}, {0x8924,    0x0084}, {0x8925,    0x007f},
+-{0x8926,    0x00b7}, {0x8927,    0x0012}, {0x8928,    0x000c},
+-{0x8929,    0x008a}, {0x892a,    0x0080}, {0x892b,    0x00b7},
+-{0x892c,    0x0012}, {0x892d,    0x000c}, {0x892e,    0x0086},
+-{0x892f,    0x000a}, {0x8930,    0x00bd}, {0x8931,    0x008a},
+-{0x8932,    0x0006}, {0x8933,    0x00b6}, {0x8934,    0x0012},
+-{0x8935,    0x000a}, {0x8936,    0x002a}, {0x8937,    0x0009},
+-{0x8938,    0x00b6}, {0x8939,    0x0012}, {0x893a,    0x000c},
+-{0x893b,    0x00ba}, {0x893c,    0x008f}, {0x893d,    0x007d},
+-{0x893e,    0x00b7}, {0x893f,    0x0012}, {0x8940,    0x000c},
+-{0x8941,    0x00b6}, {0x8942,    0x008f}, {0x8943,    0x007e},
+-{0x8944,    0x0081}, {0x8945,    0x0060}, {0x8946,    0x0027},
+-{0x8947,    0x001a}, {0x8948,    0x008b}, {0x8949,    0x0020},
+-{0x894a,    0x00b7}, {0x894b,    0x008f}, {0x894c,    0x007e},
+-{0x894d,    0x00b6}, {0x894e,    0x0012}, {0x894f,    0x000c},
+-{0x8950,    0x0084}, {0x8951,    0x009f}, {0x8952,    0x00ba},
+-{0x8953,    0x008f}, {0x8954,    0x007e}, {0x8955,    0x00b7},
+-{0x8956,    0x0012}, {0x8957,    0x000c}, {0x8958,    0x00b6},
+-{0x8959,    0x008f}, {0x895a,    0x007d}, {0x895b,    0x0048},
+-{0x895c,    0x00b7}, {0x895d,    0x008f}, {0x895e,    0x007d},
+-{0x895f,    0x007e}, {0x8960,    0x0089}, {0x8961,    0x0021},
+-{0x8962,    0x00b6}, {0x8963,    0x0012}, {0x8964,    0x0004},
+-{0x8965,    0x008a}, {0x8966,    0x0020}, {0x8967,    0x00b7},
+-{0x8968,    0x0012}, {0x8969,    0x0004}, {0x896a,    0x00bd},
+-{0x896b,    0x008a}, {0x896c,    0x000a}, {0x896d,    0x004f},
+-{0x896e,    0x0039}, {0x896f,    0x00a6}, {0x8970,    0x0000},
+-{0x8971,    0x0018}, {0x8972,    0x00a7}, {0x8973,    0x0000},
+-{0x8974,    0x0008}, {0x8975,    0x0018}, {0x8976,    0x0008},
+-{0x8977,    0x005a}, {0x8978,    0x0026}, {0x8979,    0x00f5},
+-{0x897a,    0x0039}, {0x897b,    0x0036}, {0x897c,    0x006c},
+-{0x897d,    0x0000}, {0x897e,    0x0032}, {0x897f,    0x00ba},
+-{0x8980,    0x008f}, {0x8981,    0x007f}, {0x8982,    0x00b7},
+-{0x8983,    0x008f}, {0x8984,    0x007f}, {0x8985,    0x00b6},
+-{0x8986,    0x0012}, {0x8987,    0x0009}, {0x8988,    0x0084},
+-{0x8989,    0x0003}, {0x898a,    0x00a7}, {0x898b,    0x0001},
+-{0x898c,    0x00b6}, {0x898d,    0x0012}, {0x898e,    0x0006},
+-{0x898f,    0x0084}, {0x8990,    0x003f}, {0x8991,    0x00a7},
+-{0x8992,    0x0002}, {0x8993,    0x0039}, {0x8994,    0x0036},
+-{0x8995,    0x0086}, {0x8996,    0x0003}, {0x8997,    0x00b7},
+-{0x8998,    0x008f}, {0x8999,    0x0080}, {0x899a,    0x0032},
+-{0x899b,    0x00c1}, {0x899c,    0x0000}, {0x899d,    0x0026},
+-{0x899e,    0x0006}, {0x899f,    0x00b7}, {0x89a0,    0x008f},
+-{0x89a1,    0x007c}, {0x89a2,    0x007e}, {0x89a3,    0x0089},
+-{0x89a4,    0x00c9}, {0x89a5,    0x00c1}, {0x89a6,    0x0001},
+-{0x89a7,    0x0027}, {0x89a8,    0x0018}, {0x89a9,    0x00c1},
+-{0x89aa,    0x0002}, {0x89ab,    0x0027}, {0x89ac,    0x000c},
+-{0x89ad,    0x00c1}, {0x89ae,    0x0003}, {0x89af,    0x0027},
+-{0x89b0,    0x0000}, {0x89b1,    0x00f6}, {0x89b2,    0x008f},
+-{0x89b3,    0x0080}, {0x89b4,    0x0005}, {0x89b5,    0x0005},
+-{0x89b6,    0x00f7}, {0x89b7,    0x008f}, {0x89b8,    0x0080},
+-{0x89b9,    0x00f6}, {0x89ba,    0x008f}, {0x89bb,    0x0080},
+-{0x89bc,    0x0005}, {0x89bd,    0x0005}, {0x89be,    0x00f7},
+-{0x89bf,    0x008f}, {0x89c0,    0x0080}, {0x89c1,    0x00f6},
+-{0x89c2,    0x008f}, {0x89c3,    0x0080}, {0x89c4,    0x0005},
+-{0x89c5,    0x0005}, {0x89c6,    0x00f7}, {0x89c7,    0x008f},
+-{0x89c8,    0x0080}, {0x89c9,    0x00f6}, {0x89ca,    0x008f},
+-{0x89cb,    0x0080}, {0x89cc,    0x0053}, {0x89cd,    0x00f4},
+-{0x89ce,    0x0012}, {0x89cf,    0x0007}, {0x89d0,    0x001b},
+-{0x89d1,    0x00b7}, {0x89d2,    0x0012}, {0x89d3,    0x0007},
+-{0x89d4,    0x0039}, {0x89d5,    0x00ce}, {0x89d6,    0x008f},
+-{0x89d7,    0x0070}, {0x89d8,    0x00a6}, {0x89d9,    0x0000},
+-{0x89da,    0x0018}, {0x89db,    0x00e6}, {0x89dc,    0x0000},
+-{0x89dd,    0x0018}, {0x89de,    0x00a7}, {0x89df,    0x0000},
+-{0x89e0,    0x00e7}, {0x89e1,    0x0000}, {0x89e2,    0x00a6},
+-{0x89e3,    0x0001}, {0x89e4,    0x0018}, {0x89e5,    0x00e6},
+-{0x89e6,    0x0001}, {0x89e7,    0x0018}, {0x89e8,    0x00a7},
+-{0x89e9,    0x0001}, {0x89ea,    0x00e7}, {0x89eb,    0x0001},
+-{0x89ec,    0x00a6}, {0x89ed,    0x0002}, {0x89ee,    0x0018},
+-{0x89ef,    0x00e6}, {0x89f0,    0x0002}, {0x89f1,    0x0018},
+-{0x89f2,    0x00a7}, {0x89f3,    0x0002}, {0x89f4,    0x00e7},
+-{0x89f5,    0x0002}, {0x89f6,    0x0039}, {0x89f7,    0x00a6},
+-{0x89f8,    0x0000}, {0x89f9,    0x0084}, {0x89fa,    0x0007},
+-{0x89fb,    0x00e6}, {0x89fc,    0x0000}, {0x89fd,    0x00c4},
+-{0x89fe,    0x0038}, {0x89ff,    0x0054}, {0x8a00,    0x0054},
+-{0x8a01,    0x0054}, {0x8a02,    0x001b}, {0x8a03,    0x00a7},
+-{0x8a04,    0x0000}, {0x8a05,    0x0039}, {0x8a06,    0x004a},
+-{0x8a07,    0x0026}, {0x8a08,    0x00fd}, {0x8a09,    0x0039},
+-{0x8a0a,    0x0096}, {0x8a0b,    0x0022}, {0x8a0c,    0x0084},
+-{0x8a0d,    0x000f}, {0x8a0e,    0x0097}, {0x8a0f,    0x0022},
+-{0x8a10,    0x0086}, {0x8a11,    0x0001}, {0x8a12,    0x00b7},
+-{0x8a13,    0x008f}, {0x8a14,    0x0070}, {0x8a15,    0x00b6},
+-{0x8a16,    0x0012}, {0x8a17,    0x0007}, {0x8a18,    0x00b7},
+-{0x8a19,    0x008f}, {0x8a1a,    0x0071}, {0x8a1b,    0x00f6},
+-{0x8a1c,    0x0012}, {0x8a1d,    0x000c}, {0x8a1e,    0x00c4},
+-{0x8a1f,    0x000f}, {0x8a20,    0x00c8}, {0x8a21,    0x000f},
+-{0x8a22,    0x00f7}, {0x8a23,    0x008f}, {0x8a24,    0x0072},
+-{0x8a25,    0x00f6}, {0x8a26,    0x008f}, {0x8a27,    0x0072},
+-{0x8a28,    0x00b6}, {0x8a29,    0x008f}, {0x8a2a,    0x0071},
+-{0x8a2b,    0x0084}, {0x8a2c,    0x0003}, {0x8a2d,    0x0027},
+-{0x8a2e,    0x0014}, {0x8a2f,    0x0081}, {0x8a30,    0x0001},
+-{0x8a31,    0x0027}, {0x8a32,    0x001c}, {0x8a33,    0x0081},
+-{0x8a34,    0x0002}, {0x8a35,    0x0027}, {0x8a36,    0x0024},
+-{0x8a37,    0x00f4}, {0x8a38,    0x008f}, {0x8a39,    0x0070},
+-{0x8a3a,    0x0027}, {0x8a3b,    0x002a}, {0x8a3c,    0x0096},
+-{0x8a3d,    0x0022}, {0x8a3e,    0x008a}, {0x8a3f,    0x0080},
+-{0x8a40,    0x007e}, {0x8a41,    0x008a}, {0x8a42,    0x0064},
+-{0x8a43,    0x00f4}, {0x8a44,    0x008f}, {0x8a45,    0x0070},
+-{0x8a46,    0x0027}, {0x8a47,    0x001e}, {0x8a48,    0x0096},
+-{0x8a49,    0x0022}, {0x8a4a,    0x008a}, {0x8a4b,    0x0010},
+-{0x8a4c,    0x007e}, {0x8a4d,    0x008a}, {0x8a4e,    0x0064},
+-{0x8a4f,    0x00f4}, {0x8a50,    0x008f}, {0x8a51,    0x0070},
+-{0x8a52,    0x0027}, {0x8a53,    0x0012}, {0x8a54,    0x0096},
+-{0x8a55,    0x0022}, {0x8a56,    0x008a}, {0x8a57,    0x0020},
+-{0x8a58,    0x007e}, {0x8a59,    0x008a}, {0x8a5a,    0x0064},
+-{0x8a5b,    0x00f4}, {0x8a5c,    0x008f}, {0x8a5d,    0x0070},
+-{0x8a5e,    0x0027}, {0x8a5f,    0x0006}, {0x8a60,    0x0096},
+-{0x8a61,    0x0022}, {0x8a62,    0x008a}, {0x8a63,    0x0040},
+-{0x8a64,    0x0097}, {0x8a65,    0x0022}, {0x8a66,    0x0074},
+-{0x8a67,    0x008f}, {0x8a68,    0x0071}, {0x8a69,    0x0074},
+-{0x8a6a,    0x008f}, {0x8a6b,    0x0071}, {0x8a6c,    0x0078},
+-{0x8a6d,    0x008f}, {0x8a6e,    0x0070}, {0x8a6f,    0x00b6},
+-{0x8a70,    0x008f}, {0x8a71,    0x0070}, {0x8a72,    0x0085},
+-{0x8a73,    0x0010}, {0x8a74,    0x0027}, {0x8a75,    0x00af},
+-{0x8a76,    0x00d6}, {0x8a77,    0x0022}, {0x8a78,    0x00c4},
+-{0x8a79,    0x0010}, {0x8a7a,    0x0058}, {0x8a7b,    0x00b6},
+-{0x8a7c,    0x0012}, {0x8a7d,    0x0070}, {0x8a7e,    0x0081},
+-{0x8a7f,    0x00e4}, {0x8a80,    0x0027}, {0x8a81,    0x0036},
+-{0x8a82,    0x0081}, {0x8a83,    0x00e1}, {0x8a84,    0x0026},
+-{0x8a85,    0x000c}, {0x8a86,    0x0096}, {0x8a87,    0x0022},
+-{0x8a88,    0x0084}, {0x8a89,    0x0020}, {0x8a8a,    0x0044},
+-{0x8a8b,    0x001b}, {0x8a8c,    0x00d6}, {0x8a8d,    0x0022},
+-{0x8a8e,    0x00c4}, {0x8a8f,    0x00cf}, {0x8a90,    0x0020},
+-{0x8a91,    0x0023}, {0x8a92,    0x0058}, {0x8a93,    0x0081},
+-{0x8a94,    0x00c6}, {0x8a95,    0x0026}, {0x8a96,    0x000d},
+-{0x8a97,    0x0096}, {0x8a98,    0x0022}, {0x8a99,    0x0084},
+-{0x8a9a,    0x0040}, {0x8a9b,    0x0044}, {0x8a9c,    0x0044},
+-{0x8a9d,    0x001b}, {0x8a9e,    0x00d6}, {0x8a9f,    0x0022},
+-{0x8aa0,    0x00c4}, {0x8aa1,    0x00af}, {0x8aa2,    0x0020},
+-{0x8aa3,    0x0011}, {0x8aa4,    0x0058}, {0x8aa5,    0x0081},
+-{0x8aa6,    0x0027}, {0x8aa7,    0x0026}, {0x8aa8,    0x000f},
+-{0x8aa9,    0x0096}, {0x8aaa,    0x0022}, {0x8aab,    0x0084},
+-{0x8aac,    0x0080}, {0x8aad,    0x0044}, {0x8aae,    0x0044},
+-{0x8aaf,    0x0044}, {0x8ab0,    0x001b}, {0x8ab1,    0x00d6},
+-{0x8ab2,    0x0022}, {0x8ab3,    0x00c4}, {0x8ab4,    0x006f},
+-{0x8ab5,    0x001b}, {0x8ab6,    0x0097}, {0x8ab7,    0x0022},
+-{0x8ab8,    0x0039}, {0x8ab9,    0x0027}, {0x8aba,    0x000c},
+-{0x8abb,    0x007c}, {0x8abc,    0x0082}, {0x8abd,    0x0006},
+-{0x8abe,    0x00bd}, {0x8abf,    0x00d9}, {0x8ac0,    0x00ed},
+-{0x8ac1,    0x00b6}, {0x8ac2,    0x0082}, {0x8ac3,    0x0007},
+-{0x8ac4,    0x007e}, {0x8ac5,    0x008a}, {0x8ac6,    0x00b9},
+-{0x8ac7,    0x007f}, {0x8ac8,    0x0082}, {0x8ac9,    0x0006},
+-{0x8aca,    0x0039}, { 0x0, 0x0 }
+-};
 -#else
--# define rx_align(skb)
--# define RxFD_ALIGNMENT
+-cas_saturn_patch_t cas_saturn_patch[] = {
+-{0x8200,    0x007e}, {0x8201,    0x0082}, {0x8202,    0x0009},
+-{0x8203,    0x0000}, {0x8204,    0x0000}, {0x8205,    0x0000},
+-{0x8206,    0x0000}, {0x8207,    0x0000}, {0x8208,    0x0000},
+-{0x8209,    0x008e}, {0x820a,    0x008e}, {0x820b,    0x00ff},
+-{0x820c,    0x00ce}, {0x820d,    0x0082}, {0x820e,    0x0025},
+-{0x820f,    0x00ff}, {0x8210,    0x0001}, {0x8211,    0x000f},
+-{0x8212,    0x00ce}, {0x8213,    0x0084}, {0x8214,    0x0026},
+-{0x8215,    0x00ff}, {0x8216,    0x0001}, {0x8217,    0x0011},
+-{0x8218,    0x00ce}, {0x8219,    0x0085}, {0x821a,    0x003d},
+-{0x821b,    0x00df}, {0x821c,    0x00e5}, {0x821d,    0x0086},
+-{0x821e,    0x0039}, {0x821f,    0x00b7}, {0x8220,    0x008f},
+-{0x8221,    0x00f8}, {0x8222,    0x007e}, {0x8223,    0x00c3},
+-{0x8224,    0x00c2}, {0x8225,    0x0096}, {0x8226,    0x0047},
+-{0x8227,    0x0084}, {0x8228,    0x00f3}, {0x8229,    0x008a},
+-{0x822a,    0x0000}, {0x822b,    0x0097}, {0x822c,    0x0047},
+-{0x822d,    0x00ce}, {0x822e,    0x0082}, {0x822f,    0x0033},
+-{0x8230,    0x00ff}, {0x8231,    0x0001}, {0x8232,    0x000f},
+-{0x8233,    0x0096}, {0x8234,    0x0046}, {0x8235,    0x0084},
+-{0x8236,    0x000c}, {0x8237,    0x0081}, {0x8238,    0x0004},
+-{0x8239,    0x0027}, {0x823a,    0x000b}, {0x823b,    0x0096},
+-{0x823c,    0x0046}, {0x823d,    0x0084}, {0x823e,    0x000c},
+-{0x823f,    0x0081}, {0x8240,    0x0008}, {0x8241,    0x0027},
+-{0x8242,    0x0057}, {0x8243,    0x007e}, {0x8244,    0x0084},
+-{0x8245,    0x0025}, {0x8246,    0x0096}, {0x8247,    0x0047},
+-{0x8248,    0x0084}, {0x8249,    0x00f3}, {0x824a,    0x008a},
+-{0x824b,    0x0004}, {0x824c,    0x0097}, {0x824d,    0x0047},
+-{0x824e,    0x00ce}, {0x824f,    0x0082}, {0x8250,    0x0054},
+-{0x8251,    0x00ff}, {0x8252,    0x0001}, {0x8253,    0x000f},
+-{0x8254,    0x0096}, {0x8255,    0x0046}, {0x8256,    0x0084},
+-{0x8257,    0x000c}, {0x8258,    0x0081}, {0x8259,    0x0004},
+-{0x825a,    0x0026}, {0x825b,    0x0038}, {0x825c,    0x00b6},
+-{0x825d,    0x0012}, {0x825e,    0x0020}, {0x825f,    0x0084},
+-{0x8260,    0x0020}, {0x8261,    0x0026}, {0x8262,    0x0003},
+-{0x8263,    0x007e}, {0x8264,    0x0084}, {0x8265,    0x0025},
+-{0x8266,    0x0096}, {0x8267,    0x007b}, {0x8268,    0x00d6},
+-{0x8269,    0x007c}, {0x826a,    0x00fe}, {0x826b,    0x008f},
+-{0x826c,    0x0056}, {0x826d,    0x00bd}, {0x826e,    0x00f7},
+-{0x826f,    0x00b6}, {0x8270,    0x00fe}, {0x8271,    0x008f},
+-{0x8272,    0x004e}, {0x8273,    0x00bd}, {0x8274,    0x00ec},
+-{0x8275,    0x008e}, {0x8276,    0x00bd}, {0x8277,    0x00fa},
+-{0x8278,    0x00f7}, {0x8279,    0x00bd}, {0x827a,    0x00f7},
+-{0x827b,    0x0028}, {0x827c,    0x00ce}, {0x827d,    0x0082},
+-{0x827e,    0x0082}, {0x827f,    0x00ff}, {0x8280,    0x0001},
+-{0x8281,    0x000f}, {0x8282,    0x0096}, {0x8283,    0x0046},
+-{0x8284,    0x0084}, {0x8285,    0x000c}, {0x8286,    0x0081},
+-{0x8287,    0x0004}, {0x8288,    0x0026}, {0x8289,    0x000a},
+-{0x828a,    0x00b6}, {0x828b,    0x0012}, {0x828c,    0x0020},
+-{0x828d,    0x0084}, {0x828e,    0x0020}, {0x828f,    0x0027},
+-{0x8290,    0x00b5}, {0x8291,    0x007e}, {0x8292,    0x0084},
+-{0x8293,    0x0025}, {0x8294,    0x00bd}, {0x8295,    0x00f7},
+-{0x8296,    0x001f}, {0x8297,    0x007e}, {0x8298,    0x0084},
+-{0x8299,    0x001f}, {0x829a,    0x0096}, {0x829b,    0x0047},
+-{0x829c,    0x0084}, {0x829d,    0x00f3}, {0x829e,    0x008a},
+-{0x829f,    0x0008}, {0x82a0,    0x0097}, {0x82a1,    0x0047},
+-{0x82a2,    0x00de}, {0x82a3,    0x00e1}, {0x82a4,    0x00ad},
+-{0x82a5,    0x0000}, {0x82a6,    0x00ce}, {0x82a7,    0x0082},
+-{0x82a8,    0x00af}, {0x82a9,    0x00ff}, {0x82aa,    0x0001},
+-{0x82ab,    0x000f}, {0x82ac,    0x007e}, {0x82ad,    0x0084},
+-{0x82ae,    0x0025}, {0x82af,    0x0096}, {0x82b0,    0x0041},
+-{0x82b1,    0x0085}, {0x82b2,    0x0010}, {0x82b3,    0x0026},
+-{0x82b4,    0x0006}, {0x82b5,    0x0096}, {0x82b6,    0x0023},
+-{0x82b7,    0x0085}, {0x82b8,    0x0040}, {0x82b9,    0x0027},
+-{0x82ba,    0x0006}, {0x82bb,    0x00bd}, {0x82bc,    0x00ed},
+-{0x82bd,    0x0000}, {0x82be,    0x007e}, {0x82bf,    0x0083},
+-{0x82c0,    0x00a2}, {0x82c1,    0x00de}, {0x82c2,    0x0042},
+-{0x82c3,    0x00bd}, {0x82c4,    0x00eb}, {0x82c5,    0x008e},
+-{0x82c6,    0x0096}, {0x82c7,    0x0024}, {0x82c8,    0x0084},
+-{0x82c9,    0x0008}, {0x82ca,    0x0027}, {0x82cb,    0x0003},
+-{0x82cc,    0x007e}, {0x82cd,    0x0083}, {0x82ce,    0x00df},
+-{0x82cf,    0x0096}, {0x82d0,    0x007b}, {0x82d1,    0x00d6},
+-{0x82d2,    0x007c}, {0x82d3,    0x00fe}, {0x82d4,    0x008f},
+-{0x82d5,    0x0056}, {0x82d6,    0x00bd}, {0x82d7,    0x00f7},
+-{0x82d8,    0x00b6}, {0x82d9,    0x00fe}, {0x82da,    0x008f},
+-{0x82db,    0x0050}, {0x82dc,    0x00bd}, {0x82dd,    0x00ec},
+-{0x82de,    0x008e}, {0x82df,    0x00bd}, {0x82e0,    0x00fa},
+-{0x82e1,    0x00f7}, {0x82e2,    0x0086}, {0x82e3,    0x0011},
+-{0x82e4,    0x00c6}, {0x82e5,    0x0049}, {0x82e6,    0x00bd},
+-{0x82e7,    0x00e4}, {0x82e8,    0x0012}, {0x82e9,    0x00ce},
+-{0x82ea,    0x0082}, {0x82eb,    0x00ef}, {0x82ec,    0x00ff},
+-{0x82ed,    0x0001}, {0x82ee,    0x000f}, {0x82ef,    0x0096},
+-{0x82f0,    0x0046}, {0x82f1,    0x0084}, {0x82f2,    0x000c},
+-{0x82f3,    0x0081}, {0x82f4,    0x0000}, {0x82f5,    0x0027},
+-{0x82f6,    0x0017}, {0x82f7,    0x00c6}, {0x82f8,    0x0049},
+-{0x82f9,    0x00bd}, {0x82fa,    0x00e4}, {0x82fb,    0x0091},
+-{0x82fc,    0x0024}, {0x82fd,    0x000d}, {0x82fe,    0x00b6},
+-{0x82ff,    0x0012}, {0x8300,    0x0020}, {0x8301,    0x0085},
+-{0x8302,    0x0020}, {0x8303,    0x0026}, {0x8304,    0x000c},
+-{0x8305,    0x00ce}, {0x8306,    0x0082}, {0x8307,    0x00c1},
+-{0x8308,    0x00ff}, {0x8309,    0x0001}, {0x830a,    0x000f},
+-{0x830b,    0x007e}, {0x830c,    0x0084}, {0x830d,    0x0025},
+-{0x830e,    0x007e}, {0x830f,    0x0084}, {0x8310,    0x0016},
+-{0x8311,    0x00fe}, {0x8312,    0x008f}, {0x8313,    0x0052},
+-{0x8314,    0x00bd}, {0x8315,    0x00ec}, {0x8316,    0x008e},
+-{0x8317,    0x00bd}, {0x8318,    0x00fa}, {0x8319,    0x00f7},
+-{0x831a,    0x0086}, {0x831b,    0x006a}, {0x831c,    0x00c6},
+-{0x831d,    0x0049}, {0x831e,    0x00bd}, {0x831f,    0x00e4},
+-{0x8320,    0x0012}, {0x8321,    0x00ce}, {0x8322,    0x0083},
+-{0x8323,    0x0027}, {0x8324,    0x00ff}, {0x8325,    0x0001},
+-{0x8326,    0x000f}, {0x8327,    0x0096}, {0x8328,    0x0046},
+-{0x8329,    0x0084}, {0x832a,    0x000c}, {0x832b,    0x0081},
+-{0x832c,    0x0000}, {0x832d,    0x0027}, {0x832e,    0x000a},
+-{0x832f,    0x00c6}, {0x8330,    0x0049}, {0x8331,    0x00bd},
+-{0x8332,    0x00e4}, {0x8333,    0x0091}, {0x8334,    0x0025},
+-{0x8335,    0x0006}, {0x8336,    0x007e}, {0x8337,    0x0084},
+-{0x8338,    0x0025}, {0x8339,    0x007e}, {0x833a,    0x0084},
+-{0x833b,    0x0016}, {0x833c,    0x00b6}, {0x833d,    0x0018},
+-{0x833e,    0x0070}, {0x833f,    0x00bb}, {0x8340,    0x0019},
+-{0x8341,    0x0070}, {0x8342,    0x002a}, {0x8343,    0x0004},
+-{0x8344,    0x0081}, {0x8345,    0x00af}, {0x8346,    0x002e},
+-{0x8347,    0x0019}, {0x8348,    0x0096}, {0x8349,    0x007b},
+-{0x834a,    0x00f6}, {0x834b,    0x0020}, {0x834c,    0x0007},
+-{0x834d,    0x00fa}, {0x834e,    0x0020}, {0x834f,    0x0027},
+-{0x8350,    0x00c4}, {0x8351,    0x0038}, {0x8352,    0x0081},
+-{0x8353,    0x0038}, {0x8354,    0x0027}, {0x8355,    0x000b},
+-{0x8356,    0x00f6}, {0x8357,    0x0020}, {0x8358,    0x0007},
+-{0x8359,    0x00fa}, {0x835a,    0x0020}, {0x835b,    0x0027},
+-{0x835c,    0x00cb}, {0x835d,    0x0008}, {0x835e,    0x007e},
+-{0x835f,    0x0082}, {0x8360,    0x00d3}, {0x8361,    0x00bd},
+-{0x8362,    0x00f7}, {0x8363,    0x0066}, {0x8364,    0x0086},
+-{0x8365,    0x0074}, {0x8366,    0x00c6}, {0x8367,    0x0049},
+-{0x8368,    0x00bd}, {0x8369,    0x00e4}, {0x836a,    0x0012},
+-{0x836b,    0x00ce}, {0x836c,    0x0083}, {0x836d,    0x0071},
+-{0x836e,    0x00ff}, {0x836f,    0x0001}, {0x8370,    0x000f},
+-{0x8371,    0x0096}, {0x8372,    0x0046}, {0x8373,    0x0084},
+-{0x8374,    0x000c}, {0x8375,    0x0081}, {0x8376,    0x0008},
+-{0x8377,    0x0026}, {0x8378,    0x000a}, {0x8379,    0x00c6},
+-{0x837a,    0x0049}, {0x837b,    0x00bd}, {0x837c,    0x00e4},
+-{0x837d,    0x0091}, {0x837e,    0x0025}, {0x837f,    0x0006},
+-{0x8380,    0x007e}, {0x8381,    0x0084}, {0x8382,    0x0025},
+-{0x8383,    0x007e}, {0x8384,    0x0084}, {0x8385,    0x0016},
+-{0x8386,    0x00bd}, {0x8387,    0x00f7}, {0x8388,    0x003e},
+-{0x8389,    0x0026}, {0x838a,    0x000e}, {0x838b,    0x00bd},
+-{0x838c,    0x00e5}, {0x838d,    0x0009}, {0x838e,    0x0026},
+-{0x838f,    0x0006}, {0x8390,    0x00ce}, {0x8391,    0x0082},
+-{0x8392,    0x00c1}, {0x8393,    0x00ff}, {0x8394,    0x0001},
+-{0x8395,    0x000f}, {0x8396,    0x007e}, {0x8397,    0x0084},
+-{0x8398,    0x0025}, {0x8399,    0x00fe}, {0x839a,    0x008f},
+-{0x839b,    0x0054}, {0x839c,    0x00bd}, {0x839d,    0x00ec},
+-{0x839e,    0x008e}, {0x839f,    0x00bd}, {0x83a0,    0x00fa},
+-{0x83a1,    0x00f7}, {0x83a2,    0x00bd}, {0x83a3,    0x00f7},
+-{0x83a4,    0x0033}, {0x83a5,    0x0086}, {0x83a6,    0x000f},
+-{0x83a7,    0x00c6}, {0x83a8,    0x0051}, {0x83a9,    0x00bd},
+-{0x83aa,    0x00e4}, {0x83ab,    0x0012}, {0x83ac,    0x00ce},
+-{0x83ad,    0x0083}, {0x83ae,    0x00b2}, {0x83af,    0x00ff},
+-{0x83b0,    0x0001}, {0x83b1,    0x000f}, {0x83b2,    0x0096},
+-{0x83b3,    0x0046}, {0x83b4,    0x0084}, {0x83b5,    0x000c},
+-{0x83b6,    0x0081}, {0x83b7,    0x0008}, {0x83b8,    0x0026},
+-{0x83b9,    0x005c}, {0x83ba,    0x00b6}, {0x83bb,    0x0012},
+-{0x83bc,    0x0020}, {0x83bd,    0x0084}, {0x83be,    0x003f},
+-{0x83bf,    0x0081}, {0x83c0,    0x003a}, {0x83c1,    0x0027},
+-{0x83c2,    0x001c}, {0x83c3,    0x0096}, {0x83c4,    0x0023},
+-{0x83c5,    0x0085}, {0x83c6,    0x0040}, {0x83c7,    0x0027},
+-{0x83c8,    0x0003}, {0x83c9,    0x007e}, {0x83ca,    0x0084},
+-{0x83cb,    0x0025}, {0x83cc,    0x00c6}, {0x83cd,    0x0051},
+-{0x83ce,    0x00bd}, {0x83cf,    0x00e4}, {0x83d0,    0x0091},
+-{0x83d1,    0x0025}, {0x83d2,    0x0003}, {0x83d3,    0x007e},
+-{0x83d4,    0x0084}, {0x83d5,    0x0025}, {0x83d6,    0x00ce},
+-{0x83d7,    0x0082}, {0x83d8,    0x00c1}, {0x83d9,    0x00ff},
+-{0x83da,    0x0001}, {0x83db,    0x000f}, {0x83dc,    0x007e},
+-{0x83dd,    0x0084}, {0x83de,    0x0025}, {0x83df,    0x00bd},
+-{0x83e0,    0x00f8}, {0x83e1,    0x0037}, {0x83e2,    0x007c},
+-{0x83e3,    0x0000}, {0x83e4,    0x007a}, {0x83e5,    0x00ce},
+-{0x83e6,    0x0083}, {0x83e7,    0x00ee}, {0x83e8,    0x00ff},
+-{0x83e9,    0x0001}, {0x83ea,    0x000f}, {0x83eb,    0x007e},
+-{0x83ec,    0x0084}, {0x83ed,    0x0025}, {0x83ee,    0x0096},
+-{0x83ef,    0x0046}, {0x83f0,    0x0084}, {0x83f1,    0x000c},
+-{0x83f2,    0x0081}, {0x83f3,    0x0008}, {0x83f4,    0x0026},
+-{0x83f5,    0x0020}, {0x83f6,    0x0096}, {0x83f7,    0x0024},
+-{0x83f8,    0x0084}, {0x83f9,    0x0008}, {0x83fa,    0x0026},
+-{0x83fb,    0x0029}, {0x83fc,    0x00b6}, {0x83fd,    0x0018},
+-{0x83fe,    0x0082}, {0x83ff,    0x00bb}, {0x8400,    0x0019},
+-{0x8401,    0x0082}, {0x8402,    0x00b1}, {0x8403,    0x0001},
+-{0x8404,    0x003b}, {0x8405,    0x0022}, {0x8406,    0x0009},
+-{0x8407,    0x00b6}, {0x8408,    0x0012}, {0x8409,    0x0020},
+-{0x840a,    0x0084}, {0x840b,    0x0037}, {0x840c,    0x0081},
+-{0x840d,    0x0032}, {0x840e,    0x0027}, {0x840f,    0x0015},
+-{0x8410,    0x00bd}, {0x8411,    0x00f8}, {0x8412,    0x0044},
+-{0x8413,    0x007e}, {0x8414,    0x0082}, {0x8415,    0x00c1},
+-{0x8416,    0x00bd}, {0x8417,    0x00f7}, {0x8418,    0x001f},
+-{0x8419,    0x00bd}, {0x841a,    0x00f8}, {0x841b,    0x0044},
+-{0x841c,    0x00bd}, {0x841d,    0x00fc}, {0x841e,    0x0029},
+-{0x841f,    0x00ce}, {0x8420,    0x0082}, {0x8421,    0x0025},
+-{0x8422,    0x00ff}, {0x8423,    0x0001}, {0x8424,    0x000f},
+-{0x8425,    0x0039}, {0x8426,    0x0096}, {0x8427,    0x0047},
+-{0x8428,    0x0084}, {0x8429,    0x00fc}, {0x842a,    0x008a},
+-{0x842b,    0x0000}, {0x842c,    0x0097}, {0x842d,    0x0047},
+-{0x842e,    0x00ce}, {0x842f,    0x0084}, {0x8430,    0x0034},
+-{0x8431,    0x00ff}, {0x8432,    0x0001}, {0x8433,    0x0011},
+-{0x8434,    0x0096}, {0x8435,    0x0046}, {0x8436,    0x0084},
+-{0x8437,    0x0003}, {0x8438,    0x0081}, {0x8439,    0x0002},
+-{0x843a,    0x0027}, {0x843b,    0x0003}, {0x843c,    0x007e},
+-{0x843d,    0x0085}, {0x843e,    0x001e}, {0x843f,    0x0096},
+-{0x8440,    0x0047}, {0x8441,    0x0084}, {0x8442,    0x00fc},
+-{0x8443,    0x008a}, {0x8444,    0x0002}, {0x8445,    0x0097},
+-{0x8446,    0x0047}, {0x8447,    0x00de}, {0x8448,    0x00e1},
+-{0x8449,    0x00ad}, {0x844a,    0x0000}, {0x844b,    0x0086},
+-{0x844c,    0x0001}, {0x844d,    0x00b7}, {0x844e,    0x0012},
+-{0x844f,    0x0051}, {0x8450,    0x00bd}, {0x8451,    0x00f7},
+-{0x8452,    0x0014}, {0x8453,    0x00b6}, {0x8454,    0x0010},
+-{0x8455,    0x0031}, {0x8456,    0x0084}, {0x8457,    0x00fd},
+-{0x8458,    0x00b7}, {0x8459,    0x0010}, {0x845a,    0x0031},
+-{0x845b,    0x00bd}, {0x845c,    0x00f8}, {0x845d,    0x001e},
+-{0x845e,    0x0096}, {0x845f,    0x0081}, {0x8460,    0x00d6},
+-{0x8461,    0x0082}, {0x8462,    0x00fe}, {0x8463,    0x008f},
+-{0x8464,    0x005a}, {0x8465,    0x00bd}, {0x8466,    0x00f7},
+-{0x8467,    0x00b6}, {0x8468,    0x00fe}, {0x8469,    0x008f},
+-{0x846a,    0x005c}, {0x846b,    0x00bd}, {0x846c,    0x00ec},
+-{0x846d,    0x008e}, {0x846e,    0x00bd}, {0x846f,    0x00fa},
+-{0x8470,    0x00f7}, {0x8471,    0x0086}, {0x8472,    0x0008},
+-{0x8473,    0x00d6}, {0x8474,    0x0000}, {0x8475,    0x00c5},
+-{0x8476,    0x0010}, {0x8477,    0x0026}, {0x8478,    0x0002},
+-{0x8479,    0x008b}, {0x847a,    0x0020}, {0x847b,    0x00c6},
+-{0x847c,    0x0051}, {0x847d,    0x00bd}, {0x847e,    0x00e4},
+-{0x847f,    0x0012}, {0x8480,    0x00ce}, {0x8481,    0x0084},
+-{0x8482,    0x0086}, {0x8483,    0x00ff}, {0x8484,    0x0001},
+-{0x8485,    0x0011}, {0x8486,    0x0096}, {0x8487,    0x0046},
+-{0x8488,    0x0084}, {0x8489,    0x0003}, {0x848a,    0x0081},
+-{0x848b,    0x0002}, {0x848c,    0x0027}, {0x848d,    0x0003},
+-{0x848e,    0x007e}, {0x848f,    0x0085}, {0x8490,    0x000f},
+-{0x8491,    0x00c6}, {0x8492,    0x0051}, {0x8493,    0x00bd},
+-{0x8494,    0x00e4}, {0x8495,    0x0091}, {0x8496,    0x0025},
+-{0x8497,    0x0003}, {0x8498,    0x007e}, {0x8499,    0x0085},
+-{0x849a,    0x001e}, {0x849b,    0x0096}, {0x849c,    0x0044},
+-{0x849d,    0x0085}, {0x849e,    0x0010}, {0x849f,    0x0026},
+-{0x84a0,    0x000a}, {0x84a1,    0x00b6}, {0x84a2,    0x0012},
+-{0x84a3,    0x0050}, {0x84a4,    0x00ba}, {0x84a5,    0x0001},
+-{0x84a6,    0x003c}, {0x84a7,    0x0085}, {0x84a8,    0x0010},
+-{0x84a9,    0x0027}, {0x84aa,    0x00a8}, {0x84ab,    0x00bd},
+-{0x84ac,    0x00f7}, {0x84ad,    0x0066}, {0x84ae,    0x00ce},
+-{0x84af,    0x0084}, {0x84b0,    0x00b7}, {0x84b1,    0x00ff},
+-{0x84b2,    0x0001}, {0x84b3,    0x0011}, {0x84b4,    0x007e},
+-{0x84b5,    0x0085}, {0x84b6,    0x001e}, {0x84b7,    0x0096},
+-{0x84b8,    0x0046}, {0x84b9,    0x0084}, {0x84ba,    0x0003},
+-{0x84bb,    0x0081}, {0x84bc,    0x0002}, {0x84bd,    0x0026},
+-{0x84be,    0x0050}, {0x84bf,    0x00b6}, {0x84c0,    0x0012},
+-{0x84c1,    0x0030}, {0x84c2,    0x0084}, {0x84c3,    0x0003},
+-{0x84c4,    0x0081}, {0x84c5,    0x0001}, {0x84c6,    0x0027},
+-{0x84c7,    0x0003}, {0x84c8,    0x007e}, {0x84c9,    0x0085},
+-{0x84ca,    0x001e}, {0x84cb,    0x0096}, {0x84cc,    0x0044},
+-{0x84cd,    0x0085}, {0x84ce,    0x0010}, {0x84cf,    0x0026},
+-{0x84d0,    0x0013}, {0x84d1,    0x00b6}, {0x84d2,    0x0012},
+-{0x84d3,    0x0050}, {0x84d4,    0x00ba}, {0x84d5,    0x0001},
+-{0x84d6,    0x003c}, {0x84d7,    0x0085}, {0x84d8,    0x0010},
+-{0x84d9,    0x0026}, {0x84da,    0x0009}, {0x84db,    0x00ce},
+-{0x84dc,    0x0084}, {0x84dd,    0x0053}, {0x84de,    0x00ff},
+-{0x84df,    0x0001}, {0x84e0,    0x0011}, {0x84e1,    0x007e},
+-{0x84e2,    0x0085}, {0x84e3,    0x001e}, {0x84e4,    0x00b6},
+-{0x84e5,    0x0010}, {0x84e6,    0x0031}, {0x84e7,    0x008a},
+-{0x84e8,    0x0002}, {0x84e9,    0x00b7}, {0x84ea,    0x0010},
+-{0x84eb,    0x0031}, {0x84ec,    0x00bd}, {0x84ed,    0x0085},
+-{0x84ee,    0x001f}, {0x84ef,    0x00bd}, {0x84f0,    0x00f8},
+-{0x84f1,    0x0037}, {0x84f2,    0x007c}, {0x84f3,    0x0000},
+-{0x84f4,    0x0080}, {0x84f5,    0x00ce}, {0x84f6,    0x0084},
+-{0x84f7,    0x00fe}, {0x84f8,    0x00ff}, {0x84f9,    0x0001},
+-{0x84fa,    0x0011}, {0x84fb,    0x007e}, {0x84fc,    0x0085},
+-{0x84fd,    0x001e}, {0x84fe,    0x0096}, {0x84ff,    0x0046},
+-{0x8500,    0x0084}, {0x8501,    0x0003}, {0x8502,    0x0081},
+-{0x8503,    0x0002}, {0x8504,    0x0026}, {0x8505,    0x0009},
+-{0x8506,    0x00b6}, {0x8507,    0x0012}, {0x8508,    0x0030},
+-{0x8509,    0x0084}, {0x850a,    0x0003}, {0x850b,    0x0081},
+-{0x850c,    0x0001}, {0x850d,    0x0027}, {0x850e,    0x000f},
+-{0x850f,    0x00bd}, {0x8510,    0x00f8}, {0x8511,    0x0044},
+-{0x8512,    0x00bd}, {0x8513,    0x00f7}, {0x8514,    0x000b},
+-{0x8515,    0x00bd}, {0x8516,    0x00fc}, {0x8517,    0x0029},
+-{0x8518,    0x00ce}, {0x8519,    0x0084}, {0x851a,    0x0026},
+-{0x851b,    0x00ff}, {0x851c,    0x0001}, {0x851d,    0x0011},
+-{0x851e,    0x0039}, {0x851f,    0x00d6}, {0x8520,    0x0022},
+-{0x8521,    0x00c4}, {0x8522,    0x000f}, {0x8523,    0x00b6},
+-{0x8524,    0x0012}, {0x8525,    0x0030}, {0x8526,    0x00ba},
+-{0x8527,    0x0012}, {0x8528,    0x0032}, {0x8529,    0x0084},
+-{0x852a,    0x0004}, {0x852b,    0x0027}, {0x852c,    0x000d},
+-{0x852d,    0x0096}, {0x852e,    0x0022}, {0x852f,    0x0085},
+-{0x8530,    0x0004}, {0x8531,    0x0027}, {0x8532,    0x0005},
+-{0x8533,    0x00ca}, {0x8534,    0x0010}, {0x8535,    0x007e},
+-{0x8536,    0x0085}, {0x8537,    0x003a}, {0x8538,    0x00ca},
+-{0x8539,    0x0020}, {0x853a,    0x00d7}, {0x853b,    0x0022},
+-{0x853c,    0x0039}, {0x853d,    0x0086}, {0x853e,    0x0000},
+-{0x853f,    0x0097}, {0x8540,    0x0083}, {0x8541,    0x0018},
+-{0x8542,    0x00ce}, {0x8543,    0x001c}, {0x8544,    0x0000},
+-{0x8545,    0x00bd}, {0x8546,    0x00eb}, {0x8547,    0x0046},
+-{0x8548,    0x0096}, {0x8549,    0x0057}, {0x854a,    0x0085},
+-{0x854b,    0x0001}, {0x854c,    0x0027}, {0x854d,    0x0002},
+-{0x854e,    0x004f}, {0x854f,    0x0039}, {0x8550,    0x0085},
+-{0x8551,    0x0002}, {0x8552,    0x0027}, {0x8553,    0x0001},
+-{0x8554,    0x0039}, {0x8555,    0x007f}, {0x8556,    0x008f},
+-{0x8557,    0x007d}, {0x8558,    0x0086}, {0x8559,    0x0004},
+-{0x855a,    0x00b7}, {0x855b,    0x0012}, {0x855c,    0x0004},
+-{0x855d,    0x0086}, {0x855e,    0x0008}, {0x855f,    0x00b7},
+-{0x8560,    0x0012}, {0x8561,    0x0007}, {0x8562,    0x0086},
+-{0x8563,    0x0010}, {0x8564,    0x00b7}, {0x8565,    0x0012},
+-{0x8566,    0x000c}, {0x8567,    0x0086}, {0x8568,    0x0007},
+-{0x8569,    0x00b7}, {0x856a,    0x0012}, {0x856b,    0x0006},
+-{0x856c,    0x00b6}, {0x856d,    0x008f}, {0x856e,    0x007d},
+-{0x856f,    0x00b7}, {0x8570,    0x0012}, {0x8571,    0x0070},
+-{0x8572,    0x0086}, {0x8573,    0x0001}, {0x8574,    0x00ba},
+-{0x8575,    0x0012}, {0x8576,    0x0004}, {0x8577,    0x00b7},
+-{0x8578,    0x0012}, {0x8579,    0x0004}, {0x857a,    0x0001},
+-{0x857b,    0x0001}, {0x857c,    0x0001}, {0x857d,    0x0001},
+-{0x857e,    0x0001}, {0x857f,    0x0001}, {0x8580,    0x00b6},
+-{0x8581,    0x0012}, {0x8582,    0x0004}, {0x8583,    0x0084},
+-{0x8584,    0x00fe}, {0x8585,    0x008a}, {0x8586,    0x0002},
+-{0x8587,    0x00b7}, {0x8588,    0x0012}, {0x8589,    0x0004},
+-{0x858a,    0x0001}, {0x858b,    0x0001}, {0x858c,    0x0001},
+-{0x858d,    0x0001}, {0x858e,    0x0001}, {0x858f,    0x0001},
+-{0x8590,    0x0086}, {0x8591,    0x00fd}, {0x8592,    0x00b4},
+-{0x8593,    0x0012}, {0x8594,    0x0004}, {0x8595,    0x00b7},
+-{0x8596,    0x0012}, {0x8597,    0x0004}, {0x8598,    0x00b6},
+-{0x8599,    0x0012}, {0x859a,    0x0000}, {0x859b,    0x0084},
+-{0x859c,    0x0008}, {0x859d,    0x0081}, {0x859e,    0x0008},
+-{0x859f,    0x0027}, {0x85a0,    0x0016}, {0x85a1,    0x00b6},
+-{0x85a2,    0x008f}, {0x85a3,    0x007d}, {0x85a4,    0x0081},
+-{0x85a5,    0x000c}, {0x85a6,    0x0027}, {0x85a7,    0x0008},
+-{0x85a8,    0x008b}, {0x85a9,    0x0004}, {0x85aa,    0x00b7},
+-{0x85ab,    0x008f}, {0x85ac,    0x007d}, {0x85ad,    0x007e},
+-{0x85ae,    0x0085}, {0x85af,    0x006c}, {0x85b0,    0x0086},
+-{0x85b1,    0x0003}, {0x85b2,    0x0097}, {0x85b3,    0x0040},
+-{0x85b4,    0x007e}, {0x85b5,    0x0089}, {0x85b6,    0x006e},
+-{0x85b7,    0x0086}, {0x85b8,    0x0007}, {0x85b9,    0x00b7},
+-{0x85ba,    0x0012}, {0x85bb,    0x0006}, {0x85bc,    0x005f},
+-{0x85bd,    0x00f7}, {0x85be,    0x008f}, {0x85bf,    0x0082},
+-{0x85c0,    0x005f}, {0x85c1,    0x00f7}, {0x85c2,    0x008f},
+-{0x85c3,    0x007f}, {0x85c4,    0x00f7}, {0x85c5,    0x008f},
+-{0x85c6,    0x0070}, {0x85c7,    0x00f7}, {0x85c8,    0x008f},
+-{0x85c9,    0x0071}, {0x85ca,    0x00f7}, {0x85cb,    0x008f},
+-{0x85cc,    0x0072}, {0x85cd,    0x00f7}, {0x85ce,    0x008f},
+-{0x85cf,    0x0073}, {0x85d0,    0x00f7}, {0x85d1,    0x008f},
+-{0x85d2,    0x0074}, {0x85d3,    0x00f7}, {0x85d4,    0x008f},
+-{0x85d5,    0x0075}, {0x85d6,    0x00f7}, {0x85d7,    0x008f},
+-{0x85d8,    0x0076}, {0x85d9,    0x00f7}, {0x85da,    0x008f},
+-{0x85db,    0x0077}, {0x85dc,    0x00f7}, {0x85dd,    0x008f},
+-{0x85de,    0x0078}, {0x85df,    0x00f7}, {0x85e0,    0x008f},
+-{0x85e1,    0x0079}, {0x85e2,    0x00f7}, {0x85e3,    0x008f},
+-{0x85e4,    0x007a}, {0x85e5,    0x00f7}, {0x85e6,    0x008f},
+-{0x85e7,    0x007b}, {0x85e8,    0x00b6}, {0x85e9,    0x0012},
+-{0x85ea,    0x0004}, {0x85eb,    0x008a}, {0x85ec,    0x0010},
+-{0x85ed,    0x00b7}, {0x85ee,    0x0012}, {0x85ef,    0x0004},
+-{0x85f0,    0x0086}, {0x85f1,    0x00e4}, {0x85f2,    0x00b7},
+-{0x85f3,    0x0012}, {0x85f4,    0x0070}, {0x85f5,    0x00b7},
+-{0x85f6,    0x0012}, {0x85f7,    0x0007}, {0x85f8,    0x00f7},
+-{0x85f9,    0x0012}, {0x85fa,    0x0005}, {0x85fb,    0x00f7},
+-{0x85fc,    0x0012}, {0x85fd,    0x0009}, {0x85fe,    0x0086},
+-{0x85ff,    0x0008}, {0x8600,    0x00ba}, {0x8601,    0x0012},
+-{0x8602,    0x0004}, {0x8603,    0x00b7}, {0x8604,    0x0012},
+-{0x8605,    0x0004}, {0x8606,    0x0086}, {0x8607,    0x00f7},
+-{0x8608,    0x00b4}, {0x8609,    0x0012}, {0x860a,    0x0004},
+-{0x860b,    0x00b7}, {0x860c,    0x0012}, {0x860d,    0x0004},
+-{0x860e,    0x0001}, {0x860f,    0x0001}, {0x8610,    0x0001},
+-{0x8611,    0x0001}, {0x8612,    0x0001}, {0x8613,    0x0001},
+-{0x8614,    0x00b6}, {0x8615,    0x0012}, {0x8616,    0x0008},
+-{0x8617,    0x0027}, {0x8618,    0x007f}, {0x8619,    0x0081},
+-{0x861a,    0x0080}, {0x861b,    0x0026}, {0x861c,    0x000b},
+-{0x861d,    0x0086}, {0x861e,    0x0008}, {0x861f,    0x00ce},
+-{0x8620,    0x008f}, {0x8621,    0x0079}, {0x8622,    0x00bd},
+-{0x8623,    0x0089}, {0x8624,    0x007b}, {0x8625,    0x007e},
+-{0x8626,    0x0086}, {0x8627,    0x008e}, {0x8628,    0x0081},
+-{0x8629,    0x0040}, {0x862a,    0x0026}, {0x862b,    0x000b},
+-{0x862c,    0x0086}, {0x862d,    0x0004}, {0x862e,    0x00ce},
+-{0x862f,    0x008f}, {0x8630,    0x0076}, {0x8631,    0x00bd},
+-{0x8632,    0x0089}, {0x8633,    0x007b}, {0x8634,    0x007e},
+-{0x8635,    0x0086}, {0x8636,    0x008e}, {0x8637,    0x0081},
+-{0x8638,    0x0020}, {0x8639,    0x0026}, {0x863a,    0x000b},
+-{0x863b,    0x0086}, {0x863c,    0x0002}, {0x863d,    0x00ce},
+-{0x863e,    0x008f}, {0x863f,    0x0073}, {0x8640,    0x00bd},
+-{0x8641,    0x0089}, {0x8642,    0x007b}, {0x8643,    0x007e},
+-{0x8644,    0x0086}, {0x8645,    0x008e}, {0x8646,    0x0081},
+-{0x8647,    0x0010}, {0x8648,    0x0026}, {0x8649,    0x000b},
+-{0x864a,    0x0086}, {0x864b,    0x0001}, {0x864c,    0x00ce},
+-{0x864d,    0x008f}, {0x864e,    0x0070}, {0x864f,    0x00bd},
+-{0x8650,    0x0089}, {0x8651,    0x007b}, {0x8652,    0x007e},
+-{0x8653,    0x0086}, {0x8654,    0x008e}, {0x8655,    0x0081},
+-{0x8656,    0x0008}, {0x8657,    0x0026}, {0x8658,    0x000b},
+-{0x8659,    0x0086}, {0x865a,    0x0008}, {0x865b,    0x00ce},
+-{0x865c,    0x008f}, {0x865d,    0x0079}, {0x865e,    0x00bd},
+-{0x865f,    0x0089}, {0x8660,    0x007f}, {0x8661,    0x007e},
+-{0x8662,    0x0086}, {0x8663,    0x008e}, {0x8664,    0x0081},
+-{0x8665,    0x0004}, {0x8666,    0x0026}, {0x8667,    0x000b},
+-{0x8668,    0x0086}, {0x8669,    0x0004}, {0x866a,    0x00ce},
+-{0x866b,    0x008f}, {0x866c,    0x0076}, {0x866d,    0x00bd},
+-{0x866e,    0x0089}, {0x866f,    0x007f}, {0x8670,    0x007e},
+-{0x8671,    0x0086}, {0x8672,    0x008e}, {0x8673,    0x0081},
+-{0x8674,    0x0002}, {0x8675,    0x0026}, {0x8676,    0x000b},
+-{0x8677,    0x008a}, {0x8678,    0x0002}, {0x8679,    0x00ce},
+-{0x867a,    0x008f}, {0x867b,    0x0073}, {0x867c,    0x00bd},
+-{0x867d,    0x0089}, {0x867e,    0x007f}, {0x867f,    0x007e},
+-{0x8680,    0x0086}, {0x8681,    0x008e}, {0x8682,    0x0081},
+-{0x8683,    0x0001}, {0x8684,    0x0026}, {0x8685,    0x0008},
+-{0x8686,    0x0086}, {0x8687,    0x0001}, {0x8688,    0x00ce},
+-{0x8689,    0x008f}, {0x868a,    0x0070}, {0x868b,    0x00bd},
+-{0x868c,    0x0089}, {0x868d,    0x007f}, {0x868e,    0x00b6},
+-{0x868f,    0x008f}, {0x8690,    0x007f}, {0x8691,    0x0081},
+-{0x8692,    0x000f}, {0x8693,    0x0026}, {0x8694,    0x0003},
+-{0x8695,    0x007e}, {0x8696,    0x0087}, {0x8697,    0x0047},
+-{0x8698,    0x00b6}, {0x8699,    0x0012}, {0x869a,    0x0009},
+-{0x869b,    0x0084}, {0x869c,    0x0003}, {0x869d,    0x0081},
+-{0x869e,    0x0003}, {0x869f,    0x0027}, {0x86a0,    0x0006},
+-{0x86a1,    0x007c}, {0x86a2,    0x0012}, {0x86a3,    0x0009},
+-{0x86a4,    0x007e}, {0x86a5,    0x0085}, {0x86a6,    0x00fe},
+-{0x86a7,    0x00b6}, {0x86a8,    0x0012}, {0x86a9,    0x0006},
+-{0x86aa,    0x0084}, {0x86ab,    0x0007}, {0x86ac,    0x0081},
+-{0x86ad,    0x0007}, {0x86ae,    0x0027}, {0x86af,    0x0008},
+-{0x86b0,    0x008b}, {0x86b1,    0x0001}, {0x86b2,    0x00b7},
+-{0x86b3,    0x0012}, {0x86b4,    0x0006}, {0x86b5,    0x007e},
+-{0x86b6,    0x0086}, {0x86b7,    0x00d5}, {0x86b8,    0x00b6},
+-{0x86b9,    0x008f}, {0x86ba,    0x0082}, {0x86bb,    0x0026},
+-{0x86bc,    0x000a}, {0x86bd,    0x007c}, {0x86be,    0x008f},
+-{0x86bf,    0x0082}, {0x86c0,    0x004f}, {0x86c1,    0x00b7},
+-{0x86c2,    0x0012}, {0x86c3,    0x0006}, {0x86c4,    0x007e},
+-{0x86c5,    0x0085}, {0x86c6,    0x00c0}, {0x86c7,    0x00b6},
+-{0x86c8,    0x0012}, {0x86c9,    0x0006}, {0x86ca,    0x0084},
+-{0x86cb,    0x003f}, {0x86cc,    0x0081}, {0x86cd,    0x003f},
+-{0x86ce,    0x0027}, {0x86cf,    0x0010}, {0x86d0,    0x008b},
+-{0x86d1,    0x0008}, {0x86d2,    0x00b7}, {0x86d3,    0x0012},
+-{0x86d4,    0x0006}, {0x86d5,    0x00b6}, {0x86d6,    0x0012},
+-{0x86d7,    0x0009}, {0x86d8,    0x0084}, {0x86d9,    0x00fc},
+-{0x86da,    0x00b7}, {0x86db,    0x0012}, {0x86dc,    0x0009},
+-{0x86dd,    0x007e}, {0x86de,    0x0085}, {0x86df,    0x00fe},
+-{0x86e0,    0x00ce}, {0x86e1,    0x008f}, {0x86e2,    0x0070},
+-{0x86e3,    0x0018}, {0x86e4,    0x00ce}, {0x86e5,    0x008f},
+-{0x86e6,    0x0084}, {0x86e7,    0x00c6}, {0x86e8,    0x000c},
+-{0x86e9,    0x00bd}, {0x86ea,    0x0089}, {0x86eb,    0x006f},
+-{0x86ec,    0x00ce}, {0x86ed,    0x008f}, {0x86ee,    0x0084},
+-{0x86ef,    0x0018}, {0x86f0,    0x00ce}, {0x86f1,    0x008f},
+-{0x86f2,    0x0070}, {0x86f3,    0x00c6}, {0x86f4,    0x000c},
+-{0x86f5,    0x00bd}, {0x86f6,    0x0089}, {0x86f7,    0x006f},
+-{0x86f8,    0x00d6}, {0x86f9,    0x0083}, {0x86fa,    0x00c1},
+-{0x86fb,    0x004f}, {0x86fc,    0x002d}, {0x86fd,    0x0003},
+-{0x86fe,    0x007e}, {0x86ff,    0x0087}, {0x8700,    0x0040},
+-{0x8701,    0x00b6}, {0x8702,    0x008f}, {0x8703,    0x007f},
+-{0x8704,    0x0081}, {0x8705,    0x0007}, {0x8706,    0x0027},
+-{0x8707,    0x000f}, {0x8708,    0x0081}, {0x8709,    0x000b},
+-{0x870a,    0x0027}, {0x870b,    0x0015}, {0x870c,    0x0081},
+-{0x870d,    0x000d}, {0x870e,    0x0027}, {0x870f,    0x001b},
+-{0x8710,    0x0081}, {0x8711,    0x000e}, {0x8712,    0x0027},
+-{0x8713,    0x0021}, {0x8714,    0x007e}, {0x8715,    0x0087},
+-{0x8716,    0x0040}, {0x8717,    0x00f7}, {0x8718,    0x008f},
+-{0x8719,    0x007b}, {0x871a,    0x0086}, {0x871b,    0x0002},
+-{0x871c,    0x00b7}, {0x871d,    0x008f}, {0x871e,    0x007a},
+-{0x871f,    0x0020}, {0x8720,    0x001c}, {0x8721,    0x00f7},
+-{0x8722,    0x008f}, {0x8723,    0x0078}, {0x8724,    0x0086},
+-{0x8725,    0x0002}, {0x8726,    0x00b7}, {0x8727,    0x008f},
+-{0x8728,    0x0077}, {0x8729,    0x0020}, {0x872a,    0x0012},
+-{0x872b,    0x00f7}, {0x872c,    0x008f}, {0x872d,    0x0075},
+-{0x872e,    0x0086}, {0x872f,    0x0002}, {0x8730,    0x00b7},
+-{0x8731,    0x008f}, {0x8732,    0x0074}, {0x8733,    0x0020},
+-{0x8734,    0x0008}, {0x8735,    0x00f7}, {0x8736,    0x008f},
+-{0x8737,    0x0072}, {0x8738,    0x0086}, {0x8739,    0x0002},
+-{0x873a,    0x00b7}, {0x873b,    0x008f}, {0x873c,    0x0071},
+-{0x873d,    0x007e}, {0x873e,    0x0087}, {0x873f,    0x0047},
+-{0x8740,    0x0086}, {0x8741,    0x0004}, {0x8742,    0x0097},
+-{0x8743,    0x0040}, {0x8744,    0x007e}, {0x8745,    0x0089},
+-{0x8746,    0x006e}, {0x8747,    0x00ce}, {0x8748,    0x008f},
+-{0x8749,    0x0072}, {0x874a,    0x00bd}, {0x874b,    0x0089},
+-{0x874c,    0x00f7}, {0x874d,    0x00ce}, {0x874e,    0x008f},
+-{0x874f,    0x0075}, {0x8750,    0x00bd}, {0x8751,    0x0089},
+-{0x8752,    0x00f7}, {0x8753,    0x00ce}, {0x8754,    0x008f},
+-{0x8755,    0x0078}, {0x8756,    0x00bd}, {0x8757,    0x0089},
+-{0x8758,    0x00f7}, {0x8759,    0x00ce}, {0x875a,    0x008f},
+-{0x875b,    0x007b}, {0x875c,    0x00bd}, {0x875d,    0x0089},
+-{0x875e,    0x00f7}, {0x875f,    0x004f}, {0x8760,    0x00b7},
+-{0x8761,    0x008f}, {0x8762,    0x007d}, {0x8763,    0x00b7},
+-{0x8764,    0x008f}, {0x8765,    0x0081}, {0x8766,    0x00b6},
+-{0x8767,    0x008f}, {0x8768,    0x0072}, {0x8769,    0x0027},
+-{0x876a,    0x0047}, {0x876b,    0x007c}, {0x876c,    0x008f},
+-{0x876d,    0x007d}, {0x876e,    0x00b6}, {0x876f,    0x008f},
+-{0x8770,    0x0075}, {0x8771,    0x0027}, {0x8772,    0x003f},
+-{0x8773,    0x007c}, {0x8774,    0x008f}, {0x8775,    0x007d},
+-{0x8776,    0x00b6}, {0x8777,    0x008f}, {0x8778,    0x0078},
+-{0x8779,    0x0027}, {0x877a,    0x0037}, {0x877b,    0x007c},
+-{0x877c,    0x008f}, {0x877d,    0x007d}, {0x877e,    0x00b6},
+-{0x877f,    0x008f}, {0x8780,    0x007b}, {0x8781,    0x0027},
+-{0x8782,    0x002f}, {0x8783,    0x007f}, {0x8784,    0x008f},
+-{0x8785,    0x007d}, {0x8786,    0x007c}, {0x8787,    0x008f},
+-{0x8788,    0x0081}, {0x8789,    0x007a}, {0x878a,    0x008f},
+-{0x878b,    0x0072}, {0x878c,    0x0027}, {0x878d,    0x001b},
+-{0x878e,    0x007c}, {0x878f,    0x008f}, {0x8790,    0x007d},
+-{0x8791,    0x007a}, {0x8792,    0x008f}, {0x8793,    0x0075},
+-{0x8794,    0x0027}, {0x8795,    0x0016}, {0x8796,    0x007c},
+-{0x8797,    0x008f}, {0x8798,    0x007d}, {0x8799,    0x007a},
+-{0x879a,    0x008f}, {0x879b,    0x0078}, {0x879c,    0x0027},
+-{0x879d,    0x0011}, {0x879e,    0x007c}, {0x879f,    0x008f},
+-{0x87a0,    0x007d}, {0x87a1,    0x007a}, {0x87a2,    0x008f},
+-{0x87a3,    0x007b}, {0x87a4,    0x0027}, {0x87a5,    0x000c},
+-{0x87a6,    0x007e}, {0x87a7,    0x0087}, {0x87a8,    0x0083},
+-{0x87a9,    0x007a}, {0x87aa,    0x008f}, {0x87ab,    0x0075},
+-{0x87ac,    0x007a}, {0x87ad,    0x008f}, {0x87ae,    0x0078},
+-{0x87af,    0x007a}, {0x87b0,    0x008f}, {0x87b1,    0x007b},
+-{0x87b2,    0x00ce}, {0x87b3,    0x00c1}, {0x87b4,    0x00fc},
+-{0x87b5,    0x00f6}, {0x87b6,    0x008f}, {0x87b7,    0x007d},
+-{0x87b8,    0x003a}, {0x87b9,    0x00a6}, {0x87ba,    0x0000},
+-{0x87bb,    0x00b7}, {0x87bc,    0x0012}, {0x87bd,    0x0070},
+-{0x87be,    0x00b6}, {0x87bf,    0x008f}, {0x87c0,    0x0072},
+-{0x87c1,    0x0026}, {0x87c2,    0x0003}, {0x87c3,    0x007e},
+-{0x87c4,    0x0087}, {0x87c5,    0x00fa}, {0x87c6,    0x00b6},
+-{0x87c7,    0x008f}, {0x87c8,    0x0075}, {0x87c9,    0x0026},
+-{0x87ca,    0x000a}, {0x87cb,    0x0018}, {0x87cc,    0x00ce},
+-{0x87cd,    0x008f}, {0x87ce,    0x0073}, {0x87cf,    0x00bd},
+-{0x87d0,    0x0089}, {0x87d1,    0x00d5}, {0x87d2,    0x007e},
+-{0x87d3,    0x0087}, {0x87d4,    0x00fa}, {0x87d5,    0x00b6},
+-{0x87d6,    0x008f}, {0x87d7,    0x0078}, {0x87d8,    0x0026},
+-{0x87d9,    0x000a}, {0x87da,    0x0018}, {0x87db,    0x00ce},
+-{0x87dc,    0x008f}, {0x87dd,    0x0076}, {0x87de,    0x00bd},
+-{0x87df,    0x0089}, {0x87e0,    0x00d5}, {0x87e1,    0x007e},
+-{0x87e2,    0x0087}, {0x87e3,    0x00fa}, {0x87e4,    0x00b6},
+-{0x87e5,    0x008f}, {0x87e6,    0x007b}, {0x87e7,    0x0026},
+-{0x87e8,    0x000a}, {0x87e9,    0x0018}, {0x87ea,    0x00ce},
+-{0x87eb,    0x008f}, {0x87ec,    0x0079}, {0x87ed,    0x00bd},
+-{0x87ee,    0x0089}, {0x87ef,    0x00d5}, {0x87f0,    0x007e},
+-{0x87f1,    0x0087}, {0x87f2,    0x00fa}, {0x87f3,    0x0086},
+-{0x87f4,    0x0005}, {0x87f5,    0x0097}, {0x87f6,    0x0040},
+-{0x87f7,    0x007e}, {0x87f8,    0x0089}, {0x87f9,    0x006e},
+-{0x87fa,    0x00b6}, {0x87fb,    0x008f}, {0x87fc,    0x0075},
+-{0x87fd,    0x0081}, {0x87fe,    0x0007}, {0x87ff,    0x002e},
+-{0x8800,    0x00f2}, {0x8801,    0x00f6}, {0x8802,    0x0012},
+-{0x8803,    0x0006}, {0x8804,    0x00c4}, {0x8805,    0x00f8},
+-{0x8806,    0x001b}, {0x8807,    0x00b7}, {0x8808,    0x0012},
+-{0x8809,    0x0006}, {0x880a,    0x00b6}, {0x880b,    0x008f},
+-{0x880c,    0x0078}, {0x880d,    0x0081}, {0x880e,    0x0007},
+-{0x880f,    0x002e}, {0x8810,    0x00e2}, {0x8811,    0x0048},
+-{0x8812,    0x0048}, {0x8813,    0x0048}, {0x8814,    0x00f6},
+-{0x8815,    0x0012}, {0x8816,    0x0006}, {0x8817,    0x00c4},
+-{0x8818,    0x00c7}, {0x8819,    0x001b}, {0x881a,    0x00b7},
+-{0x881b,    0x0012}, {0x881c,    0x0006}, {0x881d,    0x00b6},
+-{0x881e,    0x008f}, {0x881f,    0x007b}, {0x8820,    0x0081},
+-{0x8821,    0x0007}, {0x8822,    0x002e}, {0x8823,    0x00cf},
+-{0x8824,    0x00f6}, {0x8825,    0x0012}, {0x8826,    0x0005},
+-{0x8827,    0x00c4}, {0x8828,    0x00f8}, {0x8829,    0x001b},
+-{0x882a,    0x00b7}, {0x882b,    0x0012}, {0x882c,    0x0005},
+-{0x882d,    0x0086}, {0x882e,    0x0000}, {0x882f,    0x00f6},
+-{0x8830,    0x008f}, {0x8831,    0x0071}, {0x8832,    0x00bd},
+-{0x8833,    0x0089}, {0x8834,    0x0094}, {0x8835,    0x0086},
+-{0x8836,    0x0001}, {0x8837,    0x00f6}, {0x8838,    0x008f},
+-{0x8839,    0x0074}, {0x883a,    0x00bd}, {0x883b,    0x0089},
+-{0x883c,    0x0094}, {0x883d,    0x0086}, {0x883e,    0x0002},
+-{0x883f,    0x00f6}, {0x8840,    0x008f}, {0x8841,    0x0077},
+-{0x8842,    0x00bd}, {0x8843,    0x0089}, {0x8844,    0x0094},
+-{0x8845,    0x0086}, {0x8846,    0x0003}, {0x8847,    0x00f6},
+-{0x8848,    0x008f}, {0x8849,    0x007a}, {0x884a,    0x00bd},
+-{0x884b,    0x0089}, {0x884c,    0x0094}, {0x884d,    0x00ce},
+-{0x884e,    0x008f}, {0x884f,    0x0070}, {0x8850,    0x00a6},
+-{0x8851,    0x0001}, {0x8852,    0x0081}, {0x8853,    0x0001},
+-{0x8854,    0x0027}, {0x8855,    0x0007}, {0x8856,    0x0081},
+-{0x8857,    0x0003}, {0x8858,    0x0027}, {0x8859,    0x0003},
+-{0x885a,    0x007e}, {0x885b,    0x0088}, {0x885c,    0x0066},
+-{0x885d,    0x00a6}, {0x885e,    0x0000}, {0x885f,    0x00b8},
+-{0x8860,    0x008f}, {0x8861,    0x0081}, {0x8862,    0x0084},
+-{0x8863,    0x0001}, {0x8864,    0x0026}, {0x8865,    0x000b},
+-{0x8866,    0x008c}, {0x8867,    0x008f}, {0x8868,    0x0079},
+-{0x8869,    0x002c}, {0x886a,    0x000e}, {0x886b,    0x0008},
+-{0x886c,    0x0008}, {0x886d,    0x0008}, {0x886e,    0x007e},
+-{0x886f,    0x0088}, {0x8870,    0x0050}, {0x8871,    0x00b6},
+-{0x8872,    0x0012}, {0x8873,    0x0004}, {0x8874,    0x008a},
+-{0x8875,    0x0040}, {0x8876,    0x00b7}, {0x8877,    0x0012},
+-{0x8878,    0x0004}, {0x8879,    0x00b6}, {0x887a,    0x0012},
+-{0x887b,    0x0004}, {0x887c,    0x0084}, {0x887d,    0x00fb},
+-{0x887e,    0x0084}, {0x887f,    0x00ef}, {0x8880,    0x00b7},
+-{0x8881,    0x0012}, {0x8882,    0x0004}, {0x8883,    0x00b6},
+-{0x8884,    0x0012}, {0x8885,    0x0007}, {0x8886,    0x0036},
+-{0x8887,    0x00b6}, {0x8888,    0x008f}, {0x8889,    0x007c},
+-{0x888a,    0x0048}, {0x888b,    0x0048}, {0x888c,    0x00b7},
+-{0x888d,    0x0012}, {0x888e,    0x0007}, {0x888f,    0x0086},
+-{0x8890,    0x0001}, {0x8891,    0x00ba}, {0x8892,    0x0012},
+-{0x8893,    0x0004}, {0x8894,    0x00b7}, {0x8895,    0x0012},
+-{0x8896,    0x0004}, {0x8897,    0x0001}, {0x8898,    0x0001},
+-{0x8899,    0x0001}, {0x889a,    0x0001}, {0x889b,    0x0001},
+-{0x889c,    0x0001}, {0x889d,    0x0086}, {0x889e,    0x00fe},
+-{0x889f,    0x00b4}, {0x88a0,    0x0012}, {0x88a1,    0x0004},
+-{0x88a2,    0x00b7}, {0x88a3,    0x0012}, {0x88a4,    0x0004},
+-{0x88a5,    0x0086}, {0x88a6,    0x0002}, {0x88a7,    0x00ba},
+-{0x88a8,    0x0012}, {0x88a9,    0x0004}, {0x88aa,    0x00b7},
+-{0x88ab,    0x0012}, {0x88ac,    0x0004}, {0x88ad,    0x0086},
+-{0x88ae,    0x00fd}, {0x88af,    0x00b4}, {0x88b0,    0x0012},
+-{0x88b1,    0x0004}, {0x88b2,    0x00b7}, {0x88b3,    0x0012},
+-{0x88b4,    0x0004}, {0x88b5,    0x0032}, {0x88b6,    0x00b7},
+-{0x88b7,    0x0012}, {0x88b8,    0x0007}, {0x88b9,    0x00b6},
+-{0x88ba,    0x0012}, {0x88bb,    0x0000}, {0x88bc,    0x0084},
+-{0x88bd,    0x0008}, {0x88be,    0x0081}, {0x88bf,    0x0008},
+-{0x88c0,    0x0027}, {0x88c1,    0x000f}, {0x88c2,    0x007c},
+-{0x88c3,    0x0082}, {0x88c4,    0x0008}, {0x88c5,    0x0026},
+-{0x88c6,    0x0007}, {0x88c7,    0x0086}, {0x88c8,    0x0076},
+-{0x88c9,    0x0097}, {0x88ca,    0x0040}, {0x88cb,    0x007e},
+-{0x88cc,    0x0089}, {0x88cd,    0x006e}, {0x88ce,    0x007e},
+-{0x88cf,    0x0086}, {0x88d0,    0x00ec}, {0x88d1,    0x00b6},
+-{0x88d2,    0x008f}, {0x88d3,    0x007f}, {0x88d4,    0x0081},
+-{0x88d5,    0x000f}, {0x88d6,    0x0027}, {0x88d7,    0x003c},
+-{0x88d8,    0x00bd}, {0x88d9,    0x00e6}, {0x88da,    0x00c7},
+-{0x88db,    0x00b7}, {0x88dc,    0x0012}, {0x88dd,    0x000d},
+-{0x88de,    0x00bd}, {0x88df,    0x00e6}, {0x88e0,    0x00cb},
+-{0x88e1,    0x00b6}, {0x88e2,    0x0012}, {0x88e3,    0x0004},
+-{0x88e4,    0x008a}, {0x88e5,    0x0020}, {0x88e6,    0x00b7},
+-{0x88e7,    0x0012}, {0x88e8,    0x0004}, {0x88e9,    0x00ce},
+-{0x88ea,    0x00ff}, {0x88eb,    0x00ff}, {0x88ec,    0x00b6},
+-{0x88ed,    0x0012}, {0x88ee,    0x0000}, {0x88ef,    0x0081},
+-{0x88f0,    0x000c}, {0x88f1,    0x0026}, {0x88f2,    0x0005},
+-{0x88f3,    0x0009}, {0x88f4,    0x0026}, {0x88f5,    0x00f6},
+-{0x88f6,    0x0027}, {0x88f7,    0x001c}, {0x88f8,    0x00b6},
+-{0x88f9,    0x0012}, {0x88fa,    0x0004}, {0x88fb,    0x0084},
+-{0x88fc,    0x00df}, {0x88fd,    0x00b7}, {0x88fe,    0x0012},
+-{0x88ff,    0x0004}, {0x8900,    0x0096}, {0x8901,    0x0083},
+-{0x8902,    0x0081}, {0x8903,    0x0007}, {0x8904,    0x002c},
+-{0x8905,    0x0005}, {0x8906,    0x007c}, {0x8907,    0x0000},
+-{0x8908,    0x0083}, {0x8909,    0x0020}, {0x890a,    0x0006},
+-{0x890b,    0x0096}, {0x890c,    0x0083}, {0x890d,    0x008b},
+-{0x890e,    0x0008}, {0x890f,    0x0097}, {0x8910,    0x0083},
+-{0x8911,    0x007e}, {0x8912,    0x0085}, {0x8913,    0x0041},
+-{0x8914,    0x007f}, {0x8915,    0x008f}, {0x8916,    0x007e},
+-{0x8917,    0x0086}, {0x8918,    0x0080}, {0x8919,    0x00b7},
+-{0x891a,    0x0012}, {0x891b,    0x000c}, {0x891c,    0x0086},
+-{0x891d,    0x0001}, {0x891e,    0x00b7}, {0x891f,    0x008f},
+-{0x8920,    0x007d}, {0x8921,    0x00b6}, {0x8922,    0x0012},
+-{0x8923,    0x000c}, {0x8924,    0x0084}, {0x8925,    0x007f},
+-{0x8926,    0x00b7}, {0x8927,    0x0012}, {0x8928,    0x000c},
+-{0x8929,    0x008a}, {0x892a,    0x0080}, {0x892b,    0x00b7},
+-{0x892c,    0x0012}, {0x892d,    0x000c}, {0x892e,    0x0086},
+-{0x892f,    0x000a}, {0x8930,    0x00bd}, {0x8931,    0x008a},
+-{0x8932,    0x0006}, {0x8933,    0x00b6}, {0x8934,    0x0012},
+-{0x8935,    0x000a}, {0x8936,    0x002a}, {0x8937,    0x0009},
+-{0x8938,    0x00b6}, {0x8939,    0x0012}, {0x893a,    0x000c},
+-{0x893b,    0x00ba}, {0x893c,    0x008f}, {0x893d,    0x007d},
+-{0x893e,    0x00b7}, {0x893f,    0x0012}, {0x8940,    0x000c},
+-{0x8941,    0x00b6}, {0x8942,    0x008f}, {0x8943,    0x007e},
+-{0x8944,    0x0081}, {0x8945,    0x0060}, {0x8946,    0x0027},
+-{0x8947,    0x001a}, {0x8948,    0x008b}, {0x8949,    0x0020},
+-{0x894a,    0x00b7}, {0x894b,    0x008f}, {0x894c,    0x007e},
+-{0x894d,    0x00b6}, {0x894e,    0x0012}, {0x894f,    0x000c},
+-{0x8950,    0x0084}, {0x8951,    0x009f}, {0x8952,    0x00ba},
+-{0x8953,    0x008f}, {0x8954,    0x007e}, {0x8955,    0x00b7},
+-{0x8956,    0x0012}, {0x8957,    0x000c}, {0x8958,    0x00b6},
+-{0x8959,    0x008f}, {0x895a,    0x007d}, {0x895b,    0x0048},
+-{0x895c,    0x00b7}, {0x895d,    0x008f}, {0x895e,    0x007d},
+-{0x895f,    0x007e}, {0x8960,    0x0089}, {0x8961,    0x0021},
+-{0x8962,    0x00b6}, {0x8963,    0x0012}, {0x8964,    0x0004},
+-{0x8965,    0x008a}, {0x8966,    0x0020}, {0x8967,    0x00b7},
+-{0x8968,    0x0012}, {0x8969,    0x0004}, {0x896a,    0x00bd},
+-{0x896b,    0x008a}, {0x896c,    0x000a}, {0x896d,    0x004f},
+-{0x896e,    0x0039}, {0x896f,    0x00a6}, {0x8970,    0x0000},
+-{0x8971,    0x0018}, {0x8972,    0x00a7}, {0x8973,    0x0000},
+-{0x8974,    0x0008}, {0x8975,    0x0018}, {0x8976,    0x0008},
+-{0x8977,    0x005a}, {0x8978,    0x0026}, {0x8979,    0x00f5},
+-{0x897a,    0x0039}, {0x897b,    0x0036}, {0x897c,    0x006c},
+-{0x897d,    0x0000}, {0x897e,    0x0032}, {0x897f,    0x00ba},
+-{0x8980,    0x008f}, {0x8981,    0x007f}, {0x8982,    0x00b7},
+-{0x8983,    0x008f}, {0x8984,    0x007f}, {0x8985,    0x00b6},
+-{0x8986,    0x0012}, {0x8987,    0x0009}, {0x8988,    0x0084},
+-{0x8989,    0x0003}, {0x898a,    0x00a7}, {0x898b,    0x0001},
+-{0x898c,    0x00b6}, {0x898d,    0x0012}, {0x898e,    0x0006},
+-{0x898f,    0x0084}, {0x8990,    0x003f}, {0x8991,    0x00a7},
+-{0x8992,    0x0002}, {0x8993,    0x0039}, {0x8994,    0x0036},
+-{0x8995,    0x0086}, {0x8996,    0x0003}, {0x8997,    0x00b7},
+-{0x8998,    0x008f}, {0x8999,    0x0080}, {0x899a,    0x0032},
+-{0x899b,    0x00c1}, {0x899c,    0x0000}, {0x899d,    0x0026},
+-{0x899e,    0x0006}, {0x899f,    0x00b7}, {0x89a0,    0x008f},
+-{0x89a1,    0x007c}, {0x89a2,    0x007e}, {0x89a3,    0x0089},
+-{0x89a4,    0x00c9}, {0x89a5,    0x00c1}, {0x89a6,    0x0001},
+-{0x89a7,    0x0027}, {0x89a8,    0x0018}, {0x89a9,    0x00c1},
+-{0x89aa,    0x0002}, {0x89ab,    0x0027}, {0x89ac,    0x000c},
+-{0x89ad,    0x00c1}, {0x89ae,    0x0003}, {0x89af,    0x0027},
+-{0x89b0,    0x0000}, {0x89b1,    0x00f6}, {0x89b2,    0x008f},
+-{0x89b3,    0x0080}, {0x89b4,    0x0005}, {0x89b5,    0x0005},
+-{0x89b6,    0x00f7}, {0x89b7,    0x008f}, {0x89b8,    0x0080},
+-{0x89b9,    0x00f6}, {0x89ba,    0x008f}, {0x89bb,    0x0080},
+-{0x89bc,    0x0005}, {0x89bd,    0x0005}, {0x89be,    0x00f7},
+-{0x89bf,    0x008f}, {0x89c0,    0x0080}, {0x89c1,    0x00f6},
+-{0x89c2,    0x008f}, {0x89c3,    0x0080}, {0x89c4,    0x0005},
+-{0x89c5,    0x0005}, {0x89c6,    0x00f7}, {0x89c7,    0x008f},
+-{0x89c8,    0x0080}, {0x89c9,    0x00f6}, {0x89ca,    0x008f},
+-{0x89cb,    0x0080}, {0x89cc,    0x0053}, {0x89cd,    0x00f4},
+-{0x89ce,    0x0012}, {0x89cf,    0x0007}, {0x89d0,    0x001b},
+-{0x89d1,    0x00b7}, {0x89d2,    0x0012}, {0x89d3,    0x0007},
+-{0x89d4,    0x0039}, {0x89d5,    0x00ce}, {0x89d6,    0x008f},
+-{0x89d7,    0x0070}, {0x89d8,    0x00a6}, {0x89d9,    0x0000},
+-{0x89da,    0x0018}, {0x89db,    0x00e6}, {0x89dc,    0x0000},
+-{0x89dd,    0x0018}, {0x89de,    0x00a7}, {0x89df,    0x0000},
+-{0x89e0,    0x00e7}, {0x89e1,    0x0000}, {0x89e2,    0x00a6},
+-{0x89e3,    0x0001}, {0x89e4,    0x0018}, {0x89e5,    0x00e6},
+-{0x89e6,    0x0001}, {0x89e7,    0x0018}, {0x89e8,    0x00a7},
+-{0x89e9,    0x0001}, {0x89ea,    0x00e7}, {0x89eb,    0x0001},
+-{0x89ec,    0x00a6}, {0x89ed,    0x0002}, {0x89ee,    0x0018},
+-{0x89ef,    0x00e6}, {0x89f0,    0x0002}, {0x89f1,    0x0018},
+-{0x89f2,    0x00a7}, {0x89f3,    0x0002}, {0x89f4,    0x00e7},
+-{0x89f5,    0x0002}, {0x89f6,    0x0039}, {0x89f7,    0x00a6},
+-{0x89f8,    0x0000}, {0x89f9,    0x0084}, {0x89fa,    0x0007},
+-{0x89fb,    0x00e6}, {0x89fc,    0x0000}, {0x89fd,    0x00c4},
+-{0x89fe,    0x0038}, {0x89ff,    0x0054}, {0x8a00,    0x0054},
+-{0x8a01,    0x0054}, {0x8a02,    0x001b}, {0x8a03,    0x00a7},
+-{0x8a04,    0x0000}, {0x8a05,    0x0039}, {0x8a06,    0x004a},
+-{0x8a07,    0x0026}, {0x8a08,    0x00fd}, {0x8a09,    0x0039},
+-{0x8a0a,    0x0096}, {0x8a0b,    0x0022}, {0x8a0c,    0x0084},
+-{0x8a0d,    0x000f}, {0x8a0e,    0x0097}, {0x8a0f,    0x0022},
+-{0x8a10,    0x0086}, {0x8a11,    0x0001}, {0x8a12,    0x00b7},
+-{0x8a13,    0x008f}, {0x8a14,    0x0070}, {0x8a15,    0x00b6},
+-{0x8a16,    0x0012}, {0x8a17,    0x0007}, {0x8a18,    0x00b7},
+-{0x8a19,    0x008f}, {0x8a1a,    0x0071}, {0x8a1b,    0x00f6},
+-{0x8a1c,    0x0012}, {0x8a1d,    0x000c}, {0x8a1e,    0x00c4},
+-{0x8a1f,    0x000f}, {0x8a20,    0x00c8}, {0x8a21,    0x000f},
+-{0x8a22,    0x00f7}, {0x8a23,    0x008f}, {0x8a24,    0x0072},
+-{0x8a25,    0x00f6}, {0x8a26,    0x008f}, {0x8a27,    0x0072},
+-{0x8a28,    0x00b6}, {0x8a29,    0x008f}, {0x8a2a,    0x0071},
+-{0x8a2b,    0x0084}, {0x8a2c,    0x0003}, {0x8a2d,    0x0027},
+-{0x8a2e,    0x0014}, {0x8a2f,    0x0081}, {0x8a30,    0x0001},
+-{0x8a31,    0x0027}, {0x8a32,    0x001c}, {0x8a33,    0x0081},
+-{0x8a34,    0x0002}, {0x8a35,    0x0027}, {0x8a36,    0x0024},
+-{0x8a37,    0x00f4}, {0x8a38,    0x008f}, {0x8a39,    0x0070},
+-{0x8a3a,    0x0027}, {0x8a3b,    0x002a}, {0x8a3c,    0x0096},
+-{0x8a3d,    0x0022}, {0x8a3e,    0x008a}, {0x8a3f,    0x0080},
+-{0x8a40,    0x007e}, {0x8a41,    0x008a}, {0x8a42,    0x0064},
+-{0x8a43,    0x00f4}, {0x8a44,    0x008f}, {0x8a45,    0x0070},
+-{0x8a46,    0x0027}, {0x8a47,    0x001e}, {0x8a48,    0x0096},
+-{0x8a49,    0x0022}, {0x8a4a,    0x008a}, {0x8a4b,    0x0010},
+-{0x8a4c,    0x007e}, {0x8a4d,    0x008a}, {0x8a4e,    0x0064},
+-{0x8a4f,    0x00f4}, {0x8a50,    0x008f}, {0x8a51,    0x0070},
+-{0x8a52,    0x0027}, {0x8a53,    0x0012}, {0x8a54,    0x0096},
+-{0x8a55,    0x0022}, {0x8a56,    0x008a}, {0x8a57,    0x0020},
+-{0x8a58,    0x007e}, {0x8a59,    0x008a}, {0x8a5a,    0x0064},
+-{0x8a5b,    0x00f4}, {0x8a5c,    0x008f}, {0x8a5d,    0x0070},
+-{0x8a5e,    0x0027}, {0x8a5f,    0x0006}, {0x8a60,    0x0096},
+-{0x8a61,    0x0022}, {0x8a62,    0x008a}, {0x8a63,    0x0040},
+-{0x8a64,    0x0097}, {0x8a65,    0x0022}, {0x8a66,    0x0074},
+-{0x8a67,    0x008f}, {0x8a68,    0x0071}, {0x8a69,    0x0074},
+-{0x8a6a,    0x008f}, {0x8a6b,    0x0071}, {0x8a6c,    0x0078},
+-{0x8a6d,    0x008f}, {0x8a6e,    0x0070}, {0x8a6f,    0x00b6},
+-{0x8a70,    0x008f}, {0x8a71,    0x0070}, {0x8a72,    0x0085},
+-{0x8a73,    0x0010}, {0x8a74,    0x0027}, {0x8a75,    0x00af},
+-{0x8a76,    0x00d6}, {0x8a77,    0x0022}, {0x8a78,    0x00c4},
+-{0x8a79,    0x0010}, {0x8a7a,    0x0058}, {0x8a7b,    0x00b6},
+-{0x8a7c,    0x0012}, {0x8a7d,    0x0070}, {0x8a7e,    0x0081},
+-{0x8a7f,    0x00e4}, {0x8a80,    0x0027}, {0x8a81,    0x0036},
+-{0x8a82,    0x0081}, {0x8a83,    0x00e1}, {0x8a84,    0x0026},
+-{0x8a85,    0x000c}, {0x8a86,    0x0096}, {0x8a87,    0x0022},
+-{0x8a88,    0x0084}, {0x8a89,    0x0020}, {0x8a8a,    0x0044},
+-{0x8a8b,    0x001b}, {0x8a8c,    0x00d6}, {0x8a8d,    0x0022},
+-{0x8a8e,    0x00c4}, {0x8a8f,    0x00cf}, {0x8a90,    0x0020},
+-{0x8a91,    0x0023}, {0x8a92,    0x0058}, {0x8a93,    0x0081},
+-{0x8a94,    0x00c6}, {0x8a95,    0x0026}, {0x8a96,    0x000d},
+-{0x8a97,    0x0096}, {0x8a98,    0x0022}, {0x8a99,    0x0084},
+-{0x8a9a,    0x0040}, {0x8a9b,    0x0044}, {0x8a9c,    0x0044},
+-{0x8a9d,    0x001b}, {0x8a9e,    0x00d6}, {0x8a9f,    0x0022},
+-{0x8aa0,    0x00c4}, {0x8aa1,    0x00af}, {0x8aa2,    0x0020},
+-{0x8aa3,    0x0011}, {0x8aa4,    0x0058}, {0x8aa5,    0x0081},
+-{0x8aa6,    0x0027}, {0x8aa7,    0x0026}, {0x8aa8,    0x000f},
+-{0x8aa9,    0x0096}, {0x8aaa,    0x0022}, {0x8aab,    0x0084},
+-{0x8aac,    0x0080}, {0x8aad,    0x0044}, {0x8aae,    0x0044},
+-{0x8aaf,    0x0044}, {0x8ab0,    0x001b}, {0x8ab1,    0x00d6},
+-{0x8ab2,    0x0022}, {0x8ab3,    0x00c4}, {0x8ab4,    0x006f},
+-{0x8ab5,    0x001b}, {0x8ab6,    0x0097}, {0x8ab7,    0x0022},
+-{0x8ab8,    0x0039}, {0x8ab9,    0x0027}, {0x8aba,    0x000c},
+-{0x8abb,    0x007c}, {0x8abc,    0x0082}, {0x8abd,    0x0006},
+-{0x8abe,    0x00bd}, {0x8abf,    0x00d9}, {0x8ac0,    0x00ed},
+-{0x8ac1,    0x00b6}, {0x8ac2,    0x0082}, {0x8ac3,    0x0007},
+-{0x8ac4,    0x007e}, {0x8ac5,    0x008a}, {0x8ac6,    0x00b9},
+-{0x8ac7,    0x007f}, {0x8ac8,    0x0082}, {0x8ac9,    0x0006},
+-{0x8aca,    0x0039}, { 0x0, 0x0 }
+-};
 -#endif
 -
--/* Set the copy breakpoint for the copy-only-tiny-buffer Rx method.
--   Lower values use more memory, but are faster. */
--static int rx_copybreak = 200;
 -
--/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
--static int max_interrupt_work = 20;
--
--/* Maximum number of multicast addresses to filter (vs. rx-all-multicast) */
--static int multicast_filter_limit = 64;
--
--/* 'options' is used to pass a transceiver override or full-duplex flag
--   e.g. "options=16" for FD, "options=32" for 100mbps-only. */
--static int full_duplex[] = {-1, -1, -1, -1, -1, -1, -1, -1};
--static int options[] = {-1, -1, -1, -1, -1, -1, -1, -1};
--
--/* A few values that may be tweaked. */
--/* The ring sizes should be a power of two for efficiency. */
--#define TX_RING_SIZE	64
--#define RX_RING_SIZE	64
--/* How much slots multicast filter setup may take.
--   Do not descrease without changing set_rx_mode() implementaion. */
--#define TX_MULTICAST_SIZE   2
--#define TX_MULTICAST_RESERV (TX_MULTICAST_SIZE*2)
--/* Actual number of TX packets queued, must be
--   <= TX_RING_SIZE-TX_MULTICAST_RESERV. */
--#define TX_QUEUE_LIMIT  (TX_RING_SIZE-TX_MULTICAST_RESERV)
--/* Hysteresis marking queue as no longer full. */
--#define TX_QUEUE_UNFULL (TX_QUEUE_LIMIT-4)
--
--/* Operational parameters that usually are not changed. */
--
--/* Time in jiffies before concluding the transmitter is hung. */
--#define TX_TIMEOUT		(2*HZ)
--/* Size of an pre-allocated Rx buffer: <Ethernet MTU> + slack.*/
--#define PKT_BUF_SZ		1536
--
--#include <linux/module.h>
--
--#include <linux/kernel.h>
--#include <linux/string.h>
--#include <linux/errno.h>
--#include <linux/ioport.h>
--#include <linux/slab.h>
--#include <linux/interrupt.h>
--#include <linux/timer.h>
--#include <linux/pci.h>
--#include <linux/spinlock.h>
--#include <linux/init.h>
--#include <linux/mii.h>
--#include <linux/delay.h>
--#include <linux/bitops.h>
--
--#include <asm/io.h>
--#include <asm/uaccess.h>
--#include <asm/irq.h>
--
--#include <linux/netdevice.h>
--#include <linux/etherdevice.h>
--#include <linux/rtnetlink.h>
--#include <linux/skbuff.h>
--#include <linux/ethtool.h>
--
--static int use_io;
--static int debug = -1;
--#define DEBUG_DEFAULT		(NETIF_MSG_DRV		| \
--				 NETIF_MSG_HW		| \
--				 NETIF_MSG_RX_ERR	| \
--				 NETIF_MSG_TX_ERR)
--#define DEBUG			((debug >= 0) ? (1<<debug)-1 : DEBUG_DEFAULT)
--
--
--MODULE_AUTHOR("Maintainer: Andrey V. Savochkin <saw@saw.sw.com.sg>");
--MODULE_DESCRIPTION("Intel i82557/i82558/i82559 PCI EtherExpressPro driver");
--MODULE_LICENSE("GPL");
--module_param(use_io, int, 0);
--module_param(debug, int, 0);
--module_param_array(options, int, NULL, 0);
--module_param_array(full_duplex, int, NULL, 0);
--module_param(congenb, int, 0);
--module_param(txfifo, int, 0);
--module_param(rxfifo, int, 0);
--module_param(txdmacount, int, 0);
--module_param(rxdmacount, int, 0);
--module_param(rx_copybreak, int, 0);
--module_param(max_interrupt_work, int, 0);
--module_param(multicast_filter_limit, int, 0);
--MODULE_PARM_DESC(debug, "debug level (0-6)");
--MODULE_PARM_DESC(options, "Bits 0-3: transceiver type, bit 4: full duplex, bit 5: 100Mbps");
--MODULE_PARM_DESC(full_duplex, "full duplex setting(s) (1)");
--MODULE_PARM_DESC(congenb, "Enable congestion control (1)");
--MODULE_PARM_DESC(txfifo, "Tx FIFO threshold in 4 byte units, (0-15)");
--MODULE_PARM_DESC(rxfifo, "Rx FIFO threshold in 4 byte units, (0-15)");
--MODULE_PARM_DESC(txdmacount, "Tx DMA burst length; 128 - disable (0-128)");
--MODULE_PARM_DESC(rxdmacount, "Rx DMA burst length; 128 - disable (0-128)");
--MODULE_PARM_DESC(rx_copybreak, "copy breakpoint for copy-only-tiny-frames");
--MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
--MODULE_PARM_DESC(multicast_filter_limit, "maximum number of filtered multicast addresses");
--
--#define RUN_AT(x) (jiffies + (x))
--
--#define netdevice_start(dev)
--#define netdevice_stop(dev)
--#define netif_set_tx_timeout(dev, tf, tm) \
--								do { \
--									(dev)->tx_timeout = (tf); \
--									(dev)->watchdog_timeo = (tm); \
--								} while(0)
--
--
--
--/*
--				Theory of Operation
--
--I. Board Compatibility
--
--This device driver is designed for the Intel i82557 "Speedo3" chip, Intel's
--single-chip fast Ethernet controller for PCI, as used on the Intel
--EtherExpress Pro 100 adapter.
--
--II. Board-specific settings
--
--PCI bus devices are configured by the system at boot time, so no jumpers
--need to be set on the board.  The system BIOS should be set to assign the
--PCI INTA signal to an otherwise unused system IRQ line.  While it's
--possible to share PCI interrupt lines, it negatively impacts performance and
--only recent kernels support it.
--
--III. Driver operation
--
--IIIA. General
--The Speedo3 is very similar to other Intel network chips, that is to say
--"apparently designed on a different planet".  This chips retains the complex
--Rx and Tx descriptors and multiple buffers pointers as previous chips, but
--also has simplified Tx and Rx buffer modes.  This driver uses the "flexible"
--Tx mode, but in a simplified lower-overhead manner: it associates only a
--single buffer descriptor with each frame descriptor.
--
--Despite the extra space overhead in each receive skbuff, the driver must use
--the simplified Rx buffer mode to assure that only a single data buffer is
--associated with each RxFD. The driver implements this by reserving space
--for the Rx descriptor at the head of each Rx skbuff.
--
--The Speedo-3 has receive and command unit base addresses that are added to
--almost all descriptor pointers.  The driver sets these to zero, so that all
--pointer fields are absolute addresses.
--
--The System Control Block (SCB) of some previous Intel chips exists on the
--chip in both PCI I/O and memory space.  This driver uses the I/O space
--registers, but might switch to memory mapped mode to better support non-x86
--processors.
--
--IIIB. Transmit structure
--
--The driver must use the complex Tx command+descriptor mode in order to
--have a indirect pointer to the skbuff data section.  Each Tx command block
--(TxCB) is associated with two immediately appended Tx Buffer Descriptor
--(TxBD).  A fixed ring of these TxCB+TxBD pairs are kept as part of the
--speedo_private data structure for each adapter instance.
--
--The newer i82558 explicitly supports this structure, and can read the two
--TxBDs in the same PCI burst as the TxCB.
--
--This ring structure is used for all normal transmit packets, but the
--transmit packet descriptors aren't long enough for most non-Tx commands such
--as CmdConfigure.  This is complicated by the possibility that the chip has
--already loaded the link address in the previous descriptor.  So for these
--commands we convert the next free descriptor on the ring to a NoOp, and point
--that descriptor's link to the complex command.
--
--An additional complexity of these non-transmit commands are that they may be
--added asynchronous to the normal transmit queue, so we disable interrupts
--whenever the Tx descriptor ring is manipulated.
--
--A notable aspect of these special configure commands is that they do
--work with the normal Tx ring entry scavenge method.  The Tx ring scavenge
--is done at interrupt time using the 'dirty_tx' index, and checking for the
--command-complete bit.  While the setup frames may have the NoOp command on the
--Tx ring marked as complete, but not have completed the setup command, this
--is not a problem.  The tx_ring entry can be still safely reused, as the
--tx_skbuff[] entry is always empty for config_cmd and mc_setup frames.
--
--Commands may have bits set e.g. CmdSuspend in the command word to either
--suspend or stop the transmit/command unit.  This driver always flags the last
--command with CmdSuspend, erases the CmdSuspend in the previous command, and
--then issues a CU_RESUME.
--Note: Watch out for the potential race condition here: imagine
--	erasing the previous suspend
--		the chip processes the previous command
--		the chip processes the final command, and suspends
--	doing the CU_RESUME
--		the chip processes the next-yet-valid post-final-command.
--So blindly sending a CU_RESUME is only safe if we do it immediately after
--after erasing the previous CmdSuspend, without the possibility of an
--intervening delay.  Thus the resume command is always within the
--interrupts-disabled region.  This is a timing dependence, but handling this
--condition in a timing-independent way would considerably complicate the code.
--
--Note: In previous generation Intel chips, restarting the command unit was a
--notoriously slow process.  This is presumably no longer true.
--
--IIIC. Receive structure
--
--Because of the bus-master support on the Speedo3 this driver uses the new
--SKBUFF_RX_COPYBREAK scheme, rather than a fixed intermediate receive buffer.
--This scheme allocates full-sized skbuffs as receive buffers.  The value
--SKBUFF_RX_COPYBREAK is used as the copying breakpoint: it is chosen to
--trade-off the memory wasted by passing the full-sized skbuff to the queue
--layer for all frames vs. the copying cost of copying a frame to a
--correctly-sized skbuff.
--
--For small frames the copying cost is negligible (esp. considering that we
--are pre-loading the cache with immediately useful header information), so we
--allocate a new, minimally-sized skbuff.  For large frames the copying cost
--is non-trivial, and the larger copy might flush the cache of useful data, so
--we pass up the skbuff the packet was received into.
--
--IV. Notes
--
--Thanks to Steve Williams of Intel for arranging the non-disclosure agreement
--that stated that I could disclose the information.  But I still resent
--having to sign an Intel NDA when I'm helping Intel sell their own product!
--
--*/
--
--static int speedo_found1(struct pci_dev *pdev, void __iomem *ioaddr, int fnd_cnt, int acpi_idle_state);
--
--/* Offsets to the various registers.
--   All accesses need not be longword aligned. */
--enum speedo_offsets {
--	SCBStatus = 0, SCBCmd = 2,	/* Rx/Command Unit command and status. */
--	SCBIntmask = 3,
--	SCBPointer = 4,				/* General purpose pointer. */
--	SCBPort = 8,				/* Misc. commands and operands.  */
--	SCBflash = 12, SCBeeprom = 14, /* EEPROM and flash memory control. */
--	SCBCtrlMDI = 16,			/* MDI interface control. */
--	SCBEarlyRx = 20,			/* Early receive byte count. */
--};
--/* Commands that can be put in a command list entry. */
--enum commands {
--	CmdNOp = 0, CmdIASetup = 0x10000, CmdConfigure = 0x20000,
--	CmdMulticastList = 0x30000, CmdTx = 0x40000, CmdTDR = 0x50000,
--	CmdDump = 0x60000, CmdDiagnose = 0x70000,
--	CmdSuspend = 0x40000000,	/* Suspend after completion. */
--	CmdIntr = 0x20000000,		/* Interrupt after completion. */
--	CmdTxFlex = 0x00080000,		/* Use "Flexible mode" for CmdTx command. */
--};
--/* Clear CmdSuspend (1<<30) avoiding interference with the card access to the
--   status bits.  Previous driver versions used separate 16 bit fields for
--   commands and statuses.  --SAW
-- */
--#if defined(__alpha__)
--# define clear_suspend(cmd)  clear_bit(30, &(cmd)->cmd_status);
--#else
--# define clear_suspend(cmd)  ((__le16 *)&(cmd)->cmd_status)[1] &= ~cpu_to_le16(1<<14)
--#endif
--
--enum SCBCmdBits {
--	SCBMaskCmdDone=0x8000, SCBMaskRxDone=0x4000, SCBMaskCmdIdle=0x2000,
--	SCBMaskRxSuspend=0x1000, SCBMaskEarlyRx=0x0800, SCBMaskFlowCtl=0x0400,
--	SCBTriggerIntr=0x0200, SCBMaskAll=0x0100,
--	/* The rest are Rx and Tx commands. */
--	CUStart=0x0010, CUResume=0x0020, CUStatsAddr=0x0040, CUShowStats=0x0050,
--	CUCmdBase=0x0060,	/* CU Base address (set to zero) . */
--	CUDumpStats=0x0070, /* Dump then reset stats counters. */
--	RxStart=0x0001, RxResume=0x0002, RxAbort=0x0004, RxAddrLoad=0x0006,
--	RxResumeNoResources=0x0007,
--};
--
--enum SCBPort_cmds {
--	PortReset=0, PortSelfTest=1, PortPartialReset=2, PortDump=3,
--};
--
--/* The Speedo3 Rx and Tx frame/buffer descriptors. */
--struct descriptor {			    /* A generic descriptor. */
--	volatile __le32 cmd_status;	/* All command and status fields. */
--	__le32 link;				    /* struct descriptor *  */
--	unsigned char params[0];
--};
--
--/* The Speedo3 Rx and Tx buffer descriptors. */
--struct RxFD {					/* Receive frame descriptor. */
--	volatile __le32 status;
--	__le32 link;					/* struct RxFD * */
--	__le32 rx_buf_addr;			/* void * */
--	__le32 count;
--} RxFD_ALIGNMENT;
--
--/* Selected elements of the Tx/RxFD.status word. */
--enum RxFD_bits {
--	RxComplete=0x8000, RxOK=0x2000,
--	RxErrCRC=0x0800, RxErrAlign=0x0400, RxErrTooBig=0x0200, RxErrSymbol=0x0010,
--	RxEth2Type=0x0020, RxNoMatch=0x0004, RxNoIAMatch=0x0002,
--	TxUnderrun=0x1000,  StatusComplete=0x8000,
--};
--
--#define CONFIG_DATA_SIZE 22
--struct TxFD {					/* Transmit frame descriptor set. */
--	__le32 status;
--	__le32 link;					/* void * */
--	__le32 tx_desc_addr;			/* Always points to the tx_buf_addr element. */
--	__le32 count;					/* # of TBD (=1), Tx start thresh., etc. */
--	/* This constitutes two "TBD" entries -- we only use one. */
--#define TX_DESCR_BUF_OFFSET 16
--	__le32 tx_buf_addr0;			/* void *, frame to be transmitted.  */
--	__le32 tx_buf_size0;			/* Length of Tx frame. */
--	__le32 tx_buf_addr1;			/* void *, frame to be transmitted.  */
--	__le32 tx_buf_size1;			/* Length of Tx frame. */
--	/* the structure must have space for at least CONFIG_DATA_SIZE starting
--	 * from tx_desc_addr field */
--};
--
--/* Multicast filter setting block.  --SAW */
--struct speedo_mc_block {
--	struct speedo_mc_block *next;
--	unsigned int tx;
--	dma_addr_t frame_dma;
--	unsigned int len;
--	struct descriptor frame __attribute__ ((__aligned__(16)));
--};
--
--/* Elements of the dump_statistics block. This block must be lword aligned. */
--struct speedo_stats {
--	__le32 tx_good_frames;
--	__le32 tx_coll16_errs;
--	__le32 tx_late_colls;
--	__le32 tx_underruns;
--	__le32 tx_lost_carrier;
--	__le32 tx_deferred;
--	__le32 tx_one_colls;
--	__le32 tx_multi_colls;
--	__le32 tx_total_colls;
--	__le32 rx_good_frames;
--	__le32 rx_crc_errs;
--	__le32 rx_align_errs;
--	__le32 rx_resource_errs;
--	__le32 rx_overrun_errs;
--	__le32 rx_colls_errs;
--	__le32 rx_runt_errs;
--	__le32 done_marker;
--};
--
--enum Rx_ring_state_bits {
--	RrNoMem=1, RrPostponed=2, RrNoResources=4, RrOOMReported=8,
--};
--
--/* Do not change the position (alignment) of the first few elements!
--   The later elements are grouped for cache locality.
--
--   Unfortunately, all the positions have been shifted since there.
--   A new re-alignment is required.  2000/03/06  SAW */
--struct speedo_private {
--    void __iomem *regs;
--	struct TxFD	*tx_ring;		/* Commands (usually CmdTxPacket). */
--	struct RxFD *rx_ringp[RX_RING_SIZE];	/* Rx descriptor, used as ring. */
--	/* The addresses of a Tx/Rx-in-place packets/buffers. */
--	struct sk_buff *tx_skbuff[TX_RING_SIZE];
--	struct sk_buff *rx_skbuff[RX_RING_SIZE];
--	/* Mapped addresses of the rings. */
--	dma_addr_t tx_ring_dma;
--#define TX_RING_ELEM_DMA(sp, n) ((sp)->tx_ring_dma + (n)*sizeof(struct TxFD))
--	dma_addr_t rx_ring_dma[RX_RING_SIZE];
--	struct descriptor *last_cmd;		/* Last command sent. */
--	unsigned int cur_tx, dirty_tx;		/* The ring entries to be free()ed. */
--	spinlock_t lock;			/* Group with Tx control cache line. */
--	u32 tx_threshold;			/* The value for txdesc.count. */
--	struct RxFD *last_rxf;			/* Last filled RX buffer. */
--	dma_addr_t last_rxf_dma;
--	unsigned int cur_rx, dirty_rx;		/* The next free ring entry */
--	long last_rx_time;			/* Last Rx, in jiffies, to handle Rx hang. */
--	struct net_device_stats stats;
--	struct speedo_stats *lstats;
--	dma_addr_t lstats_dma;
--	int chip_id;
--	struct pci_dev *pdev;
--	struct timer_list timer;		/* Media selection timer. */
--	struct speedo_mc_block *mc_setup_head;	/* Multicast setup frame list head. */
--	struct speedo_mc_block *mc_setup_tail;	/* Multicast setup frame list tail. */
--	long in_interrupt;			/* Word-aligned dev->interrupt */
--	unsigned char acpi_pwr;
--	signed char rx_mode;			/* Current PROMISC/ALLMULTI setting. */
--	unsigned int tx_full:1;			/* The Tx queue is full. */
--	unsigned int flow_ctrl:1;		/* Use 802.3x flow control. */
--	unsigned int rx_bug:1;			/* Work around receiver hang errata. */
--	unsigned char default_port:8;		/* Last dev->if_port value. */
--	unsigned char rx_ring_state;		/* RX ring status flags. */
--	unsigned short phy[2];			/* PHY media interfaces available. */
--	unsigned short partner;			/* Link partner caps. */
--	struct mii_if_info mii_if;		/* MII API hooks, info */
--	u32 msg_enable;				/* debug message level */
--};
--
--/* The parameters for a CmdConfigure operation.
--   There are so many options that it would be difficult to document each bit.
--   We mostly use the default or recommended settings. */
--static const char i82557_config_cmd[CONFIG_DATA_SIZE] = {
--	22, 0x08, 0, 0,  0, 0, 0x32, 0x03,  1, /* 1=Use MII  0=Use AUI */
--	0, 0x2E, 0,  0x60, 0,
--	0xf2, 0x48,   0, 0x40, 0xf2, 0x80, 		/* 0x40=Force full-duplex */
--	0x3f, 0x05, };
--static const char i82558_config_cmd[CONFIG_DATA_SIZE] = {
--	22, 0x08, 0, 1,  0, 0, 0x22, 0x03,  1, /* 1=Use MII  0=Use AUI */
--	0, 0x2E, 0,  0x60, 0x08, 0x88,
--	0x68, 0, 0x40, 0xf2, 0x84,		/* Disable FC */
--	0x31, 0x05, };
--
--/* PHY media interface chips. */
--static const char * const phys[] = {
--	"None", "i82553-A/B", "i82553-C", "i82503",
--	"DP83840", "80c240", "80c24", "i82555",
--	"unknown-8", "unknown-9", "DP83840A", "unknown-11",
--	"unknown-12", "unknown-13", "unknown-14", "unknown-15", };
--enum phy_chips { NonSuchPhy=0, I82553AB, I82553C, I82503, DP83840, S80C240,
--					 S80C24, I82555, DP83840A=10, };
--static const char is_mii[] = { 0, 1, 1, 0, 1, 1, 0, 1 };
--#define EE_READ_CMD		(6)
--
--static int eepro100_init_one(struct pci_dev *pdev,
--		const struct pci_device_id *ent);
--
--static int do_eeprom_cmd(void __iomem *ioaddr, int cmd, int cmd_len);
--static int mdio_read(struct net_device *dev, int phy_id, int location);
--static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
--static int speedo_open(struct net_device *dev);
--static void speedo_resume(struct net_device *dev);
--static void speedo_timer(unsigned long data);
--static void speedo_init_rx_ring(struct net_device *dev);
--static void speedo_tx_timeout(struct net_device *dev);
--static int speedo_start_xmit(struct sk_buff *skb, struct net_device *dev);
--static void speedo_refill_rx_buffers(struct net_device *dev, int force);
--static int speedo_rx(struct net_device *dev);
--static void speedo_tx_buffer_gc(struct net_device *dev);
--static irqreturn_t speedo_interrupt(int irq, void *dev_instance);
--static int speedo_close(struct net_device *dev);
--static struct net_device_stats *speedo_get_stats(struct net_device *dev);
--static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
--static void set_rx_mode(struct net_device *dev);
--static void speedo_show_state(struct net_device *dev);
--static const struct ethtool_ops ethtool_ops;
--
--
--
--#ifdef honor_default_port
--/* Optional driver feature to allow forcing the transceiver setting.
--   Not recommended. */
--static int mii_ctrl[8] = { 0x3300, 0x3100, 0x0000, 0x0100,
--						   0x2000, 0x2100, 0x0400, 0x3100};
--#endif
--
--/* How to wait for the command unit to accept a command.
--   Typically this takes 0 ticks. */
--static inline unsigned char wait_for_cmd_done(struct net_device *dev,
--											  	struct speedo_private *sp)
--{
--	int wait = 1000;
--	void __iomem *cmd_ioaddr = sp->regs + SCBCmd;
--	unsigned char r;
--
--	do  {
--		udelay(1);
--		r = ioread8(cmd_ioaddr);
--	} while(r && --wait >= 0);
--
--	if (wait < 0)
--		printk(KERN_ALERT "%s: wait_for_cmd_done timeout!\n", dev->name);
--	return r;
--}
--
--static int __devinit eepro100_init_one (struct pci_dev *pdev,
--		const struct pci_device_id *ent)
--{
--	void __iomem *ioaddr;
--	int irq, pci_bar;
--	int acpi_idle_state = 0, pm;
--	static int cards_found /* = 0 */;
--	unsigned long pci_base;
--
--#ifndef MODULE
--	/* when built-in, we only print version if device is found */
--	static int did_version;
--	if (did_version++ == 0)
--		printk(version);
--#endif
--
--	/* save power state before pci_enable_device overwrites it */
--	pm = pci_find_capability(pdev, PCI_CAP_ID_PM);
--	if (pm) {
--		u16 pwr_command;
--		pci_read_config_word(pdev, pm + PCI_PM_CTRL, &pwr_command);
--		acpi_idle_state = pwr_command & PCI_PM_CTRL_STATE_MASK;
--	}
--
--	if (pci_enable_device(pdev))
--		goto err_out_free_mmio_region;
--
--	pci_set_master(pdev);
--
--	if (!request_region(pci_resource_start(pdev, 1),
--			pci_resource_len(pdev, 1), "eepro100")) {
--		dev_err(&pdev->dev, "eepro100: cannot reserve I/O ports\n");
--		goto err_out_none;
--	}
--	if (!request_mem_region(pci_resource_start(pdev, 0),
--			pci_resource_len(pdev, 0), "eepro100")) {
--		dev_err(&pdev->dev, "eepro100: cannot reserve MMIO region\n");
--		goto err_out_free_pio_region;
--	}
--
--	irq = pdev->irq;
--	pci_bar = use_io ? 1 : 0;
--	pci_base = pci_resource_start(pdev, pci_bar);
--	if (DEBUG & NETIF_MSG_PROBE)
--		printk("Found Intel i82557 PCI Speedo at %#lx, IRQ %d.\n",
--		       pci_base, irq);
--
--	ioaddr = pci_iomap(pdev, pci_bar, 0);
--	if (!ioaddr) {
--		dev_err(&pdev->dev, "eepro100: cannot remap IO\n");
--		goto err_out_free_mmio_region;
--	}
--
--	if (speedo_found1(pdev, ioaddr, cards_found, acpi_idle_state) == 0)
--		cards_found++;
--	else
--		goto err_out_iounmap;
--
--	return 0;
--
--err_out_iounmap: ;
--	pci_iounmap(pdev, ioaddr);
--err_out_free_mmio_region:
--	release_mem_region(pci_resource_start(pdev, 0), pci_resource_len(pdev, 0));
--err_out_free_pio_region:
--	release_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1));
--err_out_none:
--	return -ENODEV;
--}
--
--#ifdef CONFIG_NET_POLL_CONTROLLER
--/*
-- * Polling 'interrupt' - used by things like netconsole to send skbs
-- * without having to re-enable interrupts. It's not called while
-- * the interrupt routine is executing.
-- */
--
--static void poll_speedo (struct net_device *dev)
--{
--	/* disable_irq is not very nice, but with the funny lockless design
--	   we have no other choice. */
--	disable_irq(dev->irq);
--	speedo_interrupt (dev->irq, dev);
--	enable_irq(dev->irq);
--}
--#endif
--
--static int __devinit speedo_found1(struct pci_dev *pdev,
--		void __iomem *ioaddr, int card_idx, int acpi_idle_state)
--{
--	struct net_device *dev;
--	struct speedo_private *sp;
--	const char *product;
--	int i, option;
--	u16 eeprom[0x100];
--	int size;
--	void *tx_ring_space;
--	dma_addr_t tx_ring_dma;
--	DECLARE_MAC_BUF(mac);
--
--	size = TX_RING_SIZE * sizeof(struct TxFD) + sizeof(struct speedo_stats);
--	tx_ring_space = pci_alloc_consistent(pdev, size, &tx_ring_dma);
--	if (tx_ring_space == NULL)
--		return -1;
--
--	dev = alloc_etherdev(sizeof(struct speedo_private));
--	if (dev == NULL) {
--		printk(KERN_ERR "eepro100: Could not allocate ethernet device.\n");
--		pci_free_consistent(pdev, size, tx_ring_space, tx_ring_dma);
--		return -1;
--	}
--
--	SET_NETDEV_DEV(dev, &pdev->dev);
--
--	if (dev->mem_start > 0)
--		option = dev->mem_start;
--	else if (card_idx >= 0  &&  options[card_idx] >= 0)
--		option = options[card_idx];
--	else
--		option = 0;
--
--	rtnl_lock();
--	if (dev_alloc_name(dev, dev->name) < 0)
--		goto err_free_unlock;
--
--	/* Read the station address EEPROM before doing the reset.
--	   Nominally his should even be done before accepting the device, but
--	   then we wouldn't have a device name with which to report the error.
--	   The size test is for 6 bit vs. 8 bit address serial EEPROMs.
--	*/
--	{
--		void __iomem *iobase;
--		int read_cmd, ee_size;
--		u16 sum;
--		int j;
--
--		/* Use IO only to avoid postponed writes and satisfy EEPROM timing
--		   requirements. */
--		iobase = pci_iomap(pdev, 1, pci_resource_len(pdev, 1));
--		if (!iobase)
--			goto err_free_unlock;
--		if ((do_eeprom_cmd(iobase, EE_READ_CMD << 24, 27) & 0xffe0000)
--			== 0xffe0000) {
--			ee_size = 0x100;
--			read_cmd = EE_READ_CMD << 24;
--		} else {
--			ee_size = 0x40;
--			read_cmd = EE_READ_CMD << 22;
--		}
--
--		for (j = 0, i = 0, sum = 0; i < ee_size; i++) {
--			u16 value = do_eeprom_cmd(iobase, read_cmd | (i << 16), 27);
--			eeprom[i] = value;
--			sum += value;
--			if (i < 3) {
--				dev->dev_addr[j++] = value;
--				dev->dev_addr[j++] = value >> 8;
--			}
--		}
--		if (sum != 0xBABA)
--			printk(KERN_WARNING "%s: Invalid EEPROM checksum %#4.4x, "
--				   "check settings before activating this device!\n",
--				   dev->name, sum);
--		/* Don't  unregister_netdev(dev);  as the EEPro may actually be
--		   usable, especially if the MAC address is set later.
--		   On the other hand, it may be unusable if MDI data is corrupted. */
--
--		pci_iounmap(pdev, iobase);
--	}
--
--	/* Reset the chip: stop Tx and Rx processes and clear counters.
--	   This takes less than 10usec and will easily finish before the next
--	   action. */
--	iowrite32(PortReset, ioaddr + SCBPort);
--	ioread32(ioaddr + SCBPort);
--	udelay(10);
--
--	if (eeprom[3] & 0x0100)
--		product = "OEM i82557/i82558 10/100 Ethernet";
--	else
--		product = pci_name(pdev);
--
--	printk(KERN_INFO "%s: %s, %s, IRQ %d.\n", dev->name, product,
--		   print_mac(mac, dev->dev_addr), pdev->irq);
--
--	sp = netdev_priv(dev);
--
--	/* we must initialize this early, for mdio_{read,write} */
--	sp->regs = ioaddr;
--
--#if 1 || defined(kernel_bloat)
--	/* OK, this is pure kernel bloat.  I don't like it when other drivers
--	   waste non-pageable kernel space to emit similar messages, but I need
--	   them for bug reports. */
--	{
--		const char *connectors[] = {" RJ45", " BNC", " AUI", " MII"};
--		/* The self-test results must be paragraph aligned. */
--		volatile s32 *self_test_results;
--		int boguscnt = 16000;	/* Timeout for set-test. */
--		if ((eeprom[3] & 0x03) != 0x03)
--			printk(KERN_INFO "  Receiver lock-up bug exists -- enabling"
--				   " work-around.\n");
--		printk(KERN_INFO "  Board assembly %4.4x%2.2x-%3.3d, Physical"
--			   " connectors present:",
--			   eeprom[8], eeprom[9]>>8, eeprom[9] & 0xff);
--		for (i = 0; i < 4; i++)
--			if (eeprom[5] & (1<<i))
--				printk(connectors[i]);
--		printk("\n"KERN_INFO"  Primary interface chip %s PHY #%d.\n",
--			   phys[(eeprom[6]>>8)&15], eeprom[6] & 0x1f);
--		if (eeprom[7] & 0x0700)
--			printk(KERN_INFO "    Secondary interface chip %s.\n",
--				   phys[(eeprom[7]>>8)&7]);
--		if (((eeprom[6]>>8) & 0x3f) == DP83840
--			||  ((eeprom[6]>>8) & 0x3f) == DP83840A) {
--			int mdi_reg23 = mdio_read(dev, eeprom[6] & 0x1f, 23) | 0x0422;
--			if (congenb)
--			  mdi_reg23 |= 0x0100;
--			printk(KERN_INFO"  DP83840 specific setup, setting register 23 to %4.4x.\n",
--				   mdi_reg23);
--			mdio_write(dev, eeprom[6] & 0x1f, 23, mdi_reg23);
--		}
--		if ((option >= 0) && (option & 0x70)) {
--			printk(KERN_INFO "  Forcing %dMbs %s-duplex operation.\n",
--				   (option & 0x20 ? 100 : 10),
--				   (option & 0x10 ? "full" : "half"));
--			mdio_write(dev, eeprom[6] & 0x1f, MII_BMCR,
--					   ((option & 0x20) ? 0x2000 : 0) | 	/* 100mbps? */
--					   ((option & 0x10) ? 0x0100 : 0)); /* Full duplex? */
--		}
--
--		/* Perform a system self-test. */
--		self_test_results = (s32*) ((((long) tx_ring_space) + 15) & ~0xf);
--		self_test_results[0] = 0;
--		self_test_results[1] = -1;
--		iowrite32(tx_ring_dma | PortSelfTest, ioaddr + SCBPort);
--		do {
--			udelay(10);
--		} while (self_test_results[1] == -1  &&  --boguscnt >= 0);
--
--		if (boguscnt < 0) {		/* Test optimized out. */
--			printk(KERN_ERR "Self test failed, status %8.8x:\n"
--				   KERN_ERR " Failure to initialize the i82557.\n"
--				   KERN_ERR " Verify that the card is a bus-master"
--				   " capable slot.\n",
--				   self_test_results[1]);
--		} else
--			printk(KERN_INFO "  General self-test: %s.\n"
--				   KERN_INFO "  Serial sub-system self-test: %s.\n"
--				   KERN_INFO "  Internal registers self-test: %s.\n"
--				   KERN_INFO "  ROM checksum self-test: %s (%#8.8x).\n",
--				   self_test_results[1] & 0x1000 ? "failed" : "passed",
--				   self_test_results[1] & 0x0020 ? "failed" : "passed",
--				   self_test_results[1] & 0x0008 ? "failed" : "passed",
--				   self_test_results[1] & 0x0004 ? "failed" : "passed",
--				   self_test_results[0]);
--	}
--#endif  /* kernel_bloat */
--
--	iowrite32(PortReset, ioaddr + SCBPort);
--	ioread32(ioaddr + SCBPort);
--	udelay(10);
--
--	/* Return the chip to its original power state. */
--	pci_set_power_state(pdev, acpi_idle_state);
--
--	pci_set_drvdata (pdev, dev);
--	SET_NETDEV_DEV(dev, &pdev->dev);
--
--	dev->irq = pdev->irq;
--
--	sp->pdev = pdev;
--	sp->msg_enable = DEBUG;
--	sp->acpi_pwr = acpi_idle_state;
--	sp->tx_ring = tx_ring_space;
--	sp->tx_ring_dma = tx_ring_dma;
--	sp->lstats = (struct speedo_stats *)(sp->tx_ring + TX_RING_SIZE);
--	sp->lstats_dma = TX_RING_ELEM_DMA(sp, TX_RING_SIZE);
--	init_timer(&sp->timer); /* used in ioctl() */
--	spin_lock_init(&sp->lock);
--
--	sp->mii_if.full_duplex = option >= 0 && (option & 0x10) ? 1 : 0;
--	if (card_idx >= 0) {
--		if (full_duplex[card_idx] >= 0)
--			sp->mii_if.full_duplex = full_duplex[card_idx];
--	}
--	sp->default_port = option >= 0 ? (option & 0x0f) : 0;
--
--	sp->phy[0] = eeprom[6];
--	sp->phy[1] = eeprom[7];
--
--	sp->mii_if.phy_id = eeprom[6] & 0x1f;
--	sp->mii_if.phy_id_mask = 0x1f;
--	sp->mii_if.reg_num_mask = 0x1f;
--	sp->mii_if.dev = dev;
--	sp->mii_if.mdio_read = mdio_read;
--	sp->mii_if.mdio_write = mdio_write;
--
--	sp->rx_bug = (eeprom[3] & 0x03) == 3 ? 0 : 1;
--	if (((pdev->device > 0x1030 && (pdev->device < 0x103F)))
--	    || (pdev->device == 0x2449) || (pdev->device == 0x2459)
--            || (pdev->device == 0x245D)) {
--	    	sp->chip_id = 1;
--	}
--
--	if (sp->rx_bug)
--		printk(KERN_INFO "  Receiver lock-up workaround activated.\n");
--
--	/* The Speedo-specific entries in the device structure. */
--	dev->open = &speedo_open;
--	dev->hard_start_xmit = &speedo_start_xmit;
--	netif_set_tx_timeout(dev, &speedo_tx_timeout, TX_TIMEOUT);
--	dev->stop = &speedo_close;
--	dev->get_stats = &speedo_get_stats;
--	dev->set_multicast_list = &set_rx_mode;
--	dev->do_ioctl = &speedo_ioctl;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = &poll_speedo;
--#endif
--
--	if (register_netdevice(dev))
--		goto err_free_unlock;
--	rtnl_unlock();
--
--	return 0;
--
-- err_free_unlock:
--	rtnl_unlock();
--	free_netdev(dev);
--	return -1;
--}
--
--static void do_slow_command(struct net_device *dev, struct speedo_private *sp, int cmd)
--{
--	void __iomem *cmd_ioaddr = sp->regs + SCBCmd;
--	int wait = 0;
--	do
--		if (ioread8(cmd_ioaddr) == 0) break;
--	while(++wait <= 200);
--	if (wait > 100)
--		printk(KERN_ERR "Command %4.4x never accepted (%d polls)!\n",
--		       ioread8(cmd_ioaddr), wait);
--
--	iowrite8(cmd, cmd_ioaddr);
--
--	for (wait = 0; wait <= 100; wait++)
--		if (ioread8(cmd_ioaddr) == 0) return;
--	for (; wait <= 20000; wait++)
--		if (ioread8(cmd_ioaddr) == 0) return;
--		else udelay(1);
--	printk(KERN_ERR "Command %4.4x was not accepted after %d polls!"
--	       "  Current status %8.8x.\n",
--	       cmd, wait, ioread32(sp->regs + SCBStatus));
--}
--
--/* Serial EEPROM section.
--   A "bit" grungy, but we work our way through bit-by-bit :->. */
--/*  EEPROM_Ctrl bits. */
--#define EE_SHIFT_CLK	0x01	/* EEPROM shift clock. */
--#define EE_CS			0x02	/* EEPROM chip select. */
--#define EE_DATA_WRITE	0x04	/* EEPROM chip data in. */
--#define EE_DATA_READ	0x08	/* EEPROM chip data out. */
--#define EE_ENB			(0x4800 | EE_CS)
--#define EE_WRITE_0		0x4802
--#define EE_WRITE_1		0x4806
--#define EE_OFFSET		SCBeeprom
--
--/* The fixes for the code were kindly provided by Dragan Stancevic
--   <visitor@valinux.com> to strictly follow Intel specifications of EEPROM
--   access timing.
--   The publicly available sheet 64486302 (sec. 3.1) specifies 1us access
--   interval for serial EEPROM.  However, it looks like that there is an
--   additional requirement dictating larger udelay's in the code below.
--   2000/05/24  SAW */
--static int __devinit do_eeprom_cmd(void __iomem *ioaddr, int cmd, int cmd_len)
--{
--	unsigned retval = 0;
--	void __iomem *ee_addr = ioaddr + SCBeeprom;
--
--	iowrite16(EE_ENB, ee_addr); udelay(2);
--	iowrite16(EE_ENB | EE_SHIFT_CLK, ee_addr); udelay(2);
--
--	/* Shift the command bits out. */
--	do {
--		short dataval = (cmd & (1 << cmd_len)) ? EE_WRITE_1 : EE_WRITE_0;
--		iowrite16(dataval, ee_addr); udelay(2);
--		iowrite16(dataval | EE_SHIFT_CLK, ee_addr); udelay(2);
--		retval = (retval << 1) | ((ioread16(ee_addr) & EE_DATA_READ) ? 1 : 0);
--	} while (--cmd_len >= 0);
--	iowrite16(EE_ENB, ee_addr); udelay(2);
--
--	/* Terminate the EEPROM access. */
--	iowrite16(EE_ENB & ~EE_CS, ee_addr);
--	return retval;
--}
--
--static int mdio_read(struct net_device *dev, int phy_id, int location)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
--	iowrite32(0x08000000 | (location<<16) | (phy_id<<21), ioaddr + SCBCtrlMDI);
--	do {
--		val = ioread32(ioaddr + SCBCtrlMDI);
--		if (--boguscnt < 0) {
--			printk(KERN_ERR " mdio_read() timed out with val = %8.8x.\n", val);
--			break;
--		}
--	} while (! (val & 0x10000000));
--	return val & 0xffff;
--}
--
--static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
--	iowrite32(0x04000000 | (location<<16) | (phy_id<<21) | value,
--		 ioaddr + SCBCtrlMDI);
--	do {
--		val = ioread32(ioaddr + SCBCtrlMDI);
--		if (--boguscnt < 0) {
--			printk(KERN_ERR" mdio_write() timed out with val = %8.8x.\n", val);
--			break;
--		}
--	} while (! (val & 0x10000000));
--}
--
--static int
--speedo_open(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int retval;
--
--	if (netif_msg_ifup(sp))
--		printk(KERN_DEBUG "%s: speedo_open() irq %d.\n", dev->name, dev->irq);
--
--	pci_set_power_state(sp->pdev, PCI_D0);
--
--	/* Set up the Tx queue early.. */
--	sp->cur_tx = 0;
--	sp->dirty_tx = 0;
--	sp->last_cmd = NULL;
--	sp->tx_full = 0;
--	sp->in_interrupt = 0;
--
--	/* .. we can safely take handler calls during init. */
--	retval = request_irq(dev->irq, &speedo_interrupt, IRQF_SHARED, dev->name, dev);
--	if (retval) {
--		return retval;
--	}
--
--	dev->if_port = sp->default_port;
--
--#ifdef oh_no_you_dont_unless_you_honour_the_options_passed_in_to_us
--	/* Retrigger negotiation to reset previous errors. */
--	if ((sp->phy[0] & 0x8000) == 0) {
--		int phy_addr = sp->phy[0] & 0x1f ;
--		/* Use 0x3300 for restarting NWay, other values to force xcvr:
--		   0x0000 10-HD
--		   0x0100 10-FD
--		   0x2000 100-HD
--		   0x2100 100-FD
--		*/
--#ifdef honor_default_port
--		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
--#else
--		mdio_write(dev, phy_addr, MII_BMCR, 0x3300);
--#endif
--	}
--#endif
--
--	speedo_init_rx_ring(dev);
--
--	/* Fire up the hardware. */
--	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
--	speedo_resume(dev);
--
--	netdevice_start(dev);
--	netif_start_queue(dev);
--
--	/* Setup the chip and configure the multicast list. */
--	sp->mc_setup_head = NULL;
--	sp->mc_setup_tail = NULL;
--	sp->flow_ctrl = sp->partner = 0;
--	sp->rx_mode = -1;			/* Invalid -> always reset the mode. */
--	set_rx_mode(dev);
--	if ((sp->phy[0] & 0x8000) == 0)
--		sp->mii_if.advertising = mdio_read(dev, sp->phy[0] & 0x1f, MII_ADVERTISE);
--
--	mii_check_link(&sp->mii_if);
--
--	if (netif_msg_ifup(sp)) {
--		printk(KERN_DEBUG "%s: Done speedo_open(), status %8.8x.\n",
--			   dev->name, ioread16(ioaddr + SCBStatus));
--	}
--
--	/* Set the timer.  The timer serves a dual purpose:
--	   1) to monitor the media interface (e.g. link beat) and perhaps switch
--	   to an alternate media type
--	   2) to monitor Rx activity, and restart the Rx process if the receiver
--	   hangs. */
--	sp->timer.expires = RUN_AT((24*HZ)/10); 			/* 2.4 sec. */
--	sp->timer.data = (unsigned long)dev;
--	sp->timer.function = &speedo_timer;					/* timer handler */
--	add_timer(&sp->timer);
--
--	/* No need to wait for the command unit to accept here. */
--	if ((sp->phy[0] & 0x8000) == 0)
--		mdio_read(dev, sp->phy[0] & 0x1f, MII_BMCR);
--
--	return 0;
--}
--
--/* Start the chip hardware after a full reset. */
--static void speedo_resume(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--
--	/* Start with a Tx threshold of 256 (0x..20.... 8 byte units). */
--	sp->tx_threshold = 0x01208000;
--
--	/* Set the segment registers to '0'. */
--	if (wait_for_cmd_done(dev, sp) != 0) {
--		iowrite32(PortPartialReset, ioaddr + SCBPort);
--		udelay(10);
--	}
--
--        iowrite32(0, ioaddr + SCBPointer);
--        ioread32(ioaddr + SCBPointer);			/* Flush to PCI. */
--        udelay(10);			/* Bogus, but it avoids the bug. */
--
--        /* Note: these next two operations can take a while. */
--        do_slow_command(dev, sp, RxAddrLoad);
--        do_slow_command(dev, sp, CUCmdBase);
--
--	/* Load the statistics block and rx ring addresses. */
--	iowrite32(sp->lstats_dma, ioaddr + SCBPointer);
--	ioread32(ioaddr + SCBPointer);			/* Flush to PCI */
--
--	iowrite8(CUStatsAddr, ioaddr + SCBCmd);
--	sp->lstats->done_marker = 0;
--	wait_for_cmd_done(dev, sp);
--
--	if (sp->rx_ringp[sp->cur_rx % RX_RING_SIZE] == NULL) {
--		if (netif_msg_rx_err(sp))
--			printk(KERN_DEBUG "%s: NULL cur_rx in speedo_resume().\n",
--					dev->name);
--	} else {
--		iowrite32(sp->rx_ring_dma[sp->cur_rx % RX_RING_SIZE],
--			 ioaddr + SCBPointer);
--		ioread32(ioaddr + SCBPointer);		/* Flush to PCI */
--	}
--
--	/* Note: RxStart should complete instantly. */
--	do_slow_command(dev, sp, RxStart);
--	do_slow_command(dev, sp, CUDumpStats);
--
--	/* Fill the first command with our physical address. */
--	{
--		struct descriptor *ias_cmd;
--
--		ias_cmd =
--			(struct descriptor *)&sp->tx_ring[sp->cur_tx++ % TX_RING_SIZE];
--		/* Avoid a bug(?!) here by marking the command already completed. */
--		ias_cmd->cmd_status = cpu_to_le32((CmdSuspend | CmdIASetup) | 0xa000);
--		ias_cmd->link =
--			cpu_to_le32(TX_RING_ELEM_DMA(sp, sp->cur_tx % TX_RING_SIZE));
--		memcpy(ias_cmd->params, dev->dev_addr, 6);
--		if (sp->last_cmd)
--			clear_suspend(sp->last_cmd);
--		sp->last_cmd = ias_cmd;
--	}
--
--	/* Start the chip's Tx process and unmask interrupts. */
--	iowrite32(TX_RING_ELEM_DMA(sp, sp->dirty_tx % TX_RING_SIZE),
--		 ioaddr + SCBPointer);
--	/* We are not ACK-ing FCP and ER in the interrupt handler yet so they should
--	   remain masked --Dragan */
--	iowrite16(CUStart | SCBMaskEarlyRx | SCBMaskFlowCtl, ioaddr + SCBCmd);
--}
--
--/*
-- * Sometimes the receiver stops making progress.  This routine knows how to
-- * get it going again, without losing packets or being otherwise nasty like
-- * a chip reset would be.  Previously the driver had a whole sequence
-- * of if RxSuspended, if it's no buffers do one thing, if it's no resources,
-- * do another, etc.  But those things don't really matter.  Separate logic
-- * in the ISR provides for allocating buffers--the other half of operation
-- * is just making sure the receiver is active.  speedo_rx_soft_reset does that.
-- * This problem with the old, more involved algorithm is shown up under
-- * ping floods on the order of 60K packets/second on a 100Mbps fdx network.
-- */
--static void
--speedo_rx_soft_reset(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	struct RxFD *rfd;
--	void __iomem *ioaddr;
--
--	ioaddr = sp->regs;
--	if (wait_for_cmd_done(dev, sp) != 0) {
--		printk("%s: previous command stalled\n", dev->name);
--		return;
--	}
--	/*
--	* Put the hardware into a known state.
--	*/
--	iowrite8(RxAbort, ioaddr + SCBCmd);
--
--	rfd = sp->rx_ringp[sp->cur_rx % RX_RING_SIZE];
--
--	rfd->rx_buf_addr = cpu_to_le32(0xffffffff);
--
--	if (wait_for_cmd_done(dev, sp) != 0) {
--		printk("%s: RxAbort command stalled\n", dev->name);
--		return;
--	}
--	iowrite32(sp->rx_ring_dma[sp->cur_rx % RX_RING_SIZE],
--		ioaddr + SCBPointer);
--	iowrite8(RxStart, ioaddr + SCBCmd);
--}
--
--
--/* Media monitoring and control. */
--static void speedo_timer(unsigned long data)
--{
--	struct net_device *dev = (struct net_device *)data;
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int phy_num = sp->phy[0] & 0x1f;
--
--	/* We have MII and lost link beat. */
--	if ((sp->phy[0] & 0x8000) == 0) {
--		int partner = mdio_read(dev, phy_num, MII_LPA);
--		if (partner != sp->partner) {
--			int flow_ctrl = sp->mii_if.advertising & partner & 0x0400 ? 1 : 0;
--			if (netif_msg_link(sp)) {
--				printk(KERN_DEBUG "%s: Link status change.\n", dev->name);
--				printk(KERN_DEBUG "%s: Old partner %x, new %x, adv %x.\n",
--					   dev->name, sp->partner, partner, sp->mii_if.advertising);
--			}
--			sp->partner = partner;
--			if (flow_ctrl != sp->flow_ctrl) {
--				sp->flow_ctrl = flow_ctrl;
--				sp->rx_mode = -1;	/* Trigger a reload. */
--			}
--		}
--	}
--	mii_check_link(&sp->mii_if);
--	if (netif_msg_timer(sp)) {
--		printk(KERN_DEBUG "%s: Media control tick, status %4.4x.\n",
--			   dev->name, ioread16(ioaddr + SCBStatus));
--	}
--	if (sp->rx_mode < 0  ||
--		(sp->rx_bug  && jiffies - sp->last_rx_time > 2*HZ)) {
--		/* We haven't received a packet in a Long Time.  We might have been
--		   bitten by the receiver hang bug.  This can be cleared by sending
--		   a set multicast list command. */
--		if (netif_msg_timer(sp))
--			printk(KERN_DEBUG "%s: Sending a multicast list set command"
--				   " from a timer routine,"
--				   " m=%d, j=%ld, l=%ld.\n",
--				   dev->name, sp->rx_mode, jiffies, sp->last_rx_time);
--		set_rx_mode(dev);
--	}
--	/* We must continue to monitor the media. */
--	sp->timer.expires = RUN_AT(2*HZ); 			/* 2.0 sec. */
--	add_timer(&sp->timer);
--}
--
--static void speedo_show_state(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	int i;
--
--	if (netif_msg_pktdata(sp)) {
--		printk(KERN_DEBUG "%s: Tx ring dump,  Tx queue %u / %u:\n",
--		    dev->name, sp->cur_tx, sp->dirty_tx);
--		for (i = 0; i < TX_RING_SIZE; i++)
--			printk(KERN_DEBUG "%s:  %c%c%2d %8.8x.\n", dev->name,
--			    i == sp->dirty_tx % TX_RING_SIZE ? '*' : ' ',
--			    i == sp->cur_tx % TX_RING_SIZE ? '=' : ' ',
--			    i, sp->tx_ring[i].status);
--
--		printk(KERN_DEBUG "%s: Printing Rx ring"
--		    " (next to receive into %u, dirty index %u).\n",
--		    dev->name, sp->cur_rx, sp->dirty_rx);
--		for (i = 0; i < RX_RING_SIZE; i++)
--			printk(KERN_DEBUG "%s: %c%c%c%2d %8.8x.\n", dev->name,
--			    sp->rx_ringp[i] == sp->last_rxf ? 'l' : ' ',
--			    i == sp->dirty_rx % RX_RING_SIZE ? '*' : ' ',
--			    i == sp->cur_rx % RX_RING_SIZE ? '=' : ' ',
--			    i, (sp->rx_ringp[i] != NULL) ?
--			    (unsigned)sp->rx_ringp[i]->status : 0);
--	}
--
--#if 0
--	{
--		void __iomem *ioaddr = sp->regs;
--		int phy_num = sp->phy[0] & 0x1f;
--		for (i = 0; i < 16; i++) {
--			/* FIXME: what does it mean?  --SAW */
--			if (i == 6) i = 21;
--			printk(KERN_DEBUG "%s:  PHY index %d register %d is %4.4x.\n",
--				   dev->name, phy_num, i, mdio_read(dev, phy_num, i));
--		}
--	}
--#endif
--
--}
--
--/* Initialize the Rx and Tx rings, along with various 'dev' bits. */
--static void
--speedo_init_rx_ring(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	struct RxFD *rxf, *last_rxf = NULL;
--	dma_addr_t last_rxf_dma = 0 /* to shut up the compiler */;
--	int i;
--
--	sp->cur_rx = 0;
--
--	for (i = 0; i < RX_RING_SIZE; i++) {
--		struct sk_buff *skb;
--		skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
--		if (skb)
--			rx_align(skb);        /* Align IP on 16 byte boundary */
--		sp->rx_skbuff[i] = skb;
--		if (skb == NULL)
--			break;			/* OK.  Just initially short of Rx bufs. */
--		skb->dev = dev;			/* Mark as being used by this device. */
--		rxf = (struct RxFD *)skb->data;
--		sp->rx_ringp[i] = rxf;
--		sp->rx_ring_dma[i] =
--			pci_map_single(sp->pdev, rxf,
--					PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_BIDIRECTIONAL);
--		skb_reserve(skb, sizeof(struct RxFD));
--		if (last_rxf) {
--			last_rxf->link = cpu_to_le32(sp->rx_ring_dma[i]);
--			pci_dma_sync_single_for_device(sp->pdev, last_rxf_dma,
--										   sizeof(struct RxFD), PCI_DMA_TODEVICE);
--		}
--		last_rxf = rxf;
--		last_rxf_dma = sp->rx_ring_dma[i];
--		rxf->status = cpu_to_le32(0x00000001);	/* '1' is flag value only. */
--		rxf->link = 0;						/* None yet. */
--		/* This field unused by i82557. */
--		rxf->rx_buf_addr = cpu_to_le32(0xffffffff);
--		rxf->count = cpu_to_le32(PKT_BUF_SZ << 16);
--		pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[i],
--									   sizeof(struct RxFD), PCI_DMA_TODEVICE);
--	}
--	sp->dirty_rx = (unsigned int)(i - RX_RING_SIZE);
--	/* Mark the last entry as end-of-list. */
--	last_rxf->status = cpu_to_le32(0xC0000002);	/* '2' is flag value only. */
--	pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[RX_RING_SIZE-1],
--								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
--	sp->last_rxf = last_rxf;
--	sp->last_rxf_dma = last_rxf_dma;
--}
--
--static void speedo_purge_tx(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	int entry;
--
--	while ((int)(sp->cur_tx - sp->dirty_tx) > 0) {
--		entry = sp->dirty_tx % TX_RING_SIZE;
--		if (sp->tx_skbuff[entry]) {
--			sp->stats.tx_errors++;
--			pci_unmap_single(sp->pdev,
--					le32_to_cpu(sp->tx_ring[entry].tx_buf_addr0),
--					sp->tx_skbuff[entry]->len, PCI_DMA_TODEVICE);
--			dev_kfree_skb_irq(sp->tx_skbuff[entry]);
--			sp->tx_skbuff[entry] = NULL;
--		}
--		sp->dirty_tx++;
--	}
--	while (sp->mc_setup_head != NULL) {
--		struct speedo_mc_block *t;
--		if (netif_msg_tx_err(sp))
--			printk(KERN_DEBUG "%s: freeing mc frame.\n", dev->name);
--		pci_unmap_single(sp->pdev, sp->mc_setup_head->frame_dma,
--				sp->mc_setup_head->len, PCI_DMA_TODEVICE);
--		t = sp->mc_setup_head->next;
--		kfree(sp->mc_setup_head);
--		sp->mc_setup_head = t;
--	}
--	sp->mc_setup_tail = NULL;
--	sp->tx_full = 0;
--	netif_wake_queue(dev);
--}
--
--static void reset_mii(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--
--	/* Reset the MII transceiver, suggested by Fred Young @ scalable.com. */
--	if ((sp->phy[0] & 0x8000) == 0) {
--		int phy_addr = sp->phy[0] & 0x1f;
--		int advertising = mdio_read(dev, phy_addr, MII_ADVERTISE);
--		int mii_bmcr = mdio_read(dev, phy_addr, MII_BMCR);
--		mdio_write(dev, phy_addr, MII_BMCR, 0x0400);
--		mdio_write(dev, phy_addr, MII_BMSR, 0x0000);
--		mdio_write(dev, phy_addr, MII_ADVERTISE, 0x0000);
--		mdio_write(dev, phy_addr, MII_BMCR, 0x8000);
--#ifdef honor_default_port
--		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
--#else
--		mdio_read(dev, phy_addr, MII_BMCR);
--		mdio_write(dev, phy_addr, MII_BMCR, mii_bmcr);
--		mdio_write(dev, phy_addr, MII_ADVERTISE, advertising);
--#endif
--	}
--}
--
--static void speedo_tx_timeout(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int status = ioread16(ioaddr + SCBStatus);
--	unsigned long flags;
--
--	if (netif_msg_tx_err(sp)) {
--		printk(KERN_WARNING "%s: Transmit timed out: status %4.4x "
--		   " %4.4x at %d/%d command %8.8x.\n",
--		   dev->name, status, ioread16(ioaddr + SCBCmd),
--		   sp->dirty_tx, sp->cur_tx,
--		   sp->tx_ring[sp->dirty_tx % TX_RING_SIZE].status);
--
--	}
--	speedo_show_state(dev);
--#if 0
--	if ((status & 0x00C0) != 0x0080
--		&&  (status & 0x003C) == 0x0010) {
--		/* Only the command unit has stopped. */
--		printk(KERN_WARNING "%s: Trying to restart the transmitter...\n",
--			   dev->name);
--		iowrite32(TX_RING_ELEM_DMA(sp, dirty_tx % TX_RING_SIZE]),
--			 ioaddr + SCBPointer);
--		iowrite16(CUStart, ioaddr + SCBCmd);
--		reset_mii(dev);
--	} else {
--#else
--	{
--#endif
--		del_timer_sync(&sp->timer);
--		/* Reset the Tx and Rx units. */
--		iowrite32(PortReset, ioaddr + SCBPort);
--		/* We may get spurious interrupts here.  But I don't think that they
--		   may do much harm.  1999/12/09 SAW */
--		udelay(10);
--		/* Disable interrupts. */
--		iowrite16(SCBMaskAll, ioaddr + SCBCmd);
--		synchronize_irq(dev->irq);
--		speedo_tx_buffer_gc(dev);
--		/* Free as much as possible.
--		   It helps to recover from a hang because of out-of-memory.
--		   It also simplifies speedo_resume() in case TX ring is full or
--		   close-to-be full. */
--		speedo_purge_tx(dev);
--		speedo_refill_rx_buffers(dev, 1);
--		spin_lock_irqsave(&sp->lock, flags);
--		speedo_resume(dev);
--		sp->rx_mode = -1;
--		dev->trans_start = jiffies;
--		spin_unlock_irqrestore(&sp->lock, flags);
--		set_rx_mode(dev); /* it takes the spinlock itself --SAW */
--		/* Reset MII transceiver.  Do it before starting the timer to serialize
--		   mdio_xxx operations.  Yes, it's a paranoya :-)  2000/05/09 SAW */
--		reset_mii(dev);
--		sp->timer.expires = RUN_AT(2*HZ);
--		add_timer(&sp->timer);
--	}
--	return;
--}
--
--static int
--speedo_start_xmit(struct sk_buff *skb, struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int entry;
--
--	/* Prevent interrupts from changing the Tx ring from underneath us. */
--	unsigned long flags;
--
--	spin_lock_irqsave(&sp->lock, flags);
--
--	/* Check if there are enough space. */
--	if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
--		printk(KERN_ERR "%s: incorrect tbusy state, fixed.\n", dev->name);
--		netif_stop_queue(dev);
--		sp->tx_full = 1;
--		spin_unlock_irqrestore(&sp->lock, flags);
--		return 1;
--	}
--
--	/* Calculate the Tx descriptor entry. */
--	entry = sp->cur_tx++ % TX_RING_SIZE;
--
--	sp->tx_skbuff[entry] = skb;
--	sp->tx_ring[entry].status =
--		cpu_to_le32(CmdSuspend | CmdTx | CmdTxFlex);
--	if (!(entry & ((TX_RING_SIZE>>2)-1)))
--		sp->tx_ring[entry].status |= cpu_to_le32(CmdIntr);
--	sp->tx_ring[entry].link =
--		cpu_to_le32(TX_RING_ELEM_DMA(sp, sp->cur_tx % TX_RING_SIZE));
--	sp->tx_ring[entry].tx_desc_addr =
--		cpu_to_le32(TX_RING_ELEM_DMA(sp, entry) + TX_DESCR_BUF_OFFSET);
--	/* The data region is always in one buffer descriptor. */
--	sp->tx_ring[entry].count = cpu_to_le32(sp->tx_threshold);
--	sp->tx_ring[entry].tx_buf_addr0 =
--		cpu_to_le32(pci_map_single(sp->pdev, skb->data,
--					   skb->len, PCI_DMA_TODEVICE));
--	sp->tx_ring[entry].tx_buf_size0 = cpu_to_le32(skb->len);
--
--	/* workaround for hardware bug on 10 mbit half duplex */
--
--	if ((sp->partner == 0) && (sp->chip_id == 1)) {
--		wait_for_cmd_done(dev, sp);
--		iowrite8(0 , ioaddr + SCBCmd);
--		udelay(1);
--	}
--
--	/* Trigger the command unit resume. */
--	wait_for_cmd_done(dev, sp);
--	clear_suspend(sp->last_cmd);
--	/* We want the time window between clearing suspend flag on the previous
--	   command and resuming CU to be as small as possible.
--	   Interrupts in between are very undesired.  --SAW */
--	iowrite8(CUResume, ioaddr + SCBCmd);
--	sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
--
--	/* Leave room for set_rx_mode(). If there is no more space than reserved
--	   for multicast filter mark the ring as full. */
--	if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
--		netif_stop_queue(dev);
--		sp->tx_full = 1;
--	}
--
--	spin_unlock_irqrestore(&sp->lock, flags);
--
--	dev->trans_start = jiffies;
--
--	return 0;
--}
--
--static void speedo_tx_buffer_gc(struct net_device *dev)
--{
--	unsigned int dirty_tx;
--	struct speedo_private *sp = netdev_priv(dev);
--
--	dirty_tx = sp->dirty_tx;
--	while ((int)(sp->cur_tx - dirty_tx) > 0) {
--		int entry = dirty_tx % TX_RING_SIZE;
--		int status = le32_to_cpu(sp->tx_ring[entry].status);
--
--		if (netif_msg_tx_done(sp))
--			printk(KERN_DEBUG " scavenge candidate %d status %4.4x.\n",
--				   entry, status);
--		if ((status & StatusComplete) == 0)
--			break;			/* It still hasn't been processed. */
--		if (status & TxUnderrun)
--			if (sp->tx_threshold < 0x01e08000) {
--				if (netif_msg_tx_err(sp))
--					printk(KERN_DEBUG "%s: TX underrun, threshold adjusted.\n",
--						   dev->name);
--				sp->tx_threshold += 0x00040000;
--			}
--		/* Free the original skb. */
--		if (sp->tx_skbuff[entry]) {
--			sp->stats.tx_packets++;	/* Count only user packets. */
--			sp->stats.tx_bytes += sp->tx_skbuff[entry]->len;
--			pci_unmap_single(sp->pdev,
--					le32_to_cpu(sp->tx_ring[entry].tx_buf_addr0),
--					sp->tx_skbuff[entry]->len, PCI_DMA_TODEVICE);
--			dev_kfree_skb_irq(sp->tx_skbuff[entry]);
--			sp->tx_skbuff[entry] = NULL;
--		}
--		dirty_tx++;
--	}
--
--	if (netif_msg_tx_err(sp) && (int)(sp->cur_tx - dirty_tx) > TX_RING_SIZE) {
--		printk(KERN_ERR "out-of-sync dirty pointer, %d vs. %d,"
--			   " full=%d.\n",
--			   dirty_tx, sp->cur_tx, sp->tx_full);
--		dirty_tx += TX_RING_SIZE;
--	}
--
--	while (sp->mc_setup_head != NULL
--		   && (int)(dirty_tx - sp->mc_setup_head->tx - 1) > 0) {
--		struct speedo_mc_block *t;
--		if (netif_msg_tx_err(sp))
--			printk(KERN_DEBUG "%s: freeing mc frame.\n", dev->name);
--		pci_unmap_single(sp->pdev, sp->mc_setup_head->frame_dma,
--				sp->mc_setup_head->len, PCI_DMA_TODEVICE);
--		t = sp->mc_setup_head->next;
--		kfree(sp->mc_setup_head);
--		sp->mc_setup_head = t;
--	}
--	if (sp->mc_setup_head == NULL)
--		sp->mc_setup_tail = NULL;
--
--	sp->dirty_tx = dirty_tx;
--}
--
--/* The interrupt handler does all of the Rx thread work and cleans up
--   after the Tx thread. */
--static irqreturn_t speedo_interrupt(int irq, void *dev_instance)
--{
--	struct net_device *dev = (struct net_device *)dev_instance;
--	struct speedo_private *sp;
--	void __iomem *ioaddr;
--	long boguscnt = max_interrupt_work;
--	unsigned short status;
--	unsigned int handled = 0;
--
--	sp = netdev_priv(dev);
--	ioaddr = sp->regs;
--
--#ifndef final_version
--	/* A lock to prevent simultaneous entry on SMP machines. */
--	if (test_and_set_bit(0, (void*)&sp->in_interrupt)) {
--		printk(KERN_ERR"%s: SMP simultaneous entry of an interrupt handler.\n",
--			   dev->name);
--		sp->in_interrupt = 0;	/* Avoid halting machine. */
--		return IRQ_NONE;
--	}
--#endif
--
--	do {
--		status = ioread16(ioaddr + SCBStatus);
--		/* Acknowledge all of the current interrupt sources ASAP. */
--		/* Will change from 0xfc00 to 0xff00 when we start handling
--		   FCP and ER interrupts --Dragan */
--		iowrite16(status & 0xfc00, ioaddr + SCBStatus);
--
--		if (netif_msg_intr(sp))
--			printk(KERN_DEBUG "%s: interrupt  status=%#4.4x.\n",
--				   dev->name, status);
--
--		if ((status & 0xfc00) == 0)
--			break;
--		handled = 1;
--
--
--		if ((status & 0x5000) ||	/* Packet received, or Rx error. */
--			(sp->rx_ring_state&(RrNoMem|RrPostponed)) == RrPostponed)
--									/* Need to gather the postponed packet. */
--			speedo_rx(dev);
--
--		/* Always check if all rx buffers are allocated.  --SAW */
--		speedo_refill_rx_buffers(dev, 0);
--
--		spin_lock(&sp->lock);
--		/*
--		 * The chip may have suspended reception for various reasons.
--		 * Check for that, and re-prime it should this be the case.
--		 */
--		switch ((status >> 2) & 0xf) {
--		case 0: /* Idle */
--			break;
--		case 1:	/* Suspended */
--		case 2:	/* No resources (RxFDs) */
--		case 9:	/* Suspended with no more RBDs */
--		case 10: /* No resources due to no RBDs */
--		case 12: /* Ready with no RBDs */
--			speedo_rx_soft_reset(dev);
--			break;
--		case 3:  case 5:  case 6:  case 7:  case 8:
--		case 11:  case 13:  case 14:  case 15:
--			/* these are all reserved values */
--			break;
--		}
--
--
--		/* User interrupt, Command/Tx unit interrupt or CU not active. */
--		if (status & 0xA400) {
--			speedo_tx_buffer_gc(dev);
--			if (sp->tx_full
--				&& (int)(sp->cur_tx - sp->dirty_tx) < TX_QUEUE_UNFULL) {
--				/* The ring is no longer full. */
--				sp->tx_full = 0;
--				netif_wake_queue(dev); /* Attention: under a spinlock.  --SAW */
--			}
--		}
--
--		spin_unlock(&sp->lock);
--
--		if (--boguscnt < 0) {
--			printk(KERN_ERR "%s: Too much work at interrupt, status=0x%4.4x.\n",
--				   dev->name, status);
--			/* Clear all interrupt sources. */
--			/* Will change from 0xfc00 to 0xff00 when we start handling
--			   FCP and ER interrupts --Dragan */
--			iowrite16(0xfc00, ioaddr + SCBStatus);
--			break;
--		}
--	} while (1);
--
--	if (netif_msg_intr(sp))
--		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
--			   dev->name, ioread16(ioaddr + SCBStatus));
--
--	clear_bit(0, (void*)&sp->in_interrupt);
--	return IRQ_RETVAL(handled);
--}
--
--static inline struct RxFD *speedo_rx_alloc(struct net_device *dev, int entry)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	struct RxFD *rxf;
--	struct sk_buff *skb;
--	/* Get a fresh skbuff to replace the consumed one. */
--	skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
--	if (skb)
--		rx_align(skb);		/* Align IP on 16 byte boundary */
--	sp->rx_skbuff[entry] = skb;
--	if (skb == NULL) {
--		sp->rx_ringp[entry] = NULL;
--		return NULL;
--	}
--	rxf = sp->rx_ringp[entry] = (struct RxFD *)skb->data;
--	sp->rx_ring_dma[entry] =
--		pci_map_single(sp->pdev, rxf,
--					   PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
--	skb->dev = dev;
--	skb_reserve(skb, sizeof(struct RxFD));
--	rxf->rx_buf_addr = cpu_to_le32(0xffffffff);
--	pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[entry],
--								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
--	return rxf;
--}
--
--static inline void speedo_rx_link(struct net_device *dev, int entry,
--								  struct RxFD *rxf, dma_addr_t rxf_dma)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	rxf->status = cpu_to_le32(0xC0000001); 	/* '1' for driver use only. */
--	rxf->link = 0;			/* None yet. */
--	rxf->count = cpu_to_le32(PKT_BUF_SZ << 16);
--	sp->last_rxf->link = cpu_to_le32(rxf_dma);
--	sp->last_rxf->status &= cpu_to_le32(~0xC0000000);
--	pci_dma_sync_single_for_device(sp->pdev, sp->last_rxf_dma,
--								   sizeof(struct RxFD), PCI_DMA_TODEVICE);
--	sp->last_rxf = rxf;
--	sp->last_rxf_dma = rxf_dma;
--}
--
--static int speedo_refill_rx_buf(struct net_device *dev, int force)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	int entry;
--	struct RxFD *rxf;
--
--	entry = sp->dirty_rx % RX_RING_SIZE;
--	if (sp->rx_skbuff[entry] == NULL) {
--		rxf = speedo_rx_alloc(dev, entry);
--		if (rxf == NULL) {
--			unsigned int forw;
--			int forw_entry;
--			if (netif_msg_rx_err(sp) || !(sp->rx_ring_state & RrOOMReported)) {
--				printk(KERN_WARNING "%s: can't fill rx buffer (force %d)!\n",
--						dev->name, force);
--				sp->rx_ring_state |= RrOOMReported;
--			}
--			speedo_show_state(dev);
--			if (!force)
--				return -1;	/* Better luck next time!  */
--			/* Borrow an skb from one of next entries. */
--			for (forw = sp->dirty_rx + 1; forw != sp->cur_rx; forw++)
--				if (sp->rx_skbuff[forw % RX_RING_SIZE] != NULL)
--					break;
--			if (forw == sp->cur_rx)
--				return -1;
--			forw_entry = forw % RX_RING_SIZE;
--			sp->rx_skbuff[entry] = sp->rx_skbuff[forw_entry];
--			sp->rx_skbuff[forw_entry] = NULL;
--			rxf = sp->rx_ringp[forw_entry];
--			sp->rx_ringp[forw_entry] = NULL;
--			sp->rx_ringp[entry] = rxf;
--		}
--	} else {
--		rxf = sp->rx_ringp[entry];
--	}
--	speedo_rx_link(dev, entry, rxf, sp->rx_ring_dma[entry]);
--	sp->dirty_rx++;
--	sp->rx_ring_state &= ~(RrNoMem|RrOOMReported); /* Mark the progress. */
--	return 0;
--}
--
--static void speedo_refill_rx_buffers(struct net_device *dev, int force)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--
--	/* Refill the RX ring. */
--	while ((int)(sp->cur_rx - sp->dirty_rx) > 0 &&
--			speedo_refill_rx_buf(dev, force) != -1);
--}
--
--static int
--speedo_rx(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	int entry = sp->cur_rx % RX_RING_SIZE;
--	int rx_work_limit = sp->dirty_rx + RX_RING_SIZE - sp->cur_rx;
--	int alloc_ok = 1;
--	int npkts = 0;
--
--	if (netif_msg_intr(sp))
--		printk(KERN_DEBUG " In speedo_rx().\n");
--	/* If we own the next entry, it's a new packet. Send it up. */
--	while (sp->rx_ringp[entry] != NULL) {
--		int status;
--		int pkt_len;
--
--		pci_dma_sync_single_for_cpu(sp->pdev, sp->rx_ring_dma[entry],
--									sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
--		status = le32_to_cpu(sp->rx_ringp[entry]->status);
--		pkt_len = le32_to_cpu(sp->rx_ringp[entry]->count) & 0x3fff;
--
--		if (!(status & RxComplete))
--			break;
--
--		if (--rx_work_limit < 0)
--			break;
--
--		/* Check for a rare out-of-memory case: the current buffer is
--		   the last buffer allocated in the RX ring.  --SAW */
--		if (sp->last_rxf == sp->rx_ringp[entry]) {
--			/* Postpone the packet.  It'll be reaped at an interrupt when this
--			   packet is no longer the last packet in the ring. */
--			if (netif_msg_rx_err(sp))
--				printk(KERN_DEBUG "%s: RX packet postponed!\n",
--					   dev->name);
--			sp->rx_ring_state |= RrPostponed;
--			break;
--		}
--
--		if (netif_msg_rx_status(sp))
--			printk(KERN_DEBUG "  speedo_rx() status %8.8x len %d.\n", status,
--				   pkt_len);
--		if ((status & (RxErrTooBig|RxOK|0x0f90)) != RxOK) {
--			if (status & RxErrTooBig)
--				printk(KERN_ERR "%s: Ethernet frame overran the Rx buffer, "
--					   "status %8.8x!\n", dev->name, status);
--			else if (! (status & RxOK)) {
--				/* There was a fatal error.  This *should* be impossible. */
--				sp->stats.rx_errors++;
--				printk(KERN_ERR "%s: Anomalous event in speedo_rx(), "
--					   "status %8.8x.\n",
--					   dev->name, status);
--			}
--		} else {
--			struct sk_buff *skb;
--
--			/* Check if the packet is long enough to just accept without
--			   copying to a properly sized skbuff. */
--			if (pkt_len < rx_copybreak
--				&& (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
--				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
--				/* 'skb_put()' points to the start of sk_buff data area. */
--				pci_dma_sync_single_for_cpu(sp->pdev, sp->rx_ring_dma[entry],
--											sizeof(struct RxFD) + pkt_len,
--											PCI_DMA_FROMDEVICE);
--
--#if 1 || USE_IP_CSUM
--				/* Packet is in one chunk -- we can copy + cksum. */
--				skb_copy_to_linear_data(skb, sp->rx_skbuff[entry]->data, pkt_len);
--				skb_put(skb, pkt_len);
--#else
--				skb_copy_from_linear_data(sp->rx_skbuff[entry],
--							  skb_put(skb, pkt_len),
--							  pkt_len);
--#endif
--				pci_dma_sync_single_for_device(sp->pdev, sp->rx_ring_dma[entry],
--											   sizeof(struct RxFD) + pkt_len,
--											   PCI_DMA_FROMDEVICE);
--				npkts++;
--			} else {
--				/* Pass up the already-filled skbuff. */
--				skb = sp->rx_skbuff[entry];
--				if (skb == NULL) {
--					printk(KERN_ERR "%s: Inconsistent Rx descriptor chain.\n",
--						   dev->name);
--					break;
--				}
--				sp->rx_skbuff[entry] = NULL;
--				skb_put(skb, pkt_len);
--				npkts++;
--				sp->rx_ringp[entry] = NULL;
--				pci_unmap_single(sp->pdev, sp->rx_ring_dma[entry],
--								 PKT_BUF_SZ + sizeof(struct RxFD),
--								 PCI_DMA_FROMDEVICE);
--			}
--			skb->protocol = eth_type_trans(skb, dev);
--			netif_rx(skb);
--			dev->last_rx = jiffies;
--			sp->stats.rx_packets++;
--			sp->stats.rx_bytes += pkt_len;
--		}
--		entry = (++sp->cur_rx) % RX_RING_SIZE;
--		sp->rx_ring_state &= ~RrPostponed;
--		/* Refill the recently taken buffers.
--		   Do it one-by-one to handle traffic bursts better. */
--		if (alloc_ok && speedo_refill_rx_buf(dev, 0) == -1)
--			alloc_ok = 0;
--	}
--
--	/* Try hard to refill the recently taken buffers. */
--	speedo_refill_rx_buffers(dev, 1);
--
--	if (npkts)
--		sp->last_rx_time = jiffies;
--
--	return 0;
--}
--
--static int
--speedo_close(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int i;
--
--	netdevice_stop(dev);
--	netif_stop_queue(dev);
--
--	if (netif_msg_ifdown(sp))
--		printk(KERN_DEBUG "%s: Shutting down ethercard, status was %4.4x.\n",
--			   dev->name, ioread16(ioaddr + SCBStatus));
--
--	/* Shut off the media monitoring timer. */
--	del_timer_sync(&sp->timer);
--
--	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
--
--	/* Shutting down the chip nicely fails to disable flow control. So.. */
--	iowrite32(PortPartialReset, ioaddr + SCBPort);
--	ioread32(ioaddr + SCBPort); /* flush posted write */
--	/*
--	 * The chip requires a 10 microsecond quiet period.  Wait here!
--	 */
--	udelay(10);
--
--	free_irq(dev->irq, dev);
--	speedo_show_state(dev);
--
--    /* Free all the skbuffs in the Rx and Tx queues. */
--	for (i = 0; i < RX_RING_SIZE; i++) {
--		struct sk_buff *skb = sp->rx_skbuff[i];
--		sp->rx_skbuff[i] = NULL;
--		/* Clear the Rx descriptors. */
--		if (skb) {
--			pci_unmap_single(sp->pdev,
--					 sp->rx_ring_dma[i],
--					 PKT_BUF_SZ + sizeof(struct RxFD), PCI_DMA_FROMDEVICE);
--			dev_kfree_skb(skb);
--		}
--	}
--
--	for (i = 0; i < TX_RING_SIZE; i++) {
--		struct sk_buff *skb = sp->tx_skbuff[i];
--		sp->tx_skbuff[i] = NULL;
--		/* Clear the Tx descriptors. */
--		if (skb) {
--			pci_unmap_single(sp->pdev,
--					 le32_to_cpu(sp->tx_ring[i].tx_buf_addr0),
--					 skb->len, PCI_DMA_TODEVICE);
--			dev_kfree_skb(skb);
--		}
--	}
--
--	/* Free multicast setting blocks. */
--	for (i = 0; sp->mc_setup_head != NULL; i++) {
--		struct speedo_mc_block *t;
--		t = sp->mc_setup_head->next;
--		kfree(sp->mc_setup_head);
--		sp->mc_setup_head = t;
--	}
--	sp->mc_setup_tail = NULL;
--	if (netif_msg_ifdown(sp))
--		printk(KERN_DEBUG "%s: %d multicast blocks dropped.\n", dev->name, i);
--
--	pci_set_power_state(sp->pdev, PCI_D2);
--
--	return 0;
--}
--
--/* The Speedo-3 has an especially awkward and unusable method of getting
--   statistics out of the chip.  It takes an unpredictable length of time
--   for the dump-stats command to complete.  To avoid a busy-wait loop we
--   update the stats with the previous dump results, and then trigger a
--   new dump.
--
--   Oh, and incoming frames are dropped while executing dump-stats!
--   */
--static struct net_device_stats *
--speedo_get_stats(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--
--	/* Update only if the previous dump finished. */
--	if (sp->lstats->done_marker == cpu_to_le32(0xA007)) {
--		sp->stats.tx_aborted_errors += le32_to_cpu(sp->lstats->tx_coll16_errs);
--		sp->stats.tx_window_errors += le32_to_cpu(sp->lstats->tx_late_colls);
--		sp->stats.tx_fifo_errors += le32_to_cpu(sp->lstats->tx_underruns);
--		sp->stats.tx_fifo_errors += le32_to_cpu(sp->lstats->tx_lost_carrier);
--		/*sp->stats.tx_deferred += le32_to_cpu(sp->lstats->tx_deferred);*/
--		sp->stats.collisions += le32_to_cpu(sp->lstats->tx_total_colls);
--		sp->stats.rx_crc_errors += le32_to_cpu(sp->lstats->rx_crc_errs);
--		sp->stats.rx_frame_errors += le32_to_cpu(sp->lstats->rx_align_errs);
--		sp->stats.rx_over_errors += le32_to_cpu(sp->lstats->rx_resource_errs);
--		sp->stats.rx_fifo_errors += le32_to_cpu(sp->lstats->rx_overrun_errs);
--		sp->stats.rx_length_errors += le32_to_cpu(sp->lstats->rx_runt_errs);
--		sp->lstats->done_marker = 0x0000;
--		if (netif_running(dev)) {
--			unsigned long flags;
--			/* Take a spinlock to make wait_for_cmd_done and sending the
--			   command atomic.  --SAW */
--			spin_lock_irqsave(&sp->lock, flags);
--			wait_for_cmd_done(dev, sp);
--			iowrite8(CUDumpStats, ioaddr + SCBCmd);
--			spin_unlock_irqrestore(&sp->lock, flags);
--		}
--	}
--	return &sp->stats;
--}
--
--static void speedo_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	strncpy(info->driver, "eepro100", sizeof(info->driver)-1);
--	strncpy(info->version, version, sizeof(info->version)-1);
--	if (sp->pdev)
--		strcpy(info->bus_info, pci_name(sp->pdev));
--}
--
--static int speedo_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	spin_lock_irq(&sp->lock);
--	mii_ethtool_gset(&sp->mii_if, ecmd);
--	spin_unlock_irq(&sp->lock);
--	return 0;
--}
--
--static int speedo_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	int res;
--	spin_lock_irq(&sp->lock);
--	res = mii_ethtool_sset(&sp->mii_if, ecmd);
--	spin_unlock_irq(&sp->lock);
--	return res;
--}
--
--static int speedo_nway_reset(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	return mii_nway_restart(&sp->mii_if);
--}
--
--static u32 speedo_get_link(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	return mii_link_ok(&sp->mii_if);
--}
--
--static u32 speedo_get_msglevel(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	return sp->msg_enable;
--}
--
--static void speedo_set_msglevel(struct net_device *dev, u32 v)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	sp->msg_enable = v;
--}
--
--static const struct ethtool_ops ethtool_ops = {
--	.get_drvinfo = speedo_get_drvinfo,
--	.get_settings = speedo_get_settings,
--	.set_settings = speedo_set_settings,
--	.nway_reset = speedo_nway_reset,
--	.get_link = speedo_get_link,
--	.get_msglevel = speedo_get_msglevel,
--	.set_msglevel = speedo_set_msglevel,
--};
--
--static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	struct mii_ioctl_data *data = if_mii(rq);
--	int phy = sp->phy[0] & 0x1f;
--	int saved_acpi;
--	int t;
--
--    switch(cmd) {
--	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
--		data->phy_id = phy;
--
--	case SIOCGMIIREG:		/* Read MII PHY register. */
--		/* FIXME: these operations need to be serialized with MDIO
--		   access from the timeout handler.
--		   They are currently serialized only with MDIO access from the
--		   timer routine.  2000/05/09 SAW */
--		saved_acpi = pci_set_power_state(sp->pdev, PCI_D0);
--		t = del_timer_sync(&sp->timer);
--		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
--		if (t)
--			add_timer(&sp->timer); /* may be set to the past  --SAW */
--		pci_set_power_state(sp->pdev, saved_acpi);
--		return 0;
--
--	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--		saved_acpi = pci_set_power_state(sp->pdev, PCI_D0);
--		t = del_timer_sync(&sp->timer);
--		mdio_write(dev, data->phy_id, data->reg_num, data->val_in);
--		if (t)
--			add_timer(&sp->timer); /* may be set to the past  --SAW */
--		pci_set_power_state(sp->pdev, saved_acpi);
--		return 0;
--	default:
--		return -EOPNOTSUPP;
--	}
--}
--
--/* Set or clear the multicast filter for this adaptor.
--   This is very ugly with Intel chips -- we usually have to execute an
--   entire configuration command, plus process a multicast command.
--   This is complicated.  We must put a large configuration command and
--   an arbitrarily-sized multicast command in the transmit list.
--   To minimize the disruption -- the previous command might have already
--   loaded the link -- we convert the current command block, normally a Tx
--   command, into a no-op and link it to the new command.
--*/
--static void set_rx_mode(struct net_device *dev)
--{
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	struct descriptor *last_cmd;
--	char new_rx_mode;
--	unsigned long flags;
--	int entry, i;
--
--	if (dev->flags & IFF_PROMISC) {			/* Set promiscuous. */
--		new_rx_mode = 3;
--	} else if ((dev->flags & IFF_ALLMULTI)  ||
--			   dev->mc_count > multicast_filter_limit) {
--		new_rx_mode = 1;
--	} else
--		new_rx_mode = 0;
--
--	if (netif_msg_rx_status(sp))
--		printk(KERN_DEBUG "%s: set_rx_mode %d -> %d\n", dev->name,
--				sp->rx_mode, new_rx_mode);
--
--	if ((int)(sp->cur_tx - sp->dirty_tx) > TX_RING_SIZE - TX_MULTICAST_SIZE) {
--	    /* The Tx ring is full -- don't add anything!  Hope the mode will be
--		 * set again later. */
--		sp->rx_mode = -1;
--		return;
--	}
--
--	if (new_rx_mode != sp->rx_mode) {
--		u8 *config_cmd_data;
--
--		spin_lock_irqsave(&sp->lock, flags);
--		entry = sp->cur_tx++ % TX_RING_SIZE;
--		last_cmd = sp->last_cmd;
--		sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
--
--		sp->tx_skbuff[entry] = NULL;			/* Redundant. */
--		sp->tx_ring[entry].status = cpu_to_le32(CmdSuspend | CmdConfigure);
--		sp->tx_ring[entry].link =
--			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
--		config_cmd_data = (void *)&sp->tx_ring[entry].tx_desc_addr;
--		/* Construct a full CmdConfig frame. */
--		memcpy(config_cmd_data, i82558_config_cmd, CONFIG_DATA_SIZE);
--		config_cmd_data[1] = (txfifo << 4) | rxfifo;
--		config_cmd_data[4] = rxdmacount;
--		config_cmd_data[5] = txdmacount + 0x80;
--		config_cmd_data[15] |= (new_rx_mode & 2) ? 1 : 0;
--		/* 0x80 doesn't disable FC 0x84 does.
--		   Disable Flow control since we are not ACK-ing any FC interrupts
--		   for now. --Dragan */
--		config_cmd_data[19] = 0x84;
--		config_cmd_data[19] |= sp->mii_if.full_duplex ? 0x40 : 0;
--		config_cmd_data[21] = (new_rx_mode & 1) ? 0x0D : 0x05;
--		if (sp->phy[0] & 0x8000) {			/* Use the AUI port instead. */
--			config_cmd_data[15] |= 0x80;
--			config_cmd_data[8] = 0;
--		}
--		/* Trigger the command unit resume. */
--		wait_for_cmd_done(dev, sp);
--		clear_suspend(last_cmd);
--		iowrite8(CUResume, ioaddr + SCBCmd);
--		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
--			netif_stop_queue(dev);
--			sp->tx_full = 1;
--		}
--		spin_unlock_irqrestore(&sp->lock, flags);
--	}
--
--	if (new_rx_mode == 0  &&  dev->mc_count < 4) {
--		/* The simple case of 0-3 multicast list entries occurs often, and
--		   fits within one tx_ring[] entry. */
--		struct dev_mc_list *mclist;
--		__le16 *setup_params, *eaddrs;
--
--		spin_lock_irqsave(&sp->lock, flags);
--		entry = sp->cur_tx++ % TX_RING_SIZE;
--		last_cmd = sp->last_cmd;
--		sp->last_cmd = (struct descriptor *)&sp->tx_ring[entry];
--
--		sp->tx_skbuff[entry] = NULL;
--		sp->tx_ring[entry].status = cpu_to_le32(CmdSuspend | CmdMulticastList);
--		sp->tx_ring[entry].link =
--			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
--		sp->tx_ring[entry].tx_desc_addr = 0; /* Really MC list count. */
--		setup_params = (__le16 *)&sp->tx_ring[entry].tx_desc_addr;
--		*setup_params++ = cpu_to_le16(dev->mc_count*6);
--		/* Fill in the multicast addresses. */
--		for (i = 0, mclist = dev->mc_list; i < dev->mc_count;
--			 i++, mclist = mclist->next) {
--			eaddrs = (__le16 *)mclist->dmi_addr;
--			*setup_params++ = *eaddrs++;
--			*setup_params++ = *eaddrs++;
--			*setup_params++ = *eaddrs++;
--		}
--
--		wait_for_cmd_done(dev, sp);
--		clear_suspend(last_cmd);
--		/* Immediately trigger the command unit resume. */
--		iowrite8(CUResume, ioaddr + SCBCmd);
--
--		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
--			netif_stop_queue(dev);
--			sp->tx_full = 1;
--		}
--		spin_unlock_irqrestore(&sp->lock, flags);
--	} else if (new_rx_mode == 0) {
--		struct dev_mc_list *mclist;
--		__le16 *setup_params, *eaddrs;
--		struct speedo_mc_block *mc_blk;
--		struct descriptor *mc_setup_frm;
--		int i;
--
--		mc_blk = kmalloc(sizeof(*mc_blk) + 2 + multicast_filter_limit*6,
--						 GFP_ATOMIC);
--		if (mc_blk == NULL) {
--			printk(KERN_ERR "%s: Failed to allocate a setup frame.\n",
--				   dev->name);
--			sp->rx_mode = -1; /* We failed, try again. */
--			return;
--		}
--		mc_blk->next = NULL;
--		mc_blk->len = 2 + multicast_filter_limit*6;
--		mc_blk->frame_dma =
--			pci_map_single(sp->pdev, &mc_blk->frame, mc_blk->len,
--					PCI_DMA_TODEVICE);
--		mc_setup_frm = &mc_blk->frame;
--
--		/* Fill the setup frame. */
--		if (netif_msg_ifup(sp))
--			printk(KERN_DEBUG "%s: Constructing a setup frame at %p.\n",
--				   dev->name, mc_setup_frm);
--		mc_setup_frm->cmd_status =
--			cpu_to_le32(CmdSuspend | CmdIntr | CmdMulticastList);
--		/* Link set below. */
--		setup_params = (__le16 *)&mc_setup_frm->params;
--		*setup_params++ = cpu_to_le16(dev->mc_count*6);
--		/* Fill in the multicast addresses. */
--		for (i = 0, mclist = dev->mc_list; i < dev->mc_count;
--			 i++, mclist = mclist->next) {
--			eaddrs = (__le16 *)mclist->dmi_addr;
--			*setup_params++ = *eaddrs++;
--			*setup_params++ = *eaddrs++;
--			*setup_params++ = *eaddrs++;
--		}
--
--		/* Disable interrupts while playing with the Tx Cmd list. */
--		spin_lock_irqsave(&sp->lock, flags);
--
--		if (sp->mc_setup_tail)
--			sp->mc_setup_tail->next = mc_blk;
--		else
--			sp->mc_setup_head = mc_blk;
--		sp->mc_setup_tail = mc_blk;
--		mc_blk->tx = sp->cur_tx;
--
--		entry = sp->cur_tx++ % TX_RING_SIZE;
--		last_cmd = sp->last_cmd;
--		sp->last_cmd = mc_setup_frm;
--
--		/* Change the command to a NoOp, pointing to the CmdMulti command. */
--		sp->tx_skbuff[entry] = NULL;
--		sp->tx_ring[entry].status = cpu_to_le32(CmdNOp);
--		sp->tx_ring[entry].link = cpu_to_le32(mc_blk->frame_dma);
--
--		/* Set the link in the setup frame. */
--		mc_setup_frm->link =
--			cpu_to_le32(TX_RING_ELEM_DMA(sp, (entry + 1) % TX_RING_SIZE));
--
--		pci_dma_sync_single_for_device(sp->pdev, mc_blk->frame_dma,
--									   mc_blk->len, PCI_DMA_TODEVICE);
--
--		wait_for_cmd_done(dev, sp);
--		clear_suspend(last_cmd);
--		/* Immediately trigger the command unit resume. */
--		iowrite8(CUResume, ioaddr + SCBCmd);
--
--		if ((int)(sp->cur_tx - sp->dirty_tx) >= TX_QUEUE_LIMIT) {
--			netif_stop_queue(dev);
--			sp->tx_full = 1;
--		}
--		spin_unlock_irqrestore(&sp->lock, flags);
--
--		if (netif_msg_rx_status(sp))
--			printk(" CmdMCSetup frame length %d in entry %d.\n",
--				   dev->mc_count, entry);
--	}
--
--	sp->rx_mode = new_rx_mode;
--}
--
--#ifdef CONFIG_PM
--static int eepro100_suspend(struct pci_dev *pdev, pm_message_t state)
--{
--	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--
--	pci_save_state(pdev);
--
--	if (!netif_running(dev))
--		return 0;
--
--	del_timer_sync(&sp->timer);
--
--	netif_device_detach(dev);
--	iowrite32(PortPartialReset, ioaddr + SCBPort);
--
--	/* XXX call pci_set_power_state ()? */
--	pci_disable_device(pdev);
--	pci_set_power_state (pdev, PCI_D3hot);
--	return 0;
--}
--
--static int eepro100_resume(struct pci_dev *pdev)
--{
--	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = netdev_priv(dev);
--	void __iomem *ioaddr = sp->regs;
--	int rc;
--
--	pci_set_power_state(pdev, PCI_D0);
--	pci_restore_state(pdev);
--
--	rc = pci_enable_device(pdev);
--	if (rc)
--		return rc;
--
--	pci_set_master(pdev);
--
--	if (!netif_running(dev))
--		return 0;
--
--	/* I'm absolutely uncertain if this part of code may work.
--	   The problems are:
--	    - correct hardware reinitialization;
--		- correct driver behavior between different steps of the
--		  reinitialization;
--		- serialization with other driver calls.
--	   2000/03/08  SAW */
--	iowrite16(SCBMaskAll, ioaddr + SCBCmd);
--	speedo_resume(dev);
--	netif_device_attach(dev);
--	sp->rx_mode = -1;
--	sp->flow_ctrl = sp->partner = 0;
--	set_rx_mode(dev);
--	sp->timer.expires = RUN_AT(2*HZ);
--	add_timer(&sp->timer);
--	return 0;
--}
--#endif /* CONFIG_PM */
--
--static void __devexit eepro100_remove_one (struct pci_dev *pdev)
--{
--	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = netdev_priv(dev);
--
--	unregister_netdev(dev);
--
--	release_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1));
--	release_mem_region(pci_resource_start(pdev, 0), pci_resource_len(pdev, 0));
--
--	pci_iounmap(pdev, sp->regs);
--	pci_free_consistent(pdev, TX_RING_SIZE * sizeof(struct TxFD)
--								+ sizeof(struct speedo_stats),
--						sp->tx_ring, sp->tx_ring_dma);
--	pci_disable_device(pdev);
--	free_netdev(dev);
--}
--
--static struct pci_device_id eepro100_pci_tbl[] = {
--	{ PCI_VENDOR_ID_INTEL, 0x1229, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1209, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1029, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1030, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1031, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1032, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1033, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1034, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1035, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1036, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1037, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1038, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1039, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x103A, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x103B, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x103C, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x103D, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x103E, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1050, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1059, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x2459, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x245D, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x5200, PCI_ANY_ID, PCI_ANY_ID, },
--	{ PCI_VENDOR_ID_INTEL, 0x5201, PCI_ANY_ID, PCI_ANY_ID, },
--	{ 0,}
--};
--MODULE_DEVICE_TABLE(pci, eepro100_pci_tbl);
--
--static struct pci_driver eepro100_driver = {
--	.name		= "eepro100",
--	.id_table	= eepro100_pci_tbl,
--	.probe		= eepro100_init_one,
--	.remove		= __devexit_p(eepro100_remove_one),
--#ifdef CONFIG_PM
--	.suspend	= eepro100_suspend,
--	.resume		= eepro100_resume,
--#endif /* CONFIG_PM */
--};
--
--static int __init eepro100_init_module(void)
--{
--#ifdef MODULE
--	printk(version);
--#endif
--	return pci_register_driver(&eepro100_driver);
--}
--
--static void __exit eepro100_cleanup_module(void)
--{
--	pci_unregister_driver(&eepro100_driver);
--}
--
--module_init(eepro100_init_module);
--module_exit(eepro100_cleanup_module);
--
--/*
-- * Local variables:
-- *  compile-command: "gcc -DMODULE -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -c eepro100.c `[ -f /usr/include/linux/modversions.h ] && echo -DMODVERSIONS`"
-- *  c-indent-level: 4
-- *  c-basic-offset: 4
-- *  tab-width: 4
-- * End:
-- */
+ /* phy types */
+ #define   CAS_PHY_UNKNOWN       0x00
+ #define   CAS_PHY_SERDES        0x01
+@@ -4389,6 +2872,11 @@ struct cas {
+ 	dma_addr_t block_dvma, tx_tiny_dvma[N_TX_RINGS];
+ 	struct pci_dev *pdev;
+ 	struct net_device *dev;
++
++	/* Firmware Info */
++	u16			fw_load_addr;
++	u32			fw_size;
++	u8			*fw_data;
+ };
+ 
+ #define TX_DESC_NEXT(r, x)  (((x) + 1) & (TX_DESC_RINGN_SIZE(r) - 1))
+diff -puN firmware/Makefile~cassini-use-request_firmware firmware/Makefile
+--- a/firmware/Makefile~cassini-use-request_firmware
++++ a/firmware/Makefile
+@@ -31,6 +31,7 @@ fw-shipped-$(CONFIG_ADAPTEC_STARFIRE) +=
+ 					 adaptec/starfire_tx.bin
+ fw-shipped-$(CONFIG_ATARI_DSP56K) += dsp56k/bootstrap.bin
+ fw-shipped-$(CONFIG_ATM_AMBASSADOR) += atmsar11.fw
++fw-shipped-$(CONFIG_CASSINI) += sun/cassini.bin
+ fw-shipped-$(CONFIG_COMPUTONE) += intelliport2.bin
+ fw-shipped-$(CONFIG_DVB_AV7110) += av7110/bootcode.bin
+ fw-shipped-$(CONFIG_DVB_TTUSB_BUDGET) += ttusb-budget/dspbootcode.bin
+diff -puN firmware/WHENCE~cassini-use-request_firmware firmware/WHENCE
+--- a/firmware/WHENCE~cassini-use-request_firmware
++++ a/firmware/WHENCE
+@@ -448,3 +448,13 @@ Found in hex form in kernel source, with
+  ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM.
+ 
+ --------------------------------------------------------------------------
++
++Driver: CASSINI - Sun Cassini
++
++File: sun/cassini.bin
++
++Licence: Unknown
++
++Found in hex form in kernel source.
++
++--------------------------------------------------------------------------
+diff -puN /dev/null firmware/sun/cassini.bin.ihex
+--- /dev/null
++++ a/firmware/sun/cassini.bin.ihex
+@@ -0,0 +1,143 @@
++:1000000000827E82090000000000008E8EFFCE82FA
++:1000100025FF010FCE8426FF0111CE853DDFE58649
++:1000200039B78FF87EC3C2964784F38A009747CECC
++:100030008233FF010F9646840C8104270B96468479
++:100040000C810827577E8425964784F38A049747B6
++:10005000CE8254FF010F9646840C81042638B612D6
++:1000600020842026037E8425967BD67CFE8F56BD79
++:10007000F7B6FE8F4EBDEC8EBDFAF7BDF728CE82E7
++:1000800082FF010F9646840C8104260AB612208452
++:100090002027B57E8425BDF71F7E841F964784F3F5
++:1000A0008A089747DEE1AD00CE82AFFF010F7E8464
++:1000B00025964185102606962385402706BDED002E
++:1000C0007E83A2DE42BDEB8E9624840827037E83C6
++:1000D000DF967BD67CFE8F56BDF7B6FE8F50BDEC0B
++:1000E0008EBDFAF78611C649BDE412CE82EFFF013C
++:1000F0000F9646840C81002717C649BDE491240D54
++:10010000B612208520260CCE82C1FF010F7E8425E9
++:100110007E8416FE8F52BDEC8EBDFAF7866AC64904
++:10012000BDE412CE8327FF010F9646840C81002781
++:100130000AC649BDE49125067E84257E8416B6183C
++:1001400070BB19702A0481AF2E19967BF62007FA2E
++:100150002027C4388138270BF62007FA2027CB0840
++:100160007E82D3BDF7668674C649BDE412CE837124
++:10017000FF010F9646840C8108260AC649BDE4910A
++:1001800025067E84257E8416BDF73E260EBDE50934
++:100190002606CE82C1FF010F7E8425FE8F54BDEC62
++:1001A0008EBDFAF7BDF733860FC651BDE412CE837C
++:1001B000B2FF010F9646840C8108265CB61220849B
++:1001C0003F813A271C9623854027037E8425C6510C
++:1001D000BDE49125037E8425CE82C1FF010F7E847C
++:1001E00025BDF8377C007ACE83EEFF010F7E842593
++:1001F0009646840C81082620962484082629B61861
++:1002000082BB1982B1013B2209B6122084378132A8
++:100210002715BDF8447E82C1BDF71FBDF844BDFC63
++:1002200029CE8225FF010F39964784FC8A00974723
++:10023000CE8434FF011196468403810227037E8514
++:100240001E964784FC8A029747DEE1AD008601B71F
++:100250001251BDF714B6103184FDB71031BDF81E30
++:100260009681D682FE8F5ABDF7B6FE8F5CBDEC8EAE
++:10027000BDFAF78608D600C51026028B20C651BDF0
++:10028000E412CE8486FF011196468403810227037F
++:100290007E850FC651BDE49125037E851E9644855B
++:1002A00010260AB61250BA013C851027A8BDF76681
++:1002B000CE84B7FF01117E851E96468403810226F7
++:1002C00050B612308403810127037E851E96448533
++:1002D000102613B61250BA013C85102609CE84535D
++:1002E000FF01117E851EB610318A02B71031BD851F
++:1002F0001FBDF8377C0080CE84FEFF01117E851E75
++:100300009646840381022609B612308403810127B0
++:100310000FBDF844BDF70BBDFC29CE8426FF0111AB
++:1003200039D622C40FB61230BA12328404270D9681
++:100330002285042705CA107E853ACA20D72239862D
++:1003400000978318CE1C00BDEB4696578501270207
++:100350004F3985022701397F8F7D8604B7120486C5
++:1003600008B712078610B7120C8607B71206B68FA9
++:100370007DB712708601BA1204B71204010101019F
++:100380000101B6120484FE8A02B7120401010101C0
++:10039000010186FDB41204B71204B612008408816C
++:1003A000082716B68F7D810C27088B04B78F7D7EBA
++:1003B000856C860397407E896E8607B712065FF7C5
++:1003C0008F825FF78F7FF78F70F78F71F78F72F7DC
++:1003D0008F73F78F74F78F75F78F76F78F77F78FA7
++:1003E00078F78F79F78F7AF78F7BB612048A10B778
++:1003F000120486E4B71270B71207F71205F7120954
++:100400008608BA1204B7120486F7B41204B71204AD
++:10041000010101010101B61208277F8180260B86A8
++:1004200008CE8F79BD897B7E868E8140260B86041F
++:10043000CE8F76BD897B7E868E8120260B8602CE6E
++:100440008F73BD897B7E868E8110260B8601CE8FB1
++:1004500070BD897B7E868E8108260B8608CE8F79BB
++:10046000BD897F7E868E8104260B8604CE8F76BD65
++:10047000897F7E868E8102260B8A02CE8F73BD898C
++:100480007F7E868E810126088601CE8F70BD897F92
++:10049000B68F7F810F26037E8747B61209840381BA
++:1004A0000327067C12097E85FEB6120684078107A3
++:1004B00027088B01B712067E86D5B68F82260A7C66
++:1004C0008F824FB712067E85C0B61206843F813FE9
++:1004D00027108B08B71206B6120984FCB712097EE2
++:1004E00085FECE8F7018CE8F84C60CBD896FCE8FDF
++:1004F0008418CE8F70C60CBD896FD683C14F2D0373
++:100500007E8740B68F7F8107270F810B2715810DCE
++:10051000271B810E27217E8740F78F7B8602B78FAE
++:100520007A201CF78F788602B78F772012F78F75A5
++:100530008602B78F742008F78F728602B78F717E9C
++:100540008747860497407E896ECE8F72BD89F7CE2D
++:100550008F75BD89F7CE8F78BD89F7CE8F7BBD892A
++:10056000F74FB78F7DB78F81B68F7227477C8F7D0E
++:10057000B68F75273F7C8F7DB68F7827377C8F7D30
++:10058000B68F7B272F7F8F7D7C8F817A8F72271B81
++:100590007C8F7D7A8F7527167C8F7D7A8F782711D7
++:1005A0007C8F7D7A8F7B270C7E87837A8F757A8FFD
++:1005B000787A8F7BCEC1FCF68F7D3AA600B7127099
++:1005C000B68F7226037E87FAB68F75260A18CE8FED
++:1005D00073BD89D57E87FAB68F78260A18CE8F76B6
++:1005E000BD89D57E87FAB68F7B260A18CE8F79BD56
++:1005F00089D57E87FA860597407E8900B68F7581FA
++:10060000072EF2F61206C4F81BB71206B68F7881D1
++:10061000072EE2484848F61206C4C71BB71206B6B2
++:100620008F7B81072ECFF61205C4F81BB712058603
++:1006300000F68F71BD89948601F68F74BD8994860A
++:1006400002F68F77BD89948603F68F7ABD8994CEA2
++:100650008F70A60181012707810327037E8866A684
++:1006600000B88F818401260B8C8F792C0E08080826
++:100670007E8850B612048A40B71204B6120484FB76
++:1006800084EFB71204B6120736B68F7C4848B7120B
++:10069000078601BA1204B7120401010101010186A3
++:1006A000FEB41204B712048602BA1204B71204860A
++:1006B000FDB41204B7120432B71207B61200840850
++:1006C0008108270F7C82082607867697407E896EF0
++:1006D0007E86ECB68F7F810F273CBDE6C7B7120D33
++:1006E000BDE6CBB612048A20B71204CEFFFFB612C5
++:1006F00000810C26050926F6271CB6120484DFB7F4
++:100700001204968381072C057C0083200696838B38
++:100710000897837E85417F8F7E8680B7120C860185
++:10072000B78F7DB6120C847FB7120C8A80B7120C7B
++:10073000860ABD8A06B6120A2A09B6120CBA8F7D3D
++:10074000B7120CB68F7E8160271A8B20B78F7EB6CA
++:10075000120C849FBA8F7EB7120CB68F7D48B78F6C
++:100760007D7E8921B612048A20B71204BD8A0A4F01
++:1007700039A60018A7000818085A26F539366C0063
++:1007800032BA8F7FB78F7FB612098403A701B612E2
++:1007900006843FA70239368603B78F8032C1002610
++:1007A00006B78F7C7E89C9C1012718C102270CC1F9
++:1007B000032700F68F800505F78F80F68F800505EB
++:1007C000F78F80F68F800505F78F80F68F8053F4C2
++:1007D00012071BB7120739CE8F70A60018E6001853
++:1007E000A700E700A60118E60118A701E701A60285
++:1007F00018E60218A702E70239A6008407E600C43B
++:10080000385454541BA700394A26FD399622840FC8
++:1008100097228601B78F70B61207B78F71F6120C48
++:10082000C40FC80FF78F72F68F72B68F71840327CB
++:10083000148101271C81022724F48F70272A962215
++:100840008A807E8A64F48F70271E96228A107E8AA0
++:1008500064F48F70271296228A207E8A64F48F7047
++:10086000270696228A409722748F71748F71788F31
++:1008700070B68F70851027AFD622C41058B612708C
++:1008800081E4273681E1260C96228420441BD6225F
++:10089000C4CF20235881C6260D9622844044441B91
++:1008A000D622C4AF2011588127260F962284804477
++:1008B00044441BD622C46F1B972239270C7C820626
++:0D08C000BDD9EDB682077E8AB97F82063968
++:00000001FF
++/* firmware patch for NS_DP83065 */
 _
