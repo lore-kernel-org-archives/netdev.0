@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [Patch RFC 05/10 v2] mlx4_en: en_port
-Date: Wed, 20 Aug 2008 16:00:36 +0300
-Message-ID: <48AC1574.7070500@mellanox.co.il>
+Subject: [Patch RFC 06/10 v2] mlx4_en: en_tx
+Date: Wed, 20 Aug 2008 16:00:46 +0300
+Message-ID: <48AC157E.1060906@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -9,35 +9,33 @@ Cc: netdev@vger.kernel.org, Liran Liss <liranl@mellanox.co.il>,
 	tziporet@mellanox.co.il, Roland Dreier <rdreier@cisco.com>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:49087 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:49122 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754166AbYHTNBh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Aug 2008 09:01:37 -0400
+	id S1754240AbYHTNBr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2008 09:01:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 18 Aug 2008 11:35:27 +0300
-Subject: [PATCH] mlx4_en: en_port
+Date: Mon, 18 Aug 2008 11:36:48 +0300
+Subject: [PATCH] mlx4_en: en_tx
 
-These files implement port commands: Firmware commands ment to
-set port configuration or query for its state.
+This file implements the tx flow, allocation and destruction
+of tx rings.
 
 Signed-off-by: Liran Liss <liranl@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_port.c |  235 ++++++++++++++++++
- drivers/net/mlx4/en_port.h |  586 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 821 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/mlx4/en_port.c
- create mode 100644 drivers/net/mlx4/en_port.h
+ drivers/net/mlx4/en_tx.c |  741 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 741 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/mlx4/en_tx.c
 
-diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
 new file mode 100644
-index 0000000..b55e3a0
+index 0000000..3e8322b
 --- /dev/null
-+++ b/drivers/net/mlx4/en_port.c
-@@ -0,0 +1,235 @@
++++ b/drivers/net/mlx4/en_tx.c
+@@ -0,0 +1,741 @@
 +/*
 + * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
 + *
@@ -71,800 +69,714 @@ index 0000000..b55e3a0
 + *
 + */
 +
-+
++#include <linux/mlx4/cq.h>
++#include <linux/mlx4/qp.h>
++#include <linux/skbuff.h>
 +#include <linux/if_vlan.h>
++#include <linux/vmalloc.h>
 +
-+#include <linux/mlx4/device.h>
-+#include <linux/mlx4/cmd.h>
-+
-+#include "en_port.h"
 +#include "mlx4_en.h"
 +
-+
-+int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port,
-+			u64 mac, u64 clear, u8 mode)
++int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
++			   struct mlx4_en_tx_ring *ring, u32 size,
++			   u16 stride)
 +{
-+	return mlx4_cmd(dev, (mac | (clear << 63)), port, mode,
-+			MLX4_CMD_SET_MCAST_FLTR, MLX4_CMD_TIME_CLASS_B);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	int tmp;
++	int err;
++
++	ring->size = size;
++	ring->size_mask = size - 1;
++	ring->stride = stride;
++
++	tmp = size * sizeof(struct mlx4_en_tx_info);
++	ring->tx_info = vmalloc(tmp);
++	if (!ring->tx_info) {
++		mlx4_err(mdev, "Failed allocating tx_info ring\n");
++		return -ENOMEM;
++	}
++	mlx4_dbg(mdev, "Allocated tx_info ring at addr:%p size:%d\n",
++		 ring->tx_info, tmp);
++
++	ring->bounce_buf = kmalloc(MAX_DESC_SIZE, GFP_KERNEL);
++	if (!ring->bounce_buf) {
++		mlx4_err(mdev, "Failed allocating bounce buffer\n");
++		err = -ENOMEM;
++		goto err_tx;
++	}
++	ring->buf_size = ALIGN(size * ring->stride, MLX4_EN_PAGE_SIZE);
++
++	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size,
++				 ring->buf_size);
++	if (err)
++		goto err_bounce;
++
++	ring->buf = ring->wqres.buf.direct.buf;
++
++	mlx4_dbg(mdev, "Allocated TX ring (addr:%p) - buf:%p size:%d "
++		 "buf_size:%d dma:%llx\n", ring, ring->buf, ring->size,
++		 ring->buf_size, ring->wqres.buf.u.direct.map);
++
++	err = mlx4_qp_reserve_range(mdev->dev, 1, 1, &ring->qpn);
++	if (err) {
++		mlx4_err(mdev, "Failed reserving qp for tx ring.\n");
++		goto err_hwq_res;
++	}
++
++	err = mlx4_qp_alloc(mdev->dev, ring->qpn, &ring->qp);
++	if (err) {
++		mlx4_err(mdev, "Failed allocating qp %d\n", ring->qpn);
++		goto err_reserve;
++	}
++
++	return 0;
++
++err_reserve:
++	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
++err_hwq_res:
++	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
++err_bounce:
++	kfree(ring->bounce_buf);
++	ring->bounce_buf = NULL;
++err_tx:
++	vfree(ring->tx_info);
++	ring->tx_info = NULL;
++	return err;
 +}
 +
-+int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
++void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
++			     struct mlx4_en_tx_ring *ring)
 +{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_set_vlan_fltr_mbox *filter;
++	struct mlx4_en_dev *mdev = priv->mdev;
++	mlx4_dbg(mdev, "Destroying tx ring, qpn: %d\n", ring->qpn);
++
++	mlx4_qp_remove(mdev->dev, &ring->qp);
++	mlx4_qp_free(mdev->dev, &ring->qp);
++	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
++	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
++	kfree(ring->bounce_buf);
++	ring->bounce_buf = NULL;
++	vfree(ring->tx_info);
++	ring->tx_info = NULL;
++}
++
++int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
++			     struct mlx4_en_tx_ring *ring,
++			     int cq, int srqn)
++{
++	struct mlx4_en_dev *mdev = priv->mdev;
++	int err;
++
++	ring->cqn = cq;
++	ring->prod = 0;
++	ring->cons = 0xffffffff;
++	ring->last_nr_txbb = 1;
++	ring->poll_cnt = 0;
++	ring->blocked = 0;
++	memset(ring->tx_info, 0, ring->size * sizeof(struct mlx4_en_tx_info));
++	memset(ring->buf, 0, ring->buf_size);
++
++	ring->qp_state = MLX4_QP_STATE_RST;
++	ring->doorbell_qpn = swab32(ring->qp.qpn << 8);
++
++	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
++				ring->cqn, srqn, &ring->context);
++
++	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
++			       &ring->qp, &ring->qp_state);
++
++	return err;
++}
++
++void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
++				struct mlx4_en_tx_ring *ring)
++{
++	struct mlx4_en_dev *mdev = priv->mdev;
++
++	mlx4_qp_modify(mdev->dev, NULL, ring->qp_state,
++		       MLX4_QP_STATE_RST, NULL, 0, 0, &ring->qp);
++}
++
++
++static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
++				struct mlx4_en_tx_ring *ring,
++				int index, u8 owner)
++{
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
++	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
++	struct mlx4_wqe_data_seg *data = (void *) tx_desc + tx_info->data_offset;
++	struct sk_buff *skb = tx_info->skb;
++	struct skb_frag_struct *frag;
++	void *end = ring->buf + ring->buf_size;
++	int frags = tx_info->frags;
 +	int i;
-+	int j;
-+	int index = 0;
-+	u32 entry;
-+	int err = 0;
++	u32 *ptr = (u32 *) tx_desc;
++	__be32 stamp = cpu_to_be32(STAMP_VAL | (!!owner << STAMP_SHIFT));
 +
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
++	mlx4_dbg(mdev, "Processing desc with linear:%d frags:%d\n",
++		  tx_info->linear, frags);
 +
-+	filter = mailbox->buf;
-+	if (grp) {
-+		memset(filter, 0, sizeof *filter);
-+		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+			entry = 0;
-+			for (j = 0; j < 32; j++)
-+				if (vlan_group_get_device(grp, index++))
-+					entry |= 1 << j;
-+			filter->entry[i] = cpu_to_be32(entry);
++	/* Optimize the common case when there are no wraparounds */
++	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
++		if (tx_info->linear) {
++			mlx4_dbg(mdev, "Unmapping Tx linear area, "
++				       "DMA:%llx size:%x\n",
++				 (dma_addr_t) be64_to_cpu(data->addr),
++				 be32_to_cpu(data->byte_count));
++			pci_unmap_single(mdev->pdev,
++					 (dma_addr_t) be64_to_cpu(data->addr),
++					 be32_to_cpu(data->byte_count),
++					 PCI_DMA_TODEVICE);
++			++data;
++		}
++
++		for (i = 0; i < frags; i++) {
++			frag = &skb_shinfo(skb)->frags[i];
++			mlx4_dbg(mdev, "Unmapping Tx fragment at "
++				       "DMA:0x%llx size:0x%x\n",
++				 (dma_addr_t) be64_to_cpu(data[i].addr),
++				 frag->size);
++			pci_unmap_page(mdev->pdev,
++				       (dma_addr_t) be64_to_cpu(data[i].addr),
++				       frag->size, PCI_DMA_TODEVICE);
++		}
++		/* Stamp the freed descriptor */
++		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
++			*ptr = stamp;
++			ptr += STAMP_DWORDS;
++		}
++
++	} else {
++		if ((void *) data >= end) {
++			data = (struct mlx4_wqe_data_seg *)
++					(ring->buf + ((void *) data - end));
++		}
++
++		if (tx_info->linear) {
++			mlx4_dbg(mdev, "Unmapping Tx linear area -"
++				       " DMA:%llx size:%x\n",
++				  (dma_addr_t) be64_to_cpu(data->addr),
++				  be32_to_cpu(data->byte_count));
++			pci_unmap_single(mdev->pdev,
++					 (dma_addr_t) be64_to_cpu(data->addr),
++					 be32_to_cpu(data->byte_count),
++					 PCI_DMA_TODEVICE);
++			++data;
++		}
++
++		for (i = 0; i < frags; i++) {
++			/* Check for wraparound before unmapping */
++			if ((void *) data >= end)
++				data = (struct mlx4_wqe_data_seg *) ring->buf;
++			frag = &skb_shinfo(skb)->frags[i];
++			mlx4_dbg(mdev, "Unmapping Tx fragment at "
++				       "DMA:0x%llx size:0x%x\n",
++				 (dma_addr_t) be64_to_cpu(data->addr), frag->size);
++			pci_unmap_page(mdev->pdev,
++					(dma_addr_t) be64_to_cpu(data->addr),
++					 frag->size, PCI_DMA_TODEVICE);
++		}
++		/* Stamp the freed descriptor */
++		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
++			*ptr = stamp;
++			ptr += STAMP_DWORDS;
++			if ((void *) ptr >= end) {
++				ptr = ring->buf;
++				stamp ^= cpu_to_be32(0x80000000);
++			}
++		}
++
++	}
++	dev_kfree_skb_any(skb);
++	return tx_info->nr_txbb;
++}
++
++
++int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	int cnt = 0;
++
++	/* Skip last polled descriptor */
++	ring->cons += ring->last_nr_txbb;
++	mlx4_dbg(priv->mdev, "Freeing Tx buf - cons:0x%x prod:0x%x\n",
++		 ring->cons, ring->prod);
++
++	if ((u32) (ring->prod - ring->cons) > ring->size) {
++		mlx4_dbg(priv->mdev, "Tx consumer passed producer!\n");
++		return 0;
++	}
++
++	while (ring->cons != ring->prod) {
++		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
++						ring->cons & ring->size_mask,
++						!!(ring->cons & ring->size));
++		ring->cons += ring->last_nr_txbb;
++		cnt++;
++	}
++
++	if (cnt)
++		mlx4_warn(priv->mdev, "Freed %d uncompleted tx descriptors\n", cnt);
++
++	return cnt;
++}
++
++void mlx4_en_set_prio_map(struct mlx4_en_dev *mdev, u16 *prio_map, u32 ring_num)
++{
++	int block = 8 / ring_num;
++	int extra = 8 - (block * ring_num);
++	int num = 0;
++	u16 ring = 1;
++	int prio;
++
++	mlx4_dbg(mdev, "Assigning priorities for %d rings:\n", ring_num);
++
++	if (ring_num == 1) {
++		for (prio = 0; prio < 8; prio++)
++			prio_map[prio] = 0;
++		return;
++	}
++
++	for (prio = 0; prio < 8; prio++) {
++		if (extra && (num == block + 1)) {
++			ring++;
++			num = 0;
++			extra--;
++		} else if (!extra && (num == block)) {
++			ring++;
++			num = 0;
++		}
++		prio_map[prio] = ring;
++		mlx4_dbg(mdev, "  prio:%d --> ring:%d\n", prio, ring);
++		num++;
++	}
++}
++
++void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct mlx4_cq *mcq = &cq->mcq;
++	struct mlx4_en_tx_ring *ring = &priv->tx_ring[cq->ring];
++	struct mlx4_cqe *cqe = cq->buf;
++	u16 index;
++	u16 new_index;
++	u32 txbbs_skipped = 0;
++	u32 cq_last_sav;
++
++	/* index always points to the first TXBB of the last polled descriptor */
++	index = ring->cons & ring->size_mask;
++	new_index = be16_to_cpu(cqe->wqe_index) & ring->size_mask;
++	if (index == new_index)
++		return;
++
++	mlx4_dbg(mdev, "Starting to process Tx CQ for Tx ring:%d at index:%x "
++			"new_index:%x CPU:%d\n", cq->ring, index, new_index,
++			smp_processor_id());
++
++	if (!priv->port_up) {
++		mlx4_dbg(mdev, "tx cq processing attempted while port down\n");
++		return;
++	}
++
++	/*
++	 * We use a two-stage loop:
++	 * - the first samples the HW-updated CQE
++	 * - the second frees TXBBs until the last sample
++	 * This lets us amortize CQE cache misses, while still polling the CQ
++	 * until is quiescent.
++	 */
++	cq_last_sav = mcq->cons_index;
++	do {
++		do {
++			/* Skip over last polled CQE */
++			index = (index + ring->last_nr_txbb) & ring->size_mask;
++			txbbs_skipped += ring->last_nr_txbb;
++			mlx4_dbg(mdev, "Skipped %d TXBBs, new CQE to poll at "
++					"index:0x%x\n", txbbs_skipped, index);
++
++			/* Poll next CQE */
++			ring->last_nr_txbb = mlx4_en_free_tx_desc(
++						priv, ring, index,
++						!!((ring->cons + txbbs_skipped) &
++						   ring->size));
++			++mcq->cons_index;
++
++
++			mlx4_dbg(mdev, "Polled CQ consumed %d TXBBs, cq->last "
++					"incremented to:%d\n",
++					ring->last_nr_txbb, mcq->cons_index);
++
++		} while (index != new_index);
++
++		new_index = be16_to_cpu(cqe->wqe_index) & ring->size_mask;
++		mlx4_dbg(mdev, "Sampled new_index:%x\n", new_index);
++	} while (index != new_index);
++	AVG_PERF_COUNTER(priv->pstats.tx_coal_avg,
++			 (u32) (mcq->cons_index - cq_last_sav));
++
++	/*
++	 * To prevent CQ overflow we first update CQ consumer and only then
++	 * the ring consumer.
++	 */
++	mlx4_dbg(mdev, "Updating Tx CQ ci - cons:0x%x\n", mcq->cons_index);
++	mlx4_cq_set_ci(mcq);
++	wmb();
++	ring->cons += txbbs_skipped;
++
++	/* Wakeup Tx queue if this ring stopped it */
++	if (unlikely(ring->blocked)) {
++		mlx4_dbg(mdev, "Detected blocked (full) Tx queue\n");
++		if ((u32) (ring->prod - ring->cons - 1 + HEADROOM) <=
++		    ring->size - MAX_DESC_TXBBS - 1) {
++
++			mlx4_dbg(mdev, "reenabling transmission by Tx "
++					"ring:%d\n", cq->ring);
++
++			/* TODO: support multiqueue netdevs. Currently, we block
++			 * when *any* ring is full. Note that:
++			 * - 2 Tx rings can unblock at the same time and call
++			 *   netif_wake_queue(), which is OK since this
++			 *   operation is idempotent.
++			 * - We might wake the queue just after another ring
++			 *   stopped it. This is no big deal because the next
++			 *   transmission on that ring would stop the queue.
++			 */
++			ring->blocked = 0;
++			netif_wake_queue(dev);
++		}
++	}
++}
++
++void mlx4_en_poll_tx_cq(unsigned long data)
++{
++	struct mlx4_en_cq *cq = (struct mlx4_en_cq *) data;
++	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
++	struct mlx4_en_tx_ring *ring = &priv->tx_ring[cq->ring];
++	u32 inflight;
++
++	mlx4_dbg(priv->mdev, "tx timer called for ring:%d\n", cq->ring);
++	INC_PERF_COUNTER(priv->pstats.tx_poll);
++
++	netif_tx_lock(priv->dev);
++	mlx4_en_process_tx_cq(cq->dev, cq);
++	inflight = (u32) (ring->prod - ring->cons - ring->last_nr_txbb);
++
++	/* If there are still packets in flight and the timer has not already
++	 * been scheduled by the Tx routine then schedule it here to guarantee
++	 * completion processing of these packets */
++	if (inflight && priv->port_up) {
++		mlx4_dbg(priv->mdev, "Poll completed with %d packets inflight: "
++			 "rescheduling\n", inflight);
++		mod_timer(&cq->timer, ring->blocked ?
++				      1 : jiffies + MLX4_EN_TX_POLL_TIMEOUT);
++	}
++	netif_tx_unlock(priv->dev);
++}
++
++static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
++						      struct mlx4_en_tx_ring *ring,
++						      u32 index,
++						      unsigned int desc_size)
++{
++	u32 copy = (ring->size - index) * TXBB_SIZE;
++	int i;
++
++	for (i = desc_size - copy - 4; i >= 0; i -= 4) {
++		*((u32 *) (ring->buf + i)) =
++			*((u32 *) (ring->bounce_buf + copy + i));
++	}
++
++	for (i = copy - 4; i >= 4 ; i -= 4) {
++		*((u32 *) (ring->buf + index * TXBB_SIZE + i)) =
++			*((u32 *) (ring->bounce_buf + i));
++	}
++
++	/* Return real descriptor location */
++	return ring->buf + index * TXBB_SIZE;
++}
++
++static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
++{
++	struct mlx4_en_cq *cq = &priv->tx_cq[tx_ind];
++	struct mlx4_en_tx_ring *ring = &priv->tx_ring[tx_ind];
++
++	/* If we don't have a pending timer, set one up to catch our recent
++	   post in case the interface becomes idle */
++	if (!timer_pending(&cq->timer)) {
++		mlx4_dbg(priv->mdev, "Setting new timer\n");
++		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
++	}
++
++	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
++	if ((ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) == 0) {
++		mlx4_dbg(priv->mdev, "Polling Tx CQ from xmit\n");
++		mlx4_en_process_tx_cq(priv->dev, cq);
++	}
++	mlx4_dbg(priv->mdev, "Done polling tx ring %d\n", tx_ind);
++}
++
++int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct mlx4_en_tx_ring *ring;
++	struct mlx4_en_cq *cq;
++	struct mlx4_en_tx_desc *tx_desc;
++	struct mlx4_wqe_data_seg *data;
++	struct skb_frag_struct *frag;
++	struct mlx4_en_tx_info *tx_info;
++	int tx_ind = 0;
++	unsigned int nr_frags;
++	int nr_txbb;
++	unsigned int desc_size;
++	unsigned int real_size;
++	dma_addr_t dma;
++	u32 index;
++	__be32 op_own;
++	u16 vlan_tag = 0;
++	int lso_header_size = 0;
++	int len;
++	int i;
++
++	mlx4_dbg(mdev, "xmit called on CPU:%d\n", smp_processor_id());
++
++	if (!skb->len) {
++		dev_kfree_skb_any(skb);
++		return 0;
++	}
++	len = skb_headlen(skb);
++
++	/* Calculate descriptor size and check limits */
++	nr_frags = skb_shinfo(skb)->nr_frags;
++	desc_size = CTRL_SIZE + nr_frags * DS_SIZE;
++	if (skb_is_gso(skb)) {
++		lso_header_size = skb_transport_offset(skb) + tcp_hdrlen(skb);
++		desc_size += ALIGN(lso_header_size + 4, DS_SIZE);
++		if (unlikely(lso_header_size != len)) {
++			/* We add a segment for the skb linear buffer only if
++			 * it contains data */
++			if (lso_header_size < len)
++				desc_size += DS_SIZE;
++			else {
++				mlx4_warn(mdev, "Non-linear headers\n");
++				dev_kfree_skb_any(skb);
++				return 0;
++			}
++		}
++		if (unlikely(lso_header_size > MAX_LSO_HDR_SIZE)) {
++			mlx4_dbg(mdev, "Lso header size too big\n");
++			dev_kfree_skb_any(skb);
++			return 0;
 +		}
 +	} else {
-+		/* When no vlans are configured we block all vlans */
-+		memset(filter, 0, sizeof(*filter));
++		/* Add a segment for the skb linear buffer */
++		desc_size += DS_SIZE;
 +	}
-+	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+		       MLX4_CMD_TIME_CLASS_B);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
++
++	/* Allign descriptor to TXBB size */
++	real_size = desc_size;
++	desc_size = ALIGN(desc_size, TXBB_SIZE);
++	mlx4_dbg(mdev, "Base desc size:%d actual size:%d\n",
++			real_size, desc_size);
++	nr_txbb = desc_size / TXBB_SIZE;
++	if (unlikely(nr_txbb > MAX_DESC_TXBBS)) {
++		mlx4_warn(mdev, "Oversized header or SG list\n");
++		dev_kfree_skb_any(skb);
++		return 0;
++	}
++
++	/* Obtain VLAN information if present */
++	if (priv->vlgrp && vlan_tx_tag_present(skb)) {
++		vlan_tag = vlan_tx_tag_get(skb);
++		mlx4_dbg(mdev, "Accepted Tx packet with vlan:0x%x prio:%d\n",
++			  vlan_tag, vlan_tag >> 13);
++		/* Set the Tx ring to use according to vlan priority */
++		tx_ind = priv->tx_prio_map[vlan_tag >> 13];
++	}
++	mlx4_dbg(mdev, "Using Tx ring:%d\n", tx_ind);
++
++	/* Occasionally give up the opportunity to send to let other CPUs
++	 * do so. This prevents cpu softlocks when another CPU is pumping
++	 * frames into the qdisc and HW process frames at a faster rate
++	 * than the qdisc is dequeud. */
++	ring = &priv->tx_ring[tx_ind];
++	++ring->poll_cnt;
++	if (!ring->poll_cnt)
++		return NETDEV_TX_BUSY;
++
++	/* Now that we know what Tx ring to use */
++	if (unlikely(!priv->port_up)) {
++		mlx4_dbg(mdev, "xmit: port down!\n");
++		dev_kfree_skb_any(skb);
++		return 0;
++	}
++
++	/* Track current inflight packets for performance analysis */
++	AVG_PERF_COUNTER(priv->pstats.inflight_avg,
++			 (u32) (ring->prod - ring->cons - 1));
++
++	/* Check available TXBBs + 1 spare TXBB for owenership.
++	 * And 2K spare for prefetch */
++	if (unlikely(((int)((ring->cons - ring->prod) & ring->size_mask) -
++							nr_txbb) < HEADROOM)) {
++		/* every full Tx ring stops queue.
++		 * TODO: implement multi-queue support (per-queue stop) */
++		mlx4_dbg(mdev, "Out of TXBBs in ring:%d - "
++				"stopping queue\n", tx_ind);
++		netif_stop_queue(dev);
++		ring->blocked = 1;
++		priv->port_stats.queue_stopped++;
++
++		/* Schedule a timer as soon
++		 * as possible to check the queue again */
++		cq = &priv->tx_cq[tx_ind];
++		mod_timer(&cq->timer, jiffies + 1);
++		return NETDEV_TX_BUSY;
++	}
++
++	/* Packet is good - grab an index and transmit it */
++	index = ring->prod & ring->size_mask;
++
++	/* See if we have enough space for whole descriptor + 1 TXBB for setting
++	 * SW ownership on next descriptor; if not, use a bounce buffer. */
++	if (index + nr_txbb <= ring->size) {
++		tx_desc = ring->buf + index * TXBB_SIZE;
++		PREFETCH((void *) tx_desc + 2 * SMP_CACHE_BYTES);
++		PREFETCH((void *) tx_desc + 3 * SMP_CACHE_BYTES);
++	} else
++		tx_desc = (struct mlx4_en_tx_desc *) ring->bounce_buf;
++
++	mlx4_dbg(mdev, "Writing Tx descriptor at addr:%p offset:0x%x "
++			"size:%d\n", tx_desc, index * TXBB_SIZE, desc_size);
++
++	/* Save skb in tx_info ring */
++	tx_info = &ring->tx_info[index];
++	tx_info->skb = skb;
++	tx_info->nr_txbb = nr_txbb;
++	tx_info->frags = nr_frags;
++
++	/* Prepare ctrl segement apart opcode+ownership, which depends on
++	 * whether LSO is used */
++	tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
++	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN * !!tx_ind;
++	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
++	tx_desc->ctrl.srcrb_flags = cpu_to_be32(MLX4_WQE_CTRL_CQ_UPDATE |
++						MLX4_WQE_CTRL_SOLICITED);
++	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
++		mlx4_dbg(mdev, "Requesting HW Tx checksum\n");
++		tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
++							 MLX4_WQE_CTRL_TCP_UDP_CSUM);
++	}
++
++	/* Handle LSO (TSO) packets */
++	if (lso_header_size) {
++		mlx4_dbg(mdev, "Appending LSO segment (header size:%d)\n",
++			  lso_header_size);
++
++		/* Mark opcode as LSO */
++		op_own = cpu_to_be32(MLX4_OPCODE_LSO | (1 << 6)) |
++			((ring->prod & ring->size) ?
++				cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
++
++		/* Fill in the LSO prefix */
++		tx_desc->lso.mss_hdr_size = cpu_to_be32(
++			skb_shinfo(skb)->gso_size << 16 | lso_header_size);
++
++		/* Copy headers;
++		 * note that we already verified that it is linear */
++		memcpy(tx_desc->lso.header, skb->data, lso_header_size);
++		data = ((void *) &tx_desc->lso +
++			ALIGN(lso_header_size + 4, DS_SIZE));
++
++		INC_PERF_COUNTER(priv->pstats.tso);
++		SET_SW_COUNTER(i, ((skb->len - lso_header_size) /
++				   skb_shinfo(skb)->gso_size) +
++				   !!((skb->len - lso_header_size) %
++				   skb_shinfo(skb)->gso_size));
++		ADD_SW_COUNTER(ring->bytes, skb->len + (i - 1) * lso_header_size);
++		ADD_SW_COUNTER(ring->packets, i);
++	} else {
++		/* Normal (Non LSO) packet */
++		op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
++			((ring->prod & ring->size) ?
++			 cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
++		data = &tx_desc->data;
++		ADD_SW_COUNTER(ring->bytes, MAX(skb->len, ETH_ZLEN));
++		INC_SW_COUNTER(ring->packets);
++
++	}
++	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
++
++	tx_info->data_offset = (void *) data - (void *) tx_desc;
++	mlx4_dbg(mdev, "Data starts at <%p> \n", data);
++
++	tx_info->linear = (lso_header_size < len) ? 1 : 0;
++	data += nr_frags + tx_info->linear - 1;
++
++	/* Map fragments */
++	for (i = nr_frags - 1; i >= 0; i--) {
++		frag = &skb_shinfo(skb)->frags[i];
++		dma = pci_map_page(mdev->dev->pdev, frag->page, frag->page_offset,
++				   frag->size, PCI_DMA_TODEVICE);
++		data->addr = cpu_to_be64(dma);
++		data->lkey = cpu_to_be32(mdev->mr.key);
++		wmb();
++		data->byte_count = cpu_to_be32(frag->size);
++		mlx4_dbg(mdev, "Mapping Tx fragment at dma:%llx size:%d\n",
++			  (u64) dma, frag->size);
++		--data;
++	}
++
++	/* Map linear part */
++	if (tx_info->linear) {
++		dma = pci_map_single(mdev->dev->pdev, skb->data + lso_header_size,
++				     len - lso_header_size, PCI_DMA_TODEVICE);
++		data->addr = cpu_to_be64(dma);
++		data->lkey = cpu_to_be32(mdev->mr.key);
++		wmb();
++		data->byte_count = cpu_to_be32(len - lso_header_size);
++		mlx4_dbg(mdev, "Mapping Tx buffer at addr:%p dma:%llx size:%d "
++			  "(skb-len:%d skb-datalen:%d)\n", skb->data, (u64) dma,
++			  len - lso_header_size, skb->len, skb->data_len);
++	} else {
++		++tx_info;
++		mlx4_dbg(mdev, "SKB linear buffer contains only LSO headers\n");
++	}
++
++	ring->prod += nr_txbb;
++
++	/* If we used a bounce buffer then copy descriptor back into place */
++	if (tx_desc == (struct mlx4_en_tx_desc *) ring->bounce_buf)
++		tx_desc = mlx4_en_bounce_to_desc(priv, ring, index, desc_size);
++
++	/* Run destructor before passing skb to HW */
++	if (likely(!skb_shared(skb)))
++		skb_orphan(skb);
++
++	/* Ensure new descirptor hits memory
++	 * before setting ownership of this descriptor to HW */
++	wmb();
++	tx_desc->ctrl.owner_opcode = op_own;
++
++	/* Ring doorbell! */
++	wmb();
++	mlx4_dbg(mdev, "Ringing Tx DB\n");
++	writel(ring->doorbell_qpn, mdev->uar_map + MLX4_SEND_DOORBELL);
++	dev->trans_start = jiffies;
++
++	/* Poll CQ here */
++	mlx4_en_xmit_poll(priv, tx_ind);
++
++	return 0;
 +}
 +
 +
-+int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
-+			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_set_port_general_context *context;
-+	int err;
-+	u32 in_mod;
 +
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+	context = mailbox->buf;
-+	memset(context, 0, sizeof *context);
 +
-+	context->flags = SET_PORT_GEN_ALL_VALID;
-+	context->mtu = cpu_to_be16(mtu);
-+	context->pptx = (pptx * (!pfctx)) << 7;
-+	context->pfctx = pfctx;
-+	context->pprx = (pprx * (!pfcrx)) << 7;
-+	context->pfcrx = pfcrx;
 +
-+	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
-+	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
-+		       MLX4_CMD_TIME_CLASS_B);
 +
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+
-+int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
-+			   u8 promisc)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_set_port_rqp_calc_context *context;
-+	int err;
-+	u32 in_mod;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+	context = mailbox->buf;
-+	memset(context, 0, sizeof *context);
-+
-+	context->base_qpn = cpu_to_be32(base_qpn);
-+	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT | base_qpn);
-+	context->mcast = cpu_to_be32(1 << SET_PORT_PROMISC_SHIFT | base_qpn);
-+
-+	in_mod = MLX4_SET_PORT_RQP_CALC << 8 | port;
-+	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
-+		       MLX4_CMD_TIME_CLASS_B);
-+
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+
-+
-+int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
-+{
-+	struct mlx4_en_stat_out_mbox *mlx4_en_stats;
-+	struct mlx4_en_priv *priv = netdev_priv(mdev->pndev[port]);
-+	struct net_device_stats *stats = &priv->stats;
-+	struct mlx4_cmd_mailbox *mailbox;
-+	u64 in_mod = reset << 8 | port;
-+	int err;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+	memset(mailbox->buf, 0, sizeof(*mlx4_en_stats));
-+	err = mlx4_cmd_box(mdev->dev, 0, mailbox->dma, in_mod, 0,
-+			   MLX4_CMD_DUMP_ETH_STATS, MLX4_CMD_TIME_CLASS_B);
-+	if (err)
-+		goto out;
-+
-+	mlx4_en_stats = mailbox->buf;
-+
-+	spin_lock_bh(&priv->stats_lock);
-+	/* Skip packet+byte counts if we are already doing those in SW */
-+	if (DO_SW_COUNTERS)
-+		goto skip;
-+
-+	stats->rx_packets = be32_to_cpu(mlx4_en_stats->RTOTFRMS) -
-+			    be32_to_cpu(mlx4_en_stats->RDROP);
-+	stats->tx_packets = be64_to_cpu(mlx4_en_stats->TTOT_prio_0) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_1) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_2) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_3) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_4) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_5) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_6) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_prio_7) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_novlan) +
-+			    be64_to_cpu(mlx4_en_stats->TTOT_loopbk);
-+	stats->rx_bytes = be64_to_cpu(mlx4_en_stats->ROCT_prio_0) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_1) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_2) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_3) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_4) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_5) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_6) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_prio_7) +
-+			  be64_to_cpu(mlx4_en_stats->ROCT_novlan);
-+
-+	stats->tx_bytes = be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_0) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_1) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_2) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_3) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_4) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_5) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_6) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_7) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_novlan) +
-+			  be64_to_cpu(mlx4_en_stats->TTTLOCT_loopbk);
-+
-+skip:
-+	stats->rx_errors = be64_to_cpu(mlx4_en_stats->PCS) +
-+			   be32_to_cpu(mlx4_en_stats->RdropLength) +
-+			   be32_to_cpu(mlx4_en_stats->RJBBR) +
-+			   be32_to_cpu(mlx4_en_stats->RCRC) +
-+			   be32_to_cpu(mlx4_en_stats->RRUNT);
-+	stats->tx_errors = be32_to_cpu(mlx4_en_stats->TDROP);
-+	stats->multicast = be64_to_cpu(mlx4_en_stats->MCAST_prio_0) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_1) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_2) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_3) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_4) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_5) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_6) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_prio_7) +
-+			   be64_to_cpu(mlx4_en_stats->MCAST_novlan);
-+	stats->collisions = 0;
-+	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
-+	stats->rx_over_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-+	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
-+	stats->rx_frame_errors = 0;
-+	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-+	stats->rx_missed_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-+	stats->tx_aborted_errors = 0;
-+	stats->tx_carrier_errors = 0;
-+	stats->tx_fifo_errors = 0;
-+	stats->tx_heartbeat_errors = 0;
-+	stats->tx_window_errors = 0;
-+	memcpy(&priv->hw_stats, mlx4_en_stats, sizeof(*mlx4_en_stats));
-+	spin_unlock_bh(&priv->stats_lock);
-+
-+out:
-+	mlx4_free_cmd_mailbox(mdev->dev, mailbox);
-+	return err;
-+}
-+
-diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/mlx4/en_port.h
-new file mode 100644
-index 0000000..7e8ede6
---- /dev/null
-+++ b/drivers/net/mlx4/en_port.h
-@@ -0,0 +1,586 @@
-+/*
-+ * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef _MLX4_EN_PORT_H_
-+#define _MLX4_EN_PORT_H_
-+
-+
-+#define MAC_VALID_SHIFT		63
-+#define VLAN_VALID_SHIFT	31
-+#define VLAN_MASK		0xfff
-+#define QUERY_PORT_ETH_MASK	(1 << 1)
-+#define QUERY_PORT_LINK_MASK	(0x2 << 4)
-+#define SET_PORT_GEN_ALL_VALID	0x7
-+#define SET_PORT_PROMISC_SHIFT	31
-+
-+enum {
-+	MLX4_CMD_SET_VLAN_FLTR  = 0x47,
-+	MLX4_CMD_SET_MCAST_FLTR = 0x48,
-+	MLX4_CMD_DUMP_ETH_STATS = 0x49,
-+};
-+
-+struct mlx4_query_port_context {
-+	u8 port_type;
-+	u8 link_state;
-+	__be16 mtu;
-+	u32 reserved2[3];
-+	__be64 mac;
-+};
-+
-+struct mlx4_set_port_general_context {
-+	u8 reserved[3];
-+	u8 flags;
-+	u16 reserved2;
-+	__be16 mtu;
-+	u8 pptx;
-+	u8 pfctx;
-+	u16 reserved3;
-+	u8 pprx;
-+	u8 pfcrx;
-+	u16 reserved4;
-+};
-+
-+struct mlx4_set_port_rqp_calc_context {
-+	__be32 base_qpn;
-+	__be32 flags;
-+	u8 reserved[3];
-+	u8 mac_miss;
-+	u8 reserved2;
-+	u8 no_vlan;
-+	u8 reserved3;
-+	u8 vlan_miss;
-+	u8 reserved4[3];
-+	u8 no_vlan_prio;
-+	__be32 promisc;
-+	__be32 mcast;
-+};
-+
-+#define VLAN_FLTR_SIZE	128
-+struct mlx4_set_vlan_fltr_mbox {
-+	__be32 entry[VLAN_FLTR_SIZE];
-+};
-+
-+
-+enum {
-+	MLX4_MCAST_CONFIG       = 0,
-+	MLX4_MCAST_DISABLE      = 1,
-+	MLX4_MCAST_ENABLE       = 2,
-+};
-+
-+struct mlx4_set_mcast_fltr_mbox {
-+	__be64 mac;
-+};
-+
-+struct mlx4_en_stat_out_mbox {
-+	/* Received frames with a length of 64 octets */
-+	__be64 R64_prio_0;
-+	__be64 R64_prio_1;
-+	__be64 R64_prio_2;
-+	__be64 R64_prio_3;
-+	__be64 R64_prio_4;
-+	__be64 R64_prio_5;
-+	__be64 R64_prio_6;
-+	__be64 R64_prio_7;
-+	__be64 R64_novlan;
-+	/* Received frames with a length of 127 octets */
-+	__be64 R127_prio_0;
-+	__be64 R127_prio_1;
-+	__be64 R127_prio_2;
-+	__be64 R127_prio_3;
-+	__be64 R127_prio_4;
-+	__be64 R127_prio_5;
-+	__be64 R127_prio_6;
-+	__be64 R127_prio_7;
-+	__be64 R127_novlan;
-+	/* Received frames with a length of 255 octets */
-+	__be64 R255_prio_0;
-+	__be64 R255_prio_1;
-+	__be64 R255_prio_2;
-+	__be64 R255_prio_3;
-+	__be64 R255_prio_4;
-+	__be64 R255_prio_5;
-+	__be64 R255_prio_6;
-+	__be64 R255_prio_7;
-+	__be64 R255_novlan;
-+	/* Received frames with a length of 511 octets */
-+	__be64 R511_prio_0;
-+	__be64 R511_prio_1;
-+	__be64 R511_prio_2;
-+	__be64 R511_prio_3;
-+	__be64 R511_prio_4;
-+	__be64 R511_prio_5;
-+	__be64 R511_prio_6;
-+	__be64 R511_prio_7;
-+	__be64 R511_novlan;
-+	/* Received frames with a length of 1023 octets */
-+	__be64 R1023_prio_0;
-+	__be64 R1023_prio_1;
-+	__be64 R1023_prio_2;
-+	__be64 R1023_prio_3;
-+	__be64 R1023_prio_4;
-+	__be64 R1023_prio_5;
-+	__be64 R1023_prio_6;
-+	__be64 R1023_prio_7;
-+	__be64 R1023_novlan;
-+	/* Received frames with a length of 1518 octets */
-+	__be64 R1518_prio_0;
-+	__be64 R1518_prio_1;
-+	__be64 R1518_prio_2;
-+	__be64 R1518_prio_3;
-+	__be64 R1518_prio_4;
-+	__be64 R1518_prio_5;
-+	__be64 R1518_prio_6;
-+	__be64 R1518_prio_7;
-+	__be64 R1518_novlan;
-+	/* Received frames with a length of 1522 octets */
-+	__be64 R1522_prio_0;
-+	__be64 R1522_prio_1;
-+	__be64 R1522_prio_2;
-+	__be64 R1522_prio_3;
-+	__be64 R1522_prio_4;
-+	__be64 R1522_prio_5;
-+	__be64 R1522_prio_6;
-+	__be64 R1522_prio_7;
-+	__be64 R1522_novlan;
-+	/* Received frames with a length of 1548 octets */
-+	__be64 R1548_prio_0;
-+	__be64 R1548_prio_1;
-+	__be64 R1548_prio_2;
-+	__be64 R1548_prio_3;
-+	__be64 R1548_prio_4;
-+	__be64 R1548_prio_5;
-+	__be64 R1548_prio_6;
-+	__be64 R1548_prio_7;
-+	__be64 R1548_novlan;
-+	/* Received frames with a length of 1548 < octets < MTU */
-+	__be64 R2MTU_prio_0;
-+	__be64 R2MTU_prio_1;
-+	__be64 R2MTU_prio_2;
-+	__be64 R2MTU_prio_3;
-+	__be64 R2MTU_prio_4;
-+	__be64 R2MTU_prio_5;
-+	__be64 R2MTU_prio_6;
-+	__be64 R2MTU_prio_7;
-+	__be64 R2MTU_novlan;
-+	/* Received frames with a length of MTU< octets and good CRC */
-+	__be64 RGIANT_prio_0;
-+	__be64 RGIANT_prio_1;
-+	__be64 RGIANT_prio_2;
-+	__be64 RGIANT_prio_3;
-+	__be64 RGIANT_prio_4;
-+	__be64 RGIANT_prio_5;
-+	__be64 RGIANT_prio_6;
-+	__be64 RGIANT_prio_7;
-+	__be64 RGIANT_novlan;
-+	/* Received broadcast frames with good CRC */
-+	__be64 RBCAST_prio_0;
-+	__be64 RBCAST_prio_1;
-+	__be64 RBCAST_prio_2;
-+	__be64 RBCAST_prio_3;
-+	__be64 RBCAST_prio_4;
-+	__be64 RBCAST_prio_5;
-+	__be64 RBCAST_prio_6;
-+	__be64 RBCAST_prio_7;
-+	__be64 RBCAST_novlan;
-+	/* Received multicast frames with good CRC */
-+	__be64 MCAST_prio_0;
-+	__be64 MCAST_prio_1;
-+	__be64 MCAST_prio_2;
-+	__be64 MCAST_prio_3;
-+	__be64 MCAST_prio_4;
-+	__be64 MCAST_prio_5;
-+	__be64 MCAST_prio_6;
-+	__be64 MCAST_prio_7;
-+	__be64 MCAST_novlan;
-+	/* Received unicast not short or GIANT frames with good CRC */
-+	__be64 RTOTG_prio_0;
-+	__be64 RTOTG_prio_1;
-+	__be64 RTOTG_prio_2;
-+	__be64 RTOTG_prio_3;
-+	__be64 RTOTG_prio_4;
-+	__be64 RTOTG_prio_5;
-+	__be64 RTOTG_prio_6;
-+	__be64 RTOTG_prio_7;
-+	__be64 RTOTG_novlan;
-+
-+	/* Count of total octets of received frames, includes framing characters */
-+	__be64 RTTLOCT_prio_0;
-+	/* Count of total octets of received frames, not including framing
-+	   characters */
-+	__be64 RTTLOCT_NOFRM_prio_0;
-+	/* Count of Total number of octets received
-+	   (only for frames without errors) */
-+	__be64 ROCT_prio_0;
-+
-+	__be64 RTTLOCT_prio_1;
-+	__be64 RTTLOCT_NOFRM_prio_1;
-+	__be64 ROCT_prio_1;
-+
-+	__be64 RTTLOCT_prio_2;
-+	__be64 RTTLOCT_NOFRM_prio_2;
-+	__be64 ROCT_prio_2;
-+
-+	__be64 RTTLOCT_prio_3;
-+	__be64 RTTLOCT_NOFRM_prio_3;
-+	__be64 ROCT_prio_3;
-+
-+	__be64 RTTLOCT_prio_4;
-+	__be64 RTTLOCT_NOFRM_prio_4;
-+	__be64 ROCT_prio_4;
-+
-+	__be64 RTTLOCT_prio_5;
-+	__be64 RTTLOCT_NOFRM_prio_5;
-+	__be64 ROCT_prio_5;
-+
-+	__be64 RTTLOCT_prio_6;
-+	__be64 RTTLOCT_NOFRM_prio_6;
-+	__be64 ROCT_prio_6;
-+
-+	__be64 RTTLOCT_prio_7;
-+	__be64 RTTLOCT_NOFRM_prio_7;
-+	__be64 ROCT_prio_7;
-+
-+	__be64 RTTLOCT_novlan;
-+	__be64 RTTLOCT_NOFRM_novlan;
-+	__be64 ROCT_novlan;
-+
-+	/* Count of Total received frames including bad frames */
-+	__be64 RTOT_prio_0;
-+	/* Count of  Total number of received frames with 802.1Q encapsulation */
-+	__be64 R1Q_prio_0;
-+	__be64 reserved1;
-+
-+	__be64 RTOT_prio_1;
-+	__be64 R1Q_prio_1;
-+	__be64 reserved2;
-+
-+	__be64 RTOT_prio_2;
-+	__be64 R1Q_prio_2;
-+	__be64 reserved3;
-+
-+	__be64 RTOT_prio_3;
-+	__be64 R1Q_prio_3;
-+	__be64 reserved4;
-+
-+	__be64 RTOT_prio_4;
-+	__be64 R1Q_prio_4;
-+	__be64 reserved5;
-+
-+	__be64 RTOT_prio_5;
-+	__be64 R1Q_prio_5;
-+	__be64 reserved6;
-+
-+	__be64 RTOT_prio_6;
-+	__be64 R1Q_prio_6;
-+	__be64 reserved7;
-+
-+	__be64 RTOT_prio_7;
-+	__be64 R1Q_prio_7;
-+	__be64 reserved8;
-+
-+	__be64 RTOT_novlan;
-+	__be64 R1Q_novlan;
-+	__be64 reserved9;
-+
-+	/* Total number of Successfully Received Control Frames */
-+	__be64 RCNTL;
-+	__be64 reserved10;
-+	__be64 reserved11;
-+	__be64 reserved12;
-+	/* Count of received frames with a length/type field  value between 46
-+	   (42 for VLANtagged frames) and 1500 (also 1500 for VLAN-tagged frames),
-+	   inclusive */
-+	__be64 RInRangeLengthErr;
-+	/* Count of received frames with length/type field between 1501 and 1535
-+	   decimal, inclusive */
-+	__be64 ROutRangeLengthErr;
-+	/* Count of received frames that are longer than max allowed size for
-+	   802.3 frames (1518/1522) */
-+	__be64 RFrmTooLong;
-+	/* Count frames received with PCS error */
-+	__be64 PCS;
-+
-+	/* Transmit frames with a length of 64 octets */
-+	__be64 T64_prio_0;
-+	__be64 T64_prio_1;
-+	__be64 T64_prio_2;
-+	__be64 T64_prio_3;
-+	__be64 T64_prio_4;
-+	__be64 T64_prio_5;
-+	__be64 T64_prio_6;
-+	__be64 T64_prio_7;
-+	__be64 T64_novlan;
-+	__be64 T64_loopbk;
-+	/* Transmit frames with a length of 65 to 127 octets. */
-+	__be64 T127_prio_0;
-+	__be64 T127_prio_1;
-+	__be64 T127_prio_2;
-+	__be64 T127_prio_3;
-+	__be64 T127_prio_4;
-+	__be64 T127_prio_5;
-+	__be64 T127_prio_6;
-+	__be64 T127_prio_7;
-+	__be64 T127_novlan;
-+	__be64 T127_loopbk;
-+	/* Transmit frames with a length of 128 to 255 octets */
-+	__be64 T255_prio_0;
-+	__be64 T255_prio_1;
-+	__be64 T255_prio_2;
-+	__be64 T255_prio_3;
-+	__be64 T255_prio_4;
-+	__be64 T255_prio_5;
-+	__be64 T255_prio_6;
-+	__be64 T255_prio_7;
-+	__be64 T255_novlan;
-+	__be64 T255_loopbk;
-+	/* Transmit frames with a length of 256 to 511 octets */
-+	__be64 T511_prio_0;
-+	__be64 T511_prio_1;
-+	__be64 T511_prio_2;
-+	__be64 T511_prio_3;
-+	__be64 T511_prio_4;
-+	__be64 T511_prio_5;
-+	__be64 T511_prio_6;
-+	__be64 T511_prio_7;
-+	__be64 T511_novlan;
-+	__be64 T511_loopbk;
-+	/* Transmit frames with a length of 512 to 1023 octets */
-+	__be64 T1023_prio_0;
-+	__be64 T1023_prio_1;
-+	__be64 T1023_prio_2;
-+	__be64 T1023_prio_3;
-+	__be64 T1023_prio_4;
-+	__be64 T1023_prio_5;
-+	__be64 T1023_prio_6;
-+	__be64 T1023_prio_7;
-+	__be64 T1023_novlan;
-+	__be64 T1023_loopbk;
-+	/* Transmit frames with a length of 1024 to 1518 octets */
-+	__be64 T1518_prio_0;
-+	__be64 T1518_prio_1;
-+	__be64 T1518_prio_2;
-+	__be64 T1518_prio_3;
-+	__be64 T1518_prio_4;
-+	__be64 T1518_prio_5;
-+	__be64 T1518_prio_6;
-+	__be64 T1518_prio_7;
-+	__be64 T1518_novlan;
-+	__be64 T1518_loopbk;
-+	/* Counts transmit frames with a length of 1519 to 1522 bytes */
-+	__be64 T1522_prio_0;
-+	__be64 T1522_prio_1;
-+	__be64 T1522_prio_2;
-+	__be64 T1522_prio_3;
-+	__be64 T1522_prio_4;
-+	__be64 T1522_prio_5;
-+	__be64 T1522_prio_6;
-+	__be64 T1522_prio_7;
-+	__be64 T1522_novlan;
-+	__be64 T1522_loopbk;
-+	/* Transmit frames with a length of 1523 to 1548 octets */
-+	__be64 T1548_prio_0;
-+	__be64 T1548_prio_1;
-+	__be64 T1548_prio_2;
-+	__be64 T1548_prio_3;
-+	__be64 T1548_prio_4;
-+	__be64 T1548_prio_5;
-+	__be64 T1548_prio_6;
-+	__be64 T1548_prio_7;
-+	__be64 T1548_novlan;
-+	__be64 T1548_loopbk;
-+	/* Counts transmit frames with a length of 1549 to MTU bytes */
-+	__be64 T2MTU_prio_0;
-+	__be64 T2MTU_prio_1;
-+	__be64 T2MTU_prio_2;
-+	__be64 T2MTU_prio_3;
-+	__be64 T2MTU_prio_4;
-+	__be64 T2MTU_prio_5;
-+	__be64 T2MTU_prio_6;
-+	__be64 T2MTU_prio_7;
-+	__be64 T2MTU_novlan;
-+	__be64 T2MTU_loopbk;
-+	/* Transmit frames with a length greater than MTU octets and a good CRC. */
-+	__be64 TGIANT_prio_0;
-+	__be64 TGIANT_prio_1;
-+	__be64 TGIANT_prio_2;
-+	__be64 TGIANT_prio_3;
-+	__be64 TGIANT_prio_4;
-+	__be64 TGIANT_prio_5;
-+	__be64 TGIANT_prio_6;
-+	__be64 TGIANT_prio_7;
-+	__be64 TGIANT_novlan;
-+	__be64 TGIANT_loopbk;
-+	/* Transmit broadcast frames with a good CRC */
-+	__be64 TBCAST_prio_0;
-+	__be64 TBCAST_prio_1;
-+	__be64 TBCAST_prio_2;
-+	__be64 TBCAST_prio_3;
-+	__be64 TBCAST_prio_4;
-+	__be64 TBCAST_prio_5;
-+	__be64 TBCAST_prio_6;
-+	__be64 TBCAST_prio_7;
-+	__be64 TBCAST_novlan;
-+	__be64 TBCAST_loopbk;
-+	/* Transmit multicast frames with a good CRC */
-+	__be64 TMCAST_prio_0;
-+	__be64 TMCAST_prio_1;
-+	__be64 TMCAST_prio_2;
-+	__be64 TMCAST_prio_3;
-+	__be64 TMCAST_prio_4;
-+	__be64 TMCAST_prio_5;
-+	__be64 TMCAST_prio_6;
-+	__be64 TMCAST_prio_7;
-+	__be64 TMCAST_novlan;
-+	__be64 TMCAST_loopbk;
-+	/* Transmit good frames that are neither broadcast nor multicast */
-+	__be64 TTOTG_prio_0;
-+	__be64 TTOTG_prio_1;
-+	__be64 TTOTG_prio_2;
-+	__be64 TTOTG_prio_3;
-+	__be64 TTOTG_prio_4;
-+	__be64 TTOTG_prio_5;
-+	__be64 TTOTG_prio_6;
-+	__be64 TTOTG_prio_7;
-+	__be64 TTOTG_novlan;
-+	__be64 TTOTG_loopbk;
-+
-+	/* total octets of transmitted frames, including framing characters */
-+	__be64 TTTLOCT_prio_0;
-+	/* total octets of transmitted frames, not including framing characters */
-+	__be64 TTTLOCT_NOFRM_prio_0;
-+	/* ifOutOctets */
-+	__be64 TOCT_prio_0;
-+
-+	__be64 TTTLOCT_prio_1;
-+	__be64 TTTLOCT_NOFRM_prio_1;
-+	__be64 TOCT_prio_1;
-+
-+	__be64 TTTLOCT_prio_2;
-+	__be64 TTTLOCT_NOFRM_prio_2;
-+	__be64 TOCT_prio_2;
-+
-+	__be64 TTTLOCT_prio_3;
-+	__be64 TTTLOCT_NOFRM_prio_3;
-+	__be64 TOCT_prio_3;
-+
-+	__be64 TTTLOCT_prio_4;
-+	__be64 TTTLOCT_NOFRM_prio_4;
-+	__be64 TOCT_prio_4;
-+
-+	__be64 TTTLOCT_prio_5;
-+	__be64 TTTLOCT_NOFRM_prio_5;
-+	__be64 TOCT_prio_5;
-+
-+	__be64 TTTLOCT_prio_6;
-+	__be64 TTTLOCT_NOFRM_prio_6;
-+	__be64 TOCT_prio_6;
-+
-+	__be64 TTTLOCT_prio_7;
-+	__be64 TTTLOCT_NOFRM_prio_7;
-+	__be64 TOCT_prio_7;
-+
-+	__be64 TTTLOCT_novlan;
-+	__be64 TTTLOCT_NOFRM_novlan;
-+	__be64 TOCT_novlan;
-+
-+	__be64 TTTLOCT_loopbk;
-+	__be64 TTTLOCT_NOFRM_loopbk;
-+	__be64 TOCT_loopbk;
-+
-+	/* Total frames transmitted with a good CRC that are not aborted  */
-+	__be64 TTOT_prio_0;
-+	/* Total number of frames transmitted with 802.1Q encapsulation */
-+	__be64 T1Q_prio_0;
-+	__be64 reserved13;
-+
-+	__be64 TTOT_prio_1;
-+	__be64 T1Q_prio_1;
-+	__be64 reserved14;
-+
-+	__be64 TTOT_prio_2;
-+	__be64 T1Q_prio_2;
-+	__be64 reserved15;
-+
-+	__be64 TTOT_prio_3;
-+	__be64 T1Q_prio_3;
-+	__be64 reserved16;
-+
-+	__be64 TTOT_prio_4;
-+	__be64 T1Q_prio_4;
-+	__be64 reserved17;
-+
-+	__be64 TTOT_prio_5;
-+	__be64 T1Q_prio_5;
-+	__be64 reserved18;
-+
-+	__be64 TTOT_prio_6;
-+	__be64 T1Q_prio_6;
-+	__be64 reserved19;
-+
-+	__be64 TTOT_prio_7;
-+	__be64 T1Q_prio_7;
-+	__be64 reserved20;
-+
-+	__be64 TTOT_novlan;
-+	__be64 T1Q_novlan;
-+	__be64 reserved21;
-+
-+	__be64 TTOT_loopbk;
-+	__be64 T1Q_loopbk;
-+	__be64 reserved22;
-+
-+	/* Received frames with a length greater than MTU octets and a bad CRC */
-+	__be32 RJBBR;
-+	/* Received frames with a bad CRC that are not runts, jabbers,
-+	   or alignment errors */
-+	__be32 RCRC;
-+	/* Received frames with SFD with a length of less than 64 octets and a
-+	   bad CRC */
-+	__be32 RRUNT;
-+	/* Received frames with a length less than 64 octets and a good CRC */
-+	__be32 RSHORT;
-+	/* Total Number of Received Packets Dropped */
-+	__be32 RDROP;
-+	/* Drop due to overflow  */
-+	__be32 RdropOvflw;
-+	/* Drop due to overflow */
-+	__be32 RdropLength;
-+	/* Total of good frames. Does not include frames received with
-+	   frame-too-long, FCS, or length errors */
-+	__be32 RTOTFRMS;
-+	/* Total dropped Xmited packets */
-+	__be32 TDROP;
-+};
-+
-+
-+#endif
 -- 
 1.5.4
 
