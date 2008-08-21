@@ -1,45 +1,36 @@
-From: adobriyan@gmail.com
-Subject: [PATCH 2/6] netns brnetfilter: cleanup during table unregister
-Date: Fri, 22 Aug 2008 02:21:26 +0400
-Message-ID: <20080821222126.GP31136@x200.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Fri, 22 Aug 2008 08:23:30 +1000
+Message-ID: <20080821222330.GE14521@gondor.apana.org.au>
+References: <20080821120112.GA7705@gondor.apana.org.au> <20080821121920.GD4079@ff.dom.local> <20080821122245.GA8533@gondor.apana.org.au> <20080821.052754.104318066.davem@davemloft.net> <20080821123538.GA8703@gondor.apana.org.au> <20080821124834.GA8794@gondor.apana.org.au> <20080821125501.GF4079@ff.dom.local> <20080821131218.GA9208@gondor.apana.org.au> <20080821185857.GA2665@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, kaber@trash.net
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:45589 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755737AbYHUWUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 18:20:06 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so105704yxm.1
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 15:20:05 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:54988 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753911AbYHUWXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 18:23:36 -0400
 Content-Disposition: inline
+In-Reply-To: <20080821185857.GA2665@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far it wasn't needed, because modules were pinned just right to prevent ebtables from
-unloading when cleanup was necessary.
+On Thu, Aug 21, 2008 at 08:58:57PM +0200, Jarek Poplawski wrote:
+>
+> root qdisc with pointers copied to every dev_queue. At least I can't
+> see nothing more in qdisc_create() and qdisc_graft(). So,
+> qdisc_lookup() seems to be designed for the future (or to do this
+> lookup more exactly with additional loops...). 
 
-ebt_unregster_table() is called during netns stop now, so...
+We've got at least the RX and TX queues.  That makes two locks and
+two lists.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- net/bridge/netfilter/ebtables.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1262,6 +1262,8 @@ void ebt_unregister_table(struct ebt_table *table)
- 	mutex_lock(&ebt_mutex);
- 	list_del(&table->list);
- 	mutex_unlock(&ebt_mutex);
-+	EBT_ENTRY_ITERATE(table->private->entries, table->private->entries_size,
-+			  ebt_cleanup_entry, NULL);
- 	vfree(table->private->entries);
- 	if (table->private->chainstack) {
- 		for_each_possible_cpu(i)
+Cheers,
 -- 
-1.5.6.3
-
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
