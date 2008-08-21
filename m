@@ -1,7 +1,7 @@
 From: adobriyan@gmail.com
-Subject: [PATCH 12/38] netns ct: pass netns pointer to nf_conntrack_in()
-Date: Fri, 22 Aug 2008 02:01:52 +0400
-Message-ID: <20080821220152.GL31136@x200.localdomain>
+Subject: [PATCH 13/38] netns ct: pass netns to L4 protocol's ->error hook
+Date: Fri, 22 Aug 2008 02:02:04 +0400
+Message-ID: <20080821220204.GM31136@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: kaber@trash.net, netfilter-devel@vger.kernel.org,
@@ -11,144 +11,170 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's deducible as is, but it's also known at nf_conntrack_in() time allowing
-to not branch and make code simpler later.
+Again, netns is deducible in every single ->error hook, but we're going
+to use it everywhere for nf_conntrack_checksum and stats, so pass it from
+upper layer.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- include/net/netfilter/nf_conntrack_core.h      |    2 +-
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    4 ++--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   24 ++++++++++++++++--------
- net/netfilter/nf_conntrack_core.c              |   11 +++++------
- 4 files changed, 24 insertions(+), 17 deletions(-)
+ include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 ++++----
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    8 ++++----
+ net/netfilter/nf_conntrack_core.c              |    2 +-
+ net/netfilter/nf_conntrack_proto_dccp.c        |    6 +++---
+ net/netfilter/nf_conntrack_proto_tcp.c         |    2 +-
+ net/netfilter/nf_conntrack_proto_udp.c         |    2 +-
+ net/netfilter/nf_conntrack_proto_udplite.c     |    4 ++--
+ 8 files changed, 17 insertions(+), 17 deletions(-)
 
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -20,7 +20,7 @@
- /* This header is used to share core functionality between the
-    standalone connection tracking module, and the compatibility layer's use
-    of connection tracking. */
--extern unsigned int nf_conntrack_in(int pf,
-+extern unsigned int nf_conntrack_in(struct net *net, int pf,
- 				    unsigned int hooknum,
- 				    struct sk_buff *skb);
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -50,7 +50,7 @@ struct nf_conntrack_l4proto
+ 	/* Called when a conntrack entry is destroyed */
+ 	void (*destroy)(struct nf_conn *ct);
  
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -172,7 +172,7 @@ static unsigned int ipv4_conntrack_in(unsigned int hooknum,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
+-	int (*error)(struct sk_buff *skb, unsigned int dataoff,
++	int (*error)(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 		     enum ip_conntrack_info *ctinfo,
+ 		     int pf, unsigned int hooknum);
+ 
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -123,7 +123,7 @@ static bool icmp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 
+ /* Returns conntrack if it dealt with ICMP, and filled in skb fields */
+ static int
+-icmp_error_message(struct sk_buff *skb,
++icmp_error_message(struct net *net, struct sk_buff *skb,
+ 		 enum ip_conntrack_info *ctinfo,
+ 		 unsigned int hooknum)
  {
--	return nf_conntrack_in(PF_INET, hooknum, skb);
-+	return nf_conntrack_in(dev_net(in), PF_INET, hooknum, skb);
- }
+@@ -155,7 +155,7 @@ icmp_error_message(struct sk_buff *skb,
  
- static unsigned int ipv4_conntrack_local(unsigned int hooknum,
-@@ -188,7 +188,7 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
- 			printk("ipt_hook: happy cracking.\n");
- 		return NF_ACCEPT;
- 	}
--	return nf_conntrack_in(PF_INET, hooknum, skb);
-+	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
- }
+ 	*ctinfo = IP_CT_RELATED;
  
- /* Connection tracking may drop packets, but never alters them, so
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -211,11 +211,10 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- 	return NF_STOLEN;
- }
+-	h = nf_conntrack_find_get(&init_net, &innertuple);
++	h = nf_conntrack_find_get(net, &innertuple);
+ 	if (!h) {
+ 		pr_debug("icmp_error_message: no match\n");
+ 		return -NF_ACCEPT;
+@@ -172,7 +172,7 @@ icmp_error_message(struct sk_buff *skb,
  
--static unsigned int ipv6_conntrack_in(unsigned int hooknum,
--				      struct sk_buff *skb,
--				      const struct net_device *in,
--				      const struct net_device *out,
--				      int (*okfn)(struct sk_buff *))
-+static unsigned int __ipv6_conntrack_in(struct net *net,
-+					unsigned int hooknum,
-+					struct sk_buff *skb,
-+					int (*okfn)(struct sk_buff *))
+ /* Small and modified version of icmp_rcv */
+ static int
+-icmp_error(struct sk_buff *skb, unsigned int dataoff,
++icmp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 	   enum ip_conntrack_info *ctinfo, int pf, unsigned int hooknum)
  {
- 	struct sk_buff *reasm = skb->nfct_reasm;
- 
-@@ -225,7 +224,7 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
- 		if (!reasm->nfct) {
- 			unsigned int ret;
- 
--			ret = nf_conntrack_in(PF_INET6, hooknum, reasm);
-+			ret = nf_conntrack_in(net, PF_INET6, hooknum, reasm);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		}
-@@ -235,7 +234,16 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
+ 	const struct icmphdr *icmph;
+@@ -217,7 +217,7 @@ icmp_error(struct sk_buff *skb, unsigned int dataoff,
+ 	    && icmph->type != ICMP_REDIRECT)
  		return NF_ACCEPT;
- 	}
  
--	return nf_conntrack_in(PF_INET6, hooknum, skb);
-+	return nf_conntrack_in(net, PF_INET6, hooknum, skb);
-+}
-+
-+static unsigned int ipv6_conntrack_in(unsigned int hooknum,
-+				      struct sk_buff *skb,
-+				      const struct net_device *in,
-+				      const struct net_device *out,
-+				      int (*okfn)(struct sk_buff *))
-+{
-+	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, okfn);
+-	return icmp_error_message(skb, ctinfo, hooknum);
++	return icmp_error_message(net, skb, ctinfo, hooknum);
  }
  
- static unsigned int ipv6_conntrack_local(unsigned int hooknum,
-@@ -250,7 +258,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
- 			printk("ipv6_conntrack_local: packet too short\n");
- 		return NF_ACCEPT;
- 	}
--	return ipv6_conntrack_in(hooknum, skb, in, out, okfn);
-+	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, okfn);
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -122,7 +122,7 @@ static bool icmpv6_new(struct nf_conn *ct, const struct sk_buff *skb,
  }
  
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
+ static int
+-icmpv6_error_message(struct sk_buff *skb,
++icmpv6_error_message(struct net *net, struct sk_buff *skb,
+ 		     unsigned int icmp6off,
+ 		     enum ip_conntrack_info *ctinfo,
+ 		     unsigned int hooknum)
+@@ -156,7 +156,7 @@ icmpv6_error_message(struct sk_buff *skb,
+ 
+ 	*ctinfo = IP_CT_RELATED;
+ 
+-	h = nf_conntrack_find_get(&init_net, &intuple);
++	h = nf_conntrack_find_get(net, &intuple);
+ 	if (!h) {
+ 		pr_debug("icmpv6_error: no match\n");
+ 		return -NF_ACCEPT;
+@@ -172,7 +172,7 @@ icmpv6_error_message(struct sk_buff *skb,
+ }
+ 
+ static int
+-icmpv6_error(struct sk_buff *skb, unsigned int dataoff,
++icmpv6_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 	     enum ip_conntrack_info *ctinfo, int pf, unsigned int hooknum)
+ {
+ 	const struct icmp6hdr *icmp6h;
+@@ -197,7 +197,7 @@ icmpv6_error(struct sk_buff *skb, unsigned int dataoff,
+ 	if (icmp6h->icmp6_type >= 128)
+ 		return NF_ACCEPT;
+ 
+-	return icmpv6_error_message(skb, dataoff, ctinfo, hooknum);
++	return icmpv6_error_message(net, skb, dataoff, ctinfo, hooknum);
+ }
+ 
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -610,7 +610,7 @@ init_conntrack(struct net *net,
- 
- /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
- static inline struct nf_conn *
--resolve_normal_ct(struct sk_buff *skb,
-+resolve_normal_ct(struct net *net, struct sk_buff *skb,
- 		  unsigned int dataoff,
- 		  u_int16_t l3num,
- 		  u_int8_t protonum,
-@@ -631,9 +631,9 @@ resolve_normal_ct(struct sk_buff *skb,
- 	}
- 
- 	/* look for tuple match */
--	h = nf_conntrack_find_get(&init_net, &tuple);
-+	h = nf_conntrack_find_get(net, &tuple);
- 	if (!h) {
--		h = init_conntrack(&init_net, &tuple, l3proto, l4proto, skb, dataoff);
-+		h = init_conntrack(net, &tuple, l3proto, l4proto, skb, dataoff);
- 		if (!h)
- 			return NULL;
- 		if (IS_ERR(h))
-@@ -667,7 +667,7 @@ resolve_normal_ct(struct sk_buff *skb,
+@@ -701,7 +701,7 @@ nf_conntrack_in(struct net *net, int pf, unsigned int hooknum, struct sk_buff *s
+ 	 * inverse of the return code tells to the netfilter
+ 	 * core what to do with the packet. */
+ 	if (l4proto->error != NULL &&
+-	    (ret = l4proto->error(skb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
++	    (ret = l4proto->error(net, skb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
+ 		NF_CT_STAT_INC_ATOMIC(error);
+ 		NF_CT_STAT_INC_ATOMIC(invalid);
+ 		return -ret;
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -545,9 +545,9 @@ static int dccp_packet(struct nf_conn *ct, const struct sk_buff *skb,
+ 	return NF_ACCEPT;
  }
  
- unsigned int
--nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
-+nf_conntrack_in(struct net *net, int pf, unsigned int hooknum, struct sk_buff *skb)
+-static int dccp_error(struct sk_buff *skb, unsigned int dataoff,
+-		      enum ip_conntrack_info *ctinfo, int pf,
+-		      unsigned int hooknum)
++static int dccp_error(struct net *net, struct sk_buff *skb,
++		      unsigned int dataoff, enum ip_conntrack_info *ctinfo,
++		      int pf, unsigned int hooknum)
  {
- 	struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
-@@ -707,7 +707,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
- 		return -ret;
- 	}
+ 	struct dccp_hdr _dh, *dh;
+ 	unsigned int dccp_len = skb->len - dataoff;
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -746,7 +746,7 @@ static const u8 tcp_valid_flags[(TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG) + 1] =
+ };
  
--	ct = resolve_normal_ct(skb, dataoff, pf, protonum, l3proto, l4proto,
-+	ct = resolve_normal_ct(net, skb, dataoff, pf, protonum, l3proto, l4proto,
- 			       &set_reply, &ctinfo);
- 	if (!ct) {
- 		/* Not valid part of a connection */
+ /* Protect conntrack agaist broken packets. Code taken from ipt_unclean.c.  */
+-static int tcp_error(struct sk_buff *skb,
++static int tcp_error(struct net *net, struct sk_buff *skb,
+ 		     unsigned int dataoff,
+ 		     enum ip_conntrack_info *ctinfo,
+ 		     int pf,
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -89,7 +89,7 @@ static bool udp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 	return true;
+ }
+ 
+-static int udp_error(struct sk_buff *skb, unsigned int dataoff,
++static int udp_error(struct net *net, struct sk_buff *skb, unsigned int dataoff,
+ 		     enum ip_conntrack_info *ctinfo,
+ 		     int pf,
+ 		     unsigned int hooknum)
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -89,7 +89,8 @@ static bool udplite_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 	return true;
+ }
+ 
+-static int udplite_error(struct sk_buff *skb, unsigned int dataoff,
++static int udplite_error(struct net *net, struct sk_buff *skb,
++			 unsigned int dataoff,
+ 			 enum ip_conntrack_info *ctinfo,
+ 			 int pf,
+ 			 unsigned int hooknum)
 -- 
 1.5.6.3
 
