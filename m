@@ -1,65 +1,63 @@
-From: adobriyan@gmail.com
-Subject: 2.6.27-rc4: icmp_sk() uses smp_processor_id() in preemptible code
-Date: Thu, 21 Aug 2008 16:20:40 +0400
-Message-ID: <20080821122040.GA2497@x200.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 21 Aug 2008 12:19:20 +0000
+Message-ID: <20080821121920.GD4079@ff.dom.local>
+References: <20080821101145.GA3963@ff.dom.local> <20080821101830.GB3963@ff.dom.local> <20080821102153.GB3789@gondor.apana.org.au> <20080821102338.GA3864@gondor.apana.org.au> <20080821103354.GA4079@ff.dom.local> <20080821105110.GA4088@gondor.apana.org.au> <20080821112055.GB4079@ff.dom.local> <20080821112609.GA5052@gondor.apana.org.au> <20080821115521.GC4079@ff.dom.local> <20080821120112.GA7705@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: den@openvz.org, dlezcano@fr.ibm.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.191]:34434 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbYHUMTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:19:18 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so122503gvc.37
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 05:19:16 -0700 (PDT)
+Received: from ug-out-1314.google.com ([66.249.92.171]:11268 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbYHUMT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:19:27 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so1014903ugf.37
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 05:19:25 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20080821120112.GA7705@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steps to reproduce:
+On Thu, Aug 21, 2008 at 10:01:12PM +1000, Herbert Xu wrote:
+> On Thu, Aug 21, 2008 at 11:55:22AM +0000, Jarek Poplawski wrote:
+> > 
+> > Sure, here is a scenario:
+> > 
+> > cpu1					cpu2
+> > rtnl_lock()
+> > qdisc_graft()
+> > // parent != NULL
+> > ->cops-graft()
+> > notify_and_destroy()			qdisc_run()
+> > 					spin_lock(root_lock)
+> > qdisc_destroy(old)			dequeue_skb()
+> > 					tbf_dequeue()
+> > 					qdisc_tree_decrease_qlen()	
+> > 					qdisc_lookup()
+> > //deleting from qdisc_sleeping->list	//walking qdisc_sleeping->list
+> > //under rtnl_lock() only		//under qdisc root_lock only
+> > list_del(qdisc->list)			list_for_each_entry(txq_root)
+> 
+> Good catch.  Longer term we should fix it so that it doesn't do
+> the silly lookup at run-time.  In fact we'll be getting rid of
+> requeue so there will be no need to do this in TBF at all.
+> 
+> However, for now please create a patch to put a pair of root locks
+> around the list_del in qdisc_destroy.
 
-	CONFIG_PREEMPT=y
-	CONFIG_DEBUG_PREEMPT=y
-	tracepath <something>
+Since qdisc_destroy() is used for destroying root qdisc too, isn't it
+better to get this lock back in notify_and_destroy() like this:
 
-icmp6_sk() is similar (I haven't checked at runtime, though).
+if (old) {
+	if (parent)
+		sch_tree_lock()
+	qdisc_destroy()
+	if (parent)
+		sch_tree_unlock()
+}
+	
 
-BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
-caller is icmp_sk+0x15/0x30
-Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
-
-Call Trace:
- [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
- [<ffffffff80409405>] icmp_sk+0x15/0x30
- [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
- [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
- [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff8023a475>] ? local_bh_enable_ip+0x95/0x110
- [<ffffffff804285b9>] ? _spin_unlock_bh+0x39/0x40
- [<ffffffff8025a26c>] ? mark_held_locks+0x4c/0x90
- [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
- [<ffffffff803e91b4>] ip_fragment+0x8d4/0x900
- [<ffffffff803e7030>] ? ip_finish_output2+0x0/0x290
- [<ffffffff803e91e0>] ? ip_finish_output+0x0/0x60
- [<ffffffff803e6650>] ? dst_output+0x0/0x10
- [<ffffffff803e922c>] ip_finish_output+0x4c/0x60
- [<ffffffff803e92e3>] ip_output+0xa3/0xf0
- [<ffffffff803e68d0>] ip_local_out+0x20/0x30
- [<ffffffff803e753f>] ip_push_pending_frames+0x27f/0x400
- [<ffffffff80406313>] udp_push_pending_frames+0x233/0x3d0
- [<ffffffff804067d1>] udp_sendmsg+0x321/0x6f0
- [<ffffffff8040d155>] inet_sendmsg+0x45/0x80
- [<ffffffff803b967f>] sock_sendmsg+0xdf/0x110
- [<ffffffff8024a100>] ? autoremove_wake_function+0x0/0x40
- [<ffffffff80257ce5>] ? validate_chain+0x415/0x1010
- [<ffffffff8027dc10>] ? __do_fault+0x140/0x450
- [<ffffffff802597d0>] ? __lock_acquire+0x260/0x590
- [<ffffffff803b9e55>] ? sockfd_lookup_light+0x45/0x80
- [<ffffffff803ba50a>] sys_sendto+0xea/0x120
- [<ffffffff80428e42>] ? _spin_unlock_irqrestore+0x42/0x80
- [<ffffffff803134bc>] ? __up_read+0x4c/0xb0
- [<ffffffff8024e0c6>] ? up_read+0x26/0x30
- [<ffffffff8020b8bb>] system_call_fastpath+0x16/0x1b
-
+Thanks,
+Jarek P.
