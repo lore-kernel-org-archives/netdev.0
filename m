@@ -1,82 +1,73 @@
-From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 1/4] claw: fix memory leak in claw_probe.
-Date: Thu, 21 Aug 2008 17:10:22 +0200
-Message-ID: <20080821151652.052680000@linux.vnet.ibm.com>
-References: <20080821151021.069615000@linux.vnet.ibm.com>
-Cc: Daniel <danielm77@spray.se>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:55994 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760404AbYHUPRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 11:17:48 -0400
-Content-Disposition: inline; filename=606-claw-memleak.diff
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timothy J Fontaine <tjfontaine@atxconsulting.com>
+Subject: Re: r8169 MTU greater than 1500 causes corruption for other
+	controllers
+Date: Thu, 21 Aug 2008 11:20:27 -0400
+Message-ID: <20080821152025.GA29610@tophat.atxconsulting.com>
+References: <20080820170951.GA1771@tophat.atxconsulting.com> <Pine.LNX.4.64.0808202053510.24321@wrl-59.cs.helsinki.fi> <20080820214350.GA18747@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="IS0zKkzwUGydFO0o"
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760683AbYHUPUr@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080820214350.GA18747@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-probe_error() frees memory only, if cgdev->dev.driver_data refers
-to the claw_privbk structure. Move forward its setting in claw_probe()
-to ensure proper freeing of claw_privbk allocations.
+--IS0zKkzwUGydFO0o
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cc: Daniel <danielm77@spray.se>
-Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
+On Wed, Aug 20, 2008 at 11:43:50PM +0200, Francois Romieu wrote:
+> Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi> :
+> [...]
+> > Hmm, there was no explanation why the tp->rx_buf_sz to pkt_size change
+> > was made in that commit (I have no idea whether those sizes have to mat=
+ch=20
+> > to other places that use tp->rx_buf_sz)...
+>=20
+> Because there is no need to sync data that has not been used ?
+>=20
+> Timothy, could you check if the patch below does the job too ? It should
+> fix at least one pci_map / pci_unmap unbalance.
+>=20
+> @@ -2789,10 +2789,10 @@ static int rtl8169_rx_interrupt(struct net_device=
+ *dev,
+> =20
+>  			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
+>  				pci_dma_sync_single_for_device(pdev, addr,
+>  					pkt_size, PCI_DMA_FROMDEVICE);
+>  				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+>  			} else {
+> -				pci_unmap_single(pdev, addr, pkt_size,
+> +				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
+>  						 PCI_DMA_FROMDEVICE);
+>  				tp->Rx_skbuff[entry] =3D NULL;
+>  			}
+>=20
+> --=20
+> Ueimor
 
- drivers/s390/net/claw.c |   19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+Yup, this patch also works.
 
-Index: linux-2.6-uschi/drivers/s390/net/claw.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/claw.c
-+++ linux-2.6-uschi/drivers/s390/net/claw.c
-@@ -271,6 +271,7 @@ claw_probe(struct ccwgroup_device *cgdev
- 	if (!get_device(&cgdev->dev))
- 		return -ENODEV;
- 	privptr = kzalloc(sizeof(struct claw_privbk), GFP_KERNEL);
-+	cgdev->dev.driver_data = privptr;
- 	if (privptr == NULL) {
- 		probe_error(cgdev);
- 		put_device(&cgdev->dev);
-@@ -305,7 +306,6 @@ claw_probe(struct ccwgroup_device *cgdev
- 	privptr->p_env->p_priv = privptr;
-         cgdev->cdev[0]->handler = claw_irq_handler;
- 	cgdev->cdev[1]->handler = claw_irq_handler;
--	cgdev->dev.driver_data = privptr;
- 	CLAW_DBF_TEXT(2, setup, "prbext 0");
- 
-         return 0;
-@@ -1960,19 +1960,16 @@ init_ccw_bk(struct net_device *dev)
- static void
- probe_error( struct ccwgroup_device *cgdev)
- {
--  struct claw_privbk *privptr;
-+	struct claw_privbk *privptr;
- 
- 	CLAW_DBF_TEXT(4, trace, "proberr");
--        privptr=(struct claw_privbk *)cgdev->dev.driver_data;
--	if (privptr!=NULL) {
-+	privptr = (struct claw_privbk *) cgdev->dev.driver_data;
-+	if (privptr != NULL) {
-+		cgdev->dev.driver_data = NULL;
- 		kfree(privptr->p_env);
--		privptr->p_env=NULL;
--                kfree(privptr->p_mtc_envelope);
--               	privptr->p_mtc_envelope=NULL;
--                kfree(privptr);
--                privptr=NULL;
--        }
--        return;
-+		kfree(privptr->p_mtc_envelope);
-+		kfree(privptr);
-+	}
- }    /*    probe_error    */
- 
- /*-------------------------------------------------------------------*
+tjfontaine
 
--- 
+--IS0zKkzwUGydFO0o
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkith7cACgkQfTP/nQJGQG368gCfThk2/AYxy4eokxL2waGMVdOh
+V28AnRo7+OavSHWbK6ZzK6TIT0ujABkK
+=laHS
+-----END PGP SIGNATURE-----
+
+--IS0zKkzwUGydFO0o--
