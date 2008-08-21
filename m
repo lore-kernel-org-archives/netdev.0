@@ -1,35 +1,46 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH RFC 08/24] IPVS: Make protocol handler functions support
- IPv6
-Date: Thu, 21 Aug 2008 11:12:12 -0400
-Message-ID: <48AD85CC.8000102@hp.com>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>	 <1219248931-15064-9-git-send-email-juliusv@google.com>	 <48AD6DBB.9030607@hp.com>	 <f4845fc0808210652o3b586e7cjbeadc41533f9ac7d@mail.gmail.com>	 <48AD76DE.4030000@hp.com> <f4845fc0808210755i1d3e37a0q8ff27af8d59bba0@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	horms@verge.net.au, kaber@trash.net, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <f4845fc0808210755i1d3e37a0q8ff27af8d59bba0@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 4/4] LCS recovery dumps when cable reconnect
+Date: Thu, 21 Aug 2008 17:10:25 +0200
+Message-ID: <20080821151654.326848000@linux.vnet.ibm.com>
+References: <20080821151021.069615000@linux.vnet.ibm.com>
+Cc: "Klaus-D. Wacker" <kdwacker@de.ibm.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:34673 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757375AbYHUPRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 11:17:05 -0400
+Content-Disposition: inline; filename=603-lcs-recovery.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julius Volz wrote:
-> Still, I think my original interpretation was correct? It's always
-> used with constant values and there are many usages similar to this:
-> 
-> skb->protocol = __constant_htons(ETH_P_802_3);
-> 
-> Someone feel free to correct me.
+From: Klaus-D. Wacker <kdwacker@de.ibm.com>
 
-I know it's a minor point, but look at tcp_ipv6.c:
+LCS recovery dumps in irq routine when CCW address in
+Subchannel Status Word (SCSW) is zero. This occurs
+when recovery is driven after cable reconnect.
 
-         if (skb->protocol == htons(ETH_P_IP))
-                 return tcp_v4_conn_request(sk, skb);
+Signed-off-by: Klaus-D. Wacker <kdwacker@de.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
 
-That's different from the code you quoted that's doing an assignment. 
-__constant_htons() isn't used anywhere in an if() statement, although I 
-did find a couple in the bonding driver that should be fixed.
+ drivers/s390/net/lcs.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
--Brian
+diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
+--- linux-2.6/drivers/s390/net/lcs.c	2008-08-20 15:54:46.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/lcs.c	2008-08-20 15:55:15.000000000 +0200
+@@ -1412,7 +1412,8 @@ lcs_irq(struct ccw_device *cdev, unsigne
+ 	}
+ 	/* How far in the ccw chain have we processed? */
+ 	if ((channel->state != LCS_CH_STATE_INIT) &&
+-	    (irb->scsw.cmd.fctl & SCSW_FCTL_START_FUNC)) {
++	    (irb->scsw.cmd.fctl & SCSW_FCTL_START_FUNC) &&
++	    (irb->scsw.cmd.cpa != 0)) {
+ 		index = (struct ccw1 *) __va((addr_t) irb->scsw.cmd.cpa)
+ 			- channel->ccws;
+ 		if ((irb->scsw.cmd.actl & SCSW_ACTL_SUSPENDED) ||
+
+-- 
