@@ -1,85 +1,103 @@
 From: adobriyan@gmail.com
-Subject: [PATCH 05/38] Fix ip{,6}_route_me_harder() in netns
-Date: Fri, 22 Aug 2008 02:39:58 +0400
-Message-ID: <20080821223958.GA31601@x200.localdomain>
-References: <20080821215825.GE31136@x200.localdomain>
+Subject: [PATCH 11/38] netns ct: per-netns unconfirmed hash
+Date: Fri, 22 Aug 2008 02:40:30 +0400
+Message-ID: <20080821224030.GB31601@x200.localdomain>
+References: <20080821220059.GK31136@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: kaber@trash.net, containers@lists.linux-foundation.org,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20080821215825.GE31136@x200.localdomain>
+In-Reply-To: <20080821220059.GK31136@x200.localdomain>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ip_route_me_harder() is called on output codepaths:
-1) IPVS: honestly, not sure, looks like it can be called during forwarding
-2) IPv4 REJECT: refreshing comment re skb->dst is valid and assigment of
-   skb->dst right before call :^)
-3) NAT: called in LOCAL_OUT hook
-4) iptable_mangle: LOCAL_OUT hook
-5) nf_ip_reroute(): LOCAL_OUT hook (no clue about queueing packets to luserspace)
-
-ip6_route_me_harder() is also called in output codepaths:
-1) ip6table_mangle: LOCAL_OUT hook
-2) nf_ip6_reroute: LOCAL_OUT hook (ditto)
+What is unconfirmed connection in one netns can very well be confirmed
+in another.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/ipv4/netfilter.c |    7 ++++---
- net/ipv6/netfilter.c |    3 +--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/netfilter/nf_conntrack_core.h |    1 -
+ include/net/netns/conntrack.h             |    2 ++
+ net/netfilter/nf_conntrack_core.c         |    6 +++---
+ net/netfilter/nf_conntrack_helper.c       |    3 +--
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -12,6 +12,7 @@
- /* route_me_harder function, used by iptable_nat, iptable_mangle + ip_queue */
- int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
- {
-+	struct net *net = dev_net(skb->dst->dev);
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct rtable *rt;
- 	struct flowi fl = {};
-@@ -19,7 +20,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
- 	unsigned int hh_len;
- 	unsigned int type;
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -72,6 +72,5 @@ print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
+             const struct nf_conntrack_l4proto *proto);
  
--	type = inet_addr_type(&init_net, iph->saddr);
-+	type = inet_addr_type(net, iph->saddr);
- 	if (addr_type == RTN_UNSPEC)
- 		addr_type = type;
+ extern spinlock_t nf_conntrack_lock ;
+-extern struct hlist_head unconfirmed;
  
-@@ -33,7 +34,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
- 		fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
- 		fl.oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
- 		fl.mark = skb->mark;
--		if (ip_route_output_key(&init_net, &rt, &fl) != 0)
-+		if (ip_route_output_key(net, &rt, &fl) != 0)
- 			return -1;
+ #endif /* _NF_CONNTRACK_CORE_H */
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -1,6 +1,7 @@
+ #ifndef __NETNS_CONNTRACK_H
+ #define __NETNS_CONNTRACK_H
  
- 		/* Drop old route. */
-@@ -43,7 +44,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
- 		/* non-local src, find valid iif to satisfy
- 		 * rp-filter when calling ip_route_input. */
- 		fl.nl_u.ip4_u.daddr = iph->saddr;
--		if (ip_route_output_key(&init_net, &rt, &fl) != 0)
-+		if (ip_route_output_key(net, &rt, &fl) != 0)
- 			return -1;
++#include <linux/list.h>
+ #include <asm/atomic.h>
  
- 		odst = skb->dst;
---- a/net/ipv6/netfilter.c
-+++ b/net/ipv6/netfilter.c
-@@ -23,7 +23,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
- 		    .saddr = iph->saddr, } },
- 	};
+ struct netns_ct {
+@@ -10,5 +11,6 @@ struct netns_ct {
+ 	unsigned int		expect_count;
+ 	struct hlist_head	*expect_hash;
+ 	int			expect_vmalloc;
++	struct hlist_head	unconfirmed;
+ };
+ #endif
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -54,7 +54,6 @@ struct nf_conn nf_conntrack_untracked __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
  
--	dst = ip6_route_output(&init_net, skb->sk, &fl);
-+	dst = ip6_route_output(dev_net(skb->dst->dev), skb->sk, &fl);
+ unsigned int nf_ct_log_invalid __read_mostly;
+-HLIST_HEAD(unconfirmed);
+ static struct kmem_cache *nf_conntrack_cachep __read_mostly;
  
- #ifdef CONFIG_XFRM
- 	if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
+ DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
+@@ -596,7 +595,7 @@ init_conntrack(struct net *net,
+ 	}
+ 
+ 	/* Overload tuple linked list to put us in unconfirmed list. */
+-	hlist_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode, &unconfirmed);
++	hlist_add_head(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnode, &net->ct.unconfirmed);
+ 
+ 	spin_unlock_bh(&nf_conntrack_lock);
+ 
+@@ -956,7 +955,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
+ 				goto found;
+ 		}
+ 	}
+-	hlist_for_each_entry(h, n, &unconfirmed, hnode) {
++	hlist_for_each_entry(h, n, &net->ct.unconfirmed, hnode) {
+ 		ct = nf_ct_tuplehash_to_ctrack(h);
+ 		if (iter(ct, data))
+ 			set_bit(IPS_DYING_BIT, &ct->status);
+@@ -1152,6 +1151,7 @@ int nf_conntrack_init(struct net *net)
+ 		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
+ 		goto err_out;
+ 	}
++	INIT_HLIST_HEAD(&net->ct.unconfirmed);
+ 
+ 	nf_conntrack_max = max_factor * nf_conntrack_htable_size;
+ 
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -156,7 +156,7 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
+ 	}
+ 
+ 	/* Get rid of expecteds, set helpers to NULL. */
+-	hlist_for_each_entry(h, n, &unconfirmed, hnode)
++	hlist_for_each_entry(h, n, &init_net.ct.unconfirmed, hnode)
+ 		unhelp(h, me);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+ 		hlist_for_each_entry(h, n, &init_net.ct.hash[i], hnode)
 -- 
 1.5.6.3
 
