@@ -1,67 +1,31 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH RFC 08/24] IPVS: Make protocol handler functions support IPv6
-Date: Thu, 21 Aug 2008 16:55:50 +0200
-Message-ID: <f4845fc0808210755i1d3e37a0q8ff27af8d59bba0@mail.gmail.com>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
-	 <1219248931-15064-9-git-send-email-juliusv@google.com>
-	 <48AD6DBB.9030607@hp.com>
-	 <f4845fc0808210652o3b586e7cjbeadc41533f9ac7d@mail.gmail.com>
-	 <48AD76DE.4030000@hp.com>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: Oops in authenc: 2.6.26.3
+Date: Thu, 21 Aug 2008 11:56:10 -0300
+Message-ID: <20080821145610.GE11198@khazad-dum.debian.net>
+References: <20080820203245.ea01ff39.kernel1@cyberdogtech.com> <20080821070225.GA31894@aeris> <20080821083615.GA1971@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	horms@verge.net.au, kaber@trash.net, vbusam@google.com
-To: "Brian Haley" <brian.haley@hp.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <48AD76DE.4030000@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sascha Biberhofer <biberhofer@inode.at>,
+	Matt LaPlante <kernel1@cyberdogtech.com>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3.smtp.messagingengine.com ([66.111.4.27]:35652 "EHLO
+	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760136AbYHUO4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 10:56:17 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080821083615.GA1971@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 4:08 PM, Brian Haley <brian.haley@hp.com> wrote:
-> Julius Volz wrote:
->>
->> I guessed from the name and other uses that __constant_htons() is just
->> a version of htons() optimized for values that are constant at compile
->> time. Is this right? But htons() is fine too in any case.
->
-> I think the __constant one is for initializations.  All I know is that
-> someone (Stephen Hemminger?) always points this out in other patchsets, so I
-> beat him to it.
-
-He :)
-
-Still, I think my original interpretation was correct? It's always
-used with constant values and there are many usages similar to this:
-
-skb->protocol = __constant_htons(ETH_P_802_3);
-
-Someone feel free to correct me.
-
->>> So why can't you just create one ip_vs_debug_packet_v6() instead of these
->>> ah
->>> and esp ones which are identical?
->>
->> If you look at the original files, the whole ip_vs_proto_ah.c and
->> ip_vs_proto_esp.c are 100% identical except for the protocol names /
->> constants :-/ So I stuck with this pattern for now. Maybe it would
->> make sense to join those two files in a change separate from the v6
->> functionality? There's already a lot of duplication in the existing
->> IPVS that could be removed...
->
-> I didn't look too closely, there's a lot of patches! :)  Doing it in a
-
-Yep, it's too big, I know :) And reworking the complete patch into a
-sane series didn't really work out that well because everything is so
-interdependent. Sometimes it might even be easier to look at the
-complete, big patch...
-
-> separate patch is probably a good idea though.
-
-Yeah, should be easy. I'll look at it (if there is any interest).
-
-Julius
+Cc: stable@kernel.org ?
 
 -- 
-Google Switzerland GmbH
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
