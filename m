@@ -1,114 +1,97 @@
 From: adobriyan@gmail.com
-Subject: [PATCH 03/38] netns nf: ip6table_mangle in netns for real
-Date: Fri, 22 Aug 2008 01:57:39 +0400
-Message-ID: <20080821215739.GC31136@x200.localdomain>
+Subject: [PATCH 04/38] netns nf: ip6t_REJECT in netns for real
+Date: Fri, 22 Aug 2008 01:58:01 +0400
+Message-ID: <20080821215801.GD31136@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	containers@lists.linux-foundation.org
 To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:8250 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756012AbYHUV4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 17:56:17 -0400
-Received: by yw-out-2324.google.com with SMTP id 9so9882ywe.1
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 14:56:16 -0700 (PDT)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/ipv6/netfilter/ip6table_mangle.c |   31 +++++++++++++++++++++----------
- 1 file changed, 21 insertions(+), 10 deletions(-)
+ net/ipv6/netfilter/ip6t_REJECT.c |   23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
 
---- a/net/ipv6/netfilter/ip6table_mangle.c
-+++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -67,17 +67,29 @@ static struct xt_table packet_mangler = {
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -35,7 +35,7 @@ MODULE_DESCRIPTION("Xtables: packet \"rejection\" target for IPv6");
+ MODULE_LICENSE("GPL");
  
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6t_route_hook(unsigned int hook,
-+ip6t_in_hook(unsigned int hook,
- 	 struct sk_buff *skb,
- 	 const struct net_device *in,
- 	 const struct net_device *out,
- 	 int (*okfn)(struct sk_buff *))
+ /* Send RST reply */
+-static void send_reset(struct sk_buff *oldskb)
++static void send_reset(struct net *net, struct sk_buff *oldskb)
  {
--	return ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_mangle);
-+	return ip6t_do_table(skb, hook, in, out,
-+			     dev_net(in)->ipv6.ip6table_mangle);
+ 	struct sk_buff *nskb;
+ 	struct tcphdr otcph, *tcph;
+@@ -94,7 +94,7 @@ static void send_reset(struct sk_buff *oldskb)
+ 	fl.fl_ip_sport = otcph.dest;
+ 	fl.fl_ip_dport = otcph.source;
+ 	security_skb_classify_flow(oldskb, &fl);
+-	dst = ip6_route_output(&init_net, NULL, &fl);
++	dst = ip6_route_output(net, NULL, &fl);
+ 	if (dst == NULL)
+ 		return;
+ 	if (dst->error || xfrm_lookup(&dst, &fl, NULL, 0))
+@@ -163,10 +163,11 @@ static void send_reset(struct sk_buff *oldskb)
  }
  
- static unsigned int
--ip6t_local_hook(unsigned int hook,
-+ip6t_post_routing_hook(unsigned int hook,
-+		struct sk_buff *skb,
-+		const struct net_device *in,
-+		const struct net_device *out,
-+		int (*okfn)(struct sk_buff *))
-+{
-+	return ip6t_do_table(skb, hook, in, out,
-+			     dev_net(out)->ipv6.ip6table_mangle);
-+}
-+
-+static unsigned int
-+ip6t_local_out_hook(unsigned int hook,
- 		   struct sk_buff *skb,
- 		   const struct net_device *in,
- 		   const struct net_device *out,
-@@ -108,7 +120,7 @@ ip6t_local_hook(unsigned int hook,
- 	/* flowlabel and prio (includes version, which shouldn't change either */
- 	flowlabel = *((u_int32_t *)ipv6_hdr(skb));
+ static inline void
+-send_unreach(struct sk_buff *skb_in, unsigned char code, unsigned int hooknum)
++send_unreach(struct net *net, struct sk_buff *skb_in, unsigned char code,
++	     unsigned int hooknum)
+ {
+ 	if (hooknum == NF_INET_LOCAL_OUT && skb_in->dev == NULL)
+-		skb_in->dev = init_net.loopback_dev;
++		skb_in->dev = net->loopback_dev;
  
--	ret = ip6t_do_table(skb, hook, in, out, init_net.ipv6.ip6table_mangle);
-+	ret = ip6t_do_table(skb, hook, in, out, dev_net(out)->ipv6.ip6table_mangle);
+ 	icmpv6_send(skb_in, ICMPV6_DEST_UNREACH, code, 0, NULL);
+ }
+@@ -177,6 +178,7 @@ reject_tg6(struct sk_buff *skb, const struct net_device *in,
+            const struct xt_target *target, const void *targinfo)
+ {
+ 	const struct ip6t_reject_info *reject = targinfo;
++	struct net *net = dev_net(in ? in : out);
  
- 	if (ret != NF_DROP && ret != NF_STOLEN
- 		&& (memcmp(&ipv6_hdr(skb)->saddr, &saddr, sizeof(saddr))
-@@ -122,35 +134,35 @@ ip6t_local_hook(unsigned int hook,
- 
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--		.hook		= ip6t_route_hook,
-+		.hook		= ip6t_in_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_PRE_ROUTING,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_route_hook,
-+		.hook		= ip6t_in_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_route_hook,
-+		.hook		= ip6t_in_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_local_hook,
-+		.hook		= ip6t_local_out_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_route_hook,
-+		.hook		= ip6t_post_routing_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_POST_ROUTING,
+ 	pr_debug("%s: medium point\n", __func__);
+ 	/* WARNING: This code causes reentry within ip6tables.
+@@ -184,25 +186,25 @@ reject_tg6(struct sk_buff *skb, const struct net_device *in,
+ 	   must return an absolute verdict. --RR */
+ 	switch (reject->with) {
+ 	case IP6T_ICMP6_NO_ROUTE:
+-		send_unreach(skb, ICMPV6_NOROUTE, hooknum);
++		send_unreach(net, skb, ICMPV6_NOROUTE, hooknum);
+ 		break;
+ 	case IP6T_ICMP6_ADM_PROHIBITED:
+-		send_unreach(skb, ICMPV6_ADM_PROHIBITED, hooknum);
++		send_unreach(net, skb, ICMPV6_ADM_PROHIBITED, hooknum);
+ 		break;
+ 	case IP6T_ICMP6_NOT_NEIGHBOUR:
+-		send_unreach(skb, ICMPV6_NOT_NEIGHBOUR, hooknum);
++		send_unreach(net, skb, ICMPV6_NOT_NEIGHBOUR, hooknum);
+ 		break;
+ 	case IP6T_ICMP6_ADDR_UNREACH:
+-		send_unreach(skb, ICMPV6_ADDR_UNREACH, hooknum);
++		send_unreach(net, skb, ICMPV6_ADDR_UNREACH, hooknum);
+ 		break;
+ 	case IP6T_ICMP6_PORT_UNREACH:
+-		send_unreach(skb, ICMPV6_PORT_UNREACH, hooknum);
++		send_unreach(net, skb, ICMPV6_PORT_UNREACH, hooknum);
+ 		break;
+ 	case IP6T_ICMP6_ECHOREPLY:
+ 		/* Do nothing */
+ 		break;
+ 	case IP6T_TCP_RESET:
+-		send_reset(skb);
++		send_reset(net, skb);
+ 		break;
+ 	default:
+ 		if (net_ratelimit())
 -- 
 1.5.6.3
 
