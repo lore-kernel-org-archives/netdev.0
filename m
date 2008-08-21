@@ -1,45 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 21 Aug 2008 10:18:30 +0000
-Message-ID: <20080821101830.GB3963@ff.dom.local>
-References: <20080819085504.GB29038@gondor.apana.org.au> <20080819091642.GI4376@ff.dom.local> <20080821100155.GA3621@ff.dom.local> <20080821.030523.205239441.davem@davemloft.net> <20080821101145.GA3963@ff.dom.local>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH RFC 19/24] IPVS: Add IPv6 support flag to schedulers
+Date: Thu, 21 Aug 2008 12:21:39 +0200
+Message-ID: <f4845fc0808210321m342f2504i69d01c6b33298fc7@mail.gmail.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <1219248931-15064-20-git-send-email-juliusv@google.com>
+	 <20080821014813.GH19235@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:56009 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbYHUKSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 06:18:37 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so584670fkq.5
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 03:18:35 -0700 (PDT)
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080821014813.GH19235@verge.net.au>
 Content-Disposition: inline
-In-Reply-To: <20080821101145.GA3963@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2008 at 10:11:45AM +0000, Jarek Poplawski wrote:
-> On Thu, Aug 21, 2008 at 03:05:23AM -0700, David Miller wrote:
-> > From: Jarek Poplawski <jarkao2@gmail.com>
-> > Date: Thu, 21 Aug 2008 10:01:55 +0000
-> > 
-> > > If we do this with child qdisc from qdisc_graft() it's without
-> > > deactivation. The rest of the tree can be dequeued in the meantime
-> > > and call qdisc_tree_decrease_qlen() (like hfsc, tbf, netem), which
-> > > uses qdisc_lookup() to access this list. We list_del() under rtnl
-> > > lock only, they lookup under sch_tree_lock(). Is it a bit unsafe
-> > > or I miss something?
-> > 
-> > They hold RTNL as well.
-> > 
-> > Remember, sch_tree_lock() uses qdisc_root_lock() which as I've
-> > told you at least twice now asserts that RTNL is held :-)
-> 
-> Actually, I've called it wrong, they hold qdisc root lock, but they
-> certainly can't have rtnl_lock() at the moment!
+On Thu, Aug 21, 2008 at 3:48 AM, Simon Horman wrote:
+> On Wed, Aug 20, 2008 at 06:15:26PM +0200, Julius Volz wrote:
+>> Add 'supports_ipv6' flag to struct ip_vs_scheduler to indicate whether a
+>> scheduler supports IPv6. Set the flag to 1 in schedulers that work with
+>> IPv6, 0 otherwise. This flag is checked in a later patch while trying to
+>> add a service with a specific scheduler.
+>
+> I wonder if there are some spare bits inside the flags
+> member of ip_vs_scheduler that could be used for this purpose?
 
-I mean here: hfsc_dequeue(), netem_dequeue() and tbf_dequeue().
+Hm, there isn't any 'flags' member or similar in that struct...
 
-Jarek P.
+> Otherwise, I'm fine with this, we can juggle things around
+> later to use the other bits in supports_ipv6 for other things
+> if and when the need arises.
+
+Yes, then we could also rename it to 'flags' once needed.
+
+> Here is a version that applies against lvs-2.6
+
+Thanks, I guess I should start basing all of my IPVS patches on this
+tree rather than net-2.6?
+
+Julius
+
+-- 
+Google Switzerland GmbH
