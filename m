@@ -1,57 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
-Date: Thu, 21 Aug 2008 16:10:24 +1000
-Message-ID: <20080821061024.GA721@gondor.apana.org.au>
-References: <20080819.040200.155911269.davem@davemloft.net> <20080819164830.GA2533@ami.dom.local> <20080819222329.GA10297@gondor.apana.org.au> <20080821054911.GA4178@ff.dom.local>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/8] sysfs namespace support
+Date: Wed, 20 Aug 2008 23:31:00 -0700
+Message-ID: <m1od3m282j.fsf_-_@frodo.ebiederm.org>
+References: <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
+	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
+	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>
+	<m1lk0iihhp.fsf_-_@frodo.ebiederm.org>
+	<m1hcb6ihfz.fsf_-_@frodo.ebiederm.org>
+	<m1d4luihea.fsf_-_@frodo.ebiederm.org>
+	<m18wwiihbn.fsf_-_@frodo.ebiederm.org>
+	<m14p76ih9a.fsf_-_@frodo.ebiederm.org>
+	<m1zloyh2mb.fsf_-_@frodo.ebiederm.org>
+	<m1vdzmh2jr.fsf_-_@frodo.ebiederm.org>
+	<20080820021754.GA25182@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <htejun@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
+	Linux Containers <containers@lists.osdl.org>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44113 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751827AbYHUGKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 02:10:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20080821054911.GA4178@ff.dom.local>
+Received: from out01.mta.xmission.com ([166.70.13.231]:46296 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbYHUGeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 02:34:04 -0400
+In-Reply-To: <20080820021754.GA25182@kroah.com> (Greg KH's message of "Tue, 19
+	Aug 2008 19:17:54 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 05:49:11AM +0000, Jarek Poplawski wrote:
-> ---------------> (take 2)
-> 
-> pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
-> 
-> dev_deactivate() can skip rescheduling of a qdisc by qdisc_watchdog()
-> or other timer calling netif_schedule() after dev_queue_deactivate().
-> We prevent this checking aliveness before scheduling the timer. Since
-> during deactivation the root qdisc is available only as qdisc_sleeping
-> additional accessor qdisc_root_sleeping() is created.
-> 
-> With feedback from Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Good catch!
- 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index 84d25f2..b1d2cfe 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -193,6 +193,11 @@ static inline struct Qdisc *qdisc_root(struct Qdisc *qdisc)
->  	return qdisc->dev_queue->qdisc;
->  }
->  
-> +static inline struct Qdisc *qdisc_root_sleeping(struct Qdisc *qdisc)
-> +{
-> +	return qdisc->dev_queue->qdisc_sleeping;
-> +}
+Greg the first 4 patches are the rest of the infrastructure.
+Everything rebased quite nicely.  All of the conflicts appear
+to have been false positives.
 
-When would we actually want the non-sleeping variant?
+With the addition of sysfs_rename_link sysfs_create_link_nowarn
+is never called so we can remove it.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm not really certain whose tree the last netns or the user
+namespace changes should live in, but I am continuing to
+have those patches in this patchset for completeness.
+
+Eric W. Biederman (7):
+1      sysfs: Implement sysfs tagged directory support.
+2      sysfs: Merge sysfs_rename_dir and sysfs_move_dir
+3      sysfs: Implement sysfs_delete_link and sysfs_rename_link
+4      driver core: Implement tagged directory support for device classes.
+
+5      sysfs: Remove sysfs_create_link_nowarn
+
+6      Revert "netns: Fix device renaming for sysfs"
+7      netns: Enable tagging for net_class directories in sysfs
+
+Serge Hallyn (1):
+8      sysfs: user namespaces: fix bug with clone(CLONE_NEWUSER) with fairsched
