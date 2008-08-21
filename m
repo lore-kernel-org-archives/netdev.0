@@ -1,71 +1,47 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/3] dccp: Silently ignore options with nonsensical lengths
-Date: Thu, 21 Aug 2008 19:19:46 +0200
-Message-ID: <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <test_tree_updates_for_parsing_header_options>
- <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: dccp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36325 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754035AbYHURUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2008 13:20:05 -0400
-In-Reply-To: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
+Date: Thu, 21 Aug 2008 10:57:40 -0700
+Message-ID: <86802c440808211057j41e2b0c8jcd0817ca047962d0@mail.gmail.com>
+References: <198958.27259.qm@web82105.mail.mud.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Ingo Molnar" <mingo@elte.hu>, "Vivek Goyal" <vgoyal@redhat.com>,
+	"Bill Fink" <billfink@mindspring.com>,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: "David Witbrodt" <dawitbro@sbcglobal.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756941AbYHUR54@vger.kernel.org>
+In-Reply-To: <198958.27259.qm@web82105.mail.mud.yahoo.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This updates the option-parsing code with regard to RFC 4340, 5.8:
- "[..] options with nonsensical lengths (length byte less than two or more
-  than the remaining space in the options portion of the header) MUST be
-  ignored, and any option space following an option with nonsensical length
-  MUST likewise be ignored."
+On Thu, Aug 21, 2008 at 9:53 AM, David Witbrodt <dawitbro@sbcglobal.net> wrote:
+>
+>
+>> > I will try to provide the entire output tonight or tomorrow.  It will be
+>> > difficult, though:  it looks like I have to try to fit the info from about
+>> > 60 of the printk's in your patch onto the 80x25 VGA screen, and still
+>> > make it understandable enough to be useful.
+>> >
+>>
+>> with hpet=disable?
+>
+> Oh, well that's easy.  (See below.)  I assumed you needed the data for a
+> hanging kernel, not one with the workaround enabled.
+>
+> I can still try to provide the output of the printk's in your patch later,
+> in that would have any value.  Here is 'dmesg' for a recent kernel with
+> "hpet=disable":
 
-Hence in the following cases erratic options will be ignored:
- 1. The type byte of a multi-byte option is the last byte of the header
-    options (effective option length is 1).
- 2. The value of the length byte is less than the minimum 2. This has been
-    changed from previously 3: although no multi-byte option with a length
-    less than 3 yet exists (cf. table 3 in 5.8), a length of 2 is valid.
- 3. The option length exceeds the length of the remaining option space.
+insert_resource/request_resource works well
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/options.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+can you verify if hpet work on old kernel?
 
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -81,11 +81,11 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 		/* Check if this isn't a single byte option */
- 		if (opt > DCCPO_MAX_RESERVED) {
- 			if (opt_ptr == opt_end)
--				goto out_invalid_option;
-+				goto out_nonsensical_length;
- 
- 			len = *opt_ptr++;
--			if (len < 3)
--				goto out_invalid_option;
-+			if (len < 2)
-+				goto out_nonsensical_length;
- 			/*
- 			 * Remove the type and len fields, leaving
- 			 * just the value size
-@@ -95,7 +95,7 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 			opt_ptr += len;
- 
- 			if (opt_ptr > opt_end)
--				goto out_invalid_option;
-+				goto out_nonsensical_length;
- 		}
- 
- 		/*
-@@ -283,6 +283,8 @@ ignore_option:
- 	if (mandatory)
- 		goto out_invalid_option;
- 
-+out_nonsensical_length:
-+	/* RFC 4340, 5.8: ignore option and all remaining option space */
- 	return 0;
- 
- out_invalid_option:
+cat /proc/timers*
+
+YH
