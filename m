@@ -1,7 +1,7 @@
 From: adobriyan@gmail.com
-Subject: [PATCH 17/38] netns ct: export netns list
-Date: Fri, 22 Aug 2008 02:03:22 +0400
-Message-ID: <20080821220322.GQ31136@x200.localdomain>
+Subject: [PATCH 18/38] netns ct: unregister helper in every netns
+Date: Fri, 22 Aug 2008 02:03:54 +0400
+Message-ID: <20080821220354.GR31136@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: kaber@trash.net, netfilter-devel@vger.kernel.org,
@@ -11,26 +11,81 @@ Content-Disposition: inline
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Conntrack code will use it for
-a) removing expectations and helpers when corresponding module is removed, and
-b) removing conntracks when L3 protocol conntrack module is removed.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/core/net_namespace.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_helper.c |   41 +++++++++++++++++++++---------------
+ 1 file changed, 24 insertions(+), 17 deletions(-)
 
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -18,6 +18,7 @@ static struct list_head *first_device = &pernet_list;
- static DEFINE_MUTEX(net_mutex);
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -123,29 +123,18 @@ int nf_conntrack_helper_register(struct nf_conntrack_helper *me)
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_register);
  
- LIST_HEAD(net_namespace_list);
-+EXPORT_SYMBOL_GPL(net_namespace_list);
+-void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
++static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
++					     struct net *net)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conntrack_expect *exp;
+ 	const struct hlist_node *n, *next;
+ 	unsigned int i;
  
- struct net init_net;
- EXPORT_SYMBOL(init_net);
+-	mutex_lock(&nf_ct_helper_mutex);
+-	hlist_del_rcu(&me->hnode);
+-	nf_ct_helper_count--;
+-	mutex_unlock(&nf_ct_helper_mutex);
+-
+-	/* Make sure every nothing is still using the helper unless its a
+-	 * connection in the hash.
+-	 */
+-	synchronize_rcu();
+-
+-	spin_lock_bh(&nf_conntrack_lock);
+-
+ 	/* Get rid of expectations */
+ 	for (i = 0; i < nf_ct_expect_hsize; i++) {
+ 		hlist_for_each_entry_safe(exp, n, next,
+-					  &init_net.ct.expect_hash[i], hnode) {
++					  &net->ct.expect_hash[i], hnode) {
+ 			struct nf_conn_help *help = nfct_help(exp->master);
+ 			if ((help->helper == me || exp->helper == me) &&
+ 			    del_timer(&exp->timeout)) {
+@@ -156,12 +145,31 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
+ 	}
+ 
+ 	/* Get rid of expecteds, set helpers to NULL. */
+-	hlist_for_each_entry(h, n, &init_net.ct.unconfirmed, hnode)
++	hlist_for_each_entry(h, n, &net->ct.unconfirmed, hnode)
+ 		unhelp(h, me);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+-		hlist_for_each_entry(h, n, &init_net.ct.hash[i], hnode)
++		hlist_for_each_entry(h, n, &net->ct.hash[i], hnode)
+ 			unhelp(h, me);
+ 	}
++}
++
++void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
++{
++	struct net *net;
++
++	mutex_lock(&nf_ct_helper_mutex);
++	hlist_del_rcu(&me->hnode);
++	nf_ct_helper_count--;
++	mutex_unlock(&nf_ct_helper_mutex);
++
++	/* Make sure every nothing is still using the helper unless its a
++	 * connection in the hash.
++	 */
++	synchronize_rcu();
++
++	spin_lock_bh(&nf_conntrack_lock);
++	for_each_net(net)
++		__nf_conntrack_helper_unregister(me, net);
+ 	spin_unlock_bh(&nf_conntrack_lock);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_helper_unregister);
 -- 
 1.5.6.3
 
