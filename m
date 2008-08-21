@@ -1,125 +1,94 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v3 13/13] netlabel: Add configuration support for local
-	labeling
-Date: Thu, 21 Aug 2008 17:27:16 -0400
-Message-ID: <20080821212716.7951.24210.stgit@flek.lan>
-References: <20080821210239.7951.59652.stgit@flek.lan>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Fri, 22 Aug 2008 07:29:50 +1000
+Message-ID: <20080821212948.GB4407@verge.net.au>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com> <20080821011715.GG19235@verge.net.au> <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20080821210239.7951.59652.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com, Sven Wegener <sven.wegener@stealer.net>
+To: Julius Volz <juliusv@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45799 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753149AbYHUV3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 17:29:52 -0400
+Content-Disposition: inline
+In-Reply-To: <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the necessary NetLabel support for the new CIPSO mapping,
-CIPSO_V4_MAP_LOCAL, which allows full LSM label/context support.
+On Thu, Aug 21, 2008 at 11:59:44AM +0200, Julius Volz wrote:
+> On Thu, Aug 21, 2008 at 3:17 AM, Simon Horman <horms@verge.net.au> wrote:
+> > On Wed, Aug 20, 2008 at 06:15:07PM +0200, Julius Volz wrote:
+> >> What is not supported with IPv6:
+> >> - handling fragmentation or other extension headers
+> >> - FTP application helper (can be loaded, but only operates on v4)
+> >> - sync daemon (can be started, but only operates on v4)
+> >
+> > Other than the packet format of the sync deamon, are there any
+> > fundamental restrictions here? If we extended the sync daemon,
+> > could it work? If so, perhaps we could rev the sync deamon protocol
+> > and fix a few other kinks, like the handling of timeouts and the
+> > general lack of extendability, at the same time.
+> 
+> There shouldn't be any fundamental restrictions, it's just a piece of
+> the puzzle that I could easily leave out of the picture for now.
+> 
+> I haven't studied the sync daemon closely yet, but one thing I was
+> briefly wondering about was whether we should just blow up the
+> addresses in struct ip_vs_sync_conn to be of type union nf_inet_addr
+> (probably not acceptable, wasting too much bandwidth for v4 entries)
+> or how to send differently sized entries based on the IP version in a
+> clean way. But it sounds like you'd want to redesign a lot of that
+> anyways? I'm glad to help with anything, I just don't know this code
+> as well as you or Sven, but I'll study it more. Maybe you can share
+> some ideas on the extensibility you want to see?
 
-Signed-off-by: XXX
----
+What I was thinking is that any change 
+> 
+> >> Thanks for any comments!
+> >
+> > Unfortunately (or fortunately depending on how you look at it),
+> > I'm going to be away skiing for the next couple of days. Apologies
+> > for the slow responses that will lead to.
+> 
+> Have fun! And be careful, we need you to come back healthy :)
 
- net/netlabel/netlabel_cipso_v4.c |   41 ++++++++++++++++++++++++++++++++++++++
- net/netlabel/netlabel_cipso_v4.h |    6 ++++--
- net/netlabel/netlabel_kapi.c     |    3 +++
- 3 files changed, 48 insertions(+), 2 deletions(-)
+Thanks.
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index a6dc5d1..aa87568 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -365,6 +365,43 @@ add_pass_failure:
- }
- 
- /**
-+ * netlbl_cipsov4_add_local - Adds a CIPSO V4 DOI definition
-+ * @info: the Generic NETLINK info block
-+ *
-+ * Description:
-+ * Create a new CIPSO_V4_MAP_LOCAL DOI definition based on the given ADD
-+ * message and add it to the CIPSO V4 engine.  Return zero on success and
-+ * non-zero on error.
-+ *
-+ */
-+static int netlbl_cipsov4_add_local(struct genl_info *info)
-+{
-+	int ret_val;
-+	struct cipso_v4_doi *doi_def = NULL;
-+
-+	if (!info->attrs[NLBL_CIPSOV4_A_TAGLST])
-+		return -EINVAL;
-+
-+	doi_def = kmalloc(sizeof(*doi_def), GFP_KERNEL);
-+	if (doi_def == NULL)
-+		return -ENOMEM;
-+	doi_def->type = CIPSO_V4_MAP_LOCAL;
-+
-+	ret_val = netlbl_cipsov4_add_common(info, doi_def);
-+	if (ret_val != 0)
-+		goto add_local_failure;
-+
-+	ret_val = cipso_v4_doi_add(doi_def);
-+	if (ret_val != 0)
-+		goto add_local_failure;
-+	return 0;
-+
-+add_local_failure:
-+	cipso_v4_doi_free(doi_def);
-+	return ret_val;
-+}
-+
-+/**
-  * netlbl_cipsov4_add - Handle an ADD message
-  * @skb: the NETLINK buffer
-  * @info: the Generic NETLINK info block
-@@ -401,6 +438,10 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
- 		type_str = "pass";
- 		ret_val = netlbl_cipsov4_add_pass(info);
- 		break;
-+	case CIPSO_V4_MAP_LOCAL:
-+		type_str = "local";
-+		ret_val = netlbl_cipsov4_add_local(info);
-+		break;
- 	}
- 	if (ret_val == 0)
- 		atomic_inc(&netlabel_mgmt_protocount);
-diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
-index fb3957f..c8a4079 100644
---- a/net/netlabel/netlabel_cipso_v4.h
-+++ b/net/netlabel/netlabel_cipso_v4.h
-@@ -50,7 +50,8 @@
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-  *
-- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
-+ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
-+ *   are required.
-  *
-  * o REMOVE:
-  *   Sent by an application to remove a specific DOI mapping table from the
-@@ -81,7 +82,8 @@
-  *     NLBL_CIPSOV4_A_MLSLVLLST
-  *     NLBL_CIPSOV4_A_MLSCATLST
-  *
-- *   If using CIPSO_V4_MAP_PASS no additional attributes are required.
-+ *   If using CIPSO_V4_MAP_PASS or CIPSO_V4_MAP_LOCAL no additional attributes
-+ *   are required.
-  *
-  * o LISTALL:
-  *   This message is sent by an application to list the valid DOIs on the
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 7b233da..a8d5c27 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -163,6 +163,9 @@ cfg_cipsov4_add_map_return:
- 		case CIPSO_V4_MAP_PASS:
- 			type_str = "pass";
- 			break;
-+		case CIPSO_V4_MAP_LOCAL:
-+			type_str = "local";
-+			break;
- 		default:
- 			type_str = "(unknown)";
- 		}
+Here are a few thoughts I have had in my breif overview of the code so far
+- mainly just simple style things. If any of my comments are obviously
+stupid, please just say so as I haven't got to the end of the series yet
+and I'm sure some of my questions are answered in the code.
+
+[PATCH RFC 01/24] IPVS: Add genetlink interface definitions to ip_vs.h
+[PATCH RFC 02/24] IPVS: Add genetlink interface implementation
+
+* Already in lvs-2.6. Are there any changes?
+
+[PATCH RFC 02/24] IPVS: Add genetlink interface implementation
+
+* What is IP_VS = IPV6 ?
+
+[PATCH RFC 04/24] IPVS: Change IPVS data structures to support IPv6 addresses
+
+* Indentation of af in struct ip_vs_conn seems inconsistent with other
+  elements.
+
+[PATCH RFC 05/24] IPVS: Add general v4/v6 helper functions / data structures
+
+* Use of p ? a : b construct in ip_vs_addr_equal() seems a bit aquard.
+  How about
+
+static inline int ip_vs_addr_equal(int af, const union nf_inet_addr *a,
+				   const union nf_inet_addr *b)
+{
+#ifdef CONFIG_IP_VS_IPV6
+	if (af == AF_INET)
+		return ipv6_addr_equal(&a->in6, &b->in6);
+#endif
+	return a->ip == b->ip;
+}
+
 
