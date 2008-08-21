@@ -1,39 +1,71 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/3] dccp: Fill in the Data fields when option processing encounters option errors
-Date: Thu, 21 Aug 2008 19:19:47 +0200
-Message-ID: <1219339188-31873-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/3] dccp: Silently ignore options with nonsensical lengths
+Date: Thu, 21 Aug 2008 19:19:46 +0200
+Message-ID: <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <test_tree_updates_for_parsing_header_options>
  <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36303 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:36325 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753965AbYHURUA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2008 13:20:00 -0400
-In-Reply-To: <1219339188-31873-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754035AbYHURUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Aug 2008 13:20:05 -0400
+In-Reply-To: <1219339188-31873-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This updates the use of the `out_invalid_option' label, which produces a
-Reset (code 5, "Option Error"), to fill in the  Data1...Data3 fields as
-specified in RFC 4340, 5.6.
+This updates the option-parsing code with regard to RFC 4340, 5.8:
+ "[..] options with nonsensical lengths (length byte less than two or more
+  than the remaining space in the options portion of the header) MUST be
+  ignored, and any option space following an option with nonsensical length
+  MUST likewise be ignored."
+
+Hence in the following cases erratic options will be ignored:
+ 1. The type byte of a multi-byte option is the last byte of the header
+    options (effective option length is 1).
+ 2. The value of the length byte is less than the minimum 2. This has been
+    changed from previously 3: although no multi-byte option with a length
+    less than 3 yet exists (cf. table 3 in 5.8), a length of 2 is valid.
+ 3. The option length exceeds the length of the remaining option space.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/options.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/dccp/options.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -291,6 +291,9 @@ out_invalid_option:
- 	DCCP_INC_STATS_BH(DCCP_MIB_INVALIDOPT);
- 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_OPTION_ERROR;
- 	DCCP_WARN("DCCP(%p): invalid option %d, len=%d", sk, opt, len);
-+	DCCP_SKB_CB(skb)->dccpd_reset_data[0] = opt;
-+	DCCP_SKB_CB(skb)->dccpd_reset_data[1] = len > 0 ? value[0] : 0;
-+	DCCP_SKB_CB(skb)->dccpd_reset_data[2] = len > 1 ? value[1] : 0;
- 	return -1;
- }
+@@ -81,11 +81,11 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 		/* Check if this isn't a single byte option */
+ 		if (opt > DCCPO_MAX_RESERVED) {
+ 			if (opt_ptr == opt_end)
+-				goto out_invalid_option;
++				goto out_nonsensical_length;
  
+ 			len = *opt_ptr++;
+-			if (len < 3)
+-				goto out_invalid_option;
++			if (len < 2)
++				goto out_nonsensical_length;
+ 			/*
+ 			 * Remove the type and len fields, leaving
+ 			 * just the value size
+@@ -95,7 +95,7 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 			opt_ptr += len;
+ 
+ 			if (opt_ptr > opt_end)
+-				goto out_invalid_option;
++				goto out_nonsensical_length;
+ 		}
+ 
+ 		/*
+@@ -283,6 +283,8 @@ ignore_option:
+ 	if (mandatory)
+ 		goto out_invalid_option;
+ 
++out_nonsensical_length:
++	/* RFC 4340, 5.8: ignore option and all remaining option space */
+ 	return 0;
+ 
+ out_invalid_option:
