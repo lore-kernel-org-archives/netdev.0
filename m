@@ -1,197 +1,112 @@
-From: adobriyan@gmail.com
-Subject: [PATCH 16/38] netns ct: per-netns proc ip_conntrack
-Date: Fri, 22 Aug 2008 02:03:03 +0400
-Message-ID: <20080821220303.GP31136@x200.localdomain>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Fri, 22 Aug 2008 00:01:19 +0200
+Message-ID: <f4845fc0808211501y188b0ae9ie7aacb2f52c3dcd8@mail.gmail.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <20080821011715.GG19235@verge.net.au>
+	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+	 <20080821212948.GB4407@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com, "Sven Wegener" <sven.wegener@stealer.net>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:21752 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757258AbYHUWBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 18:01:33 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id m7LM1M8A004957
+	for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 23:01:22 +0100
+Received: from mu-out-0910.google.com (muew8.prod.google.com [10.102.174.8])
+	by wpaz33.hot.corp.google.com with ESMTP id m7LM1KtY009044
+	for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 15:01:21 -0700
+Received: by mu-out-0910.google.com with SMTP id w8so128695mue.5
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 15:01:20 -0700 (PDT)
+In-Reply-To: <20080821212948.GB4407@verge.net.au>
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+On Thu, Aug 21, 2008 at 11:29 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Thu, Aug 21, 2008 at 11:59:44AM +0200, Julius Volz wrote:
+>> There shouldn't be any fundamental restrictions, it's just a piece of
+>> the puzzle that I could easily leave out of the picture for now.
+>>
+>> I haven't studied the sync daemon closely yet, but one thing I was
+>> briefly wondering about was whether we should just blow up the
+>> addresses in struct ip_vs_sync_conn to be of type union nf_inet_addr
+>> (probably not acceptable, wasting too much bandwidth for v4 entries)
+>> or how to send differently sized entries based on the IP version in a
+>> clean way. But it sounds like you'd want to redesign a lot of that
+>> anyways? I'm glad to help with anything, I just don't know this code
+>> as well as you or Sven, but I'll study it more. Maybe you can share
+>> some ideas on the extensibility you want to see?
+>
+> What I was thinking is that any change
 
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   60 ++++++++++++------
- 1 file changed, 40 insertions(+), 20 deletions(-)
+Hm, I think you forgot to finish this sentence ;)
 
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -21,18 +21,20 @@
- #include <net/netfilter/nf_conntrack_acct.h>
- 
- struct ct_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_get_first(struct seq_file *seq)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
- 	struct hlist_node *n;
- 
- 	for (st->bucket = 0;
- 	     st->bucket < nf_conntrack_htable_size;
- 	     st->bucket++) {
--		n = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.hash[st->bucket].first);
- 		if (n)
- 			return n;
- 	}
-@@ -42,13 +44,14 @@ static struct hlist_node *ct_get_first(struct seq_file *seq)
- static struct hlist_node *ct_get_next(struct seq_file *seq,
- 				      struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_iter_state *st = seq->private;
- 
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_conntrack_htable_size)
- 			return NULL;
--		head = rcu_dereference(init_net.ct.hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.hash[st->bucket].first);
- 	}
- 	return head;
- }
-@@ -158,8 +161,8 @@ static const struct seq_operations ct_seq_ops = {
- 
- static int ct_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &ct_seq_ops,
--			sizeof(struct ct_iter_state));
-+	return seq_open_net(inode, file, &ct_seq_ops,
-+			    sizeof(struct ct_iter_state));
- }
- 
- static const struct file_operations ct_file_ops = {
-@@ -167,21 +170,23 @@ static const struct file_operations ct_file_ops = {
- 	.open    = ct_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- /* expects */
- struct ct_expect_iter_state {
-+	struct seq_net_private p;
- 	unsigned int bucket;
- };
- 
- static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 	struct hlist_node *n;
- 
- 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
--		n = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		n = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 		if (n)
- 			return n;
- 	}
-@@ -191,13 +196,14 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
- static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
- 					     struct hlist_node *head)
- {
-+	struct net *net = seq_file_net(seq);
- 	struct ct_expect_iter_state *st = seq->private;
- 
- 	head = rcu_dereference(head->next);
- 	while (head == NULL) {
- 		if (++st->bucket >= nf_ct_expect_hsize)
- 			return NULL;
--		head = rcu_dereference(init_net.ct.expect_hash[st->bucket].first);
-+		head = rcu_dereference(net->ct.expect_hash[st->bucket].first);
- 	}
- 	return head;
- }
-@@ -265,8 +271,8 @@ static const struct seq_operations exp_seq_ops = {
- 
- static int exp_open(struct inode *inode, struct file *file)
- {
--	return seq_open_private(file, &exp_seq_ops,
--			sizeof(struct ct_expect_iter_state));
-+	return seq_open_net(inode, file, &exp_seq_ops,
-+			    sizeof(struct ct_expect_iter_state));
- }
- 
- static const struct file_operations ip_exp_file_ops = {
-@@ -274,7 +280,7 @@ static const struct file_operations ip_exp_file_ops = {
- 	.open    = exp_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- static void *ct_cpu_seq_start(struct seq_file *seq, loff_t *pos)
-@@ -365,36 +371,51 @@ static const struct file_operations ct_cpu_seq_fops = {
- 	.release = seq_release,
- };
- 
--int __init nf_conntrack_ipv4_compat_init(void)
-+static int __net_init ip_conntrack_net_init(struct net *net)
- {
- 	struct proc_dir_entry *proc, *proc_exp, *proc_stat;
- 
--	proc = proc_net_fops_create(&init_net, "ip_conntrack", 0440, &ct_file_ops);
-+	proc = proc_net_fops_create(net, "ip_conntrack", 0440, &ct_file_ops);
- 	if (!proc)
- 		goto err1;
- 
--	proc_exp = proc_net_fops_create(&init_net, "ip_conntrack_expect", 0440,
-+	proc_exp = proc_net_fops_create(net, "ip_conntrack_expect", 0440,
- 					&ip_exp_file_ops);
- 	if (!proc_exp)
- 		goto err2;
- 
- 	proc_stat = proc_create("ip_conntrack", S_IRUGO,
--				init_net.proc_net_stat, &ct_cpu_seq_fops);
-+				net->proc_net_stat, &ct_cpu_seq_fops);
- 	if (!proc_stat)
- 		goto err3;
- 	return 0;
- 
- err3:
--	proc_net_remove(&init_net, "ip_conntrack_expect");
-+	proc_net_remove(net, "ip_conntrack_expect");
- err2:
--	proc_net_remove(&init_net, "ip_conntrack");
-+	proc_net_remove(net, "ip_conntrack");
- err1:
- 	return -ENOMEM;
- }
- 
-+static void __net_exit ip_conntrack_net_exit(struct net *net)
-+{
-+	remove_proc_entry("ip_conntrack", net->proc_net_stat);
-+	proc_net_remove(net, "ip_conntrack_expect");
-+	proc_net_remove(net, "ip_conntrack");
-+}
-+
-+static struct pernet_operations ip_conntrack_net_ops = {
-+	.init = ip_conntrack_net_init,
-+	.exit = ip_conntrack_net_exit,
-+};
-+
-+int __init nf_conntrack_ipv4_compat_init(void)
-+{
-+	return register_pernet_subsys(&ip_conntrack_net_ops);
-+}
-+
- void __exit nf_conntrack_ipv4_compat_fini(void)
- {
--	remove_proc_entry("ip_conntrack", init_net.proc_net_stat);
--	proc_net_remove(&init_net, "ip_conntrack_expect");
--	proc_net_remove(&init_net, "ip_conntrack");
-+	unregister_pernet_subsys(&ip_conntrack_net_ops);
- }
+> Here are a few thoughts I have had in my breif overview of the code so far
+> - mainly just simple style things. If any of my comments are obviously
+> stupid, please just say so as I haven't got to the end of the series yet
+> and I'm sure some of my questions are answered in the code.
+
+Thanks for looking at this, no problem. I know it's a bit much to
+digest, but I think there is no smaller part that I could post that is
+useful in itself already.
+
+> [PATCH RFC 01/24] IPVS: Add genetlink interface definitions to ip_vs.h
+> [PATCH RFC 02/24] IPVS: Add genetlink interface implementation
+>
+> * Already in lvs-2.6. Are there any changes?
+
+No, those are just exactly what I sent you before. I included them
+because I was basing it on net-2.6.
+
+Btw., David just announced that he opened net-next-2.6, so perhaps he
+could pull the changes from your tree into that now?
+
+> [PATCH RFC 02/24] IPVS: Add genetlink interface implementation
+>
+> * What is IP_VS = IPV6 ?
+
+(IPV6 = y || IP_VS = IPV6) means that this option will only be visible
+if either CONFIG_IPV6 is set to Y or if both CONFIG_IPV6 and
+CONFIG_IP_VS are modules (if both are off, the whole submenu will be
+hidden). So CONFIG_IPV6 has to be set at least as high as CONFIG_IP_VS
+for this option to be visible.
+
+> [PATCH RFC 04/24] IPVS: Change IPVS data structures to support IPv6 addresses
+>
+> * Indentation of af in struct ip_vs_conn seems inconsistent with other
+>  elements.
+
+Yeah, it's broken like this in the original and I kept it like that so
+that things would still line up (because I didn't want to add noise by
+touching the neighboring lines just for whitespace fixes). I could
+just send a small whitespace fix to you before.
+
+> [PATCH RFC 05/24] IPVS: Add general v4/v6 helper functions / data structures
+>
+> * Use of p ? a : b construct in ip_vs_addr_equal() seems a bit aquard.
+>  How about
+>
+> static inline int ip_vs_addr_equal(int af, const union nf_inet_addr *a,
+>                                   const union nf_inet_addr *b)
+> {
+> #ifdef CONFIG_IP_VS_IPV6
+>        if (af == AF_INET)
+>                return ipv6_addr_equal(&a->in6, &b->in6);
+> #endif
+>        return a->ip == b->ip;
+> }
+
+Right, that is nicer! With AF_INET6 in that if-condition, of course.
+
+Julius
+
 -- 
-1.5.6.3
-
-
+Google Switzerland GmbH
