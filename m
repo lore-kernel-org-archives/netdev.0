@@ -1,46 +1,38 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH RFC 19/24] IPVS: Add IPv6 support flag to schedulers
-Date: Thu, 21 Aug 2008 12:21:39 +0200
-Message-ID: <f4845fc0808210321m342f2504i69d01c6b33298fc7@mail.gmail.com>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
-	 <1219248931-15064-20-git-send-email-juliusv@google.com>
-	 <20080821014813.GH19235@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 21 Aug 2008 20:21:53 +1000
+Message-ID: <20080821102153.GB3789@gondor.apana.org.au>
+References: <20080819085504.GB29038@gondor.apana.org.au> <20080819091642.GI4376@ff.dom.local> <20080821100155.GA3621@ff.dom.local> <20080821.030523.205239441.davem@davemloft.net> <20080821101145.GA3963@ff.dom.local> <20080821101830.GB3963@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080821014813.GH19235@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:36169 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753615AbYHUKWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 06:22:04 -0400
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080821101830.GB3963@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 3:48 AM, Simon Horman wrote:
-> On Wed, Aug 20, 2008 at 06:15:26PM +0200, Julius Volz wrote:
->> Add 'supports_ipv6' flag to struct ip_vs_scheduler to indicate whether a
->> scheduler supports IPv6. Set the flag to 1 in schedulers that work with
->> IPv6, 0 otherwise. This flag is checked in a later patch while trying to
->> add a service with a specific scheduler.
+On Thu, Aug 21, 2008 at 10:18:30AM +0000, Jarek Poplawski wrote:
 >
-> I wonder if there are some spare bits inside the flags
-> member of ip_vs_scheduler that could be used for this purpose?
+> > > Remember, sch_tree_lock() uses qdisc_root_lock() which as I've
+> > > told you at least twice now asserts that RTNL is held :-)
+> > 
+> > Actually, I've called it wrong, they hold qdisc root lock, but they
+> > certainly can't have rtnl_lock() at the moment!
+> 
+> I mean here: hfsc_dequeue(), netem_dequeue() and tbf_dequeue().
 
-Hm, there isn't any 'flags' member or similar in that struct...
+Where do they use qdisc->list?
 
-> Otherwise, I'm fine with this, we can juggle things around
-> later to use the other bits in supports_ipv6 for other things
-> if and when the need arises.
-
-Yes, then we could also rename it to 'flags' once needed.
-
-> Here is a version that applies against lvs-2.6
-
-Thanks, I guess I should start basing all of my IPVS patches on this
-tree rather than net-2.6?
-
-Julius
-
+Cheers,
 -- 
-Google Switzerland GmbH
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
