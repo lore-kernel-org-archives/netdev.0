@@ -1,105 +1,65 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 21 Aug 2008 12:55:01 +0000
-Message-ID: <20080821125501.GF4079@ff.dom.local>
-References: <20080821120112.GA7705@gondor.apana.org.au> <20080821121920.GD4079@ff.dom.local> <20080821122245.GA8533@gondor.apana.org.au> <20080821.052754.104318066.davem@davemloft.net> <20080821123538.GA8703@gondor.apana.org.au> <20080821124834.GA8794@gondor.apana.org.au>
+From: Matt LaPlante <kernel1@cyberdogtech.com>
+Subject: Re: Oops in authenc: 2.6.26.3
+Date: Thu, 21 Aug 2008 08:08:11 -0500
+Message-ID: <20080821080811.8a834a46.kernel1@cyberdogtech.com>
+References: <20080820203245.ea01ff39.kernel1@cyberdogtech.com>
+	<20080821070225.GA31894@aeris>
+	<20080821083615.GA1971@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	denys@visp.net.lb
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Sascha Biberhofer <biberhofer@inode.at>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:19114 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbYHUMzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:55:08 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so1021928ugf.37
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 05:55:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080821124834.GA8794@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757996AbYHUNIk@vger.kernel.org>
+In-Reply-To: <20080821083615.GA1971@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2008 at 10:48:34PM +1000, Herbert Xu wrote:
-> On Thu, Aug 21, 2008 at 10:35:38PM +1000, Herbert Xu wrote:
-> >
-> > You're right, this doesn't work at all.  In fact it's been broken
-> > even before we removed the root lock.  The problem is that we used
-> > to have one big linked list for each device.  That was protected
-> > by the device qdisc lock.  Now we have one list for each txq and
-> > qdisc_lookup walks every single txq.  This means that no single
-> > qdisc root lock can protect this anymore.
-> 
-> How about going back to a single list per-device again? This list
-> is only used on the slow path (well anything that tries to walk
-> a potentially unbounded linked list is slow :), and qdisc_lookup
-> walks through everything anyway.
-> 
-> We'll need to then add a new lock to protect this list, until we
-> remove requeue.
-> 
-> Actually just doing the locking will be sufficient.  Something like
-> this totally untested patch (I've abused your tx global lock):
+On Thu, 21 Aug 2008 18:36:15 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Alas I've to have a break now, anyway I think for now "my" proposal
-should be safer since it worked like this before... But of course
-after good checking your patch should be better.
-
-Jarek P.
-
+> On Thu, Aug 21, 2008 at 07:02:25AM +0000, Sascha Biberhofer wrote:
+> > I have the same problem on my system, starting with the release of
+> > 2.6.26. Shortly afterwards I've had the same problem with the 2.6.25
+> > series starting with 2.6.25.12. I've looked up the changes between
+> > 2.6.25.11 and .12 and found commit
+> > c2bd04d8040a91fe2ee2e9fee1a6562ca9792249 (it's commit
+> > 872ac8743cb400192a9fce4ba2d3ffd7bb309685 in the 2.6.26 series).
+> > Reverting the commit seems to solve the problem here, I've been running
+> > a 2.6.25.12 kernel without this commit for some weeks now.
+> > In case it's important: I'm using an IPSec ESP transport with AES-256
+> > and sha-256 auth. 
 > 
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index ef0efec..3f5f9b9 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -202,16 +202,25 @@ struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
->  struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
->  {
->  	unsigned int i;
-> +	struct Qdisc *q;
-> +
-> +	spin_lock_bh(&dev->tx_global_lock);
->  
->  	for (i = 0; i < dev->num_tx_queues; i++) {
->  		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-> -		struct Qdisc *q, *txq_root = txq->qdisc_sleeping;
-> +		struct Qdisc *txq_root = txq->qdisc_sleeping;
->  
->  		q = qdisc_match_from_root(txq_root, handle);
->  		if (q)
-> -			return q;
-> +			goto unlock;
->  	}
-> -	return qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
-> +
-> +	q = qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
-> +
-> +unlock:
-> +	spin_unlock_bh(&dev->tx_global_lock);
-> +
-> +	return q;
->  }
->  
->  static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index c3ed4d4..292a373 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -526,8 +526,10 @@ void qdisc_destroy(struct Qdisc *qdisc)
->  	    !atomic_dec_and_test(&qdisc->refcnt))
->  		return;
->  
-> +	spin_lock_bh(&dev->tx_global_lock);
->  	if (qdisc->parent)
->  		list_del(&qdisc->list);
-> +	spin_unlock_bh(&dev->tx_global_lock);
->  
->  #ifdef CONFIG_NET_SCHED
->  	qdisc_put_stab(qdisc->stab);
+> Sorry, I was skimping on memory and ended up calling a clobbered
+> function pointer.
 > 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> This patch should fix it.
+> 
+> crypto: authenc - Avoid using clobbered request pointer
+> 
+> Authenc works in two stages for encryption, it first encrypts and
+> then computes an ICV.  The context memory of the request is used
+> by both operations.  The problem is that when an asynchronous
+> encryption completes, we will compute the ICV and then reread the
+> context memory of the encryption to get the original request.
+> 
+> It just happens that we have a buffer of 16 bytes in front of the
+> request pointer, so ICVs of 16 bytes (such as SHA1) do not trigger
+> the bug.  However, any attempt to uses a larger ICV instantly kills
+> the machine when the first asynchronous encryption is completed.
+> 
+> This patch fixes this by saving the request pointer before we start
+> the ICV computation.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Acked-by: Matt LaPlante <kernel1@cyberdogtech.com>
+
+Thanks for the quick fix!
+
+-- 
+Matt LaPlante
