@@ -1,43 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 21 Aug 2008 22:22:45 +1000
-Message-ID: <20080821122245.GA8533@gondor.apana.org.au>
-References: <20080821101830.GB3963@ff.dom.local> <20080821102153.GB3789@gondor.apana.org.au> <20080821102338.GA3864@gondor.apana.org.au> <20080821103354.GA4079@ff.dom.local> <20080821105110.GA4088@gondor.apana.org.au> <20080821112055.GB4079@ff.dom.local> <20080821112609.GA5052@gondor.apana.org.au> <20080821115521.GC4079@ff.dom.local> <20080821120112.GA7705@gondor.apana.org.au> <20080821121920.GD4079@ff.dom.local>
+Date: Thu, 21 Aug 2008 05:27:54 -0700 (PDT)
+Message-ID: <20080821.052754.104318066.davem@davemloft.net>
+References: <20080821120112.GA7705@gondor.apana.org.au>
+	<20080821121920.GD4079@ff.dom.local>
+	<20080821122245.GA8533@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43098 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752250AbYHUMWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:22:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20080821121920.GD4079@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37386
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751797AbYHUM1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:27:54 -0400
+In-Reply-To: <20080821122245.GA8533@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 12:19:20PM +0000, Jarek Poplawski wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 21 Aug 2008 22:22:45 +1000
+
+> On Thu, Aug 21, 2008 at 12:19:20PM +0000, Jarek Poplawski wrote:
+> > 
+> > Since qdisc_destroy() is used for destroying root qdisc too, isn't it
+> > better to get this lock back in notify_and_destroy() like this:
+> > 
+> > if (old) {
+> > 	if (parent)
+> > 		sch_tree_lock()
+> > 	qdisc_destroy()
+> > 	if (parent)
+> > 		sch_tree_unlock()
+> > }
 > 
-> Since qdisc_destroy() is used for destroying root qdisc too, isn't it
-> better to get this lock back in notify_and_destroy() like this:
+> Ugly as it may look, I think this is probably the best fix for now.
 > 
-> if (old) {
-> 	if (parent)
-> 		sch_tree_lock()
-> 	qdisc_destroy()
-> 	if (parent)
-> 		sch_tree_unlock()
-> }
+> For 2.6.28 we can fix it properly and remove this eyesore :)
 
-Ugly as it may look, I think this is probably the best fix for now.
+This looks even worse, actually.
 
-For 2.6.28 we can fix it properly and remove this eyesore :)
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If we just unlinked this thing, we don't want anyone finding
+it, even before we grab this lock, to adjust queue counts.
