@@ -1,47 +1,36 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
-Date: Thu, 21 Aug 2008 10:57:40 -0700
-Message-ID: <86802c440808211057j41e2b0c8jcd0817ca047962d0@mail.gmail.com>
-References: <198958.27259.qm@web82105.mail.mud.yahoo.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
+Date: Thu, 21 Aug 2008 11:54:02 -0700
+Message-ID: <20080821185402.GD31526@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Ingo Molnar" <mingo@elte.hu>, "Vivek Goyal" <vgoyal@redhat.com>,
-	"Bill Fink" <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"Peter Zijlstra" <peterz@infradead.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: "David Witbrodt" <dawitbro@sbcglobal.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756941AbYHUR54@vger.kernel.org>
-In-Reply-To: <198958.27259.qm@web82105.mail.mud.yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Linux-Driver@qlogic.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:26559 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbYHUSyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 14:54:36 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 9:53 AM, David Witbrodt <dawitbro@sbcglobal.net> wrote:
->
->
->> > I will try to provide the entire output tonight or tomorrow.  It will be
->> > difficult, though:  it looks like I have to try to fit the info from about
->> > 60 of the printk's in your patch onto the 80x25 VGA screen, and still
->> > make it understandable enough to be useful.
->> >
->>
->> with hpet=disable?
->
-> Oh, well that's easy.  (See below.)  I assumed you needed the data for a
-> hanging kernel, not one with the workaround enabled.
->
-> I can still try to provide the output of the printk's in your patch later,
-> in that would have any value.  Here is 'dmesg' for a recent kernel with
-> "hpet=disable":
+Hi Jeff,
 
-insert_resource/request_resource works well
+Please find our new 10Gb ethernet driver at the following site:
 
-can you verify if hpet work on old kernel?
+ftp://ftp.qlogic.com/outgoing/linux/network/linux/upstream/qlge
 
-cat /proc/timers*
+There are two files at this location:
+qlge-aug212008.patch - A full patch that is buildable on the latest netdev/upstream kernel.
+qlge-aug212008.tar.bz2 - A zip file of the source code at drivers/net/qlge/*
 
-YH
+We are targeting this driver for 2.6.28 release.  We look forward to any and all comments.
+
+Notes:
+1) The file qlge_mpi.c (Management Port Interface) is mostly stubbed right now but will have functionality to handle setting up wake-on-lan and getting/setting link paramters.
+2) Please ignore "#ifdef PALLADIUM".  It will be removed going forward as it's currently used for a test platform.
+
+Regards,
+Ron Mercer
+Qlogic Corporation
