@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 8/8] sysfs: user namespaces: fix bug with clone(CLONE_NEWUSER) with fairsched
-Date: Wed, 20 Aug 2008 23:40:11 -0700
-Message-ID: <m1myj6zx9w.fsf_-_@frodo.ebiederm.org>
+Subject: [PATCH 2/8] sysfs: Merge sysfs_rename_dir and sysfs_move_dir
+Date: Wed, 20 Aug 2008 23:34:39 -0700
+Message-ID: <m1d4k227wg.fsf_-_@frodo.ebiederm.org>
 References: <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
 	<m1tzf6ihlz.fsf_-_@frodo.ebiederm.org>
 	<m1prpuihjb.fsf_-_@frodo.ebiederm.org>
@@ -15,11 +15,6 @@ References: <m1y74iiidz.fsf_-_@frodo.ebiederm.org>
 	<20080820021754.GA25182@kroah.com>
 	<m1od3m282j.fsf_-_@frodo.ebiederm.org>
 	<m1hc9e27ya.fsf_-_@frodo.ebiederm.org>
-	<m1d4k227wg.fsf_-_@frodo.ebiederm.org>
-	<m18wuq27uj.fsf_-_@frodo.ebiederm.org>
-	<m14p5e27tb.fsf_-_@frodo.ebiederm.org>
-	<m1vdxuzxco.fsf_-_@frodo.ebiederm.org>
-	<m1r68izxbi.fsf_-_@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Greg Kroah-Hartman <gregkh@suse.de>,
@@ -32,147 +27,217 @@ Cc: Greg Kroah-Hartman <gregkh@suse.de>,
 	netdev@vger.kernel.org
 To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60883 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755174AbYHUGoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 02:44:06 -0400
-In-Reply-To: <m1r68izxbi.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
-	message of "Wed, 20 Aug 2008 23:39:13 -0700")
+Received: from out02.mta.xmission.com ([166.70.13.232]:50446 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755835AbYHUGoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 02:44:08 -0400
+In-Reply-To: <m1hc9e27ya.fsf_-_@frodo.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 20 Aug 2008 23:33:33 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Serge Hallyn <serge@us.ibm.com>
 
-Mark the /sys/kernel/uids directory to be tagged so that processes in
-different user namespaces can remount /sys and see their own uid
-listings.
+These two functions do 90% of the same work and it doesn't significantly
+obfuscate the function to allow both the parent dir and the name to change
+at the same time.  So merge them together to simplify maintenance, and
+increase testing.
 
-Without this patch, having CONFIG_FAIR_SCHED=y makes user namespaces
-unusable, because when you
-  clone(CLONE_NEWUSER)
-it will auto-create the root userid and try to create
-/sys/kernel/uids/0.  Since that already exists from the parent user
-namespace, the create fails, and the clone misleadingly ends up
-returning -ENOMEM.
-
-This patch fixes the issue by allowing each user namespace to remount
-/sys, and having /sys filter the /sys/kernel/uid/ entries by user
-namespace.
-
-Changelong:
-v2 - Reworked for the updated sysfs api
-
-Signed-off-by: Serge Hallyn <serue@us.ibm.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/sched.h   |    1 +
- include/linux/sysfs.h   |    1 +
- kernel/user.c           |   22 ++++++++++++++++++++++
- kernel/user_namespace.c |    1 +
- 4 files changed, 25 insertions(+), 0 deletions(-)
+ fs/sysfs/dir.c |  121 +++++++++++++++++--------------------------------------
+ 1 files changed, 38 insertions(+), 83 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 5850bfb..b0fe15a 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -600,6 +600,7 @@ struct user_struct {
- 	/* Hash table maintenance information */
- 	struct hlist_node uidhash_node;
- 	uid_t uid;
-+	struct user_namespace *user_ns;
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index dec7586..a76fb54 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -955,44 +955,57 @@ err_out:
+ 	return error;
+ }
  
- #ifdef CONFIG_USER_SCHED
- 	struct task_group *tg;
-diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
-index 6d7eb50..ac88374 100644
---- a/include/linux/sysfs.h
-+++ b/include/linux/sysfs.h
-@@ -83,6 +83,7 @@ struct sysfs_dirent;
- enum sysfs_tag_type {
- 	SYSFS_TAG_TYPE_NONE = 0,
- 	SYSFS_TAG_TYPE_NETNS,
-+	SYSFS_TAG_TYPE_USERNS,
- 	SYSFS_TAG_TYPES
- };
- 
-diff --git a/kernel/user.c b/kernel/user.c
-index 865ecf5..ca29fbc 100644
---- a/kernel/user.c
-+++ b/kernel/user.c
-@@ -53,6 +53,7 @@ struct user_struct root_user = {
- 	.files		= ATOMIC_INIT(0),
- 	.sigpending	= ATOMIC_INIT(0),
- 	.locked_shm     = 0,
-+	.user_ns	= &init_user_ns,
- #ifdef CONFIG_USER_SCHED
- 	.tg		= &init_task_group,
- #endif
-@@ -230,16 +231,33 @@ static struct attribute *uids_attributes[] = {
- 	NULL
- };
- 
-+static const void *uids_mount_tag(void)
-+{
-+	return current->nsproxy->user_ns;
-+}
-+
-+static struct sysfs_tag_type_operations uids_tag_type_operations = {
-+	.mount_tag = uids_mount_tag,
-+};
-+
- /* the lifetime of user_struct is not managed by the core (now) */
- static void uids_release(struct kobject *kobj)
+-int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
++static int sysfs_mv_dir(struct sysfs_dirent *sd,
++	struct sysfs_dirent *new_parent_sd, const char *new_name)
  {
- 	return;
+-	struct sysfs_dirent *sd = kobj->sd;
+ 	struct list_head todo;
+ 	struct sysfs_rename_struct *srs;
+-	struct inode *parent_inode = NULL;
++	struct inode *old_parent_inode = NULL, *new_parent_inode = NULL;
+ 	const char *dup_name = NULL;
+ 	const void *old_tag, *tag;
+ 	int error;
+ 
+ 	INIT_LIST_HEAD(&todo);
++	BUG_ON(!sd->s_parent);
+ 	mutex_lock(&sysfs_rename_mutex);
++	if (!new_parent_sd)
++		new_parent_sd = &sysfs_root;
++
+ 	old_tag = sd->s_tag;
+ 	tag = sysfs_creation_tag(sd->s_parent, sd);
+ 
+ 	error = 0;
+-	if ((old_tag == tag) && (strcmp(sd->s_name, new_name) == 0))
+-		goto out;	/* nothing to rename */
++	if ((sd->s_parent == new_parent_sd) && (old_tag == tag) &&
++	    (strcmp(sd->s_name, new_name) == 0))
++		goto out;	/* nothing to do */
+ 
+ 	sysfs_grab_supers();
+ 	if (old_tag == tag) {
+-		error = prep_rename(&todo, sd, sd->s_parent, new_name);
++		error = prep_rename(&todo, sd, new_parent_sd, new_name);
+ 		if (error)
+ 			goto out_release;
+ 	}
+ 
+ 	error = -ENOMEM;
+ 	mutex_lock(&sysfs_mutex);
+-	parent_inode = sysfs_get_inode(sd->s_parent);
++	old_parent_inode = sysfs_get_inode(sd->s_parent);
++	new_parent_inode = sysfs_get_inode(new_parent_sd);
+ 	mutex_unlock(&sysfs_mutex);
+-	if (!parent_inode)
++	if (!old_parent_inode || !new_parent_inode)
+ 		goto out_release;
+ 
+-	mutex_lock(&parent_inode->i_mutex);
++again:
++	mutex_lock(&old_parent_inode->i_mutex);
++	if (old_parent_inode != new_parent_inode) {
++		if (!mutex_trylock(&new_parent_inode->i_mutex)) {
++			mutex_unlock(&old_parent_inode->i_mutex);
++			goto again;
++		}
++	}
+ 	mutex_lock(&sysfs_mutex);
+ 
+ 	error = -EEXIST;
+-	if (sysfs_find_dirent(sd->s_parent, tag, new_name))
++	if (sysfs_find_dirent(new_parent_sd, tag, new_name))
+ 		goto out_unlock;
+ 
+ 	/* rename sysfs_dirent */
+@@ -1005,7 +1018,7 @@ int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
+ 	sd->s_name = new_name;
+ 	sd->s_tag = tag;
+ 
+-	/* rename */
++	/* rename dcache entries */
+ 	list_for_each_entry(srs, &todo, list) {
+ 		d_add(srs->new_dentry, NULL);
+ 		d_move(srs->old_dentry, srs->new_dentry);
+@@ -1025,77 +1038,6 @@ int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
+ 		}
+ 	}
+ 
+-	error = 0;
+-out_unlock:
+-	mutex_unlock(&sysfs_mutex);
+-	mutex_unlock(&parent_inode->i_mutex);
+-	kfree(dup_name);
+-out_release:
+-	iput(parent_inode);
+-	post_rename(&todo);
+-	sysfs_release_supers();
+-out:
+-	mutex_unlock(&sysfs_rename_mutex);
+-	return error;
+-}
+-
+-int sysfs_move_dir(struct kobject *kobj, struct kobject *new_parent_kobj)
+-{
+-	struct sysfs_dirent *sd = kobj->sd;
+-	struct sysfs_dirent *new_parent_sd;
+-	struct list_head todo;
+-	struct sysfs_rename_struct *srs;
+-	struct inode *old_parent_inode = NULL, *new_parent_inode = NULL;
+-	int error;
+-	const void *tag;
+-
+-	INIT_LIST_HEAD(&todo);
+-	mutex_lock(&sysfs_rename_mutex);
+-	BUG_ON(!sd->s_parent);
+-	new_parent_sd = new_parent_kobj->sd ? new_parent_kobj->sd : &sysfs_root;
+-	tag = sd->s_tag;
+-
+-	error = 0;
+-	if (sd->s_parent == new_parent_sd)
+-		goto out;	/* nothing to move */
+-
+-	sysfs_grab_supers();
+-	error = prep_rename(&todo, sd, new_parent_sd, sd->s_name);
+-	if (error)
+-		goto out_release;
+-
+-	error = -ENOMEM;
+-	mutex_lock(&sysfs_mutex);
+-	old_parent_inode = sysfs_get_inode(sd->s_parent);
+-	mutex_unlock(&sysfs_mutex);
+-	if (!old_parent_inode)
+-		goto out_release;
+-
+-	error = -ENOMEM;
+-	mutex_lock(&sysfs_mutex);
+-	new_parent_inode = sysfs_get_inode(new_parent_sd);
+-	mutex_unlock(&sysfs_mutex);
+-	if (!new_parent_inode)
+-		goto out_release;
+-
+-again:
+-	mutex_lock(&old_parent_inode->i_mutex);
+-	if (!mutex_trylock(&new_parent_inode->i_mutex)) {
+-		mutex_unlock(&old_parent_inode->i_mutex);
+-		goto again;
+-	}
+-	mutex_lock(&sysfs_mutex);
+-
+-	error = -EEXIST;
+-	if (sysfs_find_dirent(new_parent_sd, tag, sd->s_name))
+-		goto out_unlock;
+-
+-	error = 0;
+-	list_for_each_entry(srs, &todo, list) {
+-		d_add(srs->new_dentry, NULL);
+-		d_move(srs->old_dentry, srs->new_dentry);
+-	}
+-
+ 	/* Remove from old parent's list and insert into new parent's list. */
+ 	sysfs_unlink_sibling(sd);
+ 	sysfs_get(new_parent_sd);
+@@ -1103,10 +1045,13 @@ again:
+ 	sd->s_parent = new_parent_sd;
+ 	sysfs_link_sibling(sd);
+ 
++	error = 0;
+ out_unlock:
+ 	mutex_unlock(&sysfs_mutex);
+-	mutex_unlock(&new_parent_inode->i_mutex);
++	if (new_parent_inode != old_parent_inode)
++		mutex_unlock(&new_parent_inode->i_mutex);
+ 	mutex_unlock(&old_parent_inode->i_mutex);
++	kfree(dup_name);
+ 
+ out_release:
+ 	iput(new_parent_inode);
+@@ -1118,6 +1063,16 @@ out:
+ 	return error;
  }
  
-+static const void *uids_sysfs_tag(struct kobject *kobj)
++int sysfs_rename_dir(struct kobject * kobj, const char *new_name)
 +{
-+	struct user_struct *up;
-+	up = container_of(kobj, struct user_struct, kobj);
-+	return up->user_ns;
++	return sysfs_mv_dir(kobj->sd, kobj->sd->s_parent, new_name);
 +}
 +
- static struct kobj_type uids_ktype = {
- 	.sysfs_ops = &kobj_sysfs_ops,
- 	.default_attrs = uids_attributes,
- 	.release = uids_release,
-+	.sysfs_tag = uids_sysfs_tag,
- };
- 
- /* create /sys/kernel/uids/<uid>/cpu_share file for this user */
-@@ -272,6 +290,9 @@ int __init uids_sysfs_init(void)
- 	if (!uids_kset)
- 		return -ENOMEM;
- 
-+	sysfs_register_tag_type(SYSFS_TAG_TYPE_USERNS, &uids_tag_type_operations);
-+	sysfs_make_tagged_dir(&uids_kset->kobj, SYSFS_TAG_TYPE_USERNS);
++int sysfs_move_dir(struct kobject *kobj, struct kobject *new_parent_kobj)
++{
++	return sysfs_mv_dir(kobj->sd, new_parent_kobj->sd, kobj->sd->s_name);
++}
 +
- 	return uids_user_create(&root_user);
- }
- 
-@@ -405,6 +426,7 @@ struct user_struct *alloc_uid(struct user_namespace *ns, uid_t uid)
- 
- 		new->uid = uid;
- 		atomic_set(&new->__count, 1);
-+		new->user_ns = ns;
- 
- 		if (sched_create_user(new) < 0)
- 			goto out_free_user;
-diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index a9ab059..f67bbe0 100644
---- a/kernel/user_namespace.c
-+++ b/kernel/user_namespace.c
-@@ -71,6 +71,7 @@ void free_user_ns(struct kref *kref)
- 	struct user_namespace *ns;
- 
- 	ns = container_of(kref, struct user_namespace, kref);
-+	sysfs_exit_tag(SYSFS_TAG_TYPE_USERNS, ns);
- 	release_uids(ns);
- 	kfree(ns);
- }
+ /* Relationship between s_mode and the DT_xxx types */
+ static inline unsigned char dt_type(struct sysfs_dirent *sd)
+ {
 -- 
 1.5.3.rc6.17.g1911
 
