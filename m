@@ -1,40 +1,52 @@
-From: adobriyan@gmail.com
-Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
-Date: Thu, 21 Aug 2008 16:04:09 +0400
-Message-ID: <20080821120409.GA2226@x200.localdomain>
-References: <20080821115849.GA2126@x200.localdomain> <20080821.045910.61585911.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Thu, 21 Aug 2008 05:06:19 -0700 (PDT)
+Message-ID: <20080821.050619.15769132.davem@davemloft.net>
+References: <20080821112055.GB4079@ff.dom.local>
+	<20080821112609.GA5052@gondor.apana.org.au>
+	<20080821115521.GC4079@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jcliburn@gmail.com, csnook@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	denys@visp.net.lb
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:47297 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbYHUMCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:02:46 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so1274067mue.1
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 05:02:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080821.045910.61585911.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51326
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750909AbYHUMGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:06:20 -0400
+In-Reply-To: <20080821115521.GC4079@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 04:59:10AM -0700, David Miller wrote:
-> From: adobriyan@gmail.com
-> Date: Thu, 21 Aug 2008 15:58:49 +0400
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Thu, 21 Aug 2008 11:55:22 +0000
+
+> Sure, here is a scenario:
 > 
-> > This message happens more or less every reboot, sometimes cable unplug/plug is needed
-> > to restore connectivity, otherwise card is working fine.
-> 
-> What kernel version.... no, I can figure it out via osmosis never mind!
-> :-)
+> cpu1					cpu2
+> rtnl_lock()
+> qdisc_graft()
+> // parent != NULL
+> ->cops-graft()
+> notify_and_destroy()			qdisc_run()
+> 					spin_lock(root_lock)
+> qdisc_destroy(old)			dequeue_skb()
+> 					tbf_dequeue()
+> 					qdisc_tree_decrease_qlen()	
+> 					qdisc_lookup()
+> //deleting from qdisc_sleeping->list	//walking qdisc_sleeping->list
+> //under rtnl_lock() only		//under qdisc root_lock only
+> list_del(qdisc->list)			list_for_each_entry(txq_root)
 
-WARN already prints kernel version. ;-)
+Grrr... :-)
 
-[ 2086.052503] Pid: 0, comm: swapper Not tainted 2.6.27-rc4-netns-nf #4
-						 ^^^^^^^^^^^^^^^^^^^
+Note that this only happens when my arch nemesis, ->requeue(), fails.
+Same applies to the netem case, and hfsc's "peek".
 
-And before you ask, "-netns-nf" part doesn't matter, it happens with
-strictly mainline kernels too and started around multiqueue TX changes,
-IIRC.
+All other qdisc_tree_decrease_qlen() users hold RTNL.
+
+Really, it proves ->requeue() should die, and be replaced with "peek"
+and "unlink" methods.
 
