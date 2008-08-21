@@ -1,31 +1,35 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: Oops in authenc: 2.6.26.3
-Date: Thu, 21 Aug 2008 11:56:10 -0300
-Message-ID: <20080821145610.GE11198@khazad-dum.debian.net>
-References: <20080820203245.ea01ff39.kernel1@cyberdogtech.com> <20080821070225.GA31894@aeris> <20080821083615.GA1971@gondor.apana.org.au>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH RFC 08/24] IPVS: Make protocol handler functions support
+ IPv6
+Date: Thu, 21 Aug 2008 11:12:12 -0400
+Message-ID: <48AD85CC.8000102@hp.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>	 <1219248931-15064-9-git-send-email-juliusv@google.com>	 <48AD6DBB.9030607@hp.com>	 <f4845fc0808210652o3b586e7cjbeadc41533f9ac7d@mail.gmail.com>	 <48AD76DE.4030000@hp.com> <f4845fc0808210755i1d3e37a0q8ff27af8d59bba0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Biberhofer <biberhofer@inode.at>,
-	Matt LaPlante <kernel1@cyberdogtech.com>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3.smtp.messagingengine.com ([66.111.4.27]:35652 "EHLO
-	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760136AbYHUO4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 10:56:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20080821083615.GA1971@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	horms@verge.net.au, kaber@trash.net, vbusam@google.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <f4845fc0808210755i1d3e37a0q8ff27af8d59bba0@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: stable@kernel.org ?
+Julius Volz wrote:
+> Still, I think my original interpretation was correct? It's always
+> used with constant values and there are many usages similar to this:
+> 
+> skb->protocol = __constant_htons(ETH_P_802_3);
+> 
+> Someone feel free to correct me.
 
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+I know it's a minor point, but look at tcp_ipv6.c:
+
+         if (skb->protocol == htons(ETH_P_IP))
+                 return tcp_v4_conn_request(sk, skb);
+
+That's different from the code you quoted that's doing an assignment. 
+__constant_htons() isn't used anywhere in an if() statement, although I 
+did find a couple in the bonding driver that should be fixed.
+
+-Brian
