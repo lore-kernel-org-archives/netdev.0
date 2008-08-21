@@ -1,39 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Thu, 21 Aug 2008 22:35:38 +1000
-Message-ID: <20080821123538.GA8703@gondor.apana.org.au>
-References: <20080821120112.GA7705@gondor.apana.org.au> <20080821121920.GD4079@ff.dom.local> <20080821122245.GA8533@gondor.apana.org.au> <20080821.052754.104318066.davem@davemloft.net>
+From: Artem Bityutskiy <dedekind@infradead.org>
+Subject: Re: [PATCH] Remove duplicated unlikely() in IS_ERR()
+Date: Thu, 21 Aug 2008 15:39:30 +0300
+Message-ID: <1219322370.18027.71.camel@sauron>
+References: <48A52D69.1040501@miraclelinux.com>
+Reply-To: dedekind@infradead.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: christof.schmitt@de.ibm.com, yoshfuji@linux-ipv6.org,
+	linux-mtd@lists.infradead.org, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Hirofumi Nakagawa <hnakagawa@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59617 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750999AbYHUMfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:35:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20080821.052754.104318066.davem@davemloft.net>
+Received: from smtp.nokia.com ([192.100.122.233]:59418 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752314AbYHUMnR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 08:43:17 -0400
+In-Reply-To: <48A52D69.1040501@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2008 at 05:27:54AM -0700, David Miller wrote:
-> 
-> This looks even worse, actually.
-> 
-> If we just unlinked this thing, we don't want anyone finding
-> it, even before we grab this lock, to adjust queue counts.
+Hi,
 
-You're right, this doesn't work at all.  In fact it's been broken
-even before we removed the root lock.  The problem is that we used
-to have one big linked list for each device.  That was protected
-by the device qdisc lock.  Now we have one list for each txq and
-qdisc_lookup walks every single txq.  This means that no single
-qdisc root lock can protect this anymore.
+On Fri, 2008-08-15 at 16:16 +0900, Hirofumi Nakagawa wrote:
+> Hi
+> Some drivers have duplicated unlikely() macros.
+> IS_ERR() already has unlikely() in itself.
+> This patch cleans up such pointless codes although there is no real
+> effect on the kernel's behaviour.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Your patch did not apply cleanly, but I've done all the manual work
+and pushed UBIFS-related part of it to ubifs-2.6.git. Thanks.
+
+--=20
+Best regards,
+Artem Bityutskiy (=D0=91=D0=B8=D1=82=D1=8E=D1=86=D0=BA=D0=B8=D0=B9 =D0=90=
+=D1=80=D1=82=D1=91=D0=BC)
+
