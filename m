@@ -1,184 +1,276 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
-Date: Wed, 20 Aug 2008 19:48:50 -0700 (PDT)
-Message-ID: <81856.40793.qm@web82105.mail.mud.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: fix potential panics in the SCTP-AUTH API.
+Date: Wed, 20 Aug 2008 22:57:38 -0400
+Message-ID: <1219287458413-git-send-email-vladislav.yasevich@hp.com>
+References: <20080820124145.f971f318.akpm@linux-foundation.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	security@kernel.org, tk@trapkit.de,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82105.mail.mud.yahoo.com ([209.191.84.218]:33983 "HELO
-	web82105.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753312AbYHUCsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 22:48:51 -0400
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:27942 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751844AbYHUC5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 22:57:42 -0400
+In-Reply-To: <20080820124145.f971f318.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Andrew, David
 
+This problem is not limited to only the reported socket
+option.  Most of the AUTH socket options suffer the
+same or similar issues.  Here is a patch that fixes
+all the issues I saw the the API.  The new tests for
+this API have been created and all of them have passed.
 
+-vlad
 
-> > As a separate experiment, I started over with a clean version of
-> > 700efc1b, then introduced the change from request_resource() to
-> > insert_resource():
-> > ===== BEGIN DIFF ================
-> > diff --git a/arch/x86/kernel/e820_64.c b/arch/x86/kernel/e820_64.c
-> > index a8694a3..988195d 100644
-> > --- a/arch/x86/kernel/e820_64.c
-> > +++ b/arch/x86/kernel/e820_64.c
-> > @@ -245,7 +245,7 @@ void __init e820_reserve_resources(struct resource 
-> *code_resource,
-> >         res->start = e820.map[i].addr;
-> >         res->end = res->start + e820.map[i].size - 1;
-> >         res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
-> > -        request_resource(&iomem_resource, res);
-> > +        insert_resource(&iomem_resource, res);
-> >         if (e820.map[i].type == E820_RAM) {
-> >             /*
-> >              * We don't know which RAM region contains kernel data,
-> > ===== END DIFF ================
-> >
-> > The kernel produced from the change HANGS!
-> 
-> because code/data/bss/crashk is inserted at first
-> 
-> in e820_reserve_resource if you call request_resource instead of
-> insert_resource. the entries from e820 tables that has conflict to
-> entries already added will not show in
-> resource list /proc/iomem.
+sctp: fix potential panics in the SCTP-AUTH API.
 
-Ahh, what an error I made!  I made at least 3 errors in that post, and
-now that I am home from work I can try to correct them.
+All of the SCTP-AUTH socket options could cause a panic
+if the extension is disabled and the API is envoked.
 
+Additionally, there were some additional assumptions that
+certain pointers would always be valid which may not
+always be the case.
 
-> please send out /proc/iomem when it happens to boot.
+This patch hardens the API and address all of the crash
+scenarios.
 
-OK, this was my first error.  My first experiment -- leave 
-request_resource() alone, and move the additions of the kernel memory
-regions to setup_arch() -- produced a booting kernel.  When that
-happened, I was already late for work... so I produced the output
-of 'cat /proc/iomem' from that kernel and moved on to my second test
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/endpointola.c |    4 +-
+ net/sctp/socket.c      |   85 ++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 67 insertions(+), 22 deletions(-)
 
-I simply forgot to include the output in my message because I was
-rushing to get out of the house!  Here it is:
-
-==============================
-00000000-0009f3ff : System RAM
-0009f400-0009ffff : reserved
-000f0000-000fffff : reserved
-00200000-005570e1 : Kernel code
-005570e2-006b4397 : Kernel data
-00736000-0077d387 : Kernel bss
-77fe0000-77fe2fff : ACPI Non-volatile Storage
-77fe3000-77feffff : ACPI Tables
-77ff0000-77ffffff : reserved
-78000000-7fffffff : pnp 00:0d
-d8000000-dfffffff : PCI Bus #01
-  d8000000-dfffffff : 0000:01:05.0
-    d8000000-d8ffffff : uvesafb
-e0000000-efffffff : PCI MMCONFIG 0
-  e0000000-efffffff : reserved
-fdc00000-fdcfffff : PCI Bus #02
-  fdcff000-fdcff0ff : 0000:02:05.0
-    fdcff000-fdcff0ff : r8169
-fdd00000-fdefffff : PCI Bus #01
-  fdd00000-fddfffff : 0000:01:05.0
-  fdee0000-fdeeffff : 0000:01:05.0
-  fdefc000-fdefffff : 0000:01:05.2
-    fdefc000-fdefffff : ICH HD audio
-fdf00000-fdffffff : PCI Bus #02
-fe020000-fe023fff : 0000:00:14.2
-  fe020000-fe023fff : ICH HD audio
-fe029000-fe0290ff : 0000:00:13.5
-  fe029000-fe0290ff : ehci_hcd
-fe02a000-fe02afff : 0000:00:13.4
-  fe02a000-fe02afff : ohci_hcd
-fe02b000-fe02bfff : 0000:00:13.3
-  fe02b000-fe02bfff : ohci_hcd
-fe02c000-fe02cfff : 0000:00:13.2
-  fe02c000-fe02cfff : ohci_hcd
-fe02d000-fe02dfff : 0000:00:13.1
-  fe02d000-fe02dfff : ohci_hcd
-fe02e000-fe02efff : 0000:00:13.0
-  fe02e000-fe02efff : ohci_hcd
-fe02f000-fe02f3ff : 0000:00:12.0
-  fe02f000-fe02f3ff : ahci
-fec00000-fec00fff : IOAPIC 0
-  fec00000-fec00fff : pnp 00:0d
-fed00000-fed003ff : HPET 0
-  fed00000-fed003ff : 0000:00:14.0
-fee00000-fee00fff : Local APIC
-fff80000-fffeffff : pnp 00:0d
-ffff0000-ffffffff : pnp 00:0d
-==============================
-
-
-My second (huge) error was to carry out my second experiment incorrectly.
-When I replaced request_resource() with insert_resource(), I positioned
-it before the code that added the kernel memory regions to the resource
-for the system RAM region containing them.
-
-I actually intended the second experiment to be different, but only
-realized it when Yinghai corrected me (above).  Here is the diff for
-the _actual_ experiment I intended:
-===== BEGIN DIFF ================
-diff --git a/arch/x86/kernel/e820_64.c b/arch/x86/kernel/e820_64.c
-index a8694a3..f2498ae 100644
---- a/arch/x86/kernel/e820_64.c
-+++ b/arch/x86/kernel/e820_64.c
-@@ -245,7 +245,6 @@ void __init e820_reserve_resources(struct resource *code_resource,
-         res->start = e820.map[i].addr;
-         res->end = res->start + e820.map[i].size - 1;
-         res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
--        request_resource(&iomem_resource, res);
-         if (e820.map[i].type == E820_RAM) {
-             /*
-              * We don't know which RAM region contains kernel data,
-@@ -260,6 +259,7 @@ void __init e820_reserve_resources(struct resource *code_resource,
-                 request_resource(res, &crashk_res);
- #endif
-         }
-+        insert_resource(&iomem_resource, res);
-     }
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index e39a0cd..466eb75 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -103,6 +103,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+ 
+ 		/* Initialize the CHUNKS parameter */
+ 		auth_chunks->param_hdr.type = SCTP_PARAM_CHUNKS;
++		auth_chunks->param_hdr.length = htons(sizeof(sctp_paramhdr_t));
+ 
+ 		/* If the Add-IP functionality is enabled, we must
+ 		 * authenticate, ASCONF and ASCONF-ACK chunks
+@@ -110,8 +111,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+ 		if (sctp_addip_enable) {
+ 			auth_chunks->chunks[0] = SCTP_CID_ASCONF;
+ 			auth_chunks->chunks[1] = SCTP_CID_ASCONF_ACK;
+-			auth_chunks->param_hdr.length =
+-					htons(sizeof(sctp_paramhdr_t) + 2);
++			auth_chunks->param_hdr.length += htons(2);
+ 		}
+ 	}
+ 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index dbb79ad..bb5c9ef 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3055,6 +3055,9 @@ static int sctp_setsockopt_auth_chunk(struct sock *sk,
+ {
+ 	struct sctp_authchunk val;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (optlen != sizeof(struct sctp_authchunk))
+ 		return -EINVAL;
+ 	if (copy_from_user(&val, optval, optlen))
+@@ -3085,6 +3088,9 @@ static int sctp_setsockopt_hmac_ident(struct sock *sk,
+ 	struct sctp_hmacalgo *hmacs;
+ 	int err;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (optlen < sizeof(struct sctp_hmacalgo))
+ 		return -EINVAL;
+ 
+@@ -3123,6 +3129,9 @@ static int sctp_setsockopt_auth_key(struct sock *sk,
+ 	struct sctp_association *asoc;
+ 	int ret;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (optlen <= sizeof(struct sctp_authkey))
+ 		return -EINVAL;
+ 
+@@ -3160,6 +3169,9 @@ static int sctp_setsockopt_active_key(struct sock *sk,
+ 	struct sctp_authkeyid val;
+ 	struct sctp_association *asoc;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (optlen != sizeof(struct sctp_authkeyid))
+ 		return -EINVAL;
+ 	if (copy_from_user(&val, optval, optlen))
+@@ -3185,6 +3197,9 @@ static int sctp_setsockopt_del_key(struct sock *sk,
+ 	struct sctp_authkeyid val;
+ 	struct sctp_association *asoc;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (optlen != sizeof(struct sctp_authkeyid))
+ 		return -EINVAL;
+ 	if (copy_from_user(&val, optval, optlen))
+@@ -5197,19 +5212,29 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
+ static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
+ 				    char __user *optval, int __user *optlen)
+ {
++	struct sctp_hmacalgo  __user *p = (void __user *)optval;
+ 	struct sctp_hmac_algo_param *hmacs;
+-	__u16 param_len;
++	__u16 data_len = 0;
++	u32 num_idents;
++
++	if (!sctp_auth_enable)
++		return -EACCES;
+ 
+ 	hmacs = sctp_sk(sk)->ep->auth_hmacs_list;
+-	param_len = ntohs(hmacs->param_hdr.length);
++	data_len = ntohs(hmacs->param_hdr.length) - sizeof(sctp_paramhdr_t);
+ 
+-	if (len < param_len)
++	if (len < sizeof(struct sctp_hmacalgo) + data_len)
+ 		return -EINVAL;
++
++	len = sizeof(struct sctp_hmacalgo) + data_len;
++	num_idents = data_len / sizeof(u16);
++
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
+-	if (copy_to_user(optval, hmacs->hmac_ids, len))
++	if (put_user(num_idents, &p->shmac_num_idents))
++		return -EFAULT;
++	if (copy_to_user(p->shmac_idents, hmacs->hmac_ids, data_len))
+ 		return -EFAULT;
+-
+ 	return 0;
  }
-===== END DIFF ================
+ 
+@@ -5219,6 +5244,9 @@ static int sctp_getsockopt_active_key(struct sock *sk, int len,
+ 	struct sctp_authkeyid val;
+ 	struct sctp_association *asoc;
+ 
++	if (!sctp_auth_enable)
++		return -EACCES;
++
+ 	if (len < sizeof(struct sctp_authkeyid))
+ 		return -EINVAL;
+ 	if (copy_from_user(&val, optval, sizeof(struct sctp_authkeyid)))
+@@ -5233,6 +5261,12 @@ static int sctp_getsockopt_active_key(struct sock *sk, int len,
+ 	else
+ 		val.scact_keynumber = sctp_sk(sk)->ep->active_key_id;
+ 
++	len = sizeof(struct sctp_authkeyid);
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (copy_to_user(optval, &val, len))
++		return -EFAULT;
++
+ 	return 0;
+ }
+ 
+@@ -5243,13 +5277,16 @@ static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
+ 	struct sctp_authchunks val;
+ 	struct sctp_association *asoc;
+ 	struct sctp_chunks_param *ch;
+-	u32    num_chunks;
++	u32    num_chunks = 0;
+ 	char __user *to;
+ 
+-	if (len <= sizeof(struct sctp_authchunks))
++	if (!sctp_auth_enable)
++		return -EACCES;
++
++	if (len < sizeof(struct sctp_authchunks))
+ 		return -EINVAL;
+ 
+-	if (copy_from_user(&val, p, sizeof(struct sctp_authchunks)))
++	if (copy_from_user(&val, optval, sizeof(struct sctp_authchunks)))
+ 		return -EFAULT;
+ 
+ 	to = p->gauth_chunks;
+@@ -5258,20 +5295,21 @@ static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
+ 		return -EINVAL;
+ 
+ 	ch = asoc->peer.peer_chunks;
++	if (!ch)
++		goto num;
+ 
+ 	/* See if the user provided enough room for all the data */
+ 	num_chunks = ntohs(ch->param_hdr.length) - sizeof(sctp_paramhdr_t);
+ 	if (len < num_chunks)
+ 		return -EINVAL;
+ 
+-	len = num_chunks;
+-	if (put_user(len, optlen))
++	if (copy_to_user(to, ch->chunks, num_chunks))
+ 		return -EFAULT;
++num:
++	len = sizeof(struct sctp_authchunks) + num_chunks;
++	if (put_user(len, optlen)) return -EFAULT;
+ 	if (put_user(num_chunks, &p->gauth_number_of_chunks))
+ 		return -EFAULT;
+-	if (copy_to_user(to, ch->chunks, len))
+-		return -EFAULT;
+-
+ 	return 0;
+ }
+ 
+@@ -5282,13 +5320,16 @@ static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
+ 	struct sctp_authchunks val;
+ 	struct sctp_association *asoc;
+ 	struct sctp_chunks_param *ch;
+-	u32    num_chunks;
++	u32    num_chunks = 0;
+ 	char __user *to;
+ 
+-	if (len <= sizeof(struct sctp_authchunks))
++	if (!sctp_auth_enable)
++		return -EACCES;
++
++	if (len < sizeof(struct sctp_authchunks))
+ 		return -EINVAL;
+ 
+-	if (copy_from_user(&val, p, sizeof(struct sctp_authchunks)))
++	if (copy_from_user(&val, optval, sizeof(struct sctp_authchunks)))
+ 		return -EFAULT;
+ 
+ 	to = p->gauth_chunks;
+@@ -5301,17 +5342,21 @@ static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
+ 	else
+ 		ch = sctp_sk(sk)->ep->auth_chunk_list;
+ 
++	if (!ch)
++		goto num;
++
+ 	num_chunks = ntohs(ch->param_hdr.length) - sizeof(sctp_paramhdr_t);
+-	if (len < num_chunks)
++	if (len < sizeof(struct sctp_authchunks) + num_chunks)
+ 		return -EINVAL;
+ 
+-	len = num_chunks;
++	if (copy_to_user(to, ch->chunks, num_chunks))
++		return -EFAULT;
++num:
++	len = sizeof(struct sctp_authchunks) + num_chunks;
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
+ 	if (put_user(num_chunks, &p->gauth_number_of_chunks))
+ 		return -EFAULT;
+-	if (copy_to_user(to, ch->chunks, len))
+-		return -EFAULT;
+ 
+ 	return 0;
+ }
+-- 
+1.5.2.5
 
-This change produces a kernel that hangs.  The difference between the
-results of the two experiments was what I was trying to show.  We now
-know that:
-
-- moving the code that adds {code,data,bss}_resource to the iomem_resource
-tree out of e820_reserve_resources() and into setup_arch() is NOT what
-caused my problem.
-
-- the change from using request_resource() to insert_resource() seems
-to be to blame.
-
-My purpose in those experiments was to try to present a sort of "proof",
-like a mathematical proof.  But my understanding of the code is fairly
-shallow, so my "proof" might not mean very much.  I was hoping to 
-provide useful data here, but only kernel developers can assess whether
-or not this information is useful.
-
-
-My third error was my "conclusion":
-
-> My conclusion is that, somehow, the reordering of adding 
-> {code,data,bss}_resource to the iomem_resource tree is doing funky 
-> things to certain people's machines!
-
-I meant to say just the opposite:  reordering the place where adding the
-kernel memory resources to the iomem_resource tree is NOT the problem;
-somehow the change to insert_resource() is the problem.
-
-My apologies to all here:  I was racing to finish up, post my results,
-and get to work... and completely botched the second experiment and the
-message describing them!
-
-
-Dave W.
