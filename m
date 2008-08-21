@@ -1,393 +1,406 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [RFC PATCH v3 09/13] selinux: Set socket NetLabel based on connection
-	endpoint
-Date: Thu, 21 Aug 2008 17:26:49 -0400
-Message-ID: <20080821212649.7951.89754.stgit@flek.lan>
+Subject: [RFC PATCH v3 12/13] cipso: Add support for native local labeling and
+	fixup mapping names
+Date: Thu, 21 Aug 2008 17:27:09 -0400
+Message-ID: <20080821212709.7951.19232.stgit@flek.lan>
 References: <20080821210239.7951.59652.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:24102 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755874AbYHUV1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 17:27:14 -0400
 In-Reply-To: <20080821210239.7951.59652.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Previous work enabled the use of address based NetLabel selectors, which while
-highly useful, brought the potential for additional per-packet overhead when
-used.  This patch attempts to solve that by applying NetLabel socket labels
-when sockets are connect()'d.  This should alleviate the per-packet NetLabel
-labeling for all connected sockets (yes, it even works for connected DGRAM
-sockets).
+This patch accomplishes two minor tasks: add a new tag type for local
+labeling and rename the CIPSO_V4_MAP_STD define to CIPSO_V4_MAP_TRANS.  The
+first change allows CIPSO to support full LSM labels/contexts, not just
+MLS attributes.  The second change brings the mapping names inline with
+what userspace is using, compatibility is preserved since we don't actually
+change the value.
 
 Signed-off-by: XXX
 ---
 
- include/net/cipso_ipv4.h            |    5 ++
- include/net/netlabel.h              |   13 ++++++
- net/ipv4/cipso_ipv4.c               |   47 +++++++++++++++++++++
- net/netlabel/netlabel_kapi.c        |   77 +++++++++++++++++++++++++++++++++++
- security/selinux/hooks.c            |    4 +-
- security/selinux/include/netlabel.h |    8 ++++
- security/selinux/include/objsec.h   |    3 +
- security/selinux/netlabel.c         |   48 +++++++++++++++++++++-
- 8 files changed, 201 insertions(+), 4 deletions(-)
+ include/net/cipso_ipv4.h         |   13 +++--
+ net/ipv4/cipso_ipv4.c            |  107 ++++++++++++++++++++++++++++++++++----
+ net/ipv4/ip_options.c            |    2 -
+ net/netlabel/netlabel_cipso_v4.c |   14 ++---
+ net/netlabel/netlabel_cipso_v4.h |    4 +
+ net/netlabel/netlabel_kapi.c     |    4 +
+ 6 files changed, 118 insertions(+), 26 deletions(-)
 
 diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index 2ce093b..811febf 100644
+index 811febf..9909774 100644
 --- a/include/net/cipso_ipv4.h
 +++ b/include/net/cipso_ipv4.h
-@@ -207,6 +207,7 @@ void cipso_v4_error(struct sk_buff *skb, int error, u32 gateway);
- int cipso_v4_sock_setattr(struct sock *sk,
- 			  const struct cipso_v4_doi *doi_def,
- 			  const struct netlbl_lsm_secattr *secattr);
-+void cipso_v4_sock_delattr(struct sock *sk);
- int cipso_v4_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr);
- int cipso_v4_skbuff_setattr(struct sk_buff *skb,
- 			    const struct cipso_v4_doi *doi_def,
-@@ -230,6 +231,10 @@ static inline int cipso_v4_sock_setattr(struct sock *sk,
+@@ -45,7 +45,7 @@
+ /* known doi values */
+ #define CIPSO_V4_DOI_UNKNOWN          0x00000000
+ 
+-/* tag types */
++/* standard tag types */
+ #define CIPSO_V4_TAG_INVALID          0
+ #define CIPSO_V4_TAG_RBITMAP          1
+ #define CIPSO_V4_TAG_ENUM             2
+@@ -53,10 +53,14 @@
+ #define CIPSO_V4_TAG_PBITMAP          6
+ #define CIPSO_V4_TAG_FREEFORM         7
+ 
++/* non-standard tag types (tags > 127) */
++#define CIPSO_V4_TAG_LOCAL            128
++
+ /* doi mapping types */
+ #define CIPSO_V4_MAP_UNKNOWN          0
+-#define CIPSO_V4_MAP_STD              1
++#define CIPSO_V4_MAP_TRANS            1
+ #define CIPSO_V4_MAP_PASS             2
++#define CIPSO_V4_MAP_LOCAL            3
+ 
+ /* limits */
+ #define CIPSO_V4_MAX_REM_LVLS         255
+@@ -215,7 +219,7 @@ int cipso_v4_skbuff_setattr(struct sk_buff *skb,
+ int cipso_v4_skbuff_delattr(struct sk_buff *skb);
+ int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
+ 			    struct netlbl_lsm_secattr *secattr);
+-int cipso_v4_validate(unsigned char **option);
++int cipso_v4_validate(const struct sk_buff *skb, unsigned char **option);
+ #else
+ static inline void cipso_v4_error(struct sk_buff *skb,
+ 				  int error,
+@@ -259,7 +263,8 @@ static inline int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
  	return -ENOSYS;
  }
  
-+static inline void cipso_v4_sock_delattr(struct sock *sk)
-+{
-+}
-+
- static inline int cipso_v4_sock_getattr(struct sock *sk,
- 					struct netlbl_lsm_secattr *secattr)
- {
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index 3f67e6d..074cad4 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -380,8 +380,12 @@ int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
- int netlbl_enabled(void);
- int netlbl_sock_setattr(struct sock *sk,
- 			const struct netlbl_lsm_secattr *secattr);
-+void netlbl_sock_delattr(struct sock *sk);
- int netlbl_sock_getattr(struct sock *sk,
- 			struct netlbl_lsm_secattr *secattr);
-+int netlbl_conn_setattr(struct sock *sk,
-+			struct sockaddr *addr,
-+			const struct netlbl_lsm_secattr *secattr);
- int netlbl_skbuff_setattr(struct sk_buff *skb,
- 			  u16 family,
- 			  const struct netlbl_lsm_secattr *secattr);
-@@ -449,11 +453,20 @@ static inline int netlbl_sock_setattr(struct sock *sk,
+-static inline int cipso_v4_validate(unsigned char **option)
++static inline int cipso_v4_validate(const struct sk_buff *skb,
++				    unsigned char **option)
  {
  	return -ENOSYS;
  }
-+static inline void netlbl_sock_delattr(struct sock *sk)
-+{
-+}
- static inline int netlbl_sock_getattr(struct sock *sk,
- 				      struct netlbl_lsm_secattr *secattr)
- {
- 	return -ENOSYS;
- }
-+static inline int netlbl_conn_setattr(struct sock *sk,
-+				      struct sockaddr *addr,
-+				      const struct netlbl_lsm_secattr *secattr)
-+{
-+	return -ENOSYS;
-+}
- static inline int netlbl_skbuff_setattr(struct sk_buff *skb,
- 				      u16 family,
- 				      const struct netlbl_lsm_secattr *secattr)
 diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index e13d6db..8387ef4 100644
+index 8387ef4..cc77f12 100644
 --- a/net/ipv4/cipso_ipv4.c
 +++ b/net/ipv4/cipso_ipv4.c
-@@ -1810,6 +1810,53 @@ socket_setattr_failure:
- }
+@@ -109,6 +109,19 @@ int cipso_v4_rbm_strictvalid = 1;
+  * be omitted. */
+ #define CIPSO_V4_TAG_RNG_CAT_MAX      8
  
- /**
-+ * cipso_v4_sock_delattr - Delete the CIPSO option from a socket
-+ * @sk: the socket
++/* Base length of the local tag (non-standard tag).
++ *  Tag definition (may change between kernel versions)
 + *
-+ * Description:
-+ * Removes the CIPSO option from a socket, if present.
++ * 0          8          16         24         32
++ * +----------+----------+----------+----------+
++ * | 10000000 | 00001000 | unused (zero fill)  |
++ * +----------+----------+----------+----------+
++ * |   32-bit secid value (host byte order)    |
++ * +----------+----------+----------+----------+
 + *
 + */
-+void cipso_v4_sock_delattr(struct sock *sk)
-+{
-+	u8 cipso_len;
-+	u8 cipso_off;
-+	unsigned char *cipso_ptr;
-+	struct ip_options *opt;
-+	struct inet_sock *sk_inet;
-+	struct inet_connection_sock *sk_conn;
++#define CIPSO_V4_TAG_LOC_BLEN         8
 +
-+	sk_inet = inet_sk(sk);
-+	opt = sk_inet->opt;
-+	if (opt == NULL || opt->cipso == 0)
-+		return;
-+
-+	cipso_off = opt->cipso - sizeof(struct iphdr);
-+	cipso_ptr = &opt->__data[cipso_off];
-+	cipso_len = cipso_ptr[1];
-+	if (cipso_len < opt->optlen && opt->optlen - cipso_off > cipso_len) {
-+		memmove(cipso_ptr, cipso_ptr + cipso_len,
-+			opt->optlen - cipso_off - cipso_len); 
-+		if (opt->srr > opt->cipso)
-+			opt->srr -= cipso_len;
-+		if (opt->rr)
-+			opt->rr -= cipso_len;
-+		if (opt->ts)
-+			opt->ts -= cipso_len;
-+		if (opt->router_alert)
-+			opt->router_alert -= cipso_len;
-+	} else
-+		memset(cipso_ptr, IPOPT_NOOP, cipso_len);
-+	if (sk_inet->is_icsk) {
-+		sk_conn = inet_csk(sk);
-+		sk_conn->icsk_ext_hdr_len -= cipso_len;
-+		sk_conn->icsk_sync_mss(sk, sk_conn->icsk_pmtu_cookie);
-+	}
-+	opt->cipso = 0;
-+	opt->optlen -= cipso_len;
-+}
-+
-+/**
-  * cipso_v4_getattr - Helper function for the cipso_v4_*_getattr functions
-  * @cipso: the CIPSO v4 option
-  * @secattr: the security attributes
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 4485cde..bf0e1b8 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -10,7 +10,7 @@
-  */
- 
  /*
-- * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
-+ * (c) Copyright Hewlett-Packard Development Company, L.P., 2006, 2008
-  *
-  * This program is free software;  you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -457,6 +457,19 @@ socket_setattr_return:
+  * Helper Functions
+  */
+@@ -467,6 +480,10 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def)
+ 			if (doi_def->type != CIPSO_V4_MAP_PASS)
+ 				return -EINVAL;
+ 			break;
++		case CIPSO_V4_TAG_LOCAL:
++			if (doi_def->type != CIPSO_V4_MAP_LOCAL)
++				return -EINVAL;
++			break;	
+ 		default:
+ 			return -EINVAL;
+ 		}
+@@ -502,7 +519,7 @@ void cipso_v4_doi_free(struct cipso_v4_doi *doi_def)
+ 		return;
+ 
+ 	switch (doi_def->type) {
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		kfree(doi_def->map.std->lvl.cipso);
+ 		kfree(doi_def->map.std->lvl.local);
+ 		kfree(doi_def->map.std->cat.cipso);
+@@ -673,7 +690,7 @@ static int cipso_v4_map_lvl_valid(const struct cipso_v4_doi *doi_def, u8 level)
+ 	switch (doi_def->type) {
+ 	case CIPSO_V4_MAP_PASS:
+ 		return 0;
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		if (doi_def->map.std->lvl.cipso[level] < CIPSO_V4_INV_LVL)
+ 			return 0;
+ 		break;
+@@ -702,7 +719,7 @@ static int cipso_v4_map_lvl_hton(const struct cipso_v4_doi *doi_def,
+ 	case CIPSO_V4_MAP_PASS:
+ 		*net_lvl = host_lvl;
+ 		return 0;
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		if (host_lvl < doi_def->map.std->lvl.local_size &&
+ 		    doi_def->map.std->lvl.local[host_lvl] < CIPSO_V4_INV_LVL) {
+ 			*net_lvl = doi_def->map.std->lvl.local[host_lvl];
+@@ -736,7 +753,7 @@ static int cipso_v4_map_lvl_ntoh(const struct cipso_v4_doi *doi_def,
+ 	case CIPSO_V4_MAP_PASS:
+ 		*host_lvl = net_lvl;
+ 		return 0;
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		map_tbl = doi_def->map.std;
+ 		if (net_lvl < map_tbl->lvl.cipso_size &&
+ 		    map_tbl->lvl.cipso[net_lvl] < CIPSO_V4_INV_LVL) {
+@@ -773,7 +790,7 @@ static int cipso_v4_map_cat_rbm_valid(const struct cipso_v4_doi *doi_def,
+ 	switch (doi_def->type) {
+ 	case CIPSO_V4_MAP_PASS:
+ 		return 0;
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		cipso_cat_size = doi_def->map.std->cat.cipso_size;
+ 		cipso_array = doi_def->map.std->cat.cipso;
+ 		for (;;) {
+@@ -821,7 +838,7 @@ static int cipso_v4_map_cat_rbm_hton(const struct cipso_v4_doi *doi_def,
+ 	u32 host_cat_size = 0;
+ 	u32 *host_cat_array = NULL;
+ 
+-	if (doi_def->type == CIPSO_V4_MAP_STD) {
++	if (doi_def->type == CIPSO_V4_MAP_TRANS) {
+ 		host_cat_size = doi_def->map.std->cat.local_size;
+ 		host_cat_array = doi_def->map.std->cat.local;
+ 	}
+@@ -836,7 +853,7 @@ static int cipso_v4_map_cat_rbm_hton(const struct cipso_v4_doi *doi_def,
+ 		case CIPSO_V4_MAP_PASS:
+ 			net_spot = host_spot;
+ 			break;
+-		case CIPSO_V4_MAP_STD:
++		case CIPSO_V4_MAP_TRANS:
+ 			if (host_spot >= host_cat_size)
+ 				return -EPERM;
+ 			net_spot = host_cat_array[host_spot];
+@@ -882,7 +899,7 @@ static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
+ 	u32 net_cat_size = 0;
+ 	u32 *net_cat_array = NULL;
+ 
+-	if (doi_def->type == CIPSO_V4_MAP_STD) {
++	if (doi_def->type == CIPSO_V4_MAP_TRANS) {
+ 		net_cat_size = doi_def->map.std->cat.cipso_size;
+ 		net_cat_array = doi_def->map.std->cat.cipso;
+ 	}
+@@ -902,7 +919,7 @@ static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
+ 		case CIPSO_V4_MAP_PASS:
+ 			host_spot = net_spot;
+ 			break;
+-		case CIPSO_V4_MAP_STD:
++		case CIPSO_V4_MAP_TRANS:
+ 			if (net_spot >= net_cat_size)
+ 				return -EPERM;
+ 			host_spot = net_cat_array[net_spot];
+@@ -1484,6 +1501,54 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
  }
  
  /**
-+ * netlbl_sock_delattr - Delete all the NetLabel labels on a socket
-+ * @sk: the socket
++ * cipso_v4_gentag_loc - Generate a CIPSO local tag (non-standard)
++ * @doi_def: the DOI definition
++ * @secattr: the security attributes
++ * @buffer: the option buffer
++ * @buffer_len: length of buffer in bytes
 + *
 + * Description:
-+ * Remove all the NetLabel labeling from @sk.
++ * Generate a CIPSO option using the local tag.  Returns the size of the tag
++ * on success, negative values on failure.
 + *
 + */
-+void netlbl_sock_delattr(struct sock *sk)
++static int cipso_v4_gentag_loc(const struct cipso_v4_doi *doi_def,
++			       const struct netlbl_lsm_secattr *secattr,
++			       unsigned char *buffer,
++			       u32 buffer_len)
 +{
-+	cipso_v4_sock_delattr(sk);
++	if (!(secattr->flags & NETLBL_SECATTR_SECID))
++		return -EPERM;
++
++	buffer[0] = 0x80;
++	buffer[1] = 0x08;
++	*(u32 *)&buffer[4] = secattr->attr.secid;
++
++	return 8;
 +}
 +
 +/**
-  * netlbl_sock_getattr - Determine the security attributes of a sock
-  * @sk: the sock
-  * @secattr: the security attributes
-@@ -474,6 +487,68 @@ int netlbl_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
- }
- 
- /**
-+ * netlbl_conn_setattr - Label a connected socket using the correct protocol
-+ * @sk: the socket to label
-+ * @addr: the destination address
++ * cipso_v4_parsetag_loc - Parse a CIPSO local tag
++ * @doi_def: the DOI definition
++ * @tag: the CIPSO tag
 + * @secattr: the security attributes
 + *
 + * Description:
-+ * Attach the correct label to the given connected socket using the security
-+ * attributes specified in @secattr.  Returns zero on success, negative values
-+ * on failure.
++ * Parse a CIPSO local tag and return the security attributes in @secattr.
++ * Return zero on success, negatives values on failure.
 + *
 + */
-+int netlbl_conn_setattr(struct sock *sk,
-+			struct sockaddr *addr,
-+			const struct netlbl_lsm_secattr *secattr)
++static int cipso_v4_parsetag_loc(const struct cipso_v4_doi *doi_def,
++				 const unsigned char *tag,
++				 struct netlbl_lsm_secattr *secattr)
 +{
-+	int ret_val;
-+	struct sockaddr_in *addr4;
-+	struct netlbl_domaddr4_map *af4_entry;
++	secattr->attr.secid = *(u32 *)&tag[4];
++	secattr->flags |= NETLBL_SECATTR_SECID;
 +
-+	rcu_read_lock();
-+	switch (addr->sa_family) {
-+	case AF_INET:
-+		addr4 = (struct sockaddr_in *)addr;
-+		af4_entry = netlbl_domhsh_getentry_af4(secattr->domain,
-+						       addr4->sin_addr.s_addr);
-+		if (af4_entry == NULL) {
-+			ret_val = -ENOENT;
-+			goto conn_setattr_return;
-+		}
-+		switch (af4_entry->type) {
-+		case NETLBL_NLTYPE_CIPSOV4:
-+			ret_val = cipso_v4_sock_setattr(sk,
-+						   af4_entry->type_def.cipsov4,
-+						   secattr);
-+			break;
-+		case NETLBL_NLTYPE_UNLABELED:
-+			/* just delete the protocols we support for right now
-+			 * but we could remove other protocols if needed */
-+			cipso_v4_sock_delattr(sk);
-+			ret_val = 0;
-+			break;
-+		default:
-+			ret_val = -ENOENT;
-+		}
-+		break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case AF_INET6:
-+		/* since we don't support any IPv6 labeling protocols right
-+		 * now we can optimize everything away until we do */
-+		ret_val = 0;
-+		break;
-+#endif /* IPv6 */
-+	default:
-+		ret_val = 0;
-+	}
-+
-+conn_setattr_return:
-+	rcu_read_unlock();
-+	return ret_val;
-+}
-+
-+/**
-  * netlbl_skbuff_setattr - Label a packet using the correct protocol
-  * @skb: the packet
-  * @family: protocol family
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index f1ce0ec..a78d64a 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -3794,6 +3794,7 @@ out:
- 
- static int selinux_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen)
- {
-+	struct sock *sk = sock->sk;
- 	struct inode_security_struct *isec;
- 	int err;
- 
-@@ -3807,7 +3808,6 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
- 	isec = SOCK_INODE(sock)->i_security;
- 	if (isec->sclass == SECCLASS_TCP_SOCKET ||
- 	    isec->sclass == SECCLASS_DCCP_SOCKET) {
--		struct sock *sk = sock->sk;
- 		struct avc_audit_data ad;
- 		struct sockaddr_in *addr4 = NULL;
- 		struct sockaddr_in6 *addr6 = NULL;
-@@ -3841,6 +3841,8 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
- 			goto out;
- 	}
- 
-+	err = selinux_netlbl_conn_setsid(sk, address);
-+
- out:
- 	return err;
- }
-diff --git a/security/selinux/include/netlabel.h b/security/selinux/include/netlabel.h
-index b5f6616..1f7cf39 100644
---- a/security/selinux/include/netlabel.h
-+++ b/security/selinux/include/netlabel.h
-@@ -51,6 +51,8 @@ int selinux_netlbl_skbuff_getsid(struct sk_buff *skb,
- int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
- 				 u16 family,
- 				 u32 sid);
-+int selinux_netlbl_conn_setsid(struct sock *sk,
-+			       struct sockaddr *addr);
- 
- void selinux_netlbl_sock_graft(struct sock *sk, struct socket *sock);
- int selinux_netlbl_socket_post_create(struct socket *sock);
-@@ -99,6 +101,12 @@ static inline int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
- 	return 0;
- }
- 
-+static inline int selinux_netlbl_conn_setsid(struct sock *sk,
-+					     struct sockaddr *addr)
-+{
 +	return 0;
 +}
 +
- static inline void selinux_netlbl_sock_graft(struct sock *sk,
- 					     struct socket *sock)
- {
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index b8e51de..46fd1a4 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -117,7 +117,8 @@ struct sk_security_struct {
- 		NLBL_UNSET = 0,
- 		NLBL_REQUIRE,
- 		NLBL_LABELED,
--		NLBL_REQSKB
-+		NLBL_REQSKB,
-+		NLBL_CONNLABELED
- 	} nlbl_state;
- #endif
- };
-diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
-index 1b19357..30c49d2 100644
---- a/security/selinux/netlabel.c
-+++ b/security/selinux/netlabel.c
-@@ -101,6 +101,51 @@ sock_setsid_return:
- }
- 
- /**
-+ * selinux_netlbl_conn_setsid - Label a connected socket using NetLabel
-+ * @sk: the socket to label
-+ * @addr: the destination address
-+ *
-+ * Description:
-+ * Attempt to label a connected socket using the NetLabel mechanism using the
-+ * given address.  Returns zero values on success, negative values on failure.
-+ *
-+ */
-+int selinux_netlbl_conn_setsid(struct sock *sk,
-+			       struct sockaddr *addr)
-+{
-+	int rc;
-+	struct sk_security_struct *sksec = sk->sk_security;
-+	struct netlbl_lsm_secattr secattr;
-+
-+	if (sksec->nlbl_state != NLBL_REQSKB ||
-+	    sksec->nlbl_state != NLBL_CONNLABELED)
-+		return 0;
-+
-+	/* connected sockets are allowed to disconnect when the address family
-+	 * is set to AF_UNSPEC, if that is what is happening we want to reset
-+	 * the socket */
-+	if (addr->sa_family == AF_UNSPEC) {
-+		netlbl_sock_delattr(sk);
-+		sksec->nlbl_state = NLBL_REQSKB;
-+		return 0;
-+	}
-+
-+	netlbl_secattr_init(&secattr);
-+
-+	rc = security_netlbl_sid_to_secattr(sksec->sid, &secattr);
-+	if (rc != 0)
-+		goto conn_setsid_return;
-+	rc = netlbl_conn_setattr(sk, addr, &secattr);
-+	if (rc != 0)
-+		goto conn_setsid_return;
-+	sksec->nlbl_state = NLBL_CONNLABELED;
-+	
-+conn_setsid_return:
-+	netlbl_secattr_destroy(&secattr);
-+	return rc;
-+}
-+
 +/**
-  * selinux_netlbl_cache_invalidate - Invalidate the NetLabel cache
+  * cipso_v4_validate - Validate a CIPSO option
+  * @option: the start of the option, on error it is set to point to the error
+  *
+@@ -1502,7 +1567,7 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
+  *   that is unrecognized."
+  *
+  */
+-int cipso_v4_validate(unsigned char **option)
++int cipso_v4_validate(const struct sk_buff *skb, unsigned char **option)
+ {
+ 	unsigned char *opt = *option;
+ 	unsigned char *tag;
+@@ -1610,6 +1675,19 @@ int cipso_v4_validate(unsigned char **option)
+ 				goto validate_return_locked;
+ 			}
+ 			break;
++		case CIPSO_V4_TAG_LOCAL:
++			/* This is a non-standard tag that we only allow for
++			 * local connections, so if the incoming interface is
++			 * not the loopback device drop the packet. */
++			if (!(skb->dev->flags & IFF_LOOPBACK)) {
++				err_offset = opt_iter;
++				goto validate_return_locked;
++			}
++			if (tag_len != 8) {
++				err_offset = opt_iter + 1;
++				goto validate_return_locked;
++			}
++			break;
+ 		default:
+ 			err_offset = opt_iter;
+ 			goto validate_return_locked;
+@@ -1712,6 +1790,12 @@ static int cipso_v4_genopt(unsigned char *buf, u32 buf_len,
+ 						   &buf[CIPSO_V4_HDR_LEN],
+ 						   buf_len - CIPSO_V4_HDR_LEN);
+ 			break;
++		case CIPSO_V4_TAG_LOCAL:
++			ret_val = cipso_v4_gentag_loc(doi_def,
++						   secattr,
++						   &buf[CIPSO_V4_HDR_LEN],
++						   buf_len - CIPSO_V4_HDR_LEN);
++			break;
+ 		default:
+ 			return -EPERM;
+ 		}
+@@ -1894,6 +1978,9 @@ static int cipso_v4_getattr(const unsigned char *cipso,
+ 	case CIPSO_V4_TAG_RANGE:
+ 		ret_val = cipso_v4_parsetag_rng(doi_def, &cipso[6], secattr);
+ 		break;
++	case CIPSO_V4_TAG_LOCAL:
++		ret_val = cipso_v4_parsetag_loc(doi_def, &cipso[6], secattr);
++		break;
+ 	}
+ 	if (ret_val == 0)
+ 		secattr->type = NETLBL_NLTYPE_CIPSOV4;
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index be3f18a..2c88da6 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -438,7 +438,7 @@ int ip_options_compile(struct net *net,
+ 				goto error;
+ 			}
+ 			opt->cipso = optptr - iph;
+-			if (cipso_v4_validate(&optptr)) {
++			if (cipso_v4_validate(skb, &optptr)) {
+ 				pp_ptr = optptr;
+ 				goto error;
+ 			}
+diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
+index 7eda219..a6dc5d1 100644
+--- a/net/netlabel/netlabel_cipso_v4.c
++++ b/net/netlabel/netlabel_cipso_v4.c
+@@ -132,9 +132,9 @@ static int netlbl_cipsov4_add_common(struct genl_info *info,
+  * @info: the Generic NETLINK info block
   *
   * Description:
-@@ -398,7 +443,8 @@ int selinux_netlbl_socket_setsockopt(struct socket *sock,
- 	struct netlbl_lsm_secattr secattr;
+- * Create a new CIPSO_V4_MAP_STD DOI definition based on the given ADD message
+- * and add it to the CIPSO V4 engine.  Return zero on success and non-zero on
+- * error.
++ * Create a new CIPSO_V4_MAP_TRANS DOI definition based on the given ADD
++ * message and add it to the CIPSO V4 engine.  Return zero on success and
++ * non-zero on error.
+  *
+  */
+ static int netlbl_cipsov4_add_std(struct genl_info *info)
+@@ -164,7 +164,7 @@ static int netlbl_cipsov4_add_std(struct genl_info *info)
+ 		ret_val = -ENOMEM;
+ 		goto add_std_failure;
+ 	}
+-	doi_def->type = CIPSO_V4_MAP_STD;
++	doi_def->type = CIPSO_V4_MAP_TRANS;
  
- 	if (level == IPPROTO_IP && optname == IP_OPTIONS &&
--	    sksec->nlbl_state == NLBL_LABELED) {
-+	    (sksec->nlbl_state == NLBL_LABELED ||
-+	     sksec->nlbl_state == NLBL_CONNLABELED)) {
- 		netlbl_secattr_init(&secattr);
- 		lock_sock(sk);
- 		rc = netlbl_sock_getattr(sk, &secattr);
+ 	ret_val = netlbl_cipsov4_add_common(info, doi_def);
+ 	if (ret_val != 0)
+@@ -393,8 +393,8 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	type = nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE]);
+ 	switch (type) {
+-	case CIPSO_V4_MAP_STD:
+-		type_str = "std";
++	case CIPSO_V4_MAP_TRANS:
++		type_str = "trans";
+ 		ret_val = netlbl_cipsov4_add_std(info);
+ 		break;
+ 	case CIPSO_V4_MAP_PASS:
+@@ -497,7 +497,7 @@ list_start:
+ 	nla_nest_end(ans_skb, nla_a);
+ 
+ 	switch (doi_def->type) {
+-	case CIPSO_V4_MAP_STD:
++	case CIPSO_V4_MAP_TRANS:
+ 		nla_a = nla_nest_start(ans_skb, NLBL_CIPSOV4_A_MLSLVLLST);
+ 		if (nla_a == NULL) {
+ 			ret_val = -ENOMEM;
+diff --git a/net/netlabel/netlabel_cipso_v4.h b/net/netlabel/netlabel_cipso_v4.h
+index 220cb9d..fb3957f 100644
+--- a/net/netlabel/netlabel_cipso_v4.h
++++ b/net/netlabel/netlabel_cipso_v4.h
+@@ -45,7 +45,7 @@
+  *     NLBL_CIPSOV4_A_MTYPE
+  *     NLBL_CIPSOV4_A_TAGLST
+  *
+- *   If using CIPSO_V4_MAP_STD the following attributes are required:
++ *   If using CIPSO_V4_MAP_TRANS the following attributes are required:
+  *
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+@@ -76,7 +76,7 @@
+  *     NLBL_CIPSOV4_A_MTYPE
+  *     NLBL_CIPSOV4_A_TAGLST
+  *
+- *   If using CIPSO_V4_MAP_STD the following attributes are required:
++ *   If using CIPSO_V4_MAP_TRANS the following attributes are required:
+  *
+  *     NLBL_CIPSOV4_A_MLSLVLLST
+  *     NLBL_CIPSOV4_A_MLSCATLST
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index bf0e1b8..7b233da 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -157,8 +157,8 @@ cfg_cipsov4_add_map_return:
+ 					      audit_info);
+ 	if (audit_buf != NULL) {
+ 		switch (doi_type) {
+-		case CIPSO_V4_MAP_STD:
+-			type_str = "std";
++		case CIPSO_V4_MAP_TRANS:
++			type_str = "trans";
+ 			break;
+ 		case CIPSO_V4_MAP_PASS:
+ 			type_str = "pass";
 
