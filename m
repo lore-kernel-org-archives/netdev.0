@@ -1,56 +1,59 @@
-From: akpm@linux-foundation.org
-Subject: [patch 10/12] forcedeth: add pci_enable_device() to nv_resume()
-Date: Wed, 20 Aug 2008 16:52:06 -0700
-Message-ID: <200808202352.m7KNq6As006059@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	simon@fire.lp0.eu, aabdulla@nvidia.com, jgarzik@redhat.com,
-	ranma+kernel@tdiedrich.de
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49072 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756261AbYHTXyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2008 19:54:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch] ipvsadm: use strtoul to convert ip addresses from hex
+Date: Thu, 21 Aug 2008 10:05:30 +1000
+Message-ID: <20080821000529.GA19235@verge.net.au>
+References: <20080820054415.GA31393@verge.net.au> <f4845fc0808200330lc1cad87ya94eb73da9b4c175@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vince Busam <vbusam@google.com>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, wensong@linux-vs.org
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f4845fc0808200330lc1cad87ya94eb73da9b4c175@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Arlott <simon@fire.lp0.eu>
+On Wed, Aug 20, 2008 at 12:30:41PM +0200, Julius Volz wrote:
+> On Wed, Aug 20, 2008 at 7:44 AM, Simon Horman <horms@verge.net.au> wrote:
+> > The ip addresses that come out of /proc/net/ip_vs_conn as integers
+> > are in hex not decimal.
+> >
+> > Without this change most IP addresses reported as integers end up being
+> > 0.0.0.0.
+> >
+> > This change is against the development code ipvsadm-1.25-nl-4 from
+> > http://sixpak.org/vince/google/ipvsadm/ . It is not relevant to
+> > ipvsadm-1.24, the current released version.
+> >
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> >
+> > Index: ipvsadm-1.25-nl-4/ipvsadm.c
+> > ===================================================================
+> > --- ipvsadm-1.25-nl-4.orig/ipvsadm.c    2008-08-20 15:16:18.000000000 +1000
+> > +++ ipvsadm-1.25-nl-4/ipvsadm.c 2008-08-20 15:16:39.000000000 +1000
+> > @@ -1212,9 +1212,9 @@ static void print_conn(char *buf, unsign
+> >                inet_pton(AF_INET, temp2, &vaddr.ip);
+> >                inet_pton(AF_INET, temp3, &daddr.ip);
+> >        } else {
+> > -               caddr.ip = (__u32) htonl(atoi(temp1));
+> > -               vaddr.ip = (__u32) htonl(atoi(temp2));
+> > -               daddr.ip = (__u32) htonl(atoi(temp3));
+> > +               caddr.ip = (__u32) htonl(strtoul(temp1, NULL, 16));
+> > +               vaddr.ip = (__u32) htonl(strtoul(temp2, NULL, 16));
+> > +               daddr.ip = (__u32) htonl(strtoul(temp3, NULL, 16));
+> >        }
+> >
+> >        if (!(cname = addrport_to_anyname(af, &caddr, cport, proto, format)))
+> 
+> Thanks for this fix! I'm sure Vince will release a new version with
+> this once there is sunlight in his timezone :)
+> 
+> Do you think it'll make sense to host the new ipvsadm on
+> linuxvirtualserver.org (marked as experimental, of course) when the
+> Netlink patches go in? This seems more open than hosting it on our
+> private servers...
 
-My NIC stops working after resuming from standby, it's not receiving any
-interrupts.
+I think that either hosting it on linuxvirtualserver.org or kernel.org
+would be a good idea. Wensong what do you think?
 
-Commit 25d90810ff49d2a63475776f24c74c6bb49b045f ([netdrvr] forcedeth:
-reorder suspend/resume code) introduces pci_disable_device to nv_suspend,
-but there's no corresponding pci_enable_device in nv_resume - so I added
-one (copied from e1000).  This results in interrupts being re-enabled
-after suspend.
-
-However, the NIC (10de:0373) still doesn't work after resume.
-
-Cc: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Cc: Jeff Garzik <jgarzik@redhat.com>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/forcedeth.c |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff -puN drivers/net/forcedeth.c~forcedeth-add-pci_enable_device-to-nv_resume drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-add-pci_enable_device-to-nv_resume
-+++ a/drivers/net/forcedeth.c
-@@ -5960,6 +5960,13 @@ static int nv_resume(struct pci_dev *pde
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
-+	rc = pci_enable_device(pdev);
-+	if (rc) {
-+		printk(KERN_ERR "forcedeth: Cannot enable PCI device from suspend\n");
-+		return rc;
-+	}
-+	pci_set_master(pdev);
-+
- 	/* ack any pending wake events, disable PME */
- 	pci_enable_wake(pdev, PCI_D0, 0);
- 
-_
