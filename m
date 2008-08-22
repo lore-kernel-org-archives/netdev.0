@@ -1,229 +1,251 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-next 1/3] tcp: Add tcp_validate_incoming & put duplicated code there
-Date: Fri, 22 Aug 2008 23:38:27 +0300
-Message-ID: <1219437509-10048-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Sat, 23 Aug 2008 00:18:44 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808222340520.10077@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0808071422360.4551@wrl-59.cs.helsinki.fi>
+ <Pine.LNX.4.64.0808081256560.4551@wrl-59.cs.helsinki.fi>
+ <20080811.144421.234396007.davem@davemloft.net> <200808120946.19459.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45364 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063AbYHVUib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 16:38:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=_courier-22741-1219439926-0001-2"
+Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
+	fragabr@gmail.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <200808120946.19459.thomas.jarosch@intra2net.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Large block of code duplication removed.
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Sadly, the return value thing is a bit tricky here but it
-seems the most sensible way to return positive from validator
-on success rather than negative.
+--=_courier-22741-1219439926-0001-2
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |  147 +++++++++++++++++++++++-------------------=
--------
- 1 files changed, 69 insertions(+), 78 deletions(-)
+On Tue, 12 Aug 2008, Thomas Jarosch wrote:
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4f1cc0e..aa95c68 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4696,6 +4696,67 @@ out:
- }
- #endif /* CONFIG_NET_DMA */
-=20
-+/* Does PAWS and seqno based validation of an incoming segment, flags =
-will
-+ * play significant role here.
-+ */
-+static int tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
-+			      struct tcphdr *th, int syn_inerr)
-+{
-+	struct tcp_sock *tp =3D tcp_sk(sk);
-+
-+	/* RFC1323: H1. Apply PAWS check first. */
-+	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
-+	    tcp_paws_discard(sk, skb)) {
-+		if (!th->rst) {
-+			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
-+			tcp_send_dupack(sk, skb);
-+			goto discard;
-+		}
-+		/* Reset is accepted even if it did not pass PAWS. */
-+	}
-+
-+	/* Step 1: check sequence number */
-+	if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)=
-) {
-+		/* RFC793, page 37: "In all states except SYN-SENT, all reset
-+		 * (RST) segments are validated by checking their SEQ-fields."
-+		 * And page 69: "If an incoming segment is not acceptable,
-+		 * an acknowledgment should be sent in reply (unless the RST
-+		 * bit is set, if so drop the segment and return)".
-+		 */
-+		if (!th->rst)
-+			tcp_send_dupack(sk, skb);
-+		goto discard;
-+	}
-+
-+	/* Step 2: check RST bit */
-+	if (th->rst) {
-+		tcp_reset(sk);
-+		goto discard;
-+	}
-+
-+	/* ts_recent update must be made after we are sure that the packet
-+	 * is in window.
-+	 */
-+	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
-+
-+	/* step 3: check security and precedence [ignored] */
-+
-+	/* step 4: Check for a SYN in window. */
-+	if (th->syn && !before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
-+		if (syn_inerr)
-+			TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONSYN);
-+		tcp_reset(sk);
-+		return -1;
-+	}
-+
-+	return 1;
-+
-+discard:
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
- /*
-  *	TCP receive function for the ESTABLISHED state.
-  *
-@@ -4723,6 +4784,7 @@ int tcp_rcv_established(struct sock *sk, struct s=
-k_buff *skb,
- 			struct tcphdr *th, unsigned len)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-+	int res;
-=20
- 	/*
- 	 *	Header prediction.
-@@ -4904,51 +4966,12 @@ slow_path:
- 		goto csum_error;
-=20
- 	/*
--	 * RFC1323: H1. Apply PAWS check first.
--	 */
--	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
--	    tcp_paws_discard(sk, skb)) {
--		if (!th->rst) {
--			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
--			tcp_send_dupack(sk, skb);
--			goto discard;
--		}
--		/* Resets are accepted even if PAWS failed.
--
--		   ts_recent update must be made after we are sure
--		   that the packet is in window.
--		 */
--	}
--
--	/*
- 	 *	Standard slow path.
- 	 */
-=20
--	if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)=
-) {
--		/* RFC793, page 37: "In all states except SYN-SENT, all reset
--		 * (RST) segments are validated by checking their SEQ-fields."
--		 * And page 69: "If an incoming segment is not acceptable,
--		 * an acknowledgment should be sent in reply (unless the RST bit
--		 * is set, if so drop the segment and return)".
--		 */
--		if (!th->rst)
--			tcp_send_dupack(sk, skb);
--		goto discard;
--	}
--
--	if (th->rst) {
--		tcp_reset(sk);
--		goto discard;
--	}
--
--	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
--
--	if (th->syn && !before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
--		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONSYN);
--		tcp_reset(sk);
--		return 1;
--	}
-+	res =3D tcp_validate_incoming(sk, skb, th, 1);
-+	if (res <=3D 0)
-+		return -res;
-=20
- step5:
- 	if (th->ack)
-@@ -5230,6 +5253,7 @@ int tcp_rcv_state_process(struct sock *sk, struct=
- sk_buff *skb,
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	struct inet_connection_sock *icsk =3D inet_csk(sk);
- 	int queued =3D 0;
-+	int res;
-=20
- 	tp->rx_opt.saw_tstamp =3D 0;
-=20
-@@ -5282,42 +5306,9 @@ int tcp_rcv_state_process(struct sock *sk, struc=
-t sk_buff *skb,
- 		return 0;
- 	}
-=20
--	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
--	    tcp_paws_discard(sk, skb)) {
--		if (!th->rst) {
--			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
--			tcp_send_dupack(sk, skb);
--			goto discard;
--		}
--		/* Reset is accepted even if it did not pass PAWS. */
--	}
--
--	/* step 1: check sequence number */
--	if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)=
-) {
--		if (!th->rst)
--			tcp_send_dupack(sk, skb);
--		goto discard;
--	}
--
--	/* step 2: check RST bit */
--	if (th->rst) {
--		tcp_reset(sk);
--		goto discard;
--	}
--
--	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
--
--	/* step 3: check security and precedence [ignored] */
--
--	/*	step 4:
--	 *
--	 *	Check for a SYN in window.
--	 */
--	if (th->syn && !before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONSYN);
--		tcp_reset(sk);
--		return 1;
--	}
-+	res =3D tcp_validate_incoming(sk, skb, th, 0);
-+	if (res <=3D 0)
-+		return -res;
-=20
- 	/* step 5: check the ACK field */
- 	if (th->ack) {
---=20
-1.5.2.2
+> On Monday, 11. August 2008 23:44:21 David Miller wrote:
+> > Trying to come up with a signature for this bogus stuff is both time
+> > consuming and having a risk of false positives.  And I really question
+> > whether this thing is worth it.
+> >
+> > The sane thing to do in this case is to declare the box inoperative
+> > and that it needs to be fixed to avoid this behavior.
+> >
+> > Any reasonable congestion control scheme is going to run into problems
+> > trying to react to the packet patterns this thing creates.  It is
+> > therefore not really limited to FRTO so it really shouldn't be treated
+> > like an FRTO problem even though it shows up more pronounced when
+> > FRTO is enabled.
+> 
+> David, I agree with you, though I'm not sure about the end user experience:
+> 
+> The kernel is an early adopter of FRTO and will be bitten by bugs of other
+> TCP implementations like we've experienced. I guess most affected users
+> just see stalled or slow connections and won't have the time or knowledge
+> to debug this.
 
+This is hardly a big problem. Much bigger problem seems to be that some 
+distros base to 2.6.24 and did not take TCP fixes that were put to 
+2.6.25.7 but not to 2.6.24.y series because it wasn't updated anymore. 
+There are hardly any other reports but for 2.6.24 (and the ones which we 
+have have gone through @ netdev to fix the bugs / problems) in the ones 
+I've seen.
+
+> A proper warning could help them and the kernel
+> developers to get this issue solved as quickly as possible.
+> 
+> We called the hotline of the ISP several times and they always claimed
+> sending big mails with Outlook/Windows works, so it must be linux's fault.
+> That view of things is totally biased, but it's something I want to make sure
+> people can't get away with easily :-)
+
+I should probably one day check how vista's frto is behaving
+itself to know better... ...but I guess they'll be running to
+some problems with big mails pretty soon... ;-)
+
+In the meantime, can you check the attached patches. Besides the kernel 
+patch, you need to build your own patched iproute2 as well to configure 
+the features (ip tool among them is enough in case the build of some other 
+part of the toolset fails like it did for me). I somewhat tested them, and 
+the result seemed to be what I'd expect (I just forced RTOs with some 
+netem heavy dropping and quickly glanced over the resulting packet 
+patterns near RTO).
+
+-- 
+ i.
+
+--=_courier-22741-1219439926-0001-2
+Content-Type: text/plain; charset=iso-8859-1; name="0001-tcp-frto-make-frto-per-route-configurable.patch"
+Content-Transfer-Encoding: base64
+Content-ID: <Pine.LNX.4.64.0808230018440.10077@wrl-59.cs.helsinki.fi>
+Content-Description: 
+Content-Disposition: attachment; filename=0001-tcp-frto-make-frto-per-route-configurable.patch
+
+RnJvbSBiNGQxZWZjZjFkNDM4NDI5NmQ2ZDZiNGY4Mzc4ZjhjNDA4Y2VmYzk4
+IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogPT9JU08tODg1OS0x
+P3E/SWxwbz0yMEo9RTRydmluZW4/PSA8aWxwby5qYXJ2aW5lbkBoZWxzaW5r
+aS5maT4NCkRhdGU6IFR1ZSwgMTkgQXVnIDIwMDggMDg6MjA6MTYgKzAzMDAN
+ClN1YmplY3Q6IFtQQVRDSF0gdGNwL2ZydG86IG1ha2UgZnJ0byBwZXIgcm91
+dGUgY29uZmlndXJhYmxlDQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1U
+eXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PUlTTy04ODU5LTENCkNvbnRlbnQt
+VHJhbnNmZXItRW5jb2Rpbmc6IDhiaXQNCg0KTmVlZHMgaXByb3V0ZTIgc3Vw
+cG9ydCBzaW5jZSBpdCBpc24ndCBhYmxlIHRvIHNldCBSVEFYX0ZFQVRVUkVT
+DQpjdXJyZW50bHkgKGllLiwgYWxzbyB0aGUgb3RoZXIgVENQIHZhcmlhbnQg
+cmVsYXRlZCBSVEFYX0ZFQVRVUkVzDQp3b24ndCB3b3JrLCB0aGV5J3ZlIGJl
+ZW4gdW51c2VkIHNpbmNlIHRoZSBhZGRpdGlvbiBpbiAyMDAzIG9yDQpzbyku
+DQoNClNpZ25lZC1vZmYtYnk6IElscG8gSuRydmluZW4gPGlscG8uamFydmlu
+ZW5AaGVsc2lua2kuZmk+DQotLS0NCiBpbmNsdWRlL2xpbnV4L3J0bmV0bGlu
+ay5oIHwgICAgMSArDQogbmV0L2lwdjQvdGNwX2lucHV0LmMgICAgICB8ICAg
+IDQgKysrKw0KIDIgZmlsZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCAw
+IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9y
+dG5ldGxpbmsuaCBiL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmgNCmluZGV4
+IGY0ZDM4NmMuLmU2MjgwNjIgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL2xpbnV4
+L3J0bmV0bGluay5oDQorKysgYi9pbmNsdWRlL2xpbnV4L3J0bmV0bGluay5o
+DQpAQCAtMzczLDYgKzM3Myw3IEBAIGVudW0NCiAjZGVmaW5lIFJUQVhfRkVB
+VFVSRV9TQUNLCTB4MDAwMDAwMDINCiAjZGVmaW5lIFJUQVhfRkVBVFVSRV9U
+SU1FU1RBTVAJMHgwMDAwMDAwNA0KICNkZWZpbmUgUlRBWF9GRUFUVVJFX0FM
+TEZSQUcJMHgwMDAwMDAwOA0KKyNkZWZpbmUgUlRBWF9GRUFUVVJFX0ZSVE8J
+MHgwMDAwMDAxMA0KIA0KIHN0cnVjdCBydGFfc2Vzc2lvbg0KIHsNCmRpZmYg
+LS1naXQgYS9uZXQvaXB2NC90Y3BfaW5wdXQuYyBiL25ldC9pcHY0L3RjcF9p
+bnB1dC5jDQppbmRleCAxZjVlNjA0Li40ZjFjYzBlIDEwMDY0NA0KLS0tIGEv
+bmV0L2lwdjQvdGNwX2lucHV0LmMNCisrKyBiL25ldC9pcHY0L3RjcF9pbnB1
+dC5jDQpAQCAtMTcwOSwxMSArMTcwOSwxNSBAQCBpbnQgdGNwX3VzZV9mcnRv
+KHN0cnVjdCBzb2NrICpzaykNCiB7DQogCWNvbnN0IHN0cnVjdCB0Y3Bfc29j
+ayAqdHAgPSB0Y3Bfc2soc2spOw0KIAljb25zdCBzdHJ1Y3QgaW5ldF9jb25u
+ZWN0aW9uX3NvY2sgKmljc2sgPSBpbmV0X2Nzayhzayk7DQorCXN0cnVjdCBk
+c3RfZW50cnkgKmRzdCA9IF9fc2tfZHN0X2dldChzayk7DQogCXN0cnVjdCBz
+a19idWZmICpza2I7DQogDQogCWlmICghc3lzY3RsX3RjcF9mcnRvKQ0KIAkJ
+cmV0dXJuIDA7DQogDQorCWlmIChkc3QgJiYgKGRzdF9tZXRyaWMoZHN0LCBS
+VEFYX0ZFQVRVUkVTKSAmIFJUQVhfRkVBVFVSRV9GUlRPKSkNCisJCXJldHVy
+biAwOw0KKw0KIAkvKiBNVFUgcHJvYmUgYW5kIEYtUlRPIHdvbid0IHJlYWxs
+eSBwbGF5IG5pY2VseSBhbG9uZyBjdXJyZW50bHkgKi8NCiAJaWYgKGljc2st
+Pmljc2tfbXR1cC5wcm9iZV9zaXplKQ0KIAkJcmV0dXJuIDA7DQotLSANCjEu
+NS4yLjINCg0K
+
+--=_courier-22741-1219439926-0001-2
+Content-Type: text/plain; charset=iso-8859-1; name="0001-iproute2-enable-setting-of-per-route-features.patch"
+Content-Transfer-Encoding: base64
+Content-ID: <Pine.LNX.4.64.0808230018441.10077@wrl-59.cs.helsinki.fi>
+Content-Description: 
+Content-Disposition: attachment; filename=0001-iproute2-enable-setting-of-per-route-features.patch
+
+RnJvbSA1OWQ3ODc4YzA0ZWI5NTcxYzU4YmFmNzhiZmQwN2IxNjlkM2U1YzBk
+IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogPT9JU08tODg1OS0x
+P3E/SWxwbz0yMEo9RTRydmluZW4/PSA8aWxwby5qYXJ2aW5lbkBoZWxzaW5r
+aS5maT4NCkRhdGU6IEZyaSwgMjIgQXVnIDIwMDggMTQ6NDk6MDAgKzAzMDAN
+ClN1YmplY3Q6IFtQQVRDSF0gaXByb3V0ZTI6IGVuYWJsZSBzZXR0aW5nIG9m
+IHBlciByb3V0ZSBmZWF0dXJlcw0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRl
+bnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD1JU08tODg1OS0xDQpDb250
+ZW50LVRyYW5zZmVyLUVuY29kaW5nOiA4Yml0DQoNClRoZSBrZXJuZWwgaGFz
+IGhhZCBhbiBlbnRyeSBmb3IgcGVyIHJvdXRlIFJUQVhfRkVBVFVSRVMgd2hp
+Y2gNCndhcyBhZGRlZCBhcyB1bnVzZWQgYmFjayBpbiAyMDAzLiBBbGxvdyBz
+ZXR0aW5nIHRoZW0gbm93Lg0KDQpJdCBzZWVtcyB0aGF0IGl0J3MgbXVjaCBt
+b3JlIHNlbnNpYmxlIHRvIGhhdmUgdGhlIG1lYW5pbmcNCm5lZ2F0ZWQgYmVj
+YXVzZSBvdGhlcndpc2UgdGhlIG1lYW5pbmcgb2YgemVybyBpcyB2ZXJ5IGFt
+YmlndW91cywNCmllLiwgZG9lcyBpdCBtZWFuIHRoYXQgZmVhdHVyZSBpcyB0
+dXJuZWQgb2ZmIG9yIG5vdCBnaXZlbi4NCkJlc2lkZXMsIHRoaXMgbWF0Y2hl
+cyB3aGF0IG9uZSB3b3VsZCBleHBlY3QgaW4gdGhlIGludGVudGVkDQp1c2Ut
+Y2FzZSwgd2hlcmUgd2UgaGF2ZSBnbG9iYWwgc2V0dGluZ3MgZnJvbSBzeXNj
+dGwgYW5kIHdhbnQNCnRvIHdvcmstYXJvdW5kIHNvbWV0aGluZyBwZXIgcm91
+dGUgKGllLiwgZGlzYWJsZSBhbiBvdGhlcndpc2UNCmVuYWJsZWQgZmVhdHVy
+ZSkuDQoNClNpZ25lZC1vZmYtYnk6IElscG8gSuRydmluZW4gPGlscG8uamFy
+dmluZW5AaGVsc2lua2kuZmk+DQotLS0NCiBpbmNsdWRlL2xpbnV4L3J0bmV0
+bGluay5oIHwgICAgMSArDQogaXAvaXByb3V0ZS5jICAgICAgICAgICAgICB8
+ICAgNTggKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KystLS0tDQogMiBmaWxlcyBjaGFuZ2VkLCA1NCBpbnNlcnRpb25zKCspLCA1
+IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9y
+dG5ldGxpbmsuaCBiL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmgNCmluZGV4
+IGMxZjJkNTAuLjM1NGE2ZjEgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL2xpbnV4
+L3J0bmV0bGluay5oDQorKysgYi9pbmNsdWRlL2xpbnV4L3J0bmV0bGluay5o
+DQpAQCAtMzczLDYgKzM3Myw3IEBAIGVudW0NCiAjZGVmaW5lIFJUQVhfRkVB
+VFVSRV9TQUNLCTB4MDAwMDAwMDINCiAjZGVmaW5lIFJUQVhfRkVBVFVSRV9U
+SU1FU1RBTVAJMHgwMDAwMDAwNA0KICNkZWZpbmUgUlRBWF9GRUFUVVJFX0FM
+TEZSQUcJMHgwMDAwMDAwOA0KKyNkZWZpbmUgUlRBWF9GRUFUVVJFX0ZSVE8J
+MHgwMDAwMDAxMA0KIA0KIHN0cnVjdCBydGFfc2Vzc2lvbg0KIHsNCmRpZmYg
+LS1naXQgYS9pcC9pcHJvdXRlLmMgYi9pcC9pcHJvdXRlLmMNCmluZGV4IDJh
+OGYzZjguLmQ0YTkwZmMgMTAwNjQ0DQotLS0gYS9pcC9pcHJvdXRlLmMNCisr
+KyBiL2lwL2lwcm91dGUuYw0KQEAgLTUyLDYgKzUyLDIwIEBAIHN0YXRpYyBj
+b25zdCBjaGFyICpteF9uYW1lc1tSVEFYX01BWCsxXSA9IHsNCiAJW1JUQVhf
+RkVBVFVSRVNdID0gImZlYXR1cmVzIiwNCiAJW1JUQVhfUlRPX01JTl0JPSAi
+cnRvX21pbiIsDQogfTsNCisNCitzdHJ1Y3QgdmFsbmFtZSB7DQorCXVuc2ln
+bmVkIGludAl2YWw7DQorCWNvbnN0IGNoYXIJKm5hbWU7DQorfTsNCisNCitz
+dGF0aWMgY29uc3Qgc3RydWN0IHZhbG5hbWUgZmVhdHVyZXNbXSA9IHsNCisJ
+eyBSVEFYX0ZFQVRVUkVfRUNOLCAiZWNuIiB9LA0KKwl7IFJUQVhfRkVBVFVS
+RV9TQUNLLCAic2FjayIgfSwNCisJeyBSVEFYX0ZFQVRVUkVfVElNRVNUQU1Q
+LCAidGltZXN0YW1wcyIgfSwNCisJeyBSVEFYX0ZFQVRVUkVfVElNRVNUQU1Q
+LCAidHMiIH0sDQorCXsgUlRBWF9GRUFUVVJFX0ZSVE8sICJmcnRvIn0sDQor
+fTsNCisNCiBzdGF0aWMgdm9pZCB1c2FnZSh2b2lkKSBfX2F0dHJpYnV0ZV9f
+KChub3JldHVybikpOw0KIA0KIHN0YXRpYyB2b2lkIHVzYWdlKHZvaWQpDQpA
+QCAtNzMsNyArODcsNyBAQCBzdGF0aWMgdm9pZCB1c2FnZSh2b2lkKQ0KIAlm
+cHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICAgWyBydHQgVElNRSBdIFsgcnR0
+dmFyIFRJTUUgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAg
+ICBbIHdpbmRvdyBOVU1CRVJdIFsgY3duZCBOVU1CRVIgXSBbIGluaXRjd25k
+IE5VTUJFUiBdXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICIgICAgICAgICAg
+IFsgc3N0aHJlc2ggTlVNQkVSIF0gWyByZWFsbXMgUkVBTE0gXSBbIHNyYyBB
+RERSRVNTIF1cbiIpOw0KLQlmcHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICAg
+WyBydG9fbWluIFRJTUUgXVxuIik7DQorCWZwcmludGYoc3RkZXJyLCAiICAg
+ICAgICAgICBbIHJ0b19taW4gVElNRSBdIFsgZmVhdHVyZXMgRElTQUJMRURf
+RkVBVFVSRVMgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAiVFlQRSA6PSBb
+IHVuaWNhc3QgfCBsb2NhbCB8IGJyb2FkY2FzdCB8IG11bHRpY2FzdCB8IHRo
+cm93IHxcbiIpOw0KIAlmcHJpbnRmKHN0ZGVyciwgIiAgICAgICAgICB1bnJl
+YWNoYWJsZSB8IHByb2hpYml0IHwgYmxhY2tob2xlIHwgbmF0IF1cbiIpOw0K
+IAlmcHJpbnRmKHN0ZGVyciwgIlRBQkxFX0lEIDo9IFsgbG9jYWwgfCBtYWlu
+IHwgZGVmYXVsdCB8IGFsbCB8IE5VTUJFUiBdXG4iKTsNCkBAIC04Myw2ICs5
+Nyw4IEBAIHN0YXRpYyB2b2lkIHVzYWdlKHZvaWQpDQogCWZwcmludGYoc3Rk
+ZXJyLCAiTkhGTEFHUyA6PSBbIG9ubGluayB8IHBlcnZhc2l2ZSBdXG4iKTsN
+CiAJZnByaW50ZihzdGRlcnIsICJSVFBST1RPIDo9IFsga2VybmVsIHwgYm9v
+dCB8IHN0YXRpYyB8IE5VTUJFUiBdXG4iKTsNCiAJZnByaW50ZihzdGRlcnIs
+ICJUSU1FIDo9IE5VTUJFUltzfG1zfHVzfG5zfGpdXG4iKTsNCisJZnByaW50
+ZihzdGRlcnIsICJESVNBQkxFRF9GRUFUVVJFUyA6PSBzYWNrIHwgdGltZXN0
+YW1wcyB8IHRzIHwgZWNuIHwgZnJ0byB8XG4iKTsNCisJZnByaW50ZihzdGRl
+cnIsICIgICAgICAgICAgICAgICAgICAgICBbIERJU0FCTEVEX0ZFQVRVUkVT
+IF1cbiIpOw0KIAlleGl0KC0xKTsNCiB9DQogDQpAQCAtNTA1LDEwICs1MjEs
+OCBAQCBpbnQgcHJpbnRfcm91dGUoY29uc3Qgc3RydWN0IHNvY2thZGRyX25s
+ICp3aG8sIHN0cnVjdCBubG1zZ2hkciAqbiwgdm9pZCAqYXJnKQ0KIAkJCWlm
+IChteGxvY2sgJiAoMTw8aSkpDQogCQkJCWZwcmludGYoZnAsICIgbG9jayIp
+Ow0KIA0KLQkJCWlmIChpICE9IFJUQVhfUlRUICYmIGkgIT0gUlRBWF9SVFRW
+QVIgJiYNCi0JCQkgICAgaSAhPSBSVEFYX1JUT19NSU4pDQotCQkJCWZwcmlu
+dGYoZnAsICIgJXUiLCAqKHVuc2lnbmVkKilSVEFfREFUQShteHJ0YVtpXSkp
+Ow0KLQkJCWVsc2Ugew0KKwkJCWlmIChpID09IFJUQVhfUlRUIHx8IGkgPT0g
+UlRBWF9SVFRWQVIgfHwNCisJCQkgICAgaSA9PSBSVEFYX1JUT19NSU4pIHsN
+CiAJCQkJdW5zaWduZWQgbG9uZyBsb25nIHZhbCA9ICoodW5zaWduZWQqKVJU
+QV9EQVRBKG14cnRhW2ldKTsNCiANCiAJCQkJdmFsICo9IDEwMDA7DQpAQCAt
+NTIwLDYgKzUzNCwxNiBAQCBpbnQgcHJpbnRfcm91dGUoY29uc3Qgc3RydWN0
+IHNvY2thZGRyX25sICp3aG8sIHN0cnVjdCBubG1zZ2hkciAqbiwgdm9pZCAq
+YXJnKQ0KIAkJCQkJZnByaW50ZihmcCwgIiAlbGx1bXMiLCB2YWwvaHopOw0K
+IAkJCQllbHNlDQogCQkJCQlmcHJpbnRmKGZwLCAiICUuMmZtcyIsIChmbG9h
+dCl2YWwvaHopOw0KKwkJCX0gZWxzZSBpZiAoaSA9PSBSVEFYX0ZFQVRVUkVT
+KSB7DQorCQkJCWludCBqOw0KKwkJCQl1bnNpZ25lZCBpbnQgZiA9ICoodW5z
+aWduZWQqKVJUQV9EQVRBKG14cnRhW2ldKTsNCisJCQkJZm9yIChqID0gMDsg
+aiA8IEFSUkFZX1NJWkUoZmVhdHVyZXMpOyBqKyspDQorCQkJCQlpZiAoZiAm
+IGZlYXR1cmVzW2pdLnZhbCkgew0KKwkJCQkJCWZwcmludGYoZnAsICIgJXMi
+LCBmZWF0dXJlc1tqXS5uYW1lKTsNCisJCQkJCQlmICY9IH5mZWF0dXJlc1tq
+XS52YWw7DQorCQkJCQl9DQorCQkJfSBlbHNlIHsNCisJCQkJZnByaW50Zihm
+cCwgIiAldSIsICoodW5zaWduZWQqKVJUQV9EQVRBKG14cnRhW2ldKSk7DQog
+CQkJfQ0KIAkJfQ0KIAl9DQpAQCAtODUxLDYgKzg3NSwzMCBAQCBpbnQgaXBy
+b3V0ZV9tb2RpZnkoaW50IGNtZCwgdW5zaWduZWQgZmxhZ3MsIGludCBhcmdj
+LCBjaGFyICoqYXJndikNCiAJCQlpZiAoZ2V0X3Vuc2lnbmVkKCZ3aW4sICph
+cmd2LCAwKSkNCiAJCQkJaW52YXJnKCJcInNzdGhyZXNoXCIgdmFsdWUgaXMg
+aW52YWxpZFxuIiwgKmFyZ3YpOw0KIAkJCXJ0YV9hZGRhdHRyMzIobXhydGEs
+IHNpemVvZihteGJ1ZiksIFJUQVhfU1NUSFJFU0gsIHdpbik7DQorCQl9IGVs
+c2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJmZWF0dXJlcyIpID09IDApIHsNCisJ
+CQlpbnQgajsNCisJCQl1bnNpZ25lZCBpbnQgZiA9IDA7DQorCQkJTkVYVF9B
+UkcoKTsNCisJCQl3aGlsZSAoMSkgew0KKwkJCQlmb3IgKGogPSAwOyBqIDwg
+QVJSQVlfU0laRShmZWF0dXJlcyk7IGorKykgew0KKwkJCQkJaWYgKHN0cmNt
+cCgqYXJndiwgZmVhdHVyZXNbal0ubmFtZSkgPT0gMCkgew0KKwkJCQkJCWYg
+fD0gZmVhdHVyZXNbal0udmFsOw0KKwkJCQkJCWlmICghTkVYVF9BUkdfT0so
+KSkNCisJCQkJCQkJZ290byBmZWF0X291dDsNCisJCQkJCQlORVhUX0FSRygp
+Ow0KKwkJCQkJCWJyZWFrOw0KKwkJCQkJfQ0KKwkJCQl9DQorCQkJCWlmIChq
+ID09IEFSUkFZX1NJWkUoZmVhdHVyZXMpKSB7DQorCQkJCQlpZiAoZikNCisJ
+CQkJCQlQUkVWX0FSRygpOw0KKwkJCQkJYnJlYWs7DQorCQkJCX0NCisJCQl9
+DQorZmVhdF9vdXQ6DQorCQkJaWYgKCFmKQ0KKwkJCQlpbnZhcmcoIlwiZmVh
+dHVyZXNcIiBsaXN0IGlzIGludmFsaWRcbiIsICphcmd2KTsNCisJCQlydGFf
+YWRkYXR0cjMyKG14cnRhLCBzaXplb2YobXhidWYpLCBSVEFYX0ZFQVRVUkVT
+LCBmKTsNCiAJCX0gZWxzZSBpZiAobWF0Y2hlcygqYXJndiwgInJlYWxtcyIp
+ID09IDApIHsNCiAJCQlfX3UzMiByZWFsbTsNCiAJCQlORVhUX0FSRygpOw0K
+LS0gDQoxLjUuMi4yDQoNCg==
+
+--=_courier-22741-1219439926-0001-2--
