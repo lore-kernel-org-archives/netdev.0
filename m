@@ -1,46 +1,56 @@
-From: adobriyan@gmail.com
-Subject: Re: [PATCH 20/38] netns ct: NOTRACK in netns
-Date: Fri, 22 Aug 2008 15:30:28 +0400
-Message-ID: <20080822113028.GB2321@x200.localdomain>
-References: <20080821220432.GT31136@x200.localdomain> <alpine.LNX.1.10.0808211903000.20596@fbirervta.pbzchgretzou.qr>
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Re: 2.6.26/tg3 ping roundtrip times > 2000 ms on local network
+Date: Fri, 22 Aug 2008 13:33:32 +0200
+Message-ID: <20080822113332.GD10603@torres.zugschlus.de>
+References: <20080821160928.GB21967@torres.zugschlus.de> <C27F8246C663564A84BB7AB343977242024953CE46@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Matthew Carlson <mcarlson@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757385AbYHVLdq@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.1.10.0808211903000.20596@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <C27F8246C663564A84BB7AB343977242024953CE46@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2008 at 07:06:37PM -0400, Jan Engelhardt wrote:
-> On Thursday 2008-08-21 18:04, adobriyan@gmail.com wrote:
+On Thu, Aug 21, 2008 at 09:21:28AM -0700, Michael Chan wrote:
+> Marc Haber wrote:
+> > On Wed, Aug 20, 2008 at 07:11:50AM -0700, Michael Chan wrote:
+> > > On Wed, 2008-08-20 at 10:47 -0700, Marc Haber wrote:
+> > > > Now I need to understand why the other, nearly[1]
+> > identical box didn't
+> > > > need the patch to function properly.
+> > >
+> > > It depends on whether you have ASF enabled or not and what
+> > version of
+> > > ASF you have.  ASF is management firmware running inside
+> > the NIC.  When
+> > > the tg3 driver loads, it will show ASF[1] in dmesg if ASF
+> > is enabled.
+> >
+> > Both machines have that string in their dmesg.
+> >
 > 
-> >Make untracked conntrack per-netns.
-> 
-> Why? It does not store any useful information per se, it is
-> merely used to add a third type of ct, iow:
-> 
-> (a) ct==NULL
-> (b) ct!=NULL
-> (c) ct==&untracked
-> 
-> mmap(2)'s return value for example has something similar:
-> 
-> (a) mmap(...)==NULL
-> (b) mmap(...)==MMAP_FAILED
-> (c) otherwise
-> 
-> The untracked ct is a singleton, and should stay one, unless
-> there are further reasons not to do so.
+> It may be different versions of ASF.  Try ethtool -i eth0.  It
+> may tell us the firmware version.
 
-We wait for untracked ct refcount to drop to 1 back:
+$ sudo ethtool -i eth0
+driver: tg3
+version: 3.92.1
+firmware-version: 5704-v3.26
+bus-info: 0000:02:00.0
 
-	/* wait until all references to nf_conntrack_untracked are dropped */
-	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
-		schedule();
+The other box is the same, only that bus-info ends in .1, and the .0
+device is unused.
 
-Consequently it should be one per netns, otherwise netns A can prevent
-netns B from stopping.
+Greetings
+Marc
 
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
