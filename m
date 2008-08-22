@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
-Date: Fri, 22 Aug 2008 02:42:52 -0700 (PDT)
-Message-ID: <20080822.024252.193704871.davem@davemloft.net>
-References: <20080821185402.GD31526@susedev.qlogic.org>
-	<48AE8549.6090705@garzik.org>
+From: Jonathan Cameron <jic23@cam.ac.uk>
+Subject: [PATCH 2.6.27-rc4] smc91x bug fix to avoid null pointer dereference
+Date: Fri, 22 Aug 2008 10:48:54 +0100
+Message-ID: <48AE8B86.8080608@cam.ac.uk>
+References: <4892123C.2060007@cam.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Driver@qlogic.com, netdev@vger.kernel.org
-To: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44813
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752835AbYHVJmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 05:42:53 -0400
-In-Reply-To: <48AE8549.6090705@garzik.org>
+Received: from ppsw-0.csi.cam.ac.uk ([131.111.8.130]:55051 "EHLO
+	ppsw-0.csi.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753408AbYHVJsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 05:48:53 -0400
+Received: from coriolanus.eng.cam.ac.uk ([129.169.154.144]:40029)
+	by ppsw-0.csi.cam.ac.uk (smtp.hermes.cam.ac.uk [131.111.8.150]:25)
+	with esmtpsa (PLAIN:jic23) (TLSv1:DHE-RSA-AES256-SHA:256)
+	id 1KWTGG-0001zv-1I (Exim 4.70) for netdev@vger.kernel.org
+	(return-path <jic23@cam.ac.uk>); Fri, 22 Aug 2008 10:48:52 +0100
+In-Reply-To: <4892123C.2060007@cam.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 22 Aug 2008 05:22:17 -0400
+From: Jonathan Cameron
 
-> - The kmap use is interesting
+Bug fix for typo in smc91x.c that results in null pointer dereference.
 
-It's so much easier to just always tack on the pages or whatever
-and use __pskb_pull_tail(skb, SOME_MIN_HEADER_LENGTH)
+Signed-off-by: Jonathan Cameron <jic23@cam.ac.uk>
+Acked-by: Nicolas Pitre <nico@cam.org>
 
-I also notice that this driver does not do:
+--
+Rebased against 2.6.27-rc4 and with Nicolas' ack.
 
-	skb_reserve(skb, NET_IP_ALIGN);
-
-on RX packets to get the IP headers properly 4-byte aligned aligned
-after the ethernet header.
+--- a/drivers/net/smc91x.c	2008-08-21 14:49:28.000000000 +0100
++++ b/drivers/net/smc91x.c	2008-08-21 15:12:48.000000000 +0100
+@@ -2255,7 +2255,7 @@ static int smc_drv_remove(struct platfor
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-regs");
+ 	if (!res)
+-		platform_get_resource(pdev, IORESOURCE_MEM, 0);
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	release_mem_region(res->start, SMC_IO_EXTENT);
+ 
+ 	free_netdev(ndev);
