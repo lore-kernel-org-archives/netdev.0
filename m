@@ -1,60 +1,207 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
-	RCU.
-Date: Fri, 22 Aug 2008 09:52:05 -0400
-Message-ID: <1219413125.4672.39.camel@localhost>
-References: <20080822065655.GA18471@gondor.apana.org.au>
-	 <20080822.001620.141235108.davem@davemloft.net>
-	 <20080822074115.GB25615@gondor.apana.org.au>
-	 <20080822.034217.135152551.davem@davemloft.net>
-Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080822.034217.135152551.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id() in preemptible code
+Date: Fri, 22 Aug 2008 17:54:33 +0400
+Message-ID: <1219413273-14281-1-git-send-email-den@openvz.org>
+References: <20080821122040.GA2497@x200.localdomain>
+Cc: dlezcano@fr.ibm.com, adobriyan@gmail.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	"Denis V. Lunev" <den@openvz.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:38616 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751442AbYHVNzb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Aug 2008 09:55:31 -0400
+In-Reply-To: <20080821122040.GA2497@x200.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-22-08 at 03:42 -0700, David Miller wrote:
+Pass namespace into icmp_xmit_lock, obtain socket inside and return
+it as a result for caller.
 
-> I had another idea in the back of my head that I wanted to mention.
-> 
-> The SKB has a hash, and sources set the hash.  It doesn't matter
-> where in the stack it comes from.
-> 
-> At transmit time, the select queue logic in dev_queue_xmit() will use
-> the SKB hash if one has been set already.  Otherwise it will do the
-> hashing it does currently.
-> 
-> So in the simplest case for forwarding, the RX side puts the RSS
-> hash or whatever into this SKB hash location.
-> 
+Thanks Alexey Dobryan for this report:
 
-Makes sense. 
-In the case Herbert described, I am assuming that the RSS side could be
-configured to select a processor statically (MSI or otherwise). And that
-the hash value will be that of the processorid ego the tx queue
-selected.
+Steps to reproduce:
 
-> Then, taking things to the next level, protocols set hashes for
-> locally created packets.  And this leads to being able to delete
-> the simple_tx_hash() code entirely and also we won't have to add
-> support for every protocol on the planet to that function. :)
-> 
+	CONFIG_PREEMPT=y
+	CONFIG_DEBUG_PREEMPT=y
+	tracepath <something>
 
-Well, conntrack could be useful (as long as you dont make it mandatory)
-since it already keeps track of flows.
-When unresolved, one could add it to some default queue.
+BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
+caller is icmp_sk+0x15/0x30
+Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
 
-cheers,
-jamal
+Call Trace:
+ [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
+ [<ffffffff80409405>] icmp_sk+0x15/0x30
+ [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
+ [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
+ [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff8023a475>] ? local_bh_enable_ip+0x95/0x110
+ [<ffffffff804285b9>] ? _spin_unlock_bh+0x39/0x40
+ [<ffffffff8025a26c>] ? mark_held_locks+0x4c/0x90
+ [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
+ [<ffffffff803e91b4>] ip_fragment+0x8d4/0x900
+ [<ffffffff803e7030>] ? ip_finish_output2+0x0/0x290
+ [<ffffffff803e91e0>] ? ip_finish_output+0x0/0x60
+ [<ffffffff803e6650>] ? dst_output+0x0/0x10
+ [<ffffffff803e922c>] ip_finish_output+0x4c/0x60
+ [<ffffffff803e92e3>] ip_output+0xa3/0xf0
+ [<ffffffff803e68d0>] ip_local_out+0x20/0x30
+ [<ffffffff803e753f>] ip_push_pending_frames+0x27f/0x400
+ [<ffffffff80406313>] udp_push_pending_frames+0x233/0x3d0
+ [<ffffffff804067d1>] udp_sendmsg+0x321/0x6f0
+ [<ffffffff8040d155>] inet_sendmsg+0x45/0x80
+ [<ffffffff803b967f>] sock_sendmsg+0xdf/0x110
+ [<ffffffff8024a100>] ? autoremove_wake_function+0x0/0x40
+ [<ffffffff80257ce5>] ? validate_chain+0x415/0x1010
+ [<ffffffff8027dc10>] ? __do_fault+0x140/0x450
+ [<ffffffff802597d0>] ? __lock_acquire+0x260/0x590
+ [<ffffffff803b9e55>] ? sockfd_lookup_light+0x45/0x80
+ [<ffffffff803ba50a>] sys_sendto+0xea/0x120
+ [<ffffffff80428e42>] ? _spin_unlock_irqrestore+0x42/0x80
+ [<ffffffff803134bc>] ? __up_read+0x4c/0xb0
+ [<ffffffff8024e0c6>] ? up_read+0x26/0x30
+ [<ffffffff8020b8bb>] system_call_fastpath+0x16/0x1b
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+icmp6_sk() is similar.
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+---
+ net/ipv4/icmp.c |   22 ++++++++++++++--------
+ net/ipv6/icmp.c |   23 ++++++++++++-----------
+ 2 files changed, 26 insertions(+), 19 deletions(-)
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 8605586..55c355e 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -204,18 +204,22 @@ static struct sock *icmp_sk(struct net *net)
+ 	return net->ipv4.icmp_sk[smp_processor_id()];
+ }
+ 
+-static inline int icmp_xmit_lock(struct sock *sk)
++static inline struct sock *icmp_xmit_lock(struct net *net)
+ {
++	struct sock *sk;
++
+ 	local_bh_disable();
+ 
++	sk = icmp_sk(net);
++
+ 	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {
+ 		/* This can happen if the output path signals a
+ 		 * dst_link_failure() for an outgoing ICMP packet.
+ 		 */
+ 		local_bh_enable();
+-		return 1;
++		return NULL;
+ 	}
+-	return 0;
++	return sk;
+ }
+ 
+ static inline void icmp_xmit_unlock(struct sock *sk)
+@@ -354,15 +358,17 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	struct ipcm_cookie ipc;
+ 	struct rtable *rt = skb->rtable;
+ 	struct net *net = dev_net(rt->u.dst.dev);
+-	struct sock *sk = icmp_sk(net);
+-	struct inet_sock *inet = inet_sk(sk);
++	struct sock *sk;
++	struct inet_sock *inet;
+ 	__be32 daddr;
+ 
+ 	if (ip_options_echo(&icmp_param->replyopts, skb))
+ 		return;
+ 
+-	if (icmp_xmit_lock(sk))
++	sk = icmp_xmit_lock(net);
++	if (sk == NULL)
+ 		return;
++	inet = inet_sk(sk);
+ 
+ 	icmp_param->data.icmph.checksum = 0;
+ 
+@@ -419,7 +425,6 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	if (!rt)
+ 		goto out;
+ 	net = dev_net(rt->u.dst.dev);
+-	sk = icmp_sk(net);
+ 
+ 	/*
+ 	 *	Find the original header. It is expected to be valid, of course.
+@@ -483,7 +488,8 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 		}
+ 	}
+ 
+-	if (icmp_xmit_lock(sk))
++	sk = icmp_xmit_lock(net);
++	if (sk == NULL)
+ 		return;
+ 
+ 	/*
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index abedf95..b3157a0 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -91,19 +91,22 @@ static struct inet6_protocol icmpv6_protocol = {
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+-static __inline__ int icmpv6_xmit_lock(struct sock *sk)
++static __inline__ struct sock *icmpv6_xmit_lock(struct net *net)
+ {
++	struct sock *sk;
++
+ 	local_bh_disable();
+ 
++	sk = icmpv6_sk(net);
+ 	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {
+ 		/* This can happen if the output path (f.e. SIT or
+ 		 * ip6ip6 tunnel) signals dst_link_failure() for an
+ 		 * outgoing ICMP6 packet.
+ 		 */
+ 		local_bh_enable();
+-		return 1;
++		return NULL;
+ 	}
+-	return 0;
++	return sk;
+ }
+ 
+ static __inline__ void icmpv6_xmit_unlock(struct sock *sk)
+@@ -392,11 +395,10 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
+ 	fl.fl_icmp_code = code;
+ 	security_skb_classify_flow(skb, &fl);
+ 
+-	sk = icmpv6_sk(net);
+-	np = inet6_sk(sk);
+-
+-	if (icmpv6_xmit_lock(sk))
++	sk = icmpv6_xmit_lock(net);
++	if (sk == NULL)
+ 		return;
++	np = inet6_sk(sk);
+ 
+ 	if (!icmpv6_xrlim_allow(sk, type, &fl))
+ 		goto out;
+@@ -539,11 +541,10 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
+ 	security_skb_classify_flow(skb, &fl);
+ 
+-	sk = icmpv6_sk(net);
+-	np = inet6_sk(sk);
+-
+-	if (icmpv6_xmit_lock(sk))
++	sk = icmpv6_xmit_lock(net);
++	if (sk == NULL)
+ 		return;
++	np = inet6_sk(sk);
+ 
+ 	if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst))
+ 		fl.oif = np->mcast_oif;
+-- 
+1.5.6.4
+
