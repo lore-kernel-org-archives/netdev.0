@@ -1,57 +1,26 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: build issue #564 for v2.6.27-rc4 : undefined reference to
- `NS8390p_init'
-Date: Fri, 22 Aug 2008 11:09:02 -0700
-Message-ID: <20080822110902.432dd99e.akpm@linux-foundation.org>
-References: <200808221033.46997.toralf.foerster@gmx.de>
-	<Pine.LNX.4.64.0808221025070.6100@shark.he.net>
-	<20080822181234.2f33e993@lxorguk.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, toralf.foerster@gmx.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34144 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752838AbYHVSJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 14:09:42 -0400
-In-Reply-To: <20080822181234.2f33e993@lxorguk.ukuu.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 0/4 2.6.28] cxgb3i - Add iSCSI driver
+Date: Fri, 22 Aug 2008 11:37:10 -0700
+Message-ID: <200808221837.m7MIbAvv004384@localhost.localdomain>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, daisyc-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, wenxiong-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, bhua-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Aug 2008 18:12:34 +0100
-Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-> O> > drivers/built-in.o: In function `wd_probe1':
-> > > wd.c:(.init.text+0x2570): undefined reference to `NS8390p_init'
-> > > make: *** [.tmp_vmlinux1] Error 1
-> > 
-> > Alan,
-> > 
-> > Do you have any outstanding patches for these wd (and I've seen
-> > hp-plus as well IIRC) build issues, or should Jeff have them now?
-> 
-> I'm not really tracking it any more, there were so many patches from so
-> many people I couldn't give a definitive answer as to what was applied,
-> is queued or is not queued.
-> 
+Hi, everyone,
 
-For the record, and from memory, there were three patches.
+Please review our new version of the iSCSI Initiator drivers for Chelsio S3 adapters. The cxgb3i driver provides iscsi acceleration (PDU digest offload and payload direct-placement) to the open-iscsi initiator. It accesses the hardware through the cxgb3 module.
 
-One from you which broke my tree.
+The accelerated iscsi traffic uses a private IP address which is unknown to the OS.
 
-One from Randy which I merged after several days of you not responding
-to our bug reports.
+netdev list, please review part 1, 2 and cxgb3i_offload.[ch] in part 4 which handle the iscsi connection APIs to the adapter.
 
-One which I typed in by hand based upon your lackadaisical,
-several-month-late English-language description of what I needed to do
-to fix it.  As we can see, it didn't work.
-
-I wish Jeff hadn't merged the thing after I dropped it - I sat on it
-for months waiting in exhasperation for you to actually support your
-own work and you never did.
-
-Can we just revert it now?
+Thanks.
+Karen
