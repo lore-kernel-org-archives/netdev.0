@@ -1,61 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Fri, 22 Aug 2008 03:16:54 -0700 (PDT)
-Message-ID: <20080822.031654.29257013.davem@davemloft.net>
-References: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
-	<20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
+From: Graeme Fowler <graeme@graemef.net>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Fri, 22 Aug 2008 11:05:51 +0100
+Message-ID: <1219399551.4246.10.camel@ernie.internal.graemef.net>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <20080821011715.GG19235@verge.net.au>
+	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+	 <20080821212948.GB4407@verge.net.au> <20080821220444.GA2758@verge.net.au>
+	 <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com,
+	Sven Wegener <sven.wegener@stealer.net>
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48796
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752651AbYHVKQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 06:16:55 -0400
-In-Reply-To: <20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
+Received: from boom.graemef.net ([82.113.142.73]:46111 "EHLO boom.graemef.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753425AbYHVKRo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Aug 2008 06:17:44 -0400
+In-Reply-To: <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 21 Aug 2008 17:51:29 -0700
+On Fri, 2008-08-22 at 11:56 +0200, Julius Volz wrote:
+> There's also a '__u8 reserved' field at the beginning of that struct
+> which could be used. But in general, is it reasonable to expect both
+> nodes to use the same kernel version, which gets rid of the
+> extensibility problems? It's not really an ABI that can't be broken,
+> right?
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch restores the multiqueue prio scheduler which was removed along with
-> the RR scheduler during the early changes for multiple tx queue support.  This
-> patch fixes the regression which occured as a result disabling the multiqueue
-> qdisc functionality.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I think from an operational (ie. end user) perspective, ABI breakage is
+something to try to avoid but _not_ at all costs.
 
-So how in the world would you use this?
+If it's possible to extend the sync daemon protocol by reusing the
+existing code and ABI, all well and good; however if a fundamental
+change is made which breaks the old sync daemon ABI then as long as it's
+documented and we make sure that users know to have the same (or higher)
+kernel versions on their directors then everyone wins.
 
-If it's just to tag traffic into different TX queues by priority,
-that's not very wise nor desirable.  What's the point?
+> Yes, without jumping through hoops, we have to probably break the
+> current protocol anyways for new features? Even if we designated
+> unused fields for new information, an old kernel will not look at them
+> / fill them out, which limits the possibilities...
 
-The TX queues are useful for multiplexing traffic and seperating
-the locking and cpu overhead across execution entities in the
-system.  They can also be useful for virtualization, but that's
-not relevant in this discussion.
+I guess that as and when this change is made and gets into mainline
+releases, Joe and I will have to have a mantra of "ensure your directors
+are using the same kernel version" in response to queries on
+lvs-users :)
 
-The TX queues, on the other hand, are not useful for exposing the
-round-robin or whatever algorithm that some cards just so happen to
-enforce fairness amongst the TX queues.  That's an implementation
-detail.
+Graeme
 
-The truth is, the only reason the RR prio scheduler got added was
-because Jamal and myself didn't understand very well how to use these
-multiqueue cards, or at least I didn't understand it.
-
-And therefore we, at the time, recommended to implement the RR prio
-thing even though now I realize it's totally the wrong thing to do
-for TX multiqueue stuff.
-
-I removed this code very much intentionally, and it's only going to go
-back if I hear a very good argument for doing so.  And "taking it away
-is a regression" is not what I'm looking for, give me something better
-than that :)
