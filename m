@@ -1,14 +1,14 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 3/6] [RFC] qlge: New Driver: Added management file qlge_mpi.c
-Date: Fri, 22 Aug 2008 13:21:03 -0700
-Message-ID: <12194364661529-git-send-email-ron.mercer@qlogic.com>
+Subject: [PATCH 4/6] [RFC] qlge: New Driver: Adding ethtool file qlge_ethtool.c.
+Date: Fri, 22 Aug 2008 13:21:04 -0700
+Message-ID: <12194364662375-git-send-email-ron.mercer@qlogic.com>
 References: <20080822200906.GD2551@susedev.qlogic.org>
 Cc: netdev@vger.kernel.org, Ron Mercer <ron.mercer@qlogic.com>
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:39657 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207AbYHVUVl (ORCPT
+	with ESMTP id S1754196AbYHVUVl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 16:21:41 -0400
 In-Reply-To: <20080822200906.GD2551@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
@@ -17,235 +17,398 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge_mpi.c |  220 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 220 insertions(+), 0 deletions(-)
- create mode 100755 drivers/net/qlge/qlge_mpi.c
+ drivers/net/qlge/qlge_ethtool.c |  383 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 383 insertions(+), 0 deletions(-)
+ create mode 100755 drivers/net/qlge/qlge_ethtool.c
 
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
+diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
 new file mode 100755
-index 0000000..cf784a7
+index 0000000..03f3084
 --- /dev/null
-+++ b/drivers/net/qlge/qlge_mpi.c
-@@ -0,0 +1,220 @@
++++ b/drivers/net/qlge/qlge_ethtool.c
+@@ -0,0 +1,383 @@
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/module.h>
++#include <linux/list.h>
++#include <linux/pci.h>
++#include <linux/dma-mapping.h>
++#include <linux/pagemap.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/dmapool.h>
++#include <linux/mempool.h>
++#include <linux/spinlock.h>
++#include <linux/kthread.h>
++#include <linux/interrupt.h>
++#include <linux/errno.h>
++#include <linux/ioport.h>
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <net/ipv6.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <linux/if_arp.h>
++#include <linux/if_ether.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <linux/if_vlan.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/mm.h>
++#include <linux/vmalloc.h>
++
++#include <linux/version.h>
++
 +#include "qlge.h"
 +
-+/*
-+ * Returns zero on success.
-+ */
-+static int ql_wait_mbx_cmd_cmplt(struct ql_adapter *qdev)
++static int ql_update_ring_coalescing(struct ql_adapter *qdev)
 +{
-+	int count = 50;
-+	u32 temp;
++	int i, err = 0;
++	struct rx_ring *rx_ring;
++	struct cqicb *cqicb;
 +
-+	while (count) {
-+		temp = ql_read32(qdev, STS);
-+		if (temp & STS_PI)
-+			return 0;
-+		mdelay(5);
-+		if (!(count % 100))
-+			QPRINTK(DRV, DEBUG, "Wait for mbox command.\n");
-+		count--;
-+	}
-+	return -ETIMEDOUT;
-+}
-+
-+static int ql_write_mbox_reg(struct ql_adapter *qdev, u32 reg, u32 data)
-+{
-+	int status = 0;
-+	/* wait for reg to come ready */
-+	if ((status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY)))
-+		goto exit;
-+	/* write the data to the data reg */
-+	ql_write32(qdev, PROC_DATA, data);
-+	/* trigger the write */
-+	ql_write32(qdev, PROC_ADDR, reg);
-+	/* wait for reg to come ready */
-+	if ((status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY)))
-+		goto exit;
-+exit:
-+	return status;
-+}
-+
-+static int ql_read_mbox_reg(struct ql_adapter *qdev, u32 reg, u32 * data)
-+{
-+	int status = 0;
-+	/* wait for reg to come ready */
-+	if ((status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY)))
-+		goto exit;
-+	/* set up for reg read */
-+	ql_write32(qdev, PROC_ADDR, reg | PROC_ADDR_R);
-+	/* wait for reg to come ready */
-+	if ((status = ql_wait_addr_reg(qdev, PROC_ADDR, PROC_ADDR_RDY)))
-+		goto exit;
-+	/* get the data */
-+	*data = ql_read32(qdev, PROC_DATA);
-+exit:
-+	return status;
-+}
-+
-+static int ql_exec_mb_cmd(struct ql_adapter *qdev, struct mbox_params *mbcp)
-+{
-+	int i, status;
-+
-+	/*
-+	 * Make sure there's nothing pending.
-+	 * This shouldn't happen.
++	spin_lock(&qdev->hw_lock);
++	/* Skip the default queue, and update the outbound handler
++	 * queues if they changed.
 +	 */
-+	if (ql_read32(qdev, CSR) & CSR_HRI)
-+		return -EBUSY;
-+
-+	if ((status = ql_sem_spinlock(qdev, SEM_PROC_REG_MASK)))
-+		return -EBUSY;
-+	/*
-+	 * Fill the outbound mailboxes.
-+	 */
-+	for (i = 0; i < mbcp->in_count; i++) {
-+		if ((status =
-+		     ql_write_mbox_reg(qdev, qdev->mailbox_in + i,
-+				       mbcp->mbox_in[i])))
-+			goto end;
-+	}
-+	/*
-+	 * Wake up the MPI firmware.
-+	 */
-+	ql_write32(qdev, CSR, CSR_CMD_SET_H2R_INT);
-+end:
-+	ql_sem_unlock(qdev, SEM_PROC_REG_MASK);	/* does flush too */
-+	return status;
-+}
-+
-+int ql_get_mb_sts(struct ql_adapter *qdev, struct mbox_params *mbcp)
-+{
-+	int i, status = 0;
-+
-+	if ((status = ql_sem_spinlock(qdev, SEM_PROC_REG_MASK)))
-+		return -EBUSY;
-+	for (i = 0; i < mbcp->out_count; i++) {
-+		if ((status =
-+		     ql_read_mbox_reg(qdev, qdev->mailbox_out + i,
-+				      &mbcp->mbox_out[i]))) {
-+			QPRINTK(DRV, ERR, "Failed mailbox read.\n");
-+			break;
++	cqicb = (struct cqicb *)&qdev->rx_ring[1];
++	if (le16_to_cpu(cqicb->irq_delay) != qdev->tx_coalesce_usecs ||
++	    le16_to_cpu(cqicb->pkt_delay) != qdev->tx_max_coalesced_frames) {
++		for (i = 1; i < qdev->rss_ring_first_cq_id; i++, rx_ring++) {
++			rx_ring = &qdev->rx_ring[i];
++			cqicb = (struct cqicb *)rx_ring;
++			cqicb->irq_delay = le16_to_cpu(qdev->tx_coalesce_usecs);
++			cqicb->pkt_delay =
++			    le16_to_cpu(qdev->tx_max_coalesced_frames);
++			cqicb->flags = FLAGS_LI;
++			if ((err = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
++						CFG_LCQ, rx_ring->cq_id))) {
++				QPRINTK(IFUP, ERR, "Failed to load CQICB.\n");
++				goto exit;
++			}
 +		}
 +	}
-+	ql_sem_unlock(qdev, SEM_PROC_REG_MASK);	/* does flush too */
-+	return status;
-+}
 +
-+static void ql_link_up(struct ql_adapter *qdev)
-+{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	mbcp->out_count = 2;
-+
-+	if (ql_get_mb_sts(qdev, mbcp)) {
-+		goto exit;
-+	}
-+	qdev->link_status = mbcp->mbox_out[1];
-+	QPRINTK(DRV, ERR, "Link Up.\n");
-+	QPRINTK(DRV, ERR, "Link Status = 0x%.08x.\n", mbcp->mbox_out[1]);
-+	if (!netif_carrier_ok(qdev->ndev)) {
-+		QPRINTK(LINK, INFO, "Link is Up.\n");
-+		netif_carrier_on(qdev->ndev);
-+		netif_wake_queue(qdev->ndev);
++	/* Update the inbound (RSS) handler queues if they changed. */
++	cqicb = (struct cqicb *)&qdev->rx_ring[qdev->rss_ring_first_cq_id];
++	if (le16_to_cpu(cqicb->irq_delay) != qdev->rx_coalesce_usecs ||
++	    le16_to_cpu(cqicb->pkt_delay) != qdev->rx_max_coalesced_frames) {
++		for (i = qdev->rss_ring_first_cq_id;
++		     i <= qdev->rss_ring_first_cq_id + qdev->rss_ring_count;
++		     i++) {
++			rx_ring = &qdev->rx_ring[i];
++			cqicb = (struct cqicb *)rx_ring;
++			cqicb->irq_delay = le16_to_cpu(qdev->rx_coalesce_usecs);
++			cqicb->pkt_delay =
++			    le16_to_cpu(qdev->rx_max_coalesced_frames);
++			cqicb->flags = FLAGS_LI;
++			if ((err = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
++						CFG_LCQ, rx_ring->cq_id))) {
++				QPRINTK(IFUP, ERR, "Failed to load CQICB.\n");
++				goto exit;
++			}
++		}
 +	}
 +exit:
-+	/* Clear the MPI firmware status. */
-+	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
++	spin_unlock(&qdev->hw_lock);
++	return err;
 +}
 +
-+static void ql_link_down(struct ql_adapter *qdev)
++void ql_update_stats(struct ql_adapter *qdev)
 +{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	mbcp->out_count = 3;
++	u32 i;
++	u64 data;
++	u64 *iter = & qdev->nic_stats.tx_pkts;
 +
-+	if (ql_get_mb_sts(qdev, mbcp)) {
-+		QPRINTK(DRV, ERR, "Firmware did not initialize!\n");
-+		goto exit;
++	spin_lock(&qdev->stats_lock);
++	if (ql_sem_spinlock(qdev, qdev->xg_sem_mask)) {
++		printk(KERN_ERR "%s: Couldn't get xgmac sem.\n", __func__);
++		goto quit;
 +	}
-+
-+	if (netif_carrier_ok(qdev->ndev)) {
-+		QPRINTK(LINK, INFO, "Link is Down.\n");
-+		netif_carrier_off(qdev->ndev);
-+		netif_stop_queue(qdev->ndev);
-+	}
-+	QPRINTK(DRV, ERR, "Link Down.\n");
-+	QPRINTK(DRV, ERR, "Link Status = 0x%.08x.\n", mbcp->mbox_out[1]);
-+exit:
-+	/* Clear the MPI firmware status. */
-+	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-+}
-+
-+static void ql_init_fw_done(struct ql_adapter *qdev)
-+{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	mbcp->out_count = 2;
-+
-+	if (ql_get_mb_sts(qdev, mbcp)) {
-+		QPRINTK(DRV, ERR, "Firmware did not initialize!\n");
-+		goto exit;
-+	}
-+	QPRINTK(DRV, ERR, "Firmware initialized!\n");
-+	QPRINTK(DRV, ERR, "Firmware status = 0x%.08x.\n", mbcp->mbox_out[0]);
-+	QPRINTK(DRV, ERR, "Firmware Revision  = 0x%.08x.\n", mbcp->mbox_out[1]);
-+exit:
-+	/* Clear the MPI firmware status. */
-+	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-+}
-+
-+void ql_mpi_work(struct work_struct *work)
-+{
-+	struct ql_adapter *qdev =
-+	    container_of(work, struct ql_adapter, mpi_work.work);
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	mbcp->out_count = 1;
-+
-+	while (ql_read32(qdev, STS) & STS_PI) {
-+		if (ql_get_mb_sts(qdev, mbcp)) {
++	/*
++	 * Get TX statistics.
++	 */
++	for (i = 0x200; i < 0x280; i += 8) {
++		if (ql_read_xgmac_reg64(qdev, i, &data)) {
 +			QPRINTK(DRV, ERR,
-+				"Could not read MPI, resetting ASIC!\n");
-+			ql_queue_asic_error(qdev);
-+		}
-+
-+		switch (mbcp->mbox_out[0]) {
-+		case AEN_LINK_UP:
-+			ql_link_up(qdev);
-+			break;
-+		case AEN_LINK_DOWN:
-+			ql_link_down(qdev);
-+			break;
-+		case AEN_FW_INIT_DONE:
-+#ifdef PALLADIUM
-+/* Palladium Workaround Start */
-+		case 0:
-+/* Palladium Workaround End */
-+#endif
-+			ql_init_fw_done(qdev);
-+			break;
-+		case AEN_FW_INIT_FAIL:
-+			break;
-+		case AEN_SYS_ERR:
-+			break;
-+		case MB_CMD_STS_GOOD:
-+		case MB_CMD_STS_INTRMDT:
-+		case MB_CMD_STS_ERR:
-+		case AEN_IDC_CMPLT:
-+		case AEN_IDC_REQ:
-+			break;
-+
-+		}
++				"Error reading status register 0x%.04x.\n", i);
++			goto end;
++		} else
++			*iter = data;
++		iter++;
 +	}
-+	ql_enable_completion_interrupt(qdev, 0);
++
++	/*
++	 * Get RX statistics.
++	 */
++	for (i = 0x300; i < 0x3d0; i += 8) {
++		if (ql_read_xgmac_reg64(qdev, i, &data)) {
++			QPRINTK(DRV, ERR,
++				"Error reading status register 0x%.04x.\n", i);
++			goto end;
++		} else
++			*iter = data;
++		iter++;
++	}
++
++end:
++	ql_sem_unlock(qdev, qdev->xg_sem_mask);
++quit:
++	spin_unlock(&qdev->stats_lock);
++
++	QL_DUMP_STAT(qdev);
++
++	return;
 +}
 +
-+void ql_mpi_reset_work(struct work_struct *work)
++static char ql_stats_str_arr[][ETH_GSTRING_LEN] = {
++	{"tx_pkts"},
++	{"tx_bytes"},
++	{"tx_mcast_pkts"},
++	{"tx_bcast_pkts"},
++	{"tx_ucast_pkts"},
++	{"tx_ctl_pkts"},
++	{"tx_pause_pkts"},
++	{"tx_64_pkts"},
++	{"tx_65_to_127_pkts"},
++	{"tx_128_to_255_pkts"},
++	{"tx_256_511_pkts"},
++	{"tx_512_to_1023_pkts"},
++	{"tx_1024_to_1518_pkts"},
++	{"tx_1519_to_max_pkts"},
++	{"tx_undersize_pkts"},
++	{"tx_oversize_pkts"},
++	{"rx_bytes"},
++	{"rx_bytes_ok"},
++	{"rx_pkts"},
++	{"rx_pkts_ok"},
++	{"rx_bcast_pkts"},
++	{"rx_mcast_pkts"},
++	{"rx_ucast_pkts"},
++	{"rx_undersize_pkts"},
++	{"rx_oversize_pkts"},
++	{"rx_jabber_pkts"},
++	{"rx_undersize_fcerr_pkts"},
++	{"rx_drop_events"},
++	{"rx_fcerr_pkts"},
++	{"rx_align_err"},
++	{"rx_symbol_err"},
++	{"rx_mac_err"},
++	{"rx_ctl_pkts"},
++	{"rx_pause_pkts"},
++	{"rx_64_pkts"},
++	{"rx_65_to_127_pkts"},
++	{"rx_128_255_pkts"},
++	{"rx_256_511_pkts"},
++	{"rx_512_to_1023_pkts"},
++	{"rx_1024_to_1518_pkts"},
++	{"rx_1519_to_max_pkts"},
++	{"rx_len_err_pkts"},
++};
++
++static void ql_get_strings(struct net_device *dev, u32 stringset, u8 * buf)
 +{
-+	struct ql_adapter *qdev =
-+	    container_of(work, struct ql_adapter, mpi_reset_work.work);
-+	printk(KERN_ERR "%s: Enter, qdev = %p..\n", __func__, qdev);
++	switch (stringset) {
++	case ETH_SS_STATS:
++		memcpy(buf, ql_stats_str_arr, sizeof(ql_stats_str_arr));
++		break;
++	}
++}
++
++static int ql_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(ql_stats_str_arr);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void
++ql_get_ethtool_stats(struct net_device *ndev,
++		     struct ethtool_stats *stats, u64 * data)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	struct nic_stats *s = &qdev->nic_stats;
++
++	ql_update_stats(qdev);
++
++	*data++ = s->tx_pkts;
++	*data++ = s->tx_bytes;
++	*data++ = s->tx_mcast_pkts;
++	*data++ = s->tx_bcast_pkts;
++	*data++ = s->tx_ucast_pkts;
++	*data++ = s->tx_ctl_pkts;
++	*data++ = s->tx_pause_pkts;
++	*data++ = s->tx_64_pkt;
++	*data++ = s->tx_65_to_127_pkt;
++	*data++ = s->tx_128_to_255_pkt;
++	*data++ = s->tx_256_511_pkt;
++	*data++ = s->tx_512_to_1023_pkt;
++	*data++ = s->tx_1024_to_1518_pkt;
++	*data++ = s->tx_1519_to_max_pkt;
++	*data++ = s->tx_undersize_pkt;
++	*data++ = s->tx_oversize_pkt;
++	*data++ = s->rx_bytes;
++	*data++ = s->rx_bytes_ok;
++	*data++ = s->rx_pkts;
++	*data++ = s->rx_pkts_ok;
++	*data++ = s->rx_bcast_pkts;
++	*data++ = s->rx_mcast_pkts;
++	*data++ = s->rx_ucast_pkts;
++	*data++ = s->rx_undersize_pkts;
++	*data++ = s->rx_oversize_pkts;
++	*data++ = s->rx_jabber_pkts;
++	*data++ = s->rx_undersize_fcerr_pkts;
++	*data++ = s->rx_drop_events;
++	*data++ = s->rx_fcerr_pkts;
++	*data++ = s->rx_align_err;
++	*data++ = s->rx_symbol_err;
++	*data++ = s->rx_mac_err;
++	*data++ = s->rx_ctl_pkts;
++	*data++ = s->rx_pause_pkts;
++	*data++ = s->rx_64_pkts;
++	*data++ = s->rx_65_to_127_pkts;
++	*data++ = s->rx_128_255_pkts;
++	*data++ = s->rx_256_511_pkts;
++	*data++ = s->rx_512_to_1023_pkts;
++	*data++ = s->rx_1024_to_1518_pkts;
++	*data++ = s->rx_1519_to_max_pkts;
++	*data++ = s->rx_len_err_pkts;
++}
++
++static void ql_get_drvinfo(struct net_device *ndev,
++			   struct ethtool_drvinfo *drvinfo)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	strncpy(drvinfo->driver, qlge_driver_name, 32);
++	strncpy(drvinfo->version, qlge_driver_version, 32);
++	strncpy(drvinfo->fw_version, "N/A", 32);
++	strncpy(drvinfo->bus_info, pci_name(qdev->pdev), 32);
++	drvinfo->n_stats = 0;
++	drvinfo->testinfo_len = 0;
++	drvinfo->regdump_len = 0;
++	drvinfo->eedump_len = 0;
++}
++
++static int ql_get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
++{
++	struct ql_adapter *qdev = netdev_priv(dev);
++
++	c->rx_coalesce_usecs = qdev->rx_coalesce_usecs;
++	c->tx_coalesce_usecs = qdev->tx_coalesce_usecs;
++
++	/* This chip coalesces as follows:
++	 * If a packet arrives, hold off interrupts until cqicb->int_delay expires, 
++	 * but if no other packets arrive don't wait longer than cqicb->pkt_int_delay.
++	 *
++	 * But ethtool doesn't use a timer to coalesce on a frame basis.  So, we have to
++	 * take ethtool's max_coalesced_frames value and convert it to a delay in
++	 * microseconds.  We do this by using a basic thoughput of 1,000,000 frames
++	 * per second @ (1024 bytes).  This means one frame per usec. So it's a simple
++	 * one to one ratio.
++	 */
++	c->rx_max_coalesced_frames = qdev->rx_max_coalesced_frames;
++	c->tx_max_coalesced_frames = qdev->tx_max_coalesced_frames;
++
++	return 0;
++}
++
++static int ql_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *c)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++
++	/* Validate user parameters. */
++	if (c->rx_coalesce_usecs > qdev->rx_ring_size / 2)
++		return -EINVAL;
++	if (c->rx_max_coalesced_frames > MAX_INTER_FRAME_WAIT)	/* Don't wait more than 10 usec. */
++		return -EINVAL;
++	if (c->tx_coalesce_usecs > qdev->tx_ring_size / 2)
++		return -EINVAL;
++	if (c->tx_max_coalesced_frames > MAX_INTER_FRAME_WAIT)
++		return -EINVAL;
++
++	/* Verify a change took place before updating the hardware. */
++	if (qdev->rx_coalesce_usecs == c->rx_coalesce_usecs &&
++	    qdev->tx_coalesce_usecs == c->tx_coalesce_usecs &&
++	    qdev->rx_max_coalesced_frames == c->rx_max_coalesced_frames &&
++	    qdev->tx_max_coalesced_frames == c->tx_max_coalesced_frames)
++		return 0;
++
++	qdev->rx_coalesce_usecs = c->rx_coalesce_usecs;
++	qdev->tx_coalesce_usecs = c->tx_coalesce_usecs;
++	qdev->rx_max_coalesced_frames = c->rx_max_coalesced_frames;
++	qdev->tx_max_coalesced_frames = c->tx_max_coalesced_frames;
++
++	return ql_update_ring_coalescing(qdev);
++}
++
++static u32 ql_get_rx_csum(struct net_device *netdev)
++{
++	struct ql_adapter *qdev = netdev_priv(netdev);
++	return qdev->rx_csum;
++}
++
++static int ql_set_rx_csum(struct net_device *netdev, uint32_t data)
++{
++	struct ql_adapter *qdev = netdev_priv(netdev);
++	qdev->rx_csum = data;
++	return 0;
++}
++
++static int ql_set_tso(struct net_device *ndev, uint32_t data)
++{
++
++	if (data) {
++		ndev->features |= NETIF_F_TSO;
++		ndev->features |= NETIF_F_TSO6;
++	} else {
++		ndev->features &= ~NETIF_F_TSO;
++		ndev->features &= ~NETIF_F_TSO6;
++	}
++	return 0;
++}
++
++static u32 ql_get_msglevel(struct net_device *ndev)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	return qdev->msg_enable;
++}
++
++static void ql_set_msglevel(struct net_device *ndev, u32 value)
++{
++	struct ql_adapter *qdev = netdev_priv(ndev);
++	qdev->msg_enable = value;
++}
++
++static struct ethtool_ops qlge_ethtool_ops = {
++	.get_drvinfo = ql_get_drvinfo,
++	.get_msglevel = ql_get_msglevel,
++	.set_msglevel = ql_set_msglevel,
++	.get_rx_csum = ql_get_rx_csum,
++	.set_rx_csum = ql_set_rx_csum,
++	.get_tx_csum = ethtool_op_get_tx_csum,
++	.get_sg = ethtool_op_get_sg,
++	.set_sg = ethtool_op_set_sg,
++	.get_tso = ethtool_op_get_tso,
++	.set_tso = ql_set_tso,
++	.get_coalesce = ql_get_coalesce,
++	.set_coalesce = ql_set_coalesce,
++	.get_sset_count = ql_get_sset_count,
++	.get_strings = ql_get_strings,
++	.get_ethtool_stats = ql_get_ethtool_stats,
++};
++
++void ql_set_ethtool_ops(struct net_device *ndev)
++{
++	SET_ETHTOOL_OPS(ndev, &qlge_ethtool_ops);
 +}
 -- 
 1.5.0.rc4.16.g9e258
