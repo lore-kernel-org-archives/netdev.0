@@ -1,39 +1,52 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
-Date: Fri, 22 Aug 2008 17:41:15 +1000
-Message-ID: <20080822074115.GB25615@gondor.apana.org.au>
-References: <20080721.100821.38432201.davem@davemloft.net> <20080721171141.GA13573@gondor.apana.org.au> <20080822065655.GA18471@gondor.apana.org.au> <20080822.001620.141235108.davem@davemloft.net>
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: [PATCH] r6040: remove unused includes
+Date: Fri, 22 Aug 2008 10:20:50 +0200
+Message-ID: <200808221020.50874.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.int-evry.fr ([157.159.10.71]:52088 "EHLO
+	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752939AbYHVIVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 04:21:14 -0400
 Content-Disposition: inline
-In-Reply-To: <20080822.001620.141235108.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 12:16:20AM -0700, David Miller wrote:
-> 
-> I suppose you're talking about the grand unified flow cache
-> that never gets implemented right?  I classify that in the
-> same category as net channels at the moment, theoretically
-> very interesting but no practical implementation in sight.
+This patch removes all unused includes we have in the r6040 driver.
 
-In any case, we could implement what I suggested even without
-a flow cache, by simply storing the info in the dst.  This means
-that all flows on the same dst will end up in the same queue, which
-is not as good as what a flow cache could give, but it's useful
-enough to be an option.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+---
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 6531ff5..d453987 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -24,13 +24,9 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/version.h>
+-#include <linux/moduleparam.h>
+-#include <linux/string.h>
+ #include <linux/timer.h>
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+-#include <linux/slab.h>
+ #include <linux/interrupt.h>
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+@@ -45,9 +41,6 @@
+ #include <linux/bitops.h>
+ #include <linux/io.h>
+ #include <linux/irq.h>
+-#include <linux/uaccess.h>
+-
+-#include <asm/processor.h>
+ 
+ #define DRV_NAME	"r6040"
+ #define DRV_VERSION	"0.18"
