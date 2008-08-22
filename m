@@ -1,50 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc list locking
-Date: Fri, 22 Aug 2008 20:15:26 +1000
-Message-ID: <20080822101526.GC14345@gondor.apana.org.au>
-References: <20080821124834.GA8794@gondor.apana.org.au> <20080821204052.GB2665@ami.dom.local> <20080821222446.GF14521@gondor.apana.org.au> <20080822092729.GA14729@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Fri, 22 Aug 2008 03:16:54 -0700 (PDT)
+Message-ID: <20080822.031654.29257013.davem@davemloft.net>
+References: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
+	<20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44926 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753832AbYHVKPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 06:15:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20080822092729.GA14729@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48796
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752651AbYHVKQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 06:16:55 -0400
+In-Reply-To: <20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 09:27:30AM +0000, Jarek Poplawski wrote:
-> 
-> pkt_sched: Fix qdisc list locking
-> 
-> Since some qdiscs call qdisc_tree_decrease_qlen() (so qdisc_lookup())
-> without rtnl_lock(), adding and deleting from a qdisc list needs
-> additional locking. This patch adds global spinlock qdisc_list_lock
-> and wrapper functions for modifying the list. It is considered as a
-> temporary solution until hfsc_dequeue(), netem_dequeue() and
-> tbf_dequeue() (or qdisc_tree_decrease_qlen()) are redone.
-> 
-> With feedback from Herbert Xu and David S. Miller.
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 21 Aug 2008 17:51:29 -0700
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch restores the multiqueue prio scheduler which was removed along with
+> the RR scheduler during the early changes for multiple tx queue support.  This
+> patch fixes the regression which occured as a result disabling the multiqueue
+> qdisc functionality.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> +void qdisc_list_del(struct Qdisc *q)
-> +{
-> +	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+So how in the world would you use this?
 
-Good catch! I'm not sure whether this would actually break but
-it certainly makes me feel a lot better :)
+If it's just to tag traffic into different TX queues by priority,
+that's not very wise nor desirable.  What's the point?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The TX queues are useful for multiplexing traffic and seperating
+the locking and cpu overhead across execution entities in the
+system.  They can also be useful for virtualization, but that's
+not relevant in this discussion.
+
+The TX queues, on the other hand, are not useful for exposing the
+round-robin or whatever algorithm that some cards just so happen to
+enforce fairness amongst the TX queues.  That's an implementation
+detail.
+
+The truth is, the only reason the RR prio scheduler got added was
+because Jamal and myself didn't understand very well how to use these
+multiqueue cards, or at least I didn't understand it.
+
+And therefore we, at the time, recommended to implement the RR prio
+thing even though now I realize it's totally the wrong thing to do
+for TX multiqueue stuff.
+
+I removed this code very much intentionally, and it's only going to go
+back if I hear a very good argument for doing so.  And "taking it away
+is a regression" is not what I'm looking for, give me something better
+than that :)
