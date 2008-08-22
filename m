@@ -1,23 +1,39 @@
-From: info@yellowcreekmc.org
-Subject: =?windows-1251?B?zfPm7e4gPw==?=
-Date: Fri, 22 Aug 2008 14:17:09 +0400
-Message-ID: <000501c90440-3c80b580-69724f53@bluewin.ch>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in RCU.
+Date: Fri, 22 Aug 2008 17:41:15 +1000
+Message-ID: <20080822074115.GB25615@gondor.apana.org.au>
+References: <20080721.100821.38432201.davem@davemloft.net> <20080721171141.GA13573@gondor.apana.org.au> <20080822065655.GA18471@gondor.apana.org.au> <20080822.001620.141235108.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel-owner@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail16.bluewin.ch ([195.186.19.63]:39768 "EHLO
-	mail16.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbYHVHeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 03:34:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20080822.001620.141235108.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=CA=F3=F0=FC=E5=F0=F1=EA=E0=FF =E4=EE=F1=F2=E0=E2=EA=E0 =FD=EB=E5=EA=F2=
-=F0=EE=ED=ED=EE=E9 =EF=EE=F7=F2=FB =E0=E4=F0=E5=F1=E0=F2=E0=EC =EF=EE =ED=
-=E0=F8=E8=EC =E1=E0=E7=E0=EC (=E2=F1=E5 =F1=F2=F0=E0=ED=FB =E8 =F0=E5=E3=
-=E8=EE=ED=FB) - =FD=F2=EE =EE=F2=EB=E8=F7=ED=E0=FF =E2=EE=E7=EC=EE=E6=ED=
-=EE=F1=F2=FC =ED=E0=E9=F2=E8 =ED=EE=E2=FB=F5 =E7=E0=EA=F3=E0=E7=F7=E8=EA=
-=EE=E2 =E8 =F3=E2=E5=EB=E8=F7=E8=F2=FC =F1=E2=EE=E8 =EF=F0=EE=E4=E0=E6=E8=
-=2E =CA=EE=ED=F2=E0=EA=F2=FB: yretreya@gmail.com
+On Fri, Aug 22, 2008 at 12:16:20AM -0700, David Miller wrote:
+> 
+> I suppose you're talking about the grand unified flow cache
+> that never gets implemented right?  I classify that in the
+> same category as net channels at the moment, theoretically
+> very interesting but no practical implementation in sight.
+
+In any case, we could implement what I suggested even without
+a flow cache, by simply storing the info in the dst.  This means
+that all flows on the same dst will end up in the same queue, which
+is not as good as what a flow cache could give, but it's useful
+enough to be an option.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
