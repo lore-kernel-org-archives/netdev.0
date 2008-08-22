@@ -1,67 +1,33 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 1/4 2.6.28] cxgb3 - manage a private ip address for iSCSI
-Date: Fri, 22 Aug 2008 15:09:12 -0500
-Message-ID: <48AF1CE8.8020203@opengridcomputing.com>
-References: <200808221838.m7MIcW6a004400@localhost.localdomain>	<20080822120851.c45a90f2.akpm@linux-foundation.org>	<48AF10BE.9050100@opengridcomputing.com> <20080822125316.37547cce.akpm@linux-foundation.org>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [RFC] qlge: New Qlogic 10Gb Ethernet driver for 2.6.28
+Date: Fri, 22 Aug 2008 13:09:06 -0700
+Message-ID: <20080822200906.GD2551@susedev.qlogic.org>
+References: <20080821185402.GD31526@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	davem@davemloft.net, michaelc@cs.wisc.edu, rdreier@cisco.com,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	divy@chelsio.com, dm@chelsio.com, leedom@chelsio.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757454AbYHVUGp@vger.kernel.org>
-In-Reply-To: <20080822125316.37547cce.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com
+To: jeff@garzik.org, bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:37924 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753355AbYHVUJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 16:09:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20080821185402.GD31526@susedev.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> On Fri, 22 Aug 2008 14:17:18 -0500
-> Steve Wise <swise@opengridcomputing.com> wrote:
->
->   
->> Andrew Morton wrote:
->>     
->>>> +	unsigned long octet;
->>>> +	const char *parse = buf;
->>>> +	char *endp;
->>>> +	int i;
->>>> +
->>>> +	for (i = 1; i <= 4; i++) {
->>>> +		octet = simple_strtoul(parse, &endp, 10);
->>>> +		if (endp == buf || octet > 255 ||
->>>> +		    (i < 4 && *endp != '.') ||
->>>> +		    (i == 4 && *endp != '\0' && *endp != '\n'))
->>>> +			return -EINVAL;
->>>> +		a = (a << 8) | octet;
->>>> +		parse = endp+1;
->>>> +	}
->>>> +	pi->iscsi_ipaddr = htonl(a);
->>>> +	return endp-buf;
->>>> +}
->>>>     
->>>>         
->>> This appears to be taking a dotted quad ipv4 address in ascii form,
->>> turning it into a u32 while performing checking?
->>>
->>> Surely we have a library function somewhere in networking which does
->>> this?  If not, I'd suggest writing one. 
->>>
->>>   
->>>       
->> try in_aton() from include/linux/inet.h.
->>
->>     
->
-> yeah.  But that function is a crock.  No error checking at all!
->   
+Hi Jeff/Ben,
 
-Oh you want error checking?
+Attached is our new 10Gb driver as a patch series per our discussion.
 
-:)
+I moved the ethtool functionality into a separate modules as it will grow
+with reg dump etc...
 
-Yea if this is a user/sysadmin supplied value, then we need a rubust 
-inet_aton() in the kernel to validate it...
+
+We are targeting this driver for 2.6.28 release.  We look forward to any and all comments.
+Notes:
+ 
+Regards,
+Ron Mercer
+Qlogic Corporation
