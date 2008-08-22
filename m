@@ -1,207 +1,85 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id() in preemptible code
-Date: Fri, 22 Aug 2008 17:54:33 +0400
-Message-ID: <1219413273-14281-1-git-send-email-den@openvz.org>
-References: <20080821122040.GA2497@x200.localdomain>
-Cc: dlezcano@fr.ibm.com, adobriyan@gmail.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: davem@davemloft.net
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Fri, 22 Aug 2008 10:30:17 -0400
+Message-ID: <1219415417.4672.79.camel@localhost>
+References: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
+	 <20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
+	 <20080822.031654.29257013.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:38616 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbYHVNzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Aug 2008 09:55:31 -0400
-In-Reply-To: <20080821122040.GA2497@x200.localdomain>
+Received: from rv-out-0506.google.com ([209.85.198.227]:47520 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbYHVOaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 10:30:21 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so457728rvb.1
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 07:30:21 -0700 (PDT)
+In-Reply-To: <20080822.031654.29257013.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass namespace into icmp_xmit_lock, obtain socket inside and return
-it as a result for caller.
+On Fri, 2008-22-08 at 03:16 -0700, David Miller wrote:
 
-Thanks Alexey Dobryan for this report:
+> If it's just to tag traffic into different TX queues by priority,
+> that's not very wise nor desirable.  What's the point?
+> 
+> The TX queues are useful for multiplexing traffic and seperating
+> the locking and cpu overhead across execution entities in the
+> system.  They can also be useful for virtualization, but that's
+> not relevant in this discussion.
+> 
+> The TX queues, on the other hand, are not useful for exposing the
+> round-robin or whatever algorithm that some cards just so happen to
+> enforce fairness amongst the TX queues.  That's an implementation
+> detail.
+>
+> The truth is, the only reason the RR prio scheduler got added was
+> because Jamal and myself didn't understand very well how to use these
+> multiqueue cards, or at least I didn't understand it.
+> 
 
-Steps to reproduce:
+For the record, I was against the approach taken not the end goal. IIRC,
+I was slapped around with a big fish at the time and so i got out of the
+way. I still dont like it;->
 
-	CONFIG_PREEMPT=y
-	CONFIG_DEBUG_PREEMPT=y
-	tracepath <something>
+There are two issues at stake:
+1) egress Multiq support and the desire to have concurency based on
+however many cpus and hardware queues exist on the system.
+2) scheduling of the such hardware queues being executed by the hardware
+(and not by software).
 
-BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
-caller is icmp_sk+0x15/0x30
-Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
+Daves goal: #1; run faster than Usain Bolt.
+What we were solving at the time: #2. My view was to solve it with
+minimal changes.
 
-Call Trace:
- [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
- [<ffffffff80409405>] icmp_sk+0x15/0x30
- [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
- [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
- [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff8023a475>] ? local_bh_enable_ip+0x95/0x110
- [<ffffffff804285b9>] ? _spin_unlock_bh+0x39/0x40
- [<ffffffff8025a26c>] ? mark_held_locks+0x4c/0x90
- [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
- [<ffffffff803e91b4>] ip_fragment+0x8d4/0x900
- [<ffffffff803e7030>] ? ip_finish_output2+0x0/0x290
- [<ffffffff803e91e0>] ? ip_finish_output+0x0/0x60
- [<ffffffff803e6650>] ? dst_output+0x0/0x10
- [<ffffffff803e922c>] ip_finish_output+0x4c/0x60
- [<ffffffff803e92e3>] ip_output+0xa3/0xf0
- [<ffffffff803e68d0>] ip_local_out+0x20/0x30
- [<ffffffff803e753f>] ip_push_pending_frames+0x27f/0x400
- [<ffffffff80406313>] udp_push_pending_frames+0x233/0x3d0
- [<ffffffff804067d1>] udp_sendmsg+0x321/0x6f0
- [<ffffffff8040d155>] inet_sendmsg+0x45/0x80
- [<ffffffff803b967f>] sock_sendmsg+0xdf/0x110
- [<ffffffff8024a100>] ? autoremove_wake_function+0x0/0x40
- [<ffffffff80257ce5>] ? validate_chain+0x415/0x1010
- [<ffffffff8027dc10>] ? __do_fault+0x140/0x450
- [<ffffffff802597d0>] ? __lock_acquire+0x260/0x590
- [<ffffffff803b9e55>] ? sockfd_lookup_light+0x45/0x80
- [<ffffffff803ba50a>] sys_sendto+0xea/0x120
- [<ffffffff80428e42>] ? _spin_unlock_irqrestore+0x42/0x80
- [<ffffffff803134bc>] ? __up_read+0x4c/0xb0
- [<ffffffff8024e0c6>] ? up_read+0x26/0x30
- [<ffffffff8020b8bb>] system_call_fastpath+0x16/0x1b
+#1 and #2 are orthogonal. Yes, there is religion: Dave yours is #1.
+Intels is #2; And there are a lot of people in intels camp because
+they bill their customers based on qos of resources. The wire being one
+such resource.
 
-icmp6_sk() is similar.
+Example: if you were to use this stuff for virtualization and gave one
+customer a cpu and a hardware queue, scheduling is still important. Some
+customers pay less (not everyone is Steve Wozniak with his little posse
+and can jump queues). 
+Therefore your statement that these schemes exist to "enforce fairness
+amongst the TX queues" needs to be qualified mon ami;-> The end parts of
+Animal Farm come to mind: Some animals have more rights than others;->
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
----
- net/ipv4/icmp.c |   22 ++++++++++++++--------
- net/ipv6/icmp.c |   23 ++++++++++++-----------
- 2 files changed, 26 insertions(+), 19 deletions(-)
+[Lets say we forget for a minute about multiegressq nics, we still have
+other hardware devices (like hardware L2/L3 switch chips) that do both
+multiq and funky prioritization that need to work in the same scheme]
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 8605586..55c355e 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -204,18 +204,22 @@ static struct sock *icmp_sk(struct net *net)
- 	return net->ipv4.icmp_sk[smp_processor_id()];
- }
- 
--static inline int icmp_xmit_lock(struct sock *sk)
-+static inline struct sock *icmp_xmit_lock(struct net *net)
- {
-+	struct sock *sk;
-+
- 	local_bh_disable();
- 
-+	sk = icmp_sk(net);
-+
- 	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {
- 		/* This can happen if the output path signals a
- 		 * dst_link_failure() for an outgoing ICMP packet.
- 		 */
- 		local_bh_enable();
--		return 1;
-+		return NULL;
- 	}
--	return 0;
-+	return sk;
- }
- 
- static inline void icmp_xmit_unlock(struct sock *sk)
-@@ -354,15 +358,17 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	struct ipcm_cookie ipc;
- 	struct rtable *rt = skb->rtable;
- 	struct net *net = dev_net(rt->u.dst.dev);
--	struct sock *sk = icmp_sk(net);
--	struct inet_sock *inet = inet_sk(sk);
-+	struct sock *sk;
-+	struct inet_sock *inet;
- 	__be32 daddr;
- 
- 	if (ip_options_echo(&icmp_param->replyopts, skb))
- 		return;
- 
--	if (icmp_xmit_lock(sk))
-+	sk = icmp_xmit_lock(net);
-+	if (sk == NULL)
- 		return;
-+	inet = inet_sk(sk);
- 
- 	icmp_param->data.icmph.checksum = 0;
- 
-@@ -419,7 +425,6 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 	if (!rt)
- 		goto out;
- 	net = dev_net(rt->u.dst.dev);
--	sk = icmp_sk(net);
- 
- 	/*
- 	 *	Find the original header. It is expected to be valid, of course.
-@@ -483,7 +488,8 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 		}
- 	}
- 
--	if (icmp_xmit_lock(sk))
-+	sk = icmp_xmit_lock(net);
-+	if (sk == NULL)
- 		return;
- 
- 	/*
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index abedf95..b3157a0 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -91,19 +91,22 @@ static struct inet6_protocol icmpv6_protocol = {
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
- };
- 
--static __inline__ int icmpv6_xmit_lock(struct sock *sk)
-+static __inline__ struct sock *icmpv6_xmit_lock(struct net *net)
- {
-+	struct sock *sk;
-+
- 	local_bh_disable();
- 
-+	sk = icmpv6_sk(net);
- 	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {
- 		/* This can happen if the output path (f.e. SIT or
- 		 * ip6ip6 tunnel) signals dst_link_failure() for an
- 		 * outgoing ICMP6 packet.
- 		 */
- 		local_bh_enable();
--		return 1;
-+		return NULL;
- 	}
--	return 0;
-+	return sk;
- }
- 
- static __inline__ void icmpv6_xmit_unlock(struct sock *sk)
-@@ -392,11 +395,10 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
- 	fl.fl_icmp_code = code;
- 	security_skb_classify_flow(skb, &fl);
- 
--	sk = icmpv6_sk(net);
--	np = inet6_sk(sk);
--
--	if (icmpv6_xmit_lock(sk))
-+	sk = icmpv6_xmit_lock(net);
-+	if (sk == NULL)
- 		return;
-+	np = inet6_sk(sk);
- 
- 	if (!icmpv6_xrlim_allow(sk, type, &fl))
- 		goto out;
-@@ -539,11 +541,10 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
- 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
- 	security_skb_classify_flow(skb, &fl);
- 
--	sk = icmpv6_sk(net);
--	np = inet6_sk(sk);
--
--	if (icmpv6_xmit_lock(sk))
-+	sk = icmpv6_xmit_lock(net);
-+	if (sk == NULL)
- 		return;
-+	np = inet6_sk(sk);
- 
- 	if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst))
- 		fl.oif = np->mcast_oif;
--- 
-1.5.6.4
+Back to the subject:
+I think if one was to use a "qdisc-pass-through" with the what you
+have implemented, theres opportunity to let hardware do its scheduling
+and meet the goals the intel folks. The filters above just select the
+qdisc which is set in hardware.
+
+cheers,
+jamal
 
