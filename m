@@ -1,69 +1,72 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: Re: 2.6.27-rc4: icmp_sk() uses smp_processor_id() in preemptible
-	code
-Date: Fri, 22 Aug 2008 17:12:37 +0400
-Message-ID: <1219410757.31440.1.camel@iris.sw.ru>
-References: <20080821122040.GA2497@x200.localdomain>
-	 <E1KW9c0-0002Kp-00@gondolin.me.apana.org.au>
-	 <20080822.045402.32679253.davem@davemloft.net>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+	RCU.
+Date: Fri, 22 Aug 2008 09:43:42 -0400
+Message-ID: <1219412622.4672.34.camel@localhost>
+References: <20080721164306.GA13131@gondor.apana.org.au>
+	 <20080721.095124.89249903.davem@davemloft.net>
+	 <20080721170233.GA13417@gondor.apana.org.au>
+	 <20080721.100821.38432201.davem@davemloft.net>
+	 <20080721171141.GA13573@gondor.apana.org.au>
+	 <20080822065655.GA18471@gondor.apana.org.au>
+Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, adobriyan@gmail.com,
-	dlezcano@fr.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:11024 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbYHVNNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Aug 2008 09:13:34 -0400
-In-Reply-To: <20080822.045402.32679253.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080822065655.GA18471-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-08-22 at 04:54 -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 21 Aug 2008 22:50:00 +1000
-> 
-> > adobriyan@gmail.com wrote:
-> > > Steps to reproduce:
-> > > 
-> > >        CONFIG_PREEMPT=y
-> > >        CONFIG_DEBUG_PREEMPT=y
-> > >        tracepath <something>
-> > > 
-> > > icmp6_sk() is similar (I haven't checked at runtime, though).
-> > > 
-> > > BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
-> > > caller is icmp_sk+0x15/0x30
-> > > Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
-> > > 
-> > > Call Trace:
-> > > [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
-> > > [<ffffffff80409405>] icmp_sk+0x15/0x30
-> > > [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
-> > 
-> > Caused by:
-> > 
-> > commit 405666db84b984b68fc75794069f424c02e5796c
-> > Author: Denis V. Lunev <den@openvz.org>
-> > Date:   Fri Feb 29 11:16:46 2008 -0800
-> > 
-> >     [ICMP]: Pass proper ICMP socket into icmp(v6)_xmit_(un)lock.
-> > 
-> > We need to disable preemption (was provided by disabling BH) before
-> > getting the per-cpu ICMP socket.
-> 
-> Denis, please fix this.
-> 
-> The icmp_sk was always evaluated inside of icmp*_xmit_lock()
-> exactly because we needed the BH disabling in order for the
-> smp_processor_id() evaluation to be safe.
-> 
-> It's probably better to pass the namespace into the lock and
-> unlock routines.
+On Fri, 2008-22-08 at 16:56 +1000, Herbert Xu wrote:
+> On Tue, Jul 22, 2008 at 01:11:41AM +0800, Herbert Xu wrote:
+> > On Mon, Jul 21, 2008 at 10:08:21AM -0700, David Miller wrote:
 
-for sure. I am sorry for the delay, I am ill and at home.
+> I haven't had a chance to do the test yet but I've just had an
+> idea of how we can get the best of both worlds.
+> 
+> The problem with always directing traffic based on the CPU alone
+> is that processes move around and we don't want to introduce packet
+> reordering because to that.
 
-I'll try to do my best and cook the patch today.
+Assuming multi-rx queues with configurable MSI or otherwise to map
+to a receive processor, then in the case of routing/bridging or
+otherfavoriteformofforwarding:
+If you tie static filters to a specific cpu that will always work.
+So no reordering there.
+Local traffic i can see migration/reordering happening.
 
+> The problem with hashing based on packet headers alone is that
+> it doesn't take CPU affinity into account at all so we may end
+> up with a situation where one thread out of a thread pool (e.g.,
+> a web server) has n sockets which are hashed to n different
+> queues.
+
+Indeed. In the forwarding case, the problem is not reordering rather
+all flows will always end up in the same cpu. So if you may end up
+just overloading one cpu while the other 1023 stayed idle.
+My earlier statement was you could cook traffic scenarios where all
+1024 are being fully utilized (the operative term is "cook");->
+
+> So here's the idea, we determine the tx queue for a flow based
+> on the CPU on which we saw its first packet.  Once we have decided
+> on a queue we store that in a dst object (see below).  This
+> ensures that all subsequent packets of that flow ends up in
+> the same queue so there is no reordering.  It also avoids the
+> problem where traffic genreated by one CPU gets scattered across
+> queues.
+
+Wont work with static multi-rx nic; iirc, changing those filters is
+_expensive_. so you want it to stay static.
+
+cheers,
+jamal
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
