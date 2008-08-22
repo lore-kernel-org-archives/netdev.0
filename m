@@ -1,70 +1,69 @@
-From: Duncan Gibb <Duncan.Gibb@SiriusIT.co.uk>
-Subject: Realtek 8139 max MTU
-Date: Fri, 22 Aug 2008 13:33:08 +0100
-Message-ID: <48AEB204.9010805@SiriusIT.co.uk>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: Re: 2.6.27-rc4: icmp_sk() uses smp_processor_id() in preemptible
+	code
+Date: Fri, 22 Aug 2008 17:12:37 +0400
+Message-ID: <1219410757.31440.1.camel@iris.sw.ru>
+References: <20080821122040.GA2497@x200.localdomain>
+	 <E1KW9c0-0002Kp-00@gondolin.me.apana.org.au>
+	 <20080822.045402.32679253.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, adobriyan@gmail.com,
+	dlezcano@fr.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from snail.duncangibb.com ([217.169.3.184]:3954 "EHLO
-	snail.duncangibb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753219AbYHVNA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 09:00:57 -0400
-Received: from outbound-masq.weybridge.siriusit.co.uk ([217.207.197.142] helo=[192.168.1.52])
-	by snail.duncangibb.com with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.63)
-	(envelope-from <Duncan.Gibb@SiriusIT.co.uk>)
-	id 1KWVpF-00015Q-JJ
-	for netdev@vger.kernel.org; Fri, 22 Aug 2008 13:33:10 +0100
+Received: from mailhub.sw.ru ([195.214.232.25]:11024 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751442AbYHVNNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Aug 2008 09:13:34 -0400
+In-Reply-To: <20080822.045402.32679253.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+On Fri, 2008-08-22 at 04:54 -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 21 Aug 2008 22:50:00 +1000
+> 
+> > adobriyan@gmail.com wrote:
+> > > Steps to reproduce:
+> > > 
+> > >        CONFIG_PREEMPT=y
+> > >        CONFIG_DEBUG_PREEMPT=y
+> > >        tracepath <something>
+> > > 
+> > > icmp6_sk() is similar (I haven't checked at runtime, though).
+> > > 
+> > > BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
+> > > caller is icmp_sk+0x15/0x30
+> > > Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
+> > > 
+> > > Call Trace:
+> > > [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
+> > > [<ffffffff80409405>] icmp_sk+0x15/0x30
+> > > [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
+> > 
+> > Caused by:
+> > 
+> > commit 405666db84b984b68fc75794069f424c02e5796c
+> > Author: Denis V. Lunev <den@openvz.org>
+> > Date:   Fri Feb 29 11:16:46 2008 -0800
+> > 
+> >     [ICMP]: Pass proper ICMP socket into icmp(v6)_xmit_(un)lock.
+> > 
+> > We need to disable preemption (was provided by disabling BH) before
+> > getting the per-cpu ICMP socket.
+> 
+> Denis, please fix this.
+> 
+> The icmp_sk was always evaluated inside of icmp*_xmit_lock()
+> exactly because we needed the BH disabling in order for the
+> smp_processor_id() evaluation to be safe.
+> 
+> It's probably better to pass the namespace into the lock and
+> unlock routines.
 
-Question for someone who knows the 8139cp driver...
+for sure. I am sorry for the delay, I am ill and at home.
 
-Looking for a workaround for some other issues, I've felt the need to
-raise the MTU on some RealTek 8139C+ network cards above 1500 bytes.  On
-a stock Debian 2.6.24-etchnhalf.1-686 kernel, however, MTUs higher than
-1500 (or more reasonably below 68) give SIOCSIFMTU: Invalid argument.
+I'll try to do my best and cook the patch today.
 
-I can't use a different NIC because the chips are hardwired to the
-devices I want to talk to.  The cards are
-
-  http://www.traverse.com.au/productview.php?product_id=115
-
-01:08.0 0200: 10ec:8139 (rev 20)
-        Subsystem: 10ec:8139
-        Flags: bus master, medium devsel, latency 64, IRQ 31
-        I/O ports at 2000 [size=256]
-        Memory at fe7f0000 (32-bit, non-prefetchable) [size=256]
-        Capabilities: [50] Power Management version 2
-
-I'm driving them with the 8139cp module.  8139too works as well (with
-the same limitations), but logs a recommendation to use 8139cp.
-
-I've read net/dev/core.c, drivers/net/8139too.c and drivers/net/8139cp.c
-but, not being a kernel hacker or a low-level network person, don't know
-where the 1500-byte limit is imposed.  8139cp defines CP_MAX_MTU as
-4096, but the cp_change_mtu hook function in which that would be used is
-inside an "#ifdef BROKEN" (drivers/net/8139cp.c lines 1248 to 1281 and
-1948).
-
-Can someone give me some pointers wrt what the hardware can really do
-and where in the drivers/tools I should look to make it happen?
-
-Better still, does anyone remember why the above code is in an "#ifdef
-BROKEN" and what needs to be fixed?
-
-
-Cheers
-
-
-Duncan
-
--- 
-Duncan Gibb, Technical Architect
-Sirius Corporation - The Open Source Experts
-http://www.siriusit.co.uk/
-Tel: +44 870 608 0063 || +44 7977 441 515
