@@ -1,48 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH take 2] pkt_sched: Fix qdisc list locking
-Date: Fri, 22 Aug 2008 03:28:44 -0700 (PDT)
-Message-ID: <20080822.032844.180232337.davem@davemloft.net>
-References: <20080821222446.GF14521@gondor.apana.org.au>
-	<20080822092729.GA14729@ff.dom.local>
-	<20080822101526.GC14345@gondor.apana.org.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 20/31]: pkt_sched: Perform bulk of qdisc destruction in
+ RCU.
+Date: Fri, 22 Aug 2008 03:42:17 -0700 (PDT)
+Message-ID: <20080822.034217.135152551.davem@davemloft.net>
+References: <20080822065655.GA18471@gondor.apana.org.au>
+	<20080822.001620.141235108.davem@davemloft.net>
+	<20080822074115.GB25615@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53474
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755136AbYHVK2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 06:28:45 -0400
-In-Reply-To: <20080822101526.GC14345@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080822074115.GB25615-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 22 Aug 2008 20:15:26 +1000
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Date: Fri, 22 Aug 2008 17:41:15 +1000
 
-> On Fri, Aug 22, 2008 at 09:27:30AM +0000, Jarek Poplawski wrote:
+> On Fri, Aug 22, 2008 at 12:16:20AM -0700, David Miller wrote:
 > > 
-> > pkt_sched: Fix qdisc list locking
-> > 
-> > Since some qdiscs call qdisc_tree_decrease_qlen() (so qdisc_lookup())
-> > without rtnl_lock(), adding and deleting from a qdisc list needs
-> > additional locking. This patch adds global spinlock qdisc_list_lock
-> > and wrapper functions for modifying the list. It is considered as a
-> > temporary solution until hfsc_dequeue(), netem_dequeue() and
-> > tbf_dequeue() (or qdisc_tree_decrease_qlen()) are redone.
-> > 
-> > With feedback from Herbert Xu and David S. Miller.
-> > 
-> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> > I suppose you're talking about the grand unified flow cache
+> > that never gets implemented right?  I classify that in the
+> > same category as net channels at the moment, theoretically
+> > very interesting but no practical implementation in sight.
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> In any case, we could implement what I suggested even without
+> a flow cache, by simply storing the info in the dst.  This means
+> that all flows on the same dst will end up in the same queue, which
+> is not as good as what a flow cache could give, but it's useful
+> enough to be an option.
 
-I'll add you ACK, thanks Herbert.
+I had another idea in the back of my head that I wanted to mention.
 
-> Good catch! I'm not sure whether this would actually break but
-> it certainly makes me feel a lot better :)
+The SKB has a hash, and sources set the hash.  It doesn't matter
+where in the stack it comes from.
 
-Thankfully list_del() on an empty list works or we'd have tons of
-reports :)
+At transmit time, the select queue logic in dev_queue_xmit() will use
+the SKB hash if one has been set already.  Otherwise it will do the
+hashing it does currently.
+
+So in the simplest case for forwarding, the RX side puts the RSS
+hash or whatever into this SKB hash location.
+
+Then, taking things to the next level, protocols set hashes for
+locally created packets.  And this leads to being able to delete
+the simple_tx_hash() code entirely and also we won't have to add
+support for every protocol on the planet to that function. :)
+
+TCP sockets maybe could even do something clever, like, using the
+incoming SKB hash of the SYN and SYN+ACK packets for all subsequent
+SKBs sent by that socket.
+
+Another nice side effect, we have the choice of allowing IPSEC
+encapsulation of locally generated frames to not change the TX queue.
+This would have to be controlled by a sysctl or similar because I
+can see both ways being useful in different circumstances.
+
+You get the idea.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
