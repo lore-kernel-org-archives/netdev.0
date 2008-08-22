@@ -1,41 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
-Date: Fri, 22 Aug 2008 14:43:43 -0700 (PDT)
-Message-ID: <20080822.144343.231567307.davem@davemloft.net>
-References: <48AE8549.6090705@garzik.org>
-	<20080822.024252.193704871.davem@davemloft.net>
-	<20080822174626.GC2551@susedev.qlogic.org>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: atl1: WARNING at net/sched/sch_generic.c:221
+Date: Fri, 22 Aug 2008 16:50:39 -0500
+Message-ID: <20080822165039.21b8732d@osprey.hogchain.net>
+References: <20080821115849.GA2126@x200.localdomain>
+	<20080821210007.5750e285@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Linux-Driver@qlogic.com, netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: csnook@redhat.com, netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33000
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754545AbYHVVno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 17:43:44 -0400
-In-Reply-To: <20080822174626.GC2551@susedev.qlogic.org>
+Received: from fmailhost02.isp.att.net ([204.127.217.102]:36158 "EHLO
+	fmailhost02.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624AbYHVV4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 17:56:13 -0400
+In-Reply-To: <20080821210007.5750e285@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Fri, 22 Aug 2008 10:46:26 -0700
+On Thu, 21 Aug 2008 21:00:07 -0500
+Jay Cliburn <jcliburn@gmail.com> wrote:
 
-> On Fri, Aug 22, 2008 at 02:42:52AM -0700, David Miller wrote:
-> > I also notice that this driver does not do:
-> > 
-> > 	skb_reserve(skb, NET_IP_ALIGN);
-> > 
-> > on RX packets to get the IP headers properly 4-byte aligned aligned
-> > after the ethernet header.
 > 
-> The chip currenly has problems with 2-byte aligned receive buffers.
-> It will be fixed in the next turn.
+> Does this patch fix it?
+> 
+> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+> index e23ce77..4816c6d 100644
+> --- a/drivers/net/atlx/atl1.c
+> +++ b/drivers/net/atlx/atl1.c
+> @@ -1307,7 +1307,6 @@ static u32 atl1_check_link(struct atl1_adapter
+> *adapter) if (netif_msg_link(adapter))
+>  				dev_info(&adapter->pdev->dev, "link
+> is down\n"); adapter->link_speed = SPEED_0;
+> -			netif_carrier_off(netdev);
+>  		}
+>  		return 0;
+>  	}
+> @@ -1364,8 +1363,6 @@ static u32 atl1_check_link(struct atl1_adapter
+> *adapter) /* change original link status */
+>  	if (netif_carrier_ok(netdev)) {
+>  		adapter->link_speed = SPEED_0;
+> -		netif_carrier_off(netdev);
+> -		netif_stop_queue(netdev);
+>  	}
+>  
+>  	if (hw->media_type != MEDIA_TYPE_AUTO_SENSOR &&
+> @@ -2654,8 +2651,6 @@ static void atl1_down(struct atl1_adapter
+> *adapter) 
+>  	adapter->link_speed = SPEED_0;
+>  	adapter->link_duplex = -1;
+> -	netif_carrier_off(netdev);
+> -	netif_stop_queue(netdev);
+>  
+>  	atl1_clean_tx_ring(adapter);
+>  	atl1_clean_rx_ring(adapter);
+> @@ -3063,8 +3058,6 @@ static int __devinit atl1_probe(struct pci_dev
+> *pdev, 
+>  	atl1_pcie_patch(adapter);
+>  	/* assume we have no link for now */
+> -	netif_carrier_off(netdev);
+> -	netif_stop_queue(netdev);
+>  
+>  	init_timer(&adapter->watchdog_timer);
+>  	adapter->watchdog_timer.function = &atl1_watchdog;
 
-If the chip cannot handle this, you will need to copy into a properly
-aligned buffer.
+Alexey,
 
-Otherwise some RISC platforms will take unaligned access traps, which
-run extremely slowly, when 32-bit and larger members of the protocol
-headers are read by the networking stack.
+Please ignore this patch.  It is unsavory fruit borne of abject
+ignorance.
+
+Jay
