@@ -1,62 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Fri, 22 Aug 2008 14:37:09 -0700 (PDT)
-Message-ID: <20080822.143709.65615512.davem@davemloft.net>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
+Subject: Re: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
+Date: Fri, 22 Aug 2008 14:43:43 -0700 (PDT)
+Message-ID: <20080822.144343.231567307.davem@davemloft.net>
+References: <48AE8549.6090705@garzik.org>
+	<20080822.024252.193704871.davem@davemloft.net>
+	<20080822174626.GC2551@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, netdev@vger.kernel.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: fragabr@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, Linux-Driver@qlogic.com, netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51722
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33000
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757792AbYHVVhL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Aug 2008 17:37:11 -0400
-In-Reply-To: <20080822183224.2d52f16c@tux>
+	by vger.kernel.org with ESMTP id S1754545AbYHVVno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 17:43:44 -0400
+In-Reply-To: <20080822174626.GC2551@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: D=E2niel Fraga <fragabr@gmail.com>
-Date: Fri, 22 Aug 2008 18:32:24 -0300
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Fri, 22 Aug 2008 10:46:26 -0700
 
-> On Wed, 20 Aug 2008 15:37:13 +0300 (EEST)
-> "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
->=20
-> > Based on irc discussion with davem, there is a htb bug which can ca=
-use=20
-> > corruption of the retransmitted TCP packets (and then a discard due=
- to=20
-> > checksum mismatch). That would also explain the strange headers I n=
-oticed=20
-> > earlier. There's a patch below (should apply to 2.6.26), please put=
- it at=20
-> > least on the host(s) which use htb (I don't know if both server and=
- the=20
-> > client do use wondershaper script or just the client). An different=
-=20
-> > failure symptoms (one could be somehow frto related as FRTO is used=
- while=20
-> > retransmitting) are also quite well explainable.
-> >=20
-> > But FRTO is mostly not a suspect based on the tcpdump you provided =
-(no=20
-> > FRTO workaround would help in that).
->=20
-> 	Ilpo, I have good news. I decided to disable completely HTB and
-> the problem seems to have gone. And frto is enabled, of course. So th=
-e
-> problem was with HTB, not frto as I thought.
->=20
-> 	The HTB patches you provided are going to be included in the
-> next 2.6.27 kernel, right?
+> On Fri, Aug 22, 2008 at 02:42:52AM -0700, David Miller wrote:
+> > I also notice that this driver does not do:
+> > 
+> > 	skb_reserve(skb, NET_IP_ALIGN);
+> > 
+> > on RX packets to get the IP headers properly 4-byte aligned aligned
+> > after the ethernet header.
+> 
+> The chip currenly has problems with 2-byte aligned receive buffers.
+> It will be fixed in the next turn.
 
-Yes, but it's important that you verify that the patch makes the
-problem go away when HTB is enabled.  Please make this test if you
-can.
+If the chip cannot handle this, you will need to copy into a properly
+aligned buffer.
+
+Otherwise some RISC platforms will take unaligned access traps, which
+run extremely slowly, when 32-bit and larger members of the protocol
+headers are read by the networking stack.
