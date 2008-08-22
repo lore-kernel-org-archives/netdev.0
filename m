@@ -1,45 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Fri, 22 Aug 2008 22:45:57 +1000
-Message-ID: <20080822124556.GA15788@gondor.apana.org.au>
-References: <20080822.044248.175133807.davem@davemloft.net> <20080822120918.GB14981@ff.dom.local> <20080822121144.GA32397@gondor.apana.org.au> <20080822.051841.259820995.davem@davemloft.net>
+From: Duncan Gibb <Duncan.Gibb@SiriusIT.co.uk>
+Subject: Realtek 8139 max MTU
+Date: Fri, 22 Aug 2008 13:33:08 +0100
+Message-ID: <48AEB204.9010805@SiriusIT.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54719 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753430AbYHVMqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 08:46:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20080822.051841.259820995.davem@davemloft.net>
+Received: from snail.duncangibb.com ([217.169.3.184]:3954 "EHLO
+	snail.duncangibb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219AbYHVNA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 09:00:57 -0400
+Received: from outbound-masq.weybridge.siriusit.co.uk ([217.207.197.142] helo=[192.168.1.52])
+	by snail.duncangibb.com with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.63)
+	(envelope-from <Duncan.Gibb@SiriusIT.co.uk>)
+	id 1KWVpF-00015Q-JJ
+	for netdev@vger.kernel.org; Fri, 22 Aug 2008 13:33:10 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 05:18:41AM -0700, David Miller wrote:
-> 
-> Netem is trying to create packet reordering by requeueing (which is
-> logically like a head insert) instead of enqueueing (which is
-> logically like a tail insert).
+Hello
 
-Why does it use requeue when tfifo's enqueue will insert this
-at the front of the queue anyway based on time_to_send anyway?
+Question for someone who knows the 8139cp driver...
 
-Perhaps it's trying to force reordering when the user replaces
-tfifo with some other qidsc? But that doesn't make sense since
-netem relies on tfifo to implement all the other features such
-as delay and jitter.
+Looking for a workaround for some other issues, I've felt the need to
+raise the MTU on some RealTek 8139C+ network cards above 1500 bytes.  On
+a stock Debian 2.6.24-etchnhalf.1-686 kernel, however, MTUs higher than
+1500 (or more reasonably below 68) give SIOCSIFMTU: Invalid argument.
 
-So how about
+I can't use a different NIC because the chips are hardwired to the
+devices I want to talk to.  The cards are
 
-1) Change netem_graft to disallow the replacement of tfifo;
-2) Simply use enqueue instead of requeue in netem_enqueue?
+  http://www.traverse.com.au/productview.php?product_id=115
 
-Cheers,
+01:08.0 0200: 10ec:8139 (rev 20)
+        Subsystem: 10ec:8139
+        Flags: bus master, medium devsel, latency 64, IRQ 31
+        I/O ports at 2000 [size=256]
+        Memory at fe7f0000 (32-bit, non-prefetchable) [size=256]
+        Capabilities: [50] Power Management version 2
+
+I'm driving them with the 8139cp module.  8139too works as well (with
+the same limitations), but logs a recommendation to use 8139cp.
+
+I've read net/dev/core.c, drivers/net/8139too.c and drivers/net/8139cp.c
+but, not being a kernel hacker or a low-level network person, don't know
+where the 1500-byte limit is imposed.  8139cp defines CP_MAX_MTU as
+4096, but the cp_change_mtu hook function in which that would be used is
+inside an "#ifdef BROKEN" (drivers/net/8139cp.c lines 1248 to 1281 and
+1948).
+
+Can someone give me some pointers wrt what the hardware can really do
+and where in the drivers/tools I should look to make it happen?
+
+Better still, does anyone remember why the above code is in an "#ifdef
+BROKEN" and what needs to be fixed?
+
+
+Cheers
+
+
+Duncan
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Duncan Gibb, Technical Architect
+Sirius Corporation - The Open Source Experts
+http://www.siriusit.co.uk/
+Tel: +44 870 608 0063 || +44 7977 441 515
