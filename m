@@ -1,40 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Fri, 22 Aug 2008 01:55:13 -0700 (PDT)
-Message-ID: <20080822.015513.194132430.davem@davemloft.net>
-References: <20080821185857.GA2665@ami.dom.local>
-	<20080821222330.GE14521@gondor.apana.org.au>
-	<20080822084931.GB2645@ff.dom.local>
+From: Sascha Biberhofer <biberhofer@inode.at>
+Subject: Re: Oops in authenc: 2.6.26.3
+Date: Fri, 22 Aug 2008 11:05:23 +0200
+Message-ID: <20080822090523.GA888@aeris>
+References: <20080821083615.GA1971@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54593
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751958AbYHVIzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 04:55:15 -0400
-In-Reply-To: <20080822084931.GB2645@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt LaPlante <kernel1@cyberdogtech.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757950AbYHVJFn@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20080821083615.GA1971@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 22 Aug 2008 08:49:31 +0000
-
-> On Fri, Aug 22, 2008 at 08:23:30AM +1000, Herbert Xu wrote:
-> > On Thu, Aug 21, 2008 at 08:58:57PM +0200, Jarek Poplawski wrote:
-> > >
-> > > root qdisc with pointers copied to every dev_queue. At least I can't
-> > > see nothing more in qdisc_create() and qdisc_graft(). So,
-> > > qdisc_lookup() seems to be designed for the future (or to do this
-> > > lookup more exactly with additional loops...). 
-> > 
-> > We've got at least the RX and TX queues.  That makes two locks and
-> > two lists.
+Herbert Xu wrote:
+> Sorry, I was skimping on memory and ended up calling a clobbered
+> function pointer.
 > 
-> RX currently doesn't add anything to the list.
+> This patch should fix it.
 
-That's correct, currently ingress qdiscs only support a hierarchy of
-single root and that's it.
+Works like a charm, thanks for the quick fix. 
+
+  Sascha Biberhofer
