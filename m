@@ -1,80 +1,67 @@
-From: "John P Poet" <jppoet@gmail.com>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Fri, 22 Aug 2008 13:55:35 -0600
-Message-ID: <2c2a4e250808221255l6803e0d9q1021626a616d7ffc@mail.gmail.com>
-References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com>
-	 <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com>
-	 <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com>
-	 <20080805214250.GA23226@electric-eye.fr.zoreil.com>
-	 <2c2a4e250808052221p7d22adf5w7a656e423bff0b26@mail.gmail.com>
-	 <20080806190353.GB17174@electric-eye.fr.zoreil.com>
-	 <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com>
-	 <20080807223137.GA17407@electric-eye.fr.zoreil.com>
-	 <2c2a4e250808072028h8b7a13av29ec02f76ab08cd1@mail.gmail.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 1/4 2.6.28] cxgb3 - manage a private ip address for iSCSI
+Date: Fri, 22 Aug 2008 15:09:12 -0500
+Message-ID: <48AF1CE8.8020203@opengridcomputing.com>
+References: <200808221838.m7MIcW6a004400@localhost.localdomain>	<20080822120851.c45a90f2.akpm@linux-foundation.org>	<48AF10BE.9050100@opengridcomputing.com> <20080822125316.37547cce.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:21664 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757546AbYHVTzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 15:55:37 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so334953fgg.17
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 12:55:35 -0700 (PDT)
-In-Reply-To: <2c2a4e250808072028h8b7a13av29ec02f76ab08cd1@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kxie@chelsio.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	davem@davemloft.net, michaelc@cs.wisc.edu, rdreier@cisco.com,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	divy@chelsio.com, dm@chelsio.com, leedom@chelsio.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757454AbYHVUGp@vger.kernel.org>
+In-Reply-To: <20080822125316.37547cce.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 7, 2008 at 9:28 PM, John P Poet <jppoet@gmail.com> wrote:
-> On Thu, Aug 7, 2008 at 4:31 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
->> John P Poet <jppoet@gmail.com> :
->> [...]
->>> That does not make any difference.
+Andrew Morton wrote:
+> On Fri, 22 Aug 2008 14:17:18 -0500
+> Steve Wise <swise@opengridcomputing.com> wrote:
+>
+>   
+>> Andrew Morton wrote:
+>>     
+>>>> +	unsigned long octet;
+>>>> +	const char *parse = buf;
+>>>> +	char *endp;
+>>>> +	int i;
+>>>> +
+>>>> +	for (i = 1; i <= 4; i++) {
+>>>> +		octet = simple_strtoul(parse, &endp, 10);
+>>>> +		if (endp == buf || octet > 255 ||
+>>>> +		    (i < 4 && *endp != '.') ||
+>>>> +		    (i == 4 && *endp != '\0' && *endp != '\n'))
+>>>> +			return -EINVAL;
+>>>> +		a = (a << 8) | octet;
+>>>> +		parse = endp+1;
+>>>> +	}
+>>>> +	pi->iscsi_ipaddr = htonl(a);
+>>>> +	return endp-buf;
+>>>> +}
+>>>>     
+>>>>         
+>>> This appears to be taking a dotted quad ipv4 address in ascii form,
+>>> turning it into a u32 while performing checking?
 >>>
->>> I will say, that the problem seems to be reduced by this patch (or the
->>> 0002-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch).
+>>> Surely we have a library function somewhere in networking which does
+>>> this?  If not, I'd suggest writing one. 
 >>>
->>> Before, I was getting failures two or three times an hour.  With
->>> either of these patches applied, the failure rate has dropped to one
->>> every two to four hours.
+>>>   
+>>>       
+>> try in_aton() from include/linux/inet.h.
 >>
->> I have updated the kit at http://userweb.kernel.org/~romieu/r8169/2.6.27-rc2
->>
->> Can you give it a try ?
+>>     
 >
-> At first I *just* applied 20080807-r8169-test.patch, but the NIC did
-> not initialize during boot.  So, I also applied
-> 0002-r8169-avoid-thrashing-PCI-conf-space-above-RTL_GIGA.patch.  After
-> that, it booted okay.
->
-> However, in general use it is much worse.  May just be bad luck (or
-> something in the 2.26.2 kernel?), but the timeout message are rampant:
->
-> Aug  7 21:14:58 saphire kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Aug  7 21:14:58 saphire kernel: r8169: eth0: link up
->
->
-> John
+> yeah.  But that function is a crock.  No error checking at all!
+>   
 
-Any other ideas on this problem?  I am wondering if most people are
-not complaining about it, because it is probably not noticeable for
-web browsing (web browsing naturally has latencies involved).  It is a
-killer for streaming stuff in "real time" between two machines,
-though.
+Oh you want error checking?
 
-On my current machine with a 8111C NIC, I have disabled that NIC and
-bought an Intel e1000 PCIe NIC.  That has solved the problem on that
-computer, but I want to build another computer, and it seems like all
-the new motherboards have the Realtek 8111C on them.
+:)
 
-Should I try the "official" driver from Realtek?  How hard is it to integrate?
-
-Thanks,
-
-John
--- 
-A: Because it messes up the order in which people normally read text.
-Q: Why is top-posting such a bad thing?
+Yea if this is a user/sysadmin supplied value, then we need a rubust 
+inet_aton() in the kernel to validate it...
