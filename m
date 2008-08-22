@@ -1,34 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Fri, 22 Aug 2008 22:11:44 +1000
-Message-ID: <20080822121144.GA32397@gondor.apana.org.au>
-References: <20080821185857.GA2665@ami.dom.local> <20080821222330.GE14521@gondor.apana.org.au> <20080822113833.GA14981@ff.dom.local> <20080822.044248.175133807.davem@davemloft.net> <20080822120918.GB14981@ff.dom.local>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Fri, 22 Aug 2008 14:14:11 +0200
+Message-ID: <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <20080821011715.GG19235@verge.net.au>
+	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+	 <20080821212948.GB4407@verge.net.au>
+	 <20080821220444.GA2758@verge.net.au>
+	 <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
+	 <1219399551.4246.10.camel@ernie.internal.graemef.net>
+	 <f4845fc0808220349r6c498eddkae80eb47ed0b5a06@mail.gmail.com>
+	 <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57022 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752840AbYHVMLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 08:11:52 -0400
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Graeme Fowler" <graeme@graemef.net>,
+	"Simon Horman" <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
+To: "Sven Wegener" <sven.wegener@stealer.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
 Content-Disposition: inline
-In-Reply-To: <20080822120918.GB14981@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 22, 2008 at 12:09:18PM +0000, Jarek Poplawski wrote:
+On Fri, Aug 22, 2008 at 1:23 PM, Sven Wegener <sven.wegener@stealer.net> wrote:
+>> He :) Imagine an old kernel on the backup receiving new messages and
+>> not understanding them. How could we at least handle that situation
+>> gracefully (without totally confusing the older kernel)? We'd need to
+>> do it in a way that old features are still communicated in the same
+>> way. E.g., v4-only connection syncs still use the same message format,
+>> but once you use v6 entries, an unused flag or the 'reserved' field in
+>> ip_vs_sync_conn is used. A v6 message would still confuse an older
+>> kernel then, but a user would already notice that ipvsadm can't
+>> configure the v6 services on the older kernel, so that's not too bad.
 >
-> I guess, we need to establish first how much it's needed on fast
-> paths. But anyway, it seems something like qdisc_match_from_root()
-> should be enough in this qdisc_tree_decrease_qlen().
+> If that's a problem, we can easily change the communication port and even
+> completely redesign the protocol this way, without having old kernels
+> getting confused about the data they get. We might lose the ability to
+> sync between different versions, but in the end this is just the
+> connection synchronziation and both systems should be running the same
+> version. We could also keep the old communication port for some time, if
+> that's really needed.
 
-Or we could just replace requeue with a peek interface.
+Yes, starting from scratch on another port sounds like a good idea.
+Losing sync ability totally isn't as bad as confusing an older kernel
+with new messages, so I hope it's not necessary to keep the old
+baggage around?
 
-Cheers,
+Is there enough motivation for doing this though before having a
+cleaned-up minimal v6 version without the sync daemon? This is where
+I'm currently a bit stuck with... any help is appreciated :)
+
+Julius
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Google Switzerland GmbH
