@@ -1,43 +1,57 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
-Date: Fri, 22 Aug 2008 10:46:26 -0700
-Message-ID: <20080822174626.GC2551@susedev.qlogic.org>
-References: <20080821185402.GD31526@susedev.qlogic.org> <48AE8549.6090705@garzik.org> <20080822.024252.193704871.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: build issue #564 for v2.6.27-rc4 : undefined reference to
+ `NS8390p_init'
+Date: Fri, 22 Aug 2008 11:09:02 -0700
+Message-ID: <20080822110902.432dd99e.akpm@linux-foundation.org>
+References: <200808221033.46997.toralf.foerster@gmx.de>
+	<Pine.LNX.4.64.0808221025070.6100@shark.he.net>
+	<20080822181234.2f33e993@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, Linux-Driver@qlogic.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, toralf.foerster@gmx.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:13655 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbYHVRq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 13:46:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20080822.024252.193704871.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34144 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752838AbYHVSJm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 14:09:42 -0400
+In-Reply-To: <20080822181234.2f33e993@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 02:42:52AM -0700, David Miller wrote:
-> From: Jeff Garzik <jeff@garzik.org>
-> Date: Fri, 22 Aug 2008 05:22:17 -0400
-> 
-> > - The kmap use is interesting
-> 
-> It's so much easier to just always tack on the pages or whatever
-> and use __pskb_pull_tail(skb, SOME_MIN_HEADER_LENGTH)
+On Fri, 22 Aug 2008 18:12:34 +0100
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-I will look into changing per your suggestion.  This messy section
-runs when jumbo frames arrive that aren't TCP/UDP.  I didn't know
-about the API you point out.  Thanks very much.
-
+> O> > drivers/built-in.o: In function `wd_probe1':
+> > > wd.c:(.init.text+0x2570): undefined reference to `NS8390p_init'
+> > > make: *** [.tmp_vmlinux1] Error 1
+> > 
+> > Alan,
+> > 
+> > Do you have any outstanding patches for these wd (and I've seen
+> > hp-plus as well IIRC) build issues, or should Jeff have them now?
 > 
-> I also notice that this driver does not do:
+> I'm not really tracking it any more, there were so many patches from so
+> many people I couldn't give a definitive answer as to what was applied,
+> is queued or is not queued.
 > 
-> 	skb_reserve(skb, NET_IP_ALIGN);
-> 
-> on RX packets to get the IP headers properly 4-byte aligned aligned
-> after the ethernet header.
 
-The chip currenly has problems with 2-byte aligned receive buffers.
-It will be fixed in the next turn.
+For the record, and from memory, there were three patches.
 
+One from you which broke my tree.
+
+One from Randy which I merged after several days of you not responding
+to our bug reports.
+
+One which I typed in by hand based upon your lackadaisical,
+several-month-late English-language description of what I needed to do
+to fix it.  As we can see, it didn't work.
+
+I wish Jeff hadn't merged the thing after I dropped it - I sat on it
+for months waiting in exhasperation for you to actually support your
+own work and you never did.
+
+Can we just revert it now?
