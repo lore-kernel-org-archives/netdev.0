@@ -1,262 +1,169 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 1/3] LRO: fix return code propogation
-Date: Thu, 21 Aug 2008 17:51:24 -0700
-Message-ID: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Thu, 21 Aug 2008 17:51:29 -0700
+Message-ID: <20080822005129.4697.77680.stgit@jtkirshe-mobile.jf.intel.com>
+References: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:46104 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429AbYHVAvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 20:51:25 -0400
-Received: by wa-out-1112.google.com with SMTP id j37so75424waf.23
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 17:51:24 -0700 (PDT)
+Received: from py-out-1112.google.com ([64.233.166.179]:20620 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754801AbYHVAvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2008 20:51:31 -0400
+Received: by py-out-1112.google.com with SMTP id p76so172212pyb.10
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2008 17:51:30 -0700 (PDT)
+In-Reply-To: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-LRO code needs to propogate the return values from the netif_rx and
-netif_receive_skb calls specifically to allow drivers that need that
-information to react correctly.  Some places in the code couldn't
-return the result of the upcall to the stack, so I added the dropped
-counter, which just completes the cache line of the stats struct (on
-64-bit), so shouldn't be a big deal.
+This patch restores the multiqueue prio scheduler which was removed along with
+the RR scheduler during the early changes for multiple tx queue support.  This
+patch fixes the regression which occured as a result disabling the multiqueue
+qdisc functionality.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/inet_lro.h |    9 +++---
- net/ipv4/inet_lro.c      |   68 +++++++++++++++++++++++++++-------------------
- 2 files changed, 45 insertions(+), 32 deletions(-)
+ include/linux/pkt_sched.h |    9 +++++++
+ net/sched/sch_prio.c      |   57 ++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 55 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/inet_lro.h b/include/linux/inet_lro.h
-index c4335fa..06380ec 100644
---- a/include/linux/inet_lro.h
-+++ b/include/linux/inet_lro.h
-@@ -39,6 +39,7 @@ struct net_lro_stats {
- 	unsigned long aggregated;
- 	unsigned long flushed;
- 	unsigned long no_desc;
-+	unsigned long dropped;
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index e5de421..6ceef2e 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -123,6 +123,15 @@ struct tc_prio_qopt
+ 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
  };
  
- /*
-@@ -132,7 +133,7 @@ struct net_lro_mgr {
-  *        (for example get_tcp_ip_hdr)
-  */
- 
--void lro_receive_skb(struct net_lro_mgr *lro_mgr,
-+int lro_receive_skb(struct net_lro_mgr *lro_mgr,
- 		     struct sk_buff *skb,
- 		     void *priv);
- 
-@@ -140,7 +141,7 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
-  * Processes a SKB with VLAN HW acceleration support
-  */
- 
--void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
-+int lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
- 				  struct sk_buff *skb,
- 				  struct vlan_group *vgrp,
- 				  u16 vlan_tag,
-@@ -161,11 +162,11 @@ void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
-  *        (for example get_tcp_ip_hdr)
-  */
- 
--void lro_receive_frags(struct net_lro_mgr *lro_mgr,
-+int lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 		       struct skb_frag_struct *frags,
- 		       int len, int true_size, void *priv, __wsum sum);
- 
--void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
-+int lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
- 				    struct skb_frag_struct *frags,
- 				    int len, int true_size,
- 				    struct vlan_group *vgrp,
-diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
-index cfd034a..918a3a1 100644
---- a/net/ipv4/inet_lro.c
-+++ b/net/ipv4/inet_lro.c
-@@ -301,9 +301,11 @@ out:
- 	return lro_desc;
- }
- 
--static void lro_flush(struct net_lro_mgr *lro_mgr,
-+static int lro_flush(struct net_lro_mgr *lro_mgr,
- 		      struct net_lro_desc *lro_desc)
- {
-+	int ret = NET_RX_SUCCESS;
++enum
++{
++ TCA_PRIO_UNSPEC,
++ TCA_PRIO_MQ,
++ __TCA_PRIO_MAX
++};
 +
- 	if (lro_desc->pkt_aggr_cnt > 1)
- 		lro_update_tcp_ip_header(lro_desc);
++#define TCA_PRIO_MAX (__TCA_PRIO_MAX - 1)
++
+ /* TBF section */
  
-@@ -311,23 +313,25 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
+ struct tc_tbf_qopt
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index a6697c6..ef3e978 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -27,6 +27,7 @@ struct prio_sched_data
+ 	struct tcf_proto *filter_list;
+ 	u8  prio2band[TC_PRIO_MAX+1];
+ 	struct Qdisc *queues[TCQ_PRIO_BANDS];
++	int mq;
+ };
  
- 	if (lro_desc->vgrp) {
- 		if (lro_mgr->features & LRO_F_NAPI)
--			vlan_hwaccel_receive_skb(lro_desc->parent,
--						 lro_desc->vgrp,
--						 lro_desc->vlan_tag);
-+			ret = vlan_hwaccel_receive_skb(lro_desc->parent,
-+						       lro_desc->vgrp,
-+						       lro_desc->vlan_tag);
- 		else
--			vlan_hwaccel_rx(lro_desc->parent,
--					lro_desc->vgrp,
--					lro_desc->vlan_tag);
-+			ret = vlan_hwaccel_rx(lro_desc->parent,
-+					      lro_desc->vgrp,
-+					      lro_desc->vlan_tag);
  
- 	} else {
- 		if (lro_mgr->features & LRO_F_NAPI)
--			netif_receive_skb(lro_desc->parent);
-+			ret = netif_receive_skb(lro_desc->parent);
- 		else
--			netif_rx(lro_desc->parent);
-+			ret = netif_rx(lro_desc->parent);
+@@ -53,14 +54,17 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		if (!q->filter_list || err < 0) {
+ 			if (TC_H_MAJ(band))
+ 				band = 0;
+-			return q->queues[q->prio2band[band&TC_PRIO_MAX]];
++			band = q->prio2band[band&TC_PRIO_MAX];
++			goto out;
+ 		}
+ 		band = res.classid;
  	}
- 
- 	LRO_INC_STATS(lro_mgr, flushed);
- 	lro_clear_desc(lro_desc);
-+
-+	return ret;
+ 	band = TC_H_MIN(band) - 1;
+ 	if (band >= q->bands)
+-		return q->queues[q->prio2band[0]];
+-
++		band = q->prio2band[0];
++out:
++	if (q->mq)
++		skb_set_queue_mapping(skb, band);
+ 	return q->queues[band];
  }
  
- static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
-@@ -376,12 +380,14 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+@@ -127,11 +131,18 @@ static struct sk_buff *prio_dequeue(struct Qdisc* sch)
+ 	int prio;
  
- 	if ((lro_desc->pkt_aggr_cnt >= lro_mgr->max_aggr) ||
- 	    lro_desc->parent->len > (0xFFFF - lro_mgr->dev->mtu))
--		lro_flush(lro_mgr, lro_desc);
-+		if (lro_flush(lro_mgr, lro_desc) == NET_RX_DROP)
-+			LRO_INC_STATS(lro_mgr, dropped);
+ 	for (prio = 0; prio < q->bands; prio++) {
+-		struct Qdisc *qdisc = q->queues[prio];
+-		struct sk_buff *skb = qdisc->dequeue(qdisc);
+-		if (skb) {
+-			sch->q.qlen--;
+-			return skb;
++		/* Check if target subqueue is avaialble before
++		 * pulling an skb.  This way we avoid excessive requeues
++		 * for slower queues.
++		 */
++		if (!q->mq ||
++		    !__netif_subqueue_stopped(qdisc_dev(sch), prio)) {
++			struct Qdisc *qdisc = q->queues[prio];
++			struct sk_buff *skb = qdisc->dequeue(qdisc);
++			if (skb) {
++				sch->q.qlen--;
++				return skb;
++			}
+ 		}
+ 	}
+ 	return NULL;
+@@ -182,11 +193,30 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	struct tc_prio_qopt *qopt;
++	struct nlattr *tb[TCA_PRIO_MAX + 1];
++	int err;
++	int mq;
+ 	int i;
  
- 	return 0;
- 
- out2: /* send aggregated SKBs to stack */
--	lro_flush(lro_mgr, lro_desc);
-+	if (lro_flush(lro_mgr, lro_desc) == NET_RX_DROP)
-+		LRO_INC_STATS(lro_mgr, dropped);
- 
- out:
- 	return 1;
-@@ -401,8 +407,10 @@ static struct sk_buff *lro_gen_skb(struct net_lro_mgr *lro_mgr,
- 	int hdr_len = min(len, hlen);
- 
- 	skb = netdev_alloc_skb(lro_mgr->dev, hlen + lro_mgr->frag_align_pad);
--	if (!skb)
-+	if (!skb) {
-+		LRO_INC_STATS(lro_mgr, dropped);
- 		return NULL;
+-	if (nla_len(opt) < sizeof(*qopt))
+-		return -EINVAL;
+-	qopt = nla_data(opt);
++	err = nla_parse_nested_compat(tb, TCA_PRIO_MAX, opt, NULL, qopt,
++	                              sizeof(*qopt));
++	if (err < 0)
++		return err;
++	/* If we're multiqueue, make sure the number of bands equals the
++	 * number of transmit for the device.  If bands requested is 0 then
++	 * set the bands to match dev->real_num_tx_queues.  This qdisc can
++	 * only be added as a root qdisc since it must interact with the
++	 * underlying device.
++	 */
++	mq = nla_get_flag(tb[TCA_PRIO_MQ]);
++	if (mq) {
++		if (sch->parent != TC_H_ROOT)
++			return -EINVAL;
++		if (qopt->bands == 0)
++			qopt->bands = qdisc_dev(sch)->real_num_tx_queues;
++		else if (qopt->bands != qdisc_dev(sch)->real_num_tx_queues)
++			return -EINVAL;
 +	}
  
- 	skb_reserve(skb, lro_mgr->frag_align_pad);
- 	skb->len = len;
-@@ -496,12 +504,14 @@ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
- 
- 	if ((skb_shinfo(lro_desc->parent)->nr_frags >= lro_mgr->max_aggr) ||
- 	    lro_desc->parent->len > (0xFFFF - lro_mgr->dev->mtu))
--		lro_flush(lro_mgr, lro_desc);
-+		if (lro_flush(lro_mgr, lro_desc) == NET_RX_DROP)
-+			LRO_INC_STATS(lro_mgr, dropped);
- 
- 	return NULL;
- 
- out2: /* send aggregated packets to the stack */
--	lro_flush(lro_mgr, lro_desc);
-+	if (lro_flush(lro_mgr, lro_desc) == NET_RX_DROP)
-+		LRO_INC_STATS(lro_mgr, dropped);
- 
- out1:  /* Original packet has to be posted to the stack */
- 	skb = lro_gen_skb(lro_mgr, frags, len, true_size, mac_hdr,
-@@ -510,20 +520,21 @@ out:
- 	return skb;
- }
- 
--void lro_receive_skb(struct net_lro_mgr *lro_mgr,
-+int lro_receive_skb(struct net_lro_mgr *lro_mgr,
- 		     struct sk_buff *skb,
- 		     void *priv)
- {
- 	if (__lro_proc_skb(lro_mgr, skb, NULL, 0, priv)) {
- 		if (lro_mgr->features & LRO_F_NAPI)
--			netif_receive_skb(skb);
-+			return netif_receive_skb(skb);
- 		else
--			netif_rx(skb);
-+			return netif_rx(skb);
+ 	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
+ 		return -EINVAL;
+@@ -197,6 +227,7 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
  	}
-+	return NET_RX_SUCCESS;
- }
- EXPORT_SYMBOL(lro_receive_skb);
  
--void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
-+int lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
- 				  struct sk_buff *skb,
- 				  struct vlan_group *vgrp,
- 				  u16 vlan_tag,
-@@ -531,14 +542,15 @@ void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
- {
- 	if (__lro_proc_skb(lro_mgr, skb, vgrp, vlan_tag, priv)) {
- 		if (lro_mgr->features & LRO_F_NAPI)
--			vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
-+			return vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
- 		else
--			vlan_hwaccel_rx(skb, vgrp, vlan_tag);
-+			return vlan_hwaccel_rx(skb, vgrp, vlan_tag);
- 	}
-+	return NET_RX_SUCCESS;
- }
- EXPORT_SYMBOL(lro_vlan_hwaccel_receive_skb);
+ 	sch_tree_lock(sch);
++	q->mq = mq;
+ 	q->bands = qopt->bands;
+ 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
  
--void lro_receive_frags(struct net_lro_mgr *lro_mgr,
-+int lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 		       struct skb_frag_struct *frags,
- 		       int len, int true_size, void *priv, __wsum sum)
- {
-@@ -547,16 +559,16 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, NULL, 0,
- 				 priv, sum);
- 	if (!skb)
--		return;
-+		return NET_RX_SUCCESS;
+@@ -263,6 +294,10 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	nest = nla_nest_compat_start(skb, TCA_OPTIONS, sizeof(opt), &opt);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
++	if (q->mq) {
++		if (nla_put_flag(skb, TCA_PRIO_MQ) < 0)
++			goto nla_put_failure;
++	}
+ 	nla_nest_compat_end(skb, nest);
  
- 	if (lro_mgr->features & LRO_F_NAPI)
--		netif_receive_skb(skb);
-+		return netif_receive_skb(skb);
- 	else
--		netif_rx(skb);
-+		return netif_rx(skb);
- }
- EXPORT_SYMBOL(lro_receive_frags);
- 
--void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
-+int lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
- 				    struct skb_frag_struct *frags,
- 				    int len, int true_size,
- 				    struct vlan_group *vgrp,
-@@ -567,12 +579,12 @@ void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
- 	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, vgrp,
- 				 vlan_tag, priv, sum);
- 	if (!skb)
--		return;
-+		return NET_RX_SUCCESS;
- 
- 	if (lro_mgr->features & LRO_F_NAPI)
--		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
-+		return vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
- 	else
--		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
-+		return vlan_hwaccel_rx(skb, vgrp, vlan_tag);
- }
- EXPORT_SYMBOL(lro_vlan_hwaccel_receive_frags);
- 
+ 	return skb->len;
 
