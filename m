@@ -1,91 +1,50 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
-Date: Fri, 22 Aug 2008 11:56:06 +0200
-Message-ID: <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
-	 <20080821011715.GG19235@verge.net.au>
-	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
-	 <20080821212948.GB4407@verge.net.au>
-	 <20080821220444.GA2758@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Fri, 22 Aug 2008 20:07:08 +1000
+Message-ID: <20080822100708.GA14345@gondor.apana.org.au>
+References: <20080821185857.GA2665@ami.dom.local> <20080821222330.GE14521@gondor.apana.org.au> <20080822084931.GB2645@ff.dom.local> <20080822.015513.194132430.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com, "Sven Wegener" <sven.wegener@stealer.net>
-To: "Simon Horman" <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org, denys@visp.net.lb
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:59262 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753044AbYHVJ4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 05:56:11 -0400
-Received: from spaceape11.eur.corp.google.com (spaceape11.eur.corp.google.com [172.28.16.145])
-	by smtp-out.google.com with ESMTP id m7M9u7rq009683
-	for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 10:56:07 +0100
-Received: from gv-out-0910.google.com (gvdc6.prod.google.com [10.16.130.6])
-	by spaceape11.eur.corp.google.com with ESMTP id m7M9u6YY017556
-	for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 02:56:07 -0700
-Received: by gv-out-0910.google.com with SMTP id c6so116363gvd.29
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 02:56:06 -0700 (PDT)
-In-Reply-To: <20080821220444.GA2758@verge.net.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:50623 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753832AbYHVKHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 06:07:16 -0400
 Content-Disposition: inline
+In-Reply-To: <20080822.015513.194132430.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2008/8/22 Simon Horman <horms@verge.net.au>:
-> On 金,  8月 22, 2008 at 07:29:50午前 +1000, Simon Horman wrote:
->> On Thu, Aug 21, 2008 at 11:59:44AM +0200, Julius Volz wrote:
->> > On Thu, Aug 21, 2008 at 3:17 AM, Simon Horman <horms@verge.net.au> wrote:
->> > > On Wed, Aug 20, 2008 at 06:15:07PM +0200, Julius Volz wrote:
->> > >> What is not supported with IPv6:
->> > >> - handling fragmentation or other extension headers
->> > >> - FTP application helper (can be loaded, but only operates on v4)
->> > >> - sync daemon (can be started, but only operates on v4)
->> > >
->> > > Other than the packet format of the sync deamon, are there any
->> > > fundamental restrictions here? If we extended the sync daemon,
->> > > could it work? If so, perhaps we could rev the sync deamon protocol
->> > > and fix a few other kinks, like the handling of timeouts and the
->> > > general lack of extendability, at the same time.
->> >
->> > There shouldn't be any fundamental restrictions, it's just a piece of
->> > the puzzle that I could easily leave out of the picture for now.
->> >
->> > I haven't studied the sync daemon closely yet, but one thing I was
->> > briefly wondering about was whether we should just blow up the
->> > addresses in struct ip_vs_sync_conn to be of type union nf_inet_addr
->> > (probably not acceptable, wasting too much bandwidth for v4 entries)
->> > or how to send differently sized entries based on the IP version in a
->> > clean way. But it sounds like you'd want to redesign a lot of that
->> > anyways? I'm glad to help with anything, I just don't know this code
->> > as well as you or Sven, but I'll study it more. Maybe you can share
->> > some ideas on the extensibility you want to see?
->>
->> What I was thinking is that any change
+On Fri, Aug 22, 2008 at 01:55:13AM -0700, David Miller wrote:
 >
-> Sorry, I forgot to finish this sentance :-(
->
-> What I was thinking was that any change would introduce a
-> protocol incompatibility. However I think that there is
-> some room for small changes to be added using currently unsued
-> bits in ip_vs_sync_conn.flags. This could also be used to
-> allow syncryonising of timeouts (which is unrelated to IPv6).
+> > > We've got at least the RX and TX queues.  That makes two locks and
+> > > two lists.
+> > 
+> > RX currently doesn't add anything to the list.
+> 
+> That's correct, currently ingress qdiscs only support a hierarchy of
+> single root and that's it.
 
-There's also a '__u8 reserved' field at the beginning of that struct
-which could be used. But in general, is it reasonable to expect both
-nodes to use the same kernel version, which gets rid of the
-extensibility problems? It's not really an ABI that can't be broken,
-right?
+We seem to be talking about different things.
 
-> So while my general feeling that the synchronisation protocol
-> is not as extendable as it should be stands. We can probably
-> work with the current protocol for now.
+Yes the ingress hierachy has a single root, i.e., it's a tree.  But
+that has nothing to do with what I was talking about.  I'm talking
+about the list at dev->rx_queue.qdisc_sleeping->list which is
+certainly not guaranteed to be empty.
 
-Yes, without jumping through hoops, we have to probably break the
-current protocol anyways for new features? Even if we designated
-unused fields for new information, an old kernel will not look at them
-/ fill them out, which limits the possibilities...
+If you look at qdisc_create you'll find that every time we create
+a non-root ingress qdisc we add it to that list (we have to,
+otherwise qdisc_lookup doesn't work at all for ingress qdiscs).
+So when somebody on the TX side does a qdisc_lookup they may be
+walking the RX list without any protection.  Similarly, if somebody
+on the ingress side does qdisc_lookup they may walk the TX lists
+without protection.
 
-Julius
-
+Cheers,
 -- 
-Google Switzerland GmbH
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
