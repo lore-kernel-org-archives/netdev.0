@@ -1,31 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-08-22
-Date: Sat, 23 Aug 2008 05:08:09 -0700 (PDT)
-Message-ID: <20080823.050809.240460875.davem@davemloft.net>
-References: <20080822234632.GA12922@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3] tcp: Add tcp_validate_incoming & put
+ duplicated code there
+Date: Sat, 23 Aug 2008 05:11:17 -0700 (PDT)
+Message-ID: <20080823.051117.141240633.davem@davemloft.net>
+References: <1219437509-10048-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080822234632.GA12922-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34498
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752548AbYHWMLT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 08:11:19 -0400
+In-Reply-To: <1219437509-10048-1-git-send-email-ilpo.jarvinen@helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 22 Aug 2008 19:46:32 -0400
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 22 Aug 2008 23:38:27 +0300
 
-> Here is my current stack of updates for 2.6.28 -- included is an
-> orinoco update to support WPA on certain firmware, the new libertas_tf
-> driver, a number of cleanups, and a variety of other driver updates.
-> Still more to come, but I think it is better to get these out rather
-> than wait for the rest...
-> 
-> Please let me know of there are problems!
+> Large block of code duplication removed.
+>=20
+> Sadly, the return value thing is a bit tricky here but it
+> seems the most sensible way to return positive from validator
+> on success rather than negative.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Pulled and pushed out to kernel.org, thanks John!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
