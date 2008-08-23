@@ -1,47 +1,31 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
-Date: Sat, 23 Aug 2008 12:31:38 -0700
-Message-ID: <200808231231.40751.divy@chelsio.com>
-References: <200808221840.m7MIeuvB004442@localhost.localdomain> <20080822124844.b05ee3e8.akpm@linux-foundation.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] mcs7830: add set_mac_address
+Date: Sat, 23 Aug 2008 21:59:35 +0200
+Message-ID: <200808232159.36177.arnd@arndb.de>
+References: <20080823200153.40a8ec24@ors.home>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Karen Xie" <kxie@chelsio.com>, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	davem@davemloft.net, michaelc@cs.wisc.edu,
-	"Steve Wise" <swise@opengridcomputing.com>, rdreier@cisco.com,
-	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
-	"Dimitrios Michailidis" <dm@chelsio.com>,
-	"Casey Leedom" <leedom@chelsio.com>
-To: "Andrew Morton" <akpm@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080822124844.b05ee3e8.akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Oliver Martin <oliver.martin@student.tuwien.ac.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.183]:55919 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756881AbYHWT7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 15:59:43 -0400
+In-Reply-To: <20080823200153.40a8ec24@ors.home>
 Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 22 August 2008 12:48:44 pm Andrew Morton wrote:
-> On Fri, 22 Aug 2008 11:40:56 -0700
->
-> Karen Xie <kxie@chelsio.com> wrote:
-> > [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
-> >
-> > From: Karen Xie <kxie@chelsio.com>
-> >
-> > cxgb3i iSCSI driver.
-> >
-> > Signed-off-by: Karen Xie <kxie@chelsio.com>
->
-> I'm going to suggest that this not be merged in this form due to the
-> __GFP_NOFAIL issues identified below.
->
+On Saturday 23 August 2008, you wrote:
+> Implement set_mac_address for mcs7830. This enables me to use it with my
+> cable modem. Tested (and using it right now) with 2.6.26, tested to
+> compile with 2.6.27-rc4
 
-Hi Andrew,
+Looks good, thanks!
 
-thanks for the review. We've started fixing the obvious and looking at 
-alternatives for the nofail allocations.
+> Signed-off-by: Oliver Martin <oliver.martin@student.tuwien.ac.at>
 
-Cheers,
-Divy
+Acked-by: Arnd Bergmann <arnd@arndb.de>
