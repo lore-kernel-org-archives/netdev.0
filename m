@@ -1,59 +1,44 @@
-From: Graeme Fowler <graeme@graemef.net>
-Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
-Date: Sat, 23 Aug 2008 10:20:06 +0100
-Message-ID: <1219483206.10379.5.camel@ernie.internal.graemef.net>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
-	 <20080821011715.GG19235@verge.net.au>
-	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
-	 <20080821212948.GB4407@verge.net.au> <20080821220444.GA2758@verge.net.au>
-	 <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
-	 <1219399551.4246.10.camel@ernie.internal.graemef.net>
-	 <f4845fc0808220349r6c498eddkae80eb47ed0b5a06@mail.gmail.com>
-	 <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
-	 <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
+Date: Sat, 23 Aug 2008 02:29:34 -0700 (PDT)
+Message-ID: <20080823.022934.127206564.davem@davemloft.net>
+References: <46A00B48CC54E4468EF6911F877AC4CA018D73BB@blrx3m10.blr.amer.dell.com>
+	<20080823.012830.262443664.davem@davemloft.net>
+	<46A00B48CC54E4468EF6911F877AC4CA018D73BC@blrx3m10.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sven Wegener <sven.wegener@stealer.net>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
-To: Julius Volz <juliusv@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from boom.graemef.net ([82.113.142.73]:36785 "EHLO boom.graemef.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752272AbYHWJUW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Aug 2008 05:20:22 -0400
-In-Reply-To: <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, kxie@chelsio.com,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, michaelc@cs.wisc.edu,
+	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
+	dm@chelsio.com, leedom@chelsio.com
+To: Shyam_Iyer@Dell.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <46A00B48CC54E4468EF6911F877AC4CA018D73BC@blrx3m10.blr.amer.dell.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-08-22 at 14:14 +0200, Julius Volz wrote:
-> Yes, starting from scratch on another port sounds like a good idea.
-> Losing sync ability totally isn't as bad as confusing an older kernel
-> with new messages, so I hope it's not necessary to keep the old
-> baggage around?
+From: <Shyam_Iyer@Dell.com>
+Date: Sat, 23 Aug 2008 14:37:53 +0530
 
-I agree - having a new sync daemon which can deal with v6 entries aswell
-as v4 entries would be a good way to work; the legacy code can then be
-retired at a later date with minimal end-user impact.
+> Exactly. And I am also suggesting that the driver version is not
+> standard among different vendors.
 
-> Is there enough motivation for doing this though before having a
-> cleaned-up minimal v6 version without the sync daemon? This is where
-> I'm currently a bit stuck with... any help is appreciated :)
+It should not be standardized because every driver maintainer works
+differently, and every driver is developed differently, and therefore
+has different needs and desires for the version number.
 
-Well, as someone else mentioned on lvs-users recently "I couldn't code
-my way out of a wet paper bag in C" so I'm not much help on that front,
-however I feel that getting the minimal working feature set going first
-and then adding the sync code later is probably a good way to proceed.
+All that matters is that the driver version makes sense to the
+person maintaining the driver, and works for them when reviewing
+bug reports.
 
-This also gives us a development timeline that we can offer to
-interested parties, along the lines of:
+Look, what you're suggesting is to change existing practice and that
+doesn't belong in the discussion of the review of a specific driver.
+If you want to bring that up as a topic and change globally how that
+is handled, bring that up as a seperate topic on linux-kernel.
 
-2008-10 Minimal IPv6 functionality
-2008-?? Full IPv6 functionality matching IPv4 features, no IPv6 sync
-2009-?? Restructured sync daemon with full IPv4 and IPv6 support
-
-Horms, Joe - do you agree that this is a good idea?
-
-Graeme
-
+Don't bug the poor driver submitter who is just following existing
+and accepted practice.
