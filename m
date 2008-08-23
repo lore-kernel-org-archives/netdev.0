@@ -1,60 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] [PATCH] ip: skip IP checksum for skbs with
- CHECKSUM_UNNECESSARY set
-Date: Fri, 22 Aug 2008 21:59:04 -0400
-Message-ID: <20080822215904.77e48c4c@speedy>
-References: <200808222224.32311.opurdila@ixiacom.com>
-	<20080822183320.1d8fbe34@speedy>
-	<20080822.173625.182460185.davem@davemloft.net>
+From: David Witbrodt <dawitbro@sbcglobal.net>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
+Date: Fri, 22 Aug 2008 19:25:59 -0700 (PDT)
+Message-ID: <773466.71707.qm@web82102.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Vivek Goyal <vgoyal@redhat.com>,
+	Bill Fink <billfink@mindspring.com>,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: Yinghai Lu <yhlu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:55127 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751136AbYHWB7J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Aug 2008 21:59:09 -0400
-In-Reply-To: <20080822.173625.182460185.davem@davemloft.net>
+Received: from web82102.mail.mud.yahoo.com ([209.191.84.215]:20973 "HELO
+	web82102.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751136AbYHWC0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 22:26:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Aug 2008 17:36:25 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 22 Aug 2008 18:33:20 -0400
-> 
-> > On Fri, 22 Aug 2008 22:24:31 +0300
-> > Octavian Purdila <opurdila@ixiacom.com> wrote:
-> > 
-> > > 
-> > > We are working on a completely in hardware LRO implementation and this patch 
-> > > would simplify the hardware implementation. Is this acceptable?
-> > > 
-> > > --- a/net/ipv4/ip_input.c
-> > > +++ b/net/ipv4/ip_input.c
-> > > @@ -415,7 +415,8 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
-> > >  
-> > >         iph = ip_hdr(skb);
-> > >  
-> > > -       if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
-> > > +       if (!skb_csum_unnecessary(skb) &&
-> > > +           unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
-> > >                 goto inhdr_error;
-> > >  
-> > >         len = ntohs(iph->tot_len);
-> > > 
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> > The overhead of the additional conditional might outweigh any benefit.
-> 
-> I don't think they want this for performance, they want to not have to
-> compute the IP header checksum in their HW LRO implementation, which
-> is just as silly :-)
+Yinghai,
 
-And braindead for any other uses (like filtering or forwarding).
+I finally found time to try to get some output using your patch for
+resource.c on a kernel that hangs.
+
+Some really good advice came in earlier today:  I can use "vga=1" to
+get 80x50 mode during the early boot sequence.  I used that, and made
+some alterations to the changes in your patch to squeeze more info
+onto the screen.  I also changed KERN_DEBUG to KERN_ERR in your
+printk's so that I could decrease the other output by using 
+"loglevel=4".
+
+While I cannot see the entire set of output from your debug printk's,
+I can see the last 45+ lines that appear before the hang.  The results
+were the same as when I used "hpet=disable":  the only difference 
+between the working 2.6.25 kernel and the hanging 2.6.27 kernel was 
+that the resource named "0000:00:14.0" (fed00000-fed003ff) switched
+from "conflict=0" to "conflict=1".
+
+The output from 'cat /proc/iomem' on a non-hanging kernel included
+these two lines:
+
+fed00000-fed003ff : HPET 0
+  fed00000-fed003ff : 0000:00:14.0
+
+
+None of this is really new information, since it matches with info
+I've already posted.  I just wanted to let you know the results of
+your patch on a kernel that hangs.
+
+If I find a way to read the info from the 15-20 lines that scroll 
+away on me, and if I find a difference, I'll post that as well.
+
+
+DW
