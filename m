@@ -1,56 +1,66 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
-	with the same regression
-Date: Sat, 23 Aug 2008 17:55:29 +0200
-Message-ID: <20080823155529.GA27974@elte.hu>
-References: <982729.41105.qm@web82107.mail.mud.yahoo.com>
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Subject: Re: [PATCH netdev-2.6] jme: JMicron Gigabit Ethernet Driver
+Date: Sun, 24 Aug 2008 00:04:50 +0800
+Message-ID: <48B03522.9020604@cooldavid.org>
+References: <48AFA8A8.6070604@cooldavid.org> <48AFB137.9020506@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: David Witbrodt <dawitbro@sbcglobal.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ethan <ethanhsiao@jmicron.com>, akeemting <akeem@jmicron.com>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:47947 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752396AbYHWP4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Aug 2008 11:56:21 -0400
-Content-Disposition: inline
-In-Reply-To: <982729.41105.qm@web82107.mail.mud.yahoo.com>
+Received: from 220-133-139-86.HINET-IP.hinet.net ([220.133.139.86]:59315 "EHLO
+	cooldavid.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751597AbYHWQE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 12:04:57 -0400
+In-Reply-To: <48AFB137.9020506@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jeff Garzik wrote:
+> Guo-Fu Tseng wrote:
+>> Hi, Jeff:
+>>
+>> Here is the full patch of JMicron Gigabit Ethernet driver.
+>> Supporting JMC250, and JMC260.
+>>
+>> I'm new in this submitting system, I've tried hard not to done silly 
+>> errors.
+>> Comments, and corrections are welcome from anyone. Thank you for 
+>> reviewing it.
+>>
+>> The patch is also available at:
+>> http://cooldavid.org/download/jme.netdev-2.6.20080823.patch
+>>
+>> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+>
+> Very nice and clean and feature-complete!  Comments:
+>
+Thank you! You are so kind. :-)
+> * the definition of jwrite32() and jread32():  writel() and readl() 
+> are defined in terms of the little-endian PCI bus, and therefore 
+> automatically handle byteswapping (or not) as defined by the platform 
+> API.
+>
+> You should be able to just remove those le32_to_cpu() and the reverse, 
+> to obtain proper behavior.
+>
+Removed it.
+> * The atomic values rx_cleaning and tx_cleaning look problematic and 
+> potentially racy, though I admit not having completely evaluated its 
+> usage.
+>
+Re-writing it.
+> * we prefer not to add custom ioctls, but rather add functionality to 
+> ethtool.  in particular, JMESPIIOCTL does not appear to have any 
+> security checks, and is a potential security hole that permits an 
+> unpriveleged user direct access to hardware
+>
 
-* David Witbrodt <dawitbro@sbcglobal.net> wrote:
+Should I add privilege check, or should(could?) I send a patch that add 
+ethtool interface for flash(For storing PXE code) read/write?
 
->      for (;;) {
->          tmp = *p;
->          if (!tmp || tmp->start > end) {
-> +insert:
->              new->sibling = tmp;
->              *p = new;
->              new->parent = root;
-> @@ -164,7 +165,10 @@ static struct resource * __request_resource(struct resource *root, struct resour
->          p = &tmp->sibling;
->          if (tmp->end < start)
->              continue;
-> -        return tmp;
-> +        printk("ignoring resource conflict between %s/{%p..%p} and %s/{%p..%p}\n", new->name, 
-> +               (void *)new->start, (void *)new->end, tmp->name, (void *)tmp->start, (void *)tmp->end);
-> +        WARN_ON(1);
-> +        goto insert;
 
-sorry about that, my first patch was more broken than i thought (it will 
-basically hang on _any_ box), please try the second patch.
+Thank you for super-fast reply.
 
-Note how the above hack code does a stupid goto, and 'p' is updated for 
-the next loop iteration already. The second version of the debug patch 
-only updates 'p' in the 'continue' case and will hopefully get you much 
-further into bootup!
-
-	Ingo
