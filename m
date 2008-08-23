@@ -1,47 +1,59 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id()
- in preemptible code
-Date: Sat, 23 Aug 2008 11:12:46 +0200
-Message-ID: <48AFD48E.6050109@fr.ibm.com>
-References: <20080821122040.GA2497@x200.localdomain> <1219413273-14281-1-git-send-email-den@openvz.org> <48AF4879.9070005@fr.ibm.com> <20080823004849.GA9678@gondor.apana.org.au>
+From: Graeme Fowler <graeme@graemef.net>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Sat, 23 Aug 2008 10:20:06 +0100
+Message-ID: <1219483206.10379.5.camel@ernie.internal.graemef.net>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <20080821011715.GG19235@verge.net.au>
+	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+	 <20080821212948.GB4407@verge.net.au> <20080821220444.GA2758@verge.net.au>
+	 <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
+	 <1219399551.4246.10.camel@ernie.internal.graemef.net>
+	 <f4845fc0808220349r6c498eddkae80eb47ed0b5a06@mail.gmail.com>
+	 <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
+	 <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
-	adobriyan@gmail.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Sven Wegener <sven.wegener@stealer.net>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
+To: Julius Volz <juliusv@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:53929 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbYHWJM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 05:12:57 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id m7N9CtlG302074
-	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 09:12:55 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7N9CtFh2986102
-	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 11:12:55 +0200
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7N9CqB1027568
-	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 11:12:52 +0200
-In-Reply-To: <20080823004849.GA9678@gondor.apana.org.au>
+Received: from boom.graemef.net ([82.113.142.73]:36785 "EHLO boom.graemef.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752272AbYHWJUW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 05:20:22 -0400
+In-Reply-To: <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Aug 23, 2008 at 01:15:05AM +0200, Daniel Lezcano wrote:
->> thanks for the fix. For my personal knowledge, why can we just use in 
->> the icmp_sk function:
->> 	{
->> 		struct sock *isk = net->ipv4.icmp_sk[get_cpu()];
->> 		put_cpu();
->> 		return isk;
->> 	}
->>
->> ?
-> 
-> Because then you can get rescheduled to another CPU while still
-> using someone else's ICMP socket.
+On Fri, 2008-08-22 at 14:14 +0200, Julius Volz wrote:
+> Yes, starting from scratch on another port sounds like a good idea.
+> Losing sync ability totally isn't as bad as confusing an older kernel
+> with new messages, so I hope it's not necessary to keep the old
+> baggage around?
 
-Obviously :)
-Thanks Herbert.
+I agree - having a new sync daemon which can deal with v6 entries aswell
+as v4 entries would be a good way to work; the legacy code can then be
+retired at a later date with minimal end-user impact.
+
+> Is there enough motivation for doing this though before having a
+> cleaned-up minimal v6 version without the sync daemon? This is where
+> I'm currently a bit stuck with... any help is appreciated :)
+
+Well, as someone else mentioned on lvs-users recently "I couldn't code
+my way out of a wet paper bag in C" so I'm not much help on that front,
+however I feel that getting the minimal working feature set going first
+and then adding the sync code later is probably a good way to proceed.
+
+This also gives us a development timeline that we can offer to
+interested parties, along the lines of:
+
+2008-10 Minimal IPv6 functionality
+2008-?? Full IPv6 functionality matching IPv4 features, no IPv6 sync
+2009-?? Restructured sync daemon with full IPv4 and IPv6 support
+
+Horms, Joe - do you agree that this is a good idea?
+
+Graeme
+
