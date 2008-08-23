@@ -1,85 +1,60 @@
-From: "Alexander Duyck" <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Fri, 22 Aug 2008 18:37:51 -0700
-Message-ID: <5f2db9d90808221837h2f727478qf78bb6e6a2867802@mail.gmail.com>
-References: <1219415417.4672.79.camel@localhost>
-	 <20080822221913.GA2981@ami.dom.local>
-	 <5f2db9d90808221701t4c576282m34a46999b76b6e83@mail.gmail.com>
-	 <20080822.174032.117057862.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] [PATCH] ip: skip IP checksum for skbs with
+ CHECKSUM_UNNECESSARY set
+Date: Fri, 22 Aug 2008 21:59:04 -0400
+Message-ID: <20080822215904.77e48c4c@speedy>
+References: <200808222224.32311.opurdila@ixiacom.com>
+	<20080822183320.1d8fbe34@speedy>
+	<20080822.173625.182460185.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: "David Miller" <davem@davemloft.net>
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:34412 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311AbYHWBhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 21:37:52 -0400
-Received: by yx-out-2324.google.com with SMTP id 8so448679yxm.1
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 18:37:51 -0700 (PDT)
-In-Reply-To: <20080822.174032.117057862.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([216.93.170.194]:55127 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751136AbYHWB7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Aug 2008 21:59:09 -0400
+In-Reply-To: <20080822.173625.182460185.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 5:40 PM, David Miller <davem@davemloft.net> wrote:
-> From: "Alexander Duyck" <alexander.duyck@gmail.com>
-> Date: Fri, 22 Aug 2008 17:01:50 -0700
->
->> I am almost certain that David's approach using the hash will show
->> better performance than the multiqueue prio qdisc would.  The
->> multiqueue prio qdisc is meant to allow for classification of traffic
->> into separate traffic classes to support stuff like Enhanced Ethernet
->> for Data Center (EEDC) / Data Center Bridging (DCB).
->
-> The only sensible way to implement this is to use the existing
-> classifier technology in the packet scheduler to choose traffic,
-> and then writing a TC actions or ematch module that sets the
-> TX queue of the SKB based upon the classification result.
->
-> The thing that was there before was very narrow in scope and
-> we'll just have to keep adding more special purpose modules
-> as more such uses come up.
->
-> With the classifiers, it's generic and any scheme can be implemented
-> by simply issuing different 'tc' commands.
->
+On Fri, 22 Aug 2008 17:36:25 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-I thought about doing just that but then I realized that there would
-be a number of issues.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Fri, 22 Aug 2008 18:33:20 -0400
+> 
+> > On Fri, 22 Aug 2008 22:24:31 +0300
+> > Octavian Purdila <opurdila@ixiacom.com> wrote:
+> > 
+> > > 
+> > > We are working on a completely in hardware LRO implementation and this patch 
+> > > would simplify the hardware implementation. Is this acceptable?
+> > > 
+> > > --- a/net/ipv4/ip_input.c
+> > > +++ b/net/ipv4/ip_input.c
+> > > @@ -415,7 +415,8 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+> > >  
+> > >         iph = ip_hdr(skb);
+> > >  
+> > > -       if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+> > > +       if (!skb_csum_unnecessary(skb) &&
+> > > +           unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+> > >                 goto inhdr_error;
+> > >  
+> > >         len = ntohs(iph->tot_len);
+> > > 
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> > The overhead of the additional conditional might outweigh any benefit.
+> 
+> I don't think they want this for performance, they want to not have to
+> compute the IP header checksum in their HW LRO implementation, which
+> is just as silly :-)
 
-First if I just set the skb->queue_mapping for the packet without
-moving it to a qdisc dedicated to that tx queue I run into
-head-of-line issues since multiple qdiscs will stop if holding packets
-for a single tx queue that is full.  That is over come in this patch
-by the fact that each qdisc has a specific fifo per tx queue.
-
-That issue led me to the thought of creating a redirect action that
-would take the packet from one qdisc to the correct qdisc for the
-transmit queue.  That setup has two issues.  First, all traffic would
-need to go to one queue by default to avoid a possible deadlock
-condition in the event that two queues try to enqueue packets on one
-another at the same time.  That combined with the fact that one packet
-would then have to grab two qdisc locks to be enqueued seems to be
-rather expensive performance wise.  Second the the action of
-redirecting the packet once already in a qdisc requires cloning the
-skb which would be a serious performance drop over the previous prio
-qdisc implementation.  I don't incur these performance penalties with
-the mq prio qdisc and the locking is clean since the transition occurs
-after dequeue but before grabbing the transmit queue lock.
-
-There were only two workable ways I could see of doing this that
-didn't make a total mess of things.  The first is what I implemented
-in this patch.  The second would have been to add a pass-thru qdisc
-prior to or as part of select_queue that had the tc action that set
-the skb->queue_mapping.  The only reason why I didn't really feel
-comfortable implementing the extra qdisc is because I felt it would
-have added extra unnecessary overhead and require more changes to the
-tx path.
-
-Thanks,
-
-Alex
+And braindead for any other uses (like filtering or forwarding).
