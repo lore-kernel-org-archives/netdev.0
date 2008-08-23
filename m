@@ -1,90 +1,36 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/4 2.6.28] cxgb3 - manage a private ip address for iSCSI
-Date: Sat, 23 Aug 2008 14:55:20 +1000
-Message-ID: <20080823045520.GA4759@gondor.apana.org.au>
-References: <200808221838.m7MIcW6a004400@localhost.localdomain> <20080822120851.c45a90f2.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	davem@davemloft.net, michaelc@cs.wisc.edu,
-	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
-	dm@chelsio.com, leedom@chelsio.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20080822120851.c45a90f2.akpm@linux-foundation.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Sat, 23 Aug 2008 15:12:25 +1000
+Message-ID: <E1KWlQH-0001Ge-00@gondolin.me.apana.org.au>
+References: <5f2db9d90808221837h2f727478qf78bb6e6a2867802@mail.gmail.com>
+Cc: davem@davemloft.net, jarkao2@gmail.com, hadi@cyberus.ca,
+	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: alexander.duyck@gmail.com (Alexander Duyck)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:40189 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751233AbYHWFMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 01:12:40 -0400
+In-Reply-To: <5f2db9d90808221837h2f727478qf78bb6e6a2867802@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 07:08:51PM +0000, Andrew Morton wrote:
->
->> +static ssize_t iscsi_ipaddr_attr_store(struct device *d,
->> +                                    const char *buf, size_t len)
->> +{
->> +     struct port_info *pi = netdev_priv(to_net_dev(d));
->> +     __be32 a = 0;
+Alexander Duyck <alexander.duyck@gmail.com> wrote:
 > 
-> There's not really any need to use __be32 in kernel code.  Plain old
-> be23 is fine.
+> That issue led me to the thought of creating a redirect action that
+> would take the packet from one qdisc to the correct qdisc for the
+> transmit queue.  That setup has two issues.  First, all traffic would
+> need to go to one queue by default to avoid a possible deadlock
+> condition in the event that two queues try to enqueue packets on one
+> another at the same time.  That combined with the fact that one packet
 
-Sorry but where is be32 defined? I couldn't find it in linux/types.h.
-
-Perhaps we should resurrect this patch from 2005?
-
-[PATCH] Add be*/le* types without underscores
-
-I've seen a number of patches that have started to use the __le*/__be*
-types within the kernel.  Nice as they are, the underscores are really
-a bit of an eye sore.  Since there seems to be no name conflict within
-the kernel, why don't we use them without the underscores like just as
-we do with types like u32?
-
-Here is a patch to do just that.  I've verified that there are no
-conflicts by grepping the current git tree and then building it with
-the patch.
-
-Of course userspace won't see them since they're protected by
-#ifdef __KERNEL__.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/fs/ntfs/types.h b/fs/ntfs/types.h
-index 8c8053b..79b44c7 100644
---- a/fs/ntfs/types.h
-+++ b/fs/ntfs/types.h
-@@ -25,9 +25,6 @@
- 
- #include <linux/types.h>
- 
--typedef __le16 le16;
--typedef __le32 le32;
--typedef __le64 le64;
- typedef __u16 __bitwise sle16;
- typedef __u32 __bitwise sle32;
- typedef __u64 __bitwise sle64;
-diff --git a/include/linux/types.h b/include/linux/types.h
-index d4a9ce6..61747dc 100644
---- a/include/linux/types.h
-+++ b/include/linux/types.h
-@@ -189,6 +189,15 @@ typedef __u16 __bitwise __sum16;
- typedef __u32 __bitwise __wsum;
- 
- #ifdef __KERNEL__
-+typedef __le16 le16;
-+typedef __be16 be16;
-+typedef __le32 le32;
-+typedef __be32 be32;
-+#if defined(__GNUC__)
-+typedef __le64 le64;
-+typedef __be64 be64;
-+#endif
-+
- typedef unsigned __bitwise__ gfp_t;
- 
- #ifdef CONFIG_RESOURCES_64BIT
+That looks like a problem but it isn't.  When you're overriding
+the default queue selection you're breaking CPU affinity.  As such
+cache-line bouncing is clearly not a concern or you wouldn't be
+doing this (that is, you're doing this for QOS rather than CPU
+scalability).  So having everything go through a single qdisc
+shouldn't be a problem.
 
 Cheers,
 -- 
