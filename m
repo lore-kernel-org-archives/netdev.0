@@ -1,40 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ipv6: protocol for address routes
-Date: Sat, 23 Aug 2008 05:17:12 -0700 (PDT)
-Message-ID: <20080823.051712.47784171.davem@davemloft.net>
-References: <20080819085441.7b0184d1@speedy>
+Subject: [GIT]: Networking
+Date: Sat, 23 Aug 2008 05:24:03 -0700 (PDT)
+Message-ID: <20080823.052403.235513545.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58185
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36730
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753003AbYHWMRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 08:17:13 -0400
-In-Reply-To: <20080819085441.7b0184d1@speedy>
+	by vger.kernel.org with ESMTP id S1752764AbYHWMYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 08:24:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 19 Aug 2008 08:54:41 -0700
 
-> This fixes a problem spotted with zebra, but not sure if it is
-> necessary a kernel problem.  With IPV6 when an address is added to
-> an interface, Zebra creates a duplicate RIB entry, one as a
-> connected route, and other as a kernel route.
->
-> When an address is added to an interface the RTN_NEWADDR message
-> causes Zebra to create a connected route. In IPV4 when an address is
-> added to an interface a RTN_NEWROUTE message is set to user space
-> with the protocol RTPROT_KERNEL. Zebra ignores these messages,
-> because it already has the connected route.
->
-> The problem is that route created in IPV6 has route protocol ==
-> RTPROT_BOOT.  Was this a design decision or a bug? This fixes
-> it. Same patch applies to both net-2.6 and stable.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Here are some bug fixes:
 
-I've applied this to net-2.6, thanks Stephen.
+1) Zebra routing daemon is confused because ipv6 netlink
+   event messages don't set the protocol field properly
+   like ipv4 ones do.  Fix from Stephen Hemminger.
+
+2) Insufficient qdisc list locking leads to Qdisc corruption
+   and oops.  Fix from Jarek Poplawski.
+
+3) Qdisc watchdog timer can race with dev_deactivate(), put
+   state tests in the slow path to prevent this.  Also from
+   Jarek Poplawski.
+
+4) Several SCTP-AUTH sock options are user OOPS'able.  Fix from Vlad
+   Yasevich.
+
+5) Fix smp_processor_id() usage by icmp_sk(), needs to disable
+   preemption.  Fix from Denis V. Lunev
+
+Please pull, thanks a lot.
+
+The following changes since commit 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
+  Linus Torvalds (1):
+        Linux v2.6.27-rc4
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Denis V. Lunev (1):
+      icmp: icmp_sk() should not use smp_processor_id() in preemptible code
+
+Jarek Poplawski (2):
+      pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
+      pkt_sched: Fix qdisc list locking
+
+Stephen Hemminger (1):
+      ipv6: protocol for address routes
+
+Vlad Yasevich (1):
+      sctp: fix potential panics in the SCTP-AUTH API.
+
+ include/net/pkt_sched.h   |    1 +
+ include/net/sch_generic.h |    5 +++
+ net/ipv4/icmp.c           |   22 +++++++----
+ net/ipv6/addrconf.c       |    1 +
+ net/ipv6/icmp.c           |   23 ++++++------
+ net/sched/sch_api.c       |   48 +++++++++++++++++++++++---
+ net/sched/sch_cbq.c       |    4 ++
+ net/sched/sch_generic.c   |    5 +--
+ net/sctp/endpointola.c    |    4 +-
+ net/sctp/socket.c         |   85 ++++++++++++++++++++++++++++++++++----------
+ 10 files changed, 149 insertions(+), 49 deletions(-)
