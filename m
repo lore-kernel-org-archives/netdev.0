@@ -1,80 +1,73 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 1/2] net/usb/mcs7830: new device IDs
-Date: Sat, 23 Aug 2008 22:02:23 +0200
-Message-ID: <200808232202.23822.arnd@arndb.de>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH 2/2] net/usb/mcs7830: add set_mac_address
+Date: Sat, 23 Aug 2008 22:08:47 +0200
+Message-ID: <200808232208.47578.arnd@arndb.de>
+References: <200808232202.23822.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Viktor Horvath <ViktorHorvath@gmx.net>,
-	Robbert Wethmar <robbert@wethmar.nl>,
-	Bart van der Klip <bklip@xs4all.nl>,
-	Jeff Garzik <jgarzik@pobox.com>
-To: David Brownell <dbrownell@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:58832 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753874AbYHWUOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 16:14:22 -0400
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Oliver Martin <oliver.martin-oe7qfRrRQffzPE21tAIdciO7C/xPubJB@public.gmane.org>
+To: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200808232202.23822.arnd-r2nGTMty4D4@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This adds USB device IDs for MosChip 7730 and Sitecom LN030
-to the mcs7830 driver. The IDs have been reported to work without
-further modifications.
+From: Oliver Martin <oliver.martin-oe7qfRrRQffzPE21tAIdciO7C/xPubJB@public.gmane.org>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: David Brownell <david-b@pacbell.net>
-Cc: Viktor Horvath <ViktorHorvath@gmx.net>
-Cc: Robbert Wethmar <robbert@wethmar.nl>
-Cc: Bart van der Klip <bklip@xs4all.nl>
+Implement set_mac_address for mcs7830. This enables me to use it with my
+cable modem. Tested (and using it right now) with 2.6.26, tested to
+compile with 2.6.27-rc4
 
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -46,6 +46,10 @@
- 
- #define MCS7830_VENDOR_ID	0x9710
- #define MCS7830_PRODUCT_ID	0x7830
-+#define MCS7730_PRODUCT_ID	0x7730
-+
-+#define SITECOM_VENDOR_ID	0x0DF6
-+#define LN_030_PRODUCT_ID	0x0021
- 
- #define MCS7830_MII_ADVERTISE	(ADVERTISE_PAUSE_CAP | ADVERTISE_100FULL | \
- 				 ADVERTISE_100HALF | ADVERTISE_10FULL | \
-@@ -491,7 +495,16 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- }
- 
- static const struct driver_info moschip_info = {
--	.description	= "MOSCHIP 7830 usb-NET adapter",
-+	.description	= "MOSCHIP 7830/7730 usb-NET adapter",
-+	.bind		= mcs7830_bind,
-+	.rx_fixup	= mcs7830_rx_fixup,
-+	.flags		= FLAG_ETHER,
-+	.in		= 1,
-+	.out		= 2,
-+};
-+
-+static const struct driver_info sitecom_info = {
-+	.description    = "Sitecom LN-30 usb-NET adapter",
- 	.bind		= mcs7830_bind,
- 	.rx_fixup	= mcs7830_rx_fixup,
- 	.flags		= FLAG_ETHER,
-@@ -504,6 +517,14 @@ static const struct usb_device_id products[] = {
- 		USB_DEVICE(MCS7830_VENDOR_ID, MCS7830_PRODUCT_ID),
- 		.driver_info = (unsigned long) &moschip_info,
- 	},
-+	{
-+		USB_DEVICE(MCS7830_VENDOR_ID, MCS7730_PRODUCT_ID),
-+		.driver_info = (unsigned long) &moschip_info,
-+	},
-+	{
-+		USB_DEVICE(SITECOM_VENDOR_ID, LN_030_PRODUCT_ID),
-+		.driver_info = (unsigned long) &sitecom_info,
-+	},
- 	{},
+Signed-off-by: Oliver Martin <oliver.martin-oe7qfRrRQffzPE21tAIdciO7C/xPubJB@public.gmane.org>
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+
+--- linux-2.6.26/drivers/net/usb/mcs7830.c.orig	2008-08-23 01:44:26.000000000 +0200
++++ linux-2.6.26/drivers/net/usb/mcs7830.c	2008-08-23 02:26:28.000000000 +0200
+@@ -442,6 +442,29 @@ static struct ethtool_ops mcs7830_ethtoo
+ 	.nway_reset		= usbnet_nway_reset,
  };
- MODULE_DEVICE_TABLE(usb, products);
+ 
++static int mcs7830_set_mac_address(struct net_device *netdev, void *p)
++{
++	int ret;
++	struct usbnet *dev = netdev_priv(netdev);
++	struct sockaddr *addr = p;
++
++	if (netif_running(netdev))
++		return -EBUSY;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EINVAL;
++
++	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++
++	ret = mcs7830_set_reg(dev, HIF_REG_ETHERNET_ADDR, ETH_ALEN,
++			netdev->dev_addr);
++
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
+ static int mcs7830_bind(struct usbnet *dev, struct usb_interface *udev)
+ {
+ 	struct net_device *net = dev->net;
+@@ -455,6 +478,7 @@ static int mcs7830_bind(struct usbnet *d
+ 	net->ethtool_ops = &mcs7830_ethtool_ops;
+ 	net->set_multicast_list = mcs7830_set_multicast;
+ 	mcs7830_set_multicast(net);
++	net->set_mac_address = mcs7830_set_mac_address;
+ 
+ 	/* reserve space for the status byte on rx */
+ 	dev->rx_urb_size = ETH_FRAME_LEN + 1;
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
