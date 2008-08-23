@@ -1,63 +1,46 @@
-From: Rufus & Azrael <rufus-azrael@numericable.fr>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
- with the same regression
-Date: Sat, 23 Aug 2008 22:13:25 +0200
-Message-ID: <48B06F65.8070603@numericable.fr>
-References: <260012.74088.qm@web82105.mail.mud.yahoo.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [bisected] Weird sysctl regression
+Date: Sat, 23 Aug 2008 23:09:00 +0200
+Message-ID: <87od3jo2vn.fsf@natisbad.org>
+References: <87fxoyal9j.fsf@natisbad.org>
+	<20080823084936.GK28946@ZenIV.linux.org.uk>
+	<87wsi7en1m.fsf@natisbad.org>
+	<20080823170248.GL28946@ZenIV.linux.org.uk>
+	<87ljynd582.fsf@natisbad.org>
+	<20080823181651.GM28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>, Ingo Molnar <mingo@elte.hu>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: David Witbrodt <dawitbro@sbcglobal.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fb2.tech.numericable.fr ([82.216.111.50]:51258 "EHLO
-	fb2.tech.numericable.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753908AbYHWUWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 16:22:32 -0400
-Received: from smtp2.tech.numericable.fr (smtp2.nc.sdv.fr [10.0.0.36])
-	by fb2.tech.numericable.fr (Postfix) with ESMTP id D541219D0B0
-	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 22:14:59 +0200 (CEST)
-In-Reply-To: <260012.74088.qm@web82105.mail.mud.yahoo.com>
+Received: from moog.chdir.org ([88.191.42.160]:53895 "EHLO moog.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751153AbYHWVKR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 17:10:17 -0400
+In-Reply-To: <20080823181651.GM28946@ZenIV.linux.org.uk> (Al Viro's message of
+	"Sat, 23 Aug 2008 19:16:51 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Witbrodt wrote:
->    
->> Thanks Yinghai,
->>
->> Your patch applied, I attach lspci -vvxxxx.
->>
->> Regards.
->>      
->
-> Hello "Rufus&  Azrael",
->
-> Are you experiencing the same difficulties with kernels hanging after
-> version 2.6.25?
->
-> In my case, kernels before 2.6.26 worked fine, but all kernels since
-> 2.6.26 hang during boot, and the problem was traced (using 'git bisect')
-> to commit number 3def3d6d.
->
-> Please let me know your situation.
->
->
-> Thanks,
-> Dave W.
->
->    
-Hello David,
+Hi,
 
-I have no such hanging on my recent kernels, just the dmesg :
+Al Viro <viro@ZenIV.linux.org.uk> writes:
 
-> [    1.057255] hpet_resources: 0xfed00000 is busy
-and I find the present post to try solving this regression.
+> On Sat, Aug 23, 2008 at 07:13:49PM +0200, Arnaud Ebalard wrote:
+>
+>> I already tested 26.27-rc4 and even net-next-2.6 (recently released one
+>> based on rc4 with some bug fixes). Problem is still here.
+>
+> Just to make sure: that's rc4 without any additional patches?
 
-Regards.
+Sorry for the delay. Yes, no additional patches in both cases:
 
+- stock 2.6.27-rc4 from kernel.org
+- freshly cloned net-next-2.6 after David's announcement
 
+Cheers,
+
+a+
+
+ps: if you have various ideas you want to test on that issue (additional
+    debug, printks, ...), don't hesitate to send me patches ...
