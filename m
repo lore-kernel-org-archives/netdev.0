@@ -1,72 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sat, 23 Aug 2008 05:24:03 -0700 (PDT)
-Message-ID: <20080823.052403.235513545.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
+	with the same regression
+Date: Sat, 23 Aug 2008 15:36:43 +0200
+Message-ID: <20080823133643.GA23766@elte.hu>
+References: <825188.80277.qm@web82105.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Bill Fink <billfink@mindspring.com>,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: David Witbrodt <dawitbro@sbcglobal.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36730
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752764AbYHWMYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 08:24:05 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:51366 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751057AbYHWNhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 09:37:41 -0400
+Content-Disposition: inline
+In-Reply-To: <825188.80277.qm@web82105.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Here are some bug fixes:
+David,
 
-1) Zebra routing daemon is confused because ipv6 netlink
-   event messages don't set the protocol field properly
-   like ipv4 ones do.  Fix from Stephen Hemminger.
+could you try the debug patch below ontop of latest tip/master:
 
-2) Insufficient qdisc list locking leads to Qdisc corruption
-   and oops.  Fix from Jarek Poplawski.
+  http://people.redhat.com/mingo/tip.git/README
 
-3) Qdisc watchdog timer can race with dev_deactivate(), put
-   state tests in the slow path to prevent this.  Also from
-   Jarek Poplawski.
+the patch forcibly ignores resource conflicts and reports them. This 
+will likely break some system - but if your hpet troubles are due to 
+resource conflicts then this patch would make the kernel boot up fine on 
+your system by default, with a working hpet.
 
-4) Several SCTP-AUTH sock options are user OOPS'able.  Fix from Vlad
-   Yasevich.
+You should also be getting a printout and a warning in the dmesg in that 
+case.
 
-5) Fix smp_processor_id() usage by icmp_sk(), needs to disable
-   preemption.  Fix from Denis V. Lunev
+	Ingo
 
-Please pull, thanks a lot.
+------------>
+>From 092990e259a462d39f1d8e9cd542898632b95fde Mon Sep 17 00:00:00 2001
+From: Ingo Molnar <mingo@elte.hu>
+Date: Sat, 23 Aug 2008 15:33:51 +0200
+Subject: [PATCH] debug hack: ignore resource conflicts
 
-The following changes since commit 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
-  Linus Torvalds (1):
-        Linux v2.6.27-rc4
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ kernel/resource.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Denis V. Lunev (1):
-      icmp: icmp_sk() should not use smp_processor_id() in preemptible code
-
-Jarek Poplawski (2):
-      pkt_sched: Fix qdisc_watchdog() vs. dev_deactivate() race
-      pkt_sched: Fix qdisc list locking
-
-Stephen Hemminger (1):
-      ipv6: protocol for address routes
-
-Vlad Yasevich (1):
-      sctp: fix potential panics in the SCTP-AUTH API.
-
- include/net/pkt_sched.h   |    1 +
- include/net/sch_generic.h |    5 +++
- net/ipv4/icmp.c           |   22 +++++++----
- net/ipv6/addrconf.c       |    1 +
- net/ipv6/icmp.c           |   23 ++++++------
- net/sched/sch_api.c       |   48 +++++++++++++++++++++++---
- net/sched/sch_cbq.c       |    4 ++
- net/sched/sch_generic.c   |    5 +--
- net/sctp/endpointola.c    |    4 +-
- net/sctp/socket.c         |   85 ++++++++++++++++++++++++++++++++++----------
- 10 files changed, 149 insertions(+), 49 deletions(-)
+diff --git a/kernel/resource.c b/kernel/resource.c
+index f5b518e..8419d56 100644
+--- a/kernel/resource.c
++++ b/kernel/resource.c
+@@ -156,6 +156,7 @@ static struct resource * __request_resource(struct resource *root, struct resour
+ 	for (;;) {
+ 		tmp = *p;
+ 		if (!tmp || tmp->start > end) {
++insert:
+ 			new->sibling = tmp;
+ 			*p = new;
+ 			new->parent = root;
+@@ -164,7 +165,9 @@ static struct resource * __request_resource(struct resource *root, struct resour
+ 		p = &tmp->sibling;
+ 		if (tmp->end < start)
+ 			continue;
+-		return tmp;
++		printk("ignoring resource conflict between %s/{%p..%p} and %s/{%p..%p}\n", new->name, (void *)new->start, (void *)new->end, tmp->name, (void *)tmp->start, (void *)tmp->end);
++		WARN_ON(1);
++		goto insert;
+ 	}
+ }
+ 
