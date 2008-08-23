@@ -1,74 +1,99 @@
-From: adobriyan@gmail.com
-Subject: Re: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id() in preemptible code
-Date: Sat, 23 Aug 2008 03:21:46 +0400
-Message-ID: <20080822232146.GA3371@x200.localdomain>
-References: <20080821122040.GA2497@x200.localdomain> <1219413273-14281-1-git-send-email-den@openvz.org>
+From: "Alexander Duyck" <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Fri, 22 Aug 2008 17:01:50 -0700
+Message-ID: <5f2db9d90808221701t4c576282m34a46999b76b6e83@mail.gmail.com>
+References: <1219415417.4672.79.camel@localhost>
+	 <20080822221913.GA2981@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dlezcano@fr.ibm.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, "David Miller" <davem@davemloft.net>,
+	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.189]:3044 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755056AbYHVXUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 19:20:19 -0400
-Received: by mu-out-0910.google.com with SMTP id w8so851132mue.1
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 16:20:17 -0700 (PDT)
+Received: from yx-out-2324.google.com ([74.125.44.28]:3853 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752953AbYHWABv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 20:01:51 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so434443yxm.1
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 17:01:50 -0700 (PDT)
+In-Reply-To: <20080822221913.GA2981@ami.dom.local>
 Content-Disposition: inline
-In-Reply-To: <1219413273-14281-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 05:54:33PM +0400, Denis V. Lunev wrote:
-> Pass namespace into icmp_xmit_lock, obtain socket inside and return
-> it as a result for caller.
-> 
-> Thanks Alexey Dobryan for this report:
-> 
-> Steps to reproduce:
-> 
-> 	CONFIG_PREEMPT=y
-> 	CONFIG_DEBUG_PREEMPT=y
-> 	tracepath <something>
-> 
-> BUG: using smp_processor_id() in preemptible [00000000] code: tracepath/3205
-> caller is icmp_sk+0x15/0x30
-> Pid: 3205, comm: tracepath Not tainted 2.6.27-rc4 #1
-> 
-> Call Trace:
->  [<ffffffff8031af14>] debug_smp_processor_id+0xe4/0xf0
->  [<ffffffff80409405>] icmp_sk+0x15/0x30
->  [<ffffffff8040a17b>] icmp_send+0x4b/0x3f0
->  [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
->  [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
->  [<ffffffff8023a475>] ? local_bh_enable_ip+0x95/0x110
->  [<ffffffff804285b9>] ? _spin_unlock_bh+0x39/0x40
->  [<ffffffff8025a26c>] ? mark_held_locks+0x4c/0x90
->  [<ffffffff8025a4ad>] ? trace_hardirqs_on+0xd/0x10
->  [<ffffffff8025a415>] ? trace_hardirqs_on_caller+0xd5/0x160
->  [<ffffffff803e91b4>] ip_fragment+0x8d4/0x900
->  [<ffffffff803e7030>] ? ip_finish_output2+0x0/0x290
->  [<ffffffff803e91e0>] ? ip_finish_output+0x0/0x60
->  [<ffffffff803e6650>] ? dst_output+0x0/0x10
->  [<ffffffff803e922c>] ip_finish_output+0x4c/0x60
->  [<ffffffff803e92e3>] ip_output+0xa3/0xf0
->  [<ffffffff803e68d0>] ip_local_out+0x20/0x30
->  [<ffffffff803e753f>] ip_push_pending_frames+0x27f/0x400
->  [<ffffffff80406313>] udp_push_pending_frames+0x233/0x3d0
->  [<ffffffff804067d1>] udp_sendmsg+0x321/0x6f0
->  [<ffffffff8040d155>] inet_sendmsg+0x45/0x80
->  [<ffffffff803b967f>] sock_sendmsg+0xdf/0x110
->  [<ffffffff8024a100>] ? autoremove_wake_function+0x0/0x40
->  [<ffffffff80257ce5>] ? validate_chain+0x415/0x1010
->  [<ffffffff8027dc10>] ? __do_fault+0x140/0x450
->  [<ffffffff802597d0>] ? __lock_acquire+0x260/0x590
->  [<ffffffff803b9e55>] ? sockfd_lookup_light+0x45/0x80
->  [<ffffffff803ba50a>] sys_sendto+0xea/0x120
->  [<ffffffff80428e42>] ? _spin_unlock_irqrestore+0x42/0x80
->  [<ffffffff803134bc>] ? __up_read+0x4c/0xb0
->  [<ffffffff8024e0c6>] ? up_read+0x26/0x30
->  [<ffffffff8020b8bb>] system_call_fastpath+0x16/0x1b
+On Fri, Aug 22, 2008 at 3:19 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> jamal wrote, On 08/22/2008 04:30 PM:
+> ...
+>> There are two issues at stake:
+>> 1) egress Multiq support and the desire to have concurency based on
+>> however many cpus and hardware queues exist on the system.
+>> 2) scheduling of the such hardware queues being executed by the hardware
+>> (and not by software).
+>>
+>> Daves goal: #1; run faster than Usain Bolt.
+>
+> Looks fine.
+>
+In the case of this scheduler our main focus is QOS and then
+performance.  Basically I was trying to achieve the goal of setting up
+the queues as needed without forcing a serious change in the current
+transmit path or seriously impacting performance.  I figure since all
+I am doing is restoring part of what was there for 2.6.26 the
+likelihood of this causing a performance regression is small.
 
-This helps.
+>> What we were solving at the time: #2. My view was to solve it with
+>> minimal changes.
+>>
+>> #1 and #2 are orthogonal. Yes, there is religion: Dave yours is #1.
+>> Intels is #2; And there are a lot of people in intels camp because
+>> they bill their customers based on qos of resources. The wire being one
+>> such resource.
+>
+> If we can guarentee that current, automatic steering gives always the
+> best performance than David seems to be right. But I doubt it, and
+> that's why I think such a simple, manual control could be useful.
+> Especially if it doesn't add much overhead.
 
+I am almost certain that David's approach using the hash will show
+better performance than the multiqueue prio qdisc would.  The
+multiqueue prio qdisc is meant to allow for classification of traffic
+into separate traffic classes to support stuff like Enhanced Ethernet
+for Data Center (EEDC) / Data Center Bridging (DCB).  Basically we
+can't use the hash to place things into the correct queue because each
+hardware queue has a specific traffic class assigned to it, and the
+queue can be stopped via priority flow control packets leaving the
+other queues still going.  The multiqueue prio qdisc will allow all of
+the other traffic classes on the other queues to continue flowing
+without causing any head-of-line issues simply because one queue is
+stopped.
+
+>
+>> Therefore your statement that these schemes exist to "enforce fairness
+>> amongst the TX queues" needs to be qualified mon ami;-> The end parts of
+>> Animal Farm come to mind: Some animals have more rights than others;->
+>
+> Sure, but shouldn't this other kind of fairness be applied on lower
+> levels?
+>
+> Cheers,
+> Jarek P.
+
+This qdisc isn't so much about fairness as just making sure that the
+right traffic gets to the right tx queue, and that there are no
+head-of-line issues that occur between traffic classes in the process.
+One of the things I looked at was slipping an extra pass-thru qdisc
+into the path prior to, or as part of, dev->select_queue.  It would
+have required some serious changes to the transmit path in addition to
+application changes to iproute2 in order to support adding rules on
+yet another qdisc layer in the transmit path, with all the changes
+that would have been required the risk was high so I defaulted to what
+was already there prior to 2.6.27.  The multiqueue prio qdisc had been
+in the kernel since 2.6.23 and already has an existing interface for
+enabling it in iproute2 so the transition back to it should be fairly
+seamless and the risk should be low.
+
+Thanks,
+
+Alex
