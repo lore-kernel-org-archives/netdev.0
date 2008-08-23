@@ -1,70 +1,47 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
-Date: Sat, 23 Aug 2008 12:29:33 -0700 (PDT)
-Message-ID: <655777.49664.qm@web82105.mail.mud.yahoo.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
+Date: Sat, 23 Aug 2008 12:31:38 -0700
+Message-ID: <200808231231.40751.divy@chelsio.com>
+References: <200808221840.m7MIeuvB004442@localhost.localdomain> <20080822124844.b05ee3e8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82105.mail.mud.yahoo.com ([209.191.84.218]:44186 "HELO
-	web82105.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753124AbYHWT3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 15:29:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Karen Xie" <kxie@chelsio.com>, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	davem@davemloft.net, michaelc@cs.wisc.edu,
+	"Steve Wise" <swise@opengridcomputing.com>, rdreier@cisco.com,
+	daisyc@us.ibm.com, wenxiong@us.ibm.com, bhua@us.ibm.com,
+	"Dimitrios Michailidis" <dm@chelsio.com>,
+	"Casey Leedom" <leedom@chelsio.com>
+To: "Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20080822124844.b05ee3e8.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Friday 22 August 2008 12:48:44 pm Andrew Morton wrote:
+> On Fri, 22 Aug 2008 11:40:56 -0700
+>
+> Karen Xie <kxie@chelsio.com> wrote:
+> > [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
+> >
+> > From: Karen Xie <kxie@chelsio.com>
+> >
+> > cxgb3i iSCSI driver.
+> >
+> > Signed-off-by: Karen Xie <kxie@chelsio.com>
+>
+> I'm going to suggest that this not be merged in this form due to the
+> __GFP_NOFAIL issues identified below.
+>
 
+Hi Andrew,
 
-> please try attached patch, and send out lspci -vvxxxx again.
+thanks for the review. We've started fixing the obvious and looking at 
+alternatives for the nofail allocations.
 
-I found that your patch was supposed to apply beginning at line 1918,
-but the code in v2.6.27-rc4 that corresponded to the patch actually
-was located at line 1790.
-
-I also found that it would not compile, but was able to fix it...
-hopefully somewhat as you intended:
-========================
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 9236e7f..7853a05 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -1790,6 +1790,22 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
-              PCI_DEVICE_ID_NX2_5709S,
-              quirk_brcm_570x_limit_vpd);
- 
-+static void __init quirk_hpet_in_bar(struct pci_dev *pdev)
-+{
-+        /* int i; */
-+    unsigned int base, size;
-+
-+    /* the BAR1 is the location of the HPET...we must
-+     * not touch this, so forcibly insert it into the resource tree */
-+    base = pci_resource_start(pdev, 1);
-+    size = pci_resource_len(pdev, 1);
-+    if (base && size) {
-+        insert_resource(&iomem_resource, &pdev->resource[1]);
-+        dev_info(&pdev->dev, "HPET at %04x-%04x\n", base, base + size - 1);
-+    }
-+}
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATI, 0x3485, quirk_hpet_in_bar);
-+
- #ifdef CONFIG_PCI_MSI
- /* Some chipsets do not support MSI. We cannot easily rely on setting
-  * PCI_BUS_FLAGS_NO_MSI in its bus flags because there are actually
-========================
-
-With these changes, the kernel still hangs at the same point as previous
-kernels.
-
-With "hpet=disable", nothing from your dev_info() call appears in 'dmesg'
-output.
-
-
-Dave W.
+Cheers,
+Divy
