@@ -1,47 +1,33 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Sat, 23 Aug 2008 15:51:26 +0200 (CEST)
-Message-ID: <16800.84.245.32.19.1219499486.squirrel@secure.greenhost.nl>
-References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com>
-    <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com>
-    <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com>
-    <20080805214250.GA23226@electric-eye.fr.zoreil.com>
-    <loom.20080806T144054-201@post.gmane.org>
-    <20080806181235.GA17174@electric-eye.fr.zoreil.com>
-    <25625.84.245.32.19.1218051465.squirrel@secure.greenhost.nl>
-    <20080806195023.GA15747@electric-eye.fr.zoreil.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Sat, 23 Aug 2008 11:14:46 -0300
+Message-ID: <20080823111446.06a350a2@tux>
+References: <20080819213417.45133573@tux>
+	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+	<20080822183224.2d52f16c@tux>
+	<20080822.143709.65615512.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost1.greenhost.nl ([85.17.153.87]:55564 "EHLO
-	smarthost1.samage.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752589AbYHWNv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 09:51:29 -0400
-In-Reply-To: <20080806195023.GA15747@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ilpo.jarvinen@helsinki.fi, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, netdev@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080822.143709.65615512.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, August 6, 2008 21:50, Francois Romieu wrote:
-> Indan Zupancic <indan@nul.nu> :
-> [...]
->> Yes, but it takes quite a lot of time and I'm busy at the moment,
->> so I'll wait till rc2 to see if it's fixed then. If it isn't I'll
->> start digging.
->
-> Ok.
+On Fri, 22 Aug 2008 14:37:09 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Running 2.6.27-rc3 now and that works fine. :-)
-(Of course the next day rc4 came out...)
+> Yes, but it's important that you verify that the patch makes the
+> problem go away when HTB is enabled.  Please make this test if you
+> can.
 
-Let's use this opportunity to say a big thank you to all
-you wonderful people who keep things running. The world
-wouldn't be the same without you.
-
-Greetings,
-
-Indan
+	Correct! I tested with the HTB patches and the problem was
+solved. ;) Thank you very much.
 
 
+-- 
