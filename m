@@ -1,43 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Sat, 23 Aug 2008 10:47:15 +0200
-Message-ID: <20080823084715.GA2515@ami.dom.local>
-References: <1219415417.4672.79.camel@localhost> <20080822221913.GA2981@ami.dom.local> <20080822.173348.232018958.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [bisected] Weird sysctl regression
+Date: Sat, 23 Aug 2008 09:49:36 +0100
+Message-ID: <20080823084936.GK28946@ZenIV.linux.org.uk>
+References: <87fxoyal9j.fsf@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, jeffrey.t.kirsher@intel.com, jeff@garzik.org,
-	netdev@vger.kernel.org, alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Arnaud Ebalard <arno@natisbad.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.234]:4250 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751952AbYHWIqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 04:46:47 -0400
-Received: by qb-out-0506.google.com with SMTP id a16so1094084qbd.17
-        for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 01:46:46 -0700 (PDT)
+Received: from zeniv.linux.org.uk ([195.92.253.2]:47330 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865AbYHWIti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 04:49:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20080822.173348.232018958.davem@davemloft.net>
+In-Reply-To: <87fxoyal9j.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2008 at 05:33:48PM -0700, David Miller wrote:
-...
-> If we want queue selection in the packet scheduler, let's implement
-> it, but let's do so properly using classifiers and TC actions or a
-> ematch modules that can select the queue.
+On Thu, Aug 21, 2008 at 09:18:48AM +0200, Arnaud Ebalard wrote:
+> Hi,
 > 
-> Then people can implement whatever policy they want, in completely
-> generic ways, and the kernel simply doesn't care.
+> While updating some IPv6-related patches for net-2.6, I hit the
+> following issue on a test laptop (G4-based 12" powerbook). After
+> compiling current net-2.6 kernel on another ppc device (G4-based 15"
+> powerbook), I have the same issue. Note that:
 > 
-> The way this code worked was completely special purpose and ignored
-> the host of facilities and infrastructure we have for doing things
-> like this.
+> - it never shows up on any of the x86 devices I have.
+> - hardware of both ppc devices are similar (bcm4306, sungem, ...)
+>   i.e. they do not only have endianness in common (and i had no sparc
+>   device to test if it is an endianness issue or a coincidence)
+ 
+Endianness is very unlikely to be the cause of that.  Order of initialization,
+OTOH...
 
-Alas I can't get your point here. prio is sched + classifier 2 in 1,
-and if a small change in this is enough for somebody who really uses
-this, and there seem to be noone interested in doing this better or
-harmed with this, why bother with actions or other classifiers? Maybe
-this prio method is less generic, but it's quite simple and there is
-some infrastructure around this.
-
-Jarek P.
+Can you reproduce it on mainline kernel or bisect between the mainline
+and net-2.6 if mainline is OK?
