@@ -1,43 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Fri, 22 Aug 2008 17:40:32 -0700 (PDT)
-Message-ID: <20080822.174032.117057862.davem@davemloft.net>
-References: <1219415417.4672.79.camel@localhost>
-	<20080822221913.GA2981@ami.dom.local>
-	<5f2db9d90808221701t4c576282m34a46999b76b6e83@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id() in preemptible code
+Date: Sat, 23 Aug 2008 10:48:49 +1000
+Message-ID: <20080823004849.GA9678@gondor.apana.org.au>
+References: <20080821122040.GA2497@x200.localdomain> <1219413273-14281-1-git-send-email-den@openvz.org> <48AF4879.9070005@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
+	adobriyan@gmail.com, netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41288
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751432AbYHWAkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 20:40:42 -0400
-In-Reply-To: <5f2db9d90808221701t4c576282m34a46999b76b6e83@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:57225 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751241AbYHWAtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 20:49:05 -0400
+Content-Disposition: inline
+In-Reply-To: <48AF4879.9070005@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Alexander Duyck" <alexander.duyck@gmail.com>
-Date: Fri, 22 Aug 2008 17:01:50 -0700
+On Sat, Aug 23, 2008 at 01:15:05AM +0200, Daniel Lezcano wrote:
+>
+> thanks for the fix. For my personal knowledge, why can we just use in 
+> the icmp_sk function:
+> 	{
+> 		struct sock *isk = net->ipv4.icmp_sk[get_cpu()];
+> 		put_cpu();
+> 		return isk;
+> 	}
+> 
+> ?
 
-> I am almost certain that David's approach using the hash will show
-> better performance than the multiqueue prio qdisc would.  The
-> multiqueue prio qdisc is meant to allow for classification of traffic
-> into separate traffic classes to support stuff like Enhanced Ethernet
-> for Data Center (EEDC) / Data Center Bridging (DCB).
+Because then you can get rescheduled to another CPU while still
+using someone else's ICMP socket.
 
-The only sensible way to implement this is to use the existing
-classifier technology in the packet scheduler to choose traffic,
-and then writing a TC actions or ematch module that sets the
-TX queue of the SKB based upon the classification result.
-
-The thing that was there before was very narrow in scope and
-we'll just have to keep adding more special purpose modules
-as more such uses come up.
-
-With the classifiers, it's generic and any scheme can be implemented
-by simply issuing different 'tc' commands.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
