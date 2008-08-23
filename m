@@ -1,38 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
-Date: Sat, 23 Aug 2008 01:28:30 -0700 (PDT)
-Message-ID: <20080823.012830.262443664.davem@davemloft.net>
-References: <200808221840.m7MIeuvB004442@localhost.localdomain>
-	<20080822124844.b05ee3e8.akpm@linux-foundation.org>
-	<46A00B48CC54E4468EF6911F877AC4CA018D73BB@blrx3m10.blr.amer.dell.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Sat, 23 Aug 2008 10:47:15 +0200
+Message-ID: <20080823084715.GA2515@ami.dom.local>
+References: <1219415417.4672.79.camel@localhost> <20080822221913.GA2981@ami.dom.local> <20080822.173348.232018958.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, kxie@chelsio.com,
-	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
-	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, michaelc@cs.wisc.edu,
-	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
-	dm@chelsio.com, leedom@chelsio.com
-To: Shyam_Iyer@Dell.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <46A00B48CC54E4468EF6911F877AC4CA018D73BB@blrx3m10.blr.amer.dell.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qb-out-0506.google.com ([72.14.204.234]:4250 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952AbYHWIqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 04:46:47 -0400
+Received: by qb-out-0506.google.com with SMTP id a16so1094084qbd.17
+        for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 01:46:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080822.173348.232018958.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <Shyam_Iyer@Dell.com>
-Date: Sat, 23 Aug 2008 13:52:26 +0530
+On Fri, Aug 22, 2008 at 05:33:48PM -0700, David Miller wrote:
+...
+> If we want queue selection in the packet scheduler, let's implement
+> it, but let's do so properly using classifiers and TC actions or a
+> ematch modules that can select the queue.
+> 
+> Then people can implement whatever policy they want, in completely
+> generic ways, and the kernel simply doesn't care.
+> 
+> The way this code worked was completely special purpose and ignored
+> the host of facilities and infrastructure we have for doing things
+> like this.
 
-> >I'd suggest that the version number just be removed.  It becomes
-> meaningless (and often misleading) once a driver is in the mainline
-> kernel.  People will >update the driver without changing the version
-> number.  Code external to the driver but which affects it can change.
+Alas I can't get your point here. prio is sched + classifier 2 in 1,
+and if a small change in this is enough for somebody who really uses
+this, and there seem to be noone interested in doing this better or
+harmed with this, why bother with actions or other classifiers? Maybe
+this prio method is less generic, but it's quite simple and there is
+some infrastructure around this.
 
-I totally disagree.  I find it very useful when I get a debugging
-dump from the user and they have no idea where their kernel
-came from nor can figure out how to determine the kernel version.
-
-Sure it might sometimes not get updated for trivial patches that
-bypass the maintainer, but the maintainer is always going to bump it
-after non-trivial changes.
+Jarek P.
