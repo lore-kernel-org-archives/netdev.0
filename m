@@ -1,49 +1,56 @@
-From: Joseph Mack NA3T <jmack@wm7d.net>
-Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
-Date: Sat, 23 Aug 2008 08:22:21 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0808230818480.21220@wm7d.net>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
- <20080821011715.GG19235@verge.net.au>  <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
-  <20080821212948.GB4407@verge.net.au> <20080821220444.GA2758@verge.net.au>
-  <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
- <1219399551.4246.10.camel@ernie.internal.graemef.net>
- <f4845fc0808220349r6c498eddkae80eb47ed0b5a06@mail.gmail.com>
- <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
- <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
- <1219483206.10379.5.camel@ernie.internal.graemef.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user
+	with the same regression
+Date: Sat, 23 Aug 2008 17:55:29 +0200
+Message-ID: <20080823155529.GA27974@elte.hu>
+References: <982729.41105.qm@web82107.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Julius Volz <juliusv@google.com>,
-	Sven Wegener <sven.wegener@stealer.net>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
-To: Graeme Fowler <graeme@graemef.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1219483206.10379.5.camel@ernie.internal.graemef.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Bill Fink <billfink@mindspring.com>,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: David Witbrodt <dawitbro@sbcglobal.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:47947 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752396AbYHWP4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2008 11:56:21 -0400
+Content-Disposition: inline
+In-Reply-To: <982729.41105.qm@web82107.mail.mud.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 23 Aug 2008, Graeme Fowler wrote:
 
-> This also gives us a development timeline that we can offer to
-> interested parties, along the lines of:
+* David Witbrodt <dawitbro@sbcglobal.net> wrote:
 
-we aren't a commercial shop. This is all being done by 
-volunteers. In which case features arrive in the time and 
-order that the coder(s) do it.
+>      for (;;) {
+>          tmp = *p;
+>          if (!tmp || tmp->start > end) {
+> +insert:
+>              new->sibling = tmp;
+>              *p = new;
+>              new->parent = root;
+> @@ -164,7 +165,10 @@ static struct resource * __request_resource(struct resource *root, struct resour
+>          p = &tmp->sibling;
+>          if (tmp->end < start)
+>              continue;
+> -        return tmp;
+> +        printk("ignoring resource conflict between %s/{%p..%p} and %s/{%p..%p}\n", new->name, 
+> +               (void *)new->start, (void *)new->end, tmp->name, (void *)tmp->start, (void *)tmp->end);
+> +        WARN_ON(1);
+> +        goto insert;
 
-I don't think we should promise anything.
+sorry about that, my first patch was more broken than i thought (it will 
+basically hang on _any_ box), please try the second patch.
 
-> 2008-10 Minimal IPv6 functionality
-> 2008-?? Full IPv6 functionality matching IPv4 features, no IPv6 sync
-> 2009-?? Restructured sync daemon with full IPv4 and IPv6 support
->
-> Horms, Joe - do you agree that this is a good idea?
+Note how the above hack code does a stupid goto, and 'p' is updated for 
+the next loop iteration already. The second version of the debug patch 
+only updates 'p' in the 'continue' case and will hopefully get you much 
+further into bootup!
 
-Joe
-
--- 
-Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-jmack (at) wm7d (dot) net - azimuthal equidistant map
-generator at http://www.wm7d.net/azproj.shtml
-Homepage http://www.austintek.com/ It's GNU/Linux!
+	Ingo
