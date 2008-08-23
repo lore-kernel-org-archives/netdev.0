@@ -1,55 +1,62 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
-Date: Sat, 23 Aug 2008 09:44:17 -0700 (PDT)
-Message-ID: <479693.91510.qm@web82107.mail.mud.yahoo.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Sat, 23 Aug 2008 12:49:53 -0400
+Message-ID: <1219510193.4732.26.camel@localhost>
+References: <1219415417.4672.79.camel@localhost>
+	 <20080822221913.GA2981@ami.dom.local>
+	 <20080822.173348.232018958.davem@davemloft.net>
+	 <20080823084715.GA2515@ami.dom.local>
+	 <5f2db9d90808230931n453a3b75q84153dd8c18bcfc2@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82107.mail.mud.yahoo.com ([209.191.84.220]:36861 "HELO
-	web82107.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752443AbYHWQoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 12:44:18 -0400
+Received: from rv-out-0506.google.com ([209.85.198.235]:43026 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751380AbYHWQt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 12:49:58 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so960301rvb.1
+        for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 09:49:57 -0700 (PDT)
+In-Reply-To: <5f2db9d90808230931n453a3b75q84153dd8c18bcfc2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2008-23-08 at 09:31 -0700, Alexander Duyck wrote:
 
+> Actually in this new multiple tx queue kernel this qdisc could serve a
+> very specific but needed purpose which just became apparent to me.
+> This qdisc resolves one very specific issue, head-of-line blocking if
+> one of the hardware queues is full.  What if I reversed things a bit
+> in prio_classify so that skb->queue_mapping determined the band
+> instead of the other way around in the case of the multiqueue option
+> being enabled?  I would think that in this configuration the qdisc
+> would prove to be pretty useful for purposes other than QOS since it
+> would allow a classful qdisc per transmit queue instead of per device.
+> 
 
-> sorry about that, my first patch was more broken than i thought (it will 
-> basically hang on _any_ box), please try the second patch.
+i think thats whats Dave is saying not in so many words.
 
-No complaints here.  When I made myself and my machines available to help
-with this regression, that included the possibility of errors.
+prio_classify calls classifiers.
+dont modify the qdisc; rather do a classification which when matched
+sets skb->queue_mapping to a value your policy likes it to be.  
+you dont need a new classifier, u32 would do for example. or ematch if
+you want to do some funky things. you will need a new action which sets
+the skb->queue_mapping.
 
-I just send a message with the output of 'dmesg | grep ^ignoring', along
-with the full 'dmesg' output gzipped.  My crummy ISP webmail interface
-may have choked on it, so if you don't get that output before you see
-this, then let me know so I can resend it.  (It's over 100K, though --
-should I reduce the CC line first, if I have to resend?)
+> I could then create a select_queue for the device that returns 0 when
+> in DCB/EEDC mode for our drivers, implement the tc action to set the
+> queue mapping, and have essentially the same result as I had before.
+> 
 
+put overflow queues in your driver. With the new multiq approach the
+controls are per-queue not per driver.
 
-> Note how the above hack code does a stupid goto, and 'p' is updated for 
-> the next loop iteration already. The second version of the debug patch 
-> only updates 'p' in the 'continue' case and will hopefully get you much 
-> further into bootup!
+cheers,
+jamal
 
-*sniff*
-*wiping tears*
-
-I don't care if you DO make mistakes... I LOVE you guys, man!
-
-If you folks can fix this, then I owe anybody involved a cube of their 
-favorite beer!  I'm not a beer drinker myself....  I'll just have green
-tea.  ;)
-
-
-Thanks,
-Dave W.
