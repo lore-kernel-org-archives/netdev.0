@@ -1,58 +1,61 @@
-From: David Witbrodt <dawitbro@sbcglobal.net>
-Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
-Date: Fri, 22 Aug 2008 19:25:59 -0700 (PDT)
-Message-ID: <773466.71707.qm@web82102.mail.mud.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Vivek Goyal <vgoyal@redhat.com>,
-	Bill Fink <billfink@mindspring.com>,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+From: Philip Love <love_phil@emc.com>
+Subject: incorrect tcp options with window scale
+Date: Fri, 22 Aug 2008 19:15:20 -0700
+Message-ID: <57D3C658-5084-417D-8365-20637A3BB79B@emc.com>
+Mime-Version: 1.0 (Apple Message framework v926)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web82102.mail.mud.yahoo.com ([209.191.84.215]:20973 "HELO
-	web82102.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751136AbYHWC0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 22:26:00 -0400
+Received: from posteaux1.caltech.edu ([131.215.239.119]:36185 "EHLO
+	mail.alumni.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143AbYHWCh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2008 22:37:27 -0400
+Received: from [192.168.0.188] (adsl-69-230-77-203.dsl.irvnca.pacbell.net [69.230.77.203])
+	by mail.alumni.caltech.edu (Postfix) with ESMTP id 26B8C3F094C
+	for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 19:15:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Attached is a patch against the latest 2.6.27-rc4 kernel.
 
-Yinghai,
-
-I finally found time to try to get some output using your patch for
-resource.c on a kernel that hangs.
-
-Some really good advice came in earlier today:  I can use "vga=1" to
-get 80x50 mode during the early boot sequence.  I used that, and made
-some alterations to the changes in your patch to squeeze more info
-onto the screen.  I also changed KERN_DEBUG to KERN_ERR in your
-printk's so that I could decrease the other output by using 
-"loglevel=4".
-
-While I cannot see the entire set of output from your debug printk's,
-I can see the last 45+ lines that appear before the hang.  The results
-were the same as when I used "hpet=disable":  the only difference 
-between the working 2.6.25 kernel and the hanging 2.6.27 kernel was 
-that the resource named "0000:00:14.0" (fed00000-fed003ff) switched
-from "conflict=0" to "conflict=1".
-
-The output from 'cat /proc/iomem' on a non-hanging kernel included
-these two lines:
-
-fed00000-fed003ff : HPET 0
-  fed00000-fed003ff : 0000:00:14.0
+When window scaling is enabled, but the tcp buffer sizes are small,  
+then the tcp SYN packet created will have an incorrect tcp header  
+length. The tcp length is calculated assuming that the window scale  
+option will be inserted into the tcp header, but since the buffer  
+sizes are too small the window scale is not used. Therefore the last 4  
+bytes of the options in the tcp header are left uninitialized.
 
 
-None of this is really new information, since it matches with info
-I've already posted.  I just wanted to let you know the results of
-your patch on a kernel that hangs.
+This can be reproduced by first setting the following variables.
 
-If I find a way to read the info from the 15-20 lines that scroll 
-away on me, and if I find a difference, I'll post that as well.
+echo 8192 > /proc/sys/net/core/rmem_max
+echo "4096 8192 8192" > /proc/sys/net/ipv4/tcp_rmem
+echo 1 > /proc/sys/net/ipv4/tcp_window_scaling
+
+Then use wireshark to examine the tcp options in the SYN packet of a  
+newly created connection.
 
 
-DW
+
+
+*** a/net/ipv4/tcp_output.c	2008-08-20 19:35:56.000000000 -0700
+--- b/net/ipv4/tcp_output.c	2008-08-22 12:04:00.000000000 -0700
+***************
+*** 468,474 ****
+  	}
+  	if (likely(sysctl_tcp_window_scaling)) {
+  		opts->ws = tp->rx_opt.rcv_wscale;
+! 		size += TCPOLEN_WSCALE_ALIGNED;
+  	}
+  	if (likely(sysctl_tcp_sack)) {
+  		opts->options |= OPTION_SACK_ADVERTISE;
+--- 468,475 ----
+  	}
+  	if (likely(sysctl_tcp_window_scaling)) {
+  		opts->ws = tp->rx_opt.rcv_wscale;
+! 		if(opts->ws)
+! 			size += TCPOLEN_WSCALE_ALIGNED;
+  	}
+  	if (likely(sysctl_tcp_sack)) {
+  		opts->options |= OPTION_SACK_ADVERTISE;
