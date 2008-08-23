@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Sat, 23 Aug 2008 05:15:21 -0700 (PDT)
-Message-ID: <20080823.051521.138508140.davem@davemloft.net>
-References: <20080821125501.GF4079@ff.dom.local>
-	<20080821131218.GA9208@gondor.apana.org.au>
-	<20080821185857.GA2665@ami.dom.local>
+Subject: Re: [RFC] ipv6: protocol for address routes
+Date: Sat, 23 Aug 2008 05:17:12 -0700 (PDT)
+Message-ID: <20080823.051712.47784171.davem@davemloft.net>
+References: <20080819085441.7b0184d1@speedy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	denys@visp.net.lb
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58180
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58185
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753004AbYHWMPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 08:15:23 -0400
-In-Reply-To: <20080821185857.GA2665@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1753003AbYHWMRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 08:17:13 -0400
+In-Reply-To: <20080819085441.7b0184d1@speedy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 21 Aug 2008 20:58:57 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 19 Aug 2008 08:54:41 -0700
 
-> sch_tree_lock() should be enough for now because in the current
-> implementation we have only one root qdisc with pointers copied to
-> every dev_queue. At least I can't see nothing more in qdisc_create()
-> and qdisc_graft(). So, qdisc_lookup() seems to be designed for the
-> future (or to do this lookup more exactly with additional loops...).
+> This fixes a problem spotted with zebra, but not sure if it is
+> necessary a kernel problem.  With IPV6 when an address is added to
+> an interface, Zebra creates a duplicate RIB entry, one as a
+> connected route, and other as a kernel route.
+>
+> When an address is added to an interface the RTN_NEWADDR message
+> causes Zebra to create a connected route. In IPV4 when an address is
+> added to an interface a RTN_NEWROUTE message is set to user space
+> with the protocol RTPROT_KERNEL. Zebra ignores these messages,
+> because it already has the connected route.
+>
+> The problem is that route created in IPV6 has route protocol ==
+> RTPROT_BOOT.  Was this a design decision or a bug? This fixes
+> it. Same patch applies to both net-2.6 and stable.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Yes, I designed it for the future.
-
-Nothing really uses this capability currently.
+I've applied this to net-2.6, thanks Stephen.
