@@ -1,104 +1,150 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [git pull] VFS patches, the first series
-Date: Fri, 22 Aug 2008 22:22:09 -0700
-Message-ID: <m18wuoz4ou.fsf@frodo.ebiederm.org>
-References: <20080727012212.GW28946@ZenIV.linux.org.uk>
-	<m1d4k2zui4.fsf@frodo.ebiederm.org>
-	<m1od3mthma.fsf@frodo.ebiederm.org>
-	<m1iqttnc7a.fsf@frodo.ebiederm.org>
-	<20080823033328.GH28946@ZenIV.linux.org.uk>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: HPET regression in 2.6.26 versus 2.6.25 -- found another user with the same regression
+Date: Fri, 22 Aug 2008 22:41:36 -0700
+Message-ID: <86802c440808222241k36c95cd2h8e24031be1dc7b8@mail.gmail.com>
+References: <773466.71707.qm@web82102.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Denis V. Lunev" <den@openvz.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753130AbYHWFYS@vger.kernel.org>
-In-Reply-To: <20080823033328.GH28946@ZenIV.linux.org.uk> (Al Viro's message of
-	"Sat, 23 Aug 2008 04:33:28 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Ingo Molnar" <mingo@elte.hu>, "Vivek Goyal" <vgoyal@redhat.com>,
+	"Bill Fink" <billfink@mindspring.com>,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev <netdev@vger.kernel.org>
+To: "David Witbrodt" <dawitbro@sbcglobal.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.224]:52976 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751378AbYHWFlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 01:41:37 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so758666rvb.1
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2008 22:41:36 -0700 (PDT)
+In-Reply-To: <773466.71707.qm@web82102.mail.mud.yahoo.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Al Viro <viro@ZenIV.linux.org.uk> writes:
-
-> On Thu, Aug 21, 2008 at 05:08:25PM -0700, Eric W. Biederman wrote:
+On Fri, Aug 22, 2008 at 7:25 PM, David Witbrodt <dawitbro@sbcglobal.net> wrote:
 >
->> I'm not certain what to do about it.  The semantics of the how the
->> sysctl tables are access have changed significantly.  Now the first 
->> sysctl table to describe a directory must remain until there are no
->> other tables that have entries in that directory and a sysctl table
->> must have a pure path of directories for any portion of the address
->> space it shares with an earlier sysctl table.  This is noticeably
->> different from the union mount semantics we have had previously for
->> the sysctl tables.
+> Yinghai,
 >
-> Note that the old semantics had a lovely inherent problem (leaving aside
-> the utterly insane amount of walking and re-walking the trees, as you've
-> found out the hard way - don't tell me you hadn't cursed it when writing
-> the previous version of proc_sysctl.c): there's redundancy between the
-> trees.  At the very least, just what are we supposed to get when the
-> stems do not match each other - either in permissions or in ctl_name?
-
-That case is simple.  We never allowed overlapping leaves, and all of
-the directories had essentially the same permissions.  Beyond that
-I added checks in sysctl_check to make certain we are never out of
-sync. 
-
-As for the walking and rewalking I was never fond of it but it was
-simple and worked.
-
-So far I am not a fan of the new semantics.
-
->> If it doesn't look to bad to maintain the new semantics it looks like
->> the right thing to do is to add some additional checks so we get more
->> precise warnings (who knows what out of tree sysctl code will do) and
->> to find someplace I can insert a net/ipv4/neigh sysctl directory into
->> (ipv4_net_table looks like it will work) to keep the network namespace
->> code working safely.
->> 
->> Al btw nice trick using compare to keep the dentries separate allowing
->> us to cache everything in /proc.  I feel silly for missing that one.
->> Want to get together in the next couple of weeks and build a tree that
->> updates the sysctls infrastructure to suck less?
+> I finally found time to try to get some output using your patch for
+> resource.c on a kernel that hangs.
 >
-> Fine by me...  BTW, fixing that particular crap is not hard - you need
-> to have the entry in question show up before either interface, that's all.
-> I missed that part of ordering mess, to be honest.  I'll look into that,
-> hopefully will post the fix later tonight.
+> Some really good advice came in earlier today:  I can use "vga=1" to
+> get 80x50 mode during the early boot sequence.  I used that, and made
+> some alterations to the changes in your patch to squeeze more info
+> onto the screen.  I also changed KERN_DEBUG to KERN_ERR in your
+> printk's so that I could decrease the other output by using
+> "loglevel=4".
+>
+> While I cannot see the entire set of output from your debug printk's,
+> I can see the last 45+ lines that appear before the hang.  The results
+> were the same as when I used "hpet=disable":  the only difference
+> between the working 2.6.25 kernel and the hanging 2.6.27 kernel was
+> that the resource named "0000:00:14.0" (fed00000-fed003ff) switched
+> from "conflict=0" to "conflict=1".
+>
+> The output from 'cat /proc/iomem' on a non-hanging kernel included
+> these two lines:
+>
+> fed00000-fed003ff : HPET 0
+>  fed00000-fed003ff : 0000:00:14.0
+that mean is hpet using insert_resource.
 
-Thanks for looking.
 
-The ordering problem is self inflicted as you introduced an ordering
-constraint where none existed previously, and it seems unnecessary.
+pnp 00:0d: mem resource (0xfed00000-0xfed000ff) overlaps 0000:00:14.0
+BAR 1 (0xfed00000-0xfed003ff), disabling
+request_resource: root: (PCI IO) [0, ffff], new: (0000:00:14.0) [fa00,
+fa0f] conflict 0
+request_resource: root: (PCI mem) [0, ffffffffffffffff], new:
+(0000:00:14.0) [fed00000, fed003ff] conflict 1
+pci 0000:00:14.0: BAR 1: can't allocate resource
+piix4_smbus 0000:00:14.0: SMBus Host Controller at 0xfa00, revision 0
 
-I'm currently tearing my hair out trying to think of a reasonable
-way to audit the current sysctl usage to see if there is anything
-else that was missed.
 
-> FWIW, I'd very much prefer ->d_compare() trick to the horrors you guys
-> are doing around sysfs; it might or might not be feasible depending on
-> what visibility rules you end up with there, but if it's feasible at all
-> I'd rather go for it and avoid the entire 'separate backing store' mess.
-> IIRC, I had described that scheme to you quite a few months ago in sysfs
-> context; got no response back then...
+because  (0000:00:14.0) [fed00000, fed003ff]  conflicts to (reserved)
+[fec00000, ffffffff] from e820.
 
-Weird.  I must have missed seeing it, as I don't have any recollection of
-it.
 
-There are two pieces of the problem.  
-- How do we get a dentry tree that the vfs won't gag on.  Without
-  knowing how to successfully implement the dcompare trick it required
-  2 dentry trees.
+kernel:
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (Kernel
+code) [200000, 56ce41]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (Kernel code) [200000, 56ce41]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (Kernel
+data) [56ce42, 6d5f3f]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (Kernel data) [56ce42, 6d5f3f]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (Kernel
+bss) [773000, 7b7647]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (Kernel bss) [773000, 7b7647]
 
-- Monitoring.  It is desirable to be able to mount the filesystem such that
-  someone outside the namespace can get a view of what the folks inside the
-  namespace see.  Roughly like is done with /proc/net today.
+E820:
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (System
+RAM) [0, 9f3ff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (System RAM) [0, 9f3ff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new:
+(reserved) [9f400, 9ffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (reserved) [9f400, 9ffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new:
+(reserved) [f0000, fffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (reserved) [f0000, fffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (System
+RAM) [100000, 77fdffff]
+ insert_resource: first: (Kernel code) [200000, 56ce41], new: (System
+RAM) [100000, 77fdffff]
+ insert_resource: direct parent: (PCI mem) [0, ffffffffffffffff], new:
+(System RAM) [100000, 77fdffff]
+   insert_resource: child: (Kernel code) [200000, 56ce41], new:
+(System RAM) [100000, 77fdffff]
+   insert_resource: child: (Kernel data) [56ce42, 6d5f3f], new:
+(System RAM) [100000, 77fdffff]
+   insert_resource: child: (Kernel bss) [773000, 7b7647], new: (System
+RAM) [100000, 77fdffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (ACPI
+Non-volatile Storage) [77fe0000, 77fe2fff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (ACPI Non-volatile Storage) [77fe0000,
+77fe2fff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new: (ACPI
+Tables) [77fe3000, 77feffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (ACPI Tables) [77fe3000, 77feffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new:
+(reserved) [77ff0000, 77ffffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (reserved) [77ff0000, 77ffffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new:
+(reserved) [e0000000, efffffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (reserved) [e0000000, efffffff]
+insert_resource: parent: (PCI mem) [0, ffffffffffffffff], new:
+(reserved) [fec00000, ffffffff]
+   insert_resource: good with request direct parent: (PCI mem) [0,
+ffffffffffffffff], new: (reserved) [fec00000, ffffffff]
 
-Neither of those two cases requires multiple dentry trees and the
-tagged sysfs dirents can easily support an operation like is_seen.
 
-I don't think the dcompare trick is general enough to support discriminating
-on something besides the current process.  Which leads to problems with
-monitoring.
 
-Eric
+so old kernel lapic 0xfee0000, is insert at first, it will prevent
+0xfec, ... 0xfffffff from e820 to be registered,
+then (0000:00:14.0) [fed00000, fed003ff] got chance to be
+registered..., timer will work...
+
+
+root cause could be the chipset BAR1
+request_resource: root: (PCI mem) [0, ffffffffffffffff], new:
+(0000:00:14.0) [fed00000, fed003ff] conflict 1
+is not handled properly...
+
+guess when it can not get request_resource, it could clear that
+BAR1...may need one quirk to save that.
+just like we trust IO APIC addr in BAR for some devices.
+
+YH
