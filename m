@@ -1,51 +1,47 @@
-From: <Shyam_Iyer@Dell.com>
-Subject: RE: [PATCH 4/4 2.6.28] cxgb3i - cxgb3i iscsi driver
-Date: Sat, 23 Aug 2008 14:37:53 +0530
-Message-ID: <46A00B48CC54E4468EF6911F877AC4CA018D73BC@blrx3m10.blr.amer.dell.com>
-References: <200808221840.m7MIeuvB004442@localhost.localdomain><20080822124844.b05ee3e8.akpm@linux-foundation.org><46A00B48CC54E4468EF6911F877AC4CA018D73BB@blrx3m10.blr.amer.dell.com> <20080823.012830.262443664.davem@davemloft.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH 1/1] icmp: icmp_sk() should not use smp_processor_id()
+ in preemptible code
+Date: Sat, 23 Aug 2008 11:12:46 +0200
+Message-ID: <48AFD48E.6050109@fr.ibm.com>
+References: <20080821122040.GA2497@x200.localdomain> <1219413273-14281-1-git-send-email-den@openvz.org> <48AF4879.9070005@fr.ibm.com> <20080823004849.GA9678@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <akpm@linux-foundation.org>, <kxie@chelsio.com>,
-	<netdev@vger.kernel.org>, <open-iscsi@googlegroups.com>,
-	<linux-scsi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jgarzik@pobox.com>, <michaelc@cs.wisc.edu>,
-	<swise@opengridcomputing.com>, <rdreier@cisco.com>,
-	<daisyc@us.ibm.com>, <wenxiong@us.ibm.com>, <bhua@us.ibm.com>,
-	<divy@chelsio.com>, <dm@chelsio.com>, <leedom@chelsio.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
+	adobriyan@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:63224 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085AbYHWJI4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 05:08:56 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20080823.012830.262443664.davem@davemloft.net>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:53929 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbYHWJM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 05:12:57 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id m7N9CtlG302074
+	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 09:12:55 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.0) with ESMTP id m7N9CtFh2986102
+	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 11:12:55 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id m7N9CqB1027568
+	for <netdev@vger.kernel.org>; Sat, 23 Aug 2008 11:12:52 +0200
+In-Reply-To: <20080823004849.GA9678@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> David Miller wrote: 
-> > Andrew Morton wrote:
-> >I'd suggest that the version number just be removed.  It becomes
-> meaningless (and often misleading) once a driver is in the mainline 
-> kernel.  People will >update the driver without changing the version 
-> number.  Code external to the driver but which affects it can change.
+Herbert Xu wrote:
+> On Sat, Aug 23, 2008 at 01:15:05AM +0200, Daniel Lezcano wrote:
+>> thanks for the fix. For my personal knowledge, why can we just use in 
+>> the icmp_sk function:
+>> 	{
+>> 		struct sock *isk = net->ipv4.icmp_sk[get_cpu()];
+>> 		put_cpu();
+>> 		return isk;
+>> 	}
+>>
+>> ?
+> 
+> Because then you can get rescheduled to another CPU while still
+> using someone else's ICMP socket.
 
->I totally disagree.  I find it very useful when I get a debugging dump
-from the user and they have no idea where their kernel came from nor can
-figure 
->out how to determine the kernel version.
-
->Sure it might sometimes not get updated for trivial patches that bypass
-the maintainer, but the maintainer is always going to bump it after
-non-trivial 
->changes.
-
-Exactly. And I am also suggesting that the driver version is not
-standard among different vendors. So, why not get them generated in an
-automatic build process.
-Something like "kernel-version.driver-version". I am just imagining
-here. The details can be worked out.
-
--Shyam
+Obviously :)
+Thanks Herbert.
