@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 2/5] mv643xx_eth: fix double add_timer() on the receive oom timer
-Date: Sun, 24 Aug 2008 04:05:02 +0200
-Message-ID: <20080824020502.GC8762@xi.wantstofly.org>
+Subject: [PATCH 3/5] mv643xx_eth: fix inconsistent lock semantics
+Date: Sun, 24 Aug 2008 04:05:22 +0200
+Message-ID: <20080824020522.GD8762@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dale Farnsworth <dale@farnsworth.org>,
@@ -9,56 +9,39 @@ Cc: Dale Farnsworth <dale@farnsworth.org>,
 	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:57596 "EHLO
+Received: from xi.wantstofly.org ([83.160.184.112]:57603 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712AbYHXCFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 22:05:04 -0400
+	with ESMTP id S1752713AbYHXCFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2008 22:05:24 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 12e4ab79cd828563dc090d2117dc8626b344bc8f ("mv643xx_eth: be
-more agressive about RX refill") changed the condition for the receive
-out-of-memory timer to be scheduled from "the receive ring is empty"
-to "the receive ring is not full".
-
-This can lead to a situation where the receive out-of-memory timer is
-pending because a previous rxq_refill() didn't manage to refill the
-receive ring entirely as a result of being out of memory, and
-rxq_refill() is then called again as a side effect of a packet receive
-interrupt, and that rxq_refill() call then again does not succeed to
-refill the entire receive ring with fresh empty skbuffs because we are
-still out of memory, and then tries to call add_timer() on the already
-scheduled out-of-memory timer.
-
-This patch fixes this issue by changing the add_timer() call in
-rxq_refill() to a mod_timer() call.  If the OOM timer was not already
-scheduled, this will behave as before, whereas if it was already
-scheduled, this patch will push back its firing time a bit, which is
-safe because we've (unsuccessfully) attempted to refill the receive
-ring just before we do this.
+Nicolas Pitre noted that mv643xx_eth_poll was incorrectly using
+non-IRQ-safe locks while checking whether to wake up the netdevice's
+transmit queue.  Convert the locking to *_irq() variants, since we
+are running from softirq context where interrupts are enabled.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/mv643xx_eth.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/mv643xx_eth.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index af279f2..8a91d79 100644
+index 8a91d79..30e6d4b 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -509,10 +509,8 @@ static void rxq_refill(struct rx_queue *rxq)
- 		skb_reserve(skb, 2);
+@@ -634,9 +634,9 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
+ 				txq_reclaim(mp->txq + i, 0);
+ 
+ 		if (netif_carrier_ok(mp->dev)) {
+-			spin_lock(&mp->lock);
++			spin_lock_irq(&mp->lock);
+ 			__txq_maybe_wake(mp->txq + mp->txq_primary);
+-			spin_unlock(&mp->lock);
++			spin_unlock_irq(&mp->lock);
+ 		}
  	}
- 
--	if (rxq->rx_desc_count != rxq->rx_ring_size) {
--		rxq->rx_oom.expires = jiffies + (HZ / 10);
--		add_timer(&rxq->rx_oom);
--	}
-+	if (rxq->rx_desc_count != rxq->rx_ring_size)
-+		mod_timer(&rxq->rx_oom, jiffies + (HZ / 10));
- 
- 	spin_unlock_irqrestore(&mp->lock, flags);
- }
+ #endif
 -- 
 1.5.6.4
