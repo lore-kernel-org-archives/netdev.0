@@ -1,61 +1,41 @@
-From: "Adam Langley" <agl@imperialviolet.org>
-Subject: Re: [PATCH] tcp: fix tcp header size miscalculation when window scale is unused
-Date: Sun, 24 Aug 2008 10:40:23 -0700
-Message-ID: <396556a20805301217k293e5718h6bbf02bfe069081@europa>
-References: <20080823.214013.29359753.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
+Date: Sun, 24 Aug 2008 21:19:05 +0200
+Message-ID: <20080824191905.GA3372@ami.dom.local>
+References: <1219415417.4672.79.camel@localhost> <20080822221913.GA2981@ami.dom.local> <20080822.173348.232018958.davem@davemloft.net> <20080823084715.GA2515@ami.dom.local> <5f2db9d90808230931n453a3b75q84153dd8c18bcfc2@mail.gmail.com> <1219510193.4732.26.camel@localhost> <5f2db9d90808231209i134a7afbu233269c8ea592422@mail.gmail.com> <20080824075331.GA2721@ami.dom.local> <1219585163.4698.43.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, love_phil@emc.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:8005 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752AbYHXRlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2008 13:41:35 -0400
-Received: by wf-out-1314.google.com with SMTP id 27so1545240wfd.4
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2008 10:41:34 -0700 (PDT)
-In-Reply-To: <20080823.214013.29359753.davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.184]:33821 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678AbYHXTNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2008 15:13:19 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so589087nfc.21
+        for <netdev@vger.kernel.org>; Sun, 24 Aug 2008 12:13:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1219585163.4698.43.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philip Love <love_phil@emc.com>
+On Sun, Aug 24, 2008 at 09:39:23AM -0400, jamal wrote:
+...
+> With current controls being per qdisc instead of per netdevice,
+> the hol fear is unfounded. 
+> You send and when hw cant keep up, you block just the one hwqueue.
+> While hwqueue is blocked, you can accumulate packets in the prio qdisc
+> (hence my statement it may not be necessary to accumulate packets in
+> driver).
 
-tcp: fix tcp header size miscalculation when window scale is unused
+Jamal, maybe I miss something, but this could be like this only with
+default pfifo_fast qdiscs, which really are per dev hwqueue. Other
+qdiscs, including prio, are per device, so with prio, if a band with
+the highest priority is blocked it would be requeued blocking other
+bands (hwqueues in Alexander's case).
 
-The size of the TCP header is miscalculated when the window scale ends up being
-0. Additionally, this can be induced by sending a SYN to a passive open port
-with a window scale option with value 0.
-
-Signed-off-by: Philip Love <love_phil@emc.com>
-Signed-off-by: Adam Langley <agl@imperialviolet.org>
-
----
-
- net/ipv4/tcp_output.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a00532d..71eea00 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -468,7 +468,8 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
- 	}
- 	if (likely(sysctl_tcp_window_scaling)) {
- 		opts->ws = tp->rx_opt.rcv_wscale;
--		size += TCPOLEN_WSCALE_ALIGNED;
-+		if (likely(opts->ws))
-+			size += TCPOLEN_WSCALE_ALIGNED;
- 	}
- 	if (likely(sysctl_tcp_sack)) {
- 		opts->options |= OPTION_SACK_ADVERTISE;
-@@ -509,7 +510,8 @@ static unsigned tcp_synack_options(struct sock *sk,
- 
- 	if (likely(ireq->wscale_ok)) {
- 		opts->ws = ireq->rcv_wscale;
--		size += TCPOLEN_WSCALE_ALIGNED;
-+		if (likely(opts->ws))
-+			size += TCPOLEN_WSCALE_ALIGNED;
- 	}
- 	if (likely(doing_ts)) {
- 		opts->options |= OPTION_TS;
+Cheers,
+Jarek P.
