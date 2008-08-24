@@ -1,34 +1,57 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8111C transmit timed out
-Date: Mon, 25 Aug 2008 00:09:42 +0200
-Message-ID: <20080824220942.GA6059@electric-eye.fr.zoreil.com>
-References: <2c2a4e250808041812j569f6565s9f4ae54f44bbfbb5@mail.gmail.com> <2c2a4e250808041900id64a2b8h1b7cee3b70960ebc@mail.gmail.com> <2c2a4e250808042042j6c448068v98a6b5e428fa1a7@mail.gmail.com> <20080805214250.GA23226@electric-eye.fr.zoreil.com> <2c2a4e250808052221p7d22adf5w7a656e423bff0b26@mail.gmail.com> <20080806190353.GB17174@electric-eye.fr.zoreil.com> <2c2a4e250808062251p74f97863l770727843921a5c4@mail.gmail.com> <20080807223137.GA17407@electric-eye.fr.zoreil.com> <2c2a4e250808072028h8b7a13av29ec02f76ab08cd1@mail.gmail.com> <2c2a4e250808221255l6803e0d9q1021626a616d7ffc@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
+Date: Sun, 24 Aug 2008 19:26:39 -0400
+Message-ID: <20080824192639.587f9391@speedy>
+References: <20080822.044248.175133807.davem@davemloft.net>
+	<20080822120918.GB14981@ff.dom.local>
+	<20080822121144.GA32397@gondor.apana.org.au>
+	<20080822.051841.259820995.davem@davemloft.net>
+	<20080822124556.GA15788@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: John P Poet <jppoet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	netdev@vger.kernel.org, denys@visp.net.lb
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47256 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750909AbYHXWJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2008 18:09:47 -0400
-Content-Disposition: inline
-In-Reply-To: <2c2a4e250808221255l6803e0d9q1021626a616d7ffc@mail.gmail.com>
+Received: from mail.vyatta.com ([216.93.170.194]:52222 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752412AbYHXX0p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Aug 2008 19:26:45 -0400
+In-Reply-To: <20080822124556.GA15788@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John P Poet <jppoet@gmail.com> :
-[...]
-> Should I try the "official" driver from Realtek ?
+On Fri, 22 Aug 2008 22:45:57 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Yes, it would be interesting to know if it performs better.
+> On Fri, Aug 22, 2008 at 05:18:41AM -0700, David Miller wrote:
+> > 
+> > Netem is trying to create packet reordering by requeueing (which is
+> > logically like a head insert) instead of enqueueing (which is
+> > logically like a tail insert).
+> 
+> Why does it use requeue when tfifo's enqueue will insert this
+> at the front of the queue anyway based on time_to_send anyway?
+> 
+> Perhaps it's trying to force reordering when the user replaces
+> tfifo with some other qidsc? But that doesn't make sense since
+> netem relies on tfifo to implement all the other features such
+> as delay and jitter.
+> 
+> So how about
+> 
+> 1) Change netem_graft to disallow the replacement of tfifo;
+> 2) Simply use enqueue instead of requeue in netem_enqueue?
+> 
+> Cheers,
 
-Could you send the output of 'mii-tool -vv' ? I am curious to know how
-to identify your PHY.
 
-> How hard is it to integrate ?
+Tfifo is there only to add the jitter based reordering. Netem has other
+better kinds of reordering as well.
 
-It is supposed to build as an external module.
+Netem has to be able to put TBF in as a child qdisc. This is how loss
+plus rate control is done.
 
--- 
-Ueimor
+Requeue was the natural way to do this based on the API's available
+at the time.
