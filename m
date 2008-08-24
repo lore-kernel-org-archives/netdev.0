@@ -1,57 +1,70 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Sun, 24 Aug 2008 19:26:39 -0400
-Message-ID: <20080824192639.587f9391@speedy>
-References: <20080822.044248.175133807.davem@davemloft.net>
-	<20080822120918.GB14981@ff.dom.local>
-	<20080822121144.GA32397@gondor.apana.org.au>
-	<20080822.051841.259820995.davem@davemloft.net>
-	<20080822124556.GA15788@gondor.apana.org.au>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Unexpected source address selection in routing
+Date: Sun, 24 Aug 2008 19:39:52 -0400 (EDT)
+Message-ID: <alpine.LNX.1.10.0808241936410.22921@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	netdev@vger.kernel.org, denys@visp.net.lb
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:52222 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752412AbYHXX0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Aug 2008 19:26:45 -0400
-In-Reply-To: <20080822124556.GA15788@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netfilter Developer Mailing List <netfilter-devel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Aug 2008 22:45:57 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> On Fri, Aug 22, 2008 at 05:18:41AM -0700, David Miller wrote:
-> > 
-> > Netem is trying to create packet reordering by requeueing (which is
-> > logically like a head insert) instead of enqueueing (which is
-> > logically like a tail insert).
-> 
-> Why does it use requeue when tfifo's enqueue will insert this
-> at the front of the queue anyway based on time_to_send anyway?
-> 
-> Perhaps it's trying to force reordering when the user replaces
-> tfifo with some other qidsc? But that doesn't make sense since
-> netem relies on tfifo to implement all the other features such
-> as delay and jitter.
-> 
-> So how about
-> 
-> 1) Change netem_graft to disallow the replacement of tfifo;
-> 2) Simply use enqueue instead of requeue in netem_enqueue?
-> 
-> Cheers,
+Hi,
 
 
-Tfifo is there only to add the jitter based reordering. Netem has other
-better kinds of reordering as well.
+It appears that the routing code selects the outgoing source address to 
+use for packets is chosen when the socket is established instead of
+at routing time.
 
-Netem has to be able to put TBF in as a child qdisc. This is how loss
-plus rate control is done.
+The following presents a test case for "unexpected" (from a user's 
+perspective) behavior.
 
-Requeue was the natural way to do this based on the API's available
-at the time.
+Is there any way to make it behave as a user would expect?
+
+
+thanks,
+Jan
+
+
+#
+#	Setup
+#
+modprobe dummy
+ip a a 1.3.3.7/24 dev dummy0
+iptables -t mangle -A OUTPUT -p tcp --dport 99 -j MARK --set-mark 99
+ip ru a fwmark 99 table 99
+ip r a default via 1.3.3.8 dev dummy0 table 99
+
+#
+# How things look now:
+# ip a; ip r l;
+#
+# 3: sis0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+#     inet 10.10.106.161/20 brd 10.10.111.255 scope global sis0
+# 8: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue 
+#     inet 1.3.3.7/24 scope global dummy0
+#
+# 1.3.3.0/24 dev dummy0  proto kernel  scope link  src 1.3.3.7
+# 10.10.96.0/20 dev sis0  proto kernel  scope link  src 10.10.106.161 
+# default via 10.10.96.1 dev sis0 
+# 
+
+#
+#	Test
+#
+tcpdump -lni dummy0 &
+telnet 134.76.13.21 99
+
+
+#
+#	Tcpdump will say something like:
+#
+IP 10.10.106.161.57962 > 134.76.13.21.99: S 2153063224:2153063224(0) win 5840 <mss 1460,nop,nop,timestamp 3052479 0,nop,wscale 6>
+
+
+#
+#	What I would have expected:
+#
+IP 1.3.3.7.57962 > 134.76.13.21.99: S ...
+
