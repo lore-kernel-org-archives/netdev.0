@@ -1,36 +1,93 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Sun, 24 Aug 2008 21:27:34 +0200
-Message-ID: <20080824192734.GB3372@ami.dom.local>
-References: <1219415417.4672.79.camel@localhost> <20080822221913.GA2981@ami.dom.local> <20080822.173348.232018958.davem@davemloft.net> <20080823084715.GA2515@ami.dom.local> <5f2db9d90808230931n453a3b75q84153dd8c18bcfc2@mail.gmail.com> <1219510193.4732.26.camel@localhost> <5f2db9d90808231209i134a7afbu233269c8ea592422@mail.gmail.com> <20080824075331.GA2721@ami.dom.local> <1219585163.4698.43.camel@localhost> <20080824191905.GA3372@ami.dom.local>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
+ workaround
+Date: Sun, 24 Aug 2008 16:38:43 -0300
+Message-ID: <20080824163843.33b4f890@tux>
+References: <20080819213417.45133573@tux>
+ <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
+ <20080822183224.2d52f16c@tux>
+ <20080822.143709.65615512.davem@davemloft.net>
+ <20080823111446.06a350a2@tux>
+ <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
-	netdev@vger.kernel.org, alexander.h.duyck@intel.com
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:33190 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752742AbYHXTVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2008 15:21:44 -0400
-Received: by nf-out-0910.google.com with SMTP id d3so590193nfc.21
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2008 12:21:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20080824191905.GA3372@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
+	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
+	Patrick Hardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 24, 2008 at 09:19:05PM +0200, Jarek Poplawski wrote:
-...
-> Jamal, maybe I miss something, but this could be like this only with
-> default pfifo_fast qdiscs, which really are per dev hwqueue. Other
-> qdiscs, including prio, are per device, so with prio, if a band with
-> the highest priority is blocked it would be requeued blocking other
-> bands (hwqueues in Alexander's case).
+On Sat, 23 Aug 2008 17:38:32 +0300 (EEST)
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-And, actually, because of this, Alexander is right the prio_dequeue()
-can't work like this without any changes.
+> Thanks for verifying it!
 
-Jarek P.
+	Ops! i replied too fast! I just got a stalled connection again!
+
+	Important: these files were generated with the HTB patches applied.
+
+	Here are botch tcpdump files:
+
+http://www.abusar.org/htb/dump-mail-server.log
+http://www.abusar.org/htb/dump-mail-client.log
+
+	Both readmibs:
+
+http://www.abusar.org/htb/readmibs-server.txt
+http://www.abusar.org/htb/readmibs-client.txt
+
+	Here are both cat /proc/net/tcp:
+
+http://www.abusar.org/htb/tcp-server.txt
+http://www.abusar.org/htb/tcp-client.txt
+
+	I use the following to generate those dumps:
+
+	1) on the server:
+
+tcpdump -s 0 -w dump-mail-server.log -i eth0 host 201.52.214.230
+
+	2) on the client:
+
+tcpdump -s 0 -w dump-mail-client.log -i eth0 host teleporto.abusar.org =
+and port 995
+
+	What happened?
+
+1) the connection was stalled
+
+2) these tcpdumps are the *best ones* I got because although I started =
+them with
+the connection already stalled, the connection suddenly is not stalled =
+anymore,
+and a few minutes later was stalled again...
+
+3) I keep tcpdump running for more time
+=09
+	Ps: anyway I could notice that the only two services that
+remain stalled is nntp, ftp, pop3 and smtp... http is never stalled,
+neither ssh. It seems to affect only "old" protocols :)
+
+	Ps2: anyway, the htb patch seems to help, because the problem
+took much longer to happen. With htb patches the problem happens one ti=
+me a day.=20
+Without the htb patches the problem happens more than one time a day.
+
+	Ps3: I really doesn't understand why "nmap -sS server"
+"solves" the stalled connection issue.
+
+	Ps4: sorry for my hurry feedback before. I thought the problem had gon=
+e. Anyway,=20
+I hope this time I provided the best data for you. Thanks.
+
+--=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
