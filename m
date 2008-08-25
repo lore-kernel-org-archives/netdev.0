@@ -1,83 +1,41 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH] forcedeth fix: tx/rx reset
-Date: Mon, 25 Aug 2008 13:36:58 -0400
-Message-ID: <48B2EDBA.6070802@nvidia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] New Qlogic 10Gb Ethernet driver for 2.6.28
+Date: Mon, 25 Aug 2008 14:05:22 -0700 (PDT)
+Message-ID: <20080825.140522.192264181.davem@davemloft.net>
+References: <20080822174626.GC2551@susedev.qlogic.org>
+	<20080822.144343.231567307.davem@davemloft.net>
+	<20080825170148.GA31059@susedev.qlogic.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070000060205060209010600"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, Linux-Driver@qlogic.com, netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:8283 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbYHYUht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 16:37:49 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33428
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751526AbYHYVF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 17:05:26 -0400
+In-Reply-To: <20080825170148.GA31059@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070000060205060209010600
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Mon, 25 Aug 2008 10:01:48 -0700
 
-This patch keeps the HW reset for tx/rx asserted until DMA is enabled.
-This is to ensure that all tx/rx initialization (i.e ring setup) is
-finished before de-asserting the reset.
+> I see your point.  I will add the re-alignment but would like to jump
+> over it for platforms that don't need it.  Is there a list somewhere of
+> the RISC platforms that take a trap on unaligned accesses?  Or better
+> yet, a list of those that don't?
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+If you're only doing this for the header portion it's not so
+much of a cost.  For sizable packets you're using page
+references, and you don't have to copy those, such copies
+of the headers will also warm up the CPU cache as a nice
+side effect.
 
+Furthermore you stated that the alignment restriction only
+is necessary for early revisions of the hardware.
 
---------------070000060205060209010600
-Content-Type: text/plain;
- name="patch-forcedeth-reset"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-reset"
-
---- old/drivers/net/forcedeth.c	2008-08-25 13:02:17.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2008-08-25 13:02:20.000000000 -0400
-@@ -233,7 +233,7 @@
- 	NvRegTxRxControl = 0x144,
- #define NVREG_TXRXCTL_KICK	0x0001
- #define NVREG_TXRXCTL_BIT1	0x0002
--#define NVREG_TXRXCTL_BIT2	0x0004
-+#define NVREG_TXRXCTL_DMA_DISABLE	0x0004
- #define NVREG_TXRXCTL_IDLE	0x0008
- #define NVREG_TXRXCTL_RESET	0x0010
- #define NVREG_TXRXCTL_RXCHECK	0x0400
-@@ -1555,11 +1555,9 @@
- 	u8 __iomem *base = get_hwbase(dev);
- 
- 	dprintk(KERN_DEBUG "%s: nv_txrx_reset\n", dev->name);
--	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
-+	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
- 	pci_push(base);
- 	udelay(NV_TXRX_RESET_DELAY);
--	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
--	pci_push(base);
- }
- 
- static void nv_mac_reset(struct net_device *dev)
-@@ -1570,7 +1568,7 @@
- 
- 	dprintk(KERN_DEBUG "%s: nv_mac_reset\n", dev->name);
- 
--	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
-+	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
- 	pci_push(base);
- 
- 	/* save registers since they will be cleared on reset */
-@@ -1589,9 +1587,6 @@
- 	writel(temp1, base + NvRegMacAddrA);
- 	writel(temp2, base + NvRegMacAddrB);
- 	writel(temp3, base + NvRegTransmitPoll);
--
--	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
--	pci_push(base);
- }
- 
- static void nv_get_hw_stats(struct net_device *dev)
-
-
---------------070000060205060209010600--
+Please, I do not want to give you a list of platform names
+to ifdef up your driver with, that's messy.  Just make the
+copy when necessary to align things properly.
