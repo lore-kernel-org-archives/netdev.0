@@ -1,71 +1,90 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: [PATCH] e1000e: Avoid duplicated output of device name in kernel warning
-Date: Mon, 25 Aug 2008 20:02:46 +0200
-Message-ID: <200808252002.46585.elendil@planet.nl>
-References: <200808181219.39921.elendil@planet.nl>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [RFC][PATCH 1/3] enic: add Makefile, patch Kconfg, MAINTAINERS, etc
+Date: Mon, 25 Aug 2008 11:26:41 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0808251121150.3972@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpo-eml06.kpnxchange.com ([213.75.38.155]:10723 "EHLO
-	cpsmtpo-eml06.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753551AbYHYSCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 14:02:49 -0400
-In-Reply-To: <200808181219.39921.elendil@planet.nl>
-Content-Disposition: inline
+Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:15436 "EHLO
+	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752176AbYHYStS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 14:49:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 18 August 2008, Frans Pop wrote:
-> With 2.6.27-rc3 I noticed the following messages in my boot log:
-> 0000:01:00.0: 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-> 0000:01:00.0: eth0: (PCI Express:2.5GB/s:Width x1) 00:16:76:04:ff:09
->
-> The second seems correct, but the first has a silly repetition of the
-> PCI device before the actual message. The message originates from
-> e1000_eeprom_checks in e1000e/netdev.c.
+enic: add Makefile, patch Kconfg, MAINTAINERS, etc
 
-With the patch below the first message becomes
-  e1000e 0000:01:00.0: Warning: detected DSPD enabled in EEPROM
-which makes it similar to directly preceding messages.
+Adds drivers/net/enic/Makefile, adds the enic (10G Ethernet) option
+to the net Kconfig.  Add PCI vendor and device ID for Cisco and enic.
+Updates MAINTAINERS to add an entry for the enic driver.
 
-> Other question is why this is a "Warning"? Isn't "Deep Smart Power
-> Down" a desirable feature to have?
-
-I'm still wondering about this...
-Same goes for the "warning" about ASPM.
-
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
 ---
-From: Frans Pop <elendil@planet.nl>
+diff -Naurp -X linux-2.6.26.3/Documentation/dontdiff linux-2.6.26.3/drivers/net/enic/Makefile linux-2.6.26.3-enic/drivers/net/enic/Makefile
+--- linux-2.6.26.3/drivers/net/enic/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.26.3-enic/drivers/net/enic/Makefile	2008-08-22 13:41:41.000000000 -0700
+@@ -0,0 +1,5 @@
++obj-$(CONFIG_ENIC) := enic.o
++
++enic-y := enic_main.o vnic_cq.o vnic_intr.o vnic_wq.o \
++	enic_res.o vnic_dev.o vnic_rq.o
++
+diff -Naurp -X linux-2.6.26.3/Documentation/dontdiff linux-2.6.26.3/drivers/net/Kconfig linux-2.6.26.3-enic/drivers/net/Kconfig
+--- linux-2.6.26.3/drivers/net/Kconfig	2008-08-20 11:11:37.000000000 -0700
++++ linux-2.6.26.3-enic/drivers/net/Kconfig	2008-08-22 13:46:50.000000000 -0700
+@@ -2527,6 +2527,13 @@ config MYRI10GE
+  	  To compile this driver as a module, choose M here. The module
+  	  will be called myri10ge.
 
-Use dev_warn instead of e_warn in e1000_eeprom_checks() as the
-interface name has not yet been assigned at that point.
-    
-Signed-off-by: Frans Pop <elendil@planet.nl>
++config ENIC
++	tristate "Cisco 10Gigabit Ethernet NIC"
++	depends on PCI
++	select INET_LRO
++	help
++	  This enables the support for Cisco 10Gigabit Ethernet card.
++
+  config NETXEN_NIC
+  	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+  	depends on PCI
+diff -Naurp -X linux-2.6.26.3/Documentation/dontdiff linux-2.6.26.3/drivers/net/Makefile linux-2.6.26.3-enic/drivers/net/Makefile
+--- linux-2.6.26.3/drivers/net/Makefile	2008-08-20 11:11:37.000000000 -0700
++++ linux-2.6.26.3-enic/drivers/net/Makefile	2008-08-22 13:59:05.000000000 -0700
+@@ -18,6 +18,7 @@ obj-$(CONFIG_BONDING) += bonding/
+  obj-$(CONFIG_ATL1) += atlx/
+  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+  obj-$(CONFIG_TEHUTI) += tehuti.o
++obj-$(CONFIG_ENIC) += enic/
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index d266510..d02a659 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4335,13 +4335,15 @@ static void e1000_eeprom_checks(struct 
-e1000_adapter *adapter)
- 	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &buf);
- 	if (!(le16_to_cpu(buf) & (1 << 0))) {
- 		/* Deep Smart Power Down (DSPD) */
--		e_warn("Warning: detected DSPD enabled in EEPROM\n");
-+		dev_warn(&adapter->pdev->dev,
-+			 "Warning: detected DSPD enabled in EEPROM\n");
- 	}
- 
- 	ret_val = e1000_read_nvm(hw, NVM_INIT_3GIO_3, 1, &buf);
- 	if (le16_to_cpu(buf) & (3 << 2)) {
- 		/* ASPM enable */
--		e_warn("Warning: detected ASPM enabled in EEPROM\n");
-+		dev_warn(&adapter->pdev->dev,
-+			 "Warning: detected ASPM enabled in EEPROM\n");
- 	}
- }
- 
+  gianfar_driver-objs := gianfar.o \
+  		gianfar_ethtool.o \
+diff -Naurp -X linux-2.6.26.3/Documentation/dontdiff linux-2.6.26.3/include/linux/pci_ids.h linux-2.6.26.3-enic/include/linux/pci_ids.h
+--- linux-2.6.26.3/include/linux/pci_ids.h	2008-08-20 11:11:37.000000000 -0700
++++ linux-2.6.26.3-enic/include/linux/pci_ids.h	2008-08-25 10:52:25.000000000 -0700
+@@ -1410,6 +1410,9 @@
+  #define PCI_DEVICE_ID_EICON_MAESTRAQ_U	0xe013
+  #define PCI_DEVICE_ID_EICON_MAESTRAP	0xe014
+
++#define PCI_VENDOR_ID_CISCO		0x1137
++#define PCI_DEVICE_ID_CISCO_ENIC	0x0043
++
+  #define PCI_VENDOR_ID_ZIATECH		0x1138
+  #define PCI_DEVICE_ID_ZIATECH_5550_HC	0x5550
+
+diff -Naurp -X linux-2.6.26.3/Documentation/dontdiff linux-2.6.26.3/MAINTAINERS linux-2.6.26.3-enic/MAINTAINERS
+--- linux-2.6.26.3/MAINTAINERS	2008-08-20 11:11:37.000000000 -0700
++++ linux-2.6.26.3-enic/MAINTAINERS	2008-08-22 14:08:29.000000000 -0700
+@@ -1054,6 +1054,13 @@ L:	cbe-oss-dev@ozlabs.org
+  W:	http://www.ibm.com/developerworks/power/cell/
+  S:	Supported
+
++CISCO 10G ETHERNET DRIVER
++P:	Scott Feldman
++M:	scofeldm@cisco.com
++P:	Joe Eykholt
++M:	jeykholt@cisco.com
++S:	Supported
++
+  CFAG12864B LCD DRIVER
+  P:	Miguel Ojeda Sandonis
+  M:	miguel.ojeda.sandonis@gmail.com
