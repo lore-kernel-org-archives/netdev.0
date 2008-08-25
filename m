@@ -1,45 +1,51 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-08-22
-Date: Mon, 25 Aug 2008 14:49:22 -0400
-Message-ID: <20080825184921.GA17297@tuxdriver.com>
-References: <20080822234632.GA12922@tuxdriver.com> <1ba2fa240808221821l3fcc4091l57caba03f86526ea@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [sky2, solved] transmit timeouts and firmware update...
+Date: Mon, 25 Aug 2008 15:22:06 -0400
+Message-ID: <20080825152206.2d554cf7@speedy>
+References: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
+	<alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1ba2fa240808221821l3fcc4091l57caba03f86526ea-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev <netdev@vger.kernel.org>,
+	Linux Networking <linux-net@vger.kernel.org>,
+	Daniel J Blueman <daniel.blueman@gmail.com>
+To: Krzysztof Oledzki <ole@ans.pl>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 23, 2008 at 04:21:23AM +0300, Tomas Winkler wrote:
-> On Sat, Aug 23, 2008 at 2:46 AM, John W. Linville
-> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> > Dave,
-> >
-> > Here is my current stack of updates for 2.6.28 -- included is an
-> > orinoco update to support WPA on certain firmware, the new libertas_tf
-> > driver, a number of cleanups, and a variety of other driver updates.
-> > Still more to come, but I think it is better to get these out rather
-> > than wait for the rest...
-> >
-> > Please let me know of there are problems!
-> >
+On Mon, 25 Aug 2008 21:03:25 +0200 (CEST)
+Krzysztof Oledzki <ole@ans.pl> wrote:
+
 > 
-> Missing this one
-> iwlwifi: allow consecutive scans in unassociated state
-> http://marc.info/?l=linux-wireless&m=121919791411147&w=2
-> Thanks
-> Tomas
+> 
+> On Mon, 25 Aug 2008, Daniel J Blueman wrote:
+> 
+> > I (and a lot of other users) have been experiencing the frequent sky2
+> > transmit timeout problem [1] (on 88E8053/Yukon2 EC gig hardware); this
+> > is a result of the embedded NIC controller locking up, and I've found
+> > that updating the firmware addresses this issue. I'm still seeing a
+> > previous and different issue [2] from time to time though (silicon
+> > bug?).
+> 
+> Thanks for the info. I've been dealing with this problem for some long 
+> time, hopefully sky driver from the latest kernels is able to recover 
+> from such hangs, so it is not that critical problem now.
+> 
+> > Marvell shipping broken firmware is completely unpublicised or
+> > acknowledged, however updated firmware is available through your
+> > motherboard vendor, so all hope it not lost after all...
+> 
+> Unfortunately not through all vendors. :( Or maybe not *yet*?
+> 
+> > My 8053/EC is using firmware 2.2 (previously 1.9) - you can check in
+> > DOS with 'yukondg.exe' from
+> > http://www.marvell.com/drivers/files/yukondg_v6.53.4.3.zip .
+> 
+> Stephen, is it possible for sky2 driver to check and print the 
+> firmware version?
 
-Hence the phrase "Still more to come"...
-
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is possible to dump and program eeprom from linux, and the version
+maybe buried in the VPD, but some hardware has non-functional VPD.
