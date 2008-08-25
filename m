@@ -1,69 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking.
-Date: Mon, 25 Aug 2008 15:44:34 -0700 (PDT)
-Message-ID: <20080825.154434.253246969.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Fix dev_graft_qdisc() locking
+Date: Tue, 26 Aug 2008 00:48:54 +0200
+Message-ID: <20080825224854.GA12082@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43988
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753336AbYHYWoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 18:44:38 -0400
+Received: from nf-out-0910.google.com ([64.233.182.186]:43013 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753551AbYHYWrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 18:47:51 -0400
+Received: by nf-out-0910.google.com with SMTP id d3so835796nfc.21
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 15:47:50 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+pkt_sched: Fix dev_graft_qdisc() locking
 
-1) Two sysctl fixes from Al Viro.
+During dev_graft_qdisc() dev is deactivated, so qdisc_root_lock()
+returns wrong lock of noop_qdisc instead of qdisc_sleeping.
 
-2) SCTP still had some holes in AUTH socket option handling,
-   found by Eugene Teo and fixed by Vlad Yasevich.
 
-3) BNX2X driver bug fixes from Eilon Greenstein and
-   Yitchak Gertner.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-   It says 220 lines changed in the diffstat but it's a
-   set of 9 bug fixes which are mostly 4 liners.  If you
-   still think this is pushing it I'll push back harder
-   on the folks sending things to me, just let me know.
+---
 
-Otherwise, please pull, thanks a lot!
+ net/sched/sch_api.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The following changes since commit f410a1fba7afa79d2992620e874a343fdba28332:
-  Stephen Hemminger (1):
-        ipv6: protocol for address routes
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Al Viro (2):
-      ipv4: sysctl fixes
-      ipv6: sysctl fixes
-
-Eilon Greenstein (5):
-      bnx2x: Rx work check
-      bnx2x: Fan failure mechanism on additional design
-      bnx2x: Minimize lock time
-      bnx2x: HW lock timeout
-      bnx2x: Version update
-
-Vlad Yasevich (1):
-      sctp: add verification checks to SCTP_AUTH_KEY option
-
-Yitchak Gertner (4):
-      bnx2x: Initialization structure
-      bnx2x: NIC load failure cleanup
-      bnx2x: NAPI and interrupts enable/disable
-      bnx2x: Multi Queue
-
- drivers/net/bnx2x.h        |    2 +-
- drivers/net/bnx2x_main.c   |  220 ++++++++++++++++++++++---------------------
- net/ipv4/route.c           |   24 ++++-
- net/ipv6/sysctl_net_ipv6.c |    2 +-
- net/sctp/auth.c            |    4 +
- net/sctp/socket.c          |    5 +
- 6 files changed, 144 insertions(+), 113 deletions(-)
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 4f9397f..85e078c 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -624,7 +624,7 @@ static struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
+ 	struct Qdisc *oqdisc = dev_queue->qdisc_sleeping;
+ 	spinlock_t *root_lock;
+ 
+-	root_lock = qdisc_root_lock(oqdisc);
++	root_lock = qdisc_lock(oqdisc);
+ 	spin_lock_bh(root_lock);
+ 
+ 	/* Prune old scheduler */
