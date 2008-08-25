@@ -1,41 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] pkt_sched: restore multiqueue prio scheduler
-Date: Sun, 24 Aug 2008 17:50:26 -0700 (PDT)
-Message-ID: <20080824.175026.237775292.davem@davemloft.net>
-References: <1219585163.4698.43.camel@localhost>
-	<20080824191905.GA3372@ami.dom.local>
-	<20080824192734.GB3372@ami.dom.local>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Unexpected source address selection in routing
+Date: Sun, 24 Aug 2008 21:28:10 -0400 (EDT)
+Message-ID: <alpine.LNX.1.10.0808242126540.22921@fbirervta.pbzchgretzou.qr>
+References: <alpine.LNX.1.10.0808241936410.22921@fbirervta.pbzchgretzou.qr> <20080824.173146.28446297.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, alexander.duyck@gmail.com,
-	jeffrey.t.kirsher@intel.com, jeff@garzik.org,
-	netdev@vger.kernel.org, alexander.h.duyck@intel.com
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47652
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752727AbYHYAub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2008 20:50:31 -0400
-In-Reply-To: <20080824192734.GB3372@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20080824.173146.28446297.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 24 Aug 2008 21:27:34 +0200
 
-> On Sun, Aug 24, 2008 at 09:19:05PM +0200, Jarek Poplawski wrote:
-> ...
-> > Jamal, maybe I miss something, but this could be like this only with
-> > default pfifo_fast qdiscs, which really are per dev hwqueue. Other
-> > qdiscs, including prio, are per device, so with prio, if a band with
-> > the highest priority is blocked it would be requeued blocking other
-> > bands (hwqueues in Alexander's case).
-> 
-> And, actually, because of this, Alexander is right the prio_dequeue()
-> can't work like this without any changes.
+On Sunday 2008-08-24 20:31, David Miller wrote:
+>
+>> It appears that the routing code selects the outgoing source address to 
+>> use for packets is chosen when the socket is established instead of
+>> at routing time.
+>> 
+>> The following presents a test case for "unexpected" (from a user's 
+>> perspective) behavior.
+>> 
+>> Is there any way to make it behave as a user would expect?
+>
+>No matter when we had made the routing lookup, we would have ended
+>up with what you see the kernel doing.
+>
+>The route is looked up long before netfilter even sees the packets.
+>
+>The source address selection at the socket level can only "see" the
+>original destination address and therefore makes the source address
+>selection using that original destination address.
 
-Yes it can, see my other response.  Only the higher priority
-queues filling up can block lower priority traffic, and that
-is fine.
-
+That's what I thought. With IPv4, one can cheat and use
+SNAT/MASQUERADE, but what about IPv6? (Other than using the RAWNAT
+extension, which bypasses netfilter connection tracking.)
