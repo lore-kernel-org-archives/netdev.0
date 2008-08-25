@@ -1,116 +1,79 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/4 2.6.28] cxgb3 - handle ARP replies for private iSCSI
- IP address
-Date: Mon, 25 Aug 2008 09:45:42 -0400
-Message-ID: <20080825094542.27dbed2b@speedy>
-References: <200808221839.m7MId8Sq004410@localhost.localdomain>
-	<20080822121250.55949d3d.akpm@linux-foundation.org>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH 1/9] bnx2x: Rx work check
+Date: Mon, 25 Aug 2008 17:24:25 +0300
+Message-ID: <1219674265.19456.27.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Karen Xie <kxie@chelsio.com>, netdev@vger.kernel.org,
-	open-iscsi@googlegroups.com, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	davem@davemloft.net, michaelc@cs.wisc.edu,
-	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
-	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
-	dm@chelsio.com, leedom@chelsio.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20080822121250.55949d3d.akpm@linux-foundation.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3159 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754219AbYHYOZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2008 10:25:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Aug 2008 12:12:50 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Rx work check
+The has Rx work check was wrong: when the FW was at the end of the page,
+the driver was already at the beginning of the next page. Since the
+check only validated that both driver and FW are pointing to the same
+place, it concluded that there is still work to be done. This caused
+some serious issues including long latency results on ping-pong test and
+lockups while unloading the driver in that condition.
 
-> On Fri, 22 Aug 2008 11:39:08 -0700
-> Karen Xie <kxie@chelsio.com> wrote:
-> 
-> > [PATCH 2/4 2.6.28] cxgb3 - handle ARP replies for private iSCSI IP address
-> > 
-> > From: Karen Xie <kxie@chelsio.com>
-> > 
-> > stg can be tricky ...
-> > [adding @adapter in cxgb3_arp_process doxygen header]
-> > The accelerated iSCSI traffic uses a private IP address unknown to the OS.
-> > The driver has to reply to ARP requests dedicated to the private IP address.
-> > 
-> > Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> > ---
-> > 
-> >  drivers/net/cxgb3/sge.c |   71 ++++++++++++++++++++++++++++++++++++++++++++---
-> >  1 files changed, 66 insertions(+), 5 deletions(-)
-> > 
-> > diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-> > index 1b0861d..d2a9285 100644
-> > --- a/drivers/net/cxgb3/sge.c
-> > +++ b/drivers/net/cxgb3/sge.c
-> > @@ -36,6 +36,7 @@
-> >  #include <linux/ip.h>
-> >  #include <linux/tcp.h>
-> >  #include <linux/dma-mapping.h>
-> > +#include <net/arp.h>
-> >  #include "common.h"
-> >  #include "regs.h"
-> >  #include "sge_defs.h"
-> > @@ -1859,6 +1860,54 @@ static void restart_tx(struct sge_qset *qs)
-> >  }
-> >  
-> >  /**
-> > + *	cxgb3_arp_process - process an ARP request probing a private IP address
-> > + *	@adapter: the adapter
-> > + *	@skb: the skbuff containing the ARP request
-> > + *
-> > + *	Check if the ARP request is probing the private IP address
-> > + *	dedicated to iSCSI, generate an ARP reply if so.
-> > + */
-> > +static void cxgb3_arp_process(struct adapter *adapter, struct sk_buff *skb)
-> > +{
-> > +	struct net_device *dev = skb->dev;
-> > +	struct port_info *pi;
-> > +	struct arphdr *arp;
-> > +	unsigned char *arp_ptr;
-> > +	unsigned char *sha;
-> > +	u32 sip, tip;
-> > +
-> > +	if (!dev)
-> > +		return;
-> 
-> Can this happen?
-> 
-> > +	skb_reset_network_header(skb);
-> > +	arp = arp_hdr(skb);
-> > +
-> > +	if (arp->ar_op != htons(ARPOP_REQUEST))
-> > +		return;
-> > +
-> > +	arp_ptr = (unsigned char *)(arp + 1);
-> > +	sha = arp_ptr;
-> > +	arp_ptr += dev->addr_len;
-> > +	memcpy(&sip, arp_ptr, 4);
-> > +	arp_ptr += 4;
-> > +	arp_ptr += dev->addr_len;
-> > +	memcpy(&tip, arp_ptr, 4);
-> 
-> Should arp_hdr_len() be used here?
-> 
-> > +	pi = netdev_priv(dev);
-> > +	if (ntohl(tip) != pi->iscsi_ipaddr)
-> > +		return;
-> > +
-> > +	arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
-> > +		 dev->dev_addr, sha);
-> > +
-> > +}
-> > +
-> > +static inline int is_arp(struct sk_buff *skb)
-> > +{
-> > +	return skb->protocol == htons(ETH_P_ARP);
-> 
-> Other net code uses __constant_htons() for this.
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x.h      |    2 +-
+ drivers/net/bnx2x_main.c |    7 +++++++
+ 2 files changed, 8 insertions(+), 1 deletions(-)
 
-htons() goes through several levels of indirection to make sure
-that if argument is constant, no code is necessary. The practice is
-reserve __constant_htons() only for those cases like initialization and case
-statements where C won't allow it.
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index b468f90..a14dba1
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -271,7 +271,7 @@ struct bnx2x_fastpath {
+ 			 (fp->tx_pkt_prod != fp->tx_pkt_cons))
+ 
+ #define BNX2X_HAS_RX_WORK(fp) \
+-			(fp->rx_comp_cons != le16_to_cpu(*fp->rx_cons_sb))
++			(fp->rx_comp_cons != rx_cons_sb)
+ 
+ #define BNX2X_HAS_WORK(fp)	(BNX2X_HAS_RX_WORK(fp) || BNX2X_HAS_TX_WORK(fp))
+ 
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 971576b..272f5d1
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -9250,6 +9250,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 						 napi);
+ 	struct bnx2x *bp = fp->bp;
+ 	int work_done = 0;
++	u16 rx_cons_sb;
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -9265,10 +9266,16 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 	if (BNX2X_HAS_TX_WORK(fp))
+ 		bnx2x_tx_int(fp, budget);
+ 
++	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
++	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
++		rx_cons_sb++;
+ 	if (BNX2X_HAS_RX_WORK(fp))
+ 		work_done = bnx2x_rx_int(fp, budget);
+ 
+ 	rmb(); /* BNX2X_HAS_WORK() reads the status block */
++	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
++	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
++		rx_cons_sb++;
+ 
+ 	/* must not complete if we consumed full budget */
+ 	if ((work_done < budget) && !BNX2X_HAS_WORK(fp)) {
+-- 
+1.5.3.2
+
+
+
+
