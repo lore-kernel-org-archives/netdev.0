@@ -1,44 +1,58 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: Re: CONFIG_KMOD breakage in next kernel
-Date: Mon, 25 Aug 2008 10:13:58 +1000
-Message-ID: <200808251013.58975.rusty@rustcorp.com.au>
-References: <s5h3akzwtki.wl%tiwai@suse.de> <1219256165.3502.10.camel@johannes.berg>
+Date: Mon, 25 Aug 2008 10:28:48 +1000
+Message-ID: <20080825102848.9b28da36.sfr@canb.auug.org.au>
+References: <s5h3akzwtki.wl%tiwai@suse.de>
+	<1219256165.3502.10.camel@johannes.berg>
+	<200808251013.58975.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Takashi Iwai <tiwai@suse.de>, linux-next@vger.kernel.org,
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__25_Aug_2008_10_28_48_+1000_rMIZ0B7B=RBV.Dz/"
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Takashi Iwai <tiwai@suse.de>, linux-next@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
 	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	video4linux-list@redhat.com
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1219256165.3502.10.camel@johannes.berg>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chilli.pcug.org.au ([203.10.76.44]:58430 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805AbYHYA27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Aug 2008 20:28:59 -0400
+In-Reply-To: <200808251013.58975.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--Signature=_Mon__25_Aug_2008_10_28_48_+1000_rMIZ0B7B=RBV.Dz/
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Thursday 21 August 2008 04:16:05 Johannes Berg wrote:
-> Hi,
->
-> > I found that CONFIG_KMOD was already removed in linux-next tree.
-> > This seems to result in many breakages.  For example, I cannot mount a
-> > FAT device automatically because of failure of automatic loading of
-> > nls modules.
->
-> This is odd. I had posted a long series of patches removing all of the
-> users I had found (similar grep like the one you used), see
-> http://lkml.org/lkml/2008/7/9/150 for the whole thread.
->
->
-> For some reason, only seven of those eleven patches ended up in the
-> kernel, you had taken the alsa one and Rusty posted only six of them.
+Hi Rusty,
 
-OK, not quite sure what happened.  I'll grab the rest and push them into 
-tomorrow's linux-next.
+On Mon, 25 Aug 2008 10:13:58 +1000 Rusty Russell <rusty@rustcorp.com.au> wr=
+ote:
+>
+> For today, I'll pull out the CONFIG_KMOD removal.
 
-For today, I'll pull out the CONFIG_KMOD removal.
+Does that mean you want me to revert "remove CONFIG_KMOD" from your tree
+for today's linux-next build?
 
-Thanks,
-Rusty.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__25_Aug_2008_10_28_48_+1000_rMIZ0B7B=RBV.Dz/
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkix/MAACgkQjjKRsyhoI8yA5ACfVZAfQ2Zdbqg5kcNPnLfSGw9X
+9wkAoJZz9vHpyyGfUWiyRo3xCD54XvnW
+=mRl0
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__25_Aug_2008_10_28_48_+1000_rMIZ0B7B=RBV.Dz/--
