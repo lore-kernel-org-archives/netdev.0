@@ -1,37 +1,53 @@
-From: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
-Subject: [PATCH] cs89x0: fix warning release_irq label
-Date: Mon, 25 Aug 2008 23:37:36 +0900
-Message-ID: <20080825233736.e7a17376.yoichi_yuasa@tripeaks.co.jp>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: [sky2, solved] transmit timeouts and firmware update...
+Date: Mon, 25 Aug 2008 15:42:58 +0100
+Message-ID: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: yoichi_yuasa@tripeaks.co.jp, netdev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+To: "Linux Netdev" <netdev@vger.kernel.org>,
+	"Linux Networking" <linux-net@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo32.po.2iij.NET ([210.128.50.17]:17469 "EHLO mo32.po.2iij.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753097AbYHYOi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2008 10:38:27 -0400
+Received: from py-out-1112.google.com ([64.233.166.176]:37852 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753814AbYHYOm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 10:42:59 -0400
+Received: by py-out-1112.google.com with SMTP id p76so1065132pyb.10
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 07:42:59 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-release_irq label is only used when ALLOW_DMA is defined.
+I (and a lot of other users) have been experiencing the frequent sky2
+transmit timeout problem [1] (on 88E8053/Yukon2 EC gig hardware); this
+is a result of the embedded NIC controller locking up, and I've found
+that updating the firmware addresses this issue. I'm still seeing a
+previous and different issue [2] from time to time though (silicon
+bug?).
 
-drivers/net/cs89x0.c: In function 'net_open':
-drivers/net/cs89x0.c:1401: warning: label 'release_irq' defined but not used
+Marvell shipping broken firmware is completely unpublicised or
+acknowledged, however updated firmware is available through your
+motherboard vendor, so all hope it not lost after all...
 
-Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+My 8053/EC is using firmware 2.2 (previously 1.9) - you can check in
+DOS with 'yukondg.exe' from
+http://www.marvell.com/drivers/files/yukondg_v6.53.4.3.zip .
 
-diff -pruN -X /home/yuasa/Memo/dontdiff linux-orig/drivers/net/cs89x0.c linux/drivers/net/cs89x0.c
---- linux-orig/drivers/net/cs89x0.c	2008-08-07 13:14:59.904521743 +0900
-+++ linux/drivers/net/cs89x0.c	2008-08-07 16:11:31.469037245 +0900
-@@ -1397,9 +1397,7 @@ net_open(struct net_device *dev)
- release_dma:
- #if ALLOW_DMA
- 		free_dma(dev->dma);
--#endif
- release_irq:
--#if ALLOW_DMA
- 		release_dma_buff(lp);
- #endif
-                 writereg(dev, PP_LineCTL, readreg(dev, PP_LineCTL) & ~(SERIAL_TX_ON | SERIAL_RX_ON));
+Thanks,
+  Daniel
+
+--- [1]
+
+NETDEV WATCHDOG: eth0 (sky2): transmit timed out
+sky2 eth0: tx timeout
+sky2 eth0: transmit ring 20 .. 491 report=20 done=20
+...
+
+--- [2]
+
+sky2 eth0: hung mac 1:119 fifo 7 (90:163)
+sky2 eth0: receiver hang detected
+sky2 eth0: disabling interface
+sky2 eth0: enabling interface
+-- 
+Daniel J Blueman
