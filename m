@@ -1,27 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] bnx2x: Version update
-Date: Mon, 25 Aug 2008 15:30:47 -0700 (PDT)
-Message-ID: <20080825.153047.66751252.davem@davemloft.net>
-References: <1219674308.19456.35.camel@lb-tlvb-eliezer>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC][PATCH 1/3] enic: add Makefile, patch Kconfg, MAINTAINERS, etc
+Date: Mon, 25 Aug 2008 15:36:21 -0700
+Message-ID: <adaiqtolo2i.fsf@cisco.com>
+References: <Pine.LNX.4.64.0808251121150.3972@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33329
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751734AbYHYWav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 18:30:51 -0400
-In-Reply-To: <1219674308.19456.35.camel@lb-tlvb-eliezer>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:43604 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbYHYWga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 18:36:30 -0400
+In-Reply-To: <Pine.LNX.4.64.0808251121150.3972@palito_client100.nuovasystems.com>
+	(Scott Feldman's message of "Mon, 25 Aug 2008 11:26:41 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Mon, 25 Aug 2008 17:25:08 +0300
+Oh yeah, by the way, this patch got whitespace mangled somehow so it
+won't apply (and also it seems to be against an old tree that doesn't
+have the atl1e driver merged).
 
-> Version update
-> 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+And:
 
-Applied.
+ > +config ENIC
+ > +	tristate "Cisco 10Gigabit Ethernet NIC"
+
+The Kconfig file seems to use "10 Gigabit Ethernet" (with a space) or
+variations on "10Gb Ethernet".  Probably worth it not to add yet another
+variation.
+
+ > +	depends on PCI
+ > +	select INET_LRO
+
+I believe if you select INET_LRO, you'd better depend on INET or else it
+is possible to create unbuildable configs.
