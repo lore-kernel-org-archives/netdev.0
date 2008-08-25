@@ -1,51 +1,62 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: [sky2, solved] transmit timeouts and firmware update...
-Date: Mon, 25 Aug 2008 20:46:12 +0100
-Message-ID: <6278d2220808251246p1126587cs594e15fe67cb0ef3@mail.gmail.com>
-References: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
-	 <alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"Linux Netdev" <netdev@vger.kernel.org>,
-	"Linux Networking" <linux-net@vger.kernel.org>
-To: "Krzysztof Oledzki" <ole@ans.pl>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: add verification checks to SCTP_AUTH_KEY option
+Date: Mon, 25 Aug 2008 16:25:32 -0400
+Message-ID: <12196959323990-git-send-email-vladislav.yasevich@hp.com>
+References: <20080825164440.GA504@kernel.sg>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	security@kernel.org, eteo@redhat.com,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:8825 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbYHYUZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 16:25:34 -0400
+In-Reply-To: <20080825164440.GA504@kernel.sg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MjAwOC84LzI1IEtyenlzenRvZiBPbGVkemtpIDxvbGVAYW5zLnBsPjoKPiBPbiBNb24sIDI1IEF1
-ZyAyMDA4LCBEYW5pZWwgSiBCbHVlbWFuIHdyb3RlOgo+Cj4+IEkgKGFuZCBhIGxvdCBvZiBvdGhl
-ciB1c2VycykgaGF2ZSBiZWVuIGV4cGVyaWVuY2luZyB0aGUgZnJlcXVlbnQgc2t5Mgo+PiB0cmFu
-c21pdCB0aW1lb3V0IHByb2JsZW0gWzFdIChvbiA4OEU4MDUzL1l1a29uMiBFQyBnaWcgaGFyZHdh
-cmUpOyB0aGlzCj4+IGlzIGEgcmVzdWx0IG9mIHRoZSBlbWJlZGRlZCBOSUMgY29udHJvbGxlciBs
-b2NraW5nIHVwLCBhbmQgSSd2ZSBmb3VuZAo+PiB0aGF0IHVwZGF0aW5nIHRoZSBmaXJtd2FyZSBh
-ZGRyZXNzZXMgdGhpcyBpc3N1ZS4gSSdtIHN0aWxsIHNlZWluZyBhCj4+IHByZXZpb3VzIGFuZCBk
-aWZmZXJlbnQgaXNzdWUgWzJdIGZyb20gdGltZSB0byB0aW1lIHRob3VnaCAoc2lsaWNvbgo+PiBi
-dWc/KS4KPgo+IFRoYW5rcyBmb3IgdGhlIGluZm8uIEkndmUgYmVlbiBkZWFsaW5nIHdpdGggdGhp
-cyBwcm9ibGVtIGZvciBzb21lIGxvbmcgdGltZSwKPiBob3BlZnVsbHkgc2t5IGRyaXZlciBmcm9t
-IHRoZSBsYXRlc3Qga2VybmVscyBpcyBhYmxlIHRvIHJlY292ZXIgZnJvbSBzdWNoCj4gaGFuZ3Ms
-IHNvIGl0IGlzIG5vdCB0aGF0IGNyaXRpY2FsIHByb2JsZW0gbm93LgoKSXQgY2FuIHJlY292ZXIg
-ZXZlbnR1YWxseSwgYnV0IGZvciAoZWcpIE5GUywgdGhlIGV4cG9uZW50aWFsLWJhY2tvZmYKY2F1
-c2VzIGEgMzAtNjBzIGhhbmcsIHdoaWNoIGlmIHlvdXIgaG9tZWRpciBpcyBtb3VudGVkLCB3aWxs
-IGhpdCB5b3UuCgo+PiBNYXJ2ZWxsIHNoaXBwaW5nIGJyb2tlbiBmaXJtd2FyZSBpcyBjb21wbGV0
-ZWx5IHVucHVibGljaXNlZCBvcgo+PiBhY2tub3dsZWRnZWQsIGhvd2V2ZXIgdXBkYXRlZCBmaXJt
-d2FyZSBpcyBhdmFpbGFibGUgdGhyb3VnaCB5b3VyCj4+IG1vdGhlcmJvYXJkIHZlbmRvciwgc28g
-YWxsIGhvcGUgaXQgbm90IGxvc3QgYWZ0ZXIgYWxsLi4uCj4KPiBVbmZvcnR1bmF0ZWx5IG5vdCB0
-aHJvdWdoIGFsbCB2ZW5kb3JzLiA6KCBPciBtYXliZSBub3QgKnlldCo/CgpBdCBsZWFzdCBHaWdh
-Ynl0ZSBhbmQgSmV0d2F5IGhhdmUgdGhlbSBmb3IgZG93bmxvYWQsIGFzIHRoZSBpc3N1ZQpzZWVt
-cyB3aWRlc3ByZWFkOgoKaHR0cDovL3R3LmdpZ2EtYnl0ZS5jb20vRmlsZUxpc3QvRkFRL21iX2Zh
-cS9mYXFfbWFydmVsbF9lZXByb20uemlwCmh0dHA6Ly9kb3dubG9hZC5qZXR3YXkuY29tLnR3L2Zh
-cS9FRVA4MDU2XzEwOS56aXAKCkkgY2FuIGltYWdpbmUgdGhhdCBtb3N0IG1vdGhlcmJvYXJkIHZl
-bmRvcnMgd2lsbCBoYXZlIGVuY291bnRlcmVkCnN1cHBvcnQgZm9yIHRoaXMgcHJvYmxlbSwgc28g
-d291bGQgaGF2ZSB0aGUgZmlsZXM7IGl0J3Mgd29ydGggdHJ5aW5nCnRvIGNvbnRhY3QgdGhlbS4u
-LgoKPj4gTXkgODA1My9FQyBpcyB1c2luZyBmaXJtd2FyZSAyLjIgKHByZXZpb3VzbHkgMS45KSAt
-IHlvdSBjYW4gY2hlY2sgaW4KPj4gRE9TIHdpdGggJ3l1a29uZGcuZXhlJyBmcm9tCj4+IGh0dHA6
-Ly93d3cubWFydmVsbC5jb20vZHJpdmVycy9maWxlcy95dWtvbmRnX3Y2LjUzLjQuMy56aXAgLgo+
-Cj4gU3RlcGhlbiwgaXMgaXQgcG9zc2libGUgZm9yIHNreTIgZHJpdmVyIHRvIGNoZWNrIGFuZCBw
-cmludCB0aGUgZmlybXdhcmUKPiB2ZXJzaW9uPwoKSSBhZ3JlZSAtIHRoaXMgd291bGQgYmUgdXNl
-ZnVsIGluZGVlZCEKCj4gQmVzdCByZWdhcmRzLAo+Cj4gICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIEtyenlzenRvZiBPbOpkemtpCi0tIApEYW5pZWwgSiBCbHVlbWFuCg==
+The structure used for SCTP_AUTH_KEY option contains a
+length that needs to be verfied to prevent buffer overflow
+conditions.  Spoted by Eugene Teo <eteo@redhat.com>.
+
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/auth.c   |    4 ++++
+ net/sctp/socket.c |    5 +++++
+ 2 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index 675a5c3..1fcb4cf 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -80,6 +80,10 @@ static struct sctp_auth_bytes *sctp_auth_create_key(__u32 key_len, gfp_t gfp)
+ {
+ 	struct sctp_auth_bytes *key;
+ 
++	/* Verify that we are not going to overflow INT_MAX */
++	if ((INT_MAX - key_len) < sizeof(struct sctp_auth_bytes))
++		return NULL;
++
+ 	/* Allocate the shared key */
+ 	key = kmalloc(sizeof(struct sctp_auth_bytes) + key_len, gfp);
+ 	if (!key)
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index bb5c9ef..afa952e 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3144,6 +3144,11 @@ static int sctp_setsockopt_auth_key(struct sock *sk,
+ 		goto out;
+ 	}
+ 
++	if (authkey->sca_keylength > optlen) {
++		ret = -EINVAL;
++		goto out;
++	}
++
+ 	asoc = sctp_id2assoc(sk, authkey->sca_assoc_id);
+ 	if (!asoc && authkey->sca_assoc_id && sctp_style(sk, UDP)) {
+ 		ret = -EINVAL;
+-- 
+1.5.2.5
+
