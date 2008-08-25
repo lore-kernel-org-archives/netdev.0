@@ -1,53 +1,48 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: [sky2, solved] transmit timeouts and firmware update...
-Date: Mon, 25 Aug 2008 15:42:58 +0100
-Message-ID: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH netdev-2.6] jme: JMicron Gigabit Ethernet Driver
+Date: Mon, 25 Aug 2008 17:21:26 +0100
+Message-ID: <20080825162125.GU7908@solarflare.com>
+References: <48AFA8A8.6070604@cooldavid.org> <48AFB137.9020506@pobox.com> <48B03522.9020604@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: "Linux Netdev" <netdev@vger.kernel.org>,
-	"Linux Networking" <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Ethan <ethanhsiao@jmicron.com>,
+	akeemting <akeem@jmicron.com>, netdev@vger.kernel.org
+To: Guo-Fu Tseng <cooldavid@cooldavid.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.176]:37852 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbYHYOm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 10:42:59 -0400
-Received: by py-out-1112.google.com with SMTP id p76so1065132pyb.10
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 07:42:59 -0700 (PDT)
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:49670 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754535AbYHYQVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 12:21:39 -0400
 Content-Disposition: inline
+In-Reply-To: <48B03522.9020604@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I (and a lot of other users) have been experiencing the frequent sky2
-transmit timeout problem [1] (on 88E8053/Yukon2 EC gig hardware); this
-is a result of the embedded NIC controller locking up, and I've found
-that updating the firmware addresses this issue. I'm still seeing a
-previous and different issue [2] from time to time though (silicon
-bug?).
+Guo-Fu Tseng wrote:
+> Jeff Garzik wrote:
+[...]
+> >* we prefer not to add custom ioctls, but rather add functionality to 
+> >ethtool.  in particular, JMESPIIOCTL does not appear to have any 
+> >security checks, and is a potential security hole that permits an 
+> >unpriveleged user direct access to hardware
+> >
+> 
+> Should I add privilege check, or should(could?) I send a patch that add 
+> ethtool interface for flash(For storing PXE code) read/write?
 
-Marvell shipping broken firmware is completely unpublicised or
-acknowledged, however updated firmware is available through your
-motherboard vendor, so all hope it not lost after all...
+Flash devices are normally handled by MTD drivers.  However an MTD
+driver that works through a network controller will normally need to
+coordinate with the network driver.  We have an MTD driver for exactly
+the purpose of updating boot code, but the coordinating mechanism
+("driverlink") has not been accepted in-tree.
 
-My 8053/EC is using firmware 2.2 (previously 1.9) - you can check in
-DOS with 'yukondg.exe' from
-http://www.marvell.com/drivers/files/yukondg_v6.53.4.3.zip .
+I think we would be happy to implement an ethtool API for flash
+memory if this was agreed to be the right interface.  It just seems
+like it would be duplicating the MTD API.
 
-Thanks,
-  Daniel
+Ben.
 
---- [1]
-
-NETDEV WATCHDOG: eth0 (sky2): transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 20 .. 491 report=20 done=20
-...
-
---- [2]
-
-sky2 eth0: hung mac 1:119 fifo 7 (90:163)
-sky2 eth0: receiver hang detected
-sky2 eth0: disabling interface
-sky2 eth0: enabling interface
 -- 
-Daniel J Blueman
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
