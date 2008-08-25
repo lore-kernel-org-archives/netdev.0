@@ -1,77 +1,83 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: mv643xx_eth fixes pull request for 2.6.27 (was: Re: [PATCH 0/5,RFC] mv643xx_eth fixes for 2.6.27)
-Date: Mon, 25 Aug 2008 22:31:39 +0200
-Message-ID: <20080825203139.GA18649@xi.wantstofly.org>
-References: <20080824020324.GA8762@xi.wantstofly.org>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth fix: tx/rx reset
+Date: Mon, 25 Aug 2008 13:36:58 -0400
+Message-ID: <48B2EDBA.6070802@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dale Farnsworth <dale@farnsworth.org>,
-	Nicolas Pitre <nico@cam.org>, Andrew Morton <akpm@osdl.org>,
-	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: multipart/mixed;
+ boundary="------------070000060205060209010600"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:46645 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbYHYUbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 16:31:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20080824020324.GA8762@xi.wantstofly.org>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:8283 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135AbYHYUht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 16:37:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 24, 2008 at 04:03:24AM +0200, Lennert Buytenhek wrote:
+This is a multi-part message in MIME format.
+--------------070000060205060209010600
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The following five mv643xx_eth fixes for 2.6.27 since commit
-> 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
->   Linus Torvalds (1):
->         Linux v2.6.27-rc4
-> 
-> are available in the git repository at:
-> 
->   git://git.marvell.com/mv643xx_eth.git for-2.6.27
->   http://git.marvell.com/?p=mv643xx_eth.git;a=summary
-> 
-> Lennert Buytenhek (5):
->       mv643xx_eth: fix NAPI 'rotting packet' issue
->       mv643xx_eth: fix double add_timer() on the receive oom timer
->       mv643xx_eth: fix inconsistent lock semantics
->       mv643xx_eth: fix NULL pointer dereference in rxq_process()
->       mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
-> 
->  drivers/net/mv643xx_eth.c |   33 +++++++++++++++++++--------------
->  1 files changed, 19 insertions(+), 14 deletions(-)
-> 
-> The second patch should fix http://bugzilla.kernel.org/show_bug.cgi?id=11377
-> -- Gerhard, can you please test if it makes your problem go away?  (It
-> won't make the out of memory messages go away, but it should fix the
-> kernel panic.)
+This patch keeps the HW reset for tx/rx asserted until DMA is enabled.
+This is to ensure that all tx/rx initialization (i.e ring setup) is
+finished before de-asserting the reset.
 
-The submitter confirmed that patch 2 fixes the original issue (and
-once that is fixed, patch 4 will fix the subsequently emerging issue).
-I've also done some more testing on the series, and it's probably good
-for 2.6.27.  I've tacked on a patch to bump the version number -- can
-you please pull?
-
-The following changes since commit 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
-  Linus Torvalds (1):
-        Linux v2.6.27-rc4
-
-are available in the git repository at:
-
-  git://git.marvell.com/mv643xx_eth.git for-2.6.27
-  http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.27
-
-Lennert Buytenhek (6):
-      mv643xx_eth: fix NAPI 'rotting packet' issue
-      mv643xx_eth: fix double add_timer() on the receive oom timer
-      mv643xx_eth: fix inconsistent lock semantics
-      mv643xx_eth: fix NULL pointer dereference in rxq_process()
-      mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
-      mv643xx_eth: bump version to 1.3
-
- drivers/net/mv643xx_eth.c |   35 ++++++++++++++++++++---------------
- 1 files changed, 20 insertions(+), 15 deletions(-)
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
-thanks,
-Lennert
+--------------070000060205060209010600
+Content-Type: text/plain;
+ name="patch-forcedeth-reset"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-reset"
+
+--- old/drivers/net/forcedeth.c	2008-08-25 13:02:17.000000000 -0400
++++ new/drivers/net/forcedeth.c	2008-08-25 13:02:20.000000000 -0400
+@@ -233,7 +233,7 @@
+ 	NvRegTxRxControl = 0x144,
+ #define NVREG_TXRXCTL_KICK	0x0001
+ #define NVREG_TXRXCTL_BIT1	0x0002
+-#define NVREG_TXRXCTL_BIT2	0x0004
++#define NVREG_TXRXCTL_DMA_DISABLE	0x0004
+ #define NVREG_TXRXCTL_IDLE	0x0008
+ #define NVREG_TXRXCTL_RESET	0x0010
+ #define NVREG_TXRXCTL_RXCHECK	0x0400
+@@ -1555,11 +1555,9 @@
+ 	u8 __iomem *base = get_hwbase(dev);
+ 
+ 	dprintk(KERN_DEBUG "%s: nv_txrx_reset\n", dev->name);
+-	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
++	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+ 	pci_push(base);
+ 	udelay(NV_TXRX_RESET_DELAY);
+-	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
+-	pci_push(base);
+ }
+ 
+ static void nv_mac_reset(struct net_device *dev)
+@@ -1570,7 +1568,7 @@
+ 
+ 	dprintk(KERN_DEBUG "%s: nv_mac_reset\n", dev->name);
+ 
+-	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
++	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+ 	pci_push(base);
+ 
+ 	/* save registers since they will be cleared on reset */
+@@ -1589,9 +1587,6 @@
+ 	writel(temp1, base + NvRegMacAddrA);
+ 	writel(temp2, base + NvRegMacAddrB);
+ 	writel(temp3, base + NvRegTransmitPoll);
+-
+-	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
+-	pci_push(base);
+ }
+ 
+ static void nv_get_hw_stats(struct net_device *dev)
+
+
+--------------070000060205060209010600--
