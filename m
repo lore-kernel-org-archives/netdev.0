@@ -1,254 +1,249 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 7/9] bnx2x: NAPI and interrupts enable/disable
-Date: Mon, 25 Aug 2008 17:25:00 +0300
-Message-ID: <1219674300.19456.33.camel@lb-tlvb-eliezer>
+From: Timo =?utf-8?q?Weing=C3=A4rtner?= <timo@tiwe.de>
+Subject: problem with tagged/untagged vlan and bridging
+Date: Mon, 25 Aug 2008 16:03:37 +0200
+Message-ID: <200808251603.41301.timo@tiwe.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart1772232.0eorVvjmze";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: "Yitchak Gertner" <gertner@broadcom.com>
-To: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3159 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754135AbYHYO0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2008 10:26:22 -0400
+Received: from mini002.webpack.hosteurope.de ([80.237.130.131]:35362 "EHLO
+	mini002.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754759AbYHYO1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 10:27:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NAPI and interrupts enable/disable
-Fixing the order of enabling and disabling NAPI and the interrupts
+--nextPart1772232.0eorVvjmze
+Content-Type: multipart/mixed;
+  boundary="Boundary-01=_6ursIkRjEYWyqHh"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |  149 ++++++++++++++++++++++-----------------------
- 1 files changed, 73 insertions(+), 76 deletions(-)
+--Boundary-01=_6ursIkRjEYWyqHh
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 1c81da4..f0b04c9 100755
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -6058,6 +6058,44 @@ static int bnx2x_req_irq(struct bnx2x *bp)
- 	return rc;
- }
- 
-+static void bnx2x_napi_enable(struct bnx2x *bp)
-+{
-+	int i;
-+
-+	for_each_queue(bp, i)
-+		napi_enable(&bnx2x_fp(bp, i, napi));
-+}
-+
-+static void bnx2x_napi_disable(struct bnx2x *bp)
-+{
-+	int i;
-+
-+	for_each_queue(bp, i)
-+		napi_disable(&bnx2x_fp(bp, i, napi));
-+}
-+
-+static void bnx2x_netif_start(struct bnx2x *bp)
-+{
-+	if (atomic_dec_and_test(&bp->intr_sem)) {
-+		if (netif_running(bp->dev)) {
-+			if (bp->state == BNX2X_STATE_OPEN)
-+				netif_wake_queue(bp->dev);
-+			bnx2x_napi_enable(bp);
-+			bnx2x_int_enable(bp);
-+		}
-+	}
-+}
-+
-+static void bnx2x_netif_stop(struct bnx2x *bp)
-+{
-+	bnx2x_int_disable_sync(bp);
-+	if (netif_running(bp->dev)) {
-+		bnx2x_napi_disable(bp);
-+		netif_tx_disable(bp->dev);
-+		bp->dev->trans_start = jiffies;	/* prevent tx timeout */
-+	}
-+}
-+
- /*
-  * Init service functions
-  */
-@@ -6363,8 +6401,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 
- 	/* Enable Rx interrupt handling before sending the ramrod
- 	   as it's completed on Rx FP queue */
--	for_each_queue(bp, i)
--		napi_enable(&bnx2x_fp(bp, i, napi));
-+	bnx2x_napi_enable(bp);
- 
- 	/* Enable interrupt handling */
- 	atomic_set(&bp->intr_sem, 0);
-@@ -6431,8 +6468,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 	return 0;
- 
- load_netif_stop:
--	for_each_queue(bp, i)
--		napi_disable(&bnx2x_fp(bp, i, napi));
-+	bnx2x_napi_disable(bp);
- load_rings_free:
- 	/* Free SKBs, SGEs, TPA pool and driver internals */
- 	bnx2x_free_skbs(bp);
-@@ -6614,11 +6650,9 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 	bp->rx_mode = BNX2X_RX_MODE_NONE;
- 	bnx2x_set_storm_rx_mode(bp);
- 
--	if (netif_running(bp->dev)) {
--		netif_tx_disable(bp->dev);
--		bp->dev->trans_start = jiffies;	/* prevent tx timeout */
--	}
--
-+	bnx2x_netif_stop(bp);
-+	if (!netif_running(bp->dev))
-+		bnx2x_napi_disable(bp);
- 	del_timer_sync(&bp->timer);
- 	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
- 		 (DRV_PULSE_ALWAYS_ALIVE | bp->fw_drv_pulse_wr_seq));
-@@ -6632,9 +6666,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 		smp_rmb();
- 		while (BNX2X_HAS_TX_WORK(fp)) {
- 
--			if (!netif_running(bp->dev))
--				bnx2x_tx_int(fp, 1000);
--
-+			bnx2x_tx_int(fp, 1000);
- 			if (!cnt) {
- 				BNX2X_ERR("timeout waiting for queue[%d]\n",
- 					  i);
-@@ -6650,46 +6682,12 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 			smp_rmb();
- 		}
- 	}
--
- 	/* Give HW time to discard old tx messages */
- 	msleep(1);
- 
--	for_each_queue(bp, i)
--		napi_disable(&bnx2x_fp(bp, i, napi));
--	/* Disable interrupts after Tx and Rx are disabled on stack level */
--	bnx2x_int_disable_sync(bp);
--
- 	/* Release IRQs */
- 	bnx2x_free_irq(bp);
- 
--	if (unload_mode == UNLOAD_NORMAL)
--		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
--
--	else if (bp->flags & NO_WOL_FLAG) {
--		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP;
--		if (CHIP_IS_E1H(bp))
--			REG_WR(bp, MISC_REG_E1HMF_MODE, 0);
--
--	} else if (bp->wol) {
--		u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
--		u8 *mac_addr = bp->dev->dev_addr;
--		u32 val;
--		/* The mac address is written to entries 1-4 to
--		   preserve entry 0 which is used by the PMF */
--		u8 entry = (BP_E1HVN(bp) + 1)*8;
--
--		val = (mac_addr[0] << 8) | mac_addr[1];
--		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry, val);
--
--		val = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
--		      (mac_addr[4] << 8) | mac_addr[5];
--		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry + 4, val);
--
--		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_EN;
--
--	} else
--		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
--
- 	if (CHIP_IS_E1(bp)) {
- 		struct mac_configuration_cmd *config =
- 						bnx2x_sp(bp, mcast_config);
-@@ -6712,14 +6710,41 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 			      U64_LO(bnx2x_sp_mapping(bp, mcast_config)), 0);
- 
- 	} else { /* E1H */
-+		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 0);
-+
- 		bnx2x_set_mac_addr_e1h(bp, 0);
- 
- 		for (i = 0; i < MC_HASH_SIZE; i++)
- 			REG_WR(bp, MC_HASH_OFFSET(bp, i), 0);
- 	}
- 
--	if (CHIP_IS_E1H(bp))
--		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 0);
-+	if (unload_mode == UNLOAD_NORMAL)
-+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
-+
-+	else if (bp->flags & NO_WOL_FLAG) {
-+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP;
-+		if (CHIP_IS_E1H(bp))
-+			REG_WR(bp, MISC_REG_E1HMF_MODE, 0);
-+
-+	} else if (bp->wol) {
-+		u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
-+		u8 *mac_addr = bp->dev->dev_addr;
-+		u32 val;
-+		/* The mac address is written to entries 1-4 to
-+		   preserve entry 0 which is used by the PMF */
-+		u8 entry = (BP_E1HVN(bp) + 1)*8;
-+
-+		val = (mac_addr[0] << 8) | mac_addr[1];
-+		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry, val);
-+
-+		val = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
-+		      (mac_addr[4] << 8) | mac_addr[5];
-+		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry + 4, val);
-+
-+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_EN;
-+
-+	} else
-+		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
- 
- 	/* Close multi and leading connections
- 	   Completions for ramrods are collected in a synchronous way */
-@@ -8621,34 +8646,6 @@ test_mem_exit:
- 	return rc;
- }
- 
--static void bnx2x_netif_start(struct bnx2x *bp)
--{
--	int i;
--
--	if (atomic_dec_and_test(&bp->intr_sem)) {
--		if (netif_running(bp->dev)) {
--			bnx2x_int_enable(bp);
--			for_each_queue(bp, i)
--				napi_enable(&bnx2x_fp(bp, i, napi));
--			if (bp->state == BNX2X_STATE_OPEN)
--				netif_wake_queue(bp->dev);
--		}
--	}
--}
--
--static void bnx2x_netif_stop(struct bnx2x *bp)
--{
--	int i;
--
--	if (netif_running(bp->dev)) {
--		netif_tx_disable(bp->dev);
--		bp->dev->trans_start = jiffies;	/* prevent tx timeout */
--		for_each_queue(bp, i)
--			napi_disable(&bnx2x_fp(bp, i, napi));
--	}
--	bnx2x_int_disable_sync(bp);
--}
--
- static void bnx2x_wait_for_link(struct bnx2x *bp, u8 link_up)
- {
- 	int cnt = 1000;
--- 
-1.5.3.2
+Hi all,
+
+Last Thursday I bought a wireless access point with multi-ssid (D-Link DWL=
+=20
+2100AP). Management of the AP and RADIUS stuff is done without VLAN tags, t=
+he=20
+first SSID is also without tags. The other SSIDs have VLAN IDs configurable.
+
+My first SSID is quasi-disabled by having the RADIUS always reject access=20
+requests, a second uses VLAN 3.
+
+The access point is connected to my Xen machine on dev hme2. The VLAN=20
+subdevice hme2.3 is enslaved to br_3, the main device hme2 to br_4.
+
+Wireshark is showing that packets coming in to hme2 with VLAN 3 go to br_4=
+=20
+with VLAN tags instead of hme2.3 and then br_3. When I remove hme2 from br_=
+4=20
+everything works the way I expect it to, but the AP has no connection to th=
+e=20
+RADIUS (on vif4.0) anymore.
+
+I expect the VLAN subdevices to grab their packets from the master first an=
+d=20
+leave the rest for the bridge.
+
+Am I doing anything wrong or is this a bug?
+
+I use 2.6.16.62 with the sunhme vlan patch[1] because of complications with=
+=20
+Xen. "git log v2.6.16..HEAD -- net/8021q/ net/bridge/" does not appear to=20
+show anyhing that might have fixed it.
+
+Some config info is attached. Ask for more if you need it.
 
 
+Thanks in advance
+Timo
 
+[1] a5a97263a9fd6a94f954d41ae3233ea65a90bd8a
 
+--Boundary-01=_6ursIkRjEYWyqHh
+Content-Type: text/plain;
+  name="ip l"
+Content-Transfer-Encoding: 7bit
+
+1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: sit0: <NOARP> mtu 1480 qdisc noop
+    link/sit 0.0.0.0 brd 0.0.0.0
+3: ip6tnl0: <NOARP> mtu 1460 qdisc noop
+    link/tunnel6 :: brd ::
+4: hme0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 08:00:20:f4:c8:f4 brd ff:ff:ff:ff:ff:ff
+5: hme1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 08:00:20:f4:c8:f5 brd ff:ff:ff:ff:ff:ff
+6: hme2: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 08:00:20:f4:c8:f6 brd ff:ff:ff:ff:ff:ff
+7: hme3: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 08:00:20:f4:c8:f7 brd ff:ff:ff:ff:ff:ff
+8: skge0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 00:13:d4:78:9c:2c brd ff:ff:ff:ff:ff:ff
+9: eth1394: <BROADCAST,MULTICAST> mtu 1500 qdisc noop qlen 1000
+    link/ieee1394 00:11:d8:00:00:4f:97:e4 brd ff:ff:ff:ff:ff:ff:ff:ff
+10: hme2.3: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether 08:00:20:f4:c8:f6 brd ff:ff:ff:ff:ff:ff
+11: br_1: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether 00:13:d4:78:9c:2c brd ff:ff:ff:ff:ff:ff
+12: br_2: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether 08:00:20:f4:c8:f7 brd ff:ff:ff:ff:ff:ff
+13: br_3: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether 08:00:20:f4:c8:f6 brd ff:ff:ff:ff:ff:ff
+14: br_4: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether 08:00:20:f4:c8:f6 brd ff:ff:ff:ff:ff:ff
+15: vif1.0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+16: vif1.0.1: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+17: vif1.0.2: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+18: vif1.0.3: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+19: vif2.0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+20: vif3.0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+21: vif4.0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+22: vif4.0.1: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+23: vif4.0.4: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+    link/ether fe:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
+
+--Boundary-01=_6ursIkRjEYWyqHh
+Content-Type: text/plain;
+  name="brctl show"
+Content-Transfer-Encoding: 7bit
+
+bridge name     bridge id               STP enabled     interfaces
+br_1            8000.0013d4789c2c       no              hme0
+                                                        hme1
+                                                        skge0
+                                                        vif1.0.1
+                                                        vif2.0
+                                                        vif3.0
+                                                        vif4.0.1
+br_2            8000.080020f4c8f7       no              hme3
+                                                        vif1.0.2
+br_3            8000.080020f4c8f6       no              hme2.3
+                                                        vif1.0.3
+br_4            8000.080020f4c8f6       no              hme2
+                                                        vif4.0.4
+
+--Boundary-01=_6ursIkRjEYWyqHh
+Content-Type: text/plain;
+  name="proc_net_vlan_*"
+Content-Transfer-Encoding: quoted-printable
+
+VLAN Dev name    | VLAN ID                                           =20
+Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD                        =20
+hme2.3         | 3  | hme2                                           =20
+vif1.0.1       | 1  | vif1.0                                         =20
+vif1.0.2       | 2  | vif1.0                                         =20
+vif1.0.3       | 3  | vif1.0                                         =20
+vif4.0.1       | 1  | vif4.0                                         =20
+vif4.0.4       | 4  | vif4.0                                         =20
+hme2.3  VID: 3   REORDER_HDR: 1  dev->priv_flags: 1                  =20
+         total frames received           15                          =20
+          total bytes received         7108                          =20
+      Broadcast/Multicast Rcvd           12                          =20
+
+      total frames transmitted         3381
+       total bytes transmitted       428070
+            total headroom inc            1
+           total encap on xmit         3381
+Device: hme2                              =20
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:                                     =20
+vif1.0.1  VID: 1         REORDER_HDR: 1  dev->priv_flags: 1    =20
+         total frames received        72723                    =20
+          total bytes received     43367278                    =20
+      Broadcast/Multicast Rcvd         3885
+
+      total frames transmitted        92633
+       total bytes transmitted     25327305
+            total headroom inc         4917
+           total encap on xmit        92633
+Device: vif1.0
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:
+vif1.0.2  VID: 2         REORDER_HDR: 1  dev->priv_flags: 1
+         total frames received        77309
+          total bytes received      8640874
+      Broadcast/Multicast Rcvd            1
+
+      total frames transmitted        59797
+       total bytes transmitted     43315354
+            total headroom inc        30882
+           total encap on xmit        59797
+Device: vif1.0
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:
+vif1.0.3  VID: 3         REORDER_HDR: 1  dev->priv_flags: 1
+         total frames received         3822
+          total bytes received       416076
+      Broadcast/Multicast Rcvd         3809
+
+      total frames transmitted           15
+       total bytes transmitted         7318
+            total headroom inc            0
+           total encap on xmit           15
+Device: vif1.0
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:
+vif4.0.1  VID: 1         REORDER_HDR: 1  dev->priv_flags: 1
+         total frames received         4910
+          total bytes received      1264893
+      Broadcast/Multicast Rcvd           10
+
+      total frames transmitted        10220
+       total bytes transmitted      1392795
+            total headroom inc          103
+           total encap on xmit        10220
+Device: vif4.0
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:
+vif4.0.4  VID: 4         REORDER_HDR: 1  dev->priv_flags: 1
+         total frames received         2829
+          total bytes received       322432
+      Broadcast/Multicast Rcvd            1
+
+      total frames transmitted         5293
+       total bytes transmitted      4141739
+            total headroom inc         2730
+           total encap on xmit         3467
+Device: vif4.0
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+EGRESSS priority Mappings:
+
+--Boundary-01=_6ursIkRjEYWyqHh--
+
+--nextPart1772232.0eorVvjmze
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iQEcBAABAgAGBQJIsru6AAoJEEn74FOC+06t4+8H/2SXOZuqwnezai9MS1WFOoPx
+FZQV5/TnT0oSvPQKFtiSpuN4oxtRYB1dBo3WONHEujJh2Vnz+3FL9BbJvQh5TpVe
+57SGMdFsGA0XxuuwP7J2q/gZQfnE87UFzilsGDBzpuxpkiZgnbmM+RSilOpWOVTc
+2vstvZnq85Nrae/VldwqkbE2UIZzo01pAkcDP03A9eklnn0CVES5KWPAVV5F9wEL
+SBBTh9GRv7RbPT3yBXYD+wT5uGhTlohg5u3yoPlHwNAKYuhSiyQSPYThCSwW7qUg
+K6ix/ACQU7ORXitrD8JEYiECqfkfiXhAy6y79v6S45KRX+R2pzCzddxqPkIpBDk=
+=qcva
+-----END PGP SIGNATURE-----
+
+--nextPart1772232.0eorVvjmze--
