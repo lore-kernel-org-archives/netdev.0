@@ -1,70 +1,49 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: r6040: bad udelay call, build failure on ARM with R6040=m
-Date: Mon, 25 Aug 2008 23:05:09 +0200
-Message-ID: <200808252305.10448.florian.fainelli@telecomint.eu>
-References: <20080825120502.GA13700@deprecation.cyrius.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix tcp header size miscalculation when window
+ scale is unused
+Date: Mon, 25 Aug 2008 14:07:52 -0700 (PDT)
+Message-ID: <20080825.140752.41921187.davem@davemloft.net>
+References: <396556a20805301217k293e5718h6bbf02bfe069081@europa>
+	<20080824.174544.244704849.davem@davemloft.net>
+	<48B2DE15.70708@emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sten Wang <sten.wang@rdc.com.tw>, netdev@vger.kernel.org,
-	Martin Michlmayr <tbm@cyrius.com>
-To: Martin Michlmayr <tbm@cyrius.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: love_phil@emc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.int-evry.fr ([157.159.10.71]:48876 "EHLO
-	smtp4.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbYHYVHs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 17:07:48 -0400
-In-Reply-To: <20080825120502.GA13700@deprecation.cyrius.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49336
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753335AbYHYVH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 17:07:56 -0400
+In-Reply-To: <48B2DE15.70708@emc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey Martin,
+From: Phil Love <love_phil@emc.com>
+Date: Mon, 25 Aug 2008 09:30:13 -0700
 
-Le Monday 25 August 2008 14:05:02 Martin Michlmayr, vous avez =E9crit=A0=
-:
-> r6040 fails to build on ARM with:
->
-> ERROR: "__bad_udelay" [drivers/net/r6040.ko] undefined!
-> make[1]: *** [__modpost] Error 1
->
-> __bad_udelay is specifically designed on ARM to fail when udelay is
-> called in a bad way.  arch/arm/include/asm/delay.h has this to say
-> about __bad_udelay:
+> Here is the patch using Thunderbird, rather than Apple Mail. Hopefully 
+> it is not mangled this time.
+> 
+> Signed-off-by: Philip Love <love_phil@emc.com>
 
-Please find/test the patch below :
---
-=46rom: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: [PATCH] r6040: fix bad usage of udelay
+Unfortunately it is still mangled.
 
-This patch fixes the bad usage of udelay(5000), which in turns is a
-mdelay(5). It causes compilation for ARM where udelay maximum value
-is checked.
+> --- a/net/ipv4/tcp_output.c	2008-08-24 07:44:18.000000000 -0700
+> +++ b/net/ipv4/tcp_output.c	2008-08-24 07:43:05.000000000 -0700
+> @@ -468,7 +468,8 @@ static unsigned tcp_syn_options(struct s
+>   	}
+>   	if (likely(sysctl_tcp_window_scaling)) {
+>   		opts->ws = tp->rx_opt.rcv_wscale;
+> -		size += TCPOLEN_WSCALE_ALIGNED;
+> +		if(likely(opts->ws))
+> +			size += TCPOLEN_WSCALE_ALIGNED;
+>   	}
+>   	if (likely(sysctl_tcp_sack)) {
+>   		opts->options |= OPTION_SACK_ADVERTISE;
 
-Reported-by: Martin Michlmayr <tbm@cyrius.com>
-Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
----
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index d453987..d837bef 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -364,7 +364,7 @@ static void r6040_init_mac_regs(struct net_device *=
-dev)
- 	/* Reset internal state machine */
- 	iowrite16(2, ioaddr + MAC_SM);
- 	iowrite16(0, ioaddr + MAC_SM);
--	udelay(5000);
-+	mdelay(5);
-=20
- 	/* MAC Bus Control Register */
- 	iowrite16(MBCR_DEFAULT, ioaddr + MBCR);
-@@ -800,7 +800,7 @@ static void r6040_mac_address(struct net_device *de=
-v)
- 	iowrite16(0x01, ioaddr + MCR1); /* Reset MAC */
- 	iowrite16(2, ioaddr + MAC_SM); /* Reset internal state machine */
- 	iowrite16(0, ioaddr + MAC_SM);
--	udelay(5000);
-+	mdelay(5);
-=20
- 	/* Restore MAC Address */
- 	adrp =3D (u16 *) dev->dev_addr;
+On those lines of the patch where no changes are occuring there
+should be a single space then one or more tab characters.
+
+There are instead two spaces then the tab characters.
