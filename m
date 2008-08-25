@@ -1,52 +1,51 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: pull request: wireless-next-2.6 2008-08-22
-Date: Mon, 25 Aug 2008 22:33:00 +0300
-Message-ID: <1ba2fa240808251233n214048c7ife265c473331d618@mail.gmail.com>
-References: <20080822234632.GA12922@tuxdriver.com>
-	 <1ba2fa240808221821l3fcc4091l57caba03f86526ea@mail.gmail.com>
-	 <20080825184921.GA17297@tuxdriver.com>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: Re: [sky2, solved] transmit timeouts and firmware update...
+Date: Mon, 25 Aug 2008 20:46:12 +0100
+Message-ID: <6278d2220808251246p1126587cs594e15fe67cb0ef3@mail.gmail.com>
+References: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
+	 <alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.189]:53613 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754632AbYHYTdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 15:33:04 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so353372gvc.37
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 12:33:00 -0700 (PDT)
-In-Reply-To: <20080825184921.GA17297@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: base64
+Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Linux Netdev" <netdev@vger.kernel.org>,
+	"Linux Networking" <linux-net@vger.kernel.org>
+To: "Krzysztof Oledzki" <ole@ans.pl>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 25, 2008 at 9:49 PM, John W. Linville
-<linville@tuxdriver.com> wrote:
-> On Sat, Aug 23, 2008 at 04:21:23AM +0300, Tomas Winkler wrote:
->> On Sat, Aug 23, 2008 at 2:46 AM, John W. Linville
->> <linville@tuxdriver.com> wrote:
->> > Dave,
->> >
->> > Here is my current stack of updates for 2.6.28 -- included is an
->> > orinoco update to support WPA on certain firmware, the new libertas_tf
->> > driver, a number of cleanups, and a variety of other driver updates.
->> > Still more to come, but I think it is better to get these out rather
->> > than wait for the rest...
->> >
->> > Please let me know of there are problems!
->> >
->>
->> Missing this one
->> iwlwifi: allow consecutive scans in unassociated state
->> http://marc.info/?l=linux-wireless&m=121919791411147&w=2
->> Thanks
->> Tomas
->
-> Hence the phrase "Still more to come"...
->
-Sure, this was just integral part of  the direct probe/association
-fixes included in this bulk
-Tomas
+MjAwOC84LzI1IEtyenlzenRvZiBPbGVkemtpIDxvbGVAYW5zLnBsPjoKPiBPbiBNb24sIDI1IEF1
+ZyAyMDA4LCBEYW5pZWwgSiBCbHVlbWFuIHdyb3RlOgo+Cj4+IEkgKGFuZCBhIGxvdCBvZiBvdGhl
+ciB1c2VycykgaGF2ZSBiZWVuIGV4cGVyaWVuY2luZyB0aGUgZnJlcXVlbnQgc2t5Mgo+PiB0cmFu
+c21pdCB0aW1lb3V0IHByb2JsZW0gWzFdIChvbiA4OEU4MDUzL1l1a29uMiBFQyBnaWcgaGFyZHdh
+cmUpOyB0aGlzCj4+IGlzIGEgcmVzdWx0IG9mIHRoZSBlbWJlZGRlZCBOSUMgY29udHJvbGxlciBs
+b2NraW5nIHVwLCBhbmQgSSd2ZSBmb3VuZAo+PiB0aGF0IHVwZGF0aW5nIHRoZSBmaXJtd2FyZSBh
+ZGRyZXNzZXMgdGhpcyBpc3N1ZS4gSSdtIHN0aWxsIHNlZWluZyBhCj4+IHByZXZpb3VzIGFuZCBk
+aWZmZXJlbnQgaXNzdWUgWzJdIGZyb20gdGltZSB0byB0aW1lIHRob3VnaCAoc2lsaWNvbgo+PiBi
+dWc/KS4KPgo+IFRoYW5rcyBmb3IgdGhlIGluZm8uIEkndmUgYmVlbiBkZWFsaW5nIHdpdGggdGhp
+cyBwcm9ibGVtIGZvciBzb21lIGxvbmcgdGltZSwKPiBob3BlZnVsbHkgc2t5IGRyaXZlciBmcm9t
+IHRoZSBsYXRlc3Qga2VybmVscyBpcyBhYmxlIHRvIHJlY292ZXIgZnJvbSBzdWNoCj4gaGFuZ3Ms
+IHNvIGl0IGlzIG5vdCB0aGF0IGNyaXRpY2FsIHByb2JsZW0gbm93LgoKSXQgY2FuIHJlY292ZXIg
+ZXZlbnR1YWxseSwgYnV0IGZvciAoZWcpIE5GUywgdGhlIGV4cG9uZW50aWFsLWJhY2tvZmYKY2F1
+c2VzIGEgMzAtNjBzIGhhbmcsIHdoaWNoIGlmIHlvdXIgaG9tZWRpciBpcyBtb3VudGVkLCB3aWxs
+IGhpdCB5b3UuCgo+PiBNYXJ2ZWxsIHNoaXBwaW5nIGJyb2tlbiBmaXJtd2FyZSBpcyBjb21wbGV0
+ZWx5IHVucHVibGljaXNlZCBvcgo+PiBhY2tub3dsZWRnZWQsIGhvd2V2ZXIgdXBkYXRlZCBmaXJt
+d2FyZSBpcyBhdmFpbGFibGUgdGhyb3VnaCB5b3VyCj4+IG1vdGhlcmJvYXJkIHZlbmRvciwgc28g
+YWxsIGhvcGUgaXQgbm90IGxvc3QgYWZ0ZXIgYWxsLi4uCj4KPiBVbmZvcnR1bmF0ZWx5IG5vdCB0
+aHJvdWdoIGFsbCB2ZW5kb3JzLiA6KCBPciBtYXliZSBub3QgKnlldCo/CgpBdCBsZWFzdCBHaWdh
+Ynl0ZSBhbmQgSmV0d2F5IGhhdmUgdGhlbSBmb3IgZG93bmxvYWQsIGFzIHRoZSBpc3N1ZQpzZWVt
+cyB3aWRlc3ByZWFkOgoKaHR0cDovL3R3LmdpZ2EtYnl0ZS5jb20vRmlsZUxpc3QvRkFRL21iX2Zh
+cS9mYXFfbWFydmVsbF9lZXByb20uemlwCmh0dHA6Ly9kb3dubG9hZC5qZXR3YXkuY29tLnR3L2Zh
+cS9FRVA4MDU2XzEwOS56aXAKCkkgY2FuIGltYWdpbmUgdGhhdCBtb3N0IG1vdGhlcmJvYXJkIHZl
+bmRvcnMgd2lsbCBoYXZlIGVuY291bnRlcmVkCnN1cHBvcnQgZm9yIHRoaXMgcHJvYmxlbSwgc28g
+d291bGQgaGF2ZSB0aGUgZmlsZXM7IGl0J3Mgd29ydGggdHJ5aW5nCnRvIGNvbnRhY3QgdGhlbS4u
+LgoKPj4gTXkgODA1My9FQyBpcyB1c2luZyBmaXJtd2FyZSAyLjIgKHByZXZpb3VzbHkgMS45KSAt
+IHlvdSBjYW4gY2hlY2sgaW4KPj4gRE9TIHdpdGggJ3l1a29uZGcuZXhlJyBmcm9tCj4+IGh0dHA6
+Ly93d3cubWFydmVsbC5jb20vZHJpdmVycy9maWxlcy95dWtvbmRnX3Y2LjUzLjQuMy56aXAgLgo+
+Cj4gU3RlcGhlbiwgaXMgaXQgcG9zc2libGUgZm9yIHNreTIgZHJpdmVyIHRvIGNoZWNrIGFuZCBw
+cmludCB0aGUgZmlybXdhcmUKPiB2ZXJzaW9uPwoKSSBhZ3JlZSAtIHRoaXMgd291bGQgYmUgdXNl
+ZnVsIGluZGVlZCEKCj4gQmVzdCByZWdhcmRzLAo+Cj4gICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIEtyenlzenRvZiBPbOpkemtpCi0tIApEYW5pZWwgSiBCbHVlbWFuCg==
