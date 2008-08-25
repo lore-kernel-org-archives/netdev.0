@@ -1,55 +1,91 @@
-From: Phil Love <love_phil@emc.com>
-Subject: Re: [PATCH] tcp: fix tcp header size miscalculation when window scale
- is unused
-Date: Mon, 25 Aug 2008 09:30:13 -0700
-Message-ID: <48B2DE15.70708@emc.com>
-References: <20080823.214013.29359753.davem@davemloft.net>	<396556a20805301217k293e5718h6bbf02bfe069081@europa> <20080824.174544.244704849.davem@davemloft.net>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workaround
+Date: Mon, 25 Aug 2008 18:45:40 +0200
+Message-ID: <200808251845.41164.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_1GusI+sJ3SlMh79"
+Cc: netfilter-devel@vger.kernel.org
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Boundary-00=_1GusI+sJ3SlMh79
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+=46orward mail. Upgrading to KDE 4.1.0/kdepim4 from KDE 3.5.9
+enabled HTML emails by default and I didn't notice it before.
+
+=2D---------  Forwarded Message  ----------
+
+Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility workarou=
+nd
+Date: Monday, 25. August 2008
+=46rom: Thomas Jarosch <thomas.jarosch@intra2net.com>
+To: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+
+On Friday, 22. August 2008 23:18:44 Ilpo J=E4rvinen wrote:
+> In the meantime, can you check the attached patches. Besides the kernel
+> patch, you need to build your own patched iproute2 as well to configure
+> the features (ip tool among them is enough in case the build of some other
+> part of the toolset fails like it did for me). I somewhat tested them, and
+> the result seemed to be what I'd expect (I just forced RTOs with some
+> netem heavy dropping and quickly glanced over the resulting packet
+> patterns near RTO).
+
+Your patches work fine.
+
+I've noticed two small things:
+1. Maybe it's a good idea to add a note above the tcp_use_frto() change
+to explain that the value is negated. Took me a while to figure out
+why there is no "!" in there :-)
+2. Maybe rename the "features" option in iproute2 to "disable_features".
+Then it would be more intuitive what it does.
+
+
+btw: If you apply something to the iproute2 git tree,
+I got a compiler error while testing the patch:
+
+In file included from lnstat.c:40:
+lnstat.h:28: error: field 'last_read' has incomplete type
+lnstat.h:29: error: field 'interval' has incomplete type
+
+Attached small patch fixes the issue.
+
+Cheers,
+Thomas
+
+
+--Boundary-00=_1GusI+sJ3SlMh79
+Content-Type: text/x-patch;
+  charset="iso-8859-15";
+  name="iproute2-fix-include-for-timeval.patch"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mexforward.lss.emc.com ([128.222.32.20]:30425 "EHLO
-	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbYHYQaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 12:30:25 -0400
-Received: from hop04-l1d11-si04.isus.emc.com (HOP04-L1D11-SI04.isus.emc.com [10.254.111.24])
-	by mexforward.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m7PGULZB001546
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 12:30:22 -0400 (EDT)
-Received: from mailhub.lss.emc.com (nagas.lss.emc.com [10.254.144.11]) by hop04-l1d11-si04.isus.emc.com (Tablus Interceptor) for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 11:53:10 -0400
-Received: from [128.222.177.178] ([128.222.177.178])
-	by mailhub.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m7PGUJ1x008865
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 12:30:20 -0400 (EDT)
-In-Reply-To: <20080824.174544.244704849.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: attachment;
+	filename="iproute2-fix-include-for-timeval.patch"
 
-Here is the patch using Thunderbird, rather than Apple Mail. Hopefully 
-it is not mangled this time.
+Fix this compile error:
 
-Signed-off-by: Philip Love <love_phil@emc.com>
+In file included from lnstat.c:40:
+lnstat.h:28: error: field 'last_read' has incomplete type
+lnstat.h:29: error: field 'interval' has incomplete type
 
---- a/net/ipv4/tcp_output.c	2008-08-24 07:44:18.000000000 -0700
-+++ b/net/ipv4/tcp_output.c	2008-08-24 07:43:05.000000000 -0700
-@@ -468,7 +468,8 @@ static unsigned tcp_syn_options(struct s
-  	}
-  	if (likely(sysctl_tcp_window_scaling)) {
-  		opts->ws = tp->rx_opt.rcv_wscale;
--		size += TCPOLEN_WSCALE_ALIGNED;
-+		if(likely(opts->ws))
-+			size += TCPOLEN_WSCALE_ALIGNED;
-  	}
-  	if (likely(sysctl_tcp_sack)) {
-  		opts->options |= OPTION_SACK_ADVERTISE;
-@@ -509,7 +510,8 @@ static unsigned tcp_synack_options(struc
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
 
-  	if (likely(ireq->wscale_ok)) {
-  		opts->ws = ireq->rcv_wscale;
--		size += TCPOLEN_WSCALE_ALIGNED;
-+		if(likely(opts->ws))
-+			size += TCPOLEN_WSCALE_ALIGNED;
-  	}
-  	if (likely(doing_ts)) {
-  		opts->options |= OPTION_TS;
+diff -u -r iproute2-2.6.25/misc/lnstat.h iproute2.timeval/misc/lnstat.h
+--- iproute2-2.6.25/misc/lnstat.h	Thu Apr 17 19:12:54 2008
++++ iproute2.timeval/misc/lnstat.h	Mon Aug 25 17:48:33 2008
+@@ -2,6 +2,7 @@
+ #define _LNSTAT_H
+ 
+ #include <limits.h>
++#include <sys/time.h>
+ 
+ #define LNSTAT_VERSION "0.02 041002"
+ 
 
+--Boundary-00=_1GusI+sJ3SlMh79--
