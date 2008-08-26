@@ -1,62 +1,83 @@
-From: Dave Jones <davej@redhat.com>
-Subject: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Tue, 26 Aug 2008 12:37:19 -0400
-Message-ID: <20080826163719.GA25066@redhat.com>
-References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [E1000-devel] [PATCH] e100: Add missing dma sync for proper operation
+ with non-coherent caches.
+Date: Tue, 26 Aug 2008 09:45:58 -0700
+Message-ID: <48B43346.2030600@intel.com>
+References: <48B3A8D0.2040108@avtrex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: j.w.r.degoede@hhs.nl
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-mips <linux-mips@linux-mips.org>
+To: David Daney <ddaney@avtrex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54273 "EHLO mx2.redhat.com"
+Received: from mga14.intel.com ([143.182.124.37]:60563 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755300AbYHZQir (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 12:38:47 -0400
-Content-Disposition: inline
-In-Reply-To: <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
+	id S1754662AbYHZQqO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 12:46:14 -0400
+In-Reply-To: <48B3A8D0.2040108@avtrex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just had this bug reported against our development tree..
+David Daney wrote:
+> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
+> non-coherent DMA).  There was a problem where received packets would
+> get 'stuck' for several seconds at a time and then be released all at
+> once.
+> 
+> The cause was that if an interrupt were received when no RX packets
+> were available, the status for the receive buffer would be stuck in
+> the cache, so when the next interrupt arrived the old status value was
+> read (indicating no packets available) instead of the new value.
+> 
+> The fix is to call pci_dma_sync_single_for_device on the RX if the
+> packet is not available to invalidate the cache so that at the next
+> interrupt valid status is returned.
+> 
+> The driver currently calls pci_dma_sync_single_for_cpu before reading
+> the status, and this is indeed needed for cases like the R10000 CPU
+> where the cache can be polluted by speculative execution, but for most
+> machines it is a nop.
+> 
+> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
 
-	Dave
 
-On Tue, Aug 26, 2008 at 11:49:31AM -0400, bugzilla@redhat.com wrote:
- > Please do not reply directly to this email. All additional
- > comments should be made in the comments box of this bug.
- > 
- > https://bugzilla.redhat.com/show_bug.cgi?id=459782
- > 
- > Hans de Goede <j.w.r.degoede@hhs.nl> changed:
- > 
- >            What    |Removed                     |Added
- > ----------------------------------------------------------------------------
- >                  CC|                            |j.w.r.degoede@hhs.nl
- >           Component|gkrellm                     |kernel
- >          AssignedTo|j.w.r.degoede@hhs.nl        |kernel-maint@redhat.com
- >             Summary|gkrellmd consumes about 75% |cat /proc/net/tcp takes 0.5
- >                    |cpu time                    |seconds on x86_64, 0.5
- >                    |                            |seconds !!
- > 
- > --- Comment #2 from Hans de Goede <j.w.r.degoede@hhs.nl>  2008-08-26 11:49:30 EDT ---
- > Thanks for reporting this some stracing of gkrellmd has found that reading from
- > /proc/net/tcp and reading from /proc/net/tcp6 is the culprit, try this on your
- > x86_64 machine to confirm:
- > 
- > "time cat /proc/net/tcp"
- > 
- > To give you an idea on my rawhide x86_64 machine:
- > [hans@localhost devel]$ time cat /proc/net/tcp
- > <snip>
- > real    0m0.520s
- > user    0m0.000s
- > sys     0m0.446s
- > 
- > Thats amazingly slow, esp as I only have 8 tcp connections open.
- > 
- > Some maybe usefull info: top reports a very high load (50%) from soft IRQ's.
- > 
- > Anyways changing this to a kernel bug.
+lol, that's a bit old :)
 
--- 
-http://www.codemonkey.org.uk
+A LOT of work has gone into 2.6.26+'s version of e100 that addresses specifically
+non-coherent DMA machines, including a patch that looks very close to what you
+write below here.
+
+can you test the latest git tree and see if you still need (a modified or updated
+version) of your patch?
+
+I know for sure that the guys maintaining e100 do not have anything close to your
+system, so they can't test that.
+
+Cheers,
+
+Auke
+
+> 
+> Signed-off-by: David Daney <ddaney@avtrex.com>
+> ---
+>  drivers/net/e100.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index 19d32a2..fb8d551 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -1840,6 +1840,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+>  
+>  			if (readb(&nic->csr->scb.status) & rus_no_res)
+>  				nic->ru_running = RU_SUSPENDED;
+> +		/* We are done looking at the buffer.  Prepare it for
+> +		 * more DMA.  */
+> +		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
+> +					       sizeof(struct rfd),
+> +					       PCI_DMA_FROMDEVICE);
+>  		return -ENODATA;
+>  	}
+>  
+
