@@ -1,142 +1,135 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Tue, 26 Aug 2008 23:27:31 +0200
-Message-ID: <48B47543.8080701@cosmosbay.com>
-References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com> <20080826163719.GA25066@redhat.com> <48B44C3F.6020006@cosmosbay.com> <48B452ED.1000308@hhs.nl> <48B469EA.1010807@cosmosbay.com> <48B46E89.4030104@hhs.nl>
+From: "=?ISO-8859-1?Q?Damien_Th=E9bault?=" <damien.thebault@gmail.com>
+Subject: Re: [PATCH] plusb.c patched to support Belkin F5U258 USB host-to-host cable
+Date: Tue, 26 Aug 2008 23:56:20 +0200
+Message-ID: <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae@mail.gmail.com>
+References: <200802141557_MC3-1-FBB3-3DA7@compuserve.com>
+	 <200802161241.02468.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
-To: Hans de Goede <j.w.r.degoede@hhs.nl>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_10402_6816692.1219787780823"
+Cc: tony_gibbs <Tony_Gibbs@compuserve.com>,
+	"NETDEV mailing list" <netdev@vger.kernel.org>,
+	"Linux USB mailing list" <majordomo@vger.kernel.org>
+To: "David Brownell" <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.113]:19734 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751865AbYHZVbV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 17:31:21 -0400
-In-Reply-To: <48B46E89.4030104@hhs.nl>
+Received: from rv-out-0506.google.com ([209.85.198.235]:27042 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668AbYHZV4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 17:56:21 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2328284rvb.1
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 14:56:20 -0700 (PDT)
+In-Reply-To: <200802161241.02468.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hans de Goede a =E9crit :
-> Eric Dumazet wrote:
->> Hans de Goede a =E9crit :
->>> Eric Dumazet wrote:
->>>> Dave Jones a =E9crit :
->>>>> Just had this bug reported against our development tree..
->>> <snip>
->>>>>  > [hans@localhost devel]$ time cat /proc/net/tcp
->>>>>  > <snip>
->>>>>  > real    0m0.520s
->>>>>  > user    0m0.000s
->>>>>  > sys     0m0.446s
->>>>>  >  > Thats amazingly slow, esp as I only have 8 tcp connections =
-open.
->>>>>  >  > Some maybe usefull info: top reports a very high load (50%)=
-=20
->>>>> from soft IRQ's.
->>>>>  >  > Anyways changing this to a kernel bug.
->>>>>
->>>>
->>>> I wonder why this qualifies as a "kernel bug". This is a well know=
-n=20
->>>> problem.
->>>>
->>>
->>> No its not, /proc/net/tcp may be slow in general but not *this* slo=
-w ...
->>>
->>> <snip>
->>>
->>>>
->>>> Time difference between /proc/net/tcp and netlink on a 4GB x86_64=20
->>>> machine :
->>>>
->>>> # dmesg | grep "TCP established hash"
->>>> TCP established hash table entries: 262144 (order: 10, 4194304 byt=
-es)
->>>> # time cat /proc/net/tcp >/dev/null
->>>>
->>>> real    0m0.091s
->>>> user    0m0.001s
->>>> sys     0m0.090s
->>>
->>> As quoted above my idle x86_64, using the exact same hash table siz=
-e,=20
->>> running 2.6.27-rc2.git1 uses 0.520 seconds for that same command,=20
->>> thats a difference of more then a factor 50 !!
->>>
->>> This is not about /proc/net/tcp not being fast, this is about it=20
->>> haven gotten slower by a factor of 50!
->>>
->>> Also notice that this slowdown does not happen on i386.
->>
->> And your .config files on i386 and x86_64 are ?
->> Some configuration options can slow down all lock/unlock operations=20
->> (CONFIG_SMP, CONFIG_PREEMPT, CONFIG_PROVE_LOCKING,=20
->> CONFIG_DEBUG_SPINLOCK, CONFIG_NR_CPUS ...)
->>
->=20
-> Attached
->=20
->> If you TCP hash table has 512.000 slots (I am just guessing, you did=
-nt=20
->> provide this information), it can make a huge difference.
->=20
-> I did provide that information: "using the exact same hash table size=
-"=20
-> and then quoting your first mail in this thread:
-> "TCP established hash table entries: 262144 (order: 10, 4194304 bytes=
-)"
->=20
->>>
->>> Anyways I'll try 2.6.27-rc4 and report back with its results.
->>>
->>
->> Yes, please, but nothing really changed in this area in the recent=20
->> times...
->>
->=20
-> I'm afraid that atleast the Fedora rc4 build won't boot on my machine=
- ...
->=20
->> We added some checks so that softirqs can preempt us.
->> Latencies used to be very high, and are now bonded, at the price of=20
->> potential slowdown for the /proc/net/tcp reader.
->=20
-> Slowdown as in 2x or 4x as slow I presume, not 50x ?
+------=_Part_10402_6816692.1219787780823
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I dont know, you tell us 50x, but nowhere I saw your numbers on i386,
-nor the amount of memory of your test machine.
+Hello,
 
-One important thing to remember is that on i386, LOWMEM is less than 1G=
-B,=20
-so a 4GB server will give different hash sizes depending on being 32 or=
- 64 bits.
+Sorry to hijack this thread, but today I bought one host-to-host USB
+cable, and it's a Belkin F5U258.
 
-With a 32 bits kernel:
+On Sat, Feb 16, 2008 at 22:41, David Brownell <david-b@pacbell.net> wrote:
+> Here's a patch with cleanups and without various encoding bugs.
+> Can you verify it still works?
 
-# dmesg | grep "TCP established"
-TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
-# time cat /proc/net/tcp >/dev/null
+I applied it against my linux 2.6.26 tree, enabled plugged the two
+ends into two ports of my computer, used "ip l set usb0 up" and "ip l
+set usb1 up", started an "arping -I usb0 <some address>" and "tcpdump
+-i usb1", and I see packets.
+Then I changed the mac address of usb1, let ipv6 choose a link-local
+address and pinged it from usb0, it's working too.
+I didn't try some more advanced test as I only have one computer at
+the moment (but it should be possible to do something with iptables, I
+did it once)
 
-real    0m0.025s
-user    0m0.000s
-sys     0m0.017s
+> When you test this, please enable CONFIG_USB_DEBUG and let us know
+> if those the host software still needs to do that reset ... or at
+> least, whether the diagnostic appears.
 
+The attached file is the dmesg output, I see timeouts when the
+interface is set to up (at 895 and 985), but nothing else, is this ok?
+-- 
+Damien Thebault
 
-While on a 64 bits kernel :
+------=_Part_10402_6816692.1219787780823
+Content-Type: text/x-log; name=dmesg.log
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fkd22h8y0
+Content-Disposition: attachment; filename=dmesg.log
 
-# dmesg | grep "TCP established hash"
-TCP established hash table entries: 262144 (order: 10, 4194304 bytes)
-# time cat /proc/net/tcp >/dev/null
-
-real    0m0.091s
-user    0m0.001s
-sys     0m0.090s=20
-
-So I see a 3x on my machine, not a 50x as you ?
-
-
-
-
+WyAgODg5LjA0MTMwMl0gdXNiIHVzYjE6IHVzYiByZXN1bWUKWyAgODg5LjA0MTMwMl0gZWhjaV9o
+Y2QgMDAwMDowMDoxZC43OiByZXN1bWUgcm9vdCBodWIKWyAgODg5LjA5MDU4NF0gaHViIDEtMDox
+LjA6IGh1Yl9yZXN1bWUKWyAgODg5LjA5MDU4NF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBHZXRT
+dGF0dXMgcG9ydCAzIHN0YXR1cyAwMDE4MDMgUE9XRVIgc2lnPWogQ1NDIENPTk5FQ1QKWyAgODg5
+LjA5MDU4NF0gaHViIDEtMDoxLjA6IHN0YXRlIDcgcG9ydHMgOCBjaGcgMDAwMCBldnQgMDAwMApb
+ICA4ODkuMDkwNTg0XSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6IEdldFN0YXR1cyBwb3J0IDMgc3Rh
+dHVzIDAwMTgwMyBQT1dFUiBzaWc9aiBDU0MgQ09OTkVDVApbICA4ODkuMDkwNTg0XSBodWIgMS0w
+OjEuMDogcG9ydCAzLCBzdGF0dXMgMDUwMSwgY2hhbmdlIDAwMDEsIDQ4MCBNYi9zClsgIDg4OS4y
+NTE4MjFdIGh1YiAxLTA6MS4wOiBkZWJvdW5jZTogcG9ydCAzOiB0b3RhbCAxMDBtcyBzdGFibGUg
+MTAwbXMgc3RhdHVzIDB4NTAxClsgIDg4OS4zMTE2NjRdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzog
+cG9ydCAzIGhpZ2ggc3BlZWQKWyAgODg5LjMxMTY3OF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBH
+ZXRTdGF0dXMgcG9ydCAzIHN0YXR1cyAwMDEwMDUgUE9XRVIgc2lnPXNlMCBQRSBDT05ORUNUClsg
+IDg4OS4zNzEyNTRdIHVzYiAxLTM6IG5ldyBoaWdoIHNwZWVkIFVTQiBkZXZpY2UgdXNpbmcgZWhj
+aV9oY2QgYW5kIGFkZHJlc3MgNApbICA4ODkuNDI5ODkzXSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6
+IHBvcnQgMyBoaWdoIHNwZWVkClsgIDg4OS40Mjk5MDhdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzog
+R2V0U3RhdHVzIHBvcnQgMyBzdGF0dXMgMDAxMDA1IFBPV0VSIHNpZz1zZTAgUEUgQ09OTkVDVApb
+ICA4ODkuNTI1MTg0XSB1c2IgMS0zOiBkZWZhdWx0IGxhbmd1YWdlIDB4MDQwOQpbICA4ODkuNTYx
+OTk5XSB1c2IgMS0zOiB1ZXZlbnQKWyAgODg5LjU2MTk5OV0gdXNiIDEtMzogdXNiX3Byb2JlX2Rl
+dmljZQpbICA4ODkuNTYxOTk5XSB1c2IgMS0zOiBjb25maWd1cmF0aW9uICMxIGNob3NlbiBmcm9t
+IDEgY2hvaWNlClsgIDg4OS41NjE5OTldIHVzYiAxLTM6IGFkZGluZyAxLTM6MS4wIChjb25maWcg
+IzEsIGludGVyZmFjZSAwKQpbICA4ODkuNTYxOTk5XSB1c2IgMS0zOjEuMDogdWV2ZW50ClsgIDg4
+OS41NjE5OTldIHBsdXNiIDEtMzoxLjA6IHVzYl9wcm9iZV9pbnRlcmZhY2UKWyAgODg5LjU2MTk5
+OV0gcGx1c2IgMS0zOjEuMDogdXNiX3Byb2JlX2ludGVyZmFjZSAtIGdvdCBpZApbICA4ODkuNTYz
+NjQwXSB1c2IwOiByZWdpc3RlciAncGx1c2InIGF0IHVzYi0wMDAwOjAwOjFkLjctMywgUHJvbGlm
+aWMgUEwtMjMwMS9QTC0yMzAyL1BMLTI1QTEsIGRlOjQyOmIzOjg4OmI5OmQ4ClsgIDg4OS41NjM3
+OTRdIGRyaXZlcnMvdXNiL2NvcmUvaW5vZGUuYzogY3JlYXRpbmcgZmlsZSAnMDA0JwpbICA4ODku
+NTYzODY2XSB1c2IgMS0zOiBOZXcgVVNCIGRldmljZSBmb3VuZCwgaWRWZW5kb3I9MDUwZCwgaWRQ
+cm9kdWN0PTI1OGEKWyAgODg5LjU2Mzg3MV0gdXNiIDEtMzogTmV3IFVTQiBkZXZpY2Ugc3RyaW5n
+czogTWZyPTEsIFByb2R1Y3Q9MiwgU2VyaWFsTnVtYmVyPTAKWyAgODg5LjU2Mzg3N10gdXNiIDEt
+MzogUHJvZHVjdDogQmVsa2luIFVTQiBFYXN5IFRyYW5zZmVyIENhYmxlClsgIDg4OS41NjM4ODFd
+IHVzYiAxLTM6IE1hbnVmYWN0dXJlcjogQmVsa2luIENvcnBvcmF0aW9uClsgIDg5NS43NTM4OTVd
+IHVzYiAxLTM6IGlwIHRpbWVkIG91dCBvbiBlcDBvdXQgbGVuPTAvMApbICA4OTUuNzUzOTA4XSB1
+c2IwOiBwbF9yZXNldCAtLT4gLTExMApbICA4OTUuNzUzOTEwXSAKWyAgODk1Ljc1Mzk1NV0gdXNi
+MDogcnhxbGVuIDAgLS0+IDEwClsgIDg5NS43NTM5ODNdIHVzYjA6IHJ4cWxlbiAxMCAtLT4gMjAK
+WyAgODk1Ljc1NDAxNV0gdXNiMDogcnhxbGVuIDIwIC0tPiAzMApbICA4OTUuNzU0MDQxXSB1c2Iw
+OiByeHFsZW4gMzAgLS0+IDQwClsgIDg5NS43NTQwNjhdIHVzYjA6IHJ4cWxlbiA0MCAtLT4gNTAK
+WyAgODk1Ljc1NDEwMF0gdXNiMDogcnhxbGVuIDUwIC0tPiA2MApbICA5MDUuODUwODE5XSB1c2Iw
+OiBubyBJUHY2IHJvdXRlcnMgcHJlc2VudApbICA5MTkuMDQyMzYyXSBodWIgMS0wOjEuMDogc3Rh
+dGUgNyBwb3J0cyA4IGNoZyAwMDAwIGV2dCAwMDAyClsgIDkxOS4wNDIzNjJdIGVoY2lfaGNkIDAw
+MDA6MDA6MWQuNzogR2V0U3RhdHVzIHBvcnQgMSBzdGF0dXMgMDAxODAzIFBPV0VSIHNpZz1qIENT
+QyBDT05ORUNUClsgIDkxOS4wNDIzNjJdIGh1YiAxLTA6MS4wOiBwb3J0IDEsIHN0YXR1cyAwNTAx
+LCBjaGFuZ2UgMDAwMSwgNDgwIE1iL3MKWyAgOTE5LjE5NzU0N10gaHViIDEtMDoxLjA6IGRlYm91
+bmNlOiBwb3J0IDE6IHRvdGFsIDEwMG1zIHN0YWJsZSAxMDBtcyBzdGF0dXMgMHg1MDEKWyAgOTE5
+LjI1Nzk2MF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBwb3J0IDEgaGlnaCBzcGVlZApbICA5MTku
+MjU3OTc0XSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6IEdldFN0YXR1cyBwb3J0IDEgc3RhdHVzIDAw
+MTAwNSBQT1dFUiBzaWc9c2UwIFBFIENPTk5FQ1QKWyAgOTE5LjMxNzQwNl0gdXNiIDEtMTogbmV3
+IGhpZ2ggc3BlZWQgVVNCIGRldmljZSB1c2luZyBlaGNpX2hjZCBhbmQgYWRkcmVzcyA1ClsgIDkx
+OS4zNzg4OTVdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzogcG9ydCAxIGhpZ2ggc3BlZWQKWyAgOTE5
+LjM3ODkwOV0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBHZXRTdGF0dXMgcG9ydCAxIHN0YXR1cyAw
+MDEwMDUgUE9XRVIgc2lnPXNlMCBQRSBDT05ORUNUClsgIDkxOS40ODczMjBdIHVzYiAxLTE6IGRl
+ZmF1bHQgbGFuZ3VhZ2UgMHgwNDA5ClsgIDkxOS41MTk4ODhdIHVzYiAxLTE6IHVldmVudApbICA5
+MTkuNTE5ODg4XSB1c2IgMS0xOiB1c2JfcHJvYmVfZGV2aWNlClsgIDkxOS41MTk4ODhdIHVzYiAx
+LTE6IGNvbmZpZ3VyYXRpb24gIzEgY2hvc2VuIGZyb20gMSBjaG9pY2UKWyAgOTE5LjUxOTg4OF0g
+dXNiIDEtMTogYWRkaW5nIDEtMToxLjAgKGNvbmZpZyAjMSwgaW50ZXJmYWNlIDApClsgIDkxOS41
+MTk4ODhdIHVzYiAxLTE6MS4wOiB1ZXZlbnQKWyAgOTE5LjUxOTg4OF0gcGx1c2IgMS0xOjEuMDog
+dXNiX3Byb2JlX2ludGVyZmFjZQpbICA5MTkuNTE5ODg4XSBwbHVzYiAxLTE6MS4wOiB1c2JfcHJv
+YmVfaW50ZXJmYWNlIC0gZ290IGlkClsgIDkxOS41MTk4ODhdIHVzYjE6IHJlZ2lzdGVyICdwbHVz
+YicgYXQgdXNiLTAwMDA6MDA6MWQuNy0xLCBQcm9saWZpYyBQTC0yMzAxL1BMLTIzMDIvUEwtMjVB
+MSwgZGU6NDI6YjM6ODg6Yjk6ZDgKWyAgOTE5LjUyMDMyNF0gZHJpdmVycy91c2IvY29yZS9pbm9k
+ZS5jOiBjcmVhdGluZyBmaWxlICcwMDUnClsgIDkxOS41MjA1NzddIHVzYiAxLTE6IE5ldyBVU0Ig
+ZGV2aWNlIGZvdW5kLCBpZFZlbmRvcj0wNTBkLCBpZFByb2R1Y3Q9MjU4YQpbICA5MTkuNTIwNTgz
+XSB1c2IgMS0xOiBOZXcgVVNCIGRldmljZSBzdHJpbmdzOiBNZnI9MSwgUHJvZHVjdD0yLCBTZXJp
+YWxOdW1iZXI9MApbICA5MTkuNTIwNTg5XSB1c2IgMS0xOiBQcm9kdWN0OiBCZWxraW4gVVNCIEVh
+c3kgVHJhbnNmZXIgQ2FibGUKWyAgOTE5LjUyMDU5NF0gdXNiIDEtMTogTWFudWZhY3R1cmVyOiBC
+ZWxraW4gQ29ycG9yYXRpb24KWyAgOTg1LjEwMTU0Nl0gdXNiIDEtMTogaXAgdGltZWQgb3V0IG9u
+IGVwMG91dCBsZW49MC8wClsgIDk4NS4xMDE1NDZdIHVzYjE6IHBsX3Jlc2V0IC0tPiAtMTEwClsg
+IDk4NS4xMDE1NDZdIApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFsZW4gMCAtLT4gMTAKWyAgOTg1
+LjEwMTU0Nl0gdXNiMTogcnhxbGVuIDEwIC0tPiAyMApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFs
+ZW4gMjAgLS0+IDMwClsgIDk4NS4xMDE1NDZdIHVzYjE6IHJ4cWxlbiAzMCAtLT4gNDAKWyAgOTg1
+LjEwMTU0Nl0gdXNiMTogcnhxbGVuIDQwIC0tPiA1MApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFs
+ZW4gNTAgLS0+IDYwCg==
+------=_Part_10402_6816692.1219787780823--
