@@ -1,32 +1,64 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Tue, 26 Aug 2008 13:49:09 +0300
-Message-ID: <200808261349.09820.denys@visp.net.lb>
-References: <20080826095126.GA2609@ff.dom.local> <200808261329.53741.denys@visp.net.lb> <20080826104717.GB2609@ff.dom.local>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 5/6] [RFC] qlge: New Driver: Adding driver header file qlge.h.
+Date: Tue, 26 Aug 2008 12:00:54 +0100
+Message-ID: <20080826110053.GX7908@solarflare.com>
+References: <20080822200906.GD2551@susedev.qlogic.org> <12194364663882-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:56550 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753606AbYHZKuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 06:50:37 -0400
-In-Reply-To: <20080826104717.GB2609@ff.dom.local>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:48361 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758034AbYHZLA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 07:00:58 -0400
 Content-Disposition: inline
+In-Reply-To: <12194364663882-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 26 August 2008, Jarek Poplawski wrote:
-> The question is if you really need so exact shaping at a cost of
-> higher system load.
-Thats maybe another reason to have your patch in mainline :-)
-I will try it today with this case, if it will help.
+Ron Mercer wrote:
+> 
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> ---
+>  drivers/net/qlge/qlge.h | 1602 +++++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 1602 insertions(+), 0 deletions(-)
+>  create mode 100755 drivers/net/qlge/qlge.h
+> 
+> diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+> new file mode 100755
+> index 0000000..11a07fd
+> --- /dev/null
+> +++ b/drivers/net/qlge/qlge.h
+[...]
+> +#define PFX "qlge: "
+> +#define QPRINTK(nlevel, klevel, fmt, args...) \
+> +	((void)((NETIF_MSG_##nlevel & qdev->msg_enable) && \
+> +	printk(KERN_##klevel PFX "%s: %s: " fmt, qdev->ndev->name, \
+> +		__FUNCTION__ , ## args)))
 
-Maybe it can be optional, and enabled via kernel parameter and /sys , so it 
-can be useful in case of crashes when TSC used and when timer is too slow.
-Because it is not so useful just to disable hrtimers completely, if you need 
-them for some other task...
+Macros that refer to local variables are nasty.  qdev should be a macro
+parameter.  __FUNCTION__ (gcc extension) should be replaced with __func__
+(C99).  Finally, this should call dev_printk() - something like this:
 
+#define QPRINTK(qdev, nlevel, klevel, fmt, args...)		\
+	if (!((qdev)->msg_enable & NETIF_MSG_##nlevel))		\
+		;						\
+	else							\
+		dev_printk(KERN_##klevel, &((qdev)->pdev->dev),	\
+			   "%s: " fmt, __func__, ##args)
+
+> +/*
+> + * IOCB Definitions...
+> + */
+> +#pragma pack(1)
+[...]
+
+Ew, no.  You should use __packed at the end of each structure definition.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
