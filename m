@@ -1,8 +1,8 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 5/15] netdevice lance: Convert directly reference of netdev->priv
+Subject: [PATCH 6/15] netdevice ni65: Convert directly reference of netdev->priv
  to netdev_priv()
-Date: Tue, 26 Aug 2008 18:19:25 +0800
-Message-ID: <48B3D8AD.9000906@cn.fujitsu.com>
+Date: Tue, 26 Aug 2008 18:20:16 +0800
+Message-ID: <48B3D8E0.5040000@cn.fujitsu.com>
 References: <48B3D717.7070706@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,140 +10,160 @@ Content-Transfer-Encoding: 7bit
 To: "David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49436 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:63098 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754507AbYHZKVu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 06:21:50 -0400
+	id S1753638AbYHZKWl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 06:22:41 -0400
 In-Reply-To: <48B3D717.7070706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
- drivers/net/lance.c |   26 +++++++++++++-------------
- 1 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ni65.c |   32 ++++++++++++++++----------------
+ 1 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/lance.c b/drivers/net/lance.c
-index 977ed34..a57d8ac 100644
---- a/drivers/net/lance.c
-+++ b/drivers/net/lance.c
-@@ -359,7 +359,7 @@ int __init init_module(void)
+diff --git a/drivers/net/ni65.c b/drivers/net/ni65.c
+index 3edc971..0740748 100644
+--- a/drivers/net/ni65.c
++++ b/drivers/net/ni65.c
+@@ -295,7 +295,7 @@ static void ni65_set_performance(struct priv *p)
+  */
+ static int ni65_open(struct net_device *dev)
+ {
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 	int irqval = request_irq(dev->irq, &ni65_interrupt,0,
+                         cards[p->cardno].cardname,dev);
+ 	if (irqval) {
+@@ -321,7 +321,7 @@ static int ni65_open(struct net_device *dev)
+  */
+ static int ni65_close(struct net_device *dev)
+ {
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -345,7 +345,7 @@ static int ni65_close(struct net_device *dev)
  
  static void cleanup_card(struct net_device *dev)
  {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 	if (dev->dma != 4)
- 		free_dma(dev->dma);
- 	release_region(dev->base_addr, LANCE_TOTAL_SIZE);
-@@ -418,7 +418,7 @@ static int __init do_lance_probe(struct net_device *dev)
- 			if (card < NUM_CARDS) { /*Signature OK*/
- 				result = lance_probe1(dev, ioaddr, 0, 0);
- 				if (!result) {
--					struct lance_private *lp = dev->priv;
-+					struct lance_private *lp = dev->ml_priv;
- 					int ver = lp->chip_version;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 	disable_dma(dev->dma);
+ 	free_dma(dev->dma);
+ 	release_region(dev->base_addr, cards[p->cardno].total_size);
+@@ -444,7 +444,7 @@ static int __init ni65_probe1(struct net_device *dev,int ioaddr)
+ 		release_region(ioaddr, cards[i].total_size);
+ 		return j;
+ 	}
+-	p = (struct priv *) dev->priv;
++	p = dev->ml_priv;
+ 	p->cmdr_addr = ioaddr + cards[i].cmd_offset;
+ 	p->cardno = i;
+ 	spin_lock_init(&p->ring_lock);
+@@ -647,8 +647,8 @@ static int ni65_alloc_buffer(struct net_device *dev)
+ 	if(!ptr)
+ 		return -ENOMEM;
  
- 					r->name = chip_table[ver].name;
-@@ -538,7 +538,7 @@ static int __init lance_probe1(struct net_device *dev, int ioaddr, int irq, int
- 	if(lp==NULL)
- 		return -ENODEV;
- 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
--	dev->priv = lp;
-+	dev->ml_priv = lp;
- 	lp->name = chipname;
- 	lp->rx_buffs = (unsigned long)kmalloc(PKT_BUF_SZ*RX_RING_SIZE,
- 						  GFP_DMA | GFP_KERNEL);
-@@ -742,7 +742,7 @@ out_lp:
- static int
- lance_open(struct net_device *dev)
+-	p = dev->priv = (struct priv *) (((unsigned long) ptr + 7) & ~0x7);
+-	memset((char *) dev->priv,0,sizeof(struct priv));
++	p = dev->ml_priv = (struct priv *) (((unsigned long) ptr + 7) & ~0x7);
++	memset((char *)p, 0, sizeof(struct priv));
+ 	p->self = ptr;
+ 
+ 	for(i=0;i<TMDNUM;i++)
+@@ -790,7 +790,7 @@ static void ni65_stop_start(struct net_device *dev,struct priv *p)
+ static int ni65_lance_reinit(struct net_device *dev)
  {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 	int ioaddr = dev->base_addr;
+ 	 int i;
+-	 struct priv *p = (struct priv *) dev->priv;
++	 struct priv *p = dev->ml_priv;
+ 	 unsigned long flags;
+ 
+ 	 p->lock = 0;
+@@ -876,7 +876,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+ 	struct priv *p;
+ 	int bcnt = 32;
+ 
+-	p = (struct priv *) dev->priv;
++	p = dev->ml_priv;
+ 
+ 	spin_lock(&p->ring_lock);
+ 
+@@ -899,7 +899,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+ 
+ 		if(csr0 & CSR0_ERR)
+ 		{
+-			struct priv *p = (struct priv *) dev->priv;
++			struct priv *p = dev->ml_priv;
+ 			if(debuglevel > 1)
+ 				printk(KERN_ERR "%s: general error: %04x.\n",dev->name,csr0);
+ 			if(csr0 & CSR0_BABL)
+@@ -924,7 +924,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+  int j;
+  for(j=0;j<RMDNUM;j++)
+  {
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 	int i,k,num1,num2;
+ 	for(i=RMDNUM-1;i>0;i--) {
+ 		 num2 = (p->rmdnum + i) & (RMDNUM-1);
+@@ -982,7 +982,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+  */
+ static void ni65_xmit_intr(struct net_device *dev,int csr0)
+ {
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 
+ 	while(p->xmit_queued)
+ 	{
+@@ -1049,7 +1049,7 @@ static void ni65_recv_intr(struct net_device *dev,int csr0)
+ 	struct rmd *rmdp;
+ 	int rmdstat,len;
+ 	int cnt=0;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 
+ 	rmdp = p->rmdhead + p->rmdnum;
+ 	while(!( (rmdstat = rmdp->u.s.status) & RCV_OWN))
+@@ -1140,7 +1140,7 @@ static void ni65_recv_intr(struct net_device *dev,int csr0)
+ static void ni65_timeout(struct net_device *dev)
+ {
  	int i;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
  
-@@ -830,7 +830,7 @@ lance_open(struct net_device *dev)
- static void
- lance_purge_ring(struct net_device *dev)
+ 	printk(KERN_ERR "%s: xmitter timed out, try to restart!\n",dev->name);
+ 	for(i=0;i<TMDNUM;i++)
+@@ -1157,7 +1157,7 @@ static void ni65_timeout(struct net_device *dev)
+ 
+ static int ni65_send_packet(struct sk_buff *skb, struct net_device *dev)
  {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -1222,7 +1222,7 @@ static struct net_device_stats *ni65_get_stats(struct net_device *dev)
+ 
+ #if 0
  	int i;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = dev->ml_priv;
+ 	for(i=0;i<RMDNUM;i++)
+ 	{
+ 		struct rmd *rmdp = p->rmdhead + ((p->rmdnum + i) & (RMDNUM-1));
+@@ -1231,7 +1231,7 @@ static struct net_device_stats *ni65_get_stats(struct net_device *dev)
+ 	printk("\n");
+ #endif
  
- 	/* Free all the skbuffs in the Rx and Tx queues. */
-@@ -854,7 +854,7 @@ lance_purge_ring(struct net_device *dev)
- static void
- lance_init_ring(struct net_device *dev, gfp_t gfp)
- {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 	int i;
+-	return &((struct priv *) dev->priv)->stats;
++	return &((struct priv *)dev->ml_priv)->stats;
+ }
  
- 	lp->cur_rx = lp->cur_tx = 0;
-@@ -896,7 +896,7 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
- static void
- lance_restart(struct net_device *dev, unsigned int csr0_bits, int must_reinit)
- {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 
- 	if (must_reinit ||
- 		(chip_table[lp->chip_version].flags & LANCE_MUST_REINIT_RING)) {
-@@ -910,7 +910,7 @@ lance_restart(struct net_device *dev, unsigned int csr0_bits, int must_reinit)
- 
- static void lance_tx_timeout (struct net_device *dev)
- {
--	struct lance_private *lp = (struct lance_private *) dev->priv;
-+	struct lance_private *lp = (struct lance_private *) dev->ml_priv;
- 	int ioaddr = dev->base_addr;
- 
- 	outw (0, ioaddr + LANCE_ADDR);
-@@ -944,7 +944,7 @@ static void lance_tx_timeout (struct net_device *dev)
- 
- static int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 	int ioaddr = dev->base_addr;
- 	int entry;
- 	unsigned long flags;
-@@ -1021,7 +1021,7 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
- 	int must_restart;
- 
- 	ioaddr = dev->base_addr;
--	lp = dev->priv;
-+	lp = dev->ml_priv;
- 
- 	spin_lock (&lp->devlock);
- 
-@@ -1134,7 +1134,7 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
- static int
- lance_rx(struct net_device *dev)
- {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 	int entry = lp->cur_rx & RX_RING_MOD_MASK;
- 	int i;
- 
-@@ -1213,7 +1213,7 @@ static int
- lance_close(struct net_device *dev)
- {
- 	int ioaddr = dev->base_addr;
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 
- 	netif_stop_queue (dev);
- 
-@@ -1246,7 +1246,7 @@ lance_close(struct net_device *dev)
- 
- static struct net_device_stats *lance_get_stats(struct net_device *dev)
- {
--	struct lance_private *lp = dev->priv;
-+	struct lance_private *lp = dev->ml_priv;
- 
- 	if (chip_table[lp->chip_version].flags & LANCE_HAS_MISSED_FRAME) {
- 		short ioaddr = dev->base_addr;
+ static void set_multicast_list(struct net_device *dev)
 -- 
 1.5.3.4
 
