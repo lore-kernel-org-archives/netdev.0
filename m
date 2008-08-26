@@ -1,58 +1,54 @@
-From: David Daney <ddaney@avtrex.com>
-Subject: Re: [PATCH] e100: Add missing dma sync for proper
- operation with non-coherent caches.
-Date: Tue, 26 Aug 2008 12:24:31 -0700
-Message-ID: <48B4586F.6030201@avtrex.com>
-References: <48B3A8D0.2040108@avtrex.com> <48B45065.5050907@roinet.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH resend 1/1] r8169: balance pci_map / pci_unmap pair
+Date: Tue, 26 Aug 2008 21:56:06 +0200
+Message-ID: <20080826195606.GA31263@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-mips <linux-mips@linux-mips.org>
-To: David Acker <dacker@roinet.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <48B45065.5050907@roinet.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Ilpo =?unknown-8bit?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
+	Alistair John Strachan <alistair@devzero.co.uk>,
+	Timothy J Fontaine <tjfontaine@atxconsulting.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ivan Vecera <ivecera@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:53380 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752269AbYHZT64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 15:58:56 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Acker wrote:
-> David Daney wrote:
+The leak hurts with swiotlb and jumbo frames.
 
->> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
->> index 19d32a2..fb8d551 100644
->> --- a/drivers/net/e100.c
->> +++ b/drivers/net/e100.c
->> @@ -1840,6 +1840,11 @@ static int e100_rx_indicate(struct nic *nic, 
->> struct rx *rx,
->>  
->>              if (readb(&nic->csr->scb.status) & rus_no_res)
->>                  nic->ru_running = RU_SUSPENDED;
->> +        /* We are done looking at the buffer.  Prepare it for
->> +         * more DMA.  */
->> +        pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
->> +                           sizeof(struct rfd),
->> +                           PCI_DMA_FROMDEVICE);
->>          return -ENODATA;
->>      }
->>  
-> Should the call to pci_dma_sync_single_for_device be DMA_TO_DEVICE since 
-> we are giving the memory back to the device?
+=46ix http://bugzilla.kernel.org/show_bug.cgi?id=3D9468.
 
-No.  We are giving the memory back to the device, but the direction of 
-the data transfer is from the device to memory.
+Heavily hinted by Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>.
 
-David Daney
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Tested-by: Alistair John Strachan <alistair@devzero.co.uk>
+Tested-by: Timothy J Fontaine <tjfontaine@atxconsulting.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index a3e3895..0f6f974 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2792,7 +2792,7 @@ static int rtl8169_rx_interrupt(struct net_device=
+ *dev,
+ 					pkt_size, PCI_DMA_FROMDEVICE);
+ 				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+ 			} else {
+-				pci_unmap_single(pdev, addr, pkt_size,
++				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
+ 						 PCI_DMA_FROMDEVICE);
+ 				tp->Rx_skbuff[entry] =3D NULL;
+ 			}
+--=20
+1.5.3.3
