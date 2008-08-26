@@ -1,83 +1,238 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [E1000-devel] [PATCH] e100: Add missing dma sync for proper operation
- with non-coherent caches.
-Date: Tue, 26 Aug 2008 09:45:58 -0700
-Message-ID: <48B43346.2030600@intel.com>
-References: <48B3A8D0.2040108@avtrex.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH 2/6] [RFC] qlge: New Driver: Adding main driver file qlge_main.c.
+Date: Tue, 26 Aug 2008 09:51:42 -0700
+Message-ID: <20080826165142.GB31059@susedev.qlogic.org>
+References: <20080822200906.GD2551@susedev.qlogic.org> <12194364662050-git-send-email-ron.mercer@qlogic.com> <20080826112420.GY7908@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-mips <linux-mips@linux-mips.org>
-To: David Daney <ddaney@avtrex.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:60563 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754662AbYHZQqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 12:46:14 -0400
-In-Reply-To: <48B3A8D0.2040108@avtrex.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:44052 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754664AbYHZQw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 12:52:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20080826112420.GY7908@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Daney wrote:
-> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
-> non-coherent DMA).  There was a problem where received packets would
-> get 'stuck' for several seconds at a time and then be released all at
-> once.
+Hi Ben,
+Thank you for your input. I guess it's obvious I forgot to run
+checkpatch.  I will run it before I repost with the changes you suggest.
+I am still working on the receive buffer copy/realignment so those
+changes won't be in the next post. There are a few points of discussion
+in-line below.
+Regards,
+Ron Mercer
+Qlogic Corporation
+
+
+On Tue, Aug 26, 2008 at 12:24:21PM +0100, Ben Hutchings wrote:
+> Ron Mercer wrote:
+> > 
+> > Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> > ---
+> >  drivers/net/qlge/qlge_main.c | 4350 ++++++++++++++++++++++++++++++++++++++++++
+> >  1 files changed, 4350 insertions(+), 0 deletions(-)
+> >  create mode 100755 drivers/net/qlge/qlge_main.c
+> > 
+> > diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+> > new file mode 100755
+> > index 0000000..0aa472f
+> > --- /dev/null
+> > +++ b/drivers/net/qlge/qlge_main.c
+> [...]
+> > +#include <linux/version.h>
 > 
-> The cause was that if an interrupt were received when no RX packets
-> were available, the status for the receive buffer would be stuck in
-> the cache, so when the next interrupt arrived the old status value was
-> read (indicating no packets available) instead of the new value.
+> Should never be used in an in-tree driver.  (Doesn't checkpatch.pl warn
+> about this?)
 > 
-> The fix is to call pci_dma_sync_single_for_device on the RX if the
-> packet is not available to invalidate the cache so that at the next
-> interrupt valid status is returned.
+> [...]
+> > +#if 0
+> > +static int ql_update_ring_coalescing(struct ql_adapter *qdev)
+> > +{
 > 
-> The driver currently calls pci_dma_sync_single_for_cpu before reading
-> the status, and this is indeed needed for cases like the R10000 CPU
-> where the cache can be polluted by speculative execution, but for most
-> machines it is a nop.
+> Why are all the ethtool operation implementations disabled?  If they are
+> broken in some way, I think they should be left out now and added later.
 > 
-> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
+> [...]
+> > +static void ql_update_buffer_queues(struct ql_adapter *qdev,
+> > +				    struct rx_ring *rx_ring)
+> > +{
+> > +	if (rx_ring->sbq_len) ql_update_sbq(qdev, rx_ring);
+> > +	if (rx_ring->lbq_len) ql_update_lbq(qdev, rx_ring);
+> > +}
+> 
+> The body of an if-statement always starts on the next line, as checkpatch.pl
+> will tell you.
+> 
+> [...]
+> > +static void ql_enable_msix(struct ql_adapter *qdev)
+> > +{
+> > +	int i;
+> > +
+> > +	qdev->intr_count = 1;
+> > +	/* Get the MSIX vectors. */
+> > +	if (irq_type == MSIX_IRQ) {
+> > +		/* Try to alloc space for the msix struct,
+> > +		 * if it fails then go to MSI/legacy.
+> > +		 */
+> > +		qdev->msi_x_entry = kcalloc(qdev->rx_ring_count,
+> > +					    sizeof(struct msix_entry),
+> > +					    GFP_KERNEL);
+> > +		if (!qdev->msi_x_entry) {
+> > +			irq_type = MSI_IRQ;
+> > +			goto msi;
+> > +		}
+> > +
+> > +		for (i = 0; i < qdev->rx_ring_count; i++)
+> > +			qdev->msi_x_entry[i].entry = i;
+> > +
+> > +		if (!pci_enable_msix
+> > +		    (qdev->pdev, qdev->msi_x_entry, qdev->rx_ring_count)) {
+> > +			set_bit(QL_MSIX_ENABLED, &qdev->flags);
+> > +			qdev->intr_count = qdev->rx_ring_count;
+> > +			QPRINTK(IFUP, INFO,
+> > +				"MSI-X Enabled, got %d vectors.\n",
+> > +				qdev->intr_count);
+> > +			return;
+> > +		} else {
+> > +			kfree(qdev->msi_x_entry);
+> > +			qdev->msi_x_entry = NULL;
+> > +			QPRINTK(IFUP, WARNING,
+> > +				"MSI-X Enable failed, trying MSI.\n");
+> > +			irq_type = MSI_IRQ;
+> 
+> If pci_enable_msix() returns a positive number, that's a hint as to how
+> many IRQs you should be able to allocate.  It may be worth retrying with
+> that number.
 
+I coded it that way originally but it was so messy I pulled it out. I
+felt that if a system can't supply the number of interrupt vectors
+requested it's just as well to run in MSI single vector mode. I don't
+think this is likely to happen. I am open to change this if anyone
+insists, but it didn't seem worth the complexity to me.
 
-lol, that's a bit old :)
-
-A LOT of work has gone into 2.6.26+'s version of e100 that addresses specifically
-non-coherent DMA machines, including a patch that looks very close to what you
-write below here.
-
-can you test the latest git tree and see if you still need (a modified or updated
-version) of your patch?
-
-I know for sure that the guys maintaining e100 do not have anything close to your
-system, so they can't test that.
-
-Cheers,
-
-Auke
 
 > 
-> Signed-off-by: David Daney <ddaney@avtrex.com>
-> ---
->  drivers/net/e100.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
+> [...]
+> > +static int ql_adapter_initialize(struct ql_adapter *qdev)
+> > +{
+> > +	u32 value, mask;
+> > +	int i;
+> > +	int status = 0;
+> > +
+> > +	/*
+> > +	 * Set up the System register to halt on errors.
+> > +	 */
+> > +	value = SYS_EFE | SYS_FAE;
+> > +	mask = value << 16;
+> > +	ql_write32(qdev, SYS, mask | value);
+> > +
+> > +	/* Set the default queue. */
+> > +	value = NIC_RCV_CFG_DFQ;
+> > +	mask = NIC_RCV_CFG_DFQ_MASK;
+> > +	ql_write32(qdev, NIC_RCV_CFG, (mask | value));
+> > +
+> > +	/* Set the MPI interrupt to enabled. */
+> > +	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16) | INTR_MASK_PI);
+> > +
+> > +	/* Enable the function, set pagesize, enable error checking. */
+> > +	value = FSC_FE | FSC_EPC_INBOUND | FSC_EPC_OUTBOUND | FSC_EC;
+> > +
+> > +	if (PAGE_SHIFT == 12)	/* 4k pages */
+> > +		value |= FSC_VM_PAGE_4K;
+> > +	else if (PAGE_SHIFT == 13)	/* 8k pages */
+> > +		value |= FSC_VM_PAGE_8K;
+> > +	else if (PAGE_SHIFT == 16)	/* 64k pages */
+> > +		value |= FSC_VM_PAGE_64K;
+> > +	else {
+> > +		QPRINTK(IFUP, ERR, "Invalid page size of %d.\n",
+> > +			1 << PAGE_SHIFT);
 > 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 19d32a2..fb8d551 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1840,6 +1840,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
->  
->  			if (readb(&nic->csr->scb.status) & rus_no_res)
->  				nic->ru_running = RU_SUSPENDED;
-> +		/* We are done looking at the buffer.  Prepare it for
-> +		 * more DMA.  */
-> +		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-> +					       sizeof(struct rfd),
-> +					       PCI_DMA_FROMDEVICE);
->  		return -ENODATA;
->  	}
->  
+> You can use
+> 	BUILD_BUG_ON(PAGE_SHIFT != 12 && PAGE_SHIFT != 13 && PAGE_SHIFT != 16);
+> to detect this problem at compile time.
+> 
+> Why doesn't this function do any cleanup in case of failure part way
+> through?
+> 
+> [...]
 
+I'm going to get rid of this. What we're trying to do is tell the chip
+how to interpret the memory in BAR 3. It doesn't have to match the
+actual PAGE_SIZE from the OS as I originally assumed.  I will change it to 4k and leave it at
+that.     
+
+> > +static int ql_configure_rings(struct ql_adapter *qdev)
+> > +{
+> > +	int i;
+> > +	struct rx_ring *rx_ring;
+> > +	struct tx_ring *tx_ring;
+> > +	int cpu_cnt = num_online_cpus();
+> > +
+> > +	/*
+> > +	 * For each processor present we allocate one
+> > +	 * rx_ring for outbound completions, and one
+> 
+> Typo: should be "tx_ring".
+> 
+> [...]
+
+It should be rx_ring.  This chip uses tx_rings to send packets to the
+chip and their completions are added to a separate rx_ring. I've coded
+this to use two types for rx_rings: those that handle outbound
+completions and those that handle inbound.
+
+> > +static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
+> > +{
+> > +	struct ql_adapter *qdev = netdev_priv(ndev);
+> > +
+> > +	if (ndev->mtu == 1500 && new_mtu == 9000) {
+> > +		QPRINTK(IFUP, ERR, "Turning on split headers.\n");
+> > +		ql_write32(qdev, FSC, (FSC_SH << 16) | FSC_SH);
+> > +		if (ql_set_framesize(qdev, JUMBO_FRAME_SIZE))
+> > +			return -EIO;
+> > +	} else if (ndev->mtu == 9000 && new_mtu == 1500) {
+> > +		QPRINTK(IFUP, ERR, "Turning off split headers.\n");
+> > +		ql_write32(qdev, FSC, (FSC_SH << 16));
+> > +		if (ql_set_framesize(qdev, NORMAL_FRAME_SIZE))
+> > +			return -EIO;
+> > +	} else if ((ndev->mtu == 1500 && new_mtu == 1500) ||
+> > +		   (ndev->mtu == 9000 && new_mtu == 9000)) {
+> > +		return 0;
+> > +	} else
+> > +		return -EINVAL;
+> [...]
+> 
+> This would be a whole lot easier to follow if written as:
+> 
+> 	if (ndev->mtu == new_mtu)
+> 		return 0;
+> 	else if (new_mtu == 1500)
+> 		...
+> 	else if (new_mtu == 9000)
+> 		...
+> 	else
+> 		return -EINVAL;
+> 
+> But why don't you support MTUs other than 1500 and 9000?
+> 
+> Ben.
+>
+Since I have to touch the hardware to change the max frame size I
+wanted to verify that a change was actually taking place.  The change
+requires grabbing a semaphore that is shared with firmware and it's all
+kind of involved.  I thought it would be good to skip that if nothing
+was changing.
+As far as the ==1500 or  ==9000 I will get back to you later. This was a
+requirement passed down for a previous chip at Qlogic, but it may not
+apply here.  More on this later...
+
+
+
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
