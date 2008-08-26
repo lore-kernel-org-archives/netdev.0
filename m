@@ -1,135 +1,70 @@
-From: "=?ISO-8859-1?Q?Damien_Th=E9bault?=" <damien.thebault@gmail.com>
+From: "=?ISO-8859-1?Q?Damien_Th=E9bault?=" <damien.thebault-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH] plusb.c patched to support Belkin F5U258 USB host-to-host cable
-Date: Tue, 26 Aug 2008 23:56:20 +0200
-Message-ID: <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae@mail.gmail.com>
+Date: Wed, 27 Aug 2008 00:11:19 +0200
+Message-ID: <9a4a382a0808261511p5fb75969r2b0f9cd218437c3f@mail.gmail.com>
 References: <200802141557_MC3-1-FBB3-3DA7@compuserve.com>
 	 <200802161241.02468.david-b@pacbell.net>
+	 <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_10402_6816692.1219787780823"
-Cc: tony_gibbs <Tony_Gibbs@compuserve.com>,
-	"NETDEV mailing list" <netdev@vger.kernel.org>,
-	"Linux USB mailing list" <majordomo@vger.kernel.org>
-To: "David Brownell" <david-b@pacbell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:27042 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbYHZV4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 17:56:21 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2328284rvb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 14:56:20 -0700 (PDT)
-In-Reply-To: <200802161241.02468.david-b@pacbell.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-------=_Part_10402_6816692.1219787780823
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tony_gibbs <Tony_Gibbs-Crc3fnV8OO0XQ3Lr6voeyA@public.gmane.org>,
+	"NETDEV mailing list" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Linux USB mailing list" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "David Brownell" <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Aug 26, 2008 at 23:56, Damien Th=E9bault
+<damien.thebault-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Hello,
+>
+> Sorry to hijack this thread, but today I bought one host-to-host USB
+> cable, and it's a Belkin F5U258.
+>
+> On Sat, Feb 16, 2008 at 22:41, David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org> w=
+rote:
+>> Here's a patch with cleanups and without various encoding bugs.
+>> Can you verify it still works?
+>
+> I applied it against my linux 2.6.26 tree, enabled plugged the two
+> ends into two ports of my computer, used "ip l set usb0 up" and "ip l
+> set usb1 up", started an "arping -I usb0 <some address>" and "tcpdump
+> -i usb1", and I see packets.
+> Then I changed the mac address of usb1, let ipv6 choose a link-local
+> address and pinged it from usb0, it's working too.
+> I didn't try some more advanced test as I only have one computer at
+> the moment (but it should be possible to do something with iptables, =
+I
+> did it once)
+>
+>> When you test this, please enable CONFIG_USB_DEBUG and let us know
+>> if those the host software still needs to do that reset ... or at
+>> least, whether the diagnostic appears.
+>
+> The attached file is the dmesg output, I see timeouts when the
+> interface is set to up (at 895 and 985), but nothing else, is this ok=
+?
+>
 
-Sorry to hijack this thread, but today I bought one host-to-host USB
-cable, and it's a Belkin F5U258.
+By the way, from the very beginning of this thread, the wrong email is
+used for "Linux USB mailing list", it's not
+"majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org", but "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org".
 
-On Sat, Feb 16, 2008 at 22:41, David Brownell <david-b@pacbell.net> wrote:
-> Here's a patch with cleanups and without various encoding bugs.
-> Can you verify it still works?
+So, people from linux-usb should read the previous mail in the
+available archives [1][2].
+(I'm sorry but I know no other way to do this)
 
-I applied it against my linux 2.6.26 tree, enabled plugged the two
-ends into two ports of my computer, used "ip l set usb0 up" and "ip l
-set usb1 up", started an "arping -I usb0 <some address>" and "tcpdump
--i usb1", and I see packets.
-Then I changed the mac address of usb1, let ipv6 choose a link-local
-address and pinged it from usb0, it's working too.
-I didn't try some more advanced test as I only have one computer at
-the moment (but it should be possible to do something with iptables, I
-did it once)
+[1] http://www.spinics.net/lists/netdev/msg55416.html
+[2] http://marc.info/?l=3Dlinux-netdev&m=3D120307070602296&w=3D2
 
-> When you test this, please enable CONFIG_USB_DEBUG and let us know
-> if those the host software still needs to do that reset ... or at
-> least, whether the diagnostic appears.
-
-The attached file is the dmesg output, I see timeouts when the
-interface is set to up (at 895 and 985), but nothing else, is this ok?
--- 
+Regards,
+--=20
 Damien Thebault
-
-------=_Part_10402_6816692.1219787780823
-Content-Type: text/x-log; name=dmesg.log
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fkd22h8y0
-Content-Disposition: attachment; filename=dmesg.log
-
-WyAgODg5LjA0MTMwMl0gdXNiIHVzYjE6IHVzYiByZXN1bWUKWyAgODg5LjA0MTMwMl0gZWhjaV9o
-Y2QgMDAwMDowMDoxZC43OiByZXN1bWUgcm9vdCBodWIKWyAgODg5LjA5MDU4NF0gaHViIDEtMDox
-LjA6IGh1Yl9yZXN1bWUKWyAgODg5LjA5MDU4NF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBHZXRT
-dGF0dXMgcG9ydCAzIHN0YXR1cyAwMDE4MDMgUE9XRVIgc2lnPWogQ1NDIENPTk5FQ1QKWyAgODg5
-LjA5MDU4NF0gaHViIDEtMDoxLjA6IHN0YXRlIDcgcG9ydHMgOCBjaGcgMDAwMCBldnQgMDAwMApb
-ICA4ODkuMDkwNTg0XSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6IEdldFN0YXR1cyBwb3J0IDMgc3Rh
-dHVzIDAwMTgwMyBQT1dFUiBzaWc9aiBDU0MgQ09OTkVDVApbICA4ODkuMDkwNTg0XSBodWIgMS0w
-OjEuMDogcG9ydCAzLCBzdGF0dXMgMDUwMSwgY2hhbmdlIDAwMDEsIDQ4MCBNYi9zClsgIDg4OS4y
-NTE4MjFdIGh1YiAxLTA6MS4wOiBkZWJvdW5jZTogcG9ydCAzOiB0b3RhbCAxMDBtcyBzdGFibGUg
-MTAwbXMgc3RhdHVzIDB4NTAxClsgIDg4OS4zMTE2NjRdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzog
-cG9ydCAzIGhpZ2ggc3BlZWQKWyAgODg5LjMxMTY3OF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBH
-ZXRTdGF0dXMgcG9ydCAzIHN0YXR1cyAwMDEwMDUgUE9XRVIgc2lnPXNlMCBQRSBDT05ORUNUClsg
-IDg4OS4zNzEyNTRdIHVzYiAxLTM6IG5ldyBoaWdoIHNwZWVkIFVTQiBkZXZpY2UgdXNpbmcgZWhj
-aV9oY2QgYW5kIGFkZHJlc3MgNApbICA4ODkuNDI5ODkzXSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6
-IHBvcnQgMyBoaWdoIHNwZWVkClsgIDg4OS40Mjk5MDhdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzog
-R2V0U3RhdHVzIHBvcnQgMyBzdGF0dXMgMDAxMDA1IFBPV0VSIHNpZz1zZTAgUEUgQ09OTkVDVApb
-ICA4ODkuNTI1MTg0XSB1c2IgMS0zOiBkZWZhdWx0IGxhbmd1YWdlIDB4MDQwOQpbICA4ODkuNTYx
-OTk5XSB1c2IgMS0zOiB1ZXZlbnQKWyAgODg5LjU2MTk5OV0gdXNiIDEtMzogdXNiX3Byb2JlX2Rl
-dmljZQpbICA4ODkuNTYxOTk5XSB1c2IgMS0zOiBjb25maWd1cmF0aW9uICMxIGNob3NlbiBmcm9t
-IDEgY2hvaWNlClsgIDg4OS41NjE5OTldIHVzYiAxLTM6IGFkZGluZyAxLTM6MS4wIChjb25maWcg
-IzEsIGludGVyZmFjZSAwKQpbICA4ODkuNTYxOTk5XSB1c2IgMS0zOjEuMDogdWV2ZW50ClsgIDg4
-OS41NjE5OTldIHBsdXNiIDEtMzoxLjA6IHVzYl9wcm9iZV9pbnRlcmZhY2UKWyAgODg5LjU2MTk5
-OV0gcGx1c2IgMS0zOjEuMDogdXNiX3Byb2JlX2ludGVyZmFjZSAtIGdvdCBpZApbICA4ODkuNTYz
-NjQwXSB1c2IwOiByZWdpc3RlciAncGx1c2InIGF0IHVzYi0wMDAwOjAwOjFkLjctMywgUHJvbGlm
-aWMgUEwtMjMwMS9QTC0yMzAyL1BMLTI1QTEsIGRlOjQyOmIzOjg4OmI5OmQ4ClsgIDg4OS41NjM3
-OTRdIGRyaXZlcnMvdXNiL2NvcmUvaW5vZGUuYzogY3JlYXRpbmcgZmlsZSAnMDA0JwpbICA4ODku
-NTYzODY2XSB1c2IgMS0zOiBOZXcgVVNCIGRldmljZSBmb3VuZCwgaWRWZW5kb3I9MDUwZCwgaWRQ
-cm9kdWN0PTI1OGEKWyAgODg5LjU2Mzg3MV0gdXNiIDEtMzogTmV3IFVTQiBkZXZpY2Ugc3RyaW5n
-czogTWZyPTEsIFByb2R1Y3Q9MiwgU2VyaWFsTnVtYmVyPTAKWyAgODg5LjU2Mzg3N10gdXNiIDEt
-MzogUHJvZHVjdDogQmVsa2luIFVTQiBFYXN5IFRyYW5zZmVyIENhYmxlClsgIDg4OS41NjM4ODFd
-IHVzYiAxLTM6IE1hbnVmYWN0dXJlcjogQmVsa2luIENvcnBvcmF0aW9uClsgIDg5NS43NTM4OTVd
-IHVzYiAxLTM6IGlwIHRpbWVkIG91dCBvbiBlcDBvdXQgbGVuPTAvMApbICA4OTUuNzUzOTA4XSB1
-c2IwOiBwbF9yZXNldCAtLT4gLTExMApbICA4OTUuNzUzOTEwXSAKWyAgODk1Ljc1Mzk1NV0gdXNi
-MDogcnhxbGVuIDAgLS0+IDEwClsgIDg5NS43NTM5ODNdIHVzYjA6IHJ4cWxlbiAxMCAtLT4gMjAK
-WyAgODk1Ljc1NDAxNV0gdXNiMDogcnhxbGVuIDIwIC0tPiAzMApbICA4OTUuNzU0MDQxXSB1c2Iw
-OiByeHFsZW4gMzAgLS0+IDQwClsgIDg5NS43NTQwNjhdIHVzYjA6IHJ4cWxlbiA0MCAtLT4gNTAK
-WyAgODk1Ljc1NDEwMF0gdXNiMDogcnhxbGVuIDUwIC0tPiA2MApbICA5MDUuODUwODE5XSB1c2Iw
-OiBubyBJUHY2IHJvdXRlcnMgcHJlc2VudApbICA5MTkuMDQyMzYyXSBodWIgMS0wOjEuMDogc3Rh
-dGUgNyBwb3J0cyA4IGNoZyAwMDAwIGV2dCAwMDAyClsgIDkxOS4wNDIzNjJdIGVoY2lfaGNkIDAw
-MDA6MDA6MWQuNzogR2V0U3RhdHVzIHBvcnQgMSBzdGF0dXMgMDAxODAzIFBPV0VSIHNpZz1qIENT
-QyBDT05ORUNUClsgIDkxOS4wNDIzNjJdIGh1YiAxLTA6MS4wOiBwb3J0IDEsIHN0YXR1cyAwNTAx
-LCBjaGFuZ2UgMDAwMSwgNDgwIE1iL3MKWyAgOTE5LjE5NzU0N10gaHViIDEtMDoxLjA6IGRlYm91
-bmNlOiBwb3J0IDE6IHRvdGFsIDEwMG1zIHN0YWJsZSAxMDBtcyBzdGF0dXMgMHg1MDEKWyAgOTE5
-LjI1Nzk2MF0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBwb3J0IDEgaGlnaCBzcGVlZApbICA5MTku
-MjU3OTc0XSBlaGNpX2hjZCAwMDAwOjAwOjFkLjc6IEdldFN0YXR1cyBwb3J0IDEgc3RhdHVzIDAw
-MTAwNSBQT1dFUiBzaWc9c2UwIFBFIENPTk5FQ1QKWyAgOTE5LjMxNzQwNl0gdXNiIDEtMTogbmV3
-IGhpZ2ggc3BlZWQgVVNCIGRldmljZSB1c2luZyBlaGNpX2hjZCBhbmQgYWRkcmVzcyA1ClsgIDkx
-OS4zNzg4OTVdIGVoY2lfaGNkIDAwMDA6MDA6MWQuNzogcG9ydCAxIGhpZ2ggc3BlZWQKWyAgOTE5
-LjM3ODkwOV0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiBHZXRTdGF0dXMgcG9ydCAxIHN0YXR1cyAw
-MDEwMDUgUE9XRVIgc2lnPXNlMCBQRSBDT05ORUNUClsgIDkxOS40ODczMjBdIHVzYiAxLTE6IGRl
-ZmF1bHQgbGFuZ3VhZ2UgMHgwNDA5ClsgIDkxOS41MTk4ODhdIHVzYiAxLTE6IHVldmVudApbICA5
-MTkuNTE5ODg4XSB1c2IgMS0xOiB1c2JfcHJvYmVfZGV2aWNlClsgIDkxOS41MTk4ODhdIHVzYiAx
-LTE6IGNvbmZpZ3VyYXRpb24gIzEgY2hvc2VuIGZyb20gMSBjaG9pY2UKWyAgOTE5LjUxOTg4OF0g
-dXNiIDEtMTogYWRkaW5nIDEtMToxLjAgKGNvbmZpZyAjMSwgaW50ZXJmYWNlIDApClsgIDkxOS41
-MTk4ODhdIHVzYiAxLTE6MS4wOiB1ZXZlbnQKWyAgOTE5LjUxOTg4OF0gcGx1c2IgMS0xOjEuMDog
-dXNiX3Byb2JlX2ludGVyZmFjZQpbICA5MTkuNTE5ODg4XSBwbHVzYiAxLTE6MS4wOiB1c2JfcHJv
-YmVfaW50ZXJmYWNlIC0gZ290IGlkClsgIDkxOS41MTk4ODhdIHVzYjE6IHJlZ2lzdGVyICdwbHVz
-YicgYXQgdXNiLTAwMDA6MDA6MWQuNy0xLCBQcm9saWZpYyBQTC0yMzAxL1BMLTIzMDIvUEwtMjVB
-MSwgZGU6NDI6YjM6ODg6Yjk6ZDgKWyAgOTE5LjUyMDMyNF0gZHJpdmVycy91c2IvY29yZS9pbm9k
-ZS5jOiBjcmVhdGluZyBmaWxlICcwMDUnClsgIDkxOS41MjA1NzddIHVzYiAxLTE6IE5ldyBVU0Ig
-ZGV2aWNlIGZvdW5kLCBpZFZlbmRvcj0wNTBkLCBpZFByb2R1Y3Q9MjU4YQpbICA5MTkuNTIwNTgz
-XSB1c2IgMS0xOiBOZXcgVVNCIGRldmljZSBzdHJpbmdzOiBNZnI9MSwgUHJvZHVjdD0yLCBTZXJp
-YWxOdW1iZXI9MApbICA5MTkuNTIwNTg5XSB1c2IgMS0xOiBQcm9kdWN0OiBCZWxraW4gVVNCIEVh
-c3kgVHJhbnNmZXIgQ2FibGUKWyAgOTE5LjUyMDU5NF0gdXNiIDEtMTogTWFudWZhY3R1cmVyOiBC
-ZWxraW4gQ29ycG9yYXRpb24KWyAgOTg1LjEwMTU0Nl0gdXNiIDEtMTogaXAgdGltZWQgb3V0IG9u
-IGVwMG91dCBsZW49MC8wClsgIDk4NS4xMDE1NDZdIHVzYjE6IHBsX3Jlc2V0IC0tPiAtMTEwClsg
-IDk4NS4xMDE1NDZdIApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFsZW4gMCAtLT4gMTAKWyAgOTg1
-LjEwMTU0Nl0gdXNiMTogcnhxbGVuIDEwIC0tPiAyMApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFs
-ZW4gMjAgLS0+IDMwClsgIDk4NS4xMDE1NDZdIHVzYjE6IHJ4cWxlbiAzMCAtLT4gNDAKWyAgOTg1
-LjEwMTU0Nl0gdXNiMTogcnhxbGVuIDQwIC0tPiA1MApbICA5ODUuMTAxNTQ2XSB1c2IxOiByeHFs
-ZW4gNTAgLS0+IDYwCg==
-------=_Part_10402_6816692.1219787780823--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
