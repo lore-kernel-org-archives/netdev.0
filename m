@@ -1,7 +1,7 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 1/15] netdevice: safe convert to netdev_priv() #part-4
-Date: Tue, 26 Aug 2008 22:18:30 +0800
-Message-ID: <48B410B6.8020808@cn.fujitsu.com>
+Subject: [PATCH 1/15] netdevice: safe convert to netdev_priv() #part-7
+Date: Tue, 26 Aug 2008 22:18:43 +0800
+Message-ID: <48B410C3.3090404@cn.fujitsu.com>
 References: <48B3D717.7070706@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,511 +9,367 @@ Content-Transfer-Encoding: 7bit
 To: "David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52161 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:56091 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756010AbYHZOU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 10:20:56 -0400
+	id S1756599AbYHZOVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 10:21:09 -0400
 In-Reply-To: <48B3D717.7070706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 6106660..965aa2f 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2346,7 +2346,7 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
+index a03fe1f..8879522 100644
+--- a/drivers/net/ibmveth.c
++++ b/drivers/net/ibmveth.c
+@@ -527,7 +527,7 @@ retry:
+ 
+ static int ibmveth_open(struct net_device *netdev)
  {
- 	struct slave *slave, *start_at;
--	struct bonding *bond = dev->priv;
-+	struct bonding *bond = netdev_priv(dev);
- 	int slave_agg_no;
- 	int slaves_in_agg;
- 	int agg_id;
-@@ -2426,7 +2426,7 @@ out:
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	u64 mac_address = 0;
+ 	int rxq_entries = 1;
+ 	unsigned long lpar_rc;
+@@ -666,7 +666,7 @@ static int ibmveth_open(struct net_device *netdev)
  
- int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type* ptype, struct net_device *orig_dev)
+ static int ibmveth_close(struct net_device *netdev)
  {
--	struct bonding *bond = dev->priv;
-+	struct bonding *bond = netdev_priv(dev);
- 	struct slave *slave = NULL;
- 	int ret = NET_RX_DROP;
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	long lpar_rc;
  
-@@ -2437,7 +2437,8 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
- 		goto out;
+ 	ibmveth_debug_printk("close starting\n");
+@@ -722,7 +722,7 @@ static u32 netdev_get_link(struct net_device *dev) {
  
- 	read_lock(&bond->lock);
--	slave = bond_get_slave_by_dev((struct bonding *)dev->priv, orig_dev);
-+	slave = bond_get_slave_by_dev((struct bonding *)netdev_priv(dev),
-+					orig_dev);
- 	if (!slave)
- 		goto out_unlock;
- 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index b211486..0c236c1 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -341,7 +341,7 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
- 
- static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct packet_type *ptype, struct net_device *orig_dev)
+ static void ibmveth_set_rx_csum_flags(struct net_device *dev, u32 data)
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
- 	int res = NET_RX_DROP;
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
  
-@@ -1280,7 +1280,7 @@ void bond_alb_deinitialize(struct bonding *bond)
+ 	if (data)
+ 		adapter->rx_csum = 1;
+@@ -741,7 +741,7 @@ static void ibmveth_set_rx_csum_flags(struct net_device *dev, u32 data)
  
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ static void ibmveth_set_tx_csum_flags(struct net_device *dev, u32 data)
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct ethhdr *eth_data;
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct slave *tx_slave = NULL;
-@@ -1679,7 +1679,7 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
-  */
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 
+ 	if (data) {
+ 		dev->features |= NETIF_F_IP_CSUM;
+@@ -753,7 +753,7 @@ static void ibmveth_set_tx_csum_flags(struct net_device *dev, u32 data)
+ static int ibmveth_set_csum_offload(struct net_device *dev, u32 data,
+ 				    void (*done) (struct net_device *, u32))
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct sockaddr *sa = addr;
- 	struct slave *slave, *swap_slave;
- 	int res;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c792138..77edc2c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -442,7 +442,7 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_de
-  */
- static void bond_vlan_rx_register(struct net_device *bond_dev, struct vlan_group *grp)
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	u64 set_attr, clr_attr, ret_attr;
+ 	long ret;
+ 	int rc1 = 0, rc2 = 0;
+@@ -805,7 +805,7 @@ static int ibmveth_set_csum_offload(struct net_device *dev, u32 data,
+ 
+ static int ibmveth_set_rx_csum(struct net_device *dev, u32 data)
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
- 	int i;
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
  
-@@ -465,7 +465,7 @@ static void bond_vlan_rx_register(struct net_device *bond_dev, struct vlan_group
-  */
- static void bond_vlan_rx_add_vid(struct net_device *bond_dev, uint16_t vid)
+ 	if ((data && adapter->rx_csum) || (!data && !adapter->rx_csum))
+ 		return 0;
+@@ -815,7 +815,7 @@ static int ibmveth_set_rx_csum(struct net_device *dev, u32 data)
+ 
+ static int ibmveth_set_tx_csum(struct net_device *dev, u32 data)
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
- 	int i, res;
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	int rc = 0;
  
-@@ -493,7 +493,7 @@ static void bond_vlan_rx_add_vid(struct net_device *bond_dev, uint16_t vid)
-  */
- static void bond_vlan_rx_kill_vid(struct net_device *bond_dev, uint16_t vid)
+ 	if (data && (dev->features & NETIF_F_IP_CSUM))
+@@ -833,7 +833,7 @@ static int ibmveth_set_tx_csum(struct net_device *dev, u32 data)
+ 
+ static u32 ibmveth_get_rx_csum(struct net_device *dev)
  {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
- 	struct net_device *vlan_dev;
- 	int i, res;
-@@ -927,7 +927,7 @@ static int bond_mc_list_copy(struct dev_mc_list *mc_list, struct bonding *bond,
-  */
- static void bond_mc_list_flush(struct net_device *bond_dev, struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct dev_mc_list *dmi;
- 
- 	for (dmi = bond_dev->mc_list; dmi; dmi = dmi->next) {
-@@ -1362,7 +1362,7 @@ static int bond_compute_features(struct bonding *bond)
- static void bond_setup_by_slave(struct net_device *bond_dev,
- 				struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	bond_dev->neigh_setup           = slave_dev->neigh_setup;
- 	bond_dev->header_ops		= slave_dev->header_ops;
-@@ -1379,7 +1379,7 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
- /* enslave device <slave> to bond device <master> */
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *new_slave = NULL;
- 	struct dev_mc_list *dmi;
- 	struct sockaddr addr;
-@@ -1781,7 +1781,7 @@ err_undo_flags:
-  */
- int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *oldcurrent;
- 	struct sockaddr addr;
- 	int mac_addr_differ;
-@@ -1979,7 +1979,7 @@ void bond_destroy(struct bonding *bond)
- */
- int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	int ret;
- 
- 	ret = bond_release(bond_dev, slave_dev);
-@@ -1996,7 +1996,7 @@ int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *sl
-  */
- static int bond_release_all(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
- 	struct net_device *slave_dev;
- 	struct sockaddr addr;
-@@ -2127,7 +2127,7 @@ out:
-  */
- static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_device *slave_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *old_active = NULL;
- 	struct slave *new_active = NULL;
- 	int res = 0;
-@@ -2176,7 +2176,7 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 
- static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	info->bond_mode = bond->params.mode;
- 	info->miimon = bond->params.miimon;
-@@ -2190,7 +2190,7 @@ static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
- 
- static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *info)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
- 	int i, found = 0;
- 
-@@ -2676,7 +2676,7 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
- 	if (!(dev->priv_flags & IFF_BONDING) || !(dev->flags & IFF_MASTER))
- 		goto out;
- 
--	bond = dev->priv;
-+	bond = netdev_priv(dev);
- 	read_lock(&bond->lock);
- 
- 	dprintk("bond_arp_rcv: bond %s skb->dev %s orig_dev %s\n",
-@@ -3483,7 +3483,7 @@ static int bond_event_changename(struct bonding *bond)
- 
- static int bond_master_netdev_event(unsigned long event, struct net_device *bond_dev)
- {
--	struct bonding *event_bond = bond_dev->priv;
-+	struct bonding *event_bond = netdev_priv(bond_dev);
- 
- 	switch (event) {
- 	case NETDEV_CHANGENAME:
-@@ -3501,7 +3501,7 @@ static int bond_master_netdev_event(unsigned long event, struct net_device *bond
- static int bond_slave_netdev_event(unsigned long event, struct net_device *slave_dev)
- {
- 	struct net_device *bond_dev = slave_dev->master;
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
-@@ -3752,7 +3752,7 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb,
- 
- static int bond_open(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	bond->kill_timers = 0;
- 
-@@ -3800,7 +3800,7 @@ static int bond_open(struct net_device *bond_dev)
- 
- static int bond_close(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	if (bond->params.mode == BOND_MODE_8023AD) {
- 		/* Unregister the receive of LACPDUs */
-@@ -3853,7 +3853,7 @@ static int bond_close(struct net_device *bond_dev)
- 
- static struct net_device_stats *bond_get_stats(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct net_device_stats *stats = &(bond->stats), *sstats;
- 	struct net_device_stats local_stats;
- 	struct slave *slave;
-@@ -3931,7 +3931,7 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 		}
- 
- 		if (mii->reg_num == 1) {
--			struct bonding *bond = bond_dev->priv;
-+			struct bonding *bond = netdev_priv(bond_dev);
- 			mii->val_out = 0;
- 			read_lock(&bond->lock);
- 			read_lock(&bond->curr_slave_lock);
-@@ -4023,7 +4023,7 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 
- static void bond_set_multicast_list(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct dev_mc_list *dmi;
- 
- 	/*
-@@ -4084,7 +4084,7 @@ static void bond_set_multicast_list(struct net_device *bond_dev)
-  */
- static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *stop_at;
- 	int res = 0;
- 	int i;
-@@ -4156,7 +4156,7 @@ unwind:
-  */
- static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct sockaddr *sa = addr, tmp_sa;
- 	struct slave *slave, *stop_at;
- 	int res = 0;
-@@ -4237,7 +4237,7 @@ unwind:
- 
- static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *start_at;
- 	int i, slave_no, res = 1;
- 
-@@ -4286,7 +4286,7 @@ out:
-  */
- static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	int res = 1;
- 
- 	read_lock(&bond->lock);
-@@ -4318,7 +4318,7 @@ out:
-  */
- static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *start_at;
- 	int slave_no;
- 	int i;
-@@ -4364,7 +4364,7 @@ out:
-  */
- static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *start_at;
- 	struct net_device *tx_dev = NULL;
- 	int i;
-@@ -4501,7 +4501,7 @@ static const struct ethtool_ops bond_ethtool_ops = {
-  */
- static int bond_init(struct net_device *bond_dev, struct bond_params *params)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	dprintk("Begin bond_init for %s\n", bond_dev->name);
- 
-@@ -4582,7 +4582,7 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
-  */
- static void bond_deinit(struct net_device *bond_dev)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = netdev_priv(bond_dev);
- 
- 	list_del(&bond->bond_list);
- 
-@@ -5071,7 +5071,7 @@ int bond_create(char *name, struct bond_params *params)
- 
- 	up_write(&bonding_rwsem);
- 	rtnl_unlock(); /* allows sysfs registration of net device */
--	res = bond_create_sysfs_entry(bond_dev->priv);
-+	res = bond_create_sysfs_entry(netdev_priv(bond_dev));
- 	if (res < 0) {
- 		rtnl_lock();
- 		down_write(&bonding_rwsem);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 3bdb473..eda0915 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -39,7 +39,7 @@
- /* #define BONDING_DEBUG 1 */
- #include "bonding.h"
- #define to_dev(obj)	container_of(obj,struct device,kobj)
--#define to_bond(cd)	((struct bonding *)(to_net_dev(cd)->priv))
-+#define to_bond(cd)	((struct bonding *)(netdev_priv(to_net_dev(cd))))
- 
- /*---------------------------- Declarations -------------------------------*/
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index fb730ec..e990b87 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -245,7 +245,7 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- 		return NULL;
- 	}
- 
--	return (struct bonding *)slave->dev->master->priv;
-+	return (struct bonding *)netdev_priv(slave->dev->master);
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	return adapter->rx_csum;
  }
  
- #define BOND_FOM_NONE			0
-@@ -275,7 +275,7 @@ static inline unsigned long slave_last_rx(struct bonding *bond,
- 
- static inline void bond_set_slave_inactive_flags(struct slave *slave)
+@@ -862,7 +862,7 @@ static void ibmveth_get_ethtool_stats(struct net_device *dev,
+ 				      struct ethtool_stats *stats, u64 *data)
  {
--	struct bonding *bond = slave->dev->master->priv;
-+	struct bonding *bond = netdev_priv(slave->dev->master);
- 	if (bond->params.mode != BOND_MODE_TLB &&
- 	    bond->params.mode != BOND_MODE_ALB)
- 		slave->state = BOND_STATE_BACKUP;
-diff --git a/drivers/net/mace.c b/drivers/net/mace.c
-index 451acdc..ef09c41 100644
---- a/drivers/net/mace.c
-+++ b/drivers/net/mace.c
-@@ -144,7 +144,7 @@ static int __devinit mace_probe(struct macio_dev *mdev, const struct of_device_i
+ 	int i;
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ibmveth_stats); i++)
+ 		data[i] = IBMVETH_GET_STAT(adapter, ibmveth_stats[i].offset);
+@@ -889,7 +889,7 @@ static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ static int ibmveth_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ {
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	union ibmveth_buf_desc desc;
+ 	unsigned long lpar_rc;
+ 	unsigned long correlator;
+@@ -1044,7 +1044,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ static irqreturn_t ibmveth_interrupt(int irq, void *dev_instance)
+ {
+ 	struct net_device *netdev = dev_instance;
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	unsigned long lpar_rc;
+ 
+ 	if (netif_rx_schedule_prep(netdev, &adapter->napi)) {
+@@ -1058,7 +1058,7 @@ static irqreturn_t ibmveth_interrupt(int irq, void *dev_instance)
+ 
+ static void ibmveth_set_multicast_list(struct net_device *netdev)
+ {
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	unsigned long lpar_rc;
+ 
+ 	if((netdev->flags & IFF_PROMISC) || (netdev->mc_count > adapter->mcastFilterSize)) {
+@@ -1106,7 +1106,7 @@ static void ibmveth_set_multicast_list(struct net_device *netdev)
+ 
+ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	struct ibmveth_adapter *adapter = dev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	struct vio_dev *viodev = adapter->vdev;
+ 	int new_mtu_oh = new_mtu + IBMVETH_BUFF_OH;
+ 	int i;
+@@ -1158,7 +1158,7 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void ibmveth_poll_controller(struct net_device *dev)
+ {
+-	ibmveth_replenish_task(dev->priv);
++	ibmveth_replenish_task(netdev_priv(dev));
+ 	ibmveth_interrupt(dev->irq, dev);
+ }
+ #endif
+@@ -1240,7 +1240,7 @@ static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_
+ 	if(!netdev)
+ 		return -ENOMEM;
+ 
+-	adapter = netdev->priv;
++	adapter = netdev_priv(netdev);
+ 	dev->dev.driver_data = netdev;
+ 
+ 	adapter->vdev = dev;
+@@ -1336,7 +1336,7 @@ static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_
+ static int __devexit ibmveth_remove(struct vio_dev *dev)
+ {
+ 	struct net_device *netdev = dev->dev.driver_data;
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	int i;
+ 
+ 	for(i = 0; i<IbmVethNumBufferPools; i++)
+@@ -1471,7 +1471,7 @@ const char * buf, size_t count)
+ 						      kobj);
+ 	struct net_device *netdev =
+ 	    container_of(kobj->parent, struct device, kobj)->driver_data;
+-	struct ibmveth_adapter *adapter = netdev->priv;
++	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+ 	long value = simple_strtol(buf, NULL, 10);
+ 	long rc;
+ 
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 11aee13..e7ce024 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -101,8 +101,8 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ };
+ 
+ #define IGB_QUEUE_STATS_LEN \
+-	((((struct igb_adapter *)netdev->priv)->num_rx_queues + \
+-	 ((struct igb_adapter *)netdev->priv)->num_tx_queues) * \
++	((((struct igb_adapter *)netdev_priv(netdev))->num_rx_queues + \
++	 ((struct igb_adapter *)netdev_priv(netdev))->num_tx_queues) * \
+ 	(sizeof(struct igb_queue_stats) / sizeof(u64)))
+ #define IGB_GLOBAL_STATS_LEN	\
+ 	sizeof(igb_gstrings_stats) / sizeof(struct igb_stats)
+diff --git a/drivers/net/ni5010.c b/drivers/net/ni5010.c
+index 8e0ca9f..b13af97 100644
+--- a/drivers/net/ni5010.c
++++ b/drivers/net/ni5010.c
+@@ -329,7 +329,7 @@ static int __init ni5010_probe1(struct net_device *dev, int ioaddr)
+         	outb(0, IE_RBUF);	/* set buffer byte 0 to 0 again */
  	}
- 	SET_NETDEV_DEV(dev, &mdev->ofdev.dev);
+         printk("-> bufsize rcv/xmt=%d/%d\n", bufsize_rcv, NI5010_BUFSIZE);
+-	memset(dev->priv, 0, sizeof(struct ni5010_local));
++	memset(netdev_priv(dev), 0, sizeof(struct ni5010_local));
  
--	mp = dev->priv;
-+	mp = netdev_priv(dev);
- 	mp->mdev = mdev;
- 	macio_set_drvdata(mdev, dev);
- 
-@@ -165,7 +165,7 @@ static int __devinit mace_probe(struct macio_dev *mdev, const struct of_device_i
- 			in_8(&mp->mace->chipid_lo);
- 
- 
--	mp = (struct mace_data *) dev->priv;
-+	mp = netdev_priv(dev);
- 	mp->maccc = ENXMT | ENRCV;
- 
- 	mp->tx_dma = ioremap(macio_resource_start(mdev, 1), 0x1000);
-@@ -276,7 +276,7 @@ static int __devexit mace_remove(struct macio_dev *mdev)
- 
- 	macio_set_drvdata(mdev, NULL);
- 
--	mp = dev->priv;
-+	mp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
- 
-@@ -312,7 +312,7 @@ static void dbdma_reset(volatile struct dbdma_regs __iomem *dma)
- 
- static void mace_reset(struct net_device *dev)
+ 	dev->open		= ni5010_open;
+ 	dev->stop		= ni5010_close;
+diff --git a/drivers/net/ni52.c b/drivers/net/ni52.c
+index b9a882d..aee6c35 100644
+--- a/drivers/net/ni52.c
++++ b/drivers/net/ni52.c
+@@ -214,7 +214,7 @@ struct priv {
+ /* wait for command with timeout: */
+ static void wait_for_scb_cmd(struct net_device *dev)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     int i;
+-	struct priv *p = dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	int i;
+ 	for (i = 0; i < 16384; i++) {
+ 		if (readb(&p->scb->cmd_cuc) == 0)
+@@ -233,7 +233,7 @@ static void wait_for_scb_cmd(struct net_device *dev)
  
-@@ -367,7 +367,7 @@ static void mace_reset(struct net_device *dev)
+ static void wait_for_scb_cmd_ruc(struct net_device *dev)
+ {
+-	struct priv *p = dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	int i;
+ 	for (i = 0; i < 16384; i++) {
+ 		if (readb(&p->scb->cmd_ruc) == 0)
+@@ -298,7 +298,7 @@ static int ni52_open(struct net_device *dev)
+ static int check_iscp(struct net_device *dev, void __iomem *addr)
+ {
+ 	struct iscp_struct __iomem *iscp = addr;
+-	struct priv *p = dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	memset_io(iscp, 0, sizeof(struct iscp_struct));
  
- static void __mace_set_address(struct net_device *dev, void *addr)
+ 	writel(make24(iscp), &p->scp->iscp);
+@@ -318,7 +318,7 @@ static int check_iscp(struct net_device *dev, void __iomem *addr)
+  */
+ static int check586(struct net_device *dev, unsigned size)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     unsigned char *p = addr;
-     int i;
-@@ -388,7 +388,7 @@ static void __mace_set_address(struct net_device *dev, void *addr)
+-	struct priv *p = dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	int i;
  
- static int mace_set_address(struct net_device *dev, void *addr)
+ 	p->mapped = ioremap(dev->mem_start, size);
+@@ -354,7 +354,7 @@ Enodev:
+  */
+ static void alloc586(struct net_device *dev)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     unsigned long flags;
+-	struct priv *p =	(struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
  
-@@ -423,7 +423,7 @@ static inline void mace_clean_rings(struct mace_data *mp)
+ 	ni_reset586();
+ 	mdelay(32);
+@@ -400,7 +400,7 @@ struct net_device * __init ni52_probe(int unit)
+ 	if (!dev)
+ 		return ERR_PTR(-ENOMEM);
  
- static int mace_open(struct net_device *dev)
- {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     volatile struct dbdma_regs __iomem *rd = mp->rx_dma;
-     volatile struct dbdma_regs __iomem *td = mp->tx_dma;
-@@ -493,7 +493,7 @@ static int mace_open(struct net_device *dev)
+-	p = dev->priv;
++	p = netdev_priv(dev);
  
- static int mace_close(struct net_device *dev)
+ 	if (unit >= 0) {
+ 		sprintf(dev->name, "eth%d", unit);
+@@ -446,7 +446,7 @@ out:
+ static int __init ni52_probe1(struct net_device *dev, int ioaddr)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     volatile struct dbdma_regs __iomem *rd = mp->rx_dma;
-     volatile struct dbdma_regs __iomem *td = mp->tx_dma;
-@@ -513,7 +513,7 @@ static int mace_close(struct net_device *dev)
+ 	int i, size, retval;
+-	struct priv *priv = dev->priv;
++	struct priv *priv = netdev_priv(dev);
  
- static inline void mace_set_timeout(struct net_device *dev)
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
+@@ -588,7 +588,7 @@ static int init586(struct net_device *dev)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
+ 	void __iomem *ptr;
+ 	int i, result = 0;
+-	struct priv *p = (struct priv *)dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	struct configure_cmd_struct __iomem *cfg_cmd;
+ 	struct iasetup_cmd_struct __iomem *ias_cmd;
+ 	struct tdr_cmd_struct __iomem *tdr_cmd;
+@@ -829,7 +829,7 @@ static void __iomem *alloc_rfa(struct net_device *dev, void __iomem *ptr)
+ 	struct rfd_struct __iomem *rfd = ptr;
+ 	struct rbd_struct __iomem *rbd;
+ 	int i;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
  
-     if (mp->timeout_active)
- 	del_timer(&mp->tx_timeout);
-@@ -526,7 +526,7 @@ static inline void mace_set_timeout(struct net_device *dev)
+ 	memset_io(rfd, 0,
+ 		sizeof(struct rfd_struct) * (p->num_recv_buffs + rfdadd));
+@@ -878,7 +878,7 @@ static irqreturn_t ni52_interrupt(int irq, void *dev_id)
+ 	int cnt = 0;
+ 	struct priv *p;
  
- static int mace_xmit_start(struct sk_buff *skb, struct net_device *dev)
- {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct dbdma_regs __iomem *td = mp->tx_dma;
-     volatile struct dbdma_cmd *cp, *np;
-     unsigned long flags;
-@@ -581,7 +581,7 @@ static int mace_xmit_start(struct sk_buff *skb, struct net_device *dev)
+-	p = (struct priv *) dev->priv;
++	p = netdev_priv(dev);
  
- static void mace_set_multicast(struct net_device *dev)
+ 	if (debuglevel > 1)
+ 		printk("I");
+@@ -950,7 +950,7 @@ static void ni52_rcv_int(struct net_device *dev)
+ 	unsigned short totlen;
+ 	struct sk_buff *skb;
+ 	struct rbd_struct __iomem *rbd;
+-	struct priv *p = (struct priv *)dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 
+ 	if (debuglevel > 0)
+ 		printk("R");
+@@ -1040,7 +1040,7 @@ static void ni52_rcv_int(struct net_device *dev)
+ 
+ static void ni52_rnr_int(struct net_device *dev)
  {
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     int i, j;
-     u32 crc;
-@@ -656,7 +656,7 @@ static void mace_handle_misc_intrs(struct mace_data *mp, int intr, struct net_de
- static irqreturn_t mace_interrupt(int irq, void *dev_id)
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 
+ 	p->stats.rx_errors++;
+ 
+@@ -1065,7 +1065,7 @@ static void ni52_rnr_int(struct net_device *dev)
+ static void ni52_xmt_int(struct net_device *dev)
  {
-     struct net_device *dev = (struct net_device *) dev_id;
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     volatile struct dbdma_regs __iomem *td = mp->tx_dma;
-     volatile struct dbdma_cmd *cp;
-@@ -802,7 +802,7 @@ static irqreturn_t mace_interrupt(int irq, void *dev_id)
- static void mace_tx_timeout(unsigned long data)
+ 	int status;
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 
+ 	if (debuglevel > 0)
+ 		printk("X");
+@@ -1113,7 +1113,7 @@ static void ni52_xmt_int(struct net_device *dev)
+ 
+ static void startrecv586(struct net_device *dev)
  {
-     struct net_device *dev = (struct net_device *) data;
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct mace __iomem *mb = mp->mace;
-     volatile struct dbdma_regs __iomem *td = mp->tx_dma;
-     volatile struct dbdma_regs __iomem *rd = mp->rx_dma;
-@@ -873,7 +873,7 @@ static irqreturn_t mace_txdma_intr(int irq, void *dev_id)
- static irqreturn_t mace_rxdma_intr(int irq, void *dev_id)
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 
+ 	wait_for_scb_cmd(dev);
+ 	wait_for_scb_cmd_ruc(dev);
+@@ -1126,7 +1126,7 @@ static void startrecv586(struct net_device *dev)
+ 
+ static void ni52_timeout(struct net_device *dev)
  {
-     struct net_device *dev = (struct net_device *) dev_id;
--    struct mace_data *mp = (struct mace_data *) dev->priv;
-+    struct mace_data *mp = netdev_priv(dev);
-     volatile struct dbdma_regs __iomem *rd = mp->rx_dma;
-     volatile struct dbdma_cmd *cp, *np;
-     int i, nb, stat, next;
---
-
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ #ifndef NO_NOPCOMMANDS
+ 	if (readb(&p->scb->cus) & CU_ACTIVE) { /* COMMAND-UNIT active? */
+ 		netif_wake_queue(dev);
+@@ -1177,7 +1177,7 @@ static int ni52_send_packet(struct sk_buff *skb, struct net_device *dev)
+ #ifndef NO_NOPCOMMANDS
+ 	int next_nop;
+ #endif
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 
+ 	if (skb->len > XMIT_BUFF_SIZE) {
+ 		printk(KERN_ERR "%s: Sorry, max. framelength is %d bytes. The length of your frame is %d bytes.\n", dev->name, XMIT_BUFF_SIZE, skb->len);
+@@ -1274,7 +1274,7 @@ static int ni52_send_packet(struct sk_buff *skb, struct net_device *dev)
+ 
+ static struct net_device_stats *ni52_get_stats(struct net_device *dev)
+ {
+-	struct priv *p = (struct priv *) dev->priv;
++	struct priv *p = netdev_priv(dev);
+ 	unsigned short crc, aln, rsc, ovrn;
+ 
+ 	/* Get error-statistics from the ni82586 */
+@@ -1337,7 +1337,7 @@ int __init init_module(void)
+ 
+ void __exit cleanup_module(void)
+ {
+-	struct priv *p = dev_ni52->priv;
++	struct priv *p = netdev_priv(dev_ni52);
+ 	unregister_netdev(dev_ni52);
+ 	iounmap(p->mapped);
+ 	release_region(dev_ni52->base_addr, NI52_TOTAL_SIZE);
 
 
 
