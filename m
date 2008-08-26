@@ -1,39 +1,58 @@
-From: Eugene Teo <eteo@redhat.com>
-Subject: Re: [PATCH] sctp: add verification checks to SCTP_AUTH_KEY option
-Date: Tue, 26 Aug 2008 11:01:05 +0800
-Message-ID: <48B371F1.5080605@redhat.com>
-References: <20080825164440.GA504@kernel.sg> <12196959323990-git-send-email-vladislav.yasevich@hp.com> <48B35561.2010001@redhat.com> <48B35B59.2020208@hp.com>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [PATCH] RDS: Add AF and PF defines for RDS sockets
+Date: Mon, 25 Aug 2008 21:02:17 -0700
+Message-ID: <1219723337.6864.3.camel@lute.groveronline.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, security@kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43590 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753851AbYHZDBY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2008 23:01:24 -0400
-In-Reply-To: <48B35B59.2020208@hp.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:11461 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbYHZEI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 00:08:27 -0400
+Received: from agmgw1.us.oracle.com (agmgw1.us.oracle.com [152.68.180.212])
+	by agminet01.oracle.com (Switch-3.2.4/Switch-3.1.7) with ESMTP id m7Q48Pxu013554
+	for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 23:08:25 -0500
+Received: from acsmt355.oracle.com (acsmt355.oracle.com [141.146.40.155])
+	by agmgw1.us.oracle.com (Switch-3.2.0/Switch-3.2.0) with ESMTP id m7Q2IIOL021202
+	for <netdev@vger.kernel.org>; Mon, 25 Aug 2008 22:08:24 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich wrote:
-> Eugene Teo wrote:
->> Vlad Yasevich wrote:
-[...]
->>> +	if (authkey->sca_keylength > optlen) {
->>> +		ret = -EINVAL;
->>> +		goto out;
->> Is there a better upper bound check?
-> 
-> Hm...  optlen - sizeof(struct sctp_authkey)  is more accurate.
-> 
-> There is really no other bound.
+RDS is a reliable datagram protocol used for IPC on Oracle
+database clusters. This adds address and protocol family numbers
+for it.
 
-Linus suggested that it is better to declare an upper bound for key_len.
-I think it makes a lot of sense as a key shouldn't be as long as the
-boundary limit of its declared data type.
+Signed-off-by: Andy Grover <andy.grover@oracle.com>
+---
+ include/linux/socket.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Thanks,
-Eugene
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index dc5086f..e1f7764 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -190,7 +190,8 @@ struct ucred {
+ #define AF_IUCV		32	/* IUCV sockets			*/
+ #define AF_RXRPC	33	/* RxRPC sockets 		*/
+ #define AF_ISDN		34	/* mISDN sockets 		*/
+-#define AF_MAX		35	/* For now.. */
++#define AF_RDS		35	/* RDS sockets 			*/
++#define AF_MAX		36	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -227,6 +228,7 @@ struct ucred {
+ #define PF_IUCV		AF_IUCV
+ #define PF_RXRPC	AF_RXRPC
+ #define PF_ISDN		AF_ISDN
++#define PF_RDS		AF_RDS
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+-- 
+1.5.4.rc3
+
+
+
