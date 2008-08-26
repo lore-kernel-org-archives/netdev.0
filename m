@@ -1,64 +1,41 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] e100: Add missing dma sync for proper operation with
- non-coherent caches.
-Date: Tue, 26 Aug 2008 14:50:13 -0400
-Message-ID: <48B45065.5050907@roinet.com>
-References: <48B3A8D0.2040108@avtrex.com>
+From: Hugh Dickins <hugh@veritas.com>
+Subject: [PATCH] ipv4: mode 0555 in ipv4_skeleton
+Date: Tue, 26 Aug 2008 20:00:03 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0808261950390.4716@blonde.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-mips <linux-mips@linux-mips.org>
-To: David Daney <ddaney@avtrex.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <48B3A8D0.2040108@avtrex.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from extu-mxob-2.symantec.com ([216.10.194.135]:53751 "EHLO
+	extu-mxob-2.symantec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758916AbYHZS74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 14:59:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Daney wrote:
-> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
-> non-coherent DMA).  There was a problem where received packets would
-> get 'stuck' for several seconds at a time and then be released all at
-> once.
-> 
-> The cause was that if an interrupt were received when no RX packets
-> were available, the status for the receive buffer would be stuck in
-> the cache, so when the next interrupt arrived the old status value was
-> read (indicating no packets available) instead of the new value.
-> 
-> The fix is to call pci_dma_sync_single_for_device on the RX if the
-> packet is not available to invalidate the cache so that at the next
-> interrupt valid status is returned.
-> 
-> The driver currently calls pci_dma_sync_single_for_cpu before reading
-> the status, and this is indeed needed for cases like the R10000 CPU
-> where the cache can be polluted by speculative execution, but for most
-> machines it is a nop.
-> 
-> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
-> 
-> Signed-off-by: David Daney <ddaney@avtrex.com>
-> ---
->  drivers/net/e100.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 19d32a2..fb8d551 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1840,6 +1840,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
->  
->  			if (readb(&nic->csr->scb.status) & rus_no_res)
->  				nic->ru_running = RU_SUSPENDED;
-> +		/* We are done looking at the buffer.  Prepare it for
-> +		 * more DMA.  */
-> +		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-> +					       sizeof(struct rfd),
-> +					       PCI_DMA_FROMDEVICE);
->  		return -ENODATA;
->  	}
->  
-Should the call to pci_dma_sync_single_for_device be DMA_TO_DEVICE since 
-we are giving the memory back to the device?
--ack
+vpnc on today's kernel says Cannot open "/proc/sys/net/ipv4/route/flush":
+d--------- 0 root root 0 2008-08-26 11:32 /proc/sys/net/ipv4/route
+d--------- 0 root root 0 2008-08-26 19:16 /proc/sys/net/ipv4/neigh
+
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+---
+
+ net/ipv4/route.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- 2.6.27-rc4-git/net/ipv4/route.c	2008-08-26 10:08:51.000000000 +0100
++++ linux/net/ipv4/route.c	2008-08-26 19:35:40.000000000 +0100
+@@ -3121,9 +3121,9 @@ static struct ctl_table empty[1];
+ static struct ctl_table ipv4_skeleton[] =
+ {
+ 	{ .procname = "route", .ctl_name = NET_IPV4_ROUTE,
+-	  .child = ipv4_route_table},
++	  .mode = 0555, .child = ipv4_route_table},
+ 	{ .procname = "neigh", .ctl_name = NET_IPV4_NEIGH,
+-	  .child = empty},
++	  .mode = 0555, .child = empty},
+ 	{ }
+ };
+ 
