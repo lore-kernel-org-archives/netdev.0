@@ -1,70 +1,62 @@
-From: "=?ISO-8859-1?Q?Damien_Th=E9bault?=" <damien.thebault-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] plusb.c patched to support Belkin F5U258 USB host-to-host cable
-Date: Wed, 27 Aug 2008 00:11:19 +0200
-Message-ID: <9a4a382a0808261511p5fb75969r2b0f9cd218437c3f@mail.gmail.com>
-References: <200802141557_MC3-1-FBB3-3DA7@compuserve.com>
-	 <200802161241.02468.david-b@pacbell.net>
-	 <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae@mail.gmail.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] e100: Add missing dma sync for proper
+	operation with	non-coherent caches.
+Date: Tue, 26 Aug 2008 23:49:16 +0100
+Message-ID: <20080826224916.GB8838@linux-mips.org>
+References: <48B3A8D0.2040108@avtrex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tony_gibbs <Tony_Gibbs-Crc3fnV8OO0XQ3Lr6voeyA@public.gmane.org>,
-	"NETDEV mailing list" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Linux USB mailing list" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "David Brownell" <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9a4a382a0808261456me05f7b9r7f50dc69c58d25ae-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-mips <linux-mips@linux-mips.org>
+To: David Daney <ddaney@avtrex.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <48B3A8D0.2040108@avtrex.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 26, 2008 at 23:56, Damien Th=E9bault
-<damien.thebault-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Hello,
->
-> Sorry to hijack this thread, but today I bought one host-to-host USB
-> cable, and it's a Belkin F5U258.
->
-> On Sat, Feb 16, 2008 at 22:41, David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org> w=
-rote:
->> Here's a patch with cleanups and without various encoding bugs.
->> Can you verify it still works?
->
-> I applied it against my linux 2.6.26 tree, enabled plugged the two
-> ends into two ports of my computer, used "ip l set usb0 up" and "ip l
-> set usb1 up", started an "arping -I usb0 <some address>" and "tcpdump
-> -i usb1", and I see packets.
-> Then I changed the mac address of usb1, let ipv6 choose a link-local
-> address and pinged it from usb0, it's working too.
-> I didn't try some more advanced test as I only have one computer at
-> the moment (but it should be possible to do something with iptables, =
-I
-> did it once)
->
->> When you test this, please enable CONFIG_USB_DEBUG and let us know
->> if those the host software still needs to do that reset ... or at
->> least, whether the diagnostic appears.
->
-> The attached file is the dmesg output, I see timeouts when the
-> interface is set to up (at 895 and 985), but nothing else, is this ok=
-?
->
+On Mon, Aug 25, 2008 at 11:55:12PM -0700, David Daney wrote:
 
-By the way, from the very beginning of this thread, the wrong email is
-used for "Linux USB mailing list", it's not
-"majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org", but "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org".
+> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
+> non-coherent DMA).  There was a problem where received packets would
+> get 'stuck' for several seconds at a time and then be released all at
+> once.
+> 
+> The cause was that if an interrupt were received when no RX packets
+> were available, the status for the receive buffer would be stuck in
+> the cache, so when the next interrupt arrived the old status value was
+> read (indicating no packets available) instead of the new value.
+> 
+> The fix is to call pci_dma_sync_single_for_device on the RX if the
+> packet is not available to invalidate the cache so that at the next
+> interrupt valid status is returned.
+> 
+> The driver currently calls pci_dma_sync_single_for_cpu before reading
+> the status, and this is indeed needed for cases like the R10000 CPU
+> where the cache can be polluted by speculative execution, but for most
+> machines it is a nop.
+> 
+> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
+> 
+> Signed-off-by: David Daney <ddaney@avtrex.com>
 
-So, people from linux-usb should read the previous mail in the
-available archives [1][2].
-(I'm sorry but I know no other way to do this)
+Makes sense to me.
 
-[1] http://www.spinics.net/lists/netdev/msg55416.html
-[2] http://marc.info/?l=3Dlinux-netdev&m=3D120307070602296&w=3D2
+Reviewed-by: Ralf Baechle <ralf@linux-mips.org>
 
-Regards,
---=20
-Damien Thebault
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Ralf
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
