@@ -1,37 +1,36 @@
-From: "\"G\"" <balajig81@gmail.com>
-Subject: Kernel Support in Linux PPC
-Date: Tue, 26 Aug 2008 21:04:17 +0530
-Message-ID: <6dd1343e0808260834h7bc423a9ka47446111cbdb01f@mail.gmail.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 0/15] netdevice: Convert directly reference of
+	netdev->priv to netdev_priv()
+Date: Tue, 26 Aug 2008 11:46:47 -0400
+Message-ID: <1219765607.16297.16.camel@lap75545.ornl.gov>
+References: <48B3D717.7070706@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.188]:14282 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753915AbYHZPeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 11:34:19 -0400
-Received: by ti-out-0910.google.com with SMTP id b6so1321278tic.23
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 08:34:17 -0700 (PDT)
-Content-Disposition: inline
+Received: from lap75545.ornl.gov ([160.91.210.54]:38295 "EHLO
+	lap75545.ornl.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753915AbYHZPq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 11:46:57 -0400
+In-Reply-To: <48B3D717.7070706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-I am developing a Linux Kernel Module which basically would do native
-bridging with VLAN and RSTP. The LKM basically would make use of
-sk_buff ,net_device, timers, locks etc. I am developing this in i386
-platform and the kernel version is 2.6.15.4 and it works fine as of
-now. Now i need to move from i386 to PPC architecture with the same
-version of the kernel and then move from 2.6.15.4 to 2.6.26 in the PPC
-architecture.
+On Tue, 2008-08-26 at 18:12 +0800, Wang Chen wrote:
+> Following patches will convert directly reference of netdev->priv to netdev_priv().
+> 
+> - Patch 1/15 is the safe convert which I believe will not make "after converted " worse
+> than "before converted".
 
-I would like to know whether would i face any big surprises/changes
-apart from the sk_buff and netdevice data structure changes in the
-latest versions of the kernel ?
+When breaking a big patch into multiple messages, please put a diffstat
+for that message above the patch -- and it'd be good to have one in the
+introduction message as well. This lets reviewers take a quick glance
+and see if code they maintain is affected, rather than having to search
+through each message to see what files it touches.
 
-Thanks for your help
-
-Cheers,
-Balaji
+Thanks,
+Dave
