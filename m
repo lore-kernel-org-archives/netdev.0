@@ -1,93 +1,50 @@
-From: David Daney <ddaney@avtrex.com>
-Subject: Re: [E1000-devel] [PATCH] e100: Add missing dma sync for proper operation
- with non-coherent caches.
-Date: Tue, 26 Aug 2008 09:54:47 -0700
-Message-ID: <48B43557.7070505@avtrex.com>
-References: <48B3A8D0.2040108@avtrex.com> <48B43346.2030600@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-mips <linux-mips@linux-mips.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+From: love_phil@emc.com
+Subject: [PATCH] tcp: fix tcp header size miscalculation when window scale is unused (resend)
+Date: Tue, 26 Aug 2008 12:56:27 -0400 (EDT)
+Message-ID: <200808261656.m7QGuR5k029805@mailhub.lss.emc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.dnsmadeeasy.com ([205.234.170.134]:54107 "EHLO
-	smtp1.dnsmadeeasy.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756048AbYHZQyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 12:54:51 -0400
-In-Reply-To: <48B43346.2030600@intel.com>
+Received: from mexforward.lss.emc.com ([128.222.32.20]:40251 "EHLO
+	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757376AbYHZQ4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 12:56:33 -0400
+Received: from hop04-l1d11-si02.isus.emc.com (HOP04-L1D11-SI02.isus.emc.com [10.254.111.55])
+	by mexforward.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m7QGuUnN029971
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 12:56:30 -0400 (EDT)
+Received: from mailhub.lss.emc.com (nagas.lss.emc.com [10.254.144.11]) by hop04-l1d11-si02.isus.emc.com (Tablus Interceptor) for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 12:34:45 -0400
+Received: from psm2 ([10.5.240.191])
+	by mailhub.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id m7QGuR5k029805
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 12:56:29 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kok, Auke wrote:
-> David Daney wrote:
->> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
->> non-coherent DMA).  There was a problem where received packets would
->> get 'stuck' for several seconds at a time and then be released all at
->> once.
->>
->> The cause was that if an interrupt were received when no RX packets
->> were available, the status for the receive buffer would be stuck in
->> the cache, so when the next interrupt arrived the old status value was
->> read (indicating no packets available) instead of the new value.
->>
->> The fix is to call pci_dma_sync_single_for_device on the RX if the
->> packet is not available to invalidate the cache so that at the next
->> interrupt valid status is returned.
->>
->> The driver currently calls pci_dma_sync_single_for_cpu before reading
->> the status, and this is indeed needed for cases like the R10000 CPU
->> where the cache can be polluted by speculative execution, but for most
->> machines it is a nop.
->>
->> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
-> 
-> 
-> lol, that's a bit old :)
-> 
+tcp: fix tcp header size miscalculation when window scale is unused
 
-It was a typo.  The real version is 2.6.27-rc4 (aka the HEAD).
+The size of the TCP header is miscalculated when the window scale ends up being 0. Additionally, this can be induced by sending a SYN to a passive open port with a window scale option with value 0.
 
-The bug is present on the HEAD.  Sorry for the confusion.
-
-David Daney.
+Signed-off-by: Philip Love <love_phil@emc.com>
 
 
-
-> A LOT of work has gone into 2.6.26+'s version of e100 that addresses specifically
-> non-coherent DMA machines, including a patch that looks very close to what you
-> write below here.
-> 
-> can you test the latest git tree and see if you still need (a modified or updated
-> version) of your patch?
-> 
-> I know for sure that the guys maintaining e100 do not have anything close to your
-> system, so they can't test that.
-> 
-> Cheers,
-> 
-> Auke
-> 
->> Signed-off-by: David Daney <ddaney@avtrex.com>
->> ---
->>  drivers/net/e100.c |    5 +++++
->>  1 files changed, 5 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
->> index 19d32a2..fb8d551 100644
->> --- a/drivers/net/e100.c
->> +++ b/drivers/net/e100.c
->> @@ -1840,6 +1840,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
->>  
->>  			if (readb(&nic->csr->scb.status) & rus_no_res)
->>  				nic->ru_running = RU_SUSPENDED;
->> +		/* We are done looking at the buffer.  Prepare it for
->> +		 * more DMA.  */
->> +		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
->> +					       sizeof(struct rfd),
->> +					       PCI_DMA_FROMDEVICE);
->>  		return -ENODATA;
->>  	}
->>  
-> 
-
+--- a/net/ipv4/tcp_output.c	2008-08-24 07:44:18.000000000 -0700
++++ b/net/ipv4/tcp_output.c	2008-08-24 07:43:05.000000000 -0700
+@@ -468,7 +468,8 @@ static unsigned tcp_syn_options(struct s
+ 	}
+ 	if (likely(sysctl_tcp_window_scaling)) {
+ 		opts->ws = tp->rx_opt.rcv_wscale;
+-		size += TCPOLEN_WSCALE_ALIGNED;
++		if(likely(opts->ws))
++			size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(sysctl_tcp_sack)) {
+ 		opts->options |= OPTION_SACK_ADVERTISE;
+@@ -509,7 +510,8 @@ static unsigned tcp_synack_options(struc
+ 
+ 	if (likely(ireq->wscale_ok)) {
+ 		opts->ws = ireq->rcv_wscale;
+-		size += TCPOLEN_WSCALE_ALIGNED;
++		if(likely(opts->ws))
++			size += TCPOLEN_WSCALE_ALIGNED;
+ 	}
+ 	if (likely(doing_ts)) {
+ 		opts->options |= OPTION_TS;
