@@ -1,62 +1,53 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] e100: Add missing dma sync for proper
-	operation with	non-coherent caches.
-Date: Tue, 26 Aug 2008 23:49:16 +0100
-Message-ID: <20080826224916.GB8838@linux-mips.org>
-References: <48B3A8D0.2040108@avtrex.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: [PATCH -next] net: fix compilation NG when !CONFIG_MODULE
+Date: Tue, 26 Aug 2008 16:49:48 -0700
+Message-ID: <48B4969C.60707@ct.jp.nec.com>
+References: <20080826184008.6be39f19.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-mips <linux-mips@linux-mips.org>
-To: David Daney <ddaney@avtrex.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <48B3A8D0.2040108@avtrex.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20080826184008.6be39f19.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 25, 2008 at 11:55:12PM -0700, David Daney wrote:
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
 
-> I am running the e100 driver on a MIPS 4KEc system (32 bit mips with
-> non-coherent DMA).  There was a problem where received packets would
-> get 'stuck' for several seconds at a time and then be released all at
-> once.
-> 
-> The cause was that if an interrupt were received when no RX packets
-> were available, the status for the receive buffer would be stuck in
-> the cache, so when the next interrupt arrived the old status value was
-> read (indicating no packets available) instead of the new value.
-> 
-> The fix is to call pci_dma_sync_single_for_device on the RX if the
-> packet is not available to invalidate the cache so that at the next
-> interrupt valid status is returned.
-> 
-> The driver currently calls pci_dma_sync_single_for_cpu before reading
-> the status, and this is indeed needed for cases like the R10000 CPU
-> where the cache can be polluted by speculative execution, but for most
-> machines it is a nop.
-> 
-> The patch was tested on 2.6.17-rc4 on a MIPS 4KEc.
-> 
-> Signed-off-by: David Daney <ddaney@avtrex.com>
+  CC      net/core/dev.o
+net/core/dev.c:1001: error: redefinition of 'dev_load'
+include/linux/netdevice.h:1645: error: previous definition of 'dev_load' was here
+make[2]: *** [net/core/dev.o] Error 1
 
-Makes sense to me.
+dev_load() is not used when CONFIG_MODULE disabled.
 
-Reviewed-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+---
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-  Ralf
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b0a1ee8..bde9790 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -996,7 +996,7 @@ EXPORT_SYMBOL(netdev_bonding_change);
+  *	privileges this function loads the module. If module loading is not
+  *	available in this kernel then it becomes a nop.
+  */
+-
++#ifdef CONFIG_MODULES
+ void dev_load(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
+@@ -1008,6 +1008,7 @@ void dev_load(struct net *net, const char *name)
+ 	if (!dev && capable(CAP_SYS_MODULE))
+ 		request_module("%s", name);
+ }
++#endif
+ 
+ /**
+  *	dev_open	- prepare an interface for use.
+-- 
+1.5.6
