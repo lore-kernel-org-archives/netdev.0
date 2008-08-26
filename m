@@ -1,118 +1,127 @@
-From: Tom Quetchenbach <virtualphtn@gmail.com>
-Subject: [PATCH][BUG] tcp: advertise MSS requested by user
-Date: Tue, 26 Aug 2008 11:11:52 -0700
-Message-ID: <48B44768.3030208@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Tue, 26 Aug 2008 20:32:31 +0200
+Message-ID: <48B44C3F.6020006@cosmosbay.com>
+References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com> <20080826163719.GA25066@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Lachlan Andrew <lachlan.andrew@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, j.w.r.degoede@hhs.nl
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outgoing-mail.its.caltech.edu ([131.215.239.19]:60441 "EHLO
-	outgoing-mail.its.caltech.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756171AbYHZSX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 14:23:26 -0400
+Received: from smtp23.orange.fr ([80.12.242.50]:11303 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753459AbYHZSch convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 14:32:37 -0400
+In-Reply-To: <20080826163719.GA25066@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm trying to use the TCP_MAXSEG option to setsockopt() to set the MSS
-for both sides of a bidirectional connection.
+Dave Jones a =E9crit :
+> Just had this bug reported against our development tree..
+>=20
+> 	Dave
+>=20
+> On Tue, Aug 26, 2008 at 11:49:31AM -0400, bugzilla@redhat.com wrote:
+>  > Please do not reply directly to this email. All additional
+>  > comments should be made in the comments box of this bug.
+>  >=20
+>  > https://bugzilla.redhat.com/show_bug.cgi?id=3D459782
+>  >=20
+>  > Hans de Goede <j.w.r.degoede@hhs.nl> changed:
+>  >=20
+>  >            What    |Removed                     |Added
+>  > ------------------------------------------------------------------=
+----------
+>  >                  CC|                            |j.w.r.degoede@hhs=
+=2Enl
+>  >           Component|gkrellm                     |kernel
+>  >          AssignedTo|j.w.r.degoede@hhs.nl        |kernel-maint@redh=
+at.com
+>  >             Summary|gkrellmd consumes about 75% |cat /proc/net/tcp=
+ takes 0.5
+>  >                    |cpu time                    |seconds on x86_64=
+, 0.5
+>  >                    |                            |seconds !!
+>  >=20
+>  > --- Comment #2 from Hans de Goede <j.w.r.degoede@hhs.nl>  2008-08-=
+26 11:49:30 EDT ---
+>  > Thanks for reporting this some stracing of gkrellmd has found that=
+ reading from
+>  > /proc/net/tcp and reading from /proc/net/tcp6 is the culprit, try =
+this on your
+>  > x86_64 machine to confirm:
+>  >=20
+>  > "time cat /proc/net/tcp"
+>  >=20
+>  > To give you an idea on my rawhide x86_64 machine:
+>  > [hans@localhost devel]$ time cat /proc/net/tcp
+>  > <snip>
+>  > real    0m0.520s
+>  > user    0m0.000s
+>  > sys     0m0.446s
+>  >=20
+>  > Thats amazingly slow, esp as I only have 8 tcp connections open.
+>  >=20
+>  > Some maybe usefull info: top reports a very high load (50%) from s=
+oft IRQ's.
+>  >=20
+>  > Anyways changing this to a kernel bug.
+>=20
 
-man tcp says: "If this option is set before connection establishment, it
-also changes the MSS value announced to the other end in the initial
-packet."
+I wonder why this qualifies as a "kernel bug". This is a well known pro=
+blem.
 
-However, the kernel only uses the MTU/route cache to set the advertised
-MSS. That means if I set the MSS to, say, 500 before calling connect(),
-I will send at most 500-byte packets, but I will still receive 1500-byte
-packets in reply.
+At least, current kernel versions no longer block softirq for long peri=
+ods while doing this...
 
-This is a bug, either in the kernel or the documentation.
+cat /proc/net/tcp is slow and deprecated, since it uses a O(N^2) algo.
 
-This patch (applies to latest net-2.6) reduces the advertised value to
-that requested by the user as long as setsockopt() is called before
-connect() or accept(). This seems like the behavior that one would expect
-as well as that which is documented.
+tcp hash table size might be a litle bit too large for typical setups (=
+few tcp session, even on a 16 GB machine)
+Unfortunatly it is fixed at boot time and not dynamic (yet)
 
-I've tried to make sure that things that depend on the advertised MSS
-are set correctly, but please correct me if I've broken something.
+You can :
 
-Currently there's no way for the user to change the MSS of an established
-connection--calling setsockopt() after the connection is established has
-no effect. Is this something that should be changed?
+1) Boot your machine with a boot cmd "thash_entries=3D1024" to reduce s=
+ize of TCP hash table
+(typical size on a 4GB machine is : TCP established hash table entries:=
+ 262144 (order: 10, 4194304 bytes))
 
-Thanks,
--Tom
+(max size is 524288 entries for machines with >=3D 8GB memory if no "th=
+ash_entries=3D..." specified, since October 2007
+see http://kerneltrap.org/mailarchive/linux-netdev/2007/10/26/359198 )
 
-Signed-off-by: Tom Quetchenbach <virtualphtn@gmail.com>
----
+2) Switch to netlink interface instead of /proc/net/tcp[6] legacy file.
+ Example : netstat -N
+   http://www.ducksong.com/misc/netstat-netlink-diag-patch.txt
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 44c1e93..8bc8b36 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1364,6 +1364,11 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	tcp_mtup_init(newsk);
- 	tcp_sync_mss(newsk, dst_mtu(dst));
- 	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
-+
-+	if (tcp_sk(sk)->rx_opt.user_mss &&
-+				tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
-+		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
-+
- 	tcp_initialize_rcv_mss(newsk);
- 
- #ifdef CONFIG_TCP_MD5SIG
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a00532d..50536e1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2239,6 +2239,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	struct sk_buff *skb;
- 	struct tcp_md5sig_key *md5;
- 	__u8 *md5_hash_location;
-+	int mss;
- 
- 	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
- 	if (skb == NULL)
-@@ -2249,13 +2250,17 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 
- 	skb->dst = dst_clone(dst);
- 
-+	mss = dst_metric(dst, RTAX_ADVMSS);
-+	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
-+		mss = tp->rx_opt.user_mss;
-+
- 	if (req->rcv_wnd == 0) { /* ignored for retransmitted syns */
- 		__u8 rcv_wscale;
- 		/* Set this up on the first call only */
- 		req->window_clamp = tp->window_clamp ? : dst_metric(dst, RTAX_WINDOW);
- 		/* tcp_full_space because it is guaranteed to be the first packet */
- 		tcp_select_initial_window(tcp_full_space(sk),
--			dst_metric(dst, RTAX_ADVMSS) - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
-+			mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
- 			&req->rcv_wnd,
- 			&req->window_clamp,
- 			ireq->wscale_ok,
-@@ -2265,8 +2270,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 
- 	memset(&opts, 0, sizeof(opts));
- 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
--	tcp_header_size = tcp_synack_options(sk, req,
--					     dst_metric(dst, RTAX_ADVMSS),
-+	tcp_header_size = tcp_synack_options(sk, req, mss,
- 					     skb, &opts, &md5) +
- 			  sizeof(struct tcphdr);
- 
-@@ -2340,6 +2344,11 @@ static void tcp_connect_init(struct sock *sk)
- 	if (!tp->window_clamp)
- 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
- 	tp->advmss = dst_metric(dst, RTAX_ADVMSS);
-+
-+	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->advmss){
-+		tp->advmss = tp->rx_opt.user_mss;
-+	}
-+
- 	tcp_initialize_rcv_mss(sk);
- 
- 	tcp_select_initial_window(tcp_full_space(sk),
+3) Use both 1) & 2) :)
+
+4) Submit a patch to dynamically grow tcp hash table :)
+
+Links:
+
+http://kerneltrap.org/mailarchive/linux-netdev/2007/11/1/375782
+http://kerneltrap.org/mailarchive/linux-netdev/2007/11/1/376907
+
+Time difference between /proc/net/tcp and netlink on a 4GB x86_64 machi=
+ne :
+
+# dmesg | grep "TCP established hash"
+TCP established hash table entries: 262144 (order: 10, 4194304 bytes)
+# time cat /proc/net/tcp >/dev/null
+
+real    0m0.091s
+user    0m0.001s
+sys     0m0.090s
+# time ss -n >/dev/null # ss uses netlink interface
+
+real    0m0.022s
+user    0m0.000s
+sys     0m0.022s
+
+
+
+
