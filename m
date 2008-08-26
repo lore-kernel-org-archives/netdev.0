@@ -1,27 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] RDS: Add AF and PF defines for RDS sockets
-Date: Mon, 25 Aug 2008 21:29:14 -0700 (PDT)
-Message-ID: <20080825.212914.197506339.davem@davemloft.net>
-References: <1219723337.6864.3.camel@lute.groveronline.com>
-	<75428E88-423C-492F-AE72-3157D968DC04@holtmann.org>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: r6040: bad udelay call, build failure on ARM with R6040=m
+Date: Tue, 26 Aug 2008 08:04:19 +0300
+Message-ID: <20080826050418.GA5474@deprecation.cyrius.com>
+References: <20080825120502.GA13700@deprecation.cyrius.com> <200808252305.10448.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org
-To: marcel@holtmann.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sten Wang <sten.wang@rdc.com.tw>, netdev@vger.kernel.org
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58166
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750830AbYHZE3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 00:29:18 -0400
-In-Reply-To: <75428E88-423C-492F-AE72-3157D968DC04@holtmann.org>
+Received: from sorrow.cyrius.com ([65.19.161.204]:2092 "EHLO sorrow.cyrius.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751008AbYHZFEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 01:04:45 -0400
+Content-Disposition: inline
+In-Reply-To: <200808252305.10448.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue, 26 Aug 2008 06:16:28 +0200
+* Florian Fainelli <florian.fainelli@telecomint.eu> [2008-08-25 23:05]:
+> Please find/test the patch below :
 
-> and where is the protocol? Adding new constants without posting the
-> implementation normally doesn't fly anymore.
-
-That's correct :)
+I don't have the hardware to test, but it compiles fine on ARM now.
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
