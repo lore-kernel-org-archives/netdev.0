@@ -1,7 +1,7 @@
 From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH 1/15] netdevice: safe convert to netdev_priv() #part-10
-Date: Tue, 26 Aug 2008 22:19:00 +0800
-Message-ID: <48B410D4.2010105@cn.fujitsu.com>
+Subject: [PATCH 1/15] netdevice: safe convert to netdev_priv() #part-16
+Date: Tue, 26 Aug 2008 22:19:22 +0800
+Message-ID: <48B410EA.50103@cn.fujitsu.com>
 References: <48B3D717.7070706@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,331 +9,626 @@ Content-Transfer-Encoding: 7bit
 To: "David S. Miller" <davem@davemloft.net>,
 	NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51514 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:57096 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756763AbYHZOV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 10:21:27 -0400
+	id S1757217AbYHZOVu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 10:21:50 -0400
 In-Reply-To: <48B3D717.7070706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 ---
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 45c72ee..4253980 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1249,7 +1249,7 @@ static void efx_monitor(struct work_struct *data)
-  */
- static int efx_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
+diff --git a/drivers/net/wireless/libertas/wext.c b/drivers/net/wireless/libertas/wext.c
+index 8b3ed77..c9b2331 100644
+--- a/drivers/net/wireless/libertas/wext.c
++++ b/drivers/net/wireless/libertas/wext.c
+@@ -183,7 +183,7 @@ static int lbs_get_name(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_get_freq(struct net_device *dev, struct iw_request_info *info,
+ 			 struct iw_freq *fwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct chan_freq_power *cfp;
  
- 	EFX_ASSERT_RESET_SERIALISED(efx);
- 
-@@ -1303,7 +1303,7 @@ static void efx_fini_napi(struct efx_nic *efx)
-  */
- static void efx_netpoll(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -209,7 +209,7 @@ static int lbs_get_freq(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_get_wap(struct net_device *dev, struct iw_request_info *info,
+ 			struct sockaddr *awrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_channel *channel;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	efx_for_each_channel_with_interrupt(channel, efx)
-@@ -1321,7 +1321,7 @@ static void efx_netpoll(struct net_device *net_dev)
- /* Context: process, rtnl_lock() held. */
- static int efx_net_open(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -227,7 +227,7 @@ static int lbs_get_wap(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_set_nick(struct net_device *dev, struct iw_request_info *info,
+ 			 struct iw_point *dwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	EFX_ASSERT_RESET_SERIALISED(efx);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	EFX_LOG(efx, "opening device %s on CPU %d\n", net_dev->name,
-@@ -1337,7 +1337,7 @@ static int efx_net_open(struct net_device *net_dev)
-  */
- static int efx_net_stop(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -251,7 +251,7 @@ static int lbs_set_nick(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_get_nick(struct net_device *dev, struct iw_request_info *info,
+ 			 struct iw_point *dwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	EFX_LOG(efx, "closing %s on CPU %d\n", net_dev->name,
-@@ -1356,7 +1356,7 @@ static int efx_net_stop(struct net_device *net_dev)
- /* Context: process, dev_base_lock or RTNL held, non-blocking. */
- static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -268,7 +268,7 @@ static int lbs_get_nick(struct net_device *dev, struct iw_request_info *info,
+ static int mesh_get_nick(struct net_device *dev, struct iw_request_info *info,
+ 			 struct iw_point *dwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
- 	struct net_device_stats *stats = &net_dev->stats;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
-@@ -1403,7 +1403,7 @@ static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
- /* Context: netif_tx_lock held, BHs disabled. */
- static void efx_watchdog(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -293,7 +293,7 @@ static int lbs_set_rts(struct net_device *dev, struct iw_request_info *info,
+ 			struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	u32 rthr = vwrq->value;
  
- 	EFX_ERR(efx, "TX stuck with stop_count=%d port_enabled=%d: %s\n",
- 		atomic_read(&efx->netif_stop_count), efx->port_enabled,
-@@ -1417,7 +1417,7 @@ static void efx_watchdog(struct net_device *net_dev)
- /* Context: process, rtnl_lock() held. */
- static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -318,7 +318,7 @@ static int lbs_get_rts(struct net_device *dev, struct iw_request_info *info,
+ 			struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc = 0;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	EFX_ASSERT_RESET_SERIALISED(efx);
-@@ -1445,7 +1445,7 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
  
- static int efx_set_mac_address(struct net_device *net_dev, void *data)
+@@ -344,7 +344,7 @@ static int lbs_set_frag(struct net_device *dev, struct iw_request_info *info,
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct sockaddr *addr = data;
- 	char *new_addr = addr->sa_data;
+ 	int ret = 0;
+ 	u32 fthr = vwrq->value;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
-@@ -1469,7 +1469,7 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
- /* Context: netif_tx_lock held, BHs disabled. */
- static void efx_set_multicast_list(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -369,7 +369,7 @@ static int lbs_get_frag(struct net_device *dev, struct iw_request_info *info,
+ 			 struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct dev_mc_list *mc_list = net_dev->mc_list;
- 	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
- 	int promiscuous;
-@@ -1510,7 +1510,7 @@ static int efx_netdev_event(struct notifier_block *this,
- 	struct net_device *net_dev = ptr;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	if (net_dev->open == efx_net_open && event == NETDEV_CHANGENAME) {
--		struct efx_nic *efx = net_dev->priv;
-+		struct efx_nic *efx = netdev_priv(net_dev);
+ 	lbs_deb_enter(LBS_DEB_WEXT);
  
- 		strcpy(efx->name, net_dev->name);
- 	}
-@@ -1568,7 +1568,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
- 	if (!efx->net_dev)
- 		return;
- 
--	BUG_ON(efx->net_dev->priv != efx);
-+	BUG_ON(netdev_priv(efx->net_dev) != efx);
- 
- 	/* Free up any skbs still remaining. This has to happen before
- 	 * we try to unregister the netdev as running their destructors
-@@ -2105,7 +2105,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 			      NETIF_F_HIGHDMA | NETIF_F_TSO);
- 	if (lro)
- 		net_dev->features |= NETIF_F_LRO;
--	efx = net_dev->priv;
-+	efx = netdev_priv(net_dev);
- 	pci_set_drvdata(pci_dev, efx);
- 	rc = efx_init_struct(efx, type, pci_dev, net_dev);
- 	if (rc)
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index e2c75d1..8a15be6 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -183,7 +183,7 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
- /* Identify device by flashing LEDs */
- static int efx_ethtool_phys_id(struct net_device *net_dev, u32 seconds)
+@@ -394,7 +394,7 @@ out:
+ static int lbs_get_mode(struct net_device *dev,
+ 			 struct iw_request_info *info, u32 * uwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	efx->board_info.blink(efx, 1);
- 	schedule_timeout_interruptible(seconds * HZ);
-@@ -195,7 +195,7 @@ static int efx_ethtool_phys_id(struct net_device *net_dev, u32 seconds)
- int efx_ethtool_get_settings(struct net_device *net_dev,
- 			     struct ethtool_cmd *ecmd)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -421,7 +421,7 @@ static int lbs_get_txpow(struct net_device *dev,
+ 			  struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	mutex_lock(&efx->mac_lock);
-@@ -209,7 +209,7 @@ int efx_ethtool_get_settings(struct net_device *net_dev,
- int efx_ethtool_set_settings(struct net_device *net_dev,
- 			     struct ethtool_cmd *ecmd)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -452,7 +452,7 @@ static int lbs_set_retry(struct net_device *dev, struct iw_request_info *info,
+ 			  struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	mutex_lock(&efx->mac_lock);
-@@ -224,7 +224,7 @@ int efx_ethtool_set_settings(struct net_device *net_dev,
- static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
- 				    struct ethtool_drvinfo *info)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -486,7 +486,7 @@ out:
+ static int lbs_get_retry(struct net_device *dev, struct iw_request_info *info,
+ 			  struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	int ret = 0;
  
- 	strlcpy(info->driver, EFX_DRIVER_NAME, sizeof(info->driver));
- 	strlcpy(info->version, EFX_DRIVER_VERSION, sizeof(info->version));
-@@ -376,7 +376,7 @@ static int efx_ethtool_get_stats_count(struct net_device *net_dev)
- 
- static int efx_ethtool_self_test_count(struct net_device *net_dev)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -554,7 +554,7 @@ static int lbs_get_range(struct net_device *dev, struct iw_request_info *info,
+ 			  struct iw_point *dwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 
- 	return efx_ethtool_fill_self_tests(efx, NULL, NULL, NULL);
- }
-@@ -384,7 +384,7 @@ static int efx_ethtool_self_test_count(struct net_device *net_dev)
- static void efx_ethtool_get_strings(struct net_device *net_dev,
- 				    u32 string_set, u8 *strings)
+ 	int i, j;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct iw_range *range = (struct iw_range *)extra;
+ 	struct chan_freq_power *cfp;
+ 	u8 rates[MAX_RATES + 1];
+@@ -730,7 +730,7 @@ out:
+ static int lbs_set_power(struct net_device *dev, struct iw_request_info *info,
+ 			  struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct ethtool_string *ethtool_strings =
- 		(struct ethtool_string *)strings;
- 	int i;
-@@ -410,7 +410,7 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
- 				  struct ethtool_stats *stats,
- 				  u64 *data)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
- 	struct efx_ethtool_stat *stat;
- 	struct efx_channel *channel;
-@@ -460,7 +460,7 @@ static int efx_ethtool_set_tso(struct net_device *net_dev, u32 enable)
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc;
+ 	lbs_deb_enter(LBS_DEB_WEXT);
  
- 	rc = ethtool_op_set_tx_csum(net_dev, enable);
-@@ -483,7 +483,7 @@ static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
- 
- static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+@@ -780,7 +780,7 @@ static int lbs_set_power(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_get_power(struct net_device *dev, struct iw_request_info *info,
+ 			  struct iw_param *vwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- 	/* No way to stop the hardware doing the checks; we just
- 	 * ignore the result.
-@@ -495,7 +495,7 @@ static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
  
- static u32 efx_ethtool_get_rx_csum(struct net_device *net_dev)
+@@ -803,7 +803,7 @@ static struct iw_statistics *lbs_get_wireless_stats(struct net_device *dev)
+ 		EXCELLENT = 95,
+ 		PERFECT = 100
+ 	};
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	u32 rssi_qual;
+ 	u32 tx_qual;
+ 	u32 quality = 0;
+@@ -908,7 +908,7 @@ static int lbs_set_freq(struct net_device *dev, struct iw_request_info *info,
+ 		  struct iw_freq *fwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+ 	int ret = -EINVAL;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct chan_freq_power *cfp;
+ 	struct assoc_request * assoc_req;
  
- 	return efx->rx_checksum_enabled;
- }
-@@ -503,7 +503,7 @@ static u32 efx_ethtool_get_rx_csum(struct net_device *net_dev)
- static void efx_ethtool_self_test(struct net_device *net_dev,
- 				  struct ethtool_test *test, u64 *data)
+@@ -965,7 +965,7 @@ static int lbs_mesh_set_freq(struct net_device *dev,
+ 			     struct iw_request_info *info,
+ 			     struct iw_freq *fwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_self_tests efx_tests;
- 	int offline, already_up;
- 	int rc;
-@@ -561,14 +561,14 @@ static void efx_ethtool_self_test(struct net_device *net_dev,
- /* Restart autonegotiation */
- static int efx_ethtool_nway_reset(struct net_device *net_dev)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct chan_freq_power *cfp;
+ 	int ret = -EINVAL;
  
- 	return mii_nway_restart(&efx->mii);
- }
+@@ -1014,7 +1014,7 @@ out:
+ static int lbs_set_rate(struct net_device *dev, struct iw_request_info *info,
+ 		  struct iw_param *vwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	u8 new_rate = 0;
+ 	int ret = -EINVAL;
+ 	u8 rates[MAX_RATES + 1];
+@@ -1062,7 +1062,7 @@ out:
+ static int lbs_get_rate(struct net_device *dev, struct iw_request_info *info,
+ 		  struct iw_param *vwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
  
- static u32 efx_ethtool_get_link(struct net_device *net_dev)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+ 	lbs_deb_enter(LBS_DEB_WEXT);
  
- 	return efx->link_up;
- }
-@@ -576,7 +576,7 @@ static u32 efx_ethtool_get_link(struct net_device *net_dev)
- static int efx_ethtool_get_coalesce(struct net_device *net_dev,
- 				    struct ethtool_coalesce *coalesce)
+@@ -1087,7 +1087,7 @@ static int lbs_set_mode(struct net_device *dev,
+ 		  struct iw_request_info *info, u32 * uwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_tx_queue *tx_queue;
- 	struct efx_rx_queue *rx_queue;
- 	struct efx_channel *channel;
-@@ -614,7 +614,7 @@ static int efx_ethtool_get_coalesce(struct net_device *net_dev,
- static int efx_ethtool_set_coalesce(struct net_device *net_dev,
- 				    struct ethtool_coalesce *coalesce)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	unsigned tx_usecs, rx_usecs;
-@@ -657,7 +657,7 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
- static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
- 				      struct ethtool_pauseparam *pause)
- {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	enum efx_fc_type flow_control = efx->flow_control;
- 	int rc;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct assoc_request * assoc_req;
  
-@@ -680,7 +680,7 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
- static void efx_ethtool_get_pauseparam(struct net_device *net_dev,
- 				       struct ethtool_pauseparam *pause)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -1132,7 +1132,7 @@ static int lbs_get_encode(struct net_device *dev,
+ 			   struct iw_request_info *info,
+ 			   struct iw_point *dwrq, u8 * extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	int index = (dwrq->flags & IW_ENCODE_INDEX) - 1;
  
- 	pause->rx_pause = (efx->flow_control & EFX_FC_RX) ? 1 : 0;
- 	pause->tx_pause = (efx->flow_control & EFX_FC_TX) ? 1 : 0;
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 9138ee5..c7aa2f6 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1951,7 +1951,7 @@ static int falcon_gmii_wait(struct efx_nic *efx)
- static void falcon_mdio_write(struct net_device *net_dev, int phy_id,
- 			      int addr, int value)
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -1327,7 +1327,7 @@ static int lbs_set_encode(struct net_device *dev,
+ 		    struct iw_point *dwrq, char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	unsigned int phy_id2 = phy_id & FALCON_PHY_ID_ID_MASK;
- 	efx_oword_t reg;
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct assoc_request * assoc_req;
+ 	u16 is_default = 0, index = 0, set_tx_key = 0;
  
-@@ -2019,7 +2019,7 @@ static void falcon_mdio_write(struct net_device *net_dev, int phy_id,
-  * could be read, -1 will be returned. */
- static int falcon_mdio_read(struct net_device *net_dev, int phy_id, int addr)
+@@ -1403,7 +1403,7 @@ static int lbs_get_encodeext(struct net_device *dev,
+ 			      char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	unsigned int phy_addr = phy_id & FALCON_PHY_ID_ID_MASK;
- 	efx_oword_t reg;
- 	int value = -1;
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index 5e8374a..2a09101 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -367,7 +367,7 @@ inline int efx_xmit(struct efx_nic *efx,
-  */
- int efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev)
+ 	int ret = -EINVAL;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
+ 	int index, max_key_len;
+ 
+@@ -1509,7 +1509,7 @@ static int lbs_set_encodeext(struct net_device *dev,
+ 			      char *extra)
  {
--	struct efx_nic *efx = net_dev->priv;
-+	struct efx_nic *efx = netdev_priv(net_dev);
- 	return efx_xmit(efx, &efx->tx_queue[0], skb);
- }
- 
-diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-index 6261201..cc6317a 100644
---- a/drivers/net/sgiseeq.c
-+++ b/drivers/net/sgiseeq.c
-@@ -657,7 +657,7 @@ static void timeout(struct net_device *dev)
- 
- static void sgiseeq_set_multicast(struct net_device *dev)
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
+ 	int alg = ext->alg;
+ 	struct assoc_request * assoc_req;
+@@ -1633,7 +1633,7 @@ static int lbs_set_genie(struct net_device *dev,
+ 			  struct iw_point *dwrq,
+ 			  char *extra)
  {
--	struct sgiseeq_private *sp = (struct sgiseeq_private *) dev->priv;
-+	struct sgiseeq_private *sp = netdev_priv(dev);
- 	unsigned char oldmode = sp->mode;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	int ret = 0;
+ 	struct assoc_request * assoc_req;
  
- 	if(dev->flags & IFF_PROMISC)
+@@ -1679,7 +1679,7 @@ static int lbs_get_genie(struct net_device *dev,
+ 			  char *extra)
+ {
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -1707,7 +1707,7 @@ static int lbs_set_auth(struct net_device *dev,
+ 			 struct iw_param *dwrq,
+ 			 char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct assoc_request * assoc_req;
+ 	int ret = 0;
+ 	int updated = 0;
+@@ -1806,7 +1806,7 @@ static int lbs_get_auth(struct net_device *dev,
+ 			 char *extra)
+ {
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -1843,7 +1843,7 @@ static int lbs_set_txpow(struct net_device *dev, struct iw_request_info *info,
+ 		   struct iw_param *vwrq, char *extra)
+ {
+ 	int ret = 0;
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 
+ 	u16 dbm;
+ 
+@@ -1884,7 +1884,7 @@ static int lbs_set_txpow(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_get_essid(struct net_device *dev, struct iw_request_info *info,
+ 		   struct iw_point *dwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -1919,7 +1919,7 @@ static int lbs_get_essid(struct net_device *dev, struct iw_request_info *info,
+ static int lbs_set_essid(struct net_device *dev, struct iw_request_info *info,
+ 		   struct iw_point *dwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	int ret = 0;
+ 	u8 ssid[IW_ESSID_MAX_SIZE];
+ 	u8 ssid_len = 0;
+@@ -1982,7 +1982,7 @@ static int lbs_mesh_get_essid(struct net_device *dev,
+ 			      struct iw_request_info *info,
+ 			      struct iw_point *dwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+ 
+@@ -2000,7 +2000,7 @@ static int lbs_mesh_set_essid(struct net_device *dev,
+ 			      struct iw_request_info *info,
+ 			      struct iw_point *dwrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	int ret = 0;
+ 
+ 	lbs_deb_enter(LBS_DEB_WEXT);
+@@ -2039,7 +2039,7 @@ static int lbs_mesh_set_essid(struct net_device *dev,
+ static int lbs_set_wap(struct net_device *dev, struct iw_request_info *info,
+ 		 struct sockaddr *awrq, char *extra)
+ {
+-	struct lbs_private *priv = dev->priv;
++	struct lbs_private *priv = netdev_priv(dev);
+ 	struct assoc_request * assoc_req;
+ 	int ret = 0;
+ 	DECLARE_MAC_BUF(mac);
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index 00e965b..9d7630c 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -1104,7 +1104,7 @@ static int rndis_iw_get_range(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+ 	struct iw_range *range = (struct iw_range *)extra;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	int len, ret, i, j, num, has_80211g_rates;
+ 	u8 rates[8];
+@@ -1210,7 +1210,7 @@ static int rndis_iw_get_range(struct net_device *dev,
+ static int rndis_iw_get_name(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	strcpy(wrqu->name, priv->name);
+@@ -1223,7 +1223,7 @@ static int rndis_iw_set_essid(struct net_device *dev,
+ {
+ 	struct ndis_80211_ssid ssid;
+ 	int length = wrqu->essid.length;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 
+ 	devdbg(usbdev, "SIOCSIWESSID: [flags:%d,len:%d] '%.32s'",
+ 		wrqu->essid.flags, wrqu->essid.length, essid);
+@@ -1250,7 +1250,7 @@ static int rndis_iw_get_essid(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *essid)
+ {
+ 	struct ndis_80211_ssid ssid;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	int ret;
+ 
+ 	ret = get_essid(usbdev, &ssid);
+@@ -1273,7 +1273,7 @@ static int rndis_iw_get_essid(struct net_device *dev,
+ static int rndis_iw_get_bssid(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	unsigned char bssid[ETH_ALEN];
+ 	int ret;
+ 	DECLARE_MAC_BUF(mac);
+@@ -1295,7 +1295,7 @@ static int rndis_iw_get_bssid(struct net_device *dev,
+ static int rndis_iw_set_bssid(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	u8 *bssid = (u8 *)wrqu->ap_addr.sa_data;
+ 	DECLARE_MAC_BUF(mac);
+ 	int ret;
+@@ -1318,7 +1318,7 @@ static int rndis_iw_set_auth(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+ 	struct iw_param *p = &wrqu->param;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	int ret = -ENOTSUPP;
+ 
+@@ -1399,7 +1399,7 @@ static int rndis_iw_get_auth(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+ 	struct iw_param *p = &wrqu->param;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	switch (p->flags & IW_AUTH_INDEX) {
+@@ -1431,7 +1431,7 @@ static int rndis_iw_get_mode(struct net_device *dev,
+ 				struct iw_request_info *info,
+ 				union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	switch (priv->infra_mode) {
+@@ -1454,7 +1454,7 @@ static int rndis_iw_get_mode(struct net_device *dev,
+ static int rndis_iw_set_mode(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	int mode;
+ 
+ 	devdbg(usbdev, "SIOCSIWMODE: %08x", wrqu->mode);
+@@ -1479,7 +1479,7 @@ static int rndis_iw_set_mode(struct net_device *dev,
+ static int rndis_iw_set_encode(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	int ret, index, key_len;
+ 	u8 *key;
+@@ -1542,7 +1542,7 @@ static int rndis_iw_set_encode_ext(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+ 	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	struct ndis_80211_key ndis_key;
+ 	int keyidx, ret;
+@@ -1628,7 +1628,7 @@ static int rndis_iw_set_scan(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+ 	struct iw_param *param = &wrqu->param;
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	union iwreq_data evt;
+ 	int ret = -EINVAL;
+ 	__le32 tmp;
+@@ -1653,7 +1653,7 @@ static char *rndis_translate_scan(struct net_device *dev,
+ 				  struct ndis_80211_bssid_ex *bssid)
+ {
+ #ifdef DEBUG
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ #endif
+ 	struct ieee80211_info_element *ie;
+ 	char *current_val;
+@@ -1777,7 +1777,7 @@ static char *rndis_translate_scan(struct net_device *dev,
+ static int rndis_iw_get_scan(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	void *buf = NULL;
+ 	char *cev = extra;
+ 	struct ndis_80211_bssid_list_ex *bssid_list;
+@@ -1823,7 +1823,7 @@ out:
+ static int rndis_iw_set_genie(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	int ret = 0;
+ 
+@@ -1857,7 +1857,7 @@ static int rndis_iw_set_genie(struct net_device *dev,
+ static int rndis_iw_get_genie(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	devdbg(usbdev, "SIOCGIWGENIE");
+@@ -1880,7 +1880,7 @@ static int rndis_iw_get_genie(struct net_device *dev,
+ static int rndis_iw_set_rts(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	__le32 tmp;
+ 	devdbg(usbdev, "SIOCSIWRTS");
+ 
+@@ -1893,7 +1893,7 @@ static int rndis_iw_set_rts(struct net_device *dev,
+ static int rndis_iw_get_rts(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	__le32 tmp;
+ 	int len, ret;
+ 
+@@ -1914,7 +1914,7 @@ static int rndis_iw_get_rts(struct net_device *dev,
+ static int rndis_iw_set_frag(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	__le32 tmp;
+ 
+ 	devdbg(usbdev, "SIOCSIWFRAG");
+@@ -1928,7 +1928,7 @@ static int rndis_iw_set_frag(struct net_device *dev,
+ static int rndis_iw_get_frag(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	__le32 tmp;
+ 	int len, ret;
+ 
+@@ -1948,7 +1948,7 @@ static int rndis_iw_get_frag(struct net_device *dev,
+ static int rndis_iw_set_nick(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	devdbg(usbdev, "SIOCSIWNICK");
+@@ -1965,7 +1965,7 @@ static int rndis_iw_set_nick(struct net_device *dev,
+ static int rndis_iw_get_nick(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	wrqu->data.flags = 1;
+@@ -1981,7 +1981,7 @@ static int rndis_iw_get_nick(struct net_device *dev,
+ static int rndis_iw_set_freq(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct ndis_80211_conf config;
+ 	unsigned int dsconfig;
+ 	int len, ret;
+@@ -2012,7 +2012,7 @@ static int rndis_iw_set_freq(struct net_device *dev,
+ static int rndis_iw_get_freq(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct ndis_80211_conf config;
+ 	int len, ret;
+ 
+@@ -2029,7 +2029,7 @@ static int rndis_iw_get_freq(struct net_device *dev,
+ static int rndis_iw_get_txpower(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	__le32 tx_power;
+ 	int ret = 0, len;
+@@ -2063,7 +2063,7 @@ static int rndis_iw_get_txpower(struct net_device *dev,
+ static int rndis_iw_set_txpower(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	__le32 tx_power = 0;
+ 	int ret = 0;
+@@ -2115,7 +2115,7 @@ static int rndis_iw_set_txpower(struct net_device *dev,
+ static int rndis_iw_get_rate(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	__le32 tmp;
+ 	int ret, len;
+ 
+@@ -2133,7 +2133,7 @@ static int rndis_iw_get_rate(struct net_device *dev,
+ static int rndis_iw_set_mlme(struct net_device *dev,
+     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	struct iw_mlme *mlme = (struct iw_mlme *)extra;
+ 	unsigned char bssid[ETH_ALEN];
+@@ -2158,7 +2158,7 @@ static int rndis_iw_set_mlme(struct net_device *dev,
+ 
+ static struct iw_statistics *rndis_get_wireless_stats(struct net_device *dev)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 	unsigned long flags;
+ 
+@@ -2288,7 +2288,7 @@ get_bssid:
+ 
+ static void rndis_wext_set_multicast_list(struct net_device *dev)
+ {
+-	struct usbnet *usbdev = dev->priv;
++	struct usbnet *usbdev = netdev_priv(dev);
+ 	struct rndis_wext_private *priv = get_rndis_wext_priv(usbdev);
+ 
+ 	if (test_bit(WORK_SET_MULTICAST_LIST, &priv->work_pending))
 
 
