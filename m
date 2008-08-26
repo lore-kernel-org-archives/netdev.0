@@ -1,195 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/6] [RFC] qlge: New Driver: Adding main driver file qlge_main.c.
-Date: Tue, 26 Aug 2008 12:24:21 +0100
-Message-ID: <20080826112420.GY7908@solarflare.com>
-References: <20080822200906.GD2551@susedev.qlogic.org> <12194364662050-git-send-email-ron.mercer@qlogic.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 1/5] igb: force all queues to interrupt once every 2 seconds
+Date: Tue, 26 Aug 2008 04:25:03 -0700
+Message-ID: <20080826112503.15627.3855.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Ron Mercer <ron.mercer@qlogic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40589 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752641AbYHZLYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 07:24:25 -0400
-Content-Disposition: inline
-In-Reply-To: <12194364662050-git-send-email-ron.mercer@qlogic.com>
+Received: from rv-out-0506.google.com ([209.85.198.232]:37230 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642AbYHZLZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 07:25:03 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so2099147rvb.1
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 04:25:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ron Mercer wrote:
-> 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-> ---
->  drivers/net/qlge/qlge_main.c | 4350 ++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 4350 insertions(+), 0 deletions(-)
->  create mode 100755 drivers/net/qlge/qlge_main.c
-> 
-> diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-> new file mode 100755
-> index 0000000..0aa472f
-> --- /dev/null
-> +++ b/drivers/net/qlge/qlge_main.c
-[...]
-> +#include <linux/version.h>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Should never be used in an in-tree driver.  (Doesn't checkpatch.pl warn
-about this?)
+Set the EICS bit for each of the RX queues at least once every 2 seconds to
+prevent the rx queues from stalling.
 
-[...]
-> +#if 0
-> +static int ql_update_ring_coalescing(struct ql_adapter *qdev)
-> +{
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
-Why are all the ethtool operation implementations disabled?  If they are
-broken in some way, I think they should be left out now and added later.
+ drivers/net/igb/igb_main.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-[...]
-> +static void ql_update_buffer_queues(struct ql_adapter *qdev,
-> +				    struct rx_ring *rx_ring)
-> +{
-> +	if (rx_ring->sbq_len) ql_update_sbq(qdev, rx_ring);
-> +	if (rx_ring->lbq_len) ql_update_lbq(qdev, rx_ring);
-> +}
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 4b19abb..40a205e 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2279,7 +2279,9 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	struct igb_ring *tx_ring = adapter->tx_ring;
+ 	struct e1000_mac_info *mac = &adapter->hw.mac;
+ 	u32 link;
++	u32 eics = 0;
+ 	s32 ret_val;
++	int i;
+ 
+ 	if ((netif_carrier_ok(netdev)) &&
+ 	    (rd32(E1000_STATUS) & E1000_STATUS_LU))
+@@ -2381,7 +2383,13 @@ link_up:
+ 	}
+ 
+ 	/* Cause software interrupt to ensure rx ring is cleaned */
+-	wr32(E1000_ICS, E1000_ICS_RXDMT0);
++	if (adapter->msix_entries) {
++		for (i = 0; i < adapter->num_rx_queues; i++)
++			eics |= adapter->rx_ring[i].eims_value;
++		wr32(E1000_EICS, eics);
++	} else {
++		wr32(E1000_ICS, E1000_ICS_RXDMT0);
++	}
+ 
+ 	/* Force detection of hung controller every watchdog period */
+ 	tx_ring->detect_tx_hung = true;
 
-The body of an if-statement always starts on the next line, as checkpatch.pl
-will tell you.
-
-[...]
-> +static void ql_enable_msix(struct ql_adapter *qdev)
-> +{
-> +	int i;
-> +
-> +	qdev->intr_count = 1;
-> +	/* Get the MSIX vectors. */
-> +	if (irq_type == MSIX_IRQ) {
-> +		/* Try to alloc space for the msix struct,
-> +		 * if it fails then go to MSI/legacy.
-> +		 */
-> +		qdev->msi_x_entry = kcalloc(qdev->rx_ring_count,
-> +					    sizeof(struct msix_entry),
-> +					    GFP_KERNEL);
-> +		if (!qdev->msi_x_entry) {
-> +			irq_type = MSI_IRQ;
-> +			goto msi;
-> +		}
-> +
-> +		for (i = 0; i < qdev->rx_ring_count; i++)
-> +			qdev->msi_x_entry[i].entry = i;
-> +
-> +		if (!pci_enable_msix
-> +		    (qdev->pdev, qdev->msi_x_entry, qdev->rx_ring_count)) {
-> +			set_bit(QL_MSIX_ENABLED, &qdev->flags);
-> +			qdev->intr_count = qdev->rx_ring_count;
-> +			QPRINTK(IFUP, INFO,
-> +				"MSI-X Enabled, got %d vectors.\n",
-> +				qdev->intr_count);
-> +			return;
-> +		} else {
-> +			kfree(qdev->msi_x_entry);
-> +			qdev->msi_x_entry = NULL;
-> +			QPRINTK(IFUP, WARNING,
-> +				"MSI-X Enable failed, trying MSI.\n");
-> +			irq_type = MSI_IRQ;
-
-If pci_enable_msix() returns a positive number, that's a hint as to how
-many IRQs you should be able to allocate.  It may be worth retrying with
-that number.
-
-[...]
-> +static int ql_adapter_initialize(struct ql_adapter *qdev)
-> +{
-> +	u32 value, mask;
-> +	int i;
-> +	int status = 0;
-> +
-> +	/*
-> +	 * Set up the System register to halt on errors.
-> +	 */
-> +	value = SYS_EFE | SYS_FAE;
-> +	mask = value << 16;
-> +	ql_write32(qdev, SYS, mask | value);
-> +
-> +	/* Set the default queue. */
-> +	value = NIC_RCV_CFG_DFQ;
-> +	mask = NIC_RCV_CFG_DFQ_MASK;
-> +	ql_write32(qdev, NIC_RCV_CFG, (mask | value));
-> +
-> +	/* Set the MPI interrupt to enabled. */
-> +	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16) | INTR_MASK_PI);
-> +
-> +	/* Enable the function, set pagesize, enable error checking. */
-> +	value = FSC_FE | FSC_EPC_INBOUND | FSC_EPC_OUTBOUND | FSC_EC;
-> +
-> +	if (PAGE_SHIFT == 12)	/* 4k pages */
-> +		value |= FSC_VM_PAGE_4K;
-> +	else if (PAGE_SHIFT == 13)	/* 8k pages */
-> +		value |= FSC_VM_PAGE_8K;
-> +	else if (PAGE_SHIFT == 16)	/* 64k pages */
-> +		value |= FSC_VM_PAGE_64K;
-> +	else {
-> +		QPRINTK(IFUP, ERR, "Invalid page size of %d.\n",
-> +			1 << PAGE_SHIFT);
-
-You can use
-	BUILD_BUG_ON(PAGE_SHIFT != 12 && PAGE_SHIFT != 13 && PAGE_SHIFT != 16);
-to detect this problem at compile time.
-
-Why doesn't this function do any cleanup in case of failure part way
-through?
-
-[...]
-> +static int ql_configure_rings(struct ql_adapter *qdev)
-> +{
-> +	int i;
-> +	struct rx_ring *rx_ring;
-> +	struct tx_ring *tx_ring;
-> +	int cpu_cnt = num_online_cpus();
-> +
-> +	/*
-> +	 * For each processor present we allocate one
-> +	 * rx_ring for outbound completions, and one
-
-Typo: should be "tx_ring".
-
-[...]
-> +static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
-> +{
-> +	struct ql_adapter *qdev = netdev_priv(ndev);
-> +
-> +	if (ndev->mtu == 1500 && new_mtu == 9000) {
-> +		QPRINTK(IFUP, ERR, "Turning on split headers.\n");
-> +		ql_write32(qdev, FSC, (FSC_SH << 16) | FSC_SH);
-> +		if (ql_set_framesize(qdev, JUMBO_FRAME_SIZE))
-> +			return -EIO;
-> +	} else if (ndev->mtu == 9000 && new_mtu == 1500) {
-> +		QPRINTK(IFUP, ERR, "Turning off split headers.\n");
-> +		ql_write32(qdev, FSC, (FSC_SH << 16));
-> +		if (ql_set_framesize(qdev, NORMAL_FRAME_SIZE))
-> +			return -EIO;
-> +	} else if ((ndev->mtu == 1500 && new_mtu == 1500) ||
-> +		   (ndev->mtu == 9000 && new_mtu == 9000)) {
-> +		return 0;
-> +	} else
-> +		return -EINVAL;
-[...]
-
-This would be a whole lot easier to follow if written as:
-
-	if (ndev->mtu == new_mtu)
-		return 0;
-	else if (new_mtu == 1500)
-		...
-	else if (new_mtu == 9000)
-		...
-	else
-		return -EINVAL;
-
-But why don't you support MTUs other than 1500 and 9000?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
