@@ -1,51 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] pkt_sched: Fix gen_estimator locks
-Date: Tue, 26 Aug 2008 22:57:38 +1000
-Message-ID: <E1KXy78-0000mY-00@gondolin.me.apana.org.au>
-References: <20080825230848.GB12082@ami.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: Fix dev_graft_qdisc() locking
+Date: Tue, 26 Aug 2008 13:05:36 +0000
+Message-ID: <20080826130536.GC5991@ff.dom.local>
+References: <20080825224854.GA12082@ami.dom.local> <E1KXxy1-0000kI-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com (Jarek Poplawski)
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58232 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755325AbYHZM5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 08:57:43 -0400
-In-Reply-To: <20080825230848.GB12082@ami.dom.local>
+Received: from ug-out-1314.google.com ([66.249.92.168]:37698 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754219AbYHZNFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 09:05:42 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so734251ugf.37
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 06:05:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <E1KXxy1-0000kI-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski <jarkao2@gmail.com> wrote:
-> pkt_sched: Fix gen_estimator locks
+On Tue, Aug 26, 2008 at 10:48:13PM +1000, Herbert Xu wrote:
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > pkt_sched: Fix dev_graft_qdisc() locking
+> > 
+> > During dev_graft_qdisc() dev is deactivated, so qdisc_root_lock()
+> > returns wrong lock of noop_qdisc instead of qdisc_sleeping.
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > 
-> While passing a qdisc root lock to gen_new_estimator() and
-> gen_replace_estimator() dev could be deactivated or even before
-> grafting proper root qdisc as qdisc_sleeping (e.g. qdisc_create),
-> so using qdisc_root_lock() is not enough. This patch adds
-> qdisc_root_sleeping_lock() for this, plus additional checks, where
-> necessary.
+> Looks good to me!
 > 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Looks good.
+BTW, I should've probably mention this lock doesn't probably
+matter here much, after current precise deactivation.
 
-> @@ -830,9 +830,16 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
->                        sch->stab = stab;
->                }
->                if (tca[TCA_RATE]) {
-> +                       spinlock_t *root_lock;
-> +
-> +                       if ((sch->parent != TC_H_ROOT) &&
-> +                           !(sch->flags & TCQ_F_INGRESS))
-> +                               root_lock = qdisc_root_sleeping_lock(sch);
-> +                       else
-> +                               root_lock = qdisc_lock(sch);
-
-Another reason why we should just have pointers to the root.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Jarek P.
