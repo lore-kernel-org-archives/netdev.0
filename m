@@ -1,62 +1,62 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: skbuff bug?
-Date: Tue, 26 Aug 2008 09:37:59 -0700
-Message-ID: <86802c440808260937y4a3e87dt4a897a05dc7fa7b@mail.gmail.com>
-References: <86802c440808202056j6cfe5ca0v6284140ae4b9b8cd@mail.gmail.com>
-	 <86802c440808211646y758cfdd7n505777b2b8b58c9a@mail.gmail.com>
-	 <20080826091752.GB5822@2ka.mipt.ru>
-	 <9929d2390808260317l2fb17bcxe099e85fcf5bb939@mail.gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Tue, 26 Aug 2008 12:37:19 -0400
+Message-ID: <20080826163719.GA25066@redhat.com>
+References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"David Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jeff@garzik.org>, "Ingo Molnar" <mingo@elte.hu>,
-	"Bruce Allan" <bruce.w.allan@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: j.w.r.degoede@hhs.nl
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:62340 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756812AbYHZQh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 12:37:59 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so2211836rvb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 09:37:59 -0700 (PDT)
-In-Reply-To: <9929d2390808260317l2fb17bcxe099e85fcf5bb939@mail.gmail.com>
+Received: from mx2.redhat.com ([66.187.237.31]:54273 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755300AbYHZQir (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2008 12:38:47 -0400
 Content-Disposition: inline
+In-Reply-To: <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 26, 2008 at 3:17 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> On Tue, Aug 26, 2008 at 2:17 AM, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
->> Hi.
->>
->> On Thu, Aug 21, 2008 at 04:46:49PM -0700, Yinghai Lu (yhlu.kernel@gmail.com) wrote:
->>> it seems caused by
->>>
->>> commit f8d59f7826aa73c5e7682fbed6db38020635d466
->>> Author: Bruce Allan <bruce.w.allan@intel.com>
->>> Date:   Fri Aug 8 18:36:11 2008 -0700
->>>
->>>     e1000e: test for unusable MSI support
->>
->> Intel folks seems to be on vacations or whatever else without access to
->> the mail. Can you confirm that bug still exists in the latest tree and
->> reverting this commit fixes the problem?
->>
->> --
->>        Evgeniy Polyakov
->> --
->
-> We are looking into the issue, I am sorry there has been no response until now.
->
-> I am still curious if you still see the issue with all the recent
-> changes.  Please provide the device id you are using and system info
-> so that we can try and reproduce the issue, if the issue persists with
-> the latest git tree.
+Just had this bug reported against our development tree..
 
-can not duplicate any more...
+	Dave
 
-YH
+On Tue, Aug 26, 2008 at 11:49:31AM -0400, bugzilla@redhat.com wrote:
+ > Please do not reply directly to this email. All additional
+ > comments should be made in the comments box of this bug.
+ > 
+ > https://bugzilla.redhat.com/show_bug.cgi?id=459782
+ > 
+ > Hans de Goede <j.w.r.degoede@hhs.nl> changed:
+ > 
+ >            What    |Removed                     |Added
+ > ----------------------------------------------------------------------------
+ >                  CC|                            |j.w.r.degoede@hhs.nl
+ >           Component|gkrellm                     |kernel
+ >          AssignedTo|j.w.r.degoede@hhs.nl        |kernel-maint@redhat.com
+ >             Summary|gkrellmd consumes about 75% |cat /proc/net/tcp takes 0.5
+ >                    |cpu time                    |seconds on x86_64, 0.5
+ >                    |                            |seconds !!
+ > 
+ > --- Comment #2 from Hans de Goede <j.w.r.degoede@hhs.nl>  2008-08-26 11:49:30 EDT ---
+ > Thanks for reporting this some stracing of gkrellmd has found that reading from
+ > /proc/net/tcp and reading from /proc/net/tcp6 is the culprit, try this on your
+ > x86_64 machine to confirm:
+ > 
+ > "time cat /proc/net/tcp"
+ > 
+ > To give you an idea on my rawhide x86_64 machine:
+ > [hans@localhost devel]$ time cat /proc/net/tcp
+ > <snip>
+ > real    0m0.520s
+ > user    0m0.000s
+ > sys     0m0.446s
+ > 
+ > Thats amazingly slow, esp as I only have 8 tcp connections open.
+ > 
+ > Some maybe usefull info: top reports a very high load (50%) from soft IRQ's.
+ > 
+ > Anyways changing this to a kernel bug.
+
+-- 
+http://www.codemonkey.org.uk
