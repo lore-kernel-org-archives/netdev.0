@@ -1,114 +1,89 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH][for 2.6.27] fs_enet: Fix SCC Ethernet on CPM2, and crash in
- fs_enet_rx_napi()
-Date: Mon, 25 Aug 2008 20:20:53 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0808252019030.20949@blarg.am.freescale.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: add verification checks to SCTP_AUTH_KEY option
+Date: Mon, 25 Aug 2008 21:24:41 -0400
+Message-ID: <48B35B59.2020208@hp.com>
+References: <20080825164440.GA504@kernel.sg> <12196959323990-git-send-email-vladislav.yasevich@hp.com> <48B35561.2010001@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, hs@denx.de,
-	vitb@kernel.crashing.org
-To: Jeff Garzik <jeff@garzik.org>, davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, security@kernel.org
+To: Eugene Teo <eteo@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:38701 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751598AbYHZBWA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2008 21:22:00 -0400
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:26539 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812AbYHZBYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2008 21:24:44 -0400
+In-Reply-To: <48B35561.2010001@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Schocher <hs@denx.de>
+Eugene Teo wrote:
+> Vlad Yasevich wrote:
+>> The structure used for SCTP_AUTH_KEY option contains a
+>> length that needs to be verfied to prevent buffer overflow
+>> conditions.  Spoted by Eugene Teo <eteo@redhat.com>.
+>>
+>> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>> ---
+>>  net/sctp/auth.c   |    4 ++++
+>>  net/sctp/socket.c |    5 +++++
+>>  2 files changed, 9 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+>> index 675a5c3..1fcb4cf 100644
+>> --- a/net/sctp/auth.c
+>> +++ b/net/sctp/auth.c
+>> @@ -80,6 +80,10 @@ static struct sctp_auth_bytes *sctp_auth_create_key(__u32 key_len, gfp_t gfp)
+> 
+> This should be __u16 key_len.
+> 
+>>  {
+>>  	struct sctp_auth_bytes *key;
+>>  
+>> +	/* Verify that we are not going to overflow INT_MAX */
+>> +	if ((INT_MAX - key_len) < sizeof(struct sctp_auth_bytes))
+>> +		return NULL;
+> 
+> Shouldn't this be UINT_MAX? But then if you are going to change
+> sctp_auth_create_key() to accept __u16 key_len, then it should be
+> USHORT_MAX.
+> 
 
-Signed-off-by: Heiko Schocher <hs@denx.de>
-Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
+I'd rather keep it a u32 since this function is not only for userspace,
+but for creating a generated key.
 
-Updated to apply cleanly to top of linus's tree.
+Yes, UINT_MAX makes more sense.
 
-- k
+>>  	/* Allocate the shared key */
+>>  	key = kmalloc(sizeof(struct sctp_auth_bytes) + key_len, gfp);
+>>  	if (!key)
+>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>> index bb5c9ef..afa952e 100644
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -3144,6 +3144,11 @@ static int sctp_setsockopt_auth_key(struct sock *sk,
+>>  		goto out;
+>>  	}
+>>  
+>> +	if (authkey->sca_keylength > optlen) {
+>> +		ret = -EINVAL;
+>> +		goto out;
+> 
+> Is there a better upper bound check?
 
- arch/powerpc/include/asm/cpm2.h    |    5 +++++
- drivers/net/fs_enet/fs_enet-main.c |    8 ++++++++
- drivers/net/fs_enet/mac-scc.c      |    8 +++++++-
- 3 files changed, 20 insertions(+), 1 deletions(-)
+Hm...  optlen - sizeof(struct sctp_authkey)  is more accurate.
 
-diff --git a/arch/powerpc/include/asm/cpm2.h b/arch/powerpc/include/asm/cpm2.h
-index 2a6fa01..0f5e8ff 100644
---- a/arch/powerpc/include/asm/cpm2.h
-+++ b/arch/powerpc/include/asm/cpm2.h
-@@ -337,6 +337,11 @@ typedef struct scc_param {
- 	uint	scc_tcrc;	/* Internal */
- } sccp_t;
+There is really no other bound.
 
-+/* Function code bits.
-+*/
-+#define SCC_EB	((u_char) 0x10)	/* Set big endian byte order */
-+#define SCC_GBL	((u_char) 0x20) /* Snooping enabled */
-+
- /* CPM Ethernet through SCC1.
-  */
- typedef struct scc_enet {
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index 9a51ec8..9d46182 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -792,6 +792,10 @@ static int fs_enet_open(struct net_device *dev)
- 	int r;
- 	int err;
+-vlad
 
-+	/* to initialize the fep->cur_rx,... */
-+	/* not doing this, will cause a crash in fs_enet_rx_napi */
-+	fs_init_bds(fep->ndev);
-+
- 	if (fep->fpi->use_napi)
- 		napi_enable(&fep->napi);
-
-@@ -1167,6 +1171,10 @@ static struct of_device_id fs_enet_match[] = {
- 		.compatible = "fsl,cpm1-scc-enet",
- 		.data = (void *)&fs_scc_ops,
- 	},
-+	{
-+		.compatible = "fsl,cpm2-scc-enet",
-+		.data = (void *)&fs_scc_ops,
-+	},
- #endif
- #ifdef CONFIG_FS_ENET_HAS_FCC
- 	{
-diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
-index 029b3c7..22f50dd 100644
---- a/drivers/net/fs_enet/mac-scc.c
-+++ b/drivers/net/fs_enet/mac-scc.c
-@@ -47,7 +47,6 @@
- #include "fs_enet.h"
-
- /*************************************************/
--
- #if defined(CONFIG_CPM1)
- /* for a 8xx __raw_xxx's are sufficient */
- #define __fs_out32(addr, x)	__raw_writel(x, addr)
-@@ -62,6 +61,8 @@
- #define __fs_out16(addr, x)	out_be16(addr, x)
- #define __fs_in32(addr)	in_be32(addr)
- #define __fs_in16(addr)	in_be16(addr)
-+#define __fs_out8(addr, x)	out_8(addr, x)
-+#define __fs_in8(addr)	in_8(addr)
- #endif
-
- /* write, read, set bits, clear bits */
-@@ -262,8 +263,13 @@ static void restart(struct net_device *dev)
-
- 	/* Initialize function code registers for big-endian.
- 	 */
-+#ifndef CONFIG_NOT_COHERENT_CACHE
-+	W8(ep, sen_genscc.scc_rfcr, SCC_EB | SCC_GBL);
-+	W8(ep, sen_genscc.scc_tfcr, SCC_EB | SCC_GBL);
-+#else
- 	W8(ep, sen_genscc.scc_rfcr, SCC_EB);
- 	W8(ep, sen_genscc.scc_tfcr, SCC_EB);
-+#endif
-
- 	/* Set maximum bytes per receive buffer.
- 	 * This appears to be an Ethernet frame size, not the buffer
--- 
-1.5.5.1
+> 
+>>  	asoc = sctp_id2assoc(sk, authkey->sca_assoc_id);
+>>  	if (!asoc && authkey->sca_assoc_id && sctp_style(sk, UDP)) {
+>>  		ret = -EINVAL;
+> 
+> Thanks,
+> Eugene
+> 
 
