@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RESEND] [NET-NEXT PATCH 1/3] e1000e: add support for the 82567LM-4
-	device
-Date: Tue, 26 Aug 2008 18:36:36 -0700
-Message-ID: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com>
+Subject: [RESEND] [NET-NEXT PATCH 2/3] e1000e: add support for 82567LM-3 and
+	82567LF-3 (ICH10D) parts
+Date: Tue, 26 Aug 2008 18:36:50 -0700
+Message-ID: <20080827013639.5716.27200.stgit@jtkirshe-mobile.jf.intel.com>
+References: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,61 +15,544 @@ To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from rv-out-0506.google.com ([209.85.198.227]:49184 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbYH0Bgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 21:36:39 -0400
+	with ESMTP id S1753112AbYH0Bgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 21:36:53 -0400
 Received: by rv-out-0506.google.com with SMTP id k40so2401901rvb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 18:36:38 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 18:36:53 -0700 (PDT)
+In-Reply-To: <20080827013611.5716.7376.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Enable PCI device ID for a new combination of MAC and PHY already supported
-in the driver.
+Add support for new LOM devices on the latest generation ICHx platforms.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/ich8lan.c |    1 +
- drivers/net/e1000e/netdev.c  |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/defines.h |    2 +
+ drivers/net/e1000e/e1000.h   |    3 +
+ drivers/net/e1000e/ethtool.c |   22 +++++-
+ drivers/net/e1000e/hw.h      |    3 +
+ drivers/net/e1000e/ich8lan.c |  154 +++++++++++++++++++++++++++++++++++++++---
+ drivers/net/e1000e/netdev.c  |   25 +++++++
+ drivers/net/e1000e/phy.c     |   85 +++++++++++++++++++++++
+ 7 files changed, 280 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 14b0e6c..4b21fa9 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -505,6 +505,7 @@
+ #define NWAY_LPAR_ASM_DIR        0x0800 /* LP Asymmetric Pause Direction bit */
+ 
+ /* Autoneg Expansion Register */
++#define NWAY_ER_LP_NWAY_CAPS     0x0001 /* LP has Auto Neg Capability */
+ 
+ /* 1000BASE-T Control Register */
+ #define CR_1000T_HD_CAPS         0x0100 /* Advertise 1000T HD capability */
+@@ -540,6 +541,7 @@
+ #define E1000_EECD_DO        0x00000008 /* NVM Data Out */
+ #define E1000_EECD_REQ       0x00000040 /* NVM Access Request */
+ #define E1000_EECD_GNT       0x00000080 /* NVM Access Grant */
++#define E1000_EECD_PRES      0x00000100 /* NVM Present */
+ #define E1000_EECD_SIZE      0x00000200 /* NVM Size (0=64 word 1=256 word) */
+ /* NVM Addressing bits based on type (0-small, 1-large) */
+ #define E1000_EECD_ADDR_BITS 0x00000400
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index ac4e506..ef66dc4 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -98,6 +98,7 @@ enum e1000_boards {
+ 	board_80003es2lan,
+ 	board_ich8lan,
+ 	board_ich9lan,
++	board_ich10lan,
+ };
+ 
+ struct e1000_queue_stats {
+@@ -374,6 +375,7 @@ extern struct e1000_info e1000_82572_info;
+ extern struct e1000_info e1000_82573_info;
+ extern struct e1000_info e1000_ich8_info;
+ extern struct e1000_info e1000_ich9_info;
++extern struct e1000_info e1000_ich10_info;
+ extern struct e1000_info e1000_es2_info;
+ 
+ extern s32 e1000e_read_pba_num(struct e1000_hw *hw, u32 *pba_num);
+@@ -446,6 +448,7 @@ extern s32 e1000e_get_cable_length_m88(struct e1000_hw *hw);
+ extern s32 e1000e_get_phy_info_m88(struct e1000_hw *hw);
+ extern s32 e1000e_read_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 *data);
+ extern s32 e1000e_write_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 data);
++extern s32 e1000e_phy_init_script_igp3(struct e1000_hw *hw);
+ extern enum e1000_phy_type e1000e_get_phy_type_from_id(u32 phy_id);
+ extern s32 e1000e_determine_phy_address(struct e1000_hw *hw);
+ extern s32 e1000e_write_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 data);
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index e21c9e0..a89498d 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -781,6 +781,7 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
+ 	case e1000_82573:
+ 	case e1000_ich8lan:
+ 	case e1000_ich9lan:
++	case e1000_ich10lan:
+ 		toggle = 0x7FFFF033;
+ 		break;
+ 	default:
+@@ -833,7 +834,9 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
+ 	REG_PATTERN_TEST(E1000_TIDV, 0x0000FFFF, 0x0000FFFF);
+ 	for (i = 0; i < mac->rar_entry_count; i++)
+ 		REG_PATTERN_TEST_ARRAY(E1000_RA, ((i << 1) + 1),
+-				       0x8003FFFF, 0xFFFFFFFF);
++				       ((mac->type == e1000_ich10lan) ?
++					   0x8007FFFF : 0x8003FFFF),
++				       0xFFFFFFFF);
+ 
+ 	for (i = 0; i < mac->mta_reg_count; i++)
+ 		REG_PATTERN_TEST_ARRAY(E1000_MTA, i, 0xFFFFFFFF, 0xFFFFFFFF);
+@@ -905,12 +908,23 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 
+ 	/* Test each interrupt */
+ 	for (i = 0; i < 10; i++) {
+-		if ((adapter->flags & FLAG_IS_ICH) && (i == 8))
+-			continue;
+-
+ 		/* Interrupt to test */
+ 		mask = 1 << i;
+ 
++		if (adapter->flags & FLAG_IS_ICH) {
++			switch (mask) {
++			case E1000_ICR_RXSEQ:
++				continue;
++			case 0x00000100:
++				if (adapter->hw.mac.type == e1000_ich8lan ||
++				    adapter->hw.mac.type == e1000_ich9lan)
++					continue;
++				break;
++			default:
++				break;
++			}
++		}
++
+ 		if (!shared_int) {
+ 			/*
+ 			 * Disable the interrupt to be reported in
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 74f263a..d0e7b46 100644
+index d0e7b46..5d2acc5 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -346,6 +346,7 @@ enum e1e_registers {
- #define E1000_DEV_ID_ICH8_IFE_G			0x10C5
- #define E1000_DEV_ID_ICH8_IGP_M			0x104D
- #define E1000_DEV_ID_ICH9_IGP_AMT		0x10BD
-+#define E1000_DEV_ID_ICH9_BM			0x10E5
- #define E1000_DEV_ID_ICH9_IGP_M_AMT		0x10F5
- #define E1000_DEV_ID_ICH9_IGP_M			0x10BF
- #define E1000_DEV_ID_ICH9_IGP_M_V		0x10CB
+@@ -357,6 +357,8 @@ enum e1e_registers {
+ #define E1000_DEV_ID_ICH10_R_BM_LM		0x10CC
+ #define E1000_DEV_ID_ICH10_R_BM_LF		0x10CD
+ #define E1000_DEV_ID_ICH10_R_BM_V		0x10CE
++#define E1000_DEV_ID_ICH10_D_BM_LM		0x10DE
++#define E1000_DEV_ID_ICH10_D_BM_LF		0x10DF
+ 
+ #define E1000_FUNC_1 1
+ 
+@@ -367,6 +369,7 @@ enum e1000_mac_type {
+ 	e1000_80003es2lan,
+ 	e1000_ich8lan,
+ 	e1000_ich9lan,
++	e1000_ich10lan,
+ };
+ 
+ enum e1000_media_type {
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 9e38452..b5fc2c9 100644
+index b5fc2c9..0e76bb0 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -44,6 +44,7 @@
+@@ -43,7 +43,8 @@
+  * 82567LM-2 Gigabit Network Connection
   * 82567LF-2 Gigabit Network Connection
   * 82567V-2 Gigabit Network Connection
-  * 82562GT-3 10/100 Network Connection
-+ * 82567LM-4 Gigabit Network Connection
+- * 82562GT-3 10/100 Network Connection
++ * 82567LF-3 Gigabit Network Connection
++ * 82567LM-3 Gigabit Network Connection
+  * 82567LM-4 Gigabit Network Connection
   */
  
- #include <linux/netdevice.h>
+@@ -158,12 +159,15 @@ static s32 e1000_check_polarity_ife_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank);
+ static s32 e1000_retry_write_flash_byte_ich8lan(struct e1000_hw *hw,
+ 						u32 offset, u8 byte);
++static s32 e1000_read_flash_byte_ich8lan(struct e1000_hw *hw, u32 offset,
++					 u8 *data);
+ static s32 e1000_read_flash_word_ich8lan(struct e1000_hw *hw, u32 offset,
+ 					 u16 *data);
+ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
+ 					 u8 size, u16 *data);
+ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw);
++static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw);
+ 
+ static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
+ {
+@@ -898,6 +902,56 @@ static s32 e1000_set_d3_lplu_state_ich8lan(struct e1000_hw *hw, bool active)
+ }
+ 
+ /**
++ *  e1000_valid_nvm_bank_detect_ich8lan - finds out the valid bank 0 or 1
++ *  @hw: pointer to the HW structure
++ *  @bank:  pointer to the variable that returns the active bank
++ *
++ *  Reads signature byte from the NVM using the flash access registers.
++ **/
++static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
++{
++	struct e1000_nvm_info *nvm = &hw->nvm;
++	/* flash bank size is in words */
++	u32 bank1_offset = nvm->flash_bank_size * sizeof(u16);
++	u32 act_offset = E1000_ICH_NVM_SIG_WORD * 2 + 1;
++	u8 bank_high_byte = 0;
++
++	if (hw->mac.type != e1000_ich10lan) {
++		if (er32(EECD) & E1000_EECD_SEC1VAL)
++			*bank = 1;
++		else
++			*bank = 0;
++	} else {
++		/*
++		 * Make sure the signature for bank 0 is valid,
++		 * if not check for bank1
++		 */
++		e1000_read_flash_byte_ich8lan(hw, act_offset, &bank_high_byte);
++		if ((bank_high_byte & 0xC0) == 0x80) {
++			*bank = 0;
++		} else {
++			/*
++			 * find if segment 1 is valid by verifying
++			 * bit 15:14 = 10b in word 0x13
++			 */
++			e1000_read_flash_byte_ich8lan(hw,
++						      act_offset + bank1_offset,
++						      &bank_high_byte);
++
++			/* bank1 has a valid signature equivalent to SEC1V */
++			if ((bank_high_byte & 0xC0) == 0x80) {
++				*bank = 1;
++			} else {
++				hw_dbg(hw, "ERROR: EEPROM not present\n");
++				return -E1000_ERR_NVM;
++			}
++		}
++	}
++
++	return 0;
++}
++
++/**
+  *  e1000_read_nvm_ich8lan - Read word(s) from the NVM
+  *  @hw: pointer to the HW structure
+  *  @offset: The offset (in bytes) of the word(s) to read.
+@@ -913,6 +967,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
+ 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
+ 	u32 act_offset;
+ 	s32 ret_val;
++	u32 bank = 0;
+ 	u16 i, word;
+ 
+ 	if ((offset >= nvm->word_size) || (words > nvm->word_size - offset) ||
+@@ -925,10 +980,11 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
+ 	if (ret_val)
+ 		return ret_val;
+ 
+-	/* Start with the bank offset, then add the relative offset. */
+-	act_offset = (er32(EECD) & E1000_EECD_SEC1VAL)
+-		     ? nvm->flash_bank_size
+-		     : 0;
++	ret_val = e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
++	if (ret_val)
++		return ret_val;
++
++	act_offset = (bank) ? nvm->flash_bank_size : 0;
+ 	act_offset += offset;
+ 
+ 	for (i = 0; i < words; i++) {
+@@ -1076,6 +1132,29 @@ static s32 e1000_read_flash_word_ich8lan(struct e1000_hw *hw, u32 offset,
+ }
+ 
+ /**
++ *  e1000_read_flash_byte_ich8lan - Read byte from flash
++ *  @hw: pointer to the HW structure
++ *  @offset: The offset of the byte to read.
++ *  @data: Pointer to a byte to store the value read.
++ *
++ *  Reads a single byte from the NVM using the flash access registers.
++ **/
++static s32 e1000_read_flash_byte_ich8lan(struct e1000_hw *hw, u32 offset,
++					 u8 *data)
++{
++	s32 ret_val;
++	u16 word = 0;
++
++	ret_val = e1000_read_flash_data_ich8lan(hw, offset, 1, &word);
++	if (ret_val)
++		return ret_val;
++
++	*data = (u8)word;
++
++	return 0;
++}
++
++/**
+  *  e1000_read_flash_data_ich8lan - Read byte or word from NVM
+  *  @hw: pointer to the HW structure
+  *  @offset: The offset (in bytes) of the byte or word to read.
+@@ -1206,7 +1285,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ {
+ 	struct e1000_nvm_info *nvm = &hw->nvm;
+ 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
+-	u32 i, act_offset, new_bank_offset, old_bank_offset;
++	u32 i, act_offset, new_bank_offset, old_bank_offset, bank;
+ 	s32 ret_val;
+ 	u16 data;
+ 
+@@ -1226,7 +1305,11 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 	 * write to bank 0 etc.  We also need to erase the segment that
+ 	 * is going to be written
+ 	 */
+-	if (!(er32(EECD) & E1000_EECD_SEC1VAL)) {
++	ret_val =  e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
++	if (ret_val)
++		return ret_val;
++
++	if (bank == 0) {
+ 		new_bank_offset = nvm->flash_bank_size;
+ 		old_bank_offset = 0;
+ 		e1000_erase_flash_bank_ich8lan(hw, 1);
+@@ -2190,13 +2273,14 @@ void e1000e_gig_downshift_workaround_ich8lan(struct e1000_hw *hw)
+  *  'LPLU Enabled' and 'Gig Disable' to force link speed negotiation
+  *  to a lower speed.
+  *
+- *  Should only be called for ICH9 devices.
++ *  Should only be called for ICH9 and ICH10 devices.
+  **/
+ void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
+ {
+ 	u32 phy_ctrl;
+ 
+-	if (hw->mac.type == e1000_ich9lan) {
++	if ((hw->mac.type == e1000_ich10lan) ||
++	    (hw->mac.type == e1000_ich9lan)) {
+ 		phy_ctrl = er32(PHY_CTRL);
+ 		phy_ctrl |= E1000_PHY_CTRL_D0A_LPLU |
+ 		            E1000_PHY_CTRL_GBE_DISABLE;
+@@ -2254,6 +2338,39 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  e1000_get_cfg_done_ich8lan - Read config done bit
++ *  @hw: pointer to the HW structure
++ *
++ *  Read the management control register for the config done bit for
++ *  completion status.  NOTE: silicon which is EEPROM-less will fail trying
++ *  to read the config done bit, so an error is *ONLY* logged and returns
++ *  E1000_SUCCESS.  If we were to return with error, EEPROM-less silicon
++ *  would not be able to be reset or change link.
++ **/
++static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
++{
++	u32 bank = 0;
++
++	e1000e_get_cfg_done(hw);
++
++	/* If EEPROM is not marked present, init the IGP 3 PHY manually */
++	if (hw->mac.type != e1000_ich10lan) {
++		if (((er32(EECD) & E1000_EECD_PRES) == 0) &&
++		    (hw->phy.type == e1000_phy_igp_3)) {
++			e1000e_phy_init_script_igp3(hw);
++		}
++	} else {
++		if (e1000_valid_nvm_bank_detect_ich8lan(hw, &bank)) {
++			/* Maybe we should do a basic PHY config */
++			hw_dbg(hw, "EEPROM not present\n");
++			return -E1000_ERR_CONFIG;
++		}
++	}
++
++	return 0;
++}
++
++/**
+  *  e1000_clear_hw_cntrs_ich8lan - Clear statistical counters
+  *  @hw: pointer to the HW structure
+  *
+@@ -2303,7 +2420,7 @@ static struct e1000_phy_operations ich8_phy_ops = {
+ 	.check_reset_block	= e1000_check_reset_block_ich8lan,
+ 	.commit_phy		= NULL,
+ 	.force_speed_duplex	= e1000_phy_force_speed_duplex_ich8lan,
+-	.get_cfg_done		= e1000e_get_cfg_done,
++	.get_cfg_done		= e1000_get_cfg_done_ich8lan,
+ 	.get_cable_length	= e1000e_get_cable_length_igp_2,
+ 	.get_phy_info		= e1000_get_phy_info_ich8lan,
+ 	.read_phy_reg		= e1000e_read_phy_reg_igp,
+@@ -2358,3 +2475,20 @@ struct e1000_info e1000_ich9_info = {
+ 	.nvm_ops		= &ich8_nvm_ops,
+ };
+ 
++struct e1000_info e1000_ich10_info = {
++	.mac			= e1000_ich10lan,
++	.flags			= FLAG_HAS_JUMBO_FRAMES
++				  | FLAG_IS_ICH
++				  | FLAG_HAS_WOL
++				  | FLAG_RX_CSUM_ENABLED
++				  | FLAG_HAS_CTRLEXT_ON_LOAD
++				  | FLAG_HAS_AMT
++				  | FLAG_HAS_ERT
++				  | FLAG_HAS_FLASH
++				  | FLAG_APME_IN_WUC,
++	.pba			= 10,
++	.get_variants		= e1000_get_variants_ich8lan,
++	.mac_ops		= &ich8_mac_ops,
++	.phy_ops		= &ich8_phy_ops,
++	.nvm_ops		= &ich8_nvm_ops,
++};
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index d266510..c3d7411 100644
+index c3d7411..2d9bcb0 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -4767,6 +4767,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE_GT), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IGP_AMT), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IGP_C), board_ich9lan },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_BM), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IGP_M), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IGP_M_AMT), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IGP_M_V), board_ich9lan },
+@@ -58,6 +58,7 @@ static const struct e1000_info *e1000_info_tbl[] = {
+ 	[board_80003es2lan]	= &e1000_es2_info,
+ 	[board_ich8lan]		= &e1000_ich8_info,
+ 	[board_ich9lan]		= &e1000_ich9_info,
++	[board_ich10lan]	= &e1000_ich10_info,
+ };
+ 
+ #ifdef DEBUG
+@@ -3201,6 +3202,27 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 						   &adapter->link_duplex);
+ 			e1000_print_link_info(adapter);
+ 			/*
++			 * On supported PHYs, check for duplex mismatch only
++			 * if link has autonegotiated at 10/100 half
++			 */
++			if ((hw->phy.type == e1000_phy_igp_3 ||
++			     hw->phy.type == e1000_phy_bm) &&
++			    (hw->mac.autoneg == true) &&
++			    (adapter->link_speed == SPEED_10 ||
++			     adapter->link_speed == SPEED_100) &&
++			    (adapter->link_duplex == HALF_DUPLEX)) {
++				u16 autoneg_exp;
++
++				e1e_rphy(hw, PHY_AUTONEG_EXP, &autoneg_exp);
++
++				if (!(autoneg_exp & NWAY_ER_LP_NWAY_CAPS))
++					e_info("Autonegotiated half duplex but"
++					       " link partner cannot autoneg. "
++					       " Try forcing full duplex if "
++					       "link gets many collisions.\n");
++			}
++
++			/*
+ 			 * tweak tx_queue_len according to speed/duplex
+ 			 * and adjust the timeout factor
+ 			 */
+@@ -4776,6 +4798,9 @@ static struct pci_device_id e1000_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH10_R_BM_LF), board_ich9lan },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH10_R_BM_V), board_ich9lan },
+ 
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH10_D_BM_LM), board_ich10lan },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH10_D_BM_LF), board_ich10lan },
++
+ 	{ }	/* terminate list */
+ };
+ MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index b133dcf..16724f8 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -1720,6 +1720,91 @@ s32 e1000e_get_cfg_done(struct e1000_hw *hw)
+ 	return 0;
+ }
+ 
++/**
++ *  e1000e_phy_init_script_igp3 - Inits the IGP3 PHY
++ *  @hw: pointer to the HW structure
++ *
++ *  Initializes a Intel Gigabit PHY3 when an EEPROM is not present.
++ **/
++s32 e1000e_phy_init_script_igp3(struct e1000_hw *hw)
++{
++	hw_dbg(hw, "Running IGP 3 PHY init script\n");
++
++	/* PHY init IGP 3 */
++	/* Enable rise/fall, 10-mode work in class-A */
++	e1e_wphy(hw, 0x2F5B, 0x9018);
++	/* Remove all caps from Replica path filter */
++	e1e_wphy(hw, 0x2F52, 0x0000);
++	/* Bias trimming for ADC, AFE and Driver (Default) */
++	e1e_wphy(hw, 0x2FB1, 0x8B24);
++	/* Increase Hybrid poly bias */
++	e1e_wphy(hw, 0x2FB2, 0xF8F0);
++	/* Add 4% to Tx amplitude in Gig mode */
++	e1e_wphy(hw, 0x2010, 0x10B0);
++	/* Disable trimming (TTT) */
++	e1e_wphy(hw, 0x2011, 0x0000);
++	/* Poly DC correction to 94.6% + 2% for all channels */
++	e1e_wphy(hw, 0x20DD, 0x249A);
++	/* ABS DC correction to 95.9% */
++	e1e_wphy(hw, 0x20DE, 0x00D3);
++	/* BG temp curve trim */
++	e1e_wphy(hw, 0x28B4, 0x04CE);
++	/* Increasing ADC OPAMP stage 1 currents to max */
++	e1e_wphy(hw, 0x2F70, 0x29E4);
++	/* Force 1000 ( required for enabling PHY regs configuration) */
++	e1e_wphy(hw, 0x0000, 0x0140);
++	/* Set upd_freq to 6 */
++	e1e_wphy(hw, 0x1F30, 0x1606);
++	/* Disable NPDFE */
++	e1e_wphy(hw, 0x1F31, 0xB814);
++	/* Disable adaptive fixed FFE (Default) */
++	e1e_wphy(hw, 0x1F35, 0x002A);
++	/* Enable FFE hysteresis */
++	e1e_wphy(hw, 0x1F3E, 0x0067);
++	/* Fixed FFE for short cable lengths */
++	e1e_wphy(hw, 0x1F54, 0x0065);
++	/* Fixed FFE for medium cable lengths */
++	e1e_wphy(hw, 0x1F55, 0x002A);
++	/* Fixed FFE for long cable lengths */
++	e1e_wphy(hw, 0x1F56, 0x002A);
++	/* Enable Adaptive Clip Threshold */
++	e1e_wphy(hw, 0x1F72, 0x3FB0);
++	/* AHT reset limit to 1 */
++	e1e_wphy(hw, 0x1F76, 0xC0FF);
++	/* Set AHT master delay to 127 msec */
++	e1e_wphy(hw, 0x1F77, 0x1DEC);
++	/* Set scan bits for AHT */
++	e1e_wphy(hw, 0x1F78, 0xF9EF);
++	/* Set AHT Preset bits */
++	e1e_wphy(hw, 0x1F79, 0x0210);
++	/* Change integ_factor of channel A to 3 */
++	e1e_wphy(hw, 0x1895, 0x0003);
++	/* Change prop_factor of channels BCD to 8 */
++	e1e_wphy(hw, 0x1796, 0x0008);
++	/* Change cg_icount + enable integbp for channels BCD */
++	e1e_wphy(hw, 0x1798, 0xD008);
++	/*
++	 * Change cg_icount + enable integbp + change prop_factor_master
++	 * to 8 for channel A
++	 */
++	e1e_wphy(hw, 0x1898, 0xD918);
++	/* Disable AHT in Slave mode on channel A */
++	e1e_wphy(hw, 0x187A, 0x0800);
++	/*
++	 * Enable LPLU and disable AN to 1000 in non-D0a states,
++	 * Enable SPD+B2B
++	 */
++	e1e_wphy(hw, 0x0019, 0x008D);
++	/* Enable restart AN on an1000_dis change */
++	e1e_wphy(hw, 0x001B, 0x2080);
++	/* Enable wh_fifo read clock in 10/100 modes */
++	e1e_wphy(hw, 0x0014, 0x0045);
++	/* Restart AN, Speed selection is 1000 */
++	e1e_wphy(hw, 0x0000, 0x1340);
++
++	return 0;
++}
++
+ /* Internal function pointers */
+ 
+ /**
 
