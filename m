@@ -1,47 +1,30 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.27? 4/5] forcedeth: fix checksum flag
-Date: Wed, 27 Aug 2008 05:57:23 -0400
-Message-ID: <48B52503.8070309@garzik.org>
-References: <200808202334.m7KNYbpF005035@imap1.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] pkt_sched: Fix gen_estimator locks
+Date: Wed, 27 Aug 2008 02:57:47 -0700 (PDT)
+Message-ID: <20080827.025747.197547570.davem@davemloft.net>
+References: <E1KXy78-0000mY-00@gondolin.me.apana.org.au>
+	<20080827.022633.132959334.davem@davemloft.net>
+	<20080827095549.GA12583@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, jgarzik@pobox.com,
-	manfred@colorfullife.com, stable@kernel.org
-To: akpm@linux-foundation.org
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42041 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753067AbYH0J51 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:57:27 -0400
-In-Reply-To: <200808202334.m7KNYbpF005035@imap1.linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43638
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753799AbYH0J5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:57:51 -0400
+In-Reply-To: <20080827095549.GA12583@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
-> Fix the checksum feature advertised in device flags.  The hardware support
-> TCP/UDP over IPv4 and TCP/UDP over IPv6 (without IPv6 extension headers). 
-> However, the kernel feature flags do not distinguish IPv6 with/without
-> extension headers.
-> 
-> Therefore, the driver needs to use NETIF_F_IP_CSUM instead of
-> NETIF_F_HW_CSUM since the latter includes all IPv6 packets.
-> 
-> A future patch can be created to check for extension headers and perform
-> software checksum calculation.
-> 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-> Cc: Jeff Garzik <jgarzik@pobox.com>
-> Cc: Manfred Spraul <manfred@colorfullife.com
-> Cc: <stable@kernel.org>		[2.6.25.x, 2.6.26.x]
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 27 Aug 2008 19:55:49 +1000
 
-applied, although for future reference, read the top of 
-include/linux/skbuff.h, most notably:
+> What I mean is a pointer like sch->root_qdisc, and we would provide
+> that to qdisc_create as a parameter in place of dev_queue (and
+> NULL for root qdiscs themselves).  So as long as we assign it at
+> the top of this function it would be available here too.
 
-  *          NOTE: Even if device supports only some protocols, but
-  *          is able to produce some skb->csum, it MUST use COMPLETE,
-  *          not UNNECESSARY.
-
+Ok, that makes sense.
