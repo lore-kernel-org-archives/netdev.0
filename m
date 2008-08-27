@@ -1,63 +1,123 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 17:55:15 +0300
-Message-ID: <1ba2fa240808270755t2f3d0c28rcb874011f5540ef3@mail.gmail.com>
-References: <20080827013009.GA15781@tuxdriver.com>
-	 <1219831828.3891.3.camel@johannes.berg>
-	 <1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
-	 <200808271510.35950.mb@bu3sch.de>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Wed, 27 Aug 2008 17:09:52 +0200
+Message-ID: <f4845fc0808270809nfd79798ob528778228645915@mail.gmail.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <20080821011715.GG19235@verge.net.au>
+	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
+	 <20080821212948.GB4407@verge.net.au>
+	 <20080827071714.GA30536@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Johannes Berg" <johannes@sipsolutions.net>,
-	"Marcel Holtmann" <holtmann@linux.intel.com>,
-	"David Miller" <davem@davemloft.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael Buesch" <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:27675 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754657AbYH0OzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 10:55:17 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so937317ugf.37
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 07:55:16 -0700 (PDT)
-In-Reply-To: <200808271510.35950.mb@bu3sch.de>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com, "Sven Wegener" <sven.wegener@stealer.net>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080827071714.GA30536@verge.net.au>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 27, 2008 at 4:10 PM, Michael Buesch <mb@bu3sch.de> wrote:
-> On Wednesday 27 August 2008, Tomas Winkler wrote:
->> > should use Linux upstream as your development tree and then branch off
->> > of that for the internal stabilisation trees you need for other
->> > customers, rather than having some sort of internal development tree and
->> > branching out Linux upstream as you appear to work.
->>
->> Unfortunately fixing bugs on stable branch take precedence  of
->> adjusting to new API on development branch that someone decided to do.
->>  I wanted to work directly on wireless testing but it was broken over
->> an over and I have only limited resources more in testing then in
->> development I just had to branch out to be ready with the driver when
->> HW is out. People just check the immediate impact of they fix the
->> don't test for collateral damage and this is understandable an
->> individual developer doesn't have lab with IBSS, BSS, AP, etc setups.
+On Wed, Aug 27, 2008 at 9:17 AM, Simon Horman wrote:
+> Here is a second round of thoughts after having gone through the whole series.
+
+Thanks for wading through this!
+
+> [PATCH RFC 06/24] IPVS: Add debug macros for v4 and v6 address output
 >
-> I think it would be an advantage for you to develop in wireless-testing
-> and use wireless-2.6 and probably additionally some internal trees as
-> stable trees. Like everybody else does it.
+> * The #defines in ip_vs_dbg_addr seem a bit aquard.
+>  Could it be rearanged liks this?
+>
+> static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
+>                                        const union nf_inet_addr *addr,
+>                                        int *idx)
+> {
+>       int len;
+> #ifdef CONFIG_IP_VS_IPV6
+>       if (af == AF_INET6)
+>               len = snprintf(&buf[*idx], buf_len - *idx, "[" NIP6_FMT "]",
+>                              NIP6(addr->in6)) + 1;
+>       else
+> #endif
+>               len = snprintf(&buf[*idx], buf_len - *idx, NIPQUAD_FMT,
+>                              NIPQUAD(addr->ip)) + 1;
+>
+>       *idx += len;
+>       return &buf[*idx - len];
+> }
 
-I'm not sure what you are taking about, we did post patches to
-wireless-testing, the driver for 5000 HW  is working in 2.6.27-rc4 I
-personally use it every day.  I'm sending bug fixes, like this seris
-of patches is direct answer to bugs that were discovered very
-recently, I'm not sure what's everybody problem here.
+Yes, that looks nicer and more like the other cases!
 
-> The advantage is simple: You get more people testing your code.
+> * The comment "/* Only use from within IP_VS_DBG_BUF() macro */"
+>  should also mention usage inside IP_VS_ERR_BUF()
 
-We fixed bugs in wireless-testing/mac80211 that were there for months
-just because we are only one that do any comprehensive validation. I
-don't  want insult anyone and I really exaggeration here but
-sometimes I have feeling that more people are breaking the code.
+Right, thanks!
 
-Tomas
+> * If IP_VS_DBG_ADDR() is used more than once inside a single
+>  IP_VS_DBG_BUF() or IP_VS_ERR_BUF() call, won't ip_vs_dbg_buf
+>  be set to the value one of the  calls to IP_VS_DBG_ADDR,
+>  thus overwriting other calls and producing incorrect debugging
+>  output?
+
+No, the buffer can receive several strings (but it's limited in size,
+so you have to be careful). An index to the current position in the
+buffer is maintained in the 'idx' variable between multiple
+IP_VS_DBG_ADDR calls used in the same outer macro.
+
+In general, I'm a bit unsure if this kind of macro magic is acceptable
+style, but it was the best way I could come up with to merge
+alternating v4 and v6 output without too much code duplication.
+
+> [PATCH RFC 15/24] IPVS: Add support for IPv6 entry output in procfs files
+>
+> * The netlink-aware ipvsadm code also seems to allow for dotted-quad
+>  representation of ipv4 addresses in proc. Is that representation used
+>  or planned to be used?
+
+Good catch! No, I wasn't even aware of that feature in the new ipvsadm
+(but now I see it). I think it should be removed because it is
+effectively dead code (the existing v4 proc format shouldn't be
+changed). Vince, do you agree?
+
+> [PATCH RFC 17/24] IPVS: Make proc/net files output IPv6 entries
+>
+> * It might be cleaner to do:
+>
+> #ifdef CONFIG_IP_VS_IPV6
+>        if (cp->af == AF_INET6)
+>                seq_printf ...
+>        else
+> #endif
+>                seq_printf ...
+
+Yes, it's nicer this way around, I'll change that!
+
+> General
+>
+> * You need to reorder and or merge patches such that after each
+>  patch is applied the code will build and run. It is ok for
+>  a patch to add code which isn't used until a later patch is applied.
+
+Yes, I have found no nice way to achieve this yet :( At least not when
+reworking the complete end result (one big patch) into smaller
+patches, because there is so much interdependency and several logical
+changes within the same hunks (or even lines). I might have to
+manually do a step-by-step adding of the logical code features to get
+this... I will try to work on that next.
+
+> * Where possible please make lines <= 80 columns wide
+
+Yes, I will check for that more strictly now (unless it really looks
+nicer otherwise), thanks!
+
+Julius
+
+-- 
+Julius Volz
+Corporate Operations - SysOps
+
+Google Switzerland GmbH
+
+Identification No.:
+CH-020.4.028.116-1
