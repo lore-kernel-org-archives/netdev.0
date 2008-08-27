@@ -1,36 +1,55 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: question wrt /drivers/char/tty_io.c in pre 2.6.16 code
-Date: Wed, 27 Aug 2008 17:37:46 +0100
-Message-ID: <20080827173746.11b91c07@lxorguk.ukuu.org.uk>
-References: <20080820010353.593820280@mini.kroah.org>
-	<20080820010752.GB3365@kroah.com>
-	<48B52064.9070700@pobox.com>
-	<48B578F3.1050908@option.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 09:57:54 -0700
+Message-ID: <48B58792.5080501@hp.com>
+References: <200808220457.40892.denys@visp.net.lb>	<20080826201406.GA24827@2ka.mipt.ru>	<48B46B48.7030609@cosmosbay.com>	<20080826205158.GA15266@2ka.mipt.ru>	<87vdxmr53f.fsf@basil.nowhere.org> <48B57BD3.5050206@hp.com>	<20080827162735.GW26610@one.firstfloor.org>	<48B58586.3080806@hp.com> <20080827165635.GY26610@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48B578F3.1050908-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:10154 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758960AbYH0Q6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 12:58:22 -0400
+In-Reply-To: <20080827165635.GY26610@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The new tty_insert_flip_string returns the
-> number of bytes successfully copied to tty recieve buffers
-> how do I implement this functionality in pre 2.6.16 code,
-> can it be done?
+Andi Kleen wrote:
+> On Wed, Aug 27, 2008 at 09:49:10AM -0700, Rick Jones wrote:
+> 
+>>Andi Kleen wrote:
+>>
+>>>>Those banks really want to crank down on latency - to the point they 
+>>>>start disabling interrupt coalescing.  I bet they'd toss anything out 
+>>>>they could to shave another microsecond.
+>>>
+>>>
+>>>This change would actually likely lower their latency.
+>>
+>>I'm guessing you mean increase their latency?  I agree, it could - 
+>>depends entirely on the PPS in production I suspect.
+> 
+> 
+> No, moving the time stamps into the socket decreases latency
+> for all packets that don't need time stamps. And they likely 
+> have some packets which don't need time stamps too.
 
-Probably but it'll be really ugly. You need to stick your nose into the
-innards of struct tty_struct and check the space left in the current flip
-buffer entry.
+Ah, since that part of the discussion wasn't in the quoted text I 
+assumed you were talking about the disabling of interrupt coalescing.
 
-What you do if it is full is another question.
+rick jones
 
-Alan.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> As a secondary effect if they use a RT kernel it might
+> be also beneficial to do the (depending on the platform)
+> costly time stamp in the lower priority socket context
+> than in the high priority interrupt thread.
+> 
+> -Andi
+
