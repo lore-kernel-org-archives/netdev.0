@@ -1,61 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 04:45:51 -0700 (PDT)
-Message-ID: <20080827.044551.102233262.davem@davemloft.net>
-References: <1ba2fa240808270305m7f505efak9fd0d36d5db09a1e@mail.gmail.com>
-	<1219831828.3891.3.camel@johannes.berg>
-	<1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: [PATCH] [NET] smc91x: provide configurable leds
+Date: Wed, 27 Aug 2008 12:52:54 +0100
+Message-ID: <20080827115254.GB2899@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, holtmann@linux.intel.com,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tomasw@gmail.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36390
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754153AbYH0Lp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 07:45:56 -0400
-In-Reply-To: <1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:52364 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753927AbYH0LxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 07:53:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Tomas Winkler" <tomasw@gmail.com>
-Date: Wed, 27 Aug 2008 14:34:28 +0300
+This patch provides a mechanism for platforms to be able to supply the
+LED configuration via platform data, rather than having to hard code
+it in smc91x.h.
 
-> Unfortunately fixing bugs on stable branch take precedence  of
-> adjusting to new API on development branch that someone decided to do.
->  I wanted to work directly on wireless testing but it was broken over
-> an over and I have only limited resources more in testing then in
-> development I just had to branch out to be ready with the driver when
-> HW is out. People just check the immediate impact of they fix the
-> don't test for collateral damage and this is understandable an
-> individual developer doesn't have lab with IBSS, BSS, AP, etc setups.
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Tested-by: Marc Zyngier <maz@misterjones.org>
+Acked-by: Nicolas Pitre <nico@cam.org>
 
-But think about this from the other perspective.
+--
+As noticed by Eric against the Viper patches, being able to configure
+the LEDs from platform code would be a good idea.  This patch implements
+a mechanism to allow that to happen.
 
-When you queue up tons of things, especially in infrastructure level
-code such as mac80211, and on top of it you do your work on the stable
-branch and do not do you work against the development tree, guess what
-happens?
+Since ARM platforms will depend on this, I'd prefer to add it to the
+ARM tree, so I'm after an Ack from networking people.
 
-You show up with accumulated piles of non-trivial patches for people
-to review.  And then you'll get upset when they suggest that things be
-implemented differently.
-
-It's all because of the gap in time.
-
-And during this time, if you had submitted earlier, you would end up
-doing smaller and mode gradual modifications to your design.  And
-you'd take care of them before they effect subsequent pieces of work
-you want to do which depend upon the earlier bits.
-
-The longer you queue stuff up, the more painful having to change stuff
-at the beginning of that queue becomes.  It can invalidate everything
-else you worked on.
-
-The only sane way to operate is to post your work early and often, or
-else you'll live in a world of hurt, and it will be nobody's fault but
-your own.
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index 2040965..ceed2f6 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -1520,7 +1520,9 @@ smc_open(struct net_device *dev)
+ 	/* Setup the default Register Modes */
+ 	lp->tcr_cur_mode = TCR_DEFAULT;
+ 	lp->rcr_cur_mode = RCR_DEFAULT;
+-	lp->rpc_cur_mode = RPC_DEFAULT;
++	lp->rpc_cur_mode = RPC_DEFAULT |
++				lp->cfg.leda << RPC_LSXA_SHFT |
++				lp->cfg.ledb << RPC_LSXB_SHFT;
+ 
+ 	/*
+ 	 * If we are not using a MII interface, we need to
+@@ -2157,6 +2159,11 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 		lp->cfg.flags |= (nowait) ? SMC91X_NOWAIT : 0;
+ 	}
+ 
++	if (!lp->cfg.leda && !lp->cfg.ledb) {
++		lp->cfg.leda = RPC_LSA_DEFAULT;
++		lp->cfg.ledb = RPC_LSB_DEFAULT;
++	}
++
+ 	ndev->dma = (unsigned char)-1;
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smc91x-regs");
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 997e7f1..8322e7f 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -794,7 +794,7 @@ smc_pxa_dma_irq(int dma, void *dummy)
+ #define RPC_LSB_DEFAULT RPC_LED_FD
+ #endif
+ 
+-#define RPC_DEFAULT (RPC_ANEG | (RPC_LSA_DEFAULT << RPC_LSXA_SHFT) | (RPC_LSB_DEFAULT << RPC_LSXB_SHFT) | RPC_SPEED | RPC_DPLX)
++#define RPC_DEFAULT (RPC_ANEG | RPC_SPEED | RPC_DPLX)
+ 
+ 
+ /* Bank 0 0x0C is reserved */
+diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
+index 3827b92..ed25483 100644
+--- a/include/linux/smc91x.h
++++ b/include/linux/smc91x.h
+@@ -18,6 +18,8 @@
+ 
+ struct smc91x_platdata {
+ 	unsigned long flags;
++	unsigned char leda;
++	unsigned char ledb;
+ };
+ 
+ #endif /* __SMC91X_H__ */
 
