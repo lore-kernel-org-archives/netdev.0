@@ -1,59 +1,61 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 22:25:09 +0200
-Message-ID: <200808272225.10557.mb@bu3sch.de>
-References: <20080827013009.GA15781@tuxdriver.com> <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [sky2, solved] transmit timeouts and firmware update...
+Date: Wed, 27 Aug 2008 13:27:27 -0700
+Message-ID: <20080827132727.1851cfba@extreme>
+References: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
+	<alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
+	<20080825152206.2d554cf7@speedy>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1ba2fa240808271226i95a7789k481a68b09dc60164-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Krzysztof Oledzki <ole@ans.pl>,
+	Linux Netdev <netdev@vger.kernel.org>,
+	Linux Networking <linux-net@vger.kernel.org>,
+	Daniel J Blueman <daniel.blueman@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20080825152206.2d554cf7@speedy>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 27 August 2008, Tomas Winkler wrote:
-> > John W. Linville (1):
-> >      mac80211: quiet chatty IBSS merge message
+On Mon, 25 Aug 2008 15:22:06 -0400
+Stephen Hemminger <shemminger@vyatta.com> wrote:
+
+> On Mon, 25 Aug 2008 21:03:25 +0200 (CEST)
+> Krzysztof Oledzki <ole@ans.pl> wrote:
 > 
-> This patch is correct yet it suppresses an important warning, meaning
-> that you have constant IBSS reconnection, remove all connected station
-> and adding them again, This greatly degraded performance. This is
-> caused by inability to adjust to TSF of the IBSS leader
+> > 
+> > 
+> > On Mon, 25 Aug 2008, Daniel J Blueman wrote:
+> > 
+> > > I (and a lot of other users) have been experiencing the frequent sky2
+> > > transmit timeout problem [1] (on 88E8053/Yukon2 EC gig hardware); this
+> > > is a result of the embedded NIC controller locking up, and I've found
+> > > that updating the firmware addresses this issue. I'm still seeing a
+> > > previous and different issue [2] from time to time though (silicon
+> > > bug?).
+> > 
+> > Thanks for the info. I've been dealing with this problem for some long 
+> > time, hopefully sky driver from the latest kernels is able to recover 
+> > from such hangs, so it is not that critical problem now.
+> > 
+> > > Marvell shipping broken firmware is completely unpublicised or
+> > > acknowledged, however updated firmware is available through your
+> > > motherboard vendor, so all hope it not lost after all...
+> > 
+> > Unfortunately not through all vendors. :( Or maybe not *yet*?
+> > 
+> > > My 8053/EC is using firmware 2.2 (previously 1.9) - you can check in
+> > > DOS with 'yukondg.exe' from
+> > > http://www.marvell.com/drivers/files/yukondg_v6.53.4.3.zip .
+> > 
+> > Stephen, is it possible for sky2 driver to check and print the 
+> > firmware version?
 > 
-> <snipt>
-> static int ieee80211_sta_join_ibss(struct net_device *dev,
-> 				   struct ieee80211_if_sta *ifsta,
-> 				   struct ieee80211_sta_bss *bss)
-> .....
-> /* Remove possible STA entries from other IBSS networks. */
-> 	sta_info_flush_delayed(sdata);
-> </snip>
+> It is possible to dump and program eeprom from linux, and the version
+> maybe buried in the VPD, but some hardware has non-functional VPD.
 
-I fail to see how the TSF could be related to an ever reconnecting
-station. Can you elaborate on what happens?
-
-I was under the impression that the firmware would handle TSF stuff.
-Also the "IBSS leader" is a new thing to me. I remember from the specs
-that the device should accept the TSF from _any_ beacon. Not just a
-"leader". Am I mislead? :)
-
-I also fail to see how we could _ever_ set the TSF to something remotely
-correct from the driver because of the FIFO delay.
-
-> 
-> > Assaf Krauss (1):
-> >      iwlwifi: W/A for the TSF correction in IBSS
-
-I cannot find this patch in wireless-testing and I don't
-have a copy of wireless-2.6 here. Can you send me the patch, or
-explain what it does?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The revision number in the VPD matches the revision number (from PCI)
+that is already printed by the driver. Since I don't have enough documentation
+on the firmware to know the format, there is no way to print anything
+really useful.
