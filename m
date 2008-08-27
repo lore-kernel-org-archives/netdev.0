@@ -1,42 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.27] myri10ge: update version string to 1.4.3-1.358
-Date: Wed, 27 Aug 2008 05:18:20 -0400
-Message-ID: <48B51BDC.5030609@garzik.org>
-References: <48B475A8.7030608@myri.com>
+Subject: Re: [PATCH 5/5] igb: fix setting the number of tx queues
+Date: Wed, 27 Aug 2008 05:18:59 -0400
+Message-ID: <48B51C03.8090807@garzik.org>
+References: <20080826112503.15627.3855.stgit@jtkirshe-mobile.jf.intel.com> <20080826112513.15627.24776.stgit@jtkirshe-mobile.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45228 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45247 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754795AbYH0JSY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:18:24 -0400
-In-Reply-To: <48B475A8.7030608@myri.com>
+	id S1753800AbYH0JTC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:19:02 -0400
+In-Reply-To: <20080826112513.15627.24776.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin wrote:
-> Update myri10ge version string to 1.4.3-1.358.
+Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> The real_num_tx_queues was not being set when in MSI-X only mode.  This patch
+> corrects that path so all interrupt types are correctly configured.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
-> drivers/net/myri10ge/myri10ge.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> --- linux-2.6.git/drivers/net/myri10ge/myri10ge.c	2008-08-24 09:54:53.000000000 +0200
-> +++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-08-26 23:21:42.000000000 +0200
-> @@ -75,7 +75,7 @@
->  #include "myri10ge_mcp.h"
->  #include "myri10ge_mcp_gen_header.h"
->  
-> -#define MYRI10GE_VERSION_STR "1.3.99-1.347"
-> +#define MYRI10GE_VERSION_STR "1.4.3-1.358"
->  
->  MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
->  MODULE_AUTHOR("Maintainer: help@myri.com");
+>  drivers/net/igb/igb_main.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 
-applied
+applied 1, 2, and 5
+
+patches 3 and 4 did not look like -rc4 material
 
 
