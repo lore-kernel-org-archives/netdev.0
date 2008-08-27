@@ -1,51 +1,63 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] netlink: nla_parse_nested_compat was not parsing nested attributes
-Date: Wed, 27 Aug 2008 16:52:42 +0200
-Message-ID: <20080827145242.GU20815@postel.suug.ch>
-References: <20080822005122.4697.26953.stgit@jtkirshe-mobile.jf.intel.com> <20080822005126.4697.16602.stgit@jtkirshe-mobile.jf.intel.com> <20080822.031823.223140487.davem@davemloft.net> <80769D7B14936844A23C0C43D9FBCF0F14E9B94A@orsmsx501.amr.corp.intel.com>
+From: "Tomas Winkler" <tomasw@gmail.com>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 17:55:15 +0300
+Message-ID: <1ba2fa240808270755t2f3d0c28rcb874011f5540ef3@mail.gmail.com>
+References: <20080827013009.GA15781@tuxdriver.com>
+	 <1219831828.3891.3.camel@johannes.berg>
+	 <1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
+	 <200808271510.35950.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"kaber@trash.net" <kaber@trash.net>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Johannes Berg" <johannes@sipsolutions.net>,
+	"Marcel Holtmann" <holtmann@linux.intel.com>,
+	"David Miller" <davem@davemloft.net>, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:56271 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753762AbYH0OwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 10:52:23 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:27675 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbYH0OzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 10:55:17 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so937317ugf.37
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 07:55:16 -0700 (PDT)
+In-Reply-To: <200808271510.35950.mb@bu3sch.de>
 Content-Disposition: inline
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F14E9B94A@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Duyck, Alexander H <alexander.h.duyck@intel.com> 2008-08-22 10:40
-> I figured I would CC Stephen Hemminger and Patrick McHardy since they also will likely have an interest in this.
-> 
-> Just to put together a quick history on this issue I will list off how things got to where they are:
-> 
-> 1.  "[NET_SCHED]: sch_netem: use nla_parse_nested_compat" (http://marc.info/?l=linux-netdev&m=120110639320780&w=2) from Patrick McHardy.  After this patch netem started reporting "bytes leftover after parsing attributes" errors as it wasn't actually receiving a nested compat attribute.  This patch was added around 2.6.25-rc1.
-> 
-> 2.  "[NETLINK]: Fix nla_parse_nested_compat() to call nla_parse() directly" (http://marc.info/?l=linux-netdev&m=121145625328370&w=2) from Thomas Graf.  This resolved the errors but in turn any netlink messages that generated correct nested netlink attributes would have those attributes ignored as they would be automatically parsed out as one attribute with a length of all the nested attributes.  This patch was added around 2.6.26-rc4.
+On Wed, Aug 27, 2008 at 4:10 PM, Michael Buesch <mb@bu3sch.de> wrote:
+> On Wednesday 27 August 2008, Tomas Winkler wrote:
+>> > should use Linux upstream as your development tree and then branch off
+>> > of that for the internal stabilisation trees you need for other
+>> > customers, rather than having some sort of internal development tree and
+>> > branching out Linux upstream as you appear to work.
+>>
+>> Unfortunately fixing bugs on stable branch take precedence  of
+>> adjusting to new API on development branch that someone decided to do.
+>>  I wanted to work directly on wireless testing but it was broken over
+>> an over and I have only limited resources more in testing then in
+>> development I just had to branch out to be ready with the driver when
+>> HW is out. People just check the immediate impact of they fix the
+>> don't test for collateral damage and this is understandable an
+>> individual developer doesn't have lab with IBSS, BSS, AP, etc setups.
+>
+> I think it would be an advantage for you to develop in wireless-testing
+> and use wireless-2.6 and probably additionally some internal trees as
+> stable trees. Like everybody else does it.
 
-This patch was necessary as patch 1 broke the kernel ABI. It not only
-resulted in leftover warnings, it resulted in the interpreation of
-data with a 4 bytes offset which caused random configuration mess.
+I'm not sure what you are taking about, we did post patches to
+wireless-testing, the driver for 5000 HW  is working in 2.6.27-rc4 I
+personally use it every day.  I'm sending bug fixes, like this seris
+of patches is direct answer to bugs that were discovered very
+recently, I'm not sure what's everybody problem here.
 
-"Correct" nested netlink attributes are not supposed to be parsed
-using nla_parse_nested_compat(), nla_parse_nested_compat() is
-exclusively for attributes which contain a list of nested attributes
-without a container attribute.
+> The advantage is simple: You get more people testing your code.
 
-> Patches 3 & 4 haven't been applied yet and are under review:
-> 
-> 3.  "[PATCH 2/3] netlink: nla_parse_nested_compat was not parsing nested attributes" (http://marc.info/?l=linux-netdev&m=121936623112195&w=2) from me.  This reverts patch 2.
-> 
-> 4.  "[PATCH] IPROUTE: correct nla nested message generated by netem_parse_opt" (http://marc.info/?l=linux-netdev&m=121936623112195&w=2) from me.  This patch changes iproute2 netem_parse_opt to generate a correctly formatted set of nested compat attributes that can be parsed after the introduction of patch 1.
+We fixed bugs in wireless-testing/mac80211 that were there for months
+just because we are only one that do any comprehensive validation. I
+don't  want insult anyone and I really exaggeration here but
+sometimes I have feeling that more people are breaking the code.
 
-You can't change ABI! What your patches do is to generate new style nested
-attributes and change nla_parse_nested_compat() to follow the same
-semantisc as nla_parse_nested(). The _compat() is there for a reason.
+Tomas
