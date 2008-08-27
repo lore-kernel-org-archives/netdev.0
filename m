@@ -1,32 +1,30 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: question wrt /drivers/char/tty_io.c in pre 2.6.16 code
-Date: Wed, 27 Aug 2008 09:19:43 -0700
-Message-ID: <20080827161943.GF19710@kroah.com>
-References: <20080820010353.593820280@mini.kroah.org> <20080820010752.GB3365@kroah.com> <48B52064.9070700@pobox.com> <48B578F3.1050908@option.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 18:27:35 +0200
+Message-ID: <20080827162735.GW26610@one.firstfloor.org>
+References: <200808220457.40892.denys@visp.net.lb> <20080826201406.GA24827@2ka.mipt.ru> <48B46B48.7030609@cosmosbay.com> <20080826205158.GA15266@2ka.mipt.ru> <87vdxmr53f.fsf@basil.nowhere.org> <48B57BD3.5050206@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:50266 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756857AbYH0QZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 12:25:04 -0400
 Content-Disposition: inline
-In-Reply-To: <48B578F3.1050908-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <48B57BD3.5050206@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 05:55:31PM +0200, Denis Joseph Barrow wrote:
-> Hi all,
-> In kernels prior to 2.6.16
+> Those banks really want to crank down on latency - to the point they 
+> start disabling interrupt coalescing.  I bet they'd toss anything out 
+> they could to shave another microsecond.
 
-Hm, why do we care about kernels that are 2 1/2 years old?  We can't do
-anything to modify them at this point in time and the only ones
-supporting them are the enterprise distros.
+This change would actually likely lower their latency.
 
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Andi
