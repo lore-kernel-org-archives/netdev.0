@@ -1,92 +1,44 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Wed, 27 Aug 2008 17:50:12 -0300
-Message-ID: <20080827175012.580efae1@tux>
-References: <20080819213417.45133573@tux>
-	<Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
-	<20080822183224.2d52f16c@tux>
-	<20080822.143709.65615512.davem@davemloft.net>
-	<20080823111446.06a350a2@tux>
-	<Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
-	<20080824163843.33b4f890@tux>
-	<Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
-	<20080826141812.589848a0@tux>
-	<Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
-	<20080826181731.4581fd2c@tux>
-	<Pine.LNX.4.64.0808271236080.1034@wrl-59.cs.helsinki.fi>
-	<20080827165142.4bc7b70f@tux>
-	<Pine.LNX.4.64.0808272319520.4693@wrl-59.cs.helsinki.fi>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Question on netlink nested attributes
+Date: Wed, 27 Aug 2008 22:57:56 +0200
+Message-ID: <20080827205756.GW20815@postel.suug.ch>
+References: <80769D7B14936844A23C0C43D9FBCF0F14DEB7D6@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:43732 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbYH0UuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 16:50:22 -0400
-Received: by wx-out-0506.google.com with SMTP id h29so30989wxd.4
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 13:50:21 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0808272319520.4693@wrl-59.cs.helsinki.fi>
+Received: from postel.suug.ch ([194.88.212.233]:38853 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751214AbYH0U5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 16:57:38 -0400
+Content-Disposition: inline
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F14DEB7D6@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Aug 2008 23:32:34 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+* Duyck, Alexander H <alexander.h.duyck@intel.com> 2008-08-20 15:20
+> I have a regression that was found in 2.6.26 in which the multiqueue option for the prio qdisc quit working after the commit referenced at http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.26.y.git;a=commit;h=b9a2f2e450b0f770bb4347ae8d48eb2dea701e24
+> 
+> The issue appears to be that the prio qdisc and the netem qdisc have two different ways that they are nesting the attributes they are passing to the qdisc layer but both use nla_parse_nested_compat.
+> 
+> The prio qdisc is laying out the message something like:
+> hdr0(data+hdr1(hdr2(data)+hdr3(data)))
 
-> Ok. Though this all opens more questions than answers... :-(, why isn=
-'t=20
-> there any traffic in neither of the tcpdumps then (not in the client'=
-s
-> nor in the server's).
+This format should use nla_parse_nested(data+sizeof(*data)), this is
+the "regular" way.
 
-	Very strange. In this topic, I saw the discussion about some
-routers messing with traffic and frto related stuff, right? My server
-is behind some routers that I don't know (because it's not me who
-controls these routers). So if the problem is with some of these
-routers, I'm afraid we can do nothing about that.
+> The netem qdisc is laying out the message something like:
+> hdr0(data+hdr2(data)+hdr3(data))
 
-> I don't think it was bad at all... :-) I just meant that there wasn't=
- any=20
-> other visible traffic, which is very very strange because nothing por=
-t 995=20
-> related (or anything else) seems to happen during the nmap... Which=20
-> network interfaces the server has? Could things get routed through so=
-me=20
-> other iface during the time of trouble (and during the nmap solution)=
-,=20
-> that would explain why it isn't visible in the tcpdump which is for t=
-he=20
-> specific interface.
+This is the outdated way and thus "compat". Use
+nla_parse_nested_compat().
 
-fraga@teleporto ~$ ip route list
-10.1.0.6 dev tun2  proto kernel  scope link  src 10.1.0.5=20
-10.195.195.1 dev tun1  proto kernel  scope link  src 10.195.195.2=20
-192.168.102.0/24 via 10.1.0.6 dev tun2=20
-200.211.201.0/24 dev eth1  proto kernel  scope link  src
-200.211.201.248 189.38.0.0/16 dev eth0  proto kernel  scope link  src
-189.38.18.122 default via 189.38.18.121 dev eth0=20
+> The question is which format is correct.  Just need to know so I can go about getting them both working the same way.
 
-	Well, if that's the problem I'll be very ashamed for wasting
-your time. Anyway, eveything should go to eth0 interface, through
-189.38.18.121 gateway.
-
-	The eth1 interface (200.211.201.248) is an old interface which
-we do not use anymore. So I'm right now deactivating it (I should do
-that for a long time ago). Let's see if the problem remains or not
-(although I have other servers with multiple interfaces and everything
-is fine, since, as far as I understand, what matters is the default
-gateway -- I think that there's no reason to Linux send something to
-eth1 interface since there's only one default gateway).
-
-	Anyway I'm dropping eth1 interface. I'll wait a few days before
-confirming if that's the problem or not.
-
-	Thanks again.
-
---=20
+The format as used in prio qdisc is the preferred format. Nevertheless,
+the netem format can't be changed, it is part of the ABI, therefore the
+compat functions were added.
