@@ -1,37 +1,70 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2] net/usb/mcs7830: new device IDs
-Date: Wed, 27 Aug 2008 05:57:36 -0400
-Message-ID: <48B52510.7010402@pobox.com>
-References: <200808232202.23822.arnd@arndb.de>
+From: "Tomas Winkler" <tomasw@gmail.com>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 13:05:23 +0300
+Message-ID: <1ba2fa240808270305m7f505efak9fd0d36d5db09a1e@mail.gmail.com>
+References: <20080827013009.GA15781@tuxdriver.com>
+	 <1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
+	 <20080827.014041.230100807.davem@davemloft.net>
+	 <1219835410.5359.24.camel@californication>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Viktor Horvath <ViktorHorvath@gmx.net>,
-	Robbert Wethmar <robbert@wethmar.nl>,
-	Bart van der Klip <bklip@xs4all.nl>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42056 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754264AbYH0J56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:57:58 -0400
-In-Reply-To: <200808232202.23822.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David Miller" <davem@davemloft.net>, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Marcel Holtmann" <holtmann@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755439AbYH0KFm@vger.kernel.org>
+In-Reply-To: <1219835410.5359.24.camel@californication>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann wrote:
-> This adds USB device IDs for MosChip 7730 and Sitecom LN030
-> to the mcs7830 driver. The IDs have been reported to work without
-> further modifications.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: David Brownell <david-b@pacbell.net>
-> Cc: Viktor Horvath <ViktorHorvath@gmx.net>
-> Cc: Robbert Wethmar <robbert@wethmar.nl>
-> Cc: Bart van der Klip <bklip@xs4all.nl>
+On Wed, Aug 27, 2008 at 2:10 PM, Marcel Holtmann
+<holtmann@linux.intel.com> wrote:
+> Hi Dave,
+>
+>> > Afther massive ath9k merge I didn't see it was a conceptual problem.
+>>
+>> Stop right there.
+>>
+>> You don't see it as a problem because you're not the one who has to
+>> explain all of this shit to Linus and ends up getting flamed by him
+>> when inappropriate changes are in my tree outside of the merge window.
+>
+> I did a quick review of the offending patch queue. And some of them
+> should go in since they are fixing real bugs (as far as I can tell from
+> a quick review). Others have to clearly wait for the next merge window.
+>
+> Thomas, please go through the list of patches and pick the real bug
+> fixes. The cleanup patches can't go in since they are after the merge
+> window.
 
-applied 1-2
+I just repeat myself again, for the current series except the scanning
+cleaning patches these patches
+are must. This particular patch is there just because the hidden AP
+connectivity fixes were stacked above it.
 
+ And being one of the offenders why Dave got flamed by Linus,
+> there is no way to get these through. And my big offender was a
+> regression that broke userspace and came with a lengthy commit message.
 
+There is a central problem here, since I cannot really adjust driver
+development progress from obvious reason with Linux merging window.
+Upstream kernel is unfortunately not the only customer I report to. So
+actually stable versions got half backed drivers depending on some
+arbitrary time cut from my (selfish) development point of view.
+In this particular point we are really only cleaning bug database, our
+mistake here is that we didn't export these bug to external bugzilla.
+
+> Speaking of which, you better have a more convincing commit message if
+> you wanna get something in after the merge window. It should make clear
+> why this is a bug or a regression and why it can't wait until the next
+> merge window.
+
+Yes, I've already got this message on 3 channels already :)
+
+> Please take this into account for any future patches since Linus now set
+> a really high bar for patches after the merge window.
+
+Understood.
+Tomas
