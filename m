@@ -1,39 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] pkt_sched: Destroy gen estimators under rtnl_lock().
-Date: Wed, 27 Aug 2008 19:56:28 +1000
-Message-ID: <20080827095628.GB12583@gondor.apana.org.au>
-References: <20080824202922.2cc9b9f6@speedy> <20080826073508.GA1039@gondor.apana.org.au> <20080826074702.GA1102@gondor.apana.org.au> <20080827.023240.41876858.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch for 2.6.27? 4/5] forcedeth: fix checksum flag
+Date: Wed, 27 Aug 2008 05:57:23 -0400
+Message-ID: <48B52503.8070309@garzik.org>
+References: <200808202334.m7KNYbpF005035@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, jarkao2@gmail.com, netdev@vger.kernel.org,
-	denys@visp.net.lb, jussi.kivilinna@mbnet.fi
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, jgarzik@pobox.com,
+	manfred@colorfullife.com, stable@kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60646 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755084AbYH0J4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:56:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20080827.023240.41876858.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:42041 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753067AbYH0J51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:57:27 -0400
+In-Reply-To: <200808202334.m7KNYbpF005035@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 02:32:40AM -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Tue, 26 Aug 2008 17:47:02 +1000
+akpm@linux-foundation.org wrote:
+> From: Ayaz Abdulla <aabdulla@nvidia.com>
 > 
-> > BTW, the use of the CB area conflicts with the new pkt_len stuff
-> > so either netem or the pkt_len code needs to be fixed.
+> Fix the checksum feature advertised in device flags.  The hardware support
+> TCP/UDP over IPv4 and TCP/UDP over IPv6 (without IPv6 extension headers). 
+> However, the kernel feature flags do not distinguish IPv6 with/without
+> extension headers.
 > 
-> Netem should be just fine, it's using the opaque ->data[]
-> blob at the end of qdisc_skb_cb which was created exactly
-> for this purpose I imagine. :)
+> Therefore, the driver needs to use NETIF_F_IP_CSUM instead of
+> NETIF_F_HW_CSUM since the latter includes all IPv6 packets.
 > 
-> Let me know if I missed something.
+> A future patch can be created to check for extension headers and perform
+> software checksum calculation.
+> 
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Cc: Jeff Garzik <jgarzik@pobox.com>
+> Cc: Manfred Spraul <manfred@colorfullife.com
+> Cc: <stable@kernel.org>		[2.6.25.x, 2.6.26.x]
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-You're right I missed that bit :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+applied, although for future reference, read the top of 
+include/linux/skbuff.h, most notably:
+
+  *          NOTE: Even if device supports only some protocols, but
+  *          is able to produce some skb->csum, it MUST use COMPLETE,
+  *          not UNNECESSARY.
+
