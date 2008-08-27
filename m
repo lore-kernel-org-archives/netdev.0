@@ -1,61 +1,82 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Wed, 27 Aug 2008 19:27:07 +0200
-Message-ID: <48B58E6B.1030302@cosmosbay.com>
-References: <200808220457.40892.denys@visp.net.lb> <20080826201406.GA24827@2ka.mipt.ru> <48B46B48.7030609@cosmosbay.com> <20080826205158.GA15266@2ka.mipt.ru> <87vdxmr53f.fsf@basil.nowhere.org> <48B57BD3.5050206@hp.com> <20080827162735.GW26610@one.firstfloor.org> <48B58586.3080806@hp.com> <20080827165635.GY26610@one.firstfloor.org>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [PATCH] forcedeth fix: tx/rx reset
+Date: Wed, 27 Aug 2008 10:37:27 -0400
+Message-ID: <48B566A7.8060409@nvidia.com>
+References: <48B2EDBA.6070802@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <AAbdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp20.orange.fr ([193.252.22.31]:36935 "EHLO smtp20.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750798AbYH0R1P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 13:27:15 -0400
-In-Reply-To: <20080827165635.GY26610@one.firstfloor.org>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:16055 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbYH0RkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 13:40:21 -0400
+In-Reply-To: <48B2EDBA.6070802@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen a =E9crit :
-> On Wed, Aug 27, 2008 at 09:49:10AM -0700, Rick Jones wrote:
->> Andi Kleen wrote:
->>>> Those banks really want to crank down on latency - to the point th=
-ey=20
->>>> start disabling interrupt coalescing.  I bet they'd toss anything =
-out=20
->>>> they could to shave another microsecond.
->>>
->>> This change would actually likely lower their latency.
->> I'm guessing you mean increase their latency?  I agree, it could -=20
->> depends entirely on the PPS in production I suspect.
->=20
-> No, moving the time stamps into the socket decreases latency
-> for all packets that don't need time stamps. And they likely=20
-> have some packets which don't need time stamps too.
->=20
-> As a secondary effect if they use a RT kernel it might
-> be also beneficial to do the (depending on the platform)
-> costly time stamp in the lower priority socket context
-> than in the high priority interrupt thread.
->
+I am retracting this path for the time being because we believe there is 
+other circumstances in play. Once the final root cause is found, I can 
+send out the correct patch.
 
-Doing the expensive timestamping in a possibly delayed thread (ie some =
-milliseconds
- after hardware notification) is wrong/useless.
-
-Better use plain xtime instead of getnstimeofday() in this case.
-
-We could provide a sysctl setting so that admin can chose between preci=
-se timestamps
-(current behavior) or fast but low resolution timestamping (xtime based=
-)
+Ayaz
 
 
-
-
-
+Ayaz Abdulla wrote:
+> This patch keeps the HW reset for tx/rx asserted until DMA is enabled.
+> This is to ensure that all tx/rx initialization (i.e ring setup) is
+> finished before de-asserting the reset.
+> 
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> --- old/drivers/net/forcedeth.c	2008-08-25 13:02:17.000000000 -0400
+> +++ new/drivers/net/forcedeth.c	2008-08-25 13:02:20.000000000 -0400
+> @@ -233,7 +233,7 @@
+>  	NvRegTxRxControl = 0x144,
+>  #define NVREG_TXRXCTL_KICK	0x0001
+>  #define NVREG_TXRXCTL_BIT1	0x0002
+> -#define NVREG_TXRXCTL_BIT2	0x0004
+> +#define NVREG_TXRXCTL_DMA_DISABLE	0x0004
+>  #define NVREG_TXRXCTL_IDLE	0x0008
+>  #define NVREG_TXRXCTL_RESET	0x0010
+>  #define NVREG_TXRXCTL_RXCHECK	0x0400
+> @@ -1555,11 +1555,9 @@
+>  	u8 __iomem *base = get_hwbase(dev);
+>  
+>  	dprintk(KERN_DEBUG "%s: nv_txrx_reset\n", dev->name);
+> -	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+> +	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+>  	pci_push(base);
+>  	udelay(NV_TXRX_RESET_DELAY);
+> -	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
+> -	pci_push(base);
+>  }
+>  
+>  static void nv_mac_reset(struct net_device *dev)
+> @@ -1570,7 +1568,7 @@
+>  
+>  	dprintk(KERN_DEBUG "%s: nv_mac_reset\n", dev->name);
+>  
+> -	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+> +	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
+>  	pci_push(base);
+>  
+>  	/* save registers since they will be cleared on reset */
+> @@ -1589,9 +1587,6 @@
+>  	writel(temp1, base + NvRegMacAddrA);
+>  	writel(temp2, base + NvRegMacAddrB);
+>  	writel(temp3, base + NvRegTransmitPoll);
+> -
+> -	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
+> -	pci_push(base);
+>  }
+>  
+>  static void nv_get_hw_stats(struct net_device *dev)
+> 
