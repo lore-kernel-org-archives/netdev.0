@@ -1,77 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
-Date: Wed, 27 Aug 2008 17:17:15 +1000
-Message-ID: <20080827071714.GA30536@verge.net.au>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com> <20080821011715.GG19235@verge.net.au> <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com> <20080821212948.GB4407@verge.net.au>
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 10:38:56 +0300
+Message-ID: <1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
+References: <20080827013009.GA15781@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
-	vbusam@google.com, Sven Wegener <sven.wegener@stealer.net>
-To: Julius Volz <juliusv@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20080827013009.GA15781-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20080821212948.GB4407@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Here is a second round of thoughts after having gone through the whole series.
+On Wed, Aug 27, 2008 at 4:30 AM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> Dave,
+>
+> Here is the latest round of fixes intended for 2.6.27.  I think
+> the non-iwlwifi ones are pretty solid.  As for the iwlwifi ones,
+> the Intel guys assure me that these are important changes.
+>
+> You will notice that (despite my exhortations) no less than two of
+> the iwlwifi patches declare themselves as cleanups.  I have included
+> them anyway because the later fixes depend on them and they seemed
+> harmless enough.  Plus, they were posted (or at least written) before
+> the recent fireworks about what we should be merging after -rc1...
+>
+PCI cleanup patch is badly named. It fixes PCI registers sizes and ads
+one forgotten hw workaround
+I called it cleanup because it went through all PCI accesses we have
+in the driver.
 
+Scan cleanup was requested because of dependencies but it's harmless,
+we can rebase the patches
+prefer not it's just waste of time. Afther massive ath9k merge I
+didn't see it was a conceptual problem.
 
-[PATCH RFC 06/24] IPVS: Add debug macros for v4 and v6 address output
-
-* The #defines in ip_vs_dbg_addr seem a bit aquard.
-  Could it be rearanged liks this?
-
-static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
-					const union nf_inet_addr *addr,
-					int *idx)
-{
-       int len;
-#ifdef CONFIG_IP_VS_IPV6
-       if (af == AF_INET6)
-	       len = snprintf(&buf[*idx], buf_len - *idx, "[" NIP6_FMT "]",
-			      NIP6(addr->in6)) + 1;
-       else
-#endif
-	       len = snprintf(&buf[*idx], buf_len - *idx, NIPQUAD_FMT,
-			      NIPQUAD(addr->ip)) + 1;
-
-       *idx += len;
-       return &buf[*idx - len];
-}
-
-* The comment "/* Only use from within IP_VS_DBG_BUF() macro */"
-  should also mention usage inside IP_VS_ERR_BUF()
-
-* If IP_VS_DBG_ADDR() is used more than once inside a single
-  IP_VS_DBG_BUF() or IP_VS_ERR_BUF() call, won't ip_vs_dbg_buf
-  be set to the value one of the  calls to IP_VS_DBG_ADDR,
-  thus overwriting other calls and producing incorrect debugging
-  output?
-
-[PATCH RFC 15/24] IPVS: Add support for IPv6 entry output in procfs files
-
-* The netlink-aware ipvsadm code also seems to allow for dotted-quad
-  representation of ipv4 addresses in proc. Is that representation used
-  or planned to be used?
-
-[PATCH RFC 17/24] IPVS: Make proc/net files output IPv6 entries
-
-* It might be cleaner to do:
-
-#ifdef CONFIG_IP_VS_IPV6
-	if (cp->af == AF_INET6)
-		seq_printf ...
-	else
-#endif
-		seq_printf ...
-
-
-General
-
-* You need to reorder and or merge patches such that after each
-  patch is applied the code will build and run. It is ok for
-  a patch to add code which isn't used until a later patch is applied.
-
-* Where possible please make lines <= 80 columns wide
-
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
