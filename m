@@ -1,71 +1,45 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 2.6.27] ixgbe: initialize interrupt throttle rate
-Date: Wed, 27 Aug 2008 15:48:14 -0700
-Message-ID: <1219877294.30033.4.camel@jbrandeb-ich9b.jf.intel.com>
-References: <20080827215014.GA14386@gospo.rdu.redhat.com>
+From: "John Heffner" <johnwheffner@gmail.com>
+Subject: Re: about Linux adaptivly adjusting ssthresh
+Date: Wed, 27 Aug 2008 15:48:44 -0700
+Message-ID: <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
+References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
+	 <20080416.012732.152357000.davem@davemloft.net>
+	 <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
+	 <20080416.023551.70464279.davem@davemloft.net>
+	 <000001c90852$a1c19a50$a05ee183@D2GT6T71>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org,
-	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: "David Miller" <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org
+To: wenji@fnal.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:53706 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752301AbYH0WsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 18:48:16 -0400
-In-Reply-To: <20080827215014.GA14386@gospo.rdu.redhat.com>
+Received: from an-out-0708.google.com ([209.85.132.247]:12503 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753038AbYH0Wsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 18:48:45 -0400
+Received: by an-out-0708.google.com with SMTP id d40so15876and.103
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 15:48:44 -0700 (PDT)
+In-Reply-To: <000001c90852$a1c19a50$a05ee183@D2GT6T71>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-08-27 at 17:50 -0400, Andy Gospodarek wrote:
-> This commit dropped the setting of the default interrupt throttle rate.
-> 
-> commit 021230d40ae0e6508d6c717b6e0d6d81cd77ac25
-> Author: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>
-> Date:   Mon Mar 3 15:03:45 2008 -0800
->     
->     ixgbe: Introduce MSI-X queue vector code
->     
-> The following patch adds it back.  Without this the default value of 0
-> causes the performance of this card to be awful.  Restoring these to the
-> default values yields much better performance.
-> 
-> This regression has been around since 2.6.25.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> CC: stable@kernel.org [2.6.25 and later]
+On Wed, Aug 27, 2008 at 7:38 AM, Wenji Wu <wenji@fnal.gov> wrote:
+>
+> Hi, all,
+>
+> Could anybody help me out with Linux adaptively adjusting ssthresh? Thanks
+> in advance.
+>
+> I understand that the latest Linux is able to adaptively adjust ssthresh to
+> avoid retransmission. Could anybody tell me which algorithms have been
+> implemented for the adaptive ssthresh adjust?
 
-We hadn't heard about this, but more specifically, this bug effects UDP
-transmit performance because the interrupt rate on the tx vectors was so
-low.  Here is what I got in testing against 2.6.27-rc3, there was no
-appreciable difference testing with TCP on a back to back setup.
 
-before
-======
-[root linux-2.6]# netperf -H lh2-10 -t UDP_STREAM -C -c
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-lh2-10 (10.0.0.1) port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU
-Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+A little more detail would be helpful.  Are you referring to caching
+ssthresh between connections, or something going on during a
+connection?  Various congestion control modules use ssthresh
+differently, so a comprehensive answer would be difficult.
 
-112640   65507   10.00        1964      0      102.9     26.35    90.483
-122880           10.00        1821              95.4     1.35     4.643 
-
-after patch
-===========
-[root linux-2.6]# netperf -H lh2-10 -t UDP_STREAM -C -c
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-lh2-10 (10.0.0.1) port 0 AF_INET
-Socket  Message  Elapsed      Messages                   CPU
-Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-
-112640   65507   10.00       51641      0     2706.2     32.63    5.016 
-122880           10.00       40675            2131.5     30.95    4.758 
-
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-
+  -John
