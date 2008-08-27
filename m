@@ -1,39 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Wed, 27 Aug 2008 14:19:19 +1000
-Message-ID: <E1KYCV5-0002jW-00@gondolin.me.apana.org.au>
-References: <48B452ED.1000308@hhs.nl>
-Cc: dada1@cosmosbay.com, davej@redhat.com, netdev@vger.kernel.org
-To: j.w.r.degoede@hhs.nl (Hans de Goede)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60750 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750703AbYH0ETh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 00:19:37 -0400
-In-Reply-To: <48B452ED.1000308@hhs.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure
+Date: Wed, 27 Aug 2008 14:54:49 +1000
+Message-ID: <20080827145449.2790d97d.sfr@canb.auug.org.au>
+References: <20080827100656.0f87e6b2.sfr@canb.auug.org.au>
+	<200808271255.22789.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <200808271255.22789.rusty@rustcorp.com.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hans de Goede <j.w.r.degoede@hhs.nl> wrote:
-> Eric Dumazet wrote:
+Hi Rusty,
+
+On Wed, 27 Aug 2008 12:55:22 +1000 Rusty Russell <rusty@rustcorp.com.au> wrote:
 >
->> # dmesg | grep "TCP established hash"
->> TCP established hash table entries: 262144 (order: 10, 4194304 bytes)
->> # time cat /proc/net/tcp >/dev/null
->> 
->> real    0m0.091s
->> user    0m0.001s
->> sys     0m0.090s
+> On Wednesday 27 August 2008 10:06:56 Stephen Rothwell wrote:
+> > Introduced by commit 4cb9da6ecc2b0e25056b45981239475f8509d59d ("remove
+> > CONFIG_KMOD from net") which added a !CONFIG_MODULES (static inline)
+> > version of dev_load() to include/linux/netdevice.h but the copy in
+> > net/core/dev.c is not protected by CONFIG_MODULES.
 > 
-> As quoted above my idle x86_64, using the exact same hash table size, running 
-> 2.6.27-rc2.git1 uses 0.520 seconds for that same command, thats a difference of 
-> more then a factor 50 !!
+> Thanks.  I've fixed this the simplest way: remove the change to the header.
 
-That looks like a factor of 5 to me, not 50.
+So, for today, I have applied the following patch after importing the rr
+tree:
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 27 Aug 2008 14:45:37 +1000
+Subject: [PATCH] rr: build fix for remove CONFIG_KMOD from net
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ include/linux/netdevice.h |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b215744..2254eb8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1639,11 +1639,7 @@ extern int		dev_set_allmulti(struct net_device *dev, int inc);
+ extern void		netdev_state_change(struct net_device *dev);
+ extern void		netdev_bonding_change(struct net_device *dev);
+ extern void		netdev_features_change(struct net_device *dev);
+-#ifdef CONFIG_MODULES
+ extern void		dev_load(struct net *net, const char *name);
+-#else
+-static inline void	dev_load(struct net *net, const char *name) {};
+-#endif
+ extern void		dev_mcast_init(void);
+ extern int		netdev_max_backlog;
+ extern int		weight_p;
+-- 
+1.5.6.5
