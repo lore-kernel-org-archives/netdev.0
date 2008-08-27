@@ -1,39 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [UPDATED PATCH] igb: remove 82576 quad adapter
-Date: Wed, 27 Aug 2008 05:37:17 -0400
-Message-ID: <48B5204D.508@garzik.org>
-References: <20080808235126.19264.39654.stgit@localhost.localdomain>
+Subject: Re: [PATCH] ibmveth: fix bad UDP checksums
+Date: Wed, 27 Aug 2008 05:37:49 -0400
+Message-ID: <48B5206D.2010502@garzik.org>
+References: <20080820190826.24896.41095.62294@soporte.mitelefono.ec>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org
+To: Santiago Leon <santil@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59085 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59114 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753887AbYH0JhU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:37:20 -0400
-In-Reply-To: <20080808235126.19264.39654.stgit@localhost.localdomain>
+	id S1755171AbYH0Jhx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:37:53 -0400
+In-Reply-To: <20080820190826.24896.41095.62294@soporte.mitelefono.ec>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+Santiago Leon wrote:
+> This patch fixes a ibmveth bug where bad UDP checksums are being transmitted 
+> when checksum offloading is enabled.
+> The hypervisor does checksum offloading only on TCP packets, so ibmveth calls 
+> skb_checksum_help() for any other protocol.  The bug happens because 
+> the packet is being modified after the DMA map, so we would need a memory 
+> barrier before making the hypervisor call.  Reordering the code so that the 
+> DMA map happens after skb_checksum_help() has the additional advantage of 
+> fixing a DMA map leak if skb_checksum_help() where to fail.
 > 
-> Disable support for device 8086:10E8.  Currently the result of loading the
-> driver with the device present causes system instability.
+> Please consider applying.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Santiago Leon <santil@us.ibm.com>
 > ---
 > 
->  drivers/net/igb/e1000_82575.c |    1 -
->  drivers/net/igb/e1000_hw.h    |    1 -
->  drivers/net/igb/igb_ethtool.c |    9 ---------
->  drivers/net/igb/igb_main.c    |   11 -----------
->  4 files changed, 0 insertions(+), 22 deletions(-)
+>  ibmveth.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
 
 applied
 
