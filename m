@@ -1,64 +1,67 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/6] Pull request for 'r8169-fixes' branch
-Date: Wed, 27 Aug 2008 05:42:41 -0400
-Message-ID: <48B52191.2020309@garzik.org>
-References: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
+Subject: Re: [patch for 2.6.27? 5/5] forcedeth: fix kexec regression
+Date: Wed, 27 Aug 2008 05:48:02 -0400
+Message-ID: <48B522D2.4090605@garzik.org>
+References: <200808202334.m7KNYcff005038@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>,
-	Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, rjw@sisk.pl, aabdulla@nvidia.com,
+	yhlu.kernel@gmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52877 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:58445 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753635AbYH0Jmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:42:45 -0400
-In-Reply-To: <20080817162330.GA18690@electric-eye.fr.zoreil.com>
+	id S1754153AbYH0JsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:48:07 -0400
+In-Reply-To: <200808202334.m7KNYcff005038@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> Please pull from branch 'r8169-fixes' in repository
+akpm@linux-foundation.org wrote:
+> From: Rafael J. Wysocki <rjw@sisk.pl>
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-fixes
+> Fix regression tracked as http://bugzilla.kernel.org/show_bug.cgi?id=11361
+> and caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2 ("[netdrvr]
+> forcedeth: setup wake-on-lan before shutting down") that makes network
+> adapters integrated into the NVidia MCP55 chipsets fail to work in kexeced
+> kernels.  The problem appears to be that if the adapter is put into D3_hot
+> during ->shutdown(), it cannot be brought back into D0 after kexec (ref. 
+> http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore, only
+> put forcedeth into D3 during ->shutdown() if the system is to be powered
+> off.
 > 
-> to get the changes below.
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> Tested-by: Yinghai Lu <yhlu.kernel@gmail.com>
+> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
 > 
-> Distance from 'upstream-davem' (d6f8aa8586dabe605454f3c98a5c1a577c3e0cfb)
-> -------------------------------------------------------------------------
+>  drivers/net/forcedeth.c |    8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
 > 
-> 2857ffb7b8913ef713533ac5783abd70a20529e4
-> dacf815434a4d5f5b45687873df46927c64cfb19
-> f162a5d1b326d54b0be7e3100f69763d8a707721
-> 9c14ceafa5ca7f57225a43fb0785c56ddc7f1823
-> 458a9f617adfb2fc5f38e7673339115c4ba3290f
-> ccdffb9a88b2907b159538d7bfd6256621db4f84
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/r8169.c |  401 ++++++++++++++++++++++++++++++++++++++++++---------
->  1 files changed, 335 insertions(+), 66 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Francois Romieu (6):
->       r8169: get ethtool settings through the generic mii helper
->       r8169: Tx performance tweak helper
->       r8169: use pci_find_capability for the PCI-E features
->       r8169: add 8168/8101 registers description
->       r8169: add hw start helpers for the 8168 and the 8101
->       r8169: additional 8101 and 8102 support
+> diff -puN drivers/net/forcedeth.c~forcedeth-fix-kexec-regression drivers/net/forcedeth.c
+> --- a/drivers/net/forcedeth.c~forcedeth-fix-kexec-regression
+> +++ a/drivers/net/forcedeth.c
+> @@ -5990,10 +5990,12 @@ static void nv_shutdown(struct pci_dev *
+>  	if (netif_running(dev))
+>  		nv_close(dev);
+>  
+> -	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+> -	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
+>  	pci_disable_device(pdev);
+> -	pci_set_power_state(pdev, PCI_D3hot);
+> +	if (system_state == SYSTEM_POWER_OFF) {
+> +		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
+> +			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
+> +		pci_set_power_state(pdev, PCI_D3hot);
+> +	}
+>  }
 
-The patches look fine, but it wasn't really -rc3 material (released Aug 
-13, you posted this Aug 17) to add register descriptions and new 
-hardware support.
+All,
 
-Is any of this critical for 2.6.27?
-
-I already applied the map/unmap fix.
+Is this the final version of this patch?
 
 	Jeff
 
