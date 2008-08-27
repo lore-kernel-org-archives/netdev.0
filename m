@@ -1,74 +1,65 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
-Date: Wed, 27 Aug 2008 21:09:57 +0400
-Message-ID: <48B58A65.5060906@openvz.org>
-References: <48B5815D.4010005@openvz.org> <Pine.LNX.4.64.0808271948000.4539@wrl-59.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 19:14:31 +0200
+Message-ID: <48B58B77.2000101@gmail.com>
+References: <200808220457.40892.denys@visp.net.lb>	<20080826201406.GA24827@2ka.mipt.ru>	<48B46B48.7030609@cosmosbay.com>	<20080826205158.GA15266@2ka.mipt.ru>	<87vdxmr53f.fsf@basil.nowhere.org> <20080827091706.574f2fae@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:33518 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750746AbYH0RKF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 13:10:05 -0400
-In-Reply-To: <Pine.LNX.4.64.0808271948000.4539@wrl-59.cs.helsinki.fi>
+Received: from ug-out-1314.google.com ([66.249.92.168]:49881 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751339AbYH0ROG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 13:14:06 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so966121ugf.37
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 10:14:05 -0700 (PDT)
+In-Reply-To: <20080827091706.574f2fae@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
-> On Wed, 27 Aug 2008, Pavel Emelyanov wrote:
->=20
->> After turning IP_XXX_STATS, TCP_XXX_STATS and NET_XXX_STATS from
->> macros into functions the net/ipv4/built-in.o shrank significantly:
+Stephen Hemminger wrote, On 08/27/2008 06:17 PM:
+
+> On Wed, 27 Aug 2008 14:54:12 +0200
+> Andi Kleen <andi@firstfloor.org> wrote:
+> 
+>> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+>>> Yup, this innocent toys can end up with this such behaviour on modern
+>>> highly loaded machines.
+>> I and also other people had some patches to move the time stamp
+>> measuring into the socket. This way the time stamping didn't need to
+>> be enabled on all packets, only on those that actually end up at a
+>> socket that requires the time stamp.
 >>
->> add/remove: 14/0 grow/shrink: 0/67 up/down: 482/-2246 (-1764)
+>> Unfortunately DaveM didn't like it because some bank wanted
+>> different semantics, see the discussion in 
+>> http://thread.gmane.org/gmane.linux.network/91679
 >>
->> Turning the CONFIG_NET_NS option on makes this shrink even larger:
+>> Perhaps you can find out which bank it was and send them a bill for
+>> your CPU time ;-)
 >>
->> add/remove: 14/0 grow/shrink: 0/67 up/down: 478/-2646 (-2168)
->=20
-> Is there perhaps some DEBUG related config that could bloat these num=
-bers?
+>> -Andi
+>>
+> 
+> Look at /proc/net/ptype to see if any AF_PACKET sockets are open.
+> There are several causes of this:
+>    * Applications like DHCP use AF_PACKET when they could use something else
+>    * AF_PACKET API was poorly designed and always has timestamps
+>    * The choice was made to get more accurate timestamps by stamping early in
+>      receive code. A better alternative would be to do it in protocol handler
+>      after the socket filter. Sorry, Andi socket layer is too late.
+>    * No driver is using hardware mechanisms to get accurate/free timestamps.
+>      I was working on sky2, but never was stable/complete.
+> 
+> Easist advice now is to fix userspace.
 
-Nope. I only had a DEBUG_BUG_VERBOSE turned on in my experiments.
+And what is working advice?
 
-> ...I didn't come up with anything obvious when I quickly looked the=20
-> definations but I might have missed something.
+Why exactly admin can't chose between 2 alternatives here?
 
-Well, looking at NET_INC_STATS_BH as a function
-
-000000a9 <NET_INC_STATS_BH>:
-      a9:       8b 40 74                mov    0x74(%eax),%eax
-      ac:       64 8b 0d 00 00 00 00    mov    %fs:0x0,%ecx
-                        af: R_386_32    per_cpu__cpu_number
-      b3:       f7 d0                   not    %eax
-      b5:       8b 04 88                mov    (%eax,%ecx,4),%eax
-      b8:       ff 04 90                incl   (%eax,%edx,4)
-      bb:       c3                      ret
-
-I guess that the heaviest thing there is smp_processor_id, which=20
-is 7 bytes out of 19 total.
-
-Actually the complete bloat-o-meter.sh output showed that there were=20
-~10 functions, that became 8 bytes liter, ~10 that became 12-16 bytes
-liter and so on. This makes me think, that the code in the macro
-itself is pretty small, but is used widely in the networking code,
-and this spread makes such a big bloat.
-
->> So the question is - what was the reason to keep those as macros?
->> I thought about the possible performance questions, but netperf
->> didn't show any (I admit I just cannot cook it properly).
->=20
-> IMHO, even if there would be some performance regression, only the
-> most hottest paths would need to have it inlined, the rest would be
-> quite fine having it as a function.
-
-OK, thanks Ilpo. I'll then look at how to make this more beautiful=20
-and send to Dave.
-
-> --
->  i.
->=20
-
+Jarek P.
