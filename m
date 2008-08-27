@@ -1,343 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Wed, 27 Aug 2008 16:46:49 -0700 (PDT)
-Message-ID: <20080827.164649.87042354.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
+Date: Thu, 28 Aug 2008 09:48:01 +1000
+Message-ID: <20080827234759.GA9336@verge.net.au>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com> <20080821011715.GG19235@verge.net.au> <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com> <20080821212948.GB4407@verge.net.au> <20080827071714.GA30536@verge.net.au> <f4845fc0808270809nfd79798ob528778228645915@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44716
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754454AbYH0Xqx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 19:46:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
-1) Build fix of 8390 layer from Alan Cox.
-
-2) IGB driver bug fixes from Alexander Duyck:
-      a) Incorrect VLAN register programming
-      b) Fix RX hang condition by forcing all queues to interrupt every=
- 2 secs
-      c) ethtool -d accidently masks off interrupts, whoops...
-      d) Fix setting of number of TX queues when in MSI-X only mode
-      e) Remove 82576 quad adapter PCI IDs, these don't work properly y=
-et
-
-3) Add new device ID for MCS7830 USB adapter, from Arnd Bergmann
-
-4) In forcedeth driver, make the checksum feature setting match what th=
-e
-   hardware can actually do, from Ayaz Abdulla.
-
-5) ibm_newemac calls dev_mc_add() before the device is even registered,
-   fix from Benjamin Herrenschmidt.
-
-6) Two atmel wireless driver fixes from Dan Williams:
-   a) Try open system authentication when shared key fails.
-   b) Return correct error code on request_firmware() failure
-
-7) Two HSO driver fixes from Denis Joseph Barrow
-   a) dev_kfree_skb() called twice on same packet during resume
-   b) Icon-322 entry in hsi_ids[] table was incorrect
-
-8) Eugene Teo noticed some bogus capability checks in SBNI wan
-   driver, it was doing direct checks of current->euid :-)
-
-9) rfkill_claim_show() was missing a line break in output,
-   from Felipe Balbi.
-
-10) r8169 DMA mapping leak fix from Francois Romieu, size argument
-    to pci_unmap_single() was incorrect.
-
-11) qeth driver should use -EOPNOTSUPP instead of -ENOTSUPP, from
-    Ursula Braun.  Also, qeth forgets to post unicast address list
-    to the hardware in some circumstances, from Frank Blaschka.
-
-12) fs_enet_rx_napi() crash fix in fs_enet driver from Heiko Schocher.
-
-13) Hugh Dickins fixed a brown paper bag issue in the recent ipv4
-    sysctl bits from Al Viro.
-
-14) Missing braces in atl1e driver, fix from Ilpo Jarvinen.
-
-15) MAC80211 layer fix from Jan-Espen Pettersen so that we do not
-    emit empty extended rates IE frames.
-
-16) Four packet scheduler layer locking fixes from Jarek Poplawski:
-    a) dev_graft_qdisc() locks the wrong qdisc
-    b) Same problem in sch_tree_lock()
-    c) Some dev_queue->qdisc assignments were missing rcu_assign_pointe=
-r()
-    d) Wrong qdisc root passed to gen_replace_estimator(), thus wrong
-       qdisc being locked by that code.
-
-17) atl1 is showing problems now that TSO was enabled by default, turn
-    it back off by default until we know what the problem is, from
-    Jay Cliburn.
-
-18) Fix smc91x null pointer deref in resource removal, from Jeff Garzik=
-=2E
-
-19) e100 uses plain readX() on iomap memory, from Jiri Slaby
-
-20) Two ath5k bug fixes from Jiri Slaby:
-    a) Beacon set and config can race with beacon sendng
-    b) bintval needs to be setup earlier to be accurate
-
-21) Lower verbosity of IBSS merge messages, they sometimes happen
-    a lot, from John Linville.
-
-22) Two mac80211 bug fixes from Jouni Malinen:
-    a) Use IWEVCUSTOM so that we don't hit the 256 byte limit that
-       IWEVASSOCREQIE has
-    b) Fix debugfs entry corruption due to entries being left
-       behind accidently with references to freed memory
-
-23) __mesh_table_free() called with wrong table pointer when
-    mesh_table_grow() fails, from Julia Lawall.
-
-24) S390 LCS driver forgets to check CPA state in interrupt handler,
-    resulting in incorrect behavior when recovery is driven after cable
-    reconnect, fix from Klaus-D. Wacker.
-
-25) mv643xx_eth fixes from Lennert Buytenhek:
-    a) Interrupt handler needs to ACK RX irq before processing the ring
-       to avoid a race that can get packets wedged and never processed.
-    b) accidental double add_timer() in receive OOM handling
-    c) Need to use IRQ safe locks in mv643xx_eth_poll or else we deadlo=
-ck
-    d) fix NULL pointer deref in rxq_process()
-    e) chip has 8 byte multiple size restriction for buffers on receive=
-,
-       but this isn't being enforced everywhere it needs to be
-
-26) Memory leak fix in claw_probe() from Martin Schwidefsky.
-
-27) claw and ctcm drivers were non-functional because they were using
-    netdev->priv as a mid-layer private pointer, but that doesn't work
-    because netdev->priv is where the generic networking stores the
-    private memory allocated at alloc_netdev() time.
-
-    We have a netdev->ml_priv pointer that fits the need here, so we
-    convert things to use that to fix this bug, from Peter Tiedemann.
-
-28) TCP header size miscalculation when eliding window scaling, fix
-    from Philip Love.
-
-29) ibmveth transmits incorrect UDP checksums, fix from Santiago Leon.
-
-30) gianfar grabs a mutex in softirq context, oops, fix from Sebastian =
-Siewior.
-
-31) Two more SCTP overflow fixes from Vlad Yasevich based upon feedback
-    from Eugene Teo.  I have to ship these two off to -stable as well.
-
-Please pull, thanks a lot!
-
-The following changes since commit c2d42545774c4bba7232521d836d0793330e=
-3a4e:
-  Eilon Greenstein (1):
-        bnx2x: Version update
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alan Cox (1):
-      [netdrvr] fix build issue: undefined reference to `NS8390p_init'
-
-Alexander Duyck (5):
-      ixgbe: fix vlan filtering
-      igb: force all queues to interrupt once every 2 seconds
-      igb: ethtool -d reads EICR which is incorrect as it is read on cl=
-ear
-      igb: fix setting the number of tx queues
-      igb: remove 82576 quad adapter
-
-Arnd Bergmann (1):
-      net/usb/mcs7830: new device IDs
-
-Ayaz Abdulla (1):
-      forcedeth: fix checksum flag
-
-Benjamin Herrenschmidt (1):
-      ibm_newemac: Don't call dev_mc_add() before device is registered
-
-Brice Goglin (1):
-      myri10ge: update version string to 1.4.3-1.358
-
-Dan Williams (2):
-      atmel: return ENOENT on request_firmware failure
-      atmel: try open system authentication too
-
-David S. Miller (2):
-      Merge branch 'davem-fixes' of master.kernel.org:/.../jgarzik/netd=
-ev-2.6
-      Merge branch 'no-iwlwifi' of git://git.kernel.org/.../linville/wi=
-reless-2.6
-
-Denis Joseph Barrow (2):
-      [netdrvr] hso: icon 322 detection fix
-      [netdrvr] hso: dev_kfree_skb crash fix
-
-Eugene Teo (1):
-      wan: Missing capability checks in sbni_ioctl()
-
-=46elipe Balbi (1):
-      net: rfkill: add missing line break
-
-=46rancois Romieu (1):
-      r8169: balance pci_map / pci_unmap pair
-
-=46rank Blaschka (2):
-      qeth: l2 write unicast list to hardware
-      qeth: preallocated header account offset
-
-Heiko Schocher (1):
-      fs_enet: Fix SCC Ethernet on CPM2, and crash in fs_enet_rx_napi()
-
-Hugh Dickins (1):
-      ipv4: mode 0555 in ipv4_skeleton
-
-Ilpo J=C3=A4rvinen (1):
-      atl1e: multistatement if missing braces
-
-Jan-Espen Pettersen (1):
-      mac80211: don't send empty extended rates IE
-
-Jarek Poplawski (4):
-      pkt_sched: Fix dev_graft_qdisc() locking
-      pkt_sched: Use rcu_assign_pointer() to change dev_queue->qdisc
-      pkt_sched: Fix gen_estimator locks
-      pkt_sched: Fix sch_tree_lock()
-
-Jay Cliburn (1):
-      atl1: disable TSO by default
-
-Jeff Garzik (2):
-      Merge branch 'for-2.6.27' of git://git.marvell.com/mv643xx_eth in=
-to upstream-fixes
-      [netdrvr] smc91x: fix resource removal (null ptr deref)
-
-Jiri Slaby (3):
-      Ath5k: lock beacons
-      Ath5k: fix bintval setup
-      e100, fix iomap read
-
-John W. Linville (1):
-      mac80211: quiet chatty IBSS merge message
-
-Jouni Malinen (2):
-      mac80211: Use IWEVASSOCREQIE instead of IWEVCUSTOM
-      mac80211: Fix debugfs file add/del for netdev
-
-Julia Lawall (1):
-      net/mac80211/mesh.c: correct the argument to __mesh_table_free
-
-Klaus-D. Wacker (1):
-      LCS recovery dumps when cable reconnect
-
-Lennert Buytenhek (6):
-      mv643xx_eth: fix NAPI 'rotting packet' issue
-      mv643xx_eth: fix double add_timer() on the receive oom timer
-      mv643xx_eth: fix inconsistent lock semantics
-      mv643xx_eth: fix NULL pointer dereference in rxq_process()
-      mv643xx_eth: enforce multiple-of-8-bytes receive buffer size rest=
-riction
-      mv643xx_eth: bump version to 1.3
-
-Martin Schwidefsky (1):
-      claw: fix memory leak in claw_probe.
-
-Mike Frysinger (1):
-      Blackfin EMAC Driver: the BF526 also supports the MAC,
-
-Oliver Martin (1):
-      net/usb/mcs7830: add set_mac_address
-
-Peter Tiedemann (2):
-      claw: netdev->priv vs. netdev->ml_priv
-      ctcm: netdev->priv vs. netdev->ml_priv
-
-Philip Love (1):
-      tcp: fix tcp header size miscalculation when window scale is unus=
-ed
-
-Santiago Leon (1):
-      ibmveth: fix bad UDP checksums
-
-Sebastian Siewior (1):
-      net: don't grab a mutex within a timer context in gianfar
-
-Takashi Iwai (1):
-      drivers/net/skfp/ess.c: fix compile warnings
-
-Ursula Braun (1):
-      qeth: use -EOPNOTSUPP instead of -ENOTSUPP.
-
-Vlad Yasevich (2):
-      sctp: correct bounds check in sctp_setsockopt_auth_key
-      sctp: fix random memory dereference with SCTP_HMAC_IDENT option.
-
- arch/powerpc/include/asm/cpm2.h    |    5 ++
- drivers/net/Kconfig                |    6 +-
- drivers/net/atl1e/atl1e_main.c     |    3 +-
- drivers/net/atlx/atl1.c            |    1 -
- drivers/net/e100.c                 |    4 +-
- drivers/net/forcedeth.c            |    4 +-
- drivers/net/fs_enet/fs_enet-main.c |    8 ++++
- drivers/net/fs_enet/mac-scc.c      |    8 +++-
- drivers/net/gianfar.c              |   22 ++++++++--
- drivers/net/gianfar.h              |    1 +
- drivers/net/ibm_newemac/core.c     |    6 +-
- drivers/net/ibmveth.c              |    5 +-
- drivers/net/igb/e1000_82575.c      |    1 -
- drivers/net/igb/e1000_hw.h         |    1 -
- drivers/net/igb/igb_ethtool.c      |   17 +++-----
- drivers/net/igb/igb_main.c         |   25 +++++------
- drivers/net/ixgbe/ixgbe_main.c     |    8 ++-
- drivers/net/mv643xx_eth.c          |   35 +++++++++-------
- drivers/net/myri10ge/myri10ge.c    |    2 +-
- drivers/net/r8169.c                |    2 +-
- drivers/net/skfp/ess.c             |    6 +-
- drivers/net/smc91x.c               |    2 +-
- drivers/net/usb/hso.c              |    3 +-
- drivers/net/usb/mcs7830.c          |   47 +++++++++++++++++++++-
- drivers/net/wan/sbni.c             |    8 ++--
- drivers/net/wd.c                   |    2 +-
- drivers/net/wireless/ath5k/base.c  |   23 ++++++++---
- drivers/net/wireless/ath5k/base.h  |    1 +
- drivers/net/wireless/atmel.c       |   51 ++++++++++++++---------
- drivers/s390/net/claw.c            |   79 +++++++++++++++++-----------=
--------
- drivers/s390/net/ctcm_fsms.c       |   56 +++++++++++++-------------
- drivers/s390/net/ctcm_main.c       |   24 +++++-----
- drivers/s390/net/ctcm_main.h       |    9 ++--
- drivers/s390/net/ctcm_mpc.c        |   46 ++++++++++----------
- drivers/s390/net/lcs.c             |    3 +-
- drivers/s390/net/qeth_core.h       |    1 +
- drivers/s390/net/qeth_core_main.c  |    2 +-
- drivers/s390/net/qeth_l2_main.c    |   27 ++++++++++--
- drivers/s390/net/qeth_l3_sys.c     |    2 +-
- include/net/sch_generic.h          |   12 +++++-
- net/ipv4/route.c                   |    4 +-
- net/ipv4/tcp_output.c              |    6 ++-
- net/mac80211/debugfs_netdev.c      |   24 +++++-----
- net/mac80211/ieee80211_i.h         |    6 +++
- net/mac80211/mesh.c                |    2 +-
- net/mac80211/mlme.c                |   52 +++++------------------
- net/rfkill/rfkill.c                |    2 +-
- net/sched/sch_api.c                |   18 ++++++--
- net/sched/sch_cbq.c                |    4 +-
- net/sched/sch_generic.c            |    4 +-
- net/sched/sch_hfsc.c               |    4 +-
- net/sched/sch_htb.c                |    4 +-
- net/sctp/auth.c                    |    3 +
- net/sctp/socket.c                  |    8 ++-
- 54 files changed, 413 insertions(+), 296 deletions(-)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com, Sven Wegener <sven.wegener@stealer.net>
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f4845fc0808270809nfd79798ob528778228645915@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, Aug 27, 2008 at 05:09:52PM +0200, Julius Volz wrote:
+> On Wed, Aug 27, 2008 at 9:17 AM, Simon Horman wrote:
+> > Here is a second round of thoughts after having gone through the whole series.
+> 
+> Thanks for wading through this!
+> 
+> > [PATCH RFC 06/24] IPVS: Add debug macros for v4 and v6 address output
+> >
+> > * The #defines in ip_vs_dbg_addr seem a bit aquard.
+> >  Could it be rearanged liks this?
+> >
+> > static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
+> >                                        const union nf_inet_addr *addr,
+> >                                        int *idx)
+> > {
+> >       int len;
+> > #ifdef CONFIG_IP_VS_IPV6
+> >       if (af == AF_INET6)
+> >               len = snprintf(&buf[*idx], buf_len - *idx, "[" NIP6_FMT "]",
+> >                              NIP6(addr->in6)) + 1;
+> >       else
+> > #endif
+> >               len = snprintf(&buf[*idx], buf_len - *idx, NIPQUAD_FMT,
+> >                              NIPQUAD(addr->ip)) + 1;
+> >
+> >       *idx += len;
+> >       return &buf[*idx - len];
+> > }
+> 
+> Yes, that looks nicer and more like the other cases!
+> 
+> > * The comment "/* Only use from within IP_VS_DBG_BUF() macro */"
+> >  should also mention usage inside IP_VS_ERR_BUF()
+> 
+> Right, thanks!
+> 
+> > * If IP_VS_DBG_ADDR() is used more than once inside a single
+> >  IP_VS_DBG_BUF() or IP_VS_ERR_BUF() call, won't ip_vs_dbg_buf
+> >  be set to the value one of the  calls to IP_VS_DBG_ADDR,
+> >  thus overwriting other calls and producing incorrect debugging
+> >  output?
+> 
+> No, the buffer can receive several strings (but it's limited in size,
+> so you have to be careful). An index to the current position in the
+> buffer is maintained in the 'idx' variable between multiple
+> IP_VS_DBG_ADDR calls used in the same outer macro.
+>
+> In general, I'm a bit unsure if this kind of macro magic is acceptable
+> style, but it was the best way I could come up with to merge
+> alternating v4 and v6 output without too much code duplication.
+
+Thanks, I knew I was missing something obvious.  From a style point of
+view, I'm not sure either, but it seems like a reasonable start. Perhaps a
+slight enhancement would be to add a BUG_ON() to ip_vs_dbg_addr() which will
+trigger if ip_vs_dbg_buf will overflow.
+
+> > [PATCH RFC 15/24] IPVS: Add support for IPv6 entry output in procfs files
+> >
+> > * The netlink-aware ipvsadm code also seems to allow for dotted-quad
+> >  representation of ipv4 addresses in proc. Is that representation used
+> >  or planned to be used?
+> 
+> Good catch! No, I wasn't even aware of that feature in the new ipvsadm
+> (but now I see it). I think it should be removed because it is
+> effectively dead code (the existing v4 proc format shouldn't be
+> changed). Vince, do you agree?
+
+I only noticed it from fixing up the atio() problem in ipvsadm
+that I posted a patch for the other day. Its not a big deal. But
+it would be nice to eliminate dead code.
+
+> > [PATCH RFC 17/24] IPVS: Make proc/net files output IPv6 entries
+> >
+> > * It might be cleaner to do:
+> >
+> > #ifdef CONFIG_IP_VS_IPV6
+> >        if (cp->af == AF_INET6)
+> >                seq_printf ...
+> >        else
+> > #endif
+> >                seq_printf ...
+> 
+> Yes, it's nicer this way around, I'll change that!
+> 
+> > General
+> >
+> > * You need to reorder and or merge patches such that after each
+> >  patch is applied the code will build and run. It is ok for
+> >  a patch to add code which isn't used until a later patch is applied.
+> 
+> Yes, I have found no nice way to achieve this yet :( At least not when
+> reworking the complete end result (one big patch) into smaller
+> patches, because there is so much interdependency and several logical
+> changes within the same hunks (or even lines). I might have to
+> manually do a step-by-step adding of the logical code features to get
+> this... I will try to work on that next.
+
+I realise this is a pain but unfortunately it is needed.
+
+> > * Where possible please make lines <= 80 columns wide
+> 
+> Yes, I will check for that more strictly now (unless it really looks
+> nicer otherwise), thanks!
+
+This is less critical, but thankfully easy :-)
