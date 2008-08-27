@@ -1,54 +1,46 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 51/59] CRED: Wrap task credential accesses in the IPv6 protocol
-Date: Wed, 27 Aug 2008 14:50:05 +0100
-Message-ID: <20080827135005.19980.38281.stgit@warthog.procyon.org.uk>
-References: <20080827134541.19980.61042.stgit@warthog.procyon.org.uk>
+From: Arjan van de Ven <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 06:57:11 -0700
+Message-ID: <20080827065711.20a3de1c@linux.intel.com>
+References: <20080827013009.GA15781@tuxdriver.com>
+	<1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
+	<20080827.014041.230100807.davem@davemloft.net>
+	<1219835410.5359.24.camel@californication>
+	<1ba2fa240808270305m7f505efak9fd0d36d5db09a1e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org,
-	David Howells <dhowells@redhat.com>,
-	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59554 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758377AbYH0Nxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 09:53:35 -0400
-In-Reply-To: <20080827134541.19980.61042.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Marcel Holtmann" <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1ba2fa240808270305m7f505efak9fd0d36d5db09a1e-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wrap access to task credentials so that they can be separated more easily from
-the task_struct during the introduction of COW creds.
+On Wed, 27 Aug 2008 13:05:23 +0300
+"Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-Change most current->(|e|s|fs)[ug]id to current_(|e|s|fs)[ug]id().
-
-Change some task->e?[ug]id to task_e?[ug]id().  In some places it makes more
-sense to use RCU directly rather than a convenient wrapper; these will be
-addressed by later patches.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
-Reviewed-by: James Morris <jmorris@namei.org>
-Acked-by: Serge Hallyn <serue@us.ibm.com>
-Cc: netdev@vger.kernel.org
----
-
- net/ipv6/ip6_flowlabel.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> There is a central problem here, since I cannot really adjust driver
+> development progress from obvious reason with Linux merging window.
+> Upstream kernel is unfortunately not the only customer I report to. 
 
 
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 37a4e77..bd3c7b9 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -388,7 +388,7 @@ fl_create(struct net *net, struct in6_flowlabel_req *freq, char __user *optval,
- 		fl->owner = current->pid;
- 		break;
- 	case IPV6_FL_S_USER:
--		fl->owner = current->euid;
-+		fl->owner = current_euid();
- 		break;
- 	default:
- 		err = -EINVAL;
+yes it is. You really don't have any other customers of this driver...
+kernel.org kernel is *it*.
 
+(if you're talking about backporting this to distros.. that's the
+distros problem ;-)
+
+
+-- 
+If you want to reach me at my work email, use arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
