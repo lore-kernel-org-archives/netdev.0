@@ -1,39 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.27? 2/5] drivers/net/skfp/ess.c: fix compile warnings
-Date: Wed, 27 Aug 2008 05:37:08 -0400
-Message-ID: <48B52044.9090102@garzik.org>
-References: <200808202334.m7KNYZMk005029@imap1.linux-foundation.org>
+Subject: Re: [UPDATED PATCH] igb: remove 82576 quad adapter
+Date: Wed, 27 Aug 2008 05:37:17 -0400
+Message-ID: <48B5204D.508@garzik.org>
+References: <20080808235126.19264.39654.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tiwai@suse.de
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	akpm@linux-foundation.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59080 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59085 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753865AbYH0JhL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:37:11 -0400
-In-Reply-To: <200808202334.m7KNYZMk005029@imap1.linux-foundation.org>
+	id S1753887AbYH0JhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:37:20 -0400
+In-Reply-To: <20080808235126.19264.39654.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Takashi Iwai <tiwai@suse.de>
+Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
->   CC [M]  drivers/net/skfp/ess.o
-> drivers/net/skfp/ess.c: In function 'ess_send_response':
-> drivers/net/skfp/ess.c:513: warning: cast from pointer to integer of different size
-> drivers/net/skfp/ess.c: In function 'ess_send_alc_req':
-> drivers/net/skfp/ess.c:609: warning: cast from pointer to integer of different size
-> drivers/net/skfp/ess.c:639: warning: cast from pointer to integer of different size
+> Disable support for device 8086:10E8.  Currently the result of loading the
+> driver with the device present causes system instability.
 > 
-> Signed-off-by: Takashi Iwai <tiwai@suse.de>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
 > 
->  drivers/net/skfp/ess.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  drivers/net/igb/e1000_82575.c |    1 -
+>  drivers/net/igb/e1000_hw.h    |    1 -
+>  drivers/net/igb/igb_ethtool.c |    9 ---------
+>  drivers/net/igb/igb_main.c    |   11 -----------
+>  4 files changed, 0 insertions(+), 22 deletions(-)
 
 applied
 
