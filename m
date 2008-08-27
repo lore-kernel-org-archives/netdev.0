@@ -1,28 +1,51 @@
-From: Trent Piepho <tpiepho@freescale.com>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Wed, 27 Aug 2008 14:29:18 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0808271427040.3610@t2.domain.actdsltmp>
-References: <bug-459782-176318@bugzilla.redhat.com>
- <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
- <20080826163719.GA25066@redhat.com> <87zlmyr5nz.fsf@basil.nowhere.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 14:34:01 -0700 (PDT)
+Message-ID: <20080827.143401.76242975.davem@davemloft.net>
+References: <48B46B48.7030609@cosmosbay.com>
+	<20080826205158.GA15266@2ka.mipt.ru>
+	<87vdxmr53f.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	j.w.r.degoede@hhs.nl
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:33468 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754986AbYH0Vat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 17:30:49 -0400
-In-Reply-To: <87zlmyr5nz.fsf@basil.nowhere.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59473
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752396AbYH0VeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 17:34:06 -0400
+In-Reply-To: <87vdxmr53f.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Aug 2008, Andi Kleen wrote:
-> On a 2GB Core2 system here I see a time cat /proc/net/tcp > /dev/null
-> constently dropping from 0.44s to 0.4-0.8s system time with this change.
-> This is with mostly empty hash tables.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Wed, 27 Aug 2008 14:54:12 +0200
 
-Umm, 0.4 to 0.8 seconds is on average _slower_ than 0.44 seconds.  Did you
-mean .04 to .08?
+> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+> >
+> > Yup, this innocent toys can end up with this such behaviour on modern
+> > highly loaded machines.
+> 
+> I and also other people had some patches to move the time stamp
+> measuring into the socket. This way the time stamping didn't need to
+> be enabled on all packets, only on those that actually end up at a
+> socket that requires the time stamp.
+
+By the time you get to the socket, it might be eons (relatively
+speaking) later, decreasing the usefulness of the timestamp.
+
+As just an odd example if the TCP socket is user locked at the moment,
+because the user is blocked on a GFP_KERNEL allocation, it could be
+a very long time before we actually process the packet and timestamp
+it.
+
+UDP now does similar socket locking so could potentially hit the same
+kind of problem.
+
+That was my argument against such a change.
+
+I find it amusing that nobody it talking about fixing the tools
+that are creating the timestamp requests when they have no real
+reason for having them in the first place.
