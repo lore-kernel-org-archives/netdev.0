@@ -1,64 +1,32 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure
-Date: Wed, 27 Aug 2008 14:54:49 +1000
-Message-ID: <20080827145449.2790d97d.sfr@canb.auug.org.au>
-References: <20080827100656.0f87e6b2.sfr@canb.auug.org.au>
-	<200808271255.22789.rusty@rustcorp.com.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 0/2] IPVS: Merge AH and ESP support into one file
+Date: Wed, 27 Aug 2008 15:30:35 +1000
+Message-ID: <20080827053032.GB7815@verge.net.au>
+References: <1219406773-19357-1-git-send-email-juliusv@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-next@vger.kernel.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <200808271255.22789.rusty@rustcorp.com.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	vbusam@google.com, sven.wegener@stealer.net, brian.haley@hp.com
+To: Julius Volz <juliusv@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1219406773-19357-1-git-send-email-juliusv@google.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rusty,
-
-On Wed, 27 Aug 2008 12:55:22 +1000 Rusty Russell <rusty@rustcorp.com.au> wrote:
->
-> On Wednesday 27 August 2008 10:06:56 Stephen Rothwell wrote:
-> > Introduced by commit 4cb9da6ecc2b0e25056b45981239475f8509d59d ("remove
-> > CONFIG_KMOD from net") which added a !CONFIG_MODULES (static inline)
-> > version of dev_load() to include/linux/netdevice.h but the copy in
-> > net/core/dev.c is not protected by CONFIG_MODULES.
+On Fri, Aug 22, 2008 at 02:06:11PM +0200, Julius Volz wrote:
+> These patches remove the duplication between ip_vs_proto_ah.c and
+> ip_vs_proto_esp.c by merging the same functionality into one file,
+> ip_vs_proto_ah_esp.c.
 > 
-> Thanks.  I've fixed this the simplest way: remove the change to the header.
+> The original files are almost 100% identical, except for names,
+> constants, etc., which either referenced AH or ESP. This was brought
+> up by Brian Haley when I duplicated even more in those files in the
+> IPVS IPv6 patches. Maybe there's some interest in keeping the files
+> apart though, so feel free to ignore this then.
 
-So, for today, I have applied the following patch after importing the rr
-tree:
+Hi Julius,
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 27 Aug 2008 14:45:37 +1000
-Subject: [PATCH] rr: build fix for remove CONFIG_KMOD from net
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- include/linux/netdevice.h |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b215744..2254eb8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1639,11 +1639,7 @@ extern int		dev_set_allmulti(struct net_device *dev, int inc);
- extern void		netdev_state_change(struct net_device *dev);
- extern void		netdev_bonding_change(struct net_device *dev);
- extern void		netdev_features_change(struct net_device *dev);
--#ifdef CONFIG_MODULES
- extern void		dev_load(struct net *net, const char *name);
--#else
--static inline void	dev_load(struct net *net, const char *name) {};
--#endif
- extern void		dev_mcast_init(void);
- extern int		netdev_max_backlog;
- extern int		weight_p;
--- 
-1.5.6.5
+these changes look good to me. I have pushed them into lvs-2.6.
+The master branch is based on net-2.6. The lvs-next-2.6 branch
+is based on net-next.2.6.
