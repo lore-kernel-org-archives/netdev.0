@@ -1,67 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Use rcu_assign_pointer() to change
-	dev_queue->qdisc
-Date: Wed, 27 Aug 2008 08:59:27 +0000
-Message-ID: <20080827085927.GA7060@ff.dom.local>
+From: Hans de Goede <j.w.r.degoede@hhs.nl>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 11:14:17 +0200
+Message-ID: <48B51AE9.5080709@hhs.nl>
+References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com> <20080826163719.GA25066@redhat.com> <48B44C3F.6020006@cosmosbay.com> <48B452ED.1000308@hhs.nl> <48B469EA.1010807@cosmosbay.com> <48B46E89.4030104@hhs.nl> <48B47543.8080701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:39111 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147AbYH0I7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 04:59:34 -0400
-Received: by ey-out-2122.google.com with SMTP id 6so457389eyi.37
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 01:59:33 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp2.versatel.nl ([62.58.50.89]:33063 "EHLO smtp2.versatel.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752214AbYH0JDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:03:07 -0400
+In-Reply-To: <48B47543.8080701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pkt_sched: Use rcu_assign_pointer() to change dev_queue->qdisc
+Eric Dumazet wrote:
+> 
+> I dont know, you tell us 50x, but nowhere I saw your numbers on i386,
+> nor the amount of memory of your test machine.
+> 
 
-These pointers are RCU protected, so proper primitives should be used.
+My machine has 2 Gb of memory, but that is not really relevant as I'm not the 
+reporter of the problem (but I can reproduce it) I'm only in the loop because I 
+maintain the gkrellm package in Fedora which exhibits this problem. Also I gave 
+you no i386 numbers on the same machine because I don't have an i386 install 
+readily available on this machine.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Now you can spin this anyway you want, but lets cut to the chase, gkrellmd 
+which is a system monitoring daemon reads /proc/net/tcp and /proc/net/tcp6 3 
+times a second, with slightly older kernel this used to give a CPU load of
+2-3% on x86_64 now it gives a load of 50-70% (on my test machine with a whole 8 
+tcp connections open).
 
----
+Now you can wing it any way you want, but this is a serious regression. I don't 
+want to go to lkml and start shouting regression REGRESSION regression, but 
+given the treating and enormous amount of help I've received sofar (and 
+remember I'm only the messenger I didn't write nor use gkrellmd) I'm tending 
+towards starting shouting regression on lkml, as atleast there this seems to 
+get some attention.
 
- net/sched/sch_api.c     |    2 +-
- net/sched/sch_generic.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Regards,
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index e7fb9e0..27604e5 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -635,7 +635,7 @@ static struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
- 	if (qdisc == NULL)
- 		qdisc = &noop_qdisc;
- 	dev_queue->qdisc_sleeping = qdisc;
--	dev_queue->qdisc = &noop_qdisc;
-+	rcu_assign_pointer(dev_queue->qdisc, &noop_qdisc);
- 
- 	spin_unlock_bh(root_lock);
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 5f0ade7..9634091 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -634,7 +634,7 @@ static void dev_deactivate_queue(struct net_device *dev,
- 		if (!(qdisc->flags & TCQ_F_BUILTIN))
- 			set_bit(__QDISC_STATE_DEACTIVATED, &qdisc->state);
- 
--		dev_queue->qdisc = qdisc_default;
-+		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
- 		qdisc_reset(qdisc);
- 
- 		spin_unlock_bh(qdisc_lock(qdisc));
-@@ -709,7 +709,7 @@ static void shutdown_scheduler_queue(struct net_device *dev,
- 	struct Qdisc *qdisc_default = _qdisc_default;
- 
- 	if (qdisc) {
--		dev_queue->qdisc = qdisc_default;
-+		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
- 		dev_queue->qdisc_sleeping = qdisc_default;
- 
- 		qdisc_destroy(qdisc);
+Hans
