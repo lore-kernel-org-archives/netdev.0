@@ -1,27 +1,55 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: linux-next: build failure
-Date: Wed, 27 Aug 2008 12:55:22 +1000
-Message-ID: <200808271255.22789.rusty@rustcorp.com.au>
-References: <20080827100656.0f87e6b2.sfr@canb.auug.org.au>
+From: Kevin Lo <kevlo@kevlo.org>
+Subject: [PATCH] 8139too: use netdev_alloc_skb
+Date: Wed, 27 Aug 2008 11:35:13 +0800
+Message-ID: <1219808113.7135.13.camel@nsl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: multipart/mixed; boundary="=-d5yxhrZNCqvulzpY5qpR"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kevlo.org ([220.128.136.52]:53608 "EHLO ns.kevlo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750703AbYH0EI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 00:08:27 -0400
+Received: from [127.0.0.1] (ns.kevlo.org [220.128.136.52])
+	by ns.kevlo.org (8.14.3/8.14.3) with ESMTP id m7R3ZaWE005602
+	for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 11:35:41 +0800 (CST)
+	(envelope-from kevlo@kevlo.org)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-d5yxhrZNCqvulzpY5qpR
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-next@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20080827100656.0f87e6b2.sfr@canb.auug.org.au>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Wednesday 27 August 2008 10:06:56 Stephen Rothwell wrote:
-> Introduced by commit 4cb9da6ecc2b0e25056b45981239475f8509d59d ("remove
-> CONFIG_KMOD from net") which added a !CONFIG_MODULES (static inline)
-> version of dev_load() to include/linux/netdevice.h but the copy in
-> net/core/dev.c is not protected by CONFIG_MODULES.
+Hi,
 
-Thanks.  I've fixed this the simplest way: remove the change to the header.
+This patch uses netdev_alloc_skb. This sets skb->dev and allows 
+arch specific allocation. Also cleanup the alignment code.
 
-Rusty.
+Tested on x86_64.
+
+Signed-off-by:	Kevin Lo <kevlo@kevlo.org>
+
+--=-d5yxhrZNCqvulzpY5qpR
+Content-Disposition: attachment; filename=patch-8139too
+Content-Type: text/x-patch; name=patch-8139too; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+--- linux-2.6.27-rc4/drivers/net/8139too.c.orig	2008-08-26 16:52:59.000000000 +0800
++++ linux-2.6.27-rc4/drivers/net/8139too.c	2008-08-27 09:38:36.000000000 +0800
+@@ -2009,9 +2009,9 @@ no_early_rx:
+ 		/* Malloc up new buffer, compatible with net-2e. */
+ 		/* Omit the four octet CRC from the length. */
+ 
+-		skb = dev_alloc_skb (pkt_size + 2);
++		skb = netdev_alloc_skb(dev, pkt_size + NET_IP_ALIGN);
+ 		if (likely(skb)) {
+-			skb_reserve (skb, 2);	/* 16 byte align the IP fields. */
++			skb_reserve (skb, NET_IP_ALIGN);	/* 16 byte align the IP fields. */
+ #if RX_BUF_IDX == 3
+ 			wrap_copy(skb, rx_ring, ring_offset+4, pkt_size);
+ #else
+
+--=-d5yxhrZNCqvulzpY5qpR--
+
