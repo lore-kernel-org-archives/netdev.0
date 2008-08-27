@@ -1,72 +1,86 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [patch for 2.6.27? 5/5] forcedeth: fix kexec regression
-Date: Wed, 27 Aug 2008 12:52:20 +0200
-Message-ID: <200808271252.21244.rjw@sisk.pl>
-References: <200808202334.m7KNYcff005038@imap1.linux-foundation.org> <48B522D2.4090605@garzik.org>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: hso driver dropping characters on serial port & hacky fix
+Date: Wed, 27 Aug 2008 12:54:17 +0200
+Message-ID: <48B53259.90005@option.com>
+References: <20080820010353.593820280@mini.kroah.org> <20080820010752.GB3365@kroah.com> <48B52064.9070700@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	aabdulla@nvidia.com, yhlu.kernel@gmail.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:40528 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147AbYH0Ksr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 06:48:47 -0400
-In-Reply-To: <48B522D2.4090605@garzik.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <48B52064.9070700-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, 27 of August 2008, Jeff Garzik wrote:
-> akpm@linux-foundation.org wrote:
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> > 
-> > Fix regression tracked as http://bugzilla.kernel.org/show_bug.cgi?id=11361
-> > and caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2 ("[netdrvr]
-> > forcedeth: setup wake-on-lan before shutting down") that makes network
-> > adapters integrated into the NVidia MCP55 chipsets fail to work in kexeced
-> > kernels.  The problem appears to be that if the adapter is put into D3_hot
-> > during ->shutdown(), it cannot be brought back into D0 after kexec (ref. 
-> > http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore, only
-> > put forcedeth into D3 during ->shutdown() if the system is to be powered
-> > off.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > Tested-by: Yinghai Lu <yhlu.kernel@gmail.com>
-> > Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> > Cc: Jeff Garzik <jeff@garzik.org>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  drivers/net/forcedeth.c |    8 +++++---
-> >  1 file changed, 5 insertions(+), 3 deletions(-)
-> > 
-> > diff -puN drivers/net/forcedeth.c~forcedeth-fix-kexec-regression drivers/net/forcedeth.c
-> > --- a/drivers/net/forcedeth.c~forcedeth-fix-kexec-regression
-> > +++ a/drivers/net/forcedeth.c
-> > @@ -5990,10 +5990,12 @@ static void nv_shutdown(struct pci_dev *
-> >  	if (netif_running(dev))
-> >  		nv_close(dev);
-> >  
-> > -	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > -	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
-> >  	pci_disable_device(pdev);
-> > -	pci_set_power_state(pdev, PCI_D3hot);
-> > +	if (system_state == SYSTEM_POWER_OFF) {
-> > +		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> > +			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> > +		pci_set_power_state(pdev, PCI_D3hot);
-> > +	}
-> >  }
-> 
-> All,
-> 
-> Is this the final version of this patch?
+Hi,
+We have a problem with the hso driver serial ports.
+The problem is a little complex but I hope I can explain it adequetely.
+If you are unfamiliar with USB URBS are basically buffers we give to usb
+hardware to recieve or transmit packets to a USB device.
 
-Yes, it is.
+The problem manifests itself when our hardware guys at option
+have a userland diagnostics program going & on a system under
+heavy load, the tty layers buffers belonging to our emulated serial port
+fill up because the userland program gets no
+chance to chance to empty data on the modems emulated serial port.
 
-Thanks,
-Rafael
+If we modify  put_rxbuf_data(struct urb *urb, struct hso_serial *serial)
+
+with the copied check below we get printks under heavy load
+
+> 		copied=tty_insert_flip_string(tty, urb->transfer_buffer,
+> 				       urb->actual_length);
+> 		if(copied<urb->actual_length)
+> 			printk(KERN_ERR" hso: put_rxbuf_data did not "
+> 			       "copy full rx buffer copied=%d asked to copy=%d\n",
+> 			       copied,urb->actual_length);
+
+In the current driver code you've got the driver drops packets silently.
+
+I initially thought that this was not our problem/bug because I
+thought we had no means for USB flow control & told our diagnostic
+guys to go away & stop annoying me.
+However I was talking to the firmware developer of our feama 3G modem
+& he says that the modem will stall gracefully if it doesn't 
+have outstanding bulk_urbs on the emulated serial ports.
+i.e. we have a mechanism to do flow control on our emulated serial
+ports & get away without dropping packets or data corruption.
+
+If I redesign the code.
+We run into a problem if we have no outstanding urbs on
+the serial recieve channel as we will get no more read channel callback
+interrupts. We need to poll the tty layer to
+see if we have free space to put data from the
+urbs we have not yet processed on the read channel or go with my hack.
+
+The hack I'm suggesting which Filip Aben is worried that wont
+get accepted by you is to put a change the line discipline function pointer
+for the hso driver i.e. the bit that calls
+disc->ops->receive_buf(tty, char_buf,flag_buf, count);
+in
+static void flush_to_ldisc(struct work_struct *work)
+in
+/drivers/char/tty_io.c
+
+to point to our own special function in the hso driver where we call the original
+disc->ops->receive_buf so we get automatically 
+notified when we have free space in the hso drivers tty buffers.
+Short of modifying the tty layer I can see no other way of doing this
+efficently.
+
+Is this acceptable to you guys.
+
+This is the most elegant hack I can see to solve this problem,
+if any of ye have a cleaner suggestion let me know.
+
+Sincerely,
+D.J. Barrow
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
