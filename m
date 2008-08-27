@@ -1,36 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Wed, 27 Aug 2008 02:05:56 -0700 (PDT)
-Message-ID: <20080827.020556.90577040.davem@davemloft.net>
-References: <48B46E89.4030104@hhs.nl>
-	<48B47543.8080701@cosmosbay.com>
-	<48B51AE9.5080709@hhs.nl>
+From: Marcel Holtmann <holtmann@linux.intel.com>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 13:10:10 +0200
+Message-ID: <1219835410.5359.24.camel@californication>
+References: <20080827013009.GA15781@tuxdriver.com>
+	 <1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
+	 <20080827.014041.230100807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, davej@redhat.com, netdev@vger.kernel.org
-To: j.w.r.degoede@hhs.nl
+Cc: tomasw@gmail.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32979
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753434AbYH0JGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:06:01 -0400
-In-Reply-To: <48B51AE9.5080709@hhs.nl>
+Received: from senator.holtmann.net ([87.106.208.187]:49934 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754445AbYH0JKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:10:14 -0400
+In-Reply-To: <20080827.014041.230100807.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans de Goede <j.w.r.degoede@hhs.nl>
-Date: Wed, 27 Aug 2008 11:14:17 +0200
+Hi Dave,
 
-> Now you can wing it any way you want, but this is a serious
-> regression. I don't want to go to lkml and start shouting regression
-> REGRESSION regression, but given the treating and enormous amount of
-> help I've received sofar (and remember I'm only the messenger I
-> didn't write nor use gkrellmd) I'm tending towards starting shouting
-> regression on lkml, as atleast there this seems to get some
-> attention.
+> > Afther massive ath9k merge I didn't see it was a conceptual problem.
+> 
+> Stop right there.
+> 
+> You don't see it as a problem because you're not the one who has to
+> explain all of this shit to Linus and ends up getting flamed by him
+> when inappropriate changes are in my tree outside of the merge window.
 
-Last time I checked, one doesn't throw threats at people when they
-want help from them.
+I did a quick review of the offending patch queue. And some of them
+should go in since they are fixing real bugs (as far as I can tell from
+a quick review). Others have to clearly wait for the next merge window.
 
-Please don't do that to us.
+Thomas, please go through the list of patches and pick the real bug
+fixes. The cleanup patches can't go in since they are after the merge
+window. And being one of the offenders why Dave got flamed by Linus,
+there is no way to get these through. And my big offender was a
+regression that broke userspace and came with a lengthy commit message.
+
+Speaking of which, you better have a more convincing commit message if
+you wanna get something in after the merge window. It should make clear
+why this is a bug or a regression and why it can't wait until the next
+merge window.
+
+Please take this into account for any future patches since Linus now set
+a really high bar for patches after the merge window.
+
+Regards
+
+Marcel
+
+
