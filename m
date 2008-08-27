@@ -1,40 +1,34 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Thu, 28 Aug 2008 00:39:52 +0200
-Message-ID: <20080827223952.GE26610@one.firstfloor.org>
-References: <87vdxmr53f.fsf@basil.nowhere.org> <48B57BD3.5050206@hp.com> <20080827162735.GW26610@one.firstfloor.org> <20080827.151824.14173512.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 15:39:07 -0700 (PDT)
+Message-ID: <20080827.153907.157997966.davem@davemloft.net>
+References: <87zlmyr5nz.fsf@basil.nowhere.org>
+	<20080827.142941.50104491.davem@davemloft.net>
+	<20080827223410.GC26610@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, rick.jones2@hp.com, johnpol@2ka.mipt.ru,
-	dada1@cosmosbay.com, denys@visp.net.lb, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org, j.w.r.degoede@hhs.nl
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55008 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752834AbYH0WhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 18:37:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20080827.151824.14173512.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49873
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753112AbYH0WjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 18:39:12 -0400
+In-Reply-To: <20080827223410.GC26610@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 03:18:24PM -0700, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Wed, 27 Aug 2008 18:27:35 +0200
-> 
-> > > Those banks really want to crank down on latency - to the point they 
-> > > start disabling interrupt coalescing.  I bet they'd toss anything out 
-> > > they could to shave another microsecond.
-> > 
-> > This change would actually likely lower their latency.
-> 
-> They want the timestamps, but they want it to match when the packet
-> arrived at their system as closely as is reasonably possible.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Thu, 28 Aug 2008 00:34:10 +0200
 
-Then they should use hardware time stamps which are increasingly 
-available (e.g. current Intel e1000 design has them and I expect
-others too). 
+> It fixes an old performance problem at least. I'm not aware 
+> of any new ones in this area because the code in this 
+> function hasn't changed since I last looked.
 
--Andi
+That's exactly what this thread is about, things got slower for
+some reason even though nothing specifically changed in this area.
 
+I wonder if indirectly something changed in how the hash table
+allocator code down in mm/*.c works, perhaps it's taking NUMA
+into account differently now?
