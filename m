@@ -1,65 +1,51 @@
-From: Eugene Teo <eugeneteo@kernel.sg>
-Subject: [PATCH] sbni: missing capability checks in sbni_ioctl()
-Date: Wed, 27 Aug 2008 11:19:54 +0800
-Message-ID: <20080827031954.GA11597@kernel.sg>
-Reply-To: Eugene Teo <eugeneteo@kernel.sg>
+From: "Alexander Duyck" <alexander.duyck@gmail.com>
+Subject: Re: [UPDATED PATCH] ixgbe: fix vlan filtering
+Date: Tue, 26 Aug 2008 20:21:35 -0700
+Message-ID: <9A26C12C7CD54EFEA0BF27CA1D55005B@ADUYCKLAPTOP>
+References: <20080827013004.5497.48208.stgit@jtkirshe-mobile.jf.intel.com> <20080826191201.9689dd7d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, security@kernel.org, eteo@redhat.com
-To: davem@davemloft.net
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<stable@kernel.org>,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
+To: "Andrew Morton" <akpm@linux-foundation.org>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38594 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752862AbYH0DUN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2008 23:20:13 -0400
-Content-Disposition: inline
+Received: from wf-out-1314.google.com ([209.85.200.171]:4493 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbYH0DWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2008 23:22:52 -0400
+Received: by wf-out-1314.google.com with SMTP id 27so2580612wfd.4
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2008 20:22:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This requires proper capability checks for the privileged operations.
+>
+> Please note that this patch does not successfully apply to 2.6.25 nor
+> to 2.6.26.  I didn't check why.
+>
+> The -stable maintainers might appreciate separate checked-and-tested
+> backports for those kernels.
+>
+> Thanks.
 
-Signed-off-by: Eugene Teo <eugeneteo@kernel.sg>
----
- drivers/net/wan/sbni.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Actually I don't believe this applies to any kernels prior to 2.6.27-rc1. 
+It looks like the commit that broke this in the first place 
+(http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=746b9f0228a1c607b3db67c80da1c2a963321926) 
+was added to the torvalds tree on July 17th and 2.6.26 was released about a 
+week before.
 
-diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-index e59255a..6596cd0 100644
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -1317,7 +1317,7 @@ sbni_ioctl( struct net_device  *dev,  struct ifreq  *ifr,  int  cmd )
- 		break;
- 
- 	case  SIOCDEVRESINSTATS :
--		if( current->euid != 0 )	/* root only */
-+		if (!capable(CAP_NET_ADMIN))
- 			return  -EPERM;
- 		memset( &nl->in_stats, 0, sizeof(struct sbni_in_stats) );
- 		break;
-@@ -1334,7 +1334,7 @@ sbni_ioctl( struct net_device  *dev,  struct ifreq  *ifr,  int  cmd )
- 		break;
- 
- 	case  SIOCDEVSHWSTATE :
--		if( current->euid != 0 )	/* root only */
-+		if (!capable(CAP_NET_ADMIN))
- 			return  -EPERM;
- 
- 		spin_lock( &nl->lock );
-@@ -1355,7 +1355,7 @@ sbni_ioctl( struct net_device  *dev,  struct ifreq  *ifr,  int  cmd )
- #ifdef CONFIG_SBNI_MULTILINE
- 
- 	case  SIOCDEVENSLAVE :
--		if( current->euid != 0 )	/* root only */
-+		if (!capable(CAP_NET_ADMIN))
- 			return  -EPERM;
- 
- 		if (copy_from_user( slave_name, ifr->ifr_data, sizeof slave_name ))
-@@ -1370,7 +1370,7 @@ sbni_ioctl( struct net_device  *dev,  struct ifreq  *ifr,  int  cmd )
- 		return  enslave( dev, slave_dev );
- 
- 	case  SIOCDEVEMANSIPATE :
--		if( current->euid != 0 )	/* root only */
-+		if (!capable(CAP_NET_ADMIN))
- 			return  -EPERM;
- 
- 		return  emancipate( dev );
+Sorry about not putting much of a changelog in for this.  It was something I 
+found as a side issue while working on something else, I set it aside and 
+kept working on my patches.  I forgot to come back and put a description in 
+there other than what was wrong prior to forwarding it to Jeff K.
+
+Thanks,
+
+Alex 
+
