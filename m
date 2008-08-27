@@ -1,69 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch for 2.6.27? 5/5] forcedeth: fix kexec regression
-Date: Wed, 27 Aug 2008 05:48:02 -0400
-Message-ID: <48B522D2.4090605@garzik.org>
-References: <200808202334.m7KNYcff005038@imap1.linux-foundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] pkt_sched: Fix gen_estimator locks
+Date: Wed, 27 Aug 2008 19:55:49 +1000
+Message-ID: <20080827095549.GA12583@gondor.apana.org.au>
+References: <20080825230848.GB12082@ami.dom.local> <E1KXy78-0000mY-00@gondolin.me.apana.org.au> <20080827.022633.132959334.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rjw@sisk.pl, aabdulla@nvidia.com,
-	yhlu.kernel@gmail.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58445 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754153AbYH0JsH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:48:07 -0400
-In-Reply-To: <200808202334.m7KNYcff005038@imap1.linux-foundation.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:52213 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753556AbYH0Jzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:55:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20080827.022633.132959334.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-akpm@linux-foundation.org wrote:
-> From: Rafael J. Wysocki <rjw@sisk.pl>
+On Wed, Aug 27, 2008 at 02:26:33AM -0700, David Miller wrote:
+>
+> > > @@ -830,9 +830,16 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+> > >                        sch->stab = stab;
+> > >                }
+> > >                if (tca[TCA_RATE]) {
+> > > +                       spinlock_t *root_lock;
+> > > +
+> > > +                       if ((sch->parent != TC_H_ROOT) &&
+> > > +                           !(sch->flags & TCQ_F_INGRESS))
+> > > +                               root_lock = qdisc_root_sleeping_lock(sch);
+> > > +                       else
+> > > +                               root_lock = qdisc_lock(sch);
+> > 
+> > Another reason why we should just have pointers to the root.
 > 
-> Fix regression tracked as http://bugzilla.kernel.org/show_bug.cgi?id=11361
-> and caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2 ("[netdrvr]
-> forcedeth: setup wake-on-lan before shutting down") that makes network
-> adapters integrated into the NVidia MCP55 chipsets fail to work in kexeced
-> kernels.  The problem appears to be that if the adapter is put into D3_hot
-> during ->shutdown(), it cannot be brought back into D0 after kexec (ref. 
-> http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore, only
-> put forcedeth into D3 during ->shutdown() if the system is to be powered
-> off.
+> Yes root pointers would be useful, but they wouldn't kill these tests
+> :-)
 > 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> Tested-by: Yinghai Lu <yhlu.kernel@gmail.com>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |    8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff -puN drivers/net/forcedeth.c~forcedeth-fix-kexec-regression drivers/net/forcedeth.c
-> --- a/drivers/net/forcedeth.c~forcedeth-fix-kexec-regression
-> +++ a/drivers/net/forcedeth.c
-> @@ -5990,10 +5990,12 @@ static void nv_shutdown(struct pci_dev *
->  	if (netif_running(dev))
->  		nv_close(dev);
->  
-> -	pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> -	pci_enable_wake(pdev, PCI_D3cold, np->wolenabled);
->  	pci_disable_device(pdev);
-> -	pci_set_power_state(pdev, PCI_D3hot);
-> +	if (system_state == SYSTEM_POWER_OFF) {
-> +		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
-> +			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
-> +		pci_set_power_state(pdev, PCI_D3hot);
-> +	}
->  }
+> Here in qdisc_create() we might be creating the new root, and we'd
+> still thus need a conditional for that case.
 
-All,
+What I mean is a pointer like sch->root_qdisc, and we would provide
+that to qdisc_create as a parameter in place of dev_queue (and
+NULL for root qdiscs themselves).  So as long as we assign it at
+the top of this function it would be available here too.
 
-Is this the final version of this patch?
-
-	Jeff
-
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
