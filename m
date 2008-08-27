@@ -1,86 +1,51 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: hso driver dropping characters on serial port & hacky fix
-Date: Wed, 27 Aug 2008 12:54:17 +0200
-Message-ID: <48B53259.90005@option.com>
-References: <20080820010353.593820280@mini.kroah.org> <20080820010752.GB3365@kroah.com> <48B52064.9070700@pobox.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 1/2] pkt_sched: Fix gen_estimator locks
+Date: Wed, 27 Aug 2008 11:09:39 +0000
+Message-ID: <20080827110938.GB7258@ff.dom.local>
+References: <20080827095549.GA12583@gondor.apana.org.au> <20080827.025747.197547570.davem@davemloft.net> <20080827104457.GA7258@ff.dom.local> <20080827.034723.73512507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <48B52064.9070700-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.168]:64566 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305AbYH0LJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 07:09:45 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so898808ugf.37
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 04:09:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20080827.034723.73512507.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-We have a problem with the hso driver serial ports.
-The problem is a little complex but I hope I can explain it adequetely.
-If you are unfamiliar with USB URBS are basically buffers we give to usb
-hardware to recieve or transmit packets to a USB device.
+On Wed, Aug 27, 2008 at 03:47:23AM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 27 Aug 2008 10:44:58 +0000
+> 
+> > Yes, it should be simpler. (We can probably consider a pointer to
+> > itself instead of NULL for root qdiscs, to skip testing for NULL e.g.
+> > while getting a lock.) On the other hand, we lose with this the
+> > possibility to easily determine which dev_queue is "the owner" of the
+> > qdisc, or if some dev_queue contains a clone only.
+> 
+> For root qdiscs we can add a TCQ_F_SHARED flag for this purpose.
 
-The problem manifests itself when our hardware guys at option
-have a userland diagnostics program going & on a system under
-heavy load, the tty layers buffers belonging to our emulated serial port
-fill up because the userland program gets no
-chance to chance to empty data on the modems emulated serial port.
+Yes, but we can't do something like this:
 
-If we modify  put_rxbuf_data(struct urb *urb, struct hso_serial *serial)
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index e7fb9e0..a7f508c 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -235,6 +235,9 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+ 		struct Qdisc *txq_root = txq->qdisc_sleeping;
+ 
++		/* skip the clones */
++		if (txq_root->dev_queue != txq)
++			continue;
+ 		q = qdisc_match_from_root(txq_root, handle);
+ 		if (q)
+ 			goto unlock;
 
-with the copied check below we get printks under heavy load
-
-> 		copied=tty_insert_flip_string(tty, urb->transfer_buffer,
-> 				       urb->actual_length);
-> 		if(copied<urb->actual_length)
-> 			printk(KERN_ERR" hso: put_rxbuf_data did not "
-> 			       "copy full rx buffer copied=%d asked to copy=%d\n",
-> 			       copied,urb->actual_length);
-
-In the current driver code you've got the driver drops packets silently.
-
-I initially thought that this was not our problem/bug because I
-thought we had no means for USB flow control & told our diagnostic
-guys to go away & stop annoying me.
-However I was talking to the firmware developer of our feama 3G modem
-& he says that the modem will stall gracefully if it doesn't 
-have outstanding bulk_urbs on the emulated serial ports.
-i.e. we have a mechanism to do flow control on our emulated serial
-ports & get away without dropping packets or data corruption.
-
-If I redesign the code.
-We run into a problem if we have no outstanding urbs on
-the serial recieve channel as we will get no more read channel callback
-interrupts. We need to poll the tty layer to
-see if we have free space to put data from the
-urbs we have not yet processed on the read channel or go with my hack.
-
-The hack I'm suggesting which Filip Aben is worried that wont
-get accepted by you is to put a change the line discipline function pointer
-for the hso driver i.e. the bit that calls
-disc->ops->receive_buf(tty, char_buf,flag_buf, count);
-in
-static void flush_to_ldisc(struct work_struct *work)
-in
-/drivers/char/tty_io.c
-
-to point to our own special function in the hso driver where we call the original
-disc->ops->receive_buf so we get automatically 
-notified when we have free space in the hso drivers tty buffers.
-Short of modifying the tty layer I can see no other way of doing this
-efficently.
-
-Is this acceptable to you guys.
-
-This is the most elegant hack I can see to solve this problem,
-if any of ye have a cleaner suggestion let me know.
-
-Sincerely,
-D.J. Barrow
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
