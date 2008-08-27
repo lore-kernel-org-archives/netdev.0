@@ -1,77 +1,50 @@
-From: "Julius Volz" <juliusv@google.com>
-Subject: Re: [PATCH RFC 00/24] IPVS: Add first IPv6 support to IPVS
-Date: Wed, 27 Aug 2008 17:24:53 +0200
-Message-ID: <f4845fc0808270824u2588159dle7caa2910e70a22c@mail.gmail.com>
-References: <1219248931-15064-1-git-send-email-juliusv@google.com>
-	 <f4845fc0808210259n2b4bbd41tb0a93c49592a2029@mail.gmail.com>
-	 <20080821212948.GB4407@verge.net.au>
-	 <20080821220444.GA2758@verge.net.au>
-	 <f4845fc0808220256y4649f48djf8498fa8e5499dca@mail.gmail.com>
-	 <1219399551.4246.10.camel@ernie.internal.graemef.net>
-	 <f4845fc0808220349r6c498eddkae80eb47ed0b5a06@mail.gmail.com>
-	 <alpine.LNX.1.10.0808221316530.10895@titan.stealer.net>
-	 <f4845fc0808220514y64a2db11s459f4662703e6b0e@mail.gmail.com>
-	 <20080827060943.GB3816@verge.net.au>
+From: Wenji Wu <wenji@fnal.gov>
+Subject: about Linux adaptivly adjusting ssthresh
+Date: Wed, 27 Aug 2008 09:38:54 -0500
+Message-ID: <000001c90852$a1c19a50$a05ee183@D2GT6T71>
+References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
+ <20080416.012732.152357000.davem@davemloft.net>
+ <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
+ <20080416.023551.70464279.davem@davemloft.net>
+Reply-To: wenji@fnal.gov
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Sven Wegener" <sven.wegener@stealer.net>,
-	"Graeme Fowler" <graeme@graemef.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, kaber@trash.net, vbusam@google.com
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20080827060943.GB3816@verge.net.au>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
+To: 'David Miller' <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.fnal.gov ([131.225.111.11]:55563 "EHLO mailgw1.fnal.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753605AbYH0PjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 11:39:01 -0400
+Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
+ by mailgw1.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ with SMTP id <0K69001L2KB540@mailgw1.fnal.gov> for netdev@vger.kernel.org;
+ Wed, 27 Aug 2008 09:39:00 -0500 (CDT)
+Received: from mailgw2.fnal.gov ([131.225.111.12])
+ by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008082709385911763 for
+ <netdev@vger.kernel.org>; Wed, 27 Aug 2008 09:38:59 -0500
+Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
+ (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
+ id <0K6900A01KLOGF@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
+ for netdev@vger.kernel.org; Wed, 27 Aug 2008 09:39:00 -0500 (CDT)
+In-reply-to: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 8:09 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Fri, Aug 22, 2008 at 02:14:11PM +0200, Julius Volz wrote:
->> On Fri, Aug 22, 2008 at 1:23 PM, Sven Wegener <sven.wegener@stealer.net> wrote:
->> >> He :) Imagine an old kernel on the backup receiving new messages and
->> >> not understanding them. How could we at least handle that situation
->> >> gracefully (without totally confusing the older kernel)? We'd need to
->> >> do it in a way that old features are still communicated in the same
->> >> way. E.g., v4-only connection syncs still use the same message format,
->> >> but once you use v6 entries, an unused flag or the 'reserved' field in
->> >> ip_vs_sync_conn is used. A v6 message would still confuse an older
->> >> kernel then, but a user would already notice that ipvsadm can't
->> >> configure the v6 services on the older kernel, so that's not too bad.
->> >
->> > If that's a problem, we can easily change the communication port and even
->> > completely redesign the protocol this way, without having old kernels
->> > getting confused about the data they get. We might lose the ability to
->> > sync between different versions, but in the end this is just the
->> > connection synchronziation and both systems should be running the same
->> > version. We could also keep the old communication port for some time, if
->> > that's really needed.
->>
->> Yes, starting from scratch on another port sounds like a good idea.
->> Losing sync ability totally isn't as bad as confusing an older kernel
->> with new messages, so I hope it's not necessary to keep the old
->> baggage around?
->
-> That does sound like a nice idea. I think that is important that we don't
-> confuse older kernels. I guess the only time that ineroperability would be
-> important is when upgrading kernels, where you might want to take the
-> master ldirector down to upgrade it, then the standby.
 
-Good, that makes two votes for not keeping the old protocol in parallel? ;)
+Hi, all, 
 
->> Is there enough motivation for doing this though before having a
->> cleaned-up minimal v6 version without the sync daemon? This is where
->> I'm currently a bit stuck with... any help is appreciated :)
->
-> IPv6 without sync is fine by me. Its certainly much better than no IPv6.
-> Lets tackle sync a bit later.
+Could anybody help me out with Linux adaptively adjusting ssthresh? Thanks
+in advance.
 
-Ok, going for cleaning up and reworking more of the current IPv6 code then...
+I understand that the latest Linux is able to adaptively adjust ssthresh to
+avoid retransmission. Could anybody tell me which algorithms have been
+implemented for the adaptive ssthresh adjust? 
 
--- 
-Julius Volz
-Corporate Operations - SysOps
+Thanks,
 
-Google Switzerland GmbH
+wenji
 
-Identification No.:
-CH-020.4.028.116-1
+
