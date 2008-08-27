@@ -1,56 +1,78 @@
-From: Marcel Holtmann <holtmann@linux.intel.com>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 13:10:10 +0200
-Message-ID: <1219835410.5359.24.camel@californication>
-References: <20080827013009.GA15781@tuxdriver.com>
-	 <1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
-	 <20080827.014041.230100807.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: mv643xx_eth fixes pull request for 2.6.27
+Date: Wed, 27 Aug 2008 05:10:45 -0400
+Message-ID: <48B51A15.5080801@garzik.org>
+References: <20080824020324.GA8762@xi.wantstofly.org> <20080825203139.GA18649@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tomasw@gmail.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Dale Farnsworth <dale@farnsworth.org>,
+	Nicolas Pitre <nico@cam.org>, Andrew Morton <akpm@osdl.org>,
+	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:49934 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754445AbYH0JKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:10:14 -0400
-In-Reply-To: <20080827.014041.230100807.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:52661 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753736AbYH0JKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:10:52 -0400
+In-Reply-To: <20080825203139.GA18649@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-> > Afther massive ath9k merge I didn't see it was a conceptual problem.
+Lennert Buytenhek wrote:
+> On Sun, Aug 24, 2008 at 04:03:24AM +0200, Lennert Buytenhek wrote:
 > 
-> Stop right there.
+>> The following five mv643xx_eth fixes for 2.6.27 since commit
+>> 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
+>>   Linus Torvalds (1):
+>>         Linux v2.6.27-rc4
+>>
+>> are available in the git repository at:
+>>
+>>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
+>>   http://git.marvell.com/?p=mv643xx_eth.git;a=summary
+>>
+>> Lennert Buytenhek (5):
+>>       mv643xx_eth: fix NAPI 'rotting packet' issue
+>>       mv643xx_eth: fix double add_timer() on the receive oom timer
+>>       mv643xx_eth: fix inconsistent lock semantics
+>>       mv643xx_eth: fix NULL pointer dereference in rxq_process()
+>>       mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
+>>
+>>  drivers/net/mv643xx_eth.c |   33 +++++++++++++++++++--------------
+>>  1 files changed, 19 insertions(+), 14 deletions(-)
+>>
+>> The second patch should fix http://bugzilla.kernel.org/show_bug.cgi?id=11377
+>> -- Gerhard, can you please test if it makes your problem go away?  (It
+>> won't make the out of memory messages go away, but it should fix the
+>> kernel panic.)
 > 
-> You don't see it as a problem because you're not the one who has to
-> explain all of this shit to Linus and ends up getting flamed by him
-> when inappropriate changes are in my tree outside of the merge window.
+> The submitter confirmed that patch 2 fixes the original issue (and
+> once that is fixed, patch 4 will fix the subsequently emerging issue).
+> I've also done some more testing on the series, and it's probably good
+> for 2.6.27.  I've tacked on a patch to bump the version number -- can
+> you please pull?
+> 
+> The following changes since commit 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
+>   Linus Torvalds (1):
+>         Linux v2.6.27-rc4
+> 
+> are available in the git repository at:
+> 
+>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
+>   http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.27
+> 
+> Lennert Buytenhek (6):
+>       mv643xx_eth: fix NAPI 'rotting packet' issue
+>       mv643xx_eth: fix double add_timer() on the receive oom timer
+>       mv643xx_eth: fix inconsistent lock semantics
+>       mv643xx_eth: fix NULL pointer dereference in rxq_process()
+>       mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
+>       mv643xx_eth: bump version to 1.3
+> 
+>  drivers/net/mv643xx_eth.c |   35 ++++++++++++++++++++---------------
+>  1 files changed, 20 insertions(+), 15 deletions(-)
 
-I did a quick review of the offending patch queue. And some of them
-should go in since they are fixing real bugs (as far as I can tell from
-a quick review). Others have to clearly wait for the next merge window.
-
-Thomas, please go through the list of patches and pick the real bug
-fixes. The cleanup patches can't go in since they are after the merge
-window. And being one of the offenders why Dave got flamed by Linus,
-there is no way to get these through. And my big offender was a
-regression that broke userspace and came with a lengthy commit message.
-
-Speaking of which, you better have a more convincing commit message if
-you wanna get something in after the merge window. It should make clear
-why this is a bug or a regression and why it can't wait until the next
-merge window.
-
-Please take this into account for any future patches since Linus now set
-a really high bar for patches after the merge window.
-
-Regards
-
-Marcel
+pulled
 
 
