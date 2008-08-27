@@ -1,112 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [sky2, solved] transmit timeouts and firmware update...
-Date: Wed, 27 Aug 2008 14:42:18 -0700
-Message-ID: <20080827144218.5c1d2439@extreme>
-References: <6278d2220808250742r4a2b377al13a516fa0c6b53a9@mail.gmail.com>
-	<alpine.LNX.1.10.0808252048440.25225@bizon.gios.gov.pl>
-	<20080825152206.2d554cf7@speedy>
-	<20080827132727.1851cfba@extreme>
-	<6278d2220808271437r1d6851dbg84e26054d4f3deed@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 23:47:00 +0200
+Message-ID: <20080827214700.GB26610@one.firstfloor.org>
+References: <bug-459782-176318@bugzilla.redhat.com> <200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com> <20080826163719.GA25066@redhat.com> <87zlmyr5nz.fsf@basil.nowhere.org> <Pine.LNX.4.64.0808271427040.3610@t2.domain.actdsltmp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Krzysztof Oledzki" <ole@ans.pl>,
-	"Linux Netdev" <netdev@vger.kernel.org>,
-	"Linux Networking" <linux-net@vger.kernel.org>
-To: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, Dave Jones <davej@redhat.com>,
+	netdev@vger.kernel.org, j.w.r.degoede@hhs.nl
+To: Trent Piepho <tpiepho@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:53992 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752967AbYH0VmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 17:42:21 -0400
-In-Reply-To: <6278d2220808271437r1d6851dbg84e26054d4f3deed@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:40414 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754010AbYH0Vo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 17:44:28 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0808271427040.3610@t2.domain.actdsltmp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Aug 2008 22:37:51 +0100
-"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+On Wed, Aug 27, 2008 at 02:29:18PM -0700, Trent Piepho wrote:
+> On Wed, 27 Aug 2008, Andi Kleen wrote:
+> > On a 2GB Core2 system here I see a time cat /proc/net/tcp > /dev/null
+> > constently dropping from 0.44s to 0.4-0.8s system time with this change.
+> > This is with mostly empty hash tables.
+> 
+> Umm, 0.4 to 0.8 seconds is on average _slower_ than 0.44 seconds.  Did you
+> mean .04 to .08?
 
-> On Wed, Aug 27, 2008 at 9:27 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > On Mon, 25 Aug 2008 15:22:06 -0400
-> > Stephen Hemminger <shemminger@vyatta.com> wrote:
-> >
-> >> On Mon, 25 Aug 2008 21:03:25 +0200 (CEST)
-> >> Krzysztof Oledzki <ole@ans.pl> wrote:
-> >>
-> >> >
-> >> >
-> >> > On Mon, 25 Aug 2008, Daniel J Blueman wrote:
-> >> >
-> >> > > I (and a lot of other users) have been experiencing the frequent sky2
-> >> > > transmit timeout problem [1] (on 88E8053/Yukon2 EC gig hardware); this
-> >> > > is a result of the embedded NIC controller locking up, and I've found
-> >> > > that updating the firmware addresses this issue. I'm still seeing a
-> >> > > previous and different issue [2] from time to time though (silicon
-> >> > > bug?).
-> >> >
-> >> > Thanks for the info. I've been dealing with this problem for some long
-> >> > time, hopefully sky driver from the latest kernels is able to recover
-> >> > from such hangs, so it is not that critical problem now.
-> >> >
-> >> > > Marvell shipping broken firmware is completely unpublicised or
-> >> > > acknowledged, however updated firmware is available through your
-> >> > > motherboard vendor, so all hope it not lost after all...
-> >> >
-> >> > Unfortunately not through all vendors. :( Or maybe not *yet*?
-> >> >
-> >> > > My 8053/EC is using firmware 2.2 (previously 1.9) - you can check in
-> >> > > DOS with 'yukondg.exe' from
-> >> > > http://www.marvell.com/drivers/files/yukondg_v6.53.4.3.zip .
-> >> >
-> >> > Stephen, is it possible for sky2 driver to check and print the
-> >> > firmware version?
-> >>
-> >> It is possible to dump and program eeprom from linux, and the version
-> >> maybe buried in the VPD, but some hardware has non-functional VPD.
-> >
-> > The revision number in the VPD matches the revision number (from PCI)
-> > that is already printed by the driver. Since I don't have enough documentation
-> > on the firmware to know the format, there is no way to print anything
-> > really useful.
-> 
-> $ lspci -d11ab:
-> 02:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
-> PCI-E Gigabit Ethernet Controller (rev 22)
-> 07:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8036
-> PCI-E Fast Ethernet Controller (rev 15)
-> 
-> $ dmesg | grep sky2.*rev
-> [   33.998133] sky2 0000:02:00.0: v1.20 addr 0xd6000000 irq 16
-> Yukon-EC (0xb6) rev 2
-> [   33.999085] sky2 0000:07:00.0: v1.20 addr 0xd8000000 irq 18
-> Yukon-FE (0xb7) rev 1
-> 
-> The 'rev' reported by the driver is from:
-> 
->         hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
-> 
-> which is the chip/silicon revision, whereas the rev reported by the
-> PCI device is the firmware revision, as you've found.
-> 
-> How about:
-> 
-> 02:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
-> PCI-E Gigabit Ethernet Controller (silicon rev 2, firmware/PCI rev 22)
-> 
-> This introduces perhaps something even more useful - we know there are
-> really major issues with (eg) 88E8053 before firmware 2.2; is it worth
-> adding a warning, such as:
-> 
-> sky2: firmware earlier than rev 2.2 detected - if you experience
-> transmit timeouts, ask vendor for 88E8053 firmware update
-> 
-> There are a lot of bug reports on the web pointing the finger at the
-> sky2 driver, and waiting for a 'fixed' version, but the issue is
-> elsewhere...part of the problem, if there is (almost) no
-> documentation/evidence of this problem posted anywhere.
-> 
-> Many thanks,
->   Daniel
+Yes noticed that too -- i think it must have been .04-.08 and the zeros
+got lost somewhere. I remember that it was significantly faster. It's really 
+a benchmark how fast an read lock aquire/release is, but even on 
+the best systems it's quite slow compared to lockless code.
 
-lspci reports PCI rev.  driver reports chip rev.
+-Andi
+
+-- 
+ak@linux.intel.com
