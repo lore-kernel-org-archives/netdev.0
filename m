@@ -1,46 +1,48 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] atl1e: multistatement if missing braces
-Date: Wed, 27 Aug 2008 05:37:24 -0400
-Message-ID: <48B52054.1000204@garzik.org>
-References: <Pine.LNX.4.64.0808191029460.4551@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH] atl1: disable TSO by default
+Date: Wed, 27 Aug 2008 05:37:32 -0400
+Message-ID: <48B5205C.9000804@garzik.org>
+References: <20080818192813.0d0dc1fd@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jie Yang <jie.yang@atheros.com>, Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	link@miggy.org, ian@jeffray.co.uk, csnook@redhat.com,
+	jie.yang@atheros.com, m@fhloston.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59094 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59100 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754009AbYH0Jhe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:37:34 -0400
-In-Reply-To: <Pine.LNX.4.64.0808191029460.4551@wrl-59.cs.helsinki.fi>
+	id S1753147AbYH0Jhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 05:37:38 -0400
+In-Reply-To: <20080818192813.0d0dc1fd@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen wrote:
-> Doesn't cause problems (yet) because err gets zeroed earlier.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Jay Cliburn wrote:
+> The atl1 driver is causing stalled connections and file corruption
+> whenever TSO is enabled.  Two examples are here:
+> 
+> http://lkml.org/lkml/2008/7/15/325
+> http://lkml.org/lkml/2008/8/18/543
+> 
+> Disable TSO by default until we can determine the source of the
+> problem.
+> 
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> cc: stable@kernel.org
 > ---
->  drivers/net/atl1e/atl1e_main.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e=
-_main.c
-> index 82d7be1..7685b99 100644
-> --- a/drivers/net/atl1e/atl1e_main.c
-> +++ b/drivers/net/atl1e/atl1e_main.c
-> @@ -2232,10 +2232,11 @@ static int atl1e_resume(struct pci_dev *pdev)
-> =20
->  	AT_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
-> =20
-> -	if (netif_running(netdev))
-> +	if (netif_running(netdev)) {
->  		err =3D atl1e_request_irq(adapter);
->  		if (err)
->  			return err;
-> +	}
+> 
+> Jeff, I've been trying to find the source of this problem in my
+> spare time for a few weeks now, but haven't been successful.  We
+> turned on TSO by default in 2.6.26 after fixing a nasty performance
+> bug in it, but there's apparently another bug lurking.
+> 
+> This patch needs to be also applied to 2.6.26, hence the cc to
+> stable.
+> 
+>  drivers/net/atlx/atl1.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
 
 applied
 
