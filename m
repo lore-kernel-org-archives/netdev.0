@@ -1,49 +1,35 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] atl1: disable TSO by default
-Date: Wed, 27 Aug 2008 05:37:32 -0400
-Message-ID: <48B5205C.9000804@garzik.org>
-References: <20080818192813.0d0dc1fd@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 02:39:31 -0700 (PDT)
+Message-ID: <20080827.023931.114686718.davem@davemloft.net>
+References: <48B51AE9.5080709@hhs.nl>
+	<20080827.020556.90577040.davem@davemloft.net>
+	<48B52223.5010606@hhs.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	link@miggy.org, ian@jeffray.co.uk, csnook@redhat.com,
-	jie.yang@atheros.com, m@fhloston.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: dada1@cosmosbay.com, davej@redhat.com, netdev@vger.kernel.org
+To: j.w.r.degoede@hhs.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59100 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147AbYH0Jhi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:37:38 -0400
-In-Reply-To: <20080818192813.0d0dc1fd@osprey.hogchain.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42553
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754436AbYH0Jjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:39:35 -0400
+In-Reply-To: <48B52223.5010606@hhs.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Cliburn wrote:
-> The atl1 driver is causing stalled connections and file corruption
-> whenever TSO is enabled.  Two examples are here:
-> 
-> http://lkml.org/lkml/2008/7/15/325
-> http://lkml.org/lkml/2008/8/18/543
-> 
-> Disable TSO by default until we can determine the source of the
-> problem.
-> 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
-> cc: stable@kernel.org
-> ---
-> 
-> Jeff, I've been trying to find the source of this problem in my
-> spare time for a few weeks now, but haven't been successful.  We
-> turned on TSO by default in 2.6.26 after fixing a nasty performance
-> bug in it, but there's apparently another bug lurking.
-> 
-> This patch needs to be also applied to 2.6.26, hence the cc to
-> stable.
-> 
->  drivers/net/atlx/atl1.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
+From: Hans de Goede <j.w.r.degoede@hhs.nl>
+Date: Wed, 27 Aug 2008 11:45:07 +0200
 
-applied
+> I'm sorry, but I didn't have the feeling I had many options
+> left. I've reported a serious performance regression and all the
+> answer I've been getting sofar is: "well if that is slow don't do
+> that you silly" which is anything but a satisfying answer.
 
+Eric said merely that applications can get better performance by using
+the netlink socket dumping interfaces.  It was "for your information",
+rather than being suggested as a fix for the bug.
 
+People have given other forms of useful feedback as well, and the bug
+seems to be being looked into.
