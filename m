@@ -1,70 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] 8139too: fix improper usage of workqueue
-Date: Wed, 27 Aug 2008 13:16:49 -0700
-Message-ID: <20080827131649.409acf91@extreme>
-References: <20080827085126.29e673db@extreme>
-	<20080827192656.GA27499@electric-eye.fr.zoreil.com>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 22:25:09 +0200
+Message-ID: <200808272225.10557.mb@bu3sch.de>
+References: <20080827013009.GA15781@tuxdriver.com> <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:49243 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752032AbYH0UQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 16:16:51 -0400
-In-Reply-To: <20080827192656.GA27499@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1ba2fa240808271226i95a7789k481a68b09dc60164-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-> The driver uses flush_scheduled_work() when the pci device is removed.
+On Wednesday 27 August 2008, Tomas Winkler wrote:
+> > John W. Linville (1):
+> >      mac80211: quiet chatty IBSS merge message
 > 
-> Where would the workqueue be scheduled after / during the removal ?
+> This patch is correct yet it suppresses an important warning, meaning
+> that you have constant IBSS reconnection, remove all connected station
+> and adding them again, This greatly degraded performance. This is
+> caused by inability to adjust to TSF of the IBSS leader
+> 
+> <snipt>
+> static int ieee80211_sta_join_ibss(struct net_device *dev,
+> 				   struct ieee80211_if_sta *ifsta,
+> 				   struct ieee80211_sta_bss *bss)
+> .....
+> /* Remove possible STA entries from other IBSS networks. */
+> 	sta_info_flush_delayed(sdata);
+> </snip>
 
-The timer can fire after removal causing workqueue to be scheduled.
-flush_scheduled_work only impacts work already scheduled not delayed.
+I fail to see how the TSF could be related to an ever reconnecting
+station. Can you elaborate on what happens?
 
-How about this (simpler) version.
+I was under the impression that the firmware would handle TSF stuff.
+Also the "IBSS leader" is a new thing to me. I remember from the specs
+that the device should accept the TSF from _any_ beacon. Not just a
+"leader". Am I mislead? :)
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I also fail to see how we could _ever_ set the TSF to something remotely
+correct from the driver because of the FIFO delay.
 
---- a/drivers/net/8139too.c	2008-08-27 08:30:11.000000000 -0700
-+++ b/drivers/net/8139too.c	2008-08-27 13:15:06.000000000 -0700
-@@ -592,9 +592,9 @@ struct rtl8139_private {
- 				/* Twister tune state. */
- 	char			twistie, twist_row, twist_col;
- 
--	unsigned int		watchdog_fired : 1;
--	unsigned int		default_port : 4; /* Last dev->if_port value. */
--	unsigned int		have_thread : 1;
-+	bool			watchdog_fired;
-+	bool			have_thread;
-+	u8			default_port; /* Last dev->if_port value. */
- 
- 	spinlock_t		lock;
- 	spinlock_t		rx_lock;
-@@ -1692,10 +1692,9 @@ static void rtl8139_tx_timeout (struct n
- 	struct rtl8139_private *tp = netdev_priv(dev);
- 
- 	tp->watchdog_fired = 1;
--	if (!tp->have_thread) {
--		INIT_DELAYED_WORK(&tp->thread, rtl8139_thread);
-+
-+	if (!tp->have_thread)
- 		schedule_delayed_work(&tp->thread, next_tick);
--	}
- }
- 
- static int rtl8139_start_xmit (struct sk_buff *skb, struct net_device *dev)
-@@ -2217,6 +2216,8 @@ static int rtl8139_close (struct net_dev
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	unsigned long flags;
- 
-+	cancel_delayed_work(&tp->thread);
-+
- 	netif_stop_queue(dev);
- 	napi_disable(&tp->napi);
- 
+> 
+> > Assaf Krauss (1):
+> >      iwlwifi: W/A for the TSF correction in IBSS
 
+I cannot find this patch in wireless-testing and I don't
+have a copy of wireless-2.6 here. Can you send me the patch, or
+explain what it does?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
