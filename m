@@ -1,29 +1,39 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [RFC][PATCH 2/3] enic: add main file with module infrastructure, etc
-Date: Tue, 26 Aug 2008 21:15:02 -0700
-Message-ID: <adatzd7gkl5.fsf@cisco.com>
-References: <adaej4clmo0.fsf@cisco.com>
-	<Pine.LNX.4.64.0808262011430.17012@palito_client100.nuovasystems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 14:19:19 +1000
+Message-ID: <E1KYCV5-0002jW-00@gondolin.me.apana.org.au>
+References: <48B452ED.1000308@hhs.nl>
+Cc: dada1@cosmosbay.com, davej@redhat.com, netdev@vger.kernel.org
+To: j.w.r.degoede@hhs.nl (Hans de Goede)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:37325 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703AbYH0EPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 00:15:05 -0400
-In-Reply-To: <Pine.LNX.4.64.0808262011430.17012@palito_client100.nuovasystems.com>
-	(Scott Feldman's message of "Tue, 26 Aug 2008 21:03:08 -0700 (PDT)")
+Received: from rhun.apana.org.au ([64.62.148.172]:60750 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750703AbYH0ETh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 00:19:37 -0400
+In-Reply-To: <48B452ED.1000308@hhs.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > > LLTX is kind of deprecated for new drivers.  Would be nice to avoid this.
- > 
- > What does kind of deprecated mean?  Is there a performance or
- > maintanance issue with LLTX?
+Hans de Goede <j.w.r.degoede@hhs.nl> wrote:
+> Eric Dumazet wrote:
+>
+>> # dmesg | grep "TCP established hash"
+>> TCP established hash table entries: 262144 (order: 10, 4194304 bytes)
+>> # time cat /proc/net/tcp >/dev/null
+>> 
+>> real    0m0.091s
+>> user    0m0.001s
+>> sys     0m0.090s
+> 
+> As quoted above my idle x86_64, using the exact same hash table size, running 
+> 2.6.27-rc2.git1 uses 0.520 seconds for that same command, thats a difference of 
+> more then a factor 50 !!
 
-maintenance -- the goal is to remove LLTX entirely, and adding new
-drivers that use it is a step in the wrong direction.
+That looks like a factor of 5 to me, not 50.
 
- - R.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
