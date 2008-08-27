@@ -1,39 +1,54 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [pull-request] [PATCH 0/6]: DCCP code updates
-Date: Wed, 27 Aug 2008 07:35:19 +0200
-Message-ID: <1219815325-13778-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/6] dccp: Empty the write queue when disconnecting
+Date: Wed, 27 Aug 2008 07:35:23 +0200
+Message-ID: <1219815325-13778-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20080827050636.GB6760@gerrit.erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1219815325-13778-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219815325-13778-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219815325-13778-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219815325-13778-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:46922 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:46925 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751591AbYH0Ffe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 01:35:34 -0400
-In-Reply-To: <20080827050636.GB6760@gerrit.erg.abdn.ac.uk>
+	id S1752256AbYH0Ffh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 01:35:37 -0400
+In-Reply-To: <1219815325-13778-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+dccp_disconnect() can be called due to several reasons:
 
-can you please consider pulling this set - consisting mainly of code updates
-with regard to the RFC, and a few other minor updates.
+ 1. when the connection setup failed (inet_stream_connect());
+ 2. when shutting down (inet_shutdown(), inet_csk_listen_stop());
+ 3. when aborting the connection (dccp_close() with 0 linger time).
 
-Patch #1: Update to always respond with Reset to option errors, as per the RFC. 
-Patch #2: Another update with regard to RFC 4340 - ignore nonsensical options.
-Patch #3: Third update with regard to the RFC - fill in the Reset-Data fields.
-Patch #4: Update to flush the write queue when disconnecting.
-Patch #5: Allow runtime toggling of the `debug' switches via sysfs.
-Patch #6: Replaces an unnecessary CCID-3 BUG_ON with a (better) condition.
+In case (1) the write queue is empty. This patch empties the write queue,
+if in case (2) or (3) it was not yet empty.
 
-This code has been tested and been in the DCCP test tree for some while. 
+This avoids triggering the write-queue BUG_TRAP in sk_stream_kill_queues()
+later on.
 
-Applied to a fresh (today) copy of net-next-2.6, the patches can be pulled from
+It also seems natural to do: when breaking an association, to delete all
+packets that were originally intended for the soon-disconnected end (compare
+with call to tcp_write_queue_purge in tcp_disconnect()).
 
-	git://eden-feed.erg.abdn.ac.uk/net-next-2.6	[subtree `master']
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/proto.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-After this set, the feature-negotiation patch set is the next piece of work.
-I will be needing input with regard to prevailing prefix conventions and update
-the set to match these - will post this separately.
-
-Gerrit
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -309,7 +309,9 @@ int dccp_disconnect(struct sock *sk, int flags)
+ 		sk->sk_err = ECONNRESET;
+ 
+ 	dccp_clear_xmit_timers(sk);
++
+ 	__skb_queue_purge(&sk->sk_receive_queue);
++	__skb_queue_purge(&sk->sk_write_queue);
+ 	if (sk->sk_send_head != NULL) {
+ 		__kfree_skb(sk->sk_send_head);
+ 		sk->sk_send_head = NULL;
