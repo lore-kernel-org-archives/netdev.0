@@ -1,78 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: mv643xx_eth fixes pull request for 2.6.27
-Date: Wed, 27 Aug 2008 05:10:45 -0400
-Message-ID: <48B51A15.5080801@garzik.org>
-References: <20080824020324.GA8762@xi.wantstofly.org> <20080825203139.GA18649@xi.wantstofly.org>
+From: "Tomas Winkler" <tomasw@gmail.com>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 12:13:32 +0300
+Message-ID: <1ba2fa240808270213h3d14c15dp4a57f77e81c01f79@mail.gmail.com>
+References: <20080827013009.GA15781@tuxdriver.com>
+	 <1ba2fa240808270038r24d5eeb9l36fd70ef5ae904f5@mail.gmail.com>
+	 <20080827.014041.230100807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dale Farnsworth <dale@farnsworth.org>,
-	Nicolas Pitre <nico@cam.org>, Andrew Morton <akpm@osdl.org>,
-	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52661 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753736AbYH0JKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 05:10:52 -0400
-In-Reply-To: <20080825203139.GA18649@xi.wantstofly.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:47348 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753127AbYH0JNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 05:13:33 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so1508880fgg.17
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 02:13:32 -0700 (PDT)
+In-Reply-To: <20080827.014041.230100807.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek wrote:
-> On Sun, Aug 24, 2008 at 04:03:24AM +0200, Lennert Buytenhek wrote:
-> 
->> The following five mv643xx_eth fixes for 2.6.27 since commit
->> 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
->>   Linus Torvalds (1):
->>         Linux v2.6.27-rc4
->>
->> are available in the git repository at:
->>
->>   git://git.marvell.com/mv643xx_eth.git for-2.6.27
->>   http://git.marvell.com/?p=mv643xx_eth.git;a=summary
->>
->> Lennert Buytenhek (5):
->>       mv643xx_eth: fix NAPI 'rotting packet' issue
->>       mv643xx_eth: fix double add_timer() on the receive oom timer
->>       mv643xx_eth: fix inconsistent lock semantics
->>       mv643xx_eth: fix NULL pointer dereference in rxq_process()
->>       mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
->>
->>  drivers/net/mv643xx_eth.c |   33 +++++++++++++++++++--------------
->>  1 files changed, 19 insertions(+), 14 deletions(-)
->>
->> The second patch should fix http://bugzilla.kernel.org/show_bug.cgi?id=11377
->> -- Gerhard, can you please test if it makes your problem go away?  (It
->> won't make the out of memory messages go away, but it should fix the
->> kernel panic.)
-> 
-> The submitter confirmed that patch 2 fixes the original issue (and
-> once that is fixed, patch 4 will fix the subsequently emerging issue).
-> I've also done some more testing on the series, and it's probably good
-> for 2.6.27.  I've tacked on a patch to bump the version number -- can
-> you please pull?
-> 
-> The following changes since commit 6a55617ed5d1aa62b850de2cf66f5ede2eef4825:
->   Linus Torvalds (1):
->         Linux v2.6.27-rc4
-> 
-> are available in the git repository at:
-> 
->   git://git.marvell.com/mv643xx_eth.git for-2.6.27
->   http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.27
-> 
-> Lennert Buytenhek (6):
->       mv643xx_eth: fix NAPI 'rotting packet' issue
->       mv643xx_eth: fix double add_timer() on the receive oom timer
->       mv643xx_eth: fix inconsistent lock semantics
->       mv643xx_eth: fix NULL pointer dereference in rxq_process()
->       mv643xx_eth: enforce multiple-of-8-bytes receive buffer size restriction
->       mv643xx_eth: bump version to 1.3
-> 
->  drivers/net/mv643xx_eth.c |   35 ++++++++++++++++++++---------------
->  1 files changed, 20 insertions(+), 15 deletions(-)
+On Wed, Aug 27, 2008 at 11:40 AM, David Miller <davem@davemloft.net> wrote:
+> From: "Tomas Winkler" <tomasw@gmail.com>
+> Date: Wed, 27 Aug 2008 10:38:56 +0300
+>
+>> Afther massive ath9k merge I didn't see it was a conceptual problem.
+>
+> Stop right there.
+>
+> You don't see it as a problem because you're not the one who has to
+> explain all of this shit to Linus and ends up getting flamed by him
+> when inappropriate changes are in my tree outside of the merge window.
 
-pulled
+> Think for just one second about the people who are upstream from you
+> who have to deal with all of these issues, and not some selfish aspect
+> such as what is convenient and nice for you and your driver, and what
+> other people "got away with".
 
-
+Don't get excited, this was a cynical remarks rather then anything
+else. I understand all the aspects of this.  Upstream problems are not
+bigger then down here, Without offense you also see your world from
+your selfish perspective.
+Tomas
