@@ -1,141 +1,29 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [RFC][PATCH 2/3] enic: add main file with module infrastructure,
- etc
-Date: Tue, 26 Aug 2008 21:03:08 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0808262011430.17012@palito_client100.nuovasystems.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC][PATCH 2/3] enic: add main file with module infrastructure, etc
+Date: Tue, 26 Aug 2008 21:15:02 -0700
+Message-ID: <adatzd7gkl5.fsf@cisco.com>
 References: <adaej4clmo0.fsf@cisco.com>
+	<Pine.LNX.4.64.0808262011430.17012@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuova-ex1.nuovasystems.com ([67.91.200.196]:9769 "EHLO
-	nuova-ex1.nuovasystems.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750784AbYH0EL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 00:11:29 -0400
-In-Reply-To: <adaej4clmo0.fsf@cisco.com>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:37325 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703AbYH0EPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 00:15:05 -0400
+In-Reply-To: <Pine.LNX.4.64.0808262011430.17012@palito_client100.nuovasystems.com>
+	(Scott Feldman's message of "Tue, 26 Aug 2008 21:03:08 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Aug 2008, Roland Dreier wrote:
+ > > LLTX is kind of deprecated for new drivers.  Would be nice to avoid this.
+ > 
+ > What does kind of deprecated mean?  Is there a performance or
+ > maintanance issue with LLTX?
 
-> General comment -- probably a good idea to run everything through
-> checkpatch.pl (catches a few trivial whitespace problems) and also
-> sparse with endianness checking (build with "make C=2
-> CF=-D__CHECK_ENDIAN__ SUBDIRS=drivers/net/enic") and look at all the
-> warnings you get.
+maintenance -- the goal is to remove LLTX entirely, and adding new
+drivers that use it is a step in the wrong direction.
 
-I ran checkpatch.pl and sparse but I must have missed a few.  I didn't 
-know about the endianess check in sparse; thanks for the tip.
-
-> > +	{ PCI_DEVICE(PCI_VENDOR_ID_CISCO, PCI_DEVICE_ID_CISCO_ENIC) },
->
-> PCI_VDEVICE() makes this look slightly nicer.
-
-done
-
-> > +	netdev->features |= NETIF_F_LLTX;
->
-> LLTX is kind of deprecated for new drivers.  Would be nice to avoid this.
-
-What does kind of deprecated mean?  Is there a performance or maintanance 
-issue with LLTX?
-
-> > +	case VNIC_DEV_INTR_MODE_INTX:
-> > +	case VNIC_DEV_INTR_MODE_MSI:
-> > +		free_irq(enic->pdev->irq, netdev);
-> > +		break;
-> > +	case VNIC_DEV_INTR_MODE_MSIX:
->
-> Do you really need both MSI and MSI-X support?  Systems where MSI works
-> but MSI-X doesn't a pretty rare, and having both leads to a more complex
-> driver with one code path (MSI) that rarely gets tested.  I removed MSI
-> support from drivers/infiniband/hw/mthca at the beginning of the year
-> afer deprecating it for a while, and I've never heard anyone even
-> mention it, let alone complain.
-
-We need MSI for a non-x86 arch.
-
-> > +	mod_timer(&enic->notify_timer, jiffies + ENIC_NOTIFY_TIMER_PERIOD);
->
-> Would probably be nice to use round_jiffies() or a deferrable timer here
-> to avoid unnecessary wakeups.
-
-done
-
-> > +	pba = vnic_intr_legacy_pba(enic->legacy_pba);
->
-> enic->legacy_pba is just u32 * but vnic_intr_legacy_pba expects an
-> __iomem pointer.
-
-done
-
-> > +	if (skb->protocol == ntohs(ETH_P_IP)) {
-> > +	} else if (skb->protocol == ntohs(ETH_P_IPV6)) {
->
-> trivial but you're converting from host to network order, so you should
-> use htons() not ntohs().
-
-doh!  done
-
-> > +	unsigned int vlan_tag = 0;
-> > +	int vlan_tag_insert = 0;
-> > +
-> > +	if (enic->vlan_group && vlan_tx_tag_present(skb)) {
-> > +		/* VLAN tag from trunking driver */
-> > +		vlan_tag_insert = 1;
-> > +		vlan_tag = cpu_to_le16(vlan_tx_tag_get(skb));
-> > +	}
->
-> vlan_tag is declared as a plain int but you assign the result of
-> cpu_to_le16() to it.  This leads to a sparse warning if you build with
-> endianness checking on.
-
-done
-
-> > +	/* check if ip header and tcp header are complete */
-> > +	if (iph->tot_len < ip_len + tcp_hdrlen(skb))
-> > +		return -1;
->
-> Heh, looks like you copied and pasted a bad example from another driver
-> before I fixed it (in 3ff2cd23, "ehea: Access iph->tot_len with correct
-> endianness," where I was prescient enough in the changelog to say "this
-> ... avoids having a bad example in the tree.").  iph->tot_len is stored
-> in network order so you should use ntohs(iph->tot_len).
-
-done  (yes, probably copied)
-
-> > +	u16 q_number, completed_index, bytes_written, vlan, checksum, len;
-> > +	len = le16_to_cpu(bytes_written);
-> > +			skb->csum = htons(checksum);
-> > +					le16_to_cpu(vlan), cq_desc);
->
-> bytes_written is declared as u16 but then byte-swapped.  Creates a
-> sparse warning.  Similar for checksum, vlan.
-
-done
-
-> > +void enic_del_station_addr(struct enic *enic)
-> > +{
-> > +	vnic_dev_del_addr(enic->vdev, enic->mac_addr);
-> > +}
-> >
-> > +int enic_set_rss_key(struct enic *enic, dma_addr_t key_pa, u64 len)
-> > +{
-> > +	u64 a0 = (u64)key_pa, a1 = len;
-> > +	int wait = 1000;
-> > +
-> > +	return vnic_dev_cmd(enic->vdev, CMD_RSS_KEY, &a0, &a1, wait);
-> > +}
-> > +
-> > +int enic_set_rss_cpu(struct enic *enic, dma_addr_t cpu_pa, u64 len)
-> > +{
-> > +	u64 a0 = (u64)cpu_pa, a1 = len;
-> > +	int wait = 1000;
-> > +
-> > +	return vnic_dev_cmd(enic->vdev, CMD_RSS_CPU, &a0, &a1, wait);
-> > +}
->
-> I can't find anywhere any of these functions are actually used.
-
-done (removed)
+ - R.
