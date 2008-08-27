@@ -1,82 +1,34 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH] forcedeth fix: tx/rx reset
-Date: Wed, 27 Aug 2008 10:37:27 -0400
-Message-ID: <48B566A7.8060409@nvidia.com>
-References: <48B2EDBA.6070802@nvidia.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
+Date: Wed, 27 Aug 2008 20:58:38 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0808272035190.4613@wrl-59.cs.helsinki.fi>
+References: <48B5815D.4010005@openvz.org> <Pine.LNX.4.64.0808271948000.4539@wrl-59.cs.helsinki.fi>
+ <48B58A65.5060906@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:16055 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbYH0RkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 13:40:21 -0400
-In-Reply-To: <48B2EDBA.6070802@nvidia.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41693 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbYH0R6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 13:58:39 -0400
+In-Reply-To: <48B58A65.5060906@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am retracting this path for the time being because we believe there is 
-other circumstances in play. Once the final root cause is found, I can 
-send out the correct patch.
+On Wed, 27 Aug 2008, Pavel Emelyanov wrote:
 
-Ayaz
+> Actually the complete bloat-o-meter.sh output showed that there were 
+> ~10 functions, that became 8 bytes liter, ~10 that became 12-16 bytes
+> liter and so on. This makes me think, that the code in the macro
+> itself is pretty small, but is used widely in the networking code,
+> and this spread makes such a big bloat.
 
+I once measured all static inlines in the headers and the largest bloaters  
+where of that type where the function itself is quite small but it's 
+called from so many places that it add up.
 
-Ayaz Abdulla wrote:
-> This patch keeps the HW reset for tx/rx asserted until DMA is enabled.
-> This is to ensure that all tx/rx initialization (i.e ring setup) is
-> finished before de-asserting the reset.
-> 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> --- old/drivers/net/forcedeth.c	2008-08-25 13:02:17.000000000 -0400
-> +++ new/drivers/net/forcedeth.c	2008-08-25 13:02:20.000000000 -0400
-> @@ -233,7 +233,7 @@
->  	NvRegTxRxControl = 0x144,
->  #define NVREG_TXRXCTL_KICK	0x0001
->  #define NVREG_TXRXCTL_BIT1	0x0002
-> -#define NVREG_TXRXCTL_BIT2	0x0004
-> +#define NVREG_TXRXCTL_DMA_DISABLE	0x0004
->  #define NVREG_TXRXCTL_IDLE	0x0008
->  #define NVREG_TXRXCTL_RESET	0x0010
->  #define NVREG_TXRXCTL_RXCHECK	0x0400
-> @@ -1555,11 +1555,9 @@
->  	u8 __iomem *base = get_hwbase(dev);
->  
->  	dprintk(KERN_DEBUG "%s: nv_txrx_reset\n", dev->name);
-> -	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
-> +	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
->  	pci_push(base);
->  	udelay(NV_TXRX_RESET_DELAY);
-> -	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
-> -	pci_push(base);
->  }
->  
->  static void nv_mac_reset(struct net_device *dev)
-> @@ -1570,7 +1568,7 @@
->  
->  	dprintk(KERN_DEBUG "%s: nv_mac_reset\n", dev->name);
->  
-> -	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
-> +	writel(NVREG_TXRXCTL_DMA_DISABLE | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
->  	pci_push(base);
->  
->  	/* save registers since they will be cleared on reset */
-> @@ -1589,9 +1587,6 @@
->  	writel(temp1, base + NvRegMacAddrA);
->  	writel(temp2, base + NvRegMacAddrB);
->  	writel(temp3, base + NvRegTransmitPoll);
-> -
-> -	writel(NVREG_TXRXCTL_BIT2 | np->txrxctl_bits, base + NvRegTxRxControl);
-> -	pci_push(base);
->  }
->  
->  static void nv_get_hw_stats(struct net_device *dev)
-> 
+-- 
+ i.
