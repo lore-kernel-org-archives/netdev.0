@@ -1,50 +1,52 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 22:26:31 +0300
-Message-ID: <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
-References: <20080827013009.GA15781@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 8139too: fix improper usage of workqueue
+Date: Wed, 27 Aug 2008 21:26:56 +0200
+Message-ID: <20080827192656.GA27499@electric-eye.fr.zoreil.com>
+References: <20080827085126.29e673db@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>,
-	"Michael Buesch" <mb@bu3sch.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.184]:38483 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752394AbYH0T0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 15:26:33 -0400
-Received: by gv-out-0910.google.com with SMTP id e6so6774gvc.37
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 12:26:31 -0700 (PDT)
-In-Reply-To: <20080827013009.GA15781@tuxdriver.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37756 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753691AbYH0T07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 15:26:59 -0400
 Content-Disposition: inline
+In-Reply-To: <20080827085126.29e673db@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> John W. Linville (1):
->      mac80211: quiet chatty IBSS merge message
+Stephen Hemminger <shemminger@vyatta.com> :
+> This driver was confused about how workqueue's work. It is save to
+> schedule multiple times, and the flag (bitfield) was unnecessary and racy.
 
-This patch is correct yet it suppresses an important warning, meaning
-that you have constant IBSS reconnection, remove all connected station
-and adding them again, This greatly degraded performance. This is
-caused by inability to adjust to TSF of the IBSS leader
+static void rtl8139_start_thread(struct rtl8139_private *tp)
+{
+        tp->twistie = 0;
+        if (tp->chipset == CH_8139_K)
+                tp->twistie = 1;
+        else if (tp->drv_flags & HAS_LNK_CHNG)
+                return;
+                ^^^^^^^
 
-<snipt>
-static int ieee80211_sta_join_ibss(struct net_device *dev,
-				   struct ieee80211_if_sta *ifsta,
-				   struct ieee80211_sta_bss *bss)
-.....
-/* Remove possible STA entries from other IBSS networks. */
-	sta_info_flush_delayed(sdata);
-</snip>
+        tp->have_thread = 1;
 
-> Assaf Krauss (1):
->      iwlwifi: W/A for the TSF correction in IBSS
->
+The use of the thread was dependent on RTL8129_CAPS. Now it will be
+scheduled in the tx_timeout handler for RTL8139_CAPS too.
 
-This patch fixes this problem in iwlwifi
+Speaking of race, the bitfield ('have_thread') is initialized through
+rtl8139_open
+-> rtl8139_start_thread
+Do you mean that the tx_timeout handler can kick before the bitfield
+is set ?
 
-We've observed same problem with the broadcom card
+> The workqueue was never canceled either, so it is possible that the thread
+> could run after driver was removes [OOPS].
 
-Tomas
+The driver uses flush_scheduled_work() when the pci device is removed.
+
+Where would the workqueue be scheduled after / during the removal ?
+
+-- 
+Ueimor
