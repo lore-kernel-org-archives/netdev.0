@@ -1,67 +1,61 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 14:42:43 +0300
-Message-ID: <1ba2fa240808270442k20f70e69n6a6203d236376f5@mail.gmail.com>
-References: <20080827.014041.230100807.davem@davemloft.net>
-	 <1219835410.5359.24.camel@californication>
-	 <1ba2fa240808270305m7f505efak9fd0d36d5db09a1e@mail.gmail.com>
-	 <20080827.033237.236091327.davem@davemloft.net>
+Date: Wed, 27 Aug 2008 04:45:51 -0700 (PDT)
+Message-ID: <20080827.044551.102233262.davem@davemloft.net>
+References: <1ba2fa240808270305m7f505efak9fd0d36d5db09a1e@mail.gmail.com>
+	<1219831828.3891.3.camel@johannes.berg>
+	<1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: holtmann@linux.intel.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: johannes@sipsolutions.net, holtmann@linux.intel.com,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tomasw@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:28970 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754153AbYH0Lmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 07:42:45 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so1535403fgg.17
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 04:42:43 -0700 (PDT)
-In-Reply-To: <20080827.033237.236091327.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754153AbYH0Lp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 07:45:56 -0400
+In-Reply-To: <1ba2fa240808270434y1589761xd2ff0a48c2e99033@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 1:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: "Tomas Winkler" <tomasw@gmail.com>
-> Date: Wed, 27 Aug 2008 13:05:23 +0300
->
->> There is a central problem here, since I cannot really adjust driver
->> development progress from obvious reason with Linux merging window.
->
-> Indeed, that's exactly what your core problem is.
->
-> You think it's OK to contaminate upstream just because of the
-> way you have choosen to maintain your driver.
->
+From: "Tomas Winkler" <tomasw@gmail.com>
+Date: Wed, 27 Aug 2008 14:34:28 +0300
 
-I don't think I contaminate upstream I'm just trying to fix bugs so
-people can work with the HW.
+> Unfortunately fixing bugs on stable branch take precedence  of
+> adjusting to new API on development branch that someone decided to do.
+>  I wanted to work directly on wireless testing but it was broken over
+> an over and I have only limited resources more in testing then in
+> development I just had to branch out to be ready with the driver when
+> HW is out. People just check the immediate impact of they fix the
+> don't test for collateral damage and this is understandable an
+> individual developer doesn't have lab with IBSS, BSS, AP, etc setups.
 
-> Well guess what, it's not OK to do that, and it's absolutely not our
-> problem that you choose to do your development in the most anti-social
-> way possible wrt. upstream.
->
-> Anyways, keep defending yourself.
+But think about this from the other perspective.
 
-I'm not defending myself I'm explaining myself.
+When you queue up tons of things, especially in infrastructure level
+code such as mac80211, and on top of it you do your work on the stable
+branch and do not do you work against the development tree, guess what
+happens?
 
-> If you persist, I can certainly make things _really_ easy, such that
-> if there isn't a regression list entry for the bug you are fixing and
-> it isn't mentioned explicitly in your commit message, I simply will
-> refuse to take your changes outside of the merge window.
->
-> It's that simple.
->
-> Would you like things to work that way, where I'm a hard ass, or would
-> you like to stop defending yourself endlessly, and instead start to be
-> reasonable?
+You show up with accumulated piles of non-trivial patches for people
+to review.  And then you'll get upset when they suggest that things be
+implemented differently.
 
-I'm not sure why you are so militant, you cut out form my email sentences
-like 'Yes' and 'Understood'
-Is this personal ?
+It's all because of the gap in time.
 
-Tomas
+And during this time, if you had submitted earlier, you would end up
+doing smaller and mode gradual modifications to your design.  And
+you'd take care of them before they effect subsequent pieces of work
+you want to do which depend upon the earlier bits.
+
+The longer you queue stuff up, the more painful having to change stuff
+at the beginning of that queue becomes.  It can invalidate everything
+else you worked on.
+
+The only sane way to operate is to post your work early and often, or
+else you'll live in a world of hurt, and it will be nobody's fault but
+your own.
+
