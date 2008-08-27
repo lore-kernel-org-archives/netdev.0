@@ -1,158 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC][PATCH] Turn part of SNMP accounting macros into functions
-Date: Wed, 27 Aug 2008 09:41:04 -0700
-Message-ID: <20080827094104.63375aa5@extreme>
-References: <48B5815D.4010005@openvz.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 09:49:10 -0700
+Message-ID: <48B58586.3080806@hp.com>
+References: <200808220457.40892.denys@visp.net.lb>	<20080826201406.GA24827@2ka.mipt.ru>	<48B46B48.7030609@cosmosbay.com>	<20080826205158.GA15266@2ka.mipt.ru>	<87vdxmr53f.fsf@basil.nowhere.org> <48B57BD3.5050206@hp.com> <20080827162735.GW26610@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([216.93.170.194]:37424 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753282AbYH0QlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 12:41:05 -0400
-In-Reply-To: <48B5815D.4010005@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756429AbYH0Qt3@vger.kernel.org>
+In-Reply-To: <20080827162735.GW26610@one.firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Aug 2008 20:31:25 +0400
-Pavel Emelyanov <xemul@openvz.org> wrote:
+Andi Kleen wrote:
+>>Those banks really want to crank down on latency - to the point they 
+>>start disabling interrupt coalescing.  I bet they'd toss anything out 
+>>they could to shave another microsecond.
+> 
+> 
+> This change would actually likely lower their latency.
 
-> After turning IP_XXX_STATS, TCP_XXX_STATS and NET_XXX_STATS from
-> macros into functions the net/ipv4/built-in.o shrank significantly:
-> 
-> add/remove: 14/0 grow/shrink: 0/67 up/down: 482/-2246 (-1764)
-> 
-> Turning the CONFIG_NET_NS option on makes this shrink even larger:
-> 
-> add/remove: 14/0 grow/shrink: 0/67 up/down: 478/-2646 (-2168)
-> 
-> So the question is - what was the reason to keep those as macros?
-> I thought about the possible performance questions, but netperf
-> didn't show any (I admit I just cannot cook it properly).
-> 
-> The sample patch is here, but it's not good (EXPORTs for ipv6
-> and a better place for functions rather than net/ipv4/af_inet.c
-> are required).
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> 
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index 250e6ef..ad8ef7b 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -156,14 +156,16 @@ struct ipv4_config
->  };
->  
->  extern struct ipv4_config ipv4_config;
-> -#define IP_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.ip_statistics, field)
-> -#define IP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.ip_statistics, field)
-> -#define IP_ADD_STATS_BH(net, field, val) SNMP_ADD_STATS_BH((net)->mib.ip_statistics, field, val)
-> -#define NET_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.net_statistics, field)
-> -#define NET_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.net_statistics, field)
-> -#define NET_INC_STATS_USER(net, field) 	SNMP_INC_STATS_USER((net)->mib.net_statistics, field)
-> -#define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
-> -#define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
-> +
-> +void IP_INC_STATS(struct net *net, int field);
-> +void IP_INC_STATS_BH(struct net *net, int field);
-> +void IP_ADD_STATS_BH(struct net *net, int field, int val);
-> +
-> +void NET_INC_STATS(struct net *net, int field);
-> +void NET_INC_STATS_BH(struct net *net, int field);
-> +void NET_INC_STATS_USER(struct net *net, int field);
-> +void NET_ADD_STATS_BH(struct net *net, int field, int val);
-> +void NET_ADD_STATS_USER(struct net *net, int field, int val);
->  
->  extern unsigned long snmp_fold_field(void *mib[], int offt);
->  extern int snmp_mib_init(void *ptr[2], size_t mibsize);
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 8983386..b973e68 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -267,10 +267,10 @@ static inline int tcp_too_many_orphans(struct sock *sk, int num)
->  
->  extern struct proto tcp_prot;
->  
-> -#define TCP_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.tcp_statistics, field)
-> -#define TCP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.tcp_statistics, field)
-> -#define TCP_DEC_STATS(net, field)	SNMP_DEC_STATS((net)->mib.tcp_statistics, field)
-> -#define TCP_ADD_STATS_USER(net, field, val) SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val)
-> +void TCP_INC_STATS(struct net *net, int field);
-> +void TCP_INC_STATS_BH(struct net *net, int field);
-> +void TCP_DEC_STATS(struct net *net, int field);
-> +void TCP_ADD_STATS_USER(struct net *net, int field, int val);
->  
->  extern void			tcp_v4_err(struct sk_buff *skb, u32);
->  
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 8a3ac1f..413adda 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1580,3 +1580,63 @@ EXPORT_SYMBOL(inet_stream_connect);
->  EXPORT_SYMBOL(inet_stream_ops);
->  EXPORT_SYMBOL(inet_unregister_protosw);
->  EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
-> +
-> +void NET_INC_STATS(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS((net)->mib.net_statistics, field);
-> +}
-> +
-> +void NET_INC_STATS_BH(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS_BH((net)->mib.net_statistics, field);
-> +}
-> +
-> +void NET_INC_STATS_USER(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS_USER((net)->mib.net_statistics, field);
-> +}
-> +
-> +void NET_ADD_STATS_BH(struct net *net, int field, int adnd)
-> +{
-> +	SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd);
-> +}
-> +
-> +void NET_ADD_STATS_USER(struct net *net, int field, int adnd)
-> +{
-> +	SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd);
-> +}
-> +
-> +void IP_INC_STATS(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS((net)->mib.ip_statistics, field);
-> +}
-> +
-> +void IP_INC_STATS_BH(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS_BH((net)->mib.ip_statistics, field);
-> +}
-> +
-> +void IP_ADD_STATS_BH(struct net *net, int field, int val)
-> +{
-> +	SNMP_ADD_STATS_BH((net)->mib.ip_statistics, field, val);
-> +}
-> +
-> +void TCP_INC_STATS(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS((net)->mib.tcp_statistics, field);
-> +}
-> +
-> +void TCP_INC_STATS_BH(struct net *net, int field)
-> +{
-> +	SNMP_INC_STATS_BH((net)->mib.tcp_statistics, field);
-> +}
-> +
-> +void TCP_DEC_STATS(struct net *net, int field)
-> +{
-> +	SNMP_DEC_STATS((net)->mib.tcp_statistics, field);
-> +}
-> +
-> +void TCP_ADD_STATS_USER(struct net *net, int field, int val)
-> +{
-> +	SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val);
+I'm guessing you mean increase their latency?  I agree, it could - 
+depends entirely on the PPS in production I suspect.
 
-Change function names to lower case please.
+rick jones
+
+ftp://ftp.cup.hp.com/dist/networking/briefs/nic_latency_vs_tput.txt
+
+I should probably refresh/update that one of these days
