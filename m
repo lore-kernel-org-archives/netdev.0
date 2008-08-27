@@ -1,51 +1,118 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Wed, 27 Aug 2008 16:36:35 +0400
-Message-ID: <20080827123635.GA25321@2ka.mipt.ru>
-References: <200808220457.40892.denys@visp.net.lb> <48B46B48.7030609@cosmosbay.com> <20080826205158.GA15266@2ka.mipt.ru> <200808271509.18529.denys@visp.net.lb>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Wed, 27 Aug 2008 14:41:52 +0200
+Message-ID: <87zlmyr5nz.fsf@basil.nowhere.org>
+References: <bug-459782-176318@bugzilla.redhat.com>
+	<200808261549.m7QFnVUN032543@bz-web1.app.phx.redhat.com>
+	<20080826163719.GA25066@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: netdev@vger.kernel.org, j.w.r.degoede@hhs.nl
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.80.65]:48299 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753802AbYH0MhA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 08:37:00 -0400
-Content-Disposition: inline
-In-Reply-To: <200808271509.18529.denys@visp.net.lb>
+Received: from one.firstfloor.org ([213.235.205.2]:54206 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754217AbYH0MmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 08:42:05 -0400
+In-Reply-To: <20080826163719.GA25066@redhat.com> (Dave Jones's message of "Tue, 26 Aug 2008 12:37:19 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 03:09:17PM +0300, Denys Fedoryshchenko (denys@visp.net.lb) wrote:
-> On Tuesday 26 August 2008, Evgeniy Polyakov wrote:
-> > On Tue, Aug 26, 2008 at 10:44:56PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
-> wrote:
-> > > >Do you have any packet sockets in this system? Like running dhcp daemon?
-> No, nothing at all.
+Dave Jones <davej@redhat.com> writes:
 
-Can you put debug print into
-net_enable_timestamp()/net_disable_timestamp() to determine if someone
-enabled timestamp socket option?
+> Just had this bug reported against our development tree..
 
-> tcp        0      0 127.0.0.1:2600          0.0.0.0:*               LISTEN     3167/zebra
-> tcp        0      0 0.0.0.0:2601            0.0.0.0:*               LISTEN     3167/zebra
-> tcp        0      0 0.0.0.0:2602            0.0.0.0:*               LISTEN     3174/ripd
-> tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN     3549/sshd
-> tcp        0      0 194.146.153.17:22       194.146.154.161:37549   ESTABLISHED11593/sshd
-> tcp        0      0 194.146.153.17:22       192.168.0.92:45891      ESTABLISHED11803/sshd
-> tcp        0      0 127.0.0.1:42537         127.0.0.1:2600          ESTABLISHED3174/ripd
-> tcp        0      0 194.146.153.17:22       194.146.153.18:51810    ESTABLISHED11799/sshd
-> tcp        0      0 127.0.0.1:2600          127.0.0.1:42537         ESTABLISHED3167/zebra
-> udp        0      0 0.0.0.0:520             0.0.0.0:*                          3174/ripd
-> udp        0      0 0.0.0.0:161             0.0.0.0:*                          3194/snmpd
-> udp        0      0 0.0.0.0:67              0.0.0.0:*                          3207/udhcpd
+SUSE had an old patch for this which unfortunately got rejected 
+some time ago for some bogus reason.
 
-This one looks suspicious                                                        ^^^^^^^^^^
+The reason why it's so slow is because the hash table walk
+takes a read lock for each bucket, which is just not fast.
+On some architectures like POWER it is even slower than on x86.
 
-> udp   111360      0 0.0.0.0:49619           0.0.0.0:*                          2449/syslogd
+The patch simply skipped that for empty buckets.
 
+I append the old patch (haven't checked if it applies
+to an recent kernel)
 
--- 
-	Evgeniy Polyakov
+-Andi
+
+Skip empty hash buckets faster in /proc/net/tcp
+
+On most systems most of the TCP established/time-wait hash buckets are empty.
+When walking the hash table for /proc/net/tcp their read locks would
+always be aquired just to find out they're empty. This patch changes the code
+to check first if the buckets have any entries before taking the lock, which
+is much cheaper than taking a lock. Since the hash tables are large
+this makes a measurable difference on processing /proc/net/tcp, 
+especially on architectures with slow read_lock (e.g. PPC) 
+
+On a 2GB Core2 system here I see a time cat /proc/net/tcp > /dev/null
+constently dropping from 0.44s to 0.4-0.8s system time with this change.
+This is with mostly empty hash tables.
+
+On systems with slower atomics (like P4 or POWER4) or larger hash tables
+(more RAM) the difference is much higher.
+
+This can be noticeable because there are some daemons around who regularly
+scan /proc/net/tcp.
+
+Original idea for this patch from Marcus Meissner, but redone by me.
+
+Cc: meissner@suse.de
+Signed-off-by: Andi Kleen <ak@suse.de>
+
+---
+ net/ipv4/tcp_ipv4.c |   30 ++++++++++++++++++------------
+ 1 file changed, 18 insertions(+), 12 deletions(-)
+
+Index: linux/net/ipv4/tcp_ipv4.c
+===================================================================
+--- linux.orig/net/ipv4/tcp_ipv4.c
++++ linux/net/ipv4/tcp_ipv4.c
+@@ -2039,6 +2039,12 @@ static void *listening_get_idx(struct se
+ 	return rc;
+ }
+ 
++static inline int empty_bucket(struct tcp_iter_state *st)
++{
++	return hlist_empty(&tcp_hashinfo.ehash[st->bucket].chain) &&
++		hlist_empty(&tcp_hashinfo.ehash[st->bucket].twchain);
++}
++
+ static void *established_get_first(struct seq_file *seq)
+ {
+ 	struct tcp_iter_state* st = seq->private;
+@@ -2050,6 +2056,10 @@ static void *established_get_first(struc
+ 		struct inet_timewait_sock *tw;
+ 		rwlock_t *lock = inet_ehash_lockp(&tcp_hashinfo, st->bucket);
+ 
++		/* Lockless fast path for the common case of empty buckets */
++		if (empty_bucket(st))
++			continue;
++
+ 		read_lock_bh(lock);
+ 		sk_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
+ 			if (sk->sk_family != st->family) {
+@@ -2097,13 +2107,15 @@ get_tw:
+ 		read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 
+-		if (++st->bucket < tcp_hashinfo.ehash_size) {
+-			read_lock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
+-			sk = sk_head(&tcp_hashinfo.ehash[st->bucket].chain);
+-		} else {
+-			cur = NULL;
+-			goto out;
+-		}
++		/* Look for next non empty bucket */
++		while (++st->bucket < tcp_hashinfo.ehash_size &&
++				empty_bucket(st))
++			;
++		if (st->bucket >= tcp_hashinfo.ehash_size)
++			return NULL;
++
++		read_lock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
++		sk = sk_head(&tcp_hashinfo.ehash[st->bucket].chain);
+ 	} else
+ 		sk = sk_next(sk);
+ 
