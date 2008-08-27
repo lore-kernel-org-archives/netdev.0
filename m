@@ -1,50 +1,81 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: about Linux adaptivly adjusting ssthresh
-Date: Wed, 27 Aug 2008 09:38:54 -0500
-Message-ID: <000001c90852$a1c19a50$a05ee183@D2GT6T71>
-References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
- <20080416.012732.152357000.davem@davemloft.net>
- <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
- <20080416.023551.70464279.davem@davemloft.net>
-Reply-To: wenji@fnal.gov
+From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Wed, 27 Aug 2008 18:45:36 +0300
+Message-ID: <1ba2fa240808270845k6000cb68o382111122ad3d069@mail.gmail.com>
+References: <20080827013009.GA15781@tuxdriver.com>
+	 <200808271510.35950.mb@bu3sch.de>
+	 <1ba2fa240808270755t2f3d0c28rcb874011f5540ef3@mail.gmail.com>
+	 <200808271722.55627.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
-To: 'David Miller' <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.fnal.gov ([131.225.111.11]:55563 "EHLO mailgw1.fnal.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753605AbYH0PjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2008 11:39:01 -0400
-Received: from mailav2.fnal.gov (mailav2.fnal.gov [131.225.111.20])
- by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0K69001L2KB540@mailgw1.fnal.gov> for netdev@vger.kernel.org;
- Wed, 27 Aug 2008 09:39:00 -0500 (CDT)
-Received: from mailgw2.fnal.gov ([131.225.111.12])
- by mailav2.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008082709385911763 for
- <netdev@vger.kernel.org>; Wed, 27 Aug 2008 09:38:59 -0500
-Received: from conversion-daemon.mailgw2.fnal.gov by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0K6900A01KLOGF@mailgw2.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Wed, 27 Aug 2008 09:39:00 -0500 (CDT)
-In-reply-to: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Marcel Holtmann" <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200808271722.55627.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Aug 27, 2008 at 6:22 PM, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+> On Wednesday 27 August 2008 16:55:15 Tomas Winkler wrote:
+>> I'm not sure what you are taking about, we did post patches to
+>> wireless-testing, the driver for 5000 HW  is working in 2.6.27-rc4 I
+>> personally use it every day.  I'm sending bug fixes, like this seris
+>> of patches is direct answer to bugs that were discovered very
+>> recently, I'm not sure what's everybody problem here.
+>
+> The problem is that these patches are posted in huge batches.
+> There are three problems (probably more) with that:
+> 1) "Oh, one of these 15 patches recently merged broke my hw"
+>   instead of
+>   "This patch XXX recently merged broke my hw"
+> 2) It's a _lot_ harder to review. I do not have the time to review
+>   a lot of patches at once. I bet other people won't either.
+> 3) If somebody has any objections against one patch, you'll probably
+>   have to rebase them all (See recent pull request vs cleanups).
+>   That's additional work for you.
+>
+> What's the problem with sending patches upstream as soon as you finished
+> them, instead of piling them up locally and sending them alltogether?
 
-Hi, all, 
+First of all, mac patches are send immediately to wireless-dev for
+review just because we don't want to break anyone works (just look at
+the archives).  iwlwifi patches are sent first to internal mailing
+list for review and internal testing because nobody is really
+reviewing these patches in wireless-dev and this is common practices
+(see latest orinoco 19 patches dump) Internal mailing list is
+really the only place I'm getting any feedback on iwlwifi code, they
+are few exception of course.
+Second I'm not sure why Yi is sending them only once a week I thought
+he had some agreement with John, really don't know.
 
-Could anybody help me out with Linux adaptively adjusting ssthresh? Thanks
-in advance.
+>> We fixed bugs in wireless-testing/mac80211 that were there for months
+>> just because we are only one that do any comprehensive validation. I
+>> don't  want insult anyone and I really exaggeration here but
+>> sometimes I have feeling that more people are breaking the code.
+>
+> If you work directly upstream, you will discover these bugs even faster.
+> If you maintain your local fork of mac80211, you will have a delay. But
+> you will have to handle them _anyway_. It's just delayed.
 
-I understand that the latest Linux is able to adaptively adjust ssthresh to
-avoid retransmission. Could anybody tell me which algorithms have been
-implemented for the adaptive ssthresh adjust? 
+For exact reason we delay patches to 2.6.28, too keep stable.
 
-Thanks,
+>
+> And please, don't act like you don't add bugs to mac80211. There were several
+> bugs that broke connections on b43 (and probably other hw, too) in the past.
 
-wenji
-
-
+Not sure what exact patches are you referring to but I do a lot of
+bugs no doubt and I really test only iwlwifi but we do broad features
+testing  IIRC I did IBSS test with b43 it's broken same way is iwlwifi
+(look for TSF bug fix)
+Thanks
+Tomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
