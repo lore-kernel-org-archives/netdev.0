@@ -1,47 +1,55 @@
-From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: question wrt /drivers/char/tty_io.c in pre 2.6.16 code
-Date: Wed, 27 Aug 2008 17:55:31 +0200
-Message-ID: <48B578F3.1050908@option.com>
-References: <20080820010353.593820280@mini.kroah.org> <20080820010752.GB3365@kroah.com> <48B52064.9070700@pobox.com>
+From: "Julius Volz" <juliusv@google.com>
+Subject: Re: [PATCH RFC 10/24] IPVS: Extend scheduling functions for IPv6 support
+Date: Wed, 27 Aug 2008 18:02:59 +0200
+Message-ID: <f4845fc0808270902l4b5a6f5br7e0a749a5741a1b5@mail.gmail.com>
+References: <1219248931-15064-1-git-send-email-juliusv@google.com>
+	 <1219248931-15064-11-git-send-email-juliusv@google.com>
+	 <20080827062822.GC3816@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com,
-	Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.option.com ([81.246.70.163]:26523 "EHLO
-	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753486AbYH0Pzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 11:55:43 -0400
-In-Reply-To: <48B52064.9070700@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, kaber@trash.net,
+	vbusam@google.com
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20080827062822.GC3816@verge.net.au>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-In kernels prior to 2.6.16 it appears to me have
-no mechanism for finding out if the tty recieve buffers
-are full. This is important for me in implementing
-flow control in the hso serial driver I'm developing
-I don't want to lose characters.
+On Wed, Aug 27, 2008 at 8:28 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Wed, Aug 20, 2008 at 06:15:17PM +0200, Julius Volz wrote:
+>> Convert ip_vs_schedule() and ip_vs_sched_persist() to support scheduling
+>> IPv6 connections.
+>>
+>> Signed-off-by: Julius Volz <juliusv@google.com>
+>>
+>>  1 files changed, 58 insertions(+), 43 deletions(-)
+>>
+>> diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+>> index 99e8938..0f9a0a2 100644
+>> --- a/net/ipv4/ipvs/ip_vs_core.c
+>> +++ b/net/ipv4/ipvs/ip_vs_core.c
+>> @@ -183,14 +183,21 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+>>                   __be16 ports[2])
+>>  {
+>>       struct ip_vs_conn *cp = NULL;
+>> -     struct iphdr *iph = ip_hdr(skb);
+>> +     struct ip_vs_iphdr iph;
+>>       struct ip_vs_dest *dest;
+>>       struct ip_vs_conn *ct;
+>> -     __be16  dport;   /* destination port to forward */
+>> -     __be32  snet;    /* source network of the client, after masking */
+>> +     __be16  dport;                  /* destination port to forward */
+>> +     union nf_inet_addr snet;        /* source network of the client, after masking */
+>
+> Can you break the line above so that it is <= 80 columns wide?
 
-The snippet from allesandro rubini's book
-doesn't will just blindly flip buffers
-& overrun if data is pushed in too quickly
-into the tty layer. 
+Sure! Same for all the other cases.
 
-for (i = 0; i < data_size; ++i) {
-if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-tty_flip_buffer_push(tty);
-tty_insert_flip_char(tty, data[i], TTY_NORMAL);
-}
-tty_flip_buffer_push(tty);
+Julius
 
-The new tty_insert_flip_string returns the
-number of bytes successfully copied to tty recieve buffers
-how do I implement this functionality in pre 2.6.16 code,
-can it be done?
+-- 
+Julius Volz - Corporate Operations - SysOps
 
-Thank you,
-D.J. Barrow
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
