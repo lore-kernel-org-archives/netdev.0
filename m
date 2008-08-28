@@ -1,170 +1,163 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/2] sky2: EEPROM read/write bug fixes
-Date: Wed, 27 Aug 2008 20:46:26 -0700
-Message-ID: <20080827204626.4b65862f@extreme>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57342 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755171AbYH1Dsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 23:48:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Karen Xie <kxie@chelsio.com>
+Subject: [PATCH 1/4 2.6.28] cxgb3 - manage a private ip address for iSCSI
+Date: Wed, 27 Aug 2008 21:21:57 -0700
+Message-ID: <200808280421.m7S4LvAB006456@localhost.localdomain>
+Cc: jgarzik@pobox.com, davem@davemloft.net, michaelc@cs.wisc.edu,
+	swise@opengridcomputing.com, rdreier@cisco.com, daisyc@us.ibm.com,
+	wenxiong@us.ibm.com, bhua@us.ibm.com, divy@chelsio.com,
+	dm@chelsio.com, leedom@chelsio.com, kxie@chelsio.com
+To: netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cleanup and harden the routines accessing the EEPROM.
-  1. Prevent spin forever waiting for the TWSI bus
-  2. Fix write eeprom to write full words rather than only 16 bits 
-    Luckly the vendor doesn't provide EEPROM in Linux format so it must never
-    have been used.
-  3. Don't allow partial eeprom writes, not needed, not safe.
+[PATCH 1/4 2.6.28] cxgb3 - manage a private ip address for iSCSI
 
-These are non-urgent bug fixes.
+From: Karen Xie <kxie@chelsio.com>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Create a per port sysfs entry to pass an IP address to the NIC driver, and a control call for the iSCSI driver to grab it.
+The IP address is required in both drivers to manage ARP requests and connection set up.
+
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/adapter.h        |    1 +
+ drivers/net/cxgb3/cxgb3_ctl_defs.h |    7 +++++
+ drivers/net/cxgb3/cxgb3_main.c     |   46 ++++++++++++++++++++++++++++++++++++
+ drivers/net/cxgb3/cxgb3_offload.c  |    6 +++++
+ 4 files changed, 60 insertions(+), 0 deletions(-)
 
 
---- a/drivers/net/sky2.c	2008-08-27 19:15:52.000000000 -0700
-+++ b/drivers/net/sky2.c	2008-08-27 19:21:13.000000000 -0700
-@@ -3732,27 +3732,63 @@ static int sky2_get_eeprom_len(struct ne
- 	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
- }
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 2711404..adc2f13 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -64,6 +64,7 @@ struct port_info {
+ 	struct link_config link_config;
+ 	struct net_device_stats netstats;
+ 	int activity;
++	__be32 iscsi_ipv4addr;
+ };
  
--static u32 sky2_vpd_read(struct sky2_hw *hw, int cap, u16 offset)
-+static int sky2_vpd_wait(const struct sky2_hw *hw, int cap, u16 busy)
- {
--	u32 val;
-+	unsigned long start = jiffies;
+ enum {				/* adapter flags */
+diff --git a/drivers/net/cxgb3/cxgb3_ctl_defs.h b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+index 6ad9240..2bf5027 100644
+--- a/drivers/net/cxgb3/cxgb3_ctl_defs.h
++++ b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+@@ -57,6 +57,7 @@ enum {
+ 	RDMA_GET_MIB		= 19,
  
--	sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
-+	while ( (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F) == busy) {
-+		/* Can take up to 10.6 ms for write */
-+		if (time_after(jiffies, start + HZ/4)) {
-+			dev_err(&hw->pdev->dev, PFX "VPD cycle timed out");
-+			return -ETIMEDOUT;
-+		}
-+		mdelay(1);
-+	}
+ 	GET_RX_PAGE_INFO	= 50,
++	GET_ISCSI_IPV4ADDR	= 51,
+ };
+ 
+ /*
+@@ -86,6 +87,12 @@ struct iff_mac {
+ 	u16 vlan_tag;
+ };
+ 
++/* Structure used to request a port's iSCSI IPv4 address */
++struct iscsi_ipv4addr {
++	struct net_device *dev;		/* the net_device */
++	__be32 ipv4addr;		/* the return iSCSI IPv4 address */
++};
 +
-+	return 0;
-+}
+ struct pci_dev;
  
--	do {
--		offset = sky2_pci_read16(hw, cap + PCI_VPD_ADDR);
--	} while (!(offset & PCI_VPD_ADDR_F));
-+static int sky2_vpd_read(struct sky2_hw *hw, int cap, void *data,
-+			 u16 offset, size_t length)
+ /*
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 5447f3e..4f72c06 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -34,6 +34,7 @@
+ #include <linux/init.h>
+ #include <linux/pci.h>
+ #include <linux/dma-mapping.h>
++#include <linux/inet.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/if_vlan.h>
+@@ -687,6 +688,47 @@ static struct attribute *offload_attrs[] = {
+ 
+ static struct attribute_group offload_attr_group = {.attrs = offload_attrs };
+ 
++static ssize_t iscsi_ipv4addr_attr_show(struct device *d, char *buf)
 +{
-+	int rc = 0;
++	struct port_info *pi = netdev_priv(to_net_dev(d));
++	__be32 a = pi->iscsi_ipv4addr;
++
++	return sprintf(buf, NIPQUAD_FMT "\n", NIPQUAD(a));
++}
++
++static ssize_t iscsi_ipv4addr_attr_store(struct device *d,
++				       const char *buf, size_t len)
++{
++	struct port_info *pi = netdev_priv(to_net_dev(d));
++
++	pi->iscsi_ipv4addr = in_aton(buf);
++	return len;
++}
++
++#define ISCSI_IPADDR_ATTR(name) \
++static ssize_t show_##name(struct device *d, struct device_attribute *attr, \
++			   char *buf) \
++{ \
++	return iscsi_ipv4addr_attr_show(d, buf); \
++} \
++static ssize_t store_##name(struct device *d, struct device_attribute *attr, \
++			    const char *buf, size_t len) \
++{ \
++	return iscsi_ipv4addr_attr_store(d, buf, len); \
++} \
++static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
++
++ISCSI_IPADDR_ATTR(iscsi_ipv4addr);
++
++static struct attribute *iscsi_offload_attrs[] = {
++	&dev_attr_iscsi_ipv4addr.attr,
++	NULL
++};
++
++static struct attribute_group iscsi_offload_attr_group = {
++	.attrs = iscsi_offload_attrs
++};
++
+ /*
+  * Sends an sk_buff to an offload queue driver
+  * after dealing with any active network taps.
+@@ -1078,6 +1120,7 @@ static int cxgb_open(struct net_device *dev)
+ 		if (err)
+ 			printk(KERN_WARNING
+ 			       "Could not initialize offload capabilities\n");
++		sysfs_create_group(&dev->dev.kobj, &iscsi_offload_attr_group);
+ 	}
  
--	val = sky2_pci_read32(hw, cap + PCI_VPD_DATA);
--	return val;
-+	while (length > 0) {
-+		u32 val;
+ 	link_start(dev);
+@@ -1100,6 +1143,9 @@ static int cxgb_close(struct net_device *dev)
+ 	netif_carrier_off(dev);
+ 	t3_mac_disable(&pi->mac, MAC_DIRECTION_TX | MAC_DIRECTION_RX);
+ 
++	if (is_offload(adapter) && !ofld_disable)
++		sysfs_remove_group(&dev->dev.kobj, &iscsi_offload_attr_group);
 +
-+		sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
-+		rc = sky2_vpd_wait(hw, cap, 0);
-+		if (rc)
-+			break;
-+
-+		val = sky2_pci_read32(hw, cap + PCI_VPD_DATA);
-+
-+		memcpy(data, &val, min(sizeof(val), length));
-+		offset += sizeof(u32);
-+		data += sizeof(u32);
-+		length -= sizeof(u32);
+ 	spin_lock(&adapter->work_lock);	/* sync with update task */
+ 	clear_bit(pi->port_id, &adapter->open_device_map);
+ 	spin_unlock(&adapter->work_lock);
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index c5b3de1..f8f4faa 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -407,6 +407,12 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
+ 		rx_page_info->page_size = tp->rx_pg_size;
+ 		rx_page_info->num = tp->rx_num_pgs;
+ 		break;
++	case GET_ISCSI_IPV4ADDR: {
++		struct iscsi_ipv4addr *p = data;
++		struct port_info *pi = netdev_priv(p->dev);
++		p->ipv4addr = pi->iscsi_ipv4addr;
++		break;
 +	}
-+
-+	return rc;
- }
- 
--static void sky2_vpd_write(struct sky2_hw *hw, int cap, u16 offset, u32 val)
-+static int sky2_vpd_write(struct sky2_hw *hw, int cap, const void *data,
-+			  u16 offset, unsigned int length)
- {
--	sky2_pci_write16(hw, cap + PCI_VPD_DATA, val);
--	sky2_pci_write32(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
--	do {
--		offset = sky2_pci_read16(hw, cap + PCI_VPD_ADDR);
--	} while (offset & PCI_VPD_ADDR_F);
-+	unsigned int i;
-+	int rc = 0;
-+
-+	for (i = 0; i < length; i += sizeof(u32)) {
-+		u32 val = *(u32 *)(data + i);
-+
-+		sky2_pci_write32(hw, cap + PCI_VPD_DATA, val);
-+		sky2_pci_write32(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
-+
-+		rc = sky2_vpd_wait(hw, cap, PCI_VPD_ADDR_F);
-+		if (rc)
-+			break;
-+	}
-+	return rc;
- }
- 
- static int sky2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-@@ -3760,24 +3796,13 @@ static int sky2_get_eeprom(struct net_de
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
--	int length = eeprom->len;
--	u16 offset = eeprom->offset;
- 
- 	if (!cap)
- 		return -EINVAL;
- 
- 	eeprom->magic = SKY2_EEPROM_MAGIC;
- 
--	while (length > 0) {
--		u32 val = sky2_vpd_read(sky2->hw, cap, offset);
--		int n = min_t(int, length, sizeof(val));
--
--		memcpy(data, &val, n);
--		length -= n;
--		data += n;
--		offset += n;
--	}
--	return 0;
-+	return sky2_vpd_read(sky2->hw, cap, data, eeprom->offset, eeprom->len);
- }
- 
- static int sky2_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-@@ -3785,8 +3810,6 @@ static int sky2_set_eeprom(struct net_de
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
--	int length = eeprom->len;
--	u16 offset = eeprom->offset;
- 
- 	if (!cap)
- 		return -EINVAL;
-@@ -3794,21 +3817,11 @@ static int sky2_set_eeprom(struct net_de
- 	if (eeprom->magic != SKY2_EEPROM_MAGIC)
- 		return -EINVAL;
- 
--	while (length > 0) {
--		u32 val;
--		int n = min_t(int, length, sizeof(val));
--
--		if (n < sizeof(val))
--			val = sky2_vpd_read(sky2->hw, cap, offset);
--		memcpy(&val, data, n);
--
--		sky2_vpd_write(sky2->hw, cap, offset, val);
-+	/* Partial writes not supported */
-+	if ((eeprom->offset & 3) || (eeprom->len & 3))
-+		return -EINVAL;
- 
--		length -= n;
--		data += n;
--		offset += n;
--	}
--	return 0;
-+	return sky2_vpd_write(sky2->hw, cap, data, eeprom->offset, eeprom->len);
- }
- 
- 
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
