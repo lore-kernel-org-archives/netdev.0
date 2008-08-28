@@ -1,31 +1,42 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Thu, 28 Aug 2008 09:26:23 +0200
-Message-ID: <20080828072623.GJ26610@one.firstfloor.org>
-References: <87zlmyr5nz.fsf@basil.nowhere.org> <20080827.142941.50104491.davem@davemloft.net> <20080827144800.5f9fc5b4@extreme> <20080827.150955.118944272.davem@davemloft.net> <48B643C3.9040502@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] RDS: Add AF and PF defines for RDS sockets
+Date: Thu, 28 Aug 2008 00:24:57 -0700 (PDT)
+Message-ID: <20080828.002457.26700892.davem@davemloft.net>
+References: <75428E88-423C-492F-AE72-3157D968DC04@holtmann.org>
+	<20080825.212914.197506339.davem@davemloft.net>
+	<1219907200.7107.228.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	andi@firstfloor.org, davej@redhat.com, netdev@vger.kernel.org,
-	j.w.r.degoede@hhs.nl
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marcel@holtmann.org, andy.grover@oracle.com, netdev@vger.kernel.org
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:51721 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751785AbYH1HXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 03:23:48 -0400
-Content-Disposition: inline
-In-Reply-To: <48B643C3.9040502@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60608
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752830AbYH1HZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 03:25:01 -0400
+In-Reply-To: <1219907200.7107.228.camel@pmac.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You are right. For TCP hash table thats probably hard to implement.
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Thu, 28 Aug 2008 08:06:40 +0100
 
-The alternative would be to use some kind of cache optimized
-tree. While they have in theory more steps if you assume that
-the upper levels of the tree are very small and usually are cached
-these steps could be very cheap.
+> On Mon, 2008-08-25 at 21:29 -0700, David Miller wrote:
+> > From: Marcel Holtmann <marcel@holtmann.org>
+> > Date: Tue, 26 Aug 2008 06:16:28 +0200
+> > 
+> > > and where is the protocol? Adding new constants without posting the
+> > > implementation normally doesn't fly anymore.
+> > 
+> > That's correct :)
+> 
+> That's kind of unfortunate, and leads to the problems we have with
+> compatibility for AF_ISDN, where userspace built for the _older_
+> versions has a different value.
+> 
+> Is there really any harm in reserving it up-front?
 
--Andi
--- 
-ak@linux.intel.com
+If you're commiting a userspace to a kernel component
+that hasn't been blessed upstream yet, you're already
+up the creek without a paddle.
