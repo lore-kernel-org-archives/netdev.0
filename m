@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 10/37] dccp: Mechanism to resolve CCID dependencies
-Date: Thu, 28 Aug 2008 19:44:45 +0200
-Message-ID: <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 16/37] dccp: API to query the current TX/RX CCID
+Date: Thu, 28 Aug 2008 19:44:51 +0200
+Message-ID: <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -13,108 +13,91 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755911AbYH1Rpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:36 -0400
-In-Reply-To: <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753784AbYH1Rpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:34 -0400
+In-Reply-To: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a hook to resolve features whose value depends on the choice of
-CCID. It is done at the server since it can only be done after the CCID
-values have been negotiated; i.e. the client will add its CCID preference
-list on the Change options sent in the Request, which will be reconciled
-with the local preference list of the server.
+This provides function to query the current TX/RX CCID dynamically, without
+reliance on the minisock value, using dynamic information available in the
+currently loaded CCID module.
 
-The concept is documented on
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
-				implementation_notes.html#ccid_dependencies
+This query function is then used to
+ (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
+ (b) replace the current test for "which CCID is in use" in probe.c.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/dccp.h   |    1 +
- net/dccp/feat.c   |   25 +++++++++++++++++++++++++
- net/dccp/output.c |   13 +++++++++----
- 3 files changed, 35 insertions(+), 4 deletions(-)
+ net/dccp/ccid.h  |    9 +++++++++
+ net/dccp/probe.c |    7 ++-----
+ net/dccp/proto.c |    6 ++++++
+ 3 files changed, 17 insertions(+), 5 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -443,6 +443,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
- }
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -116,6 +116,15 @@ extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
+ extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+ 				   gfp_t gfp);
  
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
-+extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
- extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -598,6 +598,31 @@ int dccp_feat_finalise_settings(struct dccp_sock *dp)
- 	return 0;
- }
- 
-+/**
-+ * dccp_feat_server_ccid_dependencies  -  Resolve CCID-dependent features
-+ * It is the server which resolves the dependencies once the CCID has been
-+ * fully negotiated. If no CCID has been negotiated, it uses the default CCID.
-+ */
-+int dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq)
++static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
 +{
-+	struct list_head *fn = &dreq->dreq_featneg;
-+	struct dccp_feat_entry *entry;
-+	u8 is_local, ccid;
++	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
 +
-+	for (is_local = 0; is_local <= 1; is_local++) {
-+		entry = dccp_feat_list_lookup(fn, DCCPF_CCID, is_local);
-+
-+		if (entry != NULL && !entry->empty_confirm)
-+			ccid = entry->val.sp.vec[0];
-+		else
-+			ccid = dccp_feat_default_value(DCCPF_CCID);
-+
-+		if (dccp_feat_propagate_ccid(fn, ccid, is_local))
-+			return -1;
-+	}
-+	return 0;
++	if (ccid == NULL || ccid->ccid_ops == NULL)
++		return -1;
++	return ccid->ccid_ops->ccid_id;
 +}
 +
- static int dccp_feat_update_ccid(struct sock *sk, u8 type, u8 new_ccid_nr)
+ extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
+ extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+ 
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
+ static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			 struct msghdr *msg, size_t size)
  {
- 	struct dccp_sock *dp = dccp_sk(sk);
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -339,10 +339,12 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_RESPONSE;
- 	DCCP_SKB_CB(skb)->dccpd_seq  = dreq->dreq_iss;
+-	const struct dccp_minisock *dmsk = dccp_msk(sk);
+ 	const struct inet_sock *inet = inet_sk(sk);
+-	const struct ccid3_hc_tx_sock *hctx;
++	struct ccid3_hc_tx_sock *hctx = NULL;
  
--	if (dccp_insert_options_rsk(dreq, skb)) {
--		kfree_skb(skb);
--		return NULL;
--	}
-+	/* Resolve feature dependencies resulting from choice of CCID */
-+	if (dccp_feat_server_ccid_dependencies(dreq))
-+		goto response_failed;
-+
-+	if (dccp_insert_options_rsk(dreq, skb))
-+		goto response_failed;
+-	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
++	if (ccid_get_current_id(dccp_sk(sk), false) == DCCPC_CCID3)
+ 		hctx = ccid3_hc_tx_sk(sk);
+-	else
+-		hctx = NULL;
  
- 	/* Build and checksum header */
- 	dh = dccp_zeroed_hdr(skb, dccp_header_size);
-@@ -363,6 +365,9 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
- 	inet_rsk(req)->acked = 1;
- 	DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
- 	return skb;
-+response_failed:
-+	kfree_skb(skb);
-+	return NULL;
- }
- 
- EXPORT_SYMBOL_GPL(dccp_make_response);
+ 	if (port == 0 || ntohs(inet->dport) == port ||
+ 	    ntohs(inet->sport) == port) {
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -664,6 +664,12 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
+ 		break;
+ 	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
+ 		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
++	case DCCP_SOCKOPT_TX_CCID:
++	case DCCP_SOCKOPT_RX_CCID:
++		val = ccid_get_current_id(dp, optname == DCCP_SOCKOPT_RX_CCID);
++		if (val < 0)
++			return -ENOPROTOOPT;
++		break;
+ 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+ 		val = dp->dccps_server_timewait;
+ 		break;
 -- 
 1.6.0.rc2
 
