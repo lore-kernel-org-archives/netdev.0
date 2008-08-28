@@ -1,62 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 11447] New: /proc/sys/net/ipv4/route/flush
- not found
-Date: Thu, 28 Aug 2008 13:29:35 -0700 (PDT)
-Message-ID: <20080828.132935.193700612.davem@davemloft.net>
-References: <bug-11447-10286@http.bugzilla.kernel.org/>
-	<20080828131824.49352fa0.akpm@linux-foundation.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 13:29:30 -0700
+Message-ID: <48B70AAA.7010504@hp.com>
+References: <21915755.1327801219904892242.JavaMail.root@ouachita>	<48B6E7D0.5070307@hp.com> <20080828.124251.149964287.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: francois.valenduc@tvcablenet.be, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, viro@zeniv.linux.org.uk
-To: akpm@linux-foundation.org
+Cc: jmalicki@metacarta.com, andi@firstfloor.org, johnpol@2ka.mipt.ru,
+	dada1@cosmosbay.com, denys@visp.net.lb, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60832
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755977AbYH1U3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 16:29:40 -0400
-In-Reply-To: <20080828131824.49352fa0.akpm@linux-foundation.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:43650 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753406AbYH1U3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 16:29:36 -0400
+In-Reply-To: <20080828.124251.149964287.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 28 Aug 2008 13:18:24 -0700
-
 > 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+> The issue is the ordering of processing the requests.
+> 
+> So if request A arrived on interface 1 before request B arrived on
+> interface 2, the trade described in A should be performed before the
+> one in B.
+> 
+> This is not "arcance" as you seem to suppose it might be, but rather
+> pretty clear fair handling or requests sent between trading desks.
 
-Should be fixed in Linus's tree as of an hour ago, it was a
-permissions issue:
+Has the request "hit the trading system" when it hits the NIC, or when 
+it hits the application executing the trade?  If the SEC calls for when 
+it hits the NIC, then none of what is done today is really 
+accurate/correct and one would need to start using NIC HW timestamps, 
+synchronized with the host and the other NICs in the system no?
 
-commit d994af0d50efc96b2077978fe9f066992639d525
-Author: Hugh Dickins <hugh@veritas.com>
-Date:   Wed Aug 27 02:35:18 2008 -0700
+The way things are today, there really isn't much guarantee that hitting 
+NIC 1 before NIC 2 will result in a driver-generated timestamp for the 
+NIC 1 packet which is before the driver-generated timestamp for the NIC 
+2 packet.  It will be luck of the interrupt coalescing interaction with 
+other traffic on the NIC and/or polling out of NAPI right?
 
-    ipv4: mode 0555 in ipv4_skeleton
-    
-    vpnc on today's kernel says Cannot open "/proc/sys/net/ipv4/route/flush":
-    d--------- 0 root root 0 2008-08-26 11:32 /proc/sys/net/ipv4/route
-    d--------- 0 root root 0 2008-08-26 19:16 /proc/sys/net/ipv4/neigh
-    
-    Signed-off-by: Hugh Dickins <hugh@veritas.com>
-    Acked-by: Al Viro <viro@zeniv.linux.org.uk>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e91bafe..6ee5354 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3121,9 +3121,9 @@ static struct ctl_table empty[1];
- static struct ctl_table ipv4_skeleton[] =
- {
- 	{ .procname = "route", .ctl_name = NET_IPV4_ROUTE,
--	  .child = ipv4_route_table},
-+	  .mode = 0555, .child = ipv4_route_table},
- 	{ .procname = "neigh", .ctl_name = NET_IPV4_NEIGH,
--	  .child = empty},
-+	  .mode = 0555, .child = empty},
- 	{ }
- };
- 
+rick jones
