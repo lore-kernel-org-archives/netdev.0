@@ -1,74 +1,74 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
-Date: Thu, 28 Aug 2008 09:13:13 +0200
-Message-ID: <48B65009.5040805@cosmosbay.com>
-References: <20080827144800.5f9fc5b4@extreme>	<20080827.150955.118944272.davem@davemloft.net>	<48B643C3.9040502@cosmosbay.com> <20080827.235158.187658055.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 09:22:18 +0200
+Message-ID: <20080828072218.GI26610@one.firstfloor.org>
+References: <20080827.201020.17601834.davem@davemloft.net> <21915755.1327801219904892242.JavaMail.root@ouachita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, andi@firstfloor.org, davej@redhat.com,
-	netdev@vger.kernel.org, j.w.r.degoede@hhs.nl
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2e.orange.fr ([80.12.242.112]:38766 "EHLO smtp2e.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752796AbYH1HNX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 03:13:23 -0400
-In-Reply-To: <20080827.235158.187658055.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Joe Malicki <jmalicki@metacarta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753933AbYH1HT7@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <21915755.1327801219904892242.JavaMail.root@ouachita>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Thu, 28 Aug 2008 08:20:51 +0200
->=20
->> But for route cache, it is probably doable since we added the
->> rt_genid thing in commit 29e75252da20f3ab9e132c68c9aed156b87beae6
->> ([IPV4] route cache: Introduce rt_genid for smooth cache
->> invalidation)
->>
->> If we add a hash table for each "struct net"
->> (net->ipv4.rt_hash_table), we then could do something sensible when
->> an admin writes to /proc/sys/net/ipv4/route/hash_size or at
->> rt_check_expire() time, if hash table is found to be full...
->=20
-> The synchronization and implementation is not a problem for
-> the route cache, I implemented this eons ago.
->=20
->> 3) In rt_check_expire(), adds some metrics to trigger an expand of t=
-he
->>   hash table in case we found too many entries in it.
->=20
-> This is the problem and why I didn't just commit the patch I had back
-> then.
->=20
-> We could not define a reasonable way to trigger hash table growth.
->=20
-> GC attempts to keep a resident set of entries in the cache, and these
-> heuristics are guided by the table size itself.  So if you grow the
-> table too aggressively this never has a chance to work.
+> I've worked with systems where SO_TIMESTAMP has been used for
+> H.323 videoconferencing systems to synchronize audio and video
 
-Maybe because of overcomplicated algos in net/ipv4/route.c, and
-mixing "number of entries in cache", and "hash table size" things...
+But didn't you really want a "end2end" time stamp in this case,
+as in really at the end of all kernel/hardware queues on your side.
 
-=46act is that nobody wants to have eight elements per hash bucket,
-especially in case of DDOS.
+A packet roughly travels this way on a normal NIC before it hits recvmsg()
 
->=20
-> You want to respond dynamically to traffic in a reasonable amount of
-> time, but you don't want to get tricked by bursts of RCU effects.
->=20
+wire -> NIC on die buffers -> NIC RX ring -> interrupt handler -> 
+NAPI or per CPU queue -> softirq socket lookup -> socket queue -> recvmsg
 
-Right, but we also use process context processing instead of plain
-timer soft irq things, so at least RCU effects should now be OK.
+These all do their own queuing and all queues can add delays depending
+on the load.  Right now SO_TIMESTAMP is in the interrupt handler,
+but it's just an arbitary position in a multitude of queues.
 
-> We never came up with an algorithm that addresses all of these
-> issues.
+For video conferencing (or e.g. in general if you implement a retransmit 
+timeout in user space) scheduling delays on the local box
+surely need to be taken into account too because they all add
+to the final timing of the packets on the wire.
 
-Could you give us the pointer to your previous work ?
+The queues inside the system are really part of the network
+too. In Linux for example the algorithms who size the TCP 
+buffer space know that and especially take account for it
+and reserve a local queue buffer. 
 
-Thank you
+> where remote systems' timestamps on the protocol streams proved
+> to be inaccurate (based off of different, unsynchronized clocks).
 
+Yes, but why ignore local scheduling delays? 
 
+> 
+> I can't see any other realistic use of this, but trying to get
+> timestamps for quasi-realtime protocols may be an important use
+> case - and in that case, you want the time when it hits the
+> interface, NOT when it hits the socket.
 
+I think it's the other way round. Why would the real time 
+protocol care when it hits some arbitary queue in the network
+stack instead of the time when the application can really
+read the data?
+ 
+> What utility does the time of hitting the socket get you?
+
+SO_TIMESTAMP was originally invented for passive network
+monitoring as in tcpdump (for which PACKET sockets were designed
+originally, DHCP is really just abusing them imho). There it makes 
+some sense to do the time stamp as near on the wire as possible
+but really a hardware time stamp would be better because
+it is even nearer. But for anything that does end2end it's
+the wrong semantics anyways because ignoring local queueing 
+delays would be just a bug, and SO_TIMESTAMP ignores them currently.
+
+-Andi
+
+-- 
+ak@linux.intel.com
