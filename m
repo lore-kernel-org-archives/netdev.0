@@ -1,49 +1,49 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: cpu utilisation improvement when not doing netif_tx_{stop,wake}_queue()
-Date: Thu, 28 Aug 2008 18:46:38 +0200
-Message-ID: <20080828164638.GA25919@xi.wantstofly.org>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: 2.6.27-rc ... iwl3945 regression?
+Date: Thu, 28 Aug 2008 09:48:07 -0700
+Message-ID: <200808280948.07358.david-b@pacbell.net>
+References: <200808131735.42451.david-b@pacbell.net> <20080828164134.1cd3bb12@hskinnemo-gx745.norway.atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dale@farnsworth.org, nico@cam.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([83.160.184.112]:38481 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456AbYH1Qql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 12:46:41 -0400
+Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:38123 "HELO
+	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751432AbYH1QsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 12:48:09 -0400
+In-Reply-To: <20080828164134.1cd3bb12@hskinnemo-gx745.norway.atmel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been hacking on mv643xx_eth to optimise small packet routing
-throughput.  The version currently in my tree can route ~190kpps,
-versus ~130kpps for the version in 2.6.27.
+On Thursday 28 August 2008, Haavard Skinnemoen wrote:
+> David Brownell <david-b@pacbell.net> wrote:
+> > Does this sound familiar to anyone?  Got a fix that's better than
+> > sticking to a 2.6.26 kernel?  :)
+> 
+> FWIW, I'm seeing the same thing with -rc4 and the b43 driver, so it's
+> probably not a regression in iwl3945. I guess it could be something in
+> mac80211?
 
-As part of the hacking, I implemented multiqueue TX, got rid of all
-driver-private locking in favor of the per-subqueue _xmit_lock, and
-did a bunch of other cleanups.  (Available in the tree below.)
+It was separately suggested that I ignore the advice about no
+software needing it, and enable CONFIG_WIRELESS_EXT_SYSFS ...
+that did the trick for me.
 
-At first, I didn't want to bother with proper synchronisation for
-netif_tx_{stop,wake}_queue(), so I just disabled them entirely for the
-time being (and would just drop skbs in ->hard_start_xmit() without
-warning if the TX ring was full, while returning success).
+That Kconfig helptext needs updating so it's not completely wrong.
 
-When I had properly sorted out the locking and turned TX queue flow
-control back on again, I started seeing a ~20% CPU usage hit on a TCP
-throughput test relative to not doing said flow control.
+- Dave
 
-I.e. transmitting wire speed gigabit over a single TCP session takes
-around 90% CPU time (measured with cyclesoak) if I have the TX queue
-flow control enabled, but only 70% if I rip the TX queue flow control
-out.  (This is on a relatively underpowered ARM box.)
 
-Looking at the profiles doesn't tell me much, and I can't explain what's
-going on, but it seems pretty consistent: if I in the tree below revert
-to any commit before the "mv643xx_eth: get rid of transmit queue flow
-control" one, I get the CPU hit (~90%), whereas with that commit
-included it's fine (~70%).
+> I'm currently working around it by manually running iwconfig while
+> nm-applet is bringing the interface up. A bit annoying, but it
+> works...and it indicates that the driver works fine, but NetworkManager
+> doesn't know that it's supposed to do any wireless configuration before
+> bringing the interface up.
+> 
+> Haavard
+> 
 
-	http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.28
-	git://git.marvell.com/mv643xx_eth.git for-2.6.28
 
-Ideas?
