@@ -1,67 +1,47 @@
-From: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Thu, 28 Aug 2008 10:59:20 +0300
-Message-ID: <1ba2fa240808280059i24d2ee56rd7a3c37150e1c03c@mail.gmail.com>
-References: <20080827013009.GA15781@tuxdriver.com>
-	 <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
-	 <200808272225.10557.mb@bu3sch.de>
-	 <1ba2fa240808271611v382631ecn2a24e2816562d434@mail.gmail.com>
-	 <20080827233103.GE5927@tesla>
-	 <1ba2fa240808271719o2a3617e7re0499670de785b2f@mail.gmail.com>
-	 <43e72e890808271830k6e0a9e65j790ee1e0d6d52d36@mail.gmail.com>
+From: Hans de Goede <j.w.r.degoede@hhs.nl>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Thu, 28 Aug 2008 10:12:13 +0200
+Message-ID: <48B65DDD.6020309@hhs.nl>
+References: <20080827.164535.150037784.davem@davemloft.net>	<48B5F3E2.2000909@cosmosbay.com>	<20080828074536.GK26610@one.firstfloor.org> <20080828.005909.215643947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Bruno Randolf" <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>
-To: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <43e72e890808271830k6e0a9e65j790ee1e0d6d52d36-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: andi@firstfloor.org, dada1@cosmosbay.com, davej@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.versatel.nl ([62.58.50.88]:53103 "EHLO smtp1.versatel.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753693AbYH1IBB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 04:01:01 -0400
+In-Reply-To: <20080828.005909.215643947.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 28, 2008 at 4:30 AM, Luis R. Rodriguez
-<lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org> wrote:
-> On Wed, Aug 27, 2008 at 5:19 PM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> This patch is marked as W/A and should have
->> probably some cleaner solution in 2.6.28
->
-> OK
->
->>>> Last solution would be to remove this merging all together
->>>
->>> Absolutely not! IBSS merge is per spec, otherwise you don't really have
->>> a real IBSS.
->>
->> I'm all for following spec and we've tried really hard to make it work.
->> Anyhow I'm not sure what you call real IBSS. nobody has checked it for
->> 1.5 year this patch  is in and now is suddenly so important...
->
-> I don't care about your work around, I was replying due to your insane
-> comments about considering removing IBSS merge support because your
-> hardware does not support it well.
+David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Thu, 28 Aug 2008 09:45:36 +0200
+> 
+>>> When scanning route cache hash table, we can avoid taking locks for empty 
+>>> buckets.
+>> I'm not sure it's worth it in this case.  A rcu_read_lock() is a nop
+>> (on non preemptible kernel) to very cheap (non atomic increment/decrement in 
+>> cached task_struct) 
+> 
+> It's not one, it's at least two such increments, plus function calls,
+> state checks, etc. since this is rcu_read_lock_bh().
+> 
 
-Insane?!, watch your language mister I will catch you on next year OLS
-:) This is definitely
-not any highlighted proposal in my message
+I'm very happy to see some progress on this and this leading to even more 
+optimalizations elsewhere,
 
->> I would like to see if there is any  HW under mac80211 that actually
->> work with this.
->
-> Atheros hardware supports IBSS merge, please consider a proper work
-> around instead for hardware which does not support this.
+Thanks guys!
 
-So how do set TSF from the beacon, I'm asking because there is
-currently no interface from mac80211 to driver do that.
-Thanks
-Tomas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+
+Hans
+
+
+p.s.
+
+Can I please be removed from the CC, thanks!
