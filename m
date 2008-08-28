@@ -1,102 +1,96 @@
-From: Arthur Jones <ajones@riverbed.com>
-Subject: Re: [patch 1/6] forcedeth: power down phy when interface is down
-Date: Thu, 28 Aug 2008 12:21:15 -0700
-Message-ID: <20080828192114.GA31454@ajones-laptop.nbttech.com>
-References: <200807040643.m646h8Yp017231@imap1.linux-foundation.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 22:25:57 +0300
+Message-ID: <200808282225.57535.denys@visp.net.lb>
+References: <20080827.201020.17601834.davem@davemloft.net> <200808281948.52608.denys@visp.net.lb> <48B6F4FE.6010308@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eswierk@arastra.com" <eswierk@arastra.com>,
-	"aabdulla@nvidia.com" <aabdulla@nvidia.com>
-To: "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Joe Malicki <jmalicki@metacarta.com>,
+	David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([206.169.144.12]:56584 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbYH1TVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:21:16 -0400
+Received: from relay2.globalproof.net ([194.146.153.25]:51138 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753252AbYH1T12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:27:28 -0400
+In-Reply-To: <48B6F4FE.6010308@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <200807040643.m646h8Yp017231@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,  I just ran across this patch.  Tested on a
-Marvell 88E1121R (GigE PHY) and works great.  This
-is a very important feature for me...
+On Thursday 28 August 2008, Eric Dumazet wrote:
 
-Thanks!
+> So... if using ping on your machine has direct an noticeable effect on cpu
+> load, problem is elsewhere (if no ping is running, you dont have skb
+> timestamping, but still getnstimeofday() is the top function in oprofile)
 
-Arthur
+>
+> 1) Do you have any netfilter rule using xt_time ?
+>    (This module also calls __net_timestamp(skb))
+No
 
-On Thu, Jul 03, 2008 at 11:43:08PM -0700, akpm@linux-foundation.org wrote:
-> From: "Ed Swierk" <eswierk@arastra.com>
-> 
-> Bring the physical link down when the interface is down by placing the PHY
-> in power-down state, unless WOL is enabled.  This mirrors the behavior of
-> other drivers including e1000 and tg3.
-> 
-> Without the patch, ifconfig down leaves the physical link up, which confuses
-> datacenter users who expect the link lights both on the NIC and the switch to
-> go out when they bring an interface down.
-> 
-> Furthermore, even though the phy is powered on, autonegotiation stops working,
-> so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
-> interface goes down, and become gigabit when it comes up again.
-> 
-> Ayaz said:
-> 
->   I would not include this patch until further testing is performed.  NVIDIA
->   MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
->   have adverse affects on certain phys.
-> 
-> Signed-off-by: Ed Swierk <eswierk@arastra.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |   12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
-> --- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-> +++ a/drivers/net/forcedeth.c
-> @@ -1375,9 +1375,9 @@ static int phy_init(struct net_device *d
->         /* some phys clear out pause advertisment on reset, set it back */
->         mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
-> 
-> -       /* restart auto negotiation */
-> +       /* restart auto negotiation, power down phy */
->         mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-> -       mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-> +       mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
->         if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
->                 return PHY_ERROR;
->         }
-> @@ -5101,6 +5101,10 @@ static int nv_open(struct net_device *de
-> 
->         dprintk(KERN_DEBUG "nv_open: begin\n");
-> 
-> +       /* power up phy */
-> +       mii_rw(dev, np->phyaddr, MII_BMCR,
-> +              mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
-> +
->         /* erase previous misconfiguration */
->         if (np->driver_data & DEV_HAS_POWER_CNTRL)
->                 nv_mac_reset(dev);
-> @@ -5294,6 +5298,10 @@ static int nv_close(struct net_device *d
->         if (np->wolenabled) {
->                 writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
->                 nv_start_rx(dev);
-> +       } else {
-> +               /* power down phy */
-> +               mii_rw(dev, np->phyaddr, MII_BMCR,
-> +                      mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
->         }
-> 
->         /* FIXME: power down nic */
-> _
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> 2) You maybe have a bad program that do something expensive relative to
+> kernel time services.
+No, process list is very short, it is custom semi-embedded linux distro i 
+made, so i know each process running there.  Here is process list (kernel 
+processes/threads and running shell(busybox ash) removed) 
+
+1 root     /bin/sh /init
+ 1119 root     init
+ 2451 root     /sbin/syslogd -R 80.83.17.2
+ 2453 root     /sbin/klogd
+ 3168 squid    /usr/sbin/zebra -d
+ 3175 squid    /usr/sbin/ripd -d
+ 3195 root     /usr/sbin/snmpd -c /config/snmpd.conf
+ 3208 root     udhcpd /config/udhcp.office.conf -S
+ 3550 root     /usr/sbin/sshd -b /etc/banner
+ 3566 root     /sbin/getty 38400 tty1
+ 3567 root     /sbin/getty 38400 tty2
+ 3570 root     /sbin/getty 38400 tty3
+ 4055 root     /usr/sbin/sshd -b /etc/banner
+
+> Your setup is probably not common.
+> You want a PersonnalComputer class machine acts as a SuperCiscoDevice(TM),
+> while most PC machines dont use more than 10% of CPU power in average...
+I dont think i am alone, and almost sure there is many guys trying to run 
+linux as high-performance router. But most of them dont know about 
+netdev@ :-)
+
+Well, thats called "Increasing resources use efficiency and system 
+productivity". It is never a shame to utilize resources more efficiently. 
+Plus i am not using PC class machine. For example this one with HPET, is Sun 
+Fire X4100, which costs us that time a lot of bucks, and mostly because it is 
+reliable hardware (very good IPMI/remote kvm/... onboard, good cooling, 4 
+e1000, dual power supply).
+
+I can use also PC class, but i will face some issues, like building proper 
+cooling system and maybe even it will not work well, cause some chips not 
+designed for "heavy duty", and on load they will not be able to dissipate 
+heat inside the chip and will be broked soon. But sometimes it is even worth 
+to try.
+
+And most important, many routers is already "soft"-routers. What is Cisco 
+7206+NPE G1/G2? It is MIPS CPU with relatively large L2 cache. There is seems 
+no ASIC for routing offloading.  Means Linux can do same or better job.
+And means Vyatta can beat Cisco on this market, and be far away forward from 
+Cisco soon. As result more jobs for opensource guys. Linux must enter "heavy 
+duty" and critical jobs too, not only SOHO-class routers.
+
+>
+> Many existing programs depend on current SO_TIMESTAMP.
+> We wont break them to solve a particular problem (yet to be demonstrated)
+I think it wouldn't break. But sure we must be very careful and on my side i 
+can test all possible scenarios i can implement.
+
+Maybe even good idea to not change (for now) current  default behaviour, but 
+to provide option for "high performance" systems then.
+
+> kernel already provides nanosecond resolution :)
+> Check SO_TIMESTAMPNS and SCM_TIMESTAMPNS
+Maybe this function really must be "heavy" then.
