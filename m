@@ -1,69 +1,104 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: about Linux adaptivly adjusting dupthresh
-Date: Thu, 28 Aug 2008 21:53:09 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808282135350.7618@wrl-59.cs.helsinki.fi>
-References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
- <20080416.012732.152357000.davem@davemloft.net>
- <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
- <20080416.023551.70464279.davem@davemloft.net> <000001c90852$a1c19a50$a05ee183@D2GT6T71>
- <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
- <fb62ce3717a7.48b5b0a8@fnal.gov> <Pine.LNX.4.64.0808280928450.5170@wrl-59.cs.helsinki.fi>
- <001101c90919$313d67b0$a05ee183@D2GT6T71>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 20:57:02 +0200
+Message-ID: <48B6F4FE.6010308@cosmosbay.com>
+References: <20080827.201020.17601834.davem@davemloft.net> <21915755.1327801219904892242.JavaMail.root@ouachita> <20080828072218.GI26610@one.firstfloor.org> <200808281948.52608.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'John Heffner' <johnwheffner@gmail.com>,
-	'David Miller' <davem@davemloft.net>,
-	'Netdev' <netdev@vger.kernel.org>
-To: Wenji Wu <wenji@fnal.gov>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Joe Malicki <jmalicki@metacarta.com>,
+	David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52208 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753785AbYH1SxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 14:53:12 -0400
-In-Reply-To: <001101c90919$313d67b0$a05ee183@D2GT6T71>
+Received: from smtp21.orange.fr ([80.12.242.48]:47747 "EHLO smtp21.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805AbYH1S5S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 14:57:18 -0400
+In-Reply-To: <200808281948.52608.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Aug 2008, Wenji Wu wrote:
+Denys Fedoryshchenko a =E9crit :
+> My small IMHO regarding SO_TIMESTAMP.
+>=20
+> 1)Right now i have 400-500 Mbps passing router. If i will run=20
+> 5 "pings" ,simultaneous ,under _USER_ privileges(i know ping is suid)=
+,=20
+> instead of free 20% CPU time, i will have 1-2% free CPU time. Sure i =
+know=20
+> ping is suid program, but it is has been "like this" since long time.=
+ By=20
+> security psychos it will be caled DoS.
+>=20
 
-> Sorry, I made a mistake in the last post, what I mean is "algorithms
-> adaptively adjust TCP reordering threshold dupthresh". 
+>=20
 
-Ah, that makes much more sense. :-)
+So... if using ping on your machine has direct an noticeable effect on =
+cpu load, problem is elsewhere
+(if no ping is running, you dont have skb timestamping, but still getns=
+timeofday() is the top function in oprofile)
 
-> I understand that "Eifel algorithm" or "DSACK TCP" will adaptively adjust
-> dupthresh to deal with packet reordering. Are there any other
-> reordering-tolerant algorithms implemented in Linux? 
+1) Do you have any netfilter rule using xt_time ?
+   (This module also calls __net_timestamp(skb))
 
-First about adaptive dupthresh:
-
-In addition to DSACK, we use never-retransmitted block's cumulative ACKs 
-to increase the dupthresh (see tcp_clean_rtx_queue). Then there's some 
-newreno thing when dupacks > packets_out but I've never really figured it 
-fully out if that's doing the correct thing when doing + tp->packets_out 
-besides the most simple case (see tcp_check_reno_reordering).
-
-I don't think that eifel adjusts dupthresh though it can remove ambiguity 
-problem and thus we can use the never-retransmitted block acked detection 
-more often.
-
-Also, there's some added logic for small-windowed case to reduce dupthresh 
-temporarily (at the smallest to 3 or whatever the default is) if window is 
-not large enough to generate the incremented (see tcp_time_to_recover).
+2) You maybe have a bad program that do something expensive relative to=
+ kernel time services.
 
 
-Again, I'm not too sure what you mean by "reordering tolerant", but here 
-are some things that may be related:
+bad_program()
+{
+while (1) {
+    struct timeval t0,t1;
+    gettimeofday(&tv0, NULL); // or whatever function that calls getnst=
+imeofday()
+    do_small_work();
+    gettimeofday(&tv1, NULL); // or whatever function that calls getnst=
+imeofday()
+    add_stat_event(&tv1, &tv0);
+}
 
-FACK -> RFC3517 auto-fallback if reordering is detected (basically holes 
-are only counted with FACK in the more-than-dupthresh check).
+> 2)Usefullness of this option. What is a difference if on almost idle =
+machine=20
+> timestamp retrieved on higher level or lower level?=20
+> And why we need on highly loaded server so high precision timestamp (=
+with=20
+> expensive timer), if in my case enabling any socket with SO_TIMESTAMP=
+=20
+> creating delays more than 10ms(up to 100ms)?
 
-I guess Eifel like timestamp checking belongs to this category (in 
-tcp_try_undo_partial).
+Your setup is probably not common.
+You want a PersonnalComputer class machine acts as a SuperCiscoDevice(T=
+M),
+while most PC machines dont use more than 10% of CPU power in average..=
+=2E
 
-If latency spike + reordering occurs, SACK FRTO might help but I think
-it depends on scenario.
+Many existing programs depend on current SO_TIMESTAMP.
+We wont break them to solve a particular problem (yet to be demonstrate=
+d)
 
--- 
- i.
+>=20
+> 3)Who is most users of SO_TIMESTAMP? iputils which is installed on al=
+most=20
+> _ANY_ linux machine? busybox which is using same option? Many others=20
+> userspace multiplatform applications? Or banks? I dont take much in a=
+ccount=20
+> dhcpd, who is maybe abusing this option.
+>=20
+> So there is few good solutions available (IMHO):
+> 1)Introduce some SO_REALTIMESTAMP (anyway even SO_TIMESTAMP not defin=
+ed in any=20
+> standard) for banks and ntp folks, who need them. And even give them =
+timespec=20
+> instead timeval, so they will be even more happy with resolution.
+
+kernel already provides nanosecond resolution :)
+Check SO_TIMESTAMPNS and SCM_TIMESTAMPNS
+
+
+
+
+
