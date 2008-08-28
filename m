@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 34/37] dccp: Auto-load (when supported) CCID plugins for negotiation
-Date: Thu, 28 Aug 2008 19:45:09 +0200
-Message-ID: <1219945512-7723-35-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 27/37] dccp: Integration of dynamic feature activation - part 2 (server side)
+Date: Thu, 28 Aug 2008 19:45:02 +0200
+Message-ID: <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -30,118 +30,98 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-33-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55126 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753765AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:17 -0400
-In-Reply-To: <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753993AbYH1RpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:18 -0400
+In-Reply-To: <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds auto-loading of CCIDs (when module loading is enabled)
-for the purpose of feature negotiation.
+This patch integrates the activation of features at the end of negotiation
+into the server-side code.
 
-The problem with loading the CCIDs at the end of feature negotiation is
-that this would happen in software interrupt context. Besides, if the host
-advertises CCIDs during negotiation, it should have them ready to use, in
-case an agreeing peer wants to use it for the connection.
+Note:
+  In dccp_create_openreq_child the request_sock argument is no longer constant,
+  since dccp_activate_values() uses the feature-negotiation list on dreq to sort
+  out the initialisation values for the different features of the child socket;
+  and purges this queue after use (but the `req' argument to openreq_child
+  can and does still remain constant).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
- net/dccp/ccid.h |    1 +
- net/dccp/feat.c |    5 +++++
- 3 files changed, 35 insertions(+), 10 deletions(-)
+ net/dccp/minisocks.c |   42 ++++++++++++------------------------------
+ 1 files changed, 12 insertions(+), 30 deletions(-)
 
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -111,7 +111,7 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
  
- EXPORT_SYMBOL_GPL(ccid_unregister);
+ 	if (newsk != NULL) {
+-		const struct dccp_request_sock *dreq = dccp_rsk(req);
++		struct dccp_request_sock *dreq = dccp_rsk(req);
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
+ 		struct dccp_sock *newdp = dccp_sk(newsk);
+ 		struct dccp_minisock *newdmsk = dccp_msk(newsk);
+@@ -125,35 +125,6 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 		newicsk->icsk_rto	    = DCCP_TIMEOUT_INIT;
  
-+/**
-+ * ccid_request_module  -  Pre-load CCID module for later use
-+ * This should be called only from process context (e.g. during connection
-+ * setup) and is necessary for later calls to ccid_new (typically in software
-+ * interrupt), so that it has the modules available when they are needed.
-+ */
-+static int ccid_request_module(u8 id)
-+{
-+	if (!in_atomic()) {
-+		ccids_read_lock();
-+		if (ccids[id] == NULL) {
-+			ccids_read_unlock();
-+			return request_module("net-dccp-ccid-%d", id);
+ 		INIT_LIST_HEAD(&newdp->dccps_featneg);
+-		if (dccp_feat_clone(sk, newsk))
+-			goto out_free;
+-
+-		if (newdmsk->dccpms_send_ack_vector) {
+-			newdp->dccps_hc_rx_ackvec =
+-						dccp_ackvec_alloc(GFP_ATOMIC);
+-			if (unlikely(newdp->dccps_hc_rx_ackvec == NULL))
+-				goto out_free;
+-		}
+-
+-		newdp->dccps_hc_rx_ccid =
+-			    ccid_hc_rx_new(newdmsk->dccpms_rx_ccid,
+-					   newsk, GFP_ATOMIC);
+-		newdp->dccps_hc_tx_ccid =
+-			    ccid_hc_tx_new(newdmsk->dccpms_tx_ccid,
+-					   newsk, GFP_ATOMIC);
+-		if (unlikely(newdp->dccps_hc_rx_ccid == NULL ||
+-			     newdp->dccps_hc_tx_ccid == NULL)) {
+-			dccp_ackvec_free(newdp->dccps_hc_rx_ackvec);
+-			ccid_hc_rx_delete(newdp->dccps_hc_rx_ccid, newsk);
+-			ccid_hc_tx_delete(newdp->dccps_hc_tx_ccid, newsk);
+-out_free:
+-			/* It is still raw copy of parent, so invalidate
+-			 * destructor and make plain sk_free() */
+-			newsk->sk_destruct = NULL;
+-			sk_free(newsk);
+-			return NULL;
+-		}
+-
+ 		/*
+ 		 * Step 3: Process LISTEN state
+ 		 *
+@@ -184,6 +155,17 @@ out_free:
+ 		dccp_set_seqno(&newdp->dccps_awl,
+ 			       max48(newdp->dccps_awl, newdp->dccps_iss));
+ 
++		/*
++		 * Activate features after initialising the sequence numbers,
++		 * since CCID initialisation may depend on GSS, ISR, ISS etc.
++		 */
++		if (dccp_feat_activate_values(newsk, &dreq->dreq_featneg)) {
++			/* It is still raw copy of parent, so invalidate
++			 * destructor and make plain sk_free() */
++			newsk->sk_destruct = NULL;
++			sk_free(newsk);
++			return NULL;
 +		}
-+		ccids_read_unlock();
-+	}
-+	return 0;
-+}
-+
-+int ccid_request_modules(u8 const *ccid_array, u8 array_len)
-+{
-+#ifdef CONFIG_KMOD
-+	while (array_len--)
-+		if (ccid_request_module(ccid_array[array_len]))
-+			return -1;
-+#endif
-+	return 0;
-+}
-+
- struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
- {
- 	struct ccid_operations *ccid_ops;
- 	struct ccid *ccid = NULL;
+ 		dccp_init_xmit_timers(newsk);
  
- 	ccids_read_lock();
--#ifdef CONFIG_KMOD
--	if (ccids[id] == NULL) {
--		/* We only try to load if in process context */
--		ccids_read_unlock();
--		if (gfp & GFP_ATOMIC)
--			goto out;
--		request_module("net-dccp-ccid-%d", id);
--		ccids_read_lock();
--	}
--#endif
- 	ccid_ops = ccids[id];
- 	if (ccid_ops == NULL)
- 		goto out_unlock;
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
- extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- 					  char __user *, int __user *);
- 
-+extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
- extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
- 			     gfp_t gfp);
- 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -1170,6 +1170,11 @@ int dccp_feat_init(struct sock *sk)
- 	    ccid_get_builtin_ccids(&rx.val, &rx.len))
- 		return -ENOBUFS;
- 
-+	/* Pre-load all CCID modules that are going to be advertised */
-+	rc = -EUNATCH;
-+	if (ccid_request_modules(tx.val, tx.len))
-+		goto free_ccid_lists;
-+
- 	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
- 	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
- 		goto free_ccid_lists;
+ 		DCCP_INC_STATS_BH(DCCP_MIB_PASSIVEOPENS);
 -- 
 1.6.0.rc2
 
