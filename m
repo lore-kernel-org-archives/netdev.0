@@ -1,30 +1,45 @@
-From: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
-Subject: Re: [RFC: 2.6 patch] wireless/libertas/if_cs.c: fix memory leaks
-Date: Thu, 28 Aug 2008 11:12:03 +0200
-Message-ID: <200808281112.04312.hs4233@mail.mn-solutions.de>
-References: <20080827220508.GQ11734@cs181140183.pp.htv.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
+Date: Thu, 28 Aug 2008 02:46:17 -0700 (PDT)
+Message-ID: <20080828.024617.117112334.davem@davemloft.net>
+References: <48B44768.3030208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20080827220508.GQ11734-re2QNgSbS3j4D6uPqz5PAwR5/fbUUdgG@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lachlan.andrew@gmail.com
+To: virtualphtn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38634
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751805AbYH1JqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 05:46:22 -0400
+In-Reply-To: <48B44768.3030208@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> It looks a bit as if not freeing "fw" in if_cs_prog_real() was
-> done intentionally, but I'm not seeing why it shouldn't be
-> freed.
+From: Tom Quetchenbach <virtualphtn@gmail.com>
+Date: Tue, 26 Aug 2008 11:11:52 -0700
 
-No, it wasn't made intentionally, thanks for finding out.
+> I'm trying to use the TCP_MAXSEG option to setsockopt() to set the MSS
+> for both sides of a bidirectional connection.
+> 
+> man tcp says: "If this option is set before connection establishment, it
+> also changes the MSS value announced to the other end in the initial
+> packet."
+> 
+> However, the kernel only uses the MTU/route cache to set the advertised
+> MSS. That means if I set the MSS to, say, 500 before calling connect(),
+> I will send at most 500-byte packets, but I will still receive 1500-byte
+> packets in reply.
+> 
+> This is a bug, either in the kernel or the documentation.
 
-Acked-by: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think this got broken by accident several years ago, shows how many
+people use this feature :)
+
+We used to use ->mss_clamp to determine the MSS option value,
+but along the way when all of the code using ->advmss et al.
+was added it didn't get translated correctly.
+
+Thanks for your patch, I'll mull over this and put in the fix
+once I understand exactly how this got broken.
