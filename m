@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 08/37] dccp: Query supported CCIDs
-Date: Thu, 28 Aug 2008 19:44:43 +0200
-Message-ID: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 25/37] dccp: Feature activation handlers
+Date: Thu, 28 Aug 2008 19:45:00 +0200
+Message-ID: <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -11,168 +11,319 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754199AbYH1RqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:06 -0400
-In-Reply-To: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755758AbYH1Rpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:42 -0400
+In-Reply-To: <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides a data structure to record which CCIDs are locally supported
-and three accessor functions:
- - a test function for internal use which is used to validate CCID requests
-   made by the user;
- - a copy function so that the list can be used for feature-negotiation;
- - documented getsockopt() support so that the user can query capabilities.
+This patch provides the post-processing of feature negotiation state, after
+the negotiation has completed.
 
-The data structure is a table which is filled in at compile-time with the
-list of available CCIDs (which in turn depends on the Kconfig choices).
+To this purpose, handlers are used and added to the dccp_feat_table. Each
+handler is passed a boolean flag whether the RX or TX side of the feature
+is meant.
 
-Using the copy function for cloning the list of supported CCIDs is useful for
-feature negotiation, since the negotiation is now with the full list of available
-CCIDs (e.g. {2, 3}) instead of the default value {2}. This means negotiation
-will not fail if the peer requests to use CCID3 instead of CCID2.
+Several handlers are provided already, new handlers can easily be added.
+
+The initialisation is now fully dynamic, i.e. CCIDs are activated only
+after the feature negotiation. The integration of this dynamic activation
+is done in the subsequent patches.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |    4 +++
- include/linux/dccp.h              |    1 +
- net/dccp/ccid.c                   |   48 +++++++++++++++++++++++++++++++++++++
- net/dccp/ccid.h                   |    5 ++++
- net/dccp/feat.c                   |    4 +++
- net/dccp/proto.c                  |    2 +
- 6 files changed, 64 insertions(+), 0 deletions(-)
+ net/dccp/dccp.h |    1 +
+ net/dccp/feat.c |  220 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 211 insertions(+), 10 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -57,6 +57,10 @@ can be set before calling bind().
- DCCP_SOCKOPT_GET_CUR_MPS is read-only and retrieves the current maximum packet
- size (application payload size) in bytes, see RFC 4340, section 14.
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -445,6 +445,7 @@ extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
+ extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
+ extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
+ 				  struct sk_buff *skb);
++extern int  dccp_feat_activate_values(struct sock *sk, struct list_head *fn);
+ extern void dccp_feat_list_purge(struct list_head *fn_list);
  
-+DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
-+supported by the endpoint (see include/linux/dccp.h for symbolic constants).
-+The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -25,11 +25,101 @@
+ 
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++/*
++ * Feature activation handlers.
++ *
++ * These all use an u64 argument, to provide enough room for NN/SP features. At
++ * this stage the negotiated values have been checked to be within their range.
++ */
++static int dccp_hdlr_ccid(struct sock *sk, u64 ccid, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct ccid *new_ccid = ccid_new(ccid, sk, rx, gfp_any());
 +
- DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
- timewait state when closing the connection (RFC 4340, 8.3). The usual case is
- that the closing server sends a CloseReq, whereupon the client holds timewait
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -209,6 +209,7 @@ struct dccp_so_feat {
- #define DCCP_SOCKOPT_SERVER_TIMEWAIT	6
- #define DCCP_SOCKOPT_SEND_CSCOV		10
- #define DCCP_SOCKOPT_RECV_CSCOV		11
-+#define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
- #define DCCP_SOCKOPT_CCID_RX_INFO	128
- #define DCCP_SOCKOPT_CCID_TX_INFO	192
- 
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -13,6 +13,13 @@
- 
- #include "ccid.h"
- 
-+static u8 builtin_ccids[] = {
-+	DCCPC_CCID2,		/* CCID2 is supported by default */
-+#if defined(CONFIG_IP_DCCP_CCID3) || defined(CONFIG_IP_DCCP_CCID3_MODULE)
-+	DCCPC_CCID3,
-+#endif
-+};
++	if (new_ccid == NULL)
++		return -ENOMEM;
 +
- static struct ccid_operations *ccids[CCID_MAX];
- #if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
- static atomic_t ccids_lockct = ATOMIC_INIT(0);
-@@ -86,6 +93,47 @@ static void ccid_kmem_cache_destroy(struct kmem_cache *slab)
- 	}
++	if (rx) {
++		ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
++		dp->dccps_hc_rx_ccid = new_ccid;
++	} else {
++		ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
++		dp->dccps_hc_tx_ccid = new_ccid;
++	}
++	return 0;
++}
++
++static int dccp_hdlr_seq_win(struct sock *sk, u64 seq_win, bool rx)
++{
++	if (!rx)
++		dccp_msk(sk)->dccpms_sequence_window = seq_win;
++	return 0;
++}
++
++static int dccp_hdlr_ack_ratio(struct sock *sk, u64 ratio, bool rx)
++{
++	if (rx)
++		dccp_sk(sk)->dccps_r_ack_ratio = ratio;
++	else
++		dccp_sk(sk)->dccps_l_ack_ratio = ratio;
++	return 0;
++}
++
++static int dccp_hdlr_ackvec(struct sock *sk, u64 enable, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++
++	if (rx) {
++		if (enable && dp->dccps_hc_rx_ackvec == NULL) {
++			dp->dccps_hc_rx_ackvec = dccp_ackvec_alloc(gfp_any());
++			if (dp->dccps_hc_rx_ackvec == NULL)
++				return -ENOMEM;
++		} else if (!enable) {
++			dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
++			dp->dccps_hc_rx_ackvec = NULL;
++		}
++	}
++	return 0;
++}
++
++static int dccp_hdlr_ndp(struct sock *sk, u64 enable, bool rx)
++{
++	if (!rx)
++		dccp_msk(sk)->dccpms_send_ndp_count = (enable > 0);
++	return 0;
++}
++
++/*
++ * Minimum Checksum Coverage is located at the RX side (9.2.1). This means that
++ * `rx' holds when the sending peer informs about his partial coverage via a
++ * ChangeR() option. In the other case, we are the sender and the receiver
++ * announces its coverage via ChangeL() options. The policy here is to honour
++ * such communication by enabling the corresponding partial coverage - but only
++ * if it has not been set manually before; the warning here means that all
++ * packets will be dropped.
++ */
++static int dccp_hdlr_min_cscov(struct sock *sk, u64 cscov, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++
++	if (rx)
++		dp->dccps_pcrlen = cscov;
++	else {
++		if (dp->dccps_pcslen == 0)
++			dp->dccps_pcslen = cscov;
++		else if (cscov > dp->dccps_pcslen)
++			DCCP_WARN("CsCov %u too small, peer requires >= %u\n",
++				  dp->dccps_pcslen, (u8)cscov);
++	}
++	return 0;
++}
++
+ static const struct {
+ 	u8			feat_num;		/* DCCPF_xxx */
+ 	enum dccp_feat_type	rxtx;			/* RX or TX  */
+ 	enum dccp_feat_type	reconciliation;		/* SP or NN  */
+ 	u8			default_value;		/* as in 6.4 */
++	int (*activation_hdlr)(struct sock *sk, u64 val, bool rx);
+ /*
+  *    Lookup table for location and type of features (from RFC 4340/4342)
+  *  +--------------------------+----+-----+----+----+---------+-----------+
+@@ -49,16 +139,16 @@ static const struct {
+  *  +--------------------------+----+-----+----+----+---------+-----------+
+  */
+ } dccp_feat_table[] = {
+-	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
+-	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
+-	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
+-	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
+-	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
+-	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2,   dccp_hdlr_ccid     },
++	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0,   NULL },
++	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100, dccp_hdlr_seq_win  },
++	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
++	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2,   dccp_hdlr_ack_ratio},
++	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0,   dccp_hdlr_ackvec   },
++	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0,   dccp_hdlr_ndp      },
++	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0,   dccp_hdlr_min_cscov},
++	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
++	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
+ };
+ #define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
+ 
+@@ -99,6 +189,55 @@ static int dccp_feat_default_value(u8 feat_num)
+ 	return idx < 0 ? : dccp_feat_table[idx].default_value;
  }
  
-+/* check that up to @array_len members in @ccid_array are supported */
-+bool ccid_support_check(u8 const *ccid_array, u8 array_len)
++static int __dccp_feat_activate(struct sock *sk, const int idx,
++				const bool is_local, dccp_feat_val const *fval)
 +{
-+	u8 i, j, found;
++	bool rx;
++	u64 val;
 +
-+	for (i = 0, found = 0; i < array_len; i++, found = 0) {
-+		for (j = 0; !found && j < ARRAY_SIZE(builtin_ccids); j++)
-+			found = (ccid_array[i] == builtin_ccids[j]);
-+		if (!found)
-+			return false;
++	if (idx < 0 || idx >= DCCP_FEAT_SUPPORTED_MAX)
++		return -1;
++	if (dccp_feat_table[idx].activation_hdlr == NULL)
++		return 0;
++
++	if (fval == NULL) {
++		val = dccp_feat_table[idx].default_value;
++	} else if (dccp_feat_table[idx].reconciliation == FEAT_SP) {
++		if (fval->sp.vec == NULL) {
++			/*
++			 * This can happen when an empty Confirm is sent
++			 * for an SP (i.e. known) feature. In this case
++			 * we would be using the default anyway.
++			 */
++			DCCP_CRIT("Feature #%d undefined: using default", idx);
++			val = dccp_feat_table[idx].default_value;
++		} else {
++			val = fval->sp.vec[0];
++		}
++	} else {
++		val = fval->nn;
 +	}
-+	return true;
++
++	/* Location is RX if this is a local-RX or remote-TX feature */
++	rx = (is_local == (dccp_feat_table[idx].rxtx == FEAT_AT_RX));
++
++	return dccp_feat_table[idx].activation_hdlr(sk, val, rx);
 +}
 +
 +/**
-+ * ccid_get_builtin_ccids  -  Provide copy of `builtin' CCID array
-+ * @ccid_array: pointer to copy into
-+ * @array_len: value to return length into
-+ * This function allocates memory - caller must see that it is freed after use.
++ * dccp_feat_activate  -  Activate feature value on socket
++ * @sk: fully connected DCCP socket (after handshake is complete)
++ * @feat_num: feature to activate, one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is meant
++ * @fval: the value (SP or NN) to activate, or NULL to mean the default value
++ * For general use this function is preferable over __dccp_feat_activate().
 + */
-+int ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len)
++static int dccp_feat_activate(struct sock *sk, u8 feat_num, bool local,
++			      dccp_feat_val const *fval)
 +{
-+	*ccid_array = kmemdup(builtin_ccids, sizeof(builtin_ccids), gfp_any());
-+	if (*ccid_array == NULL)
-+		return -ENOBUFS;
-+	*array_len = ARRAY_SIZE(builtin_ccids);
-+	return 0;
++	return __dccp_feat_activate(sk, dccp_feat_index(feat_num), local, fval);
 +}
 +
-+int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
-+				    char __user *optval, int __user *optlen)
-+{
-+	if (len < sizeof(builtin_ccids))
-+		return -EINVAL;
-+
-+	if (put_user(sizeof(builtin_ccids), optlen) ||
-+	    copy_to_user(optval, builtin_ccids, sizeof(builtin_ccids)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
- int ccid_register(struct ccid_operations *ccid_ops)
+ /* Test for "Req'd" feature (RFC 4340, 6.4) */
+ static inline int dccp_feat_must_be_understood(u8 feat_num)
  {
- 	int err = -ENOBUFS;
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -103,6 +103,11 @@ static inline void *ccid_priv(const struct ccid *ccid)
- 	return (void *)ccid->ccid_priv;
- }
+@@ -1504,6 +1643,67 @@ out:
  
-+extern bool ccid_support_check(u8 const *ccid_array, u8 array_len);
-+extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
-+extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
-+					  char __user *, int __user *);
+ EXPORT_SYMBOL_GPL(dccp_feat_init);
+ 
++int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct dccp_feat_entry *cur, *next;
++	int idx;
++	dccp_feat_val *fvals[DCCP_FEAT_SUPPORTED_MAX][2] = {
++		 [0 ... DCCP_FEAT_SUPPORTED_MAX-1] = { NULL, NULL }
++	};
 +
- extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
- 			     gfp_t gfp);
- 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -380,6 +380,10 @@ static int __feat_register_sp(struct list_head *fn, u8 feat, u8 is_local,
- 	    !dccp_feat_sp_list_ok(feat, sp_val, sp_len))
- 		return -EINVAL;
- 
-+	/* Avoid negotiating alien CCIDs by only advertising supported ones */
-+	if (feat == DCCPF_CCID && !ccid_support_check(sp_val, sp_len))
-+		return -EOPNOTSUPP;
++	list_for_each_entry(cur, fn_list, node) {
 +
- 	if (dccp_feat_clone_sp_val(&fval, sp_val, sp_len))
- 		return -ENOMEM;
- 
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -649,6 +649,8 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
- 	case DCCP_SOCKOPT_GET_CUR_MPS:
- 		val = dp->dccps_mss_cache;
- 		break;
-+	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
-+		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
- 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
- 		val = dp->dccps_server_timewait;
- 		break;
++		idx = dccp_feat_index(cur->feat_num);
++		if (idx < 0) {
++			DCCP_BUG("Unknown feature %u", cur->feat_num);
++			goto activation_failed;
++		}
++		if (cur->state != FEAT_STABLE) {
++			DCCP_CRIT("Negotiation of %s %u failed in state %u",
++				  cur->is_local ? "local" : "remote",
++				  cur->feat_num, cur->state);
++			goto activation_failed;
++		}
++		fvals[idx][cur->is_local] = &cur->val;
++	}
++
++	/*
++	 * Activate in decreasing order of index, so that the CCIDs are always
++	 * activated as the last feature. This avoids the case where a CCID
++	 * relies on the initialisation of one or more features that it depends
++	 * on (e.g. Send NDP Count, Send Ack Vector, and Ack Ratio features).
++	 */
++	for (idx = DCCP_FEAT_SUPPORTED_MAX; --idx >= 0;)
++		if (__dccp_feat_activate(sk, idx, 0, fvals[idx][0]) ||
++		    __dccp_feat_activate(sk, idx, 1, fvals[idx][1])) {
++			DCCP_CRIT("Could not activate %d", idx);
++			goto activation_failed;
++		}
++
++	/* Clean up Change options which have been confirmed already */
++	list_for_each_entry_safe(cur, next, fn_list, node)
++		if (!cur->needs_confirm)
++			dccp_feat_list_pop(cur);
++
++	dccp_pr_debug("Activation OK\n");
++	return 0;
++
++activation_failed:
++	/*
++	 * We clean up everything that may have been allocated, since
++	 * it is difficult to track at which stage negotiation failed.
++	 * This is ok, since all allocation functions below are robust
++	 * against NULL arguments.
++	 */
++	ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
++	ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
++	dp->dccps_hc_rx_ccid = dp->dccps_hc_tx_ccid = NULL;
++	dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
++	dp->dccps_hc_rx_ackvec = NULL;
++	return -1;
++}
++
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ const char *dccp_feat_typename(const u8 type)
+ {
 -- 
 1.6.0.rc2
 
