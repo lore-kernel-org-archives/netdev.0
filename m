@@ -1,57 +1,43 @@
-From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Wed, 27 Aug 2008 18:30:37 -0700
-Message-ID: <43e72e890808271830k6e0a9e65j790ee1e0d6d52d36@mail.gmail.com>
-References: <20080827013009.GA15781@tuxdriver.com>
-	 <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
-	 <200808272225.10557.mb@bu3sch.de>
-	 <1ba2fa240808271611v382631ecn2a24e2816562d434@mail.gmail.com>
-	 <20080827233103.GE5927@tesla>
-	 <1ba2fa240808271719o2a3617e7re0499670de785b2f@mail.gmail.com>
+From: Jason Uhlenkott <juhlenko@akamai.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Wed, 27 Aug 2008 19:39:58 -0700
+Message-ID: <20080828023958.GB21395@juhlenko-desk.sanmateo.corp.akamai.com>
+References: <48B46B48.7030609@cosmosbay.com> <20080826205158.GA15266@2ka.mipt.ru> <87vdxmr53f.fsf@basil.nowhere.org> <20080827.143401.76242975.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Bruno Randolf" <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>
-To: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1ba2fa240808271719o2a3617e7re0499670de785b2f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, dada1@cosmosbay.com,
+	denys@visp.net.lb, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay01.akamai.com ([72.246.2.12]:39019 "EHLO
+	prod-mail-xrelay01.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753633AbYH1CpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 22:45:03 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20080827.143401.76242975.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2008 at 5:19 PM, Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> This patch is marked as W/A and should have
-> probably some cleaner solution in 2.6.28
+On Wed, Aug 27, 2008 at 14:34:01 -0700, David Miller wrote:
+> By the time you get to the socket, it might be eons (relatively
+> speaking) later, decreasing the usefulness of the timestamp.
 
-OK
+It's a *socket* option.  It's named SO_TIMESTAMP.  Users of it ought
+to *expect* that it records the time the packet hits the socket, not
+the time the frame hits the device.
 
->>> Last solution would be to remove this merging all together
->>
->> Absolutely not! IBSS merge is per spec, otherwise you don't really have
->> a real IBSS.
->
-> I'm all for following spec and we've tried really hard to make it work.
-> Anyhow I'm not sure what you call real IBSS. nobody has checked it for
-> 1.5 year this patch  is in and now is suddenly so important...
+If banks want to know when frames are hitting their devices, that's
+fine, but setsockopt() is the wrong layer for controlling that sort of
+thing.  An interface flag would make a lot more sense.
 
-I don't care about your work around, I was replying due to your insane
-comments about considering removing IBSS merge support because your
-hardware does not support it well.
 
-> I would like to see if there is any  HW under mac80211 that actually
-> work with this.
+> I find it amusing that nobody it talking about fixing the tools
+> that are creating the timestamp requests when they have no real
+> reason for having them in the first place.
 
-Atheros hardware supports IBSS merge, please consider a proper work
-around instead for hardware which does not support this.
-
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't agree that the tools are broken.  Some of them may have
+frivolous reasons for wanting timestamps, but they're asking for
+something at the socket layer, with the scope of a single socket, and
+it's hardly their fault that we respond to that by doing something
+expensive and global at a much lower level.
