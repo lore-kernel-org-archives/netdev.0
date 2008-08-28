@@ -1,40 +1,68 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
-Date: Thu, 28 Aug 2008 12:50:34 +0300
-Message-ID: <200808281250.35006.denys@visp.net.lb>
-References: <48B44768.3030208@gmail.com> <20080828.024617.117112334.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Thu, 28 Aug 2008 11:52:48 +0200
+Message-ID: <48B67570.2020704@cosmosbay.com>
+References: <48B643C3.9040502@cosmosbay.com>	<20080827.235158.187658055.davem@davemloft.net>	<48B65009.5040805@cosmosbay.com> <20080828.005741.97382742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: virtualphtn@gmail.com, netdev@vger.kernel.org,
-	lachlan.andrew@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, andi@firstfloor.org, davej@redhat.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:50595 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbYH1JwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 05:52:02 -0400
-In-Reply-To: <20080828.024617.117112334.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp28.orange.fr ([80.12.242.101]:22105 "EHLO smtp28.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751997AbYH1Jwy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 05:52:54 -0400
+In-Reply-To: <20080828.005741.97382742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Thu, 28 Aug 2008 09:13:13 +0200
+>=20
+>> David Miller a =E9crit :
+>>> We could not define a reasonable way to trigger hash table growth.
+>>> GC attempts to keep a resident set of entries in the cache, and the=
+se
+>>> heuristics are guided by the table size itself.  So if you grow the
+>>> table too aggressively this never has a chance to work.
+>> Maybe because of overcomplicated algos in net/ipv4/route.c, and
+>> mixing "number of entries in cache", and "hash table size" things...
+>=20
+> But it is exactly what we want to use to create equilabrium
+> when the size is large enough.
+>=20
+>> Fact is that nobody wants to have eight elements per hash bucket,
+>> especially in case of DDOS.
+>=20
+> Of this there is no doubt.  But also, nobody wants to use 1GB hash
+> table simply because of poorly implemented interactions between GC an=
+d
+> hash table growth :-)
 
-> I think this got broken by accident several years ago, shows how many
-> people use this feature :)
->
-> We used to use ->mss_clamp to determine the MSS option value,
-> but along the way when all of the code using ->advmss et al.
-> was added it didn't get translated correctly.
->
-> Thanks for your patch, I'll mull over this and put in the fix
-> once I understand exactly how this got broken.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-I am using, just i workaround this over iptables MSS option. You feel 
-discomfort, but most people start googling and see this trick with iptables, 
-and they use it.
+Sure, but we have /proc/sys/net/ipv4/route/max_size, so hash table size=
+ would be
+at most (sizeof(void *) * max_size) of course.
+
+>=20
+> It was a series of patches I started posting in August 2006:
+>=20
+> 	http://marc.info/?l=3Dlinux-netdev&m=3D115510979129323&w=3D2
+>=20
+> There was a bunch of discussion, the locking and synchronization
+> were worked out but the resize logic was not.
+
+Thanks David, I remembered this stuff but was unable to find it again i=
+n my archives.
+
+Give me some days/weeks to work on this subject.
+
+(Hans removed from CC)
+
+
+
+
 
