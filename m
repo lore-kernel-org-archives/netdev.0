@@ -1,50 +1,43 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: about Linux adaptivly adjusting ssthresh
-Date: Thu, 28 Aug 2008 09:34:28 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0808280928450.5170@wrl-59.cs.helsinki.fi>
-References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
- <20080416.012732.152357000.davem@davemloft.net>
- <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
- <20080416.023551.70464279.davem@davemloft.net> <000001c90852$a1c19a50$a05ee183@D2GT6T71>
- <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
- <fb62ce3717a7.48b5b0a8@fnal.gov>
+From: Joe Malicki <jmalicki@metacarta.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 02:28:12 -0400 (EDT)
+Message-ID: <21915755.1327801219904892242.JavaMail.root@ouachita>
+References: <20080827.201020.17601834.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: John Heffner <johnwheffner@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Wenji Wu <wenji@fnal.gov>
+Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, dada1@cosmosbay.com,
+	denys@visp.net.lb, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35864 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884AbYH1Gea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 02:34:30 -0400
-In-Reply-To: <fb62ce3717a7.48b5b0a8@fnal.gov>
+Received: from silene.metacarta.com ([208.80.142.18]:59433 "EHLO
+	silene.metacarta.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543AbYH1Gqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 02:46:38 -0400
+In-Reply-To: <20080827.201020.17601834.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Aug 2008, Wenji Wu wrote:
 
+----- "David Miller" <davem@davemloft.net> wrote:
 > 
-> > A little more detail would be helpful.  Are you referring to caching
-> > ssthresh between connections, or something going on during a
-> > connection?  Various congestion control modules use ssthresh
-> > differently, so a comprehensive answer would be difficult.
+> Every application using AF_PACKET sockets gets timestamps by
+> default.  And we do know of several specific cases where the
+> timestamps are unnecessary.
 > 
+> Even for other cases, why in the world does a DHCP client need
+> accurate timestamps?  Give me a break. :)
 > 
-> Thanks John, I am referring to the adaptive ssthresh adjusting during a 
-> connection.
 
-???
+I've worked with systems where SO_TIMESTAMP has been used for
+H.323 videoconferencing systems to synchronize audio and video
+where remote systems' timestamps on the protocol streams proved
+to be inaccurate (based off of different, unsynchronized clocks).
 
-Every now and then (once we detect some losses) snd_ssthresh is set to a 
-halved flightsize as given by, well, you know those standards that say 
-something about it :-). So I (like John) seem to somewhat miss the point 
-of your question here.
+I can't see any other realistic use of this, but trying to get
+timestamps for quasi-realtime protocols may be an important use
+case - and in that case, you want the time when it hits the
+interface, NOT when it hits the socket.
 
-Or did you perhaps refer to rcv_ssthresh (which I wouldn't ever call 
-to with a plain "ssthresh")?
-
--- 
- i.
+What utility does the time of hitting the socket get you?
