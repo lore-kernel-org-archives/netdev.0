@@ -1,44 +1,72 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Thu, 28 Aug 2008 22:59:43 +0300
-Message-ID: <200808282259.43550.denys@visp.net.lb>
-References: <21915755.1327801219904892242.JavaMail.root@ouachita> <200808281948.52608.denys@visp.net.lb> <20080828.123645.78561286.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 11447] New: /proc/sys/net/ipv4/route/flush not
+ found
+Date: Thu, 28 Aug 2008 13:18:24 -0700
+Message-ID: <20080828131824.49352fa0.akpm@linux-foundation.org>
+References: <bug-11447-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, jmalicki@metacarta.com, johnpol@2ka.mipt.ru,
-	dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
-To: David Miller <davem@davemloft.net>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: francois.valenduc@tvcablenet.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.globalproof.net ([194.146.153.25]:55239 "EHLO
-	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755412AbYH1UBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 16:01:09 -0400
-In-Reply-To: <20080828.123645.78561286.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:57618 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753315AbYH1USc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 16:18:32 -0400
+In-Reply-To: <bug-11447-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 August 2008, David Miller wrote:
-> From: Denys Fedoryshchenko <denys@visp.net.lb>
-> Date: Thu, 28 Aug 2008 19:48:52 +0300
->
-> > So there is few good solutions available (IMHO):
-> > 1)Introduce some SO_REALTIMESTAMP (anyway even SO_TIMESTAMP not defined
-> > in any standard) for banks and ntp folks, who need them. And even give
-> > them timespec instead timeval, so they will be even more happy with
-> > resolution. 2)Provide sysctl,kernel boot, or even "build time" option for
-> > "banks" to have high resolution(and expensive) SO_TIMESTAMP.
->
-> The performance hit hurts, but changing the default to lower
-> resolution after it having been high resolution for 10+ years
-> is a regression and something we really can't do.
-Agree. Then maybe to add way to choose, because choice is high resolution vs 
-performance. For example Intel dynamically throttling interrupts on e1000*, 
-and it saves me in this case. They leave also option for users who wants low 
-latency/high troughput.
-So maybe there must be a way for specific functions who uses get(ns)timeofday  
-to use specific timers (cheap and less precise), by option. Or to limit 
-amount of calls to timer by them.
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Thu, 28 Aug 2008 11:06:22 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=11447
+> 
+>            Summary: /proc/sys/net/ipv4/route/flush not found
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.27-rc4-git7
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: francois.valenduc@tvcablenet.be
+> 
+> 
+> Latest working kernel version: 2.6.27-rc4
+> Earliest failing kernel version: probably 2.6.27-rc4-git7
+> Distribution: Gentoo
+> Hardware Environment:
+> Software Environment:
+> Problem Description:
+> 
+> When the lo interface is initialized, the following error occurs:
+> can't open /proc/sys/net/ipv4/route/flush: no such file.
+> After a bisection, it appears that the following commit is the first bad
+> commit:
+> 
+> commit 2f4520d35d89ca6c5cd129c38e3b11f0283b7d1b
+> Author: Al Viro <viro@zeniv.linux.org.uk>
+> Date:   Mon Aug 25 15:17:44 2008 -0700
+> 
+>     ipv4: sysctl fixes
+> 
+>     net.ipv4.neigh should be a part of skeleton to avoid ordering problems
+> 
+>     Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> If I revert it, the problem doesn't occur.
+> 
+> 
+
