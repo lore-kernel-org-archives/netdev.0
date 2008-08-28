@@ -1,42 +1,31 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 08/37] dccp: Query supported CCIDs
-Date: Thu, 28 Aug 2008 18:00:31 -0300
-Message-ID: <20080828210031.GO9193@ghostprotocols.net>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Thu, 28 Aug 2008 09:26:23 +0200
+Message-ID: <20080828072623.GJ26610@one.firstfloor.org>
+References: <87zlmyr5nz.fsf@basil.nowhere.org> <20080827.142941.50104491.davem@davemloft.net> <20080827144800.5f9fc5b4@extreme> <20080827.150955.118944272.davem@davemloft.net> <48B643C3.9040502@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	andi@firstfloor.org, davej@redhat.com, netdev@vger.kernel.org,
+	j.w.r.degoede@hhs.nl
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:36103 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753825AbYH1VFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 17:05:13 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:51721 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785AbYH1HXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 03:23:48 -0400
 Content-Disposition: inline
-In-Reply-To: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <48B643C3.9040502@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Aug 28, 2008 at 07:44:43PM +0200, Gerrit Renker escreveu:
-> This provides a data structure to record which CCIDs are locally supported
-> and three accessor functions:
->  - a test function for internal use which is used to validate CCID requests
->    made by the user;
->  - a copy function so that the list can be used for feature-negotiation;
->  - documented getsockopt() support so that the user can query capabilities.
-> 
-> The data structure is a table which is filled in at compile-time with the
-> list of available CCIDs (which in turn depends on the Kconfig choices).
-> 
-> Using the copy function for cloning the list of supported CCIDs is useful for
-> feature negotiation, since the negotiation is now with the full list of available
-> CCIDs (e.g. {2, 3}) instead of the default value {2}. This means negotiation
-> will not fail if the peer requests to use CCID3 instead of CCID2.
+> You are right. For TCP hash table thats probably hard to implement.
 
-But this limits us to the CCIDs at kernel build time, what if I want to
-test CCID4? I guess we could have something like a bitmap and check if
-the bit for that CCID is set, and it would be set at ccid_register time.
+The alternative would be to use some kind of cache optimized
+tree. While they have in theory more steps if you assume that
+the upper levels of the tree are very small and usually are cached
+these steps could be very cheap.
 
-Perhaps using include/linux/bitmap.h :-)
-
-- Arnaldo
+-Andi
+-- 
+ak@linux.intel.com
