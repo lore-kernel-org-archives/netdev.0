@@ -1,38 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] sky2: EEPROM read/write bug fixes
-Date: Thu, 28 Aug 2008 12:13:25 +0100
-Message-ID: <20080828111323.GI7908@solarflare.com>
-References: <20080827204626.4b65862f@extreme>
+From: Bruno Randolf <bruno-L9ZBdB2wSWtl57MIdRCFDg@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2008-08-26
+Date: Thu, 28 Aug 2008 13:13:52 +0200
+Message-ID: <200808281313.53163.bruno@thinktube.com>
+References: <20080827013009.GA15781@tuxdriver.com> <200808281235.35449.bruno@thinktube.com> <1ba2fa240808280352q4a913c1cv33a6bc0998cdbcb9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:55938 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbYH1LNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 07:13:36 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	"Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Tomas Winkler" <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1ba2fa240808280352q4a913c1cv33a6bc0998cdbcb9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20080827204626.4b65862f@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Cleanup and harden the routines accessing the EEPROM.
->   1. Prevent spin forever waiting for the TWSI bus
->   2. Fix write eeprom to write full words rather than only 16 bits 
->     Luckly the vendor doesn't provide EEPROM in Linux format so it must never
->     have been used.
->   3. Don't allow partial eeprom writes, not needed, not safe.
-[...]
+On Thursday 28 August 2008 12:52:36 Tomas Winkler wrote:
+> Do you know how the  TSF is actually synchronized from the HW perspective?
 
-You should be able to replace the VPD access code with calls through
-pci_dev->vpd->ops - though you'd need to remove some declarations from
-drivers/pci/pci.h to include/linux/pci.h.
+no, unfortuately i have no idea. also i should admit that we have problems 
+with atheros hardware in that we don't know when the RX timestamp is taken 
+exactly. this means our IBSS merge can't be 100% exact. but the usual case we 
+need to catch is when the beacon TSF is much higher than the local TSF. 
 
-Ben.
+i don't care about IBSS power-save right now.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> > with the same HW but it did not work any more - i didn't have the time to
+> > investigate this issue...
+>
+> There is another IBSS bug that was introduced connected to rates maybe
+> this is also your problem.. we have something in the pipe that should
+> solve this.
+
+good, i'll retest once you subitted the patch.
+
+> Sure but if TSF is not adopted correctly and that's the case probably
+> of most of the drivers under mac80211 then it makes
+> worth.  Just need to be aware of this.
+
+true, we need to find a way to support this hardware too...
+
+bruno
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
