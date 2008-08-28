@@ -1,110 +1,49 @@
-From: "Thiago Lacerda" <thiagotbl@gmail.com>
-Subject: Re: Questions about Linux kernel network programming
-Date: Thu, 28 Aug 2008 13:19:55 -0300
-Message-ID: <3fedcc3b0808280919l65131584gf91d656f02e1d7ac@mail.gmail.com>
-References: <3fedcc3b0808280733w1d7b24dgf95540d2078856f8@mail.gmail.com>
-	 <3fedcc3b0808280748q4090c5e7n45c74c4fd3b42cca@mail.gmail.com>
-	 <379e30200808280803j6a2a86bfya34ecc17127a1bbd@mail.gmail.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: cpu utilisation improvement when not doing netif_tx_{stop,wake}_queue()
+Date: Thu, 28 Aug 2008 18:46:38 +0200
+Message-ID: <20080828164638.GA25919@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Tobias Koeck" <tobias.koeck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dale@farnsworth.org, nico@cam.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f16.google.com ([209.85.217.16]:61733 "EHLO
-	mail-gx0-f16.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250AbYH1QT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 12:19:57 -0400
-Received: by gxk9 with SMTP id 9so4759264gxk.13
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2008 09:19:56 -0700 (PDT)
-In-Reply-To: <379e30200808280803j6a2a86bfya34ecc17127a1bbd@mail.gmail.com>
+Received: from xi.wantstofly.org ([83.160.184.112]:38481 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbYH1Qql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 12:46:41 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for your replay Tobias.
+I've been hacking on mv643xx_eth to optimise small packet routing
+throughput.  The version currently in my tree can route ~190kpps,
+versus ~130kpps for the version in 2.6.27.
 
-But, doing it as a netfilter module I'm going to interfere in all the
-traffic of my PC.
-I don't want to do it that way. I want to capture the packets at
-kernel and then decide if they will be analyzed by my DPI tool at user
-land. My module would act like a filter for my classifier, cause I
-want to don't spend time with unncessary copies of packets to user
-space memory (like libpcap does, it copies every packets).
+As part of the hacking, I implemented multiqueue TX, got rid of all
+driver-private locking in favor of the per-subqueue _xmit_lock, and
+did a bunch of other cleanups.  (Available in the tree below.)
 
-I'm doing like this:
+At first, I didn't want to bother with proper synchronisation for
+netif_tx_{stop,wake}_queue(), so I just disabled them entirely for the
+time being (and would just drop skbs in ->hard_start_xmit() without
+warning if the TX ring was full, while returning success).
 
-* registered a protocol handler with dev_add_pack
-* in the function in packet_type struct I'm doing some operations with
-the packet, but I'm not passing it to user land yet
+When I had properly sorted out the locking and turned TX queue flow
+control back on again, I started seeing a ~20% CPU usage hit on a TCP
+throughput test relative to not doing said flow control.
 
-Is that a good way of doing such task?
-Does occur any copy of packets during this operation (the copy I know
-is that one from the NIC to kernel memory, does any other occur?)?
+I.e. transmitting wire speed gigabit over a single TCP session takes
+around 90% CPU time (measured with cyclesoak) if I have the TX queue
+flow control enabled, but only 70% if I rip the TX queue flow control
+out.  (This is on a relatively underpowered ARM box.)
 
-BTW, anyone knows the right way of get a tcp port number in human readable form?
-I'm doing like this:
+Looking at the profiles doesn't tell me much, and I can't explain what's
+going on, but it seems pretty consistent: if I in the tree below revert
+to any commit before the "mv643xx_eth: get rid of transmit queue flow
+control" one, I get the CPU hit (~90%), whereas with that commit
+included it's fine (~70%).
 
-struct tcphdr* tcp = tcp_hdr(my_sk_buff)
+	http://git.marvell.com/?p=mv643xx_eth.git;a=shortlog;h=for-2.6.28
+	git://git.marvell.com/mv643xx_eth.git for-2.6.28
 
-unsigned short src_port = ntohs(tcp->source)
-
-And it isn't working, the numbers that I get are not right.
-
-reagards
-
-On Thu, Aug 28, 2008 at 12:03 PM, Tobias Koeck <tobias.koeck@gmail.com> wrote:
-> Of course you can code a netfilter target extension module. Changing
-> the main kernel network code directly is not necessairy.
->
-> Check out the pdf for writing such modules under
->
-> http://jengelh.medozas.de/
->
-> Check out the
-> Greetings
-> t.
->
-> On Thu, Aug 28, 2008 at 4:48 PM, Thiago Lacerda <thiagotbl@gmail.com> wrote:
->> Hi everyone, I'm a Computer Science student from Brazil.
->>
->> Hope that you can help me with my undergraduate conclusion project.
->>
->> I have to capture packets at kernel level. More specifically, I have
->> to write a kernel module (for kernel 2.6) that access all the packets
->> that are coming through my network interface, then perform some
->> operations on that packets and then decide if they can go to user land
->> or not.
->>
->> Please note that I can't do it as a firewall, because I can't
->> interfere on the  applications that  work with network. My kernel
->> module will get communicated with traffic classifier, that will be
->> executing at user land and will inspect the packets that the module
->> passed to it.
->>
->> Can you help me on how can I develop it?
->>
->> Thanks in advance
->>
->> Best regards
->>
->>
->> --
->> Thiago de Barros Lacerda
->> Computer Science Undergraduate Student - CIn/UFPE - 2004.2
->> Researcher/Software Developer - GPRT - Networking and
->> Telecommunications Research Group
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-
-
-
--- 
-Thiago de Barros Lacerda
-Computer Science Undergraduate Student - CIn/UFPE - 2004.2
-Researcher/Software Developer - GPRT - Networking and
-Telecommunications Research Group
+Ideas?
