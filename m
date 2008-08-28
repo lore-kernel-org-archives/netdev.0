@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 16/37] dccp: API to query the current TX/RX CCID
-Date: Thu, 28 Aug 2008 19:44:51 +0200
-Message-ID: <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 30/37] dccp: Remove obsolete parts of the old CCID interface
+Date: Thu, 28 Aug 2008 19:45:05 +0200
+Message-ID: <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -19,85 +19,158 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55167 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753784AbYH1Rpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:34 -0400
-In-Reply-To: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755917AbYH1Rpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:30 -0400
+In-Reply-To: <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides function to query the current TX/RX CCID dynamically, without
-reliance on the minisock value, using dynamic information available in the
-currently loaded CCID module.
+The TX/RX CCIDs of the minisock are now redundant: similar to the Ack Vector
+case, their value equals initially that of the sysctl, but at the end of
+feature negotiation may be something different.
 
-This query function is then used to
- (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
- (b) replace the current test for "which CCID is in use" in probe.c.
+The old interface removed by this patch thus has been replaced by the newer
+interface to dynamically query the currently loaded CCIDs earlier in this
+patch set.
+
+Also removed the constructors for the TX CCID and the RX CCID, since the
+switch rx/non-rx is done by the handler in minisocks.c (and the handler is
+the only place in the code where CCIDs are loaded).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccid.h  |    9 +++++++++
- net/dccp/probe.c |    7 ++-----
- net/dccp/proto.c |    6 ++++++
- 3 files changed, 17 insertions(+), 5 deletions(-)
+ Documentation/networking/dccp.txt |    5 +++--
+ include/linux/dccp.h              |    3 ---
+ net/dccp/ccid.c                   |   14 --------------
+ net/dccp/ccid.h                   |    5 -----
+ net/dccp/feat.c                   |   12 ------------
+ net/dccp/minisocks.c              |    2 --
+ 6 files changed, 3 insertions(+), 38 deletions(-)
 
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -140,10 +140,11 @@ send_ackvec = 1
+ 	Whether or not to send Ack Vector options (sec. 11.5).
+ 
+ tx_ccid = 2
+-	Default CCID for the sender-receiver half-connection.
++	Default CCID for the sender-receiver half-connection. Depending on the
++	choice of CCID, the Send Ack Vector feature is enabled automatically.
+ 
+ rx_ccid = 2
+-	Default CCID for the receiver-sender half-connection.
++	Default CCID for the receiver-sender half-connection; see tx_ccid.
+ 
+ seq_window = 100
+ 	The initial sequence window (sec. 7.5.2).
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -370,7 +370,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+   * Will be used to pass the state from dccp_request_sock to dccp_sock.
+   *
+   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
+-  * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
+   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
+   * @dccpms_pending - List of features being negotiated
+@@ -378,8 +377,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+   */
+ struct dccp_minisock {
+ 	__u64			dccpms_sequence_window;
+-	__u8			dccpms_rx_ccid;
+-	__u8			dccpms_tx_ccid;
+ 	__u8			dccpms_send_ack_vector;
+ 	__u8			dccpms_send_ndp_count;
+ 	struct list_head	dccpms_pending;
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -253,20 +253,6 @@ out_module_put:
+ 
+ EXPORT_SYMBOL_GPL(ccid_new);
+ 
+-struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk, gfp_t gfp)
+-{
+-	return ccid_new(id, sk, 1, gfp);
+-}
+-
+-EXPORT_SYMBOL_GPL(ccid_hc_rx_new);
+-
+-struct ccid *ccid_hc_tx_new(unsigned char id,struct sock *sk,  gfp_t gfp)
+-{
+-	return ccid_new(id, sk, 0, gfp);
+-}
+-
+-EXPORT_SYMBOL_GPL(ccid_hc_tx_new);
+-
+ static void ccid_delete(struct ccid *ccid, struct sock *sk, int rx)
+ {
+ 	struct ccid_operations *ccid_ops;
 --- a/net/dccp/ccid.h
 +++ b/net/dccp/ccid.h
-@@ -116,6 +116,15 @@ extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
- extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
- 				   gfp_t gfp);
+@@ -111,11 +111,6 @@ extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+ extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+ 			     gfp_t gfp);
  
-+static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
-+{
-+	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
-+
-+	if (ccid == NULL || ccid->ccid_ops == NULL)
-+		return -1;
-+	return ccid->ccid_ops->ccid_id;
-+}
-+
- extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
- extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
- 
---- a/net/dccp/probe.c
-+++ b/net/dccp/probe.c
-@@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
- static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 			 struct msghdr *msg, size_t size)
+-extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
+-				   gfp_t gfp);
+-extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+-				   gfp_t gfp);
+-
+ static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
  {
--	const struct dccp_minisock *dmsk = dccp_msk(sk);
- 	const struct inet_sock *inet = inet_sk(sk);
--	const struct ccid3_hc_tx_sock *hctx;
-+	struct ccid3_hc_tx_sock *hctx = NULL;
+ 	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -1131,18 +1131,6 @@ int dccp_feat_init(struct sock *sk)
+ 	INIT_LIST_HEAD(&dmsk->dccpms_pending);	/* XXX no longer used */
+ 	INIT_LIST_HEAD(&dmsk->dccpms_conf);	/* XXX no longer used */
  
--	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
-+	if (ccid_get_current_id(dccp_sk(sk), false) == DCCPC_CCID3)
- 		hctx = ccid3_hc_tx_sk(sk);
--	else
--		hctx = NULL;
- 
- 	if (port == 0 || ntohs(inet->dport) == port ||
- 	    ntohs(inet->sport) == port) {
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -664,6 +664,12 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
- 		break;
- 	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
- 		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
-+	case DCCP_SOCKOPT_TX_CCID:
-+	case DCCP_SOCKOPT_RX_CCID:
-+		val = ccid_get_current_id(dp, optname == DCCP_SOCKOPT_RX_CCID);
-+		if (val < 0)
-+			return -ENOPROTOOPT;
-+		break;
- 	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
- 		val = dp->dccps_server_timewait;
- 		break;
+-	/* CCID L */
+-	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 1, 0,
+-				&dmsk->dccpms_tx_ccid, 1);
+-	if (rc)
+-		goto out;
+-
+-	/* CCID R */
+-	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 0, 0,
+-				&dmsk->dccpms_rx_ccid, 1);
+-	if (rc)
+-		goto out;
+-
+ 	/* Ack ratio */
+ 	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
+ 				dp->dccps_l_ack_ratio);
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -45,8 +45,6 @@ EXPORT_SYMBOL_GPL(dccp_death_row);
+ void dccp_minisock_init(struct dccp_minisock *dmsk)
+ {
+ 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
+-	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
+-	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
+ 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+ 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
+ }
 -- 
 1.6.0.rc2
 
