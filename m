@@ -1,67 +1,120 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Thu, 28 Aug 2008 21:37:16 +0200
-Message-ID: <48B6FE6C.4080905@cosmosbay.com>
-References: <20080827.201020.17601834.davem@davemloft.net> <200808281948.52608.denys@visp.net.lb> <48B6F4FE.6010308@cosmosbay.com> <200808282225.57535.denys@visp.net.lb>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [RESEND] [RFC PATCH] bonding: Do not tx-balance some IPv6 packets
+ on ALB/TLB bonds
+Date: Thu, 28 Aug 2008 15:38:41 -0400
+Message-ID: <48B6FEC1.7090508@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Joe Malicki <jmalicki@metacarta.com>,
-	David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	juhlenko@akamai.com, sammy@sammy.net
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com,
+	David Miller <davem@davemloft.net>
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2f.orange.fr ([80.12.242.152]:49284 "EHLO smtp2f.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756136AbYH1Tho convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:37:44 -0400
-In-Reply-To: <200808282225.57535.denys@visp.net.lb>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:22436 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756679AbYH1Tio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:38:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko a =E9crit :
-> On Thursday 28 August 2008, Eric Dumazet wrote:
->> 2) You maybe have a bad program that do something expensive relative=
- to
->> kernel time services.
-> No, process list is very short, it is custom semi-embedded linux dist=
-ro i=20
-> made, so i know each process running there.  Here is process list (ke=
-rnel=20
-> processes/threads and running shell(busybox ash) removed)=20
->=20
-> 1 root     /bin/sh /init
->  1119 root     init
->  2451 root     /sbin/syslogd -R 80.83.17.2
->  2453 root     /sbin/klogd
->  3168 squid    /usr/sbin/zebra -d
->  3175 squid    /usr/sbin/ripd -d
->  3195 root     /usr/sbin/snmpd -c /config/snmpd.conf
->  3208 root     udhcpd /config/udhcp.office.conf -S
->  3550 root     /usr/sbin/sshd -b /etc/banner
->  3566 root     /sbin/getty 38400 tty1
->  3567 root     /sbin/getty 38400 tty2
->  3570 root     /sbin/getty 38400 tty3
->  4055 root     /usr/sbin/sshd -b /etc/banner
->=20
+It's been more then a month and still no replies.  Is this just
+not interesting, or did this get lost in the shuffle...
 
-OK, please try oprofile with call graph analysis.
+Please take a look.  This patch makes ALB/TLB modes work much more
+reliably with IPv6.
 
->=20
->> kernel already provides nanosecond resolution :)
->> Check SO_TIMESTAMPNS and SCM_TIMESTAMPNS
-> Maybe this function really must be "heavy" then.
+Thanks
+-vlad
 
-Nope... the contrary :)
+---
 
-Kernel timestamping has nanosec resolution.
+I've been trying to configure IPv6 on ALB and TLB bonds and have found
+that there is a 50-50 chance that IPv6 doesn't configure a global address
+on such bond.  After further investigation, it appears that DAD probes are
+tx-balanced between the bond members.  When the DAD probe is sent on the
+secondary device, it ends up arriving back on the primary, since that interface
+is also in the multicast group.  As a result, we get a false positive duplicate
+address and fail to configure a global IPv6 address.  The easy solution seems
+to be to not tx-balance DAD problems.  Also, we should probably not balance
+all-note-mulicasts as well since they are the equivalent of IPv4 broadcasts.
 
-SO_TIMESTAMP needs a divide (by 1000), while SO_TIMESTAMPNS is native.
+---
 
+IPv6 all-node-multicasts and DAD probes should not be tx-balanced
+on ALB/TLB bonds.  The all-node-multicast is an equivalent to IPv4
+broadcasts.  DAD probes have to be sent only on the primary so that
+we don't get false-positive detections.
 
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ drivers/net/bonding/bond_alb.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
 
-
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 5a67372..684440c 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -38,6 +38,7 @@
+ #include <linux/in.h>
+ #include <net/ipx.h>
+ #include <net/arp.h>
++#include <net/ipv6.h>
+ #include <asm/byteorder.h>
+ #include "bonding.h"
+ #include "bond_alb.h"
+@@ -81,6 +82,7 @@
+ #define RLB_PROMISC_TIMEOUT	10*ALB_TIMER_TICKS_PER_SEC
+ 
+ static const u8 mac_bcast[ETH_ALEN] = {0xff,0xff,0xff,0xff,0xff,0xff};
++static const u8 mac_v6_allmcast[ETH_ALEN] = {0x33,0x33,0x00,0x00,0x00,0x01};
+ static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
+ 
+ #pragma pack(1)
+@@ -1288,6 +1290,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	u32 hash_index = 0;
+ 	const u8 *hash_start = NULL;
+ 	int res = 1;
++	struct ipv6hdr *ip6hdr;
+ 
+ 	skb_reset_mac_header(skb);
+ 	eth_data = eth_hdr(skb);
+@@ -1317,11 +1320,32 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	}
+ 		break;
+ 	case ETH_P_IPV6:
++		/* IPv6 doesn't really use broadcast mac address, but leave
++		 * that here just in case.
++		 */
+ 		if (memcmp(eth_data->h_dest, mac_bcast, ETH_ALEN) == 0) {
+ 			do_tx_balance = 0;
+ 			break;
+ 		}
+ 
++		/* IPv6 uses all-nodes multicast as an equivalent to
++		 * broadcasts in IPv4.
++		 */
++		if (memcmp(eth_data->h_dest, mac_v6_allmcast, ETH_ALEN) == 0) {
++			do_tx_balance = 0;
++			break;
++		}
++
++		/* Additianally, DAD probes should not be tx-balanced as that
++		 * will lead to false positives for duplicate addresses and
++		 * prevent address configuration from working.
++		 */
++		ip6hdr = ipv6_hdr(skb);
++		if (ipv6_addr_any(&ip6hdr->saddr)) {
++			do_tx_balance = 0;
++			break;
++		}
++
+ 		hash_start = (char *)&(ipv6_hdr(skb)->daddr);
+ 		hash_size = sizeof(ipv6_hdr(skb)->daddr);
+ 		break;
+-- 
+1.5.3.5
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
