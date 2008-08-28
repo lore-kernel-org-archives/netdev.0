@@ -1,142 +1,39 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 20/37] dccp: Insert feature-negotiation options into skb
-Date: Thu, 28 Aug 2008 19:44:55 +0200
-Message-ID: <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_featneg_last_call_for_comments>
- <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: dccp@vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 11:00:48 -0700
+Message-ID: <48B6E7D0.5070307@hp.com>
+References: <21915755.1327801219904892242.JavaMail.root@ouachita>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	johnpol@2ka.mipt.ru, dada1@cosmosbay.com, denys@visp.net.lb,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Joe Malicki <jmalicki@metacarta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756201AbYH1RqC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:02 -0400
-In-Reply-To: <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:11354 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725AbYH1SAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 14:00:54 -0400
+In-Reply-To: <21915755.1327801219904892242.JavaMail.root@ouachita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the earlier insertion routine from options.c, so that
-code specific to feature negotiation can remain in feat.c. This is possible
-by calling a function already existing in options.c.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
----
- net/dccp/dccp.h |    2 +
- net/dccp/feat.c |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+), 0 deletions(-)
+> What utility does the time of hitting the socket get you?
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -443,6 +443,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
- 
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
- extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
-+extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
-+				  struct sk_buff *skb);
- extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -297,6 +297,20 @@ cloning_failed:
- 	return -ENOMEM;
- }
- 
-+/**
-+ * dccp_feat_valid_nn_length  -  Enforce length constraints on NN options
-+ * Length is between 0 and %DCCP_OPTVAL_MAXLEN. Used for outgoing packets only,
-+ * incoming options are accepted as long as their values are valid.
-+ */
-+static u8 dccp_feat_valid_nn_length(u8 feat_num)
-+{
-+	if (feat_num == DCCPF_ACK_RATIO)	/* RFC 4340, 11.3 and 6.6.8 */
-+		return 2;
-+	if (feat_num == DCCPF_SEQUENCE_WINDOW)	/* RFC 4340, 7.5.2 and 6.5  */
-+		return 6;
-+	return 0;
-+}
-+
- static u8 dccp_feat_is_valid_nn_val(u8 feat_num, u64 val)
- {
- 	switch (feat_num) {
-@@ -339,6 +353,57 @@ static u8 dccp_feat_sp_list_ok(u8 feat_num, u8 const *sp_list, u8 sp_len)
- }
- 
- /**
-+ * dccp_feat_insert_opts  -  Generate FN options from current list state
-+ * @skb: next sk_buff to be sent to the peer
-+ * @dp: for client during handshake and general negotiation
-+ * @dreq: used by the server only (all Changes/Confirms in LISTEN/RESPOND)
-+ */
-+int dccp_feat_insert_opts(struct dccp_sock *dp, struct dccp_request_sock *dreq,
-+			  struct sk_buff *skb)
-+{
-+	struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
-+	struct dccp_feat_entry *pos, *next;
-+	u8 opt, type, len, *ptr, nn_in_nbo[DCCP_OPTVAL_MAXLEN];
-+	bool rpt;
-+
-+	/* put entries into @skb in the order they appear in the list */
-+	list_for_each_entry_safe_reverse(pos, next, fn, node) {
-+		opt  = dccp_feat_genopt(pos);
-+		type = dccp_feat_type(pos->feat_num);
-+		rpt  = false;
-+
-+		if (pos->empty_confirm) {
-+			len = 0;
-+			ptr = NULL;
-+		} else {
-+			if (type == FEAT_SP) {
-+				len = pos->val.sp.len;
-+				ptr = pos->val.sp.vec;
-+				rpt = pos->needs_confirm;
-+			} else if (type == FEAT_NN) {
-+				len = dccp_feat_valid_nn_length(pos->feat_num);
-+				ptr = nn_in_nbo;
-+				dccp_encode_value_var(pos->val.nn, ptr, len);
-+			} else {
-+				DCCP_BUG("unknown feature %u", pos->feat_num);
-+				return -1;
-+			}
-+		}
-+
-+		if (dccp_insert_fn_opt(skb, opt, pos->feat_num, ptr, len, rpt))
-+			return -1;
-+		if (pos->needs_mandatory && dccp_insert_option_mandatory(skb))
-+			return -1;
-+		/*
-+		 * Enter CHANGING after transmitting the Change option (6.6.2).
-+		 */
-+		if (pos->state == FEAT_INITIALISING)
-+			pos->state = FEAT_CHANGING;
-+	}
-+	return 0;
-+}
-+
-+/**
-  * __feat_register_nn  -  Register new NN value on socket
-  * @fn: feature-negotiation list to register with
-  * @feat: an NN feature from %dccp_feature_numbers
--- 
-1.6.0.rc2
+The earliest time the application could have been expected to start 
+processing the request.  Until it hits the socket, it might as well be 
+somewhere in the cloud.  By that reasoning of course, one could argue 
+that a gettimeofday() call immediately following recv() would suffice.
 
+Earlier in the thread mention was made of financial services types.  If 
+someone has knowledge of the (probably) arcane rules under which they 
+must operate it would be great to hear more.  Does some entity like the 
+SEC (Securities and Exchange Commission in the United States) mandate 
+some sort of timestamp for when the trading request "arrives at the 
+trading system" and do they define that "arriving at the trading system" 
+means?
+
+rick jones
