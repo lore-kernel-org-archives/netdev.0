@@ -1,46 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 1/2] sky2: EEPROM read/write bug fixes
-Date: Thu, 28 Aug 2008 08:30:35 -0700
-Message-ID: <20080828083035.7c6f8f42@extreme>
-References: <20080827204626.4b65862f@extreme>
-	<20080828111323.GI7908@solarflare.com>
+From: "Alexander Duyck" <alexander.duyck@gmail.com>
+Subject: Re: [NET_NEXT PATCH 1/2] pkt_sched: Add multiqueue scheduler support
+Date: Thu, 28 Aug 2008 09:07:20 -0700
+Message-ID: <5f2db9d90808280907i747f4343j58c30e3020a1940d@mail.gmail.com>
+References: <20080828011253.7909.5172.stgit@jtkirshe-mobile.jf.intel.com>
+	 <20080828.012142.51698124.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: jeffrey.t.kirsher@intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44743 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752421AbYH1Pbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 11:31:33 -0400
-In-Reply-To: <20080828111323.GI7908@solarflare.com>
+Received: from mail-gx0-f29.google.com ([209.85.217.29]:59357 "EHLO
+	mail-gx0-f29.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753319AbYH1QHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 12:07:22 -0400
+Received: by gxk10 with SMTP id 10so936229gxk.13
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2008 09:07:21 -0700 (PDT)
+In-Reply-To: <20080828.012142.51698124.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Aug 2008 12:13:25 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+> It looks mostly fine.
+>
+> But I wonder how useful this "bands" parameter is.
+> It behaves as follows:
+>
+> 1) "1" is always allowed, essentially non-multiqueue
+> 2) ->real_num_tx_queues is always allowed
+> 3) 0 means auto detect, which is also ->real_num_tx_queues
+>
+> Everything else is rejected.
+>
 
-> Stephen Hemminger wrote:
-> > Cleanup and harden the routines accessing the EEPROM.
-> >   1. Prevent spin forever waiting for the TWSI bus
-> >   2. Fix write eeprom to write full words rather than only 16 bits 
-> >     Luckly the vendor doesn't provide EEPROM in Linux format so it must never
-> >     have been used.
-> >   3. Don't allow partial eeprom writes, not needed, not safe.
-> [...]
-> 
-> You should be able to replace the VPD access code with calls through
-> pci_dev->vpd->ops - though you'd need to remove some declarations from
-> drivers/pci/pci.h to include/linux/pci.h.
-> 
-> Ben.
-> 
+Actually you give me too much credit.  I don't think bands even works
+as a boolean, or at least it wasn't meant to.  It was supposed to be 0
+or the number of queues which either way ends up the number of queues.
+ It was a bit of leftover interface from the rr/prio configuration.  I
+realized I left that in there when I was driving home last night but
+by then it was too late.
 
-Generically a good idea, but it won't work for this device.
-It turns out that the read/write timeouts in pci/access.c are too
-short. Since the pci vpd code spins under spin lock with irq's disabled,
-it really can't wait for up to 10ms!
+I will probably just have it always default the number of bands to
+always be real_num_tx_queues and save the user from having to enter
+bands in the tc command line.
 
-Minor note: the pci code seems to be much more verbose with little
-gain in real functionality.
+Thanks,
+
+Alex
