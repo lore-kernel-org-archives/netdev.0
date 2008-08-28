@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 12/37] dccp: Feature negotiation for minimum-checksum-coverage
-Date: Thu, 28 Aug 2008 19:44:47 +0200
-Message-ID: <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 31/37] dccp: Remove manual influence on NDP Count feature
+Date: Thu, 28 Aug 2008 19:45:06 +0200
+Message-ID: <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -15,117 +15,178 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753856AbYH1Rpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:51 -0400
-In-Reply-To: <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755806AbYH1Rp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:27 -0400
+In-Reply-To: <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides feature negotiation for server minimum checksum coverage
-which so far has been missing.
+Updating the NDP count feature is handled automatically now:
+ * for CCID-2 it is disabled, since the code does not use NDP counts;
+ * for CCID-3 it is enabled, as NDP counts are used to determine loss lengths.
 
-Since sender/receiver coverage values range only from 0...15, their
-type has also been reduced in size from u16 to u4.
+Allowing the user to change NDP values leads to unpredictable and failing
+behaviour, since it is then possible to disable NDP counts even when they
+are needed (e.g. in CCID-3).
 
-Feature-negotiation options are now generated for both sender and receiver
-coverage, i.e. when the peer has `forgotten' to enable partial coverage
-then feature negotiation will automatically enable (negotiate) the partial
-coverage value for this connection.
+This means that only those user settings are sensible that agree with the
+values for Send NDP Count implied by the choice of CCID. But those settings
+are already activated by the feature negotiation (CCID dependency tracking),
+hence this form of support is redundant.
+
+At startup the initialisation of the NDP count feature is with the default
+value of 0, which is done implicitly by the zeroing-out of the socket when
+it is allocated. If the choice of CCID or feature negotiation enables NDP
+count, this will then be updated via the NDP activation handler.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- include/linux/dccp.h |    4 +-
- net/dccp/proto.c     |   52 +++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 41 insertions(+), 15 deletions(-)
+ Documentation/networking/dccp.txt |    3 ---
+ include/linux/dccp.h              |    4 ++--
+ net/dccp/dccp.h                   |    1 -
+ net/dccp/feat.c                   |    2 +-
+ net/dccp/minisocks.c              |    1 -
+ net/dccp/options.c                |    4 +---
+ net/dccp/sysctl.c                 |    7 -------
+ 7 files changed, 4 insertions(+), 18 deletions(-)
 
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -133,9 +133,6 @@ retries2
+ 	importance for retransmitted acknowledgments and feature negotiation,
+ 	data packets are never retransmitted. Analogue of tcp_retries2.
+ 
+-send_ndp = 1
+-	Whether or not to send NDP count options (sec. 7.7.2).
+-
+ send_ackvec = 1
+ 	Whether or not to send Ack Vector options (sec. 11.5).
+ 
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -527,8 +527,8 @@ struct dccp_sock {
- 	__u32				dccps_timestamp_time;
- 	__u16				dccps_l_ack_ratio;
+@@ -371,14 +371,12 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+   *
+   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
+   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+-  * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
+   * @dccpms_pending - List of features being negotiated
+   * @dccpms_conf -
+   */
+ struct dccp_minisock {
+ 	__u64			dccpms_sequence_window;
+ 	__u8			dccpms_send_ack_vector;
+-	__u8			dccpms_send_ndp_count;
+ 	struct list_head	dccpms_pending;
+ 	struct list_head	dccpms_conf;
+ };
+@@ -490,6 +488,7 @@ struct dccp_ackvec;
+  * @dccps_r_ack_ratio - feature-remote Ack Ratio
+  * @dccps_pcslen - sender   partial checksum coverage (via sockopt)
+  * @dccps_pcrlen - receiver partial checksum coverage (via sockopt)
++ * @dccps_send_ndp_count - local Send NDP Count feature (7.7.2)
+  * @dccps_ndp_count - number of Non Data Packets since last data packet
+  * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
+  * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
+@@ -529,6 +528,7 @@ struct dccp_sock {
  	__u16				dccps_r_ack_ratio;
--	__u16				dccps_pcslen;
--	__u16				dccps_pcrlen;
-+	__u8				dccps_pcslen:4;
-+	__u8				dccps_pcrlen:4;
+ 	__u8				dccps_pcslen:4;
+ 	__u8				dccps_pcrlen:4;
++	__u8				dccps_send_ndp_count:1;
  	__u64				dccps_ndp_count:48;
  	unsigned long			dccps_rate_last;
  	struct dccp_minisock		dccps_minisock;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -470,6 +470,41 @@ static int dccp_setsockopt_service(struct sock *sk, const __be32 service,
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -99,7 +99,6 @@ extern int  sysctl_dccp_feat_sequence_window;
+ extern int  sysctl_dccp_feat_rx_ccid;
+ extern int  sysctl_dccp_feat_tx_ccid;
+ extern int  sysctl_dccp_feat_send_ack_vector;
+-extern int  sysctl_dccp_feat_send_ndp_count;
+ extern int  sysctl_dccp_tx_qlen;
+ extern int  sysctl_dccp_sync_ratelimit;
+ 
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -86,7 +86,7 @@ static int dccp_hdlr_ackvec(struct sock *sk, u64 enable, bool rx)
+ static int dccp_hdlr_ndp(struct sock *sk, u64 enable, bool rx)
+ {
+ 	if (!rx)
+-		dccp_msk(sk)->dccpms_send_ndp_count = (enable > 0);
++		dccp_sk(sk)->dccps_send_ndp_count = (enable > 0);
  	return 0;
  }
  
-+static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
-+{
-+	u8 *list, len;
-+	int i, rc;
-+
-+	if (cscov < 0 || cscov > 15)
-+		return -EINVAL;
-+
-+	if (rx)
-+		dccp_sk(sk)->dccps_pcrlen = cscov;
-+	else
-+		dccp_sk(sk)->dccps_pcslen = cscov;
-+	/*
-+	 * Populate a list of permissible values, in the range cscov...15. This
-+	 * is necessary since feature negotiation of single values only works if
-+	 * both sides incidentally choose the same value. Since the list starts
-+	 * lowest-value first, negotiation will pick the smallest shared value.
-+	 */
-+	if (cscov == 0)
-+		return 0;
-+	len = 16 - cscov;
-+
-+	list = kmalloc(len, GFP_KERNEL);
-+	if (list == NULL)
-+		return -ENOBUFS;
-+
-+	for (i = 0; i < len; i++)
-+		list[i] = cscov++;
-+
-+	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
-+
-+	kfree(list);
-+	return rc;
-+}
-+
- static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		char __user *optval, int optlen)
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -46,7 +46,6 @@ void dccp_minisock_init(struct dccp_minisock *dmsk)
  {
-@@ -502,20 +537,11 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		else
- 			dp->dccps_server_timewait = (val != 0);
- 		break;
--	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else
--			dp->dccps_pcslen = val;
-+	case DCCP_SOCKOPT_SEND_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, false);
- 		break;
--	case DCCP_SOCKOPT_RECV_CSCOV:	/* receiver side, RFC 4340 sec. 9.2.1 */
--		if (val < 0 || val > 15)
--			err = -EINVAL;
--		else {
--			dp->dccps_pcrlen = val;
--			/* FIXME: add feature negotiation,
--			 * ChangeL(MinimumChecksumCoverage, val) */
--		}
-+	case DCCP_SOCKOPT_RECV_CSCOV:
-+		err = dccp_setsockopt_cscov(sk, val, true);
- 		break;
- 	default:
- 		err = -ENOPROTOOPT;
+ 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
+ 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+-	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
+ }
+ 
+ void dccp_time_wait(struct sock *sk, int state, int timeo)
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -27,7 +27,6 @@ int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
+ int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
+ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+ int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
+-int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
+ 
+ u64 dccp_decode_value_var(const u8 *bf, const u8 len)
+ {
+@@ -531,8 +530,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+ 
+ 	DCCP_SKB_CB(skb)->dccpd_opt_len = 0;
+ 
+-	if (dmsk->dccpms_send_ndp_count &&
+-	    dccp_insert_option_ndp(sk, skb))
++	if (dp->dccps_send_ndp_count && dccp_insert_option_ndp(sk, skb))
+ 		return -1;
+ 
+ 	if (DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATA) {
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -48,13 +48,6 @@ static struct ctl_table dccp_default_table[] = {
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+-		.procname	= "send_ndp",
+-		.data		= &sysctl_dccp_feat_send_ndp_count,
+-		.maxlen		= sizeof(sysctl_dccp_feat_send_ndp_count),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname	= "request_retries",
+ 		.data		= &sysctl_dccp_request_retries,
+ 		.maxlen		= sizeof(sysctl_dccp_request_retries),
 -- 
 1.6.0.rc2
 
