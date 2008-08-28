@@ -1,140 +1,194 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 13/37] dccp: Deprecate Ack Ratio sysctl
-Date: Thu, 28 Aug 2008 19:44:48 +0200
-Message-ID: <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 02/37] dccp: Implement lookup table for feature-negotiation information
+Date: Thu, 28 Aug 2008 19:44:37 +0200
+Message-ID: <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55097 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55098 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754043AbYH1RpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:20 -0400
-In-Reply-To: <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755634AbYH1RpX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:23 -0400
+In-Reply-To: <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch deprecates the Ack Ratio sysctl, since
- * Ack Ratio is entirely ignored by CCID-3 and CCID-4,
- * Ack Ratio currently doesn't work in CCID-2 (i.e. is always set to 1);
- * even if it would work in CCID-2, there is no point for a user to change it:
-   - Ack Ratio is constrained by cwnd (RFC 4341, 6.1.2),
-   - if Ack Ratio > cwnd, the system resorts to spurious RTO timeouts
-     (since waiting for Acks which will never arrive in this window),
-   - cwnd is not a user-configurable value.
-
-The only reasonable place for Ack Ratio is to print it for debugging. It is
-planned to do this later on, as part of e.g. dccp_probe.
-
-With this patch Ack Ratio is now under full control of feature negotiation:
- * Ack Ratio is resolved as a dependency of the selected CCID;
- * if the chosen CCID supports it (i.e. CCID == CCID-2), Ack Ratio is set to
-   the default of 2, following RFC 4340, 11.3 - "New connections start with Ack
-   Ratio 2 for both endpoints";
- * what happens then is part of another patch set, since it concerns the
-   dynamic update of Ack Ratio while the connection is in full flight.
-
-Thanks to Tomasz Grobelny for discussion leading up to this patch.
+A lookup table for feature-negotiation information, extracted from RFC 4340/42,
+is provided by this patch. All currently known features can be found in this
+table, along with their feature location, their default value, and type.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |    3 ---
- include/linux/dccp.h              |    2 --
- net/dccp/dccp.h                   |    1 -
- net/dccp/minisocks.c              |    1 -
- net/dccp/options.c                |    1 -
- net/dccp/sysctl.c                 |    7 -------
- 6 files changed, 0 insertions(+), 15 deletions(-)
+ include/linux/dccp.h |    9 ++--
+ net/dccp/feat.c      |  112 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 117 insertions(+), 4 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -125,9 +125,6 @@ send_ndp = 1
- send_ackvec = 1
- 	Whether or not to send Ack Vector options (sec. 11.5).
- 
--ack_ratio = 2
--	The default Ack Ratio (sec. 11.3) to use.
--
- tx_ccid = 2
- 	Default CCID for the sender-receiver half-connection.
- 
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -368,7 +368,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
-   * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
-   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
-   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
--  * @dccpms_ack_ratio - Ack Ratio Feature (section 11.3)
-   * @dccpms_pending - List of features being negotiated
-   * @dccpms_conf -
-   */
-@@ -378,7 +377,6 @@ struct dccp_minisock {
- 	__u8			dccpms_tx_ccid;
- 	__u8			dccpms_send_ack_vector;
- 	__u8			dccpms_send_ndp_count;
--	__u8			dccpms_ack_ratio;
- 	struct list_head	dccpms_pending;
- 	struct list_head	dccpms_conf;
+@@ -176,19 +176,20 @@ enum {
  };
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -98,7 +98,6 @@ extern int  sysctl_dccp_retries2;
- extern int  sysctl_dccp_feat_sequence_window;
- extern int  sysctl_dccp_feat_rx_ccid;
- extern int  sysctl_dccp_feat_tx_ccid;
--extern int  sysctl_dccp_feat_ack_ratio;
- extern int  sysctl_dccp_feat_send_ack_vector;
- extern int  sysctl_dccp_feat_send_ndp_count;
- extern int  sysctl_dccp_tx_qlen;
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -47,7 +47,6 @@ void dccp_minisock_init(struct dccp_minisock *dmsk)
- 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
- 	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
- 	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
--	dmsk->dccpms_ack_ratio	     = sysctl_dccp_feat_ack_ratio;
- 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
- 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
- }
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -26,7 +26,6 @@
- int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
- int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
--int sysctl_dccp_feat_ack_ratio	      = DCCPF_INITIAL_ACK_RATIO;
- int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
- int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
  
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -41,13 +41,6 @@ static struct ctl_table dccp_default_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
--		.procname	= "ack_ratio",
--		.data		= &sysctl_dccp_feat_ack_ratio,
--		.maxlen		= sizeof(sysctl_dccp_feat_ack_ratio),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
--	},
--	{
- 		.procname	= "send_ackvec",
- 		.data		= &sysctl_dccp_feat_send_ack_vector,
- 		.maxlen		= sizeof(sysctl_dccp_feat_send_ack_vector),
+ /* DCCP features (RFC 4340 section 6.4) */
+-enum {
++enum dccp_feature_numbers {
+ 	DCCPF_RESERVED = 0,
+ 	DCCPF_CCID = 1,
+-	DCCPF_SHORT_SEQNOS = 2,		/* XXX: not yet implemented */
++	DCCPF_SHORT_SEQNOS = 2,
+ 	DCCPF_SEQUENCE_WINDOW = 3,
+-	DCCPF_ECN_INCAPABLE = 4,	/* XXX: not yet implemented */
++	DCCPF_ECN_INCAPABLE = 4,
+ 	DCCPF_ACK_RATIO = 5,
+ 	DCCPF_SEND_ACK_VECTOR = 6,
+ 	DCCPF_SEND_NDP_COUNT = 7,
+ 	DCCPF_MIN_CSUM_COVER = 8,
+-	DCCPF_DATA_CHECKSUM = 9,	/* XXX: not yet implemented */
++	DCCPF_DATA_CHECKSUM = 9,
+ 	/* 10-127 reserved */
+ 	DCCPF_MIN_CCID_SPECIFIC = 128,
++	DCCPF_SEND_LEV_RATE = 192,	/* RFC 4342, sec. 8.4 */
+ 	DCCPF_MAX_CCID_SPECIFIC = 255,
+ };
+ 
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -23,6 +23,80 @@
+ 
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++static const struct {
++	u8			feat_num;		/* DCCPF_xxx */
++	enum dccp_feat_type	rxtx;			/* RX or TX  */
++	enum dccp_feat_type	reconciliation;		/* SP or NN  */
++	u8			default_value;		/* as in 6.4 */
++/*
++ *    Lookup table for location and type of features (from RFC 4340/4342)
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ *  | Feature                  | Location | Reconc. | Initial |  Section  |
++ *  |                          | RX | TX  | SP | NN |  Value  | Reference |
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ *  | DCCPF_CCID               |    |  X  | X  |    |   2     | 10        |
++ *  | DCCPF_SHORT_SEQNOS       |    |  X  | X  |    |   0     |  7.6.1    |
++ *  | DCCPF_SEQUENCE_WINDOW    |    |  X  |    | X  | 100     |  7.5.2    |
++ *  | DCCPF_ECN_INCAPABLE      | X  |     | X  |    |   0     | 12.1      |
++ *  | DCCPF_ACK_RATIO          |    |  X  |    | X  |   2     | 11.3      |
++ *  | DCCPF_SEND_ACK_VECTOR    | X  |     | X  |    |   0     | 11.5      |
++ *  | DCCPF_SEND_NDP_COUNT     |    |  X  | X  |    |   0     |  7.7.2    |
++ *  | DCCPF_MIN_CSUM_COVER     | X  |     | X  |    |   0     |  9.2.1    |
++ *  | DCCPF_DATA_CHECKSUM      | X  |     | X  |    |   0     |  9.3.1    |
++ *  | DCCPF_SEND_LEV_RATE      | X  |     | X  |    |   0     | 4342/8.4  |
++ *  +--------------------------+----+-----+----+----+---------+-----------+
++ */
++} dccp_feat_table[] = {
++	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
++	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
++	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
++	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
++	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
++	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
++};
++#define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
++
++/**
++ * dccp_feat_index  -  Hash function to map feature number into array position
++ * Returns consecutive array index or -1 if the feature is not understood.
++ */
++static int dccp_feat_index(u8 feat_num)
++{
++	/* The first 9 entries are occupied by the types from RFC 4340, 6.4 */
++	if (feat_num > DCCPF_RESERVED && feat_num <= DCCPF_DATA_CHECKSUM)
++		return feat_num - 1;
++
++	/*
++	 * Other features: add cases for new feature types here after adding
++	 * them to the above table.
++	 */
++	switch (feat_num) {
++	case DCCPF_SEND_LEV_RATE:
++			return DCCP_FEAT_SUPPORTED_MAX - 1;
++	}
++	return -1;
++}
++
++static u8 dccp_feat_type(u8 feat_num)
++{
++	int idx = dccp_feat_index(feat_num);
++
++	if (idx < 0)
++		return FEAT_UNKNOWN;
++	return dccp_feat_table[idx].reconciliation;
++}
++
++static int dccp_feat_default_value(u8 feat_num)
++{
++	int idx = dccp_feat_index(feat_num);
++
++	return idx < 0 ? : dccp_feat_table[idx].default_value;
++}
++
+ /* copy constructor, fval must not already contain allocated memory */
+ static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
+ {
+@@ -37,6 +111,42 @@ static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
+ 	return 0;
+ }
+ 
++static void dccp_feat_val_destructor(u8 feat_num, dccp_feat_val *val)
++{
++	if (val && dccp_feat_type(feat_num) == FEAT_SP)
++		kfree(val->sp.vec);
++}
++
++static struct dccp_feat_entry *
++	      dccp_feat_clone_entry(struct dccp_feat_entry const *original)
++{
++	struct dccp_feat_entry *new;
++	u8 type = dccp_feat_type(original->feat_num);
++
++	if (type == FEAT_UNKNOWN)
++		return NULL;
++
++	new = kmemdup(original, sizeof(struct dccp_feat_entry), gfp_any());
++	if (new == NULL)
++		return NULL;
++
++	if (type == FEAT_SP && dccp_feat_clone_sp_val(&new->val,
++						      original->val.sp.vec,
++						      original->val.sp.len)) {
++		kfree(new);
++		return NULL;
++	}
++	return new;
++}
++
++static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
++{
++	if (entry != NULL) {
++		dccp_feat_val_destructor(entry->feat_num, &entry->val);
++		kfree(entry);
++	}
++}
++
+ int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+ 		     u8 *val, u8 len, gfp_t gfp)
+ {
+@@ -653,6 +763,8 @@ const char *dccp_feat_name(const u8 feat)
+ 	if (feat > DCCPF_DATA_CHECKSUM && feat < DCCPF_MIN_CCID_SPECIFIC)
+ 		return feature_names[DCCPF_RESERVED];
+ 
++	if (feat ==  DCCPF_SEND_LEV_RATE)
++		return "Send Loss Event Rate";
+ 	if (feat >= DCCPF_MIN_CCID_SPECIFIC)
+ 		return "CCID-specific";
+ 
 -- 
 1.6.0.rc2
 
