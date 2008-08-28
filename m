@@ -1,203 +1,113 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 04/37] dccp: Per-socket initialisation of feature negotiation
-Date: Thu, 28 Aug 2008 19:44:39 +0200
-Message-ID: <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 17/37] dccp: Increase the scope of variable-length htonl/ntohl functions
+Date: Thu, 28 Aug 2008 19:44:52 +0200
+Message-ID: <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754154AbYH1RqM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:12 -0400
-In-Reply-To: <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756185AbYH1Rpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:54 -0400
+In-Reply-To: <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides feature-negotiation initialisation for both DCCP sockets and
-DCCP request_sockets, to support feature negotiation during connection setup.
+This extends the scope of two available functions, encode|decode_value_var,
+to work up to 6 (8) bytes, to match maximum requirements in the RFC.
 
-It also resolves a FIXME regarding the congestion control initialisation.
-
-Thanks to Wei Yongjun for help with the IPv6 side of this patch.
+These functions are going to be used both by general option processing and
+feature negotiation code, hence declarations have been put into feat.h.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- include/linux/dccp.h |    4 ++++
- net/dccp/dccp.h      |    3 ++-
- net/dccp/feat.c      |   19 +++++++++++++++++++
- net/dccp/feat.h      |    1 +
- net/dccp/input.c     |    2 --
- net/dccp/ipv4.c      |    3 ++-
- net/dccp/ipv6.c      |    3 ++-
- net/dccp/minisocks.c |    7 ++++++-
- net/dccp/proto.c     |    1 +
- 9 files changed, 37 insertions(+), 6 deletions(-)
+ net/dccp/feat.h    |   14 ++++++++++++++
+ net/dccp/options.c |   21 ++++++++++++++-------
+ 2 files changed, 28 insertions(+), 7 deletions(-)
 
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -412,6 +412,7 @@ extern void dccp_minisock_init(struct dccp_minisock *dmsk);
-  * @dreq_iss: initial sequence number sent on the Response (RFC 4340, 7.1)
-  * @dreq_isr: initial sequence number received on the Request
-  * @dreq_service: service code present on the Request (there is just one)
-+ * @dreq_featneg: feature negotiation options for this connection
-  * The following two fields are analogous to the ones in dccp_sock:
-  * @dreq_timestamp_echo: last received timestamp to echo (13.1)
-  * @dreq_timestamp_echo: the time of receiving the last @dreq_timestamp_echo
-@@ -421,6 +422,7 @@ struct dccp_request_sock {
- 	__u64			 dreq_iss;
- 	__u64			 dreq_isr;
- 	__be32			 dreq_service;
-+	struct list_head	 dreq_featneg;
- 	__u32			 dreq_timestamp_echo;
- 	__u32			 dreq_timestamp_time;
- };
-@@ -498,6 +500,7 @@ struct dccp_ackvec;
-  * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
-  * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
-  * @dccps_minisock - associated minisock (accessed via dccp_msk)
-+ * @dccps_featneg - tracks feature-negotiation state (mostly during handshake)
-  * @dccps_hc_rx_ackvec - rx half connection ack vector
-  * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
-  * @dccps_hc_tx_ccid - CCID used for the sender (or sending half-connection)
-@@ -535,6 +538,7 @@ struct dccp_sock {
- 	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
-+	struct list_head		dccps_featneg;
- 	struct dccp_ackvec		*dccps_hc_rx_ackvec;
- 	struct ccid			*dccps_hc_rx_ccid;
- 	struct ccid			*dccps_hc_tx_ccid;
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -252,7 +252,8 @@ extern const char *dccp_state_name(const int state);
- extern void dccp_set_state(struct sock *sk, const int state);
- extern void dccp_done(struct sock *sk);
- 
--extern void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb);
-+extern int  dccp_reqsk_init(struct request_sock *rq, struct dccp_sock const *dp,
-+			    struct sk_buff const *skb);
- 
- extern int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
- 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -276,6 +276,25 @@ void dccp_feat_list_purge(struct list_head *fn_list)
- }
- EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
- 
-+/* generate @to as full clone of @from - @to must not contain any nodes */
-+int dccp_feat_clone_list(struct list_head const *from, struct list_head *to)
-+{
-+	struct dccp_feat_entry *entry, *new;
-+
-+	INIT_LIST_HEAD(to);
-+	list_for_each_entry(entry, from, node) {
-+		new = dccp_feat_clone_entry(entry);
-+		if (new == NULL)
-+			goto cloning_failed;
-+		list_add_tail(&new->node, to);
-+	}
-+	return 0;
-+
-+cloning_failed:
-+	dccp_feat_list_purge(to);
-+	return -ENOMEM;
-+}
-+
- int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
- 		     u8 *val, u8 len, gfp_t gfp)
- {
 --- a/net/dccp/feat.h
 +++ b/net/dccp/feat.h
-@@ -95,6 +95,7 @@ extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- 				   u8 *val, u8 len);
- extern void dccp_feat_clean(struct dccp_minisock *dmsk);
- extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
-+extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
- extern int  dccp_feat_init(struct dccp_minisock *dmsk);
+@@ -122,4 +122,18 @@ extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
+ extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
+ extern int  dccp_feat_init(struct sock *sk);
  
- #endif /* _DCCP_FEAT_H */
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -590,8 +590,6 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 			if (inet_csk(sk)->icsk_af_ops->conn_request(sk,
- 								    skb) < 0)
- 				return 1;
--
--			/* FIXME: do congestion control initialization */
- 			goto discard;
- 		}
- 		if (dh->dccph_type == DCCP_PKT_RESET)
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -595,7 +595,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (req == NULL)
- 		goto drop;
- 
--	dccp_reqsk_init(req, skb);
-+	if (dccp_reqsk_init(req, dccp_sk(sk), skb))
-+		goto drop_and_free;
- 
- 	dreq = dccp_rsk(req);
- 	if (dccp_parse_options(sk, dreq, skb))
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -424,7 +424,8 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (req == NULL)
- 		goto drop;
- 
--	dccp_reqsk_init(req, skb);
-+	if (dccp_reqsk_init(req, dccp_sk(sk), skb))
-+		goto drop_and_free;
- 
- 	dreq = dccp_rsk(req);
- 	if (dccp_parse_options(sk, dreq, skb))
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -125,6 +125,7 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
- 		newdp->dccps_timestamp_time = dreq->dreq_timestamp_time;
- 		newicsk->icsk_rto	    = DCCP_TIMEOUT_INIT;
- 
-+		INIT_LIST_HEAD(&newdp->dccps_featneg);
- 		if (dccp_feat_clone(sk, newsk))
- 			goto out_free;
- 
-@@ -304,7 +305,8 @@ void dccp_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
- 
- EXPORT_SYMBOL_GPL(dccp_reqsk_send_ack);
- 
--void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
-+int dccp_reqsk_init(struct request_sock *req,
-+		    struct dccp_sock const *dp, struct sk_buff const *skb)
- {
- 	struct dccp_request_sock *dreq = dccp_rsk(req);
- 
-@@ -312,6 +314,9 @@ void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb)
- 	inet_rsk(req)->acked	  = 0;
- 	req->rcv_wnd		  = sysctl_dccp_feat_sequence_window;
- 	dreq->dreq_timestamp_echo = 0;
++/*
++ * Encoding variable-length options and their maximum length.
++ *
++ * This affects NN options (SP options are all u8) and other variable-length
++ * options (see table 3 in RFC 4340). The limit is currently given the Sequence
++ * Window NN value (sec. 7.5.2) and the NDP count (sec. 7.7) option, all other
++ * options consume less than 6 bytes (timestamps are 4 bytes).
++ * When updating this constant (e.g. due to new internet drafts / RFCs), make
++ * sure that you also update all code which refers to it.
++ */
++#define DCCP_OPTVAL_MAXLEN	6
 +
-+	/* inherit feature negotiation options from listening socket */
-+	return dccp_feat_clone_list(&dp->dccps_featneg, &dreq->dreq_featneg);
- }
++extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
++extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+ #endif /* _DCCP_FEAT_H */
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -29,16 +29,20 @@ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+ int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
+ int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
  
- EXPORT_SYMBOL_GPL(dccp_reqsk_init);
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -193,6 +193,7 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
+-static u32 dccp_decode_value_var(const unsigned char *bf, const u8 len)
++u64 dccp_decode_value_var(const u8 *bf, const u8 len)
+ {
+-	u32 value = 0;
++	u64 value = 0;
  
- 	dccp_init_xmit_timers(sk);
++	if (len >= DCCP_OPTVAL_MAXLEN)
++		value += ((u64)*bf++) << 40;
++	if (len > 4)
++		value += ((u64)*bf++) << 32;
+ 	if (len > 3)
+-		value += *bf++ << 24;
++		value += ((u64)*bf++) << 24;
+ 	if (len > 2)
+-		value += *bf++ << 16;
++		value += ((u64)*bf++) << 16;
+ 	if (len > 1)
+-		value += *bf++ << 8;
++		value += ((u64)*bf++) << 8;
+ 	if (len > 0)
+ 		value += *bf;
  
-+	INIT_LIST_HEAD(&dp->dccps_featneg);
- 	/*
- 	 * FIXME: We're hardcoding the CCID, and doing this at this point makes
- 	 * the listening (master) sock get CCID control blocks, which is not
+@@ -298,9 +302,12 @@ out_invalid_option:
+ 
+ EXPORT_SYMBOL_GPL(dccp_parse_options);
+ 
+-static void dccp_encode_value_var(const u32 value, unsigned char *to,
+-				  const unsigned int len)
++void dccp_encode_value_var(const u64 value, u8 *to, const u8 len)
+ {
++	if (len >= DCCP_OPTVAL_MAXLEN)
++		*to++ = (value & 0xFF0000000000ull) >> 40;
++	if (len > 4)
++		*to++ = (value & 0xFF00000000ull) >> 32;
+ 	if (len > 3)
+ 		*to++ = (value & 0xFF000000) >> 24;
+ 	if (len > 2)
 -- 
 1.6.0.rc2
 
