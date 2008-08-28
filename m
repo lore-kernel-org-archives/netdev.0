@@ -1,131 +1,44 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 04/37] dccp: Per-socket initialisation of feature
-	negotiation
-Date: Thu, 28 Aug 2008 16:53:15 -0300
-Message-ID: <20080828195315.GK9193@ghostprotocols.net>
-References: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: loaded router, excessive getnstimeofday in oprofile
+Date: Thu, 28 Aug 2008 22:59:43 +0300
+Message-ID: <200808282259.43550.denys@visp.net.lb>
+References: <21915755.1327801219904892242.JavaMail.root@ouachita> <200808281948.52608.denys@visp.net.lb> <20080828.123645.78561286.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, jmalicki@metacarta.com, johnpol@2ka.mipt.ru,
+	dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:56828 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753175AbYH1T6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 15:58:13 -0400
+Received: from relay2.globalproof.net ([194.146.153.25]:55239 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755412AbYH1UBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 16:01:09 -0400
+In-Reply-To: <20080828.123645.78561286.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Aug 28, 2008 at 07:44:39PM +0200, Gerrit Renker escreveu:
-> This provides feature-negotiation initialisation for both DCCP sockets and
-> DCCP request_sockets, to support feature negotiation during connection setup.
-> 
-> It also resolves a FIXME regarding the congestion control initialisation.
-> 
-> Thanks to Wei Yongjun for help with the IPv6 side of this patch.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-> ---
->  include/linux/dccp.h |    4 ++++
->  net/dccp/dccp.h      |    3 ++-
->  net/dccp/feat.c      |   19 +++++++++++++++++++
->  net/dccp/feat.h      |    1 +
->  net/dccp/input.c     |    2 --
->  net/dccp/ipv4.c      |    3 ++-
->  net/dccp/ipv6.c      |    3 ++-
->  net/dccp/minisocks.c |    7 ++++++-
->  net/dccp/proto.c     |    1 +
->  9 files changed, 37 insertions(+), 6 deletions(-)
-> 
-> --- a/include/linux/dccp.h
-> +++ b/include/linux/dccp.h
-> @@ -412,6 +412,7 @@ extern void dccp_minisock_init(struct dccp_minisock *dmsk);
->   * @dreq_iss: initial sequence number sent on the Response (RFC 4340, 7.1)
->   * @dreq_isr: initial sequence number received on the Request
->   * @dreq_service: service code present on the Request (there is just one)
-> + * @dreq_featneg: feature negotiation options for this connection
->   * The following two fields are analogous to the ones in dccp_sock:
->   * @dreq_timestamp_echo: last received timestamp to echo (13.1)
->   * @dreq_timestamp_echo: the time of receiving the last @dreq_timestamp_echo
-> @@ -421,6 +422,7 @@ struct dccp_request_sock {
->  	__u64			 dreq_iss;
->  	__u64			 dreq_isr;
->  	__be32			 dreq_service;
-> +	struct list_head	 dreq_featneg;
-
-Wouldn't be better to use hlist here? So that we use 8 bytes less per
-struct dccp_request_sock, after all we don't use struct sock while in
-embryonic stage exactly to reduce the footprint at this point in the
-socket lifetime :-)
-
->  	__u32			 dreq_timestamp_echo;
->  	__u32			 dreq_timestamp_time;
->  };
-> @@ -498,6 +500,7 @@ struct dccp_ackvec;
->   * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
->   * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
->   * @dccps_minisock - associated minisock (accessed via dccp_msk)
-> + * @dccps_featneg - tracks feature-negotiation state (mostly during handshake)
->   * @dccps_hc_rx_ackvec - rx half connection ack vector
->   * @dccps_hc_rx_ccid - CCID used for the receiver (or receiving half-connection)
->   * @dccps_hc_tx_ccid - CCID used for the sender (or sending half-connection)
-> @@ -535,6 +538,7 @@ struct dccp_sock {
->  	__u64				dccps_ndp_count:48;
->  	unsigned long			dccps_rate_last;
->  	struct dccp_minisock		dccps_minisock;
-> +	struct list_head		dccps_featneg;
-
-And here as well
-
->  	struct dccp_ackvec		*dccps_hc_rx_ackvec;
->  	struct ccid			*dccps_hc_rx_ccid;
->  	struct ccid			*dccps_hc_tx_ccid;
-> --- a/net/dccp/dccp.h
-> +++ b/net/dccp/dccp.h
-> @@ -252,7 +252,8 @@ extern const char *dccp_state_name(const int state);
->  extern void dccp_set_state(struct sock *sk, const int state);
->  extern void dccp_done(struct sock *sk);
->  
-> -extern void dccp_reqsk_init(struct request_sock *req, struct sk_buff *skb);
-> +extern int  dccp_reqsk_init(struct request_sock *rq, struct dccp_sock const *dp,
-> +			    struct sk_buff const *skb);
->  
->  extern int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
->  
-> --- a/net/dccp/feat.c
-> +++ b/net/dccp/feat.c
-> @@ -276,6 +276,25 @@ void dccp_feat_list_purge(struct list_head *fn_list)
->  }
->  EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
->  
-> +/* generate @to as full clone of @from - @to must not contain any nodes */
-> +int dccp_feat_clone_list(struct list_head const *from, struct list_head *to)
-> +{
-> +	struct dccp_feat_entry *entry, *new;
-> +
-> +	INIT_LIST_HEAD(to);
-> +	list_for_each_entry(entry, from, node) {
-> +		new = dccp_feat_clone_entry(entry);
-
-dccp_feat_clone_entry uses kmemdup for a new dccp_feat_entry _and_
-possibly for sp.vec, and goes on adding it to the 'to' list, but if
-one fails you go to cloning_failed: and dccp_feat_list_purge will
-call just dccp_feat_entry_destructor that doesn't frees the
-dccp_feat_entry instances, just the sp.vec. 
-
-Looks like major leakage, or am I missing something?
-
-> +		if (new == NULL)
-> +			goto cloning_failed;
-> +		list_add_tail(&new->node, to);
-> +	}
-> +	return 0;
-> +
-> +cloning_failed:
-> +	dccp_feat_list_purge(to);
-> +	return -ENOMEM;
-> +}
-> +
+On Thursday 28 August 2008, David Miller wrote:
+> From: Denys Fedoryshchenko <denys@visp.net.lb>
+> Date: Thu, 28 Aug 2008 19:48:52 +0300
+>
+> > So there is few good solutions available (IMHO):
+> > 1)Introduce some SO_REALTIMESTAMP (anyway even SO_TIMESTAMP not defined
+> > in any standard) for banks and ntp folks, who need them. And even give
+> > them timespec instead timeval, so they will be even more happy with
+> > resolution. 2)Provide sysctl,kernel boot, or even "build time" option for
+> > "banks" to have high resolution(and expensive) SO_TIMESTAMP.
+>
+> The performance hit hurts, but changing the default to lower
+> resolution after it having been high resolution for 10+ years
+> is a regression and something we really can't do.
+Agree. Then maybe to add way to choose, because choice is high resolution vs 
+performance. For example Intel dynamically throttling interrupts on e1000*, 
+and it saves me in this case. They leave also option for users who wants low 
+latency/high troughput.
+So maybe there must be a way for specific functions who uses get(ns)timeofday  
+to use specific timers (cheap and less precise), by option. Or to limit 
+amount of calls to timer by them.
