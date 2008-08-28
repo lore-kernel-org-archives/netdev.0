@@ -1,170 +1,157 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 03/37] dccp: List management for new feature negotiation
-Date: Thu, 28 Aug 2008 19:44:38 +0200
-Message-ID: <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 06/37] dccp: Limit feature negotiation to connection setup phase
+Date: Thu, 28 Aug 2008 19:44:41 +0200
+Message-ID: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55098 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55109 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753482AbYH1RpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:19 -0400
-In-Reply-To: <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753784AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:17 -0400
+In-Reply-To: <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds list fields and list management functions for the new feature
-negotiation implementation. The new code is kept in parallel to the old
-code, until removed at the end of the patch set.
+This patch starts the new implementation of feature negotiation:
+ 1. Although it is theoretically possible to perform feature negotiation at any
+    time (and RFC 4340 supports this), in practice this is prohibitively complex,
+    as it requires to put traffic on hold for each new negotiation.
+ 2. As a byproduct of restricting feature negotiation to connection setup, the
+    feature-negotiation retransmit timer is no longer required. This part is now
+    mapped onto the protocol-level retransmission.
+    Details indicating why timers are no longer needed can be found on
+    http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
+	                                      implementation_notes.html
+
+This patch disables anytime negotiation, subsequent patches work out full
+feature negotiation support for connection setup.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/feat.c |  129 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 129 insertions(+), 0 deletions(-)
+ net/dccp/feat.c    |   19 ++++++++-----------
+ net/dccp/options.c |   18 ------------------
+ net/dccp/timer.c   |   12 ------------
+ 3 files changed, 8 insertions(+), 41 deletions(-)
 
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -147,6 +147,135 @@ static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
+@@ -6,6 +6,8 @@
+  *
+  *  ASSUMPTIONS
+  *  -----------
++ *  o Feature negotiation is coordinated with connection setup (as in TCP), wild
++ *    changes of parameters of an established connection are not supported.
+  *  o All currently known SP features have 1-byte quantities. If in the future
+  *    extensions of RFCs 4340..42 define features with item lengths larger than
+  *    one byte, a feature-specific extension of the code will be required.
+@@ -649,6 +651,9 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
+ {
+ 	int rc;
+ 
++	/* Ignore Change requests other than during connection setup */
++	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
++		return 0;
+ 	dccp_feat_debug(type, feature, *val);
+ 
+ 	/* figure out if it's SP or NN feature */
+@@ -698,6 +703,9 @@ int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
+ 	int found = 0;
+ 	int all_confirmed = 1;
+ 
++	/* Ignore Confirm options other than during connection setup */
++	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
++		return 0;
+ 	dccp_feat_debug(type, feature, *val);
+ 
+ 	/* locate our change request */
+@@ -732,17 +740,6 @@ int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
+ 			all_confirmed = 0;
  	}
+ 
+-	/* fix re-transmit timer */
+-	/* XXX gotta make sure that no option negotiation occurs during
+-	 * connection shutdown.  Consider that the CLOSEREQ is sent and timer is
+-	 * on.  if all options are confirmed it might kill timer which should
+-	 * remain alive until close is received.
+-	 */
+-	if (all_confirmed) {
+-		dccp_pr_debug("clear feat negotiation timer %p\n", sk);
+-		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
+-	}
+-
+ 	if (!found)
+ 		dccp_pr_debug("%s(%d, ...) never requested\n",
+ 			      dccp_feat_typename(type), feature);
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -489,7 +489,6 @@ static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
+ 
+ static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct dccp_minisock *dmsk = dccp_msk(sk);
+ 	struct dccp_opt_pend *opt, *next;
+ 	int change = 0;
+@@ -530,23 +529,6 @@ static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	/* Retransmit timer.
+-	 * If this is the master listening sock, we don't set a timer on it.  It
+-	 * should be fine because if the dude doesn't receive our RESPONSE
+-	 * [which will contain the CHANGE] he will send another REQUEST which
+-	 * will "retrnasmit" the change.
+-	 */
+-	if (change && dp->dccps_role != DCCP_ROLE_LISTEN) {
+-		dccp_pr_debug("reset feat negotiation timer %p\n", sk);
+-
+-		/* XXX don't reset the timer on re-transmissions.  I.e. reset it
+-		 * only when sending new stuff i guess.  Currently the timer
+-		 * never backs off because on re-transmission it just resets it!
+-		 */
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto, DCCP_RTO_MAX);
+-	}
+-
+ 	return 0;
  }
  
-+/*
-+ *	List management functions
-+ */
-+
-+/**
-+ * dccp_feat_entry_new  -  Central list update routine (called by all others)
-+ * @fn: list to add to
-+ * @feat: feature number
-+ * @is_local: whether the local (1) or remote feature with number @feat is meant
-+ * The function maintains and relies on the following invariants:
-+ *  - each feat_num in the list is known, ie. we know its type and default value
-+ *  - each feat_num/is_local combination is unique (old entries are overwritten)
-+ *  - SP values are always freshly allocated
-+ *  - list is sorted in increasing order of feature number (faster lookup)
-+ */
-+static struct dccp_feat_entry *
-+	      dccp_feat_entry_new(struct list_head *fn, u8 feat, u8 is_local)
-+{
-+	struct dccp_feat_entry *entry;
-+	struct list_head *pos_head = fn;
-+
-+	list_for_each(pos_head, fn) {
-+		entry = list_entry(pos_head, struct dccp_feat_entry, node);
-+		if (feat < entry->feat_num)
-+			break;
-+		if (entry->feat_num == feat && entry->is_local == is_local) {
-+			dccp_feat_val_destructor(entry->feat_num, &entry->val);
-+			return entry;
-+		}
-+	}
-+	entry = kmalloc(sizeof(struct dccp_feat_entry), gfp_any());
-+	if (entry != NULL) {
-+		entry->feat_num = feat;
-+		entry->is_local = is_local;
-+		list_add_tail(&entry->node, pos_head);
-+	}
-+	return entry;
-+}
-+
-+static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
-+						     u8 feat_num, u8 is_local)
-+{
-+	struct dccp_feat_entry *entry;
-+
-+	list_for_each_entry(entry, fn_list, node)
-+		if (entry->feat_num == feat_num && entry->is_local == is_local)
-+			return entry;
-+		else if (entry->feat_num > feat_num)
-+			break;
-+	return NULL;
-+}
-+
-+/**
-+ * dccp_feat_push_change  -  Add/overwrite a Change option in the list
-+ * @fn_list: feature-negotiation list to update
-+ * @feat: one of %dccp_feature_numbers
-+ * @local: whether local (1) or remote (0) @feat_num is meant
-+ * @needs_mandatory: whether to use Mandatory feature negotiation options
-+ * @fval: pointer to NN/SP value to be inserted (will be copied)
-+ */
-+static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
-+				 u8 mandatory, dccp_feat_val *fval)
-+{
-+	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
-+
-+	if (new == NULL)
-+		return -ENOMEM;
-+
-+	new->feat_num	     = feat;
-+	new->is_local	     = local;
-+	new->state	     = FEAT_INITIALISING;
-+	new->needs_confirm   = 0;
-+	new->empty_confirm   = 0;
-+	new->val	     = *fval;
-+	new->needs_mandatory = mandatory;
-+
-+	return 0;
-+}
-+
-+/**
-+ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
-+ * @fn_list: feature-negotiation list to add to
-+ * @feat: one of %dccp_feature_numbers
-+ * @local: whether local (1) or remote (0) @feat_num is being confirmed
-+ * @fval: pointer to NN/SP value to be inserted or NULL
-+ * Returns 0 on success, a Reset code for further processing otherwise.
-+ */
-+static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
-+				  dccp_feat_val *fval)
-+{
-+	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
-+
-+	if (new == NULL)
-+		return DCCP_RESET_CODE_TOO_BUSY;
-+
-+	new->feat_num	     = feat;
-+	new->is_local	     = local;
-+	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
-+	new->needs_confirm   = 1;
-+	new->empty_confirm   = (fval == NULL);
-+	new->val.nn	     = 0;		/* zeroes the whole structure */
-+	if (!new->empty_confirm)
-+		new->val     = *fval;
-+	new->needs_mandatory = 0;
-+
-+	return 0;
-+}
-+
-+static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
-+{
-+	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
-+}
-+
-+static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
-+{
-+	list_del(&entry->node);
-+	dccp_feat_entry_destructor(entry);
-+}
-+
-+void dccp_feat_list_purge(struct list_head *fn_list)
-+{
-+	struct dccp_feat_entry *entry, *next;
-+
-+	list_for_each_entry_safe(entry, next, fn_list, node)
-+		dccp_feat_entry_destructor(entry);
-+	INIT_LIST_HEAD(fn_list);
-+}
-+EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
-+
- int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
- 		     u8 *val, u8 len, gfp_t gfp)
+--- a/net/dccp/timer.c
++++ b/net/dccp/timer.c
+@@ -87,17 +87,6 @@ static void dccp_retransmit_timer(struct sock *sk)
  {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 
+-	/* retransmit timer is used for feature negotiation throughout
+-	 * connection.  In this case, no packet is re-transmitted, but rather an
+-	 * ack is generated and pending changes are placed into its options.
+-	 */
+-	if (sk->sk_send_head == NULL) {
+-		dccp_pr_debug("feat negotiation retransmit timeout %p\n", sk);
+-		if (sk->sk_state == DCCP_OPEN)
+-			dccp_send_ack(sk);
+-		goto backoff;
+-	}
+-
+ 	/*
+ 	 * More than than 4MSL (8 minutes) has passed, a RESET(aborted) was
+ 	 * sent, no need to retransmit, this sock is dead.
+@@ -126,7 +115,6 @@ static void dccp_retransmit_timer(struct sock *sk)
+ 		return;
+ 	}
+ 
+-backoff:
+ 	icsk->icsk_backoff++;
+ 
+ 	icsk->icsk_rto = min(icsk->icsk_rto << 1, DCCP_RTO_MAX);
 -- 
 1.6.0.rc2
 
