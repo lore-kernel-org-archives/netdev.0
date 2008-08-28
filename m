@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 19/37] dccp: Header option insertion routine for feature-negotiation
-Date: Thu, 28 Aug 2008 19:44:54 +0200
-Message-ID: <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 32/37] dccp ccid-2: Phase out the use of boolean Ack Vector sysctl
+Date: Thu, 28 Aug 2008 19:45:07 +0200
+Message-ID: <1219945512-7723-33-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -22,215 +22,267 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55286 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55167 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755870AbYH1RqL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:11 -0400
-In-Reply-To: <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756034AbYH1Rpj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:39 -0400
+In-Reply-To: <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch extends existing code:
- * Confirm options divide into the confirmed value plus an optional preference
-   list for SP values. Previously only the preference list was echoed for SP
-   values, now the confirmed value is added as per RFC 4340, 6.1;
- * length and sanity checks are added to avoid illegal memory (or NULL) access;
- * clarified the use of TLV length constant, which does not have anything to do
-   with ECN, but with the fact that Type-Length-Value options whose length is
-   determined by an u8 field provide Value space for at most 255 - 2 = 253 bytes
-   due to the Type/Length fields.
+This removes the use of the sysctl and the minisock variable for the Send Ack
+Vector feature, which is now handled fully dynamically via feature negotiation;
+i.e. when CCID2 is enabled, Ack Vectors are automatically enabled (as per
+RFC 4341, 4.).
+
+Using a sysctl in parallel to this implementation would open the door to
+crashes, since much of the code relies on tests of the boolean minisock /
+sysctl variable. Thus, this patch replaces all tests of type
+
+	if (dccp_msk(sk)->dccpms_send_ack_vector)
+		/* ... */
+with
+	if (dp->dccps_hc_rx_ackvec != NULL)
+		/* ... */
+
+The dccps_hc_rx_ackvec is allocated by the dccp_hdlr_ackvec() when feature
+negotiation concluded that Ack Vectors are to be used on the half-connection.
+Otherwise, it is NULL (due to dccp_init_sock/dccp_create_openreq_child),
+so that the test is a valid one.
+
+The activation handler for Ack Vectors is called as soon as the feature
+negotiation has concluded at the
+ * server when the Ack marking the transition RESPOND => OPEN arrives;
+ * client after it has sent its ACK, marking the transition REQUEST => PARTOPEN.
+
+Adding the sequence number of the Response packet to the Ack Vector has been
+removed, since
+ (a) connection establishment implies that the Response has been received;
+ (b) the CCIDs only look at packets received in the (PART)OPEN state, i.e.
+     this entry will always be ignored;
+ (c) it can not be used for anything useful - to detect loss for instance, only
+     packets received after the loss can serve as pseudo-dupacks.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ackvec.c  |    8 ++--
- net/dccp/ackvec.h  |    6 ++--
- net/dccp/feat.h    |    2 +
- net/dccp/options.c |   91 ++++++++++++++++++----------------------------------
- 4 files changed, 40 insertions(+), 67 deletions(-)
+ Documentation/networking/dccp.txt |    3 ---
+ include/linux/dccp.h              |    3 ---
+ net/dccp/dccp.h                   |    3 +--
+ net/dccp/diag.c                   |    2 +-
+ net/dccp/input.c                  |   12 +++---------
+ net/dccp/minisocks.c              |    1 -
+ net/dccp/options.c                |    7 ++-----
+ net/dccp/proto.c                  |    3 +--
+ net/dccp/sysctl.c                 |    7 -------
+ 9 files changed, 8 insertions(+), 33 deletions(-)
 
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -68,7 +68,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	struct dccp_ackvec *av = dp->dccps_hc_rx_ackvec;
- 	/* Figure out how many options do we need to represent the ackvec */
--	const u16 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_MAX_ACKVEC_OPT_LEN);
-+	const u8 nr_opts = DIV_ROUND_UP(av->av_vec_len, DCCP_SINGLE_OPT_MAXLEN);
- 	u16 len = av->av_vec_len + 2 * nr_opts, i;
- 	u32 elapsed_time;
- 	const unsigned char *tail, *from;
-@@ -100,8 +100,8 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 	for (i = 0; i < nr_opts; ++i) {
- 		int copylen = len;
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -133,9 +133,6 @@ retries2
+ 	importance for retransmitted acknowledgments and feature negotiation,
+ 	data packets are never retransmitted. Analogue of tcp_retries2.
  
--		if (len > DCCP_MAX_ACKVEC_OPT_LEN)
--			copylen = DCCP_MAX_ACKVEC_OPT_LEN;
-+		if (len > DCCP_SINGLE_OPT_MAXLEN)
-+			copylen = DCCP_SINGLE_OPT_MAXLEN;
+-send_ackvec = 1
+-	Whether or not to send Ack Vector options (sec. 11.5).
+-
+ tx_ccid = 2
+ 	Default CCID for the sender-receiver half-connection. Depending on the
+ 	choice of CCID, the Send Ack Vector feature is enabled automatically.
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -360,7 +360,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+ #define DCCPF_INITIAL_SEQUENCE_WINDOW		100
+ #define DCCPF_INITIAL_ACK_RATIO			2
+ #define DCCPF_INITIAL_CCID			DCCPC_CCID2
+-#define DCCPF_INITIAL_SEND_ACK_VECTOR		1
+ /* FIXME: for now we're default to 1 but it should really be 0 */
+ #define DCCPF_INITIAL_SEND_NDP_COUNT		1
  
- 		*to++ = DCCPO_ACK_VECTOR_0;
- 		*to++ = copylen + 2;
-@@ -432,7 +432,7 @@ found:
- int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
- 		      u64 *ackno, const u8 opt, const u8 *value, const u8 len)
+@@ -370,13 +369,11 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+   * Will be used to pass the state from dccp_request_sock to dccp_sock.
+   *
+   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
+-  * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+   * @dccpms_pending - List of features being negotiated
+   * @dccpms_conf -
+   */
+ struct dccp_minisock {
+ 	__u64			dccpms_sequence_window;
+-	__u8			dccpms_send_ack_vector;
+ 	struct list_head	dccpms_pending;
+ 	struct list_head	dccpms_conf;
+ };
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -98,7 +98,6 @@ extern int  sysctl_dccp_retries2;
+ extern int  sysctl_dccp_feat_sequence_window;
+ extern int  sysctl_dccp_feat_rx_ccid;
+ extern int  sysctl_dccp_feat_tx_ccid;
+-extern int  sysctl_dccp_feat_send_ack_vector;
+ extern int  sysctl_dccp_tx_qlen;
+ extern int  sysctl_dccp_sync_ratelimit;
+ 
+@@ -434,7 +433,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 	const struct dccp_sock *dp = dccp_sk(sk);
+ 	return dp->dccps_timestamp_echo != 0 ||
+ #ifdef CONFIG_IP_DCCP_ACKVEC
+-	       (dccp_msk(sk)->dccpms_send_ack_vector &&
++	       (dp->dccps_hc_rx_ackvec != NULL &&
+ 		dccp_ackvec_pending(dp->dccps_hc_rx_ackvec)) ||
+ #endif
+ 	       inet_csk_ack_scheduled(sk);
+--- a/net/dccp/diag.c
++++ b/net/dccp/diag.c
+@@ -29,7 +29,7 @@ static void dccp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_backoff	= icsk->icsk_backoff;
+ 	info->tcpi_pmtu		= icsk->icsk_pmtu_cookie;
+ 
+-	if (dccp_msk(sk)->dccpms_send_ack_vector)
++	if (dp->dccps_hc_rx_ackvec != NULL)
+ 		info->tcpi_options |= TCPI_OPT_SACK;
+ 
+ 	ccid_hc_rx_get_info(dp->dccps_hc_rx_ccid, sk, info);
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -163,7 +163,7 @@ static void dccp_event_ack_recv(struct sock *sk, struct sk_buff *skb)
  {
--	if (len > DCCP_MAX_ACKVEC_OPT_LEN)
-+	if (len > DCCP_SINGLE_OPT_MAXLEN)
- 		return -1;
+ 	struct dccp_sock *dp = dccp_sk(sk);
  
- 	/* dccp_ackvector_print(DCCP_SKB_CB(skb)->dccpd_ack_seq, value, len); */
---- a/net/dccp/ackvec.h
-+++ b/net/dccp/ackvec.h
-@@ -16,10 +16,10 @@
- #include <linux/list.h>
- #include <linux/types.h>
+-	if (dccp_msk(sk)->dccpms_send_ack_vector)
++	if (dp->dccps_hc_rx_ackvec != NULL)
+ 		dccp_ackvec_check_rcv_ackno(dp->dccps_hc_rx_ackvec, sk,
+ 					    DCCP_SKB_CB(skb)->dccpd_ack_seq);
+ }
+@@ -375,7 +375,7 @@ int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
+ 		dccp_event_ack_recv(sk, skb);
  
--/* Read about the ECN nonce to see why it is 253 */
--#define DCCP_MAX_ACKVEC_OPT_LEN 253
-+/* maximum size of a single TLV-encoded option (sans type/len bytes) */
-+#define DCCP_SINGLE_OPT_MAXLEN	253
- /* We can spread an ack vector across multiple options */
--#define DCCP_MAX_ACKVEC_LEN (DCCP_MAX_ACKVEC_OPT_LEN * 2)
-+#define DCCP_MAX_ACKVEC_LEN (DCCP_SINGLE_OPT_MAXLEN * 2)
+-	if (dccp_msk(sk)->dccpms_send_ack_vector &&
++	if (dp->dccps_hc_rx_ackvec != NULL &&
+ 	    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
+ 			    DCCP_SKB_CB(skb)->dccpd_seq,
+ 			    DCCP_ACKVEC_STATE_RECEIVED))
+@@ -434,12 +434,6 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * (tstamp -
+ 			    dp->dccps_options_received.dccpor_timestamp_echo));
  
- #define DCCP_ACKVEC_STATE_RECEIVED	0
- #define DCCP_ACKVEC_STATE_ECN_MARKED	(1 << 6)
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -138,4 +138,6 @@ extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
- extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+-		if (dccp_msk(sk)->dccpms_send_ack_vector &&
+-		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
+-				    DCCP_SKB_CB(skb)->dccpd_seq,
+-				    DCCP_ACKVEC_STATE_RECEIVED))
+-			goto out_invalid_packet; /* FIXME: change error code */
+-
+ 		/* Stop the REQUEST timer */
+ 		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
+ 		WARN_ON(sk->sk_send_head == NULL);
+@@ -637,7 +631,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
+ 			dccp_event_ack_recv(sk, skb);
  
- extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
-+extern int  dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
-+			       u8 *val, u8 len, bool repeat_first);
- #endif /* _DCCP_FEAT_H */
+-		if (dccp_msk(sk)->dccpms_send_ack_vector &&
++		if (dp->dccps_hc_rx_ackvec != NULL &&
+ 		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
+ 				    DCCP_SKB_CB(skb)->dccpd_seq,
+ 				    DCCP_ACKVEC_STATE_RECEIVED))
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -45,7 +45,6 @@ EXPORT_SYMBOL_GPL(dccp_death_row);
+ void dccp_minisock_init(struct dccp_minisock *dmsk)
+ {
+ 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
+-	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+ }
+ 
+ void dccp_time_wait(struct sock *sk, int state, int timeo)
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -482,23 +482,46 @@ int dccp_insert_option_mandatory(struct sk_buff *skb)
- 	return 0;
- }
+@@ -26,7 +26,6 @@
+ int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
+ int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
+ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+-int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
  
--static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
--				u8 *val, u8 len)
-+/**
-+ * dccp_insert_fn_opt  -  Insert single Feature-Negotiation option into @skb
-+ * @type: %DCCPO_CHANGE_L, %DCCPO_CHANGE_R, %DCCPO_CONFIRM_L, %DCCPO_CONFIRM_R
-+ * @feat: one out of %dccp_feature_numbers
-+ * @val: NN value or SP array (preferred element first) to copy
-+ * @len: true length of @val in bytes (excluding first element repetition)
-+ * @repeat_first: whether to copy the first element of @val twice
-+ * The last argument is used to construct Confirm options, where the preferred
-+ * value and the preference list appear separately (RFC 4340, 6.3.1). Preference
-+ * lists are kept such that the preferred entry is always first, so we only need
-+ * to copy twice, and avoid the overhead of cloning into a bigger array.
-+ */
-+int dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
-+		       u8 *val, u8 len, bool repeat_first)
+ u64 dccp_decode_value_var(const u8 *bf, const u8 len)
  {
--	u8 *to;
-+	u8 tot_len, *to;
- 
--	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len + 3 > DCCP_MAX_OPT_LEN) {
--		DCCP_WARN("packet too small for feature %d option!\n", feat);
-+	/* take the `Feature' field and possible repetition into account */
-+	if (len > (DCCP_SINGLE_OPT_MAXLEN - 2)) {
-+		DCCP_WARN("length %u for feature %u too large\n", len, feat);
- 		return -1;
- 	}
- 
--	DCCP_SKB_CB(skb)->dccpd_opt_len += len + 3;
-+	if (unlikely(val == NULL || len == 0))
-+		len = repeat_first = 0;
-+	tot_len = 3 + repeat_first + len;
-+
-+	if (DCCP_SKB_CB(skb)->dccpd_opt_len + tot_len > DCCP_MAX_OPT_LEN) {
-+		DCCP_WARN("packet too small for feature %d option!\n", feat);
-+		return -1;
-+	}
-+	DCCP_SKB_CB(skb)->dccpd_opt_len += tot_len;
- 
--	to    = skb_push(skb, len + 3);
-+	to    = skb_push(skb, tot_len);
- 	*to++ = type;
--	*to++ = len + 3;
-+	*to++ = tot_len;
- 	*to++ = feat;
- 
-+	if (repeat_first)
-+		*to++ = *val;
- 	if (len)
- 		memcpy(to, val, len);
- 
-@@ -508,51 +531,6 @@ static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
- 	return 0;
- }
- 
--static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
--{
+@@ -145,8 +144,7 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 		case DCCPO_ACK_VECTOR_1:
+ 			if (dccp_packet_without_ack(skb))   /* RFC 4340, 11.4 */
+ 				break;
+-
+-			if (dccp_msk(sk)->dccpms_send_ack_vector &&
++			if (dp->dccps_hc_rx_ackvec != NULL &&
+ 			    dccp_ackvec_parse(sk, skb, &ackno, opt, value, len))
+ 				goto out_invalid_option;
+ 			break;
+@@ -526,7 +524,6 @@ static void dccp_insert_option_padding(struct sk_buff *skb)
+ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
 -	struct dccp_minisock *dmsk = dccp_msk(sk);
--	struct dccp_opt_pend *opt, *next;
--	int change = 0;
--
--	/* confirm any options [NN opts] */
--	list_for_each_entry_safe(opt, next, &dmsk->dccpms_conf, dccpop_node) {
--		dccp_insert_feat_opt(skb, opt->dccpop_type,
--				     opt->dccpop_feat, opt->dccpop_val,
--				     opt->dccpop_len);
--		/* fear empty confirms */
--		if (opt->dccpop_val)
--			kfree(opt->dccpop_val);
--		kfree(opt);
--	}
--	INIT_LIST_HEAD(&dmsk->dccpms_conf);
--
--	/* see which features we need to send */
--	list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
--		/* see if we need to send any confirm */
--		if (opt->dccpop_sc) {
--			dccp_insert_feat_opt(skb, opt->dccpop_type + 1,
--					     opt->dccpop_feat,
--					     opt->dccpop_sc->dccpoc_val,
--					     opt->dccpop_sc->dccpoc_len);
--
--			BUG_ON(!opt->dccpop_sc->dccpoc_val);
--			kfree(opt->dccpop_sc->dccpoc_val);
--			kfree(opt->dccpop_sc);
--			opt->dccpop_sc = NULL;
--		}
--
--		/* any option not confirmed, re-send it */
--		if (!opt->dccpop_conf) {
--			dccp_insert_feat_opt(skb, opt->dccpop_type,
--					     opt->dccpop_feat, opt->dccpop_val,
--					     opt->dccpop_len);
--			change++;
--		}
--	}
--
--	return 0;
--}
--
- /* The length of all options needs to be a multiple of 4 (5.8) */
- static void dccp_insert_option_padding(struct sk_buff *skb)
- {
-@@ -589,13 +567,6 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 		dp->dccps_hc_rx_insert_options = 0;
- 	}
  
--	/* Feature negotiation */
--	/* Data packets can't do feat negotiation */
--	if (DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATA &&
--	    DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATAACK &&
--	    dccp_insert_options_feat(sk, skb))
--		return -1;
--
+ 	DCCP_SKB_CB(skb)->dccpd_opt_len = 0;
+ 
+@@ -547,7 +544,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+ 			if (dccp_insert_option_timestamp(sk, skb))
+ 				return -1;
+ 
+-		} else if (dmsk->dccpms_send_ack_vector	&&
++		} else if (dp->dccps_hc_rx_ackvec != NULL &&
+ 			   dccp_ackvec_pending(dp->dccps_hc_rx_ackvec) &&
+ 			   dccp_insert_option_ackvec(sk, skb)) {
+ 				return -1;
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -207,7 +207,6 @@ EXPORT_SYMBOL_GPL(dccp_init_sock);
+ void dccp_destroy_sock(struct sock *sk)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+-	struct dccp_minisock *dmsk = dccp_msk(sk);
+ 
  	/*
- 	 * Obtain RTT sample from Request/Response exchange.
- 	 * This is currently used in CCID 3 initialisation.
+ 	 * DCCP doesn't use sk_write_queue, just sk_send_head
+@@ -225,7 +224,7 @@ void dccp_destroy_sock(struct sock *sk)
+ 	kfree(dp->dccps_service_list);
+ 	dp->dccps_service_list = NULL;
+ 
+-	if (dmsk->dccpms_send_ack_vector) {
++	if (dp->dccps_hc_rx_ackvec != NULL) {
+ 		dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
+ 		dp->dccps_hc_rx_ackvec = NULL;
+ 	}
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -41,13 +41,6 @@ static struct ctl_table dccp_default_table[] = {
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+-		.procname	= "send_ackvec",
+-		.data		= &sysctl_dccp_feat_send_ack_vector,
+-		.maxlen		= sizeof(sysctl_dccp_feat_send_ack_vector),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname	= "request_retries",
+ 		.data		= &sysctl_dccp_request_retries,
+ 		.maxlen		= sizeof(sysctl_dccp_request_retries),
 -- 
 1.6.0.rc2
 
