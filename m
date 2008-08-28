@@ -1,90 +1,132 @@
-From: "Tomas Winkler" <tomasw@gmail.com>
-Subject: Re: pull request: wireless-2.6 2008-08-26
-Date: Thu, 28 Aug 2008 03:19:35 +0300
-Message-ID: <1ba2fa240808271719o2a3617e7re0499670de785b2f@mail.gmail.com>
-References: <20080827013009.GA15781@tuxdriver.com>
-	 <1ba2fa240808271226i95a7789k481a68b09dc60164@mail.gmail.com>
-	 <200808272225.10557.mb@bu3sch.de>
-	 <1ba2fa240808271611v382631ecn2a24e2816562d434@mail.gmail.com>
-	 <20080827233103.GE5927@tesla>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: cat /proc/net/tcp takes 0.5 seconds on x86_64
+Date: Thu, 28 Aug 2008 02:40:02 +0200
+Message-ID: <48B5F3E2.2000909@cosmosbay.com>
+References: <48B5DE9F.4010000@cosmosbay.com>	<20080827.161504.183610665.davem@davemloft.net>	<48B5E6A3.6@cosmosbay.com> <20080827.164535.150037784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb@bu3sch.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Bruno Randolf" <bruno@thinktube.com>
-To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Content-Type: multipart/mixed;
+ boundary="------------020606000005070400040702"
+Cc: andi@firstfloor.org, davej@redhat.com, netdev@vger.kernel.org,
+	j.w.r.degoede@hhs.nl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:27726 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976AbYH1ATg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2008 20:19:36 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so107047fgg.17
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2008 17:19:35 -0700 (PDT)
-In-Reply-To: <20080827233103.GE5927@tesla>
-Content-Disposition: inline
+Received: from smtp27.orange.fr ([80.12.242.95]:39009 "EHLO smtp27.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753289AbYH1AkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2008 20:40:12 -0400
+In-Reply-To: <20080827.164535.150037784.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 28, 2008 at 2:31 AM, Luis R. Rodriguez
-<lrodriguez@atheros.com> wrote:
-> On Wed, Aug 27, 2008 at 04:11:15PM -0700, Tomas Winkler wrote:
->> if (beacon_timestamp > rx_timestamp)
->>     merge
->>
->> The patch from Assaf just disable reporting RX timestamp to mac and
->> thus disabling merging which gives incorrect spec behavior but smooth
->> traffic.
->
-> We *should follow the spec*.
+This is a multi-part message in MIME format.
+--------------020606000005070400040702
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-I prefer to be able transfer files over blindly following spec. This
-doesn't really break interoperability in practice.
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Thu, 28 Aug 2008 01:43:31 +0200
+>=20
+>> David Miller a =E9crit :
+>>> From: Eric Dumazet <dada1@cosmosbay.com>
+>>> Date: Thu, 28 Aug 2008 01:09:19 +0200
+>>>
+>>>> Not really, I suspect commit (a7ab4b501f9b8a9dc4d5cee542db67b6ccd108=
+8b [TCPv4]: Improve BH latency in /proc/net/tcp) is responsible for longe=
+r delays.
+>>>> Note that its rather old :
+>>>  ...
+>>>> We used to disable bh once, while reading the table. This sucked.
+>>>>
+>>>> In case machine is handling trafic, we now are preemptable by softir=
+qs
+>>>> while reading /proc/net/tcp. Thats a good thing.
+>>> Yes, that would account for it, good spotting.
+>>>
+>>>> By the way, I find Andi patch usefull. Same thing could be done for =
+/proc/net/rt_cache.
+>>> Fair enough.  If you can cook up a quick rt_cache patch I'll toss it =
+and
+>>> Andi's patch into net-next so it can cook for a while.
+>> Well, first patch I would like to submit is about letting netlink bein=
+g able to be faster than /proc/net/tcp again :)
+>=20
+> Andi just posted a very similar patch :)
 
->> Actually we've checked few cards including broadcom and various
->> windows NICs
->
-> What are windows NICs?
->
->> and non of them implements this correctly so this WA is
->> probably the solution.
->
-> Disagreed! If there is hardware which is not capable of handling this
-> we should simply have a HW flag which specifies this to handle this as a
-> work around (WA). Just because some cards are not capable it doesn't
-> mean it should impose that on the rest.
+No problem :)
 
-This is w/a in the specific driver not in the mac so this is de facto
-what you have suggested. This patch is marked as W/A and should have
-probably
-some cleaner solution in 2.6.28
+Here is the patch for /proc/net/rt_cache (legacy /proc and netlink interf=
+ace)
 
->> Other solution would be to mark leader with highest TSF and not
->> reconnecting to the same station again and again.
->>
->> Last solution would be to remove this merging all together but then
->> I'm not sure if Bruno added this code just implement the spec or
->> really tested it with any hardware. I'm not sure if any vendor
->> implements PS in IBSS so this merging is probably not important
->> anyway.
->
-> Absolutely not! IBSS merge is per spec, otherwise you don't really have
-> a real IBSS.
+Thank you
 
-I'm all for following spec and we've tried really hard to make it work.
-Anyhow I'm not sure what you call real IBSS. nobody has checked it for
-1.5 year this patch  is in and now is suddenly so important...
-b43 was effected and probably also something that John worked with (as
-he issued his anti-chatty patch)
-I would like to see if there is any  HW under mac80211 that actually
-work with this.
+[PATCH] ip: speedup /proc/net/rt_cache handling
 
-Tomas
+When scanning route cache hash table, we can avoid taking locks for empty=
+ buckets.
+Both /proc/net/rt_cache and NETLINK RTM_GETROUTE interface are taken into=
+ account.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
 
->  Luis
->
+--------------020606000005070400040702
+Content-Type: text/plain;
+ name="route.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="route.patch"
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index cca921e..71598f6 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -282,6 +282,8 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
+ 	struct rtable *r = NULL;
+ 
+ 	for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
++		if (!rt_hash_table[st->bucket].chain)
++			continue;
+ 		rcu_read_lock_bh();
+ 		r = rcu_dereference(rt_hash_table[st->bucket].chain);
+ 		while (r) {
+@@ -299,11 +301,14 @@ static struct rtable *__rt_cache_get_next(struct seq_file *seq,
+ 					  struct rtable *r)
+ {
+ 	struct rt_cache_iter_state *st = seq->private;
++
+ 	r = r->u.dst.rt_next;
+ 	while (!r) {
+ 		rcu_read_unlock_bh();
+-		if (--st->bucket < 0)
+-			break;
++		do {
++			if (--st->bucket < 0)
++				return NULL;
++		} while (!rt_hash_table[st->bucket].chain);
+ 		rcu_read_lock_bh();
+ 		r = rt_hash_table[st->bucket].chain;
+ 	}
+@@ -2840,7 +2845,9 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
+ 	if (s_h < 0)
+ 		s_h = 0;
+ 	s_idx = idx = cb->args[1];
+-	for (h = s_h; h <= rt_hash_mask; h++) {
++	for (h = s_h; h <= rt_hash_mask; h++, s_idx = 0) {
++		if (!rt_hash_table[h].chain)
++			continue;
+ 		rcu_read_lock_bh();
+ 		for (rt = rcu_dereference(rt_hash_table[h].chain), idx = 0; rt;
+ 		     rt = rcu_dereference(rt->u.dst.rt_next), idx++) {
+@@ -2859,7 +2866,6 @@ int ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb)
+ 			dst_release(xchg(&skb->dst, NULL));
+ 		}
+ 		rcu_read_unlock_bh();
+-		s_idx = 0;
+ 	}
+ 
+ done:
+
+--------------020606000005070400040702--
+
+
