@@ -1,36 +1,40 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] IPROUTE: generate compat messages that match nla_parse_nested_compat
-Date: Thu, 28 Aug 2008 11:51:31 +0200
-Message-ID: <20080828095131.GX20815@postel.suug.ch>
-References: <20080828011340.7987.74684.stgit@jtkirshe-mobile.jf.intel.com> <20080828011347.7987.24759.stgit@jtkirshe-mobile.jf.intel.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH][BUG] tcp: advertise MSS requested by user
+Date: Thu, 28 Aug 2008 12:50:34 +0300
+Message-ID: <200808281250.35006.denys@visp.net.lb>
+References: <48B44768.3030208@gmail.com> <20080828.024617.117112334.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, davem@davemloft.net,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: virtualphtn@gmail.com, netdev@vger.kernel.org,
+	lachlan.andrew@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:56804 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675AbYH1JvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 05:51:11 -0400
+Received: from relay2.globalproof.net ([194.146.153.25]:50595 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbYH1JwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 05:52:02 -0400
+In-Reply-To: <20080828.024617.117112334.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20080828011347.7987.24759.stgit@jtkirshe-mobile.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jeff Kirsher <jeffrey.t.kirsher@intel.com> 2008-08-27 18:13
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch updates libnetlink.c to generate nested compat netlink
-> attributes in the same format that is parsed by the kernels 2.6.26
-> and newer.
-> 
-> This patch will fix the prio multiqueue option for 2.6.26 kernels,
-> but will break compatibility with all kernels prior to 2.6.26.
 
-I'm not sure what you mean by fix, I can't find any nested attributes
-being parsed in the proposed sch_multiq.c.
+> I think this got broken by accident several years ago, shows how many
+> people use this feature :)
+>
+> We used to use ->mss_clamp to determine the MSS option value,
+> but along the way when all of the code using ->advmss et al.
+> was added it didn't get translated correctly.
+>
+> Thanks for your patch, I'll mull over this and put in the fix
+> once I understand exactly how this got broken.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am using, just i workaround this over iptables MSS option. You feel 
+discomfort, but most people start googling and see this trick with iptables, 
+and they use it.
 
-Wouldn't it be simpler to have q_multiq.c use addattr_nest() instead of
-addattr_nest_compat() instead of changing addattr_nest_compat() to be
-equivalent to addattr_nest()?
