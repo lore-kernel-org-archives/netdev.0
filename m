@@ -1,84 +1,156 @@
-From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
-Subject: Re: [PATCH] tcp FRTO: in-order-only "TCP proxy" fragility
- workaround
-Date: Thu, 28 Aug 2008 18:49:19 -0300
-Message-ID: <20080828184919.611dd578@tux>
-References: <20080819213417.45133573@tux>
- <Pine.LNX.4.64.0808201358490.4551@wrl-59.cs.helsinki.fi>
- <20080822183224.2d52f16c@tux>
- <20080822.143709.65615512.davem@davemloft.net>
- <20080823111446.06a350a2@tux>
- <Pine.LNX.4.64.0808231736490.10712@wrl-59.cs.helsinki.fi>
- <20080824163843.33b4f890@tux>
- <Pine.LNX.4.64.0808250948420.27330@wrl-59.cs.helsinki.fi>
- <20080826141812.589848a0@tux>
- <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 15/37] dccp: Set per-connection CCIDs via socket options
+Date: Thu, 28 Aug 2008 18:45:01 -0300
+Message-ID: <20080828214501.GT9193@ghostprotocols.net>
+References: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, thomas.jarosch@intra2net.com,
-	billfink@mindspring.com, Netdev <netdev@vger.kernel.org>,
-	Patrick Hardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:26070 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754923AbYH1Vta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 17:49:30 -0400
-Received: by an-out-0708.google.com with SMTP id d40so101511and.103
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2008 14:49:28 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0808262034001.1168@wrl-59.cs.helsinki.fi>
+Received: from mx2.redhat.com ([66.187.237.31]:35354 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755793AbYH1Vtp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 17:49:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Aug 2008 23:40:58 +0300 (EEST)
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+Em Thu, Aug 28, 2008 at 07:44:50PM +0200, Gerrit Renker escreveu:
+> With this patch, TX/RX CCIDs can now be changed on a per-connection basis, which
+> overrides the defaults set by the global sysctl variables for TX/RX CCIDs.
+> 
+> To make full use of this facility, the remaining patches of this patch set are
+> needed, which track dependencies and activate negotiated feature values.
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+> ---
+>  Documentation/networking/dccp.txt |   14 ++++++++++++++
+>  include/linux/dccp.h              |    5 +++++
+>  net/dccp/proto.c                  |   32 ++++++++++++++++++++++++++++++++
+>  3 files changed, 51 insertions(+), 0 deletions(-)
+> 
+> --- a/Documentation/networking/dccp.txt
+> +++ b/Documentation/networking/dccp.txt
+> @@ -61,6 +61,20 @@ DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
+>  supported by the endpoint (see include/linux/dccp.h for symbolic constants).
+>  The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
+>  
+> +DCCP_SOCKOPT_CCID is write-only and sets both the TX and RX CCIDs at the same
+> +time, combining the operation of the next two socket options. This option is
+> +preferrable over the latter two, since often applications will use the same
+> +type of CCID for both directions; and mixed use of CCIDs is not currently well
+> +understood. This socket option takes as argument at least one uint8_t value, or
+> +an array of uint8_t values, which must match available CCIDS (see above). CCIDs
+> +must be registered on the socket before calling connect() or listen().
+> +
+> +DCCP_SOCKOPT_TX_CCID is read/write. It returns the current CCID (if set) or sets
+> +the preference list for the TX CCID, using the same format as DCCP_SOCKOPT_CCID.
+> +Please note that the getsockopt argument type here is `int', not uint8_t.
+> +
+> +DCCP_SOCKOPT_RX_CCID is analogous to DCCP_SOCKOPT_TX_CCID, but for the RX CCID.
+> +
+>  DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
+>  timewait state when closing the connection (RFC 4340, 8.3). The usual case is
+>  that the closing server sends a CloseReq, whereupon the client holds timewait
+> --- a/include/linux/dccp.h
+> +++ b/include/linux/dccp.h
+> @@ -203,11 +203,16 @@ enum dccp_feature_numbers {
+>  #define DCCP_SOCKOPT_SEND_CSCOV		10
+>  #define DCCP_SOCKOPT_RECV_CSCOV		11
+>  #define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
+> +#define DCCP_SOCKOPT_CCID		13
+> +#define DCCP_SOCKOPT_TX_CCID		14
+> +#define DCCP_SOCKOPT_RX_CCID		15
+>  #define DCCP_SOCKOPT_CCID_RX_INFO	128
+>  #define DCCP_SOCKOPT_CCID_TX_INFO	192
+>  
+>  /* maximum number of services provided on the same listening port */
+>  #define DCCP_SERVICE_LIST_MAX_LEN      32
+> +/* maximum number of CCID preferences that can be registered at one time */
+> +#define DCCP_CCID_LIST_MAX_LEN	       16
 
-> while [ : ]; do
-> 	date "+%s.%N"
-> 	cat /proc/net/{netstat,snmp,tcp}
-> 	sleep 1
-> done
+Since this is an arbitrary lenght up to 253, it could as well be 253,
+no? Or is there any other limit that I'm forgetting? :-) It may well be
+that case, would have to read the RFC about how the encoding is done for
+feat len, which I did some weeks ago, but...
+  
+>  #ifdef __KERNEL__
+>  
+> --- a/net/dccp/proto.c
+> +++ b/net/dccp/proto.c
+> @@ -505,6 +505,34 @@ static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
+>  	return rc;
+>  }
+>  
+> +static int dccp_setsockopt_ccid(struct sock *sk, int type,
+> +				char __user *optval, int optlen)
+> +{
+> +	u8 *val;
+> +	int rc = 0;
+> +
+> +	if (optlen < 1 || optlen > DCCP_CCID_LIST_MAX_LEN)
+> +		return -EINVAL;
+> +
+> +	val = kmalloc(optlen, GFP_KERNEL);
+> +	if (val == NULL)
+> +		return -ENOMEM;
+> +
+> +	if (copy_from_user(val, optval, optlen))
+> +		rc = -EFAULT;
+> +
+> +	lock_sock(sk);
+> +	if (!rc && (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID))
+> +		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
+> +
 
-	Ok; Let's try again, now with more data (I hope):
+This _really_ is confusing! Why not:
 
-	1) tcpdump (just port 995):
+	rc = -EFAULT;
+	if (copy_from_user(val, optval, optlen))
+		goto out;
 
-http://www.abusar.org/stall/dump-client
-http://www.abusar.org/stall/dump-server
+	lock_sock(sk);
+	rc = 0;
+	if (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID)
+		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
 
-http://www.abusar.org/stall/dump-server-loopback
+	if (!rc && (type == DCCP_SOCKOPT_RX_CCID || type == DCCP_SOCKOPT_CCID))
+		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 0, val, optlen);
+	release_sock(sk);
+out:
+> +	kfree(val);
+> +	return rc;
+> +}
 
-	I don't know if loopback is useful, just in case...
+:-)
 
-	2) the above script :
+And even then that '0' or '1' requires one to look at what this binary
+number means, we could have something like
+dccp_feat_register_sp_{local,remote} perhaps, IIRC that is the is_local
+parameter, no?
 
-http://www.abusar.org/stall/script-client-log.txt
-http://www.abusar.org/stall/script-server-log.txt
-
-	3) and strace from the client Claws Mail:
-
-http://www.abusar.org/stall/strace-client-claws-mail.txt
-
-	I forgot to use the -r option in strace. But when Claws-mail
-stalls, it gives the following multiple times:
-
-read(4, 0xf48704, 4096)                 =3D -1 EAGAIN (Resource tempora=
-rily unavailable)
-select(5, [4], [4], NULL, NULL)         =3D 1 (out [4])
-writev(4, [{"xxxxxxxxxxxxxxx"..., 108}], 1) =3D 108
-select(5, [4], [], NULL, NULL)          =3D 1 (in [4])
-read(4, "xxxxxxxxxxxxxxxxxxxxxx"..., 4096) =3D 108
-
-	Well, I hope this time you have more information and I hope I didn't f=
-orget anything.=20
-If not, let's keep trying.
-
-	Important: these data were collected with frto disabled (0) and htb di=
-sabled too. So
-it isn't related to frto, neither htb.
-
-	Thank you!
-
---=20
+> +
+>  static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+>  		char __user *optval, int optlen)
+>  {
+> @@ -519,6 +547,10 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+>  	case DCCP_SOCKOPT_CHANGE_R:
+>  		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
+>  		return 0;
+> +	case DCCP_SOCKOPT_CCID:
+> +	case DCCP_SOCKOPT_RX_CCID:
+> +	case DCCP_SOCKOPT_TX_CCID:
+> +		return dccp_setsockopt_ccid(sk, optname, optval, optlen);
+>  	default:
+>  		if (optlen < sizeof(int))
+>  			return -EINVAL;
+> -- 
+> 1.6.0.rc2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe dccp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
