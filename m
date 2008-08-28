@@ -1,106 +1,138 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 0/37] dccp: Feature negotiation - last call for comments
-Date: Thu, 28 Aug 2008 19:44:35 +0200
-Message-ID: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 15/37] dccp: Set per-connection CCIDs via socket options
+Date: Thu, 28 Aug 2008 19:44:50 +0200
+Message-ID: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
-Cc: netdev@vger.kernel.org
+ <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55098 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55097 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751768AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751771AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 28 Aug 2008 13:45:17 -0400
-In-Reply-To: <dccp_featneg_last_call_for_comments>
+In-Reply-To: <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a last call for comments and review for the DCCP feature negotiation set,
-before sending a pull request.
+With this patch, TX/RX CCIDs can now be changed on a per-connection basis, which
+overrides the defaults set by the global sysctl variables for TX/RX CCIDs.
 
-This set replaces the initial implementation of feature negotiation with a fairly 
-complete set of routines to support negotiation between endpoints. 
+To make full use of this facility, the remaining patches of this patch set are
+needed, which track dependencies and activate negotiated feature values.
 
-It fixes the (known) problems with the old infrastructure, which was an initial
-implementation that apparently never was developed further.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ Documentation/networking/dccp.txt |   14 ++++++++++++++
+ include/linux/dccp.h              |    5 +++++
+ net/dccp/proto.c                  |   32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 51 insertions(+), 0 deletions(-)
 
-The patches have been publicly available in the test tree for about a year
-and were widely tested.
-
-Since several applications are using this API and since there is already at
-least one publicly available application (gstreamer) based on the new API,
-it would be good to have this available in mainline.
-
-This set deals with the negotiation of capabilities, before a connection is
-established. There is also support for dynamically updating feature values,
-this will follow in a second set -- a much smaller set since it builds upon
-the new basis.
-
-Please send any comments or issues you find with the code before the end of the
-week. I will then prepare a second submission / pull request.
-
-
-Part I - Basis
----------------
-Patch #1: Provides the basic datastructure for feature negotiation. It gets 
-          around the problem that feature-negotiation values have no uniform
-	  type - they can be 48-bit numbers, single characters, 2-byte integers
-	  or a list of unsigned chars.
-Patch #2: Provides a lookup-table for the different negotiable features.
-Patch #3: Adds list management for the list keeping the negotiation-options.
-Patch #4: Initialisation routines (for request sockets and normal sockets).
-Patch #5: Analogous to #4, this provides the cleanup routines.	  
-Patch #6: Changes the existing policy to allow anytime changes as that lead
-          to unpredictable results.
-Patch #7: Adds registration routines. These form part of the user interface
-          and are later used by the socket API to set individual preferences.
-Patch #8: CCIDs are a negotiable feature. This patch adds support to query the
-          supported CCIDs, so as to advertise only the locally supported ones.
-Patch #9: The choice of CCID in turn creates new feature dependencies. The patch
-          adds automatic tracking of such dependencies to avoid later failure.
-
-Part II - Core	  
---------------
-Patch #10: Provides a mechanism to then resolve CCID-dependent features. Since
-           CCIDs are a server-priority feature, this is done by the server.
-Patch #11: Deprecates old featneg API, as it was dangerous/clumsy.
-Patch #12: Support to negotiate checksum-coverage values (as in UDP-Lite).
-Patch #13: Deprecates Ack Ratio sysctl, to enable automatic updating.
-Patch #14: Tidies up the setsockopt interface for new additions.
-Patch #15: Set/getsockopt support to negotiate CCIDs with the peer.
-Patch #16: Socket API to query the current CCID from userspace.
-Patch #17: Prepares the variable-length htonl/ntohl functions for 48 bits.
-           Such a length is needed by e.g. the Sequence Window feature.
-Patch #18: Support for DCCP `Mandatory' type options (RFC 4340, 5.8.2).
-Patch #19: Routine to insert feature-negotiation header options.
-Patch #20: Complements #19, to add feature-negotiation options onto the skb.
-Patch #21: Complements #20 and completes the insertion of featneg options.
-Patch #22: Logic/algorithm to actually reconcile negotiation options.
-Patch #23: Receiver support to process incoming Change L/R options. 
-Patch #24: Receiver support to process incoming Confirm R/L options.
-Patch #25: Handlers for activating successfully negotiated features.
-
-Part III - Integration and cleanup
-----------------------------------
-Patch #26: Integration of dynamic negotiation, part I (socket setup).
-Patch #27: Integration of dynamic negotiation, part II (server side).
-Patch #28: Integration of dynamic negotiation, part III (client side).
-
-Patch #29: Cleans up the older infrastructure.
-Patch #30: Removes obsolete parts of the old CCID interface.
-Patch #31: Removes manual intervention on NDP count (now automatic).
-Patch #32: Removes Ack Vector sysctl (handled automatically now).
-
-Patch #33: Initialisation framework for the supported features.
-Patch #34: Auto-loading of CCID modules so that the modules are available
-           when the negotiation is completed.
-Patch #35: Adds full support for local/remote Sequence Window.
-Patch #36: Initialisation and type-checking of involved sysctls.
-Patch #37: A set of (useful) debugging/printing helper functions.
-
-
-As always, patches are available on 
-
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
-
-There is also a gitweb view on the server.
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -61,6 +61,20 @@ DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
+ supported by the endpoint (see include/linux/dccp.h for symbolic constants).
+ The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
+ 
++DCCP_SOCKOPT_CCID is write-only and sets both the TX and RX CCIDs at the same
++time, combining the operation of the next two socket options. This option is
++preferrable over the latter two, since often applications will use the same
++type of CCID for both directions; and mixed use of CCIDs is not currently well
++understood. This socket option takes as argument at least one uint8_t value, or
++an array of uint8_t values, which must match available CCIDS (see above). CCIDs
++must be registered on the socket before calling connect() or listen().
++
++DCCP_SOCKOPT_TX_CCID is read/write. It returns the current CCID (if set) or sets
++the preference list for the TX CCID, using the same format as DCCP_SOCKOPT_CCID.
++Please note that the getsockopt argument type here is `int', not uint8_t.
++
++DCCP_SOCKOPT_RX_CCID is analogous to DCCP_SOCKOPT_TX_CCID, but for the RX CCID.
++
+ DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
+ timewait state when closing the connection (RFC 4340, 8.3). The usual case is
+ that the closing server sends a CloseReq, whereupon the client holds timewait
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -203,11 +203,16 @@ enum dccp_feature_numbers {
+ #define DCCP_SOCKOPT_SEND_CSCOV		10
+ #define DCCP_SOCKOPT_RECV_CSCOV		11
+ #define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
++#define DCCP_SOCKOPT_CCID		13
++#define DCCP_SOCKOPT_TX_CCID		14
++#define DCCP_SOCKOPT_RX_CCID		15
+ #define DCCP_SOCKOPT_CCID_RX_INFO	128
+ #define DCCP_SOCKOPT_CCID_TX_INFO	192
+ 
+ /* maximum number of services provided on the same listening port */
+ #define DCCP_SERVICE_LIST_MAX_LEN      32
++/* maximum number of CCID preferences that can be registered at one time */
++#define DCCP_CCID_LIST_MAX_LEN	       16
+ 
+ #ifdef __KERNEL__
+ 
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -505,6 +505,34 @@ static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
+ 	return rc;
+ }
+ 
++static int dccp_setsockopt_ccid(struct sock *sk, int type,
++				char __user *optval, int optlen)
++{
++	u8 *val;
++	int rc = 0;
++
++	if (optlen < 1 || optlen > DCCP_CCID_LIST_MAX_LEN)
++		return -EINVAL;
++
++	val = kmalloc(optlen, GFP_KERNEL);
++	if (val == NULL)
++		return -ENOMEM;
++
++	if (copy_from_user(val, optval, optlen))
++		rc = -EFAULT;
++
++	lock_sock(sk);
++	if (!rc && (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID))
++		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
++
++	if (!rc && (type == DCCP_SOCKOPT_RX_CCID || type == DCCP_SOCKOPT_CCID))
++		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 0, val, optlen);
++	release_sock(sk);
++
++	kfree(val);
++	return rc;
++}
++
+ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		char __user *optval, int optlen)
+ {
+@@ -519,6 +547,10 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 	case DCCP_SOCKOPT_CHANGE_R:
+ 		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
+ 		return 0;
++	case DCCP_SOCKOPT_CCID:
++	case DCCP_SOCKOPT_RX_CCID:
++	case DCCP_SOCKOPT_TX_CCID:
++		return dccp_setsockopt_ccid(sk, optname, optval, optlen);
+ 	default:
+ 		if (optlen < sizeof(int))
+ 			return -EINVAL;
+-- 
+1.6.0.rc2
 
