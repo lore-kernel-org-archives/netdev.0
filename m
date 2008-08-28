@@ -1,109 +1,73 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 17/37] dccp: Increase the scope of variable-length
-	htonl/ntohl functions
-Date: Thu, 28 Aug 2008 18:48:48 -0300
-Message-ID: <20080828214848.GV9193@ghostprotocols.net>
-References: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 18/37] dccp: Support for Mandatory options
+Date: Thu, 28 Aug 2008 18:50:09 -0300
+Message-ID: <20080828215009.GW9193@ghostprotocols.net>
+References: <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:38458 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:38479 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754103AbYH1Vxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 17:53:32 -0400
+	id S1756086AbYH1Vyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 17:54:52 -0400
 Content-Disposition: inline
-In-Reply-To: <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Aug 28, 2008 at 07:44:52PM +0200, Gerrit Renker escreveu:
-> This extends the scope of two available functions, encode|decode_value_var,
-> to work up to 6 (8) bytes, to match maximum requirements in the RFC.
-> 
-> These functions are going to be used both by general option processing and
-> feature negotiation code, hence declarations have been put into feat.h.
+Em Thu, Aug 28, 2008 at 07:44:53PM +0200, Gerrit Renker escreveu:
+> Support for Mandatory options is provided by this patch, which will
+> be used by subsequent feature-negotiation patches.
 > 
 > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 > Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
-
 Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
 > ---
->  net/dccp/feat.h    |   14 ++++++++++++++
->  net/dccp/options.c |   21 ++++++++++++++-------
->  2 files changed, 28 insertions(+), 7 deletions(-)
+>  net/dccp/feat.h    |    2 ++
+>  net/dccp/options.c |   15 +++++++++++++++
+>  2 files changed, 17 insertions(+), 0 deletions(-)
 > 
 > --- a/net/dccp/feat.h
 > +++ b/net/dccp/feat.h
-> @@ -122,4 +122,18 @@ extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
->  extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
->  extern int  dccp_feat_init(struct sock *sk);
+> @@ -136,4 +136,6 @@ extern int  dccp_feat_init(struct sock *sk);
 >  
-> +/*
-> + * Encoding variable-length options and their maximum length.
-> + *
-> + * This affects NN options (SP options are all u8) and other variable-length
-> + * options (see table 3 in RFC 4340). The limit is currently given the Sequence
-> + * Window NN value (sec. 7.5.2) and the NDP count (sec. 7.7) option, all other
-> + * options consume less than 6 bytes (timestamps are 4 bytes).
-> + * When updating this constant (e.g. due to new internet drafts / RFCs), make
-> + * sure that you also update all code which refers to it.
-> + */
-> +#define DCCP_OPTVAL_MAXLEN	6
+>  extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
+>  extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
 > +
-> +extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
-> +extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+> +extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
 >  #endif /* _DCCP_FEAT_H */
 > --- a/net/dccp/options.c
 > +++ b/net/dccp/options.c
-> @@ -29,16 +29,20 @@ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
->  int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
->  int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
+> @@ -467,6 +467,21 @@ static int dccp_insert_option_timestamp_echo(struct dccp_sock *dp,
+>  	return 0;
+>  }
 >  
-> -static u32 dccp_decode_value_var(const unsigned char *bf, const u8 len)
-> +u64 dccp_decode_value_var(const u8 *bf, const u8 len)
+> +/**
+> + * dccp_insert_option_mandatory  -  Mandatory option (5.8.2)
+> + * Note that since we are using skb_push, this function needs to be called
+> + * _after_ inserting the option it is supposed to influence (stack order).
+> + */
+> +int dccp_insert_option_mandatory(struct sk_buff *skb)
+> +{
+> +	if (DCCP_SKB_CB(skb)->dccpd_opt_len >= DCCP_MAX_OPT_LEN)
+> +		return -1;
+> +
+> +	DCCP_SKB_CB(skb)->dccpd_opt_len++;
+> +	*skb_push(skb, 1) = DCCPO_MANDATORY;
+> +	return 0;
+> +}
+> +
+>  static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
+>  				u8 *val, u8 len)
 >  {
-> -	u32 value = 0;
-> +	u64 value = 0;
->  
-> +	if (len >= DCCP_OPTVAL_MAXLEN)
-> +		value += ((u64)*bf++) << 40;
-> +	if (len > 4)
-> +		value += ((u64)*bf++) << 32;
->  	if (len > 3)
-> -		value += *bf++ << 24;
-> +		value += ((u64)*bf++) << 24;
->  	if (len > 2)
-> -		value += *bf++ << 16;
-> +		value += ((u64)*bf++) << 16;
->  	if (len > 1)
-> -		value += *bf++ << 8;
-> +		value += ((u64)*bf++) << 8;
->  	if (len > 0)
->  		value += *bf;
->  
-> @@ -298,9 +302,12 @@ out_invalid_option:
->  
->  EXPORT_SYMBOL_GPL(dccp_parse_options);
->  
-> -static void dccp_encode_value_var(const u32 value, unsigned char *to,
-> -				  const unsigned int len)
-> +void dccp_encode_value_var(const u64 value, u8 *to, const u8 len)
->  {
-> +	if (len >= DCCP_OPTVAL_MAXLEN)
-> +		*to++ = (value & 0xFF0000000000ull) >> 40;
-> +	if (len > 4)
-> +		*to++ = (value & 0xFF00000000ull) >> 32;
->  	if (len > 3)
->  		*to++ = (value & 0xFF000000) >> 24;
->  	if (len > 2)
 > -- 
 > 1.6.0.rc2
 > 
 > --
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
