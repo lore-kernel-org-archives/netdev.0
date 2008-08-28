@@ -1,95 +1,105 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 16/37] dccp: API to query the current TX/RX CCID
-Date: Thu, 28 Aug 2008 18:47:25 -0300
-Message-ID: <20080828214725.GU9193@ghostprotocols.net>
-References: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 17/37] dccp: Increase the scope of variable-length
+	htonl/ntohl functions
+Date: Thu, 28 Aug 2008 18:48:48 -0300
+Message-ID: <20080828214848.GV9193@ghostprotocols.net>
+References: <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:35391 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:38458 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753652AbYH1VwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 17:52:09 -0400
+	id S1754103AbYH1Vxc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 17:53:32 -0400
 Content-Disposition: inline
-In-Reply-To: <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Aug 28, 2008 at 07:44:51PM +0200, Gerrit Renker escreveu:
-> This provides function to query the current TX/RX CCID dynamically, without
-> reliance on the minisock value, using dynamic information available in the
-> currently loaded CCID module.
+Em Thu, Aug 28, 2008 at 07:44:52PM +0200, Gerrit Renker escreveu:
+> This extends the scope of two available functions, encode|decode_value_var,
+> to work up to 6 (8) bytes, to match maximum requirements in the RFC.
 > 
-> This query function is then used to
->  (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
->  (b) replace the current test for "which CCID is in use" in probe.c.
+> These functions are going to be used both by general option processing and
+> feature negotiation code, hence declarations have been put into feat.h.
 > 
 > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 > Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+
+
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
 > ---
->  net/dccp/ccid.h  |    9 +++++++++
->  net/dccp/probe.c |    7 ++-----
->  net/dccp/proto.c |    6 ++++++
->  3 files changed, 17 insertions(+), 5 deletions(-)
+>  net/dccp/feat.h    |   14 ++++++++++++++
+>  net/dccp/options.c |   21 ++++++++++++++-------
+>  2 files changed, 28 insertions(+), 7 deletions(-)
 > 
-> --- a/net/dccp/ccid.h
-> +++ b/net/dccp/ccid.h
-> @@ -116,6 +116,15 @@ extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
->  extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
->  				   gfp_t gfp);
+> --- a/net/dccp/feat.h
+> +++ b/net/dccp/feat.h
+> @@ -122,4 +122,18 @@ extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
+>  extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
+>  extern int  dccp_feat_init(struct sock *sk);
 >  
-> +static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
-> +{
-> +	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
+> +/*
+> + * Encoding variable-length options and their maximum length.
+> + *
+> + * This affects NN options (SP options are all u8) and other variable-length
+> + * options (see table 3 in RFC 4340). The limit is currently given the Sequence
+> + * Window NN value (sec. 7.5.2) and the NDP count (sec. 7.7) option, all other
+> + * options consume less than 6 bytes (timestamps are 4 bytes).
+> + * When updating this constant (e.g. due to new internet drafts / RFCs), make
+> + * sure that you also update all code which refers to it.
+> + */
+> +#define DCCP_OPTVAL_MAXLEN	6
 > +
-> +	if (ccid == NULL || ccid->ccid_ops == NULL)
-> +		return -1;
-> +	return ccid->ccid_ops->ccid_id;
-> +}
-> +
->  extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
->  extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+> +extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
+> +extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+>  #endif /* _DCCP_FEAT_H */
+> --- a/net/dccp/options.c
+> +++ b/net/dccp/options.c
+> @@ -29,16 +29,20 @@ int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+>  int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
+>  int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
 >  
-> --- a/net/dccp/probe.c
-> +++ b/net/dccp/probe.c
-> @@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
->  static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
->  			 struct msghdr *msg, size_t size)
+> -static u32 dccp_decode_value_var(const unsigned char *bf, const u8 len)
+> +u64 dccp_decode_value_var(const u8 *bf, const u8 len)
 >  {
-> -	const struct dccp_minisock *dmsk = dccp_msk(sk);
->  	const struct inet_sock *inet = inet_sk(sk);
-> -	const struct ccid3_hc_tx_sock *hctx;
-> +	struct ccid3_hc_tx_sock *hctx = NULL;
+> -	u32 value = 0;
+> +	u64 value = 0;
 >  
-> -	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
-> +	if (ccid_get_current_id(dccp_sk(sk), false) == DCCPC_CCID3)
-
-The use of boolean here also hurts the brain, I guess we could have
-ccid_get_current_rx_id or something along these lines?
-
->  		hctx = ccid3_hc_tx_sk(sk);
-> -	else
-> -		hctx = NULL;
+> +	if (len >= DCCP_OPTVAL_MAXLEN)
+> +		value += ((u64)*bf++) << 40;
+> +	if (len > 4)
+> +		value += ((u64)*bf++) << 32;
+>  	if (len > 3)
+> -		value += *bf++ << 24;
+> +		value += ((u64)*bf++) << 24;
+>  	if (len > 2)
+> -		value += *bf++ << 16;
+> +		value += ((u64)*bf++) << 16;
+>  	if (len > 1)
+> -		value += *bf++ << 8;
+> +		value += ((u64)*bf++) << 8;
+>  	if (len > 0)
+>  		value += *bf;
 >  
->  	if (port == 0 || ntohs(inet->dport) == port ||
->  	    ntohs(inet->sport) == port) {
-> --- a/net/dccp/proto.c
-> +++ b/net/dccp/proto.c
-> @@ -664,6 +664,12 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
->  		break;
->  	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
->  		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
-> +	case DCCP_SOCKOPT_TX_CCID:
-> +	case DCCP_SOCKOPT_RX_CCID:
-> +		val = ccid_get_current_id(dp, optname == DCCP_SOCKOPT_RX_CCID);
-> +		if (val < 0)
-> +			return -ENOPROTOOPT;
-> +		break;
->  	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
->  		val = dp->dccps_server_timewait;
->  		break;
+> @@ -298,9 +302,12 @@ out_invalid_option:
+>  
+>  EXPORT_SYMBOL_GPL(dccp_parse_options);
+>  
+> -static void dccp_encode_value_var(const u32 value, unsigned char *to,
+> -				  const unsigned int len)
+> +void dccp_encode_value_var(const u64 value, u8 *to, const u8 len)
+>  {
+> +	if (len >= DCCP_OPTVAL_MAXLEN)
+> +		*to++ = (value & 0xFF0000000000ull) >> 40;
+> +	if (len > 4)
+> +		*to++ = (value & 0xFF00000000ull) >> 32;
+>  	if (len > 3)
+>  		*to++ = (value & 0xFF000000) >> 24;
+>  	if (len > 2)
 > -- 
 > 1.6.0.rc2
 > 
