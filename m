@@ -1,17 +1,19 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2.6.27] netlink: Remove compat API for nested attributes
-Date: Thu, 28 Aug 2008 16:00:50 +0200
-Message-ID: <20080828140050.GB20815@postel.suug.ch>
+Subject: [RESEND 2.6.27] netlink: Remove compat API for nested attributes
+Date: Thu, 28 Aug 2008 16:05:27 +0200
+Message-ID: <20080828140527.GC20815@postel.suug.ch>
+References: <20080828140050.GB20815@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:34863 "EHLO postel.suug.ch"
+Received: from postel.suug.ch ([194.88.212.233]:34888 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753352AbYH1OAa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 10:00:30 -0400
+	id S1752518AbYH1OFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 10:05:07 -0400
 Content-Disposition: inline
+In-Reply-To: <20080828140050.GB20815@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -19,12 +21,14 @@ Removes all _nested_compat() functions from the API. The prio qdisc
 no longer requires them and netem has its own format anyway. Their
 existance is only confusing.
 
+Resend: Also remove the wrapper macro.
+
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 Index: net-2.6/include/net/netlink.h
 ===================================================================
 --- net-2.6.orig/include/net/netlink.h	2008-08-28 12:52:00.000000000 +0200
-+++ net-2.6/include/net/netlink.h	2008-08-28 12:55:28.000000000 +0200
++++ net-2.6/include/net/netlink.h	2008-08-28 16:02:24.000000000 +0200
 @@ -119,9 +119,6 @@
   * Nested Attributes Construction:
   *   nla_nest_start(skb, type)		start a nested attribute
@@ -43,11 +47,10 @@ Index: net-2.6/include/net/netlink.h
   *   nla_for_each_attr()		loop over all attributes
   *   nla_for_each_nested()		loop over the nested attributes
   *=========================================================================
-@@ -751,35 +747,6 @@
- 	return nla_parse(tb, maxtype, nla_data(nla), nla_len(nla), policy);
+@@ -752,39 +748,6 @@
  }
  
--/**
+ /**
 - * nla_parse_nested_compat - parse nested compat attributes
 - * @tb: destination array with maxtype+1 elements
 - * @maxtype: maximum attribute type to be expected
@@ -76,10 +79,15 @@ Index: net-2.6/include/net/netlink.h
 -	memset(tb, 0, sizeof(struct nlattr *) * (maxtype + 1));
 -	return 0;
 -}
- 
- #define nla_parse_nested_compat(tb, maxtype, nla, policy, data, len) \
- ({	data = nla_len(nla) >= len ? nla_data(nla) : NULL; \
-@@ -1031,51 +998,6 @@
+-
+-#define nla_parse_nested_compat(tb, maxtype, nla, policy, data, len) \
+-({	data = nla_len(nla) >= len ? nla_data(nla) : NULL; \
+-	__nla_parse_nested_compat(tb, maxtype, nla, policy, len); })
+-/**
+  * nla_put_u8 - Add a u8 netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+@@ -1031,51 +994,6 @@
  }
  
  /**
