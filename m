@@ -1,36 +1,67 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: loaded router, excessive getnstimeofday in oprofile
-Date: Thu, 28 Aug 2008 12:36:45 -0700 (PDT)
-Message-ID: <20080828.123645.78561286.davem@davemloft.net>
-References: <21915755.1327801219904892242.JavaMail.root@ouachita>
-	<20080828072218.GI26610@one.firstfloor.org>
-	<200808281948.52608.denys@visp.net.lb>
+Date: Thu, 28 Aug 2008 21:37:16 +0200
+Message-ID: <48B6FE6C.4080905@cosmosbay.com>
+References: <20080827.201020.17601834.davem@davemloft.net> <200808281948.52608.denys@visp.net.lb> <48B6F4FE.6010308@cosmosbay.com> <200808282225.57535.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, jmalicki@metacarta.com, johnpol@2ka.mipt.ru,
-	dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, juhlenko@akamai.com, sammy@sammy.net
-To: denys@visp.net.lb
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Joe Malicki <jmalicki@metacarta.com>,
+	David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, sammy@sammy.net
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42550
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754032AbYH1Tgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:36:50 -0400
-In-Reply-To: <200808281948.52608.denys@visp.net.lb>
+Received: from smtp2f.orange.fr ([80.12.242.152]:49284 "EHLO smtp2f.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756136AbYH1Tho convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 15:37:44 -0400
+In-Reply-To: <200808282225.57535.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Date: Thu, 28 Aug 2008 19:48:52 +0300
+Denys Fedoryshchenko a =E9crit :
+> On Thursday 28 August 2008, Eric Dumazet wrote:
+>> 2) You maybe have a bad program that do something expensive relative=
+ to
+>> kernel time services.
+> No, process list is very short, it is custom semi-embedded linux dist=
+ro i=20
+> made, so i know each process running there.  Here is process list (ke=
+rnel=20
+> processes/threads and running shell(busybox ash) removed)=20
+>=20
+> 1 root     /bin/sh /init
+>  1119 root     init
+>  2451 root     /sbin/syslogd -R 80.83.17.2
+>  2453 root     /sbin/klogd
+>  3168 squid    /usr/sbin/zebra -d
+>  3175 squid    /usr/sbin/ripd -d
+>  3195 root     /usr/sbin/snmpd -c /config/snmpd.conf
+>  3208 root     udhcpd /config/udhcp.office.conf -S
+>  3550 root     /usr/sbin/sshd -b /etc/banner
+>  3566 root     /sbin/getty 38400 tty1
+>  3567 root     /sbin/getty 38400 tty2
+>  3570 root     /sbin/getty 38400 tty3
+>  4055 root     /usr/sbin/sshd -b /etc/banner
+>=20
 
-> So there is few good solutions available (IMHO):
-> 1)Introduce some SO_REALTIMESTAMP (anyway even SO_TIMESTAMP not defined in any 
-> standard) for banks and ntp folks, who need them. And even give them timespec 
-> instead timeval, so they will be even more happy with resolution.
-> 2)Provide sysctl,kernel boot, or even "build time" option for "banks" to have 
-> high resolution(and expensive) SO_TIMESTAMP.
+OK, please try oprofile with call graph analysis.
 
-The performance hit hurts, but changing the default to lower
-resolution after it having been high resolution for 10+ years
-is a regression and something we really can't do.
+>=20
+>> kernel already provides nanosecond resolution :)
+>> Check SO_TIMESTAMPNS and SCM_TIMESTAMPNS
+> Maybe this function really must be "heavy" then.
+
+Nope... the contrary :)
+
+Kernel timestamping has nanosec resolution.
+
+SO_TIMESTAMP needs a divide (by 1000), while SO_TIMESTAMPNS is native.
+
+
+
+
+
