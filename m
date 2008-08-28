@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 22/37] dccp: Preference list reconciliation
-Date: Thu, 28 Aug 2008 19:44:57 +0200
-Message-ID: <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 12/37] dccp: Feature negotiation for minimum-checksum-coverage
+Date: Thu, 28 Aug 2008 19:44:47 +0200
+Message-ID: <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -15,148 +15,117 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55122 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756214AbYH1RqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:46:03 -0400
-In-Reply-To: <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753856AbYH1Rpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:51 -0400
+In-Reply-To: <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This provides two functions to
- * reconcile preference lists (with appropriate return codes) and
- * reorder the preference list if successful reconciliation changed the
-   preferred value.
+This provides feature negotiation for server minimum checksum coverage
+which so far has been missing.
 
-The patch also removes the old code for processing SP/NN Change options, since
-new code to process these is mostly there already; related references have been
-commented out.
+Since sender/receiver coverage values range only from 0...15, their
+type has also been reduced in size from u16 to u4.
 
-The code for processing Change options follows in the next patch.
+Feature-negotiation options are now generated for both sender and receiver
+coverage, i.e. when the peer has `forgotten' to enable partial coverage
+then feature negotiation will automatically enable (negotiate) the partial
+coverage value for this connection.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/feat.c |   77 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 75 insertions(+), 2 deletions(-)
+ include/linux/dccp.h |    4 +-
+ net/dccp/proto.c     |   52 +++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 41 insertions(+), 15 deletions(-)
 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -715,6 +715,76 @@ static int dccp_feat_update(struct sock *sk, u8 type, u8 feat, u8 val)
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -527,8 +527,8 @@ struct dccp_sock {
+ 	__u32				dccps_timestamp_time;
+ 	__u16				dccps_l_ack_ratio;
+ 	__u16				dccps_r_ack_ratio;
+-	__u16				dccps_pcslen;
+-	__u16				dccps_pcrlen;
++	__u8				dccps_pcslen:4;
++	__u8				dccps_pcrlen:4;
+ 	__u64				dccps_ndp_count:48;
+ 	unsigned long			dccps_rate_last;
+ 	struct dccp_minisock		dccps_minisock;
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -470,6 +470,41 @@ static int dccp_setsockopt_service(struct sock *sk, const __be32 service,
  	return 0;
  }
  
-+/* Select the first entry in @servlist that also occurs in @clilist (6.3.1) */
-+static int dccp_feat_preflist_match(u8 *servlist, u8 slen, u8 *clilist, u8 clen)
++static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
 +{
-+	u8 c, s;
++	u8 *list, len;
++	int i, rc;
 +
-+	for (s = 0; s < slen; s++)
-+		for (c = 0; c < clen; c++)
-+			if (servlist[s] == clilist[c])
-+				return servlist[s];
-+	return -1;
-+}
++	if (cscov < 0 || cscov > 15)
++		return -EINVAL;
 +
-+/**
-+ * dccp_feat_prefer  -  Move preferred entry to the start of array
-+ * Reorder the @array_len elements in @array so that @preferred_value comes
-+ * first. Returns >0 to indicate that @preferred_value does occur in @array.
-+ */
-+static u8 dccp_feat_prefer(u8 preferred_value, u8 *array, u8 array_len)
-+{
-+	u8 i, does_occur = 0;
-+
-+	if (array != NULL) {
-+		for (i = 0; i < array_len; i++)
-+			if (array[i] == preferred_value) {
-+				array[i] = array[0];
-+				does_occur++;
-+			}
-+		if (does_occur)
-+			array[0] = preferred_value;
-+	}
-+	return does_occur;
-+}
-+
-+/**
-+ * dccp_feat_reconcile  -  Reconcile SP preference lists
-+ *  @fval: SP list to reconcile into
-+ *  @arr: received SP preference list
-+ *  @len: length of @arr in bytes
-+ *  @is_server: whether this side is the server (and @fv is the server's list)
-+ *  @reorder: whether to reorder the list in @fv after reconciling with @arr
-+ * When successful, > 0 is returned and the reconciled list is in @fval.
-+ * A value of 0 means that negotiation failed (no shared entry).
-+ */
-+static int dccp_feat_reconcile(dccp_feat_val *fv, u8 *arr, u8 len,
-+			       bool is_server, bool reorder)
-+{
-+	int rc;
-+
-+	if (!fv->sp.vec || !arr) {
-+		DCCP_CRIT("NULL feature value or array");
-+		return 0;
-+	}
-+
-+	if (is_server)
-+		rc = dccp_feat_preflist_match(fv->sp.vec, fv->sp.len, arr, len);
++	if (rx)
++		dccp_sk(sk)->dccps_pcrlen = cscov;
 +	else
-+		rc = dccp_feat_preflist_match(arr, len, fv->sp.vec, fv->sp.len);
-+
-+	if (!reorder)
-+		return rc;
-+	if (rc < 0)
-+		return 0;
-+
++		dccp_sk(sk)->dccps_pcslen = cscov;
 +	/*
-+	 * Reorder list: used for activating features and in dccp_insert_fn_opt.
++	 * Populate a list of permissible values, in the range cscov...15. This
++	 * is necessary since feature negotiation of single values only works if
++	 * both sides incidentally choose the same value. Since the list starts
++	 * lowest-value first, negotiation will pick the smallest shared value.
 +	 */
-+	return dccp_feat_prefer(rc, fv->sp.vec, fv->sp.len);
++	if (cscov == 0)
++		return 0;
++	len = 16 - cscov;
++
++	list = kmalloc(len, GFP_KERNEL);
++	if (list == NULL)
++		return -ENOBUFS;
++
++	for (i = 0; i < len; i++)
++		list[i] = cscov++;
++
++	rc = dccp_feat_register_sp(sk, DCCPF_MIN_CSUM_COVER, rx, list, len);
++
++	kfree(list);
++	return rc;
 +}
 +
-+#ifdef __this_is_the_old_framework_and_will_be_removed_later_in_a_subsequent_patch
- static int dccp_feat_reconcile(struct sock *sk, struct dccp_opt_pend *opt,
- 			       u8 *rpref, u8 rlen)
+ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		char __user *optval, int optlen)
  {
-@@ -910,6 +980,7 @@ static int dccp_feat_nn(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
- 
- 	return 0;
- }
-+#endif /* (later) */
- 
- static void dccp_feat_empty_confirm(struct dccp_minisock *dmsk,
- 				    u8 type, u8 feature)
-@@ -985,12 +1056,14 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
- 	switch (feature) {
- 	/* deal with SP features */
- 	case DCCPF_CCID:
--		rc = dccp_feat_sp(sk, type, feature, val, len);
-+		/* XXX Obsoleted by next patch
-+		rc = dccp_feat_sp(sk, type, feature, val, len); */
+@@ -502,20 +537,11 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
+ 		else
+ 			dp->dccps_server_timewait = (val != 0);
  		break;
- 
- 	/* deal with NN features */
- 	case DCCPF_ACK_RATIO:
--		rc = dccp_feat_nn(sk, type, feature, val, len);
-+		/* XXX Obsoleted by next patch
-+		rc = dccp_feat_nn(sk, type, feature, val, len); */
+-	case DCCP_SOCKOPT_SEND_CSCOV:	/* sender side, RFC 4340, sec. 9.2 */
+-		if (val < 0 || val > 15)
+-			err = -EINVAL;
+-		else
+-			dp->dccps_pcslen = val;
++	case DCCP_SOCKOPT_SEND_CSCOV:
++		err = dccp_setsockopt_cscov(sk, val, false);
  		break;
- 
- 	/* XXX implement other features */
+-	case DCCP_SOCKOPT_RECV_CSCOV:	/* receiver side, RFC 4340 sec. 9.2.1 */
+-		if (val < 0 || val > 15)
+-			err = -EINVAL;
+-		else {
+-			dp->dccps_pcrlen = val;
+-			/* FIXME: add feature negotiation,
+-			 * ChangeL(MinimumChecksumCoverage, val) */
+-		}
++	case DCCP_SOCKOPT_RECV_CSCOV:
++		err = dccp_setsockopt_cscov(sk, val, true);
+ 		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
 -- 
 1.6.0.rc2
 
