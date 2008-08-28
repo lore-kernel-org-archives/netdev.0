@@ -1,138 +1,170 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 15/37] dccp: Set per-connection CCIDs via socket options
-Date: Thu, 28 Aug 2008 19:44:50 +0200
-Message-ID: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 03/37] dccp: List management for new feature negotiation
+Date: Thu, 28 Aug 2008 19:44:38 +0200
+Message-ID: <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55097 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55098 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751771AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:17 -0400
-In-Reply-To: <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753482AbYH1RpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:19 -0400
+In-Reply-To: <1219945512-7723-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch, TX/RX CCIDs can now be changed on a per-connection basis, which
-overrides the defaults set by the global sysctl variables for TX/RX CCIDs.
-
-To make full use of this facility, the remaining patches of this patch set are
-needed, which track dependencies and activate negotiated feature values.
+This adds list fields and list management functions for the new feature
+negotiation implementation. The new code is kept in parallel to the old
+code, until removed at the end of the patch set.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |   14 ++++++++++++++
- include/linux/dccp.h              |    5 +++++
- net/dccp/proto.c                  |   32 ++++++++++++++++++++++++++++++++
- 3 files changed, 51 insertions(+), 0 deletions(-)
+ net/dccp/feat.c |  129 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 129 insertions(+), 0 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -61,6 +61,20 @@ DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
- supported by the endpoint (see include/linux/dccp.h for symbolic constants).
- The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
- 
-+DCCP_SOCKOPT_CCID is write-only and sets both the TX and RX CCIDs at the same
-+time, combining the operation of the next two socket options. This option is
-+preferrable over the latter two, since often applications will use the same
-+type of CCID for both directions; and mixed use of CCIDs is not currently well
-+understood. This socket option takes as argument at least one uint8_t value, or
-+an array of uint8_t values, which must match available CCIDS (see above). CCIDs
-+must be registered on the socket before calling connect() or listen().
-+
-+DCCP_SOCKOPT_TX_CCID is read/write. It returns the current CCID (if set) or sets
-+the preference list for the TX CCID, using the same format as DCCP_SOCKOPT_CCID.
-+Please note that the getsockopt argument type here is `int', not uint8_t.
-+
-+DCCP_SOCKOPT_RX_CCID is analogous to DCCP_SOCKOPT_TX_CCID, but for the RX CCID.
-+
- DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
- timewait state when closing the connection (RFC 4340, 8.3). The usual case is
- that the closing server sends a CloseReq, whereupon the client holds timewait
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -203,11 +203,16 @@ enum dccp_feature_numbers {
- #define DCCP_SOCKOPT_SEND_CSCOV		10
- #define DCCP_SOCKOPT_RECV_CSCOV		11
- #define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
-+#define DCCP_SOCKOPT_CCID		13
-+#define DCCP_SOCKOPT_TX_CCID		14
-+#define DCCP_SOCKOPT_RX_CCID		15
- #define DCCP_SOCKOPT_CCID_RX_INFO	128
- #define DCCP_SOCKOPT_CCID_TX_INFO	192
- 
- /* maximum number of services provided on the same listening port */
- #define DCCP_SERVICE_LIST_MAX_LEN      32
-+/* maximum number of CCID preferences that can be registered at one time */
-+#define DCCP_CCID_LIST_MAX_LEN	       16
- 
- #ifdef __KERNEL__
- 
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -505,6 +505,34 @@ static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
- 	return rc;
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -147,6 +147,135 @@ static void dccp_feat_entry_destructor(struct dccp_feat_entry *entry)
+ 	}
  }
  
-+static int dccp_setsockopt_ccid(struct sock *sk, int type,
-+				char __user *optval, int optlen)
++/*
++ *	List management functions
++ */
++
++/**
++ * dccp_feat_entry_new  -  Central list update routine (called by all others)
++ * @fn: list to add to
++ * @feat: feature number
++ * @is_local: whether the local (1) or remote feature with number @feat is meant
++ * The function maintains and relies on the following invariants:
++ *  - each feat_num in the list is known, ie. we know its type and default value
++ *  - each feat_num/is_local combination is unique (old entries are overwritten)
++ *  - SP values are always freshly allocated
++ *  - list is sorted in increasing order of feature number (faster lookup)
++ */
++static struct dccp_feat_entry *
++	      dccp_feat_entry_new(struct list_head *fn, u8 feat, u8 is_local)
 +{
-+	u8 *val;
-+	int rc = 0;
++	struct dccp_feat_entry *entry;
++	struct list_head *pos_head = fn;
 +
-+	if (optlen < 1 || optlen > DCCP_CCID_LIST_MAX_LEN)
-+		return -EINVAL;
-+
-+	val = kmalloc(optlen, GFP_KERNEL);
-+	if (val == NULL)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(val, optval, optlen))
-+		rc = -EFAULT;
-+
-+	lock_sock(sk);
-+	if (!rc && (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID))
-+		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
-+
-+	if (!rc && (type == DCCP_SOCKOPT_RX_CCID || type == DCCP_SOCKOPT_CCID))
-+		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 0, val, optlen);
-+	release_sock(sk);
-+
-+	kfree(val);
-+	return rc;
++	list_for_each(pos_head, fn) {
++		entry = list_entry(pos_head, struct dccp_feat_entry, node);
++		if (feat < entry->feat_num)
++			break;
++		if (entry->feat_num == feat && entry->is_local == is_local) {
++			dccp_feat_val_destructor(entry->feat_num, &entry->val);
++			return entry;
++		}
++	}
++	entry = kmalloc(sizeof(struct dccp_feat_entry), gfp_any());
++	if (entry != NULL) {
++		entry->feat_num = feat;
++		entry->is_local = is_local;
++		list_add_tail(&entry->node, pos_head);
++	}
++	return entry;
 +}
 +
- static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		char __user *optval, int optlen)
++static struct dccp_feat_entry *dccp_feat_list_lookup(struct list_head *fn_list,
++						     u8 feat_num, u8 is_local)
++{
++	struct dccp_feat_entry *entry;
++
++	list_for_each_entry(entry, fn_list, node)
++		if (entry->feat_num == feat_num && entry->is_local == is_local)
++			return entry;
++		else if (entry->feat_num > feat_num)
++			break;
++	return NULL;
++}
++
++/**
++ * dccp_feat_push_change  -  Add/overwrite a Change option in the list
++ * @fn_list: feature-negotiation list to update
++ * @feat: one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is meant
++ * @needs_mandatory: whether to use Mandatory feature negotiation options
++ * @fval: pointer to NN/SP value to be inserted (will be copied)
++ */
++static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
++				 u8 mandatory, dccp_feat_val *fval)
++{
++	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
++
++	if (new == NULL)
++		return -ENOMEM;
++
++	new->feat_num	     = feat;
++	new->is_local	     = local;
++	new->state	     = FEAT_INITIALISING;
++	new->needs_confirm   = 0;
++	new->empty_confirm   = 0;
++	new->val	     = *fval;
++	new->needs_mandatory = mandatory;
++
++	return 0;
++}
++
++/**
++ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
++ * @fn_list: feature-negotiation list to add to
++ * @feat: one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is being confirmed
++ * @fval: pointer to NN/SP value to be inserted or NULL
++ * Returns 0 on success, a Reset code for further processing otherwise.
++ */
++static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
++				  dccp_feat_val *fval)
++{
++	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
++
++	if (new == NULL)
++		return DCCP_RESET_CODE_TOO_BUSY;
++
++	new->feat_num	     = feat;
++	new->is_local	     = local;
++	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
++	new->needs_confirm   = 1;
++	new->empty_confirm   = (fval == NULL);
++	new->val.nn	     = 0;		/* zeroes the whole structure */
++	if (!new->empty_confirm)
++		new->val     = *fval;
++	new->needs_mandatory = 0;
++
++	return 0;
++}
++
++static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
++{
++	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
++}
++
++static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
++{
++	list_del(&entry->node);
++	dccp_feat_entry_destructor(entry);
++}
++
++void dccp_feat_list_purge(struct list_head *fn_list)
++{
++	struct dccp_feat_entry *entry, *next;
++
++	list_for_each_entry_safe(entry, next, fn_list, node)
++		dccp_feat_entry_destructor(entry);
++	INIT_LIST_HEAD(fn_list);
++}
++EXPORT_SYMBOL_GPL(dccp_feat_list_purge);
++
+ int dccp_feat_change(struct dccp_minisock *dmsk, u8 type, u8 feature,
+ 		     u8 *val, u8 len, gfp_t gfp)
  {
-@@ -519,6 +547,10 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 	case DCCP_SOCKOPT_CHANGE_R:
- 		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
- 		return 0;
-+	case DCCP_SOCKOPT_CCID:
-+	case DCCP_SOCKOPT_RX_CCID:
-+	case DCCP_SOCKOPT_TX_CCID:
-+		return dccp_setsockopt_ccid(sk, optname, optval, optlen);
- 	default:
- 		if (optlen < sizeof(int))
- 			return -EINVAL;
 -- 
 1.6.0.rc2
 
