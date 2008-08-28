@@ -1,65 +1,106 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Questions about Linux kernel network programming
-Date: Thu, 28 Aug 2008 18:02:07 +0100
-Message-ID: <20080828170206.GJ7908@solarflare.com>
-References: <3fedcc3b0808280733w1d7b24dgf95540d2078856f8@mail.gmail.com> <3fedcc3b0808280748q4090c5e7n45c74c4fd3b42cca@mail.gmail.com> <379e30200808280803j6a2a86bfya34ecc17127a1bbd@mail.gmail.com> <3fedcc3b0808280919l65131584gf91d656f02e1d7ac@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tobias Koeck <tobias.koeck@gmail.com>, netdev@vger.kernel.org
-To: Thiago Lacerda <thiagotbl@gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/37] dccp: Feature negotiation - last call for comments
+Date: Thu, 28 Aug 2008 19:44:35 +0200
+Message-ID: <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <dccp_featneg_last_call_for_comments>
+Cc: netdev@vger.kernel.org
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:60388 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753305AbYH1RCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2008 13:02:12 -0400
-Content-Disposition: inline
-In-Reply-To: <3fedcc3b0808280919l65131584gf91d656f02e1d7ac@mail.gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55098 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751768AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:17 -0400
+In-Reply-To: <dccp_featneg_last_call_for_comments>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thiago Lacerda wrote:
-> Thanks for your replay Tobias.
-> 
-> But, doing it as a netfilter module I'm going to interfere in all the
-> traffic of my PC.
-> I don't want to do it that way. I want to capture the packets at
-> kernel and then decide if they will be analyzed by my DPI tool at user
-> land. My module would act like a filter for my classifier, cause I
-> want to don't spend time with unncessary copies of packets to user
-> space memory (like libpcap does, it copies every packets).
+This is a last call for comments and review for the DCCP feature negotiation set,
+before sending a pull request.
 
-netfilter modules don't just accept or deny packets.  For example there is
-a LOG module which logs some brief information about any packets it
-receives.
+This set replaces the initial implementation of feature negotiation with a fairly 
+complete set of routines to support negotiation between endpoints. 
 
-> I'm doing like this:
-> 
-> * registered a protocol handler with dev_add_pack
-> * in the function in packet_type struct I'm doing some operations with
-> the packet, but I'm not passing it to user land yet
-> 
-> Is that a good way of doing such task?
-> Does occur any copy of packets during this operation (the copy I know
-> is that one from the NIC to kernel memory, does any other occur?)?
+It fixes the (known) problems with the old infrastructure, which was an initial
+implementation that apparently never was developed further.
 
-Depends on the driver.
+The patches have been publicly available in the test tree for about a year
+and were widely tested.
 
-> BTW, anyone knows the right way of get a tcp port number in human readable form?
-> I'm doing like this:
-> 
-> struct tcphdr* tcp = tcp_hdr(my_sk_buff)
-> 
-> unsigned short src_port = ntohs(tcp->source)
-> 
-> And it isn't working, the numbers that I get are not right.
+Since several applications are using this API and since there is already at
+least one publicly available application (gstreamer) based on the new API,
+it would be good to have this available in mainline.
 
-Until the packet has gone through the network protocol handler (IP), the
-transport header pointer will not be set correctly and tcp_hdr() will return
-a pointer to the start of the packet.
+This set deals with the negotiation of capabilities, before a connection is
+established. There is also support for dynamically updating feature values,
+this will follow in a second set -- a much smaller set since it builds upon
+the new basis.
 
-Ben.
+Please send any comments or issues you find with the code before the end of the
+week. I will then prepare a second submission / pull request.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+Part I - Basis
+---------------
+Patch #1: Provides the basic datastructure for feature negotiation. It gets 
+          around the problem that feature-negotiation values have no uniform
+	  type - they can be 48-bit numbers, single characters, 2-byte integers
+	  or a list of unsigned chars.
+Patch #2: Provides a lookup-table for the different negotiable features.
+Patch #3: Adds list management for the list keeping the negotiation-options.
+Patch #4: Initialisation routines (for request sockets and normal sockets).
+Patch #5: Analogous to #4, this provides the cleanup routines.	  
+Patch #6: Changes the existing policy to allow anytime changes as that lead
+          to unpredictable results.
+Patch #7: Adds registration routines. These form part of the user interface
+          and are later used by the socket API to set individual preferences.
+Patch #8: CCIDs are a negotiable feature. This patch adds support to query the
+          supported CCIDs, so as to advertise only the locally supported ones.
+Patch #9: The choice of CCID in turn creates new feature dependencies. The patch
+          adds automatic tracking of such dependencies to avoid later failure.
+
+Part II - Core	  
+--------------
+Patch #10: Provides a mechanism to then resolve CCID-dependent features. Since
+           CCIDs are a server-priority feature, this is done by the server.
+Patch #11: Deprecates old featneg API, as it was dangerous/clumsy.
+Patch #12: Support to negotiate checksum-coverage values (as in UDP-Lite).
+Patch #13: Deprecates Ack Ratio sysctl, to enable automatic updating.
+Patch #14: Tidies up the setsockopt interface for new additions.
+Patch #15: Set/getsockopt support to negotiate CCIDs with the peer.
+Patch #16: Socket API to query the current CCID from userspace.
+Patch #17: Prepares the variable-length htonl/ntohl functions for 48 bits.
+           Such a length is needed by e.g. the Sequence Window feature.
+Patch #18: Support for DCCP `Mandatory' type options (RFC 4340, 5.8.2).
+Patch #19: Routine to insert feature-negotiation header options.
+Patch #20: Complements #19, to add feature-negotiation options onto the skb.
+Patch #21: Complements #20 and completes the insertion of featneg options.
+Patch #22: Logic/algorithm to actually reconcile negotiation options.
+Patch #23: Receiver support to process incoming Change L/R options. 
+Patch #24: Receiver support to process incoming Confirm R/L options.
+Patch #25: Handlers for activating successfully negotiated features.
+
+Part III - Integration and cleanup
+----------------------------------
+Patch #26: Integration of dynamic negotiation, part I (socket setup).
+Patch #27: Integration of dynamic negotiation, part II (server side).
+Patch #28: Integration of dynamic negotiation, part III (client side).
+
+Patch #29: Cleans up the older infrastructure.
+Patch #30: Removes obsolete parts of the old CCID interface.
+Patch #31: Removes manual intervention on NDP count (now automatic).
+Patch #32: Removes Ack Vector sysctl (handled automatically now).
+
+Patch #33: Initialisation framework for the supported features.
+Patch #34: Auto-loading of CCID modules so that the modules are available
+           when the negotiation is completed.
+Patch #35: Adds full support for local/remote Sequence Window.
+Patch #36: Initialisation and type-checking of involved sysctls.
+Patch #37: A set of (useful) debugging/printing helper functions.
+
+
+As always, patches are available on 
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp		[subtree `dccp']
+
+There is also a gitweb view on the server.
+
