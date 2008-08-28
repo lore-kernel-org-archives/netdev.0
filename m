@@ -1,54 +1,34 @@
-From: Wenji Wu <wenji@fnal.gov>
-Subject: about Linux adaptivly adjusting dupthresh
-Date: Thu, 28 Aug 2008 09:20:15 -0500
-Message-ID: <001101c90919$313d67b0$a05ee183@D2GT6T71>
-References: <1e41a3230804151540i1f7cee4dva6adc6ef25dae546@mail.gmail.com>
- <20080416.012732.152357000.davem@davemloft.net>
- <Pine.LNX.4.64.0804161203590.17123@wrl-59.cs.helsinki.fi>
- <20080416.023551.70464279.davem@davemloft.net>
- <000001c90852$a1c19a50$a05ee183@D2GT6T71>
- <1e41a3230808271548w15164eadt1042f37bf2df7e6f@mail.gmail.com>
- <fb62ce3717a7.48b5b0a8@fnal.gov>
- <Pine.LNX.4.64.0808280928450.5170@wrl-59.cs.helsinki.fi>
-Reply-To: wenji@fnal.gov
+From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Subject: Re: 2.6.27-rc ... iwl3945 regression?
+Date: Thu, 28 Aug 2008 16:41:34 +0200
+Message-ID: <20080828164134.1cd3bb12@hskinnemo-gx745.norway.atmel.com>
+References: <200808131735.42451.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: 'John Heffner' <johnwheffner@gmail.com>,
-	'David Miller' <davem@davemloft.net>,
-	'Netdev' <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?'Ilpo_J=E4rvinen'?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.fnal.gov ([131.225.111.12]:45805 "EHLO mailgw2.fnal.gov"
+Received: from smtpeu1.atmel.com ([195.65.72.27]:49950 "EHLO bagnes.atmel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752636AbYH1Ohl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 10:37:41 -0400
-Received: from mailav1.fnal.gov (mailav1.fnal.gov [131.225.111.18])
- by mailgw2.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- with SMTP id <0K6B00G49DTEVG@mailgw2.fnal.gov> for netdev@vger.kernel.org;
- Thu, 28 Aug 2008 09:20:20 -0500 (CDT)
-Received: from mailgw1.fnal.gov ([131.225.111.11])
- by mailav1.fnal.gov (SAVSMTP 3.1.7.47) with SMTP id M2008082809202030851 for
- <netdev@vger.kernel.org>; Thu, 28 Aug 2008 09:20:20 -0500
-Received: from conversion-daemon.mailgw1.fnal.gov by mailgw1.fnal.gov
- (iPlanet Messaging Server 5.2 HotFix 2.06 (built Mar 28 2005))
- id <0K6B00201EBAW2@mailgw1.fnal.gov> (original mail from wenji@fnal.gov)
- for netdev@vger.kernel.org; Thu, 28 Aug 2008 09:20:20 -0500 (CDT)
-In-reply-to: <Pine.LNX.4.64.0808280928450.5170@wrl-59.cs.helsinki.fi>
+	id S1752830AbYH1Olw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 10:41:52 -0400
+In-Reply-To: <200808131735.42451.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Brownell <david-b@pacbell.net> wrote:
+> Does this sound familiar to anyone?  Got a fix that's better than
+> sticking to a 2.6.26 kernel?  :)
 
-Sorry, I made a mistake in the last post, what I mean is "algorithms
-adaptively adjust TCP reordering threshold dupthresh". 
+FWIW, I'm seeing the same thing with -rc4 and the b43 driver, so it's
+probably not a regression in iwl3945. I guess it could be something in
+mac80211?
 
-I understand that "Eifel algorithm" or "DSACK TCP" will adaptively adjust
-dupthresh to deal with packet reordering. Are there any other
-reordering-tolerant algorithms implemented in Linux? 
+I'm currently working around it by manually running iwconfig while
+nm-applet is bringing the interface up. A bit annoying, but it
+works...and it indicates that the driver works fine, but NetworkManager
+doesn't know that it's supposed to do any wireless configuration before
+bringing the interface up.
 
-Thanks,
-
-wenji
-
-
+Haavard
