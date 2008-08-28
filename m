@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 30/37] dccp: Remove obsolete parts of the old CCID interface
-Date: Thu, 28 Aug 2008 19:45:05 +0200
-Message-ID: <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 28/37] dccp: Integration of dynamic feature activation - part 3 (client side)
+Date: Thu, 28 Aug 2008 19:45:03 +0200
+Message-ID: <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -31,146 +31,115 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
- <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55167 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755917AbYH1Rpa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 13:45:30 -0400
-In-Reply-To: <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753856AbYH1RpW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 13:45:22 -0400
+In-Reply-To: <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TX/RX CCIDs of the minisock are now redundant: similar to the Ack Vector
-case, their value equals initially that of the sysctl, but at the end of
-feature negotiation may be something different.
+This integrates feature-activation in the client, with these details:
 
-The old interface removed by this patch thus has been replaced by the newer
-interface to dynamically query the currently loaded CCIDs earlier in this
-patch set.
+ 1. When dccp_parse_options() fails, the reset code is already set, request_sent
+    _state_process() currently overrides this with `Packet Error', which is not
+    intended - so changed to use the reset code set in dccp_parse_options();
 
-Also removed the constructors for the TX CCID and the RX CCID, since the
-switch rx/non-rx is done by the handler in minisocks.c (and the handler is
-the only place in the code where CCIDs are loaded).
+ 2. There was a FIXME to change the error code when dccp_ackvec_add() fails.
+    I have looked this up and found that:
+    * the check whether ackno < ISN is already made earlier,
+    * this Response is likely the 1st packet with an Ackno that the client gets,
+    * so when dccp_ackvec_add() fails, the reason is likely not a packet error.
+
+ 3. When feature negotiation fails, the socket should be marked as not usable,
+    so that the application is notified that an error occurs. This is achieved
+    by a new label, which uses an error code of `Aborted' and which sets the
+    socket state to CLOSED, as well as sk_err.
+
+ 4. Avoids parsing the Ack twice in Respond state by not doing option processing
+    again in dccp_rcv_respond_partopen_state_process (as option processing has
+    already been done on the request_sock in dccp_check_req).
+
+Since this addresses congestion-control initialisation, a corresponding
+FIXME has been removed.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |    5 +++--
- include/linux/dccp.h              |    3 ---
- net/dccp/ccid.c                   |   14 --------------
- net/dccp/ccid.h                   |    5 -----
- net/dccp/feat.c                   |   12 ------------
- net/dccp/minisocks.c              |    2 --
- 6 files changed, 3 insertions(+), 38 deletions(-)
+ net/dccp/input.c |   30 ++++++++++++++++++++++++++----
+ 1 files changed, 26 insertions(+), 4 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -140,10 +140,11 @@ send_ackvec = 1
- 	Whether or not to send Ack Vector options (sec. 11.5).
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -421,8 +421,13 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 			goto out_invalid_packet;
+ 		}
  
- tx_ccid = 2
--	Default CCID for the sender-receiver half-connection.
-+	Default CCID for the sender-receiver half-connection. Depending on the
-+	choice of CCID, the Send Ack Vector feature is enabled automatically.
++		/*
++		 * If option processing (Step 8) failed, return 1 here so that
++		 * dccp_v4_do_rcv() sends a Reset. The Reset code depends on
++		 * the option type and is set in dccp_parse_options().
++		 */
+ 		if (dccp_parse_options(sk, NULL, skb))
+-			goto out_invalid_packet;
++			return 1;
  
- rx_ccid = 2
--	Default CCID for the receiver-sender half-connection.
-+	Default CCID for the receiver-sender half-connection; see tx_ccid.
+ 		/* Obtain usec RTT sample from SYN exchange (used by CCID 3) */
+ 		if (likely(dp->dccps_options_received.dccpor_timestamp_echo))
+@@ -475,6 +480,15 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 		 */
+ 		dccp_set_state(sk, DCCP_PARTOPEN);
  
- seq_window = 100
- 	The initial sequence window (sec. 7.5.2).
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -370,7 +370,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
-   * Will be used to pass the state from dccp_request_sock to dccp_sock.
-   *
-   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
--  * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
-   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
-   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
-   * @dccpms_pending - List of features being negotiated
-@@ -378,8 +377,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
-   */
- struct dccp_minisock {
- 	__u64			dccpms_sequence_window;
--	__u8			dccpms_rx_ccid;
--	__u8			dccpms_tx_ccid;
- 	__u8			dccpms_send_ack_vector;
- 	__u8			dccpms_send_ndp_count;
- 	struct list_head	dccpms_pending;
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -253,20 +253,6 @@ out_module_put:
++		/*
++		 * If feature negotiation was successful, activate features now;
++		 * an activation failure means that this host could not activate
++		 * one ore more features (e.g. insufficient memory), which would
++		 * leave at least one feature in an undefined state.
++		 */
++		if (dccp_feat_activate_values(sk, &dp->dccps_featneg))
++			goto unable_to_proceed;
++
+ 		/* Make sure socket is routed, for correct metrics. */
+ 		icsk->icsk_af_ops->rebuild_header(sk);
  
- EXPORT_SYMBOL_GPL(ccid_new);
- 
--struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk, gfp_t gfp)
--{
--	return ccid_new(id, sk, 1, gfp);
--}
--
--EXPORT_SYMBOL_GPL(ccid_hc_rx_new);
--
--struct ccid *ccid_hc_tx_new(unsigned char id,struct sock *sk,  gfp_t gfp)
--{
--	return ccid_new(id, sk, 0, gfp);
--}
--
--EXPORT_SYMBOL_GPL(ccid_hc_tx_new);
--
- static void ccid_delete(struct ccid *ccid, struct sock *sk, int rx)
- {
- 	struct ccid_operations *ccid_ops;
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -111,11 +111,6 @@ extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
- 			     gfp_t gfp);
- 
--extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
--				   gfp_t gfp);
--extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
--				   gfp_t gfp);
--
- static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
- {
- 	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -1131,18 +1131,6 @@ int dccp_feat_init(struct sock *sk)
- 	INIT_LIST_HEAD(&dmsk->dccpms_pending);	/* XXX no longer used */
- 	INIT_LIST_HEAD(&dmsk->dccpms_conf);	/* XXX no longer used */
- 
--	/* CCID L */
--	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 1, 0,
--				&dmsk->dccpms_tx_ccid, 1);
--	if (rc)
--		goto out;
--
--	/* CCID R */
--	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 0, 0,
--				&dmsk->dccpms_rx_ccid, 1);
--	if (rc)
--		goto out;
--
- 	/* Ack ratio */
- 	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
- 				dp->dccps_l_ack_ratio);
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -45,8 +45,6 @@ EXPORT_SYMBOL_GPL(dccp_death_row);
- void dccp_minisock_init(struct dccp_minisock *dmsk)
- {
- 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
--	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
--	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
- 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
- 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
+@@ -509,6 +523,16 @@ out_invalid_packet:
+ 	/* dccp_v4_do_rcv will send a reset */
+ 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_PACKET_ERROR;
+ 	return 1;
++
++unable_to_proceed:
++	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_ABORTED;
++	/*
++	 * We mark this socket as no longer usable, so that the loop in
++	 * dccp_sendmsg() terminates and the application gets notified.
++	 */
++	dccp_set_state(sk, DCCP_CLOSED);
++	sk->sk_err = ECOMM;
++	return 1;
  }
+ 
+ static int dccp_rcv_respond_partopen_state_process(struct sock *sk,
+@@ -600,7 +624,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		return 1;
+ 	}
+ 
+-	if (sk->sk_state != DCCP_REQUESTING) {
++	if (sk->sk_state != DCCP_REQUESTING && sk->sk_state != DCCP_RESPOND) {
+ 		if (dccp_check_seqno(sk, skb))
+ 			goto discard;
+ 
+@@ -665,8 +689,6 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		return 1;
+ 
+ 	case DCCP_REQUESTING:
+-		/* FIXME: do congestion control initialization */
+-
+ 		queued = dccp_rcv_request_sent_state_process(sk, skb, dh, len);
+ 		if (queued >= 0)
+ 			return queued;
 -- 
 1.6.0.rc2
 
