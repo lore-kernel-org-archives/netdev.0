@@ -1,7 +1,7 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 06/37] dccp: Limit feature negotiation to connection setup phase
-Date: Thu, 28 Aug 2008 19:44:41 +0200
-Message-ID: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 34/37] dccp: Auto-load (when supported) CCID plugins for negotiation
+Date: Thu, 28 Aug 2008 19:45:09 +0200
+Message-ID: <1219945512-7723-35-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-2-git-send-email-gerrit@erg.abdn.ac.uk>
@@ -9,149 +9,139 @@ References: <dccp_featneg_last_call_for_comments>
  <1219945512-7723-4-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-5-git-send-email-gerrit@erg.abdn.ac.uk>
  <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-18-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-19-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-20-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-21-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-22-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-23-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-24-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-25-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-26-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-27-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-28-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-29-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-30-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-31-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-32-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-33-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55109 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55116 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753784AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753765AbYH1RpR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 28 Aug 2008 13:45:17 -0400
-In-Reply-To: <1219945512-7723-6-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1219945512-7723-34-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch starts the new implementation of feature negotiation:
- 1. Although it is theoretically possible to perform feature negotiation at any
-    time (and RFC 4340 supports this), in practice this is prohibitively complex,
-    as it requires to put traffic on hold for each new negotiation.
- 2. As a byproduct of restricting feature negotiation to connection setup, the
-    feature-negotiation retransmit timer is no longer required. This part is now
-    mapped onto the protocol-level retransmission.
-    Details indicating why timers are no longer needed can be found on
-    http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/\
-	                                      implementation_notes.html
+This adds auto-loading of CCIDs (when module loading is enabled)
+for the purpose of feature negotiation.
 
-This patch disables anytime negotiation, subsequent patches work out full
-feature negotiation support for connection setup.
+The problem with loading the CCIDs at the end of feature negotiation is
+that this would happen in software interrupt context. Besides, if the host
+advertises CCIDs during negotiation, it should have them ready to use, in
+case an agreeing peer wants to use it for the connection.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/feat.c    |   19 ++++++++-----------
- net/dccp/options.c |   18 ------------------
- net/dccp/timer.c   |   12 ------------
- 3 files changed, 8 insertions(+), 41 deletions(-)
+ net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
+ net/dccp/ccid.h |    1 +
+ net/dccp/feat.c |    5 +++++
+ 3 files changed, 35 insertions(+), 10 deletions(-)
 
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
+ 
+ EXPORT_SYMBOL_GPL(ccid_unregister);
+ 
++/**
++ * ccid_request_module  -  Pre-load CCID module for later use
++ * This should be called only from process context (e.g. during connection
++ * setup) and is necessary for later calls to ccid_new (typically in software
++ * interrupt), so that it has the modules available when they are needed.
++ */
++static int ccid_request_module(u8 id)
++{
++	if (!in_atomic()) {
++		ccids_read_lock();
++		if (ccids[id] == NULL) {
++			ccids_read_unlock();
++			return request_module("net-dccp-ccid-%d", id);
++		}
++		ccids_read_unlock();
++	}
++	return 0;
++}
++
++int ccid_request_modules(u8 const *ccid_array, u8 array_len)
++{
++#ifdef CONFIG_KMOD
++	while (array_len--)
++		if (ccid_request_module(ccid_array[array_len]))
++			return -1;
++#endif
++	return 0;
++}
++
+ struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
+ {
+ 	struct ccid_operations *ccid_ops;
+ 	struct ccid *ccid = NULL;
+ 
+ 	ccids_read_lock();
+-#ifdef CONFIG_KMOD
+-	if (ccids[id] == NULL) {
+-		/* We only try to load if in process context */
+-		ccids_read_unlock();
+-		if (gfp & GFP_ATOMIC)
+-			goto out;
+-		request_module("net-dccp-ccid-%d", id);
+-		ccids_read_lock();
+-	}
+-#endif
+ 	ccid_ops = ccids[id];
+ 	if (ccid_ops == NULL)
+ 		goto out_unlock;
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
+ extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+ 					  char __user *, int __user *);
+ 
++extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
+ extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+ 			     gfp_t gfp);
+ 
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -6,6 +6,8 @@
-  *
-  *  ASSUMPTIONS
-  *  -----------
-+ *  o Feature negotiation is coordinated with connection setup (as in TCP), wild
-+ *    changes of parameters of an established connection are not supported.
-  *  o All currently known SP features have 1-byte quantities. If in the future
-  *    extensions of RFCs 4340..42 define features with item lengths larger than
-  *    one byte, a feature-specific extension of the code will be required.
-@@ -649,6 +651,9 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
- {
- 	int rc;
+@@ -1170,6 +1170,11 @@ int dccp_feat_init(struct sock *sk)
+ 	    ccid_get_builtin_ccids(&rx.val, &rx.len))
+ 		return -ENOBUFS;
  
-+	/* Ignore Change requests other than during connection setup */
-+	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
-+		return 0;
- 	dccp_feat_debug(type, feature, *val);
- 
- 	/* figure out if it's SP or NN feature */
-@@ -698,6 +703,9 @@ int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- 	int found = 0;
- 	int all_confirmed = 1;
- 
-+	/* Ignore Confirm options other than during connection setup */
-+	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
-+		return 0;
- 	dccp_feat_debug(type, feature, *val);
- 
- 	/* locate our change request */
-@@ -732,17 +740,6 @@ int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- 			all_confirmed = 0;
- 	}
- 
--	/* fix re-transmit timer */
--	/* XXX gotta make sure that no option negotiation occurs during
--	 * connection shutdown.  Consider that the CLOSEREQ is sent and timer is
--	 * on.  if all options are confirmed it might kill timer which should
--	 * remain alive until close is received.
--	 */
--	if (all_confirmed) {
--		dccp_pr_debug("clear feat negotiation timer %p\n", sk);
--		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
--	}
--
- 	if (!found)
- 		dccp_pr_debug("%s(%d, ...) never requested\n",
- 			      dccp_feat_typename(type), feature);
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -489,7 +489,6 @@ static int dccp_insert_feat_opt(struct sk_buff *skb, u8 type, u8 feat,
- 
- static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
- 	struct dccp_minisock *dmsk = dccp_msk(sk);
- 	struct dccp_opt_pend *opt, *next;
- 	int change = 0;
-@@ -530,23 +529,6 @@ static int dccp_insert_options_feat(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	/* Retransmit timer.
--	 * If this is the master listening sock, we don't set a timer on it.  It
--	 * should be fine because if the dude doesn't receive our RESPONSE
--	 * [which will contain the CHANGE] he will send another REQUEST which
--	 * will "retrnasmit" the change.
--	 */
--	if (change && dp->dccps_role != DCCP_ROLE_LISTEN) {
--		dccp_pr_debug("reset feat negotiation timer %p\n", sk);
--
--		/* XXX don't reset the timer on re-transmissions.  I.e. reset it
--		 * only when sending new stuff i guess.  Currently the timer
--		 * never backs off because on re-transmission it just resets it!
--		 */
--		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
--					  inet_csk(sk)->icsk_rto, DCCP_RTO_MAX);
--	}
--
- 	return 0;
- }
- 
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -87,17 +87,6 @@ static void dccp_retransmit_timer(struct sock *sk)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
--	/* retransmit timer is used for feature negotiation throughout
--	 * connection.  In this case, no packet is re-transmitted, but rather an
--	 * ack is generated and pending changes are placed into its options.
--	 */
--	if (sk->sk_send_head == NULL) {
--		dccp_pr_debug("feat negotiation retransmit timeout %p\n", sk);
--		if (sk->sk_state == DCCP_OPEN)
--			dccp_send_ack(sk);
--		goto backoff;
--	}
--
- 	/*
- 	 * More than than 4MSL (8 minutes) has passed, a RESET(aborted) was
- 	 * sent, no need to retransmit, this sock is dead.
-@@ -126,7 +115,6 @@ static void dccp_retransmit_timer(struct sock *sk)
- 		return;
- 	}
- 
--backoff:
- 	icsk->icsk_backoff++;
- 
- 	icsk->icsk_rto = min(icsk->icsk_rto << 1, DCCP_RTO_MAX);
++	/* Pre-load all CCID modules that are going to be advertised */
++	rc = -EUNATCH;
++	if (ccid_request_modules(tx.val, tx.len))
++		goto free_ccid_lists;
++
+ 	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
+ 	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
+ 		goto free_ccid_lists;
 -- 
 1.6.0.rc2
 
