@@ -1,152 +1,95 @@
 From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 15/37] dccp: Set per-connection CCIDs via socket options
-Date: Thu, 28 Aug 2008 18:45:01 -0300
-Message-ID: <20080828214501.GT9193@ghostprotocols.net>
-References: <1219945512-7723-7-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 16/37] dccp: API to query the current TX/RX CCID
+Date: Thu, 28 Aug 2008 18:47:25 -0300
+Message-ID: <20080828214725.GU9193@ghostprotocols.net>
+References: <1219945512-7723-8-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-9-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-10-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-11-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-12-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-13-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-14-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-15-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk> <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:35354 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:35391 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755793AbYH1Vtp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2008 17:49:45 -0400
+	id S1753652AbYH1VwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Aug 2008 17:52:09 -0400
 Content-Disposition: inline
-In-Reply-To: <1219945512-7723-16-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1219945512-7723-17-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Aug 28, 2008 at 07:44:50PM +0200, Gerrit Renker escreveu:
-> With this patch, TX/RX CCIDs can now be changed on a per-connection basis, which
-> overrides the defaults set by the global sysctl variables for TX/RX CCIDs.
+Em Thu, Aug 28, 2008 at 07:44:51PM +0200, Gerrit Renker escreveu:
+> This provides function to query the current TX/RX CCID dynamically, without
+> reliance on the minisock value, using dynamic information available in the
+> currently loaded CCID module.
 > 
-> To make full use of this facility, the remaining patches of this patch set are
-> needed, which track dependencies and activate negotiated feature values.
+> This query function is then used to
+>  (a) provide the getsockopt part for getting/setting CCIDs via sockopts;
+>  (b) replace the current test for "which CCID is in use" in probe.c.
 > 
 > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 > Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 > ---
->  Documentation/networking/dccp.txt |   14 ++++++++++++++
->  include/linux/dccp.h              |    5 +++++
->  net/dccp/proto.c                  |   32 ++++++++++++++++++++++++++++++++
->  3 files changed, 51 insertions(+), 0 deletions(-)
+>  net/dccp/ccid.h  |    9 +++++++++
+>  net/dccp/probe.c |    7 ++-----
+>  net/dccp/proto.c |    6 ++++++
+>  3 files changed, 17 insertions(+), 5 deletions(-)
 > 
-> --- a/Documentation/networking/dccp.txt
-> +++ b/Documentation/networking/dccp.txt
-> @@ -61,6 +61,20 @@ DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
->  supported by the endpoint (see include/linux/dccp.h for symbolic constants).
->  The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
+> --- a/net/dccp/ccid.h
+> +++ b/net/dccp/ccid.h
+> @@ -116,6 +116,15 @@ extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
+>  extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+>  				   gfp_t gfp);
 >  
-> +DCCP_SOCKOPT_CCID is write-only and sets both the TX and RX CCIDs at the same
-> +time, combining the operation of the next two socket options. This option is
-> +preferrable over the latter two, since often applications will use the same
-> +type of CCID for both directions; and mixed use of CCIDs is not currently well
-> +understood. This socket option takes as argument at least one uint8_t value, or
-> +an array of uint8_t values, which must match available CCIDS (see above). CCIDs
-> +must be registered on the socket before calling connect() or listen().
+> +static inline int ccid_get_current_id(struct dccp_sock *dp, bool rx)
+> +{
+> +	struct ccid *ccid = rx ? dp->dccps_hc_rx_ccid : dp->dccps_hc_tx_ccid;
 > +
-> +DCCP_SOCKOPT_TX_CCID is read/write. It returns the current CCID (if set) or sets
-> +the preference list for the TX CCID, using the same format as DCCP_SOCKOPT_CCID.
-> +Please note that the getsockopt argument type here is `int', not uint8_t.
+> +	if (ccid == NULL || ccid->ccid_ops == NULL)
+> +		return -1;
+> +	return ccid->ccid_ops->ccid_id;
+> +}
 > +
-> +DCCP_SOCKOPT_RX_CCID is analogous to DCCP_SOCKOPT_TX_CCID, but for the RX CCID.
-> +
->  DCCP_SOCKOPT_SERVER_TIMEWAIT enables the server (listening socket) to hold
->  timewait state when closing the connection (RFC 4340, 8.3). The usual case is
->  that the closing server sends a CloseReq, whereupon the client holds timewait
-> --- a/include/linux/dccp.h
-> +++ b/include/linux/dccp.h
-> @@ -203,11 +203,16 @@ enum dccp_feature_numbers {
->  #define DCCP_SOCKOPT_SEND_CSCOV		10
->  #define DCCP_SOCKOPT_RECV_CSCOV		11
->  #define DCCP_SOCKOPT_AVAILABLE_CCIDS	12
-> +#define DCCP_SOCKOPT_CCID		13
-> +#define DCCP_SOCKOPT_TX_CCID		14
-> +#define DCCP_SOCKOPT_RX_CCID		15
->  #define DCCP_SOCKOPT_CCID_RX_INFO	128
->  #define DCCP_SOCKOPT_CCID_TX_INFO	192
+>  extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
+>  extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
 >  
->  /* maximum number of services provided on the same listening port */
->  #define DCCP_SERVICE_LIST_MAX_LEN      32
-> +/* maximum number of CCID preferences that can be registered at one time */
-> +#define DCCP_CCID_LIST_MAX_LEN	       16
+> --- a/net/dccp/probe.c
+> +++ b/net/dccp/probe.c
+> @@ -74,14 +74,11 @@ static void printl(const char *fmt, ...)
+>  static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
+>  			 struct msghdr *msg, size_t size)
+>  {
+> -	const struct dccp_minisock *dmsk = dccp_msk(sk);
+>  	const struct inet_sock *inet = inet_sk(sk);
+> -	const struct ccid3_hc_tx_sock *hctx;
+> +	struct ccid3_hc_tx_sock *hctx = NULL;
+>  
+> -	if (dmsk->dccpms_tx_ccid == DCCPC_CCID3)
+> +	if (ccid_get_current_id(dccp_sk(sk), false) == DCCPC_CCID3)
 
-Since this is an arbitrary lenght up to 253, it could as well be 253,
-no? Or is there any other limit that I'm forgetting? :-) It may well be
-that case, would have to read the RFC about how the encoding is done for
-feat len, which I did some weeks ago, but...
-  
->  #ifdef __KERNEL__
+The use of boolean here also hurts the brain, I guess we could have
+ccid_get_current_rx_id or something along these lines?
+
+>  		hctx = ccid3_hc_tx_sk(sk);
+> -	else
+> -		hctx = NULL;
 >  
+>  	if (port == 0 || ntohs(inet->dport) == port ||
+>  	    ntohs(inet->sport) == port) {
 > --- a/net/dccp/proto.c
 > +++ b/net/dccp/proto.c
-> @@ -505,6 +505,34 @@ static int dccp_setsockopt_cscov(struct sock *sk, int cscov, bool rx)
->  	return rc;
->  }
->  
-> +static int dccp_setsockopt_ccid(struct sock *sk, int type,
-> +				char __user *optval, int optlen)
-> +{
-> +	u8 *val;
-> +	int rc = 0;
-> +
-> +	if (optlen < 1 || optlen > DCCP_CCID_LIST_MAX_LEN)
-> +		return -EINVAL;
-> +
-> +	val = kmalloc(optlen, GFP_KERNEL);
-> +	if (val == NULL)
-> +		return -ENOMEM;
-> +
-> +	if (copy_from_user(val, optval, optlen))
-> +		rc = -EFAULT;
-> +
-> +	lock_sock(sk);
-> +	if (!rc && (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID))
-> +		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
-> +
-
-This _really_ is confusing! Why not:
-
-	rc = -EFAULT;
-	if (copy_from_user(val, optval, optlen))
-		goto out;
-
-	lock_sock(sk);
-	rc = 0;
-	if (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID)
-		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 1, val, optlen);
-
-	if (!rc && (type == DCCP_SOCKOPT_RX_CCID || type == DCCP_SOCKOPT_CCID))
-		rc = dccp_feat_register_sp(sk, DCCPF_CCID, 0, val, optlen);
-	release_sock(sk);
-out:
-> +	kfree(val);
-> +	return rc;
-> +}
-
-:-)
-
-And even then that '0' or '1' requires one to look at what this binary
-number means, we could have something like
-dccp_feat_register_sp_{local,remote} perhaps, IIRC that is the is_local
-parameter, no?
-
-> +
->  static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
->  		char __user *optval, int optlen)
->  {
-> @@ -519,6 +547,10 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
->  	case DCCP_SOCKOPT_CHANGE_R:
->  		DCCP_WARN("sockopt(CHANGE_L/R) is deprecated: fix your app\n");
->  		return 0;
-> +	case DCCP_SOCKOPT_CCID:
-> +	case DCCP_SOCKOPT_RX_CCID:
+> @@ -664,6 +664,12 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
+>  		break;
+>  	case DCCP_SOCKOPT_AVAILABLE_CCIDS:
+>  		return ccid_getsockopt_builtin_ccids(sk, len, optval, optlen);
 > +	case DCCP_SOCKOPT_TX_CCID:
-> +		return dccp_setsockopt_ccid(sk, optname, optval, optlen);
->  	default:
->  		if (optlen < sizeof(int))
->  			return -EINVAL;
+> +	case DCCP_SOCKOPT_RX_CCID:
+> +		val = ccid_get_current_id(dp, optname == DCCP_SOCKOPT_RX_CCID);
+> +		if (val < 0)
+> +			return -ENOPROTOOPT;
+> +		break;
+>  	case DCCP_SOCKOPT_SERVER_TIMEWAIT:
+>  		val = dp->dccps_server_timewait;
+>  		break;
 > -- 
 > 1.6.0.rc2
 > 
